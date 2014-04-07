@@ -6,6 +6,7 @@ from __future__ import (absolute_import, division, print_function,
 
 from six.moves import zip
 from matplotlib.widgets import Cursor
+from matplotlib.ticker import NullLocator
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
 
@@ -60,8 +61,8 @@ class xsection_viewer(object):
         # make the main axes
         self._im_ax = fig.add_subplot(1, 1, 1)
         self._im_ax.set_aspect('equal')
-        self._im_ax.xaxis.set_ticklabels(())
-        self._im_ax.yaxis.set_ticklabels(())
+        self._im_ax.xaxis.set_major_locator(NullLocator())
+        self._im_ax.yaxis.set_major_locator(NullLocator())
         self._imdata = init_image
         self._im = self._im_ax.imshow(init_image, cmap=cmap, norm=norm,
                                       interpolation='none', aspect='equal')
@@ -72,10 +73,10 @@ class xsection_viewer(object):
         # set up all the other axes
         self._ax_h = divider.append_axes('bottom', .5, pad=0.1,
                                          sharex=self._im_ax)
-        self._ax_h.yaxis.set_ticklabels(())
+        self._ax_h.yaxis.set_major_locator(NullLocator())
         self._ax_v = divider.append_axes('left', .5, pad=0.1,
                                          sharey=self._im_ax)
-        self._ax_v.xaxis.set_ticklabels(())
+        self._ax_v.xaxis.set_major_locator(NullLocator())
         self._ax_cb = divider.append_axes('right', .2, pad=.5)
         # add the color bar
         self._cb = fig.colorbar(self._im, cax=self._ax_cb)
@@ -87,10 +88,9 @@ class xsection_viewer(object):
             row = int(y+0.5)
             if col >= 0 and col < numcols and row >= 0 and row < numrows:
                 z = self._imdata[row, col]
-
-                return 'x=%1.4f y=%1.4f z=%1.4f' % (x, y, z)
+                return "X: {x:d} Y: {y:d} I: {i:.2f}".format(x=col, y=row, i=z)
             else:
-                return 'x=%1.4f, y=%1.4f' % (x, y)
+                return "X: {x:d} Y: {y:d}".format(x=col, y=row)
         self._im_ax.format_coord = format_coord
 
         # add the cursor
