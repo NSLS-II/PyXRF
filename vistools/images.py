@@ -87,7 +87,8 @@ class xsection_viewer(object):
             row = int(y+0.5)
             if col >= 0 and col < numcols and row >= 0 and row < numrows:
                 z = self._imdata[row, col]
-                return 'x=%1.4f, y=%1.4f, z=%1.4f' % (x, y, z)
+
+                return 'x=%1.4f y=%1.4f z=%1.4f' % (x, y, z)
             else:
                 return 'x=%1.4f, y=%1.4f' % (x, y)
         self._im_ax.format_coord = format_coord
@@ -174,8 +175,6 @@ class xsection_viewer(object):
         self._ax_h_bk = self.fig.canvas.copy_from_bbox(self._ax_h.bbox)
         self._ln_h.set_visible(False)
         self._ln_v.set_visible(False)
-
-
 
     @property
     def active(self):
