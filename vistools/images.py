@@ -4,7 +4,7 @@ Helpful classes for exploring series of images
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
-
+from six.moves import zip
 from matplotlib.widgets import Cursor
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
@@ -18,6 +18,7 @@ def _compute_limit(im, percentile):
         return (np.min(im), np.max(im))
 
     raise NotImplementedError("does not exist yet _compute_limit")
+
 
 class xsection_viewer(object):
     def __init__(self, fig, init_image,
@@ -96,14 +97,30 @@ class xsection_viewer(object):
 
         self._ax_h.set_ylim(self.vmin, self.vmax)
         self._ax_h.autoscale(enable=False)
-        self._ln_h, = self._ax_h.plot(np.arange(self._imdata.shape[0]),
-                                np.zeros(self._imdata.shape[0]), 'k-')
 
         self._ax_v.set_xlim(self.vmin, self.vmax)
         self._ax_v.autoscale(enable=False)
-        self._ln_v, = self._ax_v.plot(np.zeros(self._imdata.shape[1]),
-                                      np.arange(self._imdata.shape[1]), 'k-')
 
+        # add lines
+        self._ln_v, = self._ax_v.plot(np.zeros(self._imdata.shape[1]),
+                                np.arange(self._imdata.shape[1]), 'k-',
+                                animated=True,
+                                visible=False)
+
+        self._ln_h, = self._ax_h.plot(np.arange(self._imdata.shape[0]),
+                                np.zeros(self._imdata.shape[0]), 'k-',
+                                animated=True,
+                                visible=False)
+
+        # backgrounds for blitting
+        self._ax_v_bk = None
+        self._ax_h_bk = None
+
+        # stash last-drawn row/col to skip if possible
+        self._row = None
+        self._col = None
+
+        # set up the call back for the updating the side axes
         def move_cb(event):
             if not self._active:
                 return
@@ -114,13 +131,25 @@ class xsection_viewer(object):
             numrows, numcols = self._imdata.shape
             x, y = event.xdata, event.ydata
             if x is not None and y is not None:
+                self._ln_h.set_visible(True)
+                self._ln_v.set_visible(True)
                 col = int(x+0.5)
                 row = int(y+0.5)
-                if col >= 0 and col < numcols and row >= 0 and row < numrows:
-                    self._ln_h.set_ydata(self._imdata[row, :])
-                    self._ln_v.set_xdata(self._imdata[col, :])
-            # TODO add blitting
-            fig.canvas.draw()
+                if row != self._row and col != self._col:
+                    if (col >= 0 and col < numcols and
+                            row >= 0 and row < numrows):
+                        self._col = col
+                        self._row = row
+                        for data, ax, bkg, art, set_fun in zip(
+                                (self._imdata[row, :], self._imdata[:, col]),
+                                (self._ax_h, self._ax_v),
+                                (self._ax_h_bk, self._ax_v_bk),
+                                (self._ln_h, self._ln_v),
+                                (self._ln_h.set_ydata, self._ln_v.set_xdata)):
+                            self.fig.canvas.restore_region(bkg)
+                            set_fun(data)
+                            ax.draw_artist(art)
+                            self.fig.canvas.blit(ax.bbox)
 
         def click_cb(event):
             if event.inaxes is not self._im_ax:
@@ -135,8 +164,18 @@ class xsection_viewer(object):
 
         self.click_cid = self.fig.canvas.mpl_connect('button_press_event',
                                         click_cb)
+
+        self.clear_cid = self.fig.canvas.mpl_connect('draw_event', self.clear)
         self.fig.tight_layout()
         self.fig.canvas.draw()
+
+    def clear(self, event):
+        self._ax_v_bk = self.fig.canvas.copy_from_bbox(self._ax_v.bbox)
+        self._ax_h_bk = self.fig.canvas.copy_from_bbox(self._ax_h.bbox)
+        self._ln_h.set_visible(False)
+        self._ln_v.set_visible(False)
+
+
 
     @property
     def active(self):
