@@ -71,7 +71,7 @@ class xsection_viewer(object):
         divider = make_axes_locatable(self._im_ax)
 
         # set up all the other axes
-        self._ax_h = divider.append_axes('bottom', .5, pad=0.1,
+        self._ax_h = divider.append_axes('top', .5, pad=0.1,
                                          sharex=self._im_ax)
         self._ax_h.yaxis.set_major_locator(NullLocator())
         self._ax_v = divider.append_axes('left', .5, pad=0.1,
