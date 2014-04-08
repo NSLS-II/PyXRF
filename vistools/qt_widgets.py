@@ -2,12 +2,11 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 import six
 
-import PySide.QtCore as QtCore
-import PySide.QtGui as QtGui
-
 from . import images
 
-
+# grab the version from mpl which has done the work of smoothing over
+# the differences
+from matplotlib.backends.qt4_compat import QtGui, QtCore
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas  # noqa
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar  # noqa
 from matplotlib.figure import Figure

@@ -5,8 +5,7 @@ Example usage of StackScanner
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
-
-import PySide.QtGui as QtGui
+from matplotlib.backends.qt4_compat import QtGui
 import numpy as np
 import vistools.qt_widgets as qt_widgets
 import sys
