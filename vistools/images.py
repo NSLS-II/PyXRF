@@ -136,7 +136,7 @@ class xsection_viewer(object):
                 self._ln_v.set_visible(True)
                 col = int(x+0.5)
                 row = int(y+0.5)
-                if row != self._row and col != self._col:
+                if row != self._row or col != self._col:
                     if (col >= 0 and col < numcols and
                             row >= 0 and row < numrows):
                         self._col = col
