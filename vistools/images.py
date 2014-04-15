@@ -103,13 +103,13 @@ class xsection_viewer(object):
         self._ax_v.autoscale(enable=False)
 
         # add lines
-        self._ln_v, = self._ax_v.plot(np.zeros(self._imdata.shape[1]),
-                                np.arange(self._imdata.shape[1]), 'k-',
+        self._ln_v, = self._ax_v.plot(np.zeros(self._imdata.shape[0]),
+                                np.arange(self._imdata.shape[0]), 'k-',
                                 animated=True,
                                 visible=False)
 
-        self._ln_h, = self._ax_h.plot(np.arange(self._imdata.shape[0]),
-                                np.zeros(self._imdata.shape[0]), 'k-',
+        self._ln_h, = self._ax_h.plot(np.arange(self._imdata.shape[1]),
+                                np.zeros(self._imdata.shape[1]), 'k-',
                                 animated=True,
                                 visible=False)
 
