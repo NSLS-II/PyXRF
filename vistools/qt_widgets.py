@@ -15,7 +15,7 @@ from matplotlib.cm import datad
 
 class Xsection_widget(FigureCanvas):
     def __init__(self, init_image, parent=None):
-        self.fig = Figure((24, 24), tight_layout=True)
+        self.fig = Figure((24, 24))#, tight_layout=True)
         FigureCanvas.__init__(self, self.fig)
         self.setParent(parent)
 
@@ -47,7 +47,8 @@ class StackScanner(QtGui.QWidget):
         self._slider.setSingleStep(1)
         self._slider.setPageStep(page_size)
         self._slider.valueChanged.connect(self.update_frame)
-        self._slider.setOrientation(QtCore.Qt.Orientation.Horizontal)
+        self._slider.setOrientation(QtCore.Qt.Horizontal)
+        
         # and it's spin box
         self._spinbox = QtGui.QSpinBox(parent=self)
         self._spinbox.setRange(self._slider.minimum(), self._slider.maximum())
