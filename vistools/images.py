@@ -25,12 +25,6 @@ def _absolute_limit(im, limit_args):
 
 
 def _percentile_limit(im, limit_args):
-    # print("called _percentile_limit() with limit_args: {0}".format(limit_args))
-    #------------------------------ min_limit = np.percentile(im, limit_args[0])
-    #------------------------------ max_limit = np.percentile(im, limit_args[1])
-    #------------------------------------------- limits = (min_limit, max_limit)
-    #----------------------------------- print("Limits are: {0}".format(limits))
-    #------------------------------------------------------------- return limits
     flat = im.flatten()
     (histo, bins) = np.histogram(flat, 100)
     cdf = np.cumsum(histo) / sum(histo)
