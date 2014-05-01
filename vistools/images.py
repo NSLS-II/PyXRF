@@ -17,7 +17,7 @@ def _compute_limit(im, percentile):
     """
     if percentile is None:
         return (np.min(im), np.max(im))
-
+    
     raise NotImplementedError("does not exist yet _compute_limit")
 
 
@@ -66,7 +66,7 @@ class xsection_viewer(object):
         self._imdata = init_image
         self._im = self._im_ax.imshow(init_image, cmap=cmap, norm=norm,
                                       interpolation='none', aspect='equal')
-
+        
         # make it dividable
         divider = make_axes_locatable(self._im_ax)
 
@@ -199,10 +199,9 @@ class xsection_viewer(object):
         self._ax_h.set_ylim(self.vmin, self.vmax)
         self._imdata = new_image
         self._im.set_data(new_image)
-        self._im.set_clim((self.vmin, self.vmax))
-        self.fig.canvas.draw()
+        self.reload_image()
         pass
-
+    
     def update_colormap(self, new_cmap):
         """
         Update the color map used to display the image
@@ -219,3 +218,50 @@ class xsection_viewer(object):
         """
         self._im.set_norm(new_norm)
         self.fig.canvas.draw()
+    
+    def find_clim(self):
+        """
+        Find the color bar limits based on a histogram of 5% to 95%
+        """
+        min_percent = 0.05
+        max_percent = 1.0-min_percent
+        min_val = min(self._imdata.flatten())
+        max_val = max(self._imdata.flatten())
+        if self.is_autoscaled:
+            (histo, bins) = np.histogram(self._imdata.flatten(),1000)
+            cdf = np.cumsum(histo) / sum(histo)
+            
+            idx = 0
+            val = cdf[idx]
+            while val < min_percent:
+                idx += 1 
+                val = cdf[idx]
+            min_val = bins[idx]
+            
+            idx = len(cdf)-1
+            val = cdf[idx]
+            while val > max_percent:
+                idx -= 1 
+                val = cdf[idx]
+            max_val = bins[idx]
+        return min_val, max_val
+        
+    def reload_image(self):
+        """
+        Set the image limits and reload the image
+        """
+        self._im.set_clim(self.find_clim())
+        self.fig.canvas.draw()
+        
+    def set_autoscale(self, is_autoscaled):
+        """
+        Set the viewer to autoscale the images
+        
+        Parameters
+        ----------
+        is_autoscaled : boolean
+        """
+        self.is_autoscaled = is_autoscaled
+        self.reload_image()
+       
+        

@@ -15,7 +15,8 @@ from matplotlib.cm import datad
 
 class Xsection_widget(FigureCanvas):
     def __init__(self, init_image, parent=None):
-        self.fig = Figure((24, 24))#, tight_layout=True)
+        self.fig = Figure((24,24))
+        #self.fig = Figure((24, 24), tight_layout=True)
         FigureCanvas.__init__(self, self.fig)
         self.setParent(parent)
 
@@ -68,6 +69,21 @@ class StackScanner(QtGui.QWidget):
         self._cm_cb.setEditText('gray')
         self._cm_cb.editTextChanged.connect(self.update_cmap)
 
+        # make toggle button for auto-normalization
+        self._btn_norm = QtGui.QCheckBox()
+        self._btn_norm.stateChanged.connect(self.autoscale)
+        self._lbl_btn_norm = QtGui.QLabel("autonorm")
+        self._lbl_btn_norm.setToolTip("Automatically normalize the displayed image?")
+        
+        # combine color map selector and auto-norm button
+        hbox = QtGui.QHBoxLayout()
+        hbox.addWidget(self._cm_cb)
+        hbox.addSpacing(5)
+        hbox.addWidget(self._btn_norm)
+        hbox.addWidget(self._lbl_btn_norm)
+        hbox.addStretch(1)
+        
+        
         self.mpl_toolbar = NavigationToolbar(self.xsection, self)
         # add toolbar
         layout.addWidget(self.mpl_toolbar)
@@ -75,10 +91,20 @@ class StackScanner(QtGui.QWidget):
         layout.addWidget(self.xsection)
         # add slider layout
         layout.addLayout(slider_layout)
-        # add cmap selector
-        layout.addWidget(self._cm_cb)
+        # add colormap selector and autonorm box
+        layout.addLayout(hbox)
         self.setLayout(layout)
-
+    
+    def set_img_stack(self, img_stack):
+        self.stack = img_stack
+        self.update_frame(0)
+        
+    def autoscale(self, state):
+        if state == QtCore.Qt.Checked:
+            self.xsection.xsection.set_autoscale(True)
+        else:
+            self.xsection.xsection.set_autoscale(False)
+        
     @QtCore.Slot(int)
     def update_frame(self, n):
         self.xsection.xsection.update_image(self._stack[n])
