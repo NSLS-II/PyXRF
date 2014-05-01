@@ -15,7 +15,7 @@ def _gen_test_data(n):
     out = []
     x, y = np.ogrid[-500:500, -500:500]
     for j in xrange(n):
-        out.append(np.exp(-((x-250)**2 + (y-250)**2)/(20 + 5*j)**2))
+        out.append(np.exp(-((x - 250) ** 2 + (y - 250) ** 2) / (20 + 5 * j) ** 2))
     return np.array(out)
 
 
