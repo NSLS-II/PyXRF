@@ -15,12 +15,10 @@ def _no_limit(im, limit_args):
     """
     Compute 'nice' min/max values
     """
-    # print("called _no_limit()")
     return (np.min(im), np.max(im))
 
 
 def _absolute_limit(im, limit_args):
-    # print("called _absolute_limit()")
     return limit_args
 
 
@@ -275,7 +273,6 @@ class xsection_viewer(object):
         if self._limit_args is None:
             self.limit_args = []
         self._limit_args[0] = min_limit
-        # print("setting min intensity limit to: {0}".format(min_limit))
         self.reload_image()
 
     def set_max_limit(self, max_limit):
@@ -285,13 +282,11 @@ class xsection_viewer(object):
         if self._limit_args is None:
             self.limit_args = []
         self._limit_args[1] = max_limit
-        # print("setting max intensity limit to: {0}".format(max_limit))
         self.reload_image()
 
     def set_limit_func(self, limit_func):
         """
         Set the function to use to determine the color scale
-        
         """
         self._limit_func = limit_func
         self.reload_image()
