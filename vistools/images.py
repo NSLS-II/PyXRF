@@ -51,7 +51,7 @@ def _percentile_limit(im, limit_args):
         val = cdf[idx]
     max_val = bins[idx]
 
-    return min_val, max_val
+    return (min_val, max_val)
 
 
 class xsection_viewer(object):
@@ -281,7 +281,7 @@ class xsection_viewer(object):
         if self._limit_args is None:
             self.limit_args = []
         self._limit_args[0] = min_limit
-        print("setting min intensity limit to: {0}".format(min_limit))
+        # print("setting min intensity limit to: {0}".format(min_limit))
         self.reload_image()
 
     def set_max_limit(self, max_limit):
