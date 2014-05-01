@@ -160,15 +160,15 @@ class StackScanner(QtGui.QWidget):
         The intensity_step is passed as a string which needs to be parsed into 
         """
         # set the intensity steps for each of the combo boxes
-        self.intensity_step = intensity_step
-        self._spinbox_intensity_step.setSingleStep(self.intensity_step)
-        self._spinbox_max_intensity.setSingleStep(self.intensity_step)
-        self._spinbox_min_intensity.setSingleStep(self.intensity_step)
+        self._intensity_step = intensity_step
+        self._spinbox_intensity_step.setSingleStep(self._intensity_step)
+        self._spinbox_max_intensity.setSingleStep(self._intensity_step)
+        self._spinbox_min_intensity.setSingleStep(self._intensity_step)
 
         # parse the currently displayed string to determine if the last digit
         # is non-zero.  If it is, increase the number of displayed decimal
         # places by 1
-        str_intensity_step = str(intensity_step)
+        str_intensity_step = str(self._intensity_step)
         chars = list(str_intensity_step)
         num_chars = len(chars)
         decimal_pos = str_intensity_step.find(".")
