@@ -64,7 +64,7 @@ class StackScanner(QtGui.QWidget):
         slider_layout.addWidget(self._slider)
         slider_layout.addWidget(self._spinbox)
 
-        # make cmap combo-box
+        # ---- color map combo box --------------------------------------------
         self._cm_cb = QtGui.QComboBox()
         self._cm_cb.setEditable(True)
         self._cm_cb.addItems(_CMAPS)
@@ -72,7 +72,7 @@ class StackScanner(QtGui.QWidget):
         self._cm_cb.setEditText('gray')
         self._cm_cb.editTextChanged.connect(self.update_cmap)
 
-        # make combo box to determine what kind of normalization
+        # ---- intensity manipulation combo box--------------------------------
         intensity_behavior_types = ['none', 'percentile', 'absolute']
         intensity_behavior_funcs = [images._no_limit, \
                                     images._percentile_limit, \
@@ -87,14 +87,14 @@ class StackScanner(QtGui.QWidget):
         self._cmbbox_intensity_behavior.activated['QString'].connect(
                 self.set_image_intensity_behavior)
 
-        # make spin boxes to hold the min and max intensity
+        # ---- intensity manipulation spin boxes ------------------------------
         # determine the initial values for the spin boxes
         self._min_intensity = min(stack[0].flatten())
         self._max_intensity = max(stack[0].flatten())
         self._intensity_step = (self._max_intensity - self._min_intensity) / 100
         self._num_decimals = int(round(1.0 / self._intensity_step))
 
-        # create the spin boxes
+        # create the intensity manipulation spin boxes
         self._spinbox_min_intensity = QtGui.QDoubleSpinBox(parent=self)
         self._spinbox_max_intensity = QtGui.QDoubleSpinBox(parent=self)
         self._spinbox_intensity_step = QtGui.QDoubleSpinBox(parent=self)
@@ -161,7 +161,7 @@ class StackScanner(QtGui.QWidget):
         """
         # set the intensity steps for each of the combo boxes
         self.intensity_step = intensity_step
-        self._spinbox_intensity_step.setSingleStep(self.intensity_step / 2)
+        self._spinbox_intensity_step.setSingleStep(self.intensity_step)
         self._spinbox_max_intensity.setSingleStep(self.intensity_step)
         self._spinbox_min_intensity.setSingleStep(self.intensity_step)
 
