@@ -278,7 +278,8 @@ class xsection_viewer(object):
 
     def set_min_limit(self, min_limit):
         """
-        Set the minimum value for the color scale
+        Set the minimum value used to determine the lower bound of
+        the color scale
         """
         if self._limit_args is None:
             self._limit_args = []
@@ -287,7 +288,8 @@ class xsection_viewer(object):
 
     def set_max_limit(self, max_limit):
         """
-        Set the maximum value for the color scale
+        Set the maximum value use to determine the upper bound of
+        the color scale
         """
         if self._limit_args is None:
             self.limit_args = []
