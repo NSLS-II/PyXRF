@@ -65,6 +65,7 @@ class StackScanner(QtGui.QWidget):
         self._btn_swap_ax = QtGui.QPushButton('Swap Axes', parent=self)
         self._btn_swap_ax.resize(self._btn_swap_ax.sizeHint())
         self._btn_swap_ax.clicked.connect(self.swap_stack_axes)
+        self._btn_swap_ax.setEnabled(False)
 
         # set up slider
         self._slider = QtGui.QSlider(parent=self)
