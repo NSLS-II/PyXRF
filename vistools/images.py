@@ -23,8 +23,12 @@ def _absolute_limit(im, limit_args):
 
 
 def _percentile_limit(im, limit_args):
+    """
+    .1
+    """
     flat = im.flatten()
-    (histo, bins) = np.histogram(flat, 100)
+    # 1000 probably needs to be an adjustable parameter
+    (histo, bins) = np.histogram(flat, 1000)
     cdf = np.cumsum(histo) / sum(histo)
 
     # find the value that corresponds to the min_value in limit_args[0]
