@@ -30,7 +30,10 @@ def _absolute_limit(im, limit_args):
     """
     return limit_args
 
-_DEFAULT_NUM_STEPS = 1000
+# The default number of bins to use in the _percentile_limit method
+_DEFAULT_NUM_BINS = 1000
+
+
 def _percentile_limit(im, limit_args):
     """
     Plot the image based on the percentile limits in limit_args.
@@ -58,7 +61,7 @@ def _percentile_limit(im, limit_args):
     # compute a step size based on the current image max and the desired
     # step size so that the color changing makes sense
     if step_size == 0 or max_global == 0:
-        num_steps = _DEFAULT_NUM_STEPS
+        num_steps = _DEFAULT_NUM_BINS
     else:
         num_steps = int(max_global / step_size)
 
@@ -331,7 +334,7 @@ class xsection_viewer(object):
         the color scale
         """
         if self._limit_args is None:
-            self.limit_args = []
+            self._limit_args = []
 
         self._limit_args[1] = max_limit
         self.reload_image()
