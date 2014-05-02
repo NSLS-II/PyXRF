@@ -244,6 +244,10 @@ class StackScanner(QtGui.QWidget):
             self._spinbox_min_intensity.setDecimals(self._num_decimals)
             self._spinbox_max_intensity.setDecimals(self._num_decimals)
 
+        # pass the current intensity step to the xsection widget so that it can
+        # compute the percentile image display correctly
+        self.xsection_widget.xsection.set_intensity_step(intensity_step)
+
     @QtCore.Slot(float)
     def set_min_intensity_limit(self, min_intensity):
         self._min_intensity = min_intensity
@@ -264,7 +268,8 @@ class StackScanner(QtGui.QWidget):
         if not _max > _min:
             self._min_intensity = self._max_intensity - self._intensity_step
             self._spinbox_min_intensity.setValue(self._min_intensity)
-            self.set_min_intensity_limit(self._spinbox_min_intensity.value())
+            self.set_min_intensity_limit(
+                    self._spinbox_min_intensity.value())
 
         self.xsection_widget.xsection.set_max_limit(self._max_intensity)
 
