@@ -1,0 +1,6 @@
+ENH:    Feature Implementation
+BUG:    Bug Fix
+STY:    Coding style change (indenting, braces, non-bug or feature change)
+CMP:    Fixed compiler error or warning
+DOC:    Changed a comment
+WIP:    Commit that is a work in progress
