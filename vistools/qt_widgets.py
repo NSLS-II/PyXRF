@@ -36,11 +36,14 @@ _CMAPS.sort()
 class StackScanner(QtGui.QWidget):
     def __init__(self, stack, page_size=10, parent=None):
         QtGui.QWidget.__init__(self, parent)
-        layout = QtGui.QVBoxLayout()
+        v_box_layout = QtGui.QVBoxLayout()
 
         self._stack = stack
 
         self._len = len(stack)
+
+        # get the shape of the stack so that the stack direction can be varied
+        self._dims = stack.shape
         self.xsection_widget = Xsection_widget(stack[0])
 
         # set up slider
@@ -59,10 +62,10 @@ class StackScanner(QtGui.QWidget):
         self._slider.valueChanged.connect(self._spinbox.setValue)
         self._slider.rangeChanged.connect(self._spinbox.setRange)
 
-        # make slider layout
-        slider_layout = QtGui.QHBoxLayout()
-        slider_layout.addWidget(self._slider)
-        slider_layout.addWidget(self._spinbox)
+        # make slider v_box_layout
+        widget_box_1 = QtGui.QHBoxLayout()
+        widget_box_1.addWidget(self._slider)
+        widget_box_1.addWidget(self._spinbox)
 
         # ---- color map combo box --------------------------------------------
         self._cm_cb = QtGui.QComboBox()
@@ -125,25 +128,28 @@ class StackScanner(QtGui.QWidget):
         self._spinbox_intensity_step.setValue(self._intensity_step)
 
         # combine color map selector and auto-norm button
-        hbox = QtGui.QHBoxLayout()
+        widget_box_2 = QtGui.QHBoxLayout()
         hbox2 = QtGui.QHBoxLayout()
         hbox2.addWidget(self._cm_cb)
         hbox2.addWidget(self._cmbbox_intensity_behavior)
-        hbox.addLayout(hbox2)
-        hbox.addWidget(self._spinbox_min_intensity)
-        hbox.addWidget(self._spinbox_max_intensity)
-        hbox.addWidget(self._spinbox_intensity_step)
+        widget_box_2.addLayout(hbox2)
+        widget_box_2.addWidget(self._spinbox_min_intensity)
+        widget_box_2.addWidget(self._spinbox_max_intensity)
+        widget_box_2.addWidget(self._spinbox_intensity_step)
 
         self.mpl_toolbar = NavigationToolbar(self.xsection_widget, self)
         # add toolbar
-        layout.addWidget(self.mpl_toolbar)
+        v_box_layout.addWidget(self.mpl_toolbar)
         # add main widget
-        layout.addWidget(self.xsection_widget)
-        # add slider layout
-        layout.addLayout(slider_layout)
+        v_box_layout.addWidget(self.xsection_widget)
+        # add slider v_box_layout
+        v_box_layout.addLayout(widget_box_1)
         # add colormap selector and autonorm box
-        layout.addLayout(hbox)
-        self.setLayout(layout)
+        v_box_layout.addLayout(widget_box_2)
+        self.setLayout(v_box_layout)
+
+    def swap_stack_axes(self, axis1, axis2):
+        self.set_img_stack(np.swapaxes(self.stack, axis1, axis2))
 
     @QtCore.pyqtSlot(str)
     def set_image_intensity_behavior(self, im_behavior):
@@ -206,7 +212,9 @@ class StackScanner(QtGui.QWidget):
 
     def set_img_stack(self, img_stack):
         """
-        Give the widget a new image stack without remaking the widget
+        Give the widget a new image stack without remaking the widget.
+        Only call this after the widget has been constructed.  In
+        other words, don't call this from the __init__ method
         Parameters
         ----------
         img_stack: stack of 2D ndarray
