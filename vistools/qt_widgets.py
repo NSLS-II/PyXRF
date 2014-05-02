@@ -109,12 +109,12 @@ class StackScanner(QtGui.QWidget):
 
         # set up intensity manipulation combo box
         intensity_behavior_types = ['none', 'percentile', 'absolute']
-        intensity_behavior_funcs = [images._no_limit, \
-                                    images._percentile_limit, \
+        intensity_behavior_funcs = [images._no_limit,
+                                    images._percentile_limit,
                                     images._absolute_limit]
-        self._intensity_behav_dict = \
-            {k: v for k, v in zip(intensity_behavior_types, \
-                                 intensity_behavior_funcs)}
+        self._intensity_behav_dict = {k: v for k, v in zip(
+                                    intensity_behavior_types,
+                                    intensity_behavior_funcs)}
 
         self._cmbbox_intensity_behavior = QtGui.QComboBox(parent=self)
         self._cmbbox_intensity_behavior.addItems(
@@ -126,9 +126,13 @@ class StackScanner(QtGui.QWidget):
         # determine the initial values for the spin boxes
         self._min_intensity = min(stack[0].flatten())
         self._max_intensity = max(stack[0].flatten())
-        self._intensity_step = (self._max_intensity - \
+        self._intensity_step = (self._max_intensity -
                                 self._min_intensity) / 100
-        self._num_decimals = int(round(1.0 / self._intensity_step))
+        if self._intensity_step != 0:
+            self._num_decimals = int(round(1.0 / self._intensity_step))
+        else:
+            self._intensity_step = 0.01
+            self._num_decimals = 2
 
         # create the intensity manipulation spin boxes
         self._spinbox_min_intensity = QtGui.QDoubleSpinBox(parent=self)
@@ -273,21 +277,3 @@ class StackScanner(QtGui.QWidget):
             self.xsection_widget.xsection.update_colormap(cmap_name)
         except ValueError:
             pass
-
-    def compute_decimals_to_show(self, value):
-        """
-        Compute the number of decimals to show in the intensity spin boxes.
-        The step spin box will have two more decimals shown than the
-        min/max spin boxes
-        ----------
-        Parameters
-        ----------
-        value: The current value of the intensity_step
-        """
-        if value > 0:
-            num_decimals = int(np.log10(round(1.0 / value))) + 2
-        else:
-            num_decimals = 2
-        self._spinbox_intensity_step.setDecimals(num_decimals)
-        self._spinbox_min_intensity.setDecimals(num_decimals)
-        self._spinbox_max_intensity.setDecimals(num_decimals)
