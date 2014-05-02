@@ -187,14 +187,27 @@ class StackScanner(QtGui.QWidget):
         self.setLayout(v_box_layout)
 
     def swap_stack_axes(self):
+        """
+        Swap the axes of the image stack based on the indices of the combo
+        boxes. The tooltip of the axis swap button maintains the current
+        position of the axes based on where they began.
+
+        e.g., the tooltip will start as [0 1 2] if a 3d array is passed.
+            If axes 0 and 2 are swapped, the tooltip will now read [2 1 0].
+        """
         axis1 = self._cb_ax1.currentIndex()
         axis2 = self._cb_ax2.currentIndex()
-        self._axis_order[axis1] = axis2
-        self._axis_order[axis2] = axis1
+        cur_axis1 = self._axis_order[axis1]
+        cur_axis2 = self._axis_order[axis2]
+        self._axis_order[axis1] = cur_axis2
+        self._axis_order[axis2] = cur_axis1
         self._btn_swap_ax.setToolTip(np.array_str(self._axis_order))
         self._stack = np.swapaxes(self._stack, axis1, axis2)
         self.set_img_stack(self._stack)
         print("stack.shape: {0}".format(self._stack.shape))
+        self._len = self._stack.shape[0]
+        self._slider.setRange(0, self._len - 1)
+        self._spinbox.setRange(self._slider.minimum(), self._slider.maximum())
 
     @QtCore.pyqtSlot(str)
     def set_image_intensity_behavior(self, im_behavior):
