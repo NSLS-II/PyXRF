@@ -46,6 +46,14 @@ class StackScanner(QtGui.QWidget):
         self._dims = stack.shape
         self.xsection_widget = Xsection_widget(stack[0])
 
+        # ---- set up widget box 1---------------------------------------------
+        # --------- it has: ---------------------------------------------------
+        # -------------- axis swap buttons ------------------------------------
+        # -------------- slider to change images ------------------------------
+        # -------------- spinbox to change images -----------------------------
+
+        # set up axis swap buttons
+
         # set up slider
         self._slider = QtGui.QSlider(parent=self)
         self._slider.setRange(0, self._len - 1)
@@ -63,11 +71,17 @@ class StackScanner(QtGui.QWidget):
         self._slider.rangeChanged.connect(self._spinbox.setRange)
 
         # make slider v_box_layout
-        widget_box_1 = QtGui.QHBoxLayout()
-        widget_box_1.addWidget(self._slider)
-        widget_box_1.addWidget(self._spinbox)
+        widget_box1 = QtGui.QHBoxLayout()
+        widget_box1.addWidget(self._slider)
+        widget_box1.addWidget(self._spinbox)
 
-        # ---- color map combo box --------------------------------------------
+        # ---- set up widget box 2---------------------------------------------
+        # --------- it has: ---------------------------------------------------
+        # -------------- color map combo box ----------------------------------
+        # -------------- intensity manipulation combo box ---------------------
+        # -------------- spinboxes for intensity min/max/step values-----------
+
+        # set up color map combo box
         self._cm_cb = QtGui.QComboBox()
         self._cm_cb.setEditable(True)
         self._cm_cb.addItems(_CMAPS)
@@ -75,7 +89,7 @@ class StackScanner(QtGui.QWidget):
         self._cm_cb.setEditText('gray')
         self._cm_cb.editTextChanged.connect(self.update_cmap)
 
-        # ---- intensity manipulation combo box--------------------------------
+        # set up intensity manipulation combo box
         intensity_behavior_types = ['none', 'percentile', 'absolute']
         intensity_behavior_funcs = [images._no_limit, \
                                     images._percentile_limit, \
@@ -90,11 +104,12 @@ class StackScanner(QtGui.QWidget):
         self._cmbbox_intensity_behavior.activated['QString'].connect(
                 self.set_image_intensity_behavior)
 
-        # ---- intensity manipulation spin boxes ------------------------------
+        # set up intensity manipulation spin boxes
         # determine the initial values for the spin boxes
         self._min_intensity = min(stack[0].flatten())
         self._max_intensity = max(stack[0].flatten())
-        self._intensity_step = (self._max_intensity - self._min_intensity) / 100
+        self._intensity_step = (self._max_intensity - \
+                                self._min_intensity) / 100
         self._num_decimals = int(round(1.0 / self._intensity_step))
 
         # create the intensity manipulation spin boxes
@@ -128,14 +143,14 @@ class StackScanner(QtGui.QWidget):
         self._spinbox_intensity_step.setValue(self._intensity_step)
 
         # combine color map selector and auto-norm button
-        widget_box_2 = QtGui.QHBoxLayout()
+        widget_box2 = QtGui.QHBoxLayout()
         hbox2 = QtGui.QHBoxLayout()
         hbox2.addWidget(self._cm_cb)
         hbox2.addWidget(self._cmbbox_intensity_behavior)
-        widget_box_2.addLayout(hbox2)
-        widget_box_2.addWidget(self._spinbox_min_intensity)
-        widget_box_2.addWidget(self._spinbox_max_intensity)
-        widget_box_2.addWidget(self._spinbox_intensity_step)
+        widget_box2.addLayout(hbox2)
+        widget_box2.addWidget(self._spinbox_min_intensity)
+        widget_box2.addWidget(self._spinbox_max_intensity)
+        widget_box2.addWidget(self._spinbox_intensity_step)
 
         self.mpl_toolbar = NavigationToolbar(self.xsection_widget, self)
         # add toolbar
@@ -143,9 +158,9 @@ class StackScanner(QtGui.QWidget):
         # add main widget
         v_box_layout.addWidget(self.xsection_widget)
         # add slider v_box_layout
-        v_box_layout.addLayout(widget_box_1)
+        v_box_layout.addLayout(widget_box1)
         # add colormap selector and autonorm box
-        v_box_layout.addLayout(widget_box_2)
+        v_box_layout.addLayout(widget_box2)
         self.setLayout(v_box_layout)
 
     def swap_stack_axes(self, axis1, axis2):
@@ -163,7 +178,7 @@ class StackScanner(QtGui.QWidget):
     def set_intensity_step(self, intensity_step):
         """
         Slot method for the intensity step spinbox valueChanged() method.
-        The intensity_step is passed as a string which needs to be parsed into 
+        The intensity_step is passed as a string which needs to be parsed into
         """
         # set the intensity steps for each of the combo boxes
         self._intensity_step = intensity_step
