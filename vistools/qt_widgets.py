@@ -106,7 +106,7 @@ class StackScanner(QtGui.QWidget):
         self._cm_cb.addItems(_CMAPS)
         #        self._cm_cb.currentIndexChanged.connect(self.update_cmap)
         self._cm_cb.setEditText('gray')
-        self._cm_cb.editTextChanged.connect(self.update_cmap)
+        self._cm_cb.editTextChanged['QString'].connect(self.update_cmap)
 
         # set up intensity manipulation combo box
         intensity_behavior_types = ['none', 'percentile', 'absolute']
