@@ -104,7 +104,7 @@ class StackScanner(QtGui.QWidget):
         self._cm_cb = QtGui.QComboBox(parent=self)
         self._cm_cb.setEditable(True)
         self._cm_cb.addItems(_CMAPS)
-        #        self._cm_cb.currentIndexChanged.connect(self.update_cmap)
+        #  self._cm_cb.currentIndexChanged.connect(self.update_cmap)
         self._cm_cb.setEditText('gray')
         self._cm_cb.editTextChanged.connect(self.update_cmap)
 
@@ -288,6 +288,6 @@ class StackScanner(QtGui.QWidget):
     @QtCore.Slot(str)
     def update_cmap(self, cmap_name):
         try:
-            self.xsection_widget.xsection.update_colormap(cmap_name)
+            self.xsection_widget.xsection.update_colormap(str(cmap_name))
         except ValueError:
             pass
