@@ -13,18 +13,35 @@ import numpy as np
 
 def _no_limit(im, limit_args):
     """
-    Compute 'nice' min/max values
+    Plot the entire range of the image
     """
     return (np.min(im), np.max(im))
 
 
 def _absolute_limit(im, limit_args):
+    """
+    Plot the image based on the min/max values in limit_args
+    ----------
+    Parameters
+    ----------
+    limit_args: array with 2 args.
+                limit_args[0] is the min value in absolute number
+                limit_args[1] is the max value in absolute number
+    """
     return limit_args
 
 
 def _percentile_limit(im, limit_args):
     """
-    .1
+    Plot the image based on the percentile limits in limit_args
+    ----------
+    Parameters
+    ----------
+    limit_args: array with 2 args.
+                limit_args[0] is the min percentile
+                limit_args[1] is the max percentile
+                percentile means that the values in limit_args
+                    should be between 0 and 100
     """
     flat = im.flatten()
     # 1000 probably needs to be an adjustable parameter
