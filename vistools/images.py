@@ -30,28 +30,46 @@ def _absolute_limit(im, limit_args):
     """
     return limit_args
 
-
+_DEFAULT_NUM_STEPS = 1000
 def _percentile_limit(im, limit_args):
     """
-    Plot the image based on the percentile limits in limit_args
+    Plot the image based on the percentile limits in limit_args.
     ----------
     Parameters
     ----------
-    limit_args: array with 2 args.
+    limit_args: array with 3 args.
                 limit_args[0] is the min percentile
                 limit_args[1] is the max percentile
+                limit_args[2] is the current intensity step size
                 percentile means that the values in limit_args
                     should be between 0 and 100
     """
+    # parse the limit_args into a more readable form
+    min_percentile = limit_args[0]
+    max_percentile = limit_args[1]
+    step_size = limit_args[2]
+
+    # flatten the image array once
     flat = im.flatten()
+
+    # get the maximum value in the displayed image
+    max_global = max(flat)
+
+    # compute a step size based on the current image max and the desired
+    # step size so that the color changing makes sense
+    if step_size == 0 or max_global == 0:
+        num_steps = _DEFAULT_NUM_STEPS
+    else:
+        num_steps = int(max_global / step_size)
+
     # 1000 probably needs to be an adjustable parameter
-    (histo, bins) = np.histogram(flat, 1000)
+    (histo, bins) = np.histogram(flat, num_steps)
     cdf = np.cumsum(histo) / sum(histo)
 
     # find the value that corresponds to the min_value in limit_args[0]
     idx = 0
     val = cdf[idx]
-    while val < limit_args[0] / 100 and idx < len(cdf):
+    while val < min_percentile / 100 and idx < len(cdf):
         idx += 1
         val = cdf[idx]
     min_val = bins[idx]
@@ -59,7 +77,7 @@ def _percentile_limit(im, limit_args):
     # find the value that corresponds to the max_value in limit_args[1]
     idx = len(cdf) - 1
     val = cdf[idx]
-    while val > limit_args[1] / 100 and idx >= 0:
+    while val > max_percentile / 100 and idx >= 0:
         idx = idx - 1
         val = cdf[idx]
     max_val = bins[idx]
