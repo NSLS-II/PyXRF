@@ -86,7 +86,7 @@ class xsection_viewer(object):
         if cmap is None:
             cmap = 'gray'
         # this needs to respect percentile
-        self.vmin, self.vmax = self._limit_func(init_image, self._limit_args)
+        vlim = self._limit_func(init_image, self._limit_args)
         # stash the figure
         self.fig = fig
         # clean it
@@ -135,11 +135,11 @@ class xsection_viewer(object):
         self.cur = Cursor(self._im_ax, useblit=True, color='red', linewidth=2)
 
         # set the y-axis scale for the horizontal cut
-        self._ax_h.set_ylim(self.vmin, self.vmax)
+        self._ax_h.set_ylim(*vlim)
         self._ax_h.autoscale(enable=False)
 
         # set the y-axis scale for the vertical cut
-        self._ax_v.set_xlim(self.vmax, self.vmin)
+        self._ax_v.set_xlim(*vlim)
         self._ax_v.autoscale(enable=False)
 
         # add lines
@@ -235,12 +235,22 @@ class xsection_viewer(object):
            The new image to use
         """
         self.vmin, self.vmax = self._limit_func(new_image, self._limit_args)
+        # img_dims = new_image.shape
+        # set vertical box axes
         self._ax_v.set_xlim(self.vmin, self.vmax)
+        # self._ax_v.set_ylim(0, img_dims[1])
+        # set horizontal box axes
         self._ax_h.set_ylim(self.vmin, self.vmax)
+        # self._ax_h.set_xlim(0, img_dims[0])
+        # set main image axes
+        # self._im_ax.set_xlim(0, img_dims[0])
+        # self._im_ax.set_ylim(0, img_dims[1])
+        # if img_dims[0] == img_dims[1]:
+        # else:
+        #    self._im_ax.set_aspect("auto")
         self._imdata = new_image
         self._im.set_data(new_image)
         self.reload_image()
-        pass
 
     def update_colormap(self, new_cmap):
         """
@@ -271,7 +281,7 @@ class xsection_viewer(object):
         Set the minimum value for the color scale
         """
         if self._limit_args is None:
-            self.limit_args = []
+            self._limit_args = []
         self._limit_args[0] = min_limit
         self.reload_image()
 
