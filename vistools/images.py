@@ -32,6 +32,7 @@ def _absolute_limit(im, limit_args):
 
 # The default number of bins to use in the _percentile_limit method
 _DEFAULT_NUM_BINS = 1000
+_cur_percentile_step = 0.01
 
 
 def _percentile_limit(im, limit_args):
@@ -40,17 +41,15 @@ def _percentile_limit(im, limit_args):
     ----------
     Parameters
     ----------
-    limit_args: array with 3 args.
+    limit_args: array with 2 args.
                 limit_args[0] is the min percentile
                 limit_args[1] is the max percentile
-                limit_args[2] is the current intensity step size
                 percentile means that the values in limit_args
                     should be between 0 and 100
     """
     # parse the limit_args into a more readable form
     min_percentile = limit_args[0]
     max_percentile = limit_args[1]
-    step_size = limit_args[2]
 
     # flatten the image array once
     flat = im.flatten()
@@ -60,30 +59,34 @@ def _percentile_limit(im, limit_args):
 
     # compute a step size based on the current image max and the desired
     # step size so that the color changing makes sense
-    if step_size == 0 or max_global == 0:
+    if _cur_percentile_step == 0 or max_global == 0:
         num_steps = _DEFAULT_NUM_BINS
     else:
-        num_steps = int(max_global / step_size)
+        num_steps = int(max_global / _cur_percentile_step)
+        if num_steps < _DEFAULT_NUM_BINS:
+            num_steps = _DEFAULT_NUM_BINS
 
     # 1000 probably needs to be an adjustable parameter
     (histo, bins) = np.histogram(flat, num_steps)
     cdf = np.cumsum(histo) / sum(histo)
 
     # find the value that corresponds to the min_value in limit_args[0]
-    idx = 0
-    val = cdf[idx]
-    while val < min_percentile / 100 and idx < len(cdf):
-        idx += 1
-        val = cdf[idx]
-    min_val = bins[idx]
+    min_idx = 0
+    val = cdf[min_idx]
+    while val < min_percentile / 100 and min_idx < len(cdf):
+        min_idx += 1
+        val = cdf[min_idx]
+    min_val = bins[min_idx]
 
     # find the value that corresponds to the max_value in limit_args[1]
-    idx = len(cdf) - 1
-    val = cdf[idx]
-    while val > max_percentile / 100 and idx >= 0:
-        idx = idx - 1
-        val = cdf[idx]
-    max_val = bins[idx]
+    max_idx = len(cdf) - 1
+    val = cdf[max_idx]
+    while val > max_percentile / 100 and max_idx >= 0:
+        max_idx = max_idx - 1
+        val = cdf[max_idx]
+    if max_idx <= min_idx:
+        max_idx = min_idx + 1
+    max_val = cdf[max_idx]
 
     return (min_val, max_val)
 
@@ -344,4 +347,12 @@ class xsection_viewer(object):
         Set the function to use to determine the color scale
         """
         self._limit_func = limit_func
+        self.reload_image()
+
+    def set_intensity_step(self, intensity_step):
+        """
+        Set the intensity step used to display the image stack.
+        Only useful for the _percentile_limit method
+        """
+        _cur_percentile_step = intensity_step
         self.reload_image()
