@@ -42,6 +42,8 @@ class StackScanner(QtGui.QWidget):
 
         self._len = len(stack)
 
+        self._axis_order = np.arange(self._stack.ndim)
+
         # get the shape of the stack so that the stack direction can be varied
         self._dims = stack.shape
         self.xsection_widget = Xsection_widget(stack[0])
@@ -53,6 +55,16 @@ class StackScanner(QtGui.QWidget):
         # -------------- spinbox to change images -----------------------------
 
         # set up axis swap buttons
+        self._cb_ax1 = QtGui.QComboBox(parent=self)
+        self._cb_ax2 = QtGui.QComboBox(parent=self)
+        self._cb_ax1.setEditable(False)
+        self._cb_ax2.setEditable(False)
+        self._cb_ax1.addItems(np.arange(self._stack.ndim).astype(str))
+        self._cb_ax2.addItems(np.arange(self._stack.ndim).astype(str))
+
+        self._btn_swap_ax = QtGui.QPushButton('Swap Axes', parent=self)
+        self._btn_swap_ax.resize(self._btn_swap_ax.sizeHint())
+        self._btn_swap_ax.clicked.connect(self.swap_stack_axes)
 
         # set up slider
         self._slider = QtGui.QSlider(parent=self)
@@ -70,8 +82,14 @@ class StackScanner(QtGui.QWidget):
         self._slider.valueChanged.connect(self._spinbox.setValue)
         self._slider.rangeChanged.connect(self._spinbox.setRange)
 
-        # make slider v_box_layout
+        # construct widget box 1
+        widget_box1_sub1 = QtGui.QHBoxLayout()
+        widget_box1_sub1.addWidget(self._btn_swap_ax)
+        widget_box1_sub1.addWidget(self._cb_ax1)
+        widget_box1_sub1.addWidget(self._cb_ax2)
+
         widget_box1 = QtGui.QHBoxLayout()
+        widget_box1.addLayout(widget_box1_sub1)
         widget_box1.addWidget(self._slider)
         widget_box1.addWidget(self._spinbox)
 
@@ -82,7 +100,7 @@ class StackScanner(QtGui.QWidget):
         # -------------- spinboxes for intensity min/max/step values-----------
 
         # set up color map combo box
-        self._cm_cb = QtGui.QComboBox()
+        self._cm_cb = QtGui.QComboBox(parent=self)
         self._cm_cb.setEditable(True)
         self._cm_cb.addItems(_CMAPS)
         #        self._cm_cb.currentIndexChanged.connect(self.update_cmap)
@@ -98,7 +116,7 @@ class StackScanner(QtGui.QWidget):
             {k: v for k, v in zip(intensity_behavior_types, \
                                  intensity_behavior_funcs)}
 
-        self._cmbbox_intensity_behavior = QtGui.QComboBox()
+        self._cmbbox_intensity_behavior = QtGui.QComboBox(parent=self)
         self._cmbbox_intensity_behavior.addItems(
                 list(self._intensity_behav_dict.keys()))
         self._cmbbox_intensity_behavior.activated['QString'].connect(
@@ -142,7 +160,7 @@ class StackScanner(QtGui.QWidget):
         self._spinbox_max_intensity.setValue(self._max_intensity)
         self._spinbox_intensity_step.setValue(self._intensity_step)
 
-        # combine color map selector and auto-norm button
+        # construct widget box 2
         widget_box2 = QtGui.QHBoxLayout()
         hbox2 = QtGui.QHBoxLayout()
         hbox2.addWidget(self._cm_cb)
@@ -163,8 +181,15 @@ class StackScanner(QtGui.QWidget):
         v_box_layout.addLayout(widget_box2)
         self.setLayout(v_box_layout)
 
-    def swap_stack_axes(self, axis1, axis2):
-        self.set_img_stack(np.swapaxes(self.stack, axis1, axis2))
+    def swap_stack_axes(self):
+        axis1 = self._cb_ax1.currentIndex()
+        axis2 = self._cb_ax2.currentIndex()
+        self._axis_order[axis1] = axis2
+        self._axis_order[axis2] = axis1
+        self._btn_swap_ax.setToolTip(np.array_str(self._axis_order))
+        self._stack = np.swapaxes(self._stack, axis1, axis2)
+        self.set_img_stack(self._stack)
+        print("stack.shape: {0}".format(self._stack.shape))
 
     @QtCore.pyqtSlot(str)
     def set_image_intensity_behavior(self, im_behavior):
@@ -236,7 +261,6 @@ class StackScanner(QtGui.QWidget):
         """
         if img_stack is not None:
             self.stack = img_stack
-            self.init_widgets(self.img_stack[0])
             self.update_frame(0)
 
     @QtCore.Slot(int)
