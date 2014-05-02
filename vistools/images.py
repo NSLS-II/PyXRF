@@ -291,6 +291,7 @@ class xsection_viewer(object):
         """
         if self._limit_args is None:
             self.limit_args = []
+
         self._limit_args[1] = max_limit
         self.reload_image()
 
