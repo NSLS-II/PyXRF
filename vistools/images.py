@@ -31,7 +31,7 @@ def _absolute_limit(im, limit_args):
     return limit_args
 
 # The default number of bins to use in the _percentile_limit method
-_DEFAULT_NUM_BINS = 1000
+_DEFAULT_NUM_BINS = 100
 _cur_percentile_step = 0.01
 
 
@@ -54,15 +54,11 @@ def _percentile_limit(im, limit_args):
     # flatten the image array once
     flat = im.flatten()
 
-    # get the maximum value in the displayed image
-    max_global = max(flat)
-
-    # compute a step size based on the current image max and the desired
-    # step size so that the color changing makes sense
-    if _cur_percentile_step == 0 or max_global == 0:
+    # compute a step size
+    if _cur_percentile_step == 0:
         num_steps = _DEFAULT_NUM_BINS
     else:
-        num_steps = int(max_global / _cur_percentile_step)
+        num_steps = int(1.0 / _cur_percentile_step)
         if num_steps < _DEFAULT_NUM_BINS:
             num_steps = _DEFAULT_NUM_BINS
 
@@ -86,7 +82,7 @@ def _percentile_limit(im, limit_args):
         val = cdf[max_idx]
     if max_idx <= min_idx:
         max_idx = min_idx + 1
-    max_val = cdf[max_idx]
+    max_val = bins[max_idx]
 
     return (min_val, max_val)
 
