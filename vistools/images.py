@@ -11,83 +11,10 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
 
 
-def _no_limit(im, limit_args):
-    """
-    Plot the entire range of the image
-    """
-    return (np.min(im), np.max(im))
-
-
-def _absolute_limit(im, limit_args):
-    """
-    Plot the image based on the min/max values in limit_args
-    ----------
-    Parameters
-    ----------
-    limit_args: array with 2 args.
-                limit_args[0] is the min value in absolute number
-                limit_args[1] is the max value in absolute number
-    """
-    return limit_args
-
-# The default number of bins to use in the _percentile_limit method
-_DEFAULT_NUM_BINS = 100
-_cur_percentile_step = 0.01
-
-
-def _percentile_limit(im, limit_args):
-    """
-    Plot the image based on the percentile limits in limit_args.
-    ----------
-    Parameters
-    ----------
-    limit_args: array with 2 args.
-                limit_args[0] is the min percentile
-                limit_args[1] is the max percentile
-                percentile means that the values in limit_args
-                    should be between 0 and 100
-    """
-    # parse the limit_args into a more readable form
-    min_percentile = limit_args[0]
-    max_percentile = limit_args[1]
-
-    # flatten the image array once
-    flat = im.flatten()
-
-    # compute a step size
-    if _cur_percentile_step == 0:
-        num_steps = _DEFAULT_NUM_BINS
-    else:
-        num_steps = int(1.0 / _cur_percentile_step)
-        if num_steps < _DEFAULT_NUM_BINS:
-            num_steps = _DEFAULT_NUM_BINS
-
-    # 1000 probably needs to be an adjustable parameter
-    (histo, bins) = np.histogram(flat, num_steps)
-    cdf = np.cumsum(histo) / sum(histo)
-
-    # find the value that corresponds to the min_value in limit_args[0]
-    min_idx = 0
-    val = cdf[min_idx]
-    while val < min_percentile / 100 and min_idx < len(cdf):
-        min_idx += 1
-        val = cdf[min_idx]
-    min_val = bins[min_idx]
-
-    # find the value that corresponds to the max_value in limit_args[1]
-    max_idx = len(cdf) - 1
-    val = cdf[max_idx]
-    while val > max_percentile / 100 and max_idx >= 0:
-        max_idx = max_idx - 1
-        val = cdf[max_idx]
-    if max_idx <= min_idx:
-        max_idx = min_idx + 1
-    max_val = bins[max_idx]
-
-    return (min_val, max_val)
-
-
 class xsection_viewer(object):
+    # The default number of bins to use in the _percentile_limit method
+    _DEFAULT_NUM_BINS = 1000
+
     def __init__(self, fig, init_image,
                  cmap=None,
                  norm=None,
@@ -115,8 +42,10 @@ class xsection_viewer(object):
         norm : Normalize or None
            Normalization function to us
         """
+        self._cur_percentile_step = 0.01
+
         if limit_func is None:
-            limit_func = _no_limit
+            limit_func = self._no_limit
         self._limit_func = limit_func
 
         if limit_args is None:
@@ -251,6 +180,104 @@ class xsection_viewer(object):
         self.fig.tight_layout()
         self.fig.canvas.draw()
 
+    def _no_limit(self, im, limit_args):
+        """
+        Plot the entire range of the image
+        """
+        return (np.min(im), np.max(im))
+
+    def _absolute_limit(self, im, limit_args):
+        """
+        Plot the image based on the min/max values in limit_args
+        ----------
+        Parameters
+        ----------
+        limit_args: array with 2 args.
+                    limit_args[0] is the min value in absolute number
+                    limit_args[1] is the max value in absolute number
+        """
+        return limit_args
+
+    def _percentile_limit(self, im, limit_args):
+        """
+        Plot the image based on the percentile limits in limit_args.
+
+        Parameters
+        ----------
+        limit_args: array with 2 args.
+                    limit_args[0] is the min percentile
+                    limit_args[1] is the max percentile
+                    percentile means that the values in limit_args
+                        should be between 0 and 100
+        """
+        # parse the limit_args into a more readable form
+        min_percentile = limit_args[0]
+        max_percentile = limit_args[1]
+
+        # flatten the image array once
+        flat = im.flatten()
+
+        # compute a step size
+        if self._cur_percentile_step == 0:
+            num_steps = self._DEFAULT_NUM_BINS
+        else:
+            num_steps = int(1.0 / self._cur_percentile_step)
+            if num_steps < self._DEFAULT_NUM_BINS:
+                num_steps = self._DEFAULT_NUM_BINS
+
+        # 1000 probably needs to be an adjustable parameter
+        (histo, bins) = np.histogram(flat, num_steps)
+        cdf = np.cumsum(histo) / sum(histo)
+
+        # find the value that corresponds to the min_value in limit_args[0]
+
+        val = cdf[0]
+        cdf_len = len(cdf)
+        min_idx = 1
+        min_fraction = min_percentile / 100
+
+        while val < min_fraction and min_idx < cdf_len:
+            val = cdf[min_idx]
+            min_idx += 1
+
+        # find the value that corresponds to the max_value in limit_args[1]
+        max_idx = cdf_len - 1
+        val = cdf[max_idx]
+        max_idx -= 1
+        while val > max_percentile / 100 and max_idx > 0:
+            val = cdf[max_idx]
+            max_idx -= 1
+
+        # if the min_idx is greater than or equal to the max_idx,
+        # set the max_idx
+        # to one more than the min_idx
+        if max_idx <= min_idx:
+            max_idx = min_idx + 1
+
+        # --------- Check the bounds of min_idx -------------------------------
+        # if min_idx is the last value in the cdf, set it to the 2nd to last
+        # cdf value
+        if min_idx >= cdf_len - 1:
+            min_idx = cdf_len - 2
+        # if min_idx is less than 0, set it to 0
+        if min_idx < 0:
+            min_idx = 0
+
+        # --------- Check the bounds of max_idx -------------------------------
+        # if the max_idx is outside the bounds of the cdf, set it to the
+        # last value
+        if max_idx >= cdf_len:
+            max_idx = cdf_len - 1
+        # if max_idx is the first value of the cdf or smaller, set it to
+        # the 2nd value in the cdf
+        if max_idx <= 0:
+            max_idx = 1
+
+        max_val = bins[max_idx]
+        min_val = bins[min_idx]
+
+        return (min_val, max_val)
+
     def clear(self, event):
         self._ax_v_bk = self.fig.canvas.copy_from_bbox(self._ax_v.bbox)
         self._ax_h_bk = self.fig.canvas.copy_from_bbox(self._ax_h.bbox)
@@ -291,7 +318,7 @@ class xsection_viewer(object):
         #    self._im_ax.set_aspect("auto")
         self._imdata = new_image
         self._im.set_data(new_image)
-        self.reload_image()
+        self.update_color_limits()
 
     def update_colormap(self, new_cmap):
         """
@@ -307,7 +334,7 @@ class xsection_viewer(object):
         self._im.set_norm(new_norm)
         self.fig.canvas.draw()
 
-    def reload_image(self):
+    def update_color_limits(self):
         """
         Repaint the image when something changes
         """
@@ -322,28 +349,23 @@ class xsection_viewer(object):
         Set the minimum value used to determine the lower bound of
         the color scale
         """
-        if self._limit_args is None:
-            self._limit_args = []
         self._limit_args[0] = min_limit
-        self.reload_image()
+        self.update_color_limits()
 
     def set_max_limit(self, max_limit):
         """
         Set the maximum value use to determine the upper bound of
         the color scale
         """
-        if self._limit_args is None:
-            self._limit_args = []
-
         self._limit_args[1] = max_limit
-        self.reload_image()
+        self.update_color_limits()
 
     def set_limit_func(self, limit_func):
         """
         Set the function to use to determine the color scale
         """
         self._limit_func = limit_func
-        self.reload_image()
+        self.update_color_limits()
 
     def set_intensity_step(self, intensity_step):
         """
@@ -351,4 +373,4 @@ class xsection_viewer(object):
         Only useful for the _percentile_limit method
         """
         _cur_percentile_step = intensity_step
-        self.reload_image()
+        self.update_color_limits()
