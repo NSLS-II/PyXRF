@@ -18,7 +18,6 @@ class Xsection_widget(FigureCanvas):
     def __init__(self, init_image, parent=None):
         width = height = 24
         self.fig = Figure(figsize=(width, height))
-        # self.fig = Figure((24, 24), tight_layout=True)
         FigureCanvas.__init__(self, self.fig)
         self.setParent(parent)
 
@@ -104,15 +103,15 @@ class StackScanner(QtGui.QWidget):
         self._cm_cb = QtGui.QComboBox(parent=self)
         self._cm_cb.setEditable(True)
         self._cm_cb.addItems(_CMAPS)
-        #  self._cm_cb.currentIndexChanged.connect(self.update_cmap)
+
         self._cm_cb.setEditText('gray')
         self._cm_cb.editTextChanged['QString'].connect(self.update_cmap)
 
         # set up intensity manipulation combo box
         intensity_behavior_types = ['none', 'percentile', 'absolute']
-        intensity_behavior_funcs = [images._no_limit,
-                                    images._percentile_limit,
-                                    images._absolute_limit]
+        intensity_behavior_funcs = [self.xsection_widget.xsection._no_limit,
+                                    self.xsection_widget.xsection._percentile_limit,
+                                    self.xsection_widget.xsection._absolute_limit]
         self._intensity_behav_dict = {k: v for k, v in zip(
                                     intensity_behavior_types,
                                     intensity_behavior_funcs)}
@@ -215,6 +214,25 @@ class StackScanner(QtGui.QWidget):
         print(im_behavior)
 
         limit_func = self._intensity_behav_dict[str(im_behavior)]
+
+        if limit_func == self.xsection_widget.xsection._percentile_limit:
+            self._spinbox_intensity_step.setValue(1)
+            self.set_intensity_step(1)
+            self.set_max_intensity_limit(100)
+            self.set_min_intensity_limit(0)
+            self._spinbox_min_intensity.setValue(0)
+            self._spinbox_max_intensity.setValue(100)
+            pass
+
+        elif limit_func == self.xsection_widget.xsection._absolute_limit:
+            self.set_min_intensity_limit(min(self._stack[self._slider.value()].flatten()))
+            self.set_max_intensity_limit(max(self._stack[self._slider.value()].flatten()))
+            self.set_intensity_step((self._max_intensity -
+                                   self._min_intensity) / 100)
+            self._spinbox_min_intensity.setValue(self._min_intensity)
+            self._spinbox_max_intensity.setValue(self._max_intensity)
+            pass
+
         self.xsection_widget.xsection.set_limit_func(limit_func)
 
     @QtCore.Slot(float)
@@ -278,9 +296,10 @@ class StackScanner(QtGui.QWidget):
         Give the widget a new image stack without remaking the widget.
         Only call this after the widget has been constructed.  In
         other words, don't call this from the __init__ method
+
         Parameters
         ----------
-        img_stack: stack of 2D ndarray
+        img_stack: anything that returns a 2D array when __getitem__ is called
         """
         if img_stack is not None:
             self.stack = img_stack
