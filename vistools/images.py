@@ -14,6 +14,21 @@ import numpy as np
 def _full_range(im, limit_args):
     """
     Plot the entire range of the image
+
+    Parameters
+    ----------
+    im : ndarray
+       image data, nominally 2D
+
+    limit_args : object
+       Ignored, here to match signature with other
+       limit functions
+
+    Returns
+    -------
+    climits : tuple
+       length 2 tuple to be passed to `im.clim(...)` to
+       set the color limits of a ColorMappable object.
     """
     return (np.min(im), np.max(im))
 
@@ -21,35 +36,51 @@ def _full_range(im, limit_args):
 def _absolute_limit(im, limit_args):
     """
     Plot the image based on the min/max values in limit_args
-    ----------
+
+    This function is a no-op and just return the input limit_args.
+
     Parameters
     ----------
-    limit_args: array with 2 args.
-                limit_args[0] is the min value in absolute number
-                limit_args[1] is the max value in absolute number
+    im : ndarray
+        image data.  Ignored in this method
+
+    limit_args : array
+       (min_value, max_value)  Values are in absolute units
+       of the image.
+
+    Returns
+    -------
+    climits : tuple
+       length 2 tuple to be passed to `im.clim(...)` to
+       set the color limits of a ColorMappable object.
+
     """
     return limit_args
 
 
 def _percentile_limit(im, limit_args):
     """
-    Plot the image based on the percentile limits in limit_args.
+    Sets limits based on percentile.
 
     Parameters
     ----------
-    limit_args: array with 2 args.
-                limit_args[0] is the min percentile
-                limit_args[1] is the max percentile
-                percentile means that the values in limit_args
-                    should be between 0 and 100
+    im : ndarray
+        image data
+
+    limit_args : tuple of floats in [0, 100]
+        upper and lower percetile values
+
+    Returns
+    -------
+    climits : tuple
+       length 2 tuple to be passed to `im.clim(...)` to
+       set the color limits of a ColorMappable object.
+
     """
     return np.percentile(im, limit_args)
 
 
 class CrossSectionViewer(object):
-    # The default number of bins to use in the _percentile_limit method
-    _DEFAULT_NUM_BINS = 1000
-
     def __init__(self, fig, init_image,
                  cmap=None,
                  norm=None,
