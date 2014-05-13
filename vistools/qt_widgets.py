@@ -33,6 +33,7 @@ _CMAPS.sort()
 
 
 class StackScanner(QtGui.QWidget):
+
     def __init__(self, stack, page_size=10, parent=None):
         QtGui.QWidget.__init__(self, parent)
         v_box_layout = QtGui.QVBoxLayout()
@@ -126,8 +127,8 @@ class StackScanner(QtGui.QWidget):
 
         # set up intensity manipulation spin boxes
         # determine the initial values for the spin boxes
-        self._min_intensity = min(stack[0].flatten())
-        self._max_intensity = max(stack[0].flatten())
+        self._min_intensity = np.min(stack[0])
+        self._max_intensity = np.max(stack[0])
         self._intensity_step = (self._max_intensity -
                                 self._min_intensity) / 100
 
@@ -225,15 +226,41 @@ class StackScanner(QtGui.QWidget):
             self._spinbox_min_intensity.setValue(self._min_intensity)
             self._spinbox_max_intensity.setValue(self._max_intensity)
 
+    def _spinbox_enabler(self, state):
+        self._spinbox_max_intensity.setEnabled(state)
+        self._spinbox_min_intensity.setEnabled(state)
+        self._spinbox_intensity_step.setEnabled(state)
 
+    def _no_limit_config(self):
+        """
+        Helper function to set up the gui for the 'no limit' (max/min) color bounds
+        """
+        # turn off the spin boxes
+        self._spinbox_enabler(False)
 
-    @QtCore.Slot(float, float)
+    def _percentile_config(self):
+        """
+        helper function to set up the gui for use with the percentile color bounds
+        """
+        self._spinbox_enabler(True)
+        self._set_spinbox_limits(0, 100)
+
     def _set_spinbox_limits(self, bottom_val, top_val):
+        # set the top and bottom limits on the spinboxs to be in bounds
         self._spinbox_max_intensity.setMinimum(bottom_val)
         self._spinbox_min_intensity.setMinimum(bottom_val)
 
         self._spinbox_max_intensity.setMaximum(top_val)
         self._spinbox_min_intensity.setMaximum(top_val)
+
+        # don't let the step be bigger than the total allowed range
+        self._spinbox_intensity_step.setMaximum(top_val - bottom_val)
+
+        # set the current values
+        self._spinbox_min_intensity.setValue(bottom_val)
+        self._spinbox_max_intensity.setValue(top_val)
+        # this will trigger via the call-back updating the
+        self._spinbox_intensity_step.setValue(top_val - bottom_val)
 
     @QtCore.Slot(float)
     def set_intensity_step(self, intensity_step):
@@ -266,9 +293,8 @@ class StackScanner(QtGui.QWidget):
         if not _max > _min:
             self._max_intensity = self._min_intensity + self._intensity_step
             self._spinbox_max_intensity.setValue(self._max_intensity)
-            self.set_max_intensity_limit(self._max_intensity)
-
-        self.xsection_widget.xsection.set_min_limit(self._min_intensity)
+        else:
+            self.xsection_widget.xsection.set_min_limit(self._min_intensity)
 
     @QtCore.Slot(float)
     def set_max_intensity_limit(self, max_intensity):
@@ -278,10 +304,8 @@ class StackScanner(QtGui.QWidget):
         if not _max > _min:
             self._min_intensity = self._max_intensity - self._intensity_step
             self._spinbox_min_intensity.setValue(self._min_intensity)
-            self.set_min_intensity_limit(
-                    self._spinbox_min_intensity.value())
-
-        self.xsection_widget.xsection.set_max_limit(self._max_intensity)
+        else:
+            self.xsection_widget.xsection.set_max_limit(self._max_intensity)
 
     def set_img_stack(self, img_stack):
         """

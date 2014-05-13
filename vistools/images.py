@@ -269,36 +269,31 @@ class xsection_viewer(object):
         self._im.set_norm(new_norm)
         self.fig.canvas.draw()
 
-    def update_color_limits(self):
+    def update_color_limits(self, new_limits, force_update=False):
         """
         Repaint the image when something changes
         """
-        self.vlim = self._limit_func(self._imdata, self._limit_args)
-        self._im.set_clim(self.vlim)
-        self._ax_v.set_xlim(*self.vlim[::-1])
-        self._ax_h.set_ylim(*self.vlim)
+        # if the limits have to really changed, short-circuit
+        if not force_update or self._limit_args == new_limits:
+            return
+        # assign the new limits
+        self._limit_args = new_limits
+        # convert limits -> args for clim
+        vlim = self._limit_func(self._imdata, self._limit_args)
+        # set the color limits
+        self._im.set_clim(vlim)
+        # set the cross section axes limits
+        self._ax_v.set_xlim(*vlim[::-1])
+        self._ax_h.set_ylim(*vlim)
+        # do a complete re-draw of the canvas
         self.fig.canvas.draw()
-
-    def set_min_limit(self, min_limit):
-        """
-        Set the minimum value used to determine the lower bound of
-        the color scale
-        """
-        self._limit_args[0] = min_limit
-        self.update_color_limits()
-
-    def set_max_limit(self, max_limit):
-        """
-        Set the maximum value use to determine the upper bound of
-        the color scale
-        """
-        self._limit_args[1] = max_limit
-        self.update_color_limits()
 
     def set_limit_func(self, limit_func, new_limits):
         """
         Set the function to use to determine the color scale
+
         """
+        # set the new function to use for computing the color limits
         self._limit_func = limit_func
-        self._limit_args = new_limits
-        self.update_color_limits()
+        # update the axes
+        self.update_color_limits(new_limits, force_update=True)
