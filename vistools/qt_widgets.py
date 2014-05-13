@@ -109,13 +109,15 @@ class StackScanner(QtGui.QWidget):
 
         # set up intensity manipulation combo box
         intensity_behavior_types = ['none', 'percentile', 'absolute']
-        intensity_behavior_funcs = [self.xsection_widget.xsection._full_range,
-                                    self.xsection_widget.xsection._percentile_limit,
-                                    self.xsection_widget.xsection._absolute_limit]
+        intensity_behavior_funcs = [images._full_range,
+                                    images._percentile_limit,
+                                    images._absolute_limit]
         self._intensity_behav_dict = {k: v for k, v in zip(
                                     intensity_behavior_types,
                                     intensity_behavior_funcs)}
+        self._dflt_limits_dict = {k: v for k, v in zip(
 
+)}
         self._cmbbox_intensity_behavior = QtGui.QComboBox(parent=self)
         self._cmbbox_intensity_behavior.addItems(
                 list(self._intensity_behav_dict.keys()))
@@ -128,11 +130,6 @@ class StackScanner(QtGui.QWidget):
         self._max_intensity = max(stack[0].flatten())
         self._intensity_step = (self._max_intensity -
                                 self._min_intensity) / 100
-        if self._intensity_step != 0:
-            self._num_decimals = int(round(1.0 / self._intensity_step))
-        else:
-            self._intensity_step = 0.01
-            self._num_decimals = 2
 
         # create the intensity manipulation spin boxes
         self._spinbox_min_intensity = QtGui.QDoubleSpinBox(parent=self)
@@ -214,26 +211,29 @@ class StackScanner(QtGui.QWidget):
         print(im_behavior)
 
         limit_func = self._intensity_behav_dict[str(im_behavior)]
+        new_limits, step = self._dflt_limits_dict[str(im_behavior)]
+        self.xsection_widget.xsection.set_limit_func(limit_func, new_limits)
 
         if limit_func == self.xsection_widget.xsection._percentile_limit:
             self._spinbox_intensity_step.setValue(1)
-            self.set_intensity_step(1)
-            self.set_max_intensity_limit(100)
-            self.set_min_intensity_limit(0)
             self._spinbox_min_intensity.setValue(0)
             self._spinbox_max_intensity.setValue(100)
-            pass
 
         elif limit_func == self.xsection_widget.xsection._absolute_limit:
-            self.set_min_intensity_limit(min(self._stack[self._slider.value()].flatten()))
-            self.set_max_intensity_limit(max(self._stack[self._slider.value()].flatten()))
-            self.set_intensity_step((self._max_intensity -
+            self._spinbox_intensity_step.setValue((self._max_intensity -
                                    self._min_intensity) / 100)
             self._spinbox_min_intensity.setValue(self._min_intensity)
             self._spinbox_max_intensity.setValue(self._max_intensity)
-            pass
 
-        self.xsection_widget.xsection.set_limit_func(limit_func)
+
+
+    @QtCore.Slot(float, float)
+    def _set_spinbox_limits(self, bottom_val, top_val):
+        self._spinbox_max_intensity.setMinimum(bottom_val)
+        self._spinbox_min_intensity.setMinimum(bottom_val)
+
+        self._spinbox_max_intensity.setMaximum(top_val)
+        self._spinbox_min_intensity.setMaximum(top_val)
 
     @QtCore.Slot(float)
     def set_intensity_step(self, intensity_step):
@@ -251,20 +251,12 @@ class StackScanner(QtGui.QWidget):
         # is non-zero.  If it is, increase the number of displayed decimal
         # places by 1
         str_intensity_step = str(self._intensity_step)
-        chars = list(str_intensity_step)
-        num_chars = len(chars)
-        decimal_pos = str_intensity_step.find(".")
-        num_decimals = num_chars - decimal_pos - 1
-        last_decimal = int(chars[len(chars) - 1])
+        num_decimals = len(str_intensity_step.split('.')[-1])
+        last_decimal = str_intensity_step[-1]
         if last_decimal != 0:
-            self._num_decimals = num_decimals + 1
-            self._spinbox_intensity_step.setDecimals(self._num_decimals)
-            self._spinbox_min_intensity.setDecimals(self._num_decimals)
-            self._spinbox_max_intensity.setDecimals(self._num_decimals)
-
-        # pass the current intensity step to the xsection widget so that it can
-        # compute the percentile image display correctly
-        self.xsection_widget.xsection.set_intensity_step(intensity_step)
+            self._spinbox_intensity_step.setDecimals(num_decimals + 1)
+            self._spinbox_min_intensity.setDecimals(num_decimals + 1)
+            self._spinbox_max_intensity.setDecimals(num_decimals + 1)
 
     @QtCore.Slot(float)
     def set_min_intensity_limit(self, min_intensity):
