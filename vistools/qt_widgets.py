@@ -105,7 +105,7 @@ class StackScanner(QtGui.QWidget):
         self._cm_cb.addItems(_CMAPS)
 
         self._cm_cb.setEditText('gray')
-        self._cm_cb.editTextChanged['QString'].connect(self.update_cmap)
+        self._cm_cb.editTextChanged[str].connect(self.update_cmap)
 
         # set up intensity manipulation combo box
         intensity_behavior_types = ['none', 'percentile', 'absolute']
@@ -119,7 +119,7 @@ class StackScanner(QtGui.QWidget):
         self._cmbbox_intensity_behavior = QtGui.QComboBox(parent=self)
         self._cmbbox_intensity_behavior.addItems(
                 list(self._intensity_behav_dict.keys()))
-        self._cmbbox_intensity_behavior.activated['QString'].connect(
+        self._cmbbox_intensity_behavior.activated[str].connect(
                 self.set_image_intensity_behavior)
 
         # set up intensity manipulation spin boxes
