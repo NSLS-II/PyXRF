@@ -109,7 +109,7 @@ class StackScanner(QtGui.QWidget):
 
         # set up intensity manipulation combo box
         intensity_behavior_types = ['none', 'percentile', 'absolute']
-        intensity_behavior_funcs = [self.xsection_widget.xsection._no_limit,
+        intensity_behavior_funcs = [self.xsection_widget.xsection._full_range,
                                     self.xsection_widget.xsection._percentile_limit,
                                     self.xsection_widget.xsection._absolute_limit]
         self._intensity_behav_dict = {k: v for k, v in zip(

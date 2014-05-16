@@ -45,7 +45,7 @@ class xsection_viewer(object):
         self._cur_percentile_step = 0.01
 
         if limit_func is None:
-            limit_func = self._no_limit
+            limit_func = self._full_range
         self._limit_func = limit_func
 
         if limit_args is None:
@@ -180,7 +180,7 @@ class xsection_viewer(object):
         self.fig.tight_layout()
         self.fig.canvas.draw()
 
-    def _no_limit(self, im, limit_args):
+    def _full_range(self, im, limit_args):
         """
         Plot the entire range of the image
         """
