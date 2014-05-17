@@ -11,14 +11,14 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
 
 
-def _full_range(self, im, limit_args):
+def _full_range(im, limit_args):
     """
     Plot the entire range of the image
     """
     return (np.min(im), np.max(im))
 
 
-def _absolute_limit(self, im, limit_args):
+def _absolute_limit(im, limit_args):
     """
     Plot the image based on the min/max values in limit_args
     ----------
@@ -31,7 +31,7 @@ def _absolute_limit(self, im, limit_args):
     return limit_args
 
 
-def _percentile_limit(self, im, limit_args):
+def _percentile_limit(im, limit_args):
     """
     Plot the image based on the percentile limits in limit_args.
 
@@ -78,7 +78,8 @@ class xsection_viewer(object):
            Normalization function to us
         """
         if limit_func is None:
-            limit_func = self._full_range
+            limit_func = _full_range
+
         self._limit_func = limit_func
 
         if limit_args is None:
@@ -253,7 +254,7 @@ class xsection_viewer(object):
         #    self._im_ax.set_aspect("auto")
         self._imdata = new_image
         self._im.set_data(new_image)
-        self.update_color_limits()
+        self.update_color_limits(self._limit_args, force_update=True)
 
     def update_colormap(self, new_cmap):
         """
@@ -274,7 +275,7 @@ class xsection_viewer(object):
         Repaint the image when something changes
         """
         # if the limits have to really changed, short-circuit
-        if not force_update or self._limit_args == new_limits:
+        if not force_update and self._limit_args == new_limits:
             return
         # assign the new limits
         self._limit_args = new_limits
