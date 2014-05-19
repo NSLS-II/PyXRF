@@ -5,7 +5,7 @@ Example usage of StackScanner
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
-from matplotlib.backends.qt4_compat import QtGui
+from matplotlib.backends.qt4_compat import QtGui, QtCore
 import numpy as np
 import vistools.qt_widgets as qt_widgets
 import sys
@@ -15,7 +15,7 @@ def _gen_test_data(n):
     out = []
     x, y = np.ogrid[-500:500, -500:500]
     for j in xrange(n):
-        out.append(np.exp(-((x - 250) ** 2 + (y - 250) ** 2) / (20 + 5 * j) ** 2))
+        out.append(np.exp(-((x - 250) ** 2 + (y - 250) ** 2) / (20 + 5 * j) ** 2) + .1)
     return np.array(out)
 
 
@@ -32,7 +32,8 @@ class StackExplorer(QtGui.QMainWindow):
         l.addWidget(self._stack)
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
-
+        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea,
+                           self._stack.ctrl_box_2)
 
 app = QtGui.QApplication(sys.argv)
 tt = StackExplorer()

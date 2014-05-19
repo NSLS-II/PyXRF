@@ -268,7 +268,7 @@ class xsection_viewer(object):
         Update the way that matplotlib normalizes the image. Default is linear
         """
         self._im.set_norm(new_norm)
-        self.fig.canvas.draw()
+        self.update_color_limits(self._limit_args, force_update=True)
 
     def update_color_limits(self, new_limits, force_update=False):
         """
@@ -281,6 +281,8 @@ class xsection_viewer(object):
         self._limit_args = new_limits
         # convert limits -> args for clim
         vlim = self._limit_func(self._imdata, self._limit_args)
+        if vlim[0] == vlim[1]:
+            print(self._limit_args, self._limit_func)
         # set the color limits
         self._im.set_clim(vlim)
         # set the cross section axes limits

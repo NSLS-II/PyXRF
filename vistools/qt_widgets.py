@@ -154,25 +154,35 @@ class StackScanner(QtGui.QWidget):
         self._slider.valueChanged.connect(self._spinbox.setValue)
         self._slider.rangeChanged.connect(self._spinbox.setRange)
 
-        # construct widget box 1
-        widget_box1_sub1 = QtGui.QHBoxLayout()
-        widget_box1_sub1.addWidget(self._btn_swap_ax)
-        widget_box1_sub1.addWidget(self._cb_ax1)
-        widget_box1_sub1.addWidget(self._cb_ax2)
-
         widget_box1 = QtGui.QHBoxLayout()
-        widget_box1.addLayout(widget_box1_sub1)
+        slider_label = QtGui.QLabel("&Frame")
+        slider_label.setBuddy(self._slider)
+        widget_box1.addWidget(slider_label)
         widget_box1.addWidget(self._slider)
         widget_box1.addWidget(self._spinbox)
 
-        # ---- set up widget box 2---------------------------------------------
+        # ---- set up control box 2--------------------------------------------
         # --------- it has: ---------------------------------------------------
         # -------------- color map combo box ----------------------------------
         # -------------- intensity manipulation combo box ---------------------
         # -------------- spinboxes for intensity min/max/step values-----------
 
+        # set up the dockable controls
+        # this might not play nice with vistrails in which case this can just
+        # get dumped into a hbox layout with the scanner widget.
+        # another option is to make _this_ a MainWindow widget, but that might also
+        # not play nice with vistrails
+        self.ctrl_box_2 = QtGui.QDockWidget('controls')
+        # make floating
+        self.ctrl_box_2.setFloating(True)
+        # setup the widget to live in the floater
+        ctl_widget = QtGui.QWidget(self.ctrl_box_2)
+        self.ctrl_box_2.setWidget(ctl_widget)
+        ctl_layout = QtGui.QVBoxLayout()
+        ctl_widget.setLayout(ctl_layout)
+
         # set up color map combo box
-        self._cm_cb = QtGui.QComboBox(parent=self)
+        self._cm_cb = QtGui.QComboBox(parent=ctl_widget)
         self._cm_cb.setEditable(True)
         self._cm_cb.addItems(_CMAPS)
 
@@ -182,13 +192,10 @@ class StackScanner(QtGui.QWidget):
 
         # set up intensity manipulation combo box
         intensity_behavior_data = [(images._full_range,
-                                     (0, 2**16),
                                      self._no_limit_config),
                                     (images._percentile_limit,
-                                     (0, 100),
                                      self._percentile_config),
                                     (images._absolute_limit,
-                                     (0, 2**16),
                                      self._absolute_limit_config)
                                      ]
         intensity_behavior_types = ['full range',
@@ -197,26 +204,29 @@ class StackScanner(QtGui.QWidget):
         self._intensity_behav_dict = {k: v for k, v in zip(
                                     intensity_behavior_types,
                                     intensity_behavior_data)}
-        self._dflt_limits_dict = {k: v for k, v in zip(
 
-)}
-        self._cmbbox_intensity_behavior = QtGui.QComboBox(parent=self)
-        self._cmbbox_intensity_behavior.addItems(
-                list(self._intensity_behav_dict.keys()))
-        self._cmbbox_intensity_behavior.activated[str].connect(
-                self.set_image_intensity_behavior)
+        self._cmbbox_intensity_behavior = QtGui.QComboBox(parent=ctl_widget)
+        self._cmbbox_intensity_behavior.addItems(intensity_behavior_types)
+
+        # can add PowerNorm, BoundaryNorm, but those require extra inputs
+        norm_names = ['linear', 'log']
+        norm_funcs = [matplotlib.colors.Normalize,
+                        matplotlib.colors.LogNorm]
+        self._norm_dict = {k: v for k, v in zip(norm_names, norm_funcs)}
+        self._cmbbox_norm = QtGui.QComboBox(parent=ctl_widget)
+        self._cmbbox_norm.addItems(norm_names)
 
         # set up intensity manipulation spin boxes
         # determine the initial values for the spin boxes
-        self._min_intensity = np.min(stack[0])
-        self._max_intensity = np.max(stack[0])
-        self._intensity_step = (self._max_intensity -
-                                self._min_intensity) / 100
+        min_intensity = np.min(stack[0])
+        max_intensity = np.max(stack[0])
+        intensity_step = (max_intensity -
+                                min_intensity) / 100
 
         # create the intensity manipulation spin boxes
-        self._spinbox_min_intensity = QtGui.QDoubleSpinBox(parent=self)
-        self._spinbox_max_intensity = QtGui.QDoubleSpinBox(parent=self)
-        self._spinbox_intensity_step = QtGui.QDoubleSpinBox(parent=self)
+        self._spinbox_min_intensity = QtGui.QDoubleSpinBox(parent=ctl_widget)
+        self._spinbox_max_intensity = QtGui.QDoubleSpinBox(parent=ctl_widget)
+        self._spinbox_intensity_step = QtGui.QDoubleSpinBox(parent=ctl_widget)
 
         # allow the spin boxes to be any value
         self._spinbox_min_intensity.setMinimum(float("-inf"))
@@ -235,19 +245,38 @@ class StackScanner(QtGui.QWidget):
                 self.set_intensity_step)
 
         # set the initial values for the spin boxes
-        self._spinbox_min_intensity.setValue(self._min_intensity)
-        self._spinbox_max_intensity.setValue(self._max_intensity)
-        self._spinbox_intensity_step.setValue(self._intensity_step)
+        self._spinbox_intensity_step.setValue(intensity_step)
+        self._spinbox_max_intensity.setValue(max_intensity)
+        self._spinbox_min_intensity.setValue(min_intensity)
 
         # construct widget box 2
-        widget_box2 = QtGui.QHBoxLayout()
-        hbox2 = QtGui.QHBoxLayout()
-        hbox2.addWidget(self._cm_cb)
-        hbox2.addWidget(self._cmbbox_intensity_behavior)
-        widget_box2.addLayout(hbox2)
-        widget_box2.addWidget(self._spinbox_min_intensity)
-        widget_box2.addWidget(self._spinbox_max_intensity)
-        widget_box2.addWidget(self._spinbox_intensity_step)
+        h_form = QtGui.QFormLayout()
+        h_form.addRow("Color &map", self._cm_cb)
+        h_form.addRow("&Normalization", self._cmbbox_norm)
+        h_form.addRow("limit &strategy", self._cmbbox_intensity_behavior)
+        ctl_layout.addLayout(h_form)
+
+        clim_spinners = QtGui.QGroupBox("clim parameters")
+        ispiner_form = QtGui.QFormLayout()
+        ispiner_form.addRow("mi&n", self._spinbox_min_intensity)
+        ispiner_form.addRow("ma&x", self._spinbox_max_intensity)
+        ispiner_form.addRow("s&tep", self._spinbox_intensity_step)
+        clim_spinners.setLayout(ispiner_form)
+        ctl_layout.addWidget(clim_spinners)
+
+        # construct widget box 1
+        widget_box1_sub1 = QtGui.QVBoxLayout()
+        axes_swap_form = QtGui.QFormLayout()
+        axes_swap_form.addRow("axes A", self._cb_ax1)
+        axes_swap_form.addRow("axes B", self._cb_ax2)
+        widget_box1_sub1.addLayout(axes_swap_form)
+        widget_box1_sub1.addWidget(self._btn_swap_ax)
+        swap_axes_box = QtGui.QGroupBox("Swap!")
+        swap_axes_box.setLayout(widget_box1_sub1)
+        swap_axes_box.setEnabled(False)
+        ctl_layout.addWidget(swap_axes_box)
+
+        ctl_layout.addStretch()
 
         self.mpl_toolbar = NavigationToolbar(self.xsection_widget, self)
         # add toolbar
@@ -256,9 +285,26 @@ class StackScanner(QtGui.QWidget):
         v_box_layout.addWidget(self.xsection_widget)
         # add slider v_box_layout
         v_box_layout.addLayout(widget_box1)
-        # add colormap selector and autonorm box
-        v_box_layout.addLayout(widget_box2)
+
         self.setLayout(v_box_layout)
+
+        # set this down here to make sure the function will run
+        self._cmbbox_intensity_behavior.currentIndexChanged[str].connect(
+                self.set_image_intensity_behavior)
+        # set to full range, do this last so all the call-back propagate
+        self._cmbbox_intensity_behavior.setCurrentIndex(0)
+        # force the issue about emitting
+        self._cmbbox_intensity_behavior.currentIndexChanged[str].emit(
+            intensity_behavior_types[0])
+
+        # set this down here to make sure the function will run
+        self._cmbbox_norm.currentIndexChanged[str].connect(
+                self.set_normalization)
+        # set to full range, do this last so all the call-back propagate
+        self._cmbbox_norm.setCurrentIndex(0)
+        # force the issue about emitting
+        self._cmbbox_norm.currentIndexChanged[str].emit(
+            norm_names[0])
 
     def swap_stack_axes(self):
         """
@@ -284,17 +330,18 @@ class StackScanner(QtGui.QWidget):
         self._spinbox.setRange(self._slider.minimum(), self._slider.maximum())
 
     @QtCore.Slot(str)
+    def set_normalization(self, norm_name):
+        norm = self._norm_dict[str(norm_name)]
+        self.sig_update_norm.emit(norm())
+
+    @QtCore.Slot(str)
     def set_image_intensity_behavior(self, im_behavior):
         # get parameters from spin boxes for min and max
-        print(im_behavior)
-
-        (limit_func, limits,
-              gui_fix_up) = self._intensity_behav_dict[str(im_behavior)]
-
+        (limit_func, gui_fix_up) = self._intensity_behav_dict[str(im_behavior)]
+        # fixes the gui state
+        limits = gui_fix_up()
         # updates the underlying object
         self.sig_update_limit_function.emit(limit_func, limits)
-        # fixes the gui state
-        gui_fix_up()
         # set the new limits
         self._set_spinbox_limits(*limits)
 
@@ -310,6 +357,9 @@ class StackScanner(QtGui.QWidget):
         """
         # turn off the spin boxes
         self._spinbox_enabler(False)
+        # just echo back what it is and don't change it
+        return (self._spinbox_min_intensity.value(),
+                self._spinbox_max_intensity.value())
 
     def _percentile_config(self):
         """
@@ -317,12 +367,17 @@ class StackScanner(QtGui.QWidget):
         color bounds
         """
         self._spinbox_enabler(True)
+        # return full range
+        return (0, 100)
 
     def _absolute_limit_config(self):
         """
         Helper function to set up the gui for use with absolute limits
         """
         self._spinbox_enabler(True)
+        cur_frame = self._slider.value()
+        return (np.min(self._stack[cur_frame]),
+                np.max(self._stack[cur_frame]))
 
     def _set_spinbox_limits(self, bottom_val, top_val):
         # set the top and bottom limits on the spinboxs to be in bounds
@@ -389,8 +444,8 @@ class StackScanner(QtGui.QWidget):
         # grab the step value
         intensity_step = self._spinbox_intensity_step.value()
 
-        _max = int(round(self._max_intensity / self._intensity_step))
-        _min = int(round(self._min_intensity / self._intensity_step))
+        _max = int(round(max_intensity / intensity_step))
+        _min = int(round(min_intensity / intensity_step))
         if not _max > _min:
             min_intensity = max_intensity - intensity_step
             self._spinbox_min_intensity.setValue(min_intensity)
