@@ -11,19 +11,36 @@ import vistools.qt_widgets as qt_widgets
 import sys
 
 
-def _gen_test_data(n):
-    out = []
-    x, y = np.ogrid[-500:500, -500:500]
-    for j in xrange(n):
-        out.append(np.exp(-((x - 250) ** 2 + (y - 250) ** 2) / (20 + 5 * j) ** 2) + .1)
-    return np.array(out)
+class data_gen(object):
+    def __init__(self, length, func=None):
+        self._len = length
+        self._x, self._y = [_ * 2 * np.pi / 500 for _ in
+                            np.ogrid[-500:500, -500:500]]
+        self._rep = int(np.sqrt(length))
+
+    def __len__(self):
+        return self._len
+
+    def __getitem__(self, k):
+        kx = k // self._rep + 1
+        ky = k % self._rep
+        return np.sin(kx * self._x) * np.cos(ky * self._y) + 1.05
+
+    @property
+    def ndim(self):
+        return 2
+
+    @property
+    def shape(self):
+        len(self._x), len(self._y)
 
 
 class StackExplorer(QtGui.QMainWindow):
     def __init__(self, parent=None):
         QtGui.QMainWindow.__init__(self, parent)
         self.setWindowTitle('StackExplorer')
-        self._stack = qt_widgets.StackScanner(_gen_test_data(15))
+
+        self._stack = qt_widgets.StackScanner(data_gen(25))
 
         self.main_widget = QtGui.QWidget(self)
 
