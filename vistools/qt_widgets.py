@@ -154,13 +154,15 @@ class StackScanner(QtGui.QWidget):
         self._slider.valueChanged.connect(self._spinbox.setValue)
         self._slider.rangeChanged.connect(self._spinbox.setRange)
 
-        widget_box1 = QtGui.QHBoxLayout()
+        widget_box1 = QtGui.QVBoxLayout()
         slider_label = QtGui.QLabel("&Frame")
         slider_label.setBuddy(self._slider)
-        widget_box1.addWidget(slider_label)
-        widget_box1.addWidget(self._slider)
-        widget_box1.addWidget(self._spinbox)
 
+        widget_box1_hbox = QtGui.QHBoxLayout()
+        widget_box1_hbox.addWidget(self._slider)
+        widget_box1_hbox.addWidget(self._spinbox)
+        widget_box1.addWidget(slider_label)
+        widget_box1.addLayout(widget_box1_hbox)
         # ---- set up control box 2--------------------------------------------
         # --------- it has: ---------------------------------------------------
         # -------------- color map combo box ----------------------------------
@@ -275,7 +277,7 @@ class StackScanner(QtGui.QWidget):
         swap_axes_box.setLayout(widget_box1_sub1)
         swap_axes_box.setEnabled(False)
         ctl_layout.addWidget(swap_axes_box)
-
+        ctl_layout.addLayout(widget_box1)
         ctl_layout.addStretch()
 
         self.mpl_toolbar = NavigationToolbar(self.xsection_widget, self)
@@ -284,7 +286,7 @@ class StackScanner(QtGui.QWidget):
         # add main widget
         v_box_layout.addWidget(self.xsection_widget)
         # add slider v_box_layout
-        v_box_layout.addLayout(widget_box1)
+
 
         self.setLayout(v_box_layout)
 
