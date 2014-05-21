@@ -337,13 +337,14 @@ class StackScanner(QtGui.QWidget):
     @QtCore.Slot(str)
     def set_image_intensity_behavior(self, im_behavior):
         # get parameters from spin boxes for min and max
-        (limit_func, gui_fix_up) = self._intensity_behav_dict[str(im_behavior)]
+        (limit_func, get_params) = self._intensity_behav_dict[str(im_behavior)]
         # fixes the gui state
-        limits = gui_fix_up()
+        limits, state = get_params()
         # updates the underlying object
         self.sig_update_limit_function.emit(limit_func, limits)
         # set the new limits
         self._set_spinbox_limits(*limits)
+        self._spinbox_enabler(state)
 
     def _spinbox_enabler(self, state):
         self._spinbox_max_intensity.setEnabled(state)
@@ -356,46 +357,53 @@ class StackScanner(QtGui.QWidget):
         (max/min) color bounds
         """
         # turn off the spin boxes
-        self._spinbox_enabler(False)
         # just echo back what it is and don't change it
         return (self._spinbox_min_intensity.value(),
-                self._spinbox_max_intensity.value())
+                self._spinbox_max_intensity.value()), False
 
     def _percentile_config(self):
         """
         helper function to set up the gui for use with the percentile
         color bounds
         """
-        self._spinbox_enabler(True)
         # return full range
-        return (0, 100)
+        return (0, 100), True
 
     def _absolute_limit_config(self):
         """
         Helper function to set up the gui for use with absolute limits
         """
-        self._spinbox_enabler(True)
-        cur_frame = self._slider.value()
-        return (np.min(self._stack[cur_frame]),
-                np.max(self._stack[cur_frame]))
+        cur_frame_n = self._slider.value()
+        cur_frame = self._stack[cur_frame_n]
+        return (np.min(cur_frame),
+                np.max(cur_frame)), True
 
     def _set_spinbox_limits(self, bottom_val, top_val):
-        # set the top and bottom limits on the spinboxs to be in bounds
-        self._spinbox_max_intensity.setMinimum(bottom_val)
-        self._spinbox_min_intensity.setMinimum(bottom_val)
+        # turn off signals on the spin boxes
+        reset_state = [(sb, sb.blockSignals(True)) for sb in
+                       (self._spinbox_max_intensity,
+                        self._spinbox_min_intensity)]
+        try:
+            # set the top and bottom limits on the spinboxs to be in bounds
+            self._spinbox_max_intensity.setMinimum(bottom_val)
+            self._spinbox_min_intensity.setMinimum(bottom_val)
 
-        self._spinbox_max_intensity.setMaximum(top_val)
-        self._spinbox_min_intensity.setMaximum(top_val)
-        # don't let the step be bigger than the total allowed range
-        self._spinbox_intensity_step.setMaximum(top_val - bottom_val)
+            self._spinbox_max_intensity.setMaximum(top_val)
+            self._spinbox_min_intensity.setMaximum(top_val)
+            # don't let the step be bigger than the total allowed range
+            self._spinbox_intensity_step.setMaximum(top_val - bottom_val)
 
-        if not np.isinf(bottom_val) or not np.isinf(top_val):
-            # set the current values
-            self._spinbox_min_intensity.setValue(bottom_val)
-            self._spinbox_max_intensity.setValue(top_val)
+            if not np.isinf(bottom_val) or not np.isinf(top_val):
+                # set the current values
+                self._spinbox_min_intensity.setValue(bottom_val)
+                self._spinbox_max_intensity.setValue(top_val)
 
-            # this will trigger via the call-back updating everything else
-            self._spinbox_intensity_step.setValue((top_val - bottom_val)/100)
+                # this will trigger via the call-back updating everything else
+                self._spinbox_intensity_step.setValue(
+                    (top_val - bottom_val)/100)
+        finally:
+            # un-wrap the signal blocking
+            [sb.blockSignals(state) for sb, state in reset_state]
 
     @QtCore.Slot(float)
     def set_intensity_step(self, intensity_step):
@@ -404,15 +412,14 @@ class StackScanner(QtGui.QWidget):
         The intensity_step is passed as a string which needs to be parsed into
         """
         # set the intensity steps for each of the combo boxes
-        self._intensity_step = intensity_step
-        self._spinbox_intensity_step.setSingleStep(self._intensity_step)
-        self._spinbox_max_intensity.setSingleStep(self._intensity_step)
-        self._spinbox_min_intensity.setSingleStep(self._intensity_step)
+        self._spinbox_intensity_step.setSingleStep(intensity_step)
+        self._spinbox_max_intensity.setSingleStep(intensity_step)
+        self._spinbox_min_intensity.setSingleStep(intensity_step)
 
         # parse the currently displayed string to determine if the last digit
         # is non-zero.  If it is, increase the number of displayed decimal
         # places by 1
-        str_intensity_step = str(self._intensity_step)
+        str_intensity_step = str(intensity_step)
         num_decimals = len(str_intensity_step.split('.')[-1])
         last_decimal = str_intensity_step[-1]
         if last_decimal != 0:
