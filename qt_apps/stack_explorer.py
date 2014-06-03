@@ -42,13 +42,8 @@ class StackExplorer(QtGui.QMainWindow):
 
         self._stack = qt_widgets.StackScanner(data_gen(25))
 
-        self.main_widget = QtGui.QWidget(self)
-
-        l = QtGui.QVBoxLayout(self.main_widget)
-
-        l.addWidget(self._stack)
-        self.main_widget.setFocus()
-        self.setCentralWidget(self.main_widget)
+        self._stack.setFocus()
+        self.setCentralWidget(self._stack)
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea,
                            self._stack.ctrl_box_2)
 
