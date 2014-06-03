@@ -174,7 +174,8 @@ class StackScanner(QtGui.QWidget):
         # get dumped into a hbox layout with the scanner widget.
         # another option is to make _this_ a MainWindow widget, but that might also
         # not play nice with vistrails
-        self.ctrl_box_2 = QtGui.QDockWidget('controls')
+        control_box_name = 'controls'
+        self.ctrl_box_2 = QtGui.QDockWidget(control_box_name)
         # make floating
         self.ctrl_box_2.setFloating(True)
         # setup the widget to live in the floater
@@ -402,7 +403,7 @@ class StackScanner(QtGui.QWidget):
 
                 # this will trigger via the call-back updating everything else
                 self._spinbox_intensity_step.setValue(
-                    (top_val - bottom_val)/100)
+                    (top_val - bottom_val) / 100)
         finally:
             # un-wrap the signal blocking
             [sb.blockSignals(state) for sb, state in reset_state]
