@@ -46,7 +46,7 @@ def _percentile_limit(im, limit_args):
     return np.percentile(im, limit_args)
 
 
-class xsection_viewer(object):
+class CrossSectionViewer(object):
     # The default number of bins to use in the _percentile_limit method
     _DEFAULT_NUM_BINS = 1000
 
