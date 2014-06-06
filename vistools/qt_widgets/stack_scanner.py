@@ -88,6 +88,10 @@ _CMAPS.sort()
 
 
 class StackScannerWidget(QtGui.QWidget):
+    """
+    This object contains the CrossSectionViewer (2D Image Display) and 
+    finish the doc string...
+    """
     # set up the signals
     sig_update_cmap = QtCore.Signal(str)
     sig_update_image = QtCore.Signal(np.ndarray)
