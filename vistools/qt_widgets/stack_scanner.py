@@ -485,5 +485,5 @@ class StackScannerWidget(QtGui.QWidget):
             self.update_frame(0)
 
     @QtCore.Slot(int)
-    def update_frame(self, n):
-        self.sig_update_image.emit(self._stack[n])
+    def update_frame(self, frame_idx):
+        self.sig_update_image.emit(self._stack[frame_idx])
