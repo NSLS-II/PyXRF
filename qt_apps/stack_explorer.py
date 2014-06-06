@@ -7,7 +7,8 @@ from __future__ import (absolute_import, division, print_function,
 
 from matplotlib.backends.qt4_compat import QtGui, QtCore
 import numpy as np
-import vistools.qt_widgets as qt_widgets
+from vistools.qt_widgets.stack_scanner import StackScanner
+
 import sys
 
 
@@ -40,7 +41,7 @@ class StackExplorer(QtGui.QMainWindow):
         QtGui.QMainWindow.__init__(self, parent)
         self.setWindowTitle('StackExplorer')
 
-        self._stack = qt_widgets.StackScanner(data_gen(25))
+        self._stack = StackScanner(data_gen(25))
 
         self._stack.setFocus()
         self.setCentralWidget(self._stack)
