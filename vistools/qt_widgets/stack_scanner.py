@@ -15,9 +15,9 @@ import matplotlib.colors
 import numpy as np
 
 
-class Xsection_widget(FigureCanvas):
+class CrossSectionCanvas(FigureCanvas):
     """
-    This is a thin wrapper around images.xsection_viewer which
+    This is a thin wrapper around images.CrossSectionViewer which
     manages the Qt side of the figure creation and provides slots
     to pass commands down to the gui-independent layer
     """
@@ -27,7 +27,7 @@ class Xsection_widget(FigureCanvas):
         FigureCanvas.__init__(self, self.fig)
         self.setParent(parent)
 
-        self._xsection = images.xsection_viewer(self.fig, init_image)
+        self._xsection = images.CrossSectionViewer(self.fig, init_image)
 
         FigureCanvas.setSizePolicy(self,
                                    QtGui.QSizePolicy.Expanding,
@@ -87,7 +87,7 @@ _CMAPS = datad.keys()
 _CMAPS.sort()
 
 
-class StackScanner(QtGui.QWidget):
+class StackScannerWidget(QtGui.QWidget):
     # set up the signals
     sig_update_cmap = QtCore.Signal(str)
     sig_update_image = QtCore.Signal(np.ndarray)
@@ -108,7 +108,7 @@ class StackScanner(QtGui.QWidget):
         # get the shape of the stack so that the stack direction can be varied
         self._dims = stack.shape
         # create the viewer widget
-        self.xsection_widget = Xsection_widget(stack[0])
+        self.xsection_widget = CrossSectionCanvas(stack[0])
 
         # connect up the signals/slots to boss the viewer around
         self.sig_update_cmap.connect(self.xsection_widget.sl_update_color_map)
