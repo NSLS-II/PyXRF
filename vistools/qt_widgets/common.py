@@ -1,7 +1,7 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 import six
-
+from collections import defaultdict
 
 from matplotlib.backends.qt4_compat import QtGui, QtCore
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas  # noqa
@@ -59,9 +59,54 @@ class PlotWidget(QtGui.QMainWindow):
         """
         return self._fig
 
+    @property
+    def control(self):
+        return self._ctl_widget
 
-class ControlContainer(QtGui.QWidget):
+
+class LimitSpinners(QtGui.QGroupBox):
+    # signal to be emitted when the spin boxes are changed
+    # and settled
+    valueChanged = QtCore.Signal(float, float)
+
+    def __init__(self, title='', parent=None):
+        QtGui.QGroupBox.__init__(self, title, parent=parent)
+
+        self._spinbox_min_intensity = QtGui.QDoubleSpinBox(parent=self)
+        self._spinbox_max_intensity = QtGui.QDoubleSpinBox(parent=self)
+        self._spinbox_intensity_step = QtGui.QDoubleSpinBox(parent=self)
+
+        ispiner_form = QtGui.QFormLayout()
+        ispiner_form.addRow("min", self._spinbox_min_intensity)
+        ispiner_form.addRow("max", self._spinbox_max_intensity)
+        ispiner_form.addRow("step", self._spinbox_intensity_step)
+        self.setLayout(ispiner_form)
+
+    # TODO
+
+    @QtCore.Slot(float, float)
+    def setValue(self, bottom, top):
+        """
+        """
+        pass
+
+    @QtCore.Slot(float)
+    def setStep(self, step):
+        """
+        """
+        pass
+
+
+class ControlContainer(QtGui.QGroupBox, _mapping_mixin):
     _delim = '.'
+
+    def __len__(self):
+        print('len')
+        return len(list(iter(self)))
+
+    def __contains__(self, key):
+        print('contains')
+        return key in iter(self)
 
     def __init__(self, parent=None):
         # call parent constructor
@@ -73,16 +118,23 @@ class ControlContainer(QtGui.QWidget):
         self._contents = dict()
 
         # specialized listings
-        self._comboboxs = dict()
-        self._sliders = dict()
-        self._labels = dict()
-        self._dict_disp = dict()
+        # this is a dict keyed on type of dicts
+        # The inner dicts are keyed on name
+        self._by_type = defaultdict(dict)
+
+        # make the layout
+        self._layout = QtGui.QVBoxLayout()
+        # add it to self
+        self.setLayout(self._layout)
 
     def __getitem__(self, key):
+        print(key)
         # TODO make this sensible un-wrap KeyException errors
-
-        # split the key
-        split_key = key.strip(self._delim).split(self._delim, 1)
+        try:
+            # split the key
+            split_key = key.strip(self._delim).split(self._delim, 1)
+        except TypeError:
+            raise KeyError("key is not a string")
         # if one element back -> no splitting needed
         if len(split_key) == 1:
             return self._contents[split_key[0]]
@@ -93,23 +145,69 @@ class ControlContainer(QtGui.QWidget):
             # get the container and pass through the remaining key
             return self._containers[outer][inner]
 
-    def add_container(self, key, container):
+    def create_container(self, key, container_name):
         pass
 
-    def add_combobox(self, key, key_list, editable=False):
+    def create_combobox(self, key, key_list, editable=False):
         pass
 
-    def add_slider(self, key, min_val, max_val, inc_spinbox=True):
+    def create_slider(self, key, min_val, max_val, stepsize=None,
+                    inc_spinbox=True):
+        """
+
+        Parameters
+        ----------
+        """
         pass
 
-    def add_label(self, key, text):
-        pass
+    def create_label(self, key, text):
+        """
+        Create and add a text label to the control panel
+        """
+        # create label
+        tmp_label = QtGui.QLabel(text)
+        self._add_widget(key, tmp_label)
+
+    def _add_widget(self, key, in_widget):
+        split_key = key.strip(self._delim).rsplit(self._delim, 1)
+        # key is not nested, add to this object
+        if len(split_key) == 1:
+            key = split_key[0]
+            # add to the type dict
+            self._by_type[type(in_widget)][key] = in_widget
+            # add to the contents list
+            self._contents[key] = in_widget
+            # add to layout
+            self._layout.addWidget(in_widget)
+        # else, grab the nested container and add it to that
+        else:
+            container, key = split_key
+            self[container]._add_widget(key, in_widget)
 
     def add_dict_display(self, key, input_dict):
         pass
 
     def iter_containers(self):
         return six.iterkeys(self._containers)
+
+    def _iter_helper(self, cur_path_list):
+        """
+        Recursively (depth-first) walk the tree and return the namesq
+        of the leaves
+
+        Parameters
+        ----------
+        cur_path_list : list of str
+            A list of the current path
+        """
+        for k, v in six.iteritems(self._containers):
+            for inner_v in v._iter_helper(cur_path_list + [k]):
+                yield inner_v
+        for k in six.iterkeys(self._contents):
+            yield self._delim.join(cur_path_list + [k])
+
+    def __iter__(self):
+        return self._iter_helper([])
 
 
 class DictDisplay(QtGui.QGroupBox):
@@ -193,3 +291,69 @@ class DictDisplay(QtGui.QGroupBox):
         self.full_layout.addWidget(tmp_widget)
         # add the row widget to
         self._disp_table.append(tmp_widget)
+
+
+class _mapping_mixin(object):
+    """
+    This is lifted from _abccoll.py but strips out the
+    meta-class stuff.  This is because the qt-classes have
+    a non-trivial meta class so the standard classes from
+    collections can not be used
+
+    client classes need to define:
+    __len__
+    __contains__
+    __getitem__
+    __iter__
+
+    or this will fail in unpredictable ways
+    """
+    def get(self, key, default=None):
+        'D.get(k[,d]) -> D[k] if k in D, else d.  d defaults to None.'
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def __contains__(self, key):
+        try:
+            self[key]
+        except KeyError:
+            return False
+        else:
+            return True
+
+    def iterkeys(self):
+        'D.iterkeys() -> an iterator over the keys of D'
+        return iter(self)
+
+    def itervalues(self):
+        'D.itervalues() -> an iterator over the values of D'
+        for key in self:
+            yield self[key]
+
+    def iteritems(self):
+        'D.iteritems() -> an iterator over the (key, value) items of D'
+        for key in self:
+            yield (key, self[key])
+
+    def keys(self):
+        "D.keys() -> list of D's keys"
+        return list(self)
+
+    def items(self):
+        "D.items() -> list of D's (key, value) pairs, as 2-tuples"
+        return [(key, self[key]) for key in self]
+
+    def values(self):
+        "D.values() -> list of D's values"
+        return [self[key] for key in self]
+
+    # Mappings are not hashable by default, but subclasses can change this
+    __hash__ = None
+
+    def __eq__(self, other):
+        return dict(self.items()) == dict(other.items())
+
+    def __ne__(self, other):
+        return not (self == other)
