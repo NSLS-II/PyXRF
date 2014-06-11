@@ -44,7 +44,7 @@ class OneDimCrossSectionViewer(object):
                  limit_func=None,
                  limit_args=None):
 
-    	# stash the figure
+        # stash the figure
         self.fig = fig
         # clean it
         self.fig.clf()
@@ -59,7 +59,7 @@ class OneDimCrossSectionViewer(object):
         self._imdata = init_image
         self._im = self._im_ax.plot(init_image)
         # self._im = self._im_ax.imshow(init_image, cmap=cmap, norm=norm,
-                                      # interpolation='none', aspect='equal')
+        # interpolation='none', aspect='equal')
 
 class OneDimCrossSectionCanvas(FigureCanvas):
     """
@@ -82,22 +82,30 @@ class OneDimCrossSectionCanvas(FigureCanvas):
 
 class OneDimScannerWidget(QtGui.QWidget):
 
-	def __init__(self, stack, page_size=10, parent=None):
-		QtGui.QWidget.__init__(self, parent)
-		# v_box_layout = QtGui.QVBoxLayout()
+    def __init__(self, stack, page_size=10, parent=None):
+        QtGui.QWidget.__init__(self, parent)
+        # v_box_layout = QtGui.QVBoxLayout()
 
-		self._stack = stack
+        self._stack = stack
 
-		self._len = len(stack)
-		
-		# create the viewer widget
-		self.xsection_widget = OneDimCrossSectionCanvas(stack[0])
+        self._len = len(stack)
+
+        # create the viewer widget
+        self._widget = OneDimCrossSectionCanvas(stack[0])
+        
+        # create a layout manager for the widget
+        v_box_layout = QtGui.QVBoxLayout()
+        
+        # add the 1D widget to the layout
+        v_box_layout.addWidget(self._widget)
+        
+        self.setLayout(v_box_layout)
 
 
 class OneDimStackExplorer(QtGui.QMainWindow):
     def __init__(self, parent=None):
         QtGui.QMainWindow.__init__(self, parent)
-        self.setWindowTitle('StackExplorer')
+        self.setWindowTitle('1-D Stack Plotting')
 
         # Need generate data
         self._stack = OneDimScannerWidget(data_gen(25))
@@ -109,7 +117,3 @@ app = QtGui.QApplication(sys.argv)
 tt = OneDimStackExplorer()
 tt.show()
 sys.exit(app.exec_())
-
-
-
-
