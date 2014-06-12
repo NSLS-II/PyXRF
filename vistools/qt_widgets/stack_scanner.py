@@ -89,7 +89,7 @@ _CMAPS.sort()
 
 class StackScannerWidget(QtGui.QWidget):
     """
-    This object contains the CrossSectionViewer (2D Image Display) and 
+    This object contains the CrossSectionViewer (2D Image Display) and
     finish the doc string...
     """
     # set up the signals
