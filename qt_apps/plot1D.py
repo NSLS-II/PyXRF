@@ -9,9 +9,10 @@ from matplotlib.backends.qt4_compat import QtGui, QtCore
 from matplotlib.ticker import NullLocator
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas  # noqa
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar  # noqa
+from matplotlib import cm, colors
 import numpy as np
 from matplotlib.figure import Figure
-from vistools.qt_widgets.common import LimitSpinners
+from vistools.qt_widgets import common
 
 import sys
 
@@ -55,37 +56,85 @@ class OneDimCrossSectionViewer(object):
         # save the y-data
         self._y = y_data
         # save the colormap
-        self._cmap = cmap
+        if norm is None:
+            self._cmap = cm.gray
+        else:
+            self._cmap = cmap
         # save the normalization
-        self._norm = norm
-        self._autoscale = False
-        self._x_offset = 0
-        self._y_offset = 0
-        self.plot()
-        self._artists = []
+        if norm is None:
+            self._norm = colors.Normalize(0, 1, clip=True)
+        else:
+            self._norm = norm
 
-    def set_y_offset(self, y_offset):
-        self._y_offset = y_offset
+        self._rgba = cm.ScalarMappable(norm=self._norm, cmap=self._cmap)
+
+        self._horz_offset = 0
+        self._vert_offset = 0
+        self._autoscale = False
+        self._cmap = "jet"
+
+        # create the matplotlib axes
+        self._im_ax = self._fig.add_subplot(1, 1, 1)
+        self._im_ax.set_aspect('equal')
+        # add the data to the axes
+        for idx in range(len(self._y)):
+            self._im_ax.plot(self._x[idx] + idx * self._horz_offset,
+                             self._y[idx] + idx * self._vert_offset)
+
+    def set_vert_offset(self, vert_offset):
+        """
+        Set the vertical offset for additional lines that are to be plotted
+
+        Parameters
+        ----------
+        vert_offset : number
+            The amount of vertical shift to add to each line in the data stack
+        """
+        self._vert_offset = vert_offset
         self.replot()
 
-    def set_x_offset(self, x_offset):
-        self._x_offset = x_offset
+    def set_horz_offset(self, horz_offset):
+        """
+        Set the horizontal offset for additional lines that are to be plotted
+
+        Parameters
+        ----------
+        horz_offset : number
+            The amount of horizontal shift to add to each line in the data
+            stack
+        """
+        self._horz_offset = horz_offset
         self.replot()
 
     def add_line(self, x, y):
+        """
+        Add a line to the matplotlib axes object
+
+        Parameters
+        ----------
+        x : array-like
+            M x 1 array, x-axis
+        y : array-like
+            M x 1 array, y-axis
+        """
         self._x.append(x)
         self._y.append(y)
 
     def replot(self):
+        """
+        Replot the data after modifying a display parameter (e.g.,
+        offset or autoscaling) or adding new data
+        """
         print("replotting with x_offset={0} and y_offset={1}".
-              format(self._x_offset, self._y_offset))
+              format(self._horz_offset, self._vert_offset))
 
         for idx in range(len(self._im_ax.lines)):
-
             self._im_ax.lines[idx].set_xdata(self._x[idx] +
-                                             idx * self._x_offset)
+                                             idx * self._horz_offset)
             self._im_ax.lines[idx].set_ydata(self._y[idx] +
-                                             idx * self._y_offset)
+                                             idx * self._vert_offset)
+            norm = idx / len(self._im_ax.lines)
+            self._im_ax.lines[idx].set_color(self._rgba.to_rgba(x=norm))
 
         if(self._autoscale):
             (min_x, max_x, min_y, max_y) = self.find_range()
@@ -93,6 +142,15 @@ class OneDimCrossSectionViewer(object):
             self._im_ax.set_ylim(min_y, max_y)
 
     def set_auto_scale(self, is_autoscaling):
+        """
+        Enable/disable autoscaling of the axes to show all data
+
+        Parameters
+        ----------
+        is_autoscaling: bool
+            Automatically rescale the axes to show all the data (true)
+            or stop automatically rescaling the axes (false)
+        """
         print("autoscaling: {0}".format(is_autoscaling))
         self._autoscale = is_autoscaling
         self.replot()
@@ -119,14 +177,21 @@ class OneDimCrossSectionViewer(object):
 
         return (np.min(min_x), np.max(max_x), np.min(min_y), np.max(max_y))
 
-    def plot(self):
+    def init_plot(self):
+        """
+        """
         # (in matplotlib speak the 'main axes' is the 2d
         # image in the middle of the canvas)
-        self._im_ax = self._fig.add_subplot(1, 1, 1)
-        self._im_ax.set_aspect('equal')
-        for idx in range(len(self._y)):
-            self._im_ax.plot(self._x[idx] + idx * self._x_offset,
-                             self._y[idx] + idx * self._y_offset)
+
+    def update_colormap(self, new_cmap):
+        """
+        Update the color map used to display the image
+        """
+        # TODO: Fix color map so that it sets the instance variable color
+        # map and then in calls to "replot", each line gets mapped to one
+        # of the colors
+        self._rgba = cm.ScalarMappable(norm=self._norm, cmap=new_cmap)
+        self.replot()
 
 
 def plot_diff(ax, data, norm=None):
@@ -160,9 +225,57 @@ def plot_diff(ax, data, norm=None):
     return lns
 
 
+class OneDimCrossSectionCanvas(FigureCanvas):
+    """
+    This is a thin wrapper around images.CrossSectionViewer which
+    manages the Qt side of the figure creation and provides slots
+    to pass commands down to the gui-independent layer
+    """
+    def __init__(self, x, y, parent=None):
+        width = height = 24
+        self.fig = Figure(figsize=(width, height))
+        FigureCanvas.__init__(self, self.fig)
+        self.setParent(parent)
+
+        self._view = OneDimCrossSectionViewer(self.fig, x, y)
+
+        FigureCanvas.setSizePolicy(self,
+                                   QtGui.QSizePolicy.Expanding,
+                                   QtGui.QSizePolicy.Expanding)
+        FigureCanvas.updateGeometry(self)
+
+    @QtCore.Slot(float)
+    def sl_update_x_offset(self, x_offset):
+        self._view.set_horz_offset(x_offset)
+        self.draw()
+
+    @QtCore.Slot(float)
+    def sl_update_y_offset(self, y_offset):
+        self._view.set_vert_offset(y_offset)
+        self.draw()
+
+    @QtCore.Slot(bool)
+    def sl_update_autoscaling(self, is_autoscaling):
+        self._view.set_auto_scale(is_autoscaling)
+        self.draw()
+
+    @QtCore.Slot(str)
+    def sl_update_color_map(self, cmap):
+        """
+        Updates the color map.  Currently takes a string, should probably be
+        redone to take a cmap object and push the look up function up a layer
+        so that we do not need the try..except block.
+        """
+        try:
+            self._view.update_colormap(str(cmap))
+        except ValueError:
+            pass
+        self.draw()
+
+
 class ControlWidget(QtGui.QDockWidget):
     """
-    Control widget class docstring
+    Control widget class
     """
     def __init__(self, name):
         """
@@ -213,6 +326,12 @@ class ControlWidget(QtGui.QDockWidget):
 
         self._autoscale_box = QtGui.QCheckBox(parent=self)
 
+        # set up color map combo box
+        self._cm_cb = QtGui.QComboBox(parent=self)
+        self._cm_cb.setEditable(True)
+        self._cm_cb.addItems(common._CMAPS)
+        self._cm_cb.setEditText('gray')
+
         # create the layout
         layout = QtGui.QFormLayout()
 
@@ -224,44 +343,10 @@ class ControlWidget(QtGui.QDockWidget):
         layout.addRow("y step", self._y_shift_step_spinbox)
         layout.addRow("--- Misc. ---", None)
         layout.addRow("autoscale data view", self._autoscale_box)
+        layout.addRow("color scheme", self._cm_cb)
         # set the widget layout
         self._widget.setLayout(layout)
         self.setWidget(self._widget)
-
-
-class OneDimCrossSectionCanvas(FigureCanvas):
-    """
-    This is a thin wrapper around images.CrossSectionViewer which
-    manages the Qt side of the figure creation and provides slots
-    to pass commands down to the gui-independent layer
-    """
-    def __init__(self, x, y, parent=None):
-        width = height = 24
-        self.fig = Figure(figsize=(width, height))
-        FigureCanvas.__init__(self, self.fig)
-        self.setParent(parent)
-
-        self._view = OneDimCrossSectionViewer(self.fig, x, y)
-
-        FigureCanvas.setSizePolicy(self,
-                                   QtGui.QSizePolicy.Expanding,
-                                   QtGui.QSizePolicy.Expanding)
-        FigureCanvas.updateGeometry(self)
-
-    @QtCore.Slot(float)
-    def sl_update_x_offset(self, x_offset):
-        self._view.set_x_offset(x_offset)
-        self.draw()
-
-    @QtCore.Slot(float)
-    def sl_update_y_offset(self, y_offset):
-        self._view.set_y_offset(y_offset)
-        self.draw()
-
-    @QtCore.Slot(bool)
-    def sl_update_autoscaling(self, is_autoscaling):
-        self._view.set_auto_scale(is_autoscaling)
-        self.draw()
 
 
 class OneDimScannerWidget(QtGui.QWidget):
@@ -301,9 +386,14 @@ class OneDimStackExplorer(QtGui.QMainWindow):
         self._ctrl = ControlWidget("1-D Stack Controls")
 
         # connect signals/slots between view widget and control widget
-        self._ctrl._x_shift_spinbox.valueChanged.connect(self._widget._canvas.sl_update_x_offset)
-        self._ctrl._y_shift_spinbox.valueChanged.connect(self._widget._canvas.sl_update_y_offset)
-        self._ctrl._autoscale_box.clicked.connect(self._widget._canvas.sl_update_autoscaling)
+        self._ctrl._x_shift_spinbox.valueChanged.connect(
+            self._widget._canvas.sl_update_x_offset)
+        self._ctrl._y_shift_spinbox.valueChanged.connect(
+            self._widget._canvas.sl_update_y_offset)
+        self._ctrl._autoscale_box.clicked.connect(
+            self._widget._canvas.sl_update_autoscaling)
+        self._ctrl._cm_cb.editTextChanged[str].connect(
+            self._widget._canvas.sl_update_color_map)
 
         self._widget.setFocus()
         self.setCentralWidget(self._widget)

@@ -7,6 +7,10 @@ from matplotlib.backends.qt4_compat import QtGui, QtCore
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas  # noqa
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar  # noqa
 from matplotlib.figure import Figure
+from matplotlib.cm import datad
+
+_CMAPS = datad.keys()
+_CMAPS.sort()
 
 
 class PlotWidget(QtGui.QMainWindow):
