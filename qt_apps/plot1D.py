@@ -16,7 +16,7 @@ from vistools.qt_widgets.common import LimitSpinners
 import sys
 
 
-def data_gen(num_sets, phase_shift=0.1, vertical_shift=0.1):
+def data_gen(num_sets, phase_shift=0.1, vert_shift=0.1, horz_shift=0.1):
     """
     Generate some data
 
@@ -32,10 +32,12 @@ def data_gen(num_sets, phase_shift=0.1, vertical_shift=0.1):
     y : list of np.ndarray
         y-coordinates
     """
-    x = np.arange(0, 25, .01)
+    x_axis = np.arange(0, 25, .01)
+    x = []
     y = []
     for idx in range(num_sets):
-        y.append(np.sin(x + idx * phase_shift) + idx * vertical_shift)
+        x.append(x_axis + idx * horz_shift)
+        y.append(np.sin(x_axis + idx * phase_shift) + idx * vert_shift)
 
     return x, y
 
@@ -56,9 +58,11 @@ class OneDimCrossSectionViewer(object):
         self._cmap = cmap
         # save the normalization
         self._norm = norm
+        self._autoscale = False
         self._x_offset = 0
         self._y_offset = 0
-        self.replot()
+        self.plot()
+        self._artists = []
 
     def set_y_offset(self, y_offset):
         self._y_offset = y_offset
@@ -68,17 +72,60 @@ class OneDimCrossSectionViewer(object):
         self._x_offset = x_offset
         self.replot()
 
-    def replot(self):
-        print("replotting with x_offset={0} and y_offset={1}".format(self._x_offset, self._y_offset))
-        self._fig.clf()
+    def add_line(self, x, y):
+        self._x.append(x)
+        self._y.append(y)
 
-        # make the main axes
+    def replot(self):
+        print("replotting with x_offset={0} and y_offset={1}".
+              format(self._x_offset, self._y_offset))
+
+        for idx in range(len(self._im_ax.lines)):
+
+            self._im_ax.lines[idx].set_xdata(self._x[idx] +
+                                             idx * self._x_offset)
+            self._im_ax.lines[idx].set_ydata(self._y[idx] +
+                                             idx * self._y_offset)
+
+        if(self._autoscale):
+            (min_x, max_x, min_y, max_y) = self.find_range()
+            self._im_ax.set_xlim(min_x, max_x)
+            self._im_ax.set_ylim(min_y, max_y)
+
+    def set_auto_scale(self, is_autoscaling):
+        print("autoscaling: {0}".format(is_autoscaling))
+        self._autoscale = is_autoscaling
+        self.replot()
+
+    def find_range(self):
+        """
+        Find the min/max in x and y
+
+        Returns
+        -------
+        (min_x, max_x, min_y, max_y)
+        """
+        # find min/max in x and y
+        min_x = np.zeros(len(self._im_ax.lines))
+        max_x = np.zeros(len(self._im_ax.lines))
+        min_y = np.zeros(len(self._im_ax.lines))
+        max_y = np.zeros(len(self._im_ax.lines))
+
+        for idx in range(len(self._im_ax.lines)):
+            min_x[idx] = np.min(self._im_ax.lines[idx].get_xdata())
+            max_x[idx] = np.max(self._im_ax.lines[idx].get_xdata())
+            min_y[idx] = np.min(self._im_ax.lines[idx].get_ydata())
+            max_y[idx] = np.max(self._im_ax.lines[idx].get_ydata())
+
+        return (np.min(min_x), np.max(max_x), np.min(min_y), np.max(max_y))
+
+    def plot(self):
         # (in matplotlib speak the 'main axes' is the 2d
         # image in the middle of the canvas)
         self._im_ax = self._fig.add_subplot(1, 1, 1)
         self._im_ax.set_aspect('equal')
         for idx in range(len(self._y)):
-            self._im_ax.plot(self._x + idx * self._x_offset,
+            self._im_ax.plot(self._x[idx] + idx * self._x_offset,
                              self._y[idx] + idx * self._y_offset)
 
 
@@ -132,12 +179,51 @@ class ControlWidget(QtGui.QDockWidget):
         # add a widget that lives in the floating control widget
         self._widget = QtGui.QWidget(self)
 
+        # create the offset spin boxes
         self._x_shift_spinbox = QtGui.QDoubleSpinBox(parent=self)
         self._y_shift_spinbox = QtGui.QDoubleSpinBox(parent=self)
 
+        # create the offset step size spin boxes
+        self._x_shift_step_spinbox = QtGui.QDoubleSpinBox(parent=self)
+        self._y_shift_step_spinbox = QtGui.QDoubleSpinBox(parent=self)
+
+        # set the min/max limits
+        default_min = -100
+        default_max = 100
+        default_step = 0.01
+        self._x_shift_spinbox.setMinimum(default_min)
+        self._y_shift_spinbox.setMinimum(default_min)
+        self._x_shift_step_spinbox.setMinimum(default_min)
+        self._y_shift_step_spinbox.setMinimum(default_min)
+        self._x_shift_spinbox.setMaximum(default_max)
+        self._y_shift_spinbox.setMaximum(default_max)
+        self._x_shift_step_spinbox.setMaximum(default_max)
+        self._y_shift_step_spinbox.setMaximum(default_max)
+        self._x_shift_spinbox.setSingleStep(default_step)
+        self._y_shift_spinbox.setSingleStep(default_step)
+        self._x_shift_step_spinbox.setSingleStep(default_step)
+        self._y_shift_step_spinbox.setSingleStep(default_step)
+
+        self._x_shift_step_spinbox.setValue(default_step)
+        self._y_shift_step_spinbox.setValue(default_step)
+
+        # connect the signals
+        self._x_shift_step_spinbox.valueChanged.connect(self._x_shift_spinbox.setSingleStep)
+        self._y_shift_step_spinbox.valueChanged.connect(self._y_shift_spinbox.setSingleStep)
+
+        self._autoscale_box = QtGui.QCheckBox(parent=self)
+
+        # create the layout
         layout = QtGui.QFormLayout()
-        layout.addRow("x_shift", self._x_shift_spinbox)
-        layout.addRow("y_shift", self._y_shift_spinbox)
+
+        # add the controls to the layout
+        layout.addRow("--- Curve Shift ---", None)
+        layout.addRow("x shift", self._x_shift_spinbox)
+        layout.addRow("y shift", self._y_shift_spinbox)
+        layout.addRow("x step", self._x_shift_step_spinbox)
+        layout.addRow("y step", self._y_shift_step_spinbox)
+        layout.addRow("--- Misc. ---", None)
+        layout.addRow("autoscale data view", self._autoscale_box)
         # set the widget layout
         self._widget.setLayout(layout)
         self.setWidget(self._widget)
@@ -165,10 +251,17 @@ class OneDimCrossSectionCanvas(FigureCanvas):
     @QtCore.Slot(float)
     def sl_update_x_offset(self, x_offset):
         self._view.set_x_offset(x_offset)
+        self.draw()
 
     @QtCore.Slot(float)
     def sl_update_y_offset(self, y_offset):
         self._view.set_y_offset(y_offset)
+        self.draw()
+
+    @QtCore.Slot(bool)
+    def sl_update_autoscaling(self, is_autoscaling):
+        self._view.set_auto_scale(is_autoscaling)
+        self.draw()
 
 
 class OneDimScannerWidget(QtGui.QWidget):
@@ -201,13 +294,16 @@ class OneDimStackExplorer(QtGui.QMainWindow):
     def __init__(self, parent=None):
         QtGui.QMainWindow.__init__(self, parent)
         self.setWindowTitle('1-D Stack Plotting')
-
-        x, y = data_gen(25)
-        # Need generate data
+        # Generate data
+        x, y = data_gen(100, phase_shift=0, horz_shift=0, vert_shift=0)
+        # create view widget and control widget
         self._widget = OneDimScannerWidget(x, y)
         self._ctrl = ControlWidget("1-D Stack Controls")
+
+        # connect signals/slots between view widget and control widget
         self._ctrl._x_shift_spinbox.valueChanged.connect(self._widget._canvas.sl_update_x_offset)
         self._ctrl._y_shift_spinbox.valueChanged.connect(self._widget._canvas.sl_update_y_offset)
+        self._ctrl._autoscale_box.clicked.connect(self._widget._canvas.sl_update_autoscaling)
 
         self._widget.setFocus()
         self.setCentralWidget(self._widget)
