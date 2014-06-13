@@ -455,7 +455,7 @@ class OneDimStackControlWidget(QtGui.QDockWidget):
         self.sig_remove_first_data.emit()
 
 
-class OneDimStackWidget(QtGui.QWidget):
+class OneDimStackViewWidget(QtGui.QWidget):
 
     def __init__(self, x_axis, y_data, page_size=10, parent=None):
         QtGui.QWidget.__init__(self, parent)
@@ -481,14 +481,14 @@ class OneDimStackWidget(QtGui.QWidget):
         self.setLayout(v_box_layout)
 
 
-class OneDimStackExplorer(QtGui.QMainWindow):
+class OneDimStackMainWindow(QtGui.QMainWindow):
     def __init__(self, parent=None):
         QtGui.QMainWindow.__init__(self, parent)
         self.setWindowTitle('1-D Stack Plotting')
         # Generate data
         x, y = data_gen(num_sets=100, phase_shift=0, horz_shift=0, vert_shift=0)
         # create view widget and control widget
-        self._widget = OneDimStackWidget(x, y)
+        self._widget = OneDimStackViewWidget(x, y)
         self._ctrl = OneDimStackControlWidget("1-D Stack Controls")
 
         # connect signals/slots between view widget and control widget
@@ -516,6 +516,6 @@ class OneDimStackExplorer(QtGui.QMainWindow):
                            self._ctrl)
 
 app = QtGui.QApplication(sys.argv)
-tt = OneDimStackExplorer()
+tt = OneDimStackMainWindow()
 tt.show()
 sys.exit(app.exec_())
