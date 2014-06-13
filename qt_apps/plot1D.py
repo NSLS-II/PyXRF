@@ -43,18 +43,31 @@ def data_gen(num_sets, phase_shift=0.1, vert_shift=0.1, horz_shift=0.1):
     return x, y
 
 
-class OneDimCrossSectionViewer(object):
+class OneDimStackViewer(object):
 
-    def __init__(self, fig, x, y_data,
+    def __init__(self, fig, x, y,
                  cmap=None,
                  norm=None):
+        """
+        __init__ docstring
+
+        Parameters
+        ----------
+        fig : figure to draw the artists on
+        x : list
+            list of x-coordinates
+        y : list
+            list of y-coordinates
+        cmap : colormap that matplotlib understands
+        norm : mpl.colors.Normalize
+        """
 
         # stash the figure
         self._fig = fig
         # save the x-axis
         self._x = x
         # save the y-data
-        self._y = y_data
+        self._y = y
         # save the colormap
         if cmap is None:
             self._cmap = common._CMAPS[0]
@@ -74,11 +87,11 @@ class OneDimCrossSectionViewer(object):
         self._cmap = "jet"
 
         # create the matplotlib axes
-        self._im_ax = self._fig.add_subplot(1, 1, 1)
-        self._im_ax.set_aspect('equal')
+        self._ax = self._fig.add_subplot(1, 1, 1)
+        self._ax.set_aspect('equal')
         # add the data to the axes
         for idx in range(len(self._y)):
-            self._im_ax.plot(self._x[idx] + idx * self._horz_offset,
+            self._ax.plot(self._x[idx] + idx * self._horz_offset,
                              self._y[idx] + idx * self._vert_offset)
 
     def set_vert_offset(self, vert_offset):
@@ -91,7 +104,6 @@ class OneDimCrossSectionViewer(object):
             The amount of vertical shift to add to each line in the data stack
         """
         self._vert_offset = vert_offset
-        self.replot()
 
     def set_horz_offset(self, horz_offset):
         """
@@ -104,7 +116,6 @@ class OneDimCrossSectionViewer(object):
             stack
         """
         self._horz_offset = horz_offset
-        self.replot()
 
     def add_line(self, x, y):
         """
@@ -125,21 +136,18 @@ class OneDimCrossSectionViewer(object):
         Replot the data after modifying a display parameter (e.g.,
         offset or autoscaling) or adding new data
         """
-        print("replotting with x_offset={0} and y_offset={1}".
-              format(self._horz_offset, self._vert_offset))
-
-        for idx in range(len(self._im_ax.lines)):
-            self._im_ax.lines[idx].set_xdata(self._x[idx] +
+        for idx in range(len(self._ax.lines)):
+            self._ax.lines[idx].set_xdata(self._x[idx] +
                                              idx * self._horz_offset)
-            self._im_ax.lines[idx].set_ydata(self._y[idx] +
+            self._ax.lines[idx].set_ydata(self._y[idx] +
                                              idx * self._vert_offset)
-            norm = idx / len(self._im_ax.lines)
-            self._im_ax.lines[idx].set_color(self._rgba.to_rgba(x=norm))
+            norm = idx / len(self._ax.lines)
+            self._ax.lines[idx].set_color(self._rgba.to_rgba(x=norm))
 
         if(self._autoscale):
             (min_x, max_x, min_y, max_y) = self.find_range()
-            self._im_ax.set_xlim(min_x, max_x)
-            self._im_ax.set_ylim(min_y, max_y)
+            self._ax.set_xlim(min_x, max_x)
+            self._ax.set_ylim(min_y, max_y)
 
     def set_auto_scale(self, is_autoscaling):
         """
@@ -153,7 +161,6 @@ class OneDimCrossSectionViewer(object):
         """
         print("autoscaling: {0}".format(is_autoscaling))
         self._autoscale = is_autoscaling
-        self.replot()
 
     def find_range(self):
         """
@@ -164,24 +171,18 @@ class OneDimCrossSectionViewer(object):
         (min_x, max_x, min_y, max_y)
         """
         # find min/max in x and y
-        min_x = np.zeros(len(self._im_ax.lines))
-        max_x = np.zeros(len(self._im_ax.lines))
-        min_y = np.zeros(len(self._im_ax.lines))
-        max_y = np.zeros(len(self._im_ax.lines))
+        min_x = np.zeros(len(self._ax.lines))
+        max_x = np.zeros(len(self._ax.lines))
+        min_y = np.zeros(len(self._ax.lines))
+        max_y = np.zeros(len(self._ax.lines))
 
-        for idx in range(len(self._im_ax.lines)):
-            min_x[idx] = np.min(self._im_ax.lines[idx].get_xdata())
-            max_x[idx] = np.max(self._im_ax.lines[idx].get_xdata())
-            min_y[idx] = np.min(self._im_ax.lines[idx].get_ydata())
-            max_y[idx] = np.max(self._im_ax.lines[idx].get_ydata())
+        for idx in range(len(self._ax.lines)):
+            min_x[idx] = np.min(self._ax.lines[idx].get_xdata())
+            max_x[idx] = np.max(self._ax.lines[idx].get_xdata())
+            min_y[idx] = np.min(self._ax.lines[idx].get_ydata())
+            max_y[idx] = np.max(self._ax.lines[idx].get_ydata())
 
         return (np.min(min_x), np.max(max_x), np.min(min_y), np.max(max_y))
-
-    def init_plot(self):
-        """
-        """
-        # (in matplotlib speak the 'main axes' is the 2d
-        # image in the middle of the canvas)
 
     def update_colormap(self, new_cmap):
         """
@@ -191,41 +192,9 @@ class OneDimCrossSectionViewer(object):
         # map and then in calls to "replot", each line gets mapped to one
         # of the colors
         self._rgba = cm.ScalarMappable(norm=self._norm, cmap=new_cmap)
-        self.replot()
 
 
-def plot_diff(ax, data, norm=None):
-    """
-    Parameters
-    ----------
-    ax : Axes
-        The axes to plot into
-    data : ndarray
-        MxN array of data
-    q_vec : ndarray
-        length M array of q-values
-    c : ndarray
-        scalars to be used for color mapping
-    norm : scalar, ndarray or None
-        if None, defaults to 1.  Valure used to normalize data.
-
-    Returns
-    -------
-    lns : list
-        list of line artists returned
-    """
-    if norm is None:
-        norm = 1
-    lns = []
-    data = data / norm
-
-    for d in data:
-        ln, = ax.plot(d)
-        lns.append(ln)
-    return lns
-
-
-class OneDimCrossSectionCanvas(FigureCanvas):
+class OneDimStackCanvas(FigureCanvas):
     """
     This is a thin wrapper around images.CrossSectionViewer which
     manages the Qt side of the figure creation and provides slots
@@ -237,7 +206,7 @@ class OneDimCrossSectionCanvas(FigureCanvas):
         FigureCanvas.__init__(self, self.fig)
         self.setParent(parent)
 
-        self._view = OneDimCrossSectionViewer(self.fig, x, y)
+        self._view = OneDimStackViewer(self.fig, x, y)
 
         FigureCanvas.setSizePolicy(self,
                                    QtGui.QSizePolicy.Expanding,
@@ -247,16 +216,19 @@ class OneDimCrossSectionCanvas(FigureCanvas):
     @QtCore.Slot(float)
     def sl_update_x_offset(self, x_offset):
         self._view.set_horz_offset(x_offset)
+        self._view.replot()
         self.draw()
 
     @QtCore.Slot(float)
     def sl_update_y_offset(self, y_offset):
         self._view.set_vert_offset(y_offset)
+        self._view.replot()
         self.draw()
 
     @QtCore.Slot(bool)
     def sl_update_autoscaling(self, is_autoscaling):
         self._view.set_auto_scale(is_autoscaling)
+        self._view.replot()
         self.draw()
 
     @QtCore.Slot(str)
@@ -270,10 +242,45 @@ class OneDimCrossSectionCanvas(FigureCanvas):
             self._view.update_colormap(str(cmap))
         except ValueError:
             pass
+        self._view.replot()
+        self.draw()
+
+    @QtCore.Slot(np.ndarray, np.ndarray)
+    def set_data(self, x, y):
+        """
+        Overwrites the data
+
+        Parameters
+        ----------
+        x : np.ndarray
+            1 or more columns of x-coordinates.  Must be the same shape as y.
+        y : np.ndarray
+            1 or more columns of y-coordinates.  Must be the same shape as x.
+        """
+
+        self._view._x = x
+        self._view._y = y
+        self._view.replot()
+        self.draw()
+
+    @QtCore.Slot(np.ndarray)
+    def add_data(self, x, y):
+        """
+        Overwrites the data
+
+        Parameters
+        ----------
+        x : np.ndarray
+            1 or more columns of x-coordinates.  Must be the same shape as y.
+        y : np.ndarray
+            1 or more columns of y-coordinates.  Must be the same shape as x.
+        """
+        self._view.add_line(x, y)
+        self._view.replot()
         self.draw()
 
 
-class ControlWidget(QtGui.QDockWidget):
+class OneDimStackControlWidget(QtGui.QDockWidget):
     """
     Control widget class
     """
@@ -349,7 +356,7 @@ class ControlWidget(QtGui.QDockWidget):
         self.setWidget(self._widget)
 
 
-class OneDimScannerWidget(QtGui.QWidget):
+class OneDimStackWidget(QtGui.QWidget):
 
     def __init__(self, x_axis, y_data, page_size=10, parent=None):
         QtGui.QWidget.__init__(self, parent)
@@ -361,7 +368,7 @@ class OneDimScannerWidget(QtGui.QWidget):
         self._len = len(y_data)
 
         # create the viewer widget
-        self._canvas = OneDimCrossSectionCanvas(x_axis, y_data)
+        self._canvas = OneDimStackCanvas(x_axis, y_data)
 
         # create a layout manager for the widget
         v_box_layout = QtGui.QVBoxLayout()
@@ -382,8 +389,8 @@ class OneDimStackExplorer(QtGui.QMainWindow):
         # Generate data
         x, y = data_gen(100, phase_shift=0, horz_shift=0, vert_shift=0)
         # create view widget and control widget
-        self._widget = OneDimScannerWidget(x, y)
-        self._ctrl = ControlWidget("1-D Stack Controls")
+        self._widget = OneDimStackWidget(x, y)
+        self._ctrl = OneDimStackControlWidget("1-D Stack Controls")
 
         # connect signals/slots between view widget and control widget
         self._ctrl._x_shift_spinbox.valueChanged.connect(
