@@ -56,8 +56,8 @@ class OneDimCrossSectionViewer(object):
         # save the y-data
         self._y = y_data
         # save the colormap
-        if norm is None:
-            self._cmap = cm.gray
+        if cmap is None:
+            self._cmap = common._CMAPS[0]
         else:
             self._cmap = cmap
         # save the normalization
@@ -330,7 +330,7 @@ class ControlWidget(QtGui.QDockWidget):
         self._cm_cb = QtGui.QComboBox(parent=self)
         self._cm_cb.setEditable(True)
         self._cm_cb.addItems(common._CMAPS)
-        self._cm_cb.setEditText('gray')
+        self._cm_cb.setEditText(common._CMAPS[0])
 
         # create the layout
         layout = QtGui.QFormLayout()
