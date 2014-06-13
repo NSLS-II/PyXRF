@@ -17,7 +17,7 @@ from vistools.qt_widgets import common
 import sys
 
 
-def data_gen(num_sets, phase_shift=0.1, vert_shift=0.1, horz_shift=0.1):
+def data_gen(num_sets=1, phase_shift=0.1, vert_shift=0.1, horz_shift=0.1):
     """
     Generate some data
 
@@ -117,19 +117,23 @@ class OneDimStackViewer(object):
         """
         self._horz_offset = horz_offset
 
-    def add_line(self, x, y):
+    def add_line(self, x_data, y_data):
         """
         Add a line to the matplotlib axes object
 
         Parameters
         ----------
-        x : array-like
-            M x 1 array, x-axis
-        y : array-like
-            M x 1 array, y-axis
+        x_data : array-like
+            M x_data 1 array, x_data-axis
+        y_data : array-like
+            M x_data 1 array, y_data-axis
         """
-        self._x.append(x)
-        self._y.append(y)
+        prev_len = len(self._x)
+        for idx in range(len(x_data)):
+            self._x.append(x_data[idx])
+            self._y.append(y_data[idx])
+            self._ax.plot(self._x[prev_len + idx] + (prev_len + idx) * self._horz_offset,
+                          self._y[prev_len + idx] + (prev_len + idx) * self._vert_offset)
 
     def replot(self):
         """
@@ -170,6 +174,9 @@ class OneDimStackViewer(object):
         -------
         (min_x, max_x, min_y, max_y)
         """
+        if len(self._ax.lines) == 0:
+            return 0, 1, 0, 1
+
         # find min/max in x and y
         min_x = np.zeros(len(self._ax.lines))
         max_x = np.zeros(len(self._ax.lines))
@@ -192,6 +199,28 @@ class OneDimStackViewer(object):
         # map and then in calls to "replot", each line gets mapped to one
         # of the colors
         self._rgba = cm.ScalarMappable(norm=self._norm, cmap=new_cmap)
+
+    def remove_data(self, idx):
+        """
+        Remove the data at the position specified by idx
+
+        Parameters
+        ----------
+        idx : int
+
+        Returns
+        -------
+        x : np.ndarray
+            x-coordinate array
+        y : np.ndarray
+            y-coordinate array
+        line : mpl 2D line artist
+        """
+        if idx < len(self._ax.lines):
+            x = self._x.pop(idx)
+            y = self._y.pop(idx)
+            line = self._ax.lines.pop(idx)
+            return x, y, line
 
 
 class OneDimStackCanvas(FigureCanvas):
@@ -246,7 +275,7 @@ class OneDimStackCanvas(FigureCanvas):
         self.draw()
 
     @QtCore.Slot(np.ndarray, np.ndarray)
-    def set_data(self, x, y):
+    def sl_set_data(self, x, y):
         """
         Overwrites the data
 
@@ -263,8 +292,8 @@ class OneDimStackCanvas(FigureCanvas):
         self._view.replot()
         self.draw()
 
-    @QtCore.Slot(np.ndarray)
-    def add_data(self, x, y):
+    @QtCore.Slot(list, list)
+    def sl_add_data(self, x, y):
         """
         Overwrites the data
 
@@ -276,6 +305,38 @@ class OneDimStackCanvas(FigureCanvas):
             1 or more columns of y-coordinates.  Must be the same shape as x.
         """
         self._view.add_line(x, y)
+        self._view.replot()
+        self.draw()
+
+    @QtCore.Slot()
+    def sl_clear_lines(self):
+        """
+        docstring
+        """
+        self._view._y = []
+        self._view._x = []
+        self._view._ax.clear()
+        self._view.replot()
+        self.draw()
+
+    @QtCore.Slot()
+    def sl_remove_last_line(self):
+        """
+        docstring
+        """
+        if self._view._x is not None and self._view._y is not None:
+            self._view._x.pop()
+            self._view._y.pop()
+        self._view.replot()
+        self.draw()
+
+    @QtCore.Slot()
+    def sl_remove_first_line(self):
+        """
+        docstring
+        """
+        if self._view._x is not None and self._view._y is not None:
+            self._view.remove_data(0)
         self._view.replot()
         self.draw()
 
@@ -339,6 +400,17 @@ class OneDimStackControlWidget(QtGui.QDockWidget):
         self._cm_cb.addItems(common._CMAPS)
         self._cm_cb.setEditText(common._CMAPS[0])
 
+        # add data_gen button
+        self._btn_datagen = QtGui.QPushButton("add data set", parent=self)
+        self._btn_dataclear = QtGui.QPushButton("clear data", parent=self)
+        self._btn_dataremovefirst = QtGui.QPushButton("remove first data set", parent=self)
+        self._btn_dataremovelast = QtGui.QPushButton("remove last data set", parent=self)
+
+        self._btn_datagen.clicked.connect(self.btn_datagen)
+        self._btn_dataclear.clicked.connect(self.btn_clear)
+        self._btn_dataremovefirst.clicked.connect(self.btn_remove_first)
+        self._btn_dataremovelast.clicked.connect(self.btn_remove_last)
+
         # create the layout
         layout = QtGui.QFormLayout()
 
@@ -351,9 +423,36 @@ class OneDimStackControlWidget(QtGui.QDockWidget):
         layout.addRow("--- Misc. ---", None)
         layout.addRow("autoscale data view", self._autoscale_box)
         layout.addRow("color scheme", self._cm_cb)
+        layout.addRow("", self._btn_datagen)
+        layout.addRow("", self._btn_dataclear)
+        layout.addRow("", self._btn_dataremovefirst)
+        layout.addRow("", self._btn_dataremovelast)
         # set the widget layout
         self._widget.setLayout(layout)
         self.setWidget(self._widget)
+
+    # set up the signals
+    sig_add_data = QtCore.Signal(list, list)
+    sig_clear_data = QtCore.Signal()
+    sig_remove_last_data = QtCore.Signal()
+    sig_remove_first_data = QtCore.Signal()
+
+    @QtCore.Slot()
+    def btn_datagen(self):
+        self.sig_add_data.emit(*data_gen(100, phase_shift=0,
+                                        horz_shift=0, vert_shift=0))
+
+    @QtCore.Slot()
+    def btn_clear(self):
+        self.sig_clear_data.emit()
+
+    @QtCore.Slot()
+    def btn_remove_first(self):
+        self.sig_remove_last_data.emit()
+
+    @QtCore.Slot()
+    def btn_remove_last(self):
+        self.sig_remove_first_data.emit()
 
 
 class OneDimStackWidget(QtGui.QWidget):
@@ -387,7 +486,7 @@ class OneDimStackExplorer(QtGui.QMainWindow):
         QtGui.QMainWindow.__init__(self, parent)
         self.setWindowTitle('1-D Stack Plotting')
         # Generate data
-        x, y = data_gen(100, phase_shift=0, horz_shift=0, vert_shift=0)
+        x, y = data_gen(num_sets=100, phase_shift=0, horz_shift=0, vert_shift=0)
         # create view widget and control widget
         self._widget = OneDimStackWidget(x, y)
         self._ctrl = OneDimStackControlWidget("1-D Stack Controls")
@@ -401,6 +500,15 @@ class OneDimStackExplorer(QtGui.QMainWindow):
             self._widget._canvas.sl_update_autoscaling)
         self._ctrl._cm_cb.editTextChanged[str].connect(
             self._widget._canvas.sl_update_color_map)
+
+        self._ctrl.sig_add_data.connect(
+            self._widget._canvas.sl_add_data)
+        self._ctrl.sig_clear_data.connect(
+            self._widget._canvas.sl_clear_lines)
+        self._ctrl.sig_remove_last_data.connect(
+            self._widget._canvas.sl_remove_last_line)
+        self._ctrl.sig_remove_first_data.connect(
+            self._widget._canvas.sl_remove_first_line)
 
         self._widget.setFocus()
         self.setCentralWidget(self._widget)
