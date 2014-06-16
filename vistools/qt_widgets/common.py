@@ -15,7 +15,7 @@ _CMAPS.sort()
 
 class PlotWidget(QtGui.QMainWindow):
     """
-    Class doc-string
+    Top level container for one control widget and one data view widget
     """
     def __init__(self, parent=None, embed=True):
         """
@@ -25,6 +25,7 @@ class PlotWidget(QtGui.QMainWindow):
         ----------
         parent : QWidget
             parent widget
+
 
         embed : bool
             if widget should be embeddable in another widget (if true)
