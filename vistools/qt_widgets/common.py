@@ -75,7 +75,8 @@ class AbstractDataView(object):
     """
     AbstractDataView class docstring.  Defaults to a single matplotlib axes
     """
-    def __init__(self, fig, ax1=None, data_dict=None, cmap=None, norm=None):
+    def __init__(self, fig=None, ax1=None, data_dict=None,
+                 cmap=None, norm=None):
         """
         init docstring
 
@@ -83,37 +84,48 @@ class AbstractDataView(object):
         ----------
         data_dict : Dictionary
             Dictionary of data sets
-        fig :
-        ax1 :
-        data_dict :
+        fig : mpl.Figure
+
+        ax1 : mpl.Axes
+
         cmap :
         norm :
         """
         # stash the figure
-        self._fig = fig
+        if fig is not None:
+            self._fig = fig
+        else:
+            # do nothing. depend on concrete implementations to handle
+            # default behavior
+            pass
         if ax1 is not None:
             # stash the main axes
             self._ax1 = ax1
         else:
-            # create the matplotlib axes
-            self._ax1 = self._fig.add_subplot(1, 1, 1)
-            self._ax1.set_aspect('equal')
-
+            # do nothing. depend on concrete implementations to handle
+            # default behavior
+            pass
         # save the colormap
         if cmap is None:
             self._cmap = _CMAPS[0]
         else:
-            self._cmap = cmap
+            # do nothing. depend on concrete implementations to handle
+            # default behavior
+            pass
         # save the normalization
         if norm is None:
             self._norm = colors.Normalize(0, 1, clip=True)
         else:
-            self._norm = norm
+            # do nothing. depend on concrete implementations to handle
+            # default behavior
+            pass
 
         if data_dict is not None:
             self._data = data_dict
         else:
-            self._data = OrderedDict()
+            # do nothing. depend on concrete implementations to handle
+            # default behavior
+            pass
 
     def update_colormap(self, new_cmap):
         """
@@ -133,15 +145,19 @@ class AbstractDataView1D(AbstractDataView):
     """
     AbstractDataView1D class docstring.  Defaults to a single matplotlib axes
     """
-    def __init__(self, fig, data_dict, cmap=None, norm=None):
+    def __init__(self, fig=None, data_dict=None, cmap=None, norm=None):
         """
         __init__ docstring__
 
         Parameters
         ----------
+        fig :
+        data_dict :
+        cmap :
+        norm :
         """
-        # pass the init up
-        AbstractDataView.__init__(self, fig=fig, data_dict=data_dict,
+        # pass the init up the toolchain
+        AbstractDataView.__init__(self, data_dict=data_dict, fig=fig,
                                   cmap=cmap, norm=norm)
 
     def add_data(self, x, y, lbl):
@@ -220,7 +236,7 @@ class AbstractCanvas(FigureCanvas):
     default_height = 24
     default_width = 24
 
-    def __init__(self, parent=None, fig=None, view=None):
+    def __init__(self, data_dict=None, parent=None, fig=None, view=None):
 
         # check for non-default values passed to the init method
         if(fig is None):
@@ -331,6 +347,31 @@ class AbstractCanvas2D(AbstractCanvas):
     """
     AbstractCanvas2D class docstring
     """
+
+
+class AbstractMPLWidget(QtGui.QWidget):
+    """
+    AbstractDatatWidget class docstring
+    """
+    def __init__(self, canvas=None, data_dict=None, page_size=10, parent=None):
+        QtGui.QWidget.__init__(self, parent)
+        if canvas is not None:
+            self._canvas = canvas
+
+        else:
+            self._canvas = AbstractCanvas(data_dict)
+
+        # create the mpl toolbar
+        self._mpl_toolbar = NavigationToolbar(self._canvas, self)
+        # create a layout manager
+        layout = QtGui.QVBoxLayout()
+        # add the mpl toolbar to the layout
+        layout.addWidget(self._mpl_toolbar)
+        # add the mpl canvas to the layout
+        layout.addWidget(self._canvas)
+        # add the layout to the widget
+        self.setLayout(layout)
+
 
 class LimitSpinners(QtGui.QGroupBox):
     # signal to be emitted when the spin boxes are changed
