@@ -121,6 +121,13 @@ class AbstractDataView(object):
         """
         self._cmap = new_cmap
 
+    def replot(self):
+        """
+        Do nothing in the abstract base class. Needs to be implemented
+        in the concrete classes
+        """
+        pass
+
 
 class AbstractDataView1D(AbstractDataView):
     """
@@ -195,13 +202,6 @@ class AbstractDataView1D(AbstractDataView):
         except NameError:
             # key doesn't exist, add data to a new entry called 'lbl'
             self._data[lbl] = (x, y)
-
-    def replot(self):
-        """
-        Do nothing in the abstract base class. Needs to be implemented
-        in the concrete classes
-        """
-        pass
 
 
 class AbstractDataView2D(AbstractDataView):
