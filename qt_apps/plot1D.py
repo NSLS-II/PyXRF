@@ -126,7 +126,7 @@ class OneDimStackViewer(object):
         """
         self._horz_offset = horz_offset
 
-    def add_line(self, x_data, y_data, lbl):
+    def add_data(self, x_data, y_data, lbl):
         """
         Add a line to the matplotlib axes object
 
@@ -231,6 +231,11 @@ class OneDimStackViewer(object):
             y-coordinate array
         line : mpl 2D line artist
         """
+
+        # If there's no data, do nothing and return
+        if self._x is None or self._y is None:
+            return
+        # If the numerical index is not None, remove the associated data
         if idx is not None:
             if idx < len(self._ax.lines):
                 x = self._x.pop(idx)
@@ -238,6 +243,7 @@ class OneDimStackViewer(object):
                 self._lbl.pop(idx)
                 line = self._ax.lines.pop(idx)
                 return x, y, line
+        # If the string index is not none, remove the associated data
         if lbl is not None:
             try:
                 idx = self._lbl.index(lbl)
@@ -248,7 +254,7 @@ class OneDimStackViewer(object):
             except ValueError:
                 pass
 
-    def add_data_to_line(self, x_data, y_data, lbl=None, idx=None):
+    def append_data(self, x_data, y_data, lbl=None, idx=None):
         """
         Add (x, y) coordinates to a specific list
 
@@ -304,18 +310,44 @@ class OneDimStackCanvas(FigureCanvas):
 
     @QtCore.Slot(float)
     def sl_update_x_offset(self, x_offset):
+        """
+        Slot to update the x-offset such that additional lines are shifted
+        along the x-axis by (idx * x_offset)
+
+        Parameters
+        ----------
+        x_offset : float
+            The amount to offset subsequent plots by (idx * x_offset)
+        """
         self._view.set_horz_offset(x_offset)
         self._view.replot()
         self.draw()
 
     @QtCore.Slot(float)
     def sl_update_y_offset(self, y_offset):
+        """
+        Slot to update the y-offset such that additional lines are shifted
+        along the y-axis by (idx * y_offset)
+
+        Parameters
+        ----------
+        y_offset : float
+            The amount to offset subsequent plots by (idx * y_offset)
+        """
         self._view.set_vert_offset(y_offset)
         self._view.replot()
         self.draw()
 
     @QtCore.Slot(bool)
     def sl_update_autoscaling(self, is_autoscaling):
+        """
+        Set the widget to autoscale the axes to show all data (true)
+
+        Parameters
+        ----------
+        is_autoscaling : boolean
+            Force the axes to autoscale to show all data
+        """
         self._view.set_auto_scale(is_autoscaling)
         self._view.replot()
         self.draw()
@@ -342,9 +374,11 @@ class OneDimStackCanvas(FigureCanvas):
         Parameters
         ----------
         x : np.ndarray
-            1 or more columns of x-coordinates.  Must be the same shape as y.
+            single vector (1 column) of x-coordinates.
+            Must be the same shape as y.
         y : np.ndarray
-            1 or more columns of y-coordinates.  Must be the same shape as x.
+            single vector (1 column) of y-coordinates.
+            Must be the same shape as x.
         """
 
         self._view._x = x
@@ -356,7 +390,7 @@ class OneDimStackCanvas(FigureCanvas):
     @QtCore.Slot(list, list, list)
     def sl_add_data(self, lbl, x, y):
         """
-        Overwrites the data
+        Add a new dataset named 'lbl'
 
         Parameters
         ----------
@@ -365,14 +399,14 @@ class OneDimStackCanvas(FigureCanvas):
         y : np.ndarray
             1 or more columns of y-coordinates.  Must be the same shape as x.
         """
-        self._view.add_line(x, y, lbl)
+        self._view.add_data(x, y, lbl)
         self._view.replot()
         self.draw()
 
     @QtCore.Slot(str, np.ndarray, np.ndarray)
-    def sl_add_data_to_line(self, lbl, x, y):
+    def sl_append_data(self, lbl, x, y):
         """
-        Add data to the line named 'lbl'
+        Append data to the dataset specified by 'lbl'
 
         Parameters
         ----------
@@ -383,14 +417,14 @@ class OneDimStackCanvas(FigureCanvas):
         y : array-like
             y-coordiantes to append to the line
         """
-        self._view.add_data_to_line(x, y, lbl)
+        self._view.append_data(x, y, lbl)
         self._view.replot()
         self.draw()
 
     @QtCore.Slot()
-    def sl_clear_lines(self):
+    def sl_clear_data(self):
         """
-        docstring
+        Remove all data
         """
         self._view._y = []
         self._view._x = []
@@ -399,24 +433,37 @@ class OneDimStackCanvas(FigureCanvas):
         self.draw()
 
     @QtCore.Slot()
-    def sl_remove_last_line(self):
+    def sl_remove_last_dataset(self):
         """
-        docstring
+        Remove last dataset
         """
-        if self._view._x is not None and self._view._y is not None:
-            self._view.remove_data(len(self._view._x) - 1)
+        self._view.remove_data(len(self._view._x) - 1)
         self._view.replot()
         self.draw()
 
     @QtCore.Slot()
-    def sl_remove_first_line(self):
+    def sl_remove_first_dataset(self):
         """
-        docstring
+        Remove first dataset
         """
-        if self._view._x is not None and self._view._y is not None:
-            self._view.remove_data(0)
+        self._view.remove_data(0)
         self._view.replot()
         self.draw()
+
+    @QtCore.Slot(int)
+    def sl_remove_dataset(self, idx):
+        """
+        Remove dataset specified by idx
+
+        Parameters
+        ----------
+        idx : int
+            index of dataset to remove
+        """
+        self._view.remove_data(idx)
+        self._view.replot()
+        self.draw()
+
 
 
 class OneDimStackControlWidget(QtGui.QDockWidget):
@@ -593,13 +640,13 @@ class OneDimStackMainWindow(QtGui.QMainWindow):
         self._ctrl.sig_add_data.connect(
             self._widget._canvas.sl_add_data)
         self._ctrl.sig_clear_data.connect(
-            self._widget._canvas.sl_clear_lines)
+            self._widget._canvas.sl_clear_data)
         self._ctrl.sig_remove_last_data.connect(
-            self._widget._canvas.sl_remove_last_line)
+            self._widget._canvas.sl_remove_last_dataset)
         self._ctrl.sig_remove_first_data.connect(
-            self._widget._canvas.sl_remove_first_line)
+            self._widget._canvas.sl_remove_first_dataset)
         self._ctrl.sig_add_to_first_set.connect(
-            self._widget._canvas.sl_add_data_to_line)
+            self._widget._canvas.sl_append_data)
 
         self._widget.setFocus()
         self.setCentralWidget(self._widget)
