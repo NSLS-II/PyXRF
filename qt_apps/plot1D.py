@@ -116,6 +116,7 @@ class OneDimStackViewer(common.AbstractDataView1D):
 
     def replot(self):
         """
+        @Override
         Replot the data after modifying a display parameter (e.g.,
         offset or autoscaling) or adding new data
         """
@@ -171,6 +172,9 @@ class OneDimStackViewer(common.AbstractDataView1D):
     def find_range(self):
         """
         Find the min/max in x and y
+
+        @tacaswell: I'm sure that this is functionality that matplotlib
+            provides but i'm not at all sure how to do it...
 
         Returns
         -------
@@ -256,6 +260,10 @@ class OneDimStackCanvas(common.AbstractCanvas1D):
 class OneDimStackControlWidget(QtGui.QDockWidget):
     """
     Control widget class
+
+    TODO: Make this more modular...
+    @tacaswell seemed to be doing this in /vistools/qt_widgets/common.py
+
     """
     def __init__(self, name):
         """
@@ -280,7 +288,7 @@ class OneDimStackControlWidget(QtGui.QDockWidget):
         self._x_shift_step_spinbox = QtGui.QDoubleSpinBox(parent=self)
         self._y_shift_step_spinbox = QtGui.QDoubleSpinBox(parent=self)
 
-        # set the min/max limits
+        # set the min/max limits for the spinboxes to control the offsets
         default_min = -100
         default_max = 100
         default_step = 0.01
@@ -294,16 +302,20 @@ class OneDimStackControlWidget(QtGui.QDockWidget):
         self._y_shift_step_spinbox.setMaximum(default_max)
         self._x_shift_spinbox.setSingleStep(default_step)
         self._y_shift_spinbox.setSingleStep(default_step)
+
+        # set the default step size
         self._x_shift_step_spinbox.setSingleStep(default_step)
         self._y_shift_step_spinbox.setSingleStep(default_step)
-
         self._x_shift_step_spinbox.setValue(default_step)
         self._y_shift_step_spinbox.setValue(default_step)
 
         # connect the signals
-        self._x_shift_step_spinbox.valueChanged.connect(self._x_shift_spinbox.setSingleStep)
-        self._y_shift_step_spinbox.valueChanged.connect(self._y_shift_spinbox.setSingleStep)
+        self._x_shift_step_spinbox.valueChanged.connect(
+            self._x_shift_spinbox.setSingleStep)
+        self._y_shift_step_spinbox.valueChanged.connect(
+            self._y_shift_spinbox.setSingleStep)
 
+        # declare a checkbox to turn on/off auto-scaling functionality
         self._autoscale_box = QtGui.QCheckBox(parent=self)
 
         # set up color map combo box
@@ -312,15 +324,19 @@ class OneDimStackControlWidget(QtGui.QDockWidget):
         self._cm_cb.addItems(common._CMAPS)
         self._cm_cb.setEditText(common._CMAPS[0])
 
-        # add data_gen button
+        # declare button to generate data for testing/example purposes
         self._btn_datagen = QtGui.QPushButton("add data set", parent=self)
+        # declare button to clear data from plot
         self._btn_dataclear = QtGui.QPushButton("clear data", parent=self)
+        # declare button to append data to existing data set
         self._btn_append = QtGui.QPushButton("append data", parent=self)
 
+        # set up action-on-click for the buttons
         self._btn_datagen.clicked.connect(self.datagen)
         self._btn_dataclear.clicked.connect(self.clear)
         self._btn_append.clicked.connect(self.append_data)
-        # create the layout
+
+        # declare the layout manager
         layout = QtGui.QFormLayout()
 
         # add the controls to the layout

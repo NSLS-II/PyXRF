@@ -266,16 +266,16 @@ class AbstractCanvas(FigureCanvas):
         self.draw()
 
     @QtCore.Slot(int)
-    def sl_remove_dataset(self, idx):
+    def sl_remove_dataset(self, lbl):
         """
         Remove dataset specified by idx
 
         Parameters
         ----------
-        idx : int
-            index of dataset to remove
+        lbl : String
+            name of dataset to remove
         """
-        self._view.remove_data(idx)
+        self._view.remove_data(lbl)
         self._view.replot()
         self.draw()
 
