@@ -1,13 +1,15 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 import six
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 
 from matplotlib.backends.qt4_compat import QtGui, QtCore
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas  # noqa
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar  # noqa
 from matplotlib.figure import Figure
 from matplotlib.cm import datad
+from matplotlib import colors
+import numpy as np
 
 _CMAPS = datad.keys()
 _CMAPS.sort()
@@ -68,6 +70,267 @@ class PlotWidget(QtGui.QMainWindow):
     def control(self):
         return self._ctl_widget
 
+
+class AbstractDataView(object):
+    """
+    AbstractDataView class docstring.  Defaults to a single matplotlib axes
+    """
+    def __init__(self, fig, ax1=None, data_dict=None, cmap=None, norm=None):
+        """
+        init docstring
+
+        Parameters
+        ----------
+        data_dict : Dictionary
+            Dictionary of data sets
+        fig :
+        ax1 :
+        data_dict :
+        cmap :
+        norm :
+        """
+        # stash the figure
+        self._fig = fig
+        if ax1 is not None:
+            # stash the main axes
+            self._ax1 = ax1
+        else:
+            # create the matplotlib axes
+            self._ax1 = self._fig.add_subplot(1, 1, 1)
+            self._ax1.set_aspect('equal')
+
+        # save the colormap
+        if cmap is None:
+            self._cmap = _CMAPS[0]
+        else:
+            self._cmap = cmap
+        # save the normalization
+        if norm is None:
+            self._norm = colors.Normalize(0, 1, clip=True)
+        else:
+            self._norm = norm
+
+        if data_dict is not None:
+            self._data = data_dict
+        else:
+            self._data = OrderedDict()
+
+    def update_colormap(self, new_cmap):
+        """
+        Update the color map used to display the image
+        """
+        self._cmap = new_cmap
+
+
+class AbstractDataView1D(AbstractDataView):
+    """
+    AbstractDataView1D class docstring.  Defaults to a single matplotlib axes
+    """
+    def __init__(self, fig, data_dict, cmap=None, norm=None):
+        """
+        __init__ docstring__
+
+        Parameters
+        ----------
+        """
+        # pass the init up
+        AbstractDataView.__init__(self, fig=fig, data_dict=data_dict,
+                                  cmap=cmap, norm=norm)
+
+    def add_data(self, x, y, lbl):
+        """
+        add data with the name 'lbl'.  Will overwrite data if
+        'lbl' already exists in the data dictionary
+
+        Parameters
+        ----------
+        lbl : String
+            Name of the data set
+        x : np.ndarray
+            single vector of x-coordinates
+        y : np.ndarray
+            single vector of y-coordinates
+        """
+        self._data[lbl] = (x, y)
+
+    def remove_data(self, lbl):
+        """
+        Remove the key:value pair from the dictionary
+
+        Parameters
+        ----------
+        lbl : String
+            name of dataset to remove
+        """
+        try:
+            # delete the key:value pair from the dictionary
+            del self._data[lbl]
+        except NameError:
+            # do nothing because the data at 'lbl' doesn't exist
+            pass
+
+    def append_data(self, lbl, x, y):
+        """
+        Append (x, y) coordinates to a dataset.  If there is no dataset
+        called 'lbl', add the (x_data, y_data) tuple to a new entry
+        specified by 'lbl'
+
+        Parameters
+        ----------
+        lbl : String
+            name of data set to append
+        x : np.ndarray
+            single vector of x-coordinates to add.
+            x_data must be the same length as y_data
+        y : np.ndarray
+            single vector of y-coordinates to add.
+            y_data must be the same length as x_data
+        """
+        try:
+            # get the current vectors at 'lbl'
+            (prev_x, prev_y) = self._data[lbl]
+            # set the concatenated data to 'lbl'
+            self._data[lbl] = (np.concatenate((prev_x, x)),
+                               np.concatenate((prev_y, y)))
+        except NameError:
+            # key doesn't exist, add data to a new entry called 'lbl'
+            self._data[lbl] = (x, y)
+
+    def replot(self):
+        """
+        Do nothing in the abstract base class. Needs to be implemented
+        in the concrete classes
+        """
+        pass
+
+
+class AbstractDataView2D(AbstractDataView):
+    """
+    AbstractDataView2D class docstring
+    """
+
+
+class AbstractCanvas(FigureCanvas):
+    """
+    The AbstractCanvas is the abstract base class for the thin layer
+    between the Qt side of the figure and the matplotlib GUI-independent
+    layer.  The AbstractCanvas contains the slots that are common across
+    all widgets in this library
+    """
+    default_height = 24
+    default_width = 24
+
+    def __init__(self, parent=None, fig=None, view=None):
+
+        # check for non-default values passed to the init method
+        if(fig is None):
+            self._fig = Figure(figsize=(AbstractCanvas.default_width,
+                                       AbstractCanvas.default_height))
+            FigureCanvas.__init__(self, self._fig)
+        else:
+            self._fig = fig
+            FigureCanvas.__init__(self, fig)
+
+        FigureCanvas.setSizePolicy(self,
+                                   QtGui.QSizePolicy.Expanding,
+                                   QtGui.QSizePolicy.Expanding)
+        FigureCanvas.updateGeometry(self)
+
+        if(view is None):
+            self._view = AbstractDataView(self._fig)
+        else:
+            self._view = view
+
+    @QtCore.Slot(str)
+    def sl_update_color_map(self, cmap):
+        """
+        Updates the color map.  Currently takes a string, should probably be
+        redone to take a cmap object and push the look up function up a layer
+        so that we do not need the try..except block.
+        """
+        try:
+            self._view.update_colormap(str(cmap))
+        except ValueError:
+            pass
+        self._view.replot()
+        self.draw()
+
+    @QtCore.Slot()
+    def sl_clear_data(self):
+        """
+        Remove all data
+        """
+        self._view._data = OrderedDict()
+        self._view._ax1.clear()
+        self._view.replot()
+        self.draw()
+
+    @QtCore.Slot(int)
+    def sl_remove_dataset(self, idx):
+        """
+        Remove dataset specified by idx
+
+        Parameters
+        ----------
+        idx : int
+            index of dataset to remove
+        """
+        self._view.remove_data(idx)
+        self._view.replot()
+        self.draw()
+
+
+class AbstractCanvas1D(AbstractCanvas):
+    """
+    AbstractCanvas1D class docstring
+    """
+    def __init__(self, parent=None, fig=None, view=None):
+        # call up the stack to initialize
+        AbstractCanvas.__init__(self, parent=parent, fig=fig, view=view)
+
+    @QtCore.Slot(list, list, list)
+    def sl_add_data(self, lbls, x_data, y_data):
+        """
+        Add a new dataset named 'lbl'
+
+        Parameters
+        ----------
+        lbl : list
+            names of the (x,y) coordinate lists.
+        x : list
+            1 or more columns of x-coordinates.  Must be the same shape as y.
+        y : list
+            1 or more columns of y-coordinates.  Must be the same shape as x.
+        """
+        for (lbl, x, y) in zip(lbls, x_data, y_data):
+            self._view.add_data(x=x, y=y, lbl=lbl)
+        self._view.replot()
+        self.draw()
+
+    @QtCore.Slot(list, list, list)
+    def sl_append_data(self, lbls, x_data, y_data):
+        """
+        Append data to the dataset specified by 'lbl'
+
+        Parameters
+        ----------
+        lbl : list
+            names of the (x,y) coordinate lists.
+        x : list
+            1 or more columns of x-coordinates.  Must be the same shape as y.
+        y : list
+            1 or more columns of y-coordinates.  Must be the same shape as x.
+        """
+        for (lbl, x, y) in zip(lbls, x_data, y_data):
+            self._view.append_data(x=x, y=y, lbl=lbl)
+        self._view.replot()
+        self.draw()
+
+
+class AbstractCanvas2D(AbstractCanvas):
+    """
+    AbstractCanvas2D class docstring
+    """
 
 class LimitSpinners(QtGui.QGroupBox):
     # signal to be emitted when the spin boxes are changed

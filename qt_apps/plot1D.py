@@ -13,6 +13,7 @@ from matplotlib import cm, colors
 import numpy as np
 from matplotlib.figure import Figure
 from vistools.qt_widgets import common
+from collections import OrderedDict
 
 import sys
 
@@ -37,71 +38,58 @@ def data_gen(num_sets=1, phase_shift=0.1, vert_shift=0.1, horz_shift=0.1):
     x = []
     y = []
     for idx in range(num_sets):
-        x.append(x_axis + idx * horz_shift)
+        x.append(x_axis + horz_shift)
         y.append(np.sin(x_axis + idx * phase_shift) + idx * vert_shift)
 
     return x, y
 
 
-class OneDimStackViewer(object):
+class OneDimStackViewer(common.AbstractDataView1D):
     """
     The OneDimStackViewer provides a UI widget for viewing a number of 1-D
     data sets with cumulative offsets in the x- and y- directions.  The
     first data set always has an offset of (0, 0).
 
     """
-    def __init__(self, fig, x, y, lbl,
-                 cmap=None,
-                 norm=None):
+    def __init__(self, fig, x_data, y_data, lbls,
+                 cmap=None, norm=None):
         """
         __init__ docstring
 
         Parameters
         ----------
         fig : figure to draw the artists on
-        x : list
-            list of x-coordinates
-        y : list
-            list of y-coordinates
-        lbl : list
+        x_data : list
+            list of vectors of x-coordinates
+        y_data : list
+            list of vectors of y-coordinates
+        lbls : list
             list of the names of each data set
         cmap : colormap that matplotlib understands
         norm : mpl.colors.Normalize
         """
-
-        # stash the figure
-        self._fig = fig
-        # save the x-axis
-        self._x = x
-        # save the y-data
-        self._y = y
-        # save the label names
-        self._lbl = lbl
-        # save the colormap
-        if cmap is None:
-            self._cmap = common._CMAPS[0]
-        else:
-            self._cmap = cmap
-        # save the normalization
-        if norm is None:
-            self._norm = colors.Normalize(0, 1, clip=True)
-        else:
-            self._norm = norm
-
-        self._rgba = cm.ScalarMappable(norm=self._norm, cmap=self._cmap)
+        od = OrderedDict()
+        for (lbl, x, y) in zip(lbls, x_data, y_data):
+            od[lbl] = (x, y)
 
         self._horz_offset = 0
         self._vert_offset = 0
         self._autoscale = False
-        self._cmap = "jet"
 
-        # create the matplotlib axes
-        self._ax = self._fig.add_subplot(1, 1, 1)
-        self._ax.set_aspect('equal')
-        # add the data to the axes
-        for idx in range(len(self._y)):
-            self._ax.plot(self._x[idx] + idx * self._horz_offset,
-                             self._y[idx] + idx * self._vert_offset)
+        # initialize the data view
+        common.AbstractDataView1D.__init__(self, data_dict=od, fig=fig,
+                                           cmap=cmap, norm=norm)
+
+        idx = 0
+        # add the data to the main axes
+        for key in self._data.keys():
+            # get the (x,y) data from the dictionary
+            (x, y) = self._data[key]
+            # plot the (x,y) data with default offsets
+            self._ax1.plot(x + idx * self._horz_offset,
+                           y + idx * self._vert_offset)
+            # increment the counter
+            idx += 1
 
     def set_vert_offset(self, vert_offset):
         """
@@ -126,44 +114,46 @@ class OneDimStackViewer(object):
         """
         self._horz_offset = horz_offset
 
-    def add_data(self, x_data, y_data, lbl):
-        """
-        Add a line to the matplotlib axes object
-
-        Parameters
-        ----------
-        x_data : array-like
-            M x_data 1 array, x_data-axis
-        y_data : array-like
-            M x_data 1 array, y_data-axis
-        lbl : string
-            name of the dataset
-        """
-        prev_len = len(self._x)
-        for idx in range(len(x_data)):
-            self._x.append(x_data[idx])
-            self._y.append(y_data[idx])
-            self._lbl.append(lbl)
-            self._ax.plot(self._x[prev_len + idx] + (prev_len + idx) * self._horz_offset,
-                          self._y[prev_len + idx] + (prev_len + idx) * self._vert_offset)
-
     def replot(self):
         """
         Replot the data after modifying a display parameter (e.g.,
         offset or autoscaling) or adding new data
         """
-        for idx in range(len(self._ax.lines)):
-            self._ax.lines[idx].set_xdata(self._x[idx] +
-                                             idx * self._horz_offset)
-            self._ax.lines[idx].set_ydata(self._y[idx] +
-                                             idx * self._vert_offset)
-            norm = idx / len(self._ax.lines)
-            self._ax.lines[idx].set_color(self._rgba.to_rgba(x=norm))
-
+        rgba = cm.ScalarMappable(self._norm, self._cmap)
+        keys = self._data.keys()
+        # number of lines currently on the plot
+        num_lines = len(self._ax1.lines)
+        # number of datasets in the data dict
+        num_datasets = len(keys)
+        # set the local counter
+        counter = 0
+        # loop over the datasets
+        for key in keys:
+            # get the (x,y) data from the dictionary
+            (x, y) = self._data[key]
+            # check to see if there is already a line in the axes
+            if counter < num_lines:
+                self._ax1.lines[counter].set_xdata(
+                    x + counter * self._horz_offset)
+                self._ax1.lines[counter].set_ydata(
+                    y + counter * self._vert_offset)
+            else:
+                # a new line needs to be added
+                # plot the (x,y) data with default offsets
+                self._ax1.plot(x + counter * self._horz_offset,
+                               y + counter * self._vert_offset)
+            # compute the color for the line
+            color = rgba.to_rgba(x=(counter / num_datasets))
+            # set the color for the line
+            self._ax1.lines[counter].set_color(color)
+            # increment the counter
+            counter += 1
+        # check to see if the axes need to be automatically adjusted to show
+        # all the data
         if(self._autoscale):
             (min_x, max_x, min_y, max_y) = self.find_range()
-            self._ax.set_xlim(min_x, max_x)
-            self._ax.set_ylim(min_y, max_y)
+            self._ax1.set_xlim(min_x, max_x)
+            self._ax1.set_ylim(min_y, max_y)
 
     def set_auto_scale(self, is_autoscaling):
         """
@@ -186,127 +176,37 @@ class OneDimStackViewer(object):
         -------
         (min_x, max_x, min_y, max_y)
         """
-        if len(self._ax.lines) == 0:
+        if len(self._ax1.lines) == 0:
             return 0, 1, 0, 1
 
         # find min/max in x and y
-        min_x = np.zeros(len(self._ax.lines))
-        max_x = np.zeros(len(self._ax.lines))
-        min_y = np.zeros(len(self._ax.lines))
-        max_y = np.zeros(len(self._ax.lines))
+        min_x = np.zeros(len(self._ax1.lines))
+        max_x = np.zeros(len(self._ax1.lines))
+        min_y = np.zeros(len(self._ax1.lines))
+        max_y = np.zeros(len(self._ax1.lines))
 
-        for idx in range(len(self._ax.lines)):
-            min_x[idx] = np.min(self._ax.lines[idx].get_xdata())
-            max_x[idx] = np.max(self._ax.lines[idx].get_xdata())
-            min_y[idx] = np.min(self._ax.lines[idx].get_ydata())
-            max_y[idx] = np.max(self._ax.lines[idx].get_ydata())
+        for idx in range(len(self._ax1.lines)):
+            min_x[idx] = np.min(self._ax1.lines[idx].get_xdata())
+            max_x[idx] = np.max(self._ax1.lines[idx].get_xdata())
+            min_y[idx] = np.min(self._ax1.lines[idx].get_ydata())
+            max_y[idx] = np.max(self._ax1.lines[idx].get_ydata())
 
         return (np.min(min_x), np.max(max_x), np.min(min_y), np.max(max_y))
 
-    def update_colormap(self, new_cmap):
-        """
-        Update the color map used to display the image
-        """
-        # TODO: Fix color map so that it sets the instance variable color
-        # map and then in calls to "replot", each line gets mapped to one
-        # of the colors
-        self._rgba = cm.ScalarMappable(norm=self._norm, cmap=new_cmap)
 
-    def remove_data(self, idx=None, lbl=None):
-        """
-        Remove the data at the position specified by idx
-
-        Parameters
-        ----------
-        idx : int
-            index of dataset to remove
-        lbl : String
-            name of dataset to remove
-
-        Returns
-        -------
-        x : np.ndarray
-            x-coordinate array
-        y : np.ndarray
-            y-coordinate array
-        line : mpl 2D line artist
-        """
-
-        # If there's no data, do nothing and return
-        if self._x is None or self._y is None:
-            return
-        # If the numerical index is not None, remove the associated data
-        if idx is not None:
-            if idx < len(self._ax.lines):
-                x = self._x.pop(idx)
-                y = self._y.pop(idx)
-                self._lbl.pop(idx)
-                line = self._ax.lines.pop(idx)
-                return x, y, line
-        # If the string index is not none, remove the associated data
-        if lbl is not None:
-            try:
-                idx = self._lbl.index(lbl)
-                x = self._x.pop(idx)
-                y = self._y.pop(idx)
-                self._lbl.remove(lbl)
-                line = self._ax.lines.pop(idx)
-            except ValueError:
-                pass
-
-    def append_data(self, x_data, y_data, lbl=None, idx=None):
-        """
-        Add (x, y) coordinates to a specific list
-
-        Parameters
-        ----------
-        x_data : np.ndarray
-            array of x-coordinates to add.
-            x_data must be the same length as y_data
-        y_data : np.ndarray
-            array of y-coordinates to add.
-            y_data must be the same length as x_data
-        lbl : String
-            names of data set to add data to.
-        """
-        # check to see if the idx variable was set
-        if idx is None:
-            # if the idx variable was not set check to see if the lbl
-            # variable was set
-            if lbl is not None:
-                try:
-                    # find the index of the line with the label "lbl"
-                    idx = self._lbl.index(lbl)
-                except ValueError:
-                    return
-            else:
-                # neither the idx variable nor the lbl variable were set.
-                # therefore, do nothing
-                return
-        # concatenate and set the x data of the line labeled "lbl"
-        self._x[idx] = np.concatenate((self._x[idx], x_data), axis=0)
-        # concatenate and set the y data of the line labeled "lbl"
-        self._y[idx] = np.concatenate((self._y[idx], y_data), axis=0)
-
-
-class OneDimStackCanvas(FigureCanvas):
+class OneDimStackCanvas(common.AbstractCanvas1D):
     """
     This is a thin wrapper around images.CrossSectionViewer which
     manages the Qt side of the figure creation and provides slots
     to pass commands down to the gui-independent layer
     """
     def __init__(self, x, y, labels, parent=None):
-        width = height = 24
-        self.fig = Figure(figsize=(width, height))
-        FigureCanvas.__init__(self, self.fig)
-        self.setParent(parent)
-
-        self._view = OneDimStackViewer(self.fig, x, y, labels)
-
-        FigureCanvas.setSizePolicy(self,
-                                   QtGui.QSizePolicy.Expanding,
-                                   QtGui.QSizePolicy.Expanding)
-        FigureCanvas.updateGeometry(self)
+        # create a figure to display the mpl axes
+        fig = Figure(figsize=(24, 24))
+        # call the parent class initialization method
+        common.AbstractCanvas1D.__init__(self, fig=fig, parent=parent)
+        # create the 1-D Stack viewer
+        self._view = OneDimStackViewer(fig, x, y, labels)
 
     @QtCore.Slot(float)
     def sl_update_x_offset(self, x_offset):
@@ -351,119 +251,6 @@ class OneDimStackCanvas(FigureCanvas):
         self._view.set_auto_scale(is_autoscaling)
         self._view.replot()
         self.draw()
-
-    @QtCore.Slot(str)
-    def sl_update_color_map(self, cmap):
-        """
-        Updates the color map.  Currently takes a string, should probably be
-        redone to take a cmap object and push the look up function up a layer
-        so that we do not need the try..except block.
-        """
-        try:
-            self._view.update_colormap(str(cmap))
-        except ValueError:
-            pass
-        self._view.replot()
-        self.draw()
-
-    @QtCore.Slot(np.ndarray, np.ndarray)
-    def sl_set_data(self, x, y, lbl):
-        """
-        Overwrites the data
-
-        Parameters
-        ----------
-        x : np.ndarray
-            single vector (1 column) of x-coordinates.
-            Must be the same shape as y.
-        y : np.ndarray
-            single vector (1 column) of y-coordinates.
-            Must be the same shape as x.
-        """
-
-        self._view._x = x
-        self._view._y = y
-        self._lbl = lbl
-        self._view.replot()
-        self.draw()
-
-    @QtCore.Slot(list, list, list)
-    def sl_add_data(self, lbl, x, y):
-        """
-        Add a new dataset named 'lbl'
-
-        Parameters
-        ----------
-        x : np.ndarray
-            1 or more columns of x-coordinates.  Must be the same shape as y.
-        y : np.ndarray
-            1 or more columns of y-coordinates.  Must be the same shape as x.
-        """
-        self._view.add_data(x, y, lbl)
-        self._view.replot()
-        self.draw()
-
-    @QtCore.Slot(str, np.ndarray, np.ndarray)
-    def sl_append_data(self, lbl, x, y):
-        """
-        Append data to the dataset specified by 'lbl'
-
-        Parameters
-        ----------
-        lbl : String
-            name of line to add data to
-        x : array-like
-            x-coordinates to append to the line
-        y : array-like
-            y-coordiantes to append to the line
-        """
-        self._view.append_data(x, y, lbl)
-        self._view.replot()
-        self.draw()
-
-    @QtCore.Slot()
-    def sl_clear_data(self):
-        """
-        Remove all data
-        """
-        self._view._y = []
-        self._view._x = []
-        self._view._ax.clear()
-        self._view.replot()
-        self.draw()
-
-    @QtCore.Slot()
-    def sl_remove_last_dataset(self):
-        """
-        Remove last dataset
-        """
-        self._view.remove_data(len(self._view._x) - 1)
-        self._view.replot()
-        self.draw()
-
-    @QtCore.Slot()
-    def sl_remove_first_dataset(self):
-        """
-        Remove first dataset
-        """
-        self._view.remove_data(0)
-        self._view.replot()
-        self.draw()
-
-    @QtCore.Slot(int)
-    def sl_remove_dataset(self, idx):
-        """
-        Remove dataset specified by idx
-
-        Parameters
-        ----------
-        idx : int
-            index of dataset to remove
-        """
-        self._view.remove_data(idx)
-        self._view.replot()
-        self.draw()
-
 
 
 class OneDimStackControlWidget(QtGui.QDockWidget):
@@ -528,15 +315,11 @@ class OneDimStackControlWidget(QtGui.QDockWidget):
         # add data_gen button
         self._btn_datagen = QtGui.QPushButton("add data set", parent=self)
         self._btn_dataclear = QtGui.QPushButton("clear data", parent=self)
-        self._btn_dataremovefirst = QtGui.QPushButton("remove first data set", parent=self)
-        self._btn_dataremovelast = QtGui.QPushButton("remove last data set", parent=self)
-        self._btn_add_to_first_set = QtGui.QPushButton("add data to first data set", parent=self)
+        self._btn_append = QtGui.QPushButton("append data", parent=self)
 
         self._btn_datagen.clicked.connect(self.datagen)
         self._btn_dataclear.clicked.connect(self.clear)
-        self._btn_dataremovefirst.clicked.connect(self.remove_first)
-        self._btn_dataremovelast.clicked.connect(self.remove_last)
-        self._btn_add_to_first_set.clicked.connect(self.add_to_first_set)
+        self._btn_append.clicked.connect(self.append_data)
         # create the layout
         layout = QtGui.QFormLayout()
 
@@ -550,8 +333,7 @@ class OneDimStackControlWidget(QtGui.QDockWidget):
         layout.addRow("autoscale data view", self._autoscale_box)
         layout.addRow("color scheme", self._cm_cb)
         layout.addRow(self._btn_dataclear, self._btn_datagen)
-        layout.addRow(self._btn_dataremovelast, self._btn_dataremovefirst)
-        layout.addRow(self._btn_add_to_first_set, None)
+        layout.addRow(self._btn_append, None)
         # set the widget layout
         self._widget.setLayout(layout)
         self.setWidget(self._widget)
@@ -561,13 +343,14 @@ class OneDimStackControlWidget(QtGui.QDockWidget):
     sig_clear_data = QtCore.Signal()
     sig_remove_last_data = QtCore.Signal()
     sig_remove_first_data = QtCore.Signal()
-    sig_add_to_first_set = QtCore.Signal(str, np.ndarray, np.ndarray)
+    sig_append_data = QtCore.Signal(list, list, list)
 
     @QtCore.Slot()
     def datagen(self):
-        num_data = 100
-        self.sig_add_data.emit(range(num_data), *data_gen(num_data,
-                               phase_shift=0, horz_shift=0, vert_shift=0))
+        num_data = 10
+        self.sig_add_data.emit(range(num_data),
+                               *data_gen(num_data, phase_shift=0,
+                                         horz_shift=0, vert_shift=0))
 
     @QtCore.Slot()
     def clear(self):
@@ -582,11 +365,12 @@ class OneDimStackControlWidget(QtGui.QDockWidget):
         self.sig_remove_last_data.emit()
 
     @QtCore.Slot()
-    def add_to_first_set(self):
+    def append_data(self):
+        num_sets = 7
         # get some fake data
-        x, y = data_gen(2, phase_shift=0, horz_shift=25, vert_shift=0)
+        x, y = data_gen(num_sets, phase_shift=0, horz_shift=25, vert_shift=0)
         # emit the signal
-        self.sig_add_to_first_set.emit("0", x[1], y[1])
+        self.sig_append_data.emit(range(num_sets), x, y)
 
 
 class OneDimStackViewWidget(QtGui.QWidget):
@@ -641,11 +425,7 @@ class OneDimStackMainWindow(QtGui.QMainWindow):
             self._widget._canvas.sl_add_data)
         self._ctrl.sig_clear_data.connect(
             self._widget._canvas.sl_clear_data)
-        self._ctrl.sig_remove_last_data.connect(
-            self._widget._canvas.sl_remove_last_dataset)
-        self._ctrl.sig_remove_first_data.connect(
-            self._widget._canvas.sl_remove_first_dataset)
-        self._ctrl.sig_add_to_first_set.connect(
+        self._ctrl.sig_append_data.connect(
             self._widget._canvas.sl_append_data)
 
         self._widget.setFocus()
