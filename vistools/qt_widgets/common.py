@@ -126,7 +126,7 @@ class AbstractDataView(object):
         Do nothing in the abstract base class. Needs to be implemented
         in the concrete classes
         """
-        pass
+        raise Exception("Must override the replot() method in the concrete base class")
 
 
 class AbstractDataView1D(AbstractDataView):
