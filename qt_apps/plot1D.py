@@ -86,12 +86,12 @@ class demo_1d(QtGui.QMainWindow):
         # get some fake data
         x, y = data_gen(num_sets, phase_shift=0, horz_shift=25, vert_shift=0)
         # emit the signal
-        self.sig_append_data_demo.emit(range(num_sets), x, y)
+        self.sig_append_demo_data.emit(range(num_sets), x, y)
 
     @QtCore.Slot()
     def datagen(self):
         num_data = 10
-        self.sig_add_data_demo.emit(range(num_data),
+        self.sig_add_demo_data.emit(range(num_data),
                                *data_gen(num_data, phase_shift=0,
                                          horz_shift=0, vert_shift=0))
 
