@@ -75,8 +75,10 @@ class AbstractDataView(object):
     """
     AbstractDataView class docstring.  Defaults to a single matplotlib axes
     """
-    def __init__(self, fig=None, ax1=None, data_dict=None,
-                 cmap=None, norm=None):
+    _default_cmap = _CMAPS[0]
+    _default_norm = colors.Normalize(0, 1, clip=True)
+
+    def __init__(self, fig=None, cmap=None, norm=None):
         """
         init docstring
 
@@ -91,42 +93,30 @@ class AbstractDataView(object):
         cmap :
         norm :
         """
-        # stash the figure
-        if fig is not None:
-            self._fig = fig
-        else:
-            # do nothing. depend on concrete implementations to handle
-            # default behavior
-            pass
-        if ax1 is not None:
-            # stash the main axes
-            self._ax1 = ax1
-        else:
-            # do nothing. depend on concrete implementations to handle
-            # default behavior
-            pass
-        # save the colormap
+        if self._fig is None:
+            # no Figure has been stashed yet
+            if fig is None:
+                # no stashed Figure and no Figure passed in. That's a problem
+                raise Exception("Figure is needed before artists can be rendered")
+            else:
+                # stash the Figure that was passed in
+                self._fig = fig
+
         if cmap is None:
-            self._cmap = _CMAPS[0]
+            # no color map was passed in. Init to default value
+            self._cmap = AbstractDataView._default_cmap
         else:
-            # do nothing. depend on concrete implementations to handle
-            # default behavior
-            pass
-        # save the normalization
+            # stash the color map
+            self._cmap = cmap
+
         if norm is None:
-            self._norm = colors.Normalize(0, 1, clip=True)
+            # no normalization policy was passed in. Init to default value
+            self._norm = AbstractDataView._default_norm
         else:
-            # do nothing. depend on concrete implementations to handle
-            # default behavior
-            pass
+            # stash the normalization policy that was passed in
+            self._norm = norm
 
-        if data_dict is not None:
-            self._data = data_dict
-        else:
-            # do nothing. depend on concrete implementations to handle
-            # default behavior
-            pass
-
+    @QtCore.Slot()
     def update_colormap(self, new_cmap):
         """
         Update the color map used to display the image
@@ -139,6 +129,13 @@ class AbstractDataView(object):
         in the concrete classes
         """
         raise Exception("Must override the replot() method in the concrete base class")
+
+    @QtCore.Slot(name="colors.Normalize")
+    def sl_update_norm(self, new_norm):
+        """
+        Updates the normalization function used for the color mapping
+        """
+        self._norm = new_norm
 
 
 class AbstractDataView1D(AbstractDataView):
@@ -157,8 +154,10 @@ class AbstractDataView1D(AbstractDataView):
         norm :
         """
         # pass the init up the toolchain
-        AbstractDataView.__init__(self, data_dict=data_dict, fig=fig,
-                                  cmap=cmap, norm=norm)
+        AbstractDataView.__init__(self, fig=fig, cmap=cmap, norm=norm)
+        # stash the parameters not taken care of by parent class
+        if data_dict is not None:
+            self._data_dict = data_dict
 
     def add_data(self, x, y, lbl):
         """
@@ -236,25 +235,33 @@ class AbstractCanvas(FigureCanvas):
     default_height = 24
     default_width = 24
 
-    def __init__(self, data_dict=None, parent=None, fig=None, view=None):
+    def __init__(self, fig, view=None):
+        """
+        docstring
 
-        # check for non-default values passed to the init method
-        if(fig is None):
-            self._fig = Figure(figsize=(AbstractCanvas.default_width,
-                                       AbstractCanvas.default_height))
-            FigureCanvas.__init__(self, self._fig)
-        else:
-            self._fig = fig
-            FigureCanvas.__init__(self, fig)
+        Parameters
+        ----------
+        parent :
+        fig :
+        view :
+        """
+        if fig is None:
+            raise Exception("fig cannot be None. A FigureCanvas needs a Figure")
 
+        # call parent class constructor
+        FigureCanvas.__init__(self, fig)
+
+        # set some default behavior
         FigureCanvas.setSizePolicy(self,
                                    QtGui.QSizePolicy.Expanding,
                                    QtGui.QSizePolicy.Expanding)
         FigureCanvas.updateGeometry(self)
 
-        if(view is None):
-            self._view = AbstractDataView(self._fig)
+        if view is None:
+            # give it a default data view
+            self._view = AbstractDataView(self.figure)
         else:
+            # stash the view that was passed in
             self._view = view
 
     @QtCore.Slot(str)
@@ -300,9 +307,9 @@ class AbstractCanvas1D(AbstractCanvas):
     """
     AbstractCanvas1D class docstring
     """
-    def __init__(self, parent=None, fig=None, view=None):
+    def __init__(self, fig=None, view=None):
         # call up the stack to initialize
-        AbstractCanvas.__init__(self, parent=parent, fig=fig, view=view)
+        AbstractCanvas.__init__(self, fig=fig, view=view)
 
     @QtCore.Slot(list, list, list)
     def sl_add_data(self, lbls, x_data, y_data):
@@ -353,14 +360,30 @@ class AbstractMPLWidget(QtGui.QWidget):
     """
     AbstractDatatWidget class docstring
     """
-    def __init__(self, canvas=None, data_dict=None, page_size=10, parent=None):
+    def __init__(self, canvas=None, data=None, page_size=10, parent=None):
+        # init the QWidget
         QtGui.QWidget.__init__(self, parent)
-        if canvas is not None:
-            self._canvas = canvas
-
+        if self._canvas is None:
+            # no canvas has been stored yet
+            if canvas is not None:
+                # a canvas has been passed to the init method. store it and init
+                self._canvas = canvas
+                self.init_canvas()
+            else:
+                # no canvas exists, create the default abstract canvas
+                self._canvas = AbstractCanvas(self, data, parent=self)
+                self.init_canvas()
         else:
-            self._canvas = AbstractCanvas(data_dict)
+            # canvas has already been stored, do nothing
+            pass
 
+        # do nothing else
+
+    def init_canvas(self):
+        """
+        Initialize the mpl canvas by adding a Toolbar and adding the
+        FigureCanvas to this QWidget
+        """
         # create the mpl toolbar
         self._mpl_toolbar = NavigationToolbar(self._canvas, self)
         # create a layout manager

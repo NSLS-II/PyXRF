@@ -195,10 +195,10 @@ class OneDimStackCanvas(common.AbstractCanvas1D):
     def __init__(self, data_dict=None, parent=None):
         # create a figure to display the mpl axes
         fig = Figure(figsize=(24, 24))
-        # call the parent class initialization method
-        common.AbstractCanvas1D.__init__(self, fig=fig, parent=parent)
         # create the 1-D Stack viewer
-        self._view = OneDimStackViewer(fig, data_dict)
+        view = OneDimStackViewer(fig, data_dict)
+        # call the parent class initialization method
+        common.AbstractCanvas1D.__init__(self, fig=fig, view=view)
 
     @QtCore.Slot(float)
     def sl_update_x_offset(self, x_offset):
@@ -349,9 +349,11 @@ class OneDimStackWidget(common.AbstractMPLWidget):
 
     def __init__(self, data_dict=None, page_size=10, parent=None):
         # create the viewer widget
-        canvas = OneDimStackCanvas(data_dict)
+        self._canvas = OneDimStackCanvas(data_dict)
         # call up the init inheritance chain
-        common.AbstractMPLWidget.__init__(self, canvas=canvas)
+        common.AbstractMPLWidget.__init__(self)
+        # init the mpl canvas
+        self.init_canvas()
 
 
 class OneDimStackMainWindow(QtGui.QMainWindow):
