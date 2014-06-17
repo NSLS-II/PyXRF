@@ -371,6 +371,8 @@ class OneDimStackMainWindow(QtGui.QMainWindow):
             self._widget._canvas.sl_update_autoscaling)
         self._ctrl_widget._cm_cb.editTextChanged[str].connect(
             self._widget._canvas.sl_update_color_map)
+        self._ctrl_widget.sig_clear_data.connect(
+            self._widget._canvas.sl_clear_data)
 
         self._widget.setFocus()
         self.setCentralWidget(self._widget)
