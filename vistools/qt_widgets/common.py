@@ -116,7 +116,7 @@ class AbstractDataView(object):
             # stash the normalization policy that was passed in
             self._norm = norm
 
-    @QtCore.Slot()
+    @QtCore.Slot(str)
     def update_colormap(self, new_cmap):
         """
         Update the color map used to display the image

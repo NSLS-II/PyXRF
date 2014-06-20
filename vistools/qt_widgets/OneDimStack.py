@@ -24,8 +24,8 @@ class OneDimStackViewer(common.AbstractDataView1D):
     The OneDimStackViewer provides a UI widget for viewing a number of 1-D
     data sets with cumulative offsets in the x- and y- directions.  The
     first data set always has an offset of (0, 0).
-
     """
+
     _default_horz_offset = 0
     _default_vert_offset = 0
     _default_autoscale = False
@@ -127,6 +127,7 @@ class OneDimStackViewer(common.AbstractDataView1D):
                 self._ax1.lines[counter].set_ydata(
                     y + counter * self._vert_offset)
             else:
+
                 # a new line needs to be added
                 # plot the (x,y) data with default offsets
                 self._ax1.plot(x + counter * self._horz_offset,
@@ -185,6 +186,103 @@ class OneDimStackViewer(common.AbstractDataView1D):
 
         return (np.min(min_x), np.max(max_x), np.min(min_y), np.max(max_y))
 
+    def hide_axes(self):
+        self._fig.delaxes(self._ax1)
+
+    def show_axes(self):
+        self._fig.add_axes(self._ax1)
+
+
+class OneDimContourViewer(common.AbstractDataView1D):
+    """
+    The OneDimContourViewer provides a UI widget for viewing a number of 1-D
+    data sets as a contour plot, starting from dataset 0 at y = 0
+    """
+    _normalize_datasets = False
+
+    def __init__(self, fig, data_dict=None, cmap=None, norm=None):
+        """
+        __init__ docstring
+
+        Parameters
+        ----------
+        fig : figure to draw the artists on
+        x_data : list
+            list of vectors of x-coordinates
+        y_data : list
+            list of vectors of y-coordinates
+        lbls : list
+            list of the names of each data set
+        cmap : colormap that matplotlib understands
+        norm : mpl.colors.Normalize
+        """
+        # set some defaults
+        # no defaults yet
+
+        # save the data_dictionary
+        if data_dict is not None:
+            self._data = data_dict
+        else:
+            # create a new data dictionary
+            self._data = OrderedDict()
+        if fig is None:
+            raise Exception("There must be a figure in which to render Artists")
+        # stash the figure
+        self._fig = fig
+        # create the matplotlib axes
+        self._ax1 = self._fig.add_subplot(1, 1, 1)
+        self._ax1.set_aspect('equal')
+
+        # call up the inheritance chain
+        common.AbstractDataView1D.__init__(self, cmap=cmap, norm=norm)
+
+        # plot the data
+        self.replot()
+
+    def replot(self):
+        """
+        @Override
+        Replot the data after modifying a display parameter (e.g.,
+        offset or autoscaling) or adding new data
+        """
+
+        # create the 2-D data array for the contour plot
+        keys = self._data.keys()
+        # number of datasets in the data dict
+        num_keys = len(keys)
+        # cannot plot data if there are no keys
+        if num_keys < 1:
+            return
+        # set the local counter
+        counter = num_keys - 1
+        # @tacaswell Should it be required that all datasets are the same
+        # length?
+        num_coords = len(self._data[keys[0]][0])
+        # declare the array
+        self._data_arr = np.zeros((num_keys, num_coords))
+        # add the data to the main axes
+        for key in self._data.keys():
+            # get the (x,y) data from the dictionary
+            (x, y) = self._data[key]
+            # add the data to the array
+
+            self._data_arr[counter] = y
+            # decrement the counter
+            counter -= 1
+        # get the first dataset to get the x axis and number of y datasets
+        x, y = self._data[keys[0]]
+        y = np.arange(len(keys))
+        print("shape of ([x], [y], [z]): ([{0}], [{1}], [{2}])".format(
+                x.shape, y.shape, self._data_arr.shape))
+        # TODO: Colormap initialization is not working properly.
+        self._ax1.contourf(x, y, self._data_arr)  # , cmap=colors.Colormap(self._cmap))
+
+    def hide_axes(self):
+        self._fig.delaxes(self._ax1)
+
+    def show_axes(self):
+        self._fig.add_axes(self._ax1)
+
 
 class OneDimStackCanvas(common.AbstractCanvas1D):
     """
@@ -192,13 +290,25 @@ class OneDimStackCanvas(common.AbstractCanvas1D):
     manages the Qt side of the figure creation and provides slots
     to pass commands down to the gui-independent layer
     """
+    views = OneDimStackViewer, OneDimContourViewer
+
     def __init__(self, data_dict=None, parent=None):
         # create a figure to display the mpl axes
         fig = Figure(figsize=(24, 24))
-        # create the 1-D Stack viewer
-        view = OneDimStackViewer(fig, data_dict)
+        # create the views
+        default_view = 0
+        self._views = []
+        for view in self.views:
+            # create the view
+            v = view(fig, data_dict)
+            # hide the axes
+            v.hide_axes()
+            # stash the view in a list
+            self._views.append(v)
+        # show the default view
+        self._views[default_view].show_axes()
         # call the parent class initialization method
-        common.AbstractCanvas1D.__init__(self, fig=fig, view=view)
+        common.AbstractCanvas1D.__init__(self, fig=fig, view=self._views[default_view])
 
     @QtCore.Slot(float)
     def sl_update_x_offset(self, x_offset):
@@ -244,6 +354,23 @@ class OneDimStackCanvas(common.AbstractCanvas1D):
         self._view.replot()
         self.draw()
 
+    @QtCore.Slot(str)
+    def sl_change_views(self, view_name):
+        """
+        Change the currently active data view
+
+        Parameters
+        ----------
+        view_name : String
+            Name of the view to change to
+        """
+        self._views[view_name]._data = self._view._data
+        self._view.hide_axes()
+        self._view = self._views[view_name]
+        self._view.show_axes()
+        self._view.replot()
+        self.draw()
+
 
 class OneDimStackControlWidget(QtGui.QDockWidget):
     """
@@ -267,6 +394,11 @@ class OneDimStackControlWidget(QtGui.QDockWidget):
         self.setFloating(True)
         # add a widget that lives in the floating control widget
         self._widget = QtGui.QWidget(self)
+
+        # create the combobox
+        self._view_options = QtGui.QComboBox(parent=self)
+        for view in OneDimStackCanvas.views:
+            self._view_options.addItem(str(view))
 
         # create the offset spin boxes
         self._x_shift_spinbox = QtGui.QDoubleSpinBox(parent=self)
@@ -322,6 +454,7 @@ class OneDimStackControlWidget(QtGui.QDockWidget):
         layout = QtGui.QFormLayout()
 
         # add the controls to the layout
+        layout.addRow("Data view: ", self._view_options)
         layout.addRow("--- Curve Shift ---", None)
         layout.addRow("x shift", self._x_shift_spinbox)
         layout.addRow("y shift", self._y_shift_spinbox)
@@ -375,6 +508,8 @@ class OneDimStackMainWindow(QtGui.QMainWindow):
             self._widget._canvas.sl_update_color_map)
         self._ctrl_widget.sig_clear_data.connect(
             self._widget._canvas.sl_clear_data)
+        self._ctrl_widget._view_options.currentIndexChanged.connect(
+            self._widget._canvas.sl_change_views)
 
         self._widget.setFocus()
         self.setCentralWidget(self._widget)

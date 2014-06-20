@@ -91,9 +91,11 @@ class demo_1d(QtGui.QMainWindow):
     @QtCore.Slot()
     def datagen(self):
         num_data = 10
-        self.sig_add_demo_data.emit(range(num_data),
-                               *data_gen(num_data, phase_shift=0,
-                                         horz_shift=0, vert_shift=0))
+        names = np.random.random_integers(10000, size=num_data).tolist()
+
+        self.sig_add_demo_data.emit(names,
+                                    *data_gen(num_data, phase_shift=0,
+                                              horz_shift=0, vert_shift=0))
 
 if __name__ == "__main__":
     app = QtGui.QApplication(sys.argv)
