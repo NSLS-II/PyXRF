@@ -8,7 +8,7 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 from matplotlib.backends.qt4_compat import QtGui, QtCore
-from vistools.qt_widgets import common
+from vistools.vistools.messenger import common
 
 from matplotlib.ticker import NullLocator
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas  # noqa
@@ -284,7 +284,7 @@ class OneDimContourViewer(common.AbstractDataView1D):
         self._fig.add_axes(self._ax1)
 
 
-class OneDimStackCanvas(common.AbstractCanvas1D):
+class OneDimStackCanvas(common.AbstractMessenger1D):
     """
     This is a thin wrapper around images.CrossSectionViewer which
     manages the Qt side of the figure creation and provides slots
@@ -308,7 +308,7 @@ class OneDimStackCanvas(common.AbstractCanvas1D):
         # show the default view
         self._views[default_view].show_axes()
         # call the parent class initialization method
-        common.AbstractCanvas1D.__init__(self, fig=fig, view=self._views[default_view])
+        common.AbstractMessenger1D.__init__(self, fig=fig, view=self._views[default_view])
 
     @QtCore.Slot(float)
     def sl_update_x_offset(self, x_offset):
@@ -478,13 +478,13 @@ class OneDimStackControlWidget(QtGui.QDockWidget):
         self.sig_clear_data.emit()
 
 
-class OneDimStackWidget(common.AbstractMPLWidget):
+class OneDimStackWidget(common.MPLDisplayWidget):
 
     def __init__(self, data_dict=None, page_size=10, parent=None):
         # create the viewer widget
         self._canvas = OneDimStackCanvas(data_dict)
         # call up the init inheritance chain
-        common.AbstractMPLWidget.__init__(self)
+        common.MPLDisplayWidget.__init__(self)
         # init the mpl canvas
         self.init_canvas()
 

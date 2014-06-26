@@ -9,6 +9,7 @@ from matplotlib.widgets import Cursor
 from matplotlib.ticker import NullLocator
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
+from vistools.qt_widgets import common
 
 
 def _full_range(im, limit_args):
@@ -80,8 +81,8 @@ def _percentile_limit(im, limit_args):
     return np.percentile(im, limit_args)
 
 
-class CrossSectionViewer(object):
-    def __init__(self, fig, init_image,
+class TwoDimStackViewer(common.AbstractDataView2D):
+    def __init__(self, fig, data_dict=None,
                  cmap=None,
                  norm=None,
                  limit_func=None,

@@ -2,8 +2,8 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 import six
 
-from vistools import images
-
+from vistools.vistools.backend.mpl import CrossSection2DView
+from vistools.vistools.messenger import common
 # grab the version from mpl which has done the work of smoothing over
 # the differences
 from matplotlib.backends.qt4_compat import QtGui, QtCore
@@ -15,43 +15,27 @@ import matplotlib.colors
 import numpy as np
 
 
-class CrossSectionCanvas(FigureCanvas):
+class TwoDimStackCanvas(common.AbstractMessenger2D):
     """
-    This is a thin wrapper around images.CrossSectionViewer which
+    This is a thin wrapper around mpl.CrossSectionViewer which
     manages the Qt side of the figure creation and provides slots
     to pass commands down to the gui-independent layer
     """
-    def __init__(self, init_image, parent=None):
-        width = height = 24
-        self.fig = Figure(figsize=(width, height))
-        FigureCanvas.__init__(self, self.fig)
-        self.setParent(parent)
 
-        self._xsection = images.CrossSectionViewer(self.fig, init_image)
-
-        FigureCanvas.setSizePolicy(self,
-                                   QtGui.QSizePolicy.Expanding,
-                                   QtGui.QSizePolicy.Expanding)
-        FigureCanvas.updateGeometry(self)
-
-    @QtCore.Slot(str)
-    def sl_update_color_map(self, cmap):
-        """
-        Updates the color map.  Currently takes a string, should probably be
-        redone to take a cmap object and push the look up function up a layer
-        so that we do not need the try..except block.
-        """
-        try:
-            self._xsection.update_colormap(str(cmap))
-        except ValueError:
-            pass
+    def __init__(self, data_dict, parent=None):
+        # create a figure to display the mpl axes
+        fig = Figure(figsize=(24, 24))
+        # create the views
+        view = CrossSection2DView(self._fig, data_dict)
+        # call the parent class initialization method
+        common.AbstractMessenger1D.__init__(self, fig=fig, view=view)
 
     @QtCore.Slot(np.ndarray)
     def sl_update_image(self, img):
         """
         updates the image shown in the widget, assumed to be the same size
         """
-        self._xsection.update_image(img)
+        self._view.update_image(img)
 
     @QtCore.Slot(np.ndarray)
     def sl_replace_image(self, img):
@@ -61,26 +45,19 @@ class CrossSectionCanvas(FigureCanvas):
         """
         raise NotImplementedError()
 
-    @QtCore.Slot(matplotlib.colors.Normalize)
-    def sl_update_norm(self, new_norm):
-        """
-        Updates the normalization function used for the color mapping
-        """
-        self._xsection.update_norm(new_norm)
-
 #    @QtCore.Slot(object, tuple)
     def sl_update_limit_func(self, limit_func, new_limits):
         """
         Updates the type of limit computation function used
         """
-        self._xsection.set_limit_func(limit_func, new_limits)
+        self._view.set_limit_func(limit_func, new_limits)
 
     @QtCore.Slot(tuple)
     def sl_update_color_limits(self, new_limits):
         """
         Update the values passed to the limit computation function
         """
-        self._xsection.update_color_limits(new_limits)
+        self._view.update_color_limits(new_limits)
 
 
 _CMAPS = datad.keys()
@@ -112,7 +89,7 @@ class StackScannerWidget(QtGui.QWidget):
         # get the shape of the stack so that the stack direction can be varied
         self._dims = stack.shape
         # create the viewer widget
-        self.xsection_widget = CrossSectionCanvas(stack[0])
+        self.xsection_widget = TwoDimStackCanvas(stack[0])
 
         # connect up the signals/slots to boss the viewer around
         self.sig_update_cmap.connect(self.xsection_widget.sl_update_color_map)
@@ -198,11 +175,11 @@ class StackScannerWidget(QtGui.QWidget):
             self.xsection_widget.sl_update_color_map)
 
         # set up intensity manipulation combo box
-        intensity_behavior_data = [(images._full_range,
+        intensity_behavior_data = [(mpl._full_range,
                                      self._no_limit_config),
-                                    (images._percentile_limit,
+                                    (mpl._percentile_limit,
                                      self._percentile_config),
-                                    (images._absolute_limit,
+                                    (mpl._absolute_limit,
                                      self._absolute_limit_config)
                                      ]
         intensity_behavior_types = ['full range',

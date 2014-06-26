@@ -7,7 +7,7 @@ from __future__ import (absolute_import, division, print_function,
 
 from matplotlib.backends.qt4_compat import QtGui, QtCore
 import numpy as np
-from vistools.qt_widgets.stack_scanner import StackScannerWidget
+from vistools.qt_widgets.TwoDimStack import StackScannerWidget
 
 import sys
 
