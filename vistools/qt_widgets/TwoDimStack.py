@@ -15,51 +15,6 @@ import matplotlib.colors
 import numpy as np
 
 
-class TwoDimStackCanvas(common.AbstractMessenger2D):
-    """
-    This is a thin wrapper around mpl.CrossSectionViewer which
-    manages the Qt side of the figure creation and provides slots
-    to pass commands down to the gui-independent layer
-    """
-
-    def __init__(self, data_dict, parent=None):
-        # create a figure to display the mpl axes
-        fig = Figure(figsize=(24, 24))
-        # create the views
-        view = CrossSection2DView(self._fig, data_dict)
-        # call the parent class initialization method
-        common.AbstractMessenger1D.__init__(self, fig=fig, view=view)
-
-    @QtCore.Slot(np.ndarray)
-    def sl_update_image(self, img):
-        """
-        updates the image shown in the widget, assumed to be the same size
-        """
-        self._view.update_image(img)
-
-    @QtCore.Slot(np.ndarray)
-    def sl_replace_image(self, img):
-        """
-        Replaces the image shown in the widget, rebulids everything
-        (so swap axis will work)
-        """
-        raise NotImplementedError()
-
-#    @QtCore.Slot(object, tuple)
-    def sl_update_limit_func(self, limit_func, new_limits):
-        """
-        Updates the type of limit computation function used
-        """
-        self._view.set_limit_func(limit_func, new_limits)
-
-    @QtCore.Slot(tuple)
-    def sl_update_color_limits(self, new_limits):
-        """
-        Update the values passed to the limit computation function
-        """
-        self._view.update_color_limits(new_limits)
-
-
 _CMAPS = datad.keys()
 _CMAPS.sort()
 
@@ -89,7 +44,7 @@ class StackScannerWidget(QtGui.QWidget):
         # get the shape of the stack so that the stack direction can be varied
         self._dims = stack.shape
         # create the viewer widget
-        self.xsection_widget = TwoDimStackCanvas(stack[0])
+        self.xsection_widget = CrossSection2DMessenger(stack[0])
 
         # connect up the signals/slots to boss the viewer around
         self.sig_update_cmap.connect(self.xsection_widget.sl_update_color_map)

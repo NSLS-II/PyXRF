@@ -1,87 +1,194 @@
-"""
-Helpful classes for exploring series of images
-"""
+__author__ = 'Eric-hafxb'
+
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 from six.moves import zip
+
 from matplotlib.widgets import Cursor
-from matplotlib.ticker import NullLocator
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from matplotlib.ticker import NullLocator
+from matplotlib import cm
+
+from collections import OrderedDict
+
 import numpy as np
+
 from vistools.qt_widgets import common
 
 
-def _full_range(im, limit_args):
+class Stack1DView(common.AbstractDataView1D, AbstractMPLDataView):
     """
-    Plot the entire range of the image
-
-    Parameters
-    ----------
-    im : ndarray
-       image data, nominally 2D
-
-    limit_args : object
-       Ignored, here to match signature with other
-       limit functions
-
-    Returns
-    -------
-    climits : tuple
-       length 2 tuple to be passed to `im.clim(...)` to
-       set the color limits of a ColorMappable object.
+    The OneDimStackViewer provides a UI widget for viewing a number of 1-D
+    data sets with cumulative offsets in the x- and y- directions.  The
+    first data set always has an offset of (0, 0).
     """
-    return (np.min(im), np.max(im))
+
+    _default_horz_offset = 0
+    _default_vert_offset = 0
+    _default_autoscale = False
+
+    def __init__(self, fig, data_dict, cmap=None, norm=None):
+        """
+        __init__ docstring
+
+        Parameters
+        ----------
+        fig : figure to draw the artists on
+        x_data : list
+            list of vectors of x-coordinates
+        y_data : list
+            list of vectors of y-coordinates
+        lbls : list
+            list of the names of each data set
+        cmap : colormap that matplotlib understands
+        norm : mpl.colors.Normalize
+        """
+        # call the parent constructors
+        super(Stack1DView, self, data=data_dict, fig=fig, cmap=cmap, norm=norm)
+
+        # set some defaults
+        self._horz_offset = self._default_horz_offset
+        self._vert_offset = self._default_vert_offset
+        self._autoscale = self._default_autoscale
+
+        # create the matplotlib axes
+        self._ax = []
+        self._ax.append(self._fig.add_subplot(1, 1, 1))
+        self._ax[0].set_aspect('equal')
+
+        # call up the inheritance chain
+        common.AbstractDataView1D.__init__(self, cmap=cmap, norm=norm)
+        # create a local counter
+        idx = 0
+        # add the data to the main axes
+        for key in self._data.keys():
+            # get the (x,y) data from the dictionary
+            (x, y) = self._data[key]
+            # plot the (x,y) data with default offsets
+            self._ax[0].plot(x + idx * self._horz_offset,
+                           y + idx * self._vert_offset)
+            # increment the counter
+            idx += 1
+
+    def set_vert_offset(self, vert_offset):
+        """
+        Set the vertical offset for additional lines that are to be plotted
+
+        Parameters
+        ----------
+        vert_offset : number
+            The amount of vertical shift to add to each line in the data stack
+        """
+        self._vert_offset = vert_offset
+
+    def set_horz_offset(self, horz_offset):
+        """
+        Set the horizontal offset for additional lines that are to be plotted
+
+        Parameters
+        ----------
+        horz_offset : number
+            The amount of horizontal shift to add to each line in the data
+            stack
+        """
+        self._horz_offset = horz_offset
+
+    def replot(self):
+        """
+        @Override
+        Replot the data after modifying a display parameter (e.g.,
+        offset or autoscaling) or adding new data
+        """
+        rgba = cm.ScalarMappable(self._norm, self._cmap)
+        keys = self._data.keys()
+        # number of lines currently on the plot
+        num_lines = len(self._ax[0].lines)
+        # number of datasets in the data dict
+        num_datasets = len(keys)
+        # set the local counter
+        counter = 0
+        # loop over the datasets
+        for key in keys:
+            # get the (x,y) data from the dictionary
+            (x, y) = self._data[key]
+            # check to see if there is already a line in the axes
+            if counter < num_lines:
+                self._ax[0].lines[counter].set_xdata(
+                    x + counter * self._horz_offset)
+                self._ax[0].lines[counter].set_ydata(
+                    y + counter * self._vert_offset)
+            else:
+
+                # a new line needs to be added
+                # plot the (x,y) data with default offsets
+                self._ax[0].plot(x + counter * self._horz_offset,
+                               y + counter * self._vert_offset)
+            # compute the color for the line
+            color = rgba.to_rgba(x=(counter / num_datasets))
+            # set the color for the line
+            self._ax[0].lines[counter].set_color(color)
+            # increment the counter
+            counter += 1
+        # check to see if the axes need to be automatically adjusted to show
+        # all the data
+        if(self._autoscale):
+            (min_x, max_x, min_y, max_y) = self.find_range()
+            self._ax[0].set_xlim(min_x, max_x)
+            self._ax[0].set_ylim(min_y, max_y)
+
+    def set_auto_scale(self, is_autoscaling):
+        """
+        Enable/disable autoscaling of the axes to show all data
+
+        Parameters
+        ----------
+        is_autoscaling: bool
+            Automatically rescale the axes to show all the data (true)
+            or stop automatically rescaling the axes (false)
+        """
+        print("autoscaling: {0}".format(is_autoscaling))
+        self._autoscale = is_autoscaling
+
+    def find_range(self):
+        """
+        Find the min/max in x and y
+
+        @tacaswell: I'm sure that this is functionality that matplotlib
+            provides but i'm not at all sure how to do it...
+
+        Returns
+        -------
+        (min_x, max_x, min_y, max_y)
+        """
+        if len(self._ax[0].lines) == 0:
+            return 0, 1, 0, 1
+
+        # find min/max in x and y
+        min_x = np.zeros(len(self._ax[0].lines))
+        max_x = np.zeros(len(self._ax[0].lines))
+        min_y = np.zeros(len(self._ax[0].lines))
+        max_y = np.zeros(len(self._ax[0].lines))
+
+        for idx in range(len(self._ax[0].lines)):
+            min_x[idx] = np.min(self._ax[0].lines[idx].get_xdata())
+            max_x[idx] = np.max(self._ax[0].lines[idx].get_xdata())
+            min_y[idx] = np.min(self._ax[0].lines[idx].get_ydata())
+            max_y[idx] = np.max(self._ax[0].lines[idx].get_ydata())
+
+        return (np.min(min_x), np.max(max_x), np.min(min_y), np.max(max_y))
+
+    def hide_axes(self):
+        self._fig.delaxes(self._ax[0])
+
+    def show_axes(self):
+        self._fig.add_axes(self._ax[0])
 
 
-def _absolute_limit(im, limit_args):
-    """
-    Plot the image based on the min/max values in limit_args
-
-    This function is a no-op and just return the input limit_args.
-
-    Parameters
-    ----------
-    im : ndarray
-        image data.  Ignored in this method
-
-    limit_args : array
-       (min_value, max_value)  Values are in absolute units
-       of the image.
-
-    Returns
-    -------
-    climits : tuple
-       length 2 tuple to be passed to `im.clim(...)` to
-       set the color limits of a ColorMappable object.
-
-    """
-    return limit_args
 
 
-def _percentile_limit(im, limit_args):
-    """
-    Sets limits based on percentile.
 
-    Parameters
-    ----------
-    im : ndarray
-        image data
-
-    limit_args : tuple of floats in [0, 100]
-        upper and lower percetile values
-
-    Returns
-    -------
-    climits : tuple
-       length 2 tuple to be passed to `im.clim(...)` to
-       set the color limits of a ColorMappable object.
-
-    """
-    return np.percentile(im, limit_args)
-
-
-class TwoDimStackViewer(common.AbstractDataView2D):
+class TwoDimStackView(common.AbstractDataView2D):
     def __init__(self, fig, data_dict=None,
                  cmap=None,
                  norm=None,
@@ -330,3 +437,71 @@ class TwoDimStackViewer(common.AbstractDataView2D):
         self._limit_func = limit_func
         # update the axes
         self.update_color_limits(new_limits, force_update=True)
+
+def _full_range(im, limit_args):
+    """
+    Plot the entire range of the image
+
+    Parameters
+    ----------
+    im : ndarray
+       image data, nominally 2D
+
+    limit_args : object
+       Ignored, here to match signature with other
+       limit functions
+
+    Returns
+    -------
+    climits : tuple
+       length 2 tuple to be passed to `im.clim(...)` to
+       set the color limits of a ColorMappable object.
+    """
+    return (np.min(im), np.max(im))
+
+
+def _absolute_limit(im, limit_args):
+    """
+    Plot the image based on the min/max values in limit_args
+
+    This function is a no-op and just return the input limit_args.
+
+    Parameters
+    ----------
+    im : ndarray
+        image data.  Ignored in this method
+
+    limit_args : array
+       (min_value, max_value)  Values are in absolute units
+       of the image.
+
+    Returns
+    -------
+    climits : tuple
+       length 2 tuple to be passed to `im.clim(...)` to
+       set the color limits of a ColorMappable object.
+
+    """
+    return limit_args
+
+
+def _percentile_limit(im, limit_args):
+    """
+    Sets limits based on percentile.
+
+    Parameters
+    ----------
+    im : ndarray
+        image data
+
+    limit_args : tuple of floats in [0, 100]
+        upper and lower percetile values
+
+    Returns
+    -------
+    climits : tuple
+       length 2 tuple to be passed to `im.clim(...)` to
+       set the color limits of a ColorMappable object.
+
+    """
+    return np.percentile(im, limit_args)

@@ -17,282 +17,18 @@ from matplotlib import cm, colors
 from matplotlib.figure import Figure
 from collections import OrderedDict
 import numpy as np
+from ..backend.mpl import Stack1DView
 
-
-class OneDimStackViewer(common.AbstractDataView1D):
-    """
-    The OneDimStackViewer provides a UI widget for viewing a number of 1-D
-    data sets with cumulative offsets in the x- and y- directions.  The
-    first data set always has an offset of (0, 0).
-    """
-
-    _default_horz_offset = 0
-    _default_vert_offset = 0
-    _default_autoscale = False
-
-    def __init__(self, fig, data_dict=None, cmap=None, norm=None):
-        """
-        __init__ docstring
-
-        Parameters
-        ----------
-        fig : figure to draw the artists on
-        x_data : list
-            list of vectors of x-coordinates
-        y_data : list
-            list of vectors of y-coordinates
-        lbls : list
-            list of the names of each data set
-        cmap : colormap that matplotlib understands
-        norm : mpl.colors.Normalize
-        """
-        # set some defaults
-        self._horz_offset = OneDimStackViewer._default_horz_offset
-        self._vert_offset = OneDimStackViewer._default_vert_offset
-        self._autoscale = OneDimStackViewer._default_autoscale
-
-        # save the data_dictionary
-        if data_dict is not None:
-            self._data = data_dict
-        else:
-            # create a new data dictionary
-            self._data = OrderedDict()
-        if fig is None:
-            raise Exception("There must be a figure in which to render Artists")
-        # stash the figure
-        self._fig = fig
-        # create the matplotlib axes
-        self._ax1 = self._fig.add_subplot(1, 1, 1)
-        self._ax1.set_aspect('equal')
-
-        # call up the inheritance chain
-        common.AbstractDataView1D.__init__(self, cmap=cmap, norm=norm)
-        # create a local counter
-        idx = 0
-        # add the data to the main axes
-        for key in self._data.keys():
-            # get the (x,y) data from the dictionary
-            (x, y) = self._data[key]
-            # plot the (x,y) data with default offsets
-            self._ax1.plot(x + idx * self._horz_offset,
-                           y + idx * self._vert_offset)
-            # increment the counter
-            idx += 1
-
-    def set_vert_offset(self, vert_offset):
-        """
-        Set the vertical offset for additional lines that are to be plotted
-
-        Parameters
-        ----------
-        vert_offset : number
-            The amount of vertical shift to add to each line in the data stack
-        """
-        self._vert_offset = vert_offset
-
-    def set_horz_offset(self, horz_offset):
-        """
-        Set the horizontal offset for additional lines that are to be plotted
-
-        Parameters
-        ----------
-        horz_offset : number
-            The amount of horizontal shift to add to each line in the data
-            stack
-        """
-        self._horz_offset = horz_offset
-
-    def replot(self):
-        """
-        @Override
-        Replot the data after modifying a display parameter (e.g.,
-        offset or autoscaling) or adding new data
-        """
-        rgba = cm.ScalarMappable(self._norm, self._cmap)
-        keys = self._data.keys()
-        # number of lines currently on the plot
-        num_lines = len(self._ax1.lines)
-        # number of datasets in the data dict
-        num_datasets = len(keys)
-        # set the local counter
-        counter = 0
-        # loop over the datasets
-        for key in keys:
-            # get the (x,y) data from the dictionary
-            (x, y) = self._data[key]
-            # check to see if there is already a line in the axes
-            if counter < num_lines:
-                self._ax1.lines[counter].set_xdata(
-                    x + counter * self._horz_offset)
-                self._ax1.lines[counter].set_ydata(
-                    y + counter * self._vert_offset)
-            else:
-
-                # a new line needs to be added
-                # plot the (x,y) data with default offsets
-                self._ax1.plot(x + counter * self._horz_offset,
-                               y + counter * self._vert_offset)
-            # compute the color for the line
-            color = rgba.to_rgba(x=(counter / num_datasets))
-            # set the color for the line
-            self._ax1.lines[counter].set_color(color)
-            # increment the counter
-            counter += 1
-        # check to see if the axes need to be automatically adjusted to show
-        # all the data
-        if(self._autoscale):
-            (min_x, max_x, min_y, max_y) = self.find_range()
-            self._ax1.set_xlim(min_x, max_x)
-            self._ax1.set_ylim(min_y, max_y)
-
-    def set_auto_scale(self, is_autoscaling):
-        """
-        Enable/disable autoscaling of the axes to show all data
-
-        Parameters
-        ----------
-        is_autoscaling: bool
-            Automatically rescale the axes to show all the data (true)
-            or stop automatically rescaling the axes (false)
-        """
-        print("autoscaling: {0}".format(is_autoscaling))
-        self._autoscale = is_autoscaling
-
-    def find_range(self):
-        """
-        Find the min/max in x and y
-
-        @tacaswell: I'm sure that this is functionality that matplotlib
-            provides but i'm not at all sure how to do it...
-
-        Returns
-        -------
-        (min_x, max_x, min_y, max_y)
-        """
-        if len(self._ax1.lines) == 0:
-            return 0, 1, 0, 1
-
-        # find min/max in x and y
-        min_x = np.zeros(len(self._ax1.lines))
-        max_x = np.zeros(len(self._ax1.lines))
-        min_y = np.zeros(len(self._ax1.lines))
-        max_y = np.zeros(len(self._ax1.lines))
-
-        for idx in range(len(self._ax1.lines)):
-            min_x[idx] = np.min(self._ax1.lines[idx].get_xdata())
-            max_x[idx] = np.max(self._ax1.lines[idx].get_xdata())
-            min_y[idx] = np.min(self._ax1.lines[idx].get_ydata())
-            max_y[idx] = np.max(self._ax1.lines[idx].get_ydata())
-
-        return (np.min(min_x), np.max(max_x), np.min(min_y), np.max(max_y))
-
-    def hide_axes(self):
-        self._fig.delaxes(self._ax1)
-
-    def show_axes(self):
-        self._fig.add_axes(self._ax1)
-
-
-class OneDimContourViewer(common.AbstractDataView1D):
-    """
-    The OneDimContourViewer provides a UI widget for viewing a number of 1-D
-    data sets as a contour plot, starting from dataset 0 at y = 0
-    """
-    _normalize_datasets = False
-
-    def __init__(self, fig, data_dict=None, cmap=None, norm=None):
-        """
-        __init__ docstring
-
-        Parameters
-        ----------
-        fig : figure to draw the artists on
-        x_data : list
-            list of vectors of x-coordinates
-        y_data : list
-            list of vectors of y-coordinates
-        lbls : list
-            list of the names of each data set
-        cmap : colormap that matplotlib understands
-        norm : mpl.colors.Normalize
-        """
-        # set some defaults
-        # no defaults yet
-
-        # save the data_dictionary
-        if data_dict is not None:
-            self._data = data_dict
-        else:
-            # create a new data dictionary
-            self._data = OrderedDict()
-        if fig is None:
-            raise Exception("There must be a figure in which to render Artists")
-        # stash the figure
-        self._fig = fig
-        # create the matplotlib axes
-        self._ax1 = self._fig.add_subplot(1, 1, 1)
-        self._ax1.set_aspect('equal')
-
-        # call up the inheritance chain
-        common.AbstractDataView1D.__init__(self, cmap=cmap, norm=norm)
-
-        # plot the data
-        self.replot()
-
-    def replot(self):
-        """
-        @Override
-        Replot the data after modifying a display parameter (e.g.,
-        offset or autoscaling) or adding new data
-        """
-
-        # create the 2-D data array for the contour plot
-        keys = self._data.keys()
-        # number of datasets in the data dict
-        num_keys = len(keys)
-        # cannot plot data if there are no keys
-        if num_keys < 1:
-            return
-        # set the local counter
-        counter = num_keys - 1
-        # @tacaswell Should it be required that all datasets are the same
-        # length?
-        num_coords = len(self._data[keys[0]][0])
-        # declare the array
-        self._data_arr = np.zeros((num_keys, num_coords))
-        # add the data to the main axes
-        for key in self._data.keys():
-            # get the (x,y) data from the dictionary
-            (x, y) = self._data[key]
-            # add the data to the array
-
-            self._data_arr[counter] = y
-            # decrement the counter
-            counter -= 1
-        # get the first dataset to get the x axis and number of y datasets
-        x, y = self._data[keys[0]]
-        y = np.arange(len(keys))
-        print("shape of ([x], [y], [z]): ([{0}], [{1}], [{2}])".format(
-                x.shape, y.shape, self._data_arr.shape))
-        # TODO: Colormap initialization is not working properly.
-        self._ax1.contourf(x, y, self._data_arr)  # , cmap=colors.Colormap(self._cmap))
-
-    def hide_axes(self):
-        self._fig.delaxes(self._ax1)
-
-    def show_axes(self):
-        self._fig.add_axes(self._ax1)
-
-
-class OneDimStackCanvas(common.AbstractMessenger1D):
+class Stack1DMessenger(common.AbstractMessenger1D):
     """
     This is a thin wrapper around images.CrossSectionViewer which
     manages the Qt side of the figure creation and provides slots
     to pass commands down to the gui-independent layer
     """
-    views = OneDimStackViewer, OneDimContourViewer
 
-    def __init__(self, data_dict=None, parent=None):
+    def __init__(self, fig, data=None):
+        super(Stack1DMessenger, self).__init__()
+        self._view = Stack1DView(fig=fig, data=data)
         # create a figure to display the mpl axes
         fig = Figure(figsize=(24, 24))
         # create the views
@@ -397,7 +133,7 @@ class OneDimStackControlWidget(QtGui.QDockWidget):
 
         # create the combobox
         self._view_options = QtGui.QComboBox(parent=self)
-        for view in OneDimStackCanvas.views:
+        for view in Stack1DMessenger.views:
             self._view_options.addItem(str(view))
 
         # create the offset spin boxes
@@ -482,7 +218,7 @@ class OneDimStackWidget(common.MPLDisplayWidget):
 
     def __init__(self, data_dict=None, page_size=10, parent=None):
         # create the viewer widget
-        self._canvas = OneDimStackCanvas(data_dict)
+        self._canvas = Stack1DMessenger(data_dict)
         # call up the init inheritance chain
         common.MPLDisplayWidget.__init__(self)
         # init the mpl canvas
