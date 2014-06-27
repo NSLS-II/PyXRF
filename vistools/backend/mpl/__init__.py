@@ -14,10 +14,10 @@ class AbstractMPLDataView(AbstractDataView):
     """
     Class docstring
     """
-    _default_cmap = cm.datad['jet']
+    _default_cmap = 'jet'
     _default_norm = cm.colors.Normalize(vmin=0, vmax=1)
 
-    def __init__(self, fig, *args, **kwargs):
+    def __init__(self, fig, cmap=None, norm=None, *args, **kwargs):
         """
         Docstring
 
@@ -31,8 +31,12 @@ class AbstractMPLDataView(AbstractDataView):
         # stash the figure
         self._fig=fig
         # set some defaults
-        self._cmap = self._default_cmap
-        self._norm = self._default_norm
+        self._cmap = cmap
+        self._norm = norm
+        if cmap is None:
+            self._cmap = self._default_cmap
+        if norm is None:
+            self._norm = self._default_norm
 
     def replot(self):
         raise NotImplementedError("This method must be implemented by daughter classes")
@@ -55,3 +59,6 @@ class AbstractMPLDataView(AbstractDataView):
         norm : mpl.cm.colors.Normalize
         """
         self._norm = norm
+
+    def draw(self):
+        self._fig.canvas.draw()

@@ -69,9 +69,9 @@ class demo_1d(QtGui.QMainWindow):
 
         # connect signals to test harness
         self.sig_append_demo_data.connect(
-            self._widget._widget._canvas.sl_append_data)
+            self._widget._messenger.sl_append_data)
         self.sig_add_demo_data.connect(
-            self._widget._widget._canvas.sl_add_data)
+            self._widget._messenger.sl_add_data)
 
         self.setCentralWidget(self._widget)
 

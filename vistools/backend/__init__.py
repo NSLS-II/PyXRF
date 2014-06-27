@@ -17,7 +17,7 @@ class AbstractDataView(object):
     default_data_structure = OrderedDict
 
     # no init because this class should not be used directly
-    def __init__(self, data_dict, *args, **kwargs):
+    def __init__(self, data_dict=None, *args, **kwargs):
         """
         Parameters
         ----------
@@ -76,7 +76,7 @@ class AbstractDataView1D(AbstractDataView):
             single vector of y-coordinates
         """
         for (lbl, x, y) in zip(lbl_list, x_list, y_list):
-            self._data[lbl] = (x, y)
+            self._data_dict[lbl] = (x, y)
 
     def append_data(self, lbl_list, x_list, y_list):
         """
@@ -101,13 +101,13 @@ class AbstractDataView1D(AbstractDataView):
         for (lbl, x, y) in zip(lbl_list, x_list, y_list):
             try:
                 # get the current vectors at 'lbl'
-                (prev_x, prev_y) = self._data[lbl]
+                (prev_x, prev_y) = self._data_dict[lbl]
                 # set the concatenated data to 'lbl'
-                self._data[lbl] = (np.concatenate((prev_x, x)),
+                self._data_dict[lbl] = (np.concatenate((prev_x, x)),
                                    np.concatenate((prev_y, y)))
             except KeyError:
                 # key doesn't exist, add data to a new entry called 'lbl'
-                self._data[lbl] = (x, y)
+                self._data_dict[lbl] = (x, y)
 
 
 class AbstractDataView2D(AbstractDataView):
@@ -131,7 +131,7 @@ class AbstractDataView2D(AbstractDataView):
             single vector of y-coordinates
         """
         for (lbl, x, y) in zip(lbl_list, xy_list):
-            self._data[lbl] = (x, y)
+            self._data_dict[lbl] = (x, y)
 
     def append_data(self, lbl_list, xy_list, axis=[], append_to_end=[]):
         """
@@ -159,14 +159,14 @@ class AbstractDataView2D(AbstractDataView):
             try:
                 # set the concatenated data to 'lbl'
                 if end:
-                    self._data[lbl] = np.r_[str(ax), self._data[lbl], xy]
+                    self._data_dict[lbl] = np.r_[str(ax), self._data_dict[lbl], xy]
                     # TODO: Need to update the corners_list also...
                 else:
-                    self._data[lbl] = np.r_[str(ax), xy, self._data[lbl]]
+                    self._data_dict[lbl] = np.r_[str(ax), xy, self._data_dict[lbl]]
                     # TODO: Need to update the corners_list also...
             except KeyError:
                 # key doesn't exist, add data to a new entry called 'lbl'
-                self._data[lbl] = xy
+                self._data_dict[lbl] = xy
 
     def add_datum(self, lbl_list, x_list, y_list, val_list):
         """

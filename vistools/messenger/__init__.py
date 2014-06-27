@@ -33,7 +33,7 @@ class AbstractMessenger(QtCore.QObject):
         """
         self._view._data = OrderedDict()
         self._view.replot()
-        self.draw()
+        self._view.draw()
 
     @QtCore.Slot(str)
     def sl_remove_datasets(self, lbl_list):
@@ -48,7 +48,7 @@ class AbstractMessenger(QtCore.QObject):
         """
         self._view.remove_data(lbl_list=lbl_list)
         self._view.replot()
-        self.draw()
+        self._view.draw()
 
 
 class AbstractMessenger1D(AbstractMessenger):
@@ -56,10 +56,9 @@ class AbstractMessenger1D(AbstractMessenger):
     AbstractMessenger1D class docstring
     """
 
-    def __init__(self, data_dict, *args, **kwargs):
-        super(AbstractMessenger1D, self).__init__(data_dict=data_dict, *args,
-                                                  **kwargs)
-        self._view = AbstractDataView(data_dict=data_dict)
+    def __init__(self, *args, **kwargs):
+        super(AbstractMessenger1D, self).__init__(*args, **kwargs)
+        self._view = AbstractDataView()
 
     @QtCore.Slot(list, list, list)
     def sl_add_data(self, lbl_list, x_list, y_list):
@@ -77,7 +76,7 @@ class AbstractMessenger1D(AbstractMessenger):
         """
         self._view.add_data(lbl_list=lbl_list, x_list=x_list, y_list=y_list)
         self._view.replot()
-        self.draw()
+        self._view.draw()
 
     @QtCore.Slot(list, list, list)
     def sl_append_data(self, lbl_list, x_list, y_list):
@@ -95,7 +94,7 @@ class AbstractMessenger1D(AbstractMessenger):
         """
         self._view.append_data(lbl_list=lbl_list, x_list=x_list, y_list=y_list)
         self._view.replot()
-        self.draw()
+        self._view.draw()
 
 
 class AbstractMessenger2D(AbstractMessenger):
@@ -128,7 +127,7 @@ class AbstractMessenger2D(AbstractMessenger):
         self._view.add_data(lbl_list=lbl_list, xy_list=xy_list,
                             corners_list=corners_list)
         self._view.replot()
-        self.draw()
+        self._view.draw()
 
     @QtCore.Slot(list, list, list, list)
     def sl_append_data(self, lbl_list, xy_list, axis_list, append_to_end_list):
@@ -153,7 +152,7 @@ class AbstractMessenger2D(AbstractMessenger):
                                axis_list=axis_list,
                                append_to_end_list=append_to_end_list)
         self._view.replot()
-        self.draw()
+        
 
     @QtCore.Slot(list, list, list, list)
     def sl_append_data(self, lbl_list, x_list, y_list, val_list):
@@ -179,7 +178,7 @@ class AbstractMessenger2D(AbstractMessenger):
                                y_list=y_list,
                                val_list=val_list)
         self._view.replot()
-        self.draw()
+        self._view.draw()
 
 
 class LimitSpinners(QtGui.QGroupBox):

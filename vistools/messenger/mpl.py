@@ -7,7 +7,9 @@ from matplotlib.backends.qt4_compat import QtGui, QtCore
 from matplotlib import colors
 import numpy as np
 
-from ..backend.mpl import Stack1DView, AbstractMPLDataView, Stack2DView
+from ..backend.mpl.Stack1DView import Stack1DView
+from ..backend.mpl.Stack2DView import Stack2DView
+from ..backend.mpl import AbstractMPLDataView
 from . import AbstractMessenger, AbstractMessenger1D, AbstractMessenger2D
 
 __author__ = 'Eric-hafxb'
@@ -32,7 +34,7 @@ class AbstractMPLMessenger(AbstractMessenger):
         self._view.update_norm(new_norm)
 
     @QtCore.Slot(colors.Colormap)
-    def sl_update_color_map(self, cmap):
+    def sl_update_cmap(self, cmap):
         """
         Updates the color map.  Currently takes a string, should probably be
         redone to take a cmap object and push the look up function up a layer
@@ -43,7 +45,7 @@ class AbstractMPLMessenger(AbstractMessenger):
         except ValueError:
             # do nothing and return
             return
-        self.replot()
+        self.sl_replot()
 
     @QtCore.Slot()
     def sl_replot(self):
@@ -53,7 +55,7 @@ class AbstractMPLMessenger(AbstractMessenger):
         self._view.replot()
         self._view._fig.canvas.draw()
 
-class Stack1DMessenger(AbstractMessenger1D):
+class Stack1DMessenger(AbstractMessenger1D, AbstractMPLMessenger):
     """
     This is a thin wrapper around images.CrossSectionViewer which
     manages the Qt side of the figure creation and provides slots
@@ -62,7 +64,8 @@ class Stack1DMessenger(AbstractMessenger1D):
 
     def __init__(self, fig, data_dict=None, *args, **kwargs):
         # call up the inheritance toolchain
-        super(Stack1DMessenger, self).__init__(*args, **kwargs)
+        super(Stack1DMessenger, self).__init__(data_dict=data_dict,fig=fig,
+                                               *args, **kwargs)
         # init the view
         self._view = Stack1DView(fig=fig, data_dict=data_dict)
 
@@ -78,7 +81,7 @@ class Stack1DMessenger(AbstractMessenger1D):
             The amount to offset subsequent plots by (idx * horz_offset)
         """
         self._view.set_horz_offset(horz_offset)
-        self.replot()
+        self.sl_replot()
 
     @QtCore.Slot(float)
     def sl_update_vert_offset(self, vert_offset):
@@ -92,7 +95,7 @@ class Stack1DMessenger(AbstractMessenger1D):
             The amount to offset subsequent plots by (idx * vert_offset)
         """
         self._view.set_vert_offset(vert_offset)
-        self.replot()
+        self.sl_replot()
 
     @QtCore.Slot(bool)
     def sl_update_autoscaling(self, is_autoscaling):
@@ -105,7 +108,7 @@ class Stack1DMessenger(AbstractMessenger1D):
             Force the axes to autoscale to show all data
         """
         self._view.set_auto_scale(is_autoscaling)
-        self.replot()
+        self.sl_replot()
 
 
 class CrossSection2DMessenger(AbstractMessenger2D):

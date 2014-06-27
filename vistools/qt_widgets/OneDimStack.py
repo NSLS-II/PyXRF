@@ -41,11 +41,6 @@ class OneDimStackControlWidget(QtGui.QDockWidget):
         # add a widget that lives in the floating control widget
         self._widget = QtGui.QWidget(self)
 
-        # create the combobox
-        self._view_options = QtGui.QComboBox(parent=self)
-        for view in Stack1DMessenger.views:
-            self._view_options.addItem(str(view))
-
         # create the offset spin boxes
         self._x_shift_spinbox = QtGui.QDoubleSpinBox(parent=self)
         self._y_shift_spinbox = QtGui.QDoubleSpinBox(parent=self)
@@ -100,7 +95,6 @@ class OneDimStackControlWidget(QtGui.QDockWidget):
         layout = QtGui.QFormLayout()
 
         # add the controls to the layout
-        layout.addRow("Data view: ", self._view_options)
         layout.addRow("--- Curve Shift ---", None)
         layout.addRow("x shift", self._x_shift_spinbox)
         layout.addRow("y shift", self._y_shift_spinbox)
@@ -130,24 +124,23 @@ class OneDimStackMainWindow(QtGui.QMainWindow):
         self.setWindowTitle('1-D Stack Plotting')
         # create view widget, control widget and messenger pass-through
         self._disp = MPLDisplayWidget()
-        self._messenger = Stack1DMessenger(self._disp._fig, data_dict)
+        self._messenger = Stack1DMessenger(fig=self._disp._fig,
+                                           data_dict=data_dict)
         self._ctrl_widget = OneDimStackControlWidget("1-D Stack Controls")
 
         # connect signals/slots between view widget and control widget
         self._ctrl_widget._x_shift_spinbox.valueChanged.connect(
-            self._widget._canvas.sl_update_x_offset)
+            self._messenger.sl_update_horz_offset)
         self._ctrl_widget._y_shift_spinbox.valueChanged.connect(
-            self._widget._canvas.sl_update_y_offset)
+            self._messenger.sl_update_vert_offset)
         self._ctrl_widget._autoscale_box.clicked.connect(
-            self._widget._canvas.sl_update_autoscaling)
+            self._messenger.sl_update_autoscaling)
         self._ctrl_widget._cm_cb.editTextChanged[str].connect(
-            self._widget._canvas.sl_update_color_map)
+            self._messenger.sl_update_cmap)
         self._ctrl_widget.sig_clear_data.connect(
-            self._widget._canvas.sl_clear_data)
-        self._ctrl_widget._view_options.currentIndexChanged.connect(
-            self._widget._canvas.sl_change_views)
+            self._messenger.sl_clear_data)
 
-        self._widget.setFocus()
-        self.setCentralWidget(self._widget)
+        self._disp.setFocus()
+        self.setCentralWidget(self._disp)
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea,
                            self._ctrl_widget)

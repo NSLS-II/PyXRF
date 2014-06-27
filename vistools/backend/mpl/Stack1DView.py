@@ -34,7 +34,8 @@ class Stack1DView(AbstractDataView1D, AbstractMPLDataView):
         norm : mpl.colors.Normalize
         """
         # call the parent constructors
-        super(Stack1DView, self).__init__(*args, **kwargs)
+        super(Stack1DView, self).__init__(fig=fig, data_dict=data_dict, *args,
+                                          **kwargs)
 
         # set some defaults
         self._horz_offset = self._default_horz_offset
@@ -49,9 +50,9 @@ class Stack1DView(AbstractDataView1D, AbstractMPLDataView):
         # create a local counter
         counter = 0
         # add the data to the main axes
-        for key in self._data.keys():
+        for key in self._data_dict.keys():
             # get the (x,y) data from the dictionary
-            (x, y) = self._data[key]
+            (x, y) = self._data_dict[key]
             # plot the (x,y) data with default offsets
             self._ax[0].plot(x + counter * self._horz_offset,
                            y + counter * self._vert_offset)
@@ -88,7 +89,7 @@ class Stack1DView(AbstractDataView1D, AbstractMPLDataView):
         offset or autoscaling) or adding new data
         """
         rgba = cm.ScalarMappable(self._norm, self._cmap)
-        keys = self._data.keys()
+        keys = self._data_dict.keys()
         # number of lines currently on the plot
         num_lines = len(self._ax[0].lines)
         # number of datasets in the data dict
@@ -98,7 +99,7 @@ class Stack1DView(AbstractDataView1D, AbstractMPLDataView):
         # loop over the datasets
         for key in keys:
             # get the (x,y) data from the dictionary
-            (x, y) = self._data[key]
+            (x, y) = self._data_dict[key]
             # check to see if there is already a line in the axes
             if counter < num_lines:
                 self._ax[0].lines[counter].set_xdata(
