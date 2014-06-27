@@ -1,7 +1,5 @@
-__author__ = 'Eric-hafxb'
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
-
 from six.moves import zip
 
 from matplotlib import cm
@@ -9,6 +7,8 @@ from matplotlib import cm
 import numpy as np
 from . import AbstractMPLDataView
 from .. import AbstractDataView1D
+
+__author__ = 'Eric-hafxb'
 
 class Stack1DView(AbstractDataView1D, AbstractMPLDataView):
     """

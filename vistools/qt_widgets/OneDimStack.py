@@ -8,105 +8,14 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 from matplotlib.backends.qt4_compat import QtGui, QtCore
-from vistools.vistools.messenger import common
 
-from matplotlib.ticker import NullLocator
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas  # noqa
-from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar  # noqa
-from matplotlib import cm, colors
-from matplotlib.figure import Figure
-from collections import OrderedDict
-import numpy as np
-from ..backend.mpl import Stack1DView
+from matplotlib.cm import datad
+from ..messenger.mpl import Stack1DMessenger
+from .mpl import MPLDisplayWidget
 
-class Stack1DMessenger(common.AbstractMessenger1D):
-    """
-    This is a thin wrapper around images.CrossSectionViewer which
-    manages the Qt side of the figure creation and provides slots
-    to pass commands down to the gui-independent layer
-    """
 
-    def __init__(self, fig, data=None):
-        super(Stack1DMessenger, self).__init__()
-        self._view = Stack1DView(fig=fig, data=data)
-        # create a figure to display the mpl axes
-        fig = Figure(figsize=(24, 24))
-        # create the views
-        default_view = 0
-        self._views = []
-        for view in self.views:
-            # create the view
-            v = view(fig, data_dict)
-            # hide the axes
-            v.hide_axes()
-            # stash the view in a list
-            self._views.append(v)
-        # show the default view
-        self._views[default_view].show_axes()
-        # call the parent class initialization method
-        common.AbstractMessenger1D.__init__(self, fig=fig,
-                                            view=self._views[default_view])
-
-    @QtCore.Slot(float)
-    def sl_update_x_offset(self, x_offset):
-        """
-        Slot to update the x-offset such that additional lines are shifted
-        along the x-axis by (idx * x_offset)
-
-        Parameters
-        ----------
-        x_offset : float
-            The amount to offset subsequent plots by (idx * x_offset)
-        """
-        self._view.set_horz_offset(x_offset)
-        self._view.replot()
-        self.draw()
-
-    @QtCore.Slot(float)
-    def sl_update_y_offset(self, y_offset):
-        """
-        Slot to update the y-offset such that additional lines are shifted
-        along the y-axis by (idx * y_offset)
-
-        Parameters
-        ----------
-        y_offset : float
-            The amount to offset subsequent plots by (idx * y_offset)
-        """
-        self._view.set_vert_offset(y_offset)
-        self._view.replot()
-        self.draw()
-
-    @QtCore.Slot(bool)
-    def sl_update_autoscaling(self, is_autoscaling):
-        """
-        Set the widget to autoscale the axes to show all data (true)
-
-        Parameters
-        ----------
-        is_autoscaling : boolean
-            Force the axes to autoscale to show all data
-        """
-        self._view.set_auto_scale(is_autoscaling)
-        self._view.replot()
-        self.draw()
-
-    @QtCore.Slot(str)
-    def sl_change_views(self, view_name):
-        """
-        Change the currently active data view
-
-        Parameters
-        ----------
-        view_name : String
-            Name of the view to change to
-        """
-        self._views[view_name]._data = self._view._data
-        self._view.hide_axes()
-        self._view = self._views[view_name]
-        self._view.show_axes()
-        self._view.replot()
-        self.draw()
+_CMAPS = datad.keys()
+_CMAPS.sort()
 
 
 class OneDimStackControlWidget(QtGui.QDockWidget):
@@ -178,8 +87,8 @@ class OneDimStackControlWidget(QtGui.QDockWidget):
         # set up color map combo box
         self._cm_cb = QtGui.QComboBox(parent=self)
         self._cm_cb.setEditable(True)
-        self._cm_cb.addItems(common._CMAPS)
-        self._cm_cb.setEditText(common._CMAPS[0])
+        self._cm_cb.addItems(_CMAPS)
+        self._cm_cb.setEditText(_CMAPS[0])
 
         # declare button to clear data from plot
         self._btn_dataclear = QtGui.QPushButton("clear data", parent=self)
@@ -215,25 +124,15 @@ class OneDimStackControlWidget(QtGui.QDockWidget):
         self.sig_clear_data.emit()
 
 
-class OneDimStackWidget(common.MPLDisplayWidget):
-
-    def __init__(self, data_dict=None, page_size=10, parent=None):
-        # create the viewer widget
-        self._canvas = Stack1DMessenger(data_dict)
-        # call up the init inheritance chain
-        common.MPLDisplayWidget.__init__(self)
-        # init the mpl canvas
-        self.init_canvas()
-
-
 class OneDimStackMainWindow(QtGui.QMainWindow):
     def __init__(self, parent=None, data_dict=None):
         QtGui.QMainWindow.__init__(self, parent)
         self.setWindowTitle('1-D Stack Plotting')
-        # create view widget and control widget
-        self._widget = OneDimStackWidget(data_dict=data_dict)
-
+        # create view widget, control widget and messenger pass-through
+        self._disp = MPLDisplayWidget()
+        self._messenger = Stack1DMessenger(self._disp._fig, data_dict)
         self._ctrl_widget = OneDimStackControlWidget("1-D Stack Controls")
+
         # connect signals/slots between view widget and control widget
         self._ctrl_widget._x_shift_spinbox.valueChanged.connect(
             self._widget._canvas.sl_update_x_offset)

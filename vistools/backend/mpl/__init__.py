@@ -1,5 +1,3 @@
-__author__ = 'Eric-hafxb'
-
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
@@ -9,13 +7,15 @@ from matplotlib import cm
 
 from ...backend import AbstractDataView
 
+__author__ = 'Eric-hafxb'
+
 
 class AbstractMPLDataView(AbstractDataView):
     """
     Class docstring
     """
     _default_cmap = cm.datad['jet']
-    _default_norm = cm.colors.Normalize(vmin=0, vmin=1)
+    _default_norm = cm.colors.Normalize(vmin=0, vmax=1)
 
     def __init__(self, fig, *args, **kwargs):
         """

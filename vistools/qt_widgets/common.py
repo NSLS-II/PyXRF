@@ -16,34 +16,6 @@ from matplotlib.figure import Figure
 from . import AbstractDisplayWidget
 
 
-class MPLDisplayWidget(AbstractDisplayWidget):
-    """
-    AbstractDatatWidget class docstring
-    """
-    default_height = 24
-    default_width = 24
-
-    def __init__(self, parent=None):
-        super(MPLDisplayWidget, self).__init__(parent=parent)
-
-        # create a figure to display the mpl axes
-        fig = Figure(figsize=(self.default_height, self.default_width))
-        self._fig = fig
-
-        # create the mpl toolbar
-        self._mpl_toolbar = NavigationToolbar(self._fig.canvas, self)
-        # create a layout manager
-        layout = QtGui.QVBoxLayout()
-        # add the mpl toolbar to the layout
-        layout.addWidget(self._mpl_toolbar)
-        # add the mpl canvas to the layout
-        layout.addWidget(self._fig.canvas)
-        # add the layout to the widget
-        self.setLayout(layout)
-
-    def draw(self):
-        self._fig.canvas.draw()
-
 
 class PlotWidget(QtGui.QMainWindow):
     """

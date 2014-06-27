@@ -1,5 +1,3 @@
-__author__ = 'Eric-hafxb'
-
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
@@ -8,6 +6,9 @@ from six.moves import zip
 import numpy as np
 from . import AbstractMPLDataView
 from .. import AbstractDataView2D
+
+__author__ = 'Eric-hafxb'
+
 
 class ContourView(AbstractDataView2D, AbstractMPLDataView):
     """

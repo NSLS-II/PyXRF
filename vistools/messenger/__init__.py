@@ -1,9 +1,17 @@
+# imports for future compatibility
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
-import six
-from collections import defaultdict, OrderedDict
-from vistools.backend import backend
+from six.moves import zip
+
+# imports to smooth over differences between PyQt4, PyQt5, PyQt4.1 and PySides
+from matplotlib.backends.qt4_compat import QtGui, QtCore
+
+# other relevant imports
 import numpy as np
+from collections import OrderedDict
+
+# local package imports
+from ..backend import AbstractDataView, AbstractDataView2D, AbstractDataView1D
 
 
 class AbstractMessenger(QtCore.QObject):
@@ -14,8 +22,9 @@ class AbstractMessenger(QtCore.QObject):
     all widgets in this library
     """
 
-    def __init__(self, drawable):
-        self._view = backend.AbstractDataView(drawable=drawable)
+    def __init__(self, data_dict, *args, **kwargs):
+        super(AbstractMessenger, self).__init__(*args, **kwargs)
+        self._view = AbstractDataView(data_dict=data_dict)
 
     @QtCore.Slot()
     def sl_clear_data(self):
@@ -23,21 +32,21 @@ class AbstractMessenger(QtCore.QObject):
         Remove all data
         """
         self._view._data = OrderedDict()
-        self._view.clear()
         self._view.replot()
         self.draw()
 
     @QtCore.Slot(str)
-    def sl_remove_dataset(self, label):
+    def sl_remove_datasets(self, lbl_list):
         """
-        Remove dataset specified by idx
+        Removes datasets specified by lbl_list
 
         Parameters
         ----------
-        lbl : String
-            name of dataset to remove
+        lbl : list
+            str
+            name(s) of dataset(s) to remove
         """
-        self._view.remove_data(label)
+        self._view.remove_data(lbl_list=lbl_list)
         self._view.replot()
         self.draw()
 
@@ -47,43 +56,44 @@ class AbstractMessenger1D(AbstractMessenger):
     AbstractMessenger1D class docstring
     """
 
-    # no init because this class should not be used directly
+    def __init__(self, data_dict, *args, **kwargs):
+        super(AbstractMessenger1D, self).__init__(data_dict=data_dict, *args,
+                                                  **kwargs)
+        self._view = AbstractDataView(data_dict=data_dict)
 
     @QtCore.Slot(list, list, list)
-    def sl_add_data(self, label, x, y):
+    def sl_add_data(self, lbl_list, x_list, y_list):
         """
         Add a new dataset named 'lbl'
 
         Parameters
         ----------
-        lbl : list
+        lbl_list : list
             names of the (x,y) coordinate lists.
-        x : list
+        x_list : list
             1 or more columns of x-coordinates.  Must be the same shape as y.
-        y : list
+        y_list : list
             1 or more columns of y-coordinates.  Must be the same shape as x.
         """
-        for (lbl, x_dataset, y_dataset) in zip(label, x, y):
-            self._view.add_data(x=x_dataset, y=y_dataset, label=lbl)
+        self._view.add_data(lbl_list=lbl_list, x_list=x_list, y_list=y_list)
         self._view.replot()
         self.draw()
 
     @QtCore.Slot(list, list, list)
-    def sl_append_data(self, lbls, x_data, y_data):
+    def sl_append_data(self, lbl_list, x_list, y_list):
         """
         Append data to the dataset specified by 'lbl'
 
         Parameters
         ----------
-        lbl : list
+        lbl_list : list
             names of the (x,y) coordinate lists.
-        x : list
+        x_list : list
             1 or more columns of x-coordinates.  Must be the same shape as y.
-        y : list
+        y_list : list
             1 or more columns of y-coordinates.  Must be the same shape as x.
         """
-        for (lbl, x, y) in zip(lbls, x_data, y_data):
-            self._view.append_data(x=x, y=y, lbl=lbl)
+        self._view.append_data(lbl_list=lbl_list, x_list=x_list, y_list=y_list)
         self._view.replot()
         self.draw()
 
@@ -93,11 +103,83 @@ class AbstractMessenger2D(AbstractMessenger):
     AbstractMessenger2D class docstring
     """
 
-    def sl_add_data(self, label, xy_data):
-        pass
+    def __init__(self, data_dict, *args, **kwargs):
+        super(AbstractMessenger1D, self).__init__(data_dict=data_dict, *args,
+                                                  **kwargs)
+        self._view = AbstractDataView(data_dict=data_dict)
 
-    def sl_append_data(self, label, xy_data):
-        pass
+    @QtCore.Slot(list, list, list)
+    def sl_add_data(self, lbl_list, xy_list, corners_list):
+        """
+        Add new datasets
+
+        Parameters
+        ----------
+        lbl_list : list
+            names of the (x,y) coordinate lists.
+        xy_list : list
+            list of 2D arrays of image data
+        corners_list : list
+            list of corners that provide information about the relative
+            position of the axes (corners_list is a tuple of 4: x0, y0, x1,
+            y1, where x0,y0 is the lower-left corner and x1,y1 is the
+            upper-right corner
+        """
+        self._view.add_data(lbl_list=lbl_list, xy_list=xy_list,
+                            corners_list=corners_list)
+        self._view.replot()
+        self.draw()
+
+    @QtCore.Slot(list, list, list, list)
+    def sl_append_data(self, lbl_list, xy_list, axis_list, append_to_end_list):
+        """
+        Append data to the dataset specified by 'lbl'
+
+        Parameters
+        ----------
+        lbl_list : list
+            names of the (x,y) coordinate lists.
+        xy_list : list
+            list of 2D arrays of image data
+        axis : list
+            int
+            axis == 0 is appending in the horizontal direction
+            axis == 1 is appending in the vertical direction
+        append_to_end : list
+            bool
+            if false, prepend to the dataset
+        """
+        self._view.append_data(lbl_list=lbl_list, xy_list=xy_list,
+                               axis_list=axis_list,
+                               append_to_end_list=append_to_end_list)
+        self._view.replot()
+        self.draw()
+
+    @QtCore.Slot(list, list, list, list)
+    def sl_append_data(self, lbl_list, x_list, y_list, val_list):
+        """
+        Add a single data point to an array
+
+        Parameters
+        ----------
+        lbl : list
+            str
+            name of the dataset to add one datum to
+        x : list
+            int
+            index of x coordinate
+        y : list
+            int
+            index of y coordinate
+        val : list
+            float
+            value of datum at the coordinates specified by (x,y)
+        """
+        self._view.append_data(lbl_list=lbl_list, x_list=x_list,
+                               y_list=y_list,
+                               val_list=val_list)
+        self._view.replot()
+        self.draw()
 
 
 class LimitSpinners(QtGui.QGroupBox):

@@ -2,8 +2,6 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 import six
 
-from vistools.vistools.backend.mpl import CrossSection2DView
-from vistools.vistools.messenger import common
 # grab the version from mpl which has done the work of smoothing over
 # the differences
 from matplotlib.backends.qt4_compat import QtGui, QtCore
@@ -13,7 +11,9 @@ from matplotlib.figure import Figure
 from matplotlib.cm import datad
 import matplotlib.colors
 import numpy as np
+import matplotlib as mpl
 
+from ..backend.mpl.Stack2DView import Stack2DView
 
 _CMAPS = datad.keys()
 _CMAPS.sort()
@@ -44,7 +44,7 @@ class StackScannerWidget(QtGui.QWidget):
         # get the shape of the stack so that the stack direction can be varied
         self._dims = stack.shape
         # create the viewer widget
-        self.xsection_widget = CrossSection2DMessenger(stack[0])
+        self.xsection_widget = Stack2DView(stack[0])
 
         # connect up the signals/slots to boss the viewer around
         self.sig_update_cmap.connect(self.xsection_widget.sl_update_color_map)

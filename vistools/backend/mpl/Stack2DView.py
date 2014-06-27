@@ -1,8 +1,5 @@
-__author__ = 'Eric-hafxb'
-
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
-
 from six.moves import zip
 
 from matplotlib.widgets import Cursor
@@ -16,7 +13,10 @@ import numpy as np
 
 from .. import AbstractDataView2D
 
-class TwoDimStackView(AbstractDataView2D):
+__author__ = 'Eric-hafxb'
+
+
+class Stack2DView(AbstractDataView2D):
     def __init__(self, fig, data_dict=None,
                  cmap=None,
                  norm=None,

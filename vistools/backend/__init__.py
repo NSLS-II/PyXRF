@@ -1,11 +1,12 @@
-__author__ = 'Eric-hafxb'
-
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
+
 from six.moves import zip
 
 import numpy as np
 from collections import OrderedDict
+
+__author__ = 'Eric-hafxb'
 
 
 class AbstractDataView(object):
@@ -36,6 +37,15 @@ class AbstractDataView(object):
         data_dict = self.default_data_structure()
 
     def remove_data(self, lbl_list):
+        """
+        Remove the key:value pair from the dictionary as specified by the
+        labels in lbl_list
+
+        Parameters
+        ----------
+        lbl_list : String
+            name of dataset to remove
+        """
         for lbl in lbl_list:
             try:
                 del self._data_dict[lbl]
@@ -67,23 +77,6 @@ class AbstractDataView1D(AbstractDataView):
         """
         for (lbl, x, y) in zip(lbl_list, x_list, y_list):
             self._data[lbl] = (x, y)
-
-    def remove_data(self, lbl_list):
-        """
-        Remove the key:value pair from the dictionary
-
-        Parameters
-        ----------
-        label : String
-            name of dataset to remove
-        """
-        for lbl in lbl_list:
-            try:
-                # delete the key:value pair from the dictionary
-                del self._data[lbl]
-            except KeyError:
-                # do nothing because the data at 'lbl' doesn't exist
-                pass
 
     def append_data(self, lbl_list, x_list, y_list):
         """
@@ -123,7 +116,7 @@ class AbstractDataView2D(AbstractDataView):
     """
 # no init because it contains no new attributes
 
-    def add_data(self, lbl_list, xy_list, ):
+    def add_data(self, lbl_list, xy_list, corners_list):
         """
         add data with the name 'lbl'.  Will overwrite data if
         'lbl' already exists in the data dictionary
@@ -140,24 +133,7 @@ class AbstractDataView2D(AbstractDataView):
         for (lbl, x, y) in zip(lbl_list, xy_list):
             self._data[lbl] = (x, y)
 
-    def remove_data(self, lbl_list):
-        """
-        Remove the key:value pair from the dictionary
-
-        Parameters
-        ----------
-        label : String
-            name of dataset to remove
-        """
-        for lbl in lbl_list:
-            try:
-                # delete the key:value pair from the dictionary
-                del self._data[lbl]
-            except KeyError:
-                # do nothing because the data at 'lbl' doesn't exist
-                pass
-
-    def append_data(self, lbl_list, xy_list, axis=0):
+    def append_data(self, lbl_list, xy_list, axis=[], append_to_end=[]):
         """
         Append (x, y) coordinates to a dataset.  If there is no dataset
         called 'lbl', add the (x_data, y_data) tuple to a new entry
@@ -171,30 +147,44 @@ class AbstractDataView2D(AbstractDataView):
         xy : list
             np.ndarray
             List of 2D arrays
-        axis : int
-            Axis to add the
+        axis : list
+            int
+            axis == 0 is appending in the horizontal direction
+            axis == 1 is appending in the vertical direction
+        append_to_end : list
+            bool
+            if false, prepend to the dataset
         """
-        for (lbl, xy) in zip(lbl_list, xy_list):
+        for (lbl, xy, ax, end) in zip(lbl_list, xy_list, axis, append_to_end):
             try:
                 # set the concatenated data to 'lbl'
-                self._data[lbl] = np.r_[str(axis),
-                                        self._data[lbl], xy]
+                if end:
+                    self._data[lbl] = np.r_[str(ax), self._data[lbl], xy]
+                    # TODO: Need to update the corners_list also...
+                else:
+                    self._data[lbl] = np.r_[str(ax), xy, self._data[lbl]]
+                    # TODO: Need to update the corners_list also...
             except KeyError:
                 # key doesn't exist, add data to a new entry called 'lbl'
-                self._data[lbl] = (xy)
+                self._data[lbl] = xy
 
-    def add_datum(self, lbl, x, y, val):
+    def add_datum(self, lbl_list, x_list, y_list, val_list):
         """
         Add a single data point to an array
+
         Parameters
         ----------
-        lbl : str
+        lbl : list
+            str
             name of the dataset to add one datum to
-        x : int
+        x : list
+            int
             index of x coordinate
-        y : int
+        y : list
+            int
             index of y coordinate
-        val : float
+        val : list
+            float
             value of datum at the coordinates specified by (x,y)
         """
         raise NotImplementedError("Not yet implemented")

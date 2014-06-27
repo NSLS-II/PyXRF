@@ -12,7 +12,8 @@ class AbstractDisplayWidget(QtGui.QWidget):
     The purpose of this class and its daughter classes is simply to render the
     figure that the various plotting libraries use to present themselves
     """
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, *args, **kwargs):
         # init the QWidget
-        super(AbstractDisplayWidget, self).__init__(parent=parent)
+        super(AbstractDisplayWidget, self).__init__(parent=parent, *args,
+                                                    **kwargs)
         # do nothing else
