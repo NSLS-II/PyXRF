@@ -28,12 +28,8 @@ class Stack1DView(AbstractDataView1D, AbstractMPLDataView):
         Parameters
         ----------
         fig : figure to draw the artists on
-        x_data : list
-            list of vectors of x-coordinates
-        y_data : list
-            list of vectors of y-coordinates
-        lbls : list
-            list of the names of each data set
+        data_dict : OrderedDict
+            dictionary of k:v as name : (x,y)
         cmap : colormap that matplotlib understands
         norm : mpl.colors.Normalize
         """
@@ -50,19 +46,17 @@ class Stack1DView(AbstractDataView1D, AbstractMPLDataView):
         self._ax.append(self._fig.add_subplot(1, 1, 1))
         self._ax[0].set_aspect('equal')
 
-        # call up the inheritance chain
-        common.AbstractDataView1D.__init__(self, cmap=cmap, norm=norm)
         # create a local counter
-        idx = 0
+        counter = 0
         # add the data to the main axes
         for key in self._data.keys():
             # get the (x,y) data from the dictionary
             (x, y) = self._data[key]
             # plot the (x,y) data with default offsets
-            self._ax[0].plot(x + idx * self._horz_offset,
-                           y + idx * self._vert_offset)
+            self._ax[0].plot(x + counter * self._horz_offset,
+                           y + counter * self._vert_offset)
             # increment the counter
-            idx += 1
+            counter += 1
 
     def set_vert_offset(self, vert_offset):
         """
@@ -170,9 +164,3 @@ class Stack1DView(AbstractDataView1D, AbstractMPLDataView):
             max_y[idx] = np.max(self._ax[0].lines[idx].get_ydata())
 
         return (np.min(min_x), np.max(max_x), np.min(min_y), np.max(max_y))
-
-    def hide_axes(self):
-        self._fig.delaxes(self._ax[0])
-
-    def show_axes(self):
-        self._fig.add_axes(self._ax[0])

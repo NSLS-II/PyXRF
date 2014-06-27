@@ -44,7 +44,8 @@ class Stack1DMessenger(common.AbstractMessenger1D):
         # show the default view
         self._views[default_view].show_axes()
         # call the parent class initialization method
-        common.AbstractMessenger1D.__init__(self, fig=fig, view=self._views[default_view])
+        common.AbstractMessenger1D.__init__(self, fig=fig,
+                                            view=self._views[default_view])
 
     @QtCore.Slot(float)
     def sl_update_x_offset(self, x_offset):

@@ -137,7 +137,7 @@ class AbstractDataView2D(AbstractDataView):
         y : np.ndarray
             single vector of y-coordinates
         """
-        for (lbl, x, y) in zip(lbl_list, x_list, y_list):
+        for (lbl, x, y) in zip(lbl_list, xy_list):
             self._data[lbl] = (x, y)
 
     def remove_data(self, lbl_list):
@@ -157,7 +157,7 @@ class AbstractDataView2D(AbstractDataView):
                 # do nothing because the data at 'lbl' doesn't exist
                 pass
 
-    def append_data(self, lbl_list, xy_list):
+    def append_data(self, lbl_list, xy_list, axis=0):
         """
         Append (x, y) coordinates to a dataset.  If there is no dataset
         called 'lbl', add the (x_data, y_data) tuple to a new entry
@@ -168,23 +168,33 @@ class AbstractDataView2D(AbstractDataView):
         lbl : list
             str
             name of data set to append
-        x : list
+        xy : list
             np.ndarray
-            single vector of x-coordinates to add.
-            x_data must be the same length as y_data
-        y : list
-            np.ndarray
-            single vector of y-coordinates to add.
-            y_data must be the same length as x_data
+            List of 2D arrays
+        axis : int
+            Axis to add the
         """
-        for (lbl, x, y) in zip(lbl_list, x_list, y_list):
+        for (lbl, xy) in zip(lbl_list, xy_list):
             try:
-                # get the current vectors at 'lbl'
-                (prev_x, prev_y) = self._data[lbl]
                 # set the concatenated data to 'lbl'
-                self._data[lbl] = (np.concatenate((prev_x, x)),
-                                   np.concatenate((prev_y, y)))
+                self._data[lbl] = np.r_[str(axis),
+                                        self._data[lbl], xy]
             except KeyError:
                 # key doesn't exist, add data to a new entry called 'lbl'
-                self._data[lbl] = (x, y)
+                self._data[lbl] = (xy)
 
+    def add_datum(self, lbl, x, y, val):
+        """
+        Add a single data point to an array
+        Parameters
+        ----------
+        lbl : str
+            name of the dataset to add one datum to
+        x : int
+            index of x coordinate
+        y : int
+            index of y coordinate
+        val : float
+            value of datum at the coordinates specified by (x,y)
+        """
+        raise NotImplementedError("Not yet implemented")

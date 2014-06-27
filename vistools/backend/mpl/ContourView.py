@@ -14,9 +14,9 @@ class ContourView(AbstractDataView2D, AbstractMPLDataView):
     The OneDimContourViewer provides a UI widget for viewing a number of 1-D
     data sets as a contour plot, starting from dataset 0 at y = 0
     """
-    _normalize_datasets = False
 
-    def __init__(self, fig, data_dict=None, cmap=None, norm=None, *args, **kwargs):
+    def __init__(self, fig, data_dict=None, cmap=None, norm=None, *args,
+                 **kwargs):
         """
         __init__ docstring
 
@@ -36,9 +36,9 @@ class ContourView(AbstractDataView2D, AbstractMPLDataView):
         # no defaults yet
 
         # call the parent constructors
-        super(ContourView, self).__init__(data_dict=data_dict, fig=fig, *args, **kwargs)
+        super(ContourView, self).__init__(data_dict=data_dict, fig=fig, *args,
+                                          **kwargs)
 
-        self._data_dict = data_dict
         # create the matplotlib axes
         self._ax = self._fig.add_subplot(1, 1, 1)
         self._ax.set_aspect('equal')
@@ -52,8 +52,10 @@ class ContourView(AbstractDataView2D, AbstractMPLDataView):
         Replot the data after modifying a display parameter (e.g.,
         offset or autoscaling) or adding new data
         """
+        # TODO: This class was originally written to convert a 1-D stack into a
+        # 2-D contour.  Rewrite this replot method
 
-        # create the 2-D data array for the contour plot
+        # get the keys from the dict
         keys = self._data.keys()
         # number of datasets in the data dict
         num_keys = len(keys)
