@@ -8,7 +8,58 @@ from matplotlib.backends.qt4_compat import QtGui, QtCore
 from .util import mapping_mixin
 
 
-class TrippleSpinner(QtGui.QGroupBox):
+class Slider(QtGui.QWidget):
+    """
+    Fancier version of a slider which includes a label and
+    a spinbox
+    """
+    # export sub-set of slider signals
+    # this should be exhaustive eventually
+    valueChanged = QtCore.Signal(int)
+    rangeChanged = QtCore.Signal(int, int)
+
+    # todo make more things configurable
+    def __init__(self, label, min_v, max_v, tracking=True):
+        super(Slider, self).__init__()
+        self._label = QtGui.QLabel(label)
+
+        # set up slider
+        self._slider = QtGui.QSlider(parent=self)
+        self._slider.setRange(min_v, max_v)
+        self._slider.setTracking(tracking)
+        self._slider.setSingleStep(1)
+        self._slider.setOrientation(QtCore.Qt.Horizontal)
+        # internal connections
+        self._slider.valueChanged.connect(self.valueChanged)
+        self._slider.rangeChanged.connect(self.rangeChanged)
+        # make buddy with label
+        self._label.setBuddy(self._slider)
+
+        # and its spin box
+        self._spinbox = QtGui.QSpinBox(parent=self)
+        self._spinbox.setRange(self._slider.minimum(), self._slider.maximum())
+        self._spinbox.valueChanged.connect(self._slider.setValue)
+        self._slider.valueChanged.connect(self._spinbox.setValue)
+        self._slider.rangeChanged.connect(self._spinbox.setRange)
+
+        # make layout
+        self._layout = QtGui.QHBoxLayout()
+        layout = self._layout
+        # add widegts
+        layout.addWidget(self._label)
+        layout.addWidget(self._slider)
+        layout.addWidget(self._spinbox)
+
+        self.setLayout(layout)
+
+    # TODO make sure all the slots are included
+    @QtCore.Slot(int)
+    def setValue(self, val):
+        # internal call backs will take care of the spinbox
+        self._slider.setValue(val)
+
+
+class TripleSpinner(QtGui.QGroupBox):
     """
     A class to wrap up the logic for dealing with a min/max/step
     triple spin box.
@@ -174,22 +225,16 @@ class ControlContainer(QtGui.QGroupBox, mapping_mixin):
     def create_radiobuttons(self, key):
         pass
 
-    def create_slider(self, key, min_val, max_val,
-                     page_size=10):
+    def create_slider(self, key, min_val, max_val, label=None):
         """
 
         Parameters
         ----------
         """
-
+        if label is None:
+            label = key
         # set up slider
-        slider = QtGui.QSlider(parent=self)
-        slider.setRange(min_val, max_val)
-        slider.setTracking(True)
-        slider.setSingleStep(1)
-        slider.setPageStep(page_size)
-        # TODO make this configurable
-        slider.setOrientation(QtCore.Qt.Horizontal)
+        slider = Slider(label, min_val, max_val)
         self._add_widget(key, slider)
         return slider
 
