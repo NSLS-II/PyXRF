@@ -59,6 +59,53 @@ class Slider(QtGui.QWidget):
         self._slider.setValue(val)
 
 
+class ComboBox(QtGui.QWidget):
+    activated = QtCore.Signal(str)
+    currentIndexChanged = QtCore.Signal(str)
+    editTextChanged = QtCore.Signal(str)
+    highlighted = QtCore.Signal(str)
+
+    # todo make more things configurable
+    def __init__(self, label, list_of_sttrings,
+                 default_entry=0, editable=True):
+        # pass up the stack
+        super(ComboBox, self).__init__()
+        # make the label
+        self._lab = QtGui.QLabel(label)
+        # make che cb
+        self._cb = QtGui.QComboBox()
+        self._cb.setEditable(editable)
+        # shove in the text
+        self._cb.addItems(list_of_sttrings)
+        # buddy them up
+        self._lab.setBuddy(self._cb)
+        # make and set the layout
+        layout = QtGui.QHBoxLayout()
+        layout.addWidget(self._lab)
+        layout.addWidget(self._cb)
+        self._layout = layout
+        self.setLayout(layout)
+
+        # connect on the signals
+        self._cb.activated[str].connect(self.activated)
+        self._cb.currentIndexChanged[str].connect(self.currentIndexChanged)
+        self._cb.editTextChanged[str].connect(self.editTextChanged)
+        self._cb.highlighted[str].connect(self.highlighted)
+
+    # forward the slots
+    @QtCore.Slot()
+    def clear(self):
+        self._cb.clear()
+
+    @QtCore.Slot(int)
+    def setCurrentIndex(self, in_val):
+        self._cb.setCurrentIndex(in_val)
+
+    @QtCore.Slot(str)
+    def setEditText(self, in_str):
+        self._cb.setEditText(in_str)
+
+
 class TripleSpinner(QtGui.QGroupBox):
     """
     A class to wrap up the logic for dealing with a min/max/step
@@ -171,12 +218,6 @@ class ControlContainer(QtGui.QGroupBox, mapping_mixin):
             # get the container and pass through the remaining key
             return self._containers[outer][inner]
 
-    def create_button(self, key):
-        pass
-
-    def create_checkbox(self, key):
-        pass
-
     def create_container(self, key, container_title=None):
         """
         Create a nested container with in this container
@@ -205,8 +246,18 @@ class ControlContainer(QtGui.QGroupBox, mapping_mixin):
         self._containers[key] = control_container
         return control_container
 
-    def create_combobox(self, key, key_list, editable=False):
+    def create_button(self, key):
         pass
+
+    def create_checkbox(self, key):
+        pass
+
+    def create_combobox(self, key, key_list, editable=True, title=None):
+        if title is None:
+            title = key
+        cb = ComboBox(title, key_list, editable=editable)
+        self._add_widget(key, cb)
+        return cb
 
     def create_dict_display(self, key, input_dict):
         pass
