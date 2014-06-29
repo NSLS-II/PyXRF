@@ -1,17 +1,14 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
-from six.moves import zip
 
+from six.moves import zip
 from matplotlib.widgets import Cursor
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.ticker import NullLocator
-from matplotlib import cm
-
-from collections import OrderedDict
-
 import numpy as np
 
 from .. import AbstractDataView2D
+
 
 __author__ = 'Eric-hafxb'
 

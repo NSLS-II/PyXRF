@@ -1,19 +1,16 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
-import six
 
 # grab the version from mpl which has done the work of smoothing over
 # the differences
 from matplotlib.backends.qt4_compat import QtGui, QtCore
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas  # noqa
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar  # noqa
-from matplotlib.figure import Figure
 from matplotlib.cm import datad
 import matplotlib.colors
 import numpy as np
 import matplotlib as mpl
 
-from ..backend.mpl.Stack2DView import Stack2DView
+from ..backend.mpl.CrossSection2DView import Stack2DView
 
 _CMAPS = datad.keys()
 _CMAPS.sort()

@@ -5,12 +5,14 @@ Example usage of StackScanner
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
+from collections import OrderedDict
+import sys
+import os
 
 from matplotlib.backends.qt4_compat import QtGui, QtCore
 import numpy as np
-from vistools.qt_widgets.OneDimStack import OneDimStackMainWindow
-from collections import OrderedDict
-import sys, os
+
+from vistools.qt_widgets.OneDimStackWidget import OneDimStackMainWindow
 
 
 def data_gen(num_sets=1, phase_shift=0.1, vert_shift=0.1, horz_shift=0.1):

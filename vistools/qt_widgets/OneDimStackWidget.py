@@ -8,9 +8,9 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 from matplotlib.backends.qt4_compat import QtGui, QtCore
-
 from matplotlib.cm import datad
-from ..messenger.mpl import Stack1DMessenger
+
+from ..messenger.mpl.Stack1DMessenger import Stack1DMessenger
 from .mpl import MPLDisplayWidget
 
 
@@ -133,7 +133,7 @@ class OneDimStackMainWindow(QtGui.QMainWindow):
             self._messenger.sl_update_horz_offset)
         self._ctrl_widget._y_shift_spinbox.valueChanged.connect(
             self._messenger.sl_update_vert_offset)
-        self._ctrl_widget._autoscale_box.clicked.connect(
+        self._ctrl_widget._autoscale_box.toggled.connect(
             self._messenger.sl_update_autoscaling)
         self._ctrl_widget._cm_cb.editTextChanged[str].connect(
             self._messenger.sl_update_cmap)

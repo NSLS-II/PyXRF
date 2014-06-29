@@ -1,12 +1,12 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
-from six.moves import zip
 
 from matplotlib import cm
-
 import numpy as np
+
 from . import AbstractMPLDataView
 from .. import AbstractDataView1D
+
 
 __author__ = 'Eric-hafxb'
 
@@ -43,9 +43,11 @@ class Stack1DView(AbstractDataView1D, AbstractMPLDataView):
         self._autoscale = self._default_autoscale
 
         # create the matplotlib axes
-        self._ax = []
-        self._ax.append(self._fig.add_subplot(1, 1, 1))
-        self._ax[0].set_aspect('equal')
+        self._ax = self._fig.add_subplot(1, 1, 1)
+        self._ax.set_aspect('equal')
+        # create an ordered dict of lines that has identical keys as the
+        # data_dict
+        self._lines_dict = self.default_dict_type()
 
         # create a local counter
         counter = 0
@@ -54,8 +56,8 @@ class Stack1DView(AbstractDataView1D, AbstractMPLDataView):
             # get the (x,y) data from the dictionary
             (x, y) = self._data_dict[key]
             # plot the (x,y) data with default offsets
-            self._ax[0].plot(x + counter * self._horz_offset,
-                           y + counter * self._vert_offset)
+            self._lines_dict[key] = self._ax.plot(x + counter * self._horz_offset,
+                           y + counter * self._vert_offset)[0]
             # increment the counter
             counter += 1
 
@@ -89,41 +91,49 @@ class Stack1DView(AbstractDataView1D, AbstractMPLDataView):
         offset or autoscaling) or adding new data
         """
         rgba = cm.ScalarMappable(self._norm, self._cmap)
-        keys = self._data_dict.keys()
-        # number of lines currently on the plot
-        num_lines = len(self._ax[0].lines)
-        # number of datasets in the data dict
-        num_datasets = len(keys)
-        # set the local counter
+        # define a local counter
         counter = 0
-        # loop over the datasets
-        for key in keys:
+        # determine the number of data sets in the data_dict to compute the
+        # color for the line
+        num_datasets = len(self._data_dict.keys())
+
+        # remove all keys from _lines_dict that are not in the _data_dict
+        for key in self._lines_dict.keys():
+            if not self._data_dict.has_key(key):
+                self._lines_dict[key].remove()
+                continue
+
+        # loop over the keys according to the key_list
+        for key in self._key_list:
             # get the (x,y) data from the dictionary
             (x, y) = self._data_dict[key]
-            # check to see if there is already a line in the axes
-            if counter < num_lines:
-                self._ax[0].lines[counter].set_xdata(
-                    x + counter * self._horz_offset)
-                self._ax[0].lines[counter].set_ydata(
-                    y + counter * self._vert_offset)
-            else:
+            # compute the new horizontal and vertical offsets
+            new_x = x+counter * self._horz_offset
+            new_y = y+counter * self._vert_offset
 
-                # a new line needs to be added
-                # plot the (x,y) data with default offsets
-                self._ax[0].plot(x + counter * self._horz_offset,
-                               y + counter * self._vert_offset)
             # compute the color for the line
             color = rgba.to_rgba(x=(counter / num_datasets))
-            # set the color for the line
-            self._ax[0].lines[counter].set_color(color)
+            try:
+                # set the data in the corresponding line
+                self._lines_dict[key].set_xdata(x + counter * self._horz_offset)
+                self._lines_dict[key].set_ydata(y + counter * self._vert_offset)
+                # set the color
+                self._lines_dict[key].set_color(color)
+            except KeyError:
+                # create a new line if the key does not exist
+                self._lines_dict[key] = self._ax.plot(new_x,
+                                                      new_y,
+                                                      color=color)[0]
+
             # increment the counter
             counter += 1
+
         # check to see if the axes need to be automatically adjusted to show
         # all the data
-        if(self._autoscale):
-            (min_x, max_x, min_y, max_y) = self.find_range()
-            self._ax[0].set_xlim(min_x, max_x)
-            self._ax[0].set_ylim(min_y, max_y)
+        if self._autoscale:
+            min_x, max_x, min_y, max_y = self.find_range()
+            self._ax.set_xlim(min_x, max_x)
+            self._ax.set_ylim(min_y, max_y)
 
     def set_auto_scale(self, is_autoscaling):
         """
@@ -149,19 +159,38 @@ class Stack1DView(AbstractDataView1D, AbstractMPLDataView):
         -------
         (min_x, max_x, min_y, max_y)
         """
-        if len(self._ax[0].lines) == 0:
+        if len(self._ax.lines) == 0:
             return 0, 1, 0, 1
 
         # find min/max in x and y
-        min_x = np.zeros(len(self._ax[0].lines))
-        max_x = np.zeros(len(self._ax[0].lines))
-        min_y = np.zeros(len(self._ax[0].lines))
-        max_y = np.zeros(len(self._ax[0].lines))
+        min_x = np.zeros(len(self._ax.lines))
+        max_x = np.zeros(len(self._ax.lines))
+        min_y = np.zeros(len(self._ax.lines))
+        max_y = np.zeros(len(self._ax.lines))
 
-        for idx in range(len(self._ax[0].lines)):
-            min_x[idx] = np.min(self._ax[0].lines[idx].get_xdata())
-            max_x[idx] = np.max(self._ax[0].lines[idx].get_xdata())
-            min_y[idx] = np.min(self._ax[0].lines[idx].get_ydata())
-            max_y[idx] = np.max(self._ax[0].lines[idx].get_ydata())
+        for idx in range(len(self._ax.lines)):
+            min_x[idx] = np.min(self._ax.lines[idx].get_xdata())
+            max_x[idx] = np.max(self._ax.lines[idx].get_xdata())
+            min_y[idx] = np.min(self._ax.lines[idx].get_ydata())
+            max_y[idx] = np.max(self._ax.lines[idx].get_ydata())
 
-        return (np.min(min_x), np.max(max_x), np.min(min_y), np.max(max_y))
+        return np.min(min_x), np.max(max_x), np.min(min_y), np.max(max_y)
+
+    def clear_data(self):
+        """
+        @Override
+        Override abstract base class to also clear the ordered dict mpl lines
+        """
+        # clear all data from the data_dict
+        self._data_dict.clear()
+        # clear all lines from the lines_dict
+        self._lines_dict.clear()
+        # clear the artists
+        self._ax.cla()
+        # clear the list of keys
+        self._key_list[:] = []
+        # call the replot function
+        self.replot()
+        # redraw the canvas
+        self._fig.canvas.draw()
+

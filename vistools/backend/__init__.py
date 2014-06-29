@@ -1,10 +1,10 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
-from six.moves import zip
+from collections import defaultdict
 
+from six.moves import zip
 import numpy as np
-from collections import OrderedDict
 
 __author__ = 'Eric-hafxb'
 
@@ -14,17 +14,33 @@ class AbstractDataView(object):
     AbstractDataView class docstring.  Defaults to a single matplotlib axes
     """
 
-    default_data_structure = OrderedDict
+    default_dict_type = defaultdict
+    default_list_type = list
 
-    # no init because this class should not be used directly
-    def __init__(self, data_dict=None, *args, **kwargs):
+    def __init__(self, data_dict=None, key_list=None, *args, **kwargs):
         """
         Parameters
         ----------
-        data_dict : OrderedDictionary
+        data_dict : Dict
+            The data stored in k:v pairs
+        key_list : list
+            The order of keys to plot
         """
         super(AbstractDataView, self).__init__(*args, **kwargs)
+        # generate a key list that corresponds to the entries in the data
+        # dictionary if no key_list was passed in
+        if data_dict is not None and key_list is None:
+            key_list = list(data_dict.keys())
+
+        # otherwise, set defaults if required
+        if data_dict is None:
+            data_dict = self.default_dict_type()
+        if key_list is None:
+            key_list = self.default_list_type()
+
+        # stash the dict and keys
         self._data_dict = data_dict
+        self._key_list = key_list
 
     def replot(self):
         """
@@ -34,7 +50,11 @@ class AbstractDataView(object):
         raise Exception("Must override the replot() method in the concrete base class")
 
     def clear_data(self):
-        data_dict = self.default_data_structure()
+        """
+        Clear all data
+        """
+        self._data_dict.clear()
+        self._key_list[:] = []
 
     def remove_data(self, lbl_list):
         """
@@ -43,12 +63,14 @@ class AbstractDataView(object):
 
         Parameters
         ----------
-        lbl_list : String
-            name of dataset to remove
+        lbl_list : list
+            String
+            name(s) of dataset to remove
         """
         for lbl in lbl_list:
             try:
                 del self._data_dict[lbl]
+                del self._key_list[lbl]
             except KeyError:
                 # do nothing
                 pass
@@ -56,12 +78,12 @@ class AbstractDataView(object):
 
 class AbstractDataView1D(AbstractDataView):
     """
-    AbstractDataView1D class docstring.  Defaults to a single matplotlib axes
+    AbstractDataView1D class docstring.
     """
 
-    # no init because it contains no new attributes
+    # no init because AbstractDataView1D contains no new attributes
 
-    def add_data(self, lbl_list, x_list, y_list):
+    def add_data(self, lbl_list, x_list, y_list, position=None):
         """
         add data with the name 'lbl'.  Will overwrite data if
         'lbl' already exists in the data dictionary
@@ -74,9 +96,20 @@ class AbstractDataView1D(AbstractDataView):
             single vector of x-coordinates
         y : np.ndarray
             single vector of y-coordinates
+        position: int
+            The position in the key list to begin inserting the data.
+            Default (None) behavior is to append to the end of the list
         """
+        # declare a local loop index
+        counter = 0
+        # loop over the data passed in
         for (lbl, x, y) in zip(lbl_list, x_list, y_list):
             self._data_dict[lbl] = (x, y)
+            if position is None:
+                self._key_list.append(lbl)
+            else:
+                self._key_list.insert(i=position+counter, x=lbl)
+                counter += 1
 
     def append_data(self, lbl_list, x_list, y_list):
         """
@@ -98,25 +131,74 @@ class AbstractDataView1D(AbstractDataView):
             single vector of y-coordinates to add.
             y_data must be the same length as x_data
         """
+        lbl_to_add = []
+        x_to_add = []
+        y_to_add = []
         for (lbl, x, y) in zip(lbl_list, x_list, y_list):
-            try:
+            lbl = str(lbl)
+            if self._data_dict.has_key(lbl):
                 # get the current vectors at 'lbl'
                 (prev_x, prev_y) = self._data_dict[lbl]
                 # set the concatenated data to 'lbl'
                 self._data_dict[lbl] = (np.concatenate((prev_x, x)),
                                    np.concatenate((prev_y, y)))
-            except KeyError:
-                # key doesn't exist, add data to a new entry called 'lbl'
-                self._data_dict[lbl] = (x, y)
+            else:
+                # key doesn't exist, append the data to lists
+                lbl_to_add.append(lbl)
+                x_to_add.append(x)
+                y_to_add.append(y)
+        if lbl_to_add is not None:
+            self.add_data(lbl_list=lbl_to_add, x_list=x_to_add, y_list=y_to_add)
 
 
 class AbstractDataView2D(AbstractDataView):
     """
     AbstractDataView2D class docstring
     """
-# no init because it contains no new attributes
 
-    def add_data(self, lbl_list, xy_list, corners_list):
+    def __init__(self, data_dict=None, key_list=None, corners_dict=None, *args,
+                 **kwargs):
+        """
+        Parameters
+        ----------
+        data_dict : Dict
+            k:v pairs of data
+        key_list : List
+            ordered key list which defines the order that images appear in the
+            stack
+        corners_dict : Dict
+            k:v pairs of the location of the corners of each image
+            (x0, y0, x1, y1)
+        """
+        super(AbstractDataView2D, self).__init__(data_dict=data_dict,
+                                                 key_list=key_list, *args,
+                                                 **kwargs)
+        # handle default behavior for corners_list
+        if corners_dict is None and data_dict is not None:
+            corners_dict = self.default_dict_type()
+            for key in data_dict.keys():
+                corners_dict[key] = self.find_corners(data_dict[key])
+
+        # stash the corners dict
+        self._corners_dict = corners_dict
+
+    def find_corners(self, xy_data):
+        """
+        Find the corners of all images in the data_dict
+
+        Parameters
+        ----------
+        xy_data : np.ndarray
+            Array to determine the corners of
+
+        Return
+        ------
+        This is just (x0, y0, x1, y1) = (0, 0, int(data_dict[key].shape))
+        """
+        x, y = xy_data.shape
+        return 0, 0, int(x), int(y)
+
+    def add_data(self, lbl_list, xy_list, corners_list=None, position=None):
         """
         add data with the name 'lbl'.  Will overwrite data if
         'lbl' already exists in the data dictionary
@@ -129,9 +211,29 @@ class AbstractDataView2D(AbstractDataView):
             single vector of x-coordinates
         y : np.ndarray
             single vector of y-coordinates
+        position: int
+            The position in the key list to begin inserting the data.
+            Default (None) behavior is to append to the end of the list
         """
-        for (lbl, x, y) in zip(lbl_list, xy_list):
-            self._data_dict[lbl] = (x, y)
+        # check for default corners_list behavior
+        if corners_list is None:
+            corners_list = self.default_list_type()
+            for xy in xy_list:
+                corners_list.append(self.find_corners(xy))
+        # declare a local loop index
+        counter = 0
+        # loop over the data passed in
+        for (lbl, xy, corners) in zip(lbl_list, xy_list, corners_list):
+            # stash the data
+            self._data_dict[lbl] = xy
+            # stash the corners
+            self._corners_dict[lbl] = corners
+            # insert the key into the desired position in the keys list
+            if position is None:
+                self._key_list.append(lbl)
+            else:
+                self._key_list.insert(i=position+counter, x=lbl)
+                counter += 1
 
     def append_data(self, lbl_list, xy_list, axis=[], append_to_end=[]):
         """
@@ -166,7 +268,7 @@ class AbstractDataView2D(AbstractDataView):
                     # TODO: Need to update the corners_list also...
             except KeyError:
                 # key doesn't exist, add data to a new entry called 'lbl'
-                self._data_dict[lbl] = xy
+                self.add_data(lbl, xy)
 
     def add_datum(self, lbl_list, x_list, y_list, val_list):
         """

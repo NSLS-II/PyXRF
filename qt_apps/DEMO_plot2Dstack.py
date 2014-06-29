@@ -5,11 +5,12 @@ Example usage of StackScanner
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
+import sys
+
 from matplotlib.backends.qt4_compat import QtGui, QtCore
 import numpy as np
-from vistools.qt_widgets.TwoDimStack import StackScannerWidget
 
-import sys
+from vistools.qt_widgets.CrossSection2DWidget import StackScannerWidget
 
 
 class data_gen(object):
