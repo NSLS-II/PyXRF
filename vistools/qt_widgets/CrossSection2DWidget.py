@@ -10,20 +10,50 @@ import matplotlib.colors
 import numpy as np
 import matplotlib as mpl
 
-from ..backend.mpl.CrossSection2DView import Stack2DView
+from ..backend.mpl.CrossSection2DView import CrossSection2DView
+from .mpl import MPLDisplayWidget
+from ..messenger.mpl import CrossSection2DMessenger
 
 _CMAPS = datad.keys()
 _CMAPS.sort()
 
+class OneDimStackMainWindow(QtGui.QMainWindow):
+    def __init__(self, parent=None, data_dict=None):
+        QtGui.QMainWindow.__init__(self, parent)
+        self.setWindowTitle('2-D Cross Section Plotting')
+        # create view widget, control widget and messenger pass-through
+        self._disp = MPLDisplayWidget()
+        self._messenger = CrossSection2DMessenger(fig=self._disp._fig,
+                                           data_dict=data_dict)
+        self._ctrl_widget = CrossSection2DControlWidget("2-D Cross Section Controls")
 
-class StackScannerWidget(QtGui.QWidget):
+        # connect signals to slots
+        self.connect_sig_slot()
+        # finish the init
+        self._disp.setFocus()
+        self.setCentralWidget(self._disp)
+        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea,
+                           self._ctrl_widget)
+
+    def connect_sig_slot(self):
+        """
+        Connect the signals of the control box to the slots of the messenger
+        """
+        # standard data manipulation signal/slot pairs
+        self._ctrl_widget.sig_clear_data.connect(
+            self._messenger.sl_clear_data)
+        # standard mpl signal/slot pairs
+        self._ctrl_widget._cm_cb.editTextChanged[str].connect(
+            self._messenger.sl_update_cmap)
+
+
+class CrossSection2DControlWidget(QtGui.QDockWidget):
     """
     This object contains the CrossSectionViewer (2D Image Display) and
     finish the doc string...
     """
     # set up the signals
-    sig_update_cmap = QtCore.Signal(str)
-    sig_update_image = QtCore.Signal(np.ndarray)
+    sig_update_image = QtCore.Signal(int)
     sig_update_norm = QtCore.Signal(matplotlib.colors.Normalize)
     sig_update_limit_function = QtCore.Signal(object, tuple)
     sig_update_color_limits = QtCore.Signal(tuple)
@@ -41,16 +71,14 @@ class StackScannerWidget(QtGui.QWidget):
         # get the shape of the stack so that the stack direction can be varied
         self._dims = stack.shape
         # create the viewer widget
-        self.xsection_widget = Stack2DView(stack[0])
+        self._view = CrossSection2DView(stack[0])
 
         # connect up the signals/slots to boss the viewer around
-        self.sig_update_cmap.connect(self.xsection_widget.sl_update_color_map)
-        self.sig_update_image.connect(self.xsection_widget.sl_update_image)
-        self.sig_update_norm.connect(self.xsection_widget.sl_update_norm)
+        self.sig_update_norm.connect(self._view.sl_update_norm)
         self.sig_update_limit_function.connect(
-            self.xsection_widget.sl_update_limit_func)
+            self._view.sl_update_limit_func)
         self.sig_update_color_limits.connect(
-            self.xsection_widget.sl_update_color_limits)
+            self._view.sl_update_color_limits)
 
         # ---- set up widget box 1---------------------------------------------
         # --------- it has: ---------------------------------------------------
@@ -77,7 +105,7 @@ class StackScannerWidget(QtGui.QWidget):
         self._slider.setTracking(True)
         self._slider.setSingleStep(1)
         self._slider.setPageStep(page_size)
-        self._slider.valueChanged.connect(self.update_frame)
+        self._slider.valueChanged.connect(self._view.sl_update_image)
         self._slider.setOrientation(QtCore.Qt.Horizontal)
 
         # and its spin box
@@ -107,15 +135,7 @@ class StackScannerWidget(QtGui.QWidget):
         # get dumped into a hbox layout with the scanner widget.
         # another option is to make _this_ a MainWindow widget, but that might also
         # not play nice with vistrails
-        control_box_name = 'controls'
-        self.ctrl_box_2 = QtGui.QDockWidget(control_box_name)
-        # make floating
-        self.ctrl_box_2.setFloating(True)
-        # setup the widget to live in the floater
-        ctl_widget = QtGui.QWidget(self.ctrl_box_2)
-        self.ctrl_box_2.setWidget(ctl_widget)
-        ctl_layout = QtGui.QVBoxLayout()
-        ctl_widget.setLayout(ctl_layout)
+
 
         # set up color map combo box
         self._cm_cb = QtGui.QComboBox(parent=ctl_widget)
@@ -124,7 +144,7 @@ class StackScannerWidget(QtGui.QWidget):
 
         self._cm_cb.setEditText('gray')
         self._cm_cb.editTextChanged[str].connect(
-            self.xsection_widget.sl_update_color_map)
+            self._view.sl_update_color_map)
 
         # set up intensity manipulation combo box
         intensity_behavior_data = [(mpl._full_range,
@@ -214,11 +234,11 @@ class StackScannerWidget(QtGui.QWidget):
         ctl_layout.addLayout(widget_box1)
         ctl_layout.addStretch()
 
-        self.mpl_toolbar = NavigationToolbar(self.xsection_widget, self)
+        self.mpl_toolbar = NavigationToolbar(self._view, self)
         # add toolbar
         v_box_layout.addWidget(self.mpl_toolbar)
         # add main widget
-        v_box_layout.addWidget(self.xsection_widget)
+        v_box_layout.addWidget(self._view)
         # add slider v_box_layout
 
 
@@ -411,8 +431,8 @@ class StackScannerWidget(QtGui.QWidget):
         """
         if img_stack is not None:
             self.stack = img_stack
-            self.update_frame(0)
+            self._view.sl_update_image(0)
 
     @QtCore.Slot(int)
     def update_frame(self, frame_idx):
-        self.sig_update_image.emit(self._stack[frame_idx])
+        self.sig_update_image.emit(frame_idx)

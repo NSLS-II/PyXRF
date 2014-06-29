@@ -1,11 +1,11 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
-from six.moves import zip
-
 import numpy as np
+
 from . import AbstractMPLDataView
 from .. import AbstractDataView2D
+
 
 __author__ = 'Eric-hafxb'
 
@@ -37,7 +37,8 @@ class ContourView(AbstractDataView2D, AbstractMPLDataView):
         # no defaults yet
 
         # call the parent constructors
-        super(ContourView, self).__init__(data_dict=data_dict, fig=fig, *args,
+        super(ContourView, self).__init__(data_dict=data_dict, fig=fig,
+                                          cmap=cmap, norm=norm, *args,
                                           **kwargs)
 
         # create the matplotlib axes

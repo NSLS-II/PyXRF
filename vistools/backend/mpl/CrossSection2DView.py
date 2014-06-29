@@ -7,18 +7,23 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.ticker import NullLocator
 import numpy as np
 
+from . import AbstractMPLDataView
 from .. import AbstractDataView2D
 
 
 __author__ = 'Eric-hafxb'
 
 
-class Stack2DView(AbstractDataView2D):
-    def __init__(self, fig, data_dict=None,
-                 cmap=None,
-                 norm=None,
-                 limit_func=None,
-                 limit_args=None):
+class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
+    """
+    CrossSection2DView docstring
+    """
+    _default_intensity_limit_func = _percentile_limit
+    _default_limit_args = [0, 100]
+    _default_cmap = 'hot'
+
+    def __init__(self, fig, data_dict=None, key_list=None, cmap=None, norm=None,
+                 limit_func=None, limit_args=None):
         """
         Sets up figure with cross section viewer
 
@@ -41,24 +46,33 @@ class Stack2DView(AbstractDataView2D):
         norm : Normalize or None
            Normalization function to us
         """
+        # call up the inheritance chain
+        super(CrossSection2DView, self).__init__(fig=fig, data_dict=data_dict,
+                                                 key_list=key_list, norm=norm,
+                                                 cmap=cmap)
+        # set some default behavior
         if limit_func is None:
-            limit_func = _full_range
-
-        self._limit_func = limit_func
-
+            limit_func = self.default_intensity_limit_func
         if limit_args is None:
-            limit_args = [0, 100]
+            limit_args = self.default_limit_args
+        if cmap is None:
+            cmap = self._default_cmap
+
+        # stash the input parameters not taken care of by parent classes
+        self._limit_func = limit_func
         self._limit_args = limit_args
+
+        # @tacaswell, what is this?
         self._active = True
 
-        if cmap is None:
-            cmap = 'gray'
+        # work on setting up the mpl axes
+
+        # extract the first image in the list
+        init_image = data_dict[key_list[0]]
+
         # this needs to respect percentile
-        vlim = self._limit_func(init_image, self._limit_args)
-        # stash the figure
-        self.fig = fig
-        # clean it
-        self.fig.clf()
+        # TODO: What does vlim stand for? @tacaswell?
+        vlim = self._limit_func(data_dict[data_dict.keys()[0]], self._limit_args)
 
         # make the main axes
         # (in matplotlib speak the 'main axes' is the 2d
@@ -219,13 +233,6 @@ class Stack2DView(AbstractDataView2D):
         self._imdata = new_image
         self._im.set_data(new_image)
         self.update_color_limits(self._limit_args, force_update=True)
-
-    def update_colormap(self, new_cmap):
-        """
-        Update the color map used to display the image
-        """
-        self._im.set_cmap(new_cmap)
-        self.fig.canvas.draw()
 
     def update_norm(self, new_norm):
         """

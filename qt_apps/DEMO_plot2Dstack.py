@@ -10,7 +10,7 @@ import sys
 from matplotlib.backends.qt4_compat import QtGui, QtCore
 import numpy as np
 
-from vistools.qt_widgets.CrossSection2DWidget import StackScannerWidget
+from vistools.qt_widgets.CrossSection2DWidget import CrossSection2DWidget
 
 
 class data_gen(object):
@@ -42,7 +42,7 @@ class StackExplorer(QtGui.QMainWindow):
         QtGui.QMainWindow.__init__(self, parent)
         self.setWindowTitle('StackExplorer')
 
-        self._stack = StackScannerWidget(data_gen(25))
+        self._stack = CrossSection2DWidget(data_gen(25))
 
         self._stack.setFocus()
         self.setCentralWidget(self._stack)

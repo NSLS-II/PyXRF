@@ -1,8 +1,6 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
-from six.moves import zip
-
 from matplotlib import cm
 
 from ...backend import AbstractDataView
@@ -25,18 +23,22 @@ class AbstractMPLDataView(AbstractDataView):
         ----------
         fig : mpl.Figure
         """
-
         # call up the inheritance chain
         super(AbstractMPLDataView, self).__init__(*args, **kwargs)
-        # stash the figure
-        self._fig=fig
+
         # set some defaults
-        self._cmap = cmap
-        self._norm = norm
         if cmap is None:
             self._cmap = self._default_cmap
         if norm is None:
             self._norm = self._default_norm
+
+        # stash the parameters not taken care of by the inheritance chain
+        self._cmap = cmap
+        self._norm = norm
+        self._fig=fig
+
+        # clean the figure
+        self.fig.clf()
 
     def replot(self):
         raise NotImplementedError("This method must be implemented by daughter classes")

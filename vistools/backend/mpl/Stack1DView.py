@@ -21,7 +21,7 @@ class Stack1DView(AbstractDataView1D, AbstractMPLDataView):
     _default_vert_offset = 0
     _default_autoscale = False
 
-    def __init__(self, fig, data_dict, cmap=None, norm=None, *args, **kwargs):
+    def __init__(self, fig, data_dict, key_list=None, cmap=None, norm=None, *args, **kwargs):
         """
         __init__ docstring
 
@@ -34,8 +34,8 @@ class Stack1DView(AbstractDataView1D, AbstractMPLDataView):
         norm : mpl.colors.Normalize
         """
         # call the parent constructors
-        super(Stack1DView, self).__init__(fig=fig, data_dict=data_dict, *args,
-                                          **kwargs)
+        super(Stack1DView, self).__init__(fig=fig, data_dict=data_dict,
+                                          key_list=key_list, *args, **kwargs)
 
         # set some defaults
         self._horz_offset = self._default_horz_offset
