@@ -87,7 +87,6 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
     """
     CrossSection2DView docstring
     """
-    _default_cmap = 'hot'
 
     def __init__(self, fig, data_dict=None, key_list=None, cmap=None, norm=None,
                  limit_func=None, limit_args=None):

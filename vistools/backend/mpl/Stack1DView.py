@@ -35,7 +35,8 @@ class Stack1DView(AbstractDataView1D, AbstractMPLDataView):
         """
         # call the parent constructors
         super(Stack1DView, self).__init__(fig=fig, data_dict=data_dict,
-                                          key_list=key_list, *args, **kwargs)
+                                          key_list=key_list, cmap=cmap,
+                                          norm=norm, *args, **kwargs)
 
         # set some defaults
         self._horz_offset = self._default_horz_offset

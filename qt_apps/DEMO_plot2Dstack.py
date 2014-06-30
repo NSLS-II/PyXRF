@@ -10,7 +10,9 @@ import sys
 from matplotlib.backends.qt4_compat import QtGui, QtCore
 import numpy as np
 
-from vistools.qt_widgets.CrossSection2DWidget import CrossSection2DMainWindow
+from vistools.messenger.mpl.CrossSection2DMessenger import CrossSection2DMessenger
+
+from vistools.qt_widgets import MainWindow
 
 
 class data_gen(object):
@@ -55,8 +57,10 @@ class StackExplorer(QtGui.QMainWindow):
         QtGui.QMainWindow.__init__(self, parent=parent)
         self.setWindowTitle('StackExplorer')
         key_list, data_dict = data_gen(25)
-        self._main_window = CrossSection2DMainWindow(data_dict=data_dict,
-                                                     key_list=key_list)
+        messenger = CrossSection2DMessenger
+        self._main_window = MainWindow(messenger_class=messenger,
+                                       data_dict=data_dict,
+                                       key_list=key_list)
 
         self._main_window.setFocus()
         self.setCentralWidget(self._main_window)

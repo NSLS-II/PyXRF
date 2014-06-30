@@ -13,7 +13,8 @@ import sys
 import numpy as np
 from collections import OrderedDict
 # local package imports
-from vistools.qt_widgets.OneDimStackWidget import OneDimStackMainWindow
+from vistools.qt_widgets import MainWindow
+from vistools.messenger.mpl.Stack1DMessenger import Stack1DMessenger
 
 
 def data_gen(num_sets=1, phase_shift=0.1, vert_shift=0.1, horz_shift=0.1):
@@ -50,34 +51,44 @@ class demo_1d(QtGui.QMainWindow):
         num_sets = 100
         x_data, y_data = data_gen(num_sets=num_sets, phase_shift=0,
                         horz_shift=0, vert_shift=0)
-        od = OrderedDict()
+        data_dict = OrderedDict()
+        key_list = []
         for (lbl, x, y) in zip(range(num_sets), x_data, y_data):
-            od[lbl] = (x, y)
-        # init the 1d stack main window
-        self._widget = OneDimStackMainWindow(data_dict=od)
-        # add the demo buttons
+            data_dict[lbl] = (x, y)
+            key_list.append(lbl)
 
+        # init the 1d stack main window
+        self.setWindowTitle('OneDimStack Example')
+        messenger = Stack1DMessenger
+        self._main_window = MainWindow(messenger_class=messenger,
+                                       data_dict=data_dict,
+                                       key_list=key_list)
+
+        self._main_window.setFocus()
+        self.setCentralWidget(self._main_window)
+
+        # add the demo buttons
         # declare button to generate data for testing/example purposes
         btn_datagen = QtGui.QPushButton("add data set",
-                                        parent=self._widget._ctrl_widget)
+                                        parent=self._main_window._ctrl_widget)
+
         # declare button to append data to existing data set
         btn_append = QtGui.QPushButton("append data",
-                                       parent=self._widget._ctrl_widget)
+                                       parent=self._main_window._ctrl_widget)
 
         btn_datagen.clicked.connect(self.datagen)
         btn_append.clicked.connect(self.append_data)
-        layout = self._widget._ctrl_widget._widget.layout()
+        layout = self._main_window._ctrl_widget._widget.layout()
 
         layout.addRow("--- Demo Buttons ---", None)
         layout.addRow(btn_append, btn_datagen)
 
         # connect signals to test harness
         self.sig_append_demo_data.connect(
-            self._widget._messenger.sl_append_data)
+            self._main_window._messenger.sl_append_data)
         self.sig_add_demo_data.connect(
-            self._widget._messenger.sl_add_data)
+            self._main_window._messenger.sl_add_data)
 
-        self.setCentralWidget(self._widget)
 
     # Qt Signals for Demo
     sig_append_demo_data = QtCore.Signal(list, list, list)

@@ -3,7 +3,7 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 # imports to smooth over differences between PyQt4, PyQt5, PyQt4.1 and PySides
-from matplotlib.backends.qt4_compat import QtCore
+from matplotlib.backends.qt4_compat import QtCore, QtGui
 
 # other relevant imports
 
@@ -21,6 +21,7 @@ class AbstractMessenger(QtCore.QObject):
 
     def __init__(self, data_dict, key_list, *args, **kwargs):
         super(AbstractMessenger, self).__init__(*args, **kwargs)
+
         self._view = AbstractDataView(data_dict=data_dict, key_list=key_list)
 
     @QtCore.Slot()
@@ -177,3 +178,16 @@ class AbstractMessenger2D(AbstractMessenger):
                                y_list=y_list,
                                val_list=val_list)
         self.sl_update_plot()
+
+
+class AbstractDisplayWidget(QtGui.QWidget):
+    """
+    AbstractDisplayWidget class docstring.
+    The purpose of this class and its daughter classes is simply to render the
+    figure that the various plotting libraries use to present themselves
+    """
+    def __init__(self, parent=None, *args, **kwargs):
+        # init the QWidget
+        super(AbstractDisplayWidget, self).__init__(parent=parent, *args,
+                                                    **kwargs)
+        # do nothing else

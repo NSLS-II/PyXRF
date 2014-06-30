@@ -28,9 +28,9 @@ class AbstractMPLDataView(AbstractDataView):
 
         # set some defaults
         if cmap is None:
-            self._cmap = self._default_cmap
+            cmap = self._default_cmap
         if norm is None:
-            self._norm = self._default_norm
+            norm = self._default_norm
 
         # stash the parameters not taken care of by the inheritance chain
         self._cmap = cmap
