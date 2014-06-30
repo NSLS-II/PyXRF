@@ -6,45 +6,65 @@ from __future__ import (absolute_import, division, print_function,
 from matplotlib.backends.qt4_compat import QtGui, QtCore
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar  # noqa
 from matplotlib.cm import datad
-import matplotlib.colors
+from matplotlib import colors
 import numpy as np
 import matplotlib as mpl
 
-from ..backend.mpl.CrossSection2DView import CrossSection2DView
+from ..backend.mpl import CrossSection2DView as view
 from .mpl import MPLDisplayWidget
-from ..messenger.mpl import CrossSection2DMessenger
+from ..messenger.mpl.CrossSection2DMessenger import CrossSection2DMessenger
 
 _CMAPS = datad.keys()
 _CMAPS.sort()
 
-class OneDimStackMainWindow(QtGui.QMainWindow):
-    def __init__(self, parent=None, data_dict=None):
+
+class CrossSection2DMainWindow(QtGui.QMainWindow):
+    """
+    OneDimStackMainWindow
+    """
+    def __init__(self, parent=None, data_dict=None, key_list=None):
         QtGui.QMainWindow.__init__(self, parent)
         self.setWindowTitle('2-D Cross Section Plotting')
         # create view widget, control widget and messenger pass-through
         self._disp = MPLDisplayWidget()
         self._messenger = CrossSection2DMessenger(fig=self._disp._fig,
-                                           data_dict=data_dict)
-        self._ctrl_widget = CrossSection2DControlWidget("2-D Cross Section Controls")
+                                                  data_dict=data_dict,
+                                                  key_list=key_list)
+        self._ctrl_widget = CrossSection2DControlWidget(name="2-D Cross Section Controls",
+                                                        init_img=data_dict[key_list[0]],
+                                                        num_images=len(key_list))
 
         # connect signals to slots
-        self.connect_sig_slot()
+        self.connect_sigs_to_slots()
         # finish the init
         self._disp.setFocus()
         self.setCentralWidget(self._disp)
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea,
                            self._ctrl_widget)
 
-    def connect_sig_slot(self):
+    def connect_sigs_to_slots(self):
         """
         Connect the signals of the control box to the slots of the messenger
         """
         # standard data manipulation signal/slot pairs
-        self._ctrl_widget.sig_clear_data.connect(
-            self._messenger.sl_clear_data)
+        # TODO Fix this connection. It throws an exception b/c the connection fails
+        # self._ctrl_widget.sig_update_norm.connect(
+        #    self._messenger.sl_update_norm)
+
         # standard mpl signal/slot pairs
         self._ctrl_widget._cm_cb.editTextChanged[str].connect(
             self._messenger.sl_update_cmap)
+        self._ctrl_widget._cm_cb.setEditText(
+            self._ctrl_widget.default_cmap)
+
+        # signal/slot pairs specific to the CrossSection2DView
+        self._ctrl_widget.sig_update_limit_function.connect(
+            self._messenger.sl_update_limit_func)
+        self._ctrl_widget.sig_update_color_limits.connect(
+            self._messenger.sl_update_color_limits)
+
+        self._ctrl_widget._slider_img.valueChanged.connect(
+            self._messenger.sl_update_image)
 
 
 class CrossSection2DControlWidget(QtGui.QDockWidget):
@@ -54,104 +74,61 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
     """
     # set up the signals
     sig_update_image = QtCore.Signal(int)
-    sig_update_norm = QtCore.Signal(matplotlib.colors.Normalize)
+    sig_update_norm = QtCore.Signal(colors.Normalize)
     sig_update_limit_function = QtCore.Signal(object, tuple)
     sig_update_color_limits = QtCore.Signal(tuple)
 
-    def __init__(self, stack, page_size=10, parent=None):
-        QtGui.QWidget.__init__(self, parent)
-        v_box_layout = QtGui.QVBoxLayout()
+    # some defaults
+    default_cmap = 'hot'
 
-        self._stack = stack
+    def __init__(self, name, init_img, num_images):
+        QtGui.QDockWidget.__init__(self, name)
+        # make the control widget float
+        self.setFloating(True)
 
-        self._len = len(stack)
+        # add a widget that lives in the floating control widget
+        self._widget = QtGui.QWidget(self)
+        # give the widget to the dock widget
+        self.setWidget(self._widget)
+        # create a layout
+        ctrl_layout = QtGui.QVBoxLayout()
+        # set the layout to the widget
+        self._widget.setLayout(ctrl_layout)
 
-        self._axis_order = np.arange(self._stack.ndim)
-
-        # get the shape of the stack so that the stack direction can be varied
-        self._dims = stack.shape
-        # create the viewer widget
-        self._view = CrossSection2DView(stack[0])
-
-        # connect up the signals/slots to boss the viewer around
-        self.sig_update_norm.connect(self._view.sl_update_norm)
-        self.sig_update_limit_function.connect(
-            self._view.sl_update_limit_func)
-        self.sig_update_color_limits.connect(
-            self._view.sl_update_color_limits)
-
-        # ---- set up widget box 1---------------------------------------------
-        # --------- it has: ---------------------------------------------------
-        # -------------- axis swap buttons ------------------------------------
-        # -------------- slider to change images ------------------------------
-        # -------------- spinbox to change images -----------------------------
+        self._axis_order = np.arange(init_img.ndim+1)
 
         # set up axis swap buttons
         self._cb_ax1 = QtGui.QComboBox(parent=self)
         self._cb_ax2 = QtGui.QComboBox(parent=self)
-        self._cb_ax1.setEditable(False)
-        self._cb_ax2.setEditable(False)
-        self._cb_ax1.addItems(np.arange(self._stack.ndim).astype(str))
-        self._cb_ax2.addItems(np.arange(self._stack.ndim).astype(str))
+        self._btn_swap = QtGui.QPushButton('Swap Axes', parent=self)
+        self.init_swap_btns(self._cb_ax1, self._cb_ax2, self._btn_swap)
 
-        self._btn_swap_ax = QtGui.QPushButton('Swap Axes', parent=self)
-        self._btn_swap_ax.resize(self._btn_swap_ax.sizeHint())
-        self._btn_swap_ax.clicked.connect(self.swap_stack_axes)
-        self._btn_swap_ax.setEnabled(False)
-
-        # set up slider
-        self._slider = QtGui.QSlider(parent=self)
-        self._slider.setRange(0, self._len - 1)
-        self._slider.setTracking(True)
-        self._slider.setSingleStep(1)
-        self._slider.setPageStep(page_size)
-        self._slider.valueChanged.connect(self._view.sl_update_image)
-        self._slider.setOrientation(QtCore.Qt.Horizontal)
-
-        # and its spin box
-        self._spinbox = QtGui.QSpinBox(parent=self)
-        self._spinbox.setRange(self._slider.minimum(), self._slider.maximum())
-        self._spinbox.valueChanged.connect(self._slider.setValue)
-        self._slider.valueChanged.connect(self._spinbox.setValue)
-        self._slider.rangeChanged.connect(self._spinbox.setRange)
+        # set up slider and spinbox
+        self._slider_img = QtGui.QSlider(parent=self)
+        self._spin_img = QtGui.QSpinBox(parent=self)
+        # init the slider and spinbox
+        self.init_img_changer(self._slider_img, self._spin_img, num_images)
 
         widget_box1 = QtGui.QVBoxLayout()
         slider_label = QtGui.QLabel("&Frame")
-        slider_label.setBuddy(self._slider)
+        slider_label.setBuddy(self._slider_img)
 
         widget_box1_hbox = QtGui.QHBoxLayout()
-        widget_box1_hbox.addWidget(self._slider)
-        widget_box1_hbox.addWidget(self._spinbox)
+        widget_box1_hbox.addWidget(self._slider_img)
+        widget_box1_hbox.addWidget(self._spin_img)
         widget_box1.addWidget(slider_label)
         widget_box1.addLayout(widget_box1_hbox)
-        # ---- set up control box 2--------------------------------------------
-        # --------- it has: ---------------------------------------------------
-        # -------------- color map combo box ----------------------------------
-        # -------------- intensity manipulation combo box ---------------------
-        # -------------- spinboxes for intensity min/max/step values-----------
-
-        # set up the dockable controls
-        # this might not play nice with vistrails in which case this can just
-        # get dumped into a hbox layout with the scanner widget.
-        # another option is to make _this_ a MainWindow widget, but that might also
-        # not play nice with vistrails
-
 
         # set up color map combo box
-        self._cm_cb = QtGui.QComboBox(parent=ctl_widget)
-        self._cm_cb.setEditable(True)
-        self._cm_cb.addItems(_CMAPS)
-
-        self._cm_cb.setEditText('gray')
-        self._cm_cb.editTextChanged[str].connect(
-            self._view.sl_update_color_map)
+        self._cm_cb = QtGui.QComboBox(parent=self)
+        self.init_cmap_box(self._cm_cb)
 
         # set up intensity manipulation combo box
-        intensity_behavior_data = [(mpl._full_range,
+        intensity_behavior_data = [(view._full_range,
                                      self._no_limit_config),
-                                    (mpl._percentile_limit,
+                                    (view._percentile_limit,
                                      self._percentile_config),
-                                    (mpl._absolute_limit,
+                                    (view._absolute_limit,
                                      self._absolute_limit_config)
                                      ]
         intensity_behavior_types = ['full range',
@@ -161,64 +138,39 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
                                     intensity_behavior_types,
                                     intensity_behavior_data)}
 
-        self._cmbbox_intensity_behavior = QtGui.QComboBox(parent=ctl_widget)
+        self._cmbbox_intensity_behavior = QtGui.QComboBox(parent=self)
         self._cmbbox_intensity_behavior.addItems(intensity_behavior_types)
 
         # can add PowerNorm, BoundaryNorm, but those require extra inputs
         norm_names = ['linear', 'log']
-        norm_funcs = [matplotlib.colors.Normalize,
-                        matplotlib.colors.LogNorm]
+        norm_funcs = [colors.Normalize, colors.LogNorm]
         self._norm_dict = {k: v for k, v in zip(norm_names, norm_funcs)}
-        self._cmbbox_norm = QtGui.QComboBox(parent=ctl_widget)
+        self._cmbbox_norm = QtGui.QComboBox(parent=self)
         self._cmbbox_norm.addItems(norm_names)
 
         # set up intensity manipulation spin boxes
-        # determine the initial values for the spin boxes
-        min_intensity = np.min(stack[0])
-        max_intensity = np.max(stack[0])
-        intensity_step = (max_intensity -
-                                min_intensity) / 100
-
         # create the intensity manipulation spin boxes
-        self._spinbox_min_intensity = QtGui.QDoubleSpinBox(parent=ctl_widget)
-        self._spinbox_max_intensity = QtGui.QDoubleSpinBox(parent=ctl_widget)
-        self._spinbox_intensity_step = QtGui.QDoubleSpinBox(parent=ctl_widget)
+        self._spin_min = QtGui.QDoubleSpinBox(parent=self)
+        self._spin_max = QtGui.QDoubleSpinBox(parent=self)
+        self._spin_step = QtGui.QDoubleSpinBox(parent=self)
+        self.init_spinners(self._spin_min, self._spin_max, self._spin_step,
+                            min_intensity=np.min(init_img),
+                            max_intensity=np.max(init_img))
 
-        # allow the spin boxes to be any value
-        self._spinbox_min_intensity.setMinimum(float("-inf"))
-        self._spinbox_min_intensity.setMaximum(float("inf"))
-        self._spinbox_max_intensity.setMinimum(float("-inf"))
-        self._spinbox_max_intensity.setMaximum(float("inf"))
-        self._spinbox_intensity_step.setMinimum(0)
-        self._spinbox_intensity_step.setMaximum(float("inf"))
 
-        # connect the intensity spinboxes to their updating method
-        self._spinbox_min_intensity.valueChanged.connect(
-                self.set_min_intensity_limit)
-        self._spinbox_max_intensity.valueChanged.connect(
-                self.set_max_intensity_limit)
-        self._spinbox_intensity_step.valueChanged.connect(
-                self.set_intensity_step)
-
-        # set the initial values for the spin boxes
-        self._spinbox_intensity_step.setValue(intensity_step)
-        self._spinbox_max_intensity.setValue(max_intensity)
-        self._spinbox_min_intensity.setValue(min_intensity)
-
-        # construct widget box 2
-        h_form = QtGui.QFormLayout()
-        h_form.addRow("Color &map", self._cm_cb)
-        h_form.addRow("&Normalization", self._cmbbox_norm)
-        h_form.addRow("limit &strategy", self._cmbbox_intensity_behavior)
-        ctl_layout.addLayout(h_form)
+        ctrl_form = QtGui.QFormLayout()
+        ctrl_form.addRow("Color &map", self._cm_cb)
+        ctrl_form.addRow("&Normalization", self._cmbbox_norm)
+        ctrl_form.addRow("limit &strategy", self._cmbbox_intensity_behavior)
+        ctrl_layout.addLayout(ctrl_form)
 
         clim_spinners = QtGui.QGroupBox("clim parameters")
         ispiner_form = QtGui.QFormLayout()
-        ispiner_form.addRow("mi&n", self._spinbox_min_intensity)
-        ispiner_form.addRow("ma&x", self._spinbox_max_intensity)
-        ispiner_form.addRow("s&tep", self._spinbox_intensity_step)
+        ispiner_form.addRow("mi&n", self._spin_min)
+        ispiner_form.addRow("ma&x", self._spin_max)
+        ispiner_form.addRow("s&tep", self._spin_step)
         clim_spinners.setLayout(ispiner_form)
-        ctl_layout.addWidget(clim_spinners)
+        ctrl_layout.addWidget(clim_spinners)
 
         # construct widget box 1
         widget_box1_sub1 = QtGui.QVBoxLayout()
@@ -226,23 +178,13 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
         axes_swap_form.addRow("axes A", self._cb_ax1)
         axes_swap_form.addRow("axes B", self._cb_ax2)
         widget_box1_sub1.addLayout(axes_swap_form)
-        widget_box1_sub1.addWidget(self._btn_swap_ax)
+        widget_box1_sub1.addWidget(self._btn_swap)
         swap_axes_box = QtGui.QGroupBox("Swap!")
         swap_axes_box.setLayout(widget_box1_sub1)
         swap_axes_box.setEnabled(False)
-        ctl_layout.addWidget(swap_axes_box)
-        ctl_layout.addLayout(widget_box1)
-        ctl_layout.addStretch()
-
-        self.mpl_toolbar = NavigationToolbar(self._view, self)
-        # add toolbar
-        v_box_layout.addWidget(self.mpl_toolbar)
-        # add main widget
-        v_box_layout.addWidget(self._view)
-        # add slider v_box_layout
-
-
-        self.setLayout(v_box_layout)
+        ctrl_layout.addWidget(swap_axes_box)
+        ctrl_layout.addLayout(widget_box1)
+        ctrl_layout.addStretch()
 
         # set this down here to make sure the function will run
         self._cmbbox_intensity_behavior.currentIndexChanged[str].connect(
@@ -262,6 +204,55 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
         self._cmbbox_norm.currentIndexChanged[str].emit(
             norm_names[0])
 
+    def init_img_changer(self, slider_img, spin_img, num_images):
+        slider_img.setRange(0, num_images - 1)
+        slider_img.setTracking(True)
+        slider_img.setSingleStep(1)
+        slider_img.setPageStep(10)
+        slider_img.setOrientation(QtCore.Qt.Horizontal)
+        spin_img.setRange(slider_img.minimum(), slider_img.maximum())
+        spin_img.valueChanged.connect(slider_img.setValue)
+        slider_img.valueChanged.connect(spin_img.setValue)
+        slider_img.rangeChanged.connect(spin_img.setRange)
+
+    def init_spinners(self, spin_min, spin_max, spin_step, min_intensity,
+                      max_intensity):
+        # allow the spin boxes to be any value
+        spin_min.setMinimum(float("-inf"))
+        spin_min.setMaximum(float("inf"))
+        spin_max.setMinimum(float("-inf"))
+        spin_max.setMaximum(float("inf"))
+        spin_step.setMinimum(0)
+        spin_step.setMaximum(float("inf"))
+
+        # connect the intensity spinboxes to their updating method
+        spin_min.valueChanged.connect(
+                self.set_min_intensity_limit)
+        spin_max.valueChanged.connect(
+                self.set_max_intensity_limit)
+        spin_step.valueChanged.connect(
+                self.set_intensity_step)
+
+        # set the initial values for the spin boxes
+        spin_step.setValue((max_intensity-min_intensity)/100)
+        spin_max.setValue(max_intensity)
+        spin_min.setValue(min_intensity)
+
+    def init_swap_btns(self, cb_ax1, cb_ax2, btn_swap):
+        cb_ax1.setEditable(False)
+        cb_ax2.setEditable(False)
+        # TODO need to deal with changing the items in this combobox when the data is changed
+        cb_ax1.addItems(np.arange(len(self._axis_order)).astype(str))
+        cb_ax2.addItems(np.arange(len(self._axis_order)).astype(str))
+        btn_swap.resize(btn_swap.sizeHint())
+        btn_swap.clicked.connect(self.swap_stack_axes)
+        btn_swap.setEnabled(False)
+
+    def init_cmap_box(self, cm_cb):
+        cm_cb.setEditable(True)
+        cm_cb.addItems(_CMAPS)
+        cm_cb.setEditText(self.default_cmap)
+
     def swap_stack_axes(self):
         """
         Swap the axes of the image stack based on the indices of the combo
@@ -277,13 +268,13 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
         cur_axis2 = self._axis_order[axis2]
         self._axis_order[axis1] = cur_axis2
         self._axis_order[axis2] = cur_axis1
-        self._btn_swap_ax.setToolTip(np.array_str(self._axis_order))
+        self._btn_swap.setToolTip(np.array_str(self._axis_order))
         self._stack = np.swapaxes(self._stack, axis1, axis2)
         self.set_img_stack(self._stack)
         print("stack.shape: {0}".format(self._stack.shape))
         self._len = self._stack.shape[0]
-        self._slider.setRange(0, self._len - 1)
-        self._spinbox.setRange(self._slider.minimum(), self._slider.maximum())
+        self._slider_img.setRange(0, self._len - 1)
+        self._spin_img.setRange(self._slider_img.minimum(), self._slider_img.maximum())
 
     @QtCore.Slot(str)
     def set_normalization(self, norm_name):
@@ -303,9 +294,9 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
         self._spinbox_enabler(state)
 
     def _spinbox_enabler(self, state):
-        self._spinbox_max_intensity.setEnabled(state)
-        self._spinbox_min_intensity.setEnabled(state)
-        self._spinbox_intensity_step.setEnabled(state)
+        self._spin_max.setEnabled(state)
+        self._spin_min.setEnabled(state)
+        self._spin_step.setEnabled(state)
 
     def _no_limit_config(self):
         """
@@ -314,8 +305,8 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
         """
         # turn off the spin boxes
         # just echo back what it is and don't change it
-        return (self._spinbox_min_intensity.value(),
-                self._spinbox_max_intensity.value()), False
+        return (self._spin_min.value(),
+                self._spin_max.value()), False
 
     def _percentile_config(self):
         """
@@ -329,7 +320,7 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
         """
         Helper function to set up the gui for use with absolute limits
         """
-        cur_frame_n = self._slider.value()
+        cur_frame_n = self._slider_img.value()
         cur_frame = self._stack[cur_frame_n]
         return (np.min(cur_frame),
                 np.max(cur_frame)), True
@@ -337,25 +328,25 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
     def _set_spinbox_limits(self, bottom_val, top_val):
         # turn off signals on the spin boxes
         reset_state = [(sb, sb.blockSignals(True)) for sb in
-                       (self._spinbox_max_intensity,
-                        self._spinbox_min_intensity)]
+                       (self._spin_max,
+                        self._spin_min)]
         try:
             # set the top and bottom limits on the spinboxs to be in bounds
-            self._spinbox_max_intensity.setMinimum(bottom_val)
-            self._spinbox_min_intensity.setMinimum(bottom_val)
+            self._spin_max.setMinimum(bottom_val)
+            self._spin_min.setMinimum(bottom_val)
 
-            self._spinbox_max_intensity.setMaximum(top_val)
-            self._spinbox_min_intensity.setMaximum(top_val)
+            self._spin_max.setMaximum(top_val)
+            self._spin_min.setMaximum(top_val)
             # don't let the step be bigger than the total allowed range
-            self._spinbox_intensity_step.setMaximum(top_val - bottom_val)
+            self._spin_step.setMaximum(top_val - bottom_val)
 
             if not np.isinf(bottom_val) or not np.isinf(top_val):
                 # set the current values
-                self._spinbox_min_intensity.setValue(bottom_val)
-                self._spinbox_max_intensity.setValue(top_val)
+                self._spin_min.setValue(bottom_val)
+                self._spin_max.setValue(top_val)
 
                 # this will trigger via the call-back updating everything else
-                self._spinbox_intensity_step.setValue(
+                self._spin_step.setValue(
                     (top_val - bottom_val) / 100)
         finally:
             # un-wrap the signal blocking
@@ -368,9 +359,9 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
         The intensity_step is passed as a string which needs to be parsed into
         """
         # set the intensity steps for each of the combo boxes
-        self._spinbox_intensity_step.setSingleStep(intensity_step)
-        self._spinbox_max_intensity.setSingleStep(intensity_step)
-        self._spinbox_min_intensity.setSingleStep(intensity_step)
+        self._spin_step.setSingleStep(intensity_step)
+        self._spin_max.setSingleStep(intensity_step)
+        self._spin_min.setSingleStep(intensity_step)
 
         # parse the currently displayed string to determine if the last digit
         # is non-zero.  If it is, increase the number of displayed decimal
@@ -379,16 +370,16 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
         num_decimals = len(str_intensity_step.split('.')[-1])
         last_decimal = str_intensity_step[-1]
         if last_decimal != 0:
-            self._spinbox_intensity_step.setDecimals(num_decimals + 1)
-            self._spinbox_min_intensity.setDecimals(num_decimals + 1)
-            self._spinbox_max_intensity.setDecimals(num_decimals + 1)
+            self._spin_step.setDecimals(num_decimals + 1)
+            self._spin_min.setDecimals(num_decimals + 1)
+            self._spin_max.setDecimals(num_decimals + 1)
 
     @QtCore.Slot(float)
     def set_min_intensity_limit(self, min_intensity):
         # grab the max value
-        max_intensity = self._spinbox_max_intensity.value()
+        max_intensity = self._spin_max.value()
         # grab the step value
-        intensity_step = self._spinbox_intensity_step.value()
+        intensity_step = self._spin_step.value()
         # covert max/min to number of steps
         _max = int(round(max_intensity / intensity_step))
         _min = int(round(min_intensity / intensity_step))
@@ -396,22 +387,22 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
         if not _max > _min:
             max_intensity = min_intensity + intensity_step
             # this should take care of the call back to the viewer
-            self._spinbox_max_intensity.setValue(max_intensity)
+            self._spin_max.setValue(max_intensity)
         else:
             self.sig_update_color_limits.emit((min_intensity, max_intensity))
 
     @QtCore.Slot(float)
     def set_max_intensity_limit(self, max_intensity):
         # grab the max value
-        min_intensity = self._spinbox_min_intensity.value()
+        min_intensity = self._spin_min.value()
         # grab the step value
-        intensity_step = self._spinbox_intensity_step.value()
+        intensity_step = self._spin_step.value()
 
         _max = int(round(max_intensity / intensity_step))
         _min = int(round(min_intensity / intensity_step))
         if not _max > _min:
             min_intensity = max_intensity - intensity_step
-            self._spinbox_min_intensity.setValue(min_intensity)
+            self._spin_min.setValue(min_intensity)
         else:
             self.sig_update_color_limits.emit((min_intensity, max_intensity))
 

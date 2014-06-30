@@ -28,8 +28,7 @@ class AbstractMPLMessenger(AbstractMessenger):
         Updates the normalization function used for the color mapping
         """
         self._view.update_norm(new_norm)
-        self._view.replot()
-        self._view._fig.canvas.draw()
+        self.sl_update_view()
 
     @QtCore.Slot(colors.Colormap)
     def sl_update_cmap(self, cmap):
@@ -43,8 +42,7 @@ class AbstractMPLMessenger(AbstractMessenger):
         except ValueError:
             # do nothing and return
             return
-        self._view.replot()
-        self._view._fig.canvas.draw()
+        self.sl_update_view()
 
     @QtCore.Slot()
     def sl_update_view(self):

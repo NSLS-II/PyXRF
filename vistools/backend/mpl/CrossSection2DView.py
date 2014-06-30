@@ -14,12 +14,79 @@ from .. import AbstractDataView2D
 __author__ = 'Eric-hafxb'
 
 
+def _full_range(im, limit_args):
+    """
+    Plot the entire range of the image
+
+    Parameters
+    ----------
+    im : ndarray
+       image data, nominally 2D
+
+    limit_args : object
+       Ignored, here to match signature with other
+       limit functions
+
+    Returns
+    -------
+    climits : tuple
+       length 2 tuple to be passed to `im.clim(...)` to
+       set the color limits of a ColorMappable object.
+    """
+    return (np.min(im), np.max(im))
+
+
+def _absolute_limit(im, limit_args):
+    """
+    Plot the image based on the min/max values in limit_args
+
+    This function is a no-op and just return the input limit_args.
+
+    Parameters
+    ----------
+    im : ndarray
+        image data.  Ignored in this method
+
+    limit_args : array
+       (min_value, max_value)  Values are in absolute units
+       of the image.
+
+    Returns
+    -------
+    climits : tuple
+       length 2 tuple to be passed to `im.clim(...)` to
+       set the color limits of a ColorMappable object.
+
+    """
+    return limit_args
+
+
+def _percentile_limit(im, limit_args):
+    """
+    Sets limits based on percentile.
+
+    Parameters
+    ----------
+    im : ndarray
+        image data
+
+    limit_args : tuple of floats in [0, 100]
+        upper and lower percetile values
+
+    Returns
+    -------
+    climits : tuple
+       length 2 tuple to be passed to `im.clim(...)` to
+       set the color limits of a ColorMappable object.
+
+    """
+    return np.percentile(im, limit_args)
+
+
 class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
     """
     CrossSection2DView docstring
     """
-    _default_intensity_limit_func = _percentile_limit
-    _default_limit_args = [0, 100]
     _default_cmap = 'hot'
 
     def __init__(self, fig, data_dict=None, key_list=None, cmap=None, norm=None,
@@ -52,9 +119,9 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
                                                  cmap=cmap)
         # set some default behavior
         if limit_func is None:
-            limit_func = self.default_intensity_limit_func
+            limit_func = _full_range
         if limit_args is None:
-            limit_args = self.default_limit_args
+            limit_args = [0,100]
         if cmap is None:
             cmap = self._default_cmap
 
@@ -72,7 +139,7 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
 
         # this needs to respect percentile
         # TODO: What does vlim stand for? @tacaswell?
-        vlim = self._limit_func(data_dict[data_dict.keys()[0]], self._limit_args)
+        vlim = self._limit_func(data_dict[key_list[0]], self._limit_args)
 
         # make the main axes
         # (in matplotlib speak the 'main axes' is the 2d
@@ -160,7 +227,7 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
                 row = int(y + 0.5)
                 if row != self._row or col != self._col:
                     if (col >= 0 and col < numcols and
-                            row >= 0 and row < numrows):
+                        row >= 0 and row < numrows):
                         self._col = col
                         self._row = row
                         for data, ax, bkg, art, set_fun in zip(
@@ -169,10 +236,10 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
                                 (self._ax_h_bk, self._ax_v_bk),
                                 (self._ln_h, self._ln_v),
                                 (self._ln_h.set_ydata, self._ln_v.set_xdata)):
-                            self.fig.canvas.restore_region(bkg)
+                            self._fig.canvas.restore_region(bkg)
                             set_fun(data)
                             ax.draw_artist(art)
-                            self.fig.canvas.blit(ax.bbox)
+                            self._fig.canvas.blit(ax.bbox)
 
         def click_cb(event):
             if event.inaxes is not self._im_ax:
@@ -182,19 +249,19 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
                 self.cur.onmove(event)
                 move_cb(event)
 
-        self.move_cid = self.fig.canvas.mpl_connect('motion_notify_event',
+        self.move_cid = self._fig.canvas.mpl_connect('motion_notify_event',
                                         move_cb)
 
-        self.click_cid = self.fig.canvas.mpl_connect('button_press_event',
+        self.click_cid = self._fig.canvas.mpl_connect('button_press_event',
                                         click_cb)
 
-        self.clear_cid = self.fig.canvas.mpl_connect('draw_event', self.clear)
-        self.fig.tight_layout()
-        self.fig.canvas.draw()
+        self.clear_cid = self._fig.canvas.mpl_connect('draw_event', self.clear)
+        self._fig.tight_layout()
+        self._fig.canvas.draw()
 
     def clear(self, event):
-        self._ax_v_bk = self.fig.canvas.copy_from_bbox(self._ax_v.bbox)
-        self._ax_h_bk = self.fig.canvas.copy_from_bbox(self._ax_h.bbox)
+        self._ax_v_bk = self._fig.canvas.copy_from_bbox(self._ax_v.bbox)
+        self._ax_h_bk = self._fig.canvas.copy_from_bbox(self._ax_h.bbox)
         self._ln_h.set_visible(False)
         self._ln_v.set_visible(False)
 
@@ -207,7 +274,13 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
         self._active = val
         self.cur.active = val
 
-    def update_image(self, new_image):
+    def update_cmap(self, cmap):
+        self._im.set_cmap(cmap)
+
+    def update_image(self, img_idx):
+        self._imdata = self._data_dict[self._key_list[img_idx]]
+
+    def replot(self):
         """
         Update the image displayed by the main axes
 
@@ -216,7 +289,7 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
         new_image : 2D ndarray
            The new image to use
         """
-        self.vmin, self.vmax = self._limit_func(new_image, self._limit_args)
+        self.vmin, self.vmax = self._limit_func(self._imdata, self._limit_args)
         # img_dims = new_image.shape
         # set vertical box axes
         self._ax_v.set_xlim(self.vmin, self.vmax)
@@ -230,8 +303,7 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
         # if img_dims[0] == img_dims[1]:
         # else:
         #    self._im_ax.set_aspect("auto")
-        self._imdata = new_image
-        self._im.set_data(new_image)
+        self._im.set_data(self._imdata)
         self.update_color_limits(self._limit_args, force_update=True)
 
     def update_norm(self, new_norm):
@@ -257,8 +329,6 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
         # set the cross section axes limits
         self._ax_v.set_xlim(*vlim[::-1])
         self._ax_h.set_ylim(*vlim)
-        # do a complete re-draw of the canvas
-        self.fig.canvas.draw()
 
     def set_limit_func(self, limit_func, new_limits):
         """
@@ -269,71 +339,3 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
         self._limit_func = limit_func
         # update the axes
         self.update_color_limits(new_limits, force_update=True)
-
-def _full_range(im, limit_args):
-    """
-    Plot the entire range of the image
-
-    Parameters
-    ----------
-    im : ndarray
-       image data, nominally 2D
-
-    limit_args : object
-       Ignored, here to match signature with other
-       limit functions
-
-    Returns
-    -------
-    climits : tuple
-       length 2 tuple to be passed to `im.clim(...)` to
-       set the color limits of a ColorMappable object.
-    """
-    return (np.min(im), np.max(im))
-
-
-def _absolute_limit(im, limit_args):
-    """
-    Plot the image based on the min/max values in limit_args
-
-    This function is a no-op and just return the input limit_args.
-
-    Parameters
-    ----------
-    im : ndarray
-        image data.  Ignored in this method
-
-    limit_args : array
-       (min_value, max_value)  Values are in absolute units
-       of the image.
-
-    Returns
-    -------
-    climits : tuple
-       length 2 tuple to be passed to `im.clim(...)` to
-       set the color limits of a ColorMappable object.
-
-    """
-    return limit_args
-
-
-def _percentile_limit(im, limit_args):
-    """
-    Sets limits based on percentile.
-
-    Parameters
-    ----------
-    im : ndarray
-        image data
-
-    limit_args : tuple of floats in [0, 100]
-        upper and lower percetile values
-
-    Returns
-    -------
-    climits : tuple
-       length 2 tuple to be passed to `im.clim(...)` to
-       set the color limits of a ColorMappable object.
-
-    """
-    return np.percentile(im, limit_args)

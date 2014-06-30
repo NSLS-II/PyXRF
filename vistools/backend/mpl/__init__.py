@@ -35,10 +35,10 @@ class AbstractMPLDataView(AbstractDataView):
         # stash the parameters not taken care of by the inheritance chain
         self._cmap = cmap
         self._norm = norm
-        self._fig=fig
+        self._fig = fig
 
         # clean the figure
-        self.fig.clf()
+        self._fig.clf()
 
     def replot(self):
         raise NotImplementedError("This method must be implemented by daughter classes")
