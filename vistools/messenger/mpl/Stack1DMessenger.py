@@ -106,7 +106,7 @@ class Stack1DControlWidget(QtGui.QDockWidget):
 
         Parameters
         ----------
-        name : String
+        name : str
             Name of the control widget
         """
         QtGui.QDockWidget.__init__(self, name)

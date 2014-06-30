@@ -7,11 +7,13 @@ from matplotlib.backends.qt4_compat import QtGui, QtCore
 from ..messenger.mpl.Stack1DMessenger import Stack1DMessenger
 from ..messenger.mpl.CrossSection2DMessenger import CrossSection2DMessenger
 
+
 class MainWindow(QtGui.QMainWindow):
     """
     OneDimStackMainWindow
     """
     messenger_classes = [Stack1DMessenger, CrossSection2DMessenger]
+
     def __init__(self, messenger_class, title=None, parent=None,
                  data_dict=None, key_list=None):
         QtGui.QMainWindow.__init__(self, parent)
