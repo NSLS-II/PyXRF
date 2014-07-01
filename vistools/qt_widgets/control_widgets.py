@@ -4,8 +4,8 @@ import six
 from collections import defaultdict
 # again importing from matplotlib to not re-write the
 # compatibility layer
-from matplotlib.backends.qt4_compat import QtGui, QtCore
-from .util import mapping_mixin
+from matplotlib.backends.qt_compat import QtGui, QtCore
+#from .util import mapping_mixin
 
 
 class Slider(QtGui.QWidget):
@@ -172,6 +172,12 @@ class DoubleSpinner(QtGui.QGroupBox):
 
 class ControlContainer(QtGui.QGroupBox, mapping_mixin):
     _delim = '.'
+    _dispatch_map = {'slider': 'create_slider'}
+
+    def create_widget(self, key, type_str, param_dict):
+        create_fun_name = self._dispatch_map[type_str]
+        create_fun = getattr(self, create_fun_name)
+        return create_fun(key, **param_dict)
 
     def __len__(self):
         print('len')
