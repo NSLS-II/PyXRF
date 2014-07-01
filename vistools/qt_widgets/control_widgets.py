@@ -66,7 +66,7 @@ class ComboBox(QtGui.QWidget):
     highlighted = QtCore.Signal(str)
 
     # todo make more things configurable
-    def __init__(self, label, list_of_sttrings,
+    def __init__(self, label, list_of_strings,
                  default_entry=0, editable=True):
         # pass up the stack
         super(ComboBox, self).__init__()
@@ -76,7 +76,7 @@ class ComboBox(QtGui.QWidget):
         self._cb = QtGui.QComboBox()
         self._cb.setEditable(editable)
         # shove in the text
-        self._cb.addItems(list_of_sttrings)
+        self._cb.addItems(list_of_strings)
         # buddy them up
         self._lab.setBuddy(self._cb)
         # make and set the layout
@@ -154,20 +154,44 @@ class TripleSpinner(QtGui.QGroupBox):
                 self._spinbox_max_intensity.value)
 
 
-class DoubleSpinner(QtGui.QGroupBox):
+class PairSpinner(QtGui.QGroupBox):
     valueChanged = QtCore.Signal(float)
+    rangeChanged = QtCore.Signal(float, float)
 
-    def __init__(self, title='', parent=None):
+    def __init__(self, init_min, init_max,
+                 init_step, parent=None, title='',
+                 value_str=None, step_str=None):
         QtGui.QGroupBox.__init__(self, title, parent=parent)
+
+        if value_str is None:
+            value_str = 'value'
+        if step_str is None:
+            step_str = 'step'
 
         self._spinbox_value = QtGui.QDoubleSpinBox(parent=self)
         self._spinbox_step = QtGui.QDoubleSpinBox(parent=self)
+        self._spinbox_step.valueChanged.connect(
+            self._spinbox_value.setSingleStep)
+
+        self._spinbox_value.valueChanged.connect(
+            self.valueChanged)
 
         ispiner_form = QtGui.QFormLayout()
-        ispiner_form.addRow("value", self._spinbox_min_intensity)
-        ispiner_form.addRow("step", self._spinbox_intensity_step)
+        ispiner_form.addRow(value_str, self._spinbox_value)
+        ispiner_form.addRow(step_str, self._spinbox_step)
         self.setLayout(ispiner_form)
+        self.setStep(init_step)
+        self.setRange(init_min, init_max)
 
+    @QtCore.Slot(float)
+    def setStep(self, new_step):
+        self._spinbox_step.setValue(new_step)
+
+    @QtCore.Slot(float, float)
+    def setRange(self, new_min, new_max):
+        self._spinbox_value.setMinimum(new_min)
+        self._spinbox_value.setMaximum(new_max)
+        self.rangeChanged.emit(new_min, new_max)
 
 
 class ControlContainer(QtGui.QGroupBox, mapping_mixin):
@@ -268,8 +292,10 @@ class ControlContainer(QtGui.QGroupBox, mapping_mixin):
     def create_dict_display(self, key, input_dict):
         pass
 
-    def create_doublespinbox(self, key):
-        pass
+    def create_pairspinner(self, key, *args, **kwargs):
+        ds = PairSpinner(*args, **kwargs)
+        self._add_widget(key, ds)
+        return ds
 
     def create_text(self, key, text):
         """
@@ -362,6 +388,9 @@ class ControlContainer(QtGui.QGroupBox, mapping_mixin):
 
     def __iter__(self):
         return self._iter_helper([])
+
+    def addStretch(self):
+        self._layout.addStretch()
 
 
 class DictDisplay(QtGui.QGroupBox):
