@@ -6,7 +6,9 @@ from matplotlib.backends.qt4_compat import QtCore, QtGui
 from . import AbstractMPLMessenger
 from .. import AbstractMessenger1D
 from ...backend.mpl.stack_1d import Stack1DView
-from ...backend.mpl import AbstractMPLDataView
+from ...qt_widgets.control_widgets import ControlContainer
+
+
 from matplotlib.cm import datad
 
 
@@ -24,22 +26,21 @@ class Stack1DMessenger(AbstractMessenger1D, AbstractMPLMessenger):
         self._view = Stack1DView(fig=self._fig, data_list=data_list,
                                  key_list=key_list)
 
-        self._ctrl_widget= Stack1DControlWidget(name="1-D Stack Controls")
+        self._ctrl_widget = make_1D_control_box("Stack 1D")
         # connect signals to slots
         self.connect_sigs_to_slots()
 
     def connect_sigs_to_slots(self):
         # connect signals/slots between view widget and control widget
-        self._ctrl_widget._x_shift_spinbox.valueChanged.connect(
+        self._ctrl_widget['x_shift'].valueChanged.connect(
             self.sl_update_horz_offset)
-        self._ctrl_widget._y_shift_spinbox.valueChanged.connect(
+        self._ctrl_widget['y_shift'].valueChanged.connect(
             self.sl_update_vert_offset)
-        self._ctrl_widget._autoscale_box.toggled.connect(
+        self._ctrl_widget['auto_scale'].toggled.connect(
             self.sl_update_autoscaling)
-        self._ctrl_widget._cm_cb.editTextChanged[str].connect(
+        self._ctrl_widget['cmap_combo'].editTextChanged[str].connect(
             self.sl_update_cmap)
-        self._ctrl_widget.sig_clear_data.connect(
-            self.sl_clear_data)
+        self._ctrl_widget['clear'].clicked.connect(self.sl_clear_data)
 
     @QtCore.Slot(float)
     def sl_update_horz_offset(self, horz_offset):
@@ -54,7 +55,6 @@ class Stack1DMessenger(AbstractMessenger1D, AbstractMPLMessenger):
         """
         self._view.set_horz_offset(horz_offset)
         self.sl_update_view()
-
 
     @QtCore.Slot(float)
     def sl_update_vert_offset(self, vert_offset):
@@ -84,106 +84,34 @@ class Stack1DMessenger(AbstractMessenger1D, AbstractMPLMessenger):
         self.sl_update_view()
 
 
-class Stack1DControlWidget(QtGui.QDockWidget):
+def make_1D_control_box(title):
     """
-    Control widget class
+    init docstring
 
-    TODO: Make this more modular...
-    @tacaswell seemed to be doing this in /vistools/qt_widgets/common.py
-
+    Parameters
+    ----------
+    name : str
+        Name of the control widget
     """
+    self = None
+    ctl_box = ControlContainer(title)
+    # make the control widget float
 
-    _CMAPS = datad.keys()
-    _CMAPS.sort()
-    default_cmap = AbstractMPLDataView._default_cmap
+    ctl_box.create_pairspinner('x_shift', init_min=0,
+                                           init_max=100, init_step=.1)
+    ctl_box.create_pairspinner('y_shift', init_min=0,
+                                           init_max=100, init_step=.1)
 
-    def __init__(self, name):
-        """
-        init docstring
+    # declare a checkbox to turn on/off auto-scaling functionality
+    autoscale_box = QtGui.QCheckBox(parent=self)
+    ctl_box._add_widget('auto_scale', autoscale_box)
 
-        Parameters
-        ----------
-        name : str
-            Name of the control widget
-        """
-        QtGui.QDockWidget.__init__(self, name)
-        # make the control widget float
-        self.setFloating(True)
-        # add a widget that lives in the floating control widget
-        self._widget = QtGui.QWidget(self)
+    ctl_box.create_combobox('cmap_combo', key_list=datad.keys())
 
-        # create the offset spin boxes
-        self._x_shift_spinbox = QtGui.QDoubleSpinBox(parent=self)
-        self._y_shift_spinbox = QtGui.QDoubleSpinBox(parent=self)
+    # declare button to clear data from plot
+    _btn_dataclear = QtGui.QPushButton("clear data", parent=self)
+    ctl_box._add_widget('clear', _btn_dataclear)
+    # padding to make it look nice
+    ctl_box.addStretch()
 
-        # create the offset step size spin boxes
-        self._x_shift_step_spinbox = QtGui.QDoubleSpinBox(parent=self)
-        self._y_shift_step_spinbox = QtGui.QDoubleSpinBox(parent=self)
-
-        # set the min/max limits for the spinboxes to control the offsets
-        default_min = -100
-        default_max = 100
-        default_step = 0.01
-        self._x_shift_spinbox.setMinimum(default_min)
-        self._y_shift_spinbox.setMinimum(default_min)
-        self._x_shift_step_spinbox.setMinimum(default_min)
-        self._y_shift_step_spinbox.setMinimum(default_min)
-        self._x_shift_spinbox.setMaximum(default_max)
-        self._y_shift_spinbox.setMaximum(default_max)
-        self._x_shift_step_spinbox.setMaximum(default_max)
-        self._y_shift_step_spinbox.setMaximum(default_max)
-        self._x_shift_spinbox.setSingleStep(default_step)
-        self._y_shift_spinbox.setSingleStep(default_step)
-
-        # set the default step size
-        self._x_shift_step_spinbox.setSingleStep(default_step)
-        self._y_shift_step_spinbox.setSingleStep(default_step)
-        self._x_shift_step_spinbox.setValue(default_step)
-        self._y_shift_step_spinbox.setValue(default_step)
-
-        # connect the signals
-        self._x_shift_step_spinbox.valueChanged.connect(
-            self._x_shift_spinbox.setSingleStep)
-        self._y_shift_step_spinbox.valueChanged.connect(
-            self._y_shift_spinbox.setSingleStep)
-
-        # declare a checkbox to turn on/off auto-scaling functionality
-        self._autoscale_box = QtGui.QCheckBox(parent=self)
-
-        # set up color map combo box
-        self._cm_cb = QtGui.QComboBox(parent=self)
-        self._cm_cb.setEditable(True)
-        self._cm_cb.addItems(self._CMAPS)
-        self._cm_cb.setEditText(self.default_cmap)
-
-        # declare button to clear data from plot
-        self._btn_dataclear = QtGui.QPushButton("clear data", parent=self)
-
-        # set up action-on-click for the buttons
-        self._btn_dataclear.clicked.connect(self.clear)
-
-        # declare the layout manager
-        layout = QtGui.QFormLayout()
-
-        # add the controls to the layout
-        layout.addRow("--- Curve Shift ---", None)
-        layout.addRow("x shift", self._x_shift_spinbox)
-        layout.addRow("y shift", self._y_shift_spinbox)
-        layout.addRow("x step", self._x_shift_step_spinbox)
-        layout.addRow("y step", self._y_shift_step_spinbox)
-        layout.addRow("--- Misc. ---", None)
-        layout.addRow("autoscale data view", self._autoscale_box)
-        layout.addRow("color scheme", self._cm_cb)
-        layout.addRow(self._btn_dataclear, None)
-
-        # set the widget layout
-        self._widget.setLayout(layout)
-        self.setWidget(self._widget)
-        self._widget.layout()
-
-    # set up the signals
-    sig_clear_data = QtCore.Signal()
-
-    @QtCore.Slot()
-    def clear(self):
-        self.sig_clear_data.emit()
+    return ctl_box

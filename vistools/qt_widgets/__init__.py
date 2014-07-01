@@ -26,9 +26,10 @@ class MainWindow(QtGui.QMainWindow):
 
         self._ctrl_widget = self._messenger._ctrl_widget
         self._display = self._messenger._display
-
+        dock_widget = QtGui.QDockWidget()
+        dock_widget.setWidget(self._ctrl_widget)
         # finish the init
         self._display.setFocus()
         self.setCentralWidget(self._display)
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea,
-                           self._ctrl_widget)
+                           dock_widget)
