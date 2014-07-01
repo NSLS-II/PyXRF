@@ -1,14 +1,14 @@
-"""
-Helpful classes for exploring series of images
-"""
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 from six.moves import zip
 from matplotlib.widgets import Cursor
-from matplotlib.ticker import NullLocator
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from matplotlib.ticker import NullLocator
 import numpy as np
+
+from . import AbstractMPLDataView
+from .. import AbstractDataView2D
 
 
 def _full_range(im, limit_args):
@@ -80,12 +80,13 @@ def _percentile_limit(im, limit_args):
     return np.percentile(im, limit_args)
 
 
-class CrossSectionViewer(object):
-    def __init__(self, fig, init_image,
-                 cmap=None,
-                 norm=None,
-                 limit_func=None,
-                 limit_args=None):
+class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
+    """
+    CrossSection2DView docstring
+    """
+
+    def __init__(self, fig, data_list, key_list, cmap=None, norm=None,
+                 limit_func=None, limit_args=None):
         """
         Sets up figure with cross section viewer
 
@@ -108,24 +109,33 @@ class CrossSectionViewer(object):
         norm : Normalize or None
            Normalization function to us
         """
+        # call up the inheritance chain
+        super(CrossSection2DView, self).__init__(fig=fig, data_list=data_list,
+                                                 key_list=key_list, norm=norm,
+                                                 cmap=cmap)
+        # set some default behavior
         if limit_func is None:
             limit_func = _full_range
-
-        self._limit_func = limit_func
-
         if limit_args is None:
-            limit_args = [0, 100]
+            limit_args = [0,100]
+        if cmap is None:
+            cmap = self._default_cmap
+
+        # stash the input parameters not taken care of by parent classes
+        self._limit_func = limit_func
         self._limit_args = limit_args
+
+        # @tacaswell, what is this?
         self._active = True
 
-        if cmap is None:
-            cmap = 'gray'
+        # work on setting up the mpl axes
+
+        # extract the first image in the list
+        init_image = self._data_dict[key_list[0]]
+
         # this needs to respect percentile
+        # TODO: What does vlim stand for? @tacaswell?
         vlim = self._limit_func(init_image, self._limit_args)
-        # stash the figure
-        self.fig = fig
-        # clean it
-        self.fig.clf()
 
         # make the main axes
         # (in matplotlib speak the 'main axes' is the 2d
@@ -213,7 +223,7 @@ class CrossSectionViewer(object):
                 row = int(y + 0.5)
                 if row != self._row or col != self._col:
                     if (col >= 0 and col < numcols and
-                            row >= 0 and row < numrows):
+                        row >= 0 and row < numrows):
                         self._col = col
                         self._row = row
                         for data, ax, bkg, art, set_fun in zip(
@@ -222,10 +232,10 @@ class CrossSectionViewer(object):
                                 (self._ax_h_bk, self._ax_v_bk),
                                 (self._ln_h, self._ln_v),
                                 (self._ln_h.set_ydata, self._ln_v.set_xdata)):
-                            self.fig.canvas.restore_region(bkg)
+                            self._fig.canvas.restore_region(bkg)
                             set_fun(data)
                             ax.draw_artist(art)
-                            self.fig.canvas.blit(ax.bbox)
+                            self._fig.canvas.blit(ax.bbox)
 
         def click_cb(event):
             if event.inaxes is not self._im_ax:
@@ -235,19 +245,19 @@ class CrossSectionViewer(object):
                 self.cur.onmove(event)
                 move_cb(event)
 
-        self.move_cid = self.fig.canvas.mpl_connect('motion_notify_event',
+        self.move_cid = self._fig.canvas.mpl_connect('motion_notify_event',
                                         move_cb)
 
-        self.click_cid = self.fig.canvas.mpl_connect('button_press_event',
+        self.click_cid = self._fig.canvas.mpl_connect('button_press_event',
                                         click_cb)
 
-        self.clear_cid = self.fig.canvas.mpl_connect('draw_event', self.clear)
-        self.fig.tight_layout()
-        self.fig.canvas.draw()
+        self.clear_cid = self._fig.canvas.mpl_connect('draw_event', self.clear)
+        self._fig.tight_layout()
+        self._fig.canvas.draw()
 
     def clear(self, event):
-        self._ax_v_bk = self.fig.canvas.copy_from_bbox(self._ax_v.bbox)
-        self._ax_h_bk = self.fig.canvas.copy_from_bbox(self._ax_h.bbox)
+        self._ax_v_bk = self._fig.canvas.copy_from_bbox(self._ax_v.bbox)
+        self._ax_h_bk = self._fig.canvas.copy_from_bbox(self._ax_h.bbox)
         self._ln_h.set_visible(False)
         self._ln_v.set_visible(False)
 
@@ -260,7 +270,13 @@ class CrossSectionViewer(object):
         self._active = val
         self.cur.active = val
 
-    def update_image(self, new_image):
+    def update_cmap(self, cmap):
+        self._im.set_cmap(cmap)
+
+    def update_image(self, img_idx):
+        self._imdata = self._data_dict[self._key_list[img_idx]]
+
+    def replot(self):
         """
         Update the image displayed by the main axes
 
@@ -269,7 +285,7 @@ class CrossSectionViewer(object):
         new_image : 2D ndarray
            The new image to use
         """
-        self.vmin, self.vmax = self._limit_func(new_image, self._limit_args)
+        self.vmin, self.vmax = self._limit_func(self._imdata, self._limit_args)
         # img_dims = new_image.shape
         # set vertical box axes
         self._ax_v.set_xlim(self.vmin, self.vmax)
@@ -283,16 +299,8 @@ class CrossSectionViewer(object):
         # if img_dims[0] == img_dims[1]:
         # else:
         #    self._im_ax.set_aspect("auto")
-        self._imdata = new_image
-        self._im.set_data(new_image)
+        self._im.set_data(self._imdata)
         self.update_color_limits(self._limit_args, force_update=True)
-
-    def update_colormap(self, new_cmap):
-        """
-        Update the color map used to display the image
-        """
-        self._im.set_cmap(new_cmap)
-        self.fig.canvas.draw()
 
     def update_norm(self, new_norm):
         """
@@ -317,8 +325,6 @@ class CrossSectionViewer(object):
         # set the cross section axes limits
         self._ax_v.set_xlim(*vlim[::-1])
         self._ax_h.set_ylim(*vlim)
-        # do a complete re-draw of the canvas
-        self.fig.canvas.draw()
 
     def set_limit_func(self, limit_func, new_limits):
         """
