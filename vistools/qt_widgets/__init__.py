@@ -15,13 +15,13 @@ class MainWindow(QtGui.QMainWindow):
     messenger_classes = [Stack1DMessenger, CrossSection2DMessenger]
 
     def __init__(self, messenger_class, title=None, parent=None,
-                 data_dict=None, key_list=None):
+                 data_list=None, key_list=None):
         QtGui.QMainWindow.__init__(self, parent)
         if title is None:
             title = str(messenger_class)
         self.setWindowTitle(title)
         # create view widget, control widget and messenger pass-through
-        self._messenger = messenger_class(data_dict=data_dict,
+        self._messenger = messenger_class(data_list=data_list,
                                              key_list=key_list)
 
         self._ctrl_widget = self._messenger._ctrl_widget

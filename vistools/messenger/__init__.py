@@ -19,10 +19,8 @@ class AbstractMessenger(QtCore.QObject):
     all widgets in this library
     """
 
-    def __init__(self, data_dict, key_list, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super(AbstractMessenger, self).__init__(*args, **kwargs)
-
-        self._view = AbstractDataView(data_list=data_dict, key_list=key_list)
 
     @QtCore.Slot()
     def sl_clear_data(self):
@@ -55,11 +53,8 @@ class AbstractMessenger1D(AbstractMessenger):
     AbstractMessenger1D class docstring
     """
 
-    def __init__(self, data_dict, key_list, *args, **kwargs):
-        super(AbstractMessenger1D, self).__init__(data_dict=data_dict,
-                                                  key_list=key_list,
-                                                  *args, **kwargs)
-        self._view = AbstractDataView1D(data_dict=data_dict, key_list=key_list)
+    def __init__(self, *args, **kwargs):
+        super(AbstractMessenger1D, self).__init__(*args, **kwargs)
 
     @QtCore.Slot(list, list, list)
     def sl_add_data(self, lbl_list, x_list, y_list):
@@ -101,12 +96,8 @@ class AbstractMessenger2D(AbstractMessenger):
     AbstractMessenger2D class docstring
     """
 
-    def __init__(self, data_dict, key_list, *args, **kwargs):
-        super(AbstractMessenger2D, self).__init__(data_dict=data_dict,
-                                                  key_list=key_list,
-                                                  *args,
-                                                  **kwargs)
-        self._view = AbstractDataView2D(data_list=data_dict, key_list=key_list)
+    def __init__(self, *args, **kwargs):
+        super(AbstractMessenger2D, self).__init__(*args, **kwargs)
 
     @QtCore.Slot(list, list, list)
     def sl_add_data(self, lbl_list, xy_list, corners_list):

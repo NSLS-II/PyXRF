@@ -8,7 +8,7 @@ from ...backend import AbstractDataView
 __author__ = 'Eric-hafxb'
 
 
-class AbstractMPLDataView(AbstractDataView):
+class AbstractMPLDataView(object):
     """
     Class docstring
     """

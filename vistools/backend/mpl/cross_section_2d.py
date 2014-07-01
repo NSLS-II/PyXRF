@@ -131,11 +131,11 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
         # work on setting up the mpl axes
 
         # extract the first image in the list
-        init_image = data_list[key_list[0]]
+        init_image = self._data_dict[key_list[0]]
 
         # this needs to respect percentile
         # TODO: What does vlim stand for? @tacaswell?
-        vlim = self._limit_func(data_list[key_list[0]], self._limit_args)
+        vlim = self._limit_func(init_image, self._limit_args)
 
         # make the main axes
         # (in matplotlib speak the 'main axes' is the 2d
@@ -273,8 +273,7 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
     def update_cmap(self, cmap):
         self._im.set_cmap(cmap)
 
-    def update_image(self, imdata):
-        self._imdata = imdata
+    def update_image(self, img_idx):
         self._imdata = self._data_dict[self._key_list[img_idx]]
 
     def replot(self):

@@ -14,7 +14,7 @@ import numpy as np
 from collections import OrderedDict
 # local package imports
 from vistools.qt_widgets import MainWindow
-from vistools.messenger.mpl.Stack1DMessenger import Stack1DMessenger
+from vistools.messenger.mpl.stack_1d import Stack1DMessenger
 
 
 def data_gen(num_sets=1, phase_shift=0.1, vert_shift=0.1, horz_shift=0.1):
@@ -51,17 +51,17 @@ class demo_1d(QtGui.QMainWindow):
         num_sets = 100
         x_data, y_data = data_gen(num_sets=num_sets, phase_shift=0,
                         horz_shift=0, vert_shift=0)
-        data_dict = OrderedDict()
+        data_list = []
         key_list = []
         for (lbl, x, y) in zip(range(num_sets), x_data, y_data):
-            data_dict[lbl] = (x, y)
+            data_list.append((x, y))
             key_list.append(lbl)
 
         # init the 1d stack main window
         self.setWindowTitle('OneDimStack Example')
         messenger = Stack1DMessenger
         self._main_window = MainWindow(messenger_class=messenger,
-                                       data_dict=data_dict,
+                                       data_list=data_list,
                                        key_list=key_list)
 
         self._main_window.setFocus()

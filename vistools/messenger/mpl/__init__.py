@@ -23,7 +23,7 @@ class AbstractMPLMessenger(AbstractMessenger):
         self._display = MPLDisplayWidget()
         self._fig = self._display._fig
         # set a default view
-        self._view = AbstractMPLDataView(fig=self._fig, *args, **kwargs)
+        self._view = AbstractMPLDataView(fig=self._fig)
 
     #@QtCore.Slot(colors.Normalize)
     def sl_update_norm(self, new_norm):

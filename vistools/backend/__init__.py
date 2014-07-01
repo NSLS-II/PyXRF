@@ -109,7 +109,7 @@ class AbstractDataView1D(AbstractDataView):
             position = len(self._key_list)
         for counter, (lbl, x, y) in enumerate(zip(lbl_list, x_list, y_list)):
             self._data_dict[lbl] = (x, y)
-            self._key_list.insert(i=position+counter, x=lbl)
+            self._key_list.insert(position+counter, lbl)
 
     def append_data(self, lbl_list, x_list, y_list):
         """

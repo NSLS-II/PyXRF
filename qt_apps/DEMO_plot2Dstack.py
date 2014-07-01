@@ -10,7 +10,7 @@ import sys
 from matplotlib.backends.qt4_compat import QtGui, QtCore
 import numpy as np
 
-from vistools.messenger.mpl.CrossSection2DMessenger import CrossSection2DMessenger
+from vistools.messenger.mpl.cross_section_2d import CrossSection2DMessenger
 
 from vistools.qt_widgets import MainWindow
 
@@ -42,13 +42,13 @@ def data_gen(length):
        x, y = [_ * 2 * np.pi / 500 for _ in
                             np.ogrid[-500:500, -500:500]]
        rep = int(np.sqrt(length))
-       data = {}
+       data = []
        lbls = []
        for idx in range(length):
             lbls.append(str(idx))
             kx = idx // rep + 1
             ky = idx % rep
-            data[str(idx)] = np.sin(kx * x) * np.cos(ky * y) + 1.05
+            data.append(np.sin(kx * x) * np.cos(ky * y) + 1.05)
        return lbls, data
 
 
@@ -59,7 +59,7 @@ class StackExplorer(QtGui.QMainWindow):
         key_list, data_dict = data_gen(25)
         messenger = CrossSection2DMessenger
         self._main_window = MainWindow(messenger_class=messenger,
-                                       data_dict=data_dict,
+                                       data_list=data_dict,
                                        key_list=key_list)
 
         self._main_window.setFocus()

@@ -22,18 +22,16 @@ class CrossSection2DMessenger(AbstractMessenger2D, AbstractMPLMessenger):
     to pass commands down to the gui-independent layer
     """
 
-    def __init__(self, data_dict, key_list, parent=None, *args, **kwargs):
+    def __init__(self, data_list, key_list, parent=None, *args, **kwargs):
         # call up the inheritance chain
-        super(CrossSection2DMessenger, self).__init__(data_dict=data_dict,
-                                                      key_list=key_list,
-                                                      *args, **kwargs)
+        super(CrossSection2DMessenger, self).__init__(*args, **kwargs)
         # init the appropriate view
-        self._view = CrossSection2DView(fig=self._fig, data_list=data_dict,
+        self._view = CrossSection2DView(fig=self._fig, data_list=data_list,
                                         key_list=key_list)
 
         # TODO: Address issue of data storage in the cross section widget
         self._ctrl_widget= CrossSection2DControlWidget(name="2-D CrossSection Controls",
-                                                init_img=data_dict[key_list[0]],
+                                                init_img=data_list[0],
                                                 num_images=len(key_list))
         # connect signals to slots
         self.connect_sigs_to_slots()
@@ -69,6 +67,8 @@ class CrossSection2DMessenger(AbstractMessenger2D, AbstractMPLMessenger):
         """
         self._view.update_image(img_idx)
         self.sl_update_view()
+        im=self._view._data_dict[self._view._key_list[img_idx]]
+        self._ctrl_widget.set_im_lim(lo=np.min(im), hi=np.max(im))
 
     @QtCore.Slot(np.ndarray)
     def sl_replace_image(self, img):
@@ -127,6 +127,8 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
         self._widget.setLayout(ctrl_layout)
 
         self._axis_order = np.arange(init_img.ndim+1)
+        self._lo = np.min(init_img)
+        self._hi = np.max(init_img)
 
         # set up axis swap buttons
         self._cb_ax1 = QtGui.QComboBox(parent=self)
@@ -234,6 +236,10 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
         # force the issue about emitting
         self._cmbbox_norm.currentIndexChanged[str].emit(
             norm_names[0])
+
+    def set_im_lim(self, lo, hi):
+        self._lo = lo
+        self._hi = hi
 
     def init_img_changer(self, slider_img, spin_img, num_images):
         slider_img.setRange(0, num_images - 1)
@@ -351,10 +357,7 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
         """
         Helper function to set up the gui for use with absolute limits
         """
-        cur_frame_n = self._slider_img.value()
-        cur_frame = self._stack[cur_frame_n]
-        return (np.min(cur_frame),
-                np.max(cur_frame)), True
+        return (self._lo, self._hi), True
 
     def _set_spinbox_limits(self, bottom_val, top_val):
         # turn off signals on the spin boxes
