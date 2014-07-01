@@ -1,22 +1,19 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
-
+import six
 import numpy as np
 
 from . import AbstractMPLDataView
 from .. import AbstractDataView2D
 
 
-__author__ = 'Eric-hafxb'
-
-
 class ContourView(AbstractDataView2D, AbstractMPLDataView):
     """
-    The OneDimContourViewer provides a UI widget for viewing a number of 1-D
+    The ContourView provides a UI widget for viewing a number of 1-D
     data sets as a contour plot, starting from dataset 0 at y = 0
     """
 
-    def __init__(self, fig, data_dict=None, cmap=None, norm=None, *args,
+    def __init__(self, fig, data_list=None, cmap=None, norm=None, *args,
                  **kwargs):
         """
         __init__ docstring
@@ -37,7 +34,7 @@ class ContourView(AbstractDataView2D, AbstractMPLDataView):
         # no defaults yet
 
         # call the parent constructors
-        super(ContourView, self).__init__(data_dict=data_dict, fig=fig,
+        super(ContourView, self).__init__(data_list=data_list, fig=fig,
                                           cmap=cmap, norm=norm, *args,
                                           **kwargs)
 
@@ -50,7 +47,7 @@ class ContourView(AbstractDataView2D, AbstractMPLDataView):
 
     def replot(self):
         """
-        @Override
+        Override
         Replot the data after modifying a display parameter (e.g.,
         offset or autoscaling) or adding new data
         """
@@ -58,7 +55,7 @@ class ContourView(AbstractDataView2D, AbstractMPLDataView):
         # 2-D contour.  Rewrite this replot method
 
         # get the keys from the dict
-        keys = self._data.keys()
+        keys = list(six.iterkeys(self._data))
         # number of datasets in the data dict
         num_keys = len(keys)
         # cannot plot data if there are no keys

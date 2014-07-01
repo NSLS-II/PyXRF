@@ -10,11 +10,9 @@ import numpy as np
 
 from . import AbstractMPLMessenger
 from .. import AbstractMessenger2D
-from ...backend.mpl.CrossSection2DView import CrossSection2DView
-from ...backend.mpl import CrossSection2DView as View
+from ...backend.mpl.cross_section_2d import CrossSection2DView
+from ...backend.mpl import cross_section_2d as View
 from ...backend.mpl import AbstractMPLDataView
-
-__author__ = 'Eric'
 
 
 class CrossSection2DMessenger(AbstractMessenger2D, AbstractMPLMessenger):
@@ -24,16 +22,16 @@ class CrossSection2DMessenger(AbstractMessenger2D, AbstractMPLMessenger):
     to pass commands down to the gui-independent layer
     """
 
-    def __init__(self, data_dict=None, key_list=None,
-                 parent=None, *args, **kwargs):
+    def __init__(self, data_dict, key_list, parent=None, *args, **kwargs):
         # call up the inheritance chain
         super(CrossSection2DMessenger, self).__init__(data_dict=data_dict,
                                                       key_list=key_list,
                                                       *args, **kwargs)
         # init the appropriate view
-        self._view = CrossSection2DView(fig=self._fig, data_dict=data_dict,
+        self._view = CrossSection2DView(fig=self._fig, data_list=data_dict,
                                         key_list=key_list)
 
+        # TODO: Address issue of data storage in the cross section widget
         self._ctrl_widget= CrossSection2DControlWidget(name="2-D CrossSection Controls",
                                                 init_img=data_dict[key_list[0]],
                                                 num_images=len(key_list))

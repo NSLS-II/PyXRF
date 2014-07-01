@@ -6,8 +6,6 @@ from collections import defaultdict
 from six.moves import zip
 import numpy as np
 
-__author__ = 'Eric-hafxb'
-
 
 class AbstractDataView(object):
     """
@@ -17,26 +15,32 @@ class AbstractDataView(object):
     default_dict_type = defaultdict
     default_list_type = list
 
-    def __init__(self, data_dict=None, key_list=None, *args, **kwargs):
+    def __init__(self, data_list, key_list, *args, **kwargs):
         """
         Parameters
         ----------
-        data_dict : Dict
-            The data stored in k:v pairs
+        data_list : list
+            The data stored as a list
         key_list : list
             The order of keys to plot
         """
         super(AbstractDataView, self).__init__(*args, **kwargs)
-        # generate a key list that corresponds to the entries in the data
-        # dictionary if no key_list was passed in
-        if data_dict is not None and key_list is None:
-            key_list = list(data_dict.keys())
 
-        # otherwise, set defaults if required
-        if data_dict is None:
-            data_dict = self.default_dict_type()
+        if len(data_list) != len(key_list):
+            raise ValueError(("lengths of data ({0}) and keys ({1}) must be the"
+                              " same").format(len(data_list), len(key_list)))
+        if data_list is None:
+            raise ValueError(("data_list cannot have a value of None. It must "
+                              "be, at minimum, an empty list"))
         if key_list is None:
-            key_list = self.default_list_type()
+            raise ValueError(("key_list cannot have a value of None. It must "
+                              "be, at minimum, an empty list"))
+        # init the data dictionary
+        data_dict = self.default_dict_type()
+        if len(data_list) > 0:
+            # but only give it values if the data_list has any entries
+            for (k, v) in zip(key_list, data_list):
+                data_dict[k] = v
 
         # stash the dict and keys
         self._data_dict = data_dict
@@ -47,7 +51,7 @@ class AbstractDataView(object):
         Do nothing in the abstract base class. Needs to be implemented
         in the concrete classes
         """
-        raise Exception("Must override the replot() method in the concrete base class")
+        raise NotImplementedError("Must override the replot() method in the concrete base class")
 
     def clear_data(self):
         """
@@ -70,7 +74,7 @@ class AbstractDataView(object):
         for lbl in lbl_list:
             try:
                 del self._data_dict[lbl]
-                del self._key_list[lbl]
+                self._key_list.remove(lbl)
             except KeyError:
                 # do nothing
                 pass
@@ -100,16 +104,12 @@ class AbstractDataView1D(AbstractDataView):
             The position in the key list to begin inserting the data.
             Default (None) behavior is to append to the end of the list
         """
-        # declare a local loop index
-        counter = 0
         # loop over the data passed in
-        for (lbl, x, y) in zip(lbl_list, x_list, y_list):
+        if position is None:
+            position = len(self._key_list)
+        for counter, (lbl, x, y) in enumerate(zip(lbl_list, x_list, y_list)):
             self._data_dict[lbl] = (x, y)
-            if position is None:
-                self._key_list.append(lbl)
-            else:
-                self._key_list.insert(i=position+counter, x=lbl)
-                counter += 1
+            self._key_list.insert(i=position+counter, x=lbl)
 
     def append_data(self, lbl_list, x_list, y_list):
         """
@@ -147,7 +147,7 @@ class AbstractDataView1D(AbstractDataView):
                 lbl_to_add.append(lbl)
                 x_to_add.append(x)
                 y_to_add.append(y)
-        if lbl_to_add is not None:
+        if len(lbl_to_add) > 0:
             self.add_data(lbl_list=lbl_to_add, x_list=x_to_add, y_list=y_to_add)
 
 
@@ -156,8 +156,7 @@ class AbstractDataView2D(AbstractDataView):
     AbstractDataView2D class docstring
     """
 
-    def __init__(self, data_dict=None, key_list=None, corners_dict=None, *args,
-                 **kwargs):
+    def __init__(self, data_list, key_list, *args, **kwargs):
         """
         Parameters
         ----------
@@ -170,33 +169,9 @@ class AbstractDataView2D(AbstractDataView):
             k:v pairs of the location of the corners of each image
             (x0, y0, x1, y1)
         """
-        super(AbstractDataView2D, self).__init__(data_dict=data_dict,
+        super(AbstractDataView2D, self).__init__(data_list=data_list,
                                                  key_list=key_list, *args,
                                                  **kwargs)
-        # handle default behavior for corners_list
-        if corners_dict is None and data_dict is not None:
-            corners_dict = self.default_dict_type()
-            for key in data_dict.keys():
-                corners_dict[key] = self.find_corners(data_dict[key])
-
-        # stash the corners dict
-        self._corners_dict = corners_dict
-
-    def find_corners(self, xy_data):
-        """
-        Find the corners of all images in the data_dict
-
-        Parameters
-        ----------
-        xy_data : np.ndarray
-            Array to determine the corners of
-
-        Return
-        ------
-        This is just (x0, y0, x1, y1) = (0, 0, int(data_dict[key].shape))
-        """
-        x, y = xy_data.shape
-        return 0, 0, int(x), int(y)
 
     def add_data(self, lbl_list, xy_list, corners_list=None, position=None):
         """

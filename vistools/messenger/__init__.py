@@ -22,7 +22,7 @@ class AbstractMessenger(QtCore.QObject):
     def __init__(self, data_dict, key_list, *args, **kwargs):
         super(AbstractMessenger, self).__init__(*args, **kwargs)
 
-        self._view = AbstractDataView(data_dict=data_dict, key_list=key_list)
+        self._view = AbstractDataView(data_list=data_dict, key_list=key_list)
 
     @QtCore.Slot()
     def sl_clear_data(self):
@@ -106,7 +106,7 @@ class AbstractMessenger2D(AbstractMessenger):
                                                   key_list=key_list,
                                                   *args,
                                                   **kwargs)
-        self._view = AbstractDataView2D(data_dict=data_dict, key_list=key_list)
+        self._view = AbstractDataView2D(data_list=data_dict, key_list=key_list)
 
     @QtCore.Slot(list, list, list)
     def sl_add_data(self, lbl_list, xy_list, corners_list):

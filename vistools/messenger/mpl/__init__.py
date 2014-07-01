@@ -10,8 +10,6 @@ from ...backend.mpl import AbstractMPLDataView
 from .. import AbstractMessenger
 from .. import AbstractDisplayWidget
 
-__author__ = 'Eric-i5'
-
 
 class AbstractMPLMessenger(AbstractMessenger):
     """

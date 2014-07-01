@@ -8,8 +8,6 @@ from . import AbstractMPLDataView
 from .. import AbstractDataView1D
 
 
-__author__ = 'Eric-hafxb'
-
 class Stack1DView(AbstractDataView1D, AbstractMPLDataView):
     """
     The OneDimStackViewer provides a UI widget for viewing a number of 1-D
@@ -21,7 +19,8 @@ class Stack1DView(AbstractDataView1D, AbstractMPLDataView):
     _default_vert_offset = 0
     _default_autoscale = False
 
-    def __init__(self, fig, data_dict, key_list=None, cmap=None, norm=None, *args, **kwargs):
+    def __init__(self, fig, data_list, key_list, cmap=None, norm=None,
+                 *args, **kwargs):
         """
         __init__ docstring
 
@@ -34,7 +33,7 @@ class Stack1DView(AbstractDataView1D, AbstractMPLDataView):
         norm : mpl.colors.Normalize
         """
         # call the parent constructors
-        super(Stack1DView, self).__init__(fig=fig, data_dict=data_dict,
+        super(Stack1DView, self).__init__(fig=fig, data_list=data_list,
                                           key_list=key_list, cmap=cmap,
                                           norm=norm, *args, **kwargs)
 

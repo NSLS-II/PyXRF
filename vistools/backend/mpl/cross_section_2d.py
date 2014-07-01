@@ -11,9 +11,6 @@ from . import AbstractMPLDataView
 from .. import AbstractDataView2D
 
 
-__author__ = 'Eric-hafxb'
-
-
 def _full_range(im, limit_args):
     """
     Plot the entire range of the image
@@ -88,7 +85,7 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
     CrossSection2DView docstring
     """
 
-    def __init__(self, fig, data_dict=None, key_list=None, cmap=None, norm=None,
+    def __init__(self, fig, data_list, key_list, cmap=None, norm=None,
                  limit_func=None, limit_args=None):
         """
         Sets up figure with cross section viewer
@@ -113,7 +110,7 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
            Normalization function to us
         """
         # call up the inheritance chain
-        super(CrossSection2DView, self).__init__(fig=fig, data_dict=data_dict,
+        super(CrossSection2DView, self).__init__(fig=fig, data_list=data_list,
                                                  key_list=key_list, norm=norm,
                                                  cmap=cmap)
         # set some default behavior
@@ -134,11 +131,11 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
         # work on setting up the mpl axes
 
         # extract the first image in the list
-        init_image = data_dict[key_list[0]]
+        init_image = data_list[key_list[0]]
 
         # this needs to respect percentile
         # TODO: What does vlim stand for? @tacaswell?
-        vlim = self._limit_func(data_dict[key_list[0]], self._limit_args)
+        vlim = self._limit_func(data_list[key_list[0]], self._limit_args)
 
         # make the main axes
         # (in matplotlib speak the 'main axes' is the 2d
@@ -276,7 +273,8 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
     def update_cmap(self, cmap):
         self._im.set_cmap(cmap)
 
-    def update_image(self, img_idx):
+    def update_image(self, imdata):
+        self._imdata = imdata
         self._imdata = self._data_dict[self._key_list[img_idx]]
 
     def replot(self):

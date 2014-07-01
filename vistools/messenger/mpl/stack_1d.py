@@ -5,11 +5,9 @@ from matplotlib.backends.qt4_compat import QtCore, QtGui
 
 from . import AbstractMPLMessenger
 from .. import AbstractMessenger1D
-from ...backend.mpl.Stack1DView import Stack1DView
+from ...backend.mpl.stack_1d import Stack1DView
 from ...backend.mpl import AbstractMPLDataView
 from matplotlib.cm import datad
-
-__author__ = 'Eric-hafxb'
 
 
 class Stack1DMessenger(AbstractMessenger1D, AbstractMPLMessenger):
@@ -25,7 +23,7 @@ class Stack1DMessenger(AbstractMessenger1D, AbstractMPLMessenger):
                                                key_list=key_list,
                                                *args, **kwargs)
         # init the view
-        self._view = Stack1DView(fig=self._fig, data_dict=data_dict)
+        self._view = Stack1DView(fig=self._fig, data_list=data_dict)
 
         self._ctrl_widget= Stack1DControlWidget(name="1-D Stack Controls")
         # connect signals to slots
