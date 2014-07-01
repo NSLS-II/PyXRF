@@ -4,8 +4,8 @@ import six
 from collections import defaultdict
 # again importing from matplotlib to not re-write the
 # compatibility layer
-from matplotlib.backends.qt_compat import QtGui, QtCore
-#from .util import mapping_mixin
+from matplotlib.backends.qt4_compat import QtGui, QtCore
+from .util import mapping_mixin
 
 
 class Slider(QtGui.QWidget):
@@ -167,7 +167,7 @@ class DoubleSpinner(QtGui.QGroupBox):
         ispiner_form.addRow("value", self._spinbox_min_intensity)
         ispiner_form.addRow("step", self._spinbox_intensity_step)
         self.setLayout(ispiner_form)
-    # TODO flesh this out
+
 
 
 class ControlContainer(QtGui.QGroupBox, mapping_mixin):
