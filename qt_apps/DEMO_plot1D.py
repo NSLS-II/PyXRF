@@ -13,7 +13,7 @@ import sys
 import numpy as np
 from collections import OrderedDict
 # local package imports
-from vistools.qt_widgets import MainWindow
+from vistools.qt_widgets import Stack1DMainWindow
 from vistools.messenger.mpl.stack_1d import Stack1DMessenger
 
 
@@ -59,9 +59,7 @@ class demo_1d(QtGui.QMainWindow):
 
         # init the 1d stack main window
         self.setWindowTitle('OneDimStack Example')
-        messenger = Stack1DMessenger
-        self._main_window = MainWindow(messenger_class=messenger,
-                                       data_list=data_list,
+        self._main_window = Stack1DMainWindow(data_list=data_list,
                                        key_list=key_list)
 
         self._main_window.setFocus()
