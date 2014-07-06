@@ -12,7 +12,7 @@ import numpy as np
 
 from vistools.messenger.mpl.cross_section_2d import CrossSection2DMessenger
 
-from vistools.qt_widgets import MainWindow
+from vistools.qt_widgets import CrossSectionMainWindow
 
 
 class data_gen(object):
@@ -57,10 +57,8 @@ class StackExplorer(QtGui.QMainWindow):
         QtGui.QMainWindow.__init__(self, parent=parent)
         self.setWindowTitle('StackExplorer')
         key_list, data_dict = data_gen(25)
-        messenger = CrossSection2DMessenger
-        self._main_window = MainWindow(messenger_class=messenger,
-                                       data_list=data_dict,
-                                       key_list=key_list)
+        self._main_window = CrossSectionMainWindow(data_list=data_dict,
+                                                   key_list=key_list)
 
         self._main_window.setFocus()
         self.setCentralWidget(self._main_window)
