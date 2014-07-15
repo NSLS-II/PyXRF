@@ -78,17 +78,17 @@ class demo_1d(QtGui.QMainWindow):
 
         btn_datagen.clicked.connect(self.datagen)
         btn_append.clicked.connect(self.append_data)
-        layout = self._main_window._ctrl_widget._widget.layout()
+        ctl_box = self._main_window._ctrl_widget
+        demo_box = ctl_box.create_container('demo box')
 
-        layout.addRow("--- Demo Buttons ---", None)
-        layout.addRow(btn_append, btn_datagen)
+        demo_box._add_widget('append', btn_append)
+        demo_box._add_widget('gen', btn_datagen)
 
         # connect signals to test harness
         self.sig_append_demo_data.connect(
             self._main_window._messenger.sl_append_data)
         self.sig_add_demo_data.connect(
             self._main_window._messenger.sl_add_data)
-
 
     # Qt Signals for Demo
     sig_append_demo_data = QtCore.Signal(list, list, list)
