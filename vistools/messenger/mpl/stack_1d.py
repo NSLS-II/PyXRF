@@ -95,7 +95,6 @@ def make_1D_control_box(title):
     """
     self = None
     ctl_box = ControlContainer(title)
-    # make the control widget float
 
     ctl_box.create_pairspinner('x_shift', init_min=0,
                                            init_max=100, init_step=.1)
