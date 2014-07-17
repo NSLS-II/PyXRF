@@ -15,9 +15,9 @@ class QueryMainWindow(QtGui.QMainWindow):
     """
     QueryMainWindow docstring
     """
-    add_btn_sig = QtCore.Signal(dict)
     # dict1 : search query, dict2 : unique search id, dict3 : run_header dict
-    search_btn_sig = QtCore.Signal(dict, dict, dict)
+    add_btn_sig = QtCore.Signal(dict, dict, dict)
+    search_btn_sig = QtCore.Signal(dict)
 
     def __init__(self, parent=None, keys=None, key_descriptions=None):
         """
@@ -35,6 +35,19 @@ class QueryMainWindow(QtGui.QMainWindow):
         self._query_widget.add_btn_sig.connect(self.add_btn_sig)
         self._query_widget.search_btn_sig.connect(self.search_btn_sig)
 
+    def register_search_function(self, func):
+        """
+        Parameters
+        ----------
+        func : Function
+            This function must take a dictionary parameter as input
+        """
+        self._search_func = func
+        self.search_btn_sig.connect(self.search)
+
+    def register_add_function(self, func):
+        self._add_func = func
+
     @QtCore.Slot(list)
     def update_search_results(self, results):
         """
@@ -47,25 +60,13 @@ class QueryMainWindow(QtGui.QMainWindow):
         """
         self._query_widget.update_search_results(results)
 
-    def register_search_function(self, func):
-        """
-        Parameters
-        ----------
-        func : Function
-            This function must take a dictionary parameter as input
-        """
-        self._search_func = func
-        self.search_btn_sig.connect(self.search)
-
     @QtCore.Slot(dict)
     def search(self, a_dict):
+        """
+        This function gets called when the search button is clicked
+        """
         return_val = self._search_func(a_dict)
         self.update_search_results(return_val)
-
-    def register_add_function(self, func):
-        self._add_func = func
-
-
 
 
 class QueryWidget(QtCore.QObject):
@@ -73,7 +74,7 @@ class QueryWidget(QtCore.QObject):
     QueryWidget docstring
     """
     # external handles for the add button and search button
-    add_btn_sig = QtCore.Signal(dict)
+    add_btn_sig = QtCore.Signal(dict, dict, dict)
     search_btn_sig = QtCore.Signal(dict)
 
 
@@ -241,8 +242,8 @@ class QueryWidget(QtCore.QObject):
         print("add_clicked")
         result_dict = {}
         # ask the tree nicely for its currently selected dictionary
-        # result_dict = tree.get_current()
-        self.add_btn_sig.emit(result_dict)
+        # unique_id = tree.get_current()
+        self.add_btn_sig.emit(self._search_dict, result_dict)
         pass
 
     @QtCore.Slot()
@@ -253,20 +254,24 @@ class QueryWidget(QtCore.QObject):
         """
         # declare the search dict
         print("parse_search_boxes")
-        search_dict = {}
+        self._search_dict = {}
         try:
             # loop over the list of input boxes to extract the search string
             for key in self._input_boxes.keys():
+                # get the text from the input box
                 qtxt = self._input_boxes[key].text()
+                # convert the qstring to a python string
                 txt = str(qtxt)
                 if txt != '':
-                    search_dict[key] = str(txt)
+                    # add the search key to the dictionary if the input box is
+                    # not empty
+                    self._search_dict[key] = str(txt)
         except AttributeError:
             # the only time this will be caught is in the initial setup and it
             # is therefore ok to ignore this error
             pass
-
-        self.search_btn_sig.emit(search_dict)
+        # once the dictionary is constructed, emit it as a signal
+        self.search_btn_sig.emit(self._search_dict)
 
     @QtCore.Slot(list)
     def update_search_results(self, results):
