@@ -3,7 +3,10 @@ from __future__ import (absolute_import, division, print_function,
 import six
 from PyQt4 import QtCore, QtGui
 import sys
-from metadataStore.userapi.commands import search
+try :
+    from metadataStore.userapi.commands import search
+except ImportError:
+    pass
 
 _defaults = {
     "expanded" : False,
