@@ -12,10 +12,6 @@ _defaults = {
 }
 
 
-def foo():
-    print("function outside the class")
-
-
 class QueryMainWindow(QtGui.QMainWindow):
     """
     QueryMainWindow docstring
@@ -122,9 +118,6 @@ class QueryWidget(QtGui.QWidget):
         # "add_btn_signal" QtCore.SIGNAL
         add_btn.clicked.connect(self.add_clicked)
 
-        add_btn.clicked.connect(self.foo)
-        add_btn.clicked.connect(foo)
-
         # add the tree widget to the layout
         layout.addWidget(self._tree)
         # add the button to the layout
@@ -212,9 +205,6 @@ class QueryWidget(QtGui.QWidget):
         # result_dict = tree.get_current()
         self.add_btn_sig.emit(result_dict)
         pass
-
-    def foo(self):
-        print("wtf")
 
     @QtCore.Slot()
     def parse_search_boxes(self):
