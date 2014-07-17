@@ -11,6 +11,11 @@ _defaults = {
                                  "will not do anything")],
 }
 
+
+def foo():
+    print("function outside the class")
+
+
 class QueryMainWindow(QtGui.QMainWindow):
     """
     QueryMainWindow docstring
@@ -21,11 +26,11 @@ class QueryMainWindow(QtGui.QMainWindow):
         """
         QtGui.QMainWindow.__init__(self, parent)
         self.setWindowTitle('Query example')
-        query = QueryWidget(keys=keys, key_descriptions=key_descriptions)
+        self._query_widget = QueryWidget(keys=keys, key_descriptions=key_descriptions)
         dock = QtGui.QDockWidget()
-        dock.setWidget(query._query)
+        dock.setWidget(self._query_widget._query_input)
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, dock)
-        self.setCentralWidget(query._results)
+        self.setCentralWidget(self._query_widget._results_tree)
 
 
 class QueryWidget(QtGui.QWidget):
@@ -57,14 +62,14 @@ class QueryWidget(QtGui.QWidget):
         self._keys = keys
         self._key_descriptions = key_descriptions
         # set up the query widget
-        self._query = self.construct_query()
+        self._query_input = self.construct_query()
 
         # set up the results widget
-        self._results = self.construct_results()
+        self._results_tree = self.construct_results()
 
     def construct_query(self):
         """
-        Construct the query widget as a dock widget
+        Construct the query widget
 
         Returns
         -------
@@ -117,6 +122,9 @@ class QueryWidget(QtGui.QWidget):
         # "add_btn_signal" QtCore.SIGNAL
         add_btn.clicked.connect(self.add_clicked)
 
+        add_btn.clicked.connect(self.foo)
+        add_btn.clicked.connect(foo)
+
         # add the tree widget to the layout
         layout.addWidget(self._tree)
         # add the button to the layout
@@ -128,7 +136,7 @@ class QueryWidget(QtGui.QWidget):
         # return the results group box
         return _results
 
-    def construct_query_input(self, keys=None):
+    def construct_query_input(self, keys=None, key_descriptions=None):
         """
         Construct the input boxes for the query.
 
@@ -146,7 +154,14 @@ class QueryWidget(QtGui.QWidget):
         # default behavior of keys input parameter
         if keys is None:
             keys = self._keys
+        if key_descriptions is None:
+            if self._key_descriptions is None:
+                key_descriptions = keys
+            else:
+                key_descriptions = self._key_descriptions
 
+        self._keys = keys
+        self._key_descriptions = key_descriptions
         # declare a vertical layout
         vert_layout = QtGui.QVBoxLayout()
 
@@ -161,12 +176,15 @@ class QueryWidget(QtGui.QWidget):
         for key in keys:
             # declare a new horizontal layout
             horz_layout = QtGui.QHBoxLayout()
+            # declare the label
+            lbl = QtGui.QLabel(key)
+            lbl.setToolTip(self._key_descriptions[key])
             # declare the input box
             input_box = QtGui.QLineEdit(parent=None)
             # add the input box to the input_boxes dict
             self._input_boxes[key] = input_box
             # add the widgets to the layout
-            horz_layout.addWidget(QtGui.QLabel(key))
+            horz_layout.addWidget(lbl)
             horz_layout.addWidget(input_box)
             # set a dummy widget
             widg = QtGui.QWidget()
@@ -194,6 +212,9 @@ class QueryWidget(QtGui.QWidget):
         # result_dict = tree.get_current()
         self.add_btn_sig.emit(result_dict)
         pass
+
+    def foo(self):
+        print("wtf")
 
     @QtCore.Slot()
     def parse_search_boxes(self):
@@ -229,7 +250,7 @@ class QueryWidget(QtGui.QWidget):
         """
         self._tree.fill_widget(results)
 
-    def update_query_keys(self, keys):
+    def update_query_keys(self, keys, key_descriptions=None):
         """
         Function re-makes the query search box based on the new keys
 
@@ -240,9 +261,11 @@ class QueryWidget(QtGui.QWidget):
         """
         if keys is None:
             return
+        if key_descriptions is None:
+            self._key_descriptions = keys
         # stash the keys
         self._keys = keys
-        layout = self._query.layout()
+        layout = self._query_input.layout()
         # empty the current query widget
         # remove the old search query
         old_query = layout.takeAt(0)
@@ -251,7 +274,8 @@ class QueryWidget(QtGui.QWidget):
         # remove the button or buttons
         btns = layout.takeAt(1)
 
-        new_query = self.construct_query_input(keys)
+        new_query = self.construct_query_input(
+            keys=keys, key_descriptions=key_descriptions)
 
         layout.addWidget(new_query)
         layout.addWidget(btns)
@@ -292,6 +316,10 @@ if __name__ == "__main__":
         }
     app = QtGui.QApplication(sys.argv)
     test_dict = get_test_keys()
-    qmw = QueryMainWindow(keys=test_dict.keys())
+    key_descriptions = {}
+    for key in test_dict.keys():
+        key_descriptions[key] = test_dict[key]["description"]
+    qmw = QueryMainWindow(keys=test_dict.keys(),
+                          key_descriptions=key_descriptions)
     qmw.show()
     sys.exit(app.exec_())
