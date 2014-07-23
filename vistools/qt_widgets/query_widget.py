@@ -5,11 +5,12 @@ from PyQt4 import QtCore, QtGui
 from vistools.qt_widgets.displaydict import RecursiveTreeWidget
 
 _defaults = {
-    "num_search_rows" : 1,
-    "search_keys" : ["no search keys"],
-    "search_key_descriptions" : [("No search keys were provided.  This widget "
+    "num_search_rows": 1,
+    "search_keys": ["no search keys"],
+    "search_key_descriptions": [("No search keys were provided.  This widget "
                                  "will not do anything")],
 }
+
 
 class QueryMainWindow(QtGui.QMainWindow):
     """
@@ -19,7 +20,7 @@ class QueryMainWindow(QtGui.QMainWindow):
     add_btn_sig = QtCore.Signal(dict, dict, dict)
     search_btn_sig = QtCore.Signal(dict)
 
-    def __init__(self, parent=None, keys=None, key_descriptions=None):
+    def __init__(self, keys=None, key_descriptions=None, parent=None):
         """
         init docstring
         """
@@ -51,7 +52,9 @@ class QueryMainWindow(QtGui.QMainWindow):
     @QtCore.Slot(list)
     def update_search_results(self, results):
         """
-        Pass through function to update the search results in the results widget
+
+        Pass through function to update the search results in the
+        results widget
 
         Parameters
         ----------
@@ -78,7 +81,8 @@ class QueryWidget(QtCore.QObject):
     search_btn_sig = QtCore.Signal(dict)
 
 
-    def __init__(self, keys=None, key_descriptions=None, *args, **kwargs):
+    def __init__(self, keys=None, key_descriptions=None,
+                 *args, **kwargs):
         """
 
         Parameters
@@ -302,11 +306,10 @@ class QueryWidget(QtCore.QObject):
         layout = self._query_input.layout()
         # empty the current query widget
         # remove the old search query
-        old_query = layout.takeAt(0)
-        # todo probably need to delete this old_query object!
+        layout.takeAt(0)
 
         # remove the stretch
-        stretch = layout.takeAt(0)
+        layout.takeAt(0)
         # todo probably need to delete this stretch!
 
         # remove the button or buttons
@@ -318,7 +321,6 @@ class QueryWidget(QtCore.QObject):
         layout.addWidget(new_query)
         layout.addWidget(btns)
         layout.addStretch()
-
 
 
 if __name__ == "__main__":
