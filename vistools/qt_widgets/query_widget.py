@@ -3,12 +3,10 @@ from __future__ import (absolute_import, division, print_function,
 import six, sys, datetime
 from PyQt4 import QtCore, QtGui
 from vistools.qt_widgets.displaydict import RecursiveTreeWidget
+from collections import defaultdict
 
 _defaults = {
     "num_search_rows": 1,
-    "search_keys": ["no search keys"],
-    "search_key_descriptions": [("No search keys were provided.  This widget "
-                                 "will not do anything")],
 }
 
 
@@ -20,7 +18,7 @@ class QueryMainWindow(QtGui.QMainWindow):
     add_btn_sig = QtCore.Signal(dict, dict, dict)
     search_btn_sig = QtCore.Signal(dict)
 
-    def __init__(self, keys=None, key_descriptions=None, parent=None):
+    def __init__(self, keys, key_descriptions=None, parent=None):
         """
         init docstring
         """
@@ -80,8 +78,7 @@ class QueryWidget(QtCore.QObject):
     add_btn_sig = QtCore.Signal(dict, dict, dict)
     search_btn_sig = QtCore.Signal(dict)
 
-
-    def __init__(self, keys=None, key_descriptions=None,
+    def __init__(self, keys, key_descriptions=None,
                  *args, **kwargs):
         """
 
@@ -94,13 +91,12 @@ class QueryWidget(QtCore.QObject):
         super(QueryWidget, self).__init__(
             QtGui.QWidget.__init__(self, *args, **kwargs))
         # init the defaults
-        if keys is None:
-            keys = _defaults["search_keys"]
         if key_descriptions is None:
-            key_descriptions = _defaults["search_key_descriptions"]
+            key_descriptions = {}
 
         self._keys = keys
-        self._key_descriptions = key_descriptions
+        self._key_descriptions = defaultdict(lambda: '')
+        self._key_descriptions.update(key_descriptions)
         # set up the query widget
         self._query_input = self.construct_query()
 
