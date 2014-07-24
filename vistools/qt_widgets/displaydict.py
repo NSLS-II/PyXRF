@@ -3,10 +3,6 @@ from __future__ import (absolute_import, division, print_function,
 import six
 from PyQt4 import QtCore, QtGui
 import sys
-try :
-    from metadataStore.userapi.commands import search
-except ImportError:
-    pass
 
 _defaults = {
     "expanded" : False,
@@ -76,12 +72,13 @@ class RecursiveTreeWidget(QtGui.QTreeWidget):
         self.fill_item(self.invisibleRootItem(), obj)
 
 
-def gen_tree():
-    query = {"owner" : "edill", "contents" : True}
-    return search(**query)
-
-
 if __name__ == "__main__":
+    from metadataStore.userapi.commands import search
+
+    def gen_tree():
+        query = {"owner" : "edill", "contents" : True}
+        return search(**query)
+
     app = QtGui.QApplication(sys.argv)
     dd = DisplayDict()
     dd.set_tree(gen_tree())
