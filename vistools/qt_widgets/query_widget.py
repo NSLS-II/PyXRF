@@ -243,7 +243,7 @@ class QueryWidget(QtCore.QObject):
         result_dict = {}
         # ask the tree nicely for its currently selected dictionary
         # unique_id = tree.get_current()
-        self.add_btn_sig.emit(self._search_dict, result_dict)
+        self.add_btn_sig.emit(self._search_dict, result_dict, {})
         pass
 
     @QtCore.Slot()
