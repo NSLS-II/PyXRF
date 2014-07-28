@@ -3,13 +3,12 @@ from __future__ import (absolute_import, division, print_function,
 import six, sys, datetime
 from PyQt4 import QtCore, QtGui
 from vistools.qt_widgets.displaydict import RecursiveTreeWidget
+from collections import defaultdict
 
 _defaults = {
-    "num_search_rows" : 1,
-    "search_keys" : ["no search keys"],
-    "search_key_descriptions" : [("No search keys were provided.  This widget "
-                                 "will not do anything")],
+    "num_search_rows": 1,
 }
+
 
 class QueryMainWindow(QtGui.QMainWindow):
     """
@@ -19,7 +18,7 @@ class QueryMainWindow(QtGui.QMainWindow):
     add_btn_sig = QtCore.Signal(dict, dict, dict)
     search_btn_sig = QtCore.Signal(dict)
 
-    def __init__(self, parent=None, keys=None, key_descriptions=None):
+    def __init__(self, keys, key_descriptions=None, parent=None):
         """
         init docstring
         """
@@ -51,7 +50,9 @@ class QueryMainWindow(QtGui.QMainWindow):
     @QtCore.Slot(list)
     def update_search_results(self, results):
         """
-        Pass through function to update the search results in the results widget
+
+        Pass through function to update the search results in the
+        results widget
 
         Parameters
         ----------
@@ -77,8 +78,8 @@ class QueryWidget(QtCore.QObject):
     add_btn_sig = QtCore.Signal(dict, dict, dict)
     search_btn_sig = QtCore.Signal(dict)
 
-
-    def __init__(self, keys=None, key_descriptions=None, *args, **kwargs):
+    def __init__(self, keys, key_descriptions=None,
+                 *args, **kwargs):
         """
 
         Parameters
@@ -90,13 +91,12 @@ class QueryWidget(QtCore.QObject):
         super(QueryWidget, self).__init__(
             QtGui.QWidget.__init__(self, *args, **kwargs))
         # init the defaults
-        if keys is None:
-            keys = _defaults["search_keys"]
         if key_descriptions is None:
-            key_descriptions = _defaults["search_key_descriptions"]
+            key_descriptions = {}
 
         self._keys = keys
-        self._key_descriptions = key_descriptions
+        self._key_descriptions = defaultdict(lambda: '')
+        self._key_descriptions.update(key_descriptions)
         # set up the query widget
         self._query_input = self.construct_query()
 
@@ -243,7 +243,7 @@ class QueryWidget(QtCore.QObject):
         result_dict = {}
         # ask the tree nicely for its currently selected dictionary
         # unique_id = tree.get_current()
-        self.add_btn_sig.emit(self._search_dict, result_dict)
+        self.add_btn_sig.emit(self._search_dict, result_dict, {})
         pass
 
     @QtCore.Slot()
@@ -302,11 +302,10 @@ class QueryWidget(QtCore.QObject):
         layout = self._query_input.layout()
         # empty the current query widget
         # remove the old search query
-        old_query = layout.takeAt(0)
-        # todo probably need to delete this old_query object!
+        layout.takeAt(0)
 
         # remove the stretch
-        stretch = layout.takeAt(0)
+        layout.takeAt(0)
         # todo probably need to delete this stretch!
 
         # remove the button or buttons
@@ -318,7 +317,6 @@ class QueryWidget(QtCore.QObject):
         layout.addWidget(new_query)
         layout.addWidget(btns)
         layout.addStretch()
-
 
 
 if __name__ == "__main__":
