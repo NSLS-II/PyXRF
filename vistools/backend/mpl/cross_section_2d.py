@@ -11,73 +11,92 @@ from . import AbstractMPLDataView
 from .. import AbstractDataView2D
 
 
-def _full_range(im):
+def fullrange_limit_factory(limit_args=None):
     """
-    Plot the entire range of the image
+    Factory for returning full-range limit functions
 
-    Parameters
-    ----------
-    im : ndarray
-       image data, nominally 2D
-
-    limit_args : object
-       Ignored, here to match signature with other
-       limit functions
-
-    Returns
-    -------
-    climits : tuple
-       length 2 tuple to be passed to `im.clim(...)` to
-       set the color limits of a ColorMappable object.
+    limit_args is ignored.
     """
-    return (np.min(im), np.max(im))
+    def _full_range(im):
+        """
+        Plot the entire range of the image
+
+        Parameters
+        ----------
+        im : ndarray
+           image data, nominally 2D
+
+        limit_args : object
+           Ignored, here to match signature with other
+           limit functions
+
+        Returns
+        -------
+        climits : tuple
+           length 2 tuple to be passed to `im.clim(...)` to
+           set the color limits of a ColorMappable object.
+        """
+        return (np.min(im), np.max(im))
+
+    return _full_range
 
 
-def _absolute_limit(im, limit_args):
+def absolute_limit_factory(limit_args):
     """
-    Plot the image based on the min/max values in limit_args
-
-    This function is a no-op and just return the input limit_args.
-
-    Parameters
-    ----------
-    im : ndarray
-        image data.  Ignored in this method
-
-    limit_args : array
-       (min_value, max_value)  Values are in absolute units
-       of the image.
-
-    Returns
-    -------
-    climits : tuple
-       length 2 tuple to be passed to `im.clim(...)` to
-       set the color limits of a ColorMappable object.
-
+    Factory for making absolute limit functions
     """
-    return limit_args
+    def _absolute_limit(im):
+        """
+        Plot the image based on the min/max values in limit_args
+
+        This function is a no-op and just return the input limit_args.
+
+        Parameters
+        ----------
+        im : ndarray
+            image data.  Ignored in this method
+
+        limit_args : array
+           (min_value, max_value)  Values are in absolute units
+           of the image.
+
+        Returns
+        -------
+        climits : tuple
+           length 2 tuple to be passed to `im.clim(...)` to
+           set the color limits of a ColorMappable object.
+
+        """
+        return limit_args
+    return _absolute_limit
 
 
-def _percentile_limit(im, limit_args):
+def percentile_limit_factory(limit_args):
     """
-    Sets limits based on percentile.
-
-    Parameters
-    ----------
-    im : ndarray
-        image data
-
-    limit_args : tuple of floats in [0, 100]
-        upper and lower percetile values
-
-    Returns
-    -------
-    climits : tuple
-       length 2 tuple to be passed to `im.clim(...)` to
-       set the color limits of a ColorMappable object.
-
+    Factory to return a percentile limit function
     """
-    return np.percentile(im, limit_args)
+    def _percentile_limit(im):
+        """
+        Sets limits based on percentile.
+
+        Parameters
+        ----------
+        im : ndarray
+            image data
+
+        limit_args : tuple of floats in [0, 100]
+            upper and lower percetile values
+
+        Returns
+        -------
+        climits : tuple
+           length 2 tuple to be passed to `im.clim(...)` to
+           set the color limits of a ColorMappable object.
+
+        """
+        return np.percentile(im, limit_args)
+
+    return _percentile_limit
 
 
 class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
@@ -204,7 +223,7 @@ class CrossSection(object):
         self._auto_redraw = auto_redraw
         # clean defaults
         if limit_func is None:
-            limit_func = _full_range
+            limit_func = fullrange_limit_factory()
         if cmap is None:
             cmap = 'gray'
         # let norm pass through as None, mpl defaults to linear which is fine
