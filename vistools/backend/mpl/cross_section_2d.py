@@ -244,6 +244,23 @@ class CrossSection(object):
         self._fig = fig
         # blow away what ever is currently on the figure
         fig.clf()
+        # Configure the figure in our own image
+        #
+        #     	  +----------------------+
+        #	      |   H cross section    |
+        #     	  +----------------------+
+        #   +---+ +----------------------+
+        #   | V | |                      |
+        #   |   | |                      |
+        #   | x | |                      |
+        #   | s | |      Main Axes       |
+        #   | e | |                      |
+        #   | c | |                      |
+        #   | t | |                      |
+        #   | i | |                      |
+        #   | o | |                      |
+        #   | n | |                      |
+        #   +---+ +----------------------+
 
         # make the main axes
         self._im_ax = fig.add_subplot(1, 1, 1)
@@ -389,6 +406,8 @@ class CrossSection(object):
     def update_image(self, new_image):
         """
         Set the image data
+
+        The input data must be the same shape as the current image data
         """
         self._imdata = new_image
         self._dirty = True
