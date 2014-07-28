@@ -54,8 +54,6 @@ class CrossSection2DMessenger(AbstractMessenger2D, AbstractMPLMessenger):
         # signal/slot pairs specific to the CrossSection2DView
         self._ctrl_widget.sig_update_limit_function.connect(
             self.sl_update_limit_func)
-        self._ctrl_widget.sig_update_color_limits.connect(
-            self.sl_update_color_limits)
 
         self._ctrl_widget._slider_img.valueChanged.connect(
             self.sl_update_image)
@@ -67,7 +65,7 @@ class CrossSection2DMessenger(AbstractMessenger2D, AbstractMPLMessenger):
         """
         self._view.update_image(img_idx)
         self.sl_update_view()
-        im=self._view._data_dict[self._view._key_list[img_idx]]
+        im = self._view._data_dict[self._view._key_list[img_idx]]
         self._ctrl_widget.set_im_lim(lo=np.min(im), hi=np.max(im))
 
     @QtCore.Slot(np.ndarray)
@@ -78,20 +76,12 @@ class CrossSection2DMessenger(AbstractMessenger2D, AbstractMPLMessenger):
         """
         raise NotImplementedError()
 
-    @QtCore.Slot(object, tuple)
-    def sl_update_limit_func(self, limit_func, new_limits):
+    @QtCore.Slot(object)
+    def sl_update_limit_func(self, limit_func):
         """
         Updates the type of limit computation function used
         """
-        self._view.set_limit_func(limit_func, new_limits)
-        self.sl_update_view()
-
-    @QtCore.Slot(tuple)
-    def sl_update_color_limits(self, new_limits):
-        """
-        Update the values passed to the limit computation function
-        """
-        self._view.update_color_limits(new_limits)
+        self._view.set_limit_func(limit_func)
         self.sl_update_view()
 
 
@@ -103,8 +93,7 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
     # set up the signals
     sig_update_image = QtCore.Signal(int)
     sig_update_norm = QtCore.Signal(colors.Normalize)
-    sig_update_limit_function = QtCore.Signal(object, tuple)
-    sig_update_color_limits = QtCore.Signal(tuple)
+    sig_update_limit_function = QtCore.Signal(object)
 
     # some defaults
     default_cmap = AbstractMPLDataView._default_cmap
@@ -157,11 +146,11 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
         self.init_cmap_box(self._cm_cb)
 
         # set up intensity manipulation combo box
-        intensity_behavior_data = [(View._full_range,
+        intensity_behavior_data = [(View.fullrange_limit_factory,
                                      self._no_limit_config),
-                                    (View._percentile_limit,
+                                    (View.percentile_limit_factory,
                                      self._percentile_config),
-                                    (View._absolute_limit,
+                                    (View.absolute_limit_factory,
                                      self._absolute_limit_config)
                                      ]
         intensity_behavior_types = ['full range',
@@ -170,7 +159,9 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
         self._intensity_behav_dict = {k: v for k, v in zip(
                                     intensity_behavior_types,
                                     intensity_behavior_data)}
-
+        # TODO should not have to hard-code this, but it is getting
+        # called before it is fully updated, figure out why
+        self._limit_factory = View.fullrange_limit_factory
         self._cmbbox_intensity_behavior = QtGui.QComboBox(parent=self)
         self._cmbbox_intensity_behavior.addItems(intensity_behavior_types)
 
@@ -189,7 +180,6 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
         self.init_spinners(self._spin_min, self._spin_max, self._spin_step,
                             min_intensity=np.min(init_img),
                             max_intensity=np.max(init_img))
-
 
         ctrl_form = QtGui.QFormLayout()
         ctrl_form.addRow("Color &map", self._cm_cb)
@@ -311,7 +301,8 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
         print("stack.shape: {0}".format(self._stack.shape))
         self._len = self._stack.shape[0]
         self._slider_img.setRange(0, self._len - 1)
-        self._spin_img.setRange(self._slider_img.minimum(), self._slider_img.maximum())
+        self._spin_img.setRange(self._slider_img.minimum(),
+                                self._slider_img.maximum())
 
     @QtCore.Slot(str)
     def set_normalization(self, norm_name):
@@ -320,12 +311,16 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
 
     @QtCore.Slot(str)
     def set_image_intensity_behavior(self, im_behavior):
-        # get parameters from spin boxes for min and max
-        (limit_func, get_params) = self._intensity_behav_dict[str(im_behavior)]
-        # fixes the gui state
+        # get the limit factory to use
+        (limit_fac, get_params) = self._intensity_behav_dict[str(im_behavior)]
+        # stash the limit function factory for later use
+        self._limit_factory = limit_fac
+        # fixes the gui state, grabs default spinner values + spinner state
         limits, state = get_params()
-        # updates the underlying object
-        self.sig_update_limit_function.emit(limit_func, limits)
+        # make the limit function
+        limit_func = limit_fac(limits)
+        # emit the function to be passed on to the underlying object
+        self.sig_update_limit_function.emit(limit_func)
         # set the new limits
         self._set_spinbox_limits(*limits)
         self._spinbox_enabler(state)
@@ -423,7 +418,8 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
             # this should take care of the call back to the viewer
             self._spin_max.setValue(max_intensity)
         else:
-            self.sig_update_color_limits.emit((min_intensity, max_intensity))
+            limit_func = self._limit_factory((min_intensity, max_intensity))
+            self.sig_update_limit_function.emit(limit_func)
 
     @QtCore.Slot(float)
     def set_max_intensity_limit(self, max_intensity):
@@ -438,11 +434,14 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
             min_intensity = max_intensity - intensity_step
             self._spin_min.setValue(min_intensity)
         else:
-            self.sig_update_color_limits.emit((min_intensity, max_intensity))
+            limit_func = self._limit_factory((min_intensity, max_intensity))
+            self.sig_update_limit_function.emit(limit_func)
 
     @QtCore.Slot(float, float)
     def set_limits(self, bottom, top):
-        self.sig_update_color_limits.emit((bottom, top))
+        # TODO update the spinners + validate
+        limit_func = self._limit_factory((bottom, top))
+        self.sig_update_limit_function.emit(limit_func)
 
     def set_img_stack(self, img_stack):
         """
