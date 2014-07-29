@@ -9,6 +9,7 @@ _defaults = {
 }
 
 class DisplayDict(QtGui.QMainWindow):
+
     def __init__(self, parent=None):
         QtGui.QMainWindow.__init__(self, parent)
         self.setWindowTitle('Display dictionary example')
@@ -21,6 +22,11 @@ class DisplayDict(QtGui.QMainWindow):
 
 class RecursiveTreeWidget(QtGui.QTreeWidget):
     """
+    Widget that recursively adds a list, dictionary or nested dictionary to
+    as a tree widget
+
+    Notes
+    -----
     fill_item and fill_widget were taken from:
     http://stackoverflow.com/questions/21805047/qtreewidget-to-mirror-python-dictionary
     """
@@ -28,7 +34,7 @@ class RecursiveTreeWidget(QtGui.QTreeWidget):
         QtGui.QTreeWidget.__init__(self)
         self.itemClicked.connect(self.who_am_i)
 
-    def fill_item(self, node, obj):
+    def fill_item(self, node, obj, node_name=None):
         node.setExpanded(_defaults["expanded"])
         if isinstance(obj, dict):
             # the object is a dictionary
@@ -52,21 +58,62 @@ class RecursiveTreeWidget(QtGui.QTreeWidget):
                 list_child.setExpanded(_defaults["expanded"])
         else:
             child = QtGui.QTreeWidgetItem()
-            child.setText(0, unicode(obj))
+            if node_name is None:
+                node_name = obj
+            child.setText(0, unicode(node_name))
             self.add_child(node, child)
 
     def add_child(self, node, child):
+        """
+        Add a leaf to the tree at the 'node' position
+
+        Parameters
+        ----------
+        node : QtGui.QTreeWidgetItem()
+        child : QtGui.QTreeWidgetItem()
+        """
         node.addChild(child)
+
+    def find_root(self, node):
+        """
+        find the node whose parent is the invisible root item
+
+        Parameters
+        ----------
+        node : QtGui.QTreeWidgetItem
+            The node whose top level parent you wish to find
+
+        Returns
+        -------
+        path_to_node : list
+            list of keys
+        dict_idx : int
+            Index of the currently selected search result
+        """
+        path_to_node = []
+        # get the parent node to track the two levels independently
+        parent = node.parent()
+        while parent != self.invisibleRootItem():
+            path_to_node.insert(0, node.text(0))
+            # move up the tree
+            node = parent
+            parent = parent.parent()
+
+        # find the index of the search result
+        dict_idx = parent.indexOfChild(node)
+
+        return path_to_node, dict_idx
 
     def who_am_i(self, obj):
         print(obj.text(0))
 
     def fill_widget(self, obj):
         """
+        Throw the 'object' at the recursive tree fill class 'fill_item()'
 
         Parameters
         ----------
-        value : list or dict
+        obj  : list, dict or obj
         """
         self.clear()
         self.fill_item(self.invisibleRootItem(), obj)
