@@ -32,7 +32,7 @@ class CrossSectionMainWindow(QtGui.QMainWindow):
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea,
                            self._ctrl_widget)
 
-        
+
 class Stack1DMainWindow(QtGui.QMainWindow):
     """
     MainWindow

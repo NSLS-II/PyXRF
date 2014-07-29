@@ -129,6 +129,7 @@ class QueryMainWindow(QtGui.QMainWindow):
             Function that generates a unique ID for a results dictionary.  For
             now, this function should probably just pick out the header_id
         """
+        self._query_controller.register_unique_id_gen_func(unique_id_func)
         self._unique_id_func = unique_id_func
 
     @QtCore.Slot(list)
@@ -155,13 +156,18 @@ class QueryMainWindow(QtGui.QMainWindow):
         self.update_search_results(return_val)
 
     @QtCore.Slot(dict, dict, dict, list)
-    def add(self, search_query_dict, unique_id_dict, run_header_dict,
+    def add(self, search_query_dict, unique_id_dict, result_dict,
             path_to_current_node_list):
         """
         This function gets called when the add button is clicked
         """
         print("add() function in QueryMainWindow")
-        self._add_func(search_query_dict, unique_id_dict, run_header_dict,
+        print("search_query_dict: {0}".format(search_query_dict))
+        print("unique_id_dict: {0}".format(unique_id_dict))
+        print("result_dict: {0}".format(result_dict))
+        print("path_to_current_node_list: {0}".format(path_to_current_node_list))
+
+        self._add_func(search_query_dict, unique_id_dict, result_dict,
                        path_to_current_node_list)
 
     def update_query_keys(self, query_keys, query_key_descriptions):
@@ -277,7 +283,7 @@ class QueryController(QtCore.QObject):
         # connect the search buttons clicked signal to the method which parses
         # the text boxes to create a search dictionary that gets emitted by the
         # externally facing search_btn_sig QtCore.Signal
-        self._search_btn.clicked.connect(self.parse_search_boxes)
+        self._search_btn.clicked.connect(self.search)
         # declare the query widget
         query_widg = self.construct_query_input()
 
@@ -390,6 +396,17 @@ class QueryController(QtCore.QObject):
     ############################################################################
     #                        Runtime behavior                                  #
     ############################################################################
+    def register_unique_id_gen_func(self, unique_id_func):
+        """
+
+        Parameters
+        ----------
+        unique_id_func : function
+            Function that generates a unique ID for a results dictionary.  For
+            now, this function should probably just pick out the header_id
+        """
+        self._unique_id_func = unique_id_func
+
     def enable_search_btn(self, is_enabled):
         """
         Function to enable/disable the search button
@@ -417,15 +434,45 @@ class QueryController(QtCore.QObject):
     @QtCore.Slot()
     def add(self):
         """
-        Figure out which result is clicked and emit the add_btn_sig with that
-        dictionary
+        Figure out which result is clicked and emit the add_btn_sig with the
+        following arguments:
+        dict1 : dict
+            Dictionary of search keys used to generate the results shown in the
+            tree widget
+        dict2 : dict
+            unique id dictionary that is guaranteed to return dict3 when
+            unpacked into the registered search function
+        dict3 : dict
+            One results dictionary
+        list : list
+            path to the currently selected node in the tree widget
         """
         # TODO Change this to debugger level logging
         print("add_clicked")
-        result_dict = {}
+        path_to_node, result_idx = self._tree.find_root()
+        cur_result_dict = self._search_results[result_idx]
         # todo ask the tree nicely for its currently selected dictionary
         # unique_id = tree.get_current()
-        self.add_btn_sig.emit(self._search_dict, result_dict, {}, [])
+        self.add_btn_sig.emit(self._search_dict,
+                              self.create_unique_id(cur_result_dict),
+                              cur_result_dict, path_to_node)
+
+    def create_unique_id(self, result_dict):
+        """
+        Call the unique id function that was registered
+
+        Parameters
+        ----------
+        result_dict : dict
+            Dictionary that will be used to generate a unique id dictionary.
+
+        Returns
+        -------
+        unique_id : dict
+            The unique id dictionary is guaranteed to produce "result_dict" when
+            unpacked into the search function
+        """
+        return self._unique_id_func(result_dict)
 
     @QtCore.Slot()
     def search(self):
