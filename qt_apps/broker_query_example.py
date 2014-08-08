@@ -5,7 +5,8 @@ from PyQt4 import QtCore, QtGui
 from vistools.qt_widgets.displaydict import RecursiveTreeWidget
 from collections import defaultdict
 from vistools.qt_widgets.query_widget import QueryMainWindow
-
+import logging
+logger = logging.getLogger(__name__)
 
 
 def default_unique_id_func(nested_dict):
@@ -52,16 +53,29 @@ def default_search_func(search_dict):
     ------
     ImportError
         Raised if the metadatastore cannot be found
+    ValueError
+        Raised if the search dictionary is empty
     """
-    print("default_search_func() in broker_query_example.py")
+    logger.info("default_search_func() in broker_query_example.py")
+    # check to see if the dictionary is empty
+    if len(search_dict) == 0:
+        logger.error("search_dict has no keys. Raising a value error")
+        raise ValueError("The search_dict input parameter has no keys")
+    print(search_dict)
+    logger.info("search_dict")
     try:
         from metadataStore.userapi.commands import search
+        logger.info("Search command from metadataStore.userapi.commands "
+                    "imported successfully")
     except ImportError:
         #todo add logging statement about import error
-        print("data broker cannot be found, returning an empty search")
+        logger.info("The data broker cannot be found, returning an empty "
+                    "search")
         return _defaults["empty_search"]
 
-    return search(**search_dict)
+    result=search(**search_dict)
+    #print(result)
+    return result
 
 
 def default_add_func(search_dict, unique_id_dict, result_dict,
@@ -119,10 +133,15 @@ _defaults = {
 
 
 if __name__ == "__main__":
-    from metadataStore.userapi.commands import search_keys_dict
+    from metadataStore.userapi import commands
+    handler = logging.StreamHandler()
+    handler.setLevel('INFO')
+    logger.addHandler(handler)
+    commands.logger.addHandler(handler)
     app = QtGui.QApplication(sys.argv)
 
-    test_dict = search_keys_dict
+    test_dict = commands.search_keys_dict
+
     key_descriptions = {}
     for key in test_dict.keys():
         key_descriptions[key] = test_dict[key]["description"]

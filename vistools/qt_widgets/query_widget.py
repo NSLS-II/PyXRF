@@ -508,8 +508,6 @@ class QueryController(QtCore.QObject):
             # the only time this will be caught is in the initial setup and it
             # is therefore ok to ignore this error
             pass
-        if len(self._search_dict) == 0:
-            self._search_dict = _defaults["empty_search"]
 
     @QtCore.Slot(list)
     def update_search_results(self, results):

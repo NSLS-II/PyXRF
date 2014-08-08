@@ -75,7 +75,7 @@ class RecursiveTreeWidget(QtGui.QTreeWidget):
         node.addChild(child)
 
     def find_root(self, node=None):
-        """
+        """ =  =
         find the node whose parent is the invisible root item
 
         Parameters
