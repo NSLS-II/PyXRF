@@ -18,8 +18,11 @@ class QueryMainWindow(QtGui.QMainWindow):
     """
     QueryMainWindow docstring
     """
-    # dict1 : search query, dict2 : unique search id, dict3 : run_header dict
-    add_btn_sig = QtCore.Signal(dict, dict, dict, list)
+    # dict1 : search query
+    # dict2 : unique search id
+    # dict3 : run_header dict
+    add_btn_sig = QtCore.Signal(dict, dict, dict)
+    # dict :
     search_btn_sig = QtCore.Signal(dict)
 
     def __init__(self, keys, key_descriptions=None, parent=None,
@@ -349,7 +352,6 @@ class QueryController(QtCore.QObject):
                 key_descriptions = keys
             else:
                 key_descriptions = self._key_descriptions
-
         self._keys = keys
         self._key_descriptions = key_descriptions
         # declare a vertical layout
