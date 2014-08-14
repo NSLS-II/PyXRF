@@ -1,3 +1,33 @@
+################################################################################
+# Copyright (c) 2014, Brookhaven Science Associates, Brookhaven National       #
+# Laboratory. All rights reserved.                                             #
+#                                                                              #
+# Redistribution and use in source and binary forms, with or without           #
+# modification, are permitted provided that the following conditions are met:  #
+#                                                                              #
+# * Redistributions of source code must retain the above copyright notice,     #
+#   this list of conditions and the following disclaimer.                      #
+#                                                                              #
+# * Redistributions in binary form must reproduce the above copyright notice,  #
+#  this list of conditions and the following disclaimer in the documentation   #
+#  and/or other materials provided with the distribution.                      #
+#                                                                              #
+# * Neither the name of the European Synchrotron Radiation Facility nor the    #
+#   names of its contributors may be used to endorse or promote products       #
+#   derived from this software without specific prior written permission.      #
+#                                                                              #
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"  #
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE    #
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE   #
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE    #
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR          #
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF         #
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS     #
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN      #
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)      #
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE   #
+# POSSIBILITY OF SUCH DAMAGE.                                                  #
+################################################################################
 """
 Example usage of 1-D stack plot widget
 """
@@ -76,17 +106,17 @@ class demo_1d(QtGui.QMainWindow):
 
         btn_datagen.clicked.connect(self.datagen)
         btn_append.clicked.connect(self.append_data)
-        layout = self._main_window._ctrl_widget._widget.layout()
+        ctl_box = self._main_window._ctrl_widget
+        demo_box = ctl_box.create_container('demo box')
 
-        layout.addRow("--- Demo Buttons ---", None)
-        layout.addRow(btn_append, btn_datagen)
+        demo_box._add_widget('append', btn_append)
+        demo_box._add_widget('gen', btn_datagen)
 
         # connect signals to test harness
         self.sig_append_demo_data.connect(
             self._main_window._messenger.sl_append_data)
         self.sig_add_demo_data.connect(
             self._main_window._messenger.sl_add_data)
-
 
     # Qt Signals for Demo
     sig_append_demo_data = QtCore.Signal(list, list, list)
