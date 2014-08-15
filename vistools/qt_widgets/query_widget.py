@@ -53,9 +53,7 @@ class QueryMainWindow(QtGui.QMainWindow):
         QtGui.QMainWindow.__init__(self, parent)
         self.setWindowTitle('Query example')
         self._query_controller = QueryController(
-            keys=keys,
-            key_descriptions=key_descriptions,
-            add_btn_text=add_btn_text)
+            keys=keys)
         dock = QtGui.QDockWidget()
         dock.setWidget(self._query_controller._query_input)
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, dock)
@@ -252,8 +250,7 @@ class QueryController(QtCore.QObject):
             Label for the add button
         """
         # call up the inheritance chain
-        super(QueryController, self).__init__(
-            QtGui.QWidget.__init__(self, *args, **kwargs))
+        super(QueryController, self).__init__(*args, **kwargs)
 
         self._keys = keys
 
@@ -390,16 +387,15 @@ class QueryController(QtCore.QObject):
             # set the style of input box based on the key_type
             if key_type == str or key_type == int or key_type == float:
                 input_box_type = LineEdit
-            elif key_type == datetime:
+            elif key_type == datetime.datetime:
                 input_box_type = DateTimeBox
             elif key_type == bool:
                 input_box_type = CheckBox
             elif key_type == list:
                 input_box_type = ComboBox
 
-            lbl.setToolTip(description)
             # declare the input box
-            input_box = input_box_type(label_text=key, parent=None)
+            input_box = input_box_type(label_text=key, hover_text=description)
             # add the input box to the input_boxes dict
             self._input_boxes[key] = input_box
             # add the widgets to the layout

@@ -142,11 +142,7 @@ if __name__ == "__main__":
 
     test_dict = commands.search_keys_dict
 
-    key_descriptions = {}
-    for key in test_dict.keys():
-        key_descriptions[key] = test_dict[key]["description"]
-    qmw = QueryMainWindow(keys=test_dict.keys(),
-                          key_descriptions=key_descriptions,
+    qmw = QueryMainWindow(keys=test_dict,
                           search_func=_defaults["search_func"],
                           add_func=_defaults["add_func"],
                           unique_id_func=_defaults["unique_id_func"],

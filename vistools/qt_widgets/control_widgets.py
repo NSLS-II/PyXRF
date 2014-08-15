@@ -60,8 +60,54 @@ class Slider(QtGui.QWidget):
 
 
 class DateTimeBox(QtGui.QWidget):
-    #todo implement this class
-    pass
+    dateChanged = QtCore.Signal(QtCore.QDate)
+    dateTimeChanged = QtCore.Signal(QtCore.QDateTime)
+    timeChanged = QtCore.Signal(QtCore.QTime)
+
+    # todo make more things configurable
+    def __init__(self, label_text, hover_text=None, editable=True):
+        # pass up the stack
+        super(DateTimeBox, self).__init__()
+        # set the defaults
+        if hover_text is None:
+            hover_text = label_text
+        # make the label
+        self._lab = QtGui.QLabel(label_text)
+        # set the text to display on mouse cursor hover
+        self._lab.setToolTip(hover_text)
+        # make the date time box
+        self._datetime = QtGui.QDateTimeEdit(QtCore.QDate.currentDate())
+        self._datetime.setCalendarPopup(True)
+        self._datetime.setDisplayFormat("yyyy-MM-dd hh:mm:ss")
+        # buddy them up
+        self._lab.setBuddy(self._datetime)
+        # make and set the layout
+        layout = QtGui.QHBoxLayout()
+        layout.addWidget(self._lab)
+        layout.addWidget(self._datetime)
+        self._layout = layout
+        self.setLayout(layout)
+
+        # connect the signals
+        self._datetime.dateChanged.connect(self.dateChanged)
+        self._datetime.dateTimeChanged.connect(self.dateTimeChanged)
+        self._datetime.timeChanged.connect(self.timeChanged)
+
+    # forward the slots
+    @QtCore.Slot(QtCore.QDate)
+    def setDate(self, date):
+        self._datetime.setDate(date)
+
+    @QtCore.Slot(QtCore.QDateTime)
+    def setDateTime(self, dateTime):
+        self._datetime.setDateTime(dateTime)
+
+    @QtCore.Slot(QtCore.QTime)
+    def setTime(self, time):
+        self._datetime.setTime(time)
+
+    def getValue(self):
+        return self._datetime.dateTime().toPyDateTime()
 
 
 class ComboBox(QtGui.QWidget):
@@ -71,13 +117,18 @@ class ComboBox(QtGui.QWidget):
     highlighted = QtCore.Signal(str)
 
     # todo make more things configurable
-    def __init__(self, label_text, list_of_strings,
+    def __init__(self, label_text, list_of_strings, hover_text=None,
                  default_entry=0, editable=True):
         # pass up the stack
         super(ComboBox, self).__init__()
+        # set the defaults
+        if hover_text is None:
+            hover_text = label_text
         # make the label
         self._lab = QtGui.QLabel(label_text)
-        # make che cb
+        # set the text to display on mouse cursor hover
+        self._lab.setToolTip(hover_text)
+        # make the cb
         self._cb = QtGui.QComboBox()
         self._cb.setEditable(editable)
         # stash the text
@@ -125,14 +176,18 @@ class LineEdit(QtGui.QWidget):
     textEdited = QtCore.Signal(str)
 
     # todo make more things configurable
-    def __init__(self, label_text, editable=True):
+    def __init__(self, label_text, hover_text=None, editable=True):
         # pass up the stack
         super(LineEdit, self).__init__()
+        # set the defaults
+        if hover_text is None:
+            hover_text = label_text
         # make the label
         self._lab = QtGui.QLabel(label_text)
-        # make che cb
+        # set the text to display on mouse cursor hover
+        self._lab.setToolTip(hover_text)
+        # make the line edit box
         self._le = QtGui.QLineEdit()
-        self._le.setEditable(editable)
         # buddy them up
         self._lab.setBuddy(self._le)
         # make and set the layout
@@ -198,12 +253,17 @@ class CheckBox(QtGui.QWidget):
     stateChanged = QtCore.Signal()
 
     # todo make more things configurable
-    def __init__(self, label_text, editable=True):
+    def __init__(self, label_text, hover_text=None, editable=True):
         # pass up the stack
         super(CheckBox, self).__init__()
+        # set the defaults
+        if hover_text is None:
+            hover_text = label_text
         # make the label
         self._lab = QtGui.QLabel(label_text)
-        # make che cb
+        # set the text to display on mouse cursor hover
+        self._lab.setToolTip(hover_text)
+        # make the check box
         self._check = QtGui.QCheckBox()
         # buddy them up
         self._lab.setBuddy(self._check)
