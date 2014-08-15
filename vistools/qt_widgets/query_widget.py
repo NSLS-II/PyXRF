@@ -1,9 +1,12 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
-import six, sys, datetime
+import six
+import sys
+import datetime
 from .. import QtCore, QtGui
 from vistools.qt_widgets.displaydict import RecursiveTreeWidget
 from collections import defaultdict
+from .control_widgets import DateTimeBox, ComboBox, CheckBox, LineEdit
 
 
 _defaults = {
@@ -11,6 +14,7 @@ _defaults = {
         "No search results": None
     },
     "add_btn_text": "Add",
+    "input_box_type": LineEdit
 }
 
 
@@ -48,9 +52,10 @@ class QueryMainWindow(QtGui.QMainWindow):
         """
         QtGui.QMainWindow.__init__(self, parent)
         self.setWindowTitle('Query example')
-        self._query_controller = QueryController(keys=keys,
-                                            key_descriptions=key_descriptions,
-                                            add_btn_text=add_btn_text)
+        self._query_controller = QueryController(
+            keys=keys,
+            key_descriptions=key_descriptions,
+            add_btn_text=add_btn_text)
         dock = QtGui.QDockWidget()
         dock.setWidget(self._query_controller._query_input)
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, dock)
@@ -72,7 +77,6 @@ class QueryMainWindow(QtGui.QMainWindow):
         self.register_search_function(search_func)
         self.register_add_function(add_func)
         self.register_unique_id_gen_func(unique_id_func)
-
 
     def register_search_function(self, search_func):
         """
@@ -229,36 +233,30 @@ class QueryController(QtCore.QObject):
     add_btn_sig = QtCore.Signal(dict, dict, dict, list)
     search_btn_sig = QtCore.Signal(dict)
 
-
-    ############################################################################
-    #                      Construction time behavior                          #
-    ############################################################################
-    def __init__(self, keys, key_descriptions=None, add_btn_text=None,
-                 *args, **kwargs):
+    ###################################################################
+    #                Construction time behavior                       #
+    ###################################################################
+    def __init__(self, keys, add_btn_text=None, *args, **kwargs):
         """
 
         Parameters
         ----------
-        keys : list
-            List of keys to use as search terms
-        key_descriptions : list
-            List of key descriptions which are used as the tool tips for the
-            search key labels
+        keys : dict
+            keys = {
+                "key1" : {
+                    "description" : "this is what key1 is for",
+                    "type" : "this is the type of key1",
+                }
+            }
         add_btn_text : str
             Label for the add button
         """
         # call up the inheritance chain
         super(QueryController, self).__init__(
             QtGui.QWidget.__init__(self, *args, **kwargs))
-        # init the defaults
-        if key_descriptions is None:
-            key_descriptions = {}
-        if add_btn_text is None:
-            add_btn_text = _defaults["add_btn_text"]
 
         self._keys = keys
-        self._key_descriptions = defaultdict(lambda: '')
-        self._key_descriptions.update(key_descriptions)
+
         # set up the query widget
         self._query_input = self.construct_query()
 
@@ -335,31 +333,31 @@ class QueryController(QtCore.QObject):
         # return the results group box
         return _results
 
-    def construct_query_input(self, keys=None, key_descriptions=None):
+    def construct_query_input(self, keys=None):
         """
         Construct the input boxes for the query.
 
+        Parameters
+        -------
+        keys : dict
+            keys = {
+                "key1" : {
+                    "description" : "this is what key1 is for",
+                    "type" : "this is the type of key1",
+                }
+            }
+
         Returns
         -------
-        query_input : QtGui.QWidget
-            The widget that contains the input boxes and labels
-
-        Optional
-        ----------
-        keys : list
-            List of keys to use for searching.
-            Default behavior: use self._keys
+        QWidget
+            This is the widget that contains the search keys as labels and
+            their input boxes typed on "type"
         """
         # default behavior of keys input parameter
         if keys is None:
             keys = self._keys
-        if key_descriptions is None:
-            if self._key_descriptions is None:
-                key_descriptions = keys
-            else:
-                key_descriptions = self._key_descriptions
+
         self._keys = keys
-        self._key_descriptions = key_descriptions
         # declare a vertical layout
         vert_layout = QtGui.QVBoxLayout()
 
@@ -367,7 +365,7 @@ class QueryController(QtCore.QObject):
             # if the input boxes dictionary exists, empty it
             self._input_boxes.clear()
         except AttributeError:
-            # create a new dicrionary
+            # create a new dictionary
             self._input_boxes = {}
 
         # loop over the keys to create an input box for each key
@@ -376,13 +374,35 @@ class QueryController(QtCore.QObject):
             horz_layout = QtGui.QHBoxLayout()
             # declare the label
             lbl = QtGui.QLabel(key)
-            lbl.setToolTip(self._key_descriptions[key])
+            try:
+                # get the description from the nested dict
+                description = keys[key]["description"]
+            except KeyError:
+                # use the key as the description
+                description = key
+            try:
+                # get the key_type from the nested dict
+                key_type = keys[key]["type"]
+            except KeyError:
+                # default to string typed
+                key_type = str
+
+            # set the style of input box based on the key_type
+            if key_type == str or key_type == int or key_type == float:
+                input_box_type = LineEdit
+            elif key_type == datetime:
+                input_box_type = DateTimeBox
+            elif key_type == bool:
+                input_box_type = CheckBox
+            elif key_type == list:
+                input_box_type = ComboBox
+
+            lbl.setToolTip(description)
             # declare the input box
-            input_box = QtGui.QLineEdit(parent=None)
+            input_box = input_box_type(label_text=key, parent=None)
             # add the input box to the input_boxes dict
             self._input_boxes[key] = input_box
             # add the widgets to the layout
-            horz_layout.addWidget(lbl)
             horz_layout.addWidget(input_box)
             # set a dummy widget
             widg = QtGui.QWidget()
@@ -497,15 +517,12 @@ class QueryController(QtCore.QObject):
         self._search_dict = {}
         try:
             # loop over the list of input boxes to extract the search string
-            for key in self._input_boxes.keys():
+            for key in self._input_boxes:
                 # get the text from the input box
-                qtxt = self._input_boxes[key].text()
-                # convert the qstring to a python string
-                txt = str(qtxt)
-                if txt != '':
-                    # add the search key to the dictionary if the input box is
-                    # not empty
-                    self._search_dict[key] = str(txt)
+                val = self._input_boxes[key].getValue()
+                if val is not None:
+                    # add the search key to the dictionary
+                    self._search_dict[key] = val
         except AttributeError:
             # the only time this will be caught is in the initial setup and it
             # is therefore ok to ignore this error
@@ -525,53 +542,6 @@ class QueryController(QtCore.QObject):
         self._search_results = results
         self._tree.fill_widget(results)
         self.enable_add_btn(is_enabled=True)
-
-    def update_query_keys(self, keys, key_descriptions=None):
-        """
-        Function re-makes the query search box based on the new keys
-
-        Parameters
-        ----------
-        keys : list
-            List of keys that can be used as search terms
-
-        Optional
-        --------
-        key_descriptions : list
-
-        """
-        # todo reimplement key_descriptions as a nested dict keyed on "keys"
-        # with a "description" field and a "type" field so that the query input
-        # boxes can be restricted to things like strings, numbers only, etc...
-        if keys is None:
-            return
-        if key_descriptions is None:
-            self._key_descriptions = keys
-
-        # validate that the lists are the same length
-        if len(keys) != len(key_descriptions):
-            raise ValueError("keys and key_descriptions must be the same length"
-                             "len(keys) = {0} and len(key_descriptions) = {1}".
-                             format(len(keys), len(key_descriptions)))
-        # stash the keys
-        self._keys = keys
-        layout = self._query_input.layout()
-        # empty the current query widget
-        # remove the old search query
-        layout.takeAt(0)
-
-        # remove the stretch
-        layout.takeAt(0).deleteLater()
-
-        # remove the button or buttons
-        btns = layout.takeAt(0)
-
-        new_query = self.construct_query_input(
-            keys=keys, key_descriptions=key_descriptions)
-
-        layout.addWidget(new_query)
-        layout.addStretch()
-        layout.addWidget(btns)
 
 
 # todo enable add button only when something is selected

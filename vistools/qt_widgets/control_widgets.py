@@ -5,6 +5,8 @@ from collections import defaultdict
 from .util import mapping_mixin
 from .. import QtCore, QtGui
 
+from matplotlib.backends.qt4_compat import QtCore, QtGui
+
 
 class Slider(QtGui.QWidget):
     """
@@ -17,9 +19,9 @@ class Slider(QtGui.QWidget):
     rangeChanged = QtCore.Signal(int, int)
 
     # todo make more things configurable
-    def __init__(self, label, min_v, max_v, tracking=True):
+    def __init__(self, label_text, min_v, max_v, tracking=True):
         super(Slider, self).__init__()
-        self._label = QtGui.QLabel(label)
+        self._label = QtGui.QLabel(label_text)
 
         # set up slider
         self._slider = QtGui.QSlider(parent=self)
@@ -57,6 +59,11 @@ class Slider(QtGui.QWidget):
         self._slider.setValue(val)
 
 
+class DateTimeBox(QtGui.QWidget):
+    #todo implement this class
+    pass
+
+
 class ComboBox(QtGui.QWidget):
     activated = QtCore.Signal(str)
     currentIndexChanged = QtCore.Signal(str)
@@ -64,12 +71,12 @@ class ComboBox(QtGui.QWidget):
     highlighted = QtCore.Signal(str)
 
     # todo make more things configurable
-    def __init__(self, label, list_of_strings,
+    def __init__(self, label_text, list_of_strings,
                  default_entry=0, editable=True):
         # pass up the stack
         super(ComboBox, self).__init__()
         # make the label
-        self._lab = QtGui.QLabel(label)
+        self._lab = QtGui.QLabel(label_text)
         # make che cb
         self._cb = QtGui.QComboBox()
         self._cb.setEditable(editable)
@@ -110,17 +117,19 @@ class ComboBox(QtGui.QWidget):
 
 
 class LineEdit(QtGui.QWidget):
-    activated = QtCore.Signal(str)
-    currentIndexChanged = QtCore.Signal(str)
-    editTextChanged = QtCore.Signal(str)
-    highlighted = QtCore.Signal(str)
+    cursorPositionChanged = QtCore.Signal(int, int)
+    editingFinished = QtCore.Signal()
+    returnPressed = QtCore.Signal()
+    selectionChanged = QtCore.Signal()
+    textChanged = QtCore.Signal(str)
+    textEdited = QtCore.Signal(str)
 
     # todo make more things configurable
-    def __init__(self, label, editable=True):
+    def __init__(self, label_text, editable=True):
         # pass up the stack
         super(LineEdit, self).__init__()
         # make the label
-        self._lab = QtGui.QLabel(label)
+        self._lab = QtGui.QLabel(label_text)
         # make che cb
         self._le = QtGui.QLineEdit()
         self._le.setEditable(editable)
@@ -133,27 +142,86 @@ class LineEdit(QtGui.QWidget):
         self._layout = layout
         self.setLayout(layout)
 
-        # connect on the signals
-        self._le.activated[str].connect(self.activated)
-        self._le.currentIndexChanged[str].connect(self.currentIndexChanged)
-        self._le.editTextChanged[str].connect(self.editTextChanged)
-        self._le.highlighted[str].connect(self.highlighted)
+        # connect the signals
+        self._le.cursorPositionChanged.connect(self.cursorPositionChanged)
+        self._le.editingFinished.connect(self.editingFinished)
+        self._le.returnPressed.connect(self.returnPressed)
+        self._le.selectionChanged.connect(self.selectionChanged)
+        self._le.textChanged.connect(self.textChanged)
+        self._le.textEdited.connect(self.textEdited)
 
     # forward the slots
     @QtCore.Slot()
     def clear(self):
         self._le.clear()
 
-    @QtCore.Slot(int)
-    def setCurrentIndex(self, in_val):
-        self._le.setCurrentIndex(in_val)
+    @QtCore.Slot()
+    def copy(self):
+        self._le.copy()
 
-    @QtCore.Slot(str)
-    def setEditText(self, in_str):
-        self._le.setEditText(in_str)
+    @QtCore.Slot()
+    def cut(self):
+        self._le.cut()
+
+    @QtCore.Slot()
+    def paste(self):
+        self._le.paste()
+
+    @QtCore.Slot()
+    def redo(self):
+        self._le.redo()
+
+    @QtCore.Slot()
+    def selectAll(self):
+        self._le.selectAll()
+
+    @QtCore.Slot()
+    def setText(self, str):
+        self._le.setText(str)
+
+    @QtCore.Slot()
+    def undo(self):
+        self._le.undo()
 
     def getValue(self):
-        return self._list_of_strings[self._le.currentIndex()]
+        # returned as a QString
+        text = self._le.text()
+        # cast to python string
+        text = str(text)
+        # check to see if it empty
+        if text == '':
+            text = None
+        return text
+
+
+class CheckBox(QtGui.QWidget):
+    stateChanged = QtCore.Signal()
+
+    # todo make more things configurable
+    def __init__(self, label_text, editable=True):
+        # pass up the stack
+        super(CheckBox, self).__init__()
+        # make the label
+        self._lab = QtGui.QLabel(label_text)
+        # make che cb
+        self._check = QtGui.QCheckBox()
+        # buddy them up
+        self._lab.setBuddy(self._check)
+        # make and set the layout
+        layout = QtGui.QHBoxLayout()
+        layout.addWidget(self._lab)
+        layout.addWidget(self._check)
+        self._layout = layout
+        self.setLayout(layout)
+
+        # connect the signal
+        self._check.stateChanged.connect(self.stateChanged)
+
+    # forward the slots
+    # no slots to forward
+
+    def getValue(self):
+        return self._check.isChecked()
 
 
 class TripleSpinner(QtGui.QGroupBox):
