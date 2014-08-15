@@ -33,6 +33,7 @@ from __future__ import (absolute_import, division, print_function,
 import six
 import numpy as np
 
+from .. import QtCore, QtGui
 from . import AbstractMPLDataView
 from .. import AbstractDataView2D
 

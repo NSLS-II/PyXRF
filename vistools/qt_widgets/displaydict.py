@@ -1,12 +1,13 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
+from .. import QtCore, QtGui
 import six
-from PyQt4 import QtCore, QtGui
 import sys
 
 _defaults = {
     "expanded" : False,
 }
+
 
 class DisplayDict(QtGui.QMainWindow):
 

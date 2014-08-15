@@ -31,6 +31,7 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
+from .. import QtCore, QtGui
 from six.moves import zip
 from matplotlib.widgets import Cursor
 from mpl_toolkits.axes_grid1 import make_axes_locatable

@@ -31,9 +31,7 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
-# grab the version from mpl which has done the work of smoothing over
-# the differences
-from matplotlib.backends.qt4_compat import QtGui, QtCore
+from .. import QtCore, QtGui
 from ..messenger.mpl.stack_1d import Stack1DMessenger
 from ..messenger.mpl.cross_section_2d import CrossSection2DMessenger
 

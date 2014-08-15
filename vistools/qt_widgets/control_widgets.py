@@ -2,10 +2,8 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 import six
 from collections import defaultdict
-# again importing from matplotlib to not re-write the
-# compatibility layer
-from matplotlib.backends.qt4_compat import QtGui, QtCore
 from .util import mapping_mixin
+from .. import QtCore, QtGui
 
 
 class Slider(QtGui.QWidget):
@@ -108,7 +106,55 @@ class ComboBox(QtGui.QWidget):
         self._cb.setEditText(in_str)
 
     def getValue(self):
-        return self._list_of_strings[self._cb.getCurrentIndex()]
+        return self._list_of_strings[self._cb.currentIndex()]
+
+
+class LineEdit(QtGui.QWidget):
+    activated = QtCore.Signal(str)
+    currentIndexChanged = QtCore.Signal(str)
+    editTextChanged = QtCore.Signal(str)
+    highlighted = QtCore.Signal(str)
+
+    # todo make more things configurable
+    def __init__(self, label, editable=True):
+        # pass up the stack
+        super(LineEdit, self).__init__()
+        # make the label
+        self._lab = QtGui.QLabel(label)
+        # make che cb
+        self._le = QtGui.QLineEdit()
+        self._le.setEditable(editable)
+        # buddy them up
+        self._lab.setBuddy(self._le)
+        # make and set the layout
+        layout = QtGui.QHBoxLayout()
+        layout.addWidget(self._lab)
+        layout.addWidget(self._le)
+        self._layout = layout
+        self.setLayout(layout)
+
+        # connect on the signals
+        self._le.activated[str].connect(self.activated)
+        self._le.currentIndexChanged[str].connect(self.currentIndexChanged)
+        self._le.editTextChanged[str].connect(self.editTextChanged)
+        self._le.highlighted[str].connect(self.highlighted)
+
+    # forward the slots
+    @QtCore.Slot()
+    def clear(self):
+        self._le.clear()
+
+    @QtCore.Slot(int)
+    def setCurrentIndex(self, in_val):
+        self._le.setCurrentIndex(in_val)
+
+    @QtCore.Slot(str)
+    def setEditText(self, in_str):
+        self._le.setEditText(in_str)
+
+    def getValue(self):
+        return self._list_of_strings[self._le.currentIndex()]
+
 
 class TripleSpinner(QtGui.QGroupBox):
     """

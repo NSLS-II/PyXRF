@@ -31,8 +31,7 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
-from matplotlib.backends.qt4_compat import QtCore, QtGui
-
+from .. import QtCore, QtGui
 from . import AbstractMPLMessenger
 from .. import AbstractMessenger1D
 from ...backend.mpl.stack_1d import Stack1DView

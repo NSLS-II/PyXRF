@@ -1,7 +1,7 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 import six, sys, datetime
-from PyQt4 import QtCore, QtGui
+from .. import QtCore, QtGui
 from vistools.qt_widgets.displaydict import RecursiveTreeWidget
 from collections import defaultdict
 

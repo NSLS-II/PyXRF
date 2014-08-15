@@ -30,8 +30,7 @@
 ################################################################################
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
-
-from matplotlib.backends.qt4_compat import QtCore, QtGui
+from .. import QtCore, QtGui
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar  # noqa
 from matplotlib.figure import Figure

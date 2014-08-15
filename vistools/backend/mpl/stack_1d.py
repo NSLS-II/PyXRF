@@ -34,6 +34,8 @@ from __future__ import (absolute_import, division, print_function,
 from matplotlib import cm
 import numpy as np
 
+from .. import QtCore, QtGui
+
 from . import AbstractMPLDataView
 from .. import AbstractDataView1D
 
