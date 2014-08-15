@@ -74,14 +74,15 @@ class RecursiveTreeWidget(QtGui.QTreeWidget):
         """
         node.addChild(child)
 
-    def find_root(self, node):
-        """
+    def find_root(self, node=None):
+        """ =  =
         find the node whose parent is the invisible root item
 
         Parameters
         ----------
-        node : QtGui.QTreeWidgetItem
+        node : QtGui.QTreeWidgetItem, optional
             The node whose top level parent you wish to find
+            Defaults to the currently selected node
 
         Returns
         -------
@@ -90,21 +91,24 @@ class RecursiveTreeWidget(QtGui.QTreeWidget):
         dict_idx : int
             Index of the currently selected search result
         """
+        if node is None:
+            node = self._current_selection
         path_to_node = []
-        # get the parent node to track the two levels independently
-        parent = node.parent()
-        while parent != self.invisibleRootItem():
-            path_to_node.insert(0, node.text(0))
-            # move up the tree
-            node = parent
-            parent = parent.parent()
-
-        # find the index of the search result
-        dict_idx = parent.indexOfChild(node)
+        try :
+            # get the parent node to track the two levels independently
+            while True:
+                path_to_node.insert(0, node.text(0))
+                # move up the tree
+                node = node.parent()
+        except AttributeError:
+            # this will be thrown when the node is one of the search results
+            dict_idx = self.currentIndex().row()
+            print("dict_idx: {0}".format(dict_idx))
 
         return path_to_node, dict_idx
 
     def who_am_i(self, obj):
+        self._current_selection = obj
         print(obj.text(0))
 
     def fill_widget(self, obj):
