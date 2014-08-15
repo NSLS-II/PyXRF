@@ -14,7 +14,8 @@ _defaults = {
         "No search results": None
     },
     "add_btn_text": "Add",
-    "input_box_type": LineEdit
+    "input_box_type": LineEdit,
+    "has_check_box": True,
 }
 
 
@@ -395,7 +396,8 @@ class QueryController(QtCore.QObject):
                 input_box_type = ComboBox
 
             # declare the input box
-            input_box = input_box_type(label_text=key, hover_text=description)
+            input_box = input_box_type(label_text=key, hover_text=description,
+                                       has_check_box=_defaults["has_check_box"])
             # add the input box to the input_boxes dict
             self._input_boxes[key] = input_box
             # add the widgets to the layout
