@@ -75,6 +75,8 @@ class ComboBox(QtGui.QWidget):
         # make che cb
         self._cb = QtGui.QComboBox()
         self._cb.setEditable(editable)
+        # stash the text
+        self._list_of_strings = list_of_strings
         # shove in the text
         self._cb.addItems(list_of_strings)
         # buddy them up
@@ -105,6 +107,8 @@ class ComboBox(QtGui.QWidget):
     def setEditText(self, in_str):
         self._cb.setEditText(in_str)
 
+    def getValue(self):
+        return self._list_of_strings[self._cb.getCurrentIndex()]
 
 class TripleSpinner(QtGui.QGroupBox):
     """
