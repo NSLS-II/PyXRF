@@ -7,6 +7,9 @@ from .. import QtCore, QtGui
 
 from matplotlib.backends.qt4_compat import QtCore, QtGui
 
+import logging
+logger = logging.getLogger(__name__)
+
 _defaults = {
     "check_box_hover_text": "Enable this widget",
     "check_box_state": True,

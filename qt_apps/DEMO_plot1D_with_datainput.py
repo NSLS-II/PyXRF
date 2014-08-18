@@ -44,6 +44,9 @@ import numpy as np
 
 from vistools.qt_widgets.OneDimStackWidget import OneDimStackMainWindow
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 def data_gen(num_sets=1, phase_shift=0.1, vert_shift=0.1, horz_shift=0.1):
     """

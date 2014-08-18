@@ -36,15 +36,16 @@ Example usage of 1-D stack plot widget
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 from six.moves import zip
-# imports to smooth over differences between PyQt4, PyQt5, PyQt4.1 and PySides
 from matplotlib.backends.qt4_compat import QtGui, QtCore
-# other relevant imports
 import sys
 import numpy as np
 from collections import OrderedDict
-# local package imports
+
 from vistools.qt_widgets import Stack1DMainWindow
 from vistools.messenger.mpl.stack_1d import Stack1DMessenger
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 def data_gen(num_sets=1, phase_shift=0.1, vert_shift=0.1, horz_shift=0.1):

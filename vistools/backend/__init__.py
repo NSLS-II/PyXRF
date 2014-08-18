@@ -37,6 +37,9 @@ from collections import defaultdict
 from six.moves import zip
 import numpy as np
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 class AbstractDataView(object):
     """

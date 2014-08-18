@@ -39,6 +39,9 @@ from .. import QtCore, QtGui
 # local package imports
 from ..backend import AbstractDataView, AbstractDataView1D, AbstractDataView2D
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 class AbstractMessenger(QtCore.QObject):
     """

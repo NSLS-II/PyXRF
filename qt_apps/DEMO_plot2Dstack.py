@@ -44,6 +44,9 @@ from vistools.messenger.mpl.cross_section_2d import CrossSection2DMessenger
 
 from vistools.qt_widgets import CrossSectionMainWindow
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 class data_gen(object):
     def __init__(self, length, func=None):

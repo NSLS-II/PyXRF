@@ -3,6 +3,8 @@ from __future__ import (absolute_import, division, print_function,
 from .. import QtCore, QtGui
 import six
 import sys
+import logging
+logger = logging.getLogger(__name__)
 
 _defaults = {
     "expanded": False,

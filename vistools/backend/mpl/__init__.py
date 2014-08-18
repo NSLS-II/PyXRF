@@ -36,7 +36,8 @@ from .. import QtCore, QtGui
 
 from ...backend import AbstractDataView
 
-__author__ = 'Eric-hafxb'
+import logging
+logger = logging.getLogger(__name__)
 
 
 class AbstractMPLDataView(object):

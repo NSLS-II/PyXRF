@@ -8,6 +8,9 @@ from vistools.qt_widgets.displaydict import RecursiveTreeWidget
 from collections import defaultdict
 from .control_widgets import DateTimeBox, ComboBox, CheckBox, LineEdit
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 _defaults = {
     "empty_search": {
@@ -468,7 +471,7 @@ class QueryController(QtCore.QObject):
             path to the currently selected node in the tree widget
         """
         # TODO Change this to debugger level logging
-        print("add_clicked")
+        logger.debug("add_clicked")
         path_to_node, result_idx = self._tree.find_root()
         cur_result_dict = self._search_results[result_idx]
         # todo ask the tree nicely for its currently selected dictionary

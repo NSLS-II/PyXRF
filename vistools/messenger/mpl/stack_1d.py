@@ -37,6 +37,8 @@ from .. import AbstractMessenger1D
 from ...backend.mpl.stack_1d import Stack1DView
 from ...qt_widgets.control_widgets import ControlContainer
 
+import logging
+logger = logging.getLogger(__name__)
 
 from matplotlib.cm import datad
 

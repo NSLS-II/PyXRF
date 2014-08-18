@@ -45,6 +45,9 @@ from ...backend.mpl.cross_section_2d import CrossSection2DView
 from ...backend.mpl import cross_section_2d as View
 from ...backend.mpl import AbstractMPLDataView
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 class CrossSection2DMessenger(AbstractMessenger2D, AbstractMPLMessenger):
     """

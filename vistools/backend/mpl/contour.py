@@ -37,6 +37,9 @@ from .. import QtCore, QtGui
 from . import AbstractMPLDataView
 from .. import AbstractDataView2D
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 class ContourView(AbstractDataView2D, AbstractMPLDataView):
     """

@@ -41,6 +41,9 @@ import numpy as np
 from . import AbstractMPLDataView
 from .. import AbstractDataView2D
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 def _full_range(im, limit_args):
     """

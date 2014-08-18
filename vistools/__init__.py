@@ -10,3 +10,6 @@ else:
     matplotlib.rcParams["backend.qt4"] = "PySide"
 
 from matplotlib.backends.qt4_compat import QtCore, QtGui
+
+import logging
+logger = logging.getLogger(__name__)

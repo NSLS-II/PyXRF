@@ -39,6 +39,9 @@ from .. import QtCore, QtGui
 from . import AbstractMPLDataView
 from .. import AbstractDataView1D
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 class Stack1DView(AbstractDataView1D, AbstractMPLDataView):
     """

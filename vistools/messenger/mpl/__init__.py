@@ -40,6 +40,10 @@ from .. import AbstractMessenger
 from .. import AbstractDisplayWidget
 
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 class AbstractMPLMessenger(AbstractMessenger):
     """
     docstring

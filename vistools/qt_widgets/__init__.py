@@ -35,6 +35,8 @@ from .. import QtCore, QtGui
 from ..messenger.mpl.stack_1d import Stack1DMessenger
 from ..messenger.mpl.cross_section_2d import CrossSection2DMessenger
 
+import logging
+logger = logging.getLogger(__name__)
 
 class CrossSectionMainWindow(QtGui.QMainWindow):
     """
