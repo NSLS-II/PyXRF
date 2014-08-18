@@ -41,7 +41,7 @@ class RecursiveTreeWidget(QtGui.QTreeWidget):
             # the object is a dictionary
             for k, v in sorted(six.iteritems(obj)):
                 dict_child = QtGui.QTreeWidgetItem()
-                dict_child.setText(0, unicode(k))
+                dict_child.setText(0, six.text_type(k))
                 self.add_child(node, dict_child)
                 self.fill_item(dict_child, v)
         elif isinstance(obj, list):
@@ -55,13 +55,13 @@ class RecursiveTreeWidget(QtGui.QTreeWidget):
                     list_child.setText(0, '[list]')
                     self.fill_item(list_child, v)
                 else:
-                    list_child.setText(0, unicode(v))
+                    list_child.setText(0, six.text_type(v))
                 list_child.setExpanded(_defaults["expanded"])
         else:
             child = QtGui.QTreeWidgetItem()
             if node_name is None:
                 node_name = obj
-            child.setText(0, unicode(node_name))
+            child.setText(0, six.text_type(node_name))
             self.add_child(node, child)
 
     def add_child(self, node, child):
