@@ -7,7 +7,7 @@ from .. import QtCore, QtGui
 
 from matplotlib.backends.qt4_compat import QtCore, QtGui
 
-_defaults= {
+_defaults = {
     "check_box_hover_text": "Enable this widget",
     "check_box_state": True,
 }
@@ -104,8 +104,8 @@ class DateTimeBox(UtilsWidget):
     def __init__(self, label_text, hover_text=None, has_check_box=False):
         # pass up the stack
         super(DateTimeBox, self).__init__(label_text=label_text,
-                                       hover_text=hover_text,
-                                       has_check_box=has_check_box)
+                                          hover_text=hover_text,
+                                          has_check_box=has_check_box)
         # make the date time box
         self._datetime = QtGui.QDateTimeEdit(QtCore.QDate.currentDate())
         self._datetime.setCalendarPopup(True)
