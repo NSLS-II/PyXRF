@@ -238,7 +238,10 @@ class CrossSection(object):
 
         # work on setting up the mpl axes
 
-        # this needs to respect percentile
+        # this is a tuple which is the max/min used in the color mapping.
+        # these values are also used to set the limits on the value
+        # axes of the parasite axes
+        # value_limits
         vlim = self._limit_func(init_image)
 
         self._fig = fig
@@ -270,6 +273,7 @@ class CrossSection(object):
         self._imdata = init_image
         self._im = self._im_ax.imshow(init_image, cmap=cmap, norm=norm,
                                       interpolation='none', aspect='equal')
+        self._im.set_clim(vlim)
 
         # make it dividable
         divider = make_axes_locatable(self._im_ax)
@@ -438,6 +442,10 @@ class CrossSection(object):
         if not (self._dirty or self._cb_dirty):
             return
 
+        # this is a tuple which is the max/min used in the color mapping.
+        # these values are also used to set the limits on the value
+        # axes of the parasite axes
+        # value_limits
         vlim = self._limit_func(self._imdata)
         # set the color bar limits
         self._im.set_clim(vlim)
