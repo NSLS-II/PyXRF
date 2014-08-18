@@ -106,13 +106,13 @@ class RecursiveTreeWidget(QtGui.QTreeWidget):
         except AttributeError:
             # this will be thrown when the node is one of the search results
             dict_idx = self.currentIndex().row()
-            print("dict_idx: {0}".format(dict_idx))
+            logger.debug("dict_idx: {0}".format(dict_idx))
 
         return path_to_node, dict_idx
 
     def who_am_i(self, obj):
         self._current_selection = obj
-        print(obj.text(0))
+        logger.debug(obj.text(0))
 
     def fill_widget(self, obj):
         """

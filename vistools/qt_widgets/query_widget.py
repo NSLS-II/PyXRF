@@ -160,7 +160,7 @@ class QueryMainWindow(QtGui.QMainWindow):
         """
         This function gets called when the search button is clicked
         """
-        print("search() function in QueryMainWindow")
+        logger.debug("search() function in QueryMainWindow")
         return_val = self._search_func(a_dict)
         self.update_search_results(return_val)
 
@@ -170,11 +170,11 @@ class QueryMainWindow(QtGui.QMainWindow):
         """
         This function gets called when the add button is clicked
         """
-        print("add() function in QueryMainWindow")
-        print("search_query_dict: {0}".format(search_query_dict))
-        print("unique_id_dict: {0}".format(unique_id_dict))
-        print("result_dict: {0}".format(result_dict))
-        print("path_to_current_node_list: {0}".format(
+        logger.debug("add() function in QueryMainWindow")
+        logger.debug("search_query_dict: {0}".format(search_query_dict))
+        logger.debug("unique_id_dict: {0}".format(unique_id_dict))
+        logger.debug("result_dict: {0}".format(result_dict))
+        logger.debug("path_to_current_node_list: {0}".format(
             path_to_current_node_list))
 
         self._add_func(search_query_dict, unique_id_dict, result_dict,
@@ -514,7 +514,7 @@ class QueryController(QtCore.QObject):
         """
         # declare the search dict
         # TODO Change this to debugger level logging @tacaswell
-        print("parse_search_boxes")
+        logger.debug("parse_search_boxes")
         self._search_dict = {}
         try:
             # loop over the list of input boxes to extract the search string
