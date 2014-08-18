@@ -184,12 +184,11 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
 
         # set up intensity manipulation combo box
         intensity_behavior_data = [(View.fullrange_limit_factory,
-                                     self._no_limit_config),
-                                    (View.percentile_limit_factory,
-                                     self._percentile_config),
-                                    (View.absolute_limit_factory,
-                                     self._absolute_limit_config)
-                                     ]
+                                    self._no_limit_config),
+                                   (View.percentile_limit_factory,
+                                    self._percentile_config),
+                                   (View.absolute_limit_factory,
+                                    self._absolute_limit_config)]
         intensity_behavior_types = ['full range',
                                     'percentile',
                                     'absolute']
