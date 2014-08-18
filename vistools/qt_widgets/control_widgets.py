@@ -12,7 +12,15 @@ _defaults= {
     "check_box_state": True,
 }
 
+
 class UtilsWidget(QtGui.QWidget):
+    """
+    `UtilsWidget` has a `QHBoxLayout`, an en/disable checkbox and a label
+    with hover text.  Daughter classes of `UtilsWidget` just need to
+    add their respective input box to self._layout and set the layout with
+    :code:`to self.setLayout(self._layout)`
+
+    """
     def __init__(self, label_text, hover_text=None, has_check_box=False):
         super(UtilsWidget, self).__init__()
         # set the defaults
