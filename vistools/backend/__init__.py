@@ -82,7 +82,8 @@ class AbstractDataView(object):
         Do nothing in the abstract base class. Needs to be implemented
         in the concrete classes
         """
-        raise NotImplementedError("Must override the replot() method in the concrete base class")
+        raise NotImplementedError("Must override the replot() method in "
+                                  "the concrete base class")
 
     def clear_data(self):
         """
@@ -167,12 +168,12 @@ class AbstractDataView1D(AbstractDataView):
         y_to_add = []
         for (lbl, x, y) in zip(lbl_list, x_list, y_list):
             lbl = str(lbl)
-            if self._data_dict.has_key(lbl):
+            if lbl in self._data_dict:
                 # get the current vectors at 'lbl'
                 (prev_x, prev_y) = self._data_dict[lbl]
                 # set the concatenated data to 'lbl'
                 self._data_dict[lbl] = (np.concatenate((prev_x, x)),
-                                   np.concatenate((prev_y, y)))
+                                        np.concatenate((prev_y, y)))
             else:
                 # key doesn't exist, append the data to lists
                 lbl_to_add.append(lbl)
@@ -267,10 +268,14 @@ class AbstractDataView2D(AbstractDataView):
             try:
                 # set the concatenated data to 'lbl'
                 if end:
-                    self._data_dict[lbl] = np.r_[str(ax), self._data_dict[lbl], xy]
+                    self._data_dict[lbl] = np.r_[str(ax),
+                                                 self._data_dict[lbl],
+                                                 xy]
                     # TODO: Need to update the corners_list also...
                 else:
-                    self._data_dict[lbl] = np.r_[str(ax), xy, self._data_dict[lbl]]
+                    self._data_dict[lbl] = np.r_[str(ax),
+                                                 xy,
+                                                 self._data_dict[lbl]]
                     # TODO: Need to update the corners_list also...
             except KeyError:
                 # key doesn't exist, add data to a new entry called 'lbl'

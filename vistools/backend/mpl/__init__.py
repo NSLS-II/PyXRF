@@ -72,7 +72,8 @@ class AbstractMPLDataView(object):
         self._fig.clf()
 
     def replot(self):
-        raise NotImplementedError("This method must be implemented by daughter classes")
+        raise NotImplementedError("This method must be implemented by "
+                                  "daughter classes")
 
     def update_cmap(self, cmap):
         """

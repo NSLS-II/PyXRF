@@ -5,7 +5,7 @@ import six
 import sys
 
 _defaults = {
-    "expanded" : False,
+    "expanded": False,
 }
 
 
@@ -95,7 +95,7 @@ class RecursiveTreeWidget(QtGui.QTreeWidget):
         if node is None:
             node = self._current_selection
         path_to_node = []
-        try :
+        try:
             # get the parent node to track the two levels independently
             while True:
                 path_to_node.insert(0, node.text(0))
@@ -128,7 +128,7 @@ if __name__ == "__main__":
     from metadataStore.userapi.commands import search
 
     def gen_tree():
-        query = {"owner" : "edill", "contents" : True}
+        query = {"owner": "edill", "data": True}
         return search(**query)
 
     app = QtGui.QApplication(sys.argv)

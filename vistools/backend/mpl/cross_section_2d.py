@@ -148,7 +148,7 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
         if limit_func is None:
             limit_func = _full_range
         if limit_args is None:
-            limit_args = [0,100]
+            limit_args = [0, 100]
         if cmap is None:
             cmap = self._default_cmap
 
@@ -220,14 +220,14 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
 
         # add lines
         self._ln_v, = self._ax_v.plot(np.zeros(self._imdata.shape[0]),
-                                np.arange(self._imdata.shape[0]), 'k-',
-                                animated=True,
-                                visible=False)
+                                      np.arange(self._imdata.shape[0]), 'k-',
+                                      animated=True,
+                                      visible=False)
 
         self._ln_h, = self._ax_h.plot(np.arange(self._imdata.shape[1]),
-                                np.zeros(self._imdata.shape[1]), 'k-',
-                                animated=True,
-                                visible=False)
+                                      np.zeros(self._imdata.shape[1]), 'k-',
+                                      animated=True,
+                                      visible=False)
 
         # backgrounds for blitting
         self._ax_v_bk = None
@@ -254,7 +254,7 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
                 row = int(y + 0.5)
                 if row != self._row or col != self._col:
                     if (col >= 0 and col < numcols and
-                        row >= 0 and row < numrows):
+                                row >= 0 and row < numrows):
                         self._col = col
                         self._row = row
                         for data, ax, bkg, art, set_fun in zip(
@@ -277,10 +277,10 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
                 move_cb(event)
 
         self.move_cid = self._fig.canvas.mpl_connect('motion_notify_event',
-                                        move_cb)
+                                                     move_cb)
 
         self.click_cid = self._fig.canvas.mpl_connect('button_press_event',
-                                        click_cb)
+                                                      click_cb)
 
         self.clear_cid = self._fig.canvas.mpl_connect('draw_event', self.clear)
         self._fig.tight_layout()

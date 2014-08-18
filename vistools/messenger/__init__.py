@@ -173,7 +173,6 @@ class AbstractMessenger2D(AbstractMessenger):
                                append_to_end_list=append_to_end_list)
         self.sl_update_plot()
         
-
     @QtCore.Slot(list, list, list, list)
     def sl_add_datum(self, lbl_list, x_list, y_list, val_list):
         """

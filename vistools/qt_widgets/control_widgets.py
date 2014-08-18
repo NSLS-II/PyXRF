@@ -60,8 +60,8 @@ class Slider(UtilsWidget):
     def __init__(self, label_text, min_v, max_v, tracking=True,
                  hover_text=None, has_check_box=False):
         super(Slider, self).__init__(label_text=label_text,
-                                       hover_text=hover_text,
-                                       has_check_box=has_check_box)
+                                     hover_text=hover_text,
+                                     has_check_box=has_check_box)
 
         # set up slider
         self._slider = QtGui.QSlider(parent=self)

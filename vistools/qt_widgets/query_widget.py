@@ -171,7 +171,8 @@ class QueryMainWindow(QtGui.QMainWindow):
         print("search_query_dict: {0}".format(search_query_dict))
         print("unique_id_dict: {0}".format(unique_id_dict))
         print("result_dict: {0}".format(result_dict))
-        print("path_to_current_node_list: {0}".format(path_to_current_node_list))
+        print("path_to_current_node_list: {0}".format(
+            path_to_current_node_list))
 
         self._add_func(search_query_dict, unique_id_dict, result_dict,
                        path_to_current_node_list)
