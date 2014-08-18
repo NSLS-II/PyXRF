@@ -25,7 +25,7 @@ def default_unique_id_func(nested_dict):
                 nested_dict[_defaults["unique_id_key"]]
         }
     """
-    print("default_unique_id_func() in broker_query_example.py")
+    logger.debug("default_unique_id_func() in broker_query_example.py")
     unique_id_dict = {}
     # loop over the unique_id_keys in the defaults dictionary to create the
     # unique ID dictionary
