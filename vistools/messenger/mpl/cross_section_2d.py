@@ -61,9 +61,11 @@ class CrossSection2DMessenger(AbstractMessenger2D, AbstractMPLMessenger):
                                         key_list=key_list)
 
         # TODO: Address issue of data storage in the cross section widget
-        self._ctrl_widget= CrossSection2DControlWidget(name="2-D CrossSection Controls",
-                                                init_img=data_list[0],
-                                                num_images=len(key_list))
+        self._ctrl_widget = CrossSection2DControlWidget(name="2-D CrossSection"
+                                                             " Controls",
+                                                        init_img=data_list[0],
+                                                        num_images=len(
+                                                            key_list))
         # connect signals to slots
         self.connect_sigs_to_slots()
 
@@ -73,14 +75,12 @@ class CrossSection2DMessenger(AbstractMessenger2D, AbstractMPLMessenger):
         """
         # standard data manipulation signal/slot pairs
         # TODO Fix this connection. It throws an exception b/c the connection fails
-        self._ctrl_widget.sig_update_norm.connect(
-            self.sl_update_norm)
+        self._ctrl_widget.sig_update_norm.connect(self.sl_update_norm)
 
         # standard mpl signal/slot pairs
         self._ctrl_widget._cm_cb.editTextChanged[str].connect(
             self.sl_update_cmap)
-        self._ctrl_widget._cm_cb.setEditText(
-            self._ctrl_widget.default_cmap)
+        self._ctrl_widget._cm_cb.setEditText(self._ctrl_widget.default_cmap)
 
         # signal/slot pairs specific to the CrossSection2DView
         self._ctrl_widget.sig_update_limit_function.connect(
@@ -88,8 +88,7 @@ class CrossSection2DMessenger(AbstractMessenger2D, AbstractMPLMessenger):
         self._ctrl_widget.sig_update_color_limits.connect(
             self.sl_update_color_limits)
 
-        self._ctrl_widget._slider_img.valueChanged.connect(
-            self.sl_update_image)
+        self._ctrl_widget._slider_img.valueChanged.connect(self.sl_update_image)
 
     @QtCore.Slot(int)
     def sl_update_image(self, img_idx):
@@ -189,18 +188,16 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
 
         # set up intensity manipulation combo box
         intensity_behavior_data = [(View._full_range,
-                                     self._no_limit_config),
-                                    (View._percentile_limit,
-                                     self._percentile_config),
-                                    (View._absolute_limit,
-                                     self._absolute_limit_config)
-                                     ]
+                                    self._no_limit_config),
+                                   (View._percentile_limit,
+                                    self._percentile_config),
+                                   (View._absolute_limit,
+                                    self._absolute_limit_config)]
         intensity_behavior_types = ['full range',
                                     'percentile',
                                     'absolute']
         self._intensity_behav_dict = {k: v for k, v in zip(
-                                    intensity_behavior_types,
-                                    intensity_behavior_data)}
+            intensity_behavior_types, intensity_behavior_data)}
 
         self._cmbbox_intensity_behavior = QtGui.QComboBox(parent=self)
         self._cmbbox_intensity_behavior.addItems(intensity_behavior_types)
@@ -218,9 +215,8 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
         self._spin_max = QtGui.QDoubleSpinBox(parent=self)
         self._spin_step = QtGui.QDoubleSpinBox(parent=self)
         self.init_spinners(self._spin_min, self._spin_max, self._spin_step,
-                            min_intensity=np.min(init_img),
-                            max_intensity=np.max(init_img))
-
+                           min_intensity=np.min(init_img),
+                           max_intensity=np.max(init_img))
 
         ctrl_form = QtGui.QFormLayout()
         ctrl_form.addRow("Color &map", self._cm_cb)
@@ -252,7 +248,7 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
 
         # set this down here to make sure the function will run
         self._cmbbox_intensity_behavior.currentIndexChanged[str].connect(
-                self.set_image_intensity_behavior)
+            self.set_image_intensity_behavior)
         # set to full range, do this last so all the call-back propagate
         self._cmbbox_intensity_behavior.setCurrentIndex(0)
         # force the issue about emitting
@@ -261,7 +257,7 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
 
         # set this down here to make sure the function will run
         self._cmbbox_norm.currentIndexChanged[str].connect(
-                self.set_normalization)
+            self.set_normalization)
         # set to full range, do this last so all the call-back propagate
         self._cmbbox_norm.setCurrentIndex(0)
         # force the issue about emitting
@@ -295,11 +291,11 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
 
         # connect the intensity spinboxes to their updating method
         spin_min.valueChanged.connect(
-                self.set_min_intensity_limit)
+            self.set_min_intensity_limit)
         spin_max.valueChanged.connect(
-                self.set_max_intensity_limit)
+            self.set_max_intensity_limit)
         spin_step.valueChanged.connect(
-                self.set_intensity_step)
+            self.set_intensity_step)
 
         # set the initial values for the spin boxes
         spin_step.setValue((max_intensity-min_intensity)/100)
@@ -342,7 +338,8 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
         print("stack.shape: {0}".format(self._stack.shape))
         self._len = self._stack.shape[0]
         self._slider_img.setRange(0, self._len - 1)
-        self._spin_img.setRange(self._slider_img.minimum(), self._slider_img.maximum())
+        self._spin_img.setRange(self._slider_img.minimum(),
+                                self._slider_img.maximum())
 
     @QtCore.Slot(str)
     def set_normalization(self, norm_name):
