@@ -34,8 +34,7 @@
 ########################################################################
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
-
-from matplotlib.backends.qt4_compat import QtCore, QtGui
+from .. import QtCore, QtGui
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar  # noqa
 from matplotlib.figure import Figure
@@ -43,6 +42,10 @@ from matplotlib import colors
 from ...backend.mpl import AbstractMPLDataView
 from .. import AbstractMessenger
 from .. import AbstractDisplayWidget
+
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 class AbstractMPLMessenger(AbstractMessenger):

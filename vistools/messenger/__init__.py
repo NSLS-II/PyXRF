@@ -36,13 +36,15 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
-# imports to smooth over differences between PyQt4, PyQt5, PyQt4.1 and PySides
-from matplotlib.backends.qt4_compat import QtCore, QtGui
+from .. import QtCore, QtGui
 
 # other relevant imports
 
 # local package imports
 from ..backend import AbstractDataView, AbstractDataView1D, AbstractDataView2D
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 class AbstractMessenger(QtCore.QObject):
@@ -178,7 +180,6 @@ class AbstractMessenger2D(AbstractMessenger):
                                append_to_end_list=append_to_end_list)
         self.sl_update_plot()
         
-
     @QtCore.Slot(list, list, list, list)
     def sl_add_datum(self, lbl_list, x_list, y_list, val_list):
         """

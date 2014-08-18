@@ -36,10 +36,12 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 from matplotlib import cm
+from .. import QtCore, QtGui
 
 from ...backend import AbstractDataView
 
-__author__ = 'Eric-hafxb'
+import logging
+logger = logging.getLogger(__name__)
 
 
 class AbstractMPLDataView(object):
@@ -75,7 +77,8 @@ class AbstractMPLDataView(object):
         self._fig.clf()
 
     def replot(self):
-        raise NotImplementedError("This method must be implemented by daughter classes")
+        raise NotImplementedError("This method must be implemented by "
+                                  "daughter classes")
 
     def update_cmap(self, cmap):
         """

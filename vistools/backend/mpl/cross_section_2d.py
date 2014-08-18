@@ -35,6 +35,7 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
+from .. import QtCore, QtGui
 from six.moves import zip
 from matplotlib.widgets import Cursor
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -43,6 +44,9 @@ import numpy as np
 
 from . import AbstractMPLDataView
 from .. import AbstractDataView2D
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 def fullrange_limit_factory(limit_args=None):
@@ -350,14 +354,14 @@ class CrossSection(object):
 
         # add lines
         self._ln_v, = self._ax_v.plot(np.zeros(self._imdata.shape[0]),
-                                np.arange(self._imdata.shape[0]), 'k-',
-                                animated=True,
-                                visible=False)
+                                      np.arange(self._imdata.shape[0]), 'k-',
+                                      animated=True,
+                                      visible=False)
 
         self._ln_h, = self._ax_h.plot(np.arange(self._imdata.shape[1]),
-                                np.zeros(self._imdata.shape[1]), 'k-',
-                                animated=True,
-                                visible=False)
+                                      np.zeros(self._imdata.shape[1]), 'k-',
+                                      animated=True,
+                                      visible=False)
 
         # backgrounds for blitting
         self._ax_v_bk = None
@@ -407,10 +411,10 @@ class CrossSection(object):
                 move_cb(event)
 
         self.move_cid = self._fig.canvas.mpl_connect('motion_notify_event',
-                                        move_cb)
+                                                     move_cb)
 
         self.click_cid = self._fig.canvas.mpl_connect('button_press_event',
-                                        click_cb)
+                                                      click_cb)
 
         self.clear_cid = self._fig.canvas.mpl_connect('draw_event', self.clear)
         self._fig.tight_layout()

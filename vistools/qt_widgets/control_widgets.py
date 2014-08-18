@@ -36,13 +36,54 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 import six
 from collections import defaultdict
-# again importing from matplotlib to not re-write the
-# compatibility layer
-from matplotlib.backends.qt4_compat import QtGui, QtCore
 from .util import mapping_mixin
+from .. import QtCore, QtGui
+
+from matplotlib.backends.qt4_compat import QtCore, QtGui
+
+import logging
+logger = logging.getLogger(__name__)
+
+_defaults = {
+    "check_box_hover_text": "Enable this widget",
+    "check_box_state": True,
+}
 
 
-class Slider(QtGui.QWidget):
+class UtilsWidget(QtGui.QWidget):
+    """
+    `UtilsWidget` has a `QHBoxLayout`, an en/disable checkbox and a label
+    with hover text.  Daughter classes of `UtilsWidget` just need to
+    add their respective input box to self._layout and set the layout with
+    :code:`to self.setLayout(self._layout)`
+
+    """
+    def __init__(self, label_text, hover_text=None, has_check_box=False):
+        super(UtilsWidget, self).__init__()
+        # set the defaults
+        if hover_text is None:
+            hover_text = label_text
+        # make the label
+        self._lab = QtGui.QLabel(label_text)
+        # set the text to display on mouse cursor hover
+        self._lab.setToolTip(hover_text)
+
+        # make layout
+        self._layout = QtGui.QHBoxLayout()
+
+        # make the check box if it is needed
+        self._has_check_box = has_check_box
+        if self._has_check_box:
+            self._check_box = QtGui.QCheckBox()
+            self._check_box.setToolTip(_defaults["check_box_hover_text"])
+            self._check_box.setChecked(_defaults["check_box_state"])
+            # todo disable input when the check_box is not checked
+            self._layout.addWidget(self._check_box)
+
+        self._layout.addWidget(self._lab)
+
+
+class Slider(UtilsWidget):
     """
     Fancier version of a slider which includes a label and
     a spinbox
@@ -53,9 +94,11 @@ class Slider(QtGui.QWidget):
     rangeChanged = QtCore.Signal(int, int)
 
     # todo make more things configurable
-    def __init__(self, label, min_v, max_v, tracking=True):
-        super(Slider, self).__init__()
-        self._label = QtGui.QLabel(label)
+    def __init__(self, label_text, min_v, max_v, tracking=True,
+                 hover_text=None, has_check_box=False):
+        super(Slider, self).__init__(label_text=label_text,
+                                     hover_text=hover_text,
+                                     has_check_box=has_check_box)
 
         # set up slider
         self._slider = QtGui.QSlider(parent=self)
@@ -76,15 +119,11 @@ class Slider(QtGui.QWidget):
         self._slider.valueChanged.connect(self._spinbox.setValue)
         self._slider.rangeChanged.connect(self._spinbox.setRange)
 
-        # make layout
-        self._layout = QtGui.QHBoxLayout()
-        layout = self._layout
         # add widegts
-        layout.addWidget(self._label)
-        layout.addWidget(self._slider)
-        layout.addWidget(self._spinbox)
+        self._layout.addWidget(self._slider)
+        self._layout.addWidget(self._spinbox)
 
-        self.setLayout(layout)
+        self.setLayout(self._layout)
 
     # TODO make sure all the slots are included
     @QtCore.Slot(int)
@@ -93,32 +132,80 @@ class Slider(QtGui.QWidget):
         self._slider.setValue(val)
 
 
-class ComboBox(QtGui.QWidget):
+class DateTimeBox(UtilsWidget):
+    dateChanged = QtCore.Signal(QtCore.QDate)
+    dateTimeChanged = QtCore.Signal(QtCore.QDateTime)
+    timeChanged = QtCore.Signal(QtCore.QTime)
+
+    # todo make more things configurable
+    def __init__(self, label_text, hover_text=None, has_check_box=False):
+        # pass up the stack
+        super(DateTimeBox, self).__init__(label_text=label_text,
+                                          hover_text=hover_text,
+                                          has_check_box=has_check_box)
+        # make the date time box
+        self._datetime = QtGui.QDateTimeEdit(QtCore.QDate.currentDate())
+        self._datetime.setCalendarPopup(True)
+        self._datetime.setDisplayFormat("yyyy-MM-dd hh:mm:ss")
+        # buddy them up
+        self._lab.setBuddy(self._datetime)
+        # add the datetime widget to the layout
+        self._layout.addWidget(self._datetime)
+
+        # set the widget's layout
+        self.setLayout(self._layout)
+
+        # connect the signals
+        self._datetime.dateChanged.connect(self.dateChanged)
+        self._datetime.dateTimeChanged.connect(self.dateTimeChanged)
+        self._datetime.timeChanged.connect(self.timeChanged)
+
+    # forward the slots
+    @QtCore.Slot(QtCore.QDate)
+    def setDate(self, date):
+        self._datetime.setDate(date)
+
+    @QtCore.Slot(QtCore.QDateTime)
+    def setDateTime(self, dateTime):
+        self._datetime.setDateTime(dateTime)
+
+    @QtCore.Slot(QtCore.QTime)
+    def setTime(self, time):
+        self._datetime.setTime(time)
+
+    def getValue(self):
+        if self._has_check_box and self._check_box.isChecked():
+            return self._datetime.dateTime().toPython()
+
+        return None
+
+
+class ComboBox(UtilsWidget):
     activated = QtCore.Signal(str)
     currentIndexChanged = QtCore.Signal(str)
     editTextChanged = QtCore.Signal(str)
     highlighted = QtCore.Signal(str)
 
     # todo make more things configurable
-    def __init__(self, label, list_of_strings,
-                 default_entry=0, editable=True):
+    def __init__(self, label_text, list_of_strings, hover_text=None,
+                 default_entry=0, editable=True, has_check_box=False):
         # pass up the stack
-        super(ComboBox, self).__init__()
-        # make the label
-        self._lab = QtGui.QLabel(label)
-        # make che cb
+        super(ComboBox, self).__init__(label_text=label_text,
+                                       hover_text=hover_text,
+                                       has_check_box=has_check_box)
+        # make the cb
         self._cb = QtGui.QComboBox()
         self._cb.setEditable(editable)
+        # stash the text
+        self._list_of_strings = list_of_strings
         # shove in the text
         self._cb.addItems(list_of_strings)
         # buddy them up
         self._lab.setBuddy(self._cb)
         # make and set the layout
-        layout = QtGui.QHBoxLayout()
-        layout.addWidget(self._lab)
-        layout.addWidget(self._cb)
-        self._layout = layout
-        self.setLayout(layout)
+        # add the combo box to the layout defined in UtilsWidget
+        self._layout.addWidget(self._cb)
+        self.setLayout(self._layout)
 
         # connect on the signals
         self._cb.activated[str].connect(self.activated)
@@ -138,6 +225,116 @@ class ComboBox(QtGui.QWidget):
     @QtCore.Slot(str)
     def setEditText(self, in_str):
         self._cb.setEditText(in_str)
+
+    def getValue(self):
+        if self._has_check_box and self._check_box.isChecked():
+            return self._list_of_strings[self._cb.currentIndex()]
+
+        return None
+
+
+class LineEdit(UtilsWidget):
+    cursorPositionChanged = QtCore.Signal(int, int)
+    editingFinished = QtCore.Signal()
+    returnPressed = QtCore.Signal()
+    selectionChanged = QtCore.Signal()
+    textChanged = QtCore.Signal(str)
+    textEdited = QtCore.Signal(str)
+
+    def __init__(self, label_text, hover_text=None, editable=True,
+                 has_check_box=False):
+        # pass up the stack
+        super(LineEdit, self).__init__(label_text=label_text,
+                                       hover_text=hover_text,
+                                       has_check_box=has_check_box)
+        # make the line edit box
+        self._line_editor = QtGui.QLineEdit()
+        # buddy them up
+        self._lab.setBuddy(self._line_editor)
+        # add the line edit widget to the layout
+        self._layout.addWidget(self._line_editor)
+        self.setLayout(self._layout)
+
+        # connect the signals
+        self._line_editor.cursorPositionChanged.connect(self.cursorPositionChanged)
+        self._line_editor.editingFinished.connect(self.editingFinished)
+        self._line_editor.returnPressed.connect(self.returnPressed)
+        self._line_editor.selectionChanged.connect(self.selectionChanged)
+        self._line_editor.textChanged.connect(self.textChanged)
+        self._line_editor.textEdited.connect(self.textEdited)
+
+    # forward the slots
+    @QtCore.Slot()
+    def clear(self):
+        self._line_editor.clear()
+
+    @QtCore.Slot()
+    def copy(self):
+        self._line_editor.copy()
+
+    @QtCore.Slot()
+    def cut(self):
+        self._line_editor.cut()
+
+    @QtCore.Slot()
+    def paste(self):
+        self._line_editor.paste()
+
+    @QtCore.Slot()
+    def redo(self):
+        self._line_editor.redo()
+
+    @QtCore.Slot()
+    def selectAll(self):
+        self._line_editor.selectAll()
+
+    @QtCore.Slot()
+    def setText(self, str):
+        self._line_editor.setText(str)
+
+    @QtCore.Slot()
+    def undo(self):
+        self._line_editor.undo()
+
+    def getValue(self):
+        if self._has_check_box and self._check_box.isChecked():
+            # returned as a QString
+            text = str(self._line_editor.text())
+            # check to see if it empty
+            if text == '':
+                return None
+            return text
+        return None
+
+
+class CheckBox(UtilsWidget):
+    stateChanged = QtCore.Signal()
+
+    # todo make more things configurable
+    def __init__(self, label_text, hover_text=None, editable=True,
+                 has_check_box=False):
+        # pass up the stack
+        super(CheckBox, self).__init__(label_text=label_text,
+                                       hover_text=hover_text,
+                                       has_check_box=has_check_box)
+        # make the check box
+        self._check = QtGui.QCheckBox()
+        # buddy them up
+        self._lab.setBuddy(self._check)
+
+        self._layout.addWidget(self._check)
+        self.setLayout(self._layout)
+
+        # connect the signal
+        self._check.stateChanged.connect(self.stateChanged)
+
+    # forward the slots
+    # no slots to forward
+
+    def getValue(self):
+        if self._has_check_box and self._check_box.isChecked():
+            return self._check.isChecked()
+        return None
 
 
 class TripleSpinner(QtGui.QGroupBox):

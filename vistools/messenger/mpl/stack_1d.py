@@ -35,13 +35,14 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
-from matplotlib.backends.qt4_compat import QtCore, QtGui
-
+from .. import QtCore, QtGui
 from . import AbstractMPLMessenger
 from .. import AbstractMessenger1D
 from ...backend.mpl.stack_1d import Stack1DView
 from ...qt_widgets.control_widgets import ControlContainer
 
+import logging
+logger = logging.getLogger(__name__)
 
 from matplotlib.cm import datad
 
@@ -131,9 +132,9 @@ def make_1D_control_box(title):
     ctl_box = ControlContainer(title)
 
     ctl_box.create_pairspinner('x_shift', init_min=0,
-                                           init_max=100, init_step=.1)
+                               init_max=100, init_step=.1)
     ctl_box.create_pairspinner('y_shift', init_min=0,
-                                           init_max=100, init_step=.1)
+                               init_max=100, init_step=.1)
 
     # declare a checkbox to turn on/off auto-scaling functionality
     autoscale_box = QtGui.QCheckBox(parent=self)

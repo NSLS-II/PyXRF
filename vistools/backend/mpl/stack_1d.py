@@ -38,8 +38,13 @@ from __future__ import (absolute_import, division, print_function,
 from matplotlib import cm
 import numpy as np
 
+from .. import QtCore, QtGui
+
 from . import AbstractMPLDataView
 from .. import AbstractDataView1D
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 class Stack1DView(AbstractDataView1D, AbstractMPLDataView):
@@ -90,8 +95,9 @@ class Stack1DView(AbstractDataView1D, AbstractMPLDataView):
             # get the (x,y) data from the dictionary
             (x, y) = self._data_dict[key]
             # plot the (x,y) data with default offsets
-            self._lines_dict[key] = self._ax.plot(x + counter * self._horz_offset,
-                           y + counter * self._vert_offset)[0]
+            self._lines_dict[key] = self._ax.plot(
+                x + counter * self._horz_offset,
+                y + counter * self._vert_offset)[0]
             # increment the counter
             counter += 1
 
@@ -133,7 +139,7 @@ class Stack1DView(AbstractDataView1D, AbstractMPLDataView):
 
         # remove all keys from _lines_dict that are not in the _data_dict
         for key in self._lines_dict.keys():
-            if not self._data_dict.has_key(key):
+            if not key in self._data_dict:
                 self._lines_dict[key].remove()
                 continue
 
@@ -227,4 +233,3 @@ class Stack1DView(AbstractDataView1D, AbstractMPLDataView):
         self.replot()
         # redraw the canvas
         self._fig.canvas.draw()
-

@@ -35,6 +35,10 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 import six
+from .. import QtCore, QtGui
+
+import logging
+logger = logging.getLogger(__name__)
 
 """
 Module for holding useful non Qt code
