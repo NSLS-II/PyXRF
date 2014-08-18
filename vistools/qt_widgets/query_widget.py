@@ -367,6 +367,13 @@ class QueryController(QtCore.QObject):
             # create a new dictionary
             self._input_boxes = {}
 
+        _lookup_dict = {str: LineEdit,
+                        int: LineEdit,
+                        float: LineEdit,
+                        datetime.datetime: DateTimeBox,
+                        bool: CheckBox,
+                        list: ComboBox}
+
         # loop over the keys to create an input box for each key
         for key in keys:
             # declare a new horizontal layout
@@ -386,15 +393,7 @@ class QueryController(QtCore.QObject):
                 # default to string typed
                 key_type = str
 
-            # set the style of input box based on the key_type
-            if key_type == str or key_type == int or key_type == float:
-                input_box_type = LineEdit
-            elif key_type == datetime.datetime:
-                input_box_type = DateTimeBox
-            elif key_type == bool:
-                input_box_type = CheckBox
-            elif key_type == list:
-                input_box_type = ComboBox
+            input_box_type = _lookup_dict[key_type]
 
             # declare the input box
             input_box = input_box_type(label_text=key, hover_text=description,
