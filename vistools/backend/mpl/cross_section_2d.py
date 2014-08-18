@@ -45,73 +45,92 @@ from . import AbstractMPLDataView
 from .. import AbstractDataView2D
 
 
-def _full_range(im, limit_args):
+def fullrange_limit_factory(limit_args=None):
     """
-    Plot the entire range of the image
+    Factory for returning full-range limit functions
 
-    Parameters
-    ----------
-    im : ndarray
-       image data, nominally 2D
-
-    limit_args : object
-       Ignored, here to match signature with other
-       limit functions
-
-    Returns
-    -------
-    climits : tuple
-       length 2 tuple to be passed to `im.clim(...)` to
-       set the color limits of a ColorMappable object.
+    limit_args is ignored.
     """
-    return (np.min(im), np.max(im))
+    def _full_range(im):
+        """
+        Plot the entire range of the image
+
+        Parameters
+        ----------
+        im : ndarray
+           image data, nominally 2D
+
+        limit_args : object
+           Ignored, here to match signature with other
+           limit functions
+
+        Returns
+        -------
+        climits : tuple
+           length 2 tuple to be passed to `im.clim(...)` to
+           set the color limits of a ColorMappable object.
+        """
+        return (np.min(im), np.max(im))
+
+    return _full_range
 
 
-def _absolute_limit(im, limit_args):
+def absolute_limit_factory(limit_args):
     """
-    Plot the image based on the min/max values in limit_args
-
-    This function is a no-op and just return the input limit_args.
-
-    Parameters
-    ----------
-    im : ndarray
-        image data.  Ignored in this method
-
-    limit_args : array
-       (min_value, max_value)  Values are in absolute units
-       of the image.
-
-    Returns
-    -------
-    climits : tuple
-       length 2 tuple to be passed to `im.clim(...)` to
-       set the color limits of a ColorMappable object.
-
+    Factory for making absolute limit functions
     """
-    return limit_args
+    def _absolute_limit(im):
+        """
+        Plot the image based on the min/max values in limit_args
+
+        This function is a no-op and just return the input limit_args.
+
+        Parameters
+        ----------
+        im : ndarray
+            image data.  Ignored in this method
+
+        limit_args : array
+           (min_value, max_value)  Values are in absolute units
+           of the image.
+
+        Returns
+        -------
+        climits : tuple
+           length 2 tuple to be passed to `im.clim(...)` to
+           set the color limits of a ColorMappable object.
+
+        """
+        return limit_args
+    return _absolute_limit
 
 
-def _percentile_limit(im, limit_args):
+def percentile_limit_factory(limit_args):
     """
-    Sets limits based on percentile.
-
-    Parameters
-    ----------
-    im : ndarray
-        image data
-
-    limit_args : tuple of floats in [0, 100]
-        upper and lower percetile values
-
-    Returns
-    -------
-    climits : tuple
-       length 2 tuple to be passed to `im.clim(...)` to
-       set the color limits of a ColorMappable object.
-
+    Factory to return a percentile limit function
     """
-    return np.percentile(im, limit_args)
+    def _percentile_limit(im):
+        """
+        Sets limits based on percentile.
+
+        Parameters
+        ----------
+        im : ndarray
+            image data
+
+        limit_args : tuple of floats in [0, 100]
+            upper and lower percetile values
+
+        Returns
+        -------
+        climits : tuple
+           length 2 tuple to be passed to `im.clim(...)` to
+           set the color limits of a ColorMappable object.
+
+        """
+        return np.percentile(im, limit_args)
+
+    return _percentile_limit
 
 
 class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
@@ -120,7 +139,7 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
     """
 
     def __init__(self, fig, data_list, key_list, cmap=None, norm=None,
-                 limit_func=None, limit_args=None):
+                 limit_func=None, **kwargs):
         """
         Sets up figure with cross section viewer
 
@@ -143,37 +162,144 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
         norm : Normalize or None
            Normalization function to us
         """
+        if 'limit_args' in kwargs:
+            raise Exception("changed API, don't use limit_args anymore, use closures")
+
         # call up the inheritance chain
         super(CrossSection2DView, self).__init__(fig=fig, data_list=data_list,
                                                  key_list=key_list, norm=norm,
                                                  cmap=cmap)
-        # set some default behavior
+        self._xsection = CrossSection(fig,
+                                      self._data_dict[self._key_list[0]],
+                                      cmap=cmap, norm=norm,
+                                      limit_func=limit_func)
+
+    def update_cmap(self, cmap):
+        self._xsection.update_cmap(cmap)
+
+    def update_image(self, img_idx):
+        self._xsection.update_image(self._data_dict[self._key_list[img_idx]])
+
+    def replot(self):
+        """
+        Update the image displayed by the main axes
+
+        Parameters
+        ----------
+        new_image : 2D ndarray
+           The new image to use
+        """
+        self._xsection.update_artists()
+
+    def update_norm(self, new_norm):
+        """
+        Update the way that matplotlib normalizes the image. Default is linear
+        """
+        self._xsection.update_norm(new_norm)
+
+    def set_limit_func(self, limit_func):
+        """
+        Set the function to use to determine the color scale
+
+        """
+        self._xsection.set_limit_func(limit_func)
+
+
+def auto_redraw(func):
+    def inner(self, *args, **kwargs):
+        force_redraw = kwargs.pop('force_redraw', None)
+        if force_redraw is None:
+            force_redraw = self._auto_redraw
+
+        ret = func(self, *args, **kwargs)
+
+        if force_redraw:
+            self.update_artists()
+            self._draw()
+
+        return ret
+
+    inner.__name__ = func.__name__
+    inner.__doct__ = func.__doc__
+
+    return inner
+
+
+class CrossSection(object):
+    """
+    Class to manage the axes, artists and properties associated with
+    showing a 2D image, a cross-hair cursor and two parasite axes which
+    provide horizontal and vertical cross sections of image.
+
+    Parameters
+    ----------
+
+    fig : matplotlib.figure.Figure
+        The figure object to build the class on, will clear
+        current contents
+
+    init_image : 2d ndarray
+        The initial image
+
+    cmap : str,  colormap, or None
+        color map to use.  Defaults to gray
+
+    norm : Normalize or None
+        Normalization function to us
+
+    limit_func : callable
+        function that takes in the image and returns clim values
+    """
+    def __init__(self, fig, init_image, cmap=None, norm=None,
+                 limit_func=None, auto_redraw=True):
+
+        # used to determine if setting properties should force a re-draw
+        self._auto_redraw = auto_redraw
+        # clean defaults
         if limit_func is None:
-            limit_func = _full_range
-        if limit_args is None:
-            limit_args = [0,100]
+            limit_func = fullrange_limit_factory()
         if cmap is None:
-            cmap = self._default_cmap
+            cmap = 'gray'
+        # let norm pass through as None, mpl defaults to linear which is fine
 
-        # stash the input parameters not taken care of by parent classes
+        # save a copy of the limit function, we will need it later
         self._limit_func = limit_func
-        self._limit_args = limit_args
 
-        # @tacaswell, what is this?
+        # this is used by the widget logic
         self._active = True
+        self._dirty = True
+        self._cb_dirty = True
 
         # work on setting up the mpl axes
 
-        # extract the first image in the list
-        init_image = self._data_dict[key_list[0]]
+        # this is a tuple which is the max/min used in the color mapping.
+        # these values are also used to set the limits on the value
+        # axes of the parasite axes
+        # value_limits
+        vlim = self._limit_func(init_image)
 
-        # this needs to respect percentile
-        # TODO: What does vlim stand for? @tacaswell?
-        vlim = self._limit_func(init_image, self._limit_args)
+        self._fig = fig
+        # blow away what ever is currently on the figure
+        fig.clf()
+        # Configure the figure in our own image
+        #
+        #     	  +----------------------+
+        #	      |   H cross section    |
+        #     	  +----------------------+
+        #   +---+ +----------------------+
+        #   | V | |                      |
+        #   |   | |                      |
+        #   | x | |                      |
+        #   | s | |      Main Axes       |
+        #   | e | |                      |
+        #   | c | |                      |
+        #   | t | |                      |
+        #   | i | |                      |
+        #   | o | |                      |
+        #   | n | |                      |
+        #   +---+ +----------------------+
 
         # make the main axes
-        # (in matplotlib speak the 'main axes' is the 2d
-        # image in the middle of the canvas)
         self._im_ax = fig.add_subplot(1, 1, 1)
         self._im_ax.set_aspect('equal')
         self._im_ax.xaxis.set_major_locator(NullLocator())
@@ -181,6 +307,7 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
         self._imdata = init_image
         self._im = self._im_ax.imshow(init_image, cmap=cmap, norm=norm,
                                       interpolation='none', aspect='equal')
+        self._im.set_clim(vlim)
 
         # make it dividable
         divider = make_axes_locatable(self._im_ax)
@@ -257,7 +384,7 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
                 row = int(y + 0.5)
                 if row != self._row or col != self._col:
                     if (col >= 0 and col < numcols and
-                        row >= 0 and row < numrows):
+                          row >= 0 and row < numrows):
                         self._col = col
                         self._row = row
                         for data, ax, bkg, art, set_fun in zip(
@@ -304,68 +431,68 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
         self._active = val
         self.cur.active = val
 
+    @auto_redraw
     def update_cmap(self, cmap):
+        """
+        Set the color map used
+        """
+        # TODO: this should stash new value, not apply it
         self._im.set_cmap(cmap)
+        self._dirty = True
 
-    def update_image(self, img_idx):
-        self._imdata = self._data_dict[self._key_list[img_idx]]
-
-    def replot(self):
+    @auto_redraw
+    def update_image(self, new_image):
         """
-        Update the image displayed by the main axes
+        Set the image data
 
-        Parameters
-        ----------
-        new_image : 2D ndarray
-           The new image to use
+        The input data must be the same shape as the current image data
         """
-        self.vmin, self.vmax = self._limit_func(self._imdata, self._limit_args)
-        # img_dims = new_image.shape
-        # set vertical box axes
-        self._ax_v.set_xlim(self.vmin, self.vmax)
-        # self._ax_v.set_ylim(0, img_dims[1])
-        # set horizontal box axes
-        self._ax_h.set_ylim(self.vmin, self.vmax)
-        # self._ax_h.set_xlim(0, img_dims[0])
-        # set main image axes
-        # self._im_ax.set_xlim(0, img_dims[0])
-        # self._im_ax.set_ylim(0, img_dims[1])
-        # if img_dims[0] == img_dims[1]:
-        # else:
-        #    self._im_ax.set_aspect("auto")
-        self._im.set_data(self._imdata)
-        self.update_color_limits(self._limit_args, force_update=True)
+        self._imdata = new_image
+        self._dirty = True
 
+    @auto_redraw
     def update_norm(self, new_norm):
         """
-        Update the way that matplotlib normalizes the image. Default is linear
+        Update the way that matplotlib normalizes the image
         """
         self._im.set_norm(new_norm)
-        self.update_color_limits(self._limit_args, force_update=True)
+        self._dirty = True
+        self._cb_dirty = True
 
-    def update_color_limits(self, new_limits, force_update=False):
+    @auto_redraw
+    def set_limit_func(self, limit_func):
         """
-        Repaint the image when something changes
+        Set the function to use to determine the color scale
         """
-        # if the limits have to really changed, short-circuit
-        if not force_update and self._limit_args == new_limits:
+        # set the new function to use for computing the color limits
+        self._limit_func = limit_func
+        self._dirty = True
+
+    def update_artists(self):
+        """
+        Updates the figure by re-drawing
+        """
+        # if the figure is not dirty, short-circuit
+        if not (self._dirty or self._cb_dirty):
             return
-        # assign the new limits
-        self._limit_args = new_limits
-        # convert limits -> args for clim
-        vlim = self._limit_func(self._imdata, self._limit_args)
-        # set the color limits
+
+        # this is a tuple which is the max/min used in the color mapping.
+        # these values are also used to set the limits on the value
+        # axes of the parasite axes
+        # value_limits
+        vlim = self._limit_func(self._imdata)
+        # set the color bar limits
         self._im.set_clim(vlim)
         # set the cross section axes limits
         self._ax_v.set_xlim(*vlim[::-1])
         self._ax_h.set_ylim(*vlim)
+        # set the imshow data
+        self._im.set_data(self._imdata)
 
-    def set_limit_func(self, limit_func, new_limits):
-        """
-        Set the function to use to determine the color scale
+        # TODO if cb_dirty, remake the colorbar, I think this is
+        # why changing the norm does not play well
+        self._dirty = False
+        self._cb_dirty = False
 
-        """
-        # set the new function to use for computing the color limits
-        self._limit_func = limit_func
-        # update the axes
-        self.update_color_limits(new_limits, force_update=True)
+    def _draw(self):
+        self._fig.canvas.draw()
