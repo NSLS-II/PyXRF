@@ -239,7 +239,7 @@ class QueryController(QtCore.QObject):
     ###################################################################
     #                Construction time behavior                       #
     ###################################################################
-    def __init__(self, keys, add_btn_text=None, *args, **kwargs):
+    def __init__(self, keys, add_btn_text="Add", *args, **kwargs):
         """
 
         Parameters
