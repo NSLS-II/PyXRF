@@ -40,6 +40,8 @@ matplotlib.rcParams["backend"] = "Qt4Agg"
 usePyQt4 = True
 if usePyQt4:
     matplotlib.rcParams["backend.qt4"] = "PyQt4"
+    # from PyQt4.QtCore import QDateTime
+    # QDateTime.toPython = QDateTime.toPyDateTime
 else:
     matplotlib.rcParams["backend.qt4"] = "PySide"
 
@@ -47,3 +49,6 @@ from matplotlib.backends.qt4_compat import QtCore, QtGui
 
 import logging
 logger = logging.getLogger(__name__)
+
+from logging import NullHandler
+logger.addHandler(NullHandler())

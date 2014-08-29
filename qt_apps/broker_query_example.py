@@ -1,6 +1,8 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 import six, sys, datetime
+import sip
+sip.setapi('QDateTime', 2)
 from PyQt4 import QtCore, QtGui
 from vistools.qt_widgets.displaydict import RecursiveTreeWidget
 from collections import defaultdict
@@ -57,6 +59,7 @@ def default_search_func(search_dict):
         Raised if the search dictionary is empty
     """
     logger.info("default_search_func() in broker_query_example.py")
+    print(search_dict)
     # check to see if the dictionary is empty
     if len(search_dict) == 0:
         logger.error("search_dict has no keys. Raising a value error")
@@ -74,7 +77,7 @@ def default_search_func(search_dict):
         return _defaults["empty_search"]
 
     result=search(**search_dict)
-    #print(result)
+    print(result)
     return result
 
 
@@ -138,6 +141,7 @@ if __name__ == "__main__":
     handler.setLevel('INFO')
     logger.addHandler(handler)
     commands.logger.addHandler(handler)
+    logging.getLogger("vistools.qt_widgets.query_widget").addHandler(handler)
     app = QtGui.QApplication(sys.argv)
 
     test_dict = commands.search_keys_dict

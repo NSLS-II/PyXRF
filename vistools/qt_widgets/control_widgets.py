@@ -175,7 +175,10 @@ class DateTimeBox(UtilsWidget):
 
     def getValue(self):
         if self._has_check_box and self._check_box.isChecked():
-            return self._datetime.dateTime().toPython()
+            try:
+                return self._datetime.dateTime().toPython()
+            except AttributeError :
+                return self._datetime.dateTime().toPyDateTime()
 
         return None
 
