@@ -128,10 +128,10 @@ def default_add_func(search_dict, unique_id_dict, result_dict,
 
 
 _defaults = {
-    "unique_id_func" : default_unique_id_func,
-    "unique_id_key" : ["_id"],
-    "search_func" : default_search_func,
-    "add_func" : default_add_func,
+    "unique_id_func": default_unique_id_func,
+    "unique_id_key": ["_id"],
+    "search_func": default_search_func,
+    "add_func": default_add_func,
 }
 
 
