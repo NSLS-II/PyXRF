@@ -519,12 +519,10 @@ class QueryController(QtCore.QObject):
         print(self._input_boxes)
         try:
             # loop over the list of input boxes to extract the search string
-            for key in self._input_boxes:
-                # get the text from the input box
-                val = self._input_boxes[key].getValue()
-                if val is not None:
-                    # add the search key to the dictionary
-                    self._search_dict[key] = val
+            # todo need better list comprehension
+            self._search_dict = {key: self._input_boxes[key].getValue()
+                                 for key in self._input_boxes if
+                                 self._input_boxes[key].getValue() is not None}
         except AttributeError as e:
             tb = traceback.format_exc()
             logger.error(tb)
