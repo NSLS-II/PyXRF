@@ -1,4 +1,4 @@
-vistools
+bubblegum
 ========
 
-Collection of quick and dirty visualization tools and widgets
+Collection of prototype gui code for visualization and widgets. As it's gui code, things are held together with...
