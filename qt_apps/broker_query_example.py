@@ -4,9 +4,9 @@ import six, sys, datetime
 import sip
 sip.setapi('QDateTime', 2)
 from PyQt4 import QtCore, QtGui
-from vistools.qt_widgets.displaydict import RecursiveTreeWidget
+from bubblegum.qt_widgets.displaydict import RecursiveTreeWidget
 from collections import defaultdict
-from vistools.qt_widgets.query_widget import QueryMainWindow
+from bubblegum.qt_widgets.query_widget import QueryMainWindow
 import logging
 logger = logging.getLogger(__name__)
 
@@ -141,7 +141,7 @@ if __name__ == "__main__":
     handler.setLevel('INFO')
     logger.addHandler(handler)
     commands.logger.addHandler(handler)
-    logging.getLogger("vistools.qt_widgets.query_widget").addHandler(handler)
+    logging.getLogger("bubblegum.qt_widgets.query_widget").addHandler(handler)
     app = QtGui.QApplication(sys.argv)
 
     test_dict = commands.search_keys_dict

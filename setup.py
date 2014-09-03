@@ -58,11 +58,11 @@ else:
     FULLVERSION += QUALIFIER
 
 setup(
-    name='vistools',
+    name='bubblegum',
     version=FULLVERSION,
     author='Brookhaven National Lab',
-    packages=['vistools',
-              'vistools.qt_widgets',
-              'vistools.messenger', 'vistools.messenger.mpl',
-              'vistools.backend', 'vistools.backend.mpl'],
+    packages=['bubblegum',
+              'bubblegum.qt_widgets',
+              'bubblegum.messenger', 'bubblegum.messenger.mpl',
+              'bubblegum.backend', 'bubblegum.backend.mpl'],
 )

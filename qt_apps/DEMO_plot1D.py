@@ -45,8 +45,8 @@ import sys
 import numpy as np
 from collections import OrderedDict
 
-from vistools.qt_widgets import Stack1DMainWindow
-from vistools.messenger.mpl.stack_1d import Stack1DMessenger
+from bubblegum.qt_widgets import Stack1DMainWindow
+from bubblegum.messenger.mpl.stack_1d import Stack1DMessenger
 
 import logging
 logger = logging.getLogger(__name__)

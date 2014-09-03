@@ -44,9 +44,9 @@ import sys
 from matplotlib.backends.qt4_compat import QtGui, QtCore
 import numpy as np
 
-from vistools.messenger.mpl.cross_section_2d import CrossSection2DMessenger
+from bubblegum.messenger.mpl.cross_section_2d import CrossSection2DMessenger
 
-from vistools.qt_widgets import CrossSectionMainWindow
+from bubblegum.qt_widgets import CrossSectionMainWindow
 
 import logging
 logger = logging.getLogger(__name__)
