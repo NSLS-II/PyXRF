@@ -4,6 +4,8 @@ from .. import QtCore, QtGui
 import six
 import sys
 import logging
+
+
 logger = logging.getLogger(__name__)
 
 _defaults = {
@@ -105,7 +107,10 @@ class RecursiveTreeWidget(QtGui.QTreeWidget):
                 node = node.parent()
         except AttributeError:
             # this will be thrown when the node is one of the search results
-            dict_idx = self.currentIndex().row()
+
+            currentIndex = self.currentIndex()
+            dict_idx = currentIndex.row()
+            print(dir(currentIndex))
             logger.debug("dict_idx: {0}".format(dict_idx))
 
         return path_to_node, dict_idx

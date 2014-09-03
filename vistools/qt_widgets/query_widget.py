@@ -7,7 +7,7 @@ from .. import QtCore, QtGui
 from vistools.qt_widgets.displaydict import RecursiveTreeWidget
 from collections import defaultdict
 from .control_widgets import DateTimeBox, ComboBox, CheckBox, LineEdit
-
+import traceback
 import logging
 logger = logging.getLogger(__name__)
 
@@ -165,8 +165,7 @@ class QueryMainWindow(QtGui.QMainWindow):
         self.update_search_results(return_val)
 
     @QtCore.Slot(dict, dict, dict, list)
-    def add(self, search_query_dict, unique_id_dict, result_dict,
-            path_to_current_node_list):
+    def add(self, search_query_dict, unique_id_dict, result_dict):
         """
         This function gets called when the add button is clicked
         """
@@ -174,11 +173,8 @@ class QueryMainWindow(QtGui.QMainWindow):
         logger.debug("search_query_dict: {0}".format(search_query_dict))
         logger.debug("unique_id_dict: {0}".format(unique_id_dict))
         logger.debug("result_dict: {0}".format(result_dict))
-        logger.debug("path_to_current_node_list: {0}".format(
-            path_to_current_node_list))
 
-        self._add_func(search_query_dict, unique_id_dict, result_dict,
-                       path_to_current_node_list)
+        self._add_func(search_query_dict, unique_id_dict, result_dict)
 
     def update_query_keys(self, query_keys, query_key_descriptions):
         """
@@ -225,7 +221,7 @@ class QueryController(QtCore.QObject):
         Function that executes when the 'add' button is clicked
     search()
         Function that executes when the 'search' button is clicked
-    parse_search_boxes()
+    read_search_boxes()
         Read the text from the search boxes to form a search dictionary, stored
         as _search_dict
     update_query_keys(keys, key_descriptions=None)
@@ -473,7 +469,11 @@ class QueryController(QtCore.QObject):
         # TODO Change this to debugger level logging
         logger.debug("add_clicked")
         path_to_node, result_idx = self._tree.find_root()
-        cur_result_dict = self._search_results[result_idx]
+        print(self._search_results.__class__)
+        res_keys = list(self._search_results)
+        res_keys.sort()
+        cur_result_dict = self._search_results[res_keys[result_idx]]
+        print(list(cur_result_dict))
         # todo ask the tree nicely for its currently selected dictionary
         # unique_id = tree.get_current()
         self.add_btn_sig.emit(self._search_dict,
@@ -502,29 +502,30 @@ class QueryController(QtCore.QObject):
         """
         Parse the search boxes and emit it as a signal
         """
-        self.parse_search_boxes()
+        self.read_search_boxes()
         # once the dictionary is constructed, emit it as a signal
         self.search_btn_sig.emit(self._search_dict)
 
     @QtCore.Slot()
-    def parse_search_boxes(self):
+    def read_search_boxes(self):
         """
         Parse the search boxes to set up the query dictionary and store it as an
         instance variable "_search_dict"
         """
         # declare the search dict
         # TODO Change this to debugger level logging @tacaswell
-        logger.debug("parse_search_boxes")
+        logger.debug("read_search_boxes")
         self._search_dict = {}
+        print(self._input_boxes)
         try:
             # loop over the list of input boxes to extract the search string
-            for key in self._input_boxes:
-                # get the text from the input box
-                val = self._input_boxes[key].getValue()
-                if val is not None:
-                    # add the search key to the dictionary
-                    self._search_dict[key] = val
-        except AttributeError:
+            # todo need better list comprehension
+            self._search_dict = {key: self._input_boxes[key].getValue()
+                                 for key in self._input_boxes if
+                                 self._input_boxes[key].getValue() is not None}
+        except AttributeError as e:
+            tb = traceback.format_exc()
+            logger.error(tb)
             # the only time this will be caught is in the initial setup and it
             # is therefore ok to ignore this error
             pass
