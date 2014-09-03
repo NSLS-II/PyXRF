@@ -46,7 +46,7 @@ import os
 from matplotlib.backends.qt4_compat import QtGui, QtCore
 import numpy as np
 
-from vistools.qt_widgets.OneDimStackWidget import OneDimStackMainWindow
+from bubblegum.qt_widgets.OneDimStackWidget import OneDimStackMainWindow
 
 import logging
 logger = logging.getLogger(__name__)

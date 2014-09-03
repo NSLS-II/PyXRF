@@ -4,7 +4,7 @@ import six
 import sys
 import datetime
 from .. import QtCore, QtGui
-from vistools.qt_widgets.displaydict import RecursiveTreeWidget
+from bubblegum.qt_widgets.displaydict import RecursiveTreeWidget
 from collections import defaultdict
 from .control_widgets import DateTimeBox, ComboBox, CheckBox, LineEdit
 import traceback
@@ -201,7 +201,7 @@ class QueryController(QtCore.QObject):
     _query_input : QtGui.QWidget
         The widget that displays a series of text input boxes with a 'search'
         button
-    _results_tree : vistools.qt_widgets.displaydict.RecursiveTreeWidget
+    _results_tree : bubblegum.qt_widgets.displaydict.RecursiveTreeWidget
         The widget that displays the results as a tree with an 'add' button
     _search_dict : dict
         Dictionary that was unpacked into the search function. This attribute
