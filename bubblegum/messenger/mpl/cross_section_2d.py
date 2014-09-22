@@ -94,6 +94,8 @@ class CrossSection2DMessenger(AbstractMessenger2D, AbstractMPLMessenger):
             self.sl_update_limit_func)
 
         self._ctrl_widget._slider_img.valueChanged.connect(self.sl_update_image)
+        self._ctrl_widget.sig_update_interpolation.connect(
+            self._view.update_interpolation)
 
     @QtCore.Slot(int)
     def sl_update_image(self, img_idx):
@@ -131,6 +133,7 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
     sig_update_image = QtCore.Signal(int)
     sig_update_norm = QtCore.Signal(colors.Normalize)
     sig_update_limit_function = QtCore.Signal(object)
+    sig_update_interpolation = QtCore.Signal(str)
 
     # some defaults
     default_cmap = AbstractMPLDataView._default_cmap
@@ -182,6 +185,10 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
         self._cm_cb = QtGui.QComboBox(parent=self)
         self.init_cmap_box(self._cm_cb)
 
+        # set up the interpolation combo box
+        self._cmb_interp = QtGui.QComboBox(parent=self)
+        self._cmb_interp.addItems(CrossSection2DView.interpolation)
+
         # set up intensity manipulation combo box
         intensity_behavior_data = [(View.fullrange_limit_factory,
                                     self._no_limit_config),
@@ -219,6 +226,7 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
 
         ctrl_form = QtGui.QFormLayout()
         ctrl_form.addRow("Color &map", self._cm_cb)
+        ctrl_form.addRow("&Interpolation", self._cmb_interp)
         ctrl_form.addRow("&Normalization", self._cmbbox_norm)
         ctrl_form.addRow("limit &strategy", self._cmbbox_intensity_behavior)
         ctrl_layout.addLayout(ctrl_form)
@@ -262,6 +270,8 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
         # force the issue about emitting
         self._cmbbox_norm.currentIndexChanged[str].emit(
             norm_names[0])
+        self._cmb_interp.currentIndexChanged[str].connect(
+            self.sig_update_interpolation)
 
     def set_im_lim(self, lo, hi):
         self._lo = lo

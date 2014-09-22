@@ -41,7 +41,7 @@ from __future__ import (absolute_import, division, print_function,
 
 import sys
 
-from matplotlib.backends.qt4_compat import QtGui, QtCore
+from bubblegum import QtGui, QtCore
 import numpy as np
 
 from bubblegum.messenger.mpl.cross_section_2d import CrossSection2DMessenger

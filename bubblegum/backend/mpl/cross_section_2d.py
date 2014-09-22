@@ -140,10 +140,17 @@ def percentile_limit_factory(limit_args):
 class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
     """
     CrossSection2DView docstring
+
     """
+    # list of valid options for the interpolation parameter. The first one is the
+    # default value.
+    interpolation = ['none', 'nearest', 'bilinear', 'bicubic','spline16',
+                     'spline36', 'hanning', 'hamming', 'hermite', 'kaiser',
+                     'quadric', 'catrom', 'gaussian', 'bessel', 'mitchell',
+                     'sinc', 'lanczos']
 
     def __init__(self, fig, data_list, key_list, cmap=None, norm=None,
-                 limit_func=None, **kwargs):
+                 limit_func=None, interpolation=None, **kwargs):
         """
         Sets up figure with cross section viewer
 
@@ -152,19 +159,18 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
         fig : matplotlib.figure.Figure
             The figure object to build the class on, will clear
             current contents
-
         init_image : 2d ndarray
             The initial image
-
         cmap : str,  colormap, or None
            color map to use.  Defaults to gray
-
         clim_percentile : float or None
            percentile away from 0, 100 to put the max/min limits at
            ie, clim_percentile=5 -> vmin=5th percentile vmax=95th percentile
-
         norm : Normalize or None
-           Normalization function to us
+           Normalization function to use
+        interpolation : str, optional
+            Interpolation method to use. List of valid options can be found in
+            CrossSection2DView.interpolation
         """
         if 'limit_args' in kwargs:
             raise Exception("changed API, don't use limit_args anymore, use closures")
@@ -176,7 +182,8 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
         self._xsection = CrossSection(fig,
                                       self._data_dict[self._key_list[0]],
                                       cmap=cmap, norm=norm,
-                                      limit_func=limit_func)
+                                      limit_func=limit_func,
+                                      interpolation=interpolation)
 
     def update_cmap(self, cmap):
         self._xsection.update_cmap(cmap)
@@ -207,6 +214,18 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
 
         """
         self._xsection.set_limit_func(limit_func)
+
+    def update_interpolation(self, interpolation):
+        """
+        Update the way that matplotlib interpolates the image. Default is none
+
+        Parameters
+        ----------
+        interpolation : str, optional
+            Interpolation method to use. List of valid options can be found in
+            CrossSection2DView.interpolation
+        """
+        self._xsection.update_interpolation(interpolation)
 
 
 def auto_redraw(func):
@@ -249,14 +268,26 @@ class CrossSection(object):
         color map to use.  Defaults to gray
 
     norm : Normalize or None
-        Normalization function to us
+       Normalization function to use
 
-    limit_func : callable
+    limit_func : callable, optional
         function that takes in the image and returns clim values
+    auto_redraw : bool, optional
+    interpolation : str, optional
+        Interpolation method to use. List of valid options can be found in
+        CrossSection2DView.interpolation
+
+    Properties
+    ----------
+    interpolation
+
     """
     def __init__(self, fig, init_image, cmap=None, norm=None,
-                 limit_func=None, auto_redraw=True):
+                 limit_func=None, auto_redraw=True, interpolation=None):
 
+        if interpolation is None:
+            interpolation = CrossSection2DView.interpolation[0]
+        self._interpolation = interpolation
         # used to determine if setting properties should force a re-draw
         self._auto_redraw = auto_redraw
         # clean defaults
@@ -310,7 +341,8 @@ class CrossSection(object):
         self._im_ax.yaxis.set_major_locator(NullLocator())
         self._imdata = init_image
         self._im = self._im_ax.imshow(init_image, cmap=cmap, norm=norm,
-                                      interpolation='none', aspect='equal')
+                                      interpolation=self._interpolation,
+                                      aspect='equal')
         self._im.set_clim(vlim)
 
         # make it dividable
@@ -387,8 +419,7 @@ class CrossSection(object):
                 col = int(x + 0.5)
                 row = int(y + 0.5)
                 if row != self._row or col != self._col:
-                    if (col >= 0 and col < numcols and
-                          row >= 0 and row < numrows):
+                    if 0 <= col < numcols and 0 <= row <= numrows:
                         self._col = col
                         self._row = row
                         for data, ax, bkg, art, set_fun in zip(
@@ -427,6 +458,10 @@ class CrossSection(object):
         self._ln_v.set_visible(False)
 
     @property
+    def interpolation(self):
+        return self._interpolation
+
+    @property
     def active(self):
         return self._active
 
@@ -434,6 +469,16 @@ class CrossSection(object):
     def active(self, val):
         self._active = val
         self.cur.active = val
+
+    @auto_redraw
+    def update_interpolation(self, interpolation):
+        """Set the interpolation method
+
+        """
+        self._dirty = True
+        print('interpolation: {0}'.format(interpolation))
+        print('interpolation type: {0}'.format(type(interpolation)))
+        self._im.set_interpolation(interpolation)
 
     @auto_redraw
     def update_cmap(self, cmap):
