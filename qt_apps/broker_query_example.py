@@ -3,7 +3,7 @@ from __future__ import (absolute_import, division, print_function,
 import six, sys, datetime
 import sip
 sip.setapi('QDateTime', 2)
-from PyQt4 import QtCore, QtGui
+from bubblegum import QtCore, QtGui
 from bubblegum.qt_widgets.displaydict import RecursiveTreeWidget
 from collections import defaultdict
 from bubblegum.qt_widgets.query_widget import QueryMainWindow
