@@ -221,7 +221,7 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
 
         Parameters
         ----------
-        interpolation : str, optional
+        interpolation : str
             Interpolation method to use. List of valid options can be found in
             CrossSection2DView.interpolation
         """
@@ -476,8 +476,6 @@ class CrossSection(object):
 
         """
         self._dirty = True
-        print('interpolation: {0}'.format(interpolation))
-        print('interpolation type: {0}'.format(type(interpolation)))
         self._im.set_interpolation(interpolation)
 
     @auto_redraw
