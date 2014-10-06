@@ -35,57 +35,94 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 import six
-from collections import defaultdict
-from .util import mapping_mixin
+import os
 from .. import QtCore, QtGui
 
 
-def _update_header(header):
-    """Internal helper function to update the GUI with a new header
-
-    This function should tell the GUI to do something with a new header
-    """
-    pass
-
-
-def _update_ev_desc(ev_desc):
-    """Internal helper function to update the GUI with a new event descriptor
-
-    Additionally, this function is responsible for setting up any listening
+class LiveWindow(QtGui.QMainWindow):
+    """Main window for live display
 
     """
-    pass
+
+    def __init__(self, title=None, parent=None):
+        QtGui.QMainWindow.__init__(self, parent)
+        if title is None:
+            title = 'Live Data Widget'
+        self.setWindowTitle(title)
+
+    @classmethod
+    def init_data_broker(cls, num_prev_runs=5):
+        """
+        Function that creates a LiveWindow that is connected to the data broker
+
+        Parameters
+        ----------
+        num_prev_runs : int, optional
+            The number of previous runs to obtain from the data broker.
+        """
+        title = 'Live Data Widget (Connected to the Data Broker)'
+        cls = cls(title=title)
+        # do some stuff to set up the data broker
+        # read a configuration file
+        databrokerpath = os.path.expanduser('~/databroker.conf')
+        # connect to the data broker
+        if os.path.exists(databrokerpath):
+            from databroker import connect
+            connect(databrokerpath, cls.update)
+
+        return cls(title)
+
+    def _update_header(header):
+        """Internal helper function to update the GUI with a new header
+
+        This function should tell the GUI to do something with a new header
+
+        Parameters
+        ----------
+        header : dict
+
+        """
+        pass
 
 
-def _update_event(event):
-    """Internal helper function to update the GUI with a new event(s)
+    def _update_ev_desc(ev_desc):
+        """Internal helper function to update the GUI with a new event descriptor
 
-    Parameters
-    ----------
-    event : pandas.DataFrame
-        Time-aligned data with one or more named columns
-    """
-    pass
+        Additionally, this function is responsible for setting up any listening
+
+        """
+        pass
 
 
-def update(msg, msg_obj=None):
-    """ Message passing function
+    def _update_event(event):
+        """Internal helper function to update the GUI with a new event(s)
 
-    Update takes a message and an optional object.  The message is used to
-    determine behavior of the qt widget. If the object is present, the qt widget
-    will respond if it understands the message
-
-    Parameters
-    ----------
-    msg : {'header', 'event_descriptor', 'event'}
-        Message that is used to instruct the widget to perform some action
-    obj : object, optional
-        Object that is used
-    """
-    pass
+        Parameters
+        ----------
+        event : pandas.DataFrame
+            Time-aligned data with one or more named columns
+        """
+        pass
 
 
-_update_dict = {'header': _update_header,
-                'event_descriptor': _update_ev_desc,
-                'event': _update_event,
-}
+    def update(msg, msg_obj=None):
+        """ Message passing function
+
+        Update takes a message and an optional object.  The message is used to
+        determine behavior of the qt widget. If the object is present, the qt widget
+        will respond if it understands the message
+
+        Parameters
+        ----------
+        msg : {'header', 'event_descriptor', 'event'}
+            Message that is used to instruct the widget to perform some action
+        obj : object, optional
+            Object that is used
+        """
+        pass
+
+
+    _update_dict = {'header': _update_header,
+                    'event_descriptor': _update_ev_desc,
+                    'event': _update_event,
+    }
