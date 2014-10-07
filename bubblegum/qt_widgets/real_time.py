@@ -36,7 +36,9 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 import six
 import os
+from collections import namedtuple
 import numpy as np
+from . import CrossSectionMainWindow
 from .. import QtCore, QtGui
 
 class LiveWindow(QtGui.QMainWindow):
@@ -49,6 +51,10 @@ class LiveWindow(QtGui.QMainWindow):
         if title is None:
             title = 'Live Data Widget'
         self.setWindowTitle(title)
+        self._update_dict = {'header': self._update_header,
+                        'event_descriptor': self._update_ev_desc,
+                        'event': self._update_event,
+        }
 
     @classmethod
     def init_data_broker(cls, num_prev_runs=5):
@@ -85,18 +91,16 @@ class LiveWindow(QtGui.QMainWindow):
         instance.addDockWidget(QtCore.Qt.LeftDockWidgetArea, instance.sidebar)
 
         # set up the sidebar
-        instance.canvas = instance.create_canvas()
+        instance.canvas = LiveCanvas()
         instance.setCentralWidget(instance.canvas)
 
-        return instance
+        # Connect the signals and slots
+        instance._update_header.connect(instance.sidebar.update_header)
+        instance._update_ev_desc.connect(instance.sidebar.update_ev_desc)
+        instance._update_event.connect(instance.canvas.update_event)
 
-    def create_canvas(self):
-        canvas = QtGui.QWidget()
-        layout = QtGui.QVBoxLayout()
-        canvas.setLayout(layout)
-        layout.addWidget(QtGui.QLabel('label 1'))
-        layout.addWidget(QtGui.QLabel('label 2'))
-        return canvas
+        # return the initialized real time widget
+        return instance
 
     # define the update options as signals that can be hooked in to
     _update_header = QtCore.Signal(object)
@@ -125,11 +129,113 @@ class LiveWindow(QtGui.QMainWindow):
         """
         self._update_dict[msg].emit(msg_obj)
 
+class LiveCanvas(QtGui.QWidget):
+    """
+    Class which defines the canvas to display the visualization widgets
+    """
+    InternalWidget = namedtuple('InternalWidget', ('widget', 'row', 'col',
+                                                   'row_span', 'col_span'))
 
-    _update_dict = {'header': _update_header,
-                    'event_descriptor': _update_ev_desc,
-                    'event': _update_event,
+    _widgets = {
+        '2Dstack': CrossSectionMainWindow
     }
+
+    def __init__(self, parent=None, *args, **kwargs):
+        super(LiveCanvas, self).__init__(*args, **kwargs)
+        self.canvas = QtGui.QWidget()
+        self.layout = QtGui.QVBoxLayout()
+        self._lbl1 = QtGui.QLabel("Label 1")
+        self._lbl2 = QtGui.QLabel("Label 2")
+        self.layout.addWidget(self._lbl1)
+        self.layout.addWidget(self._lbl2)
+        self.setLayout(self.layout)
+        self._widget_list = []
+
+
+    def add_plot(self, plot_type, row, col, row_span=1, col_span=1):
+        """Add a plotting widget to the canvas
+
+        Parameters
+        ----------
+        plot_type: {'3Dstack', '3D', '2Dstack', '2D', '1Dstack', '1D'}
+            The type of plotting widget to create. Only 2D stack is currently
+            implemented
+        row: int
+            The row to put the widget in
+        col: int
+            The column index to place the widget
+        row_span: int, optional
+            The number of row cells to 'merge' for the widget
+        col_span: int, optional
+            The number of column cells to 'merge' to create the widget location
+        """
+        new_widget = self._widgets[plot_type]()
+        widg = self.InternalWidget(new_widget, row, col, row_span, col_span)
+        self._widget_list.append(widg)
+        self.redraw()
+
+    def remove_plot(self, widget):
+        """Remove a plotting widget from the canvas.
+
+        Requires a reference to the actual widget
+
+        Parameters
+        ----------
+        widget : LiveCanvas.InternalWidget
+            The reference to the widget you wish to remove
+
+        Returns
+        -------
+        was_removed : bool
+            True: widget was present in the list
+            False: widget was not present in the list
+            There are actually three cases.
+                1. Widget is not present in the internal widget list
+                2. Widget is present in the internal widget list but was not
+                   removed from the canvas
+                3. Widget was present in the internal widget list and was
+                   removed from the canvas
+        """
+        try:
+            self._widget_list.pop(self._widget_list.index(widget))
+            self.redraw()
+            if widget in self._widget_list:
+                return 3
+            else:
+                return 2
+        except ValueError:
+            return 1
+
+    def redraw(self):
+        """Recreate the layout
+
+        This function is automatically called inside of LiveCanvas.add_plot()
+        and LiveCanvas.remove_plot()
+        """
+        # create the new layout
+        layout = QtGui.QBoxLayout()
+        # add the widgets to the layout
+        for widget in self._widget_list:
+            layout.addWidget(widget.widget, widget.row, widget.col,
+                             widget.row_span, widget.col_span)
+        # set the new layout
+        self.setLayout(layout)
+
+    @property
+    def widget_list(self):
+        """
+        Retrieve the actual list of widgets.  If you remove or add widgets
+        to this list, call
+        """
+        return self._widget_list
+
+    @QtCore.Slot(object)
+    def update_event(self, event):
+        rnd = np.random.rand()
+        if rnd > 0.5:
+            self._lbl1.setText("Label 1: " + str(rnd))
+        else:
+            self._lbl2.setText("Label 2: " + str(rnd))
 
 
 class DataBrokerSidebar(QtGui.QDockWidget):
@@ -173,4 +279,4 @@ class DataBrokerSidebar(QtGui.QDockWidget):
         self.lbl_hdr.setText('Run header ' + str(np.random.rand()))
     @QtCore.Slot(object)
     def update_ev_desc(self, ev_desc):
-        self.lbl_ev_desc.setText('' + str(np.random.rand()))
+        self.lbl_ev_desc.setText('Event descriptor ' + str(np.random.rand()))
