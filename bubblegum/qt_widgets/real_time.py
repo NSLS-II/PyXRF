@@ -36,8 +36,8 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 import six
 import os
+import numpy as np
 from .. import QtCore, QtGui
-
 
 class LiveWindow(QtGui.QMainWindow):
     """Main window for live display
@@ -70,42 +70,41 @@ class LiveWindow(QtGui.QMainWindow):
             from databroker import connect
             connect(databrokerpath, cls.update)
 
-        return cls(title)
-
-    def _update_header(header):
-        """Internal helper function to update the GUI with a new header
-
-        This function should tell the GUI to do something with a new header
-
-        Parameters
-        ----------
-        header : dict
-
+    @classmethod
+    def init_demo(cls):
         """
-        pass
-
-
-    def _update_ev_desc(ev_desc):
-        """Internal helper function to update the GUI with a new event descriptor
-
-        Additionally, this function is responsible for setting up any listening
-
+        Function that creates a LiveWindow for demo-ing purposes
         """
-        pass
+        title = "Live data demo"
+        instance = cls(title)
 
+        # create a dock widget and set its widget to the databroker dock
+        dock = QtGui.QDockWidget()
+        dock.setFloating(True)
+        instance.sidebar = DataBrokerSidebar()
+        instance.addDockWidget(QtCore.Qt.LeftDockWidgetArea, instance.sidebar)
 
-    def _update_event(event):
-        """Internal helper function to update the GUI with a new event(s)
+        # set up the sidebar
+        instance.canvas = instance.create_canvas()
+        instance.setCentralWidget(instance.canvas)
 
-        Parameters
-        ----------
-        event : pandas.DataFrame
-            Time-aligned data with one or more named columns
-        """
-        pass
+        return instance
 
+    def create_canvas(self):
+        canvas = QtGui.QWidget()
+        layout = QtGui.QVBoxLayout()
+        canvas.setLayout(layout)
+        layout.addWidget(QtGui.QLabel('label 1'))
+        layout.addWidget(QtGui.QLabel('label 2'))
+        return canvas
 
-    def update(msg, msg_obj=None):
+    # define the update options as signals that can be hooked in to
+    _update_header = QtCore.Signal(object)
+    _update_ev_desc = QtCore.Signal(object)
+    _update_event = QtCore.Signal(object)
+
+    @QtCore.Slot(str, object)
+    def update(self, msg, msg_obj):
         """ Message passing function
 
         Update takes a message and an optional object.  The message is used to
@@ -116,13 +115,62 @@ class LiveWindow(QtGui.QMainWindow):
         ----------
         msg : {'header', 'event_descriptor', 'event'}
             Message that is used to instruct the widget to perform some action
-        obj : object, optional
-            Object that is used
+            header : data broker header object
+            event_descriptor : data broker event descriptor
+            event : pandas.DataFrame
+                Time-aligned data with one or more named columns
+
+        msg_obj : object
+            Object that is related to the message
         """
-        pass
+        self._update_dict[msg].emit(msg_obj)
 
 
     _update_dict = {'header': _update_header,
                     'event_descriptor': _update_ev_desc,
                     'event': _update_event,
     }
+
+
+class DataBrokerSidebar(QtGui.QDockWidget):
+    """
+    This object contains the Data Broker Sidebar
+    """
+
+    def __init__(self, parent=None):
+        """
+        Function that creates a dock widget that has two slots for updating
+        the run header and the event descriptor
+
+        Parameters
+        ----------
+        parent : QtGui.QtWidget, optional
+            The parent widget. It's a Qt thing...
+        """
+        QtGui.QDockWidget.__init__(self)
+        # make the control widget float
+        self.setFloating(True)
+
+        # add a widget that lives in the floating control widget
+        self._widget = QtGui.QWidget(self)
+        # give the widget to the dock widget
+        self.setWidget(self._widget)
+        # create a layout
+        layout = QtGui.QVBoxLayout()
+
+        # set the layout to the widget
+        self._widget.setLayout(layout)
+        self.lbl_hdr = QtGui.QLabel('waiting for run header')
+        self.lbl_ev_desc = QtGui.QLabel('waiting for event descriptor')
+
+        self._widget.setLayout(layout)
+
+        layout.addWidget(self.lbl_hdr)
+        layout.addWidget(self.lbl_ev_desc)
+
+    @QtCore.Slot(object)
+    def update_header(self, hdr):
+        self.lbl_hdr.setText('Run header ' + str(np.random.rand()))
+    @QtCore.Slot(object)
+    def update_ev_desc(self, ev_desc):
+        self.lbl_ev_desc.setText('' + str(np.random.rand()))
