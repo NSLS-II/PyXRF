@@ -137,6 +137,12 @@ def percentile_limit_factory(limit_args):
     return _percentile_limit
 
 
+_INTERPOLATION = ['none', 'nearest', 'bilinear', 'bicubic', 'spline16',
+                     'spline36', 'hanning', 'hamming', 'hermite', 'kaiser',
+                     'quadric', 'catrom', 'gaussian', 'bessel', 'mitchell',
+                     'sinc', 'lanczos']
+
+
 class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
     """
     CrossSection2DView docstring
@@ -144,10 +150,7 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
     """
     # list of valid options for the interpolation parameter. The first one is the
     # default value.
-    interpolation = ['none', 'nearest', 'bilinear', 'bicubic','spline16',
-                     'spline36', 'hanning', 'hamming', 'hermite', 'kaiser',
-                     'quadric', 'catrom', 'gaussian', 'bessel', 'mitchell',
-                     'sinc', 'lanczos']
+    interpolation = _INTERPOLATION
 
     def __init__(self, fig, data_list, key_list, cmap=None, norm=None,
                  limit_func=None, interpolation=None, **kwargs):
@@ -282,11 +285,11 @@ class CrossSection(object):
     interpolation
 
     """
-    def __init__(self, fig, init_image, cmap=None, norm=None,
+    def __init__(self, fig, init_image=None, cmap=None, norm=None,
                  limit_func=None, auto_redraw=True, interpolation=None):
 
         if interpolation is None:
-            interpolation = CrossSection2DView.interpolation[0]
+            interpolation = _INTERPOLATION[0]
         self._interpolation = interpolation
         # used to determine if setting properties should force a re-draw
         self._auto_redraw = auto_redraw
@@ -306,12 +309,6 @@ class CrossSection(object):
         self._cb_dirty = True
 
         # work on setting up the mpl axes
-
-        # this is a tuple which is the max/min used in the color mapping.
-        # these values are also used to set the limits on the value
-        # axes of the parasite axes
-        # value_limits
-        vlim = self._limit_func(init_image)
 
         self._fig = fig
         # blow away what ever is currently on the figure
@@ -339,11 +336,11 @@ class CrossSection(object):
         self._im_ax.set_aspect('equal')
         self._im_ax.xaxis.set_major_locator(NullLocator())
         self._im_ax.yaxis.set_major_locator(NullLocator())
-        self._imdata = init_image
-        self._im = self._im_ax.imshow(init_image, cmap=cmap, norm=norm,
-                                      interpolation=self._interpolation,
-                                      aspect='equal')
-        self._im.set_clim(vlim)
+        self._imdata = None
+        self._im = self._im_ax.imshow([[]], cmap=cmap, norm=norm,
+                        interpolation=self._interpolation,
+                                      aspect='equal', vmin=0,
+                                      vmax=1)
 
         # make it dividable
         divider = make_axes_locatable(self._im_ax)
@@ -360,38 +357,25 @@ class CrossSection(object):
         # add the color bar
         self._cb = fig.colorbar(self._im, cax=self._ax_cb)
 
-        # print out the pixel value
-        def format_coord(x, y):
-            numrows, numcols = self._imdata.shape
-            col = int(x + 0.5)
-            row = int(y + 0.5)
-            if col >= 0 and col < numcols and row >= 0 and row < numrows:
-                z = self._imdata[row, col]
-                return "X: {x:d} Y: {y:d} I: {i:.2f}".format(x=col, y=row, i=z)
-            else:
-                return "X: {x:d} Y: {y:d}".format(x=col, y=row)
-
-        self._im_ax.format_coord = format_coord
-
-        # add the cursor
-        self.cur = None
+        # add the cursor place holder
+        self._cur = None
 
         # set the y-axis scale for the horizontal cut
-        self._ax_h.set_ylim(*vlim)
         self._ax_h.autoscale(enable=False)
 
         # set the y-axis scale for the vertical cut
-        self._ax_v.set_xlim(*vlim)
         self._ax_v.autoscale(enable=False)
 
         # add lines
-        self._ln_v, = self._ax_v.plot(np.zeros(self._imdata.shape[0]),
-                                      np.arange(self._imdata.shape[0]), 'k-',
+        # 0
+        self._ln_v, = self._ax_v.plot([],
+                                      [], 'k-',
                                       animated=True,
                                       visible=False)
 
-        self._ln_h, = self._ax_h.plot(np.arange(self._imdata.shape[1]),
-                                      np.zeros(self._imdata.shape[1]), 'k-',
+        # 1
+        self._ln_h, = self._ax_h.plot([],
+                                      [], 'k-',
                                       animated=True,
                                       visible=False)
 
@@ -403,8 +387,15 @@ class CrossSection(object):
         self._row = None
         self._col = None
 
-        if self._fig.canvas is not None:
-            self.init()
+        # make attributes for callback ids
+        self._move_cid = None
+        self._click_cid = None
+        self._clear_cid = None
+
+        # if we have a cavas, then connect/set up junk
+        if self._fig.canvas is not None and init_image is not None:
+            self.init_artist_data(init_image)
+            self.connect_callbacks()
 
     # set up the call back for the updating the side axes
     def move_cb(self, event):
@@ -422,7 +413,7 @@ class CrossSection(object):
             col = int(x + 0.5)
             row = int(y + 0.5)
             if row != self._row or col != self._col:
-                if 0 <= col < numcols and 0 <= row <= numrows:
+                if 0 <= col < numcols and 0 <= row < numrows:
                     self._col = col
                     self._row = row
                     for data, ax, bkg, art, set_fun in zip(
@@ -433,7 +424,7 @@ class CrossSection(object):
                             (self._ln_h.set_ydata, self._ln_v.set_xdata)):
                         self._fig.canvas.restore_region(bkg)
                         set_fun(data)
-                        # ax.draw_artist(art)
+                        ax.draw_artist(art)
                         self._fig.canvas.blit(ax.bbox)
 
     def click_cb(self, event):
@@ -441,20 +432,101 @@ class CrossSection(object):
             return
         self.active = not self.active
         if self.active:
-            self.cur.onmove(event)
+            self._cur.onmove(event)
             self.move_cb(event)
 
-    def init(self):
-        self.cur = Cursor(self._im_ax, useblit=True, color='red', linewidth=2)
-        self.move_cid = self._fig.canvas.mpl_connect('motion_notify_event',
+    @auto_redraw
+    def connect_callbacks(self):
+        """
+        Connects all of the callbacks for the motion and click events
+        """
+        self._cur = Cursor(self._im_ax, useblit=True, color='red', linewidth=2)
+        self._move_cid = self._fig.canvas.mpl_connect('motion_notify_event',
                                                      self.move_cb)
 
-        self.click_cid = self._fig.canvas.mpl_connect('button_press_event',
+        self._click_cid = self._fig.canvas.mpl_connect('button_press_event',
                                                       self.click_cb)
 
-        self.clear_cid = self._fig.canvas.mpl_connect('draw_event', self.clear)
+        self._clear_cid = self._fig.canvas.mpl_connect('draw_event',
+                                                       self.clear)
         self._fig.tight_layout()
         self._fig.canvas.draw()
+
+    def disconnect_callbacks(self):
+        """
+        Disconnects all of the callbacks
+        """
+        if self._fig.canvas is None:
+            # no canvas -> can't do anything about the call backs which
+            # should not exist
+            self._move_cid = None
+            self._clear_cid = None
+            self._click_cid = None
+            return
+
+        for atr in ('_move_cid', '_clear_cid', '_click_cid'):
+            cid = getattr(self, atr, None)
+            if cid is not None:
+                self._fig.canvas.mpl_disconnect(cid)
+                setattr(self, atr, None)
+
+        # clean up the cursor
+        if self._cur is not None:
+            self._cur.disconnect_events()
+            del self._cur
+            self._cur = None
+
+    @auto_redraw
+    def init_artists(self, init_image):
+
+        # this is a tuple which is the max/min used in the color mapping.
+        # these values are also used to set the limits on the value
+        # axes of the parasite axes
+        # value_limits
+        im_shape = init_image.shape
+
+        # first deal with the image axis
+        # update the image, `update_artists` takes care of
+        # updating the actual artist
+        self._imdata = init_image
+
+        # update the extent of the image artist
+        self._im.set_extent([-0.5, im_shape[1] + .5,
+                             im_shape[0] + .5, -0.5])
+
+        # update the limits of the image axes to match the exent
+        self._im_ax.set_xlim([-.05, im_shape[1] + .5])
+        self._im_ax.set_ylim([im_shape[0] + .5, -0.5])
+
+        # update the format coords printer
+        numrows, numcols = im_shape
+
+        # note, this is a closure over numrows and numcols
+        def format_coord(x, y):
+            # adjust xy -> col, row
+            col = int(x + 0.5)
+            row = int(y + 0.5)
+            # make sure the point falls in the array
+            if col >= 0 and col < numcols and row >= 0 and row < numrows:
+                # if it does, grab the value
+                z = self._imdata[row, col]
+                return "X: {x:d} Y: {y:d} I: {i:.2f}".format(x=col, y=row, i=z)
+            else:
+                return "X: {x:d} Y: {y:d}".format(x=col, y=row)
+
+        # replace the current format_coord function
+        self._im_ax.format_coord = format_coord
+
+        # net deal with the parasite axes and artist
+        self._ln_v.set_data(np.zeros(im_shape[0]),
+                            np.arange(im_shape[0]))
+        self._ax_v.set_ylim([0, im_shape[0]])
+
+        self._ln_h.set_data(np.arange(im_shape[1]),
+                            np.zeros(im_shape[1]))
+        self._ax_h.set_xlim([0, im_shape[1]])
+        # mark as dirty
+        self._dirty = True
 
     def clear(self, event):
         self._ax_v_bk = self._fig.canvas.copy_from_bbox(self._ax_v.bbox)
@@ -473,7 +545,7 @@ class CrossSection(object):
     @active.setter
     def active(self, val):
         self._active = val
-        self.cur.active = val
+        self._cur.active = val
 
     @auto_redraw
     def update_interpolation(self, interpolation):
@@ -499,6 +571,11 @@ class CrossSection(object):
 
         The input data must be the same shape as the current image data
         """
+        if self._imdata.shape != new_image.shape:
+            raise ValueError(("New image shape ({}) does not match current"
+                             "image shape ({}).  Please use `init_artists`"
+                             "to change the size of the image shown").format(
+                                 self._imdata.shape, new_image.shape))
         self._imdata = new_image
         self._dirty = True
 
