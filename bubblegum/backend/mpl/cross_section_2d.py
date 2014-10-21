@@ -233,6 +233,8 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
 
 def auto_redraw(func):
     def inner(self, *args, **kwargs):
+        if self._fig.canvas is None:
+            return
         force_redraw = kwargs.pop('force_redraw', None)
         if force_redraw is None:
             force_redraw = self._auto_redraw
@@ -256,6 +258,9 @@ class CrossSection(object):
     Class to manage the axes, artists and properties associated with
     showing a 2D image, a cross-hair cursor and two parasite axes which
     provide horizontal and vertical cross sections of image.
+
+    You will likely need to call `CrossSection.init_artists(init_image)` after
+    creating this object.
 
     Parameters
     ----------
@@ -285,7 +290,7 @@ class CrossSection(object):
     interpolation
 
     """
-    def __init__(self, fig, init_image=None, cmap=None, norm=None,
+    def __init__(self, fig, cmap=None, norm=None,
                  limit_func=None, auto_redraw=True, interpolation=None):
 
         if interpolation is None:
@@ -390,11 +395,6 @@ class CrossSection(object):
         self._click_cid = None
         self._clear_cid = None
 
-        # if we have a cavas, then connect/set up junk
-        if self._fig.canvas is not None and init_image is not None:
-            self.init_artist_data(init_image)
-            self.connect_callbacks()
-
     # set up the call back for the updating the side axes
     def move_cb(self, event):
         if not self._active:
@@ -438,6 +438,7 @@ class CrossSection(object):
         """
         Connects all of the callbacks for the motion and click events
         """
+        self.disconnect_callbacks()
         self._cur = Cursor(self._im_ax, useblit=True, color='red', linewidth=2)
         self._move_cid = self._fig.canvas.mpl_connect('motion_notify_event',
                                                      self.move_cb)
@@ -530,6 +531,10 @@ class CrossSection(object):
         self._ln_h.set_data(np.arange(im_shape[1]),
                             np.zeros(im_shape[1]))
         self._ax_h.set_xlim([0, im_shape[1]])
+
+        # if we have a cavas, then connect/set up junk
+        if self._fig.canvas is not None:
+            self.connect_callbacks()
         # mark as dirty
         self._dirty = True
 
@@ -577,11 +582,8 @@ class CrossSection(object):
 
         The input data must be the same shape as the current image data
         """
-        if self._imdata.shape != new_image.shape:
-            raise ValueError(("New image shape ({}) does not match current"
-                             "image shape ({}).  Please use `init_artists`"
-                             "to change the size of the image shown").format(
-                                 self._imdata.shape, new_image.shape))
+        if self._imdata is None or self._imdata.shape != new_image.shape:
+            self.init_artists(new_image)
         self._imdata = new_image
         self._dirty = True
 
