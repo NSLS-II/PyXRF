@@ -374,7 +374,7 @@ class CrossSection(object):
         self._im_ax.format_coord = format_coord
 
         # add the cursor
-        self.cur = Cursor(self._im_ax, useblit=True, color='red', linewidth=2)
+        self.cur = None
 
         # set the y-axis scale for the horizontal cut
         self._ax_h.set_ylim(*vlim)
@@ -403,49 +403,54 @@ class CrossSection(object):
         self._row = None
         self._col = None
 
-        # set up the call back for the updating the side axes
-        def move_cb(event):
-            if not self._active:
-                return
+        if self._fig.canvas is not None:
+            self.init()
 
-            # short circuit on other axes
-            if event.inaxes is not self._im_ax:
-                return
-            numrows, numcols = self._imdata.shape
-            x, y = event.xdata, event.ydata
-            if x is not None and y is not None:
-                self._ln_h.set_visible(True)
-                self._ln_v.set_visible(True)
-                col = int(x + 0.5)
-                row = int(y + 0.5)
-                if row != self._row or col != self._col:
-                    if 0 <= col < numcols and 0 <= row <= numrows:
-                        self._col = col
-                        self._row = row
-                        for data, ax, bkg, art, set_fun in zip(
-                                (self._imdata[row, :], self._imdata[:, col]),
-                                (self._ax_h, self._ax_v),
-                                (self._ax_h_bk, self._ax_v_bk),
-                                (self._ln_h, self._ln_v),
-                                (self._ln_h.set_ydata, self._ln_v.set_xdata)):
-                            self._fig.canvas.restore_region(bkg)
-                            set_fun(data)
-                            ax.draw_artist(art)
-                            self._fig.canvas.blit(ax.bbox)
+    # set up the call back for the updating the side axes
+    def move_cb(self, event):
+        if not self._active:
+            return
 
-        def click_cb(event):
-            if event.inaxes is not self._im_ax:
-                return
-            self.active = not self.active
-            if self.active:
-                self.cur.onmove(event)
-                move_cb(event)
+        # short circuit on other axes
+        if event.inaxes is not self._im_ax:
+            return
+        numrows, numcols = self._imdata.shape
+        x, y = event.xdata, event.ydata
+        if x is not None and y is not None:
+            self._ln_h.set_visible(True)
+            self._ln_v.set_visible(True)
+            col = int(x + 0.5)
+            row = int(y + 0.5)
+            if row != self._row or col != self._col:
+                if 0 <= col < numcols and 0 <= row <= numrows:
+                    self._col = col
+                    self._row = row
+                    for data, ax, bkg, art, set_fun in zip(
+                            (self._imdata[row, :], self._imdata[:, col]),
+                            (self._ax_h, self._ax_v),
+                            (self._ax_h_bk, self._ax_v_bk),
+                            (self._ln_h, self._ln_v),
+                            (self._ln_h.set_ydata, self._ln_v.set_xdata)):
+                        self._fig.canvas.restore_region(bkg)
+                        set_fun(data)
+                        # ax.draw_artist(art)
+                        self._fig.canvas.blit(ax.bbox)
 
+    def click_cb(self, event):
+        if event.inaxes is not self._im_ax:
+            return
+        self.active = not self.active
+        if self.active:
+            self.cur.onmove(event)
+            self.move_cb(event)
+
+    def init(self):
+        self.cur = Cursor(self._im_ax, useblit=True, color='red', linewidth=2)
         self.move_cid = self._fig.canvas.mpl_connect('motion_notify_event',
-                                                     move_cb)
+                                                     self.move_cb)
 
         self.click_cid = self._fig.canvas.mpl_connect('button_press_event',
-                                                      click_cb)
+                                                      self.click_cb)
 
         self.clear_cid = self._fig.canvas.mpl_connect('draw_event', self.clear)
         self._fig.tight_layout()
