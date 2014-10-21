@@ -148,8 +148,8 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
     CrossSection2DView docstring
 
     """
-    # list of valid options for the interpolation parameter. The first one is the
-    # default value.
+    # list of valid options for the interpolation parameter. The first one is
+    # the default value.
     interpolation = _INTERPOLATION
 
     def __init__(self, fig, data_list, key_list, cmap=None, norm=None,
@@ -360,20 +360,18 @@ class CrossSection(object):
         # add the cursor place holder
         self._cur = None
 
-        # set the y-axis scale for the horizontal cut
+        # turn off auto-scale for the horizontal cut
         self._ax_h.autoscale(enable=False)
 
-        # set the y-axis scale for the vertical cut
+        # turn off auto-scale scale for the vertical cut
         self._ax_v.autoscale(enable=False)
 
-        # add lines
-        # 0
+        # create line artists
         self._ln_v, = self._ax_v.plot([],
                                       [], 'k-',
                                       animated=True,
                                       visible=False)
 
-        # 1
         self._ln_h, = self._ax_h.plot([],
                                       [], 'k-',
                                       animated=True,
@@ -478,11 +476,18 @@ class CrossSection(object):
 
     @auto_redraw
     def init_artists(self, init_image):
+        """
+        Update the CrossSection with a new base-image.  This function
+        takes care of setting up all of the details about the image size
+        in the limits/artist extent of the image and the secondary data
+        in the cross-section parasite plots.
 
-        # this is a tuple which is the max/min used in the color mapping.
-        # these values are also used to set the limits on the value
-        # axes of the parasite axes
-        # value_limits
+        Parameters
+        ----------
+        init_image : ndarray
+           An image to serve as the new 'base' image.
+        """
+
         im_shape = init_image.shape
 
         # first deal with the image axis
@@ -549,7 +554,8 @@ class CrossSection(object):
 
     @auto_redraw
     def update_interpolation(self, interpolation):
-        """Set the interpolation method
+        """
+        Set the interpolation method
 
         """
         self._dirty = True
