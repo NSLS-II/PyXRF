@@ -543,6 +543,12 @@ class CrossSection(object):
         self._ax_h_bk = self._fig.canvas.copy_from_bbox(self._ax_h.bbox)
         self._ln_h.set_visible(False)
         self._ln_v.set_visible(False)
+        # this involves reaching in and touching the guts of the
+        # cursor widget.  The problem is that the mpl widget
+        # skips updating it's saved background if the widget is inactive
+        if self._cur:
+            self._cur.background = self._cur.canvas.copy_from_bbox(
+                self._cur.canvas.figure.bbox)
 
     @property
     def interpolation(self):
