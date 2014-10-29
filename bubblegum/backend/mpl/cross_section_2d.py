@@ -203,7 +203,7 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
         new_image : 2D ndarray
            The new image to use
         """
-        self._xsection.update_artists()
+        self._xsection._update_artists()
 
     def update_norm(self, new_norm):
         """
@@ -216,7 +216,7 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
         Set the function to use to determine the color scale
 
         """
-        self._xsection.set_limit_func(limit_func)
+        self._xsection.update_limit_func(limit_func)
 
     def update_interpolation(self, interpolation):
         """
@@ -242,7 +242,7 @@ def auto_redraw(func):
         ret = func(self, *args, **kwargs)
 
         if force_redraw:
-            self.update_artists()
+            self._update_artists()
             self._draw()
 
         return ret
@@ -303,8 +303,10 @@ class CrossSection(object):
             limit_func = fullrange_limit_factory()
         if cmap is None:
             cmap = 'gray'
+        # stash the color map
+        self._cmap = cmap
         # let norm pass through as None, mpl defaults to linear which is fine
-
+        self._norm = norm
         # save a copy of the limit function, we will need it later
         self._limit_func = limit_func
 
@@ -342,7 +344,7 @@ class CrossSection(object):
         self._im_ax.xaxis.set_major_locator(NullLocator())
         self._im_ax.yaxis.set_major_locator(NullLocator())
         self._imdata = None
-        self._im = self._im_ax.imshow([[]], cmap=cmap, norm=norm,
+        self._im = self._im_ax.imshow([[]], cmap=self._cmap, norm=self._norm,
                         interpolation=self._interpolation,
                                       aspect='equal', vmin=0,
                                       vmax=1)
@@ -396,7 +398,7 @@ class CrossSection(object):
         self._clear_cid = None
 
     # set up the call back for the updating the side axes
-    def move_cb(self, event):
+    def _move_cb(self, event):
         if not self._active:
             return
 
@@ -425,33 +427,33 @@ class CrossSection(object):
                         ax.draw_artist(art)
                         self._fig.canvas.blit(ax.bbox)
 
-    def click_cb(self, event):
+    def _click_cb(self, event):
         if event.inaxes is not self._im_ax:
             return
         self.active = not self.active
         if self.active:
             self._cur.onmove(event)
-            self.move_cb(event)
+            self._move_cb(event)
 
     @auto_redraw
-    def connect_callbacks(self):
+    def _connect_callbacks(self):
         """
         Connects all of the callbacks for the motion and click events
         """
-        self.disconnect_callbacks()
+        self._disconnect_callbacks()
         self._cur = Cursor(self._im_ax, useblit=True, color='red', linewidth=2)
         self._move_cid = self._fig.canvas.mpl_connect('motion_notify_event',
-                                                     self.move_cb)
+                                                     self._move_cb)
 
         self._click_cid = self._fig.canvas.mpl_connect('button_press_event',
-                                                      self.click_cb)
+                                                      self._click_cb)
 
         self._clear_cid = self._fig.canvas.mpl_connect('draw_event',
-                                                       self.clear)
+                                                       self._clear)
         self._fig.tight_layout()
         self._fig.canvas.draw()
 
-    def disconnect_callbacks(self):
+    def _disconnect_callbacks(self):
         """
         Disconnects all of the callbacks
         """
@@ -476,7 +478,7 @@ class CrossSection(object):
             self._cur = None
 
     @auto_redraw
-    def init_artists(self, init_image):
+    def _init_artists(self, init_image):
         """
         Update the CrossSection with a new base-image.  This function
         takes care of setting up all of the details about the image size
@@ -534,11 +536,11 @@ class CrossSection(object):
 
         # if we have a cavas, then connect/set up junk
         if self._fig.canvas is not None:
-            self.connect_callbacks()
+            self._connect_callbacks()
         # mark as dirty
         self._dirty = True
 
-    def clear(self, event):
+    def _clear(self, event):
         self._ax_v_bk = self._fig.canvas.copy_from_bbox(self._ax_v.bbox)
         self._ax_h_bk = self._fig.canvas.copy_from_bbox(self._ax_h.bbox)
         self._ln_h.set_visible(False)
@@ -572,32 +574,33 @@ class CrossSection(object):
         Set the color map used
         """
         # TODO: this should stash new value, not apply it
-        self._im.set_cmap(cmap)
+        self._cmap = cmap
         self._dirty = True
 
     @auto_redraw
-    def update_image(self, new_image):
+    def update_image(self, image):
         """
         Set the image data
 
-        The input data must be the same shape as the current image data
+        The input data does not necessarily have to be the same shape as the
+        original image
         """
-        if self._imdata is None or self._imdata.shape != new_image.shape:
-            self.init_artists(new_image)
-        self._imdata = new_image
+        if self._imdata is None or self._imdata.shape != image.shape:
+            self._init_artists(image)
+        self._imdata = image
         self._dirty = True
 
     @auto_redraw
-    def update_norm(self, new_norm):
+    def update_norm(self, norm):
         """
         Update the way that matplotlib normalizes the image
         """
-        self._im.set_norm(new_norm)
+        self._norm = norm
         self._dirty = True
         self._cb_dirty = True
 
     @auto_redraw
-    def set_limit_func(self, limit_func):
+    def update_limit_func(self, limit_func):
         """
         Set the function to use to determine the color scale
         """
@@ -605,7 +608,7 @@ class CrossSection(object):
         self._limit_func = limit_func
         self._dirty = True
 
-    def update_artists(self):
+    def _update_artists(self):
         """
         Updates the figure by re-drawing
         """
@@ -625,6 +628,8 @@ class CrossSection(object):
         self._ax_h.set_ylim(*vlim)
         # set the imshow data
         self._im.set_data(self._imdata)
+        self._im.set_cmap(self._cmap)
+        self._im.set_norm(self._norm)
 
         # TODO if cb_dirty, remake the colorbar, I think this is
         # why changing the norm does not play well
