@@ -1,6 +1,6 @@
 package:
   name: bubblegum
-  version: {{ GIT_DESCRIBE_TAG  }}.post{{ environ['GIT_DESCRIBE_NUMBER'] }}
+  version: {{ environ['GIT_DESCRIBE_TAG'] }}.post{{ environ['GIT_DESCRIBE_NUMBER'] }}
 
 source:
   git_url: ../
