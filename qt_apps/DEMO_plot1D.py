@@ -40,11 +40,11 @@ Example usage of 1-D stack plot widget
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 from six.moves import zip
-from matplotlib.backends.qt4_compat import QtGui, QtCore
 import sys
 import numpy as np
 from collections import OrderedDict
 
+from bubblegum import QtCore, QtGui
 from bubblegum.qt_widgets import Stack1DMainWindow
 from bubblegum.messenger.mpl.stack_1d import Stack1DMessenger
 
