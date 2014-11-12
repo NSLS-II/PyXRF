@@ -39,7 +39,7 @@ from .. import QtCore, QtGui
 from six.moves import zip
 from matplotlib.widgets import Cursor
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from matplotlib.ticker import NullLocator
+from matplotlib.ticker import NullLocator, LinearLocator
 import numpy as np
 
 from . import AbstractMPLDataView
@@ -138,9 +138,9 @@ def percentile_limit_factory(limit_args):
 
 
 _INTERPOLATION = ['none', 'nearest', 'bilinear', 'bicubic', 'spline16',
-                     'spline36', 'hanning', 'hamming', 'hermite', 'kaiser',
-                     'quadric', 'catrom', 'gaussian', 'bessel', 'mitchell',
-                     'sinc', 'lanczos']
+                  'spline36', 'hanning', 'hamming', 'hermite', 'kaiser',
+                  'quadric', 'catrom', 'gaussian', 'bessel', 'mitchell',
+                  'sinc', 'lanczos']
 
 
 class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
@@ -177,14 +177,12 @@ class CrossSection2DView(AbstractDataView2D, AbstractMPLDataView):
         """
         if 'limit_args' in kwargs:
             raise Exception("changed API, don't use limit_args anymore, use closures")
-
         # call up the inheritance chain
         super(CrossSection2DView, self).__init__(fig=fig, data_list=data_list,
                                                  key_list=key_list, norm=norm,
                                                  cmap=cmap)
         self._xsection = CrossSection(fig,
-                                      self._data_dict[self._key_list[0]],
-                                      cmap=cmap, norm=norm,
+                                      cmap=self._cmap, norm=self._norm,
                                       limit_func=limit_func,
                                       interpolation=interpolation)
 
@@ -248,7 +246,7 @@ def auto_redraw(func):
         return ret
 
     inner.__name__ = func.__name__
-    inner.__doct__ = func.__doc__
+    inner.__doc__ = func.__doc__
 
     return inner
 
@@ -287,7 +285,13 @@ class CrossSection(object):
 
     Properties
     ----------
-    interpolation
+    interpolation : str
+        The stringly-typed pixel interpolation. See _INTERPOLATION attribute
+        of this cross_section_2d module
+    cmap : str
+        The colormap to use for rendering the image
+
+
 
     """
     def __init__(self, fig, cmap=None, norm=None,
@@ -356,10 +360,10 @@ class CrossSection(object):
         # (set up the horizontal and vertical cuts)
         self._ax_h = divider.append_axes('top', .5, pad=0.1,
                                          sharex=self._im_ax)
-        self._ax_h.yaxis.set_major_locator(NullLocator())
+        self._ax_h.yaxis.set_major_locator(LinearLocator(numticks=2))
         self._ax_v = divider.append_axes('left', .5, pad=0.1,
                                          sharey=self._im_ax)
-        self._ax_v.xaxis.set_major_locator(NullLocator())
+        self._ax_v.xaxis.set_major_locator(LinearLocator(numticks=2))
         self._ax_cb = divider.append_axes('right', .2, pad=.5)
         # add the color bar
         self._cb = fig.colorbar(self._im, cax=self._ax_cb)
@@ -644,3 +648,11 @@ class CrossSection(object):
 
     def _draw(self):
         self._fig.canvas.draw()
+
+    @auto_redraw
+    def autoscale_horizontal(self, enable):
+        self._ax_h.autoscale(enable=enable)
+
+    @auto_redraw
+    def autoscale_vertical(self, enable):
+        self._ax_v.autoscale(enable=False)
