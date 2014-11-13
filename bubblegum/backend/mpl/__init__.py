@@ -48,7 +48,7 @@ class AbstractMPLDataView(object):
     """
     Class docstring
     """
-    _default_cmap = 'jet'
+    _default_cmap = 'gray'
     _default_norm = cm.colors.Normalize(vmin=0, vmax=1)
 
     def __init__(self, fig, cmap=None, norm=None, *args, **kwargs):
