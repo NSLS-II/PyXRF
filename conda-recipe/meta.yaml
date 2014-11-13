@@ -1,0 +1,42 @@
+package:
+  name: bubblegum
+  version: {{ environ['GIT_DESCRIBE_TAG'] }}.post{{ environ['GIT_DESCRIBE_NUMBER'] }}
+
+source:
+  git_url: ../
+
+
+build:
+  number: 0
+  string: {{ environ.get('GIT_BUILD_STR', '') }}_np{{ np }}py{{ py }}
+
+requirements:
+  build:
+    - python
+    - distribute
+    - numpy
+    - six
+    - matplotlib
+  run:
+    - python
+    - numpy
+    - matplotlib
+    - pyqt
+    - six
+
+test:
+  requires:
+    - nose
+
+  imports:
+    - bubblegum
+    - bubblegum.qt_widgets
+    - bubblegum.messenger
+    - bubblegum.messenger.mpl
+    - bubblegum.backend
+    - bubblegum.backend.mpl
+
+
+about:
+  home: https://github.com/Nikea/bubblegum
+  license: 3-Clause BSD
