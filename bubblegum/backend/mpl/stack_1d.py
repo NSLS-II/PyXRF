@@ -222,9 +222,9 @@ class Stack1DView(AbstractDataView1D, AbstractMPLDataView):
         Override abstract base class to also clear the ordered dict mpl lines
         """
         # clear all data from the data_dict
-        self._data_dict._clear()
+        self._data_dict.clear()
         # clear all lines from the lines_dict
-        self._lines_dict._clear()
+        self._lines_dict.clear()
         # clear the artists
         self._ax.cla()
         # clear the list of keys
