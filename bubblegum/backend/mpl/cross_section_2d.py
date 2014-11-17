@@ -40,6 +40,7 @@ from six.moves import zip
 from matplotlib.widgets import Cursor
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.ticker import NullLocator, LinearLocator
+from matplotlib.colors import Normalize
 import numpy as np
 
 from . import AbstractMPLDataView
@@ -310,6 +311,8 @@ class CrossSection(object):
         # stash the color map
         self._cmap = cmap
         # let norm pass through as None, mpl defaults to linear which is fine
+        if norm is None:
+            norm = Normalize()
         self._norm = norm
         # save a copy of the limit function, we will need it later
         self._limit_func = limit_func
@@ -633,6 +636,7 @@ class CrossSection(object):
         vlim = self._limit_func(self._imdata)
         # set the color bar limits
         self._im.set_clim(vlim)
+        self._norm.vmin, self._norm.vmax = vlim
         # set the cross section axes limits
         self._ax_v.set_xlim(*vlim[::-1])
         self._ax_h.set_ylim(*vlim)
