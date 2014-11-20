@@ -298,6 +298,7 @@ class CrossSection(object):
     def __init__(self, fig, cmap=None, norm=None,
                  limit_func=None, auto_redraw=True, interpolation=None):
 
+        self._cursor_position_cbs = []
         if interpolation is None:
             interpolation = _INTERPOLATION[0]
         self._interpolation = interpolation
@@ -404,16 +405,32 @@ class CrossSection(object):
         self._click_cid = None
         self._clear_cid = None
 
+    def add_cursor_position_cb(self, callback):
+        """ Add a callback for the cursor position in the main axes
+
+        Parameters
+        ----------
+        callback : callable(cc, rr)
+            Function that gets called when the cursor position moves to a new
+            row or column on main axes
+        """
+        self._cursor_position_cbs.append(fun)
+
     # set up the call back for the updating the side axes
     def _move_cb(self, event):
         if not self._active:
             return
-
-        # short circuit on other axes
-        if event.inaxes is not self._im_ax:
-            return
+        if event is None:
+            x = self._col
+            y = self._row
+            self._col = None
+            self._row = None
+        else:
+            # short circuit on other axes
+            if event.inaxes is not self._im_ax:
+                return
+            x, y = event.xdata, event.ydata
         numrows, numcols = self._imdata.shape
-        x, y = event.xdata, event.ydata
         if x is not None and y is not None:
             self._ln_h.set_visible(True)
             self._ln_v.set_visible(True)
@@ -423,6 +440,8 @@ class CrossSection(object):
                 if 0 <= col < numcols and 0 <= row < numrows:
                     self._col = col
                     self._row = row
+                    for cb in self._cursor_position_cbs:
+                        cb(col, row)
                     for data, ax, bkg, art, set_fun in zip(
                             (self._imdata[row, :], self._imdata[:, col]),
                             (self._ax_h, self._ax_v),
@@ -433,6 +452,7 @@ class CrossSection(object):
                         set_fun(data)
                         ax.draw_artist(art)
                         self._fig.canvas.blit(ax.bbox)
+
 
     def _click_cb(self, event):
         if event.inaxes is not self._im_ax:
@@ -601,6 +621,7 @@ class CrossSection(object):
         if self._imdata is None or self._imdata.shape != image.shape:
             self._init_artists(image)
         self._imdata = image
+        self._move_cb(None)
         self._dirty = True
 
     @auto_redraw
