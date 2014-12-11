@@ -27,3 +27,4 @@ class XRF(Atom):
     def data_changed(self, data):
         print('The data was changed. First five lines of new data:\n{}'
               ''.format(self.data[:5]))
+

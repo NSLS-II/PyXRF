@@ -10,7 +10,7 @@ enamldef FileView(DockItem): file_view:
             PushButton: btn_folder:
                 text = "Open Folder"
                 clicked ::
-                    path = FileDialogEx.get_existing_directory(data_view)
+                    path = FileDialogEx.get_existing_directory(file_view)
                     if path:
                         xrf_model.folder_name = path
             Label: lbl_folder:
@@ -19,7 +19,7 @@ enamldef FileView(DockItem): file_view:
             PushButton:
                 text = "Open File"
                 clicked ::
-                    path = FileDialogEx.get_open_file_name(data_view, current_path=xrf_model.folder_name)
+                    path = FileDialogEx.get_open_file_name(file_view, current_path=xrf_model.folder_name)
                     if path:
                         xrf_model.file_name = path
             Label: lbl_file:
