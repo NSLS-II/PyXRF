@@ -1,0 +1,45 @@
+from enaml.widgets.api import (MainWindow, Container, PushButton, Label,
+                               Form, FileDialogEx, DockItem, DockArea)
+from enaml.layout.api import hbox, HSplitLayout
+import random
+
+enamldef FileView(DockItem): file_view:
+    attr xrf_model
+    Container:
+        Form:
+            PushButton: btn_folder:
+                text = "Open Folder"
+                clicked ::
+                    path = FileDialogEx.get_existing_directory(file_view)
+                    if path:
+                        xrf_model.folder_name = path
+            Label: lbl_folder:
+                text = 'folder name'
+                text << xrf_model.folder_name
+            PushButton:
+                text = "Open File"
+                clicked ::
+                    path = FileDialogEx.get_open_file_name(file_view, current_path=xrf_model.folder_name)
+                    if path:
+                        xrf_model.file_name = path
+            Label: lbl_file:
+                text = 'file name'
+                text << xrf_model.file_name
+
+enamldef FileGui(MainWindow): main_window:
+    title = 'X-ray Fluorescence Fitting GUI'
+    attr xrf_model1
+    attr xrf_model2
+    Container:
+        DockArea:
+            layout = HSplitLayout('view1', 'view2')
+            FileView: file_view1:
+                title = 'file view 1'
+                xrf_model = xrf_model1
+                name = 'view1'
+                pass
+            FileView: file_view2:
+                title = 'file view 2'
+                xrf_model = xrf_model2
+                name = 'view2'
+                pass

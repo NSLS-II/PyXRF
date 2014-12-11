@@ -64,5 +64,7 @@ setup(
     packages=['bubblegum',
               'bubblegum.qt_widgets',
               'bubblegum.messenger', 'bubblegum.messenger.mpl',
-              'bubblegum.backend', 'bubblegum.backend.mpl'],
+              'bubblegum.backend', 'bubblegum.backend.mpl',
+              'bubblegum.xrf', 'bubblegum.xrf.model',
+              'bubblegum.xrf.view'],
 )
