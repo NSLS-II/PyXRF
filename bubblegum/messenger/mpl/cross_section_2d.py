@@ -57,7 +57,7 @@ class CrossSection2DMessenger(AbstractMessenger2D, AbstractMPLMessenger):
     """
     This is a thin wrapper around mpl.CrossSectionViewer which
     manages the Qt side of the figure creation and provides slots
-    to pass commands down to the model-independent layer
+    to pass commands down to the gui-independent layer
     """
 
     def __init__(self, data_list, key_list, parent=None, *args, **kwargs):
@@ -361,7 +361,7 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
         (limit_fac, get_params) = self._intensity_behav_dict[str(im_behavior)]
         # stash the limit function factory for later use
         self._limit_factory = limit_fac
-        # fixes the model state, grabs default spinner values + spinner state
+        # fixes the gui state, grabs default spinner values + spinner state
         limits, state = get_params()
         # make the limit function
         limit_func = limit_fac(limits)
@@ -378,7 +378,7 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
 
     def _no_limit_config(self):
         """
-        Helper function to set up the model for the 'no limit'
+        Helper function to set up the gui for the 'no limit'
         (max/min) color bounds
         """
         # turn off the spin boxes
@@ -388,7 +388,7 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
 
     def _percentile_config(self):
         """
-        helper function to set up the model for use with the percentile
+        helper function to set up the gui for use with the percentile
         color bounds
         """
         # return full range
@@ -396,7 +396,7 @@ class CrossSection2DControlWidget(QtGui.QDockWidget):
 
     def _absolute_limit_config(self):
         """
-        Helper function to set up the model for use with absolute limits
+        Helper function to set up the gui for use with absolute limits
         """
         return (self._lo, self._hi), True
 

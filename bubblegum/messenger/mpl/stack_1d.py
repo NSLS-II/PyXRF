@@ -51,7 +51,7 @@ class Stack1DMessenger(AbstractMessenger1D, AbstractMPLMessenger):
     """
     This is a thin wrapper around images.CrossSectionViewer which
     manages the Qt side of the figure creation and provides slots
-    to pass commands down to the model-independent layer
+    to pass commands down to the gui-independent layer
     """
 
     def __init__(self, data_list=None, key_list=None, *args, **kwargs):
