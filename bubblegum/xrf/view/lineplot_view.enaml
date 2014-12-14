@@ -1,0 +1,57 @@
+from enaml.widgets.api import (Container, PushButton, Label,
+                               Form, Field, FileDialogEx, DockItem,
+                               DockArea, MPLCanvas, CheckBox, ComboBox)
+from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer
+import numpy as np
+
+from matplotlib.figure import Figure
+from skxray.fitting.xrf_model import (k_line, l_line, m_line)
+
+
+k_line_full = [item+'_K' for item in k_line]
+
+enamldef LinePlotView(DockItem):
+    attr io_model
+    attr plot_model
+
+    Container:
+        PushButton:
+            text = 'Plot Raw Spectrum'
+            clicked ::
+                plot_model.data = io_model.data
+        MPLCanvas: canvas:
+            figure = plot_model._fig
+
+
+enamldef PlotMain(DockItem):
+    attr io_model
+    attr plot_model
+    Container:
+        constraints = [
+            vbox(
+                hbox(cbox1, cbox2, pbn, check, spacer),
+                canvas,
+            ),
+            #cbox.v_center == check.v_center,
+        ]
+        ComboBox: cbox1:
+            items = ['LinLog', 'Linear']
+            index := plot_model.plot_opt
+            index = 0
+        ComboBox: cbox2:
+            items = ['Choose element by using arrow'] +\
+                    k_line_full + l_line + m_line
+            index := plot_model.element_id
+            index = 0
+        PushButton: pbn:
+            text = 'Plot Raw Spectrum'
+            clicked ::
+                plot_model.set_data(io_model.data)
+                plot_model.plot_raw()
+        CheckBox: check:
+            text = 'Toolbar Visible'
+            checked := canvas.toolbar_visible
+        MPLCanvas: canvas:
+            figure << plot_model._fig
+            #figures[cbox.selected_item]
+

@@ -1,45 +1,52 @@
-from enaml.widgets.api import (MainWindow, Container, PushButton, Label,
-                               Form, FileDialogEx, DockItem, DockArea)
-from enaml.layout.api import hbox, HSplitLayout
-import random
+from enaml.widgets.api import (Container, PushButton, Label,
+                               Form, Field, FileDialogEx, DockItem,
+                               DockArea, CheckBox, ComboBox)
+from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer
+import numpy as np
+
 
 enamldef FileView(DockItem): file_view:
-    attr xrf_model
+    attr io_model
     Container:
         Form:
+            Label: lb_tool_name:
+                text = io_model.tool_name
+        Form:
             PushButton: btn_folder:
-                text = "Open Folder"
+                text = "Set Folder Path"
                 clicked ::
                     path = FileDialogEx.get_existing_directory(file_view)
                     if path:
-                        xrf_model.folder_name = path
-            Label: lbl_folder:
-                text = 'folder name'
-                text << xrf_model.folder_name
+                        io_model.folder_name = path
+            Label:
+                text << io_model.folder_name
             PushButton:
-                text = "Open File"
+                text = "Open Single File"
                 clicked ::
-                    path = FileDialogEx.get_open_file_name(file_view, current_path=xrf_model.folder_name)
+                    path = FileDialogEx.get_open_file_name(file_view, current_path=io_model.folder_name)
                     if path:
-                        xrf_model.file_name = path
-            Label: lbl_file:
-                text = 'file name'
-                text << xrf_model.file_name
+                        pathlist = path.split('/')
+                        io_model.file_name = pathlist[-1]
+            Label:
+                text << io_model.file_name
+            PushButton:
+                text = 'Load Files'
+                clicked ::
+                    io_model.set_path()
+            Label:
+                text = 'load file'
+                text << io_model.load_status
 
-enamldef FileGui(MainWindow): main_window:
-    title = 'X-ray Fluorescence Fitting GUI'
-    attr xrf_model1
-    attr xrf_model2
+
+enamldef ParamGuessView(DockItem):
+    attr param_guess_model
     Container:
-        DockArea:
-            layout = HSplitLayout('view1', 'view2')
-            FileView: file_view1:
-                title = 'file view 1'
-                xrf_model = xrf_model1
-                name = 'view1'
-                pass
-            FileView: file_view2:
-                title = 'file view 2'
-                xrf_model = xrf_model2
-                name = 'view2'
-                pass
+        Form:
+            PushButton:
+                text = 'Plot Raw Spectrum'
+                clicked ::
+                    pass
+
+
+
+

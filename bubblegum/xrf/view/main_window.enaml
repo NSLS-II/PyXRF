@@ -1,0 +1,24 @@
+from enaml.widgets.api import (MainWindow, Container, DockArea)
+from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout
+
+from .file_view import FileView
+from .lineplot_view import PlotMain
+
+
+enamldef XRFGui(MainWindow): main_window:
+    title = 'X-ray Fluorescence Fitting GUI'
+    attr model1
+    attr model2
+    Container:
+        DockArea:
+            layout = VSplitLayout('file_view', 'param_guess_view')
+            FileView: file_view1:
+                title = 'File IO'
+                io_model = model1
+                name = 'file_view'
+                pass
+            PlotMain: file_view2:
+                io_model = model1
+                plot_model = model2
+                name = 'param_guess_view'
+                pass
