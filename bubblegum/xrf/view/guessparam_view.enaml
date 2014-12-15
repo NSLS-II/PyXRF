@@ -1,0 +1,147 @@
+from enaml.widgets.api import (Container, PushButton, Label,
+                               Form, Field, FileDialogEx, DockItem,
+                               DockArea, CheckBox, ComboBox, PopupView,
+                               SpinBox, ScrollArea, Window)
+from enaml.layout.api import (hbox, vbox, HSplitLayout, VSplitLayout,
+                              spacer, grid)
+from enaml.core.api import Include
+import numpy as np
+import six
+
+enamldef GuessParamView(DockItem):
+    attr param_m
+    attr fileio_m
+    attr plot_m
+
+    Container:
+        constraints = [
+            grid(
+                [lbl1, fd1, pb1],
+                [lbl2, fd2, pb2],
+                [lbl3, fd3, pb3],
+                [lbl4, fd4, pb4],
+                [lbl5, fd5, pb5],
+                [lbl6, fd6, pb6],
+                [lbl7, fd7, pb7],
+                [lbl8, fd8, pb8],
+                [lbl9, fd9, pb9],
+                [pb10, pb11],
+                [pb12, pb13, pb14],
+            ),
+        ]
+
+        Label: lbl1:
+            text = 'E incident [keV]'
+        Field: fd1:
+            text = str(param_m.param_d['coherent_sct_energy']['value'])
+        PushButton: pb1:
+            text = 'default value'
+            clicked ::
+                pass
+        Label: lbl2:
+            text = 'E low limit [keV]'
+        Field: fd2:
+            text = str(param_m.param_d['non_fitting_values']['energy_bound_low'])
+        PushButton: pb2:
+            text = 'default value'
+            clicked ::
+                pass
+        Label: lbl3:
+            text = 'E high limit [keV]'
+        Field: fd3:
+            text = str(param_m.param_d['non_fitting_values']['energy_bound_high'])
+        PushButton: pb3:
+            text = 'default value'
+            clicked ::
+                pass
+        Label: lbl4:
+            text = 'E Calib. Coef, a0'
+        Field: fd4:
+            text = str(param_m.param_d['e_offset']['value'])
+        PushButton: pb4:
+            text = 'default value'
+            clicked ::
+                pass
+        Label: lbl5:
+            text = 'E Calib. Coef, a1'
+        Field: fd5:
+            text = str(param_m.param_d['e_linear']['value'])
+        PushButton: pb5:
+            text = 'default value'
+            clicked ::
+                pass
+        Label: lbl6:
+            text = 'E Calib. Coef, a2'
+        Field: fd6:
+            text = str(param_m.param_d['e_quadratic']['value'])
+        PushButton: pb6:
+            text = 'default value'
+            clicked ::
+                pass
+        Label: lbl7:
+            text = 'fwhm Coef, b1'
+        Field: fd7:
+            text = str(param_m.param_d['fwhm_offset']['value'])
+        PushButton: pb7:
+            text = 'default value'
+            clicked ::
+                pass
+        Label: lbl8:
+            text = 'fwhm Coef, b2'
+        Field: fd8:
+            text = str(param_m.param_d['fwhm_fanoprime']['value'])
+        PushButton: pb8:
+            text = 'default value'
+            clicked ::
+                pass
+        Label: lbl9:
+            text = 'Compton fwhm Coef'
+        Field: fd9:
+            text = str(param_m.param_d['compton_fwhm_corr']['value'])
+        PushButton: pb9:
+            text = 'default value'
+            clicked ::
+                pass
+        PushButton: pb10:
+            text = 'Save'
+            clicked ::
+                pass
+        PushButton: pb11:
+            text = 'Save As'
+            clicked ::
+                pass
+        PushButton: pb12:
+            text = 'Find Peaks'
+            clicked ::
+                param_m.set_data(fileio_m.data)
+                param_m.find_peak()
+                param_m.arange_prefit_result()
+        CheckBox: pb13:
+            text = 'Add Plot'
+            clicked ::
+                plot_m.set_prefit_data(param_m.prefit_x, param_m.total_y, param_m.total_y_l)
+                plot_m.set_prefit_bg(param_m.prefit_bg)
+                plot_m.plot_data()
+        PushButton: pb14:
+            text = 'Show Results'
+            clicked ::
+                PreFitResult.param_m = param_m
+                PreFitResult().show()
+
+
+enamldef PreFitResult(Window):
+    attr param_m
+    #foreground = 'white'
+    #background = 'rgba(30, 30, 30, 0.85)'
+    Container:
+        Label:
+            text = 'Auto Peak Finding Results'
+        Include:
+            # This generates a completely new list of widgets each
+            # time the spin box is changed. All the old widgets
+            # will be destroyed. This is the simplest way to use
+            # the Include, albeit not the most efficient.
+            #objects << [Field(text=str(i)) for i in param_m.total_y_l]
+
+            objects << [Label(text=str(k)+' '+str(np.around(np.sum(v), 1)))
+                        for k, v in six.iteritems(param_m.result_dict)]

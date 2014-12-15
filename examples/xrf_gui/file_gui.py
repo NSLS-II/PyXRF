@@ -2,18 +2,22 @@ __author__ = 'edill'
 
 import enaml
 from enaml.qt.qt_application import QtApplication
-from bubblegum.xrf.model.xrf_model import FileIOModel, LinePlotModel
+from bubblegum.xrf.model.fileio_model import FileIOModel
+from bubblegum.xrf.model.lineplot_model import LinePlotModel
+from bubblegum.xrf.model.guessparam_model import GuessParamModel
+
 
 def run():
     app = QtApplication()
     with enaml.imports():
         from bubblegum.xrf.view.main_window import XRFGui
 
-    view = XRFGui()
-    view.model1 = FileIOModel()
-    view.model2 = LinePlotModel()
+    xrfview = XRFGui()
+    xrfview.file_M = FileIOModel()
+    xrfview.p_guess_M = GuessParamModel()
+    xrfview.plot_M = LinePlotModel()
 
-    view.show()
+    xrfview.show()
     app.start()
 
 

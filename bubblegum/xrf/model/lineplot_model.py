@@ -1,50 +1,14 @@
 from pprint import pprint
-from atom.api import Atom, Str, observe, Typed, Int
 import numpy as np
-import os
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+#from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_qt4agg import NavigationToolbar2QTAgg as NavigationToolbar
-from skxray.fitting.xrf_model import (ModelSpectrum, set_range, k_line,
-                                      l_line, m_line, get_linear_model, PreFitAnalysis)
-from skxray.fitting.background import snip_method
+
+from atom.api import Atom, Str, observe, Typed, Int
+
+from skxray.fitting.xrf_model import (k_line, l_line, m_line)
 from skxray.constants.api import XrfElement as Element
-
-
-class FileIOModel(Atom):
-    tool_name = Str('PyXRF: X-ray Fluorescence Analysis Tool')
-    folder_name = Str('')
-    file_name = Str('')
-    data = Typed(object)
-    file_path = Str()
-    load_status = Str()
-    #tool_name = 'PyXRF'
-
-    @observe('folder_name', 'file_name')
-    def update(self, changed):
-        pprint(changed)
-        if changed['type'] == 'create':
-            return
-        print('{} was changed from {} to {}'.format(changed['name'],
-                                                    changed['oldvalue'],
-                                                    changed['value']))
-        #if changed['name'] == 'file_name':
-        #    self.load_data()
-
-    @observe('data')
-    def data_changed(self, data):
-        print('The data was changed. First five lines of new data:\n{}'
-              ''.format(self.data[:5]))
-
-    def set_path(self):
-        self.file_path = os.path.join(self.folder_name, self.file_name)
-        if os.path.exists(self.file_path):
-            self.load_status = 'File {0} is loaded successfully.'.format(self.file_name)
-            self.data = np.loadtxt(self.file_path)
-        else:
-            self.load_status = 'File {0} does not exist.'.format(self.file_name)
 
 
 class LinePlotModel(Atom):
@@ -56,24 +20,21 @@ class LinePlotModel(Atom):
     incident_energy = Typed(object)
     elist = Typed(object)
     plot_opt = Int(0)
+    total_y = Typed(object)
+    total_y_l = Typed(object)
+    prefit_bg = Typed(object)
+    prefit_x = Typed(object)
 
     def __init__(self, data=None):
-            super(LinePlotModel, self).__init__()
-            # mpl setup
-            #self._fig = plt.figure()
-            self._fig = Figure()
-            self.elist = []
-            #self._ax = self._fig.add_subplot(111)
-
-    @observe('data')
-    def _new_data(self, change):
-        print('data changed')
-        data_arr = np.asarray(self.data)
-        #self._ax.imshow(data_arr)
-        print 'data is: ', data_arr
-        pprint(change)
-        #x_v = np.arange(len(data_arr))*0.01
-        #self._ax.plot(x_v, data_arr)
+        super(LinePlotModel, self).__init__()
+        # mpl setup
+        self._fig = plt.figure()
+        self._ax = self._fig.add_subplot(111)
+        #self._fig = Figure()
+        self.elist = []
+        self.total_y = []
+        self.total_y_l = []
+        self.prefit_bg = []
 
     def set_data(self, data):
         self.data = data
@@ -81,14 +42,13 @@ class LinePlotModel(Atom):
     @observe('plot_opt')
     def _new_opt(self, change):
         if change['type'] == 'update':
-            self.plot_raw()
+            self.plot_data()
 
-    def plot_raw(self):
+    def plot_data(self):
         plot_type = ['LinLog', 'Linear']
-        self._ax = self._fig.add_subplot(111)
+        #self._ax = self._fig.add_subplot(111)
         self._ax.hold(False)
         data_arr = np.asarray(self.data)
-        #self._ax.imshow(data_arr)
         print 'data is: ', data_arr
         x_v = np.arange(len(data_arr))*0.01
 
@@ -102,7 +62,6 @@ class LinePlotModel(Atom):
             self._ax.hold(True)
             for i in range(len(self.elist)):
                 if plot_type[self.plot_opt] == 'Linear':
-                    self._ax.plot(x_v, data_arr)
                     self._ax.plot([self.elist[i][0], self.elist[i][0]],
                                   [minv, self.elist[i][1]*np.max(data_arr)],
                                   'r-', linewidth=2.0)
@@ -111,11 +70,43 @@ class LinePlotModel(Atom):
                                       [minv, self.elist[i][1]*np.max(data_arr)],
                                       'r-', linewidth=2.0)
 
+        if len(self.total_y) != 0:
+            self._ax.hold(True)
+            if plot_type[self.plot_opt] == 'Linear':
+                if len(self.prefit_bg) != 0:
+                    self._ax.plot(self.prefit_x, self.prefit_bg, 'grey')
+                    self._ax.plot(self.prefit_x, np.sum(self.total_y, axis=1) +
+                                  np.sum(self.total_y_l, axis=1)+self.prefit_bg, 'b-', label='prefit')
+                else:
+                    self._ax.plot(self.prefit_x, np.sum(self.total_y, axis=1) +
+                                  np.sum(self.total_y_l, axis=1), 'b-', label='prefit')
+
+                self._ax.plot(self.prefit_x, self.total_y, 'g-')
+                self._ax.plot(self.prefit_x, self.total_y_l, 'purple')
+            else:
+                if len(self.prefit_bg) != 0:
+                    self._ax.semilogy(self.prefit_x, self.prefit_bg, 'grey')
+                    self._ax.semilogy(self.prefit_x, np.sum(self.total_y, axis=1) +
+                                      np.sum(self.total_y_l, axis=1)+self.prefit_bg, 'b-', label='prefit')
+                else:
+                    self._ax.semilogy(self.prefit_x, np.sum(self.total_y, axis=1) +
+                                      np.sum(self.total_y_l, axis=1), 'b-', label='prefit')
+
+                self._ax.semilogy(self.prefit_x, self.total_y, 'g-')
+                self._ax.semilogy(self.prefit_x, self.total_y_l, 'purple')
+            self._ax.set_xlim([self.prefit_x[0], self.prefit_x[-1]])
+
+        self._ax.set_ylim([minv, np.max(data_arr)*2.0])
+        self._ax.set_xlabel('Energy [keV]')
+        self._ax.set_ylabel('Counts')
+
         self._fig.canvas.draw()
 
     @observe('element_id')
     def set_element(self, change):
         if change['value'] == 0:
+            self.elist = []
+            self.plot_data()
             return
 
         self.elist = []
@@ -148,4 +139,17 @@ class LinePlotModel(Atom):
                     self.elist.append((e.emission_line.all[i][1],
                                        e.cs(self.incident_energy).all[i][1]/e.cs(self.incident_energy).all[17][1]))
 
-        self.plot_raw()
+        self.plot_data()
+
+    def set_prefit_data(self, prefit_x, total_y, total_y_l):
+        self.prefit_x = prefit_x
+        # k lines
+        self.total_y = total_y
+        # l lines
+        self.total_y_l = total_y_l
+
+    def set_prefit_bg(self, prefit_bg):
+        """
+        set background from prefit plot
+        """
+        self.prefit_bg = prefit_bg

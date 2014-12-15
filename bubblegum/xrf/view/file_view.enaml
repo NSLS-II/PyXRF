@@ -1,6 +1,6 @@
 from enaml.widgets.api import (Container, PushButton, Label,
                                Form, Field, FileDialogEx, DockItem,
-                               DockArea, CheckBox, ComboBox)
+                               DockArea, CheckBox, ComboBox, ScrollArea)
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer
 import numpy as np
 
@@ -18,8 +18,8 @@ enamldef FileView(DockItem): file_view:
                     path = FileDialogEx.get_existing_directory(file_view)
                     if path:
                         io_model.folder_name = path
-            Label:
-                text << io_model.folder_name
+            Field:
+                text := io_model.folder_name
             PushButton:
                 text = "Open Single File"
                 clicked ::
@@ -27,26 +27,13 @@ enamldef FileView(DockItem): file_view:
                     if path:
                         pathlist = path.split('/')
                         io_model.file_name = pathlist[-1]
-            Label:
-                text << io_model.file_name
+            Field:
+                text := io_model.file_name
             PushButton:
                 text = 'Load Files'
                 clicked ::
                     io_model.set_path()
-            Label:
-                text = 'load file'
+                    #load_lbl.text = io_model.load_status
+            Label: load_lbl:
+                text = ' '
                 text << io_model.load_status
-
-
-enamldef ParamGuessView(DockItem):
-    attr param_guess_model
-    Container:
-        Form:
-            PushButton:
-                text = 'Plot Raw Spectrum'
-                clicked ::
-                    pass
-
-
-
-
