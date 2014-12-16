@@ -29,11 +29,12 @@ enamldef FileView(DockItem): file_view:
                         io_model.file_name = pathlist[-1]
             Field:
                 text := io_model.file_name
-            PushButton:
-                text = 'Load Files'
-                clicked ::
-                    io_model.set_path()
-                    #load_lbl.text = io_model.load_status
+                submit_triggers = ['lost_focus', 'return_pressed', 'auto_sync']
+            #PushButton:
+            #    text = 'Load Files'
+            #    clicked ::
+            #        io_model.load_data()
+                    #load_lbl.text = str(io_model.load_status)
             Label: load_lbl:
                 text = ' '
                 text << io_model.load_status

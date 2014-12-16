@@ -3,15 +3,21 @@ from atom.api import Atom, Str, observe, Typed, Int, Unicode
 import numpy as np
 import os
 
+folder = '/Users/Li/Research/X-ray/Research_work/all_code/nsls2_gui/nsls2_gui'
+file = 'NSLS_X27.txt'
+data_path = os.path.join(folder, file)
+the_data = np.loadtxt(data_path)
 
 class FileIOModel(Atom):
     tool_name = Str('PyXRF: X-ray Fluorescence Analysis Tool')
-    folder_name = Str('')
-    file_name = Str('')
-    data = Typed(object)
-    file_path = Str()
+    folder_name = Str(folder)
+    file_name = Str(file)
+    data = Typed(np.ndarray)
+    file_path = Str(data_path)
     load_status = Str()
-    #tool_name = 'PyXRF'
+
+    def __init__(self):
+        self.load_data()
 
     @observe('folder_name', 'file_name')
     def update(self, changed):
@@ -23,20 +29,20 @@ class FileIOModel(Atom):
                                                     changed['value']))
         #if changed['name'] == 'file_name':
         #    self.load_data()
+        self.file_path = os.path.join(self.folder_name, self.file_name)
+
+    @observe('file_path')
+    def path_changed(self, changed):
+        self.load_data()
 
     @observe('data')
     def data_changed(self, data):
         print('The data was changed. First five lines of new data:\n{}'
               ''.format(self.data[:5]))
 
-    def set_path(self):
-        self.file_path = os.path.join(self.folder_name, self.file_name)
-        if os.path.exists(self.file_path):
-            self.load_status = 'File {0} is loaded successfully.'.format(self.file_name)
+    def load_data(self):
+        try:
             self.data = np.loadtxt(self.file_path)
-        else:
+            self.load_status = 'File {0} is loaded successfully.'.format(self.file_name)
+        except IOError:
             self.load_status = 'File {0} does not exist.'.format(self.file_name)
-
-    @observe('load_status')
-    def _new_status(self, changed):
-        pprint('status changes.')

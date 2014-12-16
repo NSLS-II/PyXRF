@@ -1,5 +1,6 @@
 from pprint import pprint
 import numpy as np
+import six
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 #from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
@@ -53,9 +54,9 @@ class LinePlotModel(Atom):
         x_v = np.arange(len(data_arr))*0.01
 
         if plot_type[self.plot_opt] == 'Linear':
-            self._ax.plot(x_v, data_arr)
+            self._ax.plot(x_v, data_arr, 'b-', label='experiment')
         else:
-            self._ax.semilogy(x_v, data_arr)
+            self._ax.semilogy(x_v, data_arr, 'b-', label='experiment')
 
         minv = np.min(data_arr)
         if len(self.elist) != 0:
@@ -65,38 +66,80 @@ class LinePlotModel(Atom):
                     self._ax.plot([self.elist[i][0], self.elist[i][0]],
                                   [minv, self.elist[i][1]*np.max(data_arr)],
                                   'r-', linewidth=2.0)
+                    self._ax.set_ylim([minv, np.max(data_arr)*1.5])
                 else:
                     self._ax.semilogy([self.elist[i][0], self.elist[i][0]],
                                       [minv, self.elist[i][1]*np.max(data_arr)],
                                       'r-', linewidth=2.0)
+                    self._ax.set_ylim([minv, np.max(data_arr)*10.0])
 
         if len(self.total_y) != 0:
             self._ax.hold(True)
             if plot_type[self.plot_opt] == 'Linear':
-                if len(self.prefit_bg) != 0:
-                    self._ax.plot(self.prefit_x, self.prefit_bg, 'grey')
-                    self._ax.plot(self.prefit_x, np.sum(self.total_y, axis=1) +
-                                  np.sum(self.total_y_l, axis=1)+self.prefit_bg, 'b-', label='prefit')
-                else:
-                    self._ax.plot(self.prefit_x, np.sum(self.total_y, axis=1) +
-                                  np.sum(self.total_y_l, axis=1), 'b-', label='prefit')
+                # last dim is background
+                sum = 0
+                for i, (k, v) in enumerate(six.iteritems(self.total_y)):
+                    if k=='background':
+                        self._ax.plot(self.prefit_x, v, 'grey')
+                    else:
+                        self._ax.plot(self.prefit_x, v, 'g-', label='k line')
+                    sum += v
 
-                self._ax.plot(self.prefit_x, self.total_y, 'g-')
-                self._ax.plot(self.prefit_x, self.total_y_l, 'purple')
+                if len(self.total_y_l) != 0:
+                    for i, (k, v) in enumerate(six.iteritems(self.total_y_l)):
+                        if i == 0:
+                            self._ax.plot(self.prefit_x, v, 'purple', label='l line')
+                        else:
+                            self._ax.plot(self.prefit_x, v, 'purple')
+                        sum += v
+
+                self._ax.plot(self.prefit_x, sum, 'k*', markersize=2, label='prefit')
+                self._ax.set_ylim([minv, np.max(data_arr)*1.5])
+                #self._ax.plot(self.prefit_x, self.total_y[:, -1], 'grey')
+                #self._ax.plot(self.prefit_x, np.sum(self.total_y, axis=1) +
+                #              np.sum(self.total_y_l, axis=1), 'b-', label='prefit')
+                #self._ax.plot(self.prefit_x, self.total_y[:, 0], 'g-', label='k line')
+                #self._ax.plot(self.prefit_x, self.total_y_l[:, 0], 'purple', label='l line')
+                #self._ax.plot(self.prefit_x, self.total_y[:, 1:-1], 'g-')
+                #self._ax.plot(self.prefit_x, self.total_y_l[:, 1:-1], 'purple')
+                #self._ax.set_ylim([minv, np.max(data_arr)*1.5])
             else:
-                if len(self.prefit_bg) != 0:
-                    self._ax.semilogy(self.prefit_x, self.prefit_bg, 'grey')
-                    self._ax.semilogy(self.prefit_x, np.sum(self.total_y, axis=1) +
-                                      np.sum(self.total_y_l, axis=1)+self.prefit_bg, 'b-', label='prefit')
-                else:
-                    self._ax.semilogy(self.prefit_x, np.sum(self.total_y, axis=1) +
-                                      np.sum(self.total_y_l, axis=1), 'b-', label='prefit')
+                sum = 0
+                for i, (k, v) in enumerate(six.iteritems(self.total_y)):
+                    if k == 'background':
+                        self._ax.semilogy(self.prefit_x, v, 'grey')
+                    else:
+                        if i == 0:
+                            self._ax.semilogy(self.prefit_x, v, 'g-', label='k line')
+                        else:
+                            self._ax.semilogy(self.prefit_x, v, 'g-')
+                    sum += v
 
-                self._ax.semilogy(self.prefit_x, self.total_y, 'g-')
-                self._ax.semilogy(self.prefit_x, self.total_y_l, 'purple')
+                if len(self.total_y_l) != 0:
+                    for i, (k, v) in enumerate(six.iteritems(self.total_y_l)):
+                        if i == 0:
+                            self._ax.semilogy(self.prefit_x, v, 'purple', label='l line')
+                        else:
+                            self._ax.semilogy(self.prefit_x, v, 'purple')
+                        sum += v
+
+                self._ax.semilogy(self.prefit_x, sum, 'k*', markersize=2, label='prefit')
+                self._ax.set_ylim([minv, np.max(data_arr)*10.0])
+
+                #self._ax.semilogy(self.prefit_x, self.total_y[:, -1], 'grey')
+                #self._ax.semilogy(self.prefit_x, np.sum(self.total_y, axis=1) +
+                #                  np.sum(self.total_y_l, axis=1),
+                #                  'b*', markersize=2, label='prefit')
+                #self._ax.semilogy(self.prefit_x, self.total_y[:, 0], 'g-', label='k line')
+                #self._ax.semilogy(self.prefit_x, self.total_y_l[:, 0], 'purple', label='l line')
+                #self._ax.semilogy(self.prefit_x, self.total_y[:, 1:-1], 'g-')
+                #self._ax.semilogy(self.prefit_x, self.total_y_l[:, 1:-1], 'purple')
+                #self._ax.set_ylim([minv, np.max(data_arr)*10.0])
+            #print('prefit result: {}'.format(self.prefit_x))
             self._ax.set_xlim([self.prefit_x[0], self.prefit_x[-1]])
 
-        self._ax.set_ylim([minv, np.max(data_arr)*2.0])
+        self._ax.legend(loc=0)
+
         self._ax.set_xlabel('Energy [keV]')
         self._ax.set_ylabel('Counts')
 
@@ -147,9 +190,3 @@ class LinePlotModel(Atom):
         self.total_y = total_y
         # l lines
         self.total_y_l = total_y_l
-
-    def set_prefit_bg(self, prefit_bg):
-        """
-        set background from prefit plot
-        """
-        self.prefit_bg = prefit_bg

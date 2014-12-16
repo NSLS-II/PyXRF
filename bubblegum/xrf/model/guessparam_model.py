@@ -2,6 +2,7 @@ import numpy as np
 import json
 import six
 from collections import OrderedDict
+import copy
 
 from atom.api import Atom, Str, observe, Typed, Int
 
@@ -18,6 +19,8 @@ param_path = '/Users/Li/Research/X-ray/Research_work/all_code/nsls2_gui/nsls2_gu
 
 class GuessParamModel(Atom):
     param_d = Typed(object)
+    param_d_perm = Typed(object)
+    #incident_e = Typed(object)
     data = Typed(object)
     prefit_x = Typed(object)
     result_dict = Typed(object)
@@ -30,7 +33,12 @@ class GuessParamModel(Atom):
     def __init__(self,
                  filepath=param_path):
         json_data = open(filepath, 'r')
-        self.param_d = json.load(json_data)
+        self.param_d_perm = json.load(json_data)
+        #self.param_d_perm = json.load(json_data)
+        #self.incident_e = self.param_d['coherent_sct_energy']['value']
+        self.param_d = copy.deepcopy(self.param_d_perm)
+        self.total_y = {}
+        self.total_y_l = {}
 
     def set_data(self, data):
         """
@@ -46,6 +54,10 @@ class GuessParamModel(Atom):
 
         x0 = np.arange(len(self.data))
         x0, self.data_cut = set_range(self.param_d, x0, self.data)
+
+        self.prefit_bg = get_background(self.data_cut)
+        self.result_dict.update(background=self.prefit_bg)
+
         # save the plotting status for a given element peak
         self.status_dict = {}
         for k, v in six.iteritems(self.result_dict):
@@ -60,8 +72,6 @@ class GuessParamModel(Atom):
         #self.x0, self.y0 = set_range(self.para_d, self.x0, self.y0)
         self.total_y = self.result_dict.copy()
 
-        self.prefit_bg = get_background(self.data_cut)
-
         # update plotting status based on self.status_dict
         for k, v in six.iteritems(self.status_dict):
             if v is False:
@@ -73,11 +83,11 @@ class GuessParamModel(Atom):
                 self.total_y_l.update({k: v})
                 del self.total_y[k]
 
-        self.total_y = np.array(self.total_y.values())
-        self.total_y = self.total_y.transpose()
+        #self.total_y = np.array(self.total_y.values())
+        #self.total_y = self.total_y.transpose()
 
-        self.total_y_l = np.array(self.total_y_l.values())
-        self.total_y_l = self.total_y_l.transpose()
+        #self.total_y_l = np.array(self.total_y_l.values())
+        #self.total_y_l = self.total_y_l.transpose()
 
 
 def pre_fit_linear(parameter_dict, y0):
@@ -113,8 +123,11 @@ def pre_fit_linear(parameter_dict, y0):
 
     result_dict = OrderedDict()
     for i in range(len(total_list)):
-        result_dict.update({total_list[i]: total_y[:, i]})
-    #result_dict = OrderedDict(zip(total_list, np.sum(total_y, axis=0)*0.01))
+        if '_L' not in total_list[i]:
+            # add '_K' to the end of element name
+            result_dict.update({total_list[i]+'_K': total_y[:, i]})
+        else:
+            result_dict.update({total_list[i]: total_y[:, i]})
 
     for k, v in six.iteritems(result_dict):
         if sum(v) == 0:

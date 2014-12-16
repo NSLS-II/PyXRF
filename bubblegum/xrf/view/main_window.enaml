@@ -22,7 +22,7 @@ enamldef XRFGui(MainWindow): main_window:
                 io_model = file_M
                 name = 'file_view'
             GuessParamView: file_view2:
-                title = 'Initial guess'
+                title = 'Initial Parameter Guess '
                 param_m = p_guess_M
                 fileio_m = file_M
                 plot_m = plot_M

@@ -27,7 +27,7 @@ enamldef PlotMain(DockItem):
             index := plot_model.plot_opt
             index = 0
         ComboBox: cbox2:
-            items = ['Choose element by using arrow'] +\
+            items = ['Choose emission line by using arrow'] +\
                     k_line_full + l_line + m_line
             index := plot_model.element_id
             index = 0
