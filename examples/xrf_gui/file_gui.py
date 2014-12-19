@@ -1,6 +1,7 @@
 __author__ = 'edill'
 
 import enaml
+from enaml.widgets.api import Window
 from enaml.qt.qt_application import QtApplication
 from bubblegum.xrf.model.fileio_model import FileIOModel
 from bubblegum.xrf.model.lineplot_model import LinePlotModel
@@ -13,13 +14,15 @@ def run():
         from bubblegum.xrf.view.main_window import XRFGui
 
     xrfview = XRFGui()
+
     xrfview.file_M = FileIOModel()
     xrfview.p_guess_M = GuessParamModel()
     xrfview.plot_M = LinePlotModel()
+    #Window.always_on_top = True
 
     xrfview.show()
-    app.start()
 
+    app.start()
 
 if __name__ == "__main__":
     run()

@@ -1,12 +1,14 @@
-from enaml.widgets.api import (MainWindow, Container, DockArea)
+from enaml.widgets.api import (MainWindow, Container, DockArea, Window)
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout
 
 from .file_view import FileView
 from .guessparam_view import GuessParamView, PreFitResult
 from .lineplot_view import PlotMain
+from .fitting_view import FitView
 
 
 enamldef XRFGui(MainWindow): main_window:
+    always_on_top = True
     title = 'X-ray Fluorescence Fitting GUI'
     attr file_M
     attr p_guess_M
@@ -14,20 +16,23 @@ enamldef XRFGui(MainWindow): main_window:
     Container:
         DockArea:
             layout = HSplitLayout(
-                VSplitLayout('file_view', 'param_guess_view'),
+                VSplitLayout('file_view', 'param_guess_view', 'fitting_view_n'),
+                #VSplitLayout('file_view', 'fitting_view_n'),
                 'lineplot_view',
                 )
-            FileView: file_view1:
+            FileView:
                 title = 'File IO'
                 io_model = file_M
                 name = 'file_view'
-            GuessParamView: file_view2:
+            GuessParamView:
                 title = 'Initial Parameter Guess '
                 param_m = p_guess_M
                 fileio_m = file_M
                 plot_m = plot_M
                 name = 'param_guess_view'
-            PlotMain: file_view3:
+            PlotMain:
                 io_model = file_M
                 plot_model = plot_M
                 name = 'lineplot_view'
+            FitView:
+                name = 'fitting_view_n'

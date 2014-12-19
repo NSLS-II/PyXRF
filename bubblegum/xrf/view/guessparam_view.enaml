@@ -27,7 +27,7 @@ enamldef GuessParamView(DockItem):
         ]
         Container: top_cntr:
             ScrollArea:
-                constraints = [height <= 200]
+                constraints = [height <= 150]
                 Container:
                     constraints = [
                         grid(
@@ -155,7 +155,7 @@ enamldef GuessParamView(DockItem):
 
                     Label: lbl7:
                         text = 'fwhm Coef, b1 [keV]'
-                        tool_tip = 'width**2 = (b1/2.3548)**2 + 3.85*b2*E'
+                        tool_tip = 'width**2 = (b1/2.3548)**2 + 3.85*b2*E, 3.85keV is electron-hole pair creation energy in silicon'
                     FloatField: fd7:
                         enabled = False
                         value := param_m.param_d['fwhm_offset']['value']
@@ -172,7 +172,7 @@ enamldef GuessParamView(DockItem):
 
                     Label: lbl8:
                         text = 'fwhm Coef, b2'
-                        tool_tip = 'width**2 = (b1/2.3548)**2 + 3.85*b2*E, 3.85keV is electron-hole pair creation energy in silicon '
+                        tool_tip = 'width**2 = (b1/2.3548)**2 + 3.85*b2*E, 3.85keV is electron-hole pair creation energy in silicon'
                     FloatField: fd8:
                         enabled = False
                         value = param_m.param_d['fwhm_fanoprime']['value']
