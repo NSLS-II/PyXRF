@@ -21,20 +21,21 @@ enamldef FileView(DockItem): file_view:
             Field:
                 text := io_model.folder_name
             PushButton:
-                text = "Open Single File"
+                text = "Open File"
                 clicked ::
                     path = FileDialogEx.get_open_file_name(file_view, current_path=io_model.folder_name)
                     if path:
                         pathlist = path.split('/')
                         io_model.file_name = pathlist[-1]
-            Field:
+                        fd.text = pathlist[-1]
+            Field: fd:
                 text := io_model.file_name
-                submit_triggers = ['lost_focus', 'return_pressed', 'auto_sync']
+                #submit_triggers = ['lost_focus', 'return_pressed', 'auto_sync']
             #PushButton:
             #    text = 'Load Files'
             #    clicked ::
             #        io_model.load_data()
-                    #load_lbl.text = str(io_model.load_status)
+            #        load_lbl.text = io_model.load_status
             Label: load_lbl:
                 text = ' '
                 text << io_model.load_status

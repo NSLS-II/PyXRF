@@ -34,6 +34,7 @@ enamldef PlotMain(DockItem):
         PushButton: pbn:
             text = 'Plot Raw Spectrum'
             clicked ::
+                plot_model.plot_title = io_model.file_name
                 plot_model.set_data(io_model.data)
                 plot_model.plot_data()
         CheckBox: check:

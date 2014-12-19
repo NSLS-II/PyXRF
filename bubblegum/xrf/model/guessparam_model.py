@@ -4,7 +4,7 @@ import six
 from collections import OrderedDict
 import copy
 
-from atom.api import Atom, Str, observe, Typed, Int
+from atom.api import Atom, Str, observe, Typed, Int, Dict, List
 
 from skxray.fitting.xrf_model import (ModelSpectrum, set_range, k_line, l_line, m_line,
                                       get_linear_model, PreFitAnalysis)
@@ -18,16 +18,16 @@ param_path = '/Users/Li/Research/X-ray/Research_work/all_code/nsls2_gui/nsls2_gu
 
 
 class GuessParamModel(Atom):
-    param_d = Typed(object)
-    param_d_perm = Typed(object)
+    param_d = Dict()
+    param_d_perm = Dict()
     #incident_e = Typed(object)
     data = Typed(object)
     prefit_x = Typed(object)
     result_dict = Typed(object)
-    status_dict = Typed(object)
+    status_dict = Dict(value=bool, key=str)
+    status_list = List()
     total_y = Typed(object)
     total_y_l = Typed(object)
-    prefit_bg = Typed(object)
     data_cut = Typed(object)
 
     def __init__(self,
@@ -55,13 +55,21 @@ class GuessParamModel(Atom):
         x0 = np.arange(len(self.data))
         x0, self.data_cut = set_range(self.param_d, x0, self.data)
 
-        self.prefit_bg = get_background(self.data_cut)
-        self.result_dict.update(background=self.prefit_bg)
+        self.result_dict.update(background=get_background(self.data_cut))
 
-        # save the plotting status for a given element peak
-        self.status_dict = {}
-        for k, v in six.iteritems(self.result_dict):
-            self.status_dict.update({k: True})
+        with self.suppress_notifications():
+            self.status_list = [k for k in six.iterkeys(self.result_dict)]
+
+            # save the plotting status for a given element peak
+            self.status_dict = {k: True for k in self.status_list}
+
+    @observe('status_dict')
+    def update_status_dict(self, changed):
+        print('status dict changed: {}'.format(changed))
+
+    @observe('status_list')
+    def update_status_dict(self, changed):
+        print('status list changed: {}'.format(changed))
 
     def arange_prefit_result(self):
         """
@@ -79,15 +87,9 @@ class GuessParamModel(Atom):
 
         self.total_y_l = {}
         for k, v in six.iteritems(self.total_y):
-            if '_L' in k:
+            if '_L' in k or '_M' in k:
                 self.total_y_l.update({k: v})
                 del self.total_y[k]
-
-        #self.total_y = np.array(self.total_y.values())
-        #self.total_y = self.total_y.transpose()
-
-        #self.total_y_l = np.array(self.total_y_l.values())
-        #self.total_y_l = self.total_y_l.transpose()
 
 
 def pre_fit_linear(parameter_dict, y0):
@@ -105,11 +107,12 @@ def pre_fit_linear(parameter_dict, y0):
 
     y = y - bg
 
-    element_list = k_line + l_line
+    element_list = k_line + l_line + m_line
     new_element = ', '.join(element_list)
     parameter_dict['non_fitting_values']['element_list'] = new_element
 
-    total_list = element_list + ['compton', 'elastic']
+    non_element = ['compton', 'elastic']
+    total_list = element_list + non_element
     total_list = [str(v) for v in total_list]
 
     matv = get_linear_model(x, parameter_dict)
@@ -122,12 +125,13 @@ def pre_fit_linear(parameter_dict, y0):
     total_y = out * matv
 
     result_dict = OrderedDict()
+
     for i in range(len(total_list)):
-        if '_L' not in total_list[i]:
+        if '_L' in total_list[i] or total_list[i] in non_element:
             # add '_K' to the end of element name
-            result_dict.update({total_list[i]+'_K': total_y[:, i]})
-        else:
             result_dict.update({total_list[i]: total_y[:, i]})
+        else:
+            result_dict.update({total_list[i] + '_K': total_y[:, i]})
 
     for k, v in six.iteritems(result_dict):
         if sum(v) == 0:
@@ -154,5 +158,4 @@ def DoFit(parameter_dict, x, y):
 
 def get_background(y):
     return snip_method(y, 0, 0.01, 0)
-
 

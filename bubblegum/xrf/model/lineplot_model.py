@@ -6,7 +6,7 @@ from matplotlib.axes import Axes
 #from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
 
-from atom.api import Atom, Str, observe, Typed, Int
+from atom.api import Atom, Str, observe, Typed, Int, List
 
 from skxray.fitting.xrf_model import (k_line, l_line, m_line)
 from skxray.constants.api import XrfElement as Element
@@ -19,12 +19,13 @@ class LinePlotModel(Atom):
     _canvas = Typed(object)
     element_id = Typed(object)
     incident_energy = Typed(object)
-    elist = Typed(object)
+    elist = List() #Typed(object)
     plot_opt = Int(0)
     total_y = Typed(object)
     total_y_l = Typed(object)
     prefit_bg = Typed(object)
     prefit_x = Typed(object)
+    plot_title = Str('my plot')
 
     def __init__(self, data=None):
         super(LinePlotModel, self).__init__()
@@ -48,6 +49,9 @@ class LinePlotModel(Atom):
     def plot_data(self):
         plot_type = ['LinLog', 'Linear']
         #self._ax = self._fig.add_subplot(111)
+
+        #self._fig.title = self.plot_title
+
         self._ax.hold(False)
         data_arr = np.asarray(self.data)
         print 'data is: ', data_arr
@@ -79,7 +83,7 @@ class LinePlotModel(Atom):
                 # last dim is background
                 sum = 0
                 for i, (k, v) in enumerate(six.iteritems(self.total_y)):
-                    if k=='background':
+                    if k == 'background':
                         self._ax.plot(self.prefit_x, v, 'grey')
                     else:
                         self._ax.plot(self.prefit_x, v, 'g-', label='k line')
@@ -95,14 +99,6 @@ class LinePlotModel(Atom):
 
                 self._ax.plot(self.prefit_x, sum, 'k*', markersize=2, label='prefit')
                 self._ax.set_ylim([minv, np.max(data_arr)*1.5])
-                #self._ax.plot(self.prefit_x, self.total_y[:, -1], 'grey')
-                #self._ax.plot(self.prefit_x, np.sum(self.total_y, axis=1) +
-                #              np.sum(self.total_y_l, axis=1), 'b-', label='prefit')
-                #self._ax.plot(self.prefit_x, self.total_y[:, 0], 'g-', label='k line')
-                #self._ax.plot(self.prefit_x, self.total_y_l[:, 0], 'purple', label='l line')
-                #self._ax.plot(self.prefit_x, self.total_y[:, 1:-1], 'g-')
-                #self._ax.plot(self.prefit_x, self.total_y_l[:, 1:-1], 'purple')
-                #self._ax.set_ylim([minv, np.max(data_arr)*1.5])
             else:
                 sum = 0
                 for i, (k, v) in enumerate(six.iteritems(self.total_y)):
@@ -126,20 +122,11 @@ class LinePlotModel(Atom):
                 self._ax.semilogy(self.prefit_x, sum, 'k*', markersize=2, label='prefit')
                 self._ax.set_ylim([minv, np.max(data_arr)*10.0])
 
-                #self._ax.semilogy(self.prefit_x, self.total_y[:, -1], 'grey')
-                #self._ax.semilogy(self.prefit_x, np.sum(self.total_y, axis=1) +
-                #                  np.sum(self.total_y_l, axis=1),
-                #                  'b*', markersize=2, label='prefit')
-                #self._ax.semilogy(self.prefit_x, self.total_y[:, 0], 'g-', label='k line')
-                #self._ax.semilogy(self.prefit_x, self.total_y_l[:, 0], 'purple', label='l line')
-                #self._ax.semilogy(self.prefit_x, self.total_y[:, 1:-1], 'g-')
-                #self._ax.semilogy(self.prefit_x, self.total_y_l[:, 1:-1], 'purple')
-                #self._ax.set_ylim([minv, np.max(data_arr)*10.0])
-            #print('prefit result: {}'.format(self.prefit_x))
             self._ax.set_xlim([self.prefit_x[0], self.prefit_x[-1]])
 
         self._ax.legend(loc=0)
 
+        self._ax.set_title(self.plot_title)
         self._ax.set_xlabel('Energy [keV]')
         self._ax.set_ylabel('Counts')
 

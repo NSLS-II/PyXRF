@@ -8,6 +8,8 @@ from enaml.core.api import Include, Looper
 from enaml.stdlib.fields import FloatField
 import numpy as np
 import six
+from skxray.constants.api import XrfElement as Element
+
 
 enamldef GuessParamView(DockItem):
     attr param_m
@@ -15,171 +17,245 @@ enamldef GuessParamView(DockItem):
     attr plot_m
 
     Container:
-        ScrollArea:
-            constraints = [height >= 200]
-            Container:
-                constraints = [
-                    grid(
-                        [lbl1, fd1, pb1],
-                        [lbl2, fd2, pb2],
-                        [lbl3, fd3, pb3],
-                        [lbl4, fd4, pb4],
-                        [lbl5, fd5, pb5],
-                        [lbl6, fd6, pb6],
-                        [lbl7, fd7, pb7],
-                        [lbl8, fd8, pb8],
-                        [lbl9, fd9, pb9],
-                        [pb10, pb11],
-                        [pb12, pb13, pb14],
-                        [lb15],
-                    ),
-                ]
+        constraints = [
+            vbox(
+                top_cntr,
+                hbox(pb10, pb11, spacer),
+                hbox(pb12, pb13, pb14),
+                hbox(lb15),
+            ),
+        ]
+        Container: top_cntr:
+            ScrollArea:
+                constraints = [height <= 200]
+                Container:
+                    constraints = [
+                        grid(
+                            [lbl1, fd1, pb1],
+                            [lbl2, fd2, pb2],
+                            [lbl3, fd3, pb3],
+                            [lbl4, fd4, pb4],
+                            [lbl5, fd5, pb5],
+                            [lbl6, fd6, pb6],
+                            [lbl7, fd7, pb7],
+                            [lbl8, fd8, pb8],
+                            [lbl9, fd9, pb9],
+                            #[pb10, pb11],
+                            #[pb12, pb13, pb14],
+                            #[lb15],
+                        ),
+                    ]
 
-                Label: lbl1:
-                    text = 'E incident [keV]'
-                FloatField: fd1:
-                    enabled = False
-                    value := param_m.param_d['coherent_sct_energy']['value']
-                    minimum = 0.
-                PushButton: pb1:
-                    text = 'edit'
-                    checkable = True
-                    checked = fd1.enabled
-                    clicked ::
-                        if checked:
-                            fd1.enabled = True
-                        else:
-                            fd1.value = param_m.param_d_perm['coherent_sct_energy']['value']
-                            fd1.enabled = False
-#                PushButton: pb1u:
-#                    text = 'user input'
-#                    checkable = True
-#                    clicked ::
-#                        pb1d.checked = False
-#                        fd1.enabled = True
-#                        fd1.value = param_m.param_m['coherent_sct_energy']['value']
-                Label: lbl2:
-                    text = 'E low limit [keV]'
-                FloatField: fd2:
-                    value := param_m.param_d['non_fitting_values']['energy_bound_low']
-                PushButton: pb2:
-                    text = 'user input'
-                    checkable = True
-                    checked = True
-                    clicked ::
-                        if checked:
-                            pb2.text = 'user input'
-                            #fd1.text = str(param_m.incident_e)
-                            fd2.value = param_m.param_d_perm['non_fitting_values']['energy_bound_low']
-                            fd2.read_only = True
-                        else:
-                            pb2.text = 'default value'
-                            fd2.value = param_m.param_d['non_fitting_values']['energy_bound_low']
-                            #fd1.value =
-                            fd2.read_only = False
-                Label: lbl3:
-                    text = 'E high limit [keV]'
-                Field: fd3:
-                    text := str(param_m.param_d['non_fitting_values']['energy_bound_high'])
-                PushButton: pb3:
-                    text = 'default value'
-                    clicked ::
-                        pass
-                Label: lbl4:
-                    text = 'E Calib. Coef, a0'
-                Field: fd4:
-                    text = str(param_m.param_d['e_offset']['value'])
-                PushButton: pb4:
-                    text = 'default value'
-                    clicked ::
-                        pass
-                Label: lbl5:
-                    text = 'E Calib. Coef, a1'
-                Field: fd5:
-                    text = str(param_m.param_d['e_linear']['value'])
-                PushButton: pb5:
-                    text = 'default value'
-                    clicked ::
-                        pass
-                Label: lbl6:
-                    text = 'E Calib. Coef, a2'
-                Field: fd6:
-                    text = str(param_m.param_d['e_quadratic']['value'])
-                PushButton: pb6:
-                    text = 'default value'
-                    clicked ::
-                        pass
-                Label: lbl7:
-                    text = 'fwhm Coef, b1'
-                Field: fd7:
-                    text = str(param_m.param_d['fwhm_offset']['value'])
-                PushButton: pb7:
-                    text = 'default value'
-                    clicked ::
-                        pass
-                Label: lbl8:
-                    text = 'fwhm Coef, b2'
-                Field: fd8:
-                    text = str(param_m.param_d['fwhm_fanoprime']['value'])
-                PushButton: pb8:
-                    text = 'default value'
-                    clicked ::
-                        pass
-                Label: lbl9:
-                    text = 'Compton fwhm Coef'
-                Field: fd9:
-                    text = str(param_m.param_d['compton_fwhm_corr']['value'])
-                PushButton: pb9:
-                    text = 'default value'
-                    clicked ::
-                        pass
-                PushButton: pb10:
-                    text = 'Save'
-                    clicked ::
-                        pass
-                PushButton: pb11:
-                    text = 'Save As'
-                    clicked ::
-                        pass
-                PushButton: pb12:
-                    text = 'Find Peaks'
-                    clicked ::
-                        param_m.set_data(fileio_m.data)
-                        param_m.find_peak()
-                        param_m.arange_prefit_result()
-                        if (len(param_m.total_y) == 0):
-                            lb15.text = 'No auto fit result is available.'
-                            pb13.enabled = False
-                            pb14.enabled = False
-                        else:
-                            lb15.text = 'Auto fit is finished.'
-                            pb13.enabled = True
-                            pb14.enabled = True
-                PushButton: pb13:
-                    text = 'Overlap to Spectrum'
-                    enabled = False
-                    checkable = True
-                    clicked ::
-                        if checked:
-                            plot_m.set_prefit_data(param_m.prefit_x, param_m.total_y, param_m.total_y_l)
-                            #plot_m.set_prefit_bg(param_m.prefit_bg)
-                            plot_m.plot_data()
-                            pb13.text = 'Remove Plot'
-                        else:
-                            pb13.text = 'Overlap to Spectrum'
-                            plot_m.set_prefit_data([], [], [])
-                            #plot_m.set_prefit_bg([])
-                            plot_m.plot_data()
+                    Label: lbl1:
+                        text = 'E incident [keV]'
+                    FloatField: fd1:
+                        enabled = False
+                        value := param_m.param_d['coherent_sct_energy']['value']
+                        minimum = 0.
+                        maximum_size = 100
+                    PushButton: pb1:
+                        text = 'edit'
+                        checkable = True
+                        checked = fd1.enabled
+                        clicked ::
+                            if checked:
+                                fd1.enabled = True
+                            else:
+                                fd1.value = param_m.param_d_perm['coherent_sct_energy']['value']
+                                fd1.enabled = False
 
-                PushButton: pb14:
-                    text = 'Show Results'
-                    enabled = False
-                    clicked ::
-                        PreFitResult.param_m = param_m
-                        PreFitResult.plot_m = plot_m
-                        PreFitResult().show()
-                Label: lb15:
-                    text = 'No auto fit result is available.'
+                    Label: lbl2:
+                        text = 'E low limit [keV]'
+                    FloatField: fd2:
+                        enabled = False
+                        value := param_m.param_d['non_fitting_values']['energy_bound_low']
+                        maximum_size = 100
+                    PushButton: pb2:
+                        text = 'edit'
+                        checkable = True
+                        checked = fd2.enabled
+                        clicked ::
+                            if checked:
+                                fd2.enabled = True
+                                #print('fd2.value: ', param_m.param_d['non_fitting_values']['energy_bound_low'])
+                                fd2.value = param_m.param_d['non_fitting_values']['energy_bound_low']
+                            else:
+                                fd2.value = param_m.param_d_perm['non_fitting_values']['energy_bound_low']
+                                fd2.enabled = False
+
+                    Label: lbl3:
+                        text = 'E high limit [keV]'
+                    FloatField: fd3:
+                        enabled = False
+                        value := param_m.param_d['non_fitting_values']['energy_bound_high']
+                        maximum_size = 100
+                    PushButton: pb3:
+                        text = 'edit'
+                        checkable = True
+                        checked = fd3.enabled
+                        clicked ::
+                            if checked:
+                                fd3.enabled = True
+                                fd3.value = param_m.param_d['non_fitting_values']['energy_bound_high']
+                            else:
+                                fd3.value = param_m.param_d_perm['non_fitting_values']['energy_bound_high']
+                                fd3.enabled = False
+
+                    Label: lbl4:
+                        text = 'E Calib. Coef, a0'
+                        tool_tip = 'E(channel) = a0 + a1*channel+ a2*channel**2'
+                    FloatField: fd4:
+                        enabled = False
+                        value := param_m.param_d['e_offset']['value']
+                        maximum_size = 100
+                    PushButton: pb4:
+                        text = 'edit'
+                        checkable = True
+                        #checked = True
+                        clicked ::
+                            if checked:
+                                fd4.enabled = True
+                            else:
+                                fd4.value = param_m.param_d_perm['e_offset']['value']
+                                fd4.enabled = False
+
+                    Label: lbl5:
+                        text = 'E Calib. Coef, a1'
+                        tool_tip = 'E(channel) = a0 + a1*channel+ a2*channel**2'
+                    FloatField: fd5:
+                        enabled = False
+                        value := param_m.param_d['e_linear']['value']
+                        maximum_size = 100
+                    PushButton: pb5:
+                        text = 'edit'
+                        checkable = True
+                        clicked ::
+                            if checked:
+                                fd5.enabled = True
+                            else:
+                                fd5.value = param_m.param_d_perm['e_offset']['value']
+                                fd5.enabled = False
+
+                    Label: lbl6:
+                        text = 'E Calib. Coef, a2'
+                        tool_tip = 'E(channel) = a0 + a1*channel+ a2*channel**2'
+                    FloatField: fd6:
+                        enabled = False
+                        value := param_m.param_d['e_quadratic']['value']
+                        maximum_size = 100
+                    PushButton: pb6:
+                        text = 'edit'
+                        checkable = True
+                        clicked ::
+                            if checked:
+                                fd6.enabled = True
+                            else:
+                                fd6.value = param_m.param_d_perm['e_quadratic']['value']
+                                fd6.enabled = False
+
+                    Label: lbl7:
+                        text = 'fwhm Coef, b1 [keV]'
+                        tool_tip = 'width**2 = (b1/2.3548)**2 + 3.85*b2*E'
+                    FloatField: fd7:
+                        enabled = False
+                        value := param_m.param_d['fwhm_offset']['value']
+                        maximum_size = 100
+                    PushButton: pb7:
+                        text = 'edit'
+                        checkable = True
+                        clicked ::
+                            if checked:
+                                fd7.enabled = True
+                            else:
+                                fd7.value = param_m.param_d_perm['fwhm_offset']['value']
+                                fd7.enabled = False
+
+                    Label: lbl8:
+                        text = 'fwhm Coef, b2'
+                        tool_tip = 'width**2 = (b1/2.3548)**2 + 3.85*b2*E, 3.85keV is electron-hole pair creation energy in silicon '
+                    FloatField: fd8:
+                        enabled = False
+                        value = param_m.param_d['fwhm_fanoprime']['value']
+                        maximum_size = 100
+                    PushButton: pb8:
+                        text = 'edit'
+                        checkable = True
+                        clicked ::
+                            if checked:
+                                fd8.enabled = True
+                            else:
+                                fd8.value = param_m.param_d_perm['fwhm_fanoprime']['value']
+                                fd8.enabled = False
+
+                    Label: lbl9:
+                        text = 'Compton fwhm Coef'
+                    FloatField: fd9:
+                        enabled = False
+                        value := param_m.param_d['compton_fwhm_corr']['value']
+                        maximum_size = 100
+                    PushButton: pb9:
+                        text = 'edit'
+                        checkable = True
+                        clicked ::
+                            if checked:
+                                fd9.enabled = True
+                            else:
+                                fd9.value = param_m.param_d_perm['compton_fwhm_corr']['value']
+                                fd9.enabled = False
+
+        PushButton: pb10:
+            text = 'Save'
+            clicked ::
+                pass
+        PushButton: pb11:
+            text = 'Save As'
+            clicked ::
+                pass
+        PushButton: pb12:
+            text = 'Find Peaks'
+            #status_tip = 'Not Running.'
+            clicked ::
+                param_m.set_data(fileio_m.data)
+                param_m.find_peak()
+                param_m.arange_prefit_result()
+                status_tip = 'Running'
+                if (len(param_m.total_y) == 0):
+                    lb15.text = 'No auto fit result is available.'
+                    pb13.enabled = False
+                    pb14.enabled = False
+
+                else:
+                    lb15.text = 'Auto fit is finished.'
+                    pb13.enabled = True
+                    pb14.enabled = True
+
+        PushButton: pb13:
+            text = 'Overlap to Spectrum'
+            enabled = False
+            checkable = True
+            clicked ::
+                if checked:
+                    plot_m.set_prefit_data(param_m.prefit_x, param_m.total_y, param_m.total_y_l)
+                    #plot_m.set_prefit_bg(param_m.prefit_bg)
+                    plot_m.plot_data()
+                    pb13.text = 'Remove Plot'
+                else:
+                    pb13.text = 'Overlap to Spectrum'
+                    plot_m.set_prefit_data([], [], [])
+                    #plot_m.set_prefit_bg([])
+                    plot_m.plot_data()
+
+        PushButton: pb14:
+            text = 'Show Results'
+            enabled = False
+            clicked ::
+                PreFitResult.param_m = param_m
+                PreFitResult.plot_m = plot_m
+                PreFitResult().show()
+        Label: lb15:
+            text = 'No auto fit result is available.'
+            #max_length = 10
+            #maximum_size = 100
 
 
 enamldef PreFitResult(Window):
@@ -192,36 +268,84 @@ enamldef PreFitResult(Window):
             Container:
                 Form:
                     Label:
-                        text = '{} \t\t {} \t\t {}'.format('emission line', 'peak INT', 'Include')
-                        text = 'emission line (peak intensity)'
+                        text = '{:>20} {:>20} {:>20} {:>20}'.format('Z', 'emission line',
+                                                                'peak INT', 'norm INT')
+                        font = 'monospace'
+                        #text = 'emission line (peak intensity)'
                     Label:
-                        pass
+                        text = 'plot'
+
                     Looper: looper:
                         iterable    << list(six.iterkeys(param_m.result_dict))
                         Label:
-                            text = '{}:\t\t {}'.format(loop_item,
-                                np.around(np.max(param_m.result_dict[loop_item]), 1))
+                            font = 'monospace'
+                            #align = 'left'
+                            text = '{:>20} {:>20} {:>20} {:>20}'.format(
+                                get_Z(loop_item),
+                                loop_item,
+                                np.around(np.max(param_m.result_dict[loop_item]), 1),
+                                np.around(np.max(param_m.result_dict[loop_item])/getMax(param_m.result_dict), 4))
                         #PushButton:
                         #    text = 'Do some work'
                         #    clicked ::
                         #        print('Working...')
                         PushButton: cb:
                             text = 'Plot line'
+
                             checkable = True
                             checked = param_m.status_dict[loop_item]
                             clicked ::
                                 param_m.status_dict[loop_item] = checked
+                                if checked:
+                                    if not loop_item in param_m.status_list:
+                                        param_m.status_list.append(loop_item)
+                                else:
+                                    param_m.status_list.remove(loop_item)
                                 param_m.arange_prefit_result()
                                 plot_m.set_prefit_data(param_m.prefit_x, param_m.total_y, param_m.total_y_l)
                                 #plot_m.set_prefit_bg(param_m.prefit_bg)
                                 plot_m.plot_data()
+                        #PushButton: cb1:
+                        #    text = 'Plot line1'
 
                 #Include:
                     # This generates a completely new list of widgets each
                     # time the spin box is changed. All the old widgets
                     # will be destroyed. This is the simplest way to use
                     # the Include, albeit not the most efficient.
-                    # objects << [Field(text=str(i)) for i in param_m.total_y_l]
+                    #objects << [Field(text=str(i)) for i in param_m.total_y_l]
 
-                    # objects << [Label(text=str(k)+' '+str(np.around(np.sum(v), 1)))
+                    #objects << [(Label(text=str(k)+' '+str(np.around(np.sum(v), 1)))
                     #            for k, v in six.iteritems(param_m.result_dict)]
+
+
+def get_Z(ename):
+    """
+    Return element's Z number.
+
+    Parameters:
+    -----------
+        ename : str
+            element name
+    Returns:
+    --------
+    int or None
+        element Z number
+
+    """
+    non_element = ['compton', 'elastic', 'background']
+    if ename in non_element:
+        return None
+    else:
+        e = Element(ename[:-2])
+        return e.Z
+
+
+def getMax(dictv):
+    """
+    Return max value from all dict values.
+    """
+    maxv = 0
+    for v in six.iterkeys(dictv):
+        maxv = np.max([maxv, np.max(dictv[v])])
+    return maxv
