@@ -39,3 +39,4 @@ enamldef FileView(DockItem): file_view:
             Label: load_lbl:
                 text = ' '
                 text << io_model.load_status
+

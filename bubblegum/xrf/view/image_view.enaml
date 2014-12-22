@@ -1,0 +1,78 @@
+from enaml.widgets.api import (Container, PushButton, Label,
+                               Form, Field, FileDialogEx, DockItem,
+                               DockArea, MPLCanvas, CheckBox, ComboBox)
+from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer
+import numpy as np
+
+from matplotlib.figure import Figure
+from skxray.fitting.xrf_model import (k_line, l_line, m_line)
+
+
+k_line_full = [item+'_K' for item in k_line]
+
+
+enamldef ImageMain1(DockItem):
+    attr io_model
+    attr plot_model
+    Container:
+        constraints = [
+            vbox(
+                hbox(cbox1, cbox2, pbn, check, spacer),
+                canvas,
+            ),
+            #cbox.v_center == check.v_center,
+        ]
+        ComboBox: cbox1:
+            items = ['LinLog', 'Linear']
+            index := plot_model.plot_opt
+            index = 0
+        ComboBox: cbox2:
+            items = ['Choose emission line by using arrow'] +\
+                    k_line_full + l_line + m_line
+            index := plot_model.element_id
+            index = 0
+        PushButton: pbn:
+            text = 'Plot Raw Spectrum'
+            clicked ::
+                plot_model.plot_title = io_model.file_name
+                plot_model.set_data(io_model.data)
+                plot_model.plot_data()
+        CheckBox: check:
+            text = 'Toolbar Visible'
+            checked := canvas.toolbar_visible
+        MPLCanvas: canvas:
+            figure << plot_model._fig
+            #figures[cbox.selected_item]
+
+
+fig1 = Figure()
+ax1 = fig1.add_subplot(111)
+ax1.plot([1, 2, 3])
+
+fig2 = Figure()
+ax2 = fig2.add_subplot(111)
+ax2.plot([5, 2, 8, 1])
+
+
+figures = {
+    'ROI sum': fig1,
+    'Fit': fig2,
+}
+
+enamldef ImageMain(DockItem):
+    Container:
+        constraints = [
+            vbox(
+                hbox(cbox, check, spacer),
+                canvas,
+            ),
+            cbox.v_center == check.v_center,
+        ]
+        ComboBox: cbox:
+            items = ['ROI sum', 'Fit']
+            index = 0
+        CheckBox: check:
+            text = 'Toolbar Visible'
+            checked := canvas.toolbar_visible
+        MPLCanvas: canvas:
+            figure << figures[cbox.selected_item]

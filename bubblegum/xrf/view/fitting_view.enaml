@@ -1,0 +1,42 @@
+from enaml.widgets.api import (Container, PushButton, Label,
+                               Form, Field, FileDialogEx, DockItem,
+                               DockArea, CheckBox, ComboBox, ScrollArea)
+from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer
+
+
+enamldef FitView(DockItem):
+    Container:
+        constraints = [
+            vbox(
+                hbox(pb1, pb2),
+                lbl0,
+                hbox(lbl1, cb1, spacer),
+                hbox(lbl2, cb2, spacer),
+                hbox(lbl3, cb3, spacer),
+                hbox(pb_fit, spacer),
+            ),
+        ]
+        PushButton: pb1:
+            text = 'Param. from prev. step'
+            clicked ::
+                pass
+        PushButton: pb2:
+            text = 'Param. from file'
+            clicked ::
+                pass
+        Label: lbl0:
+            text = 'Fitting Strategy'
+        Label: lbl1:
+            text = 'Step 1'
+        ComboBox: cb1:
+            items = ['free global', 'free pos/width/branch']
+        Label: lbl2:
+            text = 'Step 2'
+        ComboBox: cb2:
+            items = ['free global', 'free pos/width/branch']
+        Label: lbl3:
+            text = 'Step 3'
+        ComboBox: cb3:
+            items = ['free global', 'free pos/width/branch']
+        PushButton: pb_fit:
+            text = 'Fit'
