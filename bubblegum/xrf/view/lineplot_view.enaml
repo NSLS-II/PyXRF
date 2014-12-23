@@ -81,4 +81,3 @@ enamldef PlotMain(DockItem):
         MPLCanvas: canvas:
             figure << plot_model._fig
             #figures[cbox.selected_item]
-

@@ -77,9 +77,6 @@ enamldef GuessParamView(DockItem): param_view:
                             [lbl7, fd7, pb7],
                             [lbl8, fd8, pb8],
                             [lbl9, fd9, pb9],
-                            #[pb10, pb11],
-                            #[pb12, pb13, pb14],
-                            #[lb15],
                         ),
                     ]
 
@@ -91,15 +88,17 @@ enamldef GuessParamView(DockItem): param_view:
                         minimum = 0.
                         maximum_size = 100
                     PushButton: pb1:
-                        text = 'edit'
+                        text = 'user value'
                         checkable = True
                         checked = fd1.enabled
                         clicked ::
                             if checked:
                                 fd1.enabled = True
+                                pb1.text = 'default value'
                             else:
                                 fd1.value = param_m.param_d_perm['coherent_sct_energy']['value']
                                 fd1.enabled = False
+                                pb1.text = 'user value'
 
                     Label: lbl2:
                         text = 'E low limit [keV]'
@@ -345,29 +344,35 @@ def get_Z(ename):
     """
     Return element's Z number.
 
-    Parameters:
-    -----------
-        ename : str
-            element name
-    Returns:
-    --------
+    Parameters
+    ----------
+    ename : str
+        element name
+
+    Returns
+    -------
     int or None
         element Z number
 
     """
+
+    strip_line = lambda ename: ename.split('_')[0]
+
     non_element = ['compton', 'elastic', 'background']
     if ename in non_element:
         return None
     else:
-        e = Element(ename[:-2])
+        e = Element(strip_line(ename))
         return e.Z
 
 
 def getMax(dictv):
     """
     Return max value from all dict values.
+
+    Parameters
+    ----------
+    dictv : dict
+        Saving all fitting results
     """
-    maxv = 0
-    for v in six.iterkeys(dictv):
-        maxv = np.max([maxv, np.max(dictv[v])])
-    return maxv
+    return reduce(max, map(np.max, six.itervalues(dictv)))
