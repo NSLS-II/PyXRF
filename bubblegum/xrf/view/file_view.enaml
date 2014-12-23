@@ -1,27 +1,78 @@
+# ######################################################################
+# Copyright (c) 2014, Brookhaven Science Associates, Brookhaven        #
+# National Laboratory. All rights reserved.                            #
+#                                                                      #
+# Redistribution and use in source and binary forms, with or without   #
+# modification, are permitted provided that the following conditions   #
+# are met:                                                             #
+#                                                                      #
+# * Redistributions of source code must retain the above copyright     #
+#   notice, this list of conditions and the following disclaimer.      #
+#                                                                      #
+# * Redistributions in binary form must reproduce the above copyright  #
+#   notice this list of conditions and the following disclaimer in     #
+#   the documentation and/or other materials provided with the         #
+#   distribution.                                                      #
+#                                                                      #
+# * Neither the name of the Brookhaven Science Associates, Brookhaven  #
+#   National Laboratory nor the names of its contributors may be used  #
+#   to endorse or promote products derived from this software without  #
+#   specific prior written permission.                                 #
+#                                                                      #
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS  #
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT    #
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS    #
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE       #
+# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,           #
+# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES   #
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR   #
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)   #
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,  #
+# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OTHERWISE) ARISING   #
+# IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE   #
+# POSSIBILITY OF SUCH DAMAGE.                                          #
+########################################################################
+
+__author__ = 'Li Li'
+
 from enaml.widgets.api import (Container, PushButton, Label,
                                Form, Field, FileDialogEx, DockItem,
                                DockArea, CheckBox, ComboBox, ScrollArea)
-from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer
+from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer, grid
 import numpy as np
 
 
 enamldef FileView(DockItem): file_view:
     attr io_model
+    attr param_model
     Container:
         Form:
             Label: lb_tool_name:
-                text = io_model.tool_name
-        Form:
+                text = 'PyXRF: X-ray Fluorescence Analysis Tool'
+        Container:
+            constraints = [
+                vbox(
+                    hbox(btn_folder, btn_fd),
+                    hbox(btn_file, fd),
+                    hbox(pb_load, fd_load),
+                    hbox(load_lbl),
+                    hbox(param_lbl),
+                ),
+                btn_folder.width == btn_file.width,
+                btn_folder.width == pb_load.width,
+            ]
             PushButton: btn_folder:
                 text = "Set Folder Path"
+                #maximum_size = 200
                 clicked ::
                     path = FileDialogEx.get_existing_directory(file_view)
                     if path:
                         io_model.folder_name = path
-            Field:
+            Field: btn_fd:
                 text := io_model.folder_name
-            PushButton:
+            PushButton: btn_file:
                 text = "Open File"
+                #maximum_size = 200
                 clicked ::
                     path = FileDialogEx.get_open_file_name(file_view, current_path=io_model.folder_name)
                     if path:
@@ -36,6 +87,23 @@ enamldef FileView(DockItem): file_view:
             #    clicked ::
             #        io_model.load_data()
             #        load_lbl.text = io_model.load_status
+
+            PushButton: pb_load:
+                text = 'Load Parameter File'
+                #maximum_size = 200
+                clicked ::
+                    param_path = FileDialogEx.get_open_file_name(file_view)
+                    if param_path:
+                        #param_m.get_param(filepath=param_path)
+                        fd_load.text = param_path
+                        param_model.param_path = param_path
+                        #param_model.set_param(io_model.param_data)
+            Field: fd_load:
+                text = 'Use default otherwise.'
+        #Form:
             Label: load_lbl:
-                text = ' '
                 text << io_model.load_status
+                #maximum_size = 300
+            Label: param_lbl:
+                text = 'load param'
+                #maximum_size = 100

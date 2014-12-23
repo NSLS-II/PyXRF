@@ -20,6 +20,7 @@ enamldef XRFGui(MainWindow): main_window:
             FileView: file_view1:
                 title = 'File IO'
                 io_model = file_M
+                param_model = p_guess_M
                 name = 'file_view'
             GuessParamView: file_view2:
                 title = 'Initial Parameter Guess '

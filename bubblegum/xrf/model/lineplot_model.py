@@ -1,9 +1,45 @@
+# ######################################################################
+# Copyright (c) 2014, Brookhaven Science Associates, Brookhaven        #
+# National Laboratory. All rights reserved.                            #
+#                                                                      #
+# Redistribution and use in source and binary forms, with or without   #
+# modification, are permitted provided that the following conditions   #
+# are met:                                                             #
+#                                                                      #
+# * Redistributions of source code must retain the above copyright     #
+#   notice, this list of conditions and the following disclaimer.      #
+#                                                                      #
+# * Redistributions in binary form must reproduce the above copyright  #
+#   notice this list of conditions and the following disclaimer in     #
+#   the documentation and/or other materials provided with the         #
+#   distribution.                                                      #
+#                                                                      #
+# * Neither the name of the Brookhaven Science Associates, Brookhaven  #
+#   National Laboratory nor the names of its contributors may be used  #
+#   to endorse or promote products derived from this software without  #
+#   specific prior written permission.                                 #
+#                                                                      #
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS  #
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT    #
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS    #
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE       #
+# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,           #
+# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES   #
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR   #
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)   #
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,  #
+# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OTHERWISE) ARISING   #
+# IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE   #
+# POSSIBILITY OF SUCH DAMAGE.                                          #
+########################################################################
+
+__author__ = 'Li Li'
+
 from pprint import pprint
 import numpy as np
 import six
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
-#from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
 
 from atom.api import Atom, Str, observe, Typed, Int, List
@@ -13,13 +49,31 @@ from skxray.constants.api import XrfElement as Element
 
 
 class LinePlotModel(Atom):
-    data = Typed(object)
+    """
+    This class performs all the required line plots.
+
+    Attributes
+    ----------
+    data : array
+        Experimental data
+    _fit : class object
+        Figure object from matplotlib
+    _ax : class object
+        Axis object from matplotlib
+    _canvas : class object
+        Canvas object from matplotlib
+    element_id : int
+        Index of element
+
+
+    """
+    data = Typed(np.ndarray)
     _fig = Typed(Figure)
     _ax = Typed(Axes)
     _canvas = Typed(object)
-    element_id = Typed(object)
+    element_id = Int(0)
     incident_energy = Typed(object)
-    elist = List() #Typed(object)
+    elist = List()
     plot_opt = Int(0)
     total_y = Typed(object)
     total_y_l = Typed(object)
@@ -27,12 +81,9 @@ class LinePlotModel(Atom):
     prefit_x = Typed(object)
     plot_title = Str('my plot')
 
-    def __init__(self, data=None):
-        super(LinePlotModel, self).__init__()
-        # mpl setup
+    def __init__(self):
         self._fig = plt.figure()
         self._ax = self._fig.add_subplot(111)
-        #self._fig = Figure()
         self.elist = []
         self.total_y = []
         self.total_y_l = []
@@ -49,12 +100,10 @@ class LinePlotModel(Atom):
     def plot_data(self):
         plot_type = ['LinLog', 'Linear']
         #self._ax = self._fig.add_subplot(111)
-
         #self._fig.title = self.plot_title
 
         self._ax.hold(False)
         data_arr = np.asarray(self.data)
-        print 'data is: ', data_arr
         x_v = np.arange(len(data_arr))*0.01
 
         if plot_type[self.plot_opt] == 'Linear':
