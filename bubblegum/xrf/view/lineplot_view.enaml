@@ -51,20 +51,20 @@ k_line_full = [item+'_K' for item in k_line]
 enamldef PlotMain(DockItem):
     attr io_model
     attr plot_model
+    attr param_model
     Container:
         constraints = [
             vbox(
-                hbox(cbox1, cbox2, pbn, check, spacer),
+                hbox(cbox1, cbox2, pbn, checkb, spacer),
                 canvas,
             ),
-            #cbox.v_center == check.v_center,
         ]
         ComboBox: cbox1:
             items = ['LinLog', 'Linear']
             index := plot_model.plot_opt
             index = 0
         ComboBox: cbox2:
-            items = ['Choose emission line by using arrow'] +\
+            items = ['Display emission lines'] +\
                     k_line_full + l_line + m_line
             index := plot_model.element_id
             index = 0
@@ -72,9 +72,10 @@ enamldef PlotMain(DockItem):
             text = 'Plot Raw Spectrum'
             clicked ::
                 plot_model.plot_title = io_model.file_name
-                plot_model.set_data(io_model.data)
+                plot_model.data = io_model.data
+                plot_model.param_data = param_model.param_d
                 plot_model.plot_data()
-        CheckBox: check:
+        CheckBox: checkb:
             text = 'Toolbar Visible'
             checked := canvas.toolbar_visible
         MPLCanvas: canvas:

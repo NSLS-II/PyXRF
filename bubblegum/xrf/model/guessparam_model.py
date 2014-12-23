@@ -40,6 +40,8 @@ import six
 import json
 from collections import OrderedDict
 import copy
+import logging
+logger = logging.getLogger(__name__)
 
 from atom.api import Atom, Str, observe, Typed, Int, Dict, List
 
@@ -74,6 +76,10 @@ class GuessParamModel(Atom):
         Results from k lines
     total_y_l : dict
         Results from l lines
+    param_path : str
+        Path to parameter file
+    param_status : str
+        Loading status of parameter file
     """
     param_d = Dict()
     param_d_perm = Dict()
@@ -84,6 +90,7 @@ class GuessParamModel(Atom):
     total_y = Typed(object)
     total_y_l = Typed(object)
     param_path = Str(data_path)
+    param_status = Str('Use default parameter file.')
 
     def __init__(self):
         self.get_param()
@@ -91,21 +98,17 @@ class GuessParamModel(Atom):
         self.total_y_l = {}
 
     def get_param(self):
-        with open(self.param_path, 'r') as json_data:
-            self.param_d_perm = json.load(json_data)
-        self.param_d = copy.deepcopy(self.param_d_perm)
+        try:
+            with open(self.param_path, 'r') as json_data:
+                self.param_d_perm = json.load(json_data)
+            self.param_status = 'Parameter file {} is loaded.'.format(self.param_path.split('/')[-1])
+            self.param_d = copy.deepcopy(self.param_d_perm)
+        except ValueError:
+            self.param_status = 'Parameter file can\'t be loaded.'
 
     @observe('param_path')
     def set_param(self, changed):
-        """
-        Parameters
-        ----------
-        filepath : str, optional
-            File path of the parameter jason file
-        """
         self.get_param()
-        #self.param_d_perm = param_data
-        #self.param_d = copy.deepcopy(self.param_d_perm)
 
     def set_data(self, data):
         """

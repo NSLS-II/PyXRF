@@ -35,14 +35,13 @@
 
 __author__ = 'Li Li'
 
-from pprint import pprint
 import numpy as np
 import six
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 import matplotlib.pyplot as plt
 
-from atom.api import Atom, Str, observe, Typed, Int, List
+from atom.api import Atom, Str, observe, Typed, Int, List, Dict
 
 from skxray.fitting.xrf_model import (k_line, l_line, m_line)
 from skxray.constants.api import XrfElement as Element
@@ -64,33 +63,40 @@ class LinePlotModel(Atom):
         Canvas object from matplotlib
     element_id : int
         Index of element
-
-
+    param_data : dict
+        Parameter data for fitting
+    elist : list
+        Emission energy and intensity for given element
+    plot_opt : int
+        Linear or log plot
+    total_y : dict
+        Results for k lines
+    total_y_l : dict
+        Results for l and m lines
+    prefit_x : array
+        X axis with limited range
+    plot_title : str
+        Title for plotting
     """
     data = Typed(np.ndarray)
     _fig = Typed(Figure)
     _ax = Typed(Axes)
     _canvas = Typed(object)
     element_id = Int(0)
-    incident_energy = Typed(object)
+    param_data = Dict()
     elist = List()
     plot_opt = Int(0)
-    total_y = Typed(object)
-    total_y_l = Typed(object)
-    prefit_bg = Typed(object)
+    total_y = Dict()
+    total_y_l = Dict()
     prefit_x = Typed(object)
-    plot_title = Str('my plot')
+    plot_title = Str()
 
     def __init__(self):
         self._fig = plt.figure()
         self._ax = self._fig.add_subplot(111)
-        self.elist = []
-        self.total_y = []
-        self.total_y_l = []
-        self.prefit_bg = []
 
-    def set_data(self, data):
-        self.data = data
+    #def set_data(self, data):
+    #    self.data = data
 
     @observe('plot_opt')
     def _new_opt(self, change):
@@ -104,7 +110,9 @@ class LinePlotModel(Atom):
 
         self._ax.hold(False)
         data_arr = np.asarray(self.data)
-        x_v = np.arange(len(data_arr))*0.01
+        x_v = self.param_data['e_offset']['value'] + \
+              np.arange(len(data_arr)) * self.param_data['e_linear']['value'] + \
+              np.arange(len(data_arr))**2 * self.param_data['e_quadratic']['value']
 
         if plot_type[self.plot_opt] == 'Linear':
             self._ax.plot(x_v, data_arr, 'b-', label='experiment')
@@ -129,7 +137,6 @@ class LinePlotModel(Atom):
         if len(self.total_y) != 0:
             self._ax.hold(True)
             if plot_type[self.plot_opt] == 'Linear':
-                # last dim is background
                 sum = 0
                 for i, (k, v) in enumerate(six.iteritems(self.total_y)):
                     if k == 'background':
@@ -189,38 +196,48 @@ class LinePlotModel(Atom):
             return
 
         self.elist = []
-        pprint(change)
 
         total_list = k_line + l_line + m_line
-        pprint('element name: {}'.format(self.element_id))
+        print('element name: {}'.format(self.element_id))
         ename = total_list[self.element_id-1]
-        self.incident_energy = 11.0
+        incident_energy = self.param_data['coherent_sct_energy']['value']
 
         if len(ename) <= 2:
             e = Element(ename)
-            if e.cs(self.incident_energy)['ka1'] != 0:
+            if e.cs(incident_energy)['ka1'] != 0:
                 for i in range(4):
                     self.elist.append((e.emission_line.all[i][1],
-                                       e.cs(self.incident_energy).all[i][1]/e.cs(self.incident_energy).all[0][1]))
+                                       e.cs(incident_energy).all[i][1]/e.cs(incident_energy).all[0][1]))
 
         elif '_L' in ename:
             e = Element(ename[:-2])
-            print e.cs(self.incident_energy)['la1']
-            if e.cs(self.incident_energy)['la1'] != 0:
+            print e.cs(incident_energy)['la1']
+            if e.cs(incident_energy)['la1'] != 0:
                 for i in range(4, 17):
                     self.elist.append((e.emission_line.all[i][1],
-                                       e.cs(self.incident_energy).all[i][1]/e.cs(self.incident_energy).all[4][1]))
+                                       e.cs(incident_energy).all[i][1]/e.cs(incident_energy).all[4][1]))
 
         else:
             e = Element(ename[:-2])
-            if e.cs(self.incident_energy)['ma1'] != 0:
+            if e.cs(incident_energy)['ma1'] != 0:
                 for i in range(17, 21):
                     self.elist.append((e.emission_line.all[i][1],
-                                       e.cs(self.incident_energy).all[i][1]/e.cs(self.incident_energy).all[17][1]))
+                                       e.cs(incident_energy).all[i][1]/e.cs(incident_energy).all[17][1]))
 
         self.plot_data()
 
-    def set_prefit_data(self, prefit_x, total_y, total_y_l):
+    def set_prefit_data(self, prefit_x,
+                        total_y, total_y_l):
+        """
+        Parameters
+        ----------
+        prefit_x : array
+            X axis with limited range
+        total_y : dict
+            Results for k lines
+        total_y_l : dict
+            Results for l and m lines
+        """
         self.prefit_x = prefit_x
         # k lines
         self.total_y = total_y

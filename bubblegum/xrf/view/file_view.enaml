@@ -94,16 +94,14 @@ enamldef FileView(DockItem): file_view:
                 clicked ::
                     param_path = FileDialogEx.get_open_file_name(file_view)
                     if param_path:
-                        #param_m.get_param(filepath=param_path)
                         fd_load.text = param_path
                         param_model.param_path = param_path
-                        #param_model.set_param(io_model.param_data)
+                        param_lbl.text = param_model.param_status
             Field: fd_load:
                 text = 'Use default otherwise.'
-        #Form:
             Label: load_lbl:
                 text << io_model.load_status
                 #maximum_size = 300
             Label: param_lbl:
-                text = 'load param'
+                text = 'Use default parametere files.'
                 #maximum_size = 100

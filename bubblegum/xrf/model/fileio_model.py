@@ -35,11 +35,12 @@
 
 __author__ = 'Li Li'
 
-from atom.api import Atom, Str, observe, Typed, Dict
 import numpy as np
-import json
 import os
+import logging
+logger = logging.getLogger(__name__)
 
+from atom.api import Atom, Str, observe, Typed, Dict
 
 # The following lines need to be updated.
 # A better design to hook up with meta data store needs to be done.
@@ -68,7 +69,6 @@ class FileIOModel(Atom):
     data = Typed(np.ndarray)
     file_path = Str(data_path)
     load_status = Str()
-    param_data = Dict()
 
     def __init__(self):
         self.load_data()
@@ -99,13 +99,3 @@ class FileIOModel(Atom):
             self.load_status = 'File {} doesn\'t exist.'.format(self.file_name)
         except ValueError:
             self.load_status = 'File {} can\'t be loaded. '.format(self.file_name)
-
-    def get_param(self, filepath):
-        """
-        Parameters
-        ----------
-        filepath : str, optional
-            File path of the parameter jason file
-        """
-        with open(filepath, 'r') as json_data:
-            self.param_data = json.load(json_data)

@@ -59,7 +59,7 @@ enamldef GuessParamView(DockItem): param_view:
                 top_cntr,
                 hbox(pb10, pb11, spacer),
                 hbox(pb12, pb13, pb14),
-                hbox(lb15),
+                #hbox(lb15),
             ),
         ]
         Container: top_cntr:
@@ -257,12 +257,12 @@ enamldef GuessParamView(DockItem): param_view:
                 param_m.arange_prefit_result()
                 status_tip = 'Running'
                 if (len(param_m.total_y) == 0):
-                    lb15.text = 'No auto fit result is available.'
+                    #lb15.text = 'No auto fit result is available.'
                     pb13.enabled = False
                     pb14.enabled = False
 
                 else:
-                    lb15.text = 'Auto fit is finished.'
+                    #lb15.text = 'Auto fit is finished.'
                     pb13.enabled = True
                     pb14.enabled = True
 
@@ -278,8 +278,7 @@ enamldef GuessParamView(DockItem): param_view:
                     pb13.text = 'Remove Plot'
                 else:
                     pb13.text = 'Overlap to Spectrum'
-                    plot_m.set_prefit_data([], [], [])
-                    #plot_m.set_prefit_bg([])
+                    plot_m.set_prefit_data([], {}, {})
                     plot_m.plot_data()
 
         PushButton: pb14:
@@ -289,8 +288,8 @@ enamldef GuessParamView(DockItem): param_view:
                 PreFitResult.param_m = param_m
                 PreFitResult.plot_m = plot_m
                 PreFitResult().show()
-        Label: lb15:
-            text = 'No auto fit result is available.'
+        #Label: lb15:
+        #    text = 'No auto fit result is available.'
             #max_length = 10
             #maximum_size = 100
 
