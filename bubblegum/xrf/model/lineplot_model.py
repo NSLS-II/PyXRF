@@ -103,7 +103,13 @@ class LinePlotModel(Atom):
         if change['type'] == 'update':
             self.plot_data()
 
-    def plot_data(self):
+    def plot_data(self, min_ratio=1e-6):
+        """
+        Parameters
+        ----------
+        min_ratio : float, opt
+            define the range of plotting
+        """
         plot_type = ['LinLog', 'Linear']
         #self._ax = self._fig.add_subplot(111)
         #self._fig.title = self.plot_title
@@ -119,7 +125,8 @@ class LinePlotModel(Atom):
         else:
             self._ax.semilogy(x_v, data_arr, 'b-', label='experiment')
 
-        minv = np.min(data_arr)
+        #minv = np.min(data_arr)
+        minv = np.max(data_arr)*min_ratio
         if len(self.elist) != 0:
             self._ax.hold(True)
             for i in range(len(self.elist)):
@@ -142,7 +149,10 @@ class LinePlotModel(Atom):
                     if k == 'background':
                         self._ax.plot(self.prefit_x, v, 'grey')
                     else:
-                        self._ax.plot(self.prefit_x, v, 'g-', label='k line')
+                        if i == 0:
+                            self._ax.plot(self.prefit_x, v, 'g-', label='k line')
+                        else:
+                            self._ax.plot(self.prefit_x, v, 'g-')
                     sum += v
 
                 if len(self.total_y_l) != 0:
