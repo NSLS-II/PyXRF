@@ -119,8 +119,13 @@ class GuessParamModel(Atom):
         """
         self.data = np.asarray(data)
 
+    def save_param(self, param):
+        self.param_d = param
+
     def find_peak(self):
         """run automatic peak finding."""
+        #for k,v in six.iteritems(self.param_d):
+        #    print('{}:{}'.format(k,v))
         self.prefit_x, self.result_dict, bg = pre_fit_linear(self.param_d, self.data)
 
         self.result_dict.update(background=bg)

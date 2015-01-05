@@ -107,17 +107,17 @@ enamldef GuessParamView(DockItem): param_view:
                         value := param_m.param_d['non_fitting_values']['energy_bound_low']
                         maximum_size = 100
                     PushButton: pb2:
-                        text = 'edit'
+                        text = 'user value'
                         checkable = True
                         checked = fd2.enabled
                         clicked ::
                             if checked:
                                 fd2.enabled = True
-                                #print('fd2.value: ', param_m.param_d['non_fitting_values']['energy_bound_low'])
-                                fd2.value = param_m.param_d['non_fitting_values']['energy_bound_low']
+                                pb2.text = 'default value'
                             else:
                                 fd2.value = param_m.param_d_perm['non_fitting_values']['energy_bound_low']
                                 fd2.enabled = False
+                                pb2.text = 'user value'
 
                     Label: lbl3:
                         text = 'E high limit [keV]'
@@ -126,16 +126,17 @@ enamldef GuessParamView(DockItem): param_view:
                         value := param_m.param_d['non_fitting_values']['energy_bound_high']
                         maximum_size = 100
                     PushButton: pb3:
-                        text = 'edit'
+                        text = 'user value'
                         checkable = True
                         checked = fd3.enabled
                         clicked ::
                             if checked:
                                 fd3.enabled = True
-                                fd3.value = param_m.param_d['non_fitting_values']['energy_bound_high']
+                                pb3.text = 'default value'
                             else:
                                 fd3.value = param_m.param_d_perm['non_fitting_values']['energy_bound_high']
                                 fd3.enabled = False
+                                pb3.text = 'user value'
 
                     Label: lbl4:
                         text = 'E Calib. Coef, a0'
@@ -145,15 +146,17 @@ enamldef GuessParamView(DockItem): param_view:
                         value := param_m.param_d['e_offset']['value']
                         maximum_size = 100
                     PushButton: pb4:
-                        text = 'edit'
+                        text = 'user value'
                         checkable = True
-                        #checked = True
+                        checked = fd4.enabled
                         clicked ::
                             if checked:
                                 fd4.enabled = True
+                                pb4.text = 'default value'
                             else:
                                 fd4.value = param_m.param_d_perm['e_offset']['value']
                                 fd4.enabled = False
+                                pb4.text = 'user value'
 
                     Label: lbl5:
                         text = 'E Calib. Coef, a1'
@@ -163,14 +166,16 @@ enamldef GuessParamView(DockItem): param_view:
                         value := param_m.param_d['e_linear']['value']
                         maximum_size = 100
                     PushButton: pb5:
-                        text = 'edit'
+                        text = 'user value'
                         checkable = True
                         clicked ::
                             if checked:
                                 fd5.enabled = True
+                                pb5.text = 'default value'
                             else:
-                                fd5.value = param_m.param_d_perm['e_offset']['value']
+                                fd5.value = param_m.param_d_perm['e_linear']['value']
                                 fd5.enabled = False
+                                pb5.text = 'user value'
 
                     Label: lbl6:
                         text = 'E Calib. Coef, a2'
@@ -180,14 +185,16 @@ enamldef GuessParamView(DockItem): param_view:
                         value := param_m.param_d['e_quadratic']['value']
                         maximum_size = 100
                     PushButton: pb6:
-                        text = 'edit'
+                        text = 'user value'
                         checkable = True
                         clicked ::
                             if checked:
                                 fd6.enabled = True
+                                pb6.text = 'default value'
                             else:
                                 fd6.value = param_m.param_d_perm['e_quadratic']['value']
                                 fd6.enabled = False
+                                pb6.text = 'user value'
 
                     Label: lbl7:
                         text = 'fwhm Coef, b1 [keV]'
@@ -197,31 +204,35 @@ enamldef GuessParamView(DockItem): param_view:
                         value := param_m.param_d['fwhm_offset']['value']
                         maximum_size = 100
                     PushButton: pb7:
-                        text = 'edit'
+                        text = 'user value'
                         checkable = True
                         clicked ::
                             if checked:
                                 fd7.enabled = True
+                                pb7.text = 'default value'
                             else:
                                 fd7.value = param_m.param_d_perm['fwhm_offset']['value']
                                 fd7.enabled = False
+                                pb7.text = 'user value'
 
                     Label: lbl8:
                         text = 'fwhm Coef, b2'
                         tool_tip = 'width**2 = (b1/2.3548)**2 + 3.85*b2*E, 3.85keV is electron-hole pair creation energy in silicon '
                     FloatField: fd8:
                         enabled = False
-                        value = param_m.param_d['fwhm_fanoprime']['value']
+                        value := param_m.param_d['fwhm_fanoprime']['value']
                         maximum_size = 100
                     PushButton: pb8:
-                        text = 'edit'
+                        text = 'user value'
                         checkable = True
                         clicked ::
                             if checked:
                                 fd8.enabled = True
+                                pb8.text = 'default value'
                             else:
                                 fd8.value = param_m.param_d_perm['fwhm_fanoprime']['value']
                                 fd8.enabled = False
+                                pb8.text = 'user value'
 
                     Label: lbl9:
                         text = 'Compton fwhm Coef'
@@ -230,19 +241,22 @@ enamldef GuessParamView(DockItem): param_view:
                         value := param_m.param_d['compton_fwhm_corr']['value']
                         maximum_size = 100
                     PushButton: pb9:
-                        text = 'edit'
+                        text = 'user value'
                         checkable = True
                         clicked ::
                             if checked:
                                 fd9.enabled = True
+                                pb9.text = 'default value'
                             else:
                                 fd9.value = param_m.param_d_perm['compton_fwhm_corr']['value']
                                 fd9.enabled = False
+                                pb9.text = 'user value'
 
         PushButton: pb10:
             text = 'Save'
             clicked ::
                 pass
+                #param_m.save_param(param_m.param_d)
         PushButton: pb11:
             text = 'Save As'
             clicked ::
