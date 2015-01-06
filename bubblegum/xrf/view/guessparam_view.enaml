@@ -57,8 +57,8 @@ enamldef GuessParamView(DockItem): param_view:
         constraints = [
             vbox(
                 top_cntr,
-                hbox(pb10, pb11, spacer),
                 hbox(pb12, pb13, pb14),
+                hbox(pb10, pb11, spacer),
                 #hbox(lb15),
             ),
         ]
