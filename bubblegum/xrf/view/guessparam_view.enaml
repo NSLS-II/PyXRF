@@ -1,3 +1,40 @@
+# ######################################################################
+# Copyright (c) 2014, Brookhaven Science Associates, Brookhaven        #
+# National Laboratory. All rights reserved.                            #
+#                                                                      #
+# Redistribution and use in source and binary forms, with or without   #
+# modification, are permitted provided that the following conditions   #
+# are met:                                                             #
+#                                                                      #
+# * Redistributions of source code must retain the above copyright     #
+#   notice, this list of conditions and the following disclaimer.      #
+#                                                                      #
+# * Redistributions in binary form must reproduce the above copyright  #
+#   notice this list of conditions and the following disclaimer in     #
+#   the documentation and/or other materials provided with the         #
+#   distribution.                                                      #
+#                                                                      #
+# * Neither the name of the Brookhaven Science Associates, Brookhaven  #
+#   National Laboratory nor the names of its contributors may be used  #
+#   to endorse or promote products derived from this software without  #
+#   specific prior written permission.                                 #
+#                                                                      #
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS  #
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT    #
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS    #
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE       #
+# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,           #
+# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES   #
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR   #
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)   #
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,  #
+# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OTHERWISE) ARISING   #
+# IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE   #
+# POSSIBILITY OF SUCH DAMAGE.                                          #
+########################################################################
+
+__author__ = 'Li Li'
+
 from enaml.widgets.api import (Container, PushButton, Label,
                                Form, Field, FileDialogEx, DockItem,
                                DockArea, CheckBox, ComboBox, PopupView,
@@ -11,7 +48,7 @@ import six
 from skxray.constants.api import XrfElement as Element
 
 
-enamldef GuessParamView(DockItem):
+enamldef GuessParamView(DockItem): param_view:
     attr param_m
     attr fileio_m
     attr plot_m
@@ -20,9 +57,9 @@ enamldef GuessParamView(DockItem):
         constraints = [
             vbox(
                 top_cntr,
-                hbox(pb10, pb11, spacer),
                 hbox(pb12, pb13, pb14),
-                hbox(lb15),
+                hbox(pb10, pb11, spacer),
+                #hbox(lb15),
             ),
         ]
         Container: top_cntr:
@@ -40,9 +77,6 @@ enamldef GuessParamView(DockItem):
                             [lbl7, fd7, pb7],
                             [lbl8, fd8, pb8],
                             [lbl9, fd9, pb9],
-                            #[pb10, pb11],
-                            #[pb12, pb13, pb14],
-                            #[lb15],
                         ),
                     ]
 
@@ -54,15 +88,17 @@ enamldef GuessParamView(DockItem):
                         minimum = 0.
                         maximum_size = 100
                     PushButton: pb1:
-                        text = 'edit'
+                        text = 'user value'
                         checkable = True
                         checked = fd1.enabled
                         clicked ::
                             if checked:
                                 fd1.enabled = True
+                                pb1.text = 'default value'
                             else:
                                 fd1.value = param_m.param_d_perm['coherent_sct_energy']['value']
                                 fd1.enabled = False
+                                pb1.text = 'user value'
 
                     Label: lbl2:
                         text = 'E low limit [keV]'
@@ -71,17 +107,17 @@ enamldef GuessParamView(DockItem):
                         value := param_m.param_d['non_fitting_values']['energy_bound_low']
                         maximum_size = 100
                     PushButton: pb2:
-                        text = 'edit'
+                        text = 'user value'
                         checkable = True
                         checked = fd2.enabled
                         clicked ::
                             if checked:
                                 fd2.enabled = True
-                                #print('fd2.value: ', param_m.param_d['non_fitting_values']['energy_bound_low'])
-                                fd2.value = param_m.param_d['non_fitting_values']['energy_bound_low']
+                                pb2.text = 'default value'
                             else:
                                 fd2.value = param_m.param_d_perm['non_fitting_values']['energy_bound_low']
                                 fd2.enabled = False
+                                pb2.text = 'user value'
 
                     Label: lbl3:
                         text = 'E high limit [keV]'
@@ -90,16 +126,17 @@ enamldef GuessParamView(DockItem):
                         value := param_m.param_d['non_fitting_values']['energy_bound_high']
                         maximum_size = 100
                     PushButton: pb3:
-                        text = 'edit'
+                        text = 'user value'
                         checkable = True
                         checked = fd3.enabled
                         clicked ::
                             if checked:
                                 fd3.enabled = True
-                                fd3.value = param_m.param_d['non_fitting_values']['energy_bound_high']
+                                pb3.text = 'default value'
                             else:
                                 fd3.value = param_m.param_d_perm['non_fitting_values']['energy_bound_high']
                                 fd3.enabled = False
+                                pb3.text = 'user value'
 
                     Label: lbl4:
                         text = 'E Calib. Coef, a0'
@@ -109,15 +146,17 @@ enamldef GuessParamView(DockItem):
                         value := param_m.param_d['e_offset']['value']
                         maximum_size = 100
                     PushButton: pb4:
-                        text = 'edit'
+                        text = 'user value'
                         checkable = True
-                        #checked = True
+                        checked = fd4.enabled
                         clicked ::
                             if checked:
                                 fd4.enabled = True
+                                pb4.text = 'default value'
                             else:
                                 fd4.value = param_m.param_d_perm['e_offset']['value']
                                 fd4.enabled = False
+                                pb4.text = 'user value'
 
                     Label: lbl5:
                         text = 'E Calib. Coef, a1'
@@ -127,14 +166,16 @@ enamldef GuessParamView(DockItem):
                         value := param_m.param_d['e_linear']['value']
                         maximum_size = 100
                     PushButton: pb5:
-                        text = 'edit'
+                        text = 'user value'
                         checkable = True
                         clicked ::
                             if checked:
                                 fd5.enabled = True
+                                pb5.text = 'default value'
                             else:
-                                fd5.value = param_m.param_d_perm['e_offset']['value']
+                                fd5.value = param_m.param_d_perm['e_linear']['value']
                                 fd5.enabled = False
+                                pb5.text = 'user value'
 
                     Label: lbl6:
                         text = 'E Calib. Coef, a2'
@@ -144,14 +185,16 @@ enamldef GuessParamView(DockItem):
                         value := param_m.param_d['e_quadratic']['value']
                         maximum_size = 100
                     PushButton: pb6:
-                        text = 'edit'
+                        text = 'user value'
                         checkable = True
                         clicked ::
                             if checked:
                                 fd6.enabled = True
+                                pb6.text = 'default value'
                             else:
                                 fd6.value = param_m.param_d_perm['e_quadratic']['value']
                                 fd6.enabled = False
+                                pb6.text = 'user value'
 
                     Label: lbl7:
                         text = 'fwhm Coef, b1 [keV]'
@@ -161,31 +204,35 @@ enamldef GuessParamView(DockItem):
                         value := param_m.param_d['fwhm_offset']['value']
                         maximum_size = 100
                     PushButton: pb7:
-                        text = 'edit'
+                        text = 'user value'
                         checkable = True
                         clicked ::
                             if checked:
                                 fd7.enabled = True
+                                pb7.text = 'default value'
                             else:
                                 fd7.value = param_m.param_d_perm['fwhm_offset']['value']
                                 fd7.enabled = False
+                                pb7.text = 'user value'
 
                     Label: lbl8:
                         text = 'fwhm Coef, b2'
                         tool_tip = 'width**2 = (b1/2.3548)**2 + 3.85*b2*E, 3.85keV is electron-hole pair creation energy in silicon'
                     FloatField: fd8:
                         enabled = False
-                        value = param_m.param_d['fwhm_fanoprime']['value']
+                        value := param_m.param_d['fwhm_fanoprime']['value']
                         maximum_size = 100
                     PushButton: pb8:
-                        text = 'edit'
+                        text = 'user value'
                         checkable = True
                         clicked ::
                             if checked:
                                 fd8.enabled = True
+                                pb8.text = 'default value'
                             else:
                                 fd8.value = param_m.param_d_perm['fwhm_fanoprime']['value']
                                 fd8.enabled = False
+                                pb8.text = 'user value'
 
                     Label: lbl9:
                         text = 'Compton fwhm Coef'
@@ -194,19 +241,22 @@ enamldef GuessParamView(DockItem):
                         value := param_m.param_d['compton_fwhm_corr']['value']
                         maximum_size = 100
                     PushButton: pb9:
-                        text = 'edit'
+                        text = 'user value'
                         checkable = True
                         clicked ::
                             if checked:
                                 fd9.enabled = True
+                                pb9.text = 'default value'
                             else:
                                 fd9.value = param_m.param_d_perm['compton_fwhm_corr']['value']
                                 fd9.enabled = False
+                                pb9.text = 'user value'
 
         PushButton: pb10:
             text = 'Save'
             clicked ::
                 pass
+                #param_m.save_param(param_m.param_d)
         PushButton: pb11:
             text = 'Save As'
             clicked ::
@@ -220,12 +270,12 @@ enamldef GuessParamView(DockItem):
                 param_m.arange_prefit_result()
                 status_tip = 'Running'
                 if (len(param_m.total_y) == 0):
-                    lb15.text = 'No auto fit result is available.'
+                    #lb15.text = 'No auto fit result is available.'
                     pb13.enabled = False
                     pb14.enabled = False
 
                 else:
-                    lb15.text = 'Auto fit is finished.'
+                    #lb15.text = 'Auto fit is finished.'
                     pb13.enabled = True
                     pb14.enabled = True
 
@@ -241,8 +291,7 @@ enamldef GuessParamView(DockItem):
                     pb13.text = 'Remove Plot'
                 else:
                     pb13.text = 'Overlap to Spectrum'
-                    plot_m.set_prefit_data([], [], [])
-                    #plot_m.set_prefit_bg([])
+                    plot_m.set_prefit_data([], {}, {})
                     plot_m.plot_data()
 
         PushButton: pb14:
@@ -252,8 +301,8 @@ enamldef GuessParamView(DockItem):
                 PreFitResult.param_m = param_m
                 PreFitResult.plot_m = plot_m
                 PreFitResult().show()
-        Label: lb15:
-            text = 'No auto fit result is available.'
+        #Label: lb15:
+        #    text = 'No auto fit result is available.'
             #max_length = 10
             #maximum_size = 100
 
@@ -270,13 +319,11 @@ enamldef PreFitResult(Window):
                     Label:
                         text = '{:>20} {:>20} {:>20} {:>20}'.format('Z', 'emission line',
                                                                 'peak INT', 'norm INT')
-                        font = 'monospace'
-                        #text = 'emission line (peak intensity)'
                     Label:
                         text = 'plot'
 
                     Looper: looper:
-                        iterable    << list(six.iterkeys(param_m.result_dict))
+                        iterable << list(six.iterkeys(param_m.result_dict))
                         Label:
                             font = 'monospace'
                             #align = 'left'
@@ -285,10 +332,6 @@ enamldef PreFitResult(Window):
                                 loop_item,
                                 np.around(np.max(param_m.result_dict[loop_item]), 1),
                                 np.around(np.max(param_m.result_dict[loop_item])/getMax(param_m.result_dict), 4))
-                        #PushButton:
-                        #    text = 'Do some work'
-                        #    clicked ::
-                        #        print('Working...')
                         PushButton: cb:
                             text = 'Plot line'
 
@@ -296,17 +339,9 @@ enamldef PreFitResult(Window):
                             checked = param_m.status_dict[loop_item]
                             clicked ::
                                 param_m.status_dict[loop_item] = checked
-                                if checked:
-                                    if not loop_item in param_m.status_list:
-                                        param_m.status_list.append(loop_item)
-                                else:
-                                    param_m.status_list.remove(loop_item)
                                 param_m.arange_prefit_result()
                                 plot_m.set_prefit_data(param_m.prefit_x, param_m.total_y, param_m.total_y_l)
-                                #plot_m.set_prefit_bg(param_m.prefit_bg)
                                 plot_m.plot_data()
-                        #PushButton: cb1:
-                        #    text = 'Plot line1'
 
                 #Include:
                     # This generates a completely new list of widgets each
@@ -323,29 +358,35 @@ def get_Z(ename):
     """
     Return element's Z number.
 
-    Parameters:
-    -----------
-        ename : str
-            element name
-    Returns:
-    --------
+    Parameters
+    ----------
+    ename : str
+        element name
+
+    Returns
+    -------
     int or None
         element Z number
 
     """
+
+    strip_line = lambda ename: ename.split('_')[0]
+
     non_element = ['compton', 'elastic', 'background']
     if ename in non_element:
         return None
     else:
-        e = Element(ename[:-2])
+        e = Element(strip_line(ename))
         return e.Z
 
 
 def getMax(dictv):
     """
     Return max value from all dict values.
+
+    Parameters
+    ----------
+    dictv : dict
+        Saving all fitting results
     """
-    maxv = 0
-    for v in six.iterkeys(dictv):
-        maxv = np.max([maxv, np.max(dictv[v])])
-    return maxv
+    return reduce(max, map(np.max, six.itervalues(dictv)))
