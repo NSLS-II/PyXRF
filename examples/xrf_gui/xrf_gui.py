@@ -37,9 +37,9 @@ __author__ = 'Li Li'
 
 import enaml
 from enaml.qt.qt_application import QtApplication
-from bubblegum.xrf.model.fileio_model import FileIOModel
-from bubblegum.xrf.model.lineplot_model import LinePlotModel
-from bubblegum.xrf.model.guessparam_model import GuessParamModel
+from bubblegum.xrf.model.fileio import FileIOModel
+from bubblegum.xrf.model.lineplot import LinePlotModel
+from bubblegum.xrf.model.guessparam import GuessParamModel
 
 
 def run():
