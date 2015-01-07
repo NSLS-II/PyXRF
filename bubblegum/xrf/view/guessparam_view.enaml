@@ -64,7 +64,7 @@ enamldef GuessParamView(DockItem): param_view:
         ]
         Container: top_cntr:
             ScrollArea:
-                constraints = [height <= 150]
+                #constraints = [height <= 150]
                 Container:
                     constraints = [
                         grid(

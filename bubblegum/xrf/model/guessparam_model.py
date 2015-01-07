@@ -51,7 +51,7 @@ from skxray.fitting.background import snip_method
 
 
 # This is not a right way to define path. To be updated
-data_path = '/Users/Li/Research/X-ray/Research_work/all_code/nsls2_gui/nsls2_gui/xrf_parameter.json'
+data_path = '/Users/Li/Research/X-ray/Research_work/all_code/nsls2_gui/nsls2_gui/xrf_parameter_aps.json'
 
 
 class GuessParamModel(Atom):

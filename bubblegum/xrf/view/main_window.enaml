@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-from enaml.widgets.api import (MainWindow, Container, DockArea, Window)
-from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, TabLayout
-=======
 # ######################################################################
 # Copyright (c) 2014, Brookhaven Science Associates, Brookhaven        #
 # National Laboratory. All rights reserved.                            #
@@ -40,8 +36,7 @@ from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, TabLayout
 __author__ = 'Li Li'
 
 from enaml.widgets.api import (MainWindow, Container, DockArea)
-from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout
->>>>>>> xrf_auto_fit
+from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, TabLayout
 
 from .file_view import FileView
 from .guessparam_view import GuessParamView, PreFitResult
@@ -59,7 +54,7 @@ enamldef XRFGui(MainWindow): main_window:
     Container:
         DockArea:
             layout = HSplitLayout(
-                VSplitLayout('file_view', 'param_guess_view', 'fitting_view_n'),
+                TabLayout('file_view', 'param_guess_view', 'fitting_view_n'),
                 #VSplitLayout('file_view', 'fitting_view_n'),
                 TabLayout('lineplot_view', 'image_view'),
                 )
@@ -86,4 +81,5 @@ enamldef XRFGui(MainWindow): main_window:
                 #plot_model = plot_M
                 name = 'image_view'
             FitView:
+                title = 'Fit     '
                 name = 'fitting_view_n'

@@ -45,9 +45,9 @@ from atom.api import Atom, Str, observe, Typed, Dict
 # The following lines need to be updated.
 # A better design to hook up with meta data store needs to be done.
 folder = '/Users/Li/Research/X-ray/Research_work/all_code/nsls2_gui/nsls2_gui'
-file = 'NSLS_X27.txt'
+file = '2xfm_0304.h5'  # 'NSLS_X27.txt'
 data_path = os.path.join(folder, file)
-the_data = np.loadtxt(data_path)
+the_data = 0 #np.loadtxt(data_path)
 
 
 class FileIOModel(Atom):
@@ -92,10 +92,28 @@ class FileIOModel(Atom):
         """
         This function needs to be updated to handle other data formats.
         """
-        try:
-            self.data = np.loadtxt(self.file_path)
-            self.load_status = 'File {} is loaded successfully.'.format(self.file_name)
-        except IOError:
-            self.load_status = 'File {} doesn\'t exist.'.format(self.file_name)
-        except ValueError:
-            self.load_status = 'File {} can\'t be loaded. '.format(self.file_name)
+        if '.txt' in self.file_name:
+            try:
+                self.data = np.loadtxt(self.file_path)
+                self.load_status = 'File {} is loaded successfully.'.format(self.file_name)
+            except IOError:
+                self.load_status = 'File {} doesn\'t exist.'.format(self.file_name)
+            except ValueError:
+                self.load_status = 'File {} can\'t be loaded. '.format(self.file_name)
+
+        # consider hdf file now, but this will be replaced by databroker
+        # eventually an data object, or dict is returned
+        if '.h5' in self.file_name:
+            import h5py
+            try:
+                print('file name is: {}'.format(self.file_path))
+                f = h5py.File(self.file_path, 'r')
+                g = f['MAPS']
+                data = g['mca_arr']
+                self.data = np.sum(data, axis=(1, 2))
+                self.load_status = 'File {} is loaded successfully.'.format(self.file_name)
+                #self.data =
+            except IOError:
+                self.load_status = 'File {} doesn\'t exist.'.format(self.file_name)
+            except ValueError:
+                self.load_status = 'File {} can\'t be loaded. '.format(self.file_name)
