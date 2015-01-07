@@ -38,11 +38,11 @@ __author__ = 'Li Li'
 from enaml.widgets.api import (MainWindow, Container, DockArea)
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, TabLayout
 
-from .file_view import FileView
-from .guessparam_view import GuessParamView, PreFitResult
-from .lineplot_view import PlotMain
-from .image_view import ImageMain
-from .fitting_view import FitView
+from .fileio import FileView
+from .guessparam import GuessParamView, PreFitResult
+from .lineplot import PlotMain
+from .image2D import ImageMain
+from .fit import FitView
 
 
 enamldef XRFGui(MainWindow): main_window:
