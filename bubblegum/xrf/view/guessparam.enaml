@@ -64,7 +64,11 @@ enamldef GuessParamView(DockItem): param_view:
         ]
         Container: top_cntr:
             ScrollArea:
+<<<<<<< HEAD:bubblegum/xrf/view/guessparam.enaml
                 #constraints = [height <= 150]
+=======
+                #constraints = [height <= 200]
+>>>>>>> xrf_auto_fit:bubblegum/xrf/view/guessparam.enaml
                 Container:
                     constraints = [
                         grid(

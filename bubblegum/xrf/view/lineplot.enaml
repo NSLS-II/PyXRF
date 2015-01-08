@@ -55,10 +55,13 @@ enamldef PlotMain(DockItem):
     Container:
         constraints = [
             vbox(
-                hbox(cbox1, cbox2, pbn, checkb, spacer),
+                hbox(cbox1, pbn, spacer),
+                hbox(cbox2, checkb, spacer),
                 canvas,
             ),
         ]
+        #ComboBox: data_choose:
+        #    items = ['file1', 'file2']
         ComboBox: cbox1:
             items = ['LinLog', 'Linear']
             index := plot_model.plot_opt

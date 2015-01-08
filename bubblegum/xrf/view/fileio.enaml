@@ -53,12 +53,14 @@ enamldef FileView(DockItem): file_view:
             constraints = [
                 vbox(
                     hbox(btn_folder, btn_fd),
-                    hbox(btn_file, fd),
+                    #hbox(btn_file, fd),
+                    #hbox(load_lbl),
+                    hbox(btn_files, CB),
+                    hbox(files_load),
                     hbox(pb_load, fd_load),
-                    hbox(load_lbl),
                     hbox(param_lbl),
                 ),
-                btn_folder.width == btn_file.width,
+                btn_folder.width == btn_files.width,
                 btn_folder.width == pb_load.width,
             ]
             PushButton: btn_folder:
@@ -70,24 +72,42 @@ enamldef FileView(DockItem): file_view:
                         io_model.folder_name = path
             Field: btn_fd:
                 text := io_model.folder_name
-            PushButton: btn_file:
-                text = "Open File"
+            #PushButton: btn_file:
+            #    text = "Open File"
                 #maximum_size = 200
-                clicked ::
-                    path = FileDialogEx.get_open_file_name(file_view, current_path=io_model.folder_name)
-                    if path:
-                        pathlist = path.split('/')
-                        io_model.file_name = pathlist[-1]
-                        fd.text = pathlist[-1]
-            Field: fd:
-                text := io_model.file_name
-                #submit_triggers = ['lost_focus', 'return_pressed', 'auto_sync']
+            #    clicked ::
+            #        path = FileDialogEx.get_open_file_name(file_view, current_path=io_model.folder_name)
+            #        if path:
+            #            print('path is {}'.format(path))
+            #            pathlist = path.split('/')
+            #            io_model.file_name = pathlist[-1]
+            #            fd.text = pathlist[-1]
+            #Field: fd:
+            #    text := io_model.file_name
+            #    submit_triggers = ['lost_focus', 'return_pressed', 'auto_sync']
             #PushButton:
             #    text = 'Load Files'
             #    clicked ::
             #        io_model.load_data()
             #        load_lbl.text = io_model.load_status
 
+            PushButton: btn_files:
+                text = "Open Files"
+                clicked ::
+                    path = FileDialogEx.get_open_file_names(file_view, current_path=io_model.folder_name)
+                    if path:
+                        pathlist = [item.split('/')[-1] for item in path] #path[1].split('/')
+                        print('path list: {} '.format(pathlist))
+                        io_model.file_names = pathlist
+                        files_load.text = 'Number of files loaded: {}'.format(len(io_model.file_names))
+                        #io_model.load_more_data()
+                        CB.items = ['Please select file'] + io_model.file_names
+            Label: files_load:
+                text = 'No data is loaded.'
+            ComboBox: CB:
+                items = ['Please load file first']
+                index := io_model.file_opt
+                index = 0
             PushButton: pb_load:
                 text = 'Load Parameter File'
                 #maximum_size = 200
