@@ -36,7 +36,7 @@
 __author__ = 'Li Li'
 
 from enaml.widgets.api import (MainWindow, Container, DockArea)
-from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout
+from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, TabLayout
 
 from .fileio import FileView
 from .guessparam import GuessParamView, PreFitResult
@@ -51,7 +51,7 @@ enamldef XRFGui(MainWindow): main_window:
     Container:
         DockArea:
             layout = HSplitLayout(
-                VSplitLayout('file_view', 'param_guess_view'),
+                TabLayout('file_view', 'param_guess_view'),
                 'lineplot_view',
                 )
             FileView: file_view1:
