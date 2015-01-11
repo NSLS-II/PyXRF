@@ -35,7 +35,10 @@
 
 __author__ = 'Li Li'
 
+import six
+import h5py
 import numpy as np
+import copy
 import os
 import logging
 logger = logging.getLogger(__name__)
@@ -63,6 +66,12 @@ class FileIOModel(Atom):
     file_path : str
     load_status : str
         Description of file loading status
+    file_opt : int
+        Define which file to choose
+    data_obj : dict
+        data object
+    data_dict : dict
+        dict of multiple data objects
     """
     folder_name = Str(folder)
     file_name = Str(file)
@@ -72,12 +81,12 @@ class FileIOModel(Atom):
     path_list = List()
     load_status = Str()
     file_opt = Int()
+    data_obj = Typed(object)
     data_dict = Dict()
+    img_dict = Dict()
 
     def __init__(self):
         pass
-        #self.load_data()
-
     #@observe('folder_name', 'file_name')
     #def update(self, changed):
     #    if changed['type'] == 'create':
@@ -97,54 +106,50 @@ class FileIOModel(Atom):
         """
         This function needs to be updated to handle other data formats.
         """
-<<<<<<< HEAD:bubblegum/xrf/model/fileio.py
         if '.txt' in self.file_name:
-            try:
-                self.data = np.loadtxt(self.file_path)
-                self.load_status = 'File {} is loaded successfully.'.format(self.file_name)
-            except IOError:
-                self.load_status = 'File {} doesn\'t exist.'.format(self.file_name)
-            except ValueError:
-                self.load_status = 'File {} can\'t be loaded. '.format(self.file_name)
+            #try:
+            self.data = np.loadtxt(self.file_path)
+            #self.load_status = 'File {} is loaded successfully.'.format(self.file_name)
+            #except IOError:
+            #    self.load_status = 'File {} doesn\'t exist.'.format(self.file_name)
+            #except ValueError:
+            #    self.load_status = 'File {} can\'t be loaded. '.format(self.file_name)
 
         # consider hdf file now, but this will be replaced by databroker
         # eventually an data object, or dict is returned
         if '.h5' in self.file_name:
-            import h5py
-            try:
-                print('file name is: {}'.format(self.file_path))
-                f = h5py.File(self.file_path, 'r')
-                g = f['MAPS']
-                data = g['mca_arr']
-                self.data = np.sum(data, axis=(1, 2))
-                self.load_status = 'File {} is loaded successfully.'.format(self.file_name)
-                #self.data =
-            except IOError:
-                self.load_status = 'File {} doesn\'t exist.'.format(self.file_name)
-            except ValueError:
-                self.load_status = 'File {} can\'t be loaded. '.format(self.file_name)
-=======
+            #try:
+            print('file name is: {}'.format(self.file_path))
+            ###########this two lines can be replace later######
+            #f = h5py.File(self.file_path, 'r')
+            #self.data_obj = f['MAPS']
+            #temp = self.data_obj.create_dataset('int_sum',
+            #                                    data=np.sum(self.data_obj['mca_arr'], axis=(1, 2)))
+            #self.data_obj.update({'int_sum': np.sum(self.data_obj['mca_arr'],
+            #                                        axis=(1, 2))})
+            ###########################################
+
+            #self.load_status = 'File {} is loaded successfully.'.format(self.file_name)
+            #except IOError:
+            #    self.load_status = 'File {} doesn\'t exist.'.format(self.file_name)
+            #except ValueError:
+            #    self.load_status = 'File {} can\'t be loaded. '.format(self.file_name)
         #try:
-        self.data = np.loadtxt(self.file_path)
-        #self.load_status = 'File {} is loaded successfully.'.format(self.file_name)
-        #except IOError:
-        #    self.load_status = 'File {} doesn\'t exist.'.format(self.file_name)
-        #except ValueError:
-        #    self.load_status = 'File {} can\'t be loaded. '.format(self.file_name)
+        #self.data = np.loadtxt(self.file_path)
 
     @observe('file_names')
-    def update_more_data(self, changed):
+    def update_more_data(self, change):
         for fname in self.file_names:
             try:
                 self.file_path = os.path.join(self.folder_name, fname)
-                self.load_data()
-                self.file_name = fname
-                self.data_dict.update({fname: self.data.copy()})
+                f = h5py.File(self.file_path, 'r')
+                data = f['MAPS']
+                self.data_dict.update({fname: data})
             except ValueError:
                 continue
-
-            #self.pathlist.append(self.file_path)
-        print('all keys: {}'.format(self.data_dict.keys()))
+            #f.close()
+        self.get_roi_data()
+        #print('all keys: {}'.format(self.data_dict.keys()))
 
     @observe('file_opt')
     def choose_file(self, changed):
@@ -152,6 +157,15 @@ class FileIOModel(Atom):
         if self.file_opt == 0:
             return
         self.file_name = self.file_names[self.file_opt-1]
-        #self.file_path = os.path.join(self.folder_name, fname)
-        self.data = self.data_dict[str(self.file_name)]
->>>>>>> xrf_auto_fit:bubblegum/xrf/model/fileio.py
+        self.data_obj = self.data_dict[str(self.file_name)]
+        # calculate the summed intensity, this should be included in data already
+        self.data = np.sum(self.data_obj['mca_arr'], axis=(1, 2))
+
+    def get_roi_data(self):
+        """
+        Get roi sum data from data_dict.
+        """
+        for k, v in six.iteritems(self.data_dict):
+            roi_dict = {d[0]: d[1] for d in zip(v['channel_names'], v['XRF_roi'])}
+            self.img_dict.update({str(k): {'roi_sum': roi_dict}})
+        print('keys: {}'.format(self.img_dict.keys()))

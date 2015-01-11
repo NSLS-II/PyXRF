@@ -1,48 +1,13 @@
 from enaml.widgets.api import (Container, PushButton, Label,
                                Form, Field, FileDialogEx, DockItem,
-                               DockArea, MPLCanvas, CheckBox, ComboBox)
+                               DockArea, MPLCanvas, CheckBox, ComboBox,
+                               ScrollArea, Window)
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer
+from enaml.core.api import Include, Looper
+
+import six
 import numpy as np
-
 from matplotlib.figure import Figure
-from skxray.fitting.xrf_model import (k_line, l_line, m_line)
-
-
-k_line_full = [item+'_K' for item in k_line]
-
-
-enamldef ImageMain1(DockItem):
-    attr io_model
-    attr plot_model
-    Container:
-        constraints = [
-            vbox(
-                hbox(cbox1, cbox2, pbn, check, spacer),
-                canvas,
-            ),
-            #cbox.v_center == check.v_center,
-        ]
-        ComboBox: cbox1:
-            items = ['LinLog', 'Linear']
-            index := plot_model.plot_opt
-            index = 0
-        ComboBox: cbox2:
-            items = ['Choose emission line by using arrow'] +\
-                    k_line_full + l_line + m_line
-            index := plot_model.element_id
-            index = 0
-        PushButton: pbn:
-            text = 'Plot Raw Spectrum'
-            clicked ::
-                plot_model.plot_title = io_model.file_name
-                plot_model.set_data(io_model.data)
-                plot_model.plot_data()
-        CheckBox: check:
-            text = 'Toolbar Visible'
-            checked := canvas.toolbar_visible
-        MPLCanvas: canvas:
-            figure << plot_model._fig
-            #figures[cbox.selected_item]
 
 
 fig1 = Figure()
@@ -60,19 +25,79 @@ figures = {
 }
 
 enamldef ImageMain(DockItem):
+    attr io_model
+    attr draw_img
     Container:
         constraints = [
             vbox(
-                hbox(cbox, check, spacer),
+                hbox(load_file, cbox_file, cbox_type, pb_choose, plot_btn, check),
                 canvas,
             ),
-            cbox.v_center == check.v_center,
+            cbox_type.v_center == check.v_center,
         ]
-        ComboBox: cbox:
-            items = ['ROI sum', 'Fit']
+        PushButton: load_file:
+            text = 'Load Data'
+            clicked ::
+                cbox_file.items = ['Choose Data'] + sorted(draw_img.data_dict.keys())
+                draw_img.plot_status()
+        ComboBox: cbox_file:
+            #items = ['']
+            index := draw_img.file_opt
             index = 0
+        ComboBox: cbox_type:
+            items = ['Plot Type', 'ROI sum', 'Fit']
+            index := draw_img.plot_opt
+            index = 0
+
+        PushButton: pb_choose:
+            text = 'Select Elements'
+            enabled = True
+            #checkable = True
+            clicked ::
+                #ChooseElement.xrf_data = io_model.data_obj
+                ChooseElement.draw_img = draw_img
+                ChooseElement().show()
+                #draw_img.img_data = io_model.data_obj['XRF_roi']
+
+        #ComboBox: cb_choose:
+        #    items = io_model.data_obj['channel_names'].value.tolist()
+        #    index = 0
+        #ComboBox: plot_dim:
+        #    items = ['1*1', '2*2', '3*3', '4*4']
+        #    index = 0
+        PushButton: plot_btn:
+            text = 'Show Image'
+            clicked ::
+                draw_img.show_image()
         CheckBox: check:
             text = 'Toolbar Visible'
             checked := canvas.toolbar_visible
         MPLCanvas: canvas:
-            figure << figures[cbox.selected_item]
+            figure << draw_img.fig
+            #figure << figures[cbox_type.selected_item]
+
+
+enamldef ChooseElement(Window):
+    attr draw_img
+
+    title = 'Results of Auto Peak Finding'
+    Container:
+        ScrollArea:
+            constraints = [height >= 200]
+            Container:
+                Form:
+                    Label:
+                        text = '{:>20} {:>20}'.format('Name', 'Add/Remove')
+                    Label:
+                        pass
+                    Looper: looper:
+                        iterable << draw_img.img_data.keys()
+                        Label:
+                            font = 'monospace'
+                            text = '{:>20}'.format(loop_item)
+                        PushButton: element_btn:
+                            text = 'ShowImg'
+                            checkable = True
+                            checked = draw_img.stat_dict[loop_item]
+                            clicked ::
+                                draw_img.stat_dict[loop_item] = checked

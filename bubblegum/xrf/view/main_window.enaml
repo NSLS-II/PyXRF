@@ -51,6 +51,8 @@ enamldef XRFGui(MainWindow): main_window:
     attr file_M
     attr p_guess_M
     attr plot_M
+    attr img_M
+
     Container:
         DockArea:
             layout = HSplitLayout(
@@ -62,6 +64,7 @@ enamldef XRFGui(MainWindow): main_window:
                 title = 'File IO'
                 io_model = file_M
                 param_model = p_guess_M
+                img_model = img_M
                 name = 'file_view'
             GuessParamView:
                 title = 'Initial Parameter Guess '
@@ -77,7 +80,8 @@ enamldef XRFGui(MainWindow): main_window:
                 name = 'lineplot_view'
             ImageMain:
                 title = '2D Map'
-                #io_model = file_M
+                io_model = file_M
+                draw_img = img_M
                 #plot_model = plot_M
                 name = 'image_view'
             FitView:

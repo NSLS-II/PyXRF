@@ -45,6 +45,8 @@ import numpy as np
 enamldef FileView(DockItem): file_view:
     attr io_model
     attr param_model
+    attr img_model
+
     Container:
         Form:
             Label: lb_tool_name:
@@ -102,12 +104,17 @@ enamldef FileView(DockItem): file_view:
                         files_load.text = 'Number of files loaded: {}'.format(len(io_model.file_names))
                         #io_model.load_more_data()
                         CB.items = ['Please select file'] + io_model.file_names
-            Label: files_load:
-                text = 'No data is loaded.'
+                        io_model.get_roi_data()
+                        img_model.data_dict = io_model.img_dict
+
             ComboBox: CB:
                 items = ['Please load file first']
                 index := io_model.file_opt
                 index = 0
+
+            Label: files_load:
+                text = 'No data is loaded.'
+
             PushButton: pb_load:
                 text = 'Load Parameter File'
                 #maximum_size = 200
