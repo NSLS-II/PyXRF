@@ -49,9 +49,9 @@ from skxray.constants.api import XrfElement as Element
 
 
 enamldef GuessParamView(DockItem): param_view:
-    attr param_m
-    attr fileio_m
-    attr plot_m
+    attr param_model
+    attr io_model
+    attr plot_model
 
     Container:
         constraints = [
@@ -84,7 +84,7 @@ enamldef GuessParamView(DockItem): param_view:
                         text = 'E incident [keV]'
                     FloatField: fd1:
                         enabled = False
-                        value := param_m.param_d['coherent_sct_energy']['value']
+                        value := param_model.param_d['coherent_sct_energy']['value']
                         minimum = 0.
                         maximum_size = 100
                     PushButton: pb1:
@@ -96,7 +96,7 @@ enamldef GuessParamView(DockItem): param_view:
                                 fd1.enabled = True
                                 pb1.text = 'default value'
                             else:
-                                fd1.value = param_m.param_d_perm['coherent_sct_energy']['value']
+                                fd1.value = param_model.param_d_perm['coherent_sct_energy']['value']
                                 fd1.enabled = False
                                 pb1.text = 'user value'
 
@@ -104,7 +104,7 @@ enamldef GuessParamView(DockItem): param_view:
                         text = 'E low limit [keV]'
                     FloatField: fd2:
                         enabled = False
-                        value := param_m.param_d['non_fitting_values']['energy_bound_low']
+                        value := param_model.param_d['non_fitting_values']['energy_bound_low']
                         maximum_size = 100
                     PushButton: pb2:
                         text = 'user value'
@@ -115,7 +115,7 @@ enamldef GuessParamView(DockItem): param_view:
                                 fd2.enabled = True
                                 pb2.text = 'default value'
                             else:
-                                fd2.value = param_m.param_d_perm['non_fitting_values']['energy_bound_low']
+                                fd2.value = param_model.param_d_perm['non_fitting_values']['energy_bound_low']
                                 fd2.enabled = False
                                 pb2.text = 'user value'
 
@@ -123,7 +123,7 @@ enamldef GuessParamView(DockItem): param_view:
                         text = 'E high limit [keV]'
                     FloatField: fd3:
                         enabled = False
-                        value := param_m.param_d['non_fitting_values']['energy_bound_high']
+                        value := param_model.param_d['non_fitting_values']['energy_bound_high']
                         maximum_size = 100
                     PushButton: pb3:
                         text = 'user value'
@@ -134,7 +134,7 @@ enamldef GuessParamView(DockItem): param_view:
                                 fd3.enabled = True
                                 pb3.text = 'default value'
                             else:
-                                fd3.value = param_m.param_d_perm['non_fitting_values']['energy_bound_high']
+                                fd3.value = param_model.param_d_perm['non_fitting_values']['energy_bound_high']
                                 fd3.enabled = False
                                 pb3.text = 'user value'
 
@@ -143,7 +143,7 @@ enamldef GuessParamView(DockItem): param_view:
                         tool_tip = 'E(channel) = a0 + a1*channel+ a2*channel**2'
                     FloatField: fd4:
                         enabled = False
-                        value := param_m.param_d['e_offset']['value']
+                        value := param_model.param_d['e_offset']['value']
                         maximum_size = 100
                     PushButton: pb4:
                         text = 'user value'
@@ -154,7 +154,7 @@ enamldef GuessParamView(DockItem): param_view:
                                 fd4.enabled = True
                                 pb4.text = 'default value'
                             else:
-                                fd4.value = param_m.param_d_perm['e_offset']['value']
+                                fd4.value = param_model.param_d_perm['e_offset']['value']
                                 fd4.enabled = False
                                 pb4.text = 'user value'
 
@@ -163,7 +163,7 @@ enamldef GuessParamView(DockItem): param_view:
                         tool_tip = 'E(channel) = a0 + a1*channel+ a2*channel**2'
                     FloatField: fd5:
                         enabled = False
-                        value := param_m.param_d['e_linear']['value']
+                        value := param_model.param_d['e_linear']['value']
                         maximum_size = 100
                     PushButton: pb5:
                         text = 'user value'
@@ -173,7 +173,7 @@ enamldef GuessParamView(DockItem): param_view:
                                 fd5.enabled = True
                                 pb5.text = 'default value'
                             else:
-                                fd5.value = param_m.param_d_perm['e_linear']['value']
+                                fd5.value = param_model.param_d_perm['e_linear']['value']
                                 fd5.enabled = False
                                 pb5.text = 'user value'
 
@@ -182,7 +182,7 @@ enamldef GuessParamView(DockItem): param_view:
                         tool_tip = 'E(channel) = a0 + a1*channel+ a2*channel**2'
                     FloatField: fd6:
                         enabled = False
-                        value := param_m.param_d['e_quadratic']['value']
+                        value := param_model.param_d['e_quadratic']['value']
                         maximum_size = 100
                     PushButton: pb6:
                         text = 'user value'
@@ -192,7 +192,7 @@ enamldef GuessParamView(DockItem): param_view:
                                 fd6.enabled = True
                                 pb6.text = 'default value'
                             else:
-                                fd6.value = param_m.param_d_perm['e_quadratic']['value']
+                                fd6.value = param_model.param_d_perm['e_quadratic']['value']
                                 fd6.enabled = False
                                 pb6.text = 'user value'
 
@@ -201,7 +201,7 @@ enamldef GuessParamView(DockItem): param_view:
                         tool_tip = 'width**2 = (b1/2.3548)**2 + 3.85*b2*E'
                     FloatField: fd7:
                         enabled = False
-                        value := param_m.param_d['fwhm_offset']['value']
+                        value := param_model.param_d['fwhm_offset']['value']
                         maximum_size = 100
                     PushButton: pb7:
                         text = 'user value'
@@ -211,7 +211,7 @@ enamldef GuessParamView(DockItem): param_view:
                                 fd7.enabled = True
                                 pb7.text = 'default value'
                             else:
-                                fd7.value = param_m.param_d_perm['fwhm_offset']['value']
+                                fd7.value = param_model.param_d_perm['fwhm_offset']['value']
                                 fd7.enabled = False
                                 pb7.text = 'user value'
 
@@ -220,7 +220,7 @@ enamldef GuessParamView(DockItem): param_view:
                         tool_tip = 'width**2 = (b1/2.3548)**2 + 3.85*b2*E, 3.85keV is electron-hole pair creation energy in silicon '
                     FloatField: fd8:
                         enabled = False
-                        value := param_m.param_d['fwhm_fanoprime']['value']
+                        value := param_model.param_d['fwhm_fanoprime']['value']
                         maximum_size = 100
                     PushButton: pb8:
                         text = 'user value'
@@ -230,7 +230,7 @@ enamldef GuessParamView(DockItem): param_view:
                                 fd8.enabled = True
                                 pb8.text = 'default value'
                             else:
-                                fd8.value = param_m.param_d_perm['fwhm_fanoprime']['value']
+                                fd8.value = param_model.param_d_perm['fwhm_fanoprime']['value']
                                 fd8.enabled = False
                                 pb8.text = 'user value'
 
@@ -238,7 +238,7 @@ enamldef GuessParamView(DockItem): param_view:
                         text = 'Compton fwhm Coef'
                     FloatField: fd9:
                         enabled = False
-                        value := param_m.param_d['compton_fwhm_corr']['value']
+                        value := param_model.param_d['compton_fwhm_corr']['value']
                         maximum_size = 100
                     PushButton: pb9:
                         text = 'user value'
@@ -248,7 +248,7 @@ enamldef GuessParamView(DockItem): param_view:
                                 fd9.enabled = True
                                 pb9.text = 'default value'
                             else:
-                                fd9.value = param_m.param_d_perm['compton_fwhm_corr']['value']
+                                fd9.value = param_model.param_d_perm['compton_fwhm_corr']['value']
                                 fd9.enabled = False
                                 pb9.text = 'user value'
 
@@ -256,7 +256,7 @@ enamldef GuessParamView(DockItem): param_view:
             text = 'Save'
             clicked ::
                 pass
-                #param_m.save_param(param_m.param_d)
+                #param_model.save_param(param_model.param_d)
         PushButton: pb11:
             text = 'Save As'
             clicked ::
@@ -265,11 +265,11 @@ enamldef GuessParamView(DockItem): param_view:
             text = 'Find Peaks'
             #status_tip = 'Not Running.'
             clicked ::
-                param_m.set_data(fileio_m.data)
-                param_m.find_peak()
-                param_m.arange_prefit_result()
+                param_model.set_data(io_model.data)
+                param_model.find_peak()
+                param_model.arange_prefit_result()
                 status_tip = 'Running'
-                if (len(param_m.total_y) == 0):
+                if (len(param_model.total_y) == 0):
                     #lb15.text = 'No auto fit result is available.'
                     pb13.enabled = False
                     pb14.enabled = False
@@ -285,21 +285,21 @@ enamldef GuessParamView(DockItem): param_view:
             checkable = True
             clicked ::
                 if checked:
-                    plot_m.set_prefit_data(param_m.prefit_x, param_m.total_y, param_m.total_y_l)
-                    #plot_m.set_prefit_bg(param_m.prefit_bg)
-                    plot_m.plot_data()
+                    plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
+                    #plot_model.set_prefit_bg(param_model.prefit_bg)
+                    plot_model.plot_data()
                     pb13.text = 'Remove Plot'
                 else:
                     pb13.text = 'Overlap to Spectrum'
-                    plot_m.set_prefit_data([], {}, {})
-                    plot_m.plot_data()
+                    plot_model.set_prefit_data([], {}, {})
+                    plot_model.plot_data()
 
         PushButton: pb14:
             text = 'Show Results'
             enabled = False
             clicked ::
-                PreFitResult.param_m = param_m
-                PreFitResult.plot_m = plot_m
+                PreFitResult.param_model = param_model
+                PreFitResult.plot_model = plot_model
                 PreFitResult().show()
         #Label: lb15:
         #    text = 'No auto fit result is available.'
@@ -308,8 +308,8 @@ enamldef GuessParamView(DockItem): param_view:
 
 
 enamldef PreFitResult(Window):
-    attr param_m
-    attr plot_m
+    attr param_model
+    attr plot_model
     title = 'Results of Auto Peak Finding'
     Container:
         ScrollArea:
@@ -323,35 +323,25 @@ enamldef PreFitResult(Window):
                         text = 'plot'
 
                     Looper: looper:
-                        iterable << list(six.iterkeys(param_m.result_dict))
+                        iterable << list(six.iterkeys(param_model.result_dict))
                         Label:
                             font = 'monospace'
                             #align = 'left'
                             text = '{:>20} {:>20} {:>20} {:>20}'.format(
                                 get_Z(loop_item),
                                 loop_item,
-                                np.around(np.max(param_m.result_dict[loop_item]), 1),
-                                np.around(np.max(param_m.result_dict[loop_item])/getMax(param_m.result_dict), 4))
+                                np.around(np.max(param_model.result_dict[loop_item]), 1),
+                                np.around(np.max(param_model.result_dict[loop_item])/getMax(param_model.result_dict), 4))
                         PushButton: cb:
                             text = 'Plot line'
 
                             checkable = True
-                            checked = param_m.status_dict[loop_item]
+                            checked = param_model.status_dict[loop_item]
                             clicked ::
-                                param_m.status_dict[loop_item] = checked
-                                param_m.arange_prefit_result()
-                                plot_m.set_prefit_data(param_m.prefit_x, param_m.total_y, param_m.total_y_l)
-                                plot_m.plot_data()
-
-                #Include:
-                    # This generates a completely new list of widgets each
-                    # time the spin box is changed. All the old widgets
-                    # will be destroyed. This is the simplest way to use
-                    # the Include, albeit not the most efficient.
-                    #objects << [Field(text=str(i)) for i in param_m.total_y_l]
-
-                    #objects << [(Label(text=str(k)+' '+str(np.around(np.sum(v), 1)))
-                    #            for k, v in six.iteritems(param_m.result_dict)]
+                                param_model.status_dict[loop_item] = checked
+                                param_model.arange_prefit_result()
+                                plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
+                                plot_model.plot_data()
 
 
 def get_Z(ename):
@@ -380,7 +370,7 @@ def get_Z(ename):
         return e.Z
 
 
-def getMax(dictv):
+def get_max(dictv):
     """
     Return max value from all dict values.
 
