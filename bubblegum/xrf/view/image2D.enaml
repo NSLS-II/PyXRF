@@ -10,27 +10,13 @@ import numpy as np
 from matplotlib.figure import Figure
 
 
-fig1 = Figure()
-ax1 = fig1.add_subplot(111)
-ax1.plot([1, 2, 3])
-
-fig2 = Figure()
-ax2 = fig2.add_subplot(111)
-ax2.plot([5, 2, 8, 1])
-
-
-figures = {
-    'ROI sum': fig1,
-    'Fit': fig2,
-}
-
 enamldef ImageMain(DockItem):
     attr io_model
     attr draw_img
     Container:
         constraints = [
             vbox(
-                hbox(load_file, cbox_file, cbox_type, pb_choose, plot_btn, check),
+                hbox(load_file, cbox_file, cbox_type, pb_choose, plot_btn, check, spacer),
                 canvas,
             ),
             cbox_type.v_center == check.v_center,
