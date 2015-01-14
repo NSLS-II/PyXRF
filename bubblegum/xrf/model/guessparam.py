@@ -51,7 +51,7 @@ from skxray.fitting.background import snip_method
 
 
 # This is not a right way to define path. To be updated
-data_path = '/Users/Li/Research/X-ray/Research_work/all_code/nsls2_gui/nsls2_gui/xrf_parameter_aps.json'
+data_path = '/Users/Li/Research/X-ray/Research_work/all_code/nsls2_gui/nsls2_gui/abc.json'
 
 
 class GuessParamModel(Atom):
@@ -91,6 +91,8 @@ class GuessParamModel(Atom):
     total_y_l = Typed(object)
     param_path = Str(data_path)
     param_status = Str('Use default parameter file.')
+    e_list = Str()
+    save_file = Str()
 
     def __init__(self):
         self.get_param()
@@ -139,6 +141,19 @@ class GuessParamModel(Atom):
     def update_status_dict(self, changed):
         print('status dict changed: {}'.format(changed))
 
+    def get_activated_element(self):
+        e = [k for (k, v) in six.iteritems(self.status_dict) if v and len(k)<=4]
+        self.e_list = ', '.join(e)
+        #self.save_elist()
+
+    #@observe('e_list')
+    def save_elist(self):
+        elist_k = [v[:-2] for v in self.e_list.split(', ') if '_K' in v]
+        elist_l = [v for v in self.e_list.split(', ') if '_K' not in v]
+        elist = elist_k + elist_l
+        self.param_d['non_fitting_values']['element_list'] = ', '.join(elist)
+        print('e list: {}'.format(elist))
+
     def arange_prefit_result(self):
         # change range based on dict data
         self.total_y = self.result_dict.copy()
@@ -153,6 +168,12 @@ class GuessParamModel(Atom):
             if '_L' in k or '_M' in k:
                 self.total_y_l.update({k: v})
                 del self.total_y[k]
+
+    def save_as(self):
+        self.save_elist()
+        with open(self.save_file, 'w') as outfile:
+            json.dump(self.param_d, outfile,
+                      sort_keys=True, indent=4)
 
 
 def pre_fit_linear(parameter_dict, y0):

@@ -47,6 +47,8 @@ from atom.api import Atom, Str, observe, Typed, Dict, List, Int
 
 # The following lines need to be updated.
 # A better design to hook up with meta data store needs to be done.
+
+# put to config file
 folder = '/Users/Li/Research/X-ray/Research_work/all_code/nsls2_gui/nsls2_gui'
 file = '2xfm_0304.h5'  # 'NSLS_X27.txt'
 data_path = os.path.join(folder, file)

@@ -42,10 +42,13 @@ from enaml.widgets.api import (Container, PushButton, Label,
 from enaml.layout.api import (hbox, vbox, HSplitLayout, VSplitLayout,
                               spacer, grid)
 from enaml.core.api import Include, Looper
-from enaml.stdlib.fields import FloatField
+from enaml.stdlib.fields import FloatField as DefaultFloatField
 import numpy as np
 import six
 from skxray.constants.api import XrfElement as Element
+
+enamldef FloatField(DefaultFloatField):
+    submit_triggers = ['auto_sync']
 
 
 enamldef GuessParamView(DockItem): param_view:
@@ -57,6 +60,8 @@ enamldef GuessParamView(DockItem): param_view:
         constraints = [
             vbox(
                 top_cntr,
+                hbox(e_label, spacer),
+                hbox(e_f),
                 hbox(pb12, pb13, pb14),
                 hbox(pb10, pb11, spacer),
                 #hbox(lb15),
@@ -252,6 +257,11 @@ enamldef GuessParamView(DockItem): param_view:
                                 fd9.enabled = False
                                 pb9.text = 'user value'
 
+        Label: e_label:
+            text = 'Enter elements below, e.g., K, Cu, Fe'
+        Field: e_f:
+            text := param_m.e_list
+
         PushButton: pb10:
             text = 'Save'
             clicked ::
@@ -260,7 +270,11 @@ enamldef GuessParamView(DockItem): param_view:
         PushButton: pb11:
             text = 'Save As'
             clicked ::
-                pass
+                path = FileDialogEx.get_save_file_name(param_view,
+                        current_path=fileio_m.folder_name)
+                if path:
+                    param_m.save_file = path
+                    param_m.save_as()
         PushButton: pb12:
             text = 'Find Peaks'
             #status_tip = 'Not Running.'
@@ -312,46 +326,47 @@ enamldef PreFitResult(Window):
     attr plot_m
     title = 'Results of Auto Peak Finding'
     Container:
-        ScrollArea:
-            constraints = [height >= 200]
-            Container:
-                Form:
-                    Label:
-                        text = '{:>20} {:>20} {:>20} {:>20}'.format('Z', 'emission line',
-                                                                'peak INT', 'norm INT')
-                    Label:
-                        text = 'plot'
-
-                    Looper: looper:
-                        iterable << list(six.iterkeys(param_m.result_dict))
+        constraints = [
+            vbox(
+                plot_e,
+                hbox(pb, spacer),
+            ),
+        ]
+        Container: plot_e:
+            ScrollArea:
+                constraints = [height >= 200]
+                Container:
+                    Form:
                         Label:
-                            font = 'monospace'
-                            #align = 'left'
-                            text = '{:>20} {:>20} {:>20} {:>20}'.format(
-                                get_Z(loop_item),
-                                loop_item,
-                                np.around(np.max(param_m.result_dict[loop_item]), 1),
-                                np.around(np.max(param_m.result_dict[loop_item])/getMax(param_m.result_dict), 4))
-                        PushButton: cb:
-                            text = 'Plot line'
+                            text = '{:>20} {:>20} {:>20} {:>20}'.format('Z', 'emission line',
+                                                                    'peak INT', 'norm INT')
+                        Label:
+                            text = 'plot'
 
-                            checkable = True
-                            checked = param_m.status_dict[loop_item]
-                            clicked ::
-                                param_m.status_dict[loop_item] = checked
-                                param_m.arange_prefit_result()
-                                plot_m.set_prefit_data(param_m.prefit_x, param_m.total_y, param_m.total_y_l)
-                                plot_m.plot_data()
+                        Looper: looper:
+                            iterable << list(six.iterkeys(param_m.result_dict))
+                            Label:
+                                font = 'monospace'
+                                #align = 'left'
+                                text = '{:>20} {:>20} {:>20} {:>20}'.format(
+                                    get_Z(loop_item),
+                                    loop_item,
+                                    np.around(np.max(param_m.result_dict[loop_item]), 1),
+                                    np.around(np.max(param_m.result_dict[loop_item])/getMax(param_m.result_dict), 4))
+                            PushButton: cb:
+                                text = 'Add/Remove'
 
-                #Include:
-                    # This generates a completely new list of widgets each
-                    # time the spin box is changed. All the old widgets
-                    # will be destroyed. This is the simplest way to use
-                    # the Include, albeit not the most efficient.
-                    #objects << [Field(text=str(i)) for i in param_m.total_y_l]
-
-                    #objects << [(Label(text=str(k)+' '+str(np.around(np.sum(v), 1)))
-                    #            for k, v in six.iteritems(param_m.result_dict)]
+                                checkable = True
+                                checked = param_m.status_dict[loop_item]
+                                clicked ::
+                                    param_m.status_dict[loop_item] = checked
+                                    param_m.arange_prefit_result()
+                                    plot_m.set_prefit_data(param_m.prefit_x, param_m.total_y, param_m.total_y_l)
+                                    plot_m.plot_data()
+        PushButton: pb:
+            text = 'Import chosen elements.'
+            clicked ::
+                param_m.get_activated_element()
 
 
 def get_Z(ename):

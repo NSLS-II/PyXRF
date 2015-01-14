@@ -52,6 +52,7 @@ enamldef XRFGui(MainWindow): main_window:
     attr p_guess_M
     attr plot_M
     attr img_M
+    attr fit_M
 
     Container:
         DockArea:
@@ -61,29 +62,38 @@ enamldef XRFGui(MainWindow): main_window:
                 TabLayout('lineplot_view', 'image_view'),
                 )
             FileView:
+                closable = False
                 title = 'File IO'
                 io_model = file_M
                 param_model = p_guess_M
                 img_model = img_M
                 name = 'file_view'
             GuessParamView:
+                closable = False
                 title = 'Initial Parameter Guess '
                 param_m = p_guess_M
                 fileio_m = file_M
                 plot_m = plot_M
                 name = 'param_guess_view'
             PlotMain:
+                closable = False
                 title = 'Plot Spectrum'
                 io_model = file_M
                 plot_model = plot_M
                 param_model = p_guess_M
                 name = 'lineplot_view'
             ImageMain:
+                closable = False
                 title = '2D Map'
                 io_model = file_M
                 draw_img = img_M
                 #plot_model = plot_M
                 name = 'image_view'
             FitView:
+                closable = False
                 title = 'Fit     '
                 name = 'fitting_view_n'
+                fileio_m = file_M
+                param_m = main_window.p_guess_M
+                plot_m = main_window.plot_M
+                fit_m = main_window.fit_M

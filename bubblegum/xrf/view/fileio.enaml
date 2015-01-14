@@ -125,10 +125,10 @@ enamldef FileView(DockItem): file_view:
                         param_model.param_path = param_path
                         param_lbl.text = param_model.param_status
             Field: fd_load:
-                text = 'Use default otherwise.'
+                text = param_model.param_path #'Use default otherwise.'
             Label: load_lbl:
                 text << io_model.load_status
                 #maximum_size = 300
             Label: param_lbl:
-                text = 'Use default parametere files.'
+                text = 'Parameter file abc.json is loaded.' #'Use default parametere files.'
                 #maximum_size = 100

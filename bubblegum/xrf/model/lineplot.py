@@ -77,6 +77,10 @@ class LinePlotModel(Atom):
         X axis with limited range
     plot_title : str
         Title for plotting
+    fit_x : array
+        x value for fitting
+    fit_y : array
+        fitted data
     """
     data = Typed(np.ndarray)
     _fig = Typed(Figure)
@@ -90,10 +94,13 @@ class LinePlotModel(Atom):
     total_y_l = Dict()
     prefit_x = Typed(object)
     plot_title = Str()
+    fit_x = Typed(np.ndarray)
+    fit_y = Typed(np.ndarray) # List()
 
     def __init__(self):
         self._fig = plt.figure()
         self._ax = self._fig.add_subplot(111)
+        self.fit_y = np.array([])
 
     #def set_data(self, data):
     #    self.data = data
@@ -163,7 +170,7 @@ class LinePlotModel(Atom):
                             self._ax.plot(self.prefit_x, v, 'purple')
                         sum += v
 
-                self._ax.plot(self.prefit_x, sum, 'k*', markersize=2, label='prefit')
+                self._ax.plot(self.prefit_x, sum, 'orange', markersize=2, label='prefit')
                 self._ax.set_ylim([minv, np.max(data_arr)*1.5])
             else:
                 sum = 0
@@ -185,10 +192,18 @@ class LinePlotModel(Atom):
                             self._ax.semilogy(self.prefit_x, v, 'purple')
                         sum += v
 
-                self._ax.semilogy(self.prefit_x, sum, 'k*', markersize=2, label='prefit')
+                self._ax.semilogy(self.prefit_x, sum, 'orange', markersize=2, label='prefit')
                 self._ax.set_ylim([minv, np.max(data_arr)*10.0])
 
             self._ax.set_xlim([self.prefit_x[0], self.prefit_x[-1]])
+
+        if len(self.fit_y):
+            self._ax.hold(True)
+            if plot_type[self.plot_opt] == 'Linear':
+                self._ax.plot(self.fit_x, self.fit_y, 'k+', label='fitted')
+            else:
+                self._ax.semilogy(self.fit_x, self.fit_y, 'k+', label='fitted')
+            self._ax.set_xlim([self.fit_x[0], self.fit_x[-1]])
 
         self._ax.legend(loc=0)
 
@@ -253,3 +268,4 @@ class LinePlotModel(Atom):
         self.total_y = total_y
         # l lines
         self.total_y_l = total_y_l
+

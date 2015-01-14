@@ -1,3 +1,6 @@
+
+import numpy as np
+
 from enaml.widgets.api import (Container, PushButton, Label,
                                Form, Field, FileDialogEx, DockItem,
                                DockArea, CheckBox, ComboBox, ScrollArea)
@@ -5,23 +8,28 @@ from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer
 
 
 enamldef FitView(DockItem):
+    attr fileio_m
+    attr param_m
+    attr plot_m
+    attr fit_m
     Container:
         constraints = [
             vbox(
-                hbox(pb1, pb2),
+                hbox(pb1, pb2, spacer),
                 lbl0,
                 hbox(lbl1, cb1, spacer),
                 hbox(lbl2, cb2, spacer),
                 hbox(lbl3, cb3, spacer),
-                hbox(pb_fit, spacer),
+                hbox(pb_fit, pb_plot, spacer),
             ),
         ]
         PushButton: pb1:
-            text = 'Param. from prev. step'
+            text = 'Import Parameter Data'
             clicked ::
-                pass
+                fit_m.data = fileio_m.data
+                fit_m.param_dict = param_m.param_d
         PushButton: pb2:
-            text = 'Param. from file'
+            text = 'Import From New File'
             clicked ::
                 pass
         Label: lbl0:
@@ -29,14 +37,29 @@ enamldef FitView(DockItem):
         Label: lbl1:
             text = 'Step 1'
         ComboBox: cb1:
-            items = ['free global', 'free pos/width/branch']
+            items = ['', 'free global', 'free pos/width/branch']
         Label: lbl2:
             text = 'Step 2'
         ComboBox: cb2:
-            items = ['free global', 'free pos/width/branch']
+            items = ['', 'free global', 'free pos/width/branch']
         Label: lbl3:
             text = 'Step 3'
         ComboBox: cb3:
-            items = ['free global', 'free pos/width/branch']
+            items = ['', 'free global', 'free pos/width/branch']
         PushButton: pb_fit:
             text = 'Fit'
+            clicked ::
+                fit_m.fit_data()
+                pb_plot.enabled = True
+        PushButton: pb_plot:
+            text = 'Overlap to Spectrum'
+            checkable = True
+            enabled = False
+            clicked ::
+                if checked:
+                    plot_m.fit_x = fit_m.fit_x
+                    plot_m.fit_y = fit_m.fit_y
+                    plot_m.plot_data()
+                else:
+                    plot_m.fit_y = np.array([])
+                    plot_m.plot_data()
