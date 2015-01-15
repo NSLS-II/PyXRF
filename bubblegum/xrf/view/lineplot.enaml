@@ -37,8 +37,11 @@ __author__ = 'Li Li'
 
 from enaml.widgets.api import (Container, PushButton, Label,
                                Form, Field, FileDialogEx, DockItem,
-                               DockArea, MPLCanvas, CheckBox, ComboBox)
+                               DockArea, MPLCanvas, CheckBox,
+                               ComboBox, Window)
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer
+from enaml.stdlib.fields import FloatField as DefaultFloatField
+
 import numpy as np
 
 from matplotlib.figure import Figure
@@ -46,6 +49,9 @@ from skxray.fitting.xrf_model import (k_line, l_line, m_line)
 
 
 k_line_full = [item+'_K' for item in k_line]
+
+enamldef FloatField(DefaultFloatField):
+    submit_triggers = ['auto_sync']
 
 
 enamldef PlotMain(DockItem):
@@ -56,7 +62,7 @@ enamldef PlotMain(DockItem):
         constraints = [
             vbox(
                 hbox(cbox1, pbn, spacer),
-                hbox(cbox2, checkb, spacer),
+                hbox(pb_eline, cbox2, checkb, spacer),
                 canvas,
             ),
         ]
@@ -64,22 +70,30 @@ enamldef PlotMain(DockItem):
         #    items = ['file1', 'file2']
         ComboBox: cbox1:
             items = ['LinLog', 'Linear']
+            index >> plot_model.scale_opt
             index = 0
-            index := plot_model.plot_opt
+        PushButton: pb_eline:
+            text = '? '
+            tool_tip = 'set up energy for emission line calculation'
+            enabled = True
+            clicked ::
+                AdjustEmissionLine.plot_m = plot_model
+                AdjustEmissionLine().show()
         ComboBox: cbox2:
             items = ['Display emission lines'] +\
                     k_line_full + l_line + m_line
             index := plot_model.element_id
             index = 0
         PushButton: pbn:
-            text = 'Plot Raw Spectrum'
+            text = 'Plot Experiment Data'
             checkable = True
             clicked ::
                 if checked:
                     #plot_model.plot_title = io_model.file_name
                     #plot_model.data = io_model.data
                     plot_model.param_data = param_model.param_d
-                    plot_model.plot_data()
+                    plot_model.incident_energy = param_model.param_d['coherent_sct_energy']['value']
+                    plot_model.plot_experiment()
                     plot_model.plot_exp_opt = True
                 else:
                     plot_model.plot_exp_opt = False
@@ -89,3 +103,16 @@ enamldef PlotMain(DockItem):
         MPLCanvas: canvas:
             figure << plot_model._fig
             #figures[cbox.selected_item]
+
+
+enamldef AdjustEmissionLine(Window):
+    attr plot_m
+    title = ' '
+    Container:
+        constraints = [
+            hbox(elbl, fd),
+        ]
+        Label: elbl:
+            text = 'Energy'
+        FloatField: fd:
+            value := plot_m.incident_energy

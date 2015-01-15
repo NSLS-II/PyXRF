@@ -43,7 +43,7 @@ import copy
 import logging
 logger = logging.getLogger(__name__)
 
-from atom.api import Atom, Str, observe, Typed, Int, Dict, List
+from atom.api import Atom, Str, observe, Typed, Int, Dict, List, Bool
 
 from skxray.fitting.xrf_model import (ModelSpectrum, set_range, k_line, l_line, m_line,
                                       get_linear_model, PreFitAnalysis)
@@ -94,6 +94,7 @@ class GuessParamModel(Atom):
     param_status = Str('Use default parameter file.')
     e_list = Str()
     save_file = Str()
+    choose_lbd = Bool()
 
     def __init__(self):
         self.get_param()
@@ -136,15 +137,25 @@ class GuessParamModel(Atom):
             self.result_dict.update({k: {'z': get_Z(k),
                                          'spectrum': v,
                                          'status': True,
-                                         'gen_stat': True,
+                                         'stat_copy': True,
                                          'maxv': np.max(v),
                                          'norm': (np.max(v)/max_dict)*100,
-                                         'lbd_stat': np.max(v)/max_dict < threshv}})
+                                         'lbd_stat': 100*(np.max(v)/max_dict) < threshv}})
+
+    @observe('choose_lbd')
+    def set_stat_for_lbd(self, change):
+        if change['value']:
+            for k, v in six.iteritems(self.result_dict):
+                if v['lbd_stat']:
+                    v['status'] = False #v['lbd_stat']
+        else:
+            for k, v in six.iteritems(self.result_dict):
+                v['status'] = v['stat_copy']
+        self.data_for_plot()
 
     @observe('result_dict')
-    def update_dict(self, changed):
-        pass
-        #print('result dict changed: {}'.format(changed))
+    def update_dict(self, change):
+        print('result dict change: {}'.format(change['type']))
 
     def get_activated_element(self):
         e = [k for (k, v) in six.iteritems(self.result_dict) if v['status'] and len(k)<=4]

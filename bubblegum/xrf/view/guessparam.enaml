@@ -302,14 +302,10 @@ enamldef GuessParamView(DockItem): param_view:
                     #plot_m.plot_autofit()
                     #plot_m.emission_line()
                     pb13.text = 'Remove Plot'
-                    plot_m.auto_fit_plot = True
+                    plot_m.show_autofit_opt = True
                 else:
                     pb13.text = 'Overlap to Spectrum'
-                    plot_m.auto_fit_plot = False
-                    #plot_m.set_prefit_data([], {}, {})
-                    #plot_m.plot_autofit()
-                    #plot_m.plot_data()
-                    #plot_m.emission_line()
+                    plot_m.show_autofit_opt = False
 
         PushButton: pb14:
             text = 'Show Results'
@@ -332,7 +328,8 @@ enamldef PreFitResult(Window):
         constraints = [
             vbox(
                 plot_e,
-                hbox(pb, spacer),
+                hbox(pb_bound, spacer),
+                hbox(pb_import, spacer),
             ),
         ]
         Container: plot_e:
@@ -360,16 +357,26 @@ enamldef PreFitResult(Window):
                                     )
                             CheckBox: cb:
                                 checkable = True
-                                checked = param_m.result_dict[loop_item]['status']
+                                checked := param_m.result_dict[loop_item]['status']
                                 clicked ::
                                     param_m.result_dict[loop_item]['status'] = checked
+                                    param_m.result_dict[loop_item]['stat_copy'] = param_m.result_dict[loop_item]['status']
                                     param_m.data_for_plot()
                                     plot_m.set_prefit_data(param_m.prefit_x, param_m.total_y, param_m.total_y_l)
                                     plot_m._fig.canvas.draw()
-                                    #plot_m.plot_data()
-                                    #plot_m.emission_line()
-                                    #plot_m.plot_autofit()
-        PushButton: pb:
+        PushButton: pb_bound:
+            text = 'Remove lines with value smaller than 1%'
+            checkable = True
+            clicked ::
+                if checked:
+                    param_m.choose_lbd = True
+                    plot_m.set_prefit_data(param_m.prefit_x, param_m.total_y, param_m.total_y_l)
+                    plot_m._fig.canvas.draw()
+                else:
+                    param_m.choose_lbd = False
+                    plot_m.set_prefit_data(param_m.prefit_x, param_m.total_y, param_m.total_y_l)
+                    plot_m._fig.canvas.draw()
+        PushButton: pb_import:
             text = 'Use selected elements for peak fitting.'
             clicked ::
                 param_m.get_activated_element()
