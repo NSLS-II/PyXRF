@@ -66,6 +66,7 @@ enamldef XRFGui(MainWindow): main_window:
                 title = 'File IO'
                 io_model = file_M
                 param_model = p_guess_M
+                lineplot_model = plot_M
                 img_model = img_M
                 name = 'file_view'
             GuessParamView:

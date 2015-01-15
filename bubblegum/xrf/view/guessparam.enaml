@@ -45,7 +45,7 @@ from enaml.core.api import Include, Looper
 from enaml.stdlib.fields import FloatField as DefaultFloatField
 import numpy as np
 import six
-from skxray.constants.api import XrfElement as Element
+
 
 enamldef FloatField(DefaultFloatField):
     submit_triggers = ['auto_sync']
@@ -281,17 +281,17 @@ enamldef GuessParamView(DockItem): param_view:
             clicked ::
                 param_m.set_data(fileio_m.data)
                 param_m.find_peak()
-                param_m.arange_prefit_result()
+                param_m.data_for_plot()
                 status_tip = 'Running'
                 if (len(param_m.total_y) == 0):
                     #lb15.text = 'No auto fit result is available.'
                     pb13.enabled = False
                     pb14.enabled = False
-
                 else:
                     #lb15.text = 'Auto fit is finished.'
                     pb13.enabled = True
                     pb14.enabled = True
+                    plot_m.set_prefit_data(param_m.prefit_x, param_m.total_y, param_m.total_y_l)
 
         PushButton: pb13:
             text = 'Overlap to Spectrum'
@@ -299,14 +299,17 @@ enamldef GuessParamView(DockItem): param_view:
             checkable = True
             clicked ::
                 if checked:
-                    plot_m.set_prefit_data(param_m.prefit_x, param_m.total_y, param_m.total_y_l)
-                    #plot_m.set_prefit_bg(param_m.prefit_bg)
-                    plot_m.plot_data()
+                    #plot_m.plot_autofit()
+                    #plot_m.emission_line()
                     pb13.text = 'Remove Plot'
+                    plot_m.auto_fit_plot = True
                 else:
                     pb13.text = 'Overlap to Spectrum'
-                    plot_m.set_prefit_data([], {}, {})
-                    plot_m.plot_data()
+                    plot_m.auto_fit_plot = False
+                    #plot_m.set_prefit_data([], {}, {})
+                    #plot_m.plot_autofit()
+                    #plot_m.plot_data()
+                    #plot_m.emission_line()
 
         PushButton: pb14:
             text = 'Show Results'
@@ -338,70 +341,51 @@ enamldef PreFitResult(Window):
                 Container:
                     Form:
                         Label:
-                            text = '{:>20} {:>20} {:>20} {:>20}'.format('Z', 'emission line',
-                                                                    'peak INT', 'norm INT')
+                            text = '{:>2} {:>10} {:>10} {:>10}'.format('Z', 'lines',
+                                                                       'peak INT', 'norm INT(%)')
+
                         Label:
-                            text = 'plot'
+                            text = 'select'
 
                         Looper: looper:
                             iterable << list(six.iterkeys(param_m.result_dict))
                             Label:
                                 font = 'monospace'
                                 #align = 'left'
-                                text = '{:>20} {:>20} {:>20} {:>20}'.format(
-                                    get_Z(loop_item),
-                                    loop_item,
-                                    np.around(np.max(param_m.result_dict[loop_item]), 1),
-                                    np.around(np.max(param_m.result_dict[loop_item])/getMax(param_m.result_dict), 4))
-                            PushButton: cb:
-                                text = 'Add/Remove'
-
+                                text = '{:>2} {:>10} {:>10} {:>10}'.format(
+                                    param_m.result_dict[loop_item]['z'],
+                                    loop_item[0:5],
+                                    np.around(param_m.result_dict[loop_item]['maxv']),
+                                    set_low_bound(np.around(param_m.result_dict[loop_item]['norm'], 2))
+                                    )
+                            CheckBox: cb:
                                 checkable = True
-                                checked = param_m.status_dict[loop_item]
+                                checked = param_m.result_dict[loop_item]['status']
                                 clicked ::
-                                    param_m.status_dict[loop_item] = checked
-                                    param_m.arange_prefit_result()
+                                    param_m.result_dict[loop_item]['status'] = checked
+                                    param_m.data_for_plot()
                                     plot_m.set_prefit_data(param_m.prefit_x, param_m.total_y, param_m.total_y_l)
-                                    plot_m.plot_data()
+                                    plot_m._fig.canvas.draw()
+                                    #plot_m.plot_data()
+                                    #plot_m.emission_line()
+                                    #plot_m.plot_autofit()
         PushButton: pb:
-            text = 'Import chosen elements.'
+            text = 'Use selected elements for peak fitting.'
             clicked ::
                 param_m.get_activated_element()
 
 
-def get_Z(ename):
+def set_low_bound(value, thresh_v=1.0):
     """
-    Return element's Z number.
+    Return values only above given threshold.
 
     Parameters
     ----------
-    ename : str
-        element name
-
-    Returns
-    -------
-    int or None
-        element Z number
-
+    value : float
+    thresh_v : float, opt
+        threshold value
     """
-
-    strip_line = lambda ename: ename.split('_')[0]
-
-    non_element = ['compton', 'elastic', 'background']
-    if ename in non_element:
-        return None
+    if value <= thresh_v:
+        return '< {}'.format(thresh_v)
     else:
-        e = Element(strip_line(ename))
-        return e.Z
-
-
-def getMax(dictv):
-    """
-    Return max value from all dict values.
-
-    Parameters
-    ----------
-    dictv : dict
-        Saving all fitting results
-    """
-    return reduce(max, map(np.max, six.itervalues(dictv)))
+        return value

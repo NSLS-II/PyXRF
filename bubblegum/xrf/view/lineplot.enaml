@@ -64,8 +64,8 @@ enamldef PlotMain(DockItem):
         #    items = ['file1', 'file2']
         ComboBox: cbox1:
             items = ['LinLog', 'Linear']
-            index := plot_model.plot_opt
             index = 0
+            index := plot_model.plot_opt
         ComboBox: cbox2:
             items = ['Display emission lines'] +\
                     k_line_full + l_line + m_line
@@ -73,11 +73,16 @@ enamldef PlotMain(DockItem):
             index = 0
         PushButton: pbn:
             text = 'Plot Raw Spectrum'
+            checkable = True
             clicked ::
-                plot_model.plot_title = io_model.file_name
-                plot_model.data = io_model.data
-                plot_model.param_data = param_model.param_d
-                plot_model.plot_data()
+                if checked:
+                    #plot_model.plot_title = io_model.file_name
+                    #plot_model.data = io_model.data
+                    plot_model.param_data = param_model.param_d
+                    plot_model.plot_data()
+                    plot_model.plot_exp_opt = True
+                else:
+                    plot_model.plot_exp_opt = False
         CheckBox: checkb:
             text = 'Toolbar Visible'
             checked := canvas.toolbar_visible

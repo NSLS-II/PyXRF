@@ -48,6 +48,7 @@ from atom.api import Atom, Str, observe, Typed, Int, Dict, List
 from skxray.fitting.xrf_model import (ModelSpectrum, set_range, k_line, l_line, m_line,
                                       get_linear_model, PreFitAnalysis)
 from skxray.fitting.background import snip_method
+from skxray.constants.api import XrfElement as Element
 
 
 # This is not a right way to define path. To be updated
@@ -70,11 +71,11 @@ class GuessParamModel(Atom):
         xX axis with range defined by low and high limits.
     result_dict : dict
         Save all the auto fitting results for each element
-    status_dict : dict
-        Plotting status of each element
     total_y : dict
         Results from k lines
     total_y_l : dict
+        Results from l lines
+    total_y_m : dict
         Results from l lines
     param_path : str
         Path to parameter file
@@ -86,9 +87,9 @@ class GuessParamModel(Atom):
     data = Typed(object)
     prefit_x = Typed(object)
     result_dict = Typed(object)
-    status_dict = Dict(value=bool, key=str)
-    total_y = Typed(object)
-    total_y_l = Typed(object)
+    total_y = Dict()
+    total_y_l = Dict()
+    total_y_m = Dict()
     param_path = Str(data_path)
     param_status = Str('Use default parameter file.')
     e_list = Str()
@@ -96,8 +97,6 @@ class GuessParamModel(Atom):
 
     def __init__(self):
         self.get_param()
-        self.total_y
-        self.total_y_l = {}
 
     def get_param(self):
         try:
@@ -125,24 +124,30 @@ class GuessParamModel(Atom):
         self.param_d = param
 
     def find_peak(self):
-        """run automatic peak finding."""
-        #for k,v in six.iteritems(self.param_d):
-        #    print('{}:{}'.format(k,v))
-        self.prefit_x, self.result_dict, bg = pre_fit_linear(self.param_d, self.data)
+        """Call automatic peak finding."""
+        self.prefit_x, out_dict = pre_fit_linear(self.param_d, self.data)
+        self.result_assumbler(out_dict)
 
-        self.result_dict.update(background=bg)
+    def result_assumbler(self, dictv, threshv=1.0):
+        """Summarize results into a dict"""
+        max_dict = reduce(max, map(np.max, six.itervalues(dictv)))
+        self.result_dict = OrderedDict()
+        for k, v in six.iteritems(dictv):
+            self.result_dict.update({k: {'z': get_Z(k),
+                                         'spectrum': v,
+                                         'status': True,
+                                         'gen_stat': True,
+                                         'maxv': np.max(v),
+                                         'norm': (np.max(v)/max_dict)*100,
+                                         'lbd_stat': np.max(v)/max_dict < threshv}})
 
-        #with self.suppress_notifications():
-            #self.status_list = [k for k in six.iterkeys(self.result_dict)]
-        # save the plotting status for a given element peak
-        self.status_dict = {k: True for k in six.iterkeys(self.result_dict)}
-
-    @observe('status_dict')
-    def update_status_dict(self, changed):
-        print('status dict changed: {}'.format(changed))
+    @observe('result_dict')
+    def update_dict(self, changed):
+        pass
+        #print('result dict changed: {}'.format(changed))
 
     def get_activated_element(self):
-        e = [k for (k, v) in six.iteritems(self.status_dict) if v and len(k)<=4]
+        e = [k for (k, v) in six.iteritems(self.result_dict) if v['status'] and len(k)<=4]
         self.e_list = ', '.join(e)
         #self.save_elist()
 
@@ -152,22 +157,32 @@ class GuessParamModel(Atom):
         elist_l = [v for v in self.e_list.split(', ') if '_K' not in v]
         elist = elist_k + elist_l
         self.param_d['non_fitting_values']['element_list'] = ', '.join(elist)
-        print('e list: {}'.format(elist))
 
-    def arange_prefit_result(self):
-        # change range based on dict data
-        self.total_y = self.result_dict.copy()
-
-        # update plotting status based on self.status_dict
-        for k, v in six.iteritems(self.status_dict):
-            if v is False:
-                del self.total_y[k]
-
-        self.total_y_l = {}
-        for k, v in six.iteritems(self.total_y):
-            if '_L' in k or '_M' in k:
-                self.total_y_l.update({k: v})
-                del self.total_y[k]
+    def data_for_plot(self):
+        """
+        Save data in terms of K, L, M lines for plot.
+        """
+        for k, v in six.iteritems(self.result_dict):
+            if 'K' in k:
+                if v['status'] and not self.total_y.has_key(k):
+                    self.total_y[k] = self.result_dict[k]['spectrum']
+                elif not v['status'] and self.total_y.has_key(k):
+                    del self.total_y[k]
+            elif 'L' in k:
+                if v['status'] and not self.total_y_l.has_key(k):
+                    self.total_y_l[k] = self.result_dict[k]['spectrum']
+                elif not v['status'] and self.total_y_l.has_key(k):
+                    del self.total_y_l[k]
+            elif 'M' in k:
+                if v['status'] and not self.total_y_m.has_key(k):
+                    self.total_y_m[k] = self.result_dict[k]['spectrum']
+                elif not v['status'] and self.total_y_m.has_key(k):
+                    del self.total_y_m[k]
+            else:
+                if v['status'] and not self.total_y.has_key(k):
+                    self.total_y[k] = self.result_dict[k]['spectrum']
+                elif not v['status'] and self.total_y.has_key(k):
+                    del self.total_y[k]
 
     def save_as(self):
         self.save_elist()
@@ -176,13 +191,13 @@ class GuessParamModel(Atom):
                       sort_keys=True, indent=4)
 
 
-def pre_fit_linear(parameter_dict, y0):
+def pre_fit_linear(parameter_input, y0):
     """
     Run prefit to get initial elements.
 
     Parameters
     ----------
-    parameter_dict : dict
+    parameter_input : dict
         Fitting parameters
     y0 : array
         Spectrum intensity
@@ -193,9 +208,10 @@ def pre_fit_linear(parameter_dict, y0):
         x axis
     result_dict : dict
         Fitting results
-    bg : array
-        Calculated background ground
     """
+
+    # Need to use deepcopy here to avoid unexpected change on parameter dict
+    parameter_dict = copy.deepcopy(parameter_input)
 
     x0 = np.arange(len(y0))
     x, y = set_range(parameter_dict, x0, y0)
@@ -224,15 +240,41 @@ def pre_fit_linear(parameter_dict, y0):
     out, res = PF.nnls_fit_weight()
     total_y = out * matv
 
+    # use ordered dict
     result_dict = OrderedDict()
 
     for i in range(len(total_list)):
+        if np.sum(total_y[:, i]) == 0:
+            continue
         if '_L' in total_list[i] or total_list[i] in non_element:
             result_dict.update({total_list[i]: total_y[:, i]})
         else:
             result_dict.update({total_list[i] + '_K': total_y[:, i]})
+    result_dict.update(background=bg)
+    return x, result_dict
 
-    for k, v in six.iteritems(result_dict):
-        if sum(v) == 0:
-            del result_dict[k]
-    return x, result_dict, bg
+
+def get_Z(ename):
+    """
+    Return element's Z number.
+
+    Parameters
+    ----------
+    ename : str
+        element name
+
+    Returns
+    -------
+    int or None
+        element Z number
+
+    """
+
+    strip_line = lambda ename: ename.split('_')[0]
+
+    non_element = ['compton', 'elastic', 'background']
+    if ename in non_element:
+        return '-'
+    else:
+        e = Element(strip_line(ename))
+        return e.Z

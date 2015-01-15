@@ -37,11 +37,13 @@ __author__ = 'Li Li'
 
 import numpy as np
 import six
+import copy
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 
-from atom.api import Atom, Str, observe, Typed, Int, List, Dict
+from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
 
 from skxray.fitting.xrf_model import (k_line, l_line, m_line)
 from skxray.constants.api import XrfElement as Element
@@ -81,8 +83,14 @@ class LinePlotModel(Atom):
         x value for fitting
     fit_y : array
         fitted data
+    plot_type : list
+        linear or log plot
+    max_v : float
+        max value of data array
+    incident_energy : float
+        in KeV
     """
-    data = Typed(np.ndarray)
+    data = Typed(object) #Typed(np.ndarray)
     _fig = Typed(Figure)
     _ax = Typed(Axes)
     _canvas = Typed(object)
@@ -96,19 +104,67 @@ class LinePlotModel(Atom):
     plot_title = Str()
     fit_x = Typed(np.ndarray)
     fit_y = Typed(np.ndarray) # List()
+    plot_type = List()
+    max_v = Typed(object)
+    incident_energy = Float(10)
+    eline_status = List()
+    #ln1 = Typed(Line2D)
+
+    plot_exp_opt = Bool()
+    plot_exp_obj = Typed(Line2D)
+
+    auto_fit_status = List()
+    auto_fit_plot = Bool()
 
     def __init__(self):
         self._fig = plt.figure()
         self._ax = self._fig.add_subplot(111)
-        self.fit_y = np.array([])
 
-    #def set_data(self, data):
-    #    self.data = data
+        self._ax.legend(loc=0)
+        self._ax.set_xlabel('Energy [keV]')
+        self._ax.set_ylabel('Counts')
+        self._ax.autoscale_view(tight=True)
+
+        self.fit_y = np.array([])
+        self.max_v = 1.0
+        self.plot_type = ['LinLog', 'Linear']
+        self.data = np.array([])
+
+    @observe('plot_title')
+    def update_title(self, change):
+        self._ax.set_title(self.plot_title)
 
     @observe('plot_opt')
     def _new_opt(self, change):
+        print(change)
         if change['type'] == 'update':
             self.plot_data()
+            self.plot_emission_line()
+            #self.plot_autofit()
+            #self._ax.legend()
+            #self._fig.canvas.draw()
+
+    @observe('data')
+    def data_update(self, change):
+        if change['type'] == 'create':
+            return
+        self.max_v = np.max(self.data)
+        #self._ax.hold(False)
+
+    @observe('plot_exp_opt')
+    def plot_s_update(self, change):
+        if change['value']:
+            #for v in self.plot_exp_obj:
+            self.plot_exp_obj.set_visible(True)
+        else:
+            #for v in self.plot_exp_obj:
+            self.plot_exp_obj.set_visible(False)
+        self._ax.legend()
+        try:
+            self._fig.canvas.draw()
+            #v.axes.figure.canvas.draw()
+        except AttributeError:
+            pass
 
     def plot_data(self, min_ratio=1e-6):
         """
@@ -117,115 +173,163 @@ class LinePlotModel(Atom):
         min_ratio : float, opt
             define the range of plotting
         """
-        plot_type = ['LinLog', 'Linear']
-        #self._ax = self._fig.add_subplot(111)
-        #self._fig.title = self.plot_title
+        #while(len(self.plot_exp_obj)):
+        try:
+            self.plot_exp_obj.remove()
+            print('Previous experimental data is removed.')
+        except AttributeError:
+            print('No need to remove experimental data.')
 
-        self._ax.hold(False)
-        data_arr = np.asarray(self.data)
-        x_v = self.param_data['e_offset']['value'] + \
-              np.arange(len(data_arr)) * self.param_data['e_linear']['value'] + \
-              np.arange(len(data_arr))**2 * self.param_data['e_quadratic']['value']
+        if len(self.data):
+            data_arr = np.asarray(self.data)
+            x_v = self.param_data['e_offset']['value'] + \
+                  np.arange(len(data_arr)) * self.param_data['e_linear']['value'] + \
+                  np.arange(len(data_arr))**2 * self.param_data['e_quadratic']['value']
 
-        if plot_type[self.plot_opt] == 'Linear':
-            self._ax.plot(x_v, data_arr, 'b-', label='experiment')
-        else:
-            self._ax.semilogy(x_v, data_arr, 'b-', label='experiment')
-
-        #minv = np.min(data_arr)
-        minv = np.max(data_arr)*min_ratio
-        if len(self.elist) != 0:
-            self._ax.hold(True)
-            for i in range(len(self.elist)):
-                if plot_type[self.plot_opt] == 'Linear':
-                    self._ax.plot([self.elist[i][0], self.elist[i][0]],
-                                  [minv, self.elist[i][1]*np.max(data_arr)],
-                                  'r-', linewidth=2.0)
-                    self._ax.set_ylim([minv, np.max(data_arr)*1.5])
-                else:
-                    self._ax.semilogy([self.elist[i][0], self.elist[i][0]],
-                                      [minv, self.elist[i][1]*np.max(data_arr)],
-                                      'r-', linewidth=2.0)
-                    self._ax.set_ylim([minv, np.max(data_arr)*10.0])
-
-        if len(self.total_y) != 0:
-            self._ax.hold(True)
-            if plot_type[self.plot_opt] == 'Linear':
-                sum = 0
-                for i, (k, v) in enumerate(six.iteritems(self.total_y)):
-                    if k == 'background':
-                        self._ax.plot(self.prefit_x, v, 'grey')
-                    else:
-                        if i == 0:
-                            self._ax.plot(self.prefit_x, v, 'g-', label='k line')
-                        else:
-                            self._ax.plot(self.prefit_x, v, 'g-')
-                    sum += v
-
-                if len(self.total_y_l) != 0:
-                    for i, (k, v) in enumerate(six.iteritems(self.total_y_l)):
-                        if i == 0:
-                            self._ax.plot(self.prefit_x, v, 'purple', label='l line')
-                        else:
-                            self._ax.plot(self.prefit_x, v, 'purple')
-                        sum += v
-
-                self._ax.plot(self.prefit_x, sum, 'orange', markersize=2, label='prefit')
-                self._ax.set_ylim([minv, np.max(data_arr)*1.5])
+            if self.plot_type[self.plot_opt] == 'Linear':
+                print('linear plot!')
+                self.plot_exp_obj, = self._ax.plot(x_v, data_arr, 'b-', label='experiment')
             else:
-                sum = 0
-                for i, (k, v) in enumerate(six.iteritems(self.total_y)):
-                    if k == 'background':
-                        self._ax.semilogy(self.prefit_x, v, 'grey')
-                    else:
-                        if i == 0:
-                            self._ax.semilogy(self.prefit_x, v, 'g-', label='k line')
-                        else:
-                            self._ax.semilogy(self.prefit_x, v, 'g-')
-                    sum += v
-
-                if len(self.total_y_l) != 0:
-                    for i, (k, v) in enumerate(six.iteritems(self.total_y_l)):
-                        if i == 0:
-                            self._ax.semilogy(self.prefit_x, v, 'purple', label='l line')
-                        else:
-                            self._ax.semilogy(self.prefit_x, v, 'purple')
-                        sum += v
-
-                self._ax.semilogy(self.prefit_x, sum, 'orange', markersize=2, label='prefit')
-                self._ax.set_ylim([minv, np.max(data_arr)*10.0])
-
-            self._ax.set_xlim([self.prefit_x[0], self.prefit_x[-1]])
+                self.plot_exp_obj, = self._ax.semilogy(x_v, data_arr, 'b-', label='experiment')
 
         if len(self.fit_y):
             self._ax.hold(True)
-            if plot_type[self.plot_opt] == 'Linear':
+            if self.plot_type[self.plot_opt] == 'Linear':
                 self._ax.plot(self.fit_x, self.fit_y, 'k+', label='fitted')
             else:
                 self._ax.semilogy(self.fit_x, self.fit_y, 'k+', label='fitted')
             self._ax.set_xlim([self.fit_x[0], self.fit_x[-1]])
 
-        self._ax.legend(loc=0)
+    def plot_emission_line(self, min_ratio=1e-6):
+        """
+        Plot emission lines.
+        """
+        minv = self.max_v*min_ratio
 
-        self._ax.set_title(self.plot_title)
-        self._ax.set_xlabel('Energy [keV]')
-        self._ax.set_ylabel('Counts')
+        while(len(self.eline_status)):
+            self.eline_status.pop().remove()
 
+        if len(self.elist):
+            self._ax.hold(True)
+            if self.plot_type[self.plot_opt] == 'Linear':
+                for i in range(len(self.elist)):
+                    eline, = self._ax.plot([self.elist[i][0], self.elist[i][0]],
+                                           [minv, self.elist[i][1]*self.max_v],
+                                           'r-', linewidth=2.0)
+                    self.eline_status.append(eline)
+                self._ax.set_ylim([minv, self.max_v*1.5])
+            else:
+                for i in range(len(self.elist)):
+                    eline, = self._ax.semilogy([self.elist[i][0], self.elist[i][0]],
+                                               [minv, self.elist[i][1]*self.max_v],
+                                               'r-', linewidth=2.0)
+                    self.eline_status.append(eline)
+                self._ax.set_ylim([minv, self.max_v*10.0])
+        self._fig.canvas.draw()
+
+    def plot_autofit(self, min_ratio=1e-6):
+
+        minv = self.max_v*min_ratio
+        sum = 0
+
+        while(len(self.auto_fit_status)):
+            self.auto_fit_status.pop().remove()
+
+        # K lines
+        if len(self.total_y):
+            self._ax.hold(True)
+            if self.plot_type[self.plot_opt] == 'Linear':
+                #sum = 0
+                for i, (k, v) in enumerate(six.iteritems(self.total_y)):
+                    if k == 'background':
+                        ln, = self._ax.plot(self.prefit_x, v, 'grey')
+                    else:
+                        if i == 0:
+                            ln, = self._ax.plot(self.prefit_x, v, 'g-', label='prefit k line')
+                        else:
+                            ln, = self._ax.plot(self.prefit_x, v, 'g-')
+                    self.auto_fit_status.append(ln)
+                    sum += v
+
+                self._ax.set_ylim([minv, self.max_v*1.5])
+            else:
+                for i, (k, v) in enumerate(six.iteritems(self.total_y)):
+                    if k == 'background':
+                        ln, = self._ax.semilogy(self.prefit_x, v, 'grey')
+                    else:
+                        if i == 0:
+                            ln, = self._ax.semilogy(self.prefit_x, v, 'g-', label='prefit k line')
+                        else:
+                            ln, = self._ax.semilogy(self.prefit_x, v, 'g-')
+                    self.auto_fit_status.append(ln)
+                    sum += v
+
+                self._ax.set_ylim([minv, self.max_v*10.0])
+
+            self._ax.set_xlim([self.prefit_x[0], self.prefit_x[-1]])
+
+        # L lines
+        if len(self.total_y_l):
+            self._ax.hold(True)
+            if self.plot_type[self.plot_opt] == 'Linear':
+                for i, (k, v) in enumerate(six.iteritems(self.total_y_l)):
+                    if i == 0:
+                        ln, = self._ax.plot(self.prefit_x, v, 'purple', label='prefit l line')
+                    else:
+                        ln, = self._ax.plot(self.prefit_x, v, 'purple')
+                    self.auto_fit_status.append(ln)
+                    sum += v
+
+                ln, = self._ax.plot(self.prefit_x, sum, 'orange', markersize=2, label='prefit sum')
+                self.auto_fit_status.append(ln)
+                self._ax.set_ylim([minv, self.max_v*1.5])
+            else:
+                for i, (k, v) in enumerate(six.iteritems(self.total_y_l)):
+                    if i == 0:
+                        ln, = self._ax.semilogy(self.prefit_x, v, 'purple', label='prefit l line')
+                    else:
+                        ln, = self._ax.semilogy(self.prefit_x, v, 'purple')
+                    self.auto_fit_status.append(ln)
+                    sum += v
+
+                ln, = self._ax.semilogy(self.prefit_x, sum, 'orange', markersize=2, label='prefit sum')
+                self.auto_fit_status.append(ln)
+                self._ax.set_ylim([minv, self.max_v*10.0])
+
+            self._ax.set_xlim([self.prefit_x[0], self.prefit_x[-1]])
+
+    @observe('auto_fit_plot')
+    def update_auto_fit(self, change):
+        if change['value']:
+            if len(self.auto_fit_status):
+                for v in self.auto_fit_status:
+                    v.set_visible(True)
+        else:
+            if len(self.auto_fit_status):
+                for v in self.auto_fit_status:
+                    v.set_visible(False)
+        self._ax.legend()
         self._fig.canvas.draw()
 
     @observe('element_id')
     def set_element(self, change):
         if change['value'] == 0:
+            while(len(self.eline_status)):
+                self.eline_status.pop().remove()
             self.elist = []
-            self.plot_data()
+            self._fig.canvas.draw()
             return
 
         self.elist = []
-
         total_list = k_line + l_line + m_line
-        print('element name: {}'.format(self.element_id))
+        print('Plot emission line for element: {}'.format(self.element_id))
         ename = total_list[self.element_id-1]
-        incident_energy = self.param_data['coherent_sct_energy']['value']
+
+        try:
+            incident_energy = self.param_data['coherent_sct_energy']['value']
+        except KeyError:
+            incident_energy = self.incident_energy
+            print('Use incident energy: {}'.format(incident_energy))
 
         if len(ename) <= 2:
             e = Element(ename)
@@ -248,8 +352,7 @@ class LinePlotModel(Atom):
                 for i in range(17, 21):
                     self.elist.append((e.emission_line.all[i][1],
                                        e.cs(incident_energy).all[i][1]/e.cs(incident_energy).all[17][1]))
-
-        self.plot_data()
+        self.plot_emission_line()
 
     def set_prefit_data(self, prefit_x,
                         total_y, total_y_l):
@@ -268,4 +371,5 @@ class LinePlotModel(Atom):
         self.total_y = total_y
         # l lines
         self.total_y_l = total_y_l
+        self.plot_autofit()
 

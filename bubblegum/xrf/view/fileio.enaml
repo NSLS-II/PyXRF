@@ -45,6 +45,7 @@ import numpy as np
 enamldef FileView(DockItem): file_view:
     attr io_model
     attr param_model
+    attr lineplot_model
     attr img_model
 
     Container:
@@ -109,8 +110,11 @@ enamldef FileView(DockItem): file_view:
 
             ComboBox: CB:
                 items = ['Please load file first']
-                index := io_model.file_opt
                 index = 0
+                index >> io_model.file_opt
+                index ::
+                    lineplot_model.plot_title = io_model.file_name
+                    lineplot_model.data = io_model.data
 
             Label: files_load:
                 text = 'No data is loaded.'
