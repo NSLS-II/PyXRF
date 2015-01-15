@@ -47,49 +47,27 @@ enamldef FileView(DockItem): file_view:
     attr param_model
     Container:
         Form:
-            Label: lb_tool_name:
-                text = 'PyXRF: X-ray Fluorescence Analysis Tool'
-        Container:
-            constraints = [
-                vbox(
-                    hbox(btn_folder, btn_fd),
-                    hbox(btn_file, fd),
-                    hbox(pb_load, fd_load),
-                    hbox(load_lbl),
-                    hbox(param_lbl),
-                ),
-                btn_folder.width == btn_file.width,
-                btn_folder.width == pb_load.width,
-            ]
             PushButton: btn_folder:
-                text = "Set Folder Path"
-                #maximum_size = 200
+                text = "Working Directory"
                 clicked ::
                     path = FileDialogEx.get_existing_directory(file_view)
                     if path:
-                        io_model.folder_name = path
+                        io_model.working_directory = path
             Field: btn_fd:
-                text := io_model.folder_name
+                text := io_model.working_directory
             PushButton: btn_file:
-                text = "Open File"
-                #maximum_size = 200
+                text = "Data File"
                 clicked ::
-                    path = FileDialogEx.get_open_file_name(file_view, current_path=io_model.folder_name)
+                    path = FileDialogEx.get_open_file_name(file_view, current_path=io_model.working_directory)
                     if path:
                         pathlist = path.split('/')
-                        io_model.file_name = pathlist[-1]
+                        io_model.data_file = pathlist[-1]
                         fd.text = pathlist[-1]
             Field: fd:
-                text := io_model.file_name
-                #submit_triggers = ['lost_focus', 'return_pressed', 'auto_sync']
-            #PushButton:
-            #    text = 'Load Files'
-            #    clicked ::
-            #        io_model.load_data()
-            #        load_lbl.text = io_model.load_status
+                text := io_model.data_file
 
             PushButton: pb_load:
-                text = 'Load Parameter File'
+                text = 'Parameter File'
                 #maximum_size = 200
                 clicked ::
                     param_path = FileDialogEx.get_open_file_name(file_view)
@@ -99,9 +77,7 @@ enamldef FileView(DockItem): file_view:
                         param_lbl.text = param_model.param_status
             Field: fd_load:
                 text = 'Use default otherwise.'
-            Label: load_lbl:
-                text << io_model.load_status
-                #maximum_size = 300
-            Label: param_lbl:
-                text = 'Use default parametere files.'
-                #maximum_size = 100
+        Label: load_lbl:
+            text << io_model.load_status
+        Label: param_lbl:
+            text = 'Using default parameter file.'

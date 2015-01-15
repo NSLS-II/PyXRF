@@ -35,6 +35,8 @@
 
 __author__ = 'Li Li'
 
+import os
+import numpy as np
 import enaml
 from enaml.qt.qt_application import QtApplication
 from bubblegum.xrf.model.fileio import FileIOModel
@@ -42,15 +44,34 @@ from bubblegum.xrf.model.lineplot import LinePlotModel
 from bubblegum.xrf.model.guessparam import GuessParamModel
 
 
+def get_defaults():
+
+    working_directory = os.path.join(os.path.expanduser('~'), 'Downloads')
+    data_file = 'NSLS_X27.txt'
+    data_path = os.path.join(working_directory, data_file)
+    parameter_file = os.path.join(os.path.expanduser('~'), 'Downloads',
+                                  'xrf_parameter.json')
+
+    defaults = {'working_directory': working_directory,
+                'data_file': data_file,
+                'data_path': data_path,
+                'parameter_file': parameter_file}
+
+    return defaults
+
+
 def run():
     app = QtApplication()
     with enaml.imports():
         from bubblegum.xrf.view.main_window import XRFGui
 
+    defaults = get_defaults()
+
     xrfview = XRFGui()
-    xrfview.file_M = FileIOModel()
-    xrfview.p_guess_M = GuessParamModel()
-    xrfview.plot_M = LinePlotModel()
+
+    xrfview.io_model = FileIOModel(**defaults)
+    xrfview.param_model = GuessParamModel(**defaults)
+    xrfview.plot_model = LinePlotModel()
 
     xrfview.show()
     app.start()

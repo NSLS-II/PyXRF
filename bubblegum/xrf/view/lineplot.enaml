@@ -71,7 +71,7 @@ enamldef PlotMain(DockItem):
         PushButton: pbn:
             text = 'Plot Raw Spectrum'
             clicked ::
-                plot_model.plot_title = io_model.file_name
+                plot_model.plot_title = io_model.data_file
                 plot_model.data = io_model.data
                 plot_model.param_data = param_model.param_d
                 plot_model.plot_data()

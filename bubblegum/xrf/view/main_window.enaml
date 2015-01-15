@@ -43,8 +43,8 @@ from .guessparam import GuessParamView, PreFitResult
 from .lineplot import PlotMain
 
 
-enamldef XRFGui(MainWindow):
-    title = 'X-ray Fluorescence Fitting GUI'
+enamldef XRFGui(MainWindow): main:
+    title = 'PyXRF: X-ray Fluorescence Analysis Tool'
     attr io_model
     attr param_model
     attr plot_model
@@ -55,10 +55,18 @@ enamldef XRFGui(MainWindow):
                 'lineplot_view',
                 )
             FileView:
+                io_model = main.io_model
+                param_model = main.param_model
                 title = 'File IO'
                 name = 'file_view'
             GuessParamView:
+                io_model = main.io_model
+                param_model = main.param_model
+                plot_model = main.plot_model
                 title = 'Initial Parameter Guess '
                 name = 'param_guess_view'
             PlotMain:
+                io_model = main.io_model
+                param_model = main.param_model
+                plot_model = main.plot_model
                 name = 'lineplot_view'

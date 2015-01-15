@@ -50,8 +50,6 @@ from skxray.fitting.xrf_model import (ModelSpectrum, set_range, k_line, l_line, 
 from skxray.fitting.background import snip_method
 
 
-# This is not a right way to define path. To be updated
-data_path = '/Users/Li/Research/X-ray/Research_work/all_code/nsls2_gui/nsls2_gui/xrf_parameter.json'
 
 
 class GuessParamModel(Atom):
@@ -76,7 +74,7 @@ class GuessParamModel(Atom):
         Results from k lines
     total_y_l : dict
         Results from l lines
-    param_path : str
+    parameter_file : str
         Path to parameter file
     param_status : str
         Loading status of parameter file
@@ -89,24 +87,24 @@ class GuessParamModel(Atom):
     status_dict = Dict(value=bool, key=str)
     total_y = Typed(object)
     total_y_l = Typed(object)
-    param_path = Str(data_path)
+    parameter_file = Str()
     param_status = Str('Use default parameter file.')
 
-    def __init__(self):
-        self.get_param()
-        self.total_y
+    def __init__(self, parameter_file, *args, **kwargs):
+        self.parameter_file = parameter_file
         self.total_y_l = {}
 
     def get_param(self):
         try:
-            with open(self.param_path, 'r') as json_data:
+            with open(self.parameter_file, 'r') as json_data:
                 self.param_d_perm = json.load(json_data)
-            self.param_status = 'Parameter file {} is loaded.'.format(self.param_path.split('/')[-1])
+            self.param_status = 'Parameter file {} is loaded.'.format(
+                self.parameter_file.split('/')[-1])
             self.param_d = copy.deepcopy(self.param_d_perm)
         except ValueError:
             self.param_status = 'Parameter file can\'t be loaded.'
 
-    @observe('param_path')
+    @observe('parameter_file')
     def set_param(self, changed):
         self.get_param()
 
@@ -126,12 +124,11 @@ class GuessParamModel(Atom):
         """run automatic peak finding."""
         #for k,v in six.iteritems(self.param_d):
         #    print('{}:{}'.format(k,v))
-        self.prefit_x, self.result_dict, bg = pre_fit_linear(self.param_d, self.data)
+        self.prefit_x, self.result_dict, bg = pre_fit_linear(self.param_d,
+                                                             self.data)
 
         self.result_dict.update(background=bg)
 
-        #with self.suppress_notifications():
-            #self.status_list = [k for k in six.iterkeys(self.result_dict)]
         # save the plotting status for a given element peak
         self.status_dict = {k: True for k in six.iterkeys(self.result_dict)}
 
