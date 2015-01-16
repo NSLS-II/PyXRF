@@ -147,7 +147,7 @@ class GuessParamModel(Atom):
         if change['value']:
             for k, v in six.iteritems(self.result_dict):
                 if v['lbd_stat']:
-                    v['status'] = False #v['lbd_stat']
+                    v['status'] = False
         else:
             for k, v in six.iteritems(self.result_dict):
                 v['status'] = v['stat_copy']
@@ -160,9 +160,7 @@ class GuessParamModel(Atom):
     def get_activated_element(self):
         e = [k for (k, v) in six.iteritems(self.result_dict) if v['status'] and len(k)<=4]
         self.e_list = ', '.join(e)
-        #self.save_elist()
 
-    #@observe('e_list')
     def save_elist(self):
         elist_k = [v[:-2] for v in self.e_list.split(', ') if '_K' in v]
         elist_l = [v for v in self.e_list.split(', ') if '_K' not in v]

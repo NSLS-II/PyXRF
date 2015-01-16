@@ -115,6 +115,10 @@ class LinePlotModel(Atom):
     auto_fit_obj = List()
     show_autofit_opt = Bool()
 
+    plot_fit_obj = List() #Typed(Line2D)
+    show_fit_opt = Bool()
+    fit_all = Typed(object)
+
     def __init__(self):
         self._fig = plt.figure()
         self._ax = self._fig.add_subplot(111)
@@ -128,7 +132,7 @@ class LinePlotModel(Atom):
         self._ax.autoscale_view(tight=True)
 
         self.max_v = 1.0
-        self.fit_y = np.array([])
+        #self.fit_y = np.array([])
         #self.data = np.array([])
 
     @observe('plot_title')
@@ -184,13 +188,6 @@ class LinePlotModel(Atom):
 
         self.plot_exp_obj, = self._ax.plot(x_v, data_arr, 'b-', label='experiment')
 
-        if len(self.fit_y):
-            self._ax.hold(True)
-            if self.plot_type[self.plot_opt] == 'Linear':
-                self._ax.plot(self.fit_x, self.fit_y, 'k+', label='fitted')
-            else:
-                self._ax.semilogy(self.fit_x, self.fit_y, 'k+', label='fitted')
-
     def plot_emission_line(self):
         while(len(self.eline_obj)):
             self.eline_obj.pop().remove()
@@ -202,6 +199,49 @@ class LinePlotModel(Atom):
                                        [0, self.elist[i][1]*self.max_v],
                                        'r-', linewidth=2.0)
                 self.eline_obj.append(eline)
+
+    @observe('element_id')
+    def set_element(self, change):
+        print('change: {}'.format(change['value']))
+        if change['value'] == 0:
+            while(len(self.eline_obj)):
+                self.eline_obj.pop().remove()
+            self.elist = []
+            self._fig.canvas.draw()
+            return
+
+        self.elist = []
+        total_list = k_line + l_line + m_line
+        print('Plot emission line for element: {}'.format(self.element_id))
+        ename = total_list[self.element_id-1]
+
+        incident_energy = self.incident_energy
+        print('Use incident energy: {}'.format(incident_energy))
+
+        if len(ename) <= 2:
+            e = Element(ename)
+            if e.cs(incident_energy)['ka1'] != 0:
+                for i in range(4):
+                    self.elist.append((e.emission_line.all[i][1],
+                                       e.cs(incident_energy).all[i][1]/e.cs(incident_energy).all[0][1]))
+
+        elif '_L' in ename:
+            e = Element(ename[:-2])
+            print e.cs(incident_energy)['la1']
+            if e.cs(incident_energy)['la1'] != 0:
+                for i in range(4, 17):
+                    self.elist.append((e.emission_line.all[i][1],
+                                       e.cs(incident_energy).all[i][1]/e.cs(incident_energy).all[4][1]))
+
+        else:
+            e = Element(ename[:-2])
+            if e.cs(incident_energy)['ma1'] != 0:
+                for i in range(17, 21):
+                    self.elist.append((e.emission_line.all[i][1],
+                                       e.cs(incident_energy).all[i][1]/e.cs(incident_energy).all[17][1]))
+        self.plot_emission_line()
+        self._ax.legend()
+        self._fig.canvas.draw()
 
     def plot_autofit(self):
         sum = 0
@@ -251,49 +291,43 @@ class LinePlotModel(Atom):
         self._ax.legend()
         self._fig.canvas.draw()
 
+    def plot_fit(self):
+        #if len(self.fit_y):
+        while(len(self.plot_fit_obj)):
+            self.plot_fit_obj.pop().remove()
+        # try:
+        #     self.plot_fit_obj.remove()
+        # except AttributeError:
+        #     pass
+        ln, = self._ax.plot(self.fit_x, self.fit_y, 'k+', label='fitted')
+        self.plot_fit_obj.append(ln)
 
-    @observe('element_id')
-    def set_element(self, change):
-        print('change: {}'.format(change['value']))
-        if change['value'] == 0:
-            while(len(self.eline_obj)):
-                self.eline_obj.pop().remove()
-            self.elist = []
-            self._fig.canvas.draw()
-            return
+        ik = 0
+        il = 0
+        im = 0
+        for k, v in six.iteritems(self.fit_all):
+            if '_k' in str(k):
+                #print(k)
+                #print(len(self.fit_x), len(v))
+                ln, = self._ax.plot(self.fit_x, v, 'r')
+                self.plot_fit_obj.append(ln)
+            elif '_l' in str(k):
+                ln, = self._ax.plot(self.fit_x, v, 'g')
+                self.plot_fit_obj.append(ln)
+            else:
+                ln, = self._ax.plot(self.fit_x, v, 'm')
+                self.plot_fit_obj.append(ln)
 
-        self.elist = []
-        total_list = k_line + l_line + m_line
-        print('Plot emission line for element: {}'.format(self.element_id))
-        ename = total_list[self.element_id-1]
 
-        incident_energy = self.incident_energy
-        print('Use incident energy: {}'.format(incident_energy))
-
-        if len(ename) <= 2:
-            e = Element(ename)
-            if e.cs(incident_energy)['ka1'] != 0:
-                for i in range(4):
-                    self.elist.append((e.emission_line.all[i][1],
-                                       e.cs(incident_energy).all[i][1]/e.cs(incident_energy).all[0][1]))
-
-        elif '_L' in ename:
-            e = Element(ename[:-2])
-            print e.cs(incident_energy)['la1']
-            if e.cs(incident_energy)['la1'] != 0:
-                for i in range(4, 17):
-                    self.elist.append((e.emission_line.all[i][1],
-                                       e.cs(incident_energy).all[i][1]/e.cs(incident_energy).all[4][1]))
-
+    @observe('show_fit_opt')
+    def _update_fit(self, change):
+        if change['value']:
+            [v.set_visible(True) for v in self.plot_fit_obj]
         else:
-            e = Element(ename[:-2])
-            if e.cs(incident_energy)['ma1'] != 0:
-                for i in range(17, 21):
-                    self.elist.append((e.emission_line.all[i][1],
-                                       e.cs(incident_energy).all[i][1]/e.cs(incident_energy).all[17][1]))
-        self.plot_emission_line()
+            [v.set_visible(False) for v in self.plot_fit_obj]
         self._ax.legend()
         self._fig.canvas.draw()
+
 
     def set_prefit_data(self, prefit_x,
                         total_y, total_y_l):
