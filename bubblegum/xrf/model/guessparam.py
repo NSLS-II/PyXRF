@@ -50,18 +50,18 @@ from skxray.fitting.xrf_model import (ModelSpectrum, set_range, k_line, l_line,
                                       m_line, get_linear_model, PreFitAnalysis)
 from skxray.fitting.background import snip_method
 
-
+bound_options = ['none', 'lohi', 'fixed', 'lo', 'hi']
 class Parameter(Atom):
     # todo make sure that these are the only valid bound types
-    bound_type = Enum('none', 'lohi', 'fixed')
+    bound_type = Enum(*bound_options)
     min = Float(-np.inf)
     max = Float(np.inf)
     value = Float()
     default_value = Float()
-    free_more = Enum('none', 'fixed', 'lohi')
-    adjust_element = Enum('none', 'fixed', 'lohi')
-    e_calibration = Enum('none', 'fixed', 'lohi')
-    linear = Enum('none', 'fixed')
+    free_more = Enum(*bound_options)
+    adjust_element = Enum(*bound_options)
+    e_calibration = Enum(*bound_options)
+    linear = Enum(*bound_options)
     name = Str()
     description = Str()
     tool_tip = Str()
@@ -79,6 +79,22 @@ class Parameter(Atom):
             self.bound_type, self.min, self.max, self.value, self.default_value,
             self.free_more, self.adjust_element, self.e_calibration,
             self.linear, self.name, self.description, self.tool_tip))
+
+    def to_dict(self):
+        return {
+            'bound_type': self.bound_type,
+            'min': self.min,
+            'max': self.max,
+            'value': self.value,
+            'default_value': self.default_value,
+            'free_more': self.free_more,
+            'adjust_element': self.adjust_element,
+            'e_calibration': self.e_calibration,
+            'linear': self.linear,
+            'name': self.name,
+            'description': self.description,
+            'tool_tip': self.tool_tip,
+        }
 
 
 class GuessParamModel(Atom):
@@ -171,8 +187,13 @@ class GuessParamModel(Atom):
         """run automatic peak finding."""
         #for k,v in six.iteritems(self.parameters):
         #    print('{}:{}'.format(k,v))
-        self.prefit_x, self.result_dict, bg = pre_fit_linear(self.parameters,
-                                                             self.data)
+        param_dict = {key: value.to_dict() for key, value
+                      in six.iteritems(self.parameters)}
+        elo = param_dict.pop('energy_bound_low')['value']
+        ehi = param_dict.pop('energy_bound_high')['value']
+        self.prefit_x, self.result_dict, bg = pre_fit_linear(
+            self.data, param_dict, elo=elo, ehi=ehi,
+            element_list=self.element_list)
 
         self.result_dict.update(background=bg)
 
@@ -199,16 +220,22 @@ class GuessParamModel(Atom):
                 del self.total_y[k]
 
 
-def pre_fit_linear(parameter_dict, y0):
+def pre_fit_linear(y0, fitting_parameters, elo, ehi, element_list):
     """
     Run prefit to get initial elements.
 
     Parameters
     ----------
-    parameter_dict : dict
-        Fitting parameters
     y0 : array
         Spectrum intensity
+    fitting_parameters : dict
+        Fitting parameters
+    elo : float
+        Lower bound on the energy
+    ehi : float
+        Upper bound on the energy
+    element_list : list
+        List of element abbreviations to fit
 
     Returns
     -------
@@ -219,29 +246,34 @@ def pre_fit_linear(parameter_dict, y0):
     bg : array
         Calculated background ground
     """
-
+    # reformat the dictionary that scikit-xray expects
+    non_fitting_values = {'non_fitting_values': {
+        'energy_bound_low': elo,
+        'energy_bound_high': ehi,
+        'element_list': element_list
+    }}
+    fitting_parameters.update(non_fitting_values)
     x0 = np.arange(len(y0))
-    x, y = set_range(parameter_dict, x0, y0)
-
+    x, y = set_range(fitting_parameters, x0, y0)
     # get background
-    bg = snip_method(y, parameter_dict['e_offset']['value'],
-                     parameter_dict['e_linear']['value'],
-                     parameter_dict['e_quadratic']['value'])
+    bg = snip_method(y, fitting_parameters['e_offset']['value'],
+                     fitting_parameters['e_linear']['value'],
+                     fitting_parameters['e_quadratic']['value'])
 
     y = y - bg
 
     element_list = k_line + l_line + m_line
     new_element = ', '.join(element_list)
-    parameter_dict['non_fitting_values']['element_list'] = new_element
+    fitting_parameters['non_fitting_values']['element_list'] = new_element
 
     non_element = ['compton', 'elastic']
     total_list = element_list + non_element
     total_list = [str(v) for v in total_list]
 
-    matv = get_linear_model(x, parameter_dict)
+    matv = get_linear_model(x, fitting_parameters)
 
-    x = parameter_dict['e_offset']['value'] + parameter_dict['e_linear']['value']*x + \
-        parameter_dict['e_quadratic']['value'] * x**2
+    x = fitting_parameters['e_offset']['value'] + fitting_parameters['e_linear']['value']*x + \
+        fitting_parameters['e_quadratic']['value'] * x**2
 
     PF = PreFitAnalysis(y, matv)
     out, res = PF.nnls_fit_weight()
