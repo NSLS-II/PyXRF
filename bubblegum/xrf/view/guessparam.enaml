@@ -68,21 +68,21 @@ enamldef GuessParamView(DockItem): param_view:
             ScrollArea:
                 Form:
                     Looper: looper:
-                        iterable << param_model.parameters.values()
+                        iterable << sorted(param_model.parameters.keys())
                         Label:
-                            text = loop_item.description
-                            tool_tip = loop_item.tool_tip
+                            text = param_model.parameters[loop_item].description
+                            tool_tip = param_model.parameters[loop_item].tool_tip
                         Container:
                             padding = Box(0, 0, 0, 0)
                             constraints = [hbox(ff, pb)]
                             FloatField: ff:
-                                minimum := loop_item.min
-                                maximum := loop_item.max
-                                value := loop_item.value
+                                minimum := param_model.parameters[loop_item].min
+                                maximum := param_model.parameters[loop_item].max
+                                value := param_model.parameters[loop_item].value
                             PushButton: pb:
                                 text = 'Default'
                                 clicked ::
-                                    ff.value = loop_item.default_value
+                                    ff.value = param_model.parameters[loop_item].default_value
                     row_spacing = -1
         PushButton: pb10:
             text = 'Save'
