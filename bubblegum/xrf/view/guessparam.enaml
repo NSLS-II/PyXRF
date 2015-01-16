@@ -44,7 +44,12 @@ from enaml.layout.api import (hbox, vbox, HSplitLayout, VSplitLayout,
 from enaml.core.api import Include, Looper
 from enaml.stdlib.fields import FloatField
 from enaml.layout.geometry import Box
+import json
 from auto_enaml.api import AutoView
+
+import os
+
+from ..model.guessparam import format_dict
 
 import numpy as np
 import six
@@ -87,7 +92,7 @@ enamldef GuessParamView(DockItem): param_view:
                     PushButton:
                         text = 'Edit Defaults'
                         clicked ::
-                            ParameterEdit.parameter_model_dict = param_model.parameters
+                            ParameterEdit.parameter_model = param_model
                             ParameterEdit().show()
 
         PushButton: pb10:
@@ -144,20 +149,33 @@ enamldef GuessParamView(DockItem): param_view:
             #max_length = 10
             #maximum_size = 100
 
+def save_defaults(parameter_model):
+    user_path = os.path.join(os.path.expanduser('~'), '.bubblegum',
+                             'xrf_parameter_user.json')
+    # format the dictionary
+    dct = format_dict(parameter_model.parameters, parameter_model.element_list)
+    json_out = json.dumps(dct)
+    with open(user_path, 'w') as out_file:
+        out_file.write(json_out)
+
 
 enamldef ParameterEdit(Window):
-    attr parameter_model_dict
+    attr parameter_model
     destroy_on_close = False
     Container:
         ComboBox: cmb:
-            items << sorted(parameter_model_dict.keys())
+            items << sorted(parameter_model.parameters.keys())
             selected_item ::
-                av.model = parameter_model_dict[selected_item]
+                av.model = parameter_model.parameters[selected_item]
         AutoView: av:
-            model = parameter_model_dict.values()[0]
+            model = parameter_model.parameters.values()[0]
             initialized ::
                 for o in objects:
                     o.label.tool_tip = str(o)
+        PushButton: save:
+            text = "Save changes to disk"
+            clicked ::
+                save_defaults(parameter_model)
 
 
 enamldef PreFitResult(Window):

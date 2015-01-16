@@ -96,6 +96,22 @@ class Parameter(Atom):
             'tool_tip': self.tool_tip,
         }
 
+def format_dict(parameter_object_dict, element_list):
+    """Format the dictionary that scikit-xray expects
+    """
+    param_dict = {key: value.to_dict() for key, value
+                  in six.iteritems(parameter_object_dict)}
+    elo = param_dict.pop('energy_bound_low')['value']
+    ehi = param_dict.pop('energy_bound_high')['value']
+    # reformat the dictionary that scikit-xray expects
+    non_fitting_values = {'non_fitting_values': {
+        'energy_bound_low': elo,
+        'energy_bound_high': ehi,
+        'element_list': element_list
+    }}
+    param_dict.update(non_fitting_values)
+
+    return param_dict
 
 class GuessParamModel(Atom):
     """
@@ -142,7 +158,8 @@ class GuessParamModel(Atom):
     def get_param(self, default_parameters):
         non_fitting_values = default_parameters.pop('non_fitting_values')
         element_list = non_fitting_values.pop('element_list')
-        element_list = element_list.split(',')
+        if not isinstance(element_list, list):
+            element_list = element_list.split(',')
         self.element_list = element_list
         elo = non_fitting_values.pop('energy_bound_low')
         ehi = non_fitting_values.pop('energy_bound_high')
@@ -180,13 +197,9 @@ class GuessParamModel(Atom):
         """run automatic peak finding."""
         #for k,v in six.iteritems(self.parameters):
         #    print('{}:{}'.format(k,v))
-        param_dict = {key: value.to_dict() for key, value
-                      in six.iteritems(self.parameters)}
-        elo = param_dict.pop('energy_bound_low')['value']
-        ehi = param_dict.pop('energy_bound_high')['value']
-        self.prefit_x, self.result_dict, bg = pre_fit_linear(
-            self.data, param_dict, elo=elo, ehi=ehi,
-            element_list=self.element_list)
+        param_dict = format_dict(self.parameters, self.element_list)
+        self.prefit_x, self.result_dict, bg = pre_fit_linear(self.data,
+                                                             param_dict)
 
         self.result_dict.update(background=bg)
 
@@ -213,7 +226,7 @@ class GuessParamModel(Atom):
                 del self.total_y[k]
 
 
-def pre_fit_linear(y0, fitting_parameters, elo, ehi, element_list):
+def pre_fit_linear(y0, fitting_parameters):
     """
     Run prefit to get initial elements.
 
@@ -223,13 +236,6 @@ def pre_fit_linear(y0, fitting_parameters, elo, ehi, element_list):
         Spectrum intensity
     fitting_parameters : dict
         Fitting parameters
-    elo : float
-        Lower bound on the energy
-    ehi : float
-        Upper bound on the energy
-    element_list : list
-        List of element abbreviations to fit
-
     Returns
     -------
     x : array
@@ -239,13 +245,6 @@ def pre_fit_linear(y0, fitting_parameters, elo, ehi, element_list):
     bg : array
         Calculated background ground
     """
-    # reformat the dictionary that scikit-xray expects
-    non_fitting_values = {'non_fitting_values': {
-        'energy_bound_low': elo,
-        'energy_bound_high': ehi,
-        'element_list': element_list
-    }}
-    fitting_parameters.update(non_fitting_values)
     x0 = np.arange(len(y0))
     x, y = set_range(fitting_parameters, x0, y0)
     # get background
