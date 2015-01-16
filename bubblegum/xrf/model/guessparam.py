@@ -132,18 +132,15 @@ class GuessParamModel(Atom):
     status_dict = Dict(value=bool, key=str)
     total_y = Typed(object)
     total_y_l = Typed(object)
-    parameter_file_path = Str()
     param_status = Str()
     element_list = List()
 
-    def __init__(self, parameter_file_path, *args, **kwargs):
-        self.parameter_file_path = parameter_file_path
+    def __init__(self, default_parameters, *args, **kwargs):
+        self.get_param(default_parameters)
         self.total_y_l = {}
 
-    def get_param(self):
-        with open(self.parameter_file_path, 'r') as json_data:
-            defaults = json.load(json_data)
-        non_fitting_values = defaults.pop('non_fitting_values')
+    def get_param(self, default_parameters):
+        non_fitting_values = default_parameters.pop('non_fitting_values')
         element_list = non_fitting_values.pop('element_list')
         element_list = element_list.split(',')
         self.element_list = element_list
@@ -159,17 +156,13 @@ class GuessParamModel(Atom):
             param_name: Parameter(name=param_name,
                                   default_value=param_dict['value'],
                                   **param_dict)
-            for param_name, param_dict in six.iteritems(defaults)
+            for param_name, param_dict in six.iteritems(default_parameters)
         } )
         pprint(self.parameters)
         # sort by the parameter name
         # parameters.sort(key=lambda s: s.name.lower())
-        self.param_status = ('Parameter file {} is loaded'.format(
-            self.parameter_file_path.split('/')[-1]))
-
-    @observe('parameter_file_path')
-    def set_param(self, changed):
-        self.get_param()
+        # self.param_status = ('Parameter file {} is loaded'.format(
+        #     self.parameter_file_path.split('/')[-1]))
 
     def set_data(self, data):
         """
