@@ -44,11 +44,11 @@ from enaml.layout.api import (hbox, vbox, HSplitLayout, VSplitLayout,
 from enaml.core.api import Include, Looper
 from enaml.stdlib.fields import FloatField
 from enaml.layout.geometry import Box
+from auto_enaml.api import AutoView
 
 import numpy as np
 import six
 from skxray.constants.api import XrfElement as Element
-
 
 enamldef GuessParamView(DockItem): param_view:
     attr param_model
@@ -84,6 +84,12 @@ enamldef GuessParamView(DockItem): param_view:
                                 clicked ::
                                     ff.value = param_model.parameters[loop_item].default_value
                     row_spacing = -1
+                    PushButton:
+                        text = 'Edit Defaults'
+                        clicked ::
+                            ParameterEdit.parameter_model_dict = param_model.parameters
+                            ParameterEdit().show()
+
         PushButton: pb10:
             text = 'Save'
             clicked ::
@@ -137,6 +143,21 @@ enamldef GuessParamView(DockItem): param_view:
         #    text = 'No auto fit result is available.'
             #max_length = 10
             #maximum_size = 100
+
+
+enamldef ParameterEdit(Window):
+    attr parameter_model_dict
+    destroy_on_close = False
+    Container:
+        ComboBox: cmb:
+            items << sorted(parameter_model_dict.keys())
+            selected_item ::
+                av.model = parameter_model_dict[selected_item]
+        AutoView: av:
+            model = parameter_model_dict.values()[0]
+            initialized ::
+                for o in objects:
+                    o.label.tool_tip = str(o)
 
 
 enamldef PreFitResult(Window):
