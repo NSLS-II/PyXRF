@@ -68,7 +68,7 @@ enamldef GuessParamView(DockItem): param_view:
             ScrollArea:
                 Form:
                     Looper: looper:
-                        iterable << param_model.fitting_params
+                        iterable << param_model.parameters.values()
                         Label:
                             text = loop_item.description
                             tool_tip = loop_item.tool_tip
@@ -88,7 +88,7 @@ enamldef GuessParamView(DockItem): param_view:
             text = 'Save'
             clicked ::
                 pass
-                #param_model.save_param(param_model.fitting_params)
+                #param_model.save_param(param_model.parameters)
         PushButton: pb11:
             text = 'Save As'
             clicked ::

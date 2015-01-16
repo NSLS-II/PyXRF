@@ -43,6 +43,7 @@ import copy
 import logging
 logger = logging.getLogger(__name__)
 
+from pprint import pprint
 from atom.api import Atom, Str, observe, Typed, Int, Dict, List, Float, Enum
 
 from skxray.fitting.xrf_model import (ModelSpectrum, set_range, k_line, l_line,
@@ -70,6 +71,15 @@ class Parameter(Atom):
         if not self.description:
             self.description = self.name
 
+    def __repr__(self):
+        return ("Parameter(bound_type={}, min={}, max={}, value={}, "
+               "default_value={}, free_more={}, adjust_element={}, "
+               "e_calibration={}, linear={}, name={}, description={}, "
+               "toop_tip={}".format(
+            self.bound_type, self.min, self.max, self.value, self.default_value,
+            self.free_more, self.adjust_element, self.e_calibration,
+            self.linear, self.name, self.description, self.tool_tip))
+
 
 class GuessParamModel(Atom):
     """
@@ -77,8 +87,9 @@ class GuessParamModel(Atom):
 
     Attributes
     ----------
-    fitting_params : dict
-        The fitting parameters
+    parameters : `atom.Dict`
+        A list of `Parameter` objects, subclassed from the `Atom` base class.
+        These `Parameter` objects hold all relevant xrf information
     default_params : dict
         Save all the fitting parameters. Values will not be changed in this dict.
     data : array
@@ -98,7 +109,7 @@ class GuessParamModel(Atom):
     param_status : str
         Loading status of parameter file
     """
-    fitting_params = List(item=Parameter)
+    parameters = Dict()
     data = Typed(object)
     prefit_x = Typed(object)
     result_dict = Typed(object)
@@ -108,8 +119,6 @@ class GuessParamModel(Atom):
     parameter_file_path = Str()
     param_status = Str()
     element_list = List()
-    elo = Float()
-    ehi = Float()
 
     def __init__(self, parameter_file_path, *args, **kwargs):
         self.parameter_file_path = parameter_file_path
@@ -124,19 +133,21 @@ class GuessParamModel(Atom):
         self.element_list = element_list
         elo = non_fitting_values.pop('energy_bound_low')
         ehi = non_fitting_values.pop('energy_bound_high')
-        fitting_params = [
-            Parameter(name='E lo (keV)', value=elo, default_value=elo),
-            Parameter(name='E hi (keV)', default_value=ehi, value=ehi)
-        ]
-        fitting_params += [Parameter(
-            name=param_name, default_value=param_dict['value'], **param_dict)
-                           for param_name, param_dict in six.iteritems(defaults)
-
-        ]
-        print('fitting_params: {}'.format(fitting_params))
+        self.parameters = {
+            'energy_bound_low': Parameter(name='E low (keV)', value=elo,
+                                          default_value=elo),
+            'energy_bound_high': Parameter(name='E high (keV)',
+                                           default_value=ehi, value=ehi)
+        }
+        self.parameters.update({
+            param_name: Parameter(name=param_name,
+                                  default_value=param_dict['value'],
+                                  **param_dict)
+            for param_name, param_dict in six.iteritems(defaults)
+        } )
+        pprint(self.parameters)
         # sort by the parameter name
-        fitting_params.sort(key=lambda s: s.name.lower())
-        self.fitting_params = fitting_params
+        # parameters.sort(key=lambda s: s.name.lower())
         self.param_status = ('Parameter file {} is loaded'.format(
             self.parameter_file_path.split('/')[-1]))
 
@@ -154,13 +165,13 @@ class GuessParamModel(Atom):
         self.data = np.asarray(data)
 
     def save_param(self, param):
-        self.fitting_params = param
+        self.parameters = param
 
     def find_peak(self):
         """run automatic peak finding."""
-        #for k,v in six.iteritems(self.fitting_params):
+        #for k,v in six.iteritems(self.parameters):
         #    print('{}:{}'.format(k,v))
-        self.prefit_x, self.result_dict, bg = pre_fit_linear(self.fitting_params,
+        self.prefit_x, self.result_dict, bg = pre_fit_linear(self.parameters,
                                                              self.data)
 
         self.result_dict.update(background=bg)

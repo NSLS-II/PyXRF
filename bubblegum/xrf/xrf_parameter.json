@@ -42,7 +42,7 @@
    "bound_type": "lohi",
    "min": -0.01,
    "max": 0.015,
-    "free_more": "lohi",
+   "free_more": "lohi",
    "adjust_element": "fixed",
    "e_calibration":"lohi",
    "linear":"fixed",

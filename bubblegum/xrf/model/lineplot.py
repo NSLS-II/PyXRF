@@ -41,6 +41,10 @@ from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 import matplotlib.pyplot as plt
 
+from pprint import pprint
+
+from .guessparam import Parameter
+
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict
 
 from skxray.fitting.xrf_model import (k_line, l_line, m_line)
@@ -63,8 +67,9 @@ class LinePlotModel(Atom):
         Canvas object from matplotlib
     element_id : int
         Index of element
-    param_data : dict
-        Parameter data for fitting
+    parameters : `atom.List`
+        A list of `Parameter` objects, subclassed from the `Atom` base class.
+        These `Parameter` objects hold all relevant xrf information
     elist : list
         Emission energy and intensity for given element
     plot_opt : int
@@ -83,7 +88,7 @@ class LinePlotModel(Atom):
     _ax = Typed(Axes)
     _canvas = Typed(object)
     element_id = Int(0)
-    param_data = Dict()
+    parameters = Dict()
     elist = List()
     plot_opt = Int(0)
     total_y = Dict()
@@ -116,9 +121,11 @@ class LinePlotModel(Atom):
 
         self._ax.hold(False)
         data_arr = np.asarray(self.data)
-        x_v = self.param_data['e_offset']['value'] + \
-              np.arange(len(data_arr)) * self.param_data['e_linear']['value'] + \
-              np.arange(len(data_arr))**2 * self.param_data['e_quadratic']['value']
+        x_v = (self.parameters['e_offset'].value +
+               np.arange(len(data_arr)) *
+               self.parameters['e_linear'].value +
+               np.arange(len(data_arr))**2 *
+               self.parameters['e_quadratic'].value)
 
         if plot_type[self.plot_opt] == 'Linear':
             self._ax.plot(x_v, data_arr, 'b-', label='experiment')
@@ -210,7 +217,7 @@ class LinePlotModel(Atom):
         total_list = k_line + l_line + m_line
         print('element name: {}'.format(self.element_id))
         ename = total_list[self.element_id-1]
-        incident_energy = self.param_data['coherent_sct_energy']['value']
+        incident_energy = self.parameters['coherent_sct_energy']['value']
 
         if len(ename) <= 2:
             e = Element(ename)
