@@ -73,7 +73,7 @@ enamldef PlotMain(DockItem):
             clicked ::
                 plot_model.plot_title = io_model.data_file
                 plot_model.data = io_model.data
-                plot_model.param_data = param_model.param_d
+                plot_model.parameters = param_model.parameters
                 plot_model.plot_data()
         CheckBox: checkb:
             text = 'Toolbar Visible'

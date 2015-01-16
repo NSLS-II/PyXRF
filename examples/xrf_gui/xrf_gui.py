@@ -49,13 +49,14 @@ def get_defaults():
     working_directory = os.path.join(os.path.expanduser('~'), 'Downloads')
     data_file = 'NSLS_X27.txt'
     data_path = os.path.join(working_directory, data_file)
-    parameter_file = os.path.join(os.path.expanduser('~'), 'Downloads',
+    parameter_file_path = os.path.join(os.path.expanduser('~'), 'Downloads',
                                   'xrf_parameter.json')
 
     defaults = {'working_directory': working_directory,
                 'data_file': data_file,
                 'data_path': data_path,
-                'parameter_file': parameter_file}
+                'parameter_file_path': parameter_file_path,
+    }
 
     return defaults
 

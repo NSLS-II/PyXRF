@@ -43,13 +43,32 @@ import copy
 import logging
 logger = logging.getLogger(__name__)
 
-from atom.api import Atom, Str, observe, Typed, Int, Dict, List
+from atom.api import Atom, Str, observe, Typed, Int, Dict, List, Float, Enum
 
-from skxray.fitting.xrf_model import (ModelSpectrum, set_range, k_line, l_line, m_line,
-                                      get_linear_model, PreFitAnalysis)
+from skxray.fitting.xrf_model import (ModelSpectrum, set_range, k_line, l_line,
+                                      m_line, get_linear_model, PreFitAnalysis)
 from skxray.fitting.background import snip_method
 
 
+class Parameter(Atom):
+    # todo make sure that these are the only valid bound types
+    bound_type = Enum('none', 'lohi', 'fixed')
+    min = Float(-np.inf)
+    max = Float(np.inf)
+    value = Float()
+    default_value = Float()
+    free_more = Enum('none', 'fixed', 'lohi')
+    adjust_element = Enum('none', 'fixed', 'lohi')
+    e_calibration = Enum('none', 'fixed', 'lohi')
+    linear = Enum('none', 'fixed')
+    name = Str()
+    description = Str()
+    tool_tip = Str()
+
+    @observe('name')
+    def update_displayed_name(self, changed):
+        if not self.description:
+            self.description = self.name
 
 
 class GuessParamModel(Atom):
@@ -58,9 +77,9 @@ class GuessParamModel(Atom):
 
     Attributes
     ----------
-    param_d : dict
+    fitting_params : dict
         The fitting parameters
-    param_d_perm : dict
+    default_params : dict
         Save all the fitting parameters. Values will not be changed in this dict.
     data : array
         1D array of spectrum
@@ -74,37 +93,54 @@ class GuessParamModel(Atom):
         Results from k lines
     total_y_l : dict
         Results from l lines
-    parameter_file : str
+    parameter_file_path : str
         Path to parameter file
     param_status : str
         Loading status of parameter file
     """
-    param_d = Dict()
-    param_d_perm = Dict()
+    fitting_params = List(item=Parameter)
     data = Typed(object)
     prefit_x = Typed(object)
     result_dict = Typed(object)
     status_dict = Dict(value=bool, key=str)
     total_y = Typed(object)
     total_y_l = Typed(object)
-    parameter_file = Str()
-    param_status = Str('Use default parameter file.')
+    parameter_file_path = Str()
+    param_status = Str()
+    element_list = List()
+    elo = Float()
+    ehi = Float()
 
-    def __init__(self, parameter_file, *args, **kwargs):
-        self.parameter_file = parameter_file
+    def __init__(self, parameter_file_path, *args, **kwargs):
+        self.parameter_file_path = parameter_file_path
         self.total_y_l = {}
 
     def get_param(self):
-        try:
-            with open(self.parameter_file, 'r') as json_data:
-                self.param_d_perm = json.load(json_data)
-            self.param_status = 'Parameter file {} is loaded.'.format(
-                self.parameter_file.split('/')[-1])
-            self.param_d = copy.deepcopy(self.param_d_perm)
-        except ValueError:
-            self.param_status = 'Parameter file can\'t be loaded.'
+        with open(self.parameter_file_path, 'r') as json_data:
+            defaults = json.load(json_data)
+        non_fitting_values = defaults.pop('non_fitting_values')
+        element_list = non_fitting_values.pop('element_list')
+        element_list = element_list.split(',')
+        self.element_list = element_list
+        elo = non_fitting_values.pop('energy_bound_low')
+        ehi = non_fitting_values.pop('energy_bound_high')
+        fitting_params = [
+            Parameter(name='E lo (keV)', value=elo, default_value=elo),
+            Parameter(name='E hi (keV)', default_value=ehi, value=ehi)
+        ]
+        fitting_params += [Parameter(
+            name=param_name, default_value=param_dict['value'], **param_dict)
+                           for param_name, param_dict in six.iteritems(defaults)
 
-    @observe('parameter_file')
+        ]
+        print('fitting_params: {}'.format(fitting_params))
+        # sort by the parameter name
+        fitting_params.sort(key=lambda s: s.name.lower())
+        self.fitting_params = fitting_params
+        self.param_status = ('Parameter file {} is loaded'.format(
+            self.parameter_file_path.split('/')[-1]))
+
+    @observe('parameter_file_path')
     def set_param(self, changed):
         self.get_param()
 
@@ -118,13 +154,13 @@ class GuessParamModel(Atom):
         self.data = np.asarray(data)
 
     def save_param(self, param):
-        self.param_d = param
+        self.fitting_params = param
 
     def find_peak(self):
         """run automatic peak finding."""
-        #for k,v in six.iteritems(self.param_d):
+        #for k,v in six.iteritems(self.fitting_params):
         #    print('{}:{}'.format(k,v))
-        self.prefit_x, self.result_dict, bg = pre_fit_linear(self.param_d,
+        self.prefit_x, self.result_dict, bg = pre_fit_linear(self.fitting_params,
                                                              self.data)
 
         self.result_dict.update(background=bg)
