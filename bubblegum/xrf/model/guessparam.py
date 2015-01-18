@@ -237,10 +237,11 @@ def pre_fit_linear(parameter_input, y0):
     parameter_dict['non_fitting_values']['element_list'] = new_element
 
     non_element = ['compton', 'elastic']
-    total_list = element_list + non_element
-    total_list = [str(v) for v in total_list]
 
-    matv = get_linear_model(x, parameter_dict)
+    e_select, matv = get_linear_model(x, parameter_dict)
+
+    total_list = e_select + non_element
+    total_list = [str(v) for v in total_list]
 
     x = parameter_dict['e_offset']['value'] + parameter_dict['e_linear']['value']*x + \
         parameter_dict['e_quadratic']['value'] * x**2
