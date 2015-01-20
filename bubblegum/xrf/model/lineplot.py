@@ -122,7 +122,7 @@ class LinePlotModel(Atom):
     def __init__(self):
         self._fig = plt.figure()
         self._ax = self._fig.add_subplot(111)
-
+        #self._ax.set_axis_bgcolor('black')
         self._ax.legend(loc=0)
         self._ax.set_xlabel('Energy [keV]')
         self._ax.set_ylabel('Counts')
@@ -186,7 +186,7 @@ class LinePlotModel(Atom):
               np.arange(len(data_arr)) * self.param_data['e_linear']['value'] + \
               np.arange(len(data_arr))**2 * self.param_data['e_quadratic']['value']
 
-        self.plot_exp_obj, = self._ax.plot(x_v, data_arr, 'b-', label='experiment')
+        self.plot_exp_obj, = self._ax.plot(x_v, data_arr, 'b.', label='experiment')
 
     def plot_emission_line(self):
         while(len(self.eline_obj)):
@@ -299,25 +299,19 @@ class LinePlotModel(Atom):
         #     self.plot_fit_obj.remove()
         # except AttributeError:
         #     pass
-        ln, = self._ax.plot(self.fit_x, self.fit_y, 'k+', label='fitted')
+        ln, = self._ax.plot(self.fit_x, self.fit_y, 'k', label='fitted')
         self.plot_fit_obj.append(ln)
 
-        ik = 0
-        il = 0
-        im = 0
         for k, v in six.iteritems(self.fit_all):
-            if '_k' in str(k):
-                #print(k)
-                #print(len(self.fit_x), len(v))
-                ln, = self._ax.plot(self.fit_x, v, 'r')
+            if '_L' in str(k).upper():
+                ln, = self._ax.plot(self.fit_x, v, 'purple')
                 self.plot_fit_obj.append(ln)
-            elif '_l' in str(k):
-                ln, = self._ax.plot(self.fit_x, v, 'g')
-                self.plot_fit_obj.append(ln)
-            else:
+            elif '_M' in str(k).upper():
                 ln, = self._ax.plot(self.fit_x, v, 'm')
                 self.plot_fit_obj.append(ln)
-
+            else:
+                ln, = self._ax.plot(self.fit_x, v, 'g')
+                self.plot_fit_obj.append(ln)
 
     @observe('show_fit_opt')
     def _update_fit(self, change):

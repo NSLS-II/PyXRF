@@ -193,7 +193,7 @@ class GuessParamModel(Atom):
         PC = ParamController(self.param_d)
         PC.create_full_param()
         self.param_new = PC.new_parameter
-        factor_to_area = np.sqrt(2*np.pi)*peak_std
+        factor_to_area = np.sqrt(2*np.pi)*peak_std*0.5
 
         if len(self.result_dict):
             for e in self.e_list.split(', '):

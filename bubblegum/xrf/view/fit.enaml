@@ -41,7 +41,7 @@ from enaml.widgets.api import (Container, PushButton, Label,
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer
 
 
-enamldef FitView(DockItem):
+enamldef FitView(DockItem): fit_view:
     attr fileio_m
     attr param_m
     attr plot_m
@@ -49,7 +49,8 @@ enamldef FitView(DockItem):
     Container:
         constraints = [
             vbox(
-                hbox(pb1, pb2, spacer),
+                hbox(pb_param, spacer),
+                hbox(param_status, spacer),
                 lbl0,
                 hbox(lbl1, cb1, spacer),
                 hbox(lbl2, cb2, spacer),
@@ -57,33 +58,51 @@ enamldef FitView(DockItem):
                 hbox(pb_fit, pb_plot, spacer),
             ),
         ]
-        PushButton: pb1:
-            text = 'Import Parameter Data'
+        #PushButton: pb1:
+        #    text = 'Import Parameter Data'
+        #    clicked ::
+        #        fit_m.data = fileio_m.data
+        #        fit_m.param_dict = param_m.param_d
+        PushButton: pb_param:
+            text = 'Import Parameter File'
             clicked ::
-                fit_m.data = fileio_m.data
-                fit_m.param_dict = param_m.param_d
-        PushButton: pb2:
-            text = 'Import From New File'
-            clicked ::
-                pass
+                param_path = FileDialogEx.get_open_file_name(fit_view)
+                if param_path:
+                    fit_m.file_path = param_path
+                    param_status.text = fit_m.file_status
+        Label: param_status:
+            text = 'No file is loaded.'
         Label: lbl0:
             text = 'Fitting Strategy'
         Label: lbl1:
             text = 'Step 1'
         ComboBox: cb1:
-            items = ['', 'free global', 'free pos/width/branch']
+            items = ['', 'fit_with_tail', 'free_more', 'e_calibration', 'linear']
+            index = 0
+            index >> fit_m.fit_strategy1
+            #index ::
+            #    print('use strategy 1: {}'.format(fit_m.fit_strategy1))
         Label: lbl2:
             text = 'Step 2'
         ComboBox: cb2:
-            items = ['', 'free global', 'free pos/width/branch']
+            items = ['', 'fit_with_tail', 'free_more', 'e_calibration', 'linear']
+            index = 0
+            index >> fit_m.fit_strategy2
+            #index ::
+            #    print('use strategy 2: {}'.format(fit_m.fit_strategy2))
         Label: lbl3:
             text = 'Step 3'
         ComboBox: cb3:
-            items = ['', 'free global', 'free pos/width/branch']
+            items = ['', 'fit_with_tail', 'free_more', 'e_calibration', 'linear']
+            index = 0
+            index >> fit_m.fit_strategy3
+            #index ::
+            #    print('use strategy 3: {}'.format(fit_m.fit_strategy3))
         PushButton: pb_fit:
             text = 'Fit'
             clicked ::
-                fit_m.fit_data()
+                #fit_m.fit_data()
+                fit_m.fit_multiple()
                 pb_plot.enabled = True
                 plot_m.fit_x = fit_m.fit_x
                 plot_m.fit_y = fit_m.fit_y

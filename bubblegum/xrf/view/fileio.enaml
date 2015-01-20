@@ -47,6 +47,7 @@ enamldef FileView(DockItem): file_view:
     attr param_model
     attr lineplot_model
     attr img_model
+    attr fit_model
 
     Container:
         Form:
@@ -62,6 +63,7 @@ enamldef FileView(DockItem): file_view:
                     hbox(files_load),
                     hbox(pb_load, fd_load),
                     hbox(param_lbl),
+                    hbox(btn_out, fd_out),
                 ),
                 btn_folder.width == btn_files.width,
                 btn_folder.width == pb_load.width,
@@ -73,6 +75,7 @@ enamldef FileView(DockItem): file_view:
                     path = FileDialogEx.get_existing_directory(file_view)
                     if path:
                         io_model.folder_name = path
+                        fd_out.text = path
             Field: btn_fd:
                 text := io_model.folder_name
             #PushButton: btn_file:
@@ -113,8 +116,10 @@ enamldef FileView(DockItem): file_view:
                 index = 0
                 index >> io_model.file_opt
                 index ::
-                    lineplot_model.plot_title = io_model.file_name
+                    lineplot_model.plot_title = io_model.file_name.split('.')[0]
                     lineplot_model.data = io_model.data
+                    fit_model.data = io_model.data
+                    fit_model.data_title = io_model.file_name.split('.')[0]
 
             Label: files_load:
                 text = 'No data is loaded.'
@@ -136,3 +141,12 @@ enamldef FileView(DockItem): file_view:
             Label: param_lbl:
                 text = 'Parameter file abc.json is loaded.' #'Use default parametere files.'
                 #maximum_size = 100
+
+            PushButton: btn_out:
+                text = 'Save Results to'
+                clicked ::
+                    path = FileDialogEx.get_existing_directory(file_view)
+                    if path:
+                        fit_model.result_folder = path
+            Field: fd_out:
+                text << fit_model.result_folder

@@ -68,6 +68,7 @@ enamldef XRFGui(MainWindow): main_window:
                 param_model = p_guess_M
                 lineplot_model = plot_M
                 img_model = img_M
+                fit_model = fit_M
                 name = 'file_view'
             GuessParamView:
                 closable = False
