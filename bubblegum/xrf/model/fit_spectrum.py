@@ -129,6 +129,7 @@ class Fit1D(Atom):
 
         comps = result.eval_components(x=x0)
         self.combine_results(comps)
+        self.comps.update({'background': bg})
 
         xnew = result.values['e_offset'] + result.values['e_linear'] * x0 +\
                result.values['e_quadratic'] * x0**2
@@ -136,7 +137,6 @@ class Fit1D(Atom):
         self.fit_y = result.best_fit + bg
         self.fit_result = result
 
-        #print(result1.fit_report())
 
     def fit_multiple(self):
         if self.fit_strategy1 != 0 and \
@@ -178,6 +178,7 @@ class Fit1D(Atom):
         comps : dict
             output results from lmfit
         """
+        print('comps: {}'.format(comps.keys()))
         for e in self.param_dict['non_fitting_values']['element_list'].split(', '):
             if '_' in e:
                 e_temp = e.split('_')[0]
@@ -190,10 +191,13 @@ class Fit1D(Atom):
                     intensity += v
             self.comps[e] = intensity
         self.comps.update(comps)
+        # name with _, from xrf_model.py
+        self.comps['elastic'] = self.comps['elastic_']
+        del self.comps['elastic_']
 
     def save_result(self):
         filepath = os.path.join(self.result_folder,
                                 self.data_title+'_out.txt')
         with open(filepath, 'w') as myfile:
             myfile.write(fit_report(self.fit_result, sort_pars=True))
-            print('Results are save to {}'.format(filepath))
+            print('Results are saved to {}'.format(filepath))

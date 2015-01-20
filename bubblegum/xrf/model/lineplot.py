@@ -303,11 +303,18 @@ class LinePlotModel(Atom):
         self.plot_fit_obj.append(ln)
 
         for k, v in six.iteritems(self.fit_all):
-            if '_L' in str(k).upper():
+            k = str(k)
+            if '_L' in k.upper():
                 ln, = self._ax.plot(self.fit_x, v, 'purple')
                 self.plot_fit_obj.append(ln)
-            elif '_M' in str(k).upper():
+            elif '_M' in k.upper():
                 ln, = self._ax.plot(self.fit_x, v, 'm')
+                self.plot_fit_obj.append(ln)
+            elif k == 'background':
+                ln, = self._ax.plot(self.fit_x, v, 'grey')
+                self.plot_fit_obj.append(ln)
+            elif k in ['compton', 'elastic']:
+                ln, = self._ax.plot(self.fit_x, v, 'orange')
                 self.plot_fit_obj.append(ln)
             else:
                 ln, = self._ax.plot(self.fit_x, v, 'g')

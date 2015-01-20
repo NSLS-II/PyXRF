@@ -43,6 +43,8 @@ from enaml.layout.api import (hbox, vbox, HSplitLayout, VSplitLayout,
                               spacer, grid)
 from enaml.core.api import Include, Looper
 from enaml.stdlib.fields import FloatField as DefaultFloatField
+from enaml.layout.geometry import Box
+
 import numpy as np
 import six
 
@@ -71,6 +73,7 @@ enamldef GuessParamView(DockItem): param_view:
             ScrollArea:
                 #constraints = [height <= 200]
                 Container:
+                    #padding = Box(0, 0, 0, 0)
                     constraints = [
                         grid(
                             [lbl1, fd1, pb1],

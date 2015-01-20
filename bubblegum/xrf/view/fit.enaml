@@ -37,8 +37,11 @@ import numpy as np
 
 from enaml.widgets.api import (Container, PushButton, Label,
                                Form, Field, FileDialogEx, DockItem,
-                               DockArea, CheckBox, ComboBox, ScrollArea)
+                               DockArea, CheckBox, ComboBox,
+                               ScrollArea, Window)
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer
+from auto_enaml.api import AutoView
+from enaml.stdlib.fields import FloatField
 
 
 enamldef FitView(DockItem): fit_view:
@@ -56,6 +59,7 @@ enamldef FitView(DockItem): fit_view:
                 hbox(lbl2, cb2, spacer),
                 hbox(lbl3, cb3, spacer),
                 hbox(pb_fit, pb_plot, spacer),
+                hbox(btn_edit, spacer),
             ),
         ]
         #PushButton: pb1:
@@ -115,5 +119,73 @@ enamldef FitView(DockItem): fit_view:
             clicked ::
                 if checked:
                     plot_m.show_fit_opt = True
+                    pb_plot.text = 'Remove Plot'
                 else:
                     plot_m.show_fit_opt = False
+                    pb_plot.text = 'Overlap to Spectrum'
+
+        PushButton: btn_edit:
+            text = 'Edit Defaults'
+            clicked ::
+                ParameterEdit.parameter_model = my_dict
+                ParameterEdit().show()
+
+my_dict ={
+ "e_quadratic": {
+        "adjust_element": "fixed",
+        "bound_type": "lohi",
+        "e_calibration": "fixed",
+        "fit_with_tail": "lohi",
+        "free_more": "lohi",
+        "linear": "fixed",
+        "max": 1e-06,
+        "min": -1e-06,
+        "value": 0.0
+    },
+    "fwhm_fanoprime": {
+        "adjust_element": "fixed",
+        "bound_type": "fixed",
+        "e_calibration": "fixed",
+        "fit_with_tail": "lohi",
+        "free_more": "lohi",
+        "linear": "fixed",
+        "max": 0.0001,
+        "min": 1e-07,
+        "value": 1e-06
+    },
+    "fwhm_offset": {
+        "adjust_element": "fixed",
+        "bound_type": "lohi",
+        "e_calibration": "fixed",
+        "fit_with_tail": "lohi",
+        "free_more": "lohi",
+        "linear": "fixed",
+        "max": 0.19,
+        "min": 0.16,
+        "value": 0.178
+    }
+}
+
+
+enamldef ParameterEdit(Window):
+    attr parameter_model
+    destroy_on_close = False
+    Container:
+        ComboBox: cmb:
+            items << sorted(parameter_model.keys())
+            selected_item ::
+                print(str(parameter_model[selected_item]))
+                #fd1.value = parameter_model[selected_item]['value']
+        FloatField: fd1:
+            value = parameter_model[selected_item]['value']
+        #AutoView: av:
+        #    model = parameter_model.values()[0]
+        #    initialized ::
+        #        pass
+        #        #for o in objects:
+        #        #    o.label.tool_tip = str(o)
+        PushButton: save:
+            text = "Save changes to disk"
+            clicked ::
+                pass
+                #save_defaults(parameter_model)
