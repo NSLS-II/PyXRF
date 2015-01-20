@@ -45,7 +45,8 @@ logger = logging.getLogger(__name__)
 
 from atom.api import Atom, Str, observe, Typed, Int, Dict, List, Bool
 
-from skxray.fitting.xrf_model import (ModelSpectrum, set_range, k_line, l_line, m_line,
+from skxray.fitting.xrf_model import (ModelSpectrum, ParamController,
+                                      set_range, k_line, l_line, m_line,
                                       get_linear_model, PreFitAnalysis)
 from skxray.fitting.background import snip_method
 from skxray.constants.api import XrfElement as Element
@@ -84,9 +85,10 @@ class GuessParamModel(Atom):
     """
     param_d = Dict()
     param_d_perm = Dict()
+    param_new = Dict()
     data = Typed(object)
     prefit_x = Typed(object)
-    result_dict = Typed(object)
+    result_dict = Typed(OrderedDict)
     total_y = Dict()
     total_y_l = Dict()
     total_y_m = Dict()
@@ -125,12 +127,16 @@ class GuessParamModel(Atom):
         self.param_d = param
 
     def find_peak(self):
-        """Call automatic peak finding."""
+        """
+        Call automatic peak finding.
+        """
         self.prefit_x, out_dict = pre_fit_linear(self.param_d, self.data)
         self.result_assumbler(out_dict)
 
     def result_assumbler(self, dictv, threshv=1.0):
-        """Summarize results into a dict"""
+        """
+        Summarize results into a dict.
+        """
         max_dict = reduce(max, map(np.max, six.itervalues(dictv)))
         self.result_dict = OrderedDict()
         for k, v in six.iteritems(dictv):
@@ -158,14 +164,45 @@ class GuessParamModel(Atom):
         print('result dict change: {}'.format(change['type']))
 
     def get_activated_element(self):
+        """
+        Select elements from pre fit.
+        """
         e = [k for (k, v) in six.iteritems(self.result_dict) if v['status'] and len(k)<=4]
         self.e_list = ', '.join(e)
 
     def save_elist(self):
+        """
+        Save selected list to param dict.
+        """
         elist_k = [v[:-2] for v in self.e_list.split(', ') if '_K' in v]
-        elist_l = [v for v in self.e_list.split(', ') if '_K' not in v]
-        elist = elist_k + elist_l
+        elist_l_m = [v for v in self.e_list.split(', ') if '_K' not in v]
+        elist = elist_k + elist_l_m
         self.param_d['non_fitting_values']['element_list'] = ', '.join(elist)
+
+    def create_full_param(self, peak_std=0.07):
+        """
+        Extend the param to full param dict with detailed elements
+        information, and assign initial values from pre fit.
+
+        Parameters
+        ----------
+        peak_std : float
+            approximated std for element peak.
+        """
+
+        PC = ParamController(self.param_d)
+        PC.create_full_param()
+        self.param_new = PC.new_parameter
+        factor_to_area = np.sqrt(2*np.pi)*peak_std
+
+        if len(self.result_dict):
+            for e in self.e_list.split(', '):
+                zname = e.split('_')[0]
+                for k, v in six.iteritems(self.param_new):
+                    if zname in k and 'area' in k:
+                        v['value'] = self.result_dict[e]['maxv']*factor_to_area
+            self.param_new['compton_amplitude']['value'] = self.result_dict['compton']['maxv']*factor_to_area
+            self.param_new['coherent_sct_amplitude']['value'] = self.result_dict['elastic']['maxv']*factor_to_area
 
     def data_for_plot(self):
         """
@@ -194,9 +231,13 @@ class GuessParamModel(Atom):
                     del self.total_y[k]
 
     def save_as(self):
+        """
+        Save full param dict into a file.
+        """
         self.save_elist()
+        self.create_full_param()
         with open(self.save_file, 'w') as outfile:
-            json.dump(self.param_d, outfile,
+            json.dump(self.param_new, outfile,
                       sort_keys=True, indent=4)
 
 

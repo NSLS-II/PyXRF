@@ -12,7 +12,7 @@ from skxray.constants.api import XrfElement as Element
 #from skxray.fitting.models import (ElasticModel, ComptonModel, GaussModel)
 from skxray.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
                                       get_sum_area, set_parameter_bound,
-                                      ElementController, set_range, get_linear_model,
+                                      ParamController, set_range, get_linear_model,
                                       PreFitAnalysis, k_line, l_line)
 from skxray.fitting.background import snip_method
 
@@ -43,7 +43,7 @@ class Fit1D(Atom):
 
         MS1 = ModelSpectrum(self.param_dict)
         MS1.model_spectrum()
-        p1 = MS1.mod.make_params()
+        #p1 = MS1.mod.make_params()
 
         #y_init = MS1.mod.eval(x=x0, params=p1)
 
