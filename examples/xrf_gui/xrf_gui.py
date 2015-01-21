@@ -41,7 +41,8 @@ from bubblegum.xrf.model.fileio import FileIOModel
 from bubblegum.xrf.model.lineplot import LinePlotModel
 from bubblegum.xrf.model.guessparam import GuessParamModel
 from bubblegum.xrf.model.draw_image import DrawImage
-from bubblegum.xrf.model.fit_spectrum import Fit1D
+from bubblegum.xrf.model.fit_spectrum import Fit1D, Param
+
 
 def run():
     app = QtApplication()
@@ -54,6 +55,7 @@ def run():
     xrfview.plot_M = LinePlotModel()
     xrfview.img_M = DrawImage()
     xrfview.fit_M = Fit1D()
+    xrfview.Param = Param()
 
     xrfview.show()
     app.start()

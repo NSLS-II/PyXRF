@@ -53,6 +53,7 @@ enamldef XRFGui(MainWindow): main_window:
     attr plot_M
     attr img_M
     attr fit_M
+    attr Param
 
     Container:
         DockArea:
@@ -99,3 +100,4 @@ enamldef XRFGui(MainWindow): main_window:
                 param_m = main_window.p_guess_M
                 plot_m = main_window.plot_M
                 fit_m = main_window.fit_M
+                param_m = main_window.Param

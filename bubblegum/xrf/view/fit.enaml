@@ -49,6 +49,7 @@ enamldef FitView(DockItem): fit_view:
     attr param_m
     attr plot_m
     attr fit_m
+    attr param_m
     Container:
         constraints = [
             vbox(
@@ -127,7 +128,8 @@ enamldef FitView(DockItem): fit_view:
         PushButton: btn_edit:
             text = 'Edit Defaults'
             clicked ::
-                ParameterEdit.parameter_model = my_dict
+                ParameterEdit.parameter_model = fit_m.param_dict
+                ParameterEdit.param = param_m
                 ParameterEdit().show()
 
 my_dict ={
@@ -169,15 +171,61 @@ my_dict ={
 
 enamldef ParameterEdit(Window):
     attr parameter_model
+    attr param
     destroy_on_close = False
     Container:
         ComboBox: cmb:
             items << sorted(parameter_model.keys())
             selected_item ::
-                print(str(parameter_model[selected_item]))
-                #fd1.value = parameter_model[selected_item]['value']
-        FloatField: fd1:
-            value = parameter_model[selected_item]['value']
+                print(str(parameter_model[selected_item]['value']))
+                param.name = selected_item
+                param.value = parameter_model[selected_item]['value']
+                param.min = parameter_model[selected_item]['min']
+                param.max = parameter_model[selected_item]['max']
+                param.fit_with_tail = parameter_model[selected_item]['fit_with_tail']
+                param.free_more = parameter_model[selected_item]['free_more']
+                param.adjust_element = parameter_model[selected_item]['adjust_element']
+                param.e_calibration = parameter_model[selected_item]['e_calibration']
+                param.linear = parameter_model[selected_item]['linear']
+
+        Form:
+            #Label: lb1:
+            #    text = 'name'
+            #Field: fd1:
+            #    text = param.name
+            Label: lb2:
+                text = 'value'
+            FloatField: fd2:
+                value := param.value
+            Label: lb3:
+                text = 'min'
+            FloatField: fd3:
+                value := param.min
+            Label: lb4:
+                text = 'max'
+            FloatField: fd4:
+                value := param.max
+            Label: lb5:
+                text = 'fit_with_tail'
+            Field: fd5:
+                text := param.fit_with_tail
+            Label: lb6:
+                text = 'free_more'
+            Field: fd6:
+                text := param.free_more
+            Label: lb7:
+                text = 'e_calibration'
+            Field: fd7:
+                text := param.e_calibration
+            Label: lb8:
+                text = 'linear'
+            Field: fd8:
+                text := param.linear
+            Label: lb9:
+                text = 'adjust_element'
+            Field: fd9:
+                text := param.adjust_element
+
         #AutoView: av:
         #    model = parameter_model.values()[0]
         #    initialized ::

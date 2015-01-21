@@ -41,7 +41,7 @@ import json
 import six
 import os
 
-from atom.api import Atom, Str, observe, Typed, Int, List, Dict
+from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float
 
 from skxray.fitting.xrf_model import (k_line, l_line, m_line)
 from skxray.constants.api import XrfElement as Element
@@ -201,3 +201,22 @@ class Fit1D(Atom):
         with open(filepath, 'w') as myfile:
             myfile.write(fit_report(self.fit_result, sort_pars=True))
             print('Results are saved to {}'.format(filepath))
+
+
+class Param(Atom):
+    name = Str()
+    value = Float(0.0)
+    min = Float(0.0)
+    max = Float(0.0)
+    bound_type = Str()
+    free_more = Str()
+    fit_with_tail = Str()
+    adjust_element = Str()
+    e_calibration = Str()
+    linear = Str()
+
+
+    def __init__(self):
+        self.value = 0.0
+        self.min = 0.0
+        self.max = 10.0

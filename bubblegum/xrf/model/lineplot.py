@@ -119,6 +119,8 @@ class LinePlotModel(Atom):
     show_fit_opt = Bool()
     fit_all = Typed(object)
 
+    plot_style = Dict()
+
     def __init__(self):
         self._fig = plt.figure()
         self._ax = self._fig.add_subplot(111)
@@ -132,8 +134,23 @@ class LinePlotModel(Atom):
         self._ax.autoscale_view(tight=True)
 
         self.max_v = 1.0
+        self._color_config()
         #self.fit_y = np.array([])
         #self.data = np.array([])
+
+    def _color_config(self):
+        self.plot_style = {
+            'experiment': {'color': 'blue', 'linestyle': '', 'marker': '.', 'label': 'experiment'},
+            'background': {'color': 'grey', 'label': 'background'},
+            'emission_line': {'color': 'red', 'linewidth': 2},
+            'k_line': {'color': 'green'},
+            'l_line': {'color': 'purple'},
+            'm_line': {'color': 'cyan'},
+            'compton': {'color': 'orange', 'label': 'compton'},
+            'elastic': {'color': '#b66718', 'label': 'elastic'},
+            'auto_fit': {'color': 'black', 'label': 'auto fitted'},
+            'fit': {'color': 'black', 'label': 'fitted'}
+        }
 
     @observe('plot_title')
     def update_title(self, change):
@@ -142,11 +159,9 @@ class LinePlotModel(Atom):
     @observe('scale_opt')
     def _new_opt(self, change):
         if self.plot_type[change['value']] == 'LinLog':
-            print('start log plot')
             self._ax.set_yscale('log')
             self._ax.set_ylim([self.max_v*1e-6, self.max_v*10.0])
         else:
-            print('start linear plot')
             self._ax.set_yscale('linear')
             self._ax.set_ylim([self.max_v*1e-6, self.max_v*1.5])
         self._ax.legend()
@@ -163,8 +178,12 @@ class LinePlotModel(Atom):
     def _new_exp_plot_opt(self, change):
         if change['value']:
             self.plot_exp_obj.set_visible(True)
+            lab = self.plot_exp_obj.get_label()
+            self.plot_exp_obj.set_label(lab.strip('_'))
         else:
             self.plot_exp_obj.set_visible(False)
+            lab = self.plot_exp_obj.get_label()
+            self.plot_exp_obj.set_label('_' + lab)
 
         self._ax.legend()
         try:
@@ -174,7 +193,9 @@ class LinePlotModel(Atom):
             pass
 
     def plot_experiment(self):
-        """PLot raw experiment data."""
+        """
+        PLot raw experiment data.
+        """
         try:
             self.plot_exp_obj.remove()
             print('Previous experimental data is removed.')
@@ -186,7 +207,11 @@ class LinePlotModel(Atom):
               np.arange(len(data_arr)) * self.param_data['e_linear']['value'] + \
               np.arange(len(data_arr))**2 * self.param_data['e_quadratic']['value']
 
-        self.plot_exp_obj, = self._ax.plot(x_v, data_arr, 'b.', label='experiment')
+        self.plot_exp_obj, = self._ax.plot(x_v, data_arr,
+                                           linestyle=self.plot_style['experiment']['linestyle'],
+                                           color=self.plot_style['experiment']['color'],
+                                           marker=self.plot_style['experiment']['marker'],
+                                           label=self.plot_style['experiment']['label'])
 
     def plot_emission_line(self):
         while(len(self.eline_obj)):
@@ -197,7 +222,8 @@ class LinePlotModel(Atom):
             for i in range(len(self.elist)):
                 eline, = self._ax.plot([self.elist[i][0], self.elist[i][0]],
                                        [0, self.elist[i][1]*self.max_v],
-                                       'r-', linewidth=2.0)
+                                       color=self.plot_style['emission_line']['color'],
+                                       linewidth=self.plot_style['emission_line']['linewidth'])
                 self.eline_obj.append(eline)
 
     @observe('element_id')
@@ -253,12 +279,24 @@ class LinePlotModel(Atom):
             self._ax.hold(True)
             for i, (k, v) in enumerate(six.iteritems(self.total_y)):
                 if k == 'background':
-                    ln, = self._ax.plot(self.prefit_x, v, 'grey')
+                    ln, = self._ax.plot(self.prefit_x, v,
+                                        color=self.plot_style['background']['color'],
+                                        label=self.plot_style['background']['label'])
+                elif k == 'compton':
+                    ln, = self._ax.plot(self.prefit_x, v,
+                                        color=self.plot_style['compton']['color'],
+                                        label=self.plot_style['compton']['label'])
+                elif k == 'elastic':
+                    ln, = self._ax.plot(self.prefit_x, v,
+                                        color=self.plot_style['elastic']['color'],
+                                        label=self.plot_style['elastic']['label'])
                 else:
-                    if i == 0:
-                        ln, = self._ax.plot(self.prefit_x, v, 'g-', label='prefit k line')
-                    else:
-                        ln, = self._ax.plot(self.prefit_x, v, 'g-')
+                    #if i == 0:
+                    #    ln, = self._ax.plot(self.prefit_x, v, color='green', label='prefit k line')
+                    #else:
+                    ln, = self._ax.plot(self.prefit_x, v,
+                                        color=self.plot_style['k_line']['color'],
+                                        label='_nolegend_')
                 self.auto_fit_obj.append(ln)
                 sum += v
 
@@ -266,14 +304,18 @@ class LinePlotModel(Atom):
         if len(self.total_y_l):
             self._ax.hold(True)
             for i, (k, v) in enumerate(six.iteritems(self.total_y_l)):
-                if i == 0:
-                    ln, = self._ax.plot(self.prefit_x, v, 'purple', label='prefit l line')
-                else:
-                    ln, = self._ax.plot(self.prefit_x, v, 'purple')
+                #if i == 0:
+                #    ln, = self._ax.plot(self.prefit_x, v, color='purple', label='prefit l line')
+                #else:
+                ln, = self._ax.plot(self.prefit_x, v,
+                                    color=self.plot_style['l_line']['color'],
+                                    label='_nolegend_')
                 self.auto_fit_obj.append(ln)
                 sum += v
 
-            ln, = self._ax.plot(self.prefit_x, sum, 'orange', markersize=2, label='prefit sum')
+            ln, = self._ax.plot(self.prefit_x, sum,
+                                color=self.plot_style['auto_fit']['color'],
+                                label=self.plot_style['auto_fit']['label'])
             self.auto_fit_obj.append(ln)
         #self._ax.legend()
         #self._fig.canvas.draw()
@@ -284,10 +326,16 @@ class LinePlotModel(Atom):
             if len(self.auto_fit_obj):
                 for v in self.auto_fit_obj:
                     v.set_visible(True)
+                    lab = v.get_label()
+                    if lab != '_nolegend_':
+                        v.set_label(lab.strip('_'))
         else:
             if len(self.auto_fit_obj):
                 for v in self.auto_fit_obj:
                     v.set_visible(False)
+                    lab = v.get_label()
+                    if lab != '_nolegend_':
+                        v.set_label('_' + lab)
         self._ax.legend()
         self._fig.canvas.draw()
 
@@ -295,40 +343,60 @@ class LinePlotModel(Atom):
         #if len(self.fit_y):
         while(len(self.plot_fit_obj)):
             self.plot_fit_obj.pop().remove()
-        # try:
-        #     self.plot_fit_obj.remove()
-        # except AttributeError:
-        #     pass
-        ln, = self._ax.plot(self.fit_x, self.fit_y, 'k', label='fitted')
+        ln, = self._ax.plot(self.fit_x, self.fit_y,
+                            color=self.plot_style['fit']['color'],
+                            label=self.plot_style['fit']['label'])
         self.plot_fit_obj.append(ln)
 
         for k, v in six.iteritems(self.fit_all):
             k = str(k)
             if '_L' in k.upper():
-                ln, = self._ax.plot(self.fit_x, v, 'purple')
+                ln, = self._ax.plot(self.fit_x, v,
+                                    color=self.plot_style['l_line']['color'],
+                                    label='_nolegend_')
                 self.plot_fit_obj.append(ln)
             elif '_M' in k.upper():
-                ln, = self._ax.plot(self.fit_x, v, 'm')
+                ln, = self._ax.plot(self.fit_x, v,
+                                    color=self.plot_style['m_line']['color'],
+                                    label='_nolegend_')
                 self.plot_fit_obj.append(ln)
             elif k == 'background':
-                ln, = self._ax.plot(self.fit_x, v, 'grey')
+                ln, = self._ax.plot(self.fit_x, v,
+                                    color=self.plot_style['background']['color'],
+                                    label=self.plot_style['background']['label'])
                 self.plot_fit_obj.append(ln)
-            elif k in ['compton', 'elastic']:
-                ln, = self._ax.plot(self.fit_x, v, 'orange')
+            elif k == 'compton':
+                ln, = self._ax.plot(self.fit_x, v,
+                                    color=self.plot_style['compton']['color'],
+                                    label=self.plot_style['compton']['label'])
+                self.plot_fit_obj.append(ln)
+            elif k == 'elastic':
+                ln, = self._ax.plot(self.fit_x, v,
+                                    color=self.plot_style['elastic']['color'],
+                                    label=self.plot_style['elastic']['label'])
                 self.plot_fit_obj.append(ln)
             else:
-                ln, = self._ax.plot(self.fit_x, v, 'g')
+                ln, = self._ax.plot(self.fit_x, v,
+                                    color=self.plot_style['k_line']['color'],
+                                    label='_nolegend_')
                 self.plot_fit_obj.append(ln)
 
     @observe('show_fit_opt')
     def _update_fit(self, change):
         if change['value']:
-            [v.set_visible(True) for v in self.plot_fit_obj]
+            for v in self.plot_fit_obj:
+                v.set_visible(True)
+                lab = v.get_label()
+                if lab != '_nolegend_':
+                    v.set_label(lab.strip('_'))
         else:
-            [v.set_visible(False) for v in self.plot_fit_obj]
+            for v in self.plot_fit_obj:
+                v.set_visible(False)
+                lab = v.get_label()
+                if lab != '_nolegend_':
+                    v.set_label('_' + lab)
         self._ax.legend()
         self._fig.canvas.draw()
-
 
     def set_prefit_data(self, prefit_x,
                         total_y, total_y_l):
