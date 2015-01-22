@@ -42,8 +42,19 @@ from enaml.widgets.api import (Container, PushButton, Label,
 from enaml.layout.api import (hbox, vbox, HSplitLayout, VSplitLayout,
                               spacer, grid)
 from enaml.core.api import Include, Looper
+#<<<<<<< HEAD
 from enaml.stdlib.fields import FloatField as DefaultFloatField
 from enaml.layout.geometry import Box
+#=======
+#from enaml.stdlib.fields import FloatField
+#from enaml.layout.geometry import Box
+import json
+from auto_enaml.api import AutoView
+
+import os
+
+from ..model.guessparam import format_dict
+#>>>>>>> eric_autofit
 
 import numpy as np
 import six
@@ -54,9 +65,9 @@ enamldef FloatField(DefaultFloatField):
 
 
 enamldef GuessParamView(DockItem): param_view:
-    attr param_m
-    attr fileio_m
-    attr plot_m
+    attr param_model
+    attr io_model
+    attr plot_model
 
     Container:
         constraints = [
@@ -71,222 +82,57 @@ enamldef GuessParamView(DockItem): param_view:
         ]
         Container: top_cntr:
             ScrollArea:
-                #constraints = [height <= 200]
-                Container:
-                    #padding = Box(0, 0, 0, 0)
-                    constraints = [
-                        grid(
-                            [lbl1, fd1, pb1],
-                            [lbl2, fd2, pb2],
-                            [lbl3, fd3, pb3],
-                            [lbl4, fd4, pb4],
-                            [lbl5, fd5, pb5],
-                            [lbl6, fd6, pb6],
-                            [lbl7, fd7, pb7],
-                            [lbl8, fd8, pb8],
-                            [lbl9, fd9, pb9],
-                        ),
-                    ]
-
-                    Label: lbl1:
-                        text = 'E incident [keV]'
-                    FloatField: fd1:
-                        enabled = False
-                        value := param_m.param_d['coherent_sct_energy']['value']
-                        minimum = 0.
-                        maximum_size = 100
-                    PushButton: pb1:
-                        text = 'user value'
-                        checkable = True
-                        checked = fd1.enabled
+                Form:
+                    Looper: looper:
+                        iterable << sorted(param_model.parameters.keys())
+                        Label:
+                            text = param_model.parameters[loop_item].description
+                            tool_tip = param_model.parameters[loop_item].tool_tip
+                        Container:
+                            padding = Box(0, 0, 0, 0)
+                            constraints = [hbox(ff, pb)]
+                            FloatField: ff:
+                                minimum := param_model.parameters[loop_item].min
+                                maximum := param_model.parameters[loop_item].max
+                                value := param_model.parameters[loop_item].value
+                            PushButton: pb:
+                                text = 'Default'
+                                clicked ::
+                                    ff.value = param_model.parameters[loop_item].default_value
+                    row_spacing = -1
+                    PushButton:
+                        text = 'Edit Defaults'
                         clicked ::
-                            if checked:
-                                fd1.enabled = True
-                                pb1.text = 'default value'
-                            else:
-                                fd1.value = param_m.param_d_perm['coherent_sct_energy']['value']
-                                fd1.enabled = False
-                                pb1.text = 'user value'
-
-                    Label: lbl2:
-                        text = 'E low limit [keV]'
-                    FloatField: fd2:
-                        enabled = False
-                        value := param_m.param_d['non_fitting_values']['energy_bound_low']
-                        maximum_size = 100
-                    PushButton: pb2:
-                        text = 'user value'
-                        checkable = True
-                        checked = fd2.enabled
-                        clicked ::
-                            if checked:
-                                fd2.enabled = True
-                                pb2.text = 'default value'
-                            else:
-                                fd2.value = param_m.param_d_perm['non_fitting_values']['energy_bound_low']
-                                fd2.enabled = False
-                                pb2.text = 'user value'
-
-                    Label: lbl3:
-                        text = 'E high limit [keV]'
-                    FloatField: fd3:
-                        enabled = False
-                        value := param_m.param_d['non_fitting_values']['energy_bound_high']
-                        maximum_size = 100
-                    PushButton: pb3:
-                        text = 'user value'
-                        checkable = True
-                        checked = fd3.enabled
-                        clicked ::
-                            if checked:
-                                fd3.enabled = True
-                                pb3.text = 'default value'
-                            else:
-                                fd3.value = param_m.param_d_perm['non_fitting_values']['energy_bound_high']
-                                fd3.enabled = False
-                                pb3.text = 'user value'
-
-                    Label: lbl4:
-                        text = 'E Calib. Coef, a0'
-                        tool_tip = 'E(channel) = a0 + a1*channel+ a2*channel**2'
-                    FloatField: fd4:
-                        enabled = False
-                        value := param_m.param_d['e_offset']['value']
-                        maximum_size = 100
-                    PushButton: pb4:
-                        text = 'user value'
-                        checkable = True
-                        checked = fd4.enabled
-                        clicked ::
-                            if checked:
-                                fd4.enabled = True
-                                pb4.text = 'default value'
-                            else:
-                                fd4.value = param_m.param_d_perm['e_offset']['value']
-                                fd4.enabled = False
-                                pb4.text = 'user value'
-
-                    Label: lbl5:
-                        text = 'E Calib. Coef, a1'
-                        tool_tip = 'E(channel) = a0 + a1*channel+ a2*channel**2'
-                    FloatField: fd5:
-                        enabled = False
-                        value := param_m.param_d['e_linear']['value']
-                        maximum_size = 100
-                    PushButton: pb5:
-                        text = 'user value'
-                        checkable = True
-                        clicked ::
-                            if checked:
-                                fd5.enabled = True
-                                pb5.text = 'default value'
-                            else:
-                                fd5.value = param_m.param_d_perm['e_linear']['value']
-                                fd5.enabled = False
-                                pb5.text = 'user value'
-
-                    Label: lbl6:
-                        text = 'E Calib. Coef, a2'
-                        tool_tip = 'E(channel) = a0 + a1*channel+ a2*channel**2'
-                    FloatField: fd6:
-                        enabled = False
-                        value := param_m.param_d['e_quadratic']['value']
-                        maximum_size = 100
-                    PushButton: pb6:
-                        text = 'user value'
-                        checkable = True
-                        clicked ::
-                            if checked:
-                                fd6.enabled = True
-                                pb6.text = 'default value'
-                            else:
-                                fd6.value = param_m.param_d_perm['e_quadratic']['value']
-                                fd6.enabled = False
-                                pb6.text = 'user value'
-
-                    Label: lbl7:
-                        text = 'fwhm Coef, b1 [keV]'
-                        tool_tip = 'width**2 = (b1/2.3548)**2 + 3.85*b2*E, 3.85keV is electron-hole pair creation energy in silicon'
-                    FloatField: fd7:
-                        enabled = False
-                        value := param_m.param_d['fwhm_offset']['value']
-                        maximum_size = 100
-                    PushButton: pb7:
-                        text = 'user value'
-                        checkable = True
-                        clicked ::
-                            if checked:
-                                fd7.enabled = True
-                                pb7.text = 'default value'
-                            else:
-                                fd7.value = param_m.param_d_perm['fwhm_offset']['value']
-                                fd7.enabled = False
-                                pb7.text = 'user value'
-
-                    Label: lbl8:
-                        text = 'fwhm Coef, b2'
-                        tool_tip = 'width**2 = (b1/2.3548)**2 + 3.85*b2*E, 3.85keV is electron-hole pair creation energy in silicon'
-                    FloatField: fd8:
-                        enabled = False
-                        value := param_m.param_d['fwhm_fanoprime']['value']
-                        maximum_size = 100
-                    PushButton: pb8:
-                        text = 'user value'
-                        checkable = True
-                        clicked ::
-                            if checked:
-                                fd8.enabled = True
-                                pb8.text = 'default value'
-                            else:
-                                fd8.value = param_m.param_d_perm['fwhm_fanoprime']['value']
-                                fd8.enabled = False
-                                pb8.text = 'user value'
-
-                    Label: lbl9:
-                        text = 'Compton fwhm Coef'
-                    FloatField: fd9:
-                        enabled = False
-                        value := param_m.param_d['compton_fwhm_corr']['value']
-                        maximum_size = 100
-                    PushButton: pb9:
-                        text = 'user value'
-                        checkable = True
-                        clicked ::
-                            if checked:
-                                fd9.enabled = True
-                                pb9.text = 'default value'
-                            else:
-                                fd9.value = param_m.param_d_perm['compton_fwhm_corr']['value']
-                                fd9.enabled = False
-                                pb9.text = 'user value'
+                            ParameterEdit.parameter_model = param_model
+                            ParameterEdit().show()
 
         Label: e_label:
             text = 'Enter elements below, e.g., K, Cu, Fe'
         Field: e_f:
-            text := param_m.e_list
+            text := param_model.e_list
 
         PushButton: pb10:
             text = 'Save'
             clicked ::
                 pass
-                #param_m.save_param(param_m.param_d)
+                #param_model.save_param(param_model.parameters)
         PushButton: pb11:
             text = 'Save As'
             clicked ::
                 path = FileDialogEx.get_save_file_name(param_view,
-                        current_path=fileio_m.folder_name)
+                        current_path=io_model.working_directory)
                 if path:
-                    param_m.save_file = path
-                    param_m.save_as()
+                    param_model.save_file = path
+                    param_model.save_as()
         PushButton: pb12:
             text = 'Find Peaks'
             #status_tip = 'Not Running.'
             clicked ::
-                param_m.set_data(fileio_m.data)
-                param_m.find_peak()
-                param_m.data_for_plot()
+                param_model.set_data(io_model.data)
+                param_model.find_peak()
+                param_model.data_for_plot()
                 status_tip = 'Running'
-                if (len(param_m.total_y) == 0):
+                if (len(param_model.total_y) == 0):
                     #lb15.text = 'No auto fit result is available.'
                     pb13.enabled = False
                     pb14.enabled = False
@@ -294,7 +140,7 @@ enamldef GuessParamView(DockItem): param_view:
                     #lb15.text = 'Auto fit is finished.'
                     pb13.enabled = True
                     pb14.enabled = True
-                    plot_m.set_prefit_data(param_m.prefit_x, param_m.total_y, param_m.total_y_l)
+                    plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
 
         PushButton: pb13:
             text = 'Overlap to Spectrum'
@@ -305,22 +151,51 @@ enamldef GuessParamView(DockItem): param_view:
                     #plot_m.plot_autofit()
                     #plot_m.emission_line()
                     pb13.text = 'Remove Plot'
-                    plot_m.show_autofit_opt = True
+                    plot_model.show_autofit_opt = True
                 else:
                     pb13.text = 'Overlap to Spectrum'
-                    plot_m.show_autofit_opt = False
+                    plot_model.show_autofit_opt = False
+
 
         PushButton: pb14:
             text = 'Show Results'
             enabled = False
             clicked ::
-                PreFitResult.param_m = param_m
-                PreFitResult.plot_m = plot_m
+                PreFitResult.param_m = param_model
+                PreFitResult.plot_m = plot_model
                 PreFitResult().show()
         #Label: lb15:
         #    text = 'No auto fit result is available.'
             #max_length = 10
             #maximum_size = 100
+
+def save_defaults(parameter_model):
+    user_path = os.path.join(os.path.expanduser('~'), '.bubblegum',
+                             'xrf_parameter_user.json')
+    # format the dictionary
+    dct = format_dict(parameter_model.parameters, parameter_model.element_list)
+    json_out = json.dumps(dct)
+    with open(user_path, 'w') as out_file:
+        out_file.write(json_out)
+
+
+enamldef ParameterEdit(Window):
+    attr parameter_model
+    destroy_on_close = False
+    Container:
+        ComboBox: cmb:
+            items << sorted(parameter_model.parameters.keys())
+            selected_item ::
+                av.model = parameter_model.parameters[selected_item]
+        AutoView: av:
+            model = parameter_model.parameters.values()[0]
+            initialized ::
+                for o in objects:
+                    o.label.tool_tip = str(o)
+        PushButton: save:
+            text = "Save changes to disk"
+            clicked ::
+                save_defaults(parameter_model)
 
 
 enamldef PreFitResult(Window):
@@ -399,3 +274,4 @@ def set_low_bound(value, thresh_v=1.0):
         return '< {}'.format(thresh_v)
     else:
         return value
+

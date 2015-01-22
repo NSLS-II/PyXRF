@@ -68,3 +68,16 @@ setup(
               'bubblegum.xrf', 'bubblegum.xrf.model',
               'bubblegum.xrf.view'],
 )
+
+import shutil
+import os
+
+try:
+    os.mkdir(os.path.join(os.path.expanduser('~'), '.bubblegum'))
+except OSError:
+    # folder already exists
+    pass
+
+shutil.copy2(os.path.join('configs', 'xrf_parameter.json'),
+             os.path.join(os.path.expanduser('~'), '.bubblegum',
+                          'xrf_parameter_default.json'))

@@ -47,7 +47,7 @@ from .fit import FitView
 
 enamldef XRFGui(MainWindow): main_window:
     #always_on_top = True
-    title = 'X-ray Fluorescence Fitting GUI'
+    title = 'PyXRF: X-ray Fluorescence Analysis Tool'
     attr file_M
     attr p_guess_M
     attr plot_M
@@ -74,10 +74,10 @@ enamldef XRFGui(MainWindow): main_window:
             GuessParamView:
                 closable = False
                 title = 'Initial Parameter Guess '
-                param_m = p_guess_M
-                fileio_m = file_M
-                plot_m = plot_M
                 name = 'param_guess_view'
+                param_model = p_guess_M
+                io_model = file_M
+                plot_model = plot_M
             PlotMain:
                 closable = False
                 title = 'Plot Spectrum'

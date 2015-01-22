@@ -45,15 +45,18 @@ logger = logging.getLogger(__name__)
 
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int
 
-# The following lines need to be updated.
-# A better design to hook up with meta data store needs to be done.
-
-# put to config file
-folder = '/Users/Li/Research/X-ray/Research_work/all_code/nsls2_gui/nsls2_gui'
-file = '2xfm_0304.h5'  # 'NSLS_X27.txt'
-data_path = os.path.join(folder, file)
-the_data = 0 #np.loadtxt(data_path)
-
+# <<<<<<< HEAD
+# # The following lines need to be updated.
+# # A better design to hook up with meta data store needs to be done.
+#
+# # put to config file
+#folder = '/Users/Li/Research/X-ray/Research_work/all_code/nsls2_gui/nsls2_gui'
+#file = '2xfm_0304.h5'  # 'NSLS_X27.txt'
+#data_path = os.path.join(folder, file)
+# the_data = 0 #np.loadtxt(data_path)
+#
+# =======
+# >>>>>>> eric_autofit
 
 class FileIOModel(Atom):
     """
@@ -61,8 +64,8 @@ class FileIOModel(Atom):
 
     Attributes
     ----------
-    folder_name : str
-    file_name : str
+    working_directory : str
+    data_file : str
     data : array
         Experiment data.
     file_path : str
@@ -75,32 +78,45 @@ class FileIOModel(Atom):
     data_dict : dict
         dict of multiple data objects
     """
-    folder_name = Str(folder)
-    file_name = Str(file)
+# <<<<<<< HEAD
+#     folder_name = Str(folder)
+#     data_file = Str(file)
     file_names = List()
+#     data = Typed(np.ndarray)
+    file_path = Str()
+#     path_list = List()
+# =======
+    working_directory = Str()
+    data_file = Str()
     data = Typed(np.ndarray)
-    file_path = Str(data_path)
-    path_list = List()
+#>>>>>>> eric_autofit
     load_status = Str()
     file_opt = Int()
     data_obj = Typed(object)
     data_dict = Dict()
     img_dict = Dict()
 
-    def __init__(self):
-        pass
-    #@observe('folder_name', 'file_name')
-    #def update(self, changed):
-    #    if changed['type'] == 'create':
-    #        return
-    #    self.file_path = os.path.join(self.folder_name, self.file_name)
+    def __init__(self,
+                 working_directory=None,
+                 data_file=None, *args, **kwargs):
+        if working_directory is None:
+            working_directory = os.path.expanduser('~')
 
-    #@observe('file_path')
-    #def path_changed(self, changed):
-    #    self.load_data()
+        with self.suppress_notifications():
+            self.working_directory = working_directory
+            self.data_file = data_file
+        # load the data file
+        self.load_data()
+
+    @observe('working_directory', 'data_file')
+    def path_changed(self, changed):
+        if changed['type'] == 'create':
+            return
+        self.load_data()
+#>>>>>>> eric_autofit
 
     @observe('data')
-    def data_changed(self, data):
+    def data_changed(self, changed):
         print('The data was changed. First five lines of new data:\n{}'
               ''.format(self.data[:5]))
 
@@ -108,18 +124,19 @@ class FileIOModel(Atom):
         """
         This function needs to be updated to handle other data formats.
         """
-        if '.txt' in self.file_name:
+#<<<<<<< HEAD
+        if '.txt' in self.data_file:
             #try:
             self.data = np.loadtxt(self.file_path)
-            #self.load_status = 'File {} is loaded successfully.'.format(self.file_name)
+            #self.load_status = 'File {} is loaded successfully.'.format(self.data_file)
             #except IOError:
-            #    self.load_status = 'File {} doesn\'t exist.'.format(self.file_name)
+            #    self.load_status = 'File {} doesn\'t exist.'.format(self.data_file)
             #except ValueError:
-            #    self.load_status = 'File {} can\'t be loaded. '.format(self.file_name)
+            #    self.load_status = 'File {} can\'t be loaded. '.format(self.data_file)
 
         # consider hdf file now, but this will be replaced by databroker
         # eventually an data object, or dict is returned
-        if '.h5' in self.file_name:
+        if '.h5' in self.data_file:
             #try:
             print('file name is: {}'.format(self.file_path))
             ###########this two lines can be replace later######
@@ -131,11 +148,11 @@ class FileIOModel(Atom):
             #                                        axis=(1, 2))})
             ###########################################
 
-            #self.load_status = 'File {} is loaded successfully.'.format(self.file_name)
+            #self.load_status = 'File {} is loaded successfully.'.format(self.data_file)
             #except IOError:
-            #    self.load_status = 'File {} doesn\'t exist.'.format(self.file_name)
+            #    self.load_status = 'File {} doesn\'t exist.'.format(self.data_file)
             #except ValueError:
-            #    self.load_status = 'File {} can\'t be loaded. '.format(self.file_name)
+            #    self.load_status = 'File {} can\'t be loaded. '.format(self.data_file)
         #try:
         #self.data = np.loadtxt(self.file_path)
 
@@ -143,7 +160,7 @@ class FileIOModel(Atom):
     def update_more_data(self, change):
         for fname in self.file_names:
             try:
-                self.file_path = os.path.join(self.folder_name, fname)
+                self.file_path = os.path.join(self.working_directory, fname)
                 f = h5py.File(self.file_path, 'r')
                 data = f['MAPS']
                 self.data_dict.update({fname: data})
@@ -158,8 +175,8 @@ class FileIOModel(Atom):
         print('option is {}'.format(self.file_opt))
         if self.file_opt == 0:
             return
-        self.file_name = self.file_names[self.file_opt-1]
-        self.data_obj = self.data_dict[str(self.file_name)]
+        self.data_file = self.file_names[self.file_opt-1]
+        self.data_obj = self.data_dict[str(self.data_file)]
         # calculate the summed intensity, this should be included in data already
         self.data = np.sum(self.data_obj['mca_arr'], axis=(1, 2))
 
@@ -171,3 +188,13 @@ class FileIOModel(Atom):
             roi_dict = {d[0]: d[1] for d in zip(v['channel_names'], v['XRF_roi'])}
             self.img_dict.update({str(k): {'roi_sum': roi_dict}})
         print('keys: {}'.format(self.img_dict.keys()))
+# =======
+#         file_path = os.path.join(self.working_directory, self.data_file)
+#         try:
+#             self.data = np.loadtxt(file_path)
+#             self.load_status = 'File {} is loaded successfully.'.format(self.data_file)
+#         except IOError:
+#             self.load_status = 'File {} doesn\'t exist.'.format(self.data_file)
+#         except ValueError:
+#             self.load_status = 'File {} can\'t be loaded. '.format(self.data_file)
+# >>>>>>> eric_autofit
