@@ -69,6 +69,8 @@ from skxray.constants.api import XrfElement as Element
 
 
 bound_options = ['none', 'lohi', 'fixed', 'lo', 'hi']
+
+
 class Parameter(Atom):
     # todo make sure that these are the only valid bound types
     bound_type = Enum(*bound_options)
@@ -92,9 +94,9 @@ class Parameter(Atom):
 
     def __repr__(self):
         return ("Parameter(bound_type={}, min={}, max={}, value={}, "
-               "default_value={}, free_more={}, adjust_element={}, "
-               "e_calibration={}, linear={}, name={}, description={}, "
-               "toop_tip={}".format(
+                "default_value={}, free_more={}, adjust_element={}, "
+                "e_calibration={}, linear={}, name={}, description={}, "
+                "toop_tip={}".format(
             self.bound_type, self.min, self.max, self.value, self.default_value,
             self.free_more, self.adjust_element, self.e_calibration,
             self.linear, self.name, self.description, self.tool_tip))
@@ -118,17 +120,24 @@ class Parameter(Atom):
 
 
 def format_dict(parameter_object_dict, element_list):
-    """Format the dictionary that scikit-xray expects
+    """
+    Format the dictionary that scikit-xray expects
+
+    Parameters
+    ----------
+    parameter_object_dict : dict
+    element_list : list
+        Need to be transfered to str first, then save it to dict
     """
     param_dict = {key: value.to_dict() for key, value
                   in six.iteritems(parameter_object_dict)}
     elo = param_dict.pop('energy_bound_low')['value']
     ehi = param_dict.pop('energy_bound_high')['value']
-    # reformat the dictionary that scikit-xray expects
+
     non_fitting_values = {'non_fitting_values': {
         'energy_bound_low': elo,
         'energy_bound_high': ehi,
-        'element_list': element_list
+        'element_list': ', '.join(element_list)
     }}
     param_dict.update(non_fitting_values)
 
@@ -171,7 +180,7 @@ class GuessParamModel(Atom):
 # <<<<<<< HEAD
     param_d = Dict()
 #     param_d_perm = Dict()
-#     param_new = Dict()
+    param_new = Dict()
 #     data = Typed(object)
 #     prefit_x = Typed(object)
     result_dict = Typed(OrderedDict)
@@ -190,7 +199,7 @@ class GuessParamModel(Atom):
     parameters = Dict()
     data = Typed(object)
     prefit_x = Typed(object)
-#    result_dict = Typed(object)
+    result_dict = Typed(OrderedDict)
     status_dict = Dict(value=bool, key=str)
 #    total_y = Typed(object)
 #    total_y_l = Typed(object)
@@ -200,21 +209,22 @@ class GuessParamModel(Atom):
     def __init__(self, default_parameters, *args, **kwargs):
         self.get_param(default_parameters)
         self.total_y_l = {}
+        self.result_dict = OrderedDict()
 #>>>>>>> eric_autofit
 
     def get_param(self, default_parameters):
         non_fitting_values = default_parameters.pop('non_fitting_values')
         element_list = non_fitting_values.pop('element_list')
         if not isinstance(element_list, list):
-            element_list = element_list.split(',')
+            element_list = element_list.split(', ')
         self.element_list = element_list
         elo = non_fitting_values.pop('energy_bound_low')
         ehi = non_fitting_values.pop('energy_bound_high')
         self.parameters = {
             'energy_bound_low': Parameter(name='E low (keV)', value=elo,
                                           default_value=elo),
-            'energy_bound_high': Parameter(name='E high (keV)',
-                                           default_value=ehi, value=ehi)
+            'energy_bound_high': Parameter(name='E high (keV)', value=ehi,
+                                           default_value=ehi)
         }
         self.parameters.update({
             param_name: Parameter(name=param_name,
@@ -241,29 +251,19 @@ class GuessParamModel(Atom):
         self.parameters = param
 
     def find_peak(self):
-# <<<<<<< HEAD
-#         """
-#         Call automatic peak finding.
-#         """
-#         self.prefit_x, out_dict = pre_fit_linear(self.param_d, self.data)
-#         self.result_assumbler(out_dict)
-#=======
-        """run automatic peak finding."""
-        #for k,v in six.iteritems(self.parameters):
-        #    print('{}:{}'.format(k,v))
+        """
+        Run automatic peak finding.
+        """
         param_dict = format_dict(self.parameters, self.element_list)
         self.prefit_x, out_dict = pre_fit_linear(self.data, param_dict)
         self.result_assumbler(out_dict)
-        #self.prefit_x, self.result_dict, bg = pre_fit_linear(self.data,
-        #                                                     param_dict)
-#>>>>>>> eric_autofit
 
     def result_assumbler(self, dictv, threshv=1.0):
         """
         Summarize results into a dict.
         """
         max_dict = reduce(max, map(np.max, six.itervalues(dictv)))
-        self.result_dict = OrderedDict()
+        self.result_dict.clear()
         for k, v in six.iteritems(dictv):
             self.result_dict.update({k: {'z': get_Z(k),
                                          'spectrum': v,
@@ -307,9 +307,11 @@ class GuessParamModel(Atom):
         elist_k = [v[:-2] for v in self.e_list.split(', ') if '_K' in v]
         elist_l_m = [v for v in self.e_list.split(', ') if '_K' not in v]
         elist = elist_k + elist_l_m
-        self.param_d['non_fitting_values']['element_list'] = ', '.join(elist)
+        # create dictionary to save element
+        self.param_d = format_dict(self.parameters, elist)
 
-    def create_full_param(self, peak_std=0.07):
+    def create_full_param(self,
+                          peak_std=0.07, peak_height=500.0):
         """
         Extend the param to full param dict with detailed elements
         information, and assign initial values from pre fit.
@@ -318,6 +320,8 @@ class GuessParamModel(Atom):
         ----------
         peak_std : float
             approximated std for element peak.
+        peak_height : float
+            initial value for element peak height
         """
 
         PC = ParamController(self.param_d)
@@ -330,7 +334,10 @@ class GuessParamModel(Atom):
                 zname = e.split('_')[0]
                 for k, v in six.iteritems(self.param_new):
                     if zname in k and 'area' in k:
-                        v['value'] = self.result_dict[e]['maxv']*factor_to_area
+                        if self.result_dict.has_key(e):
+                            v['value'] = self.result_dict[e]['maxv']*factor_to_area
+                        else:
+                            v['value'] = peak_height*factor_to_area
             self.param_new['compton_amplitude']['value'] = self.result_dict['compton']['maxv']*factor_to_area
             self.param_new['coherent_sct_amplitude']['value'] = self.result_dict['elastic']['maxv']*factor_to_area
 
