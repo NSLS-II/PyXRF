@@ -122,7 +122,6 @@ enamldef GuessParamView(DockItem): param_view:
             text = 'Save'
             clicked ::
                 pass
-                #param_model.save_param(param_model.parameters)
         PushButton: pb11:
             text = 'Save As'
             clicked ::
@@ -235,17 +234,17 @@ enamldef PreFitResult(Window):
                                 font = 'monospace'
                                 #align = 'left'
                                 text = '{:>2} {:>10} {:>10} {:>10}'.format(
-                                    param_m.result_dict[loop_item]['z'],
+                                    param_m.result_dict[loop_item].z,
                                     loop_item[0:5],
-                                    np.around(param_m.result_dict[loop_item]['maxv']),
-                                    set_low_bound(np.around(param_m.result_dict[loop_item]['norm'], 2))
+                                    np.around(param_m.result_dict[loop_item].maxv),
+                                    set_low_bound(np.around(param_m.result_dict[loop_item].norm, 2))
                                     )
                             CheckBox: cb:
                                 checkable = True
-                                checked := param_m.result_dict[loop_item]['status']
+                                checked := param_m.result_dict[loop_item].status
                                 clicked ::
-                                    param_m.result_dict[loop_item]['status'] = checked
-                                    param_m.result_dict[loop_item]['stat_copy'] = param_m.result_dict[loop_item]['status']
+                                    param_m.result_dict[loop_item].status = checked
+                                    param_m.result_dict[loop_item].stat_copy = param_m.result_dict[loop_item].status
                                     param_m.data_for_plot()
                                     plot_m.set_prefit_data(param_m.prefit_x, param_m.total_y, param_m.total_y_l)
                                     plot_m._fig.canvas.draw()
@@ -254,11 +253,15 @@ enamldef PreFitResult(Window):
             checkable = True
             clicked ::
                 if checked:
-                    param_m.choose_lbd = True
+                    for k,v in six.iteritems(param_m.result_dict):
+                        v.status = v.lbd_stat
+                    param_m.data_for_plot()
                     plot_m.set_prefit_data(param_m.prefit_x, param_m.total_y, param_m.total_y_l)
                     plot_m._fig.canvas.draw()
                 else:
-                    param_m.choose_lbd = False
+                    for k,v in six.iteritems(param_m.result_dict):
+                        v.status = v.stat_copy
+                    param_m.data_for_plot()
                     plot_m.set_prefit_data(param_m.prefit_x, param_m.total_y, param_m.total_y_l)
                     plot_m._fig.canvas.draw()
         PushButton: pb_import:

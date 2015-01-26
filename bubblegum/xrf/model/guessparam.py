@@ -43,29 +43,15 @@ import copy
 import logging
 logger = logging.getLogger(__name__)
 
-#<<<<<<< HEAD
-#from atom.api import Atom, Str, observe, Typed, Int, Dict, List, Bool
-
 from skxray.fitting.xrf_model import (ModelSpectrum, ParamController,
                                       set_range, k_line, l_line, m_line,
                                       get_linear_model, PreFitAnalysis)
-#=======
 from pprint import pprint
 from atom.api import (Atom, Str, observe, Typed,
                       Int, Dict, List, Float, Enum, Bool)
 
-# from skxray.fitting.xrf_model import (ModelSpectrum, set_range, k_line, l_line,
-#                                       m_line, get_linear_model, PreFitAnalysis)
-# >>>>>>> eric_autofit
 from skxray.fitting.background import snip_method
 from skxray.constants.api import XrfElement as Element
-
-# <<<<<<< HEAD
-#
-# # This is not a right way to define path. To be updated
-# data_path = '/Users/Li/Research/X-ray/Research_work/all_code/nsls2_gui/nsls2_gui/abc.json'
-#
-# =======
 
 
 bound_options = ['none', 'lohi', 'fixed', 'lo', 'hi']
@@ -127,7 +113,7 @@ def format_dict(parameter_object_dict, element_list):
     ----------
     parameter_object_dict : dict
     element_list : list
-        Need to be transfered to str first, then save it to dict
+        Need to be transferred to str first, then save it to dict
     """
     param_dict = {key: value.to_dict() for key, value
                   in six.iteritems(parameter_object_dict)}
@@ -142,7 +128,16 @@ def format_dict(parameter_object_dict, element_list):
     param_dict.update(non_fitting_values)
 
     return param_dict
-#>>>>>>> eric_autofit
+
+
+class PreFitStatus(Atom):
+    z = Str()
+    spectrum = Typed(np.ndarray)
+    status = Bool(True)
+    stat_copy = Bool(True)
+    maxv = Float()
+    norm = Float()
+    lbd_stat = Bool()
 
 
 class GuessParamModel(Atom):
@@ -199,7 +194,7 @@ class GuessParamModel(Atom):
     parameters = Dict()
     data = Typed(object)
     prefit_x = Typed(object)
-    result_dict = Typed(OrderedDict)
+    #result_dict = Dict(key=str, value=Parameter)#OrderedDict()
     status_dict = Dict(value=bool, key=str)
 #    total_y = Typed(object)
 #    total_y_l = Typed(object)
@@ -260,9 +255,6 @@ class GuessParamModel(Atom):
         """
         self.data = np.asarray(data)
 
-    def save_param(self, param):
-        self.parameters = param
-
     def find_peak(self):
         """
         Run automatic peak finding.
@@ -278,13 +270,12 @@ class GuessParamModel(Atom):
         max_dict = reduce(max, map(np.max, six.itervalues(dictv)))
         self.result_dict.clear()
         for k, v in six.iteritems(dictv):
-            self.result_dict.update({k: {'z': get_Z(k),
-                                         'spectrum': v,
-                                         'status': True,
-                                         'stat_copy': True,
-                                         'maxv': np.max(v),
-                                         'norm': (np.max(v)/max_dict)*100,
-                                         'lbd_stat': 100*(np.max(v)/max_dict) < threshv}})
+            lb_check = bool(100*(np.max(v)/max_dict) > threshv)
+            ps = PreFitStatus(z=get_Z(k), spectrum=v,
+                              status=True, stat_copy=True,
+                              maxv=np.max(v), norm=(np.max(v)/max_dict)*100,
+                              lbd_stat=lb_check)
+            self.result_dict.update({k: ps})
 
     @observe('choose_lbd')
     def set_stat_for_lbd(self, change):
@@ -301,6 +292,7 @@ class GuessParamModel(Atom):
     @observe('result_dict')
     def update_dict(self, change):
         print('result dict change: {}'.format(change['type']))
+        #self.data_for_plot()
 # =======
 #         # save the plotting status for a given element peak
 #         self.status_dict = {k: True for k in six.iterkeys(self.result_dict)}
@@ -310,7 +302,7 @@ class GuessParamModel(Atom):
         """
         Select elements from pre fit.
         """
-        e = [k for (k, v) in six.iteritems(self.result_dict) if v['status'] and len(k)<=4]
+        e = [k for (k, v) in six.iteritems(self.result_dict) if v.status and len(k)<=4]
         self.e_list = ', '.join(e)
 
     def save_elist(self):
@@ -348,11 +340,11 @@ class GuessParamModel(Atom):
                 for k, v in six.iteritems(self.param_new):
                     if zname in k and 'area' in k:
                         if self.result_dict.has_key(e):
-                            v['value'] = self.result_dict[e]['maxv']*factor_to_area
+                            v['value'] = self.result_dict[e].maxv*factor_to_area
                         else:
                             v['value'] = peak_height*factor_to_area
-            self.param_new['compton_amplitude']['value'] = self.result_dict['compton']['maxv']*factor_to_area
-            self.param_new['coherent_sct_amplitude']['value'] = self.result_dict['elastic']['maxv']*factor_to_area
+            self.param_new['compton_amplitude']['value'] = self.result_dict['compton'].maxv*factor_to_area
+            self.param_new['coherent_sct_amplitude']['value'] = self.result_dict['elastic'].maxv*factor_to_area
 
     def data_for_plot(self):
         """
@@ -361,27 +353,16 @@ class GuessParamModel(Atom):
         self.total_y = {}
         self.total_y_l = {}
         self.total_y_m = {}
-        for k, v in six.iteritems(self.result_dict):
+        new_dict = {k: v for (k, v) in six.iteritems(self.result_dict) if v.status}
+        for k, v in six.iteritems(new_dict):
             if 'K' in k:
-                if v['status'] and not self.total_y.has_key(k):
-                    self.total_y[k] = self.result_dict[k]['spectrum']
-                elif not v['status'] and self.total_y.has_key(k):
-                    del self.total_y[k]
+                self.total_y[k] = self.result_dict[k].spectrum
             elif 'L' in k:
-                if v['status'] and not self.total_y_l.has_key(k):
-                    self.total_y_l[k] = self.result_dict[k]['spectrum']
-                elif not v['status'] and self.total_y_l.has_key(k):
-                    del self.total_y_l[k]
+                self.total_y_l[k] = self.result_dict[k].spectrum
             elif 'M' in k:
-                if v['status'] and not self.total_y_m.has_key(k):
-                    self.total_y_m[k] = self.result_dict[k]['spectrum']
-                elif not v['status'] and self.total_y_m.has_key(k):
-                    del self.total_y_m[k]
+                self.total_y_m[k] = self.result_dict[k].spectrum
             else:
-                if v['status'] and not self.total_y.has_key(k):
-                    self.total_y[k] = self.result_dict[k]['spectrum']
-                elif not v['status'] and self.total_y.has_key(k):
-                    del self.total_y[k]
+                self.total_y[k] = self.result_dict[k].spectrum
 
     def save_as(self):
         """
@@ -479,4 +460,4 @@ def get_Z(ename):
         return '-'
     else:
         e = Element(strip_line(ename))
-        return e.Z
+        return str(e.Z)
