@@ -42,15 +42,11 @@ from enaml.widgets.api import (Container, PushButton, Label,
 from enaml.layout.api import (hbox, vbox, HSplitLayout, VSplitLayout,
                               spacer, grid)
 from enaml.core.api import Include, Looper
-#<<<<<<< HEAD
 from enaml.stdlib.fields import FloatField as DefaultFloatField
 from enaml.layout.geometry import Box
-#=======
-#from enaml.stdlib.fields import FloatField
-#from enaml.layout.geometry import Box
-import json
 from auto_enaml.api import AutoView
 
+import json
 import os
 
 from ..model.guessparam import format_dict
@@ -92,13 +88,24 @@ enamldef GuessParamView(DockItem): param_view:
                             padding = Box(0, 0, 0, 0)
                             constraints = [hbox(ff, pb)]
                             FloatField: ff:
+                                enabled = False
                                 minimum := param_model.parameters[loop_item].min
                                 maximum := param_model.parameters[loop_item].max
                                 value := param_model.parameters[loop_item].value
+                                maximum_size = 80
                             PushButton: pb:
-                                text = 'Default'
+                                text = 'User value'
+                                checkable = True
+                                maximum_size = 100
+
                                 clicked ::
-                                    ff.value = param_model.parameters[loop_item].default_value
+                                    if checked:
+                                        ff.enabled = True
+                                        pb.text = 'Default'
+                                    else:
+                                        ff.value = param_model.parameters[loop_item].default_value
+                                        ff.enabled = False
+                                        pb.text = 'User value'
                     row_spacing = -1
                     PushButton:
                         text = 'Edit Defaults'

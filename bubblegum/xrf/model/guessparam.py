@@ -121,7 +121,7 @@ class Parameter(Atom):
 
 def format_dict(parameter_object_dict, element_list):
     """
-    Format the dictionary that scikit-xray expects
+    Format the dictionary that scikit-xray expects.
 
     Parameters
     ----------
@@ -206,18 +206,31 @@ class GuessParamModel(Atom):
     param_status = Str()
     element_list = List()
 
-    def __init__(self, default_parameters, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
+        try:
+            default_parameters = kwargs['default_parameters']
+        except ValueError:
+            print('No parameter files are choosen')
         self.get_param(default_parameters)
         self.total_y_l = {}
         self.result_dict = OrderedDict()
 #>>>>>>> eric_autofit
 
     def get_param(self, default_parameters):
+        """
+        Transfer dict into the type of parameter class.
+
+        Parameters
+        ----------
+        default_parameters : dict
+            Dictionary of parameters used for fitting.
+        """
         non_fitting_values = default_parameters.pop('non_fitting_values')
         element_list = non_fitting_values.pop('element_list')
         if not isinstance(element_list, list):
             element_list = element_list.split(', ')
         self.element_list = element_list
+
         elo = non_fitting_values.pop('energy_bound_low')
         ehi = non_fitting_values.pop('energy_bound_high')
         self.parameters = {
@@ -232,7 +245,7 @@ class GuessParamModel(Atom):
                                   **param_dict)
             for param_name, param_dict in six.iteritems(default_parameters)
         })
-        pprint(self.parameters)
+        #pprint(self.parameters)
         # sort by the parameter name
         # parameters.sort(key=lambda s: s.name.lower())
         # self.param_status = ('Parameter file {} is loaded'.format(
@@ -260,7 +273,7 @@ class GuessParamModel(Atom):
 
     def result_assumbler(self, dictv, threshv=1.0):
         """
-        Summarize results into a dict.
+        Summarize auto fitting results into a dict.
         """
         max_dict = reduce(max, map(np.max, six.itervalues(dictv)))
         self.result_dict.clear()
@@ -345,6 +358,9 @@ class GuessParamModel(Atom):
         """
         Save data in terms of K, L, M lines for plot.
         """
+        self.total_y = {}
+        self.total_y_l = {}
+        self.total_y_m = {}
         for k, v in six.iteritems(self.result_dict):
             if 'K' in k:
                 if v['status'] and not self.total_y.has_key(k):

@@ -86,8 +86,6 @@ def get_defaults():
 
     pprint(default_parameters)
 
-
-
     defaults = {'working_directory': working_directory,
                 'data_file': data_file,
                 'data_path': data_path,

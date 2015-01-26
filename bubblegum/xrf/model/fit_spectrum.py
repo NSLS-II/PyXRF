@@ -137,7 +137,6 @@ class Fit1D(Atom):
         self.fit_y = result.best_fit + bg
         self.fit_result = result
 
-
     def fit_multiple(self):
         if self.fit_strategy1 != 0 and \
             self.fit_strategy2+self.fit_strategy3 == 0:
@@ -179,6 +178,8 @@ class Fit1D(Atom):
             output results from lmfit
         """
         print('comps: {}'.format(comps.keys()))
+        self.comps.clear()
+
         for e in self.param_dict['non_fitting_values']['element_list'].split(', '):
             if '_' in e:
                 e_temp = e.split('_')[0]
