@@ -123,7 +123,7 @@ class Fit1D(Atom):
         print('Start fitting!')
         t0 = time.time()
         result = MS.model_fit(x0, y0-bg, w=1/np.sqrt(y0), maxfev=100,
-                               xtol=c_val, ftol=c_val, gtol=c_val)
+                              xtol=c_val, ftol=c_val, gtol=c_val)
         t1 = time.time()
         print('time used: {}'.format(t1-t0))
 
@@ -136,6 +136,7 @@ class Fit1D(Atom):
         self.fit_x = xnew
         self.fit_y = result.best_fit + bg
         self.fit_result = result
+        print('dir of result: {}'.format(dir(result)))
 
     def fit_multiple(self):
         if self.fit_strategy1 != 0 and \

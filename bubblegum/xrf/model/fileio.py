@@ -43,7 +43,7 @@ import os
 import logging
 logger = logging.getLogger(__name__)
 
-from atom.api import Atom, Str, observe, Typed, Dict, List, Int
+from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum
 
 
 class FileIOModel(Atom):
@@ -136,3 +136,13 @@ class FileIOModel(Atom):
             self.img_dict.update({str(k): {'roi_sum': roi_dict}})
         print('keys: {}'.format(self.img_dict.keys()))
 
+
+plot_as = ['Summed', 'Point', 'Roi']
+
+
+class DataSelection(Atom):
+
+    filename = Str()
+    plot_choice = Enum(*plot_as)
+    point = List()
+    roi = List()

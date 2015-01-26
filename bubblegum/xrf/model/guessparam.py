@@ -148,57 +148,42 @@ class GuessParamModel(Atom):
     ----------
     parameters : `atom.Dict`
         A list of `Parameter` objects, subclassed from the `Atom` base class.
-        These `Parameter` objects hold all relevant xrf information
-    default_params : dict
-        Save all the fitting parameters. Values will not be changed in this dict.
+        These `Parameter` objects hold all relevant xrf information.
     data : array
         1D array of spectrum
     prefit_x : array
         xX axis with range defined by low and high limits.
     result_dict : dict
-        Save all the auto fitting results for each element
+        Save all the auto fitting results for each element.
+        It is a dictionary of object PreFitStatus.
+    param_d : dict
+        Parameters can be transferred into this dictionary.
+    param_new : dict
+        More information are saved, such as element position and width.
     total_y : dict
         Results from k lines
     total_y_l : dict
         Results from l lines
-<<<<<<< HEAD
     total_y_m : dict
         Results from l lines
-    param_path : str
-=======
-    parameter_file_path : str
-#>>>>>>> eric_autofit
-        Path to parameter file
-    param_status : str
-        Loading status of parameter file
+    e_list : str
+        All elements used for fitting.
+    file_path : str
+        The path where file is saved.
+    element_list : list
     """
-# <<<<<<< HEAD
-    param_d = Dict()
-#     param_d_perm = Dict()
-    param_new = Dict()
-#     data = Typed(object)
-#     prefit_x = Typed(object)
-    result_dict = Typed(OrderedDict)
-    total_y = Dict()
-    total_y_l = Dict()
-    total_y_m = Dict()
-#     param_path = Str(data_path)
-#     param_status = Str('Use default parameter file.')
-    e_list = Str()
-    save_file = Str()
-    choose_lbd = Bool()
-#
-#     def __init__(self):
-#         self.get_param()
-# =======
     parameters = Dict()
     data = Typed(object)
     prefit_x = Typed(object)
+    result_dict = Typed(OrderedDict)
+    param_d = Dict()
+    param_new = Dict()
+    total_y = Dict()
+    total_y_l = Dict()
+    total_y_m = Dict()
+    e_list = Str()
+    save_file = Str()
     #result_dict = Dict(key=str, value=Parameter)#OrderedDict()
-    status_dict = Dict(value=bool, key=str)
-#    total_y = Typed(object)
-#    total_y_l = Typed(object)
-    param_status = Str()
     element_list = List()
 
     def __init__(self, *args, **kwargs):
@@ -209,7 +194,6 @@ class GuessParamModel(Atom):
         self.get_param(default_parameters)
         self.total_y_l = {}
         self.result_dict = OrderedDict()
-#>>>>>>> eric_autofit
 
     def get_param(self, default_parameters):
         """
@@ -241,10 +225,6 @@ class GuessParamModel(Atom):
             for param_name, param_dict in six.iteritems(default_parameters)
         })
         #pprint(self.parameters)
-        # sort by the parameter name
-        # parameters.sort(key=lambda s: s.name.lower())
-        # self.param_status = ('Parameter file {} is loaded'.format(
-        #     self.parameter_file_path.split('/')[-1]))
 
     def set_data(self, data):
         """
@@ -277,26 +257,10 @@ class GuessParamModel(Atom):
                               lbd_stat=lb_check)
             self.result_dict.update({k: ps})
 
-    @observe('choose_lbd')
-    def set_stat_for_lbd(self, change):
-        if change['value']:
-            for k, v in six.iteritems(self.result_dict):
-                if v['lbd_stat']:
-                    v['status'] = False
-        else:
-            for k, v in six.iteritems(self.result_dict):
-                v['status'] = v['stat_copy']
-        self.data_for_plot()
-
-#<<<<<<< HEAD
     @observe('result_dict')
     def update_dict(self, change):
         print('result dict change: {}'.format(change['type']))
         #self.data_for_plot()
-# =======
-#         # save the plotting status for a given element peak
-#         self.status_dict = {k: True for k in six.iterkeys(self.result_dict)}
-# >>>>>>> eric_autofit
 
     def get_activated_element(self):
         """
@@ -370,7 +334,7 @@ class GuessParamModel(Atom):
         """
         self.save_elist()
         self.create_full_param()
-        with open(self.save_file, 'w') as outfile:
+        with open(self.file_path, 'w') as outfile:
             json.dump(self.param_new, outfile,
                       sort_keys=True, indent=4)
 
