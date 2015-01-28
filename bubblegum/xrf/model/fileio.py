@@ -62,10 +62,6 @@ class FileIOModel(Atom):
         Experiment data.
     load_status : str
         Description of file loading status
-    file_opt : int
-        Define which file to choose
-    data_obj : dict
-        data object
     data_dict : dict
         Dict has filename as key and group data as value.
     """
@@ -75,8 +71,6 @@ class FileIOModel(Atom):
     file_path = Str()
     data = Typed(np.ndarray)
     load_status = Str()
-    file_opt = Int()
-    data_obj = Typed(object)
     data_dict = Dict()
     img_dict = Dict()
     data_sets = OrderedDict() #Typed(OrderedDict)
@@ -114,16 +108,6 @@ class FileIOModel(Atom):
                 continue
         print('ordered keys: {}'.format(self.data_sets.keys()))
         #self.get_roi_data()
-
-    @observe('file_opt')
-    def choose_file(self, changed):
-        print('option is {}'.format(self.file_opt))
-        if self.file_opt == 0:
-            return
-        self.data_file = self.file_names[self.file_opt-1]
-        #self.data_obj = self.data_dict[str(self.data_file)]
-        # calculate the summed intensity, this should be included in data already
-        #self.data = np.sum(self.data_obj['mca_arr'], axis=(1, 2))
 
     def get_roi_data(self):
         """
