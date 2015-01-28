@@ -58,7 +58,7 @@ enamldef XRFGui(MainWindow): main_window:
     Container:
         DockArea:
             layout = HSplitLayout(
-                TabLayout('file_view', 'fitting_view_n', 'param_guess_view'),
+                TabLayout('file_view', 'param_guess_view', 'fitting_view_n'),
                 #VSplitLayout('file_view', 'fitting_view_n'),
                 TabLayout('lineplot_view', 'image_view'),
                 )

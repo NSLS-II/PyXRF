@@ -40,11 +40,12 @@ import h5py
 import numpy as np
 import copy
 import os
-import logging
-logger = logging.getLogger(__name__)
+from collections import OrderedDict
 
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum
 
+import logging
+logger = logging.getLogger(__name__)
 
 class FileIOModel(Atom):
     """
@@ -78,6 +79,7 @@ class FileIOModel(Atom):
     data_obj = Typed(object)
     data_dict = Dict()
     img_dict = Dict()
+    data_select = OrderedDict() #Typed(OrderedDict)
 
     def __init__(self,
                  working_directory=None,
@@ -88,6 +90,7 @@ class FileIOModel(Atom):
         with self.suppress_notifications():
             self.working_directory = working_directory
             self.data_file = data_file
+        #self.data_select = OrderedDict()
         # load the data file
         #self.load_data()
 
@@ -105,6 +108,9 @@ class FileIOModel(Atom):
 
     @observe('file_names')
     def update_more_data(self, change):
+        self.data_select.clear()
+        self.file_names.sort()
+        print('file name: {}'.format(self.file_names))
         for fname in self.file_names:
             try:
                 self.file_path = os.path.join(self.working_directory, fname)
@@ -112,10 +118,15 @@ class FileIOModel(Atom):
                 data = f['MAPS']
                 # dict has filename as key and group data as value
                 self.data_dict.update({fname: data})
+                print('filenames are updated')
+                DS = DataSelection(filename=fname,
+                                   raw_data=np.asarray(data['mca_arr']))
+                self.data_select.update({fname: DS})
             except ValueError:
                 continue
-            #f.close()
-        self.get_roi_data()
+        print('ordered keys: {}'.format(self.data_select.keys()))
+        #self.get_roi_data()
+
 
     @observe('file_opt')
     def choose_file(self, changed):
@@ -134,7 +145,8 @@ class FileIOModel(Atom):
         for k, v in six.iteritems(self.data_dict):
             roi_dict = {d[0]: d[1] for d in zip(v['channel_names'], v['XRF_roi'])}
             self.img_dict.update({str(k): {'roi_sum': roi_dict}})
-        print('keys: {}'.format(self.img_dict.keys()))
+
+    #def set_file_for_plot(self):
 
 
 plot_as = ['Summed', 'Point', 'Roi']
@@ -144,5 +156,64 @@ class DataSelection(Atom):
 
     filename = Str()
     plot_choice = Enum(*plot_as)
-    point = List()
+    point1 = Str('0, 0')
+    point2 = Str('0, 0')
     roi = List()
+    raw_data = Typed(np.ndarray)
+    data = Typed(np.ndarray)
+    plot_index = Int(0)
+
+    @observe('plot_index', 'point1', 'point2')
+    def get_sum(self, change):
+        print(change)
+
+        if self.plot_index == 0:
+            return
+        elif self.plot_index == 1:
+            SC = SpectrumCalculator(self.raw_data)
+            self.data = SC.get_spectrum()
+            print('spec is calculated at step {} as {}'.format(change['value'],
+                                                               np.sum(self.data)))
+        elif self.plot_index == 2:
+            SC = SpectrumCalculator(self.raw_data, pos1=self.point1)
+            self.data = SC.get_spectrum()
+            print('spec is calculated at step {} as {}'.format(change['value'],
+                                                               np.sum(self.data)))
+        else:
+            SC = SpectrumCalculator(self.raw_data,
+                                    pos1=self.point1,
+                                    pos2=self.point2)
+            self.data = SC.get_spectrum()
+            print('spec is calculated at step {} as {}'.format(change['value'],
+                                                               np.sum(self.data)))
+
+
+class SpectrumCalculator(object):
+
+    def __init__(self, data,
+                 pos1=None, pos2=None):
+        self.data = data
+        if pos1:
+            self.pos1 = self._parse_pos(pos1)
+        else:
+            self.pos1 = None
+        if pos2:
+            self.pos2 = self._parse_pos(pos2)
+        else:
+            self.pos2 = None
+
+    def _parse_pos(self, pos):
+        if isinstance(pos, list):
+            return pos
+        return [float(v) for v in pos.split(', ')]
+
+    def get_spectrum(self):
+        if not self.pos1 and not self.pos2:
+            return np.sum(self.data, axis=(1, 2))
+        elif self.pos1 and not self.pos2:
+            #if self.pos1[0] >= self.data.shape[1]:
+            #    return np.sum(self.data, axis=(1, 2))
+            return self.data[:, self.pos1[0], self.pos1[1]]
+        else:
+            return np.sum(self.data[:, self.pos1[0]:self.pos2[0], self.pos1[1]:self.pos2[1]],
+                          axis=(1, 2))

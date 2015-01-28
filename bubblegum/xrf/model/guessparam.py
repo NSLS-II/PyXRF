@@ -195,6 +195,16 @@ class GuessParamModel(Atom):
         self.total_y_l = {}
         self.result_dict = OrderedDict()
 
+    def get_new_param(self, param_path):
+        """
+        Parameters
+        ----------
+        param_path : str
+        """
+        with open(param_path, 'r') as json_data:
+            new_param = json.load(json_data)
+        self.get_param(new_param)
+
     def get_param(self, default_parameters):
         """
         Transfer dict into the type of parameter class.

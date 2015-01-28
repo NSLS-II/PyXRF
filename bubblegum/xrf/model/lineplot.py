@@ -37,23 +37,23 @@ __author__ = 'Li Li'
 
 import numpy as np
 import six
+import matplotlib
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from collections import OrderedDict
 
-#<<<<<<< HEAD
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
-#=======
-from pprint import pprint
 
 from .guessparam import Parameter
 
-#from atom.api import Atom, Str, observe, Typed, Int, List, Dict
-#>>>>>>> eric_autofit
-
 from skxray.fitting.xrf_model import (k_line, l_line, m_line)
 from skxray.constants.api import XrfElement as Element
+
+
+def get_color_name():
+    return matplotlib.colors.cnames.keys()
 
 
 class LinePlotModel(Atom):
@@ -120,6 +120,10 @@ class LinePlotModel(Atom):
 
     plot_exp_opt = Bool()
     plot_exp_obj = Typed(Line2D)
+    show_exp_opt = Bool()
+
+    plot_exp_list = List()
+    data_sets = Typed(OrderedDict)
 
     auto_fit_obj = List()
     show_autofit_opt = Bool()
@@ -223,6 +227,54 @@ class LinePlotModel(Atom):
                                            color=self.plot_style['experiment']['color'],
                                            marker=self.plot_style['experiment']['marker'],
                                            label=self.plot_style['experiment']['label'])
+
+    def plot_exp_data(self):
+        while(len(self.plot_exp_list)):
+            self.plot_exp_list.pop().remove()
+
+        color_n = get_color_name()
+
+        print('plot keys: {}'.format(self.data_sets.keys()))
+        for i, (k, v) in enumerate(six.iteritems(self.data_sets)):
+            if v.plot_index:
+                data_arr = np.asarray(v.data)
+                self.max_v = np.max(data_arr)
+                x_v = (self.parameters['e_offset'].value +
+                       np.arange(len(data_arr)) *
+                       self.parameters['e_linear'].value +
+                       np.arange(len(data_arr))**2 *
+                       self.parameters['e_quadratic'].value)
+
+                plot_exp_obj, = self._ax.plot(x_v, data_arr,
+                                              color=color_n[i],
+                                              label=v.filename.split('.')[0])
+                                              #linestyle=self.plot_style['experiment']['linestyle'],
+                                              #color=self.plot_style['experiment']['color'],
+                                              #marker=self.plot_style['experiment']['marker'],
+                                              #label=v.filename.split('.')[0])
+
+                self.plot_exp_list.append(plot_exp_obj)
+
+
+    @observe('show_exp_opt')
+    def _update_exp(self, change):
+        if change['value']:
+            if len(self.plot_exp_list):
+                for v in self.plot_exp_list:
+                    v.set_visible(True)
+                    lab = v.get_label()
+                    if lab != '_nolegend_':
+                        v.set_label(lab.strip('_'))
+        else:
+            if len(self.plot_exp_list):
+                for v in self.plot_exp_list:
+                    v.set_visible(False)
+                    lab = v.get_label()
+                    if lab != '_nolegend_':
+                        v.set_label('_' + lab)
+        self._ax.legend()
+        self._fig.canvas.draw()
+
 
     def plot_emission_line(self):
         while(len(self.eline_obj)):

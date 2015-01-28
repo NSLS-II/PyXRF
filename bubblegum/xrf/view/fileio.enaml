@@ -37,8 +37,13 @@ __author__ = 'Li Li'
 
 from enaml.widgets.api import (Container, PushButton, Label,
                                Form, Field, FileDialogEx, DockItem,
-                               DockArea, CheckBox, ComboBox, ScrollArea)
+                               DockArea, CheckBox, ComboBox,
+                               ScrollArea, Window)
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer, grid
+from enaml.core.api import Include, Looper
+from enaml.layout.geometry import Box
+from enaml.stdlib.fields import FloatField
+
 import numpy as np
 
 
@@ -54,11 +59,13 @@ enamldef FileView(DockItem): file_view:
             constraints = [
                 vbox(
                     hbox(folder_btn, folder_fd),
-                    hbox(files_btn, CB),
+                    hbox(files_btn, spacer),
                     hbox(files_load),
                     hbox(pb_load, fd_load),
                     hbox(param_lbl),
                     hbox(btn_out, fd_out),
+                    scroller,
+                    plot_bt,
                 ),
                 folder_btn.width == files_btn.width,
                 folder_btn.width == pb_load.width,
@@ -78,19 +85,19 @@ enamldef FileView(DockItem): file_view:
                     if path:
                         io_model.file_names = [item.split('/')[-1] for item in path]
                         files_load.text = 'Number of files loaded: {}'.format(len(io_model.file_names))
-                        CB.items = ['Please select file'] + io_model.file_names
+                        #CB.items = ['Please select file'] + io_model.file_names
                         io_model.get_roi_data()
                         img_model.data_dict = io_model.img_dict
 
-            ComboBox: CB:
-                items = ['Please load file first']
-                index = 0
-                index >> io_model.file_opt
-                index ::
-                    lineplot_model.plot_title = io_model.data_file.split('.')[0]
-                    lineplot_model.data = io_model.data
-                    fit_model.data = io_model.data
-                    fit_model.data_title = io_model.data_file.split('.')[0]
+            #ComboBox: CB:
+            #    items = ['Please load file first']
+            #    index = 0
+            #    index >> io_model.file_opt
+            #    index ::
+            #        lineplot_model.plot_title = io_model.data_file.split('.')[0]
+            #        lineplot_model.data = io_model.data
+            #        fit_model.data = io_model.data
+            #        fit_model.data_title = io_model.data_file.split('.')[0]
 
             Label: files_load:
                 text = 'No data is loaded.'
@@ -103,6 +110,7 @@ enamldef FileView(DockItem): file_view:
                     if parameter_file_path:
                         fd_load.text = parameter_file_path
                         #param_model.parameter_file_path = parameter_file_path
+                        param_model.update(parameter_file_path)
                         param_lbl.text = param_model.param_status
             Field: fd_load:
                 text = 'Use default otherwise.' #param_model.param_path
@@ -121,3 +129,83 @@ enamldef FileView(DockItem): file_view:
                         fit_model.result_folder = path
             Field: fd_out:
                 text << fit_model.result_folder
+
+            ScrollArea: scroller:
+                #Form:
+                Container:
+
+                    Looper: looper:
+                        iterable << sorted(io_model.file_names) #sorted(io_model.data_select.keys())
+                        Container:
+                            constraints = [vbox(lb, hbox(cb, fd1, fd2, spacer))]
+                            padding = Box(0, 5, 5, 0)
+                            Label: lb:
+                                text = io_model.data_select[loop_item].filename
+
+                            ComboBox: cb:
+                                items = [' ', 'Summed', 'Point', 'Roi'] #io_model.data_select[loop_item].plot_choice
+                                index := io_model.data_select[loop_item].plot_index
+                                index ::
+                                    if index == 2:
+                                        fd1.enabled = True
+                                        fd2.enabled = False
+                                        plot_bt.enabled = True
+                                    elif index == 3:
+                                        fd1.enabled = True
+                                        fd2.enabled = True
+                                        plot_bt.enabled = True
+                                    elif index == 1:
+                                        fd1.enabled = False
+                                        fd2.enabled = False
+                                        plot_bt.enabled = True
+                            Field: fd1:
+                                text := io_model.data_select[loop_item].point1
+                                maximum_size = 100
+                                enabled = False
+                            Field: fd2:
+                                text := io_model.data_select[loop_item].point2
+                                maximum_size = 100
+                                enabled = False
+                            #PushButton: pb
+                            #    pass
+
+            PushButton: plot_bt:
+                text = 'Plot Experiments'
+                #maximum_size = 100
+                enabled = False
+                checkable = True
+                clicked ::
+                    lineplot_model.parameters = param_model.parameters
+                    lineplot_model.data_sets = io_model.data_select
+                    lineplot_model.plot_exp_data()
+                    if checked:
+                        plot_bt.text = 'Remove Plot'
+                        lineplot_model.show_exp_opt = True
+                    else:
+                        lineplot_model.show_exp_opt = False
+                        plot_bt.text = 'Plot Experiments'
+
+
+enamldef PlotData(Window):
+    attr data_select
+    title = 'Results of Auto Peak Finding'
+    Container:
+        constraints = [
+            vbox(
+                d_select,
+            ),
+        ]
+        Container: d_select:
+            ScrollArea:
+                Form:
+                    Looper: looper:
+                        iterable << sorted(data_select.keys())
+                        Label:
+                            text := data_select[loop_item].filename
+                        Container:
+                            #padding = Box(0, 0, 0, 0)
+                            #constraints = [hbox(ff, pb)]
+                            Field: ff:
+                                pass
+                            #PushButton: pb
+                            #    pass
