@@ -61,8 +61,8 @@ enamldef PlotMain(DockItem):
     Container:
         constraints = [
             vbox(
-                hbox(cbox1, pbn, spacer),
-                hbox(pb_eline, cbox2, checkb, spacer),
+                hbox(cbox1, spacer, pb_eline, cbox2, checkb),
+                #hbox(spacer, pb_eline, cbox2, checkb),
                 canvas,
             ),
         ]
@@ -73,7 +73,7 @@ enamldef PlotMain(DockItem):
             index >> plot_model.scale_opt
             index = 0
         PushButton: pb_eline:
-            text = '? '
+            text = 'Set energy'
             tool_tip = 'set up energy for emission line calculation'
             enabled = True
             clicked ::
@@ -84,26 +84,19 @@ enamldef PlotMain(DockItem):
                     k_line_full + l_line + m_line
             index := plot_model.element_id
             index = 0
-        PushButton: pbn:
-            text = 'Plot Experiment Data'
-            checkable = True
-            clicked ::
-#<<<<<<< HEAD
-                if checked:
-                    #plot_model.plot_title = io_model.file_name
-                    #plot_model.data = io_model.data
-                    plot_model.parameters = param_model.parameters
-                    plot_model.incident_energy = param_model.parameters['coherent_sct_energy'].value
-                    plot_model.plot_experiment()
-                    plot_model.plot_exp_opt = True
-                else:
-                    plot_model.plot_exp_opt = False
-#=======
-#                plot_model.plot_title = io_model.data_file
-#                plot_model.data = io_model.data
-#                plot_model.parameters = param_model.parameters
-#                plot_model.plot_data()
-#>>>>>>> eric_autofit
+        #PushButton: pbn:
+        #    text = 'Plot Experiment Data'
+        #    checkable = True
+        #    clicked ::
+        #        if checked:
+        #            #plot_model.plot_title = io_model.file_name
+        #            #plot_model.data = io_model.data
+        #            plot_model.parameters = param_model.parameters
+        #            plot_model.incident_energy = param_model.parameters['coherent_sct_energy'].value
+        #            plot_model.plot_experiment()
+        #            plot_model.plot_exp_opt = True
+        #        else:
+        #            plot_model.plot_exp_opt = False
         CheckBox: checkb:
             text = 'Toolbar Visible'
             checked := canvas.toolbar_visible

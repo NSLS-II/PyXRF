@@ -228,7 +228,7 @@ class LinePlotModel(Atom):
                                            marker=self.plot_style['experiment']['marker'],
                                            label=self.plot_style['experiment']['label'])
 
-    def plot_exp_data(self):
+    def plot_multi_exp_data(self):
         while(len(self.plot_exp_list)):
             self.plot_exp_list.pop().remove()
 

@@ -79,7 +79,7 @@ class FileIOModel(Atom):
     data_obj = Typed(object)
     data_dict = Dict()
     img_dict = Dict()
-    data_select = OrderedDict() #Typed(OrderedDict)
+    data_sets = OrderedDict() #Typed(OrderedDict)
 
     def __init__(self,
                  working_directory=None,
@@ -90,25 +90,13 @@ class FileIOModel(Atom):
         with self.suppress_notifications():
             self.working_directory = working_directory
             self.data_file = data_file
-        #self.data_select = OrderedDict()
+        #self.data_sets = OrderedDict()
         # load the data file
         #self.load_data()
 
-    # @observe('working_directory', 'data_file')
-    # def path_changed(self, changed):
-    #     if changed['type'] == 'create':
-    #         return
-    #     self.load_data()
-#>>>>>>> eric_autofit
-
-    @observe('data')
-    def data_changed(self, changed):
-        print('The data was changed. First five lines of new data:\n{}'
-              ''.format(self.data[:5]))
-
     @observe('file_names')
     def update_more_data(self, change):
-        self.data_select.clear()
+        self.data_sets.clear()
         self.file_names.sort()
         print('file name: {}'.format(self.file_names))
         for fname in self.file_names:
@@ -121,12 +109,11 @@ class FileIOModel(Atom):
                 print('filenames are updated')
                 DS = DataSelection(filename=fname,
                                    raw_data=np.asarray(data['mca_arr']))
-                self.data_select.update({fname: DS})
+                self.data_sets.update({fname: DS})
             except ValueError:
                 continue
-        print('ordered keys: {}'.format(self.data_select.keys()))
+        print('ordered keys: {}'.format(self.data_sets.keys()))
         #self.get_roi_data()
-
 
     @observe('file_opt')
     def choose_file(self, changed):
@@ -134,9 +121,9 @@ class FileIOModel(Atom):
         if self.file_opt == 0:
             return
         self.data_file = self.file_names[self.file_opt-1]
-        self.data_obj = self.data_dict[str(self.data_file)]
+        #self.data_obj = self.data_dict[str(self.data_file)]
         # calculate the summed intensity, this should be included in data already
-        self.data = np.sum(self.data_obj['mca_arr'], axis=(1, 2))
+        #self.data = np.sum(self.data_obj['mca_arr'], axis=(1, 2))
 
     def get_roi_data(self):
         """
@@ -164,14 +151,11 @@ class DataSelection(Atom):
     plot_index = Int(0)
 
     @observe('plot_index', 'point1', 'point2')
-    def get_sum(self, change):
-        print(change)
-
+    def _update_roi(self, change):
         if self.plot_index == 0:
             return
         elif self.plot_index == 1:
-            SC = SpectrumCalculator(self.raw_data)
-            self.data = SC.get_spectrum()
+            self.data = self.get_sum()
             print('spec is calculated at step {} as {}'.format(change['value'],
                                                                np.sum(self.data)))
         elif self.plot_index == 2:
@@ -186,6 +170,10 @@ class DataSelection(Atom):
             self.data = SC.get_spectrum()
             print('spec is calculated at step {} as {}'.format(change['value'],
                                                                np.sum(self.data)))
+
+    def get_sum(self):
+        SC = SpectrumCalculator(self.raw_data)
+        return SC.get_spectrum()
 
 
 class SpectrumCalculator(object):

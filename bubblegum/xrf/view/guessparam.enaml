@@ -63,10 +63,12 @@ enamldef GuessParamView(DockItem): param_view:
     attr param_model
     attr io_model
     attr plot_model
+    attr fit_model
 
     Container:
         constraints = [
             vbox(
+                hbox(CB, plot_btn, spacer),
                 top_cntr,
                 hbox(e_label, spacer),
                 hbox(e_f),
@@ -75,6 +77,31 @@ enamldef GuessParamView(DockItem): param_view:
                 #hbox(lb15),
             ),
         ]
+
+        ComboBox: CB:
+            items << ['Select Data for fitting.'] + io_model.file_names
+            index = 0
+            index >> param_model.file_opt
+            index ::
+            #    param_model.data = param_model.data_set
+            #    plot_model.plot_title = io_model.data_file.split('.')[0]
+                plot_model.data = param_model.data
+                fit_model.data = param_model.data
+                if CB.index > 0:
+                    fit_model.data_title = io_model.file_names[CB.index-1].split('.')[0]
+        PushButton: plot_btn:
+            text = 'Plot Data'
+            checkable = True
+            clicked ::
+                if checked:
+                    #plot_model.plot_title = io_model.file_name
+                    #plot_model.data = io_model.data
+                    #plot_model.parameters = param_model.parameters
+                    plot_model.incident_energy = param_model.parameters['coherent_sct_energy'].value
+                    plot_model.plot_experiment()
+                    plot_model.plot_exp_opt = True
+                else:
+                    plot_model.plot_exp_opt = False
         Container: top_cntr:
             ScrollArea:
                 Form:

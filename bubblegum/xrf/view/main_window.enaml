@@ -67,7 +67,7 @@ enamldef XRFGui(MainWindow): main_window:
                 title = 'File IO'
                 io_model = file_M
                 param_model = p_guess_M
-                lineplot_model = plot_M
+                plot_model = plot_M
                 img_model = img_M
                 fit_model = fit_M
                 name = 'file_view'
@@ -78,6 +78,7 @@ enamldef XRFGui(MainWindow): main_window:
                 param_model = p_guess_M
                 io_model = file_M
                 plot_model = plot_M
+                fit_model = fit_M
             PlotMain:
                 closable = False
                 title = 'Plot Spectrum'

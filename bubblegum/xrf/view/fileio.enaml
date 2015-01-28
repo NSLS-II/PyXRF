@@ -44,13 +44,15 @@ from enaml.core.api import Include, Looper
 from enaml.layout.geometry import Box
 from enaml.stdlib.fields import FloatField
 
+from .guessparam import GuessParamView
+
 import numpy as np
 
 
 enamldef FileView(DockItem): file_view:
     attr io_model
     attr param_model
-    attr lineplot_model
+    attr plot_model
     attr img_model
     attr fit_model
 
@@ -88,14 +90,16 @@ enamldef FileView(DockItem): file_view:
                         #CB.items = ['Please select file'] + io_model.file_names
                         io_model.get_roi_data()
                         img_model.data_dict = io_model.img_dict
+                        param_model.data_sets = io_model.data_sets
+                        plot_model.parameters = param_model.parameters
 
             #ComboBox: CB:
             #    items = ['Please load file first']
             #    index = 0
             #    index >> io_model.file_opt
             #    index ::
-            #        lineplot_model.plot_title = io_model.data_file.split('.')[0]
-            #        lineplot_model.data = io_model.data
+            #        plot_model.plot_title = io_model.data_file.split('.')[0]
+            #        plot_model.data = io_model.data
             #        fit_model.data = io_model.data
             #        fit_model.data_title = io_model.data_file.split('.')[0]
 
@@ -112,6 +116,7 @@ enamldef FileView(DockItem): file_view:
                         #param_model.parameter_file_path = parameter_file_path
                         param_model.update(parameter_file_path)
                         param_lbl.text = param_model.param_status
+                        plot_model.parameters = param_model.parameters
             Field: fd_load:
                 text = 'Use default otherwise.' #param_model.param_path
             Label: load_lbl:
@@ -135,16 +140,16 @@ enamldef FileView(DockItem): file_view:
                 Container:
 
                     Looper: looper:
-                        iterable << sorted(io_model.file_names) #sorted(io_model.data_select.keys())
+                        iterable << sorted(io_model.file_names) #sorted(io_model.data_sets.keys())
                         Container:
                             constraints = [vbox(lb, hbox(cb, fd1, fd2, spacer))]
                             padding = Box(0, 5, 5, 0)
                             Label: lb:
-                                text = io_model.data_select[loop_item].filename
+                                text = io_model.data_sets[loop_item].filename
 
                             ComboBox: cb:
-                                items = [' ', 'Summed', 'Point', 'Roi'] #io_model.data_select[loop_item].plot_choice
-                                index := io_model.data_select[loop_item].plot_index
+                                items = [' ', 'Summed', 'Point', 'Roi'] #io_model.data_sets[loop_item].plot_choice
+                                index := io_model.data_sets[loop_item].plot_index
                                 index ::
                                     if index == 2:
                                         fd1.enabled = True
@@ -159,11 +164,11 @@ enamldef FileView(DockItem): file_view:
                                         fd2.enabled = False
                                         plot_bt.enabled = True
                             Field: fd1:
-                                text := io_model.data_select[loop_item].point1
+                                text := io_model.data_sets[loop_item].point1
                                 maximum_size = 100
                                 enabled = False
                             Field: fd2:
-                                text := io_model.data_select[loop_item].point2
+                                text := io_model.data_sets[loop_item].point2
                                 maximum_size = 100
                                 enabled = False
                             #PushButton: pb
@@ -175,37 +180,12 @@ enamldef FileView(DockItem): file_view:
                 enabled = False
                 checkable = True
                 clicked ::
-                    lineplot_model.parameters = param_model.parameters
-                    lineplot_model.data_sets = io_model.data_select
-                    lineplot_model.plot_exp_data()
+                    plot_model.data_sets = io_model.data_sets
+                    plot_model.plot_multi_exp_data()
                     if checked:
                         plot_bt.text = 'Remove Plot'
-                        lineplot_model.show_exp_opt = True
+                        plot_model.show_exp_opt = True
                     else:
-                        lineplot_model.show_exp_opt = False
+                        plot_model.show_exp_opt = False
                         plot_bt.text = 'Plot Experiments'
 
-
-enamldef PlotData(Window):
-    attr data_select
-    title = 'Results of Auto Peak Finding'
-    Container:
-        constraints = [
-            vbox(
-                d_select,
-            ),
-        ]
-        Container: d_select:
-            ScrollArea:
-                Form:
-                    Looper: looper:
-                        iterable << sorted(data_select.keys())
-                        Label:
-                            text := data_select[loop_item].filename
-                        Container:
-                            #padding = Box(0, 0, 0, 0)
-                            #constraints = [hbox(ff, pb)]
-                            Field: ff:
-                                pass
-                            #PushButton: pb
-                            #    pass

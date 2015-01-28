@@ -43,16 +43,15 @@ import copy
 import logging
 logger = logging.getLogger(__name__)
 
-from skxray.fitting.xrf_model import (ModelSpectrum, ParamController,
-                                      set_range, k_line, l_line, m_line,
-                                      get_linear_model, PreFitAnalysis)
 from pprint import pprint
 from atom.api import (Atom, Str, observe, Typed,
                       Int, Dict, List, Float, Enum, Bool)
 
 from skxray.fitting.background import snip_method
 from skxray.constants.api import XrfElement as Element
-
+from skxray.fitting.xrf_model import (ModelSpectrum, ParamController,
+                                      set_range, k_line, l_line, m_line,
+                                      get_linear_model, PreFitAnalysis)
 
 bound_options = ['none', 'lohi', 'fixed', 'lo', 'hi']
 
@@ -186,6 +185,9 @@ class GuessParamModel(Atom):
     #result_dict = Dict(key=str, value=Parameter)#OrderedDict()
     element_list = List()
 
+    data_sets = Typed(OrderedDict)
+    file_opt = Int()
+
     def __init__(self, *args, **kwargs):
         try:
             default_parameters = kwargs['default_parameters']
@@ -244,6 +246,18 @@ class GuessParamModel(Atom):
             1D array of spectrum intensity
         """
         self.data = np.asarray(data)
+
+    @observe('file_opt')
+    def choose_file(self, change):
+        print('option is {}'.format(self.file_opt))
+        print(change)
+        if self.file_opt == 0:
+            return
+        #if change['type'] == 'create':
+        #    return
+        names = self.data_sets.keys()
+        self.data = self.data_sets[names[self.file_opt-1]].get_sum()
+
 
     def find_peak(self):
         """
