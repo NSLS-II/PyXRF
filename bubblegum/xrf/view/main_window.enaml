@@ -43,62 +43,73 @@ from .guessparam import GuessParamView, PreFitResult
 from .lineplot import PlotMain
 from .image2D import ImageMain
 from .fit import FitView
+from .setting import SettingView
 
 
 enamldef XRFGui(MainWindow): main_window:
     #always_on_top = True
     title = 'PyXRF: X-ray Fluorescence Analysis Tool'
-    attr file_M
-    attr p_guess_M
-    attr plot_M
-    attr img_M
-    attr fit_M
+    attr io_model
+    attr param_model
+    attr plot_model
+    attr img_model
+    attr fit_model
+    attr setting_model
     attr Param
 
     Container:
         DockArea:
             layout = HSplitLayout(
-                TabLayout('file_view', 'param_guess_view', 'fitting_view_n'),
+                TabLayout('file_view', 'param_guess_view',
+                          'fitting_view', 'setting_view'),
                 #VSplitLayout('file_view', 'fitting_view_n'),
                 TabLayout('lineplot_view', 'image_view'),
                 )
             FileView:
                 closable = False
                 title = 'File IO'
-                io_model = file_M
-                param_model = p_guess_M
-                plot_model = plot_M
-                img_model = img_M
-                fit_model = fit_M
+                io_model = main_window.io_model
+                param_model = main_window.param_model
+                plot_model = main_window.plot_model
+                img_model = main_window.img_model
+                fit_model = main_window.fit_model
+                setting_model = main_window.setting_model
                 name = 'file_view'
             GuessParamView:
                 closable = False
                 title = 'Initial Parameter Guess '
                 name = 'param_guess_view'
-                param_model = p_guess_M
-                io_model = file_M
-                plot_model = plot_M
-                fit_model = fit_M
+                param_model = main_window.param_model
+                io_model = main_window.io_model
+                plot_model = main_window.plot_model
+                fit_model = main_window.fit_model
             PlotMain:
                 closable = False
-                title = 'Plot Spectrum'
-                io_model = file_M
-                plot_model = plot_M
-                param_model = p_guess_M
+                title = 'Spectrum View'
+                io_model = io_model
+                plot_model = main_window.plot_model
+                param_model = main_window.param_model
                 name = 'lineplot_view'
             ImageMain:
                 closable = False
-                title = '2D Map'
-                io_model = file_M
-                draw_img = img_M
-                #plot_model = plot_M
+                title = 'Element Map'
+                io_model = main_window.io_model
+                draw_img = main_window.img_model
+                #plot_model = main_window.plot_model
                 name = 'image_view'
             FitView:
                 closable = False
                 title = 'Fit     '
-                name = 'fitting_view_n'
-                fileio_m = file_M
-                param_m = main_window.p_guess_M
-                plot_m = main_window.plot_M
-                fit_m = main_window.fit_M
+                fileio_m = main_window.io_model
+                param_m = main_window.main_window.param_model
+                plot_m = main_window.plot_model
+                fit_m = main_window.fit_model
                 param_m = main_window.Param
+                name = 'fitting_view'
+            SettingView:
+                closable = False
+                title = 'Setting'
+                io_model = main_window.io_model
+                plot_model = main_window.plot_model
+                setting_model = main_window.setting_model
+                name = 'setting_view'

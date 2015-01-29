@@ -99,6 +99,8 @@ class LinePlotModel(Atom):
         in KeV
     """
     data = Typed(object) #Typed(np.ndarray)
+    exp_data_label = Str('experiment')
+
     _fig = Typed(Figure)
     _ax = Typed(Axes)
     _canvas = Typed(object)
@@ -108,10 +110,13 @@ class LinePlotModel(Atom):
     scale_opt = Int(0)
     total_y = Dict()
     total_y_l = Dict()
+
     prefit_x = Typed(object)
     plot_title = Str()
     fit_x = Typed(np.ndarray)
     fit_y = Typed(np.ndarray)
+    residual = Typed(np.ndarray)
+
     plot_type = List()
     max_v = Typed(object)
     incident_energy = Float(30.0)
@@ -134,26 +139,31 @@ class LinePlotModel(Atom):
 
     plot_style = Dict()
 
+    roi_plot_dict = Dict()
+    roi_dict = Dict()
+
     def __init__(self):
         self._fig = plt.figure()
+
         self._ax = self._fig.add_subplot(111)
         #self._ax.set_axis_bgcolor('black')
         self._ax.legend(loc=0)
+
         self._ax.set_xlabel('Energy [keV]')
         self._ax.set_ylabel('Counts')
         self._ax.set_yscale('log')
         self.plot_type = ['LinLog', 'Linear']
 
         self._ax.autoscale_view(tight=True)
-
         self.max_v = 1.0
         self._color_config()
+        self._fig.tight_layout(pad=0.5)
         #self.fit_y = np.array([])
         #self.data = np.array([])
 
     def _color_config(self):
         self.plot_style = {
-            'experiment': {'color': 'blue', 'linestyle': '', 'marker': '.', 'label': 'experiment'},
+            'experiment': {'color': 'blue', 'linestyle': '', 'marker': '.', 'label': self.exp_data_label},
             'background': {'color': 'grey', 'label': 'background'},
             'emission_line': {'color': 'red', 'linewidth': 2},
             'k_line': {'color': 'green'},
@@ -165,9 +175,27 @@ class LinePlotModel(Atom):
             'fit': {'color': 'black', 'label': 'fitted'}
         }
 
-    @observe('plot_title')
-    def update_title(self, change):
-        self._ax.set_title(self.plot_title)
+    def _update_canvas(self):
+        self._ax.legend()
+        lg = self._ax.get_legend()
+        lg.set_alpha(0.005)
+        self._ax.legend()
+        self._fig.tight_layout(pad=0.5)
+        self._fig.canvas.draw()
+
+    #@observe('plot_title')
+    #def update_title(self, change):
+    #    self._ax.set_title(self.plot_title)
+
+    @observe('exp_data_label')
+    def _update_exp_label(self, change):
+        if change['type'] == 'create':
+            return
+        self.plot_style['experiment']['label'] = change['value']
+
+    @observe('parameters')
+    def _update_energy(self, change):
+        self.incident_energy = self.parameters['coherent_sct_energy'].value
 
     @observe('scale_opt')
     def _new_opt(self, change):
@@ -176,7 +204,7 @@ class LinePlotModel(Atom):
             self._ax.set_ylim([self.max_v*1e-6, self.max_v*10.0])
         else:
             self._ax.set_yscale('linear')
-            self._ax.set_ylim([self.max_v*1e-6, self.max_v*1.5])
+            self._ax.set_ylim([-0.15*self.max_v, self.max_v*1.2])
         self._ax.legend()
         self._fig.canvas.draw()
 
@@ -198,16 +226,14 @@ class LinePlotModel(Atom):
             lab = self.plot_exp_obj.get_label()
             self.plot_exp_obj.set_label('_' + lab)
 
-        self._ax.legend()
-        try:
-            self._fig.canvas.draw()
-            #v.axes.figure.canvas.draw()
-        except AttributeError:
-            pass
+        self._update_canvas()
+        #self._ax.legend()
+        #alpha = self._ax.get_legend()
+        #alpha.set_alpha(0.1)
 
     def plot_experiment(self):
         """
-        PLot raw experiment data.
+        PLot raw experiment data for fitting.
         """
         try:
             self.plot_exp_obj.remove()
@@ -234,7 +260,7 @@ class LinePlotModel(Atom):
 
         color_n = get_color_name()
 
-        print('plot keys: {}'.format(self.data_sets.keys()))
+        #print('plot keys: {}'.format(self.data_sets.keys()))
         for i, (k, v) in enumerate(six.iteritems(self.data_sets)):
             if v.plot_index:
                 data_arr = np.asarray(v.data)
@@ -255,7 +281,6 @@ class LinePlotModel(Atom):
 
                 self.plot_exp_list.append(plot_exp_obj)
 
-
     @observe('show_exp_opt')
     def _update_exp(self, change):
         if change['value']:
@@ -272,9 +297,7 @@ class LinePlotModel(Atom):
                     lab = v.get_label()
                     if lab != '_nolegend_':
                         v.set_label('_' + lab)
-        self._ax.legend()
-        self._fig.canvas.draw()
-
+        self._update_canvas()
 
     def plot_emission_line(self):
         while(len(self.eline_obj)):
@@ -303,13 +326,9 @@ class LinePlotModel(Atom):
         total_list = k_line + l_line + m_line
         print('Plot emission line for element: {}'.format(self.element_id))
         ename = total_list[self.element_id-1]
-#<<<<<<< HEAD
 
         incident_energy = self.incident_energy
         print('Use incident energy: {}'.format(incident_energy))
-#=======
-#        incident_energy = self.parameters['coherent_sct_energy']['value']
-#>>>>>>> eric_autofit
 
         if len(ename) <= 2:
             e = Element(ename)
@@ -333,8 +352,42 @@ class LinePlotModel(Atom):
                     self.elist.append((e.emission_line.all[i][1],
                                        e.cs(incident_energy).all[i][1]/e.cs(incident_energy).all[17][1]))
         self.plot_emission_line()
-        self._ax.legend()
-        self._fig.canvas.draw()
+        self._update_canvas()
+        #self._ax.legend()
+        #self._fig.canvas.draw()
+
+    def plot_roi_bound(self):
+        #while(len(self.roi_plot_dict)):
+        #self.roi_plot_dict = {}
+        for k, v in six.iteritems(self.roi_plot_dict):
+            for data in v:
+                data.remove()
+
+        if len(self.roi_dict):
+            #self._ax.hold(True)
+            for k, v in six.iteritems(self.roi_dict):
+                temp_list = []
+                for linev in [v.left_val, v.line_val, v.right_val]:
+                    lineplot, = self._ax.plot([linev, linev],
+                                              [0, 1*self.max_v],
+                                              color=self.plot_style['emission_line']['color'],
+                                              linewidth=self.plot_style['emission_line']['linewidth'])
+                    temp_list.append(lineplot)
+                self.roi_plot_dict.update({k: temp_list})
+
+
+    def show_roi_bound(self):
+        self.plot_roi_bound()
+
+        if len(self.roi_dict):
+            for k, v in six.iteritems(self.roi_dict):
+                if v.show_plot:
+                    for l in self.roi_plot_dict[k]:
+                        l.set_visible(True)
+                else:
+                    for l in self.roi_plot_dict[k]:
+                        l.set_visible(False)
+        self._update_canvas()
 
     def plot_autofit(self):
         sum = 0
@@ -403,8 +456,9 @@ class LinePlotModel(Atom):
                     lab = v.get_label()
                     if lab != '_nolegend_':
                         v.set_label('_' + lab)
-        self._ax.legend()
-        self._fig.canvas.draw()
+        self._update_canvas()
+        #self._ax.legend()
+        #self._fig.canvas.draw()
 
     def plot_fit(self):
         #if len(self.fit_y):
@@ -413,6 +467,11 @@ class LinePlotModel(Atom):
         ln, = self._ax.plot(self.fit_x, self.fit_y,
                             color=self.plot_style['fit']['color'],
                             label=self.plot_style['fit']['label'])
+        self.plot_fit_obj.append(ln)
+
+        ln, = self._ax.plot(self.fit_x, self.residual - 1.1*np.max(self.residual),
+                            color=self.plot_style['fit']['color'],
+                            label='residual')
         self.plot_fit_obj.append(ln)
 
         for k, v in six.iteritems(self.fit_all):
@@ -462,11 +521,12 @@ class LinePlotModel(Atom):
                 lab = v.get_label()
                 if lab != '_nolegend_':
                     v.set_label('_' + lab)
-        self._ax.legend()
-        self._fig.canvas.draw()
+        self._update_canvas()
+        #self._ax.legend()
+        #self._fig.canvas.draw()
 
     def set_prefit_data(self, prefit_x,
-                        total_y, total_y_l):
+                        total_y, total_y_l, residual):
         """
         Parameters
         ----------
@@ -482,6 +542,8 @@ class LinePlotModel(Atom):
         self.total_y = total_y
         # l lines
         self.total_y_l = total_y_l
+
+        self.residual = residual
 
         self._ax.set_xlim([self.prefit_x[0], self.prefit_x[-1]])
         self.plot_autofit()

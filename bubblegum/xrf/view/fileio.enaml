@@ -44,8 +44,6 @@ from enaml.core.api import Include, Looper
 from enaml.layout.geometry import Box
 from enaml.stdlib.fields import FloatField
 
-from .guessparam import GuessParamView
-
 import numpy as np
 
 
@@ -55,6 +53,7 @@ enamldef FileView(DockItem): file_view:
     attr plot_model
     attr img_model
     attr fit_model
+    attr setting_model
 
     Container:
         Container:
@@ -66,11 +65,13 @@ enamldef FileView(DockItem): file_view:
                     hbox(pb_load, fd_load),
                     hbox(param_lbl),
                     hbox(btn_out, fd_out),
+                    name_lb,
                     scroller,
-                    plot_bt,
+                    hbox(plot_bt, spacer),
                 ),
                 folder_btn.width == files_btn.width,
                 folder_btn.width == pb_load.width,
+                folder_btn.width == btn_out.width,
             ]
             PushButton: folder_btn:
                 text = "Working Directory"
@@ -81,7 +82,7 @@ enamldef FileView(DockItem): file_view:
             Field: folder_fd:
                 text := io_model.working_directory
             PushButton: files_btn:
-                text = "Open Files"
+                text = "Exp. Data Files"
                 clicked ::
                     path = FileDialogEx.get_open_file_names(file_view, current_path=io_model.working_directory)
                     if path:
@@ -92,6 +93,9 @@ enamldef FileView(DockItem): file_view:
                         img_model.data_dict = io_model.img_dict
                         param_model.data_sets = io_model.data_sets
                         plot_model.parameters = param_model.parameters
+                        setting_model.parameters = param_model.parameters
+                        name_lb.text = '{:>16} {:>16} {:>16}'.format('Methods to Plot',
+                                                                     'Starting: x,y', 'Ending: x,y')
 
             #ComboBox: CB:
             #    items = ['Please load file first']
@@ -113,7 +117,6 @@ enamldef FileView(DockItem): file_view:
                     parameter_file_path = FileDialogEx.get_open_file_name(file_view)
                     if parameter_file_path:
                         fd_load.text = parameter_file_path
-                        #param_model.parameter_file_path = parameter_file_path
                         param_model.update(parameter_file_path)
                         param_lbl.text = param_model.param_status
                         plot_model.parameters = param_model.parameters
@@ -135,6 +138,10 @@ enamldef FileView(DockItem): file_view:
             Field: fd_out:
                 text << fit_model.result_folder
 
+            Label: name_lb:
+                text = ''
+                #text = '{:>16} {:>16} {:>16}'.format('methods to plot', 'starting: x,y',
+                #                                     'ending: x,y')
             ScrollArea: scroller:
                 #Form:
                 Container:

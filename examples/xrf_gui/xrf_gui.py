@@ -42,10 +42,9 @@ from enaml.qt.qt_application import QtApplication
 from bubblegum.xrf.model.fileio import FileIOModel
 from bubblegum.xrf.model.lineplot import LinePlotModel
 from bubblegum.xrf.model.guessparam import GuessParamModel
-#<<<<<<< HEAD
 from bubblegum.xrf.model.draw_image import DrawImage
 from bubblegum.xrf.model.fit_spectrum import Fit1D, Param
-#=======
+from bubblegum.xrf.model.setting import SettingModel
 import json
 from pprint import pprint
 
@@ -93,7 +92,6 @@ def get_defaults():
     }
 
     return defaults
-#>>>>>>> eric_autofit
 
 
 def run():
@@ -104,19 +102,13 @@ def run():
     defaults = get_defaults()
 
     xrfview = XRFGui()
-#<<<<<<< HEAD
-    xrfview.file_M = FileIOModel(**defaults)
-    xrfview.p_guess_M = GuessParamModel(**defaults)
-    xrfview.plot_M = LinePlotModel()
-    xrfview.img_M = DrawImage()
-    xrfview.fit_M = Fit1D()
+    xrfview.io_model = FileIOModel(**defaults)
+    xrfview.param_model = GuessParamModel(**defaults)
+    xrfview.plot_model = LinePlotModel()
+    xrfview.img_model = DrawImage()
+    xrfview.fit_model = Fit1D()
+    xrfview.setting_model = SettingModel()
     xrfview.Param = Param()
-#=======
-#
-#     xrfview.io_model = FileIOModel(**defaults)
-#     xrfview.param_model = GuessParamModel(**defaults)
-#     xrfview.plot_model = LinePlotModel()
-# >>>>>>> eric_autofit
 
     xrfview.show()
     app.start()

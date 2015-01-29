@@ -63,6 +63,7 @@ class Fit1D(Atom):
     data = Typed(np.ndarray)
     fit_x = Typed(np.ndarray)
     fit_y = Typed(np.ndarray)
+    residual = Typed(np.ndarray)
     comps = Dict()
     fit_strategy1 = Int(0)
     fit_strategy2 = Int(0)
@@ -136,6 +137,7 @@ class Fit1D(Atom):
         self.fit_x = xnew
         self.fit_y = result.best_fit + bg
         self.fit_result = result
+        self.residual = self.fit_y - y0
         print('dir of result: {}'.format(dir(result)))
 
     def fit_multiple(self):

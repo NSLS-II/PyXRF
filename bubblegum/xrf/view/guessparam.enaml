@@ -89,15 +89,16 @@ enamldef GuessParamView(DockItem): param_view:
                 fit_model.data = param_model.data
                 if CB.index > 0:
                     fit_model.data_title = io_model.file_names[CB.index-1].split('.')[0]
+                    plot_model.exp_data_label = fit_model.data_title
         PushButton: plot_btn:
             text = 'Plot Data'
             checkable = True
             clicked ::
                 if checked:
                     #plot_model.plot_title = io_model.file_name
-                    #plot_model.data = io_model.data
                     #plot_model.parameters = param_model.parameters
-                    plot_model.incident_energy = param_model.parameters['coherent_sct_energy'].value
+
+
                     plot_model.plot_experiment()
                     plot_model.plot_exp_opt = True
                 else:
@@ -140,7 +141,7 @@ enamldef GuessParamView(DockItem): param_view:
                             ParameterEdit().show()
 
         Label: e_label:
-            text = 'Enter elements below, e.g., K, Cu, Fe'
+            text = 'Enter elements below, e.g., Fe_K, Gd_L'
         Field: e_f:
             text := param_model.e_list
 
@@ -160,7 +161,6 @@ enamldef GuessParamView(DockItem): param_view:
             text = 'Find Peaks'
             #status_tip = 'Not Running.'
             clicked ::
-                param_model.set_data(io_model.data)
                 param_model.find_peak()
                 param_model.data_for_plot()
                 status_tip = 'Running'
@@ -275,7 +275,7 @@ enamldef PreFitResult(Window):
                                     plot_m.set_prefit_data(param_m.prefit_x, param_m.total_y, param_m.total_y_l)
                                     plot_m._fig.canvas.draw()
         PushButton: pb_bound:
-            text = 'Remove lines with value smaller than 1%'
+            text = 'Remove lines with value smaller than 0.1%'
             checkable = True
             clicked ::
                 if checked:
@@ -296,7 +296,7 @@ enamldef PreFitResult(Window):
                 param_m.get_activated_element()
 
 
-def set_low_bound(value, thresh_v=1.0):
+def set_low_bound(value, thresh_v=0.1):
     """
     Return values only above given threshold.
 

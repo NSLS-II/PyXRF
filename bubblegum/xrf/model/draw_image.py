@@ -56,13 +56,13 @@ class DrawImage(Atom):
 
     def __init__(self):
         self.fig = plt.figure()
+        #plt.tight_layout()
 
     @observe('file_opt')
     def update_file(self, change):
         #if change['type'] == 'update':
         if self.file_opt == 0:
             return
-        print('sored keys: {}'.format(sorted(self.data_dict.keys())))
         self.file_name = sorted(self.data_dict.keys())[self.file_opt-1]
         self.single_file = self.data_dict[self.file_name]
         self.show_image()
@@ -77,7 +77,7 @@ class DrawImage(Atom):
         if self.plot_opt == 1:
             self.img_data = self.single_file['roi_sum']
             self.show_image()
-            print('img data: {}'.format(self.img_data.keys()))
+            #print('img data: {}'.format(self.img_data.keys()))
 
     def plot_status(self):
         for k, v in six.iteritems(self.data_dict.values()[0]['roi_sum']):
@@ -92,39 +92,45 @@ class DrawImage(Atom):
         self.fig.clf()
         stat_temp = self.get_activated_num()
         if len(stat_temp) == 1:
-            ax1 = self.fig.add_subplot(111)
+            ax = self.fig.add_subplot(111)
             for k, v in six.iteritems(stat_temp):
-                ax1.imshow(self.img_data[k])
-                ax1.set_title('{}'.format(k))
-            self.fig.suptitle(self.file_name, fontsize=14)
+                cax = ax.imshow(self.img_data[k])
+                ax.set_title('{}'.format(k))
+                self.fig.colorbar(cax)
+            #self.fig.suptitle(self.file_name, fontsize=14)
         elif len(stat_temp) == 2:
             for i, (k, v) in enumerate(six.iteritems(stat_temp)):
                 ax = self.fig.add_subplot(eval('12'+str(i+1)))
-                ax.imshow(self.img_data[k])
+                cax = ax.imshow(self.img_data[k])
+                self.fig.colorbar(cax)
                 ax.set_title('{}'.format(self.file_name))
-            self.fig.suptitle(self.file_name, fontsize=14)
+            #self.fig.suptitle(self.file_name, fontsize=14)
         elif len(stat_temp) <= 4 and len(stat_temp) > 2:
             for i, (k, v) in enumerate(six.iteritems(stat_temp)):
                 ax = self.fig.add_subplot(eval('22'+str(i+1)))
-                ax.imshow(self.img_data[k])
+                cax = ax.imshow(self.img_data[k])
+                self.fig.colorbar(cax)
                 ax.set_title('{}'.format(k))
-            self.fig.suptitle(self.file_name, fontsize=14)
+            #self.fig.suptitle(self.file_name, fontsize=14)
         elif len(stat_temp) <= 6 and len(stat_temp) > 4:
             for i, (k, v) in enumerate(six.iteritems(stat_temp)):
                 ax = self.fig.add_subplot(eval('32'+str(i+1)))
-                ax.imshow(self.img_data[k])
+                cax = ax.imshow(self.img_data[k])
+                self.fig.colorbar(cax)
                 ax.set_title('{}'.format(k), fontsize=10)
-            self.fig.suptitle(self.file_name, fontsize=14)
+            #self.fig.suptitle(self.file_name, fontsize=14)
         elif len(stat_temp) > 6: # and len(stat_temp) > 4:
             for i, (k, v) in enumerate(six.iteritems(stat_temp)):
                 ax = self.fig.add_subplot(eval('33'+str(i+1)))
-                ax.imshow(self.img_data[k])
+                cax = ax.imshow(self.img_data[k])
+                self.fig.colorbar(cax)
                 ax.set_title('{}'.format(k), fontsize=10)
-            self.fig.suptitle(self.file_name, fontsize=14)
+            #self.fig.suptitle(self.file_name, fontsize=14)
             #ax2 = self.fig.add_subplot(222)
             #ax2.imshow(self.img_data[k[1]])
             #ax2.set_title('{}: {}'.format(self.file_name, k[1]))
 
+        self.fig.tight_layout(pad=0.1)#, w_pad=0.1, h_pad=0.1)
         self.fig.canvas.draw()
 
     def get_activated_num(self):

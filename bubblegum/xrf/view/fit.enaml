@@ -112,6 +112,7 @@ enamldef FitView(DockItem): fit_view:
                 plot_m.fit_x = fit_m.fit_x
                 plot_m.fit_y = fit_m.fit_y
                 plot_m.fit_all = fit_m.comps
+                plot_m.residual = fit_m.residual
                 plot_m.plot_fit()
         PushButton: pb_plot:
             text = 'Overlap to Spectrum'

@@ -117,8 +117,6 @@ class FileIOModel(Atom):
             roi_dict = {d[0]: d[1] for d in zip(v['channel_names'], v['XRF_roi'])}
             self.img_dict.update({str(k): {'roi_sum': roi_dict}})
 
-    #def set_file_for_plot(self):
-
 
 plot_as = ['Summed', 'Point', 'Roi']
 
@@ -177,7 +175,7 @@ class SpectrumCalculator(object):
     def _parse_pos(self, pos):
         if isinstance(pos, list):
             return pos
-        return [float(v) for v in pos.split(', ')]
+        return [int(v) for v in pos.split(',')]
 
     def get_spectrum(self):
         if not self.pos1 and not self.pos2:

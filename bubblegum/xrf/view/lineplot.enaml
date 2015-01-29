@@ -74,7 +74,7 @@ enamldef PlotMain(DockItem):
             index = 0
         PushButton: pb_eline:
             text = 'Set energy'
-            tool_tip = 'set up energy for emission line calculation'
+            tool_tip = 'Set up energy to calculate emission lines.'
             enabled = True
             clicked ::
                 AdjustEmissionLine.plot_m = plot_model

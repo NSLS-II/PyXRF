@@ -238,26 +238,12 @@ class GuessParamModel(Atom):
         })
         #pprint(self.parameters)
 
-    def set_data(self, data):
-        """
-        Parameters
-        ----------
-        data : numpy array
-            1D array of spectrum intensity
-        """
-        self.data = np.asarray(data)
-
     @observe('file_opt')
     def choose_file(self, change):
-        print('option is {}'.format(self.file_opt))
-        print(change)
         if self.file_opt == 0:
             return
-        #if change['type'] == 'create':
-        #    return
         names = self.data_sets.keys()
         self.data = self.data_sets[names[self.file_opt-1]].get_sum()
-
 
     def find_peak(self):
         """
@@ -267,7 +253,7 @@ class GuessParamModel(Atom):
         self.prefit_x, out_dict = pre_fit_linear(self.data, param_dict)
         self.result_assumbler(out_dict)
 
-    def result_assumbler(self, dictv, threshv=1.0):
+    def result_assumbler(self, dictv, threshv=0.1):
         """
         Summarize auto fitting results into a dict.
         """
