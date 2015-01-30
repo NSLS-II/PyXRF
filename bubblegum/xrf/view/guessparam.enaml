@@ -38,7 +38,7 @@ __author__ = 'Li Li'
 from enaml.widgets.api import (Container, PushButton, Label,
                                Form, Field, FileDialogEx, DockItem,
                                DockArea, CheckBox, ComboBox, PopupView,
-                               SpinBox, ScrollArea, Window)
+                               SpinBox, ScrollArea, Window, GroupBox)
 from enaml.layout.api import (hbox, vbox, HSplitLayout, VSplitLayout,
                               spacer, grid)
 from enaml.core.api import Include, Looper
@@ -103,42 +103,44 @@ enamldef GuessParamView(DockItem): param_view:
                     plot_model.plot_exp_opt = True
                 else:
                     plot_model.plot_exp_opt = False
-        Container: top_cntr:
-            ScrollArea:
-                Form:
-                    Looper: looper:
-                        iterable << sorted(param_model.parameters.keys())
-                        Label:
-                            text = param_model.parameters[loop_item].description
-                            tool_tip = param_model.parameters[loop_item].tool_tip
-                        Container:
-                            padding = Box(0, 0, 0, 0)
-                            constraints = [hbox(ff, pb)]
-                            FloatField: ff:
-                                enabled = False
-                                minimum := param_model.parameters[loop_item].min
-                                maximum := param_model.parameters[loop_item].max
-                                value := param_model.parameters[loop_item].value
-                                maximum_size = 80
-                            PushButton: pb:
-                                text = 'User value'
-                                checkable = True
-                                maximum_size = 100
+        GroupBox: top_cntr:
+            padding = Box(0, 0, 0, 0)
+            #ScrollArea:
+            Form:
+                row_spacing = -1
+                Looper: looper:
+                    #iterable << sorted(param_model.parameters.keys())
+                    iterable << sorted([v for k,v in six.iteritems(param_model.parameters) if len(v.description)!=0],
+                                       key=lambda x: x.description)
+                    Label:
+                        #text = param_model.parameters[loop_item].description
+                        #tool_tip = param_model.parameters[loop_item].tool_tip
+                        text = loop_item.description
+                        tool_tip = loop_item.tool_tip
+                    Container:
+                        padding = Box(2, 2, 2, 2)
+                        constraints = [hbox(ff, pb)]
+                        FloatField: ff:
+                            enabled = False
+                            #minimum := param_model.parameters[loop_item].min
+                            #maximum := param_model.parameters[loop_item].max
+                            #value := param_model.parameters[loop_item].value
+                            value := loop_item.value
+                            maximum_size = 80
+                        PushButton: pb:
+                            text = 'User value'
+                            checkable = True
+                            maximum_size = 100
 
-                                clicked ::
-                                    if checked:
-                                        ff.enabled = True
-                                        pb.text = 'Default'
-                                    else:
-                                        ff.value = param_model.parameters[loop_item].default_value
-                                        ff.enabled = False
-                                        pb.text = 'User value'
-                    row_spacing = -1
-                    PushButton:
-                        text = 'Edit Defaults'
-                        clicked ::
-                            ParameterEdit.parameter_model = param_model
-                            ParameterEdit().show()
+                            clicked ::
+                                if checked:
+                                    ff.enabled = True
+                                    pb.text = 'Default'
+                                else:
+                                    #ff.value = param_model.parameters[loop_item].default_value
+                                    ff.value = loop_item.default_value
+                                    ff.enabled = False
+                                    pb.text = 'User value'
 
         Label: e_label:
             text = 'Enter elements below, e.g., Fe_K, Gd_L'
@@ -153,7 +155,7 @@ enamldef GuessParamView(DockItem): param_view:
             text = 'Save As'
             clicked ::
                 path = FileDialogEx.get_save_file_name(param_view,
-                        current_path=io_model.working_directory)
+                                                       current_path=io_model.working_directory)
                 if path:
                     param_model.file_path = path
                     param_model.save_as()
@@ -172,7 +174,8 @@ enamldef GuessParamView(DockItem): param_view:
                     #lb15.text = 'Auto fit is finished.'
                     pb13.enabled = True
                     pb14.enabled = True
-                    plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
+                    plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y,
+                                               param_model.total_y_l)
 
         PushButton: pb13:
             text = 'Overlap to Spectrum'
@@ -209,25 +212,6 @@ def save_defaults(parameter_model):
     json_out = json.dumps(dct)
     with open(user_path, 'w') as out_file:
         out_file.write(json_out)
-
-
-enamldef ParameterEdit(Window):
-    attr parameter_model
-    destroy_on_close = False
-    Container:
-        ComboBox: cmb:
-            items << sorted(parameter_model.parameters.keys())
-            selected_item ::
-                av.model = parameter_model.parameters[selected_item]
-        AutoView: av:
-            model = parameter_model.parameters.values()[0]
-            initialized ::
-                for o in objects:
-                    o.label.tool_tip = str(o)
-        PushButton: save:
-            text = "Save changes to disk"
-            clicked ::
-                save_defaults(parameter_model)
 
 
 enamldef PreFitResult(Window):

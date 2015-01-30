@@ -38,7 +38,6 @@ __author__ = 'Li Li'
 import six
 import h5py
 import numpy as np
-import copy
 import os
 from collections import OrderedDict
 
@@ -46,6 +45,7 @@ from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum
 
 import logging
 logger = logging.getLogger(__name__)
+
 
 class FileIOModel(Atom):
     """
@@ -84,9 +84,6 @@ class FileIOModel(Atom):
         with self.suppress_notifications():
             self.working_directory = working_directory
             self.data_file = data_file
-        #self.data_sets = OrderedDict()
-        # load the data file
-        #self.load_data()
 
     @observe('file_names')
     def update_more_data(self, change):
@@ -100,14 +97,11 @@ class FileIOModel(Atom):
                 data = f['MAPS']
                 # dict has filename as key and group data as value
                 self.data_dict.update({fname: data})
-                print('filenames are updated')
                 DS = DataSelection(filename=fname,
                                    raw_data=np.asarray(data['mca_arr']))
                 self.data_sets.update({fname: DS})
             except ValueError:
                 continue
-        print('ordered keys: {}'.format(self.data_sets.keys()))
-        #self.get_roi_data()
 
     def get_roi_data(self):
         """
@@ -122,12 +116,27 @@ plot_as = ['Sum', 'Point', 'Roi']
 
 
 class DataSelection(Atom):
-
+    """
+    Attributes
+    ----------
+    filename : str
+    plot_choice : enum
+        methods ot plot
+    point1 : str
+        starting position
+    point2 : str
+        ending position
+    roi : list
+    raw_data : array
+        experiment 3D data
+    data : array
+    plot_index : int
+    """
     filename = Str()
     plot_choice = Enum(*plot_as)
     point1 = Str('0, 0')
     point2 = Str('0, 0')
-    roi = List()
+    #roi = List()
     raw_data = Typed(np.ndarray)
     data = Typed(np.ndarray)
     plot_index = Int(0)
@@ -138,20 +147,14 @@ class DataSelection(Atom):
             return
         elif self.plot_index == 1:
             self.data = self.get_sum()
-            print('spec is calculated at step {} as {}'.format(change['value'],
-                                                               np.sum(self.data)))
         elif self.plot_index == 2:
             SC = SpectrumCalculator(self.raw_data, pos1=self.point1)
             self.data = SC.get_spectrum()
-            print('spec is calculated at step {} as {}'.format(change['value'],
-                                                               np.sum(self.data)))
         else:
             SC = SpectrumCalculator(self.raw_data,
                                     pos1=self.point1,
                                     pos2=self.point2)
             self.data = SC.get_spectrum()
-            print('spec is calculated at step {} as {}'.format(change['value'],
-                                                               np.sum(self.data)))
 
     def get_sum(self):
         SC = SpectrumCalculator(self.raw_data)
@@ -159,6 +162,19 @@ class DataSelection(Atom):
 
 
 class SpectrumCalculator(object):
+
+    """
+    Calculate summed spectrum according to starting and ending positions.
+
+    Attributes
+    ----------
+    data : array
+        3D array of experiment data
+    pos1 : str
+        starting position
+    pos2 : str
+        ending position
+    """
 
     def __init__(self, data,
                  pos1=None, pos2=None):

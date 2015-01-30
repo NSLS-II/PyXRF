@@ -58,12 +58,16 @@ class DrawImage(Atom):
         self.fig = plt.figure()
         #plt.tight_layout()
 
+    def plot_status(self):
+        for k, v in six.iteritems(self.data_dict.values()[0]['roi_sum']):
+            self.stat_dict.update({k: False})
+
     @observe('file_opt')
     def update_file(self, change):
-        #if change['type'] == 'update':
         if self.file_opt == 0:
             return
         self.file_name = sorted(self.data_dict.keys())[self.file_opt-1]
+        self.plot_status()
         self.single_file = self.data_dict[self.file_name]
         self.show_image()
 
@@ -79,13 +83,8 @@ class DrawImage(Atom):
             self.show_image()
             #print('img data: {}'.format(self.img_data.keys()))
 
-    def plot_status(self):
-        for k, v in six.iteritems(self.data_dict.values()[0]['roi_sum']):
-            self.stat_dict.update({k: False})
-
     #@observe('stat_dict')
     def show_image(self):
-        print(dir(self.fig))
         if self.plot_opt == 1:
             self.img_data = self.single_file['roi_sum']
 

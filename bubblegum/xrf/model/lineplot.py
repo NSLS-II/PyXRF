@@ -609,7 +609,7 @@ class LinePlotModel(Atom):
         #self._fig.canvas.draw()
 
     def set_prefit_data(self, prefit_x,
-                        total_y, total_y_l, residual):
+                        total_y, total_y_l):
         """
         Parameters
         ----------
@@ -625,8 +625,6 @@ class LinePlotModel(Atom):
         self.total_y = total_y
         # l lines
         self.total_y_l = total_y_l
-
-        self.residual = residual
 
         self._ax.set_xlim([self.prefit_x[0], self.prefit_x[-1]])
         self.plot_autofit()

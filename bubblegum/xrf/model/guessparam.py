@@ -69,13 +69,14 @@ class Parameter(Atom):
     e_calibration = Enum(*bound_options)
     linear = Enum(*bound_options)
     name = Str()
-    description = Str()
+    description = Str('')
     tool_tip = Str()
 
     @observe('name')
     def update_displayed_name(self, changed):
         if not self.description:
-            self.description = self.name
+            pass
+    #        self.description = self.name
 
     def __repr__(self):
         return ("Parameter(bound_type={}, min={}, max={}, value={}, "
@@ -171,7 +172,7 @@ class GuessParamModel(Atom):
         The path where file is saved.
     element_list : list
     """
-    parameters = Dict()
+    parameters = Dict() #Typed(OrderedDict) #OrderedDict()
     data = Typed(object)
     prefit_x = Typed(object)
     result_dict = Typed(OrderedDict)
@@ -224,18 +225,21 @@ class GuessParamModel(Atom):
 
         elo = non_fitting_values.pop('energy_bound_low')
         ehi = non_fitting_values.pop('energy_bound_high')
-        self.parameters = {
+        temp_d = {
             'energy_bound_low': Parameter(name='E low (keV)', value=elo,
-                                          default_value=elo),
+                                          default_value=elo,
+                                          description='E low limit [keV]'),
             'energy_bound_high': Parameter(name='E high (keV)', value=ehi,
-                                           default_value=ehi)
+                                           default_value=ehi,
+                                           description='E high limit [keV]')
         }
-        self.parameters.update({
+        temp_d.update({
             param_name: Parameter(name=param_name,
                                   default_value=param_dict['value'],
                                   **param_dict)
             for param_name, param_dict in six.iteritems(default_parameters)
         })
+        self.parameters = temp_d #OrderedDict(sorted(six.iteritems(temp_d)), key=lambda x: x[1].description)
         #pprint(self.parameters)
 
     @observe('file_opt')

@@ -100,11 +100,10 @@ enamldef XRFGui(MainWindow): main_window:
             FitView:
                 closable = False
                 title = 'Fit     '
-                fileio_m = main_window.io_model
-                param_m = main_window.main_window.param_model
-                plot_m = main_window.plot_model
-                fit_m = main_window.fit_model
-                param_m = main_window.Param
+                io_model = main_window.io_model
+                param_model = main_window.param_model
+                plot_model = main_window.plot_model
+                fit_model = main_window.fit_model
                 name = 'fitting_view'
             SettingView:
                 closable = False

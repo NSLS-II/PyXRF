@@ -42,14 +42,15 @@ from enaml.widgets.api import (Container, PushButton, Label,
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer
 from auto_enaml.api import AutoView
 from enaml.stdlib.fields import FloatField
+from enaml.layout.geometry import Box
 
 
 enamldef FitView(DockItem): fit_view:
-    attr fileio_m
-    attr param_m
-    attr plot_m
-    attr fit_m
-    attr param_m
+    attr io_model
+    attr param_model
+    attr plot_model
+    attr fit_model
+
     Container:
         constraints = [
             vbox(
@@ -66,15 +67,15 @@ enamldef FitView(DockItem): fit_view:
         #PushButton: pb1:
         #    text = 'Import Parameter Data'
         #    clicked ::
-        #        fit_m.data = fileio_m.data
-        #        fit_m.param_dict = param_m.param_d
+        #        fit_model.data = io_model.data
+        #        fit_model.param_dict = param_model.param_d
         PushButton: pb_param:
             text = 'Import Parameter File'
             clicked ::
                 param_path = FileDialogEx.get_open_file_name(fit_view)
                 if param_path:
-                    fit_m.file_path = param_path
-                    param_status.text = fit_m.file_status
+                    fit_model.file_path = param_path
+                    param_status.text = fit_model.file_status
         Label: param_status:
             text = 'No file is loaded.'
         Label: lbl0:
@@ -84,7 +85,7 @@ enamldef FitView(DockItem): fit_view:
         ComboBox: cb1:
             items = ['', 'fit_with_tail', 'free_more', 'e_calibration', 'linear']
             index = 0
-            index >> fit_m.fit_strategy1
+            index >> fit_model.fit_strategy1
             #index ::
             #    print('use strategy 1: {}'.format(fit_m.fit_strategy1))
         Label: lbl2:
@@ -92,85 +93,72 @@ enamldef FitView(DockItem): fit_view:
         ComboBox: cb2:
             items = ['', 'fit_with_tail', 'free_more', 'e_calibration', 'linear']
             index = 0
-            index >> fit_m.fit_strategy2
+            index >> fit_model.fit_strategy2
             #index ::
-            #    print('use strategy 2: {}'.format(fit_m.fit_strategy2))
+            #    print('use strategy 2: {}'.format(fit_model.fit_strategy2))
         Label: lbl3:
             text = 'Step 3'
         ComboBox: cb3:
             items = ['', 'fit_with_tail', 'free_more', 'e_calibration', 'linear']
             index = 0
-            index >> fit_m.fit_strategy3
+            index >> fit_model.fit_strategy3
             #index ::
-            #    print('use strategy 3: {}'.format(fit_m.fit_strategy3))
+            #    print('use strategy 3: {}'.format(fit_model.fit_strategy3))
         PushButton: pb_fit:
             text = 'Fit'
             clicked ::
-                #fit_m.fit_data()
-                fit_m.fit_multiple()
+                #fit_model.fit_data()
+                fit_model.fit_multiple()
                 pb_plot.enabled = True
-                plot_m.fit_x = fit_m.fit_x
-                plot_m.fit_y = fit_m.fit_y
-                plot_m.fit_all = fit_m.comps
-                plot_m.residual = fit_m.residual
-                plot_m.plot_fit()
+                plot_model.fit_x = fit_model.fit_x
+                plot_model.fit_y = fit_model.fit_y
+                plot_model.fit_all = fit_model.comps
+                plot_model.residual = fit_model.residual
+                plot_model.plot_fit()
         PushButton: pb_plot:
             text = 'Overlap to Spectrum'
             checkable = True
             enabled = False
             clicked ::
                 if checked:
-                    plot_m.show_fit_opt = True
+                    plot_model.show_fit_opt = True
                     pb_plot.text = 'Remove Plot'
                 else:
-                    plot_m.show_fit_opt = False
+                    plot_model.show_fit_opt = False
                     pb_plot.text = 'Overlap to Spectrum'
 
         PushButton: btn_edit:
             text = 'Edit Defaults'
             clicked ::
-                ParameterEdit.parameter_model = fit_m.param_dict
-                ParameterEdit.param = param_m
+                #ParameterEdit.parameter_model = fit_model.param_dict
+                #ParameterEdit.param = param_model
+                #ParameterEdit().show()
+                ParameterEdit.parameter_model = param_model
                 ParameterEdit().show()
-
-my_dict ={
- "e_quadratic": {
-        "adjust_element": "fixed",
-        "bound_type": "lohi",
-        "e_calibration": "fixed",
-        "fit_with_tail": "lohi",
-        "free_more": "lohi",
-        "linear": "fixed",
-        "max": 1e-06,
-        "min": -1e-06,
-        "value": 0.0
-    },
-    "fwhm_fanoprime": {
-        "adjust_element": "fixed",
-        "bound_type": "fixed",
-        "e_calibration": "fixed",
-        "fit_with_tail": "lohi",
-        "free_more": "lohi",
-        "linear": "fixed",
-        "max": 0.0001,
-        "min": 1e-07,
-        "value": 1e-06
-    },
-    "fwhm_offset": {
-        "adjust_element": "fixed",
-        "bound_type": "lohi",
-        "e_calibration": "fixed",
-        "fit_with_tail": "lohi",
-        "free_more": "lohi",
-        "linear": "fixed",
-        "max": 0.19,
-        "min": 0.16,
-        "value": 0.178
-    }
-}
 
 
 enamldef ParameterEdit(Window):
+    attr parameter_model
+    destroy_on_close = False
+    Container:
+        padding = Box(5, 5, 5, 5)
+        ComboBox: cmb:
+            items << sorted(parameter_model.parameters.keys())
+            selected_item ::
+                av.model = parameter_model.parameters[selected_item]
+        AutoView: av:
+            model = parameter_model.parameters.values()[0]
+            padding = Box(2, 2, 2, 2)
+            initialized ::
+                for o in objects:
+                    o.label.tool_tip = str(o)
+        PushButton: save:
+            text = "Save changes to disk"
+            clicked ::
+                save_defaults(parameter_model)
+
+
+enamldef ParameterEdit_old(Window):
     attr parameter_model
     attr param
     destroy_on_close = False

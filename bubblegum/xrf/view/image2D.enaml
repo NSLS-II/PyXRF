@@ -16,18 +16,13 @@ enamldef ImageMain(DockItem):
     Container:
         constraints = [
             vbox(
-                hbox(load_file, cbox_file, cbox_type, pb_choose, plot_btn, check, spacer),
+                hbox(cbox_file, cbox_type, pb_choose, plot_btn, check, spacer),
                 canvas,
             ),
             cbox_type.v_center == check.v_center,
         ]
-        PushButton: load_file:
-            text = 'Load Data'
-            clicked ::
-                cbox_file.items = ['Choose Data'] + sorted(draw_img.data_dict.keys())
-                draw_img.plot_status()
         ComboBox: cbox_file:
-            items = [' '] + + sorted(draw_img.data_dict.keys())
+            items << [' '] + sorted(draw_img.data_dict.keys())
             index := draw_img.file_opt
             index = 0
         ComboBox: cbox_type:

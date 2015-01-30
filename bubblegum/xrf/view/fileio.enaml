@@ -139,8 +139,8 @@ enamldef FileView(DockItem): file_view:
                         iterable << sorted(io_model.file_names) #sorted(io_model.data_sets.keys())
                         #Container:
                         GroupBox:
-                            title = loop_item
-                            title_align = 'center'
+                            title = '{}, data shape: {}'.format(loop_item, io_model.data_sets[loop_item].raw_data.shape)
+                            #title_align = 'center'
                             constraints = [hbox(cb, lb1, fd1, lb2, fd2, spacer)]
                             padding = Box(0, 0, 0, 0)
                             #Label: lb:
