@@ -27,7 +27,7 @@ enamldef ImageMain(DockItem):
                 cbox_file.items = ['Choose Data'] + sorted(draw_img.data_dict.keys())
                 draw_img.plot_status()
         ComboBox: cbox_file:
-            #items = ['']
+            items = [' '] + + sorted(draw_img.data_dict.keys())
             index := draw_img.file_opt
             index = 0
         ComboBox: cbox_type:
