@@ -73,7 +73,7 @@ class FileIOModel(Atom):
     load_status = Str()
     data_dict = Dict()
     img_dict = Dict()
-    data_sets = OrderedDict() #Typed(OrderedDict)
+    data_sets = OrderedDict()
 
     def __init__(self,
                  working_directory=None,
@@ -118,7 +118,7 @@ class FileIOModel(Atom):
             self.img_dict.update({str(k): {'roi_sum': roi_dict}})
 
 
-plot_as = ['Summed', 'Point', 'Roi']
+plot_as = ['Sum', 'Point', 'Roi']
 
 
 class DataSelection(Atom):

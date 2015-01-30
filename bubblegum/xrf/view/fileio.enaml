@@ -38,7 +38,7 @@ __author__ = 'Li Li'
 from enaml.widgets.api import (Container, PushButton, Label,
                                Form, Field, FileDialogEx, DockItem,
                                DockArea, CheckBox, ComboBox,
-                               ScrollArea, Window)
+                               ScrollArea, Window, GroupBox)
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer, grid
 from enaml.core.api import Include, Looper
 from enaml.layout.geometry import Box
@@ -60,12 +60,12 @@ enamldef FileView(DockItem): file_view:
             constraints = [
                 vbox(
                     hbox(folder_btn, folder_fd),
-                    hbox(files_btn, spacer),
-                    hbox(files_load),
                     hbox(pb_load, fd_load),
                     hbox(param_lbl),
                     hbox(btn_out, fd_out),
-                    name_lb,
+                    hbox(files_btn, files_load),
+                    #hbox(files_load),
+                    #name_lb,
                     scroller,
                     hbox(plot_bt, spacer),
                 ),
@@ -94,18 +94,8 @@ enamldef FileView(DockItem): file_view:
                         param_model.data_sets = io_model.data_sets
                         plot_model.parameters = param_model.parameters
                         setting_model.parameters = param_model.parameters
-                        name_lb.text = '{:>16} {:>16} {:>16}'.format('Methods to Plot',
-                                                                     'Starting: x,y', 'Ending: x,y')
-
-            #ComboBox: CB:
-            #    items = ['Please load file first']
-            #    index = 0
-            #    index >> io_model.file_opt
-            #    index ::
-            #        plot_model.plot_title = io_model.data_file.split('.')[0]
-            #        plot_model.data = io_model.data
-            #        fit_model.data = io_model.data
-            #        fit_model.data_title = io_model.data_file.split('.')[0]
+                        #name_lb.text = '{:>16} {:>16} {:>16}'.format('Methods to Plot',
+                        #                                             'Starting: x,y', 'Ending: x,y')
 
             Label: files_load:
                 text = 'No data is loaded.'
@@ -138,25 +128,28 @@ enamldef FileView(DockItem): file_view:
             Field: fd_out:
                 text << fit_model.result_folder
 
-            Label: name_lb:
-                text = ''
+            #Label: name_lb:
+            #    text = ''
                 #text = '{:>16} {:>16} {:>16}'.format('methods to plot', 'starting: x,y',
                 #                                     'ending: x,y')
             ScrollArea: scroller:
                 #Form:
                 Container:
-
                     Looper: looper:
                         iterable << sorted(io_model.file_names) #sorted(io_model.data_sets.keys())
-                        Container:
-                            constraints = [vbox(lb, hbox(cb, fd1, fd2, spacer))]
-                            padding = Box(0, 5, 5, 0)
-                            Label: lb:
-                                text = io_model.data_sets[loop_item].filename
+                        #Container:
+                        GroupBox:
+                            title = loop_item
+                            title_align = 'center'
+                            constraints = [hbox(cb, lb1, fd1, lb2, fd2, spacer)]
+                            padding = Box(0, 0, 0, 0)
+                            #Label: lb:
+                            #    text = io_model.data_sets[loop_item].filename
 
                             ComboBox: cb:
-                                items = [' ', 'Summed', 'Point', 'Roi'] #io_model.data_sets[loop_item].plot_choice
+                                items = [' ', 'Sum', 'Point', 'Roi']
                                 index := io_model.data_sets[loop_item].plot_index
+                                maximum_size = 80
                                 index ::
                                     if index == 2:
                                         fd1.enabled = True
@@ -170,13 +163,19 @@ enamldef FileView(DockItem): file_view:
                                         fd1.enabled = False
                                         fd2.enabled = False
                                         plot_bt.enabled = True
+                            Label: lb1:
+                                text = 'Start'
+                                maximum_size = 30
                             Field: fd1:
                                 text := io_model.data_sets[loop_item].point1
-                                maximum_size = 100
+                                maximum_size = 80
                                 enabled = False
+                            Label: lb2:
+                                text = 'End'
+                                maximum_size = 30
                             Field: fd2:
                                 text := io_model.data_sets[loop_item].point2
-                                maximum_size = 100
+                                maximum_size = 80
                                 enabled = False
                             #PushButton: pb
                             #    pass

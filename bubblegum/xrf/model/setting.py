@@ -94,17 +94,17 @@ class SettingModel(Atom):
             if '_K' in v:
                 temp = v.split('_')[0]
                 e = Element(temp)
-                val = round(e.emission_line['ka1'], 4)
+                val = int(e.emission_line['ka1']*1000)
             elif '_L' in v:
                 temp = v.split('_')[0]
                 e = Element(temp)
-                val = round(e.emission_line['la1'], 4)
+                val = int(e.emission_line['la1']*1000)
             elif '_M' in v:
                 temp = v.split('_')[0]
                 e = Element(temp)
-                val = round(e.emission_line['ma1'], 4)
+                val = int(e.emission_line['ma1']*1000)
 
-            delta_v = self.get_sigma(val)
+            delta_v = int(self.get_sigma(val/1000.)*1000)
             roi = ROIModel(line_val=val, left_val=val-delta_v*2,
                            right_val=val+delta_v*2,
                            step=1,
@@ -135,12 +135,12 @@ class ROIModel(Atom):
     show_plot : bool
         option to plot
     """
-    line_val = Float(0.0)
-    left_val = Float()
-    right_val = Float()
+    line_val = Int()
+    left_val = Int()
+    right_val = Int()
     step = Int(1)
     show_plot = Bool(False)
 
-    @observe('line_val')
+    @observe('left_val')
     def _value_update(self, change):
-        print(change)
+        print('left value is changed {}'.format(change))

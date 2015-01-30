@@ -142,6 +142,12 @@ class LinePlotModel(Atom):
     roi_plot_dict = Dict()
     roi_dict = Dict()
 
+    prefix_name_roi = Str()
+    element_for_roi = Str()
+    element_list_roi = List()
+    roi_dict = OrderedDict()
+
+
     def __init__(self):
         self._fig = plt.figure()
 
@@ -177,8 +183,8 @@ class LinePlotModel(Atom):
 
     def _update_canvas(self):
         self._ax.legend()
-        lg = self._ax.get_legend()
-        lg.set_alpha(0.005)
+        #lg = self._ax.get_legend()
+        #lg.set_alpha(0.005)
         self._ax.legend()
         self._fig.tight_layout(pad=0.5)
         self._fig.canvas.draw()
@@ -356,27 +362,104 @@ class LinePlotModel(Atom):
         #self._ax.legend()
         #self._fig.canvas.draw()
 
+    @observe('element_for_roi')
+    def _update_element(self, change):
+        #if change['type'] == 'create':
+        #    return
+
+        self.element_for_roi = self.element_for_roi.strip(' ')
+        if len(self.element_for_roi) == 0:
+            element_list = []
+            self.roi_dict.clear()
+        elif ',' in self.element_for_roi:
+            element_list = [v.strip(' ') for v in self.element_for_roi.split(',')]
+        else:
+            element_list = [v for v in self.element_for_roi.split(' ')]
+
+        #with self.suppress_notifications():
+        #    self.element_list_roi = element_list
+
+        self.update_roi(element_list)
+        self.element_list_roi = element_list
+
+        #self.update_roi()
+        #self.element_list_roi = element_list
+        #if len(self.element_list_roi):
+        #    self.update_roi()
+
+    def update_roi(self, element_list):
+        """
+        Update newly added element without removing old ones.
+
+        Parameters
+        ----------
+        element_list : list
+        """
+        if not len(element_list):
+            return
+
+        for v in element_list:
+            if '_K' in v:
+                temp = v.split('_')[0]
+                e = Element(temp)
+                val = int(e.emission_line['ka1']*1000)
+            elif '_L' in v:
+                temp = v.split('_')[0]
+                e = Element(temp)
+                val = int(e.emission_line['la1']*1000)
+            elif '_M' in v:
+                temp = v.split('_')[0]
+                e = Element(temp)
+                val = int(e.emission_line['ma1']*1000)
+
+            delta_v = int(self.get_sigma(val/1000.)*1000)
+            roi = ROIModel(prefix=self.prefix_name_roi,
+                           line_val=val,
+                           left_val=val-delta_v*2,
+                           right_val=val+delta_v*2,
+                           default_left=val-delta_v*2,
+                           default_right=val+delta_v*2,
+                           step=1,
+                           show_plot=False)
+            if self.roi_dict.has_key(v):
+                continue
+            self.roi_dict.update({v: roi})
+
+    def get_sigma(self, energy, epsilon=2.96):
+        print('param: {}'.format(self.parameters.keys()))
+        temp_val = 2 * np.sqrt(2 * np.log(2))
+        return np.sqrt((self.parameters['fwhm_offset'].value/temp_val)**2 +
+                       energy*epsilon*self.parameters['fwhm_fanoprime'].value)
+
     def plot_roi_bound(self):
         #while(len(self.roi_plot_dict)):
         #self.roi_plot_dict = {}
         for k, v in six.iteritems(self.roi_plot_dict):
             for data in v:
                 data.remove()
+        self.roi_plot_dict.clear()
 
         if len(self.roi_dict):
             #self._ax.hold(True)
             for k, v in six.iteritems(self.roi_dict):
                 temp_list = []
-                for linev in [v.left_val, v.line_val, v.right_val]:
+                for linev in np.array([v.left_val, v.line_val, v.right_val])/1000.:
                     lineplot, = self._ax.plot([linev, linev],
                                               [0, 1*self.max_v],
                                               color=self.plot_style['emission_line']['color'],
                                               linewidth=self.plot_style['emission_line']['linewidth'])
+                    if v.show_plot:
+                        lineplot.set_visible(True)
+                    else:
+                        lineplot.set_visible(False)
                     temp_list.append(lineplot)
                 self.roi_plot_dict.update({k: temp_list})
 
+        self._update_canvas()
 
-    def show_roi_bound(self):
+    @observe('roi_dict')
+    def show_roi_bound(self, change):
+        print('roi dict changed {}'.format(change))
         self.plot_roi_bound()
 
         if len(self.roi_dict):
@@ -548,3 +631,37 @@ class LinePlotModel(Atom):
         self._ax.set_xlim([self.prefit_x[0], self.prefit_x[-1]])
         self.plot_autofit()
 
+
+class ROIModel(Atom):
+    """
+    This class defines basic data structure for roi setup.
+
+    Attributes
+    ----------
+    line_val : float
+        emission energy of primary line
+    left_val : float
+        left boundary
+    right_val : float
+        right boundary
+    step : float
+        min step value to change
+    show_plot : bool
+        option to plot
+    """
+    prefix = Str()
+    line_val = Int()
+    left_val = Int()
+    right_val = Int()
+    default_left = Int()
+    default_right = Int()
+    step = Int(1)
+    show_plot = Bool(False)
+
+    @observe('left_val')
+    def _value_update(self, change):
+        print('left value is changed {}'.format(change))
+
+    @observe('show_plot')
+    def _plot_opt(self, change):
+        print('show plot is changed {}'.format(change))
