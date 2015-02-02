@@ -70,7 +70,7 @@ class Parameter(Atom):
     e_calibration = Enum(*bound_options)
     linear = Enum(*bound_options)
     name = Str()
-    description = Str('')
+    description = Str()
     tool_tip = Str()
 
     @observe('name')
@@ -81,12 +81,12 @@ class Parameter(Atom):
 
     def __repr__(self):
         return ("Parameter(bound_type={}, min={}, max={}, value={}, "
-                "default_value={}, free_more={}, adjust_element={}, "
-                "e_calibration={}, linear={}, name={}, description={}, "
+                "default={}, free_more={}, adjust_element={}, "
+                "e_calibration={}, linear={}, description={}, "
                 "toop_tip={}".format(
             self.bound_type, self.min, self.max, self.value, self.default_value,
             self.free_more, self.adjust_element, self.e_calibration,
-            self.linear, self.name, self.description, self.tool_tip))
+            self.linear, self.description, self.tool_tip))
 
     def to_dict(self):
         return {
@@ -228,26 +228,32 @@ class GuessParamModel(Atom):
         non_fitting_values = default_parameters.pop('non_fitting_values')
         element_list = non_fitting_values.pop('element_list')
         if not isinstance(element_list, list):
-            element_list = element_list.split(', ')
+            element_list = [e.strip(' ') for e in element_list.split(',')]
         self.element_list = element_list
 
         elo = non_fitting_values.pop('energy_bound_low')
         ehi = non_fitting_values.pop('energy_bound_high')
-        temp_d = {
-            'energy_bound_low': Parameter(name='E low (keV)', value=elo,
+        self.parameters = {
+            'energy_bound_low': Parameter(value=elo,
                                           default_value=elo,
                                           description='E low limit [keV]'),
-            'energy_bound_high': Parameter(name='E high (keV)', value=ehi,
+            'energy_bound_high': Parameter(value=ehi,
                                            default_value=ehi,
                                            description='E high limit [keV]')
         }
-        temp_d.update({
-            param_name: Parameter(name=param_name,
-                                  default_value=param_dict['value'],
-                                  **param_dict)
-            for param_name, param_dict in six.iteritems(default_parameters)
-        })
-        self.parameters = temp_d #OrderedDict(sorted(six.iteritems(temp_d)), key=lambda x: x[1].description)
+
+        for param_name, param_dict in six.iteritems(default_parameters):
+            print(param_name)
+            self.parameters.update({
+                param_name: Parameter(**param_dict)
+            })
+
+        # self.parameters.update({
+        #     param_name: Parameter(name=param_name,
+        #                           default_value=param_dict['value'],
+        #                           **param_dict)
+        #     for param_name, param_dict in six.iteritems(default_parameters)
+        # })
         #pprint(self.parameters)
 
     @observe('file_opt')

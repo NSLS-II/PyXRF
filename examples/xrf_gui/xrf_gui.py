@@ -51,10 +51,8 @@ from pprint import pprint
 
 def get_defaults():
 
-    #working_directory = os.path.join(os.path.expanduser('~'), 'Downloads')
-    working_directory = '/Users/Li/Research/X-ray/Research_work/all_code/nsls2_gui/nsls2_gui'
+    working_directory = os.path.join(os.path.expanduser('~'), 'Downloads', 'xrf_data')
 
-    #data_file = 'NSLS_X27.txt'
     data_file = '2xfm_0304.h5'
 
     data_path = os.path.join(working_directory, data_file)
@@ -103,7 +101,7 @@ def run():
     xrfview.param_model = GuessParamModel(**defaults)
     xrfview.plot_model = LinePlotModel()
     xrfview.img_model = DrawImage()
-    xrfview.fit_model = Fit1D()
+    xrfview.fit_model = Fit1D(**defaults)
     xrfview.setting_model = SettingModel()
     xrfview.Param = Param()
 

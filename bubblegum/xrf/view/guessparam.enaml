@@ -145,6 +145,7 @@ enamldef GuessParamView(DockItem): param_view:
             text = 'Enter elements below, e.g., Fe_K, Gd_L'
         Field: e_f:
             text := param_model.e_list
+            submit_triggers = ['auto_sync']
 
         PushButton: pb10:
             text = 'Save'
@@ -190,7 +191,6 @@ enamldef GuessParamView(DockItem): param_view:
                     pb13.text = 'Overlap to Spectrum'
                     plot_model.show_autofit_opt = False
 
-
         PushButton: pb14:
             text = 'Show Results'
             enabled = False
@@ -198,22 +198,9 @@ enamldef GuessParamView(DockItem): param_view:
                 PreFitResult.param_m = param_model
                 PreFitResult.plot_m = plot_model
                 PreFitResult().show()
-        #Label: lb15:
-        #    text = 'No auto fit result is available.'
-            #max_length = 10
-            #maximum_size = 100
-
-def save_defaults(parameter_model):
-    user_path = os.path.join(os.path.expanduser('~'), '.bubblegum',
-                             'xrf_parameter_user.json')
-    # format the dictionary
-    dct = format_dict(parameter_model.parameters, parameter_model.element_list)
-    json_out = json.dumps(dct)
-    with open(user_path, 'w') as out_file:
-        out_file.write(json_out)
 
 
-enamldef PreFitResult(Window):
+enamldef PreFitResult(Window): prefit:
     attr param_m
     attr plot_m
     title = 'Results of Auto Peak Finding'
@@ -274,9 +261,10 @@ enamldef PreFitResult(Window):
                     plot_m.set_prefit_data(param_m.prefit_x, param_m.total_y, param_m.total_y_l)
                     plot_m._fig.canvas.draw()
         PushButton: pb_import:
-            text = 'Use selected elements for peak fitting.'
+            text = 'Use initial guess as fitting parameters.'
             clicked ::
                 param_m.get_activated_element()
+                prefit.close()
 
 
 def set_low_bound(value, thresh_v=0.1):

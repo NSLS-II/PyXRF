@@ -53,7 +53,6 @@ from skxray.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
 from skxray.fitting.background import snip_method
 from lmfit import fit_report
 
-out_folder = '/Users/Li/Research/X-ray/Research_work/all_code/nsls2_gui/nsls2_gui'
 
 class Fit1D(Atom):
 
@@ -71,12 +70,13 @@ class Fit1D(Atom):
     fit_result = Typed(object)
     strategy_list = List()
     data_title = Str()
-    result_folder = Str(out_folder)
+    result_folder = Str()
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        self.result_folder = kwargs['working_directory']
         self.strategy_list = ['fit_with_tail', 'free_more', 'e_calibration', 'linear']
 
-    def get_full_param(self):
+    def load_full_param(self):
         try:
             with open(self.file_path, 'r') as json_data:
                 self.param_dict = json.load(json_data)
@@ -86,7 +86,7 @@ class Fit1D(Atom):
 
     @observe('file_path')
     def update_param(self, change):
-        self.get_full_param()
+        self.load_full_param()
 
     @observe('fit_strategy1')
     def update_strategy1(self, change):
@@ -207,6 +207,7 @@ class Fit1D(Atom):
             print('Results are saved to {}'.format(filepath))
 
 
+# to be removed
 class Param(Atom):
     name = Str()
     value = Float(0.0)

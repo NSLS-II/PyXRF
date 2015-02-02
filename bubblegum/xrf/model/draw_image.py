@@ -43,10 +43,32 @@ import matplotlib.pyplot as plt
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict
 
 class DrawImage(Atom):
+    """
+    This class performs 2D image rendering, such as showing multiple
+    2D roi images based on user's selection.
+
+    Attributes
+    ----------
+    img_data : dict
+        dict of 2D array
+    fig : object
+        matplotlib Figure
+    file_name : str
+    stat_dict : dict
+        determine which image to show
+    data_dict : dict
+        save multiple data
+    file_opt : int
+        which file is chosen
+    plot_opt : int
+        show plot or not
+    single_file : dict
+        image data for one given file
+    """
 
     img_data = Typed(object)
     fig = Typed(Figure)
-    img_num = Int()
+    #img_num = Int()
     file_name = Str()
     stat_dict = Dict()
     data_dict = Dict()

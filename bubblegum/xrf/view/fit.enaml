@@ -139,6 +139,8 @@ enamldef FitView(DockItem): fit_view:
                 #ParameterEdit.parameter_model = fit_model.param_dict
                 #ParameterEdit.param = param_model
                 #ParameterEdit().show()
+                #param_model.get_param(param_model.param_new)
+                param_model.get_param(fit_model.param_dict)
                 ParameterEdit.parameter_model = param_model
                 ParameterEdit().show()
 
@@ -157,13 +159,26 @@ enamldef ParameterEdit(Window):
             padding = Box(2, 2, 2, 2)
             initialized ::
                 for o in objects:
+                    print(dir(o.label))
                     o.label.tool_tip = str(o)
         PushButton: save:
             text = "Save changes to disk"
             clicked ::
-                save_defaults(parameter_model)
+                parameter_model.save()
+                #save_defaults(parameter_model)
 
 
+def save_defaults(parameter_model):
+    user_path = os.path.join(os.path.expanduser('~'), '.bubblegum',
+                             'xrf_parameter_user.json')
+    # format the dictionary
+    dct = format_dict(parameter_model.parameters, parameter_model.element_list)
+    json_out = json.dumps(dct)
+    with open(user_path, 'w') as out_file:
+        out_file.write(json_out)
+
+
+# to be deleted
 enamldef ParameterEdit_old(Window):
     attr parameter_model
     attr param
