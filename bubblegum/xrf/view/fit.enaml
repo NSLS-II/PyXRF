@@ -38,7 +38,7 @@ import numpy as np
 from enaml.widgets.api import (Container, PushButton, Label,
                                Form, Field, FileDialogEx, DockItem,
                                DockArea, CheckBox, ComboBox,
-                               ScrollArea, Window)
+                               ScrollArea, Window, GroupBox)
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer
 from auto_enaml.api import AutoView
 from enaml.stdlib.fields import FloatField
@@ -54,8 +54,7 @@ enamldef FitView(DockItem): fit_view:
     Container:
         constraints = [
             vbox(
-                hbox(pb_param, spacer),
-                hbox(param_status, spacer),
+                param_gb,
                 lbl0,
                 hbox(lbl1, cb1, spacer),
                 hbox(lbl2, cb2, spacer),
@@ -64,20 +63,27 @@ enamldef FitView(DockItem): fit_view:
                 hbox(btn_edit, spacer),
             ),
         ]
-        #PushButton: pb1:
-        #    text = 'Import Parameter Data'
-        #    clicked ::
-        #        fit_model.data = io_model.data
-        #        fit_model.param_dict = param_model.param_d
-        PushButton: pb_param:
-            text = 'Import Parameter File'
-            clicked ::
-                param_path = FileDialogEx.get_open_file_name(fit_view)
-                if param_path:
-                    fit_model.file_path = param_path
-                    param_status.text = fit_model.file_status
-        Label: param_status:
-            text = 'No file is loaded.'
+        GroupBox: param_gb:
+            constraints = [
+                vbox(
+                    hbox(pb_previous, pb_param, spacer),
+                    hbox(param_status, spacer),
+                ),
+            ]
+            PushButton: pb_previous:
+                text = 'Import Parameters'
+                clicked ::
+                    fit_model.param_dict = param_model.param_new
+                    param_status.text = 'Use fitting parameters from previous step.'
+            PushButton: pb_param:
+                text = 'Import Parameters from File'
+                clicked ::
+                    param_path = FileDialogEx.get_open_file_name(fit_view)
+                    if param_path:
+                        fit_model.file_path = param_path
+                        param_status.text = fit_model.file_status
+            Label: param_status:
+                text = 'No file is loaded.'
         Label: lbl0:
             text = 'Fitting Strategy'
         Label: lbl1:

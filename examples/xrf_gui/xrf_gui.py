@@ -67,7 +67,6 @@ def get_defaults():
     with open(default_parameter_file, 'r') as json_data:
         default_parameters = json.load(json_data)
 
-    pprint(default_parameters)
     # see if there is a user parameter file
     #user_parameter_file = os.path.join(os.path.expanduser('~'), '.bubblegum',
     #                                  'xrf_parameter_user.json')
@@ -82,8 +81,6 @@ def get_defaults():
     except IOError:
         # user file doesn't exist
         pass
-
-    pprint(default_parameters)
 
     defaults = {'working_directory': working_directory,
                 'data_file': data_file,

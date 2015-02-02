@@ -61,7 +61,7 @@ enamldef FileView(DockItem): file_view:
                 vbox(
                     hbox(folder_btn, folder_fd),
                     hbox(pb_load, fd_load),
-                    hbox(param_lbl),
+                    #hbox(param_lbl),
                     hbox(btn_out, fd_out),
                     hbox(files_btn, files_load),
                     #hbox(files_load),
@@ -107,16 +107,16 @@ enamldef FileView(DockItem): file_view:
                     parameter_file_path = FileDialogEx.get_open_file_name(file_view)
                     if parameter_file_path:
                         fd_load.text = parameter_file_path
-                        param_model.update(parameter_file_path)
-                        param_lbl.text = param_model.param_status
+                        param_model.get_new_param(parameter_file_path)
+                        #param_lbl.text = param_model.param_status
                         plot_model.parameters = param_model.parameters
             Field: fd_load:
                 text = 'Use default otherwise.' #param_model.param_path
             Label: load_lbl:
                 text << io_model.load_status
                 #maximum_size = 300
-            Label: param_lbl:
-                text = 'Parameter file abc.json is loaded.' #'Use default parametere files.'
+            #Label: param_lbl:
+            #    text = 'Parameter file abc.json is loaded.' #'Use default parametere files.'
                 #maximum_size = 100
 
             PushButton: btn_out:
@@ -124,7 +124,9 @@ enamldef FileView(DockItem): file_view:
                 clicked ::
                     path = FileDialogEx.get_existing_directory(file_view)
                     if path:
+                        param_model.result_folder = path
                         fit_model.result_folder = path
+                        fd_out.text = path
             Field: fd_out:
                 text << fit_model.result_folder
 

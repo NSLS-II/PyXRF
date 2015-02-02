@@ -40,10 +40,11 @@ import six
 import json
 from collections import OrderedDict
 import copy
+import os
+
 import logging
 logger = logging.getLogger(__name__)
 
-from pprint import pprint
 from atom.api import (Atom, Str, observe, Typed,
                       Int, Dict, List, Float, Enum, Bool)
 
@@ -182,7 +183,11 @@ class GuessParamModel(Atom):
     total_y_l = Dict()
     total_y_m = Dict()
     e_list = Str()
-    save_file = Str()
+    #save_file = Str()
+
+    result_folder = Str()
+    file_path = Str()
+
     #result_dict = Dict(key=str, value=Parameter)#OrderedDict()
     element_list = List()
 
@@ -193,13 +198,16 @@ class GuessParamModel(Atom):
         try:
             default_parameters = kwargs['default_parameters']
         except ValueError:
-            print('No parameter files are choosen')
+            print('No default parameter files are chosen.')
         self.get_param(default_parameters)
         self.total_y_l = {}
         self.result_dict = OrderedDict()
+        self.result_folder = kwargs['working_directory']
 
     def get_new_param(self, param_path):
         """
+        Update parameters if new param_path is given.
+
         Parameters
         ----------
         param_path : str
@@ -313,7 +321,8 @@ class GuessParamModel(Atom):
         factor_to_area = np.sqrt(2*np.pi)*peak_std*0.5
 
         if len(self.result_dict):
-            for e in self.e_list.split(', '):
+            for e in self.e_list.split(','):
+                e = e.strip(' ')
                 zname = e.split('_')[0]
                 for k, v in six.iteritems(self.param_new):
                     if zname in k and 'area' in k:
@@ -341,6 +350,23 @@ class GuessParamModel(Atom):
                 self.total_y_m[k] = self.result_dict[k].spectrum
             else:
                 self.total_y[k] = self.result_dict[k].spectrum
+
+    def save(self, fname='param_default1.json'):
+        """
+        Save full param dict into a file at result directory.
+        The name of the file is predefined.
+
+        Parameters
+        ----------
+        fname : str, optional
+            file name to save updated parameters
+        """
+        self.save_elist()
+        self.create_full_param()
+        fpath = os.path.join(self.result_folder, fname)
+        with open(fpath, 'w') as outfile:
+            json.dump(self.param_new, outfile,
+                      sort_keys=True, indent=4)
 
     def save_as(self):
         """
