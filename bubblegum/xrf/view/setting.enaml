@@ -44,11 +44,12 @@ from enaml.core.api import Include, Looper
 from enaml.layout.geometry import Box
 from enaml.stdlib.fields import FloatField
 
+import numpy as np
 
 enamldef SettingView(DockItem):
     attr io_model
     attr plot_model
-    #attr setting_model
+    attr img_model_adv
 
     Container:
         Container:
@@ -69,10 +70,15 @@ enamldef SettingView(DockItem):
                 text = 'Prefix'
             Field: prefix_fd:
                 text := plot_model.prefix_name_roi
+                submit_triggers = ['auto_sync']
             PushButton: calculate_btn:
                 text = 'Calculate ROI'
                 clicked ::
-                    pass
+                    plot_model.get_roi_sum()
+                    #img_model_adv.data_dict.update({'new_data':{'a': np.ones([100,100])}})
+                    img_model_adv.data_dict.update(plot_model.roi_result)
+                    img_model_adv.set_initial_stat()
+
             ScrollArea: scroller:
                 #Form:
                 Container:

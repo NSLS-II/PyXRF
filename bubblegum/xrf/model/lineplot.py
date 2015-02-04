@@ -147,6 +147,8 @@ class LinePlotModel(Atom):
     element_list_roi = List()
     roi_dict = OrderedDict()
 
+    data_dict = Dict()
+    roi_result = Dict()
 
     def __init__(self):
         self._fig = plt.figure()
@@ -425,11 +427,35 @@ class LinePlotModel(Atom):
                 continue
             self.roi_dict.update({v: roi})
 
+    @observe('prefix_name_roi')
+    def _update_prefix(self, change):
+        print('update name now: {}'.format(self.prefix_name_roi))
+        for k, v in six.iteritems(self.roi_dict):
+            v.prefix = self.prefix_name_roi
+
     def get_sigma(self, energy, epsilon=2.96):
+        """
+        Calculate the std at given energy.
+        """
         print('param: {}'.format(self.parameters.keys()))
         temp_val = 2 * np.sqrt(2 * np.log(2))
         return np.sqrt((self.parameters['fwhm_offset'].value/temp_val)**2 +
                        energy*epsilon*self.parameters['fwhm_fanoprime'].value)
+
+    def get_roi_sum(self):
+        """
+        Save roi sum into a dict.
+        """
+        for fname, datav in six.iteritems(self.data_dict):
+            temp = {}
+            for k, v in six.iteritems(self.roi_dict):
+                lowv = v.left_val/1000.
+                rightv = v.right_val/1000.
+                print('name is {}'.format(v.prefix))
+                sum2D = calculate_roi(datav['mca_arr'], self.parameters['e_linear'].value,
+                                      self.parameters['e_offset'].value, [lowv, rightv])
+                temp.update({k: sum2D})
+            self.roi_result.update({v.prefix+'_'+fname: temp})
 
     def plot_roi_bound(self):
         #while(len(self.roi_plot_dict)):
@@ -663,3 +689,21 @@ class ROIModel(Atom):
     @observe('show_plot')
     def _plot_opt(self, change):
         print('show plot is changed {}'.format(change))
+
+
+def calculate_roi(data3D, e_linear, e_offset, range_v):
+    """
+    Calculate 2D map for given ROI.
+
+    Parameters
+    ----------
+    data3D : 3D array
+    e_linear : float
+    e_offset : float
+    range_v : list
+    """
+    data3D = np.asarray(data3D)
+    range_v = np.asarray(range_v)
+    range_v = (range_v - e_offset)/e_linear
+    range_v = [int(round(v)) for v in range_v]
+    return np.sum(data3D[range_v[0]:range_v[1], :, :], axis=0)

@@ -42,6 +42,7 @@ import matplotlib.pyplot as plt
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict
 
+
 class DrawImage(Atom):
     """
     This class performs 2D image rendering, such as showing multiple
@@ -150,8 +151,10 @@ class DrawImage(Atom):
             #ax2 = self.fig.add_subplot(222)
             #ax2.imshow(self.img_data[k[1]])
             #ax2.set_title('{}: {}'.format(self.file_name, k[1]))
-
-        self.fig.tight_layout(pad=0.1)#, w_pad=0.1, h_pad=0.1)
+        try:
+            self.fig.tight_layout(pad=0.1)#, w_pad=0.1, h_pad=0.1)
+        except ValueError:
+            pass
         self.fig.canvas.draw()
 
     def get_activated_num(self):
@@ -160,3 +163,125 @@ class DrawImage(Atom):
             if v:
                 data_temp.update({k: v})
         return data_temp
+
+
+class DrawImageAdvanced(Atom):
+    """
+    This class performs 2D image rendering, such as showing multiple
+    2D roi images based on user's selection.
+
+    Attributes
+    ----------
+    img_data : dict
+        dict of 2D array
+    fig : object
+        matplotlib Figure
+    file_name : str
+    stat_dict : dict
+        determine which image to show
+    data_dict : dict
+        save multiple data
+    file_opt : int
+        which file is chosen
+    plot_opt : int
+        show plot or not
+    single_file : dict
+        image data for one given file
+    """
+
+    img_data = Typed(object)
+    fig = Typed(Figure)
+    #img_num = Int()
+    file_name = Str()
+    stat_dict = Dict()
+    data_dict = Dict()
+    file_opt = Int(0)
+    plot_opt = Int(0)
+    single_file = Dict()
+
+    def __init__(self):
+        self.fig = plt.figure()
+
+    @observe('data_dict')
+    def init_plot_status(self, change):
+        print('keys {}'.format(self.data_dict.keys()))
+        self.set_initial_stat()
+
+    def set_initial_stat(self):
+        """
+        Set up initial plotting status for all the 2D images.
+        """
+        for k, v in six.iteritems(self.data_dict):
+            temp = {m: False for m in six.iterkeys(v)}
+            self.stat_dict.update({k: temp})
+
+    @observe('file_opt')
+    def update_file(self, change):
+        #if self.file_opt == 0:
+        #    return
+        print('data in advanced img mode: {}'.format(self.data_dict.keys()))
+        #self.file_name = sorted(self.data_dict.keys())[self.file_opt]
+        #self.plot_status()
+        #self.single_file = self.data_dict[self.file_name]
+        #self.img_data = self.data_dict[self.file_name]
+        #self.show_image()
+
+    def show_image(self):
+        self.fig.clf()
+        stat_temp = self.get_activated_num()
+
+        if len(stat_temp) == 1:
+            ax = self.fig.add_subplot(111)
+            for k, v in sorted(stat_temp):
+                cax = ax.imshow(self.data_dict[k][v])
+                ax.set_title('{}'.format(k+'_'+v))
+                self.fig.colorbar(cax)
+            #self.fig.suptitle(self.file_name, fontsize=14)
+        elif len(stat_temp) == 2:
+            for i, (k, v) in enumerate(sorted(stat_temp)):
+                ax = self.fig.add_subplot(eval('12'+str(i+1)))
+                cax = ax.imshow(self.data_dict[k][v])
+                self.fig.colorbar(cax)
+                ax.set_title('{}'.format(k+'_'+v))
+            #self.fig.suptitle(self.file_name, fontsize=14)
+        elif len(stat_temp) <= 4 and len(stat_temp) > 2:
+            for i, (k, v) in enumerate(sorted(stat_temp)):
+                ax = self.fig.add_subplot(eval('22'+str(i+1)))
+                cax = ax.imshow(self.data_dict[k][v])
+                self.fig.colorbar(cax)
+                ax.set_title('{}'.format(k+'_'+v))
+            #self.fig.suptitle(self.file_name, fontsize=14)
+        elif len(stat_temp) <= 6 and len(stat_temp) > 4:
+            for i, (k, v) in enumerate(sorted(stat_temp)):
+                ax = self.fig.add_subplot(eval('32'+str(i+1)))
+                cax = ax.imshow(self.data_dict[k][v])
+                self.fig.colorbar(cax)
+                ax.set_title('{}'.format(k+'_'+v), fontsize=10)
+            #self.fig.suptitle(self.file_name, fontsize=14)
+        elif len(stat_temp) > 6:
+            for i, (k, v) in enumerate(sorted(stat_temp)):
+                ax = self.fig.add_subplot(eval('33'+str(i+1)))
+                cax = ax.imshow(self.data_dict[k][v])
+                self.fig.colorbar(cax)
+                ax.set_title('{}'.format(k+'_'+v), fontsize=10)
+            #self.fig.suptitle(self.file_name, fontsize=14)
+            #ax2 = self.fig.add_subplot(222)
+            #ax2.imshow(self.img_data[k[1]])
+            #ax2.set_title('{}: {}'.format(self.file_name, k[1]))
+
+        try:
+            self.fig.tight_layout(pad=0.1)#, w_pad=0.1, h_pad=0.1)
+        except ValueError:
+            pass
+
+        self.fig.canvas.draw()
+
+    def get_activated_num(self):
+        data_temp = []
+        for k, v in six.iteritems(self.stat_dict):
+            for m in six.iterkeys(v):
+                if v[m]:
+                    data_temp.append((k, m))
+        return data_temp
+
+

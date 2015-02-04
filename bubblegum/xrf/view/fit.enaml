@@ -44,6 +44,7 @@ from auto_enaml.api import AutoView
 from enaml.stdlib.fields import FloatField
 from enaml.layout.geometry import Box
 
+from bubblegum.xrf.model.fit_spectrum import Param
 
 enamldef FitView(DockItem): fit_view:
     attr io_model
@@ -136,9 +137,9 @@ enamldef FitView(DockItem): fit_view:
         PushButton: btn_edit:
             text = 'Edit Defaults'
             clicked ::
-                #ParameterEdit.parameter_model = fit_model.param_dict
-                #ParameterEdit.param = param_model
-                #ParameterEdit().show()
+                #ParameterEdit_old.parameter_model = fit_model.param_dict
+                #ParameterEdit_old.param = Param
+                #ParameterEdit_old().show()
                 #param_model.get_param(param_model.param_new)
                 param_model.get_param(fit_model.param_dict)
                 ParameterEdit.parameter_model = param_model
@@ -156,11 +157,7 @@ enamldef ParameterEdit(Window):
                 av.model = parameter_model.parameters[selected_item]
         AutoView: av:
             model = parameter_model.parameters.values()[0]
-            padding = Box(2, 2, 2, 2)
-            initialized ::
-                for o in objects:
-                    print(dir(o.label))
-                    o.label.tool_tip = str(o)
+            padding = 10
         PushButton: save:
             text = "Save changes to disk"
             clicked ::
@@ -187,7 +184,7 @@ enamldef ParameterEdit_old(Window):
         ComboBox: cmb:
             items << sorted(parameter_model.keys())
             selected_item ::
-                print(str(parameter_model[selected_item]['value']))
+                #print(str(parameter_model[selected_item]['value']))
                 param.name = selected_item
                 param.value = parameter_model[selected_item]['value']
                 param.min = parameter_model[selected_item]['min']

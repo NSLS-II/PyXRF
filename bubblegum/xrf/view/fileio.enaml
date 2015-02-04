@@ -52,6 +52,7 @@ enamldef FileView(DockItem): file_view:
     attr param_model
     attr plot_model
     attr img_model
+    attr img_model_adv
     attr fit_model
     attr setting_model
 
@@ -92,9 +93,13 @@ enamldef FileView(DockItem): file_view:
                         #CB.items = ['Please select file'] + io_model.file_names
                         io_model.get_roi_data()
                         img_model.data_dict = io_model.img_dict
+                        img_model_adv.data_dict = io_model.img_dict_flat
                         param_model.data_sets = io_model.data_sets
                         plot_model.parameters = param_model.parameters
                         setting_model.parameters = param_model.parameters
+
+                        plot_model.data_dict = io_model.data_dict
+
                         #name_lb.text = '{:>16} {:>16} {:>16}'.format('Methods to Plot',
                         #                                             'Starting: x,y', 'Ending: x,y')
 

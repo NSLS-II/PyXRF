@@ -12,33 +12,36 @@ from matplotlib.figure import Figure
 
 enamldef ImageMain(DockItem):
     attr io_model
-    attr draw_img
+    attr img_model
+    attr img_model_adv
     Container:
         constraints = [
             vbox(
-                hbox(cbox_file, cbox_type, pb_choose, plot_btn, check, spacer),
+                #hbox(cbox_file, cbox_type, pb_choose, spacer),
+                hbox(pb_all, spacer, plot_btn, check),
                 canvas,
             ),
-            cbox_type.v_center == check.v_center,
+            #cbox_type.v_center == check.v_center,
         ]
-        ComboBox: cbox_file:
-            items << [' '] + sorted(draw_img.data_dict.keys())
-            index := draw_img.file_opt
-            index = 0
-        ComboBox: cbox_type:
-            items = ['Plot Type', 'ROI sum', 'Fit']
-            index := draw_img.plot_opt
-            index = 0
 
-        PushButton: pb_choose:
-            text = 'Select Elements'
-            enabled = True
-            #checkable = True
-            clicked ::
+        #ComboBox: cbox_file:
+        #    items << [' '] + sorted(img_model.data_dict.keys())
+        #    index := img_model.file_opt
+        #    index = 0
+        #ComboBox: cbox_type:
+        #    items = ['Plot Type', 'ROI sum', 'Fit']
+        #    index := img_model.plot_opt
+        #    index = 0
+
+        #PushButton: pb_choose:
+        #    text = 'Select Elements'
+        #    enabled = True
+        #    #checkable = True
+        #    clicked ::
                 #ChooseElement.xrf_data = io_model.data_obj
-                ChooseElement.draw_img = draw_img
-                ChooseElement().show()
-                #draw_img.img_data = io_model.data_obj['XRF_roi']
+                #ChooseElement.img_model = img_model
+                #ChooseElement().show()
+                #img_model.img_data = io_model.data_obj['XRF_roi']
 
         #ComboBox: cb_choose:
         #    items = io_model.data_obj['channel_names'].value.tolist()
@@ -46,20 +49,82 @@ enamldef ImageMain(DockItem):
         #ComboBox: plot_dim:
         #    items = ['1*1', '2*2', '3*3', '4*4']
         #    index = 0
+
+        #CheckBox: cb_mode:
+        #    text = 'Advanced Mode'
+        #    clicked ::
+        #        if checked:
+        #            cbox_file.enabled = False
+        #            cbox_type.enabled = False
+        #            pb_choose.enabled = False
+        #            pb_all.enabled = True
+        #        else:
+        #            cbox_file.enabled = True
+        #            cbox_type.enabled = True
+        #            pb_choose.enabled = True
+        #            pb_all.enabled = False
+
+        PushButton: pb_all:
+            text = 'Select ROI'
+            enabled = True
+            clicked ::
+                ChooseElementAdvanced.img_model = img_model_adv
+                ChooseElementAdvanced().show()
+
         PushButton: plot_btn:
             text = 'Show Image'
             clicked ::
-                draw_img.show_image()
+                img_model_adv.show_image()
         CheckBox: check:
             text = 'Toolbar Visible'
             checked := canvas.toolbar_visible
         MPLCanvas: canvas:
-            figure << draw_img.fig
+            figure << img_model_adv.fig
             #figure << figures[cbox_type.selected_item]
 
 
+enamldef ChooseElementAdvanced(Window):
+    attr img_model
+
+    title = 'Results of Auto Peak Finding'
+    Container:
+        ComboBox: cb:
+            items << sorted(img_model.data_dict.keys())
+            #index := img_model.file_opt
+            index = 0
+
+        ScrollArea:
+            constraints = [height >= 200]
+            Container:
+                Form:
+                    Label:
+                        text = '{:>20} {:>20}'.format('Name', 'Add/Remove')
+                    Label:
+                        pass
+                    Looper: looper:
+                        #iterable << img_model.img_data.keys()
+                        #iterable << img_model.img_data.keys()
+                        iterable << img_model.data_dict[cb.selected_item].keys()
+                        Label:
+                            font = 'monospace'
+                            text = '{:>20}'.format(loop_item)
+                        PushButton: element_btn:
+                            text = 'ShowImg'
+                            checkable = True
+                            checked := img_model.stat_dict[cb.selected_item][loop_item]
+                            clicked ::
+                                if checked:
+                                    img_model.stat_dict[cb.selected_item][loop_item] = True
+                                    print('selected!')
+                                    #img_model.show_image()
+                                else:
+                                    img_model.stat_dict[cb.selected_item][loop_item] = False
+                                    print('Not selected!')
+                                    #img_model.show_image()
+
+
 enamldef ChooseElement(Window):
-    attr draw_img
+    attr img_model
 
     title = 'Results of Auto Peak Finding'
     Container:
@@ -72,13 +137,13 @@ enamldef ChooseElement(Window):
                     Label:
                         pass
                     Looper: looper:
-                        iterable << draw_img.img_data.keys()
+                        iterable << img_model.img_data.keys()
                         Label:
                             font = 'monospace'
                             text = '{:>20}'.format(loop_item)
                         PushButton: element_btn:
                             text = 'ShowImg'
                             checkable = True
-                            checked = draw_img.stat_dict[loop_item]
+                            checked = img_model.stat_dict[loop_item]
                             clicked ::
-                                draw_img.stat_dict[loop_item] = checked
+                                img_model.stat_dict[loop_item] = checked

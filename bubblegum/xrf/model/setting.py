@@ -70,6 +70,10 @@ class SettingModel(Atom):
     roi_dict = OrderedDict()
     parameters = Dict()
 
+    data_sets = Dict()
+
+
+
     def __init__(self):
         self.element_list = []
 
@@ -116,6 +120,10 @@ class SettingModel(Atom):
         temp_val = 2 * np.sqrt(2 * np.log(2))
         return np.sqrt((self.parameters['fwhm_offset'].value/temp_val)**2 +
                        energy*epsilon*self.parameters['fwhm_fanoprime'].value)
+
+
+
+
 
 
 class ROIModel(Atom):

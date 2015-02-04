@@ -220,7 +220,6 @@ class Param(Atom):
     e_calibration = Str()
     linear = Str()
 
-
     def __init__(self):
         self.value = 0.0
         self.min = 0.0

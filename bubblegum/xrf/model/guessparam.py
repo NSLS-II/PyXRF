@@ -73,11 +73,9 @@ class Parameter(Atom):
     description = Str()
     tool_tip = Str()
 
-    @observe('name')
+    @observe('name', 'bound_type', 'min', 'max', 'value', 'default_value')
     def update_displayed_name(self, changed):
-        if not self.description:
-            pass
-    #        self.description = self.name
+        print(changed)
 
     def __repr__(self):
         return ("Parameter(bound_type={}, min={}, max={}, value={}, "

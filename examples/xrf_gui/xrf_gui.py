@@ -42,7 +42,7 @@ from enaml.qt.qt_application import QtApplication
 from bubblegum.xrf.model.fileio import FileIOModel
 from bubblegum.xrf.model.lineplot import LinePlotModel
 from bubblegum.xrf.model.guessparam import GuessParamModel
-from bubblegum.xrf.model.draw_image import DrawImage
+from bubblegum.xrf.model.draw_image import DrawImage, DrawImageAdvanced
 from bubblegum.xrf.model.fit_spectrum import Fit1D, Param
 from bubblegum.xrf.model.setting import SettingModel
 import json
@@ -104,6 +104,7 @@ def run():
     xrfview.fit_model = Fit1D(**defaults)
     xrfview.setting_model = SettingModel()
     xrfview.Param = Param()
+    xrfview.img_model_adv = DrawImageAdvanced()
 
     xrfview.show()
     app.start()

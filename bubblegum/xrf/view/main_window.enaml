@@ -53,6 +53,7 @@ enamldef XRFGui(MainWindow): main_window:
     attr param_model
     attr plot_model
     attr img_model
+    attr img_model_adv
     attr fit_model
     attr setting_model
     attr Param
@@ -72,6 +73,8 @@ enamldef XRFGui(MainWindow): main_window:
                 param_model = main_window.param_model
                 plot_model = main_window.plot_model
                 img_model = main_window.img_model
+                img_model_adv = main_window.img_model_adv
+
                 fit_model = main_window.fit_model
                 setting_model = main_window.setting_model
                 name = 'file_view'
@@ -94,7 +97,8 @@ enamldef XRFGui(MainWindow): main_window:
                 closable = False
                 title = 'Element Map'
                 io_model = main_window.io_model
-                draw_img = main_window.img_model
+                img_model = main_window.img_model
+                img_model_adv = main_window.img_model_adv
                 #plot_model = main_window.plot_model
                 name = 'image_view'
             FitView:
@@ -110,5 +114,6 @@ enamldef XRFGui(MainWindow): main_window:
                 title = 'Setting'
                 io_model = main_window.io_model
                 plot_model = main_window.plot_model
+                img_model_adv = main_window.img_model_adv
                 #setting_model = main_window.setting_model
                 name = 'setting_view'

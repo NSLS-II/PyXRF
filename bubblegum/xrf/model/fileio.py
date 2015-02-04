@@ -73,6 +73,8 @@ class FileIOModel(Atom):
     load_status = Str()
     data_dict = Dict()
     img_dict = Dict()
+    img_dict_flat = Dict()
+
     data_sets = OrderedDict()
 
     def __init__(self,
@@ -110,6 +112,8 @@ class FileIOModel(Atom):
         for k, v in six.iteritems(self.data_dict):
             roi_dict = {d[0]: d[1] for d in zip(v['channel_names'], v['XRF_roi'])}
             self.img_dict.update({str(k): {'roi_sum': roi_dict}})
+
+            self.img_dict_flat.update({str(k).split('.')[0]+'_roi_sum': roi_dict})
 
 
 plot_as = ['Sum', 'Point', 'Roi']
