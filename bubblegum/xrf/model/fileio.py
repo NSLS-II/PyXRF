@@ -91,7 +91,7 @@ class FileIOModel(Atom):
     def update_more_data(self, change):
         self.data_sets.clear()
         self.file_names.sort()
-        print('file name: {}'.format(self.file_names))
+        logger.info('Loaded files : {}'.format(self.file_names))
         for fname in self.file_names:
             try:
                 self.file_path = os.path.join(self.working_directory, fname)

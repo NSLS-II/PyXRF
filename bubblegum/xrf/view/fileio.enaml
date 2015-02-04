@@ -98,7 +98,7 @@ enamldef FileView(DockItem): file_view:
                         plot_model.parameters = param_model.parameters
                         setting_model.parameters = param_model.parameters
 
-                        plot_model.data_dict = io_model.data_dict
+                        setting_model.data_dict = io_model.data_dict
 
                         #name_lb.text = '{:>16} {:>16} {:>16}'.format('Methods to Plot',
                         #                                             'Starting: x,y', 'Ending: x,y')

@@ -50,6 +50,7 @@ enamldef SettingView(DockItem):
     attr io_model
     attr plot_model
     attr img_model_adv
+    attr setting_model
 
     Container:
         Container:
@@ -65,18 +66,18 @@ enamldef SettingView(DockItem):
             Label: setup_lbl:
                 text = 'ROI Setup: enter elements below, e.g., Fe_K, Gd_L'
             Field: element_fd:
-                text >> plot_model.element_for_roi
+                text >> setting_model.element_for_roi
             Label: prefix_lbl:
                 text = 'Prefix'
             Field: prefix_fd:
-                text := plot_model.prefix_name_roi
+                text := setting_model.prefix_name_roi
                 submit_triggers = ['auto_sync']
             PushButton: calculate_btn:
                 text = 'Calculate ROI'
                 clicked ::
-                    plot_model.get_roi_sum()
+                    roi_result = setting_model.get_roi_sum()
                     #img_model_adv.data_dict.update({'new_data':{'a': np.ones([100,100])}})
-                    img_model_adv.data_dict.update(plot_model.roi_result)
+                    img_model_adv.data_dict.update(roi_result)
                     img_model_adv.set_initial_stat()
 
             ScrollArea: scroller:
@@ -86,7 +87,7 @@ enamldef SettingView(DockItem):
                     #    text = '{:>4} {:>10} {:>10} {:>10} {:>10} {:>10}'.format('Name', 'Energy[eV]', 'Left[eV]',
                     #                                                             'Right[eV]', 'Plot', 'Default')
                     Looper: looper:
-                        iterable << plot_model.element_list_roi
+                        iterable << setting_model.element_list_roi
                         GroupBox:
                         #Container:
                             constraints = [vbox(hbox(mean_lb, roi_lb, left_v, right_v, spacer),
@@ -99,20 +100,20 @@ enamldef SettingView(DockItem):
                             #Label: name_lb:
                             #    text = 'Element line: {}'.format(loop_item)
                             Label: mean_lb:
-                                text = 'Energy: {},'.format(str(plot_model.roi_dict[loop_item].line_val))
+                                text = 'Energy: {},'.format(str(setting_model.roi_dict[loop_item].line_val))
                                 #maximum_size = 140
                             Label: roi_lb:
                                 text = 'ROI : '
                                 #maximum_size = 80
                             SpinBox: left_v:
-                                value := plot_model.roi_dict[loop_item].left_val
-                                single_step = plot_model.roi_dict[loop_item].step
+                                value := setting_model.roi_dict[loop_item].left_val
+                                single_step = setting_model.roi_dict[loop_item].step
                                 #maximum_size = 140
                                 minimum = 0
                                 maximum = 100000
                             SpinBox: right_v:
-                                value := plot_model.roi_dict[loop_item].right_val
-                                single_step = plot_model.roi_dict[loop_item].step
+                                value := setting_model.roi_dict[loop_item].right_val
+                                single_step = setting_model.roi_dict[loop_item].step
                                 #maximum_size = 140
                                 minimum = 0
                                 maximum = 100000
@@ -120,8 +121,9 @@ enamldef SettingView(DockItem):
                                 text = 'Add Plot'
                                 #maximum_size = 100
                                 checkable = True
-                                checked := plot_model.roi_dict[loop_item].show_plot
+                                checked := setting_model.roi_dict[loop_item].show_plot
                                 clicked ::
+                                    plot_model.roi_dict = setting_model.roi_dict
                                     if checked:
                                         plot_model.roi_dict[loop_item].show_plot = True
                                         #plot_model.roi_dict = setting_model.roi_dict

@@ -33,6 +33,9 @@
 # POSSIBILITY OF SUCH DAMAGE.                                          #
 ########################################################################
 
+from __future__ import (absolute_import, division,
+                        print_function)
+
 __author__ = 'Li Li'
 
 import numpy as np
@@ -50,6 +53,9 @@ from .guessparam import Parameter
 
 from skxray.fitting.xrf_model import (k_line, l_line, m_line)
 from skxray.constants.api import XrfElement as Element
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 def get_color_name():
@@ -144,8 +150,8 @@ class LinePlotModel(Atom):
 
     prefix_name_roi = Str()
     element_for_roi = Str()
-    element_list_roi = List()
-    roi_dict = OrderedDict()
+    #element_list_roi = List()
+    roi_dict = Typed(object) #OrderedDict()
 
     data_dict = Dict()
     roi_result = Dict()
@@ -245,9 +251,9 @@ class LinePlotModel(Atom):
         """
         try:
             self.plot_exp_obj.remove()
-            print('Previous experimental data is removed.')
+            logger.debug('Previous experimental data is removed.')
         except AttributeError:
-            print('No need to remove experimental data.')
+            logger.debug('No need to remove experimental data.')
 
         data_arr = np.asarray(self.data)
         x_v = (self.parameters['e_offset'].value +
@@ -322,7 +328,6 @@ class LinePlotModel(Atom):
 
     @observe('element_id')
     def set_element(self, change):
-        print('change: {}'.format(change['value']))
         if change['value'] == 0:
             while(len(self.eline_obj)):
                 self.eline_obj.pop().remove()
@@ -332,11 +337,11 @@ class LinePlotModel(Atom):
 
         self.elist = []
         total_list = k_line + l_line + m_line
-        print('Plot emission line for element: {}'.format(self.element_id))
+        logger.debug('Plot emission line for element: {}'.format(self.element_id))
         ename = total_list[self.element_id-1]
 
         incident_energy = self.incident_energy
-        print('Use incident energy: {}'.format(incident_energy))
+        logger.info('Use incident energy {} for emission line calculation.'.format(incident_energy))
 
         if len(ename) <= 2:
             e = Element(ename)
@@ -347,7 +352,6 @@ class LinePlotModel(Atom):
 
         elif '_L' in ename:
             e = Element(ename[:-2])
-            print e.cs(incident_energy)['la1']
             if e.cs(incident_energy)['la1'] != 0:
                 for i in range(4, 17):
                     self.elist.append((e.emission_line.all[i][1],
@@ -361,105 +365,11 @@ class LinePlotModel(Atom):
                                        e.cs(incident_energy).all[i][1]/e.cs(incident_energy).all[17][1]))
         self.plot_emission_line()
         self._update_canvas()
-        #self._ax.legend()
-        #self._fig.canvas.draw()
-
-    @observe('element_for_roi')
-    def _update_element(self, change):
-        #if change['type'] == 'create':
-        #    return
-
-        self.element_for_roi = self.element_for_roi.strip(' ')
-        if len(self.element_for_roi) == 0:
-            element_list = []
-            self.roi_dict.clear()
-        elif ',' in self.element_for_roi:
-            element_list = [v.strip(' ') for v in self.element_for_roi.split(',')]
-        else:
-            element_list = [v for v in self.element_for_roi.split(' ')]
-
-        #with self.suppress_notifications():
-        #    self.element_list_roi = element_list
-
-        self.update_roi(element_list)
-        self.element_list_roi = element_list
-
-        #self.update_roi()
-        #self.element_list_roi = element_list
-        #if len(self.element_list_roi):
-        #    self.update_roi()
-
-    def update_roi(self, element_list):
-        """
-        Update newly added element without removing old ones.
-
-        Parameters
-        ----------
-        element_list : list
-        """
-        if not len(element_list):
-            return
-
-        for v in element_list:
-            if '_K' in v:
-                temp = v.split('_')[0]
-                e = Element(temp)
-                val = int(e.emission_line['ka1']*1000)
-            elif '_L' in v:
-                temp = v.split('_')[0]
-                e = Element(temp)
-                val = int(e.emission_line['la1']*1000)
-            elif '_M' in v:
-                temp = v.split('_')[0]
-                e = Element(temp)
-                val = int(e.emission_line['ma1']*1000)
-
-            delta_v = int(self.get_sigma(val/1000.)*1000)
-            roi = ROIModel(prefix=self.prefix_name_roi,
-                           line_val=val,
-                           left_val=val-delta_v*2,
-                           right_val=val+delta_v*2,
-                           default_left=val-delta_v*2,
-                           default_right=val+delta_v*2,
-                           step=1,
-                           show_plot=False)
-            if self.roi_dict.has_key(v):
-                continue
-            self.roi_dict.update({v: roi})
-
-    @observe('prefix_name_roi')
-    def _update_prefix(self, change):
-        print('update name now: {}'.format(self.prefix_name_roi))
-        for k, v in six.iteritems(self.roi_dict):
-            v.prefix = self.prefix_name_roi
-
-    def get_sigma(self, energy, epsilon=2.96):
-        """
-        Calculate the std at given energy.
-        """
-        print('param: {}'.format(self.parameters.keys()))
-        temp_val = 2 * np.sqrt(2 * np.log(2))
-        return np.sqrt((self.parameters['fwhm_offset'].value/temp_val)**2 +
-                       energy*epsilon*self.parameters['fwhm_fanoprime'].value)
-
-    def get_roi_sum(self):
-        """
-        Save roi sum into a dict.
-        """
-        for fname, datav in six.iteritems(self.data_dict):
-            temp = {}
-            for k, v in six.iteritems(self.roi_dict):
-                lowv = v.left_val/1000.
-                rightv = v.right_val/1000.
-                print('name is {}'.format(v.prefix))
-                sum2D = calculate_roi(datav['mca_arr'], self.parameters['e_linear'].value,
-                                      self.parameters['e_offset'].value, [lowv, rightv])
-                temp.update({k: sum2D})
-            self.roi_result.update({v.prefix+'_'+fname: temp})
 
     def plot_roi_bound(self):
-        #while(len(self.roi_plot_dict)):
-        #self.roi_plot_dict = {}
+        """
+        Plot roi with low, high and ceter value.
+        """
         for k, v in six.iteritems(self.roi_plot_dict):
             for data in v:
                 data.remove()
@@ -485,7 +395,7 @@ class LinePlotModel(Atom):
 
     @observe('roi_dict')
     def show_roi_bound(self, change):
-        print('roi dict changed {}'.format(change))
+        logger.debug('roi dict changed {}'.format(change['value']))
         self.plot_roi_bound()
 
         if len(self.roi_dict):
@@ -655,55 +565,3 @@ class LinePlotModel(Atom):
         self._ax.set_xlim([self.prefit_x[0], self.prefit_x[-1]])
         self.plot_autofit()
 
-
-class ROIModel(Atom):
-    """
-    This class defines basic data structure for roi setup.
-
-    Attributes
-    ----------
-    line_val : float
-        emission energy of primary line
-    left_val : float
-        left boundary
-    right_val : float
-        right boundary
-    step : float
-        min step value to change
-    show_plot : bool
-        option to plot
-    """
-    prefix = Str()
-    line_val = Int()
-    left_val = Int()
-    right_val = Int()
-    default_left = Int()
-    default_right = Int()
-    step = Int(1)
-    show_plot = Bool(False)
-
-    @observe('left_val')
-    def _value_update(self, change):
-        print('left value is changed {}'.format(change))
-
-    @observe('show_plot')
-    def _plot_opt(self, change):
-        print('show plot is changed {}'.format(change))
-
-
-def calculate_roi(data3D, e_linear, e_offset, range_v):
-    """
-    Calculate 2D map for given ROI.
-
-    Parameters
-    ----------
-    data3D : 3D array
-    e_linear : float
-    e_offset : float
-    range_v : list
-    """
-    data3D = np.asarray(data3D)
-    range_v = np.asarray(range_v)
-    range_v = (range_v - e_offset)/e_linear
-    range_v = [int(round(v)) for v in range_v]
-    return np.sum(data3D[range_v[0]:range_v[1], :, :], axis=0)

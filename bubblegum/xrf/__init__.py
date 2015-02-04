@@ -1,1 +1,2 @@
-__author__ = 'edill'
+import logging
+logger = logging.getLogger(__name__)

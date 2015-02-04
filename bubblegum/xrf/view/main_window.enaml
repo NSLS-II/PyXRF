@@ -115,5 +115,5 @@ enamldef XRFGui(MainWindow): main_window:
                 io_model = main_window.io_model
                 plot_model = main_window.plot_model
                 img_model_adv = main_window.img_model_adv
-                #setting_model = main_window.setting_model
+                setting_model = main_window.setting_model
                 name = 'setting_view'

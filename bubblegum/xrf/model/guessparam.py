@@ -54,6 +54,10 @@ from skxray.fitting.xrf_model import (ModelSpectrum, ParamController,
                                       set_range, k_line, l_line, m_line,
                                       get_linear_model, PreFitAnalysis)
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 bound_options = ['none', 'lohi', 'fixed', 'lo', 'hi']
 
 

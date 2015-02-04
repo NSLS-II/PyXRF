@@ -37,10 +37,12 @@ __author__ = 'Li Li'
 
 import os
 import numpy as np
+import logging
+
 import enaml
 from enaml.qt.qt_application import QtApplication
 from bubblegum.xrf.model.fileio import FileIOModel
-from bubblegum.xrf.model.lineplot import LinePlotModel
+from bubblegum.xrf.model.lineplot import LinePlotModel #, SettingModel
 from bubblegum.xrf.model.guessparam import GuessParamModel
 from bubblegum.xrf.model.draw_image import DrawImage, DrawImageAdvanced
 from bubblegum.xrf.model.fit_spectrum import Fit1D, Param
@@ -90,6 +92,13 @@ def get_defaults():
 
 
 def run():
+
+    LOG_F = 'log_example.out'
+    logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s',
+                        level=logging.DEBUG,
+                        #filename=LOG_F,
+                        filemode='w')
+
     app = QtApplication()
     with enaml.imports():
         from bubblegum.xrf.view.main_window import XRFGui

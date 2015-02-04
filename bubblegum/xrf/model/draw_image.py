@@ -42,6 +42,9 @@ import matplotlib.pyplot as plt
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 class DrawImage(Atom):
     """
@@ -104,7 +107,6 @@ class DrawImage(Atom):
         if self.plot_opt == 1:
             self.img_data = self.single_file['roi_sum']
             self.show_image()
-            #print('img data: {}'.format(self.img_data.keys()))
 
     #@observe('stat_dict')
     def show_image(self):

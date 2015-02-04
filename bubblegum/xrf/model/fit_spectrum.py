@@ -53,6 +53,9 @@ from skxray.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
 from skxray.fitting.background import snip_method
 from lmfit import fit_report
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 class Fit1D(Atom):
 
