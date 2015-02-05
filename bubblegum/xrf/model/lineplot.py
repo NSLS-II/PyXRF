@@ -146,15 +146,15 @@ class LinePlotModel(Atom):
     plot_style = Dict()
 
     roi_plot_dict = Dict()
-    roi_dict = Dict()
-
-    prefix_name_roi = Str()
-    element_for_roi = Str()
-    #element_list_roi = List()
     roi_dict = Typed(object) #OrderedDict()
 
-    data_dict = Dict()
-    roi_result = Dict()
+    #prefix_name_roi = Str()
+    #element_for_roi = Str()
+    #element_list_roi = List()
+    #roi_dict = Typed(object) #OrderedDict()
+
+    #data_dict = Dict()
+    #roi_result = Dict()
 
     def __init__(self):
         self._fig = plt.figure()

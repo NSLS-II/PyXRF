@@ -133,6 +133,41 @@ def format_dict(parameter_object_dict, element_list):
     return param_dict
 
 
+def dict_to_param(param_dict):
+    """
+    Transfer param dict to parameter object.
+
+    Parameters
+    param_dict : dict
+        fitting parameter
+    """
+    temp_parameters = copy.deepcopy(param_dict)
+    param = {}
+
+    non_fitting_values = temp_parameters.pop('non_fitting_values')
+    element_list = non_fitting_values.pop('element_list')
+    if not isinstance(element_list, list):
+        element_list = [e.strip(' ') for e in element_list.split(',')]
+    #self.element_list = element_list
+
+    elo = non_fitting_values.pop('energy_bound_low')
+    ehi = non_fitting_values.pop('energy_bound_high')
+    param = {
+        'energy_bound_low': Parameter(value=elo,
+                                      default_value=elo,
+                                      description='E low limit [keV]'),
+        'energy_bound_high': Parameter(value=ehi,
+                                       default_value=ehi,
+                                       description='E high limit [keV]')
+    }
+
+    for param_name, param_dict in six.iteritems(temp_parameters):
+        param.update({
+            param_name: Parameter(**param_dict)
+        })
+    return element_list, param
+
+
 class PreFitStatus(Atom):
     z = Str()
     spectrum = Typed(np.ndarray)
@@ -199,9 +234,11 @@ class GuessParamModel(Atom):
     def __init__(self, *args, **kwargs):
         try:
             default_parameters = kwargs['default_parameters']
+            self.element_list, self.parameters = dict_to_param(default_parameters)
+            #self.get_param(default_parameters)
         except ValueError:
-            print('No default parameter files are chosen.')
-        self.get_param(default_parameters)
+            logger.info('No default parameter files are chosen.')
+
         self.total_y_l = {}
         self.result_dict = OrderedDict()
         self.result_folder = kwargs['working_directory']
@@ -216,47 +253,26 @@ class GuessParamModel(Atom):
         """
         with open(param_path, 'r') as json_data:
             new_param = json.load(json_data)
-        self.get_param(new_param)
+        self.element_list, self.parameters = dict_to_param(new_param)
+        #self.element_list, self.parameters = self.get_param(new_param)
 
-    def get_param(self, default_parameters):
+    def get_param(self, param_dict):
         """
         Transfer dict into the type of parameter class.
 
         Parameters
         ----------
-        default_parameters : dict
+        param_dict : dict
             Dictionary of parameters used for fitting.
         """
-        non_fitting_values = default_parameters.pop('non_fitting_values')
-        element_list = non_fitting_values.pop('element_list')
-        if not isinstance(element_list, list):
-            element_list = [e.strip(' ') for e in element_list.split(',')]
-        self.element_list = element_list
+        self.element_list, self.parameters = dict_to_param(param_dict)
 
-        elo = non_fitting_values.pop('energy_bound_low')
-        ehi = non_fitting_values.pop('energy_bound_high')
-        self.parameters = {
-            'energy_bound_low': Parameter(value=elo,
-                                          default_value=elo,
-                                          description='E low limit [keV]'),
-            'energy_bound_high': Parameter(value=ehi,
-                                           default_value=ehi,
-                                           description='E high limit [keV]')
-        }
+    def to_dict(self, param_obj, element_list=None):
 
-        for param_name, param_dict in six.iteritems(default_parameters):
-            print(param_name)
-            self.parameters.update({
-                param_name: Parameter(**param_dict)
-            })
+        if not element_list:
+            element_list = self.element_list
+        return format_dict(param_obj, element_list)
 
-        # self.parameters.update({
-        #     param_name: Parameter(name=param_name,
-        #                           default_value=param_dict['value'],
-        #                           **param_dict)
-        #     for param_name, param_dict in six.iteritems(default_parameters)
-        # })
-        #pprint(self.parameters)
 
     @observe('file_opt')
     def choose_file(self, change):
@@ -303,10 +319,15 @@ class GuessParamModel(Atom):
         """
         Save selected list to param dict.
         """
-        elist_k = [v[:-2] for v in self.e_list.split(', ') if '_K' in v]
-        elist_l_m = [v for v in self.e_list.split(', ') if '_K' not in v]
-        elist = elist_k + elist_l_m
-        # create dictionary to save element
+        if len(self.e_list):
+            elist_k = [v[:-2] for v in self.e_list.split(', ') if '_K' in v]
+            elist_l_m = [v for v in self.e_list.split(', ') if '_K' not in v]
+            elist = elist_k + elist_l_m
+            logger.info('Input elements for fitting are {}'.format(elist))
+        else:
+            elist = self.element_list
+            logger.warning('No input elements are given in auto fitting. '
+                           'Use default elements: {}.'.format(elist))
         self.param_d = format_dict(self.parameters, elist)
 
     def create_full_param(self,
@@ -323,11 +344,14 @@ class GuessParamModel(Atom):
             initial value for element peak height
         """
 
+        self.save_elist()
+
         PC = ParamController(self.param_d)
         PC.create_full_param()
         self.param_new = PC.new_parameter
         factor_to_area = np.sqrt(2*np.pi)*peak_std*0.5
 
+        # update according to pre fit results
         if len(self.result_dict):
             for e in self.e_list.split(','):
                 e = e.strip(' ')
@@ -369,8 +393,8 @@ class GuessParamModel(Atom):
         fname : str, optional
             file name to save updated parameters
         """
-        self.save_elist()
-        self.create_full_param()
+        #self.save_elist()
+        #self.create_full_param()
         fpath = os.path.join(self.result_folder, fname)
         with open(fpath, 'w') as outfile:
             json.dump(self.param_new, outfile,
@@ -380,11 +404,20 @@ class GuessParamModel(Atom):
         """
         Save full param dict into a file.
         """
-        self.save_elist()
-        self.create_full_param()
+        #self.save_elist()
+        #self.create_full_param()
         with open(self.file_path, 'w') as outfile:
             json.dump(self.param_new, outfile,
                       sort_keys=True, indent=4)
+
+    def read_pre_saved(self, fname='param_default1.json'):
+        """This is a bad idea."""
+
+        fpath = os.path.join(self.result_folder, fname)
+        with open(fpath, 'r') as infile:
+            data = json.load(infile)
+        return data
+
 
 
 def pre_fit_linear(y0, fitting_parameters):
@@ -441,7 +474,8 @@ def pre_fit_linear(y0, fitting_parameters):
     for i in range(len(total_list)):
         if np.sum(total_y[:, i]) == 0:
             continue
-        if '_L' in total_list[i] or total_list[i] in non_element:
+        if '_L' in total_list[i] or '_M' in total_list[i] \
+                or total_list[i] in non_element:
             result_dict.update({total_list[i]: total_y[:, i]})
         else:
             result_dict.update({total_list[i] + '_K': total_y[:, i]})

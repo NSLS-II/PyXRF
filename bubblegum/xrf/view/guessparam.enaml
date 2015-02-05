@@ -150,6 +150,7 @@ enamldef GuessParamView(DockItem): param_view:
         PushButton: pb10:
             text = 'Save'
             clicked ::
+                param_model.create_full_param()
                 param_model.save()
         PushButton: pb11:
             text = 'Save As'
@@ -157,6 +158,7 @@ enamldef GuessParamView(DockItem): param_view:
                 path = FileDialogEx.get_save_file_name(param_view,
                                                        current_path=io_model.working_directory)
                 if path:
+                    param_model.create_full_param()
                     param_model.file_path = path
                     param_model.save_as()
         PushButton: pb12:

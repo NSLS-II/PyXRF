@@ -38,10 +38,7 @@ from __future__ import (absolute_import, division,
 __author__ = 'Li Li'
 
 import six
-import h5py
 import numpy as np
-import copy
-import os
 from collections import OrderedDict
 
 from atom.api import (Atom, Str, observe, Typed,
@@ -55,16 +52,20 @@ logger = logging.getLogger(__name__)
 
 class ROIModel(Atom):
     """
-    This class defines basic data structure for roi setup.
+    This class defines basic data structure for roi calculation.
 
     Attributes
     ----------
+    prefix : str
+        prefix name
     line_val : float
         emission energy of primary line
     left_val : float
         left boundary
     right_val : float
         right boundary
+    default_left : float
+    default_right : float
     step : float
         min step value to change
     show_plot : bool
@@ -81,14 +82,36 @@ class ROIModel(Atom):
 
     @observe('left_val')
     def _value_update(self, change):
+        if change['type'] == 'create':
+            return
         logger.debug('left value is changed {}'.format(change))
 
     @observe('show_plot')
     def _plot_opt(self, change):
+        if change['type'] == 'create':
+            return
         logger.debug('show plot is changed {}'.format(change))
 
 
 class SettingModel(Atom):
+    """
+    Control roi calculation according to given inputs.
+
+    Parameters
+    ----------
+    parameters : dict
+        parameter values used for fitting
+    data_dict : dict
+        dict of 3D data
+    prefix_name_roi : str
+        name ID for roi calculation
+    element_for_roi : str
+        inputs given by users
+    element_list_roi : list
+        list of elements after parsing
+    roi_dict : dict
+        dict of ROIModel object
+    """
     parameters = Dict()
     data_dict = Dict()
 
@@ -168,7 +191,9 @@ class SettingModel(Atom):
 
     @observe('prefix_name_roi')
     def _update_prefix(self, change):
-        logger.info('update name now: {}'.format(self.prefix_name_roi))
+        if change['type'] == 'create':
+            return
+        logger.info('Use prefix name : {}'.format(self.prefix_name_roi))
         for k, v in six.iteritems(self.roi_dict):
             v.prefix = self.prefix_name_roi
 
@@ -191,14 +216,15 @@ class SettingModel(Atom):
         """
         roi_result = {}
         for fname, datav in six.iteritems(self.data_dict):
+            fname = fname.split('.')[0]
             temp = {}
             for k, v in six.iteritems(self.roi_dict):
                 lowv = v.left_val/1000
                 rightv = v.right_val/1000
-                logger.info('Prefix name is chosen as {}'.format(v.prefix))
                 sum2D = calculate_roi(datav['mca_arr'], self.parameters['e_linear'].value,
                                       self.parameters['e_offset'].value, [lowv, rightv])
                 temp.update({k: sum2D})
+                logger.info('Calculation is done for {}, {}, {}'.format(v.prefix, fname, k))
             roi_result.update({v.prefix+'_'+fname: temp})
         return roi_result
 
@@ -213,6 +239,11 @@ def calculate_roi(data3D, e_linear, e_offset, range_v):
     e_linear : float
     e_offset : float
     range_v : list
+
+    Returns
+    -------
+    array
+        2D map
     """
     data3D = np.asarray(data3D)
     range_v = np.asarray(range_v)

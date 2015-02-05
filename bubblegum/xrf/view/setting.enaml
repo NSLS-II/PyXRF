@@ -43,6 +43,7 @@ from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer, gri
 from enaml.core.api import Include, Looper
 from enaml.layout.geometry import Box
 from enaml.stdlib.fields import FloatField
+from enaml.stdlib.message_box import MessageBox, warning, information
 
 import numpy as np
 
@@ -75,17 +76,22 @@ enamldef SettingView(DockItem):
             PushButton: calculate_btn:
                 text = 'Calculate ROI'
                 clicked ::
-                    roi_result = setting_model.get_roi_sum()
-                    #img_model_adv.data_dict.update({'new_data':{'a': np.ones([100,100])}})
-                    img_model_adv.data_dict.update(roi_result)
-                    img_model_adv.set_initial_stat()
+                    if len(setting_model.element_for_roi) == 0:
+                        warning(self, 'Warning Dialog', 'Please enter element first.')
+                    elif len(setting_model.prefix_name_roi) == 0:
+                        warning(self, 'Warning Dialog', 'Please enter prefix name first.')
+                    else:
+                        #box = MessageBox()
+                        #box.title = 'Warning Message'
+                        #box.text = 'please enter prefix name first.'
+                        #box.exec_()
+                        roi_result = setting_model.get_roi_sum()
+                        img_model_adv.data_dict.update(roi_result)
+                        img_model_adv.set_initial_stat()
 
             ScrollArea: scroller:
                 #Form:
                 Container:
-                    #Label: title_lb:
-                    #    text = '{:>4} {:>10} {:>10} {:>10} {:>10} {:>10}'.format('Name', 'Energy[eV]', 'Left[eV]',
-                    #                                                             'Right[eV]', 'Plot', 'Default')
                     Looper: looper:
                         iterable << setting_model.element_list_roi
                         GroupBox:

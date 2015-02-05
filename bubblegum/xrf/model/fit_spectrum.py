@@ -56,6 +56,9 @@ from lmfit import fit_report
 import logging
 logger = logging.getLogger(__name__)
 
+fit_strategy_list = ['fit_with_tail', 'free_more',
+                     'e_calibration', 'linear', 'adjust_element']
+
 
 class Fit1D(Atom):
 
@@ -77,7 +80,7 @@ class Fit1D(Atom):
 
     def __init__(self, *args, **kwargs):
         self.result_folder = kwargs['working_directory']
-        self.strategy_list = ['fit_with_tail', 'free_more', 'e_calibration', 'linear']
+        self.strategy_list = fit_strategy_list
 
     def load_full_param(self):
         try:
@@ -95,16 +98,24 @@ class Fit1D(Atom):
     def update_strategy1(self, change):
         if change['value'] == 0:
             return
+        logger.info('Strateg at step 1 is: {}'.
+                    format(self.strategy_list[change['value']-1]))
         set_parameter_bound(self.param_dict,
                             self.strategy_list[self.fit_strategy1-1])
 
     @observe('fit_strategy2')
     def update_strategy2(self, change):
-        print('strateg2 changed')
+        if change['value'] == 0:
+            return
+        logger.info('Strateg at step 2 is: {}'.
+                    format(self.strategy_list[change['value']-1]))
 
     @observe('fit_strategy3')
     def update_strategy3(self, change):
-        print('strateg3 changed')
+        if change['value'] == 0:
+            return
+        logger.info('Strateg at step 3 is: {}'.
+                    format(self.strategy_list[change['value']-1]))
 
     def update_param_with_result(self):
         update_parameter_dict(self.param_dict, self.fit_result)
@@ -124,15 +135,11 @@ class Fit1D(Atom):
         MS = ModelSpectrum(self.param_dict)
         MS.model_spectrum()
 
-        print('Start fitting!')
-        t0 = time.time()
         result = MS.model_fit(x0, y0-bg, w=1/np.sqrt(y0), maxfev=100,
                               xtol=c_val, ftol=c_val, gtol=c_val)
-        t1 = time.time()
-        print('time used: {}'.format(t1-t0))
 
         comps = result.eval_components(x=x0)
-        self.combine_results(comps)
+        self.combine_lines(comps)
         self.comps.update({'background': bg})
 
         xnew = result.values['e_offset'] + result.values['e_linear'] * x0 +\
@@ -141,17 +148,18 @@ class Fit1D(Atom):
         self.fit_y = result.best_fit + bg
         self.fit_result = result
         self.residual = self.fit_y - y0
-        print('dir of result: {}'.format(dir(result)))
 
     def fit_multiple(self):
+        t0 = time.time()
+        logger.warning('Start fitting!')
         if self.fit_strategy1 != 0 and \
             self.fit_strategy2+self.fit_strategy3 == 0:
-            print('fit with 1 strategy')
+            logger.info('Fit with 1 strategy')
             self.fit_data()
 
         elif self.fit_strategy1*self.fit_strategy2 != 0 \
             and self.fit_strategy3 == 0:
-            print('fit with 2 strategies')
+            logger.info('Fit with 2 strategies')
             self.fit_data()
             self.update_param_with_result()
             set_parameter_bound(self.param_dict,
@@ -159,7 +167,7 @@ class Fit1D(Atom):
             self.fit_data()
 
         elif self.fit_strategy1*self.fit_strategy2*self.fit_strategy3 != 0:
-            print('fit with 3 strategies')
+            logger.info('Fit with 3 strategies')
             # first
             self.fit_data()
             # second
@@ -173,20 +181,23 @@ class Fit1D(Atom):
                                 self.strategy_list[self.fit_strategy3-1])
             self.fit_data()
 
+        t1 = time.time()
+        logger.warning('Time used for fitting is : {}'.format(t1-t0))
         self.save_result()
 
-    def combine_results(self, comps):
+    def combine_lines(self, comps):
         """
-        Combine results for the same element.
+        Combine results for different lines of the same element.
+
         Parameters
         ----------
         comps : dict
             output results from lmfit
         """
-        print('comps: {}'.format(comps.keys()))
         self.comps.clear()
 
-        for e in self.param_dict['non_fitting_values']['element_list'].split(', '):
+        for e in self.param_dict['non_fitting_values']['element_list'].split(','):
+            e = e.strip(' ')
             if '_' in e:
                 e_temp = e.split('_')[0]
             else:
@@ -198,16 +209,22 @@ class Fit1D(Atom):
                     intensity += v
             self.comps[e] = intensity
         self.comps.update(comps)
-        # name with _, from xrf_model.py
         self.comps['elastic'] = self.comps['elastic_']
         del self.comps['elastic_']
 
-    def save_result(self):
-        filepath = os.path.join(self.result_folder,
-                                self.data_title+'_out.txt')
+    def save_result(self, fname=None):
+        """
+        Parameters
+        ----------
+        fname : str, optional
+            name of output file
+        """
+        if not fname:
+            fname = self.data_title+'_out.txt'
+        filepath = os.path.join(self.result_folder, fname)
         with open(filepath, 'w') as myfile:
             myfile.write(fit_report(self.fit_result, sort_pars=True))
-            print('Results are saved to {}'.format(filepath))
+            logger.warning('Results are saved to {}'.format(filepath))
 
 
 # to be removed

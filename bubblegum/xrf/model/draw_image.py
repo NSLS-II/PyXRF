@@ -36,7 +36,6 @@
 __author__ = 'Li Li'
 
 import six
-import copy
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 
@@ -206,7 +205,7 @@ class DrawImageAdvanced(Atom):
 
     @observe('data_dict')
     def init_plot_status(self, change):
-        print('keys {}'.format(self.data_dict.keys()))
+        #print('keys {}'.format(self.data_dict.keys()))
         self.set_initial_stat()
 
     def set_initial_stat(self):
@@ -216,17 +215,6 @@ class DrawImageAdvanced(Atom):
         for k, v in six.iteritems(self.data_dict):
             temp = {m: False for m in six.iterkeys(v)}
             self.stat_dict.update({k: temp})
-
-    @observe('file_opt')
-    def update_file(self, change):
-        #if self.file_opt == 0:
-        #    return
-        print('data in advanced img mode: {}'.format(self.data_dict.keys()))
-        #self.file_name = sorted(self.data_dict.keys())[self.file_opt]
-        #self.plot_status()
-        #self.single_file = self.data_dict[self.file_name]
-        #self.img_data = self.data_dict[self.file_name]
-        #self.show_image()
 
     def show_image(self):
         self.fig.clf()
@@ -285,5 +273,3 @@ class DrawImageAdvanced(Atom):
                 if v[m]:
                     data_temp.append((k, m))
         return data_temp
-
-
