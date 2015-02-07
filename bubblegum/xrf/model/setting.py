@@ -128,8 +128,9 @@ class SettingModel(Atom):
         """
         self.element_for_roi = self.element_for_roi.strip(' ')
         if len(self.element_for_roi) == 0:
+            logger.warning('No elements enetered.')
             self.remove_all_roi()
-            element_list = []
+            self.element_list_roi = []
             return
         elif ',' in self.element_for_roi:
             element_list = [v.strip(' ') for v in self.element_for_roi.split(',')]
@@ -138,6 +139,7 @@ class SettingModel(Atom):
 
         #with self.suppress_notifications():
         #    self.element_list_roi = element_list
+        logger.warning('Current elements are: {}'.format(element_list))
         self.update_roi(element_list)
         self.element_list_roi = element_list
 
@@ -249,4 +251,4 @@ def calculate_roi(data3D, e_linear, e_offset, range_v):
     range_v = np.asarray(range_v)
     range_v = (range_v - e_offset)/e_linear
     range_v = [int(round(v)) for v in range_v]
-    return np.sum(data3D[range_v[0]:range_v[1], :, :], axis=0)
+    return np.sum(data3D[range_v[0]:range_v[1], :, :], axis=0)*e_linear

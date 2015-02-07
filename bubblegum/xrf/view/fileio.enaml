@@ -92,8 +92,12 @@ enamldef FileView(DockItem): file_view:
                         files_load.text = 'Number of files loaded: {}'.format(len(io_model.file_names))
                         #CB.items = ['Please select file'] + io_model.file_names
                         io_model.get_roi_data()
-                        img_model.data_dict = io_model.img_dict
+
+                        #img_model.data_dict = io_model.img_dict
+
+                        # do not import original data for 2D image
                         img_model_adv.data_dict = io_model.img_dict_flat
+
                         param_model.data_sets = io_model.data_sets
                         plot_model.parameters = param_model.parameters
                         setting_model.parameters = param_model.parameters
@@ -116,6 +120,7 @@ enamldef FileView(DockItem): file_view:
                         param_model.get_new_param(parameter_file_path)
                         #param_lbl.text = param_model.param_status
                         plot_model.parameters = param_model.parameters
+
             Field: fd_load:
                 text = 'Use default otherwise.' #param_model.param_path
             Label: load_lbl:

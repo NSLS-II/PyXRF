@@ -79,7 +79,8 @@ class Parameter(Atom):
 
     @observe('name', 'bound_type', 'min', 'max', 'value', 'default_value')
     def update_displayed_name(self, changed):
-        print(changed)
+        pass
+    #    print(changed)
 
     def __repr__(self):
         return ("Parameter(bound_type={}, min={}, max={}, value={}, "
@@ -169,6 +170,26 @@ def dict_to_param(param_dict):
 
 
 class PreFitStatus(Atom):
+    """
+    Data structure for pre fit analysis.
+
+    Attributes
+    ----------
+    z : str
+        z number of element
+    spectrum : array
+        spectrum of given element
+    status : bool
+        True as plot is visible
+    stat_copy : bool
+        copy of status
+    maxv : float
+        max value of a spectrum
+    norm : float
+        norm value respect to the strongest peak
+    lbd_stat : bool
+        define plotting status under a threshold value
+    """
     z = Str()
     spectrum = Typed(np.ndarray)
     status = Bool(True)
@@ -210,10 +231,15 @@ class GuessParamModel(Atom):
         The path where file is saved.
     element_list : list
     """
+    default_parameters = Dict()
     parameters = Dict() #Typed(OrderedDict) #OrderedDict()
     data = Typed(object)
     prefit_x = Typed(object)
+
+    prefit_dict = Typed(OrderedDict)
     result_dict = Typed(OrderedDict)
+    result_dict_names = List()
+
     param_d = Dict()
     param_new = Dict()
     total_y = Dict()
@@ -233,15 +259,20 @@ class GuessParamModel(Atom):
 
     def __init__(self, *args, **kwargs):
         try:
-            default_parameters = kwargs['default_parameters']
-            self.element_list, self.parameters = dict_to_param(default_parameters)
+            self.default_parameters = kwargs['default_parameters']
+            self.element_list, self.parameters = dict_to_param(self.default_parameters)
             #self.get_param(default_parameters)
         except ValueError:
             logger.info('No default parameter files are chosen.')
 
         self.total_y_l = {}
+        self.prefit_dict = OrderedDict()
         self.result_dict = OrderedDict()
         self.result_folder = kwargs['working_directory']
+
+    def restore_default_param(self):
+        self.element_list, self.parameters = dict_to_param(self.default_parameters)
+        logger.info('Use default parameters.')
 
     def get_new_param(self, param_path):
         """
@@ -273,7 +304,6 @@ class GuessParamModel(Atom):
             element_list = self.element_list
         return format_dict(param_obj, element_list)
 
-
     @observe('file_opt')
     def choose_file(self, change):
         if self.file_opt == 0:
@@ -281,32 +311,59 @@ class GuessParamModel(Atom):
         names = self.data_sets.keys()
         self.data = self.data_sets[names[self.file_opt-1]].get_sum()
 
-    def find_peak(self):
+    def find_peak(self, threshv=0.1):
         """
-        Run automatic peak finding.
+        Run automatic peak finding, and save results as dict of object.
         """
         param_dict = format_dict(self.parameters, self.element_list)
         self.prefit_x, out_dict = pre_fit_linear(self.data, param_dict)
-        self.result_assumbler(out_dict)
 
-    def result_assumbler(self, dictv, threshv=0.1):
-        """
-        Summarize auto fitting results into a dict.
-        """
-        max_dict = reduce(max, map(np.max, six.itervalues(dictv)))
-        self.result_dict.clear()
-        for k, v in six.iteritems(dictv):
+        max_dict = reduce(max, map(np.max, six.itervalues(out_dict)))
+
+        self.prefit_dict.clear()
+        for k, v in six.iteritems(out_dict):
             lb_check = bool(100*(np.max(v)/max_dict) > threshv)
             ps = PreFitStatus(z=get_Z(k), spectrum=v,
                               status=True, stat_copy=True,
                               maxv=np.max(v), norm=(np.max(v)/max_dict)*100,
                               lbd_stat=lb_check)
-            self.result_dict.update({k: ps})
+            self.prefit_dict.update({k: ps})
+
+        #self.result_assumbler(out_dict)
+        logger.info('The elements found from prefit {}'.format(self.prefit_dict.keys()))
+        self.add_to_dict(self.prefit_dict)
+        self.result_dict_names = self.result_dict.keys()
+
+    def add_to_dict(self, dictv):
+        """
+        Summarize auto fitting results into a dict.
+        """
+        #max_dict = reduce(max, map(np.max, six.itervalues(dictv)))
+
+        self.result_dict.clear()
+
+        # for k, v in six.iteritems(dictv):
+        #     lb_check = bool(100*(np.max(v)/max_dict) > threshv)
+        #     ps = PreFitStatus(z=get_Z(k), spectrum=v,
+        #                       status=True, stat_copy=True,
+        #                       maxv=np.max(v), norm=(np.max(v)/max_dict)*100,
+        #                      lbd_stat=lb_check)
+        self.result_dict.update(dictv)
+
+    def delete_item(self, k):
+        try:
+            del self.result_dict[k]
+        except KeyError, e:
+            logger.info(e)
+
 
     @observe('result_dict')
     def update_dict(self, change):
+        if change['type'] == 'create':
+            return
         print('result dict change: {}'.format(change['type']))
-        #self.data_for_plot()
+        self.result_dict_names = self.result_dict.keys()
+        logger.info('elements to be used for fitting: {}'.format(self.result_dict.keys()))
 
     def get_activated_element(self):
         """
@@ -417,7 +474,6 @@ class GuessParamModel(Atom):
         with open(fpath, 'r') as infile:
             data = json.load(infile)
         return data
-
 
 
 def pre_fit_linear(y0, fitting_parameters):
