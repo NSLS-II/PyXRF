@@ -237,7 +237,7 @@ class GuessParamModel(Atom):
     prefit_x = Typed(object)
 
     prefit_dict = Typed(OrderedDict)
-    result_dict = Typed(OrderedDict)
+    result_dict = Typed(object) #Typed(OrderedDict)
     result_dict_names = List()
 
     param_d = Dict()
@@ -311,6 +311,28 @@ class GuessParamModel(Atom):
         names = self.data_sets.keys()
         self.data = self.data_sets[names[self.file_opt-1]].get_sum()
 
+    def manual_input(self):
+        elist = []
+        if len(self.e_list):
+            elist = [v.strip(' ') for v in self.e_list.split(',')]
+            logger.info('Input elements for fitting are {}'.format(elist))
+        else:
+            elist = self.element_list
+            logger.warning('No input elements are given in auto fitting. '
+                           'Use default elements: {}.'.format(elist))
+
+        #if len(elist):
+        temp_dict = OrderedDict()
+        for k in elist:
+
+            ps = PreFitStatus(z=get_Z(k.split('_')[0]), spectrum=None,
+                              status=False, stat_copy=False,
+                              maxv=-1, norm=-1,
+                              lbd_stat=False)
+            temp_dict.update({k: ps})
+        self.add_to_dict(temp_dict)
+        self.result_dict_names = self.result_dict.keys()
+
     def find_peak(self, threshv=0.1):
         """
         Run automatic peak finding, and save results as dict of object.
@@ -336,11 +358,11 @@ class GuessParamModel(Atom):
 
     def add_to_dict(self, dictv):
         """
-        Summarize auto fitting results into a dict.
+        Add to dict and sort the values.
         """
         #max_dict = reduce(max, map(np.max, six.itervalues(dictv)))
 
-        self.result_dict.clear()
+        #self.result_dict.clear()
 
         # for k, v in six.iteritems(dictv):
         #     lb_check = bool(100*(np.max(v)/max_dict) > threshv)
@@ -349,6 +371,9 @@ class GuessParamModel(Atom):
         #                       maxv=np.max(v), norm=(np.max(v)/max_dict)*100,
         #                      lbd_stat=lb_check)
         self.result_dict.update(dictv)
+        print('####result dict is {}'.format(self.result_dict))
+        self.result_dict = OrderedDict(sorted(six.iteritems(self.result_dict),
+                                       key=lambda t: t[1].z))
 
     def delete_item(self, k):
         try:

@@ -38,13 +38,14 @@ __author__ = 'Li Li'
 from enaml.widgets.api import (Container, PushButton, Label,
                                Form, Field, FileDialogEx, DockItem,
                                DockArea, CheckBox, ComboBox, PopupView,
-                               SpinBox, ScrollArea, Window, GroupBox)
+                               SpinBox, ScrollArea, Window, GroupBox, RadioButton)
 from enaml.layout.api import (hbox, vbox, HSplitLayout, VSplitLayout,
                               spacer, grid)
 from enaml.core.api import Include, Looper
 from enaml.stdlib.fields import FloatField as DefaultFloatField
 from enaml.layout.geometry import Box
 from auto_enaml.api import AutoView
+from enaml.stdlib.message_box import MessageBox, warning, information
 
 import json
 import os
@@ -71,11 +72,14 @@ enamldef GuessParamView(DockItem): param_view:
                 hbox(CB, plot_btn, spacer),
                 hbox(default_param_btn, new_param_load, spacer),
                 top_cntr,
-                hbox(e_f),
-                hbox(pb12, pb13, spacer),
-                hbox(pb10, pb11, spacer),
+                #hbox(e_f),
+                #hbox(manual_rb, element_lb, element_fd, manual_add, spacer),
+                manual_gb,
+                #auto_gb,
+                #hbox(find_btn, overlap_btn, spacer),
                 pre_fit,
                 hbox(update_btn, spacer),
+                hbox(save_btn, saveas_btn, spacer),
             ),
         ]
 
@@ -160,16 +164,16 @@ enamldef GuessParamView(DockItem): param_view:
 
         #Label: e_label:
         #    text = 'Enter elements below, e.g., Fe_K, Gd_L'
-        Field: e_f:
-            text := param_model.e_list
-            submit_triggers = ['auto_sync']
+        #Field: e_f:
+        #    text := param_model.e_list
+        #    submit_triggers = ['auto_sync']
 
-        PushButton: pb10:
+        PushButton: save_btn:
             text = 'Save'
             clicked ::
                 param_model.create_full_param()
                 param_model.save()
-        PushButton: pb11:
+        PushButton: saveas_btn:
             text = 'Save As'
             clicked ::
                 path = FileDialogEx.get_save_file_name(param_view,
@@ -178,34 +182,75 @@ enamldef GuessParamView(DockItem): param_view:
                     param_model.create_full_param()
                     param_model.file_path = path
                     param_model.save_as()
-        PushButton: pb12:
-            text = 'Find Peaks'
-            #status_tip = 'Not Running.'
-            clicked ::
-                param_model.find_peak()
-                param_model.data_for_plot()
-                status_tip = 'Running'
-                if (len(param_model.total_y) == 0):
-                    #lb15.text = 'No auto fit result is available.'
-                    pb13.enabled = False
-                    pb14.enabled = False
-                else:
-                    pb13.enabled = True
-                    pre_fit.visible = True
+
+
+        GroupBox: manual_gb:
+            padding = Box(5, 5, 5, 5)
+            title = 'Peak Finding Option'
+            constraints = [vbox(
+                           hbox(manual_rb, element_lb, element_fd, manual_add, spacer),
+                           hbox(auto_rb, find_btn, overlap_btn, spacer)
+                           ),
+                           manual_rb.height == element_lb.height,
+                           manual_rb.height == element_fd.height,
+                           manual_rb.height == manual_add.height,
+                           auto_rb.height == find_btn.height,
+                           auto_rb.height == overlap_btn.height]
+            RadioButton: manual_rb:
+                text = 'Manual'
+                #checkable = True
+                checked = True
+                toggled ::
+                    if checked:
+                        element_lb.enabled = True
+                        element_fd.enabled = True
+                        manual_add.enabled = True
+                        find_btn.enabled = False
+                        overlap_btn.enabled = False
+                    else:
+                        element_lb.enabled = False
+                        element_fd.enabled = False
+                        manual_add.enabled = False
+                        find_btn.enabled = True
+                        overlap_btn.enabled = True
+            Label: element_lb:
+                text = 'Enter Elements, e.g., Fe_K, Gd_L'
+            Field: element_fd:
+                text >> param_model.e_list
+                submit_triggers = ['auto_sync']
+            PushButton: manual_add:
+                text = 'Add'
+                clicked ::
+                    param_model.manual_input()
+            RadioButton: auto_rb:
+                text = 'Auto'
+            PushButton: find_btn:
+                text = 'Find Peaks'
+                enabled = False
+                #status_tip = 'Not Running.'
+                clicked ::
+                    param_model.find_peak()
+                    param_model.data_for_plot()
+                    status_tip = 'Running'
                     plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y,
                                                param_model.total_y_l)
+                    #pre_fit.visible = True
 
-        PushButton: pb13:
-            text = 'Overlap to Spectrum'
-            enabled = False
-            checkable = True
-            clicked ::
-                if checked:
-                    pb13.text = 'Remove Plot'
-                    plot_model.show_autofit_opt = True
-                else:
-                    pb13.text = 'Overlap to Spectrum'
-                    plot_model.show_autofit_opt = False
+            PushButton: overlap_btn:
+                text = 'Remove Plot'
+                minimum_size = (150, 20)
+                enabled = False
+                checkable = True
+                clicked ::
+                    if len(param_model.total_y) == 0:
+                        warning(self, 'Warning Dialog', 'Nothing to plot. Please make sure to run \'Find Peaks\' first')
+                    else:
+                        if checked:
+                            overlap_btn.text = 'Remove Plot'
+                            plot_model.show_autofit_opt = True
+                        else:
+                            overlap_btn.text = 'Overlap to Spectrum'
+                            plot_model.show_autofit_opt = False
 
         Container: pre_fit:
             ScrollArea:
@@ -306,6 +351,7 @@ enamldef GuessParamView(DockItem): param_view:
                                 plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
                                 plot_model._fig.canvas.draw()
                                 pb_bound.text = 'Remove lines with value smaller than 0.1%'
+
         PushButton: update_btn:
             text = 'Update'
             clicked ::
