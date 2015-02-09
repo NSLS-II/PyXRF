@@ -78,7 +78,6 @@ enamldef GuessParamView(DockItem): param_view:
                 #auto_gb,
                 #hbox(find_btn, overlap_btn, spacer),
                 pre_fit,
-                hbox(update_btn, spacer),
                 hbox(save_btn, saveas_btn, spacer),
             ),
         ]
@@ -168,22 +167,6 @@ enamldef GuessParamView(DockItem): param_view:
         #    text := param_model.e_list
         #    submit_triggers = ['auto_sync']
 
-        PushButton: save_btn:
-            text = 'Save'
-            clicked ::
-                param_model.create_full_param()
-                param_model.save()
-        PushButton: saveas_btn:
-            text = 'Save As'
-            clicked ::
-                path = FileDialogEx.get_save_file_name(param_view,
-                                                       current_path=io_model.working_directory)
-                if path:
-                    param_model.create_full_param()
-                    param_model.file_path = path
-                    param_model.save_as()
-
-
         GroupBox: manual_gb:
             padding = Box(5, 5, 5, 5)
             title = 'Peak Finding Option'
@@ -214,7 +197,7 @@ enamldef GuessParamView(DockItem): param_view:
                         find_btn.enabled = True
                         overlap_btn.enabled = True
             Label: element_lb:
-                text = 'Enter Elements, e.g., Fe_K, Gd_L'
+                text = 'Elements, e.g., Fe_K, Gd_L'
             Field: element_fd:
                 text >> param_model.e_list
                 submit_triggers = ['auto_sync']
@@ -256,7 +239,11 @@ enamldef GuessParamView(DockItem): param_view:
             ScrollArea:
                 constraints = [height <= 200]
                 Container: scr_area_con:
-                    GroupBox:
+                    constraints = [vbox(gb_prefit,
+                                        ctn_looper,
+                                        hbox(pb_bound, spacer),
+                                        hbox(pb_clear, spacer))]
+                    GroupBox: gb_prefit:
                         padding = Box(0, 0, 0, 0)
                         constraints = [hbox(del_lb, z, name, inten, norm, select, spacer)]
                         Label: del_lb:
@@ -283,56 +270,58 @@ enamldef GuessParamView(DockItem): param_view:
                             minimum_size = (60, 20)
                             background = 'white'
 
-                    Looper: looper:
-                        #iterable << list(six.iterkeys(param_model.result_dict))
-                        iterable << list(param_model.result_dict_names)
+                    Container: ctn_looper:
+                        padding = Box(0, 0, 0, 0)
+                        Looper: looper:
+                            #iterable << list(six.iterkeys(param_model.result_dict))
+                            iterable << list(param_model.result_dict_names)
 
-                        #Container:
-                        GroupBox:
-                            padding = Box(0, 0, 0, 0)
-                            constraints = [hbox(delete_btn, lb_z, lb_name, lb_inten,
-                                                lb_norm, select_cb, spacer)]
+                            #Container:
+                            GroupBox:
+                                padding = Box(0, 0, 0, 0)
+                                constraints = [hbox(delete_btn, lb_z, lb_name, lb_inten,
+                                                    lb_norm, select_cb, spacer)]
 
-                            PushButton: delete_btn:
-                                text = 'Del'
-                                clicked ::
-                                    param_model.delete_item(loop_item)
-                                    param_model.data_for_plot()
-                                    plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
-                                    plot_model._fig.canvas.draw()
-                                    param_model.result_dict_names = param_model.result_dict.keys()
+                                PushButton: delete_btn:
+                                    text = 'Del'
+                                    clicked ::
+                                        param_model.delete_item(loop_item)
+                                        param_model.data_for_plot()
+                                        plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
+                                        plot_model._fig.canvas.draw()
+                                        param_model.result_dict_names = param_model.result_dict.keys()
 
-                            Label: lb_z:
-                                text << param_model.result_dict[loop_item].z
-                                minimum_size = (30, 20)
-                                background = 'white'
-                            Label: lb_name:
-                                text << loop_item[0:5]
-                                minimum_size = (40, 20)
-                                background = 'white'
-                            Label: lb_inten:
-                                text << str(np.around(param_model.result_dict[loop_item].maxv))
-                                minimum_size = (80, 20)
-                                background = 'white'
-                                align = 'right'
-                            Label: lb_norm:
-                                text << set_low_bound(np.around(param_model.result_dict[loop_item].norm, 2))
-                                minimum_size = (80, 20)
-                                background = 'white'
-                                align = 'right'
+                                Label: lb_z:
+                                    text << param_model.result_dict[loop_item].z
+                                    minimum_size = (30, 20)
+                                    background = 'white'
+                                Label: lb_name:
+                                    text << loop_item[0:5]
+                                    minimum_size = (40, 20)
+                                    background = 'white'
+                                Label: lb_inten:
+                                    text << str(np.around(param_model.result_dict[loop_item].maxv))
+                                    minimum_size = (80, 20)
+                                    background = 'white'
+                                    align = 'right'
+                                Label: lb_norm:
+                                    text << set_low_bound(np.around(param_model.result_dict[loop_item].norm, 2))
+                                    minimum_size = (80, 20)
+                                    background = 'white'
+                                    align = 'right'
 
-                            CheckBox: select_cb:
-                                checkable = True
-                                checked := param_model.result_dict[loop_item].status
-                                clicked ::
-                                    param_model.result_dict[loop_item].status = checked
-                                    param_model.result_dict[loop_item].stat_copy = param_model.result_dict[loop_item].status
-                                    param_model.data_for_plot()
-                                    plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
-                                    plot_model._fig.canvas.draw()
+                                CheckBox: select_cb:
+                                    checkable = True
+                                    checked := param_model.result_dict[loop_item].status
+                                    clicked ::
+                                        param_model.result_dict[loop_item].status = checked
+                                        param_model.result_dict[loop_item].stat_copy = param_model.result_dict[loop_item].status
+                                        param_model.data_for_plot()
+                                        plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
+                                        plot_model._fig.canvas.draw()
 
                     PushButton: pb_bound:
-                        text = 'Remove lines with value smaller than 0.1%'
+                        text = 'Do not plot lines < 0.1%'
                         maximum_size = 350
                         visible = True
                         checkable = True
@@ -343,20 +332,38 @@ enamldef GuessParamView(DockItem): param_view:
                                 param_model.data_for_plot()
                                 plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
                                 plot_model._fig.canvas.draw()
-                                pb_bound.text = 'Add lines with value smaller than 0.1%'
+                                pb_bound.text = 'Plot lines < 0.1%'
                             else:
                                 for k,v in six.iteritems(param_model.result_dict):
                                     v.status = v.stat_copy
                                 param_model.data_for_plot()
                                 plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
                                 plot_model._fig.canvas.draw()
-                                pb_bound.text = 'Remove lines with value smaller than 0.1%'
+                                pb_bound.text = 'Do not plot lines < 0.1%'
+                    PushButton: pb_clear:
+                        text = 'Delete All'
+                        clicked ::
+                            param_model.delete_all()
+                            param_model.data_for_plot()
+                            plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
+                            plot_model._fig.canvas.draw()
 
-        PushButton: update_btn:
-            text = 'Update'
+
+
+        PushButton: save_btn:
+            text = 'Save'
             clicked ::
-                pass
-
+                param_model.create_full_param()
+                param_model.save()
+        PushButton: saveas_btn:
+            text = 'Save As'
+            clicked ::
+                path = FileDialogEx.get_save_file_name(param_view,
+                                                       current_path=io_model.working_directory)
+                if path:
+                    param_model.create_full_param()
+                    param_model.file_path = path
+                    param_model.save_as()
 
 
 enamldef PreFitResult(Window): prefit:

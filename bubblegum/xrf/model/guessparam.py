@@ -164,7 +164,8 @@ def dict_to_param(param_dict):
 
     for param_name, param_dict in six.iteritems(temp_parameters):
         param.update({
-            param_name: Parameter(**param_dict)
+            param_name: Parameter(default_value=param_dict['value'],
+                                  **param_dict)
         })
     return element_list, param
 
@@ -321,10 +322,8 @@ class GuessParamModel(Atom):
             logger.warning('No input elements are given in auto fitting. '
                            'Use default elements: {}.'.format(elist))
 
-        #if len(elist):
         temp_dict = OrderedDict()
         for k in elist:
-
             ps = PreFitStatus(z=get_Z(k.split('_')[0]), spectrum=None,
                               status=False, stat_copy=False,
                               maxv=-1, norm=-1,
@@ -360,60 +359,58 @@ class GuessParamModel(Atom):
         """
         Add to dict and sort the values.
         """
-        #max_dict = reduce(max, map(np.max, six.itervalues(dictv)))
-
-        #self.result_dict.clear()
-
-        # for k, v in six.iteritems(dictv):
-        #     lb_check = bool(100*(np.max(v)/max_dict) > threshv)
-        #     ps = PreFitStatus(z=get_Z(k), spectrum=v,
-        #                       status=True, stat_copy=True,
-        #                       maxv=np.max(v), norm=(np.max(v)/max_dict)*100,
-        #                      lbd_stat=lb_check)
         self.result_dict.update(dictv)
-        print('####result dict is {}'.format(self.result_dict))
         self.result_dict = OrderedDict(sorted(six.iteritems(self.result_dict),
                                        key=lambda t: t[1].z))
 
     def delete_item(self, k):
         try:
             del self.result_dict[k]
+            #self.result_dict_names = self.result_dict.keys()
+            logger.info('Item {} is deleted.'.format(k))
         except KeyError, e:
             logger.info(e)
 
+    def delete_all(self):
+        self.result_dict.clear()
+        self.result_dict_names = self.result_dict.keys()
+
+    def update_element_list(self):
+        """Get only elements from the keys of result_dict.
+        """
+        self.element_list = [v for v in six.iterkeys(self.result_dict) if v.lower() != v]
+        logger.info('Current Elements for fitting are {}'.format(self.element_list))
 
     @observe('result_dict')
     def update_dict(self, change):
         if change['type'] == 'create':
             return
         print('result dict change: {}'.format(change['type']))
-        self.result_dict_names = self.result_dict.keys()
         logger.info('elements to be used for fitting: {}'.format(self.result_dict.keys()))
-
-    def get_activated_element(self):
-        """
-        Select elements from pre fit.
-        """
-        e = [k for (k, v) in six.iteritems(self.result_dict) if v.status and len(k)<=4]
-        self.e_list = ', '.join(e)
 
     def save_elist(self):
         """
         Save selected list to param dict.
         """
-        if len(self.e_list):
-            elist_k = [v[:-2] for v in self.e_list.split(', ') if '_K' in v]
-            elist_l_m = [v for v in self.e_list.split(', ') if '_K' not in v]
-            elist = elist_k + elist_l_m
-            logger.info('Input elements for fitting are {}'.format(elist))
-        else:
-            elist = self.element_list
-            logger.warning('No input elements are given in auto fitting. '
-                           'Use default elements: {}.'.format(elist))
-        self.param_d = format_dict(self.parameters, elist)
+        # if len(self.e_list):
+        #     elist_k = [v[:-2] for v in self.e_list.split(', ') if '_K' in v]
+        #     elist_l_m = [v for v in self.e_list.split(', ') if '_K' not in v]
+        #     elist = elist_k + elist_l_m
+        #     logger.info('Input elements for fitting are {}'.format(elist))
+        # else:
+        #     elist = self.element_list
+        #     logger.warning('No input elements are given in auto fitting. '
+        #                    'Use default elements: {}.'.format(elist))
+        self.update_element_list()
+        temp_list = []
+        for v in self.element_list:
+            if '_K' in v:
+                v = v.split('_')[0]
+            temp_list.append(v)
 
-    def create_full_param(self,
-                          peak_std=0.07, peak_height=500.0):
+        self.param_d = format_dict(self.parameters, temp_list)
+
+    def create_full_param(self, peak_std=0.07, peak_height=500.0):
         """
         Extend the param to full param dict with detailed elements
         information, and assign initial values from pre fit.
@@ -435,17 +432,20 @@ class GuessParamModel(Atom):
 
         # update according to pre fit results
         if len(self.result_dict):
-            for e in self.e_list.split(','):
+            for e in self.element_list:
                 e = e.strip(' ')
                 zname = e.split('_')[0]
                 for k, v in six.iteritems(self.param_new):
                     if zname in k and 'area' in k:
-                        if self.result_dict.has_key(e):
+                        #if self.result_dict.has_key(e):
+                        if self.result_dict[e].maxv > 0:
                             v['value'] = self.result_dict[e].maxv*factor_to_area
                         else:
                             v['value'] = peak_height*factor_to_area
-            self.param_new['compton_amplitude']['value'] = self.result_dict['compton'].maxv*factor_to_area
-            self.param_new['coherent_sct_amplitude']['value'] = self.result_dict['elastic'].maxv*factor_to_area
+            self.param_new['compton_amplitude']['value'] = \
+                self.result_dict['compton'].maxv*factor_to_area
+            self.param_new['coherent_sct_amplitude']['value'] = \
+                self.result_dict['elastic'].maxv*factor_to_area
 
     def data_for_plot(self):
         """
