@@ -95,7 +95,7 @@ def run():
 
     LOG_F = 'log_example.out'
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s',
-                        level=logging.DEBUG,
+                        level=logging.INFO,
                         #filename=LOG_F,
                         filemode='w')
 
