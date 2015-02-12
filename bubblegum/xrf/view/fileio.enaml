@@ -61,7 +61,7 @@ enamldef FileView(DockItem): file_view:
             constraints = [
                 vbox(
                     hbox(folder_btn, folder_fd),
-                    hbox(pb_load, fd_load),
+                    #hbox(pb_load, fd_load),
                     #hbox(param_lbl),
                     hbox(btn_out, fd_out),
                     hbox(files_btn, files_load),
@@ -71,7 +71,7 @@ enamldef FileView(DockItem): file_view:
                     hbox(plot_bt, spacer),
                 ),
                 folder_btn.width == files_btn.width,
-                folder_btn.width == pb_load.width,
+                #folder_btn.width == pb_load.width,
                 folder_btn.width == btn_out.width,
             ]
             PushButton: folder_btn:
@@ -110,21 +110,21 @@ enamldef FileView(DockItem): file_view:
             Label: files_load:
                 text = 'No data is loaded.'
 
-            PushButton: pb_load:
-                text = 'Parameter File'
-                #maximum_size = 200
-                clicked ::
-                    parameter_file_path = FileDialogEx.get_open_file_name(file_view)
-                    if parameter_file_path:
-                        fd_load.text = parameter_file_path
-                        param_model.get_new_param(parameter_file_path)
-                        #param_lbl.text = param_model.param_status
-                        plot_model.parameters = param_model.parameters
+            #PushButton: pb_load:
+            #    text = 'Parameter File'
+            #    #maximum_size = 200
+            #    clicked ::
+            #        parameter_file_path = FileDialogEx.get_open_file_name(file_view)
+            #        if parameter_file_path:
+            #            fd_load.text = parameter_file_path
+            #            param_model.get_new_param(parameter_file_path)
+            #            #param_lbl.text = param_model.param_status
+            #            plot_model.parameters = param_model.parameters
 
-            Field: fd_load:
-                text = 'Use default otherwise.' #param_model.param_path
-            Label: load_lbl:
-                text << io_model.load_status
+            #Field: fd_load:
+            #    text = 'Use default otherwise.' #param_model.param_path
+            #Label: load_lbl:
+            #    text << io_model.load_status
                 #maximum_size = 300
             #Label: param_lbl:
             #    text = 'Parameter file abc.json is loaded.' #'Use default parametere files.'
