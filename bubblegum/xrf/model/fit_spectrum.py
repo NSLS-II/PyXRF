@@ -98,7 +98,7 @@ class Fit1D(Atom):
     def update_strategy1(self, change):
         if change['value'] == 0:
             return
-        logger.info('Strateg at step 1 is: {}'.
+        logger.info('Strategy at step 1 is: {}'.
                     format(self.strategy_list[change['value']-1]))
         set_parameter_bound(self.param_dict,
                             self.strategy_list[self.fit_strategy1-1])
@@ -107,14 +107,14 @@ class Fit1D(Atom):
     def update_strategy2(self, change):
         if change['value'] == 0:
             return
-        logger.info('Strateg at step 2 is: {}'.
+        logger.info('Strategy at step 2 is: {}'.
                     format(self.strategy_list[change['value']-1]))
 
     @observe('fit_strategy3')
     def update_strategy3(self, change):
         if change['value'] == 0:
             return
-        logger.info('Strateg at step 3 is: {}'.
+        logger.info('Strategy at step 3 is: {}'.
                     format(self.strategy_list[change['value']-1]))
 
     def update_param_with_result(self):

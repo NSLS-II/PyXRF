@@ -118,6 +118,11 @@ enamldef FitView(DockItem): fit_view:
                 plot_model.fit_all = fit_model.comps
                 plot_model.residual = fit_model.residual
                 plot_model.plot_fit()
+
+                param_model.get_param(fit_model.param_dict)
+                ParameterEdit.parameter_model = param_model
+                param_model.update_name_list()
+
         PushButton: pb_plot:
             text = 'Overlap to Spectrum'
             checkable = True
@@ -138,8 +143,6 @@ enamldef FitView(DockItem): fit_view:
                 #ParameterEdit_old().show()
                 #param_model.get_param(param_model.param_new)
 
-                param_model.get_param(fit_model.param_dict)
-                ParameterEdit.parameter_model = param_model
                 ParameterEdit().show()
 
 

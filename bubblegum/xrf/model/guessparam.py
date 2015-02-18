@@ -195,12 +195,13 @@ class PreFitStatus(Atom):
         define plotting status under a threshold value
     """
     z = Str()
+    energy = Str()
     spectrum = Typed(np.ndarray)
-    status = Bool(True)
-    stat_copy = Bool(True)
+    status = Bool(False)
+    stat_copy = Bool(False)
     maxv = Float()
     norm = Float()
-    lbd_stat = Bool()
+    lbd_stat = Bool(False)
 
 
 class ElementController(object):
@@ -208,28 +209,36 @@ class ElementController(object):
 
     def __init__(self):
         self.element_dict = OrderedDict()
-        self.element_dict_names = []
 
     def delete_item(self, k):
         try:
             del self.element_dict[k]
             self.update_norm()
-            #self.result_dict_names = self.result_dict.keys()
             logger.info('Item {} is deleted.'.format(k))
         except KeyError, e:
             logger.info(e)
 
     def order(self, option='z'):
+        """
+        Order dict in different ways.
+        """
         if option == 'z':
             self.element_dict = OrderedDict(sorted(six.iteritems(self.element_dict),
                                                    key=lambda t: t[1].z))
         elif option == 'energy':
-            pass
+            self.element_dict = OrderedDict(sorted(six.iteritems(self.element_dict),
+                                                   key=lambda t: t[1].energy))
+        elif option == 'name':
+            self.element_dict = OrderedDict(sorted(six.iteritems(self.element_dict),
+                                                   key=lambda t: t[0]))
+        elif option == 'maxv':
+            self.element_dict = OrderedDict(sorted(six.iteritems(self.element_dict),
+                                                   key=lambda t: t[1].maxv, reverse=True))
 
     def add_to_dict(self, dictv):
         self.element_dict.update(dictv)
         self.update_norm()
-        self.order()
+        #self.order()
 
     def update_norm(self, threshv=0.1):
         #max_dict = reduce(max, map(np.max, six.itervalues(self.element_dict)))
@@ -246,6 +255,24 @@ class ElementController(object):
         current_elements = [v for v in six.iterkeys(self.element_dict) if v.lower() != v]
         logger.info('Current Elements for fitting are {}'.format(current_elements))
         return current_elements
+
+    def update_peak_ratio(self):
+        """In case users change the max value.
+        """
+        for v in six.itervalues(self.element_dict):
+            v.maxv = np.around(v.maxv, 1)
+            v.spectrum = v.spectrum*v.maxv/np.max(v.spectrum)
+        self.update_norm()
+
+    def turn_on_all(self, option=True):
+        """Set plotting status on for all lines.
+        """
+        if option:
+            _plot = option
+        else:
+            _plot = False
+        for v in six.itervalues(self.element_dict):
+            v.status = _plot
 
 
 class GuessParamModel(Atom):
@@ -288,19 +315,18 @@ class GuessParamModel(Atom):
     result_dict = Typed(object) #Typed(OrderedDict)
     result_dict_names = List()
 
-    param_d = Dict()
+    #param_d = Dict()
     param_new = Dict()
     total_y = Dict()
     total_y_l = Dict()
     total_y_m = Dict()
-    e_list = Str()
+    e_name = Str()
     e_intensity = Float()
     #save_file = Str()
 
     result_folder = Str()
     file_path = Str()
 
-    #result_dict = Dict(key=str, value=Parameter)#OrderedDict()
     element_list = List()
 
     data_sets = Typed(OrderedDict)
@@ -322,10 +348,6 @@ class GuessParamModel(Atom):
         self.EC = ElementController()
         #self.result_dict = EC.element_dict
 
-    #def restore_default_param(self):
-    #    self.element_list, self.parameters = dict_to_param(self.default_parameters)
-    #    logger.info('Restore default parameters.')
-
     def get_new_param(self, param_path):
         """
         Update parameters if new param_path is given.
@@ -335,10 +357,10 @@ class GuessParamModel(Atom):
         param_path : str
         """
         with open(param_path, 'r') as json_data:
-            new_param = json.load(json_data)
-        self.element_list, self.parameters = dict_to_param(new_param)
+            self.param_new = json.load(json_data)
+        self.element_list, self.parameters = dict_to_param(self.param_new)
         self.EC.delete_all()
-        self.create_spectrum_from_file(new_param)
+        self.create_spectrum_from_file(self.param_new)
         #self.element_list, self.parameters = self.get_param(new_param)
 
     def get_param(self, param_dict):
@@ -351,6 +373,8 @@ class GuessParamModel(Atom):
             Dictionary of parameters used for fitting.
         """
         self.element_list, self.parameters = dict_to_param(param_dict)
+        self.EC.delete_all()
+        self.create_spectrum_from_file(param_dict)
 
     def create_spectrum_from_file(self, param_dict):
         """Create spectrum profile with given param dict from file.
@@ -362,14 +386,14 @@ class GuessParamModel(Atom):
         """
         self.prefit_x, pre_dict = calculate_profile(self.data, param_dict)
 
-        max_dict = 1e5
-        peak_std = 0.07
-        factor_to_area = np.sqrt(2*np.pi)*peak_std*0.5
+        default_area = 1e5
+        factor_to_area = factor_height2area()
 
         temp_dict = OrderedDict()
         for e in six.iterkeys(pre_dict):
             ename = e.split('_')[0]
             for k, v in six.iteritems(param_dict):
+
                 if ename in k and 'area' in k:
                     ratio = v['value']/factor_to_area/np.max(pre_dict[e])
                     spectrum = pre_dict[e]*ratio
@@ -383,21 +407,21 @@ class GuessParamModel(Atom):
                 elif ename == 'elastic' and k == 'coherent_sct_amplitude':
                     ratio = v['value']/factor_to_area/np.max(pre_dict[e])
                     spectrum = pre_dict[e]*ratio
+
                 elif ename == 'background':
                     spectrum = pre_dict[e]
+
                 else:
                     continue
 
-                ps = PreFitStatus(z=get_Z(ename), spectrum=spectrum,
-                                  status=True, stat_copy=True,
-                                  maxv=np.max(spectrum),
-                                  norm=(np.max(spectrum)/max_dict)*100,
-                                  lbd_stat=True)
+                ps = PreFitStatus(z=get_Z(ename), energy=get_energy(e), spectrum=spectrum,
+                                  maxv=np.around(np.max(spectrum), 1),
+                                  norm=-1,
+                                  lbd_stat=False)
 
                 temp_dict.update({e: ps})
 
         self.EC.add_to_dict(temp_dict)
-        #self.result_dict_names = self.result_dict.keys()
 
     @observe('file_opt')
     def choose_file(self, change):
@@ -407,23 +431,30 @@ class GuessParamModel(Atom):
         self.data = self.data_sets[names[self.file_opt-1]].get_sum()
 
     def manual_input(self):
-
+        logger.info('Element {} is added'.format(self.e_name))
         param_dict = format_dict(self.parameters, self.element_list)
 
-        if '_K' in self.e_list:
-            e_item = self.e_list.split('_')[0]
+        strip_line = lambda ename: ename.split('_')[0]
+
+        if '_K' in self.e_name:
+            e_item = strip_line(self.e_name)
+        else:
+            e_item = self.e_name
+
         x, data_out = calculate_profile(self.data, param_dict, elementlist=e_item)
-        ps = PreFitStatus(z=get_Z(e_item),
+        ps = PreFitStatus(z=get_Z(self.e_name), energy=get_energy(self.e_name),
                           spectrum=data_out[e_item]/1e5*self.e_intensity,
-                          status=True, stat_copy=True,
                           maxv=self.e_intensity, norm=-1,
                           lbd_stat=False)
-        self.EC.add_to_dict({self.e_list: ps})
+        self.EC.add_to_dict({self.e_name: ps})
 
     def update_name_list(self):
         """When result_dict_names change, the looper in enaml will update.
         """
+        # need to clean list first, in order to refresh the list in GUI
+        self.result_dict_names = []
         self.result_dict_names = self.EC.element_dict.keys()
+        logger.info('element names are {}'.format(self.result_dict_names))
 
     def find_peak(self, threshv=0.1):
         """
@@ -436,29 +467,27 @@ class GuessParamModel(Atom):
 
         prefit_dict = OrderedDict()
         for k, v in six.iteritems(out_dict):
-            ps = PreFitStatus(z=get_Z(k), spectrum=v,
-                              status=True, stat_copy=True,
-                              maxv=np.max(v), norm=-1,
+            ps = PreFitStatus(z=get_Z(k), energy=get_energy(k), spectrum=v,
+                              maxv=np.around(np.max(v), 1), norm=-1,
                               lbd_stat=False)
             prefit_dict.update({k: ps})
 
-        #self.result_assumbler(out_dict)
         logger.info('The elements found from prefit {}'.format(prefit_dict.keys()))
         self.EC.add_to_dict(prefit_dict)
         #self.result_dict_names = self.EC.element_dict.keys()
 
-    def save_elist(self):
-        """
-        Save selected list to param dict.
-        """
-        self.element_list = self.EC.get_element_list()
-        temp_list = []
-        for v in self.element_list:
-            if '_K' in v:
-                v = v.split('_')[0]
-            temp_list.append(v)
+    # def save_elist(self):
+    #     """
+    #     Save selected list to param dict.
+    #     """
+    #     self.element_list = self.EC.get_element_list()
+    #     temp_list = []
+    #     for v in self.element_list:
+    #         if '_K' in v:
+    #             v = v.split('_')[0]
+    #         temp_list.append(v)
 
-        self.param_d = format_dict(self.parameters, temp_list)
+        # self.param_d = format_dict(self.parameters, temp_list)
 
     def create_full_param(self, peak_std=0.07, peak_height=500.0):
         """
@@ -485,7 +514,9 @@ class GuessParamModel(Atom):
         PC = ParamController(param_d)
         PC.create_full_param()
         self.param_new = PC.new_parameter
-        factor_to_area = np.sqrt(2*np.pi)*peak_std*0.5
+
+        #factor_to_area = np.sqrt(2*np.pi)*peak_std*0.5
+        factor_to_area = factor_height2area()
 
         # update according to pre fit results
         if len(self.EC.element_dict):
@@ -540,8 +571,6 @@ class GuessParamModel(Atom):
         """
         Save full param dict into a file.
         """
-        #self.save_elist()
-        #self.create_full_param()
         with open(self.file_path, 'w') as outfile:
             json.dump(self.param_new, outfile,
                       sort_keys=True, indent=4)
@@ -553,6 +582,13 @@ class GuessParamModel(Atom):
         with open(fpath, 'r') as infile:
             data = json.load(infile)
         return data
+
+
+def factor_height2area(std=0.07):
+    """
+    Factor to transfer peak height to area.
+    """
+    return np.sqrt(2*np.pi)*std
 
 
 def calculate_profile(y0, param, elementlist=None):
@@ -661,7 +697,6 @@ def get_Z(ename):
     -------
     int or None
         element Z number
-
     """
 
     strip_line = lambda ename: ename.split('_')[0]
@@ -672,3 +707,22 @@ def get_Z(ename):
     else:
         e = Element(strip_line(ename))
         return str(e.Z)
+
+
+def get_energy(ename):
+    strip_line = lambda ename: ename.split('_')[0]
+    non_element = ['compton', 'elastic', 'background']
+    if ename in non_element:
+        return '-'
+    else:
+        e = Element(strip_line(ename))
+        if '_K' in ename:
+            energy = e.emission_line['ka1']
+        elif '_L' in ename:
+            energy = e.emission_line['la1']
+        elif '_M' in ename:
+            energy = e.emission_line['ma1']
+
+        return str(np.around(energy, 4))
+
+
