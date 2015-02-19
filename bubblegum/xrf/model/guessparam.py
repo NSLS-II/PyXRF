@@ -143,7 +143,6 @@ def dict_to_param(param_dict):
         fitting parameter
     """
     temp_parameters = copy.deepcopy(param_dict)
-    param = {}
 
     non_fitting_values = temp_parameters.pop('non_fitting_values')
     element_list = non_fitting_values.pop('element_list')
@@ -376,6 +375,8 @@ class GuessParamModel(Atom):
         self.EC.delete_all()
         self.create_spectrum_from_file(param_dict)
 
+        self.param_new = param_dict
+
     def create_spectrum_from_file(self, param_dict):
         """Create spectrum profile with given param dict from file.
 
@@ -454,7 +455,7 @@ class GuessParamModel(Atom):
         # need to clean list first, in order to refresh the list in GUI
         self.result_dict_names = []
         self.result_dict_names = self.EC.element_dict.keys()
-        logger.info('element names are {}'.format(self.result_dict_names))
+        logger.info('Current element names are {}'.format(self.result_dict_names))
 
     def find_peak(self, threshv=0.1):
         """
@@ -645,7 +646,7 @@ def pre_fit_linear(y0, param):
     x0 = np.arange(len(y0))
     x, y = set_range(fitting_parameters, x0, y0)
 
-    element_list = k_line + l_line + m_line
+    element_list = k_line + l_line #+ m_line
     new_element = ', '.join(element_list)
     fitting_parameters['non_fitting_values']['element_list'] = new_element
 
