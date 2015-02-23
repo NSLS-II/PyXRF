@@ -530,10 +530,12 @@ class GuessParamModel(Atom):
                             v['value'] = self.EC.element_dict[e].maxv*factor_to_area
                         else:
                             v['value'] = peak_height*factor_to_area
-            self.param_new['compton_amplitude']['value'] = \
-                self.EC.element_dict['compton'].maxv*factor_to_area
-            self.param_new['coherent_sct_amplitude']['value'] = \
-                self.EC.element_dict['elastic'].maxv*factor_to_area
+            if self.EC.element_dict.has_key('compton'):
+                self.param_new['compton_amplitude']['value'] = \
+                    self.EC.element_dict['compton'].maxv*factor_to_area
+            if self.EC.element_dict.has_key('coherent_sct_amplitude'):
+                self.param_new['coherent_sct_amplitude']['value'] = \
+                    self.EC.element_dict['elastic'].maxv*factor_to_area
 
     def data_for_plot(self):
         """

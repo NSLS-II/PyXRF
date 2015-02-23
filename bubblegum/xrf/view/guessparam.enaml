@@ -57,7 +57,7 @@ k_line_full = [item+'_K' for item in k_line]
 
 
 enamldef FloatField(DefaultFloatField):
-    submit_triggers = ['auto_sync']
+    submit_triggers = ['return_pressed'] #['auto_sync']
 
 
 enamldef GuessParamView(DockItem): param_view:
@@ -111,6 +111,7 @@ enamldef GuessParamView(DockItem): param_view:
                     if parameter_file_path:
                         param_model.get_new_param(parameter_file_path)
 
+                        param_model.EC.order()
                         fit_model.param_dict = param_model.param_new
 
                         param_model.update_name_list()
@@ -137,25 +138,17 @@ enamldef GuessParamView(DockItem): param_view:
                         padding = Box(2, 2, 2, 2)
                         constraints = [hbox(ff, pb)]
                         FloatField: ff:
-                            enabled = False
+                            #enabled = False
                             #minimum := param_model.parameters[loop_item].min
                             #maximum := param_model.parameters[loop_item].max
                             #value := param_model.parameters[loop_item].value
                             value := loop_item.value
                             maximum_size = 200
                         PushButton: pb:
-                            text = 'User value'
-                            checkable = True
+                            text = 'Default'
                             maximum_size = 100
                             clicked ::
-                                if checked:
-                                    ff.enabled = True
-                                    pb.text = 'Default'
-                                else:
-                                    #ff.value = param_model.parameters[loop_item].default_value
-                                    ff.value = loop_item.default_value
-                                    ff.enabled = False
-                                    pb.text = 'User value'
+                                ff.value = loop_item.default_value
 
         PushButton: find_btn:
             text = 'Automatic Peak Finding'
@@ -164,6 +157,7 @@ enamldef GuessParamView(DockItem): param_view:
             clicked ::
                 param_model.EC.delete_all()
                 param_model.find_peak()
+                param_model.EC.order()
                 param_model.update_name_list()
                 param_model.data_for_plot()
                 status_tip = 'Running'
@@ -274,12 +268,14 @@ enamldef GuessParamView(DockItem): param_view:
                             param_model.EC.turn_on_all()
                             param_model.data_for_plot()
                             plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
+                            plot_model.show_autofit_opt = True
                             plot_model._fig.canvas.draw()
                             select_all.text = 'Hide All'
                         else:
                             param_model.EC.turn_on_all(option=False)
                             param_model.data_for_plot()
                             plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
+                            plot_model.show_autofit_opt = False
                             plot_model._fig.canvas.draw()
                             select_all.text = 'Show All'
 
@@ -304,26 +300,27 @@ enamldef GuessParamView(DockItem): param_view:
                 #            find_btn.enabled = True
                 #            overlap_btn.enabled = True
 
-
-
             ScrollArea: scr_area:
                 constraints = [height <= 200]
-                Container: ctn_looper:
-                    padding = Box(0, 0, 0, 0)
+
+                Form:
+                #Container: ctn_looper:
+                    row_spacing = -1
+                    #padding = Box(0, 0, 0, 0)
                     Looper: looper:
                         iterable << list(param_model.result_dict_names)
 
-                        #GroupBox:
+                        PushButton: delete_btn:
+                            text = 'Del'
+                            clicked ::
+                                param_model.EC.delete_item(loop_item)
+                                param_model.update_name_list()
                         Container:
                             padding = Box(2, 2, 2, 2)
                             constraints = [hbox(delete_btn, lb_z, lb_name, lb_energy, lb_inten,
-                                                lb_norm, select_cb, spacer)]
+                                                lb_norm, select_cb, spacer),
+                                                lb_norm.height==select_cb.height]
 
-                            PushButton: delete_btn:
-                                text = 'Del'
-                                clicked ::
-                                    param_model.EC.delete_item(loop_item)
-                                    param_model.update_name_list()
                             Label: lb_z:
                                 text << param_model.EC.element_dict[loop_item].z
                                 minimum_size = (40, 20)
@@ -352,6 +349,7 @@ enamldef GuessParamView(DockItem): param_view:
 
                             CheckBox: select_cb:
                                 checkable = True
+                                minimum_size = (30, 20)
                                 checked := param_model.EC.element_dict[loop_item].status
                                 clicked ::
                                     param_model.EC.element_dict[loop_item].status = checked
@@ -401,6 +399,7 @@ enamldef GuessParamView(DockItem): param_view:
                     fit_model.param_dict = param_model.param_new
 
                     plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
+                    #plot_model.show_autofit_opt = True
                     plot_model._fig.canvas.draw()
 
         #PushButton: save_btn:
