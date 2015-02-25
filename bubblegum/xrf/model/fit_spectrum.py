@@ -49,7 +49,7 @@ from skxray.constants.api import XrfElement as Element
 from skxray.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
                                       get_sum_area, set_parameter_bound,
                                       ParamController, set_range, get_linear_model,
-                                      PreFitAnalysis, k_line, l_line)
+                                      PreFitAnalysis, k_line, l_line, get_escape_peak)
 from skxray.fitting.background import snip_method
 from lmfit import fit_report
 
@@ -78,21 +78,36 @@ class Fit1D(Atom):
     data_title = Str()
     result_folder = Str()
 
+    x0 = Typed(np.ndarray)
+    y0 = Typed(np.ndarray)
+    bg = Typed(np.ndarray)
+    es_peak = Typed(np.ndarray)
+
+
     def __init__(self, *args, **kwargs):
         self.result_folder = kwargs['working_directory']
         self.strategy_list = fit_strategy_list
 
-    def load_full_param(self):
-        try:
-            with open(self.file_path, 'r') as json_data:
-                self.param_dict = json.load(json_data)
-            self.file_status = 'Parameter file {} is loaded.'.format(self.file_path.split('/')[-1])
-        except ValueError:
-            self.file_status = 'Parameter file can\'t be loaded.'
+    # def load_full_param(self):
+    #     try:
+    #         with open(self.file_path, 'r') as json_data:
+    #             self.param_dict = json.load(json_data)
+    #         self.file_status = 'Parameter file {} is loaded.'.format(self.file_path.split('/')[-1])
+    #     except ValueError:
+    #         self.file_status = 'Parameter file can\'t be loaded.'
 
-    @observe('file_path')
-    def update_param(self, change):
-        self.load_full_param()
+    # @observe('param_dict')
+    # def _update_exp(self, change):
+    #     self.define_range()
+    #     self.escape_peak()
+
+    # @observe('file_path')
+    # def update_param(self, change):
+    #    self.load_full_param()
+
+    @observe('data')
+    def _update_data(self, change):
+        self.data = np.asarray(self.data)
 
     @observe('fit_strategy1')
     def update_strategy1(self, change):
@@ -120,66 +135,100 @@ class Fit1D(Atom):
     def update_param_with_result(self):
         update_parameter_dict(self.param_dict, self.fit_result)
 
-    def fit_data(self):
-        c_val = 1e-2
-        self.data = np.asarray(self.data)
+    def define_range(self):
         x = np.arange(self.data.size)
-        x0, y0 = set_range(self.param_dict, x, self.data)
+        # ratio to transfer energy value back to channel value
+        approx_ratio = 100
+        lowv = self.param_dict['non_fitting_values']['energy_bound_low'] * approx_ratio
+        highv = self.param_dict['non_fitting_values']['energy_bound_high'] * approx_ratio
+        self.x0, self.y0 = set_range(x, self.data, lowv, highv)
 
-        # get background
-        bg = snip_method(y0,
-                         self.param_dict['e_offset']['value'],
-                         self.param_dict['e_linear']['value'],
-                         self.param_dict['e_quadratic']['value'])
+    def get_background(self):
+        self.bg = snip_method(self.y0,
+                              self.param_dict['e_offset']['value'],
+                              self.param_dict['e_linear']['value'],
+                              self.param_dict['e_quadratic']['value'])
+        self.comps.update({'background': self.bg})
 
+    def escape_peak(self):
+        ratio = 0.005
+        xe, ye = get_escape_peak(self.data, ratio, self.param_dict)
+        lowv = self.param_dict['non_fitting_values']['energy_bound_low']
+        highv = self.param_dict['non_fitting_values']['energy_bound_high']
+        xe, self.es_peak = set_range(xe, ye, lowv, highv)
+        logger.info('Escape peak is considered with ratio {}'.format(ratio))
+        # align to the same length
+        if self.y0.size > self.es_peak.size:
+            temp = self.es_peak
+            self.es_peak = np.zeros(len(self.y0.size))
+            self.es_peak[:temp.size] = temp
+        else:
+            self.es_peak = self.es_peak[:self.y0.size]
+
+    def fit_data(self, x0, y0, c_val=1e-2, fit_num=100, c_weight=1e3):
         MS = ModelSpectrum(self.param_dict)
         MS.model_spectrum()
 
-        result = MS.model_fit(x0, y0-bg, w=1/np.sqrt(y0), maxfev=100,
+        result = MS.model_fit(x0, y0, w=1/np.sqrt(c_weight+y0), maxfev=fit_num,
                               xtol=c_val, ftol=c_val, gtol=c_val)
 
         comps = result.eval_components(x=x0)
         self.combine_lines(comps)
-        self.comps.update({'background': bg})
+        #self.comps.update({'background': bg})
 
         xnew = result.values['e_offset'] + result.values['e_linear'] * x0 +\
                result.values['e_quadratic'] * x0**2
         self.fit_x = xnew
-        self.fit_y = result.best_fit + bg
+        self.fit_y = result.best_fit
         self.fit_result = result
         self.residual = self.fit_y - y0
 
     def fit_multiple(self):
+
+        self.define_range()
+        self.get_background()
+        self.escape_peak()
+
+        y0 = self.y0 -self.bg - self.es_peak
+
         t0 = time.time()
         logger.warning('Start fitting!')
         if self.fit_strategy1 != 0 and \
             self.fit_strategy2+self.fit_strategy3 == 0:
             logger.info('Fit with 1 strategy')
-            self.fit_data()
+            self.fit_data(self.x0, y0)
+            #self.fit_y += self.es_peak
 
         elif self.fit_strategy1*self.fit_strategy2 != 0 \
             and self.fit_strategy3 == 0:
             logger.info('Fit with 2 strategies')
-            self.fit_data()
+            #self.fit_data(self.x0, self.y0-self.es_peak, self.bg)
+            self.fit_data(self.x0, y0)
             self.update_param_with_result()
             set_parameter_bound(self.param_dict,
                                 self.strategy_list[self.fit_strategy2-1])
-            self.fit_data()
+            #self.fit_data(self.x0, self.y0-self.es_peak, self.bg)
+            self.fit_data(self.x0, y0)
 
         elif self.fit_strategy1*self.fit_strategy2*self.fit_strategy3 != 0:
             logger.info('Fit with 3 strategies')
             # first
-            self.fit_data()
+            #self.fit_data(self.x0, self.y0-self.es_peak, self.bg)
+            self.fit_data(self.x0, y0)
             # second
             self.update_param_with_result()
             set_parameter_bound(self.param_dict,
                                 self.strategy_list[self.fit_strategy2-1])
-            self.fit_data()
+            #self.fit_data(self.x0, self.y0-self.es_peak, self.bg)
+            self.fit_data(self.x0, y0)
             # thrid
             self.update_param_with_result()
             set_parameter_bound(self.param_dict,
                                 self.strategy_list[self.fit_strategy3-1])
-            self.fit_data()
+            self.fit_data(self.x0, y0)
+            #self.fit_data(self.x0, self.y0-self.es_peak, self.bg)
+
+        self.fit_y += self.bg + self.es_peak
 
         t1 = time.time()
         logger.warning('Time used for fitting is : {}'.format(t1-t0))

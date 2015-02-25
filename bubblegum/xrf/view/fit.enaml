@@ -234,7 +234,11 @@ enamldef FitView(DockItem): fit_view:
             text = 'Fit'
             clicked ::
                 #fit_model.fit_data()
+                #fit_model.define_range()
+                #fit_model.escape_peak()
+
                 fit_model.fit_multiple()
+
                 pb_plot.enabled = True
                 plot_model.fit_x = fit_model.fit_x
                 plot_model.fit_y = fit_model.fit_y

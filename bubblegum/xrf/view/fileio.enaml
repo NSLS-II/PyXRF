@@ -207,4 +207,3 @@ enamldef FileView(DockItem): file_view:
                     else:
                         plot_model.show_exp_opt = False
                         plot_bt.text = 'Plot Experiments'
-

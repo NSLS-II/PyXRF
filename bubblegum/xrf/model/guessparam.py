@@ -374,7 +374,6 @@ class GuessParamModel(Atom):
         self.element_list, self.parameters = dict_to_param(param_dict)
         self.EC.delete_all()
         self.create_spectrum_from_file(param_dict)
-
         self.param_new = param_dict
 
     def create_spectrum_from_file(self, param_dict):
@@ -417,8 +416,7 @@ class GuessParamModel(Atom):
 
                 ps = PreFitStatus(z=get_Z(ename), energy=get_energy(e), spectrum=spectrum,
                                   maxv=np.around(np.max(spectrum), 1),
-                                  norm=-1,
-                                  lbd_stat=False)
+                                  norm=-1, lbd_stat=False)
 
                 temp_dict.update({e: ps})
 
@@ -599,14 +597,20 @@ def calculate_profile(y0, param, elementlist=None):
     fitting_parameters = copy.deepcopy(param)
 
     x0 = np.arange(len(y0))
-    x, y = set_range(fitting_parameters, x0, y0)
+    #x0 = fitting_parameters['e_offset']['value'] + fitting_parameters['e_linear']['value'] * x0 \
+    #     + fitting_parameters['e_quadratic']['value'] * x0**2
+
+    # ratio to transfer energy value back to channel value
+    approx_ratio = 100
+    lowv = fitting_parameters['non_fitting_values']['energy_bound_low'] * approx_ratio
+    highv = fitting_parameters['non_fitting_values']['energy_bound_high'] * approx_ratio
+
+    x, y = set_range(x0, y0, lowv, highv)
 
     if elementlist:
         fitting_parameters['non_fitting_values']['element_list'] = elementlist
-    e_select, matv = get_linear_model(x, fitting_parameters, default_area=1e5)
 
-    x = fitting_parameters['e_offset']['value'] + fitting_parameters['e_linear']['value']*x + \
-        fitting_parameters['e_quadratic']['value'] * x**2
+    e_select, matv = get_linear_model(x, fitting_parameters, default_area=1e5)
 
     non_element = ['compton', 'elastic']
     total_list = e_select + non_element
@@ -621,6 +625,10 @@ def calculate_profile(y0, param, elementlist=None):
     temp_d.update(background=bg)
     #for i in len(total_list):
     #    temp_d[total_list[i]] = matv[:, i]
+
+    x = fitting_parameters['e_offset']['value'] + fitting_parameters['e_linear']['value']*x \
+        + fitting_parameters['e_quadratic']['value'] * x**2
+
     return x, temp_d
 
 
@@ -646,7 +654,15 @@ def pre_fit_linear(y0, param):
     fitting_parameters = copy.deepcopy(param)
 
     x0 = np.arange(len(y0))
-    x, y = set_range(fitting_parameters, x0, y0)
+    # xnew = fitting_parameters['e_offset']['value'] + fitting_parameters['e_linear']['value'] * x0 \
+    #        + fitting_parameters['e_quadratic']['value'] * x0**2
+
+    # ratio to transfer energy value back to channel value
+    approx_ratio = 100
+    lowv = fitting_parameters['non_fitting_values']['energy_bound_low'] * approx_ratio
+    highv = fitting_parameters['non_fitting_values']['energy_bound_high'] * approx_ratio
+
+    x, y = set_range(x0, y0, lowv, highv)
 
     element_list = k_line + l_line #+ m_line
     new_element = ', '.join(element_list)
@@ -657,9 +673,6 @@ def pre_fit_linear(y0, param):
     non_element = ['compton', 'elastic']
     total_list = e_select + non_element
     total_list = [str(v) for v in total_list]
-
-    x = fitting_parameters['e_offset']['value'] + fitting_parameters['e_linear']['value']*x + \
-        fitting_parameters['e_quadratic']['value'] * x**2
 
     # get background
     bg = snip_method(y, fitting_parameters['e_offset']['value'],
@@ -684,6 +697,10 @@ def pre_fit_linear(y0, param):
         else:
             result_dict.update({total_list[i] + '_K': total_y[:, i]})
     result_dict.update(background=bg)
+
+    x = fitting_parameters['e_offset']['value'] + fitting_parameters['e_linear']['value']*x \
+        + fitting_parameters['e_quadratic']['value'] * x**2
+
     return x, result_dict
 
 

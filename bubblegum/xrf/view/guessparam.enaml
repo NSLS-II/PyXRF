@@ -57,7 +57,7 @@ k_line_full = [item+'_K' for item in k_line]
 
 
 enamldef FloatField(DefaultFloatField):
-    submit_triggers = ['return_pressed'] #['auto_sync']
+    submit_triggers = ['auto_sync'] #['return_pressed']
 
 
 enamldef GuessParamView(DockItem): param_view:
@@ -91,13 +91,12 @@ enamldef GuessParamView(DockItem): param_view:
                 if CB.index > 0:
                     fit_model.data_title = io_model.file_names[CB.index-1].split('.')[0]
                     plot_model.exp_data_label = fit_model.data_title
+
         PushButton: plot_btn:
             text = 'Plot Data'
             checkable = True
             clicked ::
                 if checked:
-                    #plot_model.plot_title = io_model.file_name
-                    #plot_model.parameters = param_model.parameters
                     plot_model.plot_experiment()
                     plot_model.plot_exp_opt = True
                 else:
@@ -314,7 +313,14 @@ enamldef GuessParamView(DockItem): param_view:
                             text = 'Del'
                             clicked ::
                                 param_model.EC.delete_item(loop_item)
+                                param_model.EC.update_peak_ratio()
+                                param_model.data_for_plot()
+                                param_model.create_full_param()
+                                fit_model.param_dict = param_model.param_new
+                                plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
+                                plot_model._fig.canvas.draw()
                                 param_model.update_name_list()
+
                         Container:
                             padding = Box(2, 2, 2, 2)
                             constraints = [hbox(delete_btn, lb_z, lb_name, lb_energy, lb_inten,
@@ -341,6 +347,7 @@ enamldef GuessParamView(DockItem): param_view:
                                 background = 'white'
                                 #align = 'right'
                                 minimum = 0.0
+
                             Label: lb_norm:
                                 text << set_low_bound(np.around(param_model.EC.element_dict[loop_item].norm, 2))
                                 minimum_size = (100, 20)
@@ -399,7 +406,6 @@ enamldef GuessParamView(DockItem): param_view:
                     fit_model.param_dict = param_model.param_new
 
                     plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
-                    #plot_model.show_autofit_opt = True
                     plot_model._fig.canvas.draw()
 
         #PushButton: save_btn:

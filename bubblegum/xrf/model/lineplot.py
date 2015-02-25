@@ -193,7 +193,8 @@ class LinePlotModel(Atom):
         self._ax.legend()
         #lg = self._ax.get_legend()
         #lg.set_alpha(0.005)
-        self._ax.legend()
+        self._ax.legend(framealpha=0.5)
+
         self._fig.tight_layout(pad=0.5)
         self._fig.canvas.draw()
 
