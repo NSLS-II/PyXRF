@@ -70,12 +70,12 @@ enamldef FitView(DockItem): fit_view:
             vbox(
                 #param_gb,
                 #lbl0,
-                #hbox(lbl1, cb1, spacer),
-                #hbox(lbl2, cb2, spacer),
-                #hbox(lbl3, cb3, spacer),
-                hbox(gb_strategy),
+                hbox(lbl1, cb1, spacer),
+                hbox(lbl2, cb2, spacer),
+                hbox(lbl3, cb3, spacer),
+                #hbox(gb_strategy),
                 hbox(pb_fit, pb_plot, spacer),
-                hbox(btn_edit, spacer),
+                hbox(element_edit, param_edit, spacer),
             ),
         ]
         #GroupBox: param_gb:
@@ -104,131 +104,131 @@ enamldef FitView(DockItem): fit_view:
         #    text = 'Fitting Strategy'
         #PushButton: default_btn:
         #    text = 'Default'
-        GroupBox: gb_strategy:
-            constraints = [vbox(ct_0,
-                                ct_1,
-                                ct_2,
-                                ct_3,
-                                )]
 
-            GroupBox: ct_0:
-                enabled = False
-                padding = Box(5, 5, 5, 5)
-                constraints = [hbox(title_lb0, title_lb1, title_lb2, title_lb3, title_lb4)]
-                LabelTitle: title_lb0:
-                    text = 'None \n '
-                LabelTitle: title_lb1:
-                    text = 'Global with \n compton'
-                LabelTitle: title_lb2:
-                    text = 'Global with \n more'
-                LabelTitle: title_lb3:
-                    text = 'Energy \n calibration'
-                LabelTitle: title_lb4:
-                    text = 'Intensity \n only'
+        #GroupBox: gb_strategy:
+        #    constraints = [vbox(ct_0,
+        #                        ct_1,
+        #                        ct_2,
+        #                        ct_3,
+        #                        )]
 
-            Container: ct_1:
-                padding = Box(5, 5, 5, 5)
-                constraints = [hbox(lb_1, rb_1, rb_1a, rb_1b, rb_1c, rb_1d, spacer)]
-                Label: lb_1:
-                    text = 'Step 1'
-                    tool_tip = 'Default as Global with compton'
-                RadioButton: rb_1:
-                    text = ''
-                    clicked ::
-                        fit_model.fit_strategy1 = 0
-                RadioButton: rb_1a:
-                    text = ''
-                    checked = True
-                    clicked ::
-                        fit_model.fit_strategy1 = 1
-                RadioButton: rb_1b:
-                    text = ''
-                    clicked ::
-                        fit_model.fit_strategy1 = 2
-                RadioButton: rb_1c:
-                    text = ''
-                    clicked ::
-                        fit_model.fit_strategy1 = 3
-                RadioButton: rb_1d:
-                    text = ''
-                    clicked ::
-                        fit_model.fit_strategy1 = 4
+        #    GroupBox: ct_0:
+        #        enabled = False
+        #        padding = Box(5, 5, 5, 5)
+        #        constraints = [hbox(title_lb0, title_lb1, title_lb2, title_lb3, title_lb4)]
+        #        LabelTitle: title_lb0:
+        #        LabelTitle: title_lb1:
+        #            text = 'Global with \n compton'
+        #        LabelTitle: title_lb2:
+        #            text = 'Global with \n more'
+        #        LabelTitle: title_lb3:
+        #            text = 'Energy \n calibration'
+        #        LabelTitle: title_lb4:
+        #            text = 'Intensity \n only'
 
-            Container: ct_2:
-                padding = Box(5, 5, 5, 5)
-                constraints = [hbox(lb_2, rb_2, rb_2a, rb_2b, rb_2c, rb_2d, spacer)]
-                Label: lb_2:
-                    text = 'Step 2'
-                    tool_tip = 'Default as Intensity only'
-                RadioButton: rb_2:
-                    text = ''
-                    clicked ::
-                        fit_model.fit_strategy2 = 0
-                RadioButton: rb_2a:
-                    text = ''
-                    #checked = True
-                    clicked ::
-                        fit_model.fit_strategy2 = 1
-                RadioButton: rb_2b:
-                    text = ''
-                    clicked ::
-                        fit_model.fit_strategy2 = 2
-                RadioButton: rb_2c:
-                    text = ''
-                    clicked ::
-                        fit_model.fit_strategy2 = 3
-                RadioButton: rb_2d:
-                    text = ''
-                    checked = True
-                    clicked ::
-                        fit_model.fit_strategy2 = 4
+        #    Container: ct_1:
+        #        padding = Box(5, 5, 5, 5)
+        #        constraints = [hbox(lb_1, rb_1, rb_1a, rb_1b, rb_1c, rb_1d, spacer)]
+        #        Label: lb_1:
+        #            text = 'Step 1'
+        #            tool_tip = 'Default as Global with compton'
+        #        RadioButton: rb_1:
+        #            text = ''
+        #            clicked ::
+        #                fit_model.fit_strategy1 = 0
+        #        RadioButton: rb_1a:
+        #            text = ''
+        #            checked = True
+        #            clicked ::
+        #                fit_model.fit_strategy1 = 1
+        #        RadioButton: rb_1b:
+        #            text = ''
+        #            clicked ::
+        #                fit_model.fit_strategy1 = 2
+        #        RadioButton: rb_1c:
+        #            text = ''
+        #            clicked ::
+        #                fit_model.fit_strategy1 = 3
+        #        RadioButton: rb_1d:
+        #            text = ''
+        #            clicked ::
+        #                fit_model.fit_strategy1 = 4
 
-            Container: ct_3:
-                padding = Box(5, 5, 5, 5)
-                constraints = [hbox(lb_3, rb_3, rb_3a, rb_3b, rb_3c, rb_3d, spacer)]
-                Label: lb_3:
-                    text = 'Step 3'
-                    tool_tip = 'Default as None'
-                RadioButton: rb_3:
-                    text = ''
-                    checked = True
-                    clicked ::
-                        fit_model.fit_strategy3 = 0
-                RadioButton: rb_3a:
-                    text = ''
-                    clicked ::
-                        fit_model.fit_strategy3 = 1
-                RadioButton: rb_3b:
-                    text = ''
-                    clicked ::
-                        fit_model.fit_strategy3 = 2
-                RadioButton: rb_3c:
-                    text = ''
-                    clicked ::
-                        fit_model.fit_strategy3 = 3
-                RadioButton: rb_3d:
-                    text = ''
-                    clicked ::
-                        fit_model.fit_strategy3 = 4
+        #    Container: ct_2:
+        #        padding = Box(5, 5, 5, 5)
+        #        constraints = [hbox(lb_2, rb_2, rb_2a, rb_2b, rb_2c, rb_2d, spacer)]
+        #        Label: lb_2:
+        #            text = 'Step 2'
+        #            tool_tip = 'Default as Intensity only'
+        #        RadioButton: rb_2:
+        #            text = ''
+        #            clicked ::
+        #                fit_model.fit_strategy2 = 0
+        #        RadioButton: rb_2a:
+        #            text = ''
+        #            #checked = True
+        #            clicked ::
+        #                fit_model.fit_strategy2 = 1
+        #        RadioButton: rb_2b:
+        #            text = ''
+        #            clicked ::
+        #                fit_model.fit_strategy2 = 2
+        #        RadioButton: rb_2c:
+        #            text = ''
+        #            clicked ::
+        #                fit_model.fit_strategy2 = 3
+        #        RadioButton: rb_2d:
+        #            text = ''
+        #            checked = True
+        #            clicked ::
+        #                fit_model.fit_strategy2 = 4
 
-        #Label: lbl1:
-        #    text = 'Step 1'
-        #ComboBox: cb1:
-        #    items = [''] + fit_strategy_list
-        #    index = 0
-        #    index >> fit_model.fit_strategy1
-        #Label: lbl2:
-        #    text = 'Step 2'
-        #ComboBox: cb2:
-        #    items = [''] + fit_strategy_list
-        #    index = 0
-        #    index >> fit_model.fit_strategy2
-        #Label: lbl3:
-        #    text = 'Step 3'
-        #ComboBox: cb3:
-        #    items = [''] + fit_strategy_list
-        #    index = 0
-        #    index >> fit_model.fit_strategy3
+        #    Container: ct_3:
+        #        padding = Box(5, 5, 5, 5)
+        #        constraints = [hbox(lb_3, rb_3, rb_3a, rb_3b, rb_3c, rb_3d, spacer)]
+        #        Label: lb_3:
+        #            text = 'Step 3'
+        #            tool_tip = 'Default as None'
+        #        RadioButton: rb_3:
+        #            text = ''
+        #            checked = True
+        #            clicked ::
+        #                fit_model.fit_strategy3 = 0
+        #        RadioButton: rb_3a:
+        #            text = ''
+        #            clicked ::
+        #                fit_model.fit_strategy3 = 1
+        #        RadioButton: rb_3b:
+        #            text = ''
+        #            clicked ::
+        #                fit_model.fit_strategy3 = 2
+        #        RadioButton: rb_3c:
+        #            text = ''
+        #            clicked ::
+        #                fit_model.fit_strategy3 = 3
+        #        RadioButton: rb_3d:
+        #            text = ''
+        #            clicked ::
+        #                fit_model.fit_strategy3 = 4
+
+        Label: lbl1:
+            text = 'Step 1'
+        ComboBox: cb1:
+            items = [''] + fit_strategy_list
+            index = 0
+            index >> fit_model.fit_strategy1
+        Label: lbl2:
+            text = 'Step 2'
+        ComboBox: cb2:
+            items = [''] + fit_strategy_list
+            index = 0
+            index >> fit_model.fit_strategy2
+        Label: lbl3:
+            text = 'Step 3'
+        ComboBox: cb3:
+            items = [''] + fit_strategy_list
+            index = 0
+            index >> fit_model.fit_strategy3
 
         PushButton: pb_fit:
             text = 'Fit'
@@ -246,9 +246,12 @@ enamldef FitView(DockItem): fit_view:
                 plot_model.residual = fit_model.residual
                 plot_model.plot_fit()
 
-                param_model.get_param(fit_model.param_dict)
-                param_model.update_name_list()
-                ParameterEdit.parameter_model = param_model
+                #param_model.get_param(fit_model.param_dict)
+                #param_model.update_name_list()
+
+                #ParameterEdit.parameter_model = param_model
+                ElementEdit.parameter_model = fit_model
+                ParameterEdit.parameter_model = fit_model
 
         PushButton: pb_plot:
             text = 'Overlap to Spectrum'
@@ -262,15 +265,53 @@ enamldef FitView(DockItem): fit_view:
                     plot_model.show_fit_opt = False
                     pb_plot.text = 'Overlap to Spectrum'
 
-        PushButton: btn_edit:
-            text = 'Edit Defaults'
+        PushButton: element_edit:
+            text = 'Edit Elements'
             clicked ::
                 #ParameterEdit_old.parameter_model = fit_model.param_dict
                 #ParameterEdit_old.param = Param
                 #ParameterEdit_old().show()
                 #param_model.get_param(param_model.param_new)
+                ElementEdit().show()
 
+        PushButton: param_edit:
+            text = 'Edit Global Fitting Parameters'
+            clicked ::
                 ParameterEdit().show()
+
+
+enamldef ElementEdit(Window):
+    attr parameter_model
+    destroy_on_close = False
+    Container:
+        padding = Box(5, 5, 5, 5)
+        ComboBox: cmb1:
+            #items << sorted(parameter_model.parameters.keys())
+            items << [' '] + sorted([v.split('_')[0] for v in parameter_model.element_list])
+            index = 0
+        ComboBox: cmb2:
+            items << [' '] + sorted([v for v in parameter_model.parameters.keys() if cmb1.selected_item in v])
+            index = 0
+            selected_item ::
+                av.model = parameter_model.parameters[selected_item]
+        GroupBox:
+            AutoView: av:
+                padding = Box(15, 15, 15, 15)
+                model = parameter_model.parameters.values()[0]
+                #padding = 30
+        PushButton: pb:
+            text = "Apply"
+            maximum_size = 200
+            clicked ::
+                parameter_model.update_param_dict()
+
+        #PushButton: save:
+        #    text = "Save changes to disk"
+        #    clicked ::
+        #        parameter_model.param_new = format_dict(parameter_model.parameters,
+        #                                                parameter_model.element_list)
+        #        parameter_model.save()
+        #        #save_defaults(parameter_model)
 
 
 enamldef ParameterEdit(Window):
@@ -278,20 +319,21 @@ enamldef ParameterEdit(Window):
     destroy_on_close = False
     Container:
         padding = Box(5, 5, 5, 5)
-        ComboBox: cmb:
-            items << sorted(parameter_model.parameters.keys())
+        ComboBox: cmb1:
+            items << [' '] + sorted([v for v in parameter_model.parameters.keys() if v.lower()==v])
+            index = 0
             selected_item ::
                 av.model = parameter_model.parameters[selected_item]
-        AutoView: av:
-            model = parameter_model.parameters.values()[0]
-            padding = 30
-        PushButton: save:
-            text = "Save changes to disk"
+        GroupBox:
+            AutoView: av:
+                padding = Box(15, 15, 15, 15)
+                model = parameter_model.parameters.values()[0]
+            #padding = 30
+        PushButton: pb:
+            text = "Apply"
+            maximum_size = 200
             clicked ::
-                parameter_model.param_new = format_dict(parameter_model.parameters,
-                                                        parameter_model.element_list)
-                parameter_model.save()
-                #save_defaults(parameter_model)
+                parameter_model.update_param_dict()
 
 
 def save_defaults(parameter_model):

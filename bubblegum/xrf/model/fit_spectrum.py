@@ -37,7 +37,7 @@ __author__ = 'Li Li'
 
 import numpy as np
 import time
-import json
+import copy
 import six
 import os
 
@@ -51,6 +51,7 @@ from skxray.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
                                       ParamController, set_range, get_linear_model,
                                       PreFitAnalysis, k_line, l_line, get_escape_peak)
 from skxray.fitting.background import snip_method
+from .guessparam import dict_to_param, format_dict
 from lmfit import fit_report
 
 import logging
@@ -65,6 +66,10 @@ class Fit1D(Atom):
     file_path = Str()
     file_status = Str()
     param_dict = Dict()
+
+    element_list = List()
+    parameters = Dict()
+
     data = Typed(np.ndarray)
     fit_x = Typed(np.ndarray)
     fit_y = Typed(np.ndarray)
@@ -96,10 +101,18 @@ class Fit1D(Atom):
     #     except ValueError:
     #         self.file_status = 'Parameter file can\'t be loaded.'
 
-    # @observe('param_dict')
-    # def _update_exp(self, change):
-    #     self.define_range()
-    #     self.escape_peak()
+    def get_new_param(self, param):
+        self.param_dict = copy.deepcopy(param)
+        self.element_list, self.parameters = dict_to_param(self.param_dict)
+
+    @observe('parameters')
+    def _update_param_dict(self, change):
+        self.param_dict = format_dict(self.parameters, self.element_list)
+        logger.info('param changed {}'.format(change['type']))
+
+    def update_param_dict(self):
+        self.param_dict = format_dict(self.parameters, self.element_list)
+        logger.info('param changed !!!')
 
     # @observe('file_path')
     # def update_param(self, change):
@@ -189,7 +202,7 @@ class Fit1D(Atom):
         self.get_background()
         self.escape_peak()
 
-        y0 = self.y0 -self.bg - self.es_peak
+        y0 = self.y0 - self.bg #- self.es_peak
 
         t0 = time.time()
         logger.warning('Start fitting!')

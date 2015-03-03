@@ -109,12 +109,12 @@ enamldef GuessParamView(DockItem): param_view:
                     parameter_file_path = FileDialogEx.get_open_file_name(param_view)
                     if parameter_file_path:
                         param_model.get_new_param(parameter_file_path)
-
                         param_model.EC.order()
-                        fit_model.param_dict = param_model.param_new
+
+                        fit_model.get_new_param(param_model.param_new)
+                        #fit_model.param_dict = param_model.param_new
 
                         param_model.update_name_list()
-
                         plot_model.parameters = param_model.parameters
                         param_model.data_for_plot()
                         plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
@@ -316,7 +316,10 @@ enamldef GuessParamView(DockItem): param_view:
                                 param_model.EC.update_peak_ratio()
                                 param_model.data_for_plot()
                                 param_model.create_full_param()
-                                fit_model.param_dict = param_model.param_new
+
+                                #fit_model.param_dict = param_model.param_new
+                                fit_model.get_new_param(param_model.param_new)
+
                                 plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
                                 plot_model._fig.canvas.draw()
                                 param_model.update_name_list()
@@ -403,7 +406,9 @@ enamldef GuessParamView(DockItem): param_view:
                     param_model.EC.update_peak_ratio()
                     param_model.data_for_plot()
                     param_model.create_full_param()
-                    fit_model.param_dict = param_model.param_new
+
+                    #fit_model.param_dict = param_model.param_new
+                    fit_model.get_new_param(param_model.param_new)
 
                     plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
                     plot_model._fig.canvas.draw()
