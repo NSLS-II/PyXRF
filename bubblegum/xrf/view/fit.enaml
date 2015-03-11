@@ -73,9 +73,13 @@ enamldef FitView(DockItem): fit_view:
                 hbox(lbl1, cb1, spacer),
                 hbox(lbl2, cb2, spacer),
                 hbox(lbl3, cb3, spacer),
+                hbox(lbl4, cb4, spacer),
+                hbox(lbl5, cb5, spacer),
                 #hbox(gb_strategy),
                 hbox(pb_fit, pb_plot, spacer),
-                hbox(element_edit, param_edit, spacer),
+                gb_advanced,
+                #hbox(cb_enable, spacer),
+                #hbox(element_edit, param_edit, spacer),
             ),
         ]
         #GroupBox: param_gb:
@@ -229,6 +233,18 @@ enamldef FitView(DockItem): fit_view:
             items = [''] + fit_strategy_list
             index = 0
             index >> fit_model.fit_strategy3
+        Label: lbl4:
+            text = 'Step 4'
+        ComboBox: cb4:
+            items = [''] + fit_strategy_list
+            index = 0
+            index >> fit_model.fit_strategy4
+        Label: lbl5:
+            text = 'Step 5'
+        ComboBox: cb5:
+            items = [''] + fit_strategy_list
+            index = 0
+            index >> fit_model.fit_strategy5
 
         PushButton: pb_fit:
             text = 'Fit'
@@ -257,6 +273,7 @@ enamldef FitView(DockItem): fit_view:
             text = 'Overlap to Spectrum'
             checkable = True
             enabled = False
+            minimum_size = (200, 20)
             clicked ::
                 if checked:
                     plot_model.show_fit_opt = True
@@ -265,19 +282,35 @@ enamldef FitView(DockItem): fit_view:
                     plot_model.show_fit_opt = False
                     pb_plot.text = 'Overlap to Spectrum'
 
-        PushButton: element_edit:
-            text = 'Edit Elements'
-            clicked ::
-                #ParameterEdit_old.parameter_model = fit_model.param_dict
-                #ParameterEdit_old.param = Param
-                #ParameterEdit_old().show()
-                #param_model.get_param(param_model.param_new)
-                ElementEdit().show()
+        GroupBox : gb_advanced:
+            constraints = [vbox(hbox(cb_enable, spacer),
+                                hbox(element_edit, param_edit, spacer))]
+            CheckBox: cb_enable:
+                text = 'Enable Advanced Setting'
+                clicked ::
+                    if checked:
+                        element_edit.enabled = True
+                        param_edit.enabled = True
+                    else:
+                        element_edit.enabled = False
+                        param_edit.enabled = False
 
-        PushButton: param_edit:
-            text = 'Edit Global Fitting Parameters'
-            clicked ::
-                ParameterEdit().show()
+            PushButton: element_edit:
+                text = 'Edit Elements'
+                enabled = False
+                clicked ::
+                    #ParameterEdit_old.parameter_model = fit_model.param_dict
+                    #ParameterEdit_old.param = Param
+                    #ParameterEdit_old().show()
+                    #param_model.get_param(param_model.param_new)
+                    ElementEdit().show()
+
+            PushButton: param_edit:
+                text = 'Edit Global Fitting Parameters'
+                enabled = False
+                clicked ::
+                    enabled = False
+                    ParameterEdit().show()
 
 
 enamldef ElementEdit(Window):
@@ -287,7 +320,7 @@ enamldef ElementEdit(Window):
         padding = Box(5, 5, 5, 5)
         ComboBox: cmb1:
             #items << sorted(parameter_model.parameters.keys())
-            items << [' '] + sorted([v.split('_')[0] for v in parameter_model.element_list])
+            items << ['Select Element'] + sorted([v.split('_')[0] for v in parameter_model.element_list])
             index = 0
         ComboBox: cmb2:
             items << [' '] + sorted([v for v in parameter_model.parameters.keys() if cmb1.selected_item in v])

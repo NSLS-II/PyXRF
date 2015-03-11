@@ -40,16 +40,16 @@ import time
 import copy
 import six
 import os
+from collections import OrderedDict
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float
-
 from skxray.fitting.xrf_model import (k_line, l_line, m_line)
 from skxray.constants.api import XrfElement as Element
-
 from skxray.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
                                       get_sum_area, set_parameter_bound,
                                       ParamController, set_range, get_linear_model,
-                                      PreFitAnalysis, k_line, l_line, get_escape_peak)
+                                      PreFitAnalysis, k_line, l_line,
+                                      get_escape_peak, register_strategy)
 from skxray.fitting.background import snip_method
 from .guessparam import dict_to_param, format_dict
 from lmfit import fit_report
@@ -75,24 +75,25 @@ class Fit1D(Atom):
     fit_y = Typed(np.ndarray)
     residual = Typed(np.ndarray)
     comps = Dict()
-    fit_strategy1 = Int(1)
-    fit_strategy2 = Int(4)
+    fit_strategy1 = Int(0)
+    fit_strategy2 = Int(0)
     fit_strategy3 = Int(0)
+    fit_strategy4 = Int(0)
+    fit_strategy5 = Int(0)
     fit_result = Typed(object)
-    strategy_list = List()
     data_title = Str()
     result_folder = Str()
+
+    all_strategy = Typed(object) #Typed(OrderedDict)
 
     x0 = Typed(np.ndarray)
     y0 = Typed(np.ndarray)
     bg = Typed(np.ndarray)
     es_peak = Typed(np.ndarray)
 
-
     def __init__(self, *args, **kwargs):
         self.result_folder = kwargs['working_directory']
-        self.strategy_list = fit_strategy_list
-
+        self.all_strategy = OrderedDict()
     # def load_full_param(self):
     #     try:
     #         with open(self.file_path, 'r') as json_data:
@@ -124,26 +125,39 @@ class Fit1D(Atom):
 
     @observe('fit_strategy1')
     def update_strategy1(self, change):
-        if change['value'] == 0:
-            return
-        logger.info('Strategy at step 1 is: {}'.
-                    format(self.strategy_list[change['value']-1]))
-        set_parameter_bound(self.param_dict,
-                            self.strategy_list[self.fit_strategy1-1])
+        print(change)
+        self.all_strategy.update({'strategy1': change['value']})
+        if change['value']:
+            logger.info('Strategy at step 1 is: {}'.
+                        format(fit_strategy_list[change['value']-1]))
 
     @observe('fit_strategy2')
     def update_strategy2(self, change):
-        if change['value'] == 0:
-            return
-        logger.info('Strategy at step 2 is: {}'.
-                    format(self.strategy_list[change['value']-1]))
+        self.all_strategy.update({'strategy2': change['value']})
+        if change['value']:
+            logger.info('Strategy at step 2 is: {}'.
+                        format(fit_strategy_list[change['value']-1]))
 
     @observe('fit_strategy3')
     def update_strategy3(self, change):
-        if change['value'] == 0:
-            return
-        logger.info('Strategy at step 3 is: {}'.
-                    format(self.strategy_list[change['value']-1]))
+        self.all_strategy.update({'strategy3': change['value']})
+        if change['value']:
+            logger.info('Strategy at step 3 is: {}'.
+                        format(fit_strategy_list[change['value']-1]))
+
+    @observe('fit_strategy4')
+    def update_strategy4(self, change):
+        self.all_strategy.update({'strategy4': change['value']})
+        if change['value']:
+            logger.info('Strategy at step 4 is: {}'.
+                        format(fit_strategy_list[change['value']-1]))
+
+    @observe('fit_strategy5')
+    def update_strategy5(self, change):
+        self.all_strategy.update({'strategy5': change['value']})
+        if change['value']:
+            logger.info('Strategy at step 5 is: {}'.
+                        format(fit_strategy_list[change['value']-1]))
 
     def update_param_with_result(self):
         update_parameter_dict(self.param_dict, self.fit_result)
@@ -202,46 +216,25 @@ class Fit1D(Atom):
         self.get_background()
         self.escape_peak()
 
+        #PC = ParamController(self.param_dict)
+        #self.param_dict = PC.new_parameter
+
         y0 = self.y0 - self.bg #- self.es_peak
 
         t0 = time.time()
         logger.warning('Start fitting!')
-        if self.fit_strategy1 != 0 and \
-            self.fit_strategy2+self.fit_strategy3 == 0:
-            logger.info('Fit with 1 strategy')
-            self.fit_data(self.x0, y0)
-            #self.fit_y += self.es_peak
+        for k, v in six.iteritems(self.all_strategy):
+            if v:
+                stra1_name = fit_strategy_list[v-1]
+                logger.info('Fit with {}: {}'.format(k, stra1_name))
+                strategy1 = extract_strategy(self.param_dict, stra1_name)
+                register_strategy(stra1_name, strategy1)
+                set_parameter_bound(self.param_dict,
+                                    fit_strategy_list[v-1])
+                self.fit_data(self.x0, y0)
+                self.update_param_with_result()
 
-        elif self.fit_strategy1*self.fit_strategy2 != 0 \
-            and self.fit_strategy3 == 0:
-            logger.info('Fit with 2 strategies')
-            #self.fit_data(self.x0, self.y0-self.es_peak, self.bg)
-            self.fit_data(self.x0, y0)
-            self.update_param_with_result()
-            set_parameter_bound(self.param_dict,
-                                self.strategy_list[self.fit_strategy2-1])
-            #self.fit_data(self.x0, self.y0-self.es_peak, self.bg)
-            self.fit_data(self.x0, y0)
-
-        elif self.fit_strategy1*self.fit_strategy2*self.fit_strategy3 != 0:
-            logger.info('Fit with 3 strategies')
-            # first
-            #self.fit_data(self.x0, self.y0-self.es_peak, self.bg)
-            self.fit_data(self.x0, y0)
-            # second
-            self.update_param_with_result()
-            set_parameter_bound(self.param_dict,
-                                self.strategy_list[self.fit_strategy2-1])
-            #self.fit_data(self.x0, self.y0-self.es_peak, self.bg)
-            self.fit_data(self.x0, y0)
-            # thrid
-            self.update_param_with_result()
-            set_parameter_bound(self.param_dict,
-                                self.strategy_list[self.fit_strategy3-1])
-            self.fit_data(self.x0, y0)
-            #self.fit_data(self.x0, self.y0-self.es_peak, self.bg)
-
-        self.fit_y += self.bg + self.es_peak
+        self.fit_y += self.bg #+ self.es_peak
 
         t1 = time.time()
         logger.warning('Time used for fitting is : {}'.format(t1-t0))
@@ -287,6 +280,20 @@ class Fit1D(Atom):
         with open(filepath, 'w') as myfile:
             myfile.write(fit_report(self.fit_result, sort_pars=True))
             logger.warning('Results are saved to {}'.format(filepath))
+
+
+def extract_strategy(param, name):
+    """
+    Extract given strategy from param dict.
+
+    Parameters
+    ----------
+    param : dict
+        saving all parameters
+    name : str
+        strategy name
+    """
+    return {k: v[name] for k, v in six.iteritems(param) if k != 'non_fitting_values'}
 
 
 # to be removed

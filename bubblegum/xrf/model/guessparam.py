@@ -510,6 +510,7 @@ class GuessParamModel(Atom):
 
         param_d = format_dict(self.parameters, temp_list)
 
+        # create full parameter list including elements
         PC = ParamController(param_d)
         PC.create_full_param()
         self.param_new = PC.new_parameter

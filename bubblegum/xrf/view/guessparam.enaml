@@ -73,7 +73,7 @@ enamldef GuessParamView(DockItem): param_view:
                 hbox(new_param_load, spacer),
                 top_cntr,
                 hbox(find_btn, spacer),
-                hbox(add_lbl, cb_select, intensity_lb, intensity_fd, manual_add, spacer),
+                hbox(cb_select, intensity_lb, intensity_fd, manual_add, spacer),
                 pre_fit,
                 hbox(saveas_btn, spacer),
             ),
@@ -163,8 +163,8 @@ enamldef GuessParamView(DockItem): param_view:
                 plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y,
                                            param_model.total_y_l)
 
-        Label: add_lbl:
-            text = 'Manual Peak Adding: '
+        #Label: add_lbl:
+        #    text = 'Manual Peak Adding: '
 
         ComboBox: cb_select:
             items = ['Select Lines'] +\
@@ -318,7 +318,7 @@ enamldef GuessParamView(DockItem): param_view:
                                 param_model.create_full_param()
 
                                 #fit_model.param_dict = param_model.param_new
-                                fit_model.get_new_param(param_model.param_new)
+                                #fit_model.get_new_param(param_model.param_new)
 
                                 plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
                                 plot_model._fig.canvas.draw()
@@ -402,7 +402,8 @@ enamldef GuessParamView(DockItem): param_view:
             PushButton: pb_update:
                 text = 'Apply'
                 clicked ::
-                    #param_model.update_name_list()
+
+                    param_model.update_name_list()
                     param_model.EC.update_peak_ratio()
                     param_model.data_for_plot()
                     param_model.create_full_param()
