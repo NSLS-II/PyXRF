@@ -51,7 +51,7 @@ from skxray.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
                                       PreFitAnalysis, k_line, l_line,
                                       get_escape_peak, register_strategy)
 from skxray.fitting.background import snip_method
-from .guessparam import dict_to_param, format_dict
+from bubblegum.xrf.model.guessparam import dict_to_param, format_dict
 from lmfit import fit_report
 
 import logging
@@ -175,7 +175,6 @@ class Fit1D(Atom):
                               self.param_dict['e_offset']['value'],
                               self.param_dict['e_linear']['value'],
                               self.param_dict['e_quadratic']['value'])
-        self.comps.update({'background': self.bg})
 
     def escape_peak(self):
         ratio = 0.005
@@ -201,7 +200,6 @@ class Fit1D(Atom):
 
         comps = result.eval_components(x=x0)
         self.combine_lines(comps)
-        #self.comps.update({'background': bg})
 
         xnew = result.values['e_offset'] + result.values['e_linear'] * x0 +\
                result.values['e_quadratic'] * x0**2
@@ -214,7 +212,7 @@ class Fit1D(Atom):
 
         self.define_range()
         self.get_background()
-        self.escape_peak()
+        #self.escape_peak()
 
         #PC = ParamController(self.param_dict)
         #self.param_dict = PC.new_parameter
@@ -225,12 +223,12 @@ class Fit1D(Atom):
         logger.warning('Start fitting!')
         for k, v in six.iteritems(self.all_strategy):
             if v:
-                stra1_name = fit_strategy_list[v-1]
-                logger.info('Fit with {}: {}'.format(k, stra1_name))
-                strategy1 = extract_strategy(self.param_dict, stra1_name)
-                register_strategy(stra1_name, strategy1)
-                set_parameter_bound(self.param_dict,
-                                    fit_strategy_list[v-1])
+                stra_name = fit_strategy_list[v-1]
+                logger.info('Fit with {}: {}'.format(k, stra_name))
+                strategy = extract_strategy(self.param_dict, stra_name)
+                register_strategy(stra_name, strategy)
+                set_parameter_bound(self.param_dict, stra_name)
+                self.comps.clear()
                 self.fit_data(self.x0, y0)
                 self.update_param_with_result()
 
@@ -243,14 +241,13 @@ class Fit1D(Atom):
     def combine_lines(self, comps):
         """
         Combine results for different lines of the same element.
+        And also add background.
 
         Parameters
         ----------
         comps : dict
             output results from lmfit
         """
-        self.comps.clear()
-
         for e in self.param_dict['non_fitting_values']['element_list'].split(','):
             e = e.strip(' ')
             if '_' in e:
@@ -264,6 +261,10 @@ class Fit1D(Atom):
                     intensity += v
             self.comps[e] = intensity
         self.comps.update(comps)
+
+        # add background
+        self.comps.update({'background': self.bg})
+
         self.comps['elastic'] = self.comps['elastic_']
         del self.comps['elastic_']
 
@@ -294,6 +295,10 @@ def extract_strategy(param, name):
         strategy name
     """
     return {k: v[name] for k, v in six.iteritems(param) if k != 'non_fitting_values'}
+
+
+
+
 
 
 # to be removed

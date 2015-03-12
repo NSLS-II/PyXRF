@@ -161,7 +161,7 @@ class LinePlotModel(Atom):
 
         self._ax = self._fig.add_subplot(111)
         #self._ax.set_axis_bgcolor('black')
-        self._ax.legend(loc=0)
+        self._ax.legend(loc=2)
 
         self._ax.set_xlabel('Energy [keV]')
         self._ax.set_ylabel('Counts')
@@ -178,7 +178,7 @@ class LinePlotModel(Atom):
     def _color_config(self):
         self.plot_style = {
             'experiment': {'color': 'blue', 'linestyle': '', 'marker': '.', 'label': self.exp_data_label},
-            'background': {'color': 'grey', 'label': 'background'},
+            'background': {'color': 'grey', 'marker': '+', 'markersize': 1, 'label': 'background'},
             'emission_line': {'color': 'red', 'linewidth': 2},
             'k_line': {'color': 'green', 'label': 'k lines'},
             'l_line': {'color': 'purple', 'label': 'l lines'},
@@ -190,17 +190,12 @@ class LinePlotModel(Atom):
         }
 
     def _update_canvas(self):
-        self._ax.legend()
+        self._ax.legend(loc=2)
         #lg = self._ax.get_legend()
         #lg.set_alpha(0.005)
-        self._ax.legend(framealpha=0.5)
-
+        self._ax.legend(framealpha=0.2)
         self._fig.tight_layout(pad=0.5)
         self._fig.canvas.draw()
-
-    #@observe('plot_title')
-    #def update_title(self, change):
-    #    self._ax.set_title(self.plot_title)
 
     @observe('exp_data_label')
     def _update_exp_label(self, change):
@@ -242,9 +237,6 @@ class LinePlotModel(Atom):
             self.plot_exp_obj.set_label('_' + lab)
 
         self._update_canvas()
-        #self._ax.legend()
-        #alpha = self._ax.get_legend()
-        #alpha.set_alpha(0.1)
 
     def plot_experiment(self):
         """
@@ -275,7 +267,6 @@ class LinePlotModel(Atom):
 
         color_n = get_color_name()
 
-        #print('plot keys: {}'.format(self.data_sets.keys()))
         for i, (k, v) in enumerate(six.iteritems(self.data_sets)):
             if v.plot_index:
                 data_arr = np.asarray(v.data)
@@ -424,6 +415,8 @@ class LinePlotModel(Atom):
                 if k == 'background':
                     ln, = self._ax.plot(self.prefit_x, v,
                                         color=self.plot_style['background']['color'],
+                                        marker=self.plot_style['background']['marker'],
+                                        markersize=self.plot_style['background']['markersize'],
                                         label=self.plot_style['background']['label'])
                 elif k == 'compton':
                     ln, = self._ax.plot(self.prefit_x, v,
@@ -462,12 +455,11 @@ class LinePlotModel(Atom):
                 self.auto_fit_obj.append(ln)
                 sum += v
 
+        if len(self.total_y) or len(self.total_y_l):
             ln, = self._ax.plot(self.prefit_x, sum,
                                 color=self.plot_style['auto_fit']['color'],
                                 label=self.plot_style['auto_fit']['label'])
             self.auto_fit_obj.append(ln)
-        #self._ax.legend()
-        #self._fig.canvas.draw()
 
     @observe('show_autofit_opt')
     def update_auto_fit(self, change):
@@ -486,8 +478,6 @@ class LinePlotModel(Atom):
                     if lab != '_nolegend_':
                         v.set_label('_' + lab)
         self._update_canvas()
-        #self._ax.legend()
-        #self._fig.canvas.draw()
 
     def plot_fit(self):
         #if len(self.fit_y):
@@ -533,6 +523,8 @@ class LinePlotModel(Atom):
             elif k == 'background':
                 ln, = self._ax.plot(self.fit_x, v,
                                     color=self.plot_style['background']['color'],
+                                    marker=self.plot_style['background']['marker'],
+                                    markersize=self.plot_style['background']['markersize'],
                                     label=self.plot_style['background']['label'])
                 self.plot_fit_obj.append(ln)
             elif k == 'compton':
@@ -572,8 +564,6 @@ class LinePlotModel(Atom):
                 if lab != '_nolegend_':
                     v.set_label('_' + lab)
         self._update_canvas()
-        #self._ax.legend()
-        #self._fig.canvas.draw()
 
     def set_prefit_data(self, prefit_x,
                         total_y, total_y_l):

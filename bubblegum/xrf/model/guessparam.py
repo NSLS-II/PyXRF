@@ -53,13 +53,15 @@ from skxray.constants.api import XrfElement as Element
 from skxray.fitting.xrf_model import (ModelSpectrum, ParamController,
                                       set_range, k_line, l_line, m_line,
                                       get_linear_model, PreFitAnalysis)
+#from bubblegum.xrf.model.fit_spectrum import fit_strategy_list
 
 import logging
 logger = logging.getLogger(__name__)
 
 
 bound_options = ['none', 'lohi', 'fixed', 'lo', 'hi']
-
+fit_strategy_list = ['fit_with_tail', 'free_more',
+                     'e_calibration', 'linear', 'adjust_element']
 
 class Parameter(Atom):
     # todo make sure that these are the only valid bound types
@@ -515,6 +517,9 @@ class GuessParamModel(Atom):
         PC.create_full_param()
         self.param_new = PC.new_parameter
 
+        # to create full param dict, for GUI only
+        create_full_dict(self.param_new, fit_strategy_list)
+
         #factor_to_area = np.sqrt(2*np.pi)*peak_std*0.5
         factor_to_area = factor_height2area()
 
@@ -631,6 +636,28 @@ def calculate_profile(y0, param, elementlist=None):
         + fitting_parameters['e_quadratic']['value'] * x**2
 
     return x, temp_d
+
+
+def create_full_dict(param, name_list):
+    """
+    Create full param dict so each item has same nested dict.
+    This is for GUI purpose only.
+
+    .. warning :: This function mutates the input values.
+
+    Pamameters
+    ----------
+    param : dict
+        all parameters including element
+    name_list : list
+        strategy names
+    """
+    for n in name_list:
+        for k, v in six.iteritems(param):
+            if k == 'non_fitting_values':
+                continue
+            if n not in v:
+                v.update({n: v['bound_type']})
 
 
 def pre_fit_linear(y0, param):

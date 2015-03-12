@@ -46,10 +46,16 @@ from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer
 from auto_enaml.api import AutoView
 from enaml.stdlib.fields import FloatField
 from enaml.layout.geometry import Box
+from enaml.core.api import Include, Looper
+
+from enaml.stdlib.fields import FloatField as DefaultFloatField
 
 from bubblegum.xrf.model.fit_spectrum import Param, fit_strategy_list
 from bubblegum.xrf.model.guessparam import format_dict
 
+
+enamldef FloatField(DefaultFloatField):
+    submit_triggers = ['auto_sync'] #['return_pressed']
 
 enamldef RadioButton(DefaultRadioButton):
     minimum_size = (80, 20)
@@ -58,6 +64,7 @@ enamldef LabelTitle(Label):
     maximum_size = 80
     align = 'left'
 
+bound_options = ['none', 'lohi', 'fixed', 'lo', 'hi']
 
 enamldef FitView(DockItem): fit_view:
     attr io_model
@@ -311,6 +318,48 @@ enamldef FitView(DockItem): fit_view:
                 clicked ::
                     enabled = False
                     ParameterEdit().show()
+
+
+enamldef ElementEdit0(Window):
+    attr parameter_model
+    destroy_on_close = False
+    Container:
+        padding = Box(5, 5, 5, 5)
+        ComboBox: cmb1:
+            #items << sorted(parameter_model.parameters.keys())
+            items << ['Select Element'] + sorted([v.split('_')[0] for v in parameter_model.element_list])
+            index = 0
+        Label: lbl:
+            text = '{:>16} {:>16} {:>16} {:>16}'.format('name', 'value', 'min', 'max')
+        ScrollArea: scr_area:
+            constraints = [height <= 400]
+            Form:
+                row_spacing = -1
+                #padding = Box(0, 0, 0, 0)
+                Looper: looper:
+                    iterable << list(sorted([v for v in parameter_model.parameters.keys() if cmb1.selected_item in v]))
+
+                    Label: name_lbl:
+                        text = loop_item
+                    Container:
+                        constraints = [hbox(ff_value, ff_min, ff_max, spacer)]
+                        FloatField: ff_value:
+                            value := parameter_model.parameters[loop_item].value
+                        FloatField: ff_min:
+                            value := parameter_model.parameters[loop_item].min
+                        FloatField: ff_max:
+                            value := parameter_model.parameters[loop_item].max
+                        #ComboBox: cb1:
+                            #items = [' '] + bound_options
+                            #index = 0
+                            #selected_item = parameter_model.parameters[loop_item].bound_type
+                            #index := parameter_model.parameters[loop_item].plot_index
+                            #maximum_size = 80
+                            #index ::
+                            #    cb1.selected_item =
+
+
+
 
 
 enamldef ElementEdit(Window):

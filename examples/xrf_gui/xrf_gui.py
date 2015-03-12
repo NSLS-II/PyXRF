@@ -62,7 +62,7 @@ def get_defaults():
     #default_parameter_file = os.path.join(os.path.expanduser('~'), '.bubblegum',
     #                                  'xrf_parameter_default.json')
 
-    default_parameter_file = os.path.join(working_directory, 'abc.json')
+    default_parameter_file = os.path.join(working_directory, 'root.json')
 
     with open(default_parameter_file, 'r') as json_data:
         default_parameters = json.load(json_data)

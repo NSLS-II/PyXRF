@@ -315,7 +315,8 @@ enamldef GuessParamView(DockItem): param_view:
                                 param_model.EC.delete_item(loop_item)
                                 param_model.EC.update_peak_ratio()
                                 param_model.data_for_plot()
-                                param_model.create_full_param()
+
+                                #param_model.create_full_param()
 
                                 #fit_model.param_dict = param_model.param_new
                                 #fit_model.get_new_param(param_model.param_new)

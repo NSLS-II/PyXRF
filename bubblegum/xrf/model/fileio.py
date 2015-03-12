@@ -96,11 +96,14 @@ class FileIOModel(Atom):
             try:
                 self.file_path = os.path.join(self.working_directory, fname)
                 f = h5py.File(self.file_path, 'r')
-                data = f['MAPS']
+                #data = f['MAPS']
+                data = f['xrfmap']
+
                 # dict has filename as key and group data as value
                 self.data_dict.update({fname: data})
                 DS = DataSelection(filename=fname,
-                                   raw_data=np.asarray(data['mca_arr']))
+                                   raw_data=np.asarray(data['det1']['counts']))
+                                   #raw_data=np.asarray(data['mca_arr']))
                 self.data_sets.update({fname: DS})
             except ValueError:
                 continue
@@ -109,11 +112,12 @@ class FileIOModel(Atom):
         """
         Get roi sum data from data_dict.
         """
-        for k, v in six.iteritems(self.data_dict):
-            roi_dict = {d[0]: d[1] for d in zip(v['channel_names'], v['XRF_roi'])}
-            self.img_dict.update({str(k): {'roi_sum': roi_dict}})
-
-            self.img_dict_flat.update({str(k).split('.')[0]+'_roi_sum': roi_dict})
+        pass
+        # for k, v in six.iteritems(self.data_dict):
+        #     roi_dict = {d[0]: d[1] for d in zip(v['channel_names'], v['XRF_roi'])}
+        #     self.img_dict.update({str(k): {'roi_sum': roi_dict}})
+        #
+        #     self.img_dict_flat.update({str(k).split('.')[0]+'_roi_sum': roi_dict})
 
 
 plot_as = ['Sum', 'Point', 'Roi']
@@ -199,7 +203,7 @@ class SpectrumCalculator(object):
 
     def get_spectrum(self):
         if not self.pos1 and not self.pos2:
-            return np.sum(self.data, axis=(1, 2))
+            return np.sum(self.data, axis=(0, 1))
         elif self.pos1 and not self.pos2:
             #if self.pos1[0] >= self.data.shape[1]:
             #    return np.sum(self.data, axis=(1, 2))
