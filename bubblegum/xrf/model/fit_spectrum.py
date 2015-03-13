@@ -111,9 +111,9 @@ class Fit1D(Atom):
         self.param_dict = format_dict(self.parameters, self.element_list)
         logger.info('param changed {}'.format(change['type']))
 
-    def update_param_dict(self):
-        self.param_dict = format_dict(self.parameters, self.element_list)
-        logger.info('param changed !!!')
+    #def update_param_dict(self):
+    #    self.param_dict = format_dict(self.parameters, self.element_list)
+    #    logger.info('param changed !!!')
 
     # @observe('file_path')
     # def update_param(self, change):

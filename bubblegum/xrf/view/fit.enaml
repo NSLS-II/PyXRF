@@ -34,6 +34,7 @@
 ########################################################################
 
 import numpy as np
+import six
 
 from enaml.widgets.api import (Container, PushButton, Label,
                                Form, Field, FileDialogEx, DockItem,
@@ -272,7 +273,6 @@ enamldef FitView(DockItem): fit_view:
                 #param_model.get_param(fit_model.param_dict)
                 #param_model.update_name_list()
 
-                #ParameterEdit.parameter_model = param_model
                 ElementEdit.parameter_model = fit_model
                 ParameterEdit.parameter_model = fit_model
 
@@ -320,49 +320,145 @@ enamldef FitView(DockItem): fit_view:
                     ParameterEdit().show()
 
 
-enamldef ElementEdit0(Window):
+enamldef ElementEdit(Window):
     attr parameter_model
     destroy_on_close = False
     Container:
         padding = Box(5, 5, 5, 5)
+
         ComboBox: cmb1:
-            #items << sorted(parameter_model.parameters.keys())
-            items << ['Select Element'] + sorted([v.split('_')[0] for v in parameter_model.element_list])
+            items << ['Select Element'] + sorted(parameter_model.element_list)
             index = 0
         Label: lbl:
-            text = '{:>16} {:>16} {:>16} {:>16}'.format('name', 'value', 'min', 'max')
+            text = '{:>16} {:>32} {:>32} {:>32} {:>16} {:>40}'.format('name', 'value', 'min', 'max', '  ',  '  '.join(fit_strategy_list))
         ScrollArea: scr_area:
-            constraints = [height <= 400]
+            constraints = [height <= 1000]
             Form:
                 row_spacing = -1
-                #padding = Box(0, 0, 0, 0)
                 Looper: looper:
-                    iterable << list(sorted([v for v in parameter_model.parameters.keys() if cmb1.selected_item in v]))
+                    iterable << list(sorted([v for v in parameter_model.param_dict.keys() if cmb1.selected_item.split('_')[0] in v]))
 
                     Label: name_lbl:
                         text = loop_item
                     Container:
-                        constraints = [hbox(ff_value, ff_min, ff_max, spacer)]
+                        padding = Box(2, 2, 2, 2)
+                        constraints = [hbox(ff_value, ff_min, ff_max, cb_strat0, cb_strat1, cb_strat2, cb_strat3, cb_strat4, spacer)]
                         FloatField: ff_value:
-                            value := parameter_model.parameters[loop_item].value
+                            value := parameter_model.param_dict[loop_item]['value']
                         FloatField: ff_min:
-                            value := parameter_model.parameters[loop_item].min
+                            value := parameter_model.param_dict[loop_item]['min']
                         FloatField: ff_max:
-                            value := parameter_model.parameters[loop_item].max
-                        #ComboBox: cb1:
-                            #items = [' '] + bound_options
-                            #index = 0
-                            #selected_item = parameter_model.parameters[loop_item].bound_type
-                            #index := parameter_model.parameters[loop_item].plot_index
-                            #maximum_size = 80
-                            #index ::
-                            #    cb1.selected_item =
+                            value := parameter_model.param_dict[loop_item]['max']
+
+                        ComboBox: cb_strat0:
+                            items = [' '] + bound_options
+                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[0]]) + 1
+                            maximum_size = 80
+                            index ::
+                                if cb_strat0.index > 0:
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[0]] = cb_strat0.items[cb_strat0.index]
+
+                        ComboBox: cb_strat1:
+                            items = [' '] + bound_options
+                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[1]]) + 1
+                            maximum_size = 80
+                            index ::
+                                if cb_strat1.index > 0:
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[1]] = cb_strat1.items[cb_strat1.index]
+
+                        ComboBox: cb_strat2:
+                            items = [' '] + bound_options
+                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[2]]) + 1
+                            maximum_size = 80
+                            index ::
+                                if cb_strat2.index > 0:
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[2]] = cb_strat2.items[cb_strat2.index]
+
+                        ComboBox: cb_strat3:
+                            items = [' '] + bound_options
+                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[3]]) + 1
+                            maximum_size = 80
+                            index ::
+                                if cb_strat3.index > 0:
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[3]] = cb_strat3.items[cb_strat3.index]
+
+                        ComboBox: cb_strat4:
+                            items = [' '] + bound_options
+                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[4]]) + 1
+                            maximum_size = 80
+                            index ::
+                                if cb_strat4.index > 0:
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[4]] = cb_strat4.items[cb_strat4.index]
+
+
+enamldef ParameterEdit(Window):
+    attr parameter_model
+    destroy_on_close = False
+    Container:
+        padding = Box(5, 5, 5, 5)
+        Label: lbl:
+            text = '{:>16} {:>32} {:>32} {:>32} {:>16} {:>40}'.format('name', 'value', 'min', 'max', '  ',  '  '.join(fit_strategy_list))
+        ScrollArea: scr_area:
+            constraints = [height <= 1000]
+            Form:
+                row_spacing = -1
+                Looper: looper:
+                    iterable << sorted([k for k in six.iterkeys(parameter_model.param_dict) if k==k.lower() and k!='non_fitting_values'])
+                    Label: name_lbl:
+                        text = loop_item
+                    Container:
+                        padding = Box(2, 2, 2, 2)
+                        constraints = [hbox(ff_value, ff_min, ff_max, cb_strat0, cb_strat1, cb_strat2, cb_strat3, cb_strat4, spacer)]
+                        FloatField: ff_value:
+                            value := parameter_model.param_dict[loop_item]['value']
+                        FloatField: ff_min:
+                            value := parameter_model.param_dict[loop_item]['min']
+                        FloatField: ff_max:
+                            value := parameter_model.param_dict[loop_item]['max']
+
+                        ComboBox: cb_strat0:
+                            items = [' '] + bound_options
+                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[0]]) + 1
+                            maximum_size = 80
+                            index ::
+                                if cb_strat0.index > 0:
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[0]] = cb_strat0.items[cb_strat0.index]
+
+                        ComboBox: cb_strat1:
+                            items = [' '] + bound_options
+                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[1]]) + 1
+                            maximum_size = 80
+                            index ::
+                                if cb_strat1.index > 0:
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[1]] = cb_strat1.items[cb_strat1.index]
+
+                        ComboBox: cb_strat2:
+                            items = [' '] + bound_options
+                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[2]]) + 1
+                            maximum_size = 80
+                            index ::
+                                if cb_strat2.index > 0:
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[2]] = cb_strat2.items[cb_strat2.index]
+
+                        ComboBox: cb_strat3:
+                            items = [' '] + bound_options
+                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[3]]) + 1
+                            maximum_size = 80
+                            index ::
+                                if cb_strat3.index > 0:
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[3]] = cb_strat3.items[cb_strat3.index]
+
+                        ComboBox: cb_strat4:
+                            items = [' '] + bound_options
+                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[4]]) + 1
+                            maximum_size = 80
+                            index ::
+                                if cb_strat4.index > 0:
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[4]] = cb_strat4.items[cb_strat4.index]
 
 
 
-
-
-enamldef ElementEdit(Window):
+enamldef ElementEdit0(Window):
     attr parameter_model
     destroy_on_close = False
     Container:
@@ -396,7 +492,7 @@ enamldef ElementEdit(Window):
         #        #save_defaults(parameter_model)
 
 
-enamldef ParameterEdit(Window):
+enamldef ParameterEdit0(Window):
     attr parameter_model
     destroy_on_close = False
     Container:

@@ -215,13 +215,10 @@ class LinePlotModel(Atom):
         else:
             self._ax.set_yscale('linear')
             self._ax.set_ylim([-0.15*self.max_v, self.max_v*1.2])
-        self._ax.legend()
-        self._fig.canvas.draw()
+        self._update_canvas()
 
     @observe('data')
     def data_update(self, change):
-        #if change['type'] == 'create':
-        #    return
         self.max_v = np.max(self.data)
         self._ax.set_ylim([self.max_v*1e-6, self.max_v*10.0])
 
