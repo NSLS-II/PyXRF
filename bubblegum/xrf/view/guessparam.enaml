@@ -117,7 +117,8 @@ enamldef GuessParamView(DockItem): param_view:
                         param_model.update_name_list()
                         plot_model.parameters = param_model.parameters
                         param_model.data_for_plot()
-                        plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
+                        plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y,
+                                                   param_model.total_y_l, param_model.total_y_m)
                         plot_model._fig.canvas.draw()
 
         ScrollArea: top_cntr:
@@ -161,7 +162,7 @@ enamldef GuessParamView(DockItem): param_view:
                 param_model.data_for_plot()
                 status_tip = 'Running'
                 plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y,
-                                           param_model.total_y_l)
+                                           param_model.total_y_l, param_model.total_y_m)
 
         #Label: add_lbl:
         #    text = 'Manual Peak Adding: '
@@ -187,8 +188,8 @@ enamldef GuessParamView(DockItem): param_view:
                 param_model.manual_input()
                 param_model.update_name_list()
                 param_model.data_for_plot()
-                plot_model.set_prefit_data(param_model.prefit_x,
-                                           param_model.total_y, param_model.total_y_l)
+                plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y,
+                                           param_model.total_y_l, param_model.total_y_m)
                 plot_model._fig.canvas.draw()
 
             #PushButton: overlap_btn:
@@ -266,14 +267,16 @@ enamldef GuessParamView(DockItem): param_view:
                         if checked:
                             param_model.EC.turn_on_all()
                             param_model.data_for_plot()
-                            plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
+                            plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y,
+                                                       param_model.total_y_l, param_model.total_y_m)
                             plot_model.show_autofit_opt = True
                             plot_model._fig.canvas.draw()
                             select_all.text = 'Hide All'
                         else:
                             param_model.EC.turn_on_all(option=False)
                             param_model.data_for_plot()
-                            plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
+                            plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y,
+                                                       param_model.total_y_l, param_model.total_y_m)
                             plot_model.show_autofit_opt = False
                             plot_model._fig.canvas.draw()
                             select_all.text = 'Show All'
@@ -320,8 +323,8 @@ enamldef GuessParamView(DockItem): param_view:
 
                                 #fit_model.param_dict = param_model.param_new
                                 #fit_model.get_new_param(param_model.param_new)
-
-                                plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
+                                plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y,
+                                                           param_model.total_y_l, param_model.total_y_m)
                                 plot_model._fig.canvas.draw()
                                 param_model.update_name_list()
 
@@ -366,7 +369,8 @@ enamldef GuessParamView(DockItem): param_view:
                                     param_model.EC.element_dict[loop_item].status = checked
                                     param_model.EC.element_dict[loop_item].stat_copy = param_model.EC.element_dict[loop_item].status
                                     param_model.data_for_plot()
-                                    plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
+                                    plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y,
+                                                               param_model.total_y_l, param_model.total_y_m)
                                     plot_model._fig.canvas.draw()
 
             #PushButton: pb_bound:
@@ -386,7 +390,8 @@ enamldef GuessParamView(DockItem): param_view:
             #            for k,v in six.iteritems(param_model.EC.element_dict):
             #                v.status = v.stat_copy
             #            param_model.data_for_plot()
-            #            plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
+            #            plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y,
+            #                                       param_model.total_y_l, param_model.total_y_m)
             #            plot_model._fig.canvas.draw()
             #            pb_bound.text = 'Do not plot lines < 0.1%'
 
@@ -397,7 +402,8 @@ enamldef GuessParamView(DockItem): param_view:
             #        param_model.update_name_list()
 
             #        param_model.data_for_plot()
-            #        plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
+            #        plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y,
+            #                                   param_model.total_y_l, param_model.total_y_m)
             #        plot_model._fig.canvas.draw()
 
             PushButton: pb_update:
@@ -412,7 +418,8 @@ enamldef GuessParamView(DockItem): param_view:
                     #fit_model.param_dict = param_model.param_new
                     fit_model.get_new_param(param_model.param_new)
 
-                    plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
+                    plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y,
+                                               param_model.total_y_l, param_model.total_y_m)
                     plot_model._fig.canvas.draw()
 
         #PushButton: save_btn:
@@ -431,73 +438,6 @@ enamldef GuessParamView(DockItem): param_view:
                     #fit_model.param_dict = param_model.param_new
                     param_model.file_path = path
                     param_model.save_as()
-
-
-enamldef PreFitResult(Window): prefit:
-    attr param_model
-    attr plot_model
-    title = 'Results of Auto Peak Finding'
-    Container:
-        constraints = [
-            vbox(
-                plot_e,
-                hbox(pb_bound, spacer),
-                hbox(pb_import, spacer),
-            ),
-        ]
-        Container: plot_e:
-            ScrollArea:
-                constraints = [height >= 200]
-                Container:
-                    Form:
-                        Label:
-                            text = '{:>2} {:>10} {:>10} {:>10}'.format('Z', 'lines',
-                                                                       'peak INT', 'norm INT(%)')
-
-                        Label:
-                            text = 'select'
-
-                        Looper: looper:
-                            iterable << list(six.iterkeys(param_model.result_dict))
-                            Label:
-                                font = 'monospace'
-                                #align = 'left'
-                                text = '{:>2} {:>10} {:>10} {:>10}'.format(
-                                    param_model.EC.element_dict[loop_item].z,
-                                    loop_item[0:5],
-                                    np.around(param_model.EC.element_dict[loop_item].maxv),
-                                    set_low_bound(np.around(param_model.EC.element_dict[loop_item].norm, 2))
-                                    )
-                            CheckBox: cb:
-                                checkable = True
-                                checked := param_model.EC.element_dict[loop_item].status
-                                clicked ::
-                                    param_model.EC.element_dict[loop_item].status = checked
-                                    param_model.EC.element_dict[loop_item].stat_copy = param_model.EC.element_dict[loop_item].status
-                                    param_model.data_for_plot()
-                                    plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
-                                    plot_model._fig.canvas.draw()
-        PushButton: pb_bound:
-            text = 'Remove lines with value smaller than 0.1%'
-            checkable = True
-            clicked ::
-                if checked:
-                    for k,v in six.iteritems(param_model.EC.element_dict):
-                        v.status = v.lbd_stat
-                    param_model.data_for_plot()
-                    plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
-                    plot_model._fig.canvas.draw()
-                else:
-                    for k,v in six.iteritems(param_model.EC.element_dict):
-                        v.status = v.stat_copy
-                    param_model.data_for_plot()
-                    plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
-                    plot_model._fig.canvas.draw()
-        PushButton: pb_import:
-            text = 'Use initial guess as fitting parameters.'
-            clicked ::
-                param_model.get_activated_element()
-                prefit.close()
 
 
 def set_low_bound(value, thresh_v=0.1):

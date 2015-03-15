@@ -39,7 +39,7 @@ from enaml.widgets.api import (MainWindow, Container, DockArea)
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, TabLayout
 
 from .fileio import FileView
-from .guessparam import GuessParamView, PreFitResult
+from .guessparam import GuessParamView
 from .lineplot import PlotMain
 from .image2D import ImageMain
 from .fit import FitView

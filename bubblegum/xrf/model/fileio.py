@@ -205,9 +205,10 @@ class SpectrumCalculator(object):
         if not self.pos1 and not self.pos2:
             return np.sum(self.data, axis=(0, 1))
         elif self.pos1 and not self.pos2:
-            #if self.pos1[0] >= self.data.shape[1]:
-            #    return np.sum(self.data, axis=(1, 2))
-            return self.data[:, self.pos1[0], self.pos1[1]]
+            return self.data[self.pos1[0], self.pos1[1], :]
+            #return self.data[:, self.pos1[0], self.pos1[1]]
         else:
-            return np.sum(self.data[:, self.pos1[0]:self.pos2[0], self.pos1[1]:self.pos2[1]],
-                          axis=(1, 2))
+            return np.sum(self.data[self.pos1[0]:self.pos2[0], self.pos1[1]:self.pos2[1], :],
+                          axis=(0, 1))
+            #return np.sum(self.data[:, self.pos1[0]:self.pos2[0], self.pos1[1]:self.pos2[1]],
+            #              axis=(1, 2))

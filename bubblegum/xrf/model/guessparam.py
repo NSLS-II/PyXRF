@@ -42,17 +42,13 @@ from collections import OrderedDict
 import copy
 import os
 
-import logging
-logger = logging.getLogger(__name__)
-
 from atom.api import (Atom, Str, observe, Typed,
                       Int, Dict, List, Float, Enum, Bool)
 
 from skxray.fitting.background import snip_method
 from skxray.constants.api import XrfElement as Element
 from skxray.fitting.xrf_model import (ModelSpectrum, ParamController,
-                                      set_range, k_line, l_line, m_line,
-                                      get_linear_model, PreFitAnalysis)
+                                      set_range, get_linear_model, pre_fit_linear)
 #from bubblegum.xrf.model.fit_spectrum import fit_strategy_list
 
 import logging
@@ -62,6 +58,7 @@ logger = logging.getLogger(__name__)
 bound_options = ['none', 'lohi', 'fixed', 'lo', 'hi']
 fit_strategy_list = ['fit_with_tail', 'free_more',
                      'e_calibration', 'linear', 'adjust_element']
+
 
 class Parameter(Atom):
     # todo make sure that these are the only valid bound types
@@ -206,7 +203,10 @@ class PreFitStatus(Atom):
 
 
 class ElementController(object):
-    #element_dict = OrderedDict()
+    """
+    This class performs basic ways to rank elements, show elements,
+    calculate normed intensity, and etc.
+    """
 
     def __init__(self):
         self.element_dict = OrderedDict()
@@ -239,9 +239,16 @@ class ElementController(object):
     def add_to_dict(self, dictv):
         self.element_dict.update(dictv)
         self.update_norm()
-        #self.order()
 
     def update_norm(self, threshv=0.1):
+        """
+        Calculate the norm intensity for each element peak.
+
+        Parameters
+        ----------
+        threshv : float
+            No value is shown when smaller than the shreshold value
+        """
         #max_dict = reduce(max, map(np.max, six.itervalues(self.element_dict)))
         max_dict = np.max(np.array([v.maxv for v in six.itervalues(self.element_dict)]))
 
@@ -258,7 +265,8 @@ class ElementController(object):
         return current_elements
 
     def update_peak_ratio(self):
-        """In case users change the max value.
+        """
+        In case users change the max value.
         """
         for v in six.itervalues(self.element_dict):
             v.maxv = np.around(v.maxv, 1)
@@ -266,7 +274,8 @@ class ElementController(object):
         self.update_norm()
 
     def turn_on_all(self, option=True):
-        """Set plotting status on for all lines.
+        """
+        Set plotting status on for all lines.
         """
         if option:
             _plot = option
@@ -343,7 +352,7 @@ class GuessParamModel(Atom):
         except ValueError:
             logger.info('No default parameter files are chosen.')
 
-        self.total_y_l = {}
+        #self.total_y_l = {}
         #self.result_dict = OrderedDict()
         self.result_folder = kwargs['working_directory']
         self.EC = ElementController()
@@ -356,6 +365,7 @@ class GuessParamModel(Atom):
         Parameters
         ----------
         param_path : str
+            path to save the file
         """
         with open(param_path, 'r') as json_data:
             self.param_new = json.load(json_data)
@@ -379,7 +389,8 @@ class GuessParamModel(Atom):
         self.param_new = param_dict
 
     def create_spectrum_from_file(self, param_dict):
-        """Create spectrum profile with given param dict from file.
+        """
+        Create spectrum profile with given param dict from file.
 
         Parameters
         ----------
@@ -450,7 +461,8 @@ class GuessParamModel(Atom):
         self.EC.add_to_dict({self.e_name: ps})
 
     def update_name_list(self):
-        """When result_dict_names change, the looper in enaml will update.
+        """
+        When result_dict_names change, the looper in enaml will update.
         """
         # need to clean list first, in order to refresh the list in GUI
         self.result_dict_names = []
@@ -473,9 +485,8 @@ class GuessParamModel(Atom):
                               lbd_stat=False)
             prefit_dict.update({k: ps})
 
-        logger.info('The elements found from prefit {}'.format(prefit_dict.keys()))
+        logger.info('The elements found from prefit: {}'.format(prefit_dict.keys()))
         self.EC.add_to_dict(prefit_dict)
-        #self.result_dict_names = self.EC.element_dict.keys()
 
     # def save_elist(self):
     #     """
@@ -603,8 +614,6 @@ def calculate_profile(y0, param, elementlist=None):
     fitting_parameters = copy.deepcopy(param)
 
     x0 = np.arange(len(y0))
-    #x0 = fitting_parameters['e_offset']['value'] + fitting_parameters['e_linear']['value'] * x0 \
-    #     + fitting_parameters['e_quadratic']['value'] * x0**2
 
     # ratio to transfer energy value back to channel value
     approx_ratio = 100
@@ -658,78 +667,6 @@ def create_full_dict(param, name_list):
                 continue
             if n not in v:
                 v.update({n: v['bound_type']})
-
-
-def pre_fit_linear(y0, param):
-    """
-    Run prefit to get initial elements.
-
-    Parameters
-    ----------
-    y0 : array
-        Spectrum intensity
-    param : dict
-        Fitting parameters
-    Returns
-    -------
-    x : array
-        x axis
-    result_dict : dict
-        Fitting results
-    """
-
-    # Need to use deepcopy here to avoid unexpected change on parameter dict
-    fitting_parameters = copy.deepcopy(param)
-
-    x0 = np.arange(len(y0))
-    # xnew = fitting_parameters['e_offset']['value'] + fitting_parameters['e_linear']['value'] * x0 \
-    #        + fitting_parameters['e_quadratic']['value'] * x0**2
-
-    # ratio to transfer energy value back to channel value
-    approx_ratio = 100
-    lowv = fitting_parameters['non_fitting_values']['energy_bound_low'] * approx_ratio
-    highv = fitting_parameters['non_fitting_values']['energy_bound_high'] * approx_ratio
-
-    x, y = set_range(x0, y0, lowv, highv)
-
-    element_list = k_line + l_line #+ m_line
-    new_element = ', '.join(element_list)
-    fitting_parameters['non_fitting_values']['element_list'] = new_element
-
-    e_select, matv = get_linear_model(x, fitting_parameters)
-
-    non_element = ['compton', 'elastic']
-    total_list = e_select + non_element
-    total_list = [str(v) for v in total_list]
-
-    # get background
-    bg = snip_method(y, fitting_parameters['e_offset']['value'],
-                     fitting_parameters['e_linear']['value'],
-                     fitting_parameters['e_quadratic']['value'])
-
-    y = y - bg
-
-    PF = PreFitAnalysis(y, matv)
-    out, res = PF.nnls_fit_weight()
-    total_y = out * matv
-
-    # use ordered dict
-    result_dict = OrderedDict()
-
-    for i in range(len(total_list)):
-        if np.sum(total_y[:, i]) == 0:
-            continue
-        if '_L' in total_list[i] or '_M' in total_list[i] \
-                or total_list[i] in non_element:
-            result_dict.update({total_list[i]: total_y[:, i]})
-        else:
-            result_dict.update({total_list[i] + '_K': total_y[:, i]})
-    result_dict.update(background=bg)
-
-    x = fitting_parameters['e_offset']['value'] + fitting_parameters['e_linear']['value']*x \
-        + fitting_parameters['e_quadratic']['value'] * x**2
-
-    return x, result_dict
 
 
 def get_Z(ename):

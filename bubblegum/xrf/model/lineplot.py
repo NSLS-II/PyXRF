@@ -116,6 +116,7 @@ class LinePlotModel(Atom):
     scale_opt = Int(0)
     total_y = Dict()
     total_y_l = Dict()
+    total_y_m = Dict()
 
     prefit_x = Typed(object)
     plot_title = Str()
@@ -182,8 +183,8 @@ class LinePlotModel(Atom):
             'emission_line': {'color': 'red', 'linewidth': 2},
             'k_line': {'color': 'green', 'label': 'k lines'},
             'l_line': {'color': 'purple', 'label': 'l lines'},
-            'm_line': {'color': 'cyan', 'label': 'm lines'},
-            'compton': {'color': 'orange', 'label': 'compton'},
+            'm_line': {'color': 'orange', 'label': 'm lines'},
+            'compton': {'color': 'cyan', 'label': 'compton'},
             'elastic': {'color': '#b66718', 'label': 'elastic'},
             'auto_fit': {'color': 'black', 'label': 'auto fitted'},
             'fit': {'color': 'black', 'label': 'fitted'}
@@ -404,6 +405,7 @@ class LinePlotModel(Atom):
 
         k_auto = 0
         l_auto = 0
+        m_auto = 0
 
         # K lines
         if len(self.total_y):
@@ -424,6 +426,7 @@ class LinePlotModel(Atom):
                                         color=self.plot_style['elastic']['color'],
                                         label=self.plot_style['elastic']['label'])
                 else:
+                    # only the first one has label
                     if k_auto == 0:
                         ln, = self._ax.plot(self.prefit_x, v,
                                             color=self.plot_style['k_line']['color'],
@@ -440,6 +443,7 @@ class LinePlotModel(Atom):
         if len(self.total_y_l):
             self._ax.hold(True)
             for i, (k, v) in enumerate(six.iteritems(self.total_y_l)):
+                # only the first one has label
                 if l_auto == 0:
                     ln, = self._ax.plot(self.prefit_x, v,
                                         color=self.plot_style['l_line']['color'],
@@ -452,7 +456,24 @@ class LinePlotModel(Atom):
                 self.auto_fit_obj.append(ln)
                 sum += v
 
-        if len(self.total_y) or len(self.total_y_l):
+        # M lines
+        if len(self.total_y_m):
+            self._ax.hold(True)
+            for i, (k, v) in enumerate(six.iteritems(self.total_y_m)):
+                # only the first one has label
+                if m_auto == 0:
+                    ln, = self._ax.plot(self.prefit_x, v,
+                                        color=self.plot_style['m_line']['color'],
+                                        label=self.plot_style['m_line']['label'])
+                else:
+                    ln, = self._ax.plot(self.prefit_x, v,
+                                        color=self.plot_style['m_line']['color'],
+                                        label='_nolegend_')
+                m_auto += 1
+                self.auto_fit_obj.append(ln)
+                sum += v
+
+        if len(self.total_y) or len(self.total_y_l) or len(self.total_y_m):
             ln, = self._ax.plot(self.prefit_x, sum,
                                 color=self.plot_style['auto_fit']['color'],
                                 label=self.plot_style['auto_fit']['label'])
@@ -563,22 +584,26 @@ class LinePlotModel(Atom):
         self._update_canvas()
 
     def set_prefit_data(self, prefit_x,
-                        total_y, total_y_l):
+                        total_y, total_y_l, total_y_m):
         """
         Parameters
         ----------
         prefit_x : array
             X axis with limited range
         total_y : dict
-            Results for k lines
+            Results for k lines, bg, and others
         total_y_l : dict
-            Results for l and m lines
+            Results for l lines
+        total_y_m : dict
+            Results for m lines
         """
         self.prefit_x = prefit_x
         # k lines
         self.total_y = total_y
         # l lines
         self.total_y_l = total_y_l
+        # m lines
+        self.total_y_m = total_y_m
 
         self._ax.set_xlim([self.prefit_x[0], self.prefit_x[-1]])
         self.plot_autofit()
