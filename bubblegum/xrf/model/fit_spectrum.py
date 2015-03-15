@@ -43,22 +43,19 @@ import os
 from collections import OrderedDict
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float
-from skxray.fitting.xrf_model import (k_line, l_line, m_line)
-from skxray.constants.api import XrfElement as Element
 from skxray.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
                                       get_sum_area, set_parameter_bound,
                                       ParamController, set_range, get_linear_model,
-                                      PreFitAnalysis, k_line, l_line,
                                       get_escape_peak, register_strategy)
 from skxray.fitting.background import snip_method
-from bubblegum.xrf.model.guessparam import dict_to_param, format_dict
+from bubblegum.xrf.model.guessparam import dict_to_param, format_dict, fit_strategy_list
 from lmfit import fit_report
 
 import logging
 logger = logging.getLogger(__name__)
 
-fit_strategy_list = ['fit_with_tail', 'free_more',
-                     'e_calibration', 'linear', 'adjust_element']
+#fit_strategy_list = ['fit_with_tail', 'free_more',
+#                     'e_calibration', 'linear', 'adjust_element']
 
 
 class Fit1D(Atom):
@@ -201,8 +198,8 @@ class Fit1D(Atom):
         comps = result.eval_components(x=x0)
         self.combine_lines(comps)
 
-        xnew = result.values['e_offset'] + result.values['e_linear'] * x0 +\
-               result.values['e_quadratic'] * x0**2
+        xnew = (result.values['e_offset'] + result.values['e_linear'] * x0 +
+                result.values['e_quadratic'] * x0**2)
         self.fit_x = xnew
         self.fit_y = result.best_fit
         self.fit_result = result

@@ -49,8 +49,6 @@ from collections import OrderedDict
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
 
-from .guessparam import Parameter
-
 from skxray.fitting.xrf_model import (k_line, l_line, m_line)
 from skxray.constants.api import XrfElement as Element
 
@@ -173,8 +171,6 @@ class LinePlotModel(Atom):
         self.max_v = 1.0
         self._color_config()
         self._fig.tight_layout(pad=0.5)
-        #self.fit_y = np.array([])
-        #self.data = np.array([])
 
     def _color_config(self):
         self.plot_style = {
@@ -278,11 +274,6 @@ class LinePlotModel(Atom):
                 plot_exp_obj, = self._ax.plot(x_v, data_arr,
                                               color=color_n[i],
                                               label=v.filename.split('.')[0])
-                                              #linestyle=self.plot_style['experiment']['linestyle'],
-                                              #color=self.plot_style['experiment']['color'],
-                                              #marker=self.plot_style['experiment']['marker'],
-                                              #label=v.filename.split('.')[0])
-
                 self.plot_exp_list.append(plot_exp_obj)
 
     @observe('show_exp_opt')
@@ -506,7 +497,8 @@ class LinePlotModel(Atom):
                             label=self.plot_style['fit']['label'])
         self.plot_fit_obj.append(ln)
 
-        ln, = self._ax.plot(self.fit_x, self.residual - 1.1*np.max(self.residual),
+        shiftv = 1.5  # move residual down by some amount
+        ln, = self._ax.plot(self.fit_x, self.residual - shiftv*(np.max(np.abs(self.residual))),
                             color=self.plot_style['fit']['color'],
                             label='residual')
         self.plot_fit_obj.append(ln)

@@ -51,8 +51,8 @@ from enaml.core.api import Include, Looper
 
 from enaml.stdlib.fields import FloatField as DefaultFloatField
 
-from bubblegum.xrf.model.fit_spectrum import Param, fit_strategy_list
-from bubblegum.xrf.model.guessparam import format_dict
+from bubblegum.xrf.model.fit_spectrum import Param
+from bubblegum.xrf.model.guessparam import format_dict, fit_strategy_list
 
 
 enamldef FloatField(DefaultFloatField):
@@ -342,7 +342,8 @@ enamldef ElementEdit(Window):
                         text = loop_item
                     Container:
                         padding = Box(2, 2, 2, 2)
-                        constraints = [hbox(ff_value, ff_min, ff_max, cb_strat0, cb_strat1, cb_strat2, cb_strat3, cb_strat4, spacer)]
+                        constraints = [hbox(ff_value, ff_min, ff_max, cb_strat0, cb_strat1, cb_strat2,
+                                            cb_strat3, cb_strat4, cb_strat5, cb_strat6, spacer)]
                         FloatField: ff_value:
                             value := parameter_model.param_dict[loop_item]['value']
                         FloatField: ff_min:
@@ -389,6 +390,22 @@ enamldef ElementEdit(Window):
                             index ::
                                 if cb_strat4.index > 0:
                                     parameter_model.param_dict[loop_item][fit_strategy_list[4]] = cb_strat4.items[cb_strat4.index]
+
+                        ComboBox: cb_strat5:
+                            items = [' '] + bound_options
+                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[5]]) + 1
+                            maximum_size = 80
+                            index ::
+                                if cb_strat5.index > 0:
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[5]] = cb_strat5.items[cb_strat5.index]
+
+                        ComboBox: cb_strat6:
+                            items = [' '] + bound_options
+                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[6]]) + 1
+                            maximum_size = 80
+                            index ::
+                                if cb_strat6.index > 0:
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[6]] = cb_strat4.items[cb_strat6.index]
 
 
 enamldef ParameterEdit(Window):

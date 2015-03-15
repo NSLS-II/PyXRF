@@ -57,7 +57,8 @@ logger = logging.getLogger(__name__)
 
 bound_options = ['none', 'lohi', 'fixed', 'lo', 'hi']
 fit_strategy_list = ['fit_with_tail', 'free_more',
-                     'e_calibration', 'linear', 'adjust_element']
+                     'e_calibration', 'linear',
+                     'adjust_element1', 'adjust_element2', 'adjust_element3']
 
 
 class Parameter(Atom):
@@ -69,7 +70,9 @@ class Parameter(Atom):
     default_value = Float()
     fit_with_tail = Enum(*bound_options)
     free_more = Enum(*bound_options)
-    adjust_element = Enum(*bound_options)
+    adjust_element1 = Enum(*bound_options)
+    adjust_element2 = Enum(*bound_options)
+    adjust_element3 = Enum(*bound_options)
     e_calibration = Enum(*bound_options)
     linear = Enum(*bound_options)
     name = Str()
@@ -83,11 +86,13 @@ class Parameter(Atom):
 
     def __repr__(self):
         return ("Parameter(bound_type={}, min={}, max={}, value={}, "
-                "default={}, free_more={}, adjust_element={}, "
+                "default={}, free_more={}, adjust_element1={}, "
+                "adjust_element2={}, adjust_element3={}, "
                 "e_calibration={}, linear={}, description={}, "
                 "toop_tip={}".format(
             self.bound_type, self.min, self.max, self.value, self.default_value,
-            self.free_more, self.adjust_element, self.e_calibration,
+            self.free_more, self.adjust_element1, self.adjust_element2,
+            self.adjust_element3, self.e_calibration,
             self.linear, self.description, self.tool_tip))
 
     def to_dict(self):
@@ -99,7 +104,9 @@ class Parameter(Atom):
             'default_value': self.default_value,
             'fit_with_tail': self.fit_with_tail,
             'free_more': self.free_more,
-            'adjust_element': self.adjust_element,
+            'adjust_element1': self.adjust_element1,
+            'adjust_element2': self.adjust_element2,
+            'adjust_element3': self.adjust_element3,
             'e_calibration': self.e_calibration,
             'linear': self.linear,
             'name': self.name,
@@ -351,12 +358,8 @@ class GuessParamModel(Atom):
             #self.get_param(default_parameters)
         except ValueError:
             logger.info('No default parameter files are chosen.')
-
-        #self.total_y_l = {}
-        #self.result_dict = OrderedDict()
         self.result_folder = kwargs['working_directory']
         self.EC = ElementController()
-        #self.result_dict = EC.element_dict
 
     def get_new_param(self, param_path):
         """
@@ -477,7 +480,6 @@ class GuessParamModel(Atom):
         self.prefit_x, out_dict = pre_fit_linear(self.data, param_dict)
 
         #max_dict = reduce(max, map(np.max, six.itervalues(out_dict)))
-
         prefit_dict = OrderedDict()
         for k, v in six.iteritems(out_dict):
             ps = PreFitStatus(z=get_Z(k), energy=get_energy(k), spectrum=v,
