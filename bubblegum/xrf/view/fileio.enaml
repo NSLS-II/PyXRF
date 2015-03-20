@@ -93,19 +93,12 @@ enamldef FileView(DockItem): file_view:
                         #CB.items = ['Please select file'] + io_model.file_names
                         io_model.get_roi_data()
 
-                        #img_model.data_dict = io_model.img_dict
-
                         # do not import original data for 2D image
                         img_model_adv.data_dict = io_model.img_dict_flat
-
                         param_model.data_sets = io_model.data_sets
                         plot_model.parameters = param_model.parameters
                         setting_model.parameters = param_model.parameters
-
-                        setting_model.data_dict = io_model.data_dict
-
-                        #name_lb.text = '{:>16} {:>16} {:>16}'.format('Methods to Plot',
-                        #                                             'Starting: x,y', 'Ending: x,y')
+                        setting_model.data_sets = io_model.data_sets
 
             Label: files_load:
                 text = 'No data is loaded.'

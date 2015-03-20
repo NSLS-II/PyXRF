@@ -92,6 +92,9 @@ class FileIOModel(Atom):
         self.data_sets.clear()
         self.file_names.sort()
         logger.info('Loaded files : {}'.format(self.file_names))
+
+        detID = 'det1'
+
         for fname in self.file_names:
             try:
                 self.file_path = os.path.join(self.working_directory, fname)
@@ -102,9 +105,21 @@ class FileIOModel(Atom):
                 # dict has filename as key and group data as value
                 self.data_dict.update({fname: data})
                 DS = DataSelection(filename=fname,
-                                   raw_data=np.asarray(data['det1']['counts']))
-                                   #raw_data=np.asarray(data['mca_arr']))
+                                   raw_data=np.asarray(data[detID]['counts']))
                 self.data_sets.update({fname: DS})
+
+                # get roi sum data
+                #roi_result = get_roi_sum(data[detID]['roi_name'].value,
+                #                         data[detID]['roi_limits'].value,
+                #                         data[detID]['counts'])
+                #self.img_dict_flat.update({fname.split('.')[0]+'_roi': roi_result})
+
+                # read fitting results
+                if 'xrf_fit' in data[detID]:
+                    fit_result = get_fit_data(data[detID]['xrf_fit_name'].value,
+                                              data[detID]['xrf_fit'].value)
+                    self.img_dict_flat.update({fname.split('.')[0]+'_fit': fit_result})
+
             except ValueError:
                 continue
 
@@ -112,12 +127,39 @@ class FileIOModel(Atom):
         """
         Get roi sum data from data_dict.
         """
-        pass
         # for k, v in six.iteritems(self.data_dict):
         #     roi_dict = {d[0]: d[1] for d in zip(v['channel_names'], v['XRF_roi'])}
         #     self.img_dict.update({str(k): {'roi_sum': roi_dict}})
         #
         #     self.img_dict_flat.update({str(k).split('.')[0]+'_roi_sum': roi_dict})
+
+
+def get_roi_sum(namelist, data_range, data):
+    data_temp = dict()
+    for i in range(len(namelist)):
+        lowv = data_range[i, 0]
+        highv = data_range[i, 1]
+        data_sum = np.sum(data[:, :, lowv: highv], axis=2)
+        data_temp.update({namelist[i].replace(' ', '_'): data_sum})
+    return data_temp
+
+
+def get_fit_data(namelist, data):
+    """
+    Read fit data from h5 file. This is to be moved to filestore part.
+
+    Parameters
+    ---------
+    namelist : list
+        list of str for element lines
+    data : array
+        3D array of fitting results
+    """
+    data_temp = dict()
+    for i in range(len(namelist)):
+        data_temp.update({namelist[i]: data[i, :, :]})
+    return data_temp
+    #self.img_dict_flat.update({fname.split('.')[0]: data_temp})
 
 
 plot_as = ['Sum', 'Point', 'Roi']
@@ -148,6 +190,8 @@ class DataSelection(Atom):
     raw_data = Typed(np.ndarray)
     data = Typed(np.ndarray)
     plot_index = Int(0)
+    fit_name = Str()
+    fit_data = Typed(np.ndarray)
 
     @observe('plot_index', 'point1', 'point2')
     def _update_roi(self, change):

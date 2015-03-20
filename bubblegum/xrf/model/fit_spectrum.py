@@ -41,11 +41,12 @@ import copy
 import six
 import os
 from collections import OrderedDict
+import multiprocessing
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float
 from skxray.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
                                       get_sum_area, set_parameter_bound,
-                                      ParamController, set_range, get_linear_model,
+                                      ParamController, set_range, pre_fit_linear,
                                       get_escape_peak, register_strategy)
 from skxray.fitting.background import snip_method
 from bubblegum.xrf.model.guessparam import dict_to_param, format_dict, fit_strategy_list
@@ -53,9 +54,6 @@ from lmfit import fit_report
 
 import logging
 logger = logging.getLogger(__name__)
-
-#fit_strategy_list = ['fit_with_tail', 'free_more',
-#                     'e_calibration', 'linear', 'adjust_element']
 
 
 class Fit1D(Atom):
@@ -67,6 +65,7 @@ class Fit1D(Atom):
     element_list = List()
     parameters = Dict()
 
+    data_all = Typed(np.ndarray)
     data = Typed(np.ndarray)
     fit_x = Typed(np.ndarray)
     fit_y = Typed(np.ndarray)
@@ -188,7 +187,8 @@ class Fit1D(Atom):
         else:
             self.es_peak = self.es_peak[:self.y0.size]
 
-    def fit_data(self, x0, y0, c_val=1e-2, fit_num=100, c_weight=1e3):
+    def fit_data(self, x0, y0,
+                 c_val=1e-2, fit_num=100, c_weight=1e3):
         MS = ModelSpectrum(self.param_dict)
         MS.model_spectrum()
 
@@ -234,6 +234,31 @@ class Fit1D(Atom):
         t1 = time.time()
         logger.warning('Time used for fitting is : {}'.format(t1-t0))
         self.save_result()
+
+    def fit_single_pixel(self):
+        """
+        This function performs single pixel fitting. Multiprocess is considered.
+        """
+        strategy_pixel = 'linear'
+        set_parameter_bound(self.param_dict, strategy_pixel)
+        logger.info('Starting single pixel fitting')
+        t0 = time.time()
+        result_map = fit_pixel_fast_multi(self.data_all, self.param_dict)
+        t1 = time.time()
+        logger.warning('Time used for pixel fitting is : {}'.format(t1-t0))
+
+        # save data
+        #fpath = os.path.join(self.result_folder, 'Root.h5')
+        #write_to_hdf(fpath, result_map)
+
+        #import matplotlib.pyplot as plt
+        #plt.imshow(result_map['Fe_K'])
+        #plt.show()
+
+        # currently save data using pickle, need to be updated
+        import pickle
+        fpath = '/Users/Li/Downloads/xrf_data/root_data'
+        pickle.dump(result_map, open(fpath, 'wb'))
 
     def combine_lines(self, comps):
         """
@@ -294,8 +319,213 @@ def extract_strategy(param, name):
     return {k: v[name] for k, v in six.iteritems(param) if k != 'non_fitting_values'}
 
 
+def fit_pixel_fast(data, param):
+    """
+    Single pixel fit of experiment data. No multiprocess is involved.
+
+    Parameters
+    ----------
+    data : array
+        3D data of experiment spectrum
+    param : dict
+        fitting parameters
+
+    Returns
+    -------
+    dict :
+        fitting values for all the elements
+    """
+
+    datas = data.shape
+
+    x0 = np.arange(datas[2])
+
+    elist = param['non_fitting_values']['element_list'].split(', ')
+    elist = [e.strip(' ') for e in elist]
+    elist = [e+'_K' for e in elist if ('_' not in e)]
+
+    non_element = ['compton', 'elastic', 'background']
+    total_list = elist + non_element
+
+    result_map = dict()
+    for v in total_list:
+        result_map.update({v: np.zeros([datas[0], datas[1]])})
+
+    for i in xrange(datas[0]):
+        logger.info('Row number at {} out of total {}'.format(i, datas[0]))
+        for j in xrange(datas[1]):
+            #logger.info('Column number at {} out of total {}'.format(j, datas[1]))
+            x, result = pre_fit_linear(data[i, j, :], param, element_list=None, weight=True)
+            for v in total_list:
+                if v in result:
+                    result_map[v][i, j] = np.sum(result[v])
+
+    return result_map
 
 
+def fit_per_line(row_num, data, param):
+    """
+    Fit experiment data for a given row.
+
+    Parameters
+    ----------
+    row_num : int
+        which row to fit
+    data : array
+        3D data of experiment spectrum
+    param : dict
+        fitting parameters
+
+    Returns
+    -------
+    array :
+        fitting values for all the elements at a given row.
+    """
+    datas = data.shape
+    logger.info('Row number is {}'.format(row_num))
+    out = []
+    for i in range(datas[1]):
+        x, result = pre_fit_linear(data[row_num, i, :], param,
+                                   element_list=None, weight=True)
+        for k, v in six.iteritems(result):
+            result[k] = np.sum(v)
+        out.append(result)
+    return np.array(out)
+
+
+def fit_pixel_fast_multi(data, param):
+    """
+    Multiprocess fit of experiment data.
+
+    Parameters
+    ----------
+    data : array
+        3D data of experiment spectrum
+    param : dict
+        fitting parameters
+
+    Returns
+    -------
+    dict :
+        fitting values for all the elements
+    """
+
+    #logger.info('Row number at {} out of total {}'.format(i, datas[0]))
+    #logger.info('no_processors_to_use = {}'.format(no_processors_to_use))
+    no_processors_to_use = multiprocessing.cpu_count()
+    logger.info('cpu count: {}'.format(no_processors_to_use))
+    #print 'Creating pool with %d processes\n' % no_processors_to_use
+    pool = multiprocessing.Pool(no_processors_to_use)
+
+    datas = data.shape
+
+    x0 = np.arange(datas[2])
+
+    elist = param['non_fitting_values']['element_list'].split(', ')
+    elist = [e.strip(' ') for e in elist]
+    elist = [e+'_K' for e in elist if ('_' not in e)]
+
+    non_element = ['compton', 'elastic', 'background']
+    total_list = elist + non_element
+
+    result_map = dict()
+    for v in total_list:
+        result_map.update({v: np.zeros([datas[0], datas[1]])})
+
+    result_pool = [pool.apply_async(fit_per_line,
+                                    (i, data, param)) for i in range(datas[0])]
+
+    results = []
+    for r in result_pool:
+        results.append(r.get())
+
+    pool.terminate()
+    pool.join()
+
+    results = np.array(results)
+
+    for v in total_list:
+        for i in xrange(datas[0]):
+            for j in xrange(datas[1]):
+                result_map[v][i, j] = results[i, j].get(v, 0)
+
+    return result_map
+
+
+def fit_pixel(data, param, c_val=1e-2, fit_num=10, c_weight=1):
+    datas = data.shape
+
+    x0 = np.arange(datas[2])
+
+    elist = param['non_fitting_values']['element_list'].split(', ')
+    elist = [e.strip(' ') for e in elist]
+
+    result_map = dict()
+    for v in elist:
+        result_map.update({v: np.zeros([datas[0], datas[1]])})
+
+    MS = ModelSpectrum(param)
+    MS.model_spectrum()
+
+    for i in xrange(datas[0]):
+        logger.info('Row number at {} out of total {}'.format(i, datas[0]))
+        for j in xrange(datas[1]):
+            logger.info('Column number at {} out of total {}'.format(j, datas[1]))
+            y0 = data[i, j, :]
+            result = MS.model_fit(x0, y0,
+                                  w=1/np.sqrt(c_weight+y0))
+                                  #maxfev=fit_num, xtol=c_val, ftol=c_val, gtol=c_val)
+            #for k, v in six.iteritems(result.values):
+            #    print('result {}: {}'.format(k, v))
+            # save result
+            for v in elist:
+                if '_L' in v:
+                    line_name = v.split('_')[0]+'_la1_area'
+                elif '_M' in v:
+                    line_name = v.split('_')[0]+'_ma1_area'
+                else:
+                    line_name = v+'_ka1_area'
+                result_map[v][i, j] = result.values[line_name]
+
+    return result_map
+
+
+def write_to_hdf(fpath, data_dict):
+    """
+    Add fitting results to existing h5 file. This is to be moved to filestore.
+
+    Parameters
+    ----------
+    fpath : str
+        path of the hdf5 file
+    data_dict : dict
+        dict of array
+    """
+    import h5py
+    f = h5py.File(fpath, 'r+')
+    det = 'det1'
+    dataGrp = f['xrfmap/'+det]
+
+    data = []
+    namelist = []
+    for k, v in six.iteritems(data_dict):
+        namelist.append(str(k))
+        data.append(v)
+
+    if 'xrf_fit' in dataGrp:
+        del dataGrp['xrf_fit']
+
+    data = np.array(data)
+    ds_data = dataGrp.create_dataset('xrf_fit', data=data)
+    ds_data.attrs['comments'] = 'All fitting values are saved.'
+
+    if 'xrf_fit_name' in dataGrp:
+        del dataGrp['xrf_fit_name']
+
+    name_data = dataGrp.create_dataset('xrf_fit_name', data=namelist)
+    name_data.attrs['comments'] = 'All elements for fitting are saved.'
+
+    f.close()
 
 
 # to be removed

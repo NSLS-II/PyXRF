@@ -168,7 +168,7 @@ def dict_to_param(param_dict):
     }
 
     for param_name, param_dict in six.iteritems(temp_parameters):
-        if param_dict.has_key('default_value'):
+        if 'default_value' in param_dict:
             param.update({param_name: Parameter(**param_dict)})
         else:
             param.update({
@@ -348,6 +348,7 @@ class GuessParamModel(Atom):
 
     data_sets = Typed(OrderedDict)
     file_opt = Int()
+    data_all = Typed(np.ndarray)
 
     EC = Typed(object)
 
@@ -444,6 +445,7 @@ class GuessParamModel(Atom):
             return
         names = self.data_sets.keys()
         self.data = self.data_sets[names[self.file_opt-1]].get_sum()
+        self.data_all = self.data_sets[names[self.file_opt-1]].raw_data
 
     def manual_input(self):
         logger.info('Element {} is added'.format(self.e_name))
@@ -547,12 +549,12 @@ class GuessParamModel(Atom):
                             v['value'] = self.EC.element_dict[e].maxv*factor_to_area
                         else:
                             v['value'] = peak_height*factor_to_area
-            if self.EC.element_dict.has_key('compton'):
-                self.param_new['compton_amplitude']['value'] = \
-                    self.EC.element_dict['compton'].maxv*factor_to_area
-            if self.EC.element_dict.has_key('coherent_sct_amplitude'):
-                self.param_new['coherent_sct_amplitude']['value'] = \
-                    self.EC.element_dict['elastic'].maxv*factor_to_area
+            if 'compton' in self.EC.element_dict:
+                self.param_new['compton_amplitude']['value'] = (self.EC.element_dict['compton'].maxv
+                                                                * factor_to_area)
+            if 'coherent_sct_amplitude' in self.EC.element_dict:
+                self.param_new['coherent_sct_amplitude']['value'] = (self.EC.element_dict['elastic'].maxv
+                                                                     * factor_to_area)
 
     def data_for_plot(self):
         """
@@ -597,7 +599,6 @@ class GuessParamModel(Atom):
 
     def read_pre_saved(self, fname='param_default1.json'):
         """This is a bad idea."""
-
         fpath = os.path.join(self.result_folder, fname)
         with open(fpath, 'r') as infile:
             data = json.load(infile)

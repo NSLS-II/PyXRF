@@ -49,6 +49,7 @@ from matplotlib.figure import Figure
 import logging
 logger = logging.getLogger(__name__)
 
+
 enamldef ImageMain(DockItem):
     attr io_model
     attr img_model
@@ -153,7 +154,6 @@ enamldef ChooseElementAdvanced(Window): win:
                         Label:
                             pass
                         Looper: looper:
-                            #iterable << img_model.img_data.keys()
                             iterable << img_model.data_dict[cb.selected_item].keys()
                             Label:
                                 font = 'monospace'

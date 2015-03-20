@@ -86,6 +86,7 @@ enamldef FitView(DockItem): fit_view:
                 #hbox(gb_strategy),
                 hbox(pb_fit, pb_plot, spacer),
                 gb_advanced,
+                gb_fit_pixel,
                 #hbox(cb_enable, spacer),
                 #hbox(element_edit, param_edit, spacer),
             ),
@@ -255,7 +256,7 @@ enamldef FitView(DockItem): fit_view:
             index >> fit_model.fit_strategy5
 
         PushButton: pb_fit:
-            text = 'Fit'
+            text = 'Fit1D'
             clicked ::
                 #fit_model.fit_data()
                 #fit_model.define_range()
@@ -289,7 +290,7 @@ enamldef FitView(DockItem): fit_view:
                     plot_model.show_fit_opt = False
                     pb_plot.text = 'Overlap to Spectrum'
 
-        GroupBox : gb_advanced:
+        GroupBox: gb_advanced:
             constraints = [vbox(hbox(cb_enable, spacer),
                                 hbox(element_edit, param_edit, spacer))]
             CheckBox: cb_enable:
@@ -306,10 +307,6 @@ enamldef FitView(DockItem): fit_view:
                 text = 'Edit Elements'
                 enabled = False
                 clicked ::
-                    #ParameterEdit_old.parameter_model = fit_model.param_dict
-                    #ParameterEdit_old.param = Param
-                    #ParameterEdit_old().show()
-                    #param_model.get_param(param_model.param_new)
                     ElementEdit().show()
 
             PushButton: param_edit:
@@ -318,6 +315,14 @@ enamldef FitView(DockItem): fit_view:
                 clicked ::
                     enabled = False
                     ParameterEdit().show()
+
+        GroupBox: gb_fit_pixel:
+            title = 'Fit Individual Pixel'
+            constraints = [hbox(fit_pixel, spacer)]
+            PushButton: fit_pixel:
+                text = 'Fit 2D'
+                clicked ::
+                    fit_model.fit_single_pixel()
 
 
 enamldef ElementEdit(Window):

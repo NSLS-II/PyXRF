@@ -113,7 +113,7 @@ class SettingModel(Atom):
         dict of ROIModel object
     """
     parameters = Dict()
-    data_dict = Dict()
+    data_sets = Dict()
 
     prefix_name_roi = Str()
     element_for_roi = Str()
@@ -217,13 +217,13 @@ class SettingModel(Atom):
             nested dict as output
         """
         roi_result = {}
-        for fname, datav in six.iteritems(self.data_dict):
+        for fname, datav in six.iteritems(self.data_sets):
             fname = fname.split('.')[0]
             temp = {}
             for k, v in six.iteritems(self.roi_dict):
                 lowv = v.left_val/1000
                 rightv = v.right_val/1000
-                sum2D = calculate_roi(datav['mca_arr'], self.parameters['e_linear'].value,
+                sum2D = calculate_roi(datav.raw_data, self.parameters['e_linear'].value,
                                       self.parameters['e_offset'].value, [lowv, rightv])
                 temp.update({k: sum2D})
                 logger.info('Calculation is done for {}, {}, {}'.format(v.prefix, fname, k))
@@ -251,4 +251,5 @@ def calculate_roi(data3D, e_linear, e_offset, range_v):
     range_v = np.asarray(range_v)
     range_v = (range_v - e_offset)/e_linear
     range_v = [int(round(v)) for v in range_v]
-    return np.sum(data3D[range_v[0]:range_v[1], :, :], axis=0)*e_linear
+    #return np.sum(data3D[range_v[0]:range_v[1], :, :], axis=0)*e_linear
+    return np.sum(data3D[:, :, range_v[0]:range_v[1]], axis=2) * e_linear
