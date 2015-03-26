@@ -51,7 +51,6 @@ from enaml.core.api import Include, Looper
 
 from enaml.stdlib.fields import FloatField as DefaultFloatField
 
-from bubblegum.xrf.model.fit_spectrum import Param
 from bubblegum.xrf.model.guessparam import format_dict, fit_strategy_list
 
 
@@ -85,7 +84,9 @@ enamldef FitView(DockItem): fit_view:
                 hbox(lbl5, cb5, spacer),
                 #hbox(gb_strategy),
                 hbox(pb_fit, pb_plot, spacer),
+                hbox(pb_cal, spacer),
                 gb_advanced,
+                hbox(saveas_btn, spacer),
                 gb_fit_pixel,
                 #hbox(cb_enable, spacer),
                 #hbox(element_edit, param_edit, spacer),
@@ -256,12 +257,8 @@ enamldef FitView(DockItem): fit_view:
             index >> fit_model.fit_strategy5
 
         PushButton: pb_fit:
-            text = 'Fit1D'
+            text = 'Fit Summed Spectrum'
             clicked ::
-                #fit_model.fit_data()
-                #fit_model.define_range()
-                #fit_model.escape_peak()
-
                 fit_model.fit_multiple()
 
                 pb_plot.enabled = True
@@ -273,6 +270,24 @@ enamldef FitView(DockItem): fit_view:
 
                 #param_model.get_param(fit_model.param_dict)
                 #param_model.update_name_list()
+
+                ElementEdit.parameter_model = fit_model
+                ParameterEdit.parameter_model = fit_model
+
+        PushButton: pb_cal:
+            text = 'Calculate Spectrum'
+            clicked ::
+                fit_model.get_profile()
+
+                pb_plot.enabled = True
+                plot_model.fit_x = fit_model.cal_x
+                plot_model.fit_y = fit_model.cal_y
+                plot_model.fit_all = fit_model.cal_spectrum
+                plot_model.residual = fit_model.residual
+
+                plot_model.plot_fit()
+                plot_model.show_fit_opt = False
+                plot_model.show_fit_opt = True
 
                 ElementEdit.parameter_model = fit_model
                 ParameterEdit.parameter_model = fit_model
@@ -316,11 +331,22 @@ enamldef FitView(DockItem): fit_view:
                     enabled = False
                     ParameterEdit().show()
 
+        PushButton: saveas_btn:
+            text = 'Save As'
+            clicked ::
+                path = FileDialogEx.get_save_file_name(fit_view,
+                                                       current_path=io_model.working_directory)
+                if path:
+                    #param_model.create_full_param()
+                    #fit_model.param_dict = param_model.param_new
+                    param_model.file_path = path
+                    param_model.save_as()
+
         GroupBox: gb_fit_pixel:
-            title = 'Fit Individual Pixel'
+            title = 'Single Pixel Fitting'
             constraints = [hbox(fit_pixel, spacer)]
             PushButton: fit_pixel:
-                text = 'Fit 2D'
+                text = 'Fit Individual Pixel'
                 clicked ::
                     fit_model.fit_single_pixel()
 

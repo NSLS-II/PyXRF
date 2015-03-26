@@ -98,7 +98,7 @@ class FileIOModel(Atom):
         for fname in self.file_names:
             try:
                 self.file_path = os.path.join(self.working_directory, fname)
-                f = h5py.File(self.file_path, 'r')
+                f = h5py.File(self.file_path, 'r+')
                 #data = f['MAPS']
                 data = f['xrfmap']
 
