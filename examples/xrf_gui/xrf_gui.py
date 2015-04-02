@@ -41,12 +41,12 @@ import logging
 
 import enaml
 from enaml.qt.qt_application import QtApplication
-from pyxrf.xrf.model.fileio import FileIOModel
-from pyxrf.xrf.model.lineplot import LinePlotModel #, SettingModel
-from pyxrf.xrf.model.guessparam import GuessParamModel
-from pyxrf.xrf.model.draw_image import DrawImage, DrawImageAdvanced
-from pyxrf.xrf.model.fit_spectrum import Fit1D
-from pyxrf.xrf.model.setting import SettingModel
+from pyxrf.model.fileio import FileIOModel
+from pyxrf.model.lineplot import LinePlotModel #, SettingModel
+from pyxrf.model.guessparam import GuessParamModel
+from pyxrf.model.draw_image import DrawImage, DrawImageAdvanced
+from pyxrf.model.fit_spectrum import Fit1D
+from pyxrf.model.setting import SettingModel
 import json
 from pprint import pprint
 
@@ -101,7 +101,7 @@ def run():
 
     app = QtApplication()
     with enaml.imports():
-        from pyxrf.xrf.view.main_window import XRFGui
+        from pyxrf.view.main_window import XRFGui
 
     defaults = get_defaults()
 

@@ -50,7 +50,7 @@ from skxray.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
                                       construct_linear_model, linear_spectrum_fitting,
                                       compute_escape_peak, register_strategy)
 from skxray.fitting.background import snip_method
-from pyxrf.xrf.model.guessparam import (calculate_profile, fit_strategy_list)
+from pyxrf.model.guessparam import (calculate_profile, fit_strategy_list)
 from lmfit import fit_report
 
 import logging

@@ -51,7 +51,7 @@ from enaml.core.api import Include, Looper
 
 from enaml.stdlib.fields import FloatField as DefaultFloatField
 
-from pyxrf.xrf.model.guessparam import format_dict, fit_strategy_list, save_as
+from pyxrf.model.guessparam import format_dict, fit_strategy_list, save_as
 
 
 enamldef FloatField(DefaultFloatField):

@@ -49,7 +49,7 @@ from skxray.fitting.background import snip_method
 from skxray.constants.api import XrfElement as Element
 from skxray.fitting.xrf_model import (ModelSpectrum, ParamController,
                                       trim, construct_linear_model, linear_spectrum_fitting)
-#from pyxrf.xrf.model.fit_spectrum import fit_strategy_list
+#from pyxrf.model.fit_spectrum import fit_strategy_list
 
 import logging
 logger = logging.getLogger(__name__)
