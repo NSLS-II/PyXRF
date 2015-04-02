@@ -45,10 +45,8 @@ from enaml.stdlib.fields import FloatField as DefaultFloatField
 import numpy as np
 
 from matplotlib.figure import Figure
-from skxray.fitting.xrf_model import (k_line, l_line, m_line)
+from skxray.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 
-
-k_line_full = [item+'_K' for item in k_line]
 
 enamldef FloatField(DefaultFloatField):
     submit_triggers = ['auto_sync']
@@ -81,7 +79,7 @@ enamldef PlotMain(DockItem):
                 AdjustEmissionLine().show()
         ComboBox: cbox2:
             items = ['Display emission lines'] +\
-                    k_line_full + l_line + m_line
+                    K_LINE + L_LINE + M_LINE
             index := plot_model.element_id
             index = 0
         #PushButton: pbn:

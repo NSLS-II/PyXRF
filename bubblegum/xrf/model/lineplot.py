@@ -49,7 +49,7 @@ from collections import OrderedDict
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
 
-from skxray.fitting.xrf_model import (k_line, l_line, m_line)
+from skxray.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 from skxray.constants.api import XrfElement as Element
 
 import logging
@@ -202,7 +202,7 @@ class LinePlotModel(Atom):
 
     @observe('parameters')
     def _update_energy(self, change):
-        self.incident_energy = self.parameters['coherent_sct_energy'].value
+        self.incident_energy = self.parameters['coherent_sct_energy']['value']
 
     @observe('scale_opt')
     def _new_opt(self, change):
@@ -243,11 +243,11 @@ class LinePlotModel(Atom):
             logger.debug('No need to remove experimental data.')
 
         data_arr = np.asarray(self.data)
-        x_v = (self.parameters['e_offset'].value +
+        x_v = (self.parameters['e_offset']['value'] +
                np.arange(len(data_arr)) *
-               self.parameters['e_linear'].value +
+               self.parameters['e_linear']['value'] +
                np.arange(len(data_arr))**2 *
-               self.parameters['e_quadratic'].value)
+               self.parameters['e_quadratic']['value'])
 
         self.plot_exp_obj, = self._ax.plot(x_v, data_arr,
                                            linestyle=self.plot_style['experiment']['linestyle'],
@@ -265,11 +265,11 @@ class LinePlotModel(Atom):
             if v.plot_index:
                 data_arr = np.asarray(v.data)
                 self.max_v = np.max(data_arr)
-                x_v = (self.parameters['e_offset'].value +
+                x_v = (self.parameters['e_offset']['value'] +
                        np.arange(len(data_arr)) *
-                       self.parameters['e_linear'].value +
+                       self.parameters['e_linear']['value'] +
                        np.arange(len(data_arr))**2 *
-                       self.parameters['e_quadratic'].value)
+                       self.parameters['e_quadratic']['value'])
 
                 plot_exp_obj, = self._ax.plot(x_v, data_arr,
                                               color=color_n[i],
@@ -317,7 +317,7 @@ class LinePlotModel(Atom):
             return
 
         self.elist = []
-        total_list = k_line + l_line + m_line
+        total_list = K_LINE + L_LINE + M_LINE
         logger.debug('Plot emission line for element: {}'.format(self.element_id))
         ename = total_list[self.element_id-1]
 

@@ -204,8 +204,8 @@ class SettingModel(Atom):
         Calculate the std at given energy.
         """
         temp_val = 2 * np.sqrt(2 * np.log(2))
-        return np.sqrt((self.parameters['fwhm_offset'].value/temp_val)**2 +
-                       energy*epsilon*self.parameters['fwhm_fanoprime'].value)
+        return np.sqrt((self.parameters['fwhm_offset']['value']/temp_val)**2 +
+                       energy*epsilon*self.parameters['fwhm_fanoprime']['value'])
 
     def get_roi_sum(self):
         """
@@ -223,8 +223,8 @@ class SettingModel(Atom):
             for k, v in six.iteritems(self.roi_dict):
                 lowv = v.left_val/1000
                 rightv = v.right_val/1000
-                sum2D = calculate_roi(datav.raw_data, self.parameters['e_linear'].value,
-                                      self.parameters['e_offset'].value, [lowv, rightv])
+                sum2D = calculate_roi(datav.raw_data, self.parameters['e_linear']['value'],
+                                      self.parameters['e_offset']['value'], [lowv, rightv])
                 temp.update({k: sum2D})
                 logger.info('Calculation is done for {}, {}, {}'.format(v.prefix, fname, k))
             roi_result.update({v.prefix+'_'+fname: temp})

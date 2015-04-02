@@ -48,7 +48,7 @@ from atom.api import (Atom, Str, observe, Typed,
 from skxray.fitting.background import snip_method
 from skxray.constants.api import XrfElement as Element
 from skxray.fitting.xrf_model import (ModelSpectrum, ParamController,
-                                      set_range, get_linear_model, pre_fit_linear)
+                                      trim, construct_linear_model, linear_spectrum_fitting)
 #from bubblegum.xrf.model.fit_spectrum import fit_strategy_list
 
 import logging
@@ -325,7 +325,7 @@ class GuessParamModel(Atom):
     element_list : list
     """
     default_parameters = Dict()
-    parameters = Dict() #Typed(OrderedDict) #OrderedDict()
+    #parameters = Dict() #Typed(OrderedDict) #OrderedDict()
     data = Typed(object)
     prefit_x = Typed(object)
 
@@ -338,11 +338,11 @@ class GuessParamModel(Atom):
     total_y_l = Dict()
     total_y_m = Dict()
     e_name = Str()
-    e_intensity = Float()
+    add_element_intensity = Float()
     #save_file = Str()
 
     result_folder = Str()
-    file_path = Str()
+    #file_path = Str()
 
     element_list = List()
 
@@ -355,7 +355,9 @@ class GuessParamModel(Atom):
     def __init__(self, *args, **kwargs):
         try:
             self.default_parameters = kwargs['default_parameters']
-            self.element_list, self.parameters = dict_to_param(self.default_parameters)
+            #self.element_list, self.parameters = dict_to_param(self.default_parameters)
+            self.param_new = copy.deepcopy(self.default_parameters)
+            self.element_list = get_element(self.param_new)
             #self.get_param(default_parameters)
         except ValueError:
             logger.info('No default parameter files are chosen.')
@@ -373,26 +375,14 @@ class GuessParamModel(Atom):
         """
         with open(param_path, 'r') as json_data:
             self.param_new = json.load(json_data)
-        self.element_list, self.parameters = dict_to_param(self.param_new)
+        #self.element_list, self.parameters = dict_to_param(self.param_new)
+        self.element_list = get_element(self.param_new)
         self.EC.delete_all()
-        self.create_spectrum_from_file(self.param_new)
+        self.create_spectrum_from_file(self.param_new, self.element_list)
+        logger.info('Elements read from file are: {}'.format(self.element_list))
         #self.element_list, self.parameters = self.get_param(new_param)
 
-    def get_param(self, param_dict):
-        """
-        Transfer dict into the type of parameter class.
-
-        Parameters
-        ----------
-        param_dict : dict
-            Dictionary of parameters used for fitting.
-        """
-        self.element_list, self.parameters = dict_to_param(param_dict)
-        self.EC.delete_all()
-        self.create_spectrum_from_file(param_dict)
-        self.param_new = param_dict
-
-    def create_spectrum_from_file(self, param_dict):
+    def create_spectrum_from_file(self, param_dict, elemental_lines):
         """
         Create spectrum profile with given param dict from file.
 
@@ -400,11 +390,15 @@ class GuessParamModel(Atom):
         ----------
         param_dict : dict
             dict obtained from file
+        elemental_lines : list
+            e.g., ['Na_K', Mg_K', 'Pt_M'] refers to the
+            K lines of Sodium, the K lines of Magnesium, and the M
+            lines of Platinum
         """
-        self.prefit_x, pre_dict = calculate_profile(self.data, param_dict)
+        self.prefit_x, pre_dict = calculate_profile(self.data,
+                                                    param_dict, elemental_lines)
 
-        default_area = 1e5
-        factor_to_area = factor_height2area()
+        #factor_to_area = factor_height2area()
 
         temp_dict = OrderedDict()
         for e in six.iterkeys(pre_dict):
@@ -412,18 +406,26 @@ class GuessParamModel(Atom):
             for k, v in six.iteritems(param_dict):
 
                 if ename in k and 'area' in k:
-                    ratio = v['value']/factor_to_area/np.max(pre_dict[e])
-                    spectrum = pre_dict[e]*ratio
-                    if 'ka1' in k:
-                        e = e+'_K'
+                    energy = float(get_energy(e))
+                    factor_to_area = factor_height2area(energy, self.param_new)
+                    ratio = v['value']/factor_to_area
+                    spectrum = pre_dict[e] #/ np.max(pre_dict[e]) * ratio
 
                 elif ename == 'compton' and k == 'compton_amplitude':
-                    ratio = v['value']/factor_to_area/np.max(pre_dict[e])
-                    spectrum = pre_dict[e]*ratio
+                    # the rest-mass energy of an electron (511 keV)
+                    mc2 = 511
+                    comp_denom = (1 + self.param_new['coherent_sct_energy']['value']
+                                  / mc2 * (1 - np.cos(np.deg2rad(self.param_new['compton_angle']['value']))))
+                    compton_energy = self.param_new['coherent_sct_energy']['value'] / comp_denom
+                    factor_to_area = factor_height2area(compton_energy, self.param_new,
+                                                        std_correction=self.param_new['compton_fwhm_corr']['value'])
+                    spectrum = pre_dict[e] #/ np.max(pre_dict[e]) * ratio
 
                 elif ename == 'elastic' and k == 'coherent_sct_amplitude':
-                    ratio = v['value']/factor_to_area/np.max(pre_dict[e])
-                    spectrum = pre_dict[e]*ratio
+                    factor_to_area = factor_height2area(self.param_new['coherent_sct_energy']['value'],
+                                                        self.param_new)
+                    ratio = v['value']/factor_to_area
+                    spectrum = pre_dict[e] #/ np.max(pre_dict[e]) * ratio
 
                 elif ename == 'background':
                     spectrum = pre_dict[e]
@@ -436,7 +438,6 @@ class GuessParamModel(Atom):
                                   norm=-1, lbd_stat=False)
 
                 temp_dict.update({e: ps})
-
         self.EC.add_to_dict(temp_dict)
 
     @observe('file_opt')
@@ -448,20 +449,15 @@ class GuessParamModel(Atom):
         self.data_all = self.data_sets[names[self.file_opt-1]].raw_data
 
     def manual_input(self):
+        default_area = 1e5
         logger.info('Element {} is added'.format(self.e_name))
-        param_dict = format_dict(self.parameters, self.element_list)
 
-        strip_line = lambda ename: ename.split('_')[0]
-
-        if '_K' in self.e_name:
-            e_item = strip_line(self.e_name)
-        else:
-            e_item = self.e_name
-
-        x, data_out = calculate_profile(self.data, param_dict, elementlist=e_item)
+        #param_dict = format_dict(self.parameters, self.element_list)
+        x, data_out = calculate_profile(self.data, self.param_new,
+                                        elemental_lines=[self.e_name], default_area=default_area)
         ps = PreFitStatus(z=get_Z(self.e_name), energy=get_energy(self.e_name),
-                          spectrum=data_out[e_item]/1e5*self.e_intensity,
-                          maxv=self.e_intensity, norm=-1,
+                          spectrum=data_out[self.e_name]/np.max(data_out[self.e_name])*self.add_element_intensity,
+                          maxv=self.add_element_intensity, norm=-1,
                           lbd_stat=False)
         self.EC.add_to_dict({self.e_name: ps})
 
@@ -478,8 +474,9 @@ class GuessParamModel(Atom):
         """
         Run automatic peak finding, and save results as dict of object.
         """
-        param_dict = format_dict(self.parameters, self.element_list)
-        self.prefit_x, out_dict = pre_fit_linear(self.data, param_dict)
+        #param_dict = format_dict(self.parameters, self.element_list)
+        self.prefit_x, out_dict = linear_spectrum_fitting(self.data,
+                                                          self.param_new)
 
         #max_dict = reduce(max, map(np.max, six.itervalues(out_dict)))
         prefit_dict = OrderedDict()
@@ -489,23 +486,11 @@ class GuessParamModel(Atom):
                               lbd_stat=False)
             prefit_dict.update({k: ps})
 
-        logger.info('The elements found from prefit: {}'.format(prefit_dict.keys()))
+        logger.info('The elements found from prefit: {}'.format(
+            prefit_dict.keys()))
         self.EC.add_to_dict(prefit_dict)
 
-    # def save_elist(self):
-    #     """
-    #     Save selected list to param dict.
-    #     """
-    #     self.element_list = self.EC.get_element_list()
-    #     temp_list = []
-    #     for v in self.element_list:
-    #         if '_K' in v:
-    #             v = v.split('_')[0]
-    #         temp_list.append(v)
-
-        # self.param_d = format_dict(self.parameters, temp_list)
-
-    def create_full_param(self, peak_std=0.07, peak_height=500.0):
+    def create_full_param(self, peak_std=0.07):
         """
         Extend the param to full param dict with detailed elements
         information, and assign initial values from pre fit.
@@ -514,47 +499,48 @@ class GuessParamModel(Atom):
         ----------
         peak_std : float
             approximated std for element peak.
-        peak_height : float
-            initial value for element peak height
         """
 
         self.element_list = self.EC.get_element_list()
-        temp_list = []
-        for v in self.element_list:
-            if '_K' in v:
-                v = v.split('_')[0]
-            temp_list.append(v)
-
-        param_d = format_dict(self.parameters, temp_list)
+        self.param_new['non_fitting_values']['element_list'] = ', '.join(self.element_list)
+        #param_d = format_dict(self.parameters, self.element_list)
 
         # create full parameter list including elements
-        PC = ParamController(param_d)
-        PC.create_full_param()
-        self.param_new = PC.new_parameter
+        PC = ParamController(self.param_new, self.element_list)
+        #PC.create_full_param()
+        self.param_new = PC.params
 
         # to create full param dict, for GUI only
         create_full_dict(self.param_new, fit_strategy_list)
 
-        #factor_to_area = np.sqrt(2*np.pi)*peak_std*0.5
-        factor_to_area = factor_height2area()
+        logger.info('full dict: {}'.format(self.param_new.keys()))
 
         # update according to pre fit results
         if len(self.EC.element_dict):
             for e in self.element_list:
-                e = e.strip(' ')
                 zname = e.split('_')[0]
                 for k, v in six.iteritems(self.param_new):
                     if zname in k and 'area' in k:
-                        if self.EC.element_dict[e].maxv > 0:
-                            v['value'] = self.EC.element_dict[e].maxv*factor_to_area
-                        else:
-                            v['value'] = peak_height*factor_to_area
+                        factor_to_area = factor_height2area(float(self.EC.element_dict[e].energy),
+                                                            self.param_new)
+                        v['value'] = self.EC.element_dict[e].maxv * factor_to_area
             if 'compton' in self.EC.element_dict:
-                self.param_new['compton_amplitude']['value'] = (self.EC.element_dict['compton'].maxv
-                                                                * factor_to_area)
+                gauss_factor = 1/(1 + self.param_new['compton_f_step']['value']
+                                  + self.param_new['compton_f_tail']['value']
+                                  + self.param_new['compton_hi_f_tail']['value'])
+
+                # the rest-mass energy of an electron (511 keV)
+                mc2 = 511
+                comp_denom = (1 + self.param_new['coherent_sct_energy']['value']
+                              / mc2 * (1 - np.cos(np.deg2rad(self.param_new['compton_angle']['value']))))
+                compton_energy = self.param_new['coherent_sct_energy']['value'] / comp_denom
+                factor_to_area = factor_height2area(compton_energy, self.param_new,
+                                                    std_correction=self.param_new['compton_fwhm_corr']['value'])
+                self.param_new['compton_amplitude']['value'] = \
+                    self.EC.element_dict['compton'].maxv * factor_to_area
             if 'coherent_sct_amplitude' in self.EC.element_dict:
-                self.param_new['coherent_sct_amplitude']['value'] = (self.EC.element_dict['elastic'].maxv
-                                                                     * factor_to_area)
+                self.param_new['coherent_sct_amplitude']['value'] = np.sum(
+                    self.EC.element_dict['elastic'].spectrum)
 
     def data_for_plot(self):
         """
@@ -589,14 +575,6 @@ class GuessParamModel(Atom):
             json.dump(self.param_new, outfile,
                       sort_keys=True, indent=4)
 
-    def save_as(self):
-        """
-        Save full param dict into a file.
-        """
-        with open(self.file_path, 'w') as outfile:
-            json.dump(self.param_new, outfile,
-                      sort_keys=True, indent=4)
-
     def read_pre_saved(self, fname='param_default1.json'):
         """This is a bad idea."""
         fpath = os.path.join(self.result_folder, fname)
@@ -605,14 +583,17 @@ class GuessParamModel(Atom):
         return data
 
 
-def factor_height2area(std=0.07):
+def save_as(file_path, data):
     """
-    Factor to transfer peak height to area.
+    Save full param dict into a file.
     """
-    return np.sqrt(2*np.pi)*std
+    with open(file_path, 'w') as outfile:
+        json.dump(data, outfile,
+                  sort_keys=True, indent=4)
 
 
-def calculate_profile(y0, param, elementlist=None):
+def calculate_profile(y0, param,
+                      elemental_lines, default_area=1e5):
     # Need to use deepcopy here to avoid unexpected change on parameter dict
     fitting_parameters = copy.deepcopy(param)
 
@@ -620,15 +601,16 @@ def calculate_profile(y0, param, elementlist=None):
 
     # ratio to transfer energy value back to channel value
     approx_ratio = 100
-    lowv = fitting_parameters['non_fitting_values']['energy_bound_low'] * approx_ratio
-    highv = fitting_parameters['non_fitting_values']['energy_bound_high'] * approx_ratio
+    lowv = fitting_parameters['non_fitting_values']['energy_bound_low']['value'] * approx_ratio
+    highv = fitting_parameters['non_fitting_values']['energy_bound_high']['value'] * approx_ratio
 
-    x, y = set_range(x0, y0, lowv, highv)
+    x, y = trim(x0, y0, lowv, highv)
 
-    if elementlist:
-        fitting_parameters['non_fitting_values']['element_list'] = elementlist
+    e_select, matv = construct_linear_model(x, fitting_parameters,
+                                            elemental_lines,
+                                            default_area=default_area)
 
-    e_select, matv = get_linear_model(x, fitting_parameters, default_area=1e5)
+    print('current coherent area: {}'.format(fitting_parameters['coherent_sct_amplitude']['value']))
 
     non_element = ['compton', 'elastic']
     total_list = e_select + non_element
@@ -644,8 +626,9 @@ def calculate_profile(y0, param, elementlist=None):
     #for i in len(total_list):
     #    temp_d[total_list[i]] = matv[:, i]
 
-    x = fitting_parameters['e_offset']['value'] + fitting_parameters['e_linear']['value']*x \
-        + fitting_parameters['e_quadratic']['value'] * x**2
+    x = (fitting_parameters['e_offset']['value']
+         + fitting_parameters['e_linear']['value'] * x
+         + fitting_parameters['e_quadratic']['value'] * x**2)
 
     return x, temp_d
 
@@ -714,3 +697,17 @@ def get_energy(ename):
         return str(np.around(energy, 4))
 
 
+def get_element(param):
+    element_list = param['non_fitting_values']['element_list']
+    return [e.strip(' ') for e in element_list.split(',')]
+
+
+def factor_height2area(energy, param, std_correction=1):
+    """
+    Factor to transfer peak height to area.
+    """
+    temp_val = 2 * np.sqrt(2 * np.log(2))
+    epsilon = param['non_fitting_values']['electron_hole_energy']
+    sigma = np.sqrt((param['fwhm_offset']['value'] / temp_val)**2
+                    + energy * epsilon * param['fwhm_fanoprime']['value'])
+    return sigma*std_correction

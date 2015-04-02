@@ -45,13 +45,12 @@ import multiprocessing
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float
 from skxray.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
-                                      get_sum_area, set_parameter_bound,
-                                      PreFitAnalysis, set_range,
-                                      get_linear_model, pre_fit_linear,
-                                      get_escape_peak, register_strategy)
+                                      sum_area, set_parameter_bound, ParamController,
+                                      nnls_fit, weighted_nnls_fit, trim,
+                                      construct_linear_model, linear_spectrum_fitting,
+                                      compute_escape_peak, register_strategy)
 from skxray.fitting.background import snip_method
-from bubblegum.xrf.model.guessparam import (dict_to_param, format_dict,
-                                            calculate_profile, fit_strategy_list)
+from bubblegum.xrf.model.guessparam import (calculate_profile, fit_strategy_list)
 from lmfit import fit_report
 
 import logging
@@ -60,12 +59,12 @@ logger = logging.getLogger(__name__)
 
 class Fit1D(Atom):
 
-    file_path = Str()
+    #file_path = Str()
     file_status = Str()
     param_dict = Dict()
 
     element_list = List()
-    parameters = Dict()
+    #parameters = Dict()
 
     data_all = Typed(np.ndarray)
     data = Typed(np.ndarray)
@@ -92,6 +91,10 @@ class Fit1D(Atom):
     cal_y = Typed(np.ndarray)
     cal_spectrum = Dict()
 
+    # attributes used by the ElementEdit window
+    selected_element = Str()
+    selected_elements = List()
+
     def __init__(self, *args, **kwargs):
         self.result_folder = kwargs['working_directory']
         self.all_strategy = OrderedDict()
@@ -103,22 +106,58 @@ class Fit1D(Atom):
     #     except ValueError:
     #         self.file_status = 'Parameter file can\'t be loaded.'
 
+    @observe('selected_element')
+    def _selected_element_changed(self, changed):
+        print('selected element changed', changed)
+        #self.selected_elements = []
+        #if changed['type'] == 'create':
+        #    return
+        element = self.selected_element.split('_')[0]
+
+        selected_elements = []
+        for e in self.param_dict.keys():
+            if element in e:
+                selected_elements.append(e)
+                print('{} is being appended with length {}'.format(e, len(self.param_dict[e])))
+                for k, v in six.iteritems(self.param_dict[e]):
+                    print(k, v)
+
+        print('total list is {}'.format(selected_elements))
+        #for k, v in six.iteritems(self.param_dict):
+        #    print('{}: {}'.format(k, v))
+        # trigger the update to the looper in the ElementEdit Window
+        #self.selected_elements = []
+        self.selected_elements = sorted(selected_elements)
+
     def get_new_param(self, param):
         self.param_dict = copy.deepcopy(param)
-        self.element_list, self.parameters = dict_to_param(self.param_dict)
+        element_list = self.param_dict['non_fitting_values']['element_list']
+        self.element_list = [e.strip(' ') for e in element_list.split(',')]
+        print('get new element list : {}'.format(self.element_list))
 
-    @observe('parameters')
-    def _update_param_dict(self, change):
-        self.param_dict = format_dict(self.parameters, self.element_list)
-        logger.info('param changed {}'.format(change['type']))
+        # register the strategy and extend the parameter list
+        # to cover all given elements
+        for strat_name in fit_strategy_list:
+            strategy = extract_strategy(self.param_dict, strat_name)
+            # register the strategy and extend the parameter list
+            # to cover all given elements
+            register_strategy(strat_name, strategy)
+            set_parameter_bound(self.param_dict, strat_name)
+
+        #for k, v in six.iteritems(self.param_dict):
+        #    print('{}: {}'.format(k, v))
+
+        #self.element_list, self.parameters = dict_to_param(self.param_dict)
+
+    # @observe('parameters')
+    # def _update_param_dict(self, change):
+    #     self.param_dict = format_dict(self.parameters, self.element_list)
+    #     logger.info('param changed {}'.format(change['type']))
 
     #def update_param_dict(self):
     #    self.param_dict = format_dict(self.parameters, self.element_list)
     #    logger.info('param changed !!!')
 
-    # @observe('file_path')
-    # def update_param(self, change):
-    #    self.load_full_param()
 
     @observe('data')
     def _update_data(self, change):
@@ -164,12 +203,15 @@ class Fit1D(Atom):
         update_parameter_dict(self.param_dict, self.fit_result)
 
     def define_range(self):
+        """
+        Cut x range according to values define in param_dict.
+        """
         x = np.arange(self.data.size)
         # ratio to transfer energy value back to channel value
         approx_ratio = 100
-        lowv = self.param_dict['non_fitting_values']['energy_bound_low'] * approx_ratio
-        highv = self.param_dict['non_fitting_values']['energy_bound_high'] * approx_ratio
-        self.x0, self.y0 = set_range(x, self.data, lowv, highv)
+        lowv = self.param_dict['non_fitting_values']['energy_bound_low']['value'] * approx_ratio
+        highv = self.param_dict['non_fitting_values']['energy_bound_high']['value'] * approx_ratio
+        self.x0, self.y0 = trim(x, self.data, lowv, highv)
 
     def get_background(self):
         self.bg = snip_method(self.y0,
@@ -179,11 +221,12 @@ class Fit1D(Atom):
 
     def escape_peak(self):
         ratio = 0.005
-        xe, ye = get_escape_peak(self.data, ratio, self.param_dict)
+        xe, ye = compute_escape_peak(self.data, ratio, self.param_dict)
         lowv = self.param_dict['non_fitting_values']['energy_bound_low']
         highv = self.param_dict['non_fitting_values']['energy_bound_high']
-        xe, self.es_peak = set_range(xe, ye, lowv, highv)
+        xe, self.es_peak = trim(xe, ye, lowv, highv)
         logger.info('Escape peak is considered with ratio {}'.format(ratio))
+
         # align to the same length
         if self.y0.size > self.es_peak.size:
             temp = self.es_peak
@@ -194,24 +237,28 @@ class Fit1D(Atom):
 
     def get_profile(self):
         self.define_range()
-        self.cal_x, self.cal_spectrum = calculate_profile(self.data, self.param_dict)
+        self.cal_x, self.cal_spectrum = calculate_profile(self.data, self.param_dict,
+                                                          self.element_list)
         self.cal_y = np.zeros(len(self.cal_x))
         for k, v in six.iteritems(self.cal_spectrum):
+            print('component: {}'.format(k))
             self.cal_y += v
         self.residual = self.cal_y - self.y0
 
     def fit_data(self, x0, y0,
                  c_val=1e-2, fit_num=100, c_weight=1e3):
-        MS = ModelSpectrum(self.param_dict)
-        MS.model_spectrum()
+        MS = ModelSpectrum(self.param_dict, self.element_list)
+        MS.assemble_models()
 
-        result = MS.model_fit(x0, y0, w=1/np.sqrt(c_weight+y0), maxfev=fit_num,
+        result = MS.model_fit(x0, y0,
+                              weights=1/np.sqrt(c_weight+y0), maxfev=fit_num,
                               xtol=c_val, ftol=c_val, gtol=c_val)
 
         comps = result.eval_components(x=x0)
         self.combine_lines(comps)
 
-        xnew = (result.values['e_offset'] + result.values['e_linear'] * x0 +
+        xnew = (result.values['e_offset'] +
+                result.values['e_linear'] * x0 +
                 result.values['e_quadratic'] * x0**2)
         self.fit_x = xnew
         self.fit_y = result.best_fit
@@ -219,25 +266,33 @@ class Fit1D(Atom):
         self.residual = self.fit_y - y0
 
     def fit_multiple(self):
-
+        """
+        Fit data in sequence according to given strategies.
+        The param_dict is extended to cover elemental parameters.
+        """
         self.define_range()
         self.get_background()
         #self.escape_peak()
 
-        #PC = ParamController(self.param_dict)
-        #self.param_dict = PC.new_parameter
+        #PC = ParamController(self.param_dict, self.element_list)
+        #self.param_dict = PC.params
+        #print('param keys {}'.format(self.param_dict.keys()))
 
         y0 = self.y0 - self.bg #- self.es_peak
 
         t0 = time.time()
-        logger.warning('Start fitting!')
+        logger.info('Start fitting!')
         for k, v in six.iteritems(self.all_strategy):
             if v:
                 strat_name = fit_strategy_list[v-1]
                 logger.info('Fit with {}: {}'.format(k, strat_name))
+
                 strategy = extract_strategy(self.param_dict, strat_name)
+                # register the strategy and extend the parameter list
+                # to cover all given elements
                 register_strategy(strat_name, strategy)
                 set_parameter_bound(self.param_dict, strat_name)
+
                 self.comps.clear()
                 self.fit_data(self.x0, y0)
                 self.update_param_with_result()
@@ -328,13 +383,21 @@ def extract_strategy(param, name):
         saving all parameters
     name : str
         strategy name
+
+    Returns
+    -------
+    dict :
+        with given strategy as value
     """
     return {k: v[name] for k, v in six.iteritems(param) if k != 'non_fitting_values'}
 
 
 def fit_pixel_fast(data, param):
     """
-    Single pixel fit of experiment data. No multiprocess is involved.
+    Single pixel fit of experiment data. No multiprocess is applied.
+
+    .. warning :: This function is not optimized as it calls linear_spectrum_fitting function,
+    where lots of repeated calculation are processed.
 
     Parameters
     ----------
@@ -368,7 +431,8 @@ def fit_pixel_fast(data, param):
         logger.info('Row number at {} out of total {}'.format(i, datas[0]))
         for j in xrange(datas[1]):
             #logger.info('Column number at {} out of total {}'.format(j, datas[1]))
-            x, result = pre_fit_linear(data[i, j, :], param, element_list=None, weight=True)
+            x, result = linear_spectrum_fitting(data[i, j, :], param,
+                                                elemental_lines=elist, constant_weight=5)
             for v in total_list:
                 if v in result:
                     result_map[v][i, j] = np.sum(result[v])
@@ -442,10 +506,10 @@ def fit_pixel_fast_multi(data, param):
 
     lowv = param['non_fitting_values']['energy_bound_low'] * approx_ratio
     highv = param['non_fitting_values']['energy_bound_high'] * approx_ratio
-    x, y = set_range(x0, y0, lowv, highv)
+    x, y = trim(x0, y0, lowv, highv)
     start_i = x0[x0 == x[0]][0]
     end_i = x0[x0 == x[-1]][0]
-    e_select, matv = get_linear_model(x, param)
+    e_select, matv = construct_linear_model(x, param)
     mat_sum = np.sum(matv, axis=0)
 
     elist = param['non_fitting_values']['element_list'].split(', ')
@@ -559,18 +623,32 @@ def fit_pixel_fast_multi(data, param):
 #     return result_map
 
 
-def fit_pixel(y, matv, weight=True):
-    #non_element = ['compton', 'elastic']
-    #total_list = e_select + non_element
-    #total_list = [str(v) for v in total_list]
+def fit_pixel(y, expected_matrix, constant_weight=10):
+    """
+    Non-negative linear fitting is applied for each pixel.
 
-    PF = PreFitAnalysis(y, matv)
+    Parameters
+    ----------
+    y : array
+        spectrum of experiment data
+    expected_matrix : array
+        2D matrix of activated element spectrum
+    constant_weight : float
+        value used to calculate weight like so:
+        weights = constant_weight / (constant_weight + spectrum)
 
-    if weight:
-        out, res = PF.nnls_fit_weight()
+    Returns
+    -------
+    results : array
+        weights of different element
+    residue : array
+        error
+    """
+    if constant_weight:
+        results, residue = weighted_nnls_fit(y, expected_matrix, constant_weight=constant_weight)
     else:
-        out, res = PF.nnls_fit()
-    return out, res
+        results, residue = nnls_fit(y, expected_matrix)
+    return results, residue
 
 
 def fit_pixel_slow_version(data, param, c_val=1e-2, fit_num=10, c_weight=1):
@@ -676,25 +754,3 @@ def compare_result(m, n, start_i=151, end_i=1350, all=True, linear=True):
         else:
             plt.semilogy(x, np.sum(data_exp[:,:, start_i:end_i], axis=(0, 1)), x, np.sum(d_fit, axis=(0, 1)))
         plt.show()
-
-
-
-
-
-# to be removed
-# class Param(Atom):
-#     name = Str()
-#     value = Float(0.0)
-#     min = Float(0.0)
-#     max = Float(0.0)
-#     bound_type = Str()
-#     free_more = Str()
-#     fit_with_tail = Str()
-#     adjust_element = Str()
-#     e_calibration = Str()
-#     linear = Str()
-#
-#     def __init__(self):
-#         self.value = 0.0
-#         self.min = 0.0
-#         self.max = 10.0

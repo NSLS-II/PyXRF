@@ -51,11 +51,14 @@ from enaml.core.api import Include, Looper
 
 from enaml.stdlib.fields import FloatField as DefaultFloatField
 
-from bubblegum.xrf.model.guessparam import format_dict, fit_strategy_list
+from bubblegum.xrf.model.guessparam import format_dict, fit_strategy_list, save_as
 
 
 enamldef FloatField(DefaultFloatField):
     submit_triggers = ['auto_sync'] #['return_pressed']
+    minimum = -100000000000
+    maximum =  100000000000
+
 
 enamldef RadioButton(DefaultRadioButton):
     minimum_size = (80, 20)
@@ -261,18 +264,15 @@ enamldef FitView(DockItem): fit_view:
             clicked ::
                 fit_model.fit_multiple()
 
+                ElementEdit.parameter_model = fit_model
+                ParameterEdit.parameter_model = fit_model
+
                 pb_plot.enabled = True
                 plot_model.fit_x = fit_model.fit_x
                 plot_model.fit_y = fit_model.fit_y
                 plot_model.fit_all = fit_model.comps
                 plot_model.residual = fit_model.residual
                 plot_model.plot_fit()
-
-                #param_model.get_param(fit_model.param_dict)
-                #param_model.update_name_list()
-
-                ElementEdit.parameter_model = fit_model
-                ParameterEdit.parameter_model = fit_model
 
         PushButton: pb_cal:
             text = 'Calculate Spectrum'
@@ -288,9 +288,6 @@ enamldef FitView(DockItem): fit_view:
                 plot_model.plot_fit()
                 plot_model.show_fit_opt = False
                 plot_model.show_fit_opt = True
-
-                ElementEdit.parameter_model = fit_model
-                ParameterEdit.parameter_model = fit_model
 
         PushButton: pb_plot:
             text = 'Overlap to Spectrum'
@@ -322,6 +319,7 @@ enamldef FitView(DockItem): fit_view:
                 text = 'Edit Elements'
                 enabled = False
                 clicked ::
+                    ElementEdit.parameter_model = fit_model
                     ElementEdit().show()
 
             PushButton: param_edit:
@@ -329,6 +327,7 @@ enamldef FitView(DockItem): fit_view:
                 enabled = False
                 clicked ::
                     enabled = False
+                    ParameterEdit.parameter_model = fit_model
                     ParameterEdit().show()
 
         PushButton: saveas_btn:
@@ -337,10 +336,7 @@ enamldef FitView(DockItem): fit_view:
                 path = FileDialogEx.get_save_file_name(fit_view,
                                                        current_path=io_model.working_directory)
                 if path:
-                    #param_model.create_full_param()
-                    #fit_model.param_dict = param_model.param_new
-                    param_model.file_path = path
-                    param_model.save_as()
+                    save_as(path, fit_model.param_dict)
 
         GroupBox: gb_fit_pixel:
             title = 'Single Pixel Fitting'
@@ -357,9 +353,10 @@ enamldef ElementEdit(Window):
     Container:
         padding = Box(5, 5, 5, 5)
 
-        ComboBox: cmb1:
+        ComboBox: cmb_element:
             items << ['Select Element'] + sorted(parameter_model.element_list)
             index = 0
+            selected_item >> parameter_model.selected_element
         Label: lbl:
             text = '{:>16} {:>32} {:>32} {:>32} {:>16} {:>40}'.format('name', 'value', 'min', 'max', '  ',  '  '.join(fit_strategy_list))
         ScrollArea: scr_area:
@@ -367,12 +364,15 @@ enamldef ElementEdit(Window):
             Form:
                 row_spacing = -1
                 Looper: looper:
-                    iterable << list(sorted([v for v in parameter_model.param_dict.keys() if cmb1.selected_item.split('_')[0] in v]))
+                    #iterable << sorted([k for k in six.iterkeys(parameter_model.param_dict) if k==k.lower() and k!='non_fitting_values'])
+                    #iterable << list(sorted([v for v in six.iterkeys(parameter_model.param_dict) if cmb_element.selected_item.split('_')[0] in str(v)]))
+                    iterable << parameter_model.selected_elements
 
                     Label: name_lbl:
                         text = loop_item
                     Container:
                         padding = Box(2, 2, 2, 2)
+                        #constraints = [hbox(ff_value, ff_min, ff_max, spacer)]
                         constraints = [hbox(ff_value, ff_min, ff_max, cb_strat0, cb_strat1, cb_strat2,
                                             cb_strat3, cb_strat4, cb_strat5, cb_strat6, spacer)]
                         FloatField: ff_value:
@@ -388,7 +388,7 @@ enamldef ElementEdit(Window):
                             maximum_size = 80
                             index ::
                                 if cb_strat0.index > 0:
-                                    parameter_model.param_dict[loop_item][fit_strategy_list[0]] = cb_strat0.items[cb_strat0.index]
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[0]] = cb_strat0.selected_item  #items[cb_strat0.index]
 
                         ComboBox: cb_strat1:
                             items = [' '] + bound_options
@@ -436,7 +436,7 @@ enamldef ElementEdit(Window):
                             maximum_size = 80
                             index ::
                                 if cb_strat6.index > 0:
-                                    parameter_model.param_dict[loop_item][fit_strategy_list[6]] = cb_strat4.items[cb_strat6.index]
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[6]] = cb_strat6.items[cb_strat6.index]
 
 
 enamldef ParameterEdit(Window):
@@ -457,6 +457,7 @@ enamldef ParameterEdit(Window):
                     Container:
                         padding = Box(2, 2, 2, 2)
                         constraints = [hbox(ff_value, ff_min, ff_max, cb_strat0, cb_strat1, cb_strat2, cb_strat3, cb_strat4, spacer)]
+                        #constraints = [hbox(ff_value, ff_min, ff_max, spacer)]
                         FloatField: ff_value:
                             value := parameter_model.param_dict[loop_item]['value']
                         FloatField: ff_min:

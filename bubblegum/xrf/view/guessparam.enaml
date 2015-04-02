@@ -50,10 +50,8 @@ from enaml.stdlib.message_box import MessageBox, warning, information
 import numpy as np
 import six
 
-from ..model.guessparam import format_dict
-from skxray.fitting.xrf_model import (k_line, l_line, m_line)
-
-k_line_full = [item+'_K' for item in k_line]
+from ..model.guessparam import format_dict, save_as
+from skxray.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 
 
 enamldef FloatField(DefaultFloatField):
@@ -116,7 +114,7 @@ enamldef GuessParamView(DockItem): param_view:
                         #fit_model.param_dict = param_model.param_new
 
                         param_model.update_name_list()
-                        plot_model.parameters = param_model.parameters
+                        plot_model.parameters = param_model.param_new
                         param_model.data_for_plot()
                         plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y,
                                                    param_model.total_y_l, param_model.total_y_m)
@@ -127,29 +125,43 @@ enamldef GuessParamView(DockItem): param_view:
             Form:
                 row_spacing = -1
                 Looper: looper:
-                    iterable << sorted([v for k,v in six.iteritems(param_model.parameters) if len(v.description)!=0],
-                                       key=lambda x: x.description)
+                    iterable << sorted([v for k,v in six.iteritems(param_model.param_new) if v.get('description')],
+                                       key=lambda x: x['description'])
+                    #iterable << sorted([v for k,v in six.iteritems(param_model.param_new) if len(v['description'])!=0],
+                    #                   key=lambda x: x['description'])
                     Label:
-                        #text = param_model.parameters[loop_item].description
-                        #tool_tip = param_model.parameters[loop_item].tool_tip
-                        text = loop_item.description
-                        tool_tip = loop_item.tool_tip
+                        text = loop_item['description']
+                        #tool_tip = loop_item['tool_tip']
                         maximum_size = 140
                     Container:
                         padding = Box(2, 2, 2, 2)
                         constraints = [hbox(ff, pb)]
                         FloatField: ff:
-                            #enabled = False
-                            #minimum := param_model.parameters[loop_item].min
-                            #maximum := param_model.parameters[loop_item].max
-                            #value := param_model.parameters[loop_item].value
-                            value := loop_item.value
+                            value := loop_item['value']
                             maximum_size = 200
                         PushButton: pb:
                             text = 'Default'
                             maximum_size = 100
                             clicked ::
-                                ff.value = loop_item.default_value
+                                ff.value = loop_item['default_value']
+
+                Looper: looper:
+                    iterable << list(sorted([v for k,v in six.iteritems(param_model.param_new['non_fitting_values'])
+                                            if k in ["energy_bound_low", "energy_bound_high"] ]))
+                    Label:
+                        text = loop_item['description']
+                        maximum_size = 140
+                    Container:
+                        padding = Box(2, 2, 2, 2)
+                        constraints = [hbox(ff, pb)]
+                        FloatField: ff:
+                            value := loop_item['value']
+                            maximum_size = 200
+                        PushButton: pb:
+                            text = 'Default'
+                            maximum_size = 100
+                            clicked ::
+                                ff.value = loop_item['default_value']
 
         PushButton: find_btn:
             text = 'Automatic Peak Finding'
@@ -165,12 +177,9 @@ enamldef GuessParamView(DockItem): param_view:
                 plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y,
                                            param_model.total_y_l, param_model.total_y_m)
 
-        #Label: add_lbl:
-        #    text = 'Manual Peak Adding: '
-
         ComboBox: cb_select:
             items = ['Select Lines'] +\
-                    k_line_full + l_line + m_line
+                    K_LINE + L_LINE + M_LINE
             index = 0
             index ::
                 if cb_select.index > 0:
@@ -179,7 +188,7 @@ enamldef GuessParamView(DockItem): param_view:
         Label: intensity_lb:
             text = 'Peak Int'
         FloatField: intensity_fd:
-            value := param_model.e_intensity
+            value := param_model.add_element_intensity
             submit_triggers = ['auto_sync']
             maximum_size = 60
 
@@ -416,19 +425,12 @@ enamldef GuessParamView(DockItem): param_view:
                     param_model.data_for_plot()
                     param_model.create_full_param()
 
-                    #fit_model.param_dict = param_model.param_new
                     fit_model.get_new_param(param_model.param_new)
 
                     plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y,
                                                param_model.total_y_l, param_model.total_y_m)
                     plot_model._fig.canvas.draw()
 
-        #PushButton: save_btn:
-        #    text = 'Save'
-        #    clicked ::
-        #        param_model.create_full_param()
-        #        param_model.save()
-        #        fit_model.param_dict = param_model.param_new
         PushButton: saveas_btn:
             text = 'Save As'
             clicked ::
@@ -437,8 +439,8 @@ enamldef GuessParamView(DockItem): param_view:
                 if path:
                     #param_model.create_full_param()
                     #fit_model.param_dict = param_model.param_new
-                    param_model.file_path = path
-                    param_model.save_as()
+                    #param_model.file_path = path
+                    save_as(path, param_model.param_new)
 
 
 def set_low_bound(value, thresh_v=0.1):
