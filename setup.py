@@ -63,6 +63,8 @@ setup(
     author='Brookhaven National Lab',
     packages=['pyxrf', 'pyxrf.model',
               'pyxrf.view'],
+    include_package_data=True,
+    package_data={'examples': ['examples/*']},
 )
 
 import shutil
