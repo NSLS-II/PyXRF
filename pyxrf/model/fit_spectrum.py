@@ -108,26 +108,9 @@ class Fit1D(Atom):
 
     @observe('selected_element')
     def _selected_element_changed(self, changed):
-        print('selected element changed', changed)
-        #self.selected_elements = []
-        #if changed['type'] == 'create':
-        #    return
         element = self.selected_element.split('_')[0]
-
-        selected_elements = []
-        for e in self.param_dict.keys():
-            if element in e:
-                selected_elements.append(e)
-                print('{} is being appended with length {}'.format(e, len(self.param_dict[e])))
-                for k, v in six.iteritems(self.param_dict[e]):
-                    print(k, v)
-
-        print('total list is {}'.format(selected_elements))
-        #for k, v in six.iteritems(self.param_dict):
-        #    print('{}: {}'.format(k, v))
-        # trigger the update to the looper in the ElementEdit Window
-        #self.selected_elements = []
-        self.selected_elements = sorted(selected_elements)
+        self.selected_elements = [e for e in self.param_dict.keys()
+                                  if element in e]
 
     def get_new_param(self, param):
         self.param_dict = copy.deepcopy(param)
