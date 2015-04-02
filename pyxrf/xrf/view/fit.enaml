@@ -51,7 +51,7 @@ from enaml.core.api import Include, Looper
 
 from enaml.stdlib.fields import FloatField as DefaultFloatField
 
-from bubblegum.xrf.model.guessparam import format_dict, fit_strategy_list, save_as
+from pyxrf.xrf.model.guessparam import format_dict, fit_strategy_list, save_as
 
 
 enamldef FloatField(DefaultFloatField):
@@ -564,7 +564,7 @@ enamldef ParameterEdit0(Window):
 
 
 def save_defaults(parameter_model):
-    user_path = os.path.join(os.path.expanduser('~'), '.bubblegum',
+    user_path = os.path.join(os.path.expanduser('~'), '.pyxrf',
                              'xrf_parameter_user.json')
     # format the dictionary
     dct = format_dict(parameter_model.parameters, parameter_model.element_list)

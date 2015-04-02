@@ -1,5 +1,5 @@
 package:
-  name: bubblegum
+  name: pyxrf
   version: {{ environ['GIT_DESCRIBE_TAG'] }}.post{{ environ['GIT_DESCRIBE_NUMBER'] }}
 
 source:
@@ -29,14 +29,14 @@ test:
     - nose
 
   imports:
-    - bubblegum
-    - bubblegum.qt_widgets
-    - bubblegum.messenger
-    - bubblegum.messenger.mpl
-    - bubblegum.backend
-    - bubblegum.backend.mpl
+    - pyxrf
+    - pyxrf.qt_widgets
+    - pyxrf.messenger
+    - pyxrf.messenger.mpl
+    - pyxrf.backend
+    - pyxrf.backend.mpl
 
 
 about:
-  home: https://github.com/Nikea/bubblegum
+  home: https://github.com/Nikea/pyxrf
   license: 3-Clause BSD

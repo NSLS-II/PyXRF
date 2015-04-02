@@ -41,12 +41,12 @@ import logging
 
 import enaml
 from enaml.qt.qt_application import QtApplication
-from bubblegum.xrf.model.fileio import FileIOModel
-from bubblegum.xrf.model.lineplot import LinePlotModel #, SettingModel
-from bubblegum.xrf.model.guessparam import GuessParamModel
-from bubblegum.xrf.model.draw_image import DrawImage, DrawImageAdvanced
-from bubblegum.xrf.model.fit_spectrum import Fit1D
-from bubblegum.xrf.model.setting import SettingModel
+from pyxrf.xrf.model.fileio import FileIOModel
+from pyxrf.xrf.model.lineplot import LinePlotModel #, SettingModel
+from pyxrf.xrf.model.guessparam import GuessParamModel
+from pyxrf.xrf.model.draw_image import DrawImage, DrawImageAdvanced
+from pyxrf.xrf.model.fit_spectrum import Fit1D
+from pyxrf.xrf.model.setting import SettingModel
 import json
 from pprint import pprint
 
@@ -59,7 +59,7 @@ def get_defaults():
 
     data_path = os.path.join(working_directory, data_file)
     # grab the default parameter file
-    #default_parameter_file = os.path.join(os.path.expanduser('~'), '.bubblegum',
+    #default_parameter_file = os.path.join(os.path.expanduser('~'), '.pyxrf',
     #                                  'xrf_parameter_default.json')
 
     default_parameter_file = os.path.join(working_directory, 'root.json')
@@ -68,7 +68,7 @@ def get_defaults():
         default_parameters = json.load(json_data)
 
     # see if there is a user parameter file
-    #user_parameter_file = os.path.join(os.path.expanduser('~'), '.bubblegum',
+    #user_parameter_file = os.path.join(os.path.expanduser('~'), '.pyxrf',
     #                                  'xrf_parameter_user.json')
 
     user_parameter_file = default_parameter_file
@@ -101,7 +101,7 @@ def run():
 
     app = QtApplication()
     with enaml.imports():
-        from bubblegum.xrf.view.main_window import XRFGui
+        from pyxrf.xrf.view.main_window import XRFGui
 
     defaults = get_defaults()
 
