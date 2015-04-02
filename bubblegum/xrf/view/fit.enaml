@@ -1,0 +1,573 @@
+# ######################################################################
+# Copyright (c) 2014, Brookhaven Science Associates, Brookhaven        #
+# National Laboratory. All rights reserved.                            #
+#                                                                      #
+# Redistribution and use in source and binary forms, with or without   #
+# modification, are permitted provided that the following conditions   #
+# are met:                                                             #
+#                                                                      #
+# * Redistributions of source code must retain the above copyright     #
+#   notice, this list of conditions and the following disclaimer.      #
+#                                                                      #
+# * Redistributions in binary form must reproduce the above copyright  #
+#   notice this list of conditions and the following disclaimer in     #
+#   the documentation and/or other materials provided with the         #
+#   distribution.                                                      #
+#                                                                      #
+# * Neither the name of the Brookhaven Science Associates, Brookhaven  #
+#   National Laboratory nor the names of its contributors may be used  #
+#   to endorse or promote products derived from this software without  #
+#   specific prior written permission.                                 #
+#                                                                      #
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS  #
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT    #
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS    #
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE       #
+# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,           #
+# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES   #
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR   #
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)   #
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,  #
+# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OTHERWISE) ARISING   #
+# IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE   #
+# POSSIBILITY OF SUCH DAMAGE.                                          #
+########################################################################
+
+import numpy as np
+import six
+
+from enaml.widgets.api import (Container, PushButton, Label,
+                               Form, Field, FileDialogEx, DockItem,
+                               DockArea, CheckBox, ComboBox,
+                               ScrollArea, Window, GroupBox, RadioButton)
+
+from enaml.widgets.api import RadioButton as DefaultRadioButton
+
+from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer
+from auto_enaml.api import AutoView
+from enaml.stdlib.fields import FloatField
+from enaml.layout.geometry import Box
+from enaml.core.api import Include, Looper
+
+from enaml.stdlib.fields import FloatField as DefaultFloatField
+
+from bubblegum.xrf.model.guessparam import format_dict, fit_strategy_list, save_as
+
+
+enamldef FloatField(DefaultFloatField):
+    submit_triggers = ['auto_sync'] #['return_pressed']
+    minimum = -100000000000
+    maximum =  100000000000
+
+
+enamldef RadioButton(DefaultRadioButton):
+    minimum_size = (80, 20)
+
+enamldef LabelTitle(Label):
+    maximum_size = 80
+    align = 'left'
+
+bound_options = ['none', 'lohi', 'fixed', 'lo', 'hi']
+
+enamldef FitView(DockItem): fit_view:
+    attr io_model
+    attr param_model
+    attr plot_model
+    attr fit_model
+
+    Container:
+        constraints = [
+            vbox(
+                #param_gb,
+                #lbl0,
+                hbox(lbl1, cb1, spacer),
+                hbox(lbl2, cb2, spacer),
+                hbox(lbl3, cb3, spacer),
+                hbox(lbl4, cb4, spacer),
+                hbox(lbl5, cb5, spacer),
+                #hbox(gb_strategy),
+                hbox(pb_fit, pb_plot, spacer),
+                hbox(pb_cal, spacer),
+                gb_advanced,
+                hbox(saveas_btn, spacer),
+                gb_fit_pixel,
+                #hbox(cb_enable, spacer),
+                #hbox(element_edit, param_edit, spacer),
+            ),
+        ]
+        #GroupBox: param_gb:
+        #    constraints = [
+        #        vbox(
+        #            hbox(pb_previous, pb_param, spacer),
+        #            hbox(param_status, spacer),
+        #        ),
+        #    ]
+        #    PushButton: pb_previous:
+        #        text = 'Import Parameters'
+        #        clicked ::
+        #            fit_model.param_dict = param_model.read_pre_saved() #param_model.param_new
+        #            param_status.text = 'Use fitting parameters from previous step.'
+        #    PushButton: pb_param:
+        #        text = 'Import Parameters from File'
+        #        clicked ::
+        #            param_path = FileDialogEx.get_open_file_name(fit_view)
+        #            if param_path:
+        #                fit_model.file_path = param_path
+        #                param_status.text = fit_model.file_status
+        #    Label: param_status:
+        #        text = 'No file is loaded.'
+
+        #Label: lbl0:
+        #    text = 'Fitting Strategy'
+        #PushButton: default_btn:
+        #    text = 'Default'
+
+        #GroupBox: gb_strategy:
+        #    constraints = [vbox(ct_0,
+        #                        ct_1,
+        #                        ct_2,
+        #                        ct_3,
+        #                        )]
+
+        #    GroupBox: ct_0:
+        #        enabled = False
+        #        padding = Box(5, 5, 5, 5)
+        #        constraints = [hbox(title_lb0, title_lb1, title_lb2, title_lb3, title_lb4)]
+        #        LabelTitle: title_lb0:
+        #        LabelTitle: title_lb1:
+        #            text = 'Global with \n compton'
+        #        LabelTitle: title_lb2:
+        #            text = 'Global with \n more'
+        #        LabelTitle: title_lb3:
+        #            text = 'Energy \n calibration'
+        #        LabelTitle: title_lb4:
+        #            text = 'Intensity \n only'
+
+        #    Container: ct_1:
+        #        padding = Box(5, 5, 5, 5)
+        #        constraints = [hbox(lb_1, rb_1, rb_1a, rb_1b, rb_1c, rb_1d, spacer)]
+        #        Label: lb_1:
+        #            text = 'Step 1'
+        #            tool_tip = 'Default as Global with compton'
+        #        RadioButton: rb_1:
+        #            text = ''
+        #            clicked ::
+        #                fit_model.fit_strategy1 = 0
+        #        RadioButton: rb_1a:
+        #            text = ''
+        #            checked = True
+        #            clicked ::
+        #                fit_model.fit_strategy1 = 1
+        #        RadioButton: rb_1b:
+        #            text = ''
+        #            clicked ::
+        #                fit_model.fit_strategy1 = 2
+        #        RadioButton: rb_1c:
+        #            text = ''
+        #            clicked ::
+        #                fit_model.fit_strategy1 = 3
+        #        RadioButton: rb_1d:
+        #            text = ''
+        #            clicked ::
+        #                fit_model.fit_strategy1 = 4
+
+        #    Container: ct_2:
+        #        padding = Box(5, 5, 5, 5)
+        #        constraints = [hbox(lb_2, rb_2, rb_2a, rb_2b, rb_2c, rb_2d, spacer)]
+        #        Label: lb_2:
+        #            text = 'Step 2'
+        #            tool_tip = 'Default as Intensity only'
+        #        RadioButton: rb_2:
+        #            text = ''
+        #            clicked ::
+        #                fit_model.fit_strategy2 = 0
+        #        RadioButton: rb_2a:
+        #            text = ''
+        #            #checked = True
+        #            clicked ::
+        #                fit_model.fit_strategy2 = 1
+        #        RadioButton: rb_2b:
+        #            text = ''
+        #            clicked ::
+        #                fit_model.fit_strategy2 = 2
+        #        RadioButton: rb_2c:
+        #            text = ''
+        #            clicked ::
+        #                fit_model.fit_strategy2 = 3
+        #        RadioButton: rb_2d:
+        #            text = ''
+        #            checked = True
+        #            clicked ::
+        #                fit_model.fit_strategy2 = 4
+
+        #    Container: ct_3:
+        #        padding = Box(5, 5, 5, 5)
+        #        constraints = [hbox(lb_3, rb_3, rb_3a, rb_3b, rb_3c, rb_3d, spacer)]
+        #        Label: lb_3:
+        #            text = 'Step 3'
+        #            tool_tip = 'Default as None'
+        #        RadioButton: rb_3:
+        #            text = ''
+        #            checked = True
+        #            clicked ::
+        #                fit_model.fit_strategy3 = 0
+        #        RadioButton: rb_3a:
+        #            text = ''
+        #            clicked ::
+        #                fit_model.fit_strategy3 = 1
+        #        RadioButton: rb_3b:
+        #            text = ''
+        #            clicked ::
+        #                fit_model.fit_strategy3 = 2
+        #        RadioButton: rb_3c:
+        #            text = ''
+        #            clicked ::
+        #                fit_model.fit_strategy3 = 3
+        #        RadioButton: rb_3d:
+        #            text = ''
+        #            clicked ::
+        #                fit_model.fit_strategy3 = 4
+
+        Label: lbl1:
+            text = 'Step 1'
+        ComboBox: cb1:
+            items = [''] + fit_strategy_list
+            index = 0
+            index >> fit_model.fit_strategy1
+        Label: lbl2:
+            text = 'Step 2'
+        ComboBox: cb2:
+            items = [''] + fit_strategy_list
+            index = 0
+            index >> fit_model.fit_strategy2
+        Label: lbl3:
+            text = 'Step 3'
+        ComboBox: cb3:
+            items = [''] + fit_strategy_list
+            index = 0
+            index >> fit_model.fit_strategy3
+        Label: lbl4:
+            text = 'Step 4'
+        ComboBox: cb4:
+            items = [''] + fit_strategy_list
+            index = 0
+            index >> fit_model.fit_strategy4
+        Label: lbl5:
+            text = 'Step 5'
+        ComboBox: cb5:
+            items = [''] + fit_strategy_list
+            index = 0
+            index >> fit_model.fit_strategy5
+
+        PushButton: pb_fit:
+            text = 'Fit Summed Spectrum'
+            clicked ::
+                fit_model.fit_multiple()
+
+                ElementEdit.parameter_model = fit_model
+                ParameterEdit.parameter_model = fit_model
+
+                pb_plot.enabled = True
+                plot_model.fit_x = fit_model.fit_x
+                plot_model.fit_y = fit_model.fit_y
+                plot_model.fit_all = fit_model.comps
+                plot_model.residual = fit_model.residual
+                plot_model.plot_fit()
+
+        PushButton: pb_cal:
+            text = 'Calculate Spectrum'
+            clicked ::
+                fit_model.get_profile()
+
+                pb_plot.enabled = True
+                plot_model.fit_x = fit_model.cal_x
+                plot_model.fit_y = fit_model.cal_y
+                plot_model.fit_all = fit_model.cal_spectrum
+                plot_model.residual = fit_model.residual
+
+                plot_model.plot_fit()
+                plot_model.show_fit_opt = False
+                plot_model.show_fit_opt = True
+
+        PushButton: pb_plot:
+            text = 'Overlap to Spectrum'
+            checkable = True
+            enabled = False
+            minimum_size = (200, 20)
+            clicked ::
+                if checked:
+                    plot_model.show_fit_opt = True
+                    pb_plot.text = 'Remove Plot'
+                else:
+                    plot_model.show_fit_opt = False
+                    pb_plot.text = 'Overlap to Spectrum'
+
+        GroupBox: gb_advanced:
+            constraints = [vbox(hbox(cb_enable, spacer),
+                                hbox(element_edit, param_edit, spacer))]
+            CheckBox: cb_enable:
+                text = 'Enable Advanced Setting'
+                clicked ::
+                    if checked:
+                        element_edit.enabled = True
+                        param_edit.enabled = True
+                    else:
+                        element_edit.enabled = False
+                        param_edit.enabled = False
+
+            PushButton: element_edit:
+                text = 'Edit Elements'
+                enabled = False
+                clicked ::
+                    ElementEdit.parameter_model = fit_model
+                    ElementEdit().show()
+
+            PushButton: param_edit:
+                text = 'Edit Global Fitting Parameters'
+                enabled = False
+                clicked ::
+                    enabled = False
+                    ParameterEdit.parameter_model = fit_model
+                    ParameterEdit().show()
+
+        PushButton: saveas_btn:
+            text = 'Save As'
+            clicked ::
+                path = FileDialogEx.get_save_file_name(fit_view,
+                                                       current_path=io_model.working_directory)
+                if path:
+                    save_as(path, fit_model.param_dict)
+
+        GroupBox: gb_fit_pixel:
+            title = 'Single Pixel Fitting'
+            constraints = [hbox(fit_pixel, spacer)]
+            PushButton: fit_pixel:
+                text = 'Fit Individual Pixel'
+                clicked ::
+                    fit_model.fit_single_pixel()
+
+
+enamldef ElementEdit(Window):
+    attr parameter_model
+    destroy_on_close = False
+    Container:
+        padding = Box(5, 5, 5, 5)
+
+        ComboBox: cmb_element:
+            items << ['Select Element'] + sorted(parameter_model.element_list)
+            index = 0
+            selected_item >> parameter_model.selected_element
+        Label: lbl:
+            text = '{:>16} {:>32} {:>32} {:>32} {:>16} {:>40}'.format('name', 'value', 'min', 'max', '  ',  '  '.join(fit_strategy_list))
+        ScrollArea: scr_area:
+            constraints = [height <= 1000]
+            Form:
+                row_spacing = -1
+                Looper: looper:
+                    #iterable << sorted([k for k in six.iterkeys(parameter_model.param_dict) if k==k.lower() and k!='non_fitting_values'])
+                    #iterable << list(sorted([v for v in six.iterkeys(parameter_model.param_dict) if cmb_element.selected_item.split('_')[0] in str(v)]))
+                    iterable << parameter_model.selected_elements
+
+                    Label: name_lbl:
+                        text = loop_item
+                    Container:
+                        padding = Box(2, 2, 2, 2)
+                        #constraints = [hbox(ff_value, ff_min, ff_max, spacer)]
+                        constraints = [hbox(ff_value, ff_min, ff_max, cb_strat0, cb_strat1, cb_strat2,
+                                            cb_strat3, cb_strat4, cb_strat5, cb_strat6, spacer)]
+                        FloatField: ff_value:
+                            value := parameter_model.param_dict[loop_item]['value']
+                        FloatField: ff_min:
+                            value := parameter_model.param_dict[loop_item]['min']
+                        FloatField: ff_max:
+                            value := parameter_model.param_dict[loop_item]['max']
+
+                        ComboBox: cb_strat0:
+                            items = [' '] + bound_options
+                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[0]]) + 1
+                            maximum_size = 80
+                            index ::
+                                if cb_strat0.index > 0:
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[0]] = cb_strat0.selected_item  #items[cb_strat0.index]
+
+                        ComboBox: cb_strat1:
+                            items = [' '] + bound_options
+                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[1]]) + 1
+                            maximum_size = 80
+                            index ::
+                                if cb_strat1.index > 0:
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[1]] = cb_strat1.items[cb_strat1.index]
+
+                        ComboBox: cb_strat2:
+                            items = [' '] + bound_options
+                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[2]]) + 1
+                            maximum_size = 80
+                            index ::
+                                if cb_strat2.index > 0:
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[2]] = cb_strat2.items[cb_strat2.index]
+
+                        ComboBox: cb_strat3:
+                            items = [' '] + bound_options
+                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[3]]) + 1
+                            maximum_size = 80
+                            index ::
+                                if cb_strat3.index > 0:
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[3]] = cb_strat3.items[cb_strat3.index]
+
+                        ComboBox: cb_strat4:
+                            items = [' '] + bound_options
+                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[4]]) + 1
+                            maximum_size = 80
+                            index ::
+                                if cb_strat4.index > 0:
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[4]] = cb_strat4.items[cb_strat4.index]
+
+                        ComboBox: cb_strat5:
+                            items = [' '] + bound_options
+                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[5]]) + 1
+                            maximum_size = 80
+                            index ::
+                                if cb_strat5.index > 0:
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[5]] = cb_strat5.items[cb_strat5.index]
+
+                        ComboBox: cb_strat6:
+                            items = [' '] + bound_options
+                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[6]]) + 1
+                            maximum_size = 80
+                            index ::
+                                if cb_strat6.index > 0:
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[6]] = cb_strat6.items[cb_strat6.index]
+
+
+enamldef ParameterEdit(Window):
+    attr parameter_model
+    destroy_on_close = False
+    Container:
+        padding = Box(5, 5, 5, 5)
+        Label: lbl:
+            text = '{:>16} {:>32} {:>32} {:>32} {:>16} {:>40}'.format('name', 'value', 'min', 'max', '  ',  '  '.join(fit_strategy_list))
+        ScrollArea: scr_area:
+            constraints = [height <= 1000]
+            Form:
+                row_spacing = -1
+                Looper: looper:
+                    iterable << sorted([k for k in six.iterkeys(parameter_model.param_dict) if k==k.lower() and k!='non_fitting_values'])
+                    Label: name_lbl:
+                        text = loop_item
+                    Container:
+                        padding = Box(2, 2, 2, 2)
+                        constraints = [hbox(ff_value, ff_min, ff_max, cb_strat0, cb_strat1, cb_strat2, cb_strat3, cb_strat4, spacer)]
+                        #constraints = [hbox(ff_value, ff_min, ff_max, spacer)]
+                        FloatField: ff_value:
+                            value := parameter_model.param_dict[loop_item]['value']
+                        FloatField: ff_min:
+                            value := parameter_model.param_dict[loop_item]['min']
+                        FloatField: ff_max:
+                            value := parameter_model.param_dict[loop_item]['max']
+
+                        ComboBox: cb_strat0:
+                            items = [' '] + bound_options
+                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[0]]) + 1
+                            maximum_size = 80
+                            index ::
+                                if cb_strat0.index > 0:
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[0]] = cb_strat0.items[cb_strat0.index]
+
+                        ComboBox: cb_strat1:
+                            items = [' '] + bound_options
+                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[1]]) + 1
+                            maximum_size = 80
+                            index ::
+                                if cb_strat1.index > 0:
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[1]] = cb_strat1.items[cb_strat1.index]
+
+                        ComboBox: cb_strat2:
+                            items = [' '] + bound_options
+                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[2]]) + 1
+                            maximum_size = 80
+                            index ::
+                                if cb_strat2.index > 0:
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[2]] = cb_strat2.items[cb_strat2.index]
+
+                        ComboBox: cb_strat3:
+                            items = [' '] + bound_options
+                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[3]]) + 1
+                            maximum_size = 80
+                            index ::
+                                if cb_strat3.index > 0:
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[3]] = cb_strat3.items[cb_strat3.index]
+
+                        ComboBox: cb_strat4:
+                            items = [' '] + bound_options
+                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[4]]) + 1
+                            maximum_size = 80
+                            index ::
+                                if cb_strat4.index > 0:
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[4]] = cb_strat4.items[cb_strat4.index]
+
+
+
+enamldef ElementEdit0(Window):
+    attr parameter_model
+    destroy_on_close = False
+    Container:
+        padding = Box(5, 5, 5, 5)
+        ComboBox: cmb1:
+            #items << sorted(parameter_model.parameters.keys())
+            items << ['Select Element'] + sorted([v.split('_')[0] for v in parameter_model.element_list])
+            index = 0
+        ComboBox: cmb2:
+            items << [' '] + sorted([v for v in parameter_model.parameters.keys() if cmb1.selected_item in v])
+            index = 0
+            selected_item ::
+                av.model = parameter_model.parameters[selected_item]
+        GroupBox:
+            AutoView: av:
+                padding = Box(15, 15, 15, 15)
+                model = parameter_model.parameters.values()[0]
+                #padding = 30
+        PushButton: pb:
+            text = "Apply"
+            maximum_size = 200
+            clicked ::
+                parameter_model.update_param_dict()
+
+        #PushButton: save:
+        #    text = "Save changes to disk"
+        #    clicked ::
+        #        parameter_model.param_new = format_dict(parameter_model.parameters,
+        #                                                parameter_model.element_list)
+        #        parameter_model.save()
+        #        #save_defaults(parameter_model)
+
+
+enamldef ParameterEdit0(Window):
+    attr parameter_model
+    destroy_on_close = False
+    Container:
+        padding = Box(5, 5, 5, 5)
+        ComboBox: cmb1:
+            items << [' '] + sorted([v for v in parameter_model.parameters.keys() if v.lower()==v])
+            index = 0
+            selected_item ::
+                av.model = parameter_model.parameters[selected_item]
+        GroupBox:
+            AutoView: av:
+                padding = Box(15, 15, 15, 15)
+                model = parameter_model.parameters.values()[0]
+            #padding = 30
+        PushButton: pb:
+            text = "Apply"
+            maximum_size = 200
+            clicked ::
+                parameter_model.update_param_dict()
+
+
+def save_defaults(parameter_model):
+    user_path = os.path.join(os.path.expanduser('~'), '.bubblegum',
+                             'xrf_parameter_user.json')
+    # format the dictionary
+    dct = format_dict(parameter_model.parameters, parameter_model.element_list)
+    json_out = json.dumps(dct)
+    with open(user_path, 'w') as out_file:
+        out_file.write(json_out)

@@ -35,7 +35,6 @@ cover/
 .cache
 nosetests.xml
 coverage.xml
-cover/
 
 # Translations
 *.mo
@@ -76,3 +75,8 @@ docs/_build/
 
 #generated documntation files
 doc/resource/api/generated/
+# Anaconda?
+*.cfg
+
+# Enaml stuff
+__enamlcache__

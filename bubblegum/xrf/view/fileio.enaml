@@ -1,0 +1,202 @@
+# ######################################################################
+# Copyright (c) 2014, Brookhaven Science Associates, Brookhaven        #
+# National Laboratory. All rights reserved.                            #
+#                                                                      #
+# Redistribution and use in source and binary forms, with or without   #
+# modification, are permitted provided that the following conditions   #
+# are met:                                                             #
+#                                                                      #
+# * Redistributions of source code must retain the above copyright     #
+#   notice, this list of conditions and the following disclaimer.      #
+#                                                                      #
+# * Redistributions in binary form must reproduce the above copyright  #
+#   notice this list of conditions and the following disclaimer in     #
+#   the documentation and/or other materials provided with the         #
+#   distribution.                                                      #
+#                                                                      #
+# * Neither the name of the Brookhaven Science Associates, Brookhaven  #
+#   National Laboratory nor the names of its contributors may be used  #
+#   to endorse or promote products derived from this software without  #
+#   specific prior written permission.                                 #
+#                                                                      #
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS  #
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT    #
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS    #
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE       #
+# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,           #
+# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES   #
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR   #
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)   #
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,  #
+# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OTHERWISE) ARISING   #
+# IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE   #
+# POSSIBILITY OF SUCH DAMAGE.                                          #
+########################################################################
+
+__author__ = 'Li Li'
+
+from enaml.widgets.api import (Container, PushButton, Label,
+                               Form, Field, FileDialogEx, DockItem,
+                               DockArea, CheckBox, ComboBox,
+                               ScrollArea, Window, GroupBox)
+from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer, grid
+from enaml.core.api import Include, Looper
+from enaml.layout.geometry import Box
+from enaml.stdlib.fields import FloatField
+
+import numpy as np
+
+
+enamldef FileView(DockItem): file_view:
+    attr io_model
+    attr param_model
+    attr plot_model
+    attr img_model
+    attr img_model_adv
+    attr fit_model
+    attr setting_model
+
+    Container:
+        Container:
+            constraints = [
+                vbox(
+                    hbox(folder_btn, folder_fd),
+                    #hbox(pb_load, fd_load),
+                    #hbox(param_lbl),
+                    hbox(btn_out, fd_out),
+                    hbox(files_btn, files_load),
+                    #hbox(files_load),
+                    #name_lb,
+                    scroller,
+                    hbox(plot_bt, spacer),
+                ),
+                folder_btn.width == files_btn.width,
+                #folder_btn.width == pb_load.width,
+                folder_btn.width == btn_out.width,
+            ]
+            PushButton: folder_btn:
+                text = "Working Directory"
+                clicked ::
+                    path = FileDialogEx.get_existing_directory(file_view)
+                    if path:
+                        io_model.working_directory = path
+                        fit_model.result_folder = path
+            Field: folder_fd:
+                text := io_model.working_directory
+            PushButton: files_btn:
+                text = "Exp. Data Files"
+                clicked ::
+                    path = FileDialogEx.get_open_file_names(file_view, current_path=io_model.working_directory)
+                    if path:
+                        io_model.file_names = [item.split('/')[-1] for item in path]
+                        files_load.text = 'Number of files loaded: {}'.format(len(io_model.file_names))
+                        #CB.items = ['Please select file'] + io_model.file_names
+                        io_model.get_roi_data()
+
+                        # do not import original data for 2D image
+                        img_model_adv.data_dict = io_model.img_dict_flat
+                        param_model.data_sets = io_model.data_sets
+                        plot_model.parameters = param_model.param_new
+                        setting_model.parameters = param_model.param_new
+                        setting_model.data_sets = io_model.data_sets
+
+            Label: files_load:
+                text = 'No data is loaded.'
+
+            #PushButton: pb_load:
+            #    text = 'Parameter File'
+            #    #maximum_size = 200
+            #    clicked ::
+            #        parameter_file_path = FileDialogEx.get_open_file_name(file_view)
+            #        if parameter_file_path:
+            #            fd_load.text = parameter_file_path
+            #            param_model.get_new_param(parameter_file_path)
+            #            #param_lbl.text = param_model.param_status
+            #            plot_model.parameters = param_model.parameters
+
+            #Field: fd_load:
+            #    text = 'Use default otherwise.' #param_model.param_path
+            #Label: load_lbl:
+            #    text << io_model.load_status
+                #maximum_size = 300
+            #Label: param_lbl:
+            #    text = 'Parameter file abc.json is loaded.' #'Use default parametere files.'
+                #maximum_size = 100
+
+            PushButton: btn_out:
+                text = 'Save Results to'
+                clicked ::
+                    path = FileDialogEx.get_existing_directory(file_view)
+                    if path:
+                        param_model.result_folder = path
+                        fit_model.result_folder = path
+                        fd_out.text = path
+            Field: fd_out:
+                text << fit_model.result_folder
+
+            #Label: name_lb:
+            #    text = ''
+                #text = '{:>16} {:>16} {:>16}'.format('methods to plot', 'starting: x,y',
+                #                                     'ending: x,y')
+            ScrollArea: scroller:
+                #Form:
+                Container:
+                    Looper: looper:
+                        iterable << sorted(io_model.file_names) #sorted(io_model.data_sets.keys())
+                        #Container:
+                        GroupBox:
+                            title = '{}, data shape: {}'.format(loop_item, io_model.data_sets[loop_item].raw_data.shape)
+                            #title_align = 'center'
+                            constraints = [hbox(cb, lb1, fd1, lb2, fd2, spacer)]
+                            padding = Box(0, 0, 0, 0)
+                            #Label: lb:
+                            #    text = io_model.data_sets[loop_item].filename
+
+                            ComboBox: cb:
+                                items = [' ', 'Sum', 'Point', 'Roi']
+                                index := io_model.data_sets[loop_item].plot_index
+                                maximum_size = 80
+                                index ::
+                                    if index == 2:
+                                        fd1.enabled = True
+                                        fd2.enabled = False
+                                        plot_bt.enabled = True
+                                    elif index == 3:
+                                        fd1.enabled = True
+                                        fd2.enabled = True
+                                        plot_bt.enabled = True
+                                    elif index == 1:
+                                        fd1.enabled = False
+                                        fd2.enabled = False
+                                        plot_bt.enabled = True
+                            Label: lb1:
+                                text = 'Start'
+                                maximum_size = 30
+                            Field: fd1:
+                                text := io_model.data_sets[loop_item].point1
+                                maximum_size = 80
+                                enabled = False
+                            Label: lb2:
+                                text = 'End'
+                                maximum_size = 30
+                            Field: fd2:
+                                text := io_model.data_sets[loop_item].point2
+                                maximum_size = 80
+                                enabled = False
+                            #PushButton: pb
+                            #    pass
+
+            PushButton: plot_bt:
+                text = 'Plot Experiments'
+                #maximum_size = 100
+                enabled = False
+                checkable = True
+                clicked ::
+                    plot_model.data_sets = io_model.data_sets
+                    plot_model.plot_multi_exp_data()
+                    if checked:
+                        plot_bt.text = 'Remove Plot'
+                        plot_model.show_exp_opt = True
+                    else:
+                        plot_model.show_exp_opt = False
+                        plot_bt.text = 'Plot Experiments'

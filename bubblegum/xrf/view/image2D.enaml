@@ -1,0 +1,199 @@
+# ######################################################################
+# Copyright (c) 2014, Brookhaven Science Associates, Brookhaven        #
+# National Laboratory. All rights reserved.                            #
+#                                                                      #
+# Redistribution and use in source and binary forms, with or without   #
+# modification, are permitted provided that the following conditions   #
+# are met:                                                             #
+#                                                                      #
+# * Redistributions of source code must retain the above copyright     #
+#   notice, this list of conditions and the following disclaimer.      #
+#                                                                      #
+# * Redistributions in binary form must reproduce the above copyright  #
+#   notice this list of conditions and the following disclaimer in     #
+#   the documentation and/or other materials provided with the         #
+#   distribution.                                                      #
+#                                                                      #
+# * Neither the name of the Brookhaven Science Associates, Brookhaven  #
+#   National Laboratory nor the names of its contributors may be used  #
+#   to endorse or promote products derived from this software without  #
+#   specific prior written permission.                                 #
+#                                                                      #
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS  #
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT    #
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS    #
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE       #
+# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,           #
+# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES   #
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR   #
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)   #
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,  #
+# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OTHERWISE) ARISING   #
+# IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE   #
+# POSSIBILITY OF SUCH DAMAGE.                                          #
+########################################################################
+
+__author__ = 'Li Li'
+
+from enaml.widgets.api import (Container, PushButton, Label,
+                               Form, Field, FileDialogEx, DockItem,
+                               DockArea, MPLCanvas, CheckBox, ComboBox,
+                               ScrollArea, Window, GroupBox)
+from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer
+from enaml.core.api import Include, Looper
+
+import six
+import numpy as np
+from matplotlib.figure import Figure
+
+import logging
+logger = logging.getLogger(__name__)
+
+
+enamldef ImageMain(DockItem):
+    attr io_model
+    attr img_model
+    attr img_model_adv
+    Container:
+        constraints = [
+            vbox(
+                #hbox(cbox_file, cbox_type, pb_choose, spacer),
+                hbox(pb_all, spacer, check),
+                canvas,
+            ),
+            #cbox_type.v_center == check.v_center,
+        ]
+
+        #ComboBox: cbox_file:
+        #    items << [' '] + sorted(img_model.data_dict.keys())
+        #    index := img_model.file_opt
+        #    index = 0
+        #ComboBox: cbox_type:
+        #    items = ['Plot Type', 'ROI sum', 'Fit']
+        #    index := img_model.plot_opt
+        #    index = 0
+
+        #PushButton: pb_choose:
+        #    text = 'Select Elements'
+        #    enabled = True
+        #    #checkable = True
+        #    clicked ::
+                #ChooseElement.xrf_data = io_model.data_obj
+                #ChooseElement.img_model = img_model
+                #ChooseElement().show()
+                #img_model.img_data = io_model.data_obj['XRF_roi']
+
+        #ComboBox: cb_choose:
+        #    items = io_model.data_obj['channel_names'].value.tolist()
+        #    index = 0
+        #ComboBox: plot_dim:
+        #    items = ['1*1', '2*2', '3*3', '4*4']
+        #    index = 0
+
+        #CheckBox: cb_mode:
+        #    text = 'Advanced Mode'
+        #    clicked ::
+        #        if checked:
+        #            cbox_file.enabled = False
+        #            cbox_type.enabled = False
+        #            pb_choose.enabled = False
+        #            pb_all.enabled = True
+        #        else:
+        #            cbox_file.enabled = True
+        #            cbox_type.enabled = True
+        #            pb_choose.enabled = True
+        #            pb_all.enabled = False
+
+        PushButton: pb_all:
+            text = 'Select ROI'
+            enabled = True
+            clicked ::
+                ChooseElementAdvanced.img_model = img_model_adv
+                ChooseElementAdvanced().show()
+        CheckBox: check:
+            text = 'Toolbar Visible'
+            checked := canvas.toolbar_visible
+        MPLCanvas: canvas:
+            figure << img_model_adv.fig
+            #figure << figures[cbox_type.selected_item]
+
+
+enamldef ChooseElementAdvanced(Window): win:
+    attr img_model
+
+    title = 'Results of Auto Peak Finding'
+    Container:
+        constraints = [
+            vbox(
+                cb,
+                hbox(plot_btn, spacer, close_btn),
+                gb,
+            ),
+        ]
+        ComboBox: cb:
+            items << sorted(img_model.data_dict.keys())
+            #index := img_model.file_opt
+            index = 0
+
+        PushButton: plot_btn:
+            text = 'Show Image'
+            clicked ::
+                img_model.show_image()
+
+        PushButton: close_btn:
+            text = 'Close'
+            clicked ::
+                win.close()
+        GroupBox: gb:
+            ScrollArea: sa:
+                constraints = [height >= 200]
+                Container:
+                    Form:
+                        Label:
+                            text = '{:>20} {:>20}'.format('Name', 'Add/Remove')
+                        Label:
+                            pass
+                        Looper: looper:
+                            iterable << img_model.data_dict[cb.selected_item].keys()
+                            Label:
+                                font = 'monospace'
+                                text = '{:>20}'.format(loop_item)
+                            PushButton: element_btn:
+                                text = 'ShowImg'
+                                checkable = True
+                                checked := img_model.stat_dict[cb.selected_item][loop_item]
+                                clicked ::
+                                    if checked:
+                                        img_model.stat_dict[cb.selected_item][loop_item] = True
+                                        logger.debug('{} {} is selected!'.format(cb.selected_item, loop_item))
+                                        #img_model.show_image()
+                                    else:
+                                        img_model.stat_dict[cb.selected_item][loop_item] = False
+                                        logger.debug('{} {} is removed!'.format(cb.selected_item, loop_item))
+                                        #img_model.show_image()
+
+
+enamldef ChooseElement(Window):
+    attr img_model
+
+    title = 'Results of Auto Peak Finding'
+    Container:
+        ScrollArea:
+            constraints = [height >= 200]
+            Container:
+                Form:
+                    Label:
+                        text = '{:>20} {:>20}'.format('Name', 'Add/Remove')
+                    Label:
+                        pass
+                    Looper: looper:
+                        iterable << img_model.img_data.keys()
+                        Label:
+                            font = 'monospace'
+                            text = '{:>20}'.format(loop_item)
+                        PushButton: element_btn:
+                            text = 'ShowImg'
+                            checkable = True
+                            checked = img_model.stat_dict[loop_item]
+                            clicked ::
+                                img_model.stat_dict[loop_item] = checked
