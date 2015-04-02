@@ -39,7 +39,8 @@ import six
 from enaml.widgets.api import (Container, PushButton, Label,
                                Form, Field, FileDialogEx, DockItem,
                                DockArea, CheckBox, ComboBox,
-                               ScrollArea, Window, GroupBox, RadioButton)
+                               ScrollArea, Window, GroupBox, RadioButton,
+                               MainWindow)
 
 from enaml.widgets.api import RadioButton as DefaultRadioButton
 
@@ -58,6 +59,8 @@ enamldef FloatField(DefaultFloatField):
     submit_triggers = ['auto_sync'] #['return_pressed']
     minimum = -100000000000
     maximum =  100000000000
+    value ::
+        print("value: {}".format(value))
 
 
 enamldef RadioButton(DefaultRadioButton):
@@ -373,14 +376,17 @@ enamldef ElementEdit(Window):
                     Container:
                         padding = Box(2, 2, 2, 2)
                         #constraints = [hbox(ff_value, ff_min, ff_max, spacer)]
-                        constraints = [hbox(ff_value, ff_min, ff_max, cb_strat0, cb_strat1, cb_strat2,
-                                            cb_strat3, cb_strat4, cb_strat5, cb_strat6, spacer)]
+                        constraints = [hbox(
+                            ff_value, ff_min, ff_max,
+                            cb_strat0, cb_strat1, cb_strat2,
+                            cb_strat3, cb_strat4, cb_strat5, cb_strat6, spacer)
+                        ]
                         FloatField: ff_value:
-                            value := parameter_model.param_dict[loop_item]['value']
+                            value := float(parameter_model.param_dict[loop_item]['value'])
                         FloatField: ff_min:
-                            value := parameter_model.param_dict[loop_item]['min']
+                            value := float(parameter_model.param_dict[loop_item]['min'])
                         FloatField: ff_max:
-                            value := parameter_model.param_dict[loop_item]['max']
+                            value := float(parameter_model.param_dict[loop_item]['max'])
 
                         ComboBox: cb_strat0:
                             items = [' '] + bound_options
@@ -571,3 +577,4 @@ def save_defaults(parameter_model):
     json_out = json.dumps(dct)
     with open(user_path, 'w') as out_file:
         out_file.write(json_out)
+
