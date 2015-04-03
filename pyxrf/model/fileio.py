@@ -93,19 +93,21 @@ class FileIOModel(Atom):
         self.file_names.sort()
         logger.info('Loaded files : {}'.format(self.file_names))
 
-        detID = 'det1'
+        #detID = 'det1'
+        detID = 'detector'
 
         for fname in self.file_names:
             try:
                 self.file_path = os.path.join(self.working_directory, fname)
                 f = h5py.File(self.file_path, 'r+')
                 #data = f['MAPS']
-                data = f['xrfmap']
+                #data = f['xrfmap']
+                data = f['entry/instrument']
 
                 # dict has filename as key and group data as value
                 self.data_dict.update({fname: data})
                 DS = DataSelection(filename=fname,
-                                   raw_data=np.asarray(data[detID]['counts']))
+                                   raw_data=np.asarray(data[detID]['data']))
                 self.data_sets.update({fname: DS})
 
                 # get roi sum data

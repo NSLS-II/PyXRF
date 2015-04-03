@@ -109,8 +109,8 @@ class Fit1D(Atom):
     @observe('selected_element')
     def _selected_element_changed(self, changed):
         element = self.selected_element.split('_')[0]
-        self.selected_elements = [e for e in self.param_dict.keys()
-                                  if element in e]
+        self.selected_elements = sorted([e for e in self.param_dict.keys()
+                                        if element in e])
 
     def get_new_param(self, param):
         self.param_dict = copy.deepcopy(param)

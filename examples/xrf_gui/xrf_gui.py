@@ -53,7 +53,8 @@ from pprint import pprint
 
 def get_defaults():
 
-    working_directory = os.path.join(os.path.expanduser('~'), 'Downloads', 'xrf_data')
+    sub_folder = 'xrf_data' + '/xspress3'
+    working_directory = os.path.join(os.path.expanduser('~'), 'Downloads', sub_folder)
 
     data_file = '2xfm_0304.h5'
 
