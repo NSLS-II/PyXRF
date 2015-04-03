@@ -324,8 +324,8 @@ class LinePlotModel(Atom):
         incident_energy = self.incident_energy
         logger.info('Use incident energy {} for emission line calculation.'.format(incident_energy))
 
-        if len(ename) <= 2:
-            e = Element(ename)
+        if '_K' in ename:
+            e = Element(ename[:-2])
             if e.cs(incident_energy)['ka1'] != 0:
                 for i in range(4):
                     self.elist.append((e.emission_line.all[i][1],
