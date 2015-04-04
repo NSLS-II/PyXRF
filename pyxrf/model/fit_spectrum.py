@@ -224,7 +224,7 @@ class Fit1D(Atom):
                                                           self.element_list)
         self.cal_y = np.zeros(len(self.cal_x))
         for k, v in six.iteritems(self.cal_spectrum):
-            print('component: {}'.format(k))
+            #print('component: {}'.format(k))
             self.cal_y += v
         self.residual = self.cal_y - self.y0
 

@@ -57,11 +57,6 @@ from pyxrf.model.guessparam import format_dict, fit_strategy_list, save_as
 
 enamldef FloatField(DefaultFloatField):
     submit_triggers = ['auto_sync'] #['return_pressed']
-    minimum = -100000000000
-    maximum =  100000000000
-    value ::
-        print("value: {}".format(value))
-
 
 enamldef RadioButton(DefaultRadioButton):
     minimum_size = (80, 20)
@@ -382,11 +377,11 @@ enamldef ElementEdit(Window):
                             cb_strat3, cb_strat4, cb_strat5, cb_strat6, spacer)
                         ]
                         FloatField: ff_value:
-                            value := float(parameter_model.param_dict[loop_item]['value'])
+                            value := parameter_model.param_dict[loop_item]['value']
                         FloatField: ff_min:
-                            value := float(parameter_model.param_dict[loop_item]['min'])
+                            value := parameter_model.param_dict[loop_item]['min']
                         FloatField: ff_max:
-                            value := float(parameter_model.param_dict[loop_item]['max'])
+                            value := parameter_model.param_dict[loop_item]['max']
 
                         ComboBox: cb_strat0:
                             items = [' '] + bound_options
