@@ -504,6 +504,7 @@ class GuessParamModel(Atom):
         self.element_list = self.EC.get_element_list()
         self.param_new['non_fitting_values']['element_list'] = ', '.join(self.element_list)
         #param_d = format_dict(self.parameters, self.element_list)
+        self.param_new = param_dict_cleaner(self.param_new, self.element_list)
         print('element list before register: {}'.format(self.element_list))
         # create full parameter list including elements
         PC = ParamController(self.param_new, self.element_list)
@@ -710,3 +711,29 @@ def factor_height2area(energy, param, std_correction=1):
     sigma = np.sqrt((param['fwhm_offset']['value'] / temp_val)**2
                     + energy * epsilon * param['fwhm_fanoprime']['value'])
     return sigma*std_correction
+
+
+def param_dict_cleaner(param, element_list):
+    """
+    Make sure param only contains element from element_list.
+
+    Parameters
+    ----------
+    param : dict
+        fitting parameters
+    element_list : list
+        list of elemental lines
+
+    Returns
+    -------
+    dict :
+        new param dict containing given elements
+    """
+    param_new = {}
+    for k, v in six.iteritems(param):
+        if k == 'non_fitting_values' or k == k.lower():
+            param_new.update({k: v})
+        else:
+            if k[:2] in element_list:
+                param_new.update({k: v})
+    return param_new
