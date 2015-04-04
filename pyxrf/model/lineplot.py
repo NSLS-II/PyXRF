@@ -511,6 +511,7 @@ class LinePlotModel(Atom):
             if '_L' in k.upper():
                 l_num += 1
                 if l_num == 1:
+                    print('length is {}, {}'.format(self.fit_x.shape, v.shape))
                     ln, = self._ax.plot(self.fit_x, v,
                                         color=self.plot_style['l_line']['color'],
                                         label=self.plot_style['l_line']['label'])
