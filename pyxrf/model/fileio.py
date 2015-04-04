@@ -103,11 +103,13 @@ class FileIOModel(Atom):
                 #data = f['MAPS']
                 #data = f['xrfmap']
                 data = f['entry/instrument']
-
+                exp_data = np.asarray(data[detID]['data'])
+                #exp_data = np.reshape(exp_data, [2, 4, 4096])
                 # dict has filename as key and group data as value
+
                 self.data_dict.update({fname: data})
                 DS = DataSelection(filename=fname,
-                                   raw_data=np.asarray(data[detID]['data']))
+                                   raw_data=exp_data)
                 self.data_sets.update({fname: DS})
 
                 # get roi sum data
@@ -251,6 +253,8 @@ class SpectrumCalculator(object):
         if not self.pos1 and not self.pos2:
             return np.sum(self.data, axis=(0, 1))
         elif self.pos1 and not self.pos2:
+            print('shape: {}'.format(self.data.shape))
+            print('pos1: {}'.format(self.pos1))
             return self.data[self.pos1[0], self.pos1[1], :]
             #return self.data[:, self.pos1[0], self.pos1[1]]
         else:
@@ -258,3 +262,5 @@ class SpectrumCalculator(object):
                           axis=(0, 1))
             #return np.sum(self.data[:, self.pos1[0]:self.pos2[0], self.pos1[1]:self.pos2[1]],
             #              axis=(1, 2))
+
+

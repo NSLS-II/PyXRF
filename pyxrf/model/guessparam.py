@@ -504,7 +504,7 @@ class GuessParamModel(Atom):
         self.element_list = self.EC.get_element_list()
         self.param_new['non_fitting_values']['element_list'] = ', '.join(self.element_list)
         #param_d = format_dict(self.parameters, self.element_list)
-
+        print('element list before register: {}'.format(self.element_list))
         # create full parameter list including elements
         PC = ParamController(self.param_new, self.element_list)
         #PC.create_full_param()
@@ -514,6 +514,7 @@ class GuessParamModel(Atom):
         create_full_dict(self.param_new, fit_strategy_list)
 
         logger.info('full dict: {}'.format(self.param_new.keys()))
+        logger.info('incident energy: {}'.format(self.param_new['coherent_sct_energy']['value']))
 
         # update according to pre fit results
         if len(self.EC.element_dict):
@@ -609,8 +610,6 @@ def calculate_profile(y0, param,
     e_select, matv = construct_linear_model(x, fitting_parameters,
                                             elemental_lines,
                                             default_area=default_area)
-
-    print('current coherent area: {}'.format(fitting_parameters['coherent_sct_amplitude']['value']))
 
     non_element = ['compton', 'elastic']
     total_list = e_select + non_element
