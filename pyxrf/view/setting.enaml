@@ -1,0 +1,147 @@
+# ######################################################################
+# Copyright (c) 2014, Brookhaven Science Associates, Brookhaven        #
+# National Laboratory. All rights reserved.                            #
+#                                                                      #
+# Redistribution and use in source and binary forms, with or without   #
+# modification, are permitted provided that the following conditions   #
+# are met:                                                             #
+#                                                                      #
+# * Redistributions of source code must retain the above copyright     #
+#   notice, this list of conditions and the following disclaimer.      #
+#                                                                      #
+# * Redistributions in binary form must reproduce the above copyright  #
+#   notice this list of conditions and the following disclaimer in     #
+#   the documentation and/or other materials provided with the         #
+#   distribution.                                                      #
+#                                                                      #
+# * Neither the name of the Brookhaven Science Associates, Brookhaven  #
+#   National Laboratory nor the names of its contributors may be used  #
+#   to endorse or promote products derived from this software without  #
+#   specific prior written permission.                                 #
+#                                                                      #
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS  #
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT    #
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS    #
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE       #
+# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,           #
+# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES   #
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR   #
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)   #
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,  #
+# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OTHERWISE) ARISING   #
+# IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE   #
+# POSSIBILITY OF SUCH DAMAGE.                                          #
+########################################################################
+
+__author__ = 'Li Li'
+
+from enaml.widgets.api import (Container, PushButton, Label,
+                               Form, Field, FileDialogEx, DockItem,
+                               DockArea, CheckBox, ComboBox, SpinBox,
+                               ScrollArea, Window, PopupView, GroupBox)
+from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer, grid
+from enaml.core.api import Include, Looper
+from enaml.layout.geometry import Box
+from enaml.stdlib.fields import FloatField
+from enaml.stdlib.message_box import MessageBox, warning, information
+
+import numpy as np
+
+enamldef SettingView(DockItem):
+    attr io_model
+    attr plot_model
+    attr img_model_adv
+    attr setting_model
+
+    Container:
+        Container:
+            constraints = [
+                vbox(
+                    hbox(setup_lbl, spacer),
+                    hbox(element_fd),
+                    scroller,
+                    hbox(prefix_lbl, prefix_fd, spacer, calculate_btn),
+                ),
+                #folder_btn.width == files_btn.width,
+            ]
+            Label: setup_lbl:
+                text = 'ROI Setup: enter elements below, e.g., Fe_K, Gd_L'
+            Field: element_fd:
+                text >> setting_model.element_for_roi
+            Label: prefix_lbl:
+                text = 'Prefix'
+            Field: prefix_fd:
+                text := setting_model.prefix_name_roi
+                submit_triggers = ['auto_sync']
+            PushButton: calculate_btn:
+                text = 'Calculate ROI'
+                clicked ::
+                    if len(setting_model.element_for_roi) == 0:
+                        warning(self, 'Warning Dialog', 'Please enter element first.')
+                    elif len(setting_model.prefix_name_roi) == 0:
+                        warning(self, 'Warning Dialog', 'Please enter prefix name first.')
+                    else:
+                        #box = MessageBox()
+                        #box.title = 'Warning Message'
+                        #box.text = 'please enter prefix name first.'
+                        #box.exec_()
+                        roi_result = setting_model.get_roi_sum()
+                        img_model_adv.data_dict.update(roi_result)
+
+                        img_model_adv.set_initial_stat()
+
+            ScrollArea: scroller:
+                #Form:
+                Container:
+                    Looper: looper:
+                        iterable << setting_model.element_list_roi
+                        GroupBox:
+                        #Container:
+                            constraints = [vbox(hbox(mean_lb, roi_lb, left_v, right_v, spacer),
+                                                hbox(view_btn, default_btn, spacer))]
+                            title = '{}a1, in [eV]'.format(loop_item)
+                            #title_align = 'center'
+                            padding = Box(10, 10, 10, 10)
+                            #Form:
+                            #row_spacing=0
+                            #Label: name_lb:
+                            #    text = 'Element line: {}'.format(loop_item)
+                            Label: mean_lb:
+                                text = 'Energy: {},'.format(str(setting_model.roi_dict[loop_item].line_val))
+                                #maximum_size = 140
+                            Label: roi_lb:
+                                text = 'ROI : '
+                                #maximum_size = 80
+                            SpinBox: left_v:
+                                value := setting_model.roi_dict[loop_item].left_val
+                                single_step = setting_model.roi_dict[loop_item].step
+                                #maximum_size = 140
+                                minimum = 0
+                                maximum = 100000
+                            SpinBox: right_v:
+                                value := setting_model.roi_dict[loop_item].right_val
+                                single_step = setting_model.roi_dict[loop_item].step
+                                #maximum_size = 140
+                                minimum = 0
+                                maximum = 100000
+                            PushButton: view_btn:
+                                text = 'Add Plot'
+                                #maximum_size = 100
+                                checkable = True
+                                checked := setting_model.roi_dict[loop_item].show_plot
+                                clicked ::
+                                    plot_model.roi_dict = setting_model.roi_dict
+                                    if checked:
+                                        plot_model.roi_dict[loop_item].show_plot = True
+                                        #plot_model.roi_dict = setting_model.roi_dict
+                                        plot_model.plot_roi_bound()
+                                        view_btn.text = 'Remove'
+                                    else:
+                                        plot_model.roi_dict[loop_item].show_plot = False
+                                        #plot_model.roi_dict = setting_model.roi_dict
+                                        plot_model.plot_roi_bound()
+                                        view_btn.text = 'Add Plot'
+                            PushButton: default_btn:
+                                text = 'Use Default'
+                                clicked ::
+                                    plot_model.roi_dict[loop_item].left_val = plot_model.roi_dict[loop_item].default_left

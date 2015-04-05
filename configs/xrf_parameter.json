@@ -1,0 +1,168 @@
+{"non_fitting_values": {
+  "element_list": "Ar, K, Ca, Ti, Cr, Mn, Fe, Ni, Cu, Zn",
+  "energy_bound_low": 2.5,
+  "energy_bound_high": 12.0},
+
+ "coherent_sct_amplitude": {
+   "value": 100000,
+   "bound_type": "none",
+   "min": 1.0,
+   "max": 1e7,
+   "free_more": "none",
+   "adjust_element": "none",
+   "e_calibration":"none",
+   "linear":"none",
+   "description": "Coherent Scattering Amplitude"},
+
+ "coherent_sct_energy": {
+   "value": 11.8,
+   "bound_type": "lohi",
+   "min": 10.0,
+   "max": 12.5,
+   "free_more": "lohi",
+   "adjust_element": "fixed",
+   "e_calibration":"fixed",
+   "linear":"fixed",
+   "description": "Coherent Scattering Energy"},
+
+ "e_linear": {
+   "value": 0.01,
+   "bound_type": "lohi",
+   "min": 0.009,
+   "max": 0.011,
+   "free_more": "lohi",
+   "adjust_element": "fixed",
+   "e_calibration":"lohi",
+   "linear":"fixed",
+   "description": "E Calib. Coef, a1",
+   "tool_tip": "E(channel) = a0 + a1*channel+ a2*channel**2"},
+
+ "e_offset": {
+   "value": -0.007,
+   "bound_type": "lohi",
+   "min": -0.01,
+   "max": 0.015,
+   "free_more": "lohi",
+   "adjust_element": "fixed",
+   "e_calibration":"lohi",
+   "linear":"fixed",
+   "description": "E Calib. Coef, a0",
+   "tool_tip": "E(channel) = a0 + a1*channel+ a2*channel**2"},
+
+ "e_quadratic": {
+   "value": 0.0,
+   "bound_type": "lohi",
+   "min": -1e-6,
+   "max": 1e-6,
+   "free_more": "fixed",
+   "adjust_element": "fixed",
+   "e_calibration":"lohi",
+   "linear":"fixed",
+   "description": "E Calib. Coef, a2",
+   "tool_tip": "E(channel) = a0 + a1*channel+ a2*channel**2"},
+
+ "fwhm_offset": {
+   "value": 0.178,
+   "bound_type": "lohi",
+   "min": 0.06,
+   "max": 0.19,
+   "free_more": "lohi",
+   "adjust_element": "fixed",
+   "e_calibration":"fixed",
+   "linear":"fixed",
+   "description": "fwhm Coef, b1 [keV]",
+   "value": 0.178,"tool_tip": "width**2 = (b1/2.3548)**2 + 3.85*b2*E"},
+
+ "fwhm_fanoprime": {
+   "value": 0.00,
+   "bound_type": "fixed",
+   "min": 0.0,
+   "max": 0.00001,
+   "free_more": "lohi",
+   "adjust_element": "fixed",
+   "e_calibration":"fixed",
+   "linear":"fixed",
+   "description": "fwhm Coef, b2",
+   "tool_tip": "width**2 = (b1/2.3548)**2 + 3.85*b2*E, 3.85keV is electron-hole pair creation energy in silicon"},
+
+ "compton_amplitude": {
+   "value": 1.0e5,
+   "bound_type": "none",
+   "min": 0.0,
+   "max": 1.0e7,
+   "free_more": "none",
+   "adjust_element": "none",
+   "e_calibration":"none",
+   "linear":"none"},
+
+ "compton_angle": {
+   "value": 90.0,
+   "bound_type": "lohi",
+   "min": 80.0,
+   "max": 100.0,
+   "free_more": "lohi",
+   "adjust_element": "fixed",
+   "e_calibration":"fixed",
+   "linear":"fixed"},
+
+ "compton_gamma": {
+   "value": 3.8,
+   "bound_type": "lohi",
+   "min": 3.8,
+   "max": 4.2,
+   "free_more": "fixed",
+   "adjust_element": "fixed",
+   "e_calibration":"lohi",
+   "linear":"fixed"},
+
+ "compton_f_tail": {
+   "value": 0.37,
+   "bound_type": "fixed",
+   "min": 0.1,
+   "max": 0.6,
+   "free_more": "fixed",
+   "adjust_element": "fixed",
+   "e_calibration":"fixed",
+   "linear":"fixed"},
+
+ "compton_f_step": {
+   "value": 0.000,
+   "bound_type": "fixed",
+   "min": 0.0,
+   "max": 0.001,
+   "free_more": "fixed",
+   "adjust_element": "fixed",
+   "e_calibration":"fixed",
+   "linear":"fixed"},
+
+ "compton_fwhm_corr": {
+   "value": 1.5,
+   "bound_type": "lohi",
+   "min": 0.5,
+   "max": 2.5,
+   "free_more": "lohi",
+   "adjust_element": "lohi",
+   "e_calibration":"fixed",
+   "linear":"fixed",
+   "description": "Compton fwhm Coefficient"},
+
+ "compton_hi_f_tail": {
+   "value": 0.01,
+   "bound_type": "fixed",
+   "min": 1e-06,
+   "max": 1.0,
+   "free_more": "fixed",
+   "adjust_element": "fixed",
+   "e_calibration":"fixed",
+   "linear":"fixed"},
+
+ "compton_hi_gamma": {
+   "value": 2.0,
+   "bound_type": "fixed",
+   "min": 0.10,
+   "max": 2.0,
+   "free_more": "fixed",
+   "adjust_element": "fixed",
+   "e_calibration":"fixed",
+   "linear":"fixed"}
+}
