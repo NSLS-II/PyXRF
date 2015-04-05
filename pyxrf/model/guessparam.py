@@ -477,7 +477,8 @@ class GuessParamModel(Atom):
         #param_dict = format_dict(self.parameters, self.element_list)
         self.prefit_x, out_dict = linear_spectrum_fitting(self.data,
                                                           self.param_new)
-
+        logger.info('Energy range: {}, {}'.format(self.param_new['non_fitting_values']['energy_bound_low']['value'],
+                                                  self.param_new['non_fitting_values']['energy_bound_high']['value']))
         #max_dict = reduce(max, map(np.max, six.itervalues(out_dict)))
         prefit_dict = OrderedDict()
         for k, v in six.iteritems(out_dict):
@@ -486,7 +487,7 @@ class GuessParamModel(Atom):
                               lbd_stat=False)
             prefit_dict.update({k: ps})
 
-        logger.info('The elements found from prefit: {}'.format(
+        logger.info('The elements from parameter guess: {}'.format(
             prefit_dict.keys()))
         self.EC.add_to_dict(prefit_dict)
 

@@ -104,6 +104,7 @@ class FileIOModel(Atom):
                 #data = f['xrfmap']
                 data = f['entry/instrument']
                 exp_data = np.asarray(data[detID]['data'])
+                logger.info('File : {} with total counts {}'.format(fname, np.sum(exp_data)))
                 #exp_data = np.reshape(exp_data, [2, 4, 4096])
                 # dict has filename as key and group data as value
 
@@ -136,6 +137,7 @@ class FileIOModel(Atom):
         #     self.img_dict.update({str(k): {'roi_sum': roi_dict}})
         #
         #     self.img_dict_flat.update({str(k).split('.')[0]+'_roi_sum': roi_dict})
+        pass
 
 
 def get_roi_sum(namelist, data_range, data):

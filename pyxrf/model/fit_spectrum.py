@@ -215,8 +215,8 @@ class Fit1D(Atom):
                               weights=1/np.sqrt(c_weight+y0), maxfev=fit_num,
                               xtol=c_val, ftol=c_val, gtol=c_val)
 
+        self.comps.clear()
         comps = result.eval_components(x=x0)
-        print('calculated components: {}'.format(comps.keys()))
         self.comps = combine_lines(comps, self.element_list, self.bg)
 
         xnew = (result.values['e_offset'] +
@@ -255,7 +255,6 @@ class Fit1D(Atom):
                 register_strategy(strat_name, strategy)
                 set_parameter_bound(self.param_dict, strat_name)
 
-                self.comps.clear()
                 self.fit_data(self.x0, y0)
                 self.update_param_with_result()
 
