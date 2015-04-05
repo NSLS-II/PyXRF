@@ -34,13 +34,13 @@
 ########################################################################
 
 __author__ = 'Li Li'
+import enaml
+from enaml.qt.qt_application import QtApplication
 
 import os
 import numpy as np
 import logging
 
-import enaml
-from enaml.qt.qt_application import QtApplication
 from pyxrf.model.fileio import FileIOModel
 from pyxrf.model.lineplot import LinePlotModel #, SettingModel
 from pyxrf.model.guessparam import GuessParamModel
@@ -49,6 +49,9 @@ from pyxrf.model.fit_spectrum import Fit1D
 from pyxrf.model.setting import SettingModel
 import json
 from pprint import pprint
+
+from .view import XRFGui
+
 
 
 def get_defaults():
@@ -100,9 +103,6 @@ def run():
                         filemode='w')
 
     app = QtApplication()
-    with enaml.imports():
-        from pyxrf.view.main_window import XRFGui
-
     defaults = get_defaults()
 
     xrfview = XRFGui()

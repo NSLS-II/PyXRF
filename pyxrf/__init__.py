@@ -32,25 +32,6 @@
 # IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE   #
 # POSSIBILITY OF SUCH DAMAGE.                                          #
 ########################################################################
-# imports to smooth over differences between PyQt4, PyQt5, PyQt4.1 and PySides
-
-import sip
-sip.setapi('QString', 2)
-import matplotlib
-matplotlib.rcParams["backend"] = "Qt4Agg"
-
-# use the PySide rcParams if that's your preference
-usePyQt4 = True
-if usePyQt4:
-    matplotlib.rcParams["backend.qt4"] = "PyQt4"
-    # from PyQt4.QtCore import QDateTime
-    # QDateTime.toPython = QDateTime.toPyDateTime
-else:
-    matplotlib.rcParams["backend.qt4"] = "PySide"
-try:
-    from matplotlib.backends.qt_compat import QtCore, QtGui
-except ImportError:
-    from matplotlib.backends.qt4_compat import QtCore, QtGui
 import logging
 logger = logging.getLogger(__name__)
 
