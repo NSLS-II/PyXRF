@@ -390,7 +390,7 @@ class LinePlotModel(Atom):
         self._update_canvas()
 
     def plot_autofit(self):
-        sum = 0
+        sum_y = 0
         while(len(self.auto_fit_obj)):
             self.auto_fit_obj.pop().remove()
 
@@ -428,7 +428,7 @@ class LinePlotModel(Atom):
                                             label='_nolegend_')
                     k_auto += 1
                 self.auto_fit_obj.append(ln)
-                sum += v
+                sum_y += v
 
         # L lines
         if len(self.total_y_l):
@@ -445,7 +445,7 @@ class LinePlotModel(Atom):
                                         label='_nolegend_')
                 l_auto += 1
                 self.auto_fit_obj.append(ln)
-                sum += v
+                sum_y += v
 
         # M lines
         if len(self.total_y_m):
@@ -462,10 +462,11 @@ class LinePlotModel(Atom):
                                         label='_nolegend_')
                 m_auto += 1
                 self.auto_fit_obj.append(ln)
-                sum += v
+                sum_y += v
 
         if len(self.total_y) or len(self.total_y_l) or len(self.total_y_m):
-            ln, = self._ax.plot(self.prefit_x, sum,
+            self._ax.hold(True)
+            ln, = self._ax.plot(self.prefit_x, sum_y,
                                 color=self.plot_style['auto_fit']['color'],
                                 label=self.plot_style['auto_fit']['label'])
             self.auto_fit_obj.append(ln)
