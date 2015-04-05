@@ -1,8 +1,10 @@
+#!/usr/bin/env python
 from __future__ import (absolute_import, division, print_function)
-
 
 import sys
 import warnings
+
+
 try:
     from setuptools import setup
 except ImportError:
@@ -11,12 +13,11 @@ except ImportError:
     except ImportError:
         from distutils.core import setup
 
-from distutils.core import setup, Extension
-import numpy
+from distutils.core import setup
 
 MAJOR = 0
 MINOR = 0
-MICRO = 0
+MICRO = 5
 ISRELEASED = False
 SNAPSHOT = False
 VERSION = '%d.%d.%d' % (MAJOR, MINOR, MICRO)
@@ -27,7 +28,7 @@ print(FULLVERSION)
 
 if not ISRELEASED:
     import subprocess
-    FULLVERSION += '.dev'
+    FULLVERSION += '.post'
     if SNAPSHOT:
         pipe = None
         for cmd in ['git', 'git.cmd']:
@@ -60,22 +61,10 @@ else:
 setup(
     name='pyxrf',
     version=FULLVERSION,
-    author='Brookhaven National Lab',
-    packages=['pyxrf', 'pyxrf.model',
-              'pyxrf.view'],
+    author='Brookhaven National Laboratory',
+    packages=['pyxrf'],
+    entry_points={'console_scripts': ['pyxrf = pyxrf.gui:run']},
+    package_data={'': ['*.enaml']},
     include_package_data=True,
-    package_data={'examples': ['examples/*']},
+    requires=['skxray', 'matplotlib', 'enaml', 'six', 'lmfit'],
 )
-
-import shutil
-import os
-
-try:
-    os.mkdir(os.path.join(os.path.expanduser('~'), '.config', 'pyxrf'))
-except OSError:
-    # folder already exists
-    pass
-
-shutil.copy2(os.path.join('configs', 'xrf_parameter.json'),
-             os.path.join(os.path.expanduser('~'), '.config', 'pyxrf',
-                          'xrf_parameter_default.json'))

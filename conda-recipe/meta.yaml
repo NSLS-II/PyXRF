@@ -5,38 +5,30 @@ package:
 source:
   git_url: ../
 
-
 build:
   number: 0
+
+  # Note that this will override the default build string with the Python
+  # and NumPy versions
   string: {{ environ.get('GIT_BUILD_STR', '') }}_np{{ np }}py{{ py }}
+
+  entry_points:
+    - pyxrf = pyxrf.gui:run
 
 requirements:
   build:
     - python
-    - distribute
+    - enaml [py2k]
     - numpy
     - six
-    - matplotlib
+
   run:
     - python
-    - numpy
     - matplotlib
-    - pyqt
+    - pyyaml
+    - enaml [py2k]
     - six
 
 test:
-  requires:
-    - nose
-
   imports:
-    - pyxrf
-    - pyxrf.qt_widgets
-    - pyxrf.messenger
-    - pyxrf.messenger.mpl
-    - pyxrf.backend
-    - pyxrf.backend.mpl
-
-
-about:
-  home: https://github.com/Nikea/pyxrf
-  license: 3-Clause BSD
+    - pyxrf [py2k]
