@@ -477,7 +477,8 @@ class GuessParamModel(Atom):
         #param_dict = format_dict(self.parameters, self.element_list)
         self.prefit_x, out_dict = linear_spectrum_fitting(self.data,
                                                           self.param_new)
-
+        logger.info('Energy range: {}, {}'.format(self.param_new['non_fitting_values']['energy_bound_low']['value'],
+                                                  self.param_new['non_fitting_values']['energy_bound_high']['value']))
         #max_dict = reduce(max, map(np.max, six.itervalues(out_dict)))
         prefit_dict = OrderedDict()
         for k, v in six.iteritems(out_dict):
@@ -486,7 +487,7 @@ class GuessParamModel(Atom):
                               lbd_stat=False)
             prefit_dict.update({k: ps})
 
-        logger.info('The elements found from prefit: {}'.format(
+        logger.info('The elements from parameter guess: {}'.format(
             prefit_dict.keys()))
         self.EC.add_to_dict(prefit_dict)
 
@@ -504,7 +505,8 @@ class GuessParamModel(Atom):
         self.element_list = self.EC.get_element_list()
         self.param_new['non_fitting_values']['element_list'] = ', '.join(self.element_list)
         #param_d = format_dict(self.parameters, self.element_list)
-
+        self.param_new = param_dict_cleaner(self.param_new, self.element_list)
+        print('element list before register: {}'.format(self.element_list))
         # create full parameter list including elements
         PC = ParamController(self.param_new, self.element_list)
         #PC.create_full_param()
@@ -514,6 +516,7 @@ class GuessParamModel(Atom):
         create_full_dict(self.param_new, fit_strategy_list)
 
         logger.info('full dict: {}'.format(self.param_new.keys()))
+        logger.info('incident energy: {}'.format(self.param_new['coherent_sct_energy']['value']))
 
         # update according to pre fit results
         if len(self.EC.element_dict):
@@ -609,8 +612,6 @@ def calculate_profile(y0, param,
     e_select, matv = construct_linear_model(x, fitting_parameters,
                                             elemental_lines,
                                             default_area=default_area)
-
-    print('current coherent area: {}'.format(fitting_parameters['coherent_sct_amplitude']['value']))
 
     non_element = ['compton', 'elastic']
     total_list = e_select + non_element
@@ -711,3 +712,29 @@ def factor_height2area(energy, param, std_correction=1):
     sigma = np.sqrt((param['fwhm_offset']['value'] / temp_val)**2
                     + energy * epsilon * param['fwhm_fanoprime']['value'])
     return sigma*std_correction
+
+
+def param_dict_cleaner(param, element_list):
+    """
+    Make sure param only contains element from element_list.
+
+    Parameters
+    ----------
+    param : dict
+        fitting parameters
+    element_list : list
+        list of elemental lines
+
+    Returns
+    -------
+    dict :
+        new param dict containing given elements
+    """
+    param_new = {}
+    for k, v in six.iteritems(param):
+        if k == 'non_fitting_values' or k == k.lower():
+            param_new.update({k: v})
+        else:
+            if k[:2] in element_list:
+                param_new.update({k: v})
+    return param_new

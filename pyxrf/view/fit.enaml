@@ -57,11 +57,6 @@ from pyxrf.model.guessparam import format_dict, fit_strategy_list, save_as
 
 enamldef FloatField(DefaultFloatField):
     submit_triggers = ['auto_sync'] #['return_pressed']
-    minimum = -100000000000
-    maximum =  100000000000
-    value ::
-        print("value: {}".format(value))
-
 
 enamldef RadioButton(DefaultRadioButton):
     minimum_size = (80, 20)
@@ -270,6 +265,10 @@ enamldef FitView(DockItem): fit_view:
                 ElementEdit.parameter_model = fit_model
                 ParameterEdit.parameter_model = fit_model
 
+                # update experimental plot with new calibration values
+                plot_model.parameters = fit_model.param_dict
+                plot_model.plot_experiment()
+
                 pb_plot.enabled = True
                 plot_model.fit_x = fit_model.fit_x
                 plot_model.fit_y = fit_model.fit_y
@@ -281,6 +280,10 @@ enamldef FitView(DockItem): fit_view:
             text = 'Calculate Spectrum'
             clicked ::
                 fit_model.get_profile()
+
+                # update experimental plot with new calibration values
+                plot_model.parameters = fit_model.param_dict
+                plot_model.plot_experiment()
 
                 pb_plot.enabled = True
                 plot_model.fit_x = fit_model.cal_x
@@ -382,11 +385,13 @@ enamldef ElementEdit(Window):
                             cb_strat3, cb_strat4, cb_strat5, cb_strat6, spacer)
                         ]
                         FloatField: ff_value:
-                            value := float(parameter_model.param_dict[loop_item]['value'])
+                            value := parameter_model.param_dict[loop_item]['value']
+                            minimum = parameter_model.param_dict[loop_item]['min']
+                            maximum = parameter_model.param_dict[loop_item]['max']
                         FloatField: ff_min:
-                            value := float(parameter_model.param_dict[loop_item]['min'])
+                            value := parameter_model.param_dict[loop_item]['min']
                         FloatField: ff_max:
-                            value := float(parameter_model.param_dict[loop_item]['max'])
+                            value := parameter_model.param_dict[loop_item]['max']
 
                         ComboBox: cb_strat0:
                             items = [' '] + bound_options
@@ -462,7 +467,8 @@ enamldef ParameterEdit(Window):
                         text = loop_item
                     Container:
                         padding = Box(2, 2, 2, 2)
-                        constraints = [hbox(ff_value, ff_min, ff_max, cb_strat0, cb_strat1, cb_strat2, cb_strat3, cb_strat4, spacer)]
+                        constraints = [hbox(ff_value, ff_min, ff_max, cb_strat0, cb_strat1, cb_strat2, cb_strat3,
+                                            cb_strat4, cb_strat5, cb_strat6,spacer)]
                         #constraints = [hbox(ff_value, ff_min, ff_max, spacer)]
                         FloatField: ff_value:
                             value := parameter_model.param_dict[loop_item]['value']
@@ -511,7 +517,21 @@ enamldef ParameterEdit(Window):
                                 if cb_strat4.index > 0:
                                     parameter_model.param_dict[loop_item][fit_strategy_list[4]] = cb_strat4.items[cb_strat4.index]
 
+                        ComboBox: cb_strat5:
+                            items = [' '] + bound_options
+                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[5]]) + 1
+                            maximum_size = 80
+                            index ::
+                                if cb_strat5.index > 0:
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[5]] = cb_strat5.items[cb_strat5.index]
 
+                        ComboBox: cb_strat6:
+                            items = [' '] + bound_options
+                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[6]]) + 1
+                            maximum_size = 80
+                            index ::
+                                if cb_strat6.index > 0:
+                                    parameter_model.param_dict[loop_item][fit_strategy_list[6]] = cb_strat6.items[cb_strat6.index]
 
 enamldef ElementEdit0(Window):
     attr parameter_model

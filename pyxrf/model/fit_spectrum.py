@@ -98,19 +98,12 @@ class Fit1D(Atom):
     def __init__(self, *args, **kwargs):
         self.result_folder = kwargs['working_directory']
         self.all_strategy = OrderedDict()
-    # def load_full_param(self):
-    #     try:
-    #         with open(self.file_path, 'r') as json_data:
-    #             self.param_dict = json.load(json_data)
-    #         self.file_status = 'Parameter file {} is loaded.'.format(self.file_path.split('/')[-1])
-    #     except ValueError:
-    #         self.file_status = 'Parameter file can\'t be loaded.'
 
     @observe('selected_element')
     def _selected_element_changed(self, changed):
         element = self.selected_element.split('_')[0]
-        self.selected_elements = [e for e in self.param_dict.keys()
-                                  if element in e]
+        self.selected_elements = sorted([e for e in self.param_dict.keys()
+                                        if element in e])
 
     def get_new_param(self, param):
         self.param_dict = copy.deepcopy(param)
@@ -126,21 +119,6 @@ class Fit1D(Atom):
             # to cover all given elements
             register_strategy(strat_name, strategy)
             set_parameter_bound(self.param_dict, strat_name)
-
-        #for k, v in six.iteritems(self.param_dict):
-        #    print('{}: {}'.format(k, v))
-
-        #self.element_list, self.parameters = dict_to_param(self.param_dict)
-
-    # @observe('parameters')
-    # def _update_param_dict(self, change):
-    #     self.param_dict = format_dict(self.parameters, self.element_list)
-    #     logger.info('param changed {}'.format(change['type']))
-
-    #def update_param_dict(self):
-    #    self.param_dict = format_dict(self.parameters, self.element_list)
-    #    logger.info('param changed !!!')
-
 
     @observe('data')
     def _update_data(self, change):
@@ -224,7 +202,7 @@ class Fit1D(Atom):
                                                           self.element_list)
         self.cal_y = np.zeros(len(self.cal_x))
         for k, v in six.iteritems(self.cal_spectrum):
-            print('component: {}'.format(k))
+            #print('component: {}'.format(k))
             self.cal_y += v
         self.residual = self.cal_y - self.y0
 
@@ -237,8 +215,9 @@ class Fit1D(Atom):
                               weights=1/np.sqrt(c_weight+y0), maxfev=fit_num,
                               xtol=c_val, ftol=c_val, gtol=c_val)
 
+        self.comps.clear()
         comps = result.eval_components(x=x0)
-        self.combine_lines(comps)
+        self.comps = combine_lines(comps, self.element_list, self.bg)
 
         xnew = (result.values['e_offset'] +
                 result.values['e_linear'] * x0 +
@@ -276,7 +255,6 @@ class Fit1D(Atom):
                 register_strategy(strat_name, strategy)
                 set_parameter_bound(self.param_dict, strat_name)
 
-                self.comps.clear()
                 self.fit_data(self.x0, y0)
                 self.update_param_with_result()
 
@@ -311,36 +289,6 @@ class Fit1D(Atom):
         fpath = os.path.join(self.result_folder, 'root_data')
         pickle.dump(result_map, open(fpath, 'wb'))
 
-    def combine_lines(self, comps):
-        """
-        Combine results for different lines of the same element.
-        And also add background.
-
-        Parameters
-        ----------
-        comps : dict
-            output results from lmfit
-        """
-        for e in self.param_dict['non_fitting_values']['element_list'].split(','):
-            e = e.strip(' ')
-            if '_' in e:
-                e_temp = e.split('_')[0]
-            else:
-                e_temp = e
-            intensity = 0
-            for k, v in six.iteritems(comps):
-                if e_temp in k:
-                    del comps[k]
-                    intensity += v
-            self.comps[e] = intensity
-        self.comps.update(comps)
-
-        # add background
-        self.comps.update({'background': self.bg})
-
-        self.comps['elastic'] = self.comps['elastic_']
-        del self.comps['elastic_']
-
     def save_result(self, fname=None):
         """
         Parameters
@@ -354,6 +302,41 @@ class Fit1D(Atom):
         with open(filepath, 'w') as myfile:
             myfile.write(fit_report(self.fit_result, sort_pars=True))
             logger.warning('Results are saved to {}'.format(filepath))
+
+
+def combine_lines(components, element_list, background):
+    """
+    Combine results for different lines of the same element.
+    And also add background, compton and elastic.
+
+    Parameters
+    ----------
+    components : dict
+        output results from lmfit
+    element_list : list
+        list of elemental lines
+    background : array
+        background calculated in given range
+
+    Returns
+    -------
+    dict :
+        combined results for elements and other related peaks.
+    """
+    new_components = {}
+    for e in element_list:
+        e_temp = e.split('_')[0]
+        intensity = 0
+        for k, v in six.iteritems(components):
+            if e_temp in k:
+                intensity += v
+        new_components[e] = intensity
+
+    # add background and elastic
+    new_components.update({'background': background})
+    new_components.update({'compton': components['compton']})
+    new_components.update({'elastic': components['elastic_']})
+    return new_components
 
 
 def extract_strategy(param, name):
