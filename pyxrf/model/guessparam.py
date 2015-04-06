@@ -201,6 +201,7 @@ class PreFitStatus(Atom):
     """
     z = Str()
     energy = Str()
+    area = Float()
     spectrum = Typed(np.ndarray)
     status = Bool(False)
     stat_copy = Bool(False)
@@ -375,12 +376,10 @@ class GuessParamModel(Atom):
         """
         with open(param_path, 'r') as json_data:
             self.param_new = json.load(json_data)
-        #self.element_list, self.parameters = dict_to_param(self.param_new)
         self.element_list = get_element(self.param_new)
         self.EC.delete_all()
         self.create_spectrum_from_file(self.param_new, self.element_list)
         logger.info('Elements read from file are: {}'.format(self.element_list))
-        #self.element_list, self.parameters = self.get_param(new_param)
 
     def create_spectrum_from_file(self, param_dict, elemental_lines):
         """
@@ -395,10 +394,8 @@ class GuessParamModel(Atom):
             K lines of Sodium, the K lines of Magnesium, and the M
             lines of Platinum
         """
-        self.prefit_x, pre_dict = calculate_profile(self.data,
-                                                    param_dict, elemental_lines)
-
-        #factor_to_area = factor_height2area()
+        self.prefit_x, pre_dict, area_dict = calculate_profile(self.data,
+                                                               param_dict, elemental_lines)
 
         temp_dict = OrderedDict()
         for e in six.iterkeys(pre_dict):
@@ -406,34 +403,25 @@ class GuessParamModel(Atom):
             for k, v in six.iteritems(param_dict):
 
                 if ename in k and 'area' in k:
-                    energy = float(get_energy(e))
-                    factor_to_area = factor_height2area(energy, self.param_new)
-                    ratio = v['value']/factor_to_area
-                    spectrum = pre_dict[e] #/ np.max(pre_dict[e]) * ratio
+                    spectrum = pre_dict[e]
+                    area = area_dict[e]
 
                 elif ename == 'compton' and k == 'compton_amplitude':
-                    # the rest-mass energy of an electron (511 keV)
-                    mc2 = 511
-                    comp_denom = (1 + self.param_new['coherent_sct_energy']['value']
-                                  / mc2 * (1 - np.cos(np.deg2rad(self.param_new['compton_angle']['value']))))
-                    compton_energy = self.param_new['coherent_sct_energy']['value'] / comp_denom
-                    factor_to_area = factor_height2area(compton_energy, self.param_new,
-                                                        std_correction=self.param_new['compton_fwhm_corr']['value'])
-                    spectrum = pre_dict[e] #/ np.max(pre_dict[e]) * ratio
+                    spectrum = pre_dict[e]
+                    area = area_dict[e]
 
                 elif ename == 'elastic' and k == 'coherent_sct_amplitude':
-                    factor_to_area = factor_height2area(self.param_new['coherent_sct_energy']['value'],
-                                                        self.param_new)
-                    ratio = v['value']/factor_to_area
-                    spectrum = pre_dict[e] #/ np.max(pre_dict[e]) * ratio
+                    spectrum = pre_dict[e]
+                    area = area_dict[e]
 
                 elif ename == 'background':
                     spectrum = pre_dict[e]
+                    area = np.sum(spectrum)
 
                 else:
                     continue
 
-                ps = PreFitStatus(z=get_Z(ename), energy=get_energy(e), spectrum=spectrum,
+                ps = PreFitStatus(z=get_Z(ename), energy=get_energy(e), area=area, spectrum=spectrum,
                                   maxv=np.around(np.max(spectrum), 1),
                                   norm=-1, lbd_stat=False)
 
@@ -452,11 +440,11 @@ class GuessParamModel(Atom):
         default_area = 1e5
         logger.info('Element {} is added'.format(self.e_name))
 
-        #param_dict = format_dict(self.parameters, self.element_list)
-        x, data_out = calculate_profile(self.data, self.param_new,
-                                        elemental_lines=[self.e_name], default_area=default_area)
-        ps = PreFitStatus(z=get_Z(self.e_name), energy=get_energy(self.e_name),
-                          spectrum=data_out[self.e_name]/np.max(data_out[self.e_name])*self.add_element_intensity,
+        x, data_out, area_dict = calculate_profile(self.data, self.param_new,
+                                                   elemental_lines=[self.e_name], default_area=default_area)
+        ratio_v = self.add_element_intensity / np.max(data_out[self.e_name])
+        ps = PreFitStatus(z=get_Z(self.e_name), energy=get_energy(self.e_name), area=area_dict[self.e_name]*ratio_v,
+                          spectrum=data_out[self.e_name]*ratio_v,
                           maxv=self.add_element_intensity, norm=-1,
                           lbd_stat=False)
         self.EC.add_to_dict({self.e_name: ps})
@@ -473,16 +461,20 @@ class GuessParamModel(Atom):
     def find_peak(self, threshv=0.1):
         """
         Run automatic peak finding, and save results as dict of object.
+
+        Parameters
+        ----------
+        threshv : float
+            The value will not be shown on GUI if it is smaller than the threshold.
         """
-        #param_dict = format_dict(self.parameters, self.element_list)
-        self.prefit_x, out_dict = linear_spectrum_fitting(self.data,
-                                                          self.param_new)
+        self.prefit_x, out_dict, area_dict = linear_spectrum_fitting(self.data, self.param_new, area_option=True)
         logger.info('Energy range: {}, {}'.format(self.param_new['non_fitting_values']['energy_bound_low']['value'],
                                                   self.param_new['non_fitting_values']['energy_bound_high']['value']))
-        #max_dict = reduce(max, map(np.max, six.itervalues(out_dict)))
+
         prefit_dict = OrderedDict()
         for k, v in six.iteritems(out_dict):
-            ps = PreFitStatus(z=get_Z(k), energy=get_energy(k), spectrum=v,
+            ps = PreFitStatus(z=get_Z(k), energy=get_energy(k),
+                              area=area_dict[k], spectrum=v,
                               maxv=np.around(np.max(v), 1), norm=-1,
                               lbd_stat=False)
             prefit_dict.update({k: ps})
@@ -505,12 +497,21 @@ class GuessParamModel(Atom):
 
         self.element_list = self.EC.get_element_list()
         self.param_new['non_fitting_values']['element_list'] = ', '.join(self.element_list)
+        # remove elements not included in self.element_list
+        print('element list is {}'.format(self.element_list))
         self.param_new = param_dict_cleaner(self.param_new, self.element_list)
-        print('element list before register: {}'.format(self.element_list))
+
         # create full parameter list including elements
+        # This part is a bit confusing and needs better treatment.
         PC = ParamController(self.param_new, self.element_list)
-        #PC.create_full_param()
-        self.param_new = PC.params
+        # parameter values not updated based on param_new, so redo it
+        param_temp = PC.params
+        for k, v in six.iteritems(param_temp):
+            if k=='non_fitting_values':
+                continue
+            if self.param_new.has_key(k):
+                v['value'] = self.param_new[k]['value']
+        self.param_new = param_temp
 
         # to create full param dict, for GUI only
         create_full_dict(self.param_new, fit_strategy_list)
@@ -521,26 +522,11 @@ class GuessParamModel(Atom):
                 zname = e.split('_')[0]
                 for k, v in six.iteritems(self.param_new):
                     if zname in k and 'area' in k:
-                        factor_to_area = factor_height2area(float(self.EC.element_dict[e].energy),
-                                                            self.param_new)
-                        v['value'] = self.EC.element_dict[e].maxv * factor_to_area
+                        v['value'] = self.EC.element_dict[e].area
             if 'compton' in self.EC.element_dict:
-                gauss_factor = 1/(1 + self.param_new['compton_f_step']['value']
-                                  + self.param_new['compton_f_tail']['value']
-                                  + self.param_new['compton_hi_f_tail']['value'])
-
-                # the rest-mass energy of an electron (511 keV)
-                mc2 = 511
-                comp_denom = (1 + self.param_new['coherent_sct_energy']['value']
-                              / mc2 * (1 - np.cos(np.deg2rad(self.param_new['compton_angle']['value']))))
-                compton_energy = self.param_new['coherent_sct_energy']['value'] / comp_denom
-                factor_to_area = factor_height2area(compton_energy, self.param_new,
-                                                    std_correction=self.param_new['compton_fwhm_corr']['value'])
-                self.param_new['compton_amplitude']['value'] = \
-                    self.EC.element_dict['compton'].maxv * factor_to_area
+                self.param_new['compton_amplitude']['value'] = self.EC.element_dict['compton'].area
             if 'coherent_sct_amplitude' in self.EC.element_dict:
-                self.param_new['coherent_sct_amplitude']['value'] = np.sum(
-                    self.EC.element_dict['elastic'].spectrum)
+                self.param_new['coherent_sct_amplitude']['value'] = self.EC.element_dict['elastic'].area
 
     def data_for_plot(self):
         """
@@ -559,28 +545,6 @@ class GuessParamModel(Atom):
                 self.total_y_m[k] = self.EC.element_dict[k].spectrum
             else:
                 self.total_y[k] = self.EC.element_dict[k].spectrum
-
-    def save(self, fname='param_default1.json'):
-        """
-        Save full param dict into a file at result directory.
-        The name of the file is predefined.
-
-        Parameters
-        ----------
-        fname : str, optional
-            file name to save updated parameters
-        """
-        fpath = os.path.join(self.result_folder, fname)
-        with open(fpath, 'w') as outfile:
-            json.dump(self.param_new, outfile,
-                      sort_keys=True, indent=4)
-
-    # def read_pre_saved(self, fname='param_default1.json'):
-    #     """This is a bad idea."""
-    #     fpath = os.path.join(self.result_folder, fname)
-    #     with open(fpath, 'r') as infile:
-    #         data = json.load(infile)
-    #     return data
 
 
 def save_as(file_path, data):
@@ -606,7 +570,7 @@ def calculate_profile(y0, param,
 
     x, y = trim(x0, y0, lowv, highv)
 
-    e_select, matv, area_list = construct_linear_model(x, fitting_parameters,
+    e_select, matv, area_dict = construct_linear_model(x, fitting_parameters,
                                                        elemental_lines,
                                                        default_area=default_area)
 
@@ -626,7 +590,7 @@ def calculate_profile(y0, param,
          + fitting_parameters['e_linear']['value'] * x
          + fitting_parameters['e_quadratic']['value'] * x**2)
 
-    return x, temp_d
+    return x, temp_d, area_dict
 
 
 def create_full_dict(param, name_list):
@@ -726,10 +690,11 @@ def param_dict_cleaner(param, element_list):
         new param dict containing given elements
     """
     param_new = {}
+    list_lower = [e.lower() for e in element_list]
     for k, v in six.iteritems(param):
         if k == 'non_fitting_values' or k == k.lower():
             param_new.update({k: v})
         else:
-            if k[:2] in element_list:
+            if k[:4].lower() in list_lower:
                 param_new.update({k: v})
     return param_new

@@ -197,8 +197,8 @@ class Fit1D(Atom):
 
     def get_profile(self):
         self.define_range()
-        self.cal_x, self.cal_spectrum = calculate_profile(self.data, self.param_dict,
-                                                          self.element_list)
+        self.cal_x, self.cal_spectrum, area_dict = calculate_profile(self.data, self.param_dict,
+                                                                     self.element_list)
         self.cal_y = np.zeros(len(self.cal_x))
         for k, v in six.iteritems(self.cal_spectrum):
             #print('component: {}'.format(k))
