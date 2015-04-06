@@ -487,8 +487,9 @@ class GuessParamModel(Atom):
                               lbd_stat=False)
             prefit_dict.update({k: ps})
 
-        logger.info('The elements from parameter guess: {}'.format(
+        logger.info('Automatic Peak Finding found elements as : {}'.format(
             prefit_dict.keys()))
+        self.EC.delete_all()
         self.EC.add_to_dict(prefit_dict)
 
     def create_full_param(self, peak_std=0.07):
@@ -504,7 +505,6 @@ class GuessParamModel(Atom):
 
         self.element_list = self.EC.get_element_list()
         self.param_new['non_fitting_values']['element_list'] = ', '.join(self.element_list)
-        #param_d = format_dict(self.parameters, self.element_list)
         self.param_new = param_dict_cleaner(self.param_new, self.element_list)
         print('element list before register: {}'.format(self.element_list))
         # create full parameter list including elements
@@ -514,9 +514,6 @@ class GuessParamModel(Atom):
 
         # to create full param dict, for GUI only
         create_full_dict(self.param_new, fit_strategy_list)
-
-        logger.info('full dict: {}'.format(self.param_new.keys()))
-        logger.info('incident energy: {}'.format(self.param_new['coherent_sct_energy']['value']))
 
         # update according to pre fit results
         if len(self.EC.element_dict):
@@ -578,12 +575,12 @@ class GuessParamModel(Atom):
             json.dump(self.param_new, outfile,
                       sort_keys=True, indent=4)
 
-    def read_pre_saved(self, fname='param_default1.json'):
-        """This is a bad idea."""
-        fpath = os.path.join(self.result_folder, fname)
-        with open(fpath, 'r') as infile:
-            data = json.load(infile)
-        return data
+    # def read_pre_saved(self, fname='param_default1.json'):
+    #     """This is a bad idea."""
+    #     fpath = os.path.join(self.result_folder, fname)
+    #     with open(fpath, 'r') as infile:
+    #         data = json.load(infile)
+    #     return data
 
 
 def save_as(file_path, data):
@@ -609,9 +606,9 @@ def calculate_profile(y0, param,
 
     x, y = trim(x0, y0, lowv, highv)
 
-    e_select, matv = construct_linear_model(x, fitting_parameters,
-                                            elemental_lines,
-                                            default_area=default_area)
+    e_select, matv, area_list = construct_linear_model(x, fitting_parameters,
+                                                       elemental_lines,
+                                                       default_area=default_area)
 
     non_element = ['compton', 'elastic']
     total_list = e_select + non_element
@@ -624,8 +621,6 @@ def calculate_profile(y0, param,
                      fitting_parameters['e_quadratic']['value'])
 
     temp_d.update(background=bg)
-    #for i in len(total_list):
-    #    temp_d[total_list[i]] = matv[:, i]
 
     x = (fitting_parameters['e_offset']['value']
          + fitting_parameters['e_linear']['value'] * x

@@ -113,8 +113,11 @@ enamldef GuessParamView(DockItem): param_view:
                         fit_model.get_new_param(param_model.param_new)
 
                         param_model.update_name_list()
+
+                        # update experimental plots
                         plot_model.parameters = param_model.param_new
                         plot_model.plot_experiment()
+
                         param_model.data_for_plot()
                         plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y,
                                                    param_model.total_y_l, param_model.total_y_m)
@@ -168,7 +171,6 @@ enamldef GuessParamView(DockItem): param_view:
             enabled = True
             #status_tip = 'Not Running.'
             clicked ::
-                param_model.EC.delete_all()
                 param_model.find_peak()
                 param_model.EC.order()
                 param_model.update_name_list()
@@ -201,22 +203,6 @@ enamldef GuessParamView(DockItem): param_view:
                 plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y,
                                            param_model.total_y_l, param_model.total_y_m)
                 plot_model._fig.canvas.draw()
-
-            #PushButton: overlap_btn:
-            #    text = 'Remove Plot'
-            #    minimum_size = (150, 20)
-            #    enabled = True
-            #    checkable = True
-            #    clicked ::
-            #        if len(param_model.total_y) == 0:
-            #            warning(self, 'Warning Dialog', 'Nothing to plot. Please make sure to run \'Find Peaks\' first')
-            #        else:
-            #            if checked:
-            #                overlap_btn.text = 'Remove Plot'
-            #                plot_model.show_autofit_opt = True
-            #            else:
-            #                overlap_btn.text = 'Overlap to Spectrum'
-            #                plot_model.show_autofit_opt = False
 
         GroupBox: pre_fit:
             padding = Box(2, 2, 2, 2)
@@ -329,9 +315,6 @@ enamldef GuessParamView(DockItem): param_view:
                                 param_model.EC.update_peak_ratio()
                                 param_model.data_for_plot()
 
-                                #param_model.create_full_param()
-
-                                #fit_model.param_dict = param_model.param_new
                                 #fit_model.get_new_param(param_model.param_new)
                                 plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y,
                                                            param_model.total_y_l, param_model.total_y_m)

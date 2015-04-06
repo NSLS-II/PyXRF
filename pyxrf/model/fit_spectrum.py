@@ -109,7 +109,6 @@ class Fit1D(Atom):
         self.param_dict = copy.deepcopy(param)
         element_list = self.param_dict['non_fitting_values']['element_list']
         self.element_list = [e.strip(' ') for e in element_list.split(',')]
-        print('get new element list : {}'.format(self.element_list))
 
         # register the strategy and extend the parameter list
         # to cover all given elements
@@ -118,7 +117,7 @@ class Fit1D(Atom):
             # register the strategy and extend the parameter list
             # to cover all given elements
             register_strategy(strat_name, strategy)
-            set_parameter_bound(self.param_dict, strat_name)
+            #set_parameter_bound(self.param_dict, strat_name)
 
     @observe('data')
     def _update_data(self, change):
@@ -355,7 +354,8 @@ def extract_strategy(param, name):
     dict :
         with given strategy as value
     """
-    return {k: v[name] for k, v in six.iteritems(param) if k != 'non_fitting_values'}
+    param_new = copy.deepcopy(param)
+    return {k: v[name] for k, v in six.iteritems(param_new) if k != 'non_fitting_values'}
 
 
 def fit_pixel_fast(data, param):
