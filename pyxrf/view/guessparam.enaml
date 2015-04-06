@@ -111,10 +111,10 @@ enamldef GuessParamView(DockItem): param_view:
                         param_model.EC.order()
 
                         fit_model.get_new_param(param_model.param_new)
-                        #fit_model.param_dict = param_model.param_new
 
                         param_model.update_name_list()
                         plot_model.parameters = param_model.param_new
+                        plot_model.plot_experiment()
                         param_model.data_for_plot()
                         plot_model.set_prefit_data(param_model.prefit_x, param_model.total_y,
                                                    param_model.total_y_l, param_model.total_y_m)
