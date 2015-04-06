@@ -50,7 +50,8 @@ from pyxrf.model.setting import SettingModel
 import json
 from pprint import pprint
 
-from .view import XRFGui
+with enaml.imports():
+    from pyxrf.view.main_window import XRFGui
 
 
 
