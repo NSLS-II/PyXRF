@@ -84,9 +84,10 @@ enamldef FitView(DockItem): fit_view:
                 hbox(lbl4, cb4, spacer),
                 hbox(lbl5, cb5, spacer),
                 #hbox(gb_strategy),
-                hbox(pb_fit, pb_plot, spacer),
-                hbox(pb_cal, spacer),
+                hbox(pb_fit, pb_cal, pb_plot, spacer),
+                #hbox(pb_cal, spacer),
                 gb_advanced,
+                gb_result,
                 hbox(saveas_btn, spacer),
                 gb_fit_pixel,
                 #hbox(cb_enable, spacer),
@@ -335,6 +336,38 @@ enamldef FitView(DockItem): fit_view:
                     enabled = False
                     ParameterEdit.parameter_model = fit_model
                     ParameterEdit().show()
+
+        GroupBox: gb_result:
+            title = 'Fitting Statistics'
+            padding = Box(5, 5, 5, 5)
+            #Form:
+            constraints = [vbox(hbox(lbl_number, lbl_number_v, lbl_var_number, lbl_var_number_v, spacer),
+                                hbox(lbl_chi, lbl_chi_v, lbl_red_chi, lbl_red_chi_v, spacer))]
+            #row_spacing = -1
+            Label: lbl_number:
+                text = '# function evals'
+                minimum_size = (140, 16)
+            Label: lbl_number_v:
+                text << str(fit_model.function_num)
+                minimum_size = (140, 16)
+            Label: lbl_var_number:
+                text = '# variables'
+                minimum_size = (140, 16)
+            Label: lbl_var_number_v:
+                text << str(fit_model.nvar)
+                minimum_size = (140, 16)
+            Label: lbl_chi:
+                text = 'chi-square'
+                minimum_size = (140, 16)
+            Label: lbl_chi_v:
+                text << str(fit_model.chi2)
+                minimum_size = (140, 16)
+            Label: lbl_red_chi:
+                text = 'reduced chi-square'
+                minimum_size = (140, 16)
+            Label: lbl_red_chi_v:
+                text << str(fit_model.red_chi2)
+                minimum_size = (140, 16)
 
         PushButton: saveas_btn:
             text = 'Save As'
