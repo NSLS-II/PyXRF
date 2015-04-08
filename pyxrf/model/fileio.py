@@ -69,6 +69,7 @@ class FileIOModel(Atom):
         Dict has filename as key and group data as value.
     """
     working_directory = Str()
+    output_directory = Str()
     data_file = Str()
     file_names = List()
     file_path = Str()
@@ -84,14 +85,25 @@ class FileIOModel(Atom):
     data_sets_fit = Typed(OrderedDict)
 
     def __init__(self,
-                 working_directory=None,
+                 working_directory=None, output_directory=None,
                  data_file=None, *args, **kwargs):
         if working_directory is None:
             working_directory = os.path.expanduser('~')
 
+        if output_directory is None:
+            output_directory = working_directory
+
+        self.working_directory = working_directory
+        self.output_directory = output_directory
+
         with self.suppress_notifications():
-            self.working_directory = working_directory
             self.data_file = data_file
+
+    @observe('working_directory')
+    def working_directory_changed(self, changed):
+        # make sure that the output directory stays in sync with working
+        # directory changes
+        self.output_directory = self.working_directory
 
     @observe('file_names')
     def update_more_data(self, change):

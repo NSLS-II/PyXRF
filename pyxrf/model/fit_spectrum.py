@@ -104,6 +104,19 @@ class Fit1D(Atom):
         self.result_folder = kwargs['working_directory']
         self.all_strategy = OrderedDict()
 
+    def result_folder_changed(self, changed):
+        """
+        Observer function to be connected to the fileio model in the top-level
+        gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function with the
+            @observe decorator
+        """
+        self.result_folder = changed['value']
+
     @observe('selected_element')
     def _selected_element_changed(self, changed):
         element = self.selected_element.split('_')[0]

@@ -428,6 +428,19 @@ class GuessParamModel(Atom):
                 temp_dict.update({e: ps})
         self.EC.add_to_dict(temp_dict)
 
+    def result_folder_changed(self, changed):
+        """
+        Observer function to be connected to the fileio model in the top-level
+        gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function with the
+            @observe decorator
+        """
+        self.result_folder = changed['value']
+
     @observe('file_opt')
     def choose_file(self, change):
         if self.file_opt == 0:

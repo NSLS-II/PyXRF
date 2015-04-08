@@ -80,7 +80,6 @@ enamldef FileView(DockItem): file_view:
                     path = FileDialogEx.get_existing_directory(file_view)
                     if path:
                         io_model.working_directory = path
-                        fit_model.result_folder = path
             Field: folder_fd:
                 text := io_model.working_directory
             PushButton: files_btn:
@@ -128,11 +127,10 @@ enamldef FileView(DockItem): file_view:
                 clicked ::
                     path = FileDialogEx.get_existing_directory(file_view)
                     if path:
-                        param_model.result_folder = path
-                        fit_model.result_folder = path
+                        io_model.output_directory = path
                         fd_out.text = path
             Field: fd_out:
-                text << fit_model.result_folder
+                text << io_model.output_directory
 
             #Label: name_lb:
             #    text = ''
