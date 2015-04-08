@@ -33,6 +33,9 @@
 # POSSIBILITY OF SUCH DAMAGE.                                          #
 ########################################################################
 
+from __future__ import (absolute_import, division,
+                        print_function)
+
 __author__ = 'Li Li'
 
 import six
@@ -75,7 +78,10 @@ class FileIOModel(Atom):
     img_dict = Dict()
     img_dict_flat = Dict()
 
-    data_sets = OrderedDict()
+    file_channel_list = List()
+
+    data_sets = Typed(OrderedDict)
+    data_sets_fit = Typed(OrderedDict)
 
     def __init__(self,
                  working_directory=None,
@@ -89,44 +95,14 @@ class FileIOModel(Atom):
 
     @observe('file_names')
     def update_more_data(self, change):
-        self.data_sets.clear()
+        self.file_channel_list = []
         self.file_names.sort()
         logger.info('Loaded files : {}'.format(self.file_names))
 
-        #detID = 'det1'
-        detID = 'detector'
+        self.data_dict, self.data_sets_fit, self.data_sets = read_hdf_HXN(self.working_directory,
+                                                                          self.file_names)
 
-        for fname in self.file_names:
-            try:
-                self.file_path = os.path.join(self.working_directory, fname)
-                f = h5py.File(self.file_path, 'r+')
-                #data = f['MAPS']
-                #data = f['xrfmap']
-                data = f['entry/instrument']
-                exp_data = np.asarray(data[detID]['data'])
-                logger.info('File : {} with total counts {}'.format(fname, np.sum(exp_data)))
-                #exp_data = np.reshape(exp_data, [2, 4, 4096])
-                # dict has filename as key and group data as value
-
-                self.data_dict.update({fname: data})
-                DS = DataSelection(filename=fname,
-                                   raw_data=exp_data)
-                self.data_sets.update({fname: DS})
-
-                # get roi sum data
-                #roi_result = get_roi_sum(data[detID]['roi_name'].value,
-                #                         data[detID]['roi_limits'].value,
-                #                         data[detID]['counts'])
-                #self.img_dict_flat.update({fname.split('.')[0]+'_roi': roi_result})
-
-                # read fitting results
-                if 'xrf_fit' in data[detID]:
-                    fit_result = get_fit_data(data[detID]['xrf_fit_name'].value,
-                                              data[detID]['xrf_fit'].value)
-                    self.img_dict_flat.update({fname.split('.')[0]+'_fit': fit_result})
-
-            except ValueError:
-                continue
+        self.file_channel_list = self.data_sets.keys()
 
     def get_roi_data(self):
         """
@@ -148,6 +124,79 @@ def get_roi_sum(namelist, data_range, data):
         data_sum = np.sum(data[:, :, lowv: highv], axis=2)
         data_temp.update({namelist[i].replace(' ', '_'): data_sum})
     return data_temp
+
+
+def read_hdf_HXN(working_directory, file_names, channel_num=8):
+    """
+    Data IO for HXN temporary datasets. This might be changed later.
+
+    Parameters
+    ----------
+    working_directory : str
+        path folder
+    file_names : list
+        list of chosen files
+    channel_num : int, optional
+        detector channel number
+
+    Returns
+    -------
+    data_dict : dict
+        with fitting data
+    data_sets_fit : dict
+        summed data of all channels, file dependent, for fitting purpose
+    data_sets : dict
+        data from all channels, for plotting purpose
+    """
+    data_dict = OrderedDict()
+    data_sets_fit = OrderedDict()
+    data_sets = OrderedDict()
+
+    for fname in file_names:
+        try:
+            file_path = os.path.join(working_directory, fname)
+            f = h5py.File(file_path, 'r+')
+            #data = f['MAPS']
+            #data = f['xrfmap']
+            data = f['entry/instrument']
+            exp_data = np.asarray(data['detector/data'])
+            logger.info('File : {} with total counts {}'.format(fname, np.sum(exp_data)))
+            #exp_data = np.reshape(exp_data, [2, 4, 4096])
+            # dict has filename as key and group data as value
+
+            data_dict.update({fname: data})
+
+            fname = fname.split('.')[0]
+
+            # for fitting
+            DS = DataSelection(filename=fname,
+                               raw_data=exp_data)
+            data_sets_fit.update({fname: DS})
+
+            #plot each channel, for plotting purposes
+            data_sets.update({fname: DS})
+            for i in range(channel_num):
+                file_channel = fname+'_channel_'+str(i+1)
+                exp_data_new = np.reshape(exp_data[0, i, :], [1, 1, exp_data[0, i, :].size])
+                DS = DataSelection(filename=file_channel,
+                                   raw_data=exp_data_new)
+                data_sets.update({file_channel: DS})
+
+            # get roi sum data
+            #roi_result = get_roi_sum(data[detID]['roi_name'].value,
+            #                         data[detID]['roi_limits'].value,
+            #                         data[detID]['counts'])
+            #self.img_dict_flat.update({fname.split('.')[0]+'_roi': roi_result})
+
+            # read fitting results
+            # if 'xrf_fit' in data[detID]:
+            #     fit_result = get_fit_data(data[detID]['xrf_fit_name'].value,
+            #                               data[detID]['xrf_fit'].value)
+            #     self.img_dict_flat.update({fname.split('.')[0]+'_fit': fit_result})
+
+        except ValueError:
+            continue
+    return data_dict, data_sets_fit, data_sets
 
 
 def get_fit_data(namelist, data):

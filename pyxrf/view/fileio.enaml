@@ -95,7 +95,7 @@ enamldef FileView(DockItem): file_view:
 
                         # do not import original data for 2D image
                         img_model_adv.data_dict = io_model.img_dict_flat
-                        param_model.data_sets = io_model.data_sets
+                        param_model.data_sets = io_model.data_sets_fit
                         plot_model.parameters = param_model.param_new
                         setting_model.parameters = param_model.param_new
                         setting_model.data_sets = io_model.data_sets
@@ -142,7 +142,8 @@ enamldef FileView(DockItem): file_view:
                 #Form:
                 Container:
                     Looper: looper:
-                        iterable << sorted(io_model.file_names) #sorted(io_model.data_sets.keys())
+                        #iterable << sorted(io_model.file_names) #sorted(io_model.data_sets.keys())
+                        iterable << sorted(io_model.file_channel_list)
                         #Container:
                         GroupBox:
                             title = '{}, data shape: {}'.format(loop_item, io_model.data_sets[loop_item].raw_data.shape)
