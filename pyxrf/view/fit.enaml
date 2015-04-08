@@ -45,7 +45,6 @@ from enaml.widgets.api import (Container, PushButton, Label,
 from enaml.widgets.api import RadioButton as DefaultRadioButton
 
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer
-from auto_enaml.api import AutoView
 from enaml.stdlib.fields import FloatField
 from enaml.layout.geometry import Box
 from enaml.core.api import Include, Looper
@@ -84,9 +83,10 @@ enamldef FitView(DockItem): fit_view:
                 hbox(lbl4, cb4, spacer),
                 hbox(lbl5, cb5, spacer),
                 #hbox(gb_strategy),
-                hbox(pb_fit, pb_plot, spacer),
-                hbox(pb_cal, spacer),
+                hbox(pb_fit, pb_cal, pb_plot, spacer),
+                #hbox(pb_cal, spacer),
                 gb_advanced,
+                gb_result,
                 hbox(saveas_btn, spacer),
                 gb_fit_pixel,
                 #hbox(cb_enable, spacer),
@@ -292,8 +292,8 @@ enamldef FitView(DockItem): fit_view:
                 plot_model.residual = fit_model.residual
 
                 plot_model.plot_fit()
-                plot_model.show_fit_opt = False
-                plot_model.show_fit_opt = True
+                #plot_model.show_fit_opt = False
+                #plot_model.show_fit_opt = True
 
         PushButton: pb_plot:
             text = 'Overlap to Spectrum'
@@ -335,6 +335,38 @@ enamldef FitView(DockItem): fit_view:
                     enabled = False
                     ParameterEdit.parameter_model = fit_model
                     ParameterEdit().show()
+
+        GroupBox: gb_result:
+            title = 'Fitting Statistics'
+            padding = Box(5, 5, 5, 5)
+            #Form:
+            constraints = [vbox(hbox(lbl_number, lbl_number_v, lbl_var_number, lbl_var_number_v, spacer),
+                                hbox(lbl_chi, lbl_chi_v, lbl_red_chi, lbl_red_chi_v, spacer))]
+            #row_spacing = -1
+            Label: lbl_number:
+                text = '# function evals'
+                minimum_size = (140, 16)
+            Label: lbl_number_v:
+                text << str(fit_model.function_num)
+                minimum_size = (140, 16)
+            Label: lbl_var_number:
+                text = '# variables'
+                minimum_size = (140, 16)
+            Label: lbl_var_number_v:
+                text << str(fit_model.nvar)
+                minimum_size = (140, 16)
+            Label: lbl_chi:
+                text = 'chi-square'
+                minimum_size = (140, 16)
+            Label: lbl_chi_v:
+                text << str(fit_model.chi2)
+                minimum_size = (140, 16)
+            Label: lbl_red_chi:
+                text = 'reduced chi-square'
+                minimum_size = (140, 16)
+            Label: lbl_red_chi_v:
+                text << str(fit_model.red_chi2)
+                minimum_size = (140, 16)
 
         PushButton: saveas_btn:
             text = 'Save As'
@@ -532,61 +564,6 @@ enamldef ParameterEdit(Window):
                             index ::
                                 if cb_strat6.index > 0:
                                     parameter_model.param_dict[loop_item][fit_strategy_list[6]] = cb_strat6.items[cb_strat6.index]
-
-enamldef ElementEdit0(Window):
-    attr parameter_model
-    destroy_on_close = False
-    Container:
-        padding = Box(5, 5, 5, 5)
-        ComboBox: cmb1:
-            #items << sorted(parameter_model.parameters.keys())
-            items << ['Select Element'] + sorted([v.split('_')[0] for v in parameter_model.element_list])
-            index = 0
-        ComboBox: cmb2:
-            items << [' '] + sorted([v for v in parameter_model.parameters.keys() if cmb1.selected_item in v])
-            index = 0
-            selected_item ::
-                av.model = parameter_model.parameters[selected_item]
-        GroupBox:
-            AutoView: av:
-                padding = Box(15, 15, 15, 15)
-                model = parameter_model.parameters.values()[0]
-                #padding = 30
-        PushButton: pb:
-            text = "Apply"
-            maximum_size = 200
-            clicked ::
-                parameter_model.update_param_dict()
-
-        #PushButton: save:
-        #    text = "Save changes to disk"
-        #    clicked ::
-        #        parameter_model.param_new = format_dict(parameter_model.parameters,
-        #                                                parameter_model.element_list)
-        #        parameter_model.save()
-        #        #save_defaults(parameter_model)
-
-
-enamldef ParameterEdit0(Window):
-    attr parameter_model
-    destroy_on_close = False
-    Container:
-        padding = Box(5, 5, 5, 5)
-        ComboBox: cmb1:
-            items << [' '] + sorted([v for v in parameter_model.parameters.keys() if v.lower()==v])
-            index = 0
-            selected_item ::
-                av.model = parameter_model.parameters[selected_item]
-        GroupBox:
-            AutoView: av:
-                padding = Box(15, 15, 15, 15)
-                model = parameter_model.parameters.values()[0]
-            #padding = 30
-        PushButton: pb:
-            text = "Apply"
-            maximum_size = 200
-            clicked ::
-                parameter_model.update_param_dict()
 
 
 def save_defaults(parameter_model):

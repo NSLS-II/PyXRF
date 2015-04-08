@@ -95,6 +95,11 @@ class Fit1D(Atom):
     selected_element = Str()
     selected_elements = List()
 
+    function_num = Int(0)
+    nvar = Int(0)
+    chi2 = Float(0.0)
+    red_chi2 = Float(0.0)
+
     def __init__(self, *args, **kwargs):
         self.result_folder = kwargs['working_directory']
         self.all_strategy = OrderedDict()
@@ -109,7 +114,6 @@ class Fit1D(Atom):
         self.param_dict = copy.deepcopy(param)
         element_list = self.param_dict['non_fitting_values']['element_list']
         self.element_list = [e.strip(' ') for e in element_list.split(',')]
-        print('get new element list : {}'.format(self.element_list))
 
         # register the strategy and extend the parameter list
         # to cover all given elements
@@ -118,7 +122,7 @@ class Fit1D(Atom):
             # register the strategy and extend the parameter list
             # to cover all given elements
             register_strategy(strat_name, strategy)
-            set_parameter_bound(self.param_dict, strat_name)
+            #set_parameter_bound(self.param_dict, strat_name)
 
     @observe('data')
     def _update_data(self, change):
@@ -198,8 +202,8 @@ class Fit1D(Atom):
 
     def get_profile(self):
         self.define_range()
-        self.cal_x, self.cal_spectrum = calculate_profile(self.data, self.param_dict,
-                                                          self.element_list)
+        self.cal_x, self.cal_spectrum, area_dict = calculate_profile(self.data, self.param_dict,
+                                                                     self.element_list)
         self.cal_y = np.zeros(len(self.cal_x))
         for k, v in six.iteritems(self.cal_spectrum):
             #print('component: {}'.format(k))
@@ -263,6 +267,13 @@ class Fit1D(Atom):
         t1 = time.time()
         logger.warning('Time used for fitting is : {}'.format(t1-t0))
         self.save_result()
+        self.assign_fitting_result()
+
+    def assign_fitting_result(self):
+        self.function_num = self.fit_result.nfev
+        self.nvar = self.fit_result.nvarys
+        self.chi2 = np.around(self.fit_result.chisqr, 2)
+        self.red_chi2 = np.around(self.fit_result.redchi, 2)
 
     def fit_single_pixel(self):
         """
@@ -280,10 +291,6 @@ class Fit1D(Atom):
         fpath = os.path.join(self.result_folder, 'Root.h5')
         write_to_hdf(fpath, result_map)
 
-        #import matplotlib.pyplot as plt
-        #plt.imshow(result_map['Fe_K'])
-        #plt.show()
-
         # currently save data using pickle, need to be updated
         import pickle
         fpath = os.path.join(self.result_folder, 'root_data')
@@ -291,6 +298,8 @@ class Fit1D(Atom):
 
     def save_result(self, fname=None):
         """
+        Save fitting results.
+
         Parameters
         ----------
         fname : str, optional
@@ -299,6 +308,9 @@ class Fit1D(Atom):
         if not fname:
             fname = self.data_title+'_out.txt'
         filepath = os.path.join(self.result_folder, fname)
+
+        print('fit result: {}'.format(self.fit_result.redchi))
+
         with open(filepath, 'w') as myfile:
             myfile.write(fit_report(self.fit_result, sort_pars=True))
             logger.warning('Results are saved to {}'.format(filepath))
@@ -355,7 +367,8 @@ def extract_strategy(param, name):
     dict :
         with given strategy as value
     """
-    return {k: v[name] for k, v in six.iteritems(param) if k != 'non_fitting_values'}
+    param_new = copy.deepcopy(param)
+    return {k: v[name] for k, v in six.iteritems(param_new) if k != 'non_fitting_values'}
 
 
 def fit_pixel_fast(data, param):
