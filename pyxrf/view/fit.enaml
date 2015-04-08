@@ -45,7 +45,6 @@ from enaml.widgets.api import (Container, PushButton, Label,
 from enaml.widgets.api import RadioButton as DefaultRadioButton
 
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer
-from auto_enaml.api import AutoView
 from enaml.stdlib.fields import FloatField
 from enaml.layout.geometry import Box
 from enaml.core.api import Include, Looper
@@ -565,61 +564,6 @@ enamldef ParameterEdit(Window):
                             index ::
                                 if cb_strat6.index > 0:
                                     parameter_model.param_dict[loop_item][fit_strategy_list[6]] = cb_strat6.items[cb_strat6.index]
-
-enamldef ElementEdit0(Window):
-    attr parameter_model
-    destroy_on_close = False
-    Container:
-        padding = Box(5, 5, 5, 5)
-        ComboBox: cmb1:
-            #items << sorted(parameter_model.parameters.keys())
-            items << ['Select Element'] + sorted([v.split('_')[0] for v in parameter_model.element_list])
-            index = 0
-        ComboBox: cmb2:
-            items << [' '] + sorted([v for v in parameter_model.parameters.keys() if cmb1.selected_item in v])
-            index = 0
-            selected_item ::
-                av.model = parameter_model.parameters[selected_item]
-        GroupBox:
-            AutoView: av:
-                padding = Box(15, 15, 15, 15)
-                model = parameter_model.parameters.values()[0]
-                #padding = 30
-        PushButton: pb:
-            text = "Apply"
-            maximum_size = 200
-            clicked ::
-                parameter_model.update_param_dict()
-
-        #PushButton: save:
-        #    text = "Save changes to disk"
-        #    clicked ::
-        #        parameter_model.param_new = format_dict(parameter_model.parameters,
-        #                                                parameter_model.element_list)
-        #        parameter_model.save()
-        #        #save_defaults(parameter_model)
-
-
-enamldef ParameterEdit0(Window):
-    attr parameter_model
-    destroy_on_close = False
-    Container:
-        padding = Box(5, 5, 5, 5)
-        ComboBox: cmb1:
-            items << [' '] + sorted([v for v in parameter_model.parameters.keys() if v.lower()==v])
-            index = 0
-            selected_item ::
-                av.model = parameter_model.parameters[selected_item]
-        GroupBox:
-            AutoView: av:
-                padding = Box(15, 15, 15, 15)
-                model = parameter_model.parameters.values()[0]
-            #padding = 30
-        PushButton: pb:
-            text = "Apply"
-            maximum_size = 200
-            clicked ::
-                parameter_model.update_param_dict()
 
 
 def save_defaults(parameter_model):

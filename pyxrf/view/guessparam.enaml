@@ -44,7 +44,6 @@ from enaml.layout.api import (hbox, vbox, HSplitLayout, VSplitLayout,
 from enaml.core.api import Include, Looper
 from enaml.stdlib.fields import FloatField as DefaultFloatField
 from enaml.layout.geometry import Box
-from auto_enaml.api import AutoView
 from enaml.stdlib.message_box import MessageBox, warning, information
 
 import numpy as np
