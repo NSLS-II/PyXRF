@@ -57,7 +57,16 @@ logger = logging.getLogger(__name__)
 
 
 def get_color_name():
-    return matplotlib.colors.cnames.keys()
+
+    # usually line plot will not go beyond 10
+    first_ten = ['indigo', 'black', 'darkblue', 'darkgoldenrod', 'blue',
+                 'darkcyan', 'green', 'maroon', 'sandybrown', 'darkolivegreen']
+
+    # Avoid red color, as those color conflict with emission lines' color.
+    nonred_list = [v for v in matplotlib.colors.cnames.keys()
+                   if 'pink' not in v and 'fire' not in v and
+                   'sage' not in v and 'tomato' not in v and 'red' not in v]
+    return first_ten + nonred_list + matplotlib.colors.cnames.keys()
 
 
 class LinePlotModel(Atom):
@@ -159,7 +168,7 @@ class LinePlotModel(Atom):
         self._fig = plt.figure()
 
         self._ax = self._fig.add_subplot(111)
-        #self._ax.set_axis_bgcolor('black')
+        self._ax.set_axis_bgcolor('lightgrey')
         self._ax.legend(loc=2)
 
         self._ax.set_xlabel('Energy [keV]')
@@ -180,7 +189,7 @@ class LinePlotModel(Atom):
             'k_line': {'color': 'green', 'label': 'k lines'},
             'l_line': {'color': 'purple', 'label': 'l lines'},
             'm_line': {'color': 'orange', 'label': 'm lines'},
-            'compton': {'color': 'cyan', 'label': 'compton'},
+            'compton': {'color': 'darkcyan', 'label': 'compton'},
             'elastic': {'color': '#b66718', 'label': 'elastic'},
             'auto_fit': {'color': 'black', 'label': 'auto fitted'},
             'fit': {'color': 'black', 'label': 'fitted'}
@@ -263,8 +272,10 @@ class LinePlotModel(Atom):
 
         for i, (k, v) in enumerate(six.iteritems(self.data_sets)):
             if v.plot_index:
+
                 data_arr = np.asarray(v.data)
                 self.max_v = np.max(data_arr)
+
                 x_v = (self.parameters['e_offset']['value'] +
                        np.arange(len(data_arr)) *
                        self.parameters['e_linear']['value'] +

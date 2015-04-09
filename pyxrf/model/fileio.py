@@ -236,12 +236,12 @@ class DataSelection(Atom):
         experiment 3D data
     data : array
     plot_index : int
+        plot data or not, sum or roi or point
     """
     filename = Str()
     plot_choice = Enum(*plot_as)
     point1 = Str('0, 0')
     point2 = Str('0, 0')
-    #roi = List()
     raw_data = Typed(np.ndarray)
     data = Typed(np.ndarray)
     plot_index = Int(0)
