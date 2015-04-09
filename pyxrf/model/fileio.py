@@ -126,7 +126,8 @@ def get_roi_sum(namelist, data_range, data):
     return data_temp
 
 
-def read_hdf_HXN(working_directory, file_names, channel_num=8):
+def read_hdf_HXN(working_directory,
+                 file_names, channel_num=8):
     """
     Data IO for HXN temporary datasets. This might be changed later.
 
@@ -236,12 +237,12 @@ class DataSelection(Atom):
         experiment 3D data
     data : array
     plot_index : int
+        plot data or not, sum or roi or point
     """
     filename = Str()
     plot_choice = Enum(*plot_as)
     point1 = Str('0, 0')
     point2 = Str('0, 0')
-    #roi = List()
     raw_data = Typed(np.ndarray)
     data = Typed(np.ndarray)
     plot_index = Int(0)
