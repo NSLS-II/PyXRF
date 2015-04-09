@@ -126,7 +126,8 @@ def get_roi_sum(namelist, data_range, data):
     return data_temp
 
 
-def read_hdf_HXN(working_directory, file_names, channel_num=8):
+def read_hdf_HXN(working_directory,
+                 file_names, channel_num=8):
     """
     Data IO for HXN temporary datasets. This might be changed later.
 

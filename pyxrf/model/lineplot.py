@@ -270,7 +270,8 @@ class LinePlotModel(Atom):
 
         color_n = get_color_name()
 
-        for i, (k, v) in enumerate(six.iteritems(self.data_sets)):
+        m = 0
+        for (k, v) in six.iteritems(self.data_sets):
             if v.plot_index:
 
                 data_arr = np.asarray(v.data)
@@ -283,9 +284,10 @@ class LinePlotModel(Atom):
                        self.parameters['e_quadratic']['value'])
 
                 plot_exp_obj, = self._ax.plot(x_v, data_arr,
-                                              color=color_n[i],
+                                              color=color_n[m],
                                               label=v.filename.split('.')[0])
                 self.plot_exp_list.append(plot_exp_obj)
+                m += 1
 
     @observe('show_exp_opt')
     def _update_exp(self, change):
@@ -327,13 +329,12 @@ class LinePlotModel(Atom):
             self._fig.canvas.draw()
             return
 
+        incident_energy = self.incident_energy
+
         self.elist = []
         total_list = K_LINE + L_LINE + M_LINE
-        logger.debug('Plot emission line for element: {}'.format(self.element_id))
+        logger.info('Plot emission line for element: {} with incident energy {}'.format(self.element_id, incident_energy))
         ename = total_list[self.element_id-1]
-
-        incident_energy = self.incident_energy
-        logger.info('Use incident energy {} for emission line calculation.'.format(incident_energy))
 
         if '_K' in ename:
             e = Element(ename[:-2])
