@@ -69,6 +69,8 @@ def get_color_name():
     return first_ten + nonred_list + matplotlib.colors.cnames.keys()
 
 
+
+
 class LinePlotModel(Atom):
     """
     This class performs all the required line plots.
@@ -156,6 +158,8 @@ class LinePlotModel(Atom):
     roi_plot_dict = Dict()
     roi_dict = Typed(object) #OrderedDict()
 
+    log_range = List()
+    linear_range = List()
     #prefix_name_roi = Str()
     #element_for_roi = Str()
     #element_list_roi = List()
@@ -177,9 +181,9 @@ class LinePlotModel(Atom):
         self.plot_type = ['LinLog', 'Linear']
 
         self._ax.autoscale_view(tight=True)
-        self.max_v = 1.0
         self._color_config()
         self._fig.tight_layout(pad=0.5)
+        self.max_v = 1.0
 
     def _color_config(self):
         self.plot_style = {
@@ -196,6 +200,16 @@ class LinePlotModel(Atom):
         }
 
     def _update_canvas(self):
+        # manually define y limit, from experience
+        log_range = [self.max_v*1e-6, self.max_v*10.0]
+        linear_range = [-0.15*self.max_v, self.max_v*1.2]
+        if self.plot_type[self.scale_opt] == 'LinLog':
+            self._ax.set_yscale('log')
+            self._ax.set_ylim(log_range)
+        else:
+            self._ax.set_yscale('linear')
+            self._ax.set_ylim(linear_range)
+
         self._ax.legend(loc=2)
         #lg = self._ax.get_legend()
         #lg.set_alpha(0.005)
@@ -215,18 +229,12 @@ class LinePlotModel(Atom):
 
     @observe('scale_opt')
     def _new_opt(self, change):
-        if self.plot_type[change['value']] == 'LinLog':
-            self._ax.set_yscale('log')
-            self._ax.set_ylim([self.max_v*1e-6, self.max_v*10.0])
-        else:
-            self._ax.set_yscale('linear')
-            self._ax.set_ylim([-0.15*self.max_v, self.max_v*1.2])
         self._update_canvas()
 
     @observe('data')
     def data_update(self, change):
         self.max_v = np.max(self.data)
-        self._ax.set_ylim([self.max_v*1e-6, self.max_v*10.0])
+        self._update_canvas()
 
     @observe('plot_exp_opt')
     def _new_exp_plot_opt(self, change):
@@ -245,6 +253,7 @@ class LinePlotModel(Atom):
         """
         PLot raw experiment data for fitting.
         """
+
         try:
             self.plot_exp_obj.remove()
             logger.debug('Previous experimental data is removed.')
@@ -252,6 +261,7 @@ class LinePlotModel(Atom):
             logger.debug('No need to remove experimental data.')
 
         data_arr = np.asarray(self.data)
+        self.max_v = np.max(data_arr)
         x_v = (self.parameters['e_offset']['value'] +
                np.arange(len(data_arr)) *
                self.parameters['e_linear']['value'] +
@@ -275,7 +285,7 @@ class LinePlotModel(Atom):
             if v.plot_index:
 
                 data_arr = np.asarray(v.data)
-                self.max_v = np.max(data_arr)
+                self.max_v = np.max([self.max_v, np.max(data_arr)])
 
                 x_v = (self.parameters['e_offset']['value'] +
                        np.arange(len(data_arr)) *
@@ -288,6 +298,7 @@ class LinePlotModel(Atom):
                                               label=v.filename.split('.')[0])
                 self.plot_exp_list.append(plot_exp_obj)
                 m += 1
+        self._update_canvas()
 
     @observe('show_exp_opt')
     def _update_exp(self, change):
@@ -333,7 +344,7 @@ class LinePlotModel(Atom):
 
         self.elist = []
         total_list = K_LINE + L_LINE + M_LINE
-        logger.info('Plot emission line for element: {} with incident energy {}'.format(self.element_id, incident_energy))
+        logger.debug('Plot emission line for element: {} with incident energy {}'.format(self.element_id, incident_energy))
         ename = total_list[self.element_id-1]
 
         if '_K' in ename:
