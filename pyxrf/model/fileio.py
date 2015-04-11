@@ -184,6 +184,7 @@ def read_hdf_HXN(working_directory,
             # for fitting
             DS = DataSelection(filename=fname,
                                raw_data=exp_data)
+            print('shape: {}'.format(exp_data.shape))
             data_sets_fit.update({fname: DS})
 
             #plot each channel, for plotting purposes

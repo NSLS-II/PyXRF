@@ -158,8 +158,6 @@ class LinePlotModel(Atom):
     roi_plot_dict = Dict()
     roi_dict = Typed(object) #OrderedDict()
 
-    log_range = List()
-    linear_range = List()
     #prefix_name_roi = Str()
     #element_for_roi = Str()
     #element_list_roi = List()
@@ -253,7 +251,6 @@ class LinePlotModel(Atom):
         """
         PLot raw experiment data for fitting.
         """
-
         try:
             self.plot_exp_obj.remove()
             logger.debug('Previous experimental data is removed.')
