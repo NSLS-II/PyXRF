@@ -208,8 +208,10 @@
     }, 
     "non_fitting_values": {
         "element_list": "Fe, Ar, Co, Ca, Gd_L, Ce_L",
-	"energy_bound_low": {"value": 1.5, "default_value": 1.5, "description": "E low [keV]"}, 
-        "energy_bound_high": {"value": 13.5, "default_value": 13.5, "description": "E high [keV]"},
-	"electron_hole_energy": 3.51
+	    "energy_bound_low": {
+            "value": 1.5, "default_value": 1.5, "description": "E low [keV]"},
+        "energy_bound_high": {
+            "value": 13.5, "default_value": 13.5, "description": "E high [keV]"},
+        "epsilon": 3.51
     }
 }

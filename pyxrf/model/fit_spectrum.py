@@ -423,8 +423,8 @@ def fit_pixel_fast(data, param):
         logger.info('Row number at {} out of total {}'.format(i, datas[0]))
         for j in xrange(datas[1]):
             #logger.info('Column number at {} out of total {}'.format(j, datas[1]))
-            x, result = linear_spectrum_fitting(data[i, j, :], param,
-                                                elemental_lines=elist, constant_weight=5)
+            x, result, area_v = linear_spectrum_fitting(data[i, j, :], param,
+                                                        elemental_lines=elist, constant_weight=5)
             for v in total_list:
                 if v in result:
                     result_map[v][i, j] = np.sum(result[v])

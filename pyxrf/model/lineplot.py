@@ -69,8 +69,6 @@ def get_color_name():
     return first_ten + nonred_list + matplotlib.colors.cnames.keys()
 
 
-
-
 class LinePlotModel(Atom):
     """
     This class performs all the required line plots.
@@ -162,6 +160,7 @@ class LinePlotModel(Atom):
     linear_range = List()
     plot_escape_line = Int(0)
     emission_line_window = Bool(True)
+    escape_e = Float()
     #prefix_name_roi = Str()
     #element_for_roi = Str()
     #element_list_roi = List()
@@ -187,6 +186,7 @@ class LinePlotModel(Atom):
         self._color_config()
         self._fig.tight_layout(pad=0.5)
         self.max_v = 1.0
+        self.escape_e = 1.73998
         #self._ax.margins(x=0.0, y=0.10)
 
     def _color_config(self):
@@ -238,19 +238,20 @@ class LinePlotModel(Atom):
         if self.plot_type[self.scale_opt] == 'LinLog':
             self._ax.set_yscale('log')
             self._ax.margins(x=0.0, y=0.5)
-            self._ax.autoscale_view(tight=True)
-            self._ax.relim(visible_only=True)
-            #self._ax.set_ylim(self.log_range)
+            #self._ax.autoscale_view(tight=True)
+            #self._ax.relim(visible_only=True)
+            self._ax.set_ylim(self.log_range)
         else:
             self._ax.set_yscale('linear')
             self._ax.margins(x=0.0, y=0.10)
-            self._ax.autoscale_view(tight=True)
-            self._ax.relim(visible_only=True)
-            #self._ax.set_ylim(self.linear_range)
+            #self._ax.autoscale_view(tight=True)
+            #self._ax.relim(visible_only=True)
+            self._ax.set_ylim(self.linear_range)
 
     @observe('data')
     def data_update(self, change):
         self.max_v = np.max(self.data)
+        self._update_ylimit()
         self.log_linear_plot()
         self._update_canvas()
 
@@ -316,7 +317,7 @@ class LinePlotModel(Atom):
                 self.plot_exp_list.append(plot_exp_obj)
                 m += 1
 
-        #self._update_ylimit()
+        self._update_ylimit()
         self.log_linear_plot()
         self._update_canvas()
 
@@ -341,11 +342,13 @@ class LinePlotModel(Atom):
     def plot_emission_line(self):
         """
         Plot emission line and escape peaks associated with given lines.
+        The value of self.max_v is needed in this function in order to plot
+        the relative height of each emission line.
         """
         while(len(self.eline_obj)):
             self.eline_obj.pop().remove()
 
-        escape_e = 1.73998
+        escape_e = self.escape_e
 
         if len(self.elist):
             self._ax.hold(True)
