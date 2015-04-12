@@ -158,6 +158,10 @@ class LinePlotModel(Atom):
     roi_plot_dict = Dict()
     roi_dict = Typed(object) #OrderedDict()
 
+    log_range = List()
+    linear_range = List()
+    plot_escape_line = Int(0)
+    emission_line_window = Bool(True)
     #prefix_name_roi = Str()
     #element_for_roi = Str()
     #element_list_roi = List()
@@ -182,6 +186,7 @@ class LinePlotModel(Atom):
         self._color_config()
         self._fig.tight_layout(pad=0.5)
         self.max_v = 1.0
+        #self._ax.margins(x=0.0, y=0.10)
 
     def _color_config(self):
         self.plot_style = {
@@ -198,22 +203,18 @@ class LinePlotModel(Atom):
         }
 
     def _update_canvas(self):
-        # manually define y limit, from experience
-        log_range = [self.max_v*1e-6, self.max_v*10.0]
-        linear_range = [-0.15*self.max_v, self.max_v*1.2]
-        if self.plot_type[self.scale_opt] == 'LinLog':
-            self._ax.set_yscale('log')
-            self._ax.set_ylim(log_range)
-        else:
-            self._ax.set_yscale('linear')
-            self._ax.set_ylim(linear_range)
-
         self._ax.legend(loc=2)
         #lg = self._ax.get_legend()
         #lg.set_alpha(0.005)
         self._ax.legend(framealpha=0.2)
         self._fig.tight_layout(pad=0.5)
+        self._ax.margins(x=0.0, y=0.10)
         self._fig.canvas.draw()
+
+    def _update_ylimit(self):
+        # manually define y limit, from experience
+        self.log_range = [self.max_v*1e-6, self.max_v*10.0]
+        self.linear_range = [-0.15*self.max_v, self.max_v*1.2]
 
     @observe('exp_data_label')
     def _update_exp_label(self, change):
@@ -227,11 +228,25 @@ class LinePlotModel(Atom):
 
     @observe('scale_opt')
     def _new_opt(self, change):
+        self.log_linear_plot()
         self._update_canvas()
+
+    def log_linear_plot(self):
+        if self.plot_type[self.scale_opt] == 'LinLog':
+            self._ax.set_yscale('log')
+            #self._ax.margins(x=0.0, y=1.0)
+            #self._ax.relim()
+            self._ax.set_ylim(self.log_range)
+        else:
+            self._ax.set_yscale('linear')
+            #self._ax.margins(x=0.0, y=0.10)
+            #self._ax.relim()
+            self._ax.set_ylim(self.linear_range)
 
     @observe('data')
     def data_update(self, change):
         self.max_v = np.max(self.data)
+        self.log_linear_plot()
         self._update_canvas()
 
     @observe('plot_exp_opt')
@@ -295,6 +310,9 @@ class LinePlotModel(Atom):
                                               label=v.filename.split('.')[0])
                 self.plot_exp_list.append(plot_exp_obj)
                 m += 1
+
+        self._update_ylimit()
+        self.log_linear_plot()
         self._update_canvas()
 
     @observe('show_exp_opt')
@@ -316,8 +334,13 @@ class LinePlotModel(Atom):
         self._update_canvas()
 
     def plot_emission_line(self):
+        """
+        Plot emission line and escape peaks associated with given lines.
+        """
         while(len(self.eline_obj)):
             self.eline_obj.pop().remove()
+
+        escape_e = 1.73998
 
         if len(self.elist):
             self._ax.hold(True)
@@ -327,6 +350,13 @@ class LinePlotModel(Atom):
                                        color=self.plot_style['emission_line']['color'],
                                        linewidth=self.plot_style['emission_line']['linewidth'])
                 self.eline_obj.append(eline)
+                if self.plot_escape_line and self.elist[i][0] > escape_e:
+                    eline, = self._ax.plot([self.elist[i][0]-escape_e,
+                                            self.elist[i][0]-escape_e],
+                                           [0, self.elist[i][1]*self.max_v],
+                                           color='brown',
+                                           linewidth=self.plot_style['emission_line']['linewidth'])
+                    self.eline_obj.append(eline)
 
     @observe('element_id')
     def set_element(self, change):
