@@ -175,7 +175,6 @@ class LinePlotModel(Atom):
 
         self._ax = self._fig.add_subplot(111)
         self._ax.set_axis_bgcolor('lightgrey')
-        self._ax.legend(loc=2)
 
         self._ax.set_xlabel('Energy [keV]')
         self._ax.set_ylabel('Counts')
@@ -183,6 +182,8 @@ class LinePlotModel(Atom):
         self.plot_type = ['LinLog', 'Linear']
 
         self._ax.autoscale_view(tight=True)
+        self._ax.legend(loc=2)
+
         self._color_config()
         self._fig.tight_layout(pad=0.5)
         self.max_v = 1.0
@@ -204,9 +205,10 @@ class LinePlotModel(Atom):
 
     def _update_canvas(self):
         self._ax.legend(loc=2)
-        #lg = self._ax.get_legend()
-        #lg.set_alpha(0.005)
-        self._ax.legend(framealpha=0.2)
+        try:
+            self._ax.legend(framealpha=0.2).draggable()
+        except AttributeError:
+            self._ax.legend(framealpha=0.2)
         self._fig.tight_layout(pad=0.5)
         self._ax.margins(x=0.0, y=0.10)
         self._fig.canvas.draw()
