@@ -210,7 +210,8 @@ class LinePlotModel(Atom):
         except AttributeError:
             self._ax.legend(framealpha=0.2)
         self._fig.tight_layout(pad=0.5)
-        self._ax.margins(x=0.0, y=0.10)
+        #self._ax.margins(x=0.0, y=0.10)
+        self._ax.relim(visible_only=True)
         self._fig.canvas.draw()
 
     def _update_ylimit(self):
@@ -236,14 +237,16 @@ class LinePlotModel(Atom):
     def log_linear_plot(self):
         if self.plot_type[self.scale_opt] == 'LinLog':
             self._ax.set_yscale('log')
-            #self._ax.margins(x=0.0, y=1.0)
-            #self._ax.relim()
-            self._ax.set_ylim(self.log_range)
+            self._ax.margins(x=0.0, y=0.5)
+            self._ax.autoscale_view(tight=True)
+            self._ax.relim(visible_only=True)
+            #self._ax.set_ylim(self.log_range)
         else:
             self._ax.set_yscale('linear')
-            #self._ax.margins(x=0.0, y=0.10)
-            #self._ax.relim()
-            self._ax.set_ylim(self.linear_range)
+            self._ax.margins(x=0.0, y=0.10)
+            self._ax.autoscale_view(tight=True)
+            self._ax.relim(visible_only=True)
+            #self._ax.set_ylim(self.linear_range)
 
     @observe('data')
     def data_update(self, change):
@@ -313,7 +316,7 @@ class LinePlotModel(Atom):
                 self.plot_exp_list.append(plot_exp_obj)
                 m += 1
 
-        self._update_ylimit()
+        #self._update_ylimit()
         self.log_linear_plot()
         self._update_canvas()
 
