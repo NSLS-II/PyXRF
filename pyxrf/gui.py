@@ -48,56 +48,33 @@ from pyxrf.model.draw_image import DrawImage, DrawImageAdvanced
 from pyxrf.model.fit_spectrum import Fit1D
 from pyxrf.model.setting import SettingModel
 import json
-from pprint import pprint
 
 with enaml.imports():
     from pyxrf.view.main_window import XRFGui
 
 
-
 def get_defaults():
 
     sub_folder = 'xrf_data' + '/xspress3'
-    working_directory = os.path.join(os.path.expanduser('~'), 'Downloads', sub_folder)
+    working_directory = os.path.join(os.path.expanduser('~'),
+                                     'Downloads', sub_folder)
 
-    data_file = '2xfm_0304.h5'
-
-    data_path = os.path.join(working_directory, data_file)
     # grab the default parameter file
-    #default_parameter_file = os.path.join(os.path.expanduser('~'), '.pyxrf',
-    #                                  'xrf_parameter_default.json')
-
-    default_parameter_file = os.path.join(working_directory, 'root.json')
-
+    current_dir = os.path.dirname(os.path.realpath(__file__))
+    temp = current_dir.split('/')[:-1]
+    temp.append('configs')
+    param_dir = '/'.join(temp)
+    default_parameter_file = os.path.join(
+        param_dir, 'xrf_parameter.json')
     with open(default_parameter_file, 'r') as json_data:
         default_parameters = json.load(json_data)
 
-    # see if there is a user parameter file
-    #user_parameter_file = os.path.join(os.path.expanduser('~'), '.pyxrf',
-    #                                  'xrf_parameter_user.json')
-
-    user_parameter_file = default_parameter_file
-
-    try:
-        with open(user_parameter_file, 'r') as json_data:
-            user = json.load(json_data)
-
-        default_parameters.update(user)
-    except IOError:
-        # user file doesn't exist
-        pass
-
     defaults = {'working_directory': working_directory,
-                'data_file': data_file,
-                'data_path': data_path,
-                'default_parameters': default_parameters,
-    }
-
+                'default_parameters': default_parameters}
     return defaults
 
 
 def run():
-
     LOG_F = 'log_example.out'
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s',
                         level=logging.INFO,

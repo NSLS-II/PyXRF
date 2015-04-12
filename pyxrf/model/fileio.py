@@ -59,8 +59,6 @@ class FileIOModel(Atom):
     working_directory : str
     file_names : list
         list of loaded files
-    data_file : str
-    file_path : str
     data : array
         Experiment data.
     load_status : str
@@ -69,7 +67,6 @@ class FileIOModel(Atom):
         Dict has filename as key and group data as value.
     """
     working_directory = Str()
-    data_file = Str()
     file_names = List()
     file_path = Str()
     data = Typed(np.ndarray)
@@ -83,15 +80,11 @@ class FileIOModel(Atom):
     data_sets = Typed(OrderedDict)
     data_sets_fit = Typed(OrderedDict)
 
-    def __init__(self,
-                 working_directory=None,
-                 data_file=None, *args, **kwargs):
-        if working_directory is None:
-            working_directory = os.path.expanduser('~')
-
-        with self.suppress_notifications():
-            self.working_directory = working_directory
-            self.data_file = data_file
+    def __init__(self, **kwargs):
+        self.working_directory = kwargs['working_directory']
+        #with self.suppress_notifications():
+        #    self.working_directory = working_directory
+            #self.data_file = data_file
 
     @observe('file_names')
     def update_more_data(self, change):
@@ -179,7 +172,8 @@ def read_hdf_HXN(working_directory,
             data_sets.update({fname: DS})
             for i in range(channel_num):
                 file_channel = fname+'_channel_'+str(i+1)
-                exp_data_new = np.reshape(exp_data[0, i, :], [1, 1, exp_data[0, i, :].size])
+                exp_data_new = np.reshape(exp_data[0, i, :],
+                                          [1, 1, exp_data[0, i, :].size])
                 DS = DataSelection(filename=file_channel,
                                    raw_data=exp_data_new)
                 data_sets.update({file_channel: DS})
@@ -271,7 +265,6 @@ class DataSelection(Atom):
 
 
 class SpectrumCalculator(object):
-
     """
     Calculate summed spectrum according to starting and ending positions.
 

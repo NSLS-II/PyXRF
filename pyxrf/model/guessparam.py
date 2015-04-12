@@ -258,7 +258,8 @@ class ElementController(object):
             No value is shown when smaller than the shreshold value
         """
         #max_dict = reduce(max, map(np.max, six.itervalues(self.element_dict)))
-        max_dict = np.max(np.array([v.maxv for v in six.itervalues(self.element_dict)]))
+        max_dict = np.max(np.array([v.maxv for v
+                                    in six.itervalues(self.element_dict)]))
 
         for v in six.itervalues(self.element_dict):
             v.norm = v.maxv/max_dict*100
@@ -268,7 +269,8 @@ class ElementController(object):
         self.element_dict.clear()
 
     def get_element_list(self):
-        current_elements = [v for v in six.iterkeys(self.element_dict) if v.lower() != v]
+        current_elements = [v for v
+                            in six.iterkeys(self.element_dict) if v.lower() != v]
         logger.info('Current Elements for fitting are {}'.format(current_elements))
         return current_elements
 
@@ -421,7 +423,8 @@ class GuessParamModel(Atom):
                 else:
                     continue
 
-                ps = PreFitStatus(z=get_Z(ename), energy=get_energy(e), area=area, spectrum=spectrum,
+                ps = PreFitStatus(z=get_Z(ename), energy=get_energy(e),
+                                  area=area, spectrum=spectrum,
                                   maxv=np.around(np.max(spectrum), 1),
                                   norm=-1, lbd_stat=False)
 
@@ -441,12 +444,16 @@ class GuessParamModel(Atom):
         logger.info('Element {} is added'.format(self.e_name))
 
         x, data_out, area_dict = calculate_profile(self.data, self.param_new,
-                                                   elemental_lines=[self.e_name], default_area=default_area)
+                                                   elemental_lines=[self.e_name],
+                                                   default_area=default_area)
         ratio_v = self.add_element_intensity / np.max(data_out[self.e_name])
-        ps = PreFitStatus(z=get_Z(self.e_name), energy=get_energy(self.e_name), area=area_dict[self.e_name]*ratio_v,
+
+        ps = PreFitStatus(z=get_Z(self.e_name), energy=get_energy(self.e_name),
+                          area=area_dict[self.e_name]*ratio_v,
                           spectrum=data_out[self.e_name]*ratio_v,
                           maxv=self.add_element_intensity, norm=-1,
                           lbd_stat=False)
+
         self.EC.add_to_dict({self.e_name: ps})
 
     def update_name_list(self):
@@ -467,9 +474,12 @@ class GuessParamModel(Atom):
         threshv : float
             The value will not be shown on GUI if it is smaller than the threshold.
         """
-        self.prefit_x, out_dict, area_dict = linear_spectrum_fitting(self.data, self.param_new, area_option=True)
-        logger.info('Energy range: {}, {}'.format(self.param_new['non_fitting_values']['energy_bound_low']['value'],
-                                                  self.param_new['non_fitting_values']['energy_bound_high']['value']))
+        self.prefit_x, out_dict, area_dict = linear_spectrum_fitting(self.data,
+                                                                     self.param_new,
+                                                                     area_option=True)
+        logger.info('Energy range: {}, {}'.format(
+            self.param_new['non_fitting_values']['energy_bound_low']['value'],
+            self.param_new['non_fitting_values']['energy_bound_high']['value']))
 
         prefit_dict = OrderedDict()
         for k, v in six.iteritems(out_dict):
