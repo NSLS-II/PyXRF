@@ -82,6 +82,17 @@ enamldef FileView(DockItem): file_view:
                         io_model.working_directory = path
             Field: folder_fd:
                 text := io_model.working_directory
+
+            PushButton: btn_out:
+                text = 'Save Results to'
+                clicked ::
+                    path = FileDialogEx.get_existing_directory(file_view)
+                    if path:
+                        io_model.output_directory = path
+                        fd_out.text = path
+            Field: fd_out:
+                text << io_model.output_directory
+
             PushButton: files_btn:
                 text = "Exp. Data Files"
                 clicked ::
@@ -94,7 +105,6 @@ enamldef FileView(DockItem): file_view:
 
                         # do not import original data for 2D image
                         img_model_adv.data_dict = io_model.img_dict_flat
-                        #param_model.data_sets = io_model.data_sets_fit
                         param_model.data_sets = io_model.data_sets
                         plot_model.parameters = param_model.param_new
                         setting_model.parameters = param_model.param_new
@@ -103,20 +113,6 @@ enamldef FileView(DockItem): file_view:
             Label: files_load:
                 text = 'No data is loaded.'
 
-            PushButton: btn_out:
-                text = 'Save Results to'
-                clicked ::
-                    path = FileDialogEx.get_existing_directory(file_view)
-                    if path:
-                        io_model.output_directory = path
-                        fd_out.text = path
-            Field: fd_out:
-                text << io_model.output_directory
-
-            #Label: name_lb:
-            #    text = ''
-                #text = '{:>16} {:>16} {:>16}'.format('methods to plot', 'starting: x,y',
-                #                                     'ending: x,y')
             ScrollArea: scroller:
                 #Form:
                 Container:

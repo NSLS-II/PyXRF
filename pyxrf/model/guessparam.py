@@ -235,17 +235,17 @@ class ElementController(object):
         Order dict in different ways.
         """
         if option == 'z':
-            self.element_dict = OrderedDict(sorted(six.iteritems(self.element_dict),
-                                                   key=lambda t: t[1].z))
+            self.element_dict = OrderedDict(sorted(
+                six.iteritems(self.element_dict), key=lambda t: t[1].z))
         elif option == 'energy':
-            self.element_dict = OrderedDict(sorted(six.iteritems(self.element_dict),
-                                                   key=lambda t: t[1].energy))
+            self.element_dict = OrderedDict(sorted(
+                six.iteritems(self.element_dict), key=lambda t: t[1].energy))
         elif option == 'name':
-            self.element_dict = OrderedDict(sorted(six.iteritems(self.element_dict),
-                                                   key=lambda t: t[0]))
+            self.element_dict = OrderedDict(sorted(
+                six.iteritems(self.element_dict), key=lambda t: t[0]))
         elif option == 'maxv':
-            self.element_dict = OrderedDict(sorted(six.iteritems(self.element_dict),
-                                                   key=lambda t: t[1].maxv, reverse=True))
+            self.element_dict = OrderedDict(sorted(
+                six.iteritems(self.element_dict), key=lambda t: t[1].maxv, reverse=True))
 
     def add_to_dict(self, dictv):
         self.element_dict.update(dictv)
@@ -410,7 +410,6 @@ class GuessParamModel(Atom):
         temp_dict = OrderedDict()
         for e in six.iterkeys(pre_dict):
             ename = e.split('_')[0]
-            print(ename)
             if ename in ['background', 'escape']:
                 spectrum = pre_dict[e]
                 area = np.sum(spectrum)

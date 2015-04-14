@@ -107,14 +107,14 @@ class Fit1D(Atom):
 
     def result_folder_changed(self, changed):
         """
-        Observer function to be connected to the fileio model in the top-level
-        gui.py startup
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
 
         Parameters
         ----------
         changed : dict
-            This is the dictionary that gets passed to a function with the
-            @observe decorator
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
         """
         self.result_folder = changed['value']
 
@@ -322,8 +322,6 @@ class Fit1D(Atom):
         if not fname:
             fname = self.data_title+'_out.txt'
         filepath = os.path.join(self.result_folder, fname)
-
-        print('fit result: {}'.format(self.fit_result.redchi))
 
         with open(filepath, 'w') as myfile:
             myfile.write(fit_report(self.fit_result, sort_pars=True))

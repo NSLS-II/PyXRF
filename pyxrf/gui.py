@@ -58,6 +58,7 @@ def get_defaults():
     sub_folder = 'xrf_data' + '/xspress3'
     working_directory = os.path.join(os.path.expanduser('~'),
                                      'Downloads', sub_folder)
+    output_directory = working_directory
 
     # grab the default parameter file
     current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -70,7 +71,7 @@ def get_defaults():
         default_parameters = json.load(json_data)
 
     defaults = {'working_directory': working_directory,
-                'output_directory': working_directory,
+                'output_directory': output_directory,
                 'default_parameters': default_parameters}
     return defaults
 
@@ -94,10 +95,9 @@ def run():
     img_model_adv = DrawImageAdvanced()
 
     # send working directory changes to the fit_model
-    io_model.observe('working_directory', fit_model.result_folder_changed)
+    #io_model.observe('working_directory', fit_model.result_folder_changed)
     io_model.observe('output_directory', fit_model.result_folder_changed)
     io_model.observe('output_directory', param_model.result_folder_changed)
-
 
     xrfview = XRFGui(io_model=io_model,
                      param_model=param_model,

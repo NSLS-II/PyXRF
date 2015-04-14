@@ -80,7 +80,7 @@ class FileIOModel(Atom):
     file_channel_list = List()
 
     data_sets = Typed(OrderedDict)
-    data_sets_fit = Typed(OrderedDict)
+    #data_sets_fit = Typed(OrderedDict)
 
     def __init__(self, **kwargs):
         self.working_directory = kwargs['working_directory']
@@ -101,8 +101,13 @@ class FileIOModel(Atom):
         self.file_names.sort()
         logger.info('Loaded files : {}'.format(self.file_names))
 
-        self.data_dict, self.data_sets_fit, self.data_sets = read_hdf_HXN(self.working_directory,
-                                                                          self.file_names)
+        # to be update, temporary use
+        if 'APS' in self.file_names[0]:
+            self.data_dict, self.data_sets = read_hdf_APS(self.working_directory,
+                                                          self.file_names)
+        else:
+            self.data_dict, self.data_sets = read_hdf_HXN(self.working_directory,
+                                                          self.file_names)
 
         self.file_channel_list = self.data_sets.keys()
 
@@ -146,13 +151,10 @@ def read_hdf_HXN(working_directory,
     -------
     data_dict : dict
         with fitting data
-    data_sets_fit : dict
-        summed data of all channels, file dependent, for fitting purpose
     data_sets : dict
-        data from all channels, for plotting purpose
+        data from each channel and channel summed
     """
     data_dict = OrderedDict()
-    data_sets_fit = OrderedDict()
     data_sets = OrderedDict()
 
     # cut off bad point on the last position of the spectrum
@@ -162,30 +164,22 @@ def read_hdf_HXN(working_directory,
         try:
             file_path = os.path.join(working_directory, fname)
             f = h5py.File(file_path, 'r+')
-            #data = f['MAPS']
-            #data = f['xrfmap']
             data = f['entry/instrument']
-            exp_data = np.asarray(data['detector/data'])
-            logger.info('File : {} with total counts {}'.format(fname, np.sum(exp_data)))
-
-            #exp_data = np.reshape(exp_data, [2, 4, 4096])
-            # dict has filename as key and group data as value
-
-            data_dict[fname] = data
 
             fname = fname.split('.')[0]
 
-            #
-            exp_data = exp_data[:, :, :-bad_point_cut]
+            # for 2D MAP???
+            data_dict[fname] = data
 
-            # for fitting
+            # data from channel summed
+            exp_data = np.asarray(data['detector/data'])
+            logger.info('File : {} with total counts {}'.format(fname, np.sum(exp_data)))
+            exp_data = exp_data[:, :, :-bad_point_cut]
             DS = DataSelection(filename=fname,
                                raw_data=exp_data)
-
-            data_sets_fit.update({fname: DS})
-
-            #plot each channel, for plotting purposes
             data_sets.update({fname: DS})
+
+            # data from each channel
             for i in range(channel_num):
                 file_channel = fname+'_channel_'+str(i+1)
                 exp_data_new = np.reshape(exp_data[0, i, :],
@@ -193,6 +187,67 @@ def read_hdf_HXN(working_directory,
                 DS = DataSelection(filename=file_channel,
                                    raw_data=exp_data_new)
                 data_sets.update({file_channel: DS})
+
+        except ValueError:
+            continue
+    return data_dict, data_sets
+
+
+def read_hdf_APS(working_directory,
+                 file_names, channel_num=4):
+    """
+    Data IO for APS Beamline 13 datasets. This might be changed later.
+
+    Parameters
+    ----------
+    working_directory : str
+        path folder
+    file_names : list
+        list of chosen files
+    channel_num : int, optional
+        detector channel number
+
+    Returns
+    -------
+    data_dict : dict
+        with fitting data
+    data_sets : dict
+        data from each channel and channel summed
+    """
+    data_dict = OrderedDict()
+    data_sets = OrderedDict()
+
+    # cut off bad point on the last position of the spectrum
+    bad_point_cut = 1
+
+    for fname in file_names:
+        try:
+            file_path = os.path.join(working_directory, fname)
+            f = h5py.File(file_path, 'r+')
+            data = f['xrfmap']
+
+            fname = fname.split('.')[0]
+
+            # for 2D MAP
+            data_dict[fname] = data
+
+            # data from channel summed
+            exp_data = np.asarray(data['detsum/counts'])
+            logger.info('File : {} with total counts {}'.format(fname, np.sum(exp_data)))
+            exp_data = exp_data[:, :, :-bad_point_cut]
+            DS = DataSelection(filename=fname,
+                               raw_data=exp_data)
+            data_sets.update({fname: DS})
+
+            # data from each channel
+            for i in range(channel_num):
+                det_name = 'det'+str(i+1)
+                file_channel = fname+'_channel_'+str(i+1)
+                exp_data_new = data[det_name+'/counts'][:, :, :-bad_point_cut]
+                exp_data_new = np.asarray(exp_data_new)
+                DS = DataSelection(filename=file_channel,
+                                   raw_data=exp_data_new)
+                data_sets[file_channel] = DS
 
             # get roi sum data
             #roi_result = get_roi_sum(data[detID]['roi_name'].value,
@@ -208,7 +263,7 @@ def read_hdf_HXN(working_directory,
 
         except ValueError:
             continue
-    return data_dict, data_sets_fit, data_sets
+    return data_dict, data_sets
 
 
 def get_fit_data(namelist, data):
