@@ -467,8 +467,8 @@ class GuessParamModel(Atom):
         logger.info('{} peak is added'.format(self.e_name))
 
         if self.e_name == 'escape':
-            self.param_new['non_fitting_values']['epsilon'] = (self.add_element_intensity
-                                                               / np.max(self.y0))
+            self.param_new['non_fitting_values']['escape_ratio'] = (self.add_element_intensity
+                                                                    / np.max(self.y0))
             es_peak = trim_escape_peak(self.data, self.param_new,
                                        self.prefit_x.size)
             ps = PreFitStatus(z=get_Z(self.e_name),
@@ -572,7 +572,6 @@ class GuessParamModel(Atom):
             if 'escape' in self.EC.element_dict:
                 self.param_new['non_fitting_values']['escape_ratio'] = (self.EC.element_dict['escape'].maxv
                                                                         / np.max(self.y0))
-                print('escape_ratio :{}'.format(self.param_new['non_fitting_values']['escape_ratio']))
 
     def data_for_plot(self):
         """
