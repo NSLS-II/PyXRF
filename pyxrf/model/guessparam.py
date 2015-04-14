@@ -358,6 +358,9 @@ class GuessParamModel(Atom):
 
     EC = Typed(object)
 
+    x0 = Typed(np.ndarray)
+    y0 = Typed(np.ndarray)
+
     def __init__(self, **kwargs):
         try:
             self.default_parameters = kwargs['default_parameters']
@@ -383,6 +386,7 @@ class GuessParamModel(Atom):
             self.param_new = json.load(json_data)
         self.element_list = get_element(self.param_new)
         self.EC.delete_all()
+        self.define_range()
         self.create_spectrum_from_file(self.param_new, self.element_list)
         logger.info('Elements read from file are: {}'.format(self.element_list))
 
@@ -406,6 +410,7 @@ class GuessParamModel(Atom):
         temp_dict = OrderedDict()
         for e in six.iterkeys(pre_dict):
             ename = e.split('_')[0]
+            print(ename)
             if ename in ['background', 'escape']:
                 spectrum = pre_dict[e]
                 area = np.sum(spectrum)
@@ -446,7 +451,16 @@ class GuessParamModel(Atom):
             return
         names = self.data_sets.keys()
         self.data = self.data_sets[names[self.file_opt-1]].get_sum()
-        self.data_all = self.data_sets[names[self.file_opt-1]].raw_data
+        self.define_range()
+        #self.data_all = self.data_sets[names[self.file_opt-1]].raw_data
+
+    def define_range(self):
+        """
+        Cut x range according to values define in param_dict.
+        """
+        lowv = self.param_new['non_fitting_values']['energy_bound_low']['value']
+        highv = self.param_new['non_fitting_values']['energy_bound_high']['value']
+        self.x0, self.y0 = define_range(self.data, lowv, highv)
 
     def manual_input(self):
         default_area = 1e5
@@ -454,7 +468,7 @@ class GuessParamModel(Atom):
 
         if self.e_name == 'escape':
             self.param_new['non_fitting_values']['epsilon'] = (self.add_element_intensity
-                                                               / np.max(self.data))
+                                                               / np.max(self.y0))
             es_peak = trim_escape_peak(self.data, self.param_new,
                                        self.prefit_x.size)
             ps = PreFitStatus(z=get_Z(self.e_name),
@@ -520,6 +534,8 @@ class GuessParamModel(Atom):
         Extend the param to full param dict including each element's
         information, and assign initial values from pre fit.
         """
+        self.define_range()
+
         self.element_list = self.EC.get_element_list()
         self.param_new['non_fitting_values']['element_list'] = ', '.join(self.element_list)
 
@@ -553,6 +569,10 @@ class GuessParamModel(Atom):
                 self.param_new['compton_amplitude']['value'] = self.EC.element_dict['compton'].area
             if 'coherent_sct_amplitude' in self.EC.element_dict:
                 self.param_new['coherent_sct_amplitude']['value'] = self.EC.element_dict['elastic'].area
+            if 'escape' in self.EC.element_dict:
+                self.param_new['non_fitting_values']['escape_ratio'] = (self.EC.element_dict['escape'].maxv
+                                                                        / np.max(self.y0))
+                print('escape_ratio :{}'.format(self.param_new['non_fitting_values']['escape_ratio']))
 
     def data_for_plot(self):
         """
@@ -634,13 +654,13 @@ def calculate_profile(y0, param,
     total_list = [str(v) for v in total_list]
     temp_d = {k: v for (k, v) in zip(total_list, matv.transpose())}
 
-    # get background
+    # add background
     bg = snip_method(y, fitting_parameters['e_offset']['value'],
                      fitting_parameters['e_linear']['value'],
                      fitting_parameters['e_quadratic']['value'])
-
     temp_d['background'] = bg
 
+    # add escape peak
     if fitting_parameters['non_fitting_values']['escape_ratio'] > 0:
         temp_d['escape'] = trim_escape_peak(y0, fitting_parameters, y.size)
 
