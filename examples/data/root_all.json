@@ -2727,6 +2727,7 @@
             "description": "E low [keV]", 
             "value": 1.5
         },
-        "epsilon": 3.51
+        "epsilon": 3.51,
+        "escape_ratio": 0.005
     }
 }

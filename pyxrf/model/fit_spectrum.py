@@ -48,9 +48,10 @@ from skxray.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
                                       sum_area, set_parameter_bound, ParamController,
                                       nnls_fit, weighted_nnls_fit, trim,
                                       construct_linear_model, linear_spectrum_fitting,
-                                      compute_escape_peak, register_strategy)
+                                      register_strategy)
 from skxray.fitting.background import snip_method
-from pyxrf.model.guessparam import (calculate_profile, fit_strategy_list)
+from pyxrf.model.guessparam import (calculate_profile, fit_strategy_list,
+                                    trim_escape_peak, define_range)
 from lmfit import fit_report
 
 import logging
@@ -128,6 +129,8 @@ class Fit1D(Atom):
         element_list = self.param_dict['non_fitting_values']['element_list']
         self.element_list = [e.strip(' ') for e in element_list.split(',')]
 
+        self.define_range()
+
         # register the strategy and extend the parameter list
         # to cover all given elements
         for strat_name in fit_strategy_list:
@@ -143,7 +146,6 @@ class Fit1D(Atom):
 
     @observe('fit_strategy1')
     def update_strategy1(self, change):
-        print(change)
         self.all_strategy.update({'strategy1': change['value']})
         if change['value']:
             logger.info('Strategy at step 1 is: {}'.
@@ -184,12 +186,16 @@ class Fit1D(Atom):
         """
         Cut x range according to values define in param_dict.
         """
-        x = np.arange(self.data.size)
-        # ratio to transfer energy value back to channel value
-        approx_ratio = 100
-        lowv = self.param_dict['non_fitting_values']['energy_bound_low']['value'] * approx_ratio
-        highv = self.param_dict['non_fitting_values']['energy_bound_high']['value'] * approx_ratio
-        self.x0, self.y0 = trim(x, self.data, lowv, highv)
+        lowv = self.param_dict['non_fitting_values']['energy_bound_low']['value']
+        highv = self.param_dict['non_fitting_values']['energy_bound_high']['value']
+        self.x0, self.y0 = define_range(self.data, lowv, highv)
+
+    #     x = np.arange(self.data.size)
+    #     # ratio to transfer energy value back to channel value
+    #     approx_ratio = 100
+    #     lowv = self.param_dict['non_fitting_values']['energy_bound_low']['value'] * approx_ratio
+    #     highv = self.param_dict['non_fitting_values']['energy_bound_high']['value'] * approx_ratio
+    #     self.x0, self.y0 = trim(x, self.data, lowv, highv)
 
     def get_background(self):
         self.bg = snip_method(self.y0,
@@ -197,29 +203,16 @@ class Fit1D(Atom):
                               self.param_dict['e_linear']['value'],
                               self.param_dict['e_quadratic']['value'])
 
-    def escape_peak(self):
-        ratio = 0.005
-        xe, ye = compute_escape_peak(self.data, ratio, self.param_dict)
-        lowv = self.param_dict['non_fitting_values']['energy_bound_low']
-        highv = self.param_dict['non_fitting_values']['energy_bound_high']
-        xe, self.es_peak = trim(xe, ye, lowv, highv)
-        logger.info('Escape peak is considered with ratio {}'.format(ratio))
-
-        # align to the same length
-        if self.y0.size > self.es_peak.size:
-            temp = self.es_peak
-            self.es_peak = np.zeros(len(self.y0.size))
-            self.es_peak[:temp.size] = temp
-        else:
-            self.es_peak = self.es_peak[:self.y0.size]
-
     def get_profile(self):
-        self.define_range()
-        self.cal_x, self.cal_spectrum, area_dict = calculate_profile(self.data, self.param_dict,
+        """
+        Calculate profile based on current parameters.
+        """
+        #self.define_range()
+        self.cal_x, self.cal_spectrum, area_dict = calculate_profile(self.data,
+                                                                     self.param_dict,
                                                                      self.element_list)
         self.cal_y = np.zeros(len(self.cal_x))
         for k, v in six.iteritems(self.cal_spectrum):
-            #print('component: {}'.format(k))
             self.cal_y += v
         self.residual = self.cal_y - self.y0
 
@@ -229,17 +222,13 @@ class Fit1D(Atom):
         MS.assemble_models()
 
         result = MS.model_fit(x0, y0,
-                              weights=1/np.sqrt(c_weight+y0), maxfev=fit_num,
+                              weights=1/np.sqrt(c_weight+y0),
+                              maxfev=fit_num,
                               xtol=c_val, ftol=c_val, gtol=c_val)
 
-        self.comps.clear()
-        comps = result.eval_components(x=x0)
-        self.comps = combine_lines(comps, self.element_list, self.bg)
-
-        xnew = (result.values['e_offset'] +
-                result.values['e_linear'] * x0 +
-                result.values['e_quadratic'] * x0**2)
-        self.fit_x = xnew
+        self.fit_x = (result.values['e_offset'] +
+                      result.values['e_linear'] * x0 +
+                      result.values['e_quadratic'] * x0**2)
         self.fit_y = result.best_fit
         self.fit_result = result
         self.residual = self.fit_y - y0
@@ -249,15 +238,19 @@ class Fit1D(Atom):
         Fit data in sequence according to given strategies.
         The param_dict is extended to cover elemental parameters.
         """
-        self.define_range()
+        #self.define_range()
         self.get_background()
-        #self.escape_peak()
 
         #PC = ParamController(self.param_dict, self.element_list)
         #self.param_dict = PC.params
         #print('param keys {}'.format(self.param_dict.keys()))
 
-        y0 = self.y0 - self.bg #- self.es_peak
+        if self.param_dict['non_fitting_values']['escape_ratio'] > 0:
+            self.es_peak = trim_escape_peak(self.data,
+                                            self.param_dict, self.y0.size)
+            y0 = self.y0 - self.bg - self.es_peak
+        else:
+            y0 = self.y0 - self.bg
 
         t0 = time.time()
         logger.info('Start fitting!')
@@ -274,11 +267,19 @@ class Fit1D(Atom):
 
                 self.fit_data(self.x0, y0)
                 self.update_param_with_result()
-
-        self.fit_y += self.bg #+ self.es_peak
-
         t1 = time.time()
         logger.warning('Time used for fitting is : {}'.format(t1-t0))
+
+        self.comps.clear()
+        comps = self.fit_result.eval_components(x=self.x0)
+        self.comps = combine_lines(comps, self.element_list, self.bg)
+
+        if self.param_dict['non_fitting_values']['escape_ratio'] > 0:
+            self.fit_y += self.bg + self.es_peak
+            self.comps['escape'] = self.es_peak
+        else:
+            self.fit_y += self.bg
+
         self.save_result()
         self.assign_fitting_result()
 

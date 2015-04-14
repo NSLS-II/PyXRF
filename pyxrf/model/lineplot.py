@@ -198,7 +198,8 @@ class LinePlotModel(Atom):
             'l_line': {'color': 'purple', 'label': 'l lines'},
             'm_line': {'color': 'orange', 'label': 'm lines'},
             'compton': {'color': 'darkcyan', 'label': 'compton'},
-            'elastic': {'color': '#b66718', 'label': 'elastic'},
+            'elastic': {'color': 'indigo', 'label': 'elastic'},
+            'escape': {'color': 'brown', 'label': 'escape'},
             'auto_fit': {'color': 'black', 'label': 'auto fitted'},
             'fit': {'color': 'black', 'label': 'fitted'}
         }
@@ -211,12 +212,15 @@ class LinePlotModel(Atom):
             self._ax.legend(framealpha=0.2)
         self._fig.tight_layout(pad=0.5)
         #self._ax.margins(x=0.0, y=0.10)
+
+        # when we click the home button on matplotlib gui,
+        # relim will remember the previously defined x range
         self._ax.relim(visible_only=True)
         self._fig.canvas.draw()
 
     def _update_ylimit(self):
         # manually define y limit, from experience
-        self.log_range = [self.max_v*1e-6, self.max_v*10.0]
+        self.log_range = [self.max_v*1e-6, self.max_v*2]
         self.linear_range = [-0.15*self.max_v, self.max_v*1.2]
 
     @observe('exp_data_label')
@@ -237,13 +241,14 @@ class LinePlotModel(Atom):
     def log_linear_plot(self):
         if self.plot_type[self.scale_opt] == 'LinLog':
             self._ax.set_yscale('log')
-            self._ax.margins(x=0.0, y=0.5)
+            #self._ax.margins(x=0.0, y=0.5)
             #self._ax.autoscale_view(tight=True)
             #self._ax.relim(visible_only=True)
             self._ax.set_ylim(self.log_range)
+
         else:
             self._ax.set_yscale('linear')
-            self._ax.margins(x=0.0, y=0.10)
+            #self._ax.margins(x=0.0, y=0.10)
             #self._ax.autoscale_view(tight=True)
             #self._ax.relim(visible_only=True)
             self._ax.set_ylim(self.linear_range)
@@ -279,7 +284,7 @@ class LinePlotModel(Atom):
             logger.debug('No need to remove experimental data.')
 
         data_arr = np.asarray(self.data)
-        self.max_v = np.max(data_arr)
+
         x_v = (self.parameters['e_offset']['value'] +
                np.arange(len(data_arr)) *
                self.parameters['e_linear']['value'] +
@@ -303,7 +308,8 @@ class LinePlotModel(Atom):
             if v.plot_index:
 
                 data_arr = np.asarray(v.data)
-                self.max_v = np.max([self.max_v, np.max(data_arr)])
+                self.max_v = np.max([self.max_v,
+                                     np.max(data_arr)])
 
                 x_v = (self.parameters['e_offset']['value'] +
                        np.arange(len(data_arr)) *
@@ -362,7 +368,7 @@ class LinePlotModel(Atom):
                     eline, = self._ax.plot([self.elist[i][0]-escape_e,
                                             self.elist[i][0]-escape_e],
                                            [0, self.elist[i][1]*self.max_v],
-                                           color='brown',
+                                           color=self.plot_style['escape']['color'],
                                            linewidth=self.plot_style['emission_line']['linewidth'])
                     self.eline_obj.append(eline)
 
@@ -379,7 +385,9 @@ class LinePlotModel(Atom):
 
         self.elist = []
         total_list = K_LINE + L_LINE + M_LINE
-        logger.debug('Plot emission line for element: {} with incident energy {}'.format(self.element_id, incident_energy))
+        logger.debug('Plot emission line for element: '
+                     '{} with incident energy {}'.format(self.element_id,
+                                                         incident_energy))
         ename = total_list[self.element_id-1]
 
         if '_K' in ename:
@@ -387,21 +395,24 @@ class LinePlotModel(Atom):
             if e.cs(incident_energy)['ka1'] != 0:
                 for i in range(4):
                     self.elist.append((e.emission_line.all[i][1],
-                                       e.cs(incident_energy).all[i][1]/e.cs(incident_energy).all[0][1]))
+                                       e.cs(incident_energy).all[i][1]
+                                       / e.cs(incident_energy).all[0][1]))
 
         elif '_L' in ename:
             e = Element(ename[:-2])
             if e.cs(incident_energy)['la1'] != 0:
                 for i in range(4, 17):
                     self.elist.append((e.emission_line.all[i][1],
-                                       e.cs(incident_energy).all[i][1]/e.cs(incident_energy).all[4][1]))
+                                       e.cs(incident_energy).all[i][1]
+                                       / e.cs(incident_energy).all[4][1]))
 
         else:
             e = Element(ename[:-2])
             if e.cs(incident_energy)['ma1'] != 0:
                 for i in range(17, 21):
                     self.elist.append((e.emission_line.all[i][1],
-                                       e.cs(incident_energy).all[i][1]/e.cs(incident_energy).all[17][1]))
+                                       e.cs(incident_energy).all[i][1]
+                                       / e.cs(incident_energy).all[17][1]))
         self.plot_emission_line()
         self._update_canvas()
 
@@ -474,6 +485,10 @@ class LinePlotModel(Atom):
                     ln, = self._ax.plot(self.prefit_x, v,
                                         color=self.plot_style['elastic']['color'],
                                         label=self.plot_style['elastic']['label'])
+                elif k == 'escape':
+                    ln, = self._ax.plot(self.prefit_x, v,
+                                        color=self.plot_style['escape']['color'],
+                                        label=self.plot_style['escape']['label'])
                 else:
                     # only the first one has label
                     if k_auto == 0:
@@ -548,7 +563,6 @@ class LinePlotModel(Atom):
         self._update_canvas()
 
     def plot_fit(self):
-        #if len(self.fit_y):
         while(len(self.plot_fit_obj)):
             self.plot_fit_obj.pop().remove()
         ln, = self._ax.plot(self.fit_x, self.fit_y,
@@ -557,7 +571,8 @@ class LinePlotModel(Atom):
         self.plot_fit_obj.append(ln)
 
         shiftv = 1.5  # move residual down by some amount
-        ln, = self._ax.plot(self.fit_x, self.residual - shiftv*(np.max(np.abs(self.residual))),
+        ln, = self._ax.plot(self.fit_x,
+                            self.residual - shiftv*(np.max(np.abs(self.residual))),
                             color=self.plot_style['fit']['color'],
                             label='residual')
         self.plot_fit_obj.append(ln)
@@ -606,6 +621,11 @@ class LinePlotModel(Atom):
                                     color=self.plot_style['elastic']['color'],
                                     label=self.plot_style['elastic']['label'])
                 self.plot_fit_obj.append(ln)
+            elif k == 'escape':
+                ln, = self._ax.plot(self.fit_x, v,
+                                    color=self.plot_style['escape']['color'],
+                                    label=self.plot_style['escape']['label'])
+                self.plot_fit_obj.append(ln)
             else:
                 k_num += 1
                 if k_num == 1:
@@ -617,6 +637,9 @@ class LinePlotModel(Atom):
                                         color=self.plot_style['k_line']['color'],
                                         label='_nolegend_')
                 self.plot_fit_obj.append(ln)
+        self._update_ylimit()
+        self.log_linear_plot()
+        self._update_canvas()
 
     @observe('show_fit_opt')
     def _update_fit(self, change):
@@ -634,8 +657,8 @@ class LinePlotModel(Atom):
                     v.set_label('_' + lab)
         self._update_canvas()
 
-    def set_prefit_data(self, prefit_x,
-                        total_y, total_y_l, total_y_m):
+    def set_prefit_data_and_plot(self, prefit_x,
+                                 total_y, total_y_l, total_y_m):
         """
         Parameters
         ----------
@@ -658,4 +681,6 @@ class LinePlotModel(Atom):
 
         self._ax.set_xlim([self.prefit_x[0], self.prefit_x[-1]])
         self.plot_autofit()
+        #self.log_linear_plot()
+        self._update_canvas()
 

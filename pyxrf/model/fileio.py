@@ -155,6 +155,9 @@ def read_hdf_HXN(working_directory,
     data_sets_fit = OrderedDict()
     data_sets = OrderedDict()
 
+    # cut off bad point on the last position of the spectrum
+    bad_point_cut = 1
+
     for fname in file_names:
         try:
             file_path = os.path.join(working_directory, fname)
@@ -164,17 +167,21 @@ def read_hdf_HXN(working_directory,
             data = f['entry/instrument']
             exp_data = np.asarray(data['detector/data'])
             logger.info('File : {} with total counts {}'.format(fname, np.sum(exp_data)))
+
             #exp_data = np.reshape(exp_data, [2, 4, 4096])
             # dict has filename as key and group data as value
 
-            data_dict.update({fname: data})
+            data_dict[fname] = data
 
             fname = fname.split('.')[0]
+
+            #
+            exp_data = exp_data[:, :, :-bad_point_cut]
 
             # for fitting
             DS = DataSelection(filename=fname,
                                raw_data=exp_data)
-            print('shape: {}'.format(exp_data.shape))
+
             data_sets_fit.update({fname: DS})
 
             #plot each channel, for plotting purposes
