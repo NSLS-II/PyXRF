@@ -191,8 +191,10 @@ class LinePlotModel(Atom):
 
     def _color_config(self):
         self.plot_style = {
-            'experiment': {'color': 'blue', 'linestyle': '', 'marker': '.', 'label': self.exp_data_label},
-            'background': {'color': 'grey', 'marker': '+', 'markersize': 1, 'label': 'background'},
+            'experiment': {'color': 'blue', 'linestyle': '',
+                           'marker': '.', 'label': self.exp_data_label},
+            'background': {'color': 'grey', 'marker': '+',
+                           'markersize': 1, 'label': 'background'},
             'emission_line': {'color': 'red', 'linewidth': 2},
             'k_line': {'color': 'green', 'label': 'k lines'},
             'l_line': {'color': 'purple', 'label': 'l lines'},
@@ -562,6 +564,33 @@ class LinePlotModel(Atom):
                         v.set_label('_' + lab)
         self._update_canvas()
 
+    def set_prefit_data_and_plot(self, prefit_x,
+                                 total_y, total_y_l, total_y_m):
+        """
+        Parameters
+        ----------
+        prefit_x : array
+            X axis with limited range
+        total_y : dict
+            Results for k lines, bg, and others
+        total_y_l : dict
+            Results for l lines
+        total_y_m : dict
+            Results for m lines
+        """
+        self.prefit_x = prefit_x
+        # k lines
+        self.total_y = total_y
+        # l lines
+        self.total_y_l = total_y_l
+        # m lines
+        self.total_y_m = total_y_m
+
+        self._ax.set_xlim([self.prefit_x[0], self.prefit_x[-1]])
+        self.plot_autofit()
+        #self.log_linear_plot()
+        self._update_canvas()
+
     def plot_fit(self):
         while(len(self.plot_fit_obj)):
             self.plot_fit_obj.pop().remove()
@@ -637,9 +666,7 @@ class LinePlotModel(Atom):
                                         color=self.plot_style['k_line']['color'],
                                         label='_nolegend_')
                 self.plot_fit_obj.append(ln)
-        self._update_ylimit()
-        self.log_linear_plot()
-        self._update_canvas()
+        #self._update_canvas()
 
     @observe('show_fit_opt')
     def _update_fit(self, change):
@@ -657,30 +684,5 @@ class LinePlotModel(Atom):
                     v.set_label('_' + lab)
         self._update_canvas()
 
-    def set_prefit_data_and_plot(self, prefit_x,
-                                 total_y, total_y_l, total_y_m):
-        """
-        Parameters
-        ----------
-        prefit_x : array
-            X axis with limited range
-        total_y : dict
-            Results for k lines, bg, and others
-        total_y_l : dict
-            Results for l lines
-        total_y_m : dict
-            Results for m lines
-        """
-        self.prefit_x = prefit_x
-        # k lines
-        self.total_y = total_y
-        # l lines
-        self.total_y_l = total_y_l
-        # m lines
-        self.total_y_m = total_y_m
 
-        self._ax.set_xlim([self.prefit_x[0], self.prefit_x[-1]])
-        self.plot_autofit()
-        #self.log_linear_plot()
-        self._update_canvas()
 
