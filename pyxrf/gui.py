@@ -107,14 +107,27 @@ def run():
     app = QtApplication()
     defaults = get_defaults()
 
-    xrfview = XRFGui()
-    xrfview.io_model = FileIOModel(**defaults)
-    xrfview.param_model = GuessParamModel(**defaults)
-    xrfview.plot_model = LinePlotModel()
-    xrfview.img_model = DrawImage()
-    xrfview.fit_model = Fit1D(**defaults)
-    xrfview.setting_model = SettingModel()
-    xrfview.img_model_adv = DrawImageAdvanced()
+    io_model = FileIOModel(**defaults)
+    param_model = GuessParamModel(**defaults)
+    plot_model = LinePlotModel()
+    img_model = DrawImage()
+    fit_model = Fit1D(**defaults)
+    setting_model = SettingModel()
+    img_model_adv = DrawImageAdvanced()
+
+    # send working directory changes to the fit_model
+    io_model.observe('working_directory', fit_model.result_folder_changed)
+    io_model.observe('output_directory', fit_model.result_folder_changed)
+    io_model.observe('output_directory', param_model.result_folder_changed)
+
+
+    xrfview = XRFGui(io_model=io_model,
+                     param_model=param_model,
+                     plot_model=plot_model,
+                     img_model=img_model,
+                     fit_model=fit_model,
+                     setting_model=setting_model,
+                     img_model_adv=img_model_adv)
 
     xrfview.show()
     app.start()
