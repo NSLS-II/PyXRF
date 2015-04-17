@@ -305,6 +305,7 @@ class LinePlotModel(Atom):
 
         color_n = get_color_name()
 
+        self.max_v = 0
         m = 0
         for (k, v) in six.iteritems(self.data_sets):
             if v.plot_index:
