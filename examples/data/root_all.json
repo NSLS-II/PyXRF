@@ -2716,8 +2716,7 @@
         "value": 0.18992267154426706
     }, 
     "non_fitting_values": {
-        "electron_hole_energy": 3.51, 
-        "element_list": "Si_K, Cl_K, Ar_K, Ca_K, Ti_K, Mn_K, Fe_K, Cu_K, Zn_K, Ge_K, As_K, La_L, Ce_L", 
+        "element_list": "Si_K, Cl_K, Ar_K, Ca_K, Ti_K, Mn_K, Fe_K, Cu_K, Zn_K, Ge_K, As_K, La_L, Ce_L",
         "energy_bound_high": {
             "default_value": 13.5, 
             "description": "E high [keV]", 
@@ -2727,6 +2726,8 @@
             "default_value": 1.5, 
             "description": "E low [keV]", 
             "value": 1.5
-        }
+        },
+        "epsilon": 3.51,
+        "escape_ratio": 0.005
     }
 }

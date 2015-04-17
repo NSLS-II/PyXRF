@@ -37,7 +37,7 @@ __author__ = 'Li Li'
 
 from enaml.widgets.api import (Container, PushButton, Label,
                                Form, Field, FileDialogEx, DockItem,
-                               DockArea, CheckBox, ComboBox,
+                               DockArea, CheckBox, ComboBox, RadioButton,
                                ScrollArea, Window, GroupBox)
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer, grid
 from enaml.core.api import Include, Looper
@@ -82,6 +82,17 @@ enamldef FileView(DockItem): file_view:
                         io_model.working_directory = path
             Field: folder_fd:
                 text := io_model.working_directory
+
+            PushButton: btn_out:
+                text = 'Save Results to'
+                clicked ::
+                    path = FileDialogEx.get_existing_directory(file_view)
+                    if path:
+                        io_model.output_directory = path
+                        fd_out.text = path
+            Field: fd_out:
+                text << io_model.output_directory
+
             PushButton: files_btn:
                 text = "Exp. Data Files"
                 clicked ::
@@ -94,7 +105,7 @@ enamldef FileView(DockItem): file_view:
 
                         # do not import original data for 2D image
                         img_model_adv.data_dict = io_model.img_dict_flat
-                        param_model.data_sets = io_model.data_sets_fit
+                        param_model.data_sets = io_model.data_sets
                         plot_model.parameters = param_model.param_new
                         setting_model.parameters = param_model.param_new
                         setting_model.data_sets = io_model.data_sets
@@ -102,40 +113,6 @@ enamldef FileView(DockItem): file_view:
             Label: files_load:
                 text = 'No data is loaded.'
 
-            #PushButton: pb_load:
-            #    text = 'Parameter File'
-            #    #maximum_size = 200
-            #    clicked ::
-            #        parameter_file_path = FileDialogEx.get_open_file_name(file_view)
-            #        if parameter_file_path:
-            #            fd_load.text = parameter_file_path
-            #            param_model.get_new_param(parameter_file_path)
-            #            #param_lbl.text = param_model.param_status
-            #            plot_model.parameters = param_model.parameters
-
-            #Field: fd_load:
-            #    text = 'Use default otherwise.' #param_model.param_path
-            #Label: load_lbl:
-            #    text << io_model.load_status
-                #maximum_size = 300
-            #Label: param_lbl:
-            #    text = 'Parameter file abc.json is loaded.' #'Use default parametere files.'
-                #maximum_size = 100
-
-            PushButton: btn_out:
-                text = 'Save Results to'
-                clicked ::
-                    path = FileDialogEx.get_existing_directory(file_view)
-                    if path:
-                        io_model.output_directory = path
-                        fd_out.text = path
-            Field: fd_out:
-                text << io_model.output_directory
-
-            #Label: name_lb:
-            #    text = ''
-                #text = '{:>16} {:>16} {:>16}'.format('methods to plot', 'starting: x,y',
-                #                                     'ending: x,y')
             ScrollArea: scroller:
                 #Form:
                 Container:
@@ -146,28 +123,57 @@ enamldef FileView(DockItem): file_view:
                         GroupBox:
                             title = '{}, data shape: {}'.format(loop_item, io_model.data_sets[loop_item].raw_data.shape)
                             #title_align = 'center'
-                            constraints = [hbox(cb, lb1, fd1, lb2, fd2, spacer)]
+                            #constraints = [hbox(cb, lb1, fd1, lb2, fd2, spacer)]
+                            constraints = [hbox(rb_1, rb_2, rb_3, rb_4, lb1, fd1, lb2, fd2, spacer)]
                             padding = Box(0, 0, 0, 0)
                             #Label: lb:
                             #    text = io_model.data_sets[loop_item].filename
 
-                            ComboBox: cb:
-                                items = [' ', 'Sum', 'Point', 'Roi']
-                                index := io_model.data_sets[loop_item].plot_index
-                                maximum_size = 80
-                                index ::
-                                    if index == 2:
-                                        fd1.enabled = True
-                                        fd2.enabled = False
-                                        plot_bt.enabled = True
-                                    elif index == 3:
-                                        fd1.enabled = True
-                                        fd2.enabled = True
-                                        plot_bt.enabled = True
-                                    elif index == 1:
-                                        fd1.enabled = False
-                                        fd2.enabled = False
-                                        plot_bt.enabled = True
+                            #ComboBox: cb:
+                            #    items = [' ', 'Sum', 'Point', 'Roi']
+                            #    index := io_model.data_sets[loop_item].plot_index
+                            #    maximum_size = 80
+                            #    index ::
+                            #        if index == 2:
+                            #            fd1.enabled = True
+                            #            fd2.enabled = False
+                            #            plot_bt.enabled = True
+                            #        elif index == 3:
+                            #            fd1.enabled = True
+                            #            fd2.enabled = True
+                            #            plot_bt.enabled = True
+                            #        elif index == 1:
+                            #            fd1.enabled = False
+                            #            fd2.enabled = False
+                            #            plot_bt.enabled = True
+
+                            RadioButton: rb_1:
+                                text = 'None'
+                                checked = True
+                                clicked ::
+                                    io_model.data_sets[loop_item].plot_index = 0
+                            RadioButton: rb_2:
+                                text = 'Sum'
+                                clicked ::
+                                    io_model.data_sets[loop_item].plot_index = 1
+                                    fd1.enabled = False
+                                    fd2.enabled = False
+                                    plot_bt.enabled = True
+                            RadioButton: rb_3:
+                                text = 'Point'
+                                clicked ::
+                                    io_model.data_sets[loop_item].plot_index = 2
+                                    fd1.enabled = True
+                                    fd2.enabled = False
+                                    plot_bt.enabled = True
+                            RadioButton: rb_4:
+                                text = 'ROI'
+                                clicked ::
+                                    io_model.data_sets[loop_item].plot_index = 3
+                                    fd1.enabled = True
+                                    fd2.enabled = True
+                                    plot_bt.enabled = True
+
                             Label: lb1:
                                 text = 'Start'
                                 maximum_size = 30

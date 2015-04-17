@@ -40,9 +40,9 @@ from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, TabLayout
 
 from .fileio import FileView
 from .guessparam import GuessParamView
-from .lineplot import PlotMain
+from .lineplot import PlotMain, AdjustEmissionLine
 from .image2D import ImageMain
-from .fit import FitView
+from .fit import FitView, ElementEdit, ParameterEdit
 from .setting import SettingView
 
 
@@ -93,6 +93,9 @@ enamldef XRFGui(MainWindow): main_window:
                 plot_model = main_window.plot_model
                 param_model = main_window.param_model
                 name = 'lineplot_view'
+                adjust_emission_line = AdjustEmissionLine(
+                    visible=False, destroy_on_close=False,
+                    plot_model=main_window.plot_model)
             ImageMain:
                 closable = False
                 title = 'Element Map'
@@ -108,6 +111,14 @@ enamldef XRFGui(MainWindow): main_window:
                 param_model = main_window.param_model
                 plot_model = main_window.plot_model
                 fit_model = main_window.fit_model
+                element_edit = ElementEdit(
+                    visible=False,
+                    destroy_on_close=False,
+                    parameter_model=main_window.fit_model)
+                parameter_edit = ParameterEdit(
+                    visible=False,
+                    destroy_on_close=False,
+                    parameter_model=main_window.fit_model)
                 name = 'fitting_view'
             SettingView:
                 closable = False
