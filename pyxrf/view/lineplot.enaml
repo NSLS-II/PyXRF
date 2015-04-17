@@ -37,10 +37,12 @@ __author__ = 'Li Li'
 
 from enaml.widgets.api import (Container, PushButton, Label,
                                Form, Field, FileDialogEx, DockItem,
-                               DockArea, MPLCanvas, CheckBox,
+                               DockArea, MPLCanvas, CheckBox, Menu, Action,
                                ComboBox, Window, RadioButton)
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer
 from enaml.stdlib.fields import FloatField as DefaultFloatField
+from atom.api import *
+from ..model.lineplot import LinePlotModel
 
 import numpy as np
 
@@ -51,11 +53,32 @@ from skxray.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 enamldef FloatField(DefaultFloatField):
     submit_triggers = ['auto_sync']
 
+#class AdjustEmissionLineModel(Atom):
+#    plot_model = Typed(LinePlotModel)
+
+
+enamldef SampleAction(Action):
+    text = '%s action %d' % (parent.title, parent.children.index(self))
+    triggered :: print text
+
+
+enamldef SampleMenu(Menu):
+    SampleAction: pass
+    SampleAction: pass
+    SampleAction: pass
+    Container:
+        Form:
+            Label:
+                text = 'Energy'
+            FloatField:
+                value = 10.
+
 
 enamldef PlotMain(DockItem):
     attr io_model
     attr plot_model
     attr param_model
+    attr adjust_emission_line
     Container:
         constraints = [
             vbox(
@@ -72,11 +95,15 @@ enamldef PlotMain(DockItem):
             index = 0
         PushButton: pb_eline:
             text = 'Options'
+            checkable = True
             tool_tip = 'Set up energy to calculate emission lines.'
-            enabled = True #plot_model.emission_line_window
+            checked := adjust_emission_line.visible
             clicked ::
-                AdjustEmissionLine.plot_m = plot_model
-                AdjustEmissionLine().show()
+                if checked:
+                    adjust_emission_line.show()
+                else:
+                    adjust_emission_line.hide()
+
         ComboBox: cbox2:
             items = ['Display emission lines'] +\
                     K_LINE + L_LINE + M_LINE
@@ -104,7 +131,7 @@ enamldef PlotMain(DockItem):
 
 
 enamldef AdjustEmissionLine(Window): emission_win:
-    attr plot_m
+    attr plot_model
     title = ' '
     Container:
         constraints = [
@@ -117,16 +144,14 @@ enamldef AdjustEmissionLine(Window): emission_win:
         Label: elbl:
             text = 'Energy'
         FloatField: fd:
-            value := plot_m.incident_energy
+            value := plot_model.incident_energy
         Label: lbl_escape:
             text = 'Plot escape peak'
         ComboBox: cb:
             items = ['No', 'Yes']
-            index := plot_m.plot_escape_line
+            index := plot_model.plot_escape_line
         #PushButton: btn_close:
         #    text = 'Close'
         #    clicked ::
         #        emission_win.close()
         #        plot_m.emission_line_window = True
-
-

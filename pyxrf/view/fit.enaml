@@ -71,6 +71,8 @@ enamldef FitView(DockItem): fit_view:
     attr param_model
     attr plot_model
     attr fit_model
+    attr element_edit
+    attr parameter_edit
 
     Container:
         constraints = [
@@ -89,8 +91,6 @@ enamldef FitView(DockItem): fit_view:
                 gb_result,
                 hbox(saveas_btn, spacer),
                 gb_fit_pixel,
-                #hbox(cb_enable, spacer),
-                #hbox(element_edit, param_edit, spacer),
             ),
         ]
         #GroupBox: param_gb:
@@ -262,9 +262,6 @@ enamldef FitView(DockItem): fit_view:
             clicked ::
                 fit_model.fit_multiple()
 
-                ElementEdit.parameter_model = fit_model
-                ParameterEdit.parameter_model = fit_model
-
                 # update experimental plot with new calibration values
                 plot_model.parameters = fit_model.param_dict
                 plot_model.plot_experiment()
@@ -311,31 +308,38 @@ enamldef FitView(DockItem): fit_view:
 
         GroupBox: gb_advanced:
             constraints = [vbox(hbox(cb_enable, spacer),
-                                hbox(element_edit, param_edit, spacer))]
+                                hbox(element_btn, param_btn, spacer))]
             CheckBox: cb_enable:
                 text = 'Enable Advanced Setting'
                 clicked ::
                     if checked:
-                        element_edit.enabled = True
-                        param_edit.enabled = True
+                        element_btn.enabled = True
+                        param_btn.enabled = True
                     else:
-                        element_edit.enabled = False
-                        param_edit.enabled = False
+                        element_btn.enabled = False
+                        param_btn.enabled = False
 
-            PushButton: element_edit:
+            PushButton: element_btn:
                 text = 'Edit Elements'
                 enabled = False
+                checkable = True
+                checked := element_edit.visible
                 clicked ::
-                    ElementEdit.parameter_model = fit_model
-                    ElementEdit().show()
+                    if checked:
+                        element_edit.show()
+                    else:
+                        element_edit.hide()
 
-            PushButton: param_edit:
+            PushButton: param_btn:
                 text = 'Edit Global Fitting Parameters'
                 enabled = False
+                checkable = True
+                checked := parameter_edit.visible
                 clicked ::
-                    enabled = False
-                    ParameterEdit.parameter_model = fit_model
-                    ParameterEdit().show()
+                    if checked:
+                        parameter_edit.show()
+                    else:
+                        parameter_edit.hide()
 
         GroupBox: gb_result:
             title = 'Fitting Statistics'
@@ -388,7 +392,6 @@ enamldef FitView(DockItem): fit_view:
 
 enamldef ElementEdit(Window):
     attr parameter_model
-    destroy_on_close = False
     Container:
         padding = Box(5, 5, 5, 5)
 
