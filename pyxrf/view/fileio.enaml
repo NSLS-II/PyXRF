@@ -176,14 +176,16 @@ enamldef FileView(DockItem): file_view:
 
                             Label: lb1:
                                 text = 'Start'
-                                maximum_size = 30
+                                minimum_size = (40, 10)
+                                #maximum_size = 50
                             Field: fd1:
                                 text := io_model.data_sets[loop_item].point1
                                 maximum_size = 80
                                 enabled = False
                             Label: lb2:
                                 text = 'End'
-                                maximum_size = 30
+                                minimum_size = (40, 10)
+                                #maximum_size = 50
                             Field: fd2:
                                 text := io_model.data_sets[loop_item].point2
                                 maximum_size = 80
