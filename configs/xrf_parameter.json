@@ -159,7 +159,7 @@
         "max": 0.2, 
         "min": -0.2, 
         "tool_tip": "E(channel) = a0 + a1*channel+ a2*channel**2", 
-        "value": -0.018114974594784033
+        "value": 0.0
     }, 
     "e_quadratic": {
         "adjust_element1": "fixed", 
@@ -174,7 +174,7 @@
         "max": 1e-06, 
         "min": -1e-06, 
         "tool_tip": "E(channel) = a0 + a1*channel+ a2*channel**2", 
-        "value": -9.528202916038293e-08
+        "value": 0.0
     }, 
     "fwhm_fanoprime": {
         "adjust_element1": "fixed", 
