@@ -123,16 +123,6 @@ class FileIOModel(Atom):
         pass
 
 
-def get_roi_sum(namelist, data_range, data):
-    data_temp = dict()
-    for i in range(len(namelist)):
-        lowv = data_range[i, 0]
-        highv = data_range[i, 1]
-        data_sum = np.sum(data[:, :, lowv: highv], axis=2)
-        data_temp.update({namelist[i].replace(' ', '_'): data_sum})
-    return data_temp
-
-
 def read_hdf_HXN(working_directory,
                  file_names, channel_num=8):
     """
@@ -216,9 +206,12 @@ def read_hdf_APS(working_directory,
     """
     data_dict = OrderedDict()
     data_sets = OrderedDict()
+    img_dict = OrderedDict()
 
     # cut off bad point on the last position of the spectrum
     bad_point_cut = 1
+
+    detID = ''
 
     for fname in file_names:
         try:
@@ -233,7 +226,8 @@ def read_hdf_APS(working_directory,
 
             # data from channel summed
             exp_data = np.asarray(data['detsum/counts'])
-            logger.info('File : {} with total counts {}'.format(fname, np.sum(exp_data)))
+            logger.info('File : {} with total counts {}'.format(fname,
+                                                                np.sum(exp_data)))
             exp_data = exp_data[:, :, :-bad_point_cut]
             DS = DataSelection(filename=fname,
                                raw_data=exp_data)
@@ -249,21 +243,31 @@ def read_hdf_APS(working_directory,
                                    raw_data=exp_data_new)
                 data_sets[file_channel] = DS
 
-            # get roi sum data
-            #roi_result = get_roi_sum(data[detID]['roi_name'].value,
-            #                         data[detID]['roi_limits'].value,
-            #                         data[detID]['counts'])
-            #self.img_dict_flat.update({fname.split('.')[0]+'_roi': roi_result})
+            #get roi sum data
+            roi_result = get_roi_sum(data[detID]['roi_name'].value,
+                                     data[detID]['roi_limits'].value,
+                                     data[detID]['counts'])
+            img_dict.update({fname+'_roi': roi_result})
 
             # read fitting results
-            # if 'xrf_fit' in data[detID]:
-            #     fit_result = get_fit_data(data[detID]['xrf_fit_name'].value,
-            #                               data[detID]['xrf_fit'].value)
-            #     self.img_dict_flat.update({fname.split('.')[0]+'_fit': fit_result})
+            if 'xrf_fit' in data[detID]:
+                fit_result = get_fit_data(data[detID]['xrf_fit_name'].value,
+                                          data[detID]['xrf_fit'].value)
+                img_dict.update({fname+'_fit': fit_result})
 
         except ValueError:
             continue
     return data_dict, data_sets
+
+
+def get_roi_sum(namelist, data_range, data):
+    data_temp = dict()
+    for i in range(len(namelist)):
+        lowv = data_range[i, 0]
+        highv = data_range[i, 1]
+        data_sum = np.sum(data[:, :, lowv: highv], axis=2)
+        data_temp.update({namelist[i].replace(' ', '_'): data_sum})
+    return data_temp
 
 
 def get_fit_data(namelist, data):
