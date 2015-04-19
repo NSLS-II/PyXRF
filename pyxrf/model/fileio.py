@@ -75,7 +75,7 @@ class FileIOModel(Atom):
     load_status = Str()
     data_dict = Dict()
     img_dict = Dict()
-    img_dict_flat = Dict()
+    #img_dict_flat = Dict()
 
     file_channel_list = List()
 
@@ -103,7 +103,7 @@ class FileIOModel(Atom):
 
         # to be update, temporary use
         if 'APS' in self.file_names[0]:
-            self.data_dict, self.data_sets = read_hdf_APS(self.working_directory,
+            self.img_dict, self.data_sets = read_hdf_APS(self.working_directory,
                                                           self.file_names)
         else:
             self.data_dict, self.data_sets = read_hdf_HXN(self.working_directory,
@@ -211,7 +211,7 @@ def read_hdf_APS(working_directory,
     # cut off bad point on the last position of the spectrum
     bad_point_cut = 1
 
-    detID = ''
+    detID = 'detsum'
 
     for fname in file_names:
         try:
@@ -228,7 +228,7 @@ def read_hdf_APS(working_directory,
             exp_data = np.asarray(data['detsum/counts'])
             logger.info('File : {} with total counts {}'.format(fname,
                                                                 np.sum(exp_data)))
-            exp_data = exp_data[:, :, :-bad_point_cut]
+            exp_data = exp_data[:, 150:300, :-bad_point_cut]
             DS = DataSelection(filename=fname,
                                raw_data=exp_data)
             data_sets.update({fname: DS})
@@ -246,7 +246,7 @@ def read_hdf_APS(working_directory,
             #get roi sum data
             roi_result = get_roi_sum(data[detID]['roi_name'].value,
                                      data[detID]['roi_limits'].value,
-                                     data[detID]['counts'])
+                                     data[detID]['counts'][:, 150:300, :-bad_point_cut])
             img_dict.update({fname+'_roi': roi_result})
 
             # read fitting results
@@ -257,7 +257,7 @@ def read_hdf_APS(working_directory,
 
         except ValueError:
             continue
-    return data_dict, data_sets
+    return img_dict, data_sets
 
 
 def get_roi_sum(namelist, data_range, data):

@@ -52,8 +52,9 @@ logger = logging.getLogger(__name__)
 
 enamldef ImageMain(DockItem):
     attr io_model
-    attr img_model
-    attr img_model_adv
+    #attr img_model
+    attr choose_element
+
     Container:
         constraints = [
             vbox(
@@ -106,15 +107,19 @@ enamldef ImageMain(DockItem):
 
         PushButton: pb_all:
             text = 'Select ROI'
-            enabled = True
+            checkable = True
+            checked := choose_element.visible
             clicked ::
-                ChooseElementAdvanced.img_model = img_model_adv
-                ChooseElementAdvanced().show()
+                if checked:
+                    choose_element.show()
+                else:
+                    choose_element.hide()
+
         CheckBox: check:
             text = 'Toolbar Visible'
             checked := canvas.toolbar_visible
         MPLCanvas: canvas:
-            figure << img_model_adv.fig
+            figure << choose_element.img_model.fig
             #figure << figures[cbox_type.selected_item]
 
 
@@ -126,7 +131,7 @@ enamldef ChooseElementAdvanced(Window): win:
         constraints = [
             vbox(
                 cb,
-                hbox(plot_btn, spacer, close_btn),
+                hbox(plot_btn, spacer),
                 gb,
             ),
         ]
@@ -140,10 +145,6 @@ enamldef ChooseElementAdvanced(Window): win:
             clicked ::
                 img_model.show_image()
 
-        PushButton: close_btn:
-            text = 'Close'
-            clicked ::
-                win.close()
         GroupBox: gb:
             ScrollArea: sa:
                 constraints = [height >= 200]
@@ -159,18 +160,16 @@ enamldef ChooseElementAdvanced(Window): win:
                                 font = 'monospace'
                                 text = '{:>20}'.format(loop_item)
                             PushButton: element_btn:
-                                text = 'ShowImg'
+                                text = 'Add'
                                 checkable = True
                                 checked := img_model.stat_dict[cb.selected_item][loop_item]
                                 clicked ::
                                     if checked:
                                         img_model.stat_dict[cb.selected_item][loop_item] = True
-                                        logger.debug('{} {} is selected!'.format(cb.selected_item, loop_item))
-                                        #img_model.show_image()
+                                        element_btn.text = 'Remove'
                                     else:
                                         img_model.stat_dict[cb.selected_item][loop_item] = False
-                                        logger.debug('{} {} is removed!'.format(cb.selected_item, loop_item))
-                                        #img_model.show_image()
+                                        element_btn.text = 'Add'
 
 
 enamldef ChooseElement(Window):
@@ -192,8 +191,12 @@ enamldef ChooseElement(Window):
                             font = 'monospace'
                             text = '{:>20}'.format(loop_item)
                         PushButton: element_btn:
-                            text = 'ShowImg'
+                            text = 'Show Img'
                             checkable = True
                             checked = img_model.stat_dict[loop_item]
                             clicked ::
                                 img_model.stat_dict[loop_item] = checked
+                                if checked:
+                                    element_btn.text = 'Remove Img'
+                                else:
+                                    element_btn.text = 'Show Img'

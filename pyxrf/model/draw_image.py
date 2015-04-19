@@ -216,6 +216,9 @@ class DrawImageAdvanced(Atom):
             temp = {m: False for m in six.iterkeys(v)}
             self.stat_dict.update({k: temp})
 
+    def update_plot(self):
+        self.fig.canvas.draw()
+
     def show_image(self):
         self.fig.clf()
         stat_temp = self.get_activated_num()
@@ -264,7 +267,7 @@ class DrawImageAdvanced(Atom):
         except ValueError:
             pass
 
-        self.fig.canvas.draw()
+        self.update_plot()
 
     def get_activated_num(self):
         data_temp = []
