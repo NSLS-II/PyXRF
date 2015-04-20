@@ -180,6 +180,7 @@ class SettingModel(Atom):
                 val = int(e.emission_line['ma1']*1000)
 
             delta_v = int(self.get_sigma(val/1000)*1000)
+
             roi = ROIModel(prefix=self.prefix_name_roi,
                            line_val=val,
                            left_val=val-delta_v*std_ratio,
@@ -218,16 +219,18 @@ class SettingModel(Atom):
         """
         roi_result = {}
         for fname, datav in six.iteritems(self.data_sets):
-            fname = fname.split('.')[0]
+            #fname = fname.split('.')[0]
             temp = {}
             for k, v in six.iteritems(self.roi_dict):
                 lowv = v.left_val/1000
                 rightv = v.right_val/1000
-                sum2D = calculate_roi(datav.raw_data, self.parameters['e_linear']['value'],
-                                      self.parameters['e_offset']['value'], [lowv, rightv])
+                sum2D = calculate_roi(datav.raw_data,
+                                      self.parameters['e_linear']['value'],
+                                      self.parameters['e_offset']['value'],
+                                      [lowv, rightv])
                 temp.update({k: sum2D})
                 logger.info('Calculation is done for {}, {}, {}'.format(v.prefix, fname, k))
-            roi_result.update({v.prefix+'_'+fname: temp})
+            roi_result[str(v.prefix)+'_'+fname] = temp
         return roi_result
 
 

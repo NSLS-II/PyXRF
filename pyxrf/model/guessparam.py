@@ -581,9 +581,12 @@ class GuessParamModel(Atom):
                 self.param_new['compton_amplitude']['value'] = self.EC.element_dict['compton'].area
             if 'coherent_sct_amplitude' in self.EC.element_dict:
                 self.param_new['coherent_sct_amplitude']['value'] = self.EC.element_dict['elastic'].area
+
             if 'escape' in self.EC.element_dict:
                 self.param_new['non_fitting_values']['escape_ratio'] = (self.EC.element_dict['escape'].maxv
                                                                         / np.max(self.y0))
+            else:
+                self.param_new['non_fitting_values']['escape_ratio'] = 0.0
 
     def data_for_plot(self):
         """

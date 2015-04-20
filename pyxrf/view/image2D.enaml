@@ -136,8 +136,8 @@ enamldef ChooseElementAdvanced(Window): win:
             ),
         ]
         ComboBox: cb:
-            items << sorted(img_model.data_dict.keys())
-            #index := img_model.file_opt
+            #items << sorted(img_model.data_dict.keys())
+            items << img_model.data_dict_list
             index = 0
 
         PushButton: plot_btn:
@@ -155,12 +155,13 @@ enamldef ChooseElementAdvanced(Window): win:
                         Label:
                             pass
                         Looper: looper:
-                            iterable << img_model.data_dict[cb.selected_item].keys()
+                            iterable << sorted(img_model.data_dict[cb.selected_item].keys())
                             Label:
                                 font = 'monospace'
                                 text = '{:>20}'.format(loop_item)
                             PushButton: element_btn:
                                 text = 'Add'
+                                minimum_size = (100, 20)
                                 checkable = True
                                 checked := img_model.stat_dict[cb.selected_item][loop_item]
                                 clicked ::
@@ -170,33 +171,3 @@ enamldef ChooseElementAdvanced(Window): win:
                                     else:
                                         img_model.stat_dict[cb.selected_item][loop_item] = False
                                         element_btn.text = 'Add'
-
-
-enamldef ChooseElement(Window):
-    attr img_model
-
-    title = 'Results of Auto Peak Finding'
-    Container:
-        ScrollArea:
-            constraints = [height >= 200]
-            Container:
-                Form:
-                    Label:
-                        text = '{:>20} {:>20}'.format('Name', 'Add/Remove')
-                    Label:
-                        pass
-                    Looper: looper:
-                        iterable << img_model.img_data.keys()
-                        Label:
-                            font = 'monospace'
-                            text = '{:>20}'.format(loop_item)
-                        PushButton: element_btn:
-                            text = 'Show Img'
-                            checkable = True
-                            checked = img_model.stat_dict[loop_item]
-                            clicked ::
-                                img_model.stat_dict[loop_item] = checked
-                                if checked:
-                                    element_btn.text = 'Remove Img'
-                                else:
-                                    element_btn.text = 'Show Img'

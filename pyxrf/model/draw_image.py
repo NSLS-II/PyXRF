@@ -38,6 +38,7 @@ __author__ = 'Li Li'
 import six
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict
 
@@ -199,14 +200,16 @@ class DrawImageAdvanced(Atom):
     file_opt = Int(0)
     plot_opt = Int(0)
     single_file = Dict()
+    data_dict_list = List()
 
     def __init__(self):
         self.fig = plt.figure()
 
     @observe('data_dict')
     def init_plot_status(self, change):
-        #print('keys {}'.format(self.data_dict.keys()))
+        print('keys {}'.format(self.data_dict.keys()))
         self.set_initial_stat()
+        self.data_dict_list = self.data_dict.keys()
 
     def set_initial_stat(self):
         """
@@ -217,55 +220,59 @@ class DrawImageAdvanced(Atom):
             self.stat_dict.update({k: temp})
 
     def update_plot(self):
+        self.fig.tight_layout(pad=0.01, w_pad=0.01, h_pad=0.01)
         self.fig.canvas.draw()
 
     def show_image(self):
         self.fig.clf()
         stat_temp = self.get_activated_num()
 
+        fontsize = 10
+
         if len(stat_temp) == 1:
             ax = self.fig.add_subplot(111)
             for k, v in sorted(stat_temp):
-                cax = ax.imshow(self.data_dict[k][v])
-                ax.set_title('{}'.format(k+'_'+v))
-                self.fig.colorbar(cax)
+                im = ax.imshow(self.data_dict[k][v])
+                ax.set_title('{}'.format(k+'_'+v), fontsize=fontsize)
+                divider = make_axes_locatable(ax)
+                cax = divider.append_axes("right", size="5%", pad=0.05)
+                self.fig.colorbar(im, cax=cax)
             #self.fig.suptitle(self.file_name, fontsize=14)
         elif len(stat_temp) == 2:
             for i, (k, v) in enumerate(sorted(stat_temp)):
-                ax = self.fig.add_subplot(eval('12'+str(i+1)))
-                cax = ax.imshow(self.data_dict[k][v])
-                self.fig.colorbar(cax)
-                ax.set_title('{}'.format(k+'_'+v))
-            #self.fig.suptitle(self.file_name, fontsize=14)
+                ax = self.fig.add_subplot(eval('21'+str(i+1)))
+                im = ax.imshow(self.data_dict[k][v])
+                ax.set_title('{}'.format(k+'_'+v), fontsize=fontsize)
+                divider = make_axes_locatable(ax)
+                cax = divider.append_axes("right", size="5%", pad=0.05)
+                self.fig.colorbar(im, cax=cax)
+
         elif len(stat_temp) <= 4 and len(stat_temp) > 2:
             for i, (k, v) in enumerate(sorted(stat_temp)):
                 ax = self.fig.add_subplot(eval('22'+str(i+1)))
-                cax = ax.imshow(self.data_dict[k][v])
-                self.fig.colorbar(cax)
-                ax.set_title('{}'.format(k+'_'+v))
-            #self.fig.suptitle(self.file_name, fontsize=14)
+                im = ax.imshow(self.data_dict[k][v])
+                ax.set_title('{}'.format(k+'_'+v), fontsize=fontsize)
+                divider = make_axes_locatable(ax)
+                cax = divider.append_axes("right", size="5%", pad=0.05)
+                self.fig.colorbar(im, cax=cax)
+
         elif len(stat_temp) <= 6 and len(stat_temp) > 4:
             for i, (k, v) in enumerate(sorted(stat_temp)):
                 ax = self.fig.add_subplot(eval('32'+str(i+1)))
-                cax = ax.imshow(self.data_dict[k][v])
-                self.fig.colorbar(cax)
-                ax.set_title('{}'.format(k+'_'+v), fontsize=10)
-            #self.fig.suptitle(self.file_name, fontsize=14)
+                im = ax.imshow(self.data_dict[k][v])
+                ax.set_title('{}'.format(k+'_'+v), fontsize=fontsize)
+                divider = make_axes_locatable(ax)
+                cax = divider.append_axes("right", size="5%", pad=0.05)
+                self.fig.colorbar(im, cax=cax)
+
         elif len(stat_temp) > 6:
             for i, (k, v) in enumerate(sorted(stat_temp)):
                 ax = self.fig.add_subplot(eval('33'+str(i+1)))
-                cax = ax.imshow(self.data_dict[k][v])
-                self.fig.colorbar(cax)
-                ax.set_title('{}'.format(k+'_'+v), fontsize=10)
-            #self.fig.suptitle(self.file_name, fontsize=14)
-            #ax2 = self.fig.add_subplot(222)
-            #ax2.imshow(self.img_data[k[1]])
-            #ax2.set_title('{}: {}'.format(self.file_name, k[1]))
-
-        try:
-            self.fig.tight_layout(pad=0.1)#, w_pad=0.1, h_pad=0.1)
-        except ValueError:
-            pass
+                im = ax.imshow(self.data_dict[k][v])
+                ax.set_title('{}'.format(k+'_'+v), fontsize=fontsize)
+                divider = make_axes_locatable(ax)
+                cax = divider.append_axes("right", size="5%", pad=0.05)
+                self.fig.colorbar(im, cax=cax)
 
         self.update_plot()
 

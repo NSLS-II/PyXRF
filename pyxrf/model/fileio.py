@@ -228,7 +228,7 @@ def read_hdf_APS(working_directory,
             exp_data = np.asarray(data['detsum/counts'])
             logger.info('File : {} with total counts {}'.format(fname,
                                                                 np.sum(exp_data)))
-            exp_data = exp_data[:, 150:300, :-bad_point_cut]
+            exp_data = exp_data[:, :, :-bad_point_cut]
             DS = DataSelection(filename=fname,
                                raw_data=exp_data)
             data_sets.update({fname: DS})
@@ -246,7 +246,7 @@ def read_hdf_APS(working_directory,
             #get roi sum data
             roi_result = get_roi_sum(data[detID]['roi_name'].value,
                                      data[detID]['roi_limits'].value,
-                                     data[detID]['counts'][:, 150:300, :-bad_point_cut])
+                                     data[detID]['counts'][:, :, :-bad_point_cut])
             img_dict.update({fname+'_roi': roi_result})
 
             # read fitting results
