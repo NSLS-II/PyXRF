@@ -137,11 +137,7 @@ enamldef ChooseElementAdvanced(Window): win:
         ]
         ComboBox: cb:
             items << sorted(img_model.data_dict.keys())
-            #items << img_model.data_dict_list
             index = 0
-            #index >> img_model.selected_index
-            index ::
-                img_model.selected_dataname = cb.selected_item
 
         PushButton: plot_btn:
             text = 'Show Image'
@@ -158,13 +154,10 @@ enamldef ChooseElementAdvanced(Window): win:
                         Label:
                             pass
                         Looper: looper:
-                            #iterable << img_model.data_dict[cb.selected_item].values()
                             iterable << sorted(img_model.data_dict[cb.selected_item].keys())
-                            #iterable << sorted(img_model.data_dict[img_model.selected_dataname].keys())
                             Label:
                                 font = 'monospace'
                                 text = '{:>20}'.format(loop_item)
-                            #CheckBox: element_btn:
                             PushButton: element_btn:
                                 text = 'Add'
                                 minimum_size = (100, 20)

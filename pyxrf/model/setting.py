@@ -146,7 +146,7 @@ class SettingModel(Atom):
     def remove_all_roi(self):
         self.roi_dict.clear()
 
-    def update_roi(self, element_list, std_ratio=2):
+    def update_roi(self, element_list, std_ratio=4):
         """
         Update elements without touching old ones.
 
@@ -219,15 +219,20 @@ class SettingModel(Atom):
         """
         roi_result = {}
         for fname, datav in six.iteritems(self.data_sets):
-            #fname = fname.split('.')[0]
+
+            # quick way to ignore channel data, only for summed data
+            # to be updated
+            if 'channel' in fname:
+                continue
+
             temp = {}
             for k, v in six.iteritems(self.roi_dict):
-                lowv = v.left_val/1000
+                leftv = v.left_val/1000
                 rightv = v.right_val/1000
                 sum2D = calculate_roi(datav.raw_data,
                                       self.parameters['e_linear']['value'],
                                       self.parameters['e_offset']['value'],
-                                      [lowv, rightv])
+                                      [leftv, rightv])
                 temp.update({k: sum2D})
                 logger.info('Calculation is done for {}, {}, {}'.format(v.prefix, fname, k))
             roi_result[str(v.prefix)+'_'+fname] = temp
@@ -255,4 +260,4 @@ def calculate_roi(data3D, e_linear, e_offset, range_v):
     range_v = (range_v - e_offset)/e_linear
     range_v = [int(round(v)) for v in range_v]
     #return np.sum(data3D[range_v[0]:range_v[1], :, :], axis=0)*e_linear
-    return np.sum(data3D[:, :, range_v[0]:range_v[1]], axis=2) * e_linear
+    return np.sum(data3D[:, :, range_v[0]:range_v[1]], axis=2) # * e_linear
