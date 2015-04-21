@@ -266,7 +266,8 @@ def get_roi_sum(namelist, data_range, data):
         lowv = data_range[i, 0]
         highv = data_range[i, 1]
         data_sum = np.sum(data[:, :, lowv: highv], axis=2)
-        data_temp.update({namelist[i].replace(' ', '_'): data_sum})
+        data_temp.update({namelist[i]: data_sum})
+        #data_temp.update({namelist[i].replace(' ', '_'): data_sum})
     return data_temp
 
 

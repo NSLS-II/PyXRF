@@ -464,7 +464,9 @@ class GuessParamModel(Atom):
         names = self.data_sets.keys()
         self.data = self.data_sets[names[self.file_opt-1]].get_sum()
         self.define_range()
-        #self.data_all = self.data_sets[names[self.file_opt-1]].raw_data
+
+        # to be passed to fitting part for single pixel fitting
+        self.data_all = self.data_sets[names[self.file_opt-1]].raw_data
 
     def define_range(self):
         """

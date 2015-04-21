@@ -302,8 +302,8 @@ class Fit1D(Atom):
         logger.warning('Time used for pixel fitting is : {}'.format(t1-t0))
 
         # save data
-        fpath = os.path.join(self.result_folder, 'Root.h5')
-        write_to_hdf(fpath, result_map)
+        #fpath = os.path.join(self.result_folder, 'Root.h5')
+        #write_to_hdf(fpath, result_map)
 
         # currently save data using pickle, need to be updated
         import pickle
@@ -380,15 +380,17 @@ def extract_strategy(param, name):
         with given strategy as value
     """
     param_new = copy.deepcopy(param)
-    return {k: v[name] for k, v in six.iteritems(param_new) if k != 'non_fitting_values'}
+    return {k: v[name] for k, v in six.iteritems(param_new)
+            if k != 'non_fitting_values'}
 
 
 def fit_pixel_fast(data, param):
     """
     Single pixel fit of experiment data. No multiprocess is applied.
 
-    .. warning :: This function is not optimized as it calls linear_spectrum_fitting function,
-    where lots of repeated calculation are processed.
+    .. warning :: This function is not optimized as it calls
+    linear_spectrum_fitting function, where lots of repeated
+    calculation are processed.
 
     Parameters
     ----------
@@ -409,7 +411,6 @@ def fit_pixel_fast(data, param):
 
     elist = param['non_fitting_values']['element_list'].split(', ')
     elist = [e.strip(' ') for e in elist]
-    elist = [e+'_K' for e in elist if ('_' not in e)]
 
     non_element = ['compton', 'elastic', 'background']
     total_list = elist + non_element
@@ -423,12 +424,42 @@ def fit_pixel_fast(data, param):
         for j in xrange(datas[1]):
             #logger.info('Column number at {} out of total {}'.format(j, datas[1]))
             x, result, area_v = linear_spectrum_fitting(data[i, j, :], param,
-                                                        elemental_lines=elist, constant_weight=5)
+                                                        elemental_lines=elist,
+                                                        constant_weight=5)
             for v in total_list:
                 if v in result:
                     result_map[v][i, j] = np.sum(result[v])
 
     return result_map
+
+
+def fit_pixel(y, expected_matrix, constant_weight=10):
+    """
+    Non-negative linear fitting is applied for each pixel.
+
+    Parameters
+    ----------
+    y : array
+        spectrum of experiment data
+    expected_matrix : array
+        2D matrix of activated element spectrum
+    constant_weight : float
+        value used to calculate weight like so:
+        weights = constant_weight / (constant_weight + spectrum)
+
+    Returns
+    -------
+    results : array
+        weights of different element
+    residue : array
+        error
+    """
+    if constant_weight:
+        results, residue = weighted_nnls_fit(y, expected_matrix,
+                                             constant_weight=constant_weight)
+    else:
+        results, residue = nnls_fit(y, expected_matrix)
+    return results, residue
 
 
 def fit_per_line(row_num, data, matv, param):
@@ -450,7 +481,7 @@ def fit_per_line(row_num, data, matv, param):
         fitting values for all the elements at a given row.
     """
     datas = data.shape
-    logger.info('Row number is {}'.format(row_num))
+    logger.info('Row number at {} out of total {}'.format(row_num, datas[0]))
     out = []
     for i in range(datas[1]):
         bg = snip_method(data[row_num, i, :],
@@ -458,8 +489,10 @@ def fit_per_line(row_num, data, matv, param):
                          param['e_linear']['value'],
                          param['e_quadratic']['value'])
         y = data[row_num, i, :] - bg
-        result, res = fit_pixel(y, matv, weight=True)
-        result = list(result)# + [np.sum(bg)]
+        # setting constant weight to some value might cause error when fitting
+        result, res = fit_pixel(y, matv,
+                                constant_weight=None)
+        result = list(result) + [np.sum(bg)]
         out.append(result)
     return np.array(out)
 
@@ -481,8 +514,6 @@ def fit_pixel_fast_multi(data, param):
         fitting values for all the elements
     """
 
-    #logger.info('Row number at {} out of total {}'.format(i, datas[0]))
-    #logger.info('no_processors_to_use = {}'.format(no_processors_to_use))
     no_processors_to_use = multiprocessing.cpu_count()
     logger.info('cpu count: {}'.format(no_processors_to_use))
     #print 'Creating pool with %d processes\n' % no_processors_to_use
@@ -495,20 +526,21 @@ def fit_pixel_fast_multi(data, param):
     # ratio to transfer energy value back to channel value
     approx_ratio = 100
 
-    lowv = param['non_fitting_values']['energy_bound_low'] * approx_ratio
-    highv = param['non_fitting_values']['energy_bound_high'] * approx_ratio
+    lowv = param['non_fitting_values']['energy_bound_low']['value'] * approx_ratio
+    highv = param['non_fitting_values']['energy_bound_high']['value'] * approx_ratio
     x, y = trim(x0, y0, lowv, highv)
     start_i = x0[x0 == x[0]][0]
     end_i = x0[x0 == x[-1]][0]
-    e_select, matv = construct_linear_model(x, param)
-    mat_sum = np.sum(matv, axis=0)
 
     elist = param['non_fitting_values']['element_list'].split(', ')
     elist = [e.strip(' ') for e in elist]
-    elist = [e+'_K' for e in elist if ('_' not in e)]
+
+    e_select, matv, e_area = construct_linear_model(x, param, elist)
+    mat_sum = np.sum(matv, axis=0)
 
     result_pool = [pool.apply_async(fit_per_line,
-                                    (i, data[:, :, start_i:end_i+1], matv, param)) for i in range(datas[0])]
+                                    (i, data[:, :, start_i:end_i+1], matv, param))
+                   for i in range(datas[0])]
 
     results = []
     for r in result_pool:
@@ -527,6 +559,8 @@ def fit_pixel_fast_multi(data, param):
     non_element = ['compton', 'elastic', 'background']
     total_list = elist + non_element
 
+    print('total list {}'.format(total_list))
+
     result_map = dict()
     for i in range(len(total_list)-1):
         result_map.update({total_list[i]: results[:, :, i]*mat_sum[i]})
@@ -534,16 +568,24 @@ def fit_pixel_fast_multi(data, param):
     # add background
     result_map.update({total_list[-1]: results[:, :, -1]})
 
+    print('result map {}'.format(result_map.keys()))
+
     # for v in total_list:
     #     for i in xrange(datas[0]):
     #         for j in xrange(datas[1]):
     #             result_map[v][i, j] = results[i, j].get(v, 0)
 
+    # save summed spectrum only when required
     sum_total = np.zeros([results.shape[0], results.shape[1], matv.shape[0]])
     for m in range(sum_total.shape[0]):
         for n in range(sum_total.shape[1]):
-            for i in range(len(total_list)):
+            for i in range(len(total_list)-1):
                 sum_total[m, n, :] += results[m, n, i] * matv[:, i]
+            bg = snip_method(data[m, n, start_i:end_i+1],
+                             param['e_offset']['value'],
+                             param['e_linear']['value'],
+                             param['e_quadratic']['value'])
+            sum_total[m, n, :] += bg
 
     print('label range: {}, {}'.format(start_i, end_i))
     #import pickle
@@ -614,34 +656,6 @@ def fit_pixel_fast_multi(data, param):
 #     return result_map
 
 
-def fit_pixel(y, expected_matrix, constant_weight=10):
-    """
-    Non-negative linear fitting is applied for each pixel.
-
-    Parameters
-    ----------
-    y : array
-        spectrum of experiment data
-    expected_matrix : array
-        2D matrix of activated element spectrum
-    constant_weight : float
-        value used to calculate weight like so:
-        weights = constant_weight / (constant_weight + spectrum)
-
-    Returns
-    -------
-    results : array
-        weights of different element
-    residue : array
-        error
-    """
-    if constant_weight:
-        results, residue = weighted_nnls_fit(y, expected_matrix, constant_weight=constant_weight)
-    else:
-        results, residue = nnls_fit(y, expected_matrix)
-    return results, residue
-
-
 def fit_pixel_slow_version(data, param, c_val=1e-2, fit_num=10, c_weight=1):
     datas = data.shape
 
@@ -680,7 +694,7 @@ def fit_pixel_slow_version(data, param, c_val=1e-2, fit_num=10, c_weight=1):
     return result_map
 
 
-def write_to_hdf(fpath, data_dict):
+def write_to_hdf(fpath, data_dict, interpath='xrfmap/detsum'):
     """
     Add fitting results to existing h5 file. This is to be moved to filestore.
 
@@ -690,11 +704,12 @@ def write_to_hdf(fpath, data_dict):
         path of the hdf5 file
     data_dict : dict
         dict of array
+    interpath : str
+        path inside h5py file
     """
     import h5py
     f = h5py.File(fpath, 'r+')
-    det = 'det1'
-    dataGrp = f['xrfmap/'+det]
+    dataGrp = f[interpath]
 
     data = []
     namelist = []

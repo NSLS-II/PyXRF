@@ -82,13 +82,12 @@ enamldef GuessParamView(DockItem): param_view:
             index = 0
             index >> param_model.file_opt
             index ::
-                #plot_model.data = param_model.data
-                #fit_model.data = param_model.data
                 if CB.index > 0:
                     #fit_model.data_title = io_model.file_names[CB.index-1].split('.')[0]
-                    fit_model.data_title = io_model.file_channel_list[CB.index-1].split('.')[0]
                     plot_model.exp_data_label = fit_model.data_title
                     plot_model.data = param_model.data
+
+                    fit_model.data_title = io_model.file_channel_list[CB.index-1].split('.')[0]
                     fit_model.data = param_model.data
                     fit_model.data_all = param_model.data_all
 

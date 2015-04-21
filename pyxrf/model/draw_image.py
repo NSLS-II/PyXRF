@@ -201,6 +201,7 @@ class DrawImageAdvanced(Atom):
     plot_opt = Int(0)
     single_file = Dict()
     data_dict_list = List()
+    selected_dataname = Str()
 
     def __init__(self):
         self.fig = plt.figure()
@@ -209,7 +210,15 @@ class DrawImageAdvanced(Atom):
     def init_plot_status(self, change):
         print('keys {}'.format(self.data_dict.keys()))
         self.set_initial_stat()
-        self.data_dict_list = self.data_dict.keys()
+        #self.data_dict_list = self.data_dict.keys()
+
+    @observe('selected_dataname')
+    def _update_selected(self, change):
+        print(change)
+        #import copy
+        #data_temp = copy.deepcopy(self.data_dict)
+        self.data_dict.update({'x': 'test'})
+        del self.data_dict['x']
 
     def set_initial_stat(self):
         """
@@ -220,7 +229,7 @@ class DrawImageAdvanced(Atom):
             self.stat_dict.update({k: temp})
 
     def update_plot(self):
-        self.fig.tight_layout(pad=0.01, w_pad=0.01, h_pad=0.01)
+        self.fig.tight_layout(pad=0.1, w_pad=0.1, h_pad=0.1)
         self.fig.canvas.draw()
 
     def show_image(self):
