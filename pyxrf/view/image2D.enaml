@@ -52,14 +52,14 @@ logger = logging.getLogger(__name__)
 
 enamldef ImageMain(DockItem):
     attr io_model
-    #attr img_model
+    attr img_model_adv
     attr choose_element
 
     Container:
         constraints = [
             vbox(
                 #hbox(cbox_file, cbox_type, pb_choose, spacer),
-                hbox(pb_all, spacer, check),
+                hbox(pb_all, spacer, cb_select, color_select, tb_check),
                 canvas,
             ),
             #cbox_type.v_center == check.v_center,
@@ -115,7 +115,19 @@ enamldef ImageMain(DockItem):
                 else:
                     choose_element.hide()
 
-        CheckBox: check:
+        ComboBox: cb_select:
+            items = ['Linear', 'Log']
+            index = 0
+            index ::
+                img_model_adv.scale_opt = cb_select.selected_item
+
+        ComboBox: color_select:
+            items = ['Color', 'Greyscale']
+            index = 0
+            index ::
+                img_model_adv.color_opt = color_select.selected_item
+
+        CheckBox: tb_check:
             text = 'Toolbar Visible'
             checked := canvas.toolbar_visible
         MPLCanvas: canvas:

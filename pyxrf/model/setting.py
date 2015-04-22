@@ -234,8 +234,9 @@ class SettingModel(Atom):
                                       self.parameters['e_offset']['value'],
                                       [leftv, rightv])
                 temp.update({k: sum2D})
-                logger.info('Calculation is done for {}, {}, {}'.format(v.prefix, fname, k))
-            roi_result[str(v.prefix)+'_'+fname] = temp
+                logger.info('Calculation is done for {}, {}, {}'.format(v.prefix,
+                                                                        fname, k))
+            roi_result[v.prefix+'_'+fname] = temp
         return roi_result
 
 

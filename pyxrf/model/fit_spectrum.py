@@ -678,6 +678,7 @@ def fit_pixel_slow_version(data, param, c_val=1e-2, fit_num=10, c_weight=1):
             y0 = data[i, j, :]
             result = MS.model_fit(x0, y0,
                                   w=1/np.sqrt(c_weight+y0))
+
                                   #maxfev=fit_num, xtol=c_val, ftol=c_val, gtol=c_val)
             #for k, v in six.iteritems(result.values):
             #    print('result {}: {}'.format(k, v))
@@ -731,6 +732,39 @@ def write_to_hdf(fpath, data_dict, interpath='xrfmap/detsum'):
     name_data.attrs['comments'] = 'All elements for fitting are saved.'
 
     f.close()
+
+
+def ccombine_data_to_hdf(fpath_read, file_prefix,
+                         start_id, end_id,
+                         interpath_read='entry/instrument/detector/data'):
+    """
+    Read data from each point scan, then save them to one hdf file.
+    Following APS X13 beamline structure.
+    """
+
+    import h5py
+    #import copy
+
+    #datasum = np.zeros([100, 605, 4096])
+    datasum = None
+    for i in range(start_id, end_id+1):
+        num_str = '{:03d}'.format(i)
+        print(num_str)
+        filename = file_prefix + num_str
+        file_path = os.path.join(fpath_read, filename)
+        with h5py.File(file_path, 'r') as f:
+            data_temp = f[interpath_read][:]
+            #data_temp = np.asarray(data_temp)
+            #datasum.append(np.sum(data_temp, axis=1))
+            if datasum is None:
+                datasum = np.zeros([end_id-start_id+1,
+                                    data_temp.shape[0],
+                                    data_temp.shape[1],
+                                    data_temp.shape[2]])
+            datasum[i-start_id, :, :, :] = data_temp
+
+    print(datasum.shape)
+    return datasum
 
 
 def compare_result(m, n, start_i=151, end_i=1350, all=True, linear=True):

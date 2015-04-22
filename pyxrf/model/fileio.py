@@ -384,5 +384,3 @@ class SpectrumCalculator(object):
                           axis=(0, 1))
             #return np.sum(self.data[:, self.pos1[0]:self.pos2[0], self.pos1[1]:self.pos2[1]],
             #              axis=(1, 2))
-
-

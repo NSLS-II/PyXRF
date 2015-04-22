@@ -101,7 +101,7 @@ enamldef XRFGui(MainWindow): main_window:
                 title = 'Element Map'
                 io_model = main_window.io_model
                 #img_model = main_window.img_model
-                #img_model_adv = main_window.img_model_adv
+                img_model_adv = main_window.img_model_adv
                 choose_element = ChooseElementAdvanced(
                     visible=False, destroy_on_close=False,
                     img_model=main_window.img_model_adv)

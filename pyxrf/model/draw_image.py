@@ -36,9 +36,12 @@
 __author__ = 'Li Li'
 
 import six
+import numpy as np
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+import matplotlib.cm as cm
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict
 
@@ -200,6 +203,8 @@ class DrawImageAdvanced(Atom):
     file_opt = Int(0)
     plot_opt = Int(0)
     single_file = Dict()
+    scale_opt = Str('Linear')
+    color_opt = Str('Color')
 
     def __init__(self):
         self.fig = plt.figure()
@@ -208,6 +213,16 @@ class DrawImageAdvanced(Atom):
     def init_plot_status(self, change):
         print('keys {}'.format(self.data_dict.keys()))
         self.set_initial_stat()
+
+    @observe('scale_opt', 'color_opt')
+    def _update_scale(self, change):
+        if change['type'] != 'create':
+            self.show_image()
+
+    # @observe('color_opt')
+    # def _update_color(self, change):
+    #     if change['type'] != 'create':
+    #         self.show_image()
 
     def set_initial_stat(self):
         """
@@ -227,10 +242,25 @@ class DrawImageAdvanced(Atom):
 
         fontsize = 10
 
+        low_lim = 1e-4 # define the low limit for log image
+
+        if self.color_opt == 'Color':
+            grey_use = None
+        else:
+            grey_use = cm.Greys_r
+
         if len(stat_temp) == 1:
             ax = self.fig.add_subplot(111)
             for k, v in sorted(stat_temp):
-                im = ax.imshow(self.data_dict[k][v])
+                if self.scale_opt == 'Linear':
+                    im = ax.imshow(self.data_dict[k][v],
+                                   cmap=grey_use)
+                else:
+                    maxz = np.max(self.data_dict[k][v])
+                    im = ax.imshow(self.data_dict[k][v],
+                                   norm=LogNorm(vmin=low_lim*maxz,
+                                                vmax=maxz),
+                                   cmap=grey_use)
                 ax.set_title('{}'.format(k+'_'+v), fontsize=fontsize)
                 divider = make_axes_locatable(ax)
                 cax = divider.append_axes("right", size="5%", pad=0.05)
@@ -239,7 +269,15 @@ class DrawImageAdvanced(Atom):
         elif len(stat_temp) == 2:
             for i, (k, v) in enumerate(sorted(stat_temp)):
                 ax = self.fig.add_subplot(eval('21'+str(i+1)))
-                im = ax.imshow(self.data_dict[k][v])
+                if self.scale_opt == 'Linear':
+                    im = ax.imshow(self.data_dict[k][v],
+                                   cmap=grey_use)
+                else:
+                    maxz = np.max(self.data_dict[k][v])
+                    im = ax.imshow(self.data_dict[k][v],
+                                   norm=LogNorm(vmin=low_lim*maxz,
+                                                vmax=maxz),
+                                   cmap=grey_use)
                 ax.set_title('{}'.format(k+'_'+v), fontsize=fontsize)
                 divider = make_axes_locatable(ax)
                 cax = divider.append_axes("right", size="5%", pad=0.05)
@@ -248,7 +286,15 @@ class DrawImageAdvanced(Atom):
         elif len(stat_temp) <= 4 and len(stat_temp) > 2:
             for i, (k, v) in enumerate(sorted(stat_temp)):
                 ax = self.fig.add_subplot(eval('22'+str(i+1)))
-                im = ax.imshow(self.data_dict[k][v])
+                if self.scale_opt == 'Linear':
+                    im = ax.imshow(self.data_dict[k][v],
+                                   cmap=grey_use)
+                else:
+                    maxz = np.max(self.data_dict[k][v])
+                    im = ax.imshow(self.data_dict[k][v],
+                                   norm=LogNorm(vmin=low_lim*maxz,
+                                                vmax=maxz),
+                                   cmap=grey_use)
                 ax.set_title('{}'.format(k+'_'+v), fontsize=fontsize)
                 divider = make_axes_locatable(ax)
                 cax = divider.append_axes("right", size="5%", pad=0.05)
@@ -257,7 +303,15 @@ class DrawImageAdvanced(Atom):
         elif len(stat_temp) <= 6 and len(stat_temp) > 4:
             for i, (k, v) in enumerate(sorted(stat_temp)):
                 ax = self.fig.add_subplot(eval('32'+str(i+1)))
-                im = ax.imshow(self.data_dict[k][v])
+                if self.scale_opt == 'Linear':
+                    im = ax.imshow(self.data_dict[k][v],
+                                   cmap=grey_use)
+                else:
+                    maxz = np.max(self.data_dict[k][v])
+                    im = ax.imshow(self.data_dict[k][v],
+                                   norm=LogNorm(vmin=low_lim*maxz,
+                                                vmax=maxz),
+                                   cmap=grey_use)
                 ax.set_title('{}'.format(k+'_'+v), fontsize=fontsize)
                 divider = make_axes_locatable(ax)
                 cax = divider.append_axes("right", size="5%", pad=0.05)
@@ -266,7 +320,15 @@ class DrawImageAdvanced(Atom):
         elif len(stat_temp) > 6:
             for i, (k, v) in enumerate(sorted(stat_temp)):
                 ax = self.fig.add_subplot(eval('33'+str(i+1)))
-                im = ax.imshow(self.data_dict[k][v])
+                if self.scale_opt == 'Linear':
+                    im = ax.imshow(self.data_dict[k][v],
+                                   cmap=grey_use)
+                else:
+                    maxz = np.max(self.data_dict[k][v])
+                    im = ax.imshow(self.data_dict[k][v],
+                                   norm=LogNorm(vmin=low_lim*maxz,
+                                                vmax=maxz),
+                                   cmap=grey_use)
                 ax.set_title('{}'.format(k+'_'+v), fontsize=fontsize)
                 divider = make_axes_locatable(ax)
                 cax = divider.append_axes("right", size="5%", pad=0.05)
