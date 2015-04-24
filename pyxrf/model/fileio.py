@@ -124,7 +124,7 @@ class FileIOModel(Atom):
 
 
 def read_hdf_HXN(working_directory,
-                 file_names, channel_num=8):
+                 file_names, channel_num=4):
     """
     Data IO for HXN temporary datasets. This might be changed later.
 

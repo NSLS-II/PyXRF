@@ -219,11 +219,6 @@ class DrawImageAdvanced(Atom):
         if change['type'] != 'create':
             self.show_image()
 
-    # @observe('color_opt')
-    # def _update_color(self, change):
-    #     if change['type'] != 'create':
-    #         self.show_image()
-
     def set_initial_stat(self):
         """
         Set up initial plotting status for all the 2D images.

@@ -42,6 +42,7 @@ import six
 import os
 from collections import OrderedDict
 import multiprocessing
+import h5py
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float
 from skxray.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
@@ -80,6 +81,8 @@ class Fit1D(Atom):
     fit_strategy5 = Int(0)
     fit_result = Typed(object)
     data_title = Str()
+
+    working_directory = Str()
     result_folder = Str()
 
     all_strategy = Typed(object) #Typed(OrderedDict)
@@ -102,6 +105,7 @@ class Fit1D(Atom):
     red_chi2 = Float(0.0)
 
     def __init__(self, *args, **kwargs):
+        self.working_directory = kwargs['working_directory']
         self.result_folder = kwargs['working_directory']
         self.all_strategy = OrderedDict()
 
@@ -291,7 +295,8 @@ class Fit1D(Atom):
 
     def fit_single_pixel(self):
         """
-        This function performs single pixel fitting. Multiprocess is considered.
+        This function performs single pixel fitting.
+        Multiprocess is considered.
         """
         strategy_pixel = 'linear'
         set_parameter_bound(self.param_dict, strategy_pixel)
@@ -309,6 +314,30 @@ class Fit1D(Atom):
         import pickle
         fpath = os.path.join(self.result_folder, 'root_data')
         pickle.dump(result_map, open(fpath, 'wb'))
+
+    def fit_multi_files(self):
+        """
+        Fit data from multiple files.
+        """
+        file_prefix = 'xsp3.0'
+        working_directory = '/Users/Li/Downloads/aps13ide'
+        result_file = 'xsp3_data'
+
+        start_i = 100
+        end_i = 110
+
+        t0 = time.time()
+        #result_map = fit_pixel_fast_multi(self.data_all, self.param_dict)
+
+        result = fit_data_multi_files(working_directory, file_prefix,
+                                      self.param_dict, start_i, end_i)
+
+        t1 = time.time()
+        logger.warning('Time used for pixel fitting multiple files is : {}'.format(t1-t0))
+
+        import pickle
+        fpath = os.path.join(self.result_folder, result_file)
+        pickle.dump(result, open(fpath, 'wb'))
 
     def save_result(self, fname=None):
         """
@@ -384,7 +413,9 @@ def extract_strategy(param, name):
             if k != 'non_fitting_values'}
 
 
-def fit_pixel_fast(data, param):
+def fit_pixel_fast(dir_path, file_prefix,
+                   fileID, param, interpath,
+                   save_spectrum=True):
     """
     Single pixel fit of experiment data. No multiprocess is applied.
 
@@ -405,9 +436,18 @@ def fit_pixel_fast(data, param):
         fitting values for all the elements
     """
 
+    num_str = '{:03d}'.format(fileID)
+    #print(num_str)
+    #logger.info('File number is {}'.format(fileID))
+    filename = file_prefix + num_str
+    file_path = os.path.join(dir_path, filename)
+    with h5py.File(file_path, 'r') as f:
+        data = f[interpath][:]
+    #data = np.array(data[:, :, :])
     datas = data.shape
+    #print(datas)
 
-    x0 = np.arange(datas[2])
+    #x0 = np.arange(datas[2])
 
     elist = param['non_fitting_values']['element_list'].split(', ')
     elist = [e.strip(' ') for e in elist]
@@ -417,20 +457,164 @@ def fit_pixel_fast(data, param):
 
     result_map = dict()
     for v in total_list:
-        result_map.update({v: np.zeros([datas[0], datas[1]])})
+        if save_spectrum:
+            result_map.update({v: np.zeros([datas[0], datas[1], datas[2]])})
+        else:
+            result_map.update({v: np.zeros([datas[0], datas[1]])})
 
     for i in xrange(datas[0]):
-        logger.info('Row number at {} out of total {}'.format(i, datas[0]))
+        #logger.info('Row number at {} out of total {}'.format(i, datas[0]))
         for j in xrange(datas[1]):
             #logger.info('Column number at {} out of total {}'.format(j, datas[1]))
             x, result, area_v = linear_spectrum_fitting(data[i, j, :], param,
                                                         elemental_lines=elist,
-                                                        constant_weight=5)
+                                                        constant_weight=None)
             for v in total_list:
                 if v in result:
-                    result_map[v][i, j] = np.sum(result[v])
+                    if save_spectrum:
+                        result_map[v][i, j, :len(result[v])] = result[v]
+                    else:
+                        result_map[v][i, j] = np.sum(result[v])
 
     return result_map
+
+
+def fit_data_multi_files(dir_path, file_prefix,
+                         param, start_i, end_i,
+                         interpath='entry/instrument/detector/data'):
+    """
+    Fitting for multiple files with Multiprocessing.
+
+    Parameters
+    -----------
+    dir_path : str
+    file_prefix : str
+    param : dict
+    start_i : int
+        start id of given file
+    end_i: int
+        end id of given file
+    interpath : str
+        path inside hdf5 file to fetch the data
+
+    Returns
+    -------
+    result : list
+        fitting result as list of dict
+    """
+    no_processors_to_use = multiprocessing.cpu_count()
+    logger.info('cpu count: {}'.format(no_processors_to_use))
+    #print 'Creating pool with %d processes\n' % no_processors_to_use
+    pool = multiprocessing.Pool(no_processors_to_use)
+
+    result_pool = [pool.apply_async(fit_pixel_fast,
+                                    (dir_path, file_prefix,
+                                     m, param, interpath))
+                   for m in range(start_i, end_i+1)]
+
+    results = []
+    for r in result_pool:
+        results.append(r.get())
+
+    pool.terminate()
+    pool.join()
+    #print(results)
+    return results
+
+
+def roi_sum_calculation(dir_path, file_prefix, fileID,
+                        element_dict, interpath):
+    """
+    Parameters
+    -----------
+    dir_path : str
+    file_prefix : str
+    fileID : int
+    element_dict : dict
+        element name with low/high bound
+    interpath : str
+        path inside hdf5 file to fetch the data
+
+    Returns
+    -------
+    result : dict
+        roi sum for all given elements
+    """
+    num_str = '{:03d}'.format(fileID)
+    #logger.info('File number is {}'.format(fileID))
+    filename = file_prefix + num_str
+    file_path = os.path.join(dir_path, filename)
+    with h5py.File(file_path, 'r') as f:
+        data = f[interpath][:]
+
+    result_map = dict()
+    #for v in six.iterkeys(element_dict):
+    #    result_map[v] = np.zeros([datas[0], datas[1]])
+
+    for k, v in six.iteritems(element_dict):
+        result_map[k] = np.sum(data[:, :, v[0]: v[1]], axis=2)
+
+    return result_map
+
+
+def roi_sum_multi_files(dir_path, file_prefix,
+                        start_i, end_i, element_dict,
+                        interpath='entry/instrument/detector/data'):
+    """
+    Fitting for multiple files with Multiprocessing.
+
+    Parameters
+    -----------
+    dir_path : str
+    file_prefix : str
+    start_i : int
+        start id of given file
+    end_i: int
+        end id of given file
+    element_dict : dict
+        dict of element with [low, high] bounds as values
+    interpath : str
+        path inside hdf5 file to fetch the data
+
+    Returns
+    -------
+    result : list
+        fitting result as list of dict
+    """
+    no_processors_to_use = multiprocessing.cpu_count()
+    logger.info('cpu count: {}'.format(no_processors_to_use))
+    #print 'Creating pool with %d processes\n' % no_processors_to_use
+    pool = multiprocessing.Pool(no_processors_to_use)
+
+    result_pool = [pool.apply_async(roi_sum_calculation,
+                                    (dir_path, file_prefix,
+                                     m, element_dict, interpath))
+                   for m in range(start_i, end_i+1)]
+
+    results = []
+    for r in result_pool:
+        results.append(r.get())
+
+    pool.terminate()
+    pool.join()
+    return results
+
+
+def extract_result(data, element):
+    """
+    Extract fitting result returned from fitting of multi files.
+
+    Parameters
+    ----------
+    data : list
+        list of dict
+    element : str
+        elemental line
+    """
+    data_map = []
+    for v in data:
+        data_map.append(v[element])
+    return np.array(data_map)
 
 
 def fit_pixel(y, expected_matrix, constant_weight=10):
@@ -708,7 +892,6 @@ def write_to_hdf(fpath, data_dict, interpath='xrfmap/detsum'):
     interpath : str
         path inside h5py file
     """
-    import h5py
     f = h5py.File(fpath, 'r+')
     dataGrp = f[interpath]
 

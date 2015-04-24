@@ -255,7 +255,8 @@ enamldef FitView(DockItem): fit_view:
             PushButton: fit_pixel:
                 text = 'Fit Individual Pixel'
                 clicked ::
-                    fit_model.fit_single_pixel()
+                    fit_model.fit_multi_files()
+                    #fit_model.fit_single_pixel()
 
 
 enamldef ElementEdit(Window):
