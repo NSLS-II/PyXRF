@@ -273,16 +273,20 @@ class ElementController(object):
 
     def get_element_list(self):
         current_elements = [v for v
-                            in six.iterkeys(self.element_dict) if v.lower() != v]
-        logger.info('Current Elements for fitting are {}'.format(current_elements))
+                            in six.iterkeys(self.element_dict)
+                            if v.lower() != v]
+        logger.info('Current Elements for '
+                    'fitting are {}'.format(current_elements))
         return current_elements
 
     def update_peak_ratio(self):
         """
         In case users change the max value.
         """
+        max_area_dig = 2
         for v in six.itervalues(self.element_dict):
-            v.maxv = np.around(v.maxv, 1)
+            v.maxv = np.around(v.maxv, max_area_dig)
+            print('max v: {}'.format(v.maxv))
             v.spectrum = v.spectrum*v.maxv/np.max(v.spectrum)
         self.update_norm()
 
@@ -360,6 +364,7 @@ class GuessParamModel(Atom):
 
     x0 = Typed(np.ndarray)
     y0 = Typed(np.ndarray)
+    max_area_dig = Int(2)
 
     def __init__(self, **kwargs):
         try:
@@ -406,7 +411,7 @@ class GuessParamModel(Atom):
         self.prefit_x, pre_dict, area_dict = calculate_profile(self.data,
                                                                param_dict,
                                                                elemental_lines)
-
+        #dig_num = 5
         temp_dict = OrderedDict()
         for e in six.iterkeys(pre_dict):
             ename = e.split('_')[0]
@@ -415,7 +420,7 @@ class GuessParamModel(Atom):
                 area = np.sum(spectrum)
                 ps = PreFitStatus(z=get_Z(ename), energy=get_energy(e),
                                   area=area, spectrum=spectrum,
-                                  maxv=np.around(np.max(spectrum), 1),
+                                  maxv=np.around(np.max(spectrum), self.max_area_dig),
                                   norm=-1, lbd_stat=False)
                 temp_dict[e] = ps
             else:
@@ -438,7 +443,7 @@ class GuessParamModel(Atom):
 
                     ps = PreFitStatus(z=get_Z(ename), energy=get_energy(e),
                                       area=area, spectrum=spectrum,
-                                      maxv=np.around(np.max(spectrum), 1),
+                                      maxv=np.around(np.max(spectrum), self.max_area_dig),
                                       norm=-1, lbd_stat=False)
 
                     temp_dict[e] = ps
@@ -462,11 +467,16 @@ class GuessParamModel(Atom):
         if self.file_opt == 0:
             return
         names = self.data_sets.keys()
-        self.data = self.data_sets[names[self.file_opt-1]].get_sum()
-        self.define_range()
 
         # to be passed to fitting part for single pixel fitting
         self.data_all = self.data_sets[names[self.file_opt-1]].raw_data
+
+        # spectrum is averaged in terms of pixel size,
+        # fit doesn't work well if spectrum value is too large.
+        spectrum = self.data_sets[names[self.file_opt-1]].get_sum()
+        #self.data = spectrum/np.max(spectrum)
+        self.data = spectrum/(self.data_all.shape[0]*self.data_all.shape[1])
+        self.define_range()
 
     def define_range(self):
         """
@@ -524,6 +534,7 @@ class GuessParamModel(Atom):
         threshv : float
             The value will not be shown on GUI if it is smaller than the threshold.
         """
+        dig_num = 5
         self.prefit_x, out_dict, area_dict = linear_spectrum_fitting(self.data,
                                                                      self.param_new)
         logger.info('Energy range: {}, {}'.format(
@@ -534,7 +545,7 @@ class GuessParamModel(Atom):
         for k, v in six.iteritems(out_dict):
             ps = PreFitStatus(z=get_Z(k), energy=get_energy(k),
                               area=area_dict[k], spectrum=v,
-                              maxv=np.around(np.max(v), 1), norm=-1,
+                              maxv=np.around(np.max(v), self.max_area_dig), norm=-1,
                               lbd_stat=False)
             prefit_dict.update({k: ps})
 

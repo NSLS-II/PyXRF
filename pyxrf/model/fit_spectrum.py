@@ -221,7 +221,7 @@ class Fit1D(Atom):
         self.residual = self.cal_y - self.y0
 
     def fit_data(self, x0, y0,
-                 c_val=1e-2, fit_num=100, c_weight=1e3):
+                 c_val=1e-3, fit_num=100, c_weight=1e3):
         MS = ModelSpectrum(self.param_dict, self.element_list)
         MS.assemble_models()
 
@@ -290,19 +290,23 @@ class Fit1D(Atom):
     def assign_fitting_result(self):
         self.function_num = self.fit_result.nfev
         self.nvar = self.fit_result.nvarys
-        self.chi2 = np.around(self.fit_result.chisqr, 2)
-        self.red_chi2 = np.around(self.fit_result.redchi, 2)
+        self.chi2 = np.around(self.fit_result.chisqr, 4)
+        self.red_chi2 = np.around(self.fit_result.redchi, 4)
 
     def fit_single_pixel(self):
         """
         This function performs single pixel fitting.
         Multiprocess is considered.
         """
+        save_name = 'pv250_slice1_data'
+        save_dict = {'fit_path': os.path.join(self.result_folder, save_name+'_pixel'),
+                     'save_range': 200}
+
         strategy_pixel = 'linear'
         set_parameter_bound(self.param_dict, strategy_pixel)
         logger.info('Starting single pixel fitting')
         t0 = time.time()
-        result_map = fit_pixel_fast_multi(self.data_all, self.param_dict)
+        result_map = fit_pixel_fast_multi(self.data_all, self.param_dict, **save_dict)
         t1 = time.time()
         logger.warning('Time used for pixel fitting is : {}'.format(t1-t0))
 
@@ -312,7 +316,7 @@ class Fit1D(Atom):
 
         # currently save data using pickle, need to be updated
         import pickle
-        fpath = os.path.join(self.result_folder, 'root_data')
+        fpath = os.path.join(self.result_folder, save_name)
         pickle.dump(result_map, open(fpath, 'wb'))
 
     def fit_multi_files(self):
@@ -646,7 +650,8 @@ def fit_pixel(y, expected_matrix, constant_weight=10):
     return results, residue
 
 
-def fit_per_line(row_num, data, matv, param):
+def fit_per_line(row_num, data,
+                 matv, param):
     """
     Fit experiment data for a given row.
 
@@ -681,7 +686,7 @@ def fit_per_line(row_num, data, matv, param):
     return np.array(out)
 
 
-def fit_pixel_fast_multi(data, param):
+def fit_pixel_fast_multi(data, param, **kwargs):
     """
     Multiprocess fit of experiment data.
 
@@ -691,6 +696,8 @@ def fit_pixel_fast_multi(data, param):
         3D data of experiment spectrum
     param : dict
         fitting parameters
+    kwargs : dict
+        the size of saved data and path
 
     Returns
     -------
@@ -715,6 +722,7 @@ def fit_pixel_fast_multi(data, param):
     x, y = trim(x0, y0, lowv, highv)
     start_i = x0[x0 == x[0]][0]
     end_i = x0[x0 == x[-1]][0]
+    logger.info('label range: {}, {}'.format(start_i, end_i))
 
     elist = param['non_fitting_values']['element_list'].split(', ')
     elist = [e.strip(' ') for e in elist]
@@ -743,8 +751,6 @@ def fit_pixel_fast_multi(data, param):
     non_element = ['compton', 'elastic', 'background']
     total_list = elist + non_element
 
-    print('total list {}'.format(total_list))
-
     result_map = dict()
     for i in range(len(total_list)-1):
         result_map.update({total_list[i]: results[:, :, i]*mat_sum[i]})
@@ -752,32 +758,33 @@ def fit_pixel_fast_multi(data, param):
     # add background
     result_map.update({total_list[-1]: results[:, :, -1]})
 
-    print('result map {}'.format(result_map.keys()))
-
     # for v in total_list:
     #     for i in xrange(datas[0]):
     #         for j in xrange(datas[1]):
     #             result_map[v][i, j] = results[i, j].get(v, 0)
 
     # save summed spectrum only when required
-    sum_total = np.zeros([results.shape[0], results.shape[1], matv.shape[0]])
-    for m in range(sum_total.shape[0]):
-        for n in range(sum_total.shape[1]):
-            for i in range(len(total_list)-1):
-                sum_total[m, n, :] += results[m, n, i] * matv[:, i]
-            bg = snip_method(data[m, n, start_i:end_i+1],
-                             param['e_offset']['value'],
-                             param['e_linear']['value'],
-                             param['e_quadratic']['value'])
-            sum_total[m, n, :] += bg
+    # the size is measured from the point of (0, 0)
+    #sum_total = np.zeros([results.shape[0], results.shape[1], matv.shape[0]])
+    if kwargs['save_range']:
+        sum_total = np.zeros([kwargs['save_range'],
+                              kwargs['save_range'],
+                              matv.shape[0]])
+        for m in range(sum_total.shape[0]):
+            for n in range(sum_total.shape[1]):
+                for i in range(len(total_list)-1):
+                    sum_total[m, n, :] += results[m, n, i] * matv[:, i]
+                bg = snip_method(data[m, n, start_i:end_i+1],
+                                 param['e_offset']['value'],
+                                 param['e_linear']['value'],
+                                 param['e_quadratic']['value'])
+                sum_total[m, n, :] += bg
 
-    print('label range: {}, {}'.format(start_i, end_i))
-    #import pickle
-    fit_path = '/Users/Li/Downloads/xrf_data/'
-    fpath = os.path.join(fit_path, 'fit_data')
+        #fpath = os.path.join(kwargs['fit_path'])
+        np.save(kwargs['fit_path'], sum_total)
+        logger.info('Single pixel data is also save to : {}'.format(kwargs['fit_path']))
+
     #pickle.dump(result_map, open(fpath, 'wb'))
-    np.save(fpath, sum_total)
-
     return result_map
 
 
