@@ -496,12 +496,16 @@ class GuessParamModel(Atom):
                                                                     / np.max(self.y0))
             es_peak = trim_escape_peak(self.data, self.param_new,
                                        self.prefit_x.size)
+            print('escape: {}'.format(np.sum(es_peak)))
             ps = PreFitStatus(z=get_Z(self.e_name),
                               energy=get_energy(self.e_name),
-                              area=np.sum(es_peak),
+                              # put float in front of area and maxv
+                              # due to type conflicts in atom, which regards them as
+                              # np.float32 if we do not put float in front.
+                              area=float(np.around(np.sum(es_peak), self.max_area_dig)),
                               spectrum=es_peak,
-                              maxv=np.max(es_peak), norm=-1,
-                              lbd_stat=False)
+                              maxv=float(np.around(np.max(es_peak), self.max_area_dig)),
+                              norm=-1, lbd_stat=False)
         else:
             x, data_out, area_dict = calculate_profile(self.data, self.param_new,
                                                        elemental_lines=[self.e_name],
@@ -588,6 +592,8 @@ class GuessParamModel(Atom):
             for e in self.element_list:
                 zname = e.split('_')[0]
                 for k, v in six.iteritems(self.param_new):
+                    # need to consider zname+'_' together,
+                    # i.e. Si and S may cause conflicts
                     if zname+'_' in k and 'area' in k:
                         v['value'] = self.EC.element_dict[e].area
 
@@ -665,8 +671,35 @@ def define_range(data, low, high, a0, a1):
     return x0, y0
 
 
-def calculate_profile(y0, param,
-                      elemental_lines, default_area=1e5):
+def calculate_profile(y0, param, elemental_lines,
+                      required_length=None,
+                      default_area=1e5):
+    """
+    Calculate the spectrum profile based on given paramters.
+
+    Parameters
+    ----------
+    y0 : array
+        spectrum
+    param : dict
+        paramters
+    elemental_lines : list
+        such as Si_K, Pt_M
+    required_length : optional, int
+        the length of the array might change due to trim process, so
+        predifine the length to a given value.
+    default_area : float
+        default value for the gaussian area of each element
+
+    Returns
+    -------
+    x : array
+        trimmed energy range
+    temp_d : dict
+        dict of array
+    area_dict : dict
+        dict of area for elements and other peaks
+    """
     # Need to use deepcopy here to avoid unexpected change on parameter dict
     fitting_parameters = copy.deepcopy(param)
 
@@ -674,18 +707,27 @@ def calculate_profile(y0, param,
 
     # ratio to transfer energy value back to channel value
 
-    # approx_ratio = 100
-    # lowv = fitting_parameters['non_fitting_values']['energy_bound_low']['value'] * approx_ratio
-    # highv = fitting_parameters['non_fitting_values']['energy_bound_high']['value'] * approx_ratio
-    #
-    # x, y = trim(x0, y0, lowv, highv)
-
     lowv = (fitting_parameters['non_fitting_values']['energy_bound_low']['value'] -
             fitting_parameters['e_offset']['value'])/fitting_parameters['e_linear']['value']
     highv = (fitting_parameters['non_fitting_values']['energy_bound_high']['value'] -
              fitting_parameters['e_offset']['value'])/fitting_parameters['e_linear']['value']
 
-    x, y = trim(x0, y0, int(np.around(lowv)), int(np.around(highv)))
+    lowv = int(lowv)
+    highv = int(highv)
+
+    print('low, high {}, {}'.format(lowv, highv))
+    print('required len {}'.format(required_length))
+
+    if required_length:
+        if (highv-lowv) != (required_length - 1):
+            length_v = required_length-1
+        else:
+            length_v = highv - lowv
+        x, y = trim(x0, y0, lowv, lowv+length_v)
+    else:
+        x, y = trim(x0, y0, lowv, highv)
+
+    print('after: low, high {}, {}'.format(lowv, highv))
 
     e_select, matv, area_dict = construct_linear_model(x, fitting_parameters,
                                                        elemental_lines,

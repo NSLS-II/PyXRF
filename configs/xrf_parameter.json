@@ -141,7 +141,7 @@
         "fit_with_tail": "fixed", 
         "free_more": "lohi", 
         "linear": "fixed", 
-        "max": 0.011, 
+        "max": 0.013,
         "min": 0.009, 
         "tool_tip": "E(channel) = a0 + a1*channel+ a2*channel**2", 
         "value": 0.01

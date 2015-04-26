@@ -216,10 +216,13 @@ class Fit1D(Atom):
         #self.define_range()
         self.cal_x, self.cal_spectrum, area_dict = calculate_profile(self.data,
                                                                      self.param_dict,
-                                                                     self.element_list)
+                                                                     self.element_list,
+                                                                     required_length=len(self.y0))
+
         self.cal_y = np.zeros(len(self.cal_x))
         for k, v in six.iteritems(self.cal_spectrum):
             self.cal_y += v
+
         self.residual = self.cal_y - self.y0
 
     def fit_data(self, x0, y0,
@@ -231,7 +234,7 @@ class Fit1D(Atom):
                               weights=1/np.sqrt(c_weight+y0),
                               maxfev=fit_num,
                               xtol=c_val, ftol=c_val, gtol=c_val)
-
+        print('new coef. {}'.format(result.values['e_linear']))
         self.fit_x = (result.values['e_offset'] +
                       result.values['e_linear'] * x0 +
                       result.values['e_quadratic'] * x0**2)
@@ -244,7 +247,7 @@ class Fit1D(Atom):
         Fit data in sequence according to given strategies.
         The param_dict is extended to cover elemental parameters.
         """
-        self.define_range()
+        #self.define_range()
         self.get_background()
 
         #PC = ParamController(self.param_dict, self.element_list)
