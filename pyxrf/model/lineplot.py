@@ -197,11 +197,11 @@ class LinePlotModel(Atom):
                            'markersize': 1, 'label': 'background'},
             'emission_line': {'color': 'red', 'linewidth': 2},
             'k_line': {'color': 'green', 'label': 'k lines'},
-            'l_line': {'color': 'purple', 'label': 'l lines'},
+            'l_line': {'color': 'brown', 'label': 'l lines'},
             'm_line': {'color': 'orange', 'label': 'm lines'},
             'compton': {'color': 'darkcyan', 'label': 'compton'},
             'elastic': {'color': 'indigo', 'label': 'elastic'},
-            'escape': {'color': 'brown', 'label': 'escape'},
+            'escape': {'color': 'darkblue', 'label': 'escape'},
             'auto_fit': {'color': 'black', 'label': 'auto fitted'},
             'fit': {'color': 'black', 'label': 'fitted'}
         }

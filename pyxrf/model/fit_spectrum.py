@@ -192,7 +192,9 @@ class Fit1D(Atom):
         """
         lowv = self.param_dict['non_fitting_values']['energy_bound_low']['value']
         highv = self.param_dict['non_fitting_values']['energy_bound_high']['value']
-        self.x0, self.y0 = define_range(self.data, lowv, highv)
+        self.x0, self.y0 = define_range(self.data, lowv, highv,
+                                        self.param_dict['e_offset']['value'],
+                                        self.param_dict['e_linear']['value'])
 
     #     x = np.arange(self.data.size)
     #     # ratio to transfer energy value back to channel value
@@ -242,7 +244,7 @@ class Fit1D(Atom):
         Fit data in sequence according to given strategies.
         The param_dict is extended to cover elemental parameters.
         """
-        #self.define_range()
+        self.define_range()
         self.get_background()
 
         #PC = ParamController(self.param_dict, self.element_list)
@@ -322,6 +324,8 @@ class Fit1D(Atom):
     def fit_multi_files(self):
         """
         Fit data from multiple files.
+
+        .. warning: this function is to be updated. Poor organized.
         """
         file_prefix = 'xsp3.0'
         working_directory = '/Users/Li/Downloads/aps13ide'
@@ -669,15 +673,15 @@ def fit_per_line(row_num, data,
     array :
         fitting values for all the elements at a given row.
     """
-    datas = data.shape
-    logger.info('Row number at {} out of total {}'.format(row_num, datas[0]))
+
+    logger.info('Row number at {}'.format(row_num))
     out = []
-    for i in range(datas[1]):
-        bg = snip_method(data[row_num, i, :],
+    for i in range(data.shape[0]):
+        bg = snip_method(data[i, :],
                          param['e_offset']['value'],
                          param['e_linear']['value'],
                          param['e_quadratic']['value'])
-        y = data[row_num, i, :] - bg
+        y = data[i, :] - bg
         # setting constant weight to some value might cause error when fitting
         result, res = fit_pixel(y, matv,
                                 constant_weight=None)
@@ -706,11 +710,11 @@ def fit_pixel_fast_multi(data, param, **kwargs):
     """
 
     no_processors_to_use = multiprocessing.cpu_count()
+    #no_processors_to_use = 4
+
     logger.info('cpu count: {}'.format(no_processors_to_use))
     #print 'Creating pool with %d processes\n' % no_processors_to_use
     pool = multiprocessing.Pool(no_processors_to_use)
-
-    datas = data.shape
 
     y0 = data[0, 0, :]
     x0 = np.arange(len(y0))
@@ -731,8 +735,8 @@ def fit_pixel_fast_multi(data, param, **kwargs):
     mat_sum = np.sum(matv, axis=0)
 
     result_pool = [pool.apply_async(fit_per_line,
-                                    (i, data[:, :, start_i:end_i+1], matv, param))
-                   for i in range(datas[0])]
+                                    (n, data[n, :, start_i:end_i+1], matv, param))
+                   for n in range(data.shape[0])]
 
     results = []
     for r in result_pool:

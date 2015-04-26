@@ -286,7 +286,6 @@ class ElementController(object):
         max_area_dig = 2
         for v in six.itervalues(self.element_dict):
             v.maxv = np.around(v.maxv, max_area_dig)
-            print('max v: {}'.format(v.maxv))
             v.spectrum = v.spectrum*v.maxv/np.max(v.spectrum)
         self.update_norm()
 
@@ -484,7 +483,9 @@ class GuessParamModel(Atom):
         """
         lowv = self.param_new['non_fitting_values']['energy_bound_low']['value']
         highv = self.param_new['non_fitting_values']['energy_bound_high']['value']
-        self.x0, self.y0 = define_range(self.data, lowv, highv)
+        self.x0, self.y0 = define_range(self.data, lowv, highv,
+                                        self.param_new['e_offset']['value'],
+                                        self.param_new['e_linear']['value'])
 
     def manual_input(self):
         default_area = 1e5
@@ -534,7 +535,6 @@ class GuessParamModel(Atom):
         threshv : float
             The value will not be shown on GUI if it is smaller than the threshold.
         """
-        dig_num = 5
         self.prefit_x, out_dict, area_dict = linear_spectrum_fitting(self.data,
                                                                      self.param_new)
         logger.info('Energy range: {}, {}'.format(
@@ -588,8 +588,11 @@ class GuessParamModel(Atom):
             for e in self.element_list:
                 zname = e.split('_')[0]
                 for k, v in six.iteritems(self.param_new):
-                    if zname in k and 'area' in k:
+                    if zname+'_' in k and 'area' in k:
                         v['value'] = self.EC.element_dict[e].area
+
+                        print('{}:{}'.format(k, self.EC.element_dict[e].area))
+
             if 'compton' in self.EC.element_dict:
                 self.param_new['compton_amplitude']['value'] = self.EC.element_dict['compton'].area
             if 'coherent_sct_amplitude' in self.EC.element_dict:
@@ -631,7 +634,7 @@ def save_as(file_path, data):
                   sort_keys=True, indent=4)
 
 
-def define_range(data, low, high):
+def define_range(data, low, high, a0, a1):
     """
     Cut x range according to values define in param_dict.
 
@@ -652,9 +655,13 @@ def define_range(data, low, high):
         trimmed spectrum according to x
     """
     x = np.arange(data.size)
+
     # ratio to transfer energy value back to channel value
-    approx_ratio = 100
-    x0, y0 = trim(x, data, low*approx_ratio, high*approx_ratio)
+    #approx_ratio = 100
+
+    low_new = int(np.around((low - a0)/a1))
+    high_new = int(np.around((high - a0)/a1))
+    x0, y0 = trim(x, data, low_new, high_new)
     return x0, y0
 
 
@@ -666,11 +673,19 @@ def calculate_profile(y0, param,
     x0 = np.arange(len(y0))
 
     # ratio to transfer energy value back to channel value
-    approx_ratio = 100
-    lowv = fitting_parameters['non_fitting_values']['energy_bound_low']['value'] * approx_ratio
-    highv = fitting_parameters['non_fitting_values']['energy_bound_high']['value'] * approx_ratio
 
-    x, y = trim(x0, y0, lowv, highv)
+    # approx_ratio = 100
+    # lowv = fitting_parameters['non_fitting_values']['energy_bound_low']['value'] * approx_ratio
+    # highv = fitting_parameters['non_fitting_values']['energy_bound_high']['value'] * approx_ratio
+    #
+    # x, y = trim(x0, y0, lowv, highv)
+
+    lowv = (fitting_parameters['non_fitting_values']['energy_bound_low']['value'] -
+            fitting_parameters['e_offset']['value'])/fitting_parameters['e_linear']['value']
+    highv = (fitting_parameters['non_fitting_values']['energy_bound_high']['value'] -
+             fitting_parameters['e_offset']['value'])/fitting_parameters['e_linear']['value']
+
+    x, y = trim(x0, y0, int(np.around(lowv)), int(np.around(highv)))
 
     e_select, matv, area_dict = construct_linear_model(x, fitting_parameters,
                                                        elemental_lines,

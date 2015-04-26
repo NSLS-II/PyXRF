@@ -22,9 +22,9 @@
         "fit_with_tail": "fixed", 
         "free_more": "lohi", 
         "linear": "fixed", 
-        "max": 11.57, 
-        "min": 11.56, 
-        "value": 11.564
+        "max": 13.0,
+        "min": 9.0,
+        "value": 10.0
     }, 
     "compton_amplitude": {
         "adjust_element1": "none", 

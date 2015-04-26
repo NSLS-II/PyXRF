@@ -281,24 +281,23 @@ def read_MAPS(working_directory,
     for fname in file_names:
         try:
             file_path = os.path.join(working_directory, fname)
-            f = h5py.File(file_path, 'r+')
-            data = f['MAPS']
+            with h5py.File(file_path, 'r+') as f:
 
-            fname = fname.split('.')[0]
+                data = f['MAPS']
 
-            # for 2D MAP
-            data_dict[fname] = data
+                fname = fname.split('.')[0]
 
-            # data from channel summed
-            exp_data = np.asarray(data['mca_arr'][:])
+                # for 2D MAP
+                #data_dict[fname] = data
+
+                # data from channel summed
+                exp_data = data['mca_arr'][:]
+                #exp_data = np.asarray(data['mca_arr'][:])
+
             exp_shape = exp_data.shape
-
             print('shape: {}'.format(exp_shape))
 
-            #exp_data = np.reshape(exp_data,
-            #                      [exp_shape[1], exp_shape[2], exp_shape[0]])
             exp_data = exp_data.T
-
             print('new shape: {}'.format(exp_data.shape))
             logger.info('File : {} with total counts {}'.format(fname,
                                                                 np.sum(exp_data)))
