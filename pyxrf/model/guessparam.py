@@ -274,7 +274,8 @@ class ElementController(object):
     def get_element_list(self):
         current_elements = [v for v
                             in six.iterkeys(self.element_dict)
-                            if v.lower() != v]
+                            if (v.lower() != v) and ('pileup' not in v)]
+
         logger.info('Current Elements for '
                     'fitting are {}'.format(current_elements))
         return current_elements
@@ -410,21 +411,26 @@ class GuessParamModel(Atom):
         self.prefit_x, pre_dict, area_dict = calculate_profile(self.data,
                                                                param_dict,
                                                                elemental_lines)
-        #dig_num = 5
+
+        print('from file: {}'.format(pre_dict.keys()))
+
         temp_dict = OrderedDict()
         for e in six.iterkeys(pre_dict):
-            ename = e.split('_')[0]
-            if ename in ['background', 'escape']:
+            if e in ['background', 'escape']:
                 spectrum = pre_dict[e]
                 area = np.sum(spectrum)
-                ps = PreFitStatus(z=get_Z(ename), energy=get_energy(e),
+                ps = PreFitStatus(z=get_Z(e), energy=get_energy(e),
                                   area=area, spectrum=spectrum,
                                   maxv=np.around(np.max(spectrum), self.max_area_dig),
                                   norm=-1, lbd_stat=False)
                 temp_dict[e] = ps
-            else:
-                for k, v in six.iteritems(param_dict):
 
+            elif 'pileup' in e:
+                continue
+
+            else:
+                ename = e.split('_')[0]
+                for k, v in six.iteritems(param_dict):
                     if ename in k and 'area' in k:
                         spectrum = pre_dict[e]
                         area = area_dict[e]
@@ -715,9 +721,6 @@ def calculate_profile(y0, param, elemental_lines,
     lowv = int(lowv)
     highv = int(highv)
 
-    print('low, high {}, {}'.format(lowv, highv))
-    print('required len {}'.format(required_length))
-
     if required_length:
         if (highv-lowv) != (required_length - 1):
             length_v = required_length-1
@@ -726,8 +729,6 @@ def calculate_profile(y0, param, elemental_lines,
         x, y = trim(x0, y0, lowv, lowv+length_v)
     else:
         x, y = trim(x0, y0, lowv, highv)
-
-    print('after: low, high {}, {}'.format(lowv, highv))
 
     e_select, matv, area_dict = construct_linear_model(x, fitting_parameters,
                                                        elemental_lines,
@@ -830,7 +831,7 @@ def get_Z(ename):
     strip_line = lambda ename: ename.split('_')[0]
 
     non_element = ['compton', 'elastic', 'background', 'escape']
-    if ename.lower() in non_element:
+    if (ename.lower() in non_element) or 'pileup' in ename:
         return '-'
     else:
         e = Element(strip_line(ename))
@@ -840,7 +841,7 @@ def get_Z(ename):
 def get_energy(ename):
     strip_line = lambda ename: ename.split('_')[0]
     non_element = ['compton', 'elastic', 'background', 'escape']
-    if ename in non_element:
+    if (ename.lower() in non_element) or 'pileup' in ename:
         return '-'
     else:
         e = Element(strip_line(ename))

@@ -234,7 +234,6 @@ class Fit1D(Atom):
                               weights=1/np.sqrt(c_weight+y0),
                               maxfev=fit_num,
                               xtol=c_val, ftol=c_val, gtol=c_val)
-        print('new coef. {}'.format(result.values['e_linear']))
         self.fit_x = (result.values['e_offset'] +
                       result.values['e_linear'] * x0 +
                       result.values['e_quadratic'] * x0**2)
@@ -281,6 +280,7 @@ class Fit1D(Atom):
 
         self.comps.clear()
         comps = self.fit_result.eval_components(x=self.x0)
+        print('fitting comps: {}'.format(comps.keys()))
         self.comps = combine_lines(comps, self.element_list, self.bg)
 
         if self.param_dict['non_fitting_values']['escape_ratio'] > 0:
@@ -288,6 +288,8 @@ class Fit1D(Atom):
             self.comps['escape'] = self.es_peak
         else:
             self.fit_y += self.bg
+
+        print('new comps: {}'.format(self.comps.keys()))
 
         self.save_result()
         self.assign_fitting_result()
@@ -392,14 +394,20 @@ def combine_lines(components, element_list, background):
         e_temp = e.split('_')[0]
         intensity = 0
         for k, v in six.iteritems(components):
-            if e_temp in k:
+            if (e_temp in k) and ('pileup' not in k):
                 intensity += v
         new_components[e] = intensity
 
+    # pileup peaks
+    pileup_names = [v for v in six.iterkeys(components) if 'pileup' in v]
+    for p in pileup_names:
+        name = p[:-1]  # remove '_' in the end
+        new_components[name] = components[p]
+
     # add background and elastic
-    new_components.update({'background': background})
-    new_components.update({'compton': components['compton']})
-    new_components.update({'elastic': components['elastic_']})
+    new_components['background'] = background
+    new_components['compton'] = components['compton']
+    new_components['elastic'] = components['elastic_']
     return new_components
 
 

@@ -208,6 +208,7 @@
     }, 
     "non_fitting_values": {
         "element_list": "Al_K, S_K, Cl_K, Ar_K, Ca_K, Cr_K, Fe_K, Co_K, Ni_K, Cu_K, Pm_L, Gd_L",
+        "pileup": [],
         "energy_bound_high": {
             "default_value": 13.5, 
             "description": "E high [keV]", 

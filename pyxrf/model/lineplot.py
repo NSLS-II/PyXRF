@@ -193,15 +193,16 @@ class LinePlotModel(Atom):
         self.plot_style = {
             'experiment': {'color': 'blue', 'linestyle': '',
                            'marker': '.', 'label': self.exp_data_label},
-            'background': {'color': 'grey', 'marker': '+',
+            'background': {'color': 'indigo', 'marker': '+',
                            'markersize': 1, 'label': 'background'},
             'emission_line': {'color': 'red', 'linewidth': 2},
             'k_line': {'color': 'green', 'label': 'k lines'},
-            'l_line': {'color': 'brown', 'label': 'l lines'},
+            'l_line': {'color': 'magenta', 'label': 'l lines'},
             'm_line': {'color': 'orange', 'label': 'm lines'},
-            'compton': {'color': 'darkcyan', 'label': 'compton'},
-            'elastic': {'color': 'indigo', 'label': 'elastic'},
+            'compton': {'color': 'brown', 'label': 'compton'},
+            'elastic': {'color': 'purple', 'label': 'elastic'},
             'escape': {'color': 'darkblue', 'label': 'escape'},
+            'pileup': {'color': 'darkcyan', 'label': 'pileup'},
             'auto_fit': {'color': 'black', 'label': 'auto fitted'},
             'fit': {'color': 'black', 'label': 'fitted'}
         }
@@ -477,8 +478,8 @@ class LinePlotModel(Atom):
                 if k == 'background':
                     ln, = self._ax.plot(self.prefit_x, v,
                                         color=self.plot_style['background']['color'],
-                                        marker=self.plot_style['background']['marker'],
-                                        markersize=self.plot_style['background']['markersize'],
+                                        #marker=self.plot_style['background']['marker'],
+                                        #markersize=self.plot_style['background']['markersize'],
                                         label=self.plot_style['background']['label'])
                 elif k == 'compton':
                     ln, = self._ax.plot(self.prefit_x, v,
@@ -610,9 +611,44 @@ class LinePlotModel(Atom):
         k_num = 0
         l_num = 0
         m_num = 0
+        p_num = 0
         for k, v in six.iteritems(self.fit_all):
             k = str(k)
-            if '_L' in k.upper():
+
+            if k == 'background':
+                ln, = self._ax.plot(self.fit_x, v,
+                                    color=self.plot_style['background']['color'],
+                                    #marker=self.plot_style['background']['marker'],
+                                    #markersize=self.plot_style['background']['markersize'],
+                                    label=self.plot_style['background']['label'])
+                self.plot_fit_obj.append(ln)
+            elif k == 'compton':
+                ln, = self._ax.plot(self.fit_x, v,
+                                    color=self.plot_style['compton']['color'],
+                                    label=self.plot_style['compton']['label'])
+                self.plot_fit_obj.append(ln)
+            elif k == 'elastic':
+                ln, = self._ax.plot(self.fit_x, v,
+                                    color=self.plot_style['elastic']['color'],
+                                    label=self.plot_style['elastic']['label'])
+                self.plot_fit_obj.append(ln)
+            elif k == 'escape':
+                ln, = self._ax.plot(self.fit_x, v,
+                                    color=self.plot_style['escape']['color'],
+                                    label=self.plot_style['escape']['label'])
+                self.plot_fit_obj.append(ln)
+            elif 'pileup' in k:
+                p_num += 1
+                if p_num == 1:
+                    ln, = self._ax.plot(self.fit_x, v,
+                                        color=self.plot_style['pileup']['color'],
+                                        label=self.plot_style['pileup']['label'])
+                else:
+                    ln, = self._ax.plot(self.fit_x, v,
+                                        color=self.plot_style['pileup']['color'],
+                                        label='_nolegend_')
+                self.plot_fit_obj.append(ln)
+            elif '_L' in k.upper():
                 l_num += 1
                 if l_num == 1:
                     ln, = self._ax.plot(self.fit_x, v,
@@ -633,28 +669,6 @@ class LinePlotModel(Atom):
                     ln, = self._ax.plot(self.fit_x, v,
                                         color=self.plot_style['m_line']['color'],
                                         label='_nolegend_')
-                self.plot_fit_obj.append(ln)
-            elif k == 'background':
-                ln, = self._ax.plot(self.fit_x, v,
-                                    color=self.plot_style['background']['color'],
-                                    marker=self.plot_style['background']['marker'],
-                                    markersize=self.plot_style['background']['markersize'],
-                                    label=self.plot_style['background']['label'])
-                self.plot_fit_obj.append(ln)
-            elif k == 'compton':
-                ln, = self._ax.plot(self.fit_x, v,
-                                    color=self.plot_style['compton']['color'],
-                                    label=self.plot_style['compton']['label'])
-                self.plot_fit_obj.append(ln)
-            elif k == 'elastic':
-                ln, = self._ax.plot(self.fit_x, v,
-                                    color=self.plot_style['elastic']['color'],
-                                    label=self.plot_style['elastic']['label'])
-                self.plot_fit_obj.append(ln)
-            elif k == 'escape':
-                ln, = self._ax.plot(self.fit_x, v,
-                                    color=self.plot_style['escape']['color'],
-                                    label=self.plot_style['escape']['label'])
                 self.plot_fit_obj.append(ln)
             else:
                 k_num += 1
