@@ -64,123 +64,6 @@ fit_strategy_list = ['fit_with_tail', 'free_more',
                      'adjust_element1', 'adjust_element2', 'adjust_element3']
 
 
-class Parameter(Atom):
-    # todo make sure that these are the only valid bound types
-    bound_type = Enum(*bound_options)
-    min = Float(-np.inf)
-    max = Float(np.inf)
-    value = Float()
-    default_value = Float()
-    fit_with_tail = Enum(*bound_options)
-    free_more = Enum(*bound_options)
-    adjust_element1 = Enum(*bound_options)
-    adjust_element2 = Enum(*bound_options)
-    adjust_element3 = Enum(*bound_options)
-    e_calibration = Enum(*bound_options)
-    linear = Enum(*bound_options)
-    name = Str()
-    description = Str()
-    tool_tip = Str()
-
-    @observe('name', 'bound_type', 'min', 'max', 'value', 'default_value')
-    def update_displayed_name(self, changed):
-        pass
-    #    print(changed)
-
-    def __repr__(self):
-        return ("Parameter(bound_type={}, min={}, max={}, value={}, "
-                "default={}, free_more={}, adjust_element1={}, "
-                "adjust_element2={}, adjust_element3={}, "
-                "e_calibration={}, linear={}, description={}, "
-                "toop_tip={}".format(
-            self.bound_type, self.min, self.max, self.value, self.default_value,
-            self.free_more, self.adjust_element1, self.adjust_element2,
-            self.adjust_element3, self.e_calibration,
-            self.linear, self.description, self.tool_tip))
-
-    def to_dict(self):
-        return {
-            'bound_type': self.bound_type,
-            'min': self.min,
-            'max': self.max,
-            'value': self.value,
-            'default_value': self.default_value,
-            'fit_with_tail': self.fit_with_tail,
-            'free_more': self.free_more,
-            'adjust_element1': self.adjust_element1,
-            'adjust_element2': self.adjust_element2,
-            'adjust_element3': self.adjust_element3,
-            'e_calibration': self.e_calibration,
-            'linear': self.linear,
-            'name': self.name,
-            'description': self.description,
-            'tool_tip': self.tool_tip,
-        }
-
-
-def format_dict(parameter_object_dict, element_list):
-    """
-    Format the dictionary that scikit-xray expects.
-
-    Parameters
-    ----------
-    parameter_object_dict : dict
-    element_list : list
-        Need to be transferred to str first, then save it to dict
-    """
-    param_dict = {key: value.to_dict() for key, value
-                  in six.iteritems(parameter_object_dict)}
-    elo = param_dict.pop('energy_bound_low')['value']
-    ehi = param_dict.pop('energy_bound_high')['value']
-
-    non_fitting_values = {'non_fitting_values': {
-        'energy_bound_low': elo,
-        'energy_bound_high': ehi,
-        'element_list': ', '.join(element_list)
-    }}
-    param_dict.update(non_fitting_values)
-
-    return param_dict
-
-
-def dict_to_param(param_dict):
-    """
-    Transfer param dict to parameter object.
-
-    Parameters
-    param_dict : dict
-        fitting parameter
-    """
-    temp_parameters = copy.deepcopy(param_dict)
-
-    non_fitting_values = temp_parameters.pop('non_fitting_values')
-    element_list = non_fitting_values.pop('element_list')
-    if not isinstance(element_list, list):
-        element_list = [e.strip(' ') for e in element_list.split(',')]
-    #self.element_list = element_list
-
-    elo = non_fitting_values.pop('energy_bound_low')
-    ehi = non_fitting_values.pop('energy_bound_high')
-    param = {
-        'energy_bound_low': Parameter(value=elo,
-                                      default_value=elo,
-                                      description='E low limit [keV]'),
-        'energy_bound_high': Parameter(value=ehi,
-                                       default_value=ehi,
-                                       description='E high limit [keV]')
-    }
-
-    for param_name, param_dict in six.iteritems(temp_parameters):
-        if 'default_value' in param_dict:
-            param.update({param_name: Parameter(**param_dict)})
-        else:
-            param.update({
-                param_name: Parameter(default_value=param_dict['value'],
-                                      **param_dict)
-            })
-    return element_list, param
-
-
 class PreFitStatus(Atom):
     """
     Data structure for pre fit analysis.
@@ -274,7 +157,7 @@ class ElementController(object):
     def get_element_list(self):
         current_elements = [v for v
                             in six.iterkeys(self.element_dict)
-                            if (v.lower() != v) and ('pileup' not in v)]
+                            if (v.lower() != v)]
 
         logger.info('Current Elements for '
                     'fitting are {}'.format(current_elements))
@@ -345,8 +228,9 @@ class GuessParamModel(Atom):
     #param_d = Dict()
     param_new = Dict()
     total_y = Dict()
-    total_y_l = Dict()
-    total_y_m = Dict()
+    total_l = Dict()
+    total_m = Dict()
+    total_pileup = Dict()
     e_name = Str()
     add_element_intensity = Float()
     #save_file = Str()
@@ -420,13 +304,21 @@ class GuessParamModel(Atom):
                 spectrum = pre_dict[e]
                 area = np.sum(spectrum)
                 ps = PreFitStatus(z=get_Z(e), energy=get_energy(e),
+                                  area=float(area), spectrum=spectrum,
+                                  maxv=float(np.around(np.max(spectrum), self.max_area_dig)),
+                                  norm=-1, lbd_stat=False)
+                temp_dict[e] = ps
+
+            elif '-' in e:  # pileup peaks
+                e1, e2 = e.split('-')
+                energy = float(get_energy(e1))+float(get_energy(e2))
+                spectrum = pre_dict[e]
+                area = np.sum(spectrum)
+                ps = PreFitStatus(z=get_Z(e), energy=str(energy),
                                   area=area, spectrum=spectrum,
                                   maxv=np.around(np.max(spectrum), self.max_area_dig),
                                   norm=-1, lbd_stat=False)
                 temp_dict[e] = ps
-
-            elif 'pileup' in e:
-                continue
 
             else:
                 ename = e.split('_')[0]
@@ -494,7 +386,7 @@ class GuessParamModel(Atom):
                                         self.param_new['e_linear']['value'])
 
     def manual_input(self):
-        default_area = 1e5
+        default_area = 1e2
         logger.info('{} peak is added'.format(self.e_name))
 
         if self.e_name == 'escape':
@@ -593,7 +485,7 @@ class GuessParamModel(Atom):
         # to create full param dict, for GUI only
         create_full_dict(self.param_new, fit_strategy_list)
 
-        # update according to pre fit results
+        # update param_new according to results saved in ElementController
         if len(self.EC.element_dict):
             for e in self.element_list:
                 zname = e.split('_')[0]
@@ -620,19 +512,22 @@ class GuessParamModel(Atom):
         """
         Save data in terms of K, L, M lines for plot.
         """
-        self.total_y = {}
-        self.total_y_l = {}
-        self.total_y_m = {}
+        self.total_y = {}  # k lines
+        self.total_l = {}  # l lines
+        self.total_m = {}  # m lines
+        self.total_pileup = {}    #pileup
         new_dict = {k: v for (k, v)
                     in six.iteritems(self.EC.element_dict) if v.status}
 
         for k, v in six.iteritems(new_dict):
-            if 'K' in k:
+            if '-' in k:
+                self.total_pileup[k] = self.EC.element_dict[k].spectrum
+            elif 'K' in k:
                 self.total_y[k] = self.EC.element_dict[k].spectrum
             elif 'L' in k:
-                self.total_y_l[k] = self.EC.element_dict[k].spectrum
+                self.total_l[k] = self.EC.element_dict[k].spectrum
             elif 'M' in k:
-                self.total_y_m[k] = self.EC.element_dict[k].spectrum
+                self.total_m[k] = self.EC.element_dict[k].spectrum
             else:
                 self.total_y[k] = self.EC.element_dict[k].spectrum
 

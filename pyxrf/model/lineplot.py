@@ -94,7 +94,7 @@ class LinePlotModel(Atom):
         Linear or log plot
     total_y : dict
         Results for k lines
-    total_y_l : dict
+    total_l : dict
         Results for l and m lines
     prefit_x : array
         X axis with limited range
@@ -122,8 +122,9 @@ class LinePlotModel(Atom):
     elist = List()
     scale_opt = Int(0)
     total_y = Dict()
-    total_y_l = Dict()
-    total_y_m = Dict()
+    total_l = Dict()
+    total_m = Dict()
+    total_pileup = Dict()
 
     prefit_x = Typed(object)
     plot_title = Str()
@@ -198,11 +199,11 @@ class LinePlotModel(Atom):
             'emission_line': {'color': 'red', 'linewidth': 2},
             'k_line': {'color': 'green', 'label': 'k lines'},
             'l_line': {'color': 'magenta', 'label': 'l lines'},
-            'm_line': {'color': 'orange', 'label': 'm lines'},
-            'compton': {'color': 'brown', 'label': 'compton'},
+            'm_line': {'color': 'brown', 'label': 'm lines'},
+            'compton': {'color': 'darkcyan', 'linewidth': 1.5, 'label': 'compton'},
             'elastic': {'color': 'purple', 'label': 'elastic'},
             'escape': {'color': 'darkblue', 'label': 'escape'},
-            'pileup': {'color': 'darkcyan', 'label': 'pileup'},
+            'pileup': {'color': 'orange', 'label': 'pileup'},
             'auto_fit': {'color': 'black', 'label': 'auto fitted'},
             'fit': {'color': 'black', 'label': 'fitted'}
         }
@@ -230,6 +231,7 @@ class LinePlotModel(Atom):
     def _update_exp_label(self, change):
         if change['type'] == 'create':
             return
+        print('label is {}'.format(change['value']))
         self.plot_style['experiment']['label'] = change['value']
 
     @observe('parameters')
@@ -470,6 +472,8 @@ class LinePlotModel(Atom):
         k_auto = 0
         l_auto = 0
         m_auto = 0
+        p_auto = 0
+
 
         # K lines
         if len(self.total_y):
@@ -484,6 +488,7 @@ class LinePlotModel(Atom):
                 elif k == 'compton':
                     ln, = self._ax.plot(self.prefit_x, v,
                                         color=self.plot_style['compton']['color'],
+                                        linewidth=self.plot_style['compton']['linewidth'],
                                         label=self.plot_style['compton']['label'])
                 elif k == 'elastic':
                     ln, = self._ax.plot(self.prefit_x, v,
@@ -508,9 +513,9 @@ class LinePlotModel(Atom):
                 sum_y += v
 
         # L lines
-        if len(self.total_y_l):
+        if len(self.total_l):
             self._ax.hold(True)
-            for i, (k, v) in enumerate(six.iteritems(self.total_y_l)):
+            for i, (k, v) in enumerate(six.iteritems(self.total_l)):
                 # only the first one has label
                 if l_auto == 0:
                     ln, = self._ax.plot(self.prefit_x, v,
@@ -525,9 +530,9 @@ class LinePlotModel(Atom):
                 sum_y += v
 
         # M lines
-        if len(self.total_y_m):
+        if len(self.total_m):
             self._ax.hold(True)
-            for i, (k, v) in enumerate(six.iteritems(self.total_y_m)):
+            for i, (k, v) in enumerate(six.iteritems(self.total_m)):
                 # only the first one has label
                 if m_auto == 0:
                     ln, = self._ax.plot(self.prefit_x, v,
@@ -541,7 +546,24 @@ class LinePlotModel(Atom):
                 self.auto_fit_obj.append(ln)
                 sum_y += v
 
-        if len(self.total_y) or len(self.total_y_l) or len(self.total_y_m):
+        # pileup
+        if len(self.total_pileup):
+            self._ax.hold(True)
+            for i, (k, v) in enumerate(six.iteritems(self.total_pileup)):
+                # only the first one has label
+                if p_auto == 0:
+                    ln, = self._ax.plot(self.prefit_x, v,
+                                        color=self.plot_style['pileup']['color'],
+                                        label=self.plot_style['pileup']['label'])
+                else:
+                    ln, = self._ax.plot(self.prefit_x, v,
+                                        color=self.plot_style['pileup']['color'],
+                                        label='_nolegend_')
+                p_auto += 1
+                self.auto_fit_obj.append(ln)
+                sum_y += v
+
+        if len(self.total_y) or len(self.total_l) or len(self.total_m):
             self._ax.hold(True)
             ln, = self._ax.plot(self.prefit_x, sum_y,
                                 color=self.plot_style['auto_fit']['color'],
@@ -567,7 +589,8 @@ class LinePlotModel(Atom):
         self._update_canvas()
 
     def set_prefit_data_and_plot(self, prefit_x,
-                                 total_y, total_y_l, total_y_m):
+                                 total_y, total_l,
+                                 total_m, total_pileup):
         """
         Parameters
         ----------
@@ -575,18 +598,22 @@ class LinePlotModel(Atom):
             X axis with limited range
         total_y : dict
             Results for k lines, bg, and others
-        total_y_l : dict
+        total_l : dict
             Results for l lines
-        total_y_m : dict
+        total_m : dict
             Results for m lines
+        total_pileup : dict
+            Results for pileups
         """
         self.prefit_x = prefit_x
         # k lines
         self.total_y = total_y
         # l lines
-        self.total_y_l = total_y_l
+        self.total_l = total_l
         # m lines
-        self.total_y_m = total_y_m
+        self.total_m = total_m
+        # pileup
+        self.total_pileup = total_pileup
 
         self._ax.set_xlim([self.prefit_x[0], self.prefit_x[-1]])
         self.plot_autofit()
@@ -604,8 +631,8 @@ class LinePlotModel(Atom):
         shiftv = 1.5  # move residual down by some amount
         ln, = self._ax.plot(self.fit_x,
                             self.residual - shiftv*(np.max(np.abs(self.residual))),
-                            color=self.plot_style['fit']['color'],
-                            label='residual')
+                            color=self.plot_style['fit']['color'])
+                            #label='residual')
         self.plot_fit_obj.append(ln)
 
         k_num = 0
@@ -613,8 +640,6 @@ class LinePlotModel(Atom):
         m_num = 0
         p_num = 0
         for k, v in six.iteritems(self.fit_all):
-            k = str(k)
-
             if k == 'background':
                 ln, = self._ax.plot(self.fit_x, v,
                                     color=self.plot_style['background']['color'],
@@ -625,6 +650,7 @@ class LinePlotModel(Atom):
             elif k == 'compton':
                 ln, = self._ax.plot(self.fit_x, v,
                                     color=self.plot_style['compton']['color'],
+                                    linewidth=self.plot_style['compton']['linewidth'],
                                     label=self.plot_style['compton']['label'])
                 self.plot_fit_obj.append(ln)
             elif k == 'elastic':
@@ -637,42 +663,9 @@ class LinePlotModel(Atom):
                                     color=self.plot_style['escape']['color'],
                                     label=self.plot_style['escape']['label'])
                 self.plot_fit_obj.append(ln)
-            elif 'pileup' in k:
-                p_num += 1
-                if p_num == 1:
-                    ln, = self._ax.plot(self.fit_x, v,
-                                        color=self.plot_style['pileup']['color'],
-                                        label=self.plot_style['pileup']['label'])
-                else:
-                    ln, = self._ax.plot(self.fit_x, v,
-                                        color=self.plot_style['pileup']['color'],
-                                        label='_nolegend_')
-                self.plot_fit_obj.append(ln)
-            elif '_L' in k.upper():
-                l_num += 1
-                if l_num == 1:
-                    ln, = self._ax.plot(self.fit_x, v,
-                                        color=self.plot_style['l_line']['color'],
-                                        label=self.plot_style['l_line']['label'])
-                else:
-                    ln, = self._ax.plot(self.fit_x, v,
-                                        color=self.plot_style['l_line']['color'],
-                                        label='_nolegend_')
-                self.plot_fit_obj.append(ln)
-            elif '_M' in k.upper():
-                m_num += 1
-                if m_num == 1:
-                    ln, = self._ax.plot(self.fit_x, v,
-                                        color=self.plot_style['m_line']['color'],
-                                        label=self.plot_style['m_line']['label'])
-                else:
-                    ln, = self._ax.plot(self.fit_x, v,
-                                        color=self.plot_style['m_line']['color'],
-                                        label='_nolegend_')
-                self.plot_fit_obj.append(ln)
-            else:
-                k_num += 1
-                if k_num == 1:
+
+            elif ('_K' in k.upper()) and (len(k) <= 4):
+                if k_num == 0:
                     ln, = self._ax.plot(self.fit_x, v,
                                         color=self.plot_style['k_line']['color'],
                                         label=self.plot_style['k_line']['label'])
@@ -681,6 +674,48 @@ class LinePlotModel(Atom):
                                         color=self.plot_style['k_line']['color'],
                                         label='_nolegend_')
                 self.plot_fit_obj.append(ln)
+                k_num += 1
+
+            elif ('_L' in k.upper()) and (len(k) <= 4):
+                if l_num == 0:
+                    ln, = self._ax.plot(self.fit_x, v,
+                                        color=self.plot_style['l_line']['color'],
+                                        label=self.plot_style['l_line']['label'])
+                else:
+                    ln, = self._ax.plot(self.fit_x, v,
+                                        color=self.plot_style['l_line']['color'],
+                                        label='_nolegend_')
+                self.plot_fit_obj.append(ln)
+                l_num += 1
+
+            elif ('_M' in k.upper()) and (len(k) <= 4):
+                if m_num == 0:
+                    ln, = self._ax.plot(self.fit_x, v,
+                                        color=self.plot_style['m_line']['color'],
+                                        label=self.plot_style['m_line']['label'])
+                else:
+                    ln, = self._ax.plot(self.fit_x, v,
+                                        color=self.plot_style['m_line']['color'],
+                                        label='_nolegend_')
+                self.plot_fit_obj.append(ln)
+                m_num += 1
+
+            elif '-' in k:  # Si_K-Si_K
+                print('plot {}'.format(k))
+                if p_num == 0:
+                    ln, = self._ax.plot(self.fit_x, v,
+                                        color=self.plot_style['pileup']['color'],
+                                        label=self.plot_style['pileup']['label'])
+                else:
+                    ln, = self._ax.plot(self.fit_x, v,
+                                        color=self.plot_style['pileup']['color'],
+                                        label='_nolegend_')
+                self.plot_fit_obj.append(ln)
+                p_num += 1
+
+            else:
+                pass
+
         #self._update_canvas()
 
     @observe('show_fit_opt')

@@ -286,6 +286,7 @@ def read_MAPS(working_directory,
                 data = f['MAPS']
 
                 fname = fname.split('.')[0]
+                print('filename: {}'.format(fname))
 
                 # for 2D MAP
                 #data_dict[fname] = data

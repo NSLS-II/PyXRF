@@ -49,7 +49,7 @@ from enaml.stdlib.message_box import MessageBox, warning, information
 import numpy as np
 import six
 
-from ..model.guessparam import format_dict, save_as
+from ..model.guessparam import save_as
 from skxray.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 
 
@@ -83,8 +83,7 @@ enamldef GuessParamView(DockItem): param_view:
             index >> param_model.file_opt
             index ::
                 if CB.index > 0:
-                    #fit_model.data_title = io_model.file_names[CB.index-1].split('.')[0]
-                    plot_model.exp_data_label = fit_model.data_title
+                    plot_model.exp_data_label = io_model.file_channel_list[CB.index-1].split('.')[0]
                     plot_model.data = param_model.data
 
                     fit_model.data_title = io_model.file_channel_list[CB.index-1].split('.')[0]
@@ -120,7 +119,8 @@ enamldef GuessParamView(DockItem): param_view:
 
                         param_model.data_for_plot()
                         plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                                                            param_model.total_y_l, param_model.total_y_m)
+                                                            param_model.total_l, param_model.total_m,
+                                                            param_model.total_pileup)
 
         ScrollArea: top_cntr:
             constraints = [height <= 100]
@@ -176,7 +176,8 @@ enamldef GuessParamView(DockItem): param_view:
                 param_model.data_for_plot()
                 status_tip = 'Running'
                 plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                                                    param_model.total_y_l, param_model.total_y_m)
+                                                    param_model.total_l, param_model.total_m,
+                                                    param_model.total_pileup)
 
         ComboBox: cb_select:
             items = ['Select Lines'] +\
@@ -200,7 +201,8 @@ enamldef GuessParamView(DockItem): param_view:
                 param_model.update_name_list()
                 param_model.data_for_plot()
                 plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                                                    param_model.total_y_l, param_model.total_y_m)
+                                                    param_model.total_l, param_model.total_m,
+                                                    param_model.total_pileup)
 
         GroupBox: pre_fit:
             padding = Box(2, 2, 2, 2)
@@ -227,7 +229,7 @@ enamldef GuessParamView(DockItem): param_view:
                         param_model.update_name_list()
                 PushButton: name:
                     text = 'Names'
-                    minimum_size = (80, 20)
+                    minimum_size = (120, 20)
                     maximum_size = 70
                     #background = 'white'
                     clicked ::
@@ -262,7 +264,8 @@ enamldef GuessParamView(DockItem): param_view:
                             param_model.EC.turn_on_all()
                             param_model.data_for_plot()
                             plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                                                                param_model.total_y_l, param_model.total_y_m)
+                                                                param_model.total_l, param_model.total_m,
+                                                                param_model.total_pileup)
                             plot_model.show_autofit_opt = True
                             plot_model._fig.canvas.draw()
                             select_all.text = 'Hide All'
@@ -270,7 +273,8 @@ enamldef GuessParamView(DockItem): param_view:
                             param_model.EC.turn_on_all(option=False)
                             param_model.data_for_plot()
                             plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                                                                param_model.total_y_l, param_model.total_y_m)
+                                                                param_model.total_l, param_model.total_m,
+                                                                param_model.total_pileup)
                             plot_model.show_autofit_opt = False
                             plot_model._fig.canvas.draw()
                             select_all.text = 'Show All'
@@ -294,7 +298,8 @@ enamldef GuessParamView(DockItem): param_view:
 
                                 #fit_model.get_new_param(param_model.param_new)
                                 plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                                                                    param_model.total_y_l, param_model.total_y_m)
+                                                                    param_model.total_l, param_model.total_m,
+                                                                    param_model.total_pileup)
                                 plot_model._fig.canvas.draw()
                                 param_model.update_name_list()
 
@@ -310,7 +315,7 @@ enamldef GuessParamView(DockItem): param_view:
                                 #background = 'white'
                             Label: lb_name:
                                 text << loop_item
-                                minimum_size = (80, 20)
+                                minimum_size = (120, 20)
                                 #background = 'white'
                             Label: lb_energy:
                                 text << str(param_model.EC.element_dict[loop_item].energy)
@@ -340,7 +345,8 @@ enamldef GuessParamView(DockItem): param_view:
                                     param_model.EC.element_dict[loop_item].stat_copy = param_model.EC.element_dict[loop_item].status
                                     param_model.data_for_plot()
                                     plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                                                                        param_model.total_y_l, param_model.total_y_m)
+                                                                        param_model.total_l, param_model.total_m,
+                                                                        param_model.total_pileup)
                                     plot_model._fig.canvas.draw()
 
             #PushButton: pb_bound:
@@ -387,7 +393,8 @@ enamldef GuessParamView(DockItem): param_view:
                     fit_model.get_new_param(param_model.param_new)
 
                     plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                                                        param_model.total_y_l, param_model.total_y_m)
+                                                        param_model.total_l, param_model.total_m,
+                                                        param_model.total_pileup)
 
         PushButton: saveas_btn:
             text = 'Save As'

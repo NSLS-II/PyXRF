@@ -124,9 +124,15 @@ class Fit1D(Atom):
 
     @observe('selected_element')
     def _selected_element_changed(self, changed):
-        element = self.selected_element.split('_')[0]
-        self.selected_elements = sorted([e for e in self.param_dict.keys()
-                                        if element in e])
+        if len(self.selected_element) <= 4:
+            element = self.selected_element.split('_')[0]
+            self.selected_elements = sorted([e for e in self.param_dict.keys()
+                                            if (element in e) and
+                                            (self.selected_element not in e)]) # Si_ka1 not Si_K
+        else:
+            element = self.selected_element  # for pileup peaks
+            self.selected_elements = sorted([e for e in self.param_dict.keys()
+                                            if element in e])
 
     def get_new_param(self, param):
         self.param_dict = copy.deepcopy(param)
@@ -195,13 +201,6 @@ class Fit1D(Atom):
         self.x0, self.y0 = define_range(self.data, lowv, highv,
                                         self.param_dict['e_offset']['value'],
                                         self.param_dict['e_linear']['value'])
-
-    #     x = np.arange(self.data.size)
-    #     # ratio to transfer energy value back to channel value
-    #     approx_ratio = 100
-    #     lowv = self.param_dict['non_fitting_values']['energy_bound_low']['value'] * approx_ratio
-    #     highv = self.param_dict['non_fitting_values']['energy_bound_high']['value'] * approx_ratio
-    #     self.x0, self.y0 = trim(x, self.data, lowv, highv)
 
     def get_background(self):
         self.bg = snip_method(self.y0,
@@ -305,9 +304,10 @@ class Fit1D(Atom):
         This function performs single pixel fitting.
         Multiprocess is considered.
         """
-        save_name = 'pv250_slice1_data'
+        #save_name = 'pv250_slice1_data'
+        save_name = 'bnp_fly0148_data'
         save_dict = {'fit_path': os.path.join(self.result_folder, save_name+'_pixel'),
-                     'save_range': 200}
+                     'save_range': 50}
 
         strategy_pixel = 'linear'
         set_parameter_bound(self.param_dict, strategy_pixel)
@@ -391,18 +391,17 @@ def combine_lines(components, element_list, background):
     """
     new_components = {}
     for e in element_list:
-        e_temp = e.split('_')[0]
-        intensity = 0
-        for k, v in six.iteritems(components):
-            if (e_temp in k) and ('pileup' not in k):
-                intensity += v
-        new_components[e] = intensity
-
-    # pileup peaks
-    pileup_names = [v for v in six.iterkeys(components) if 'pileup' in v]
-    for p in pileup_names:
-        name = p[:-1]  # remove '_' in the end
-        new_components[name] = components[p]
+        if len(e) <= 4:
+            e_temp = e.split('_')[0]
+            intensity = 0
+            for k, v in six.iteritems(components):
+                if (e_temp in k) and (e not in k):
+                    intensity += v
+            new_components[e] = intensity
+        else:
+            print('comps {}'.format(e))
+            comp_name = e.replace('-', '_')+'_'  # change Si_K-Si_K to Si_K_Si_K
+            new_components[e] = components[comp_name]
 
     # add background and elastic
     new_components['background'] = background
@@ -729,11 +728,16 @@ def fit_pixel_fast_multi(data, param, **kwargs):
 
     y0 = data[0, 0, :]
     x0 = np.arange(len(y0))
-    # ratio to transfer energy value back to channel value
-    approx_ratio = 100
 
-    lowv = param['non_fitting_values']['energy_bound_low']['value'] * approx_ratio
-    highv = param['non_fitting_values']['energy_bound_high']['value'] * approx_ratio
+    # transfer energy value back to channel value
+    lowv = (param['non_fitting_values']['energy_bound_low']['value'] -
+            param['e_offset']['value'])/param['e_linear']['value']
+    highv = (param['non_fitting_values']['energy_bound_high']['value'] -
+             param['e_offset']['value'])/param['e_linear']['value']
+
+    lowv = int(lowv)
+    highv = int(highv)
+
     x, y = trim(x0, y0, lowv, highv)
     start_i = x0[x0 == x[0]][0]
     end_i = x0[x0 == x[-1]][0]
@@ -765,6 +769,8 @@ def fit_pixel_fast_multi(data, param, **kwargs):
 
     non_element = ['compton', 'elastic', 'background']
     total_list = elist + non_element
+
+    print('total list {}'.format(total_list))
 
     result_map = dict()
     for i in range(len(total_list)-1):
