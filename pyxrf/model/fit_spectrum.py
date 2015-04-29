@@ -127,12 +127,12 @@ class Fit1D(Atom):
         if len(self.selected_element) <= 4:
             element = self.selected_element.split('_')[0]
             self.selected_elements = sorted([e for e in self.param_dict.keys()
-                                            if (element in e) and
-                                            (self.selected_element not in e)]) # Si_ka1 not Si_K
+                                            if (element+'_' in e) and  # error between S_k or Si_k
+                                            ('pileup' not in e)]) # Si_ka1 not Si_K
         else:
             element = self.selected_element  # for pileup peaks
             self.selected_elements = sorted([e for e in self.param_dict.keys()
-                                            if element in e])
+                                            if element.replace('-', '_') in e])
 
     def get_new_param(self, param):
         self.param_dict = copy.deepcopy(param)
@@ -400,7 +400,7 @@ def combine_lines(components, element_list, background):
             new_components[e] = intensity
         else:
             print('comps {}'.format(e))
-            comp_name = e.replace('-', '_')+'_'  # change Si_K-Si_K to Si_K_Si_K
+            comp_name = 'pileup_' + e.replace('-', '_')+'_'  # change Si_K-Si_K to Si_K_Si_K
             new_components[e] = components[comp_name]
 
     # add background and elastic

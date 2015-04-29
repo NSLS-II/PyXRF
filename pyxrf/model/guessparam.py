@@ -470,6 +470,8 @@ class GuessParamModel(Atom):
         self.param_new = param_dict_cleaner(self.param_new,
                                             self.element_list)
 
+        print('cleaned: {}'.format(self.param_new.keys()))
+
         # create full parameter list including elements
         # This part is a bit confusing and needs better treatment.
         PC = ParamController(self.param_new, self.element_list)
@@ -485,17 +487,27 @@ class GuessParamModel(Atom):
         # to create full param dict, for GUI only
         create_full_dict(self.param_new, fit_strategy_list)
 
+        element_temp = [e for e in self.element_list if len(e) <= 4]
+        pileup_temp = [e for e in self.element_list if '-' in e]
+
         # update param_new according to results saved in ElementController
         if len(self.EC.element_dict):
-            for e in self.element_list:
-                zname = e.split('_')[0]
-                for k, v in six.iteritems(self.param_new):
-                    # need to consider zname+'_' together,
-                    # i.e. Si and S may cause conflicts
-                    if zname+'_' in k and 'area' in k:
-                        v['value'] = self.EC.element_dict[e].area
-
-                        print('{}:{}'.format(k, self.EC.element_dict[e].area))
+            for k, v in six.iteritems(self.param_new):
+                if 'area' in k:
+                    if 'pileup' in k:
+                        name_cut = k[7:-5]  #remove pileup_ and _area
+                        for p in pileup_temp:
+                            if name_cut == p.replace('-', '_'):
+                                v['value'] = self.EC.element_dict[p].area
+                                print('pileup {}:{}'.format(k, self.EC.element_dict[p].area))
+                    else:
+                        for e in element_temp:
+                            zname = e.split('_')[0]
+                            # need to consider zname+'_' together,
+                            # i.e. Si and S may cause conflicts
+                            if zname+'_' in k:
+                                v['value'] = self.EC.element_dict[e].area
+                                print('{}:{}'.format(k, self.EC.element_dict[e].area))
 
             if 'compton' in self.EC.element_dict:
                 self.param_new['compton_amplitude']['value'] = self.EC.element_dict['compton'].area
@@ -520,7 +532,7 @@ class GuessParamModel(Atom):
                     in six.iteritems(self.EC.element_dict) if v.status}
 
         for k, v in six.iteritems(new_dict):
-            if '-' in k:
+            if '-' in k:  # pileup
                 self.total_pileup[k] = self.EC.element_dict[k].spectrum
             elif 'K' in k:
                 self.total_y[k] = self.EC.element_dict[k].spectrum
@@ -782,12 +794,21 @@ def param_dict_cleaner(param, element_list):
     dict :
         new param dict containing given elements
     """
+    #param = copy.deepcopy(parameter)
     param_new = {}
-    list_lower = [e.lower() for e in element_list]
+
+    elist_lower = [e.lower() for e in element_list if len(e)<=4]
+    pileup_list = [e for e in element_list if '-' in e]
+
+    # update pileup
     for k, v in six.iteritems(param):
         if k == 'non_fitting_values' or k == k.lower():
             param_new.update({k: v})
-        else:
-            if k[:4].lower() in list_lower:
-                param_new.update({k: v})
+        elif 'pileup' in k:
+            for p in pileup_list:
+                if p.replace('-', '_') in k:
+                    param_new.update({k: v})
+        elif (k[:3].lower() in elist_lower) or (k[:4].lower() in elist_lower):
+            param_new.update({k: v})
+
     return param_new
