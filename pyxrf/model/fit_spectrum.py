@@ -213,10 +213,16 @@ class Fit1D(Atom):
         Calculate profile based on current parameters.
         """
         #self.define_range()
-        self.cal_x, self.cal_spectrum, area_dict = calculate_profile(self.data,
+        self.cal_x, self.cal_spectrum, area_dict = calculate_profile(self.x0,
+                                                                     self.y0,
                                                                      self.param_dict,
-                                                                     self.element_list,
-                                                                     required_length=len(self.y0))
+                                                                     self.element_list)
+        # add escape peak
+        if self.param_dict['non_fitting_values']['escape_ratio'] > 0:
+            self.cal_spectrum['escape'] = trim_escape_peak(self.data,
+                                                           self.param_dict,
+                                                           len(self.y0))
+
 
         self.cal_y = np.zeros(len(self.cal_x))
         for k, v in six.iteritems(self.cal_spectrum):
@@ -254,7 +260,8 @@ class Fit1D(Atom):
 
         if self.param_dict['non_fitting_values']['escape_ratio'] > 0:
             self.es_peak = trim_escape_peak(self.data,
-                                            self.param_dict, self.y0.size)
+                                            self.param_dict,
+                                            self.y0.size)
             y0 = self.y0 - self.bg - self.es_peak
         else:
             y0 = self.y0 - self.bg

@@ -231,7 +231,6 @@ class LinePlotModel(Atom):
     def _update_exp_label(self, change):
         if change['type'] == 'create':
             return
-        print('label is {}'.format(change['value']))
         self.plot_style['experiment']['label'] = change['value']
 
     @observe('parameters')
@@ -658,7 +657,6 @@ class LinePlotModel(Atom):
                 self.plot_fit_obj.append(ln)
 
             elif '-' in k:  # Si_K-Si_K
-                print('plot pileup {}'.format(k))
                 if p_num == 0:
                     ln, = self._ax.plot(self.fit_x, v,
                                         color=self.plot_style['pileup']['color'],
@@ -671,7 +669,6 @@ class LinePlotModel(Atom):
                 p_num += 1
 
             elif ('_K' in k.upper()) and (len(k) <= 4):
-                print('k line: {}'.format(k))
                 if k_num == 0:
                     ln, = self._ax.plot(self.fit_x, v,
                                         color=self.plot_style['k_line']['color'],

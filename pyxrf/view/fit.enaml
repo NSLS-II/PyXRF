@@ -298,8 +298,8 @@ enamldef ElementEdit(Window):
                         ]
                         FloatField: ff_value:
                             value := parameter_model.param_dict[loop_item]['value']
-                            minimum = parameter_model.param_dict[loop_item]['min']
-                            maximum = parameter_model.param_dict[loop_item]['max']
+                            #minimum = parameter_model.param_dict[loop_item]['min']
+                            #maximum = parameter_model.param_dict[loop_item]['max']
                         FloatField: ff_min:
                             value := parameter_model.param_dict[loop_item]['min']
                         FloatField: ff_max:
