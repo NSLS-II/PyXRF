@@ -145,8 +145,8 @@ enamldef FitView(DockItem): fit_view:
                 plot_model.fit_y = fit_model.fit_y
 
                 # BUG!!!
-                #plot_model.fit_all = fit_model.comps
-                plot_model.fit_all = fit_model.cal_spectrum
+                plot_model.fit_all = fit_model.comps
+                #plot_model.fit_all = fit_model.cal_spectrum
 
                 plot_model.residual = fit_model.residual
                 plot_model.plot_fit()

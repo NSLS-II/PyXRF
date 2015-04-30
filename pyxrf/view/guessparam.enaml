@@ -62,6 +62,7 @@ enamldef GuessParamView(DockItem): param_view:
     attr io_model
     attr plot_model
     attr fit_model
+    attr edit_pileup
 
     Container:
         constraints = [
@@ -70,7 +71,8 @@ enamldef GuessParamView(DockItem): param_view:
                 hbox(new_param_load, spacer),
                 top_cntr,
                 hbox(find_btn, spacer),
-                hbox(cb_select, intensity_lb, intensity_fd, manual_add, spacer),
+                hbox(cb_select, intensity_lb, intensity_fd,
+                     manual_add, spacer, pileup_btn),
                 pre_fit,
                 #hbox(saveas_btn, spacer),
             ),
@@ -207,6 +209,16 @@ enamldef GuessParamView(DockItem): param_view:
                 plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
                                                     param_model.total_l, param_model.total_m,
                                                     param_model.total_pileup)
+
+        PushButton: pileup_btn:
+            text = 'Pileup'
+            checkable = True
+            checked := edit_pileup.visible
+            clicked ::
+                if checked:
+                    edit_pileup.show()
+                else:
+                    edit_pileup.hide()
 
         GroupBox: pre_fit:
             padding = Box(2, 2, 2, 2)
@@ -427,3 +439,33 @@ def set_low_bound(value, thresh_v=0.1):
         return '< {}'.format(thresh_v)
     else:
         return str(value)
+
+
+enamldef EditPileupPeak(Window): pileup_win:
+    attr param_model
+    title = 'Pileup Peak Editor'
+    Container:
+        Form:
+            Label: e1:
+                text = 'Element1'
+            Field: fd1:
+                text = ''
+            Label: e2:
+                text = 'Element2'
+            Field: fd2:
+                text = ''
+            Label: intensity:
+                text = 'Peak Int'
+            FloatField: intensity_ff:
+                pass
+            PushButton: add_btn:
+                text = 'Add'
+                maximum_size = 60
+                clicked ::
+                    param_model.pileup_data['element1'] = fd1.text
+                    param_model.pileup_data['element2'] = fd2.text
+                    param_model.pileup_data['intensity'] = intensity_ff.value
+                    param_model.manual_input()
+                    param_model.update_name_list()
+                    param_model.data_for_plot()
+                    pileup_win.close()

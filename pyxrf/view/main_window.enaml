@@ -39,7 +39,7 @@ from enaml.widgets.api import (MainWindow, Container, DockArea)
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, TabLayout
 
 from .fileio import FileView
-from .guessparam import GuessParamView
+from .guessparam import GuessParamView, EditPileupPeak
 from .lineplot import PlotMain, AdjustEmissionLine
 from .image2D import ImageMain, ChooseElementAdvanced
 from .fit import FitView, ElementEdit, ParameterEdit
@@ -86,6 +86,9 @@ enamldef XRFGui(MainWindow): main_window:
                 io_model = main_window.io_model
                 plot_model = main_window.plot_model
                 fit_model = main_window.fit_model
+                edit_pileup = EditPileupPeak(
+                    visible=False, destroy_on_close=False,
+                    param_model=main_window.param_model)
             PlotMain:
                 closable = False
                 title = 'Spectrum View'

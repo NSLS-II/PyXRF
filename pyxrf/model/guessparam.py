@@ -239,6 +239,7 @@ class GuessParamModel(Atom):
     x0 = Typed(np.ndarray)
     y0 = Typed(np.ndarray)
     max_area_dig = Int(2)
+    pileup_data = Dict()
 
     def __init__(self, **kwargs):
         try:
@@ -250,6 +251,9 @@ class GuessParamModel(Atom):
             logger.info('No default parameter files are chosen.')
         self.result_folder = kwargs['working_directory']
         self.EC = ElementController()
+        self.pileup_data = {'element1': 'Si_K',
+                            'element2': 'Si_K',
+                            'intensity': 0.0}
 
     def get_new_param(self, param_path):
         """
@@ -384,11 +388,8 @@ class GuessParamModel(Atom):
                     temp_dict[e] = ps
         self.EC.add_to_dict(temp_dict)
 
-
-
     def manual_input(self):
         default_area = 1e2
-        logger.info('{} peak is added'.format(self.e_name))
 
         if self.e_name == 'escape':
             self.param_new['non_fitting_values']['escape_ratio'] = (self.add_element_intensity
@@ -404,6 +405,30 @@ class GuessParamModel(Atom):
                               spectrum=es_peak,
                               maxv=float(np.around(np.max(es_peak), self.max_area_dig)),
                               norm=-1, lbd_stat=False)
+            logger.info('{} peak is added'.format(self.e_name))
+
+        elif self.pileup_data['intensity'] != 0:
+            self.e_name = (self.pileup_data['element1'] + '-'
+                           + self.pileup_data['element2'])
+            x, data_out, area_dict = calculate_profile(self.x0,
+                                                       self.y0,
+                                                       self.param_new,
+                                                       elemental_lines=[self.e_name],
+                                                       default_area=default_area)
+            energy = str(float(get_energy(self.pileup_data['element1']))
+                         + float(get_energy(self.pileup_data['element2'])))
+
+            ratio_v = self.pileup_data['intensity'] / np.max(data_out[self.e_name])
+
+            ps = PreFitStatus(z=get_Z(self.e_name),
+                              energy=energy,
+                              area=area_dict[self.e_name]*ratio_v,
+                              spectrum=data_out[self.e_name]*ratio_v,
+                              maxv=self.pileup_data['intensity'],
+                              norm=-1,
+                              lbd_stat=False)
+            logger.info('{} peak is added'.format(self.e_name))
+
         else:
             x, data_out, area_dict = calculate_profile(self.x0,
                                                        self.y0,
@@ -417,7 +442,8 @@ class GuessParamModel(Atom):
                               energy=get_energy(self.e_name),
                               area=area_dict[self.e_name]*ratio_v,
                               spectrum=data_out[self.e_name]*ratio_v,
-                              maxv=self.add_element_intensity, norm=-1,
+                              maxv=self.add_element_intensity,
+                              norm=-1,
                               lbd_stat=False)
 
         self.EC.add_to_dict({self.e_name: ps})
@@ -716,7 +742,7 @@ def get_Z(ename):
     strip_line = lambda ename: ename.split('_')[0]
 
     non_element = ['compton', 'elastic', 'background', 'escape']
-    if (ename.lower() in non_element) or 'pileup' in ename:
+    if (ename.lower() in non_element) or '-' in ename:
         return '-'
     else:
         e = Element(strip_line(ename))
@@ -726,7 +752,7 @@ def get_Z(ename):
 def get_energy(ename):
     strip_line = lambda ename: ename.split('_')[0]
     non_element = ['compton', 'elastic', 'background', 'escape']
-    if (ename.lower() in non_element) or 'pileup' in ename:
+    if (ename.lower() in non_element):
         return '-'
     else:
         e = Element(strip_line(ename))
@@ -779,3 +805,4 @@ def param_dict_cleaner(param, element_list):
             param_new.update({k: v})
 
     return param_new
+
