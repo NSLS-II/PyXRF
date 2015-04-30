@@ -219,14 +219,10 @@ class GuessParamModel(Atom):
     element_list : list
     """
     default_parameters = Dict()
-    #parameters = Dict() #Typed(OrderedDict) #OrderedDict()
     data = Typed(object)
     prefit_x = Typed(object)
-
-    result_dict = Typed(object) #Typed(OrderedDict)
+    result_dict = Typed(object)
     result_dict_names = List()
-
-    #param_d = Dict()
     param_new = Dict()
     total_y = Dict()
     total_l = Dict()
@@ -234,19 +230,12 @@ class GuessParamModel(Atom):
     total_pileup = Dict()
     e_name = Str()
     add_element_intensity = Float()
-    #save_file = Str()
-
     result_folder = Str()
-    #file_path = Str()
-
     element_list = List()
-
     data_sets = Typed(OrderedDict)
     file_opt = Int()
     data_all = Typed(np.ndarray)
-
     EC = Typed(object)
-
     x0 = Typed(np.ndarray)
     y0 = Typed(np.ndarray)
     max_area_dig = Int(2)
@@ -280,12 +269,6 @@ class GuessParamModel(Atom):
         self.define_range()
         self.create_spectrum_from_file(self.param_new, self.element_list)
         logger.info('Elements read from file are: {}'.format(self.element_list))
-
-    # def reload(self):
-    #     """Reload the parameters to the initial status.
-    #     """
-    #     logger.info('Parameters are reloaded.')
-    #     self.param_new = copy.deepcopy(self.default_parameters)
 
     def result_folder_changed(self, changed):
         """

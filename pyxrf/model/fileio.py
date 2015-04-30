@@ -168,7 +168,8 @@ def read_hdf_HXN(working_directory,
 
             # data from channel summed
             exp_data = np.asarray(data['detector/data'])
-            logger.info('File : {} with total counts {}'.format(fname, np.sum(exp_data)))
+            logger.info('File : {} with total counts {}'.format(fname,
+                                                                np.sum(exp_data)))
             exp_data = exp_data[:, :, :-bad_point_cut]
             DS = DataSelection(filename=fname,
                                raw_data=exp_data)
@@ -286,27 +287,38 @@ def read_MAPS(working_directory,
                 data = f['MAPS']
 
                 fname = fname.split('.')[0]
-                print('filename: {}'.format(fname))
 
                 # for 2D MAP
                 #data_dict[fname] = data
 
-                # data from channel summed
+                # raw data
                 exp_data = data['mca_arr'][:]
-                #exp_data = np.asarray(data['mca_arr'][:])
+
+                # data from channel summed
+                roi_channel = data['channel_names'].value
+                roi_val = data['XRF_roi'][:]
+
+                # data from fit
+                fit_val = data['XRF_fits'][:]
 
             exp_shape = exp_data.shape
-            print('shape: {}'.format(exp_shape))
 
             exp_data = exp_data.T
-            print('new shape: {}'.format(exp_data.shape))
             logger.info('File : {} with total counts {}'.format(fname,
                                                                 np.sum(exp_data)))
-            #exp_data = exp_data[:, :, :-bad_point_cut]
             DS = DataSelection(filename=fname,
                                raw_data=exp_data)
             data_sets.update({fname: DS})
 
+            # save roi and fit into dict
+            temp_roi = {}
+            temp_fit = {}
+            for i, name in enumerate(roi_channel):
+                temp_roi[name] = roi_val[i, :, :].T
+                temp_fit[name] = fit_val[i, :, :].T
+            img_dict[fname+'_roi'] = temp_roi
+
+            img_dict[fname+'_fit'] = temp_fit
             # read fitting results
             # if 'xrf_fit' in data[detID]:
             #     fit_result = get_fit_data(data[detID]['xrf_fit_name'].value,

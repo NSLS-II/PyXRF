@@ -77,8 +77,7 @@ enamldef FitView(DockItem): fit_view:
     Container:
         constraints = [
             vbox(
-                #param_gb,
-                #lbl0,
+                hbox(reload_btn, spacer),
                 hbox(lbl1, cb1, spacer),
                 hbox(lbl2, cb2, spacer),
                 hbox(lbl3, cb3, spacer),
@@ -93,6 +92,10 @@ enamldef FitView(DockItem): fit_view:
                 gb_fit_pixel,
             ),
         ]
+        PushButton: reload_btn:
+            text = 'Reload'
+            clicked ::
+                fit_model.get_new_param(param_model.param_new)
 
         Label: lbl1:
             text = 'Step 1'

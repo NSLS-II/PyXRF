@@ -60,13 +60,14 @@ logger = logging.getLogger(__name__)
 
 
 class Fit1D(Atom):
-
-    #file_path = Str()
+    """
+    Fit fluorescence spectrum. The users can choose multiple strategies
+    for this fitting.
+    """
     file_status = Str()
     param_dict = Dict()
 
     element_list = List()
-    #parameters = Dict()
 
     data_all = Typed(np.ndarray)
     data = Typed(np.ndarray)
@@ -222,7 +223,6 @@ class Fit1D(Atom):
             self.cal_spectrum['escape'] = trim_escape_peak(self.data,
                                                            self.param_dict,
                                                            len(self.y0))
-
 
         self.cal_y = np.zeros(len(self.cal_x))
         for k, v in six.iteritems(self.cal_spectrum):

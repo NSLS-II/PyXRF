@@ -38,7 +38,7 @@ __author__ = 'Li Li'
 from enaml.widgets.api import (Container, PushButton, Label,
                                Form, Field, FileDialogEx, DockItem,
                                DockArea, MPLCanvas, CheckBox, ComboBox,
-                               ScrollArea, Window, GroupBox)
+                               ScrollArea, Window, GroupBox, Splitter, SplitItem)
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer
 from enaml.core.api import Include, Looper
 
@@ -157,30 +157,31 @@ enamldef ChooseElementAdvanced(Window): win:
                 img_model.show_image()
 
         GroupBox: gb:
-            ScrollArea: sa:
-                constraints = [height >= 200]
+            title = 'Add/Remove Image'
+            ScrollArea:
+                constraints = [height >= 80]
                 Container:
                     Form:
-                        Label:
-                            text = '{:>20} {:>20}'.format('Name', 'Add/Remove')
-                        Label:
-                            pass
+                        #Label:
+                        #    text = '{:>20}{:>10}'.format('Name', 'Plot Option')
+                        #Label:
+                        #    pass
                         Looper: looper:
                             iterable << sorted(img_model.data_dict[cb.selected_item].keys())
                             Label:
                                 font = 'monospace'
-                                text = '{:>20}'.format(loop_item)
+                                text = '{:>10}'.format(loop_item)
                             PushButton: element_btn:
                                 text = 'Add'
                                 minimum_size = (100, 20)
                                 checkable = True
-                                checked = img_model.stat_dict[cb.selected_item][loop_item]
+                                checked := img_model.stat_dict[cb.selected_item][loop_item]
                                 clicked ::
                                     if checked:
                                         img_model.stat_dict[cb.selected_item][loop_item] = True
-                                        element_btn.checkable = True
+                                        element_btn.checked = True
                                         element_btn.text = 'Remove'
                                     else:
                                         img_model.stat_dict[cb.selected_item][loop_item] = False
-                                        element_btn.checkable = False
+                                        #element_btn.checked = False
                                         element_btn.text = 'Add'
