@@ -104,6 +104,7 @@ class Fit1D(Atom):
     nvar = Int(0)
     chi2 = Float(0.0)
     red_chi2 = Float(0.0)
+    global_param_list = List()
 
     def __init__(self, *args, **kwargs):
         self.working_directory = kwargs['working_directory']
@@ -140,6 +141,10 @@ class Fit1D(Atom):
         element_list = self.param_dict['non_fitting_values']['element_list']
         self.element_list = [e.strip(' ') for e in element_list.split(',')]
 
+        self.global_param_list = []
+        self.global_param_list = sorted([k for k in six.iterkeys(self.param_dict)
+                                         if k==k.lower() and k != 'non_fitting_values'])
+
         self.define_range()
 
         # register the strategy and extend the parameter list
@@ -151,9 +156,17 @@ class Fit1D(Atom):
             register_strategy(strat_name, strategy)
             #set_parameter_bound(self.param_dict, strat_name)
 
+        print('new one: {}'.format(self.param_dict['compton_gamma']))
+
     @observe('data')
     def _update_data(self, change):
         self.data = np.asarray(self.data)
+
+    def refresh(self):
+        # for GUI purpose only
+        # if we do not clear the dict first, there is not update on the GUI
+        del self.param_dict['non_fitting_values']
+        del self.param_dict['compton_angle']
 
     @observe('fit_strategy1')
     def update_strategy1(self, change):
@@ -283,6 +296,12 @@ class Fit1D(Atom):
                 self.update_param_with_result()
         t1 = time.time()
         logger.warning('Time used for fitting is : {}'.format(t1-t0))
+
+        # for GUI purpose only
+        # if we do not clear the dict first, there is not update on the GUI
+        param_temp = copy.deepcopy(self.param_dict)
+        del self.param_dict['non_fitting_values']
+        self.param_dict = param_temp
 
         self.comps.clear()
         comps = self.fit_result.eval_components(x=self.x0)

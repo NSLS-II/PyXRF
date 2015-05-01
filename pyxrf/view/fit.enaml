@@ -95,6 +95,7 @@ enamldef FitView(DockItem): fit_view:
         PushButton: reload_btn:
             text = 'Reload'
             clicked ::
+                fit_model.refresh()
                 fit_model.get_new_param(param_model.param_new)
 
         Label: lbl1:
@@ -133,7 +134,7 @@ enamldef FitView(DockItem): fit_view:
             clicked ::
                 fit_model.fit_multiple()
 
-                # line color for pileup is not correct from fit
+                # BUG: line color for pileup is not correct from fit
                 fit_model.get_profile()
 
                 # update experimental plot with new calibration values
@@ -145,8 +146,8 @@ enamldef FitView(DockItem): fit_view:
                 plot_model.fit_y = fit_model.fit_y
 
                 # BUG!!!
-                plot_model.fit_all = fit_model.comps
-                #plot_model.fit_all = fit_model.cal_spectrum
+                #plot_model.fit_all = fit_model.comps
+                plot_model.fit_all = fit_model.cal_spectrum
 
                 plot_model.residual = fit_model.residual
                 plot_model.plot_fit()
@@ -377,7 +378,8 @@ enamldef ParameterEdit(Window):
             Form:
                 row_spacing = -1
                 Looper: looper:
-                    iterable << sorted([k for k in six.iterkeys(parameter_model.param_dict) if k==k.lower() and k!='non_fitting_values'])
+                    #iterable << sorted([k for k in six.iterkeys(parameter_model.param_dict) if k==k.lower() and k!='non_fitting_values'])
+                    iterable << parameter_model.global_param_list
                     Label: name_lbl:
                         text = loop_item
                     Container:

@@ -407,28 +407,6 @@ class GuessParamModel(Atom):
                               norm=-1, lbd_stat=False)
             logger.info('{} peak is added'.format(self.e_name))
 
-        elif self.pileup_data['intensity'] != 0:
-            self.e_name = (self.pileup_data['element1'] + '-'
-                           + self.pileup_data['element2'])
-            x, data_out, area_dict = calculate_profile(self.x0,
-                                                       self.y0,
-                                                       self.param_new,
-                                                       elemental_lines=[self.e_name],
-                                                       default_area=default_area)
-            energy = str(float(get_energy(self.pileup_data['element1']))
-                         + float(get_energy(self.pileup_data['element2'])))
-
-            ratio_v = self.pileup_data['intensity'] / np.max(data_out[self.e_name])
-
-            ps = PreFitStatus(z=get_Z(self.e_name),
-                              energy=energy,
-                              area=area_dict[self.e_name]*ratio_v,
-                              spectrum=data_out[self.e_name]*ratio_v,
-                              maxv=self.pileup_data['intensity'],
-                              norm=-1,
-                              lbd_stat=False)
-            logger.info('{} peak is added'.format(self.e_name))
-
         else:
             x, data_out, area_dict = calculate_profile(self.x0,
                                                        self.y0,
@@ -447,6 +425,31 @@ class GuessParamModel(Atom):
                               lbd_stat=False)
 
         self.EC.add_to_dict({self.e_name: ps})
+
+    def add_pileup(self):
+        default_area = 1e2
+        if self.pileup_data['intensity'] != 0:
+            e_name = (self.pileup_data['element1'] + '-'
+                           + self.pileup_data['element2'])
+            x, data_out, area_dict = calculate_profile(self.x0,
+                                                       self.y0,
+                                                       self.param_new,
+                                                       elemental_lines=[e_name],
+                                                       default_area=default_area)
+            energy = str(float(get_energy(self.pileup_data['element1']))
+                         + float(get_energy(self.pileup_data['element2'])))
+
+            ratio_v = self.pileup_data['intensity'] / np.max(data_out[e_name])
+
+            ps = PreFitStatus(z=get_Z(e_name),
+                              energy=energy,
+                              area=area_dict[e_name]*ratio_v,
+                              spectrum=data_out[e_name]*ratio_v,
+                              maxv=self.pileup_data['intensity'],
+                              norm=-1,
+                              lbd_stat=False)
+            logger.info('{} peak is added'.format(e_name))
+        self.EC.add_to_dict({e_name: ps})
 
     def update_name_list(self):
         """

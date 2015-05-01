@@ -110,7 +110,7 @@
         "linear": "fixed", 
         "max": 4.2, 
         "min": 3.8,
-        "default": 4.0,
+        "default": 2.5,
         "value": 4.161818621138601
     }, 
     "compton_hi_f_tail": {
