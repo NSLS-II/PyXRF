@@ -95,7 +95,6 @@ enamldef FitView(DockItem): fit_view:
         PushButton: reload_btn:
             text = 'Reload'
             clicked ::
-                fit_model.refresh()
                 fit_model.get_new_param(param_model.param_new)
 
         Label: lbl1:
@@ -288,7 +287,7 @@ enamldef ElementEdit(Window):
                 Looper: looper:
                     #iterable << sorted([k for k in six.iterkeys(parameter_model.param_dict) if k==k.lower() and k!='non_fitting_values'])
                     #iterable << list(sorted([v for v in six.iterkeys(parameter_model.param_dict) if cmb_element.selected_item.split('_')[0] in str(v)]))
-                    iterable << parameter_model.selected_elements
+                    iterable << parameter_model.elementinfo_list
 
                     Label: name_lbl:
                         text = loop_item

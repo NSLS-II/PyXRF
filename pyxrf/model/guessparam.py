@@ -430,7 +430,7 @@ class GuessParamModel(Atom):
         default_area = 1e2
         if self.pileup_data['intensity'] != 0:
             e_name = (self.pileup_data['element1'] + '-'
-                           + self.pileup_data['element2'])
+                      + self.pileup_data['element2'])
             x, data_out, area_dict = calculate_profile(self.x0,
                                                        self.y0,
                                                        self.param_new,

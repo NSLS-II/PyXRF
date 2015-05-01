@@ -98,7 +98,7 @@ class Fit1D(Atom):
 
     # attributes used by the ElementEdit window
     selected_element = Str()
-    selected_elements = List()
+    elementinfo_list = List()
 
     function_num = Int(0)
     nvar = Int(0)
@@ -128,12 +128,12 @@ class Fit1D(Atom):
     def _selected_element_changed(self, changed):
         if len(self.selected_element) <= 4:
             element = self.selected_element.split('_')[0]
-            self.selected_elements = sorted([e for e in self.param_dict.keys()
+            self.elementinfo_list = sorted([e for e in self.param_dict.keys()
                                             if (element+'_' in e) and  # error between S_k or Si_k
-                                            ('pileup' not in e)]) # Si_ka1 not Si_K
+                                            ('pileup' not in e)])  # Si_ka1 not Si_K
         else:
             element = self.selected_element  # for pileup peaks
-            self.selected_elements = sorted([e for e in self.param_dict.keys()
+            self.elementinfo_list = sorted([e for e in self.param_dict.keys()
                                             if element.replace('-', '_') in e])
 
     def get_new_param(self, param):
@@ -141,9 +141,12 @@ class Fit1D(Atom):
         element_list = self.param_dict['non_fitting_values']['element_list']
         self.element_list = [e.strip(' ') for e in element_list.split(',')]
 
+        # global parameters
+        # for GUI purpose only
+        # if we do not clear the list first, there is not update on the GUI
         self.global_param_list = []
         self.global_param_list = sorted([k for k in six.iterkeys(self.param_dict)
-                                         if k==k.lower() and k != 'non_fitting_values'])
+                                         if k == k.lower() and k != 'non_fitting_values'])
 
         self.define_range()
 
@@ -156,17 +159,9 @@ class Fit1D(Atom):
             register_strategy(strat_name, strategy)
             #set_parameter_bound(self.param_dict, strat_name)
 
-        print('new one: {}'.format(self.param_dict['compton_gamma']))
-
     @observe('data')
     def _update_data(self, change):
         self.data = np.asarray(self.data)
-
-    def refresh(self):
-        # for GUI purpose only
-        # if we do not clear the dict first, there is not update on the GUI
-        del self.param_dict['non_fitting_values']
-        del self.param_dict['compton_angle']
 
     @observe('fit_strategy1')
     def update_strategy1(self, change):
@@ -305,7 +300,6 @@ class Fit1D(Atom):
 
         self.comps.clear()
         comps = self.fit_result.eval_components(x=self.x0)
-        print('fitting comps: {}'.format(comps.keys()))
         self.comps = combine_lines(comps, self.element_list, self.bg)
 
         if self.param_dict['non_fitting_values']['escape_ratio'] > 0:
@@ -313,8 +307,6 @@ class Fit1D(Atom):
             self.comps['escape'] = self.es_peak
         else:
             self.fit_y += self.bg
-
-        print('new comps: {}'.format(self.comps.keys()))
 
         self.save_result()
         self.assign_fitting_result()
@@ -425,8 +417,7 @@ def combine_lines(components, element_list, background):
                     intensity += v
             new_components[e] = intensity
         else:
-            print('comps {}'.format(e))
-            comp_name = 'pileup_' + e.replace('-', '_')+'_'  # change Si_K-Si_K to Si_K_Si_K
+            comp_name = 'pileup_' + e.replace('-', '_') + '_'  # change Si_K-Si_K to Si_K_Si_K
             new_components[e] = components[comp_name]
 
     # add background and elastic
@@ -481,7 +472,6 @@ def fit_pixel_fast(dir_path, file_prefix,
     """
 
     num_str = '{:03d}'.format(fileID)
-    #print(num_str)
     #logger.info('File number is {}'.format(fileID))
     filename = file_prefix + num_str
     file_path = os.path.join(dir_path, filename)
@@ -489,7 +479,6 @@ def fit_pixel_fast(dir_path, file_prefix,
         data = f[interpath][:]
     #data = np.array(data[:, :, :])
     datas = data.shape
-    #print(datas)
 
     #x0 = np.arange(datas[2])
 
@@ -562,7 +551,6 @@ def fit_data_multi_files(dir_path, file_prefix,
 
     pool.terminate()
     pool.join()
-    #print(results)
     return results
 
 
@@ -786,17 +774,11 @@ def fit_pixel_fast_multi(data, param, **kwargs):
     pool.terminate()
     pool.join()
 
-    # results = []
-    # for i in range(datas[0]):
-    #     outv = fit_per_line(i, data[:, :, start_i:end_i+1], matv, param)
-    #     results.append(outv)
-
     results = np.array(results)
 
-    non_element = ['compton', 'elastic', 'background']
-    total_list = elist + non_element
+    total_list = e_select + ['background']
 
-    print('total list {}'.format(total_list))
+    logger.info('The following peaks are saved: {}'.format(total_list))
 
     result_map = dict()
     for i in range(len(total_list)-1):
@@ -804,11 +786,6 @@ def fit_pixel_fast_multi(data, param, **kwargs):
 
     # add background
     result_map.update({total_list[-1]: results[:, :, -1]})
-
-    # for v in total_list:
-    #     for i in xrange(datas[0]):
-    #         for j in xrange(datas[1]):
-    #             result_map[v][i, j] = results[i, j].get(v, 0)
 
     # save summed spectrum only when required
     # the size is measured from the point of (0, 0)
@@ -986,7 +963,6 @@ def ccombine_data_to_hdf(fpath_read, file_prefix,
     datasum = None
     for i in range(start_id, end_id+1):
         num_str = '{:03d}'.format(i)
-        print(num_str)
         filename = file_prefix + num_str
         file_path = os.path.join(fpath_read, filename)
         with h5py.File(file_path, 'r') as f:
@@ -1000,7 +976,6 @@ def ccombine_data_to_hdf(fpath_read, file_prefix,
                                     data_temp.shape[2]])
             datasum[i-start_id, :, :, :] = data_temp
 
-    print(datasum.shape)
     return datasum
 
 
@@ -1027,7 +1002,7 @@ def compare_result(m, n, start_i=151, end_i=1350, all=True, linear=True):
 
     else:
         if linear:
-            plt.plot(x, np.sum(data_exp[:,:, start_i:end_i], axis=(0, 1)), x, np.sum(d_fit, axis=(0, 1)))
+            plt.plot(x, np.sum(data_exp[:, :, start_i:end_i], axis=(0, 1)), x, np.sum(d_fit, axis=(0, 1)))
         else:
-            plt.semilogy(x, np.sum(data_exp[:,:, start_i:end_i], axis=(0, 1)), x, np.sum(d_fit, axis=(0, 1)))
+            plt.semilogy(x, np.sum(data_exp[:, :, start_i:end_i], axis=(0, 1)), x, np.sum(d_fit, axis=(0, 1)))
         plt.show()
