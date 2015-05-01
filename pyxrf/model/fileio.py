@@ -75,7 +75,7 @@ class FileIOModel(Atom):
     load_status = Str()
     data_dict = Dict()
     img_dict = Dict()
-    img_dict_flat = Dict()
+    #img_dict_flat = Dict()
 
     file_channel_list = List()
 
@@ -101,10 +101,15 @@ class FileIOModel(Atom):
         self.file_names.sort()
         logger.info('Loaded files : {}'.format(self.file_names))
 
-        # to be update, temporary use
+        # be alter: to be update, temporary use!!!
         if 'APS' in self.file_names[0]:
-            self.data_dict, self.data_sets = read_hdf_APS(self.working_directory,
-                                                          self.file_names)
+            logger.info('Load APS 13IDE data format.')
+            self.img_dict, self.data_sets = read_hdf_APS(self.working_directory,
+                                                         self.file_names)
+        elif 'bnp' in self.file_names[0]:
+            logger.info('Load APS 2IDE data format.')
+            self.img_dict, self.data_sets = read_MAPS(self.working_directory,
+                                                      self.file_names)
         else:
             self.data_dict, self.data_sets = read_hdf_HXN(self.working_directory,
                                                           self.file_names)
@@ -123,18 +128,8 @@ class FileIOModel(Atom):
         pass
 
 
-def get_roi_sum(namelist, data_range, data):
-    data_temp = dict()
-    for i in range(len(namelist)):
-        lowv = data_range[i, 0]
-        highv = data_range[i, 1]
-        data_sum = np.sum(data[:, :, lowv: highv], axis=2)
-        data_temp.update({namelist[i].replace(' ', '_'): data_sum})
-    return data_temp
-
-
 def read_hdf_HXN(working_directory,
-                 file_names, channel_num=8):
+                 file_names, channel_num=4):
     """
     Data IO for HXN temporary datasets. This might be changed later.
 
@@ -173,7 +168,8 @@ def read_hdf_HXN(working_directory,
 
             # data from channel summed
             exp_data = np.asarray(data['detector/data'])
-            logger.info('File : {} with total counts {}'.format(fname, np.sum(exp_data)))
+            logger.info('File : {} with total counts {}'.format(fname,
+                                                                np.sum(exp_data)))
             exp_data = exp_data[:, :, :-bad_point_cut]
             DS = DataSelection(filename=fname,
                                raw_data=exp_data)
@@ -194,7 +190,7 @@ def read_hdf_HXN(working_directory,
 
 
 def read_hdf_APS(working_directory,
-                 file_names, channel_num=4):
+                 file_names, channel_num=0):
     """
     Data IO for APS Beamline 13 datasets. This might be changed later.
 
@@ -214,27 +210,34 @@ def read_hdf_APS(working_directory,
     data_sets : dict
         data from each channel and channel summed
     """
-    data_dict = OrderedDict()
+    #data_dict = OrderedDict()
     data_sets = OrderedDict()
+    img_dict = OrderedDict()
 
     # cut off bad point on the last position of the spectrum
-    bad_point_cut = 1
+    angle_cut = 1
+    spectrum_cut = 2600
 
     for fname in file_names:
         try:
             file_path = os.path.join(working_directory, fname)
-            f = h5py.File(file_path, 'r+')
-            data = f['xrfmap']
+            with h5py.File(file_path, 'r+') as f:
+                data = f['xrfmap']
 
-            fname = fname.split('.')[0]
+                fname = fname.split('.')[0]
 
-            # for 2D MAP
-            data_dict[fname] = data
+                # for 2D MAP
+                #data_dict[fname] = data
 
-            # data from channel summed
-            exp_data = np.asarray(data['detsum/counts'])
-            logger.info('File : {} with total counts {}'.format(fname, np.sum(exp_data)))
-            exp_data = exp_data[:, :, :-bad_point_cut]
+                # data from channel summed
+                exp_data = data['detsum/counts']
+                #logger.info('File : {} with total counts {}'.format(fname,
+                #                                                    np.sum(exp_data)))
+                exp_data = np.asarray(exp_data[:, 1:-1, :-spectrum_cut])
+                roi_name = data['detsum']['roi_name'].value
+                roi_value = data['detsum']['roi_limits'].value
+                #f.close()
+
             DS = DataSelection(filename=fname,
                                raw_data=exp_data)
             data_sets.update({fname: DS})
@@ -243,27 +246,99 @@ def read_hdf_APS(working_directory,
             for i in range(channel_num):
                 det_name = 'det'+str(i+1)
                 file_channel = fname+'_channel_'+str(i+1)
-                exp_data_new = data[det_name+'/counts'][:, :, :-bad_point_cut]
+                exp_data_new = data[det_name+'/counts'][:, angle_cut:-angle_cut, :-spectrum_cut]
                 exp_data_new = np.asarray(exp_data_new)
                 DS = DataSelection(filename=file_channel,
                                    raw_data=exp_data_new)
                 data_sets[file_channel] = DS
 
-            # get roi sum data
-            #roi_result = get_roi_sum(data[detID]['roi_name'].value,
-            #                         data[detID]['roi_limits'].value,
-            #                         data[detID]['counts'])
-            #self.img_dict_flat.update({fname.split('.')[0]+'_roi': roi_result})
+            #get roi sum data
+            roi_result = get_roi_sum(roi_name,
+                                     roi_value,
+                                     exp_data)
+                                     #data[detID]['counts'][:, angle_cut:-angle_cut, :-spectrum_cut])
+            img_dict.update({fname+'_roi': roi_result})
 
+            # read fitting results from summed data
+            if 'xrf_fit' in data['detsum']:
+                fit_result = get_fit_data(data['detsum']['xrf_fit_name'].value,
+                                          data['detsum']['xrf_fit'].value)
+                img_dict.update({fname+'_fit': fit_result})
+
+        except ValueError:
+            continue
+    return img_dict, data_sets
+
+
+def read_MAPS(working_directory,
+              file_names, channel_num=1):
+    data_dict = OrderedDict()
+    data_sets = OrderedDict()
+    img_dict = OrderedDict()
+
+    # cut off bad point on the last position of the spectrum
+    bad_point_cut = 0
+
+    for fname in file_names:
+        try:
+            file_path = os.path.join(working_directory, fname)
+            with h5py.File(file_path, 'r+') as f:
+
+                data = f['MAPS']
+
+                fname = fname.split('.')[0]
+
+                # for 2D MAP
+                #data_dict[fname] = data
+
+                # raw data
+                exp_data = data['mca_arr'][:]
+
+                # data from channel summed
+                roi_channel = data['channel_names'].value
+                roi_val = data['XRF_roi'][:]
+
+                # data from fit
+                fit_val = data['XRF_fits'][:]
+
+            exp_shape = exp_data.shape
+
+            exp_data = exp_data.T
+            logger.info('File : {} with total counts {}'.format(fname,
+                                                                np.sum(exp_data)))
+            DS = DataSelection(filename=fname,
+                               raw_data=exp_data)
+            data_sets.update({fname: DS})
+
+            # save roi and fit into dict
+            temp_roi = {}
+            temp_fit = {}
+            for i, name in enumerate(roi_channel):
+                temp_roi[name] = roi_val[i, :, :].T
+                temp_fit[name] = fit_val[i, :, :].T
+            img_dict[fname+'_roi'] = temp_roi
+
+            img_dict[fname+'_fit'] = temp_fit
             # read fitting results
             # if 'xrf_fit' in data[detID]:
             #     fit_result = get_fit_data(data[detID]['xrf_fit_name'].value,
             #                               data[detID]['xrf_fit'].value)
-            #     self.img_dict_flat.update({fname.split('.')[0]+'_fit': fit_result})
+            #     img_dict.update({fname+'_fit': fit_result})
 
         except ValueError:
             continue
-    return data_dict, data_sets
+    return img_dict, data_sets
+
+
+def get_roi_sum(namelist, data_range, data):
+    data_temp = dict()
+    for i in range(len(namelist)):
+        lowv = data_range[i, 0]
+        highv = data_range[i, 1]
+        data_sum = np.sum(data[:, :, lowv: highv], axis=2)
+        data_temp.update({namelist[i]: data_sum})
+        #data_temp.update({namelist[i].replace(' ', '_'): data_sum})
+    return data_temp
 
 
 def get_fit_data(namelist, data):
@@ -379,5 +454,3 @@ class SpectrumCalculator(object):
                           axis=(0, 1))
             #return np.sum(self.data[:, self.pos1[0]:self.pos2[0], self.pos1[1]:self.pos2[1]],
             #              axis=(1, 2))
-
-

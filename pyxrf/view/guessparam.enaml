@@ -49,7 +49,7 @@ from enaml.stdlib.message_box import MessageBox, warning, information
 import numpy as np
 import six
 
-from ..model.guessparam import format_dict, save_as
+from ..model.guessparam import autofit_param, save_as
 from skxray.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 
 
@@ -62,6 +62,7 @@ enamldef GuessParamView(DockItem): param_view:
     attr io_model
     attr plot_model
     attr fit_model
+    attr edit_pileup
 
     Container:
         constraints = [
@@ -70,9 +71,10 @@ enamldef GuessParamView(DockItem): param_view:
                 hbox(new_param_load, spacer),
                 top_cntr,
                 hbox(find_btn, spacer),
-                hbox(cb_select, intensity_lb, intensity_fd, manual_add, spacer),
+                hbox(cb_select, intensity_lb, intensity_fd,
+                     manual_add, spacer, pileup_btn),
                 pre_fit,
-                hbox(saveas_btn, spacer),
+                #hbox(saveas_btn, spacer),
             ),
         ]
 
@@ -82,13 +84,11 @@ enamldef GuessParamView(DockItem): param_view:
             index = 0
             index >> param_model.file_opt
             index ::
-                #plot_model.data = param_model.data
-                #fit_model.data = param_model.data
                 if CB.index > 0:
-                    #fit_model.data_title = io_model.file_names[CB.index-1].split('.')[0]
-                    fit_model.data_title = io_model.file_channel_list[CB.index-1].split('.')[0]
-                    plot_model.exp_data_label = fit_model.data_title
+                    plot_model.exp_data_label = io_model.file_channel_list[CB.index-1].split('.')[0]
                     plot_model.data = param_model.data
+
+                    fit_model.data_title = io_model.file_channel_list[CB.index-1].split('.')[0]
                     fit_model.data = param_model.data
                     fit_model.data_all = param_model.data_all
 
@@ -103,50 +103,50 @@ enamldef GuessParamView(DockItem): param_view:
                     plot_model.plot_exp_opt = False
 
         PushButton: new_param_load:
-                text = 'Import Parameters from File'
-                #maximum_size = 200
-                clicked ::
-                    parameter_file_path = FileDialogEx.get_open_file_name(param_view)
-                    if parameter_file_path:
-                        param_model.get_new_param(parameter_file_path)
-                        param_model.EC.order()
+            text = 'Import Parameters from File'
+            #maximum_size = 200
+            clicked ::
+                parameter_file_path = FileDialogEx.get_open_file_name(param_view)
+                if parameter_file_path:
+                    param_model.get_new_param(parameter_file_path)
+                    param_model.EC.order()
 
-                        fit_model.get_new_param(param_model.param_new)
+                    fit_model.get_new_param(param_model.param_new)
 
-                        param_model.update_name_list()
+                    param_model.update_name_list()
 
-                        # update experimental plots
-                        plot_model.parameters = param_model.param_new
-                        plot_model.plot_experiment()
+                    # update experimental plots
+                    plot_model.parameters = param_model.param_new
+                    plot_model.plot_experiment()
 
-                        param_model.data_for_plot()
-                        plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                                                            param_model.total_y_l, param_model.total_y_m)
+                    param_model.data_for_plot()
+                    plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
+                                                        param_model.total_l, param_model.total_m,
+                                                        param_model.total_pileup)
 
         ScrollArea: top_cntr:
             constraints = [height <= 100]
             Form:
                 row_spacing = -1
                 Looper: looper:
-                    iterable << sorted([v for k,v in six.iteritems(param_model.param_new) if v.get('description')],
-                                       key=lambda x: x['description'])
-                    #iterable << sorted([v for k,v in six.iteritems(param_model.param_new) if len(v['description'])!=0],
+                    #iterable << sorted([v for k,v in six.iteritems(param_model.param_new) if v.get('description')],
                     #                   key=lambda x: x['description'])
+                    iterable << autofit_param
                     Label:
-                        text = loop_item['description']
+                        text = param_model.param_new[loop_item]['description']
                         #tool_tip = loop_item['tool_tip']
                         maximum_size = 140
                     Container:
                         padding = Box(2, 2, 2, 2)
                         constraints = [hbox(ff, pb)]
                         FloatField: ff:
-                            value := loop_item['value']
+                            value := param_model.param_new[loop_item]['value']
                             maximum_size = 200
                         PushButton: pb:
                             text = 'Default'
                             maximum_size = 100
                             clicked ::
-                                ff.value = loop_item['default_value']
+                                ff.value = param_model.param_new[loop_item]['default']
 
                 Looper: looper:
                     iterable << list(sorted([v for k,v in six.iteritems(param_model.param_new['non_fitting_values'])
@@ -156,15 +156,15 @@ enamldef GuessParamView(DockItem): param_view:
                         maximum_size = 140
                     Container:
                         padding = Box(2, 2, 2, 2)
-                        constraints = [hbox(ff, pb)]
-                        FloatField: ff:
+                        constraints = [hbox(ff_bound, pb)]
+                        FloatField: ff_bound:
                             value := loop_item['value']
                             maximum_size = 200
                         PushButton: pb:
                             text = 'Default'
                             maximum_size = 100
                             clicked ::
-                                ff.value = loop_item['default_value']
+                                ff_bound.value = loop_item['default_value']
 
         PushButton: find_btn:
             text = 'Automatic Peak Finding'
@@ -176,8 +176,14 @@ enamldef GuessParamView(DockItem): param_view:
                 param_model.update_name_list()
                 param_model.data_for_plot()
                 status_tip = 'Running'
+
+                # update experimental plots if case the coefficients change
+                plot_model.parameters = param_model.param_new
+                plot_model.plot_experiment()
+
                 plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                                                    param_model.total_y_l, param_model.total_y_m)
+                                                    param_model.total_l, param_model.total_m,
+                                                    param_model.total_pileup)
 
         ComboBox: cb_select:
             items = ['Select Lines'] +\
@@ -201,7 +207,18 @@ enamldef GuessParamView(DockItem): param_view:
                 param_model.update_name_list()
                 param_model.data_for_plot()
                 plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                                                    param_model.total_y_l, param_model.total_y_m)
+                                                    param_model.total_l, param_model.total_m,
+                                                    param_model.total_pileup)
+
+        PushButton: pileup_btn:
+            text = 'Pileup'
+            checkable = True
+            checked := edit_pileup.visible
+            clicked ::
+                if checked:
+                    edit_pileup.show()
+                else:
+                    edit_pileup.hide()
 
         GroupBox: pre_fit:
             padding = Box(2, 2, 2, 2)
@@ -228,7 +245,7 @@ enamldef GuessParamView(DockItem): param_view:
                         param_model.update_name_list()
                 PushButton: name:
                     text = 'Names'
-                    minimum_size = (40, 20)
+                    minimum_size = (100, 20)
                     maximum_size = 70
                     #background = 'white'
                     clicked ::
@@ -263,7 +280,8 @@ enamldef GuessParamView(DockItem): param_view:
                             param_model.EC.turn_on_all()
                             param_model.data_for_plot()
                             plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                                                                param_model.total_y_l, param_model.total_y_m)
+                                                                param_model.total_l, param_model.total_m,
+                                                                param_model.total_pileup)
                             plot_model.show_autofit_opt = True
                             plot_model._fig.canvas.draw()
                             select_all.text = 'Hide All'
@@ -271,7 +289,8 @@ enamldef GuessParamView(DockItem): param_view:
                             param_model.EC.turn_on_all(option=False)
                             param_model.data_for_plot()
                             plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                                                                param_model.total_y_l, param_model.total_y_m)
+                                                                param_model.total_l, param_model.total_m,
+                                                                param_model.total_pileup)
                             plot_model.show_autofit_opt = False
                             plot_model._fig.canvas.draw()
                             select_all.text = 'Show All'
@@ -295,7 +314,8 @@ enamldef GuessParamView(DockItem): param_view:
 
                                 #fit_model.get_new_param(param_model.param_new)
                                 plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                                                                    param_model.total_y_l, param_model.total_y_m)
+                                                                    param_model.total_l, param_model.total_m,
+                                                                    param_model.total_pileup)
                                 plot_model._fig.canvas.draw()
                                 param_model.update_name_list()
 
@@ -310,12 +330,12 @@ enamldef GuessParamView(DockItem): param_view:
                                 minimum_size = (40, 20)
                                 #background = 'white'
                             Label: lb_name:
-                                text << loop_item[0:5]
-                                minimum_size = (56, 20)
+                                text << loop_item
+                                minimum_size = (80, 20)
                                 #background = 'white'
                             Label: lb_energy:
                                 text << str(param_model.EC.element_dict[loop_item].energy)
-                                minimum_size = (50, 20)
+                                minimum_size = (60, 20)
                                 #maximum_size = 80
                                 #background = 'white'
                             FloatField: lb_inten:
@@ -341,7 +361,8 @@ enamldef GuessParamView(DockItem): param_view:
                                     param_model.EC.element_dict[loop_item].stat_copy = param_model.EC.element_dict[loop_item].status
                                     param_model.data_for_plot()
                                     plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                                                                        param_model.total_y_l, param_model.total_y_m)
+                                                                        param_model.total_l, param_model.total_m,
+                                                                        param_model.total_pileup)
                                     plot_model._fig.canvas.draw()
 
             #PushButton: pb_bound:
@@ -383,20 +404,25 @@ enamldef GuessParamView(DockItem): param_view:
                     param_model.update_name_list()
                     param_model.EC.update_peak_ratio()
                     param_model.data_for_plot()
-                    param_model.create_full_param()
 
+                    param_model.create_full_param()
                     fit_model.get_new_param(param_model.param_new)
 
-                    plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                                                        param_model.total_y_l, param_model.total_y_m)
+                    # update experimental plots if case the coefficients change
+                    plot_model.parameters = param_model.param_new
+                    plot_model.plot_experiment()
 
-        PushButton: saveas_btn:
-            text = 'Save As'
-            clicked ::
-                path = FileDialogEx.get_save_file_name(param_view,
-                                                       current_path=io_model.working_directory)
-                if path:
-                    save_as(path, param_model.param_new)
+                    plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
+                                                        param_model.total_l, param_model.total_m,
+                                                        param_model.total_pileup)
+
+        #PushButton: saveas_btn:
+        #    text = 'Save As'
+        #    clicked ::
+        #        path = FileDialogEx.get_save_file_name(param_view,
+        #                                               current_path=io_model.working_directory)
+        #        if path:
+        #            save_as(path, param_model.param_new)
 
 
 def set_low_bound(value, thresh_v=0.1):
@@ -413,3 +439,33 @@ def set_low_bound(value, thresh_v=0.1):
         return '< {}'.format(thresh_v)
     else:
         return str(value)
+
+
+enamldef EditPileupPeak(Window): pileup_win:
+    attr param_model
+    title = 'Pileup Peak Editor'
+    Container:
+        Form:
+            Label: e1:
+                text = 'Element1'
+            Field: fd1:
+                text = ''
+            Label: e2:
+                text = 'Element2'
+            Field: fd2:
+                text = ''
+            Label: intensity:
+                text = 'Peak Int'
+            FloatField: intensity_ff:
+                pass
+            PushButton: add_btn:
+                text = 'Add'
+                maximum_size = 60
+                clicked ::
+                    param_model.pileup_data['element1'] = fd1.text
+                    param_model.pileup_data['element2'] = fd2.text
+                    param_model.pileup_data['intensity'] = intensity_ff.value
+                    param_model.add_pileup()
+                    param_model.update_name_list()
+                    param_model.data_for_plot()
+                    pileup_win.close()

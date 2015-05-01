@@ -9,7 +9,8 @@
         "free_more": "none", 
         "linear": "none", 
         "max": 10000000.0, 
-        "min": 1.0, 
+        "min": 1.0,
+        "default": 100.0,
         "value": 91.84486613900303
     }, 
     "coherent_sct_energy": {
@@ -22,9 +23,10 @@
         "fit_with_tail": "fixed", 
         "free_more": "lohi", 
         "linear": "fixed", 
-        "max": 11.57, 
-        "min": 11.56, 
-        "value": 11.564
+        "max": 13.0,
+        "min": 9.0,
+        "default": 10.0,
+        "value": 10.0
     }, 
     "compton_amplitude": {
         "adjust_element1": "none", 
@@ -36,7 +38,8 @@
         "free_more": "none", 
         "linear": "none", 
         "max": 10000000.0, 
-        "min": 0.0, 
+        "min": 0.0,
+        "default": 100.0,
         "value": 213.7603636952067
     }, 
     "compton_angle": {
@@ -49,7 +52,8 @@
         "free_more": "lohi", 
         "linear": "fixed", 
         "max": 105.0, 
-        "min": 80.0, 
+        "min": 80.0,
+        "default": 90.0,
         "value": 85.39794495591467
     }, 
     "compton_f_step": {
@@ -62,7 +66,8 @@
         "free_more": "lohi", 
         "linear": "fixed", 
         "max": 0.01, 
-        "min": 0.0, 
+        "min": 0.0,
+        "default": 0.005,
         "value": 0.00842597013124
     }, 
     "compton_f_tail": {
@@ -75,7 +80,8 @@
         "free_more": "fixed", 
         "linear": "fixed", 
         "max": 0.3, 
-        "min": 0.0001, 
+        "min": 0.0001,
+        "default": 0.2,
         "value": 0.29900292141101986
     }, 
     "compton_fwhm_corr": {
@@ -89,7 +95,8 @@
         "free_more": "lohi", 
         "linear": "fixed", 
         "max": 3.0, 
-        "min": 1.5, 
+        "min": 1.5,
+        "default": 2.0,
         "value": 2.1861375816183943
     }, 
     "compton_gamma": {
@@ -102,7 +109,8 @@
         "free_more": "lohi", 
         "linear": "fixed", 
         "max": 4.2, 
-        "min": 3.8, 
+        "min": 3.8,
+        "default": 2.5,
         "value": 4.161818621138601
     }, 
     "compton_hi_f_tail": {
@@ -115,7 +123,8 @@
         "free_more": "fixed", 
         "linear": "fixed", 
         "max": 1.0, 
-        "min": 1e-06, 
+        "min": 1e-06,
+        "default": 0.0001,
         "value": 0.0001
     }, 
     "compton_hi_gamma": {
@@ -128,7 +137,8 @@
         "free_more": "fixed", 
         "linear": "fixed", 
         "max": 3.0, 
-        "min": 0.025, 
+        "min": 0.025,
+        "default": 0.028,
         "value": 0.027
     }, 
     "e_linear": {
@@ -141,9 +151,10 @@
         "fit_with_tail": "fixed", 
         "free_more": "lohi", 
         "linear": "fixed", 
-        "max": 0.011, 
+        "max": 0.013,
         "min": 0.009, 
         "tool_tip": "E(channel) = a0 + a1*channel+ a2*channel**2", 
+        "default": 0.01,
         "value": 0.01
     }, 
     "e_offset": {
@@ -159,6 +170,7 @@
         "max": 0.2, 
         "min": -0.2, 
         "tool_tip": "E(channel) = a0 + a1*channel+ a2*channel**2", 
+        "default": 0.0,
         "value": 0.0
     }, 
     "e_quadratic": {
@@ -174,6 +186,7 @@
         "max": 1e-06, 
         "min": -1e-06, 
         "tool_tip": "E(channel) = a0 + a1*channel+ a2*channel**2", 
+        "default": 0.0,
         "value": 0.0
     }, 
     "fwhm_fanoprime": {
@@ -189,6 +202,7 @@
         "max": 0.0001, 
         "min": 1e-07, 
         "tool_tip": "width**2 = (b1/2.3548)**2 + 3.85*b2*E, 3.85keV is electron-hole pair creation energy in silicon", 
+        "default": 1e-5,
         "value": 4.4913605501245235e-05
     }, 
     "fwhm_offset": {
@@ -204,10 +218,12 @@
         "max": 0.49, 
         "min": 0.16, 
         "tool_tip": "width**2 = (b1/2.3548)**2 + 3.85*b2*E", 
+        "default": 0.18,
         "value": 0.16002414820175292
     }, 
     "non_fitting_values": {
         "element_list": "Al_K, S_K, Cl_K, Ar_K, Ca_K, Cr_K, Fe_K, Co_K, Ni_K, Cu_K, Pm_L, Gd_L",
+        "pileup": [],
         "energy_bound_high": {
             "default_value": 13.5, 
             "description": "E high [keV]", 

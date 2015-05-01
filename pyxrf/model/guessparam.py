@@ -62,123 +62,8 @@ bound_options = ['none', 'lohi', 'fixed', 'lo', 'hi']
 fit_strategy_list = ['fit_with_tail', 'free_more',
                      'e_calibration', 'linear',
                      'adjust_element1', 'adjust_element2', 'adjust_element3']
-
-
-class Parameter(Atom):
-    # todo make sure that these are the only valid bound types
-    bound_type = Enum(*bound_options)
-    min = Float(-np.inf)
-    max = Float(np.inf)
-    value = Float()
-    default_value = Float()
-    fit_with_tail = Enum(*bound_options)
-    free_more = Enum(*bound_options)
-    adjust_element1 = Enum(*bound_options)
-    adjust_element2 = Enum(*bound_options)
-    adjust_element3 = Enum(*bound_options)
-    e_calibration = Enum(*bound_options)
-    linear = Enum(*bound_options)
-    name = Str()
-    description = Str()
-    tool_tip = Str()
-
-    @observe('name', 'bound_type', 'min', 'max', 'value', 'default_value')
-    def update_displayed_name(self, changed):
-        pass
-    #    print(changed)
-
-    def __repr__(self):
-        return ("Parameter(bound_type={}, min={}, max={}, value={}, "
-                "default={}, free_more={}, adjust_element1={}, "
-                "adjust_element2={}, adjust_element3={}, "
-                "e_calibration={}, linear={}, description={}, "
-                "toop_tip={}".format(
-            self.bound_type, self.min, self.max, self.value, self.default_value,
-            self.free_more, self.adjust_element1, self.adjust_element2,
-            self.adjust_element3, self.e_calibration,
-            self.linear, self.description, self.tool_tip))
-
-    def to_dict(self):
-        return {
-            'bound_type': self.bound_type,
-            'min': self.min,
-            'max': self.max,
-            'value': self.value,
-            'default_value': self.default_value,
-            'fit_with_tail': self.fit_with_tail,
-            'free_more': self.free_more,
-            'adjust_element1': self.adjust_element1,
-            'adjust_element2': self.adjust_element2,
-            'adjust_element3': self.adjust_element3,
-            'e_calibration': self.e_calibration,
-            'linear': self.linear,
-            'name': self.name,
-            'description': self.description,
-            'tool_tip': self.tool_tip,
-        }
-
-
-def format_dict(parameter_object_dict, element_list):
-    """
-    Format the dictionary that scikit-xray expects.
-
-    Parameters
-    ----------
-    parameter_object_dict : dict
-    element_list : list
-        Need to be transferred to str first, then save it to dict
-    """
-    param_dict = {key: value.to_dict() for key, value
-                  in six.iteritems(parameter_object_dict)}
-    elo = param_dict.pop('energy_bound_low')['value']
-    ehi = param_dict.pop('energy_bound_high')['value']
-
-    non_fitting_values = {'non_fitting_values': {
-        'energy_bound_low': elo,
-        'energy_bound_high': ehi,
-        'element_list': ', '.join(element_list)
-    }}
-    param_dict.update(non_fitting_values)
-
-    return param_dict
-
-
-def dict_to_param(param_dict):
-    """
-    Transfer param dict to parameter object.
-
-    Parameters
-    param_dict : dict
-        fitting parameter
-    """
-    temp_parameters = copy.deepcopy(param_dict)
-
-    non_fitting_values = temp_parameters.pop('non_fitting_values')
-    element_list = non_fitting_values.pop('element_list')
-    if not isinstance(element_list, list):
-        element_list = [e.strip(' ') for e in element_list.split(',')]
-    #self.element_list = element_list
-
-    elo = non_fitting_values.pop('energy_bound_low')
-    ehi = non_fitting_values.pop('energy_bound_high')
-    param = {
-        'energy_bound_low': Parameter(value=elo,
-                                      default_value=elo,
-                                      description='E low limit [keV]'),
-        'energy_bound_high': Parameter(value=ehi,
-                                       default_value=ehi,
-                                       description='E high limit [keV]')
-    }
-
-    for param_name, param_dict in six.iteritems(temp_parameters):
-        if 'default_value' in param_dict:
-            param.update({param_name: Parameter(**param_dict)})
-        else:
-            param.update({
-                param_name: Parameter(default_value=param_dict['value'],
-                                      **param_dict)
-            })
-    return element_list, param
+autofit_param = ['e_offset', 'e_linear', 'fwhm_offset', 'fwhm_fanoprime',
+                 'coherent_sct_energy']
 
 
 class PreFitStatus(Atom):
@@ -261,8 +146,7 @@ class ElementController(object):
             No value is shown when smaller than the shreshold value
         """
         #max_dict = reduce(max, map(np.max, six.itervalues(self.element_dict)))
-        max_dict = np.max(np.array([v.maxv for v
-                                    in six.itervalues(self.element_dict)]))
+        max_dict = np.max([v.maxv for v in six.itervalues(self.element_dict)])
 
         for v in six.itervalues(self.element_dict):
             v.norm = v.maxv/max_dict*100
@@ -273,8 +157,11 @@ class ElementController(object):
 
     def get_element_list(self):
         current_elements = [v for v
-                            in six.iterkeys(self.element_dict) if v.lower() != v]
-        logger.info('Current Elements for fitting are {}'.format(current_elements))
+                            in six.iterkeys(self.element_dict)
+                            if (v.lower() != v)]
+
+        logger.info('Current Elements for '
+                    'fitting are {}'.format(current_elements))
         return current_elements
 
     def update_peak_ratio(self):
@@ -282,8 +169,9 @@ class ElementController(object):
         In case users change the max value.
         """
         for v in six.itervalues(self.element_dict):
-            v.maxv = np.around(v.maxv, 1)
-            v.spectrum = v.spectrum*v.maxv/np.max(v.spectrum)
+            factor = v.maxv/np.max(v.spectrum)
+            v.spectrum *= factor
+            v.area *= factor
         self.update_norm()
 
     def turn_on_all(self, option=True):
@@ -331,47 +219,41 @@ class GuessParamModel(Atom):
     element_list : list
     """
     default_parameters = Dict()
-    #parameters = Dict() #Typed(OrderedDict) #OrderedDict()
     data = Typed(object)
     prefit_x = Typed(object)
-
-    result_dict = Typed(object) #Typed(OrderedDict)
+    result_dict = Typed(object)
     result_dict_names = List()
-
-    #param_d = Dict()
     param_new = Dict()
     total_y = Dict()
-    total_y_l = Dict()
-    total_y_m = Dict()
+    total_l = Dict()
+    total_m = Dict()
+    total_pileup = Dict()
     e_name = Str()
     add_element_intensity = Float()
-    #save_file = Str()
-
     result_folder = Str()
-    #file_path = Str()
-
     element_list = List()
-
     data_sets = Typed(OrderedDict)
     file_opt = Int()
     data_all = Typed(np.ndarray)
-
     EC = Typed(object)
-
     x0 = Typed(np.ndarray)
     y0 = Typed(np.ndarray)
+    max_area_dig = Int(2)
+    pileup_data = Dict()
 
     def __init__(self, **kwargs):
         try:
+            # default parameter is the original parameter, for user to restore
             self.default_parameters = kwargs['default_parameters']
-            #self.element_list, self.parameters = dict_to_param(self.default_parameters)
             self.param_new = copy.deepcopy(self.default_parameters)
             self.element_list = get_element(self.param_new)
-            #self.get_param(default_parameters)
         except ValueError:
             logger.info('No default parameter files are chosen.')
         self.result_folder = kwargs['working_directory']
         self.EC = ElementController()
+        self.pileup_data = {'element1': 'Si_K',
+                            'element2': 'Si_K',
+                            'intensity': 0.0}
 
     def get_new_param(self, param_path):
         """
@@ -383,66 +265,14 @@ class GuessParamModel(Atom):
             path to save the file
         """
         with open(param_path, 'r') as json_data:
-            self.param_new = json.load(json_data)
+            self.default_parameters = json.load(json_data)
+
+        self.param_new = copy.deepcopy(self.default_parameters)
         self.element_list = get_element(self.param_new)
         self.EC.delete_all()
         self.define_range()
         self.create_spectrum_from_file(self.param_new, self.element_list)
         logger.info('Elements read from file are: {}'.format(self.element_list))
-
-    def create_spectrum_from_file(self, param_dict, elemental_lines):
-        """
-        Create spectrum profile with given param dict from file.
-
-        Parameters
-        ----------
-        param_dict : dict
-            dict obtained from file
-        elemental_lines : list
-            e.g., ['Na_K', Mg_K', 'Pt_M'] refers to the
-            K lines of Sodium, the K lines of Magnesium, and the M
-            lines of Platinum
-        """
-        self.prefit_x, pre_dict, area_dict = calculate_profile(self.data,
-                                                               param_dict,
-                                                               elemental_lines)
-
-        temp_dict = OrderedDict()
-        for e in six.iterkeys(pre_dict):
-            ename = e.split('_')[0]
-            if ename in ['background', 'escape']:
-                spectrum = pre_dict[e]
-                area = np.sum(spectrum)
-                ps = PreFitStatus(z=get_Z(ename), energy=get_energy(e),
-                                  area=area, spectrum=spectrum,
-                                  maxv=np.around(np.max(spectrum), 1),
-                                  norm=-1, lbd_stat=False)
-                temp_dict[e] = ps
-            else:
-                for k, v in six.iteritems(param_dict):
-
-                    if ename in k and 'area' in k:
-                        spectrum = pre_dict[e]
-                        area = area_dict[e]
-
-                    elif ename == 'compton' and k == 'compton_amplitude':
-                        spectrum = pre_dict[e]
-                        area = area_dict[e]
-
-                    elif ename == 'elastic' and k == 'coherent_sct_amplitude':
-                        spectrum = pre_dict[e]
-                        area = area_dict[e]
-
-                    else:
-                        continue
-
-                    ps = PreFitStatus(z=get_Z(ename), energy=get_energy(e),
-                                      area=area, spectrum=spectrum,
-                                      maxv=np.around(np.max(spectrum), 1),
-                                      norm=-1, lbd_stat=False)
-
-                    temp_dict[e] = ps
-        self.EC.add_to_dict(temp_dict)
 
     def result_folder_changed(self, changed):
         """
@@ -462,9 +292,16 @@ class GuessParamModel(Atom):
         if self.file_opt == 0:
             return
         names = self.data_sets.keys()
-        self.data = self.data_sets[names[self.file_opt-1]].get_sum()
+
+        # to be passed to fitting part for single pixel fitting
+        self.data_all = self.data_sets[names[self.file_opt-1]].raw_data
+
+        # spectrum is averaged in terms of pixel size,
+        # fit doesn't work well if spectrum value is too large.
+        spectrum = self.data_sets[names[self.file_opt-1]].get_sum()
+        #self.data = spectrum/np.max(spectrum)
+        self.data = spectrum/(self.data_all.shape[0]*self.data_all.shape[1])
         self.define_range()
-        #self.data_all = self.data_sets[names[self.file_opt-1]].raw_data
 
     def define_range(self):
         """
@@ -472,37 +309,147 @@ class GuessParamModel(Atom):
         """
         lowv = self.param_new['non_fitting_values']['energy_bound_low']['value']
         highv = self.param_new['non_fitting_values']['energy_bound_high']['value']
-        self.x0, self.y0 = define_range(self.data, lowv, highv)
+        self.x0, self.y0 = define_range(self.data, lowv, highv,
+                                        self.param_new['e_offset']['value'],
+                                        self.param_new['e_linear']['value'])
+
+    def create_spectrum_from_file(self, param_dict, elemental_lines):
+        """
+        Create spectrum profile with given param dict from file.
+
+        Parameters
+        ----------
+        param_dict : dict
+            dict obtained from file
+        elemental_lines : list
+            e.g., ['Na_K', Mg_K', 'Pt_M'] refers to the
+            K lines of Sodium, the K lines of Magnesium, and the M
+            lines of Platinum
+        """
+        self.prefit_x, pre_dict, area_dict = calculate_profile(self.x0,
+                                                               self.y0,
+                                                               param_dict,
+                                                               elemental_lines)
+        # add escape peak
+        if param_dict['non_fitting_values']['escape_ratio'] > 0:
+            pre_dict['escape'] = trim_escape_peak(self.data, param_dict, len(self.y0))
+
+        temp_dict = OrderedDict()
+        for e in six.iterkeys(pre_dict):
+            if e in ['background', 'escape']:
+                spectrum = pre_dict[e]
+
+                # summed spectrum here is not correct,
+                # as the interval is assumed as 1, not energy interval
+                # however area of background and escape is not used elsewhere, not important
+                area = np.sum(spectrum)
+
+                ps = PreFitStatus(z=get_Z(e), energy=get_energy(e),
+                                  area=float(area), spectrum=spectrum,
+                                  maxv=float(np.around(np.max(spectrum), self.max_area_dig)),
+                                  norm=-1, lbd_stat=False)
+                temp_dict[e] = ps
+
+            elif '-' in e:  # pileup peaks
+                e1, e2 = e.split('-')
+                energy = float(get_energy(e1))+float(get_energy(e2))
+                spectrum = pre_dict[e]
+                area = area_dict[e]
+
+                ps = PreFitStatus(z=get_Z(e), energy=str(energy),
+                                  area=area, spectrum=spectrum,
+                                  maxv=np.around(np.max(spectrum), self.max_area_dig),
+                                  norm=-1, lbd_stat=False)
+                temp_dict[e] = ps
+
+            else:
+                ename = e.split('_')[0]
+                for k, v in six.iteritems(param_dict):
+                    if ename in k and 'area' in k:
+                        spectrum = pre_dict[e]
+                        area = area_dict[e]
+
+                    elif ename == 'compton' and k == 'compton_amplitude':
+                        spectrum = pre_dict[e]
+                        area = area_dict[e]
+
+                    elif ename == 'elastic' and k == 'coherent_sct_amplitude':
+                        spectrum = pre_dict[e]
+                        area = area_dict[e]
+
+                    else:
+                        continue
+
+                    ps = PreFitStatus(z=get_Z(ename), energy=get_energy(e),
+                                      area=area, spectrum=spectrum,
+                                      maxv=np.around(np.max(spectrum), self.max_area_dig),
+                                      norm=-1, lbd_stat=False)
+
+                    temp_dict[e] = ps
+        self.EC.add_to_dict(temp_dict)
 
     def manual_input(self):
-        default_area = 1e5
-        logger.info('{} peak is added'.format(self.e_name))
+        default_area = 1e2
 
         if self.e_name == 'escape':
             self.param_new['non_fitting_values']['escape_ratio'] = (self.add_element_intensity
                                                                     / np.max(self.y0))
             es_peak = trim_escape_peak(self.data, self.param_new,
-                                       self.prefit_x.size)
+                                       len(self.y0))
             ps = PreFitStatus(z=get_Z(self.e_name),
                               energy=get_energy(self.e_name),
-                              area=np.sum(es_peak),
+                              # put float in front of area and maxv
+                              # due to type conflicts in atom, which regards them as
+                              # np.float32 if we do not put float in front.
+                              area=float(np.around(np.sum(es_peak), self.max_area_dig)),
                               spectrum=es_peak,
-                              maxv=np.max(es_peak), norm=-1,
-                              lbd_stat=False)
+                              maxv=float(np.around(np.max(es_peak), self.max_area_dig)),
+                              norm=-1, lbd_stat=False)
+            logger.info('{} peak is added'.format(self.e_name))
+
         else:
-            x, data_out, area_dict = calculate_profile(self.data, self.param_new,
+            x, data_out, area_dict = calculate_profile(self.x0,
+                                                       self.y0,
+                                                       self.param_new,
                                                        elemental_lines=[self.e_name],
                                                        default_area=default_area)
+
             ratio_v = self.add_element_intensity / np.max(data_out[self.e_name])
 
             ps = PreFitStatus(z=get_Z(self.e_name),
                               energy=get_energy(self.e_name),
                               area=area_dict[self.e_name]*ratio_v,
                               spectrum=data_out[self.e_name]*ratio_v,
-                              maxv=self.add_element_intensity, norm=-1,
+                              maxv=self.add_element_intensity,
+                              norm=-1,
                               lbd_stat=False)
 
         self.EC.add_to_dict({self.e_name: ps})
+
+    def add_pileup(self):
+        default_area = 1e2
+        if self.pileup_data['intensity'] != 0:
+            e_name = (self.pileup_data['element1'] + '-'
+                      + self.pileup_data['element2'])
+            x, data_out, area_dict = calculate_profile(self.x0,
+                                                       self.y0,
+                                                       self.param_new,
+                                                       elemental_lines=[e_name],
+                                                       default_area=default_area)
+            energy = str(float(get_energy(self.pileup_data['element1']))
+                         + float(get_energy(self.pileup_data['element2'])))
+
+            ratio_v = self.pileup_data['intensity'] / np.max(data_out[e_name])
+
+            ps = PreFitStatus(z=get_Z(e_name),
+                              energy=energy,
+                              area=area_dict[e_name]*ratio_v,
+                              spectrum=data_out[e_name]*ratio_v,
+                              maxv=self.pileup_data['intensity'],
+                              norm=-1,
+                              lbd_stat=False)
+            logger.info('{} peak is added'.format(e_name))
+        self.EC.add_to_dict({e_name: ps})
 
     def update_name_list(self):
         """
@@ -511,7 +458,7 @@ class GuessParamModel(Atom):
         # need to clean list first, in order to refresh the list in GUI
         self.result_dict_names = []
         self.result_dict_names = self.EC.element_dict.keys()
-        logger.info('Current element names are {}'.format(self.result_dict_names))
+        logger.info('The full list for fitting is {}'.format(self.result_dict_names))
 
     def find_peak(self, threshv=0.1):
         """
@@ -522,7 +469,9 @@ class GuessParamModel(Atom):
         threshv : float
             The value will not be shown on GUI if it is smaller than the threshold.
         """
-        self.prefit_x, out_dict, area_dict = linear_spectrum_fitting(self.data,
+        self.define_range()  # in case the energy calibraiton changes
+        self.prefit_x, out_dict, area_dict = linear_spectrum_fitting(self.x0,
+                                                                     self.y0,
                                                                      self.param_new)
         logger.info('Energy range: {}, {}'.format(
             self.param_new['non_fitting_values']['energy_bound_low']['value'],
@@ -530,9 +479,12 @@ class GuessParamModel(Atom):
 
         prefit_dict = OrderedDict()
         for k, v in six.iteritems(out_dict):
-            ps = PreFitStatus(z=get_Z(k), energy=get_energy(k),
-                              area=area_dict[k], spectrum=v,
-                              maxv=np.around(np.max(v), 1), norm=-1,
+            ps = PreFitStatus(z=get_Z(k),
+                              energy=get_energy(k),
+                              area=area_dict[k],
+                              spectrum=v,
+                              maxv=np.around(np.max(v), self.max_area_dig),
+                              norm=-1,
                               lbd_stat=False)
             prefit_dict.update({k: ps})
 
@@ -570,38 +522,57 @@ class GuessParamModel(Atom):
         # to create full param dict, for GUI only
         create_full_dict(self.param_new, fit_strategy_list)
 
-        # update according to pre fit results
+        element_temp = [e for e in self.element_list if len(e) <= 4]
+        pileup_temp = [e for e in self.element_list if '-' in e]
+
+        # update param_new according to results saved in ElementController
         if len(self.EC.element_dict):
-            for e in self.element_list:
-                zname = e.split('_')[0]
-                for k, v in six.iteritems(self.param_new):
-                    if zname in k and 'area' in k:
-                        v['value'] = self.EC.element_dict[e].area
+            for k, v in six.iteritems(self.param_new):
+                if 'area' in k:
+                    if 'pileup' in k:
+                        name_cut = k[7:-5]  #remove pileup_ and _area
+                        for p in pileup_temp:
+                            if name_cut == p.replace('-', '_'):
+                                v['value'] = self.EC.element_dict[p].area
+                    else:
+                        for e in element_temp:
+                            zname = e.split('_')[0]
+                            # need to consider zname+'_' together,
+                            # i.e. Si and S may cause conflicts
+                            if zname+'_' in k:
+                                v['value'] = self.EC.element_dict[e].area
+
             if 'compton' in self.EC.element_dict:
                 self.param_new['compton_amplitude']['value'] = self.EC.element_dict['compton'].area
             if 'coherent_sct_amplitude' in self.EC.element_dict:
                 self.param_new['coherent_sct_amplitude']['value'] = self.EC.element_dict['elastic'].area
+
             if 'escape' in self.EC.element_dict:
                 self.param_new['non_fitting_values']['escape_ratio'] = (self.EC.element_dict['escape'].maxv
                                                                         / np.max(self.y0))
+            else:
+                self.param_new['non_fitting_values']['escape_ratio'] = 0.0
 
     def data_for_plot(self):
         """
         Save data in terms of K, L, M lines for plot.
         """
-        self.total_y = {}
-        self.total_y_l = {}
-        self.total_y_m = {}
+        self.total_y = {}  # k lines
+        self.total_l = {}  # l lines
+        self.total_m = {}  # m lines
+        self.total_pileup = {}    #pileup
         new_dict = {k: v for (k, v)
                     in six.iteritems(self.EC.element_dict) if v.status}
 
         for k, v in six.iteritems(new_dict):
-            if 'K' in k:
+            if '-' in k:  # pileup
+                self.total_pileup[k] = self.EC.element_dict[k].spectrum
+            elif 'K' in k:
                 self.total_y[k] = self.EC.element_dict[k].spectrum
             elif 'L' in k:
-                self.total_y_l[k] = self.EC.element_dict[k].spectrum
+                self.total_l[k] = self.EC.element_dict[k].spectrum
             elif 'M' in k:
-                self.total_y_m[k] = self.EC.element_dict[k].spectrum
+                self.total_m[k] = self.EC.element_dict[k].spectrum
             else:
                 self.total_y[k] = self.EC.element_dict[k].spectrum
 
@@ -615,7 +586,7 @@ def save_as(file_path, data):
                   sort_keys=True, indent=4)
 
 
-def define_range(data, low, high):
+def define_range(data, low, high, a0, a1):
     """
     Cut x range according to values define in param_dict.
 
@@ -636,33 +607,54 @@ def define_range(data, low, high):
         trimmed spectrum according to x
     """
     x = np.arange(data.size)
+
     # ratio to transfer energy value back to channel value
-    approx_ratio = 100
-    x0, y0 = trim(x, data, low*approx_ratio, high*approx_ratio)
+    #approx_ratio = 100
+
+    low_new = int(np.around((low - a0)/a1))
+    high_new = int(np.around((high - a0)/a1))
+    x0, y0 = trim(x, data, low_new, high_new)
     return x0, y0
 
 
-def calculate_profile(y0, param,
-                      elemental_lines, default_area=1e5):
+def calculate_profile(x, y, param, elemental_lines,
+                      default_area=1e5):
+    """
+    Calculate the spectrum profile based on given paramters. Use function
+    construct_linear_model from xrf_model.
+
+    Parameters
+    ----------
+    x : array
+        channel array
+    y : array
+        spectrum intensity
+    param : dict
+        paramters
+    elemental_lines : list
+        such as Si_K, Pt_M
+    required_length : optional, int
+        the length of the array might change due to trim process, so
+        predifine the length to a given value.
+    default_area : float
+        default value for the gaussian area of each element
+
+    Returns
+    -------
+    x : array
+        trimmed energy range
+    temp_d : dict
+        dict of array
+    area_dict : dict
+        dict of area for elements and other peaks
+    """
     # Need to use deepcopy here to avoid unexpected change on parameter dict
     fitting_parameters = copy.deepcopy(param)
 
-    x0 = np.arange(len(y0))
+    total_list, matv, area_dict = construct_linear_model(x, fitting_parameters,
+                                                         elemental_lines,
+                                                         default_area=default_area)
 
-    # ratio to transfer energy value back to channel value
-    approx_ratio = 100
-    lowv = fitting_parameters['non_fitting_values']['energy_bound_low']['value'] * approx_ratio
-    highv = fitting_parameters['non_fitting_values']['energy_bound_high']['value'] * approx_ratio
-
-    x, y = trim(x0, y0, lowv, highv)
-
-    e_select, matv, area_dict = construct_linear_model(x, fitting_parameters,
-                                                       elemental_lines,
-                                                       default_area=default_area)
-
-    non_element = ['compton', 'elastic']
-    total_list = e_select + non_element
-    total_list = [str(v) for v in total_list]
     temp_d = {k: v for (k, v) in zip(total_list, matv.transpose())}
 
     # add background
@@ -671,15 +663,11 @@ def calculate_profile(y0, param,
                      fitting_parameters['e_quadratic']['value'])
     temp_d['background'] = bg
 
-    # add escape peak
-    if fitting_parameters['non_fitting_values']['escape_ratio'] > 0:
-        temp_d['escape'] = trim_escape_peak(y0, fitting_parameters, y.size)
+    x_energy = (fitting_parameters['e_offset']['value']
+                + fitting_parameters['e_linear']['value'] * x
+                + fitting_parameters['e_quadratic']['value'] * x**2)
 
-    x = (fitting_parameters['e_offset']['value']
-         + fitting_parameters['e_linear']['value'] * x
-         + fitting_parameters['e_quadratic']['value'] * x**2)
-
-    return x, temp_d, area_dict
+    return x_energy, temp_d, area_dict
 
 
 def trim_escape_peak(data, param_dict, y_size):
@@ -757,7 +745,7 @@ def get_Z(ename):
     strip_line = lambda ename: ename.split('_')[0]
 
     non_element = ['compton', 'elastic', 'background', 'escape']
-    if ename.lower() in non_element:
+    if (ename.lower() in non_element) or '-' in ename:
         return '-'
     else:
         e = Element(strip_line(ename))
@@ -767,7 +755,7 @@ def get_Z(ename):
 def get_energy(ename):
     strip_line = lambda ename: ename.split('_')[0]
     non_element = ['compton', 'elastic', 'background', 'escape']
-    if ename in non_element:
+    if (ename.lower() in non_element):
         return '-'
     else:
         e = Element(strip_line(ename))
@@ -786,17 +774,6 @@ def get_element(param):
     return [e.strip(' ') for e in element_list.split(',')]
 
 
-def factor_height2area(energy, param, std_correction=1):
-    """
-    Factor to transfer peak height to area.
-    """
-    temp_val = 2 * np.sqrt(2 * np.log(2))
-    epsilon = param['non_fitting_values']['electron_hole_energy']
-    sigma = np.sqrt((param['fwhm_offset']['value'] / temp_val)**2
-                    + energy * epsilon * param['fwhm_fanoprime']['value'])
-    return sigma*std_correction
-
-
 def param_dict_cleaner(param, element_list):
     """
     Make sure param only contains element from element_list.
@@ -813,12 +790,22 @@ def param_dict_cleaner(param, element_list):
     dict :
         new param dict containing given elements
     """
+    #param = copy.deepcopy(parameter)
     param_new = {}
-    list_lower = [e.lower() for e in element_list]
+
+    elist_lower = [e.lower() for e in element_list if len(e)<=4]
+    pileup_list = [e for e in element_list if '-' in e]
+
+    # update pileup
     for k, v in six.iteritems(param):
         if k == 'non_fitting_values' or k == k.lower():
             param_new.update({k: v})
-        else:
-            if k[:4].lower() in list_lower:
-                param_new.update({k: v})
+        elif 'pileup' in k:
+            for p in pileup_list:
+                if p.replace('-', '_') in k:
+                    param_new.update({k: v})
+        elif (k[:3].lower() in elist_lower) or (k[:4].lower() in elist_lower):
+            param_new.update({k: v})
+
     return param_new
+

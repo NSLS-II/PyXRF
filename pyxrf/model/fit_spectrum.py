@@ -42,6 +42,7 @@ import six
 import os
 from collections import OrderedDict
 import multiprocessing
+import h5py
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float
 from skxray.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
@@ -59,13 +60,14 @@ logger = logging.getLogger(__name__)
 
 
 class Fit1D(Atom):
-
-    #file_path = Str()
+    """
+    Fit fluorescence spectrum. The users can choose multiple strategies
+    for this fitting.
+    """
     file_status = Str()
     param_dict = Dict()
 
     element_list = List()
-    #parameters = Dict()
 
     data_all = Typed(np.ndarray)
     data = Typed(np.ndarray)
@@ -80,6 +82,8 @@ class Fit1D(Atom):
     fit_strategy5 = Int(0)
     fit_result = Typed(object)
     data_title = Str()
+
+    working_directory = Str()
     result_folder = Str()
 
     all_strategy = Typed(object) #Typed(OrderedDict)
@@ -94,14 +98,16 @@ class Fit1D(Atom):
 
     # attributes used by the ElementEdit window
     selected_element = Str()
-    selected_elements = List()
+    elementinfo_list = List()
 
     function_num = Int(0)
     nvar = Int(0)
     chi2 = Float(0.0)
     red_chi2 = Float(0.0)
+    global_param_list = List()
 
     def __init__(self, *args, **kwargs):
+        self.working_directory = kwargs['working_directory']
         self.result_folder = kwargs['working_directory']
         self.all_strategy = OrderedDict()
 
@@ -120,14 +126,27 @@ class Fit1D(Atom):
 
     @observe('selected_element')
     def _selected_element_changed(self, changed):
-        element = self.selected_element.split('_')[0]
-        self.selected_elements = sorted([e for e in self.param_dict.keys()
-                                        if element in e])
+        if len(self.selected_element) <= 4:
+            element = self.selected_element.split('_')[0]
+            self.elementinfo_list = sorted([e for e in self.param_dict.keys()
+                                            if (element+'_' in e) and  # error between S_k or Si_k
+                                            ('pileup' not in e)])  # Si_ka1 not Si_K
+        else:
+            element = self.selected_element  # for pileup peaks
+            self.elementinfo_list = sorted([e for e in self.param_dict.keys()
+                                            if element.replace('-', '_') in e])
 
     def get_new_param(self, param):
         self.param_dict = copy.deepcopy(param)
         element_list = self.param_dict['non_fitting_values']['element_list']
         self.element_list = [e.strip(' ') for e in element_list.split(',')]
+
+        # global parameters
+        # for GUI purpose only
+        # if we do not clear the list first, there is not update on the GUI
+        self.global_param_list = []
+        self.global_param_list = sorted([k for k in six.iterkeys(self.param_dict)
+                                         if k == k.lower() and k != 'non_fitting_values'])
 
         self.define_range()
 
@@ -188,14 +207,9 @@ class Fit1D(Atom):
         """
         lowv = self.param_dict['non_fitting_values']['energy_bound_low']['value']
         highv = self.param_dict['non_fitting_values']['energy_bound_high']['value']
-        self.x0, self.y0 = define_range(self.data, lowv, highv)
-
-    #     x = np.arange(self.data.size)
-    #     # ratio to transfer energy value back to channel value
-    #     approx_ratio = 100
-    #     lowv = self.param_dict['non_fitting_values']['energy_bound_low']['value'] * approx_ratio
-    #     highv = self.param_dict['non_fitting_values']['energy_bound_high']['value'] * approx_ratio
-    #     self.x0, self.y0 = trim(x, self.data, lowv, highv)
+        self.x0, self.y0 = define_range(self.data, lowv, highv,
+                                        self.param_dict['e_offset']['value'],
+                                        self.param_dict['e_linear']['value'])
 
     def get_background(self):
         self.bg = snip_method(self.y0,
@@ -208,16 +222,24 @@ class Fit1D(Atom):
         Calculate profile based on current parameters.
         """
         #self.define_range()
-        self.cal_x, self.cal_spectrum, area_dict = calculate_profile(self.data,
+        self.cal_x, self.cal_spectrum, area_dict = calculate_profile(self.x0,
+                                                                     self.y0,
                                                                      self.param_dict,
                                                                      self.element_list)
+        # add escape peak
+        if self.param_dict['non_fitting_values']['escape_ratio'] > 0:
+            self.cal_spectrum['escape'] = trim_escape_peak(self.data,
+                                                           self.param_dict,
+                                                           len(self.y0))
+
         self.cal_y = np.zeros(len(self.cal_x))
         for k, v in six.iteritems(self.cal_spectrum):
             self.cal_y += v
+
         self.residual = self.cal_y - self.y0
 
     def fit_data(self, x0, y0,
-                 c_val=1e-2, fit_num=100, c_weight=1e3):
+                 c_val=1e-3, fit_num=100, c_weight=1e3):
         MS = ModelSpectrum(self.param_dict, self.element_list)
         MS.assemble_models()
 
@@ -225,7 +247,6 @@ class Fit1D(Atom):
                               weights=1/np.sqrt(c_weight+y0),
                               maxfev=fit_num,
                               xtol=c_val, ftol=c_val, gtol=c_val)
-
         self.fit_x = (result.values['e_offset'] +
                       result.values['e_linear'] * x0 +
                       result.values['e_quadratic'] * x0**2)
@@ -247,7 +268,8 @@ class Fit1D(Atom):
 
         if self.param_dict['non_fitting_values']['escape_ratio'] > 0:
             self.es_peak = trim_escape_peak(self.data,
-                                            self.param_dict, self.y0.size)
+                                            self.param_dict,
+                                            self.y0.size)
             y0 = self.y0 - self.bg - self.es_peak
         else:
             y0 = self.y0 - self.bg
@@ -270,6 +292,12 @@ class Fit1D(Atom):
         t1 = time.time()
         logger.warning('Time used for fitting is : {}'.format(t1-t0))
 
+        # for GUI purpose only
+        # if we do not clear the dict first, there is not update on the GUI
+        param_temp = copy.deepcopy(self.param_dict)
+        del self.param_dict['non_fitting_values']
+        self.param_dict = param_temp
+
         self.comps.clear()
         comps = self.fit_result.eval_components(x=self.x0)
         self.comps = combine_lines(comps, self.element_list, self.bg)
@@ -286,29 +314,61 @@ class Fit1D(Atom):
     def assign_fitting_result(self):
         self.function_num = self.fit_result.nfev
         self.nvar = self.fit_result.nvarys
-        self.chi2 = np.around(self.fit_result.chisqr, 2)
-        self.red_chi2 = np.around(self.fit_result.redchi, 2)
+        self.chi2 = np.around(self.fit_result.chisqr, 4)
+        self.red_chi2 = np.around(self.fit_result.redchi, 4)
 
     def fit_single_pixel(self):
         """
-        This function performs single pixel fitting. Multiprocess is considered.
+        This function performs single pixel fitting.
+        Multiprocess is considered.
         """
+        #save_name = 'pv250_slice1_data'
+        save_name = 'bnp_fly0148_data'
+        save_dict = {'fit_path': os.path.join(self.result_folder, save_name+'_pixel'),
+                     'save_range': 50}
+
         strategy_pixel = 'linear'
         set_parameter_bound(self.param_dict, strategy_pixel)
         logger.info('Starting single pixel fitting')
         t0 = time.time()
-        result_map = fit_pixel_fast_multi(self.data_all, self.param_dict)
+        result_map = fit_pixel_fast_multi(self.data_all, self.param_dict, **save_dict)
         t1 = time.time()
         logger.warning('Time used for pixel fitting is : {}'.format(t1-t0))
 
         # save data
-        fpath = os.path.join(self.result_folder, 'Root.h5')
-        write_to_hdf(fpath, result_map)
+        #fpath = os.path.join(self.result_folder, 'Root.h5')
+        #write_to_hdf(fpath, result_map)
 
         # currently save data using pickle, need to be updated
         import pickle
-        fpath = os.path.join(self.result_folder, 'root_data')
+        fpath = os.path.join(self.result_folder, save_name)
         pickle.dump(result_map, open(fpath, 'wb'))
+
+    def fit_multi_files(self):
+        """
+        Fit data from multiple files.
+
+        .. warning: this function is to be updated. Poor organized.
+        """
+        file_prefix = 'xsp3.0'
+        working_directory = '/Users/Li/Downloads/aps13ide'
+        result_file = 'xsp3_data'
+
+        start_i = 100
+        end_i = 110
+
+        t0 = time.time()
+        #result_map = fit_pixel_fast_multi(self.data_all, self.param_dict)
+
+        result = fit_data_multi_files(working_directory, file_prefix,
+                                      self.param_dict, start_i, end_i)
+
+        t1 = time.time()
+        logger.warning('Time used for pixel fitting multiple files is : {}'.format(t1-t0))
+
+        import pickle
+        fpath = os.path.join(self.result_folder, result_file)
+        pickle.dump(result, open(fpath, 'wb'))
 
     def save_result(self, fname=None):
         """
@@ -349,17 +409,21 @@ def combine_lines(components, element_list, background):
     """
     new_components = {}
     for e in element_list:
-        e_temp = e.split('_')[0]
-        intensity = 0
-        for k, v in six.iteritems(components):
-            if e_temp in k:
-                intensity += v
-        new_components[e] = intensity
+        if len(e) <= 4:
+            e_temp = e.split('_')[0]
+            intensity = 0
+            for k, v in six.iteritems(components):
+                if (e_temp in k) and (e not in k):
+                    intensity += v
+            new_components[e] = intensity
+        else:
+            comp_name = 'pileup_' + e.replace('-', '_') + '_'  # change Si_K-Si_K to Si_K_Si_K
+            new_components[e] = components[comp_name]
 
     # add background and elastic
-    new_components.update({'background': background})
-    new_components.update({'compton': components['compton']})
-    new_components.update({'elastic': components['elastic_']})
+    new_components['background'] = background
+    new_components['compton'] = components['compton']
+    new_components['elastic'] = components['elastic_']
     return new_components
 
 
@@ -380,15 +444,19 @@ def extract_strategy(param, name):
         with given strategy as value
     """
     param_new = copy.deepcopy(param)
-    return {k: v[name] for k, v in six.iteritems(param_new) if k != 'non_fitting_values'}
+    return {k: v[name] for k, v in six.iteritems(param_new)
+            if k != 'non_fitting_values'}
 
 
-def fit_pixel_fast(data, param):
+def fit_pixel_fast(dir_path, file_prefix,
+                   fileID, param, interpath,
+                   save_spectrum=True):
     """
     Single pixel fit of experiment data. No multiprocess is applied.
 
-    .. warning :: This function is not optimized as it calls linear_spectrum_fitting function,
-    where lots of repeated calculation are processed.
+    .. warning :: This function is not optimized as it calls
+    linear_spectrum_fitting function, where lots of repeated
+    calculation are processed.
 
     Parameters
     ----------
@@ -403,35 +471,215 @@ def fit_pixel_fast(data, param):
         fitting values for all the elements
     """
 
+    num_str = '{:03d}'.format(fileID)
+    #logger.info('File number is {}'.format(fileID))
+    filename = file_prefix + num_str
+    file_path = os.path.join(dir_path, filename)
+    with h5py.File(file_path, 'r') as f:
+        data = f[interpath][:]
+    #data = np.array(data[:, :, :])
     datas = data.shape
 
-    x0 = np.arange(datas[2])
+    #x0 = np.arange(datas[2])
 
     elist = param['non_fitting_values']['element_list'].split(', ')
     elist = [e.strip(' ') for e in elist]
-    elist = [e+'_K' for e in elist if ('_' not in e)]
 
     non_element = ['compton', 'elastic', 'background']
     total_list = elist + non_element
 
     result_map = dict()
     for v in total_list:
-        result_map.update({v: np.zeros([datas[0], datas[1]])})
+        if save_spectrum:
+            result_map.update({v: np.zeros([datas[0], datas[1], datas[2]])})
+        else:
+            result_map.update({v: np.zeros([datas[0], datas[1]])})
 
     for i in xrange(datas[0]):
-        logger.info('Row number at {} out of total {}'.format(i, datas[0]))
+        #logger.info('Row number at {} out of total {}'.format(i, datas[0]))
         for j in xrange(datas[1]):
             #logger.info('Column number at {} out of total {}'.format(j, datas[1]))
             x, result, area_v = linear_spectrum_fitting(data[i, j, :], param,
-                                                        elemental_lines=elist, constant_weight=5)
+                                                        elemental_lines=elist,
+                                                        constant_weight=None)
             for v in total_list:
                 if v in result:
-                    result_map[v][i, j] = np.sum(result[v])
+                    if save_spectrum:
+                        result_map[v][i, j, :len(result[v])] = result[v]
+                    else:
+                        result_map[v][i, j] = np.sum(result[v])
 
     return result_map
 
 
-def fit_per_line(row_num, data, matv, param):
+def fit_data_multi_files(dir_path, file_prefix,
+                         param, start_i, end_i,
+                         interpath='entry/instrument/detector/data'):
+    """
+    Fitting for multiple files with Multiprocessing.
+
+    Parameters
+    -----------
+    dir_path : str
+    file_prefix : str
+    param : dict
+    start_i : int
+        start id of given file
+    end_i: int
+        end id of given file
+    interpath : str
+        path inside hdf5 file to fetch the data
+
+    Returns
+    -------
+    result : list
+        fitting result as list of dict
+    """
+    no_processors_to_use = multiprocessing.cpu_count()
+    logger.info('cpu count: {}'.format(no_processors_to_use))
+    #print 'Creating pool with %d processes\n' % no_processors_to_use
+    pool = multiprocessing.Pool(no_processors_to_use)
+
+    result_pool = [pool.apply_async(fit_pixel_fast,
+                                    (dir_path, file_prefix,
+                                     m, param, interpath))
+                   for m in range(start_i, end_i+1)]
+
+    results = []
+    for r in result_pool:
+        results.append(r.get())
+
+    pool.terminate()
+    pool.join()
+    return results
+
+
+def roi_sum_calculation(dir_path, file_prefix, fileID,
+                        element_dict, interpath):
+    """
+    Parameters
+    -----------
+    dir_path : str
+    file_prefix : str
+    fileID : int
+    element_dict : dict
+        element name with low/high bound
+    interpath : str
+        path inside hdf5 file to fetch the data
+
+    Returns
+    -------
+    result : dict
+        roi sum for all given elements
+    """
+    num_str = '{:03d}'.format(fileID)
+    #logger.info('File number is {}'.format(fileID))
+    filename = file_prefix + num_str
+    file_path = os.path.join(dir_path, filename)
+    with h5py.File(file_path, 'r') as f:
+        data = f[interpath][:]
+
+    result_map = dict()
+    #for v in six.iterkeys(element_dict):
+    #    result_map[v] = np.zeros([datas[0], datas[1]])
+
+    for k, v in six.iteritems(element_dict):
+        result_map[k] = np.sum(data[:, :, v[0]: v[1]], axis=2)
+
+    return result_map
+
+
+def roi_sum_multi_files(dir_path, file_prefix,
+                        start_i, end_i, element_dict,
+                        interpath='entry/instrument/detector/data'):
+    """
+    Fitting for multiple files with Multiprocessing.
+
+    Parameters
+    -----------
+    dir_path : str
+    file_prefix : str
+    start_i : int
+        start id of given file
+    end_i: int
+        end id of given file
+    element_dict : dict
+        dict of element with [low, high] bounds as values
+    interpath : str
+        path inside hdf5 file to fetch the data
+
+    Returns
+    -------
+    result : list
+        fitting result as list of dict
+    """
+    no_processors_to_use = multiprocessing.cpu_count()
+    logger.info('cpu count: {}'.format(no_processors_to_use))
+    #print 'Creating pool with %d processes\n' % no_processors_to_use
+    pool = multiprocessing.Pool(no_processors_to_use)
+
+    result_pool = [pool.apply_async(roi_sum_calculation,
+                                    (dir_path, file_prefix,
+                                     m, element_dict, interpath))
+                   for m in range(start_i, end_i+1)]
+
+    results = []
+    for r in result_pool:
+        results.append(r.get())
+
+    pool.terminate()
+    pool.join()
+    return results
+
+
+def extract_result(data, element):
+    """
+    Extract fitting result returned from fitting of multi files.
+
+    Parameters
+    ----------
+    data : list
+        list of dict
+    element : str
+        elemental line
+    """
+    data_map = []
+    for v in data:
+        data_map.append(v[element])
+    return np.array(data_map)
+
+
+def fit_pixel(y, expected_matrix, constant_weight=10):
+    """
+    Non-negative linear fitting is applied for each pixel.
+
+    Parameters
+    ----------
+    y : array
+        spectrum of experiment data
+    expected_matrix : array
+        2D matrix of activated element spectrum
+    constant_weight : float
+        value used to calculate weight like so:
+        weights = constant_weight / (constant_weight + spectrum)
+
+    Returns
+    -------
+    results : array
+        weights of different element
+    residue : array
+        error
+    """
+    if constant_weight:
+        results, residue = weighted_nnls_fit(y, expected_matrix,
+                                             constant_weight=constant_weight)
+    else:
+        results, residue = nnls_fit(y, expected_matrix)
+    return results, residue
+
+
+def fit_per_line(row_num, data,
+                 matv, param):
     """
     Fit experiment data for a given row.
 
@@ -449,22 +697,24 @@ def fit_per_line(row_num, data, matv, param):
     array :
         fitting values for all the elements at a given row.
     """
-    datas = data.shape
-    logger.info('Row number is {}'.format(row_num))
+
+    logger.info('Row number at {}'.format(row_num))
     out = []
-    for i in range(datas[1]):
-        bg = snip_method(data[row_num, i, :],
+    for i in range(data.shape[0]):
+        bg = snip_method(data[i, :],
                          param['e_offset']['value'],
                          param['e_linear']['value'],
                          param['e_quadratic']['value'])
-        y = data[row_num, i, :] - bg
-        result, res = fit_pixel(y, matv, weight=True)
-        result = list(result)# + [np.sum(bg)]
+        y = data[i, :] - bg
+        # setting constant weight to some value might cause error when fitting
+        result, res = fit_pixel(y, matv,
+                                constant_weight=None)
+        result = list(result) + [np.sum(bg)]
         out.append(result)
     return np.array(out)
 
 
-def fit_pixel_fast_multi(data, param):
+def fit_pixel_fast_multi(data, param, **kwargs):
     """
     Multiprocess fit of experiment data.
 
@@ -474,6 +724,8 @@ def fit_pixel_fast_multi(data, param):
         3D data of experiment spectrum
     param : dict
         fitting parameters
+    kwargs : dict
+        the size of saved data and path
 
     Returns
     -------
@@ -481,34 +733,39 @@ def fit_pixel_fast_multi(data, param):
         fitting values for all the elements
     """
 
-    #logger.info('Row number at {} out of total {}'.format(i, datas[0]))
-    #logger.info('no_processors_to_use = {}'.format(no_processors_to_use))
     no_processors_to_use = multiprocessing.cpu_count()
+    #no_processors_to_use = 4
+
     logger.info('cpu count: {}'.format(no_processors_to_use))
     #print 'Creating pool with %d processes\n' % no_processors_to_use
     pool = multiprocessing.Pool(no_processors_to_use)
 
-    datas = data.shape
-
     y0 = data[0, 0, :]
     x0 = np.arange(len(y0))
-    # ratio to transfer energy value back to channel value
-    approx_ratio = 100
 
-    lowv = param['non_fitting_values']['energy_bound_low'] * approx_ratio
-    highv = param['non_fitting_values']['energy_bound_high'] * approx_ratio
+    # transfer energy value back to channel value
+    lowv = (param['non_fitting_values']['energy_bound_low']['value'] -
+            param['e_offset']['value'])/param['e_linear']['value']
+    highv = (param['non_fitting_values']['energy_bound_high']['value'] -
+             param['e_offset']['value'])/param['e_linear']['value']
+
+    lowv = int(lowv)
+    highv = int(highv)
+
     x, y = trim(x0, y0, lowv, highv)
     start_i = x0[x0 == x[0]][0]
     end_i = x0[x0 == x[-1]][0]
-    e_select, matv = construct_linear_model(x, param)
-    mat_sum = np.sum(matv, axis=0)
+    logger.info('label range: {}, {}'.format(start_i, end_i))
 
     elist = param['non_fitting_values']['element_list'].split(', ')
     elist = [e.strip(' ') for e in elist]
-    elist = [e+'_K' for e in elist if ('_' not in e)]
+
+    e_select, matv, e_area = construct_linear_model(x, param, elist)
+    mat_sum = np.sum(matv, axis=0)
 
     result_pool = [pool.apply_async(fit_per_line,
-                                    (i, data[:, :, start_i:end_i+1], matv, param)) for i in range(datas[0])]
+                                    (n, data[n, :, start_i:end_i+1], matv, param))
+                   for n in range(data.shape[0])]
 
     results = []
     for r in result_pool:
@@ -517,15 +774,11 @@ def fit_pixel_fast_multi(data, param):
     pool.terminate()
     pool.join()
 
-    # results = []
-    # for i in range(datas[0]):
-    #     outv = fit_per_line(i, data[:, :, start_i:end_i+1], matv, param)
-    #     results.append(outv)
-
     results = np.array(results)
 
-    non_element = ['compton', 'elastic', 'background']
-    total_list = elist + non_element
+    total_list = e_select + ['background']
+
+    logger.info('The following peaks are saved: {}'.format(total_list))
 
     result_map = dict()
     for i in range(len(total_list)-1):
@@ -534,24 +787,28 @@ def fit_pixel_fast_multi(data, param):
     # add background
     result_map.update({total_list[-1]: results[:, :, -1]})
 
-    # for v in total_list:
-    #     for i in xrange(datas[0]):
-    #         for j in xrange(datas[1]):
-    #             result_map[v][i, j] = results[i, j].get(v, 0)
+    # save summed spectrum only when required
+    # the size is measured from the point of (0, 0)
+    #sum_total = np.zeros([results.shape[0], results.shape[1], matv.shape[0]])
+    if kwargs['save_range']:
+        sum_total = np.zeros([kwargs['save_range'],
+                              kwargs['save_range'],
+                              matv.shape[0]])
+        for m in range(sum_total.shape[0]):
+            for n in range(sum_total.shape[1]):
+                for i in range(len(total_list)-1):
+                    sum_total[m, n, :] += results[m, n, i] * matv[:, i]
+                bg = snip_method(data[m, n, start_i:end_i+1],
+                                 param['e_offset']['value'],
+                                 param['e_linear']['value'],
+                                 param['e_quadratic']['value'])
+                sum_total[m, n, :] += bg
 
-    sum_total = np.zeros([results.shape[0], results.shape[1], matv.shape[0]])
-    for m in range(sum_total.shape[0]):
-        for n in range(sum_total.shape[1]):
-            for i in range(len(total_list)):
-                sum_total[m, n, :] += results[m, n, i] * matv[:, i]
+        #fpath = os.path.join(kwargs['fit_path'])
+        np.save(kwargs['fit_path'], sum_total)
+        logger.info('Single pixel data is also save to : {}'.format(kwargs['fit_path']))
 
-    print('label range: {}, {}'.format(start_i, end_i))
-    #import pickle
-    fit_path = '/Users/Li/Downloads/xrf_data/'
-    fpath = os.path.join(fit_path, 'fit_data')
     #pickle.dump(result_map, open(fpath, 'wb'))
-    np.save(fpath, sum_total)
-
     return result_map
 
 
@@ -614,34 +871,6 @@ def fit_pixel_fast_multi(data, param):
 #     return result_map
 
 
-def fit_pixel(y, expected_matrix, constant_weight=10):
-    """
-    Non-negative linear fitting is applied for each pixel.
-
-    Parameters
-    ----------
-    y : array
-        spectrum of experiment data
-    expected_matrix : array
-        2D matrix of activated element spectrum
-    constant_weight : float
-        value used to calculate weight like so:
-        weights = constant_weight / (constant_weight + spectrum)
-
-    Returns
-    -------
-    results : array
-        weights of different element
-    residue : array
-        error
-    """
-    if constant_weight:
-        results, residue = weighted_nnls_fit(y, expected_matrix, constant_weight=constant_weight)
-    else:
-        results, residue = nnls_fit(y, expected_matrix)
-    return results, residue
-
-
 def fit_pixel_slow_version(data, param, c_val=1e-2, fit_num=10, c_weight=1):
     datas = data.shape
 
@@ -664,6 +893,7 @@ def fit_pixel_slow_version(data, param, c_val=1e-2, fit_num=10, c_weight=1):
             y0 = data[i, j, :]
             result = MS.model_fit(x0, y0,
                                   w=1/np.sqrt(c_weight+y0))
+
                                   #maxfev=fit_num, xtol=c_val, ftol=c_val, gtol=c_val)
             #for k, v in six.iteritems(result.values):
             #    print('result {}: {}'.format(k, v))
@@ -680,7 +910,7 @@ def fit_pixel_slow_version(data, param, c_val=1e-2, fit_num=10, c_weight=1):
     return result_map
 
 
-def write_to_hdf(fpath, data_dict):
+def write_to_hdf(fpath, data_dict, interpath='xrfmap/detsum'):
     """
     Add fitting results to existing h5 file. This is to be moved to filestore.
 
@@ -690,11 +920,11 @@ def write_to_hdf(fpath, data_dict):
         path of the hdf5 file
     data_dict : dict
         dict of array
+    interpath : str
+        path inside h5py file
     """
-    import h5py
     f = h5py.File(fpath, 'r+')
-    det = 'det1'
-    dataGrp = f['xrfmap/'+det]
+    dataGrp = f[interpath]
 
     data = []
     namelist = []
@@ -716,6 +946,37 @@ def write_to_hdf(fpath, data_dict):
     name_data.attrs['comments'] = 'All elements for fitting are saved.'
 
     f.close()
+
+
+def ccombine_data_to_hdf(fpath_read, file_prefix,
+                         start_id, end_id,
+                         interpath_read='entry/instrument/detector/data'):
+    """
+    Read data from each point scan, then save them to one hdf file.
+    Following APS X13 beamline structure.
+    """
+
+    import h5py
+    #import copy
+
+    #datasum = np.zeros([100, 605, 4096])
+    datasum = None
+    for i in range(start_id, end_id+1):
+        num_str = '{:03d}'.format(i)
+        filename = file_prefix + num_str
+        file_path = os.path.join(fpath_read, filename)
+        with h5py.File(file_path, 'r') as f:
+            data_temp = f[interpath_read][:]
+            #data_temp = np.asarray(data_temp)
+            #datasum.append(np.sum(data_temp, axis=1))
+            if datasum is None:
+                datasum = np.zeros([end_id-start_id+1,
+                                    data_temp.shape[0],
+                                    data_temp.shape[1],
+                                    data_temp.shape[2]])
+            datasum[i-start_id, :, :, :] = data_temp
+
+    return datasum
 
 
 def compare_result(m, n, start_i=151, end_i=1350, all=True, linear=True):
@@ -741,7 +1002,7 @@ def compare_result(m, n, start_i=151, end_i=1350, all=True, linear=True):
 
     else:
         if linear:
-            plt.plot(x, np.sum(data_exp[:,:, start_i:end_i], axis=(0, 1)), x, np.sum(d_fit, axis=(0, 1)))
+            plt.plot(x, np.sum(data_exp[:, :, start_i:end_i], axis=(0, 1)), x, np.sum(d_fit, axis=(0, 1)))
         else:
-            plt.semilogy(x, np.sum(data_exp[:,:, start_i:end_i], axis=(0, 1)), x, np.sum(d_fit, axis=(0, 1)))
+            plt.semilogy(x, np.sum(data_exp[:, :, start_i:end_i], axis=(0, 1)), x, np.sum(d_fit, axis=(0, 1)))
         plt.show()
