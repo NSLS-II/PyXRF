@@ -431,6 +431,8 @@ class GuessParamModel(Atom):
         if self.pileup_data['intensity'] != 0:
             e_name = (self.pileup_data['element1'] + '-'
                       + self.pileup_data['element2'])
+            # parse elemental lines into multiple lines
+
             x, data_out, area_dict = calculate_profile(self.x0,
                                                        self.y0,
                                                        self.param_new,
@@ -651,7 +653,8 @@ def calculate_profile(x, y, param, elemental_lines,
     # Need to use deepcopy here to avoid unexpected change on parameter dict
     fitting_parameters = copy.deepcopy(param)
 
-    total_list, matv, area_dict = construct_linear_model(x, fitting_parameters,
+    total_list, matv, area_dict = construct_linear_model(x,
+                                                         fitting_parameters,
                                                          elemental_lines,
                                                          default_area=default_area)
 
@@ -759,11 +762,12 @@ def get_energy(ename):
         return '-'
     else:
         e = Element(strip_line(ename))
-        if '_K' in ename:
+        ename = ename.lower()
+        if '_k' in ename:
             energy = e.emission_line['ka1']
-        elif '_L' in ename:
+        elif '_l' in ename:
             energy = e.emission_line['la1']
-        elif '_M' in ename:
+        elif '_m' in ename:
             energy = e.emission_line['ma1']
 
         return str(np.around(energy, 4))
@@ -809,3 +813,65 @@ def param_dict_cleaner(param, element_list):
 
     return param_new
 
+
+# def parse_lines():
+#     element_line1, element_line2 = elemental_line.split('-')
+#     if (element_line1 == element_line2):
+#         if '_K' in element_line1:
+#             ename, line = element_line1.split('_')
+#             eline1 = ename + '_ka1'
+#             eline2 = ename + '_kb1'
+#             line_combine1 = eline1+'-'+eline1
+#             line_combine2 = eline1+'-'+eline2
+#             element_mod1 = self.setup_pileup_model(line_combine1,
+#                                                    default_area)
+#             element_mod2 = self.setup_pileup_model(line_combine2,
+#                                                    default_area)
+#             element_mod = element_mod1 + element_mod2
+#         else:
+#             element_mod = self.setup_pileup_model(elemental_line,
+#                                                   default_area)
+#     else:
+#         if ('_K' in element_line1) and ('_K' in element_line2):
+#             ename, line = element_line1.split('_')
+#             eline1a = ename + '_ka1'
+#             eline1b = ename + '_kb1'
+#             ename, line = element_line2.split('_')
+#             eline2a = ename + '_ka1'
+#             eline2b = ename + '_kb1'
+#             line_combine1 = eline1a+'-'+eline2a
+#             line_combine2 = eline1a+'-'+eline2b
+#             line_combine3 = eline1b+'-'+eline2a
+#             element_mod1 = self.setup_pileup_model(line_combine1,
+#                                                    default_area)
+#             element_mod2 = self.setup_pileup_model(line_combine2,
+#                                                    default_area)
+#             element_mod3 = self.setup_pileup_model(line_combine3,
+#                                                    default_area)
+#             element_mod = (element_mod1 + element_mod2 +
+#                            element_mod3)
+#         elif ('_K' in element_line1) and ('_K' not in element_line2):
+#             ename, line = element_line1.split('_')
+#             eline1a = ename + '_ka1'
+#             eline1b = ename + '_kb1'
+#             line_combine1 = eline1a+'-'+element_line2
+#             line_combine2 = eline1b+'-'+element_line2
+#             element_mod1 = self.setup_pileup_model(line_combine1,
+#                                                    default_area)
+#             element_mod2 = self.setup_pileup_model(line_combine2,
+#                                                    default_area)
+#             element_mod = element_mod1 + element_mod2
+#         elif ('_K' not in element_line1) and ('_K' in element_line2):
+#             ename, line = element_line2.split('_')
+#             eline2a = ename + '_ka1'
+#             eline2b = ename + '_kb1'
+#             line_combine1 = eline2a+'-'+element_line1
+#             line_combine2 = eline2b+'-'+element_line1
+#             element_mod1 = self.setup_pileup_model(line_combine1,
+#                                                    default_area)
+#             element_mod2 = self.setup_pileup_model(line_combine2,
+#                                                    default_area)
+#             element_mod = element_mod1 + element_mod2
+#         else:
+#             element_mod = self.setup_pileup_model(elemental_line,
+#                                                   default_area)

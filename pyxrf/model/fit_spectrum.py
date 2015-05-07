@@ -61,7 +61,7 @@ logger = logging.getLogger(__name__)
 
 class Fit1D(Atom):
     """
-    Fit fluorescence spectrum. The users can choose multiple strategies
+    Fit 1D fluorescence spectrum. Users can choose multiple strategies
     for this fitting.
     """
     file_status = Str()
