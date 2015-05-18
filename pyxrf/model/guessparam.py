@@ -300,7 +300,8 @@ class GuessParamModel(Atom):
         # fit doesn't work well if spectrum value is too large.
         spectrum = self.data_sets[names[self.file_opt-1]].get_sum()
         #self.data = spectrum/np.max(spectrum)
-        self.data = spectrum/(self.data_all.shape[0]*self.data_all.shape[1])
+        #self.data = spectrum/(self.data_all.shape[0]*self.data_all.shape[1])
+        self.data = spectrum
         self.define_range()
 
     def define_range(self):

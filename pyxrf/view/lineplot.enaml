@@ -136,9 +136,8 @@ enamldef AdjustEmissionLine(Window): emission_win:
     Container:
         constraints = [
             vbox(
-                hbox(elbl, fd),
-                hbox(lbl_escape, cb),
-                #btn_close,
+                hbox(elbl, fd, spacer),
+                hbox(lbl_escape, cb_option, cb_materials),
                 )
         ]
         Label: elbl:
@@ -147,9 +146,13 @@ enamldef AdjustEmissionLine(Window): emission_win:
             value := plot_model.incident_energy
         Label: lbl_escape:
             text = 'Plot escape peak'
-        ComboBox: cb:
+        ComboBox: cb_option:
             items = ['No', 'Yes']
             index := plot_model.plot_escape_line
+        ComboBox: cb_materials:
+            items = ['Si', 'Ge']
+            index := plot_model.det_materials
+            index = 0
         #PushButton: btn_close:
         #    text = 'Close'
         #    clicked ::
