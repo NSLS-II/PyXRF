@@ -539,10 +539,7 @@ class GuessParamModel(Atom):
                                 v['value'] = self.EC.element_dict[p].area
                     else:
                         for e in element_temp:
-                            zname = e.split('_')[0]
-                            # need to consider zname+'_' together,
-                            # i.e. Si and S may cause conflicts
-                            if zname+'_' in k:
+                            if e.lower() in k.lower():
                                 v['value'] = self.EC.element_dict[e].area
 
             if 'compton' in self.EC.element_dict:

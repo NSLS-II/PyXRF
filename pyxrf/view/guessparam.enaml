@@ -167,7 +167,7 @@ enamldef GuessParamView(DockItem): param_view:
                                 ff_bound.value = loop_item['default_value']
 
         PushButton: find_btn:
-            text = 'Automatic Peak Finding'
+            text = 'Automatic Element Finding'
             enabled = True
             #status_tip = 'Not Running.'
             clicked ::

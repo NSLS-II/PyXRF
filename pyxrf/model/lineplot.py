@@ -188,7 +188,6 @@ class LinePlotModel(Atom):
         self._color_config()
         self._fig.tight_layout(pad=0.5)
         self.max_v = 1.0
-        #self.escape_e = 1.73998
         #self._ax.margins(x=0.0, y=0.10)
 
     def _color_config(self):
