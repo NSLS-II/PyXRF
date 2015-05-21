@@ -8,7 +8,7 @@
         "fit_with_tail": "none", 
         "free_more": "none", 
         "linear": "none", 
-        "max": 10000000.0, 
+        "max": 1e9,
         "min": 1.0,
         "default": 100.0,
         "value": 91.84486613900303
@@ -37,7 +37,7 @@
         "fit_with_tail": "none", 
         "free_more": "none", 
         "linear": "none", 
-        "max": 10000000.0, 
+        "max": 1e9,
         "min": 0.0,
         "default": 100.0,
         "value": 213.7603636952067
@@ -203,7 +203,7 @@
         "min": 1e-07, 
         "tool_tip": "width**2 = (b1/2.3548)**2 + 3.85*b2*E, 3.85keV is electron-hole pair creation energy in silicon", 
         "default": 1e-5,
-        "value": 4.4913605501245235e-05
+        "value": 0.0
     }, 
     "fwhm_offset": {
         "adjust_element1": "fixed", 
@@ -219,7 +219,7 @@
         "min": 0.16, 
         "tool_tip": "width**2 = (b1/2.3548)**2 + 3.85*b2*E", 
         "default": 0.18,
-        "value": 0.16002414820175292
+        "value": 0.17
     }, 
     "non_fitting_values": {
         "element_list": "Al_K, S_K, Cl_K, Ar_K, Ca_K, Cr_K, Fe_K, Co_K, Ni_K, Cu_K, Pm_L, Gd_L",

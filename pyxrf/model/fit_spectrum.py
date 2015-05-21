@@ -324,9 +324,9 @@ class Fit1D(Atom):
         This function performs single pixel fitting.
         Multiprocess is considered.
         """
-        #save_name = 'pv250_slice1_data'
+        save_name = 'pv250_slice1_data'
         #save_name = 'bnp_fly0148_data'
-        save_name = 'hxn_scan_01167_data'
+        #save_name = 'hxn_scan_01167_data'
         save_dict = {'fit_path': os.path.join(self.result_folder, save_name+'_pixel'),
                      'save_range': 50}
 

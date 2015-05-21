@@ -539,8 +539,11 @@ class GuessParamModel(Atom):
                                 v['value'] = self.EC.element_dict[p].area
                     else:
                         for e in element_temp:
-                            if e.lower() in k.lower():
+                            k_name, k_line, _ = k.split('_')
+                            e_name, e_line = e.split('_')
+                            if k_name == e_name and e_line.lower() == k_line[0]:  # attention: S_k and As_k
                                 v['value'] = self.EC.element_dict[e].area
+                                #print('{}: {}'.format(k, self.EC.element_dict[e].area))
 
             if 'compton' in self.EC.element_dict:
                 self.param_new['compton_amplitude']['value'] = self.EC.element_dict['compton'].area

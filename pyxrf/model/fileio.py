@@ -195,7 +195,7 @@ def read_hdf_HXN(working_directory,
 
 
 def read_hdf_APS(working_directory,
-                 file_names, channel_num=0):
+                 file_names, channel_num=2):
     """
     Data IO for APS Beamline 13 datasets. This might be changed later.
 
@@ -245,17 +245,19 @@ def read_hdf_APS(working_directory,
 
             DS = DataSelection(filename=fname,
                                raw_data=exp_data)
-            data_sets.update({fname: DS})
+            data_sets[fname] = DS
+            logger.info('Data of detector sum is loaded.')
 
             # data from each channel
-            for i in range(channel_num):
-                det_name = 'det'+str(i+1)
-                file_channel = fname+'_channel_'+str(i+1)
-                exp_data_new = data[det_name+'/counts'][:, angle_cut:-angle_cut, :-spectrum_cut]
-                exp_data_new = np.asarray(exp_data_new)
-                DS = DataSelection(filename=file_channel,
-                                   raw_data=exp_data_new)
-                data_sets[file_channel] = DS
+            # for i in range(1, channel_num):
+            #     det_name = 'det'+str(i)
+            #     file_channel = fname+'_channel_'+str(i)
+            #     exp_data_new = data[det_name+'/counts'][:, angle_cut:-angle_cut, :-spectrum_cut]
+            #     exp_data_new = np.asarray(exp_data_new)
+            #     DS = DataSelection(filename=file_channel,
+            #                        raw_data=exp_data_new)
+            #     data_sets[file_channel] = DS
+            #     logger.info('Data from detector channel {} is loaded.'.format(i))
 
             #get roi sum data
             roi_result = get_roi_sum(roi_name,
