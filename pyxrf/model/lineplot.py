@@ -161,7 +161,8 @@ class LinePlotModel(Atom):
     linear_range = List()
     plot_escape_line = Int(0)
     emission_line_window = Bool(True)
-    escape_e = Float()
+    det_materials = Int(0)
+    escape_e = Float(1.73998)
     #prefix_name_roi = Str()
     #element_for_roi = Str()
     #element_list_roi = List()
@@ -187,7 +188,6 @@ class LinePlotModel(Atom):
         self._color_config()
         self._fig.tight_layout(pad=0.5)
         self.max_v = 1.0
-        self.escape_e = 1.73998
         #self._ax.margins(x=0.0, y=0.10)
 
     def _color_config(self):
@@ -420,6 +420,13 @@ class LinePlotModel(Atom):
                                        / e.cs(incident_energy).all[17][1]))
         self.plot_emission_line()
         self._update_canvas()
+
+    @observe('det_materials')
+    def _update_det_materials(self, change):
+        if change['value'] == 0:
+            self.escape_e = 1.73998
+        else:
+            self.escape_e = 9.88640
 
     def plot_roi_bound(self):
         """

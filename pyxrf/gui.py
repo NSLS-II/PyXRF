@@ -55,7 +55,7 @@ with enaml.imports():
 
 def get_defaults():
 
-    sub_folder = 'data'  # + '/xspress3'
+    sub_folder = 'xrf_data'  # + '/xspress3'
     working_directory = os.path.join(os.path.expanduser('~'),
                                      'Downloads', sub_folder)
     output_directory = working_directory

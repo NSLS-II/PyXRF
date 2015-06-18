@@ -167,7 +167,7 @@ enamldef GuessParamView(DockItem): param_view:
                                 ff_bound.value = loop_item['default_value']
 
         PushButton: find_btn:
-            text = 'Automatic Peak Finding'
+            text = 'Automatic Element Finding'
             enabled = True
             #status_tip = 'Not Running.'
             clicked ::
@@ -245,7 +245,7 @@ enamldef GuessParamView(DockItem): param_view:
                         param_model.update_name_list()
                 PushButton: name:
                     text = 'Names'
-                    minimum_size = (100, 20)
+                    minimum_size = (120, 20)
                     maximum_size = 70
                     #background = 'white'
                     clicked ::
@@ -331,7 +331,7 @@ enamldef GuessParamView(DockItem): param_view:
                                 #background = 'white'
                             Label: lb_name:
                                 text << loop_item
-                                minimum_size = (80, 20)
+                                minimum_size = (100, 20)
                                 #background = 'white'
                             Label: lb_energy:
                                 text << str(param_model.EC.element_dict[loop_item].energy)

@@ -52,7 +52,8 @@ from skxray.fitting.background import snip_method
 from skxray.constants.api import XrfElement as Element
 from skxray.fitting.xrf_model import (ModelSpectrum, ParamController,
                                       compute_escape_peak, trim,
-                                      construct_linear_model, linear_spectrum_fitting)
+                                      construct_linear_model,
+                                      linear_spectrum_fitting)
 
 import logging
 logger = logging.getLogger(__name__)
@@ -300,7 +301,8 @@ class GuessParamModel(Atom):
         # fit doesn't work well if spectrum value is too large.
         spectrum = self.data_sets[names[self.file_opt-1]].get_sum()
         #self.data = spectrum/np.max(spectrum)
-        self.data = spectrum/(self.data_all.shape[0]*self.data_all.shape[1])
+        #self.data = spectrum/(self.data_all.shape[0]*self.data_all.shape[1])
+        self.data = spectrum
         self.define_range()
 
     def define_range(self):
@@ -431,6 +433,8 @@ class GuessParamModel(Atom):
         if self.pileup_data['intensity'] != 0:
             e_name = (self.pileup_data['element1'] + '-'
                       + self.pileup_data['element2'])
+            # parse elemental lines into multiple lines
+
             x, data_out, area_dict = calculate_profile(self.x0,
                                                        self.y0,
                                                        self.param_new,
@@ -536,11 +540,11 @@ class GuessParamModel(Atom):
                                 v['value'] = self.EC.element_dict[p].area
                     else:
                         for e in element_temp:
-                            zname = e.split('_')[0]
-                            # need to consider zname+'_' together,
-                            # i.e. Si and S may cause conflicts
-                            if zname+'_' in k:
+                            k_name, k_line, _ = k.split('_')
+                            e_name, e_line = e.split('_')
+                            if k_name == e_name and e_line.lower() == k_line[0]:  # attention: S_k and As_k
                                 v['value'] = self.EC.element_dict[e].area
+                                #print('{}: {}'.format(k, self.EC.element_dict[e].area))
 
             if 'compton' in self.EC.element_dict:
                 self.param_new['compton_amplitude']['value'] = self.EC.element_dict['compton'].area
@@ -651,16 +655,19 @@ def calculate_profile(x, y, param, elemental_lines,
     # Need to use deepcopy here to avoid unexpected change on parameter dict
     fitting_parameters = copy.deepcopy(param)
 
-    total_list, matv, area_dict = construct_linear_model(x, fitting_parameters,
+    total_list, matv, area_dict = construct_linear_model(x,
+                                                         fitting_parameters,
                                                          elemental_lines,
                                                          default_area=default_area)
 
     temp_d = {k: v for (k, v) in zip(total_list, matv.transpose())}
 
     # add background
-    bg = snip_method(y, fitting_parameters['e_offset']['value'],
+    bg = snip_method(y,
+                     fitting_parameters['e_offset']['value'],
                      fitting_parameters['e_linear']['value'],
-                     fitting_parameters['e_quadratic']['value'])
+                     fitting_parameters['e_quadratic']['value'],
+                     width=fitting_parameters['non_fitting_values']['background_width'])
     temp_d['background'] = bg
 
     x_energy = (fitting_parameters['e_offset']['value']
@@ -759,11 +766,12 @@ def get_energy(ename):
         return '-'
     else:
         e = Element(strip_line(ename))
-        if '_K' in ename:
+        ename = ename.lower()
+        if '_k' in ename:
             energy = e.emission_line['ka1']
-        elif '_L' in ename:
+        elif '_l' in ename:
             energy = e.emission_line['la1']
-        elif '_M' in ename:
+        elif '_m' in ename:
             energy = e.emission_line['ma1']
 
         return str(np.around(energy, 4))
@@ -809,3 +817,65 @@ def param_dict_cleaner(param, element_list):
 
     return param_new
 
+
+# def parse_lines():
+#     element_line1, element_line2 = elemental_line.split('-')
+#     if (element_line1 == element_line2):
+#         if '_K' in element_line1:
+#             ename, line = element_line1.split('_')
+#             eline1 = ename + '_ka1'
+#             eline2 = ename + '_kb1'
+#             line_combine1 = eline1+'-'+eline1
+#             line_combine2 = eline1+'-'+eline2
+#             element_mod1 = self.setup_pileup_model(line_combine1,
+#                                                    default_area)
+#             element_mod2 = self.setup_pileup_model(line_combine2,
+#                                                    default_area)
+#             element_mod = element_mod1 + element_mod2
+#         else:
+#             element_mod = self.setup_pileup_model(elemental_line,
+#                                                   default_area)
+#     else:
+#         if ('_K' in element_line1) and ('_K' in element_line2):
+#             ename, line = element_line1.split('_')
+#             eline1a = ename + '_ka1'
+#             eline1b = ename + '_kb1'
+#             ename, line = element_line2.split('_')
+#             eline2a = ename + '_ka1'
+#             eline2b = ename + '_kb1'
+#             line_combine1 = eline1a+'-'+eline2a
+#             line_combine2 = eline1a+'-'+eline2b
+#             line_combine3 = eline1b+'-'+eline2a
+#             element_mod1 = self.setup_pileup_model(line_combine1,
+#                                                    default_area)
+#             element_mod2 = self.setup_pileup_model(line_combine2,
+#                                                    default_area)
+#             element_mod3 = self.setup_pileup_model(line_combine3,
+#                                                    default_area)
+#             element_mod = (element_mod1 + element_mod2 +
+#                            element_mod3)
+#         elif ('_K' in element_line1) and ('_K' not in element_line2):
+#             ename, line = element_line1.split('_')
+#             eline1a = ename + '_ka1'
+#             eline1b = ename + '_kb1'
+#             line_combine1 = eline1a+'-'+element_line2
+#             line_combine2 = eline1b+'-'+element_line2
+#             element_mod1 = self.setup_pileup_model(line_combine1,
+#                                                    default_area)
+#             element_mod2 = self.setup_pileup_model(line_combine2,
+#                                                    default_area)
+#             element_mod = element_mod1 + element_mod2
+#         elif ('_K' not in element_line1) and ('_K' in element_line2):
+#             ename, line = element_line2.split('_')
+#             eline2a = ename + '_ka1'
+#             eline2b = ename + '_kb1'
+#             line_combine1 = eline2a+'-'+element_line1
+#             line_combine2 = eline2b+'-'+element_line1
+#             element_mod1 = self.setup_pileup_model(line_combine1,
+#                                                    default_area)
+#             element_mod2 = self.setup_pileup_model(line_combine2,
+#                                                    default_area)
+#             element_mod = element_mod1 + element_mod2
+#         else:
+#             element_mod = self.setup_pileup_model(elemental_line,
+#                                                   default_area)

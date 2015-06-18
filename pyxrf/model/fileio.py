@@ -102,7 +102,7 @@ class FileIOModel(Atom):
         logger.info('Loaded files : {}'.format(self.file_names))
 
         # be alter: to be update, temporary use!!!
-        if 'APS' in self.file_names[0]:
+        if '13ide' in self.file_names[0]:
             logger.info('Load APS 13IDE data format.')
             self.img_dict, self.data_sets = read_hdf_APS(self.working_directory,
                                                          self.file_names)
@@ -110,6 +110,11 @@ class FileIOModel(Atom):
             logger.info('Load APS 2IDE data format.')
             self.img_dict, self.data_sets = read_MAPS(self.working_directory,
                                                       self.file_names)
+        elif '.npy' in self.file_names[0]:
+            # temporary use
+            self.img_dict, self.data_sets = read_numpy_data(self.working_directory,
+                                                            self.file_names)
+
         else:
             self.data_dict, self.data_sets = read_hdf_HXN(self.working_directory,
                                                           self.file_names)
@@ -190,7 +195,7 @@ def read_hdf_HXN(working_directory,
 
 
 def read_hdf_APS(working_directory,
-                 file_names, channel_num=0):
+                 file_names, channel_num=2):
     """
     Data IO for APS Beamline 13 datasets. This might be changed later.
 
@@ -231,26 +236,25 @@ def read_hdf_APS(working_directory,
 
                 # data from channel summed
                 exp_data = data['detsum/counts']
-                #logger.info('File : {} with total counts {}'.format(fname,
-                #                                                    np.sum(exp_data)))
-                exp_data = np.asarray(exp_data[:, 1:-1, :-spectrum_cut])
+                exp_data = np.asarray(exp_data[:, angle_cut:-angle_cut, :-spectrum_cut])
                 roi_name = data['detsum']['roi_name'].value
                 roi_value = data['detsum']['roi_limits'].value
-                #f.close()
 
             DS = DataSelection(filename=fname,
                                raw_data=exp_data)
-            data_sets.update({fname: DS})
+            data_sets[fname] = DS
+            logger.info('Data of detector sum is loaded.')
 
             # data from each channel
-            for i in range(channel_num):
-                det_name = 'det'+str(i+1)
-                file_channel = fname+'_channel_'+str(i+1)
-                exp_data_new = data[det_name+'/counts'][:, angle_cut:-angle_cut, :-spectrum_cut]
-                exp_data_new = np.asarray(exp_data_new)
-                DS = DataSelection(filename=file_channel,
-                                   raw_data=exp_data_new)
-                data_sets[file_channel] = DS
+            # for i in range(1, channel_num):
+            #     det_name = 'det'+str(i)
+            #     file_channel = fname+'_channel_'+str(i)
+            #     exp_data_new = data[det_name+'/counts'][:, angle_cut:-angle_cut, :-spectrum_cut]
+            #     exp_data_new = np.asarray(exp_data_new)
+            #     DS = DataSelection(filename=file_channel,
+            #                        raw_data=exp_data_new)
+            #     data_sets[file_channel] = DS
+            #     logger.info('Data from detector channel {} is loaded.'.format(i))
 
             #get roi sum data
             roi_result = get_roi_sum(roi_name,
@@ -328,6 +332,86 @@ def read_MAPS(working_directory,
         except ValueError:
             continue
     return img_dict, data_sets
+
+
+def read_numpy_data(working_directory,
+                    file_names):
+    """
+    temporary use, bad example.
+    """
+    #import pickle
+    data_sets = OrderedDict()
+    img_dict = OrderedDict()
+
+    #pickle_folder = '/Users/Li/Downloads/xrf_data/xspress3/'
+    #save_name = 'scan01167_pickle'
+    #fpath = os.path.join(pickle_folder, save_name)
+    for file_name in file_names:
+        fpath = os.path.join(working_directory, file_name)
+        exp_data = np.load(fpath)
+        DS = DataSelection(filename=file_name,
+                           raw_data=exp_data)
+        data_sets.update({file_name: DS})
+
+    return img_dict, data_sets
+
+
+def read_hdf_multi_files_HXN(working_directory,
+                             file_prefix, h_dim, v_dim,
+                             channel_num=4):
+    """
+    Data IO for HXN temporary datasets. This might be changed later.
+
+    Parameters
+    ----------
+    working_directory : str
+        path folder
+    file_names : list
+        list of chosen files
+    channel_num : int, optional
+        detector channel number
+
+    Returns
+    -------
+    data_dict : dict
+        with fitting data
+    data_sets : dict
+        data from each channel and channel summed
+    """
+    data_dict = OrderedDict()
+    data_sets = OrderedDict()
+
+    # cut off bad point on the last position of the spectrum
+    bad_point_cut = 1
+    start_i = 1
+    end_i = h_dim*v_dim
+    total_data = np.zeros([v_dim, h_dim, 4096-bad_point_cut])
+
+    for fileID in range(start_i, end_i+1):
+        fname = file_prefix + str(fileID)+'.hdf5'
+        file_path = os.path.join(working_directory, fname)
+        fileID -= start_i
+        with h5py.File(file_path, 'r+') as f:
+            data = f['entry/instrument']
+
+            #fname = fname.split('.')[0]
+
+            # for 2D MAP???
+            #data_dict[fname] = data
+
+            # data from channel summed
+            exp_data = np.asarray(data['detector/data'])
+            ind_v = fileID//h_dim
+            ind_h = fileID - ind_v * h_dim
+            print(ind_v, ind_h)
+            total_data[ind_v, ind_h, :] = np.sum(exp_data[:, :3, :-bad_point_cut],
+                                                 axis=(0, 1))
+
+    DS = DataSelection(filename=file_prefix,
+                       raw_data=total_data)
+    data_sets.update({file_prefix: DS})
+
+    return data_dict, data_sets
 
 
 def get_roi_sum(namelist, data_range, data):

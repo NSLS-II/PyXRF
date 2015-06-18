@@ -46,11 +46,13 @@ import h5py
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float
 from skxray.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
-                                      sum_area, set_parameter_bound, ParamController,
+                                      sum_area, set_parameter_bound,
+                                      ParamController, K_LINE, L_LINE, M_LINE,
                                       nnls_fit, weighted_nnls_fit, trim,
                                       construct_linear_model, linear_spectrum_fitting,
-                                      register_strategy)
+                                      register_strategy, TRANSITIONS_LOOKUP)
 from skxray.fitting.background import snip_method
+from skxray.constants.api import XrfElement as Element
 from pyxrf.model.guessparam import (calculate_profile, fit_strategy_list,
                                     trim_escape_peak, define_range)
 from lmfit import fit_report
@@ -61,7 +63,7 @@ logger = logging.getLogger(__name__)
 
 class Fit1D(Atom):
     """
-    Fit fluorescence spectrum. The users can choose multiple strategies
+    Fit 1D fluorescence spectrum. Users can choose multiple strategies
     for this fitting.
     """
     file_status = Str()
@@ -322,16 +324,18 @@ class Fit1D(Atom):
         This function performs single pixel fitting.
         Multiprocess is considered.
         """
-        #save_name = 'pv250_slice1_data'
-        save_name = 'bnp_fly0148_data'
+        save_name = 'pv250_slice1_data'
+        #save_name = 'bnp_fly0148_data'
+        #save_name = 'hxn_scan_01167_data'
         save_dict = {'fit_path': os.path.join(self.result_folder, save_name+'_pixel'),
-                     'save_range': 50}
+                     'save_range': 200}
 
         strategy_pixel = 'linear'
         set_parameter_bound(self.param_dict, strategy_pixel)
         logger.info('Starting single pixel fitting')
         t0 = time.time()
-        result_map = fit_pixel_fast_multi(self.data_all, self.param_dict, **save_dict)
+        result_map = fit_pixel_fast_multi(self.data_all, self.param_dict,
+                                          first_peak_area=False, **save_dict)
         t1 = time.time()
         logger.warning('Time used for pixel fitting is : {}'.format(t1-t0))
 
@@ -704,7 +708,8 @@ def fit_per_line(row_num, data,
         bg = snip_method(data[i, :],
                          param['e_offset']['value'],
                          param['e_linear']['value'],
-                         param['e_quadratic']['value'])
+                         param['e_quadratic']['value'],
+                         width=param['non_fitting_values']['background_width'])
         y = data[i, :] - bg
         # setting constant weight to some value might cause error when fitting
         result, res = fit_pixel(y, matv,
@@ -714,7 +719,7 @@ def fit_per_line(row_num, data,
     return np.array(out)
 
 
-def fit_pixel_fast_multi(data, param, **kwargs):
+def fit_pixel_fast_multi(data, param, first_peak_area=False, **kwargs):
     """
     Multiprocess fit of experiment data.
 
@@ -724,6 +729,8 @@ def fit_pixel_fast_multi(data, param, **kwargs):
         3D data of experiment spectrum
     param : dict
         fitting parameters
+    first_peak_area : Bool, optional
+        get overal peak area or only the first peak area, such as Ar_Ka1
     kwargs : dict
         the size of saved data and path
 
@@ -782,7 +789,15 @@ def fit_pixel_fast_multi(data, param, **kwargs):
 
     result_map = dict()
     for i in range(len(total_list)-1):
-        result_map.update({total_list[i]: results[:, :, i]*mat_sum[i]})
+        if first_peak_area is not True:
+            result_map.update({total_list[i]: results[:, :, i]*mat_sum[i]})
+        else:
+            if total_list[i] not in K_LINE+L_LINE+M_LINE:
+                ratio_v = 1
+            else:
+                ratio_v = get_branching_ratio(total_list[i],
+                                              param['coherent_sct_energy']['value'])
+            result_map.update({total_list[i]: results[:, :, i]*mat_sum[i]*ratio_v})
 
     # add background
     result_map.update({total_list[-1]: results[:, :, -1]})
@@ -801,7 +816,8 @@ def fit_pixel_fast_multi(data, param, **kwargs):
                 bg = snip_method(data[m, n, start_i:end_i+1],
                                  param['e_offset']['value'],
                                  param['e_linear']['value'],
-                                 param['e_quadratic']['value'])
+                                 param['e_quadratic']['value'],
+                                 width=param['non_fitting_values']['background_width'])
                 sum_total[m, n, :] += bg
 
         #fpath = os.path.join(kwargs['fit_path'])
@@ -810,6 +826,35 @@ def fit_pixel_fast_multi(data, param, **kwargs):
 
     #pickle.dump(result_map, open(fpath, 'wb'))
     return result_map
+
+
+def get_branching_ratio(elemental_line, energy):
+    """
+    Calculate the ratio of branching ratio, such as ratio of
+    branching ratio of Ka1 to sum of br of all K lines.
+
+    Parameters
+    ----------
+    elemental_line : str
+        e.g., 'Mg_K', refers to the K lines of Magnesium
+    energy : float
+        incident energy in keV
+
+    Returns
+    -------
+    float :
+        calculated ratio
+    """
+
+    name, line = elemental_line.split('_')
+    e = Element(name)
+    transition_lines = TRANSITIONS_LOOKUP[line.upper()]
+
+    sum_v = 0
+    for v in transition_lines:
+        sum_v += e.cs(energy)[v]
+    ratio_v = e.cs(energy)[transition_lines[0]]/sum_v
+    return ratio_v
 
 
 # def fit_pixel_fast_multi(data, param):
