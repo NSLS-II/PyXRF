@@ -52,7 +52,8 @@ from skxray.fitting.background import snip_method
 from skxray.constants.api import XrfElement as Element
 from skxray.fitting.xrf_model import (ModelSpectrum, ParamController,
                                       compute_escape_peak, trim,
-                                      construct_linear_model, linear_spectrum_fitting)
+                                      construct_linear_model,
+                                      linear_spectrum_fitting)
 
 import logging
 logger = logging.getLogger(__name__)
@@ -662,9 +663,11 @@ def calculate_profile(x, y, param, elemental_lines,
     temp_d = {k: v for (k, v) in zip(total_list, matv.transpose())}
 
     # add background
-    bg = snip_method(y, fitting_parameters['e_offset']['value'],
+    bg = snip_method(y,
+                     fitting_parameters['e_offset']['value'],
                      fitting_parameters['e_linear']['value'],
-                     fitting_parameters['e_quadratic']['value'])
+                     fitting_parameters['e_quadratic']['value'],
+                     width=fitting_parameters['non_fitting_values']['background_width'])
     temp_d['background'] = bg
 
     x_energy = (fitting_parameters['e_offset']['value']

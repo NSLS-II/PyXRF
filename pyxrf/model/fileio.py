@@ -102,7 +102,7 @@ class FileIOModel(Atom):
         logger.info('Loaded files : {}'.format(self.file_names))
 
         # be alter: to be update, temporary use!!!
-        if 'APS' in self.file_names[0]:
+        if '13ide' in self.file_names[0]:
             logger.info('Load APS 13IDE data format.')
             self.img_dict, self.data_sets = read_hdf_APS(self.working_directory,
                                                          self.file_names)
@@ -236,12 +236,9 @@ def read_hdf_APS(working_directory,
 
                 # data from channel summed
                 exp_data = data['detsum/counts']
-                #logger.info('File : {} with total counts {}'.format(fname,
-                #                                                    np.sum(exp_data)))
-                exp_data = np.asarray(exp_data[:, 1:-1, :-spectrum_cut])
+                exp_data = np.asarray(exp_data[:, angle_cut:-angle_cut, :-spectrum_cut])
                 roi_name = data['detsum']['roi_name'].value
                 roi_value = data['detsum']['roi_limits'].value
-                #f.close()
 
             DS = DataSelection(filename=fname,
                                raw_data=exp_data)
@@ -360,7 +357,7 @@ def read_numpy_data(working_directory,
 
 
 def read_hdf_multi_files_HXN(working_directory,
-                             file_prefix, start_i, end_i,
+                             file_prefix, h_dim, v_dim,
                              channel_num=4):
     """
     Data IO for HXN temporary datasets. This might be changed later.
@@ -386,8 +383,8 @@ def read_hdf_multi_files_HXN(working_directory,
 
     # cut off bad point on the last position of the spectrum
     bad_point_cut = 1
-    h_dim = 101
-    v_dim = 101
+    start_i = 1
+    end_i = h_dim*v_dim
     total_data = np.zeros([v_dim, h_dim, 4096-bad_point_cut])
 
     for fileID in range(start_i, end_i+1):
