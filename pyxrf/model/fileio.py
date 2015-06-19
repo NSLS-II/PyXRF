@@ -151,7 +151,8 @@ def read_runid(inputid):
     hdr = db[inputid]
     runid = hdr.scan_id
 
-    c_list = []
+    name_prefix = 'xspress3_ch'
+    c_list = [name_prefix+str(i+1) for i in range(8)]
 
     data = ss[runid]
 
