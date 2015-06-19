@@ -134,9 +134,12 @@ class FileIOModel(Atom):
         pass
 
     def load_data_runid(self):
+        self.file_channel_list = []
+        self.file_names.sort()
         self.data_dict, self.data_sets = read_runid(self.runid)
         self.file_channel_list = self.data_sets.keys()
-
+        self.file_channel_list = self.data_sets.keys()
+        
 
 def read_runid(inputid):
     from dataportal import DataBroker as db
