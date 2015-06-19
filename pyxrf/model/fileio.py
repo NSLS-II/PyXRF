@@ -160,7 +160,7 @@ def read_runid(inputid):
     for c_name in c_list:
         print(c_name)
         channel_data = data[c_name]
-        new_data = np.zeros([2, len(channel_data), len(channel_data[0])])
+        new_data = np.zeros([1, len(channel_data), len(channel_data[0])])
 
         for i in xrange(len(channel_data)):
             print(i)
