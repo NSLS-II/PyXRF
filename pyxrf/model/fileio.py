@@ -44,7 +44,7 @@ import numpy as np
 import os
 from collections import OrderedDict
 
-from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum
+from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float
 
 import logging
 logger = logging.getLogger(__name__)
@@ -81,6 +81,7 @@ class FileIOModel(Atom):
 
     data_sets = Typed(OrderedDict)
     #data_sets_fit = Typed(OrderedDict)
+    runid = Int(-1)
 
     def __init__(self, **kwargs):
         self.working_directory = kwargs['working_directory']
@@ -131,6 +132,55 @@ class FileIOModel(Atom):
         #
         #     self.img_dict_flat.update({str(k).split('.')[0]+'_roi_sum': roi_dict})
         pass
+
+    def load_data_runid(self):
+        self.data_dict, self.data_sets = read_runid(self.runid)
+        self.file_channel_list = self.data_sets.keys()
+
+
+def read_runid(inputid):
+    from dataportal import DataBroker as db
+    from dataportal import StepScan as ss
+    import hxntools.detectors
+
+    data_dict = OrderedDict()
+    data_sets = OrderedDict()
+
+    # in case inputid is -1
+    hdr = db[inputid]
+    runid = hdr.scan_id
+
+    name_prefix = 'xspress3_ch'
+    c_list = [name_prefix+str(i+1) for i in range(8)]
+
+    data = ss[runid]
+
+    sumv = None
+
+    for c_name in c_list:
+        print(c_name)
+        channel_data = data[c_name]
+        new_data = np.zeros([1, len(channel_data), len(channel_data[0])])
+
+        for i in xrange(len(channel_data)):
+            new_data[0, i, :] = channel_data[i]
+
+        if sumv is None:
+            sumv = new_data
+        else:
+            sumv += new_data
+
+        file_channel = 'run_'+str(runid)+'_'+c_name
+        DS = DataSelection(filename=file_channel,
+                           raw_data=new_data)
+        data_sets[file_channel] = DS
+
+    file_channel = 'run_'+str(runid)
+    DS = DataSelection(filename=file_channel,
+                       raw_data=sumv)
+    data_sets[file_channel] = DS
+
+    return data_dict, data_sets
 
 
 def read_hdf_HXN(working_directory,

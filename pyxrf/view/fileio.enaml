@@ -42,7 +42,7 @@ from enaml.widgets.api import (Container, PushButton, Label,
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer, grid
 from enaml.core.api import Include, Looper
 from enaml.layout.geometry import Box
-from enaml.stdlib.fields import FloatField
+from enaml.stdlib.fields import FloatField, IntField
 
 import numpy as np
 
@@ -61,12 +61,9 @@ enamldef FileView(DockItem): file_view:
             constraints = [
                 vbox(
                     hbox(folder_btn, folder_fd),
-                    #hbox(pb_load, fd_load),
-                    #hbox(param_lbl),
                     hbox(btn_out, fd_out),
                     hbox(files_btn, files_load),
-                    #hbox(files_load),
-                    #name_lb,
+                    hbox(cb_runid, run_lbl, run_num, load_btn, spacer),
                     scroller,
                     hbox(plot_bt, spacer),
                 ),
@@ -115,6 +112,43 @@ enamldef FileView(DockItem): file_view:
 
             Label: files_load:
                 text = 'No data is loaded.'
+
+            CheckBox: cb_runid:
+                text = ' '
+                checked = True
+                clicked ::
+                    if checked:
+                        run_lbl.enabled = True
+                        run_num.enabled = True
+                        load_btn.enabled = True
+                    else:
+                        run_lbl.enabled = False
+                        run_num.enabled = False
+                        load_btn.enabled = False
+
+            Label: run_lbl:
+                text = 'Run # '
+
+            IntField: run_num:
+                value := io_model.runid
+
+            PushButton: load_btn:
+                text = "Load Data"
+                clicked ::
+                    io_model.load_data_runid()
+
+                    io_model.get_roi_data()
+
+                    # do not import original data for 2D image
+                    img_model_adv.data_dict = io_model.img_dict
+
+                    # data passed for auto fitting and final fit
+                    param_model.data_sets = io_model.data_sets
+
+                    plot_model.parameters = param_model.param_new
+                    setting_model.parameters = param_model.param_new
+                    setting_model.data_sets = io_model.data_sets
+
 
             ScrollArea: scroller:
                 #Form:
