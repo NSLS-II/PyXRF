@@ -163,7 +163,6 @@ def read_runid(inputid):
         new_data = np.zeros([1, len(channel_data), len(channel_data[0])])
 
         for i in xrange(len(channel_data)):
-            print(i)
             new_data[0, i, :] = channel_data[i]
 
         if sumv is None:
