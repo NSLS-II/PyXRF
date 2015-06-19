@@ -140,7 +140,6 @@ class FileIOModel(Atom):
 
 def read_runid(inputid):
     from dataportal import DataBroker as db
-    from dataportal import DataMuxer as dm
     from dataportal import StepScan as ss
     import hxntools.detectors
 
@@ -156,22 +155,31 @@ def read_runid(inputid):
 
     data = ss[runid]
 
+    sumv = None
+
     for c_name in c_list:
+        print(c_name)
         channel_data = data[c_name]
-        new_data = np.zeros([len(channel_data), len(channel_data[0])])
+        new_data = np.zeros([1, len(channel_data), len(channel_data[0])])
 
         for i in xrange(len(channel_data)):
-            new_data[i, :] = channel_data[i]
-        data_sets['run_'+str(runid)+'_'+c_name] = new_data
+            print(i)
+            new_data[0, i, :] = channel_data[i]
 
-    sumv = None
-    for k, v in six.iteritems(data_dict):
-        if not sumv:
-            sumv = v
+        if sumv is None:
+            sumv = new_data
         else:
-            sumv += v
+            sumv += new_data
 
-    data_sets['run_'+str(runid)] = sumv
+        file_channel = 'run_'+str(runid)+'_'+c_name
+        DS = DataSelection(filename=file_channel,
+                           raw_data=new_data)
+        data_sets[file_channel] = DS
+
+    file_channel = 'run_'+str(runid)
+    DS = DataSelection(filename=file_channel,
+                       raw_data=sumv)
+    data_sets[file_channel] = DS
 
     return data_dict, data_sets
 
