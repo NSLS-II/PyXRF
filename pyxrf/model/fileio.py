@@ -44,7 +44,7 @@ import numpy as np
 import os
 from collections import OrderedDict
 
-from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum
+from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float
 
 import logging
 logger = logging.getLogger(__name__)
@@ -81,6 +81,7 @@ class FileIOModel(Atom):
 
     data_sets = Typed(OrderedDict)
     #data_sets_fit = Typed(OrderedDict)
+    runid = Int(-1)
 
     def __init__(self, **kwargs):
         self.working_directory = kwargs['working_directory']
@@ -131,6 +132,47 @@ class FileIOModel(Atom):
         #
         #     self.img_dict_flat.update({str(k).split('.')[0]+'_roi_sum': roi_dict})
         pass
+
+    def load_data_runid(self):
+        self.data_dict, self.data_sets = read_runid(self.runid)
+        self.file_channel_list = self.data_sets.keys()
+
+
+def read_runid(inputid):
+    from dataportal import DataBroker as db
+    from dataportal import DataMuxer as dm
+    from dataportal import StepScan as ss
+    import hxntools.detectors
+
+    data_dict = OrderedDict()
+    data_sets = OrderedDict()
+
+    # in case inputid is -1
+    hdr = db[inputid]
+    runid = hdr.scan_id
+
+    c_list = []
+
+    data = ss[runid]
+
+    for c_name in c_list:
+        channel_data = data[c_name]
+        new_data = np.zeros([len(channel_data), len(channel_data[0])])
+
+        for i in xrange(len(channel_data)):
+            new_data[i, :] = channel_data[i]
+        data_sets['run_'+str(runid)+'_'+c_name] = new_data
+
+    sumv = None
+    for k, v in six.iteritems(data_dict):
+        if not sumv:
+            sumv = v
+        else:
+            sumv += v
+
+    data_sets['run_'+str(runid)] = sumv
+
+    return data_dict, data_sets
 
 
 def read_hdf_HXN(working_directory,
