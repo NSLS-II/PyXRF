@@ -193,16 +193,16 @@ def read_runid(runid, c_list):
         for i in xrange(len(channel_data)):
             new_data[0, i, :] = channel_data[i]
 
-            if sumv is None:
-                sumv = new_data
-            else:
-                sumv += new_data
-
         file_channel = 'run_'+str(runid)+'_'+c_name
         DS = DataSelection(filename=file_channel,
                            raw_data=new_data)
         data_sets[file_channel] = DS
 
+        if sumv is None:
+            sumv = new_data
+        else:
+            sumv += new_data
+    
     file_channel = 'run_'+str(runid)
     DS = DataSelection(filename=file_channel,
                        raw_data=sumv)
