@@ -107,7 +107,7 @@ class FileIOModel(Atom):
     def update_more_data(self, change):
         self.file_channel_list = []
         self.file_names.sort()
-        logger.info('Loaded files : {}'.format(self.file_names))
+        logger.info('Loaded files : %s' %(self.file_names))
 
         # be alter: to be update, temporary use!!!
         if '13ide' in self.file_names[0]:
@@ -141,12 +141,15 @@ class FileIOModel(Atom):
         pass
 
     def load_data_runid(self):
+        """
+        Load data according to runID number.
+        """
         # for hxn
         name_prefix = 'xspress3_ch'
         c_list = [name_prefix+str(i+1) for i in range(8)]
 
         self.file_channel_list = []
-        self.file_names.sort()
+        #self.file_names.sort()
 
         self.data_dict, self.data_sets = read_runid(self.runid, c_list)
         self.file_channel_list = self.data_sets.keys()
@@ -190,10 +193,10 @@ def read_runid(runid, c_list):
         for i in xrange(len(channel_data)):
             new_data[0, i, :] = channel_data[i]
 
-        if sumv is None:
-            sumv = new_data
-        else:
-            sumv += new_data
+            if sumv is None:
+                sumv = new_data
+            else:
+                sumv += new_data
 
         file_channel = 'run_'+str(runid)+'_'+c_name
         DS = DataSelection(filename=file_channel,
