@@ -49,6 +49,13 @@ from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float
 import logging
 logger = logging.getLogger(__name__)
 
+try:
+    from dataportal import DataBroker as db
+    from dataportal import StepScan as ss
+    import hxntools.detectors
+except ImportError, e:
+    print('Modules not available: %s' %(e))
+
 
 class FileIOModel(Atom):
     """
@@ -134,27 +141,42 @@ class FileIOModel(Atom):
         pass
 
     def load_data_runid(self):
+        # for hxn
+        name_prefix = 'xspress3_ch'
+        c_list = [name_prefix+str(i+1) for i in range(8)]
+
         self.file_channel_list = []
         self.file_names.sort()
-        self.data_dict, self.data_sets = read_runid(self.runid)
-        self.file_channel_list = self.data_sets.keys()
-        self.file_channel_list = self.data_sets.keys()
-        
 
-def read_runid(inputid):
-    from dataportal import DataBroker as db
-    from dataportal import StepScan as ss
-    import hxntools.detectors
+        self.data_dict, self.data_sets = read_runid(self.runid, c_list)
+        self.file_channel_list = self.data_sets.keys()
 
+
+def read_runid(runid, c_list):
+    """
+    Read data from databroker.
+
+    Parameters
+    ----------
+    runid : int
+        ID for given experimental measurement
+    c_list : list
+        channel list
+
+    Returns
+    -------
+    data_dict : dict
+        with fitting data
+    data_sets : dict
+        data from each channel and channel summed
+    """
     data_dict = OrderedDict()
     data_sets = OrderedDict()
 
     # in case inputid is -1
-    hdr = db[inputid]
-    runid = hdr.scan_id
-
-    name_prefix = 'xspress3_ch'
-    c_list = [name_prefix+str(i+1) for i in range(8)]
+    if runid == -1:
+        hdr = db[-1]
+        runid = hdr.scan_id
 
     data = ss[runid]
 
