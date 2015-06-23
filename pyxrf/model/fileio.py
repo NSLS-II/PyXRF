@@ -146,7 +146,7 @@ class FileIOModel(Atom):
         """
         # for hxn
         name_prefix = 'xspress3_ch'
-        c_list = [name_prefix+str(i+1) for i in range(8)]
+        c_list = [name_prefix+str(i+1) for i in range(3)]
 
         self.file_channel_list = []
         #self.file_names.sort()
@@ -199,7 +199,7 @@ def read_runid(runid, c_list):
         data_sets[file_channel] = DS
 
         if sumv is None:
-            sumv = new_data
+            sumv = np.array(new_data)
         else:
             sumv += new_data
     
