@@ -49,6 +49,13 @@ from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float
 import logging
 logger = logging.getLogger(__name__)
 
+try:
+    from dataportal import DataBroker as db
+    from dataportal import StepScan as ss
+    import hxntools.detectors
+except ImportError, e:
+    print('Modules not available: %s' %(e))
+
 
 class FileIOModel(Atom):
     """
@@ -100,7 +107,7 @@ class FileIOModel(Atom):
     def update_more_data(self, change):
         self.file_channel_list = []
         self.file_names.sort()
-        logger.info('Loaded files : {}'.format(self.file_names))
+        logger.info('Loaded files : %s' %(self.file_names))
 
         # be alter: to be update, temporary use!!!
         if '13ide' in self.file_names[0]:
@@ -134,24 +141,45 @@ class FileIOModel(Atom):
         pass
 
     def load_data_runid(self):
-        self.data_dict, self.data_sets = read_runid(self.runid)
+        """
+        Load data according to runID number.
+        """
+        # for hxn
+        name_prefix = 'xspress3_ch'
+        c_list = [name_prefix+str(i+1) for i in range(3)]
+
+        self.file_channel_list = []
+        #self.file_names.sort()
+
+        self.data_dict, self.data_sets = read_runid(self.runid, c_list)
         self.file_channel_list = self.data_sets.keys()
 
 
-def read_runid(inputid):
-    from dataportal import DataBroker as db
-    from dataportal import StepScan as ss
-    import hxntools.detectors
+def read_runid(runid, c_list):
+    """
+    Read data from databroker.
 
+    Parameters
+    ----------
+    runid : int
+        ID for given experimental measurement
+    c_list : list
+        channel list
+
+    Returns
+    -------
+    data_dict : dict
+        with fitting data
+    data_sets : dict
+        data from each channel and channel summed
+    """
     data_dict = OrderedDict()
     data_sets = OrderedDict()
 
     # in case inputid is -1
-    hdr = db[inputid]
-    runid = hdr.scan_id
-
-    name_prefix = 'xspress3_ch'
-    c_list = [name_prefix+str(i+1) for i in range(8)]
+    if runid == -1:
+        hdr = db[-1]
+        runid = hdr.scan_id
 
     data = ss[runid]
 
@@ -165,16 +193,16 @@ def read_runid(inputid):
         for i in xrange(len(channel_data)):
             new_data[0, i, :] = channel_data[i]
 
-        if sumv is None:
-            sumv = new_data
-        else:
-            sumv += new_data
-
         file_channel = 'run_'+str(runid)+'_'+c_name
         DS = DataSelection(filename=file_channel,
                            raw_data=new_data)
         data_sets[file_channel] = DS
 
+        if sumv is None:
+            sumv = np.array(new_data)
+        else:
+            sumv += new_data
+    
     file_channel = 'run_'+str(runid)
     DS = DataSelection(filename=file_channel,
                        raw_data=sumv)
