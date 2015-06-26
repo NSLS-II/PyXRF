@@ -310,6 +310,7 @@ class Fit1D(Atom):
         else:
             self.fit_y += self.bg
 
+        # save statistical results for summed spectrum
         self.save_result()
         self.assign_fitting_result()
 
@@ -385,11 +386,21 @@ class Fit1D(Atom):
         """
         if not fname:
             fname = self.data_title+'_out.txt'
+            fname_c = self.data_title+'_combine.txt'
+
         filepath = os.path.join(self.result_folder, fname)
 
         with open(filepath, 'w') as myfile:
             myfile.write(fit_report(self.fit_result, sort_pars=True))
             logger.warning('Results are saved to {}'.format(filepath))
+
+        # save results of combined lines
+        filepath_c = os.path.join(self.result_folder, fname_c)
+
+        with open(filepath_c, 'w') as myfile:
+            for k, v in six.iteritems(self.comps):
+                myfile.write(k + '\t' + str(np.sum(v)) + '\n')
+                logger.warning('Combined line results are saved to {}'.format(filepath_c))
 
 
 def combine_lines(components, element_list, background):
