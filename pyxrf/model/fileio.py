@@ -43,6 +43,7 @@ import h5py
 import numpy as np
 import os
 from collections import OrderedDict
+import pandas as pd
 
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float
 
@@ -122,7 +123,10 @@ class FileIOModel(Atom):
             # temporary use
             self.img_dict, self.data_sets = read_numpy_data(self.working_directory,
                                                             self.file_names)
-
+        elif '.mca' in self.file_names[0]:
+            # temporary use
+            self.img_dict, self.data_sets = read_mca_data(self.working_directory,
+                                                          self.file_names)
         else:
             self.data_dict, self.data_sets = read_hdf_HXN(self.working_directory,
                                                           self.file_names)
@@ -427,6 +431,34 @@ def read_numpy_data(working_directory,
     for file_name in file_names:
         fpath = os.path.join(working_directory, file_name)
         exp_data = np.load(fpath)
+        DS = DataSelection(filename=file_name,
+                           raw_data=exp_data)
+        data_sets.update({file_name: DS})
+
+    return img_dict, data_sets
+
+
+def read_mca_data(working_directory,
+                  file_names):
+    """
+    temporary use only. Use pandas to read csv-like data.
+    """
+    data_sets = OrderedDict()
+    img_dict = OrderedDict()
+
+    for file_name in file_names:
+        fpath = os.path.join(working_directory, file_name)
+
+        with open(fpath, 'r') as f:
+            lines = f.readlines()
+        lines = [line.strip() for line in lines]
+        indexv = lines.index('DATA:') + 1
+
+        exp_data = pd.read_csv(fpath, header=indexv, sep=' ')
+
+        exp_data = np.asarray(exp_data)
+        exp_data = exp_data.T
+        exp_data = exp_data.reshape([1, exp_data.shape[0], exp_data.shape[1]])
         DS = DataSelection(filename=file_name,
                            raw_data=exp_data)
         data_sets.update({file_name: DS})
