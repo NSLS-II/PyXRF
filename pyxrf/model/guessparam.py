@@ -303,14 +303,6 @@ class GuessParamModel(Atom):
         #self.data = spectrum/np.max(spectrum)
         #self.data = spectrum/(self.data_all.shape[0]*self.data_all.shape[1])
         self.data = spectrum
-        x_val = np.arange(len(self.data))*0.0128
-        print('data length {}'.format(len(self.data)))
-
-        # myfile = open('scan01167_data.txt', 'w')
-        # for i in range(len(x_val)):
-        #     myfile.write(str(x_val[i])+'\t'+str(self.data[i])+'\n')
-        # myfile.close()
-
         self.define_range()
 
     def define_range(self):

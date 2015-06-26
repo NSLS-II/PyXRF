@@ -420,6 +420,20 @@ def read_numpy_data(working_directory,
                     file_names):
     """
     temporary use, bad example.
+
+    Parameters
+    ----------
+    working_directory : str
+        path folder
+    file_names : list
+        list of chosen files
+
+    Returns
+    -------
+    data_dict : dict
+        with fitting data
+    data_sets : dict
+        data from each channel and channel summed
     """
     #import pickle
     data_sets = OrderedDict()
@@ -442,6 +456,20 @@ def read_mca_data(working_directory,
                   file_names):
     """
     temporary use only. Use pandas to read csv-like data.
+
+    Parameters
+    ----------
+    working_directory : str
+        path folder
+    file_names : list
+        list of chosen files
+
+    Returns
+    -------
+    data_dict : dict
+        with fitting data
+    data_sets : dict
+        data from each channel and channel summed
     """
     data_sets = OrderedDict()
     img_dict = OrderedDict()
