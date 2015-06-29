@@ -52,6 +52,7 @@ logger = logging.getLogger(__name__)
 try:
     from dataportal import DataBroker as db
     from dataportal import StepScan as ss
+    from dataportal import DataMuxer as dm
     import hxntools.detectors
 except ImportError, e:
     print('Modules not available: %s' %(e))
@@ -176,13 +177,30 @@ def read_runid(runid, c_list):
     data_dict = OrderedDict()
     data_sets = OrderedDict()
 
+    stop_num = 500
+
     # in case inputid is -1
     if runid == -1:
         hdr = db[-1]
         runid = hdr.scan_id
 
-    data = ss[runid]
+    hdr = db[runid]
+    print('header loaded')
+    # events = db.fetch_events(hdr, fill=False)
+    # num_events = len(list(events))
+    # print('%s events found' % num_events)
+    ev = db.fetch_events(hdr)
+    
+    events = []
+    for idx, event in enumerate(ev):
+        if idx % 25 == 0:
+            print('event %s loaded' % (idx+1))
+        events.append(event)
+        if idx == stop_num:
+            break
 
+    muxer = dm.from_events(events)
+    data = muxer.to_sparse_dataframe()
     sumv = None
 
     for c_name in c_list:
