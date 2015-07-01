@@ -64,6 +64,7 @@ enamldef FileView(DockItem): file_view:
                     hbox(btn_out, fd_out),
                     hbox(files_btn, files_load),
                     hbox(cb_runid, run_lbl, run_num, load_btn, spacer),
+                    hbox(pixel_h_label, pixel_h, pixel_v_label, pixel_v, spacer),
                     scroller,
                     hbox(plot_bt, spacer),
                 ),
@@ -149,6 +150,16 @@ enamldef FileView(DockItem): file_view:
                     setting_model.parameters = param_model.param_new
                     setting_model.data_sets = io_model.data_sets
 
+            Label : pixel_h_label:
+                text = 'pixel num on x (horizontal)'
+            IntField: pixel_h:
+                value := io_model.h_num
+                maximum_size = (40, 20)
+            Label : pixel_v_label:
+                text = 'pixel num on y (vertical)'
+            IntField: pixel_v:
+                value := io_model.v_num
+                maximum_size = (40, 20)
 
             ScrollArea: scroller:
                 #Form:

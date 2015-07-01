@@ -91,6 +91,8 @@ class FileIOModel(Atom):
     data_sets = Typed(OrderedDict)
     #data_sets_fit = Typed(OrderedDict)
     runid = Int(-1)
+    h_num = Int(0)
+    v_num = Int(0)
 
     def __init__(self, **kwargs):
         self.working_directory = kwargs['working_directory']
@@ -109,7 +111,7 @@ class FileIOModel(Atom):
     def update_more_data(self, change):
         self.file_channel_list = []
         self.file_names.sort()
-        logger.info('Loaded files : %s' %(self.file_names))
+        logger.info('Loaded files : %s' % (self.file_names))
 
         # be alter: to be update, temporary use!!!
         if '13ide' in self.file_names[0]:
@@ -128,12 +130,15 @@ class FileIOModel(Atom):
             # temporary use
             name_prefix = 'xspress3_ch'
             c_list = [name_prefix+str(i+1) for i in range(3)]
+            dshape = None
+            if self.h_num != 0 and self.v_num != 0:
+                dshape = [self.v_num, self.h_num]
             self.img_dict, self.data_sets = read_pickle_HXN(self.working_directory,
                                                             self.file_names,
-                                                            c_list)
+                                                            c_list,
+                                                            dshape=dshape)
 
         else:
-
             self.data_dict, self.data_sets = read_hdf_HXN(self.working_directory,
                                                           self.file_names)
         self.file_channel_list = self.data_sets.keys()
@@ -239,7 +244,7 @@ def read_runid(runid, c_list):
 
 
 def read_pickle_HXN(working_directory,
-                    file_names, c_list):
+                    file_names, c_list, dshape=None):
     data_dict = OrderedDict()
     data_sets = OrderedDict()
 
@@ -251,14 +256,22 @@ def read_pickle_HXN(working_directory,
 
         file_path = os.path.join(working_directory, fname)
         data = pd.load(file_path)
+
+        exp_keys = data.keys()
+
         for c_name in c_list:
             print(c_name)
             channel_data = data[c_name]
+
             new_data = np.zeros([1, len(channel_data), len(channel_data[0])])
 
             for i in xrange(len(channel_data)):
                 channel_data[i][pd.isnull(channel_data[i])] = 0
-                new_data[0, i] = channel_data[i]
+                new_data[0, i, :] = channel_data[i]
+
+            if dshape:
+                new_data = new_data.reshape([dshape[0], dshape[1],
+                                             new_data.shape[2]])
 
             file_channel = str(fname)+'_'+c_name
             DS = DataSelection(filename=file_channel,
@@ -275,6 +288,15 @@ def read_pickle_HXN(working_directory,
         DS = DataSelection(filename=file_channel,
                            raw_data=sumv)
         data_sets[file_channel] = DS
+
+        temp = {}
+        for v in exp_keys:
+
+            if 'Ch' in v or 'sclr1' in v:
+                print(v)
+                pv_data = np.array(data[v])
+                temp[v] = pv_data.reshape(dshape)
+        data_dict[fname+'_roi'] = temp
 
     return data_dict, data_sets
 
