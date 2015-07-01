@@ -43,6 +43,7 @@ import h5py
 import numpy as np
 import os
 from collections import OrderedDict
+import pandas as pd
 
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float
 
@@ -123,11 +124,18 @@ class FileIOModel(Atom):
             # temporary use
             self.img_dict, self.data_sets = read_numpy_data(self.working_directory,
                                                             self.file_names)
+        elif 'pickle' in self.file_names[0]:
+            # temporary use
+            name_prefix = 'xspress3_ch'
+            c_list = [name_prefix+str(i+1) for i in range(3)]
+            self.img_dict, self.data_sets = read_pickle_HXN(self.working_directory,
+                                                            self.file_names,
+                                                            c_list)
 
         else:
+
             self.data_dict, self.data_sets = read_hdf_HXN(self.working_directory,
                                                           self.file_names)
-
         self.file_channel_list = self.data_sets.keys()
 
     def get_roi_data(self):
@@ -209,6 +217,7 @@ def read_runid(runid, c_list):
         new_data = np.zeros([1, len(channel_data), len(channel_data[0])])
 
         for i in xrange(len(channel_data)):
+            channel_data[i][pd.isnull(channel_data[i])] = 0
             new_data[0, i, :] = channel_data[i]
 
         file_channel = 'run_'+str(runid)+'_'+c_name
@@ -225,6 +234,47 @@ def read_runid(runid, c_list):
     DS = DataSelection(filename=file_channel,
                        raw_data=sumv)
     data_sets[file_channel] = DS
+
+    return data_dict, data_sets
+
+
+def read_pickle_HXN(working_directory,
+                    file_names, c_list):
+    data_dict = OrderedDict()
+    data_sets = OrderedDict()
+
+    # cut off bad point on the last position of the spectrum
+    bad_point_cut = 1
+
+    for fname in file_names:
+        sumv = None
+
+        file_path = os.path.join(working_directory, fname)
+        data = pd.load(file_path)
+        for c_name in c_list:
+            print(c_name)
+            channel_data = data[c_name]
+            new_data = np.zeros([1, len(channel_data), len(channel_data[0])])
+
+            for i in xrange(len(channel_data)):
+                channel_data[i][pd.isnull(channel_data[i])] = 0
+                new_data[0, i] = channel_data[i]
+
+            file_channel = str(fname)+'_'+c_name
+            DS = DataSelection(filename=file_channel,
+                               raw_data=new_data)
+            data_sets[file_channel] = DS
+
+            if sumv is None:
+                sumv = np.array(new_data)
+            else:
+                sumv += new_data
+            print('data shape {}, sum {}'.format(new_data.shape, np.sum(new_data)))
+
+        file_channel = str(fname)
+        DS = DataSelection(filename=file_channel,
+                           raw_data=sumv)
+        data_sets[file_channel] = DS
 
     return data_dict, data_sets
 
