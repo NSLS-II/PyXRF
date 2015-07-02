@@ -43,6 +43,7 @@ import h5py
 import numpy as np
 import os
 from collections import OrderedDict
+import pandas as pd
 
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float
 
@@ -90,6 +91,8 @@ class FileIOModel(Atom):
     data_sets = Typed(OrderedDict)
     #data_sets_fit = Typed(OrderedDict)
     runid = Int(-1)
+    h_num = Int(0)
+    v_num = Int(0)
 
     def __init__(self, **kwargs):
         self.working_directory = kwargs['working_directory']
@@ -108,7 +111,7 @@ class FileIOModel(Atom):
     def update_more_data(self, change):
         self.file_channel_list = []
         self.file_names.sort()
-        logger.info('Loaded files : %s' %(self.file_names))
+        logger.info('Loaded files : %s' % (self.file_names))
 
         # be alter: to be update, temporary use!!!
         if '13ide' in self.file_names[0]:
@@ -123,11 +126,21 @@ class FileIOModel(Atom):
             # temporary use
             self.img_dict, self.data_sets = read_numpy_data(self.working_directory,
                                                             self.file_names)
+        elif 'pickle' in self.file_names[0]:
+            # temporary use
+            name_prefix = 'xspress3_ch'
+            c_list = [name_prefix+str(i+1) for i in range(8)]
+            dshape = None
+            if self.h_num != 0 and self.v_num != 0:
+                dshape = [self.v_num, self.h_num]
+            self.img_dict, self.data_sets = read_pickle_HXN(self.working_directory,
+                                                            self.file_names,
+                                                            c_list,
+                                                            dshape=dshape)
 
         else:
             self.data_dict, self.data_sets = read_hdf_HXN(self.working_directory,
                                                           self.file_names)
-
         self.file_channel_list = self.data_sets.keys()
 
     def get_roi_data(self):
@@ -147,16 +160,20 @@ class FileIOModel(Atom):
         """
         # for hxn
         name_prefix = 'xspress3_ch'
-        c_list = [name_prefix+str(i+1) for i in range(3)]
+        c_list = [name_prefix+str(i+1) for i in range(8)]
 
         self.file_channel_list = []
         #self.file_names.sort()
 
-        self.data_dict, self.data_sets = read_runid(self.runid, c_list)
+        dshape = None
+        if self.h_num != 0 and self.v_num != 0:
+            dshape = [self.v_num, self.h_num]
+        self.data_dict, self.data_sets = read_runid(self.runid,
+                                                    c_list, dshape=dshape)
         self.file_channel_list = self.data_sets.keys()
 
 
-def read_runid(runid, c_list):
+def read_runid(runid, c_list, dshape=None):
     """
     Read data from databroker.
 
@@ -177,7 +194,7 @@ def read_runid(runid, c_list):
     data_dict = OrderedDict()
     data_sets = OrderedDict()
 
-    stop_num = 500
+    stop_num = 5000
 
     # in case inputid is -1
     if runid == -1:
@@ -201,6 +218,8 @@ def read_runid(runid, c_list):
 
     muxer = dm.from_events(events)
     data = muxer.to_sparse_dataframe()
+    exp_keys = data.keys()
+
     sumv = None
 
     for c_name in c_list:
@@ -209,6 +228,7 @@ def read_runid(runid, c_list):
         new_data = np.zeros([1, len(channel_data), len(channel_data[0])])
 
         for i in xrange(len(channel_data)):
+            channel_data[i][pd.isnull(channel_data[i])] = 0
             new_data[0, i, :] = channel_data[i]
 
         file_channel = 'run_'+str(runid)+'_'+c_name
@@ -225,6 +245,95 @@ def read_runid(runid, c_list):
     DS = DataSelection(filename=file_channel,
                        raw_data=sumv)
     data_sets[file_channel] = DS
+
+    temp = {}
+    for v in exp_keys:
+        if v not in c_list:
+            print(v)
+            # clean up nan data, should be done in lower level
+            data[v][pd.isnull(data[v])] = 0
+            pv_data = np.array(data[v])
+            temp[v] = pv_data.reshape(dshape)
+    data_dict['Run'+str(runid)+'_roi'] = temp
+
+    return data_dict, data_sets
+
+
+def read_pickle_HXN(working_directory,
+                    file_names, c_list, dshape=None):
+    """
+    Data IO for HXN temporary datasets. This might be changed later.
+
+    Parameters
+    ----------
+    working_directory : str
+        path folder
+    file_names : list
+        list of chosen files
+    c_list : list
+        list of xrf detector pv
+    dshape : list or tuple
+        shape of 2D scan image
+
+    Returns
+    -------
+    data_dict : dict
+        with fitting data
+    data_sets : dict
+        data from each channel and channel summed
+    """
+    data_dict = OrderedDict()
+    data_sets = OrderedDict()
+
+    for fname in file_names:
+        sumv = None
+
+        file_path = os.path.join(working_directory, fname)
+        data = pd.load(file_path)
+
+        exp_keys = data.keys()
+
+        for c_name in c_list:
+            print(c_name)
+            channel_data = data[c_name]
+
+            new_data = np.zeros([1, len(channel_data), len(channel_data[0])])
+
+            for i in xrange(len(channel_data)):
+
+                # clean up nan data, should be done in lower level
+                channel_data[i][pd.isnull(channel_data[i])] = 0
+                new_data[0, i, :] = channel_data[i]
+
+            if dshape:
+                new_data = new_data.reshape([dshape[0], dshape[1],
+                                             new_data.shape[2]])
+
+            file_channel = str(fname)+'_'+c_name
+            DS = DataSelection(filename=file_channel,
+                               raw_data=new_data)
+            data_sets[file_channel] = DS
+
+            if sumv is None:
+                sumv = np.array(new_data)
+            else:
+                sumv += new_data
+            print('data shape {}, sum {}'.format(new_data.shape, np.sum(new_data)))
+
+        file_channel = str(fname)
+        DS = DataSelection(filename=file_channel,
+                           raw_data=sumv)
+        data_sets[file_channel] = DS
+
+        temp = {}
+        for v in exp_keys:
+            if v not in c_list:
+                print(v)
+                # clean up nan data, should be done in lower level
+                data[v][pd.isnull(data[v])] = 0
+                pv_data = np.array(data[v])
+                temp[v] = pv_data.reshape(dshape)
+        data_dict[fname+'_roi'] = temp
 
     return data_dict, data_sets
 
