@@ -194,8 +194,6 @@ def read_runid(runid, c_list, dshape=None):
     data_dict = OrderedDict()
     data_sets = OrderedDict()
 
-    stop_num = 5000
-
     # in case inputid is -1
     if runid == -1:
         hdr = db[-1]
@@ -213,8 +211,6 @@ def read_runid(runid, c_list, dshape=None):
         if idx % 25 == 0:
             print('event %s loaded' % (idx+1))
         events.append(event)
-        if idx == stop_num:
-            break
 
     muxer = dm.from_events(events)
     data = muxer.to_sparse_dataframe()
