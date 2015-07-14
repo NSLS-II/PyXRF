@@ -114,8 +114,8 @@ class FileIOModel(Atom):
         logger.info('Loaded files : %s' % (self.file_names))
 
         # be alter: to be update, temporary use!!!
-        if '13ide' in self.file_names[0]:
-            logger.info('Load APS 13IDE data format.')
+        if '.h5' in self.file_names[0]:
+            #logger.info('Load APS 13IDE data format.')
             self.img_dict, self.data_sets = read_hdf_APS(self.working_directory,
                                                          self.file_names)
         elif 'bnp' in self.file_names[0]:
@@ -129,7 +129,7 @@ class FileIOModel(Atom):
         elif 'pickle' in self.file_names[0]:
             # temporary use
             name_prefix = 'xspress3_ch'
-            c_list = [name_prefix+str(i+1) for i in range(8)]
+            c_list = [name_prefix+str(i+1) for i in range(3)]
             dshape = None
             if self.h_num != 0 and self.v_num != 0:
                 dshape = [self.v_num, self.h_num]
@@ -396,9 +396,10 @@ def read_hdf_HXN(working_directory,
 
 
 def read_hdf_APS(working_directory,
-                 file_names, channel_num=2):
+                 file_names, channel_num=3):
     """
-    Data IO for APS Beamline 13 datasets. This might be changed later.
+    Data IO for files similar to APS Beamline 13 data format.
+    This might be changed later.
 
     Parameters
     ----------
@@ -422,24 +423,26 @@ def read_hdf_APS(working_directory,
 
     # cut off bad point on the last position of the spectrum
     angle_cut = 1
-    spectrum_cut = 2600
+    spectrum_cut = 1
 
     for fname in file_names:
         try:
             file_path = os.path.join(working_directory, fname)
-            with h5py.File(file_path, 'r+') as f:
-                data = f['xrfmap']
+            #with h5py.File(file_path, 'r+') as f:
+            f = h5py.File(file_path, 'r+')
+            data = f['xrfmap']
 
-                fname = fname.split('.')[0]
+            fname = fname.split('.')[0]
 
-                # for 2D MAP
-                #data_dict[fname] = data
+            # for 2D MAP
+            #data_dict[fname] = data
 
-                # data from channel summed
-                exp_data = data['detsum/counts']
-                exp_data = np.asarray(exp_data[:, angle_cut:-angle_cut, :-spectrum_cut])
-                roi_name = data['detsum']['roi_name'].value
-                roi_value = data['detsum']['roi_limits'].value
+            # data from channel summed
+            exp_data = data['detsum/counts']
+            #exp_data = np.asarray(exp_data[:, angle_cut:-angle_cut, :-spectrum_cut])
+            exp_data = np.array(exp_data)
+            #roi_name = data['detsum']['roi_name'].value
+            #roi_value = data['detsum']['roi_limits'].value
 
             DS = DataSelection(filename=fname,
                                raw_data=exp_data)
@@ -447,28 +450,30 @@ def read_hdf_APS(working_directory,
             logger.info('Data of detector sum is loaded.')
 
             # data from each channel
-            # for i in range(1, channel_num):
-            #     det_name = 'det'+str(i)
-            #     file_channel = fname+'_channel_'+str(i)
-            #     exp_data_new = data[det_name+'/counts'][:, angle_cut:-angle_cut, :-spectrum_cut]
-            #     exp_data_new = np.asarray(exp_data_new)
-            #     DS = DataSelection(filename=file_channel,
-            #                        raw_data=exp_data_new)
-            #     data_sets[file_channel] = DS
-            #     logger.info('Data from detector channel {} is loaded.'.format(i))
+            for i in range(1, channel_num+1):
+                det_name = 'det'+str(i)
+                file_channel = fname+'_channel_'+str(i)
+                #exp_data_new = data[det_name+'/counts'][:, angle_cut:-angle_cut, :-spectrum_cut]
+                exp_data_new = data[det_name+'/counts']
+                exp_data_new = np.array(exp_data_new)
+                DS = DataSelection(filename=file_channel,
+                                   raw_data=exp_data_new)
+                data_sets[file_channel] = DS
+                logger.info('Data from detector channel {} is loaded.'.format(i))
 
             #get roi sum data
-            roi_result = get_roi_sum(roi_name,
-                                     roi_value,
-                                     exp_data)
-                                     #data[detID]['counts'][:, angle_cut:-angle_cut, :-spectrum_cut])
-            img_dict.update({fname+'_roi': roi_result})
+            # roi_result = get_roi_sum(roi_name,
+            #                          roi_value,
+            #                          exp_data)
+            #                          #data[detID]['counts'][:, angle_cut:-angle_cut, :-spectrum_cut])
+            # img_dict.update({fname+'_roi': roi_result})
 
             # read fitting results from summed data
             if 'xrf_fit' in data['detsum']:
                 fit_result = get_fit_data(data['detsum']['xrf_fit_name'].value,
                                           data['detsum']['xrf_fit'].value)
                 img_dict.update({fname+'_fit': fit_result})
+            f.close()
 
         except ValueError:
             continue
@@ -739,3 +744,55 @@ class SpectrumCalculator(object):
                           axis=(0, 1))
             #return np.sum(self.data[:, self.pos1[0]:self.pos2[0], self.pos1[1]:self.pos2[1]],
             #              axis=(1, 2))
+
+
+def db_to_hdf(fpath, data,
+              datashape, c_list,
+              interpath='xrfmap'):
+
+    f = h5py.File(fpath, 'a')
+
+    sum_data = None
+
+    for n in range(len(c_list)):
+        detname = 'det'+str(n+1)
+        try:
+            dataGrp = f.create_group(interpath+'/'+detname)
+        except ValueError:
+            dataGrp = f[interpath+'/'+detname]
+
+        c_name = c_list[n]
+        print(c_name)
+        channel_data = data[c_name]
+        new_data = np.zeros([1, len(channel_data), len(channel_data[0])])
+
+        for i in xrange(len(channel_data)):
+            channel_data[i][pd.isnull(channel_data[i])] = 0
+            new_data[0, i, :] = channel_data[i]
+        if sum_data is None:
+            sum_data = new_data
+        else:
+            sum_data += new_data
+
+        new_data = new_data.reshape([datashape[0], datashape[1], len(channel_data[0])])
+
+        if 'counts' in dataGrp:
+            del dataGrp['counts']
+        ds_data = dataGrp.create_dataset('counts', data=new_data)
+        ds_data.attrs['comments'] = 'Experimental data from channel ' + str(n)
+
+    # summed data
+    try:
+        dataGrp = f.create_group(interpath+'/detsum')
+    except ValueError:
+        dataGrp = f[interpath+'/detsum']
+
+    if 'counts' in dataGrp:
+        del dataGrp['counts']
+
+    sum_data = sum_data.reshape([datashape[0], datashape[1], len(channel_data[0])])
+    ds_data = dataGrp.create_dataset('counts', data=sum_data)
+    ds_data.attrs['comments'] = 'Experimental data from channel sum'
+
+    f.close()
+

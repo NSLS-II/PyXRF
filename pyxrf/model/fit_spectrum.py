@@ -108,6 +108,8 @@ class Fit1D(Atom):
     red_chi2 = Float(0.0)
     global_param_list = List()
 
+    save_name = Str()
+
     def __init__(self, *args, **kwargs):
         self.working_directory = kwargs['working_directory']
         self.result_folder = kwargs['working_directory']
@@ -324,11 +326,14 @@ class Fit1D(Atom):
         This function performs single pixel fitting.
         Multiprocess is considered.
         """
-        save_name = 'pv250_slice1_data'
+        #save_name = 'pv250_slice1_data'
         #save_name = 'bnp_fly0148_data'
         #save_name = 'hxn_scan_01167_data'
-        save_dict = {'fit_path': os.path.join(self.result_folder, save_name+'_pixel'),
-                     'save_range': 200}
+        #save_name = 'hxn_scan_2033_data.h5'
+        save_name = self.save_name
+        #save_name = 'test1'
+        save_dict = {'fit_path': os.path.join(self.result_folder, save_name),
+                     'save_range': 0}
 
         strategy_pixel = 'linear'
         set_parameter_bound(self.param_dict, strategy_pixel)
@@ -346,7 +351,8 @@ class Fit1D(Atom):
         # currently save data using pickle, need to be updated
         import pickle
         fpath = os.path.join(self.result_folder, save_name)
-        pickle.dump(result_map, open(fpath, 'wb'))
+        #pickle.dump(result_map, open(fpath, 'wb'))
+        save_fitdata_to_hdf(fpath, result_map)
 
     def fit_multi_files(self):
         """
@@ -955,7 +961,7 @@ def fit_pixel_slow_version(data, param, c_val=1e-2, fit_num=10, c_weight=1):
     return result_map
 
 
-def write_to_hdf(fpath, data_dict, interpath='xrfmap/detsum'):
+def save_fitdata_to_hdf(fpath, data_dict, interpath='xrfmap/detsum'):
     """
     Add fitting results to existing h5 file. This is to be moved to filestore.
 
@@ -968,8 +974,11 @@ def write_to_hdf(fpath, data_dict, interpath='xrfmap/detsum'):
     interpath : str
         path inside h5py file
     """
-    f = h5py.File(fpath, 'r+')
-    dataGrp = f[interpath]
+    f = h5py.File(fpath, 'a')
+    try:
+        dataGrp = f.create_group(interpath)
+    except ValueError:
+        dataGrp=f[interpath]
 
     data = []
     namelist = []

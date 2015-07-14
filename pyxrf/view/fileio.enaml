@@ -110,6 +110,7 @@ enamldef FileView(DockItem): file_view:
                         plot_model.parameters = param_model.param_new
                         setting_model.parameters = param_model.param_new
                         setting_model.data_sets = io_model.data_sets
+                        fit_model.save_name = io_model.file_names[0]
 
             Label: files_load:
                 text = 'No data is loaded.'
