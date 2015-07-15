@@ -56,7 +56,7 @@ try:
     from dataportal import DataMuxer as dm
     import hxntools.detectors
 except ImportError, e:
-    print('Modules not available: %s' %(e))
+    print('Modules not available: %s' % (e))
 
 
 class FileIOModel(Atom):
@@ -749,6 +749,22 @@ class SpectrumCalculator(object):
 def db_to_hdf(fpath, data,
               datashape, c_list,
               interpath='xrfmap'):
+    """
+    Read data from databroker, and save it to hdf file.
+
+    Parameters
+    ----------
+    fpath: str
+        path to save hdf file
+    data : array
+        data from data broker
+    datashape : tuple or list
+        shape of two D image
+    c_list : list
+        channel list
+    interpath : str, optional
+        path inside hdf file
+    """
 
     f = h5py.File(fpath, 'a')
 

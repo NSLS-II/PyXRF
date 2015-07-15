@@ -109,6 +109,7 @@ class Fit1D(Atom):
     global_param_list = List()
 
     save_name = Str()
+    fit_img = Dict()
 
     def __init__(self, *args, **kwargs):
         self.working_directory = kwargs['working_directory']
@@ -326,12 +327,7 @@ class Fit1D(Atom):
         This function performs single pixel fitting.
         Multiprocess is considered.
         """
-        #save_name = 'pv250_slice1_data'
-        #save_name = 'bnp_fly0148_data'
-        #save_name = 'hxn_scan_01167_data'
-        #save_name = 'hxn_scan_2033_data.h5'
         save_name = self.save_name
-        #save_name = 'test1'
         save_dict = {'fit_path': os.path.join(self.result_folder, save_name),
                      'save_range': 0}
 
@@ -344,14 +340,11 @@ class Fit1D(Atom):
         t1 = time.time()
         logger.warning('Time used for pixel fitting is : {}'.format(t1-t0))
 
-        # save data
-        #fpath = os.path.join(self.result_folder, 'Root.h5')
-        #write_to_hdf(fpath, result_map)
-
         # currently save data using pickle, need to be updated
-        import pickle
+        #import pickle
         fpath = os.path.join(self.result_folder, save_name)
         #pickle.dump(result_map, open(fpath, 'wb'))
+        self.fit_img[save_name.split('.')[0]+'_fit'] = result_map
         save_fitdata_to_hdf(fpath, result_map)
 
     def fit_multi_files(self):

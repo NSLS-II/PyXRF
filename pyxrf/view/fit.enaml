@@ -73,6 +73,7 @@ enamldef FitView(DockItem): fit_view:
     attr fit_model
     attr element_edit
     attr parameter_edit
+    attr img_model_adv
 
     Container:
         constraints = [
@@ -267,6 +268,7 @@ enamldef FitView(DockItem): fit_view:
                 clicked ::
                     #fit_model.fit_multi_files()
                     fit_model.fit_single_pixel()
+                    img_model_adv.data_dict = fit_model.fit_img
 
 
 enamldef ElementEdit(Window):
