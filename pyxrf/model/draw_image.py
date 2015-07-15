@@ -314,6 +314,8 @@ class DrawImageAdvanced(Atom):
 
         elif len(stat_temp) > 6:
             for i, (k, v) in enumerate(sorted(stat_temp)):
+                if i >= 9:
+                    break
                 ax = self.fig.add_subplot(eval('33'+str(i+1)))
                 if self.scale_opt == 'Linear':
                     im = ax.imshow(self.data_dict[k][v],

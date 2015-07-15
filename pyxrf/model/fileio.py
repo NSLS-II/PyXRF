@@ -173,6 +173,100 @@ class FileIOModel(Atom):
         self.file_channel_list = self.data_sets.keys()
 
 
+plot_as = ['Sum', 'Point', 'Roi']
+
+
+class DataSelection(Atom):
+    """
+    Attributes
+    ----------
+    filename : str
+    plot_choice : enum
+        methods ot plot
+    point1 : str
+        starting position
+    point2 : str
+        ending position
+    roi : list
+    raw_data : array
+        experiment 3D data
+    data : array
+    plot_index : int
+        plot data or not, sum or roi or point
+    """
+    filename = Str()
+    plot_choice = Enum(*plot_as)
+    point1 = Str('0, 0')
+    point2 = Str('0, 0')
+    raw_data = Typed(np.ndarray)
+    data = Typed(np.ndarray)
+    plot_index = Int(0)
+    fit_name = Str()
+    fit_data = Typed(np.ndarray)
+
+    @observe('plot_index', 'point1', 'point2')
+    def _update_roi(self, change):
+        if self.plot_index == 0:
+            return
+        elif self.plot_index == 1:
+            self.data = self.get_sum()
+        elif self.plot_index == 2:
+            SC = SpectrumCalculator(self.raw_data, pos1=self.point1)
+            self.data = SC.get_spectrum()
+        else:
+            SC = SpectrumCalculator(self.raw_data,
+                                    pos1=self.point1,
+                                    pos2=self.point2)
+            self.data = SC.get_spectrum()
+
+    def get_sum(self):
+        SC = SpectrumCalculator(self.raw_data)
+        return SC.get_spectrum()
+
+
+class SpectrumCalculator(object):
+    """
+    Calculate summed spectrum according to starting and ending positions.
+
+    Attributes
+    ----------
+    data : array
+        3D array of experiment data
+    pos1 : str
+        starting position
+    pos2 : str
+        ending position
+    """
+
+    def __init__(self, data,
+                 pos1=None, pos2=None):
+        self.data = data
+        if pos1:
+            self.pos1 = self._parse_pos(pos1)
+        else:
+            self.pos1 = None
+        if pos2:
+            self.pos2 = self._parse_pos(pos2)
+        else:
+            self.pos2 = None
+
+    def _parse_pos(self, pos):
+        if isinstance(pos, list):
+            return pos
+        return [int(v) for v in pos.split(',')]
+
+    def get_spectrum(self):
+        if not self.pos1 and not self.pos2:
+            return np.sum(self.data, axis=(0, 1))
+        elif self.pos1 and not self.pos2:
+            print('shape: {}'.format(self.data.shape))
+            print('pos1: {}'.format(self.pos1))
+            return self.data[self.pos1[0], self.pos1[1], :]
+        else:
+            return np.sum(self.data[self.pos1[0]:self.pos2[0], self.pos1[1]:self.pos2[1], :],
+                          axis=(0, 1))
+
+
 def fetch_data_from_db(runid):
     """
     Read data from database.
@@ -197,7 +291,7 @@ def fetch_data_from_db(runid):
     events = []
     for idx, event in enumerate(ev):
         if idx % 25 == 0:
-            logger.info('event %s loaded' % (idx+1))
+            print('event %s loaded' % (idx+1))
         events.append(event)
 
     muxer = dm.from_events(events)
@@ -668,103 +762,11 @@ def get_fit_data(namelist, data):
     #self.img_dict_flat.update({fname.split('.')[0]: data_temp})
 
 
-plot_as = ['Sum', 'Point', 'Roi']
 
 
-class DataSelection(Atom):
-    """
-    Attributes
-    ----------
-    filename : str
-    plot_choice : enum
-        methods ot plot
-    point1 : str
-        starting position
-    point2 : str
-        ending position
-    roi : list
-    raw_data : array
-        experiment 3D data
-    data : array
-    plot_index : int
-        plot data or not, sum or roi or point
-    """
-    filename = Str()
-    plot_choice = Enum(*plot_as)
-    point1 = Str('0, 0')
-    point2 = Str('0, 0')
-    raw_data = Typed(np.ndarray)
-    data = Typed(np.ndarray)
-    plot_index = Int(0)
-    fit_name = Str()
-    fit_data = Typed(np.ndarray)
-
-    @observe('plot_index', 'point1', 'point2')
-    def _update_roi(self, change):
-        if self.plot_index == 0:
-            return
-        elif self.plot_index == 1:
-            self.data = self.get_sum()
-        elif self.plot_index == 2:
-            SC = SpectrumCalculator(self.raw_data, pos1=self.point1)
-            self.data = SC.get_spectrum()
-        else:
-            SC = SpectrumCalculator(self.raw_data,
-                                    pos1=self.point1,
-                                    pos2=self.point2)
-            self.data = SC.get_spectrum()
-
-    def get_sum(self):
-        SC = SpectrumCalculator(self.raw_data)
-        return SC.get_spectrum()
-
-
-class SpectrumCalculator(object):
-    """
-    Calculate summed spectrum according to starting and ending positions.
-
-    Attributes
-    ----------
-    data : array
-        3D array of experiment data
-    pos1 : str
-        starting position
-    pos2 : str
-        ending position
-    """
-
-    def __init__(self, data,
-                 pos1=None, pos2=None):
-        self.data = data
-        if pos1:
-            self.pos1 = self._parse_pos(pos1)
-        else:
-            self.pos1 = None
-        if pos2:
-            self.pos2 = self._parse_pos(pos2)
-        else:
-            self.pos2 = None
-
-    def _parse_pos(self, pos):
-        if isinstance(pos, list):
-            return pos
-        return [int(v) for v in pos.split(',')]
-
-    def get_spectrum(self):
-        if not self.pos1 and not self.pos2:
-            return np.sum(self.data, axis=(0, 1))
-        elif self.pos1 and not self.pos2:
-            print('shape: {}'.format(self.data.shape))
-            print('pos1: {}'.format(self.pos1))
-            return self.data[self.pos1[0], self.pos1[1], :]
-        else:
-            return np.sum(self.data[self.pos1[0]:self.pos2[0], self.pos1[1]:self.pos2[1], :],
-                          axis=(0, 1))
-
-
-def data_from_db_to_hdf(fpath, data,
-                        datashape, c_list,
-                        interpath='xrfmap'):
+def data_from_db_to_hdf(fpath, data, datashape,
+                        det_list=['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'],
+                        pos_list=['ssx[um]', 'ssy[um]']):
     """
     Assume data is obained from databroker, and save the data to hdf file.
 
@@ -776,24 +778,25 @@ def data_from_db_to_hdf(fpath, data,
         data from data broker
     datashape : tuple or list
         shape of two D image
-    c_list : list
-        channel list
-    interpath : str, optional
-        path inside hdf file
+    det_list : list, optional
+        list of detector channels
+    pos_list : list, optional
+        list of pos pv
     """
 
+    interpath = 'xrfmap'
     f = h5py.File(fpath, 'a')
 
     sum_data = None
 
-    for n in range(len(c_list)):
+    for n in range(len(det_list)):
         detname = 'det'+str(n+1)
         try:
             dataGrp = f.create_group(interpath+'/'+detname)
         except ValueError:
             dataGrp = f[interpath+'/'+detname]
 
-        c_name = c_list[n]
+        c_name = det_list[n]
         logger.info('read data from %s' % c_name)
         channel_data = data[c_name]
         new_data = np.zeros([1, len(channel_data), len(channel_data[0])])
@@ -827,12 +830,34 @@ def data_from_db_to_hdf(fpath, data,
     ds_data = dataGrp.create_dataset('counts', data=sum_data)
     ds_data.attrs['comments'] = 'Experimental data from channel sum'
 
+    # position data
+    try:
+        dataGrp = f.create_group(interpath+'/positions')
+    except ValueError:
+        dataGrp = f[interpath+'/positions']
+
+    if 'pos' in dataGrp:
+        del dataGrp['pos']
+
+    if 'name' in dataGrp:
+        del dataGrp['name']
+
+    pos_names = []
+    pos_data = np.zeros([datashape[0], datashape[1], len(pos_list)])
+    for i, v in enumerate(pos_data):
+        posv = np.asarray(data[v])
+        pos_data[:, :, i] = posv.reshape([datashape[0], datashape[1]])
+        pos_names.append(v)
+
+    dataGrp.create_dataset('pos', data=pos_data)
+    dataGrp.create_dataset('name', data=pos_names)
+
     f.close()
 
 
 def db_to_hdf(fpath, runid,
-              datashape, c_list,
-              interpath='xrfmap'):
+              datashape, det_list,
+              pos_list):
     """
     Read data from databroker, and save the data to hdf file.
 
@@ -844,14 +869,14 @@ def db_to_hdf(fpath, runid,
         data from data broker
     datashape : tuple or list
         shape of two D image
-    c_list : list
-        channel list
-    interpath : str, optional
-        path inside hdf file
+    det_list : list
+        list of detector channels
+    pos_list : list
+        list of pos pv
     """
 
     data = fetch_data_from_db(runid)
     data_from_db_to_hdf(fpath, data,
-                        datashape, c_list,
-                        interpath=interpath)
+                        datashape, det_list=det_list,
+                        pos_list=pos_list)
 
