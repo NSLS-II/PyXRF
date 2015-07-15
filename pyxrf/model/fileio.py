@@ -56,7 +56,7 @@ try:
     from dataportal import DataMuxer as dm
     import hxntools.detectors
 except ImportError, e:
-    print('Modules not available: %s' % (e))
+    logger.warning('Modules not available: %s' % (e))
 
 
 class FileIOModel(Atom):
@@ -173,6 +173,38 @@ class FileIOModel(Atom):
         self.file_channel_list = self.data_sets.keys()
 
 
+def fetch_data_from_db(runid):
+    """
+    Read data from database.
+
+    Parameters
+    ----------
+    runid : int
+        ID for given experimental measurement
+
+    Returns
+    -------
+    data : pandas.core.frame.DataFrame
+        data frame with keys as given PV names.
+    """
+
+    hdr = db[runid]
+    # events = db.fetch_events(hdr, fill=False)
+    # num_events = len(list(events))
+    # print('%s events found' % num_events)
+    ev = db.fetch_events(hdr)
+
+    events = []
+    for idx, event in enumerate(ev):
+        if idx % 25 == 0:
+            logger.info('event %s loaded' % (idx+1))
+        events.append(event)
+
+    muxer = dm.from_events(events)
+    data = muxer.to_sparse_dataframe()
+    return data
+
+
 def read_runid(runid, c_list, dshape=None):
     """
     Read data from databroker.
@@ -199,21 +231,8 @@ def read_runid(runid, c_list, dshape=None):
         hdr = db[-1]
         runid = hdr.scan_id
 
-    hdr = db[runid]
-    print('header loaded')
-    # events = db.fetch_events(hdr, fill=False)
-    # num_events = len(list(events))
-    # print('%s events found' % num_events)
-    ev = db.fetch_events(hdr)
-    
-    events = []
-    for idx, event in enumerate(ev):
-        if idx % 25 == 0:
-            print('event %s loaded' % (idx+1))
-        events.append(event)
+    data = fetch_data_from_db(runid)
 
-    muxer = dm.from_events(events)
-    data = muxer.to_sparse_dataframe()
     exp_keys = data.keys()
 
     sumv = None
@@ -738,19 +757,16 @@ class SpectrumCalculator(object):
             print('shape: {}'.format(self.data.shape))
             print('pos1: {}'.format(self.pos1))
             return self.data[self.pos1[0], self.pos1[1], :]
-            #return self.data[:, self.pos1[0], self.pos1[1]]
         else:
             return np.sum(self.data[self.pos1[0]:self.pos2[0], self.pos1[1]:self.pos2[1], :],
                           axis=(0, 1))
-            #return np.sum(self.data[:, self.pos1[0]:self.pos2[0], self.pos1[1]:self.pos2[1]],
-            #              axis=(1, 2))
 
 
-def db_to_hdf(fpath, data,
-              datashape, c_list,
-              interpath='xrfmap'):
+def data_from_db_to_hdf(fpath, data,
+                        datashape, c_list,
+                        interpath='xrfmap'):
     """
-    Read data from databroker, and save it to hdf file.
+    Assume data is obained from databroker, and save the data to hdf file.
 
     Parameters
     ----------
@@ -778,7 +794,7 @@ def db_to_hdf(fpath, data,
             dataGrp = f[interpath+'/'+detname]
 
         c_name = c_list[n]
-        print(c_name)
+        logger.info('read data from %s' % c_name)
         channel_data = data[c_name]
         new_data = np.zeros([1, len(channel_data), len(channel_data[0])])
 
@@ -806,9 +822,36 @@ def db_to_hdf(fpath, data,
     if 'counts' in dataGrp:
         del dataGrp['counts']
 
-    sum_data = sum_data.reshape([datashape[0], datashape[1], len(channel_data[0])])
+    sum_data = sum_data.reshape([datashape[0], datashape[1],
+                                 len(channel_data[0])])
     ds_data = dataGrp.create_dataset('counts', data=sum_data)
     ds_data.attrs['comments'] = 'Experimental data from channel sum'
 
     f.close()
+
+
+def db_to_hdf(fpath, runid,
+              datashape, c_list,
+              interpath='xrfmap'):
+    """
+    Read data from databroker, and save the data to hdf file.
+
+    Parameters
+    ----------
+    fpath: str
+        path to save hdf file
+    data : array
+        data from data broker
+    datashape : tuple or list
+        shape of two D image
+    c_list : list
+        channel list
+    interpath : str, optional
+        path inside hdf file
+    """
+
+    data = fetch_data_from_db(runid)
+    data_from_db_to_hdf(fpath, data,
+                        datashape, c_list,
+                        interpath=interpath)
 
