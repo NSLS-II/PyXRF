@@ -883,8 +883,10 @@ def get_name_value_from_hdf(name_list, data, datashape):
 
 
 def db_to_hdf(fpath, runid,
-              datashape, det_list,
-              pos_list):
+              datashape,
+              det_list=['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'],
+              pos_list=['ssx[um]', 'ssy[um]'],
+              scaler_list=['sclr1_ch2', 'sclr1_ch3', 'sclr1_ch8']):
     """
     Read data from databroker, and save the data to hdf file.
 
@@ -905,5 +907,6 @@ def db_to_hdf(fpath, runid,
     data = fetch_data_from_db(runid)
     data_from_db_to_hdf(fpath, data,
                         datashape, det_list=det_list,
-                        pos_list=pos_list)
+                        pos_list=pos_list,
+                        scaler_list=scaler_list)
 
