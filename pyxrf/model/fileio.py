@@ -533,7 +533,6 @@ def read_hdf_APS(working_directory,
     #data_dict = OrderedDict()
     data_sets = OrderedDict()
     img_dict = OrderedDict()
-
     # cut off bad point on the last position of the spectrum
     angle_cut = 1
     spectrum_cut = 1
@@ -586,6 +585,7 @@ def read_hdf_APS(working_directory,
                 fit_result = get_fit_data(data['detsum']['xrf_fit_name'].value,
                                           data['detsum']['xrf_fit'].value)
                 img_dict.update({fname+'_fit': fit_result})
+
             f.close()
 
         except ValueError:
@@ -762,11 +762,10 @@ def get_fit_data(namelist, data):
     #self.img_dict_flat.update({fname.split('.')[0]: data_temp})
 
 
-
-
 def data_from_db_to_hdf(fpath, data, datashape,
                         det_list=['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'],
-                        pos_list=['ssx[um]', 'ssy[um]']):
+                        pos_list=['ssx[um]', 'ssy[um]'],
+                        scaler_list=['sclr1_ch2', 'sclr1_ch3', 'sclr1_ch8']):
     """
     Assume data is obained from databroker, and save the data to hdf file.
 
@@ -809,7 +808,8 @@ def data_from_db_to_hdf(fpath, data, datashape,
         else:
             sum_data += new_data
 
-        new_data = new_data.reshape([datashape[0], datashape[1], len(channel_data[0])])
+        new_data = new_data.reshape([datashape[0], datashape[1],
+                                     len(channel_data[0])])
 
         if 'counts' in dataGrp:
             del dataGrp['counts']
@@ -842,17 +842,44 @@ def data_from_db_to_hdf(fpath, data, datashape,
     if 'name' in dataGrp:
         del dataGrp['name']
 
-    pos_names = []
-    pos_data = np.zeros([datashape[0], datashape[1], len(pos_list)])
-    for i, v in enumerate(pos_data):
-        posv = np.asarray(data[v])
-        pos_data[:, :, i] = posv.reshape([datashape[0], datashape[1]])
-        pos_names.append(v)
+    pos_names, pos_data = get_name_value_from_hdf(pos_list, data,
+                                                  datashape)
 
     dataGrp.create_dataset('pos', data=pos_data)
     dataGrp.create_dataset('name', data=pos_names)
 
+    # scaler data
+    try:
+        dataGrp = f.create_group(interpath+'/scalers')
+    except ValueError:
+        dataGrp = f[interpath+'/scalers']
+
+    if 'val' in dataGrp:
+        del dataGrp['val']
+
+    if 'name' in dataGrp:
+        del dataGrp['name']
+
+    scaler_names, scaler_data = get_name_value_from_hdf(scaler_list, data,
+                                                        datashape)
+
+    dataGrp.create_dataset('val', data=scaler_data)
+    dataGrp.create_dataset('name', data=scaler_names)
+
     f.close()
+
+
+def get_name_value_from_hdf(name_list, data, datashape):
+    """
+    Get name and data from a given group in hdf file.
+    """
+    pos_names = []
+    pos_data = np.zeros([datashape[0], datashape[1], len(name_list)])
+    for i, v in enumerate(name_list):
+        posv = np.asarray(data[v])
+        pos_data[:, :, i] = posv.reshape([datashape[0], datashape[1]])
+        pos_names.append(v)
+    return pos_names, pos_data
 
 
 def db_to_hdf(fpath, runid,
