@@ -148,9 +148,12 @@ enamldef ChooseElementAdvanced(Window): win:
             ),
         ]
         ComboBox: cb:
-            items << sorted(img_model.data_dict.keys())
+            #items << sorted(img_model.data_dict.keys())
+            items << sorted(img_model.group_names)
             index = 0
-
+            index ::
+                if index > 0:
+                    img_model.group_name = selected_item
         PushButton: plot_btn:
             text = 'Show Image'
             clicked ::
@@ -167,7 +170,8 @@ enamldef ChooseElementAdvanced(Window): win:
                         #Label:
                         #    pass
                         Looper: looper:
-                            iterable << sorted(img_model.data_dict[cb.selected_item].keys())
+                            #iterable << sorted(img_model.data_dict[cb.selected_item].keys())
+                            iterable << sorted(img_model.items_in_group)
                             Label:
                                 font = 'monospace'
                                 text = '{:>10}'.format(loop_item)
@@ -175,13 +179,13 @@ enamldef ChooseElementAdvanced(Window): win:
                                 text = 'Add'
                                 minimum_size = (100, 20)
                                 checkable = True
-                                checked := img_model.stat_dict[cb.selected_item][loop_item]
+                                checked := img_model.stat_dict[img_model.group_name][loop_item]
                                 clicked ::
                                     if checked:
-                                        img_model.stat_dict[cb.selected_item][loop_item] = True
+                                        img_model.stat_dict[img_model.group_name][loop_item] = True
                                         element_btn.checked = True
                                         element_btn.text = 'Remove'
                                     else:
-                                        img_model.stat_dict[cb.selected_item][loop_item] = False
+                                        img_model.stat_dict[img_model.group_name][loop_item] = False
                                         #element_btn.checked = False
                                         element_btn.text = 'Add'

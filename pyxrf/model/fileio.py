@@ -590,6 +590,13 @@ def read_hdf_APS(working_directory,
             #                          #data[detID]['counts'][:, angle_cut:-angle_cut, :-spectrum_cut])
             # img_dict.update({fname+'_roi': roi_result})
 
+            if 'roimap' in data:
+                det_name = data['roimap/det_name']
+                temp = {}
+                for i, n in enumerate(det_name):
+                    temp[n] = data['roimap/det_raw'].value[:, :, i]
+                img_dict[fname+'_roi'] = temp
+
             # read fitting results from summed data
             if 'xrf_fit' in data['detsum']:
                 fit_result = get_fit_data(data['detsum']['xrf_fit_name'].value,
@@ -772,10 +779,11 @@ def get_fit_data(namelist, data):
     #self.img_dict_flat.update({fname.split('.')[0]: data_temp})
 
 
-def data_from_db_to_hdf(fpath, data, datashape,
-                        det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
-                        pos_list=('ssx[um]', 'ssy[um]'),
-                        scaler_list=('sclr1_ch2', 'sclr1_ch3', 'sclr1_ch8')):
+def write_db_to_hdf(fpath, data, datashape,
+                    det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
+                    roi_list=('Ch1 [9300:9600]', 'Ch2 [9300:9600]', 'Ch3 [9300:9600]'),
+                    pos_list=('ssx[um]', 'ssy[um]'),
+                    scaler_list=('sclr1_ch2', 'sclr1_ch3', 'sclr1_ch8')):
     """
     Assume data is obained from databroker, and save the data to hdf file.
 
@@ -848,8 +856,8 @@ def data_from_db_to_hdf(fpath, data, datashape,
     except ValueError:
         dataGrp = f[interpath+'/positions']
 
-    pos_names, pos_data = get_name_value_from_hdf(pos_list, data,
-                                                  datashape)
+    pos_names, pos_data = get_name_value_from_db(pos_list, data,
+                                                 datashape)
 
     if 'pos' in dataGrp:
         del dataGrp['pos']
@@ -866,8 +874,8 @@ def data_from_db_to_hdf(fpath, data, datashape,
     except ValueError:
         dataGrp = f[interpath+'/scalers']
 
-    scaler_names, scaler_data = get_name_value_from_hdf(scaler_list, data,
-                                                        datashape)
+    scaler_names, scaler_data = get_name_value_from_db(scaler_list, data,
+                                                       datashape)
 
     if 'val' in dataGrp:
         del dataGrp['val']
@@ -878,12 +886,30 @@ def data_from_db_to_hdf(fpath, data, datashape,
     dataGrp.create_dataset('val', data=scaler_data)
     dataGrp.create_dataset('name', data=scaler_names)
 
+    # roi sum
+    try:
+        dataGrp = f.create_group(interpath+'/roimap')
+    except ValueError:
+        dataGrp = f[interpath+'/roimap']
+
+    roi_names, roi_data = get_name_value_from_db(roi_list, data,
+                                                 datashape)
+
+    if 'det_name' in dataGrp:
+        del dataGrp['det_name']
+
+    if 'det_raw' in dataGrp:
+        del dataGrp['det_raw']
+
+    dataGrp.create_dataset('det_raw', data=roi_data)
+    dataGrp.create_dataset('det_name', data=roi_names)
+
     f.close()
 
 
-def get_name_value_from_hdf(name_list, data, datashape):
+def get_name_value_from_db(name_list, data, datashape):
     """
-    Get name and data from a given group in hdf file.
+    Get name and data from db.
     """
     pos_names = []
     pos_data = np.zeros([datashape[0], datashape[1], len(name_list)])
@@ -919,8 +945,8 @@ def db_to_hdf(fpath, runid,
     """
 
     data = fetch_data_from_db(runid)
-    data_from_db_to_hdf(fpath, data,
-                        datashape, det_list=det_list,
-                        pos_list=pos_list,
-                        scaler_list=scaler_list)
+    write_db_to_hdf(fpath, data,
+                    datashape, det_list=det_list,
+                    pos_list=pos_list,
+                    scaler_list=scaler_list)
 

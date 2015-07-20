@@ -206,13 +206,24 @@ class DrawImageAdvanced(Atom):
     scale_opt = Str('Linear')
     color_opt = Str('Color')
 
+    group_names = List()
+    group_name = Str()
+    items_in_group = List()
+
     def __init__(self):
         self.fig = plt.figure()
 
     @observe('data_dict')
     def init_plot_status(self, change):
-        print('keys {}'.format(self.data_dict.keys()))
+        logger.info('2D image display: {}'.format(self.data_dict.keys()))
         self.set_initial_stat()
+        self.group_names = ['Select data to plot'] + self.data_dict.keys()
+
+    @observe('group_name')
+    def _change_img_group(self, change):
+        self.items_in_group = []
+        self.items_in_group = self.data_dict[self.group_name].keys()
+        print(self.items_in_group)
 
     @observe('scale_opt', 'color_opt')
     def _update_scale(self, change):
