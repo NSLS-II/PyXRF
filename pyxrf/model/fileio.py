@@ -556,9 +556,19 @@ def read_hdf_APS(working_directory,
             #roi_name = data['detsum']['roi_name'].value
             #roi_value = data['detsum']['roi_limits'].value
 
-            DS = DataSelection(filename=fname,
+            # temp!!!
+            # sum_data0 = np.zeros(exp_data.shape)
+            # sum_data0[63:68, 20:80, :] = exp_data[63:68, 20:80, :]
+            # sum_data0[71:76, 20:80, :] = exp_data[71:76, 20:80, :]
+            #
+            # sum_data0[100:104, 30:90, :] = exp_data[100:104, 30:90, :]
+            # sum_data0[108:114, 30:90, :] = exp_data[108:114, 30:90, :]
+
+            fname_sum = fname+'_sum'
+            DS = DataSelection(filename=fname_sum,
                                raw_data=exp_data)
-            data_sets[fname] = DS
+
+            data_sets[fname_sum] = DS
             logger.info('Data of detector sum is loaded.')
 
             # data from each channel
@@ -763,9 +773,9 @@ def get_fit_data(namelist, data):
 
 
 def data_from_db_to_hdf(fpath, data, datashape,
-                        det_list=['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'],
-                        pos_list=['ssx[um]', 'ssy[um]'],
-                        scaler_list=['sclr1_ch2', 'sclr1_ch3', 'sclr1_ch8']):
+                        det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
+                        pos_list=('ssx[um]', 'ssy[um]'),
+                        scaler_list=('sclr1_ch2', 'sclr1_ch3', 'sclr1_ch8')):
     """
     Assume data is obained from databroker, and save the data to hdf file.
 
@@ -777,10 +787,12 @@ def data_from_db_to_hdf(fpath, data, datashape,
         data from data broker
     datashape : tuple or list
         shape of two D image
-    det_list : list, optional
+    det_list : list, tuple, optional
         list of detector channels
-    pos_list : list, optional
+    pos_list : list, tuple, optional
         list of pos pv
+    scaler_list : list, tuple, optional
+        list of scaler pv
     """
 
     interpath = 'xrfmap'
@@ -822,11 +834,11 @@ def data_from_db_to_hdf(fpath, data, datashape,
     except ValueError:
         dataGrp = f[interpath+'/detsum']
 
-    if 'counts' in dataGrp:
-        del dataGrp['counts']
-
     sum_data = sum_data.reshape([datashape[0], datashape[1],
                                  len(channel_data[0])])
+
+    if 'counts' in dataGrp:
+        del dataGrp['counts']
     ds_data = dataGrp.create_dataset('counts', data=sum_data)
     ds_data.attrs['comments'] = 'Experimental data from channel sum'
 
@@ -836,14 +848,14 @@ def data_from_db_to_hdf(fpath, data, datashape,
     except ValueError:
         dataGrp = f[interpath+'/positions']
 
+    pos_names, pos_data = get_name_value_from_hdf(pos_list, data,
+                                                  datashape)
+
     if 'pos' in dataGrp:
         del dataGrp['pos']
 
     if 'name' in dataGrp:
         del dataGrp['name']
-
-    pos_names, pos_data = get_name_value_from_hdf(pos_list, data,
-                                                  datashape)
 
     dataGrp.create_dataset('pos', data=pos_data)
     dataGrp.create_dataset('name', data=pos_names)
@@ -854,14 +866,14 @@ def data_from_db_to_hdf(fpath, data, datashape,
     except ValueError:
         dataGrp = f[interpath+'/scalers']
 
+    scaler_names, scaler_data = get_name_value_from_hdf(scaler_list, data,
+                                                        datashape)
+
     if 'val' in dataGrp:
         del dataGrp['val']
 
     if 'name' in dataGrp:
         del dataGrp['name']
-
-    scaler_names, scaler_data = get_name_value_from_hdf(scaler_list, data,
-                                                        datashape)
 
     dataGrp.create_dataset('val', data=scaler_data)
     dataGrp.create_dataset('name', data=scaler_names)
@@ -884,9 +896,9 @@ def get_name_value_from_hdf(name_list, data, datashape):
 
 def db_to_hdf(fpath, runid,
               datashape,
-              det_list=['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'],
-              pos_list=['ssx[um]', 'ssy[um]'],
-              scaler_list=['sclr1_ch2', 'sclr1_ch3', 'sclr1_ch8']):
+              det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
+              pos_list=('ssx[um]', 'ssy[um]'),
+              scaler_list=('sclr1_ch2', 'sclr1_ch3', 'sclr1_ch8')):
     """
     Read data from databroker, and save the data to hdf file.
 
@@ -898,10 +910,12 @@ def db_to_hdf(fpath, runid,
         data from data broker
     datashape : tuple or list
         shape of two D image
-    det_list : list
+    det_list : list, tuple or optional
         list of detector channels
-    pos_list : list
+    pos_list : list, tuple or optional
         list of pos pv
+    scaler_list : list, tuple, optional
+        list of scaler pv
     """
 
     data = fetch_data_from_db(runid)

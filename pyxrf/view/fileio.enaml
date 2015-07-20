@@ -167,7 +167,7 @@ enamldef FileView(DockItem): file_view:
                 Container:
                     Looper: looper:
                         #iterable << sorted(io_model.file_names) #sorted(io_model.data_sets.keys())
-                        iterable << sorted(io_model.file_channel_list)
+                        iterable << io_model.file_channel_list
                         #Container:
                         GroupBox:
                             title = '{}, data shape: {}'.format(loop_item, io_model.data_sets[loop_item].raw_data.shape)
