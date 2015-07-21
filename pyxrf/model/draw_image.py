@@ -114,7 +114,7 @@ class DrawImageAdvanced(Atom):
 
     @observe('scaler_name')
     def _get_scaler_data(self, change):
-        if self.scaler_name == 'None':
+        if self.scaler_name == ' ':
             self.scaler_data = None
         else:
             self.scaler_data = self.data_dict[self.scaler_group_name][self.scaler_name]
