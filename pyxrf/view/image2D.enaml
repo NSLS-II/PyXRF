@@ -164,7 +164,6 @@ enamldef ChooseElementAdvanced(Window): win:
             items << sorted(img_model.scaler_items)
             index = 0
             index ::
-                #if index > 0:
                 img_model.scaler_name = selected_item
 
         PushButton: plot_btn:
@@ -178,12 +177,7 @@ enamldef ChooseElementAdvanced(Window): win:
                 constraints = [height >= 80]
                 Container:
                     Form:
-                        #Label:
-                        #    text = '{:>20}{:>10}'.format('Name', 'Plot Option')
-                        #Label:
-                        #    pass
                         Looper: looper:
-                            #iterable << sorted(img_model.data_dict[cb.selected_item].keys())
                             iterable << sorted(img_model.items_in_group)
                             Label:
                                 font = 'monospace'

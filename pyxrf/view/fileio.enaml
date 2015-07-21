@@ -51,7 +51,6 @@ enamldef FileView(DockItem): file_view:
     attr io_model
     attr param_model
     attr plot_model
-    attr img_model
     attr img_model_adv
     attr fit_model
     attr setting_model

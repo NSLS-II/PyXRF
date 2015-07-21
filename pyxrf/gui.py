@@ -44,7 +44,7 @@ import logging
 from pyxrf.model.fileio import FileIOModel
 from pyxrf.model.lineplot import LinePlotModel #, SettingModel
 from pyxrf.model.guessparam import GuessParamModel
-from pyxrf.model.draw_image import DrawImage, DrawImageAdvanced
+from pyxrf.model.draw_image import DrawImageAdvanced
 from pyxrf.model.fit_spectrum import Fit1D
 from pyxrf.model.setting import SettingModel
 import json
@@ -89,7 +89,6 @@ def run():
     io_model = FileIOModel(**defaults)
     param_model = GuessParamModel(**defaults)
     plot_model = LinePlotModel()
-    img_model = DrawImage()
     fit_model = Fit1D(**defaults)
     setting_model = SettingModel()
     img_model_adv = DrawImageAdvanced()
@@ -102,7 +101,6 @@ def run():
     xrfview = XRFGui(io_model=io_model,
                      param_model=param_model,
                      plot_model=plot_model,
-                     img_model=img_model,
                      fit_model=fit_model,
                      setting_model=setting_model,
                      img_model_adv=img_model_adv)

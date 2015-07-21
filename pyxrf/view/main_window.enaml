@@ -52,7 +52,6 @@ enamldef XRFGui(MainWindow): main_window:
     attr io_model
     attr param_model
     attr plot_model
-    attr img_model
     attr img_model_adv
     attr fit_model
     attr setting_model
@@ -72,7 +71,6 @@ enamldef XRFGui(MainWindow): main_window:
                 io_model = main_window.io_model
                 param_model = main_window.param_model
                 plot_model = main_window.plot_model
-                img_model = main_window.img_model
                 img_model_adv = main_window.img_model_adv
 
                 fit_model = main_window.fit_model

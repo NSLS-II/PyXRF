@@ -772,7 +772,6 @@ def get_fit_data(namelist, data):
     for i in range(len(namelist)):
         data_temp.update({namelist[i]: data[i, :, :]})
     return data_temp
-    #self.img_dict_flat.update({fname.split('.')[0]: data_temp})
 
 
 def write_db_to_hdf(fpath, data, datashape,
