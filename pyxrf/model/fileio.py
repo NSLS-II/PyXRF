@@ -557,12 +557,16 @@ def read_hdf_APS(working_directory,
             #roi_value = data['detsum']['roi_limits'].value
 
             # temp!!!
-            # sum_data0 = np.zeros(exp_data.shape)
-            # sum_data0[63:68, 20:80, :] = exp_data[63:68, 20:80, :]
-            # sum_data0[71:76, 20:80, :] = exp_data[71:76, 20:80, :]
-            #
-            # sum_data0[100:104, 30:90, :] = exp_data[100:104, 30:90, :]
-            # sum_data0[108:114, 30:90, :] = exp_data[108:114, 30:90, :]
+            # fitname = list(data['detsum']['xrf_fit_name'].value)
+            # ename = 'Pt_L'
+            # indv = fitname.index(ename)
+            # fitv = data['detsum']['xrf_fit'].value[indv,:,:]
+            # cutv = 99.25
+            # ind_array = fitv>cutv
+            # for i in range(fitv.shape[0]):
+            #     for j in range(fitv.shape[1]):
+            #         if ind_array[i, j] == False:
+            #             exp_data[i, j, :] *= 0
 
             fname_sum = fname+'_sum'
             DS = DataSelection(filename=fname_sum,
