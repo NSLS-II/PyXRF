@@ -927,8 +927,8 @@ def db_to_hdf(fpath, runid,
     ----------
     fpath: str
         path to save hdf file
-    data : array
-        data from data broker
+    runid : int
+        id number for given run
     datashape : tuple or list
         shape of two D image
     det_list : list, tuple or optional
