@@ -792,6 +792,8 @@ def write_db_to_hdf(fpath, data, datashape,
         shape of two D image
     det_list : list, tuple, optional
         list of detector channels
+    roi_list : list, tuple, optional
+        list of roi pv names
     pos_list : list, tuple, optional
         list of pos pv
     scaler_list : list, tuple, optional
@@ -898,6 +900,7 @@ def write_db_to_hdf(fpath, data, datashape,
 
     dataGrp.create_dataset('det_raw', data=roi_data)
     dataGrp.create_dataset('det_name', data=roi_names)
+    logger.info('roi names: {}'.format(roi_names))
 
     f.close()
 
@@ -918,6 +921,7 @@ def get_name_value_from_db(name_list, data, datashape):
 def db_to_hdf(fpath, runid,
               datashape,
               det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
+              roi_list=('Ch1 [9300:9600]', 'Ch2 [9300:9600]', 'Ch3 [9300:9600]'),
               pos_list=('ssx[um]', 'ssy[um]'),
               scaler_list=('sclr1_ch2', 'sclr1_ch3', 'sclr1_ch8')):
     """
@@ -933,6 +937,8 @@ def db_to_hdf(fpath, runid,
         shape of two D image
     det_list : list, tuple or optional
         list of detector channels
+    roi_list : list, tuple, optional
+        list of roi pv names
     pos_list : list, tuple or optional
         list of pos pv
     scaler_list : list, tuple, optional
@@ -942,6 +948,7 @@ def db_to_hdf(fpath, runid,
     data = fetch_data_from_db(runid)
     write_db_to_hdf(fpath, data,
                     datashape, det_list=det_list,
+                    roi_list=roi_list,
                     pos_list=pos_list,
                     scaler_list=scaler_list)
 
