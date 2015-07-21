@@ -530,12 +530,8 @@ def read_hdf_APS(working_directory,
     data_sets : dict
         data from each channel and channel summed
     """
-    #data_dict = OrderedDict()
     data_sets = OrderedDict()
     img_dict = OrderedDict()
-    # cut off bad point on the last position of the spectrum
-    angle_cut = 1
-    spectrum_cut = 1
 
     for fname in file_names:
         try:
@@ -545,9 +541,6 @@ def read_hdf_APS(working_directory,
             data = f['xrfmap']
 
             fname = fname.split('.')[0]
-
-            # for 2D MAP
-            #data_dict[fname] = data
 
             # data from channel summed
             exp_data = data['detsum/counts']
@@ -579,20 +572,12 @@ def read_hdf_APS(working_directory,
             for i in range(1, channel_num+1):
                 det_name = 'det'+str(i)
                 file_channel = fname+'_channel_'+str(i)
-                #exp_data_new = data[det_name+'/counts'][:, angle_cut:-angle_cut, :-spectrum_cut]
                 exp_data_new = data[det_name+'/counts']
                 exp_data_new = np.array(exp_data_new)
                 DS = DataSelection(filename=file_channel,
                                    raw_data=exp_data_new)
                 data_sets[file_channel] = DS
                 logger.info('Data from detector channel {} is loaded.'.format(i))
-
-            #get roi sum data
-            # roi_result = get_roi_sum(roi_name,
-            #                          roi_value,
-            #                          exp_data)
-            #                          #data[detID]['counts'][:, angle_cut:-angle_cut, :-spectrum_cut])
-            # img_dict.update({fname+'_roi': roi_result})
 
             if 'roimap' in data:
                 det_name = data['roimap/det_name']
@@ -606,6 +591,13 @@ def read_hdf_APS(working_directory,
                 fit_result = get_fit_data(data['detsum']['xrf_fit_name'].value,
                                           data['detsum']['xrf_fit'].value)
                 img_dict.update({fname+'_fit': fit_result})
+
+            if 'scalers' in data:
+                det_name = data['scalers/name']
+                temp = {}
+                for i, n in enumerate(det_name):
+                    temp[n] = data['scalers/val'].value[:, :, i]
+                img_dict[fname+'_scaler'] = temp
 
             f.close()
 

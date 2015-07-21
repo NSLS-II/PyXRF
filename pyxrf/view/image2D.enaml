@@ -142,18 +142,31 @@ enamldef ChooseElementAdvanced(Window): win:
     Container:
         constraints = [
             vbox(
-                cb,
-                hbox(plot_btn, spacer),
+                hbox(lb_data, cb),
+                hbox(lb_norm, cb_norm),
+                hbox(plot_btn),
                 gb,
             ),
         ]
+        Label: lb_data:
+            text = 'Select data'
+
         ComboBox: cb:
-            #items << sorted(img_model.data_dict.keys())
             items << sorted(img_model.group_names)
             index = 0
             index ::
                 if index > 0:
                     img_model.group_name = selected_item
+
+        Label: lb_norm:
+            text = 'Normalized by '
+        ComboBox: cb_norm:
+            items << sorted(img_model.scaler_items)
+            index = 0
+            index ::
+                #if index > 0:
+                img_model.scaler_name = selected_item
+
         PushButton: plot_btn:
             text = 'Show Image'
             clicked ::

@@ -196,7 +196,6 @@ class DrawImageAdvanced(Atom):
 
     img_data = Typed(object)
     fig = Typed(Figure)
-    #img_num = Int()
     file_name = Str()
     stat_dict = Dict()
     data_dict = Dict()
@@ -210,6 +209,11 @@ class DrawImageAdvanced(Atom):
     group_name = Str()
     items_in_group = List()
 
+    scaler_group_name = Str()
+    scaler_items = List()
+    scaler_name = Str()
+    scaler_data = Typed(object)
+
     def __init__(self):
         self.fig = plt.figure()
 
@@ -217,13 +221,25 @@ class DrawImageAdvanced(Atom):
     def init_plot_status(self, change):
         logger.info('2D image display: {}'.format(self.data_dict.keys()))
         self.set_initial_stat()
-        self.group_names = ['Select data to plot'] + self.data_dict.keys()
+        self.group_names = ['None'] + self.data_dict.keys()
+
+        scaler_groups = [v for v in self.data_dict.keys() if 'scaler' in v]
+        self.scaler_group_name = scaler_groups[0]
+        self.scaler_items = ['None'] + self.data_dict[self.scaler_group_name].keys()
+        self.scaler_data = None
 
     @observe('group_name')
     def _change_img_group(self, change):
         self.items_in_group = []
         self.items_in_group = self.data_dict[self.group_name].keys()
-        print(self.items_in_group)
+
+    @observe('scaler_name')
+    def _get_scaler_data(self, change):
+        if self.scaler_name == 'None':
+            self.scaler_data = None
+        else:
+            self.scaler_data = self.data_dict[self.scaler_group_name][self.scaler_name]
+            print('scaler data shape: {}'.format(self.scaler_data.shape))
 
     @observe('scale_opt', 'color_opt')
     def _update_scale(self, change):
@@ -259,7 +275,11 @@ class DrawImageAdvanced(Atom):
             ax = self.fig.add_subplot(111)
             for k, v in sorted(stat_temp):
                 if self.scale_opt == 'Linear':
-                    im = ax.imshow(self.data_dict[k][v],
+                    if self.scaler_data is not None:
+                        data_dict = self.data_dict[k][v]/self.scaler_data
+                    else:
+                        data_dict = self.data_dict[k][v]
+                    im = ax.imshow(data_dict,
                                    cmap=grey_use)
                 else:
                     maxz = np.max(self.data_dict[k][v])
@@ -276,7 +296,11 @@ class DrawImageAdvanced(Atom):
             for i, (k, v) in enumerate(sorted(stat_temp)):
                 ax = self.fig.add_subplot(eval('21'+str(i+1)))
                 if self.scale_opt == 'Linear':
-                    im = ax.imshow(self.data_dict[k][v],
+                    if self.scaler_data is not None:
+                        data_dict = self.data_dict[k][v]/self.scaler_data
+                    else:
+                        data_dict = self.data_dict[k][v]
+                    im = ax.imshow(data_dict,
                                    cmap=grey_use)
                 else:
                     maxz = np.max(self.data_dict[k][v])
@@ -293,7 +317,11 @@ class DrawImageAdvanced(Atom):
             for i, (k, v) in enumerate(sorted(stat_temp)):
                 ax = self.fig.add_subplot(eval('22'+str(i+1)))
                 if self.scale_opt == 'Linear':
-                    im = ax.imshow(self.data_dict[k][v],
+                    if self.scaler_data is not None:
+                        data_dict = self.data_dict[k][v]/self.scaler_data
+                    else:
+                        data_dict = self.data_dict[k][v]
+                    im = ax.imshow(data_dict,
                                    cmap=grey_use)
                 else:
                     maxz = np.max(self.data_dict[k][v])
@@ -310,7 +338,11 @@ class DrawImageAdvanced(Atom):
             for i, (k, v) in enumerate(sorted(stat_temp)):
                 ax = self.fig.add_subplot(eval('32'+str(i+1)))
                 if self.scale_opt == 'Linear':
-                    im = ax.imshow(self.data_dict[k][v],
+                    if self.scaler_data is not None:
+                        data_dict = self.data_dict[k][v]/self.scaler_data
+                    else:
+                        data_dict = self.data_dict[k][v]
+                    im = ax.imshow(data_dict,
                                    cmap=grey_use)
                 else:
                     maxz = np.max(self.data_dict[k][v])
@@ -329,7 +361,11 @@ class DrawImageAdvanced(Atom):
                     break
                 ax = self.fig.add_subplot(eval('33'+str(i+1)))
                 if self.scale_opt == 'Linear':
-                    im = ax.imshow(self.data_dict[k][v],
+                    if self.scaler_data is not None:
+                        data_dict = self.data_dict[k][v]/self.scaler_data
+                    else:
+                        data_dict = self.data_dict[k][v]
+                    im = ax.imshow(data_dict,
                                    cmap=grey_use)
                 else:
                     maxz = np.max(self.data_dict[k][v])
