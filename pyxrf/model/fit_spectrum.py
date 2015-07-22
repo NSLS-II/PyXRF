@@ -347,32 +347,6 @@ class Fit1D(Atom):
         self.fit_img[save_name.split('.')[0]+'_fit'] = result_map
         save_fitdata_to_hdf(fpath, result_map)
 
-    def fit_multi_files(self):
-        """
-        Fit data from multiple files.
-
-        .. warning: this function is to be updated. Poor organized.
-        """
-        file_prefix = 'xsp3.0'
-        working_directory = '/Users/Li/Downloads/aps13ide'
-        result_file = 'xsp3_data'
-
-        start_i = 100
-        end_i = 110
-
-        t0 = time.time()
-        #result_map = fit_pixel_fast_multi(self.data_all, self.param_dict)
-
-        result = fit_data_multi_files(working_directory, file_prefix,
-                                      self.param_dict, start_i, end_i)
-
-        t1 = time.time()
-        logger.warning('Time used for pixel fitting multiple files is : {}'.format(t1-t0))
-
-        import pickle
-        fpath = os.path.join(self.result_folder, result_file)
-        pickle.dump(result, open(fpath, 'wb'))
-
     def save_result(self, fname=None):
         """
         Save fitting results.
@@ -475,15 +449,11 @@ def fit_pixel_fast(dir_path, file_prefix,
     """
 
     num_str = '{:03d}'.format(fileID)
-    #logger.info('File number is {}'.format(fileID))
     filename = file_prefix + num_str
     file_path = os.path.join(dir_path, filename)
     with h5py.File(file_path, 'r') as f:
         data = f[interpath][:]
-    #data = np.array(data[:, :, :])
     datas = data.shape
-
-    #x0 = np.arange(datas[2])
 
     elist = param['non_fitting_values']['element_list'].split(', ')
     elist = [e.strip(' ') for e in elist]
@@ -499,9 +469,7 @@ def fit_pixel_fast(dir_path, file_prefix,
             result_map.update({v: np.zeros([datas[0], datas[1]])})
 
     for i in xrange(datas[0]):
-        #logger.info('Row number at {} out of total {}'.format(i, datas[0]))
         for j in xrange(datas[1]):
-            #logger.info('Column number at {} out of total {}'.format(j, datas[1]))
             x, result, area_v = linear_spectrum_fitting(data[i, j, :], param,
                                                         elemental_lines=elist,
                                                         constant_weight=None)
@@ -856,65 +824,6 @@ def get_branching_ratio(elemental_line, energy):
     return ratio_v
 
 
-# def fit_pixel_fast_multi(data, param):
-#     """
-#     Multiprocess fit of experiment data.
-#
-#     Parameters
-#     ----------
-#     data : array
-#         3D data of experiment spectrum
-#     param : dict
-#         fitting parameters
-#
-#     Returns
-#     -------
-#     dict :
-#         fitting values for all the elements
-#     """
-#
-#     #logger.info('Row number at {} out of total {}'.format(i, datas[0]))
-#     #logger.info('no_processors_to_use = {}'.format(no_processors_to_use))
-#     no_processors_to_use = multiprocessing.cpu_count()
-#     logger.info('cpu count: {}'.format(no_processors_to_use))
-#     #print 'Creating pool with %d processes\n' % no_processors_to_use
-#     pool = multiprocessing.Pool(no_processors_to_use)
-#
-#     datas = data.shape
-#
-#     x0 = np.arange(datas[2])
-#
-#     elist = param['non_fitting_values']['element_list'].split(', ')
-#     elist = [e.strip(' ') for e in elist]
-#     elist = [e+'_K' for e in elist if ('_' not in e)]
-#
-#     non_element = ['compton', 'elastic', 'background']
-#     total_list = elist + non_element
-#
-#     result_map = dict()
-#     for v in total_list:
-#         result_map.update({v: np.zeros([datas[0], datas[1]])})
-#
-#     result_pool = [pool.apply_async(fit_per_line,
-#                                     (i, data, param)) for i in range(datas[0])]
-#
-#     results = []
-#     for r in result_pool:
-#         results.append(r.get())
-#
-#     pool.terminate()
-#     pool.join()
-#
-#     results = np.array(results)
-#
-#     for v in total_list:
-#         for i in xrange(datas[0]):
-#             for j in xrange(datas[1]):
-#                 result_map[v][i, j] = results[i, j].get(v, 0)
-#
-#     return result_map
-
-
 def fit_pixel_slow_version(data, param, c_val=1e-2, fit_num=10, c_weight=1):
     datas = data.shape
 
@@ -1002,11 +911,6 @@ def ccombine_data_to_hdf(fpath_read, file_prefix,
     Read data from each point scan, then save them to one hdf file.
     Following APS X13 beamline structure.
     """
-
-    import h5py
-    #import copy
-
-    #datasum = np.zeros([100, 605, 4096])
     datasum = None
     for i in range(start_id, end_id+1):
         num_str = '{:03d}'.format(i)
@@ -1024,32 +928,3 @@ def ccombine_data_to_hdf(fpath_read, file_prefix,
             datasum[i-start_id, :, :, :] = data_temp
 
     return datasum
-
-
-def compare_result(m, n, start_i=151, end_i=1350, all=True, linear=True):
-
-    import h5py
-    import matplotlib.pyplot as plt
-
-    x = np.arange(end_i-start_i)
-
-    fpath = '/Users/Li/Downloads/xrf_data/Root.h5'
-    myfile = h5py.File(fpath, 'r')
-    data_exp = myfile['xrfmap/det1/counts']
-
-    fpath_fit = '/Users/Li/Downloads/xrf_data/fit_data.npy'
-    d_fit = np.load(fpath_fit)
-
-    if not all:
-        if linear:
-            plt.plot(x, data_exp[m, n, start_i:end_i], x, d_fit[m, n, :])
-        else:
-            plt.semilogy(x, data_exp[m, n, start_i:end_i], x, d_fit[m, n, :])
-        plt.show()
-
-    else:
-        if linear:
-            plt.plot(x, np.sum(data_exp[:, :, start_i:end_i], axis=(0, 1)), x, np.sum(d_fit, axis=(0, 1)))
-        else:
-            plt.semilogy(x, np.sum(data_exp[:, :, start_i:end_i], axis=(0, 1)), x, np.sum(d_fit, axis=(0, 1)))
-        plt.show()

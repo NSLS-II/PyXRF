@@ -951,4 +951,3 @@ def db_to_hdf(fpath, runid,
                     roi_list=roi_list,
                     pos_list=pos_list,
                     scaler_list=scaler_list)
-
