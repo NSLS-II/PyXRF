@@ -106,7 +106,7 @@ enamldef ImageMain(DockItem):
         #            pb_all.enabled = False
 
         PushButton: pb_all:
-            text = 'Select ROI'
+            text = 'Select Image'
             checkable = True
             checked := choose_element.visible
             clicked ::

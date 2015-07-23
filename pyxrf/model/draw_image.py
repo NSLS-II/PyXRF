@@ -167,13 +167,14 @@ class DrawImageAdvanced(Atom):
                                                 vmax=maxz),
                                    cmap=grey_use)
                 ax.set_title('{}'.format(k+'_'+v), fontsize=fontsize)
+
                 divider = make_axes_locatable(ax)
                 cax = divider.append_axes("right", size="5%", pad=0.05)
                 self.fig.colorbar(im, cax=cax)
 
         elif len(stat_temp) == 2:
             for i, (k, v) in enumerate(sorted(stat_temp)):
-                ax = self.fig.add_subplot(eval('21'+str(i+1)))
+                ax = self.fig.add_subplot(eval('12'+str(i+1)))
                 if self.scale_opt == 'Linear':
                     if self.scaler_data is not None:
                         data_dict = self.data_dict[k][v]/self.scaler_data
@@ -215,7 +216,7 @@ class DrawImageAdvanced(Atom):
 
         elif len(stat_temp) <= 6 and len(stat_temp) > 4:
             for i, (k, v) in enumerate(sorted(stat_temp)):
-                ax = self.fig.add_subplot(eval('32'+str(i+1)))
+                ax = self.fig.add_subplot(eval('23'+str(i+1)))
                 if self.scale_opt == 'Linear':
                     if self.scaler_data is not None:
                         data_dict = self.data_dict[k][v]/self.scaler_data
@@ -234,10 +235,8 @@ class DrawImageAdvanced(Atom):
                 cax = divider.append_axes("right", size="5%", pad=0.05)
                 self.fig.colorbar(im, cax=cax)
 
-        elif len(stat_temp) > 6:
+        elif len(stat_temp) > 6 and len(stat_temp) <= 9:
             for i, (k, v) in enumerate(sorted(stat_temp)):
-                if i >= 9:
-                    break
                 ax = self.fig.add_subplot(eval('33'+str(i+1)))
                 if self.scale_opt == 'Linear':
                     if self.scaler_data is not None:
@@ -257,6 +256,25 @@ class DrawImageAdvanced(Atom):
                 cax = divider.append_axes("right", size="5%", pad=0.05)
                 self.fig.colorbar(im, cax=cax)
 
+        elif len(stat_temp) > 9 and len(stat_temp) <= 12:
+            nrow = 3
+            ncol = 4
+            self.fig = _img_helper(stat_temp, self.data_dict,
+                                   nrow, ncol,
+                                   self.scale_opt, fontsize,
+                                   scaler_data=self.scaler_data,
+                                   color_opt=grey_use,
+                                   low_lim=1e-4)
+
+        elif len(stat_temp) > 12 and len(stat_temp) <= 16:
+            nrow = 4
+            ncol = 4
+            self.fig = _img_helper(stat_temp, self.data_dict,
+                                   nrow, ncol,
+                                   self.scale_opt, fontsize,
+                                   scaler_data=self.scaler_data,
+                                   color_opt=grey_use,
+                                   low_lim=1e-4)
         self.update_plot()
 
     def get_activated_num(self):
@@ -266,3 +284,70 @@ class DrawImageAdvanced(Atom):
                 if v[m]:
                     data_temp.append((k, m))
         return data_temp
+
+
+def _img_helper(stat_temp, data_dict, nrow, ncol,
+                scale_opt, fontsize,
+                scaler_data=None, color_opt=None,
+                low_lim=1e-4):
+    """
+    Draw nrow by ncol 2D images.
+
+    Parameters
+    ----------
+    stat_temp : dict
+        the status of each plot
+    data_dict : dict
+        all 2D images
+    nrow : int
+        number of row in 2D plots
+    ncol : int
+        number of column in 2D plots
+    scale_opt : str
+        linear or other
+    fontsize : int
+        size of font in plot
+    scaler_data : array, optional
+        data used for normalization
+    color_opt : str, optional
+        color or grey
+    low_lim : float, optional
+        define low limit in log plot
+
+    Returns
+    fig :
+        plt.fig
+    """
+    fig, ax_all = plt.subplots(nrows=nrow, ncols=ncol)
+
+    for i, (k, v) in enumerate(sorted(stat_temp)):
+        if len(stat_temp) == 1:
+            ax = ax_all
+        else:
+            m = i / ncol
+            n = i % ncol
+            ax = ax_all[m][n]
+
+        data = data_dict[k][v]
+        if scale_opt == 'Linear':
+            if scaler_data is not None:
+                data = data_dict[k][v]/scaler_data
+            im = ax.imshow(data,
+                           cmap=color_opt)
+        else:
+            maxz = np.max(data)
+            im = ax.imshow(data,
+                           norm=LogNorm(vmin=low_lim*maxz,
+                                        vmax=maxz),
+                           cmap=color_opt)
+        ax.set_title('{}'.format(k+'_'+v), fontsize=fontsize)
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="5%", pad=0.05)
+        fig.colorbar(im, cax=cax)
+
+    for m in range(nrow):
+        for n in range(ncol):
+            if m*ncol+n >= len(stat_temp):
+                ax_all[m, n].set_visible(False)
+
+    return fig
