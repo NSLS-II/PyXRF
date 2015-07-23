@@ -40,7 +40,6 @@ import numpy as np
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.cm as cm
 
 from mpl_toolkits.axes_grid1 import ImageGrid
@@ -84,7 +83,7 @@ class DrawImageAdvanced(Atom):
     plot_opt = Int(0)
     single_file = Dict()
     scale_opt = Str('Linear')
-    color_opt = Str('Color')
+    color_opt = Str('Orange')
 
     group_names = List()
     group_name = Str()
@@ -158,13 +157,13 @@ class DrawImageAdvanced(Atom):
         self.fig.clf()
         stat_temp = self.get_activated_num()
 
-        fontsize = 10
-
         low_lim = 1e-4  # define the low limit for log image
         plot_interp = 'Nearest'
 
-        if self.color_opt == 'Color':
+        if self.color_opt == 'Orange':
             grey_use = cm.Oranges
+        elif self.color_opt == 'Color':
+            grey_use = None
         else:
             grey_use = cm.Greys_r
 
@@ -172,8 +171,8 @@ class DrawImageAdvanced(Atom):
         nrow = int(np.ceil(len(stat_temp)/float(ncol)))
 
         grid = ImageGrid(self.fig, 111,
-                         nrows_ncols=(nrow, ncol), # creates 2x2 grid of axes
-                         axes_pad=(0.5, 0.5), # pad between axes in inch.
+                         nrows_ncols=(nrow, ncol),
+                         axes_pad=(0.5, 0.5),
                          cbar_location='right',
                          cbar_mode='each',
                          cbar_size='7%',
@@ -181,7 +180,6 @@ class DrawImageAdvanced(Atom):
                          share_all=True)
 
         for i, (k, v) in enumerate(sorted(stat_temp)):
-            #ax = self.fig.add_subplot(eval('22'+str(i+1)))
             if self.scale_opt == 'Linear':
                 if self.scaler_data is not None:
                     data_dict = self.data_dict[k][v]/self.scaler_data
@@ -190,9 +188,16 @@ class DrawImageAdvanced(Atom):
                 im = grid[i].imshow(data_dict,
                                     cmap=grey_use,
                                     interpolation=plot_interp)
-                grid[i].text(0, -2, '{}'.format(k+'_'+v))
-                grid.cbar_axes[i].colorbar(im)
 
+            else:
+                maxz = np.max(self.data_dict[k][v])
+                im = grid[i].imshow(self.data_dict[k][v],
+                                    norm=LogNorm(vmin=low_lim*maxz,
+                                                 vmax=maxz),
+                                    cmap=grey_use)
+            grid_title = '{}'.format(k+'_'+v)
+            grid[i].text(0, -2, grid_title)
+            grid.cbar_axes[i].colorbar(im)
         self.update_plot()
 
     def get_activated_num(self):
@@ -202,75 +207,3 @@ class DrawImageAdvanced(Atom):
                 if v[m]:
                     data_temp.append((k, m))
         return data_temp
-
-
-def _img_helper(stat_temp, data_dict, nrow, ncol,
-                scale_opt, fontsize,
-                scaler_data=None, color_opt=None,
-                plot_interp='Nearest',
-                low_lim=1e-4):
-    """
-    Draw nrow by ncol 2D images.
-
-    Parameters
-    ----------
-    stat_temp : dict
-        the status of each plot
-    data_dict : dict
-        all 2D images
-    nrow : int
-        number of row in 2D plots
-    ncol : int
-        number of column in 2D plots
-    scale_opt : str
-        linear or other
-    fontsize : int
-        size of font in plot
-    scaler_data : array, optional
-        data used for normalization
-    color_opt : str, optional
-        color or grey
-    plot_interp : str, optional
-        plot interpolation
-    low_lim : float, optional
-        define low limit in log plot
-
-    Returns
-    fig :
-        plt.fig
-    """
-    fig, ax_all = plt.subplots(nrows=nrow, ncols=ncol)
-
-    for i, (k, v) in enumerate(sorted(stat_temp)):
-        if len(stat_temp) == 1:
-            ax = ax_all
-        else:
-            m = i / ncol
-            n = i % ncol
-            ax = ax_all[m][n]
-
-        data = data_dict[k][v]
-        if scale_opt == 'Linear':
-            if scaler_data is not None:
-                data = data_dict[k][v]/scaler_data
-            im = ax.imshow(data,
-                           cmap=color_opt,
-                           interpolation=plot_interp)
-        else:
-            maxz = np.max(data)
-            im = ax.imshow(data,
-                           norm=LogNorm(vmin=low_lim*maxz,
-                                        vmax=maxz),
-                           cmap=color_opt,
-                           interpolation=plot_interp)
-        ax.set_title('{}'.format(k+'_'+v), fontsize=fontsize)
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes("right", size="5%", pad=0.05)
-        fig.colorbar(im, cax=cax)
-
-    for m in range(nrow):
-        for n in range(ncol):
-            if m*ncol+n >= len(stat_temp):
-                ax_all[m, n].set_visible(False)
-
-    return fig
