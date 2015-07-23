@@ -44,6 +44,7 @@ import numpy as np
 import os
 from collections import OrderedDict
 import pandas as pd
+import json
 
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float
 
@@ -776,7 +777,7 @@ def get_fit_data(namelist, data):
 
 def write_db_to_hdf(fpath, data, datashape,
                     det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
-                    roi_list=('Ch1 [9300:9600]', 'Ch2 [9300:9600]', 'Ch3 [9300:9600]'),
+                    roi_dict={'Pt_9300_9600': ['Ch1 [9300:9600]', 'Ch2 [9300:9600]', 'Ch3 [9300:9600]']},
                     pos_list=('ssx[um]', 'ssy[um]'),
                     scaler_list=('sclr1_ch2', 'sclr1_ch3', 'sclr1_ch8')):
     """
@@ -792,8 +793,8 @@ def write_db_to_hdf(fpath, data, datashape,
         shape of two D image
     det_list : list, tuple, optional
         list of detector channels
-    roi_list : list, tuple, optional
-        list of roi pv names
+    roi_dict : dict
+        dict of roi pv names
     pos_list : list, tuple, optional
         list of pos pv
     scaler_list : list, tuple, optional
@@ -889,8 +890,13 @@ def write_db_to_hdf(fpath, data, datashape,
     except ValueError:
         dataGrp = f[interpath+'/roimap']
 
-    roi_names, roi_data = get_name_value_from_db(roi_list, data,
-                                                 datashape)
+    roi_data_all = np.zeros([datashape[0], datashape[1], len(roi_dict)])
+    roi_name_list = []
+    for i, (k, roi_list) in enumerate(six.iteritems(roi_dict)):
+        roi_names, roi_data = get_name_value_from_db(roi_list, data,
+                                                     datashape)
+        roi_name_list.append(k)
+        roi_data_all[:, :, i] = np.sum(roi_data, axis=2)
 
     if 'det_name' in dataGrp:
         del dataGrp['det_name']
@@ -898,8 +904,18 @@ def write_db_to_hdf(fpath, data, datashape,
     if 'det_raw' in dataGrp:
         del dataGrp['det_raw']
 
-    dataGrp.create_dataset('det_raw', data=roi_data)
-    dataGrp.create_dataset('det_name', data=roi_names)
+    dataGrp.create_dataset('det_raw', data=roi_data_all)
+    dataGrp.create_dataset('det_name', data=roi_name_list)
+
+    # if 'det_name' in dataGrp:
+    #     del dataGrp['det_name']
+    #
+    # if 'det_raw' in dataGrp:
+    #     del dataGrp['det_raw']
+    #
+    # dataGrp.create_dataset('det_raw', data=roi_data)
+    # dataGrp.create_dataset('det_name', data=roi_names)
+
     logger.info('roi names: {}'.format(roi_names))
 
     f.close()
@@ -921,7 +937,7 @@ def get_name_value_from_db(name_list, data, datashape):
 def db_to_hdf(fpath, runid,
               datashape,
               det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
-              roi_list=('Ch1 [9300:9600]', 'Ch2 [9300:9600]', 'Ch3 [9300:9600]'),
+              roi_dict={'Pt_9300_9600': ['Ch1 [9300:9600]', 'Ch2 [9300:9600]', 'Ch3 [9300:9600]']},
               pos_list=('ssx[um]', 'ssy[um]'),
               scaler_list=('sclr1_ch2', 'sclr1_ch3', 'sclr1_ch8')):
     """
@@ -948,6 +964,34 @@ def db_to_hdf(fpath, runid,
     data = fetch_data_from_db(runid)
     write_db_to_hdf(fpath, data,
                     datashape, det_list=det_list,
-                    roi_list=roi_list,
+                    roi_dict=roi_dict,
                     pos_list=pos_list,
                     scaler_list=scaler_list)
+
+
+def data_to_hdf_config(fpath, d,
+                       datashape, config_file):
+
+    with open(config_file, 'r') as json_data:
+        config_data = json.load(json_data)
+
+    write_db_to_hdf(fpath, d,
+                    datashape,
+                    det_list=config_data['xrf_detector'],
+                    roi_dict=config_data['xrf_roi_pv'],
+                    pos_list=config_data['pos_list'],
+                    scaler_list=config_data['scaler_list'])
+
+
+def db_to_hdf_config(fpath, runid,
+                     datashape, config_file):
+
+    with open(config_file, 'r') as json_data:
+        config_data = json.load(json_data)
+
+    db_to_hdf(fpath, runid,
+              datashape,
+              det_list=config_data['xrf_detector'],
+              roi_dict=config_data['xrf_roi_pv'],
+              pos_list=config_data['pos_list'],
+              scaler_list=config_data['scaler_list'])
