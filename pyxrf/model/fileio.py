@@ -895,7 +895,7 @@ def write_db_to_hdf(fpath, data, datashape,
     for i, (k, roi_list) in enumerate(six.iteritems(roi_dict)):
         roi_names, roi_data = get_name_value_from_db(roi_list, data,
                                                      datashape)
-        roi_name_list.append(k)
+        roi_name_list.append(str(k))
         roi_data_all[:, :, i] = np.sum(roi_data, axis=2)
 
     if 'det_name' in dataGrp:
@@ -930,7 +930,7 @@ def get_name_value_from_db(name_list, data, datashape):
     for i, v in enumerate(name_list):
         posv = np.asarray(data[v])
         pos_data[:, :, i] = posv.reshape([datashape[0], datashape[1]])
-        pos_names.append(v)
+        pos_names.append(str(v))
     return pos_names, pos_data
 
 
