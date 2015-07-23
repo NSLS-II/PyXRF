@@ -43,7 +43,9 @@ from matplotlib.colors import LogNorm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.cm as cm
 
-from atom.api import Atom, Str, observe, Typed, Int, List, Dict
+from mpl_toolkits.axes_grid1 import ImageGrid
+from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool
+
 
 import logging
 logger = logging.getLogger(__name__)
@@ -93,6 +95,8 @@ class DrawImageAdvanced(Atom):
     scaler_name = Str()
     scaler_data = Typed(object)
 
+    plot_all = Bool(False)
+
     def __init__(self):
         self.fig = plt.figure()
 
@@ -125,17 +129,30 @@ class DrawImageAdvanced(Atom):
         if change['type'] != 'create':
             self.show_image()
 
+    @observe('plot_all')
+    def _update_all_plot(self, change):
+        if self.plot_all == True:
+            for k in six.iterkeys(self.stat_dict[self.group_name]):
+                self.stat_dict[self.group_name][k] = True
+        else:
+            for k in six.iterkeys(self.stat_dict[self.group_name]):
+                self.stat_dict[self.group_name][k] = False
+        self.show_image()
+
     def set_initial_stat(self):
         """
         Set up initial plotting status for all the 2D images.
         """
         for k, v in six.iteritems(self.data_dict):
-            temp = {m: False for m in six.iterkeys(v)}
+            if 'roi' not in k:
+                temp = {m: False for m in six.iterkeys(v)}
+            else:
+                temp = {m: True for m in six.iterkeys(v)}
             self.stat_dict.update({k: temp})
 
     def update_plot(self):
-        self.fig.tight_layout(pad=0.1, w_pad=0.1, h_pad=0.1)
-        self.fig.canvas.draw()
+        self.fig.tight_layout(pad=0.2, w_pad=0.2, h_pad=0.2)
+        self.fig.canvas.draw_idle()
 
     def show_image(self):
         self.fig.clf()
@@ -144,137 +161,38 @@ class DrawImageAdvanced(Atom):
         fontsize = 10
 
         low_lim = 1e-4  # define the low limit for log image
+        plot_interp = 'Nearest'
 
         if self.color_opt == 'Color':
-            grey_use = None
+            grey_use = cm.Oranges
         else:
             grey_use = cm.Greys_r
 
-        if len(stat_temp) == 1:
-            ax = self.fig.add_subplot(111)
-            for k, v in sorted(stat_temp):
-                if self.scale_opt == 'Linear':
-                    if self.scaler_data is not None:
-                        data_dict = self.data_dict[k][v]/self.scaler_data
-                    else:
-                        data_dict = self.data_dict[k][v]
-                    im = ax.imshow(data_dict,
-                                   cmap=grey_use)
+        ncol = int(np.ceil(np.sqrt(len(stat_temp))))
+        nrow = int(np.ceil(len(stat_temp)/float(ncol)))
+
+        grid = ImageGrid(self.fig, 111,
+                         nrows_ncols=(nrow, ncol), # creates 2x2 grid of axes
+                         axes_pad=(0.5, 0.5), # pad between axes in inch.
+                         cbar_location='right',
+                         cbar_mode='each',
+                         cbar_size='7%',
+                         cbar_pad='2%',
+                         share_all=True)
+
+        for i, (k, v) in enumerate(sorted(stat_temp)):
+            #ax = self.fig.add_subplot(eval('22'+str(i+1)))
+            if self.scale_opt == 'Linear':
+                if self.scaler_data is not None:
+                    data_dict = self.data_dict[k][v]/self.scaler_data
                 else:
-                    maxz = np.max(self.data_dict[k][v])
-                    im = ax.imshow(self.data_dict[k][v],
-                                   norm=LogNorm(vmin=low_lim*maxz,
-                                                vmax=maxz),
-                                   cmap=grey_use)
-                ax.set_title('{}'.format(k+'_'+v), fontsize=fontsize)
+                    data_dict = self.data_dict[k][v]
+                im = grid[i].imshow(data_dict,
+                                    cmap=grey_use,
+                                    interpolation=plot_interp)
+                grid[i].text(0, -2, '{}'.format(k+'_'+v))
+                grid.cbar_axes[i].colorbar(im)
 
-                divider = make_axes_locatable(ax)
-                cax = divider.append_axes("right", size="5%", pad=0.05)
-                self.fig.colorbar(im, cax=cax)
-
-        elif len(stat_temp) == 2:
-            for i, (k, v) in enumerate(sorted(stat_temp)):
-                ax = self.fig.add_subplot(eval('12'+str(i+1)))
-                if self.scale_opt == 'Linear':
-                    if self.scaler_data is not None:
-                        data_dict = self.data_dict[k][v]/self.scaler_data
-                    else:
-                        data_dict = self.data_dict[k][v]
-                    im = ax.imshow(data_dict,
-                                   cmap=grey_use)
-                else:
-                    maxz = np.max(self.data_dict[k][v])
-                    im = ax.imshow(self.data_dict[k][v],
-                                   norm=LogNorm(vmin=low_lim*maxz,
-                                                vmax=maxz),
-                                   cmap=grey_use)
-                ax.set_title('{}'.format(k+'_'+v), fontsize=fontsize)
-                divider = make_axes_locatable(ax)
-                cax = divider.append_axes("right", size="5%", pad=0.05)
-                self.fig.colorbar(im, cax=cax)
-
-        elif len(stat_temp) <= 4 and len(stat_temp) > 2:
-            for i, (k, v) in enumerate(sorted(stat_temp)):
-                ax = self.fig.add_subplot(eval('22'+str(i+1)))
-                if self.scale_opt == 'Linear':
-                    if self.scaler_data is not None:
-                        data_dict = self.data_dict[k][v]/self.scaler_data
-                    else:
-                        data_dict = self.data_dict[k][v]
-                    im = ax.imshow(data_dict,
-                                   cmap=grey_use)
-                else:
-                    maxz = np.max(self.data_dict[k][v])
-                    im = ax.imshow(self.data_dict[k][v],
-                                   norm=LogNorm(vmin=low_lim*maxz,
-                                                vmax=maxz),
-                                   cmap=grey_use)
-                ax.set_title('{}'.format(k+'_'+v), fontsize=fontsize)
-                divider = make_axes_locatable(ax)
-                cax = divider.append_axes("right", size="5%", pad=0.05)
-                self.fig.colorbar(im, cax=cax)
-
-        elif len(stat_temp) <= 6 and len(stat_temp) > 4:
-            for i, (k, v) in enumerate(sorted(stat_temp)):
-                ax = self.fig.add_subplot(eval('23'+str(i+1)))
-                if self.scale_opt == 'Linear':
-                    if self.scaler_data is not None:
-                        data_dict = self.data_dict[k][v]/self.scaler_data
-                    else:
-                        data_dict = self.data_dict[k][v]
-                    im = ax.imshow(data_dict,
-                                   cmap=grey_use)
-                else:
-                    maxz = np.max(self.data_dict[k][v])
-                    im = ax.imshow(self.data_dict[k][v],
-                                   norm=LogNorm(vmin=low_lim*maxz,
-                                                vmax=maxz),
-                                   cmap=grey_use)
-                ax.set_title('{}'.format(k+'_'+v), fontsize=fontsize)
-                divider = make_axes_locatable(ax)
-                cax = divider.append_axes("right", size="5%", pad=0.05)
-                self.fig.colorbar(im, cax=cax)
-
-        elif len(stat_temp) > 6 and len(stat_temp) <= 9:
-            for i, (k, v) in enumerate(sorted(stat_temp)):
-                ax = self.fig.add_subplot(eval('33'+str(i+1)))
-                if self.scale_opt == 'Linear':
-                    if self.scaler_data is not None:
-                        data_dict = self.data_dict[k][v]/self.scaler_data
-                    else:
-                        data_dict = self.data_dict[k][v]
-                    im = ax.imshow(data_dict,
-                                   cmap=grey_use)
-                else:
-                    maxz = np.max(self.data_dict[k][v])
-                    im = ax.imshow(self.data_dict[k][v],
-                                   norm=LogNorm(vmin=low_lim*maxz,
-                                                vmax=maxz),
-                                   cmap=grey_use)
-                ax.set_title('{}'.format(k+'_'+v), fontsize=fontsize)
-                divider = make_axes_locatable(ax)
-                cax = divider.append_axes("right", size="5%", pad=0.05)
-                self.fig.colorbar(im, cax=cax)
-
-        elif len(stat_temp) > 9 and len(stat_temp) <= 12:
-            nrow = 3
-            ncol = 4
-            self.fig = _img_helper(stat_temp, self.data_dict,
-                                   nrow, ncol,
-                                   self.scale_opt, fontsize,
-                                   scaler_data=self.scaler_data,
-                                   color_opt=grey_use,
-                                   low_lim=1e-4)
-
-        elif len(stat_temp) > 12 and len(stat_temp) <= 16:
-            nrow = 4
-            ncol = 4
-            self.fig = _img_helper(stat_temp, self.data_dict,
-                                   nrow, ncol,
-                                   self.scale_opt, fontsize,
-                                   scaler_data=self.scaler_data,
-                                   color_opt=grey_use,
-                                   low_lim=1e-4)
         self.update_plot()
 
     def get_activated_num(self):
@@ -289,6 +207,7 @@ class DrawImageAdvanced(Atom):
 def _img_helper(stat_temp, data_dict, nrow, ncol,
                 scale_opt, fontsize,
                 scaler_data=None, color_opt=None,
+                plot_interp='Nearest',
                 low_lim=1e-4):
     """
     Draw nrow by ncol 2D images.
@@ -311,6 +230,8 @@ def _img_helper(stat_temp, data_dict, nrow, ncol,
         data used for normalization
     color_opt : str, optional
         color or grey
+    plot_interp : str, optional
+        plot interpolation
     low_lim : float, optional
         define low limit in log plot
 
@@ -333,13 +254,15 @@ def _img_helper(stat_temp, data_dict, nrow, ncol,
             if scaler_data is not None:
                 data = data_dict[k][v]/scaler_data
             im = ax.imshow(data,
-                           cmap=color_opt)
+                           cmap=color_opt,
+                           interpolation=plot_interp)
         else:
             maxz = np.max(data)
             im = ax.imshow(data,
                            norm=LogNorm(vmin=low_lim*maxz,
                                         vmax=maxz),
-                           cmap=color_opt)
+                           cmap=color_opt,
+                           interpolation=plot_interp)
         ax.set_title('{}'.format(k+'_'+v), fontsize=fontsize)
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.05)

@@ -145,6 +145,7 @@ enamldef ChooseElementAdvanced(Window): win:
                 hbox(lb_data, cb),
                 hbox(lb_norm, cb_norm),
                 hbox(plot_btn),
+                #hbox(select_btn),
                 gb,
             ),
         ]
@@ -170,6 +171,17 @@ enamldef ChooseElementAdvanced(Window): win:
             text = 'Show Image'
             clicked ::
                 img_model.show_image()
+
+        #PushButton: select_btn:
+        #    text = 'Select All'
+        #    checkable = True
+        #    clicked ::
+        #        if checked:
+        #            img_model.plot_all = True
+        #            select_btn.checked = True
+        #        else:
+        #            img_model.plot_all = False
+        #            select_btn.checked = False
 
         GroupBox: gb:
             title = 'Add/Remove Image'
