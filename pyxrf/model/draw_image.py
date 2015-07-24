@@ -94,6 +94,8 @@ class DrawImageAdvanced(Atom):
     scaler_name = Str()
     scaler_data = Typed(object)
 
+    select_stat_dict = Dict()
+
     plot_all = Bool(False)
 
     def __init__(self):
@@ -102,18 +104,27 @@ class DrawImageAdvanced(Atom):
     @observe('data_dict')
     def init_plot_status(self, change):
         logger.info('2D image display: {}'.format(self.data_dict.keys()))
-        self.set_initial_stat()
-        self.group_names = [' '] + self.data_dict.keys()
 
+        self.set_initial_stat()
+
+        self.group_names = [' '] + self.data_dict.keys()
+        self.group_name = self.group_names[1]
         scaler_groups = [v for v in self.data_dict.keys() if 'scaler' in v]
+
         self.scaler_group_name = scaler_groups[0]
         self.scaler_items = [' '] + self.data_dict[self.scaler_group_name].keys()
         self.scaler_data = None
 
+        print(self.stat_dict)
+        self.select_stat_dict = self.stat_dict[self.group_name]
+
     @observe('group_name')
     def _change_img_group(self, change):
-        self.items_in_group = []
-        self.items_in_group = self.data_dict[self.group_name].keys()
+        if self.group_name != ' ':
+            self.items_in_group = []
+            self.items_in_group = self.data_dict[self.group_name].keys()
+            self.select_stat_dict = self.stat_dict[self.group_name]
+            print('update {}'.format(self.select_stat_dict))
 
     @observe('scaler_name')
     def _get_scaler_data(self, change):
@@ -142,12 +153,14 @@ class DrawImageAdvanced(Atom):
         """
         Set up initial plotting status for all the 2D images.
         """
+        stat_dict = {}
         for k, v in six.iteritems(self.data_dict):
             if 'roi' in k and 'each' not in k:
                 temp = {m: True for m in six.iterkeys(v)}
             else:
                 temp = {m: False for m in six.iterkeys(v)}
-            self.stat_dict.update({k: temp})
+            stat_dict.update({k: temp})
+        self.stat_dict = stat_dict
 
     def update_plot(self):
         self.fig.tight_layout(pad=0.2, w_pad=0.2, h_pad=0.2)
@@ -196,7 +209,7 @@ class DrawImageAdvanced(Atom):
                                                  vmax=maxz),
                                     cmap=grey_use)
             grid_title = '{}'.format(k+'_'+v)
-            grid[i].text(0, -2, grid_title)
+            grid[i].text(0, -1, grid_title)
             grid.cbar_axes[i].colorbar(im)
         self.update_plot()
 

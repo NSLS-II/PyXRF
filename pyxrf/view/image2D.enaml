@@ -198,7 +198,8 @@ enamldef ChooseElementAdvanced(Window): win:
                                 text = 'Add'
                                 minimum_size = (100, 20)
                                 checkable = True
-                                checked := img_model.stat_dict[img_model.group_name][loop_item]
+                                #checked << img_model.stat_dict[img_model.group_name][loop_item]
+                                #checked := img_model.select_stat_dict[loop_item]
                                 clicked ::
                                     if checked:
                                         img_model.stat_dict[img_model.group_name][loop_item] = True
