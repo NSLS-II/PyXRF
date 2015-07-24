@@ -42,9 +42,13 @@ from enaml.widgets.api import (Container, PushButton, Label,
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer, grid
 from enaml.core.api import Include, Looper
 from enaml.layout.geometry import Box
-from enaml.stdlib.fields import FloatField, IntField
+from enaml.stdlib.fields import FloatField
+from enaml.stdlib.fields import IntField as DefaultIntField
 
 import numpy as np
+
+enamldef IntField(DefaultIntField):
+    submit_triggers = ['auto_sync'] #['return_pressed']
 
 
 enamldef FileView(DockItem): file_view:
@@ -61,8 +65,8 @@ enamldef FileView(DockItem): file_view:
                 vbox(
                     hbox(folder_btn, folder_fd),
                     hbox(btn_out, fd_out),
-                    hbox(pixel_h_label, pixel_h, pixel_v_label, pixel_v, spacer),
                     hbox(files_btn, files_load),
+                    hbox(pixel_h_label, pixel_h, pixel_v_label, pixel_v, spacer),
                     hbox(cb_runid, run_lbl, run_num, load_btn, spacer),
                     scroller,
                     hbox(plot_bt, spacer),
@@ -98,7 +102,7 @@ enamldef FileView(DockItem): file_view:
                         io_model.file_names = [item.split('/')[-1] for item in path]
                         files_load.text = 'Number of files loaded: {}'.format(len(io_model.file_names))
                         #CB.items = ['Please select file'] + io_model.file_names
-                        io_model.get_roi_data()
+                        #io_model.get_roi_data()
 
                         # do not import original data for 2D image
                         img_model_adv.data_dict = io_model.img_dict
@@ -134,11 +138,11 @@ enamldef FileView(DockItem): file_view:
                 value := io_model.runid
 
             PushButton: load_btn:
-                text = "Load Data"
+                text = "Get Data from Database"
                 clicked ::
                     io_model.load_data_runid()
 
-                    io_model.get_roi_data()
+                    files_load.text = 'Number of files loaded: {}'.format(len(io_model.file_names))
 
                     # do not import original data for 2D image
                     img_model_adv.data_dict = io_model.img_dict
@@ -149,6 +153,7 @@ enamldef FileView(DockItem): file_view:
                     plot_model.parameters = param_model.param_new
                     setting_model.parameters = param_model.param_new
                     setting_model.data_sets = io_model.data_sets
+                    fit_model.save_name = io_model.file_names[0]
 
             Label : pixel_h_label:
                 text = 'pixel num on x (horizontal)'

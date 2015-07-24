@@ -94,6 +94,7 @@ class FileIOModel(Atom):
     runid = Int(-1)
     h_num = Int(0)
     v_num = Int(0)
+    fname_from_db = Str()
 
     def __init__(self, **kwargs):
         self.working_directory = kwargs['working_directory']
@@ -114,23 +115,14 @@ class FileIOModel(Atom):
         self.file_names.sort()
         logger.info('Loaded files : %s' % (self.file_names))
 
-        # be alter: to be update, temporary use!!!
-        if '.h5' in self.file_names[0]:
-            #logger.info('Load APS 13IDE data format.')
-            self.img_dict, self.data_sets = read_hdf_APS(self.working_directory,
-                                                         self.file_names)
-        elif 'bnp' in self.file_names[0]:
-            logger.info('Load APS 2IDE data format.')
-            self.img_dict, self.data_sets = read_MAPS(self.working_directory,
-                                                      self.file_names)
-        elif '.npy' in self.file_names[0]:
-            # temporary use
-            self.img_dict, self.data_sets = read_numpy_data(self.working_directory,
-                                                            self.file_names)
-        else:
-            self.data_dict, self.data_sets = read_hdf_HXN(self.working_directory,
-                                                          self.file_names)
+        self.img_dict, self.data_sets = file_handler(self.working_directory,
+                                                     self.file_names)
+
         self.file_channel_list = self.data_sets.keys()
+
+    @observe('runid')
+    def _update_fname(self, change):
+        self.fname_from_db = 'scan_'+str(self.runid)+'.h5'
 
     def get_roi_data(self):
         """
@@ -147,19 +139,15 @@ class FileIOModel(Atom):
         """
         Load data according to runID number.
         """
-        # for hxn
-        name_prefix = 'xspress3_ch'
-        c_list = [name_prefix+str(i+1) for i in range(8)]
-
-        self.file_channel_list = []
-        #self.file_names.sort()
-
-        dshape = None
         if self.h_num != 0 and self.v_num != 0:
-            dshape = [self.v_num, self.h_num]
-        self.data_dict, self.data_sets = read_runid(self.runid,
-                                                    c_list, dshape=dshape)
-        self.file_channel_list = self.data_sets.keys()
+            datashape = [self.v_num, self.h_num]
+
+        fname = self.fname_from_db
+        fpath = os.path.join(self.working_directory, fname)
+        config_file = os.path.join(self.working_directory, 'pv_config.json')
+        db_to_hdf_config(fpath, self.runid,
+                         datashape, config_file)
+        self.file_names = [fname]
 
 
 plot_as = ['Sum', 'Point', 'Roi']
@@ -256,6 +244,22 @@ class SpectrumCalculator(object):
                           axis=(0, 1))
 
 
+def file_handler(working_directory, file_names):
+    # be alter: to be update, temporary use!!!
+    if '.h5' in file_names[0]:
+        #logger.info('Load APS 13IDE data format.')
+        return read_hdf_APS(working_directory, file_names)
+    elif 'bnp' in file_names[0]:
+        logger.info('Load APS 2IDE data format.')
+        read_MAPS(working_directory, file_names)
+    elif '.npy' in file_names[0]:
+        # temporary use
+        read_numpy_data(working_directory, file_names)
+    else:
+        read_hdf_HXN(working_directory, file_names)
+
+
+
 def fetch_data_from_db(runid):
     """
     Read data from database.
@@ -279,7 +283,7 @@ def fetch_data_from_db(runid):
 
     events = []
     for idx, event in enumerate(ev):
-        if idx % 25 == 0:
+        if idx % 1000 == 0:
             print('event %s loaded' % (idx+1))
         events.append(event)
 
