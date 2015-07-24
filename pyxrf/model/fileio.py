@@ -127,18 +127,6 @@ class FileIOModel(Atom):
             # temporary use
             self.img_dict, self.data_sets = read_numpy_data(self.working_directory,
                                                             self.file_names)
-        elif 'pickle' in self.file_names[0]:
-            # temporary use
-            name_prefix = 'xspress3_ch'
-            c_list = [name_prefix+str(i+1) for i in range(3)]
-            dshape = None
-            if self.h_num != 0 and self.v_num != 0:
-                dshape = [self.v_num, self.h_num]
-            self.img_dict, self.data_sets = read_pickle_HXN(self.working_directory,
-                                                            self.file_names,
-                                                            c_list,
-                                                            dshape=dshape)
-
         else:
             self.data_dict, self.data_sets = read_hdf_HXN(self.working_directory,
                                                           self.file_names)
@@ -369,85 +357,6 @@ def read_runid(runid, c_list, dshape=None):
     return data_dict, data_sets
 
 
-def read_pickle_HXN(working_directory,
-                    file_names, c_list, dshape=None):
-    """
-    Data IO for HXN temporary datasets. This might be changed later.
-
-    Parameters
-    ----------
-    working_directory : str
-        path folder
-    file_names : list
-        list of chosen files
-    c_list : list
-        list of xrf detector pv
-    dshape : list or tuple
-        shape of 2D scan image
-
-    Returns
-    -------
-    data_dict : dict
-        with fitting data
-    data_sets : dict
-        data from each channel and channel summed
-    """
-    data_dict = OrderedDict()
-    data_sets = OrderedDict()
-
-    for fname in file_names:
-        sumv = None
-
-        file_path = os.path.join(working_directory, fname)
-        data = pd.load(file_path)
-
-        exp_keys = data.keys()
-
-        for c_name in c_list:
-            print(c_name)
-            channel_data = data[c_name]
-
-            new_data = np.zeros([1, len(channel_data), len(channel_data[0])])
-
-            for i in xrange(len(channel_data)):
-
-                # clean up nan data, should be done in lower level
-                channel_data[i][pd.isnull(channel_data[i])] = 0
-                new_data[0, i, :] = channel_data[i]
-
-            if dshape:
-                new_data = new_data.reshape([dshape[0], dshape[1],
-                                             new_data.shape[2]])
-
-            file_channel = str(fname)+'_'+c_name
-            DS = DataSelection(filename=file_channel,
-                               raw_data=new_data)
-            data_sets[file_channel] = DS
-
-            if sumv is None:
-                sumv = np.array(new_data)
-            else:
-                sumv += new_data
-            print('data shape {}, sum {}'.format(new_data.shape, np.sum(new_data)))
-
-        file_channel = str(fname)
-        DS = DataSelection(filename=file_channel,
-                           raw_data=sumv)
-        data_sets[file_channel] = DS
-
-        temp = {}
-        for v in exp_keys:
-            if v not in c_list:
-                print(v)
-                # clean up nan data, should be done in lower level
-                data[v][pd.isnull(data[v])] = 0
-                pv_data = np.array(data[v])
-                temp[v] = pv_data.reshape(dshape)
-        data_dict[fname+'_roi'] = temp
-
-    return data_dict, data_sets
-
-
 def read_hdf_HXN(working_directory,
                  file_names, channel_num=4):
     """
@@ -581,11 +490,19 @@ def read_hdf_APS(working_directory,
                 logger.info('Data from detector channel {} is loaded.'.format(i))
 
             if 'roimap' in data:
-                det_name = data['roimap/det_name']
-                temp = {}
-                for i, n in enumerate(det_name):
-                    temp[n] = data['roimap/det_raw'].value[:, :, i]
-                img_dict[fname+'_roi'] = temp
+                if 'sum_name' in data['roimap']:
+                    det_name = data['roimap/sum_name']
+                    temp = {}
+                    for i, n in enumerate(det_name):
+                        temp[n] = data['roimap/sum_raw'].value[:, :, i]
+                    img_dict[fname+'_roi'] = temp
+
+                if 'det_name' in data['roimap']:
+                    det_name = data['roimap/det_name']
+                    temp = {}
+                    for i, n in enumerate(det_name):
+                        temp[n] = data['roimap/det_raw'].value[:, :, i]
+                    img_dict[fname+'_roi_each'] = temp
 
             # read fitting results from summed data
             if 'xrf_fit' in data['detsum']:
@@ -862,9 +779,8 @@ def write_db_to_hdf(fpath, data, datashape,
 
     if 'name' in dataGrp:
         del dataGrp['name']
-
-    dataGrp.create_dataset('pos', data=pos_data)
     dataGrp.create_dataset('name', data=pos_names)
+    dataGrp.create_dataset('pos', data=pos_data)
 
     # scaler data
     try:
@@ -880,9 +796,8 @@ def write_db_to_hdf(fpath, data, datashape,
 
     if 'name' in dataGrp:
         del dataGrp['name']
-
-    dataGrp.create_dataset('val', data=scaler_data)
     dataGrp.create_dataset('name', data=scaler_names)
+    dataGrp.create_dataset('val', data=scaler_data)
 
     # roi sum
     try:
@@ -892,20 +807,43 @@ def write_db_to_hdf(fpath, data, datashape,
 
     roi_data_all = np.zeros([datashape[0], datashape[1], len(roi_dict)])
     roi_name_list = []
+
+    roi_data_all_ch = None
+    roi_name_all_ch = []
+
     for i, (k, roi_list) in enumerate(six.iteritems(roi_dict)):
+        count = 0
+        if i == 0 and roi_data_all_ch is None:
+            roi_data_all_ch = np.zeros([datashape[0], datashape[1],
+                                        len(roi_dict)*len(roi_list)])
+
         roi_names, roi_data = get_name_value_from_db(roi_list, data,
                                                      datashape)
         roi_name_list.append(str(k))
         roi_data_all[:, :, i] = np.sum(roi_data, axis=2)
 
+        for n in range(len(roi_list)):
+            roi_name_all_ch.append(str(roi_list[n]))
+            roi_data_all_ch[:, :, count] = roi_data[:, :, n]
+            count += 1
+
+    # summed data from each channel
+    if 'sum_name' in dataGrp:
+        del dataGrp['sum_name']
+
+    if 'sum_raw' in dataGrp:
+        del dataGrp['sum_raw']
+    dataGrp.create_dataset('sum_name', data=roi_name_list)
+    dataGrp.create_dataset('sum_raw', data=roi_data_all)
+
+    # data from each channel
     if 'det_name' in dataGrp:
         del dataGrp['det_name']
 
     if 'det_raw' in dataGrp:
         del dataGrp['det_raw']
-
-    dataGrp.create_dataset('det_raw', data=roi_data_all)
-    dataGrp.create_dataset('det_name', data=roi_name_list)
+    dataGrp.create_dataset('det_name', data=roi_name_all_ch)
+    dataGrp.create_dataset('det_raw', data=roi_data_all_ch)
 
     # if 'det_name' in dataGrp:
     #     del dataGrp['det_name']
@@ -960,7 +898,6 @@ def db_to_hdf(fpath, runid,
     scaler_list : list, tuple, optional
         list of scaler pv
     """
-
     data = fetch_data_from_db(runid)
     write_db_to_hdf(fpath, data,
                     datashape, det_list=det_list,
@@ -969,16 +906,37 @@ def db_to_hdf(fpath, runid,
                     scaler_list=scaler_list)
 
 
-def data_to_hdf_config(fpath, d,
+def get_roi_keys(all_keys, beamline='HXN'):
+    if beamline == 'HXN':
+        return get_roi_keys_hxn(all_keys)
+
+
+def get_roi_keys_hxn(all_keys):
+
+    Ch1_list = sorted([v for v in all_keys if 'Ch1' in v])
+    Ch2_list = sorted([v for v in all_keys if 'Ch2' in v])
+    Ch3_list = sorted([v for v in all_keys if 'Ch3' in v])
+
+    Ch_dict = {}
+    for i in range(len(Ch1_list)):
+        k = Ch1_list[i].replace('Ch1', 'Ch_sum')
+        val = [Ch1_list[i], Ch2_list[i], Ch3_list[i]]
+        Ch_dict[k] = val
+    return Ch_dict
+
+
+def data_to_hdf_config(fpath, data,
                        datashape, config_file):
 
     with open(config_file, 'r') as json_data:
         config_data = json.load(json_data)
 
-    write_db_to_hdf(fpath, d,
+    roi_dict = get_roi_keys(data.keys(), beamline=config_data['beamline'])
+
+    write_db_to_hdf(fpath, data,
                     datashape,
                     det_list=config_data['xrf_detector'],
-                    roi_dict=config_data['xrf_roi_pv'],
+                    roi_dict=roi_dict,
                     pos_list=config_data['pos_list'],
                     scaler_list=config_data['scaler_list'])
 
@@ -989,9 +947,11 @@ def db_to_hdf_config(fpath, runid,
     with open(config_file, 'r') as json_data:
         config_data = json.load(json_data)
 
+    roi_dict = get_roi_keys(data.keys(), beamline=config_data['beamline'])
+
     db_to_hdf(fpath, runid,
               datashape,
               det_list=config_data['xrf_detector'],
-              roi_dict=config_data['xrf_roi_pv'],
+              roi_dict=roi_dict,
               pos_list=config_data['pos_list'],
               scaler_list=config_data['scaler_list'])

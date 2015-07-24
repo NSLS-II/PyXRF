@@ -143,10 +143,10 @@ class DrawImageAdvanced(Atom):
         Set up initial plotting status for all the 2D images.
         """
         for k, v in six.iteritems(self.data_dict):
-            if 'roi' not in k:
-                temp = {m: False for m in six.iterkeys(v)}
-            else:
+            if 'roi' in k and 'each' not in k:
                 temp = {m: True for m in six.iterkeys(v)}
+            else:
+                temp = {m: False for m in six.iterkeys(v)}
             self.stat_dict.update({k: temp})
 
     def update_plot(self):
