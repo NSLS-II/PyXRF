@@ -907,12 +907,27 @@ def db_to_hdf(fpath, runid,
 
 
 def get_roi_keys(all_keys, beamline='HXN'):
+    """
+    Get roi dict in terms of beamlines.
+    """
     if beamline == 'HXN':
         return get_roi_keys_hxn(all_keys)
 
 
 def get_roi_keys_hxn(all_keys):
+    """
+    Reorganize detector names of roi detector.
 
+    Parameters
+    ----------
+    all_keys : list
+        pv names
+
+    Returns
+    -------
+    dict:
+        format as {'Ch_sum': ['ch1', 'ch2', 'ch3']}
+    """
     Ch1_list = sorted([v for v in all_keys if 'Ch1' in v])
     Ch2_list = sorted([v for v in all_keys if 'Ch2' in v])
     Ch3_list = sorted([v for v in all_keys if 'Ch3' in v])
@@ -927,7 +942,20 @@ def get_roi_keys_hxn(all_keys):
 
 def data_to_hdf_config(fpath, data,
                        datashape, config_file):
+    """
+    Assume data is ready from databroker, so save the data to hdf file.
 
+    Parameters
+    ----------
+    fpath: str
+        path to save hdf file
+    data : array
+        data from data broker
+    datashape : tuple or list
+        shape of two D image
+    config_file : str
+        path to json file which saves all pv names
+    """
     with open(config_file, 'r') as json_data:
         config_data = json.load(json_data)
 
@@ -943,15 +971,19 @@ def data_to_hdf_config(fpath, data,
 
 def db_to_hdf_config(fpath, runid,
                      datashape, config_file):
+    """
+    Assume data is ready from databroker, so save the data to hdf file.
 
-    with open(config_file, 'r') as json_data:
-        config_data = json.load(json_data)
-
-    roi_dict = get_roi_keys(data.keys(), beamline=config_data['beamline'])
-
-    db_to_hdf(fpath, runid,
-              datashape,
-              det_list=config_data['xrf_detector'],
-              roi_dict=roi_dict,
-              pos_list=config_data['pos_list'],
-              scaler_list=config_data['scaler_list'])
+    Parameters
+    ----------
+    fpath: str
+        path to save hdf file
+    runid : int
+        id number for given run
+    datashape : tuple or list
+        shape of two D image
+    config_file : str
+        path to json file which saves all pv names
+    """
+    data = fetch_data_from_db(runid)
+    data_to_hdf_config(fpath, data, datashape, config_file)
