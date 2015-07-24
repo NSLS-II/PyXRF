@@ -930,15 +930,15 @@ def get_roi_keys_hxn(all_keys):
     Returns
     -------
     dict:
-        format as {'Ch_sum': ['ch1', 'ch2', 'ch3']}
+        format as {'Ch0_sum': ['ch0_1', 'ch0_2', 'ch0_3']}
     """
-    Ch1_list = sorted([v for v in all_keys if 'Ch1' in v])
-    Ch2_list = sorted([v for v in all_keys if 'Ch2' in v])
-    Ch3_list = sorted([v for v in all_keys if 'Ch3' in v])
+    Ch1_list = sorted([v for v in all_keys if '_1' in v])
+    Ch2_list = sorted([v for v in all_keys if '_2' in v])
+    Ch3_list = sorted([v for v in all_keys if '_3' in v])
 
     Ch_dict = {}
     for i in range(len(Ch1_list)):
-        k = Ch1_list[i].replace('Ch1', 'Ch_sum')
+        k = Ch1_list[i].replace('_1', '_sum')
         val = [Ch1_list[i], Ch2_list[i], Ch3_list[i]]
         Ch_dict[k] = val
     return Ch_dict
