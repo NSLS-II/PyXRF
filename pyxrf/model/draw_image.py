@@ -254,6 +254,7 @@ class DrawImageAdvanced(Atom):
     file_name = Str()
     stat_dict = Dict()
     data_dict = Dict()
+    data_dict_keys = List()
     file_opt = Int(0)
     plot_opt = Int(0)
     plot_item = Str()
@@ -278,7 +279,7 @@ class DrawImageAdvanced(Atom):
     def __init__(self):
         self.fig = plt.figure()
 
-    @observe('data_dict')
+    @observe('data_dict', 'data_dict_keys')
     def init_plot_status(self, change):
         logger.info('2D image display: {}'.format(self.data_dict.keys()))
 
