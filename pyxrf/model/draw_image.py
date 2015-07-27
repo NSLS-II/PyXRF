@@ -37,6 +37,9 @@ __author__ = 'Li Li'
 
 import six
 import numpy as np
+from collections import OrderedDict
+
+
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
@@ -50,7 +53,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class DrawImageAdvanced(Atom):
+class DrawImageAdvanced1(Atom):
     """
     This class performs 2D image rendering, such as showing multiple
     2D roi images based on user's selection.
@@ -108,15 +111,15 @@ class DrawImageAdvanced(Atom):
         self.set_initial_stat()
 
         self.group_names = [' '] + self.data_dict.keys()
-        self.group_name = self.group_names[1]
+        self.group_name = self.group_names[0]
         scaler_groups = [v for v in self.data_dict.keys() if 'scaler' in v]
 
         self.scaler_group_name = scaler_groups[0]
         self.scaler_items = [' '] + self.data_dict[self.scaler_group_name].keys()
         self.scaler_data = None
 
-        print(self.stat_dict)
-        self.select_stat_dict = self.stat_dict[self.group_name]
+        #print(self.stat_dict)
+        #self.select_stat_dict = self.stat_dict[self.group_name]
 
     @observe('group_name')
     def _change_img_group(self, change):
@@ -220,3 +223,164 @@ class DrawImageAdvanced(Atom):
                 if v[m]:
                     data_temp.append((k, m))
         return data_temp
+
+
+class DrawImageAdvanced(Atom):
+    """
+    This class performs 2D image rendering, such as showing multiple
+    2D roi images based on user's selection.
+
+    Attributes
+    ----------
+    img_data : dict
+        dict of 2D array
+    fig : object
+        matplotlib Figure
+    file_name : str
+    stat_dict : dict
+        determine which image to show
+    data_dict : dict
+        save multiple data
+    file_opt : int
+        which file is chosen
+    plot_opt : int
+        show plot or not
+    single_file : dict
+        image data for one given file
+    """
+
+    img_data = Typed(object)
+    fig = Typed(Figure)
+    file_name = Str()
+    stat_dict = Dict()
+    data_dict = Dict()
+    file_opt = Int(0)
+    plot_opt = Int(0)
+    plot_item = Str()
+    dict_to_plot = Dict()
+
+    scale_opt = Str('Linear')
+    color_opt = Str('Orange')
+
+    group_names = List()
+    group_name = Str()
+    items_in_group = List()
+
+    scaler_group_name = Str()
+    scaler_items = List()
+    scaler_name = Str()
+    scaler_data = Typed(object)
+
+    select_stat_dict = Dict()
+
+    plot_all = Bool(False)
+
+    def __init__(self):
+        self.fig = plt.figure()
+
+    @observe('data_dict')
+    def init_plot_status(self, change):
+        logger.info('2D image display: {}'.format(self.data_dict.keys()))
+
+        scaler_groups = [v for v in self.data_dict.keys() if 'scaler' in v]
+        if len(scaler_groups) > 0:
+            self.scaler_group_name = scaler_groups[0]
+            self.scaler_items = [' '] + self.data_dict[self.scaler_group_name].keys()
+            self.scaler_data = None
+
+    @observe('file_opt')
+    def _update_file(self, change):
+        if self.file_opt > 0:
+            namelist = self.data_dict.keys()
+            self.file_name = namelist[self.file_opt]
+
+    @observe('plot_item')
+    def _update_file(self, change):
+        if self.file_opt > 0:
+            self.items_in_group = []
+            self.dict_to_plot = self.data_dict[self.plot_item]
+            self.items_in_group = self.dict_to_plot.keys()
+            self.plot_all = False
+
+    @observe('scaler_name')
+    def _get_scaler_data(self, change):
+        if self.scaler_name == ' ':
+            self.scaler_data = None
+        else:
+            self.scaler_data = self.data_dict[self.scaler_group_name][self.scaler_name]
+            print('scaler data shape: {}'.format(self.scaler_data.shape))
+
+    @observe('scale_opt', 'color_opt')
+    def _update_scale(self, change):
+        if change['type'] != 'create':
+            self.show_image()
+
+    @observe('plot_all')
+    def _update_all_plot(self, change):
+        if self.plot_all is True:
+            self.set_initial_stat(bool_val=True)
+        else:
+            self.set_initial_stat(bool_val=False)
+        #self.show_image()
+
+    def set_initial_stat(self, bool_val=False):
+        """
+        Set up initial plotting status for all the 2D images.
+        """
+        self.stat_dict.clear()
+        self.stat_dict = {k: bool_val for k in self.items_in_group}
+
+    def update_plot(self):
+        self.fig.tight_layout(pad=0.2, w_pad=0.2, h_pad=0.2)
+        self.fig.canvas.draw_idle()
+
+    def show_image(self):
+        self.fig.clf()
+        stat_temp = self.get_activated_num()
+
+        low_lim = 1e-4  # define the low limit for log image
+        plot_interp = 'Nearest'
+
+        if self.color_opt == 'Orange':
+            grey_use = cm.Oranges
+        elif self.color_opt == 'Color':
+            grey_use = None
+        else:
+            grey_use = cm.Greys_r
+
+        ncol = int(np.ceil(np.sqrt(len(stat_temp))))
+        nrow = int(np.ceil(len(stat_temp)/float(ncol)))
+
+        grid = ImageGrid(self.fig, 111,
+                         nrows_ncols=(nrow, ncol),
+                         axes_pad=(0.5, 0.5),
+                         cbar_location='right',
+                         cbar_mode='each',
+                         cbar_size='7%',
+                         cbar_pad='2%',
+                         share_all=True)
+
+        for i, (k, v) in enumerate(six.iteritems(stat_temp)):
+            if self.scale_opt == 'Linear':
+                if self.scaler_data is not None:
+                    data_dict = self.dict_to_plot[k]/self.scaler_data
+                else:
+                    data_dict = self.dict_to_plot[k]
+                im = grid[i].imshow(data_dict,
+                                    cmap=grey_use,
+                                    interpolation=plot_interp)
+
+            else:
+                maxz = np.max(self.dict_to_plot[k])
+                im = grid[i].imshow(self.dict_to_plot[k],
+                                    norm=LogNorm(vmin=low_lim*maxz,
+                                                 vmax=maxz),
+                                    cmap=grey_use)
+            grid_title = self.file_name+'_'+str(k)
+            grid[i].text(0, -1, grid_title)
+            grid.cbar_axes[i].colorbar(im)
+        self.update_plot()
+
+    def get_activated_num(self):
+        return {k:v for (k,v) in six.iteritems(self.stat_dict) if v is True}
+
