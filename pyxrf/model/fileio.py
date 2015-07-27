@@ -854,21 +854,21 @@ def write_db_to_hdf(fpath, data, datashape,
     ds_data.attrs['comments'] = 'Experimental data from channel sum'
 
     # position data
-    try:
-        dataGrp = f.create_group(interpath+'/positions')
-    except ValueError:
-        dataGrp = f[interpath+'/positions']
-
-    pos_names, pos_data = get_name_value_from_db(pos_list, data,
-                                                 datashape)
-
-    if 'pos' in dataGrp:
-        del dataGrp['pos']
-
-    if 'name' in dataGrp:
-        del dataGrp['name']
-    dataGrp.create_dataset('name', data=pos_names)
-    dataGrp.create_dataset('pos', data=pos_data)
+    # try:
+    #     dataGrp = f.create_group(interpath+'/positions')
+    # except ValueError:
+    #     dataGrp = f[interpath+'/positions']
+    #
+    # pos_names, pos_data = get_name_value_from_db(pos_list, data,
+    #                                              datashape)
+    #
+    # if 'pos' in dataGrp:
+    #     del dataGrp['pos']
+    #
+    # if 'name' in dataGrp:
+    #     del dataGrp['name']
+    # dataGrp.create_dataset('name', data=pos_names)
+    # dataGrp.create_dataset('pos', data=pos_data)
 
     # scaler data
     try:
