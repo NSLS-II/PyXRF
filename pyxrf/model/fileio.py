@@ -259,7 +259,6 @@ def file_handler(working_directory, file_names):
         read_hdf_HXN(working_directory, file_names)
 
 
-
 def fetch_data_from_db(runid):
     """
     Read data from database.
@@ -694,6 +693,91 @@ def get_fit_data(namelist, data):
     for i in range(len(namelist)):
         data_temp.update({namelist[i]: data[i, :, :]})
     return data_temp
+
+
+def read_xspress(file_name):
+    """
+    Data from xspress file format.
+
+    Parameters
+    ----------
+    file_name : str
+        file path
+
+    Returns
+    -------
+    array :
+        data with shape [2D_size1, 2D_size2, num_frame, num_channel, num_energy_channel]
+    """
+
+    file_path = os.path.join(file_name)
+    f = h5py.File(file_path, 'r+')
+    data = f['entry/instrument/detector/data']
+
+    return np.array(data)
+
+
+def write_data_to_hdf(fpath, data, bin_frame=True, channel_n=4):
+    """
+    Assume data is obained from databroker, and save the data to hdf file.
+
+    Parameters
+    ----------
+    fpath: str
+        path to save hdf file
+    data : array
+        data from data broker
+    bin_frame : bool, optional
+        true when data has multiple frames per point
+    channel_n : int, optional
+        number of detector channels
+    """
+
+    if bin_frame is True:
+        data = np.sum(data, 2)
+
+    interpath = 'xrfmap'
+    f = h5py.File(fpath, 'a')
+
+    for i in range(channel_n):
+        detname = 'det'+str(i+1)
+        try:
+            dataGrp = f.create_group(interpath+'/'+detname)
+        except ValueError:
+            dataGrp = f[interpath+'/'+detname]
+
+        if 'counts' in dataGrp:
+            del dataGrp['counts']
+        ds_data = dataGrp.create_dataset('counts', data=data[:, :, i, :])
+        ds_data.attrs['comments'] = 'Experimental data from channel ' + str(i)
+
+    # summed data
+    try:
+        dataGrp = f.create_group(interpath+'/detsum')
+    except ValueError:
+        dataGrp = f[interpath+'/detsum']
+
+    if 'counts' in dataGrp:
+        del dataGrp['counts']
+    ds_data = dataGrp.create_dataset('counts', data=np.sum(data, axis=2))
+    ds_data.attrs['comments'] = 'Experimental data from channel sum'
+
+    f.close()
+
+
+def transfer_xspress(fpath, output_path):
+    """
+    Transfer xspress h5 file to file which can be taken by pyxrf.
+
+    Parameters
+    ----------
+    fpath : str
+        input file path
+    output_path : str
+        path to save output file
+    """
+    d = read_xspress(fpath)
+    write_data_to_hdf(output_path, d)
 
 
 def write_db_to_hdf(fpath, data, datashape,
