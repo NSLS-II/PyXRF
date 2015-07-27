@@ -954,6 +954,7 @@ def get_name_value_from_db(name_list, data, datashape):
     pos_names = []
     pos_data = np.zeros([datashape[0], datashape[1], len(name_list)])
     for i, v in enumerate(name_list):
+        print(v)
         posv = np.asarray(data[v])
         pos_data[:, :, i] = posv.reshape([datashape[0], datashape[1]])
         pos_names.append(str(v))
@@ -1016,9 +1017,9 @@ def get_roi_keys_hxn(all_keys):
     dict:
         format as {'Ch0_sum': ['ch0_1', 'ch0_2', 'ch0_3']}
     """
-    Ch1_list = sorted([v for v in all_keys if '_1' in v])
-    Ch2_list = sorted([v for v in all_keys if '_2' in v])
-    Ch3_list = sorted([v for v in all_keys if '_3' in v])
+    Ch1_list = sorted([v for v in all_keys if '_ch1' in v and 'xspress' not in v])
+    Ch2_list = sorted([v for v in all_keys if '_ch2' in v and 'xspress' not in v])
+    Ch3_list = sorted([v for v in all_keys if '_ch3' in v and 'xspress' not in v])
 
     Ch_dict = {}
     for i in range(len(Ch1_list)):
