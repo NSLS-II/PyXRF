@@ -871,21 +871,21 @@ def write_db_to_hdf(fpath, data, datashape,
     # dataGrp.create_dataset('pos', data=pos_data)
 
     # scaler data
-    # try:
-    #     dataGrp = f.create_group(interpath+'/scalers')
-    # except ValueError:
-    #     dataGrp = f[interpath+'/scalers']
-    #
-    # scaler_names, scaler_data = get_name_value_from_db(scaler_list, data,
-    #                                                    datashape)
-    #
-    # if 'val' in dataGrp:
-    #     del dataGrp['val']
-    #
-    # if 'name' in dataGrp:
-    #     del dataGrp['name']
-    # dataGrp.create_dataset('name', data=scaler_names)
-    # dataGrp.create_dataset('val', data=scaler_data)
+    try:
+        dataGrp = f.create_group(interpath+'/scalers')
+    except ValueError:
+        dataGrp = f[interpath+'/scalers']
+
+    scaler_names, scaler_data = get_name_value_from_db(scaler_list, data,
+                                                       datashape)
+
+    if 'val' in dataGrp:
+        del dataGrp['val']
+
+    if 'name' in dataGrp:
+        del dataGrp['name']
+    dataGrp.create_dataset('name', data=scaler_names)
+    dataGrp.create_dataset('val', data=scaler_data)
 
     # roi sum
     try:
