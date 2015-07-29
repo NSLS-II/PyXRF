@@ -42,16 +42,19 @@ from enaml.widgets.api import (Container, PushButton, Label,
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer, grid
 from enaml.core.api import Include, Looper
 from enaml.layout.geometry import Box
-from enaml.stdlib.fields import FloatField, IntField
+from enaml.stdlib.fields import FloatField
+from enaml.stdlib.fields import IntField as DefaultIntField
 
 import numpy as np
+
+enamldef IntField(DefaultIntField):
+    submit_triggers = ['auto_sync'] #['return_pressed']
 
 
 enamldef FileView(DockItem): file_view:
     attr io_model
     attr param_model
     attr plot_model
-    attr img_model
     attr img_model_adv
     attr fit_model
     attr setting_model
@@ -62,8 +65,8 @@ enamldef FileView(DockItem): file_view:
                 vbox(
                     hbox(folder_btn, folder_fd),
                     hbox(btn_out, fd_out),
-                    hbox(pixel_h_label, pixel_h, pixel_v_label, pixel_v, spacer),
                     hbox(files_btn, files_load),
+                    hbox(pixel_h_label, pixel_h, pixel_v_label, pixel_v, spacer),
                     hbox(cb_runid, run_lbl, run_num, load_btn, spacer),
                     scroller,
                     hbox(plot_bt, spacer),
@@ -98,8 +101,6 @@ enamldef FileView(DockItem): file_view:
                     if path:
                         io_model.file_names = [item.split('/')[-1] for item in path]
                         files_load.text = 'Number of files loaded: {}'.format(len(io_model.file_names))
-                        #CB.items = ['Please select file'] + io_model.file_names
-                        io_model.get_roi_data()
 
                         # do not import original data for 2D image
                         img_model_adv.data_dict = io_model.img_dict
@@ -110,6 +111,7 @@ enamldef FileView(DockItem): file_view:
                         plot_model.parameters = param_model.param_new
                         setting_model.parameters = param_model.param_new
                         setting_model.data_sets = io_model.data_sets
+                        fit_model.save_name = io_model.file_names[0]
 
             Label: files_load:
                 text = 'No data is loaded.'
@@ -134,11 +136,11 @@ enamldef FileView(DockItem): file_view:
                 value := io_model.runid
 
             PushButton: load_btn:
-                text = "Load Data"
+                text = "Get Data from Database"
                 clicked ::
                     io_model.load_data_runid()
 
-                    io_model.get_roi_data()
+                    files_load.text = 'Number of files loaded: {}'.format(len(io_model.file_names))
 
                     # do not import original data for 2D image
                     img_model_adv.data_dict = io_model.img_dict
@@ -149,6 +151,7 @@ enamldef FileView(DockItem): file_view:
                     plot_model.parameters = param_model.param_new
                     setting_model.parameters = param_model.param_new
                     setting_model.data_sets = io_model.data_sets
+                    fit_model.save_name = io_model.file_names[0]
 
             Label : pixel_h_label:
                 text = 'pixel num on x (horizontal)'
@@ -162,38 +165,15 @@ enamldef FileView(DockItem): file_view:
                 maximum_size = (40, 20)
 
             ScrollArea: scroller:
-                #Form:
                 Container:
                     Looper: looper:
-                        #iterable << sorted(io_model.file_names) #sorted(io_model.data_sets.keys())
-                        iterable << sorted(io_model.file_channel_list)
-                        #Container:
+                        iterable << io_model.file_channel_list
                         GroupBox:
                             title = '{}, data shape: {}'.format(loop_item, io_model.data_sets[loop_item].raw_data.shape)
                             #title_align = 'center'
                             #constraints = [hbox(cb, lb1, fd1, lb2, fd2, spacer)]
                             constraints = [hbox(rb_1, rb_2, rb_3, rb_4, lb1, fd1, lb2, fd2, spacer)]
                             padding = Box(0, 0, 0, 0)
-                            #Label: lb:
-                            #    text = io_model.data_sets[loop_item].filename
-
-                            #ComboBox: cb:
-                            #    items = [' ', 'Sum', 'Point', 'Roi']
-                            #    index := io_model.data_sets[loop_item].plot_index
-                            #    maximum_size = 80
-                            #    index ::
-                            #        if index == 2:
-                            #            fd1.enabled = True
-                            #            fd2.enabled = False
-                            #            plot_bt.enabled = True
-                            #        elif index == 3:
-                            #            fd1.enabled = True
-                            #            fd2.enabled = True
-                            #            plot_bt.enabled = True
-                            #        elif index == 1:
-                            #            fd1.enabled = False
-                            #            fd2.enabled = False
-                            #            plot_bt.enabled = True
 
                             RadioButton: rb_1:
                                 text = 'None'
@@ -238,8 +218,6 @@ enamldef FileView(DockItem): file_view:
                                 text := io_model.data_sets[loop_item].point2
                                 maximum_size = 80
                                 enabled = False
-                            #PushButton: pb
-                            #    pass
 
             PushButton: plot_bt:
                 text = 'Plot Experiments'

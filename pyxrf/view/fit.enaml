@@ -73,6 +73,7 @@ enamldef FitView(DockItem): fit_view:
     attr fit_model
     attr element_edit
     attr parameter_edit
+    attr img_model_adv
 
     Container:
         constraints = [
@@ -168,8 +169,6 @@ enamldef FitView(DockItem): fit_view:
 
                 plot_model.plot_fit()
                 plot_model._update_canvas()
-                #plot_model.show_fit_opt = False
-                #plot_model.show_fit_opt = True
 
         PushButton: pb_plot:
             text = 'Overlap to Spectrum'
@@ -265,8 +264,11 @@ enamldef FitView(DockItem): fit_view:
             PushButton: fit_pixel:
                 text = 'Fit Individual Pixel'
                 clicked ::
-                    #fit_model.fit_multi_files()
                     fit_model.fit_single_pixel()
+                    temp_name = io_model.file_names[0].split('_')[0]+'_fit'
+                    img_model_adv.data_dict.update(fit_model.fit_img)
+                    img_model_adv.data_dict_keys = []
+                    img_model_adv.data_dict_keys = img_model_adv.data_dict.keys()
 
 
 enamldef ElementEdit(Window):

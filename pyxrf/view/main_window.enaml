@@ -52,7 +52,6 @@ enamldef XRFGui(MainWindow): main_window:
     attr io_model
     attr param_model
     attr plot_model
-    attr img_model
     attr img_model_adv
     attr fit_model
     attr setting_model
@@ -72,7 +71,6 @@ enamldef XRFGui(MainWindow): main_window:
                 io_model = main_window.io_model
                 param_model = main_window.param_model
                 plot_model = main_window.plot_model
-                img_model = main_window.img_model
                 img_model_adv = main_window.img_model_adv
 
                 fit_model = main_window.fit_model
@@ -107,6 +105,7 @@ enamldef XRFGui(MainWindow): main_window:
                 img_model_adv = main_window.img_model_adv
                 choose_element = ChooseElementAdvanced(
                     visible=False, destroy_on_close=False,
+                    always_on_top=True,
                     img_model=main_window.img_model_adv)
                 #plot_model = main_window.plot_model
                 name = 'image_view'
@@ -117,6 +116,8 @@ enamldef XRFGui(MainWindow): main_window:
                 param_model = main_window.param_model
                 plot_model = main_window.plot_model
                 fit_model = main_window.fit_model
+                img_model_adv = main_window.img_model_adv
+
                 element_edit = ElementEdit(
                     visible=False,
                     destroy_on_close=False,
