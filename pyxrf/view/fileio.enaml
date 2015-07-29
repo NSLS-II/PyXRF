@@ -101,8 +101,6 @@ enamldef FileView(DockItem): file_view:
                     if path:
                         io_model.file_names = [item.split('/')[-1] for item in path]
                         files_load.text = 'Number of files loaded: {}'.format(len(io_model.file_names))
-                        #CB.items = ['Please select file'] + io_model.file_names
-                        #io_model.get_roi_data()
 
                         # do not import original data for 2D image
                         img_model_adv.data_dict = io_model.img_dict
@@ -167,38 +165,15 @@ enamldef FileView(DockItem): file_view:
                 maximum_size = (40, 20)
 
             ScrollArea: scroller:
-                #Form:
                 Container:
                     Looper: looper:
-                        #iterable << sorted(io_model.file_names) #sorted(io_model.data_sets.keys())
                         iterable << io_model.file_channel_list
-                        #Container:
                         GroupBox:
                             title = '{}, data shape: {}'.format(loop_item, io_model.data_sets[loop_item].raw_data.shape)
                             #title_align = 'center'
                             #constraints = [hbox(cb, lb1, fd1, lb2, fd2, spacer)]
                             constraints = [hbox(rb_1, rb_2, rb_3, rb_4, lb1, fd1, lb2, fd2, spacer)]
                             padding = Box(0, 0, 0, 0)
-                            #Label: lb:
-                            #    text = io_model.data_sets[loop_item].filename
-
-                            #ComboBox: cb:
-                            #    items = [' ', 'Sum', 'Point', 'Roi']
-                            #    index := io_model.data_sets[loop_item].plot_index
-                            #    maximum_size = 80
-                            #    index ::
-                            #        if index == 2:
-                            #            fd1.enabled = True
-                            #            fd2.enabled = False
-                            #            plot_bt.enabled = True
-                            #        elif index == 3:
-                            #            fd1.enabled = True
-                            #            fd2.enabled = True
-                            #            plot_bt.enabled = True
-                            #        elif index == 1:
-                            #            fd1.enabled = False
-                            #            fd2.enabled = False
-                            #            plot_bt.enabled = True
 
                             RadioButton: rb_1:
                                 text = 'None'
@@ -243,8 +218,6 @@ enamldef FileView(DockItem): file_view:
                                 text := io_model.data_sets[loop_item].point2
                                 maximum_size = 80
                                 enabled = False
-                            #PushButton: pb
-                            #    pass
 
             PushButton: plot_bt:
                 text = 'Plot Experiments'

@@ -67,30 +67,30 @@ class FileIOModel(Atom):
     Attributes
     ----------
     working_directory : str
+        current working path
+    working_directory : str
+        define where output files are saved
     file_names : list
         list of loaded files
-    data : array
-        Experiment data.
     load_status : str
         Description of file loading status
-    data_dict : dict
-        Dict has filename as key and group data as value.
+    data_sets : dict
+        dict of experiment data, 3D array
+    img_dict : dict
+        Dict of 2D arrays, such as 2D roi pv or fitted data
     """
     working_directory = Str()
     output_directory = Str()
-    data_file = Str()
     file_names = List()
     file_path = Str()
-    data = Typed(np.ndarray)
+    #data = Typed(np.ndarray)
     load_status = Str()
-    data_dict = Dict()
+    #data_dict = Dict()
+    data_sets = Typed(OrderedDict)
     img_dict = Dict()
-    #img_dict_flat = Dict()
 
     file_channel_list = List()
 
-    data_sets = Typed(OrderedDict)
-    #data_sets_fit = Typed(OrderedDict)
     runid = Int(-1)
     h_num = Int(0)
     v_num = Int(0)
@@ -101,7 +101,6 @@ class FileIOModel(Atom):
         self.output_directory = kwargs['output_directory']
         #with self.suppress_notifications():
         #    self.working_directory = working_directory
-            #self.data_file = data_file
 
     @observe('working_directory')
     def working_directory_changed(self, changed):
@@ -113,7 +112,7 @@ class FileIOModel(Atom):
     def update_more_data(self, change):
         self.file_channel_list = []
         self.file_names.sort()
-        logger.info('Loaded files : %s' % (self.file_names))
+        logger.info('Files are loaded: %s' % (self.file_names))
 
         self.img_dict, self.data_sets = file_handler(self.working_directory,
                                                      self.file_names)
@@ -123,17 +122,6 @@ class FileIOModel(Atom):
     @observe('runid')
     def _update_fname(self, change):
         self.fname_from_db = 'scan_'+str(self.runid)+'.h5'
-
-    def get_roi_data(self):
-        """
-        Get roi sum data from data_dict.
-        """
-        # for k, v in six.iteritems(self.data_dict):
-        #     roi_dict = {d[0]: d[1] for d in zip(v['channel_names'], v['XRF_roi'])}
-        #     self.img_dict.update({str(k): {'roi_sum': roi_dict}})
-        #
-        #     self.img_dict_flat.update({str(k).split('.')[0]+'_roi_sum': roi_dict})
-        pass
 
     def load_data_runid(self):
         """

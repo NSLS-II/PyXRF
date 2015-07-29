@@ -49,7 +49,7 @@ from enaml.stdlib.message_box import MessageBox, warning, information
 import numpy as np
 import six
 
-from ..model.guessparam import autofit_param, save_as
+from ..model.guessparam import autofit_param
 from skxray.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 
 
@@ -180,7 +180,6 @@ enamldef GuessParamView(DockItem): param_view:
                 # update experimental plots if case the coefficients change
                 plot_model.parameters = param_model.param_new
                 plot_model.plot_experiment()
-
                 plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
                                                     param_model.total_l, param_model.total_m,
                                                     param_model.total_pileup)
@@ -415,14 +414,6 @@ enamldef GuessParamView(DockItem): param_view:
                     plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
                                                         param_model.total_l, param_model.total_m,
                                                         param_model.total_pileup)
-
-        #PushButton: saveas_btn:
-        #    text = 'Save As'
-        #    clicked ::
-        #        path = FileDialogEx.get_save_file_name(param_view,
-        #                                               current_path=io_model.working_directory)
-        #        if path:
-        #            save_as(path, param_model.param_new)
 
 
 def set_low_bound(value, thresh_v=0.1):
