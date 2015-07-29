@@ -447,6 +447,8 @@ def read_hdf_APS(working_directory,
             exp_data = data['detsum/counts']
             #exp_data = np.asarray(exp_data[:, angle_cut:-angle_cut, :-spectrum_cut])
             exp_data = np.array(exp_data)
+            print('raw data from h5: {}'.format(exp_data.shape))
+            #exp_data[0, 0, :] = exp_data[0, 1, :]
             #roi_name = data['detsum']['roi_name'].value
             #roi_value = data['detsum']['roi_limits'].value
 
@@ -475,7 +477,7 @@ def read_hdf_APS(working_directory,
                 file_channel = fname+'_channel_'+str(i)
                 exp_data_new = data[det_name+'/counts']
                 exp_data_new = np.array(exp_data_new)
-                exp_data_new[0, 0, :] = exp_data_new[0, 1, :]
+                exp_data_new[0, 0, :] = exp_data_new[1, 0, :]
                 DS = DataSelection(filename=file_channel,
                                    raw_data=exp_data_new)
                 data_sets[file_channel] = DS
@@ -487,7 +489,7 @@ def read_hdf_APS(working_directory,
                     temp = {}
                     for i, n in enumerate(det_name):
                         temp[n] = data['roimap/sum_raw'].value[:, :, i]
-                        temp[n][0, 0] = temp[n][0, 1]
+                        temp[n][0, 0] = temp[n][1, 0]
                     img_dict[fname+'_roi'] = temp
 
                 if 'det_name' in data['roimap']:
@@ -495,7 +497,7 @@ def read_hdf_APS(working_directory,
                     temp = {}
                     for i, n in enumerate(det_name):
                         temp[n] = data['roimap/det_raw'].value[:, :, i]
-                        temp[n][0, 0] = temp[n][0, 1]
+                        temp[n][0, 0] = temp[n][1, 0]
                     img_dict[fname+'_roi_each'] = temp
 
             # read fitting results from summed data
@@ -838,7 +840,7 @@ def write_db_to_hdf(fpath, data, datashape,
 
     sum_data = sum_data.reshape([datashape[0], datashape[1],
                                  len(channel_data[0])])
-
+    print('sum data shape: {}'.format(sum_data.shape))
     if 'counts' in dataGrp:
         del dataGrp['counts']
     ds_data = dataGrp.create_dataset('counts', data=sum_data)
