@@ -475,7 +475,7 @@ def read_hdf_APS(working_directory,
                 file_channel = fname+'_channel_'+str(i)
                 exp_data_new = data[det_name+'/counts']
                 exp_data_new = np.array(exp_data_new)
-                exp_data_new[0,0,:] *= 0
+                exp_data_new[0, 0, :] = exp_data_new[0, 1, :]
                 DS = DataSelection(filename=file_channel,
                                    raw_data=exp_data_new)
                 data_sets[file_channel] = DS
@@ -487,7 +487,7 @@ def read_hdf_APS(working_directory,
                     temp = {}
                     for i, n in enumerate(det_name):
                         temp[n] = data['roimap/sum_raw'].value[:, :, i]
-                        temp[n][0, 0] = 0
+                        temp[n][0, 0] = temp[n][0, 1]
                     img_dict[fname+'_roi'] = temp
 
                 if 'det_name' in data['roimap']:
@@ -495,7 +495,7 @@ def read_hdf_APS(working_directory,
                     temp = {}
                     for i, n in enumerate(det_name):
                         temp[n] = data['roimap/det_raw'].value[:, :, i]
-                        temp[0, 0] = 0
+                        temp[n][0, 0] = temp[n][0, 1]
                     img_dict[fname+'_roi_each'] = temp
 
             # read fitting results from summed data
