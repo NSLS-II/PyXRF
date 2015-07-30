@@ -176,21 +176,12 @@ enamldef ImageMain(DockItem):
         ]
 
         ComboBox: cbox_file:
-            items << ['Select Data'] + sorted(img_model_adv.data_dict.keys())
+            items << ['Select Data'] + sorted(img_model_adv.data_dict_keys)
             index := img_model_adv.file_opt
             index = 0
             index ::
                 if index > 0:
                     img_model_adv.plot_item = selected_item
-
-        #ComboBox: cbox_type:
-        #    items = ['Plot Type', 'ROI sum', 'Fit']
-        #    items = ['']
-        #    index := img_model_adv.plot_opt
-        #    index = 0
-        #    index ::
-        #        if index > 0:
-        #            img_model_adv.plot_item = selected_item
 
         PushButton: pb_all:
             text = 'Image Wizard'

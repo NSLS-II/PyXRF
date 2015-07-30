@@ -278,6 +278,7 @@ class DrawImageAdvanced(Atom):
 
     def __init__(self):
         self.fig = plt.figure()
+        self.data_dict_keys = self.data_dict.keys()
 
     @observe('data_dict', 'data_dict_keys')
     def init_plot_status(self, change):
@@ -364,7 +365,7 @@ class DrawImageAdvanced(Atom):
         for i, (k, v) in enumerate(six.iteritems(stat_temp)):
             if self.scale_opt == 'Linear':
                 if self.scaler_data is not None:
-                    data_dict = self.dict_to_plot[k]/self.scaler_data
+                    data_dict = self.dict_to_plot[k]/self.scaler_data*np.max(self.scaler_data)
                 else:
                     data_dict = self.dict_to_plot[k]
                 im = grid[i].imshow(data_dict,
@@ -384,4 +385,3 @@ class DrawImageAdvanced(Atom):
 
     def get_activated_num(self):
         return {k:v for (k,v) in six.iteritems(self.stat_dict) if v is True}
-
