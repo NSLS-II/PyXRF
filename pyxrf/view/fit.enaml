@@ -267,7 +267,6 @@ enamldef FitView(DockItem): fit_view:
                     fit_model.fit_single_pixel()
                     temp_name = io_model.file_names[0].split('_')[0]+'_fit'
                     img_model_adv.data_dict.update(fit_model.fit_img)
-                    img_model_adv.data_dict_keys = []
                     img_model_adv.data_dict_keys = img_model_adv.data_dict.keys()
 
 

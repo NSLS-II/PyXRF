@@ -278,10 +278,10 @@ class DrawImageAdvanced(Atom):
 
     def __init__(self):
         self.fig = plt.figure()
-        self.data_dict_keys = self.data_dict.keys()
 
     @observe('data_dict', 'data_dict_keys')
     def init_plot_status(self, change):
+        self.data_dict_keys = self.data_dict.keys()
         logger.info('2D image display: {}'.format(self.data_dict.keys()))
 
         scaler_groups = [v for v in self.data_dict.keys() if 'scaler' in v]

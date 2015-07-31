@@ -105,7 +105,7 @@ enamldef PlotMain(DockItem):
                     adjust_emission_line.hide()
 
         ComboBox: cbox2:
-            items = ['Display emission lines'] +\
+            items = ['<Display emission lines>'] +\
                     K_LINE + L_LINE + M_LINE
             index := plot_model.element_id
             index = 0
