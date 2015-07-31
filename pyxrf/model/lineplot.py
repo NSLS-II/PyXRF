@@ -204,8 +204,9 @@ class LinePlotModel(Atom):
             'elastic': {'color': 'purple', 'label': 'elastic'},
             'escape': {'color': 'darkblue', 'label': 'escape'},
             'pileup': {'color': 'orange', 'label': 'pileup'},
-            'auto_fit': {'color': 'black', 'label': 'auto fitted'},
-            'fit': {'color': 'black', 'label': 'fitted'}
+            'auto_fit': {'color': 'black', 'label': 'auto fitted', 'linewidth': 2.5},
+            'fit': {'color': 'red', 'label': 'fitted', 'linewidth': 2.5},
+            'residual': {'color': 'black', 'label': 'residual', 'linewidth': 2.0}
         }
 
     def _update_canvas(self):
@@ -566,7 +567,8 @@ class LinePlotModel(Atom):
             self._ax.hold(True)
             ln, = self._ax.plot(self.prefit_x, sum_y,
                                 color=self.plot_style['auto_fit']['color'],
-                                label=self.plot_style['auto_fit']['label'])
+                                label=self.plot_style['auto_fit']['label'],
+                                linewidth=self.plot_style['auto_fit']['linewidth'])
             self.auto_fit_obj.append(ln)
 
     @observe('show_autofit_opt')
@@ -624,15 +626,17 @@ class LinePlotModel(Atom):
             self.plot_fit_obj.pop().remove()
         ln, = self._ax.plot(self.fit_x, self.fit_y,
                             color=self.plot_style['fit']['color'],
-                            label=self.plot_style['fit']['label'])
+                            label=self.plot_style['fit']['label'],
+                            linewidth=self.plot_style['fit']['linewidth'])
         self.plot_fit_obj.append(ln)
 
-        shiftv = 1.5  # move residual down by some amount
-        ln, = self._ax.plot(self.fit_x,
-                            self.residual - shiftv*(np.max(np.abs(self.residual))),
-                            color=self.plot_style['fit']['color'])
-                            #label='residual')
-        self.plot_fit_obj.append(ln)
+        # shiftv = 1.5  # move residual down by some amount
+        # ln, = self._ax.plot(self.fit_x,
+        #                     self.residual - shiftv*(np.max(np.abs(self.residual))),
+        #                     label=self.plot_style['residual']['label'],
+        #                     color=self.plot_style['residual']['color'])
+        #                     #label='residual')
+        # self.plot_fit_obj.append(ln)
 
         k_num = 0
         l_num = 0

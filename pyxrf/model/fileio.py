@@ -92,8 +92,8 @@ class FileIOModel(Atom):
     file_channel_list = List()
 
     runid = Int(-1)
-    h_num = Int(0)
-    v_num = Int(0)
+    h_num = Int(1)
+    v_num = Int(1)
     fname_from_db = Str()
 
     def __init__(self, **kwargs):

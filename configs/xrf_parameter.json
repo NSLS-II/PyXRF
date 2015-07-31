@@ -52,9 +52,9 @@
         "free_more": "lohi", 
         "linear": "fixed", 
         "max": 105.0, 
-        "min": 80.0,
-        "default": 90.0,
-        "value": 85.39794495591467
+        "min": 70.0,
+        "default": 78.0,
+        "value": 78.0
     }, 
     "compton_f_step": {
         "adjust_element1": "fixed", 
@@ -79,10 +79,10 @@
         "fit_with_tail": "lohi", 
         "free_more": "fixed", 
         "linear": "fixed", 
-        "max": 0.3, 
-        "min": 0.0001,
-        "default": 0.2,
-        "value": 0.29900292141101986
+        "max": 4.0,
+        "min": 1.5,
+        "default": 2.5,
+        "value": 2.5
     }, 
     "compton_fwhm_corr": {
         "adjust_element1": "fixed", 
@@ -97,7 +97,7 @@
         "max": 3.0, 
         "min": 1.5,
         "default": 2.0,
-        "value": 2.1861375816183943
+        "value": 2.0
     }, 
     "compton_gamma": {
         "adjust_element1": "fixed", 

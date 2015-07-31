@@ -295,7 +295,7 @@ enamldef GuessParamView(DockItem): param_view:
                             select_all.text = 'Show All'
 
             ScrollArea: scr_area:
-                constraints = [height <= 200]
+                constraints = [height <= 350]
 
                 Form:
                 #Container: ctn_looper:
