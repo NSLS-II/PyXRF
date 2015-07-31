@@ -1,8 +1,8 @@
 {
     "coherent_sct_amplitude": {
-        "adjust_element1": "none", 
-        "adjust_element2": "none", 
-        "adjust_element3": "none", 
+        "adjust_element1": "fixed",
+        "adjust_element2": "fixed",
+        "adjust_element3": "fixed",
         "bound_type": "none", 
         "e_calibration": "none", 
         "fit_with_tail": "none", 
@@ -29,9 +29,9 @@
         "value": 12.0
     }, 
     "compton_amplitude": {
-        "adjust_element1": "none", 
-        "adjust_element2": "none", 
-        "adjust_element3": "none", 
+        "adjust_element1": "fixed",
+        "adjust_element2": "fixed",
+        "adjust_element3": "fixed",
         "bound_type": "none", 
         "e_calibration": "none", 
         "fit_with_tail": "none", 
