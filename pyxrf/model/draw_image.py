@@ -333,7 +333,7 @@ class DrawImageAdvanced(Atom):
         self.stat_dict = {k: bool_val for k in self.items_in_group}
 
     def update_plot(self):
-        self.fig.tight_layout(pad=0.2, w_pad=0.2, h_pad=0.2)
+        self.fig.tight_layout(pad=1.0, w_pad=0.2, h_pad=0.2)
         self.fig.canvas.draw_idle()
 
     def show_image(self):
@@ -341,6 +341,7 @@ class DrawImageAdvanced(Atom):
         stat_temp = self.get_activated_num()
 
         low_lim = 1e-4  # define the low limit for log image
+        ic_norm = 10000  # multiply by this value for ic normalization
         plot_interp = 'Nearest'
 
         if self.color_opt == 'Orange':
@@ -365,7 +366,7 @@ class DrawImageAdvanced(Atom):
         for i, (k, v) in enumerate(six.iteritems(stat_temp)):
             if self.scale_opt == 'Linear':
                 if self.scaler_data is not None:
-                    data_dict = self.dict_to_plot[k]/self.scaler_data*np.max(self.scaler_data)
+                    data_dict = self.dict_to_plot[k]/self.scaler_data*ic_norm
                 else:
                     data_dict = self.dict_to_plot[k]
                 im = grid[i].imshow(data_dict,
@@ -377,7 +378,8 @@ class DrawImageAdvanced(Atom):
                 im = grid[i].imshow(self.dict_to_plot[k],
                                     norm=LogNorm(vmin=low_lim*maxz,
                                                  vmax=maxz),
-                                    cmap=grey_use)
+                                    cmap=grey_use,
+                                    interpolation=plot_interp)
             grid_title = self.file_name+'_'+str(k)
             grid[i].text(0, -1, grid_title)
             grid.cbar_axes[i].colorbar(im)
