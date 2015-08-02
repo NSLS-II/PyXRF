@@ -367,6 +367,8 @@ class DrawImageAdvanced(Atom):
         for i, (k, v) in enumerate(six.iteritems(stat_temp)):
             if self.scale_opt == 'Linear':
                 if self.scaler_data is not None:
+                    zero_pos = np.where(self.scaler_data == 0)
+                    self.dict_to_plot[k][zero_pos] = 0.0
                     data_dict = self.dict_to_plot[k]/(self.scaler_data+ic_thresh)*ic_norm
                 else:
                     data_dict = self.dict_to_plot[k]
