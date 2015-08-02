@@ -342,6 +342,7 @@ class DrawImageAdvanced(Atom):
 
         low_lim = 1e-4  # define the low limit for log image
         ic_norm = 10000  # multiply by this value for ic normalization
+        ic_thresh = 1.0  # in case the ic value is zero
         plot_interp = 'Nearest'
 
         if self.color_opt == 'Orange':
@@ -366,7 +367,7 @@ class DrawImageAdvanced(Atom):
         for i, (k, v) in enumerate(six.iteritems(stat_temp)):
             if self.scale_opt == 'Linear':
                 if self.scaler_data is not None:
-                    data_dict = self.dict_to_plot[k]/self.scaler_data*ic_norm
+                    data_dict = self.dict_to_plot[k]/(self.scaler_data+ic_thresh)*ic_norm
                 else:
                     data_dict = self.dict_to_plot[k]
                 im = grid[i].imshow(data_dict,
