@@ -262,7 +262,10 @@ def fetch_data_from_db(runid):
         data frame with keys as given PV names.
     """
 
-    hdr = db[runid]
+    #hdr = db[runid]
+    headers = db.find_headers(scan_id=runid)
+    head_list = sorted(headers, key=lambda x: x.start_time)
+    hdr = head_list[-1]
     # events = db.fetch_events(hdr, fill=False)
     # num_events = len(list(events))
     # print('%s events found' % num_events)
