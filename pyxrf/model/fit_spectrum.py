@@ -328,24 +328,42 @@ class Fit1D(Atom):
         Multiprocess is considered.
         """
         save_name = self.save_name
-        save_dict = {'fit_path': os.path.join(self.result_folder, save_name),
-                     'save_range': 0}
+        #save_dict = {'fit_path': os.path.join(self.result_folder, save_name),
+        #             'save_range': 0}
 
         strategy_pixel = 'linear'
         set_parameter_bound(self.param_dict, strategy_pixel)
+
         logger.info('Starting single pixel fitting')
         t0 = time.time()
-        result_map = fit_pixel_fast_multi(self.data_all, self.param_dict,
-                                          first_peak_area=False, **save_dict)
+
+        e_select, matv, results, start_i, end_i = fit_pixel_fast_multi(self.data_all,
+                                                                       self.param_dict)
         t1 = time.time()
         logger.warning('Time used for pixel fitting is : {}'.format(t1-t0))
 
-        # currently save data using pickle, need to be updated
-        #import pickle
+        # output area of dict
+        result_map = calculate_area(e_select, matv, results,
+                                    self.param_dict, first_peak_area=False)
+
+        # output to file
         fpath = os.path.join(self.result_folder, save_name)
-        #pickle.dump(result_map, open(fpath, 'wb'))
-        self.fit_img[save_name.split('.')[0]+'_fit'] = result_map
         save_fitdata_to_hdf(fpath, result_map)
+
+        # save to dict so that results can be seen immediately
+        self.fit_img[save_name.split('.')[0]+'_fit'] = result_map
+        #self.fit_img[save_name.split('.')[0]+'_error'] = result_map
+
+
+        # get fitted spectrum
+        m = 10
+        n = 10
+        data_onepoint = self.data_all[m, n, :]
+        result_data = results[m, n, :]
+        get_fitted_result(e_select, matv, result_data,
+                          start_i, end_i, data_onepoint, self.param_dict)
+
+
 
     def save_result(self, fname=None):
         """
@@ -667,6 +685,8 @@ def fit_per_line(row_num, data,
     -------
     array :
         fitting values for all the elements at a given row.
+    Note background is also calculated as a summed value. Also residual
+    is included.
     """
 
     logger.info('Row number at {}'.format(row_num))
@@ -681,12 +701,12 @@ def fit_per_line(row_num, data,
         # setting constant weight to some value might cause error when fitting
         result, res = fit_pixel(y, matv,
                                 constant_weight=None)
-        result = list(result) + [np.sum(bg)]
+        result = list(result) + [np.sum(bg)] + [res]
         out.append(result)
     return np.array(out)
 
 
-def fit_pixel_fast_multi(data, param, first_peak_area=False, **kwargs):
+def fit_pixel_fast_multi(data, param):
     """
     Multiprocess fit of experiment data.
 
@@ -696,10 +716,6 @@ def fit_pixel_fast_multi(data, param, first_peak_area=False, **kwargs):
         3D data of experiment spectrum
     param : dict
         fitting parameters
-    first_peak_area : Bool, optional
-        get overal peak area or only the first peak area, such as Ar_Ka1
-    kwargs : dict
-        the size of saved data and path
 
     Returns
     -------
@@ -714,6 +730,7 @@ def fit_pixel_fast_multi(data, param, first_peak_area=False, **kwargs):
     #print 'Creating pool with %d processes\n' % no_processors_to_use
     pool = multiprocessing.Pool(no_processors_to_use)
 
+    # cut range
     y0 = data[0, 0, :]
     x0 = np.arange(len(y0))
 
@@ -731,11 +748,10 @@ def fit_pixel_fast_multi(data, param, first_peak_area=False, **kwargs):
     end_i = x0[x0 == x[-1]][0]
     logger.info('label range: {}, {}'.format(start_i, end_i))
 
+    # construct matrix
     elist = param['non_fitting_values']['element_list'].split(', ')
     elist = [e.strip(' ') for e in elist]
-
     e_select, matv, e_area = construct_linear_model(x, param, elist)
-    mat_sum = np.sum(matv, axis=0)
 
     result_pool = [pool.apply_async(fit_per_line,
                                     (n, data[n, :, start_i:end_i+1], matv, param))
@@ -750,12 +766,30 @@ def fit_pixel_fast_multi(data, param, first_peak_area=False, **kwargs):
 
     results = np.array(results)
 
-    total_list = e_select + ['background']
+    return e_select, matv, results, start_i, end_i
+
+
+def calculate_area(e_select, matv, results,
+                   param, first_peak_area=False):
+    """
+    Parameters
+    ----------
+    first_peak_area : Bool, optional
+        get overal peak area or only the first peak area, such as Ar_Ka1
+    kwargs : dict
+        the size of saved data and path
+
+    Returns
+    -------
+    .
+    """
+    total_list = e_select + ['background'] + ['residual']
+    mat_sum = np.sum(matv, axis=0)
 
     logger.info('The following peaks are saved: {}'.format(total_list))
 
     result_map = dict()
-    for i in range(len(total_list)-1):
+    for i in range(len(e_select)):
         if first_peak_area is not True:
             result_map.update({total_list[i]: results[:, :, i]*mat_sum[i]})
         else:
@@ -766,33 +800,31 @@ def fit_pixel_fast_multi(data, param, first_peak_area=False, **kwargs):
                                               param['coherent_sct_energy']['value'])
             result_map.update({total_list[i]: results[:, :, i]*mat_sum[i]*ratio_v})
 
-    # add background
+    # add background and res
+    result_map.update({total_list[-2]: results[:, :, -2]})
     result_map.update({total_list[-1]: results[:, :, -1]})
 
+    return result_map
+
+
+def get_fitted_result(elist, matv, results,
+                      start_i, end_i, data, param):
     # save summed spectrum only when required
     # the size is measured from the point of (0, 0)
-    #sum_total = np.zeros([results.shape[0], results.shape[1], matv.shape[0]])
-    if kwargs['save_range']:
-        sum_total = np.zeros([kwargs['save_range'],
-                              kwargs['save_range'],
-                              matv.shape[0]])
-        for m in range(sum_total.shape[0]):
-            for n in range(sum_total.shape[1]):
-                for i in range(len(total_list)-1):
-                    sum_total[m, n, :] += results[m, n, i] * matv[:, i]
-                bg = snip_method(data[m, n, start_i:end_i+1],
-                                 param['e_offset']['value'],
-                                 param['e_linear']['value'],
-                                 param['e_quadratic']['value'],
-                                 width=param['non_fitting_values']['background_width'])
-                sum_total[m, n, :] += bg
+    sum_total = None
+    for i in range(len(elist)):
+        if sum_total is None:
+            sum_total = results[i] * matv[:, i]
+        else:
+            sum_total += results[i] * matv[:, i]
+    bg = snip_method(data[start_i:end_i+1],
+                     param['e_offset']['value'],
+                     param['e_linear']['value'],
+                     param['e_quadratic']['value'],
+                     width=param['non_fitting_values']['background_width'])
+    sum_total += bg
 
-        #fpath = os.path.join(kwargs['fit_path'])
-        np.save(kwargs['fit_path'], sum_total)
-        logger.info('Single pixel data is also save to : {}'.format(kwargs['fit_path']))
-
-    #pickle.dump(result_map, open(fpath, 'wb'))
-    return result_map
+    return sum_total
 
 
 def get_branching_ratio(elemental_line, energy):
