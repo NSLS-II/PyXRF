@@ -43,6 +43,7 @@ import os
 from collections import OrderedDict
 import multiprocessing
 import h5py
+import matplotlib.pyplot as plt
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float
 from skxray.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
@@ -354,16 +355,27 @@ class Fit1D(Atom):
         self.fit_img[save_name.split('.')[0]+'_fit'] = result_map
         #self.fit_img[save_name.split('.')[0]+'_error'] = result_map
 
+        # get fitted spectrum and save fig
+        p1 = [10, 10]
+        p2 = [20, 20]
+        output_folder = os.path.join(self.result_folder, 'fig_2229')
+        if os.path.exists(output_folder) is False:
+            os.mkdir(output_folder)
+        logger.info('Save plots from single pixel fitting.')
 
-        # get fitted spectrum
-        m = 10
-        n = 10
-        data_onepoint = self.data_all[m, n, :]
-        result_data = results[m, n, :]
-        get_fitted_result(e_select, matv, result_data,
-                          start_i, end_i, data_onepoint, self.param_dict)
-
-
+        save_fitted_fig(e_select, matv, results,
+                        start_i, end_i, p1, p2,
+                        self.data_all, self.param_dict,
+                        output_folder, save_pixel=True)
+        # for m in range(m1, m2):
+        #     for n in range(n1, n2):
+        #         data_y = self.data_all[m, n, :]
+        #         result_data = results[m, n, :]
+        #
+        #         save_fitted_fig(e_select, matv, result_data,
+        #                         start_i, end_i, m, n, data_y,
+        #                         self.param_dict, output_folder)
+        logger.info('Done with saving fitting plots.')
 
     def save_result(self, fname=None):
         """
@@ -825,6 +837,71 @@ def get_fitted_result(elist, matv, results,
     sum_total += bg
 
     return sum_total
+
+
+def save_fitted_fig(e_select, matv, results,
+                    start_i, end_i, p1, p2, data_all, param_dict,
+                    result_folder, save_pixel=True):
+
+    data_y = data_all[0, 0, :]
+    x_v = np.arange(len(data_y))
+    x_v = x_v[start_i: end_i+1]
+    x_v = (param_dict['e_offset']['value'] +
+           param_dict['e_linear']['value']*x_v +
+           param_dict['e_quadratic']['value']*x_v**2)
+
+    fig, ax = plt.subplots(nrows=1, ncols=1)
+    ax.set_xlabel('Energy [keV]')
+    ax.set_ylabel('Counts')
+    max_v = np.max(data_all[p1[0]:p2[0], p1[1]:p2[1], start_i: end_i+1])
+    ax.set_ylim(max_v*1e-4, max_v*2)
+
+    fitted_sum = None
+    for m in range(p1[0], p2[0]):
+        for n in range(p1[1], p2[1]):
+            data_y = data_all[m, n, :]
+            result_data = results[m, n, :]
+
+            if save_pixel is True:
+                fitted_y = get_fitted_result(e_select, matv, result_data,
+                                             start_i, end_i, data_y, param_dict)
+                if fitted_sum is None:
+                    fitted_sum = fitted_y
+                else:
+                    fitted_sum += fitted_y
+                ax.cla()
+                ax.set_xlabel('Energy [keV]')
+                ax.set_ylabel('Counts')
+                ax.set_ylim(max_v*1e-4, max_v*2)
+
+                ax.semilogy(x_v, data_y[start_i: end_i+1], label='exp')
+                ax.semilogy(x_v, fitted_y, label='fit')
+
+                ax.legend()
+                output_path = os.path.join(result_folder,
+                                           'data_out_'+str(m)+'_'+str(n)+'.png')
+                plt.savefig(output_path)
+
+            else:
+                fitted_y = get_fitted_result(e_select, matv, result_data,
+                                             start_i, end_i, data_y, param_dict)
+                if fitted_sum is None:
+                    fitted_sum = fitted_y
+                else:
+                    fitted_sum += fitted_y
+
+    ax.cla()
+    sum_y = np.sum(data_all[p1[0]:p2[0], p1[1]:p2[1], start_i:end_i+1], axis=(0, 1))
+    ax.set_xlabel('Energy [keV]')
+    ax.set_ylabel('Counts')
+    ax.set_ylim(np.max(sum_y)*1e-4, np.max(sum_y)*2)
+    ax.semilogy(x_v, sum_y, label='exp')
+    ax.semilogy(x_v, fitted_sum, label='fit')
+
+    ax.legend()
+    fit_sum_name = 'pixel_sum_'+str(p1[0])+'-'+str(p1[1])+'_'+str(p2[0])+'-'+str(p2[1])+'.png'
+    output_path = os.path.join(result_folder, fit_sum_name)
+    plt.savefig(output_path)
 
 
 def get_branching_ratio(elemental_line, energy):
