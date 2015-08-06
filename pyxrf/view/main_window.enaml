@@ -42,7 +42,7 @@ from .fileio import FileView
 from .guessparam import GuessParamView, EditPileupPeak
 from .lineplot import PlotMain, AdjustEmissionLine
 from .image2D import ImageMain, ChooseElementAdvanced
-from .fit import FitView, ElementEdit, ParameterEdit
+from .fit import FitView, ElementEdit, ParameterEdit, OtherSettingEdit
 from .setting import SettingView
 
 
@@ -126,6 +126,11 @@ enamldef XRFGui(MainWindow): main_window:
                     visible=False,
                     destroy_on_close=False,
                     parameter_model=main_window.fit_model)
+                othersetting_edit = OtherSettingEdit(
+                    visible=False,
+                    destroy_on_close=False,
+                    always_on_top=True,
+                    fit_model=main_window.fit_model)
                 name = 'fitting_view'
             #SettingView:
             #    closable = False

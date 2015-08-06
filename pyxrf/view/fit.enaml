@@ -50,11 +50,15 @@ from enaml.layout.geometry import Box
 from enaml.core.api import Include, Looper
 
 from enaml.stdlib.fields import FloatField as DefaultFloatField
+from enaml.stdlib.fields import IntField as DefaultIntField
 
 from pyxrf.model.guessparam import fit_strategy_list, save_as
 
 
 enamldef FloatField(DefaultFloatField):
+    submit_triggers = ['auto_sync'] #['return_pressed']
+
+enamldef IntField(DefaultIntField):
     submit_triggers = ['auto_sync'] #['return_pressed']
 
 enamldef RadioButton(DefaultRadioButton):
@@ -73,6 +77,7 @@ enamldef FitView(DockItem): fit_view:
     attr fit_model
     attr element_edit
     attr parameter_edit
+    attr othersetting_edit
     attr img_model_adv
 
     Container:
@@ -185,16 +190,18 @@ enamldef FitView(DockItem): fit_view:
 
         GroupBox: gb_advanced:
             constraints = [vbox(hbox(cb_enable, spacer),
-                                hbox(element_btn, param_btn, spacer))]
+                                hbox(element_btn, param_btn, other_btn, spacer))]
             CheckBox: cb_enable:
                 text = 'Enable Advanced Setting'
                 clicked ::
                     if checked:
                         element_btn.enabled = True
                         param_btn.enabled = True
+                        other_btn.enabled = True
                     else:
                         element_btn.enabled = False
                         param_btn.enabled = False
+                        other_btn.enabled = False
 
             PushButton: element_btn:
                 text = 'Edit Elements'
@@ -217,6 +224,17 @@ enamldef FitView(DockItem): fit_view:
                         parameter_edit.show()
                     else:
                         parameter_edit.hide()
+
+            PushButton: other_btn:
+                text = 'Other Settings'
+                enabled = False
+                checkable = True
+                checked := othersetting_edit.visible
+                clicked ::
+                    if checked:
+                        othersetting_edit.show()
+                    else:
+                        othersetting_edit.hide()
 
         GroupBox: gb_result:
             title = 'Fitting Statistics'
@@ -260,7 +278,49 @@ enamldef FitView(DockItem): fit_view:
 
         GroupBox: gb_fit_pixel:
             title = 'Single Pixel Fitting'
-            constraints = [hbox(fit_pixel, spacer)]
+            constraints = [vbox(hbox(save_cb, spacer),
+                                hbox(lb1, fd1v, fd1h, lb2, fd2v, fd2h, spacer),
+                                hbox(fit_pixel, spacer))]
+            CheckBox: save_cb:
+                text = 'Save fitting output'
+                clicked ::
+                    if checked:
+                        fit_model.save_point = True
+                        fd1v.enabled = True
+                        fd1h.enabled = True
+                        fd2v.enabled = True
+                        fd2h.enabled = True
+
+                    else:
+                        fit_model.save_point = False
+                        fd1v.enabled = True
+                        fd1h.enabled = True
+                        fd2v.enabled = True
+                        fd2h.enabled = True
+            Label: lb1:
+                text = 'Start Point: (vertical, horizontal)'
+                minimum_size = (40, 10)
+                #maximum_size = 50
+            IntField: fd1v:
+                value := fit_model.point1v
+                maximum_size = 40
+                enabled = False
+            IntField: fd1h:
+                value := fit_model.point1h
+                maximum_size = 40
+                enabled = False
+            Label: lb2:
+                text = 'End Point:'
+                minimum_size = (40, 10)
+                #maximum_size = 50
+            IntField: fd2v:
+                value := fit_model.point2v
+                maximum_size = 40
+                enabled = False
+            IntField: fd2h:
+                value := fit_model.point2h
+                maximum_size = 40
+                enabled = False
             PushButton: fit_pixel:
                 text = 'Fit Individual Pixel'
                 clicked ::
@@ -450,6 +510,24 @@ enamldef ParameterEdit(Window):
                             index ::
                                 if cb_strat6.index > 0:
                                     parameter_model.param_dict[loop_item][fit_strategy_list[6]] = cb_strat6.items[cb_strat6.index]
+
+
+enamldef OtherSettingEdit(Window):
+    attr fit_model
+    destroy_on_close = False
+    Form:
+        Label:
+            text = 'Max iteration number'
+        IntField:
+            value := fit_model.fit_num
+        Label:
+            text = 'Convergence criterion'
+        FloatField:
+            value := fit_model.ftol
+        Label:
+            text = 'Weighted c'
+        FloatField:
+            value := fit_model.c_weight
 
 
 def save_defaults(parameter_model):

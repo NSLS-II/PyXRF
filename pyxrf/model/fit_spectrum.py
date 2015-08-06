@@ -45,7 +45,7 @@ import multiprocessing
 import h5py
 import matplotlib.pyplot as plt
 
-from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float
+from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
 from skxray.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
                                       sum_area, set_parameter_bound,
                                       ParamController, K_LINE, L_LINE, M_LINE,
@@ -109,8 +109,18 @@ class Fit1D(Atom):
     red_chi2 = Float(0.0)
     global_param_list = List()
 
+    fit_num = Int(100)
+    ftol = Float(1e-5)
+    c_weight = Float(1e2)
+
     save_name = Str()
     fit_img = Dict()
+
+    save_point = Bool(False)
+    point1v = Int(0)
+    point1h = Int(0)
+    point2v = Int(0)
+    point2h = Int(0)
 
     def __init__(self, *args, **kwargs):
         self.working_directory = kwargs['working_directory']
@@ -245,14 +255,19 @@ class Fit1D(Atom):
         self.residual = self.cal_y - self.y0
 
     def fit_data(self, x0, y0,
-                 c_val=1e-3, fit_num=100, c_weight=1e3):
+                 c_val=1e-3, c_weight=1e5):
+        fit_num = self.fit_num
+        ftol = self.ftol
+        c_weight = self.c_weight
         MS = ModelSpectrum(self.param_dict, self.element_list)
         MS.assemble_models()
 
+        weight_v = np.sqrt(np.abs(c_weight/(c_weight+y0)))
+        weight_v /= np.sum(weight_v)
         result = MS.model_fit(x0, y0,
-                              weights=1/np.sqrt(c_weight+y0),
+                              weights=weight_v,
                               maxfev=fit_num,
-                              xtol=c_val, ftol=c_val, gtol=c_val)
+                              xtol=ftol, ftol=ftol, gtol=ftol)
         self.fit_x = (result.values['e_offset'] +
                       result.values['e_linear'] * x0 +
                       result.values['e_quadratic'] * x0**2)
@@ -356,26 +371,19 @@ class Fit1D(Atom):
         #self.fit_img[save_name.split('.')[0]+'_error'] = result_map
 
         # get fitted spectrum and save fig
-        p1 = [10, 10]
-        p2 = [20, 20]
-        output_folder = os.path.join(self.result_folder, 'fig_2229')
-        if os.path.exists(output_folder) is False:
-            os.mkdir(output_folder)
-        logger.info('Save plots from single pixel fitting.')
+        if self.save_point is True:
+            p1 = [self.point1v, self.point1h]
+            p2 = [self.point2v, self.point2v]
+            output_folder = os.path.join(self.result_folder, 'fig_single_pixel')
+            if os.path.exists(output_folder) is False:
+                os.mkdir(output_folder)
+            logger.info('Save plots from single pixel fitting.')
 
-        save_fitted_fig(e_select, matv, results,
-                        start_i, end_i, p1, p2,
-                        self.data_all, self.param_dict,
-                        output_folder, save_pixel=True)
-        # for m in range(m1, m2):
-        #     for n in range(n1, n2):
-        #         data_y = self.data_all[m, n, :]
-        #         result_data = results[m, n, :]
-        #
-        #         save_fitted_fig(e_select, matv, result_data,
-        #                         start_i, end_i, m, n, data_y,
-        #                         self.param_dict, output_folder)
-        logger.info('Done with saving fitting plots.')
+            save_fitted_fig(e_select, matv, results,
+                            start_i, end_i, p1, p2,
+                            self.data_all, self.param_dict,
+                            output_folder, save_pixel=True)
+            logger.info('Done with saving fitting plots.')
 
     def save_result(self, fname=None):
         """
@@ -616,7 +624,6 @@ def roi_sum_multi_files(dir_path, file_prefix,
     """
     no_processors_to_use = multiprocessing.cpu_count()
     logger.info('cpu count: {}'.format(no_processors_to_use))
-    #print 'Creating pool with %d processes\n' % no_processors_to_use
     pool = multiprocessing.Pool(no_processors_to_use)
 
     result_pool = [pool.apply_async(roi_sum_calculation,
@@ -713,7 +720,9 @@ def fit_per_line(row_num, data,
         # setting constant weight to some value might cause error when fitting
         result, res = fit_pixel(y, matv,
                                 constant_weight=None)
-        result = list(result) + [np.sum(bg)] + [res]
+        sst = np.sum((y-np.mean(y))**2)
+        r2 = 1 - res/sst
+        result = list(result) + [np.sum(bg)] + [r2]
         out.append(result)
     return np.array(out)
 
@@ -795,7 +804,7 @@ def calculate_area(e_select, matv, results,
     -------
     .
     """
-    total_list = e_select + ['background'] + ['residual']
+    total_list = e_select + ['background'] + ['r_squared']
     mat_sum = np.sum(matv, axis=0)
 
     logger.info('The following peaks are saved: {}'.format(total_list))
@@ -870,11 +879,13 @@ def save_fitted_fig(e_select, matv, results,
                 else:
                     fitted_sum += fitted_y
                 ax.cla()
+                ax.set_title('Single pixel fitting for point ({}, {})'.format(m, n))
                 ax.set_xlabel('Energy [keV]')
                 ax.set_ylabel('Counts')
                 ax.set_ylim(max_v*1e-4, max_v*2)
 
-                ax.semilogy(x_v, data_y[start_i: end_i+1], label='exp')
+                ax.semilogy(x_v, data_y[start_i: end_i+1], label='exp',
+                            linestyle='', marker='.')
                 ax.semilogy(x_v, fitted_y, label='fit')
 
                 ax.legend()
@@ -892,10 +903,12 @@ def save_fitted_fig(e_select, matv, results,
 
     ax.cla()
     sum_y = np.sum(data_all[p1[0]:p2[0], p1[1]:p2[1], start_i:end_i+1], axis=(0, 1))
+    ax.set_title('Summed spectrum from point ({},{}) '
+                 'to ({},{})'.format(p1[0], p1[1], p2[0], p2[1]))
     ax.set_xlabel('Energy [keV]')
     ax.set_ylabel('Counts')
     ax.set_ylim(np.max(sum_y)*1e-4, np.max(sum_y)*2)
-    ax.semilogy(x_v, sum_y, label='exp')
+    ax.semilogy(x_v, sum_y, label='exp', linestyle='', marker='.')
     ax.semilogy(x_v, fitted_sum, label='fit')
 
     ax.legend()

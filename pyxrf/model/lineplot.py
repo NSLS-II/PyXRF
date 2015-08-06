@@ -325,7 +325,9 @@ class LinePlotModel(Atom):
 
                 plot_exp_obj, = self._ax.plot(x_v, data_arr,
                                               color=color_n[m],
-                                              label=v.filename.split('.')[0])
+                                              label=v.filename.split('.')[0],
+                                              linestyle=self.plot_style['experiment']['linestyle'],
+                                              marker=self.plot_style['experiment']['marker'])
                 self.plot_exp_list.append(plot_exp_obj)
                 m += 1
 
