@@ -229,7 +229,7 @@ enamldef GuessParamView(DockItem): param_view:
             Container: scr_area_title:
                 padding = Box(2, 2, 2, 2)
                 constraints = [vbox(
-                                   hbox(del_lb, z, name, energy, inten, norm, select_all, spacer),
+                                   hbox(del_lb, z, name, energy, inten, norm, spacer),
                                    )
                                ]
                 Label: del_lb:
@@ -269,30 +269,30 @@ enamldef GuessParamView(DockItem): param_view:
                     minimum_size = (80, 20)
                     #background = 'white'
                     align = 'center'
-                PushButton: select_all:
-                    text = 'Show All'
-                    #maximum_size = 30
-                    minimum_size = (30, 20)
-                    checkable = True
-                    clicked ::
-                        if checked:
-                            param_model.EC.turn_on_all()
-                            param_model.data_for_plot()
-                            plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                                                                param_model.total_l, param_model.total_m,
-                                                                param_model.total_pileup)
-                            plot_model.show_autofit_opt = True
-                            plot_model._fig.canvas.draw()
-                            select_all.text = 'Hide All'
-                        else:
-                            param_model.EC.turn_on_all(option=False)
-                            param_model.data_for_plot()
-                            plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                                                                param_model.total_l, param_model.total_m,
-                                                                param_model.total_pileup)
-                            plot_model.show_autofit_opt = False
-                            plot_model._fig.canvas.draw()
-                            select_all.text = 'Show All'
+                #PushButton: select_all:
+                #    text = 'Show All'
+                #    #maximum_size = 30
+                #    minimum_size = (30, 20)
+                #    checkable = True
+                #    clicked ::
+                #        if checked:
+                #            param_model.EC.turn_on_all()
+                #            param_model.data_for_plot()
+                #            plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
+                #                                                param_model.total_l, param_model.total_m,
+                #                                                param_model.total_pileup)
+                #            plot_model.show_autofit_opt = True
+                #            plot_model._fig.canvas.draw()
+                #            select_all.text = 'Hide All'
+                #        else:
+                #            param_model.EC.turn_on_all(option=False)
+                #            param_model.data_for_plot()
+                #            plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
+                #                                                param_model.total_l, param_model.total_m,
+                #                                                param_model.total_pileup)
+                #            plot_model.show_autofit_opt = False
+                #            plot_model._fig.canvas.draw()
+                #            select_all.text = 'Show All'
 
             ScrollArea: scr_area:
                 constraints = [height <= 350]

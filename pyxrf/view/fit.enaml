@@ -90,7 +90,7 @@ enamldef FitView(DockItem): fit_view:
                 hbox(lbl4, cb4, spacer),
                 hbox(lbl5, cb5, spacer),
                 #hbox(gb_strategy),
-                hbox(pb_fit, pb_cal, pb_plot, spacer),
+                hbox(pb_fit, pb_cal, spacer),
                 #hbox(pb_cal, spacer),
                 gb_advanced,
                 gb_result,
@@ -166,7 +166,7 @@ enamldef FitView(DockItem): fit_view:
                 plot_model.parameters = fit_model.param_dict
                 plot_model.plot_experiment()
 
-                pb_plot.enabled = True
+                #pb_plot.enabled = True
                 plot_model.fit_x = fit_model.cal_x
                 plot_model.fit_y = fit_model.cal_y
                 plot_model.fit_all = fit_model.cal_spectrum
@@ -175,18 +175,18 @@ enamldef FitView(DockItem): fit_view:
                 plot_model.plot_fit()
                 plot_model._update_canvas()
 
-        PushButton: pb_plot:
-            text = 'Overlap to Spectrum'
-            checkable = True
-            enabled = False
-            minimum_size = (200, 20)
-            clicked ::
-                if checked:
-                    plot_model.show_fit_opt = True
-                    pb_plot.text = 'Remove Plot'
-                else:
-                    plot_model.show_fit_opt = False
-                    pb_plot.text = 'Overlap to Spectrum'
+        #PushButton: pb_plot:
+        #    text = 'Overlap to Spectrum'
+        #    checkable = True
+        #    enabled = False
+        #    minimum_size = (200, 20)
+        #    clicked ::
+        #        if checked:
+        #            plot_model.show_fit_opt = True
+        #            pb_plot.text = 'Remove Plot'
+        #        else:
+        #            plot_model.show_fit_opt = False
+        #            pb_plot.text = 'Overlap to Spectrum'
 
         GroupBox: gb_advanced:
             constraints = [vbox(hbox(cb_enable, spacer),
