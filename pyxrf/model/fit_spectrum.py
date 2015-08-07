@@ -310,6 +310,7 @@ class Fit1D(Atom):
                 self.fit_data(self.x0, y0)
                 self.update_param_with_result()
         t1 = time.time()
+        logger.info('Fitting is done!')
         logger.warning('Time used for fitting is : {}'.format(t1-t0))
 
         # for GUI purpose only

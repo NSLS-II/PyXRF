@@ -224,8 +224,6 @@ class SpectrumCalculator(object):
         if not self.pos1 and not self.pos2:
             return np.sum(self.data, axis=(0, 1))
         elif self.pos1 and not self.pos2:
-            print('shape: {}'.format(self.data.shape))
-            print('pos1: {}'.format(self.pos1))
             return self.data[self.pos1[0], self.pos1[1], :]
         else:
             return np.sum(self.data[self.pos1[0]:self.pos2[0], self.pos1[1]:self.pos2[1], :],
@@ -315,7 +313,6 @@ def read_runid(runid, c_list, dshape=None):
     sumv = None
 
     for c_name in c_list:
-        print(c_name)
         channel_data = data[c_name]
         new_data = np.zeros([1, len(channel_data), len(channel_data[0])])
 
@@ -341,7 +338,6 @@ def read_runid(runid, c_list, dshape=None):
     temp = {}
     for v in exp_keys:
         if v not in c_list:
-            print(v)
             # clean up nan data, should be done in lower level
             data[v][pd.isnull(data[v])] = 0
             pv_data = np.array(data[v])
@@ -665,7 +661,6 @@ def read_hdf_multi_files_HXN(working_directory,
             exp_data = np.asarray(data['detector/data'])
             ind_v = fileID//h_dim
             ind_h = fileID - ind_v * h_dim
-            print(ind_v, ind_h)
             total_data[ind_v, ind_h, :] = np.sum(exp_data[:, :3, :-bad_point_cut],
                                                  axis=(0, 1))
 
@@ -963,7 +958,6 @@ def get_name_value_from_db(name_list, data, datashape):
     pos_names = []
     pos_data = np.zeros([datashape[0], datashape[1], len(name_list)])
     for i, v in enumerate(name_list):
-        print(v)
         posv = np.asarray(data[v])
         pos_data[:, :, i] = posv.reshape([datashape[0], datashape[1]])
         pos_names.append(str(v))
@@ -1032,7 +1026,7 @@ def get_roi_keys_hxn(all_keys):
 
     Ch_dict = {}
     for i in range(len(Ch1_list)):
-        k = Ch1_list[i].replace('_1', '_sum')
+        k = Ch1_list[i].replace('1', '_sum')
         val = [Ch1_list[i], Ch2_list[i], Ch3_list[i]]
         Ch_dict[k] = val
     return Ch_dict

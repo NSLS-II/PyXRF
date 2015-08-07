@@ -53,8 +53,8 @@
         "linear": "fixed", 
         "max": 105.0, 
         "min": 70.0,
-        "default": 78.0,
-        "value": 78.0
+        "default": 90.0,
+        "value": 90.0
     }, 
     "compton_f_step": {
         "adjust_element1": "fixed", 
