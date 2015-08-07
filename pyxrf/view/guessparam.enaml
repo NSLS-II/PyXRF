@@ -67,7 +67,7 @@ enamldef GuessParamView(DockItem): param_view:
     Container:
         constraints = [
             vbox(
-                hbox(CB, plot_btn, spacer),
+                hbox(CB, spacer),
                 hbox(new_param_load, spacer),
                 top_cntr,
                 hbox(find_btn, spacer),
@@ -92,15 +92,15 @@ enamldef GuessParamView(DockItem): param_view:
                     fit_model.data = param_model.data
                     fit_model.data_all = param_model.data_all
 
-        PushButton: plot_btn:
-            text = 'Plot Data'
-            checkable = True
-            clicked ::
-                if checked:
-                    plot_model.plot_experiment()
-                    plot_model.plot_exp_opt = True
-                else:
-                    plot_model.plot_exp_opt = False
+        #PushButton: plot_btn:
+        #    text = 'Plot Data'
+        #    checkable = True
+        #    clicked ::
+        #        if checked:
+        #            plot_model.plot_experiment()
+        #            plot_model.plot_exp_opt = True
+        #        else:
+        #            plot_model.plot_exp_opt = False
 
         PushButton: new_param_load:
             text = 'Import Parameters from File'

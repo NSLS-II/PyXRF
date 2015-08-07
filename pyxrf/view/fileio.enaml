@@ -187,6 +187,9 @@ enamldef FileView(DockItem): file_view:
                                     fd1.enabled = False
                                     fd2.enabled = False
                                     plot_bt.enabled = True
+
+                                    plot_model.data_sets = io_model.data_sets
+
                             RadioButton: rb_3:
                                 text = 'Point'
                                 clicked ::
@@ -194,6 +197,9 @@ enamldef FileView(DockItem): file_view:
                                     fd1.enabled = True
                                     fd2.enabled = False
                                     plot_bt.enabled = True
+
+                                    plot_model.data_sets = io_model.data_sets
+
                             RadioButton: rb_4:
                                 text = 'ROI'
                                 clicked ::
@@ -201,6 +207,8 @@ enamldef FileView(DockItem): file_view:
                                     fd1.enabled = True
                                     fd2.enabled = True
                                     plot_bt.enabled = True
+
+                                    plot_model.data_sets = io_model.data_sets
 
                             Label: lb1:
                                 text = 'Start'
@@ -210,6 +218,9 @@ enamldef FileView(DockItem): file_view:
                                 text := io_model.data_sets[loop_item].point1
                                 maximum_size = 80
                                 enabled = False
+
+                                #plot_model.data_sets = io_model.data_sets
+
                             Label: lb2:
                                 text = 'End'
                                 minimum_size = (40, 10)
@@ -218,6 +229,8 @@ enamldef FileView(DockItem): file_view:
                                 text := io_model.data_sets[loop_item].point2
                                 maximum_size = 80
                                 enabled = False
+
+                                #plot_model.data_sets = io_model.data_sets
 
             PushButton: plot_bt:
                 text = 'Plot Experiments'

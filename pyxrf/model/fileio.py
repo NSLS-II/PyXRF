@@ -473,7 +473,7 @@ def read_hdf_APS(working_directory,
 
             fname_sum = fname+'_sum'
             DS = DataSelection(filename=fname_sum,
-                               raw_data=exp_data)
+                               raw_data=exp_data[0:30,0:30,:])
 
             data_sets[fname_sum] = DS
             logger.info('Data of detector sum is loaded.')

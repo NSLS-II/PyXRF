@@ -524,10 +524,10 @@ enamldef OtherSettingEdit(Window):
             text = 'Convergence criterion'
         FloatField:
             value := fit_model.ftol
-        Label:
-            text = 'Weighted c'
-        FloatField:
-            value := fit_model.c_weight
+        #Label:
+        #    text = 'Weighted c'
+        #FloatField:
+        #    value := fit_model.c_weight
 
 
 def save_defaults(parameter_model):

@@ -254,11 +254,10 @@ class Fit1D(Atom):
 
         self.residual = self.cal_y - self.y0
 
-    def fit_data(self, x0, y0,
-                 c_val=1e-3, c_weight=1e5):
+    def fit_data(self, x0, y0):
         fit_num = self.fit_num
         ftol = self.ftol
-        c_weight = self.c_weight
+        c_weight = 100  #self.c_weight
         MS = ModelSpectrum(self.param_dict, self.element_list)
         MS.assemble_models()
 
@@ -343,9 +342,9 @@ class Fit1D(Atom):
         This function performs single pixel fitting.
         Multiprocess is considered.
         """
+        fit_opt = 'nnls'
+
         save_name = self.save_name
-        #save_dict = {'fit_path': os.path.join(self.result_folder, save_name),
-        #             'save_range': 0}
 
         strategy_pixel = 'linear'
         set_parameter_bound(self.param_dict, strategy_pixel)
@@ -353,14 +352,20 @@ class Fit1D(Atom):
         logger.info('Starting single pixel fitting')
         t0 = time.time()
 
-        e_select, matv, results, start_i, end_i = fit_pixel_fast_multi(self.data_all,
-                                                                       self.param_dict)
+        if fit_opt == 'nnls':
+            e_select, matv, results, start_i, end_i = fit_pixel_fast_multi(self.data_all,
+                                                                           self.param_dict)
+            # output area of dict
+            result_map = calculate_area(e_select, matv, results,
+                                        self.param_dict, first_peak_area=False)
+        elif fit_opt == 'nonlinear':
+            result_map = fit_pixel_nonlinear(self.data_all, self.param_dict)
+
+            print(result_map.shape)
+            print(result_map[0, 0].keys())
+
         t1 = time.time()
         logger.warning('Time used for pixel fitting is : {}'.format(t1-t0))
-
-        # output area of dict
-        result_map = calculate_area(e_select, matv, results,
-                                    self.param_dict, first_peak_area=False)
 
         # output to file
         fpath = os.path.join(self.result_folder, save_name)
@@ -772,7 +777,13 @@ def fit_pixel_fast_multi(data, param):
     # construct matrix
     elist = param['non_fitting_values']['element_list'].split(', ')
     elist = [e.strip(' ') for e in elist]
-    e_select, matv, e_area = construct_linear_model(x, param, elist)
+    e_select, matv_old, e_area = construct_linear_model(x, param, elist)
+
+    e_select = e_select[:-1]
+    e_select[-1] = 'comp_elastic'
+
+    matv = matv_old[:, :-1]
+    matv[:, -1] += matv_old[:, -1]
 
     result_pool = [pool.apply_async(fit_per_line,
                                     (n, data[n, :, start_i:end_i+1], matv, param))
@@ -946,6 +957,107 @@ def get_branching_ratio(elemental_line, energy):
     return ratio_v
 
 
+def fit_pixel_nonlinear_per_line(row_num, data, x0, param):
+                                 #c_weight, fit_num, ftol):
+
+    c_weight = 1
+    fit_num = 100
+    ftol = 1e-3
+
+    elist = param['non_fitting_values']['element_list'].split(', ')
+    elist = [e.strip(' ') for e in elist]
+    MS = ModelSpectrum(param, elist)
+    MS.assemble_models()
+
+    logger.info('Row number at {}'.format(row_num))
+    out = []
+    for i in range(data.shape[0]):
+        bg = snip_method(data[i, :],
+                         param['e_offset']['value'],
+                         param['e_linear']['value'],
+                         param['e_quadratic']['value'],
+                         width=param['non_fitting_values']['background_width'])
+        y0 = data[i, :] - bg
+        # setting constant weight to some value might cause error when fitting
+        result = MS.model_fit(x0, y0,
+                              weights=1/np.sqrt(c_weight+y0),
+                              maxfev=fit_num,
+                              xtol=ftol, ftol=ftol, gtol=ftol)
+        out.append(result)
+    return out
+
+
+def fit_pixel_nonlinear(data, param):
+    """
+    Multiprocess fit of experiment data.
+
+    Parameters
+    ----------
+    data : array
+        3D data of experiment spectrum
+    param : dict
+        fitting parameters
+
+    Returns
+    -------
+    dict :
+        fitting values for all the elements
+    """
+
+    no_processors_to_use = multiprocessing.cpu_count()
+    #no_processors_to_use = 4
+
+    logger.info('cpu count: {}'.format(no_processors_to_use))
+    #print 'Creating pool with %d processes\n' % no_processors_to_use
+    pool = multiprocessing.Pool(no_processors_to_use)
+
+    # cut range
+    y0 = data[0, 0, :]
+    x0 = np.arange(len(y0))
+
+    # transfer energy value back to channel value
+    lowv = (param['non_fitting_values']['energy_bound_low']['value'] -
+            param['e_offset']['value'])/param['e_linear']['value']
+    highv = (param['non_fitting_values']['energy_bound_high']['value'] -
+             param['e_offset']['value'])/param['e_linear']['value']
+
+    lowv = int(lowv)
+    highv = int(highv)
+
+    x, y = trim(x0, y0, lowv, highv)
+    start_i = x0[x0 == x[0]][0]
+    end_i = x0[x0 == x[-1]][0]
+    logger.info('label range: {}, {}'.format(start_i, end_i))
+
+    # construct matrix
+    elist = param['non_fitting_values']['element_list'].split(', ')
+    elist = [e.strip(' ') for e in elist]
+    #e_select, matv, e_area = construct_linear_model(x, param, elist)
+
+    c_weight = 1
+    fit_num = 100
+    ftol = 1e-3
+
+    MS = ModelSpectrum(param, elist)
+    MS.assemble_models()
+
+    result_pool = [pool.apply_async(fit_pixel_nonlinear_per_line,
+                                    (n, data[n, :, start_i:end_i+1], x,
+                                     param))
+                   for n in range(data.shape[0])]
+
+    results = []
+    for r in result_pool:
+        results.append(r.get())
+
+    pool.terminate()
+    pool.join()
+
+    results = np.array(results)
+
+    return results
+
+
 def fit_pixel_slow_version(data, param, c_val=1e-2, fit_num=10, c_weight=1):
     datas = data.shape
 
@@ -968,7 +1080,6 @@ def fit_pixel_slow_version(data, param, c_val=1e-2, fit_num=10, c_weight=1):
             y0 = data[i, j, :]
             result = MS.model_fit(x0, y0,
                                   w=1/np.sqrt(c_weight+y0))
-
                                   #maxfev=fit_num, xtol=c_val, ftol=c_val, gtol=c_val)
             #for k, v in six.iteritems(result.values):
             #    print('result {}: {}'.format(k, v))
