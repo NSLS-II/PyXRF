@@ -82,7 +82,7 @@ enamldef PlotMain(DockItem):
     Container:
         constraints = [
             vbox(
-                hbox(plot_bt, plot_exp_btn, spacer),
+                hbox(plot_exp_btn, spacer),
                 hbox(cbox1, spacer, pb_eline, cbox2, checkb),
                 canvas,
             ),
@@ -110,23 +110,23 @@ enamldef PlotMain(DockItem):
             index := plot_model.element_id
             index = 0
 
-        PushButton: plot_bt:
-            text = 'Plot Multi. Exp. Data'
-            #maximum_size = 100
-            #enabled = True
-            checkable = True
-            clicked ::
-                #plot_model.data_sets = io_model.data_sets
-                plot_model.plot_multi_exp_data()
-                if checked:
-                    plot_bt.text = 'Remove Plot'
-                    plot_model.show_exp_opt = True
-                else:
-                    plot_model.show_exp_opt = False
-                    plot_bt.text = 'Plot Experiments'
+        #PushButton: plot_bt:
+        #    text = 'Plot Multi. Exp. Data'
+        #    #maximum_size = 100
+        #    #enabled = True
+        #    checkable = True
+        #    clicked ::
+        #        #plot_model.data_sets = io_model.data_sets
+        #        plot_model.plot_multi_exp_data()
+        #        if checked:
+        #            plot_bt.text = 'Remove Plot'
+        #            plot_model.show_exp_opt = True
+        #        else:
+        #            plot_model.show_exp_opt = False
+        #            plot_bt.text = 'Plot Experiments'
 
         PushButton: plot_exp_btn:
-            text = 'Plot Selected Exp.'
+            text = 'Plot Selected Exp. Data'
             checkable = True
             clicked ::
                 if checked:

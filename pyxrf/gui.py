@@ -57,7 +57,7 @@ def get_defaults():
 
     sub_folder = 'xrf_data'  # + '/xspress3'
     working_directory = os.path.join(os.path.expanduser('~'),
-                                     'Downloads', sub_folder)
+                                     'data_analysis', sub_folder)
     output_directory = working_directory
 
     # grab the default parameter file
