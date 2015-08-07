@@ -146,7 +146,7 @@ enamldef FitView(DockItem): fit_view:
                 plot_model.parameters = fit_model.param_dict
                 plot_model.plot_experiment()
 
-                pb_plot.enabled = True
+                #pb_plot.enabled = True
                 plot_model.fit_x = fit_model.fit_x
                 plot_model.fit_y = fit_model.fit_y
 
