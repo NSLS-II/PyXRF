@@ -230,7 +230,7 @@ class GuessParamModel(Atom):
     total_m = Dict()
     total_pileup = Dict()
     e_name = Str()
-    add_element_intensity = Float()
+    add_element_intensity = Float(100.0)
     result_folder = Str()
     element_list = List()
     data_sets = Typed(OrderedDict)

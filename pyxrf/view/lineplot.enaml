@@ -139,6 +139,7 @@ enamldef PlotMain(DockItem):
             text = 'Plot Auto Fit Result'
             #maximum_size = 30
             minimum_size = (30, 20)
+            checked << plot_model.show_autofit_opt
             checkable = True
             clicked ::
                 if checked:
@@ -163,15 +164,15 @@ enamldef PlotMain(DockItem):
         PushButton: pb_plot_fit:
             text = 'Plot Fit Result'
             checkable = True
-            enabled = True
+            checked << plot_model.show_fit_opt
             minimum_size = (200, 20)
             clicked ::
                 if checked:
                     plot_model.show_fit_opt = True
-                    pb_plot_fit.text = 'Remove Plot'
+                    pb_plot_fit.text = 'Remove Fit Result'
                 else:
                     plot_model.show_fit_opt = False
-                    pb_plot_fit.text = 'Remove Fit Result'
+                    pb_plot_fit.text = 'Plot Fit Result'
 
         #PushButton: pbn:
         #    text = 'Plot Experiment Data'

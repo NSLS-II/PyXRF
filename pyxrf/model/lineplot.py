@@ -618,7 +618,7 @@ class LinePlotModel(Atom):
         # pileup
         self.total_pileup = total_pileup
 
-        self._ax.set_xlim([self.prefit_x[0], self.prefit_x[-1]])
+        #self._ax.set_xlim([self.prefit_x[0], self.prefit_x[-1]])
         self.plot_autofit()
         #self.log_linear_plot()
         self._update_canvas()

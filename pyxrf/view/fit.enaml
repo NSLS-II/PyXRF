@@ -156,6 +156,7 @@ enamldef FitView(DockItem): fit_view:
 
                 plot_model.residual = fit_model.residual
                 plot_model.plot_fit()
+                plot_model.show_fit_opt = True
 
         PushButton: pb_cal:
             text = 'Calculate Spectrum'
@@ -173,7 +174,7 @@ enamldef FitView(DockItem): fit_view:
                 plot_model.residual = fit_model.residual
 
                 plot_model.plot_fit()
-                plot_model._update_canvas()
+                plot_model.show_fit_opt = True
 
         #PushButton: pb_plot:
         #    text = 'Overlap to Spectrum'
