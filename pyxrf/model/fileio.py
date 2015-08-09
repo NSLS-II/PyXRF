@@ -851,7 +851,7 @@ def write_db_to_hdf(fpath, data, datashape,
 
     sum_data = sum_data.reshape([datashape[0], datashape[1],
                                  len(channel_data[0])])
-    print('sum data shape: {}'.format(sum_data.shape))
+
     if 'counts' in dataGrp:
         del dataGrp['counts']
     ds_data = dataGrp.create_dataset('counts', data=sum_data)
@@ -1032,6 +1032,10 @@ def get_roi_keys_hxn(all_keys):
     return Ch_dict
 
 
+def get_scaler_list_hxn(all_keys):
+    return [v for v in all_keys if 'sclr1_' in v]
+
+
 def data_to_hdf_config(fpath, data,
                        datashape, config_file):
     """
@@ -1052,13 +1056,14 @@ def data_to_hdf_config(fpath, data,
         config_data = json.load(json_data)
 
     roi_dict = get_roi_keys(data.keys(), beamline=config_data['beamline'])
+    scaler_list = get_scaler_list_hxn(data.keys())
 
     write_db_to_hdf(fpath, data,
                     datashape,
                     det_list=config_data['xrf_detector'],
                     roi_dict=roi_dict,
                     pos_list=config_data['pos_list'],
-                    scaler_list=config_data['scaler_list'])
+                    scaler_list=scaler_list)
 
 
 def db_to_hdf_config(fpath, runid,

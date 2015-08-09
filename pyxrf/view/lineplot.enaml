@@ -149,7 +149,7 @@ enamldef PlotMain(DockItem):
                                                         param_model.total_pileup)
                     plot_model.show_autofit_opt = True
                     plot_model._fig.canvas.draw()
-                    select_all.text = 'Plot Auto Fit Result'
+                    select_all.text = 'Hide Auto Fit Result'
                 else:
                     param_model.EC.turn_on_all(option=False)
                     param_model.data_for_plot()
@@ -158,7 +158,7 @@ enamldef PlotMain(DockItem):
                                                         param_model.total_pileup)
                     plot_model.show_autofit_opt = False
                     plot_model._fig.canvas.draw()
-                    select_all.text = 'Hide Auto Fit Result'
+                    select_all.text = 'Plot Auto Fit Result'
 
         PushButton: pb_plot_fit:
             text = 'Plot Fit Result'
