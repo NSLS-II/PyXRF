@@ -71,8 +71,6 @@ enamldef LabelTitle(Label):
 bound_options = ['none', 'lohi', 'fixed', 'lo', 'hi']
 
 enamldef FitView(DockItem): fit_view:
-    attr io_model
-    attr param_model
     attr plot_model
     attr fit_model
     attr element_edit
@@ -83,7 +81,7 @@ enamldef FitView(DockItem): fit_view:
     Container:
         constraints = [
             vbox(
-                hbox(reload_btn, spacer),
+                hbox(new_param_load, reload_btn, spacer),
                 hbox(lbl1, cb1, spacer),
                 hbox(lbl2, cb2, spacer),
                 hbox(lbl3, cb3, spacer),
@@ -98,10 +96,25 @@ enamldef FitView(DockItem): fit_view:
                 gb_fit_pixel,
             ),
         ]
+
+        PushButton: new_param_load:
+            text = 'Import Parameters from File'
+            #maximum_size = 200
+            clicked ::
+                parameter_file_path = FileDialogEx.get_open_file_name(fit_view)
+                if parameter_file_path:
+
+                    # update parameter for fit
+                    fit_model.read_param_from_file(parameter_file_path)
+
+                    # update experimental plots
+                    plot_model.parameters = fit_model.default_parameters
+                    plot_model.plot_experiment()
+
         PushButton: reload_btn:
             text = 'Reload'
             clicked ::
-                fit_model.get_new_param(param_model.param_new)
+                fit_model.load_default_param()
 
         Label: lbl1:
             text = 'Step 1'
@@ -245,13 +258,13 @@ enamldef FitView(DockItem): fit_view:
                                 hbox(lbl_chi, lbl_chi_v, lbl_red_chi, lbl_red_chi_v, spacer))]
             #row_spacing = -1
             Label: lbl_number:
-                text = '# function evals'
+                text = '# of iterations'
                 minimum_size = (140, 16)
             Label: lbl_number_v:
                 text << str(fit_model.function_num)
                 minimum_size = (140, 16)
             Label: lbl_var_number:
-                text = '# variables'
+                text = '# of variables'
                 minimum_size = (140, 16)
             Label: lbl_var_number_v:
                 text << str(fit_model.nvar)
@@ -273,7 +286,7 @@ enamldef FitView(DockItem): fit_view:
             text = 'Save As'
             clicked ::
                 path = FileDialogEx.get_save_file_name(fit_view,
-                                                       current_path=io_model.working_directory)
+                                                       current_path=fit_model.result_folder)
                 if path:
                     save_as(path, fit_model.param_dict)
 
@@ -326,8 +339,9 @@ enamldef FitView(DockItem): fit_view:
                 text = 'Fit Individual Pixel'
                 clicked ::
                     fit_model.fit_single_pixel()
-                    temp_name = io_model.file_names[0].split('_')[0]+'_fit'
                     img_model_adv.data_dict.update(fit_model.fit_img)
+
+                    # visualization purpose
                     img_model_adv.data_dict_keys = []
                     img_model_adv.data_dict_keys = img_model_adv.data_dict.keys()
 
@@ -525,6 +539,23 @@ enamldef OtherSettingEdit(Window):
             text = 'Convergence criterion'
         FloatField:
             value := fit_model.ftol
+        Label:
+            text = 'Lower bound'
+        FloatField:
+            value := fit_model.param_dict['non_fitting_values']['energy_bound_low']['value']
+        Label:
+            text = 'Higher bound'
+        FloatField:
+            value := fit_model.param_dict['non_fitting_values']['energy_bound_high']['value']
+        Label:
+            text = 'Background width'
+        FloatField:
+            value := fit_model.param_dict['non_fitting_values']['background_width']
+        Label:
+            text = 'Escape peak'
+        FloatField:
+            value := fit_model.param_dict['non_fitting_values']['escape_ratio']
+
         #Label:
         #    text = 'Weighted c'
         #FloatField:

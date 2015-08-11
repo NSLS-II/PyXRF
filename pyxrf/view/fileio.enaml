@@ -66,13 +66,14 @@ enamldef FileView(DockItem): file_view:
                     hbox(folder_btn, folder_fd),
                     hbox(btn_out, fd_out),
                     hbox(files_btn, files_load),
-                    hbox(pixel_h_label, pixel_h, pixel_v_label, pixel_v, spacer),
-                    hbox(cb_runid, run_lbl, run_num, load_btn, spacer),
+                    #hbox(pixel_h_label, pixel_h, pixel_v_label, pixel_v, spacer),
+                    #hbox(cb_runid, run_lbl, run_num, load_btn, spacer),
+                    hbox(gb_db),
+                    hbox(gb_fit),
                     scroller,
                     hbox(plot_bt, spacer),
                 ),
                 folder_btn.width == files_btn.width,
-                #folder_btn.width == pb_load.width,
                 folder_btn.width == btn_out.width,
             ]
             PushButton: folder_btn:
@@ -116,53 +117,84 @@ enamldef FileView(DockItem): file_view:
             Label: files_load:
                 text = 'No data is loaded.'
 
-            CheckBox: cb_runid:
-                text = ' '
-                checked = True
-                clicked ::
-                    if checked:
-                        run_lbl.enabled = True
-                        run_num.enabled = True
-                        load_btn.enabled = True
-                    else:
-                        run_lbl.enabled = False
-                        run_num.enabled = False
-                        load_btn.enabled = False
+            GroupBox: gb_db:
+                title = 'Load data from database'
+                constraints = [vbox(
+                                    hbox(pixel_h_label, pixel_h, pixel_v_label, pixel_v, spacer),
+                                    hbox(cb_runid, run_lbl, run_num, load_btn, spacer),
+                                   )]
+                Label : pixel_h_label:
+                    text = 'pixel num on x (horizontal)'
+                IntField: pixel_h:
+                    value := io_model.h_num
+                    maximum_size = (40, 20)
+                Label : pixel_v_label:
+                    text = 'pixel num on y (vertical)'
+                IntField: pixel_v:
+                    value := io_model.v_num
+                    maximum_size = (40, 20)
 
-            Label: run_lbl:
-                text = 'Run # '
+                CheckBox: cb_runid:
+                    text = ' '
+                    checked = True
+                    clicked ::
+                        if checked:
+                            run_lbl.enabled = True
+                            run_num.enabled = True
+                            load_btn.enabled = True
+                        else:
+                            run_lbl.enabled = False
+                            run_num.enabled = False
+                            load_btn.enabled = False
 
-            IntField: run_num:
-                value := io_model.runid
+                Label: run_lbl:
+                    text = 'Run # '
 
-            PushButton: load_btn:
-                text = "Get Data from Database"
-                clicked ::
-                    io_model.load_data_runid()
+                IntField: run_num:
+                    value := io_model.runid
 
-                    files_load.text = 'Number of files loaded: {}'.format(len(io_model.file_names))
+                PushButton: load_btn:
+                    text = "Data from database"
+                    clicked ::
+                        io_model.load_data_runid()
 
-                    # do not import original data for 2D image
-                    img_model_adv.data_dict = io_model.img_dict
+                        files_load.text = 'Number of files loaded: {}'.format(len(io_model.file_names))
 
-                    # data passed for auto fitting and final fit
-                    param_model.data_sets = io_model.data_sets
+                        # do not import original data for 2D image
+                        img_model_adv.data_dict = io_model.img_dict
 
-                    plot_model.parameters = param_model.param_new
-                    setting_model.parameters = param_model.param_new
-                    setting_model.data_sets = io_model.data_sets
-                    fit_model.save_name = io_model.file_names[0]
+                        # data passed for auto fitting and final fit
+                        param_model.data_sets = io_model.data_sets
 
-            Label : pixel_h_label:
-                text = 'pixel num on x (horizontal)'
-            IntField: pixel_h:
-                value := io_model.h_num
-                maximum_size = (40, 20)
-            Label : pixel_v_label:
-                text = 'pixel num on y (vertical)'
-            IntField: pixel_v:
-                value := io_model.v_num
-                maximum_size = (40, 20)
+                        plot_model.parameters = param_model.param_new
+                        setting_model.parameters = param_model.param_new
+                        setting_model.data_sets = io_model.data_sets
+                        fit_model.save_name = io_model.file_names[0]
+
+
+            GroupBox: gb_fit:
+                constraints = [hbox(fit_lbl, cb_select, spacer)]
+                Label : fit_lbl:
+                    text = 'Which channel data for fitting'
+                ComboBox: cb_select:
+                    items << ['Select Data '] + list(io_model.file_channel_list)
+                    index = 0
+                    index >> io_model.file_opt
+                    maximum_size = 400
+                    index ::
+                        if index > 0:
+
+                            # assign data to plot model
+                            plot_model.exp_data_label = io_model.file_channel_list[index-1].split('.')[0]
+                            plot_model.data = io_model.data
+
+                            # for param model
+                            param_model.data = io_model.data
+
+                            # for fit model
+                            fit_model.data_title = io_model.file_channel_list[index-1].split('.')[0]
+                            fit_model.data = io_model.data
+                            fit_model.data_all = io_model.data_all
 
             ScrollArea: scroller:
                 Container:

@@ -132,8 +132,10 @@ enamldef PlotMain(DockItem):
                 if checked:
                     plot_model.plot_experiment()
                     plot_model.plot_exp_opt = True
+                    plot_exp_btn.text = 'Hide Selected Exp. Data'
                 else:
                     plot_model.plot_exp_opt = False
+                    plot_exp_btn.text = 'Plot Selected Exp. Data'
 
         PushButton: select_all:
             text = 'Plot Auto Fit Result'
@@ -169,7 +171,7 @@ enamldef PlotMain(DockItem):
             clicked ::
                 if checked:
                     plot_model.show_fit_opt = True
-                    pb_plot_fit.text = 'Remove Fit Result'
+                    pb_plot_fit.text = 'Hide Fit Result'
                 else:
                     plot_model.show_fit_opt = False
                     pb_plot_fit.text = 'Plot Fit Result'

@@ -96,6 +96,10 @@ class FileIOModel(Atom):
     v_num = Int(1)
     fname_from_db = Str()
 
+    file_opt = Int()
+    data = Typed(np.ndarray)
+    data_all = Typed(np.ndarray)
+
     def __init__(self, **kwargs):
         self.working_directory = kwargs['working_directory']
         self.output_directory = kwargs['output_directory']
@@ -136,6 +140,22 @@ class FileIOModel(Atom):
         db_to_hdf_config(fpath, self.runid,
                          datashape, config_file)
         self.file_names = [fname]
+
+    @observe('file_opt')
+    def choose_file(self, change):
+        if self.file_opt == 0:
+            return
+        names = self.data_sets.keys()
+
+        # to be passed to fitting part for single pixel fitting
+        self.data_all = self.data_sets[names[self.file_opt-1]].raw_data
+
+        # spectrum is averaged in terms of pixel size,
+        # fit doesn't work well if spectrum value is too large.
+        spectrum = self.data_sets[names[self.file_opt-1]].get_sum()
+        #self.data = spectrum/np.max(spectrum)
+        #self.data = spectrum/(self.data_all.shape[0]*self.data_all.shape[1])
+        self.data = spectrum
 
 
 plot_as = ['Sum', 'Point', 'Roi']

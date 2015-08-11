@@ -179,6 +179,7 @@ enamldef ImageMain(DockItem):
             items << ['Select Data'] + sorted(img_model_adv.data_dict_keys)
             index := img_model_adv.file_opt
             index = 0
+            maximum_size = 200
             index ::
                 if index > 0:
                     img_model_adv.plot_item = selected_item

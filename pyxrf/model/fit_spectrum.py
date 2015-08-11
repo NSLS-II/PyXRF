@@ -44,6 +44,7 @@ from collections import OrderedDict
 import multiprocessing
 import h5py
 import matplotlib.pyplot as plt
+import json
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
 from skxray.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
@@ -68,6 +69,7 @@ class Fit1D(Atom):
     for this fitting.
     """
     file_status = Str()
+    default_parameters = Dict()
     param_dict = Dict()
 
     element_list = List()
@@ -127,7 +129,7 @@ class Fit1D(Atom):
         self.result_folder = kwargs['working_directory']
         self.all_strategy = OrderedDict()
 
-    def result_folder_changed(self, changed):
+    def result_folder_changed(self, change):
         """
         Observer function to be connected to the fileio model
         in the top-level gui.py startup
@@ -138,7 +140,7 @@ class Fit1D(Atom):
             This is the dictionary that gets passed to a function
             with the @observe decorator
         """
-        self.result_folder = changed['value']
+        self.result_folder = change['value']
 
     @observe('selected_element')
     def _selected_element_changed(self, changed):
@@ -152,8 +154,30 @@ class Fit1D(Atom):
             self.elementinfo_list = sorted([e for e in self.param_dict.keys()
                                             if element.replace('-', '_') in e])
 
-    def get_new_param(self, param):
-        self.param_dict = copy.deepcopy(param)
+    def read_param_from_file(self, param_path):
+        """
+        Update parameters if new param_path is given.
+
+        Parameters
+        ----------
+        param_path : str
+            path to save the file
+        """
+        with open(param_path, 'r') as json_data:
+            self.default_parameters = json.load(json_data)
+        self.load_default_param()
+
+    def update_default_param(self, param):
+        """assigan new values to default param.
+
+        Parameters
+        ----------
+        param : dict
+        """
+        self.default_parameters = param
+
+    def load_default_param(self):
+        self.param_dict = copy.deepcopy(self.default_parameters)
         element_list = self.param_dict['non_fitting_values']['element_list']
         self.element_list = [e.strip(' ') for e in element_list.split(',')]
 
@@ -279,7 +303,7 @@ class Fit1D(Atom):
         Fit data in sequence according to given strategies.
         The param_dict is extended to cover elemental parameters.
         """
-        #self.define_range()
+        self.define_range()
         self.get_background()
 
         #PC = ParamController(self.param_dict, self.element_list)

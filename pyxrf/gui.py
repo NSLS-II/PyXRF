@@ -96,7 +96,6 @@ def run():
     # send working directory changes to the fit_model
     #io_model.observe('working_directory', fit_model.result_folder_changed)
     io_model.observe('output_directory', fit_model.result_folder_changed)
-    io_model.observe('output_directory', param_model.result_folder_changed)
 
     xrfview = XRFGui(io_model=io_model,
                      param_model=param_model,

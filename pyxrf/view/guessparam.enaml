@@ -67,7 +67,7 @@ enamldef GuessParamView(DockItem): param_view:
     Container:
         constraints = [
             vbox(
-                hbox(CB, spacer),
+                #hbox(CB, spacer),
                 hbox(new_param_load, spacer),
                 top_cntr,
                 hbox(find_btn, spacer),
@@ -78,19 +78,18 @@ enamldef GuessParamView(DockItem): param_view:
             ),
         ]
 
-        ComboBox: CB:
-            #items << ['Select Data for fitting.'] + io_model.file_names
-            items << ['Select Data for fitting.'] + list(io_model.file_channel_list)
-            index = 0
-            index >> param_model.file_opt
-            index ::
-                if CB.index > 0:
-                    plot_model.exp_data_label = io_model.file_channel_list[CB.index-1].split('.')[0]
-                    plot_model.data = param_model.data
+        #ComboBox: CB:
+        #    items << ['Select Data for fitting.'] + list(io_model.file_channel_list)
+        #    index = 0
+        #    index >> param_model.file_opt
+        #    index ::
+        #        if CB.index > 0:
+        #            plot_model.exp_data_label = io_model.file_channel_list[CB.index-1].split('.')[0]
+        #            plot_model.data = param_model.data
 
-                    fit_model.data_title = io_model.file_channel_list[CB.index-1].split('.')[0]
-                    fit_model.data = param_model.data
-                    fit_model.data_all = param_model.data_all
+        #            fit_model.data_title = io_model.file_channel_list[CB.index-1].split('.')[0]
+        #            fit_model.data = param_model.data
+        #            fit_model.data_all = param_model.data_all
 
         #PushButton: plot_btn:
         #    text = 'Plot Data'
@@ -114,9 +113,6 @@ enamldef GuessParamView(DockItem): param_view:
                     plot_model.parameters = param_model.param_new
                     plot_model.plot_experiment()
 
-                    # update parameter for fit
-                    fit_model.get_new_param(param_model.param_new)
-
                     param_model.EC.order()
                     param_model.update_name_list()
                     param_model.EC.turn_on_all()
@@ -126,6 +122,10 @@ enamldef GuessParamView(DockItem): param_view:
                                                         param_model.total_l, param_model.total_m,
                                                         param_model.total_pileup)
                     plot_model.show_autofit_opt = True
+
+                    # update parameter for fit
+                    #fit_model.update_default_param(param_model.param_new)
+                    #fit_model.load_default_param()
 
         ScrollArea: top_cntr:
             constraints = [height <= 100]
@@ -318,7 +318,6 @@ enamldef GuessParamView(DockItem): param_view:
                                 param_model.EC.update_peak_ratio()
                                 param_model.data_for_plot()
 
-                                #fit_model.get_new_param(param_model.param_new)
                                 plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
                                                                     param_model.total_l, param_model.total_m,
                                                                     param_model.total_pileup)
@@ -412,7 +411,10 @@ enamldef GuessParamView(DockItem): param_view:
                     param_model.data_for_plot()
 
                     param_model.create_full_param()
-                    fit_model.get_new_param(param_model.param_new)
+
+                    # update parameter for fit
+                    fit_model.update_default_param(param_model.param_new)
+                    fit_model.load_default_param()
 
                     # update experimental plots if case the coefficients change
                     plot_model.parameters = param_model.param_new
