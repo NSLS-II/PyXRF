@@ -59,8 +59,8 @@ logger = logging.getLogger(__name__)
 def get_color_name():
 
     # usually line plot will not go beyond 10
-    first_ten = ['indigo', 'black', 'darkblue', 'darkgoldenrod', 'blue',
-                 'darkcyan', 'green', 'maroon', 'sandybrown', 'darkolivegreen']
+    first_ten = ['indigo', 'maroon', 'green', 'darkblue', 'darkgoldenrod', 'blue',
+                 'darkcyan', 'sandybrown', 'black', 'darkolivegreen']
 
     # Avoid red color, as those color conflict with emission lines' color.
     nonred_list = [v for v in matplotlib.colors.cnames.keys()
