@@ -232,9 +232,7 @@ class GuessParamModel(Atom):
     e_name = Str()
     add_element_intensity = Float(100.0)
     element_list = List()
-    data_sets = Typed(OrderedDict)
-    # file_opt = Int()
-    # data_all = Typed(np.ndarray)
+    #data_sets = Typed(OrderedDict)
     EC = Typed(object)
     x0 = Typed(np.ndarray)
     y0 = Typed(np.ndarray)
@@ -253,6 +251,21 @@ class GuessParamModel(Atom):
         self.pileup_data = {'element1': 'Si_K',
                             'element2': 'Si_K',
                             'intensity': 0.0}
+
+    def default_param_update(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        self.default_parameters = change['value']
+        self.param_new = copy.deepcopy(self.default_parameters)
+        self.element_list = get_element(self.param_new)
 
     def get_new_param(self, param_path):
         """
@@ -289,6 +302,19 @@ class GuessParamModel(Atom):
     #     #self.data = spectrum/(self.data_all.shape[0]*self.data_all.shape[1])
     #     self.data = spectrum
     #     self.define_range()
+
+    def exp_data_update(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        self.data = change['value']
 
     def define_range(self):
         """

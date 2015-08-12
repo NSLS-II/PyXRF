@@ -133,7 +133,7 @@ class LinePlotModel(Atom):
     residual = Typed(np.ndarray)
 
     plot_type = List()
-    max_v = Typed(object)
+    max_v = Float()
     incident_energy = Float(30.0)
 
     eline_obj = List()
@@ -163,6 +163,7 @@ class LinePlotModel(Atom):
     emission_line_window = Bool(True)
     det_materials = Int(0)
     escape_e = Float(1.73998)
+    limit_cut = Int()
     #prefix_name_roi = Str()
     #element_for_roi = Str()
     #element_list_roi = List()
@@ -188,6 +189,9 @@ class LinePlotModel(Atom):
         self._color_config()
         self._fig.tight_layout(pad=0.5)
         self.max_v = 1.0
+        # when we calculate max value, data smaller than 500, 0.5 Kev, can be ignored.
+        # And the last point of data is also huge, and should be cut off.
+        self.limit_cut = 100
         #self._ax.margins(x=0.0, y=0.10)
 
     def _color_config(self):
@@ -228,11 +232,25 @@ class LinePlotModel(Atom):
         self.log_range = [self.max_v*1e-6, self.max_v*2]
         self.linear_range = [-0.15*self.max_v, self.max_v*1.2]
 
-    @observe('exp_data_label')
-    def _update_exp_label(self, change):
-        if change['type'] == 'create':
-            return
+    def exp_label_update(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        self.exp_data_label = change['value']
         self.plot_style['experiment']['label'] = change['value']
+
+    # @observe('exp_data_label')
+    # def _change_exp_label(self, change):
+    #     if change['type'] == 'create':
+    #         return
+    #     self.plot_style['experiment']['label'] = change['value']
 
     @observe('parameters')
     def _update_energy(self, change):
@@ -258,12 +276,32 @@ class LinePlotModel(Atom):
             #self._ax.relim(visible_only=True)
             self._ax.set_ylim(self.linear_range)
 
-    @observe('data')
-    def data_update(self, change):
-        self.max_v = np.max(self.data)
+    def exp_data_update(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        self.data = change['value']
+        self.max_v = np.max(self.data[self.limit_cut:-self.limit_cut])
+
+        print(self.max_v)
+
         self._update_ylimit()
         self.log_linear_plot()
         self._update_canvas()
+
+    # @observe('data')
+    # def data_update(self, change):
+    #     self.max_v = np.max(self.data)
+    #     self._update_ylimit()
+    #     self.log_linear_plot()
+    #     self._update_canvas()
 
     @observe('plot_exp_opt')
     def _new_exp_plot_opt(self, change):
@@ -315,7 +353,7 @@ class LinePlotModel(Atom):
 
                 data_arr = np.asarray(v.data)
                 self.max_v = np.max([self.max_v,
-                                     np.max(data_arr)])
+                                     np.max(data_arr[self.limit_cut:-self.limit_cut])])
 
                 x_v = (self.parameters['e_offset']['value'] +
                        np.arange(len(data_arr)) *

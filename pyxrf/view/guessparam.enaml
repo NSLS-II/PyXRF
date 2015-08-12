@@ -59,7 +59,7 @@ enamldef FloatField(DefaultFloatField):
 
 enamldef GuessParamView(DockItem): param_view:
     attr param_model
-    attr io_model
+    # attr io_model
     attr plot_model
     attr fit_model
     attr edit_pileup

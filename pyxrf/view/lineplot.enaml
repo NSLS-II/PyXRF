@@ -75,7 +75,7 @@ enamldef SampleMenu(Menu):
 
 
 enamldef PlotMain(DockItem):
-    attr io_model
+    # attr io_model
     attr plot_model
     attr param_model
     attr adjust_emission_line

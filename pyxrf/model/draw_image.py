@@ -279,6 +279,19 @@ class DrawImageAdvanced(Atom):
     def __init__(self):
         self.fig = plt.figure()
 
+    def data_dict_update(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        self.data_dict = change['value']
+
     @observe('data_dict', 'data_dict_keys')
     def init_plot_status(self, change):
         self.data_dict_keys = self.data_dict.keys()

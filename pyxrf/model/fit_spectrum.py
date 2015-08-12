@@ -142,6 +142,19 @@ class Fit1D(Atom):
         """
         self.result_folder = change['value']
 
+    def data_title_update(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        self.data_title = change['value']
+
     @observe('selected_element')
     def _selected_element_changed(self, changed):
         if len(self.selected_element) <= 4:
@@ -199,9 +212,48 @@ class Fit1D(Atom):
             register_strategy(strat_name, strategy)
             #set_parameter_bound(self.param_dict, strat_name)
 
-    @observe('data')
-    def _update_data(self, change):
-        self.data = np.asarray(self.data)
+    def exp_data_update(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        self.data = np.asarray(change['value'])
+
+    def exp_data_all_update(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        self.data_all = np.asarray(change['value'])
+
+    # @observe('data')
+    # def _update_data(self, change):
+    #     self.data = np.asarray(self.data)
+
+    def filename_update(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        self.save_name = change['value']
 
     @observe('fit_strategy1')
     def update_strategy1(self, change):

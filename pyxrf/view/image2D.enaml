@@ -160,7 +160,6 @@ enamldef ChooseElementAdvanced1(Window): win:
 
 
 enamldef ImageMain(DockItem):
-    attr io_model
     attr img_model_adv
     attr choose_element
 

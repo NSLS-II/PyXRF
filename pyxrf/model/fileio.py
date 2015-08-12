@@ -83,9 +83,7 @@ class FileIOModel(Atom):
     output_directory = Str()
     file_names = List()
     file_path = Str()
-    #data = Typed(np.ndarray)
     load_status = Str()
-    #data_dict = Dict()
     data_sets = Typed(OrderedDict)
     img_dict = Dict()
 
@@ -99,6 +97,8 @@ class FileIOModel(Atom):
     file_opt = Int()
     data = Typed(np.ndarray)
     data_all = Typed(np.ndarray)
+    selected_file_name = Str()
+    file_name = Str()
 
     def __init__(self, **kwargs):
         self.working_directory = kwargs['working_directory']
@@ -117,6 +117,7 @@ class FileIOModel(Atom):
         self.file_channel_list = []
         self.file_names.sort()
         logger.info('Files are loaded: %s' % (self.file_names))
+        self.file_name = self.file_names[0]
 
         self.img_dict, self.data_sets = file_handler(self.working_directory,
                                                      self.file_names)
@@ -145,6 +146,11 @@ class FileIOModel(Atom):
     def choose_file(self, change):
         if self.file_opt == 0:
             return
+
+        # selected file name from all channels
+        # controlled at top level gui.py startup
+        self.selected_file_name = self.file_channel_list[self.file_opt-1]
+
         names = self.data_sets.keys()
 
         # to be passed to fitting part for single pixel fitting

@@ -55,9 +55,9 @@ enamldef FileView(DockItem): file_view:
     attr io_model
     attr param_model
     attr plot_model
-    attr img_model_adv
-    attr fit_model
-    attr setting_model
+    #attr img_model_adv
+    #attr fit_model
+    #attr setting_model
 
     Container:
         Container:
@@ -100,25 +100,29 @@ enamldef FileView(DockItem): file_view:
                 clicked ::
                     path = FileDialogEx.get_open_file_names(file_view, current_path=io_model.working_directory)
                     if path:
-                        io_model.file_names = [item.split('/')[-1] for item in path]
-                        files_load.text = 'Number of files loaded: {}'.format(len(io_model.file_names))
+
+                        # only load one file
+                        io_model.file_names = [item.split('/')[-1] for item in path][0:1]
+
+                        #files_load.text = 'Number of files loaded: {}'.format(len(io_model.file_names))
+                        files_load.text = '{} is loaded.'.format(io_model.file_name)
 
                         # do not import original data for 2D image
-                        img_model_adv.data_dict = io_model.img_dict
+                        #img_model_adv.data_dict = io_model.img_dict
 
                         # data passed for auto fitting and final fit
-                        param_model.data_sets = io_model.data_sets
+                        #param_model.data_sets = io_model.data_sets
 
                         plot_model.parameters = param_model.param_new
-                        setting_model.parameters = param_model.param_new
-                        setting_model.data_sets = io_model.data_sets
-                        fit_model.save_name = io_model.file_names[0]
+                        #setting_model.parameters = param_model.param_new
+                        #setting_model.data_sets = io_model.data_sets
+                        #fit_model.save_name = io_model.file_names[0]
 
             Label: files_load:
                 text = 'No data is loaded.'
 
             GroupBox: gb_db:
-                title = 'Load data from database'
+                title = 'Data from database'
                 constraints = [vbox(
                                     hbox(pixel_h_label, pixel_h, pixel_v_label, pixel_v, spacer),
                                     hbox(cb_runid, run_lbl, run_num, load_btn, spacer),
@@ -154,23 +158,22 @@ enamldef FileView(DockItem): file_view:
                     value := io_model.runid
 
                 PushButton: load_btn:
-                    text = "Data from database"
+                    text = "Load Data from Database"
                     clicked ::
                         io_model.load_data_runid()
 
                         files_load.text = 'Number of files loaded: {}'.format(len(io_model.file_names))
 
                         # do not import original data for 2D image
-                        img_model_adv.data_dict = io_model.img_dict
+                        #img_model_adv.data_dict = io_model.img_dict
 
                         # data passed for auto fitting and final fit
-                        param_model.data_sets = io_model.data_sets
+                        #param_model.data_sets = io_model.data_sets
 
                         plot_model.parameters = param_model.param_new
-                        setting_model.parameters = param_model.param_new
-                        setting_model.data_sets = io_model.data_sets
-                        fit_model.save_name = io_model.file_names[0]
-
+                        #setting_model.parameters = param_model.param_new
+                        #setting_model.data_sets = io_model.data_sets
+                        #fit_model.save_name = io_model.file_names[0]
 
             GroupBox: gb_fit:
                 constraints = [hbox(fit_lbl, cb_select, spacer)]
@@ -180,21 +183,19 @@ enamldef FileView(DockItem): file_view:
                     items << ['Select Data '] + list(io_model.file_channel_list)
                     index = 0
                     index >> io_model.file_opt
-                    maximum_size = 400
+                    minimum_size = (200, 16)
                     index ::
                         if index > 0:
-
+                            pass
                             # assign data to plot model
-                            plot_model.exp_data_label = io_model.file_channel_list[index-1].split('.')[0]
-                            plot_model.data = io_model.data
+                            #plot_model.data = io_model.data
 
                             # for param model
-                            param_model.data = io_model.data
+                            #param_model.data = io_model.data
 
                             # for fit model
-                            fit_model.data_title = io_model.file_channel_list[index-1].split('.')[0]
-                            fit_model.data = io_model.data
-                            fit_model.data_all = io_model.data_all
+                            #fit_model.data = io_model.data
+                            #fit_model.data_all = io_model.data_all
 
             ScrollArea: scroller:
                 Container:
@@ -219,8 +220,7 @@ enamldef FileView(DockItem): file_view:
                                     fd1.enabled = False
                                     fd2.enabled = False
                                     plot_bt.enabled = True
-
-                                    plot_model.data_sets = io_model.data_sets
+                                    #plot_model.data_sets = io_model.data_sets
 
                             RadioButton: rb_3:
                                 text = 'Point'
@@ -229,8 +229,7 @@ enamldef FileView(DockItem): file_view:
                                     fd1.enabled = True
                                     fd2.enabled = False
                                     plot_bt.enabled = True
-
-                                    plot_model.data_sets = io_model.data_sets
+                                    #plot_model.data_sets = io_model.data_sets
 
                             RadioButton: rb_4:
                                 text = 'ROI'
@@ -239,8 +238,7 @@ enamldef FileView(DockItem): file_view:
                                     fd1.enabled = True
                                     fd2.enabled = True
                                     plot_bt.enabled = True
-
-                                    plot_model.data_sets = io_model.data_sets
+                                    #plot_model.data_sets = io_model.data_sets
 
                             Label: lb1:
                                 text = 'Start'
@@ -250,7 +248,6 @@ enamldef FileView(DockItem): file_view:
                                 text := io_model.data_sets[loop_item].point1
                                 maximum_size = 80
                                 enabled = False
-
                                 #plot_model.data_sets = io_model.data_sets
 
                             Label: lb2:
@@ -261,7 +258,6 @@ enamldef FileView(DockItem): file_view:
                                 text := io_model.data_sets[loop_item].point2
                                 maximum_size = 80
                                 enabled = False
-
                                 #plot_model.data_sets = io_model.data_sets
 
             PushButton: plot_bt:

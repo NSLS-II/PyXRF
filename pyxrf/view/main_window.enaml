@@ -71,17 +71,16 @@ enamldef XRFGui(MainWindow): main_window:
                 io_model = main_window.io_model
                 param_model = main_window.param_model
                 plot_model = main_window.plot_model
-                img_model_adv = main_window.img_model_adv
-
-                fit_model = main_window.fit_model
-                setting_model = main_window.setting_model
+                # img_model_adv = main_window.img_model_adv
+                # fit_model = main_window.fit_model
+                # setting_model = main_window.setting_model
                 name = 'file_view'
             GuessParamView:
                 closable = False
                 title = 'Initial Parameter Guess '
                 name = 'param_guess_view'
                 param_model = main_window.param_model
-                io_model = main_window.io_model
+                # io_model = main_window.io_model
                 plot_model = main_window.plot_model
                 fit_model = main_window.fit_model
                 edit_pileup = EditPileupPeak(
@@ -90,7 +89,7 @@ enamldef XRFGui(MainWindow): main_window:
             PlotMain:
                 closable = False
                 title = 'Spectrum View'
-                io_model = io_model
+                # io_model = io_model
                 plot_model = main_window.plot_model
                 param_model = main_window.param_model
                 adjust_emission_line = AdjustEmissionLine(
@@ -100,7 +99,6 @@ enamldef XRFGui(MainWindow): main_window:
             ImageMain:
                 closable = False
                 title = 'Element Map'
-                io_model = main_window.io_model
                 #img_model = main_window.img_model
                 img_model_adv = main_window.img_model_adv
                 choose_element = ChooseElementAdvanced(
