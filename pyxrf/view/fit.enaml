@@ -153,7 +153,7 @@ enamldef FitView(DockItem): fit_view:
                 fit_model.fit_multiple()
 
                 # BUG: line color for pileup is not correct from fit
-                fit_model.get_profile()
+                #fit_model.get_profile()
 
                 # update experimental plot with new calibration values
                 plot_model.parameters = fit_model.param_dict
@@ -164,11 +164,13 @@ enamldef FitView(DockItem): fit_view:
                 plot_model.fit_y = fit_model.fit_y
 
                 # BUG!!!
-                #plot_model.fit_all = fit_model.comps
-                plot_model.fit_all = fit_model.cal_spectrum
+                plot_model.fit_all = fit_model.comps
+                #plot_model.fit_all = fit_model.cal_spectrum
 
                 plot_model.residual = fit_model.residual
                 plot_model.plot_fit()
+                # For plotting purposes, otherwise plot will not update
+                plot_model.show_fit_opt = False
                 plot_model.show_fit_opt = True
 
         PushButton: pb_cal:
@@ -187,6 +189,8 @@ enamldef FitView(DockItem): fit_view:
                 plot_model.residual = fit_model.residual
 
                 plot_model.plot_fit()
+                # For plotting purposes, otherwise plot will not update
+                plot_model.show_fit_opt = False
                 plot_model.show_fit_opt = True
 
         #PushButton: pb_plot:

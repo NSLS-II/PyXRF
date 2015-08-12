@@ -125,7 +125,7 @@ enamldef FileView(DockItem): file_view:
                 title = 'Data from database'
                 constraints = [vbox(
                                     hbox(pixel_h_label, pixel_h, pixel_v_label, pixel_v, spacer),
-                                    hbox(cb_runid, run_lbl, run_num, load_btn, spacer),
+                                    hbox(run_lbl, run_num, load_btn, spacer),
                                    )]
                 Label : pixel_h_label:
                     text = 'pixel num on x (horizontal)'
@@ -138,18 +138,18 @@ enamldef FileView(DockItem): file_view:
                     value := io_model.v_num
                     maximum_size = (40, 20)
 
-                CheckBox: cb_runid:
-                    text = ' '
-                    checked = True
-                    clicked ::
-                        if checked:
-                            run_lbl.enabled = True
-                            run_num.enabled = True
-                            load_btn.enabled = True
-                        else:
-                            run_lbl.enabled = False
-                            run_num.enabled = False
-                            load_btn.enabled = False
+                #CheckBox: cb_runid:
+                #    text = ' '
+                #    checked = True
+                #    clicked ::
+                #        if checked:
+                #            run_lbl.enabled = True
+                #            run_num.enabled = True
+                #            load_btn.enabled = True
+                #        else:
+                #            run_lbl.enabled = False
+                #            run_num.enabled = False
+                #            load_btn.enabled = False
 
                 Label: run_lbl:
                     text = 'Run # '
