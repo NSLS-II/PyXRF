@@ -48,12 +48,12 @@ import os
 from atom.api import (Atom, Str, observe, Typed,
                       Int, Dict, List, Float, Enum, Bool)
 
-from skxray.fitting.background import snip_method
-from skxray.constants.api import XrfElement as Element
-from skxray.fitting.xrf_model import (ModelSpectrum, ParamController,
-                                      compute_escape_peak, trim,
-                                      construct_linear_model,
-                                      linear_spectrum_fitting)
+from skxray.core.fitting.background import snip_method
+from skxray.fluorescence import XrfElement as Element
+from skxray.core.fitting.xrf_model import (ModelSpectrum, ParamController,
+                                           compute_escape_peak, trim,
+                                           construct_linear_model,
+                                           linear_spectrum_fitting)
 
 import logging
 logger = logging.getLogger(__name__)

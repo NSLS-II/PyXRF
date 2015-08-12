@@ -47,14 +47,14 @@ import matplotlib.pyplot as plt
 import json
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
-from skxray.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
-                                      sum_area, set_parameter_bound,
-                                      ParamController, K_LINE, L_LINE, M_LINE,
-                                      nnls_fit, weighted_nnls_fit, trim,
-                                      construct_linear_model, linear_spectrum_fitting,
-                                      register_strategy, TRANSITIONS_LOOKUP)
-from skxray.fitting.background import snip_method
-from skxray.constants.api import XrfElement as Element
+from skxray.core.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
+                                           sum_area, set_parameter_bound,
+                                           ParamController, K_LINE, L_LINE, M_LINE,
+                                           nnls_fit, weighted_nnls_fit, trim,
+                                           construct_linear_model, linear_spectrum_fitting,
+                                           register_strategy, TRANSITIONS_LOOKUP)
+from skxray.core.fitting.background import snip_method
+from skxray.fluorescence import XrfElement as Element
 from pyxrf.model.guessparam import (calculate_profile, fit_strategy_list,
                                     trim_escape_peak, define_range)
 from lmfit import fit_report
@@ -244,7 +244,6 @@ class Fit1D(Atom):
             with the @observe decorator
         """
         self.data_all = np.asarray(change['value'])
-
     # @observe('data')
     # def _update_data(self, change):
     #     self.data = np.asarray(self.data)
