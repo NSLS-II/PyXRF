@@ -672,7 +672,6 @@ class LinePlotModel(Atom):
                             self.residual - 0.15*self.max_v,  #shiftv*(np.max(np.abs(self.residual))),
                             label=self.plot_style['residual']['label'],
                             color=self.plot_style['residual']['color'])
-                            #label='residual')
         self.plot_fit_obj.append(ln)
 
         k_num = 0

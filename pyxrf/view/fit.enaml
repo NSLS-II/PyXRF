@@ -121,31 +121,31 @@ enamldef FitView(DockItem): fit_view:
         ComboBox: cb1:
             items = [''] + fit_strategy_list
             index = 0
-            index >> fit_model.fit_strategy1
+            index := fit_model.fit_strategy1
         Label: lbl2:
             text = 'Step 2'
         ComboBox: cb2:
             items = [''] + fit_strategy_list
             index = 0
-            index >> fit_model.fit_strategy2
+            index := fit_model.fit_strategy2
         Label: lbl3:
             text = 'Step 3'
         ComboBox: cb3:
             items = [''] + fit_strategy_list
             index = 0
-            index >> fit_model.fit_strategy3
+            index := fit_model.fit_strategy3
         Label: lbl4:
             text = 'Step 4'
         ComboBox: cb4:
             items = [''] + fit_strategy_list
             index = 0
-            index >> fit_model.fit_strategy4
+            index := fit_model.fit_strategy4
         Label: lbl5:
             text = 'Step 5'
         ComboBox: cb5:
             items = [''] + fit_strategy_list
             index = 0
-            index >> fit_model.fit_strategy5
+            index := fit_model.fit_strategy5
 
         PushButton: pb_fit:
             text = 'Fit Summed Spectrum'

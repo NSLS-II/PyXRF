@@ -129,6 +129,13 @@ class Fit1D(Atom):
         self.result_folder = kwargs['working_directory']
         self.all_strategy = OrderedDict()
 
+        # plotting purposes
+        self.fit_strategy1 = 0
+        self.fit_strategy2 = 0
+        self.fit_strategy1 = 1
+        self.fit_strategy2 = 4
+
+
     def result_folder_changed(self, change):
         """
         Observer function to be connected to the fileio model
