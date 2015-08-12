@@ -230,7 +230,7 @@ class LinePlotModel(Atom):
     def _update_ylimit(self):
         # manually define y limit, from experience
         self.log_range = [self.max_v*1e-6, self.max_v*2]
-        self.linear_range = [-0.15*self.max_v, self.max_v*1.2]
+        self.linear_range = [-0.3*self.max_v, self.max_v*1.2]
 
     def exp_label_update(self, change):
         """
@@ -289,9 +289,6 @@ class LinePlotModel(Atom):
         """
         self.data = change['value']
         self.max_v = np.max(self.data[self.limit_cut:-self.limit_cut])
-
-        print(self.max_v)
-
         self._update_ylimit()
         self.log_linear_plot()
         self._update_canvas()
@@ -670,13 +667,13 @@ class LinePlotModel(Atom):
                             linewidth=self.plot_style['fit']['linewidth'])
         self.plot_fit_obj.append(ln)
 
-        # shiftv = 1.5  # move residual down by some amount
-        # ln, = self._ax.plot(self.fit_x,
-        #                     self.residual - shiftv*(np.max(np.abs(self.residual))),
-        #                     label=self.plot_style['residual']['label'],
-        #                     color=self.plot_style['residual']['color'])
-        #                     #label='residual')
-        # self.plot_fit_obj.append(ln)
+        shiftv = 1.5  # move residual down by some amount
+        ln, = self._ax.plot(self.fit_x,
+                            self.residual - 0.15*self.max_v,  #shiftv*(np.max(np.abs(self.residual))),
+                            label=self.plot_style['residual']['label'],
+                            color=self.plot_style['residual']['color'])
+                            #label='residual')
+        self.plot_fit_obj.append(ln)
 
         k_num = 0
         l_num = 0
