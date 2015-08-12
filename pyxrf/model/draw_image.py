@@ -279,8 +279,22 @@ class DrawImageAdvanced(Atom):
     def __init__(self):
         self.fig = plt.figure()
 
+    def data_dict_update(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        self.data_dict = change['value']
+
     @observe('data_dict', 'data_dict_keys')
     def init_plot_status(self, change):
+        self.data_dict_keys = self.data_dict.keys()
         logger.info('2D image display: {}'.format(self.data_dict.keys()))
 
         scaler_groups = [v for v in self.data_dict.keys() if 'scaler' in v]
@@ -332,7 +346,7 @@ class DrawImageAdvanced(Atom):
         self.stat_dict = {k: bool_val for k in self.items_in_group}
 
     def update_plot(self):
-        self.fig.tight_layout(pad=0.2, w_pad=0.2, h_pad=0.2)
+        self.fig.tight_layout(pad=1.0, w_pad=0.2, h_pad=0.2)
         self.fig.canvas.draw_idle()
 
     def show_image(self):
@@ -340,6 +354,8 @@ class DrawImageAdvanced(Atom):
         stat_temp = self.get_activated_num()
 
         low_lim = 1e-4  # define the low limit for log image
+        ic_norm = 10000  # multiply by this value for ic normalization
+        ic_thresh = 1.0  # in case the ic value is zero
         plot_interp = 'Nearest'
 
         if self.color_opt == 'Orange':
@@ -364,7 +380,9 @@ class DrawImageAdvanced(Atom):
         for i, (k, v) in enumerate(six.iteritems(stat_temp)):
             if self.scale_opt == 'Linear':
                 if self.scaler_data is not None:
-                    data_dict = self.dict_to_plot[k]/self.scaler_data
+                    zero_pos = np.where(self.scaler_data < 0.1*np.mean(self.scaler_data))
+                    self.dict_to_plot[k][zero_pos] = 0.0
+                    data_dict = self.dict_to_plot[k]/(self.scaler_data+ic_thresh)*ic_norm
                 else:
                     data_dict = self.dict_to_plot[k]
                 im = grid[i].imshow(data_dict,
@@ -376,7 +394,8 @@ class DrawImageAdvanced(Atom):
                 im = grid[i].imshow(self.dict_to_plot[k],
                                     norm=LogNorm(vmin=low_lim*maxz,
                                                  vmax=maxz),
-                                    cmap=grey_use)
+                                    cmap=grey_use,
+                                    interpolation=plot_interp)
             grid_title = self.file_name+'_'+str(k)
             grid[i].text(0, -1, grid_title)
             grid.cbar_axes[i].colorbar(im)
@@ -384,4 +403,3 @@ class DrawImageAdvanced(Atom):
 
     def get_activated_num(self):
         return {k:v for (k,v) in six.iteritems(self.stat_dict) if v is True}
-

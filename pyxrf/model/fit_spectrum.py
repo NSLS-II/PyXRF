@@ -43,16 +43,18 @@ import os
 from collections import OrderedDict
 import multiprocessing
 import h5py
+import matplotlib.pyplot as plt
+import json
 
-from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float
-from skxray.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
-                                      sum_area, set_parameter_bound,
-                                      ParamController, K_LINE, L_LINE, M_LINE,
-                                      nnls_fit, weighted_nnls_fit, trim,
-                                      construct_linear_model, linear_spectrum_fitting,
-                                      register_strategy, TRANSITIONS_LOOKUP)
-from skxray.fitting.background import snip_method
-from skxray.constants.api import XrfElement as Element
+from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
+from skxray.core.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
+                                           sum_area, set_parameter_bound,
+                                           ParamController, K_LINE, L_LINE, M_LINE,
+                                           nnls_fit, weighted_nnls_fit, trim,
+                                           construct_linear_model, linear_spectrum_fitting,
+                                           register_strategy, TRANSITIONS_LOOKUP)
+from skxray.core.fitting.background import snip_method
+from skxray.fluorescence import XrfElement as Element
 from pyxrf.model.guessparam import (calculate_profile, fit_strategy_list,
                                     trim_escape_peak, define_range)
 from lmfit import fit_report
@@ -67,6 +69,7 @@ class Fit1D(Atom):
     for this fitting.
     """
     file_status = Str()
+    default_parameters = Dict()
     param_dict = Dict()
 
     element_list = List()
@@ -108,15 +111,32 @@ class Fit1D(Atom):
     red_chi2 = Float(0.0)
     global_param_list = List()
 
+    fit_num = Int(100)
+    ftol = Float(1e-5)
+    c_weight = Float(1e2)
+
     save_name = Str()
     fit_img = Dict()
+
+    save_point = Bool(False)
+    point1v = Int(0)
+    point1h = Int(0)
+    point2v = Int(0)
+    point2h = Int(0)
 
     def __init__(self, *args, **kwargs):
         self.working_directory = kwargs['working_directory']
         self.result_folder = kwargs['working_directory']
         self.all_strategy = OrderedDict()
 
-    def result_folder_changed(self, changed):
+        # plotting purposes
+        self.fit_strategy1 = 0
+        self.fit_strategy2 = 0
+        self.fit_strategy1 = 1
+        self.fit_strategy2 = 4
+
+
+    def result_folder_changed(self, change):
         """
         Observer function to be connected to the fileio model
         in the top-level gui.py startup
@@ -127,7 +147,20 @@ class Fit1D(Atom):
             This is the dictionary that gets passed to a function
             with the @observe decorator
         """
-        self.result_folder = changed['value']
+        self.result_folder = change['value']
+
+    def data_title_update(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        self.data_title = change['value']
 
     @observe('selected_element')
     def _selected_element_changed(self, changed):
@@ -141,8 +174,30 @@ class Fit1D(Atom):
             self.elementinfo_list = sorted([e for e in self.param_dict.keys()
                                             if element.replace('-', '_') in e])
 
-    def get_new_param(self, param):
-        self.param_dict = copy.deepcopy(param)
+    def read_param_from_file(self, param_path):
+        """
+        Update parameters if new param_path is given.
+
+        Parameters
+        ----------
+        param_path : str
+            path to save the file
+        """
+        with open(param_path, 'r') as json_data:
+            self.default_parameters = json.load(json_data)
+        self.load_default_param()
+
+    def update_default_param(self, param):
+        """assigan new values to default param.
+
+        Parameters
+        ----------
+        param : dict
+        """
+        self.default_parameters = param
+
+    def load_default_param(self):
+        self.param_dict = copy.deepcopy(self.default_parameters)
         element_list = self.param_dict['non_fitting_values']['element_list']
         self.element_list = [e.strip(' ') for e in element_list.split(',')]
 
@@ -164,9 +219,47 @@ class Fit1D(Atom):
             register_strategy(strat_name, strategy)
             #set_parameter_bound(self.param_dict, strat_name)
 
-    @observe('data')
-    def _update_data(self, change):
-        self.data = np.asarray(self.data)
+    def exp_data_update(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        self.data = np.asarray(change['value'])
+
+    def exp_data_all_update(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        self.data_all = np.asarray(change['value'])
+    # @observe('data')
+    # def _update_data(self, change):
+    #     self.data = np.asarray(self.data)
+
+    def filename_update(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        self.save_name = change['value']
 
     @observe('fit_strategy1')
     def update_strategy1(self, change):
@@ -243,15 +336,19 @@ class Fit1D(Atom):
 
         self.residual = self.cal_y - self.y0
 
-    def fit_data(self, x0, y0,
-                 c_val=1e-3, fit_num=100, c_weight=1e3):
+    def fit_data(self, x0, y0):
+        fit_num = self.fit_num
+        ftol = self.ftol
+        c_weight = 100  #self.c_weight
         MS = ModelSpectrum(self.param_dict, self.element_list)
         MS.assemble_models()
 
+        weight_v = np.sqrt(np.abs(c_weight/(c_weight+y0)))
+        weight_v /= np.sum(weight_v)
         result = MS.model_fit(x0, y0,
-                              weights=1/np.sqrt(c_weight+y0),
+                              weights=weight_v,
                               maxfev=fit_num,
-                              xtol=c_val, ftol=c_val, gtol=c_val)
+                              xtol=ftol, ftol=ftol, gtol=ftol)
         self.fit_x = (result.values['e_offset'] +
                       result.values['e_linear'] * x0 +
                       result.values['e_quadratic'] * x0**2)
@@ -264,7 +361,7 @@ class Fit1D(Atom):
         Fit data in sequence according to given strategies.
         The param_dict is extended to cover elemental parameters.
         """
-        #self.define_range()
+        self.define_range()
         self.get_background()
 
         #PC = ParamController(self.param_dict, self.element_list)
@@ -315,6 +412,7 @@ class Fit1D(Atom):
 
         self.save_result()
         self.assign_fitting_result()
+        logger.info('--------Fitting is done!--------')
 
     def assign_fitting_result(self):
         self.function_num = self.fit_result.nfev
@@ -327,25 +425,53 @@ class Fit1D(Atom):
         This function performs single pixel fitting.
         Multiprocess is considered.
         """
+        fit_opt = 'nnls'
+
         save_name = self.save_name
-        save_dict = {'fit_path': os.path.join(self.result_folder, save_name),
-                     'save_range': 0}
 
         strategy_pixel = 'linear'
         set_parameter_bound(self.param_dict, strategy_pixel)
+
         logger.info('Starting single pixel fitting')
         t0 = time.time()
-        result_map = fit_pixel_fast_multi(self.data_all, self.param_dict,
-                                          first_peak_area=False, **save_dict)
+
+        if fit_opt == 'nnls':
+            e_select, matv, results, start_i, end_i = fit_pixel_fast_multi(self.data_all,
+                                                                           self.param_dict)
+            # output area of dict
+            result_map = calculate_area(e_select, matv, results,
+                                        self.param_dict, first_peak_area=False)
+        elif fit_opt == 'nonlinear':
+            result_map = fit_pixel_nonlinear(self.data_all, self.param_dict)
+
+            print(result_map.shape)
+            print(result_map[0, 0].keys())
+
         t1 = time.time()
         logger.warning('Time used for pixel fitting is : {}'.format(t1-t0))
 
-        # currently save data using pickle, need to be updated
-        #import pickle
+        # output to file
         fpath = os.path.join(self.result_folder, save_name)
-        #pickle.dump(result_map, open(fpath, 'wb'))
-        self.fit_img[save_name.split('.')[0]+'_fit'] = result_map
         save_fitdata_to_hdf(fpath, result_map)
+
+        # save to dict so that results can be seen immediately
+        self.fit_img[save_name.split('.')[0]+'_fit'] = result_map
+        #self.fit_img[save_name.split('.')[0]+'_error'] = result_map
+
+        # get fitted spectrum and save fig
+        if self.save_point is True:
+            p1 = [self.point1v, self.point1h]
+            p2 = [self.point2v, self.point2v]
+            output_folder = os.path.join(self.result_folder, 'fig_single_pixel')
+            if os.path.exists(output_folder) is False:
+                os.mkdir(output_folder)
+            logger.info('Save plots from single pixel fitting.')
+
+            save_fitted_fig(e_select, matv, results,
+                            start_i, end_i, p1, p2,
+                            self.data_all, self.param_dict,
+                            output_folder, save_pixel=True)
+            logger.info('Done with saving fitting plots.')
 
     def save_result(self, fname=None):
         """
@@ -586,7 +712,6 @@ def roi_sum_multi_files(dir_path, file_prefix,
     """
     no_processors_to_use = multiprocessing.cpu_count()
     logger.info('cpu count: {}'.format(no_processors_to_use))
-    #print 'Creating pool with %d processes\n' % no_processors_to_use
     pool = multiprocessing.Pool(no_processors_to_use)
 
     result_pool = [pool.apply_async(roi_sum_calculation,
@@ -667,6 +792,8 @@ def fit_per_line(row_num, data,
     -------
     array :
         fitting values for all the elements at a given row.
+    Note background is also calculated as a summed value. Also residual
+    is included.
     """
 
     logger.info('Row number at {}'.format(row_num))
@@ -681,12 +808,14 @@ def fit_per_line(row_num, data,
         # setting constant weight to some value might cause error when fitting
         result, res = fit_pixel(y, matv,
                                 constant_weight=None)
-        result = list(result) + [np.sum(bg)]
+        sst = np.sum((y-np.mean(y))**2)
+        r2 = 1 - res/sst
+        result = list(result) + [np.sum(bg)] + [r2]
         out.append(result)
     return np.array(out)
 
 
-def fit_pixel_fast_multi(data, param, first_peak_area=False, **kwargs):
+def fit_pixel_fast_multi(data, param):
     """
     Multiprocess fit of experiment data.
 
@@ -696,10 +825,6 @@ def fit_pixel_fast_multi(data, param, first_peak_area=False, **kwargs):
         3D data of experiment spectrum
     param : dict
         fitting parameters
-    first_peak_area : Bool, optional
-        get overal peak area or only the first peak area, such as Ar_Ka1
-    kwargs : dict
-        the size of saved data and path
 
     Returns
     -------
@@ -714,6 +839,7 @@ def fit_pixel_fast_multi(data, param, first_peak_area=False, **kwargs):
     #print 'Creating pool with %d processes\n' % no_processors_to_use
     pool = multiprocessing.Pool(no_processors_to_use)
 
+    # cut range
     y0 = data[0, 0, :]
     x0 = np.arange(len(y0))
 
@@ -731,11 +857,16 @@ def fit_pixel_fast_multi(data, param, first_peak_area=False, **kwargs):
     end_i = x0[x0 == x[-1]][0]
     logger.info('label range: {}, {}'.format(start_i, end_i))
 
+    # construct matrix
     elist = param['non_fitting_values']['element_list'].split(', ')
     elist = [e.strip(' ') for e in elist]
+    e_select, matv_old, e_area = construct_linear_model(x, param, elist)
 
-    e_select, matv, e_area = construct_linear_model(x, param, elist)
-    mat_sum = np.sum(matv, axis=0)
+    e_select = e_select[:-1]
+    e_select[-1] = 'comp_elastic'
+
+    matv = matv_old[:, :-1]
+    matv[:, -1] += matv_old[:, -1]
 
     result_pool = [pool.apply_async(fit_per_line,
                                     (n, data[n, :, start_i:end_i+1], matv, param))
@@ -750,12 +881,30 @@ def fit_pixel_fast_multi(data, param, first_peak_area=False, **kwargs):
 
     results = np.array(results)
 
-    total_list = e_select + ['background']
+    return e_select, matv, results, start_i, end_i
+
+
+def calculate_area(e_select, matv, results,
+                   param, first_peak_area=False):
+    """
+    Parameters
+    ----------
+    first_peak_area : Bool, optional
+        get overal peak area or only the first peak area, such as Ar_Ka1
+    kwargs : dict
+        the size of saved data and path
+
+    Returns
+    -------
+    .
+    """
+    total_list = e_select + ['background'] + ['r_squared']
+    mat_sum = np.sum(matv, axis=0)
 
     logger.info('The following peaks are saved: {}'.format(total_list))
 
     result_map = dict()
-    for i in range(len(total_list)-1):
+    for i in range(len(e_select)):
         if first_peak_area is not True:
             result_map.update({total_list[i]: results[:, :, i]*mat_sum[i]})
         else:
@@ -766,33 +915,100 @@ def fit_pixel_fast_multi(data, param, first_peak_area=False, **kwargs):
                                               param['coherent_sct_energy']['value'])
             result_map.update({total_list[i]: results[:, :, i]*mat_sum[i]*ratio_v})
 
-    # add background
+    # add background and res
+    result_map.update({total_list[-2]: results[:, :, -2]})
     result_map.update({total_list[-1]: results[:, :, -1]})
 
+    return result_map
+
+
+def get_fitted_result(elist, matv, results,
+                      start_i, end_i, data, param):
     # save summed spectrum only when required
     # the size is measured from the point of (0, 0)
-    #sum_total = np.zeros([results.shape[0], results.shape[1], matv.shape[0]])
-    if kwargs['save_range']:
-        sum_total = np.zeros([kwargs['save_range'],
-                              kwargs['save_range'],
-                              matv.shape[0]])
-        for m in range(sum_total.shape[0]):
-            for n in range(sum_total.shape[1]):
-                for i in range(len(total_list)-1):
-                    sum_total[m, n, :] += results[m, n, i] * matv[:, i]
-                bg = snip_method(data[m, n, start_i:end_i+1],
-                                 param['e_offset']['value'],
-                                 param['e_linear']['value'],
-                                 param['e_quadratic']['value'],
-                                 width=param['non_fitting_values']['background_width'])
-                sum_total[m, n, :] += bg
+    sum_total = None
+    for i in range(len(elist)):
+        if sum_total is None:
+            sum_total = results[i] * matv[:, i]
+        else:
+            sum_total += results[i] * matv[:, i]
+    bg = snip_method(data[start_i:end_i+1],
+                     param['e_offset']['value'],
+                     param['e_linear']['value'],
+                     param['e_quadratic']['value'],
+                     width=param['non_fitting_values']['background_width'])
+    sum_total += bg
 
-        #fpath = os.path.join(kwargs['fit_path'])
-        np.save(kwargs['fit_path'], sum_total)
-        logger.info('Single pixel data is also save to : {}'.format(kwargs['fit_path']))
+    return sum_total
 
-    #pickle.dump(result_map, open(fpath, 'wb'))
-    return result_map
+
+def save_fitted_fig(e_select, matv, results,
+                    start_i, end_i, p1, p2, data_all, param_dict,
+                    result_folder, save_pixel=True):
+
+    data_y = data_all[0, 0, :]
+    x_v = np.arange(len(data_y))
+    x_v = x_v[start_i: end_i+1]
+    x_v = (param_dict['e_offset']['value'] +
+           param_dict['e_linear']['value']*x_v +
+           param_dict['e_quadratic']['value']*x_v**2)
+
+    fig, ax = plt.subplots(nrows=1, ncols=1)
+    ax.set_xlabel('Energy [keV]')
+    ax.set_ylabel('Counts')
+    max_v = np.max(data_all[p1[0]:p2[0], p1[1]:p2[1], start_i: end_i+1])
+    ax.set_ylim(max_v*1e-4, max_v*2)
+
+    fitted_sum = None
+    for m in range(p1[0], p2[0]):
+        for n in range(p1[1], p2[1]):
+            data_y = data_all[m, n, :]
+            result_data = results[m, n, :]
+
+            if save_pixel is True:
+                fitted_y = get_fitted_result(e_select, matv, result_data,
+                                             start_i, end_i, data_y, param_dict)
+                if fitted_sum is None:
+                    fitted_sum = fitted_y
+                else:
+                    fitted_sum += fitted_y
+                ax.cla()
+                ax.set_title('Single pixel fitting for point ({}, {})'.format(m, n))
+                ax.set_xlabel('Energy [keV]')
+                ax.set_ylabel('Counts')
+                ax.set_ylim(max_v*1e-4, max_v*2)
+
+                ax.semilogy(x_v, data_y[start_i: end_i+1], label='exp',
+                            linestyle='', marker='.')
+                ax.semilogy(x_v, fitted_y, label='fit')
+
+                ax.legend()
+                output_path = os.path.join(result_folder,
+                                           'data_out_'+str(m)+'_'+str(n)+'.png')
+                plt.savefig(output_path)
+
+            else:
+                fitted_y = get_fitted_result(e_select, matv, result_data,
+                                             start_i, end_i, data_y, param_dict)
+                if fitted_sum is None:
+                    fitted_sum = fitted_y
+                else:
+                    fitted_sum += fitted_y
+
+    ax.cla()
+    sum_y = np.sum(data_all[p1[0]:p2[0], p1[1]:p2[1], start_i:end_i+1], axis=(0, 1))
+    ax.set_title('Summed spectrum from point ({},{}) '
+                 'to ({},{})'.format(p1[0], p1[1], p2[0], p2[1]))
+    ax.set_xlabel('Energy [keV]')
+    ax.set_ylabel('Counts')
+    ax.set_ylim(np.max(sum_y)*1e-4, np.max(sum_y)*2)
+    ax.semilogy(x_v, sum_y, label='exp', linestyle='', marker='.')
+    ax.semilogy(x_v, fitted_sum, label='fit')
+
+    ax.legend()
+    fit_sum_name = 'pixel_sum_'+str(p1[0])+'-'+str(p1[1])+'_'+str(p2[0])+'-'+str(p2[1])+'.png'
+    output_path = os.path.join(result_folder, fit_sum_name)
+    plt.savefig(output_path)
 
 
 def get_branching_ratio(elemental_line, energy):
@@ -824,6 +1040,107 @@ def get_branching_ratio(elemental_line, energy):
     return ratio_v
 
 
+def fit_pixel_nonlinear_per_line(row_num, data, x0, param):
+                                 #c_weight, fit_num, ftol):
+
+    c_weight = 1
+    fit_num = 100
+    ftol = 1e-3
+
+    elist = param['non_fitting_values']['element_list'].split(', ')
+    elist = [e.strip(' ') for e in elist]
+    MS = ModelSpectrum(param, elist)
+    MS.assemble_models()
+
+    logger.info('Row number at {}'.format(row_num))
+    out = []
+    for i in range(data.shape[0]):
+        bg = snip_method(data[i, :],
+                         param['e_offset']['value'],
+                         param['e_linear']['value'],
+                         param['e_quadratic']['value'],
+                         width=param['non_fitting_values']['background_width'])
+        y0 = data[i, :] - bg
+        # setting constant weight to some value might cause error when fitting
+        result = MS.model_fit(x0, y0,
+                              weights=1/np.sqrt(c_weight+y0),
+                              maxfev=fit_num,
+                              xtol=ftol, ftol=ftol, gtol=ftol)
+        out.append(result)
+    return out
+
+
+def fit_pixel_nonlinear(data, param):
+    """
+    Multiprocess fit of experiment data.
+
+    Parameters
+    ----------
+    data : array
+        3D data of experiment spectrum
+    param : dict
+        fitting parameters
+
+    Returns
+    -------
+    dict :
+        fitting values for all the elements
+    """
+
+    no_processors_to_use = multiprocessing.cpu_count()
+    #no_processors_to_use = 4
+
+    logger.info('cpu count: {}'.format(no_processors_to_use))
+    #print 'Creating pool with %d processes\n' % no_processors_to_use
+    pool = multiprocessing.Pool(no_processors_to_use)
+
+    # cut range
+    y0 = data[0, 0, :]
+    x0 = np.arange(len(y0))
+
+    # transfer energy value back to channel value
+    lowv = (param['non_fitting_values']['energy_bound_low']['value'] -
+            param['e_offset']['value'])/param['e_linear']['value']
+    highv = (param['non_fitting_values']['energy_bound_high']['value'] -
+             param['e_offset']['value'])/param['e_linear']['value']
+
+    lowv = int(lowv)
+    highv = int(highv)
+
+    x, y = trim(x0, y0, lowv, highv)
+    start_i = x0[x0 == x[0]][0]
+    end_i = x0[x0 == x[-1]][0]
+    logger.info('label range: {}, {}'.format(start_i, end_i))
+
+    # construct matrix
+    elist = param['non_fitting_values']['element_list'].split(', ')
+    elist = [e.strip(' ') for e in elist]
+    #e_select, matv, e_area = construct_linear_model(x, param, elist)
+
+    c_weight = 1
+    fit_num = 100
+    ftol = 1e-3
+
+    MS = ModelSpectrum(param, elist)
+    MS.assemble_models()
+
+    result_pool = [pool.apply_async(fit_pixel_nonlinear_per_line,
+                                    (n, data[n, :, start_i:end_i+1], x,
+                                     param))
+                   for n in range(data.shape[0])]
+
+    results = []
+    for r in result_pool:
+        results.append(r.get())
+
+    pool.terminate()
+    pool.join()
+
+    results = np.array(results)
+
+    return results
+
+
 def fit_pixel_slow_version(data, param, c_val=1e-2, fit_num=10, c_weight=1):
     datas = data.shape
 
@@ -846,7 +1163,6 @@ def fit_pixel_slow_version(data, param, c_val=1e-2, fit_num=10, c_weight=1):
             y0 = data[i, j, :]
             result = MS.model_fit(x0, y0,
                                   w=1/np.sqrt(c_weight+y0))
-
                                   #maxfev=fit_num, xtol=c_val, ftol=c_val, gtol=c_val)
             #for k, v in six.iteritems(result.values):
             #    print('result {}: {}'.format(k, v))

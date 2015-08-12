@@ -50,7 +50,7 @@ import numpy as np
 import six
 
 from ..model.guessparam import autofit_param
-from skxray.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
+from skxray.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 
 
 enamldef FloatField(DefaultFloatField):
@@ -59,7 +59,7 @@ enamldef FloatField(DefaultFloatField):
 
 enamldef GuessParamView(DockItem): param_view:
     attr param_model
-    attr io_model
+    # attr io_model
     attr plot_model
     attr fit_model
     attr edit_pileup
@@ -67,7 +67,7 @@ enamldef GuessParamView(DockItem): param_view:
     Container:
         constraints = [
             vbox(
-                hbox(CB, plot_btn, spacer),
+                #hbox(CB, spacer),
                 hbox(new_param_load, spacer),
                 top_cntr,
                 hbox(find_btn, spacer),
@@ -78,29 +78,28 @@ enamldef GuessParamView(DockItem): param_view:
             ),
         ]
 
-        ComboBox: CB:
-            #items << ['Select Data for fitting.'] + io_model.file_names
-            items << ['Select Data for fitting.'] + list(io_model.file_channel_list)
-            index = 0
-            index >> param_model.file_opt
-            index ::
-                if CB.index > 0:
-                    plot_model.exp_data_label = io_model.file_channel_list[CB.index-1].split('.')[0]
-                    plot_model.data = param_model.data
+        #ComboBox: CB:
+        #    items << ['Select Data for fitting.'] + list(io_model.file_channel_list)
+        #    index = 0
+        #    index >> param_model.file_opt
+        #    index ::
+        #        if CB.index > 0:
+        #            plot_model.exp_data_label = io_model.file_channel_list[CB.index-1].split('.')[0]
+        #            plot_model.data = param_model.data
 
-                    fit_model.data_title = io_model.file_channel_list[CB.index-1].split('.')[0]
-                    fit_model.data = param_model.data
-                    fit_model.data_all = param_model.data_all
+        #            fit_model.data_title = io_model.file_channel_list[CB.index-1].split('.')[0]
+        #            fit_model.data = param_model.data
+        #            fit_model.data_all = param_model.data_all
 
-        PushButton: plot_btn:
-            text = 'Plot Data'
-            checkable = True
-            clicked ::
-                if checked:
-                    plot_model.plot_experiment()
-                    plot_model.plot_exp_opt = True
-                else:
-                    plot_model.plot_exp_opt = False
+        #PushButton: plot_btn:
+        #    text = 'Plot Data'
+        #    checkable = True
+        #    clicked ::
+        #        if checked:
+        #            plot_model.plot_experiment()
+        #            plot_model.plot_exp_opt = True
+        #        else:
+        #            plot_model.plot_exp_opt = False
 
         PushButton: new_param_load:
             text = 'Import Parameters from File'
@@ -109,20 +108,24 @@ enamldef GuessParamView(DockItem): param_view:
                 parameter_file_path = FileDialogEx.get_open_file_name(param_view)
                 if parameter_file_path:
                     param_model.get_new_param(parameter_file_path)
-                    param_model.EC.order()
-
-                    fit_model.get_new_param(param_model.param_new)
-
-                    param_model.update_name_list()
 
                     # update experimental plots
                     plot_model.parameters = param_model.param_new
                     plot_model.plot_experiment()
 
+                    param_model.EC.order()
+                    param_model.update_name_list()
+                    param_model.EC.turn_on_all()
+
                     param_model.data_for_plot()
                     plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
                                                         param_model.total_l, param_model.total_m,
                                                         param_model.total_pileup)
+                    plot_model.show_autofit_opt = True
+
+                    # update parameter for fit
+                    #fit_model.update_default_param(param_model.param_new)
+                    #fit_model.load_default_param()
 
         ScrollArea: top_cntr:
             constraints = [height <= 100]
@@ -174,15 +177,19 @@ enamldef GuessParamView(DockItem): param_view:
                 param_model.find_peak()
                 param_model.EC.order()
                 param_model.update_name_list()
+
+                param_model.EC.turn_on_all()
                 param_model.data_for_plot()
                 status_tip = 'Running'
 
                 # update experimental plots if case the coefficients change
                 plot_model.parameters = param_model.param_new
                 plot_model.plot_experiment()
+
                 plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
                                                     param_model.total_l, param_model.total_m,
                                                     param_model.total_pileup)
+                plot_model.show_autofit_opt = True
 
         ComboBox: cb_select:
             items = ['Select Lines'] +\
@@ -229,7 +236,7 @@ enamldef GuessParamView(DockItem): param_view:
             Container: scr_area_title:
                 padding = Box(2, 2, 2, 2)
                 constraints = [vbox(
-                                   hbox(del_lb, z, name, energy, inten, norm, select_all, spacer),
+                                   hbox(del_lb, z, name, energy, inten, norm, spacer),
                                    )
                                ]
                 Label: del_lb:
@@ -269,33 +276,33 @@ enamldef GuessParamView(DockItem): param_view:
                     minimum_size = (80, 20)
                     #background = 'white'
                     align = 'center'
-                PushButton: select_all:
-                    text = 'Show All'
-                    #maximum_size = 30
-                    minimum_size = (30, 20)
-                    checkable = True
-                    clicked ::
-                        if checked:
-                            param_model.EC.turn_on_all()
-                            param_model.data_for_plot()
-                            plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                                                                param_model.total_l, param_model.total_m,
-                                                                param_model.total_pileup)
-                            plot_model.show_autofit_opt = True
-                            plot_model._fig.canvas.draw()
-                            select_all.text = 'Hide All'
-                        else:
-                            param_model.EC.turn_on_all(option=False)
-                            param_model.data_for_plot()
-                            plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                                                                param_model.total_l, param_model.total_m,
-                                                                param_model.total_pileup)
-                            plot_model.show_autofit_opt = False
-                            plot_model._fig.canvas.draw()
-                            select_all.text = 'Show All'
+                #PushButton: select_all:
+                #    text = 'Show All'
+                #    #maximum_size = 30
+                #    minimum_size = (30, 20)
+                #    checkable = True
+                #    clicked ::
+                #        if checked:
+                #            param_model.EC.turn_on_all()
+                #            param_model.data_for_plot()
+                #            plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
+                #                                                param_model.total_l, param_model.total_m,
+                #                                                param_model.total_pileup)
+                #            plot_model.show_autofit_opt = True
+                #            plot_model._fig.canvas.draw()
+                #            select_all.text = 'Hide All'
+                #        else:
+                #            param_model.EC.turn_on_all(option=False)
+                #            param_model.data_for_plot()
+                #            plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
+                #                                                param_model.total_l, param_model.total_m,
+                #                                                param_model.total_pileup)
+                #            plot_model.show_autofit_opt = False
+                #            plot_model._fig.canvas.draw()
+                #            select_all.text = 'Show All'
 
             ScrollArea: scr_area:
-                constraints = [height <= 200]
+                constraints = [height <= 350]
 
                 Form:
                 #Container: ctn_looper:
@@ -311,7 +318,6 @@ enamldef GuessParamView(DockItem): param_view:
                                 param_model.EC.update_peak_ratio()
                                 param_model.data_for_plot()
 
-                                #fit_model.get_new_param(param_model.param_new)
                                 plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
                                                                     param_model.total_l, param_model.total_m,
                                                                     param_model.total_pileup)
@@ -405,7 +411,10 @@ enamldef GuessParamView(DockItem): param_view:
                     param_model.data_for_plot()
 
                     param_model.create_full_param()
-                    fit_model.get_new_param(param_model.param_new)
+
+                    # update parameter for fit
+                    fit_model.update_default_param(param_model.param_new)
+                    fit_model.load_default_param()
 
                     # update experimental plots if case the coefficients change
                     plot_model.parameters = param_model.param_new

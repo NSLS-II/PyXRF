@@ -44,7 +44,7 @@ from collections import OrderedDict
 from atom.api import (Atom, Str, observe, Typed,
                       Dict, List, Int, Enum, Float, Bool)
 
-from skxray.constants.api import XrfElement as Element
+from skxray.fluorescence import XrfElement as Element
 
 import logging
 logger = logging.getLogger(__name__)

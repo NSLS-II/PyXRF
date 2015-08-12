@@ -48,12 +48,12 @@ import os
 from atom.api import (Atom, Str, observe, Typed,
                       Int, Dict, List, Float, Enum, Bool)
 
-from skxray.fitting.background import snip_method
-from skxray.constants.api import XrfElement as Element
-from skxray.fitting.xrf_model import (ModelSpectrum, ParamController,
-                                      compute_escape_peak, trim,
-                                      construct_linear_model,
-                                      linear_spectrum_fitting)
+from skxray.core.fitting.background import snip_method
+from skxray.fluorescence import XrfElement as Element
+from skxray.core.fitting.xrf_model import (ModelSpectrum, ParamController,
+                                           compute_escape_peak, trim,
+                                           construct_linear_model,
+                                           linear_spectrum_fitting)
 
 import logging
 logger = logging.getLogger(__name__)
@@ -220,7 +220,7 @@ class GuessParamModel(Atom):
     element_list : list
     """
     default_parameters = Dict()
-    data = Typed(object)
+    data = Typed(np.ndarray)
     prefit_x = Typed(object)
     result_dict = Typed(object)
     result_dict_names = List()
@@ -230,12 +230,9 @@ class GuessParamModel(Atom):
     total_m = Dict()
     total_pileup = Dict()
     e_name = Str()
-    add_element_intensity = Float()
-    result_folder = Str()
+    add_element_intensity = Float(100.0)
     element_list = List()
-    data_sets = Typed(OrderedDict)
-    file_opt = Int()
-    data_all = Typed(np.ndarray)
+    #data_sets = Typed(OrderedDict)
     EC = Typed(object)
     x0 = Typed(np.ndarray)
     y0 = Typed(np.ndarray)
@@ -250,11 +247,25 @@ class GuessParamModel(Atom):
             self.element_list = get_element(self.param_new)
         except ValueError:
             logger.info('No default parameter files are chosen.')
-        self.result_folder = kwargs['working_directory']
         self.EC = ElementController()
         self.pileup_data = {'element1': 'Si_K',
                             'element2': 'Si_K',
                             'intensity': 0.0}
+
+    def default_param_update(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        self.default_parameters = change['value']
+        self.param_new = copy.deepcopy(self.default_parameters)
+        self.element_list = get_element(self.param_new)
 
     def get_new_param(self, param_path):
         """
@@ -275,35 +286,35 @@ class GuessParamModel(Atom):
         self.create_spectrum_from_file(self.param_new, self.element_list)
         logger.info('Elements read from file are: {}'.format(self.element_list))
 
-    def result_folder_changed(self, changed):
+    # @observe('file_opt')
+    # def choose_file(self, change):
+    #     if self.file_opt == 0:
+    #         return
+    #     names = self.data_sets.keys()
+    #
+    #     # to be passed to fitting part for single pixel fitting
+    #     self.data_all = self.data_sets[names[self.file_opt-1]].raw_data
+    #
+    #     # spectrum is averaged in terms of pixel size,
+    #     # fit doesn't work well if spectrum value is too large.
+    #     spectrum = self.data_sets[names[self.file_opt-1]].get_sum()
+    #     #self.data = spectrum/np.max(spectrum)
+    #     #self.data = spectrum/(self.data_all.shape[0]*self.data_all.shape[1])
+    #     self.data = spectrum
+    #     self.define_range()
+
+    def exp_data_update(self, change):
         """
-        Observer function to be connected to the fileio model in the top-level
-        gui.py startup
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
 
         Parameters
         ----------
         changed : dict
-            This is the dictionary that gets passed to a function with the
-            @observe decorator
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
         """
-        self.result_folder = changed['value']
-
-    @observe('file_opt')
-    def choose_file(self, change):
-        if self.file_opt == 0:
-            return
-        names = self.data_sets.keys()
-
-        # to be passed to fitting part for single pixel fitting
-        self.data_all = self.data_sets[names[self.file_opt-1]].raw_data
-
-        # spectrum is averaged in terms of pixel size,
-        # fit doesn't work well if spectrum value is too large.
-        spectrum = self.data_sets[names[self.file_opt-1]].get_sum()
-        #self.data = spectrum/np.max(spectrum)
-        #self.data = spectrum/(self.data_all.shape[0]*self.data_all.shape[1])
-        self.data = spectrum
-        self.define_range()
+        self.data = change['value']
 
     def define_range(self):
         """

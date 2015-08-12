@@ -55,9 +55,9 @@ with enaml.imports():
 
 def get_defaults():
 
-    sub_folder = 'xrf_data'  # + '/xspress3'
+    sub_folder = 'data_analysis'  # + '/xspress3'
     working_directory = os.path.join(os.path.expanduser('~'),
-                                     'Downloads', sub_folder)
+                                     sub_folder)
     output_directory = working_directory
 
     # grab the default parameter file
@@ -93,10 +93,26 @@ def run():
     setting_model = SettingModel()
     img_model_adv = DrawImageAdvanced()
 
-    # send working directory changes to the fit_model
-    #io_model.observe('working_directory', fit_model.result_folder_changed)
+    # send working directory changes to different models
     io_model.observe('output_directory', fit_model.result_folder_changed)
-    io_model.observe('output_directory', param_model.result_folder_changed)
+    io_model.observe('selected_file_name', fit_model.data_title_update)
+    io_model.observe('selected_file_name', plot_model.exp_label_update)
+
+    # send the same file to fit model, as fitting results need to be saved
+    io_model.observe('file_name', fit_model.filename_update)
+
+    # send exp data to different models
+    io_model.observe('data', plot_model.exp_data_update)
+    io_model.observe('data', param_model.exp_data_update)
+    io_model.observe('data', fit_model.exp_data_update)
+    io_model.observe('data_all', fit_model.exp_data_all_update)
+
+    # send img dict to img_model for visualization
+    io_model.observe('img_dict', img_model_adv.data_dict_update)
+
+    # set default parameters
+    #io_model.observe('default_parameters', plot_model.parameters_update)
+    #param_model.observe('param_new', plot_model.parameters_update)
 
     xrfview = XRFGui(io_model=io_model,
                      param_model=param_model,

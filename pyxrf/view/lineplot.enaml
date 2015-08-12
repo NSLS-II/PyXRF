@@ -47,7 +47,7 @@ from ..model.lineplot import LinePlotModel
 import numpy as np
 
 from matplotlib.figure import Figure
-from skxray.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
+from skxray.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 
 
 enamldef FloatField(DefaultFloatField):
@@ -75,15 +75,15 @@ enamldef SampleMenu(Menu):
 
 
 enamldef PlotMain(DockItem):
-    attr io_model
+    # attr io_model
     attr plot_model
     attr param_model
     attr adjust_emission_line
     Container:
         constraints = [
             vbox(
+                hbox(plot_exp_btn, select_all, pb_plot_fit, spacer),
                 hbox(cbox1, spacer, pb_eline, cbox2, checkb),
-                #hbox(spacer, pb_eline, cbox2, checkb),
                 canvas,
             ),
         ]
@@ -105,10 +105,77 @@ enamldef PlotMain(DockItem):
                     adjust_emission_line.hide()
 
         ComboBox: cbox2:
-            items = ['Display emission lines'] +\
+            items = ['<Display emission lines>'] +\
                     K_LINE + L_LINE + M_LINE
             index := plot_model.element_id
             index = 0
+
+        #PushButton: plot_bt:
+        #    text = 'Plot Multi. Exp. Data'
+        #    #maximum_size = 100
+        #    #enabled = True
+        #    checkable = True
+        #    clicked ::
+        #        #plot_model.data_sets = io_model.data_sets
+        #        plot_model.plot_multi_exp_data()
+        #        if checked:
+        #            plot_bt.text = 'Remove Plot'
+        #            plot_model.show_exp_opt = True
+        #        else:
+        #            plot_model.show_exp_opt = False
+        #            plot_bt.text = 'Plot Experiments'
+
+        PushButton: plot_exp_btn:
+            text = 'Plot Selected Exp. Data'
+            checkable = True
+            clicked ::
+                if checked:
+                    plot_model.plot_experiment()
+                    plot_model.plot_exp_opt = True
+                    plot_exp_btn.text = 'Hide Selected Exp. Data'
+                else:
+                    plot_model.plot_exp_opt = False
+                    plot_exp_btn.text = 'Plot Selected Exp. Data'
+
+        PushButton: select_all:
+            text = 'Plot Auto Fit Result'
+            #maximum_size = 30
+            minimum_size = (30, 20)
+            checked << plot_model.show_autofit_opt
+            checkable = True
+            clicked ::
+                if checked:
+                    param_model.EC.turn_on_all()
+                    param_model.data_for_plot()
+                    plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
+                                                        param_model.total_l, param_model.total_m,
+                                                        param_model.total_pileup)
+                    plot_model.show_autofit_opt = True
+                    plot_model._fig.canvas.draw()
+                    select_all.text = 'Hide Auto Fit Result'
+                else:
+                    param_model.EC.turn_on_all(option=False)
+                    param_model.data_for_plot()
+                    plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
+                                                        param_model.total_l, param_model.total_m,
+                                                        param_model.total_pileup)
+                    plot_model.show_autofit_opt = False
+                    plot_model._fig.canvas.draw()
+                    select_all.text = 'Plot Auto Fit Result'
+
+        PushButton: pb_plot_fit:
+            text = 'Plot Fit Result'
+            checkable = True
+            checked << plot_model.show_fit_opt
+            minimum_size = (200, 20)
+            clicked ::
+                if checked:
+                    plot_model.show_fit_opt = True
+                    pb_plot_fit.text = 'Hide Fit Result'
+                else:
+                    plot_model.show_fit_opt = False
+                    pb_plot_fit.text = 'Plot Fit Result'
+
         #PushButton: pbn:
         #    text = 'Plot Experiment Data'
         #    checkable = True

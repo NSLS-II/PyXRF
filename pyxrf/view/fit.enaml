@@ -50,11 +50,15 @@ from enaml.layout.geometry import Box
 from enaml.core.api import Include, Looper
 
 from enaml.stdlib.fields import FloatField as DefaultFloatField
+from enaml.stdlib.fields import IntField as DefaultIntField
 
 from pyxrf.model.guessparam import fit_strategy_list, save_as
 
 
 enamldef FloatField(DefaultFloatField):
+    submit_triggers = ['auto_sync'] #['return_pressed']
+
+enamldef IntField(DefaultIntField):
     submit_triggers = ['auto_sync'] #['return_pressed']
 
 enamldef RadioButton(DefaultRadioButton):
@@ -67,25 +71,24 @@ enamldef LabelTitle(Label):
 bound_options = ['none', 'lohi', 'fixed', 'lo', 'hi']
 
 enamldef FitView(DockItem): fit_view:
-    attr io_model
-    attr param_model
     attr plot_model
     attr fit_model
     attr element_edit
     attr parameter_edit
+    attr othersetting_edit
     attr img_model_adv
 
     Container:
         constraints = [
             vbox(
-                hbox(reload_btn, spacer),
+                hbox(new_param_load, reload_btn, spacer),
                 hbox(lbl1, cb1, spacer),
                 hbox(lbl2, cb2, spacer),
                 hbox(lbl3, cb3, spacer),
                 hbox(lbl4, cb4, spacer),
                 hbox(lbl5, cb5, spacer),
                 #hbox(gb_strategy),
-                hbox(pb_fit, pb_cal, pb_plot, spacer),
+                hbox(pb_fit, pb_cal, spacer),
                 #hbox(pb_cal, spacer),
                 gb_advanced,
                 gb_result,
@@ -93,41 +96,56 @@ enamldef FitView(DockItem): fit_view:
                 gb_fit_pixel,
             ),
         ]
+
+        PushButton: new_param_load:
+            text = 'Import Parameters from File'
+            #maximum_size = 200
+            clicked ::
+                parameter_file_path = FileDialogEx.get_open_file_name(fit_view)
+                if parameter_file_path:
+
+                    # update parameter for fit
+                    fit_model.read_param_from_file(parameter_file_path)
+
+                    # update experimental plots
+                    plot_model.parameters = fit_model.default_parameters
+                    plot_model.plot_experiment()
+
         PushButton: reload_btn:
             text = 'Reload'
             clicked ::
-                fit_model.get_new_param(param_model.param_new)
+                fit_model.load_default_param()
 
         Label: lbl1:
             text = 'Step 1'
         ComboBox: cb1:
             items = [''] + fit_strategy_list
             index = 0
-            index >> fit_model.fit_strategy1
+            index := fit_model.fit_strategy1
         Label: lbl2:
             text = 'Step 2'
         ComboBox: cb2:
             items = [''] + fit_strategy_list
             index = 0
-            index >> fit_model.fit_strategy2
+            index := fit_model.fit_strategy2
         Label: lbl3:
             text = 'Step 3'
         ComboBox: cb3:
             items = [''] + fit_strategy_list
             index = 0
-            index >> fit_model.fit_strategy3
+            index := fit_model.fit_strategy3
         Label: lbl4:
             text = 'Step 4'
         ComboBox: cb4:
             items = [''] + fit_strategy_list
             index = 0
-            index >> fit_model.fit_strategy4
+            index := fit_model.fit_strategy4
         Label: lbl5:
             text = 'Step 5'
         ComboBox: cb5:
             items = [''] + fit_strategy_list
             index = 0
-            index >> fit_model.fit_strategy5
+            index := fit_model.fit_strategy5
 
         PushButton: pb_fit:
             text = 'Fit Summed Spectrum'
@@ -141,7 +159,7 @@ enamldef FitView(DockItem): fit_view:
                 plot_model.parameters = fit_model.param_dict
                 plot_model.plot_experiment()
 
-                pb_plot.enabled = True
+                #pb_plot.enabled = True
                 plot_model.fit_x = fit_model.fit_x
                 plot_model.fit_y = fit_model.fit_y
 
@@ -151,6 +169,9 @@ enamldef FitView(DockItem): fit_view:
 
                 plot_model.residual = fit_model.residual
                 plot_model.plot_fit()
+                # For plotting purposes, otherwise plot will not update
+                plot_model.show_fit_opt = False
+                plot_model.show_fit_opt = True
 
         PushButton: pb_cal:
             text = 'Calculate Spectrum'
@@ -161,40 +182,44 @@ enamldef FitView(DockItem): fit_view:
                 plot_model.parameters = fit_model.param_dict
                 plot_model.plot_experiment()
 
-                pb_plot.enabled = True
+                #pb_plot.enabled = True
                 plot_model.fit_x = fit_model.cal_x
                 plot_model.fit_y = fit_model.cal_y
                 plot_model.fit_all = fit_model.cal_spectrum
                 plot_model.residual = fit_model.residual
 
                 plot_model.plot_fit()
-                plot_model._update_canvas()
+                # For plotting purposes, otherwise plot will not update
+                plot_model.show_fit_opt = False
+                plot_model.show_fit_opt = True
 
-        PushButton: pb_plot:
-            text = 'Overlap to Spectrum'
-            checkable = True
-            enabled = False
-            minimum_size = (200, 20)
-            clicked ::
-                if checked:
-                    plot_model.show_fit_opt = True
-                    pb_plot.text = 'Remove Plot'
-                else:
-                    plot_model.show_fit_opt = False
-                    pb_plot.text = 'Overlap to Spectrum'
+        #PushButton: pb_plot:
+        #    text = 'Overlap to Spectrum'
+        #    checkable = True
+        #    enabled = False
+        #    minimum_size = (200, 20)
+        #    clicked ::
+        #        if checked:
+        #            plot_model.show_fit_opt = True
+        #            pb_plot.text = 'Remove Plot'
+        #        else:
+        #            plot_model.show_fit_opt = False
+        #            pb_plot.text = 'Overlap to Spectrum'
 
         GroupBox: gb_advanced:
             constraints = [vbox(hbox(cb_enable, spacer),
-                                hbox(element_btn, param_btn, spacer))]
+                                hbox(element_btn, param_btn, other_btn, spacer))]
             CheckBox: cb_enable:
                 text = 'Enable Advanced Setting'
                 clicked ::
                     if checked:
                         element_btn.enabled = True
                         param_btn.enabled = True
+                        other_btn.enabled = True
                     else:
                         element_btn.enabled = False
                         param_btn.enabled = False
+                        other_btn.enabled = False
 
             PushButton: element_btn:
                 text = 'Edit Elements'
@@ -218,6 +243,17 @@ enamldef FitView(DockItem): fit_view:
                     else:
                         parameter_edit.hide()
 
+            PushButton: other_btn:
+                text = 'Other Settings'
+                enabled = False
+                checkable = True
+                checked := othersetting_edit.visible
+                clicked ::
+                    if checked:
+                        othersetting_edit.show()
+                    else:
+                        othersetting_edit.hide()
+
         GroupBox: gb_result:
             title = 'Fitting Statistics'
             padding = Box(5, 5, 5, 5)
@@ -226,13 +262,13 @@ enamldef FitView(DockItem): fit_view:
                                 hbox(lbl_chi, lbl_chi_v, lbl_red_chi, lbl_red_chi_v, spacer))]
             #row_spacing = -1
             Label: lbl_number:
-                text = '# function evals'
+                text = '# of iterations'
                 minimum_size = (140, 16)
             Label: lbl_number_v:
                 text << str(fit_model.function_num)
                 minimum_size = (140, 16)
             Label: lbl_var_number:
-                text = '# variables'
+                text = '# of variables'
                 minimum_size = (140, 16)
             Label: lbl_var_number_v:
                 text << str(fit_model.nvar)
@@ -254,19 +290,62 @@ enamldef FitView(DockItem): fit_view:
             text = 'Save As'
             clicked ::
                 path = FileDialogEx.get_save_file_name(fit_view,
-                                                       current_path=io_model.working_directory)
+                                                       current_path=fit_model.result_folder)
                 if path:
                     save_as(path, fit_model.param_dict)
 
         GroupBox: gb_fit_pixel:
             title = 'Single Pixel Fitting'
-            constraints = [hbox(fit_pixel, spacer)]
+            constraints = [vbox(hbox(save_cb, spacer),
+                                hbox(lb1, fd1v, fd1h, lb2, fd2v, fd2h, spacer),
+                                hbox(fit_pixel, spacer))]
+            CheckBox: save_cb:
+                text = 'Save fitting output'
+                clicked ::
+                    if checked:
+                        fit_model.save_point = True
+                        fd1v.enabled = True
+                        fd1h.enabled = True
+                        fd2v.enabled = True
+                        fd2h.enabled = True
+
+                    else:
+                        fit_model.save_point = False
+                        fd1v.enabled = True
+                        fd1h.enabled = True
+                        fd2v.enabled = True
+                        fd2h.enabled = True
+            Label: lb1:
+                text = 'Start Point: (vertical, horizontal)'
+                minimum_size = (40, 10)
+                #maximum_size = 50
+            IntField: fd1v:
+                value := fit_model.point1v
+                maximum_size = 40
+                enabled = False
+            IntField: fd1h:
+                value := fit_model.point1h
+                maximum_size = 40
+                enabled = False
+            Label: lb2:
+                text = 'End Point:'
+                minimum_size = (40, 10)
+                #maximum_size = 50
+            IntField: fd2v:
+                value := fit_model.point2v
+                maximum_size = 40
+                enabled = False
+            IntField: fd2h:
+                value := fit_model.point2h
+                maximum_size = 40
+                enabled = False
             PushButton: fit_pixel:
                 text = 'Fit Individual Pixel'
                 clicked ::
                     fit_model.fit_single_pixel()
-                    temp_name = io_model.file_names[0].split('_')[0]+'_fit'
                     img_model_adv.data_dict.update(fit_model.fit_img)
+
+                    # visualization purpose
                     img_model_adv.data_dict_keys = []
                     img_model_adv.data_dict_keys = img_model_adv.data_dict.keys()
 
@@ -450,6 +529,41 @@ enamldef ParameterEdit(Window):
                             index ::
                                 if cb_strat6.index > 0:
                                     parameter_model.param_dict[loop_item][fit_strategy_list[6]] = cb_strat6.items[cb_strat6.index]
+
+
+enamldef OtherSettingEdit(Window):
+    attr fit_model
+    destroy_on_close = False
+    Form:
+        Label:
+            text = 'Max iteration number'
+        IntField:
+            value := fit_model.fit_num
+        Label:
+            text = 'Convergence criterion'
+        FloatField:
+            value := fit_model.ftol
+        Label:
+            text = 'Lower bound'
+        FloatField:
+            value := fit_model.param_dict['non_fitting_values']['energy_bound_low']['value']
+        Label:
+            text = 'Higher bound'
+        FloatField:
+            value := fit_model.param_dict['non_fitting_values']['energy_bound_high']['value']
+        Label:
+            text = 'Background width'
+        FloatField:
+            value := fit_model.param_dict['non_fitting_values']['background_width']
+        Label:
+            text = 'Escape peak'
+        FloatField:
+            value := fit_model.param_dict['non_fitting_values']['escape_ratio']
+
+        #Label:
+        #    text = 'Weighted c'
+        #FloatField:
+        #    value := fit_model.c_weight
 
 
 def save_defaults(parameter_model):

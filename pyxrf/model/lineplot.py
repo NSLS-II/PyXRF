@@ -49,8 +49,8 @@ from collections import OrderedDict
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
 
-from skxray.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
-from skxray.constants.api import XrfElement as Element
+from skxray.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
+from skxray.fluorescence import XrfElement as Element
 
 import logging
 logger = logging.getLogger(__name__)
@@ -59,8 +59,8 @@ logger = logging.getLogger(__name__)
 def get_color_name():
 
     # usually line plot will not go beyond 10
-    first_ten = ['indigo', 'black', 'darkblue', 'darkgoldenrod', 'blue',
-                 'darkcyan', 'green', 'maroon', 'sandybrown', 'darkolivegreen']
+    first_ten = ['indigo', 'maroon', 'green', 'darkblue', 'darkgoldenrod', 'blue',
+                 'darkcyan', 'sandybrown', 'black', 'darkolivegreen']
 
     # Avoid red color, as those color conflict with emission lines' color.
     nonred_list = [v for v in matplotlib.colors.cnames.keys()
@@ -133,7 +133,7 @@ class LinePlotModel(Atom):
     residual = Typed(np.ndarray)
 
     plot_type = List()
-    max_v = Typed(object)
+    max_v = Float()
     incident_energy = Float(30.0)
 
     eline_obj = List()
@@ -163,6 +163,7 @@ class LinePlotModel(Atom):
     emission_line_window = Bool(True)
     det_materials = Int(0)
     escape_e = Float(1.73998)
+    limit_cut = Int()
     #prefix_name_roi = Str()
     #element_for_roi = Str()
     #element_list_roi = List()
@@ -188,6 +189,9 @@ class LinePlotModel(Atom):
         self._color_config()
         self._fig.tight_layout(pad=0.5)
         self.max_v = 1.0
+        # when we calculate max value, data smaller than 500, 0.5 Kev, can be ignored.
+        # And the last point of data is also huge, and should be cut off.
+        self.limit_cut = 100
         #self._ax.margins(x=0.0, y=0.10)
 
     def _color_config(self):
@@ -204,8 +208,9 @@ class LinePlotModel(Atom):
             'elastic': {'color': 'purple', 'label': 'elastic'},
             'escape': {'color': 'darkblue', 'label': 'escape'},
             'pileup': {'color': 'orange', 'label': 'pileup'},
-            'auto_fit': {'color': 'black', 'label': 'auto fitted'},
-            'fit': {'color': 'black', 'label': 'fitted'}
+            'auto_fit': {'color': 'black', 'label': 'auto fitted', 'linewidth': 2.5},
+            'fit': {'color': 'red', 'label': 'fitted', 'linewidth': 2.5},
+            'residual': {'color': 'black', 'label': 'residual', 'linewidth': 2.0}
         }
 
     def _update_canvas(self):
@@ -225,13 +230,27 @@ class LinePlotModel(Atom):
     def _update_ylimit(self):
         # manually define y limit, from experience
         self.log_range = [self.max_v*1e-6, self.max_v*2]
-        self.linear_range = [-0.15*self.max_v, self.max_v*1.2]
+        self.linear_range = [-0.3*self.max_v, self.max_v*1.2]
 
-    @observe('exp_data_label')
-    def _update_exp_label(self, change):
-        if change['type'] == 'create':
-            return
+    def exp_label_update(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        self.exp_data_label = change['value']
         self.plot_style['experiment']['label'] = change['value']
+
+    # @observe('exp_data_label')
+    # def _change_exp_label(self, change):
+    #     if change['type'] == 'create':
+    #         return
+    #     self.plot_style['experiment']['label'] = change['value']
 
     @observe('parameters')
     def _update_energy(self, change):
@@ -257,12 +276,29 @@ class LinePlotModel(Atom):
             #self._ax.relim(visible_only=True)
             self._ax.set_ylim(self.linear_range)
 
-    @observe('data')
-    def data_update(self, change):
-        self.max_v = np.max(self.data)
+    def exp_data_update(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        self.data = change['value']
+        self.max_v = np.max(self.data[self.limit_cut:-self.limit_cut])
         self._update_ylimit()
         self.log_linear_plot()
         self._update_canvas()
+
+    # @observe('data')
+    # def data_update(self, change):
+    #     self.max_v = np.max(self.data)
+    #     self._update_ylimit()
+    #     self.log_linear_plot()
+    #     self._update_canvas()
 
     @observe('plot_exp_opt')
     def _new_exp_plot_opt(self, change):
@@ -314,7 +350,7 @@ class LinePlotModel(Atom):
 
                 data_arr = np.asarray(v.data)
                 self.max_v = np.max([self.max_v,
-                                     np.max(data_arr)])
+                                     np.max(data_arr[self.limit_cut:-self.limit_cut])])
 
                 x_v = (self.parameters['e_offset']['value'] +
                        np.arange(len(data_arr)) *
@@ -324,7 +360,9 @@ class LinePlotModel(Atom):
 
                 plot_exp_obj, = self._ax.plot(x_v, data_arr,
                                               color=color_n[m],
-                                              label=v.filename.split('.')[0])
+                                              label=v.filename.split('.')[0],
+                                              linestyle=self.plot_style['experiment']['linestyle'],
+                                              marker=self.plot_style['experiment']['marker'])
                 self.plot_exp_list.append(plot_exp_obj)
                 m += 1
 
@@ -566,7 +604,8 @@ class LinePlotModel(Atom):
             self._ax.hold(True)
             ln, = self._ax.plot(self.prefit_x, sum_y,
                                 color=self.plot_style['auto_fit']['color'],
-                                label=self.plot_style['auto_fit']['label'])
+                                label=self.plot_style['auto_fit']['label'],
+                                linewidth=self.plot_style['auto_fit']['linewidth'])
             self.auto_fit_obj.append(ln)
 
     @observe('show_autofit_opt')
@@ -614,7 +653,7 @@ class LinePlotModel(Atom):
         # pileup
         self.total_pileup = total_pileup
 
-        self._ax.set_xlim([self.prefit_x[0], self.prefit_x[-1]])
+        #self._ax.set_xlim([self.prefit_x[0], self.prefit_x[-1]])
         self.plot_autofit()
         #self.log_linear_plot()
         self._update_canvas()
@@ -624,14 +663,15 @@ class LinePlotModel(Atom):
             self.plot_fit_obj.pop().remove()
         ln, = self._ax.plot(self.fit_x, self.fit_y,
                             color=self.plot_style['fit']['color'],
-                            label=self.plot_style['fit']['label'])
+                            label=self.plot_style['fit']['label'],
+                            linewidth=self.plot_style['fit']['linewidth'])
         self.plot_fit_obj.append(ln)
 
         shiftv = 1.5  # move residual down by some amount
         ln, = self._ax.plot(self.fit_x,
-                            self.residual - shiftv*(np.max(np.abs(self.residual))),
-                            color=self.plot_style['fit']['color'])
-                            #label='residual')
+                            self.residual - 0.15*self.max_v,  #shiftv*(np.max(np.abs(self.residual))),
+                            label=self.plot_style['residual']['label'],
+                            color=self.plot_style['residual']['color'])
         self.plot_fit_obj.append(ln)
 
         k_num = 0
