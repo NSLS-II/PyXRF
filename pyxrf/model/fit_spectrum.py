@@ -135,7 +135,6 @@ class Fit1D(Atom):
         self.fit_strategy1 = 1
         self.fit_strategy2 = 4
 
-
     def result_folder_changed(self, change):
         """
         Observer function to be connected to the fileio model

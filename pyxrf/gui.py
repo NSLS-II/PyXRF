@@ -47,6 +47,7 @@ from pyxrf.model.guessparam import GuessParamModel
 from pyxrf.model.draw_image import DrawImageAdvanced
 from pyxrf.model.fit_spectrum import Fit1D
 from pyxrf.model.setting import SettingModel
+from pyxrf.model.param_data import param_data
 import json
 
 with enaml.imports():
@@ -61,15 +62,15 @@ def get_defaults():
     output_directory = working_directory
 
     # grab the default parameter file
-    current_dir = os.path.dirname(os.path.realpath(__file__))
-    temp = current_dir.split('/')[:-1]
-    temp.append('configs')
-    param_dir = '/'.join(temp)
-    default_parameter_file = os.path.join(
-        param_dir, 'xrf_parameter.json')
-    with open(default_parameter_file, 'r') as json_data:
-        default_parameters = json.load(json_data)
-
+    # current_dir = os.path.dirname(os.path.realpath(__file__))
+    # temp = current_dir.split('/')[:-1]
+    # temp.append('configs')
+    # param_dir = '/'.join(temp)
+    # default_parameter_file = os.path.join(
+    #     param_dir, 'xrf_parameter.json')
+    # with open(default_parameter_file, 'r') as json_data:
+    #     default_parameters = json.load(json_data)
+    default_parameters = param_data
     defaults = {'working_directory': working_directory,
                 'output_directory': output_directory,
                 'default_parameters': default_parameters}
