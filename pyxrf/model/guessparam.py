@@ -135,6 +135,7 @@ class ElementController(object):
 
     def add_to_dict(self, dictv):
         self.element_dict.update(dictv)
+        logger.info('Item {} is added.'.format(dictv.keys()))
         self.update_norm()
 
     def update_norm(self, threshv=0.1):

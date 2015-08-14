@@ -144,7 +144,7 @@ class Fit1D(Atom):
         self.EC = ElementController()
         self.pileup_data = {'element1': 'Si_K',
                             'element2': 'Si_K',
-                            'intensity': 0.0}
+                            'intensity': 100.0}
 
         # plotting purposes
         self.fit_strategy1 = 0
@@ -178,18 +178,19 @@ class Fit1D(Atom):
         """
         self.data_title = change['value']
 
-    @observe('selected_element')
-    def _selected_element_changed(self, changed):
-        if ' ' in self.selected_element:  #if it equals to 'Select Element'
-            pass
-        else:
-            if len(self.selected_element) <= 4:
-                element = self.selected_element.split('_')[0]
+    @observe('selected_index')
+    def _selected_element_changed(self, change):
+        #if ' ' in self.selected_element:  #if it equals to 'Select Element'
+        #    pass
+        if change['value'] > 0:
+            selected_element = self.element_list[change['value']-1]
+            if len(selected_element) <= 4:
+                element = selected_element.split('_')[0]
                 self.elementinfo_list = sorted([e for e in self.param_dict.keys()
                                                 if (element+'_' in e) and  # error between S_k or Si_k
                                                 ('pileup' not in e)])  # Si_ka1 not Si_K
             else:
-                element = self.selected_element  # for pileup peaks
+                element = selected_element  # for pileup peaks
                 self.elementinfo_list = sorted([e for e in self.param_dict.keys()
                                                 if element.replace('-', '_') in e])
 
@@ -511,31 +512,22 @@ class Fit1D(Atom):
             myfile.write(fit_report(self.fit_result, sort_pars=True))
             logger.warning('Results are saved to {}'.format(filepath))
 
-
-
     def update_name_list(self):
         """
         When result_dict_names change, the looper in enaml will update.
         """
         # need to clean list first, in order to refresh the list in GUI
-        try:
-            self.result_dict_names = []
-            self.result_dict_names = self.EC.element_dict.keys()
-            self.element_list = []
-            self.element_list = self.result_dict_names
+        self.selected_index = 0
+        self.elementinfo_list = []
 
-            self.selected_index = 0
-            self.elementinfo_list = []
+        self.result_dict_names = []
+        self.result_dict_names = self.EC.element_dict.keys()
+        self.param_dict = update_param_from_element(self.param_dict,
+                                                    self.EC.element_dict.keys())
 
-            logger.info('The full list for fitting is {}'.format(self.result_dict_names))
-            self.param_dict = update_param_from_element(self.param_dict,
-                                                        self.result_dict_names)
-        except AttributeError:
-            print('Not deleted')
-        # GUI purpose only
-        #self.element_list = []
-        #self.element_list = self.result_dict_names
-        #self.load_default_param()
+        self.element_list = []
+        self.element_list = self.EC.element_dict.keys()
+        logger.info('The full list for fitting is {}'.format(self.element_list))
 
     def create_EC_list(self, element_list):
         temp_dict = OrderedDict()
@@ -594,12 +586,12 @@ class Fit1D(Atom):
                           #lbd_stat=False)
 
         self.EC.add_to_dict({self.e_name: ps})
-
+        logger.info('')
         self.update_name_list()
 
     def add_pileup(self):
         default_area = 1e2
-        if self.pileup_data['intensity'] != 0:
+        if self.pileup_data['intensity'] > 0:
             e_name = (self.pileup_data['element1'] + '-'
                       + self.pileup_data['element2'])
             # parse elemental lines into multiple lines
