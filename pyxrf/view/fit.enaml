@@ -44,7 +44,7 @@ from enaml.widgets.api import (Container, PushButton, Label,
 
 from enaml.widgets.api import RadioButton as DefaultRadioButton
 
-from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer
+from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, TabLayout, spacer
 from enaml.stdlib.fields import FloatField
 from enaml.layout.geometry import Box
 from enaml.core.api import Include, Looper
@@ -53,6 +53,7 @@ from enaml.stdlib.fields import FloatField as DefaultFloatField
 from enaml.stdlib.fields import IntField as DefaultIntField
 
 from pyxrf.model.guessparam import fit_strategy_list, save_as
+from skxray.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 
 
 enamldef FloatField(DefaultFloatField):
@@ -72,6 +73,7 @@ bound_options = ['none', 'lohi', 'fixed', 'lo', 'hi']
 
 enamldef FitView(DockItem): fit_view:
     attr plot_model
+    attr param_model
     attr fit_model
     attr element_edit
     attr parameter_edit
@@ -110,6 +112,12 @@ enamldef FitView(DockItem): fit_view:
                     # update experimental plots
                     plot_model.parameters = fit_model.default_parameters
                     plot_model.plot_experiment()
+
+                    # update param_model
+                    param_model.update_new_param(fit_model.default_parameters)
+                    param_model.EC.order()
+                    param_model.update_name_list()
+                    param_model.EC.turn_on_all()
 
         PushButton: reload_btn:
             text = 'Reload'
@@ -207,19 +215,19 @@ enamldef FitView(DockItem): fit_view:
         #            pb_plot.text = 'Overlap to Spectrum'
 
         GroupBox: gb_advanced:
-            constraints = [vbox(hbox(cb_enable, spacer),
-                                hbox(element_btn, param_btn, other_btn, spacer))]
+            constraints = [vbox(
+                                hbox(remove_btn, spacer),
+                                hbox(cb_enable, element_btn, param_btn, spacer)
+                                )]
             CheckBox: cb_enable:
                 text = 'Enable Advanced Setting'
                 clicked ::
                     if checked:
                         element_btn.enabled = True
                         param_btn.enabled = True
-                        other_btn.enabled = True
                     else:
                         element_btn.enabled = False
                         param_btn.enabled = False
-                        other_btn.enabled = False
 
             PushButton: element_btn:
                 text = 'Edit Elements'
@@ -243,9 +251,9 @@ enamldef FitView(DockItem): fit_view:
                     else:
                         parameter_edit.hide()
 
-            PushButton: other_btn:
-                text = 'Other Settings'
-                enabled = False
+            PushButton: remove_btn:
+                text = 'General Settings'
+                enabled = True
                 checkable = True
                 checked := othersetting_edit.visible
                 clicked ::
@@ -358,6 +366,7 @@ enamldef ElementEdit(Window):
         ComboBox: cmb_element:
             items << ['Select Element'] + sorted(parameter_model.element_list)
             index = 0
+            index := parameter_model.selected_index
             selected_item >> parameter_model.selected_element
         Label: lbl:
             text = '{:>16} {:>32} {:>32} {:>32} {:>16} {:>40}'.format('name', 'value', 'min', 'max', '  ',  '  '.join(fit_strategy_list))
@@ -533,37 +542,268 @@ enamldef ParameterEdit(Window):
 
 enamldef OtherSettingEdit(Window):
     attr fit_model
-    destroy_on_close = False
-    Form:
-        Label:
-            text = 'Max iteration number'
-        IntField:
-            value := fit_model.fit_num
-        Label:
-            text = 'Convergence criterion'
-        FloatField:
-            value := fit_model.ftol
-        Label:
-            text = 'Lower bound'
-        FloatField:
-            value := fit_model.param_dict['non_fitting_values']['energy_bound_low']['value']
-        Label:
-            text = 'Higher bound'
-        FloatField:
-            value := fit_model.param_dict['non_fitting_values']['energy_bound_high']['value']
-        Label:
-            text = 'Background width'
-        FloatField:
-            value := fit_model.param_dict['non_fitting_values']['background_width']
-        Label:
-            text = 'Escape peak'
-        FloatField:
-            value := fit_model.param_dict['non_fitting_values']['escape_ratio']
+    #attr param_model
+    attr plot_model
+    attr edit_pileup
 
-        #Label:
-        #    text = 'Weighted c'
-        #FloatField:
-        #    value := fit_model.c_weight
+    Container :
+        DockArea :
+            layout = TabLayout('add_element', 'item_bkg', 'item_controller', 'pileup')
+            DockItem:
+                closable = False
+                name = 'add_element'
+                title = 'Add/Remove Elements'
+                GroupBox: pre_fit:
+                    padding = Box(2, 2, 2, 2)
+                    constraints = [vbox(hbox(cb_select, intensity_lb, intensity_fd, manual_add, spacer),
+                                        scr_area_title,
+                                        #hbox(manual_add),
+                                        scr_area,),]
+                                        #hbox(pb_delete_unselected, spacer),
+                                        #hbox(pb_update, spacer),),]
+                    ComboBox: cb_select:
+                        items = ['Select Lines'] +\
+                                K_LINE + L_LINE + M_LINE
+                        index = 0
+                        index ::
+                            if cb_select.index > 0:
+                                fit_model.e_name = cb_select.selected_item
+
+                    Label: intensity_lb:
+                        text = 'Peak Int'
+
+                    FloatField: intensity_fd:
+                        value := fit_model.add_element_intensity
+                        submit_triggers = ['auto_sync']
+                        maximum_size = 60
+
+                    PushButton: manual_add:
+                        text = 'Add'
+                        clicked ::
+                            fit_model.manual_input()
+                            #param_model.data_for_plot()
+                            #plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
+                            #                                    param_model.total_l, param_model.total_m,
+                            #                                    param_model.total_pileup)
+
+                    #PushButton: pileup_btn:
+                    #    text = 'Pileup'
+                    #    checkable = True
+                    #    checked := edit_pileup.visible
+                    #    clicked ::
+                    #        if checked:
+                    #            edit_pileup.show()
+                    #        else:
+                    #            edit_pileup.hide()
+
+                    Container: scr_area_title:
+                        padding = Box(2, 2, 2, 2)
+                        constraints = [vbox(
+                                           hbox(del_lb, z, name, energy, spacer),
+                                           )
+                                       ]
+                        Label: del_lb:
+                            text = '{:>10}'.format(' ')
+                            minimum_size = (30, 20)
+                        PushButton: z:
+                            text = 'Z'
+                            minimum_size = (30, 20)
+                            #background = 'white'
+                            clicked ::
+                                fit_model.EC.order(option='z')
+                                fit_model.update_name_list()
+                        PushButton: name:
+                            text = 'Names'
+                            minimum_size = (120, 20)
+                            maximum_size = 70
+                            #background = 'white'
+                            clicked ::
+                                fit_model.EC.order(option='name')
+                                fit_model.update_name_list()
+                        PushButton: energy:
+                            text = 'Energy'
+                            maximum_size = 70
+                            #background = 'white'
+                            clicked ::
+                                fit_model.EC.order(option='energy')
+                                fit_model.update_name_list()
+                        #PushButton: inten:
+                        #    text = 'Peak Int'
+                        #    minimum_size = (90, 20)
+                        #    #background = 'white'
+                        #    clicked ::
+                        #        param_model.EC.order(option='maxv')
+                        #        param_model.update_name_list()
+                        #Label: norm:
+                        #    text = 'Rel Int(%)'
+                        #    minimum_size = (80, 20)
+                        #    #background = 'white'
+                        #    align = 'center'
+                        #PushButton: select_all:
+                        #    text = 'Show All'
+                        #    #maximum_size = 30
+                        #    minimum_size = (30, 20)
+                        #    checkable = True
+                        #    clicked ::
+                        #        if checked:
+                        #            param_model.EC.turn_on_all()
+                        #            param_model.data_for_plot()
+                        #            plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
+                        #                                                param_model.total_l, param_model.total_m,
+                        #                                                param_model.total_pileup)
+                        #            plot_model.show_autofit_opt = True
+                        #            plot_model._fig.canvas.draw()
+                        #            select_all.text = 'Hide All'
+                        #        else:
+                        #            param_model.EC.turn_on_all(option=False)
+                        #            param_model.data_for_plot()
+                        #            plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
+                        #                                                param_model.total_l, param_model.total_m,
+                        #                                                param_model.total_pileup)
+                        #            plot_model.show_autofit_opt = False
+                        #            plot_model._fig.canvas.draw()
+                        #            select_all.text = 'Show All'
+
+                    ScrollArea: scr_area:
+                        constraints = [height <= 350]
+
+                        Form:
+                        #Container: ctn_looper:
+                            row_spacing = -1
+                            #padding = Box(0, 0, 0, 0)
+                            Looper: looper:
+                                iterable << list(fit_model.result_dict_names)
+
+                                PushButton: delete_btn:
+                                    text = 'Del'
+                                    clicked ::
+                                        fit_model.EC.delete_item(loop_item)
+                                        #fit_model.EC.update_peak_ratio()
+                                        #param_model.data_for_plot()
+
+                                        #plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
+                                        #                                    param_model.total_l, param_model.total_m,
+                                        #                                    param_model.total_pileup)
+                                        #plot_model._fig.canvas.draw()
+                                        fit_model.update_name_list()
+
+                                Container:
+                                    padding = Box(2, 2, 2, 2)
+                                    constraints = [hbox(delete_btn, lb_z, lb_name, lb_energy, spacer),]
+                                                        #lb_norm.height==select_cb.height]
+
+                                    Label: lb_z:
+                                        text << fit_model.EC.element_dict[loop_item].z
+                                        minimum_size = (40, 20)
+                                        #background = 'white'
+                                    Label: lb_name:
+                                        text << loop_item
+                                        minimum_size = (100, 20)
+                                        #background = 'white'
+                                    Label: lb_energy:
+                                        text << str(fit_model.EC.element_dict[loop_item].energy)
+                                        minimum_size = (60, 20)
+                                        #maximum_size = 80
+                                        #background = 'white'
+                                    #FloatField: lb_inten:
+                                    #    value := param_model.EC.element_dict[loop_item].maxv
+                                    #    minimum_size = (60, 20)
+                                    #    maximum_size = 80
+                                    #    background = 'white'
+                                    #    #align = 'right'
+                                    #    minimum = 0.0
+
+                                    #Label: lb_norm:
+                                    #    text << set_low_bound(np.around(param_model.EC.element_dict[loop_item].norm, 2))
+                                    #    minimum_size = (100, 20)
+                                    #    #background = 'white'
+                                    #    align = 'center'
+
+                                    #CheckBox: select_cb:
+                                    #    checkable = True
+                                    #    minimum_size = (30, 20)
+                                    #    checked := param_model.EC.element_dict[loop_item].status
+                                    #    clicked ::
+                                    #        param_model.EC.element_dict[loop_item].status = checked
+                                    #        param_model.EC.element_dict[loop_item].stat_copy = param_model.EC.element_dict[loop_item].status
+                                    #        param_model.data_for_plot()
+                                    #        plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
+                                    #                                            param_model.total_l, param_model.total_m,
+                                    #                                            param_model.total_pileup)
+                                    #        plot_model._fig.canvas.draw()
+
+
+            DockItem:
+                closable = False
+                name = 'item_bkg'
+                title = 'Background/Escape'
+                Container:
+                    Form:
+                        Label:
+                            text = 'Background width'
+                        FloatField:
+                            value := fit_model.param_dict['non_fitting_values']['background_width']
+                        Label:
+                            text = 'Escape peak'
+                        FloatField:
+                            value := fit_model.param_dict['non_fitting_values']['escape_ratio']
+            DockItem:
+                closable = False
+                name = 'item_controller'
+                title = 'Fitting Controller'
+                Container:
+                    Form:
+                        Label:
+                            text = 'Max iteration number'
+                        IntField:
+                            value := fit_model.fit_num
+                        Label:
+                            text = 'Convergence criterion'
+                        FloatField:
+                            value := fit_model.ftol
+                        Label:
+                            text = 'Lower bound'
+                        FloatField:
+                            value := fit_model.param_dict['non_fitting_values']['energy_bound_low']['value']
+                        Label:
+                            text = 'Higher bound'
+                        FloatField:
+                            value := fit_model.param_dict['non_fitting_values']['energy_bound_high']['value']
+
+                        #Label:
+                        #    text = 'Weighted c'
+                        #FloatField:
+                        #    value := fit_model.c_weight
+
+            DockItem:
+                closable = False
+                name = 'pileup'
+                title = 'Pileup Peak'
+                Container:
+                    Form:
+                        Label: e1:
+                            text = 'Element1'
+                        Field: fd1:
+                            text = ''
+                        Label: e2:
+                            text = 'Element2'
+                        Field: fd2:
+                            text = ''
+                        Label: intensity:
+                            text = 'Peak Int'
+                        FloatField: intensity_ff:
+                            pass
+                        PushButton: add_btn:
+                            text = 'Add'
+                            maximum_size = 60
+                            clicked ::
+                                fit_model.pileup_data['element1'] = fd1.text
+                                fit_model.pileup_data['element2'] = fd2.text
+                                fit_model.pileup_data['intensity'] = intensity_ff.value
+                                fit_model.add_pileup()
+                                fit_model.update_name_list()
+                                #param_model.data_for_plot()
+                                #pileup_win.close()
 
 
 def save_defaults(parameter_model):
@@ -575,3 +815,32 @@ def save_defaults(parameter_model):
     with open(user_path, 'w') as out_file:
         out_file.write(json_out)
 
+
+enamldef EditPileupPeak(Window): pileup_win:
+    attr fit_model
+    title = 'Pileup Peak Editor'
+    Container:
+        Form:
+            Label: e1:
+                text = 'Element1'
+            Field: fd1:
+                text = ''
+            Label: e2:
+                text = 'Element2'
+            Field: fd2:
+                text = ''
+            Label: intensity:
+                text = 'Peak Int'
+            FloatField: intensity_ff:
+                pass
+            PushButton: add_btn:
+                text = 'Add'
+                maximum_size = 60
+                clicked ::
+                    fit_model.pileup_data['element1'] = fd1.text
+                    fit_model.pileup_data['element2'] = fd2.text
+                    fit_model.pileup_data['intensity'] = intensity_ff.value
+                    fit_model.add_pileup()
+                    fit_model.update_name_list()
+                    #param_model.data_for_plot()
+                    pileup_win.close()

@@ -153,6 +153,9 @@ class ElementController(object):
             v.norm = v.maxv/max_dict*100
             v.lbd_stat = bool(v.norm > threshv)
 
+        # also delete smaller values
+        self.delete_value_given_threshold(threshv=threshv)
+
     def delete_all(self):
         self.element_dict.clear()
 
@@ -179,12 +182,28 @@ class ElementController(object):
         """
         Set plotting status on for all lines.
         """
-        if option:
+        if option is True:
             _plot = option
         else:
             _plot = False
         for v in six.itervalues(self.element_dict):
             v.status = _plot
+
+    def delete_value_given_threshold(self, threshv=0.1):
+        remove_list = []
+        for k, v in six.iteritems(self.element_dict):
+            if v.norm <= threshv:
+                remove_list.append(k)
+        for name in remove_list:
+            del self.element_dict[name]
+
+    def delete_unselected_items(self):
+        remove_list = []
+        for k, v in six.iteritems(self.element_dict):
+            if v.status is False:
+                remove_list.append(k)
+        for name in remove_list:
+            del self.element_dict[name]
 
 
 class GuessParamModel(Atom):
@@ -267,7 +286,7 @@ class GuessParamModel(Atom):
         self.param_new = copy.deepcopy(self.default_parameters)
         self.element_list = get_element(self.param_new)
 
-    def get_new_param(self, param_path):
+    def get_new_param_from_file(self, param_path):
         """
         Update parameters if new param_path is given.
 
@@ -285,6 +304,14 @@ class GuessParamModel(Atom):
         self.define_range()
         self.create_spectrum_from_file(self.param_new, self.element_list)
         logger.info('Elements read from file are: {}'.format(self.element_list))
+
+    def update_new_param(self, param):
+        self.default_parameters = param
+        self.param_new = copy.deepcopy(self.default_parameters)
+        self.element_list = get_element(self.param_new)
+        self.EC.delete_all()
+        self.define_range()
+        self.create_spectrum_from_file(self.param_new, self.element_list)
 
     # @observe('file_opt')
     # def choose_file(self, change):
@@ -345,7 +372,8 @@ class GuessParamModel(Atom):
                                                                elemental_lines)
         # add escape peak
         if param_dict['non_fitting_values']['escape_ratio'] > 0:
-            pre_dict['escape'] = trim_escape_peak(self.data, param_dict, len(self.y0))
+            pre_dict['escape'] = trim_escape_peak(self.data,
+                                                  param_dict, len(self.y0))
 
         temp_dict = OrderedDict()
         for e in six.iterkeys(pre_dict):
@@ -404,67 +432,67 @@ class GuessParamModel(Atom):
     def manual_input(self):
         default_area = 1e2
 
-        if self.e_name == 'escape':
-            self.param_new['non_fitting_values']['escape_ratio'] = (self.add_element_intensity
-                                                                    / np.max(self.y0))
-            es_peak = trim_escape_peak(self.data, self.param_new,
-                                       len(self.y0))
-            ps = PreFitStatus(z=get_Z(self.e_name),
-                              energy=get_energy(self.e_name),
-                              # put float in front of area and maxv
-                              # due to type conflicts in atom, which regards them as
-                              # np.float32 if we do not put float in front.
-                              area=float(np.around(np.sum(es_peak), self.max_area_dig)),
-                              spectrum=es_peak,
-                              maxv=float(np.around(np.max(es_peak), self.max_area_dig)),
-                              norm=-1, lbd_stat=False)
-            logger.info('{} peak is added'.format(self.e_name))
+        # if self.e_name == 'escape':
+        #     self.param_new['non_fitting_values']['escape_ratio'] = (self.add_element_intensity
+        #                                                             / np.max(self.y0))
+        #     es_peak = trim_escape_peak(self.data, self.param_new,
+        #                                len(self.y0))
+        #     ps = PreFitStatus(z=get_Z(self.e_name),
+        #                       energy=get_energy(self.e_name),
+        #                       # put float in front of area and maxv
+        #                       # due to type conflicts in atom, which regards them as
+        #                       # np.float32 if we do not put float in front.
+        #                       area=float(np.around(np.sum(es_peak), self.max_area_dig)),
+        #                       spectrum=es_peak,
+        #                       maxv=float(np.around(np.max(es_peak), self.max_area_dig)),
+        #                       norm=-1, lbd_stat=False)
+        #     logger.info('{} peak is added'.format(self.e_name))
+        #
+        # else:
+        x, data_out, area_dict = calculate_profile(self.x0,
+                                                   self.y0,
+                                                   self.param_new,
+                                                   elemental_lines=[self.e_name],
+                                                   default_area=default_area)
 
-        else:
-            x, data_out, area_dict = calculate_profile(self.x0,
-                                                       self.y0,
-                                                       self.param_new,
-                                                       elemental_lines=[self.e_name],
-                                                       default_area=default_area)
+        ratio_v = self.add_element_intensity / np.max(data_out[self.e_name])
 
-            ratio_v = self.add_element_intensity / np.max(data_out[self.e_name])
-
-            ps = PreFitStatus(z=get_Z(self.e_name),
-                              energy=get_energy(self.e_name),
-                              area=area_dict[self.e_name]*ratio_v,
-                              spectrum=data_out[self.e_name]*ratio_v,
-                              maxv=self.add_element_intensity,
-                              norm=-1,
-                              lbd_stat=False)
+        ps = PreFitStatus(z=get_Z(self.e_name),
+                          energy=get_energy(self.e_name),
+                          area=area_dict[self.e_name]*ratio_v,
+                          spectrum=data_out[self.e_name]*ratio_v,
+                          maxv=self.add_element_intensity,
+                          norm=-1,
+                          lbd_stat=False)
 
         self.EC.add_to_dict({self.e_name: ps})
 
-    def add_pileup(self):
-        default_area = 1e2
-        if self.pileup_data['intensity'] != 0:
-            e_name = (self.pileup_data['element1'] + '-'
-                      + self.pileup_data['element2'])
-            # parse elemental lines into multiple lines
-
-            x, data_out, area_dict = calculate_profile(self.x0,
-                                                       self.y0,
-                                                       self.param_new,
-                                                       elemental_lines=[e_name],
-                                                       default_area=default_area)
-            energy = str(float(get_energy(self.pileup_data['element1']))
-                         + float(get_energy(self.pileup_data['element2'])))
-
-            ratio_v = self.pileup_data['intensity'] / np.max(data_out[e_name])
-
-            ps = PreFitStatus(z=get_Z(e_name),
-                              energy=energy,
-                              area=area_dict[e_name]*ratio_v,
-                              spectrum=data_out[e_name]*ratio_v,
-                              maxv=self.pileup_data['intensity'],
-                              norm=-1,
-                              lbd_stat=False)
-            logger.info('{} peak is added'.format(e_name))
-        self.EC.add_to_dict({e_name: ps})
+    # def add_pileup(self):
+    #     default_area = 1e2
+    #     if self.pileup_data['intensity'] != 0:
+    #         e_name = (self.pileup_data['element1'] + '-'
+    #                   + self.pileup_data['element2'])
+    #         # parse elemental lines into multiple lines
+    #
+    #         x, data_out, area_dict = calculate_profile(self.x0,
+    #                                                    self.y0,
+    #                                                    self.param_new,
+    #                                                    elemental_lines=[e_name],
+    #                                                    default_area=default_area)
+    #         energy = str(float(get_energy(self.pileup_data['element1']))
+    #                      + float(get_energy(self.pileup_data['element2'])))
+    #
+    #         ratio_v = self.pileup_data['intensity'] / np.max(data_out[e_name])
+    #
+    #         ps = PreFitStatus(z=get_Z(e_name),
+    #                           energy=energy,
+    #                           area=area_dict[e_name]*ratio_v,
+    #                           spectrum=data_out[e_name]*ratio_v,
+    #                           maxv=self.pileup_data['intensity'],
+    #                           norm=-1,
+    #                           lbd_stat=False)
+    #         logger.info('{} peak is added'.format(e_name))
+    #     self.EC.add_to_dict({e_name: ps})
 
     def update_name_list(self):
         """
@@ -516,31 +544,35 @@ class GuessParamModel(Atom):
         self.define_range()
 
         self.element_list = self.EC.get_element_list()
-        self.param_new['non_fitting_values']['element_list'] = ', '.join(self.element_list)
 
-        # remove elements not included in self.element_list
-        self.param_new = param_dict_cleaner(self.param_new,
-                                            self.element_list)
+        # self.param_new['non_fitting_values']['element_list'] = ', '.join(self.element_list)
+        #
+        # # first remove some nonexisting elements
+        # # remove elements not included in self.element_list
+        # self.param_new = param_dict_cleaner(self.param_new,
+        #                                     self.element_list)
+        #
+        # # second add some elements to a full parameter dict
+        # # create full parameter list including elements
+        # PC = ParamController(self.param_new, self.element_list)
+        # # parameter values not updated based on param_new, so redo it
+        # param_temp = PC.params
+        # for k, v in six.iteritems(param_temp):
+        #     if k == 'non_fitting_values':
+        #         continue
+        #     if self.param_new.has_key(k):
+        #         v['value'] = self.param_new[k]['value']
+        # self.param_new = param_temp
+        #
+        # # to create full param dict, for GUI only
+        # create_full_dict(self.param_new, fit_strategy_list)
 
-        # create full parameter list including elements
-        # This part is a bit confusing and needs better treatment.
-        PC = ParamController(self.param_new, self.element_list)
-        # parameter values not updated based on param_new, so redo it
-        param_temp = PC.params
-        for k, v in six.iteritems(param_temp):
-            if k == 'non_fitting_values':
-                continue
-            if self.param_new.has_key(k):
-                v['value'] = self.param_new[k]['value']
-        self.param_new = param_temp
-
-        # to create full param dict, for GUI only
-        create_full_dict(self.param_new, fit_strategy_list)
+        self.param_new = update_param_from_element(self.param_new, self.element_list)
 
         element_temp = [e for e in self.element_list if len(e) <= 4]
         pileup_temp = [e for e in self.element_list if '-' in e]
 
-        # update param_new according to results saved in ElementController
+        # update area values in param_new according to results saved in ElementController
         if len(self.EC.element_dict):
             for k, v in six.iteritems(self.param_new):
                 if 'area' in k:
@@ -727,21 +759,25 @@ def create_full_dict(param, name_list):
     Create full param dict so each item has same nested dict.
     This is for GUI purpose only.
 
-    .. warning :: This function mutates the input values.
-
     Pamameters
     ----------
     param : dict
         all parameters including element
     name_list : list
         strategy names
+
+    Returns
+    -------
+    dict: with update
     """
+    param_new = copy.deepcopy(param)
     for n in name_list:
-        for k, v in six.iteritems(param):
+        for k, v in six.iteritems(param_new):
             if k == 'non_fitting_values':
                 continue
             if n not in v:
                 v.update({n: v['bound_type']})
+    return param_new
 
 
 def get_Z(ename):
@@ -828,64 +864,42 @@ def param_dict_cleaner(param, element_list):
     return param_new
 
 
-# def parse_lines():
-#     element_line1, element_line2 = elemental_line.split('-')
-#     if (element_line1 == element_line2):
-#         if '_K' in element_line1:
-#             ename, line = element_line1.split('_')
-#             eline1 = ename + '_ka1'
-#             eline2 = ename + '_kb1'
-#             line_combine1 = eline1+'-'+eline1
-#             line_combine2 = eline1+'-'+eline2
-#             element_mod1 = self.setup_pileup_model(line_combine1,
-#                                                    default_area)
-#             element_mod2 = self.setup_pileup_model(line_combine2,
-#                                                    default_area)
-#             element_mod = element_mod1 + element_mod2
-#         else:
-#             element_mod = self.setup_pileup_model(elemental_line,
-#                                                   default_area)
-#     else:
-#         if ('_K' in element_line1) and ('_K' in element_line2):
-#             ename, line = element_line1.split('_')
-#             eline1a = ename + '_ka1'
-#             eline1b = ename + '_kb1'
-#             ename, line = element_line2.split('_')
-#             eline2a = ename + '_ka1'
-#             eline2b = ename + '_kb1'
-#             line_combine1 = eline1a+'-'+eline2a
-#             line_combine2 = eline1a+'-'+eline2b
-#             line_combine3 = eline1b+'-'+eline2a
-#             element_mod1 = self.setup_pileup_model(line_combine1,
-#                                                    default_area)
-#             element_mod2 = self.setup_pileup_model(line_combine2,
-#                                                    default_area)
-#             element_mod3 = self.setup_pileup_model(line_combine3,
-#                                                    default_area)
-#             element_mod = (element_mod1 + element_mod2 +
-#                            element_mod3)
-#         elif ('_K' in element_line1) and ('_K' not in element_line2):
-#             ename, line = element_line1.split('_')
-#             eline1a = ename + '_ka1'
-#             eline1b = ename + '_kb1'
-#             line_combine1 = eline1a+'-'+element_line2
-#             line_combine2 = eline1b+'-'+element_line2
-#             element_mod1 = self.setup_pileup_model(line_combine1,
-#                                                    default_area)
-#             element_mod2 = self.setup_pileup_model(line_combine2,
-#                                                    default_area)
-#             element_mod = element_mod1 + element_mod2
-#         elif ('_K' not in element_line1) and ('_K' in element_line2):
-#             ename, line = element_line2.split('_')
-#             eline2a = ename + '_ka1'
-#             eline2b = ename + '_kb1'
-#             line_combine1 = eline2a+'-'+element_line1
-#             line_combine2 = eline2b+'-'+element_line1
-#             element_mod1 = self.setup_pileup_model(line_combine1,
-#                                                    default_area)
-#             element_mod2 = self.setup_pileup_model(line_combine2,
-#                                                    default_area)
-#             element_mod = element_mod1 + element_mod2
-#         else:
-#             element_mod = self.setup_pileup_model(elemental_line,
-#                                                   default_area)
+def update_param_from_element(param, element_list):
+    """
+    Clean up or extend param according to new element list.
+
+    Parameters
+    ----------
+    param : dict
+        fitting parameters
+    element_list : list
+        list of elemental lines
+
+    Returns
+    -------
+    dict
+    """
+    param_new = copy.deepcopy(param)
+
+    param_new['non_fitting_values']['element_list'] = ', '.join(element_list)
+
+    # first remove some nonexisting elements
+    # remove elements not included in self.element_list
+    param_new = param_dict_cleaner(param_new,
+                                   element_list)
+
+    # second add some elements to a full parameter dict
+    # create full parameter list including elements
+    PC = ParamController(param_new, element_list)
+    # parameter values not updated based on param_new, so redo it
+    param_temp = PC.params
+    for k, v in six.iteritems(param_temp):
+        if k == 'non_fitting_values':
+            continue
+        if param_new.has_key(k):
+            v['value'] = param_new[k]['value']
+    param_new = param_temp
+
+    # to create full param dict, for GUI only
+    param_new = create_full_dict(param_new, fit_strategy_list)
+    return param_new

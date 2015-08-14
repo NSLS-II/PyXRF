@@ -56,7 +56,9 @@ from skxray.core.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
 from skxray.core.fitting.background import snip_method
 from skxray.fluorescence import XrfElement as Element
 from pyxrf.model.guessparam import (calculate_profile, fit_strategy_list,
-                                    trim_escape_peak, define_range)
+                                    trim_escape_peak, define_range, get_energy,
+                                    get_Z, PreFitStatus, ElementController,
+                                    update_param_from_element)
 from lmfit import fit_report
 
 import logging
@@ -124,10 +126,25 @@ class Fit1D(Atom):
     point2v = Int(0)
     point2h = Int(0)
 
+    EC = Typed(object)
+    result_dict_names = List()
+    e_name = Str()
+    add_element_intensity = Float(100.0)
+    pileup_data = Dict()
+
+    selected_index = Int()
+
     def __init__(self, *args, **kwargs):
         self.working_directory = kwargs['working_directory']
         self.result_folder = kwargs['working_directory']
+        self.default_parameters = kwargs['default_parameters']
+        self.param_dict = copy.deepcopy(self.default_parameters)
         self.all_strategy = OrderedDict()
+
+        self.EC = ElementController()
+        self.pileup_data = {'element1': 'Si_K',
+                            'element2': 'Si_K',
+                            'intensity': 0.0}
 
         # plotting purposes
         self.fit_strategy1 = 0
@@ -163,15 +180,18 @@ class Fit1D(Atom):
 
     @observe('selected_element')
     def _selected_element_changed(self, changed):
-        if len(self.selected_element) <= 4:
-            element = self.selected_element.split('_')[0]
-            self.elementinfo_list = sorted([e for e in self.param_dict.keys()
-                                            if (element+'_' in e) and  # error between S_k or Si_k
-                                            ('pileup' not in e)])  # Si_ka1 not Si_K
+        if ' ' in self.selected_element:  #if it equals to 'Select Element'
+            pass
         else:
-            element = self.selected_element  # for pileup peaks
-            self.elementinfo_list = sorted([e for e in self.param_dict.keys()
-                                            if element.replace('-', '_') in e])
+            if len(self.selected_element) <= 4:
+                element = self.selected_element.split('_')[0]
+                self.elementinfo_list = sorted([e for e in self.param_dict.keys()
+                                                if (element+'_' in e) and  # error between S_k or Si_k
+                                                ('pileup' not in e)])  # Si_ka1 not Si_K
+            else:
+                element = self.selected_element  # for pileup peaks
+                self.elementinfo_list = sorted([e for e in self.param_dict.keys()
+                                                if element.replace('-', '_') in e])
 
     def read_param_from_file(self, param_path):
         """
@@ -199,6 +219,11 @@ class Fit1D(Atom):
         self.param_dict = copy.deepcopy(self.default_parameters)
         element_list = self.param_dict['non_fitting_values']['element_list']
         self.element_list = [e.strip(' ') for e in element_list.split(',')]
+
+        # show the list of elements on add/remove window
+        self.EC.delete_all()
+        self.create_EC_list(self.element_list)
+        self.update_name_list()
 
         # global parameters
         # for GUI purpose only
@@ -243,9 +268,6 @@ class Fit1D(Atom):
             with the @observe decorator
         """
         self.data_all = np.asarray(change['value'])
-    # @observe('data')
-    # def _update_data(self, change):
-    #     self.data = np.asarray(self.data)
 
     def filename_update(self, change):
         """
@@ -488,6 +510,120 @@ class Fit1D(Atom):
         with open(filepath, 'w') as myfile:
             myfile.write(fit_report(self.fit_result, sort_pars=True))
             logger.warning('Results are saved to {}'.format(filepath))
+
+
+
+    def update_name_list(self):
+        """
+        When result_dict_names change, the looper in enaml will update.
+        """
+        # need to clean list first, in order to refresh the list in GUI
+        try:
+            self.result_dict_names = []
+            self.result_dict_names = self.EC.element_dict.keys()
+            self.element_list = []
+            self.element_list = self.result_dict_names
+
+            self.selected_index = 0
+            self.elementinfo_list = []
+
+            logger.info('The full list for fitting is {}'.format(self.result_dict_names))
+            self.param_dict = update_param_from_element(self.param_dict,
+                                                        self.result_dict_names)
+        except AttributeError:
+            print('Not deleted')
+        # GUI purpose only
+        #self.element_list = []
+        #self.element_list = self.result_dict_names
+        #self.load_default_param()
+
+    def create_EC_list(self, element_list):
+        temp_dict = OrderedDict()
+        for e in element_list:
+            if '-' in e:  # pileup peaks
+                e1, e2 = e.split('-')
+                energy = float(get_energy(e1))+float(get_energy(e2))
+
+                ps = PreFitStatus(z=get_Z(e),
+                                  energy=str(energy), norm=1)
+                temp_dict[e] = ps
+
+            else:
+                ename = e.split('_')[0]
+                ps = PreFitStatus(z=get_Z(ename),
+                                  energy=get_energy(e),
+                                  norm=1)
+
+                temp_dict[e] = ps
+        self.EC.add_to_dict(temp_dict)
+
+    def manual_input(self):
+        default_area = 1e2
+
+        # if self.e_name == 'escape':
+        #     self.param_new['non_fitting_values']['escape_ratio'] = (self.add_element_intensity
+        #                                                             / np.max(self.y0))
+        #     es_peak = trim_escape_peak(self.data, self.param_new,
+        #                                len(self.y0))
+        #     ps = PreFitStatus(z=get_Z(self.e_name),
+        #                       energy=get_energy(self.e_name),
+        #                       # put float in front of area and maxv
+        #                       # due to type conflicts in atom, which regards them as
+        #                       # np.float32 if we do not put float in front.
+        #                       area=float(np.around(np.sum(es_peak), self.max_area_dig)),
+        #                       spectrum=es_peak,
+        #                       maxv=float(np.around(np.max(es_peak), self.max_area_dig)),
+        #                       norm=-1, lbd_stat=False)
+        #     logger.info('{} peak is added'.format(self.e_name))
+        #
+        # else:
+        # x, data_out, area_dict = calculate_profile(self.x0,
+        #                                            self.y0,
+        #                                            self.param_dict,
+        #                                            elemental_lines=[self.e_name],
+        #                                            default_area=default_area)
+        #
+        # #ratio_v = self.add_element_intensity / np.max(data_out[self.e_name])
+
+        ps = PreFitStatus(z=get_Z(self.e_name),
+                          energy=get_energy(self.e_name),
+                          #area=area_dict[self.e_name]*ratio_v,
+                          #spectrum=data_out[self.e_name]*ratio_v,
+                          #maxv=self.add_element_intensity,
+                          norm=1)
+                          #lbd_stat=False)
+
+        self.EC.add_to_dict({self.e_name: ps})
+
+        self.update_name_list()
+
+    def add_pileup(self):
+        default_area = 1e2
+        if self.pileup_data['intensity'] != 0:
+            e_name = (self.pileup_data['element1'] + '-'
+                      + self.pileup_data['element2'])
+            # parse elemental lines into multiple lines
+
+            # x, data_out, area_dict = calculate_profile(self.x0,
+            #                                            self.y0,
+            #                                            self.param_new,
+            #                                            elemental_lines=[e_name],
+            #                                            default_area=default_area)
+            energy = str(float(get_energy(self.pileup_data['element1']))
+                         + float(get_energy(self.pileup_data['element2'])))
+
+            #ratio_v = self.pileup_data['intensity'] / np.max(data_out[e_name])
+
+            ps = PreFitStatus(z=get_Z(e_name),
+                              energy=energy,
+                              #area=area_dict[e_name]*ratio_v,
+                              #spectrum=data_out[e_name]*ratio_v,
+                              #maxv=self.pileup_data['intensity'],
+                              norm=1)
+                              #lbd_stat=False)
+            logger.info('{} peak is added'.format(e_name))
+        self.EC.add_to_dict({e_name: ps})
+        self.update_name_list()
 
 
 def combine_lines(components, element_list, background):

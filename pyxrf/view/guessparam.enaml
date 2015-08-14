@@ -72,7 +72,7 @@ enamldef GuessParamView(DockItem): param_view:
                 top_cntr,
                 hbox(find_btn, spacer),
                 hbox(cb_select, intensity_lb, intensity_fd,
-                     manual_add, spacer, pileup_btn),
+                     manual_add, spacer),
                 pre_fit,
                 #hbox(saveas_btn, spacer),
             ),
@@ -107,7 +107,7 @@ enamldef GuessParamView(DockItem): param_view:
             clicked ::
                 parameter_file_path = FileDialogEx.get_open_file_name(param_view)
                 if parameter_file_path:
-                    param_model.get_new_param(parameter_file_path)
+                    param_model.get_new_param_from_file(parameter_file_path)
 
                     # update experimental plots
                     plot_model.parameters = param_model.param_new
@@ -193,7 +193,7 @@ enamldef GuessParamView(DockItem): param_view:
 
         ComboBox: cb_select:
             items = ['Select Lines'] +\
-                    K_LINE + L_LINE + M_LINE + ['escape']
+                    K_LINE + L_LINE + M_LINE
             index = 0
             index ::
                 if cb_select.index > 0:
@@ -216,22 +216,22 @@ enamldef GuessParamView(DockItem): param_view:
                                                     param_model.total_l, param_model.total_m,
                                                     param_model.total_pileup)
 
-        PushButton: pileup_btn:
-            text = 'Pileup'
-            checkable = True
-            checked := edit_pileup.visible
-            clicked ::
-                if checked:
-                    edit_pileup.show()
-                else:
-                    edit_pileup.hide()
+        #PushButton: pileup_btn:
+        #    text = 'Pileup'
+        #    checkable = True
+        #    checked := edit_pileup.visible
+        #    clicked ::
+        #        if checked:
+        #            edit_pileup.show()
+        #        else:
+        #            edit_pileup.hide()
 
         GroupBox: pre_fit:
             padding = Box(2, 2, 2, 2)
             constraints = [vbox(scr_area_title,
                                 #hbox(manual_add),
                                 scr_area,
-                                #hbox(pb_clear, spacer),
+                                hbox(pb_delete_unselected, spacer),
                                 hbox(pb_update, spacer),),]
             Container: scr_area_title:
                 padding = Box(2, 2, 2, 2)
@@ -370,6 +370,28 @@ enamldef GuessParamView(DockItem): param_view:
                                                                         param_model.total_pileup)
                                     plot_model._fig.canvas.draw()
 
+            #PushButton: pb_bound_delete:
+            #    text = 'Delete lines < 0.1%'
+            #    maximum_size = 350
+            #    visible = True
+            #    clicked ::
+            #        param_model.EC.delete_value_given_threshold()
+            #        param_model.update_name_list()
+            #        param_model.data_for_plot()
+            #        plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
+            #        plot_model._fig.canvas.draw()
+
+            PushButton: pb_delete_unselected:
+                text = 'Delete not selected items'
+                maximum_size = 350
+                visible = True
+                clicked ::
+                    param_model.EC.delete_unselected_items()
+                    param_model.update_name_list()
+                    param_model.data_for_plot()
+                    plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
+                    plot_model._fig.canvas.draw()
+
             #PushButton: pb_bound:
             #    text = 'Do not plot lines < 0.1%'
             #    maximum_size = 350
@@ -391,17 +413,6 @@ enamldef GuessParamView(DockItem): param_view:
             #                                       param_model.total_y_l, param_model.total_y_m)
             #            plot_model._fig.canvas.draw()
             #            pb_bound.text = 'Do not plot lines < 0.1%'
-
-            #PushButton: pb_clear:
-            #    text = 'Delete All'
-            #    clicked ::
-            #        param_model.EC.delete_all()
-            #        param_model.update_name_list()
-
-            #        param_model.data_for_plot()
-            #        plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-            #                                            param_model.total_y_l, param_model.total_y_m)
-            #        plot_model._fig.canvas.draw()
 
             PushButton: pb_update:
                 text = 'Apply'
@@ -439,33 +450,3 @@ def set_low_bound(value, thresh_v=0.1):
         return '< {}'.format(thresh_v)
     else:
         return str(value)
-
-
-enamldef EditPileupPeak(Window): pileup_win:
-    attr param_model
-    title = 'Pileup Peak Editor'
-    Container:
-        Form:
-            Label: e1:
-                text = 'Element1'
-            Field: fd1:
-                text = ''
-            Label: e2:
-                text = 'Element2'
-            Field: fd2:
-                text = ''
-            Label: intensity:
-                text = 'Peak Int'
-            FloatField: intensity_ff:
-                pass
-            PushButton: add_btn:
-                text = 'Add'
-                maximum_size = 60
-                clicked ::
-                    param_model.pileup_data['element1'] = fd1.text
-                    param_model.pileup_data['element2'] = fd2.text
-                    param_model.pileup_data['intensity'] = intensity_ff.value
-                    param_model.add_pileup()
-                    param_model.update_name_list()
-                    param_model.data_for_plot()
-                    pileup_win.close()
