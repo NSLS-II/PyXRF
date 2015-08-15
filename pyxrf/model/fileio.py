@@ -115,7 +115,7 @@ class FileIOModel(Atom):
     @observe('file_names')
     def update_more_data(self, change):
         self.file_channel_list = []
-        self.file_names.sort()
+        #self.file_names.sort()
         logger.info('Files are loaded: %s' % (self.file_names))
         self.file_name = self.file_names[0]
 

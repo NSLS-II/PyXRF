@@ -50,7 +50,7 @@ from atom.api import (Atom, Str, observe, Typed,
 
 from skxray.core.fitting.background import snip_method
 from skxray.fluorescence import XrfElement as Element
-from skxray.core.fitting.xrf_model import (ModelSpectrum, ParamController,
+from skxray.core.fitting.xrf_model import (ParamController,
                                            compute_escape_peak, trim,
                                            construct_linear_model,
                                            linear_spectrum_fitting)
@@ -298,7 +298,6 @@ class GuessParamModel(Atom):
         """
         with open(param_path, 'r') as json_data:
             self.default_parameters = json.load(json_data)
-
         self.param_new = copy.deepcopy(self.default_parameters)
         self.element_list = get_element(self.param_new)
         self.EC.delete_all()
@@ -829,13 +828,13 @@ def get_element(param):
     return [e.strip(' ') for e in element_list.split(',')]
 
 
-def param_dict_cleaner(param, element_list):
+def param_dict_cleaner(parameter, element_list):
     """
     Make sure param only contains element from element_list.
 
     Parameters
     ----------
-    param : dict
+    parameter : dict
         fitting parameters
     element_list : list
         list of elemental lines
@@ -845,13 +844,12 @@ def param_dict_cleaner(param, element_list):
     dict :
         new param dict containing given elements
     """
-    #param = copy.deepcopy(parameter)
+    param = copy.deepcopy(parameter)
     param_new = {}
 
     elist_lower = [e.lower() for e in element_list if len(e)<=4]
     pileup_list = [e for e in element_list if '-' in e]
 
-    # update pileup
     for k, v in six.iteritems(param):
         if k == 'non_fitting_values' or k == k.lower():
             param_new.update({k: v})
@@ -884,8 +882,7 @@ def update_param_from_element(param, element_list):
 
     param_new['non_fitting_values']['element_list'] = ', '.join(element_list)
 
-    # first remove some nonexisting elements
-    # remove elements not included in self.element_list
+    # first remove some items not included in element_list
     param_new = param_dict_cleaner(param_new,
                                    element_list)
 
@@ -894,11 +891,19 @@ def update_param_from_element(param, element_list):
     PC = ParamController(param_new, element_list)
     # parameter values not updated based on param_new, so redo it
     param_temp = PC.params
+
+    # enforce adjust_element area to be fixed
+    for k, v in six.iteritems(param_temp):
+        if '_area' in k:
+            v['bound_type'] = 'fixed'
+
     for k, v in six.iteritems(param_temp):
         if k == 'non_fitting_values':
             continue
-        if param_new.has_key(k):
-            v['value'] = param_new[k]['value']
+        if k in param_new:
+            param_temp[k] = param_new[k]
+            #for k1 in six.iterkeys(v):
+            #    v[k1] = param_new[k][k1]
     param_new = param_temp
 
     # to create full param dict, for GUI only

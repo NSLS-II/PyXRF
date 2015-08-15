@@ -52,7 +52,7 @@ from enaml.core.api import Include, Looper
 from enaml.stdlib.fields import FloatField as DefaultFloatField
 from enaml.stdlib.fields import IntField as DefaultIntField
 
-from pyxrf.model.guessparam import fit_strategy_list, save_as
+from pyxrf.model.guessparam import fit_strategy_list, save_as, bound_options
 from skxray.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 
 
@@ -69,7 +69,7 @@ enamldef LabelTitle(Label):
     maximum_size = 80
     align = 'left'
 
-bound_options = ['none', 'lohi', 'fixed', 'lo', 'hi']
+#bound_options = ['none', 'lohi', 'fixed', 'lo', 'hi']
 
 enamldef FitView(DockItem): fit_view:
     attr plot_model
@@ -107,6 +107,7 @@ enamldef FitView(DockItem): fit_view:
 
                     # update parameter for fit
                     fit_model.read_param_from_file(parameter_file_path)
+                    fit_model.apply_default_param()
 
                     # update experimental plots
                     plot_model.parameters = fit_model.default_parameters
@@ -118,7 +119,7 @@ enamldef FitView(DockItem): fit_view:
         PushButton: reload_btn:
             text = 'Reload'
             clicked ::
-                fit_model.load_default_param()
+                fit_model.apply_default_param()
 
         Label: lbl_param:
             text = 'No parameter file is loaded.'
@@ -264,10 +265,8 @@ enamldef FitView(DockItem): fit_view:
         GroupBox: gb_result:
             title = 'Fitting Statistics'
             padding = Box(5, 5, 5, 5)
-            #Form:
             constraints = [vbox(hbox(lbl_number, lbl_number_v, lbl_var_number, lbl_var_number_v, spacer),
                                 hbox(lbl_chi, lbl_chi_v, lbl_red_chi, lbl_red_chi_v, spacer))]
-            #row_spacing = -1
             Label: lbl_number:
                 text = '# of iterations'
                 minimum_size = (140, 16)
@@ -307,7 +306,7 @@ enamldef FitView(DockItem): fit_view:
                                 hbox(lb1, fd1v, fd1h, lb2, fd2v, fd2h, spacer),
                                 hbox(fit_pixel, spacer))]
             CheckBox: save_cb:
-                text = 'Save fitting output'
+                text = 'Save plots from single pixel fitting'
                 clicked ::
                     if checked:
                         fit_model.save_point = True
@@ -360,15 +359,36 @@ enamldef FitView(DockItem): fit_view:
 enamldef ElementEdit(Window):
     attr parameter_model
     Container:
+        constraints = [vbox(cmb_element,
+                            hbox(lbl1, lbl2, lbl3, lbl4, lbl5, lbl6, lbl7, lbl8),
+                            scr_area,)]
         padding = Box(5, 5, 5, 5)
-
         ComboBox: cmb_element:
             items << ['Select Element'] + parameter_model.element_list
             index = 0
             index := parameter_model.selected_index
             #selected_item >> parameter_model.selected_element
-        Label: lbl:
-            text = '{:>16} {:>32} {:>32} {:>32} {:>16} {:>40}'.format('name', 'value', 'min', 'max', '  ',  '  '.join(fit_strategy_list))
+        Label: lbl1:
+            #text = '{:>16} {:>32} {:>32} {:>32} {:>16} {:>40}'.format('name', 'value', 'min', 'max', '  ',  '  '.join(fit_strategy_list))
+            text = '{:>16} {:>32} {:>32} {:>32} {:>16}'.format('name', 'value', 'min', 'max', '  ')
+        Label: lbl2:
+            text = fit_strategy_list[0]
+        Label: lbl3:
+            text = fit_strategy_list[1]
+            background = 'green'
+        Label: lbl4:
+            text = fit_strategy_list[2]
+        Label: lbl5:
+            text = fit_strategy_list[3]
+            background = 'green'
+        Label: lbl6:
+            text = fit_strategy_list[4]
+        Label: lbl7:
+            text = fit_strategy_list[5]
+            background = 'green'
+        Label: lbl8:
+            text = fit_strategy_list[6]
+
         ScrollArea: scr_area:
             constraints = [height <= 1000]
             Form:
@@ -409,6 +429,7 @@ enamldef ElementEdit(Window):
                             items = [' '] + bound_options
                             index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[1]]) + 1
                             maximum_size = 80
+                            background = 'green'
                             index ::
                                 if cb_strat1.index > 0:
                                     parameter_model.param_dict[loop_item][fit_strategy_list[1]] = cb_strat1.items[cb_strat1.index]
@@ -425,6 +446,7 @@ enamldef ElementEdit(Window):
                             items = [' '] + bound_options
                             index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[3]]) + 1
                             maximum_size = 80
+                            background = 'green'
                             index ::
                                 if cb_strat3.index > 0:
                                     parameter_model.param_dict[loop_item][fit_strategy_list[3]] = cb_strat3.items[cb_strat3.index]
@@ -441,6 +463,7 @@ enamldef ElementEdit(Window):
                             items = [' '] + bound_options
                             index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[5]]) + 1
                             maximum_size = 80
+                            background = 'green'
                             index ::
                                 if cb_strat5.index > 0:
                                     parameter_model.param_dict[loop_item][fit_strategy_list[5]] = cb_strat5.items[cb_strat5.index]
@@ -458,9 +481,29 @@ enamldef ParameterEdit(Window):
     attr parameter_model
     destroy_on_close = False
     Container:
+        constraints = [vbox(hbox(lbl1, lbl2, lbl3, lbl4, lbl5, lbl6, lbl7, lbl8),
+                            scr_area,)]
         padding = Box(5, 5, 5, 5)
-        Label: lbl:
-            text = '{:>16} {:>32} {:>32} {:>32} {:>16} {:>40}'.format('name', 'value', 'min', 'max', '  ',  '  '.join(fit_strategy_list))
+        Label: lbl1:
+            #text = '{:>16} {:>32} {:>32} {:>32} {:>16} {:>40}'.format('name', 'value', 'min', 'max', '  ',  '  '.join(fit_strategy_list))
+            text = '{:>16} {:>32} {:>32} {:>32} {:>16}'.format('name', 'value', 'min', 'max', '  ')
+        Label: lbl2:
+            text = fit_strategy_list[0]
+        Label: lbl3:
+            text = fit_strategy_list[1]
+            background = 'green'
+        Label: lbl4:
+            text = fit_strategy_list[2]
+        Label: lbl5:
+            text = fit_strategy_list[3]
+            background = 'green'
+        Label: lbl6:
+            text = fit_strategy_list[4]
+        Label: lbl7:
+            text = fit_strategy_list[5]
+            background = 'green'
+        Label: lbl8:
+            text = fit_strategy_list[6]
         ScrollArea: scr_area:
             constraints = [height <= 1000]
             Form:
@@ -494,6 +537,7 @@ enamldef ParameterEdit(Window):
                             items = [' '] + bound_options
                             index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[1]]) + 1
                             maximum_size = 80
+                            background = 'green'
                             index ::
                                 if cb_strat1.index > 0:
                                     parameter_model.param_dict[loop_item][fit_strategy_list[1]] = cb_strat1.items[cb_strat1.index]
@@ -510,6 +554,7 @@ enamldef ParameterEdit(Window):
                             items = [' '] + bound_options
                             index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[3]]) + 1
                             maximum_size = 80
+                            background = 'green'
                             index ::
                                 if cb_strat3.index > 0:
                                     parameter_model.param_dict[loop_item][fit_strategy_list[3]] = cb_strat3.items[cb_strat3.index]
@@ -526,6 +571,7 @@ enamldef ParameterEdit(Window):
                             items = [' '] + bound_options
                             index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[5]]) + 1
                             maximum_size = 80
+                            background = 'green'
                             index ::
                                 if cb_strat5.index > 0:
                                     parameter_model.param_dict[loop_item][fit_strategy_list[5]] = cb_strat5.items[cb_strat5.index]

@@ -93,7 +93,7 @@ class Fit1D(Atom):
     working_directory = Str()
     result_folder = Str()
 
-    all_strategy = Typed(object) #Typed(OrderedDict)
+    all_strategy = Typed(object)
 
     x0 = Typed(np.ndarray)
     y0 = Typed(np.ndarray)
@@ -104,7 +104,8 @@ class Fit1D(Atom):
     cal_spectrum = Dict()
 
     # attributes used by the ElementEdit window
-    selected_element = Str()
+    #selected_element = Str()
+    selected_index = Int()
     elementinfo_list = List()
 
     function_num = Int(0)
@@ -131,8 +132,6 @@ class Fit1D(Atom):
     e_name = Str()
     add_element_intensity = Float(100.0)
     pileup_data = Dict()
-
-    selected_index = Int()
 
     def __init__(self, *args, **kwargs):
         self.working_directory = kwargs['working_directory']
@@ -180,8 +179,6 @@ class Fit1D(Atom):
 
     @observe('selected_index')
     def _selected_element_changed(self, change):
-        #if ' ' in self.selected_element:  #if it equals to 'Select Element'
-        #    pass
         if change['value'] > 0:
             selected_element = self.element_list[change['value']-1]
             if len(selected_element) <= 4:
@@ -205,7 +202,6 @@ class Fit1D(Atom):
         """
         with open(param_path, 'r') as json_data:
             self.default_parameters = json.load(json_data)
-        self.load_default_param()
 
     def update_default_param(self, param):
         """assigan new values to default param.
@@ -216,7 +212,7 @@ class Fit1D(Atom):
         """
         self.default_parameters = param
 
-    def load_default_param(self):
+    def apply_default_param(self):
         self.param_dict = copy.deepcopy(self.default_parameters)
         element_list = self.param_dict['non_fitting_values']['element_list']
         self.element_list = [e.strip(' ') for e in element_list.split(',')]
@@ -237,12 +233,15 @@ class Fit1D(Atom):
 
         # register the strategy and extend the parameter list
         # to cover all given elements
-        for strat_name in fit_strategy_list:
-            strategy = extract_strategy(self.param_dict, strat_name)
+        #for strat_name in fit_strategy_list:
+        #    strategy = extract_strategy(self.param_dict, strat_name)
             # register the strategy and extend the parameter list
             # to cover all given elements
-            register_strategy(strat_name, strategy)
+        #    register_strategy(strat_name, strategy)
             #set_parameter_bound(self.param_dict, strat_name)
+
+        # define element_adjust as fixed
+        #self.param_dict = define_param_bound_type(self.param_dict)
 
     def exp_data_update(self, change):
         """
@@ -550,7 +549,7 @@ class Fit1D(Atom):
         self.EC.add_to_dict(temp_dict)
 
     def manual_input(self):
-        default_area = 1e2
+        #default_area = 1e2
 
         # if self.e_name == 'escape':
         #     self.param_new['non_fitting_values']['escape_ratio'] = (self.add_element_intensity
@@ -676,6 +675,18 @@ def extract_strategy(param, name):
     param_new = copy.deepcopy(param)
     return {k: v[name] for k, v in six.iteritems(param_new)
             if k != 'non_fitting_values'}
+
+
+def define_param_bound_type(param,
+                            strategy_list=['adjust_element2, adjust_element3'],
+                            b_type='fixed'):
+    param_new = copy.deepcopy(param)
+    for k, v in six.iteritems(param_new):
+        for data in strategy_list:
+            if data in v.keys():
+                param_new[k][data] = b_type
+        print(k, v)
+    return param_new
 
 
 def fit_pixel_fast(dir_path, file_prefix,
