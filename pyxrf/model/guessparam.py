@@ -754,7 +754,8 @@ def trim_escape_peak(data, param_dict, y_size):
     return es_peak
 
 
-def create_full_dict(param, name_list):
+def create_full_dict(param, name_list,
+                     fixed_list=['adjust_element2', 'adjust_element3']):
     """
     Create full param dict so each item has same nested dict.
     This is for GUI purpose only.
@@ -776,7 +777,13 @@ def create_full_dict(param, name_list):
             if k == 'non_fitting_values':
                 continue
             if n not in v:
-                v.update({n: v['bound_type']})
+
+                # enforce newly created parameter to be fixed
+                # for strategy in fixed_list
+                if n in fixed_list:
+                    v.update({n: 'fixed'})
+                else:
+                    v.update({n: v['bound_type']})
     return param_new
 
 
@@ -891,11 +898,13 @@ def update_param_from_element(param, element_list):
     PC = ParamController(param_new, element_list)
     # parameter values not updated based on param_new, so redo it
     param_temp = PC.params
+    #print(param_temp)
 
-    # enforce adjust_element area to be fixed
-    for k, v in six.iteritems(param_temp):
-        if '_area' in k:
-            v['bound_type'] = 'fixed'
+    # enforce adjust_element area to be fixed,
+    # while bound_type in xrf_model is defined as none for area
+    #for k, v in six.iteritems(param_temp):
+    #    if '_area' in k:
+    #        v['bound_type'] = 'fixed'
 
     for k, v in six.iteritems(param_temp):
         if k == 'non_fitting_values':

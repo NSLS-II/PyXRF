@@ -184,6 +184,7 @@ enamldef FileView(DockItem): file_view:
                     index = 0
                     index >> io_model.file_opt
                     minimum_size = (200, 16)
+                    background = 'grey'
                     index ::
                         if index > 0:
                             pass

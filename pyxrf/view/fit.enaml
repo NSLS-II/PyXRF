@@ -375,17 +375,17 @@ enamldef ElementEdit(Window):
             text = fit_strategy_list[0]
         Label: lbl3:
             text = fit_strategy_list[1]
-            background = 'green'
+            background = 'grey'
         Label: lbl4:
             text = fit_strategy_list[2]
         Label: lbl5:
             text = fit_strategy_list[3]
-            background = 'green'
+            background = 'grey'
         Label: lbl6:
             text = fit_strategy_list[4]
         Label: lbl7:
             text = fit_strategy_list[5]
-            background = 'green'
+            background = 'grey'
         Label: lbl8:
             text = fit_strategy_list[6]
 
@@ -429,7 +429,7 @@ enamldef ElementEdit(Window):
                             items = [' '] + bound_options
                             index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[1]]) + 1
                             maximum_size = 80
-                            background = 'green'
+                            background = 'grey'
                             index ::
                                 if cb_strat1.index > 0:
                                     parameter_model.param_dict[loop_item][fit_strategy_list[1]] = cb_strat1.items[cb_strat1.index]
@@ -446,7 +446,7 @@ enamldef ElementEdit(Window):
                             items = [' '] + bound_options
                             index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[3]]) + 1
                             maximum_size = 80
-                            background = 'green'
+                            background = 'grey'
                             index ::
                                 if cb_strat3.index > 0:
                                     parameter_model.param_dict[loop_item][fit_strategy_list[3]] = cb_strat3.items[cb_strat3.index]
@@ -463,7 +463,7 @@ enamldef ElementEdit(Window):
                             items = [' '] + bound_options
                             index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[5]]) + 1
                             maximum_size = 80
-                            background = 'green'
+                            background = 'grey'
                             index ::
                                 if cb_strat5.index > 0:
                                     parameter_model.param_dict[loop_item][fit_strategy_list[5]] = cb_strat5.items[cb_strat5.index]
@@ -491,17 +491,17 @@ enamldef ParameterEdit(Window):
             text = fit_strategy_list[0]
         Label: lbl3:
             text = fit_strategy_list[1]
-            background = 'green'
+            background = 'grey'
         Label: lbl4:
             text = fit_strategy_list[2]
         Label: lbl5:
             text = fit_strategy_list[3]
-            background = 'green'
+            background = 'grey'
         Label: lbl6:
             text = fit_strategy_list[4]
         Label: lbl7:
             text = fit_strategy_list[5]
-            background = 'green'
+            background = 'grey'
         Label: lbl8:
             text = fit_strategy_list[6]
         ScrollArea: scr_area:
@@ -537,7 +537,7 @@ enamldef ParameterEdit(Window):
                             items = [' '] + bound_options
                             index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[1]]) + 1
                             maximum_size = 80
-                            background = 'green'
+                            background = 'grey'
                             index ::
                                 if cb_strat1.index > 0:
                                     parameter_model.param_dict[loop_item][fit_strategy_list[1]] = cb_strat1.items[cb_strat1.index]
@@ -554,7 +554,7 @@ enamldef ParameterEdit(Window):
                             items = [' '] + bound_options
                             index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[3]]) + 1
                             maximum_size = 80
-                            background = 'green'
+                            background = 'grey'
                             index ::
                                 if cb_strat3.index > 0:
                                     parameter_model.param_dict[loop_item][fit_strategy_list[3]] = cb_strat3.items[cb_strat3.index]
@@ -571,7 +571,7 @@ enamldef ParameterEdit(Window):
                             items = [' '] + bound_options
                             index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[5]]) + 1
                             maximum_size = 80
-                            background = 'green'
+                            background = 'grey'
                             index ::
                                 if cb_strat5.index > 0:
                                     parameter_model.param_dict[loop_item][fit_strategy_list[5]] = cb_strat5.items[cb_strat5.index]
