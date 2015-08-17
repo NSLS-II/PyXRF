@@ -61,7 +61,7 @@ enamldef XRFGui(MainWindow): main_window:
         DockArea:
             layout = HSplitLayout(
                 TabLayout('file_view', 'param_guess_view',
-                          'fitting_view'), #, 'setting_view'),
+                          'fitting_view', 'setting_view'),
                 TabLayout('lineplot_view', 'image_view'),
                 )
             FileView:
@@ -72,7 +72,7 @@ enamldef XRFGui(MainWindow): main_window:
                 plot_model = main_window.plot_model
                 # img_model_adv = main_window.img_model_adv
                 # fit_model = main_window.fit_model
-                # setting_model = main_window.setting_model
+                setting_model = main_window.setting_model
                 name = 'file_view'
             GuessParamView:
                 closable = False
@@ -137,11 +137,11 @@ enamldef XRFGui(MainWindow): main_window:
                     plot_model=main_window.plot_model)
 
                 name = 'fitting_view'
-            #SettingView:
-            #    closable = False
-            #    title = 'Setting'
-            #    io_model = main_window.io_model
-            #    plot_model = main_window.plot_model
-            #    img_model_adv = main_window.img_model_adv
-            #    setting_model = main_window.setting_model
-            #    name = 'setting_view'
+            SettingView:
+                closable = False
+                title = 'ROI Setting'
+                io_model = main_window.io_model
+                plot_model = main_window.plot_model
+                img_model_adv = main_window.img_model_adv
+                setting_model = main_window.setting_model
+                name = 'setting_view'

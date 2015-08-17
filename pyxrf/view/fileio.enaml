@@ -57,7 +57,7 @@ enamldef FileView(DockItem): file_view:
     attr plot_model
     #attr img_model_adv
     #attr fit_model
-    #attr setting_model
+    attr setting_model
 
     Container:
         Container:
@@ -96,7 +96,7 @@ enamldef FileView(DockItem): file_view:
                 text << io_model.output_directory
 
             PushButton: files_btn:
-                text = "Exp. Data Files"
+                text = "Exp. Data File"
                 clicked ::
                     path = FileDialogEx.get_open_file_names(file_view, current_path=io_model.working_directory)
                     if path:
@@ -114,8 +114,9 @@ enamldef FileView(DockItem): file_view:
                         #param_model.data_sets = io_model.data_sets
 
                         plot_model.parameters = param_model.param_new
-                        #setting_model.parameters = param_model.param_new
-                        #setting_model.data_sets = io_model.data_sets
+                        setting_model.parameters = param_model.param_new
+                        setting_model.data_sets = io_model.data_sets
+
                         #fit_model.save_name = io_model.file_names[0]
 
             Label: files_load:
