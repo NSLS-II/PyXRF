@@ -434,8 +434,7 @@ def read_hdf_HXN(working_directory,
     return data_dict, data_sets
 
 
-def read_xspress3_data(working_directory,
-                       file_name):
+def read_xspress3_data(file_path):
     """
     Data IO for xspress3 format.
 
@@ -452,7 +451,7 @@ def read_xspress3_data(working_directory,
     """
     data_output = {}
 
-    file_path = os.path.join(working_directory, file_name)
+    #file_path = os.path.join(working_directory, file_name)
     with h5py.File(file_path, 'r+') as f:
         data = f['entry/instrument']
 
