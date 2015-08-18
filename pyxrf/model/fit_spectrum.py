@@ -61,6 +61,8 @@ from pyxrf.model.guessparam import (calculate_profile, fit_strategy_list,
                                     update_param_from_element)
 from lmfit import fit_report
 
+import pickle
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -736,7 +738,7 @@ def fit_pixel_fast(dir_path, file_prefix,
         for j in xrange(datas[1]):
             x, result, area_v = linear_spectrum_fitting(data[i, j, :], param,
                                                         elemental_lines=elist,
-                                                        constant_weight=None)
+                                                        constant_weight=1.0)
             for v in total_list:
                 if v in result:
                     if save_spectrum:
@@ -945,7 +947,16 @@ def fit_per_line(row_num, data,
         y = data[i, :] - bg
         # setting constant weight to some value might cause error when fitting
         result, res = fit_pixel(y, matv,
-                                constant_weight=None)
+                                constant_weight=1.0)
+
+        if row_num==12 and i==12:
+            with open('matv.pickle', 'wb') as handle:
+                pickle.dump(matv, handle)
+
+            with open('y.pickle', 'wb') as handle:
+                pickle.dump(y, handle)
+
+
         sst = np.sum((y-np.mean(y))**2)
         r2 = 1 - res/sst
         result = list(result) + [np.sum(bg)] + [r2]

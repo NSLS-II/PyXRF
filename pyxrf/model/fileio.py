@@ -434,6 +434,138 @@ def read_hdf_HXN(working_directory,
     return data_dict, data_sets
 
 
+def read_xspress3_data(working_directory,
+                       file_name):
+    """
+    Data IO for xspress3 format.
+
+    Parameters
+    ----------
+    working_directory : str
+        path folder
+    file_name : str
+
+    Returns
+    -------
+    data_output : dict
+        with data from each channel
+    """
+    data_output = {}
+
+    file_path = os.path.join(working_directory, file_name)
+    with h5py.File(file_path, 'r+') as f:
+        data = f['entry/instrument']
+
+        # data from channel summed
+        exp_data = np.asarray(data['detector/data'])
+
+    # data size is (ysize, xsize, num of frame, num of channel, energy channel)
+    exp_data = np.sum(exp_data, axis=2)
+    num_channel = exp_data.shape[2]
+    # data from each channel
+    for i in range(num_channel):
+        channel_name = 'channel_'+str(i+1)
+        data_output.update({channel_name: exp_data[:, :, i, :]})
+
+    return data_output
+
+
+def write_xspress3_data_to_hdf(fpath, data_dict):
+    """
+    Assume data is obained from databroker, and save the data to hdf file.
+
+    Parameters
+    ----------
+    fpath: str
+        path to save hdf file
+    data : dict
+        data_dict with data from each channel
+    """
+
+    interpath = 'xrfmap'
+    sum_data = None
+    channel_list = [k for k in data_dict if 'channel' in k]
+
+    with h5py.File(fpath, 'a') as f:
+
+        for n in range(len(channel_list)):
+            detname = 'det'+str(n+1)
+            try:
+                dataGrp = f.create_group(interpath+'/'+detname)
+            except ValueError:
+                dataGrp = f[interpath+'/'+detname]
+
+            if sum_data is None:
+                sum_data = data_dict[channel_list[n]]
+            else:
+                sum_data += data_dict[channel_list[n]]
+
+            if 'counts' in dataGrp:
+                del dataGrp['counts']
+            ds_data = dataGrp.create_dataset('counts', data=data_dict[channel_list[n]])
+            ds_data.attrs['comments'] = 'Experimental data from channel ' + str(n)
+
+        # summed data
+        try:
+            dataGrp = f.create_group(interpath+'/detsum')
+        except ValueError:
+            dataGrp = f[interpath+'/detsum']
+
+        if 'counts' in dataGrp:
+            del dataGrp['counts']
+        ds_data = dataGrp.create_dataset('counts', data=sum_data)
+        ds_data.attrs['comments'] = 'Experimental data from channel sum'
+
+    # position data
+    # try:
+    #     dataGrp = f.create_group(interpath+'/positions')
+    # except ValueError:
+    #     dataGrp = f[interpath+'/positions']
+    #
+    # pos_names, pos_data = get_name_value_from_db(pos_list, data,
+    #                                              datashape)
+    #
+    # if 'pos' in dataGrp:
+    #     del dataGrp['pos']
+    #
+    # if 'name' in dataGrp:
+    #     del dataGrp['name']
+    # dataGrp.create_dataset('name', data=pos_names)
+    # dataGrp.create_dataset('pos', data=pos_data)
+
+    # scaler data
+    # try:
+    #     dataGrp = f.create_group(interpath+'/scalers')
+    # except ValueError:
+    #     dataGrp = f[interpath+'/scalers']
+    #
+    # scaler_names, scaler_data = get_name_value_from_db(scaler_list, data,
+    #                                                    datashape)
+    #
+    # if 'val' in dataGrp:
+    #     del dataGrp['val']
+    #
+    # if 'name' in dataGrp:
+    #     del dataGrp['name']
+    # dataGrp.create_dataset('name', data=scaler_names)
+    # dataGrp.create_dataset('val', data=scaler_data)
+
+
+def xspress3_data_to_hdf(fpath_in, fpath_out):
+    """
+    Assume data is obained from databroker, and save the data to hdf file.
+
+    Parameters
+    ----------
+    fpath_in: str
+        path to read hdf file
+    fpath_out: str
+        path to save hdf file
+    """
+    data_dict = read_xspress3_data(fpath_in)
+    write_xspress3_data_to_hdf(fpath_out, data_dict)
+
+
 def read_hdf_APS(working_directory,
                  file_names, channel_num=3):
     """
