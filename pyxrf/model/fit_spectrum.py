@@ -756,7 +756,7 @@ def fit_data_multi_files(dir_path, file_prefix,
     Fitting for multiple files with Multiprocessing.
 
     Parameters
-    -----------
+    ----------
     dir_path : str
     file_prefix : str
     param : dict
@@ -949,12 +949,13 @@ def fit_per_line(row_num, data,
         result, res = fit_pixel(y, matv,
                                 constant_weight=1.0)
 
-        if row_num==12 and i==12:
-            with open('matv.pickle', 'wb') as handle:
-                pickle.dump(matv, handle)
-
-            with open('y.pickle', 'wb') as handle:
-                pickle.dump(y, handle)
+        # if row_num==12 and i==12:
+        #     with open('matv.pickle', 'wb') as handle:
+        #         pickle.dump(matv, handle)
+        #
+        #     with open('y.pickle', 'wb') as handle:
+        #         pickle.dump(y, handle)
+        #     print('new data is saved.')
 
 
         sst = np.sum((y-np.mean(y))**2)
