@@ -663,6 +663,46 @@ def xspress3_data_to_hdf(fpath_hdf5, fpath_log, fpath_out):
     write_xspress3_data_to_hdf(fpath_out, data_dict)
 
 
+def save_data_to_txt(fpath, output_folder):
+    """
+    Read data from h5 file and transfer them into txt.
+
+    Parameters
+    ----------
+    fpath : str
+        path to h5 file
+    output_folder : str
+        which folder to save those txt file
+    """
+
+    f = h5py.File(fpath, 'r')
+
+    fit_output = {}
+
+    # fitted data
+    if 'xrf_fit' in f['xrfmap/detsum/']:
+        fit_data = f['xrfmap/detsum/xrf_fit']
+        fit_name = f['xrfmap/detsum/xrf_fit_name']
+
+        for i in np.arange(len(fit_name)):
+            fit_output[fit_name[i]] = fit_data[i, :, :]
+
+    # ic data
+    if 'scalers' in f['xrfmap']:
+        ic_data = f['xrfmap/scalers/val']
+        ic_name = f['xrfmap/scalers/name']
+        for i in np.arange(len(ic_name)):
+            fit_output[ic_name[i]] = ic_data[i, :, :]
+
+    #save data
+    if os.path.exists(output_folder) is False:
+        os.mkdir(output_folder)
+
+    for k,v in six.iteritems(fit_output):
+        fname = os.path.join(output_folder, k+'.txt')
+        np.savetxt(fname, v)
+
+
 def read_hdf_APS(working_directory,
                  file_names, channel_num=3):
     """
