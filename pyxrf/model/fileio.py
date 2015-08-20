@@ -592,12 +592,13 @@ def write_xspress3_data_to_hdf(fpath, data_dict):
         ds_data = dataGrp.create_dataset('counts', data=sum_data)
         ds_data.attrs['comments'] = 'Experimental data from channel sum'
 
+        data_shape = sum_data.shape
+
         # position data
         try:
             dataGrp = f.create_group(interpath+'/positions')
         except ValueError:
             dataGrp = f[interpath+'/positions']
-
 
         pos_data = []
         for k in pos_names:
@@ -613,10 +614,11 @@ def write_xspress3_data_to_hdf(fpath, data_dict):
         dataGrp.create_dataset('pos', data=pos_data)
 
         # scaler data
-        scaler_data = []
-        for k in scaler_names:
-            scaler_data.append(data_dict[k])
+        scaler_data = np.ones([data_shape[0], data_shape[1], len(scaler_names)])
+        for i in np.arange(len(scaler_names)):
+            scaler_data[:, :, i] = data_dict[scaler_names[i]]
         scaler_data = np.array(scaler_data)
+        print('shape for scaler: {}'.format(scaler_data.shape))
 
         try:
             dataGrp = f.create_group(interpath+'/scalers')
@@ -656,6 +658,7 @@ def xspress3_data_to_hdf(fpath_hdf5, fpath_log, fpath_out):
             shapev = data_dict[k].shape
 
     data_ic = data_ic.reshape([shapev[0], shapev[1]])
+    print('data ic shape {}'.format(data_ic.shape))
     data_ic = flip_data(data_ic)
 
     data_dict['scalers_ch2'] = data_ic
