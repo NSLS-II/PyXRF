@@ -276,11 +276,13 @@ class DrawImageAdvanced(Atom):
 
     plot_all = Bool(False)
 
-    x_pos = Typed(np.ndarray)
-    y_pos = Typed(np.ndarray)
+    x_pos = Typed(object)
+    y_pos = Typed(object)
 
     def __init__(self):
         self.fig = plt.figure()
+        self.x_pos = []
+        self.y_pos = []
 
     def data_dict_update(self, change):
         """
