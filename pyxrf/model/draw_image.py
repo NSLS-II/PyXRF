@@ -276,6 +276,9 @@ class DrawImageAdvanced(Atom):
 
     plot_all = Bool(False)
 
+    x_pos = Typed(np.ndarray)
+    y_pos = Typed(np.ndarray)
+
     def __init__(self):
         self.fig = plt.figure()
 
@@ -302,6 +305,11 @@ class DrawImageAdvanced(Atom):
             self.scaler_group_name = scaler_groups[0]
             self.scaler_items = [' '] + self.data_dict[self.scaler_group_name].keys()
             self.scaler_data = None
+
+        if 'positions' in self.data_dict:
+            print('get pos {}'.format(self.data_dict['positions'].keys()))
+            self.x_pos = self.data_dict['positions']['x_pos'][0, :]
+            self.y_pos = self.data_dict['positions']['y_pos'][:, 0]
 
     @observe('file_opt')
     def _update_file(self, change):
@@ -385,9 +393,17 @@ class DrawImageAdvanced(Atom):
                     data_dict = self.dict_to_plot[k]/(self.scaler_data+ic_thresh)*ic_norm
                 else:
                     data_dict = self.dict_to_plot[k]
-                im = grid[i].imshow(data_dict,
-                                    cmap=grey_use,
-                                    interpolation=plot_interp)
+                if len(self.x_pos) > 0 and len(self.y_pos) > 0:
+                    im = grid[i].imshow(data_dict,
+                                        cmap=grey_use,
+                                        interpolation=plot_interp,
+                                        extent=(0, np.abs(self.x_pos[-1]-self.x_pos[0]),
+                                                0, np.abs(self.y_pos[-1]-self.y_pos[0])))
+                else:
+                    im = grid[i].imshow(data_dict,
+                                        cmap=grey_use,
+                                        interpolation=plot_interp)
+
 
             else:
                 maxz = np.max(self.dict_to_plot[k])

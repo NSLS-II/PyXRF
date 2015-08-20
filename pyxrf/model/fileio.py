@@ -457,6 +457,8 @@ def read_xspress3_data(file_path):
 
         # data from channel summed
         exp_data = np.asarray(data['detector/data'])
+        xval = np.asarray(data['NDAttributes/NpointX'])
+        yval = np.asarray(data['NDAttributes/NpointY'])
 
     # data size is (ysize, xsize, num of frame, num of channel, energy channel)
     exp_data = np.sum(exp_data, axis=2)
@@ -466,7 +468,80 @@ def read_xspress3_data(file_path):
         channel_name = 'channel_'+str(i+1)
         data_output.update({channel_name: exp_data[:, :, i, :]})
 
+    # change x,y to 2D array
+    xval = xval.reshape(exp_data.shape[0:2])
+    yval = yval.reshape(exp_data.shape[0:2])
+
+    data_output.update({'x_pos': xval})
+    data_output.update({'y_pos': yval})
+
     return data_output
+
+
+def flip_data(input_data):
+    """
+    Flip 2D or 3D array. The flip happens on the second index of shape.
+
+    Parameters
+    ----------
+    input_data : 2D or 3D array.
+
+    Returns
+    -------
+    flipped data
+    """
+    new_data = np.array(input_data)
+    data_shape = input_data.shape
+    if len(data_shape) == 2:
+        new_data[::2, :] = new_data[::2, ::-1]
+        # temp = []
+        # for i in data_shape[0]:
+        #     if i % 2 == 0:
+        #         temp.append(new_data[i, :])
+        # temp = np.array(temp)
+        # temp = np.fliplr(temp)
+        # for i in data_shape[0]:
+        #     if i % 2 == 0:
+        #         new_data[i, :] = temp[i/2, :]
+
+    if len(data_shape) == 3:
+        new_data[::2, :, :] = new_data[::2, ::-1, :]
+        # for i in data_shape[0]:
+        #     if i % 2 == 0:
+        #         for j in np.arange(data_shape[1]):
+        #             new_data[i, j, :] = input_data[i, data_shape[1]-j, :]
+    return new_data
+
+
+def read_log_file_srx(fpath, name='ch 2'):
+    """
+    Read given column value from log file.
+
+    Parameters
+    ----------
+    fpath : str
+        path to log file.
+    name : str
+        name of a given column
+
+    Returns
+    -------
+    1d array:
+        selected ic value.
+    """
+    line_num = 7
+    base_val = 8.5*1e-10
+
+    with open(fpath, 'r') as f:
+        lines = f.readlines()
+        col_names = lines[line_num].split('\t')
+        col_names = [v for v in col_names if len(v) != 0]
+
+    df = pd.read_csv(fpath,
+                     skiprows=line_num+1, skip_footer=1, sep='\s+', header=None)
+    df.columns = col_names
+    i0 = np.abs(np.array(df[name]) - base_val)
+    return i0
 
 
 def write_xspress3_data_to_hdf(fpath, data_dict):
@@ -483,7 +558,9 @@ def write_xspress3_data_to_hdf(fpath, data_dict):
 
     interpath = 'xrfmap'
     sum_data = None
-    channel_list = [k for k in data_dict if 'channel' in k]
+    channel_list = [k for k in six.iterkeys(data_dict) if 'channel' in k]
+    pos_names = [k for k in six.iterkeys(data_dict) if 'pos' in k]
+    scaler_names = [k for k in six.iterkeys(data_dict) if 'scaler' in k]
 
     with h5py.File(fpath, 'a') as f:
 
@@ -515,53 +592,74 @@ def write_xspress3_data_to_hdf(fpath, data_dict):
         ds_data = dataGrp.create_dataset('counts', data=sum_data)
         ds_data.attrs['comments'] = 'Experimental data from channel sum'
 
-    # position data
-    # try:
-    #     dataGrp = f.create_group(interpath+'/positions')
-    # except ValueError:
-    #     dataGrp = f[interpath+'/positions']
-    #
-    # pos_names, pos_data = get_name_value_from_db(pos_list, data,
-    #                                              datashape)
-    #
-    # if 'pos' in dataGrp:
-    #     del dataGrp['pos']
-    #
-    # if 'name' in dataGrp:
-    #     del dataGrp['name']
-    # dataGrp.create_dataset('name', data=pos_names)
-    # dataGrp.create_dataset('pos', data=pos_data)
-
-    # scaler data
-    # try:
-    #     dataGrp = f.create_group(interpath+'/scalers')
-    # except ValueError:
-    #     dataGrp = f[interpath+'/scalers']
-    #
-    # scaler_names, scaler_data = get_name_value_from_db(scaler_list, data,
-    #                                                    datashape)
-    #
-    # if 'val' in dataGrp:
-    #     del dataGrp['val']
-    #
-    # if 'name' in dataGrp:
-    #     del dataGrp['name']
-    # dataGrp.create_dataset('name', data=scaler_names)
-    # dataGrp.create_dataset('val', data=scaler_data)
+        # position data
+        try:
+            dataGrp = f.create_group(interpath+'/positions')
+        except ValueError:
+            dataGrp = f[interpath+'/positions']
 
 
-def xspress3_data_to_hdf(fpath_in, fpath_out):
+        pos_data = []
+        for k in pos_names:
+            pos_data.append(data_dict[k])
+        pos_data = np.array(pos_data)
+
+        if 'pos' in dataGrp:
+            del dataGrp['pos']
+
+        if 'name' in dataGrp:
+            del dataGrp['name']
+        dataGrp.create_dataset('name', data=pos_names)
+        dataGrp.create_dataset('pos', data=pos_data)
+
+        # scaler data
+        scaler_data = []
+        for k in scaler_names:
+            scaler_data.append(data_dict[k])
+        scaler_data = np.array(scaler_data)
+
+        try:
+            dataGrp = f.create_group(interpath+'/scalers')
+        except ValueError:
+            dataGrp = f[interpath+'/scalers']
+
+        if 'val' in dataGrp:
+            del dataGrp['val']
+
+        if 'name' in dataGrp:
+            del dataGrp['name']
+        dataGrp.create_dataset('name', data=scaler_names)
+        dataGrp.create_dataset('val', data=scaler_data)
+
+
+def xspress3_data_to_hdf(fpath_hdf5, fpath_log, fpath_out):
     """
     Assume data is obained from databroker, and save the data to hdf file.
 
     Parameters
     ----------
-    fpath_in: str
-        path to read hdf file
+    fpath_hdf5: str
+        path to raw hdf file
+    fpath_log: str
+        path to log file
     fpath_out: str
         path to save hdf file
     """
-    data_dict = read_xspress3_data(fpath_in)
+    data_dict = read_xspress3_data(fpath_hdf5)
+
+    data_ic = read_log_file_srx(fpath_log)
+    shapev = None
+
+    for k, v in six.iteritems(data_dict):
+        data_dict[k] = flip_data(data_dict[k])
+        if shapev is None:
+            shapev = data_dict[k].shape
+
+    data_ic = data_ic.reshape([shapev[0], shapev[1]])
+    data_ic = flip_data(data_ic)
+
+    data_dict['scalers_ch2'] = data_ic
+
     write_xspress3_data_to_hdf(fpath_out, data_dict)
 
 
@@ -611,18 +709,6 @@ def read_hdf_APS(working_directory,
                 exp_data[0, 0, :] = exp_data[0, 1, :]
             #roi_name = data['detsum']['roi_name'].value
             #roi_value = data['detsum']['roi_limits'].value
-
-            # temp!!!
-            # fitname = list(data['detsum']['xrf_fit_name'].value)
-            # ename = 'Pt_L'
-            # indv = fitname.index(ename)
-            # fitv = data['detsum']['xrf_fit'].value[indv,:,:]
-            # cutv = 99.25
-            # ind_array = fitv>cutv
-            # for i in range(fitv.shape[0]):
-            #     for j in range(fitv.shape[1]):
-            #         if ind_array[i, j] == False:
-            #             exp_data[i, j, :] *= 0
 
             fname_sum = fname+'_sum'
             DS = DataSelection(filename=fname_sum,
@@ -681,6 +767,13 @@ def read_hdf_APS(working_directory,
                 for i, n in enumerate(det_name):
                     temp[n] = data['scalers/val'].value[:, :, i]
                 img_dict[fname+'_scaler'] = temp
+
+            if 'positions' in data:
+                pos_name = data['positions/name']
+                temp = {}
+                for i, n in enumerate(pos_name):
+                    temp[n] = data['positions/pos'].value[i, :]
+                img_dict['positions'] = temp
 
             f.close()
 

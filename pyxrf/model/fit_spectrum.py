@@ -957,7 +957,6 @@ def fit_per_line(row_num, data,
         #         pickle.dump(y, handle)
         #     print('new data is saved.')
 
-
         sst = np.sum((y-np.mean(y))**2)
         r2 = 1 - res/sst
         result = list(result) + [np.sum(bg)] + [r2]
