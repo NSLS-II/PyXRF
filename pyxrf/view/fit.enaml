@@ -293,7 +293,7 @@ enamldef FitView(DockItem): fit_view:
                 minimum_size = (140, 16)
 
         PushButton: saveas_btn:
-            text = 'Save As'
+            text = 'Save Config. File As'
             clicked ::
                 path = FileDialogEx.get_save_file_name(fit_view,
                                                        current_path=fit_model.result_folder)

@@ -279,10 +279,14 @@ class DrawImageAdvanced(Atom):
     x_pos = Typed(object)
     y_pos = Typed(object)
 
+    pixel_or_pos = Int(0)
+    pixel_or_pos_for_plot = Typed(object)
+
     def __init__(self):
         self.fig = plt.figure()
         self.x_pos = []
         self.y_pos = []
+        self.pixel_or_pos_for_plot = None
 
     def data_dict_update(self, change):
         """
@@ -341,6 +345,16 @@ class DrawImageAdvanced(Atom):
         if change['type'] != 'create':
             self.show_image()
 
+    @observe('pixel_or_pos')
+    def _update_pp(self, change):
+        if change['type'] != 'create':
+            if change['value'] == 0:
+                self.pixel_or_pos_for_plot = None
+            elif change['value'] > 0 and len(self.x_pos) > 0 and len(self.y_pos) > 0:
+                self.pixel_or_pos_for_plot = (self.x_pos[0], self.x_pos[-1],
+                                              self.y_pos[0], self.y_pos[-1])
+            self.show_image()
+
     @observe('plot_all')
     def _update_all_plot(self, change):
         if self.plot_all is True:
@@ -363,11 +377,20 @@ class DrawImageAdvanced(Atom):
     def show_image(self):
         self.fig.clf()
         stat_temp = self.get_activated_num()
+        stat_temp = OrderedDict(sorted(six.iteritems(stat_temp), key=lambda x: x[0]))
 
         low_lim = 1e-4  # define the low limit for log image
         ic_norm = 10000  # multiply by this value for ic normalization
-        ic_thresh = 1e-6  # in case the ic value is zero
         plot_interp = 'Nearest'
+        name_not_scalable = ['r_squared']  # do not apply scaler norm on those data
+
+        if self.scaler_data is not None:
+            if np.max(self.scaler_data) < 1.0:  # use current as ic, such as SRX
+                ic_norm = 1.0
+            if len(self.scaler_data[self.scaler_data == 0]) > 0:
+                logger.warning('scaler data has zero values at {}'.format(np.where(self.scaler_data == 0)))
+                self.scaler_data[self.scaler_data == 0] = np.mean(self.scaler_data)
+                logger.warning('Use mean value {} instead for those points'.format(np.mean(self.scaler_data)))
 
         if self.color_opt == 'Orange':
             grey_use = cm.Oranges
@@ -388,36 +411,39 @@ class DrawImageAdvanced(Atom):
                          cbar_pad='2%',
                          share_all=True)
 
-        for i, (k, v) in enumerate(six.iteritems(stat_temp)):
-            if self.scale_opt == 'Linear':
+        if self.scale_opt == 'Linear':
+            for i, (k, v) in enumerate(six.iteritems(stat_temp)):
+
                 if self.scaler_data is not None:
-                    zero_pos = np.where(self.scaler_data < 0.1*np.mean(self.scaler_data))
-                    self.dict_to_plot[k][zero_pos] = 0.0
-                    data_dict = self.dict_to_plot[k]/(self.scaler_data
-                                                      + np.max(self.scaler_data)*ic_thresh)*ic_norm
+                    if k in name_not_scalable:
+                        data_dict = self.dict_to_plot[k]
+                    else:
+                        data_dict = self.dict_to_plot[k]/self.scaler_data*ic_norm
+
                 else:
                     data_dict = self.dict_to_plot[k]
-                if len(self.x_pos) > 0 and len(self.y_pos) > 0:
-                    im = grid[i].imshow(data_dict,
-                                        cmap=grey_use,
-                                        interpolation=plot_interp,
-                                        extent=(self.x_pos[0], self.x_pos[-1],
-                                                self.y_pos[0], self.y_pos[-1]))
-                else:
-                    im = grid[i].imshow(data_dict,
-                                        cmap=grey_use,
-                                        interpolation=plot_interp)
 
-            else:
+                im = grid[i].imshow(data_dict,
+                                    cmap=grey_use,
+                                    interpolation=plot_interp,
+                                    extent=self.pixel_or_pos_for_plot)
+                grid_title = k #self.file_name+'_'+str(k)
+                grid[i].text(0, 0, grid_title)
+                grid.cbar_axes[i].colorbar(im)
+        else:
+            for i, (k, v) in enumerate(six.iteritems(stat_temp)):
                 maxz = np.max(self.dict_to_plot[k])
+
                 im = grid[i].imshow(self.dict_to_plot[k],
                                     norm=LogNorm(vmin=low_lim*maxz,
                                                  vmax=maxz),
                                     cmap=grey_use,
-                                    interpolation=plot_interp)
-            grid_title = k #self.file_name+'_'+str(k)
-            grid[i].text(0, 0, grid_title)
-            grid.cbar_axes[i].colorbar(im)
+                                    interpolation=plot_interp,
+                                    extent=self.pixel_or_pos_for_plot)
+
+                grid_title = k #self.file_name+'_'+str(k)
+                grid[i].text(0, 0, grid_title)
+                grid.cbar_axes[i].colorbar(im)
         self.update_plot()
 
     def get_activated_num(self):
