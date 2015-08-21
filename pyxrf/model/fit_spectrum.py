@@ -435,7 +435,7 @@ class Fit1D(Atom):
 
         self.save_result()
         self.assign_fitting_result()
-        logger.info('--------Fitting is done!--------')
+        logger.info('--------Summed spectrum fitting is done!--------')
 
     def assign_fitting_result(self):
         self.function_num = self.fit_result.nfev
@@ -464,11 +464,11 @@ class Fit1D(Atom):
             # output area of dict
             result_map = calculate_area(e_select, matv, results,
                                         self.param_dict, first_peak_area=False)
-        elif fit_opt == 'nonlinear':
-            result_map = fit_pixel_nonlinear(self.data_all, self.param_dict)
-
-            print(result_map.shape)
-            print(result_map[0, 0].keys())
+        # elif fit_opt == 'nonlinear':
+        #     result_map = fit_pixel_nonlinear(self.data_all, self.param_dict)
+        #
+        #     print(result_map.shape)
+        #     print(result_map[0, 0].keys())
 
         t1 = time.time()
         logger.warning('Time used for pixel fitting is : {}'.format(t1-t0))
@@ -495,6 +495,7 @@ class Fit1D(Atom):
                             self.data_all, self.param_dict,
                             output_folder, save_pixel=True)
             logger.info('Done with saving fitting plots.')
+        logger.info('--------Single pixle fitting is done!--------')
 
     def save_result(self, fname=None):
         """
@@ -552,32 +553,6 @@ class Fit1D(Atom):
 
     def manual_input(self):
         #default_area = 1e2
-
-        # if self.e_name == 'escape':
-        #     self.param_new['non_fitting_values']['escape_ratio'] = (self.add_element_intensity
-        #                                                             / np.max(self.y0))
-        #     es_peak = trim_escape_peak(self.data, self.param_new,
-        #                                len(self.y0))
-        #     ps = PreFitStatus(z=get_Z(self.e_name),
-        #                       energy=get_energy(self.e_name),
-        #                       # put float in front of area and maxv
-        #                       # due to type conflicts in atom, which regards them as
-        #                       # np.float32 if we do not put float in front.
-        #                       area=float(np.around(np.sum(es_peak), self.max_area_dig)),
-        #                       spectrum=es_peak,
-        #                       maxv=float(np.around(np.max(es_peak), self.max_area_dig)),
-        #                       norm=-1, lbd_stat=False)
-        #     logger.info('{} peak is added'.format(self.e_name))
-        #
-        # else:
-        # x, data_out, area_dict = calculate_profile(self.x0,
-        #                                            self.y0,
-        #                                            self.param_dict,
-        #                                            elemental_lines=[self.e_name],
-        #                                            default_area=default_area)
-        #
-        # #ratio_v = self.add_element_intensity / np.max(data_out[self.e_name])
-
         ps = PreFitStatus(z=get_Z(self.e_name),
                           energy=get_energy(self.e_name),
                           #area=area_dict[self.e_name]*ratio_v,
@@ -591,21 +566,12 @@ class Fit1D(Atom):
         self.update_name_list()
 
     def add_pileup(self):
-        default_area = 1e2
         if self.pileup_data['intensity'] > 0:
             e_name = (self.pileup_data['element1'] + '-'
                       + self.pileup_data['element2'])
-            # parse elemental lines into multiple lines
 
-            # x, data_out, area_dict = calculate_profile(self.x0,
-            #                                            self.y0,
-            #                                            self.param_new,
-            #                                            elemental_lines=[e_name],
-            #                                            default_area=default_area)
             energy = str(float(get_energy(self.pileup_data['element1']))
                          + float(get_energy(self.pileup_data['element2'])))
-
-            #ratio_v = self.pileup_data['intensity'] / np.max(data_out[e_name])
 
             ps = PreFitStatus(z=get_Z(e_name),
                               energy=energy,

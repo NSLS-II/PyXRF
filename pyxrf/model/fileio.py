@@ -697,7 +697,7 @@ def save_data_to_txt(fpath, output_folder):
         ic_data = f['xrfmap/scalers/val']
         ic_name = f['xrfmap/scalers/name']
         for i in np.arange(len(ic_name)):
-            fit_output[ic_name[i]] = ic_data[i, :, :]
+            fit_output[ic_name[i]] = ic_data[:, :, i]
 
     #save data
     if os.path.exists(output_folder) is False:
