@@ -324,6 +324,7 @@ class LinePlotModel(Atom):
             logger.debug('No need to remove experimental data.')
 
         data_arr = np.asarray(self.data)
+        self.exp_data_update({'value': data_arr})
 
         x_v = (self.parameters['e_offset']['value'] +
                np.arange(len(data_arr)) *
@@ -337,13 +338,14 @@ class LinePlotModel(Atom):
                                            marker=self.plot_style['experiment']['marker'],
                                            label=self.plot_style['experiment']['label'])
 
+
     def plot_multi_exp_data(self):
         while(len(self.plot_exp_list)):
             self.plot_exp_list.pop().remove()
 
         color_n = get_color_name()
 
-        self.max_v = 0
+        self.max_v = 1.0
         m = 0
         for (k, v) in six.iteritems(self.data_sets):
             if v.plot_index:
