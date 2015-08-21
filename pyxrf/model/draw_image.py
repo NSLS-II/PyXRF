@@ -316,6 +316,7 @@ class DrawImageAdvanced(Atom):
     @observe('file_opt')
     def _update_file(self, change):
         if self.file_opt > 0:
+            print('file opt:{}'.format(self.file_opt))
             namelist = self.data_dict.keys()
             self.file_name = namelist[self.file_opt]
 
@@ -365,7 +366,7 @@ class DrawImageAdvanced(Atom):
 
         low_lim = 1e-4  # define the low limit for log image
         ic_norm = 10000  # multiply by this value for ic normalization
-        ic_thresh = 1.0  # in case the ic value is zero
+        ic_thresh = 1e-6  # in case the ic value is zero
         plot_interp = 'Nearest'
 
         if self.color_opt == 'Orange':
@@ -392,20 +393,20 @@ class DrawImageAdvanced(Atom):
                 if self.scaler_data is not None:
                     zero_pos = np.where(self.scaler_data < 0.1*np.mean(self.scaler_data))
                     self.dict_to_plot[k][zero_pos] = 0.0
-                    data_dict = self.dict_to_plot[k]/(self.scaler_data+ic_thresh)*ic_norm
+                    data_dict = self.dict_to_plot[k]/(self.scaler_data
+                                                      + np.max(self.scaler_data)*ic_thresh)*ic_norm
                 else:
                     data_dict = self.dict_to_plot[k]
                 if len(self.x_pos) > 0 and len(self.y_pos) > 0:
                     im = grid[i].imshow(data_dict,
                                         cmap=grey_use,
                                         interpolation=plot_interp,
-                                        extent=(0, np.abs(self.x_pos[-1]-self.x_pos[0]),
-                                                0, np.abs(self.y_pos[-1]-self.y_pos[0])))
+                                        extent=(self.x_pos[0], self.x_pos[-1],
+                                                self.y_pos[0], self.y_pos[-1]))
                 else:
                     im = grid[i].imshow(data_dict,
                                         cmap=grey_use,
                                         interpolation=plot_interp)
-
 
             else:
                 maxz = np.max(self.dict_to_plot[k])
@@ -414,10 +415,10 @@ class DrawImageAdvanced(Atom):
                                                  vmax=maxz),
                                     cmap=grey_use,
                                     interpolation=plot_interp)
-            grid_title = self.file_name+'_'+str(k)
-            grid[i].text(0, -1, grid_title)
+            grid_title = k #self.file_name+'_'+str(k)
+            grid[i].text(0, 0, grid_title)
             grid.cbar_axes[i].colorbar(im)
         self.update_plot()
 
     def get_activated_num(self):
-        return {k:v for (k,v) in six.iteritems(self.stat_dict) if v is True}
+        return {k: v for (k, v) in six.iteritems(self.stat_dict) if v is True}
