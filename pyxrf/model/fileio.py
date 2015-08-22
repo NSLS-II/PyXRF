@@ -496,22 +496,9 @@ def flip_data(input_data):
     data_shape = input_data.shape
     if len(data_shape) == 2:
         new_data[::2, :] = new_data[::2, ::-1]
-        # temp = []
-        # for i in data_shape[0]:
-        #     if i % 2 == 0:
-        #         temp.append(new_data[i, :])
-        # temp = np.array(temp)
-        # temp = np.fliplr(temp)
-        # for i in data_shape[0]:
-        #     if i % 2 == 0:
-        #         new_data[i, :] = temp[i/2, :]
 
     if len(data_shape) == 3:
         new_data[::2, :, :] = new_data[::2, ::-1, :]
-        # for i in data_shape[0]:
-        #     if i % 2 == 0:
-        #         for j in np.arange(data_shape[1]):
-        #             new_data[i, j, :] = input_data[i, data_shape[1]-j, :]
     return new_data
 
 

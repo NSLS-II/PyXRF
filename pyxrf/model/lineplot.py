@@ -293,13 +293,6 @@ class LinePlotModel(Atom):
         self.log_linear_plot()
         self._update_canvas()
 
-    # @observe('data')
-    # def data_update(self, change):
-    #     self.max_v = np.max(self.data)
-    #     self._update_ylimit()
-    #     self.log_linear_plot()
-    #     self._update_canvas()
-
     @observe('plot_exp_opt')
     def _new_exp_plot_opt(self, change):
         if change['value']:

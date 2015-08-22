@@ -400,7 +400,7 @@ class Fit1D(Atom):
             y0 = self.y0 - self.bg
 
         t0 = time.time()
-        logger.info('Start fitting!')
+        logger.info('-------- Fitting of summed spectrum starts. --------')
         for k, v in six.iteritems(self.all_strategy):
             if v:
                 strat_name = fit_strategy_list[v-1]
@@ -415,7 +415,7 @@ class Fit1D(Atom):
                 self.fit_data(self.x0, y0)
                 self.update_param_with_result()
         t1 = time.time()
-        logger.warning('Time used for fitting is : {}'.format(t1-t0))
+        logger.warning('Time used for summed spectrum fitting is : {}'.format(t1-t0))
 
         # for GUI purpose only
         # if we do not clear the dict first, there is not update on the GUI
@@ -435,7 +435,7 @@ class Fit1D(Atom):
 
         self.save_result()
         self.assign_fitting_result()
-        logger.info('--------Summed spectrum fitting is done!--------')
+        logger.info('-------- Fitting of summed spectrum is done! --------')
 
     def assign_fitting_result(self):
         self.function_num = self.fit_result.nfev
@@ -455,7 +455,7 @@ class Fit1D(Atom):
         strategy_pixel = 'linear'
         set_parameter_bound(self.param_dict, strategy_pixel)
 
-        logger.info('Starting single pixel fitting')
+        logger.info('-------- Fitting of single pixels starts. --------')
         t0 = time.time()
 
         if fit_opt == 'nnls':
@@ -495,7 +495,7 @@ class Fit1D(Atom):
                             self.data_all, self.param_dict,
                             output_folder, save_pixel=True)
             logger.info('Done with saving fitting plots.')
-        logger.info('--------Single pixle fitting is done!--------')
+        logger.info('-------- Fitting of single pixels is done! --------')
 
     def save_result(self, fname=None):
         """

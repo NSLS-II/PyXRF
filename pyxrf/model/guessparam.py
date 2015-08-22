@@ -138,7 +138,7 @@ class ElementController(object):
         logger.info('Item {} is added.'.format(dictv.keys()))
         self.update_norm()
 
-    def update_norm(self, threshv=0.1):
+    def update_norm(self, threshv=0.0):
         """
         Calculate the norm intensity for each element peak.
 
@@ -155,6 +155,7 @@ class ElementController(object):
             v.lbd_stat = bool(v.norm > threshv)
 
         # also delete smaller values
+        # there is some bugs in plotting when values < 0.0
         self.delete_value_given_threshold(threshv=threshv)
 
     def delete_all(self):
@@ -312,23 +313,6 @@ class GuessParamModel(Atom):
         self.EC.delete_all()
         self.define_range()
         self.create_spectrum_from_file(self.param_new, self.element_list)
-
-    # @observe('file_opt')
-    # def choose_file(self, change):
-    #     if self.file_opt == 0:
-    #         return
-    #     names = self.data_sets.keys()
-    #
-    #     # to be passed to fitting part for single pixel fitting
-    #     self.data_all = self.data_sets[names[self.file_opt-1]].raw_data
-    #
-    #     # spectrum is averaged in terms of pixel size,
-    #     # fit doesn't work well if spectrum value is too large.
-    #     spectrum = self.data_sets[names[self.file_opt-1]].get_sum()
-    #     #self.data = spectrum/np.max(spectrum)
-    #     #self.data = spectrum/(self.data_all.shape[0]*self.data_all.shape[1])
-    #     self.data = spectrum
-    #     self.define_range()
 
     def exp_data_update(self, change):
         """
@@ -801,7 +785,6 @@ def get_Z(ename):
     int or None
         element Z number
     """
-
     strip_line = lambda ename: ename.split('_')[0]
 
     non_element = ['compton', 'elastic', 'background', 'escape']
