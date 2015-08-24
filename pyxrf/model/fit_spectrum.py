@@ -874,7 +874,9 @@ def bin_data_pixel(data, nearest_n=4):
             for j in [-1, 0, 1]:
                 new_data[1:-1, 1:-1, :] += data[1+i:d_shape[0]-1+i, 1+j:d_shape[1]-1+j, :]
 
-    return new_data/nearest_n
+    new_data[1:-1, 1:-1, :] /= (nearest_n+1)
+
+    return new_data
 
 
 def bin_data_energy(data, axis_v=2):

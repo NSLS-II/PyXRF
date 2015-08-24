@@ -832,6 +832,10 @@ enamldef OtherSettingEdit(Window):
                         FloatField:
                             value := fit_model.param_dict['non_fitting_values']['energy_bound_high']['value']
                         Label:
+                            text = 'Parameters for single pixel fitting'
+                        Label:
+                            text = ''
+                        Label:
                             text = 'Add const to background'
                         FloatField:
                             value := fit_model.raise_bg
@@ -841,8 +845,7 @@ enamldef OtherSettingEdit(Window):
                             items = ['0', '4', '8']
                             index = 0
                             index ::
-                                if index > 0:
-                                    fit_model.pixel_bin = int(selected_item)
+                                fit_model.pixel_bin = int(selected_item)
                         Label:
                             text = 'Use linear background'
                         ComboBox:
