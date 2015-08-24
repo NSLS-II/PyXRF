@@ -690,14 +690,14 @@ def save_data_to_txt(fpath, output_folder):
     if os.path.exists(output_folder) is False:
         os.mkdir(output_folder)
 
-    for k,v in six.iteritems(fit_output):
+    for k, v in six.iteritems(fit_output):
         fname = os.path.join(output_folder, k+'.txt')
         np.savetxt(fname, v)
 
 
 def read_hdf_APS(working_directory,
                  file_names, channel_num=3,
-                 spectrum_cut=2000):
+                 spectrum_cut=3000):
     """
     Data IO for files similar to APS Beamline 13 data format.
     This might be changed later.

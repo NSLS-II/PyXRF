@@ -199,7 +199,8 @@ class DrawImageAdvanced(Atom):
         self.stat_dict = {k: bool_val for k in self.items_in_group}
 
     def update_plot(self):
-        self.fig.tight_layout(pad=1.0, w_pad=0.2, h_pad=0.2)
+        #self.fig.tight_layout(pad=4.0, w_pad=0.8, h_pad=0.8)
+        #self.fig.tight_layout()
         self.fig.canvas.draw_idle()
 
     def show_image(self):
@@ -230,9 +231,12 @@ class DrawImageAdvanced(Atom):
         ncol = int(np.ceil(np.sqrt(len(stat_temp))))
         nrow = int(np.ceil(len(stat_temp)/float(ncol)))
 
+        a_pad_v = 0.8
+        a_pad_h = 0.3
+
         grid = ImageGrid(self.fig, 111,
                          nrows_ncols=(nrow, ncol),
-                         axes_pad=(0.5, 0.5),
+                         axes_pad=(a_pad_v, a_pad_h),
                          cbar_location='right',
                          cbar_mode='each',
                          cbar_size='7%',
@@ -256,13 +260,31 @@ class DrawImageAdvanced(Atom):
                                     interpolation=plot_interp,
                                     extent=self.pixel_or_pos_for_plot)
                 grid_title = k #self.file_name+'_'+str(k)
-                grid[i].text(0, 0, grid_title)
+                if self.pixel_or_pos_for_plot is not None:
+                    title_x = self.pixel_or_pos_for_plot[0]
+                    title_y = self.pixel_or_pos_for_plot[3] + (self.pixel_or_pos_for_plot[3] -
+                                                               self.pixel_or_pos_for_plot[2])*0.04
+
+                else:
+                    title_x = 0
+                    title_y = - data_dict.shape[0]*0.05
+                grid[i].text(title_x, title_y, grid_title)
                 grid.cbar_axes[i].colorbar(im)
         else:
             for i, (k, v) in enumerate(six.iteritems(stat_temp)):
-                maxz = np.max(self.dict_to_plot[k])
 
-                im = grid[i].imshow(self.dict_to_plot[k],
+                if self.scaler_data is not None:
+                    if k in name_not_scalable:
+                        data_dict = self.dict_to_plot[k]
+                    else:
+                        data_dict = self.dict_to_plot[k]/self.scaler_data*ic_norm
+
+                else:
+                    data_dict = self.dict_to_plot[k]
+
+                maxz = np.max(data_dict)
+
+                im = grid[i].imshow(data_dict,
                                     norm=LogNorm(vmin=low_lim*maxz,
                                                  vmax=maxz),
                                     cmap=grey_use,
@@ -270,7 +292,16 @@ class DrawImageAdvanced(Atom):
                                     extent=self.pixel_or_pos_for_plot)
 
                 grid_title = k #self.file_name+'_'+str(k)
-                grid[i].text(0, 0, grid_title)
+                if self.pixel_or_pos_for_plot is not None:
+                    print(self.pixel_or_pos_for_plot)
+                    title_x = self.pixel_or_pos_for_plot[0]
+                    title_y = self.pixel_or_pos_for_plot[3] + (self.pixel_or_pos_for_plot[3] -
+                                                               self.pixel_or_pos_for_plot[2])*0.05
+
+                else:
+                    title_x = 0
+                    title_y = - data_dict.shape[0]*0.05
+                grid[i].text(title_x, title_y, grid_title)
                 grid.cbar_axes[i].colorbar(im)
         self.update_plot()
 
