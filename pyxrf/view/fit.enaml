@@ -831,6 +831,48 @@ enamldef OtherSettingEdit(Window):
                             text = 'Higher bound'
                         FloatField:
                             value := fit_model.param_dict['non_fitting_values']['energy_bound_high']['value']
+                        Label:
+                            text = 'Add const to background'
+                        FloatField:
+                            value := fit_model.raise_bg
+                        Label:
+                            text = 'Bin data with more pixels'
+                        ComboBox: cb_bin:
+                            items = ['0', '4', '8']
+                            index = 0
+                            index ::
+                                if index > 0:
+                                    fit_model.pixel_bin = int(selected_item)
+                        Label:
+                            text = 'Use linear background'
+                        ComboBox:
+                            items = ['Yes', 'No']
+                            index = 1
+                            index ::
+                                if index == 0:
+                                    fit_model.linear_bg = True
+                                else:
+                                    fit_model.linear_bg = False
+                        Label:
+                            text = 'Use snip method for background'
+                        ComboBox:
+                            items = ['Yes', 'No']
+                            index = 0
+                            index ::
+                                if index == 0:
+                                    fit_model.use_snip = True
+                                else:
+                                    fit_model.use_snip = False
+                        Label:
+                            text = 'Bin data along energy axis'
+                        ComboBox:
+                            items = ['Yes', 'No']
+                            index = 1
+                            index ::
+                                if index == 0:
+                                    fit_model.bin_energy = True
+                                else:
+                                    fit_model.bin_energy = False
 
                         #Label:
                         #    text = 'Weighted c'

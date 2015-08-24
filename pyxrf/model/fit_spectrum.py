@@ -135,6 +135,12 @@ class Fit1D(Atom):
     add_element_intensity = Float(100.0)
     pileup_data = Dict()
 
+    raise_bg = Float(0.0)
+    pixel_bin = Int(0)
+    linear_bg = Bool(False)
+    use_snip = Bool(True)
+    bin_energy = Bool(False)
+
     def __init__(self, *args, **kwargs):
         self.working_directory = kwargs['working_directory']
         self.result_folder = kwargs['working_directory']
@@ -448,37 +454,24 @@ class Fit1D(Atom):
         This function performs single pixel fitting.
         Multiprocess is considered.
         """
-        data_all = self.data_all  # do not touch raw data
-        pixel_bin = 8
-        if pixel_bin in [4, 8]:  # only two options
-            logger.info('Bin pixel data with parameter: {}'.format(pixel_bin))
-            data_all = rebin_pixel_data(self.data_all, nearest_n=pixel_bin)
-
-        raise_bg = 1
-
-        use_snip = False
-
-        fit_opt = 'nnls'
+        raise_bg = self.raise_bg
+        pixel_bin = self.pixel_bin
+        comp_elastic_combine = True
+        linear_bg = self.linear_bg
+        use_snip = self.use_snip
+        bin_energy = self.bin_energy
 
         logger.info('-------- Fitting of single pixels starts. --------')
         t0 = time.time()
 
-        if fit_opt == 'nnls':
-            e_select, matv, results, start_i, end_i = fit_pixel_multiprocess(data_all+raise_bg,
-                                                                             self.param_dict,
-                                                                             comp_elastic_combine=True,
-                                                                             linear_bg=True,
-                                                                             use_snip=use_snip)
-            # output area of dict
-            result_map = calculate_area(e_select, matv, results,
-                                        self.param_dict, first_peak_area=False)
-        # elif fit_opt == 'nonlinear':
-        #     strategy_pixel = 'linear'
-        #     set_parameter_bound(self.param_dict, strategy_pixel)
-        #     result_map = fit_pixel_nonlinear(self.data_all, self.param_dict)
-        #
-        #     print(result_map.shape)
-        #     print(result_map[0, 0].keys())
+        result_map, calculation_info = single_pixel_fitting_controller(self.data_all,
+                                                                       self.param_dict,
+                                                                       pixel_bin=pixel_bin,
+                                                                       raise_bg=raise_bg,
+                                                                       comp_elastic_combine=comp_elastic_combine,
+                                                                       linear_bg=linear_bg,
+                                                                       use_snip=use_snip,
+                                                                       bin_energy=bin_energy)
 
         t1 = time.time()
         logger.info('Time used for pixel fitting is : {}'.format(t1-t0))
@@ -489,22 +482,30 @@ class Fit1D(Atom):
 
         # get fitted spectrum and save them to figs
         if self.save_point is True:
-            prefix = self.save_name.split('.')[0]
+            matv = calculation_info['regression_mat']
+            results = calculation_info['results']
+            #fit_range = calculation_info['fit_range']
+            x = calculation_info['energy_axis']
+            x = (self.param_dict['e_offset']['value'] +
+                 self.param_dict['e_linear']['value']*x +
+                 self.param_dict['e_quadratic']['value'] * x**2)
+            data_fit = calculation_info['exp_data']
+
             p1 = [self.point1v, self.point1h]
             p2 = [self.point2v, self.point2v]
+            prefix = self.save_name.split('.')[0]
             output_folder = os.path.join(self.result_folder, prefix+'_pxiel_fit')
             if os.path.exists(output_folder) is False:
                 os.mkdir(output_folder)
             logger.info('Saving plots for single pixels ...')
 
-
-
             # last two columns of results are snip_bg, and chisq2
-            save_fitted_fig(matv, results[:, :, :-2],
-                            start_i, end_i, p1, p2,
-                            data_all+raise_bg, self.param_dict,
+            save_fitted_fig(x, matv, results[:, :, :-2],
+                            p1, p2,
+                            data_fit, self.param_dict,
                             output_folder, use_sinp=use_snip)
             logger.info('Done with saving fitting plots.')
+
         logger.info('-------- Fitting of single pixels is done! --------')
 
         # Update GUI so that results can be seen immediately
@@ -753,7 +754,7 @@ def fit_per_line(row_num, data,
 
         else:
             y = data[i, :]
-        result, res = fit_pixel(y, matv, constant_weight=1.0)
+        result, res = fit_pixel(y, matv, constant_weight=None)
 
         sst = np.sum((y-np.mean(y))**2)
         r2 = 1 - res/sst
@@ -762,9 +763,7 @@ def fit_per_line(row_num, data,
     return np.array(out)
 
 
-def fit_pixel_multiprocess(data, param,
-                           comp_elastic_combine=True,
-                           linear_bg=True,
+def fit_pixel_multiprocess(x, matv, data_fit, param,
                            use_snip=False):
     """
     Multiprocess fit of experiment data.
@@ -786,54 +785,57 @@ def fit_pixel_multiprocess(data, param,
     logger.info('cpu count: {}'.format(num_processors_to_use))
     pool = multiprocessing.Pool(num_processors_to_use)
 
-    # cut range
-    y0 = data[0, 0, :]
-    x0 = np.arange(len(y0))
+    # # cut range
+    # y0 = data[0, 0, :]
+    # x0 = np.arange(len(y0))
+    #
+    # # transfer energy value back to channel value
+    # lowv = (param['non_fitting_values']['energy_bound_low']['value'] -
+    #         param['e_offset']['value'])/param['e_linear']['value']
+    # highv = (param['non_fitting_values']['energy_bound_high']['value'] -
+    #          param['e_offset']['value'])/param['e_linear']['value']
+    #
+    # lowv = int(lowv)
+    # highv = int(highv)
+    #
+    # x, y = trim(x0, y0, lowv, highv)
+    #start_i = x0[x0 == x[0]][0]
+    #end_i = x0[x0 == x[-1]][0]
 
-    # transfer energy value back to channel value
-    lowv = (param['non_fitting_values']['energy_bound_low']['value'] -
-            param['e_offset']['value'])/param['e_linear']['value']
-    highv = (param['non_fitting_values']['energy_bound_high']['value'] -
-             param['e_offset']['value'])/param['e_linear']['value']
-
-    lowv = int(lowv)
-    highv = int(highv)
-
-    x, y = trim(x0, y0, lowv, highv)
-    start_i = x0[x0 == x[0]][0]
-    end_i = x0[x0 == x[-1]][0]
-    logger.info('Fit within energy channel range: ({}, {})'.format(start_i, end_i))
+    #data_fit = data[:, :, start_i:end_i+1]
+    #logger.info('Fit within energy channel range: ({}, {})'.format(start_i, end_i))
 
     # construct matrix
-    elist = param['non_fitting_values']['element_list'].split(', ')
-    elist = [e.strip(' ') for e in elist]
-
-    e_select, matv, e_area = construct_linear_model(x, param, elist)
-
-    if comp_elastic_combine is True:
-        e_select = e_select[:-1]
-        e_select[-1] = 'comp_elastic'
-
-        matv_old = np.array(matv)
-        matv = matv_old[:, :-1]
-        matv[:, -1] += matv_old[:, -1]
-
-    if linear_bg is True:
-        e_select.append('const_bkg')
-
-        matv_old = np.array(matv)
-        matv = np.ones([matv_old.shape[0], matv_old.shape[1]+1])
-        matv[:, :-1] = matv_old
-
-    logger.info('Matrix used for linear fitting has components: {}'.format(e_select))
-    # output fitting matrix
-    # with open('matv.pickle', 'wb') as handle:
-    #     pickle.dump(matv, handle)
+    # elist = param['non_fitting_values']['element_list'].split(', ')
+    # elist = [e.strip(' ') for e in elist]
+    #
+    # e_select, matv, e_area = construct_linear_model(x, param, elist)
+    #
+    # if comp_elastic_combine is True:
+    #     e_select = e_select[:-1]
+    #     e_select[-1] = 'comp_elastic'
+    #
+    #     matv_old = np.array(matv)
+    #     matv = matv_old[:, :-1]
+    #     matv[:, -1] += matv_old[:, -1]
+    #
+    # if linear_bg is True:
+    #     e_select.append('const_bkg')
+    #
+    #     matv_old = np.array(matv)
+    #     matv = np.ones([matv_old.shape[0], matv_old.shape[1]+1])
+    #     matv[:, :-1] = matv_old
+    #
+    # logger.info('Matrix used for linear fitting has components: {}'.format(e_select))
+    #
+    # if bin_energy is True:
+    #     data_fit = bin_data_energy(data_fit)
+    #     matv = bin_data_energy(matv, axis_v=0)
 
     result_pool = [pool.apply_async(fit_per_line,
-                                    (n, data[n, :, start_i:end_i+1], matv,
+                                    (n, data_fit[n, :, :], matv,
                                      param, use_snip))
-                   for n in range(data.shape[0])]
+                   for n in range(data_fit.shape[0])]
 
     results = []
     for r in result_pool:
@@ -844,12 +846,12 @@ def fit_pixel_multiprocess(data, param,
 
     results = np.array(results)
 
-    return e_select, matv, results, start_i, end_i
+    return results #, start_i, end_i
 
 
-def rebin_pixel_data(data, nearest_n=4):
+def bin_data_pixel(data, nearest_n=4):
     """
-    Rebin 3D data according to nearest neighbors in dim 1 and 2.
+    Bin 3D data according to nearest neighbors in dim 1 and 2.
 
     Parameters
     ----------
@@ -873,6 +875,42 @@ def rebin_pixel_data(data, nearest_n=4):
                 new_data[1:-1, 1:-1, :] += data[1+i:d_shape[0]-1+i, 1+j:d_shape[1]-1+j, :]
 
     return new_data/nearest_n
+
+
+def bin_data_energy(data, axis_v=2):
+    """
+    Bin data based on given dim, i.e., a dim for energy spectrum.
+    Return a copy of the data.
+
+    Parameters
+    ----------
+    data : 2D or 3D array
+    axis_v : int, optional
+        along which dir to bin data.
+
+    Returns
+    -------
+    binned data with given dim half of the previous size.
+
+    """
+    if data.ndim == 2:
+        if axis_v == 0:
+            new_len = data.shape[0]/2
+            m1 = data[::2, :]
+            m2 = data[1::2, :]
+            return (m1[:new_len, :] + m2[:new_len, :])/2
+        elif axis_v == 1:
+            new_len = data.shape[1]/2
+            m1 = data[:, ::2]
+            m2 = data[:, 1::2]
+            return (m1[:, :new_len] + m2[:, :new_len])/2
+
+    elif data.ndim == 3:
+        if axis_v == 2:
+            new_len = data.shape[2]/2
+            new_data1 = data[:, :, ::2]
+            new_data2 = data[:, :, 1::2]
+            return (new_data1[:, :, :new_len] + new_data2[:, :, :new_len])/2
 
 
 def calculate_area(e_select, matv, results,
@@ -918,60 +956,21 @@ def calculate_area(e_select, matv, results,
     return result_map
 
 
-# def get_fitted_result(element_mat, mat_weight,
-#                       data_y, param, use_sinp=False):
-#     """
-#     Return fitted curve at given point.
-#
-#     Parameters
-#     ----------
-#     element_mat : 2D array
-#         contains element profiles as columns
-#     mat_weight : 1D array
-#         weight for different elements
-#     start_i
-#     """
-#     # save summed spectrum only when required
-#     # the size is measured from the point of (0, 0)
-#     sum_total = None
-#     for i in range(element_mat.shape[1]):
-#         if sum_total is None:
-#             sum_total = mat_weight[i] * element_mat[:, i]
-#         else:
-#             sum_total += mat_weight[i] * element_mat[:, i]
-#
-#     if use_sinp is True:
-#         bg = snip_method(data_y,
-#                          param['e_offset']['value'],
-#                          param['e_linear']['value'],
-#                          param['e_quadratic']['value'],
-#                          width=param['non_fitting_values']['background_width'])
-#         sum_total += bg
-#
-#     return sum_total
-
-
-def save_fitted_fig(matv, results,
-                    start_i, end_i, p1, p2, data_all, param_dict,
+def save_fitted_fig(x_v, matv, results,
+                    p1, p2, data_all, param_dict,
                     result_folder, use_sinp=False):
 
     low_limit_v = 0.9
-    x_v = np.arange(data_all.shape[2])
-    x_v = x_v[start_i: end_i+1]
-    x_v = (param_dict['e_offset']['value'] +
-           param_dict['e_linear']['value']*x_v +
-           param_dict['e_quadratic']['value']*x_v**2)
 
     fig, ax = plt.subplots(nrows=1, ncols=1)
     ax.set_xlabel('Energy [keV]')
     ax.set_ylabel('Counts')
-    max_v = np.max(data_all[p1[0]:p2[0], p1[1]:p2[1], start_i: end_i+1])
+    max_v = np.max(data_all[p1[0]:p2[0], p1[1]:p2[1], :])
 
     fitted_sum = None
     for m in range(p1[0], p2[0]):
         for n in range(p1[1], p2[1]):
-            data_y = data_all[m, n, start_i:end_i+1]
-            #result_data = results[m, n, :]
+            data_y = data_all[m, n, :]
 
             fitted_y = np.sum(matv*results[m, n, :], axis=1)
             if use_sinp is True:
@@ -981,10 +980,6 @@ def save_fitted_fig(matv, results,
                                  param_dict['e_quadratic']['value'],
                                  width=param_dict['non_fitting_values']['background_width'])
                 fitted_y += bg
-
-            # fitted_y = get_fitted_result(matv, result_data,
-            #                              data_y, param_dict,
-            #                              use_sinp=use_sinp)
 
             if fitted_sum is None:
                 fitted_sum = fitted_y
@@ -1005,7 +1000,7 @@ def save_fitted_fig(matv, results,
             plt.savefig(output_path)
 
     ax.cla()
-    sum_y = np.sum(data_all[p1[0]:p2[0], p1[1]:p2[1], start_i:end_i+1], axis=(0, 1))
+    sum_y = np.sum(data_all[p1[0]:p2[0], p1[1]:p2[1], :], axis=(0, 1))
     ax.set_title('Summed spectrum from point ({},{}) '
                  'to ({},{})'.format(p1[0], p1[1], p2[0], p2[1]))
     ax.set_xlabel('Energy [keV]')
@@ -1020,26 +1015,84 @@ def save_fitted_fig(matv, results,
     plt.savefig(output_path)
 
 
-def single_pixel_fitting_controller(data, param,
+def single_pixel_fitting_controller(input_data, param,
                                     pixel_bin=0, raise_bg=1,
                                     comp_elastic_combine=True,
                                     linear_bg=True,
-                                    use_snip=False):
+                                    use_snip=False,
+                                    bin_energy=True):
 
-    exp_data = data  # data will not be changed in this function.
-    if pixel_bin in [4, 8]:  # only two options
+    # cut range
+    data = np.array(input_data)
+    y0 = data[0, 0, :]
+    x0 = np.arange(len(y0))
+
+    # transfer energy value back to channel value
+    lowv = (param['non_fitting_values']['energy_bound_low']['value'] -
+            param['e_offset']['value'])/param['e_linear']['value']
+    highv = (param['non_fitting_values']['energy_bound_high']['value'] -
+             param['e_offset']['value'])/param['e_linear']['value']
+    lowv = int(lowv)
+    highv = int(highv)
+    x, y = trim(x0, y0, lowv, highv)
+
+    exp_data = data[:, :, lowv: highv+1]
+
+    # calculate regression matrix
+    elist = param['non_fitting_values']['element_list'].split(', ')
+    elist = [e.strip(' ') for e in elist]
+    e_select, matv, e_area = construct_linear_model(x, param, elist)
+
+    if comp_elastic_combine is True:
+        e_select = e_select[:-1]
+        e_select[-1] = 'comp_elastic'
+
+        matv_old = np.array(matv)
+        matv = matv_old[:, :-1]
+        matv[:, -1] += matv_old[:, -1]
+
+    if linear_bg is True:
+        e_select.append('const_bkg')
+
+        matv_old = np.array(matv)
+        matv = np.ones([matv_old.shape[0], matv_old.shape[1]+1])
+        matv[:, :-1] = matv_old
+
+    logger.info('Matrix used for linear fitting has components: {}'.format(e_select))
+
+    # add const background, so nnls works better for values above zero
+    if raise_bg > 0:
+        exp_data += raise_bg
+
+    # bin data based on nearest pixels, only two options
+    if pixel_bin in [4, 8]:
         logger.info('Bin pixel data with parameter: {}'.format(pixel_bin))
-        exp_data = rebin_pixel_data(exp_data, nearest_n=pixel_bin)  # return a copy of data
+        exp_data = bin_data_pixel(exp_data, nearest_n=pixel_bin)  # return a copy of data
+
+    # bin data based on energy spectrum
+    if bin_energy is True:
+        exp_data = bin_data_energy(exp_data)
+        matv = bin_data_energy(matv, axis_v=0)
+        x1 = x[::2]
+        x = x1[:x.size/2]
 
     logger.info('-------- Fitting of single pixels starts. --------')
-    e_select, matv, results, start_i, end_i = fit_pixel_multiprocess(exp_data+raise_bg, param,
-                                                                     comp_elastic_combine=comp_elastic_combine,
-                                                                     linear_bg=linear_bg,
-                                                                     use_snip=use_snip)
+    results = fit_pixel_multiprocess(x, matv, exp_data, param,
+                                     use_snip=use_snip)
     # output area of dict
     result_map = calculate_area(e_select, matv, results,
                                 param, first_peak_area=False)
-    return result_map
+    logger.info('-------- Fitting of single pixels is done! --------')
+
+    calculation_info = dict()
+    calculation_info['fit_name'] = e_select
+    calculation_info['regression_mat'] = matv
+    calculation_info['results'] = results
+    calculation_info['fit_range'] = [lowv, highv]
+    calculation_info['energy_axis'] = x
+    calculation_info['exp_data'] = exp_data
+
+    return result_map, calculation_info
 
 
 def get_branching_ratio(elemental_line, energy):
@@ -1210,7 +1263,8 @@ def fit_pixel_slow_version(data, param, c_val=1e-2, fit_num=10, c_weight=1):
     return result_map
 
 
-def save_fitdata_to_hdf(fpath, data_dict, interpath='xrfmap/detsum'):
+def save_fitdata_to_hdf(fpath, data_dict,
+                        interpath='xrfmap/detsum'):
     """
     Add fitting results to existing h5 file. This is to be moved to filestore.
 

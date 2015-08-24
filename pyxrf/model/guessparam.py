@@ -628,6 +628,10 @@ def define_range(data, low, high, a0, a1):
         low bound in KeV
     high : float
         high bound in KeV
+    a0 : float
+        offset term of energy calibration
+    a1 : float
+        linear term of energy calibration
 
     Returns
     -------
