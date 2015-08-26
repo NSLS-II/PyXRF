@@ -6,11 +6,8 @@ source:
   git_url: ../
 
 build:
-  number: 0
-
-  # Note that this will override the default build string with the Python
-  string: {{ environ.get('GIT_BUILD_STR', '') }}_py{{ py }}
-
+  number: 2
+  string: {{ environ.get('GIT_BUILD_STR', '') }}_np{{ np }}py{{ py }}
   entry_points:
     - pyxrf = pyxrf.gui:run
 
@@ -18,16 +15,20 @@ requirements:
   build:
     - python
     - enaml
+    - setuptools
     - numpy
     - six
 
   run:
-    - python
-    - matplotlib
-    - enaml
-    - scikit-xray
     - dataportal
+    - enaml
+    - h5py
+    - matplotlib
+    - numpy
+    - pandas
+    - python
+    - scikit-xray
 
-test:
-  imports:
-    - pyxrf
+about:
+  home: http://github.com/NSLS-II-HXN/pyxrf
+  license: 3-Clause BSD
