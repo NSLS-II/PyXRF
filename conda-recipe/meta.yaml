@@ -1,13 +1,12 @@
 package:
   name: pyxrf
-  version: {{ environ['GIT_DESCRIBE_TAG'] }}.post{{ environ['GIT_DESCRIBE_NUMBER'] }}
+  version: v0.0.2
 
 source:
   git_url: ../
 
 build:
-  number: 2
-  string: {{ environ.get('GIT_BUILD_STR', '') }}_np{{ np }}py{{ py }}
+  number: 0
   entry_points:
     - pyxrf = pyxrf.gui:run
 
