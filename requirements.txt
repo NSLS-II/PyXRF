@@ -1,6 +1,6 @@
 setuptools
 six
 numpy
-scikit-kxray
+scikit-xray
 matplotlib
 enaml
