@@ -1,0 +1,3 @@
+include versioneer.py
+include skxray/_version.py
+include requirements.txt

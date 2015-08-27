@@ -1,0 +1,6 @@
+setuptools
+six
+numpy
+scikit-kxray
+matplotlib
+enaml
