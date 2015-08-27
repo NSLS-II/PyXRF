@@ -65,7 +65,7 @@ setup(
     author='Brookhaven National Laboratory',
     packages=['pyxrf', 'pyxrf.model', 'pyxrf.view'],
     entry_points={'console_scripts': ['pyxrf = pyxrf.gui:run']},
-    package_data={'': ['*.enaml', '*.json']},
+    package_data={'pyxrf.view': ['*.enaml'], 'configs': ['*.json']},
     include_package_data=True,
     requires=['skxray', 'matplotlib', 'enaml', 'six', 'lmfit'],
 )
