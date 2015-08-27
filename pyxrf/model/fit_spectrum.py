@@ -55,10 +55,10 @@ from skxray.core.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
                                            register_strategy, TRANSITIONS_LOOKUP)
 from skxray.core.fitting.background import snip_method
 from skxray.fluorescence import XrfElement as Element
-from .model.guessparam import (calculate_profile, fit_strategy_list,
-                                    trim_escape_peak, define_range, get_energy,
-                                    get_Z, PreFitStatus, ElementController,
-                                    update_param_from_element)
+from .guessparam import (calculate_profile, fit_strategy_list,
+                         trim_escape_peak, define_range, get_energy,
+                         get_Z, PreFitStatus, ElementController,
+                         update_param_from_element)
 from lmfit import fit_report
 
 import pickle
