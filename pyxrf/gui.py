@@ -32,7 +32,7 @@
 # IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE   #
 # POSSIBILITY OF SUCH DAMAGE.                                          #
 ########################################################################
-
+from __future__ import absolute_import
 __author__ = 'Li Li'
 import enaml
 from enaml.qt.qt_application import QtApplication
@@ -41,16 +41,17 @@ import os
 import numpy as np
 import logging
 
-from pyxrf.model.fileio import FileIOModel
-from pyxrf.model.lineplot import LinePlotModel #, SettingModel
-from pyxrf.model.guessparam import GuessParamModel
-from pyxrf.model.draw_image import DrawImageAdvanced
-from pyxrf.model.fit_spectrum import Fit1D
-from pyxrf.model.setting import SettingModel
+from .model.fileio import FileIOModel
+from .model.lineplot import LinePlotModel #, SettingModel
+from .model.guessparam import GuessParamModel
+from .model.draw_image import DrawImageAdvanced
+from .model.fit_spectrum import Fit1D
+from .model.setting import SettingModel
+from .model.param_data import param_data
 import json
 
 with enaml.imports():
-    from pyxrf.view.main_window import XRFGui
+    from .view.main_window import XRFGui
 
 
 def get_defaults():
@@ -61,15 +62,15 @@ def get_defaults():
     output_directory = working_directory
 
     # grab the default parameter file
-    current_dir = os.path.dirname(os.path.realpath(__file__))
-    temp = current_dir.split('/')[:-1]
-    temp.append('configs')
-    param_dir = '/'.join(temp)
-    default_parameter_file = os.path.join(
-        param_dir, 'xrf_parameter.json')
-    with open(default_parameter_file, 'r') as json_data:
-        default_parameters = json.load(json_data)
-
+    # current_dir = os.path.dirname(os.path.realpath(__file__))
+    # temp = current_dir.split('/')[:-1]
+    # temp.append('configs')
+    # param_dir = '/'.join(temp)
+    # default_parameter_file = os.path.join(
+    #     param_dir, 'xrf_parameter.json')
+    # with open(default_parameter_file, 'r') as json_data:
+    #     default_parameters = json.load(json_data)
+    default_parameters = param_data
     defaults = {'working_directory': working_directory,
                 'output_directory': output_directory,
                 'default_parameters': default_parameters}

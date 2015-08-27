@@ -3,8 +3,7 @@
 # National Laboratory. All rights reserved.                            #
 #                                                                      #
 # Redistribution and use in source and binary forms, with or without   #
-# modification, are permitted provided that the following conditions   #
-# are met:                                                             #
+#
 #                                                                      #
 # * Redistributions of source code must retain the above copyright     #
 #   notice, this list of conditions and the following disclaimer.      #
@@ -32,7 +31,7 @@
 # IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE   #
 # POSSIBILITY OF SUCH DAMAGE.                                          #
 ########################################################################
-
+from __future__ import absolute_import
 __author__ = 'Li Li'
 
 from enaml.widgets.api import (Container, PushButton, Label,
@@ -58,7 +57,8 @@ enamldef ImageMain1(DockItem):
     Container:
         constraints = [
             vbox(
-                hbox(pb_all, spacer, cb_select, color_select, tb_check),
+                hbox(pb_all, spacer),
+                hbox(cb_select, color_select, pixel_select, tb_check),
                 canvas,
             ),
         ]
@@ -77,13 +77,19 @@ enamldef ImageMain1(DockItem):
             items = ['Linear', 'Log']
             index = 0
             index ::
-                img_model_adv.scale_opt = cb_select.selected_item
+                img_model_adv.scale_opt = selected_item
 
         ComboBox: color_select:
             items = ['Orange', 'Color', 'Greyscale']
             index = 0
             index ::
-                img_model_adv.color_opt = color_select.selected_item
+                img_model_adv.color_opt = selected_item
+
+        ComboBox: pixel_select:
+            items = ['pixel', 'x,y position']
+            index = 0
+            index ::
+                img_model_adv.pixel_or_pos = selected_item
 
         CheckBox: tb_check:
             text = 'Toolbar Visible'
@@ -166,9 +172,8 @@ enamldef ImageMain(DockItem):
     Container:
         constraints = [
             vbox(
-                hbox(cbox_file, pb_all, spacer,
-                     cb_select, color_select, tb_check),
-                #hbox(pb_all, spacer, cb_select, color_select, tb_check),
+                hbox(cbox_file, pb_all, spacer),
+                hbox(spacer, cb_select, color_select, pixel_select, tb_check),
                 canvas,
             ),
             #cbox_type.v_center == check.v_center,
@@ -178,7 +183,7 @@ enamldef ImageMain(DockItem):
             items << ['Select Data'] + sorted(img_model_adv.data_dict_keys)
             index := img_model_adv.file_opt
             index = 0
-            maximum_size = 200
+            minimum_size = (160,20)
             index ::
                 if index > 0:
                     img_model_adv.plot_item = selected_item
@@ -204,6 +209,11 @@ enamldef ImageMain(DockItem):
             index = 0
             index ::
                 img_model_adv.color_opt = color_select.selected_item
+
+        ComboBox: pixel_select:
+            items = ['pixel', 'x,y position']
+            index = 0
+            index := img_model_adv.pixel_or_pos
 
         CheckBox: tb_check:
             text = 'Toolbar Visible'

@@ -32,17 +32,17 @@
 # IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE   #
 # POSSIBILITY OF SUCH DAMAGE.                                          #
 ########################################################################
-
+from __future__ import absolute_import
 __author__ = 'Li Li'
 
 from enaml.widgets.api import (MainWindow, Container, DockArea)
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, TabLayout
 
 from .fileio import FileView
-from .guessparam import GuessParamView, EditPileupPeak
+from .guessparam import GuessParamView
 from .lineplot import PlotMain, AdjustEmissionLine
 from .image2D import ImageMain, ChooseElementAdvanced
-from .fit import FitView, ElementEdit, ParameterEdit, OtherSettingEdit
+from .fit import FitView, ElementEdit, ParameterEdit, OtherSettingEdit, EditPileupPeak
 from .setting import SettingView
 
 
@@ -61,8 +61,7 @@ enamldef XRFGui(MainWindow): main_window:
         DockArea:
             layout = HSplitLayout(
                 TabLayout('file_view', 'param_guess_view',
-                          'fitting_view'), #, 'setting_view'),
-                #VSplitLayout('file_view', 'fitting_view_n'),
+                          'fitting_view', 'setting_view'),
                 TabLayout('lineplot_view', 'image_view'),
                 )
             FileView:
@@ -73,7 +72,7 @@ enamldef XRFGui(MainWindow): main_window:
                 plot_model = main_window.plot_model
                 # img_model_adv = main_window.img_model_adv
                 # fit_model = main_window.fit_model
-                # setting_model = main_window.setting_model
+                setting_model = main_window.setting_model
                 name = 'file_view'
             GuessParamView:
                 closable = False
@@ -84,7 +83,9 @@ enamldef XRFGui(MainWindow): main_window:
                 plot_model = main_window.plot_model
                 fit_model = main_window.fit_model
                 edit_pileup = EditPileupPeak(
-                    visible=False, destroy_on_close=False,
+                    visible=False,
+                    destroy_on_close=False,
+                    parent=main_window,
                     param_model=main_window.param_model)
             PlotMain:
                 closable = False
@@ -93,7 +94,9 @@ enamldef XRFGui(MainWindow): main_window:
                 plot_model = main_window.plot_model
                 param_model = main_window.param_model
                 adjust_emission_line = AdjustEmissionLine(
-                    visible=False, destroy_on_close=False,
+                    visible=False,
+                    destroy_on_close=False,
+                    parent=main_window,
                     plot_model=main_window.plot_model)
                 name = 'lineplot_view'
             ImageMain:
@@ -104,6 +107,7 @@ enamldef XRFGui(MainWindow): main_window:
                 choose_element = ChooseElementAdvanced(
                     visible=False, destroy_on_close=False,
                     always_on_top=True,
+                    parent=main_window,
                     img_model=main_window.img_model_adv)
                 #plot_model = main_window.plot_model
                 name = 'image_view'
@@ -111,28 +115,33 @@ enamldef XRFGui(MainWindow): main_window:
                 closable = False
                 title = 'Fit     '
                 plot_model = main_window.plot_model
+                #param_model = main_window.param_model
                 fit_model = main_window.fit_model
                 img_model_adv = main_window.img_model_adv
 
                 element_edit = ElementEdit(
                     visible=False,
                     destroy_on_close=False,
+                    parent=main_window,
                     parameter_model=main_window.fit_model)
                 parameter_edit = ParameterEdit(
                     visible=False,
                     destroy_on_close=False,
+                    parent=main_window,
                     parameter_model=main_window.fit_model)
                 othersetting_edit = OtherSettingEdit(
                     visible=False,
                     destroy_on_close=False,
-                    always_on_top=True,
-                    fit_model=main_window.fit_model)
+                    #parent=main_window,
+                    fit_model=main_window.fit_model,
+                    plot_model=main_window.plot_model)
+
                 name = 'fitting_view'
-            #SettingView:
-            #    closable = False
-            #    title = 'Setting'
-            #    io_model = main_window.io_model
-            #    plot_model = main_window.plot_model
-            #    img_model_adv = main_window.img_model_adv
-            #    setting_model = main_window.setting_model
-            #    name = 'setting_view'
+            SettingView:
+                closable = False
+                title = 'ROI Setting'
+                io_model = main_window.io_model
+                plot_model = main_window.plot_model
+                img_model_adv = main_window.img_model_adv
+                setting_model = main_window.setting_model
+                name = 'setting_view'

@@ -293,13 +293,6 @@ class LinePlotModel(Atom):
         self.log_linear_plot()
         self._update_canvas()
 
-    # @observe('data')
-    # def data_update(self, change):
-    #     self.max_v = np.max(self.data)
-    #     self._update_ylimit()
-    #     self.log_linear_plot()
-    #     self._update_canvas()
-
     @observe('plot_exp_opt')
     def _new_exp_plot_opt(self, change):
         if change['value']:
@@ -324,6 +317,7 @@ class LinePlotModel(Atom):
             logger.debug('No need to remove experimental data.')
 
         data_arr = np.asarray(self.data)
+        self.exp_data_update({'value': data_arr})
 
         x_v = (self.parameters['e_offset']['value'] +
                np.arange(len(data_arr)) *
@@ -343,7 +337,7 @@ class LinePlotModel(Atom):
 
         color_n = get_color_name()
 
-        self.max_v = 0
+        self.max_v = 1.0
         m = 0
         for (k, v) in six.iteritems(self.data_sets):
             if v.plot_index:

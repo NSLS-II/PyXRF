@@ -1,0 +1,33 @@
+package:
+  name: pyxrf
+  version: {{ environ['GIT_DESCRIBE_TAG'] }}.post{{ environ['GIT_DESCRIBE_NUMBER'] }}
+
+source:
+  git_url: ../
+
+build:
+  number: 0
+  string: {{ environ.get('GIT_BUILD_STR', '') }}_np{{ np }}py{{ py }}
+  entry_points:
+    - pyxrf = pyxrf.gui:run
+
+requirements:
+  build:
+    - python
+    - enaml
+    - setuptools
+    - numpy
+    - six
+
+  run:
+    - enaml
+    - h5py
+    - matplotlib
+    - numpy
+    - pandas
+    - python
+    - scikit-xray
+
+about:
+  home: http://github.com/NSLS-II-HXN/pyxrf
+  license: 3-Clause BSD

@@ -32,7 +32,7 @@
 # IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE   #
 # POSSIBILITY OF SUCH DAMAGE.                                          #
 ########################################################################
-
+from __future__ import absolute_import
 __author__ = 'Li Li'
 
 from enaml.widgets.api import (Container, PushButton, Label,
@@ -87,7 +87,11 @@ enamldef SettingView(DockItem):
                         #box.exec_()
                         roi_result = setting_model.get_roi_sum()
                         img_model_adv.data_dict.update(roi_result)
-                        img_model_adv.set_initial_stat()
+
+                        img_model_adv.data_dict_keys = []
+                        img_model_adv.data_dict_keys = img_model_adv.data_dict.keys()
+
+                        #img_model_adv.set_initial_stat()
 
             ScrollArea: scroller:
                 #Form:
