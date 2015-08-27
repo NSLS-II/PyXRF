@@ -32,7 +32,7 @@
 # IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE   #
 # POSSIBILITY OF SUCH DAMAGE.                                          #
 ########################################################################
-
+from __future__ import absolute_import
 __author__ = 'Li Li'
 import enaml
 from enaml.qt.qt_application import QtApplication
@@ -41,17 +41,17 @@ import os
 import numpy as np
 import logging
 
-from pyxrf.model.fileio import FileIOModel
-from pyxrf.model.lineplot import LinePlotModel #, SettingModel
-from pyxrf.model.guessparam import GuessParamModel
-from pyxrf.model.draw_image import DrawImageAdvanced
-from pyxrf.model.fit_spectrum import Fit1D
-from pyxrf.model.setting import SettingModel
-from pyxrf.model.param_data import param_data
+from .model.fileio import FileIOModel
+from .model.lineplot import LinePlotModel #, SettingModel
+from .model.guessparam import GuessParamModel
+from .model.draw_image import DrawImageAdvanced
+from .model.fit_spectrum import Fit1D
+from .model.setting import SettingModel
+from .model.param_data import param_data
 import json
 
 with enaml.imports():
-    from pyxrf.view.main_window import XRFGui
+    from .view.main_window import XRFGui
 
 
 def get_defaults():

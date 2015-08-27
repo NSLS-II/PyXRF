@@ -32,7 +32,7 @@
 # IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE   #
 # POSSIBILITY OF SUCH DAMAGE.                                          #
 ########################################################################
-
+from __future__ import absolute_import
 __author__ = 'Li Li'
 
 import numpy as np
@@ -55,7 +55,7 @@ from skxray.core.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
                                            register_strategy, TRANSITIONS_LOOKUP)
 from skxray.core.fitting.background import snip_method
 from skxray.fluorescence import XrfElement as Element
-from pyxrf.model.guessparam import (calculate_profile, fit_strategy_list,
+from .model.guessparam import (calculate_profile, fit_strategy_list,
                                     trim_escape_peak, define_range, get_energy,
                                     get_Z, PreFitStatus, ElementController,
                                     update_param_from_element)
