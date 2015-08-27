@@ -20,7 +20,6 @@ requirements:
     - six
 
   run:
-#    - dataportal
     - enaml
     - h5py
     - matplotlib

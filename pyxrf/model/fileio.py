@@ -55,9 +55,13 @@ try:
     from dataportal import DataBroker as db
     from dataportal import StepScan as ss
     from dataportal import DataMuxer as dm
-    import hxntools.detectors
+    # registers a filestore handler for the XSPRESS3 detector
+    from hxntools import detectors as hxndetectors
 except ImportError, e:
-    logger.warning('Modules not available: %s' % (e))
+    db = None
+    ss = None
+    dm = None
+    logger.warning('dataportal and hxntools are not available: %s' % (e))
 
 
 class FileIOModel(Atom):
@@ -133,7 +137,13 @@ class FileIOModel(Atom):
     def load_data_runid(self):
         """
         Load data according to runID number.
+
+        requires dataportal
         """
+        if db is None:
+            raise RuntimeError("dataportal is not installed. This function "
+                               "is disabled.  To install dataportal, see "
+                               "https://nsls-ii.github.io/install.html")
         if self.h_num != 0 and self.v_num != 0:
             datashape = [self.v_num, self.h_num]
 
@@ -277,6 +287,8 @@ def fetch_data_from_db(runid):
     """
     Read data from database.
 
+    .. note:: Requires the dataportal package from NSLS2
+
     Parameters
     ----------
     runid : int
@@ -311,6 +323,10 @@ def fetch_data_from_db(runid):
 def read_runid(runid, c_list, dshape=None):
     """
     Read data from databroker.
+
+    .. note:: Requires the dataportal package from NSLS2
+
+    .. note:: Not currently used in the gui
 
     Parameters
     ----------
@@ -357,7 +373,7 @@ def read_runid(runid, c_list, dshape=None):
             sumv = np.array(new_data)
         else:
             sumv += new_data
-    
+
     file_channel = 'run_'+str(runid)
     DS = DataSelection(filename=file_channel,
                        raw_data=sumv)
@@ -1076,6 +1092,8 @@ def write_db_to_hdf(fpath, data, datashape,
     """
     Assume data is obained from databroker, and save the data to hdf file.
 
+    .. note:: This function should become part of suitcase
+
     Parameters
     ----------
     fpath: str
@@ -1257,6 +1275,9 @@ def db_to_hdf(fpath, runid,
     """
     Read data from databroker, and save the data to hdf file.
 
+    .. note:: Requires the dataportal package from NSLS2
+    .. note:: This should probably be moved to suitcase!
+
     Parameters
     ----------
     fpath: str
@@ -1349,11 +1370,12 @@ def data_to_hdf_config(fpath, data,
                     pos_list=config_data['pos_list'],
                     scaler_list=scaler_list)
 
-
 def db_to_hdf_config(fpath, runid,
                      datashape, config_file):
     """
     Assume data is ready from databroker, so save the data to hdf file.
+
+    .. note:: Requires the dataportal package from NSLS2
 
     Parameters
     ----------
@@ -1365,6 +1387,7 @@ def db_to_hdf_config(fpath, runid,
         shape of two D image
     config_file : str
         path to json file which saves all pv names
+
     """
     data = fetch_data_from_db(runid)
     data_to_hdf_config(fpath, data, datashape, config_file)
