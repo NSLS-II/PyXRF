@@ -139,7 +139,7 @@ class Fit1D(Atom):
     pixel_bin = Int(0)
     linear_bg = Bool(False)
     use_snip = Bool(True)
-    bin_energy = Bool(False)
+    bin_energy = Int(0)
 
     def __init__(self, *args, **kwargs):
         self.working_directory = kwargs['working_directory']
@@ -494,7 +494,7 @@ class Fit1D(Atom):
             p1 = [self.point1v, self.point1h]
             p2 = [self.point2v, self.point2v]
             prefix = self.save_name.split('.')[0]
-            output_folder = os.path.join(self.result_folder, prefix+'_pxiel_fit')
+            output_folder = os.path.join(self.result_folder, prefix+'_pixel_fit')
             if os.path.exists(output_folder) is False:
                 os.mkdir(output_folder)
             logger.info('Saving plots for single pixels ...')
@@ -851,32 +851,77 @@ def fit_pixel_multiprocess(x, matv, data_fit, param,
 
 def bin_data_pixel(data, nearest_n=4):
     """
-    Bin 3D data according to nearest neighbors in dim 1 and 2.
+    Bin 3D data according to number of pixels defined in dim 1 and 2.
 
     Parameters
     ----------
     data : 3D array
         exp data with energy channel in 3rd dim.
     nearest_n : int, optional
-        define how many neighbors to be considered.
+        define how many pixels to be considered.
     """
     new_data = np.array(data)
     d_shape = data.shape
 
-    if nearest_n == 4:
-        for i in [-1, 1]:
-            new_data[1:-1, 1:-1, :] += data[1+i:d_shape[0]-1+i, 1:d_shape[1]-1, :]
-        for j in [-1, 1]:
-            new_data[1:-1, 1:-1, :] += data[1:d_shape[0]-1, 1+j:d_shape[1]-1+j, :]
+    # if nearest_n == 4:
+    #     for i in [-1, 1]:
+    #         new_data[1:-1, 1:-1, :] += data[1+i:d_shape[0]-1+i, 1:d_shape[1]-1, :]
+    #     for j in [-1, 1]:
+    #         new_data[1:-1, 1:-1, :] += data[1:d_shape[0]-1, 1+j:d_shape[1]-1+j, :]
 
-    if nearest_n == 8:
+    if nearest_n == 4:
+        for i in np.arange(d_shape[0]-1):
+            for j in np.arange(d_shape[1]-1):
+                new_data[i, j, :] += (new_data[i+1, j, :] +
+                                      new_data[i, j+1, :] +
+                                      new_data[i+1, j+1, :])
+        new_data[:-1, :-1, :] /= nearest_n
+
+    if nearest_n == 9:
         for i in [-1, 0, 1]:
             for j in [-1, 0, 1]:
                 new_data[1:-1, 1:-1, :] += data[1+i:d_shape[0]-1+i, 1+j:d_shape[1]-1+j, :]
 
-    new_data[1:-1, 1:-1, :] /= (nearest_n+1)
+        new_data[1:-1, 1:-1, :] /= nearest_n
 
     return new_data
+
+
+def bin_data_spacial(data, bin_size=4):
+    d_shape = np.array([data.shape[0], data.shape[1]])/bin_size
+
+    data_new = np.zeros([d_shape[0], d_shape[1], data.shape[2]])
+    for i in np.arange(d_shape[0]):
+        for j in np.arange(d_shape[1]):
+            data_new[i, j, :] = np.sum(data[i*bin_size:i*bin_size+bin_size,
+                                            j*bin_size:j*bin_size+bin_size, :], axis=(0, 1))
+    return data_new
+
+
+def conv_expdata_energy(data, width=2):
+    """
+    Do convolution on the 3rd axis, energy axis.
+    Paremeters
+    ----------
+    data : 3D array
+        exp spectrum
+    width : int, optional
+        width of the convolution function.
+    Returns
+    -------
+    array :
+        after convolution
+    """
+    data_new = np.array(data)
+    if width == 2:
+        conv_f = [1.0/2, 1.0/2]
+    if width == 3:
+        conv_f = [1.0/3, 1.0/3, 1.0/3]
+    for i in np.arange(data.shape[0]):
+        for j in np.arange(data.shape[1]):
+            data_new[i, j, :] = np.convolve(data_new[i, j, :], conv_f, mode='same')
+
+    return data_new
 
 
 def bin_data_energy(data, axis_v=2):
@@ -913,6 +958,24 @@ def bin_data_energy(data, axis_v=2):
             new_data1 = data[:, :, ::2]
             new_data2 = data[:, :, 1::2]
             return (new_data1[:, :, :new_len] + new_data2[:, :, :new_len])/2
+
+
+def cal_r2(y, y_cal):
+    """
+    Calculate r2 statistics.
+    Parameters
+    ----------
+    y : array
+        exp data
+    y_cal : array
+        fitted data
+    Returns
+    -------
+    float
+    """
+    sse = np.sum((y-y_cal)**2)
+    sst = np.sum((y - np.mean(y))**2)
+    return 1-sse/sst
 
 
 def calculate_area(e_select, matv, results,
@@ -962,7 +1025,7 @@ def save_fitted_fig(x_v, matv, results,
                     p1, p2, data_all, param_dict,
                     result_folder, use_sinp=False):
 
-    low_limit_v = 0.9
+    low_limit_v = 0.5
 
     fig, ax = plt.subplots(nrows=1, ncols=1)
     ax.set_xlabel('Energy [keV]')
@@ -1022,25 +1085,16 @@ def single_pixel_fitting_controller(input_data, param,
                                     comp_elastic_combine=True,
                                     linear_bg=True,
                                     use_snip=False,
-                                    bin_energy=True):
+                                    bin_energy=2):
 
-    # cut range
-    data = np.array(input_data)
-    y0 = data[0, 0, :]
-    x0 = np.arange(len(y0))
+    # get cutted channel data
+    x, exp_data, fit_range = get_cutted_spectrum_in3D(input_data,
+                                                      param['non_fitting_values']['energy_bound_low']['value'],
+                                                      param['non_fitting_values']['energy_bound_high']['value'],
+                                                      param['e_offset']['value'],
+                                                      param['e_linear']['value'])
 
-    # transfer energy value back to channel value
-    lowv = (param['non_fitting_values']['energy_bound_low']['value'] -
-            param['e_offset']['value'])/param['e_linear']['value']
-    highv = (param['non_fitting_values']['energy_bound_high']['value'] -
-             param['e_offset']['value'])/param['e_linear']['value']
-    lowv = int(lowv)
-    highv = int(highv)
-    x, y = trim(x0, y0, lowv, highv)
-
-    exp_data = data[:, :, lowv: highv+1]
-
-    # calculate regression matrix
+    # calculate matrix for regression analysis
     elist = param['non_fitting_values']['element_list'].split(', ')
     elist = [e.strip(' ') for e in elist]
     e_select, matv, e_area = construct_linear_model(x, param, elist)
@@ -1067,16 +1121,17 @@ def single_pixel_fitting_controller(input_data, param,
         exp_data += raise_bg
 
     # bin data based on nearest pixels, only two options
-    if pixel_bin in [4, 8]:
+    if pixel_bin in [4, 9]:
         logger.info('Bin pixel data with parameter: {}'.format(pixel_bin))
         exp_data = bin_data_pixel(exp_data, nearest_n=pixel_bin)  # return a copy of data
 
     # bin data based on energy spectrum
-    if bin_energy is True:
-        exp_data = bin_data_energy(exp_data)
-        matv = bin_data_energy(matv, axis_v=0)
-        x1 = x[::2]
-        x = x1[:x.size/2]
+    if bin_energy in [2, 3]:
+        exp_data = conv_expdata_energy(exp_data, width=bin_energy)
+        #exp_data = bin_data_energy(exp_data)
+        #matv = bin_data_energy(matv, axis_v=0)
+        #x1 = x[::2]
+        #x = x1[:x.size/2]
 
     logger.info('-------- Fitting of single pixels starts. --------')
     results = fit_pixel_multiprocess(x, matv, exp_data, param,
@@ -1090,11 +1145,52 @@ def single_pixel_fitting_controller(input_data, param,
     calculation_info['fit_name'] = e_select
     calculation_info['regression_mat'] = matv
     calculation_info['results'] = results
-    calculation_info['fit_range'] = [lowv, highv]
+    calculation_info['fit_range'] = fit_range
     calculation_info['energy_axis'] = x
     calculation_info['exp_data'] = exp_data
 
     return result_map, calculation_info
+
+
+def get_cutted_spectrum_in3D(exp_data, low_e, high_e,
+                             e_offset, e_linear):
+    """
+    Cut exp data on the 3rd axis, energy axis.
+    Parameters
+    ----------
+    exp_data : 3D array
+    low_e : float
+        low energy bound in KeV
+    high_e : float
+        high energy bound in KeV
+    e_offset : float
+        offset term in energy calibration
+    e_linear : float
+        linear term in energy calibration
+    Returns
+    -------
+    x : array
+        channel data
+    data : 3D array
+        after cutting into the correct range
+    list :
+        fitting range
+    """
+
+    # cut range
+    data = np.array(exp_data)
+    y0 = data[0, 0, :]
+    x0 = np.arange(len(y0))
+
+    # transfer energy value back to channel value
+    lowv = (low_e - e_offset) / e_linear
+    highv = (high_e - e_offset) / e_linear
+    lowv = int(lowv)
+    highv = int(highv)
+    x, y = trim(x0, y0, lowv, highv)
+
+    data = data[:, :, lowv: highv+1]
+    return x, data, [lowv, highv]
 
 
 def get_branching_ratio(elemental_line, energy):

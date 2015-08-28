@@ -840,12 +840,17 @@ enamldef OtherSettingEdit(Window):
                         FloatField:
                             value := fit_model.raise_bg
                         Label:
-                            text = 'Bin data with more pixels'
+                            text = 'Bin data on x,y positions'
                         ComboBox: cb_bin:
-                            items = ['0', '4', '8']
+                            items = ['0', '2 by 2', '3 by 3']
                             index = 0
                             index ::
-                                fit_model.pixel_bin = int(selected_item)
+                                if index == 0:
+                                    fit_model.pixel_bin = 0
+                                if index == 1:
+                                    fit_model.pixel_bin = 4
+                                if index == 2:
+                                    fit_model.pixel_bin = 9
                         Label:
                             text = 'Use linear background'
                         ComboBox:
@@ -867,15 +872,12 @@ enamldef OtherSettingEdit(Window):
                                 else:
                                     fit_model.use_snip = False
                         Label:
-                            text = 'Bin data along energy axis'
+                            text = 'Bin data on energy axis'
                         ComboBox:
-                            items = ['Yes', 'No']
-                            index = 1
+                            items = ['0', '2', '3']
+                            index = 0
                             index ::
-                                if index == 0:
-                                    fit_model.bin_energy = True
-                                else:
-                                    fit_model.bin_energy = False
+                                fit_model.bin_energy = int(selected_item)
 
                         #Label:
                         #    text = 'Weighted c'
