@@ -806,7 +806,7 @@ def fit_pixel_multiprocess(x, matv, data_fit, param,
 
 def bin_data_pixel(data, nearest_n=4):
     """
-    Bin 3D data according to number of pixels defined in dim 1 and 2.
+ a   Bin 3D data according to number of pixels defined in dim 1 and 2.
 
     Parameters
     ----------
@@ -1294,11 +1294,19 @@ def get_branching_ratio(elemental_line, energy):
     return ratio_v
 
 
-def simple_spectrum_fun_for_nonlinear(x, **kwargs):
-    return np.sum(kwargs['a{}'.format(i)] * reg_mat[:, i] for i in range(len(kwargs)))
+# def simple_spectrum_fun_for_nonlinear(x, **kwargs):
+#     return np.sum(kwargs['a{}'.format(i)] * reg_mat[:, i] for i in range(len(kwargs)))
 
 
-def fit_pixel_nonlinear_per_line(row_num, data, x0, param, reg_mat):
+def simple_spectrum_fun_for_nonlinear(pars, x, reg_mat):
+    vals = pars.valuesdict()
+    return np.sum(vals['a{}'.format(i)] * reg_mat[:, i] for i in range(len(vals)))
+
+def residual_linear_fit(pars, x, data=None, reg_mat=None):
+    return simple_spectrum_fun_for_nonlinear(pars, x, reg_mat) - data
+
+
+def fit_pixel_nonlinear_per_line(row_num, data, x0, param, fit_params, reg_mat):
                                  #c_weight, fit_num, ftol):
 
     c_weight = 1
@@ -1308,9 +1316,9 @@ def fit_pixel_nonlinear_per_line(row_num, data, x0, param, reg_mat):
     elist = param['non_fitting_values']['element_list'].split(', ')
     elist = [e.strip(' ') for e in elist]
 
-    LinearModel = lmfit.Model(simple_spectrum_fun_for_nonlinear)
-    for i in np.arange(reg_mat.shape[0]):
-        LinearModel.set_param_hint('a'+str(i), value=0.1, min=0, vary=True)
+    # LinearModel = lmfit.Model(simple_spectrum_fun_for_nonlinear)
+    # for i in np.arange(reg_mat.shape[0]):
+    #     LinearModel.set_param_hint('a'+str(i), value=0.1, min=0, vary=True)
 
     logger.info('Row number at {}'.format(row_num))
     out = []
@@ -1323,13 +1331,15 @@ def fit_pixel_nonlinear_per_line(row_num, data, x0, param, reg_mat):
         # y0 = data[i, :] - bg
         y0 = data[i, :]
         # setting constant weight to some value might cause error when fitting
-        pars = LinearModel.make_params()
-        result_linear = LinearModel.fit(y0, pars, x=x0)
+        #pars = LinearModel.make_params()
+        #result_linear = LinearModel.fit(y0, pars, x=x0)
+        result = lmfit.minimize(residual_linear_fit,
+                                fit_params, args=(x0,), kws={'data':y0, 'reg_mat':reg_mat})
         # result = MS.model_fit(x0, y0,
         #                       weights=1/np.sqrt(c_weight+y0),
         #                       maxfev=fit_num,
         #                       xtol=ftol, ftol=ftol, gtol=ftol)
-        out.append(result)
+        out.append(result.params)
     return out
 
 
@@ -1384,15 +1394,19 @@ def fit_pixel_nonlinear(data, param):
     fit_num = 100
     ftol = 1e-3
 
-    e_select, reg_mat, e_area = construct_linear_model(x, param, elist)
     global reg_mat
+    e_select, reg_mat, e_area = construct_linear_model(x, param, elist)
+
+    fit_params = lmfit.Parameters()
+    for i in range(reg_mat.shape[1]):
+        fit_params.add('a'+str(i), value=1.0, min=0, vary=True)
 
     # MS = ModelSpectrum(param, elist)
     # MS.assemble_models()
 
     result_pool = [pool.apply_async(fit_pixel_nonlinear_per_line,
                                     (n, data[n, :, start_i:end_i+1], x,
-                                     param, reg_mat))
+                                     param, fit_params, reg_mat))
                    for n in range(data.shape[0])]
 
     results = []
