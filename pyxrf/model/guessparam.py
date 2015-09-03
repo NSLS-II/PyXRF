@@ -615,7 +615,6 @@ def save_as(file_path, data):
         json.dump(data, outfile,
                   sort_keys=True, indent=4)
 
-
 def define_range(data, low, high, a0, a1):
     """
     Cut x range according to values define in param_dict.

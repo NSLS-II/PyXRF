@@ -45,13 +45,13 @@ import multiprocessing
 import h5py
 import matplotlib.pyplot as plt
 import json
+from scipy.optimize import nnls
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
 from skxray.core.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
                                            sum_area, set_parameter_bound,
                                            ParamController, K_LINE, L_LINE, M_LINE,
-                                           nnls_fit, weighted_nnls_fit, trim,
-                                           construct_linear_model, linear_spectrum_fitting,
+                                           nnls_fit, trim, construct_linear_model, linear_spectrum_fitting,
                                            register_strategy, TRANSITIONS_LOOKUP)
 from skxray.core.fitting.background import snip_method
 from skxray.fluorescence import XrfElement as Element
@@ -59,7 +59,8 @@ from .guessparam import (calculate_profile, fit_strategy_list,
                          trim_escape_peak, define_range, get_energy,
                          get_Z, PreFitStatus, ElementController,
                          update_param_from_element)
-from lmfit import fit_report
+#from lmfit import fit_report
+import lmfit
 
 import pickle
 
@@ -368,14 +369,15 @@ class Fit1D(Atom):
     def fit_data(self, x0, y0):
         fit_num = self.fit_num
         ftol = self.ftol
-        c_weight = 100  #self.c_weight
+        c_weight = 1  #avoid zero point
         MS = ModelSpectrum(self.param_dict, self.element_list)
         MS.assemble_models()
 
-        weight_v = np.sqrt(np.abs(c_weight/(c_weight+y0)))
-        weight_v /= np.sum(weight_v)
+        weights = 1/np.sqrt(c_weight + np.abs(y0))
+        weights /= np.sum(weights)
+
         result = MS.model_fit(x0, y0,
-                              weights=weight_v,
+                              weights=weights,
                               maxfev=fit_num,
                               xtol=ftol, ftol=ftol, gtol=ftol)
         self.fit_x = (result.values['e_offset'] +
@@ -525,7 +527,7 @@ class Fit1D(Atom):
         filepath = os.path.join(self.result_folder, fname)
 
         with open(filepath, 'w') as myfile:
-            myfile.write(fit_report(self.fit_result, sort_pars=True))
+            myfile.write(lmfit.fit_report(self.fit_result, sort_pars=True))
             logger.warning('Results are saved to {}'.format(filepath))
 
     def update_name_list(self):
@@ -688,33 +690,33 @@ def extract_result(data, element):
     return np.array(data_map)
 
 
-def fit_pixel(y, expected_matrix, constant_weight=10):
-    """
-    Non-negative linear fitting is applied for each pixel.
-
-    Parameters
-    ----------
-    y : array
-        spectrum of experiment data
-    expected_matrix : array
-        2D matrix of activated element spectrum
-    constant_weight : float
-        value used to calculate weight like so:
-        weights = constant_weight / (constant_weight + spectrum)
-
-    Returns
-    -------
-    results : array
-        weights of different element
-    residue : array
-        error
-    """
-    if constant_weight:
-        results, residue = weighted_nnls_fit(y, expected_matrix,
-                                             constant_weight=constant_weight)
-    else:
-        results, residue = nnls_fit(y, expected_matrix)
-    return results, residue
+# def fit_pixel(y, expected_matrix, constant_weight=10):
+#     """
+#     Non-negative linear fitting is applied for each pixel.
+#
+#     Parameters
+#     ----------
+#     y : array
+#         spectrum of experiment data
+#     expected_matrix : array
+#         2D matrix of activated element spectrum
+#     constant_weight : float
+#         value used to calculate weight like so:
+#         weights = constant_weight / (constant_weight + spectrum)
+#
+#     Returns
+#     -------
+#     results : array
+#         weights of different element
+#     residue : array
+#         error
+#     """
+#     if constant_weight:
+#         results, residue = weighted_nnls_fit(y, expected_matrix,
+#                                              constant_weight=constant_weight)
+#     else:
+#         results, residue = nnls_fit(y, expected_matrix)
+#     return results, residue
 
 
 def fit_per_line(row_num, data,
@@ -754,7 +756,7 @@ def fit_per_line(row_num, data,
 
         else:
             y = data[i, :]
-        result, res = fit_pixel(y, matv, constant_weight=None)
+        result, res = nnls_fit(y, matv, weights=None)
 
         sst = np.sum((y-np.mean(y))**2)
         r2 = 1 - res/sst
@@ -785,53 +787,6 @@ def fit_pixel_multiprocess(x, matv, data_fit, param,
     logger.info('cpu count: {}'.format(num_processors_to_use))
     pool = multiprocessing.Pool(num_processors_to_use)
 
-    # # cut range
-    # y0 = data[0, 0, :]
-    # x0 = np.arange(len(y0))
-    #
-    # # transfer energy value back to channel value
-    # lowv = (param['non_fitting_values']['energy_bound_low']['value'] -
-    #         param['e_offset']['value'])/param['e_linear']['value']
-    # highv = (param['non_fitting_values']['energy_bound_high']['value'] -
-    #          param['e_offset']['value'])/param['e_linear']['value']
-    #
-    # lowv = int(lowv)
-    # highv = int(highv)
-    #
-    # x, y = trim(x0, y0, lowv, highv)
-    #start_i = x0[x0 == x[0]][0]
-    #end_i = x0[x0 == x[-1]][0]
-
-    #data_fit = data[:, :, start_i:end_i+1]
-    #logger.info('Fit within energy channel range: ({}, {})'.format(start_i, end_i))
-
-    # construct matrix
-    # elist = param['non_fitting_values']['element_list'].split(', ')
-    # elist = [e.strip(' ') for e in elist]
-    #
-    # e_select, matv, e_area = construct_linear_model(x, param, elist)
-    #
-    # if comp_elastic_combine is True:
-    #     e_select = e_select[:-1]
-    #     e_select[-1] = 'comp_elastic'
-    #
-    #     matv_old = np.array(matv)
-    #     matv = matv_old[:, :-1]
-    #     matv[:, -1] += matv_old[:, -1]
-    #
-    # if linear_bg is True:
-    #     e_select.append('const_bkg')
-    #
-    #     matv_old = np.array(matv)
-    #     matv = np.ones([matv_old.shape[0], matv_old.shape[1]+1])
-    #     matv[:, :-1] = matv_old
-    #
-    # logger.info('Matrix used for linear fitting has components: {}'.format(e_select))
-    #
-    # if bin_energy is True:
-    #     data_fit = bin_data_energy(data_fit)
-    #     matv = bin_data_energy(matv, axis_v=0)
-
     result_pool = [pool.apply_async(fit_per_line,
                                     (n, data_fit[n, :, :], matv,
                                      param, use_snip))
@@ -846,7 +801,7 @@ def fit_pixel_multiprocess(x, matv, data_fit, param,
 
     results = np.array(results)
 
-    return results #, start_i, end_i
+    return results
 
 
 def bin_data_pixel(data, nearest_n=4):
@@ -888,6 +843,9 @@ def bin_data_pixel(data, nearest_n=4):
 
 
 def bin_data_spacial(data, bin_size=4):
+    if bin_size <= 1:
+        return data
+
     d_shape = np.array([data.shape[0], data.shape[1]])/bin_size
 
     data_new = np.zeros([d_shape[0], d_shape[1], data.shape[2]])
@@ -924,40 +882,117 @@ def conv_expdata_energy(data, width=2):
     return data_new
 
 
-def bin_data_energy(data, axis_v=2):
+def bin_data_energy2D(data, bin_step=2, axis_v=0, sum_data=False):
     """
     Bin data based on given dim, i.e., a dim for energy spectrum.
+    Return a copy of the data. Currently only binning along first
+    dim is implemented.
+
+    Parameters
+    ----------
+    data : 2D array
+    bin_step : int, optional
+        size to bin the data
+    axis_v : int, optional
+        along which dir to bin data.
+    sum_data : bool, optional
+        sum data from each bin or not
+
+    Returns
+    -------
+    binned data with reduced dim of the previous size.
+    """
+    if bin_step == 1:
+        return data
+
+    data = np.array(data)
+    if axis_v == 0:
+        if bin_step == 2:
+            new_len = data.shape[0]/bin_step
+            m1 = data[::2, :]
+            m2 = data[1::2, :]
+            if sum_data is True:
+                return (m1[:new_len, :] +
+                        m2[:new_len, :])/bin_step
+            else:
+                return m1[:new_len, :]
+        elif bin_step == 3:
+            new_len = data.shape[0]/bin_step
+            m1 = data[::3, :]
+            m2 = data[1::3, :]
+            m3 = data[2::3, :]
+            if sum_data is True:
+                return (m1[:new_len, :] +
+                        m2[:new_len, :] +
+                        m3[:new_len, :])/bin_step
+            else:
+                return m1[:new_len, :]
+        elif bin_step == 4:
+            new_len = data.shape[0]/bin_step
+            m1 = data[::4, :]
+            m2 = data[1::4, :]
+            m3 = data[2::4, :]
+            m4 = data[3::4, :]
+            if sum_data is True:
+                return (m1[:new_len, :] +
+                        m2[:new_len, :] +
+                        m3[:new_len, :] +
+                        m4[:new_len, :])/bin_step
+            else:
+                return m1[:new_len, :]
+
+
+def bin_data_energy3D(data, bin_step=2, sum_data=False):
+    """
+    Bin 3D data along 3rd axis, i.e., a dim for energy spectrum.
     Return a copy of the data.
 
     Parameters
     ----------
-    data : 2D or 3D array
-    axis_v : int, optional
-        along which dir to bin data.
+    data : 3D array
+    sum_data : bool, optional
+        sum data from each bin or not
 
     Returns
     -------
-    binned data with given dim half of the previous size.
-
+    binned data with reduced dim of the previous size.
     """
-    if data.ndim == 2:
-        if axis_v == 0:
-            new_len = data.shape[0]/2
-            m1 = data[::2, :]
-            m2 = data[1::2, :]
-            return (m1[:new_len, :] + m2[:new_len, :])/2
-        elif axis_v == 1:
-            new_len = data.shape[1]/2
-            m1 = data[:, ::2]
-            m2 = data[:, 1::2]
-            return (m1[:, :new_len] + m2[:, :new_len])/2
-
-    elif data.ndim == 3:
-        if axis_v == 2:
-            new_len = data.shape[2]/2
-            new_data1 = data[:, :, ::2]
-            new_data2 = data[:, :, 1::2]
-            return (new_data1[:, :, :new_len] + new_data2[:, :, :new_len])/2
+    if bin_step == 1:
+        return data
+    data = np.array(data)
+    if bin_step == 2:
+        new_len = data.shape[2]/2
+        new_data1 = data[:, :, ::2]
+        new_data2 = data[:, :, 1::2]
+        if sum_data == True:
+            return (new_data1[:, :, :new_len] +
+                    new_data2[:, :, :new_len])/bin_step
+        else:
+            return new_data1[:, :, :new_len]
+    elif bin_step == 3:
+        new_len = data.shape[2]/3
+        new_data1 = data[:, :, ::3]
+        new_data2 = data[:, :, 1::3]
+        new_data3 = data[:, :, 2::3]
+        if sum_data == True:
+            return (new_data1[:, :, :new_len] +
+                    new_data2[:, :, :new_len] +
+                    new_data3[:, :, :new_len] )/bin_step
+        else:
+            return new_data1[:, :, :new_len]
+    elif bin_step == 4:
+        new_len = data.shape[2]/4
+        new_data1 = data[:, :, ::4]
+        new_data2 = data[:, :, 1::4]
+        new_data3 = data[:, :, 2::4]
+        new_data4 = data[:, :, 3::4]
+        if sum_data == True:
+            return (new_data1[:, :, :new_len] +
+                    new_data2[:, :, :new_len] +
+                    new_data3[:, :, :new_len] +
+                    new_data4[:, :, :new_len])/bin_step
+        else:
+            return new_data1[:, :, :new_len]
 
 
 def cal_r2(y, y_cal):
@@ -1123,7 +1158,8 @@ def single_pixel_fitting_controller(input_data, param,
     # bin data based on nearest pixels, only two options
     if pixel_bin in [4, 9]:
         logger.info('Bin pixel data with parameter: {}'.format(pixel_bin))
-        exp_data = bin_data_pixel(exp_data, nearest_n=pixel_bin)  # return a copy of data
+        exp_data = bin_data_spacial(exp_data, bin_size=int(np.sqrt(pixel_bin)))
+        # exp_data = bin_data_pixel(exp_data, nearest_n=pixel_bin)  # return a copy of data
 
     # bin data based on energy spectrum
     if bin_energy in [2, 3]:
@@ -1150,6 +1186,42 @@ def single_pixel_fitting_controller(input_data, param,
     calculation_info['exp_data'] = exp_data
 
     return result_map, calculation_info
+
+
+# def nnls_fit_weight(spectrum, expected_matrix, weights):
+#     """
+#     Non-negative least squares fitting with weight.
+#
+#     Parameters
+#     ----------
+#     spectrum : array
+#         spectrum of experiment data
+#     expected_matrix : array
+#         2D matrix of activated element spectrum
+#     constant_weight : float
+#         value used to calculate weight like so:
+#         weights = constant_weight / (constant_weight + spectrum)
+#
+#     Returns
+#     -------
+#     results : array
+#         weights of different element
+#     residue : array
+#         error
+#     """
+#     experiments = spectrum
+#     standard = expected_matrix
+#
+#     #weights = constant_weight / (constant_weight + experiments)
+#     weights = np.abs(weights)
+#     weights = weights/np.max(weights)
+#
+#     a = np.transpose(np.multiply(np.transpose(standard), np.sqrt(weights)))
+#     b = np.multiply(experiments, np.sqrt(weights))
+#
+#     [results, residue] = nnls(a, b)
+#
+#     return results, residue
 
 
 def get_cutted_spectrum_in3D(exp_data, low_e, high_e,
@@ -1222,7 +1294,11 @@ def get_branching_ratio(elemental_line, energy):
     return ratio_v
 
 
-def fit_pixel_nonlinear_per_line(row_num, data, x0, param):
+def simple_spectrum_fun_for_nonlinear(x, **kwargs):
+    return np.sum(kwargs['a{}'.format(i)] * reg_mat[:, i] for i in range(len(kwargs)))
+
+
+def fit_pixel_nonlinear_per_line(row_num, data, x0, param, reg_mat):
                                  #c_weight, fit_num, ftol):
 
     c_weight = 1
@@ -1231,23 +1307,28 @@ def fit_pixel_nonlinear_per_line(row_num, data, x0, param):
 
     elist = param['non_fitting_values']['element_list'].split(', ')
     elist = [e.strip(' ') for e in elist]
-    MS = ModelSpectrum(param, elist)
-    MS.assemble_models()
+
+    LinearModel = lmfit.Model(simple_spectrum_fun_for_nonlinear)
+    for i in np.arange(reg_mat.shape[0]):
+        LinearModel.set_param_hint('a'+str(i), value=0.1, min=0, vary=True)
 
     logger.info('Row number at {}'.format(row_num))
     out = []
     for i in range(data.shape[0]):
-        bg = snip_method(data[i, :],
-                         param['e_offset']['value'],
-                         param['e_linear']['value'],
-                         param['e_quadratic']['value'],
-                         width=param['non_fitting_values']['background_width'])
-        y0 = data[i, :] - bg
+        # bg = snip_method(data[i, :],
+        #                  param['e_offset']['value'],
+        #                  param['e_linear']['value'],
+        #                  param['e_quadratic']['value'],
+        #                  width=param['non_fitting_values']['background_width'])
+        # y0 = data[i, :] - bg
+        y0 = data[i, :]
         # setting constant weight to some value might cause error when fitting
-        result = MS.model_fit(x0, y0,
-                              weights=1/np.sqrt(c_weight+y0),
-                              maxfev=fit_num,
-                              xtol=ftol, ftol=ftol, gtol=ftol)
+        pars = LinearModel.make_params()
+        result_linear = LinearModel.fit(y0, pars, x=x0)
+        # result = MS.model_fit(x0, y0,
+        #                       weights=1/np.sqrt(c_weight+y0),
+        #                       maxfev=fit_num,
+        #                       xtol=ftol, ftol=ftol, gtol=ftol)
         out.append(result)
     return out
 
@@ -1303,12 +1384,15 @@ def fit_pixel_nonlinear(data, param):
     fit_num = 100
     ftol = 1e-3
 
-    MS = ModelSpectrum(param, elist)
-    MS.assemble_models()
+    e_select, reg_mat, e_area = construct_linear_model(x, param, elist)
+    global reg_mat
+
+    # MS = ModelSpectrum(param, elist)
+    # MS.assemble_models()
 
     result_pool = [pool.apply_async(fit_pixel_nonlinear_per_line,
                                     (n, data[n, :, start_i:end_i+1], x,
-                                     param))
+                                     param, reg_mat))
                    for n in range(data.shape[0])]
 
     results = []
@@ -1318,7 +1402,7 @@ def fit_pixel_nonlinear(data, param):
     pool.terminate()
     pool.join()
 
-    results = np.array(results)
+    #results = np.array(results)
 
     return results
 
