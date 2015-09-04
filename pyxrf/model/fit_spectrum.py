@@ -468,6 +468,7 @@ class Fit1D(Atom):
 
         result_map, calculation_info = single_pixel_fitting_controller(self.data_all,
                                                                        self.param_dict,
+                                                                       method='nnls',
                                                                        pixel_bin=pixel_bin,
                                                                        raise_bg=raise_bg,
                                                                        comp_elastic_combine=comp_elastic_combine,
@@ -480,7 +481,19 @@ class Fit1D(Atom):
 
         # output to .h5 file
         fpath = os.path.join(self.result_folder, self.save_name)
-        save_fitdata_to_hdf(fpath, result_map)
+        if 'channel_1' in self.data_title:
+            inner_path = 'xrfmap/det1'
+            fit_name = self.save_name.split('.')[0]+'_ch1_fit'
+        elif 'channel_2' in self.data_title:
+            inner_path = 'xrfmap/det2'
+            fit_name = self.save_name.split('.')[0]+'_ch2_fit'
+        elif 'channel_3' in self.data_title:
+            inner_path = 'xrfmap/det3'
+            fit_name = self.save_name.split('.')[0]+'_ch3_fit'
+        else:
+            inner_path = 'xrfmap/detsum'
+            fit_name = self.save_name.split('.')[0]+'_fit'
+        save_fitdata_to_hdf(fpath, result_map, datapath=inner_path)
 
         # get fitted spectrum and save them to figs
         if self.save_point is True:
@@ -511,7 +524,7 @@ class Fit1D(Atom):
         logger.info('-------- Fitting of single pixels is done! --------')
 
         # Update GUI so that results can be seen immediately
-        self.fit_img[self.save_name.split('.')[0]+'_fit'] = result_map
+        self.fit_img[fit_name] = result_map
 
     def save_result(self, fname=None):
         """
@@ -717,91 +730,6 @@ def extract_result(data, element):
 #     else:
 #         results, residue = nnls_fit(y, expected_matrix)
 #     return results, residue
-
-
-def fit_per_line(row_num, data,
-                 matv, param, use_snip):
-    """
-    Fit experiment data for a given row.
-
-    Parameters
-    ----------
-    row_num : int
-        which row to fit
-    data : array
-        3D data of experiment spectrum
-    param : dict
-        fitting parameters
-
-    Returns
-    -------
-    array :
-        fitting values for all the elements at a given row.
-    Note background is also calculated as a summed value. Also residual
-    is included.
-    """
-
-    logger.info('Row number at {}'.format(row_num))
-    out = []
-    bg_sum = 0
-    for i in range(data.shape[0]):
-        if use_snip is True:
-            bg = snip_method(data[i, :],
-                             param['e_offset']['value'],
-                             param['e_linear']['value'],
-                             param['e_quadratic']['value'],
-                             width=param['non_fitting_values']['background_width'])
-            y = data[i, :] - bg
-            bg_sum = np.sum(bg)
-
-        else:
-            y = data[i, :]
-        result, res = nnls_fit(y, matv, weights=None)
-
-        sst = np.sum((y-np.mean(y))**2)
-        r2 = 1 - res/sst
-        result = list(result) + [bg_sum, r2]
-        out.append(result)
-    return np.array(out)
-
-
-def fit_pixel_multiprocess(x, matv, data_fit, param,
-                           use_snip=False):
-    """
-    Multiprocess fit of experiment data.
-
-    Parameters
-    ----------
-    exp_data : array
-        3D data of experiment spectrum
-    param : dict
-        fitting parameters
-
-    Returns
-    -------
-    dict :
-        fitting values for all the elements
-    """
-    num_processors_to_use = multiprocessing.cpu_count()
-
-    logger.info('cpu count: {}'.format(num_processors_to_use))
-    pool = multiprocessing.Pool(num_processors_to_use)
-
-    result_pool = [pool.apply_async(fit_per_line,
-                                    (n, data_fit[n, :, :], matv,
-                                     param, use_snip))
-                   for n in range(data_fit.shape[0])]
-
-    results = []
-    for r in result_pool:
-        results.append(r.get())
-
-    pool.terminate()
-    pool.join()
-
-    results = np.array(results)
-
-    return results
 
 
 def bin_data_pixel(data, nearest_n=4):
@@ -1115,7 +1043,222 @@ def save_fitted_fig(x_v, matv, results,
     plt.savefig(output_path)
 
 
-def single_pixel_fitting_controller(input_data, param,
+def fit_per_line_nnls(row_num, data,
+                      matv, param, use_snip):
+    """
+    Fit experiment data for a given row using nnls algorithm.
+
+    Parameters
+    ----------
+    row_num : int
+        which row to fit
+    data : array
+        3D data of experiment spectrum
+    param : dict
+        fitting parameters
+    use_snip : bool
+        use snip algorithm to remove background or not
+
+    Returns
+    -------
+    array :
+        fitting values for all the elements at a given row.
+    Note background is also calculated as a summed value. Also residual
+    is included.
+    """
+    logger.info('Row number at {}'.format(row_num))
+    out = []
+    bg_sum = 0
+    for i in range(data.shape[0]):
+        if use_snip is True:
+            bg = snip_method(data[i, :],
+                             param['e_offset']['value'],
+                             param['e_linear']['value'],
+                             param['e_quadratic']['value'],
+                             width=param['non_fitting_values']['background_width'])
+            y = data[i, :] - bg
+            bg_sum = np.sum(bg)
+
+        else:
+            y = data[i, :]
+        result, res = nnls_fit(y, matv, weights=None)
+
+        sst = np.sum((y-np.mean(y))**2)
+        r2 = 1 - res/sst
+        result = list(result) + [bg_sum, r2]
+        out.append(result)
+    return np.array(out)
+
+
+def fit_pixel_multiprocess_nnls(x, matv, data_fit, param,
+                                use_snip=False):
+    """
+    Multiprocess fit of experiment data.
+
+    Parameters
+    ----------
+    exp_data : array
+        3D data of experiment spectrum
+    param : dict
+        fitting parameters
+
+    Returns
+    -------
+    dict :
+        fitting values for all the elements
+    """
+    num_processors_to_use = multiprocessing.cpu_count()
+
+    logger.info('cpu count: {}'.format(num_processors_to_use))
+    pool = multiprocessing.Pool(num_processors_to_use)
+
+    result_pool = [pool.apply_async(fit_per_line_nnls,
+                                    (n, data_fit[n, :, :], matv,
+                                     param, use_snip))
+                   for n in range(data_fit.shape[0])]
+
+    results = []
+    for r in result_pool:
+        results.append(r.get())
+
+    pool.terminate()
+    pool.join()
+
+    results = np.array(results)
+
+    return results
+
+
+# def simple_spectrum_fun_for_nonlinear(x, **kwargs):
+#     return np.sum(kwargs['a{}'.format(i)] * reg_mat[:, i] for i in range(len(kwargs)))
+
+
+def spectrum_nonlinear_fit(pars, x, reg_mat):
+    vals = pars.valuesdict()
+    return np.sum(vals['a{}'.format(i)] * reg_mat[:, i] for i in range(len(vals)))
+
+
+def residual_nonlinear_fit(pars, x, data=None, reg_mat=None):
+    return spectrum_nonlinear_fit(pars, x, reg_mat) - data
+
+
+def fit_pixel_nonlinear_per_line(row_num, data, x0,
+                                 param, reg_mat,
+                                 use_snip):
+                                 #c_weight, fit_num, ftol):
+
+    c_weight = 1
+    fit_num = 100
+    ftol = 1e-3
+
+    elist = param['non_fitting_values']['element_list'].split(', ')
+    elist = [e.strip(' ') for e in elist]
+
+    # LinearModel = lmfit.Model(simple_spectrum_fun_for_nonlinear)
+    # for i in np.arange(reg_mat.shape[0]):
+    #     LinearModel.set_param_hint('a'+str(i), value=0.1, min=0, vary=True)
+
+    logger.info('Row number at {}'.format(row_num))
+    out = []
+    snip_bg = 0
+    for i in range(data.shape[0]):
+        if use_snip is True:
+            bg = snip_method(data[i, :],
+                             param['e_offset']['value'],
+                             param['e_linear']['value'],
+                             param['e_quadratic']['value'],
+                             width=param['non_fitting_values']['background_width'])
+            y0 = data[i, :] - bg
+            snip_bg = np.sum(bg)
+        else:
+            y0 = data[i, :]
+
+        fit_params = lmfit.Parameters()
+        for i in range(reg_mat.shape[1]):
+            fit_params.add('a'+str(i), value=1.0, min=0, vary=True)
+
+        result = lmfit.minimize(residual_nonlinear_fit,
+                                fit_params, args=(x0,),
+                                kws={'data':y0, 'reg_mat':reg_mat})
+        # result = MS.model_fit(x0, y0,
+        #                       weights=1/np.sqrt(c_weight+y0),
+        #                       maxfev=fit_num,
+        #                       xtol=ftol, ftol=ftol, gtol=ftol)
+        #namelist = result.keys()
+        temp = {}
+        temp['value'] = [result.params[v].value for v in result.params.keys()]
+        temp['err'] = [result.params[v].stderr for v in result.params.keys()]
+        temp['snip_bg'] = snip_bg
+        out.append(temp)
+    return out
+
+
+def fit_pixel_multiprocess_nonlinear(data, x, param, reg_mat, use_snip=False):
+    """
+    Multiprocess fit of experiment data.
+
+    Parameters
+    ----------
+    data : array
+        3D data of experiment spectrum
+    param : dict
+        fitting parameters
+
+    Returns
+    -------
+    dict :
+        fitting values for all the elements
+    """
+
+    num_processors_to_use = multiprocessing.cpu_count()
+    logger.info('cpu count: {}'.format(num_processors_to_use))
+    pool = multiprocessing.Pool(num_processors_to_use)
+
+    # fit_params = lmfit.Parameters()
+    # for i in range(reg_mat.shape[1]):
+    #     fit_params.add('a'+str(i), value=1.0, min=0, vary=True)
+
+    result_pool = [pool.apply_async(fit_pixel_nonlinear_per_line,
+                                    (n, data[n, :, :], x,
+                                     param, reg_mat, use_snip))
+                   for n in range(data.shape[0])]
+
+    results = []
+    for r in result_pool:
+        results.append(r.get())
+
+    pool.terminate()
+    pool.join()
+
+    return results
+
+
+def get_area_and_error_nonlinear_fit(elist, fit_results, reg_mat):
+
+    mat_sum = np.sum(reg_mat, axis=0)
+
+    area_dict = OrderedDict({name:np.zeros([len(fit_results), len(fit_results[0])]) for name in elist})
+    error_dict = OrderedDict({name:np.zeros([len(fit_results), len(fit_results[0])]) for name in elist})
+    area_dict['snip_bg'] = np.zeros([len(fit_results), len(fit_results[0])])
+    for i in range(len(fit_results)):
+        for j in range(len(fit_results[0])):
+            for v in six.iterkeys(area_dict):
+                if v=='snip_bg':
+                    area_dict[v][i, j] = fit_results[i][j]['snip_bg']
+                else:
+                    area_dict[v][i, j] = fit_results[i][j]['value']
+                    error_dict[v][i, j] = fit_results[i][j]['err']
+
+    for i,v in enumerate(six.iterkeys(area_dict)):
+        if v=='snip_bg':
+            continue
+        area_dict[v] *= mat_sum[i]
+        error_dict[v] *= mat_sum[i]
+
+    return area_dict, error_dict
+
+
+def single_pixel_fitting_controller(input_data, param, method='nnls',
                                     pixel_bin=0, raise_bg=1,
                                     comp_elastic_combine=True,
                                     linear_bg=True,
@@ -1169,59 +1312,37 @@ def single_pixel_fitting_controller(input_data, param,
         #x1 = x[::2]
         #x = x1[:x.size/2]
 
+    error_map = None
+
     logger.info('-------- Fitting of single pixels starts. --------')
-    results = fit_pixel_multiprocess(x, matv, exp_data, param,
-                                     use_snip=use_snip)
-    # output area of dict
-    result_map = calculate_area(e_select, matv, results,
-                                param, first_peak_area=False)
+    if method == 'nnls':
+        logger.info('Fitting method: non-negative least squares')
+        results = fit_pixel_multiprocess_nnls(x, matv, exp_data, param,
+                                              use_snip=use_snip)
+        # output area of dict
+        result_map = calculate_area(e_select, matv, results,
+                                    param, first_peak_area=False)
+    else:
+        logger.info('Fitting method: nonlinear least squares')
+        results = fit_pixel_multiprocess_nonlinear(exp_data, x, param, matv,
+                                                   use_snip=use_snip)
+        result_map, error_map = get_area_and_error_nonlinear_fit(e_select,
+                                                                 results, matv)
+
     logger.info('-------- Fitting of single pixels is done! --------')
 
     calculation_info = dict()
+    if error_map is not None:
+        calculation_info['error_map'] = error_map
+
     calculation_info['fit_name'] = e_select
     calculation_info['regression_mat'] = matv
-    calculation_info['results'] = results
+    #calculation_info['results'] = results
     calculation_info['fit_range'] = fit_range
     calculation_info['energy_axis'] = x
     calculation_info['exp_data'] = exp_data
 
     return result_map, calculation_info
-
-
-# def nnls_fit_weight(spectrum, expected_matrix, weights):
-#     """
-#     Non-negative least squares fitting with weight.
-#
-#     Parameters
-#     ----------
-#     spectrum : array
-#         spectrum of experiment data
-#     expected_matrix : array
-#         2D matrix of activated element spectrum
-#     constant_weight : float
-#         value used to calculate weight like so:
-#         weights = constant_weight / (constant_weight + spectrum)
-#
-#     Returns
-#     -------
-#     results : array
-#         weights of different element
-#     residue : array
-#         error
-#     """
-#     experiments = spectrum
-#     standard = expected_matrix
-#
-#     #weights = constant_weight / (constant_weight + experiments)
-#     weights = np.abs(weights)
-#     weights = weights/np.max(weights)
-#
-#     a = np.transpose(np.multiply(np.transpose(standard), np.sqrt(weights)))
-#     b = np.multiply(experiments, np.sqrt(weights))
-#
-#     [results, residue] = nnls(a, b)
-#
-#     return results, residue
 
 
 def get_cutted_spectrum_in3D(exp_data, low_e, high_e,
@@ -1294,133 +1415,6 @@ def get_branching_ratio(elemental_line, energy):
     return ratio_v
 
 
-# def simple_spectrum_fun_for_nonlinear(x, **kwargs):
-#     return np.sum(kwargs['a{}'.format(i)] * reg_mat[:, i] for i in range(len(kwargs)))
-
-
-def simple_spectrum_fun_for_nonlinear(pars, x, reg_mat):
-    vals = pars.valuesdict()
-    return np.sum(vals['a{}'.format(i)] * reg_mat[:, i] for i in range(len(vals)))
-
-def residual_linear_fit(pars, x, data=None, reg_mat=None):
-    return simple_spectrum_fun_for_nonlinear(pars, x, reg_mat) - data
-
-
-def fit_pixel_nonlinear_per_line(row_num, data, x0, param, fit_params, reg_mat):
-                                 #c_weight, fit_num, ftol):
-
-    c_weight = 1
-    fit_num = 100
-    ftol = 1e-3
-
-    elist = param['non_fitting_values']['element_list'].split(', ')
-    elist = [e.strip(' ') for e in elist]
-
-    # LinearModel = lmfit.Model(simple_spectrum_fun_for_nonlinear)
-    # for i in np.arange(reg_mat.shape[0]):
-    #     LinearModel.set_param_hint('a'+str(i), value=0.1, min=0, vary=True)
-
-    logger.info('Row number at {}'.format(row_num))
-    out = []
-    for i in range(data.shape[0]):
-        # bg = snip_method(data[i, :],
-        #                  param['e_offset']['value'],
-        #                  param['e_linear']['value'],
-        #                  param['e_quadratic']['value'],
-        #                  width=param['non_fitting_values']['background_width'])
-        # y0 = data[i, :] - bg
-        y0 = data[i, :]
-        # setting constant weight to some value might cause error when fitting
-        #pars = LinearModel.make_params()
-        #result_linear = LinearModel.fit(y0, pars, x=x0)
-        result = lmfit.minimize(residual_linear_fit,
-                                fit_params, args=(x0,), kws={'data':y0, 'reg_mat':reg_mat})
-        # result = MS.model_fit(x0, y0,
-        #                       weights=1/np.sqrt(c_weight+y0),
-        #                       maxfev=fit_num,
-        #                       xtol=ftol, ftol=ftol, gtol=ftol)
-        out.append(result.params)
-    return out
-
-
-def fit_pixel_nonlinear(data, param):
-    """
-    Multiprocess fit of experiment data.
-
-    Parameters
-    ----------
-    data : array
-        3D data of experiment spectrum
-    param : dict
-        fitting parameters
-
-    Returns
-    -------
-    dict :
-        fitting values for all the elements
-    """
-
-    num_processors_to_use = multiprocessing.cpu_count()
-    #num_processors_to_use = 4
-
-    logger.info('cpu count: {}'.format(num_processors_to_use))
-    #print 'Creating pool with %d processes\n' % num_processors_to_use
-    pool = multiprocessing.Pool(num_processors_to_use)
-
-    # cut range
-    y0 = data[0, 0, :]
-    x0 = np.arange(len(y0))
-
-    # transfer energy value back to channel value
-    lowv = (param['non_fitting_values']['energy_bound_low']['value'] -
-            param['e_offset']['value'])/param['e_linear']['value']
-    highv = (param['non_fitting_values']['energy_bound_high']['value'] -
-             param['e_offset']['value'])/param['e_linear']['value']
-
-    lowv = int(lowv)
-    highv = int(highv)
-
-    x, y = trim(x0, y0, lowv, highv)
-    start_i = x0[x0 == x[0]][0]
-    end_i = x0[x0 == x[-1]][0]
-    logger.info('label range: {}, {}'.format(start_i, end_i))
-
-    # construct matrix
-    elist = param['non_fitting_values']['element_list'].split(', ')
-    elist = [e.strip(' ') for e in elist]
-    #e_select, matv, e_area = construct_linear_model(x, param, elist)
-
-    c_weight = 1
-    fit_num = 100
-    ftol = 1e-3
-
-    global reg_mat
-    e_select, reg_mat, e_area = construct_linear_model(x, param, elist)
-
-    fit_params = lmfit.Parameters()
-    for i in range(reg_mat.shape[1]):
-        fit_params.add('a'+str(i), value=1.0, min=0, vary=True)
-
-    # MS = ModelSpectrum(param, elist)
-    # MS.assemble_models()
-
-    result_pool = [pool.apply_async(fit_pixel_nonlinear_per_line,
-                                    (n, data[n, :, start_i:end_i+1], x,
-                                     param, fit_params, reg_mat))
-                   for n in range(data.shape[0])]
-
-    results = []
-    for r in result_pool:
-        results.append(r.get())
-
-    pool.terminate()
-    pool.join()
-
-    #results = np.array(results)
-
-    return results
-
-
 def fit_pixel_slow_version(data, param, c_val=1e-2, fit_num=10, c_weight=1):
     datas = data.shape
 
@@ -1460,7 +1454,7 @@ def fit_pixel_slow_version(data, param, c_val=1e-2, fit_num=10, c_weight=1):
 
 
 def save_fitdata_to_hdf(fpath, data_dict,
-                        interpath='xrfmap/detsum'):
+                        datapath='xrfmap/detsum'):
     """
     Add fitting results to existing h5 file. This is to be moved to filestore.
 
@@ -1470,14 +1464,14 @@ def save_fitdata_to_hdf(fpath, data_dict,
         path of the hdf5 file
     data_dict : dict
         dict of array
-    interpath : str
+    datapath : str
         path inside h5py file
     """
     f = h5py.File(fpath, 'a')
     try:
-        dataGrp = f.create_group(interpath)
+        dataGrp = f.create_group(datapath)
     except ValueError:
-        dataGrp=f[interpath]
+        dataGrp=f[datapath]
 
     data = []
     namelist = []
