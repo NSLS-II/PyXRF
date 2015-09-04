@@ -89,7 +89,7 @@ class DrawImageAdvanced(Atom):
     dict_to_plot = Dict()
 
     scale_opt = Str('Linear')
-    color_opt = Str('Orange')
+    color_opt = Str('Oranges')
 
     group_names = List()
     group_name = Str()
@@ -221,12 +221,14 @@ class DrawImageAdvanced(Atom):
                 self.scaler_data[self.scaler_data == 0] = np.mean(self.scaler_data)
                 logger.warning('Use mean value {} instead for those points'.format(np.mean(self.scaler_data)))
 
-        if self.color_opt == 'Orange':
-            grey_use = cm.Oranges
-        elif self.color_opt == 'Color':
-            grey_use = None
-        else:
-            grey_use = cm.Greys_r
+        # if self.color_opt == 'Orange':
+        #     grey_use = cm.Oranges
+        # elif self.color_opt == 'Jet':
+        #     grey_use = None
+        # elif self.color_opt in ['Hot', 'Bone', 'Viridis', 'Greyscale']:
+        grey_use = self.color_opt
+        #else:
+        #    grey_use = cm.Greys_r
 
         ncol = int(np.ceil(np.sqrt(len(stat_temp))))
         nrow = int(np.ceil(len(stat_temp)/float(ncol)))

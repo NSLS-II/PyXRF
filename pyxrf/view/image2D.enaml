@@ -80,7 +80,7 @@ enamldef ImageMain1(DockItem):
                 img_model_adv.scale_opt = selected_item
 
         ComboBox: color_select:
-            items = ['Orange', 'Color', 'Greyscale']
+            items = ['Orange', 'Jet', 'Hot', 'Greyscale', 'Bone', 'Viridis']
             index = 0
             index ::
                 img_model_adv.color_opt = selected_item
@@ -205,7 +205,7 @@ enamldef ImageMain(DockItem):
                 img_model_adv.scale_opt = cb_select.selected_item
 
         ComboBox: color_select:
-            items = ['Orange', 'Color', 'Greyscale']
+            items = ['Oranges', 'jet', 'hot', 'gray', 'bone']
             index = 0
             index ::
                 img_model_adv.color_opt = color_select.selected_item

@@ -1337,7 +1337,7 @@ def single_pixel_fitting_controller(input_data, param, method='nnls',
 
     calculation_info['fit_name'] = e_select
     calculation_info['regression_mat'] = matv
-    #calculation_info['results'] = results
+    calculation_info['results'] = results
     calculation_info['fit_range'] = fit_range
     calculation_info['energy_axis'] = x
     calculation_info['exp_data'] = exp_data
