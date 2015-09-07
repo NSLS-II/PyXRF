@@ -481,18 +481,20 @@ class Fit1D(Atom):
 
         # output to .h5 file
         fpath = os.path.join(self.result_folder, self.save_name)
+
+        prefix_fname = self.save_name.split('.')[0]
         if 'channel_1' in self.data_title:
             inner_path = 'xrfmap/det1'
-            fit_name = self.save_name.split('.')[0]+'_ch1_fit'
+            fit_name = prefix_fname+'_ch1_fit'
         elif 'channel_2' in self.data_title:
             inner_path = 'xrfmap/det2'
-            fit_name = self.save_name.split('.')[0]+'_ch2_fit'
+            fit_name = prefix_fname+'_ch2_fit'
         elif 'channel_3' in self.data_title:
             inner_path = 'xrfmap/det3'
-            fit_name = self.save_name.split('.')[0]+'_ch3_fit'
+            fit_name = prefix_fname+'_ch3_fit'
         else:
             inner_path = 'xrfmap/detsum'
-            fit_name = self.save_name.split('.')[0]+'_fit'
+            fit_name = prefix_fname+'_fit'
         save_fitdata_to_hdf(fpath, result_map, datapath=inner_path)
 
         # get fitted spectrum and save them to figs
@@ -525,6 +527,7 @@ class Fit1D(Atom):
 
         # Update GUI so that results can be seen immediately
         self.fit_img[fit_name] = result_map
+        #self.fit_img = {k:v for k,v in six.iteritems(self.fit_img) if prefix_fname in k}
 
     def save_result(self, fname=None):
         """
@@ -703,38 +706,9 @@ def extract_result(data, element):
     return np.array(data_map)
 
 
-# def fit_pixel(y, expected_matrix, constant_weight=10):
-#     """
-#     Non-negative linear fitting is applied for each pixel.
-#
-#     Parameters
-#     ----------
-#     y : array
-#         spectrum of experiment data
-#     expected_matrix : array
-#         2D matrix of activated element spectrum
-#     constant_weight : float
-#         value used to calculate weight like so:
-#         weights = constant_weight / (constant_weight + spectrum)
-#
-#     Returns
-#     -------
-#     results : array
-#         weights of different element
-#     residue : array
-#         error
-#     """
-#     if constant_weight:
-#         results, residue = weighted_nnls_fit(y, expected_matrix,
-#                                              constant_weight=constant_weight)
-#     else:
-#         results, residue = nnls_fit(y, expected_matrix)
-#     return results, residue
-
-
 def bin_data_pixel(data, nearest_n=4):
     """
- a   Bin 3D data according to number of pixels defined in dim 1 and 2.
+    Bin 3D data according to number of pixels defined in dim 1 and 2.
 
     Parameters
     ----------

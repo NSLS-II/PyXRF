@@ -68,36 +68,36 @@ class DrawImageAdvanced(Atom):
     stat_dict : dict
         determine which image to show
     data_dict : dict
-        save multiple data
-    file_opt : int
-        which file is chosen
+        multiple data sets to plot, such as fit data, or roi data
+    data_opt : int
+        index to show which data is chosen to plot
     plot_opt : int
         show plot or not
     single_file : dict
         image data for one given file
     """
 
-    img_data = Typed(object)
+    #img_data = Typed(object)
     fig = Typed(Figure)
-    file_name = Str()
+    #file_name = Str()
     stat_dict = Dict()
     data_dict = Dict()
     data_dict_keys = List()
-    file_opt = Int(0)
-    plot_opt = Int(0)
-    plot_item = Str()
+    data_opt = Int(0)
+    #plot_opt = Int(0)
+    #plot_item = Str()
     dict_to_plot = Dict()
 
     scale_opt = Str('Linear')
     color_opt = Str('Oranges')
 
-    group_names = List()
-    group_name = Str()
+    #group_names = List()
+    #group_name = Str()
     items_in_group = List()
 
     scaler_group_name = Str()
     scaler_items = List()
-    scaler_name = Str()
+    scaler_name_index = Int()
     scaler_data = Typed(object)
 
     select_stat_dict = Dict()
@@ -131,42 +131,76 @@ class DrawImageAdvanced(Atom):
 
     @observe('data_dict', 'data_dict_keys')
     def init_plot_status(self, change):
+        # initiate the plotting status once new data is coming
+        self.data_opt = 0
+        #self.data_opt = 1
+        #self.plot_item = 'Select Data'
+        #self.plot_item = self.data_dict_keys[0]
+        #self.set_initial_stat(bool_val=False)
+
+        # init of scaler for normalization
+        self.scaler_name_index = 0
+
         self.data_dict_keys = self.data_dict.keys()
-        logger.info('2D image display: {}'.format(self.data_dict.keys()))
+        logger.info('2D image display: {}'.format(self.data_dict_keys))
 
         scaler_groups = [v for v in self.data_dict.keys() if 'scaler' in v]
         if len(scaler_groups) > 0:
             self.scaler_group_name = scaler_groups[0]
-            self.scaler_items = [' '] + self.data_dict[self.scaler_group_name].keys()
+            self.scaler_items = self.data_dict[self.scaler_group_name].keys()
             self.scaler_data = None
+
+        # init of pos values
+        self.pixel_or_pos = 0
 
         if 'positions' in self.data_dict:
-            print('get pos {}'.format(self.data_dict['positions'].keys()))
+            logger.info('get pos {}'.format(self.data_dict['positions'].keys()))
             self.x_pos = self.data_dict['positions']['x_pos'][0, :]
             self.y_pos = self.data_dict['positions']['y_pos'][:, 0]
+        else:
+            self.x_pos = []
+            self.y_pos = []
 
-    @observe('file_opt')
-    def _update_file(self, change):
-        if self.file_opt > 0:
-            print('file opt:{}'.format(self.file_opt))
-            namelist = self.data_dict.keys()
-            self.file_name = namelist[self.file_opt]
+        self.show_image()
 
-    @observe('plot_item')
+    @observe('data_opt')
     def _update_file(self, change):
-        if self.file_opt > 0:
+        if self.data_opt == 0:
             self.items_in_group = []
-            self.dict_to_plot = self.data_dict[self.plot_item]
+            self.dict_to_plot = {}
+            self.items_in_group = []
+            self.set_initial_stat(bool_val=False)
+            #self.plot_item = 'Select Data'
+        elif self.data_opt > 0:
+            self.set_initial_stat(bool_val=False)
+            self.items_in_group = []
+            plot_item = sorted(self.data_dict_keys)[self.data_opt-1]
+            self.dict_to_plot = self.data_dict[plot_item]
             self.items_in_group = self.dict_to_plot.keys()
-            self.plot_all = False
+            self.set_initial_stat(bool_val=False)
+        # if self.data_opt > 0:
+        #     logger.info('file opt:{}'.format(self.data_opt))
+            #namelist = self.data_dict.keys()
+            #self.file_name = namelist[self.data_opt]
 
-    @observe('scaler_name')
+    # @observe('plot_item')
+    # def _update_file(self, change):
+    #     self.set_initial_stat(bool_val=False)
+    #     self.items_in_group = []
+    #     self.dict_to_plot = self.data_dict[self.plot_item]
+    #     self.items_in_group = self.dict_to_plot.keys()
+    #     self.set_initial_stat(bool_val=False)
+
+    @observe('scaler_name_index')
     def _get_scaler_data(self, change):
-        if self.scaler_name == ' ':
+        if self.scaler_name_index == 0:
             self.scaler_data = None
         else:
-            self.scaler_data = self.data_dict[self.scaler_group_name][self.scaler_name]
-            print('scaler data shape: {}'.format(self.scaler_data.shape))
+            scaler_name = self.scaler_items[self.scaler_name_index-1]
+            self.scaler_data = self.data_dict[self.scaler_group_name][scaler_name]
+            logger.info('Use scaler data to normalize,'
+                        'and the shape of scaler data is {}'.format(self.scaler_data.shape))
+        self.show_image()
 
     @observe('scale_opt', 'color_opt')
     def _update_scale(self, change):
@@ -189,7 +223,6 @@ class DrawImageAdvanced(Atom):
             self.set_initial_stat(bool_val=True)
         else:
             self.set_initial_stat(bool_val=False)
-        #self.show_image()
 
     def set_initial_stat(self, bool_val=False):
         """
@@ -198,10 +231,10 @@ class DrawImageAdvanced(Atom):
         self.stat_dict.clear()
         self.stat_dict = {k: bool_val for k in self.items_in_group}
 
-    def update_plot(self):
-        #self.fig.tight_layout(pad=4.0, w_pad=0.8, h_pad=0.8)
-        #self.fig.tight_layout()
-        self.fig.canvas.draw_idle()
+    # def update_plot(self):
+    #     #self.fig.tight_layout(pad=4.0, w_pad=0.8, h_pad=0.8)
+    #     #self.fig.tight_layout()
+    #     self.fig.canvas.draw_idle()
 
     def show_image(self):
         self.fig.clf()
@@ -221,17 +254,14 @@ class DrawImageAdvanced(Atom):
                 self.scaler_data[self.scaler_data == 0] = np.mean(self.scaler_data)
                 logger.warning('Use mean value {} instead for those points'.format(np.mean(self.scaler_data)))
 
-        # if self.color_opt == 'Orange':
-        #     grey_use = cm.Oranges
-        # elif self.color_opt == 'Jet':
-        #     grey_use = None
-        # elif self.color_opt in ['Hot', 'Bone', 'Viridis', 'Greyscale']:
         grey_use = self.color_opt
-        #else:
-        #    grey_use = cm.Greys_r
 
         ncol = int(np.ceil(np.sqrt(len(stat_temp))))
-        nrow = int(np.ceil(len(stat_temp)/float(ncol)))
+        try:
+            nrow = int(np.ceil(len(stat_temp)/float(ncol)))
+        except ZeroDivisionError:
+            ncol = 1
+            nrow = 1
 
         a_pad_v = 0.8
         a_pad_h = 0.3
@@ -305,7 +335,10 @@ class DrawImageAdvanced(Atom):
                     title_y = - data_dict.shape[0]*0.05
                 grid[i].text(title_x, title_y, grid_title)
                 grid.cbar_axes[i].colorbar(im)
-        self.update_plot()
+
+        #self.fig.tight_layout(pad=4.0, w_pad=0.8, h_pad=0.8)
+        #self.fig.tight_layout()
+        self.fig.canvas.draw_idle()
 
     def get_activated_num(self):
         return {k: v for (k, v) in six.iteritems(self.stat_dict) if v is True}
