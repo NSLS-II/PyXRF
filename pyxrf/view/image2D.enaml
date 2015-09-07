@@ -97,8 +97,6 @@ enamldef ImageMain(DockItem):
         ComboBox: cb_norm:
             items << ['Normalized by '] + sorted(img_model_adv.scaler_items)
             index := img_model_adv.scaler_name_index
-            #index ::
-            #    img_model.scaler_name = selected_item
 
         ComboBox: pixel_select:
             items = ['pixel', 'x,y position']
@@ -151,7 +149,7 @@ enamldef ChooseElementAdvanced(Window): win:
                 Container:
                     Form:
                         Looper: looper:
-                            iterable << sorted(img_model.items_in_group)
+                            iterable << sorted(img_model.items_in_selected_group)
                             Label:
                                 font = 'monospace'
                                 text = '{:>10}'.format(loop_item)
