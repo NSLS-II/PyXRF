@@ -483,19 +483,23 @@ class Fit1D(Atom):
         fpath = os.path.join(self.result_folder, self.save_name)
 
         prefix_fname = self.save_name.split('.')[0]
-        if 'channel_1' in self.data_title:
+        if 'ch1' in self.data_title:
             inner_path = 'xrfmap/det1'
             fit_name = prefix_fname+'_ch1_fit'
-        elif 'channel_2' in self.data_title:
+        elif 'ch2' in self.data_title:
             inner_path = 'xrfmap/det2'
             fit_name = prefix_fname+'_ch2_fit'
-        elif 'channel_3' in self.data_title:
+        elif 'ch3' in self.data_title:
             inner_path = 'xrfmap/det3'
             fit_name = prefix_fname+'_ch3_fit'
         else:
             inner_path = 'xrfmap/detsum'
             fit_name = prefix_fname+'_fit'
         save_fitdata_to_hdf(fpath, result_map, datapath=inner_path)
+
+        # Update GUI so that results can be seen immediately
+        self.fit_img[fit_name] = result_map
+        #self.fit_img = {k:v for k,v in six.iteritems(self.fit_img) if prefix_fname in k}
 
         # get fitted spectrum and save them to figs
         if self.save_point is True:
@@ -524,10 +528,6 @@ class Fit1D(Atom):
             logger.info('Done with saving fitting plots.')
 
         logger.info('-------- Fitting of single pixels is done! --------')
-
-        # Update GUI so that results can be seen immediately
-        self.fit_img[fit_name] = result_map
-        #self.fit_img = {k:v for k,v in six.iteritems(self.fit_img) if prefix_fname in k}
 
     def save_result(self, fname=None):
         """

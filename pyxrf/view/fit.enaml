@@ -370,6 +370,7 @@ enamldef FitView(DockItem): fit_view:
                     scaler_key = [v for v in six.iterkeys(img_model_adv.data_dict) if 'scaler' in v]
                     if len(scaler_key) > 0:
                         fit_model.fit_img[fit_model.fit_img.keys()[0]].update(img_model_adv.data_dict[scaler_key[0]])
+                    
                     img_model_adv.data_dict.update(fit_model.fit_img)
 
                     # visualization purpose

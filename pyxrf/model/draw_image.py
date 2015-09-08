@@ -159,6 +159,8 @@ class DrawImageAdvanced(Atom):
         if len(scaler_groups) > 0:
             #self.scaler_group_name = scaler_groups[0]
             self.scaler_norm_dict = self.data_dict[scaler_groups[0]]
+            # for GUI purpose only
+            self.scaler_items = []
             self.scaler_items = self.scaler_norm_dict.keys()
             self.scaler_data = None
 

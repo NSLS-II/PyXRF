@@ -727,7 +727,7 @@ def read_hdf_APS(working_directory,
     channel_num : int, optional
         detector channel number
     spectrum_cut : int, optional
-        only use spectrum from, say 0,2000
+        only use spectrum from, say 0, 3000
 
     Returns
     -------
@@ -764,10 +764,17 @@ def read_hdf_APS(working_directory,
                 data_sets[fname_sum] = DS
                 logger.info('Data of detector sum is loaded.')
 
+                if 'scalers' in data:
+                    det_name = data['scalers/name']
+                    temp = {}
+                    for i, n in enumerate(det_name):
+                        temp[n] = data['scalers/val'].value[:, :, i]
+                    img_dict[fname+'_scaler'] = temp
+
                 # data from each channel
                 for i in range(1, channel_num+1):
                     det_name = 'det'+str(i)
-                    file_channel = fname+'_channel_'+str(i)
+                    file_channel = fname+'_ch'+str(i)
                     exp_data_new = np.array(data[det_name+'/counts'][:, :, 0:spectrum_cut])
                     try:
                         exp_data_new[0, 0, :] = exp_data_new[1, 0, :]
@@ -778,12 +785,13 @@ def read_hdf_APS(working_directory,
                     data_sets[file_channel] = DS
                     logger.info('Data from detector channel {} is loaded.'.format(i))
 
-                if 'scalers' in data:
-                    det_name = data['scalers/name']
-                    temp = {}
-                    for i, n in enumerate(det_name):
-                        temp[n] = data['scalers/val'].value[:, :, i]
-                    img_dict[fname+'_scaler'] = temp
+                    if 'xrf_fit' in data[det_name]:
+                        fit_result = get_fit_data(data[det_name]['xrf_fit_name'].value,
+                                                  data[det_name]['xrf_fit'].value)
+                        img_dict.update({file_channel+'_fit': fit_result})
+                        # also include scaler data
+                        if 'scalers' in data:
+                                img_dict[file_channel+'_fit'].update(img_dict[fname+'_scaler'])
 
                 if 'roimap' in data:
                     if 'sum_name' in data['roimap']:
