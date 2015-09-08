@@ -142,6 +142,8 @@ class Fit1D(Atom):
     use_snip = Bool(True)
     bin_energy = Int(0)
 
+    pixel_fit_method = Int(0)
+
     def __init__(self, *args, **kwargs):
         self.working_directory = kwargs['working_directory']
         self.result_folder = kwargs['working_directory']
@@ -462,6 +464,11 @@ class Fit1D(Atom):
         linear_bg = self.linear_bg
         use_snip = self.use_snip
         bin_energy = self.bin_energy
+
+        if self.pixel_fit_method == 0:
+            pixel_fit = 'nnls'
+        elif self.pixel_fit_method == 1:
+            pixel_fit = 'nonlinear'
 
         logger.info('-------- Fitting of single pixels starts. --------')
         t0 = time.time()
@@ -1210,18 +1217,25 @@ def fit_pixel_multiprocess_nonlinear(data, x, param, reg_mat, use_snip=False):
 def get_area_and_error_nonlinear_fit(elist, fit_results, reg_mat):
 
     mat_sum = np.sum(reg_mat, axis=0)
-
-    area_dict = OrderedDict({name:np.zeros([len(fit_results), len(fit_results[0])]) for name in elist})
-    error_dict = OrderedDict({name:np.zeros([len(fit_results), len(fit_results[0])]) for name in elist})
+    area_dict = OrderedDict()
+    error_dict = OrderedDict()
+    for name in elist:
+        area_dict[name] = np.zeros([len(fit_results), len(fit_results[0])])
+        error_dict[name] = np.zeros([len(fit_results), len(fit_results[0])])
+    #area_dict = OrderedDict({name:np.zeros([len(fit_results), len(fit_results[0])]) for name in elist})
+    #error_dict = OrderedDict({name:np.zeros([len(fit_results), len(fit_results[0])]) for name in elist})
     area_dict['snip_bg'] = np.zeros([len(fit_results), len(fit_results[0])])
+    weights_mat = np.zeros([len(fit_results), len(fit_results[0]), len(error_dict)])
+
     for i in range(len(fit_results)):
         for j in range(len(fit_results[0])):
-            for v in six.iterkeys(area_dict):
+            for m, v in enumerate(six.iterkeys(area_dict)):
                 if v=='snip_bg':
                     area_dict[v][i, j] = fit_results[i][j]['snip_bg']
                 else:
-                    area_dict[v][i, j] = fit_results[i][j]['value']
-                    error_dict[v][i, j] = fit_results[i][j]['err']
+                    area_dict[v][i, j] = fit_results[i][j]['value'][m]
+                    error_dict[v][i, j] = fit_results[i][j]['err'][m]
+                    weights_mat[i,j,m] = fit_results[i][j]['value'][m]
 
     for i,v in enumerate(six.iterkeys(area_dict)):
         if v=='snip_bg':
@@ -1229,7 +1243,7 @@ def get_area_and_error_nonlinear_fit(elist, fit_results, reg_mat):
         area_dict[v] *= mat_sum[i]
         error_dict[v] *= mat_sum[i]
 
-    return area_dict, error_dict
+    return area_dict, error_dict, weights_mat
 
 
 def single_pixel_fitting_controller(input_data, param, method='nnls',
@@ -1239,7 +1253,7 @@ def single_pixel_fitting_controller(input_data, param, method='nnls',
                                     use_snip=False,
                                     bin_energy=2):
 
-    # get cutted channel data
+    # cut data into proper range
     x, exp_data, fit_range = get_cutted_spectrum_in3D(input_data,
                                                       param['non_fitting_values']['energy_bound_low']['value'],
                                                       param['non_fitting_values']['energy_bound_high']['value'],
@@ -1286,6 +1300,9 @@ def single_pixel_fitting_controller(input_data, param, method='nnls',
         #x1 = x[::2]
         #x = x1[:x.size/2]
 
+    # make matrix smaller for single pixel fitting
+    matv /= exp_data.shape[0]*exp_data.shape[1]
+
     error_map = None
 
     logger.info('-------- Fitting of single pixels starts. --------')
@@ -1298,10 +1315,12 @@ def single_pixel_fitting_controller(input_data, param, method='nnls',
                                     param, first_peak_area=False)
     else:
         logger.info('Fitting method: nonlinear least squares')
-        results = fit_pixel_multiprocess_nonlinear(exp_data, x, param, matv,
-                                                   use_snip=use_snip)
-        result_map, error_map = get_area_and_error_nonlinear_fit(e_select,
-                                                                 results, matv)
+        fit_results = fit_pixel_multiprocess_nonlinear(exp_data, x, param, matv,
+                                                       use_snip=use_snip)
+
+        result_map, error_map, results = get_area_and_error_nonlinear_fit(e_select,
+                                                                          fit_results,
+                                                                          matv)
 
     logger.info('-------- Fitting of single pixels is done! --------')
 

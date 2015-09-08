@@ -370,7 +370,7 @@ enamldef FitView(DockItem): fit_view:
                     scaler_key = [v for v in six.iterkeys(img_model_adv.data_dict) if 'scaler' in v]
                     if len(scaler_key) > 0:
                         fit_model.fit_img[fit_model.fit_img.keys()[0]].update(img_model_adv.data_dict[scaler_key[0]])
-                    
+
                     img_model_adv.data_dict.update(fit_model.fit_img)
 
                     # visualization purpose
@@ -615,7 +615,7 @@ enamldef OtherSettingEdit(Window):
 
     Container :
         DockArea :
-            layout = TabLayout('add_element', 'item_bkg', 'item_controller', 'pileup')
+            layout = TabLayout('add_element', 'item_bkg', 'item_controller', 'item_controller_pixel', 'pileup')
             DockItem:
                 closable = False
                 name = 'add_element'
@@ -813,7 +813,7 @@ enamldef OtherSettingEdit(Window):
             DockItem:
                 closable = False
                 name = 'item_controller'
-                title = 'Fitting Controller'
+                title = 'Fitting Controller for Summed Spectrum'
                 Container:
                     Form:
                         Label:
@@ -836,6 +836,79 @@ enamldef OtherSettingEdit(Window):
                             text = 'Parameters for single pixel fitting'
                         Label:
                             text = ''
+                        Label:
+                            text = 'Add const to background'
+                        FloatField:
+                            value := fit_model.raise_bg
+                        Label:
+                            text = 'Bin data on x,y positions'
+                        ComboBox: cb_bin:
+                            items = ['0', '2 by 2', '3 by 3']
+                            index = 0
+                            index ::
+                                if index == 0:
+                                    fit_model.pixel_bin = 0
+                                if index == 1:
+                                    fit_model.pixel_bin = 4
+                                if index == 2:
+                                    fit_model.pixel_bin = 9
+                        Label:
+                            text = 'Use linear background'
+                        ComboBox:
+                            items = ['Yes', 'No']
+                            index = 1
+                            index ::
+                                if index == 0:
+                                    fit_model.linear_bg = True
+                                else:
+                                    fit_model.linear_bg = False
+                        Label:
+                            text = 'Use snip method for background'
+                        ComboBox:
+                            items = ['Yes', 'No']
+                            index = 0
+                            index ::
+                                if index == 0:
+                                    fit_model.use_snip = True
+                                else:
+                                    fit_model.use_snip = False
+                        Label:
+                            text = 'Bin data on energy axis'
+                        ComboBox:
+                            items = ['0', '2', '3']
+                            index = 0
+                            index ::
+                                fit_model.bin_energy = int(selected_item)
+
+                        #Label:
+                        #    text = 'Weighted c'
+                        #FloatField:
+                        #    value := fit_model.c_weight
+
+            DockItem:
+                closable = False
+                name = 'item_controller_pixel'
+                title = 'Fitting Controller for Single Pixels'
+                Container:
+                    Form:
+                        Label:
+                            text = 'Select fitting algorithm'
+                        ComboBox: cb_algorithm:
+                            items = ['non-negative leastsq', 'nonlinear leastsq']
+                            index := fit_model.pixel_fit_method
+                            #index ::
+                            #    if index == 0:
+                            #        fit_model.pixel_fit_method = 0
+                            #    if index == 1:
+                            #        fit_model.pixel_bin = 4
+                        Label:
+                            text = 'Max iteration number'
+                        IntField:
+                            value := fit_model.fit_num
+                        Label:
+                            text = 'Convergence criterion'
+                        FloatField:
+                            value := fit_model.ftol
                         Label:
                             text = 'Add const to background'
                         FloatField:
