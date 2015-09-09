@@ -685,6 +685,7 @@ def save_data_to_txt(fpath, output_folder):
 
     f = h5py.File(fpath, 'r')
 
+    detlist = ['det1', 'det2', 'det3']
     fit_output = {}
 
     # fitted data
@@ -695,12 +696,26 @@ def save_data_to_txt(fpath, output_folder):
         for i in np.arange(len(fit_name)):
             fit_output[fit_name[i]] = fit_data[i, :, :]
 
+    for detname in detlist:
+        if 'xrf_fit' in f['xrfmap/'+detname]:
+            fit_data = f['xrfmap/'+detname+'/xrf_fit']
+            fit_name = f['xrfmap/'+detname+'/xrf_fit_name']
+
+            for i in np.arange(len(fit_name)):
+                fit_output[detname+'_'+fit_name[i]] = fit_data[i, :, :]
+
     # ic data
     if 'scalers' in f['xrfmap']:
         ic_data = f['xrfmap/scalers/val']
         ic_name = f['xrfmap/scalers/name']
         for i in np.arange(len(ic_name)):
             fit_output[ic_name[i]] = ic_data[:, :, i]
+
+    # position data
+    if 'positions' in f['xrfmap']:
+        pos_name = f['xrfmap/positions/name']
+        for i, n in enumerate(pos_name):
+            fit_output[n] = f['xrfmap/positions/pos'].value[i, :]
 
     #save data
     if os.path.exists(output_folder) is False:
@@ -727,7 +742,7 @@ def read_hdf_APS(working_directory,
     channel_num : int, optional
         detector channel number
     spectrum_cut : int, optional
-        only use spectrum from, say 0,2000
+        only use spectrum from, say 0, 3000
 
     Returns
     -------
@@ -764,10 +779,17 @@ def read_hdf_APS(working_directory,
                 data_sets[fname_sum] = DS
                 logger.info('Data of detector sum is loaded.')
 
+                if 'scalers' in data:
+                    det_name = data['scalers/name']
+                    temp = {}
+                    for i, n in enumerate(det_name):
+                        temp[n] = data['scalers/val'].value[:, :, i]
+                    img_dict[fname+'_scaler'] = temp
+
                 # data from each channel
                 for i in range(1, channel_num+1):
                     det_name = 'det'+str(i)
-                    file_channel = fname+'_channel_'+str(i)
+                    file_channel = fname+'_ch'+str(i)
                     exp_data_new = np.array(data[det_name+'/counts'][:, :, 0:spectrum_cut])
                     try:
                         exp_data_new[0, 0, :] = exp_data_new[1, 0, :]
@@ -778,12 +800,13 @@ def read_hdf_APS(working_directory,
                     data_sets[file_channel] = DS
                     logger.info('Data from detector channel {} is loaded.'.format(i))
 
-                if 'scalers' in data:
-                    det_name = data['scalers/name']
-                    temp = {}
-                    for i, n in enumerate(det_name):
-                        temp[n] = data['scalers/val'].value[:, :, i]
-                    img_dict[fname+'_scaler'] = temp
+                    if 'xrf_fit' in data[det_name]:
+                        fit_result = get_fit_data(data[det_name]['xrf_fit_name'].value,
+                                                  data[det_name]['xrf_fit'].value)
+                        img_dict.update({file_channel+'_fit': fit_result})
+                        # also include scaler data
+                        if 'scalers' in data:
+                                img_dict[file_channel+'_fit'].update(img_dict[fname+'_scaler'])
 
                 if 'roimap' in data:
                     if 'sum_name' in data['roimap']:

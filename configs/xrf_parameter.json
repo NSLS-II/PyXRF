@@ -220,7 +220,7 @@
         "tool_tip": "width**2 = (b1/2.3548)**2 + 3.85*b2*E", 
         "default": 0.18,
         "value": 0.17
-    }, 
+    },
     "non_fitting_values": {
         "element_list": "Al_K, S_K, Cl_K, Ar_K, Ca_K, Cr_K, Fe_K, Co_K, Ni_K, Cu_K, Pm_L, Gd_L",
         "energy_bound_high": {

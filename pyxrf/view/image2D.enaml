@@ -49,122 +49,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-enamldef ImageMain1(DockItem):
-    attr io_model
-    attr img_model_adv
-    attr choose_element
-
-    Container:
-        constraints = [
-            vbox(
-                hbox(pb_all, spacer),
-                hbox(cb_select, color_select, pixel_select, tb_check),
-                canvas,
-            ),
-        ]
-
-        PushButton: pb_all:
-            text = 'Select Image'
-            checkable = True
-            checked := choose_element.visible
-            clicked ::
-                if checked:
-                    choose_element.show()
-                else:
-                    choose_element.hide()
-
-        ComboBox: cb_select:
-            items = ['Linear', 'Log']
-            index = 0
-            index ::
-                img_model_adv.scale_opt = selected_item
-
-        ComboBox: color_select:
-            items = ['Orange', 'Color', 'Greyscale']
-            index = 0
-            index ::
-                img_model_adv.color_opt = selected_item
-
-        ComboBox: pixel_select:
-            items = ['pixel', 'x,y position']
-            index = 0
-            index ::
-                img_model_adv.pixel_or_pos = selected_item
-
-        CheckBox: tb_check:
-            text = 'Toolbar Visible'
-            checked := canvas.toolbar_visible
-        MPLCanvas: canvas:
-            figure << choose_element.img_model.fig
-            #figure << figures[cbox_type.selected_item]
-
-
-enamldef ChooseElementAdvanced1(Window): win:
-    attr img_model
-
-    title = 'Results of Auto Peak Finding'
-    Container:
-        constraints = [
-            vbox(
-                hbox(lb_data, cb),
-                hbox(lb_norm, cb_norm),
-                hbox(plot_btn),
-                #hbox(select_btn),
-                gb,
-            ),
-        ]
-        Label: lb_data:
-            text = 'Select data'
-
-        ComboBox: cb:
-            items << sorted(img_model.group_names)
-            index = 0
-            index ::
-                if index > 0:
-                    img_model.group_name = selected_item
-
-        Label: lb_norm:
-            text = 'Normalized by '
-        ComboBox: cb_norm:
-            items << sorted(img_model.scaler_items)
-            index = 0
-            index ::
-                img_model.scaler_name = selected_item
-
-        PushButton: plot_btn:
-            text = 'Show Image'
-            clicked ::
-                img_model.show_image()
-
-        GroupBox: gb:
-            title = 'Add/Remove Image'
-            ScrollArea:
-                constraints = [height >= 80]
-                Container:
-                    Form:
-                        Looper: looper:
-                            iterable << sorted(img_model.items_in_group)
-                            Label:
-                                font = 'monospace'
-                                text = '{:>10}'.format(loop_item)
-                            PushButton: element_btn:
-                                text = 'Add'
-                                minimum_size = (100, 20)
-                                checkable = True
-                                #checked := img_model.select_stat_dict[loop_item]
-                                clicked ::
-                                    if checked:
-                                        img_model.stat_dict[img_model.group_name][loop_item] = True
-                                        element_btn.checked = True
-                                        element_btn.text = 'Remove'
-                                    else:
-                                        img_model.stat_dict[img_model.group_name][loop_item] = False
-                                        element_btn.checked = False
-                                        element_btn.text = 'Add'
-
-
-
-
 enamldef ImageMain(DockItem):
     attr img_model_adv
     attr choose_element
@@ -173,7 +57,7 @@ enamldef ImageMain(DockItem):
         constraints = [
             vbox(
                 hbox(cbox_file, pb_all, spacer),
-                hbox(spacer, cb_select, color_select, pixel_select, tb_check),
+                hbox(spacer, cb_select, color_select, cb_norm, pixel_select, tb_check),
                 canvas,
             ),
             #cbox_type.v_center == check.v_center,
@@ -181,12 +65,12 @@ enamldef ImageMain(DockItem):
 
         ComboBox: cbox_file:
             items << ['Select Data'] + sorted(img_model_adv.data_dict_keys)
-            index := img_model_adv.file_opt
+            index := img_model_adv.data_opt
             index = 0
-            minimum_size = (160,20)
-            index ::
-                if index > 0:
-                    img_model_adv.plot_item = selected_item
+            minimum_size = (200,20)
+            #index ::
+            #    if index > 0:
+            #        img_model_adv.plot_item = selected_item
 
         PushButton: pb_all:
             text = 'Image Wizard'
@@ -205,10 +89,14 @@ enamldef ImageMain(DockItem):
                 img_model_adv.scale_opt = cb_select.selected_item
 
         ComboBox: color_select:
-            items = ['Orange', 'Color', 'Greyscale']
+            items = ['Oranges', 'jet', 'hot', 'gray', 'bone']
             index = 0
             index ::
                 img_model_adv.color_opt = color_select.selected_item
+
+        ComboBox: cb_norm:
+            items << ['Normalized by '] + sorted(img_model_adv.scaler_items)
+            index := img_model_adv.scaler_name_index
 
         ComboBox: pixel_select:
             items = ['pixel', 'x,y position']
@@ -230,20 +118,11 @@ enamldef ChooseElementAdvanced(Window): win:
     Container:
         constraints = [
             vbox(
-                hbox(lb_norm, cb_norm),
                 hbox(plot_btn),
                 #hbox(select_btn),
                 gb,
             ),
         ]
-
-        Label: lb_norm:
-            text = 'Normalized by '
-        ComboBox: cb_norm:
-            items << sorted(img_model.scaler_items)
-            index = 0
-            index ::
-                img_model.scaler_name = selected_item
 
         PushButton: plot_btn:
             text = 'Show Image'
@@ -270,7 +149,7 @@ enamldef ChooseElementAdvanced(Window): win:
                 Container:
                     Form:
                         Looper: looper:
-                            iterable << sorted(img_model.items_in_group)
+                            iterable << sorted(img_model.items_in_selected_group)
                             Label:
                                 font = 'monospace'
                                 text = '{:>10}'.format(loop_item)
