@@ -475,7 +475,7 @@ class Fit1D(Atom):
 
         result_map, calculation_info = single_pixel_fitting_controller(self.data_all,
                                                                        self.param_dict,
-                                                                       method='nnls',
+                                                                       method=pixel_fit,
                                                                        pixel_bin=pixel_bin,
                                                                        raise_bg=raise_bg,
                                                                        comp_elastic_combine=comp_elastic_combine,
@@ -510,6 +510,7 @@ class Fit1D(Atom):
 
         # get fitted spectrum and save them to figs
         if self.save_point is True:
+            elist = calculation_info['fit_name']
             matv = calculation_info['regression_mat']
             results = calculation_info['results']
             #fit_range = calculation_info['fit_range']
@@ -527,8 +528,8 @@ class Fit1D(Atom):
                 os.mkdir(output_folder)
             logger.info('Saving plots for single pixels ...')
 
-            # last two columns of results are snip_bg, and chisq2
-            save_fitted_fig(x, matv, results[:, :, :-2],
+            # last two columns of results are snip_bg, and chisq2 if nnls is used
+            save_fitted_fig(x, matv, results[:, :, 0:len(elist)],
                             p1, p2,
                             data_fit, self.param_dict,
                             output_folder, use_sinp=use_snip)
