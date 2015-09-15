@@ -1,7 +1,6 @@
 #PyXRF
 
-GUI for visualizing and fitting X-ray fluorescence data. Most of the fitting functions are written
-at scikit-xray https://github.com/scikit-xray/scikit-xray.
+GUI for visualizing and fitting X-ray fluorescence data.
 
 
 ## Documentation
@@ -24,3 +23,10 @@ conda install -c licode pyxrf
 
 ### Windows
 Under development.
+
+
+## Notes
+
+The core fitting functions are written at scikit-xray https://github.com/scikit-xray/scikit-xray.
+The design philosophy is to separate fitting and gui, so it is easy to maintain.
+For more questions, please submit issues through github, or contact Li at lili@bnl.gov.
