@@ -45,6 +45,7 @@ from .model.fileio import FileIOModel
 from .model.lineplot import LinePlotModel #, SettingModel
 from .model.guessparam import GuessParamModel
 from .model.draw_image import DrawImageAdvanced
+from .model.draw_image_rgb import DrawImageRGB
 from .model.fit_spectrum import Fit1D
 from .model.setting import SettingModel
 from .model.param_data import param_data
@@ -93,6 +94,7 @@ def run():
     fit_model = Fit1D(**defaults)
     setting_model = SettingModel()
     img_model_adv = DrawImageAdvanced()
+    img_model_rgb = DrawImageRGB()
 
     # send working directory changes to different models
     io_model.observe('output_directory', fit_model.result_folder_changed)
@@ -110,6 +112,7 @@ def run():
 
     # send img dict to img_model for visualization
     io_model.observe('img_dict', img_model_adv.data_dict_update)
+    io_model.observe('img_dict', img_model_rgb.data_dict_update)
 
     # set default parameters
     #io_model.observe('default_parameters', plot_model.parameters_update)
@@ -120,7 +123,8 @@ def run():
                      plot_model=plot_model,
                      fit_model=fit_model,
                      setting_model=setting_model,
-                     img_model_adv=img_model_adv)
+                     img_model_adv=img_model_adv,
+                     img_model_rgb=img_model_rgb)
 
     xrfview.show()
     app.start()
