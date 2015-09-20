@@ -151,10 +151,5 @@ enamldef XRFGui(MainWindow): main_window:
                 closable = False
                 title = 'Element RBG '
                 img_model_adv = main_window.img_model_rgb
-                choose_element = ChooseElementAdvanced(
-                    visible=False, destroy_on_close=False,
-                    always_on_top=True,
-                    parent=main_window,
-                    img_model=main_window.img_model_rgb)
                 #plot_model = main_window.plot_model
                 name = 'image_rgb'

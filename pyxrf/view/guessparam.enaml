@@ -95,7 +95,7 @@ enamldef GuessParamView(DockItem): param_view:
                         constraints = [hbox(ff, pb)]
                         FloatField: ff:
                             value := param_model.param_new[loop_item]['value']
-                            maximum_size = 200
+                            maximum_size = 100
                         PushButton: pb:
                             text = 'Default'
                             maximum_size = 100
@@ -113,7 +113,7 @@ enamldef GuessParamView(DockItem): param_view:
                         constraints = [hbox(ff_bound, pb)]
                         FloatField: ff_bound:
                             value := loop_item['value']
-                            maximum_size = 200
+                            maximum_size = 100
                         PushButton: pb:
                             text = 'Default'
                             maximum_size = 100
@@ -273,11 +273,11 @@ enamldef GuessParamView(DockItem): param_view:
 
                             Label: lb_z:
                                 text << param_model.EC.element_dict[loop_item].z
-                                minimum_size = (40, 20)
+                                minimum_size = (30, 20)
                                 #background = 'white'
                             Label: lb_name:
                                 text << loop_item
-                                minimum_size = (100, 20)
+                                minimum_size = (80, 20)
                                 #background = 'white'
                             Label: lb_energy:
                                 text << str(param_model.EC.element_dict[loop_item].energy)
@@ -294,13 +294,13 @@ enamldef GuessParamView(DockItem): param_view:
 
                             Label: lb_norm:
                                 text << set_low_bound(np.around(param_model.EC.element_dict[loop_item].norm, 2))
-                                minimum_size = (100, 20)
+                                minimum_size = (60, 20)
                                 #background = 'white'
                                 align = 'center'
 
                             CheckBox: select_cb:
                                 checkable = True
-                                minimum_size = (30, 20)
+                                minimum_size = (20, 20)
                                 checked := param_model.EC.element_dict[loop_item].status
                                 clicked ::
                                     param_model.EC.element_dict[loop_item].status = checked
