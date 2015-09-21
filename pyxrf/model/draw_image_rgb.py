@@ -57,8 +57,6 @@ class DrawImageRGB(Atom):
 
     Attributes
     ----------
-    img_data : dict
-        dict of 2D array
     fig : object
         matplotlib Figure
     file_name : str
@@ -98,24 +96,13 @@ class DrawImageRGB(Atom):
     #plot_item = Str()
     dict_to_plot = Dict()
     items_in_selected_group = List()
-
     scale_opt = Str('Linear')
-    #color_opt = Str('Oranges')
-
-    #group_names = List()
-    #group_name = Str()
-
     scaler_norm_dict = Dict()
     scaler_items = List()
     scaler_name_index = Int()
     scaler_data = Typed(object)
-
     plot_all = Bool(False)
 
-    # x_pos = List()
-    # y_pos = List()
-    # pixel_or_pos = Int(0)
-    pixel_or_pos_for_plot = Typed(object)
     rgb_name_list = List()
     index_red = Int(0)
     index_green = Int(1)
@@ -123,7 +110,6 @@ class DrawImageRGB(Atom):
 
     def __init__(self):
         self.fig = plt.figure(figsize=(6,6))
-        self.pixel_or_pos_for_plot = None
         self.rgb_name_list = ['R', 'G', 'B']
 
     def data_dict_update(self, change):

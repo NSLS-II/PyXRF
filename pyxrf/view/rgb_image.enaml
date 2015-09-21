@@ -182,12 +182,6 @@ enamldef ImageRGB(DockItem):
             text = 'Select Three Items for RGB'
         ScrollArea: sa_elements:
             constraints = [height >= 100]
-            #Container:
-                #constraints = [hbox(ct_name, ct_r, ct_g, ct_b),
-                #               ct_name.height==ct_r.height,
-                #               ct_name.height==ct_g.height,
-                #               ct_name.height==ct_b.height,
-                #              ]
             Form: form_element:
                 Looper: looper:
                     iterable << sorted(img_model_adv.items_in_selected_group)
@@ -209,19 +203,3 @@ enamldef ImageRGB(DockItem):
                             else:
                                 img_model_adv.stat_dict[loop_item] = False
                                 element_btn.checked = False
-        #Container: ct_r:
-                #    Looper: looper:
-                #        iterable << sorted(img_model_adv.items_in_selected_group)
-                #        RadioButton: element_btn:
-                #            text = ''
-                #            minimum_size = (5, 22)
-                #            maximum_size = (10, 22)
-                #            #checkable = True
-                #            checked << img_model_adv.plot_all
-                #            clicked ::
-                #                if checked:
-                #                    img_model_adv.stat_dict[loop_item] = True
-                #                    element_btn.checked = True
-                #                else:
-                #                    img_model_adv.stat_dict[loop_item] = False
-                #                    element_btn.checked = False
