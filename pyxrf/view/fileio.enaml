@@ -93,7 +93,7 @@ enamldef FileView(DockItem): file_view:
                         io_model.working_directory = path
             Field: folder_fd:
                 text := io_model.working_directory
-                maximum_size = 300
+                #maximum_size = 400
 
             PushButton: btn_out:
                 text = 'Save Results to'
@@ -104,7 +104,7 @@ enamldef FileView(DockItem): file_view:
                         fd_out.text = path
             Field: fd_out:
                 text << io_model.output_directory
-                maximum_size = 300
+                #maximum_size = 400
 
             PushButton: files_btn:
                 text = "Exp. Data File"

@@ -1447,6 +1447,43 @@ def fit_pixel_slow_version(data, param, c_val=1e-2, fit_num=10, c_weight=1):
     return result_map
 
 
+# def fit_pixel_data_and_save_per_channel(data_file, chanel_name='ch1', param_file):
+#
+#     t0 = time.time()
+#     data =
+#
+#     result_map, calculation_info = single_pixel_fitting_controller(self.data_all,
+#                                                                    self.param_dict,
+#                                                                    method=pixel_fit,
+#                                                                    pixel_bin=pixel_bin,
+#                                                                    raise_bg=raise_bg,
+#                                                                    comp_elastic_combine=comp_elastic_combine,
+#                                                                    linear_bg=linear_bg,
+#                                                                    use_snip=use_snip,
+#                                                                    bin_energy=bin_energy)
+#
+#     t1 = time.time()
+#     logger.info('Time used for pixel fitting is : {}'.format(t1-t0))
+#
+#     # output to .h5 file
+#     fpath = os.path.join(self.result_folder, self.save_name)
+#
+#     prefix_fname = self.save_name.split('.')[0]
+#     if 'ch1' in self.data_title:
+#         inner_path = 'xrfmap/det1'
+#         fit_name = prefix_fname+'_ch1_fit'
+#     elif 'ch2' in self.data_title:
+#         inner_path = 'xrfmap/det2'
+#         fit_name = prefix_fname+'_ch2_fit'
+#     elif 'ch3' in self.data_title:
+#         inner_path = 'xrfmap/det3'
+#         fit_name = prefix_fname+'_ch3_fit'
+#     else:
+#         inner_path = 'xrfmap/detsum'
+#         fit_name = prefix_fname+'_fit'
+#     save_fitdata_to_hdf(fpath, result_map, datapath=inner_path)
+
+
 def save_fitdata_to_hdf(fpath, data_dict,
                         datapath='xrfmap/detsum'):
     """
