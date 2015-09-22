@@ -728,7 +728,8 @@ def save_data_to_txt(fpath, output_folder):
 
 def read_hdf_APS(working_directory,
                  file_name, channel_num=3,
-                 spectrum_cut=3000):
+                 spectrum_cut=3000,
+                 load_each_channel=True):
     """
     Data IO for files similar to APS Beamline 13 data format.
     This might be changed later.
@@ -743,6 +744,8 @@ def read_hdf_APS(working_directory,
         detector channel number
     spectrum_cut : int, optional
         only use spectrum from, say 0, 3000
+    load_each_channel : bool, optional
+        load data from each channel or not
 
     Returns
     -------
@@ -785,26 +788,27 @@ def read_hdf_APS(working_directory,
             img_dict[fname+'_scaler'] = temp
 
         # data from each channel
-        for i in range(1, channel_num+1):
-            det_name = 'det'+str(i)
-            file_channel = fname+'_ch'+str(i)
-            exp_data_new = np.array(data[det_name+'/counts'][:, :, 0:spectrum_cut])
-            try:
-                exp_data_new[0, 0, :] = exp_data_new[1, 0, :]
-            except IndexError:
-                exp_data_new[0, 0, :] = exp_data_new[0, 1, :]
-            DS = DataSelection(filename=file_channel,
-                               raw_data=exp_data_new)
-            data_sets[file_channel] = DS
-            logger.info('Data from detector channel {} is loaded.'.format(i))
+        if load_each_channel is True:
+            for i in range(1, channel_num+1):
+                det_name = 'det'+str(i)
+                file_channel = fname+'_ch'+str(i)
+                exp_data_new = np.array(data[det_name+'/counts'][:, :, 0:spectrum_cut])
+                try:
+                    exp_data_new[0, 0, :] = exp_data_new[1, 0, :]
+                except IndexError:
+                    exp_data_new[0, 0, :] = exp_data_new[0, 1, :]
+                DS = DataSelection(filename=file_channel,
+                                   raw_data=exp_data_new)
+                data_sets[file_channel] = DS
+                logger.info('Data from detector channel {} is loaded.'.format(i))
 
-            if 'xrf_fit' in data[det_name]:
-                fit_result = get_fit_data(data[det_name]['xrf_fit_name'].value,
-                                          data[det_name]['xrf_fit'].value)
-                img_dict.update({file_channel+'_fit': fit_result})
-                # also include scaler data
-                if 'scalers' in data:
-                        img_dict[file_channel+'_fit'].update(img_dict[fname+'_scaler'])
+                if 'xrf_fit' in data[det_name]:
+                    fit_result = get_fit_data(data[det_name]['xrf_fit_name'].value,
+                                              data[det_name]['xrf_fit'].value)
+                    img_dict.update({file_channel+'_fit': fit_result})
+                    # also include scaler data
+                    if 'scalers' in data:
+                            img_dict[file_channel+'_fit'].update(img_dict[fname+'_scaler'])
 
         if 'roimap' in data:
             if 'sum_name' in data['roimap']:
