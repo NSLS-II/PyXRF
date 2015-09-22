@@ -1037,7 +1037,9 @@ def fit_per_line_nnls(row_num, data,
     row_num : int
         which row to fit
     data : array
-        3D data of experiment spectrum
+        selected one row of experiment spectrum
+    matv : array
+        matrix for regression analysis
     param : dict
         fitting parameters
     use_snip : bool
@@ -1046,9 +1048,8 @@ def fit_per_line_nnls(row_num, data,
     Returns
     -------
     array :
-        fitting values for all the elements at a given row.
-    Note background is also calculated as a summed value. Also residual
-    is included.
+        fitting values for all the elements at a given row. Background is
+        calculated as a summed value. Also residual is included.
     """
     logger.info('Row number at {}'.format(row_num))
     out = []
@@ -1074,7 +1075,7 @@ def fit_per_line_nnls(row_num, data,
     return np.array(out)
 
 
-def fit_pixel_multiprocess_nnls(x, matv, data_fit, param,
+def fit_pixel_multiprocess_nnls(exp_data, matv, param,
                                 use_snip=False):
     """
     Multiprocess fit of experiment data.
@@ -1083,8 +1084,12 @@ def fit_pixel_multiprocess_nnls(x, matv, data_fit, param,
     ----------
     exp_data : array
         3D data of experiment spectrum
+    matv : array
+        matrix for regression analysis
     param : dict
         fitting parameters
+    use_snip : bool, optional
+        use snip algorithm to remove background or not
 
     Returns
     -------
@@ -1097,9 +1102,9 @@ def fit_pixel_multiprocess_nnls(x, matv, data_fit, param,
     pool = multiprocessing.Pool(num_processors_to_use)
 
     result_pool = [pool.apply_async(fit_per_line_nnls,
-                                    (n, data_fit[n, :, :], matv,
+                                    (n, exp_data[n, :, :], matv,
                                      param, use_snip))
-                   for n in range(data_fit.shape[0])]
+                   for n in range(exp_data.shape[0])]
 
     results = []
     for r in result_pool:
@@ -1337,7 +1342,7 @@ def single_pixel_fitting_controller(input_data, param, method='nnls',
     logger.info('-------- Fitting of single pixels starts. --------')
     if method == 'nnls':
         logger.info('Fitting method: non-negative least squares')
-        results = fit_pixel_multiprocess_nnls(x, matv, exp_data, param,
+        results = fit_pixel_multiprocess_nnls(exp_data, matv, param,
                                               use_snip=use_snip)
         # output area of dict
         result_map = calculate_area(e_select, matv, results,
@@ -1524,7 +1529,6 @@ def fit_pixel_data_and_save(working_directory, file_name,
     prefix_fname = file_name.split('.')[0]
     if fit_channel_sum is True:
         img_dict, data_sets = read_hdf_APS(working_directory, file_name,
-                                           channel_num=channel_num,
                                            spectrum_cut=spectrum_cut,
                                            load_each_channel=False)
 
@@ -1549,11 +1553,12 @@ def fit_pixel_data_and_save(working_directory, file_name,
         save_fitdata_to_hdf(fpath, result_map_sum, datapath=inner_path)
 
     if fit_channel_each is True:
+        channel_num = len(param_channel_list)
         img_dict, data_sets = read_hdf_APS(working_directory, file_name,
                                            channel_num=channel_num,
                                            spectrum_cut=spectrum_cut,
                                            load_each_channel=True)
-        for i in range(len(param_channel_list)):
+        for i in range(channel_num):
             filename_det = prefix_fname+'_ch'+str(i+1)
             inner_path = 'xrfmap/det'+str(i+1)
 

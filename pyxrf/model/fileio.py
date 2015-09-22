@@ -738,7 +738,7 @@ def read_hdf_APS(working_directory,
     ----------
     working_directory : str
         path folder
-    file_names : str
+    file_name : str
         selected h5 file
     channel_num : int, optional
         detector channel number
@@ -752,7 +752,7 @@ def read_hdf_APS(working_directory,
     data_dict : dict
         with fitting data
     data_sets : dict
-        data from each channel and channel summed
+        data from each channel and channel summed, a dict of DataSelection objects
     """
     data_sets = OrderedDict()
     img_dict = OrderedDict()
@@ -788,7 +788,7 @@ def read_hdf_APS(working_directory,
             img_dict[fname+'_scaler'] = temp
 
         # data from each channel
-        if load_each_channel is True:
+        if load_each_channel:
             for i in range(1, channel_num+1):
                 det_name = 'det'+str(i)
                 file_channel = fname+'_ch'+str(i)

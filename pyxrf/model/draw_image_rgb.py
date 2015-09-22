@@ -32,20 +32,22 @@
 # IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE   #
 # POSSIBILITY OF SUCH DAMAGE.                                          #
 ########################################################################
-from __future__ import absolute_import
+from __future__ import (absolute_import, division,
+                        print_function)
+
 __author__ = 'Li Li'
 
 import six
 import numpy as np
 from collections import OrderedDict
-from matplotlib.figure import Figure
+from matplotlib.figure import Figure, Axes
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 #import matplotlib.cm as cm
 #from mpl_toolkits.axes_grid1 import ImageGrid
 import matplotlib.patches as mpatches
 from mpl_toolkits.axes_grid1.axes_rgb import make_rgb_axes, RGBAxes
-from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool
+from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool, Float
 
 import logging
 logger = logging.getLogger(__name__)
@@ -59,6 +61,14 @@ class DrawImageRGB(Atom):
     ----------
     fig : object
         matplotlib Figure
+    ax : Axes
+        The `Axes` object of matplotlib
+    ax_r : Axes
+        The `Axes` object to add the artist too
+    ax_g : Axes
+        The `Axes` object to add the artist too
+    ax_b : Axes
+        The `Axes` object to add the artist too
     file_name : str
     stat_dict : dict
         determine which image to show
@@ -88,6 +98,10 @@ class DrawImageRGB(Atom):
     """
 
     fig = Typed(Figure)
+    ax =  Typed(Axes)
+    ax_r = Typed(Axes)
+    ax_g = Typed(Axes)
+    ax_b = Typed(Axes)
     stat_dict = Dict()
     data_dict = Dict()
     data_dict_keys = List()
@@ -107,10 +121,15 @@ class DrawImageRGB(Atom):
     index_red = Int(0)
     index_green = Int(1)
     index_blue = Int(2)
+    ic_norm = Float()
 
     def __init__(self):
         self.fig = plt.figure(figsize=(6,6))
+        self.ax = self.fig.add_subplot(111)
+        self.ax_r, self.ax_g, self.ax_b = make_rgb_axes(self.ax, pad=0.02)
+
         self.rgb_name_list = ['R', 'G', 'B']
+        self.ic_norm = 1e4  # multiply by this value for ic normalization
 
     def data_dict_update(self, change):
         """
@@ -119,7 +138,7 @@ class DrawImageRGB(Atom):
 
         Parameters
         ----------
-        changed : dict
+        change : dict
             This is the dictionary that gets passed to a function
             with the @observe decorator
         """
@@ -146,7 +165,7 @@ class DrawImageRGB(Atom):
             self.scaler_norm_dict = self.data_dict[scaler_groups[0]]
             # for GUI purpose only
             self.scaler_items = []
-            self.scaler_items = self.scaler_norm_dict.keys()
+            self.scaler_items = list(self.scaler_norm_dict.keys())
             self.scaler_data = None
 
         self.show_image()
@@ -155,7 +174,7 @@ class DrawImageRGB(Atom):
     def _update_file(self, change):
         if self.data_opt == 0:
             self.dict_to_plot = {}
-            self.items_in_selected_group = self.dict_to_plot.keys()
+            self.items_in_selected_group = []
             self.set_stat_for_all(bool_val=False)
         elif self.data_opt > 0:
             self.set_stat_for_all(bool_val=False)
@@ -201,17 +220,16 @@ class DrawImageRGB(Atom):
         stat_temp = self.get_activated_num()
         stat_temp = OrderedDict(sorted(six.iteritems(stat_temp), key=lambda x: x[0]))
 
-        low_lim = 1e-4  # define the low limit for log image
-        ic_norm = 10000  # multiply by this value for ic normalization
+
         plot_interp = 'Nearest'
         name_not_scalable = ['r_squared']  # do not apply scaler norm on those data
 
         if self.scaler_data is not None:
             if np.max(self.scaler_data) < 1.0:  # use current as ic, such as SRX
-                ic_norm = 1.0
+                self.ic_norm = 1.0
             if len(self.scaler_data[self.scaler_data == 0]) > 0:
                 logger.warning('scaler data has zero values at {}'.format(np.where(self.scaler_data == 0)))
-                self.scaler_data[self.scaler_data == 0] = np.mean(self.scaler_data)
+                self.scaler_data[self.scaler_data == 0] = np.mean(self.scaler_data[self.scaler_data != 0])
                 logger.warning('Use mean value {} instead for those points'.format(np.mean(self.scaler_data)))
 
         if self.scale_opt == 'Linear':
@@ -221,7 +239,7 @@ class DrawImageRGB(Atom):
                     if k in name_not_scalable:
                         data_dict = self.dict_to_plot[k]
                     else:
-                        data_dict = self.dict_to_plot[k]/self.scaler_data*ic_norm
+                        data_dict = self.dict_to_plot[k]/self.scaler_data*self.ic_norm
 
                 else:
                     data_dict = self.dict_to_plot[k]
@@ -236,7 +254,7 @@ class DrawImageRGB(Atom):
                     if k in name_not_scalable:
                         data_dict = self.dict_to_plot[k]
                     else:
-                        data_dict = self.dict_to_plot[k]/self.scaler_data*ic_norm
+                        data_dict = self.dict_to_plot[k]/self.scaler_data*self.ic_norm
 
                 else:
                     data_dict = np.log(self.dict_to_plot[k])
@@ -260,8 +278,6 @@ class DrawImageRGB(Atom):
             logger.warning('Elements {} are considered.'.format(selected_name[:3]))
             self.rgb_name_list = selected_name[:3]
 
-        name_r, name_g, name_b = self.rgb_name_list
-
         try:
             data_r = selected_data[0,:,:]
         except IndexError:
@@ -283,24 +299,19 @@ class DrawImageRGB(Atom):
                                  data_g,
                                  data_b)
 
-        self.fig.clf()
-
-        ax = self.fig.add_subplot(111)
-
-        ax_r, ax_g, ax_b = make_rgb_axes(ax, pad=0.02)
-
+        #self.fig.clf()
         red_patch = mpatches.Patch(color='red', label=name_r)
         green_patch = mpatches.Patch(color='green', label=name_g)
         blue_patch = mpatches.Patch(color='blue', label=name_b)
 
         kwargs = dict(origin="upper", interpolation="nearest")
-        ax.imshow(RGB, **kwargs)
-        ax_r.imshow(R, **kwargs)
-        ax_g.imshow(G, **kwargs)
-        ax_b.imshow(B, **kwargs)
+        self.ax.imshow(RGB, **kwargs)
+        self.ax_r.imshow(R, **kwargs)
+        self.ax_g.imshow(G, **kwargs)
+        self.ax_b.imshow(B, **kwargs)
 
-        ax.set_xticklabels([])
-        ax.set_yticklabels([])
+        self.ax.set_xticklabels([])
+        self.ax.set_yticklabels([])
 
         # sb_x = 38
         # sb_y = 46
@@ -309,8 +320,8 @@ class DrawImageRGB(Atom):
         #ax.add_patch(mpatches.Rectangle(( sb_x, sb_y), sb_length, sb_height, color='white'))
         #ax.text(sb_x + sb_length /2, sb_y - 1*sb_height,  '100 nm', color='w', ha='center', va='bottom', backgroundcolor='black', fontsize=18)
 
-        ax.legend(bbox_to_anchor=(0., 1.0, 1., .10), ncol=3,
-                  handles=[red_patch, green_patch, blue_patch], mode="expand", loc=3)
+        self.ax.legend(bbox_to_anchor=(0., 1.0, 1., .10), ncol=3,
+                       handles=[red_patch, green_patch, blue_patch], mode="expand", loc=3)
 
         #self.fig.tight_layout(pad=4.0, w_pad=0.8, h_pad=0.8)
         #self.fig.tight_layout()
