@@ -59,6 +59,8 @@ from .guessparam import (calculate_profile, fit_strategy_list,
                          trim_escape_peak, define_range, get_energy,
                          get_Z, PreFitStatus, ElementController,
                          update_param_from_element)
+from .fileio import read_hdf_APS
+
 #from lmfit import fit_report
 import lmfit
 
@@ -1035,7 +1037,9 @@ def fit_per_line_nnls(row_num, data,
     row_num : int
         which row to fit
     data : array
-        3D data of experiment spectrum
+        selected one row of experiment spectrum
+    matv : array
+        matrix for regression analysis
     param : dict
         fitting parameters
     use_snip : bool
@@ -1044,9 +1048,8 @@ def fit_per_line_nnls(row_num, data,
     Returns
     -------
     array :
-        fitting values for all the elements at a given row.
-    Note background is also calculated as a summed value. Also residual
-    is included.
+        fitting values for all the elements at a given row. Background is
+        calculated as a summed value. Also residual is included.
     """
     logger.info('Row number at {}'.format(row_num))
     out = []
@@ -1072,7 +1075,7 @@ def fit_per_line_nnls(row_num, data,
     return np.array(out)
 
 
-def fit_pixel_multiprocess_nnls(x, matv, data_fit, param,
+def fit_pixel_multiprocess_nnls(exp_data, matv, param,
                                 use_snip=False):
     """
     Multiprocess fit of experiment data.
@@ -1081,8 +1084,12 @@ def fit_pixel_multiprocess_nnls(x, matv, data_fit, param,
     ----------
     exp_data : array
         3D data of experiment spectrum
+    matv : array
+        matrix for regression analysis
     param : dict
         fitting parameters
+    use_snip : bool, optional
+        use snip algorithm to remove background or not
 
     Returns
     -------
@@ -1095,9 +1102,9 @@ def fit_pixel_multiprocess_nnls(x, matv, data_fit, param,
     pool = multiprocessing.Pool(num_processors_to_use)
 
     result_pool = [pool.apply_async(fit_per_line_nnls,
-                                    (n, data_fit[n, :, :], matv,
+                                    (n, exp_data[n, :, :], matv,
                                      param, use_snip))
-                   for n in range(data_fit.shape[0])]
+                   for n in range(exp_data.shape[0])]
 
     results = []
     for r in result_pool:
@@ -1253,7 +1260,33 @@ def single_pixel_fitting_controller(input_data, param, method='nnls',
                                     linear_bg=True,
                                     use_snip=False,
                                     bin_energy=2):
+    """
+    Parameters
+    ----------
+    input_data : array
+        3D array of spectrum
+    param : dict
+        parameter for fitting
+    method : str, optional
+        fitting method, default as nnls
+    pixel_bin : int, optional
+        bin pixel as 2by2, or 3by3
+    raise_bg : int, optional
+        add a constant value to each spectrum, better for fitting
+    comp_elastic_combine : bool, optional
+        combine elastic and compton as one component for fitting
+    linear_bg : bool, optional
+        use linear background instead of snip
+    use_snip : bool, optional
+        use snip method to remove background
+    bin_energy : int, optional
+        bin spectrum with given value
 
+    Returns
+    -------
+    dict of elemental map
+    dict of fitting information
+    """
     # cut data into proper range
     x, exp_data, fit_range = get_cutted_spectrum_in3D(input_data,
                                                       param['non_fitting_values']['energy_bound_low']['value'],
@@ -1309,7 +1342,7 @@ def single_pixel_fitting_controller(input_data, param, method='nnls',
     logger.info('-------- Fitting of single pixels starts. --------')
     if method == 'nnls':
         logger.info('Fitting method: non-negative least squares')
-        results = fit_pixel_multiprocess_nnls(x, matv, exp_data, param,
+        results = fit_pixel_multiprocess_nnls(exp_data, matv, param,
                                               use_snip=use_snip)
         # output area of dict
         result_map = calculate_area(e_select, matv, results,
@@ -1409,42 +1442,147 @@ def get_branching_ratio(elemental_line, energy):
     return ratio_v
 
 
-def fit_pixel_slow_version(data, param, c_val=1e-2, fit_num=10, c_weight=1):
-    datas = data.shape
+# def fit_pixel_slow_version(data, param, c_val=1e-2, fit_num=10, c_weight=1):
+#     datas = data.shape
+#
+#     x0 = np.arange(datas[2])
+#
+#     elist = param['non_fitting_values']['element_list'].split(', ')
+#     elist = [e.strip(' ') for e in elist]
+#
+#     result_map = dict()
+#     for v in elist:
+#         result_map.update({v: np.zeros([datas[0], datas[1]])})
+#
+#     MS = ModelSpectrum(param)
+#     MS.model_spectrum()
+#
+#     for i in xrange(datas[0]):
+#         logger.info('Row number at {} out of total {}'.format(i, datas[0]))
+#         for j in xrange(datas[1]):
+#             logger.info('Column number at {} out of total {}'.format(j, datas[1]))
+#             y0 = data[i, j, :]
+#             result = MS.model_fit(x0, y0,
+#                                   w=1/np.sqrt(c_weight+y0))
+#                                   #maxfev=fit_num, xtol=c_val, ftol=c_val, gtol=c_val)
+#             #for k, v in six.iteritems(result.values):
+#             #    print('result {}: {}'.format(k, v))
+#             # save result
+#             for v in elist:
+#                 if '_L' in v:
+#                     line_name = v.split('_')[0]+'_la1_area'
+#                 elif '_M' in v:
+#                     line_name = v.split('_')[0]+'_ma1_area'
+#                 else:
+#                     line_name = v+'_ka1_area'
+#                 result_map[v][i, j] = result.values[line_name]
+#
+#     return result_map
 
-    x0 = np.arange(datas[2])
 
-    elist = param['non_fitting_values']['element_list'].split(', ')
-    elist = [e.strip(' ') for e in elist]
+def fit_pixel_data_and_save(working_directory, file_name,
+                            fit_channel_sum=True, param_file_name=None,
+                            fit_channel_each=True, param_channel_list=[],
+                            method='nnls', pixel_bin=0, raise_bg=0,
+                            comp_elastic_combine=False,
+                            linear_bg=False,
+                            use_snip=True,
+                            bin_energy=0,
+                            spectrum_cut=3000):
+    """
+    Do fitting for multiple data sets, and save data accordingly. Fitting can be performed on
+    either summed data or each channel data, or both.
 
-    result_map = dict()
-    for v in elist:
-        result_map.update({v: np.zeros([datas[0], datas[1]])})
+    Parameters
+    ----------
+    working_directory : str
+        path folder
+    file_names : str
+        selected h5 file
+    fit_channel_sum : bool, optional
+        fit summed data or not
+    param_file_name : str, optional
+        param file name for summed data fitting
+    fit_channel_each : bool, optional
+        fit each channel data or not
+    param_channel_list : list, optional
+        list of param file names for each channel
+    method : str, optional
+        fitting method, default as nnls
+    pixel_bin : int, optional
+        bin pixel as 2by2, or 3by3
+    raise_bg : int, optional
+        add a constant value to each spectrum, better for fitting
+    comp_elastic_combine : bool, optional
+        combine elastic and compton as one component for fitting
+    linear_bg : bool, optional
+        use linear background instead of snip
+    use_snip : bool, optional
+        use snip method to remove background
+    bin_energy : int, optional
+        bin spectrum with given value
+    spectrum_cut : int, optional
+        only use spectrum from, say 0, 3000
+    """
+    fpath = os.path.join(working_directory, file_name)
+    t0 = time.time()
+    prefix_fname = file_name.split('.')[0]
+    if fit_channel_sum is True:
+        img_dict, data_sets = read_hdf_APS(working_directory, file_name,
+                                           spectrum_cut=spectrum_cut,
+                                           load_each_channel=False)
 
-    MS = ModelSpectrum(param)
-    MS.model_spectrum()
+        data_all_sum = data_sets[prefix_fname+'_sum'].raw_data
+        # load param file
+        param_path = os.path.join(working_directory, param_file_name)
+        with open(param_path, 'r') as json_data:
+            param_sum = json.load(json_data)
+        result_map_sum, calculation_info = single_pixel_fitting_controller(data_all_sum,
+                                                                           param_sum,
+                                                                           method=method,
+                                                                           pixel_bin=pixel_bin,
+                                                                           raise_bg=raise_bg,
+                                                                           comp_elastic_combine=comp_elastic_combine,
+                                                                           linear_bg=linear_bg,
+                                                                           use_snip=use_snip,
+                                                                           bin_energy=bin_energy)
 
-    for i in xrange(datas[0]):
-        logger.info('Row number at {} out of total {}'.format(i, datas[0]))
-        for j in xrange(datas[1]):
-            logger.info('Column number at {} out of total {}'.format(j, datas[1]))
-            y0 = data[i, j, :]
-            result = MS.model_fit(x0, y0,
-                                  w=1/np.sqrt(c_weight+y0))
-                                  #maxfev=fit_num, xtol=c_val, ftol=c_val, gtol=c_val)
-            #for k, v in six.iteritems(result.values):
-            #    print('result {}: {}'.format(k, v))
-            # save result
-            for v in elist:
-                if '_L' in v:
-                    line_name = v.split('_')[0]+'_la1_area'
-                elif '_M' in v:
-                    line_name = v.split('_')[0]+'_ma1_area'
-                else:
-                    line_name = v+'_ka1_area'
-                result_map[v][i, j] = result.values[line_name]
+        # output to .h5 file
+        inner_path = 'xrfmap/detsum'
+        fit_name = prefix_fname+'_fit'
+        save_fitdata_to_hdf(fpath, result_map_sum, datapath=inner_path)
 
-    return result_map
+    if fit_channel_each is True:
+        channel_num = len(param_channel_list)
+        img_dict, data_sets = read_hdf_APS(working_directory, file_name,
+                                           channel_num=channel_num,
+                                           spectrum_cut=spectrum_cut,
+                                           load_each_channel=True)
+        for i in range(channel_num):
+            filename_det = prefix_fname+'_ch'+str(i+1)
+            inner_path = 'xrfmap/det'+str(i+1)
+
+            # load param file
+            param_file_det = param_channel_list[i]
+            param_path = os.path.join(working_directory, param_file_det)
+            with open(param_path, 'r') as json_data:
+                param_det = json.load(json_data)
+
+            data_all_det = data_sets[filename_det].raw_data
+            result_map_det, calculation_info = single_pixel_fitting_controller(data_all_det,
+                                                                               param_det,
+                                                                               method=method,
+                                                                               pixel_bin=pixel_bin,
+                                                                               raise_bg=raise_bg,
+                                                                               comp_elastic_combine=comp_elastic_combine,
+                                                                               linear_bg=linear_bg,
+                                                                               use_snip=use_snip,
+                                                                               bin_energy=bin_energy)
+            # output to .h5 file
+            save_fitdata_to_hdf(fpath, result_map_det, datapath=inner_path)
+
+    t1 = time.time()
+    logger.info('Time used for pixel fitting for file {} is : {}'.format(file_name, t1-t0))
 
 
 def save_fitdata_to_hdf(fpath, data_dict,

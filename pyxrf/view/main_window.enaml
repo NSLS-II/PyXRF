@@ -42,6 +42,7 @@ from .fileio import FileView
 from .guessparam import GuessParamView
 from .lineplot import PlotMain, AdjustEmissionLine
 from .image2D import ImageMain, ChooseElementAdvanced
+from .rgb_image import ImageRGB
 from .fit import FitView, ElementEdit, ParameterEdit, OtherSettingEdit, EditPileupPeak
 from .setting import SettingView
 
@@ -53,6 +54,7 @@ enamldef XRFGui(MainWindow): main_window:
     attr param_model
     attr plot_model
     attr img_model_adv
+    attr img_model_rgb
     attr fit_model
     attr setting_model
     attr Param
@@ -62,7 +64,7 @@ enamldef XRFGui(MainWindow): main_window:
             layout = HSplitLayout(
                 TabLayout('file_view', 'param_guess_view',
                           'fitting_view', 'setting_view'),
-                TabLayout('lineplot_view', 'image_view'),
+                TabLayout('lineplot_view', 'image_view', 'image_rgb'),
                 )
             FileView:
                 closable = False
@@ -87,30 +89,6 @@ enamldef XRFGui(MainWindow): main_window:
                     destroy_on_close=False,
                     parent=main_window,
                     param_model=main_window.param_model)
-            PlotMain:
-                closable = False
-                title = 'Spectrum View'
-                # io_model = io_model
-                plot_model = main_window.plot_model
-                param_model = main_window.param_model
-                adjust_emission_line = AdjustEmissionLine(
-                    visible=False,
-                    destroy_on_close=False,
-                    parent=main_window,
-                    plot_model=main_window.plot_model)
-                name = 'lineplot_view'
-            ImageMain:
-                closable = False
-                title = 'Element Map'
-                #img_model = main_window.img_model
-                img_model_adv = main_window.img_model_adv
-                choose_element = ChooseElementAdvanced(
-                    visible=False, destroy_on_close=False,
-                    always_on_top=True,
-                    parent=main_window,
-                    img_model=main_window.img_model_adv)
-                #plot_model = main_window.plot_model
-                name = 'image_view'
             FitView:
                 closable = False
                 title = 'Fit     '
@@ -145,3 +123,33 @@ enamldef XRFGui(MainWindow): main_window:
                 img_model_adv = main_window.img_model_adv
                 setting_model = main_window.setting_model
                 name = 'setting_view'
+            PlotMain:
+                closable = False
+                title = 'Spectrum View'
+                # io_model = io_model
+                plot_model = main_window.plot_model
+                param_model = main_window.param_model
+                adjust_emission_line = AdjustEmissionLine(
+                    visible=False,
+                    destroy_on_close=False,
+                    parent=main_window,
+                    plot_model=main_window.plot_model)
+                name = 'lineplot_view'
+            ImageMain:
+                closable = False
+                title = 'Element Map'
+                #img_model = main_window.img_model
+                img_model_adv = main_window.img_model_adv
+                choose_element = ChooseElementAdvanced(
+                    visible=False, destroy_on_close=False,
+                    always_on_top=True,
+                    parent=main_window,
+                    img_model=main_window.img_model_adv)
+                #plot_model = main_window.plot_model
+                name = 'image_view'
+            ImageRGB:
+                closable = False
+                title = 'Element RBG '
+                img_model_adv = main_window.img_model_rgb
+                #plot_model = main_window.plot_model
+                name = 'image_rgb'

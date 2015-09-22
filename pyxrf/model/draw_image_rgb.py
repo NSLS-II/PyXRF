@@ -32,36 +32,43 @@
 # IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE   #
 # POSSIBILITY OF SUCH DAMAGE.                                          #
 ########################################################################
-from __future__ import absolute_import
+from __future__ import (absolute_import, division,
+                        print_function)
+
 __author__ = 'Li Li'
 
 import six
 import numpy as np
 from collections import OrderedDict
-
-from matplotlib.figure import Figure
+from matplotlib.figure import Figure, Axes
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
-import matplotlib.cm as cm
-
-from mpl_toolkits.axes_grid1 import ImageGrid
+#import matplotlib.cm as cm
+#from mpl_toolkits.axes_grid1 import ImageGrid
+import matplotlib.patches as mpatches
+from mpl_toolkits.axes_grid1.axes_rgb import make_rgb_axes, RGBAxes
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool, Float
 
 import logging
 logger = logging.getLogger(__name__)
 
 
-class DrawImageAdvanced(Atom):
+class DrawImageRGB(Atom):
     """
-    This class performs 2D image rendering, such as showing multiple
-    2D fitting or roi images based on user's selection.
+    This class draws RGB image.
 
     Attributes
     ----------
-    img_data : dict
-        dict of 2D array
     fig : object
         matplotlib Figure
+    ax : Axes
+        The `Axes` object of matplotlib
+    ax_r : Axes
+        The `Axes` object to add the artist too
+    ax_g : Axes
+        The `Axes` object to add the artist too
+    ax_b : Axes
+        The `Axes` object to add the artist too
     file_name : str
     stat_dict : dict
         determine which image to show
@@ -88,17 +95,13 @@ class DrawImageAdvanced(Atom):
         selected scaler data
     plot_all : Bool
         to control plot all of the data or not
-    x_pos : list
-        define data range in horizontal direction
-    y_pos : list
-        define data range in vertical direction
-    pixel_or_pos : int
-        index to choose plot with pixel or with positions
-    pixel_or_pos_for_plot : None, array
-        argument passed to extent in imshow of matplotlib
     """
 
     fig = Typed(Figure)
+    ax =  Typed(Axes)
+    ax_r = Typed(Axes)
+    ax_g = Typed(Axes)
+    ax_b = Typed(Axes)
     stat_dict = Dict()
     data_dict = Dict()
     data_dict_keys = List()
@@ -107,29 +110,26 @@ class DrawImageAdvanced(Atom):
     #plot_item = Str()
     dict_to_plot = Dict()
     items_in_selected_group = List()
-
     scale_opt = Str('Linear')
-    color_opt = Str('Oranges')
-
-    #group_names = List()
-    #group_name = Str()
-
     scaler_norm_dict = Dict()
     scaler_items = List()
     scaler_name_index = Int()
     scaler_data = Typed(object)
-
     plot_all = Bool(False)
 
-    x_pos = List()
-    y_pos = List()
-
-    pixel_or_pos = Int(0)
-    pixel_or_pos_for_plot = Typed(object)
+    rgb_name_list = List()
+    index_red = Int(0)
+    index_green = Int(1)
+    index_blue = Int(2)
+    ic_norm = Float()
 
     def __init__(self):
-        self.fig = plt.figure()
-        self.pixel_or_pos_for_plot = None
+        self.fig = plt.figure(figsize=(6,6))
+        self.ax = self.fig.add_subplot(111)
+        self.ax_r, self.ax_g, self.ax_b = make_rgb_axes(self.ax, pad=0.02)
+
+        self.rgb_name_list = ['R', 'G', 'B']
+        self.ic_norm = 1e4  # multiply by this value for ic normalization
 
     def data_dict_update(self, change):
         """
@@ -138,7 +138,7 @@ class DrawImageAdvanced(Atom):
 
         Parameters
         ----------
-        changed : dict
+        change : dict
             This is the dictionary that gets passed to a function
             with the @observe decorator
         """
@@ -148,6 +148,10 @@ class DrawImageAdvanced(Atom):
     def init_plot_status(self, change):
         # initiate the plotting status once new data is coming
         self.data_opt = 0
+        self.rgb_name_list = ['R', 'G', 'B']
+        self.index_red = 0
+        self.index_green = 1
+        self.index_blue = 2
 
         # init of scaler for normalization
         self.scaler_name_index = 0
@@ -161,19 +165,8 @@ class DrawImageAdvanced(Atom):
             self.scaler_norm_dict = self.data_dict[scaler_groups[0]]
             # for GUI purpose only
             self.scaler_items = []
-            self.scaler_items = self.scaler_norm_dict.keys()
+            self.scaler_items = list(self.scaler_norm_dict.keys())
             self.scaler_data = None
-
-        # init of pos values
-        self.pixel_or_pos = 0
-
-        if 'positions' in self.data_dict:
-            logger.info('get pos {}'.format(self.data_dict['positions'].keys()))
-            self.x_pos = list(self.data_dict['positions']['x_pos'][0, :])
-            self.y_pos = list(self.data_dict['positions']['y_pos'][:, 0])
-        else:
-            self.x_pos = []
-            self.y_pos = []
 
         self.show_image()
 
@@ -181,7 +174,7 @@ class DrawImageAdvanced(Atom):
     def _update_file(self, change):
         if self.data_opt == 0:
             self.dict_to_plot = {}
-            self.items_in_selected_group = self.dict_to_plot.keys()
+            self.items_in_selected_group = []
             self.set_stat_for_all(bool_val=False)
         elif self.data_opt > 0:
             self.set_stat_for_all(bool_val=False)
@@ -191,14 +184,6 @@ class DrawImageAdvanced(Atom):
             self.items_in_selected_group = []
             self.items_in_selected_group = self.dict_to_plot.keys()
             self.set_stat_for_all(bool_val=False)
-
-    # @observe('plot_item')
-    # def _update_file(self, change):
-    #     self.set_stat_for_all(bool_val=False)
-    #     self.items_in_selected_group = []
-    #     self.dict_to_plot = self.data_dict[self.plot_item]
-    #     self.items_in_selected_group = self.dict_to_plot.keys()
-    #     self.set_stat_for_all(bool_val=False)
 
     @observe('scaler_name_index')
     def _get_scaler_data(self, change):
@@ -212,27 +197,10 @@ class DrawImageAdvanced(Atom):
                         'and the shape of scaler data is {}'.format(self.scaler_data.shape))
         self.show_image()
 
-    @observe('scale_opt', 'color_opt')
+    @observe('scale_opt')
     def _update_scale(self, change):
         if change['type'] != 'create':
             self.show_image()
-
-    @observe('pixel_or_pos')
-    def _update_pp(self, change):
-        if change['type'] != 'create':
-            if change['value'] == 0:
-                self.pixel_or_pos_for_plot = None
-            elif change['value'] > 0 and len(self.x_pos) > 0 and len(self.y_pos) > 0:
-                self.pixel_or_pos_for_plot = (self.x_pos[0], self.x_pos[-1],
-                                              self.y_pos[0], self.y_pos[-1])
-            self.show_image()
-
-    @observe('plot_all')
-    def _update_all_plot(self, change):
-        if self.plot_all is True:
-            self.set_stat_for_all(bool_val=True)
-        else:
-            self.set_stat_for_all(bool_val=False)
 
     def set_stat_for_all(self, bool_val=False):
         """
@@ -241,44 +209,27 @@ class DrawImageAdvanced(Atom):
         self.stat_dict.clear()
         self.stat_dict = {k: bool_val for k in self.items_in_selected_group}
 
-    def show_image(self):
-        self.fig.clf()
+    def preprocess_data(self):
+        """
+        Normalize data or prepare for linear/log plot.
+        """
+
+        selected_data = []
+        selected_name = []
+
         stat_temp = self.get_activated_num()
         stat_temp = OrderedDict(sorted(six.iteritems(stat_temp), key=lambda x: x[0]))
 
-        low_lim = 1e-4  # define the low limit for log image
-        ic_norm = 10000  # multiply by this value for ic normalization
         plot_interp = 'Nearest'
         name_not_scalable = ['r_squared']  # do not apply scaler norm on those data
 
         if self.scaler_data is not None:
             if np.max(self.scaler_data) < 1.0:  # use current as ic, such as SRX
-                ic_norm = 1.0
+                self.ic_norm = 1.0
             if len(self.scaler_data[self.scaler_data == 0]) > 0:
                 logger.warning('scaler data has zero values at {}'.format(np.where(self.scaler_data == 0)))
-                self.scaler_data[self.scaler_data == 0] = np.mean(self.scaler_data)
+                self.scaler_data[self.scaler_data == 0] = np.mean(self.scaler_data[self.scaler_data != 0])
                 logger.warning('Use mean value {} instead for those points'.format(np.mean(self.scaler_data)))
-
-        grey_use = self.color_opt
-
-        ncol = int(np.ceil(np.sqrt(len(stat_temp))))
-        try:
-            nrow = int(np.ceil(len(stat_temp)/float(ncol)))
-        except ZeroDivisionError:
-            ncol = 1
-            nrow = 1
-
-        a_pad_v = 0.8
-        a_pad_h = 0.3
-
-        grid = ImageGrid(self.fig, 111,
-                         nrows_ncols=(nrow, ncol),
-                         axes_pad=(a_pad_v, a_pad_h),
-                         cbar_location='right',
-                         cbar_mode='each',
-                         cbar_size='7%',
-                         cbar_pad='2%',
-                         share_all=True)
 
         if self.scale_opt == 'Linear':
             for i, (k, v) in enumerate(six.iteritems(stat_temp)):
@@ -287,26 +238,14 @@ class DrawImageAdvanced(Atom):
                     if k in name_not_scalable:
                         data_dict = self.dict_to_plot[k]
                     else:
-                        data_dict = self.dict_to_plot[k]/self.scaler_data*ic_norm
+                        data_dict = self.dict_to_plot[k]/self.scaler_data*self.ic_norm
 
                 else:
                     data_dict = self.dict_to_plot[k]
 
-                im = grid[i].imshow(data_dict,
-                                    cmap=grey_use,
-                                    interpolation=plot_interp,
-                                    extent=self.pixel_or_pos_for_plot)
-                grid_title = k #self.file_name+'_'+str(k)
-                if self.pixel_or_pos_for_plot is not None:
-                    title_x = self.pixel_or_pos_for_plot[0]
-                    title_y = self.pixel_or_pos_for_plot[3] + (self.pixel_or_pos_for_plot[3] -
-                                                               self.pixel_or_pos_for_plot[2])*0.04
+                selected_data.append(data_dict)
+                selected_name.append(k) #self.file_name+'_'+str(k)
 
-                else:
-                    title_x = 0
-                    title_y = - data_dict.shape[0]*0.05
-                grid[i].text(title_x, title_y, grid_title)
-                grid.cbar_axes[i].colorbar(im)
         else:
             for i, (k, v) in enumerate(six.iteritems(stat_temp)):
 
@@ -314,36 +253,110 @@ class DrawImageAdvanced(Atom):
                     if k in name_not_scalable:
                         data_dict = self.dict_to_plot[k]
                     else:
-                        data_dict = self.dict_to_plot[k]/self.scaler_data*ic_norm
+                        data_dict = self.dict_to_plot[k]/self.scaler_data*self.ic_norm
 
                 else:
-                    data_dict = self.dict_to_plot[k]
+                    data_dict = np.log(self.dict_to_plot[k])
 
-                maxz = np.max(data_dict)
+                #maxz = np.max(data_dict)
+                selected_data.append(data_dict)
+                selected_name.append(k)
 
-                im = grid[i].imshow(data_dict,
-                                    norm=LogNorm(vmin=low_lim*maxz,
-                                                 vmax=maxz),
-                                    cmap=grey_use,
-                                    interpolation=plot_interp,
-                                    extent=self.pixel_or_pos_for_plot)
+        return selected_data, selected_name
 
-                grid_title = k #self.file_name+'_'+str(k)
-                if self.pixel_or_pos_for_plot is not None:
-                    print(self.pixel_or_pos_for_plot)
-                    title_x = self.pixel_or_pos_for_plot[0]
-                    title_y = self.pixel_or_pos_for_plot[3] + (self.pixel_or_pos_for_plot[3] -
-                                                               self.pixel_or_pos_for_plot[2])*0.05
+    def show_image(self):
 
-                else:
-                    title_x = 0
-                    title_y = - data_dict.shape[0]*0.05
-                grid[i].text(title_x, title_y, grid_title)
-                grid.cbar_axes[i].colorbar(im)
+        selected_data, selected_name = self.preprocess_data()
+        selected_data = np.asarray(selected_data)
+
+        if len(selected_name) >0 and len(selected_name) < 3:
+            logger.error('Please select three elements for RGB plot.')
+        elif len(selected_name) >= 3:
+            if len(selected_name) > 3:
+                logger.warning('Please select only three elements for RGB plot.')
+            logger.warning('Elements {} are considered.'.format(selected_name[:3]))
+            self.rgb_name_list = selected_name[:3]
+
+        try:
+            data_r = selected_data[0,:,:]
+        except IndexError:
+            selected_data = np.ones([3,10,10])
+
+        name_r = self.rgb_name_list[self.index_red]
+        data_r = selected_data[self.index_red,:,:]
+        name_g = self.rgb_name_list[self.index_green]
+        data_g = selected_data[self.index_green,:,:]
+        name_b = self.rgb_name_list[self.index_blue]
+        data_b = selected_data[self.index_blue,:,:]
+
+        # norm data
+        data_r = norm_data(data_r)
+        data_g = norm_data(data_g)
+        data_b = norm_data(data_b)
+
+        R, G, B, RGB = make_cube(data_r,
+                                 data_g,
+                                 data_b)
+
+        #self.fig.clf()
+        red_patch = mpatches.Patch(color='red', label=name_r)
+        green_patch = mpatches.Patch(color='green', label=name_g)
+        blue_patch = mpatches.Patch(color='blue', label=name_b)
+
+        kwargs = dict(origin="upper", interpolation="nearest")
+        self.ax.imshow(RGB, **kwargs)
+        self.ax_r.imshow(R, **kwargs)
+        self.ax_g.imshow(G, **kwargs)
+        self.ax_b.imshow(B, **kwargs)
+
+        self.ax.set_xticklabels([])
+        self.ax.set_yticklabels([])
+
+        # sb_x = 38
+        # sb_y = 46
+        # sb_length = 10
+        # sb_height = 1
+        #ax.add_patch(mpatches.Rectangle(( sb_x, sb_y), sb_length, sb_height, color='white'))
+        #ax.text(sb_x + sb_length /2, sb_y - 1*sb_height,  '100 nm', color='w', ha='center', va='bottom', backgroundcolor='black', fontsize=18)
+
+        self.ax.legend(bbox_to_anchor=(0., 1.0, 1., .10), ncol=3,
+                       handles=[red_patch, green_patch, blue_patch], mode="expand", loc=3)
 
         #self.fig.tight_layout(pad=4.0, w_pad=0.8, h_pad=0.8)
         #self.fig.tight_layout()
+        #self.fig.canvas.draw_idle()
         self.fig.canvas.draw_idle()
 
     def get_activated_num(self):
         return {k: v for (k, v) in six.iteritems(self.stat_dict) if v is True}
+
+
+def norm_data(data):
+    """
+    Normalize data between (0,1).
+    Parameters
+    ----------
+    data : 2D array
+    """
+    return (data-np.min(data))/(np.max(data)-np.min(data))
+
+def make_cube(r, g, b):
+    """
+    Create 3D array for rgb image.
+    Parameters
+    ----------
+    r : 2D array
+    g : 2D array
+    b : 2D array
+    """
+    ny, nx = r.shape
+    R = np.zeros([ny, nx, 3])
+    R[:,:,0] = r
+    G = np.zeros_like(R)
+    G[:,:,1] = g
+    B = np.zeros_like(R)
+    B[:,:,2] = b
+
+    RGB = R + G + B
+
+    return R, G, B, RGB

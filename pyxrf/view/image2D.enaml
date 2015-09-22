@@ -114,7 +114,7 @@ enamldef ImageMain(DockItem):
 enamldef ChooseElementAdvanced(Window): win:
     attr img_model
 
-    title = 'Results of Auto Peak Finding'
+    title = 'Select Elements to Plot'
     Container:
         constraints = [
             vbox(

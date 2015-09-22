@@ -68,8 +68,12 @@ enamldef FileView(DockItem): file_view:
         Container:
             constraints = [
                 vbox(
-                    hbox(folder_btn, folder_fd),
-                    hbox(btn_out, fd_out),
+                    #hbox(folder_btn, folder_fd),
+                    hbox(folder_btn, spacer),
+                    hbox(folder_fd, spacer),
+                    #hbox(btn_out, fd_out),
+                    hbox(btn_out, spacer),
+                    hbox(fd_out, spacer),
                     hbox(files_btn, files_load),
                     #hbox(pixel_h_label, pixel_h, pixel_v_label, pixel_v, spacer),
                     #hbox(cb_runid, run_lbl, run_num, load_btn, spacer),
@@ -89,6 +93,7 @@ enamldef FileView(DockItem): file_view:
                         io_model.working_directory = path
             Field: folder_fd:
                 text := io_model.working_directory
+                #maximum_size = 400
 
             PushButton: btn_out:
                 text = 'Save Results to'
@@ -99,6 +104,7 @@ enamldef FileView(DockItem): file_view:
                         fd_out.text = path
             Field: fd_out:
                 text << io_model.output_directory
+                #maximum_size = 400
 
             PushButton: files_btn:
                 text = "Exp. Data File"
@@ -130,7 +136,8 @@ enamldef FileView(DockItem): file_view:
             GroupBox: gb_db:
                 title = 'Data from database'
                 constraints = [vbox(
-                                    hbox(pixel_h_label, pixel_h, pixel_v_label, pixel_v, spacer),
+                                    hbox(pixel_h_label, pixel_h, spacer),
+                                    hbox(pixel_v_label, pixel_v, spacer),
                                     hbox(run_lbl, run_num, load_btn, spacer),
                                    )]
                 Label : pixel_h_label:
@@ -250,21 +257,21 @@ enamldef FileView(DockItem): file_view:
 
                             Label: lb1:
                                 text = 'Start'
-                                minimum_size = (40, 10)
+                                minimum_size = (30, 10)
                                 #maximum_size = 50
                             Field: fd1:
                                 text := io_model.data_sets[loop_item].point1
-                                maximum_size = 80
+                                maximum_size = 40
                                 enabled = False
                                 #plot_model.data_sets = io_model.data_sets
 
                             Label: lb2:
                                 text = 'End'
-                                minimum_size = (40, 10)
+                                minimum_size = (30, 10)
                                 #maximum_size = 50
                             Field: fd2:
                                 text := io_model.data_sets[loop_item].point2
-                                maximum_size = 80
+                                maximum_size = 40
                                 enabled = False
                                 #plot_model.data_sets = io_model.data_sets
 
