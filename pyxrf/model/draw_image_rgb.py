@@ -220,7 +220,6 @@ class DrawImageRGB(Atom):
         stat_temp = self.get_activated_num()
         stat_temp = OrderedDict(sorted(six.iteritems(stat_temp), key=lambda x: x[0]))
 
-
         plot_interp = 'Nearest'
         name_not_scalable = ['r_squared']  # do not apply scaler norm on those data
 
@@ -268,7 +267,7 @@ class DrawImageRGB(Atom):
     def show_image(self):
 
         selected_data, selected_name = self.preprocess_data()
-        selected_data = np.array(selected_data)
+        selected_data = np.asarray(selected_data)
 
         if len(selected_name) >0 and len(selected_name) < 3:
             logger.error('Please select three elements for RGB plot.')
@@ -327,7 +326,6 @@ class DrawImageRGB(Atom):
         #self.fig.tight_layout()
         #self.fig.canvas.draw_idle()
         self.fig.canvas.draw_idle()
-
 
     def get_activated_num(self):
         return {k: v for (k, v) in six.iteritems(self.stat_dict) if v is True}
