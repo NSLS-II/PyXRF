@@ -70,10 +70,10 @@ enamldef FileView(DockItem): file_view:
                 vbox(
                     #hbox(folder_btn, folder_fd),
                     hbox(folder_btn, spacer),
-                    hbox(folder_fd, spacer),
+                    hbox(folder_fd),
                     #hbox(btn_out, fd_out),
                     hbox(btn_out, spacer),
-                    hbox(fd_out, spacer),
+                    hbox(fd_out),
                     hbox(files_btn, files_load),
                     #hbox(pixel_h_label, pixel_h, pixel_v_label, pixel_v, spacer),
                     #hbox(cb_runid, run_lbl, run_num, load_btn, spacer),
