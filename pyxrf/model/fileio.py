@@ -1183,21 +1183,34 @@ def write_db_to_hdf(fpath, data, datashape,
     ds_data.attrs['comments'] = 'Experimental data from channel sum'
 
     # position data
-    # try:
-    #     dataGrp = f.create_group(interpath+'/positions')
-    # except ValueError:
-    #     dataGrp = f[interpath+'/positions']
-    #
-    # pos_names, pos_data = get_name_value_from_db(pos_list, data,
-    #                                              datashape)
-    #
-    # if 'pos' in dataGrp:
-    #     del dataGrp['pos']
-    #
-    # if 'name' in dataGrp:
-    #     del dataGrp['name']
-    # dataGrp.create_dataset('name', data=pos_names)
-    # dataGrp.create_dataset('pos', data=pos_data)
+    try:
+        dataGrp = f.create_group(interpath+'/positions')
+    except ValueError:
+        dataGrp = f[interpath+'/positions']
+
+    pos_names, pos_data = get_name_value_from_db(pos_list, data,
+                                                 datashape)
+    for i in range(len(pos_names)):
+        if 'x' in pos_names[i]:
+            pos_names[i] = 'x_pos'
+        elif 'y' in pos_names[i]:
+            pos_names[i] = 'y_pos'
+
+    if 'pos' in dataGrp:
+        del dataGrp['pos']
+
+    if 'name' in dataGrp:
+        del dataGrp['name']
+
+    # need to change shape to sth like [2, 100, 100]
+    pos_data = pos_data.transpose()
+    print(pos_data.shape)
+    data_temp = np.zeros([pos_data.shape[0], pos_data.shape[2], pos_data.shape[1]])
+    for i in range(pos_data.shape[0]):
+        data_temp[i,:,:] = np.rot90(pos_data[i,:,:], k=3)
+
+    dataGrp.create_dataset('name', data=pos_names)
+    dataGrp.create_dataset('pos', data=data_temp)
 
     # scaler data
     try:
