@@ -201,11 +201,11 @@ param_data = {
         "fit_with_tail": "lohi",
         "free_more": "lohi",
         "linear": "fixed",
-        "max": 0.0001,
-        "min": 1e-07,
+        "max": 0.0002,
+        "min": 1e-05,
         "tool_tip": "width**2 = (b1/2.3548)**2 + 3.85*b2*E, 3.85keV is electron-hole pair creation energy in silicon",
-        "default": 1e-5,
-        "value": 0.0
+        "default": 0.000114,
+        "value": 0.000114
     },
     "fwhm_offset": {
         "adjust_element1": "fixed",
@@ -217,11 +217,11 @@ param_data = {
         "fit_with_tail": "lohi",
         "free_more": "lohi",
         "linear": "fixed",
-        "max": 0.49,
-        "min": 0.16,
+        "max": 0.2,
+        "min": 0.05,
         "tool_tip": "width**2 = (b1/2.3548)**2 + 3.85*b2*E",
-        "default": 0.18,
-        "value": 0.17
+        "default": 0.1,
+        "value": 0.1
     },
     "non_fitting_values": {
         "element_list": "Al_K, S_K, Cl_K, Ar_K, Ca_K, Cr_K, Fe_K, Co_K, Ni_K, Cu_K, Pm_L, Gd_L",
@@ -235,7 +235,7 @@ param_data = {
             "description": "E low [keV]",
             "value": 1.0
         },
-        "epsilon": 3.51,
+        "epsilon": 3.85,
         "escape_ratio": 0.005,
         "background_width": 0.5
     }
