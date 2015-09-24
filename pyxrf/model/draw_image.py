@@ -171,6 +171,11 @@ class DrawImageAdvanced(Atom):
             logger.info('get pos {}'.format(self.data_dict['positions'].keys()))
             self.x_pos = list(self.data_dict['positions']['x_pos'][0, :])
             self.y_pos = list(self.data_dict['positions']['y_pos'][:, 0])
+
+            # reverse x,y postion here, may need to be corrected later
+            self.x_pos.reverse()
+            self.y_pos.reverse()
+
         else:
             self.x_pos = []
             self.y_pos = []

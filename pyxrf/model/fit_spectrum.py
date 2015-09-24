@@ -59,7 +59,7 @@ from .guessparam import (calculate_profile, fit_strategy_list,
                          trim_escape_peak, define_range, get_energy,
                          get_Z, PreFitStatus, ElementController,
                          update_param_from_element)
-from .fileio import read_hdf_APS
+from .fileio import read_hdf_APS, save_data_to_txt
 
 #from lmfit import fit_report
 import lmfit
@@ -1488,7 +1488,8 @@ def fit_pixel_data_and_save(working_directory, file_name,
                             linear_bg=False,
                             use_snip=True,
                             bin_energy=0,
-                            spectrum_cut=3000):
+                            spectrum_cut=3000,
+                            save_txt=True):
     """
     Do fitting for multiple data sets, and save data accordingly. Fitting can be performed on
     either summed data or each channel data, or both.
@@ -1523,6 +1524,8 @@ def fit_pixel_data_and_save(working_directory, file_name,
         bin spectrum with given value
     spectrum_cut : int, optional
         only use spectrum from, say 0, 3000
+    save_txt : bool, optional
+        save data to txt or not
     """
     fpath = os.path.join(working_directory, file_name)
     t0 = time.time()
@@ -1582,7 +1585,11 @@ def fit_pixel_data_and_save(working_directory, file_name,
             save_fitdata_to_hdf(fpath, result_map_det, datapath=inner_path)
 
     t1 = time.time()
-    logger.info('Time used for pixel fitting for file {} is : {}'.format(file_name, t1-t0))
+    print('Time used for pixel fitting for file {} is : {}'.format(file_name, t1-t0))
+
+    if save_txt is True:
+        output_folder = 'output_'+prefix_fname
+        save_data_to_txt(fpath, output_folder)
 
 
 def save_fitdata_to_hdf(fpath, data_dict,
