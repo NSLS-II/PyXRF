@@ -246,10 +246,10 @@ class GuessParamModel(Atom):
     result_dict = Typed(object)
     result_dict_names = List()
     param_new = Dict()
-    total_y = Dict()
-    total_l = Dict()
-    total_m = Dict()
-    total_pileup = Dict()
+    total_y = Typed(object)
+    #total_l = Dict()
+    #total_m = Dict()
+    #total_pileup = Dict()
     e_name = Str()
     add_element_intensity = Float(100.0)
     element_list = List()
@@ -259,6 +259,7 @@ class GuessParamModel(Atom):
     y0 = Typed(np.ndarray)
     max_area_dig = Int(2)
     pileup_data = Dict()
+    auto_fit_all = Dict()
 
     def __init__(self, **kwargs):
         try:
@@ -500,6 +501,7 @@ class GuessParamModel(Atom):
         self.prefit_x, out_dict, area_dict = linear_spectrum_fitting(self.x0,
                                                                      self.y0,
                                                                      self.param_new)
+        print(area_dict)
         logger.info('Energy range: {}, {}'.format(
             self.param_new['non_fitting_values']['energy_bound_low']['value'],
             self.param_new['non_fitting_values']['energy_bound_high']['value']))
@@ -514,6 +516,7 @@ class GuessParamModel(Atom):
                               norm=-1,
                               lbd_stat=False)
             prefit_dict.update({k: ps})
+            print('{}, {}'.format(k, np.sum(v)))
 
         logger.info('Automatic Peak Finding found elements as : {}'.format(
             prefit_dict.keys()))
@@ -587,24 +590,29 @@ class GuessParamModel(Atom):
         """
         Save data in terms of K, L, M lines for plot.
         """
-        self.total_y = {}  # k lines
-        self.total_l = {}  # l lines
-        self.total_m = {}  # m lines
-        self.total_pileup = {}    #pileup
-        new_dict = {k: v for (k, v)
-                    in six.iteritems(self.EC.element_dict) if v.status}
+        self.total_y = None
+        self.auto_fit_all = {}
 
-        for k, v in six.iteritems(new_dict):
-            if '-' in k:  # pileup
-                self.total_pileup[k] = self.EC.element_dict[k].spectrum
-            elif 'K' in k:
-                self.total_y[k] = self.EC.element_dict[k].spectrum
-            elif 'L' in k:
-                self.total_l[k] = self.EC.element_dict[k].spectrum
-            elif 'M' in k:
-                self.total_m[k] = self.EC.element_dict[k].spectrum
-            else:
-                self.total_y[k] = self.EC.element_dict[k].spectrum
+        for k, v in six.iteritems(self.EC.element_dict):
+            if v.status is True:
+                self.auto_fit_all[k] = v.spectrum
+                if self.total_y is None:
+                    self.total_y = np.array(v.spectrum)  # need to copy an array
+                else:
+                    self.total_y += v.spectrum
+        print('elements {}'.format(self.auto_fit_all.keys()))
+        print('total sum {}'.format(np.sum(self.total_y)))
+        # for k, v in six.iteritems(new_dict):
+        #     if '-' in k:  # pileup
+        #         self.total_pileup[k] = self.EC.element_dict[k].spectrum
+        #     elif 'K' in k:
+        #         self.total_y[k] = self.EC.element_dict[k].spectrum
+        #     elif 'L' in k:
+        #         self.total_l[k] = self.EC.element_dict[k].spectrum
+        #     elif 'M' in k:
+        #         self.total_m[k] = self.EC.element_dict[k].spectrum
+        #     else:
+        #         self.total_y[k] = self.EC.element_dict[k].spectrum
 
 
 def save_as(file_path, data):

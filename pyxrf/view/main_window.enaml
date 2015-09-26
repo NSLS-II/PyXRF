@@ -93,7 +93,7 @@ enamldef XRFGui(MainWindow): main_window:
                 closable = False
                 title = 'Fit     '
                 plot_model = main_window.plot_model
-                #param_model = main_window.param_model
+                param_model = main_window.param_model
                 fit_model = main_window.fit_model
                 img_model_adv = main_window.img_model_adv
 
