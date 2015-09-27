@@ -315,6 +315,18 @@ class GuessParamModel(Atom):
         self.define_range()
         self.create_spectrum_from_file(self.param_new, self.element_list)
 
+    def param_changed(self, change):
+        """
+        Observer function in the top-level gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        self.param_new = change['value']
+
     def exp_data_update(self, change):
         """
         Observer function to be connected to the fileio model

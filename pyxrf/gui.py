@@ -117,6 +117,7 @@ def run():
     # set default parameters
     #io_model.observe('default_parameters', plot_model.parameters_update)
     #param_model.observe('param_new', plot_model.parameters_update)
+    #fit_model.observe('param_dict', param_model.param_changed)
 
     xrfview = XRFGui(io_model=io_model,
                      param_model=param_model,

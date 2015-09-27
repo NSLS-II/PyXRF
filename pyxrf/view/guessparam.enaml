@@ -79,7 +79,7 @@ enamldef GuessParamView(DockItem): param_view:
         ]
 
         ScrollArea: top_cntr:
-            constraints = [height <= 80]
+            constraints = [height <= 60]
             Form:
                 row_spacing = -1
                 Looper: looper:
@@ -95,7 +95,7 @@ enamldef GuessParamView(DockItem): param_view:
                         constraints = [hbox(ff, pb)]
                         FloatField: ff:
                             value := param_model.param_new[loop_item]['value']
-                            maximum_size = 100
+                            maximum_size = 160
                         PushButton: pb:
                             text = 'Default'
                             maximum_size = 100

@@ -688,7 +688,6 @@ class LinePlotModel(Atom):
         p_num = 0
         for k, v in six.iteritems(fit_all):
             if k == 'background':
-                print('plot bkg')
                 ln, = self._ax.plot(fit_x, v,
                                     color=self.plot_style['background']['color'],
                                     #marker=self.plot_style['background']['marker'],
@@ -696,7 +695,6 @@ class LinePlotModel(Atom):
                                     label=self.plot_style['background']['label'])
                 self.plot_fit_obj.append(ln)
             elif k == 'compton':
-                print('plot compton')
                 ln, = self._ax.plot(fit_x, v,
                                     color=self.plot_style['compton']['color'],
                                     linewidth=self.plot_style['compton']['linewidth'],
