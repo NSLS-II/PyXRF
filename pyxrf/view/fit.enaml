@@ -78,160 +78,115 @@ enamldef FitView(DockItem): fit_view:
     attr element_edit
     attr parameter_edit
     attr othersetting_edit
+    attr autofind_edit
     attr img_model_adv
 
     Container:
+        padding = Box(2, 2, 2, 2)
         constraints = [
             vbox(
-                hbox(new_param_load, reload_btn, lbl_param, spacer),
+                #hbox(new_param_load, reload_btn, lbl_param, spacer),
                 #hbox(lbl_param, spacer),
-                hbox(auto_fit),
+                load_gb,
+                hbox(auto_find_gb),
+                control_element,
                 hbox(lbl1, cb1, lbl3, cb3, spacer),
                 hbox(lbl2, cb2, lbl4, cb4, spacer),
-                #hbox(lbl3, cb3, spacer),
-                #hbox(lbl4, cb4, spacer),
-                #hbox(lbl5, cb5, spacer),
                 #hbox(gb_strategy),
                 hbox(pb_fit, pb_cal, spacer),
                 #hbox(pb_cal, spacer),
                 gb_advanced,
                 gb_result,
-                hbox(saveas_btn, spacer),
                 gb_fit_pixel,
             ),
         ]
 
-        PushButton: new_param_load:
-            text = 'Import Parameters from File'
-            #maximum_size = 200
-            clicked ::
-                parameter_file_path = FileDialogEx.get_open_file_name(fit_view)
-                if parameter_file_path:
+        GroupBox: load_gb:
+            padding = Box(2, 2, 2, 2)
+            constraints = [vbox(
+                                hbox(new_param_load, reload_btn, saveas_btn, spacer),
+                                hbox(lbl_param, spacer),)
+                           ]
+            title = 'Load elemental parameters from file.'
+            PushButton: new_param_load:
+                text = 'Import Parameters'
+                #maximum_size = 200
+                clicked ::
+                    parameter_file_path = FileDialogEx.get_open_file_name(fit_view)
+                    if parameter_file_path:
 
-                    # update parameter for fit
-                    fit_model.read_param_from_file(parameter_file_path)
+                        # update parameter for fit
+                        fit_model.read_param_from_file(parameter_file_path)
+                        fit_model.apply_default_param()
+
+                        # update experimental plots
+                        plot_model.parameters = fit_model.default_parameters
+                        plot_model.plot_experiment()
+                        plot_model.plot_exp_opt = False
+                        plot_model.plot_exp_opt = True
+
+                        # update autofit param
+                        param_model.update_new_param(fit_model.default_parameters)
+                        #param_model.get_new_param_from_file(parameter_file_path)
+                        param_model.update_name_list()
+                        param_model.EC.turn_on_all()
+
+                        # update file name
+                        lbl_param.text = 'Loaded file: {}'.format(parameter_file_path.split('/')[-1])
+
+                        # calculate profile and plot
+                        fit_model.get_profile()
+
+                        # update experimental plot with new calibration values
+                        plot_model.plot_fit(fit_model.cal_x, fit_model.cal_y,
+                                            fit_model.cal_spectrum,
+                                            fit_model.residual)
+                        # For plotting purposes, otherwise plot will not update
+                        plot_model.show_fit_opt = False
+                        plot_model.show_fit_opt = True
+
+
+            PushButton: reload_btn:
+                text = 'Reload'
+                clicked ::
                     fit_model.apply_default_param()
 
-                    # update experimental plots
-                    plot_model.parameters = fit_model.default_parameters
-                    plot_model.plot_experiment()
-                    plot_model.plot_exp_opt = False
-                    plot_model.plot_exp_opt = True
+            Label: lbl_param:
+                text = 'No parameter is loaded.'
 
-                    # update autofit param
-                    param_model.update_new_param(fit_model.default_parameters)
-                    #param_model.get_new_param_from_file(parameter_file_path)
-                    param_model.update_name_list()
-                    param_model.EC.turn_on_all()
+            PushButton: saveas_btn:
+                text = 'Save As'
+                clicked ::
+                    path = FileDialogEx.get_save_file_name(fit_view,
+                                                           current_path=fit_model.result_folder)
+                    if path:
+                        save_as(path, fit_model.param_dict)
 
-                    # update file name
-                    lbl_param.text = 'Loaded file: {}'.format(parameter_file_path.split('/')[-1])
+        GroupBox: auto_find_gb:
+            title = 'Or use automatic element finding.'
+            padding = Box(2, 2, 2, 2)
+            constraints = [hbox(pb_auto, spacer)]
+            PushButton: pb_auto:
+                text = 'Find Elements Automatically'
+                enabled = True
+                checkable = True
+                checked := autofind_edit.visible
+                clicked ::
+                    if checked:
+                        autofind_edit.show()
+                    else:
+                        autofind_edit.hide()
 
-                    # calculate profile and plot
-                    fit_model.get_profile()
-
-                    # update experimental plot with new calibration values
-                    plot_model.plot_fit(fit_model.cal_x, fit_model.cal_y,
-                                        fit_model.cal_spectrum,
-                                        fit_model.residual)
-                    # For plotting purposes, otherwise plot will not update
-                    plot_model.show_fit_opt = False
-                    plot_model.show_fit_opt = True
-
-
-        PushButton: reload_btn:
-            text = 'Reload'
-            clicked ::
-                fit_model.apply_default_param()
-
-        Label: lbl_param:
-            text = 'No parameter is loaded.'
-
-        Container: auto_fit:
+        Container: control_element:
+            padding = Box(2, 2, 2, 2)
             constraints = [
                 vbox(
-                    #hbox(CB, spacer),
-                    #hbox(new_param_load, spacer),
-                    top_cntr,
-                    hbox(find_btn, spacer),
                     hbox(cb_select, intensity_lb, intensity_fd,
                          manual_add, spacer),
                     pre_fit,
                     #hbox(saveas_btn, spacer),
                 ),
             ]
-
-            ScrollArea: top_cntr:
-                constraints = [height <= 60]
-                Form:
-                    row_spacing = -1
-                    Looper: looper:
-                        #iterable << sorted([v for k,v in six.iteritems(param_model.param_new) if v.get('description')],
-                        #                   key=lambda x: x['description'])
-                        iterable << autofit_param
-                        Label:
-                            text = param_model.param_new[loop_item]['description']
-                            #tool_tip = loop_item['tool_tip']
-                            maximum_size = 140
-                        Container:
-                            padding = Box(2, 2, 2, 2)
-                            constraints = [hbox(ff, pb)]
-                            FloatField: ff:
-                                value := param_model.param_new[loop_item]['value']
-                                maximum_size = 160
-                            PushButton: pb:
-                                text = 'Default'
-                                maximum_size = 100
-                                clicked ::
-                                    ff.value = param_model.param_new[loop_item]['default']
-
-                    Looper: looper:
-                        iterable << list(sorted([v for k,v in six.iteritems(param_model.param_new['non_fitting_values'])
-                                                if k in ["energy_bound_low", "energy_bound_high"] ]))
-                        Label:
-                            text = loop_item['description']
-                            maximum_size = 140
-                        Container:
-                            padding = Box(2, 2, 2, 2)
-                            constraints = [hbox(ff_bound, pb)]
-                            FloatField: ff_bound:
-                                value := loop_item['value']
-                                maximum_size = 100
-                            PushButton: pb:
-                                text = 'Default'
-                                maximum_size = 100
-                                clicked ::
-                                    ff_bound.value = loop_item['default_value']
-
-            PushButton: find_btn:
-                text = 'Automatic Element Finding'
-                enabled = True
-                #status_tip = 'Not Running.'
-                clicked ::
-                    param_model.find_peak()
-                    param_model.EC.order()
-                    param_model.update_name_list()
-
-                    param_model.EC.turn_on_all()
-                    param_model.data_for_plot()
-                    #status_tip = 'Running'
-
-                    # update experimental plots in case the coefficients change
-                    plot_model.parameters = param_model.param_new
-                    plot_model.plot_experiment()
-
-                    #plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                    #                                    param_model.total_l, param_model.total_m,
-                    #                                    param_model.total_pileup)
-
-                    plot_model.plot_fit(param_model.prefit_x,
-                                        param_model.total_y,
-                                        param_model.auto_fit_all)
-
-                    # For plotting purposes, otherwise plot will not update
-                    plot_model.show_fit_opt = False
-                    plot_model.show_fit_opt = True
-
             ComboBox: cb_select:
                 items = ['Select Lines'] +\
                         K_LINE + L_LINE + M_LINE
@@ -254,9 +209,7 @@ enamldef FitView(DockItem): fit_view:
                     param_model.EC.update_peak_ratio()
                     param_model.update_name_list()
                     param_model.data_for_plot()
-                    #plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                    #                                    param_model.total_l, param_model.total_m,
-                    #                                    param_model.total_pileup)
+
                     plot_model.plot_fit(param_model.prefit_x,
                                         param_model.total_y,
                                         param_model.auto_fit_all)
@@ -344,7 +297,6 @@ enamldef FitView(DockItem): fit_view:
                     constraints = [height <= 150]
 
                     Form:
-                    #Container: ctn_looper:
                         row_spacing = -1
                         #padding = Box(0, 0, 0, 0)
                         Looper: looper:
@@ -356,11 +308,6 @@ enamldef FitView(DockItem): fit_view:
                                     param_model.EC.delete_item(loop_item)
                                     param_model.EC.update_peak_ratio()
                                     param_model.data_for_plot()
-
-                                    #plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                                    #                                    param_model.total_l, param_model.total_m,
-                                    #                                    param_model.total_pileup)
-                                    #plot_model._fig.canvas.draw()
 
                                     plot_model.plot_fit(param_model.prefit_x,
                                                         param_model.total_y,
@@ -496,10 +443,6 @@ enamldef FitView(DockItem): fit_view:
                         plot_model.parameters = param_model.param_new
                         plot_model.plot_experiment()
 
-                        #plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                        #                                    param_model.total_l, param_model.total_m,
-                        #                                    param_model.total_pileup)
-
                         plot_model.plot_fit(param_model.prefit_x,
                                             param_model.total_y,
                                             param_model.auto_fit_all)
@@ -569,6 +512,12 @@ enamldef FitView(DockItem): fit_view:
                 plot_model.show_fit_opt = False
                 plot_model.show_fit_opt = True
 
+                # update autofit param
+                param_model.update_new_param(fit_model.param_dict)
+                #param_model.get_new_param_from_file(parameter_file_path)
+                param_model.update_name_list()
+                param_model.EC.turn_on_all()
+
         PushButton: pb_cal:
             text = 'Calculate Spectrum'
             clicked ::
@@ -578,13 +527,6 @@ enamldef FitView(DockItem): fit_view:
                 plot_model.parameters = fit_model.param_dict
                 plot_model.plot_experiment()
 
-                #pb_plot.enabled = True
-                #plot_model.fit_x = fit_model.cal_x
-                #plot_model.fit_y = fit_model.cal_y
-                #plot_model.fit_all = fit_model.cal_spectrum
-                #plot_model.residual = fit_model.residual
-                #plot_model.plot_fit()
-
                 plot_model.plot_fit(fit_model.cal_x, fit_model.cal_y,
                                     fit_model.cal_spectrum,
                                     fit_model.residual)
@@ -593,20 +535,14 @@ enamldef FitView(DockItem): fit_view:
                 plot_model.show_fit_opt = False
                 plot_model.show_fit_opt = True
 
-        #PushButton: pb_plot:
-        #    text = 'Overlap to Spectrum'
-        #    checkable = True
-        #    enabled = False
-        #    minimum_size = (200, 20)
-        #    clicked ::
-        #        if checked:
-        #            plot_model.show_fit_opt = True
-        #            pb_plot.text = 'Remove Plot'
-        #        else:
-        #            plot_model.show_fit_opt = False
-        #            pb_plot.text = 'Overlap to Spectrum'
+                # update autofit param
+                param_model.update_new_param(fit_model.param_dict)
+                #param_model.get_new_param_from_file(parameter_file_path)
+                param_model.update_name_list()
+                param_model.EC.turn_on_all()
 
-        GroupBox: gb_advanced:
+        Container: gb_advanced:
+            padding = Box(2, 2, 2, 2)
             constraints = [vbox(
                                 #hbox(cb_enable, spacer),
                                 hbox(general_set_btn,
@@ -655,9 +591,9 @@ enamldef FitView(DockItem): fit_view:
                     else:
                         othersetting_edit.hide()
 
-        GroupBox: gb_result:
-            title = 'Fitting Statistics'
-            padding = Box(5, 5, 5, 5)
+        Container: gb_result:
+            #title = 'Fitting Statistics'
+            padding = Box(2, 2, 2, 2)
             constraints = [vbox(hbox(lbl_number, lbl_number_v,
                                      lbl_var_number, lbl_var_number_v,
                                      lbl_red_chi, lbl_red_chi_v, spacer),
@@ -688,16 +624,8 @@ enamldef FitView(DockItem): fit_view:
                 text << str(fit_model.red_chi2)
                 minimum_size = (60, 16)
 
-        PushButton: saveas_btn:
-            text = 'Save Config. File As'
-            clicked ::
-                path = FileDialogEx.get_save_file_name(fit_view,
-                                                       current_path=fit_model.result_folder)
-                if path:
-                    save_as(path, fit_model.param_dict)
-
         GroupBox: gb_fit_pixel:
-            title = 'Single Pixel Fitting'
+            #title = 'Single Pixel Fitting'
             constraints = [vbox(hbox(save_cb, lb1, fd1v, fd1h, lb2, fd2v, fd2h, spacer),
                                 #hbox(lb1, fd1v, fd1h, spacer),
                                 #hbox(lb2, fd2v, fd2h, spacer),
@@ -756,6 +684,87 @@ enamldef FitView(DockItem): fit_view:
                     # visualization purpose
                     img_model_adv.data_dict_keys = []
                     img_model_adv.data_dict_keys = img_model_adv.data_dict.keys()
+
+
+enamldef AutoFindElements(Window): auto_win:
+    attr parameter_model
+    attr plot_model
+    destroy_on_close = False
+
+    Container:
+        #padding = Box(2, 2, 2, 2)
+        constraints = [
+            vbox(
+                hbox(param_form),
+                hbox(find_btn, spacer),
+            ),
+        ]
+        #title = 'Or use automatic element finding to get elements.'
+        #ScrollArea: top_cntr:
+        #constraints = [height <= 80]
+        Form: param_form:
+            row_spacing = -1
+            Looper: looper:
+                #iterable << sorted([v for k,v in six.iteritems(param_model.param_new) if v.get('description')],
+                #                   key=lambda x: x['description'])
+                iterable << autofit_param
+                Label:
+                    text = param_model.param_new[loop_item]['description']
+                    #tool_tip = loop_item['tool_tip']
+                    maximum_size = 140
+                Container:
+                    padding = Box(2, 2, 2, 2)
+                    constraints = [hbox(ff, pb)]
+                    FloatField: ff:
+                        value := param_model.param_new[loop_item]['value']
+                        maximum_size = 160
+                    PushButton: pb:
+                        text = 'Default'
+                        maximum_size = 100
+                        clicked ::
+                            ff.value = param_model.param_new[loop_item]['default']
+
+            Looper: looper:
+                iterable << list(sorted([v for k,v in six.iteritems(param_model.param_new['non_fitting_values'])
+                                        if k in ["energy_bound_low", "energy_bound_high"] ]))
+                Label:
+                    text = loop_item['description']
+                    maximum_size = 140
+                Container:
+                    padding = Box(2, 2, 2, 2)
+                    constraints = [hbox(ff_bound, pb)]
+                    FloatField: ff_bound:
+                        value := loop_item['value']
+                        maximum_size = 100
+                    PushButton: pb:
+                        text = 'Default'
+                        maximum_size = 100
+                        clicked ::
+                            ff_bound.value = loop_item['default_value']
+
+        PushButton: find_btn:
+            text = 'Automatic Element Finding'
+            enabled = True
+            clicked ::
+                param_model.find_peak()
+                param_model.EC.order()
+                param_model.update_name_list()
+
+                param_model.EC.turn_on_all()
+                param_model.data_for_plot()
+
+                # update experimental plots in case the coefficients change
+                plot_model.parameters = param_model.param_new
+                plot_model.plot_experiment()
+
+                plot_model.plot_fit(param_model.prefit_x,
+                                    param_model.total_y,
+                                    param_model.auto_fit_all)
+
+                # For plotting purposes, otherwise plot will not update
+                plot_model.show_fit_opt = False
+                plot_model.show_fit_opt = True
+                auto_win.close()
 
 
 enamldef ElementEdit(Window):

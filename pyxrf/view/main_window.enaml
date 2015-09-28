@@ -43,7 +43,8 @@ from .guessparam import GuessParamView
 from .lineplot import PlotMain, AdjustEmissionLine
 from .image2D import ImageMain, ChooseElementAdvanced
 from .rgb_image import ImageRGB
-from .fit import FitView, ElementEdit, ParameterEdit, OtherSettingEdit, EditPileupPeak
+from .fit import (FitView, ElementEdit, ParameterEdit,
+                  OtherSettingEdit, EditPileupPeak, AutoFindElements)
 from .setting import SettingView
 
 
@@ -62,8 +63,7 @@ enamldef XRFGui(MainWindow): main_window:
     Container:
         DockArea:
             layout = HSplitLayout(
-                TabLayout('file_view', 'param_guess_view',
-                          'fitting_view', 'setting_view'),
+                TabLayout('file_view', 'fitting_view', 'setting_view'),
                 TabLayout('lineplot_view', 'image_view', 'image_rgb'),
                 )
             FileView:
@@ -76,19 +76,19 @@ enamldef XRFGui(MainWindow): main_window:
                 # fit_model = main_window.fit_model
                 setting_model = main_window.setting_model
                 name = 'file_view'
-            GuessParamView:
-                closable = False
-                title = 'Initial Parameter Guess '
-                name = 'param_guess_view'
-                param_model = main_window.param_model
-                # io_model = main_window.io_model
-                plot_model = main_window.plot_model
-                fit_model = main_window.fit_model
-                edit_pileup = EditPileupPeak(
-                    visible=False,
-                    destroy_on_close=False,
-                    parent=main_window,
-                    param_model=main_window.param_model)
+            #GuessParamView:
+            #    closable = False
+            #    title = 'Initial Parameter Guess '
+            #    name = 'param_guess_view'
+            #    param_model = main_window.param_model
+            #    # io_model = main_window.io_model
+            #    plot_model = main_window.plot_model
+            #    fit_model = main_window.fit_model
+            #    edit_pileup = EditPileupPeak(
+            #        visible=False,
+            #        destroy_on_close=False,
+            #        parent=main_window,
+            #        param_model=main_window.param_model)
             FitView:
                 closable = False
                 title = 'Fit     '
@@ -113,7 +113,12 @@ enamldef XRFGui(MainWindow): main_window:
                     #parent=main_window,
                     fit_model=main_window.fit_model,
                     plot_model=main_window.plot_model)
-
+                autofind_edit = AutoFindElements(
+                    visible=False,
+                    destroy_on_close=False,
+                    parent=main_window,
+                    parameter_model=main_window.param_model,
+                    plot_model=main_window.plot_model)
                 name = 'fitting_view'
             SettingView:
                 closable = False

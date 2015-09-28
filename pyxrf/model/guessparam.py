@@ -251,7 +251,7 @@ class GuessParamModel(Atom):
     #total_m = Dict()
     #total_pileup = Dict()
     e_name = Str()
-    add_element_intensity = Float(100.0)
+    add_element_intensity = Float(1000.0)
     element_list = List()
     #data_sets = Typed(OrderedDict)
     EC = Typed(object)
@@ -612,8 +612,7 @@ class GuessParamModel(Atom):
                     self.total_y = np.array(v.spectrum)  # need to copy an array
                 else:
                     self.total_y += v.spectrum
-        print('elements {}'.format(self.auto_fit_all.keys()))
-        print('total sum {}'.format(np.sum(self.total_y)))
+
         # for k, v in six.iteritems(new_dict):
         #     if '-' in k:  # pileup
         #         self.total_pileup[k] = self.EC.element_dict[k].spectrum
