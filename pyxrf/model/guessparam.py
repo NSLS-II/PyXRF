@@ -541,7 +541,6 @@ class GuessParamModel(Atom):
         information, and assign initial values from pre fit.
         """
         self.define_range()
-
         self.element_list = self.EC.get_element_list()
 
         # self.param_new['non_fitting_values']['element_list'] = ', '.join(self.element_list)

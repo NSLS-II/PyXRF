@@ -84,7 +84,7 @@ class FileIOModel(Atom):
         Dict of 2D arrays, such as 2D roi pv or fitted data
     """
     working_directory = Str()
-    output_directory = Str()
+    #output_directory = Str()
     file_names = List()
     file_path = Str()
     load_status = Str()
@@ -106,15 +106,15 @@ class FileIOModel(Atom):
 
     def __init__(self, **kwargs):
         self.working_directory = kwargs['working_directory']
-        self.output_directory = kwargs['output_directory']
+        #self.output_directory = kwargs['output_directory']
         #with self.suppress_notifications():
         #    self.working_directory = working_directory
 
-    @observe('working_directory')
-    def working_directory_changed(self, changed):
-        # make sure that the output directory stays in sync with working
-        # directory changes
-        self.output_directory = self.working_directory
+    # @observe('working_directory')
+    # def working_directory_changed(self, changed):
+    #     # make sure that the output directory stays in sync with working
+    #     # directory changes
+    #     self.output_directory = self.working_directory
 
     @observe('file_names')
     def update_more_data(self, change):
