@@ -80,6 +80,7 @@ enamldef FitView(DockItem): fit_view:
     attr othersetting_edit
     attr autofind_edit
     attr img_model_adv
+    attr pileup_edit
 
     Container:
         padding = Box(2, 2, 2, 2)
@@ -92,9 +93,7 @@ enamldef FitView(DockItem): fit_view:
                 control_element,
                 hbox(lbl1, cb1, lbl3, cb3, spacer),
                 hbox(lbl2, cb2, lbl4, cb4, spacer),
-                #hbox(gb_strategy),
-                hbox(pb_fit, pb_cal, spacer),
-                #hbox(pb_cal, spacer),
+                hbox(pb_fit, spacer),
                 gb_advanced,
                 gb_result,
                 gb_fit_pixel,
@@ -182,7 +181,7 @@ enamldef FitView(DockItem): fit_view:
             constraints = [
                 vbox(
                     hbox(cb_select, intensity_lb, intensity_fd,
-                         manual_add, spacer),
+                         manual_add, spacer, pb_pileup),
                     pre_fit,
                     #hbox(saveas_btn, spacer),
                 ),
@@ -216,6 +215,17 @@ enamldef FitView(DockItem): fit_view:
                     # For plotting purposes, otherwise plot will not update
                     plot_model.show_fit_opt = False
                     plot_model.show_fit_opt = True
+
+            PushButton: pb_pileup:
+                text = 'Add Pileup Peaks'
+                enabled = True
+                checkable = True
+                checked := pileup_edit.visible
+                clicked ::
+                    if checked:
+                        pileup_edit.show()
+                    else:
+                        pileup_edit.hide()
 
             GroupBox: pre_fit:
                 padding = Box(2, 2, 2, 2)
@@ -509,28 +519,10 @@ enamldef FitView(DockItem): fit_view:
                 param_model.update_name_list()
                 param_model.EC.turn_on_all()
 
-        PushButton: pb_cal:
-            text = 'Calculate Spectrum'
-            clicked ::
-                fit_model.get_profile()
-
-                # update experimental plot with new calibration values
-                plot_model.parameters = fit_model.param_dict
-                plot_model.plot_experiment()
-
-                plot_model.plot_fit(fit_model.cal_x, fit_model.cal_y,
-                                    fit_model.cal_spectrum,
-                                    fit_model.residual)
-
-                # For plotting purposes, otherwise plot will not update
-                plot_model.show_fit_opt = False
-                plot_model.show_fit_opt = True
-
-                # update autofit param
-                param_model.update_new_param(fit_model.param_dict)
-                #param_model.get_new_param_from_file(parameter_file_path)
-                param_model.update_name_list()
-                param_model.EC.turn_on_all()
+        #PushButton: pb_cal:
+        #    text = 'Calculate Spectrum'
+        #    clicked ::
+        #        calculate_spectrum_helper(fit_model, plot_model, param_model)
 
         Container: gb_advanced:
             padding = Box(2, 2, 2, 2)
@@ -759,17 +751,26 @@ enamldef AutoFindElements(Window): auto_win:
 
 
 enamldef ElementEdit(Window):
-    attr parameter_model
+    attr fit_model
+    attr param_model
+    attr plot_model
     Container:
-        constraints = [vbox(cmb_element,
+        constraints = [vbox(hbox(pb_cal, spacer),
+                            cmb_element,
                             hbox(lbl1, lbl2, lbl3, lbl4, lbl5, lbl6, lbl7, lbl8),
                             scr_area,)]
         padding = Box(5, 5, 5, 5)
+
+        PushButton: pb_cal:
+            text = 'Calculate Spectrum'
+            clicked ::
+                calculate_spectrum_helper(fit_model, plot_model, param_model)
+
         ComboBox: cmb_element:
-            items << ['Select Element'] + parameter_model.element_list
+            items << ['Select Element'] + fit_model.element_list
             index = 0
-            index := parameter_model.selected_index
-            #selected_item >> parameter_model.selected_element
+            index := fit_model.selected_index
+            #selected_item >> fit_model.selected_element
         Label: lbl1:
             #text = '{:>16} {:>32} {:>32} {:>32} {:>16} {:>40}'.format('name', 'value', 'min', 'max', '  ',  '  '.join(fit_strategy_list))
             text = '{:>16} {:>32} {:>32} {:>32} {:>16}'.format('name', 'value', 'min', 'max', '  ')
@@ -796,9 +797,9 @@ enamldef ElementEdit(Window):
             Form:
                 row_spacing = -1
                 Looper: looper:
-                    #iterable << sorted([k for k in six.iterkeys(parameter_model.param_dict) if k==k.lower() and k!='non_fitting_values'])
-                    #iterable << list(sorted([v for v in six.iterkeys(parameter_model.param_dict) if cmb_element.selected_item.split('_')[0] in str(v)]))
-                    iterable << parameter_model.elementinfo_list
+                    #iterable << sorted([k for k in six.iterkeys(fit_model.param_dict) if k==k.lower() and k!='non_fitting_values'])
+                    #iterable << list(sorted([v for v in six.iterkeys(fit_model.param_dict) if cmb_element.selected_item.split('_')[0] in str(v)]))
+                    iterable << fit_model.elementinfo_list
 
                     Label: name_lbl:
                         text = loop_item
@@ -811,81 +812,89 @@ enamldef ElementEdit(Window):
                             cb_strat3, cb_strat4, cb_strat5, cb_strat6, spacer)
                         ]
                         FloatField: ff_value:
-                            value := parameter_model.param_dict[loop_item]['value']
-                            #minimum = parameter_model.param_dict[loop_item]['min']
-                            #maximum = parameter_model.param_dict[loop_item]['max']
+                            value := fit_model.param_dict[loop_item]['value']
+                            #minimum = fit_model.param_dict[loop_item]['min']
+                            #maximum = fit_model.param_dict[loop_item]['max']
                         FloatField: ff_min:
-                            value := parameter_model.param_dict[loop_item]['min']
+                            value := fit_model.param_dict[loop_item]['min']
                         FloatField: ff_max:
-                            value := parameter_model.param_dict[loop_item]['max']
+                            value := fit_model.param_dict[loop_item]['max']
 
                         ComboBox: cb_strat0:
                             items = [' '] + bound_options
-                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[0]]) + 1
+                            index = bound_options.index(fit_model.param_dict[loop_item][fit_strategy_list[0]]) + 1
                             maximum_size = 80
                             index ::
                                 if cb_strat0.index > 0:
-                                    parameter_model.param_dict[loop_item][fit_strategy_list[0]] = cb_strat0.selected_item  #items[cb_strat0.index]
+                                    fit_model.param_dict[loop_item][fit_strategy_list[0]] = cb_strat0.selected_item  #items[cb_strat0.index]
 
                         ComboBox: cb_strat1:
                             items = [' '] + bound_options
-                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[1]]) + 1
+                            index = bound_options.index(fit_model.param_dict[loop_item][fit_strategy_list[1]]) + 1
                             maximum_size = 80
                             background = 'grey'
                             index ::
                                 if cb_strat1.index > 0:
-                                    parameter_model.param_dict[loop_item][fit_strategy_list[1]] = cb_strat1.items[cb_strat1.index]
+                                    fit_model.param_dict[loop_item][fit_strategy_list[1]] = cb_strat1.items[cb_strat1.index]
 
                         ComboBox: cb_strat2:
                             items = [' '] + bound_options
-                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[2]]) + 1
+                            index = bound_options.index(fit_model.param_dict[loop_item][fit_strategy_list[2]]) + 1
                             maximum_size = 80
                             index ::
                                 if cb_strat2.index > 0:
-                                    parameter_model.param_dict[loop_item][fit_strategy_list[2]] = cb_strat2.items[cb_strat2.index]
+                                    fit_model.param_dict[loop_item][fit_strategy_list[2]] = cb_strat2.items[cb_strat2.index]
 
                         ComboBox: cb_strat3:
                             items = [' '] + bound_options
-                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[3]]) + 1
+                            index = bound_options.index(fit_model.param_dict[loop_item][fit_strategy_list[3]]) + 1
                             maximum_size = 80
                             background = 'grey'
                             index ::
                                 if cb_strat3.index > 0:
-                                    parameter_model.param_dict[loop_item][fit_strategy_list[3]] = cb_strat3.items[cb_strat3.index]
+                                    fit_model.param_dict[loop_item][fit_strategy_list[3]] = cb_strat3.items[cb_strat3.index]
 
                         ComboBox: cb_strat4:
                             items = [' '] + bound_options
-                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[4]]) + 1
+                            index = bound_options.index(fit_model.param_dict[loop_item][fit_strategy_list[4]]) + 1
                             maximum_size = 80
                             index ::
                                 if cb_strat4.index > 0:
-                                    parameter_model.param_dict[loop_item][fit_strategy_list[4]] = cb_strat4.items[cb_strat4.index]
+                                    fit_model.param_dict[loop_item][fit_strategy_list[4]] = cb_strat4.items[cb_strat4.index]
 
                         ComboBox: cb_strat5:
                             items = [' '] + bound_options
-                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[5]]) + 1
+                            index = bound_options.index(fit_model.param_dict[loop_item][fit_strategy_list[5]]) + 1
                             maximum_size = 80
                             background = 'grey'
                             index ::
                                 if cb_strat5.index > 0:
-                                    parameter_model.param_dict[loop_item][fit_strategy_list[5]] = cb_strat5.items[cb_strat5.index]
+                                    fit_model.param_dict[loop_item][fit_strategy_list[5]] = cb_strat5.items[cb_strat5.index]
 
                         ComboBox: cb_strat6:
                             items = [' '] + bound_options
-                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[6]]) + 1
+                            index = bound_options.index(fit_model.param_dict[loop_item][fit_strategy_list[6]]) + 1
                             maximum_size = 80
                             index ::
                                 if cb_strat6.index > 0:
-                                    parameter_model.param_dict[loop_item][fit_strategy_list[6]] = cb_strat6.items[cb_strat6.index]
+                                    fit_model.param_dict[loop_item][fit_strategy_list[6]] = cb_strat6.items[cb_strat6.index]
 
 
 enamldef ParameterEdit(Window):
-    attr parameter_model
+    attr fit_model
+    attr param_model
+    attr plot_model
+
     destroy_on_close = False
     Container:
-        constraints = [vbox(hbox(lbl1, lbl2, lbl3, lbl4, lbl5, lbl6, lbl7, lbl8),
+        constraints = [vbox(hbox(pb_cal, spacer),
+                            hbox(lbl1, lbl2, lbl3, lbl4, lbl5, lbl6, lbl7, lbl8),
                             scr_area,)]
-        padding = Box(5, 5, 5, 5)
+        #padding = Box(5, 5, 5, 5)
+        PushButton: pb_cal:
+            text = 'Calculate Spectrum'
+            clicked ::
+                calculate_spectrum_helper(fit_model, plot_model, param_model)
         Label: lbl1:
             #text = '{:>16} {:>32} {:>32} {:>32} {:>16} {:>40}'.format('name', 'value', 'min', 'max', '  ',  '  '.join(fit_strategy_list))
             text = '{:>16} {:>32} {:>32} {:>32} {:>16}'.format('name', 'value', 'min', 'max', '  ')
@@ -911,8 +920,8 @@ enamldef ParameterEdit(Window):
             Form:
                 row_spacing = -1
                 Looper: looper:
-                    #iterable << sorted([k for k in six.iterkeys(parameter_model.param_dict) if k==k.lower() and k!='non_fitting_values'])
-                    iterable << parameter_model.global_param_list
+                    #iterable << sorted([k for k in six.iterkeys(fit_model.param_dict) if k==k.lower() and k!='non_fitting_values'])
+                    iterable << fit_model.global_param_list
                     Label: name_lbl:
                         text = loop_item
                     Container:
@@ -921,77 +930,76 @@ enamldef ParameterEdit(Window):
                                             cb_strat4, cb_strat5, cb_strat6,spacer)]
                         #constraints = [hbox(ff_value, ff_min, ff_max, spacer)]
                         FloatField: ff_value:
-                            value := parameter_model.param_dict[loop_item]['value']
+                            value := fit_model.param_dict[loop_item]['value']
                         FloatField: ff_min:
-                            value := parameter_model.param_dict[loop_item]['min']
+                            value := fit_model.param_dict[loop_item]['min']
                         FloatField: ff_max:
-                            value := parameter_model.param_dict[loop_item]['max']
+                            value := fit_model.param_dict[loop_item]['max']
 
                         ComboBox: cb_strat0:
                             items = [' '] + bound_options
-                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[0]]) + 1
+                            index = bound_options.index(fit_model.param_dict[loop_item][fit_strategy_list[0]]) + 1
                             maximum_size = 80
                             index ::
                                 if cb_strat0.index > 0:
-                                    parameter_model.param_dict[loop_item][fit_strategy_list[0]] = cb_strat0.items[cb_strat0.index]
+                                    fit_model.param_dict[loop_item][fit_strategy_list[0]] = cb_strat0.items[cb_strat0.index]
 
                         ComboBox: cb_strat1:
                             items = [' '] + bound_options
-                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[1]]) + 1
+                            index = bound_options.index(fit_model.param_dict[loop_item][fit_strategy_list[1]]) + 1
                             maximum_size = 80
                             background = 'grey'
                             index ::
                                 if cb_strat1.index > 0:
-                                    parameter_model.param_dict[loop_item][fit_strategy_list[1]] = cb_strat1.items[cb_strat1.index]
+                                    fit_model.param_dict[loop_item][fit_strategy_list[1]] = cb_strat1.items[cb_strat1.index]
 
                         ComboBox: cb_strat2:
                             items = [' '] + bound_options
-                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[2]]) + 1
+                            index = bound_options.index(fit_model.param_dict[loop_item][fit_strategy_list[2]]) + 1
                             maximum_size = 80
                             index ::
                                 if cb_strat2.index > 0:
-                                    parameter_model.param_dict[loop_item][fit_strategy_list[2]] = cb_strat2.items[cb_strat2.index]
+                                    fit_model.param_dict[loop_item][fit_strategy_list[2]] = cb_strat2.items[cb_strat2.index]
 
                         ComboBox: cb_strat3:
                             items = [' '] + bound_options
-                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[3]]) + 1
+                            index = bound_options.index(fit_model.param_dict[loop_item][fit_strategy_list[3]]) + 1
                             maximum_size = 80
                             background = 'grey'
                             index ::
                                 if cb_strat3.index > 0:
-                                    parameter_model.param_dict[loop_item][fit_strategy_list[3]] = cb_strat3.items[cb_strat3.index]
+                                    fit_model.param_dict[loop_item][fit_strategy_list[3]] = cb_strat3.items[cb_strat3.index]
 
                         ComboBox: cb_strat4:
                             items = [' '] + bound_options
-                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[4]]) + 1
+                            index = bound_options.index(fit_model.param_dict[loop_item][fit_strategy_list[4]]) + 1
                             maximum_size = 80
                             index ::
                                 if cb_strat4.index > 0:
-                                    parameter_model.param_dict[loop_item][fit_strategy_list[4]] = cb_strat4.items[cb_strat4.index]
+                                    fit_model.param_dict[loop_item][fit_strategy_list[4]] = cb_strat4.items[cb_strat4.index]
 
                         ComboBox: cb_strat5:
                             items = [' '] + bound_options
-                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[5]]) + 1
+                            index = bound_options.index(fit_model.param_dict[loop_item][fit_strategy_list[5]]) + 1
                             maximum_size = 80
                             background = 'grey'
                             index ::
                                 if cb_strat5.index > 0:
-                                    parameter_model.param_dict[loop_item][fit_strategy_list[5]] = cb_strat5.items[cb_strat5.index]
+                                    fit_model.param_dict[loop_item][fit_strategy_list[5]] = cb_strat5.items[cb_strat5.index]
 
                         ComboBox: cb_strat6:
                             items = [' '] + bound_options
-                            index = bound_options.index(parameter_model.param_dict[loop_item][fit_strategy_list[6]]) + 1
+                            index = bound_options.index(fit_model.param_dict[loop_item][fit_strategy_list[6]]) + 1
                             maximum_size = 80
                             index ::
                                 if cb_strat6.index > 0:
-                                    parameter_model.param_dict[loop_item][fit_strategy_list[6]] = cb_strat6.items[cb_strat6.index]
+                                    fit_model.param_dict[loop_item][fit_strategy_list[6]] = cb_strat6.items[cb_strat6.index]
 
 
 enamldef OtherSettingEdit(Window):
     attr fit_model
-    #attr param_model
+    attr param_model
     attr plot_model
-    attr edit_pileup
 
     Container :
         DockArea :
@@ -1070,42 +1078,6 @@ enamldef OtherSettingEdit(Window):
                             clicked ::
                                 fit_model.EC.order(option='energy')
                                 fit_model.update_name_list()
-                        #PushButton: inten:
-                        #    text = 'Peak Int'
-                        #    minimum_size = (90, 20)
-                        #    #background = 'white'
-                        #    clicked ::
-                        #        param_model.EC.order(option='maxv')
-                        #        param_model.update_name_list()
-                        #Label: norm:
-                        #    text = 'Rel Int(%)'
-                        #    minimum_size = (80, 20)
-                        #    #background = 'white'
-                        #    align = 'center'
-                        #PushButton: select_all:
-                        #    text = 'Show All'
-                        #    #maximum_size = 30
-                        #    minimum_size = (30, 20)
-                        #    checkable = True
-                        #    clicked ::
-                        #        if checked:
-                        #            param_model.EC.turn_on_all()
-                        #            param_model.data_for_plot()
-                        #            plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                        #                                                param_model.total_l, param_model.total_m,
-                        #                                                param_model.total_pileup)
-                        #            plot_model.show_autofit_opt = True
-                        #            plot_model._fig.canvas.draw()
-                        #            select_all.text = 'Hide All'
-                        #        else:
-                        #            param_model.EC.turn_on_all(option=False)
-                        #            param_model.data_for_plot()
-                        #            plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                        #                                                param_model.total_l, param_model.total_m,
-                        #                                                param_model.total_pileup)
-                        #            plot_model.show_autofit_opt = False
-                        #            plot_model._fig.canvas.draw()
-                        #            select_all.text = 'Show All'
 
                     ScrollArea: scr_area:
                         constraints = [height <= 350]
@@ -1148,33 +1120,6 @@ enamldef OtherSettingEdit(Window):
                                         minimum_size = (60, 20)
                                         #maximum_size = 80
                                         #background = 'white'
-                                    #FloatField: lb_inten:
-                                    #    value := param_model.EC.element_dict[loop_item].maxv
-                                    #    minimum_size = (60, 20)
-                                    #    maximum_size = 80
-                                    #    background = 'white'
-                                    #    #align = 'right'
-                                    #    minimum = 0.0
-
-                                    #Label: lb_norm:
-                                    #    text << set_low_bound(np.around(param_model.EC.element_dict[loop_item].norm, 2))
-                                    #    minimum_size = (100, 20)
-                                    #    #background = 'white'
-                                    #    align = 'center'
-
-                                    #CheckBox: select_cb:
-                                    #    checkable = True
-                                    #    minimum_size = (30, 20)
-                                    #    checked := param_model.EC.element_dict[loop_item].status
-                                    #    clicked ::
-                                    #        param_model.EC.element_dict[loop_item].status = checked
-                                    #        param_model.EC.element_dict[loop_item].stat_copy = param_model.EC.element_dict[loop_item].status
-                                    #        param_model.data_for_plot()
-                                    #        plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                                    #                                            param_model.total_l, param_model.total_m,
-                                    #                                            param_model.total_pileup)
-                                    #        plot_model._fig.canvas.draw()
-
 
             DockItem:
                 closable = False
@@ -1190,6 +1135,13 @@ enamldef OtherSettingEdit(Window):
                             text = 'Escape peak'
                         FloatField:
                             value := fit_model.param_dict['non_fitting_values']['escape_ratio']
+                        PushButton: pb_cal:
+                            text = 'Apply'
+                            clicked ::
+                                calculate_spectrum_helper(fit_model, plot_model, param_model)
+                        Label:
+                            pass
+
             DockItem:
                 closable = False
                 name = 'item_controller'
@@ -1216,6 +1168,12 @@ enamldef OtherSettingEdit(Window):
                         #    text = 'Weighted c'
                         #FloatField:
                         #    value := fit_model.c_weight
+                        PushButton: pb_cal:
+                            text = 'Apply'
+                            clicked ::
+                                pass
+                        Label:
+                            pass
 
             DockItem:
                 closable = False
@@ -1289,6 +1247,12 @@ enamldef OtherSettingEdit(Window):
                         #    text = 'Weighted c'
                         #FloatField:
                         #    value := fit_model.c_weight
+                        PushButton: pb_cal:
+                            text = 'Apply'
+                            clicked ::
+                                pass
+                        Label:
+                            pass
 
             DockItem:
                 closable = False
@@ -1309,15 +1273,17 @@ enamldef OtherSettingEdit(Window):
                         #FloatField: intensity_ff:
                         #    pass
                         PushButton: add_btn:
-                            text = 'Add'
-                            maximum_size = 60
+                            text = 'Apply'
                             clicked ::
                                 fit_model.pileup_data['element1'] = fd1.text
                                 fit_model.pileup_data['element2'] = fd2.text
                                 #fit_model.pileup_data['intensity'] = intensity_ff.value
                                 fit_model.add_pileup()
                                 fit_model.update_name_list()
-                                #param_model.data_for_plot()
+                                calculate_spectrum_helper(fit_model, plot_model, param_model)
+
+                        Label:
+                            pass
 
 
 def save_defaults(parameter_model):
@@ -1331,6 +1297,47 @@ def save_defaults(parameter_model):
 
 
 enamldef EditPileupPeak(Window): pileup_win:
+    attr param_model
+    attr plot_model
+
+    title = 'Pileup Peak Editor'
+    Container:
+        Form:
+            Label: e1:
+                text = 'Element1'
+            Field: fd1:
+                text = ''
+            Label: e2:
+                text = 'Element2'
+            Field: fd2:
+                text = ''
+            Label: intensity:
+                text = 'Peak Int'
+            FloatField: intensity_ff:
+                pass
+            PushButton: add_btn:
+                text = 'Add'
+                maximum_size = 60
+                clicked ::
+                    param_model.pileup_data['element1'] = fd1.text
+                    param_model.pileup_data['element2'] = fd2.text
+                    param_model.pileup_data['intensity'] = intensity_ff.value
+
+                    param_model.manual_input()
+                    param_model.EC.update_peak_ratio()
+                    param_model.update_name_list()
+                    param_model.data_for_plot()
+
+                    plot_model.plot_fit(param_model.prefit_x,
+                                        param_model.total_y,
+                                        param_model.auto_fit_all)
+                    # For plotting purposes, otherwise plot will not update
+                    plot_model.show_fit_opt = False
+                    plot_model.show_fit_opt = True
+                    pileup_win.close()
+
+
+enamldef EditPileupPeak1(Window): pileup_win:
     attr fit_model
     title = 'Pileup Peak Editor'
     Container:
@@ -1374,3 +1381,28 @@ def set_low_bound(value, thresh_v=0.1):
         return '< {}'.format(thresh_v)
     else:
         return str(value)
+
+
+def calculate_spectrum_helper(fit_model, plot_model, param_model):
+    """
+    Calculate spectrum, and update plotting and param_model.
+    """
+    fit_model.get_profile()
+
+    # update experimental plot with new calibration values
+    plot_model.parameters = fit_model.param_dict
+    plot_model.plot_experiment()
+
+    plot_model.plot_fit(fit_model.cal_x, fit_model.cal_y,
+                        fit_model.cal_spectrum,
+                        fit_model.residual)
+
+    # For plotting purposes, otherwise plot will not update
+    plot_model.show_fit_opt = False
+    plot_model.show_fit_opt = True
+
+    # update autofit param
+    param_model.update_new_param(fit_model.param_dict)
+    #param_model.get_new_param_from_file(parameter_file_path)
+    param_model.update_name_list()
+    param_model.EC.turn_on_all()
