@@ -617,7 +617,7 @@ enamldef FitView(DockItem): fit_view:
                     minimum_size = (60, 16)
 
         GroupBox: gb_fit_pixel:
-            title = 'Fit all pixels.'
+            title = 'Fit spectrum of all individual pixels.'
             padding = Box(2, 2, 2, 2)
             constraints = [vbox(hbox(save_cb, lb1, fd1v, fd1h, lb2, fd2v, fd2h, spacer),
                                 #hbox(lb1, fd1v, fd1h, spacer),
@@ -1013,106 +1013,7 @@ enamldef OtherSettingEdit(Window):
 
     Container :
         DockArea :
-            layout = TabLayout('add_element', 'item_bkg', 'item_controller', 'item_controller_pixel')
-            DockItem:
-                closable = False
-                name = 'add_element'
-                title = 'Add/Remove Elements'
-                GroupBox: pre_fit:
-                    padding = Box(2, 2, 2, 2)
-                    constraints = [vbox(hbox(cb_select, manual_add, spacer),
-                                        scr_area_title,
-                                        #hbox(manual_add),
-                                        scr_area,),]
-                                        #hbox(pb_delete_unselected, spacer),
-                                        #hbox(pb_update, spacer),),]
-                    ComboBox: cb_select:
-                        items = ['Select Lines'] +\
-                                K_LINE + L_LINE + M_LINE
-                        index = 0
-                        index ::
-                            if cb_select.index > 0:
-                                fit_model.e_name = cb_select.selected_item
-
-                    PushButton: manual_add:
-                        text = 'Add'
-                        clicked ::
-                            fit_model.manual_input()
-
-                    Container: scr_area_title:
-                        padding = Box(2, 2, 2, 2)
-                        constraints = [vbox(
-                                           hbox(del_lb, z, name, energy, spacer),
-                                           )
-                                       ]
-                        Label: del_lb:
-                            text = '{:>10}'.format(' ')
-                            minimum_size = (30, 20)
-                        PushButton: z:
-                            text = 'Z'
-                            minimum_size = (30, 20)
-                            #background = 'white'
-                            clicked ::
-                                fit_model.EC.order(option='z')
-                                fit_model.update_name_list()
-                        PushButton: name:
-                            text = 'Names'
-                            minimum_size = (120, 20)
-                            maximum_size = 70
-                            #background = 'white'
-                            clicked ::
-                                fit_model.EC.order(option='name')
-                                fit_model.update_name_list()
-                        PushButton: energy:
-                            text = 'Energy'
-                            maximum_size = 70
-                            #background = 'white'
-                            clicked ::
-                                fit_model.EC.order(option='energy')
-                                fit_model.update_name_list()
-
-                    ScrollArea: scr_area:
-                        constraints = [height <= 350]
-
-                        Form:
-                        #Container: ctn_looper:
-                            row_spacing = -1
-                            #padding = Box(0, 0, 0, 0)
-                            Looper: looper:
-                                iterable << list(fit_model.result_dict_names)
-
-                                PushButton: delete_btn:
-                                    text = 'Del'
-                                    clicked ::
-                                        fit_model.EC.delete_item(loop_item)
-                                        #fit_model.EC.update_peak_ratio()
-                                        #param_model.data_for_plot()
-
-                                        #plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                                        #                                    param_model.total_l, param_model.total_m,
-                                        #                                    param_model.total_pileup)
-                                        #plot_model._fig.canvas.draw()
-                                        fit_model.update_name_list()
-
-                                Container:
-                                    padding = Box(2, 2, 2, 2)
-                                    constraints = [hbox(delete_btn, lb_z, lb_name, lb_energy, spacer),]
-                                                        #lb_norm.height==select_cb.height]
-
-                                    Label: lb_z:
-                                        text << fit_model.EC.element_dict[loop_item].z
-                                        minimum_size = (40, 20)
-                                        #background = 'white'
-                                    Label: lb_name:
-                                        text << loop_item
-                                        minimum_size = (100, 20)
-                                        #background = 'white'
-                                    Label: lb_energy:
-                                        text << str(fit_model.EC.element_dict[loop_item].energy)
-                                        minimum_size = (60, 20)
-                                        #maximum_size = 80
-                                        #background = 'white'
-
+            layout = TabLayout('item_bkg', 'item_controller', 'item_controller_pixel')
             DockItem:
                 closable = False
                 name = 'item_bkg'
