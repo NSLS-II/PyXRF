@@ -82,7 +82,7 @@ enamldef PlotMain(DockItem):
     Container:
         constraints = [
             vbox(
-                hbox(plot_exp_btn, select_all, pb_plot_fit, spacer),
+                hbox(plot_exp_btn, pb_plot_fit, spacer),
                 hbox(cbox1, spacer, pb_eline, cbox2, checkb),
                 canvas,
             ),
@@ -137,31 +137,31 @@ enamldef PlotMain(DockItem):
                     plot_model.plot_exp_opt = False
                     plot_exp_btn.text = 'Plot Selected Exp. Data'
 
-        PushButton: select_all:
-            text = 'Plot Auto Fit Result'
-            #maximum_size = 30
-            minimum_size = (30, 20)
-            checked << plot_model.show_autofit_opt
-            checkable = True
-            clicked ::
-                if checked:
-                    param_model.EC.turn_on_all()
-                    param_model.data_for_plot()
-                    plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                                                        param_model.total_l, param_model.total_m,
-                                                        param_model.total_pileup)
-                    plot_model.show_autofit_opt = True
-                    plot_model._fig.canvas.draw()
-                    select_all.text = 'Hide Auto Fit Result'
-                else:
-                    param_model.EC.turn_on_all(option=False)
-                    param_model.data_for_plot()
-                    plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
-                                                        param_model.total_l, param_model.total_m,
-                                                        param_model.total_pileup)
-                    plot_model.show_autofit_opt = False
-                    plot_model._fig.canvas.draw()
-                    select_all.text = 'Plot Auto Fit Result'
+        #PushButton: select_all:
+        #    text = 'Plot Auto Fit Result'
+        #    #maximum_size = 30
+        #    minimum_size = (30, 20)
+        #    checked << plot_model.show_autofit_opt
+        #    checkable = True
+        #    clicked ::
+        #        if checked:
+        #            param_model.EC.turn_on_all()
+        #            param_model.data_for_plot()
+        #            plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
+        #                                                param_model.total_l, param_model.total_m,
+        #                                                param_model.total_pileup)
+        #            plot_model.show_autofit_opt = True
+        #            plot_model._fig.canvas.draw()
+        #            select_all.text = 'Hide Auto Fit Result'
+        #        else:
+        #            param_model.EC.turn_on_all(option=False)
+        #            param_model.data_for_plot()
+        #            plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
+        #                                                param_model.total_l, param_model.total_m,
+        #                                                param_model.total_pileup)
+        #            plot_model.show_autofit_opt = False
+        #            plot_model._fig.canvas.draw()
+        #            select_all.text = 'Plot Auto Fit Result'
 
         PushButton: pb_plot_fit:
             text = 'Plot Fit Result'

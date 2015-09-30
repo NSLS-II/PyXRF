@@ -73,7 +73,7 @@ def get_defaults():
     #     default_parameters = json.load(json_data)
     default_parameters = param_data
     defaults = {'working_directory': working_directory,
-                'output_directory': output_directory,
+                #'output_directory': output_directory,
                 'default_parameters': default_parameters}
     return defaults
 
@@ -97,7 +97,7 @@ def run():
     img_model_rgb = DrawImageRGB()
 
     # send working directory changes to different models
-    io_model.observe('output_directory', fit_model.result_folder_changed)
+    io_model.observe('working_directory', fit_model.result_folder_changed)
     io_model.observe('selected_file_name', fit_model.data_title_update)
     io_model.observe('selected_file_name', plot_model.exp_label_update)
 
@@ -117,6 +117,7 @@ def run():
     # set default parameters
     #io_model.observe('default_parameters', plot_model.parameters_update)
     #param_model.observe('param_new', plot_model.parameters_update)
+    #fit_model.observe('param_dict', param_model.param_changed)
 
     xrfview = XRFGui(io_model=io_model,
                      param_model=param_model,

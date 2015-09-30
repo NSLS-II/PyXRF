@@ -121,16 +121,16 @@ class LinePlotModel(Atom):
     parameters = Dict()
     elist = List()
     scale_opt = Int(0)
-    total_y = Dict()
-    total_l = Dict()
-    total_m = Dict()
-    total_pileup = Dict()
+    #total_y = Dict()
+    #total_l = Dict()
+    #total_m = Dict()
+    #total_pileup = Dict()
 
     prefit_x = Typed(object)
     plot_title = Str()
-    fit_x = Typed(np.ndarray)
-    fit_y = Typed(np.ndarray)
-    residual = Typed(np.ndarray)
+    #fit_x = Typed(np.ndarray)
+    #fit_y = Typed(np.ndarray)
+    #residual = Typed(np.ndarray)
 
     plot_type = List()
     max_v = Float()
@@ -150,7 +150,7 @@ class LinePlotModel(Atom):
 
     plot_fit_obj = List() #Typed(Line2D)
     show_fit_opt = Bool()
-    fit_all = Typed(object)
+    #fit_all = Typed(object)
 
     plot_style = Dict()
 
@@ -208,8 +208,8 @@ class LinePlotModel(Atom):
             'elastic': {'color': 'purple', 'label': 'elastic'},
             'escape': {'color': 'darkblue', 'label': 'escape'},
             'pileup': {'color': 'orange', 'label': 'pileup'},
-            'auto_fit': {'color': 'black', 'label': 'auto fitted', 'linewidth': 2.5},
-            'fit': {'color': 'red', 'label': 'fitted', 'linewidth': 2.5},
+            #'auto_fit': {'color': 'black', 'label': 'auto fitted', 'linewidth': 2.5},
+            'fit': {'color': 'red', 'label': 'fit', 'linewidth': 2.5},
             'residual': {'color': 'black', 'label': 'residual', 'linewidth': 2.0}
         }
 
@@ -502,208 +502,222 @@ class LinePlotModel(Atom):
                         l.set_visible(False)
         self._update_canvas()
 
-    def plot_autofit(self):
-        sum_y = 0
-        while(len(self.auto_fit_obj)):
-            self.auto_fit_obj.pop().remove()
+    # def plot_autofit(self):
+    #     sum_y = 0
+    #     while(len(self.auto_fit_obj)):
+    #         self.auto_fit_obj.pop().remove()
+    #
+    #     k_auto = 0
+    #
+    #     # K lines
+    #     if len(self.total_y):
+    #         self._ax.hold(True)
+    #         for k, v in six.iteritems(self.total_y):
+    #             if k == 'background':
+    #                 ln, = self._ax.plot(self.prefit_x, v,
+    #                                     color=self.plot_style['background']['color'],
+    #                                     #marker=self.plot_style['background']['marker'],
+    #                                     #markersize=self.plot_style['background']['markersize'],
+    #                                     label=self.plot_style['background']['label'])
+    #             elif k == 'compton':
+    #                 ln, = self._ax.plot(self.prefit_x, v,
+    #                                     color=self.plot_style['compton']['color'],
+    #                                     linewidth=self.plot_style['compton']['linewidth'],
+    #                                     label=self.plot_style['compton']['label'])
+    #             elif k == 'elastic':
+    #                 ln, = self._ax.plot(self.prefit_x, v,
+    #                                     color=self.plot_style['elastic']['color'],
+    #                                     label=self.plot_style['elastic']['label'])
+    #             elif k == 'escape':
+    #                 ln, = self._ax.plot(self.prefit_x, v,
+    #                                     color=self.plot_style['escape']['color'],
+    #                                     label=self.plot_style['escape']['label'])
+    #             else:
+    #                 # only the first one has label
+    #                 if k_auto == 0:
+    #                     ln, = self._ax.plot(self.prefit_x, v,
+    #                                         color=self.plot_style['k_line']['color'],
+    #                                         label=self.plot_style['k_line']['label'])
+    #                 else:
+    #                     ln, = self._ax.plot(self.prefit_x, v,
+    #                                         color=self.plot_style['k_line']['color'],
+    #                                         label='_nolegend_')
+    #                 k_auto += 1
+    #             self.auto_fit_obj.append(ln)
+    #             sum_y += v
+    #
+    #     # L lines
+    #     if len(self.total_l):
+    #         self._ax.hold(True)
+    #         for i, (k, v) in enumerate(six.iteritems(self.total_l)):
+    #             # only the first one has label
+    #             if i == 0:
+    #                 ln, = self._ax.plot(self.prefit_x, v,
+    #                                     color=self.plot_style['l_line']['color'],
+    #                                     label=self.plot_style['l_line']['label'])
+    #             else:
+    #                 ln, = self._ax.plot(self.prefit_x, v,
+    #                                     color=self.plot_style['l_line']['color'],
+    #                                     label='_nolegend_')
+    #             self.auto_fit_obj.append(ln)
+    #             sum_y += v
+    #
+    #     # M lines
+    #     if len(self.total_m):
+    #         self._ax.hold(True)
+    #         for i, (k, v) in enumerate(six.iteritems(self.total_m)):
+    #             # only the first one has label
+    #             if i == 0:
+    #                 ln, = self._ax.plot(self.prefit_x, v,
+    #                                     color=self.plot_style['m_line']['color'],
+    #                                     label=self.plot_style['m_line']['label'])
+    #             else:
+    #                 ln, = self._ax.plot(self.prefit_x, v,
+    #                                     color=self.plot_style['m_line']['color'],
+    #                                     label='_nolegend_')
+    #             self.auto_fit_obj.append(ln)
+    #             sum_y += v
+    #
+    #     # pileup
+    #     if len(self.total_pileup):
+    #         self._ax.hold(True)
+    #         for i, (k, v) in enumerate(six.iteritems(self.total_pileup)):
+    #             # only the first one has label
+    #             if i == 0:
+    #                 ln, = self._ax.plot(self.prefit_x, v,
+    #                                     color=self.plot_style['pileup']['color'],
+    #                                     label=self.plot_style['pileup']['label'])
+    #             else:
+    #                 ln, = self._ax.plot(self.prefit_x, v,
+    #                                     color=self.plot_style['pileup']['color'],
+    #                                     label='_nolegend_')
+    #             self.auto_fit_obj.append(ln)
+    #             sum_y += v
+    #
+    #     if len(self.total_y) or len(self.total_l) or len(self.total_m):
+    #         self._ax.hold(True)
+    #         ln, = self._ax.plot(self.prefit_x, sum_y,
+    #                             color=self.plot_style['auto_fit']['color'],
+    #                             label=self.plot_style['auto_fit']['label'],
+    #                             linewidth=self.plot_style['auto_fit']['linewidth'])
+    #         self.auto_fit_obj.append(ln)
 
-        k_auto = 0
+    # @observe('show_autofit_opt')
+    # def update_auto_fit(self, change):
+    #     if change['value']:
+    #         if len(self.auto_fit_obj):
+    #             for v in self.auto_fit_obj:
+    #                 v.set_visible(True)
+    #                 lab = v.get_label()
+    #                 if lab != '_nolegend_':
+    #                     v.set_label(lab.strip('_'))
+    #     else:
+    #         if len(self.auto_fit_obj):
+    #             for v in self.auto_fit_obj:
+    #                 v.set_visible(False)
+    #                 lab = v.get_label()
+    #                 if lab != '_nolegend_':
+    #                     v.set_label('_' + lab)
+    #     self._update_canvas()
 
-        # K lines
-        if len(self.total_y):
-            self._ax.hold(True)
-            for k, v in six.iteritems(self.total_y):
-                if k == 'background':
-                    ln, = self._ax.plot(self.prefit_x, v,
-                                        color=self.plot_style['background']['color'],
-                                        #marker=self.plot_style['background']['marker'],
-                                        #markersize=self.plot_style['background']['markersize'],
-                                        label=self.plot_style['background']['label'])
-                elif k == 'compton':
-                    ln, = self._ax.plot(self.prefit_x, v,
-                                        color=self.plot_style['compton']['color'],
-                                        linewidth=self.plot_style['compton']['linewidth'],
-                                        label=self.plot_style['compton']['label'])
-                elif k == 'elastic':
-                    ln, = self._ax.plot(self.prefit_x, v,
-                                        color=self.plot_style['elastic']['color'],
-                                        label=self.plot_style['elastic']['label'])
-                elif k == 'escape':
-                    ln, = self._ax.plot(self.prefit_x, v,
-                                        color=self.plot_style['escape']['color'],
-                                        label=self.plot_style['escape']['label'])
-                else:
-                    # only the first one has label
-                    if k_auto == 0:
-                        ln, = self._ax.plot(self.prefit_x, v,
-                                            color=self.plot_style['k_line']['color'],
-                                            label=self.plot_style['k_line']['label'])
-                    else:
-                        ln, = self._ax.plot(self.prefit_x, v,
-                                            color=self.plot_style['k_line']['color'],
-                                            label='_nolegend_')
-                    k_auto += 1
-                self.auto_fit_obj.append(ln)
-                sum_y += v
+    # def set_prefit_data_and_plot(self, prefit_x,
+    #                              total_y, total_l,
+    #                              total_m, total_pileup):
+    #     """
+    #     Parameters
+    #     ----------
+    #     prefit_x : array
+    #         X axis with limited range
+    #     total_y : dict
+    #         Results for k lines, bg, and others
+    #     total_l : dict
+    #         Results for l lines
+    #     total_m : dict
+    #         Results for m lines
+    #     total_pileup : dict
+    #         Results for pileups
+    #     """
+    #     self.prefit_x = prefit_x
+    #     # k lines
+    #     self.total_y = total_y
+    #     # l lines
+    #     self.total_l = total_l
+    #     # m lines
+    #     self.total_m = total_m
+    #     # pileup
+    #     self.total_pileup = total_pileup
+    #
+    #     #self._ax.set_xlim([self.prefit_x[0], self.prefit_x[-1]])
+    #     self.plot_autofit()
+    #     #self.log_linear_plot()
+    #     self._update_canvas()
 
-        # L lines
-        if len(self.total_l):
-            self._ax.hold(True)
-            for i, (k, v) in enumerate(six.iteritems(self.total_l)):
-                # only the first one has label
-                if i == 0:
-                    ln, = self._ax.plot(self.prefit_x, v,
-                                        color=self.plot_style['l_line']['color'],
-                                        label=self.plot_style['l_line']['label'])
-                else:
-                    ln, = self._ax.plot(self.prefit_x, v,
-                                        color=self.plot_style['l_line']['color'],
-                                        label='_nolegend_')
-                self.auto_fit_obj.append(ln)
-                sum_y += v
-
-        # M lines
-        if len(self.total_m):
-            self._ax.hold(True)
-            for i, (k, v) in enumerate(six.iteritems(self.total_m)):
-                # only the first one has label
-                if i == 0:
-                    ln, = self._ax.plot(self.prefit_x, v,
-                                        color=self.plot_style['m_line']['color'],
-                                        label=self.plot_style['m_line']['label'])
-                else:
-                    ln, = self._ax.plot(self.prefit_x, v,
-                                        color=self.plot_style['m_line']['color'],
-                                        label='_nolegend_')
-                self.auto_fit_obj.append(ln)
-                sum_y += v
-
-        # pileup
-        if len(self.total_pileup):
-            self._ax.hold(True)
-            for i, (k, v) in enumerate(six.iteritems(self.total_pileup)):
-                # only the first one has label
-                if i == 0:
-                    ln, = self._ax.plot(self.prefit_x, v,
-                                        color=self.plot_style['pileup']['color'],
-                                        label=self.plot_style['pileup']['label'])
-                else:
-                    ln, = self._ax.plot(self.prefit_x, v,
-                                        color=self.plot_style['pileup']['color'],
-                                        label='_nolegend_')
-                self.auto_fit_obj.append(ln)
-                sum_y += v
-
-        if len(self.total_y) or len(self.total_l) or len(self.total_m):
-            self._ax.hold(True)
-            ln, = self._ax.plot(self.prefit_x, sum_y,
-                                color=self.plot_style['auto_fit']['color'],
-                                label=self.plot_style['auto_fit']['label'],
-                                linewidth=self.plot_style['auto_fit']['linewidth'])
-            self.auto_fit_obj.append(ln)
-
-    @observe('show_autofit_opt')
-    def update_auto_fit(self, change):
-        if change['value']:
-            if len(self.auto_fit_obj):
-                for v in self.auto_fit_obj:
-                    v.set_visible(True)
-                    lab = v.get_label()
-                    if lab != '_nolegend_':
-                        v.set_label(lab.strip('_'))
-        else:
-            if len(self.auto_fit_obj):
-                for v in self.auto_fit_obj:
-                    v.set_visible(False)
-                    lab = v.get_label()
-                    if lab != '_nolegend_':
-                        v.set_label('_' + lab)
-        self._update_canvas()
-
-    def set_prefit_data_and_plot(self, prefit_x,
-                                 total_y, total_l,
-                                 total_m, total_pileup):
+    def plot_fit(self, fit_x, fit_y, fit_all, residual=None):
         """
         Parameters
         ----------
-        prefit_x : array
-            X axis with limited range
-        total_y : dict
-            Results for k lines, bg, and others
-        total_l : dict
-            Results for l lines
-        total_m : dict
-            Results for m lines
-        total_pileup : dict
-            Results for pileups
+        fit_x : array
+            energy axis
+        fit_y : array
+            fitted spectrum
+        fit_all : dict
+            dict of individual line
+        residual : array
+            residual between fit and exp
         """
-        self.prefit_x = prefit_x
-        # k lines
-        self.total_y = total_y
-        # l lines
-        self.total_l = total_l
-        # m lines
-        self.total_m = total_m
-        # pileup
-        self.total_pileup = total_pileup
-
-        #self._ax.set_xlim([self.prefit_x[0], self.prefit_x[-1]])
-        self.plot_autofit()
-        #self.log_linear_plot()
-        self._update_canvas()
-
-    def plot_fit(self):
         while(len(self.plot_fit_obj)):
             self.plot_fit_obj.pop().remove()
-        ln, = self._ax.plot(self.fit_x, self.fit_y,
+
+        ln, = self._ax.plot(fit_x, fit_y,
                             color=self.plot_style['fit']['color'],
                             label=self.plot_style['fit']['label'],
                             linewidth=self.plot_style['fit']['linewidth'])
         self.plot_fit_obj.append(ln)
 
-        shiftv = 1.5  # move residual down by some amount
-        ln, = self._ax.plot(self.fit_x,
-                            self.residual - 0.15*self.max_v,  #shiftv*(np.max(np.abs(self.residual))),
-                            label=self.plot_style['residual']['label'],
-                            color=self.plot_style['residual']['color'])
-        self.plot_fit_obj.append(ln)
+        if residual is not None:
+            shiftv = 1.5  # move residual down by some amount
+            ln, = self._ax.plot(fit_x,
+                                residual - 0.15*self.max_v,  #shiftv*(np.max(np.abs(self.residual))),
+                                label=self.plot_style['residual']['label'],
+                                color=self.plot_style['residual']['color'])
+            self.plot_fit_obj.append(ln)
 
         k_num = 0
         l_num = 0
         m_num = 0
         p_num = 0
-        for k, v in six.iteritems(self.fit_all):
+        for k, v in six.iteritems(fit_all):
             if k == 'background':
-                ln, = self._ax.plot(self.fit_x, v,
+                ln, = self._ax.plot(fit_x, v,
                                     color=self.plot_style['background']['color'],
                                     #marker=self.plot_style['background']['marker'],
                                     #markersize=self.plot_style['background']['markersize'],
                                     label=self.plot_style['background']['label'])
                 self.plot_fit_obj.append(ln)
             elif k == 'compton':
-                ln, = self._ax.plot(self.fit_x, v,
+                ln, = self._ax.plot(fit_x, v,
                                     color=self.plot_style['compton']['color'],
                                     linewidth=self.plot_style['compton']['linewidth'],
                                     label=self.plot_style['compton']['label'])
                 self.plot_fit_obj.append(ln)
             elif k == 'elastic':
-                ln, = self._ax.plot(self.fit_x, v,
+                ln, = self._ax.plot(fit_x, v,
                                     color=self.plot_style['elastic']['color'],
                                     label=self.plot_style['elastic']['label'])
                 self.plot_fit_obj.append(ln)
             elif k == 'escape':
-                ln, = self._ax.plot(self.fit_x, v,
+                ln, = self._ax.plot(fit_x, v,
                                     color=self.plot_style['escape']['color'],
                                     label=self.plot_style['escape']['label'])
                 self.plot_fit_obj.append(ln)
 
             elif '-' in k:  # Si_K-Si_K
                 if p_num == 0:
-                    ln, = self._ax.plot(self.fit_x, v,
+                    ln, = self._ax.plot(fit_x, v,
                                         color=self.plot_style['pileup']['color'],
                                         label=self.plot_style['pileup']['label'])
                 else:
-                    ln, = self._ax.plot(self.fit_x, v,
+                    ln, = self._ax.plot(fit_x, v,
                                         color=self.plot_style['pileup']['color'],
                                         label='_nolegend_')
                 self.plot_fit_obj.append(ln)
@@ -711,11 +725,11 @@ class LinePlotModel(Atom):
 
             elif ('_K' in k.upper()) and (len(k) <= 4):
                 if k_num == 0:
-                    ln, = self._ax.plot(self.fit_x, v,
+                    ln, = self._ax.plot(fit_x, v,
                                         color=self.plot_style['k_line']['color'],
                                         label=self.plot_style['k_line']['label'])
                 else:
-                    ln, = self._ax.plot(self.fit_x, v,
+                    ln, = self._ax.plot(fit_x, v,
                                         color=self.plot_style['k_line']['color'],
                                         label='_nolegend_')
                 self.plot_fit_obj.append(ln)
@@ -723,11 +737,11 @@ class LinePlotModel(Atom):
 
             elif ('_L' in k.upper()) and (len(k) <= 4):
                 if l_num == 0:
-                    ln, = self._ax.plot(self.fit_x, v,
+                    ln, = self._ax.plot(fit_x, v,
                                         color=self.plot_style['l_line']['color'],
                                         label=self.plot_style['l_line']['label'])
                 else:
-                    ln, = self._ax.plot(self.fit_x, v,
+                    ln, = self._ax.plot(fit_x, v,
                                         color=self.plot_style['l_line']['color'],
                                         label='_nolegend_')
                 self.plot_fit_obj.append(ln)
@@ -735,11 +749,11 @@ class LinePlotModel(Atom):
 
             elif ('_M' in k.upper()) and (len(k) <= 4):
                 if m_num == 0:
-                    ln, = self._ax.plot(self.fit_x, v,
+                    ln, = self._ax.plot(fit_x, v,
                                         color=self.plot_style['m_line']['color'],
                                         label=self.plot_style['m_line']['label'])
                 else:
-                    ln, = self._ax.plot(self.fit_x, v,
+                    ln, = self._ax.plot(fit_x, v,
                                         color=self.plot_style['m_line']['color'],
                                         label='_nolegend_')
                 self.plot_fit_obj.append(ln)
