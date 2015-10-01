@@ -488,6 +488,11 @@ class Fit1D(Atom):
         t1 = time.time()
         logger.info('Time used for pixel fitting is : {}'.format(t1-t0))
 
+        # output error
+        error_map = None
+        if pixel_fit == 'nonlinear':
+            error_map = calculation_info['error_map']
+
         # output to .h5 file
         fpath = os.path.join(self.result_folder, self.save_name)
 
@@ -504,7 +509,7 @@ class Fit1D(Atom):
         else:
             inner_path = 'xrfmap/detsum'
             fit_name = prefix_fname+'_fit'
-        save_fitdata_to_hdf(fpath, result_map, datapath=inner_path)
+        save_fitdata_to_hdf(fpath, result_map, datapath=inner_path, error_map=error_map)
 
         # Update GUI so that results can be seen immediately
         self.fit_img[fit_name] = result_map
@@ -1349,12 +1354,13 @@ def single_pixel_fitting_controller(input_data, param, method='nnls',
                                     param, first_peak_area=False)
     else:
         logger.info('Fitting method: nonlinear least squares')
-        fit_results = fit_pixel_multiprocess_nonlinear(exp_data, x, param, matv,
+        matrix_norm = exp_data.shape[0]*exp_data.shape[1]
+        fit_results = fit_pixel_multiprocess_nonlinear(exp_data, x, param, matv/matrix_norm,
                                                        use_snip=use_snip)
 
         result_map, error_map, results = get_area_and_error_nonlinear_fit(e_select,
                                                                           fit_results,
-                                                                          matv)
+                                                                          matv/matrix_norm)
 
     logger.info('-------- Fitting of single pixels is done! --------')
 
@@ -1593,7 +1599,7 @@ def fit_pixel_data_and_save(working_directory, file_name,
 
 
 def save_fitdata_to_hdf(fpath, data_dict,
-                        datapath='xrfmap/detsum'):
+                        datapath='xrfmap/detsum', error_map=None):
     """
     Add fitting results to existing h5 file. This is to be moved to filestore.
 
@@ -1605,6 +1611,8 @@ def save_fitdata_to_hdf(fpath, data_dict,
         dict of array
     datapath : str
         path inside h5py file
+    error_map : array, optional
+        error for fitting parameters
     """
     f = h5py.File(fpath, 'a')
     try:
@@ -1624,6 +1632,14 @@ def save_fitdata_to_hdf(fpath, data_dict,
     data = np.array(data)
     ds_data = dataGrp.create_dataset('xrf_fit', data=data)
     ds_data.attrs['comments'] = 'All fitting values are saved.'
+
+    if error_map is not None:
+        if 'xrf_fit_error' in dataGrp:
+            del dataGrp['xrf_fit_error']
+
+        data = np.array(data)
+        ds_data = dataGrp.create_dataset('xrf_fit_error', data=error_map)
+        ds_data.attrs['comments'] = 'All fitting errors are saved.'
 
     if 'xrf_fit_name' in dataGrp:
         del dataGrp['xrf_fit_name']
