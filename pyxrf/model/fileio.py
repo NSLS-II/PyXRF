@@ -846,11 +846,14 @@ def read_hdf_APS(working_directory,
                     img_dict[fname+'_fit'].update(img_dict[fname+'_scaler'])
 
         if 'positions' in data:
-            pos_name = data['positions/name']
-            temp = {}
-            for i, n in enumerate(pos_name):
-                temp[n] = data['positions/pos'].value[i, :]
-            img_dict['positions'] = temp
+            if exp_data.shape[0] == 1 or exp_data.shape[1] == 1: # do not save position in this case
+                pass
+            else:
+                pos_name = data['positions/name']
+                temp = {}
+                for i, n in enumerate(pos_name):
+                    temp[n] = data['positions/pos'].value[i, :]
+                img_dict['positions'] = temp
 
     return img_dict, data_sets
 
