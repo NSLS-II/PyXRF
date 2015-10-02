@@ -488,11 +488,6 @@ class Fit1D(Atom):
         t1 = time.time()
         logger.info('Time used for pixel fitting is : {}'.format(t1-t0))
 
-        # output error
-        error_map = None
-        if pixel_fit == 'nonlinear':
-            error_map = calculation_info['error_map']
-
         # output to .h5 file
         fpath = os.path.join(self.result_folder, self.save_name)
 
@@ -509,7 +504,15 @@ class Fit1D(Atom):
         else:
             inner_path = 'xrfmap/detsum'
             fit_name = prefix_fname+'_fit'
-        save_fitdata_to_hdf(fpath, result_map, datapath=inner_path, error_map=error_map)
+        save_fitdata_to_hdf(fpath, result_map, datapath=inner_path)
+
+        # output error
+        if pixel_fit == 'nonlinear':
+            error_map = calculation_info['error_map']
+            print(error_map)
+            save_fitdata_to_hdf(fpath, error_map, datapath=inner_path,
+                                data_saveas='xrf_fit_error',
+                                dataname_saveas='xrf_fit_error_name')
 
         # Update GUI so that results can be seen immediately
         self.fit_img[fit_name] = result_map
@@ -1599,7 +1602,9 @@ def fit_pixel_data_and_save(working_directory, file_name,
 
 
 def save_fitdata_to_hdf(fpath, data_dict,
-                        datapath='xrfmap/detsum', error_map=None):
+                        datapath='xrfmap/detsum',
+                        data_saveas='xrf_fit',
+                        dataname_saveas='xrf_fit_name'):
     """
     Add fitting results to existing h5 file. This is to be moved to filestore.
 
@@ -1611,8 +1616,10 @@ def save_fitdata_to_hdf(fpath, data_dict,
         dict of array
     datapath : str
         path inside h5py file
-    error_map : array, optional
-        error for fitting parameters
+    data_saveas : str, optional
+        name in hdf for data array
+    dataname_saveas : str, optional
+        name list in hdf to explain what the saved data mean
     """
     f = h5py.File(fpath, 'a')
     try:
@@ -1626,26 +1633,18 @@ def save_fitdata_to_hdf(fpath, data_dict,
         namelist.append(str(k))
         data.append(v)
 
-    if 'xrf_fit' in dataGrp:
-        del dataGrp['xrf_fit']
+    if data_saveas in dataGrp:
+        del dataGrp[data_saveas]
 
     data = np.array(data)
-    ds_data = dataGrp.create_dataset('xrf_fit', data=data)
-    ds_data.attrs['comments'] = 'All fitting values are saved.'
+    ds_data = dataGrp.create_dataset(data_saveas, data=data)
+    ds_data.attrs['comments'] = ' '
 
-    if error_map is not None:
-        if 'xrf_fit_error' in dataGrp:
-            del dataGrp['xrf_fit_error']
+    if dataname_saveas in dataGrp:
+        del dataGrp[dataname_saveas]
 
-        data = np.array(data)
-        ds_data = dataGrp.create_dataset('xrf_fit_error', data=error_map)
-        ds_data.attrs['comments'] = 'All fitting errors are saved.'
-
-    if 'xrf_fit_name' in dataGrp:
-        del dataGrp['xrf_fit_name']
-
-    name_data = dataGrp.create_dataset('xrf_fit_name', data=namelist)
-    name_data.attrs['comments'] = 'All elements for fitting are saved.'
+    name_data = dataGrp.create_dataset(dataname_saveas, data=namelist)
+    name_data.attrs['comments'] = ' '
 
     f.close()
 

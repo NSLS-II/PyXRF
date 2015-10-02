@@ -803,12 +803,15 @@ def read_hdf_APS(working_directory,
                 logger.info('Data from detector channel {} is loaded.'.format(i))
 
                 if 'xrf_fit' in data[det_name]:
-                    fit_result = get_fit_data(data[det_name]['xrf_fit_name'].value,
-                                              data[det_name]['xrf_fit'].value)
-                    img_dict.update({file_channel+'_fit': fit_result})
-                    # also include scaler data
-                    if 'scalers' in data:
+                    try:
+                        fit_result = get_fit_data(data[det_name]['xrf_fit_name'].value,
+                                                  data[det_name]['xrf_fit'].value)
+                        img_dict.update({file_channel+'_fit': fit_result})
+                        # also include scaler data
+                        if 'scalers' in data:
                             img_dict[file_channel+'_fit'].update(img_dict[fname+'_scaler'])
+                    except IndexError:
+                        logger.info('No fitting data is loaded for channel {}.'.format(i))
 
         if 'roimap' in data:
             if 'sum_name' in data['roimap']:
@@ -839,21 +842,21 @@ def read_hdf_APS(working_directory,
 
         # read fitting results from summed data
         if 'xrf_fit' in data['detsum']:
-            fit_result = get_fit_data(data['detsum']['xrf_fit_name'].value,
-                                      data['detsum']['xrf_fit'].value)
-            img_dict.update({fname+'_fit': fit_result})
-            if 'scalers' in data:
+            try:
+                fit_result = get_fit_data(data['detsum']['xrf_fit_name'].value,
+                                          data['detsum']['xrf_fit'].value)
+                img_dict.update({fname+'_fit': fit_result})
+                if 'scalers' in data:
                     img_dict[fname+'_fit'].update(img_dict[fname+'_scaler'])
+            except IndexError:
+                logger.info('No fitting data is loaded for channel summed data.')
 
         if 'positions' in data:
-            if exp_data.shape[0] == 1 or exp_data.shape[1] == 1: # do not save position in this case
-                pass
-            else:
-                pos_name = data['positions/name']
-                temp = {}
-                for i, n in enumerate(pos_name):
-                    temp[n] = data['positions/pos'].value[i, :]
-                img_dict['positions'] = temp
+            pos_name = data['positions/name']
+            temp = {}
+            for i, n in enumerate(pos_name):
+                temp[n] = data['positions/pos'].value[i, :]
+            img_dict['positions'] = temp
 
     return img_dict, data_sets
 
