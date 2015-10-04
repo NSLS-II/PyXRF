@@ -320,6 +320,7 @@ enamldef FitView(DockItem): fit_view:
                                 text = 'Del'
                                 clicked ::
                                     param_model.EC.delete_item(loop_item)
+                                    #apply_to_fit(param_model, plot_model, fit_model)
                                     param_model.EC.update_peak_ratio()
                                     param_model.data_for_plot()
 
@@ -402,14 +403,16 @@ enamldef FitView(DockItem): fit_view:
                     clicked ::
                         param_model.EC.delete_unselected_items()
                         param_model.update_name_list()
-                        param_model.data_for_plot()
+                        apply_to_fit(param_model, plot_model, fit_model)
 
-                        plot_model.plot_fit(param_model.prefit_x,
-                                            param_model.total_y,
-                                            param_model.auto_fit_all)
+                        #param_model.data_for_plot()
+
+                        #plot_model.plot_fit(param_model.prefit_x,
+                        #                    param_model.total_y,
+                        #                    param_model.auto_fit_all)
                         # For plotting purposes, otherwise plot will not update
-                        plot_model.show_fit_opt = False
-                        plot_model.show_fit_opt = True
+                        #plot_model.show_fit_opt = False
+                        #plot_model.show_fit_opt = True
 
                 #PushButton: pb_bound:
                 #    text = 'Do not plot lines < 0.1%'
@@ -1056,7 +1059,7 @@ enamldef OtherSettingEdit(Window):
                         PushButton: pb_cal:
                             text = 'Apply'
                             clicked ::
-                                pass
+                                calculate_spectrum_helper(fit_model, plot_model, param_model)
                         Label:
                             pass
 
