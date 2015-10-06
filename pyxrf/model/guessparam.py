@@ -513,7 +513,6 @@ class GuessParamModel(Atom):
         self.prefit_x, out_dict, area_dict = linear_spectrum_fitting(self.x0,
                                                                      self.y0,
                                                                      self.param_new)
-        print(area_dict)
         logger.info('Energy range: {}, {}'.format(
             self.param_new['non_fitting_values']['energy_bound_low']['value'],
             self.param_new['non_fitting_values']['energy_bound_high']['value']))

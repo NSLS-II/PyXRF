@@ -377,9 +377,9 @@ class Fit1D(Atom):
         MS = ModelSpectrum(self.param_dict, self.element_list)
         MS.assemble_models()
 
+        #weights = 1/(c_weight + np.abs(y0))
         weights = 1/np.sqrt(c_weight + np.abs(y0))
         weights /= np.sum(weights)
-
         result = MS.model_fit(x0, y0,
                               weights=weights,
                               maxfev=fit_num,
@@ -509,7 +509,6 @@ class Fit1D(Atom):
         # output error
         if pixel_fit == 'nonlinear':
             error_map = calculation_info['error_map']
-            print(error_map)
             save_fitdata_to_hdf(fpath, error_map, datapath=inner_path,
                                 data_saveas='xrf_fit_error',
                                 dataname_saveas='xrf_fit_error_name')
@@ -703,7 +702,6 @@ def define_param_bound_type(param,
         for data in strategy_list:
             if data in v.keys():
                 param_new[k][data] = b_type
-        print(k, v)
     return param_new
 
 
