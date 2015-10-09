@@ -1156,18 +1156,20 @@ def write_db_to_hdf(fpath, data, datashape,
         c_name = det_list[n]
         logger.info('read data from %s' % c_name)
         channel_data = data[c_name]
-        new_data = np.zeros([1, len(channel_data), len(channel_data[0])])
+        channel_n_ps = len(channel_data)
+        channel_spec_n = len(channel_data[1])
+        new_data = np.zeros([1, channel_n_ps, channel_spec_n])
 
         for i in xrange(len(channel_data)):
-            channel_data[i][pd.isnull(channel_data[i])] = 0
-            new_data[0, i, :] = channel_data[i]
+            channel_data[i+1][pd.isnull(channel_data[i+1])] = 0
+            new_data[0, i, :] = channel_data[i+1]
         if sum_data is None:
             sum_data = new_data
         else:
             sum_data += new_data
 
         new_data = new_data.reshape([datashape[0], datashape[1],
-                                     len(channel_data[0])])
+                                     channel_spec_n])
 
         if 'counts' in dataGrp:
             del dataGrp['counts']
@@ -1181,7 +1183,7 @@ def write_db_to_hdf(fpath, data, datashape,
         dataGrp = f[interpath+'/detsum']
 
     sum_data = sum_data.reshape([datashape[0], datashape[1],
-                                 len(channel_data[0])])
+                                 channel_spec_n])
 
     if 'counts' in dataGrp:
         del dataGrp['counts']
