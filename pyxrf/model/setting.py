@@ -45,6 +45,7 @@ from atom.api import (Atom, Str, observe, Typed,
                       Dict, List, Int, Enum, Float, Bool)
 
 from skxray.fluorescence import XrfElement as Element
+from skxray.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
 
 import logging
 logger = logging.getLogger(__name__)
@@ -120,6 +121,11 @@ class SettingModel(Atom):
     element_list_roi = List()
     roi_dict = OrderedDict()
 
+    def __init__(self, *args, **kwargs):
+        self.parameters = kwargs['default_parameters']
+        self.element_for_roi = ' '
+        self.element_for_roi = ', '.join(K_LINE+L_LINE+M_LINE)
+
     @observe('element_for_roi')
     def _update_element(self, change):
         """
@@ -127,6 +133,7 @@ class SettingModel(Atom):
         This element information means the ones for roi setup.
         """
         self.element_for_roi = self.element_for_roi.strip(' ')
+        print(self.element_for_roi)
         if len(self.element_for_roi) == 0:
             logger.warning('No elements enetered.')
             self.remove_all_roi()

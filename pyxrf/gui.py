@@ -92,7 +92,7 @@ def run():
     param_model = GuessParamModel(**defaults)
     plot_model = LinePlotModel()
     fit_model = Fit1D(**defaults)
-    setting_model = SettingModel()
+    setting_model = SettingModel(**defaults)
     img_model_adv = DrawImageAdvanced()
     img_model_rgb = DrawImageRGB()
 
