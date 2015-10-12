@@ -124,7 +124,7 @@ class SettingModel(Atom):
     def __init__(self, *args, **kwargs):
         self.parameters = kwargs['default_parameters']
         self.element_for_roi = ' '
-        self.element_for_roi = ', '.join(K_LINE+L_LINE+M_LINE)
+        self.element_for_roi = ', '.join(K_LINE+L_LINE)#+M_LINE)
 
     @observe('element_for_roi')
     def _update_element(self, change):

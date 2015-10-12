@@ -52,9 +52,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 try:
-    from dataportal import DataBroker as db
-    from dataportal import StepScan as ss
-    from dataportal import DataMuxer as dm
+    #from dataportal import DataBroker as db
+    #from dataportal import StepScan as ss
+    #from dataportal import DataMuxer as dm
+    from databroker.databroker import DataBroker as db, get_table
     # registers a filestore handler for the XSPRESS3 detector
     from hxntools import detectors as hxndetectors
 except ImportError, e:
@@ -301,23 +302,26 @@ def fetch_data_from_db(runid):
     """
 
     #hdr = db[runid]
-    headers = db.find_headers(scan_id=runid)
-    head_list = sorted(headers, key=lambda x: x.start_time)
-    hdr = head_list[-1]
-    # events = db.fetch_events(hdr, fill=False)
-    # num_events = len(list(events))
-    # print('%s events found' % num_events)
-    ev = db.fetch_events(hdr)
-
-    events = []
-    for idx, event in enumerate(ev):
-        if idx % 1000 == 0:
-            print('event %s loaded' % (idx+1))
-        events.append(event)
-
-    muxer = dm.from_events(events)
-    data = muxer.to_sparse_dataframe()
-    return data
+    # headers = db.find_headers(scan_id=runid)
+    # head_list = sorted(headers, key=lambda x: x.start_time)
+    # hdr = head_list[-1]
+    # # events = db.fetch_events(hdr, fill=False)
+    # # num_events = len(list(events))
+    # # print('%s events found' % num_events)
+    # ev = db.fetch_events(hdr)
+    #
+    # events = []
+    # for idx, event in enumerate(ev):
+    #     if idx % 1000 == 0:
+    #         print('event %s loaded' % (idx+1))
+    #     events.append(event)
+    #
+    # muxer = dm.from_events(events)
+    # data = muxer.to_sparse_dataframe()
+    fields = ['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3',
+              'ssx[um]', 'ssy[um]', 'ssx', 'ssy', 'sclr2_ch3', 'sclr2_ch4']
+    d = get_table(db[runid], fields=fields)
+    return d
 
 
 def read_runid(runid, c_list, dshape=None):
@@ -1113,7 +1117,7 @@ def transfer_xspress(fpath, output_path):
     write_data_to_hdf(output_path, d)
 
 
-def write_db_to_hdf(fpath, data, datashape,
+def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
                     det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
                     roi_dict={'Pt_9300_9600': ['Ch1 [9300:9600]', 'Ch2 [9300:9600]', 'Ch3 [9300:9600]']},
                     pos_list=('ssx[um]', 'ssy[um]'),
@@ -1140,7 +1144,6 @@ def write_db_to_hdf(fpath, data, datashape,
     scaler_list : list, tuple, optional
         list of scaler pv
     """
-
     interpath = 'xrfmap'
     f = h5py.File(fpath, 'a')
 
@@ -1236,61 +1239,62 @@ def write_db_to_hdf(fpath, data, datashape,
     dataGrp.create_dataset('val', data=scaler_data)
 
     # roi sum
-    try:
-        dataGrp = f.create_group(interpath+'/roimap')
-    except ValueError:
-        dataGrp = f[interpath+'/roimap']
+    if get_roi_sum_sign:
+        try:
+            dataGrp = f.create_group(interpath+'/roimap')
+        except ValueError:
+            dataGrp = f[interpath+'/roimap']
 
-    roi_data_all = np.zeros([datashape[0], datashape[1], len(roi_dict)])
-    roi_name_list = []
+        roi_data_all = np.zeros([datashape[0], datashape[1], len(roi_dict)])
+        roi_name_list = []
 
-    roi_data_all_ch = None
-    roi_name_all_ch = []
+        roi_data_all_ch = None
+        roi_name_all_ch = []
 
-    for i, (k, roi_list) in enumerate(six.iteritems(roi_dict)):
-        count = 0
-        if i == 0 and roi_data_all_ch is None:
-            roi_data_all_ch = np.zeros([datashape[0], datashape[1],
-                                        len(roi_dict)*len(roi_list)])
+        for i, (k, roi_list) in enumerate(six.iteritems(roi_dict)):
+            count = 0
+            if i == 0 and roi_data_all_ch is None:
+                roi_data_all_ch = np.zeros([datashape[0], datashape[1],
+                                            len(roi_dict)*len(roi_list)])
 
-        roi_names, roi_data = get_name_value_from_db(roi_list, data,
-                                                     datashape)
-        roi_name_list.append(str(k))
-        roi_data_all[:, :, i] = np.sum(roi_data, axis=2)
+            roi_names, roi_data = get_name_value_from_db(roi_list, data,
+                                                         datashape)
+            roi_name_list.append(str(k))
+            roi_data_all[:, :, i] = np.sum(roi_data, axis=2)
 
-        for n in range(len(roi_list)):
-            roi_name_all_ch.append(str(roi_list[n]))
-            roi_data_all_ch[:, :, count] = roi_data[:, :, n]
-            count += 1
+            for n in range(len(roi_list)):
+                roi_name_all_ch.append(str(roi_list[n]))
+                roi_data_all_ch[:, :, count] = roi_data[:, :, n]
+                count += 1
 
-    # summed data from each channel
-    if 'sum_name' in dataGrp:
-        del dataGrp['sum_name']
+        # summed data from each channel
+        if 'sum_name' in dataGrp:
+            del dataGrp['sum_name']
 
-    if 'sum_raw' in dataGrp:
-        del dataGrp['sum_raw']
-    dataGrp.create_dataset('sum_name', data=roi_name_list)
-    dataGrp.create_dataset('sum_raw', data=roi_data_all)
+        if 'sum_raw' in dataGrp:
+            del dataGrp['sum_raw']
+        dataGrp.create_dataset('sum_name', data=roi_name_list)
+        dataGrp.create_dataset('sum_raw', data=roi_data_all)
 
-    # data from each channel
-    if 'det_name' in dataGrp:
-        del dataGrp['det_name']
+        # data from each channel
+        if 'det_name' in dataGrp:
+            del dataGrp['det_name']
 
-    if 'det_raw' in dataGrp:
-        del dataGrp['det_raw']
-    dataGrp.create_dataset('det_name', data=roi_name_all_ch)
-    dataGrp.create_dataset('det_raw', data=roi_data_all_ch)
+        if 'det_raw' in dataGrp:
+            del dataGrp['det_raw']
+        dataGrp.create_dataset('det_name', data=roi_name_all_ch)
+        dataGrp.create_dataset('det_raw', data=roi_data_all_ch)
 
-    # if 'det_name' in dataGrp:
-    #     del dataGrp['det_name']
-    #
-    # if 'det_raw' in dataGrp:
-    #     del dataGrp['det_raw']
-    #
-    # dataGrp.create_dataset('det_raw', data=roi_data)
-    # dataGrp.create_dataset('det_name', data=roi_names)
+        # if 'det_name' in dataGrp:
+        #     del dataGrp['det_name']
+        #
+        # if 'det_raw' in dataGrp:
+        #     del dataGrp['det_raw']
+        #
+        # dataGrp.create_dataset('det_raw', data=roi_data)
+        # dataGrp.create_dataset('det_name', data=roi_names)
 
-    logger.info('roi names: {}'.format(roi_names))
+        logger.info('roi names: {}'.format(roi_names))
 
     f.close()
 
