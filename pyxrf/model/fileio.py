@@ -319,7 +319,7 @@ def fetch_data_from_db(runid):
     # muxer = dm.from_events(events)
     # data = muxer.to_sparse_dataframe()
     fields = ['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3',
-              'ssx[um]', 'ssy[um]', 'ssx', 'ssy', 'sclr2_ch3', 'sclr2_ch4']
+              'ssx[um]', 'ssy[um]', 'ssx', 'ssy', 'sclr1_ch3', 'sclr1_ch4']
     d = get_table(db[runid], fields=fields)
     return d
 
@@ -1159,18 +1159,18 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
         c_name = det_list[n]
         logger.info('read data from %s' % c_name)
         channel_data = data[c_name]
-        new_data = np.zeros([1, len(channel_data), len(channel_data[0])])
+        new_data = np.zeros([1, len(channel_data), len(channel_data[1])])
 
         for i in xrange(len(channel_data)):
-            channel_data[i][pd.isnull(channel_data[i])] = 0
-            new_data[0, i, :] = channel_data[i]
+            channel_data[i+1][pd.isnull(channel_data[i+1])] = 0
+            new_data[0, i, :] = channel_data[i+1]
         if sum_data is None:
             sum_data = new_data
         else:
             sum_data += new_data
 
         new_data = new_data.reshape([datashape[0], datashape[1],
-                                     len(channel_data[0])])
+                                     len(channel_data[1])])
 
         if 'counts' in dataGrp:
             del dataGrp['counts']
@@ -1184,7 +1184,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
         dataGrp = f[interpath+'/detsum']
 
     sum_data = sum_data.reshape([datashape[0], datashape[1],
-                                 len(channel_data[0])])
+                                 len(channel_data[1])])
 
     if 'counts' in dataGrp:
         del dataGrp['counts']
