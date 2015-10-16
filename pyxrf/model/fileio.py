@@ -689,24 +689,24 @@ def save_data_to_txt(fpath, output_folder):
 
     f = h5py.File(fpath, 'r')
 
-    detlist = ['det1', 'det2', 'det3']
+    detlist = ['detsum','det1', 'det2', 'det3']
     fit_output = {}
 
-    # fitted data
-    if 'xrf_fit' in f['xrfmap/detsum/']:
-        fit_data = f['xrfmap/detsum/xrf_fit']
-        fit_name = f['xrfmap/detsum/xrf_fit_name']
-
-        for i in np.arange(len(fit_name)):
-            fit_output[fit_name[i]] = fit_data[i, :, :]
-
     for detname in detlist:
+        # fitted data
         if 'xrf_fit' in f['xrfmap/'+detname]:
             fit_data = f['xrfmap/'+detname+'/xrf_fit']
             fit_name = f['xrfmap/'+detname+'/xrf_fit_name']
 
             for i in np.arange(len(fit_name)):
                 fit_output[detname+'_'+fit_name[i]] = fit_data[i, :, :]
+        # fitted error
+        if 'xrf_fit_error' in f['xrfmap/'+detname]:
+            error_data = f['xrfmap/'+detname+'/xrf_fit_error']
+            error_name = f['xrfmap/'+detname+'/xrf_fit_error_name']
+
+            for i in np.arange(len(error_name)):
+                fit_output[error_name[i]] = error_data[i, :, :]
 
     # ic data
     if 'scalers' in f['xrfmap']:
