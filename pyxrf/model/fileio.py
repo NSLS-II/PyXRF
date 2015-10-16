@@ -706,7 +706,7 @@ def save_data_to_txt(fpath, output_folder):
             error_name = f['xrfmap/'+detname+'/xrf_fit_error_name']
 
             for i in np.arange(len(error_name)):
-                fit_output[error_name[i]] = error_data[i, :, :]
+                fit_output[det_name+'_'+error_name[i]+'_error'] = error_data[i, :, :]
 
     # ic data
     if 'scalers' in f['xrfmap']:
