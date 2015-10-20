@@ -379,7 +379,7 @@ class Fit1D(Atom):
 
         #weights = 1/(c_weight + np.abs(y0))
         weights = 1/np.sqrt(c_weight + np.abs(y0))
-        weights /= np.sum(weights)
+        #weights /= np.sum(weights)
         result = MS.model_fit(x0, y0,
                               weights=weights,
                               maxfev=fit_num,

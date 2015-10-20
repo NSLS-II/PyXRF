@@ -54,7 +54,7 @@ from enaml.stdlib.fields import IntField as DefaultIntField
 
 from ..model.guessparam import fit_strategy_list, save_as, bound_options, autofit_param
 from skxray.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
-
+from skxray.fluorescence import XrfElement as Element
 
 enamldef FloatField(DefaultFloatField):
     submit_triggers = ['auto_sync'] #['return_pressed']
@@ -236,7 +236,7 @@ enamldef FitView(DockItem): fit_view:
                 constraints = [vbox(scr_area_title,
                                     #hbox(manual_add),
                                     scr_area,
-                                    hbox(pb_delete_unselected, spacer),
+                                    hbox(pb_update, spacer, pb_delete_unselected),
                                     #hbox(pb_update, spacer),
                                     )]
                 Container: scr_area_title:
@@ -331,6 +331,7 @@ enamldef FitView(DockItem): fit_view:
                                     plot_model.show_fit_opt = False
                                     plot_model.show_fit_opt = True
                                     param_model.update_name_list()
+                                    #apply_to_fit(param_model, plot_model, fit_model)
 
                             Container:
                                 padding = Box(2, 2, 2, 2)
@@ -436,10 +437,10 @@ enamldef FitView(DockItem): fit_view:
                 #            plot_model._fig.canvas.draw()
                 #            pb_bound.text = 'Do not plot lines < 0.1%'
 
-                #PushButton: pb_update:
-                #    text = 'Apply'
-                #    clicked ::
-                #        apply_to_fit(param_model, plot_model, fit_model)
+                PushButton: pb_update:
+                    text = 'Update'
+                    clicked ::
+                        apply_to_fit(param_model, plot_model, fit_model)
 
         GroupBox: fit_control:
             title = 'Fit summed spectrum.'
@@ -677,6 +678,7 @@ enamldef FitView(DockItem): fit_view:
 enamldef AutoFindElements(Window): auto_win:
     attr parameter_model
     attr plot_model
+    title = 'Automatic Element Finding'
     destroy_on_close = False
 
     Container:
@@ -731,7 +733,7 @@ enamldef AutoFindElements(Window): auto_win:
                             ff_bound.value = loop_item['default_value']
 
         PushButton: find_btn:
-            text = 'Automatic Element Finding'
+            text = 'Find Elements'
             enabled = True
             clicked ::
                 param_model.find_peak()
@@ -778,7 +780,7 @@ enamldef ElementEdit(Window):
             #selected_item >> fit_model.selected_element
         Label: lbl1:
             #text = '{:>16} {:>32} {:>32} {:>32} {:>16} {:>40}'.format('name', 'value', 'min', 'max', '  ',  '  '.join(fit_strategy_list))
-            text = '{:>16} {:>32} {:>32} {:>32} {:>16}'.format('name', 'value', 'min', 'max', '  ')
+            text = '{:>16} {:>20} {:>26} {:>26} {:>26} {:>16}'.format('name','energy', 'value', 'min', 'max', '  ')
         Label: lbl2:
             text = fit_strategy_list[0]
         Label: lbl3:
@@ -807,15 +809,17 @@ enamldef ElementEdit(Window):
                     iterable << fit_model.elementinfo_list
 
                     Label: name_lbl:
-                        text = loop_item
+                        text << loop_item
                     Container:
                         padding = Box(2, 2, 2, 2)
                         #constraints = [hbox(ff_value, ff_min, ff_max, spacer)]
                         constraints = [hbox(
-                            ff_value, ff_min, ff_max,
+                            energy_v, ff_value, ff_min, ff_max,
                             cb_strat0, cb_strat1, cb_strat2,
                             cb_strat3, cb_strat4, cb_strat5, cb_strat6, spacer)
                         ]
+                        Label: energy_v:
+                            text = get_energy(loop_item)
                         FloatField: ff_value:
                             value := fit_model.param_dict[loop_item]['value']
                             #minimum = fit_model.param_dict[loop_item]['min']
@@ -1289,3 +1293,9 @@ def apply_to_fit(param_model, plot_model, fit_model):
     param_model.create_full_param()
     fit_model.update_default_param(param_model.param_new)
     fit_model.apply_default_param()
+
+
+def get_energy(name):
+    name_list = name.split('_')
+    e = Element(name_list[0])
+    return str(e.emission_line[name_list[1]])

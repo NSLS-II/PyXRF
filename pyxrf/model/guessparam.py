@@ -527,7 +527,6 @@ class GuessParamModel(Atom):
                               norm=-1,
                               lbd_stat=False)
             prefit_dict.update({k: ps})
-            print('{}, {}'.format(k, np.sum(v)))
 
         logger.info('Automatic Peak Finding found elements as : {}'.format(
             prefit_dict.keys()))
