@@ -166,8 +166,8 @@ class ElementController(object):
                             in six.iterkeys(self.element_dict)
                             if (v.lower() != v)]
 
-        logger.info('Current Elements for '
-                    'fitting are {}'.format(current_elements))
+        #logger.info('Current Elements for '
+        #            'fitting are {}'.format(current_elements))
         return current_elements
 
     def update_peak_ratio(self):
@@ -498,7 +498,7 @@ class GuessParamModel(Atom):
         # need to clean list first, in order to refresh the list in GUI
         self.result_dict_names = []
         self.result_dict_names = self.EC.element_dict.keys()
-        logger.info('The full list for fitting is {}'.format(self.result_dict_names))
+        #logger.info('The full list for fitting is {}'.format(self.result_dict_names))
 
     def find_peak(self, threshv=0.1):
         """

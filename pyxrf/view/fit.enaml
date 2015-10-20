@@ -450,7 +450,7 @@ enamldef FitView(DockItem): fit_view:
                     gb_advanced,
                     hbox(lbl1, cb1, lbl3, cb3, spacer),
                     hbox(lbl2, cb2, lbl4, cb4, spacer),
-                    hbox(pb_fit, spacer),
+                    hbox(pb_fit, fit_information),
                     gb_result,
                 ),
             ]
@@ -488,13 +488,14 @@ enamldef FitView(DockItem): fit_view:
             PushButton: pb_fit:
                 text = 'Summed Spectrum Fitting'
                 clicked ::
-
                     # update parameter for fit
                     param_model.create_full_param()
                     fit_model.update_default_param(param_model.param_new)
                     fit_model.apply_default_param()
 
+                    fit_information.text = 'Fitting of summed spectrum starts.'
                     fit_model.fit_multiple()
+                    fit_information.text = 'Fitting of summed spectrum is done!'
 
                     # BUG: line color for pileup is not correct from fit
                     fit_model.get_profile()
@@ -525,6 +526,9 @@ enamldef FitView(DockItem): fit_view:
                     #param_model.get_new_param_from_file(parameter_file_path)
                     param_model.update_name_list()
                     param_model.EC.turn_on_all()
+
+            Label: fit_information:
+                text := fit_model.fit_info
 
             #PushButton: pb_cal:
             #    text = 'Calculate Spectrum'

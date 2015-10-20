@@ -47,6 +47,8 @@ import matplotlib.pyplot as plt
 import json
 from scipy.optimize import nnls
 
+from enaml.qt.qt_application import QApplication
+
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
 from skxray.core.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
                                            sum_area, set_parameter_bound,
@@ -143,6 +145,7 @@ class Fit1D(Atom):
     linear_bg = Bool(False)
     use_snip = Bool(True)
     bin_energy = Int(0)
+    fit_info = Str()
 
     pixel_fit_method = Int(0)
 
@@ -395,7 +398,9 @@ class Fit1D(Atom):
         """
         Fit data in sequence according to given strategies.
         The param_dict is extended to cover elemental parameters.
+        Use app.precessEvents() for multi-threading.
         """
+        app = QApplication.instance()
         self.define_range()
         self.get_background()
 
@@ -412,12 +417,15 @@ class Fit1D(Atom):
             y0 = self.y0 - self.bg
 
         t0 = time.time()
-        logger.info('-------- Fitting of summed spectrum starts. --------')
+        self.fit_info = 'Fitting of summed spectrum starts.'
+        logger.info('-------- '+self.fit_info+' --------')
+
         for k, v in six.iteritems(self.all_strategy):
             if v:
                 strat_name = fit_strategy_list[v-1]
-                logger.info('Fit with {}: {}'.format(k, strat_name))
-
+                self.fit_info = 'Fit with {}: {}'.format(k, strat_name)
+                logger.info(self.fit_info)
+                app.processEvents()
                 strategy = extract_strategy(self.param_dict, strat_name)
                 # register the strategy and extend the parameter list
                 # to cover all given elements
@@ -426,6 +434,9 @@ class Fit1D(Atom):
 
                 self.fit_data(self.x0, y0)
                 self.update_param_with_result()
+                self.assign_fitting_result()
+                app.processEvents()
+
         t1 = time.time()
         logger.warning('Time used for summed spectrum fitting is : {}'.format(t1-t0))
 
@@ -447,7 +458,8 @@ class Fit1D(Atom):
 
         self.save_result()
         self.assign_fitting_result()
-        logger.info('-------- Fitting of summed spectrum is done! --------')
+        self.fit_info = 'Fitting of summed spectrum is done!'
+        logger.info('-------- ' + self.fit_info + ' --------')
 
     def assign_fitting_result(self):
         self.function_num = self.fit_result.nfev
