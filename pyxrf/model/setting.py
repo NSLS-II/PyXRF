@@ -45,6 +45,7 @@ from atom.api import (Atom, Str, observe, Typed,
                       Dict, List, Int, Enum, Float, Bool)
 
 from skxray.fluorescence import XrfElement as Element
+from skxray.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
 
 import logging
 logger = logging.getLogger(__name__)
@@ -120,6 +121,11 @@ class SettingModel(Atom):
     element_list_roi = List()
     roi_dict = OrderedDict()
 
+    def __init__(self, *args, **kwargs):
+        self.parameters = kwargs['default_parameters']
+        self.element_for_roi = ' '
+        self.element_for_roi = ', '.join(K_LINE+L_LINE)#+M_LINE)
+
     @observe('element_for_roi')
     def _update_element(self, change):
         """
@@ -128,7 +134,7 @@ class SettingModel(Atom):
         """
         self.element_for_roi = self.element_for_roi.strip(' ')
         if len(self.element_for_roi) == 0:
-            logger.warning('No elements enetered.')
+            logger.debug('No elements enetered.')
             self.remove_all_roi()
             self.element_list_roi = []
             return
@@ -139,7 +145,7 @@ class SettingModel(Atom):
 
         #with self.suppress_notifications():
         #    self.element_list_roi = element_list
-        logger.warning('Current elements are: {}'.format(element_list))
+        logger.debug('Current elements are: {}'.format(element_list))
         self.update_roi(element_list)
         self.element_list_roi = element_list
 
@@ -234,8 +240,8 @@ class SettingModel(Atom):
                                       self.parameters['e_offset']['value'],
                                       [leftv, rightv])
                 temp.update({k: sum2D})
-                logger.info('Calculation is done for {}, {}, {}'.format(v.prefix,
-                                                                        fname, k))
+                logger.debug('Calculation is done for {}, {}, {}'.format(v.prefix,
+                                                                         fname, k))
             roi_result[v.prefix+'_'+fname] = temp
         return roi_result
 

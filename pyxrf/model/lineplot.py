@@ -138,9 +138,9 @@ class LinePlotModel(Atom):
 
     eline_obj = List()
 
-    plot_exp_opt = Bool()
+    plot_exp_opt = Bool(False)
     plot_exp_obj = Typed(Line2D)
-    show_exp_opt = Bool()
+    show_exp_opt = Bool(False)
 
     plot_exp_list = List()
     data_sets = Typed(OrderedDict)
@@ -149,7 +149,7 @@ class LinePlotModel(Atom):
     show_autofit_opt = Bool()
 
     plot_fit_obj = List() #Typed(Line2D)
-    show_fit_opt = Bool()
+    show_fit_opt = Bool(False)
     #fit_all = Typed(object)
 
     plot_style = Dict()
@@ -212,6 +212,21 @@ class LinePlotModel(Atom):
             'fit': {'color': 'red', 'label': 'fit', 'linewidth': 2.5},
             'residual': {'color': 'black', 'label': 'residual', 'linewidth': 2.0}
         }
+
+    def plot_exp_data_update(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        self.plot_exp_opt = False   # exp data for fitting
+        self.show_exp_opt = False   # all exp data from different channels
+        self.show_fit_opt = False
 
     def _update_canvas(self):
         self._ax.legend(loc=2)
@@ -295,16 +310,17 @@ class LinePlotModel(Atom):
 
     @observe('plot_exp_opt')
     def _new_exp_plot_opt(self, change):
-        if change['value']:
-            self.plot_exp_obj.set_visible(True)
-            lab = self.plot_exp_obj.get_label()
-            self.plot_exp_obj.set_label(lab.strip('_'))
-        else:
-            self.plot_exp_obj.set_visible(False)
-            lab = self.plot_exp_obj.get_label()
-            self.plot_exp_obj.set_label('_' + lab)
+        if change['type'] != 'create':
+            if change['value']:
+                self.plot_exp_obj.set_visible(True)
+                lab = self.plot_exp_obj.get_label()
+                self.plot_exp_obj.set_label(lab.strip('_'))
+            else:
+                self.plot_exp_obj.set_visible(False)
+                lab = self.plot_exp_obj.get_label()
+                self.plot_exp_obj.set_label('_' + lab)
 
-        self._update_canvas()
+            self._update_canvas()
 
     def plot_experiment(self):
         """
@@ -366,21 +382,22 @@ class LinePlotModel(Atom):
 
     @observe('show_exp_opt')
     def _update_exp(self, change):
-        if change['value']:
-            if len(self.plot_exp_list):
-                for v in self.plot_exp_list:
-                    v.set_visible(True)
-                    lab = v.get_label()
-                    if lab != '_nolegend_':
-                        v.set_label(lab.strip('_'))
-        else:
-            if len(self.plot_exp_list):
-                for v in self.plot_exp_list:
-                    v.set_visible(False)
-                    lab = v.get_label()
-                    if lab != '_nolegend_':
-                        v.set_label('_' + lab)
-        self._update_canvas()
+        if change['type'] != 'create':
+            if change['value']:
+                if len(self.plot_exp_list):
+                    for v in self.plot_exp_list:
+                        v.set_visible(True)
+                        lab = v.get_label()
+                        if lab != '_nolegend_':
+                            v.set_label(lab.strip('_'))
+            else:
+                if len(self.plot_exp_list):
+                    for v in self.plot_exp_list:
+                        v.set_visible(False)
+                        lab = v.get_label()
+                        if lab != '_nolegend_':
+                            v.set_label('_' + lab)
+            self._update_canvas()
 
     def plot_emission_line(self):
         """
@@ -766,16 +783,17 @@ class LinePlotModel(Atom):
 
     @observe('show_fit_opt')
     def _update_fit(self, change):
-        if change['value']:
-            for v in self.plot_fit_obj:
-                v.set_visible(True)
-                lab = v.get_label()
-                if lab != '_nolegend_':
-                    v.set_label(lab.strip('_'))
-        else:
-            for v in self.plot_fit_obj:
-                v.set_visible(False)
-                lab = v.get_label()
-                if lab != '_nolegend_':
-                    v.set_label('_' + lab)
-        self._update_canvas()
+        if change['type'] != 'create':
+            if change['value']:
+                for v in self.plot_fit_obj:
+                    v.set_visible(True)
+                    lab = v.get_label()
+                    if lab != '_nolegend_':
+                        v.set_label(lab.strip('_'))
+            else:
+                for v in self.plot_fit_obj:
+                    v.set_visible(False)
+                    lab = v.get_label()
+                    if lab != '_nolegend_':
+                        v.set_label('_' + lab)
+            self._update_canvas()

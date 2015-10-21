@@ -112,7 +112,7 @@ class ElementController(object):
         try:
             del self.element_dict[k]
             self.update_norm()
-            logger.info('Item {} is deleted.'.format(k))
+            logger.debug('Item {} is deleted.'.format(k))
         except KeyError, e:
             logger.info(e)
 
@@ -135,7 +135,7 @@ class ElementController(object):
 
     def add_to_dict(self, dictv):
         self.element_dict.update(dictv)
-        logger.info('Item {} is added.'.format(dictv.keys()))
+        logger.debug('Item {} is added.'.format(dictv.keys()))
         self.update_norm()
 
     def update_norm(self, threshv=0.0):
@@ -166,8 +166,8 @@ class ElementController(object):
                             in six.iterkeys(self.element_dict)
                             if (v.lower() != v)]
 
-        logger.info('Current Elements for '
-                    'fitting are {}'.format(current_elements))
+        #logger.info('Current Elements for '
+        #            'fitting are {}'.format(current_elements))
         return current_elements
 
     def update_peak_ratio(self):
@@ -498,7 +498,7 @@ class GuessParamModel(Atom):
         # need to clean list first, in order to refresh the list in GUI
         self.result_dict_names = []
         self.result_dict_names = self.EC.element_dict.keys()
-        logger.info('The full list for fitting is {}'.format(self.result_dict_names))
+        #logger.info('The full list for fitting is {}'.format(self.result_dict_names))
 
     def find_peak(self, threshv=0.1):
         """
@@ -513,7 +513,6 @@ class GuessParamModel(Atom):
         self.prefit_x, out_dict, area_dict = linear_spectrum_fitting(self.x0,
                                                                      self.y0,
                                                                      self.param_new)
-        print(area_dict)
         logger.info('Energy range: {}, {}'.format(
             self.param_new['non_fitting_values']['energy_bound_low']['value'],
             self.param_new['non_fitting_values']['energy_bound_high']['value']))
@@ -528,7 +527,6 @@ class GuessParamModel(Atom):
                               norm=-1,
                               lbd_stat=False)
             prefit_dict.update({k: ps})
-            print('{}, {}'.format(k, np.sum(v)))
 
         logger.info('Automatic Peak Finding found elements as : {}'.format(
             prefit_dict.keys()))

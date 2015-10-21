@@ -67,7 +67,7 @@ enamldef SettingView(DockItem):
             Label: setup_lbl:
                 text = 'ROI Setup: enter elements below, e.g., Fe_K, Gd_L'
             Field: element_fd:
-                text >> setting_model.element_for_roi
+                text := setting_model.element_for_roi
             Label: prefix_lbl:
                 text = 'Prefix'
             Field: prefix_fd:

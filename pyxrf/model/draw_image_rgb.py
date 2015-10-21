@@ -157,7 +157,7 @@ class DrawImageRGB(Atom):
         self.scaler_name_index = 0
 
         self.data_dict_keys = self.data_dict.keys()
-        logger.info('The following groups are included for 2D image display: {}'.format(self.data_dict_keys))
+        #logger.info('The following groups are included for 2D image display: {}'.format(self.data_dict_keys))
 
         scaler_groups = [v for v in self.data_dict.keys() if 'scaler' in v]
         if len(scaler_groups) > 0:

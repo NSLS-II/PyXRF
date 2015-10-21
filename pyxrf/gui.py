@@ -92,7 +92,7 @@ def run():
     param_model = GuessParamModel(**defaults)
     plot_model = LinePlotModel()
     fit_model = Fit1D(**defaults)
-    setting_model = SettingModel()
+    setting_model = SettingModel(**defaults)
     img_model_adv = DrawImageAdvanced()
     img_model_rgb = DrawImageRGB()
 
@@ -103,6 +103,7 @@ def run():
 
     # send the same file to fit model, as fitting results need to be saved
     io_model.observe('file_name', fit_model.filename_update)
+    io_model.observe('file_name', plot_model.plot_exp_data_update)
 
     # send exp data to different models
     io_model.observe('data', plot_model.exp_data_update)

@@ -128,6 +128,7 @@ enamldef PlotMain(DockItem):
         PushButton: plot_exp_btn:
             text = 'Plot Selected Exp. Data'
             checkable = True
+            checked << plot_model.plot_exp_opt
             clicked ::
                 if checked:
                     plot_model.plot_experiment()

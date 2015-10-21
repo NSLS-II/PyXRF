@@ -232,7 +232,7 @@ enamldef FileView(DockItem): file_view:
                                     io_model.data_sets[loop_item].plot_index = 1
                                     fd1.enabled = False
                                     fd2.enabled = False
-                                    plot_bt.enabled = True
+                                    #plot_bt.enabled = True
                                     #plot_model.data_sets = io_model.data_sets
 
                             RadioButton: rb_3:
@@ -241,7 +241,7 @@ enamldef FileView(DockItem): file_view:
                                     io_model.data_sets[loop_item].plot_index = 2
                                     fd1.enabled = True
                                     fd2.enabled = False
-                                    plot_bt.enabled = True
+                                    #plot_bt.enabled = True
                                     #plot_model.data_sets = io_model.data_sets
 
                             RadioButton: rb_4:
@@ -250,7 +250,7 @@ enamldef FileView(DockItem): file_view:
                                     io_model.data_sets[loop_item].plot_index = 3
                                     fd1.enabled = True
                                     fd2.enabled = True
-                                    plot_bt.enabled = True
+                                    #plot_bt.enabled = True
                                     #plot_model.data_sets = io_model.data_sets
 
                             Label: lb1:
@@ -276,8 +276,9 @@ enamldef FileView(DockItem): file_view:
             PushButton: plot_bt:
                 text = 'Plot Experiments'
                 #maximum_size = 100
-                enabled = False
+                enabled = True
                 checkable = True
+                checked << plot_model.show_exp_opt
                 clicked ::
                     plot_model.data_sets = io_model.data_sets
                     plot_model.plot_multi_exp_data()

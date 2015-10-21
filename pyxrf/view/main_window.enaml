@@ -63,7 +63,7 @@ enamldef XRFGui(MainWindow): main_window:
     Container:
         DockArea:
             layout = HSplitLayout(
-                TabLayout('file_view', 'fitting_view'),
+                TabLayout('file_view', 'fitting_view', 'setting_view'),
                 TabLayout('lineplot_view', 'image_view', 'image_rgb'),
                 )
             FileView:
@@ -131,14 +131,14 @@ enamldef XRFGui(MainWindow): main_window:
                     param_model=main_window.param_model,
                     plot_model=main_window.plot_model)
                 name = 'fitting_view'
-            #SettingView:
-            #    closable = False
-            #    title = 'ROI Setting'
-            #    io_model = main_window.io_model
-            #    plot_model = main_window.plot_model
-            #    img_model_adv = main_window.img_model_adv
-            #    setting_model = main_window.setting_model
-            #    name = 'setting_view'
+            SettingView:
+                closable = False
+                title = 'ROI Setting'
+                io_model = main_window.io_model
+                plot_model = main_window.plot_model
+                img_model_adv = main_window.img_model_adv
+                setting_model = main_window.setting_model
+                name = 'setting_view'
             PlotMain:
                 closable = False
                 title = 'Spectrum View'
