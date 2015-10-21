@@ -1624,6 +1624,7 @@ def get_branching_ratio(elemental_line, energy):
 def fit_pixel_data_and_save(working_directory, file_name,
                             fit_channel_sum=True, param_file_name=None,
                             fit_channel_each=True, param_channel_list=[],
+                            incident_energy=None,
                             method='nnls', pixel_bin=0, raise_bg=0,
                             comp_elastic_combine=False,
                             linear_bg=False,
@@ -1649,6 +1650,8 @@ def fit_pixel_data_and_save(working_directory, file_name,
         fit each channel data or not
     param_channel_list : list, optional
         list of param file names for each channel
+    incident_energy : float, optional
+        use this energy as incident energy instead of the one in param file, i.e., XANES
     method : str, optional
         fitting method, default as nnls
     pixel_bin : int, optional
@@ -1681,6 +1684,11 @@ def fit_pixel_data_and_save(working_directory, file_name,
         param_path = os.path.join(working_directory, param_file_name)
         with open(param_path, 'r') as json_data:
             param_sum = json.load(json_data)
+
+        # update incident energy, required for XANES
+        if incident_energy is not None:
+            param_sum['coherent_sct_amplitude']['value'] = incident_energy
+
         result_map_sum, calculation_info = single_pixel_fitting_controller(data_all_sum,
                                                                            param_sum,
                                                                            method=method,
@@ -1711,6 +1719,10 @@ def fit_pixel_data_and_save(working_directory, file_name,
             param_path = os.path.join(working_directory, param_file_det)
             with open(param_path, 'r') as json_data:
                 param_det = json.load(json_data)
+
+            # update incident energy, required for XANES
+            if incident_energy is not None:
+                param_det['coherent_sct_amplitude']['value'] = incident_energy
 
             data_all_det = data_sets[filename_det].raw_data
             result_map_det, calculation_info = single_pixel_fitting_controller(data_all_det,
