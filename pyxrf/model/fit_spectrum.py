@@ -1361,7 +1361,6 @@ def single_pixel_fitting_controller(input_data, param, method='nnls',
 
     error_map = None
 
-    logger.info('-------- Fitting of single pixels starts. --------')
     if method == 'nnls':
         logger.info('Fitting method: non-negative least squares')
         results = fit_pixel_multiprocess_nnls(exp_data, matv, param,
@@ -1378,8 +1377,6 @@ def single_pixel_fitting_controller(input_data, param, method='nnls',
         result_map, error_map, results = get_area_and_error_nonlinear_fit(e_select,
                                                                           fit_results,
                                                                           matv/matrix_norm)
-
-    logger.info('-------- Fitting of single pixels is done! --------')
 
     calculation_info = dict()
     if error_map is not None:

@@ -153,7 +153,7 @@ class DrawImageAdvanced(Atom):
         self.scaler_name_index = 0
 
         self.data_dict_keys = self.data_dict.keys()
-        logger.info('The following groups are included for 2D image display: {}'.format(self.data_dict_keys))
+        logger.debug('The following groups are included for 2D image display: {}'.format(self.data_dict_keys))
 
         scaler_groups = [v for v in self.data_dict.keys() if 'scaler' in v]
         if len(scaler_groups) > 0:
@@ -168,7 +168,7 @@ class DrawImageAdvanced(Atom):
         self.pixel_or_pos = 0
 
         if 'positions' in self.data_dict:
-            logger.info('get pos {}'.format(self.data_dict['positions'].keys()))
+            logger.debug('get pos {}'.format(self.data_dict['positions'].keys()))
             self.x_pos = list(self.data_dict['positions']['x_pos'][0, :])
             self.y_pos = list(self.data_dict['positions']['y_pos'][:, 0])
 
@@ -213,7 +213,7 @@ class DrawImageAdvanced(Atom):
             scaler_name = self.scaler_items[self.scaler_name_index-1]
             #self.scaler_data = self.data_dict[self.scaler_group_name][scaler_name]
             self.scaler_data = self.scaler_norm_dict[scaler_name]
-            logger.info('Use scaler data to normalize,'
+            logger.info('Use scaler data to normalize, '
                         'and the shape of scaler data is {}'.format(self.scaler_data.shape))
         self.show_image()
 

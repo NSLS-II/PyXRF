@@ -133,9 +133,8 @@ class SettingModel(Atom):
         This element information means the ones for roi setup.
         """
         self.element_for_roi = self.element_for_roi.strip(' ')
-        print(self.element_for_roi)
         if len(self.element_for_roi) == 0:
-            logger.warning('No elements enetered.')
+            logger.debug('No elements enetered.')
             self.remove_all_roi()
             self.element_list_roi = []
             return
@@ -146,7 +145,7 @@ class SettingModel(Atom):
 
         #with self.suppress_notifications():
         #    self.element_list_roi = element_list
-        logger.warning('Current elements are: {}'.format(element_list))
+        logger.debug('Current elements are: {}'.format(element_list))
         self.update_roi(element_list)
         self.element_list_roi = element_list
 

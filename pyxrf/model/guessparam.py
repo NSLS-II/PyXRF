@@ -112,7 +112,7 @@ class ElementController(object):
         try:
             del self.element_dict[k]
             self.update_norm()
-            logger.info('Item {} is deleted.'.format(k))
+            logger.debug('Item {} is deleted.'.format(k))
         except KeyError, e:
             logger.info(e)
 
@@ -135,7 +135,7 @@ class ElementController(object):
 
     def add_to_dict(self, dictv):
         self.element_dict.update(dictv)
-        logger.info('Item {} is added.'.format(dictv.keys()))
+        logger.debug('Item {} is added.'.format(dictv.keys()))
         self.update_norm()
 
     def update_norm(self, threshv=0.0):
