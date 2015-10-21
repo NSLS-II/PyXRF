@@ -418,14 +418,15 @@ class Fit1D(Atom):
 
         t0 = time.time()
         self.fit_info = 'Fitting of summed spectrum starts.'
+        app.processEvents()
         logger.info('-------- '+self.fit_info+' --------')
 
         for k, v in six.iteritems(self.all_strategy):
             if v:
                 strat_name = fit_strategy_list[v-1]
-                self.fit_info = 'Fit with {}: {}'.format(k, strat_name)
+                #self.fit_info = 'Fit with {}: {}'.format(k, strat_name)
+
                 logger.info(self.fit_info)
-                app.processEvents()
                 strategy = extract_strategy(self.param_dict, strat_name)
                 # register the strategy and extend the parameter list
                 # to cover all given elements
