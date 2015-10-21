@@ -474,7 +474,7 @@ def read_xspress3_data(file_path):
     data_output = {}
 
     #file_path = os.path.join(working_directory, file_name)
-    with h5py.File(file_path, 'r+') as f:
+    with h5py.File(file_path, 'r') as f:
         data = f['entry/instrument']
 
         # data from channel summed

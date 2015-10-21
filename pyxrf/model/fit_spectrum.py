@@ -47,7 +47,7 @@ import matplotlib.pyplot as plt
 import json
 from scipy.optimize import nnls
 
-from enaml.qt.qt_application import QApplication
+#from enaml.qt.qt_application import QApplication
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
 from skxray.core.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
@@ -400,7 +400,7 @@ class Fit1D(Atom):
         The param_dict is extended to cover elemental parameters.
         Use app.precessEvents() for multi-threading.
         """
-        app = QApplication.instance()
+        #app = QApplication.instance()
         self.define_range()
         self.get_background()
 
@@ -418,7 +418,7 @@ class Fit1D(Atom):
 
         t0 = time.time()
         self.fit_info = 'Fitting of summed spectrum starts.'
-        app.processEvents()
+        #app.processEvents()
         logger.info('-------- '+self.fit_info+' --------')
 
         for k, v in six.iteritems(self.all_strategy):
@@ -436,7 +436,7 @@ class Fit1D(Atom):
                 self.fit_data(self.x0, y0)
                 self.update_param_with_result()
                 self.assign_fitting_result()
-                app.processEvents()
+                #app.processEvents()
 
         t1 = time.time()
         logger.warning('Time used for summed spectrum fitting is : {}'.format(t1-t0))
