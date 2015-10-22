@@ -1121,7 +1121,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
                     det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
                     roi_dict={'Pt_9300_9600': ['Ch1 [9300:9600]', 'Ch2 [9300:9600]', 'Ch3 [9300:9600]']},
                     pos_list=('ssx[um]', 'ssy[um]'),
-                    scaler_list=('sclr2_ch3', 'sclr2_ch4')):
+                    scaler_list=('sclr1_ch3', 'sclr1_ch4')):
     """
     Assume data is obained from databroker, and save the data to hdf file.
 
