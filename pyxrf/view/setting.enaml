@@ -51,6 +51,7 @@ enamldef SettingView(DockItem):
     attr io_model
     attr plot_model
     attr img_model_adv
+    attr img_model_rgb
     attr setting_model
 
     Container:
@@ -87,9 +88,13 @@ enamldef SettingView(DockItem):
                         #box.exec_()
                         roi_result = setting_model.get_roi_sum()
                         img_model_adv.data_dict.update(roi_result)
+                        img_model_rgb.data_dict.update(roi_result)
 
+                        # visualization purposes
                         img_model_adv.data_dict_keys = []
                         img_model_adv.data_dict_keys = img_model_adv.data_dict.keys()
+                        img_model_rgb.data_dict_keys = []
+                        img_model_rgb.data_dict_keys = img_model_rgb.data_dict.keys()
 
                         #img_model_adv.set_initial_stat()
 

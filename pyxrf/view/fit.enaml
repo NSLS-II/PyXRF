@@ -80,6 +80,7 @@ enamldef FitView(DockItem): fit_view:
     attr othersetting_edit
     attr autofind_edit
     attr img_model_adv
+    attr img_model_rgb
     attr pileup_edit
 
     Container:
@@ -486,7 +487,7 @@ enamldef FitView(DockItem): fit_view:
             #    index := fit_model.fit_strategy5
 
             PushButton: pb_fit:
-                text = 'Summed Spectrum Fitting'
+                text = 'Spectrum Fitting'
                 clicked ::
                     # update parameter for fit
                     param_model.create_full_param()
@@ -673,10 +674,13 @@ enamldef FitView(DockItem): fit_view:
                         fit_model.fit_img[fit_model.fit_img.keys()[0]].update(img_model_adv.data_dict[scaler_key[0]])
 
                     img_model_adv.data_dict.update(fit_model.fit_img)
+                    img_model_rgb.data_dict.update(fit_model.fit_img)
 
                     # visualization purpose
                     img_model_adv.data_dict_keys = []
                     img_model_adv.data_dict_keys = img_model_adv.data_dict.keys()
+                    img_model_rgb.data_dict_keys = []
+                    img_model_rgb.data_dict_keys = img_model_rgb.data_dict.keys()
 
 
 enamldef AutoFindElements(Window): auto_win:
