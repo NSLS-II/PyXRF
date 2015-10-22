@@ -106,6 +106,7 @@ class DrawImageRGB(Atom):
     data_dict = Dict()
     data_dict_keys = List()
     data_opt = Int(0)
+    img_title = Str()
     #plot_opt = Int(0)
     #plot_item = Str()
     dict_to_plot = Dict()
@@ -176,9 +177,11 @@ class DrawImageRGB(Atom):
             self.dict_to_plot = {}
             self.items_in_selected_group = []
             self.set_stat_for_all(bool_val=False)
+            self.img_title = ''
         elif self.data_opt > 0:
             self.set_stat_for_all(bool_val=False)
             plot_item = sorted(self.data_dict_keys)[self.data_opt-1]
+            self.img_title = str(plot_item)
             self.dict_to_plot = self.data_dict[plot_item]
             # for GUI purpose only
             self.items_in_selected_group = []
@@ -325,6 +328,7 @@ class DrawImageRGB(Atom):
         #self.fig.tight_layout(pad=4.0, w_pad=0.8, h_pad=0.8)
         #self.fig.tight_layout()
         #self.fig.canvas.draw_idle()
+        self.fig.suptitle(self.img_title, fontsize=20)
         self.fig.canvas.draw_idle()
 
     def get_activated_num(self):

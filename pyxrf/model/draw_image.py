@@ -110,7 +110,7 @@ class DrawImageAdvanced(Atom):
 
     scale_opt = Str('Linear')
     color_opt = Str('Oranges')
-
+    img_title = Str()
     #group_names = List()
     #group_name = Str()
 
@@ -188,10 +188,13 @@ class DrawImageAdvanced(Atom):
             self.dict_to_plot = {}
             self.items_in_selected_group = self.dict_to_plot.keys()
             self.set_stat_for_all(bool_val=False)
+            self.img_title = ''
         elif self.data_opt > 0:
             self.set_stat_for_all(bool_val=False)
             plot_item = sorted(self.data_dict_keys)[self.data_opt-1]
+            self.img_title = str(plot_item)
             self.dict_to_plot = self.data_dict[plot_item]
+
             # for GUI purpose only
             self.items_in_selected_group = []
             self.items_in_selected_group = self.dict_to_plot.keys()
@@ -348,6 +351,7 @@ class DrawImageAdvanced(Atom):
 
         #self.fig.tight_layout(pad=4.0, w_pad=0.8, h_pad=0.8)
         #self.fig.tight_layout()
+        self.fig.suptitle(self.img_title, fontsize=20)
         self.fig.canvas.draw_idle()
 
     def get_activated_num(self):
