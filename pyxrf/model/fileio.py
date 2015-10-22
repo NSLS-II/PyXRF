@@ -1121,7 +1121,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
                     det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
                     roi_dict={'Pt_9300_9600': ['Ch1 [9300:9600]', 'Ch2 [9300:9600]', 'Ch3 [9300:9600]']},
                     pos_list=('ssx[um]', 'ssy[um]'),
-                    scaler_list=('sclr1_ch2', 'sclr1_ch3', 'sclr1_ch8')):
+                    scaler_list=('sclr2_ch3', 'sclr2_ch4')):
     """
     Assume data is obained from databroker, and save the data to hdf file.
 
@@ -1197,8 +1197,13 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     except ValueError:
         dataGrp = f[interpath+'/positions']
 
-    pos_names, pos_data = get_name_value_from_db(pos_list, data,
-                                                 datashape)
+    try:
+        pos_names, pos_data = get_name_value_from_db(pos_list, data,
+                                                     datashape)
+    except:
+        pos_list = ('ssx', 'ssy')  # name is different for hxn step scan
+        pos_names, pos_data = get_name_value_from_db(pos_list, data,
+                                                     datashape)
     for i in range(len(pos_names)):
         if 'x' in pos_names[i]:
             pos_names[i] = 'x_pos'
@@ -1388,7 +1393,7 @@ def get_scaler_list_hxn(all_keys):
 
 
 def data_to_hdf_config(fpath, data,
-                       datashape, config_file):
+                       datashape, config_file=False):
     """
     Assume data is ready from databroker, so save the data to hdf file.
 
@@ -1409,15 +1414,21 @@ def data_to_hdf_config(fpath, data,
     roi_dict = get_roi_keys(data.keys(), beamline=config_data['beamline'])
     scaler_list = get_scaler_list_hxn(data.keys())
 
-    write_db_to_hdf(fpath, data,
-                    datashape,
-                    det_list=config_data['xrf_detector'],
-                    roi_dict=roi_dict,
-                    pos_list=config_data['pos_list'],
-                    scaler_list=scaler_list)
+    if config_file is not False:
+        write_db_to_hdf(fpath, data,
+                        datashape,
+                        det_list=config_data['xrf_detector'],
+                        roi_dict=roi_dict,
+                        pos_list=config_data['pos_list'],
+                        scaler_list=scaler_list)
+    else:
+        write_db_to_hdf(fpath, data,
+                        datashape,
+                        roi_dict=roi_dict,
+                        scaler_list=scaler_list)
 
-def db_to_hdf_config(fpath, runid,
-                     datashape, config_file):
+
+def make_hdf(fpath, runid, datashape, config_file):
     """
     Assume data is ready from databroker, so save the data to hdf file.
 
@@ -1433,7 +1444,8 @@ def db_to_hdf_config(fpath, runid,
         shape of two D image
     config_file : str
         path to json file which saves all pv names
-
     """
+    print('Loading data from database.')
     data = fetch_data_from_db(runid)
+    print('Save data to hdf file.')
     data_to_hdf_config(fpath, data, datashape, config_file)
