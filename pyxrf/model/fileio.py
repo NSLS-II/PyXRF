@@ -1409,12 +1409,11 @@ def data_to_hdf_config(fpath, data,
         path to json file which saves all pv names
     """
 
-    roi_dict = get_roi_keys(data.keys(), beamline=config_data['beamline'])
-    scaler_list = get_scaler_list_hxn(data.keys())
-
     if config_file is not False:
         with open(config_file, 'r') as json_data:
             config_data = json.load(json_data)
+        roi_dict = get_roi_keys(data.keys(), beamline=config_data['beamline'])
+        scaler_list = get_scaler_list_hxn(data.keys())
         write_db_to_hdf(fpath, data,
                         datashape,
                         det_list=config_data['xrf_detector'],
@@ -1422,10 +1421,7 @@ def data_to_hdf_config(fpath, data,
                         pos_list=config_data['pos_list'],
                         scaler_list=scaler_list)
     else:
-        write_db_to_hdf(fpath, data,
-                        datashape,
-                        roi_dict=roi_dict,
-                        scaler_list=scaler_list)
+        write_db_to_hdf(fpath, data, datashape)
 
 
 def make_hdf(fpath, runid, datashape, config_file=False):
