@@ -94,6 +94,7 @@ enamldef FitView(DockItem): fit_view:
                 control_element,
                 fit_control,
                 gb_fit_pixel,
+                #hbox(fit_pixel, spacer),
             ),
         ]
 
@@ -309,7 +310,7 @@ enamldef FitView(DockItem): fit_view:
                     #            select_all.text = 'Show All'
 
                 ScrollArea: scr_area:
-                    constraints = [height <= 180]
+                    constraints = [height <= 120]
 
                     Form:
                         row_spacing = -1
@@ -449,7 +450,7 @@ enamldef FitView(DockItem): fit_view:
             constraints = [
                 vbox(
                     gb_advanced,
-                    hbox(lbl1, cb1, lbl3, cb3, spacer),
+                    hbox(lbl1, cb1, lbl3, cb3,spacer),
                     hbox(lbl2, cb2, lbl4, cb4, spacer),
                     hbox(pb_fit, fit_information),
                     gb_result,
@@ -664,6 +665,7 @@ enamldef FitView(DockItem): fit_view:
                 value := fit_model.point2h
                 maximum_size = 40
                 enabled = False
+
             PushButton: fit_pixel:
                 text = 'Individual Pixel Fitting'
                 clicked ::

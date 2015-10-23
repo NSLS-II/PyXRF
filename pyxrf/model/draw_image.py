@@ -128,7 +128,7 @@ class DrawImageAdvanced(Atom):
     pixel_or_pos_for_plot = Typed(object)
 
     def __init__(self):
-        self.fig = plt.figure()
+        self.fig = plt.figure(figsize=(4,4))
         self.pixel_or_pos_for_plot = None
 
     def data_dict_update(self, change):

@@ -473,6 +473,7 @@ class Fit1D(Atom):
         This function performs single pixel fitting.
         Multiprocess is considered.
         """
+        save_tiff = True
         raise_bg = self.raise_bg
         pixel_bin = self.pixel_bin
         comp_elastic_combine = True
@@ -556,6 +557,11 @@ class Fit1D(Atom):
                             data_fit, self.param_dict,
                             output_folder, use_sinp=use_snip)
             logger.info('Done with saving fitting plots.')
+
+        if save_tiff == True:
+            namelist = self.data_title.split('_')
+            output_n = namelist[0]+'_'+namelist[1]+'_'+'output'
+            output_data(fpath, os.path.join(self.result_folder, output_n))
 
         logger.info('-------- Fitting of single pixels is done! --------')
 

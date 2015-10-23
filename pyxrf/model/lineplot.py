@@ -173,7 +173,7 @@ class LinePlotModel(Atom):
     #roi_result = Dict()
 
     def __init__(self):
-        self._fig = plt.figure()
+        self._fig = plt.figure(figsize=(4,4))
 
         self._ax = self._fig.add_subplot(111)
         self._ax.set_axis_bgcolor('lightgrey')
@@ -244,7 +244,7 @@ class LinePlotModel(Atom):
 
     def _update_ylimit(self):
         # manually define y limit, from experience
-        self.log_range = [self.max_v*1e-6, self.max_v*2]
+        self.log_range = [self.max_v*1e-5, self.max_v*2]
         self.linear_range = [-0.3*self.max_v, self.max_v*1.2]
 
     def exp_label_update(self, change):
