@@ -61,7 +61,7 @@ from .guessparam import (calculate_profile, fit_strategy_list,
                          trim_escape_peak, define_range, get_energy,
                          get_Z, PreFitStatus, ElementController,
                          update_param_from_element)
-from .fileio import read_hdf_APS, save_data_to_txt
+from .fileio import read_hdf_APS, output_data
 
 #from lmfit import fit_report
 import lmfit
@@ -1623,7 +1623,7 @@ def get_branching_ratio(elemental_line, energy):
 
 def fit_pixel_data_and_save(working_directory, file_name,
                             fit_channel_sum=True, param_file_name=None,
-                            fit_channel_each=True, param_channel_list=[],
+                            fit_channel_each=False, param_channel_list=[],
                             incident_energy=None,
                             method='nnls', pixel_bin=0, raise_bg=0,
                             comp_elastic_combine=False,
@@ -1631,7 +1631,8 @@ def fit_pixel_data_and_save(working_directory, file_name,
                             use_snip=True,
                             bin_energy=0,
                             spectrum_cut=3000,
-                            save_txt=True):
+                            save_txt=False,
+                            save_tiff=True):
     """
     Do fitting for multiple data sets, and save data accordingly. Fitting can be performed on
     either summed data or each channel data, or both.
@@ -1670,6 +1671,8 @@ def fit_pixel_data_and_save(working_directory, file_name,
         only use spectrum from, say 0, 3000
     save_txt : bool, optional
         save data to txt or not
+    save_tiff : bool, optional
+        save data to tiff or not
     """
     fpath = os.path.join(working_directory, file_name)
     t0 = time.time()
@@ -1741,8 +1744,11 @@ def fit_pixel_data_and_save(working_directory, file_name,
     print('Time used for pixel fitting for file {} is : {}'.format(file_name, t1-t0))
 
     if save_txt is True:
-        output_folder = 'output_'+prefix_fname
-        save_data_to_txt(fpath, output_folder)
+        output_folder = 'output_txt_'+prefix_fname
+        output_data(fpath, output_folder, file_format='txt')
+    if save_tiff is True:
+        output_folder = 'output_tiff_'+prefix_fname
+        output_data(fpath, output_folder, file_format='tiff')
 
 
 def save_fitdata_to_hdf(fpath, data_dict,

@@ -250,6 +250,12 @@ class DrawImageAdvanced(Atom):
         self.stat_dict = {k: bool_val for k in self.items_in_selected_group}
 
     def show_image(self):
+        img_show = 'imshow'
+        # x_min = np.min(self.data_dict['positions']['x_pos'])
+        # x_max = np.max(self.data_dict['positions']['x_pos'])
+        # y_min = np.min(self.data_dict['positions']['y_pos'])
+        # y_max = np.max(self.data_dict['positions']['y_pos'])
+
         self.fig.clf()
         stat_temp = self.get_activated_num()
         stat_temp = OrderedDict(sorted(six.iteritems(stat_temp), key=lambda x: x[0]))
@@ -300,21 +306,31 @@ class DrawImageAdvanced(Atom):
                 else:
                     data_dict = self.dict_to_plot[k]
 
-                im = grid[i].imshow(data_dict,
-                                    cmap=grey_use,
-                                    interpolation=plot_interp,
-                                    extent=self.pixel_or_pos_for_plot)
-                grid_title = k #self.file_name+'_'+str(k)
-                if self.pixel_or_pos_for_plot is not None:
-                    title_x = self.pixel_or_pos_for_plot[0]
-                    title_y = self.pixel_or_pos_for_plot[3] + (self.pixel_or_pos_for_plot[3] -
-                                                               self.pixel_or_pos_for_plot[2])*0.04
+                if img_show == 'imshow':
+                    im = grid[i].imshow(data_dict,
+                                        cmap=grey_use,
+                                        interpolation=plot_interp,
+                                        extent=self.pixel_or_pos_for_plot)
+                    grid_title = k #self.file_name+'_'+str(k)
+                    if self.pixel_or_pos_for_plot is not None:
+                        title_x = self.pixel_or_pos_for_plot[0]
+                        title_y = self.pixel_or_pos_for_plot[3] + (self.pixel_or_pos_for_plot[3] -
+                                                                   self.pixel_or_pos_for_plot[2])*0.04
 
+                    else:
+                        title_x = 0
+                        title_y = - data_dict.shape[0]*0.05
+                    grid[i].text(title_x, title_y, grid_title)
+                    grid.cbar_axes[i].colorbar(im)
                 else:
-                    title_x = 0
-                    title_y = - data_dict.shape[0]*0.05
-                grid[i].text(title_x, title_y, grid_title)
-                grid.cbar_axes[i].colorbar(im)
+                    scatter = grid[i].scatter(self.data_dict['positions']['x_pos'],
+                                              self.data_dict['positions']['y_pos'],
+                                              c=data_dict, marker='s', s=250, alpha=0.8,
+                                              cmap=grey_use,
+                                              linewidths=1, linewidth=0)
+                    grid[i].set_xlim([self.x_pos[-1], self.x_pos[0]])
+                    grid[i].set_ylim([self.y_pos[0], self.y_pos[-1]])
+                    grid.cbar_axes[i].colorbar(scatter)
         else:
             for i, (k, v) in enumerate(six.iteritems(stat_temp)):
 

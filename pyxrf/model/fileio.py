@@ -45,6 +45,7 @@ import os
 from collections import OrderedDict
 import pandas as pd
 import json
+import skimage.io as sio
 
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float
 
@@ -675,7 +676,7 @@ def xspress3_data_to_hdf(fpath_hdf5, fpath_log, fpath_out):
     write_xspress3_data_to_hdf(fpath_out, data_dict)
 
 
-def save_data_to_txt(fpath, output_folder):
+def output_data(fpath, output_folder, file_format='tiff'):
     """
     Read data from h5 file and transfer them into txt.
 
@@ -685,6 +686,8 @@ def save_data_to_txt(fpath, output_folder):
         path to h5 file
     output_folder : str
         which folder to save those txt file
+    file_format : str, optional
+        tiff or txt
     """
 
     f = h5py.File(fpath, 'r')
@@ -726,8 +729,14 @@ def save_data_to_txt(fpath, output_folder):
         os.mkdir(output_folder)
 
     for k, v in six.iteritems(fit_output):
-        fname = os.path.join(output_folder, k+'.txt')
-        np.savetxt(fname, v)
+        if file_format == 'tiff':
+            fname = os.path.join(output_folder, k+'.tiff')
+            sio.imsave(fname, v)
+        elif file_format == 'txt':
+            fname = os.path.join(output_folder, k+'.txt')
+            np.savetxt(fname, v)
+        else:
+            pass
 
 
 def read_hdf_APS(working_directory,
