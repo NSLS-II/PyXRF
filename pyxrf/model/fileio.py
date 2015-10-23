@@ -731,10 +731,10 @@ def output_data(fpath, output_folder, file_format='tiff'):
     for k, v in six.iteritems(fit_output):
         if file_format == 'tiff':
             fname = os.path.join(output_folder, k+'.tiff')
-            sio.imsave(fname, v)
+            sio.imsave(fname, v.astype(np.float32))
         elif file_format == 'txt':
             fname = os.path.join(output_folder, k+'.txt')
-            np.savetxt(fname, v)
+            np.savetxt(fname, v.astype(np.float32))
         else:
             pass
 
