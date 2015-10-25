@@ -43,7 +43,7 @@ $pyxrf
 ```
 To leave this environment, just type
 ```
-source deactivate
+$source deactivate
 ```
 
 
