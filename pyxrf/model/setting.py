@@ -40,6 +40,7 @@ __author__ = 'Li Li'
 import six
 import numpy as np
 from collections import OrderedDict
+import copy
 
 from atom.api import (Atom, Str, observe, Typed,
                       Dict, List, Int, Enum, Float, Bool)
@@ -147,6 +148,9 @@ class SettingModel(Atom):
         logger.debug('Current elements for ROI sum are: {}'.format(element_list))
         self.update_roi(element_list)
         self.element_list_roi = element_list
+
+    def update_parameter(self, param):
+        self.parameters = copy.deepcopy(param)
 
     def use_default_elements(self):
         self.element_for_roi = ', '.join(K_LINE+L_LINE)#+M_LINE)

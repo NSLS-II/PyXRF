@@ -97,6 +97,7 @@ enamldef XRFGui(MainWindow): main_window:
                 fit_model = main_window.fit_model
                 img_model_adv = main_window.img_model_adv
                 img_model_rgb = main_window.img_model_rgb
+                setting_model = main_window.setting_model
 
                 element_edit = ElementEdit(
                     visible=False,
@@ -104,21 +105,24 @@ enamldef XRFGui(MainWindow): main_window:
                     parent=main_window,
                     fit_model=main_window.fit_model,
                     param_model=main_window.param_model,
-                    plot_model=main_window.plot_model)
+                    plot_model=main_window.plot_model,
+                    setting_model = main_window.setting_model)
                 parameter_edit = ParameterEdit(
                     visible=False,
                     destroy_on_close=False,
                     parent=main_window,
                     fit_model=main_window.fit_model,
                     param_model=main_window.param_model,
-                    plot_model=main_window.plot_model)
+                    plot_model=main_window.plot_model,
+                    setting_model = main_window.setting_model)
                 othersetting_edit = OtherSettingEdit(
                     visible=False,
                     destroy_on_close=False,
                     #parent=main_window,
                     fit_model=main_window.fit_model,
                     param_model=main_window.param_model,
-                    plot_model=main_window.plot_model)
+                    plot_model=main_window.plot_model,
+                    setting_model = main_window.setting_model)
                 autofind_edit = AutoFindElements(
                     visible=False,
                     destroy_on_close=False,
