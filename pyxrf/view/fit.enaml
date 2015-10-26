@@ -365,6 +365,7 @@ enamldef FitView(DockItem): fit_view:
                                     background = 'white'
                                     #align = 'right'
                                     minimum = 0.0
+                                    submit_triggers = ['return_pressed']
                                     value ::
                                         apply_to_fit(param_model, plot_model, fit_model, setting_model)
 
