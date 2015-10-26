@@ -172,7 +172,7 @@ class DrawImageAdvanced(Atom):
             self.y_pos = list(self.data_dict['positions']['y_pos'][:, 0])
 
             # reverse x,y postion here, may need to be corrected later
-            self.x_pos.reverse()
+            #self.x_pos.reverse()
             self.y_pos.reverse()
 
         else:
