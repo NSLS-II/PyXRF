@@ -65,8 +65,9 @@ enamldef ImageMain(DockItem):
 
         ComboBox: cbox_file:
             items << ['Select Data'] + sorted(img_model_adv.data_dict_keys)
-            index := img_model_adv.data_opt
+            #index := img_model_adv.data_opt
             index = 0
+            index >> img_model_adv.data_opt
             minimum_size = (200,20)
             #index ::
             #    if index > 0:

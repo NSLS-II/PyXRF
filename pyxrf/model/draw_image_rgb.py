@@ -145,7 +145,7 @@ class DrawImageRGB(Atom):
         """
         self.data_dict = change['value']
 
-    @observe('data_dict', 'data_dict_keys')
+    @observe('data_dict')
     def init_plot_status(self, change):
         # initiate the plotting status once new data is coming
         self.data_opt = 0
@@ -156,7 +156,7 @@ class DrawImageRGB(Atom):
 
         # init of scaler for normalization
         self.scaler_name_index = 0
-
+        self.data_dict_keys = []
         self.data_dict_keys = self.data_dict.keys()
         #logger.info('The following groups are included for 2D image display: {}'.format(self.data_dict_keys))
 
@@ -173,20 +173,23 @@ class DrawImageRGB(Atom):
 
     @observe('data_opt')
     def _update_file(self, change):
-        if self.data_opt == 0:
-            self.dict_to_plot = {}
-            self.items_in_selected_group = []
-            self.set_stat_for_all(bool_val=False)
-            self.img_title = ''
-        elif self.data_opt > 0:
-            self.set_stat_for_all(bool_val=False)
-            plot_item = sorted(self.data_dict_keys)[self.data_opt-1]
-            self.img_title = str(plot_item)
-            self.dict_to_plot = self.data_dict[plot_item]
-            # for GUI purpose only
-            self.items_in_selected_group = []
-            self.items_in_selected_group = self.dict_to_plot.keys()
-            self.set_stat_for_all(bool_val=False)
+        try:
+            if self.data_opt == 0:
+                self.dict_to_plot = {}
+                self.items_in_selected_group = []
+                self.set_stat_for_all(bool_val=False)
+                self.img_title = ''
+            elif self.data_opt > 0:
+                self.set_stat_for_all(bool_val=False)
+                plot_item = sorted(self.data_dict_keys)[self.data_opt-1]
+                self.img_title = str(plot_item)
+                self.dict_to_plot = self.data_dict[plot_item]
+                # for GUI purpose only
+                self.items_in_selected_group = []
+                self.items_in_selected_group = self.dict_to_plot.keys()
+                self.set_stat_for_all(bool_val=False)
+        except:
+            pass
 
     @observe('scaler_name_index')
     def _get_scaler_data(self, change):

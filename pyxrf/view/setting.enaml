@@ -58,7 +58,7 @@ enamldef SettingView(DockItem):
         Container:
             constraints = [
                 vbox(
-                    hbox(setup_lbl, spacer),
+                    hbox(setup_lbl, spacer, use_default),
                     hbox(element_fd),
                     scroller,
                     hbox(prefix_lbl, prefix_fd, spacer, calculate_btn),
@@ -67,6 +67,10 @@ enamldef SettingView(DockItem):
             ]
             Label: setup_lbl:
                 text = 'ROI Setup: enter elements below, e.g., Fe_K, Gd_L'
+            PushButton: use_default:
+                text = 'Use default elements'
+                clicked ::
+                    setting_model.use_default_elements()
             Field: element_fd:
                 text := setting_model.element_for_roi
             Label: prefix_lbl:

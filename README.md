@@ -15,6 +15,7 @@ Better documentation will be ready soon!
 ## Installation from Conda
 
 ### Linux/Mac
+- Installation
 Currently PyXRF only works for python2.0+, not python3.0.
 First you need to install [Conda] (http://continuum.io/downloads), then create a conda environment(say pyxrf_test) with python2.7.
 
@@ -29,13 +30,18 @@ At the same environment, install pyxrf by simply typing
 ```
 $conda install -c licode pyxrf
 ```
-Launch the software.
+
+- Run
 ```
 $pyxrf
 ```
 
+- Update
+```
+$conda update -c licode pyxrf
+```
 
-Reminder:
+- Reminder
 Every time you open a new terminal, make sure to go to pyxrf_test environment first, then launch the software.
 ```
 $source activate pyxrf_test
@@ -45,7 +51,6 @@ To leave this environment, just type
 ```
 $source deactivate
 ```
-
 
 
 ### Windows
