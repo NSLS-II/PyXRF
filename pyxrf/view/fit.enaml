@@ -80,6 +80,7 @@ enamldef FitView(DockItem): fit_view:
     attr othersetting_edit
     attr autofind_edit
     attr img_model_adv
+    attr img_model_rgb
     attr pileup_edit
 
     Container:
@@ -93,6 +94,7 @@ enamldef FitView(DockItem): fit_view:
                 control_element,
                 fit_control,
                 gb_fit_pixel,
+                #hbox(fit_pixel, spacer),
             ),
         ]
 
@@ -308,7 +310,7 @@ enamldef FitView(DockItem): fit_view:
                     #            select_all.text = 'Show All'
 
                 ScrollArea: scr_area:
-                    constraints = [height <= 180]
+                    constraints = [height <= 120]
 
                     Form:
                         row_spacing = -1
@@ -448,7 +450,7 @@ enamldef FitView(DockItem): fit_view:
             constraints = [
                 vbox(
                     gb_advanced,
-                    hbox(lbl1, cb1, lbl3, cb3, spacer),
+                    hbox(lbl1, cb1, lbl3, cb3,spacer),
                     hbox(lbl2, cb2, lbl4, cb4, spacer),
                     hbox(pb_fit, fit_information),
                     gb_result,
@@ -486,7 +488,7 @@ enamldef FitView(DockItem): fit_view:
             #    index := fit_model.fit_strategy5
 
             PushButton: pb_fit:
-                text = 'Summed Spectrum Fitting'
+                text = 'Spectrum Fitting'
                 clicked ::
                     # update parameter for fit
                     param_model.create_full_param()
@@ -663,6 +665,7 @@ enamldef FitView(DockItem): fit_view:
                 value := fit_model.point2h
                 maximum_size = 40
                 enabled = False
+
             PushButton: fit_pixel:
                 text = 'Individual Pixel Fitting'
                 clicked ::
@@ -673,10 +676,13 @@ enamldef FitView(DockItem): fit_view:
                         fit_model.fit_img[fit_model.fit_img.keys()[0]].update(img_model_adv.data_dict[scaler_key[0]])
 
                     img_model_adv.data_dict.update(fit_model.fit_img)
+                    img_model_rgb.data_dict.update(fit_model.fit_img)
 
                     # visualization purpose
                     img_model_adv.data_dict_keys = []
                     img_model_adv.data_dict_keys = img_model_adv.data_dict.keys()
+                    img_model_rgb.data_dict_keys = []
+                    img_model_rgb.data_dict_keys = img_model_rgb.data_dict.keys()
 
 
 enamldef AutoFindElements(Window): auto_win:

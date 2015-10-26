@@ -45,6 +45,7 @@ import os
 from collections import OrderedDict
 import pandas as pd
 import json
+import skimage.io as sio
 
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float
 
@@ -474,7 +475,7 @@ def read_xspress3_data(file_path):
     data_output = {}
 
     #file_path = os.path.join(working_directory, file_name)
-    with h5py.File(file_path, 'r+') as f:
+    with h5py.File(file_path, 'r') as f:
         data = f['entry/instrument']
 
         # data from channel summed
@@ -675,7 +676,7 @@ def xspress3_data_to_hdf(fpath_hdf5, fpath_log, fpath_out):
     write_xspress3_data_to_hdf(fpath_out, data_dict)
 
 
-def save_data_to_txt(fpath, output_folder):
+def output_data(fpath, output_folder, file_format='tiff'):
     """
     Read data from h5 file and transfer them into txt.
 
@@ -685,6 +686,8 @@ def save_data_to_txt(fpath, output_folder):
         path to h5 file
     output_folder : str
         which folder to save those txt file
+    file_format : str, optional
+        tiff or txt
     """
 
     f = h5py.File(fpath, 'r')
@@ -726,8 +729,14 @@ def save_data_to_txt(fpath, output_folder):
         os.mkdir(output_folder)
 
     for k, v in six.iteritems(fit_output):
-        fname = os.path.join(output_folder, k+'.txt')
-        np.savetxt(fname, v)
+        if file_format == 'tiff':
+            fname = os.path.join(output_folder, k+'.tiff')
+            sio.imsave(fname, v.astype(np.float32))
+        elif file_format == 'txt':
+            fname = os.path.join(output_folder, k+'.txt')
+            np.savetxt(fname, v.astype(np.float32))
+        else:
+            pass
 
 
 def read_hdf_APS(working_directory,
@@ -1121,7 +1130,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
                     det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
                     roi_dict={'Pt_9300_9600': ['Ch1 [9300:9600]', 'Ch2 [9300:9600]', 'Ch3 [9300:9600]']},
                     pos_list=('ssx[um]', 'ssy[um]'),
-                    scaler_list=('sclr1_ch2', 'sclr1_ch3', 'sclr1_ch8')):
+                    scaler_list=('sclr1_ch3', 'sclr1_ch4')):
     """
     Assume data is obained from databroker, and save the data to hdf file.
 
@@ -1197,8 +1206,13 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     except ValueError:
         dataGrp = f[interpath+'/positions']
 
-    pos_names, pos_data = get_name_value_from_db(pos_list, data,
-                                                 datashape)
+    try:
+        pos_names, pos_data = get_name_value_from_db(pos_list, data,
+                                                     datashape)
+    except:
+        pos_list = ('ssx', 'ssy')  # name is different for hxn step scan
+        pos_names, pos_data = get_name_value_from_db(pos_list, data,
+                                                     datashape)
     for i in range(len(pos_names)):
         if 'x' in pos_names[i]:
             pos_names[i] = 'x_pos'
@@ -1388,7 +1402,7 @@ def get_scaler_list_hxn(all_keys):
 
 
 def data_to_hdf_config(fpath, data,
-                       datashape, config_file):
+                       datashape, config_file=False):
     """
     Assume data is ready from databroker, so save the data to hdf file.
 
@@ -1403,21 +1417,23 @@ def data_to_hdf_config(fpath, data,
     config_file : str
         path to json file which saves all pv names
     """
-    with open(config_file, 'r') as json_data:
-        config_data = json.load(json_data)
 
-    roi_dict = get_roi_keys(data.keys(), beamline=config_data['beamline'])
-    scaler_list = get_scaler_list_hxn(data.keys())
+    if config_file is not False:
+        with open(config_file, 'r') as json_data:
+            config_data = json.load(json_data)
+        roi_dict = get_roi_keys(data.keys(), beamline=config_data['beamline'])
+        scaler_list = get_scaler_list_hxn(data.keys())
+        write_db_to_hdf(fpath, data,
+                        datashape,
+                        det_list=config_data['xrf_detector'],
+                        roi_dict=roi_dict,
+                        pos_list=config_data['pos_list'],
+                        scaler_list=scaler_list)
+    else:
+        write_db_to_hdf(fpath, data, datashape)
 
-    write_db_to_hdf(fpath, data,
-                    datashape,
-                    det_list=config_data['xrf_detector'],
-                    roi_dict=roi_dict,
-                    pos_list=config_data['pos_list'],
-                    scaler_list=scaler_list)
 
-def db_to_hdf_config(fpath, runid,
-                     datashape, config_file):
+def make_hdf(fpath, runid, datashape, config_file=False):
     """
     Assume data is ready from databroker, so save the data to hdf file.
 
@@ -1433,7 +1449,8 @@ def db_to_hdf_config(fpath, runid,
         shape of two D image
     config_file : str
         path to json file which saves all pv names
-
     """
+    print('Loading data from database.')
     data = fetch_data_from_db(runid)
-    data_to_hdf_config(fpath, data, datashape, config_file)
+    print('Save data to hdf file.')
+    data_to_hdf_config(fpath, data, datashape, config_file=config_file)

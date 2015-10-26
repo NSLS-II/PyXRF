@@ -110,7 +110,7 @@ class DrawImageAdvanced(Atom):
 
     scale_opt = Str('Linear')
     color_opt = Str('Oranges')
-
+    img_title = Str()
     #group_names = List()
     #group_name = Str()
 
@@ -128,7 +128,7 @@ class DrawImageAdvanced(Atom):
     pixel_or_pos_for_plot = Typed(object)
 
     def __init__(self):
-        self.fig = plt.figure()
+        self.fig = plt.figure(figsize=(4,4))
         self.pixel_or_pos_for_plot = None
 
     def data_dict_update(self, change):
@@ -144,14 +144,13 @@ class DrawImageAdvanced(Atom):
         """
         self.data_dict = change['value']
 
-    @observe('data_dict', 'data_dict_keys')
+    @observe('data_dict')
     def init_plot_status(self, change):
         # initiate the plotting status once new data is coming
         self.data_opt = 0
-
         # init of scaler for normalization
         self.scaler_name_index = 0
-
+        self.data_dict_keys = []
         self.data_dict_keys = self.data_dict.keys()
         logger.debug('The following groups are included for 2D image display: {}'.format(self.data_dict_keys))
 
@@ -184,18 +183,24 @@ class DrawImageAdvanced(Atom):
 
     @observe('data_opt')
     def _update_file(self, change):
-        if self.data_opt == 0:
-            self.dict_to_plot = {}
-            self.items_in_selected_group = self.dict_to_plot.keys()
-            self.set_stat_for_all(bool_val=False)
-        elif self.data_opt > 0:
-            self.set_stat_for_all(bool_val=False)
-            plot_item = sorted(self.data_dict_keys)[self.data_opt-1]
-            self.dict_to_plot = self.data_dict[plot_item]
-            # for GUI purpose only
-            self.items_in_selected_group = []
-            self.items_in_selected_group = self.dict_to_plot.keys()
-            self.set_stat_for_all(bool_val=False)
+        try:
+            if self.data_opt == 0:
+                self.dict_to_plot = {}
+                self.items_in_selected_group = self.dict_to_plot.keys()
+                self.set_stat_for_all(bool_val=False)
+                self.img_title = ''
+            elif self.data_opt > 0:
+                self.set_stat_for_all(bool_val=False)
+                plot_item = sorted(self.data_dict_keys)[self.data_opt-1]
+                self.img_title = str(plot_item)
+                self.dict_to_plot = self.data_dict[plot_item]
+
+                # for GUI purpose only
+                self.items_in_selected_group = []
+                self.items_in_selected_group = self.dict_to_plot.keys()
+                self.set_stat_for_all(bool_val=False)
+        except:
+            pass
 
     # @observe('plot_item')
     # def _update_file(self, change):
@@ -247,6 +252,12 @@ class DrawImageAdvanced(Atom):
         self.stat_dict = {k: bool_val for k in self.items_in_selected_group}
 
     def show_image(self):
+        img_show = 'imshow'
+        # x_min = np.min(self.data_dict['positions']['x_pos'])
+        # x_max = np.max(self.data_dict['positions']['x_pos'])
+        # y_min = np.min(self.data_dict['positions']['y_pos'])
+        # y_max = np.max(self.data_dict['positions']['y_pos'])
+
         self.fig.clf()
         stat_temp = self.get_activated_num()
         stat_temp = OrderedDict(sorted(six.iteritems(stat_temp), key=lambda x: x[0]))
@@ -297,21 +308,31 @@ class DrawImageAdvanced(Atom):
                 else:
                     data_dict = self.dict_to_plot[k]
 
-                im = grid[i].imshow(data_dict,
-                                    cmap=grey_use,
-                                    interpolation=plot_interp,
-                                    extent=self.pixel_or_pos_for_plot)
-                grid_title = k #self.file_name+'_'+str(k)
-                if self.pixel_or_pos_for_plot is not None:
-                    title_x = self.pixel_or_pos_for_plot[0]
-                    title_y = self.pixel_or_pos_for_plot[3] + (self.pixel_or_pos_for_plot[3] -
-                                                               self.pixel_or_pos_for_plot[2])*0.04
+                if img_show == 'imshow':
+                    im = grid[i].imshow(data_dict,
+                                        cmap=grey_use,
+                                        interpolation=plot_interp,
+                                        extent=self.pixel_or_pos_for_plot)
+                    grid_title = k #self.file_name+'_'+str(k)
+                    if self.pixel_or_pos_for_plot is not None:
+                        title_x = self.pixel_or_pos_for_plot[0]
+                        title_y = self.pixel_or_pos_for_plot[3] + (self.pixel_or_pos_for_plot[3] -
+                                                                   self.pixel_or_pos_for_plot[2])*0.04
 
+                    else:
+                        title_x = 0
+                        title_y = - data_dict.shape[0]*0.05
+                    grid[i].text(title_x, title_y, grid_title)
+                    grid.cbar_axes[i].colorbar(im)
                 else:
-                    title_x = 0
-                    title_y = - data_dict.shape[0]*0.05
-                grid[i].text(title_x, title_y, grid_title)
-                grid.cbar_axes[i].colorbar(im)
+                    scatter = grid[i].scatter(self.data_dict['positions']['x_pos'],
+                                              self.data_dict['positions']['y_pos'],
+                                              c=data_dict, marker='s', s=250, alpha=0.8,
+                                              cmap=grey_use,
+                                              linewidths=1, linewidth=0)
+                    grid[i].set_xlim([self.x_pos[-1], self.x_pos[0]])
+                    grid[i].set_ylim([self.y_pos[0], self.y_pos[-1]])
+                    grid.cbar_axes[i].colorbar(scatter)
         else:
             for i, (k, v) in enumerate(six.iteritems(stat_temp)):
 
@@ -348,6 +369,7 @@ class DrawImageAdvanced(Atom):
 
         #self.fig.tight_layout(pad=4.0, w_pad=0.8, h_pad=0.8)
         #self.fig.tight_layout()
+        self.fig.suptitle(self.img_title, fontsize=20)
         self.fig.canvas.draw_idle()
 
     def get_activated_num(self):

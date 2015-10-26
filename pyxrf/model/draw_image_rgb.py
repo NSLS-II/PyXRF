@@ -106,6 +106,7 @@ class DrawImageRGB(Atom):
     data_dict = Dict()
     data_dict_keys = List()
     data_opt = Int(0)
+    img_title = Str()
     #plot_opt = Int(0)
     #plot_item = Str()
     dict_to_plot = Dict()
@@ -124,7 +125,7 @@ class DrawImageRGB(Atom):
     ic_norm = Float()
 
     def __init__(self):
-        self.fig = plt.figure(figsize=(6,6))
+        self.fig = plt.figure(figsize=(4,4))
         self.ax = self.fig.add_subplot(111)
         self.ax_r, self.ax_g, self.ax_b = make_rgb_axes(self.ax, pad=0.02)
 
@@ -144,7 +145,7 @@ class DrawImageRGB(Atom):
         """
         self.data_dict = change['value']
 
-    @observe('data_dict', 'data_dict_keys')
+    @observe('data_dict')
     def init_plot_status(self, change):
         # initiate the plotting status once new data is coming
         self.data_opt = 0
@@ -155,7 +156,7 @@ class DrawImageRGB(Atom):
 
         # init of scaler for normalization
         self.scaler_name_index = 0
-
+        self.data_dict_keys = []
         self.data_dict_keys = self.data_dict.keys()
         #logger.info('The following groups are included for 2D image display: {}'.format(self.data_dict_keys))
 
@@ -172,18 +173,23 @@ class DrawImageRGB(Atom):
 
     @observe('data_opt')
     def _update_file(self, change):
-        if self.data_opt == 0:
-            self.dict_to_plot = {}
-            self.items_in_selected_group = []
-            self.set_stat_for_all(bool_val=False)
-        elif self.data_opt > 0:
-            self.set_stat_for_all(bool_val=False)
-            plot_item = sorted(self.data_dict_keys)[self.data_opt-1]
-            self.dict_to_plot = self.data_dict[plot_item]
-            # for GUI purpose only
-            self.items_in_selected_group = []
-            self.items_in_selected_group = self.dict_to_plot.keys()
-            self.set_stat_for_all(bool_val=False)
+        try:
+            if self.data_opt == 0:
+                self.dict_to_plot = {}
+                self.items_in_selected_group = []
+                self.set_stat_for_all(bool_val=False)
+                self.img_title = ''
+            elif self.data_opt > 0:
+                self.set_stat_for_all(bool_val=False)
+                plot_item = sorted(self.data_dict_keys)[self.data_opt-1]
+                self.img_title = str(plot_item)
+                self.dict_to_plot = self.data_dict[plot_item]
+                # for GUI purpose only
+                self.items_in_selected_group = []
+                self.items_in_selected_group = self.dict_to_plot.keys()
+                self.set_stat_for_all(bool_val=False)
+        except:
+            pass
 
     @observe('scaler_name_index')
     def _get_scaler_data(self, change):
@@ -325,6 +331,7 @@ class DrawImageRGB(Atom):
         #self.fig.tight_layout(pad=4.0, w_pad=0.8, h_pad=0.8)
         #self.fig.tight_layout()
         #self.fig.canvas.draw_idle()
+        self.fig.suptitle(self.img_title, fontsize=20)
         self.fig.canvas.draw_idle()
 
     def get_activated_num(self):

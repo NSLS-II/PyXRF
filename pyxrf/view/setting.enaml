@@ -51,13 +51,14 @@ enamldef SettingView(DockItem):
     attr io_model
     attr plot_model
     attr img_model_adv
+    attr img_model_rgb
     attr setting_model
 
     Container:
         Container:
             constraints = [
                 vbox(
-                    hbox(setup_lbl, spacer),
+                    hbox(setup_lbl, spacer, use_default),
                     hbox(element_fd),
                     scroller,
                     hbox(prefix_lbl, prefix_fd, spacer, calculate_btn),
@@ -66,6 +67,10 @@ enamldef SettingView(DockItem):
             ]
             Label: setup_lbl:
                 text = 'ROI Setup: enter elements below, e.g., Fe_K, Gd_L'
+            PushButton: use_default:
+                text = 'Use default elements'
+                clicked ::
+                    setting_model.use_default_elements()
             Field: element_fd:
                 text := setting_model.element_for_roi
             Label: prefix_lbl:
@@ -87,9 +92,13 @@ enamldef SettingView(DockItem):
                         #box.exec_()
                         roi_result = setting_model.get_roi_sum()
                         img_model_adv.data_dict.update(roi_result)
+                        img_model_rgb.data_dict.update(roi_result)
 
+                        # visualization purposes
                         img_model_adv.data_dict_keys = []
                         img_model_adv.data_dict_keys = img_model_adv.data_dict.keys()
+                        img_model_rgb.data_dict_keys = []
+                        img_model_rgb.data_dict_keys = img_model_rgb.data_dict.keys()
 
                         #img_model_adv.set_initial_stat()
 

@@ -96,6 +96,7 @@ enamldef XRFGui(MainWindow): main_window:
                 param_model = main_window.param_model
                 fit_model = main_window.fit_model
                 img_model_adv = main_window.img_model_adv
+                img_model_rgb = main_window.img_model_rgb
 
                 element_edit = ElementEdit(
                     visible=False,
@@ -137,6 +138,7 @@ enamldef XRFGui(MainWindow): main_window:
                 io_model = main_window.io_model
                 plot_model = main_window.plot_model
                 img_model_adv = main_window.img_model_adv
+                img_model_rgb = main_window.img_model_rgb
                 setting_model = main_window.setting_model
                 name = 'setting_view'
             PlotMain:

@@ -123,7 +123,6 @@ class SettingModel(Atom):
 
     def __init__(self, *args, **kwargs):
         self.parameters = kwargs['default_parameters']
-        self.element_for_roi = ' '
         self.element_for_roi = ', '.join(K_LINE+L_LINE)#+M_LINE)
 
     @observe('element_for_roi')
@@ -145,9 +144,12 @@ class SettingModel(Atom):
 
         #with self.suppress_notifications():
         #    self.element_list_roi = element_list
-        logger.debug('Current elements are: {}'.format(element_list))
+        logger.debug('Current elements for ROI sum are: {}'.format(element_list))
         self.update_roi(element_list)
         self.element_list_roi = element_list
+
+    def use_default_elements(self):
+        self.element_for_roi = ', '.join(K_LINE+L_LINE)#+M_LINE)
 
     def remove_all_roi(self):
         self.roi_dict.clear()
@@ -198,6 +200,11 @@ class SettingModel(Atom):
 
             self.roi_dict.update({v: roi})
 
+        # remove old items not included in element_list
+        for k in six.iterkeys(self.roi_dict):
+            if k not in element_list:
+                del self.roi_dict[k]
+
     @observe('prefix_name_roi')
     def _update_prefix(self, change):
         if change['type'] == 'create':
@@ -225,11 +232,12 @@ class SettingModel(Atom):
         """
         roi_result = {}
         for fname, datav in six.iteritems(self.data_sets):
-
             # quick way to ignore channel data, only for summed data
             # to be updated
-            if 'channel' in fname:
+            if 'sum' not in fname:
                 continue
+            #if 'channel' in fname:
+            #    continue
 
             temp = {}
             for k, v in six.iteritems(self.roi_dict):
