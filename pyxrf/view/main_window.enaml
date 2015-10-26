@@ -171,7 +171,7 @@ enamldef XRFGui(MainWindow): main_window:
                 name = 'image_view'
             ImageRGB:
                 closable = False
-                title = 'Element RBG '
+                title = 'Element RGB '
                 img_model_adv = main_window.img_model_rgb
                 #plot_model = main_window.plot_model
                 name = 'image_rgb'
