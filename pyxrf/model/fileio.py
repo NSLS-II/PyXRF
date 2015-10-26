@@ -516,10 +516,10 @@ def flip_data(input_data):
     new_data = np.array(input_data)
     data_shape = input_data.shape
     if len(data_shape) == 2:
-        new_data[::2, :] = new_data[::2, ::-1]
+        new_data[1::2, :] = new_data[1::2, ::-1]
 
     if len(data_shape) == 3:
-        new_data[::2, :, :] = new_data[::2, ::-1, :]
+        new_data[1::2, :, :] = new_data[1::2, ::-1, :]
     return new_data
 
 
