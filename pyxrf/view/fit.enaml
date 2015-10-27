@@ -697,21 +697,12 @@ enamldef FitView(DockItem): fit_view:
                 checkable = True
                 #minimum_size = (20, 20)
                 checked := fit_model.save_tiff
-                clicked ::
-                    if checked:
-                        fit_model.save_tiff = True
-                    else:
-                        fit_modle.save_tiff = False
             CheckBox: cb_txt:
                 text = 'Save to txt'
                 checkable = True
                 #minimum_size = (20, 20)
                 checked := fit_model.save_txt
-                clicked ::
-                    if checked:
-                        fit_model.save_txt = True
-                    else:
-                        fit_modle.save_txt = False
+
 
 enamldef AutoFindElements(Window): auto_win:
     attr parameter_model
