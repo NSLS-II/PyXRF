@@ -53,17 +53,14 @@ import logging
 logger = logging.getLogger(__name__)
 
 try:
-    #from dataportal import DataBroker as db
-    #from dataportal import StepScan as ss
-    #from dataportal import DataMuxer as dm
     from databroker.databroker import DataBroker as db, get_table
     # registers a filestore handler for the XSPRESS3 detector
-    from hxntools import detectors as hxndetectors
+    from hxntools import handlers as hxn_handlers
 except ImportError, e:
     db = None
     ss = None
     dm = None
-    logger.warning('dataportal and hxntools are not available: %s' % (e))
+    logger.error('dataportal and hxntools are not available: %s' % (e))
 
 
 class FileIOModel(Atom):
