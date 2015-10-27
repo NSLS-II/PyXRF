@@ -157,3 +157,4 @@ enamldef SettingView(DockItem):
                                 text = 'Use Default'
                                 clicked ::
                                     plot_model.roi_dict[loop_item].left_val = plot_model.roi_dict[loop_item].default_left
+                                    plot_model.roi_dict[loop_item].right_val = plot_model.roi_dict[loop_item].default_right

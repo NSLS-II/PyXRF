@@ -82,6 +82,7 @@ enamldef FitView(DockItem): fit_view:
     attr img_model_adv
     attr img_model_rgb
     attr pileup_edit
+    attr setting_model
 
     Container:
         padding = Box(2, 2, 2, 2)
@@ -131,6 +132,9 @@ enamldef FitView(DockItem): fit_view:
                         #param_model.get_new_param_from_file(parameter_file_path)
                         param_model.update_name_list()
                         param_model.EC.turn_on_all()
+
+                        # update params for roi sum
+                        setting_model.update_parameter(fit_model.default_parameters)
 
                         # update file name
                         lbl_param.text = 'Loaded file: {}'.format(parameter_file_path.split('/')[-1])
@@ -361,8 +365,9 @@ enamldef FitView(DockItem): fit_view:
                                     background = 'white'
                                     #align = 'right'
                                     minimum = 0.0
+                                    submit_triggers = ['return_pressed']
                                     value ::
-                                        apply_to_fit(param_model, plot_model, fit_model)
+                                        apply_to_fit(param_model, plot_model, fit_model, setting_model)
 
                                 Label: lb_norm:
                                     text << set_low_bound(np.around(param_model.EC.element_dict[loop_item].norm, 2))
@@ -406,7 +411,7 @@ enamldef FitView(DockItem): fit_view:
                     clicked ::
                         param_model.EC.delete_unselected_items()
                         param_model.update_name_list()
-                        apply_to_fit(param_model, plot_model, fit_model)
+                        apply_to_fit(param_model, plot_model, fit_model, setting_model)
 
                         #param_model.data_for_plot()
 
@@ -442,7 +447,7 @@ enamldef FitView(DockItem): fit_view:
                 PushButton: pb_update:
                     text = 'Update'
                     clicked ::
-                        apply_to_fit(param_model, plot_model, fit_model)
+                        apply_to_fit(param_model, plot_model, fit_model, setting_model)
 
         GroupBox: fit_control:
             title = 'Fit summed spectrum.'
@@ -528,6 +533,10 @@ enamldef FitView(DockItem): fit_view:
                     #param_model.get_new_param_from_file(parameter_file_path)
                     param_model.update_name_list()
                     param_model.EC.turn_on_all()
+
+                    # update params for roi sum
+                    setting_model.update_parameter(fit_model.param_dict)
+
 
             Label: fit_information:
                 text := fit_model.fit_info
@@ -624,7 +633,7 @@ enamldef FitView(DockItem): fit_view:
             title = 'Fit spectrum of all individual pixels.'
             padding = Box(2, 2, 2, 2)
             constraints = [vbox(hbox(save_cb, lb1, fd1v, fd1h, lb2, fd2v, fd2h, spacer),
-                                hbox(fit_pixel, spacer))]
+                                hbox(fit_pixel, spacer, cb_tiff, cb_txt))]
             CheckBox: save_cb:
                 text = 'Save plots'
                 clicked ::
@@ -683,6 +692,16 @@ enamldef FitView(DockItem): fit_view:
                     img_model_adv.data_dict_keys = img_model_adv.data_dict.keys()
                     img_model_rgb.data_dict_keys = []
                     img_model_rgb.data_dict_keys = img_model_rgb.data_dict.keys()
+            CheckBox: cb_tiff:
+                text = 'Save to tiff'
+                checkable = True
+                #minimum_size = (20, 20)
+                checked := fit_model.save_tiff
+            CheckBox: cb_txt:
+                text = 'Save to txt'
+                checkable = True
+                #minimum_size = (20, 20)
+                checked := fit_model.save_txt
 
 
 enamldef AutoFindElements(Window): auto_win:
@@ -771,6 +790,7 @@ enamldef ElementEdit(Window):
     attr fit_model
     attr param_model
     attr plot_model
+    attr setting_model
     Container:
         constraints = [vbox(hbox(pb_cal, spacer),
                             cmb_element,
@@ -781,7 +801,8 @@ enamldef ElementEdit(Window):
         PushButton: pb_cal:
             text = 'Calculate Spectrum'
             clicked ::
-                calculate_spectrum_helper(fit_model, plot_model, param_model)
+                calculate_spectrum_helper(fit_model, plot_model,
+                                          param_model, setting_model)
 
         ComboBox: cmb_element:
             items << ['Select Element'] + fit_model.element_list
@@ -903,6 +924,7 @@ enamldef ParameterEdit(Window):
     attr fit_model
     attr param_model
     attr plot_model
+    attr setting_model
 
     destroy_on_close = False
     Container:
@@ -913,7 +935,8 @@ enamldef ParameterEdit(Window):
         PushButton: pb_cal:
             text = 'Calculate Spectrum'
             clicked ::
-                calculate_spectrum_helper(fit_model, plot_model, param_model)
+                calculate_spectrum_helper(fit_model, plot_model,
+                                          param_model, setting_model)
         Label: lbl1:
             #text = '{:>16} {:>32} {:>32} {:>32} {:>16} {:>40}'.format('name', 'value', 'min', 'max', '  ',  '  '.join(fit_strategy_list))
             text = '{:>16} {:>32} {:>32} {:>32} {:>16}'.format('name', 'value', 'min', 'max', '  ')
@@ -1019,6 +1042,7 @@ enamldef OtherSettingEdit(Window):
     attr fit_model
     attr param_model
     attr plot_model
+    attr setting_model
 
     Container :
         DockArea :
@@ -1040,7 +1064,8 @@ enamldef OtherSettingEdit(Window):
                         PushButton: pb_cal:
                             text = 'Apply'
                             clicked ::
-                                calculate_spectrum_helper(fit_model, plot_model, param_model)
+                                calculate_spectrum_helper(fit_model, plot_model,
+                                                          param_model, setting_model)
                         Label:
                             pass
 
@@ -1073,7 +1098,8 @@ enamldef OtherSettingEdit(Window):
                         PushButton: pb_cal:
                             text = 'Apply'
                             clicked ::
-                                calculate_spectrum_helper(fit_model, plot_model, param_model)
+                                calculate_spectrum_helper(fit_model, plot_model,
+                                                          param_model, setting_model)
                         Label:
                             pass
 
@@ -1254,7 +1280,8 @@ def set_low_bound(value, thresh_v=0.1):
         return str(value)
 
 
-def calculate_spectrum_helper(fit_model, plot_model, param_model):
+def calculate_spectrum_helper(fit_model, plot_model,
+                              param_model, setting_model):
     """
     Calculate spectrum, and update plotting and param_model.
     """
@@ -1278,8 +1305,12 @@ def calculate_spectrum_helper(fit_model, plot_model, param_model):
     param_model.update_name_list()
     param_model.EC.turn_on_all()
 
+    # update params for roi sum
+    setting_model.update_parameter(fit_model.param_dict)
 
-def apply_to_fit(param_model, plot_model, fit_model):
+
+def apply_to_fit(param_model, plot_model,
+                 fit_model, setting_model):
     """
     Update plot, and apply updated parameters to fitting process.
     """
@@ -1303,6 +1334,9 @@ def apply_to_fit(param_model, plot_model, fit_model):
     param_model.create_full_param()
     fit_model.update_default_param(param_model.param_new)
     fit_model.apply_default_param()
+
+    # update params for roi sum
+    setting_model.update_parameter(fit_model.param_dict)
 
 
 def get_energy(name):
