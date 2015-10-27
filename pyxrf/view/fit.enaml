@@ -458,7 +458,7 @@ enamldef FitView(DockItem): fit_view:
             constraints = [
                 vbox(
                     gb_advanced,
-                    hbox(lbl1, cb1, lbl3, cb3,spacer),
+                    hbox(lbl1, cb1, lbl3, cb3, spacer),
                     hbox(lbl2, cb2, lbl4, cb4, spacer),
                     hbox(pb_fit, fit_information),
                     gb_result,
@@ -540,9 +540,9 @@ enamldef FitView(DockItem): fit_view:
                     # update params for roi sum
                     setting_model.update_parameter(fit_model.param_dict)
 
-
             Label: fit_information:
                 text := fit_model.fit_info
+                foreground = 'red'
 
             #PushButton: pb_cal:
             #    text = 'Calculate Spectrum'
@@ -636,7 +636,7 @@ enamldef FitView(DockItem): fit_view:
             title = 'Fit spectrum of all individual pixels.'
             padding = Box(2, 2, 2, 2)
             constraints = [vbox(hbox(save_cb, lb1, fd1v, fd1h, lb2, fd2v, fd2h, spacer),
-                                hbox(fit_pixel, spacer, cb_tiff, cb_txt))]
+                                hbox(fit_pixel, pixel_fit_information, spacer, cb_tiff, cb_txt))]
             CheckBox: save_cb:
                 text = 'Save plots'
                 clicked ::
@@ -695,6 +695,11 @@ enamldef FitView(DockItem): fit_view:
                     img_model_adv.data_dict_keys = img_model_adv.data_dict.keys()
                     img_model_rgb.data_dict_keys = []
                     img_model_rgb.data_dict_keys = img_model_rgb.data_dict.keys()
+
+            Label: pixel_fit_information:
+                text := fit_model.pixel_fit_info
+                foreground = 'red'
+
             CheckBox: cb_tiff:
                 text = 'Save to tiff'
                 checkable = True
@@ -1122,14 +1127,14 @@ enamldef OtherSettingEdit(Window):
                             #        fit_model.pixel_fit_method = 0
                             #    if index == 1:
                             #        fit_model.pixel_bin = 4
-                        Label:
-                            text = 'Max iteration number'
-                        IntField:
-                            value := fit_model.fit_num
-                        Label:
-                            text = 'Convergence criterion'
-                        FloatField:
-                            value := fit_model.ftol
+                        #Label:
+                        #    text = 'Max iteration number'
+                        #IntField:
+                        #    value := fit_model.fit_num
+                        #Label:
+                        #    text = 'Convergence criterion'
+                        #FloatField:
+                        #    value := fit_model.ftol
                         Label:
                             text = 'Add const to background'
                         FloatField:

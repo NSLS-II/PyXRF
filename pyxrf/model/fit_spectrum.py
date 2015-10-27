@@ -146,6 +146,7 @@ class Fit1D(Atom):
     use_snip = Bool(True)
     bin_energy = Int(0)
     fit_info = Str()
+    pixel_fit_info = Str()
     save_tiff = Bool(False)
     save_txt = Bool(False)
 
@@ -419,7 +420,7 @@ class Fit1D(Atom):
             y0 = self.y0 - self.bg
 
         t0 = time.time()
-        self.fit_info = 'Fitting of summed spectrum starts.'
+        self.fit_info = 'Summed spectrum fitting is in process.'
         app.processEvents()
         logger.info('-------- '+self.fit_info+' --------')
 
@@ -461,7 +462,7 @@ class Fit1D(Atom):
 
         self.save_result()
         self.assign_fitting_result()
-        self.fit_info = 'Fitting of summed spectrum is done!'
+        self.fit_info = 'Summed spectrum fitting is done!'
         logger.info('-------- ' + self.fit_info + ' --------')
 
     def assign_fitting_result(self):
@@ -475,6 +476,7 @@ class Fit1D(Atom):
         This function performs single pixel fitting.
         Multiprocess is considered.
         """
+        app = QApplication.instance()
         raise_bg = self.raise_bg
         pixel_bin = self.pixel_bin
         comp_elastic_combine = True
@@ -489,7 +491,8 @@ class Fit1D(Atom):
 
         logger.info('-------- Fitting of single pixels starts. --------')
         t0 = time.time()
-
+        self.pixel_fit_info = 'Pixel fitting is in process.'
+        app.processEvents()
         result_map, calculation_info = single_pixel_fitting_controller(self.data_all,
                                                                        self.param_dict,
                                                                        method=pixel_fit,
@@ -534,6 +537,8 @@ class Fit1D(Atom):
 
         # get fitted spectrum and save them to figs
         if self.save_point is True:
+            self.pixel_fit_info = 'Saving output ...'
+            app.processEvents()
             elist = calculation_info['fit_name']
             matv = calculation_info['regression_mat']
             results = calculation_info['results']
@@ -569,6 +574,8 @@ class Fit1D(Atom):
             output_data(fpath, os.path.join(self.result_folder, output_n),
                         file_format='txt')
 
+        self.pixel_fit_info = 'Pixel fitting is done.'
+        app.processEvents()
         logger.info('-------- Fitting of single pixels is done! --------')
 
     def save_result(self, fname=None):
