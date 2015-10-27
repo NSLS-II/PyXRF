@@ -208,7 +208,6 @@ enamldef FitView(DockItem): fit_view:
                 text = 'Peak Int'
             FloatField: intensity_fd:
                 value := param_model.add_element_intensity
-                submit_triggers = ['auto_sync']
                 maximum_size = 60
 
             PushButton: manual_add:
@@ -242,7 +241,7 @@ enamldef FitView(DockItem): fit_view:
                 constraints = [vbox(scr_area_title,
                                     #hbox(manual_add),
                                     scr_area,
-                                    hbox(pb_update, spacer, pb_delete_unselected),
+                                    hbox(pb_update, spacer, pb_bound_delete, bound_field, pb_delete_unselected),
                                     #hbox(pb_update, spacer),
                                     )]
                 Container: scr_area_title:
@@ -364,7 +363,7 @@ enamldef FitView(DockItem): fit_view:
                                     maximum_size = 80
                                     background = 'white'
                                     #align = 'right'
-                                    minimum = 0.0
+                                    minimum = 0.00001
                                     submit_triggers = ['return_pressed']
                                     value ::
                                         apply_to_fit(param_model, plot_model, fit_model, setting_model)
@@ -393,17 +392,21 @@ enamldef FitView(DockItem): fit_view:
                                         plot_model.show_fit_opt = False
                                         plot_model.show_fit_opt = True
 
-                #PushButton: pb_bound_delete:
-                #    text = 'Delete lines < 0.1%'
-                #    maximum_size = 350
-                #    visible = True
-                #    clicked ::
-                #        param_model.EC.delete_value_given_threshold()
-                #        param_model.update_name_list()
-                #        param_model.data_for_plot()
-                #        plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
-                #        plot_model._fig.canvas.draw()
-
+                PushButton: pb_bound_delete:
+                    text = 'Delete Rel Int[%] < '
+                    maximum_size = 350
+                    visible = True
+                    clicked ::
+                        param_model.EC.delete_value_given_threshold(threshv=param_model.bound_val)
+                        param_model.update_name_list()
+                        apply_to_fit(param_model, plot_model, fit_model, setting_model)
+                        #param_model.data_for_plot()
+                        #plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
+                        #plot_model._fig.canvas.draw()
+                FloatField: bound_field:
+                    value := param_model.bound_val
+                    maximum_size = 40
+                    minimum = 0.00001
                 PushButton: pb_delete_unselected:
                     text = 'Delete not selected items'
                     maximum_size = 350
@@ -810,8 +813,7 @@ enamldef ElementEdit(Window):
             index := fit_model.selected_index
             #selected_item >> fit_model.selected_element
         Label: lbl1:
-            #text = '{:>16} {:>32} {:>32} {:>32} {:>16} {:>40}'.format('name', 'value', 'min', 'max', '  ',  '  '.join(fit_strategy_list))
-            text = '{:>16} {:>20} {:>26} {:>26} {:>26} {:>16}'.format('name','energy', 'value', 'min', 'max', '  ')
+            text = '{:>20} {:>20} {:>26} {:>26} {:>26} {:>16}'.format('name','energy', 'value', 'min', 'max', '  ')
         Label: lbl2:
             text = fit_strategy_list[0]
         Label: lbl3:
@@ -851,6 +853,7 @@ enamldef ElementEdit(Window):
                         ]
                         Label: energy_v:
                             text = get_energy(loop_item)
+                            minimum_size = (50, 20)
                         FloatField: ff_value:
                             value := fit_model.param_dict[loop_item]['value']
                             #minimum = fit_model.param_dict[loop_item]['min']
@@ -1342,4 +1345,4 @@ def apply_to_fit(param_model, plot_model,
 def get_energy(name):
     name_list = name.split('_')
     e = Element(name_list[0])
-    return str(e.emission_line[name_list[1]])
+    return str(np.around(e.emission_line[name_list[1]], decimals=4))
