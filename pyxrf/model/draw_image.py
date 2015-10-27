@@ -199,7 +199,7 @@ class DrawImageAdvanced(Atom):
                 self.items_in_selected_group = []
                 self.items_in_selected_group = self.dict_to_plot.keys()
                 self.set_stat_for_all(bool_val=False)
-        except:
+        except IndexError:
             pass
 
     # @observe('plot_item')
