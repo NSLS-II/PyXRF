@@ -201,6 +201,7 @@ class LinePlotModel(Atom):
             'background': {'color': 'indigo', 'marker': '+',
                            'markersize': 1, 'label': 'background'},
             'emission_line': {'color': 'red', 'linewidth': 2},
+            'roi_line': {'color': 'black', 'linewidth': 2},
             'k_line': {'color': 'green', 'label': 'k lines'},
             'l_line': {'color': 'magenta', 'label': 'l lines'},
             'm_line': {'color': 'brown', 'label': 'm lines'},
@@ -493,8 +494,8 @@ class LinePlotModel(Atom):
                 for linev in np.array([v.left_val, v.line_val, v.right_val])/1000.:
                     lineplot, = self._ax.plot([linev, linev],
                                               [0, 1*self.max_v],
-                                              color=self.plot_style['emission_line']['color'],
-                                              linewidth=self.plot_style['emission_line']['linewidth'])
+                                              color=self.plot_style['roi_line']['color'],
+                                              linewidth=self.plot_style['roi_line']['linewidth'])
                     if v.show_plot:
                         lineplot.set_visible(True)
                     else:
