@@ -353,7 +353,8 @@ class Fit1D(Atom):
         self.bg = snip_method(self.y0,
                               self.param_dict['e_offset']['value'],
                               self.param_dict['e_linear']['value'],
-                              self.param_dict['e_quadratic']['value'])
+                              self.param_dict['e_quadratic']['value'],
+                              width=self.param_dict['non_fitting_values']['background_width'])
 
     def get_profile(self):
         """
