@@ -48,9 +48,9 @@ from enaml.stdlib.fields import IntField as DefaultIntField
 import numpy as np
 
 try:
-    import dataportal
+    import databroker
 except ImportError:
-    dataportal = None
+    databroker = None
 
 enamldef IntField(DefaultIntField):
     submit_triggers = ['auto_sync'] #['return_pressed']
@@ -169,7 +169,7 @@ enamldef FileView(DockItem): file_view:
                     value := io_model.runid
 
                 PushButton: load_btn:
-                    enabled = dataportal is not None
+                    enabled = databroker is not None
                     text = "Load Data from Database"
                     clicked ::
                         io_model.load_data_runid()
