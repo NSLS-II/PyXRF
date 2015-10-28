@@ -53,6 +53,7 @@ from enaml.stdlib.fields import FloatField as DefaultFloatField
 from enaml.stdlib.fields import IntField as DefaultIntField
 
 from ..model.guessparam import fit_strategy_list, save_as, bound_options, autofit_param
+from ..model.fit_spectrum import get_cs
 from skxray.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 from skxray.fluorescence import XrfElement as Element
 
@@ -105,8 +106,8 @@ enamldef FitView(DockItem): fit_view:
                                 hbox(lbl_load, spacer),
                                 hbox(new_param_load, saveas_btn, lbl_param, spacer),
                                 #hbox(lbl_param, spacer),
-                                hbox(lbl_auto, spacer),
-                                hbox(pb_auto, spacer))
+                                hbox(lbl_auto, pb_auto, spacer),)
+                                #hbox(pb_auto, spacer))
                            ]
             Label: lbl_load:
                 text = 'Load elemental parameters from file.'
@@ -247,22 +248,22 @@ enamldef FitView(DockItem): fit_view:
                 Container: scr_area_title:
                     padding = Box(2, 2, 2, 2)
                     constraints = [vbox(
-                                       hbox(del_lb, z, name, energy, inten, norm, spacer),
+                                       hbox(del_lb, z, name, energy, inten, norm, cs_name, spacer),
                                        )
                                    ]
                     Label: del_lb:
-                        text = '{:>10}'.format(' ')
-                        minimum_size = (30, 20)
+                        text = '{:>4}'.format(' ')
+                        #minimum_size = (20, 20)
                     PushButton: z:
                         text = 'Z'
-                        minimum_size = (30, 20)
+                        minimum_size = (26, 20)
                         #background = 'white'
                         clicked ::
                             param_model.EC.order(option='z')
                             param_model.update_name_list()
                     PushButton: name:
                         text = 'Names'
-                        minimum_size = (120, 20)
+                        minimum_size = (80, 20)
                         maximum_size = 70
                         #background = 'white'
                         clicked ::
@@ -284,9 +285,13 @@ enamldef FitView(DockItem): fit_view:
                             param_model.update_name_list()
                     Label: norm:
                         text = 'Rel Int(%)'
-                        minimum_size = (80, 20)
+                        minimum_size = (60, 20)
                         #background = 'white'
                         align = 'center'
+                    Label: cs_name:
+                        text = 'CS'
+                        tool_tip = 'Cross Section [cm2/g]'
+                        minimum_size = (20, 20)
                     #PushButton: select_all:
                     #    text = 'Show All'
                     #    #maximum_size = 30
@@ -323,6 +328,7 @@ enamldef FitView(DockItem): fit_view:
 
                             PushButton: delete_btn:
                                 text = 'Del'
+                                maximum_size = 30
                                 clicked ::
                                     param_model.EC.delete_item(loop_item)
                                     #apply_to_fit(param_model, plot_model, fit_model)
@@ -341,7 +347,7 @@ enamldef FitView(DockItem): fit_view:
                             Container:
                                 padding = Box(2, 2, 2, 2)
                                 constraints = [hbox(delete_btn, lb_z, lb_name, lb_energy, lb_inten,
-                                                    lb_norm, select_cb, spacer),
+                                                    lb_norm, lb_cs, select_cb, spacer),
                                                     lb_norm.height==select_cb.height]
 
                                 Label: lb_z:
@@ -373,7 +379,9 @@ enamldef FitView(DockItem): fit_view:
                                     minimum_size = (60, 20)
                                     #background = 'white'
                                     align = 'center'
-
+                                Label: lb_cs:
+                                    text = str(get_cs(loop_item, fit_model.param_dict['coherent_sct_energy']['value']))
+                                    minimum_size = (40, 20)
                                 CheckBox: select_cb:
                                     checkable = True
                                     minimum_size = (20, 20)
@@ -1348,6 +1356,11 @@ def apply_to_fit(param_model, plot_model,
 
 
 def get_energy(name):
+    """
+    Calculate emission line for given element name.
+    """
+    if 'pileup' in name:  # for pileup peak
+        return '-'
     name_list = name.split('_')
     e = Element(name_list[0])
     return str(np.around(e.emission_line[name_list[1]], decimals=4))

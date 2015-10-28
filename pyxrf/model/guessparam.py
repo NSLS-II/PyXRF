@@ -260,7 +260,7 @@ class GuessParamModel(Atom):
     max_area_dig = Int(2)
     pileup_data = Dict()
     auto_fit_all = Dict()
-    bound_val = Float(0.1)
+    bound_val = Float(1.0)
 
     def __init__(self, **kwargs):
         try:
@@ -494,6 +494,7 @@ class GuessParamModel(Atom):
                               spectrum=data_out[e_name]*ratio_v,
                               maxv=self.pileup_data['intensity'],
                               norm=-1,
+                              status=True,    # for plotting
                               lbd_stat=False)
             logger.info('{} peak is added'.format(e_name))
         self.EC.add_to_dict({e_name: ps})

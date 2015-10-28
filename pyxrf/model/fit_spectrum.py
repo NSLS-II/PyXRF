@@ -574,7 +574,7 @@ class Fit1D(Atom):
             output_data(fpath, os.path.join(self.result_folder, output_n),
                         file_format='txt')
 
-        self.pixel_fit_info = 'Pixel fitting is done.'
+        self.pixel_fit_info = 'Pixel fitting is done!'
         app.processEvents()
         logger.info('-------- Fitting of single pixels is done! --------')
 
@@ -2019,3 +2019,40 @@ def roi_sum_multi_files(dir_path, file_prefix,
     pool.terminate()
     pool.join()
     return results
+
+
+def get_cs(elemental_line, eng=12, norm=False):
+    """
+    Calculate cross section in cm2/g.
+    Parameters
+    ----------
+    elemental_line: str
+        like Pt_L, Si_K
+    eng : float
+        incident energy in KeV
+    norm : bool, optional
+        normalized to the primary cs value or not.
+    """
+    if 'pileup' in elemental_line:
+        return '-'
+    elif '_K' in elemental_line:
+        name_label = 'ka1'
+        ename = elemental_line.split('_')[0]
+    elif '_L' in elemental_line:
+        name_label = 'la1'
+        ename = elemental_line.split('_')[0]
+    elif '_M' in elemental_line:
+        name_label = 'ma1'
+        ename = elemental_line.split('_')[0]
+    else:
+        return '-'
+
+    e = Element(ename)
+    sumv = 0
+    for line_name in e.cs(eng).keys():
+        if name_label[0] in line_name:
+            sumv += e.cs(eng)[line_name]
+    if norm is True:
+        return sumv/e.cs(eng)[name_label]
+    else:
+        return np.around(sumv, 2)
