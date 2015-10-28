@@ -53,17 +53,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 try:
-    #from dataportal import DataBroker as db
-    #from dataportal import StepScan as ss
-    #from dataportal import DataMuxer as dm
     from databroker.databroker import DataBroker as db, get_table
     # registers a filestore handler for the XSPRESS3 detector
-    from hxntools import detectors as hxndetectors
-except ImportError, e:
+    from hxntools import handlers as hxn_handlers
+except ImportError as e:
     db = None
-    ss = None
-    dm = None
-    logger.warning('dataportal and hxntools are not available: %s' % (e))
+    logger.error('databroker and hxntools are not available: %s', e)
 
 
 class FileIOModel(Atom):
@@ -140,11 +135,11 @@ class FileIOModel(Atom):
         """
         Load data according to runID number.
 
-        requires dataportal
+        requires databroker
         """
         if db is None:
-            raise RuntimeError("dataportal is not installed. This function "
-                               "is disabled.  To install dataportal, see "
+            raise RuntimeError("databroker is not installed. This function "
+                               "is disabled.  To install databroker, see "
                                "https://nsls-ii.github.io/install.html")
         if self.h_num != 0 and self.v_num != 0:
             datashape = [self.v_num, self.h_num]
@@ -289,7 +284,7 @@ def fetch_data_from_db(runid):
     """
     Read data from database.
 
-    .. note:: Requires the dataportal package from NSLS2
+    .. note:: Requires the databroker package from NSLS2
 
     Parameters
     ----------
@@ -329,7 +324,7 @@ def read_runid(runid, c_list, dshape=None):
     """
     Read data from databroker.
 
-    .. note:: Requires the dataportal package from NSLS2
+    .. note:: Requires the databroker package from NSLS2
 
     .. note:: Not currently used in the gui
 
@@ -1335,7 +1330,7 @@ def db_to_hdf(fpath, runid,
     """
     Read data from databroker, and save the data to hdf file.
 
-    .. note:: Requires the dataportal package from NSLS2
+    .. note:: Requires the databroker package from NSLS2
     .. note:: This should probably be moved to suitcase!
 
     Parameters
@@ -1437,7 +1432,7 @@ def make_hdf(fpath, runid, datashape, config_file=False):
     """
     Assume data is ready from databroker, so save the data to hdf file.
 
-    .. note:: Requires the dataportal package from NSLS2
+    .. note:: Requires the databroker package from NSLS2
 
     Parameters
     ----------
