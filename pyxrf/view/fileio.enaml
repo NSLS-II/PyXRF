@@ -191,12 +191,13 @@ enamldef FileView(DockItem): file_view:
                 constraints = [hbox(fit_lbl, cb_select, spacer)]
                 Label : fit_lbl:
                     text = 'Which channel data for fitting'
+                    foreground = 'blue'
                 ComboBox: cb_select:
                     items << ['Select Data '] + list(io_model.file_channel_list)
                     index = 0
                     index >> io_model.file_opt
                     minimum_size = (200, 16)
-                    background = 'grey'
+                    foreground = 'blue'
                     index ::
                         if index > 0:
                             pass
