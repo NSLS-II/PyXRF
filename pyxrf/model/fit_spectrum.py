@@ -552,7 +552,7 @@ class Fit1D(Atom):
             data_fit = calculation_info['exp_data']
 
             p1 = [self.point1v, self.point1h]
-            p2 = [self.point2v, self.point2v]
+            p2 = [self.point2v, self.point2h]
             prefix = self.save_name.split('.')[0]
             output_folder = os.path.join(self.result_folder, prefix+'_pixel_fit')
             if os.path.exists(output_folder) is False:
@@ -1098,31 +1098,35 @@ def save_fitted_fig(x_v, matv, results,
 def save_fitted_as_movie(x_v, matv, results,
                          p1, p2, data_all, param_dict,
                          result_folder, use_sinp=False):
+    """
+    Create movie to save single pixel fitting resutls.
+    """
     dpi = 100
     low_limit_v = 0.5
+    total_n = data_all.shape[1]*p2[0]
 
     fig, ax = plt.subplots(nrows=1, ncols=1)
     ax.set_aspect('equal')
-    #ax.get_xaxis().set_visible(False)
-    #ax.get_yaxis().set_visible(False)
     ax.set_xlabel('Energy [keV]')
     ax.set_ylabel('Counts')
     max_v = np.max(data_all[p1[0]:p2[0], p1[1]:p2[1], :])
-    #l1,  = ax.semilogy(x_v, np.ones_like(x_v), label='exp', linestyle='', marker='.')
-    #l2,  = ax.semilogy(x_v, np.ones_like(x_v), label='fit')
+    ax.set_ylim([0, 2.0*max_v])
+
     l1,  = ax.plot(x_v,  x_v, label='exp', linestyle='', marker='.')
     l2,  = ax.plot(x_v,  x_v, label='fit')
 
     fitted_sum = None
-    #for m in range(p1[0], p2[0]):
-    #    for n in range(p1[1], p2[1]):
-    def update_img(total_size):
-        #m = input_v['m']
-        #n = input_v['n']
-        m = total_size / 100
-        n = total_size % 100
-        #for m in range(total_n):
-        #    for n in range(total_n):
+    plist = []
+    for v in range(total_n):
+        m = v / data_all.shape[1]
+        n = v % data_all.shape[1]
+        if m>=p1[0] and m<=p2[0] and n>=p1[1] and n<=p2[1]:
+            plist.append((m,n))
+
+    def update_img(p_val):
+        m = p_val[0]
+        n = p_val[1]
+
         data_y = data_all[m, n, :]
 
         fitted_y = np.sum(matv*results[m, n, :], axis=1)
@@ -1134,42 +1138,13 @@ def save_fitted_as_movie(x_v, matv, results,
                              width=param_dict['non_fitting_values']['background_width'])
             fitted_y += bg
 
-        # if fitted_sum is None:
-        #     fitted_sum = fitted_y
-        # else:
-        #     fitted_sum += fitted_y
-        #ax.cla()
-        #ax.set_title('Single pixel fitting for point ({}, {})'.format(m, n))
-        #ax.set_xlabel('Energy [keV]')
-        #ax.set_ylabel('Counts')
+        ax.set_title('Single pixel fitting for point ({}, {})'.format(m, n))
         #ax.set_ylim(low_limit_v, max_v*2)
-
-        #l.semilogy(x_v, data_y, label='exp', linestyle='', marker='.')
-        #ax.semilogy(x_v, fitted_y, label='fit')
-        #ax.legend()
         l1.set_ydata(data_y)
         l2.set_ydata(fitted_y)
         return l1, l2
 
-                #output_path = os.path.join(result_folder,
-                #                           'data_out_'+str(m)+'_'+str(n)+'.png')
-                #plt.savefig(output_path)
-
-    #ax.cla()
-    # sum_y = np.sum(data_all[p1[0]:p2[0], p1[1]:p2[1], :], axis=(0, 1))
-    # ax.set_title('Summed spectrum from point ({},{}) '
-    #              'to ({},{})'.format(p1[0], p1[1], p2[0], p2[1]))
-    # ax.set_xlabel('Energy [keV]')
-    # ax.set_ylabel('Counts')
-    # ax.set_ylim(low_limit_v, np.max(sum_y)*2)
-    # ax.semilogy(x_v, sum_y, label='exp', linestyle='', marker='.')
-    # ax.semilogy(x_v, fitted_sum, label='fit')
-
-    # ax.legend()
-    # fit_sum_name = 'pixel_sum_'+str(p1[0])+'-'+str(p1[1])+'_'+str(p2[0])+'-'+str(p2[1])+'.png'
-    # output_path = os.path.join(result_folder, fit_sum_name)
-    # plt.savefig(output_path)
-    ani = animation.FuncAnimation(fig, update_img, 1000)
+    ani = animation.FuncAnimation(fig, update_img, plist)
     writer = animation.writers['ffmpeg'](fps=30)
     output_n = os.path.join(result_folder, 'pixel_fit.mp4')
     ani.save(output_n, writer=writer, dpi=dpi)
