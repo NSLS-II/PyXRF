@@ -39,6 +39,7 @@ from __future__ import (absolute_import, division,
 __author__ = 'Li Li'
 
 import six
+import sys
 import h5py
 import numpy as np
 import os
@@ -266,18 +267,15 @@ class SpectrumCalculator(object):
 
 
 def file_handler(working_directory, file_names):
-    # be alter: to be update, temporary use!!!
-    if '.h5' in file_names[0] or '.hdf5' in file_names[0]:
-        #logger.info('Load APS 13IDE data format.')
+    # send information on GUI level later !
+    try:
         return read_hdf_APS(working_directory, file_names[0])
-    elif 'bnp' in file_names[0]:
-        logger.info('Load APS 2IDE data format.')
-        read_MAPS(working_directory, file_names)
-    elif '.npy' in file_names[0]:
-        # temporary use
-        read_numpy_data(working_directory, file_names)
-    else:
-        read_hdf_HXN(working_directory, file_names)
+    except IOError as e:
+        logger.error("I/O error({0}): {1}".format(e.errno, e.strerror))
+        logger.error('Please select .h5 file')
+    except:
+        logger.error("Unexpected error:", sys.exc_info()[0])
+        raise
 
 
 def fetch_data_from_db(runid):

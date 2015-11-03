@@ -803,16 +803,36 @@ def bin_data_pixel(data, nearest_n=4):
 
 
 def bin_data_spacial(data, bin_size=4):
+    """
+    Bin 2D/3D data based on first and second dim, i.e., 2 by 2 window, or 4 by 4.
+
+    Parameters
+    ----------
+    data : array
+        2D or 3D dataset
+    bin_size : int
+        window size. 2 means 2 by 2 window
+    """
     if bin_size <= 1:
         return data
 
-    d_shape = np.array([data.shape[0], data.shape[1]])/bin_size
+    data = np.asarray(data)
+    if data.ndim == 2:
+        d_shape = np.array([data.shape[0], data.shape[1]])/bin_size
 
-    data_new = np.zeros([d_shape[0], d_shape[1], data.shape[2]])
-    for i in np.arange(d_shape[0]):
-        for j in np.arange(d_shape[1]):
-            data_new[i, j, :] = np.sum(data[i*bin_size:i*bin_size+bin_size,
-                                            j*bin_size:j*bin_size+bin_size, :], axis=(0, 1))
+        data_new = np.zeros([d_shape[0], d_shape[1]])
+        for i in np.arange(d_shape[0]):
+            for j in np.arange(d_shape[1]):
+                data_new[i, j] = np.sum(data[i*bin_size:i*bin_size+bin_size,
+                                             j*bin_size:j*bin_size+bin_size])
+    elif data.ndim == 3:
+        d_shape = np.array([data.shape[0], data.shape[1]])/bin_size
+
+        data_new = np.zeros([d_shape[0], d_shape[1], data.shape[2]])
+        for i in np.arange(d_shape[0]):
+            for j in np.arange(d_shape[1]):
+                data_new[i, j, :] = np.sum(data[i*bin_size:i*bin_size+bin_size,
+                                                j*bin_size:j*bin_size+bin_size, :], axis=(0, 1))
     return data_new
 
 
@@ -1144,7 +1164,7 @@ def save_fitted_as_movie(x_v, matv, results,
     # ax.set_ylim(low_limit_v, np.max(sum_y)*2)
     # ax.semilogy(x_v, sum_y, label='exp', linestyle='', marker='.')
     # ax.semilogy(x_v, fitted_sum, label='fit')
-    #
+
     # ax.legend()
     # fit_sum_name = 'pixel_sum_'+str(p1[0])+'-'+str(p1[1])+'_'+str(p2[0])+'-'+str(p2[1])+'.png'
     # output_path = os.path.join(result_folder, fit_sum_name)
