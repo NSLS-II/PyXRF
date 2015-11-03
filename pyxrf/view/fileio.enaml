@@ -216,7 +216,7 @@ enamldef FileView(DockItem): file_view:
                     Looper: looper:
                         iterable << io_model.file_channel_list
                         GroupBox:
-                            title = '{}, data shape: {}'.format(loop_item, io_model.data_sets[loop_item].raw_data.shape)
+                            title = '{}, data shape: {}, total counts: {}'.format(loop_item, io_model.data_sets[loop_item].raw_data.shape, int(np.sum(io_model.data_sets[loop_item].raw_data)))
                             #title_align = 'center'
                             #constraints = [hbox(cb, lb1, fd1, lb2, fd2, spacer)]
                             constraints = [hbox(rb_1, rb_2, rb_3, rb_4, lb1, fd1, lb2, fd2, spacer)]
