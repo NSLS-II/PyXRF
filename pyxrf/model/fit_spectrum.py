@@ -486,6 +486,8 @@ class Fit1D(Atom):
         use_snip = self.use_snip
         bin_energy = self.bin_energy
 
+        create_fig = False  # save pixel fit as fig
+
         if self.pixel_fit_method == 0:
             pixel_fit = 'nnls'
         elif self.pixel_fit_method == 1:
@@ -553,21 +555,20 @@ class Fit1D(Atom):
 
             p1 = [self.point1v, self.point1h]
             p2 = [self.point2v, self.point2h]
-            prefix = self.save_name.split('.')[0]
-            output_folder = os.path.join(self.result_folder, prefix+'_pixel_fit')
-            if os.path.exists(output_folder) is False:
-                os.mkdir(output_folder)
-            logger.info('Saving plots for single pixels ...')
 
-            # last two columns of results are snip_bg, and chisq2 if nnls is used
-            # save_fitted_fig(x, matv, results[:, :, 0:len(elist)],
-            #                 p1, p2,
-            #                 data_fit, self.param_dict,
-            #                 output_folder, use_sinp=use_snip)
+            if create_fig is True:
+                output_folder = os.path.join(self.result_folder, prefix_fname+'_pixel_fit')
+                if os.path.exists(output_folder) is False:
+                    os.mkdir(output_folder)
+                save_fitted_fig(x, matv, results[:, :, 0:len(elist)],
+                                p1, p2,
+                                data_fit, self.param_dict,
+                                output_folder, use_sinp=use_snip)
+
             save_fitted_as_movie(x, matv, results[:, :, 0:len(elist)],
                                  p1, p2,
                                  data_fit, self.param_dict,
-                                 output_folder, use_sinp=use_snip)
+                                 self.result_folder, prefix=fit_name, use_sinp=use_snip)
             logger.info('Done with saving fitting plots.')
 
         if self.save_tiff:
@@ -1039,7 +1040,9 @@ def calculate_area(e_select, matv, results,
 def save_fitted_fig(x_v, matv, results,
                     p1, p2, data_all, param_dict,
                     result_folder, use_sinp=False):
-
+    """
+    Save single pixel fitting resutls to figs.
+    """
     low_limit_v = 0.5
 
     fig, ax = plt.subplots(nrows=1, ncols=1)
@@ -1087,7 +1090,7 @@ def save_fitted_fig(x_v, matv, results,
     ax.set_ylabel('Counts')
     ax.set_ylim(low_limit_v, np.max(sum_y)*2)
     ax.semilogy(x_v, sum_y, label='exp', linestyle='', marker='.')
-    ax.semilogy(x_v, fitted_sum, label='fit')
+    ax.semilogy(x_v, fitted_sum, label='fit', color='red')
 
     ax.legend()
     fit_sum_name = 'pixel_sum_'+str(p1[0])+'-'+str(p1[1])+'_'+str(p2[0])+'-'+str(p2[1])+'.png'
@@ -1097,12 +1100,10 @@ def save_fitted_fig(x_v, matv, results,
 
 def save_fitted_as_movie(x_v, matv, results,
                          p1, p2, data_all, param_dict,
-                         result_folder, use_sinp=False):
+                         result_folder, prefix=None, use_sinp=False, dpi=150):
     """
     Create movie to save single pixel fitting resutls.
     """
-    dpi = 100
-    low_limit_v = 0.5
     total_n = data_all.shape[1]*p2[0]
 
     fig, ax = plt.subplots(nrows=1, ncols=1)
@@ -1110,10 +1111,10 @@ def save_fitted_as_movie(x_v, matv, results,
     ax.set_xlabel('Energy [keV]')
     ax.set_ylabel('Counts')
     max_v = np.max(data_all[p1[0]:p2[0], p1[1]:p2[1], :])
-    ax.set_ylim([0, 2.0*max_v])
+    ax.set_ylim([0, 1.1*max_v])
 
-    l1,  = ax.plot(x_v,  x_v, label='exp', linestyle='', marker='.')
-    l2,  = ax.plot(x_v,  x_v, label='fit')
+    l1,  = ax.plot(x_v,  x_v, label='exp', linestyle='-', marker='.')
+    l2,  = ax.plot(x_v,  x_v, label='fit', color='red', linewidth=2)
 
     fitted_sum = None
     plist = []
@@ -1126,7 +1127,6 @@ def save_fitted_as_movie(x_v, matv, results,
     def update_img(p_val):
         m = p_val[0]
         n = p_val[1]
-
         data_y = data_all[m, n, :]
 
         fitted_y = np.sum(matv*results[m, n, :], axis=1)
@@ -1146,8 +1146,12 @@ def save_fitted_as_movie(x_v, matv, results,
 
     ani = animation.FuncAnimation(fig, update_img, plist)
     writer = animation.writers['ffmpeg'](fps=30)
-    output_n = os.path.join(result_folder, 'pixel_fit.mp4')
-    ani.save(output_n, writer=writer, dpi=dpi)
+    if prefix:
+        output_file = prefix+'_pixel.mp4'
+    else:
+        output_file = 'fit_pixel.mp4'
+    output_p = os.path.join(result_folder, output_file)
+    ani.save(output_p, writer=writer, dpi=dpi)
 
 
 def fit_per_line_nnls(row_num, data,
