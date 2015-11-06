@@ -1144,8 +1144,8 @@ def save_fitted_as_movie(x_v, matv, results,
         l2.set_ydata(fitted_y)
         return l1, l2
 
-    ani = animation.FuncAnimation(fig, update_img, plist)
     writer = animation.writers['ffmpeg'](fps=30)
+    ani = animation.FuncAnimation(fig, update_img, plist)
     if prefix:
         output_file = prefix+'_pixel.mp4'
     else:

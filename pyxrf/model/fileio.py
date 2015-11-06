@@ -48,7 +48,7 @@ import pandas as pd
 import json
 import skimage.io as sio
 
-from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float
+from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float, Bool
 
 import logging
 logger = logging.getLogger(__name__)
@@ -101,9 +101,13 @@ class FileIOModel(Atom):
     data_all = Typed(np.ndarray)
     selected_file_name = Str()
     file_name = Str()
+    mask_data = Typed(object)
+    mask_name = Str()
+    mask_opt = Bool(False)
 
     def __init__(self, **kwargs):
         self.working_directory = kwargs['working_directory']
+        self.mask_data = None
         #self.output_directory = kwargs['output_directory']
         #with self.suppress_notifications():
         #    self.working_directory = working_directory
@@ -152,7 +156,7 @@ class FileIOModel(Atom):
                          datashape, config_file)
         self.file_names = [fname]
 
-    @observe('file_opt')
+    @observe('file_opt', 'mask_name', 'mask_opt')
     def choose_file(self, change):
         if self.file_opt == 0:
             return
@@ -168,10 +172,29 @@ class FileIOModel(Atom):
 
         # spectrum is averaged in terms of pixel size,
         # fit doesn't work well if spectrum value is too large.
-        spectrum = self.data_sets[names[self.file_opt-1]].get_sum()
+
+        # load mask data
+        if len(self.mask_name) > 0 and self.mask_opt is True:
+            mask_file = os.path.join(self.working_directory, self.mask_name)
+            self.mask_data = np.load(mask_file)
+        else:
+            self.mask_data = None
+
+        spectrum = self.data_sets[names[self.file_opt-1]].get_sum(mask=self.mask_data)
+        print(np.sum(spectrum))
         #self.data = spectrum/np.max(spectrum)
         #self.data = spectrum/(self.data_all.shape[0]*self.data_all.shape[1])
         self.data = spectrum
+
+    # @observe('mask_name')
+    # def load_mask_data(self, change):
+    #     if change['type'] != 'create':
+    #         mask_file = os.path.join(self.working_directory, self.mask_name)
+    #         self.mask_data = np.load(mask_file)
+    #         spectrum = self.data_sets[names[self.file_opt-1]].get_sum(mask=self.mask_data)
+    #         print(np.sum(spectrum))
+    #         self.data = spectrum
+
 
 
 plot_as = ['Sum', 'Point', 'Roi']
@@ -220,9 +243,9 @@ class DataSelection(Atom):
                                     pos2=self.point2)
             self.data = SC.get_spectrum()
 
-    def get_sum(self):
+    def get_sum(self, mask=None):
         SC = SpectrumCalculator(self.raw_data)
-        return SC.get_spectrum()
+        return SC.get_spectrum(mask=mask)
 
 
 class SpectrumCalculator(object):
@@ -256,14 +279,25 @@ class SpectrumCalculator(object):
             return pos
         return [int(v) for v in pos.split(',')]
 
-    def get_spectrum(self):
-        if not self.pos1 and not self.pos2:
-            return np.sum(self.data, axis=(0, 1))
-        elif self.pos1 and not self.pos2:
-            return self.data[self.pos1[0], self.pos1[1], :]
+    def get_spectrum(self, mask=None):
+        """
+        Get roi sum from point positions, or from mask file.
+        """
+        if mask is None:
+            if not self.pos1 and not self.pos2:
+                return np.sum(self.data, axis=(0, 1))
+            elif self.pos1 and not self.pos2:
+                return self.data[self.pos1[0], self.pos1[1], :]
+            else:
+                return np.sum(self.data[self.pos1[0]:self.pos2[0], self.pos1[1]:self.pos2[1], :],
+                              axis=(0, 1))
         else:
-            return np.sum(self.data[self.pos1[0]:self.pos2[0], self.pos1[1]:self.pos2[1], :],
-                          axis=(0, 1))
+            spectrum_sum = np.zeros(self.data.shape[2])
+            for i in range(self.data.shape[0]):
+                for j in range(self.data.shape[1]):
+                    if mask[i,j] > 0:
+                        spectrum_sum += self.data[i, j, :]
+            return spectrum_sum
 
 
 def file_handler(working_directory, file_names):
