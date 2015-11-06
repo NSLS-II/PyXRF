@@ -158,6 +158,20 @@ class FileIOModel(Atom):
 
     @observe('file_opt', 'mask_name', 'mask_opt')
     def choose_file(self, change):
+        # load mask data
+        if len(self.mask_name) > 0 and self.mask_opt is True:
+            mask_file = os.path.join(self.working_directory, self.mask_name)
+            try:
+                self.mask_data = np.load(mask_file)
+            except IOError:
+                self.mask_data = np.loadtxt(mask_file)
+
+            for k in six.iterkeys(self.img_dict):
+                if 'fit' in k:
+                    self.img_dict[k][self.mask_name] = self.mask_data
+        else:
+            self.mask_data = None
+
         if self.file_opt == 0:
             return
 
@@ -172,13 +186,6 @@ class FileIOModel(Atom):
 
         # spectrum is averaged in terms of pixel size,
         # fit doesn't work well if spectrum value is too large.
-
-        # load mask data
-        if len(self.mask_name) > 0 and self.mask_opt is True:
-            mask_file = os.path.join(self.working_directory, self.mask_name)
-            self.mask_data = np.load(mask_file)
-        else:
-            self.mask_data = None
 
         spectrum = self.data_sets[names[self.file_opt-1]].get_sum(mask=self.mask_data)
         print(np.sum(spectrum))
