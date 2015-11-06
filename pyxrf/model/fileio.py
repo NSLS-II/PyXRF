@@ -1158,7 +1158,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
                     roi_dict={'Pt_9300_9600': ['Ch1 [9300:9600]', 'Ch2 [9300:9600]', 'Ch3 [9300:9600]']},
                     pos_list=('ssx[um]', 'ssy[um]'),
                     scaler_list=('sclr1_ch3', 'sclr1_ch4'),
-                    flip=False):
+                    pyramid=False):
     """
     Assume data is obained from databroker, and save the data to hdf file.
 
@@ -1208,7 +1208,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
         new_data = new_data.reshape([datashape[0], datashape[1],
                                      len(channel_data[1])])
-        if flip is True:
+        if pyramid is True:
             new_data = flip_data(new_data)
 
         if 'counts' in dataGrp:
@@ -1224,7 +1224,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
     sum_data = sum_data.reshape([datashape[0], datashape[1],
                                  len(channel_data[1])])
-    if flip is True:
+    if pyramid is True:
         sum_data = flip_data(sum_data)
 
     if 'counts' in dataGrp:
@@ -1265,7 +1265,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     for i in range(pos_data.shape[0]):
         data_temp[i,:,:] = np.rot90(pos_data[i,:,:], k=3)
 
-    if flip is True:
+    if pyramid is True:
         data_temp = flip_data(data_temp)
 
     dataGrp.create_dataset('name', data=pos_names)
@@ -1280,7 +1280,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     scaler_names, scaler_data = get_name_value_from_db(scaler_list, data,
                                                        datashape)
 
-    if flip is True:
+    if pyramid is True:
         scaler_data = flip_data(scaler_data)
 
     if 'val' in dataGrp:
@@ -1442,7 +1442,7 @@ def get_scaler_list_hxn(all_keys):
 
 def data_to_hdf_config(fpath, data,
                        datashape, config_file=False,
-                       flip=False):
+                       pyramid=False):
     """
     Assume data is ready from databroker, so save the data to hdf file.
 
@@ -1469,12 +1469,12 @@ def data_to_hdf_config(fpath, data,
                         roi_dict=roi_dict,
                         pos_list=config_data['pos_list'],
                         scaler_list=scaler_list,
-                        flip=flip)
+                        pyramid=pyramid)
     else:
-        write_db_to_hdf(fpath, data, datashape)
+        write_db_to_hdf(fpath, data, datashape, pyramid=pyramid)
 
 
-def make_hdf(fpath, runid, datashape, config_file=False, flip=False):
+def make_hdf(fpath, runid, datashape, config_file=False, pyramid=False):
     """
     Assume data is ready from databroker, so save the data to hdf file.
 
@@ -1494,4 +1494,4 @@ def make_hdf(fpath, runid, datashape, config_file=False, flip=False):
     print('Loading data from database.')
     data = fetch_data_from_db(runid)
     print('Save data to hdf file.')
-    data_to_hdf_config(fpath, data, datashape, config_file=config_file, flip=flip)
+    data_to_hdf_config(fpath, data, datashape, config_file=config_file, pyramid=pyramid)
