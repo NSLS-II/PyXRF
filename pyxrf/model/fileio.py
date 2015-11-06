@@ -1157,7 +1157,8 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
                     det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
                     roi_dict={'Pt_9300_9600': ['Ch1 [9300:9600]', 'Ch2 [9300:9600]', 'Ch3 [9300:9600]']},
                     pos_list=('ssx[um]', 'ssy[um]'),
-                    scaler_list=('sclr1_ch3', 'sclr1_ch4')):
+                    scaler_list=('sclr1_ch3', 'sclr1_ch4'),
+                    flip=False):
     """
     Assume data is obained from databroker, and save the data to hdf file.
 
@@ -1207,6 +1208,8 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
         new_data = new_data.reshape([datashape[0], datashape[1],
                                      len(channel_data[1])])
+        if flip is True:
+            new_data = flip_data(new_data)
 
         if 'counts' in dataGrp:
             del dataGrp['counts']
@@ -1221,6 +1224,8 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
     sum_data = sum_data.reshape([datashape[0], datashape[1],
                                  len(channel_data[1])])
+    if flip is True:
+        sum_data = flip_data(sum_data)
 
     if 'counts' in dataGrp:
         del dataGrp['counts']
@@ -1240,6 +1245,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
         pos_list = ('ssx', 'ssy')  # name is different for hxn step scan
         pos_names, pos_data = get_name_value_from_db(pos_list, data,
                                                      datashape)
+
     for i in range(len(pos_names)):
         if 'x' in pos_names[i]:
             pos_names[i] = 'x_pos'
@@ -1259,6 +1265,9 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     for i in range(pos_data.shape[0]):
         data_temp[i,:,:] = np.rot90(pos_data[i,:,:], k=3)
 
+    if flip is True:
+        data_temp = flip_data(data_temp)
+
     dataGrp.create_dataset('name', data=pos_names)
     dataGrp.create_dataset('pos', data=data_temp)
 
@@ -1270,6 +1279,9 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
     scaler_names, scaler_data = get_name_value_from_db(scaler_list, data,
                                                        datashape)
+
+    if flip is True:
+        scaler_data = flip_data(scaler_data)
 
     if 'val' in dataGrp:
         del dataGrp['val']
@@ -1429,7 +1441,8 @@ def get_scaler_list_hxn(all_keys):
 
 
 def data_to_hdf_config(fpath, data,
-                       datashape, config_file=False):
+                       datashape, config_file=False,
+                       flip=False):
     """
     Assume data is ready from databroker, so save the data to hdf file.
 
@@ -1455,12 +1468,13 @@ def data_to_hdf_config(fpath, data,
                         det_list=config_data['xrf_detector'],
                         roi_dict=roi_dict,
                         pos_list=config_data['pos_list'],
-                        scaler_list=scaler_list)
+                        scaler_list=scaler_list,
+                        flip=flip)
     else:
         write_db_to_hdf(fpath, data, datashape)
 
 
-def make_hdf(fpath, runid, datashape, config_file=False):
+def make_hdf(fpath, runid, datashape, config_file=False, flip=False):
     """
     Assume data is ready from databroker, so save the data to hdf file.
 
@@ -1480,4 +1494,4 @@ def make_hdf(fpath, runid, datashape, config_file=False):
     print('Loading data from database.')
     data = fetch_data_from_db(runid)
     print('Save data to hdf file.')
-    data_to_hdf_config(fpath, data, datashape, config_file=config_file)
+    data_to_hdf_config(fpath, data, datashape, config_file=config_file, flip=flip)
