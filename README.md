@@ -19,7 +19,7 @@ Better documentation will be ready soon!
 
 ## Installation from Conda
 
-### Linux/Mac
+### Linux/Mac (No EI Captain)
 
 #### Installation
 Currently PyXRF only works for python2.0+, not python3.0.
