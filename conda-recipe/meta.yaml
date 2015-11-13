@@ -22,7 +22,7 @@ requirements:
   run:
     - enaml
     - h5py
-    - matplotlib
+    - matplotlib ==1.4.3
     - numpy
     - pandas
     - python
