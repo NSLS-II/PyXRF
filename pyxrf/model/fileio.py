@@ -39,6 +39,7 @@ from __future__ import (absolute_import, division,
 __author__ = 'Li Li'
 
 import six
+import sys
 import h5py
 import numpy as np
 import os
@@ -47,7 +48,7 @@ import pandas as pd
 import json
 import skimage.io as sio
 
-from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float
+from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float, Bool
 
 import logging
 logger = logging.getLogger(__name__)
@@ -100,9 +101,13 @@ class FileIOModel(Atom):
     data_all = Typed(np.ndarray)
     selected_file_name = Str()
     file_name = Str()
+    mask_data = Typed(object)
+    mask_name = Str()
+    mask_opt = Bool(False)
 
     def __init__(self, **kwargs):
         self.working_directory = kwargs['working_directory']
+        self.mask_data = None
         #self.output_directory = kwargs['output_directory']
         #with self.suppress_notifications():
         #    self.working_directory = working_directory
@@ -151,8 +156,22 @@ class FileIOModel(Atom):
                          datashape, config_file)
         self.file_names = [fname]
 
-    @observe('file_opt')
+    @observe('file_opt', 'mask_name', 'mask_opt')
     def choose_file(self, change):
+        # load mask data
+        if len(self.mask_name) > 0 and self.mask_opt is True:
+            mask_file = os.path.join(self.working_directory, self.mask_name)
+            try:
+                self.mask_data = np.load(mask_file)
+            except IOError:
+                self.mask_data = np.loadtxt(mask_file)
+
+            for k in six.iterkeys(self.img_dict):
+                if 'fit' in k:
+                    self.img_dict[k][self.mask_name] = self.mask_data
+        else:
+            self.mask_data = None
+
         if self.file_opt == 0:
             return
 
@@ -167,10 +186,21 @@ class FileIOModel(Atom):
 
         # spectrum is averaged in terms of pixel size,
         # fit doesn't work well if spectrum value is too large.
-        spectrum = self.data_sets[names[self.file_opt-1]].get_sum()
+
+        spectrum = self.data_sets[names[self.file_opt-1]].get_sum(mask=self.mask_data)
         #self.data = spectrum/np.max(spectrum)
         #self.data = spectrum/(self.data_all.shape[0]*self.data_all.shape[1])
         self.data = spectrum
+
+    # @observe('mask_name')
+    # def load_mask_data(self, change):
+    #     if change['type'] != 'create':
+    #         mask_file = os.path.join(self.working_directory, self.mask_name)
+    #         self.mask_data = np.load(mask_file)
+    #         spectrum = self.data_sets[names[self.file_opt-1]].get_sum(mask=self.mask_data)
+    #         print(np.sum(spectrum))
+    #         self.data = spectrum
+
 
 
 plot_as = ['Sum', 'Point', 'Roi']
@@ -219,9 +249,9 @@ class DataSelection(Atom):
                                     pos2=self.point2)
             self.data = SC.get_spectrum()
 
-    def get_sum(self):
+    def get_sum(self, mask=None):
         SC = SpectrumCalculator(self.raw_data)
-        return SC.get_spectrum()
+        return SC.get_spectrum(mask=mask)
 
 
 class SpectrumCalculator(object):
@@ -255,29 +285,37 @@ class SpectrumCalculator(object):
             return pos
         return [int(v) for v in pos.split(',')]
 
-    def get_spectrum(self):
-        if not self.pos1 and not self.pos2:
-            return np.sum(self.data, axis=(0, 1))
-        elif self.pos1 and not self.pos2:
-            return self.data[self.pos1[0], self.pos1[1], :]
+    def get_spectrum(self, mask=None):
+        """
+        Get roi sum from point positions, or from mask file.
+        """
+        if mask is None:
+            if not self.pos1 and not self.pos2:
+                return np.sum(self.data, axis=(0, 1))
+            elif self.pos1 and not self.pos2:
+                return self.data[self.pos1[0], self.pos1[1], :]
+            else:
+                return np.sum(self.data[self.pos1[0]:self.pos2[0], self.pos1[1]:self.pos2[1], :],
+                              axis=(0, 1))
         else:
-            return np.sum(self.data[self.pos1[0]:self.pos2[0], self.pos1[1]:self.pos2[1], :],
-                          axis=(0, 1))
+            spectrum_sum = np.zeros(self.data.shape[2])
+            for i in range(self.data.shape[0]):
+                for j in range(self.data.shape[1]):
+                    if mask[i,j] > 0:
+                        spectrum_sum += self.data[i, j, :]
+            return spectrum_sum
 
 
 def file_handler(working_directory, file_names):
-    # be alter: to be update, temporary use!!!
-    if '.h5' in file_names[0] or '.hdf5' in file_names[0]:
-        #logger.info('Load APS 13IDE data format.')
+    # send information on GUI level later !
+    try:
         return read_hdf_APS(working_directory, file_names[0])
-    elif 'bnp' in file_names[0]:
-        logger.info('Load APS 2IDE data format.')
-        read_MAPS(working_directory, file_names)
-    elif '.npy' in file_names[0]:
-        # temporary use
-        read_numpy_data(working_directory, file_names)
-    else:
-        read_hdf_HXN(working_directory, file_names)
+    except IOError as e:
+        logger.error("I/O error({0}): {1}".format(e.errno, e.strerror))
+        logger.error('Please select .h5 file')
+    except:
+        logger.error("Unexpected error:", sys.exc_info()[0])
+        raise
 
 
 def fetch_data_from_db(runid):
@@ -863,7 +901,13 @@ def read_hdf_APS(working_directory,
             pos_name = data['positions/name']
             temp = {}
             for i, n in enumerate(pos_name):
-                temp[n] = data['positions/pos'].value[i, :]
+                if i==0:
+                    #d = flip_data(data['positions/pos'].value[i, :])
+                    temp[n] = np.fliplr(data['positions/pos'].value[i, :])
+                else:
+                    # temp[n] = np.flipud(data['positions/pos'].value[i, :])
+                    temp[n] = data['positions/pos'].value[i, :]
+
             img_dict['positions'] = temp
 
     return img_dict, data_sets
@@ -1125,7 +1169,8 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
                     det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
                     roi_dict={'Pt_9300_9600': ['Ch1 [9300:9600]', 'Ch2 [9300:9600]', 'Ch3 [9300:9600]']},
                     pos_list=('ssx[um]', 'ssy[um]'),
-                    scaler_list=('sclr1_ch3', 'sclr1_ch4')):
+                    scaler_list=('sclr1_ch3', 'sclr1_ch4'),
+                    pyramid=False):
     """
     Assume data is obained from databroker, and save the data to hdf file.
 
@@ -1175,6 +1220,8 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
         new_data = new_data.reshape([datashape[0], datashape[1],
                                      len(channel_data[1])])
+        if pyramid is True:
+            new_data = flip_data(new_data)
 
         if 'counts' in dataGrp:
             del dataGrp['counts']
@@ -1189,6 +1236,8 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
     sum_data = sum_data.reshape([datashape[0], datashape[1],
                                  len(channel_data[1])])
+    if pyramid is True:
+        sum_data = flip_data(sum_data)
 
     if 'counts' in dataGrp:
         del dataGrp['counts']
@@ -1208,6 +1257,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
         pos_list = ('ssx', 'ssy')  # name is different for hxn step scan
         pos_names, pos_data = get_name_value_from_db(pos_list, data,
                                                      datashape)
+
     for i in range(len(pos_names)):
         if 'x' in pos_names[i]:
             pos_names[i] = 'x_pos'
@@ -1227,6 +1277,10 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     for i in range(pos_data.shape[0]):
         data_temp[i,:,:] = np.rot90(pos_data[i,:,:], k=3)
 
+    if pyramid is True:
+        for i in range(data_temp.shape[0]):
+            data_temp[i,:,:] = flip_data(data_temp[i,:,:])
+
     dataGrp.create_dataset('name', data=pos_names)
     dataGrp.create_dataset('pos', data=data_temp)
 
@@ -1238,6 +1292,9 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
     scaler_names, scaler_data = get_name_value_from_db(scaler_list, data,
                                                        datashape)
+
+    if pyramid is True:
+        scaler_data = flip_data(scaler_data)
 
     if 'val' in dataGrp:
         del dataGrp['val']
@@ -1397,7 +1454,8 @@ def get_scaler_list_hxn(all_keys):
 
 
 def data_to_hdf_config(fpath, data,
-                       datashape, config_file=False):
+                       datashape, config_file=False,
+                       pyramid=False):
     """
     Assume data is ready from databroker, so save the data to hdf file.
 
@@ -1423,12 +1481,13 @@ def data_to_hdf_config(fpath, data,
                         det_list=config_data['xrf_detector'],
                         roi_dict=roi_dict,
                         pos_list=config_data['pos_list'],
-                        scaler_list=scaler_list)
+                        scaler_list=scaler_list,
+                        pyramid=pyramid)
     else:
-        write_db_to_hdf(fpath, data, datashape)
+        write_db_to_hdf(fpath, data, datashape, pyramid=pyramid)
 
 
-def make_hdf(fpath, runid, datashape, config_file=False):
+def make_hdf(fpath, runid, datashape, config_file=False, pyramid=False):
     """
     Assume data is ready from databroker, so save the data to hdf file.
 
@@ -1447,5 +1506,6 @@ def make_hdf(fpath, runid, datashape, config_file=False):
     """
     print('Loading data from database.')
     data = fetch_data_from_db(runid)
-    print('Save data to hdf file.')
-    data_to_hdf_config(fpath, data, datashape, config_file=config_file)
+    print('Saving data to hdf file.')
+    data_to_hdf_config(fpath, data, datashape, config_file=config_file, pyramid=pyramid)
+    print('Done!')

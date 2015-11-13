@@ -44,8 +44,10 @@ from collections import OrderedDict
 import multiprocessing
 import h5py
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 import json
 from scipy.optimize import nnls
+from scipy.interpolate import interp1d, interp2d
 
 from enaml.qt.qt_application import QApplication
 
@@ -61,7 +63,7 @@ from .guessparam import (calculate_profile, fit_strategy_list,
                          trim_escape_peak, define_range, get_energy,
                          get_Z, PreFitStatus, ElementController,
                          update_param_from_element)
-from .fileio import read_hdf_APS, output_data
+from .fileio import read_hdf_APS, output_data, flip_data
 
 #from lmfit import fit_report
 import lmfit
@@ -485,6 +487,8 @@ class Fit1D(Atom):
         use_snip = self.use_snip
         bin_energy = self.bin_energy
 
+        create_fig = False  # save pixel fit as fig
+
         if self.pixel_fit_method == 0:
             pixel_fit = 'nnls'
         elif self.pixel_fit_method == 1:
@@ -509,6 +513,26 @@ class Fit1D(Atom):
 
         # output to .h5 file
         fpath = os.path.join(self.result_folder, self.save_name)
+
+        # interpolation then save
+        with h5py.File(fpath, 'r') as f:
+            x_data = np.array(f['xrfmap/positions/pos'][0, :, :])
+            y_data = np.array(f['xrfmap/positions/pos'][1, :, :])
+
+        #x_data = flip_data(x_data)
+        x_data = np.fliplr(x_data)
+
+        rangex = x_data[0,:]
+        rangey = y_data[:,0]
+        start_x = rangex[0]
+        start_y = rangey[0]
+        #start_x = -42.631
+        #start_y = 144.427
+        dimv = self.data_all.shape
+        logger.info('Interpolating image... ')
+        for k, v in six.iteritems(result_map):
+            result_map[k] = interp1d_scan(dimv[:2], rangex, rangey, start_x, start_y,
+                                          x_data, y_data, v)
 
         prefix_fname = self.save_name.split('.')[0]
         if 'ch1' in self.data_title:
@@ -551,18 +575,21 @@ class Fit1D(Atom):
             data_fit = calculation_info['exp_data']
 
             p1 = [self.point1v, self.point1h]
-            p2 = [self.point2v, self.point2v]
-            prefix = self.save_name.split('.')[0]
-            output_folder = os.path.join(self.result_folder, prefix+'_pixel_fit')
-            if os.path.exists(output_folder) is False:
-                os.mkdir(output_folder)
-            logger.info('Saving plots for single pixels ...')
+            p2 = [self.point2v, self.point2h]
 
-            # last two columns of results are snip_bg, and chisq2 if nnls is used
-            save_fitted_fig(x, matv, results[:, :, 0:len(elist)],
-                            p1, p2,
-                            data_fit, self.param_dict,
-                            output_folder, use_sinp=use_snip)
+            if create_fig is True:
+                output_folder = os.path.join(self.result_folder, prefix_fname+'_pixel_fit')
+                if os.path.exists(output_folder) is False:
+                    os.mkdir(output_folder)
+                save_fitted_fig(x, matv, results[:, :, 0:len(elist)],
+                                p1, p2,
+                                data_fit, self.param_dict,
+                                output_folder, use_sinp=use_snip)
+
+            save_fitted_as_movie(x, matv, results[:, :, 0:len(elist)],
+                                 p1, p2,
+                                 data_fit, self.param_dict,
+                                 self.result_folder, prefix=fit_name, use_sinp=use_snip)
             logger.info('Done with saving fitting plots.')
 
         if self.save_tiff:
@@ -798,16 +825,36 @@ def bin_data_pixel(data, nearest_n=4):
 
 
 def bin_data_spacial(data, bin_size=4):
+    """
+    Bin 2D/3D data based on first and second dim, i.e., 2 by 2 window, or 4 by 4.
+
+    Parameters
+    ----------
+    data : array
+        2D or 3D dataset
+    bin_size : int
+        window size. 2 means 2 by 2 window
+    """
     if bin_size <= 1:
         return data
 
-    d_shape = np.array([data.shape[0], data.shape[1]])/bin_size
+    data = np.asarray(data)
+    if data.ndim == 2:
+        d_shape = np.array([data.shape[0], data.shape[1]])/bin_size
 
-    data_new = np.zeros([d_shape[0], d_shape[1], data.shape[2]])
-    for i in np.arange(d_shape[0]):
-        for j in np.arange(d_shape[1]):
-            data_new[i, j, :] = np.sum(data[i*bin_size:i*bin_size+bin_size,
-                                            j*bin_size:j*bin_size+bin_size, :], axis=(0, 1))
+        data_new = np.zeros([d_shape[0], d_shape[1]])
+        for i in np.arange(d_shape[0]):
+            for j in np.arange(d_shape[1]):
+                data_new[i, j] = np.sum(data[i*bin_size:i*bin_size+bin_size,
+                                             j*bin_size:j*bin_size+bin_size])
+    elif data.ndim == 3:
+        d_shape = np.array([data.shape[0], data.shape[1]])/bin_size
+
+        data_new = np.zeros([d_shape[0], d_shape[1], data.shape[2]])
+        for i in np.arange(d_shape[0]):
+            for j in np.arange(d_shape[1]):
+                data_new[i, j, :] = np.sum(data[i*bin_size:i*bin_size+bin_size,
+                                                j*bin_size:j*bin_size+bin_size, :], axis=(0, 1))
     return data_new
 
 
@@ -1014,7 +1061,9 @@ def calculate_area(e_select, matv, results,
 def save_fitted_fig(x_v, matv, results,
                     p1, p2, data_all, param_dict,
                     result_folder, use_sinp=False):
-
+    """
+    Save single pixel fitting resutls to figs.
+    """
     low_limit_v = 0.5
 
     fig, ax = plt.subplots(nrows=1, ncols=1)
@@ -1062,12 +1111,68 @@ def save_fitted_fig(x_v, matv, results,
     ax.set_ylabel('Counts')
     ax.set_ylim(low_limit_v, np.max(sum_y)*2)
     ax.semilogy(x_v, sum_y, label='exp', linestyle='', marker='.')
-    ax.semilogy(x_v, fitted_sum, label='fit')
+    ax.semilogy(x_v, fitted_sum, label='fit', color='red')
 
     ax.legend()
     fit_sum_name = 'pixel_sum_'+str(p1[0])+'-'+str(p1[1])+'_'+str(p2[0])+'-'+str(p2[1])+'.png'
     output_path = os.path.join(result_folder, fit_sum_name)
     plt.savefig(output_path)
+
+
+def save_fitted_as_movie(x_v, matv, results,
+                         p1, p2, data_all, param_dict,
+                         result_folder, prefix=None, use_sinp=False, dpi=150):
+    """
+    Create movie to save single pixel fitting resutls.
+    """
+    total_n = data_all.shape[1]*p2[0]
+
+    fig, ax = plt.subplots(nrows=1, ncols=1)
+    ax.set_aspect('equal')
+    ax.set_xlabel('Energy [keV]')
+    ax.set_ylabel('Counts')
+    max_v = np.max(data_all[p1[0]:p2[0], p1[1]:p2[1], :])
+    ax.set_ylim([0, 1.1*max_v])
+
+    l1,  = ax.plot(x_v,  x_v, label='exp', linestyle='-', marker='.')
+    l2,  = ax.plot(x_v,  x_v, label='fit', color='red', linewidth=2)
+
+    fitted_sum = None
+    plist = []
+    for v in range(total_n):
+        m = v / data_all.shape[1]
+        n = v % data_all.shape[1]
+        if m>=p1[0] and m<=p2[0] and n>=p1[1] and n<=p2[1]:
+            plist.append((m,n))
+
+    def update_img(p_val):
+        m = p_val[0]
+        n = p_val[1]
+        data_y = data_all[m, n, :]
+
+        fitted_y = np.sum(matv*results[m, n, :], axis=1)
+        if use_sinp is True:
+            bg = snip_method(data_y,
+                             param_dict['e_offset']['value'],
+                             param_dict['e_linear']['value'],
+                             param_dict['e_quadratic']['value'],
+                             width=param_dict['non_fitting_values']['background_width'])
+            fitted_y += bg
+
+        ax.set_title('Single pixel fitting for point ({}, {})'.format(m, n))
+        #ax.set_ylim(low_limit_v, max_v*2)
+        l1.set_ydata(data_y)
+        l2.set_ydata(fitted_y)
+        return l1, l2
+
+    writer = animation.writers['ffmpeg'](fps=30)
+    ani = animation.FuncAnimation(fig, update_img, plist)
+    if prefix:
+        output_file = prefix+'_pixel.mp4'
+    else:
+        output_file = 'fit_pixel.mp4'
+    output_p = os.path.join(result_folder, output_file)
+    ani.save(output_p, writer=writer, dpi=dpi)
 
 
 def fit_per_line_nnls(row_num, data,
@@ -2022,7 +2127,7 @@ def roi_sum_multi_files(dir_path, file_prefix,
     return results
 
 
-def get_cs(elemental_line, eng=12, norm=False):
+def get_cs(elemental_line, eng=12, norm=False, round_n=2):
     """
     Calculate cross section in cm2/g.
     Parameters
@@ -2033,6 +2138,8 @@ def get_cs(elemental_line, eng=12, norm=False):
         incident energy in KeV
     norm : bool, optional
         normalized to the primary cs value or not.
+    round_n : int
+        number of decimal point.
     """
     if 'pileup' in elemental_line:
         return '-'
@@ -2054,6 +2161,68 @@ def get_cs(elemental_line, eng=12, norm=False):
         if name_label[0] in line_name:
             sumv += e.cs(eng)[line_name]
     if norm is True:
-        return sumv/e.cs(eng)[name_label]
+        return np.around(sumv/e.cs(eng)[name_label], round_n)
     else:
-        return np.around(sumv, 2)
+        return np.around(sumv, round_n)
+
+
+def fly2d_grid(dimv, rangex, rangey, start_x, start_y,
+               x_data=None, y_data=None):
+    '''Get ideal gridded points for a 2D flyscan'''
+    # try:
+    #     nx, ny = hdr['dimensions']
+    # except ValueError:
+    #     raise ValueError('Not a 2D flyscan (dimensions={})'
+    #                      ''.format(hdr['dimensions']))
+    nx, ny = dimv
+    #rangex, rangey = hdr['scan_range']
+    width = rangex[-1] - rangex[0]
+    height = rangey[-1] - rangey[0]
+
+    #macros = eval(hdr['subscan_0']['macros'], dict(array=np.array))
+    #start_x, start_y = macros['scan_starts']
+    dx = width / nx
+    dy = height / ny
+    grid_x = np.linspace(start_x, start_x + width + dx / 2, nx)
+    grid_y = np.linspace(start_y, start_y + height + dy / 2, ny)
+
+    return grid_x, grid_y
+
+
+def interp1d_scan(dimv, rangex, rangey, start_x, start_y,
+                  x_data, y_data, spectrum, kind='linear',
+                  **kwargs):
+    '''Interpolate a 2D flyscan only over the fast-scanning direction'''
+    #grid_x, grid_y = fly2d_grid(hdr, x_data, y_data, plot=plot_points)
+    grid_x, grid_y = fly2d_grid(dimv, rangex, rangey, start_x, start_y, x_data, y_data)
+    #x_data = fly2d_reshape(hdr, x_data, verbose=False)
+    #grid_x = flip_data(grid_x)
+
+    if False:
+        mesh_x, mesh_y = np.meshgrid(grid_x, grid_y)
+        plt.figure()
+        if x_data is not None and y_data is not None:
+            plt.scatter(x_data, y_data, c='blue', label='actual')
+        plt.scatter(mesh_x, mesh_y, c='red', label='gridded',
+                    alpha=0.5)
+        plt.legend()
+        plt.show()
+
+    spectrum2 = np.zeros_like(spectrum)
+    for row in range(len(grid_y)):
+        spectrum2[row, :] = interp1d(x_data[row, :], spectrum[row, :],
+                                     kind=kind, bounds_error=False,
+                                     **kwargs)(grid_x)
+
+    return spectrum2
+
+
+def interp2d_scan(dimv, rangex, rangey, start_x, start_y,
+                  x_data, y_data, spectrum, kind='linear',
+                  **kwargs):
+    '''Interpolate a 2D flyscan over a grid, borrowed from Ken'''
+
+    new_x, new_y = fly2d_grid(dimv, rangex, rangey, start_x, start_y, x_data, y_data)
+
+    f = interp2d(x_data, y_data, spectrum, kind=kind, **kwargs)
+    return f(new_x, new_y)

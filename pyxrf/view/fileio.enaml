@@ -73,6 +73,7 @@ enamldef FileView(DockItem): file_view:
                     #hbox(btn_out, spacer),
                     #hbox(fd_out),
                     hbox(files_btn, files_load),
+                    hbox(mask_btn, mask_load_note, mask_cb),
                     #hbox(pixel_h_label, pixel_h, pixel_v_label, pixel_v, spacer),
                     #hbox(cb_runid, run_lbl, run_num, load_btn, spacer),
                     hbox(gb_db),
@@ -81,6 +82,9 @@ enamldef FileView(DockItem): file_view:
                     hbox(plot_bt, spacer),
                 ),
                 folder_btn.width == files_btn.width,
+                folder_btn.width == mask_btn.width,
+                files_btn.height == files_load.height,
+                mask_btn.height == mask_load_note.height,
                 #folder_btn.width == btn_out.width,
             ]
             PushButton: folder_btn:
@@ -131,6 +135,19 @@ enamldef FileView(DockItem): file_view:
             Label: files_load:
                 text = 'No data is loaded.'
 
+            PushButton: mask_btn:
+                text = "Load Mask File"
+                clicked ::
+                    path = FileDialogEx.get_open_file_names(file_view, current_path=io_model.working_directory)
+                    if path:
+                        io_model.mask_name = [item.split('/')[-1] for item in path][0]
+                        mask_load_note.text = [item.split('/')[-1] for item in path][0]
+            Label: mask_load_note:
+                text = 'No data is loaded.'
+            CheckBox: mask_cb:
+                text = 'Apply Mask'
+                checkable = True
+                checked := io_model.mask_opt
             GroupBox: gb_db:
                 title = 'Data from database'
                 constraints = [vbox(
@@ -216,7 +233,7 @@ enamldef FileView(DockItem): file_view:
                     Looper: looper:
                         iterable << io_model.file_channel_list
                         GroupBox:
-                            title = '{}, data shape: {}'.format(loop_item, io_model.data_sets[loop_item].raw_data.shape)
+                            title = '{}, data shape: {}, total counts: {}'.format(loop_item, io_model.data_sets[loop_item].raw_data.shape, int(np.sum(io_model.data_sets[loop_item].raw_data)))
                             #title_align = 'center'
                             #constraints = [hbox(cb, lb1, fd1, lb2, fd2, spacer)]
                             constraints = [hbox(rb_1, rb_2, rb_3, rb_4, lb1, fd1, lb2, fd2, spacer)]
