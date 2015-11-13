@@ -23,7 +23,13 @@ Better documentation will be ready soon!
 
 #### Installation
 Currently PyXRF only works for python2.0+, not python3.0.
-First you need to install [Conda] (http://continuum.io/downloads), then create a conda environment(say pyxrf_test) with python2.7.
+First you need to install [Conda] (http://continuum.io/downloads), there is some
+issue with the latest conda version 3.18.3. So run the following to use a stable conda version, i.e., 3.9.
+```
+conda install conda=3.9
+```
+
+Then create a conda environment(say pyxrf_test) with python2.7.
 
 ```
 $conda create -n pyxrf_test python=2.7
