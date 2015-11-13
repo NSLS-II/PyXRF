@@ -19,18 +19,11 @@ Better documentation will be ready soon!
 
 ## Installation from Conda
 
-### Linux/Mac (No EI Captain)
-
-#### Installation
+### Linux/Mac (EI Captain is working!)
 Currently PyXRF only works for python2.0+, not python3.0.
-First you need to install [Conda] (http://continuum.io/downloads), there is some
-issue with the latest conda version 3.18.3. So run the following to use a stable conda version, i.e., 3.9.
-```
-conda install conda=3.9
-```
+First you need to install [Conda] (http://continuum.io/downloads).
 
 Then create a conda environment(say pyxrf_test) with python2.7.
-
 ```
 $conda create -n pyxrf_test python=2.7
 ```
@@ -43,7 +36,7 @@ At the same environment, install pyxrf by simply typing
 $conda install -c licode pyxrf
 ```
 
-#### Run
+### Run
 ```
 $pyxrf
 ```
