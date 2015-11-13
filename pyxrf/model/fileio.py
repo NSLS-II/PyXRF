@@ -1278,7 +1278,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
         data_temp[i,:,:] = np.rot90(pos_data[i,:,:], k=3)
 
     if pyramid is True:
-        for i in data_temp.shape[0]:
+        for i in range(data_temp.shape[0]):
             data_temp[i,:,:] = flip_data(data_temp[i,:,:])
 
     dataGrp.create_dataset('name', data=pos_names)
