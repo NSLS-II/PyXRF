@@ -903,7 +903,7 @@ def read_hdf_APS(working_directory,
             for i, n in enumerate(pos_name):
                 if i==0:
                     #d = flip_data(data['positions/pos'].value[i, :])
-                    temp[n] = np.fliplr(d)
+                    temp[n] = np.fliplr(data['positions/pos'].value[i, :])
                 else:
                     # temp[n] = np.flipud(data['positions/pos'].value[i, :])
                     temp[n] = data['positions/pos'].value[i, :]
