@@ -466,8 +466,8 @@ enamldef FitView(DockItem): fit_view:
             constraints = [
                 vbox(
                     gb_advanced,
-                    hbox(lbl1, cb1, lbl3, cb3, spacer),
-                    hbox(lbl2, cb2, lbl4, cb4, spacer),
+                    hbox(lbl1, cb1, lbl2, cb2, lbl3, cb3, spacer),
+                    #hbox(lbl2, cb2, lbl4, cb4, spacer),
                     hbox(pb_fit, fit_information),
                     gb_result,
                 ),
@@ -490,12 +490,12 @@ enamldef FitView(DockItem): fit_view:
                 items = [''] + fit_strategy_list
                 index = 0
                 index := fit_model.fit_strategy3
-            Label: lbl4:
-                text = 'Step 4'
-            ComboBox: cb4:
-                items = [''] + fit_strategy_list
-                index = 0
-                index := fit_model.fit_strategy4
+            #Label: lbl4:
+            #    text = 'Step 4'
+            #ComboBox: cb4:
+            #    items = [''] + fit_strategy_list
+            #    index = 0
+            #    index := fit_model.fit_strategy4
             #Label: lbl5:
             #    text = 'Step 5'
             #ComboBox: cb5:
