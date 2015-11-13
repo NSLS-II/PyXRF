@@ -47,6 +47,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import json
 from scipy.optimize import nnls
+from scipy.interpolate import interp1d, interp2d
 
 from enaml.qt.qt_application import QApplication
 
@@ -62,7 +63,7 @@ from .guessparam import (calculate_profile, fit_strategy_list,
                          trim_escape_peak, define_range, get_energy,
                          get_Z, PreFitStatus, ElementController,
                          update_param_from_element)
-from .fileio import read_hdf_APS, output_data
+from .fileio import read_hdf_APS, output_data, flip_data
 
 #from lmfit import fit_report
 import lmfit
@@ -512,6 +513,26 @@ class Fit1D(Atom):
 
         # output to .h5 file
         fpath = os.path.join(self.result_folder, self.save_name)
+
+        # interpolation then save
+        with h5py.File(fpath, 'r') as f:
+            x_data = np.array(f['xrfmap/positions/pos'][0, :, :])
+            y_data = np.array(f['xrfmap/positions/pos'][1, :, :])
+
+        #x_data = flip_data(x_data)
+        x_data = np.fliplr(x_data)
+
+        rangex = x_data[0,:]
+        rangey = y_data[:,0]
+        start_x = rangex[0]
+        start_y = rangey[0]
+        #start_x = -42.631
+        #start_y = 144.427
+        dimv = self.data_all.shape
+        logger.info('Interpolating image... ')
+        for k, v in six.iteritems(result_map):
+            result_map[k] = interp1d_scan(dimv[:2], rangex, rangey, start_x, start_y,
+                                          x_data, y_data, v)
 
         prefix_fname = self.save_name.split('.')[0]
         if 'ch1' in self.data_title:
@@ -2106,7 +2127,7 @@ def roi_sum_multi_files(dir_path, file_prefix,
     return results
 
 
-def get_cs(elemental_line, eng=12, norm=False):
+def get_cs(elemental_line, eng=12, norm=False, round_n=2):
     """
     Calculate cross section in cm2/g.
     Parameters
@@ -2117,6 +2138,8 @@ def get_cs(elemental_line, eng=12, norm=False):
         incident energy in KeV
     norm : bool, optional
         normalized to the primary cs value or not.
+    round_n : int
+        number of decimal point.
     """
     if 'pileup' in elemental_line:
         return '-'
@@ -2138,6 +2161,68 @@ def get_cs(elemental_line, eng=12, norm=False):
         if name_label[0] in line_name:
             sumv += e.cs(eng)[line_name]
     if norm is True:
-        return sumv/e.cs(eng)[name_label]
+        return np.around(sumv/e.cs(eng)[name_label], round_n)
     else:
-        return np.around(sumv, 2)
+        return np.around(sumv, round_n)
+
+
+def fly2d_grid(dimv, rangex, rangey, start_x, start_y,
+               x_data=None, y_data=None):
+    '''Get ideal gridded points for a 2D flyscan'''
+    # try:
+    #     nx, ny = hdr['dimensions']
+    # except ValueError:
+    #     raise ValueError('Not a 2D flyscan (dimensions={})'
+    #                      ''.format(hdr['dimensions']))
+    nx, ny = dimv
+    #rangex, rangey = hdr['scan_range']
+    width = rangex[-1] - rangex[0]
+    height = rangey[-1] - rangey[0]
+
+    #macros = eval(hdr['subscan_0']['macros'], dict(array=np.array))
+    #start_x, start_y = macros['scan_starts']
+    dx = width / nx
+    dy = height / ny
+    grid_x = np.linspace(start_x, start_x + width + dx / 2, nx)
+    grid_y = np.linspace(start_y, start_y + height + dy / 2, ny)
+
+    return grid_x, grid_y
+
+
+def interp1d_scan(dimv, rangex, rangey, start_x, start_y,
+                  x_data, y_data, spectrum, kind='linear',
+                  **kwargs):
+    '''Interpolate a 2D flyscan only over the fast-scanning direction'''
+    #grid_x, grid_y = fly2d_grid(hdr, x_data, y_data, plot=plot_points)
+    grid_x, grid_y = fly2d_grid(dimv, rangex, rangey, start_x, start_y, x_data, y_data)
+    #x_data = fly2d_reshape(hdr, x_data, verbose=False)
+    #grid_x = flip_data(grid_x)
+
+    if False:
+        mesh_x, mesh_y = np.meshgrid(grid_x, grid_y)
+        plt.figure()
+        if x_data is not None and y_data is not None:
+            plt.scatter(x_data, y_data, c='blue', label='actual')
+        plt.scatter(mesh_x, mesh_y, c='red', label='gridded',
+                    alpha=0.5)
+        plt.legend()
+        plt.show()
+
+    spectrum2 = np.zeros_like(spectrum)
+    for row in range(len(grid_y)):
+        spectrum2[row, :] = interp1d(x_data[row, :], spectrum[row, :],
+                                     kind=kind, bounds_error=False,
+                                     **kwargs)(grid_x)
+
+    return spectrum2
+
+
+def interp2d_scan(dimv, rangex, rangey, start_x, start_y,
+                  x_data, y_data, spectrum, kind='linear',
+                  **kwargs):
+    '''Interpolate a 2D flyscan over a grid, borrowed from Ken'''
+
+    new_x, new_y = fly2d_grid(dimv, rangex, rangey, start_x, start_y, x_data, y_data)
+
+    f = interp2d(x_data, y_data, spectrum, kind=kind, **kwargs)
+    return f(new_x, new_y)

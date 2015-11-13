@@ -188,7 +188,6 @@ class FileIOModel(Atom):
         # fit doesn't work well if spectrum value is too large.
 
         spectrum = self.data_sets[names[self.file_opt-1]].get_sum(mask=self.mask_data)
-        print(np.sum(spectrum))
         #self.data = spectrum/np.max(spectrum)
         #self.data = spectrum/(self.data_all.shape[0]*self.data_all.shape[1])
         self.data = spectrum
@@ -902,7 +901,13 @@ def read_hdf_APS(working_directory,
             pos_name = data['positions/name']
             temp = {}
             for i, n in enumerate(pos_name):
-                temp[n] = data['positions/pos'].value[i, :]
+                if i==0:
+                    #d = flip_data(data['positions/pos'].value[i, :])
+                    temp[n] = np.fliplr(d)
+                else:
+                    # temp[n] = np.flipud(data['positions/pos'].value[i, :])
+                    temp[n] = data['positions/pos'].value[i, :]
+
             img_dict['positions'] = temp
 
     return img_dict, data_sets
@@ -1273,7 +1278,8 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
         data_temp[i,:,:] = np.rot90(pos_data[i,:,:], k=3)
 
     if pyramid is True:
-        data_temp = flip_data(data_temp)
+        for i in data_temp.shape[0]:
+            data_temp[i,:,:] = flip_data(data_temp[i,:,:])
 
     dataGrp.create_dataset('name', data=pos_names)
     dataGrp.create_dataset('pos', data=data_temp)
@@ -1500,5 +1506,6 @@ def make_hdf(fpath, runid, datashape, config_file=False, pyramid=False):
     """
     print('Loading data from database.')
     data = fetch_data_from_db(runid)
-    print('Save data to hdf file.')
+    print('Saving data to hdf file.')
     data_to_hdf_config(fpath, data, datashape, config_file=config_file, pyramid=pyramid)
+    print('Done!')
