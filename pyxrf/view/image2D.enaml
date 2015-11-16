@@ -68,7 +68,7 @@ enamldef ImageMain(DockItem):
             #index := img_model_adv.data_opt
             index = 0
             index >> img_model_adv.data_opt
-            minimum_size = (200,20)
+            minimum_size = (400,20)
             #index ::
             #    if index > 0:
             #        img_model_adv.plot_item = selected_item
