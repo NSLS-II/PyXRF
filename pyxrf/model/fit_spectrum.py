@@ -619,13 +619,25 @@ class Fit1D(Atom):
             fname = self.data_title+'_out.txt'
         filepath = os.path.join(self.result_folder, fname)
 
+        area_list = []
+        for v in self.fit_result.params.keys():
+            if 'ka1_area' in v or 'la1_area' in v or 'ma1_area' in v or 'amplitude' in v:
+                area_list.append(v)
+
         with open(filepath, 'w') as myfile:
+            myfile.write('\n {:<10} \t {} \t {}'.format('name', 'summed area', 'error in %'))
+            for k, v in six.iteritems(self.comps):
+                if k == 'background':
+                    continue
+                for name in area_list:
+                     if k.lower() in name.lower():
+                         errorv = self.fit_result.params[name].stderr/(self.fit_result.params[name].value+1e-8)
+                         errorv *= 100
+                         errorv = np.round(errorv, 3)
+                         myfile.write('\n {:<10} \t {} \t {}'.format(k, np.round(np.sum(v), 3), str(errorv)+'%'))
+            myfile.write('\n\n')
             myfile.write(lmfit.fit_report(self.fit_result, sort_pars=True))
             logger.warning('Results are saved to {}'.format(filepath))
-            myfile.write('\n')
-            myfile.write('\n Summed area for each element:')
-            for k,v in six.iteritems(self.comps):
-                myfile.write('\n {}: {}'.format(k, np.sum(v)))
 
     def update_name_list(self):
         """

@@ -462,7 +462,7 @@ enamldef FitView(DockItem): fit_view:
 
         GroupBox: fit_control:
             title = 'Fit summed spectrum.'
-            padding = Box(2, 2, 2, 2)
+            #padding = Box(2, 2, 2, 2)
             constraints = [
                 vbox(
                     gb_advanced,
@@ -471,6 +471,8 @@ enamldef FitView(DockItem): fit_view:
                     hbox(pb_fit, fit_information),
                     gb_result,
                 ),
+                lbl1.height == cb1.height == lbl2.height,
+                lbl2.height == cb2.height == lbl3.height == cb3.height,
             ]
             Label: lbl1:
                 text = 'Step 1'
@@ -749,11 +751,11 @@ enamldef AutoFindElements(Window): auto_win:
                     maximum_size = 140
                 Container:
                     padding = Box(2, 2, 2, 2)
-                    constraints = [hbox(ff, pb)]
+                    constraints = [hbox(ff, pb_value_default)]
                     FloatField: ff:
                         value := param_model.param_new[loop_item]['value']
                         maximum_size = 160
-                    PushButton: pb:
+                    PushButton: pb_value_default:
                         text = 'Default'
                         maximum_size = 100
                         clicked ::
@@ -767,11 +769,11 @@ enamldef AutoFindElements(Window): auto_win:
                     maximum_size = 140
                 Container:
                     padding = Box(2, 2, 2, 2)
-                    constraints = [hbox(ff_bound, pb)]
+                    constraints = [hbox(ff_bound, pb_bd_default)]
                     FloatField: ff_bound:
                         value := loop_item['value']
                         maximum_size = 100
-                    PushButton: pb:
+                    PushButton: pb_bd_default:
                         text = 'Default'
                         maximum_size = 100
                         clicked ::
