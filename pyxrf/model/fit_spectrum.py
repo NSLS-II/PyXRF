@@ -531,8 +531,10 @@ class Fit1D(Atom):
         dimv = self.data_all.shape
         logger.info('Interpolating image... ')
         for k, v in six.iteritems(result_map):
-            result_map[k] = interp1d_scan(dimv[:2], rangex, rangey, start_x, start_y,
-                                          x_data, y_data, v)
+            interp_d = interp1d_scan(dimv[:2], rangex, rangey, start_x, start_y,
+                                     x_data, y_data, v)
+            interp_d[np.isnan(interp_d)] = 0
+            result_map[k] = interp_d
 
         prefix_fname = self.save_name.split('.')[0]
         if 'ch1' in self.data_title:
