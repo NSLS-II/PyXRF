@@ -531,7 +531,8 @@ class Fit1D(Atom):
         dimv = self.data_all.shape
         logger.info('Interpolating image... ')
         for k, v in six.iteritems(result_map):
-            interp_d = interp1d_scan(dimv[:2], rangex, rangey, start_x, start_y,
+            shapev = [dimv[1], dimv[0]]  # veritcal first, then horizontal
+            interp_d = interp1d_scan(shapev, rangex, rangey, start_x, start_y,
                                      x_data, y_data, v)
             interp_d[np.isnan(interp_d)] = 0
             result_map[k] = interp_d
