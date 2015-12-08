@@ -1418,11 +1418,11 @@ def get_area_and_error_nonlinear_fit(elist, fit_results, reg_mat):
 
 
 def single_pixel_fitting_controller(input_data, param, method='nnls',
-                                    pixel_bin=0, raise_bg=1,
-                                    comp_elastic_combine=True,
-                                    linear_bg=True,
-                                    use_snip=False,
-                                    bin_energy=2):
+                                    pixel_bin=0, raise_bg=0,
+                                    comp_elastic_combine=False,
+                                    linear_bg=False,
+                                    use_snip=True,
+                                    bin_energy=1):
     """
     Parameters
     ----------
@@ -1447,8 +1447,10 @@ def single_pixel_fitting_controller(input_data, param, method='nnls',
 
     Returns
     -------
-    dict of elemental map
-    dict of fitting information
+    result_map : dict
+        of elemental map for given elements
+    calculation_info : dict
+        dict of fitting information
     """
     # cut data into proper range
     x, exp_data, fit_range = get_cutted_spectrum_in3D(input_data,
@@ -1492,10 +1494,6 @@ def single_pixel_fitting_controller(input_data, param, method='nnls',
     # bin data based on energy spectrum
     if bin_energy in [2, 3]:
         exp_data = conv_expdata_energy(exp_data, width=bin_energy)
-        #exp_data = bin_data_energy(exp_data)
-        #matv = bin_data_energy(matv, axis_v=0)
-        #x1 = x[::2]
-        #x = x1[:x.size/2]
 
     # make matrix smaller for single pixel fitting
     matv /= exp_data.shape[0]*exp_data.shape[1]
@@ -1518,126 +1516,6 @@ def single_pixel_fitting_controller(input_data, param, method='nnls',
         result_map, error_map, results = get_area_and_error_nonlinear_fit(e_select,
                                                                           fit_results,
                                                                           matv/matrix_norm)
-
-    calculation_info = dict()
-    if error_map is not None:
-        calculation_info['error_map'] = error_map
-
-    calculation_info['fit_name'] = e_select
-    calculation_info['regression_mat'] = matv
-    calculation_info['results'] = results
-    calculation_info['fit_range'] = fit_range
-    calculation_info['energy_axis'] = x
-    calculation_info['exp_data'] = exp_data
-
-    return result_map, calculation_info
-
-
-def single_pixel_fitting_controller_advanced(x, exp_data, fit_range,
-                                             param, method='nnls',
-                                             pixel_bin=0, raise_bg=1,
-                                             comp_elastic_combine=True,
-                                             linear_bg=True,
-                                             use_snip=False,
-                                             bin_energy=2):
-    """
-    Parameters
-    ----------
-    input_data : array
-        3D array of spectrum
-    param : dict
-        parameter for fitting
-    method : str, optional
-        fitting method, default as nnls
-    pixel_bin : int, optional
-        bin pixel as 2by2, or 3by3
-    raise_bg : int, optional
-        add a constant value to each spectrum, better for fitting
-    comp_elastic_combine : bool, optional
-        combine elastic and compton as one component for fitting
-    linear_bg : bool, optional
-        use linear background instead of snip
-    use_snip : bool, optional
-        use snip method to remove background
-    bin_energy : int, optional
-        bin spectrum with given value
-
-    Returns
-    -------
-    dict of elemental map
-    dict of fitting information
-    """
-    # cut data into proper range
-    # x, exp_data, fit_range = get_cutted_spectrum_in3D(input_data,
-    #                                                   param['non_fitting_values']['energy_bound_low']['value'],
-    #                                                   param['non_fitting_values']['energy_bound_high']['value'],
-    #                                                   param['e_offset']['value'],
-    #                                                   param['e_linear']['value'])
-
-    # calculate matrix for regression analysis
-    elist = param['non_fitting_values']['element_list'].split(', ')
-    elist = [e.strip(' ') for e in elist]
-    e_select, matv, e_area = construct_linear_model(x, param, elist)
-
-    if comp_elastic_combine is True:
-        e_select = e_select[:-1]
-        e_select[-1] = 'comp_elastic'
-
-        matv_old = np.array(matv)
-        matv = matv_old[:, :-1]
-        matv[:, -1] += matv_old[:, -1]
-
-    if linear_bg is True:
-        e_select.append('const_bkg')
-
-        matv_old = np.array(matv)
-        matv = np.ones([matv_old.shape[0], matv_old.shape[1]+1])
-        matv[:, :-1] = matv_old
-
-    logger.info('Matrix used for linear fitting has components: {}'.format(e_select))
-
-    # add const background, so nnls works better for values above zero
-    if raise_bg > 0:
-        exp_data += raise_bg
-
-    # bin data based on nearest pixels, only two options
-    if pixel_bin in [4, 9]:
-        logger.info('Bin pixel data with parameter: {}'.format(pixel_bin))
-        exp_data = bin_data_spacial(exp_data, bin_size=int(np.sqrt(pixel_bin)))
-        # exp_data = bin_data_pixel(exp_data, nearest_n=pixel_bin)  # return a copy of data
-
-    # bin data based on energy spectrum
-    if bin_energy in [2, 3]:
-        exp_data = conv_expdata_energy(exp_data, width=bin_energy)
-        #exp_data = bin_data_energy(exp_data)
-        #matv = bin_data_energy(matv, axis_v=0)
-        #x1 = x[::2]
-        #x = x1[:x.size/2]
-
-    # make matrix smaller for single pixel fitting
-    matv /= exp_data.shape[0]*exp_data.shape[1]
-
-    error_map = None
-
-    logger.info('-------- Fitting of single pixels starts. --------')
-    if method == 'nnls':
-        logger.info('Fitting method: non-negative least squares')
-        results = fit_pixel_multiprocess_nnls(exp_data, matv, param,
-                                              use_snip=use_snip)
-        # output area of dict
-        result_map = calculate_area(e_select, matv, results,
-                                    param, first_peak_area=False)
-    else:
-        logger.info('Fitting method: nonlinear least squares')
-        matrix_norm = exp_data.shape[0]*exp_data.shape[1]
-        fit_results = fit_pixel_multiprocess_nonlinear(exp_data, x, param, matv/matrix_norm,
-                                                       use_snip=use_snip)
-
-        result_map, error_map, results = get_area_and_error_nonlinear_fit(e_select,
-                                                                          fit_results,
-                                                                          matv/matrix_norm)
-
-    logger.info('-------- Fitting of single pixels is done! --------')
 
     calculation_info = dict()
     if error_map is not None:
@@ -1721,44 +1599,6 @@ def get_branching_ratio(elemental_line, energy):
         sum_v += e.cs(energy)[v]
     ratio_v = e.cs(energy)[transition_lines[0]]/sum_v
     return ratio_v
-
-
-# def fit_pixel_slow_version(data, param, c_val=1e-2, fit_num=10, c_weight=1):
-#     datas = data.shape
-#
-#     x0 = np.arange(datas[2])
-#
-#     elist = param['non_fitting_values']['element_list'].split(', ')
-#     elist = [e.strip(' ') for e in elist]
-#
-#     result_map = dict()
-#     for v in elist:
-#         result_map.update({v: np.zeros([datas[0], datas[1]])})
-#
-#     MS = ModelSpectrum(param)
-#     MS.model_spectrum()
-#
-#     for i in xrange(datas[0]):
-#         logger.info('Row number at {} out of total {}'.format(i, datas[0]))
-#         for j in xrange(datas[1]):
-#             logger.info('Column number at {} out of total {}'.format(j, datas[1]))
-#             y0 = data[i, j, :]
-#             result = MS.model_fit(x0, y0,
-#                                   w=1/np.sqrt(c_weight+y0))
-#                                   #maxfev=fit_num, xtol=c_val, ftol=c_val, gtol=c_val)
-#             #for k, v in six.iteritems(result.values):
-#             #    print('result {}: {}'.format(k, v))
-#             # save result
-#             for v in elist:
-#                 if '_L' in v:
-#                     line_name = v.split('_')[0]+'_la1_area'
-#                 elif '_M' in v:
-#                     line_name = v.split('_')[0]+'_ma1_area'
-#                 else:
-#                     line_name = v+'_ka1_area'
-#                 result_map[v][i, j] = result.values[line_name]
-#
-#     return result_map
 
 
 def fit_pixel_data_and_save(working_directory, file_name,
