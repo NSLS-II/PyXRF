@@ -1509,3 +1509,17 @@ def make_hdf(fpath, runid, datashape, config_file=False, pyramid=False):
     print('Saving data to hdf file.')
     data_to_hdf_config(fpath, data, datashape, config_file=config_file, pyramid=pyramid)
     print('Done!')
+
+
+def export1d(runid):
+    """
+    Export all PVs to a file. Do not talk to filestore.
+
+    Parameters
+    ----------
+    runid : int
+        run number
+    """
+    t = get_table(db[runid], fill=False)
+    name = 'scan_'+str(runid)+'.txt'
+    t.to_csv(name)

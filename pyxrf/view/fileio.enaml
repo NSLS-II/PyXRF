@@ -213,7 +213,7 @@ enamldef FileView(DockItem): file_view:
                     items << ['Select Data '] + list(io_model.file_channel_list)
                     index = 0
                     index >> io_model.file_opt
-                    minimum_size = (200, 16)
+                    minimum_size = (300, 16)
                     foreground = 'blue'
                     index ::
                         if index > 0:
