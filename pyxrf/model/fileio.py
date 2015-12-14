@@ -537,6 +537,7 @@ def read_xspress3_data(file_path):
 def flip_data(input_data):
     """
     Flip 2D or 3D array. The flip happens on the second index of shape.
+    .. warning :: This function mutates the input values.
 
     Parameters
     ----------
@@ -546,7 +547,7 @@ def flip_data(input_data):
     -------
     flipped data
     """
-    new_data = np.array(input_data)
+    new_data = np.asarray(input_data)
     data_shape = input_data.shape
     if len(data_shape) == 2:
         new_data[1::2, :] = new_data[1::2, ::-1]
