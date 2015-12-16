@@ -47,6 +47,7 @@ from collections import OrderedDict
 import pandas as pd
 import json
 import skimage.io as sio
+from PIL import Image
 
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float, Bool
 
@@ -162,7 +163,8 @@ class FileIOModel(Atom):
         if len(self.mask_name) > 0 and self.mask_opt is True:
             mask_file = os.path.join(self.working_directory, self.mask_name)
             try:
-                self.mask_data = np.load(mask_file)
+                self.mask_data = np.array(Image.open(mask_file))
+                #self.mask_data = np.load(mask_file)
             except IOError:
                 self.mask_data = np.loadtxt(mask_file)
 
