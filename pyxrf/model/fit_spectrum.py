@@ -595,19 +595,30 @@ class Fit1D(Atom):
                                  self.result_folder, prefix=fit_name, use_sinp=use_snip)
             logger.info('Done with saving fitting plots.')
 
-        if self.save_tiff:
+        self.pixel_fit_info = 'Pixel fitting is done!'
+        app.processEvents()
+        logger.info('-------- Fitting of single pixels is done! --------')
+
+    def output_2Dimage(self, to_tiff=True):
+        """Read data from h5 file and save them into either tiff or txt.
+
+        Parameters
+        ----------
+        to_tiff : str, optional
+            save to tiff or not
+        """
+        fpath = os.path.join(self.result_folder, self.save_name)
+        if to_tiff:
             namelist = self.data_title.split('_')
             output_n = namelist[0]+'_'+namelist[1]+'_'+'output'
             output_data(fpath, os.path.join(self.result_folder, output_n))
-        if self.save_txt:
+            logger.info('Done with saving data {} to tiff files.'.format(namelist[1]))
+        else:
             namelist = self.data_title.split('_')
             output_n = namelist[0]+'_'+namelist[1]+'_'+'output'
             output_data(fpath, os.path.join(self.result_folder, output_n),
                         file_format='txt')
-
-        self.pixel_fit_info = 'Pixel fitting is done!'
-        app.processEvents()
-        logger.info('-------- Fitting of single pixels is done! --------')
+            logger.info('Done with saving data {} to txt files.'.format(namelist[1]))
 
     def save_result(self, fname=None):
         """

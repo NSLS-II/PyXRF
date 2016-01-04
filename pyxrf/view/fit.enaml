@@ -646,7 +646,7 @@ enamldef FitView(DockItem): fit_view:
             title = 'Fit spectrum of all individual pixels.'
             padding = Box(2, 2, 2, 2)
             constraints = [vbox(hbox(save_cb, lb1, fd1v, fd1h, lb2, fd2v, fd2h, spacer),
-                                hbox(fit_pixel, pixel_fit_information, spacer, cb_tiff, cb_txt))]
+                                hbox(fit_pixel, pixel_fit_information, spacer, to_tiff, to_txt))]
             CheckBox: save_cb:
                 text = 'Save plots'
                 clicked ::
@@ -710,16 +710,16 @@ enamldef FitView(DockItem): fit_view:
                 text := fit_model.pixel_fit_info
                 foreground = 'red'
 
-            CheckBox: cb_tiff:
+            PushButton: to_tiff:
                 text = 'Save to tiff'
-                checkable = True
                 #minimum_size = (20, 20)
-                checked := fit_model.save_tiff
-            CheckBox: cb_txt:
+                clicked ::
+                    fit_model.output_2Dimage()
+            PushButton: to_txt:
                 text = 'Save to txt'
-                checkable = True
                 #minimum_size = (20, 20)
-                checked := fit_model.save_txt
+                clicked ::
+                    fit_model.output_2Dimage(to_tiff=False)
 
 
 enamldef AutoFindElements(Window): auto_win:
