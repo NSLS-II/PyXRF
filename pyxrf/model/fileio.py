@@ -71,10 +71,8 @@ class FileIOModel(Atom):
     ----------
     working_directory : str
         current working path
-    working_directory : str
-        define where output files are saved
-    file_names : list
-        list of loaded files
+    file_name : str
+        name of loaded file
     load_status : str
         Description of file loading status
     data_sets : dict
@@ -83,8 +81,7 @@ class FileIOModel(Atom):
         Dict of 2D arrays, such as 2D roi pv or fitted data
     """
     working_directory = Str()
-    #output_directory = Str()
-    file_names = List()
+    file_name = Str()
     file_path = Str()
     load_status = Str()
     data_sets = Typed(OrderedDict)
@@ -101,7 +98,7 @@ class FileIOModel(Atom):
     data = Typed(np.ndarray)
     data_all = Typed(np.ndarray)
     selected_file_name = Str()
-    file_name = Str()
+    #file_name = Str()
     mask_data = Typed(object)
     mask_name = Str()
     mask_opt = Bool(False)
@@ -119,18 +116,14 @@ class FileIOModel(Atom):
     #     # directory changes
     #     self.output_directory = self.working_directory
 
-    @observe('file_names')
+    @observe('file_name')
     def update_more_data(self, change):
         self.file_channel_list = []
-        #self.file_names.sort()
-        logger.info('Files are loaded: %s' % (self.file_names))
+        logger.info('File is loaded: %s' % (self.file_name))
 
-        # focus on single file only for now
-        self.file_name = self.file_names[0]
-
+        # focus on single file only
         self.img_dict, self.data_sets = file_handler(self.working_directory,
-                                                     self.file_names)
-
+                                                     self.file_name)
         self.file_channel_list = self.data_sets.keys()
 
     @observe('runid')
@@ -150,12 +143,11 @@ class FileIOModel(Atom):
         if self.h_num != 0 and self.v_num != 0:
             datashape = [self.v_num, self.h_num]
 
-        fname = self.fname_from_db
-        fpath = os.path.join(self.working_directory, fname)
+        self.file_name = self.fname_from_db
+        fpath = os.path.join(self.working_directory, self.file_name)
         config_file = os.path.join(self.working_directory, 'pv_config.json')
         db_to_hdf_config(fpath, self.runid,
                          datashape, config_file)
-        self.file_names = [fname]
 
     @observe('file_opt', 'mask_name', 'mask_opt')
     def choose_file(self, change):
@@ -183,16 +175,10 @@ class FileIOModel(Atom):
 
         names = self.data_sets.keys()
 
-        # to be passed to fitting part for single pixel fitting
+        # passed to fitting part for single pixel fitting
         self.data_all = self.data_sets[names[self.file_opt-1]].raw_data
-
-        # spectrum is averaged in terms of pixel size,
-        # fit doesn't work well if spectrum value is too large.
-
-        spectrum = self.data_sets[names[self.file_opt-1]].get_sum(mask=self.mask_data)
-        #self.data = spectrum/np.max(spectrum)
-        #self.data = spectrum/(self.data_all.shape[0]*self.data_all.shape[1])
-        self.data = spectrum
+        # get summed data or based on mask
+        self.data = self.data_sets[names[self.file_opt-1]].get_sum(mask=self.mask_data)
 
     # @observe('mask_name')
     # def load_mask_data(self, change):
@@ -308,10 +294,10 @@ class SpectrumCalculator(object):
             return spectrum_sum
 
 
-def file_handler(working_directory, file_names):
+def file_handler(working_directory, file_name):
     # send information on GUI level later !
     try:
-        return read_hdf_APS(working_directory, file_names[0])
+        return read_hdf_APS(working_directory, file_name)
     except IOError as e:
         logger.error("I/O error({0}): {1}".format(e.errno, e.strerror))
         logger.error('Please select .h5 file')
@@ -431,65 +417,65 @@ def read_runid(runid, c_list, dshape=None):
     return data_dict, data_sets
 
 
-def read_hdf_HXN(working_directory,
-                 file_names, channel_num=4):
-    """
-    Data IO for HXN temporary datasets. This might be changed later.
-
-    Parameters
-    ----------
-    working_directory : str
-        path folder
-    file_names : list
-        list of chosen files
-    channel_num : int, optional
-        detector channel number
-
-    Returns
-    -------
-    data_dict : dict
-        with fitting data
-    data_sets : dict
-        data from each channel and channel summed
-    """
-    data_dict = OrderedDict()
-    data_sets = OrderedDict()
-
-    # cut off bad point on the last position of the spectrum
-    bad_point_cut = 1
-
-    for fname in file_names:
-        try:
-            file_path = os.path.join(working_directory, fname)
-            f = h5py.File(file_path, 'r+')
-            data = f['entry/instrument']
-
-            fname = fname.split('.')[0]
-
-            # for 2D MAP???
-            data_dict[fname] = data
-
-            # data from channel summed
-            exp_data = np.asarray(data['detector/data'])
-            logger.info('File : {} with total counts {}'.format(fname,
-                                                                np.sum(exp_data)))
-            exp_data = exp_data[:, :, :-bad_point_cut]
-            DS = DataSelection(filename=fname,
-                               raw_data=exp_data)
-            data_sets.update({fname: DS})
-
-            # data from each channel
-            for i in range(channel_num):
-                file_channel = fname+'_channel_'+str(i+1)
-                exp_data_new = np.reshape(exp_data[0, i, :],
-                                          [1, 1, exp_data[0, i, :].size])
-                DS = DataSelection(filename=file_channel,
-                                   raw_data=exp_data_new)
-                data_sets.update({file_channel: DS})
-
-        except ValueError:
-            continue
-    return data_dict, data_sets
+# def read_hdf_HXN(working_directory,
+#                  file_names, channel_num=4):
+#     """
+#     Data IO for HXN temporary datasets. This might be changed later.
+#
+#     Parameters
+#     ----------
+#     working_directory : str
+#         path folder
+#     file_names : list
+#         list of chosen files
+#     channel_num : int, optional
+#         detector channel number
+#
+#     Returns
+#     -------
+#     data_dict : dict
+#         with fitting data
+#     data_sets : dict
+#         data from each channel and channel summed
+#     """
+#     data_dict = OrderedDict()
+#     data_sets = OrderedDict()
+#
+#     # cut off bad point on the last position of the spectrum
+#     bad_point_cut = 1
+#
+#     for fname in file_names:
+#         try:
+#             file_path = os.path.join(working_directory, fname)
+#             f = h5py.File(file_path, 'r+')
+#             data = f['entry/instrument']
+#
+#             fname = fname.split('.')[0]
+#
+#             # for 2D MAP???
+#             data_dict[fname] = data
+#
+#             # data from channel summed
+#             exp_data = np.asarray(data['detector/data'])
+#             logger.info('File : {} with total counts {}'.format(fname,
+#                                                                 np.sum(exp_data)))
+#             exp_data = exp_data[:, :, :-bad_point_cut]
+#             DS = DataSelection(filename=fname,
+#                                raw_data=exp_data)
+#             data_sets.update({fname: DS})
+#
+#             # data from each channel
+#             for i in range(channel_num):
+#                 file_channel = fname+'_channel_'+str(i+1)
+#                 exp_data_new = np.reshape(exp_data[0, i, :],
+#                                           [1, 1, exp_data[0, i, :].size])
+#                 DS = DataSelection(filename=file_channel,
+#                                    raw_data=exp_data_new)
+#                 data_sets.update({file_channel: DS})
+#
+#         except ValueError:
+#             continue
+#     return data_dict, data_sets
 
 
 def read_xspress3_data(file_path):
@@ -976,83 +962,61 @@ def read_MAPS(working_directory,
     return img_dict, data_sets
 
 
-def read_numpy_data(working_directory,
-                    file_names):
-    """
-    temporary use, bad example.
-    """
-    #import pickle
-    data_sets = OrderedDict()
-    img_dict = OrderedDict()
-
-    #pickle_folder = '/Users/Li/Downloads/xrf_data/xspress3/'
-    #save_name = 'scan01167_pickle'
-    #fpath = os.path.join(pickle_folder, save_name)
-    for file_name in file_names:
-        fpath = os.path.join(working_directory, file_name)
-        exp_data = np.load(fpath)
-        DS = DataSelection(filename=file_name,
-                           raw_data=exp_data)
-        data_sets.update({file_name: DS})
-
-    return img_dict, data_sets
-
-
-def read_hdf_multi_files_HXN(working_directory,
-                             file_prefix, h_dim, v_dim,
-                             channel_num=4):
-    """
-    Data IO for HXN temporary datasets. This might be changed later.
-
-    Parameters
-    ----------
-    working_directory : str
-        path folder
-    file_names : list
-        list of chosen files
-    channel_num : int, optional
-        detector channel number
-
-    Returns
-    -------
-    data_dict : dict
-        with fitting data
-    data_sets : dict
-        data from each channel and channel summed
-    """
-    data_dict = OrderedDict()
-    data_sets = OrderedDict()
-
-    # cut off bad point on the last position of the spectrum
-    bad_point_cut = 1
-    start_i = 1
-    end_i = h_dim*v_dim
-    total_data = np.zeros([v_dim, h_dim, 4096-bad_point_cut])
-
-    for fileID in range(start_i, end_i+1):
-        fname = file_prefix + str(fileID)+'.hdf5'
-        file_path = os.path.join(working_directory, fname)
-        fileID -= start_i
-        with h5py.File(file_path, 'r+') as f:
-            data = f['entry/instrument']
-
-            #fname = fname.split('.')[0]
-
-            # for 2D MAP???
-            #data_dict[fname] = data
-
-            # data from channel summed
-            exp_data = np.asarray(data['detector/data'])
-            ind_v = fileID//h_dim
-            ind_h = fileID - ind_v * h_dim
-            total_data[ind_v, ind_h, :] = np.sum(exp_data[:, :3, :-bad_point_cut],
-                                                 axis=(0, 1))
-
-    DS = DataSelection(filename=file_prefix,
-                       raw_data=total_data)
-    data_sets.update({file_prefix: DS})
-
-    return data_dict, data_sets
+# def read_hdf_multi_files_HXN(working_directory,
+#                              file_prefix, h_dim, v_dim,
+#                              channel_num=4):
+#     """
+#     Data IO for HXN temporary datasets. This might be changed later.
+#
+#     Parameters
+#     ----------
+#     working_directory : str
+#         path folder
+#     file_names : list
+#         list of chosen files
+#     channel_num : int, optional
+#         detector channel number
+#
+#     Returns
+#     -------
+#     data_dict : dict
+#         with fitting data
+#     data_sets : dict
+#         data from each channel and channel summed
+#     """
+#     data_dict = OrderedDict()
+#     data_sets = OrderedDict()
+#
+#     # cut off bad point on the last position of the spectrum
+#     bad_point_cut = 1
+#     start_i = 1
+#     end_i = h_dim*v_dim
+#     total_data = np.zeros([v_dim, h_dim, 4096-bad_point_cut])
+#
+#     for fileID in range(start_i, end_i+1):
+#         fname = file_prefix + str(fileID)+'.hdf5'
+#         file_path = os.path.join(working_directory, fname)
+#         fileID -= start_i
+#         with h5py.File(file_path, 'r+') as f:
+#             data = f['entry/instrument']
+#
+#             #fname = fname.split('.')[0]
+#
+#             # for 2D MAP???
+#             #data_dict[fname] = data
+#
+#             # data from channel summed
+#             exp_data = np.asarray(data['detector/data'])
+#             ind_v = fileID//h_dim
+#             ind_h = fileID - ind_v * h_dim
+#             total_data[ind_v, ind_h, :] = np.sum(exp_data[:, :3, :-bad_point_cut],
+#                                                  axis=(0, 1))
+#
+#     DS = DataSelection(filename=file_prefix,
+#                        raw_data=total_data)
+#     data_sets.update({file_prefix: DS})
+#
+#     return data_dict, data_sets
 
 
 def get_roi_sum(namelist, data_range, data):

@@ -115,16 +115,8 @@ enamldef FileView(DockItem): file_view:
                     if path:
 
                         # only load one file
-                        io_model.file_names = [item.split('/')[-1] for item in path][0:1]
-
-                        #files_load.text = 'Number of files loaded: {}'.format(len(io_model.file_names))
+                        io_model.file_name = [item.split('/')[-1] for item in path][0:1][0]
                         files_load.text = '{} is loaded.'.format(io_model.file_name)
-
-                        # do not import original data for 2D image
-                        #img_model_adv.data_dict = io_model.img_dict
-
-                        # data passed for auto fitting and final fit
-                        #param_model.data_sets = io_model.data_sets
 
                         plot_model.parameters = param_model.param_new
                         setting_model.parameters = param_model.param_new
@@ -215,18 +207,7 @@ enamldef FileView(DockItem): file_view:
                     index >> io_model.file_opt
                     minimum_size = (300, 16)
                     foreground = 'blue'
-                    index ::
-                        if index > 0:
-                            pass
-                            # assign data to plot model
-                            #plot_model.data = io_model.data
 
-                            # for param model
-                            #param_model.data = io_model.data
-
-                            # for fit model
-                            #fit_model.data = io_model.data
-                            #fit_model.data_all = io_model.data_all
 
             ScrollArea: scroller:
                 Container:
