@@ -73,7 +73,7 @@ enamldef XRFGui(MainWindow): main_window:
                 param_model = main_window.param_model
                 plot_model = main_window.plot_model
                 # img_model_adv = main_window.img_model_adv
-                # fit_model = main_window.fit_model
+                fit_model = main_window.fit_model
                 setting_model = main_window.setting_model
                 name = 'file_view'
             #GuessParamView:

@@ -52,13 +52,13 @@ from scipy.interpolate import interp1d, interp2d
 from enaml.qt.qt_application import QApplication
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
-from skxray.core.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
+from skbeam.core.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
                                            sum_area, set_parameter_bound,
                                            ParamController, K_LINE, L_LINE, M_LINE,
                                            nnls_fit, trim, construct_linear_model, linear_spectrum_fitting,
                                            register_strategy, TRANSITIONS_LOOKUP)
-from skxray.core.fitting.background import snip_method
-from skxray.fluorescence import XrfElement as Element
+from skbeam.core.fitting.background import snip_method
+from skbeam.fluorescence import XrfElement as Element
 from .guessparam import (calculate_profile, fit_strategy_list,
                          trim_escape_peak, define_range, get_energy,
                          get_Z, PreFitStatus, ElementController,
@@ -84,7 +84,7 @@ class Fit1D(Atom):
     param_dict = Dict()
 
     element_list = List()
-
+    data_sets = Dict()
     data_all = Typed(np.ndarray)
     data = Typed(np.ndarray)
     fit_x = Typed(np.ndarray)
@@ -149,8 +149,6 @@ class Fit1D(Atom):
     bin_energy = Int(0)
     fit_info = Str()
     pixel_fit_info = Str()
-    save_tiff = Bool(False)
-    save_txt = Bool(False)
 
     pixel_fit_method = Int(0)
 

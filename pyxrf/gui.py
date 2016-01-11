@@ -121,7 +121,7 @@ def run():
     #fit_model.observe('param_dict', param_model.param_changed)
 
     # send exp data to SettingModel for roi sum
-    # got warning message 
+    # got warning message
     #io_model.observe('data_sets', setting_model.data_sets_update)
 
     xrfview = XRFGui(io_model=io_model,

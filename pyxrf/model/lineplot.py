@@ -49,8 +49,8 @@ from collections import OrderedDict
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
 
-from skxray.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
-from skxray.fluorescence import XrfElement as Element
+from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
+from skbeam.fluorescence import XrfElement as Element
 
 import logging
 logger = logging.getLogger(__name__)

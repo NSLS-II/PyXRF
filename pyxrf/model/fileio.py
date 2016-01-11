@@ -106,7 +106,6 @@ class FileIOModel(Atom):
     def __init__(self, **kwargs):
         self.working_directory = kwargs['working_directory']
         self.mask_data = None
-        #self.output_directory = kwargs['output_directory']
         #with self.suppress_notifications():
         #    self.working_directory = working_directory
 
@@ -118,6 +117,10 @@ class FileIOModel(Atom):
 
     @observe('file_name')
     def update_more_data(self, change):
+        if change['value'] == 'temp':
+            # 'temp' is used to reload the same file
+            return
+
         self.file_channel_list = []
         logger.info('File is loaded: %s' % (self.file_name))
 
@@ -173,12 +176,10 @@ class FileIOModel(Atom):
         # controlled at top level gui.py startup
         self.selected_file_name = self.file_channel_list[self.file_opt-1]
 
-        names = self.data_sets.keys()
-
         # passed to fitting part for single pixel fitting
-        self.data_all = self.data_sets[names[self.file_opt-1]].raw_data
+        self.data_all = self.data_sets[self.selected_file_name].raw_data
         # get summed data or based on mask
-        self.data = self.data_sets[names[self.file_opt-1]].get_sum(mask=self.mask_data)
+        self.data = self.data_sets[self.selected_file_name].get_sum(mask=self.mask_data)
 
     # @observe('mask_name')
     # def load_mask_data(self, change):

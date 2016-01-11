@@ -47,7 +47,7 @@ from ..model.lineplot import LinePlotModel
 import numpy as np
 
 from matplotlib.figure import Figure
-from skxray.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
+from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 
 
 enamldef FloatField(DefaultFloatField):
