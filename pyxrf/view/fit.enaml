@@ -54,8 +54,8 @@ from enaml.stdlib.fields import IntField as DefaultIntField
 
 from ..model.guessparam import fit_strategy_list, save_as, bound_options, autofit_param
 from ..model.fit_spectrum import get_cs
-from skxray.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
-from skxray.fluorescence import XrfElement as Element
+from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
+from skbeam.fluorescence import XrfElement as Element
 
 enamldef FloatField(DefaultFloatField):
     submit_triggers = ['auto_sync'] #['return_pressed']

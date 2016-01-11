@@ -48,9 +48,9 @@ import os
 from atom.api import (Atom, Str, observe, Typed,
                       Int, Dict, List, Float, Enum, Bool)
 
-from skxray.core.fitting.background import snip_method
-from skxray.fluorescence import XrfElement as Element
-from skxray.core.fitting.xrf_model import (ParamController,
+from skbeam.core.fitting.background import snip_method
+from skbeam.fluorescence import XrfElement as Element
+from skbeam.core.fitting.xrf_model import (ParamController,
                                            compute_escape_peak, trim,
                                            construct_linear_model,
                                            linear_spectrum_fitting)

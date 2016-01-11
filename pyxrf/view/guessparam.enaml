@@ -50,7 +50,7 @@ import numpy as np
 import six
 
 from ..model.guessparam import autofit_param
-from skxray.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
+from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 
 
 enamldef FloatField(DefaultFloatField):
