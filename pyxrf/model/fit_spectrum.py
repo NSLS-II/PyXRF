@@ -52,13 +52,13 @@ from scipy.interpolate import interp1d, interp2d
 from enaml.qt.qt_application import QApplication
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
-from skxray.core.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
-                                           sum_area, set_parameter_bound,
-                                           ParamController, K_LINE, L_LINE, M_LINE,
-                                           nnls_fit, trim, construct_linear_model, linear_spectrum_fitting,
-                                           register_strategy, TRANSITIONS_LOOKUP)
-from skxray.core.fitting.background import snip_method
-from skxray.fluorescence import XrfElement as Element
+from skbeam.core.fitting.xrf_model import (
+    ModelSpectrum, update_parameter_dict, sum_area, set_parameter_bound,
+    ParamController, K_LINE, L_LINE, M_LINE, nnls_fit, trim,
+    construct_linear_model, linear_spectrum_fitting, register_strategy,
+    TRANSITIONS_LOOKUP, fit_per_line_nnls)
+from skbeam.core.fitting.background import snip_method
+from skbeam.fluorescence import XrfElement as Element
 from .guessparam import (calculate_profile, fit_strategy_list,
                          trim_escape_peak, define_range, get_energy,
                          get_Z, PreFitStatus, ElementController,
@@ -1190,10 +1190,8 @@ def save_fitted_as_movie(x_v, matv, results,
     ani.save(output_p, writer=writer, dpi=dpi)
 
 
-def fit_per_line_nnls(row_num, data,
-                      matv, param, use_snip):
-    """
-    Fit experiment data for a given row using nnls algorithm.
+def fit_per_line_nnls_wrapper(row_num, data, matv, param, use_snip):
+    """Wraps fit_per_line_nnls in skbeam and logs which row is being computed
 
     Parameters
     ----------
@@ -1215,31 +1213,10 @@ def fit_per_line_nnls(row_num, data,
         calculated as a summed value. Also residual is included.
     """
     logger.info('Row number at {}'.format(row_num))
-    out = []
-    bg_sum = 0
-    for i in range(data.shape[0]):
-        if use_snip is True:
-            bg = snip_method(data[i, :],
-                             param['e_offset']['value'],
-                             param['e_linear']['value'],
-                             param['e_quadratic']['value'],
-                             width=param['non_fitting_values']['background_width'])
-            y = data[i, :] - bg
-            bg_sum = np.sum(bg)
-
-        else:
-            y = data[i, :]
-        result, res = nnls_fit(y, matv, weights=None)
-
-        sst = np.sum((y-np.mean(y))**2)
-        r2 = 1 - res/sst
-        result = list(result) + [bg_sum, r2]
-        out.append(result)
-    return np.array(out)
+    return fit_per_line_nnls(data, matv, param, use_snip)
 
 
-def fit_pixel_multiprocess_nnls(exp_data, matv, param,
-                                use_snip=False):
+def fit_pixel_multiprocess_nnls(exp_data, matv, param, use_snip=False):
     """
     Multiprocess fit of experiment data.
 

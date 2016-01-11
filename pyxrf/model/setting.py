@@ -45,8 +45,8 @@ import copy
 from atom.api import (Atom, Str, observe, Typed,
                       Dict, List, Int, Enum, Float, Bool)
 
-from skxray.fluorescence import XrfElement as Element
-from skxray.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
+from skbeam.fluorescence import XrfElement as Element
+from skbeam.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
 
 import logging
 logger = logging.getLogger(__name__)
