@@ -25,7 +25,7 @@ setup(
     entry_points={'console_scripts': ['pyxrf = pyxrf.gui:run']},
     package_data={'pyxrf.view': ['*.enaml'], 'configs': ['*.json']},
     include_package_data=True,
-    install_requires=['scikit-xray', 'matplotlib', 'enaml', 'six', 'numpy'],
+    install_requires=['setuptools'],
     license='BSD',
     classifiers=['Development Status :: 3 - Alpha',
                  "License :: OSI Approved :: BSD License",
