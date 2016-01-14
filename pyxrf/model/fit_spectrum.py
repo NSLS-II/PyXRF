@@ -559,7 +559,6 @@ class Fit1D(Atom):
 
         # Update GUI so that results can be seen immediately
         self.fit_img[fit_name] = result_map
-        #self.fit_img = {k:v for k,v in six.iteritems(self.fit_img) if prefix_fname in k}
 
         # get fitted spectrum and save them to figs
         if self.save_point is True:

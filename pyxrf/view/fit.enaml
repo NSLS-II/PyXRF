@@ -1244,6 +1244,7 @@ def save_defaults(parameter_model):
 enamldef EditPileupPeak(Window): pileup_win:
     attr param_model
     attr plot_model
+    destroy_on_close = False
 
     title = 'Pileup Peak Editor'
     Container:

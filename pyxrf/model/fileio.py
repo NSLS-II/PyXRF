@@ -174,8 +174,10 @@ class FileIOModel(Atom):
 
         # selected file name from all channels
         # controlled at top level gui.py startup
-        self.selected_file_name = self.file_channel_list[self.file_opt-1]
-
+        try:
+            self.selected_file_name = self.file_channel_list[self.file_opt-1]
+        except IndexError:
+            pass
         # passed to fitting part for single pixel fitting
         self.data_all = self.data_sets[self.selected_file_name].raw_data
         # get summed data or based on mask
