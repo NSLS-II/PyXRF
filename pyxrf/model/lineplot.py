@@ -209,6 +209,7 @@ class LinePlotModel(Atom):
             'elastic': {'color': 'purple', 'label': 'elastic'},
             'escape': {'color': 'darkblue', 'label': 'escape'},
             'pileup': {'color': 'orange', 'label': 'pileup'},
+            'userpeak': {'color': 'orange', 'label': 'pileup'},
             #'auto_fit': {'color': 'black', 'label': 'auto fitted', 'linewidth': 2.5},
             'fit': {'color': 'red', 'label': 'fit', 'linewidth': 2.5},
             'residual': {'color': 'black', 'label': 'residual', 'linewidth': 2.0}
@@ -727,6 +728,12 @@ class LinePlotModel(Atom):
                 ln, = self._ax.plot(fit_x, v,
                                     color=self.plot_style['escape']['color'],
                                     label=self.plot_style['escape']['label'])
+                self.plot_fit_obj.append(ln)
+
+            elif 'user' in k.lower():
+                ln, = self._ax.plot(fit_x, v,
+                                    color=self.plot_style['userpeak']['color'],
+                                    label=self.plot_style['userpeak']['label'])
                 self.plot_fit_obj.append(ln)
 
             elif '-' in k:  # Si_K-Si_K

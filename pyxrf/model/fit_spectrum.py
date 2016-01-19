@@ -724,7 +724,7 @@ class Fit1D(Atom):
 def combine_lines(components, element_list, background):
     """
     Combine results for different lines of the same element.
-    And also add background, compton and elastic.
+    And also add pileup, userpeak, background, compton and elastic.
 
     Parameters
     ----------
@@ -740,6 +740,7 @@ def combine_lines(components, element_list, background):
     dict :
         combined results for elements and other related peaks.
     """
+    print('components: {}'.format(components.keys()))
     new_components = {}
     for e in element_list:
         if len(e) <= 4:
@@ -749,6 +750,10 @@ def combine_lines(components, element_list, background):
                 if (e_temp in k) and (e not in k):
                     intensity += v
             new_components[e] = intensity
+        elif 'user' in e.lower():
+            for k, v in six.iteritems(components):
+                if e in k:
+                    new_components[e] = v
         else:
             comp_name = 'pileup_' + e.replace('-', '_') + '_'  # change Si_K-Si_K to Si_K_Si_K
             new_components[e] = components[comp_name]

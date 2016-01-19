@@ -81,7 +81,7 @@ def get_defaults():
 def run():
     LOG_F = 'log_example.out'
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s',
-                        level=logging.INFO,
+                        level=logging.DEBUG,
                         #filename=LOG_F,
                         filemode='w')
 

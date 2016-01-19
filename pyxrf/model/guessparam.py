@@ -548,6 +548,7 @@ class GuessParamModel(Atom):
         """
         self.define_range()
         self.element_list = self.EC.get_element_list()
+        print('element list:{}'.format(self.element_list))
 
         # self.param_new['non_fitting_values']['element_list'] = ', '.join(self.element_list)
         #
@@ -572,9 +573,12 @@ class GuessParamModel(Atom):
         # create_full_dict(self.param_new, fit_strategy_list)
 
         self.param_new = update_param_from_element(self.param_new, self.element_list)
+        for k, v in six.iteritems(self.param_new):
+            print(k)
 
         element_temp = [e for e in self.element_list if len(e) <= 4]
         pileup_temp = [e for e in self.element_list if '-' in e]
+        userpeak_temp = [e for e in self.element_list if 'user' in e.lower()]
 
         # update area values in param_new according to results saved in ElementController
         if len(self.EC.element_dict):
@@ -584,6 +588,10 @@ class GuessParamModel(Atom):
                         name_cut = k[7:-5]  #remove pileup_ and _area
                         for p in pileup_temp:
                             if name_cut == p.replace('-', '_'):
+                                v['value'] = self.EC.element_dict[p].area
+                    elif 'user' in k.lower():
+                        for p in userpeak_temp:
+                            if p in k:
                                 v['value'] = self.EC.element_dict[p].area
                     else:
                         for e in element_temp:
@@ -815,7 +823,7 @@ def get_Z(ename):
     strip_line = lambda ename: ename.split('_')[0]
 
     non_element = ['compton', 'elastic', 'background', 'escape']
-    if (ename.lower() in non_element) or '-' in ename:
+    if (ename.lower() in non_element) or '-' in ename or 'user' in ename.lower():
         return '-'
     else:
         e = Element(strip_line(ename))
@@ -823,9 +831,12 @@ def get_Z(ename):
 
 
 def get_energy(ename):
+    """
+    Return energy value by given elemental name. Need to consider non-elemental case.
+    """
     strip_line = lambda ename: ename.split('_')[0]
     non_element = ['compton', 'elastic', 'background', 'escape']
-    if (ename.lower() in non_element):
+    if (ename.lower() in non_element) or 'user' in ename.lower():
         return '-'
     else:
         e = Element(strip_line(ename))
