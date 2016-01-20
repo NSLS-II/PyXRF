@@ -548,7 +548,6 @@ class GuessParamModel(Atom):
         """
         self.define_range()
         self.element_list = self.EC.get_element_list()
-        print('element list:{}'.format(self.element_list))
         # self.param_new['non_fitting_values']['element_list'] = ', '.join(self.element_list)
         #
         # # first remove some nonexisting elements
@@ -572,11 +571,6 @@ class GuessParamModel(Atom):
         # create_full_dict(self.param_new, fit_strategy_list)
 
         self.param_new = update_param_from_element(self.param_new, self.element_list)
-        for k, v in six.iteritems(self.param_new):
-            if 'user' in k.lower():
-                print('*************create full param')
-                print(k, v)
-
         element_temp = [e for e in self.element_list if len(e) <= 4]
         pileup_temp = [e for e in self.element_list if '-' in e]
         userpeak_temp = [e for e in self.element_list if 'user' in e.lower()]
@@ -925,7 +919,6 @@ def update_param_from_element(param, element_list):
     PC = ParamController(param_new, element_list)
     # parameter values not updated based on param_new, so redo it
     param_temp = PC.params
-    #print(param_temp)
 
     # enforce adjust_element area to be fixed,
     # while bound_type in xrf_model is defined as none for area

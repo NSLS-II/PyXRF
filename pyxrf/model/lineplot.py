@@ -208,8 +208,8 @@ class LinePlotModel(Atom):
             'compton': {'color': 'darkcyan', 'linewidth': 1.5, 'label': 'compton'},
             'elastic': {'color': 'purple', 'label': 'elastic'},
             'escape': {'color': 'darkblue', 'label': 'escape'},
-            'pileup': {'color': 'orange', 'label': 'pileup'},
-            'userpeak': {'color': 'orange', 'label': 'pileup'},
+            'pileup': {'color': 'darkgoldenrod', 'label': 'pileup'},
+            'userpeak': {'color': 'orange', 'label': 'userpeak'},
             #'auto_fit': {'color': 'black', 'label': 'auto fitted', 'linewidth': 2.5},
             'fit': {'color': 'red', 'label': 'fit', 'linewidth': 2.5},
             'residual': {'color': 'black', 'label': 'residual', 'linewidth': 2.0}

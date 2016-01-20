@@ -740,7 +740,6 @@ def combine_lines(components, element_list, background):
     dict :
         combined results for elements and other related peaks.
     """
-    print('components: {}'.format(components.keys()))
     new_components = {}
     for e in element_list:
         if len(e) <= 4:
@@ -1901,7 +1900,6 @@ def fit_data_multi_files(dir_path, file_prefix,
     """
     num_processors_to_use = multiprocessing.cpu_count()
     logger.info('cpu count: {}'.format(num_processors_to_use))
-    #print 'Creating pool with %d processes\n' % num_processors_to_use
     pool = multiprocessing.Pool(num_processors_to_use)
 
     result_pool = [pool.apply_async(fit_pixel_fast,
