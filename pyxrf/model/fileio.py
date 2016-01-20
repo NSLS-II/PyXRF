@@ -525,7 +525,7 @@ def read_xspress3_data(file_path):
     return data_output
 
 
-def flip_data(input_data):
+def flip_data(input_data, subscan_dims=None):
     """
     Flip 2D or 3D array. The flip happens on the second index of shape.
     .. warning :: This function mutates the input values.
@@ -541,10 +541,26 @@ def flip_data(input_data):
     new_data = np.asarray(input_data)
     data_shape = input_data.shape
     if len(data_shape) == 2:
-        new_data[1::2, :] = new_data[1::2, ::-1]
+        if subscan_dims is None:
+            new_data[1::2, :] = new_data[1::2, ::-1]
+        else:
+            i = 0
+            for nx, ny in subscan_dims:
+                start = i + 1
+                end = i + ny
+                new_data[start:end:2, :] = new_data[start:end:2, ::-1]
+                i += ny
 
     if len(data_shape) == 3:
-        new_data[1::2, :, :] = new_data[1::2, ::-1, :]
+        if subscan_dims is None:
+            new_data[1::2, :, :] = new_data[1::2, ::-1, :]
+        else:
+            i = 0
+            for nx, ny in subscan_dims:
+                start = i + 1
+                end = i + ny
+                new_data[start:end:2, :, :] = new_data[start:end:2, ::-1, :]
+                i += ny
     return new_data
 
 
@@ -1135,12 +1151,11 @@ def transfer_xspress(fpath, output_path):
     write_data_to_hdf(output_path, d)
 
 
-def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
+def write_db_to_hdf(fpath, data, hdr, datashape, get_roi_sum_sign=False,
                     det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
                     roi_dict={'Pt_9300_9600': ['Ch1 [9300:9600]', 'Ch2 [9300:9600]', 'Ch3 [9300:9600]']},
                     pos_list=('ssx[um]', 'ssy[um]'),
-                    scaler_list=('sclr1_ch3', 'sclr1_ch4'),
-                    pyramid=False):
+                    scaler_list=('sclr1_ch3', 'sclr1_ch4')):
     """
     Assume data is obained from databroker, and save the data to hdf file.
 
@@ -1163,6 +1178,10 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     scaler_list : list, tuple, optional
         list of scaler pv
     """
+    start_doc = hdr['start']
+    fly_type = start_doc.get('fly_type', None)
+    subscan_dims = start_doc.get('subscan_dims', None)
+
     interpath = 'xrfmap'
     f = h5py.File(fpath, 'a')
 
@@ -1190,8 +1209,8 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
         new_data = new_data.reshape([datashape[0], datashape[1],
                                      len(channel_data[1])])
-        if pyramid is True:
-            new_data = flip_data(new_data)
+        if fly_type in ('pyramid',):
+            new_data = flip_data(new_data, subscan_dims=subscan_dims)
 
         if 'counts' in dataGrp:
             del dataGrp['counts']
@@ -1206,8 +1225,8 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
     sum_data = sum_data.reshape([datashape[0], datashape[1],
                                  len(channel_data[1])])
-    if pyramid is True:
-        sum_data = flip_data(sum_data)
+    if fly_type in ('pyramid',):
+        sum_data = flip_data(sum_data, subscan_dims=subscan_dims)
 
     if 'counts' in dataGrp:
         del dataGrp['counts']
@@ -1247,9 +1266,9 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     for i in range(pos_data.shape[0]):
         data_temp[i,:,:] = np.rot90(pos_data[i,:,:], k=3)
 
-    if pyramid is True:
+    if fly_type in ('pyramid',):
         for i in range(data_temp.shape[0]):
-            data_temp[i,:,:] = flip_data(data_temp[i,:,:])
+            data_temp[i,:,:] = flip_data(data_temp[i,:,:], subscan_dims=subscan_dims)
 
     dataGrp.create_dataset('name', data=pos_names)
     dataGrp.create_dataset('pos', data=data_temp)
@@ -1263,8 +1282,8 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     scaler_names, scaler_data = get_name_value_from_db(scaler_list, data,
                                                        datashape)
 
-    if pyramid is True:
-        scaler_data = flip_data(scaler_data)
+    if fly_type in ('pyramid',):
+        scaler_data = flip_data(scaler_data, subscan_dims=subscan_dims)
 
     if 'val' in dataGrp:
         del dataGrp['val']
@@ -1348,41 +1367,41 @@ def get_name_value_from_db(name_list, data, datashape):
     return pos_names, pos_data
 
 
-def db_to_hdf(fpath, runid,
-              datashape,
-              det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
-              roi_dict={'Pt_9300_9600': ['Ch1 [9300:9600]', 'Ch2 [9300:9600]', 'Ch3 [9300:9600]']},
-              pos_list=('ssx[um]', 'ssy[um]'),
-              scaler_list=('sclr1_ch2', 'sclr1_ch3', 'sclr1_ch8')):
-    """
-    Read data from databroker, and save the data to hdf file.
-
-    .. note:: Requires the databroker package from NSLS2
-    .. note:: This should probably be moved to suitcase!
-
-    Parameters
-    ----------
-    fpath: str
-        path to save hdf file
-    runid : int
-        id number for given run
-    datashape : tuple or list
-        shape of two D image
-    det_list : list, tuple or optional
-        list of detector channels
-    roi_list : list, tuple, optional
-        list of roi pv names
-    pos_list : list, tuple or optional
-        list of pos pv
-    scaler_list : list, tuple, optional
-        list of scaler pv
-    """
-    data = fetch_data_from_db(runid)
-    write_db_to_hdf(fpath, data,
-                    datashape, det_list=det_list,
-                    roi_dict=roi_dict,
-                    pos_list=pos_list,
-                    scaler_list=scaler_list)
+# def db_to_hdf(fpath, runid,
+#               datashape,
+#               det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
+#               roi_dict={'Pt_9300_9600': ['Ch1 [9300:9600]', 'Ch2 [9300:9600]', 'Ch3 [9300:9600]']},
+#               pos_list=('ssx[um]', 'ssy[um]'),
+#               scaler_list=('sclr1_ch2', 'sclr1_ch3', 'sclr1_ch8')):
+#     """
+#     Read data from databroker, and save the data to hdf file.
+#
+#     .. note:: Requires the databroker package from NSLS2
+#     .. note:: This should probably be moved to suitcase!
+#
+#     Parameters
+#     ----------
+#     fpath: str
+#         path to save hdf file
+#     runid : int
+#         id number for given run
+#     datashape : tuple or list
+#         shape of two D image
+#     det_list : list, tuple or optional
+#         list of detector channels
+#     roi_list : list, tuple, optional
+#         list of roi pv names
+#     pos_list : list, tuple or optional
+#         list of pos pv
+#     scaler_list : list, tuple, optional
+#         list of scaler pv
+#     """
+#     data = fetch_data_from_db(runid)
+#     write_db_to_hdf(fpath, data,
+#                     datashape, det_list=det_list,
+#                     roi_dict=roi_dict,
+#                     pos_list=pos_list,
+#                     scaler_list=scaler_list)
 
 
 def get_roi_keys(all_keys, beamline='HXN'):
@@ -1423,9 +1442,8 @@ def get_scaler_list_hxn(all_keys):
     return [v for v in all_keys if 'sclr1_' in v]
 
 
-def data_to_hdf_config(fpath, data,
-                       datashape, config_file=False,
-                       pyramid=False):
+def data_to_hdf_config(fpath, data, hdr,
+                       datashape, hdr, config_file=False):
     """
     Assume data is ready from databroker, so save the data to hdf file.
 
@@ -1446,18 +1464,17 @@ def data_to_hdf_config(fpath, data,
             config_data = json.load(json_data)
         roi_dict = get_roi_keys(data.keys(), beamline=config_data['beamline'])
         scaler_list = get_scaler_list_hxn(data.keys())
-        write_db_to_hdf(fpath, data,
+        write_db_to_hdf(fpath, data, hdr,
                         datashape,
                         det_list=config_data['xrf_detector'],
                         roi_dict=roi_dict,
                         pos_list=config_data['pos_list'],
-                        scaler_list=scaler_list,
-                        pyramid=pyramid)
+                        scaler_list=scaler_list)
     else:
-        write_db_to_hdf(fpath, data, datashape, pyramid=pyramid)
+        write_db_to_hdf(fpath, data, hdr, datashape)
 
 
-def make_hdf(fpath, runid, datashape, config_file=False, pyramid=False):
+def make_hdf(fpath, runid, datashape, config_file=False):
     """
     Assume data is ready from databroker, so save the data to hdf file.
 
@@ -1474,10 +1491,11 @@ def make_hdf(fpath, runid, datashape, config_file=False, pyramid=False):
     config_file : str
         path to json file which saves all pv names
     """
+    hdr = db[runid]
     print('Loading data from database.')
     data = fetch_data_from_db(runid)
     print('Saving data to hdf file.')
-    data_to_hdf_config(fpath, data, datashape, config_file=config_file, pyramid=pyramid)
+    data_to_hdf_config(fpath, data, hdr, datashape, config_file=config_file)
     print('Done!')
 
 
