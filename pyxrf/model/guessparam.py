@@ -549,7 +549,6 @@ class GuessParamModel(Atom):
         self.define_range()
         self.element_list = self.EC.get_element_list()
         print('element list:{}'.format(self.element_list))
-
         # self.param_new['non_fitting_values']['element_list'] = ', '.join(self.element_list)
         #
         # # first remove some nonexisting elements
@@ -574,7 +573,9 @@ class GuessParamModel(Atom):
 
         self.param_new = update_param_from_element(self.param_new, self.element_list)
         for k, v in six.iteritems(self.param_new):
-            print(k)
+            if 'user' in k.lower():
+                print('*************create full param')
+                print(k, v)
 
         element_temp = [e for e in self.element_list if len(e) <= 4]
         pileup_temp = [e for e in self.element_list if '-' in e]
@@ -877,6 +878,7 @@ def param_dict_cleaner(parameter, element_list):
 
     elist_lower = [e.lower() for e in element_list if len(e)<=4]
     pileup_list = [e for e in element_list if '-' in e]
+    userpeak_list = [e for e in element_list if 'user' in e.lower()]
 
     for k, v in six.iteritems(param):
         if k == 'non_fitting_values' or k == k.lower():
@@ -884,6 +886,10 @@ def param_dict_cleaner(parameter, element_list):
         elif 'pileup' in k:
             for p in pileup_list:
                 if p.replace('-', '_') in k:
+                    param_new.update({k: v})
+        elif 'user' in k.lower():
+            for p in userpeak_list:
+                if p in k:
                     param_new.update({k: v})
         elif (k[:3].lower() in elist_lower) or (k[:4].lower() in elist_lower):
             param_new.update({k: v})
