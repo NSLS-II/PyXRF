@@ -1443,7 +1443,7 @@ def get_scaler_list_hxn(all_keys):
 
 
 def data_to_hdf_config(fpath, data, hdr,
-                       datashape, hdr, config_file=False):
+                       datashape, config_file=False):
     """
     Assume data is ready from databroker, so save the data to hdf file.
 
