@@ -1202,15 +1202,16 @@ def write_db_to_hdf(fpath, data, hdr, datashape, get_roi_sum_sign=False,
         for i in xrange(len(channel_data)):
             channel_data[i+1][pd.isnull(channel_data[i+1])] = 0
             new_data[0, i, :] = channel_data[i+1]
-        if sum_data is None:
-            sum_data = new_data
-        else:
-            sum_data += new_data
-
+        
         new_data = new_data.reshape([datashape[0], datashape[1],
                                      len(channel_data[1])])
         if fly_type in ('pyramid',):
             new_data = flip_data(new_data, subscan_dims=subscan_dims)
+
+        if sum_data is None:
+            sum_data = new_data
+        else:
+            sum_data += new_data
 
         if 'counts' in dataGrp:
             del dataGrp['counts']
@@ -1225,9 +1226,7 @@ def write_db_to_hdf(fpath, data, hdr, datashape, get_roi_sum_sign=False,
 
     sum_data = sum_data.reshape([datashape[0], datashape[1],
                                  len(channel_data[1])])
-    if fly_type in ('pyramid',):
-        sum_data = flip_data(sum_data, subscan_dims=subscan_dims)
-
+ 
     if 'counts' in dataGrp:
         del dataGrp['counts']
     ds_data = dataGrp.create_dataset('counts', data=sum_data)
@@ -1261,7 +1260,6 @@ def write_db_to_hdf(fpath, data, hdr, datashape, get_roi_sum_sign=False,
 
     # need to change shape to sth like [2, 100, 100]
     pos_data = pos_data.transpose()
-    print(pos_data.shape)
     data_temp = np.zeros([pos_data.shape[0], pos_data.shape[2], pos_data.shape[1]])
     for i in range(pos_data.shape[0]):
         data_temp[i,:,:] = np.rot90(pos_data[i,:,:], k=3)

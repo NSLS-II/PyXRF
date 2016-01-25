@@ -529,7 +529,10 @@ class Fit1D(Atom):
         dimv = self.data_all.shape
         logger.info('Interpolating image... ')
         for k, v in six.iteritems(result_map):
-            shapev = [dimv[1], dimv[0]]  # veritcal first, then horizontal
+            shapev = [dimv[1], dimv[0]]  # horizontal first, then vertical, different from dim in numpy
+            print(shapev)
+            print(rangex[0], rangex[-1])
+            print(rangey[0], rangey[-1])
             interp_d = interp1d_scan(shapev, rangex, rangey, start_x, start_y,
                                      x_data, y_data, v)
             interp_d[np.isnan(interp_d)] = 0
@@ -2034,7 +2037,22 @@ def get_cs(elemental_line, eng=12, norm=False, round_n=2):
 
 def fly2d_grid(dimv, rangex, rangey, start_x, start_y,
                x_data=None, y_data=None):
-    '''Get ideal gridded points for a 2D flyscan'''
+    '''Get ideal gridded points for a 2D flyscan.
+    .. warning: dimv[dimh, dimv] here is different from tradition dim in python which is [dimv, dimh].
+
+    Parameters
+    ----------
+    dimv : array
+        horizontal first, then vertical.
+    rangex : array, list
+        range along horizontal direction.
+    rangey : array, list
+        range along vertical direction
+    start_x : float
+        starting value in horizontal direction.
+    start_y : float
+        starting value in vertical direction.
+    '''
     # try:
     #     nx, ny = hdr['dimensions']
     # except ValueError:
