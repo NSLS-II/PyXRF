@@ -524,15 +524,11 @@ class Fit1D(Atom):
         rangey = y_data[:,0]
         start_x = rangex[0]
         start_y = rangey[0]
-        #start_x = -42.631
-        #start_y = 144.427
+
         dimv = self.data_all.shape
         logger.info('Interpolating image... ')
         for k, v in six.iteritems(result_map):
             shapev = [dimv[1], dimv[0]]  # horizontal first, then vertical, different from dim in numpy
-            print(shapev)
-            print(rangex[0], rangex[-1])
-            print(rangey[0], rangey[-1])
             interp_d = interp1d_scan(shapev, rangex, rangey, start_x, start_y,
                                      x_data, y_data, v)
             interp_d[np.isnan(interp_d)] = 0

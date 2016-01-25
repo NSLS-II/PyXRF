@@ -1151,7 +1151,7 @@ def transfer_xspress(fpath, output_path):
     write_data_to_hdf(output_path, d)
 
 
-def write_db_to_hdf(fpath, data, hdr, datashape, get_roi_sum_sign=False,
+def write_db_to_hdf(fpath, data, hdr, datashape=None, get_roi_sum_sign=False,
                     det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
                     roi_dict={'Pt_9300_9600': ['Ch1 [9300:9600]', 'Ch2 [9300:9600]', 'Ch3 [9300:9600]']},
                     pos_list=('ssx[um]', 'ssy[um]'),
@@ -1167,7 +1167,7 @@ def write_db_to_hdf(fpath, data, hdr, datashape, get_roi_sum_sign=False,
         path to save hdf file
     data : array
         data from data broker
-    datashape : tuple or list
+    datashape : tuple or list, optional
         shape of two D image
     det_list : list, tuple, optional
         list of detector channels
@@ -1179,6 +1179,9 @@ def write_db_to_hdf(fpath, data, hdr, datashape, get_roi_sum_sign=False,
         list of scaler pv
     """
     start_doc = hdr['start']
+    if datashape is None:
+        datashape = start_doc['dimensions']
+        datashpae = [datashape[1], datashape[0]]  # vertical first, then horizontal
     fly_type = start_doc.get('fly_type', None)
     subscan_dims = start_doc.get('subscan_dims', None)
 
@@ -1441,7 +1444,7 @@ def get_scaler_list_hxn(all_keys):
 
 
 def data_to_hdf_config(fpath, data, hdr,
-                       datashape, config_file=False):
+                       datashape=None, config_file=False):
     """
     Assume data is ready from databroker, so save the data to hdf file.
 
@@ -1463,16 +1466,16 @@ def data_to_hdf_config(fpath, data, hdr,
         roi_dict = get_roi_keys(data.keys(), beamline=config_data['beamline'])
         scaler_list = get_scaler_list_hxn(data.keys())
         write_db_to_hdf(fpath, data, hdr,
-                        datashape,
+                        datashape=datashape,
                         det_list=config_data['xrf_detector'],
                         roi_dict=roi_dict,
                         pos_list=config_data['pos_list'],
                         scaler_list=scaler_list)
     else:
-        write_db_to_hdf(fpath, data, hdr, datashape)
+        write_db_to_hdf(fpath, data, hdr, datashape=datashape)
 
 
-def make_hdf(fpath, runid, datashape, config_file=False):
+def make_hdf(fpath, runid, datashape=None, config_file=False):
     """
     Assume data is ready from databroker, so save the data to hdf file.
 
@@ -1493,7 +1496,7 @@ def make_hdf(fpath, runid, datashape, config_file=False):
     print('Loading data from database.')
     data = fetch_data_from_db(runid)
     print('Saving data to hdf file.')
-    data_to_hdf_config(fpath, data, hdr, datashape, config_file=config_file)
+    data_to_hdf_config(fpath, data, hdr, datashape=datashape, config_file=config_file)
     print('Done!')
 
 
