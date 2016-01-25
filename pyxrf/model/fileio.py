@@ -1181,7 +1181,7 @@ def write_db_to_hdf(fpath, data, hdr, datashape=None, get_roi_sum_sign=False,
     start_doc = hdr['start']
     if datashape is None:
         datashape = start_doc['dimensions']
-        datashpae = [datashape[1], datashape[0]]  # vertical first, then horizontal
+        datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
     fly_type = start_doc.get('fly_type', None)
     subscan_dims = start_doc.get('subscan_dims', None)
 
