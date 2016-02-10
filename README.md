@@ -1,21 +1,22 @@
 #PyXRF
 
-PyXRF is a python-based sophisticated fluorescence analysis package for 
-fitting and visualizing X-ray fluorescence data. This package contains a 
-high-level fitting engine, comprehensive command-line/GUI design, rigorous 
-physics calculation and a powerful visualization interface. PyXRF offers some 
-of the unique features as follows.
-- Automatic elements finding: Users do not need to spend extra time selecting 
+PyXRF is a python-based sophisticated fluorescence analysis package for
+fitting and visualizing X-ray fluorescence data. This package contains a
+high-level fitting engine, comprehensive command-line/GUI design, rigorous
+physics calculation and a powerful visualization interface. The theoretical
+part of PyXRF is based on MAPS, developed by Stefan Vogt at APS. PyXRF offers
+some of the unique features as follows.
+- Automatic elements finding: Users do not need to spend extra time selecting
   elements manually.
-- Forward calculation: Users can observe the spectrum from forward calculation 
-  at real time while adjusting input parameters. This will help users perform 
+- Forward calculation: Users can observe the spectrum from forward calculation
+  at real time while adjusting input parameters. This will help users perform
   sensitivity analysis, and find an appropriate initial guess for fitting.
-- Construct your own fitting algorithm: An advanced mode was created for 
-  advanced users to construct their own fitting strategies with a full 
+- Construct your own fitting algorithm: An advanced mode was created for
+  advanced users to construct their own fitting strategies with a full
   control of each fitting parameter.
-- Batch mode: Users can easily perform quick fitting of multiple fluorescence 
+- Batch mode: Users can easily perform quick fitting of multiple fluorescence
   datasets or XANES datasets.
-- Interface with NSLS-II database: A specific I/O interface was designed to 
+- Interface with NSLS-II database: A specific I/O interface was designed to
    obtain data directly from BNL/NSLS-II experimental database.
 
 
@@ -29,12 +30,12 @@ More documentation will be ready soon!
 
 
 ## Installation from Conda
-Currently PyXRF only works for python 2.7. `pyxrf` is not compatible with 
+Currently PyXRF only works for python 2.7. `pyxrf` is not compatible with
 python 3+ because it relies on the [enaml] (http://github.com/nucleic/enaml) library, which is not python 3 compatible as of this writing (11/2015).
 
 ### Linux/Mac (El Captain is working!)
-First you need to install [conda] (http://continuum.io/downloads). We suggest 
-anaconda because it is a complete installation of the entire scientific python 
+First you need to install [conda] (http://continuum.io/downloads). We suggest
+anaconda because it is a complete installation of the entire scientific python
 stack, but is ~400 MB.  For advanced users, consider downloading [miniconda]
 (http://conda.pydata.org/miniconda.html) because it is a smaller download (~20 MB).
 
@@ -74,15 +75,15 @@ $ source deactivate
 
 
 ### Windows
-The blocking issue for getting `pyxrf` running on windows is creating a conda 
+The blocking issue for getting `pyxrf` running on windows is creating a conda
 package for [xraylib] (https://github.com/tschoonj/xraylib).  If enough users
-request this feature, we will make it happen.  Until then it is on the back 
+request this feature, we will make it happen.  Until then it is on the back
 burner.  
 
 
 ## Notes
 
 The core fitting functions are a part of the [scikit-xray]
-(https://github.com/scikit-xray/scikit-xray) data analysis library for xray data analysis.
+(https://github.com/scikit-beam/scikit-beam) data analysis library for xray data analysis.
 The design philosophy is to separate fitting and gui, so it is easy to maintain.
 For more questions, please submit issues through github, or contact Li at lili@bnl.gov.

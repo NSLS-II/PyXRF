@@ -14,20 +14,18 @@ build:
 requirements:
   build:
     - python
-    - enaml
     - setuptools
-    - numpy
-    - six
 
   run:
     - enaml
     - h5py
+    - six
     - matplotlib ==1.4.3
     - numpy
     - pandas
     - python
-    - scikit-xray
+    - scikit-beam
 
 about:
-  home: http://github.com/NSLS-II-HXN/pyxrf
+  home: http://github.com/NSLS-II/pyxrf
   license: 3-Clause BSD

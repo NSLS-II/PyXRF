@@ -73,7 +73,7 @@ enamldef XRFGui(MainWindow): main_window:
                 param_model = main_window.param_model
                 plot_model = main_window.plot_model
                 # img_model_adv = main_window.img_model_adv
-                # fit_model = main_window.fit_model
+                fit_model = main_window.fit_model
                 setting_model = main_window.setting_model
                 name = 'file_view'
             #GuessParamView:
@@ -115,14 +115,6 @@ enamldef XRFGui(MainWindow): main_window:
                     param_model=main_window.param_model,
                     plot_model=main_window.plot_model,
                     setting_model = main_window.setting_model)
-                othersetting_edit = OtherSettingEdit(
-                    visible=False,
-                    destroy_on_close=False,
-                    #parent=main_window,
-                    fit_model=main_window.fit_model,
-                    param_model=main_window.param_model,
-                    plot_model=main_window.plot_model,
-                    setting_model = main_window.setting_model)
                 autofind_edit = AutoFindElements(
                     visible=False,
                     destroy_on_close=False,
@@ -135,6 +127,15 @@ enamldef XRFGui(MainWindow): main_window:
                     parent=main_window,
                     param_model=main_window.param_model,
                     plot_model=main_window.plot_model)
+                othersetting_edit = OtherSettingEdit(
+                    visible=False,
+                    destroy_on_close=False,
+                    #parent=main_window,
+                    fit_model=main_window.fit_model,
+                    param_model=main_window.param_model,
+                    plot_model=main_window.plot_model,
+                    setting_model = main_window.setting_model)
+
                 name = 'fitting_view'
             SettingView:
                 closable = False

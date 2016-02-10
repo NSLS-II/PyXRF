@@ -49,8 +49,8 @@ from collections import OrderedDict
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
 
-from skxray.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
-from skxray.fluorescence import XrfElement as Element
+from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
+from skbeam.fluorescence import XrfElement as Element
 
 import logging
 logger = logging.getLogger(__name__)
@@ -208,7 +208,8 @@ class LinePlotModel(Atom):
             'compton': {'color': 'darkcyan', 'linewidth': 1.5, 'label': 'compton'},
             'elastic': {'color': 'purple', 'label': 'elastic'},
             'escape': {'color': 'darkblue', 'label': 'escape'},
-            'pileup': {'color': 'orange', 'label': 'pileup'},
+            'pileup': {'color': 'darkgoldenrod', 'label': 'pileup'},
+            'userpeak': {'color': 'orange', 'label': 'userpeak'},
             #'auto_fit': {'color': 'black', 'label': 'auto fitted', 'linewidth': 2.5},
             'fit': {'color': 'red', 'label': 'fit', 'linewidth': 2.5},
             'residual': {'color': 'black', 'label': 'residual', 'linewidth': 2.0}
@@ -727,6 +728,12 @@ class LinePlotModel(Atom):
                 ln, = self._ax.plot(fit_x, v,
                                     color=self.plot_style['escape']['color'],
                                     label=self.plot_style['escape']['label'])
+                self.plot_fit_obj.append(ln)
+
+            elif 'user' in k.lower():
+                ln, = self._ax.plot(fit_x, v,
+                                    color=self.plot_style['userpeak']['color'],
+                                    label=self.plot_style['userpeak']['label'])
                 self.plot_fit_obj.append(ln)
 
             elif '-' in k:  # Si_K-Si_K
