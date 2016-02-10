@@ -3,8 +3,9 @@
 PyXRF is a python-based sophisticated fluorescence analysis package for
 fitting and visualizing X-ray fluorescence data. This package contains a
 high-level fitting engine, comprehensive command-line/GUI design, rigorous
-physics calculation and a powerful visualization interface. PyXRF offers some
-of the unique features as follows.
+physics calculation and a powerful visualization interface. The theoretical
+part of PyXRF is based on MAPS, developed by Stefan Vogt at APS. PyXRF offers
+some of the unique features as follows.
 - Automatic elements finding: Users do not need to spend extra time selecting
   elements manually.
 - Forward calculation: Users can observe the spectrum from forward calculation
