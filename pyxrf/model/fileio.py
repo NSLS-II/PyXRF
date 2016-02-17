@@ -1455,7 +1455,7 @@ def get_scaler_list_hxn(all_keys):
 
 def data_to_hdf_config(fpath, data,
                        datashape, config_file=False,
-                       pyramid=False):
+                       pyramid=False, beamline='SRX'):
     """
     Assume data is ready from databroker, so save the data to hdf file.
 
@@ -1480,6 +1480,20 @@ def data_to_hdf_config(fpath, data,
                         datashape,
                         det_list=config_data['xrf_detector'],
                         roi_dict=roi_dict,
+                        pos_list=config_data['pos_list'],
+                        scaler_list=scaler_list,
+                        pyramid=pyramid)
+
+    if beamline == 'SRX':
+        current_dir = os.path.dirname(os.path.realpath(__file__))
+        config_file = 'srx_pv_config.json'
+        config_path = '/'.join(current_dir[:-2]+['configs', config_file])
+        with open(config_path, 'r') as json_data:
+            config_data = json.load(json_data)
+        write_db_to_hdf(fpath, data,
+                        datashape,
+                        det_list=config_data['xrf_detector'],
+                        #roi_dict=roi_dict,
                         pos_list=config_data['pos_list'],
                         scaler_list=scaler_list,
                         pyramid=pyramid)
