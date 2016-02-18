@@ -1465,7 +1465,7 @@ def make_hdf(fpath, runid, beamline=beamline_name):
         print('Loading data from database.')
         fields = ['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3', 'zpssx[um]', 'zpssy[um]',
                   'ssx[um]', 'ssy[um]', 'ssx', 'ssy', 'sclr1_ch3', 'sclr1_ch4']
-        d = get_table(hdr, fields=fields)
+        data = get_table(hdr, fields=fields)
 
         start_doc = hdr['start']
         datashape = start_doc['dimensions']
@@ -1481,7 +1481,7 @@ def make_hdf(fpath, runid, beamline=beamline_name):
         hdr = db[runid]
         print('Loading data from database.')
         # fields = [] to be used later
-        d = get_table(hdr)
+        data = get_table(hdr)
 
         start_doc = hdr['start']
         datashape = start_doc['dimensions']
