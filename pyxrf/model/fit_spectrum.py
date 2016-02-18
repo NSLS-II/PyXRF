@@ -52,13 +52,13 @@ from scipy.interpolate import interp1d, interp2d
 from enaml.qt.qt_application import QApplication
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
-from skxray.core.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
+from skbeam.core.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
                                            sum_area, set_parameter_bound,
                                            ParamController, K_LINE, L_LINE, M_LINE,
                                            nnls_fit, trim, construct_linear_model, linear_spectrum_fitting,
                                            register_strategy, TRANSITIONS_LOOKUP)
-from skxray.core.fitting.background import snip_method
-from skxray.fluorescence import XrfElement as Element
+from skbeam.core.fitting.background import snip_method
+from skbeam.fluorescence import XrfElement as Element
 from .guessparam import (calculate_profile, fit_strategy_list,
                          trim_escape_peak, define_range, get_energy,
                          get_Z, PreFitStatus, ElementController,
@@ -84,7 +84,7 @@ class Fit1D(Atom):
     param_dict = Dict()
 
     element_list = List()
-
+    data_sets = Dict()
     data_all = Typed(np.ndarray)
     data = Typed(np.ndarray)
     fit_x = Typed(np.ndarray)
@@ -149,8 +149,6 @@ class Fit1D(Atom):
     bin_energy = Int(0)
     fit_info = Str()
     pixel_fit_info = Str()
-    save_tiff = Bool(False)
-    save_txt = Bool(False)
 
     pixel_fit_method = Int(0)
 
@@ -526,12 +524,11 @@ class Fit1D(Atom):
         rangey = y_data[:,0]
         start_x = rangex[0]
         start_y = rangey[0]
-        #start_x = -42.631
-        #start_y = 144.427
+
         dimv = self.data_all.shape
         logger.info('Interpolating image... ')
         for k, v in six.iteritems(result_map):
-            shapev = [dimv[1], dimv[0]]  # veritcal first, then horizontal
+            shapev = [dimv[1], dimv[0]]  # horizontal first, then vertical, different from dim in numpy
             interp_d = interp1d_scan(shapev, rangex, rangey, start_x, start_y,
                                      x_data, y_data, v)
             interp_d[np.isnan(interp_d)] = 0
@@ -561,7 +558,6 @@ class Fit1D(Atom):
 
         # Update GUI so that results can be seen immediately
         self.fit_img[fit_name] = result_map
-        #self.fit_img = {k:v for k,v in six.iteritems(self.fit_img) if prefix_fname in k}
 
         # get fitted spectrum and save them to figs
         if self.save_point is True:
@@ -595,19 +591,30 @@ class Fit1D(Atom):
                                  self.result_folder, prefix=fit_name, use_sinp=use_snip)
             logger.info('Done with saving fitting plots.')
 
-        if self.save_tiff:
+        self.pixel_fit_info = 'Pixel fitting is done!'
+        app.processEvents()
+        logger.info('-------- Fitting of single pixels is done! --------')
+
+    def output_2Dimage(self, to_tiff=True):
+        """Read data from h5 file and save them into either tiff or txt.
+
+        Parameters
+        ----------
+        to_tiff : str, optional
+            save to tiff or not
+        """
+        fpath = os.path.join(self.result_folder, self.save_name)
+        if to_tiff:
             namelist = self.data_title.split('_')
             output_n = namelist[0]+'_'+namelist[1]+'_'+'output'
             output_data(fpath, os.path.join(self.result_folder, output_n))
-        if self.save_txt:
+            logger.info('Done with saving data {} to tiff files.'.format(namelist[1]))
+        else:
             namelist = self.data_title.split('_')
             output_n = namelist[0]+'_'+namelist[1]+'_'+'output'
             output_data(fpath, os.path.join(self.result_folder, output_n),
                         file_format='txt')
-
-        self.pixel_fit_info = 'Pixel fitting is done!'
-        app.processEvents()
-        logger.info('-------- Fitting of single pixels is done! --------')
+            logger.info('Done with saving data {} to txt files.'.format(namelist[1]))
 
     def save_result(self, fname=None):
         """
@@ -716,7 +723,7 @@ class Fit1D(Atom):
 def combine_lines(components, element_list, background):
     """
     Combine results for different lines of the same element.
-    And also add background, compton and elastic.
+    And also add pileup, userpeak, background, compton and elastic.
 
     Parameters
     ----------
@@ -741,6 +748,10 @@ def combine_lines(components, element_list, background):
                 if (e_temp in k) and (e not in k):
                     intensity += v
             new_components[e] = intensity
+        elif 'user' in e.lower():
+            for k, v in six.iteritems(components):
+                if e in k:
+                    new_components[e] = v
         else:
             comp_name = 'pileup_' + e.replace('-', '_') + '_'  # change Si_K-Si_K to Si_K_Si_K
             new_components[e] = components[comp_name]
@@ -1888,7 +1899,6 @@ def fit_data_multi_files(dir_path, file_prefix,
     """
     num_processors_to_use = multiprocessing.cpu_count()
     logger.info('cpu count: {}'.format(num_processors_to_use))
-    #print 'Creating pool with %d processes\n' % num_processors_to_use
     pool = multiprocessing.Pool(num_processors_to_use)
 
     result_pool = [pool.apply_async(fit_pixel_fast,
@@ -2023,7 +2033,22 @@ def get_cs(elemental_line, eng=12, norm=False, round_n=2):
 
 def fly2d_grid(dimv, rangex, rangey, start_x, start_y,
                x_data=None, y_data=None):
-    '''Get ideal gridded points for a 2D flyscan'''
+    '''Get ideal gridded points for a 2D flyscan.
+    .. warning: dimv[dimh, dimv] here is different from tradition dim in python which is [dimv, dimh].
+
+    Parameters
+    ----------
+    dimv : array
+        horizontal first, then vertical.
+    rangex : array, list
+        range along horizontal direction.
+    rangey : array, list
+        range along vertical direction
+    start_x : float
+        starting value in horizontal direction.
+    start_y : float
+        starting value in vertical direction.
+    '''
     # try:
     #     nx, ny = hdr['dimensions']
     # except ValueError:

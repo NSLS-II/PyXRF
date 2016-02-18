@@ -48,9 +48,9 @@ import os
 from atom.api import (Atom, Str, observe, Typed,
                       Int, Dict, List, Float, Enum, Bool)
 
-from skxray.core.fitting.background import snip_method
-from skxray.fluorescence import XrfElement as Element
-from skxray.core.fitting.xrf_model import (ParamController,
+from skbeam.core.fitting.background import snip_method
+from skbeam.fluorescence import XrfElement as Element
+from skbeam.core.fitting.xrf_model import (ParamController,
                                            compute_escape_peak, trim,
                                            construct_linear_model,
                                            linear_spectrum_fitting)
@@ -548,7 +548,6 @@ class GuessParamModel(Atom):
         """
         self.define_range()
         self.element_list = self.EC.get_element_list()
-
         # self.param_new['non_fitting_values']['element_list'] = ', '.join(self.element_list)
         #
         # # first remove some nonexisting elements
@@ -572,9 +571,9 @@ class GuessParamModel(Atom):
         # create_full_dict(self.param_new, fit_strategy_list)
 
         self.param_new = update_param_from_element(self.param_new, self.element_list)
-
         element_temp = [e for e in self.element_list if len(e) <= 4]
         pileup_temp = [e for e in self.element_list if '-' in e]
+        userpeak_temp = [e for e in self.element_list if 'user' in e.lower()]
 
         # update area values in param_new according to results saved in ElementController
         if len(self.EC.element_dict):
@@ -584,6 +583,10 @@ class GuessParamModel(Atom):
                         name_cut = k[7:-5]  #remove pileup_ and _area
                         for p in pileup_temp:
                             if name_cut == p.replace('-', '_'):
+                                v['value'] = self.EC.element_dict[p].area
+                    elif 'user' in k.lower():
+                        for p in userpeak_temp:
+                            if p in k:
                                 v['value'] = self.EC.element_dict[p].area
                     else:
                         for e in element_temp:
@@ -815,7 +818,7 @@ def get_Z(ename):
     strip_line = lambda ename: ename.split('_')[0]
 
     non_element = ['compton', 'elastic', 'background', 'escape']
-    if (ename.lower() in non_element) or '-' in ename:
+    if (ename.lower() in non_element) or '-' in ename or 'user' in ename.lower():
         return '-'
     else:
         e = Element(strip_line(ename))
@@ -823,9 +826,12 @@ def get_Z(ename):
 
 
 def get_energy(ename):
+    """
+    Return energy value by given elemental name. Need to consider non-elemental case.
+    """
     strip_line = lambda ename: ename.split('_')[0]
     non_element = ['compton', 'elastic', 'background', 'escape']
-    if (ename.lower() in non_element):
+    if (ename.lower() in non_element) or 'user' in ename.lower():
         return '-'
     else:
         e = Element(strip_line(ename))
@@ -866,6 +872,7 @@ def param_dict_cleaner(parameter, element_list):
 
     elist_lower = [e.lower() for e in element_list if len(e)<=4]
     pileup_list = [e for e in element_list if '-' in e]
+    userpeak_list = [e for e in element_list if 'user' in e.lower()]
 
     for k, v in six.iteritems(param):
         if k == 'non_fitting_values' or k == k.lower():
@@ -873,6 +880,10 @@ def param_dict_cleaner(parameter, element_list):
         elif 'pileup' in k:
             for p in pileup_list:
                 if p.replace('-', '_') in k:
+                    param_new.update({k: v})
+        elif 'user' in k.lower():
+            for p in userpeak_list:
+                if p in k:
                     param_new.update({k: v})
         elif (k[:3].lower() in elist_lower) or (k[:4].lower() in elist_lower):
             param_new.update({k: v})
@@ -908,7 +919,6 @@ def update_param_from_element(param, element_list):
     PC = ParamController(param_new, element_list)
     # parameter values not updated based on param_new, so redo it
     param_temp = PC.params
-    #print(param_temp)
 
     # enforce adjust_element area to be fixed,
     # while bound_type in xrf_model is defined as none for area

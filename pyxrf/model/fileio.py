@@ -47,6 +47,7 @@ from collections import OrderedDict
 import pandas as pd
 import json
 import skimage.io as sio
+from PIL import Image
 
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float, Bool
 
@@ -70,10 +71,8 @@ class FileIOModel(Atom):
     ----------
     working_directory : str
         current working path
-    working_directory : str
-        define where output files are saved
-    file_names : list
-        list of loaded files
+    file_name : str
+        name of loaded file
     load_status : str
         Description of file loading status
     data_sets : dict
@@ -82,8 +81,7 @@ class FileIOModel(Atom):
         Dict of 2D arrays, such as 2D roi pv or fitted data
     """
     working_directory = Str()
-    #output_directory = Str()
-    file_names = List()
+    file_name = Str()
     file_path = Str()
     load_status = Str()
     data_sets = Typed(OrderedDict)
@@ -100,7 +98,7 @@ class FileIOModel(Atom):
     data = Typed(np.ndarray)
     data_all = Typed(np.ndarray)
     selected_file_name = Str()
-    file_name = Str()
+    #file_name = Str()
     mask_data = Typed(object)
     mask_name = Str()
     mask_opt = Bool(False)
@@ -108,7 +106,6 @@ class FileIOModel(Atom):
     def __init__(self, **kwargs):
         self.working_directory = kwargs['working_directory']
         self.mask_data = None
-        #self.output_directory = kwargs['output_directory']
         #with self.suppress_notifications():
         #    self.working_directory = working_directory
 
@@ -118,18 +115,18 @@ class FileIOModel(Atom):
     #     # directory changes
     #     self.output_directory = self.working_directory
 
-    @observe('file_names')
+    @observe('file_name')
     def update_more_data(self, change):
+        if change['value'] == 'temp':
+            # 'temp' is used to reload the same file
+            return
+
         self.file_channel_list = []
-        #self.file_names.sort()
-        logger.info('Files are loaded: %s' % (self.file_names))
+        logger.info('File is loaded: %s' % (self.file_name))
 
-        # focus on single file only for now
-        self.file_name = self.file_names[0]
-
+        # focus on single file only
         self.img_dict, self.data_sets = file_handler(self.working_directory,
-                                                     self.file_names)
-
+                                                     self.file_name)
         self.file_channel_list = self.data_sets.keys()
 
     @observe('runid')
@@ -149,12 +146,11 @@ class FileIOModel(Atom):
         if self.h_num != 0 and self.v_num != 0:
             datashape = [self.v_num, self.h_num]
 
-        fname = self.fname_from_db
-        fpath = os.path.join(self.working_directory, fname)
+        self.file_name = self.fname_from_db
+        fpath = os.path.join(self.working_directory, self.file_name)
         config_file = os.path.join(self.working_directory, 'pv_config.json')
         db_to_hdf_config(fpath, self.runid,
                          datashape, config_file)
-        self.file_names = [fname]
 
     @observe('file_opt', 'mask_name', 'mask_opt')
     def choose_file(self, change):
@@ -162,7 +158,8 @@ class FileIOModel(Atom):
         if len(self.mask_name) > 0 and self.mask_opt is True:
             mask_file = os.path.join(self.working_directory, self.mask_name)
             try:
-                self.mask_data = np.load(mask_file)
+                self.mask_data = np.array(Image.open(mask_file))
+                #self.mask_data = np.load(mask_file)
             except IOError:
                 self.mask_data = np.loadtxt(mask_file)
 
@@ -177,20 +174,14 @@ class FileIOModel(Atom):
 
         # selected file name from all channels
         # controlled at top level gui.py startup
-        self.selected_file_name = self.file_channel_list[self.file_opt-1]
-
-        names = self.data_sets.keys()
-
-        # to be passed to fitting part for single pixel fitting
-        self.data_all = self.data_sets[names[self.file_opt-1]].raw_data
-
-        # spectrum is averaged in terms of pixel size,
-        # fit doesn't work well if spectrum value is too large.
-
-        spectrum = self.data_sets[names[self.file_opt-1]].get_sum(mask=self.mask_data)
-        #self.data = spectrum/np.max(spectrum)
-        #self.data = spectrum/(self.data_all.shape[0]*self.data_all.shape[1])
-        self.data = spectrum
+        try:
+            self.selected_file_name = self.file_channel_list[self.file_opt-1]
+        except IndexError:
+            pass
+        # passed to fitting part for single pixel fitting
+        self.data_all = self.data_sets[self.selected_file_name].raw_data
+        # get summed data or based on mask
+        self.data = self.data_sets[self.selected_file_name].get_sum(mask=self.mask_data)
 
     # @observe('mask_name')
     # def load_mask_data(self, change):
@@ -306,10 +297,10 @@ class SpectrumCalculator(object):
             return spectrum_sum
 
 
-def file_handler(working_directory, file_names):
+def file_handler(working_directory, file_name):
     # send information on GUI level later !
     try:
-        return read_hdf_APS(working_directory, file_names[0])
+        return read_hdf_APS(working_directory, file_name)
     except IOError as e:
         logger.error("I/O error({0}): {1}".format(e.errno, e.strerror))
         logger.error('Please select .h5 file')
@@ -429,65 +420,65 @@ def read_runid(runid, c_list, dshape=None):
     return data_dict, data_sets
 
 
-def read_hdf_HXN(working_directory,
-                 file_names, channel_num=4):
-    """
-    Data IO for HXN temporary datasets. This might be changed later.
-
-    Parameters
-    ----------
-    working_directory : str
-        path folder
-    file_names : list
-        list of chosen files
-    channel_num : int, optional
-        detector channel number
-
-    Returns
-    -------
-    data_dict : dict
-        with fitting data
-    data_sets : dict
-        data from each channel and channel summed
-    """
-    data_dict = OrderedDict()
-    data_sets = OrderedDict()
-
-    # cut off bad point on the last position of the spectrum
-    bad_point_cut = 1
-
-    for fname in file_names:
-        try:
-            file_path = os.path.join(working_directory, fname)
-            f = h5py.File(file_path, 'r+')
-            data = f['entry/instrument']
-
-            fname = fname.split('.')[0]
-
-            # for 2D MAP???
-            data_dict[fname] = data
-
-            # data from channel summed
-            exp_data = np.asarray(data['detector/data'])
-            logger.info('File : {} with total counts {}'.format(fname,
-                                                                np.sum(exp_data)))
-            exp_data = exp_data[:, :, :-bad_point_cut]
-            DS = DataSelection(filename=fname,
-                               raw_data=exp_data)
-            data_sets.update({fname: DS})
-
-            # data from each channel
-            for i in range(channel_num):
-                file_channel = fname+'_channel_'+str(i+1)
-                exp_data_new = np.reshape(exp_data[0, i, :],
-                                          [1, 1, exp_data[0, i, :].size])
-                DS = DataSelection(filename=file_channel,
-                                   raw_data=exp_data_new)
-                data_sets.update({file_channel: DS})
-
-        except ValueError:
-            continue
-    return data_dict, data_sets
+# def read_hdf_HXN(working_directory,
+#                  file_names, channel_num=4):
+#     """
+#     Data IO for HXN temporary datasets. This might be changed later.
+#
+#     Parameters
+#     ----------
+#     working_directory : str
+#         path folder
+#     file_names : list
+#         list of chosen files
+#     channel_num : int, optional
+#         detector channel number
+#
+#     Returns
+#     -------
+#     data_dict : dict
+#         with fitting data
+#     data_sets : dict
+#         data from each channel and channel summed
+#     """
+#     data_dict = OrderedDict()
+#     data_sets = OrderedDict()
+#
+#     # cut off bad point on the last position of the spectrum
+#     bad_point_cut = 1
+#
+#     for fname in file_names:
+#         try:
+#             file_path = os.path.join(working_directory, fname)
+#             f = h5py.File(file_path, 'r+')
+#             data = f['entry/instrument']
+#
+#             fname = fname.split('.')[0]
+#
+#             # for 2D MAP???
+#             data_dict[fname] = data
+#
+#             # data from channel summed
+#             exp_data = np.asarray(data['detector/data'])
+#             logger.info('File : {} with total counts {}'.format(fname,
+#                                                                 np.sum(exp_data)))
+#             exp_data = exp_data[:, :, :-bad_point_cut]
+#             DS = DataSelection(filename=fname,
+#                                raw_data=exp_data)
+#             data_sets.update({fname: DS})
+#
+#             # data from each channel
+#             for i in range(channel_num):
+#                 file_channel = fname+'_channel_'+str(i+1)
+#                 exp_data_new = np.reshape(exp_data[0, i, :],
+#                                           [1, 1, exp_data[0, i, :].size])
+#                 DS = DataSelection(filename=file_channel,
+#                                    raw_data=exp_data_new)
+#                 data_sets.update({file_channel: DS})
+#
+#         except ValueError:
+#             continue
+#     return data_dict, data_sets
 
 
 def read_xspress3_data(file_path):
@@ -534,9 +525,10 @@ def read_xspress3_data(file_path):
     return data_output
 
 
-def flip_data(input_data):
+def flip_data(input_data, subscan_dims=None):
     """
     Flip 2D or 3D array. The flip happens on the second index of shape.
+    .. warning :: This function mutates the input values.
 
     Parameters
     ----------
@@ -546,13 +538,29 @@ def flip_data(input_data):
     -------
     flipped data
     """
-    new_data = np.array(input_data)
+    new_data = np.asarray(input_data)
     data_shape = input_data.shape
     if len(data_shape) == 2:
-        new_data[1::2, :] = new_data[1::2, ::-1]
+        if subscan_dims is None:
+            new_data[1::2, :] = new_data[1::2, ::-1]
+        else:
+            i = 0
+            for nx, ny in subscan_dims:
+                start = i + 1
+                end = i + ny
+                new_data[start:end:2, :] = new_data[start:end:2, ::-1]
+                i += ny
 
     if len(data_shape) == 3:
-        new_data[1::2, :, :] = new_data[1::2, ::-1, :]
+        if subscan_dims is None:
+            new_data[1::2, :, :] = new_data[1::2, ::-1, :]
+        else:
+            i = 0
+            for nx, ny in subscan_dims:
+                start = i + 1
+                end = i + ny
+                new_data[start:end:2, :, :] = new_data[start:end:2, ::-1, :]
+                i += ny
     return new_data
 
 
@@ -973,83 +981,61 @@ def read_MAPS(working_directory,
     return img_dict, data_sets
 
 
-def read_numpy_data(working_directory,
-                    file_names):
-    """
-    temporary use, bad example.
-    """
-    #import pickle
-    data_sets = OrderedDict()
-    img_dict = OrderedDict()
-
-    #pickle_folder = '/Users/Li/Downloads/xrf_data/xspress3/'
-    #save_name = 'scan01167_pickle'
-    #fpath = os.path.join(pickle_folder, save_name)
-    for file_name in file_names:
-        fpath = os.path.join(working_directory, file_name)
-        exp_data = np.load(fpath)
-        DS = DataSelection(filename=file_name,
-                           raw_data=exp_data)
-        data_sets.update({file_name: DS})
-
-    return img_dict, data_sets
-
-
-def read_hdf_multi_files_HXN(working_directory,
-                             file_prefix, h_dim, v_dim,
-                             channel_num=4):
-    """
-    Data IO for HXN temporary datasets. This might be changed later.
-
-    Parameters
-    ----------
-    working_directory : str
-        path folder
-    file_names : list
-        list of chosen files
-    channel_num : int, optional
-        detector channel number
-
-    Returns
-    -------
-    data_dict : dict
-        with fitting data
-    data_sets : dict
-        data from each channel and channel summed
-    """
-    data_dict = OrderedDict()
-    data_sets = OrderedDict()
-
-    # cut off bad point on the last position of the spectrum
-    bad_point_cut = 1
-    start_i = 1
-    end_i = h_dim*v_dim
-    total_data = np.zeros([v_dim, h_dim, 4096-bad_point_cut])
-
-    for fileID in range(start_i, end_i+1):
-        fname = file_prefix + str(fileID)+'.hdf5'
-        file_path = os.path.join(working_directory, fname)
-        fileID -= start_i
-        with h5py.File(file_path, 'r+') as f:
-            data = f['entry/instrument']
-
-            #fname = fname.split('.')[0]
-
-            # for 2D MAP???
-            #data_dict[fname] = data
-
-            # data from channel summed
-            exp_data = np.asarray(data['detector/data'])
-            ind_v = fileID//h_dim
-            ind_h = fileID - ind_v * h_dim
-            total_data[ind_v, ind_h, :] = np.sum(exp_data[:, :3, :-bad_point_cut],
-                                                 axis=(0, 1))
-
-    DS = DataSelection(filename=file_prefix,
-                       raw_data=total_data)
-    data_sets.update({file_prefix: DS})
-
-    return data_dict, data_sets
+# def read_hdf_multi_files_HXN(working_directory,
+#                              file_prefix, h_dim, v_dim,
+#                              channel_num=4):
+#     """
+#     Data IO for HXN temporary datasets. This might be changed later.
+#
+#     Parameters
+#     ----------
+#     working_directory : str
+#         path folder
+#     file_names : list
+#         list of chosen files
+#     channel_num : int, optional
+#         detector channel number
+#
+#     Returns
+#     -------
+#     data_dict : dict
+#         with fitting data
+#     data_sets : dict
+#         data from each channel and channel summed
+#     """
+#     data_dict = OrderedDict()
+#     data_sets = OrderedDict()
+#
+#     # cut off bad point on the last position of the spectrum
+#     bad_point_cut = 1
+#     start_i = 1
+#     end_i = h_dim*v_dim
+#     total_data = np.zeros([v_dim, h_dim, 4096-bad_point_cut])
+#
+#     for fileID in range(start_i, end_i+1):
+#         fname = file_prefix + str(fileID)+'.hdf5'
+#         file_path = os.path.join(working_directory, fname)
+#         fileID -= start_i
+#         with h5py.File(file_path, 'r+') as f:
+#             data = f['entry/instrument']
+#
+#             #fname = fname.split('.')[0]
+#
+#             # for 2D MAP???
+#             #data_dict[fname] = data
+#
+#             # data from channel summed
+#             exp_data = np.asarray(data['detector/data'])
+#             ind_v = fileID//h_dim
+#             ind_h = fileID - ind_v * h_dim
+#             total_data[ind_v, ind_h, :] = np.sum(exp_data[:, :3, :-bad_point_cut],
+#                                                  axis=(0, 1))
+#
+#     DS = DataSelection(filename=file_prefix,
+#                        raw_data=total_data)
+#     data_sets.update({file_prefix: DS})
+#
+#     return data_dict, data_sets
 
 
 def get_roi_sum(namelist, data_range, data):
@@ -1165,12 +1151,11 @@ def transfer_xspress(fpath, output_path):
     write_data_to_hdf(output_path, d)
 
 
-def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
+def write_db_to_hdf(fpath, data, hdr, datashape=None, get_roi_sum_sign=False,
                     det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
                     roi_dict={'Pt_9300_9600': ['Ch1 [9300:9600]', 'Ch2 [9300:9600]', 'Ch3 [9300:9600]']},
                     pos_list=('ssx[um]', 'ssy[um]'),
-                    scaler_list=('sclr1_ch3', 'sclr1_ch4'),
-                    pyramid=False):
+                    scaler_list=('sclr1_ch3', 'sclr1_ch4')):
     """
     Assume data is obained from databroker, and save the data to hdf file.
 
@@ -1182,7 +1167,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
         path to save hdf file
     data : array
         data from data broker
-    datashape : tuple or list
+    datashape : tuple or list, optional
         shape of two D image
     det_list : list, tuple, optional
         list of detector channels
@@ -1193,6 +1178,13 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     scaler_list : list, tuple, optional
         list of scaler pv
     """
+    start_doc = hdr['start']
+    if datashape is None:
+        datashape = start_doc['dimensions']
+        datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
+    fly_type = start_doc.get('fly_type', None)
+    subscan_dims = start_doc.get('subscan_dims', None)
+
     interpath = 'xrfmap'
     f = h5py.File(fpath, 'a')
 
@@ -1213,15 +1205,16 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
         for i in xrange(len(channel_data)):
             channel_data[i+1][pd.isnull(channel_data[i+1])] = 0
             new_data[0, i, :] = channel_data[i+1]
+
+        new_data = new_data.reshape([datashape[0], datashape[1],
+                                     len(channel_data[1])])
+        if fly_type in ('pyramid',):
+            new_data = flip_data(new_data, subscan_dims=subscan_dims)
+
         if sum_data is None:
             sum_data = new_data
         else:
             sum_data += new_data
-
-        new_data = new_data.reshape([datashape[0], datashape[1],
-                                     len(channel_data[1])])
-        if pyramid is True:
-            new_data = flip_data(new_data)
 
         if 'counts' in dataGrp:
             del dataGrp['counts']
@@ -1236,8 +1229,6 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
     sum_data = sum_data.reshape([datashape[0], datashape[1],
                                  len(channel_data[1])])
-    if pyramid is True:
-        sum_data = flip_data(sum_data)
 
     if 'counts' in dataGrp:
         del dataGrp['counts']
@@ -1272,14 +1263,13 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
     # need to change shape to sth like [2, 100, 100]
     pos_data = pos_data.transpose()
-    print(pos_data.shape)
     data_temp = np.zeros([pos_data.shape[0], pos_data.shape[2], pos_data.shape[1]])
     for i in range(pos_data.shape[0]):
         data_temp[i,:,:] = np.rot90(pos_data[i,:,:], k=3)
 
-    if pyramid is True:
+    if fly_type in ('pyramid',):
         for i in range(data_temp.shape[0]):
-            data_temp[i,:,:] = flip_data(data_temp[i,:,:])
+            data_temp[i,:,:] = flip_data(data_temp[i,:,:], subscan_dims=subscan_dims)
 
     dataGrp.create_dataset('name', data=pos_names)
     dataGrp.create_dataset('pos', data=data_temp)
@@ -1293,8 +1283,8 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     scaler_names, scaler_data = get_name_value_from_db(scaler_list, data,
                                                        datashape)
 
-    if pyramid is True:
-        scaler_data = flip_data(scaler_data)
+    if fly_type in ('pyramid',):
+        scaler_data = flip_data(scaler_data, subscan_dims=subscan_dims)
 
     if 'val' in dataGrp:
         del dataGrp['val']
@@ -1378,41 +1368,41 @@ def get_name_value_from_db(name_list, data, datashape):
     return pos_names, pos_data
 
 
-def db_to_hdf(fpath, runid,
-              datashape,
-              det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
-              roi_dict={'Pt_9300_9600': ['Ch1 [9300:9600]', 'Ch2 [9300:9600]', 'Ch3 [9300:9600]']},
-              pos_list=('ssx[um]', 'ssy[um]'),
-              scaler_list=('sclr1_ch2', 'sclr1_ch3', 'sclr1_ch8')):
-    """
-    Read data from databroker, and save the data to hdf file.
-
-    .. note:: Requires the databroker package from NSLS2
-    .. note:: This should probably be moved to suitcase!
-
-    Parameters
-    ----------
-    fpath: str
-        path to save hdf file
-    runid : int
-        id number for given run
-    datashape : tuple or list
-        shape of two D image
-    det_list : list, tuple or optional
-        list of detector channels
-    roi_list : list, tuple, optional
-        list of roi pv names
-    pos_list : list, tuple or optional
-        list of pos pv
-    scaler_list : list, tuple, optional
-        list of scaler pv
-    """
-    data = fetch_data_from_db(runid)
-    write_db_to_hdf(fpath, data,
-                    datashape, det_list=det_list,
-                    roi_dict=roi_dict,
-                    pos_list=pos_list,
-                    scaler_list=scaler_list)
+# def db_to_hdf(fpath, runid,
+#               datashape,
+#               det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
+#               roi_dict={'Pt_9300_9600': ['Ch1 [9300:9600]', 'Ch2 [9300:9600]', 'Ch3 [9300:9600]']},
+#               pos_list=('ssx[um]', 'ssy[um]'),
+#               scaler_list=('sclr1_ch2', 'sclr1_ch3', 'sclr1_ch8')):
+#     """
+#     Read data from databroker, and save the data to hdf file.
+#
+#     .. note:: Requires the databroker package from NSLS2
+#     .. note:: This should probably be moved to suitcase!
+#
+#     Parameters
+#     ----------
+#     fpath: str
+#         path to save hdf file
+#     runid : int
+#         id number for given run
+#     datashape : tuple or list
+#         shape of two D image
+#     det_list : list, tuple or optional
+#         list of detector channels
+#     roi_list : list, tuple, optional
+#         list of roi pv names
+#     pos_list : list, tuple or optional
+#         list of pos pv
+#     scaler_list : list, tuple, optional
+#         list of scaler pv
+#     """
+#     data = fetch_data_from_db(runid)
+#     write_db_to_hdf(fpath, data,
+#                     datashape, det_list=det_list,
+#                     roi_dict=roi_dict,
+#                     pos_list=pos_list,
+#                     scaler_list=scaler_list)
 
 
 def get_roi_keys(all_keys, beamline='HXN'):
@@ -1478,8 +1468,8 @@ def data_to_hdf_config(fpath, data,
             config_data = json.load(json_data)
         roi_dict = get_roi_keys(data.keys(), beamline=config_data['beamline'])
         scaler_list = get_scaler_list_hxn(data.keys())
-        write_db_to_hdf(fpath, data,
-                        datashape,
+        write_db_to_hdf(fpath, data, hdr,
+                        datashape=datashape,
                         det_list=config_data['xrf_detector'],
                         roi_dict=roi_dict,
                         pos_list=config_data['pos_list'],
@@ -1499,11 +1489,12 @@ def data_to_hdf_config(fpath, data,
                         pos_list=config_data['pos_list'],
                         scaler_list=scaler_list,
                         pyramid=pyramid)
+
     else:
-        write_db_to_hdf(fpath, data, datashape, pyramid=pyramid)
+        write_db_to_hdf(fpath, data, hdr, datashape=datashape)
 
 
-def make_hdf(fpath, runid, datashape, config_file=False, pyramid=False):
+def make_hdf(fpath, runid, datashape=None, config_file=False):
     """
     Assume data is ready from databroker, so save the data to hdf file.
 
@@ -1520,10 +1511,11 @@ def make_hdf(fpath, runid, datashape, config_file=False, pyramid=False):
     config_file : str
         path to json file which saves all pv names
     """
+    hdr = db[runid]
     print('Loading data from database.')
     data = fetch_data_from_db(runid)
     print('Saving data to hdf file.')
-    data_to_hdf_config(fpath, data, datashape, config_file=config_file, pyramid=pyramid)
+    data_to_hdf_config(fpath, data, hdr, datashape=datashape, config_file=config_file)
     print('Done!')
 
 

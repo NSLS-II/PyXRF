@@ -61,7 +61,7 @@ enamldef FileView(DockItem): file_view:
     attr param_model
     attr plot_model
     #attr img_model_adv
-    #attr fit_model
+    attr fit_model
     attr setting_model
 
     Container:
@@ -70,8 +70,6 @@ enamldef FileView(DockItem): file_view:
                 vbox(
                     hbox(folder_btn, spacer),
                     hbox(folder_fd),
-                    #hbox(btn_out, spacer),
-                    #hbox(fd_out),
                     hbox(files_btn, files_load),
                     hbox(mask_btn, mask_load_note, mask_cb),
                     #hbox(pixel_h_label, pixel_h, pixel_v_label, pixel_v, spacer),
@@ -85,7 +83,6 @@ enamldef FileView(DockItem): file_view:
                 folder_btn.width == mask_btn.width,
                 files_btn.height == files_load.height,
                 mask_btn.height == mask_load_note.height,
-                #folder_btn.width == btn_out.width,
             ]
             PushButton: folder_btn:
                 text = "Working Directory"
@@ -97,40 +94,22 @@ enamldef FileView(DockItem): file_view:
                 text := io_model.working_directory
                 #maximum_size = 400
 
-            #PushButton: btn_out:
-            #    text = 'Save Results to'
-            #    clicked ::
-            #        path = FileDialogEx.get_existing_directory(file_view)
-            #        if path:
-            #            io_model.output_directory = path
-            #            fd_out.text = path
-            #Field: fd_out:
-            #    text << io_model.output_directory
-            #    #maximum_size = 400
-
             PushButton: files_btn:
                 text = "Exp. Data File"
                 clicked ::
                     path = FileDialogEx.get_open_file_names(file_view, current_path=io_model.working_directory)
                     if path:
-
                         # only load one file
-                        io_model.file_names = [item.split('/')[-1] for item in path][0:1]
-
-                        #files_load.text = 'Number of files loaded: {}'.format(len(io_model.file_names))
+                        # 'temp' is used to reload the same file, otherwise file_name will not update
+                        io_model.file_name = 'temp'
+                        io_model.file_name = [item.split('/')[-1] for item in path][0:1][0]
                         files_load.text = '{} is loaded.'.format(io_model.file_name)
-
-                        # do not import original data for 2D image
-                        #img_model_adv.data_dict = io_model.img_dict
-
-                        # data passed for auto fitting and final fit
-                        #param_model.data_sets = io_model.data_sets
 
                         plot_model.parameters = param_model.param_new
                         setting_model.parameters = param_model.param_new
                         setting_model.data_sets = io_model.data_sets
-
-                        #fit_model.save_name = io_model.file_names[0]
+                        fit_model.data_sets = io_model.data_sets
+                        fit_model.fit_img = {} # clear dict in fitmodel to rm old results
 
             Label: files_load:
                 text = 'No data is loaded.'
@@ -215,18 +194,6 @@ enamldef FileView(DockItem): file_view:
                     index >> io_model.file_opt
                     minimum_size = (300, 16)
                     foreground = 'blue'
-                    index ::
-                        if index > 0:
-                            pass
-                            # assign data to plot model
-                            #plot_model.data = io_model.data
-
-                            # for param model
-                            #param_model.data = io_model.data
-
-                            # for fit model
-                            #fit_model.data = io_model.data
-                            #fit_model.data_all = io_model.data_all
 
             ScrollArea: scroller:
                 Container:
