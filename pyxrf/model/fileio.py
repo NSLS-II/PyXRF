@@ -62,6 +62,8 @@ except ImportError as e:
     db = None
     logger.error('databroker and hxntools are not available: %s', e)
 
+beamline_name = 'HXN'  # this name will be changed according to beam lines.
+
 
 class FileIOModel(Atom):
     """
@@ -1443,7 +1445,7 @@ def get_scaler_list_hxn(all_keys):
     return [v for v in all_keys if 'sclr1_' in v]
 
 
-def make_hdf(fpath, runid, beamline='SRX'):
+def make_hdf(fpath, runid, beamline=beamline_name):
     """
     Save the data from databroker to hdf file.
 
