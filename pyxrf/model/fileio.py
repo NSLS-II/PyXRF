@@ -1457,18 +1457,20 @@ def data_to_hdf_config(fpath, data,
                        datashape, config_file=False,
                        pyramid=False, beamline='SRX'):
     """
-    Assume data is ready from databroker, so save the data to hdf file.
+    Save the data from databroker to hdf file.
 
     Parameters
     ----------
     fpath: str
         path to save hdf file
-    data : array
+    data : pandas.core.frame.DataFrame
         data from data broker
     datashape : tuple or list
         shape of two D image
     config_file : str
         path to json file which saves all pv names
+    beamline : str
+        beamline name to decide which config file to use
     """
 
     if config_file is not False:
