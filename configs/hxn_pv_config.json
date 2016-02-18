@@ -1,0 +1,10 @@
+{
+    "beamline": "HXN",
+    "xrf_detector": ["xspress3_ch1", "xspress3_ch2", "xspress3_ch3"],
+    "xrf_roi_pv": {
+        "Pt_9300_9600": ["Ch1 [9300:9600]", "Ch2 [9300:9600]", "Ch3 [9300:9600]"]
+    },
+    "pos_list": ["ssx[um]", "ssy[um]"],
+    "scaler_list": ["sclr1_ch2", "sclr1_ch3", "sclr1_ch8"]
+}
+

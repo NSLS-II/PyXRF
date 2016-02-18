@@ -1151,11 +1151,11 @@ def transfer_xspress(fpath, output_path):
     write_data_to_hdf(output_path, d)
 
 
-def write_db_to_hdf(fpath, data, hdr, datashape=None, get_roi_sum_sign=False,
+def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
                     det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
                     roi_dict={'Pt_9300_9600': ['Ch1 [9300:9600]', 'Ch2 [9300:9600]', 'Ch3 [9300:9600]']},
-                    pos_list=('ssx[um]', 'ssy[um]'),
-                    scaler_list=('sclr1_ch3', 'sclr1_ch4')):
+                    pos_list=('zpssx[um]', 'zpssy[um]'),
+                    scaler_list=('sclr1_ch3', 'sclr1_ch4'), fly_type=None, subscan_dims=None):
     """
     Assume data is obained from databroker, and save the data to hdf file.
 
@@ -1165,9 +1165,9 @@ def write_db_to_hdf(fpath, data, hdr, datashape=None, get_roi_sum_sign=False,
     ----------
     fpath: str
         path to save hdf file
-    data : array
+    data : pandas.core.frame.DataFrame
         data from data broker
-    datashape : tuple or list, optional
+    datashape : tuple or list
         shape of two D image
     det_list : list, tuple, optional
         list of detector channels
@@ -1178,12 +1178,12 @@ def write_db_to_hdf(fpath, data, hdr, datashape=None, get_roi_sum_sign=False,
     scaler_list : list, tuple, optional
         list of scaler pv
     """
-    start_doc = hdr['start']
-    if datashape is None:
-        datashape = start_doc['dimensions']
-        datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
-    fly_type = start_doc.get('fly_type', None)
-    subscan_dims = start_doc.get('subscan_dims', None)
+    # start_doc = hdr['start']
+    # if datashape is None:
+    #     datashape = start_doc['dimensions']
+    #     datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
+    # fly_type = start_doc.get('fly_type', None)
+    # subscan_dims = start_doc.get('subscan_dims', None)
 
     interpath = 'xrfmap'
     f = h5py.File(fpath, 'a')
@@ -1443,60 +1443,9 @@ def get_scaler_list_hxn(all_keys):
     return [v for v in all_keys if 'sclr1_' in v]
 
 
-def data_to_hdf_config(fpath, data,
-                       datashape, config_file=False,
-                       pyramid=False, beamline='SRX'):
+def make_hdf(fpath, runid, beamline='SRX'):
     """
     Save the data from databroker to hdf file.
-
-    Parameters
-    ----------
-    fpath: str
-        path to save hdf file
-    data : pandas.core.frame.DataFrame
-        data from data broker
-    datashape : tuple or list
-        shape of two D image
-    config_file : str
-        path to json file which saves all pv names
-    beamline : str
-        beamline name to decide which config file to use
-    """
-
-    if config_file is not False:
-        with open(config_file, 'r') as json_data:
-            config_data = json.load(json_data)
-        roi_dict = get_roi_keys(data.keys(), beamline=config_data['beamline'])
-        scaler_list = get_scaler_list_hxn(data.keys())
-        write_db_to_hdf(fpath, data, hdr,
-                        datashape=datashape,
-                        det_list=config_data['xrf_detector'],
-                        roi_dict=roi_dict,
-                        pos_list=config_data['pos_list'],
-                        scaler_list=scaler_list,
-                        pyramid=pyramid)
-
-    if beamline == 'SRX':
-        current_dir = os.path.dirname(os.path.realpath(__file__))
-        config_file = 'srx_pv_config.json'
-        config_path = '/'.join(current_dir[:-2]+['configs', config_file])
-        with open(config_path, 'r') as json_data:
-            config_data = json.load(json_data)
-        write_db_to_hdf(fpath, data,
-                        datashape,
-                        det_list=config_data['xrf_detector'],
-                        #roi_dict=roi_dict,
-                        pos_list=config_data['pos_list'],
-                        scaler_list=scaler_list,
-                        pyramid=pyramid)
-
-    else:
-        write_db_to_hdf(fpath, data, hdr, datashape=datashape)
-
-
-def make_hdf(fpath, runid, datashape=None, config_file=False):
-    """
-    Assume data is ready from databroker, so save the data to hdf file.
 
     .. note:: Requires the databroker package from NSLS2
 
@@ -1506,17 +1455,54 @@ def make_hdf(fpath, runid, datashape=None, config_file=False):
         path to save hdf file
     runid : int
         id number for given run
-    datashape : tuple or list
-        shape of two D image
-    config_file : str
-        path to json file which saves all pv names
     """
-    hdr = db[runid]
-    print('Loading data from database.')
-    data = fetch_data_from_db(runid)
-    print('Saving data to hdf file.')
-    data_to_hdf_config(fpath, data, hdr, datashape=datashape, config_file=config_file)
-    print('Done!')
+
+    if beamline == 'HXN':
+        hdr = db[runid]
+
+        print('Loading data from database.')
+        fields = ['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3', 'zpssx[um]', 'zpssy[um]',
+                  'ssx[um]', 'ssy[um]', 'ssx', 'ssy', 'sclr1_ch3', 'sclr1_ch4']
+        d = get_table(hdr, fields=fields)
+
+        start_doc = hdr['start']
+        datashape = start_doc['dimensions']
+        datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
+        fly_type = start_doc.get('fly_type', None)
+        subscan_dims = start_doc.get('subscan_dims', None)
+
+        print('Saving data to hdf file.')
+        write_db_to_hdf(fpath, data, datashape, fly_type=fly_type, subscan_dims=subscan_dims)
+        print('Done!')
+
+    elif beamline == 'SRX':
+        hdr = db[runid]
+        print('Loading data from database.')
+        # fields = [] to be used later
+        d = get_table(hdr)
+
+        start_doc = hdr['start']
+        datashape = start_doc['dimensions']
+        datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
+        # fly_type = start_doc.get('fly_type', None)
+
+        current_dir = os.path.dirname(os.path.realpath(__file__))
+        config_file = 'srx_pv_config.json'
+        config_path = '/'.join(current_dir[:-2]+['configs', config_file])
+        with open(config_path, 'r') as json_data:
+            config_data = json.load(json_data)
+        print('Saving data to hdf file.')
+        write_db_to_hdf(fpath, data,
+                        datashape,
+                        det_list=config_data['xrf_detector'],
+                        #roi_dict=roi_dict,
+                        pos_list=config_data['pos_list'],
+                        scaler_list=scaler_list,
+                        fly_type=fly_type)
+        print('Done!')
+
+    else:
+        print("Databroker is not setup for such beamline {}".format(beamline))
 
 
 def export1d(runid):
