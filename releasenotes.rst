@@ -1,6 +1,5 @@
-PyXRF Release non_fitting_values
-
-**********
+PyXRF Release Notes
+===================
 
 v0.0.4
 --------
