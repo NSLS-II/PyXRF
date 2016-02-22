@@ -57,12 +57,19 @@ logger = logging.getLogger(__name__)
 try:
     from databroker.databroker import DataBroker as db, get_table
     # registers a filestore handler for the XSPRESS3 detector
-    from hxntools import handlers as hxn_handlers
 except ImportError as e:
     db = None
-    logger.error('databroker and hxntools are not available: %s', e)
+    logger.error('databroker is not available: %s', e)
 
-beamline_name = 'HXN'  # this name will be changed according to beam lines.
+try:
+    # registers a filestore handler for the XSPRESS3 detector
+    from hxntools import handlers as hxn_handlers
+except ImportError as e:
+    logger.error('hxntools is not available: %s', e)
+
+
+
+beamline_name = 'SRX'  # this name will be changed according to beam lines.
 
 
 class FileIOModel(Atom):
@@ -302,7 +309,10 @@ class SpectrumCalculator(object):
 def file_handler(working_directory, file_name):
     # send information on GUI level later !
     try:
-        return read_hdf_APS(working_directory, file_name)
+	if beamline_name == 'HXN':
+            return read_hdf_APS(working_directory, file_name, spectrum_cut=2000)
+   	if beamline_name == 'SRX':
+            return read_hdf_APS(working_directory, file_name, channel_num=1, spectrum_cut=2000)
     except IOError as e:
         logger.error("I/O error({0}): {1}".format(e.errno, e.strerror))
         logger.error('Please select .h5 file')
@@ -1205,7 +1215,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
         new_data = np.zeros([1, len(channel_data), len(channel_data[1])])
 
         for i in xrange(len(channel_data)):
-            channel_data[i+1][pd.isnull(channel_data[i+1])] = 0
+            #channel_data[i+1][pd.isnull(channel_data[i+1])] = 0
             new_data[0, i, :] = channel_data[i+1]
 
         new_data = new_data.reshape([datashape[0], datashape[1],
@@ -1484,22 +1494,26 @@ def make_hdf(fpath, runid, beamline=beamline_name):
         data = get_table(hdr)
 
         start_doc = hdr['start']
-        datashape = start_doc['dimensions']
+        datashape = start_doc['shape']
         datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
-        # fly_type = start_doc.get('fly_type', None)
+        fly_type = None
+	snake_scan = start_doc.get('snaking')
+	if snake_scan[0] == True:
+	    fly_scan = 'pyxrmid'
 
         current_dir = os.path.dirname(os.path.realpath(__file__))
         config_file = 'srx_pv_config.json'
-        config_path = '/'.join(current_dir[:-2]+['configs', config_file])
+        config_path = '/'.join(current_dir.split('/')[:-2]+['configs', config_file])
         with open(config_path, 'r') as json_data:
             config_data = json.load(json_data)
         print('Saving data to hdf file.')
+
         write_db_to_hdf(fpath, data,
                         datashape,
                         det_list=config_data['xrf_detector'],
                         #roi_dict=roi_dict,
                         pos_list=config_data['pos_list'],
-                        scaler_list=scaler_list,
+                        scaler_list=config_data['scaler_list'],
                         fly_type=fly_type)
         print('Done!')
 
