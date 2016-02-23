@@ -69,7 +69,7 @@ except ImportError as e:
 
 
 
-beamline_name = 'SRX'  # this name will be changed according to beam lines.
+beamline_name = 'HXN'  # this name will be changed according to beam lines.
 
 
 class FileIOModel(Atom):
@@ -309,10 +309,10 @@ class SpectrumCalculator(object):
 def file_handler(working_directory, file_name):
     # send information on GUI level later !
     try:
-	if beamline_name == 'HXN':
-            return read_hdf_APS(working_directory, file_name, spectrum_cut=2000)
-   	if beamline_name == 'SRX':
-            return read_hdf_APS(working_directory, file_name, channel_num=1, spectrum_cut=2000)
+    	if beamline_name == 'HXN':
+                return read_hdf_APS(working_directory, file_name, spectrum_cut=2000)
+       	if beamline_name == 'SRX':
+                return read_hdf_APS(working_directory, file_name, spectrum_cut=2000)
     except IOError as e:
         logger.error("I/O error({0}): {1}".format(e.errno, e.strerror))
         logger.error('Please select .h5 file')
@@ -793,8 +793,7 @@ def output_data(fpath, output_folder, file_format='tiff'):
 
 
 def read_hdf_APS(working_directory,
-                 file_name, channel_num=3,
-                 spectrum_cut=3000,
+                 file_name, spectrum_cut=3000,
                  load_each_channel=True):
     """
     Data IO for files similar to APS Beamline 13 data format.
@@ -806,8 +805,6 @@ def read_hdf_APS(working_directory,
         path folder
     file_name : str
         selected h5 file
-    channel_num : int, optional
-        detector channel number
     spectrum_cut : int, optional
         only use spectrum from, say 0, 3000
     load_each_channel : bool, optional
@@ -852,6 +849,13 @@ def read_hdf_APS(working_directory,
             for i, n in enumerate(det_name):
                 temp[n] = data['scalers/val'].value[:, :, i]
             img_dict[fname+'_scaler'] = temp
+
+        # find total channel:
+        channel_num = 0
+        for v in data.keys():
+            if 'det' in v:
+                channel_num = channel_num+1
+        channel_num = channel_num-1  # do not consider det_sum
 
         # data from each channel
         if load_each_channel:
@@ -1167,7 +1171,8 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
                     det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
                     roi_dict={'Pt_9300_9600': ['Ch1 [9300:9600]', 'Ch2 [9300:9600]', 'Ch3 [9300:9600]']},
                     pos_list=('zpssx[um]', 'zpssy[um]'),
-                    scaler_list=('sclr1_ch3', 'sclr1_ch4'), fly_type=None, subscan_dims=None):
+                    scaler_list=('sclr1_ch3', 'sclr1_ch4'),
+                    fly_type=None, subscan_dims=None, base_val=None):
     """
     Assume data is obained from databroker, and save the data to hdf file.
 
@@ -1304,6 +1309,8 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     if 'name' in dataGrp:
         del dataGrp['name']
     dataGrp.create_dataset('name', data=scaler_names)
+    if base_val is not None:  # base line shift for detector
+        scaler_data = scaler_data - base_val
     dataGrp.create_dataset('val', data=scaler_data)
 
     # roi sum
@@ -1500,6 +1507,7 @@ def make_hdf(fpath, runid, beamline=beamline_name):
 	snake_scan = start_doc.get('snaking')
 	if snake_scan[0] == True:
 	    fly_scan = 'pyxrmid'
+        base_val = 1.484*1e-2
 
         current_dir = os.path.dirname(os.path.realpath(__file__))
         config_file = 'srx_pv_config.json'
@@ -1514,7 +1522,8 @@ def make_hdf(fpath, runid, beamline=beamline_name):
                         #roi_dict=roi_dict,
                         pos_list=config_data['pos_list'],
                         scaler_list=config_data['scaler_list'],
-                        fly_type=fly_type)
+                        fly_type=fly_type
+                        base_val=base_val)
         print('Done!')
 
     else:

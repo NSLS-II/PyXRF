@@ -2064,8 +2064,12 @@ def fly2d_grid(dimv, rangex, rangey, start_x, start_y,
     #start_x, start_y = macros['scan_starts']
     dx = width / nx
     dy = height / ny
-    grid_x = np.linspace(start_x, start_x + width + dx / 2, nx)
-    grid_y = np.linspace(start_y, start_y + height + dy / 2, ny)
+
+    # original code use dx/2, dy/2, so value of the last column will not be interpolated
+    #grid_x = np.linspace(start_x, start_x + width + dx/2, nx)
+    #grid_y = np.linspace(start_y, start_y + height + dy/2, ny)
+    grid_x = np.linspace(start_x, start_x + width , nx)
+    grid_y = np.linspace(start_y, start_y + height , ny)
 
     return grid_x, grid_y
 
