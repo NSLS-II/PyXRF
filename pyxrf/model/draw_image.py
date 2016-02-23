@@ -109,7 +109,7 @@ class DrawImageAdvanced(Atom):
     items_in_selected_group = List()
 
     scale_opt = Str('Linear')
-    color_opt = Str('Oranges')
+    color_opt = Str('jet')
     img_title = Str()
     #group_names = List()
     #group_name = Str()
