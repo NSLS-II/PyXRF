@@ -69,7 +69,7 @@ except ImportError as e:
 
 
 
-beamline_name = 'HXN'  # this name will be changed according to beam lines.
+beamline_name = 'SRX'  # this name will be changed according to beam lines.
 
 
 class FileIOModel(Atom):
@@ -1310,7 +1310,8 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
         del dataGrp['name']
     dataGrp.create_dataset('name', data=scaler_names)
     if base_val is not None:  # base line shift for detector
-        scaler_data = scaler_data - base_val
+        scaler_data = np.abs(scaler_data - base_val)
+    
     dataGrp.create_dataset('val', data=scaler_data)
 
     # roi sum
@@ -1504,10 +1505,12 @@ def make_hdf(fpath, runid, beamline=beamline_name):
         datashape = start_doc['shape']
         datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
         fly_type = None
-	snake_scan = start_doc.get('snaking')
-	if snake_scan[0] == True:
-	    fly_scan = 'pyxrmid'
-        base_val = 1.484*1e-2
+	    
+        snake_scan = start_doc.get('snaking')
+        if snake_scan[0] == True:
+	        fly_scan = 'pyxrmid'
+        
+        base_val = 1.484*1e-7
 
         current_dir = os.path.dirname(os.path.realpath(__file__))
         config_file = 'srx_pv_config.json'
@@ -1522,7 +1525,7 @@ def make_hdf(fpath, runid, beamline=beamline_name):
                         #roi_dict=roi_dict,
                         pos_list=config_data['pos_list'],
                         scaler_list=config_data['scaler_list'],
-                        fly_type=fly_type
+                        fly_type=fly_type,
                         base_val=base_val)
         print('Done!')
 
