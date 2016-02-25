@@ -531,7 +531,7 @@ class Fit1D(Atom):
             for k, v in six.iteritems(result_map):
                 shapev = [dimv[1], dimv[0]]  # horizontal first, then vertical, different from dim in numpy
                 interp_d = interp1d_scan(shapev, rangex, rangey, start_x, start_y,
-                                     x_data, y_data, v)
+                                         x_data, y_data, v)
                 interp_d[np.isnan(interp_d)] = 0
                 result_map[k] = interp_d
 
@@ -2068,8 +2068,8 @@ def fly2d_grid(dimv, rangex, rangey, start_x, start_y,
     # original code use dx/2, dy/2, so value of the last column will not be interpolated
     #grid_x = np.linspace(start_x, start_x + width + dx/2, nx)
     #grid_y = np.linspace(start_y, start_y + height + dy/2, ny)
-    grid_x = np.linspace(start_x, start_x + width , nx)
-    grid_y = np.linspace(start_y, start_y + height , ny)
+    grid_x = np.linspace(start_x, start_x + width -dx/2, nx)
+    grid_y = np.linspace(start_y, start_y + height -dy/2, ny)
 
     return grid_x, grid_y
 
