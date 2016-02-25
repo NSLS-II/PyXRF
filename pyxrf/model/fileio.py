@@ -69,7 +69,7 @@ except ImportError as e:
 
 
 
-beamline_name = 'SRX'  # this name will be changed according to beam lines.
+beamline_name = 'HXN'  # this name will be changed according to beam lines.
 
 
 class FileIOModel(Atom):
@@ -576,157 +576,157 @@ def flip_data(input_data, subscan_dims=None):
     return new_data
 
 
-def read_log_file_srx(fpath, name='ch 2'):
-    """
-    Read given column value from log file.
-
-    Parameters
-    ----------
-    fpath : str
-        path to log file.
-    name : str
-        name of a given column
-
-    Returns
-    -------
-    1d array:
-        selected ic value.
-    """
-    line_num = 7
-    base_val = 8.5*1e-10
-
-    with open(fpath, 'r') as f:
-        lines = f.readlines()
-        col_names = lines[line_num].split('\t')
-        col_names = [v for v in col_names if len(v) != 0]
-
-    df = pd.read_csv(fpath,
-                     skiprows=line_num+1, skip_footer=1, sep='\s+', header=None)
-    df.columns = col_names
-    i0 = np.abs(np.array(df[name]) - base_val)
-    return i0
-
-
-def write_xspress3_data_to_hdf(fpath, data_dict):
-    """
-    Assume data is obained from databroker, and save the data to hdf file.
-
-    Parameters
-    ----------
-    fpath: str
-        path to save hdf file
-    data : dict
-        data_dict with data from each channel
-    """
-
-    interpath = 'xrfmap'
-    sum_data = None
-    channel_list = [k for k in six.iterkeys(data_dict) if 'channel' in k]
-    pos_names = [k for k in six.iterkeys(data_dict) if 'pos' in k]
-    scaler_names = [k for k in six.iterkeys(data_dict) if 'scaler' in k]
-
-    with h5py.File(fpath, 'a') as f:
-
-        for n in range(len(channel_list)):
-            detname = 'det'+str(n+1)
-            try:
-                dataGrp = f.create_group(interpath+'/'+detname)
-            except ValueError:
-                dataGrp = f[interpath+'/'+detname]
-
-            if sum_data is None:
-                sum_data = data_dict[channel_list[n]]
-            else:
-                sum_data += data_dict[channel_list[n]]
-
-            if 'counts' in dataGrp:
-                del dataGrp['counts']
-            ds_data = dataGrp.create_dataset('counts', data=data_dict[channel_list[n]])
-            ds_data.attrs['comments'] = 'Experimental data from channel ' + str(n)
-
-        # summed data
-        try:
-            dataGrp = f.create_group(interpath+'/detsum')
-        except ValueError:
-            dataGrp = f[interpath+'/detsum']
-
-        if 'counts' in dataGrp:
-            del dataGrp['counts']
-        ds_data = dataGrp.create_dataset('counts', data=sum_data)
-        ds_data.attrs['comments'] = 'Experimental data from channel sum'
-
-        data_shape = sum_data.shape
-
-        # position data
-        try:
-            dataGrp = f.create_group(interpath+'/positions')
-        except ValueError:
-            dataGrp = f[interpath+'/positions']
-
-        pos_data = []
-        for k in pos_names:
-            pos_data.append(data_dict[k])
-        pos_data = np.array(pos_data)
-
-        if 'pos' in dataGrp:
-            del dataGrp['pos']
-
-        if 'name' in dataGrp:
-            del dataGrp['name']
-        dataGrp.create_dataset('name', data=pos_names)
-        dataGrp.create_dataset('pos', data=pos_data)
-
-        # scaler data
-        scaler_data = np.ones([data_shape[0], data_shape[1], len(scaler_names)])
-        for i in np.arange(len(scaler_names)):
-            scaler_data[:, :, i] = data_dict[scaler_names[i]]
-        scaler_data = np.array(scaler_data)
-        print('shape for scaler: {}'.format(scaler_data.shape))
-
-        try:
-            dataGrp = f.create_group(interpath+'/scalers')
-        except ValueError:
-            dataGrp = f[interpath+'/scalers']
-
-        if 'val' in dataGrp:
-            del dataGrp['val']
-
-        if 'name' in dataGrp:
-            del dataGrp['name']
-        dataGrp.create_dataset('name', data=scaler_names)
-        dataGrp.create_dataset('val', data=scaler_data)
+# def read_log_file_srx(fpath, name='ch 2'):
+#     """
+#     Read given column value from log file.
+#
+#     Parameters
+#     ----------
+#     fpath : str
+#         path to log file.
+#     name : str
+#         name of a given column
+#
+#     Returns
+#     -------
+#     1d array:
+#         selected ic value.
+#     """
+#     line_num = 7
+#     base_val = 8.5*1e-10
+#
+#     with open(fpath, 'r') as f:
+#         lines = f.readlines()
+#         col_names = lines[line_num].split('\t')
+#         col_names = [v for v in col_names if len(v) != 0]
+#
+#     df = pd.read_csv(fpath,
+#                      skiprows=line_num+1, skip_footer=1, sep='\s+', header=None)
+#     df.columns = col_names
+#     i0 = np.abs(np.array(df[name]) - base_val)
+#     return i0
 
 
-def xspress3_data_to_hdf(fpath_hdf5, fpath_log, fpath_out):
-    """
-    Assume data is obained from databroker, and save the data to hdf file.
+# def write_xspress3_data_to_hdf(fpath, data_dict):
+#     """
+#     Assume data is obained from databroker, and save the data to hdf file.
+#
+#     Parameters
+#     ----------
+#     fpath: str
+#         path to save hdf file
+#     data : dict
+#         data_dict with data from each channel
+#     """
+#
+#     interpath = 'xrfmap'
+#     sum_data = None
+#     channel_list = [k for k in six.iterkeys(data_dict) if 'channel' in k]
+#     pos_names = [k for k in six.iterkeys(data_dict) if 'pos' in k]
+#     scaler_names = [k for k in six.iterkeys(data_dict) if 'scaler' in k]
+#
+#     with h5py.File(fpath, 'a') as f:
+#
+#         for n in range(len(channel_list)):
+#             detname = 'det'+str(n+1)
+#             try:
+#                 dataGrp = f.create_group(interpath+'/'+detname)
+#             except ValueError:
+#                 dataGrp = f[interpath+'/'+detname]
+#
+#             if sum_data is None:
+#                 sum_data = data_dict[channel_list[n]]
+#             else:
+#                 sum_data += data_dict[channel_list[n]]
+#
+#             if 'counts' in dataGrp:
+#                 del dataGrp['counts']
+#             ds_data = dataGrp.create_dataset('counts', data=data_dict[channel_list[n]])
+#             ds_data.attrs['comments'] = 'Experimental data from channel ' + str(n)
+#
+#         # summed data
+#         try:
+#             dataGrp = f.create_group(interpath+'/detsum')
+#         except ValueError:
+#             dataGrp = f[interpath+'/detsum']
+#
+#         if 'counts' in dataGrp:
+#             del dataGrp['counts']
+#         ds_data = dataGrp.create_dataset('counts', data=sum_data)
+#         ds_data.attrs['comments'] = 'Experimental data from channel sum'
+#
+#         data_shape = sum_data.shape
+#
+#         # position data
+#         try:
+#             dataGrp = f.create_group(interpath+'/positions')
+#         except ValueError:
+#             dataGrp = f[interpath+'/positions']
+#
+#         pos_data = []
+#         for k in pos_names:
+#             pos_data.append(data_dict[k])
+#         pos_data = np.array(pos_data)
+#
+#         if 'pos' in dataGrp:
+#             del dataGrp['pos']
+#
+#         if 'name' in dataGrp:
+#             del dataGrp['name']
+#         dataGrp.create_dataset('name', data=pos_names)
+#         dataGrp.create_dataset('pos', data=pos_data)
+#
+#         # scaler data
+#         scaler_data = np.ones([data_shape[0], data_shape[1], len(scaler_names)])
+#         for i in np.arange(len(scaler_names)):
+#             scaler_data[:, :, i] = data_dict[scaler_names[i]]
+#         scaler_data = np.array(scaler_data)
+#         print('shape for scaler: {}'.format(scaler_data.shape))
+#
+#         try:
+#             dataGrp = f.create_group(interpath+'/scalers')
+#         except ValueError:
+#             dataGrp = f[interpath+'/scalers']
+#
+#         if 'val' in dataGrp:
+#             del dataGrp['val']
+#
+#         if 'name' in dataGrp:
+#             del dataGrp['name']
+#         dataGrp.create_dataset('name', data=scaler_names)
+#         dataGrp.create_dataset('val', data=scaler_data)
 
-    Parameters
-    ----------
-    fpath_hdf5: str
-        path to raw hdf file
-    fpath_log: str
-        path to log file
-    fpath_out: str
-        path to save hdf file
-    """
-    data_dict = read_xspress3_data(fpath_hdf5)
 
-    data_ic = read_log_file_srx(fpath_log)
-    shapev = None
-
-    for k, v in six.iteritems(data_dict):
-        data_dict[k] = flip_data(data_dict[k])
-        if shapev is None:
-            shapev = data_dict[k].shape
-
-    data_ic = data_ic.reshape([shapev[0], shapev[1]])
-    print('data ic shape {}'.format(data_ic.shape))
-    data_ic = flip_data(data_ic)
-
-    data_dict['scalers_ch2'] = data_ic
-
-    write_xspress3_data_to_hdf(fpath_out, data_dict)
+# def xspress3_data_to_hdf(fpath_hdf5, fpath_log, fpath_out):
+#     """
+#     Assume data is obained from databroker, and save the data to hdf file.
+#
+#     Parameters
+#     ----------
+#     fpath_hdf5: str
+#         path to raw hdf file
+#     fpath_log: str
+#         path to log file
+#     fpath_out: str
+#         path to save hdf file
+#     """
+#     data_dict = read_xspress3_data(fpath_hdf5)
+#
+#     data_ic = read_log_file_srx(fpath_log)
+#     shapev = None
+#
+#     for k, v in six.iteritems(data_dict):
+#         data_dict[k] = flip_data(data_dict[k])
+#         if shapev is None:
+#             shapev = data_dict[k].shape
+#
+#     data_ic = data_ic.reshape([shapev[0], shapev[1]])
+#     print('data ic shape {}'.format(data_ic.shape))
+#     data_ic = flip_data(data_ic)
+#
+#     data_dict['scalers_ch2'] = data_ic
+#
+#     write_xspress3_data_to_hdf(fpath_out, data_dict)
 
 
 def output_data(fpath, output_folder, file_format='tiff'):
@@ -997,63 +997,6 @@ def read_MAPS(working_directory,
     return img_dict, data_sets
 
 
-# def read_hdf_multi_files_HXN(working_directory,
-#                              file_prefix, h_dim, v_dim,
-#                              channel_num=4):
-#     """
-#     Data IO for HXN temporary datasets. This might be changed later.
-#
-#     Parameters
-#     ----------
-#     working_directory : str
-#         path folder
-#     file_names : list
-#         list of chosen files
-#     channel_num : int, optional
-#         detector channel number
-#
-#     Returns
-#     -------
-#     data_dict : dict
-#         with fitting data
-#     data_sets : dict
-#         data from each channel and channel summed
-#     """
-#     data_dict = OrderedDict()
-#     data_sets = OrderedDict()
-#
-#     # cut off bad point on the last position of the spectrum
-#     bad_point_cut = 1
-#     start_i = 1
-#     end_i = h_dim*v_dim
-#     total_data = np.zeros([v_dim, h_dim, 4096-bad_point_cut])
-#
-#     for fileID in range(start_i, end_i+1):
-#         fname = file_prefix + str(fileID)+'.hdf5'
-#         file_path = os.path.join(working_directory, fname)
-#         fileID -= start_i
-#         with h5py.File(file_path, 'r+') as f:
-#             data = f['entry/instrument']
-#
-#             #fname = fname.split('.')[0]
-#
-#             # for 2D MAP???
-#             #data_dict[fname] = data
-#
-#             # data from channel summed
-#             exp_data = np.asarray(data['detector/data'])
-#             ind_v = fileID//h_dim
-#             ind_h = fileID - ind_v * h_dim
-#             total_data[ind_v, ind_h, :] = np.sum(exp_data[:, :3, :-bad_point_cut],
-#                                                  axis=(0, 1))
-#
-#     DS = DataSelection(filename=file_prefix,
-#                        raw_data=total_data)
-#     data_sets.update({file_prefix: DS})
-#
-#     return data_dict, data_sets
-
-
 def get_roi_sum(namelist, data_range, data):
     data_temp = dict()
     for i in range(len(namelist)):
@@ -1195,13 +1138,6 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     scaler_list : list, tuple, optional
         list of scaler pv
     """
-    # start_doc = hdr['start']
-    # if datashape is None:
-    #     datashape = start_doc['dimensions']
-    #     datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
-    # fly_type = start_doc.get('fly_type', None)
-    # subscan_dims = start_doc.get('subscan_dims', None)
-
     interpath = 'xrfmap'
     f = h5py.File(fpath, 'a')
 
@@ -1262,7 +1198,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
         pos_names, pos_data = get_name_value_from_db(pos_list, data,
                                                      datashape)
     except:
-        pos_list = ('ssx', 'ssy')  # name is different for hxn step scan
+        pos_list = ('ssx[um]', 'ssy[um]')  # name is different for hxn zp scan
         pos_names, pos_data = get_name_value_from_db(pos_list, data,
                                                      datashape)
 
@@ -1309,9 +1245,10 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     if 'name' in dataGrp:
         del dataGrp['name']
     dataGrp.create_dataset('name', data=scaler_names)
-    if base_val is not None:  # base line shift for detector
-        scaler_data = np.abs(scaler_data - base_val)
-    
+
+    if base_val is not None:  # base line shift for detector, for SRX
+        scaler_data = scaler_data - base_val
+
     dataGrp.create_dataset('val', data=scaler_data)
 
     # roi sum
@@ -1505,11 +1442,11 @@ def make_hdf(fpath, runid, beamline=beamline_name):
         datashape = start_doc['shape']
         datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
         fly_type = None
-	    
-        snake_scan = start_doc.get('snaking')
-        if snake_scan[0] == True:
-	        fly_scan = 'pyxrmid'
-        
+    	snake_scan = start_doc.get('snaking')
+    	if snake_scan[0] == True:
+    	    fly_scan = 'pyxrmid'
+
+        # base value shift for ic
         base_val = 1.484*1e-7
 
         current_dir = os.path.dirname(os.path.realpath(__file__))
