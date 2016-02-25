@@ -63,7 +63,7 @@ from .guessparam import (calculate_profile, fit_strategy_list,
                          trim_escape_peak, define_range, get_energy,
                          get_Z, PreFitStatus, ElementController,
                          update_param_from_element)
-from .fileio import read_hdf_APS, output_data, flip_data
+from .fileio import read_hdf_APS, output_data, flip_data, beamline_name
 
 #from lmfit import fit_report
 import lmfit
@@ -526,13 +526,14 @@ class Fit1D(Atom):
         start_y = rangey[0]
 
         dimv = self.data_all.shape
-        logger.info('Interpolating image... ')
-        for k, v in six.iteritems(result_map):
-            shapev = [dimv[1], dimv[0]]  # horizontal first, then vertical, different from dim in numpy
-            interp_d = interp1d_scan(shapev, rangex, rangey, start_x, start_y,
-                                     x_data, y_data, v)
-            interp_d[np.isnan(interp_d)] = 0
-            result_map[k] = interp_d
+        if beamline_name == 'HXN':
+            logger.info('Interpolating image... ')
+            for k, v in six.iteritems(result_map):
+                shapev = [dimv[1], dimv[0]]  # horizontal first, then vertical, different from dim in numpy
+                interp_d = interp1d_scan(shapev, rangex, rangey, start_x, start_y,
+                                         x_data, y_data, v)
+                interp_d[np.isnan(interp_d)] = 0
+                result_map[k] = interp_d
 
         prefix_fname = self.save_name.split('.')[0]
         if 'ch1' in self.data_title:
@@ -2063,8 +2064,12 @@ def fly2d_grid(dimv, rangex, rangey, start_x, start_y,
     #start_x, start_y = macros['scan_starts']
     dx = width / nx
     dy = height / ny
-    grid_x = np.linspace(start_x, start_x + width + dx / 2, nx)
-    grid_y = np.linspace(start_y, start_y + height + dy / 2, ny)
+
+    # original code use dx/2, dy/2, so value of the last column will not be interpolated
+    #grid_x = np.linspace(start_x, start_x + width + dx/2, nx)
+    #grid_y = np.linspace(start_y, start_y + height + dy/2, ny)
+    grid_x = np.linspace(start_x, start_x + width -dx/2, nx)
+    grid_y = np.linspace(start_y, start_y + height -dy/2, ny)
 
     return grid_x, grid_y
 

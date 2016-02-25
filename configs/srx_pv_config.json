@@ -1,0 +1,9 @@
+{
+    "beamline": "SRX",
+    "xrf_detector": ["saturn_mca_spectrum"],
+    "xrf_roi_pv": {
+        "Pt_9300_9600": ["Ch1 [9300:9600]", "Ch2 [9300:9600]", "Ch3 [9300:9600]"]
+    },
+    "pos_list": ["hf_stage_x", "hf_stage_y"],
+    "scaler_list": ["current_preamp_ch1"]
+}
