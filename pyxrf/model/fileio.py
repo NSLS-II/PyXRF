@@ -69,7 +69,7 @@ except ImportError as e:
 
 
 
-beamline_name = 'HXN'  # this name will be changed according to beam lines.
+beamline_name = 'SRX'  # this name will be changed according to beam lines.
 
 
 class FileIOModel(Atom):
@@ -1118,6 +1118,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
                     fly_type=None, subscan_dims=None, base_val=None):
     """
     Assume data is obained from databroker, and save the data to hdf file.
+    This function can handle stopped/aborted scans.
 
     .. note:: This function should become part of suitcase
 
@@ -1153,13 +1154,17 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
         c_name = det_list[n]
         logger.info('read data from %s' % c_name)
         channel_data = data[c_name]
-        new_data = np.zeros([1, len(channel_data), len(channel_data[1])])
 
-        for i in xrange(len(channel_data)):
+        # new veritcal shape is defined to ignore zeros points caused by stopped/aborted scans
+        new_v_shape = len(channel_data) // datashape[1]
+        #new_data = np.zeros([1, len(channel_data), len(channel_data[1])])
+        new_data = np.zeros([1, new_v_shape*datashape[1], len(channel_data[1])])
+
+        for i in range(new_v_shape*datashape[1]):
             #channel_data[i+1][pd.isnull(channel_data[i+1])] = 0
             new_data[0, i, :] = channel_data[i+1]
 
-        new_data = new_data.reshape([datashape[0], datashape[1],
+        new_data = new_data.reshape([new_v_shape, datashape[1],
                                      len(channel_data[1])])
         if fly_type in ('pyramid',):
             new_data = flip_data(new_data, subscan_dims=subscan_dims)
@@ -1180,7 +1185,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     except ValueError:
         dataGrp = f[interpath+'/detsum']
 
-    sum_data = sum_data.reshape([datashape[0], datashape[1],
+    sum_data = sum_data.reshape([new_v_shape, datashape[1],
                                  len(channel_data[1])])
 
     if 'counts' in dataGrp:
@@ -1225,7 +1230,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
             data_temp[i,:,:] = flip_data(data_temp[i,:,:], subscan_dims=subscan_dims)
 
     dataGrp.create_dataset('name', data=pos_names)
-    dataGrp.create_dataset('pos', data=data_temp)
+    dataGrp.create_dataset('pos', data=data_temp[:,:new_v_shape,:])
 
     # scaler data
     try:
@@ -1247,9 +1252,9 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     dataGrp.create_dataset('name', data=scaler_names)
 
     if base_val is not None:  # base line shift for detector, for SRX
-        scaler_data = scaler_data - base_val
+        scaler_data = np.abs(scaler_data - base_val)
 
-    dataGrp.create_dataset('val', data=scaler_data)
+    dataGrp.create_dataset('val', data=scaler_data[:new_v_shape,:])
 
     # roi sum
     if get_roi_sum_sign:
@@ -1319,7 +1324,8 @@ def get_name_value_from_db(name_list, data, datashape):
     pos_names = []
     pos_data = np.zeros([datashape[0], datashape[1], len(name_list)])
     for i, v in enumerate(name_list):
-        posv = np.asarray(data[v])
+        posv = np.zeros(datashape[0]*datashape[1])  # keep shape unchanged, so stopped/aborted run can be handled.
+        posv[:data[v].shape[0]] = np.asarray(data[v])
         pos_data[:, :, i] = posv.reshape([datashape[0], datashape[1]])
         pos_names.append(str(v))
     return pos_names, pos_data
@@ -1439,15 +1445,11 @@ def make_hdf(fpath, runid, beamline=beamline_name):
         data = get_table(hdr)
 
         start_doc = hdr['start']
-        datashape = start_doc['shape']
-        datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
+        datashape = start_doc['shape']   # vertical first then horizontal
         fly_type = None
     	snake_scan = start_doc.get('snaking')
     	if snake_scan[0] == True:
     	    fly_scan = 'pyxrmid'
-
-        # base value shift for ic
-        base_val = 1.484*1e-7
 
         current_dir = os.path.dirname(os.path.realpath(__file__))
         config_file = 'srx_pv_config.json'
@@ -1455,7 +1457,6 @@ def make_hdf(fpath, runid, beamline=beamline_name):
         with open(config_path, 'r') as json_data:
             config_data = json.load(json_data)
         print('Saving data to hdf file.')
-
         write_db_to_hdf(fpath, data,
                         datashape,
                         det_list=config_data['xrf_detector'],
@@ -1463,7 +1464,7 @@ def make_hdf(fpath, runid, beamline=beamline_name):
                         pos_list=config_data['pos_list'],
                         scaler_list=config_data['scaler_list'],
                         fly_type=fly_type,
-                        base_val=base_val)
+                        base_val=config_data['base_value'])  #base value shift for ic
         print('Done!')
 
     else:
