@@ -192,11 +192,18 @@ class ElementController(object):
             v.status = _plot
 
     def delete_value_given_threshold(self, threshv=0.1):
+        """
+        Delete elements smaller than threshold value. Non element
+        peaks are not included.
+        """
         remove_list = []
+        non_element = ['compton', 'elastic', 'background']
         for k, v in six.iteritems(self.element_dict):
             if v.norm <= threshv:
                 remove_list.append(k)
         for name in remove_list:
+            if name in non_element:
+                continue
             del self.element_dict[name]
 
     def delete_unselected_items(self):

@@ -313,6 +313,7 @@ class DrawImageAdvanced(Atom):
                                         cmap=grey_use,
                                         interpolation=plot_interp,
                                         extent=self.pixel_or_pos_for_plot)
+                                        #clim=(0.3*np.max(data_dict), 0.7*np.max(data_dict)))
                     grid_title = k #self.file_name+'_'+str(k)
                     if self.pixel_or_pos_for_plot is not None:
                         title_x = self.pixel_or_pos_for_plot[0]
