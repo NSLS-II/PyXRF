@@ -959,7 +959,7 @@ enamldef ParameterEdit(Window):
                                           param_model, setting_model)
         Label: lbl1:
             #text = '{:>16} {:>32} {:>32} {:>32} {:>16} {:>40}'.format('name', 'value', 'min', 'max', '  ',  '  '.join(fit_strategy_list))
-            text = '{:>16} {:>32} {:>32} {:>32} {:>16}'.format('name', 'value', 'min', 'max', '  ')
+            text = '{:>16} {:>42} {:>32} {:>32} {:>16}'.format('name', 'value', 'min', 'max', '  ')
         Label: lbl2:
             text = fit_strategy_list[0]
         Label: lbl3:
@@ -993,6 +993,7 @@ enamldef ParameterEdit(Window):
                         #constraints = [hbox(ff_value, ff_min, ff_max, spacer)]
                         FloatField: ff_value:
                             value := fit_model.param_dict[loop_item]['value']
+                            minimum_size = (150, 20)
                         FloatField: ff_min:
                             value := fit_model.param_dict[loop_item]['min']
                         FloatField: ff_max:

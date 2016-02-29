@@ -69,7 +69,7 @@ except ImportError as e:
 
 
 
-beamline_name = 'SRX'  # this name will be changed according to beam lines.
+beamline_name = 'HXN'  # this name will be changed according to beam lines.
 
 
 class FileIOModel(Atom):
@@ -111,6 +111,7 @@ class FileIOModel(Atom):
     mask_data = Typed(object)
     mask_name = Str()
     mask_opt = Bool(False)
+    load_each_channel = Bool(True)
 
     def __init__(self, **kwargs):
         self.working_directory = kwargs['working_directory']
@@ -135,7 +136,8 @@ class FileIOModel(Atom):
 
         # focus on single file only
         self.img_dict, self.data_sets = file_handler(self.working_directory,
-                                                     self.file_name)
+                                                     self.file_name,
+                                                     load_each_channel=self.load_each_channel)
         self.file_channel_list = self.data_sets.keys()
 
     @observe('runid')
@@ -306,13 +308,17 @@ class SpectrumCalculator(object):
             return spectrum_sum
 
 
-def file_handler(working_directory, file_name):
+def file_handler(working_directory, file_name, load_each_channel=True):
     # send information on GUI level later !
     try:
     	if beamline_name == 'HXN':
-                return read_hdf_APS(working_directory, file_name, spectrum_cut=2000)
+                return read_hdf_APS(working_directory, file_name,
+                                    spectrum_cut=2000,
+                                    load_each_channel=load_each_channel)
        	if beamline_name == 'SRX':
-                return read_hdf_APS(working_directory, file_name, spectrum_cut=2000)
+                return read_hdf_APS(working_directory, file_name,
+                                    spectrum_cut=2000,
+                                    load_each_channel=load_each_channel)
     except IOError as e:
         logger.error("I/O error({0}): {1}".format(e.errno, e.strerror))
         logger.error('Please select .h5 file')

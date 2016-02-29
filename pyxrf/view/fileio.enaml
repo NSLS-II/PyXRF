@@ -70,7 +70,8 @@ enamldef FileView(DockItem): file_view:
                 vbox(
                     hbox(folder_btn, spacer),
                     hbox(folder_fd),
-                    hbox(files_btn, files_load),
+                    hbox(cb_each, spacer),
+                    hbox(files_btn, files_load, spacer),
                     hbox(mask_btn, mask_load_note, mask_cb),
                     #hbox(pixel_h_label, pixel_h, pixel_v_label, pixel_v, spacer),
                     #hbox(cb_runid, run_lbl, run_num, load_btn, spacer),
@@ -94,6 +95,10 @@ enamldef FileView(DockItem): file_view:
                 text := io_model.working_directory
                 #maximum_size = 400
 
+            CheckBox: cb_each:
+                text = 'Load each channel'
+                checkable = True
+                checked := io_model.load_each_channel
             PushButton: files_btn:
                 text = "Exp. Data File"
                 clicked ::
@@ -129,35 +134,7 @@ enamldef FileView(DockItem): file_view:
                 checked := io_model.mask_opt
             GroupBox: gb_db:
                 title = 'Data from database'
-                constraints = [vbox(
-                                    hbox(pixel_h_label, pixel_h, spacer),
-                                    hbox(pixel_v_label, pixel_v, spacer),
-                                    hbox(run_lbl, run_num, load_btn, spacer),
-                                   )]
-                Label : pixel_h_label:
-                    text = 'pixel num on x (horizontal)'
-                IntField: pixel_h:
-                    value := io_model.h_num
-                    maximum_size = (40, 20)
-                Label : pixel_v_label:
-                    text = 'pixel num on y (vertical)'
-                IntField: pixel_v:
-                    value := io_model.v_num
-                    maximum_size = (40, 20)
-
-                #CheckBox: cb_runid:
-                #    text = ' '
-                #    checked = True
-                #    clicked ::
-                #        if checked:
-                #            run_lbl.enabled = True
-                #            run_num.enabled = True
-                #            load_btn.enabled = True
-                #        else:
-                #            run_lbl.enabled = False
-                #            run_num.enabled = False
-                #            load_btn.enabled = False
-
+                constraints = [hbox(run_lbl, run_num, load_btn, spacer),]
                 Label: run_lbl:
                     text = 'Run # '
 
