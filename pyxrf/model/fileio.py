@@ -871,7 +871,7 @@ def read_hdf_APS(working_directory,
         if load_each_channel:
             for i in range(1, channel_num+1):
                 det_name = 'det'+str(i)
-                file_channel = fname+'_ch'+str(i)
+                file_channel = fname+'_det'+str(i)
                 exp_data_new = np.array(data[det_name+'/counts'][:, :, 0:spectrum_cut])
                 try:
                     exp_data_new[0, 0, :] = exp_data_new[1, 0, :]

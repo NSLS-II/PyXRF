@@ -100,7 +100,7 @@ enamldef FileView(DockItem): file_view:
                 checkable = True
                 checked := io_model.load_each_channel
             PushButton: files_btn:
-                text = "Exp. Data File"
+                text = "Load Data File"
                 clicked ::
                     path = FileDialogEx.get_open_file_names(file_view, current_path=io_model.working_directory)
                     if path:
