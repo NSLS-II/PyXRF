@@ -189,7 +189,7 @@ enamldef FitView(DockItem): fit_view:
                         autofind_edit.hide()
 
         GroupBox: control_element:
-            title = 'Add/Remove elements.'
+            title = 'Add/Remove elements (Userpeak with center energy at 5 keV can be added.).'
             padding = Box(2, 2, 2, 2)
             constraints = [
                 vbox(

@@ -96,7 +96,7 @@ enamldef FileView(DockItem): file_view:
                 #maximum_size = 400
 
             CheckBox: cb_each:
-                text = 'Load each channel'
+                text = 'Load data from each channel'
                 checkable = True
                 checked := io_model.load_each_channel
             PushButton: files_btn:
