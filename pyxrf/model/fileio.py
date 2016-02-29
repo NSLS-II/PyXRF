@@ -169,10 +169,14 @@ class FileIOModel(Atom):
         if len(self.mask_name) > 0 and self.mask_opt is True:
             mask_file = os.path.join(self.working_directory, self.mask_name)
             try:
-                self.mask_data = np.array(Image.open(mask_file))
-                #self.mask_data = np.load(mask_file)
+                if 'npy' in mask_file:
+                    self.mask_data = np.load(mask_file)
+                elif 'txt' in mask_file:
+                    self.mask_data = np.loadtxt(mask_file)
+                else:
+                    self.mask_data = np.array(Image.open(mask_file))
             except IOError:
-                self.mask_data = np.loadtxt(mask_file)
+                logger.error('Mask file cannot be loaded.')
 
             for k in six.iterkeys(self.img_dict):
                 if 'fit' in k:
