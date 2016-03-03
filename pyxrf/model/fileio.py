@@ -69,7 +69,7 @@ except ImportError as e:
 
 
 
-beamline_name = 'SRX'  # this name will be changed according to beam lines.
+beamline_name = 'HXN'  # this name will be changed according to beam lines.
 
 
 class FileIOModel(Atom):
@@ -111,6 +111,7 @@ class FileIOModel(Atom):
     mask_data = Typed(object)
     mask_name = Str()
     mask_opt = Bool(False)
+    load_each_channel = Bool(True)
 
     def __init__(self, **kwargs):
         self.working_directory = kwargs['working_directory']
@@ -135,7 +136,8 @@ class FileIOModel(Atom):
 
         # focus on single file only
         self.img_dict, self.data_sets = file_handler(self.working_directory,
-                                                     self.file_name)
+                                                     self.file_name,
+                                                     load_each_channel=self.load_each_channel)
         self.file_channel_list = self.data_sets.keys()
 
     @observe('runid')
@@ -167,10 +169,14 @@ class FileIOModel(Atom):
         if len(self.mask_name) > 0 and self.mask_opt is True:
             mask_file = os.path.join(self.working_directory, self.mask_name)
             try:
-                self.mask_data = np.array(Image.open(mask_file))
-                #self.mask_data = np.load(mask_file)
+                if 'npy' in mask_file:
+                    self.mask_data = np.load(mask_file)
+                elif 'txt' in mask_file:
+                    self.mask_data = np.loadtxt(mask_file)
+                else:
+                    self.mask_data = np.array(Image.open(mask_file))
             except IOError:
-                self.mask_data = np.loadtxt(mask_file)
+                logger.error('Mask file cannot be loaded.')
 
             for k in six.iterkeys(self.img_dict):
                 if 'fit' in k:
@@ -306,13 +312,17 @@ class SpectrumCalculator(object):
             return spectrum_sum
 
 
-def file_handler(working_directory, file_name):
+def file_handler(working_directory, file_name, load_each_channel=True):
     # send information on GUI level later !
     try:
     	if beamline_name == 'HXN':
-                return read_hdf_APS(working_directory, file_name, spectrum_cut=2000)
+                return read_hdf_APS(working_directory, file_name,
+                                    spectrum_cut=2000,
+                                    load_each_channel=load_each_channel)
        	if beamline_name == 'SRX':
-                return read_hdf_APS(working_directory, file_name, spectrum_cut=2000)
+                return read_hdf_APS(working_directory, file_name,
+                                    spectrum_cut=2000,
+                                    load_each_channel=load_each_channel)
     except IOError as e:
         logger.error("I/O error({0}): {1}".format(e.errno, e.strerror))
         logger.error('Please select .h5 file')
@@ -861,7 +871,7 @@ def read_hdf_APS(working_directory,
         if load_each_channel:
             for i in range(1, channel_num+1):
                 det_name = 'det'+str(i)
-                file_channel = fname+'_ch'+str(i)
+                file_channel = fname+'_det'+str(i)
                 exp_data_new = np.array(data[det_name+'/counts'][:, :, 0:spectrum_cut])
                 try:
                     exp_data_new[0, 0, :] = exp_data_new[1, 0, :]
