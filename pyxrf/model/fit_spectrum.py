@@ -484,6 +484,14 @@ class Fit1D(Atom):
         self.fit_info = 'Summed spectrum fitting is done!'
         logger.info('-------- ' + self.fit_info + ' --------')
 
+    def output_summed_data_fit(self):
+        """Save energy, summed data and fitting curve to a file.
+        """
+        data = np.array([self.x0, self.y0, self.fit_y])
+        output_fit_name = self.data_title + '_summed_spectrum_fit.txt'
+        fpath = os.path.join(self.result_folder, output_fit_name)
+        np.savetxt(fpath, data.T)
+
     def assign_fitting_result(self):
         self.function_num = self.fit_result.nfev
         self.nvar = self.fit_result.nvarys
@@ -554,15 +562,15 @@ class Fit1D(Atom):
                 result_map[k] = interp_d
 
         prefix_fname = self.save_name.split('.')[0]
-        if 'ch1' in self.data_title:
+        if 'det1' in self.data_title:
             inner_path = 'xrfmap/det1'
-            fit_name = prefix_fname+'_ch1_fit'
-        elif 'ch2' in self.data_title:
+            fit_name = prefix_fname+'_det10_fit'
+        elif 'det2' in self.data_title:
             inner_path = 'xrfmap/det2'
-            fit_name = prefix_fname+'_ch2_fit'
-        elif 'ch3' in self.data_title:
+            fit_name = prefix_fname+'_det2_fit'
+        elif 'det3' in self.data_title:
             inner_path = 'xrfmap/det3'
-            fit_name = prefix_fname+'_ch3_fit'
+            fit_name = prefix_fname+'_det3_fit'
         else:
             inner_path = 'xrfmap/detsum'
             fit_name = prefix_fname+'_fit'
