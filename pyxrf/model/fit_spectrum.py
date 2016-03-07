@@ -40,7 +40,7 @@ import time
 import copy
 import six
 import os
-from collections import OrderedDict
+from collections import OrderedDict, deque
 import multiprocessing
 import h5py
 import matplotlib.pyplot as plt
@@ -151,12 +151,14 @@ class Fit1D(Atom):
     pixel_fit_info = Str()
 
     pixel_fit_method = Int(0)
+    param_q = Typed(object)
 
     def __init__(self, *args, **kwargs):
         self.working_directory = kwargs['working_directory']
         self.result_folder = kwargs['working_directory']
         self.default_parameters = kwargs['default_parameters']
         self.param_dict = copy.deepcopy(self.default_parameters)
+        self.param_q = deque()
         self.all_strategy = OrderedDict()
 
         self.EC = ElementController()
@@ -210,6 +212,12 @@ class Fit1D(Atom):
                 self.elementinfo_list = sorted([e for e in self.param_dict.keys()
                                                 if element.replace('-', '_') in e])
 
+    def keep_size(self):
+        """Keep the size of deque as 2.
+        """
+        while len(self.param_q) > 2:
+            self.param_q.popleft()
+
     def read_param_from_file(self, param_path):
         """
         Update parameters if new param_path is given.
@@ -221,6 +229,9 @@ class Fit1D(Atom):
         """
         with open(param_path, 'r') as json_data:
             self.default_parameters = json.load(json_data)
+        ### use queue to save the status of parameters
+        self.param_q.append(copy.deepcopy(self.default_parameters))
+        self.keep_size()
 
     def update_default_param(self, param):
         """assigan new values to default param.
@@ -229,10 +240,17 @@ class Fit1D(Atom):
         ----------
         param : dict
         """
-        self.default_parameters = param
+        self.default_parameters = copy.deepcopy(param)
+        ### use queue to save the status of parameters
+        self.param_q.append(copy.deepcopy(self.default_parameters))
+        self.keep_size()
 
     def apply_default_param(self):
+        """
+        Update param_dict with default parameters, also update element list.
+        """
         self.param_dict = copy.deepcopy(self.default_parameters)
+
         element_list = self.param_dict['non_fitting_values']['element_list']
         self.element_list = [e.strip(' ') for e in element_list.split(',')]
 
@@ -466,6 +484,14 @@ class Fit1D(Atom):
         self.fit_info = 'Summed spectrum fitting is done!'
         logger.info('-------- ' + self.fit_info + ' --------')
 
+    def output_summed_data_fit(self):
+        """Save energy, summed data and fitting curve to a file.
+        """
+        data = np.array([self.x0, self.y0, self.fit_y])
+        output_fit_name = self.data_title + '_summed_spectrum_fit.txt'
+        fpath = os.path.join(self.result_folder, output_fit_name)
+        np.savetxt(fpath, data.T)
+
     def assign_fitting_result(self):
         self.function_num = self.fit_result.nfev
         self.nvar = self.fit_result.nvarys
@@ -536,15 +562,15 @@ class Fit1D(Atom):
                 result_map[k] = interp_d
 
         prefix_fname = self.save_name.split('.')[0]
-        if 'ch1' in self.data_title:
+        if 'det1' in self.data_title:
             inner_path = 'xrfmap/det1'
-            fit_name = prefix_fname+'_ch1_fit'
-        elif 'ch2' in self.data_title:
+            fit_name = prefix_fname+'_det10_fit'
+        elif 'det2' in self.data_title:
             inner_path = 'xrfmap/det2'
-            fit_name = prefix_fname+'_ch2_fit'
-        elif 'ch3' in self.data_title:
+            fit_name = prefix_fname+'_det2_fit'
+        elif 'det3' in self.data_title:
             inner_path = 'xrfmap/det3'
-            fit_name = prefix_fname+'_ch3_fit'
+            fit_name = prefix_fname+'_det3_fit'
         else:
             inner_path = 'xrfmap/detsum'
             fit_name = prefix_fname+'_fit'
@@ -605,17 +631,17 @@ class Fit1D(Atom):
             save to tiff or not
         """
         fpath = os.path.join(self.result_folder, self.save_name)
+        #namelist = self.data_title.split('_')
+        #output_n = namelist[:-1] + ['output']
+        output_n = self.save_name.split('.')[0] + '_output'
+        #output_n = '_'.join(output_n)
         if to_tiff:
-            namelist = self.data_title.split('_')
-            output_n = namelist[0]+'_'+namelist[1]+'_'+'output'
             output_data(fpath, os.path.join(self.result_folder, output_n))
-            logger.info('Done with saving data {} to tiff files.'.format(namelist[1]))
+            logger.info('Done with saving data {} to tiff files.'.format(output_n))
         else:
-            namelist = self.data_title.split('_')
-            output_n = namelist[0]+'_'+namelist[1]+'_'+'output'
             output_data(fpath, os.path.join(self.result_folder, output_n),
                         file_format='txt')
-            logger.info('Done with saving data {} to txt files.'.format(namelist[1]))
+            logger.info('Done with saving data {} to txt files.'.format(output_n))
 
     def save_result(self, fname=None):
         """

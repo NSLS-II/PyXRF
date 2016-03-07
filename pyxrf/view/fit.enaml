@@ -163,7 +163,7 @@ enamldef FitView(DockItem): fit_view:
                 text = 'No parameter is loaded.'
 
             PushButton: saveas_btn:
-                text = 'Save As'
+                text = 'Save'
                 clicked ::
                     path = FileDialogEx.get_save_file_name(fit_view,
                                                            current_path=fit_model.result_folder)
@@ -244,8 +244,7 @@ enamldef FitView(DockItem): fit_view:
                 constraints = [vbox(scr_area_title,
                                     #hbox(manual_add),
                                     scr_area,
-                                    hbox(pb_update, spacer, pb_bound_delete, bound_field, pb_delete_unselected),
-                                    #hbox(pb_update, spacer),
+                                    hbox(pb_update, pb_undo, spacer, pb_bound_delete, bound_field, pb_delete_unselected),
                                     )]
                 Container: scr_area_title:
                     padding = Box(2, 2, 2, 2)
@@ -344,7 +343,7 @@ enamldef FitView(DockItem): fit_view:
                                     plot_model.show_fit_opt = False
                                     plot_model.show_fit_opt = True
                                     param_model.update_name_list()
-                                    #apply_to_fit(param_model, plot_model, fit_model)
+                                    #apply_to_fit(param_model, plot_model, fit_model, setting_model)
 
                             Container:
                                 padding = Box(2, 2, 2, 2)
@@ -461,6 +460,38 @@ enamldef FitView(DockItem): fit_view:
                     text = 'Update'
                     clicked ::
                         apply_to_fit(param_model, plot_model, fit_model, setting_model)
+                PushButton: pb_undo:
+                    text = 'Undo'
+                    clicked ::
+                        ### This part is similar as importing parameters from file
+                        fit_model.default_parameters = fit_model.param_q[0]
+                        fit_model.apply_default_param()
+
+                        # update experimental plots
+                        plot_model.parameters = fit_model.default_parameters
+                        plot_model.plot_experiment()
+                        plot_model.plot_exp_opt = False
+                        plot_model.plot_exp_opt = True
+
+                        # update autofit param
+                        param_model.update_new_param(fit_model.default_parameters)
+                        #param_model.get_new_param_from_file(parameter_file_path)
+                        param_model.update_name_list()
+                        param_model.EC.turn_on_all()
+
+                        # update params for roi sum
+                        setting_model.update_parameter(fit_model.default_parameters)
+
+                        # calculate profile and plot
+                        fit_model.get_profile()
+
+                        # update experimental plot with new calibration values
+                        plot_model.plot_fit(fit_model.cal_x, fit_model.cal_y,
+                                            fit_model.cal_spectrum,
+                                            fit_model.residual)
+                        # For plotting purposes, otherwise plot will not update
+                        plot_model.show_fit_opt = False
+                        plot_model.show_fit_opt = True
 
         GroupBox: fit_control:
             title = 'Fit summed spectrum.'
@@ -470,7 +501,7 @@ enamldef FitView(DockItem): fit_view:
                     gb_advanced,
                     hbox(lbl1, cb1, lbl2, cb2, lbl3, cb3, spacer),
                     #hbox(lbl2, cb2, lbl4, cb4, spacer),
-                    hbox(pb_fit, fit_information),
+                    hbox(pb_fit, fit_information, spacer, pb_save_sum_fit),
                     gb_result,
                 ),
                 lbl1.height == cb1.height == lbl2.height,
@@ -552,31 +583,20 @@ enamldef FitView(DockItem): fit_view:
                     # update params for roi sum
                     setting_model.update_parameter(fit_model.param_dict)
 
+            PushButton: pb_save_sum_fit:
+                text = 'Save Spectrum Fit to txt'
+                clicked ::
+                    fit_model.output_summed_data_fit()
             Label: fit_information:
                 text := fit_model.fit_info
                 foreground = 'red'
 
-            #PushButton: pb_cal:
-            #    text = 'Calculate Spectrum'
-            #    clicked ::
-            #        calculate_spectrum_helper(fit_model, plot_model, param_model)
-
             Container: gb_advanced:
                 padding = Box(2, 2, 2, 2)
                 constraints = [vbox(
-                                    #hbox(cb_enable, spacer),
                                     hbox(general_set_btn,
                                          element_btn, param_btn, spacer)
                                     )]
-                #CheckBox: cb_enable:
-                #    text = 'Enable Advanced Setting'
-                #    clicked ::
-                #        if checked:
-                #            element_btn.enabled = True
-                #            param_btn.enabled = True
-                #        else:
-                #            element_btn.enabled = False
-                #            param_btn.enabled = False
 
                 PushButton: element_btn:
                     text = 'Edit Elements'
@@ -617,7 +637,6 @@ enamldef FitView(DockItem): fit_view:
                 constraints = [vbox(hbox(lbl_number, lbl_number_v,
                                          lbl_var_number, lbl_var_number_v,
                                          lbl_red_chi, lbl_red_chi_v, spacer),
-                                    #hbox(lbl_chi, lbl_chi_v, lbl_red_chi, lbl_red_chi_v, spacer)
                                     )]
                 Label: lbl_number:
                     text = '# of iterations'
@@ -1340,7 +1359,7 @@ def apply_to_fit(param_model, plot_model,
     param_model.EC.update_peak_ratio()
     param_model.data_for_plot()
 
-    # update experimental plots if case the coefficients change
+    # update experimental plots in case the coefficients change
     plot_model.parameters = param_model.param_new
     plot_model.plot_experiment()
 
