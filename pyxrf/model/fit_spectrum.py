@@ -40,7 +40,7 @@ import time
 import copy
 import six
 import os
-from collections import OrderedDict
+from collections import OrderedDict, deque
 import multiprocessing
 import h5py
 import matplotlib.pyplot as plt
@@ -151,12 +151,14 @@ class Fit1D(Atom):
     pixel_fit_info = Str()
 
     pixel_fit_method = Int(0)
+    param_q = Typed(object)
 
     def __init__(self, *args, **kwargs):
         self.working_directory = kwargs['working_directory']
         self.result_folder = kwargs['working_directory']
         self.default_parameters = kwargs['default_parameters']
         self.param_dict = copy.deepcopy(self.default_parameters)
+        self.param_q = deque()
         self.all_strategy = OrderedDict()
 
         self.EC = ElementController()
@@ -210,6 +212,12 @@ class Fit1D(Atom):
                 self.elementinfo_list = sorted([e for e in self.param_dict.keys()
                                                 if element.replace('-', '_') in e])
 
+    def keep_size(self):
+        """Keep the size of deque as 2.
+        """
+        while len(self.param_q) > 2:
+            self.param_q.popleft()
+
     def read_param_from_file(self, param_path):
         """
         Update parameters if new param_path is given.
@@ -221,6 +229,9 @@ class Fit1D(Atom):
         """
         with open(param_path, 'r') as json_data:
             self.default_parameters = json.load(json_data)
+        ### use queue to save the status of parameters
+        self.param_q.append(copy.deepcopy(self.default_parameters))
+        self.keep_size()
 
     def update_default_param(self, param):
         """assigan new values to default param.
@@ -229,10 +240,17 @@ class Fit1D(Atom):
         ----------
         param : dict
         """
-        self.default_parameters = param
+        self.default_parameters = copy.deepcopy(param)
+        ### use queue to save the status of parameters
+        self.param_q.append(copy.deepcopy(self.default_parameters))
+        self.keep_size()
 
     def apply_default_param(self):
+        """
+        Update param_dict with default parameters, also update element list.
+        """
         self.param_dict = copy.deepcopy(self.default_parameters)
+
         element_list = self.param_dict['non_fitting_values']['element_list']
         self.element_list = [e.strip(' ') for e in element_list.split(',')]
 
