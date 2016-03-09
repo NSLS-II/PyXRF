@@ -1,0 +1,9 @@
+2016-03-07 11:32:01,729 : INFO : Strategy at step 1 is: fit_with_tail
+2016-03-07 11:32:01,729 : INFO : Strategy at step 2 is: linear
+2016-03-07 11:32:18,154 : INFO : File is loaded: scan_3624.h5
+2016-03-07 11:32:18,421 : WARNING : We use spectrum range from 0 to 2000
+2016-03-07 11:32:18,422 : INFO : Exp. data from h5 has shape of: (100, 100, 2000)
+2016-03-07 11:32:18,422 : INFO : Data of detector sum is loaded.
+2016-03-07 11:32:18,691 : INFO : Data from detector channel 1 is loaded.
+2016-03-07 11:32:20,273 : INFO : Data from detector channel 2 is loaded.
+2016-03-07 11:32:25,017 : INFO : Data from detector channel 3 is loaded.
