@@ -20,23 +20,6 @@ some of the unique features as follows.
    obtain data directly from BNL/NSLS-II experimental database.
 
 
-## Documentation
-
-### h5 file for PyXRF
-Please download a standard h5 file from the link
-https://drive.google.com/file/d/0B45Mm22EF9TNQzFkSW0xa01mbkE/view .
-This standard h5 file mainly contains spectrum from 3 detectors, positions of x,y motors and scalers for normalization. Please create h5 file with similar structure in order to use PyXRF.
-
-For test purposes, a parameter file (https://drive.google.com/file/d/0B45Mm22EF9TNYW11OXozRXVic1E/view) is also provided for users to do fitting for this standard h5 file. However, you should never create parameter file manually. Parameter file can be easily created during the step of automatic peak finding.
-
-### youtube tutorial
-The latest youtube tutorial of pyxrf version 0.0.4 is at https://www.youtube.com/watch?v=2nFLccehaHI
-
-You may also refer to http://nbviewer.ipython.org/gist/licode/06654b079fd617aaaeca
-
-More documentation will be ready soon!
-
-
 ## Installation from Conda
 Currently PyXRF only works for python 2.7. `pyxrf` is not compatible with
 python 3+ because it relies on the [enaml] (http://github.com/nucleic/enaml) library, which is not python 3 compatible as of this writing (11/2015).
@@ -87,6 +70,23 @@ The blocking issue for getting `pyxrf` running on windows is creating a conda
 package for [xraylib] (https://github.com/tschoonj/xraylib).  If enough users
 request this feature, we will make it happen.  Until then it is on the back
 burner.  
+
+
+## Documentation
+
+### h5 file for PyXRF
+Please download a standard h5 file from the link
+https://drive.google.com/file/d/0B45Mm22EF9TNQzFkSW0xa01mbkE/view
+This h5 file mainly contains spectrum from 3 detectors, positions of x,y motors and scalers for normalization. Please create h5 file with a similar structure in order to use PyXRF.
+
+For test purposes, a parameter file (https://drive.google.com/file/d/0B45Mm22EF9TNYW11OXozRXVic1E/view) is also provided for users to do fitting for this standard h5 file. However, you should never create parameter file manually. Parameter file can be easily created during the step of automatic peak finding.
+
+### youtube tutorial
+The latest youtube tutorial of pyxrf version 0.0.4 is at https://www.youtube.com/watch?v=2nFLccehaHI
+
+You may also refer to http://nbviewer.ipython.org/gist/licode/06654b079fd617aaaeca
+
+More documentation will be ready soon!
 
 
 ## Notes
