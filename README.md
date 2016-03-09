@@ -23,14 +23,14 @@ some of the unique features as follows.
 ## Documentation
 
 ### h5 file for PyXRF
-Please download a standard h5 file from the following link
+Please download a standard h5 file from the link
 https://drive.google.com/file/d/0B45Mm22EF9TNQzFkSW0xa01mbkE/view .
 This standard h5 file mainly contains spectrum from 3 detectors, positions of x,y motors and scalers for normalization. Please create h5 file with similar structure in order to use PyXRF.
 
-For test purposes, a parameter file (https://drive.google.com/file/d/0B45Mm22EF9TNYW11OXozRXVic1E/view) is also provided for users to do fitting for this standard h5 file. However, you should never create parameter file manually. Parameter file can easily created during the step of automatic peak finding.
+For test purposes, a parameter file (https://drive.google.com/file/d/0B45Mm22EF9TNYW11OXozRXVic1E/view) is also provided for users to do fitting for this standard h5 file. However, you should never create parameter file manually. Parameter file can be easily created during the step of automatic peak finding.
 
-
-The latest youtube tutorial is at https://www.youtube.com/watch?v=2nFLccehaHI
+### youtube tutorial
+The latest youtube tutorial of pyxrf version 0.0.4 is at https://www.youtube.com/watch?v=2nFLccehaHI
 
 You may also refer to http://nbviewer.ipython.org/gist/licode/06654b079fd617aaaeca
 
