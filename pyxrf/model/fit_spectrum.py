@@ -552,7 +552,7 @@ class Fit1D(Atom):
         start_y = rangey[0]
 
         dimv = self.data_all.shape
-        if beamline_name == 'HXN':
+        if beamline_name in ['HXN', 'SRX']:
             logger.info('Interpolating image... ')
             for k, v in six.iteritems(result_map):
                 shapev = [dimv[1], dimv[0]]  # horizontal first, then vertical, different from dim in numpy
