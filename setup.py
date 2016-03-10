@@ -21,7 +21,7 @@ setup(
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
     author='Brookhaven National Laboratory',
-    packages=['pyxrf', 'pyxrf.model', 'pyxrf.view'],
+    packages=['pyxrf', 'pyxrf.model', 'pyxrf.view', 'configs'],
     entry_points={'console_scripts': ['pyxrf = pyxrf.gui:run']},
     package_data={'pyxrf.view': ['*.enaml'], 'configs': ['*.json']},
     include_package_data=True,

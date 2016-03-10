@@ -1466,6 +1466,7 @@ def make_hdf(fpath, runid, beamline=beamline_name):
     	    fly_scan = 'pyxrmid'
 
         current_dir = os.path.dirname(os.path.realpath(__file__))
+        print(current_dir)
         config_file = 'srx_pv_config.json'
         config_path = '/'.join(current_dir.split('/')[:-2]+['configs', config_file])
         with open(config_path, 'r') as json_data:
