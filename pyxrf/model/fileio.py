@@ -65,11 +65,15 @@ try:
     # registers a filestore handler for the XSPRESS3 detector
     from hxntools import handlers as hxn_handlers
 except ImportError as e:
-    logger.error('hxntools is not available: %s', e)
+    logger.error('hxntools is not available from old version: %s', e)
+
+try:
+    import vortex_handler
+except ImportError as e:
+    logger.error('handler is not loaded.')
 
 
-
-beamline_name = 'HXN'  # this name will be changed according to beam lines.
+beamline_name = 'SRX'  # this name will be changed according to beam lines.
 
 
 class FileIOModel(Atom):
