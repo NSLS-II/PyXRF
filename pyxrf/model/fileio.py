@@ -1463,7 +1463,7 @@ def make_hdf(fpath, runid, beamline=beamline_name):
         fly_type = None
     	snake_scan = start_doc.get('snaking')
     	if snake_scan[1] == True:
-    	    fly_scan = 'pyxrmid'
+    	    fly_type = 'pyramid'
 
         current_dir = os.path.dirname(os.path.realpath(__file__))
         print(current_dir)
