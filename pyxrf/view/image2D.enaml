@@ -52,12 +52,13 @@ logger = logging.getLogger(__name__)
 enamldef ImageMain(DockItem):
     attr img_model_adv
     attr choose_element
+    attr fit_model
 
     Container:
         constraints = [
             vbox(
-                hbox(cbox_file, pb_all, spacer),
-                hbox(spacer, cb_select, color_select, cb_norm, pixel_select, tb_check),
+                hbox(cbox_file, spacer, pb_all, tb_check),
+                hbox(spacer, cb_select, color_select, cb_norm, pixel_select, interp_cb),
                 canvas,
             ),
             #cbox_type.v_center == check.v_center,
@@ -65,13 +66,9 @@ enamldef ImageMain(DockItem):
 
         ComboBox: cbox_file:
             items << ['Select Data'] + sorted(img_model_adv.data_dict_keys)
-            #index := img_model_adv.data_opt
             index = 0
             index >> img_model_adv.data_opt
-            minimum_size = (400,20)
-            #index ::
-            #    if index > 0:
-            #        img_model_adv.plot_item = selected_item
+            minimum_size = (360,20)
 
         PushButton: pb_all:
             text = 'Image Wizard'
@@ -103,7 +100,9 @@ enamldef ImageMain(DockItem):
             items = ['pixel', 'x,y position']
             index = 0
             index := img_model_adv.pixel_or_pos
-
+        CheckBox: interp_cb:
+            text = 'Interpolation on x,y'
+            checked := fit_model.map_interpolation
         CheckBox: tb_check:
             text = 'Toolbar Visible'
             checked := canvas.toolbar_visible

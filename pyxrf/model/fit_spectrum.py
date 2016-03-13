@@ -78,6 +78,21 @@ class Fit1D(Atom):
     """
     Fit 1D fluorescence spectrum. Users can choose multiple strategies
     for this fitting.
+
+    Parameters
+    ----------
+    x_data : 2D array
+        x position data from hdf file
+    y_data : 2D array
+        y position data from hdf file
+    result_map : Dict
+        dict of 2D array map for each fitted element
+    map_interpolation : bool
+        option to interpolate the 2D map according to x,y position or not
+    hdf_path : str
+        path to hdf file
+    hdf_name : str
+        name of hdf file
     """
     file_status = Str()
     default_parameters = Dict()
@@ -127,7 +142,6 @@ class Fit1D(Atom):
     ftol = Float(1e-5)
     c_weight = Float(1e2)
 
-    save_name = Str()
     fit_img = Dict()
 
     save_point = Bool(False)
@@ -152,6 +166,13 @@ class Fit1D(Atom):
 
     pixel_fit_method = Int(0)
     param_q = Typed(object)
+
+    x_data = Typed(np.ndarray)
+    y_data = Typed(np.ndarray)
+    result_map = Dict()
+    map_interpolation = Bool(True)
+    hdf_path = Str()
+    hdf_name = Str()
 
     def __init__(self, *args, **kwargs):
         self.working_directory = kwargs['working_directory']
@@ -317,7 +338,17 @@ class Fit1D(Atom):
             This is the dictionary that gets passed to a function
             with the @observe decorator
         """
-        self.save_name = change['value']
+        self.hdf_name = change['value']
+        # output to .h5 file
+        self.hdf_path = os.path.join(self.result_folder, self.hdf_name)
+
+    @observe('map_interpolation')
+    def update_interp(self, change):
+        print(change)
+        try:
+            self.save2Dmap_to_hdf()
+        except:
+            pass
 
     @observe('fit_strategy1')
     def update_strategy1(self, change):
@@ -522,69 +553,26 @@ class Fit1D(Atom):
         t0 = time.time()
         self.pixel_fit_info = 'Pixel fitting is in process.'
         app.processEvents()
-        result_map, calculation_info = single_pixel_fitting_controller(self.data_all,
-                                                                       self.param_dict,
-                                                                       method=pixel_fit,
-                                                                       pixel_bin=pixel_bin,
-                                                                       raise_bg=raise_bg,
-                                                                       comp_elastic_combine=comp_elastic_combine,
-                                                                       linear_bg=linear_bg,
-                                                                       use_snip=use_snip,
-                                                                       bin_energy=bin_energy)
+        self.result_map, calculation_info = single_pixel_fitting_controller(self.data_all,
+                                                                            self.param_dict,
+                                                                            method=pixel_fit,
+                                                                            pixel_bin=pixel_bin,
+                                                                            raise_bg=raise_bg,
+                                                                            comp_elastic_combine=comp_elastic_combine,
+                                                                            linear_bg=linear_bg,
+                                                                            use_snip=use_snip,
+                                                                            bin_energy=bin_energy)
 
         t1 = time.time()
         logger.info('Time used for pixel fitting is : {}'.format(t1-t0))
 
-        # output to .h5 file
-        fpath = os.path.join(self.result_folder, self.save_name)
-
         # interpolation then save
-        with h5py.File(fpath, 'r') as f:
-            x_data = np.array(f['xrfmap/positions/pos'][0, :, :])
-            y_data = np.array(f['xrfmap/positions/pos'][1, :, :])
+        with h5py.File(self.hdf_path, 'r') as f:
+            self.x_data = np.array(f['xrfmap/positions/pos'][0, :, :])
+            self.y_data = np.array(f['xrfmap/positions/pos'][1, :, :])
 
         #x_data = flip_data(x_data)
-        x_data = np.fliplr(x_data)
-
-        rangex = x_data[0,:]
-        rangey = y_data[:,0]
-        start_x = rangex[0]
-        start_y = rangey[0]
-
-        dimv = self.data_all.shape
-        if beamline_name in ['HXN']:
-            logger.info('Interpolating image... ')
-            for k, v in six.iteritems(result_map):
-                shapev = [dimv[1], dimv[0]]  # horizontal first, then vertical, different from dim in numpy
-                interp_d = interp1d_scan(shapev, rangex, rangey, start_x, start_y,
-                                         x_data, y_data, v)
-                interp_d[np.isnan(interp_d)] = 0
-                result_map[k] = interp_d
-
-        prefix_fname = self.save_name.split('.')[0]
-        if 'det1' in self.data_title:
-            inner_path = 'xrfmap/det1'
-            fit_name = prefix_fname+'_det10_fit'
-        elif 'det2' in self.data_title:
-            inner_path = 'xrfmap/det2'
-            fit_name = prefix_fname+'_det2_fit'
-        elif 'det3' in self.data_title:
-            inner_path = 'xrfmap/det3'
-            fit_name = prefix_fname+'_det3_fit'
-        else:
-            inner_path = 'xrfmap/detsum'
-            fit_name = prefix_fname+'_fit'
-        save_fitdata_to_hdf(fpath, result_map, datapath=inner_path)
-
-        # output error
-        if pixel_fit == 'nonlinear':
-            error_map = calculation_info['error_map']
-            save_fitdata_to_hdf(fpath, error_map, datapath=inner_path,
-                                data_saveas='xrf_fit_error',
-                                dataname_saveas='xrf_fit_error_name')
-
-        # Update GUI so that results can be seen immediately
-        self.fit_img[fit_name] = result_map
+        self.x_data = np.fliplr(self.x_data)
 
         # get fitted spectrum and save them to figs
         if self.save_point is True:
@@ -618,9 +606,62 @@ class Fit1D(Atom):
                                  self.result_folder, prefix=fit_name, use_sinp=use_snip)
             logger.info('Done with saving fitting plots.')
 
+        self.save2Dmap_to_hdf(pixel_fit=pixel_fit)
+
         self.pixel_fit_info = 'Pixel fitting is done!'
         app.processEvents()
         logger.info('-------- Fitting of single pixels is done! --------')
+
+    def save2Dmap_to_hdf(self, pixel_fit='nnls'):
+        """
+        Save fitted 2D map of elements into hdf file after fitting is done. User
+        can choose to interpolate the image based on x,y position or not.
+
+        Parameters
+        ----------
+        pixel_fit : str
+            If nonlinear is chosen, more information needs to be saved.
+        """
+        rangex = self.x_data[0,:]
+        rangey = self.y_data[:,0]
+        start_x = rangex[0]
+        start_y = rangey[0]
+
+        dimv = self.data_all.shape
+        #if beamline_name in ['HXN']:
+        if self.map_interpolation is True:
+            logger.info('Interpolating image... ')
+            for k, v in six.iteritems(self.result_map):
+                shapev = [dimv[1], dimv[0]]  # horizontal first, then vertical, different from dim in numpy
+                interp_d = interp1d_scan(shapev, rangex, rangey, start_x, start_y,
+                                         self.x_data, self.y_data, v)
+                interp_d[np.isnan(interp_d)] = 0
+                self.result_map[k] = interp_d
+
+        prefix_fname = self.hdf_name.split('.')[0]
+        if 'det1' in self.data_title:
+            inner_path = 'xrfmap/det1'
+            fit_name = prefix_fname+'_det10_fit'
+        elif 'det2' in self.data_title:
+            inner_path = 'xrfmap/det2'
+            fit_name = prefix_fname+'_det2_fit'
+        elif 'det3' in self.data_title:
+            inner_path = 'xrfmap/det3'
+            fit_name = prefix_fname+'_det3_fit'
+        else:
+            inner_path = 'xrfmap/detsum'
+            fit_name = prefix_fname+'_fit'
+        save_fitdata_to_hdf(self.hdf_path, self.result_map, datapath=inner_path)
+
+        # output error
+        if pixel_fit == 'nonlinear':
+            error_map = calculation_info['error_map']
+            save_fitdata_to_hdf(self.hdf_path, error_map, datapath=inner_path,
+                                data_saveas='xrf_fit_error',
+                                dataname_saveas='xrf_fit_error_name')
+
+        # Update GUI so that results can be seen immediately
+        self.fit_img[fit_name] = self.result_map
 
     def output_2Dimage(self, to_tiff=True):
         """Read data from h5 file and save them into either tiff or txt.
@@ -630,16 +671,12 @@ class Fit1D(Atom):
         to_tiff : str, optional
             save to tiff or not
         """
-        fpath = os.path.join(self.result_folder, self.save_name)
-        #namelist = self.data_title.split('_')
-        #output_n = namelist[:-1] + ['output']
-        output_n = self.save_name.split('.')[0] + '_output'
-        #output_n = '_'.join(output_n)
+        output_n = self.hdf_name.split('.')[0] + '_output'
         if to_tiff:
-            output_data(fpath, os.path.join(self.result_folder, output_n))
+            output_data(self.hdf_path, os.path.join(self.result_folder, output_n))
             logger.info('Done with saving data {} to tiff files.'.format(output_n))
         else:
-            output_data(fpath, os.path.join(self.result_folder, output_n),
+            output_data(self.hdf_path, os.path.join(self.result_folder, output_n),
                         file_format='txt')
             logger.info('Done with saving data {} to txt files.'.format(output_n))
 

@@ -168,7 +168,7 @@ enamldef XRFGui(MainWindow): main_window:
                     always_on_top=True,
                     parent=main_window,
                     img_model=main_window.img_model_adv)
-                #plot_model = main_window.plot_model
+                fit_model = main_window.fit_model
                 name = 'image_view'
             ImageRGB:
                 closable = False
