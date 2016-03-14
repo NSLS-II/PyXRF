@@ -515,6 +515,9 @@ class Fit1D(Atom):
         self.fit_info = 'Summed spectrum fitting is done!'
         logger.info('-------- ' + self.fit_info + ' --------')
 
+        self.param_q.append(copy.deepcopy(self.param_dict))
+        self.keep_size()
+
     def output_summed_data_fit(self):
         """Save energy, summed data and fitting curve to a file.
         """

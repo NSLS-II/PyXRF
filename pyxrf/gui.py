@@ -115,6 +115,8 @@ def run():
     io_model.observe('img_dict', img_model_adv.data_dict_update)
     io_model.observe('img_dict', img_model_rgb.data_dict_update)
 
+    fit_model.observe('map_interpolation', img_model_adv.interp_update)
+
     # set default parameters
     #io_model.observe('default_parameters', plot_model.parameters_update)
     #param_model.observe('param_new', plot_model.parameters_update)

@@ -96,6 +96,8 @@ class DrawImageAdvanced(Atom):
         index to choose plot with pixel or with positions
     pixel_or_pos_for_plot : None, array
         argument passed to extent in imshow of matplotlib
+    interpolation_opt: bool
+        choose to interpolate 2D image in terms of x,y or not
     """
 
     fig = Typed(Figure)
@@ -126,6 +128,7 @@ class DrawImageAdvanced(Atom):
 
     pixel_or_pos = Int(0)
     pixel_or_pos_for_plot = Typed(object)
+    interpolation_opt = Bool(True)
 
     def __init__(self):
         self.fig = plt.figure(figsize=(4,4))
@@ -243,6 +246,24 @@ class DrawImageAdvanced(Atom):
             self.set_stat_for_all(bool_val=True)
         else:
             self.set_stat_for_all(bool_val=False)
+
+    def interp_update(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        self.interpolation_opt = change['value']
+
+    @observe('interpolation_opt')
+    def update_interp_opt(self, change):
+        print('interp change {}'.format(change))
+        self.show_image()
 
     def set_stat_for_all(self, bool_val=False):
         """
