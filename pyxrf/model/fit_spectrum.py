@@ -170,7 +170,7 @@ class Fit1D(Atom):
     x_data = Typed(np.ndarray)
     y_data = Typed(np.ndarray)
     result_map = Dict()
-    map_interpolation = Bool(True)
+    map_interpolation = Bool(False)
     hdf_path = Str()
     hdf_name = Str()
 
@@ -626,8 +626,6 @@ class Fit1D(Atom):
             If nonlinear is chosen, more information needs to be saved.
         """
         rangex = self.x_data[0,:]
-        print(self.x_data[0, :10])
-        print(self.x_data[1, :10])
         rangey = self.y_data[:,0]
         start_x = rangex[0]
         start_y = rangey[0]
@@ -2133,10 +2131,10 @@ def fly2d_grid(dimv, rangex, rangey, start_x, start_y,
     dy = height / ny
 
     # original code use dx/2, dy/2, so value of the last column will not be interpolated
-    grid_x = np.linspace(start_x, start_x + width + dx/2, nx)
-    grid_y = np.linspace(start_y, start_y + height + dy/2, ny)
-    #grid_x = np.linspace(start_x, start_x + width -dx/2, nx)
-    #grid_y = np.linspace(start_y, start_y + height -dy/2, ny)
+    #grid_x = np.linspace(start_x, start_x + width + dx/2, nx)
+    #grid_y = np.linspace(start_y, start_y + height + dy/2, ny)
+    grid_x = np.linspace(start_x, start_x + width -dx/2, nx)
+    grid_y = np.linspace(start_y, start_y + height -dy/2, ny)
 
     return grid_x, grid_y
 

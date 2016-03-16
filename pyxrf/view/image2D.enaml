@@ -57,8 +57,8 @@ enamldef ImageMain(DockItem):
     Container:
         constraints = [
             vbox(
-                hbox(cbox_file, spacer, pb_all, tb_check),
-                hbox(spacer, cb_select, color_select, cb_norm, pixel_select, interp_cb),
+                hbox(cbox_file, spacer, pb_all),
+                hbox(spacer, cb_select, color_select, cb_norm, pixel_select, tb_check),
                 canvas,
             ),
             #cbox_type.v_center == check.v_center,
@@ -100,9 +100,9 @@ enamldef ImageMain(DockItem):
             items = ['pixel', 'x,y position']
             index = 0
             index := img_model_adv.pixel_or_pos
-        CheckBox: interp_cb:
-            text = 'Interpolation on x,y'
-            checked := img_model_adv.interpolation_opt
+        #CheckBox: interp_cb:
+        #    text = 'Interpolation on x,y'
+        #    checked := img_model_adv.interpolation_opt
         CheckBox: tb_check:
             text = 'Toolbar Visible'
             checked := canvas.toolbar_visible
