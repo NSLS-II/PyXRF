@@ -666,7 +666,7 @@ enamldef FitView(DockItem): fit_view:
         GroupBox: gb_fit_pixel:
             title = 'Fit spectrum of all individual pixels.'
             padding = Box(2, 2, 2, 2)
-            constraints = [vbox(hbox(save_cb, lb1, fd1v, fd1h, lb2, fd2v, fd2h, spacer),
+            constraints = [vbox(hbox(save_cb, lb1, fd1v, fd1h, lb2, fd2v, fd2h, spacer, interp_cb),
                                 hbox(fit_pixel, pixel_fit_information, spacer, to_tiff, to_txt))]
             CheckBox: save_cb:
                 text = 'Save plots'
@@ -677,7 +677,6 @@ enamldef FitView(DockItem): fit_view:
                         fd1h.enabled = True
                         fd2v.enabled = True
                         fd2h.enabled = True
-
                     else:
                         fit_model.save_point = False
                         fd1v.enabled = True
@@ -709,6 +708,10 @@ enamldef FitView(DockItem): fit_view:
                 maximum_size = 40
                 enabled = False
 
+            CheckBox: interp_cb:
+                text = 'Interpolation with x,y'
+                checked := fit_model.map_interpolation
+
             PushButton: fit_pixel:
                 text = 'Individual Pixel Fitting'
                 clicked ::
@@ -720,6 +723,7 @@ enamldef FitView(DockItem): fit_view:
 
                     img_model_adv.data_dict.update(fit_model.fit_img)
                     img_model_rgb.data_dict.update(fit_model.fit_img)
+                    img_model_adv.set_default_dict(img_model_adv.data_dict)
 
                     # visualization purpose
                     img_model_adv.data_dict_keys = []

@@ -38,6 +38,8 @@ __author__ = 'Li Li'
 import six
 import numpy as np
 from collections import OrderedDict
+from scipy.interpolate import interp1d, interp2d
+import copy
 
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
@@ -129,6 +131,7 @@ class DrawImageAdvanced(Atom):
     pixel_or_pos = Int(0)
     pixel_or_pos_for_plot = Typed(object)
     interpolation_opt = Bool(True)
+    data_dict_default = Dict()
 
     def __init__(self):
         self.fig = plt.figure(figsize=(4,4))
@@ -146,6 +149,9 @@ class DrawImageAdvanced(Atom):
             with the @observe decorator
         """
         self.data_dict = change['value']
+
+    def set_default_dict(self, data_dict):
+        self.data_dict_default = copy.deepcopy(data_dict)
 
     @observe('data_dict')
     def init_plot_status(self, change):
@@ -174,8 +180,10 @@ class DrawImageAdvanced(Atom):
             self.x_pos = list(self.data_dict['positions']['x_pos'][0, :])
             self.y_pos = list(self.data_dict['positions']['y_pos'][:, 0])
 
-            # reverse x,y postion here, may need to be corrected later
-            #self.x_pos.reverse()
+            # the only place to flip data is at fileIO
+            # the way to handle position at fileIO is a bit confusing
+            # self.x_pos.reverse()
+            # we use imshow with lower as the origin, so flip y
             self.y_pos.reverse()
 
         else:
@@ -247,23 +255,52 @@ class DrawImageAdvanced(Atom):
         else:
             self.set_stat_for_all(bool_val=False)
 
-    def interp_update(self, change):
-        """
-        Observer function to be connected to the fileio model
-        in the top-level gui.py startup
-
-        Parameters
-        ----------
-        changed : dict
-            This is the dictionary that gets passed to a function
-            with the @observe decorator
-        """
-        self.interpolation_opt = change['value']
-
     @observe('interpolation_opt')
-    def update_interp_opt(self, change):
-        print('interp change {}'.format(change))
+    def _interp_update(self, change):
+        """Do interpolation in terms of position or not.
+        """
+        if change['type']=='create':
+            return
+        #try:
+        self.data_dict = copy.deepcopy(self.data_dict_default)
+        print(self.data_dict.keys())
+        uninterp_list = ['positions']
+        rangex = self.data_dict['positions']['x_pos'][0, :]
+        rangey = self.data_dict['positions']['x_pos'][:, 0]
+        start_x = rangex[0]
+        start_y = rangey[0]
+
+        dimv = self.data_dict['positions']['x_pos'].shape
+        #if beamline_name in ['HXN']:
+        #result_tmp = {}
+        if self.interpolation_opt is True:
+            logger.info('Interpolating image... ')
+            all_dict_tmp = {}
+            for k1, v1 in six.iteritems(self.data_dict):
+                if 'position' == k1:
+                    continue
+                #if 'fit' in k1 or 'scaler' in k1:
+                result_tmp = {}
+                shapev = [dimv[1], dimv[0]]  # horizontal first, then vertical, different from dim in numpy
+                for k, v in six.iteritems(v1):
+                    interp_d = interp1d_scan(shapev, rangex, rangey, start_x, start_y,
+                                             self.data_dict['positions']['x_pos'],
+                                             self.data_dict['positions']['y_pos'],
+                                             v)
+                    interp_d[np.isnan(interp_d)] = 0
+                    result_tmp[k] = interp_d
+                all_dict_tmp.update(result_tmp)
+            self.data_dict.update(all_dict_tmp)
+
+        print(self.data_dict.keys())
         self.show_image()
+        #except KeyError:
+        #    pass
+
+    # @observe('interpolation_opt')
+    # def update_interp_opt(self, change):
+    #     print('interp change {}'.format(change))
+    #     self.show_image()
 
     def set_stat_for_all(self, bool_val=False):
         """
@@ -274,14 +311,13 @@ class DrawImageAdvanced(Atom):
 
     def show_image(self):
         img_show = 'imshow'
-        # x_min = np.min(self.data_dict['positions']['x_pos'])
-        # x_max = np.max(self.data_dict['positions']['x_pos'])
-        # y_min = np.min(self.data_dict['positions']['y_pos'])
-        # y_max = np.max(self.data_dict['positions']['y_pos'])
 
         self.fig.clf()
         stat_temp = self.get_activated_num()
         stat_temp = OrderedDict(sorted(six.iteritems(stat_temp), key=lambda x: x[0]))
+
+        # ic value is low at SRX, better way needs to be considered.
+        ic_threshold = 1.0
 
         low_lim = 1e-4  # define the low limit for log image
         ic_norm = 10000  # multiply by this value for ic normalization
@@ -289,7 +325,7 @@ class DrawImageAdvanced(Atom):
         name_not_scalable = ['r_squared']  # do not apply scaler norm on those data
 
         if self.scaler_data is not None:
-            if np.max(self.scaler_data) < 1.0:  # use current as ic, such as SRX
+            if np.max(self.scaler_data) < ic_threshold:  # ic number is low at SRX
                 ic_norm = 1.0
             if len(self.scaler_data[self.scaler_data == 0]) > 0:
                 logger.warning('scaler data has zero values at {}'.format(np.where(self.scaler_data == 0)))
@@ -396,3 +432,84 @@ class DrawImageAdvanced(Atom):
 
     def get_activated_num(self):
         return {k: v for (k, v) in six.iteritems(self.stat_dict) if v is True}
+
+
+def fly2d_grid(dimv, rangex, rangey, start_x, start_y,
+               x_data=None, y_data=None):
+    '''Get ideal gridded points for a 2D flyscan.
+    .. warning: dimv[dimh, dimv] here is different from tradition dim in python which is [dimv, dimh].
+
+    Parameters
+    ----------
+    dimv : array
+        horizontal first, then vertical.
+    rangex : array, list
+        range along horizontal direction.
+    rangey : array, list
+        range along vertical direction
+    start_x : float
+        starting value in horizontal direction.
+    start_y : float
+        starting value in vertical direction.
+    '''
+    # try:
+    #     nx, ny = hdr['dimensions']
+    # except ValueError:
+    #     raise ValueError('Not a 2D flyscan (dimensions={})'
+    #                      ''.format(hdr['dimensions']))
+    nx, ny = dimv
+    #rangex, rangey = hdr['scan_range']
+    width = rangex[-1] - rangex[0]
+    height = rangey[-1] - rangey[0]
+
+    #macros = eval(hdr['subscan_0']['macros'], dict(array=np.array))
+    #start_x, start_y = macros['scan_starts']
+    dx = width / nx
+    dy = height / ny
+
+    # original code use dx/2, dy/2, so value of the last column will not be interpolated
+    grid_x = np.linspace(start_x, start_x + width + dx/2, nx)
+    grid_y = np.linspace(start_y, start_y + height + dy/2, ny)
+    #grid_x = np.linspace(start_x, start_x + width -dx/2, nx)
+    #grid_y = np.linspace(start_y, start_y + height -dy/2, ny)
+
+    return grid_x, grid_y
+
+
+def interp1d_scan(dimv, rangex, rangey, start_x, start_y,
+                  x_data, y_data, spectrum, kind='linear',
+                  **kwargs):
+    '''Interpolate a 2D flyscan only over the fast-scanning direction'''
+    #grid_x, grid_y = fly2d_grid(hdr, x_data, y_data, plot=plot_points)
+    grid_x, grid_y = fly2d_grid(dimv, rangex, rangey, start_x, start_y, x_data, y_data)
+    #x_data = fly2d_reshape(hdr, x_data, verbose=False)
+    #grid_x = flip_data(grid_x)
+
+    if False:
+        mesh_x, mesh_y = np.meshgrid(grid_x, grid_y)
+        plt.figure()
+        if x_data is not None and y_data is not None:
+            plt.scatter(x_data, y_data, c='blue', label='actual')
+        plt.scatter(mesh_x, mesh_y, c='red', label='gridded',
+                    alpha=0.5)
+        plt.legend()
+        plt.show()
+
+    spectrum2 = np.zeros_like(spectrum)
+    for row in range(len(grid_y)):
+        spectrum2[row, :] = interp1d(x_data[row, :], spectrum[row, :],
+                                     kind=kind, bounds_error=False,
+                                     **kwargs)(grid_x)
+
+    return spectrum2
+
+
+def interp2d_scan(dimv, rangex, rangey, start_x, start_y,
+                  x_data, y_data, spectrum, kind='linear',
+                  **kwargs):
+    '''Interpolate a 2D flyscan over a grid, borrowed from Ken'''
+
+    new_x, new_y = fly2d_grid(dimv, rangex, rangey, start_x, start_y, x_data, y_data)
+
+    f = interp2d(x_data, y_data, spectrum, kind=kind, **kwargs)
+    return f(new_x, new_y)

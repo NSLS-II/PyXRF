@@ -102,7 +102,7 @@ enamldef ImageMain(DockItem):
             index := img_model_adv.pixel_or_pos
         CheckBox: interp_cb:
             text = 'Interpolation on x,y'
-            checked := fit_model.map_interpolation
+            checked := img_model_adv.interpolation_opt
         CheckBox: tb_check:
             text = 'Toolbar Visible'
             checked := canvas.toolbar_visible

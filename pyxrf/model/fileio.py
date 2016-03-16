@@ -939,12 +939,15 @@ def read_hdf_APS(working_directory,
             pos_name = data['positions/name']
             temp = {}
             for i, n in enumerate(pos_name):
+                #
+                #This should be cleaned up later.
+                #This is due to the messy in write_db_to_hdf function
+                #
                 if i==0:
-                    #d = flip_data(data['positions/pos'].value[i, :])
                     temp[n] = np.fliplr(data['positions/pos'].value[i, :])
                 else:
-                    # temp[n] = np.flipud(data['positions/pos'].value[i, :])
                     temp[n] = data['positions/pos'].value[i, :]
+                    #temp[n] = np.flipud(data['positions/pos'].value[i, :])
 
             img_dict['positions'] = temp
 
@@ -1234,6 +1237,9 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
         del dataGrp['name']
 
     # need to change shape to sth like [2, 100, 100]
+    #
+    # this needs to be corrected later. It is confusing to Reorganize position this way.
+    #
     pos_data = pos_data.transpose()
     data_temp = np.zeros([pos_data.shape[0], pos_data.shape[2], pos_data.shape[1]])
     for i in range(pos_data.shape[0]):
@@ -1241,6 +1247,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
     if fly_type in ('pyramid',):
         for i in range(data_temp.shape[0]):
+            # flip position the same as data flip on det counts
             data_temp[i,:,:] = flip_data(data_temp[i,:,:], subscan_dims=subscan_dims)
 
     dataGrp.create_dataset('name', data=pos_names)

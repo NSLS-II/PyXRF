@@ -187,7 +187,7 @@ class Fit1D(Atom):
                             'element2': 'Si_K',
                             'intensity': 100.0}
 
-        # plotting purposes
+        # don't argue, plotting purposes
         self.fit_strategy1 = 0
         self.fit_strategy2 = 0
         self.fit_strategy1 = 1
@@ -342,13 +342,13 @@ class Fit1D(Atom):
         # output to .h5 file
         self.hdf_path = os.path.join(self.result_folder, self.hdf_name)
 
-    @observe('map_interpolation')
-    def update_interp(self, change):
-        print(change)
-        try:
-            self.save2Dmap_to_hdf()
-        except:
-            pass
+    # @observe('map_interpolation')
+    # def update_interp(self, change):
+    #     print(change)
+    #     try:
+    #         self.save2Dmap_to_hdf()
+    #     except:
+    #         pass
 
     @observe('fit_strategy1')
     def update_strategy1(self, change):
@@ -574,7 +574,7 @@ class Fit1D(Atom):
             self.x_data = np.array(f['xrfmap/positions/pos'][0, :, :])
             self.y_data = np.array(f['xrfmap/positions/pos'][1, :, :])
 
-        #x_data = flip_data(x_data)
+        # this is consistent with fileIO that x data is fliped.
         self.x_data = np.fliplr(self.x_data)
 
         # get fitted spectrum and save them to figs
@@ -626,12 +626,13 @@ class Fit1D(Atom):
             If nonlinear is chosen, more information needs to be saved.
         """
         rangex = self.x_data[0,:]
+        print(self.x_data[0, :10])
+        print(self.x_data[1, :10])
         rangey = self.y_data[:,0]
         start_x = rangex[0]
         start_y = rangey[0]
 
         dimv = self.data_all.shape
-        #if beamline_name in ['HXN']:
         if self.map_interpolation is True:
             logger.info('Interpolating image... ')
             for k, v in six.iteritems(self.result_map):
@@ -644,7 +645,7 @@ class Fit1D(Atom):
         prefix_fname = self.hdf_name.split('.')[0]
         if 'det1' in self.data_title:
             inner_path = 'xrfmap/det1'
-            fit_name = prefix_fname+'_det10_fit'
+            fit_name = prefix_fname+'_det1_fit'
         elif 'det2' in self.data_title:
             inner_path = 'xrfmap/det2'
             fit_name = prefix_fname+'_det2_fit'
@@ -2132,10 +2133,10 @@ def fly2d_grid(dimv, rangex, rangey, start_x, start_y,
     dy = height / ny
 
     # original code use dx/2, dy/2, so value of the last column will not be interpolated
-    #grid_x = np.linspace(start_x, start_x + width + dx/2, nx)
-    #grid_y = np.linspace(start_y, start_y + height + dy/2, ny)
-    grid_x = np.linspace(start_x, start_x + width -dx/2, nx)
-    grid_y = np.linspace(start_y, start_y + height -dy/2, ny)
+    grid_x = np.linspace(start_x, start_x + width + dx/2, nx)
+    grid_y = np.linspace(start_y, start_y + height + dy/2, ny)
+    #grid_x = np.linspace(start_x, start_x + width -dx/2, nx)
+    #grid_y = np.linspace(start_y, start_y + height -dy/2, ny)
 
     return grid_x, grid_y
 
