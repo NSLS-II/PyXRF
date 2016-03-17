@@ -63,9 +63,8 @@ from .guessparam import (calculate_profile, fit_strategy_list,
                          trim_escape_peak, define_range, get_energy,
                          get_Z, PreFitStatus, ElementController,
                          update_param_from_element)
-from .fileio import read_hdf_APS, output_data, flip_data, beamline_name
+from .fileio import read_hdf_APS, output_data, flip_data
 
-#from lmfit import fit_report
 import lmfit
 
 import pickle
