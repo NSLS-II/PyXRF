@@ -33,7 +33,7 @@ More documentation will be ready soon!
 Currently PyXRF only works for python 2.7. `pyxrf` is not compatible with
 python 3+ because it relies on the [enaml] (http://github.com/nucleic/enaml) library, which is not python 3 compatible as of this writing (11/2015).
 
-### Linux/Mac (El Captain is working!)
+### Linux/Mac
 First you need to install [conda] (http://continuum.io/downloads). We suggest
 anaconda because it is a complete installation of the entire scientific python
 stack, but is ~400 MB.  For advanced users, consider downloading [miniconda]

@@ -342,14 +342,6 @@ class Fit1D(Atom):
         # output to .h5 file
         self.hdf_path = os.path.join(self.result_folder, self.hdf_name)
 
-    # @observe('map_interpolation')
-    # def update_interp(self, change):
-    #     print(change)
-    #     try:
-    #         self.save2Dmap_to_hdf()
-    #     except:
-    #         pass
-
     @observe('fit_strategy1')
     def update_strategy1(self, change):
         self.all_strategy.update({'strategy1': change['value']})
@@ -545,8 +537,6 @@ class Fit1D(Atom):
         use_snip = self.use_snip
         bin_energy = self.bin_energy
 
-        create_fig = False  # save pixel fit as fig
-
         if self.pixel_fit_method == 0:
             pixel_fit = 'nnls'
         elif self.pixel_fit_method == 1:
@@ -594,19 +584,22 @@ class Fit1D(Atom):
             p1 = [self.point1v, self.point1h]
             p2 = [self.point2v, self.point2h]
 
-            if create_fig is True:
+            if self.point2v>0 or self.point2h>0:
+                prefix_fname = self.hdf_name.split('.')[0]
                 output_folder = os.path.join(self.result_folder, prefix_fname+'_pixel_fit')
                 if os.path.exists(output_folder) is False:
                     os.mkdir(output_folder)
                 save_fitted_fig(x, matv, results[:, :, 0:len(elist)],
                                 p1, p2,
                                 data_fit, self.param_dict,
-                                output_folder, use_sinp=use_snip)
+                                output_folder, use_snip=use_snip)
 
-            save_fitted_as_movie(x, matv, results[:, :, 0:len(elist)],
-                                 p1, p2,
-                                 data_fit, self.param_dict,
-                                 self.result_folder, prefix=fit_name, use_sinp=use_snip)
+            # the output movie are saved as the same name
+            # need to define specific name for prefix, to be updated
+            # save_fitted_as_movie(x, matv, results[:, :, 0:len(elist)],
+            #                      p1, p2,
+            #                      data_fit, self.param_dict,
+            #                      self.result_folder, prefix=prefix_fname, use_snip=use_snip)
             logger.info('Done with saving fitting plots.')
 
         self.save2Dmap_to_hdf(pixel_fit=pixel_fit)
@@ -1152,7 +1145,7 @@ def calculate_area(e_select, matv, results,
 
 def save_fitted_fig(x_v, matv, results,
                     p1, p2, data_all, param_dict,
-                    result_folder, use_sinp=False):
+                    result_folder, use_snip=False):
     """
     Save single pixel fitting resutls to figs.
     """
@@ -1169,7 +1162,7 @@ def save_fitted_fig(x_v, matv, results,
             data_y = data_all[m, n, :]
 
             fitted_y = np.sum(matv*results[m, n, :], axis=1)
-            if use_sinp is True:
+            if use_snip is True:
                 bg = snip_method(data_y,
                                  param_dict['e_offset']['value'],
                                  param_dict['e_linear']['value'],
@@ -1213,7 +1206,7 @@ def save_fitted_fig(x_v, matv, results,
 
 def save_fitted_as_movie(x_v, matv, results,
                          p1, p2, data_all, param_dict,
-                         result_folder, prefix=None, use_sinp=False, dpi=150):
+                         result_folder, prefix=None, use_snip=False, dpi=150):
     """
     Create movie to save single pixel fitting resutls.
     """
@@ -1243,7 +1236,7 @@ def save_fitted_as_movie(x_v, matv, results,
         data_y = data_all[m, n, :]
 
         fitted_y = np.sum(matv*results[m, n, :], axis=1)
-        if use_sinp is True:
+        if use_snip is True:
             bg = snip_method(data_y,
                              param_dict['e_offset']['value'],
                              param_dict['e_linear']['value'],

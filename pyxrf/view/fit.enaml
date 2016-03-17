@@ -57,7 +57,7 @@ from ..model.fit_spectrum import get_cs
 from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 from skbeam.fluorescence import XrfElement as Element
 
-userpeak_list = ['Userpeak1', 'Userpeak2', 'Userpeak3', 'Userpeak4','Userpeak5']  # similar to elements with first letter capital
+userpeak_list = ['Userpeak'+str(i) for i in range(1, 11)]  # 10 users peak
 
 enamldef FloatField(DefaultFloatField):
     submit_triggers = ['auto_sync'] #['return_pressed']
