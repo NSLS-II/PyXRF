@@ -38,6 +38,8 @@ __author__ = 'Li Li'
 import six
 import numpy as np
 from collections import OrderedDict
+from scipy.interpolate import interp1d, interp2d
+import copy
 
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
@@ -96,6 +98,8 @@ class DrawImageAdvanced(Atom):
         index to choose plot with pixel or with positions
     pixel_or_pos_for_plot : None, array
         argument passed to extent in imshow of matplotlib
+    interpolation_opt: bool
+        choose to interpolate 2D image in terms of x,y or not
     """
 
     fig = Typed(Figure)
@@ -126,6 +130,8 @@ class DrawImageAdvanced(Atom):
 
     pixel_or_pos = Int(0)
     pixel_or_pos_for_plot = Typed(object)
+    interpolation_opt = Bool(True)
+    data_dict_default = Dict()
 
     def __init__(self):
         self.fig = plt.figure(figsize=(4,4))
@@ -143,6 +149,9 @@ class DrawImageAdvanced(Atom):
             with the @observe decorator
         """
         self.data_dict = change['value']
+
+    def set_default_dict(self, data_dict):
+        self.data_dict_default = copy.deepcopy(data_dict)
 
     @observe('data_dict')
     def init_plot_status(self, change):
@@ -171,8 +180,10 @@ class DrawImageAdvanced(Atom):
             self.x_pos = list(self.data_dict['positions']['x_pos'][0, :])
             self.y_pos = list(self.data_dict['positions']['y_pos'][:, 0])
 
-            # reverse x,y postion here, may need to be corrected later
-            #self.x_pos.reverse()
+            # the only place to flip data is at fileIO
+            # the way to handle position at fileIO is a bit confusing
+            # self.x_pos.reverse()
+            # we use imshow with lower as the origin, so flip y
             self.y_pos.reverse()
 
         else:
@@ -244,6 +255,45 @@ class DrawImageAdvanced(Atom):
         else:
             self.set_stat_for_all(bool_val=False)
 
+    # @observe('interpolation_opt')
+    # def _interp_update(self, change):
+    #     """Do interpolation in terms of position or not.
+    #     """
+    #     if change['type']=='create':
+    #         return
+    #     #try:
+    #     self.data_dict = copy.deepcopy(self.data_dict_default)
+    #     print(self.data_dict.keys())
+    #     uninterp_list = ['positions']
+    #     rangex = self.data_dict['positions']['x_pos'][0, :]
+    #     rangey = self.data_dict['positions']['x_pos'][:, 0]
+    #     start_x = rangex[0]
+    #     start_y = rangey[0]
+    #
+    #     dimv = self.data_dict['positions']['x_pos'].shape
+    #     #if beamline_name in ['HXN']:
+    #     #result_tmp = {}
+    #     if self.interpolation_opt is True:
+    #         logger.info('Interpolating image... ')
+    #         all_dict_tmp = {}
+    #         for k1, v1 in six.iteritems(self.data_dict):
+    #             if 'position' == k1:
+    #                 continue
+    #             #if 'fit' in k1 or 'scaler' in k1:
+    #             result_tmp = {}
+    #             shapev = [dimv[1], dimv[0]]  # horizontal first, then vertical, different from dim in numpy
+    #             for k, v in six.iteritems(v1):
+    #                 interp_d = interp1d_scan(shapev, rangex, rangey, start_x, start_y,
+    #                                          self.data_dict['positions']['x_pos'],
+    #                                          self.data_dict['positions']['y_pos'],
+    #                                          v)
+    #                 interp_d[np.isnan(interp_d)] = 0
+    #                 result_tmp[k] = interp_d
+    #             all_dict_tmp.update(result_tmp)
+    #         self.data_dict.update(all_dict_tmp)
+    #
+    #     self.show_image()
+
     def set_stat_for_all(self, bool_val=False):
         """
         Set plotting status for all the 2D images.
@@ -253,14 +303,13 @@ class DrawImageAdvanced(Atom):
 
     def show_image(self):
         img_show = 'imshow'
-        # x_min = np.min(self.data_dict['positions']['x_pos'])
-        # x_max = np.max(self.data_dict['positions']['x_pos'])
-        # y_min = np.min(self.data_dict['positions']['y_pos'])
-        # y_max = np.max(self.data_dict['positions']['y_pos'])
 
         self.fig.clf()
         stat_temp = self.get_activated_num()
         stat_temp = OrderedDict(sorted(six.iteritems(stat_temp), key=lambda x: x[0]))
+
+        # ic value is low at SRX, better way needs to be considered.
+        ic_threshold = 1.0
 
         low_lim = 1e-4  # define the low limit for log image
         ic_norm = 10000  # multiply by this value for ic normalization
@@ -268,7 +317,7 @@ class DrawImageAdvanced(Atom):
         name_not_scalable = ['r_squared']  # do not apply scaler norm on those data
 
         if self.scaler_data is not None:
-            if np.max(self.scaler_data) < 1.0:  # use current as ic, such as SRX
+            if np.max(self.scaler_data) < ic_threshold:  # ic number is low at SRX
                 ic_norm = 1.0
             if len(self.scaler_data[self.scaler_data == 0]) > 0:
                 logger.warning('scaler data has zero values at {}'.format(np.where(self.scaler_data == 0)))

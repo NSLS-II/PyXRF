@@ -65,11 +65,15 @@ try:
     # registers a filestore handler for the XSPRESS3 detector
     from hxntools import handlers as hxn_handlers
 except ImportError as e:
-    logger.error('hxntools is not available: %s', e)
+    logger.error('hxntools is not available from old version: %s', e)
+
+try:
+    import vortex_handler
+except ImportError as e:
+    logger.error('handler is not loaded.')
 
 
-
-beamline_name = 'HXN'  # this name will be changed according to beam lines.
+beamline_name = 'SRX'  # this name will be changed according to beam lines.
 
 
 class FileIOModel(Atom):
@@ -935,12 +939,15 @@ def read_hdf_APS(working_directory,
             pos_name = data['positions/name']
             temp = {}
             for i, n in enumerate(pos_name):
+                #
+                #This should be cleaned up later.
+                #This is due to the messy in write_db_to_hdf function
+                #
                 if i==0:
-                    #d = flip_data(data['positions/pos'].value[i, :])
                     temp[n] = np.fliplr(data['positions/pos'].value[i, :])
                 else:
-                    # temp[n] = np.flipud(data['positions/pos'].value[i, :])
                     temp[n] = data['positions/pos'].value[i, :]
+                    #temp[n] = np.flipud(data['positions/pos'].value[i, :])
 
             img_dict['positions'] = temp
 
@@ -1230,6 +1237,9 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
         del dataGrp['name']
 
     # need to change shape to sth like [2, 100, 100]
+    #
+    # this needs to be corrected later. It is confusing to Reorganize position this way.
+    #
     pos_data = pos_data.transpose()
     data_temp = np.zeros([pos_data.shape[0], pos_data.shape[2], pos_data.shape[1]])
     for i in range(pos_data.shape[0]):
@@ -1237,6 +1247,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
     if fly_type in ('pyramid',):
         for i in range(data_temp.shape[0]):
+            # flip position the same as data flip on det counts
             data_temp[i,:,:] = flip_data(data_temp[i,:,:], subscan_dims=subscan_dims)
 
     dataGrp.create_dataset('name', data=pos_names)
@@ -1458,10 +1469,11 @@ def make_hdf(fpath, runid, beamline=beamline_name):
         datashape = start_doc['shape']   # vertical first then horizontal
         fly_type = None
     	snake_scan = start_doc.get('snaking')
-    	if snake_scan[0] == True:
-    	    fly_scan = 'pyxrmid'
+    	if snake_scan[1] == True:
+    	    fly_type = 'pyramid'
 
         current_dir = os.path.dirname(os.path.realpath(__file__))
+        print(current_dir)
         config_file = 'srx_pv_config.json'
         config_path = '/'.join(current_dir.split('/')[:-2]+['configs', config_file])
         with open(config_path, 'r') as json_data:
