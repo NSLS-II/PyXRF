@@ -305,7 +305,10 @@ class LinePlotModel(Atom):
             with the @observe decorator
         """
         self.data = change['value']
-        self.max_v = np.max(self.data[self.limit_cut:-self.limit_cut])
+
+        # conflicts between float and np.float32 ???
+        self.max_v = float(np.max(self.data[self.limit_cut:-self.limit_cut]))
+
         self._update_ylimit()
         self.log_linear_plot()
         self._update_canvas()

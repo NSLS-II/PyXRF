@@ -324,9 +324,11 @@ def file_handler(working_directory, file_name, load_each_channel=True):
                                     spectrum_cut=2000,
                                     load_each_channel=load_each_channel)
        	if beamline_name == 'SRX':
-                return read_hdf_APS(working_directory, file_name,
-                                    spectrum_cut=2000,
-                                    load_each_channel=load_each_channel)
+                #return read_hdf_APS(working_directory, file_name,
+                #                    spectrum_cut=2000,
+                #                    load_each_channel=load_each_channel)
+                return read_MAPS(working_directory,
+                                 file_name, channel_num=1)
     except IOError as e:
         logger.error("I/O error({0}): {1}".format(e.errno, e.strerror))
         logger.error('Please select .h5 file')
@@ -955,7 +957,7 @@ def read_hdf_APS(working_directory,
 
 
 def read_MAPS(working_directory,
-              file_names, channel_num=1):
+              file_name, channel_num=1):
     data_dict = OrderedDict()
     data_sets = OrderedDict()
     img_dict = OrderedDict()
@@ -963,54 +965,77 @@ def read_MAPS(working_directory,
     # cut off bad point on the last position of the spectrum
     bad_point_cut = 0
 
-    for fname in file_names:
+    fit_val = None
+
+    file_path = os.path.join(working_directory, file_name)
+    print('file path is {}'.format(file_path))
+
+    with h5py.File(file_path, 'r+') as f:
+
+        data = f['MAPS']
+
+        fname = file_name.split('.')[0]
+
+        # for 2D MAP
+        #data_dict[fname] = data
+
+        # raw data
+        exp_data = data['mca_arr'][:]
+
+        # data from channel summed
+        roi_channel = data['channel_names'].value
+        roi_val = data['XRF_roi'][:]
+
+        scaler_names = data['scaler_names'].value
+        scaler_val = data['scalers'][:]
+
         try:
-            file_path = os.path.join(working_directory, fname)
-            with h5py.File(file_path, 'r+') as f:
+            # data from fit
+            fit_val = data['XRF_fits'][:]
+        except KeyError:
+            pass
 
-                data = f['MAPS']
+    exp_shape = exp_data.shape
+    exp_data = exp_data.T
+    exp_data = np.rot90(exp_data, 1)
+    logger.info('File : {} with total counts {}'.format(fname,
+                                                        np.sum(exp_data)))
+    DS = DataSelection(filename=fname,
+                       raw_data=exp_data)
+    data_sets.update({fname: DS})
 
-                fname = fname.split('.')[0]
+    # save roi and fit into dict
 
-                # for 2D MAP
-                #data_dict[fname] = data
+    temp_roi = {}
+    temp_fit = {}
+    temp_scaler = {}
+    temp_pos = {}
 
-                # raw data
-                exp_data = data['mca_arr'][:]
+    for i, name in enumerate(roi_channel):
+        temp_roi[name] = np.flipud(roi_val[i, :, :])
+    img_dict[fname+'_roi'] = temp_roi
 
-                # data from channel summed
-                roi_channel = data['channel_names'].value
-                roi_val = data['XRF_roi'][:]
+    if fit_val is not None:
+        for i, name in enumerate(roi_channel):
+            temp_fit[name] = fit_val[i, :, :]
+        img_dict[fname+'_fit'] = temp_fit
 
-                # data from fit
-                fit_val = data['XRF_fits'][:]
+    for i, name in enumerate(scaler_names):
+        if name == 'x_coord':
+            temp_pos['x_pos'] = np.flipud(scaler_val[i, :, :])
+        elif name == 'y_coord':
+            temp_pos['y_pos'] = np.flipud(scaler_val[i, :, :])
+        else:
+            temp_scaler[name] = np.flipud(scaler_val[i, :, :])
+    img_dict[fname+'_scaler'] = temp_scaler
+    img_dict['positions'] = temp_pos
 
-            exp_shape = exp_data.shape
+    # read fitting results
+    # if 'xrf_fit' in data[detID]:
+    #     fit_result = get_fit_data(data[detID]['xrf_fit_name'].value,
+    #                               data[detID]['xrf_fit'].value)
+    #     img_dict.update({fname+'_fit': fit_result})
 
-            exp_data = exp_data.T
-            logger.info('File : {} with total counts {}'.format(fname,
-                                                                np.sum(exp_data)))
-            DS = DataSelection(filename=fname,
-                               raw_data=exp_data)
-            data_sets.update({fname: DS})
-
-            # save roi and fit into dict
-            temp_roi = {}
-            temp_fit = {}
-            for i, name in enumerate(roi_channel):
-                temp_roi[name] = roi_val[i, :, :].T
-                temp_fit[name] = fit_val[i, :, :].T
-            img_dict[fname+'_roi'] = temp_roi
-
-            img_dict[fname+'_fit'] = temp_fit
-            # read fitting results
-            # if 'xrf_fit' in data[detID]:
-            #     fit_result = get_fit_data(data[detID]['xrf_fit_name'].value,
-            #                               data[detID]['xrf_fit'].value)
-            #     img_dict.update({fname+'_fit': fit_result})
-
-        except ValueError:
-            continue
     return img_dict, data_sets
 
 

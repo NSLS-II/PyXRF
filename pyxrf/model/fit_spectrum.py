@@ -558,13 +558,15 @@ class Fit1D(Atom):
         t1 = time.time()
         logger.info('Time used for pixel fitting is : {}'.format(t1-t0))
 
-        # interpolation then save
-        with h5py.File(self.hdf_path, 'r') as f:
-            self.x_data = np.array(f['xrfmap/positions/pos'][0, :, :])
-            self.y_data = np.array(f['xrfmap/positions/pos'][1, :, :])
+        try:
+            with h5py.File(self.hdf_path, 'r') as f:
+                self.x_data = np.array(f['xrfmap/positions/pos'][0, :, :])
+                self.y_data = np.array(f['xrfmap/positions/pos'][1, :, :])
 
-        # this is consistent with fileIO that x data is fliped.
-        self.x_data = np.fliplr(self.x_data)
+            # this is consistent with fileIO that x data is fliped.
+            self.x_data = np.fliplr(self.x_data)
+        except KeyError:
+            pass
 
         # get fitted spectrum and save them to figs
         if self.save_point is True:
@@ -617,14 +619,13 @@ class Fit1D(Atom):
         pixel_fit : str
             If nonlinear is chosen, more information needs to be saved.
         """
-        rangex = self.x_data[0,:]
-        rangey = self.y_data[:,0]
-        start_x = rangex[0]
-        start_y = rangey[0]
-
-        dimv = self.data_all.shape
         if self.map_interpolation is True:
             logger.info('Interpolating image... ')
+            rangex = self.x_data[0,:]
+            rangey = self.y_data[:,0]
+            start_x = rangex[0]
+            start_y = rangey[0]
+            dimv = self.data_all.shape
             for k, v in six.iteritems(self.result_map):
                 shapev = [dimv[1], dimv[0]]  # horizontal first, then vertical, different from dim in numpy
                 interp_d = interp1d_scan(shapev, rangex, rangey, start_x, start_y,
