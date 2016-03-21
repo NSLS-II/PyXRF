@@ -176,15 +176,18 @@ class DrawImageAdvanced(Atom):
         self.pixel_or_pos = 0
 
         if 'positions' in self.data_dict:
-            logger.debug('get pos {}'.format(self.data_dict['positions'].keys()))
-            self.x_pos = list(self.data_dict['positions']['x_pos'][0, :])
-            self.y_pos = list(self.data_dict['positions']['y_pos'][:, 0])
+            try:
+                logger.info('get pos {}'.format(self.data_dict['positions'].keys()))
+                self.x_pos = list(self.data_dict['positions']['x_pos'][0, :])
+                self.y_pos = list(self.data_dict['positions']['y_pos'][:, 0])
 
-            # the only place to flip data is at fileIO
-            # the way to handle position at fileIO is a bit confusing
-            # self.x_pos.reverse()
-            # we use imshow with lower as the origin, so flip y
-            self.y_pos.reverse()
+                # the only place to flip data is at fileIO
+                # the way to handle position at fileIO is a bit confusing
+                # self.x_pos.reverse()
+                # we use imshow with lower as the origin, so flip y
+                self.y_pos.reverse()
+            except KeyError, e:
+                logger.info(e)
 
         else:
             self.x_pos = []

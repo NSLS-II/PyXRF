@@ -761,7 +761,7 @@ def output_data(fpath, output_folder, file_format='tiff'):
 
     f = h5py.File(fpath, 'r')
 
-    detlist = ['detsum','det1', 'det2', 'det3']
+    detlist = f['xrfmap'].keys()
     fit_output = {}
 
     for detname in detlist:
