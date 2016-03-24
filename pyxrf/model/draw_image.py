@@ -132,6 +132,7 @@ class DrawImageAdvanced(Atom):
     pixel_or_pos_for_plot = Typed(object)
     interpolation_opt = Bool(True)
     data_dict_default = Dict()
+    limit_dict = Dict()
 
     def __init__(self):
         self.fig = plt.figure(figsize=(4,4))
@@ -304,6 +305,9 @@ class DrawImageAdvanced(Atom):
         self.stat_dict.clear()
         self.stat_dict = {k: bool_val for k in self.items_in_selected_group}
 
+        self.limit_dict.clear()
+        self.limit_dict = {k: {'low':0.0, 'high': 100.0} for k in self.items_in_selected_group}
+
     def show_image(self):
         img_show = 'imshow'
 
@@ -324,8 +328,8 @@ class DrawImageAdvanced(Atom):
                 ic_norm = 1.0
             if len(self.scaler_data[self.scaler_data == 0]) > 0:
                 logger.warning('scaler data has zero values at {}'.format(np.where(self.scaler_data == 0)))
-                self.scaler_data[self.scaler_data == 0] = np.mean(self.scaler_data)
-                logger.warning('Use mean value {} instead for those points'.format(np.mean(self.scaler_data)))
+                self.scaler_data[self.scaler_data == 0] = np.mean(self.scaler_data[self.scaler_data > 0])
+                logger.warning('Use mean value {} instead for those points'.format(np.mean(self.scaler_data[self.scaler_data > 0])))
 
         grey_use = self.color_opt
 
@@ -361,11 +365,21 @@ class DrawImageAdvanced(Atom):
                     data_dict = self.dict_to_plot[k]
 
                 if img_show == 'imshow':
+                    #try:
+                    lowv = self.limit_dict[k]['low']/100.0
+                    highv = self.limit_dict[k]['high']/100.0
+                    # except KeyError:
+                    #     logger.info('No limits are imposed.')
+                    #     lowv = 0.0
+                    #     highv = 1.0
+                    low_limit = (np.max(data_dict)-np.min(data_dict))*lowv + np.min(data_dict)
+                    high_limit = (np.max(data_dict)-np.min(data_dict))*highv + np.min(data_dict)
+
                     im = grid[i].imshow(data_dict,
                                         cmap=grey_use,
                                         interpolation=plot_interp,
-                                        extent=self.pixel_or_pos_for_plot)
-                                        #clim=(0.3*np.max(data_dict), 0.7*np.max(data_dict)))
+                                        extent=self.pixel_or_pos_for_plot,
+                                        clim=(low_limit, high_limit))
                     grid_title = k #self.file_name+'_'+str(k)
                     if self.pixel_or_pos_for_plot is not None:
                         title_x = self.pixel_or_pos_for_plot[0]
