@@ -63,7 +63,7 @@ from .guessparam import (calculate_profile, fit_strategy_list,
                          trim_escape_peak, define_range, get_energy,
                          get_Z, PreFitStatus, ElementController,
                          update_param_from_element)
-from .fileio import read_hdf_APS, output_data, flip_data
+from .fileio import read_hdf_APS, output_data, flip_data, read_MAPS
 
 import lmfit
 
@@ -1682,7 +1682,8 @@ def fit_pixel_data_and_save(working_directory, file_name,
                             bin_energy=0,
                             spectrum_cut=3000,
                             save_txt=False,
-                            save_tiff=True):
+                            save_tiff=True,
+                            data_from='NSLS-II'):
     """
     Do fitting for multiple data sets, and save data accordingly. Fitting can be performed on
     either summed data or each channel data, or both.
@@ -1723,18 +1724,31 @@ def fit_pixel_data_and_save(working_directory, file_name,
         save data to txt or not
     save_tiff : bool, optional
         save data to tiff or not
+    data_from : str, optional
+        where do data come from? Data format includes data from NSLS-II, or 2IDE-APS
     """
     fpath = os.path.join(working_directory, file_name)
     t0 = time.time()
     prefix_fname = file_name.split('.')[0]
     if fit_channel_sum is True:
-        img_dict, data_sets = read_hdf_APS(working_directory, file_name,
-                                           spectrum_cut=spectrum_cut,
-                                           load_each_channel=False)
+        if data_from == 'NSLS-II':
+            img_dict, data_sets = read_hdf_APS(working_directory, file_name,
+                                               spectrum_cut=spectrum_cut,
+                                               load_each_channel=False)
+        elif data_from == '2IDE-APS':
+            img_dict, data_sets = read_MAPS(working_directory,
+                                            file_name, channel_num=1)
+        else:
+            print('Unkonw data sets.')
 
-        data_all_sum = data_sets[prefix_fname+'_sum'].raw_data
+        try:
+            data_all_sum = data_sets[prefix_fname+'_sum'].raw_data
+        except KeyError, e:
+            data_all_sum = data_sets[prefix_fname].raw_data
+
         # load param file
         param_path = os.path.join(working_directory, param_file_name)
+        print(param_path)
         with open(param_path, 'r') as json_data:
             param_sum = json.load(json_data)
 

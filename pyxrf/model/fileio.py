@@ -324,9 +324,10 @@ def file_handler(working_directory, file_name, load_each_channel=True):
                                     spectrum_cut=2000,
                                     load_each_channel=load_each_channel)
        	if beamline_name == 'SRX':
-                #return read_hdf_APS(working_directory, file_name,
-                #                    spectrum_cut=2000,
-                #                    load_each_channel=load_each_channel)
+                return read_hdf_APS(working_directory, file_name,
+                                   spectrum_cut=2000,
+                                   load_each_channel=load_each_channel)
+        if beamline_name == '2IDE-APS':
                 return read_MAPS(working_directory,
                                  file_name, channel_num=1)
     except IOError as e:
