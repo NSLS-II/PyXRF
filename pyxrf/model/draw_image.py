@@ -100,6 +100,8 @@ class DrawImageAdvanced(Atom):
         argument passed to extent in imshow of matplotlib
     interpolation_opt: bool
         choose to interpolate 2D image in terms of x,y or not
+    limit_dict : Dict
+        save low and high limit for image scaling
     """
 
     fig = Typed(Figure)
@@ -107,16 +109,12 @@ class DrawImageAdvanced(Atom):
     data_dict = Dict()
     data_dict_keys = List()
     data_opt = Int(0)
-    #plot_opt = Int(0)
-    #plot_item = Str()
     dict_to_plot = Dict()
     items_in_selected_group = List()
 
     scale_opt = Str('Linear')
     color_opt = Str('jet')
     img_title = Str()
-    #group_names = List()
-    #group_name = Str()
 
     scaler_norm_dict = Dict()
     scaler_items = List()
@@ -365,13 +363,8 @@ class DrawImageAdvanced(Atom):
                     data_dict = self.dict_to_plot[k]
 
                 if img_show == 'imshow':
-                    #try:
                     lowv = self.limit_dict[k]['low']/100.0
                     highv = self.limit_dict[k]['high']/100.0
-                    # except KeyError:
-                    #     logger.info('No limits are imposed.')
-                    #     lowv = 0.0
-                    #     highv = 1.0
                     low_limit = (np.max(data_dict)-np.min(data_dict))*lowv + np.min(data_dict)
                     high_limit = (np.max(data_dict)-np.min(data_dict))*highv + np.min(data_dict)
 
