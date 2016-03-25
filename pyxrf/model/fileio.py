@@ -74,7 +74,7 @@ except ImportError as e:
     logger.error('handler is not loaded.')
 
 
-beamline_name = 'SRX'  # this name will be changed according to beam lines.
+beamline_name = 'HXN'  # this name will be changed according to beam lines.
 
 
 class FileIOModel(Atom):
@@ -1220,7 +1220,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
         if 'counts' in dataGrp:
             del dataGrp['counts']
-        ds_data = dataGrp.create_dataset('counts', data=new_data)
+        ds_data = dataGrp.create_dataset('counts', data=new_data, compression='gzip')
         ds_data.attrs['comments'] = 'Experimental data from channel ' + str(n)
 
     # summed data
@@ -1234,7 +1234,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
     if 'counts' in dataGrp:
         del dataGrp['counts']
-    ds_data = dataGrp.create_dataset('counts', data=sum_data)
+    ds_data = dataGrp.create_dataset('counts', data=sum_data, compression='gzip')
     ds_data.attrs['comments'] = 'Experimental data from channel sum'
 
     # position data
@@ -1454,7 +1454,7 @@ def get_scaler_list_hxn(all_keys):
     return [v for v in all_keys if 'sclr1_' in v]
 
 
-def make_hdf(fpath, runid, beamline=beamline_name):
+def make_hdf_old(fpath, runid, beamline=beamline_name):
     """
     Save the data from databroker to hdf file.
 
@@ -1518,6 +1518,29 @@ def make_hdf(fpath, runid, beamline=beamline_name):
 
     else:
         print("Databroker is not setup for such beamline {}".format(beamline))
+
+
+def make_hdf(start, end, prefix='scan2D_'):
+    """
+    Transfer multiple h5 files.
+
+    Parameters
+    ---------
+    start: int
+        start run id
+    end: int
+        end run id
+    prefix: str, optional
+        prefix name of the file
+    """
+    datalist = range(start, end+1)
+    for v in datalist:
+        filename = prefix+str(v)+'.h5'
+        try:
+            make_hdf_old(filename, v)
+            print('{} is created. \n'.format(filename))
+        except:
+            print('Can not transfer scan {}. \n'.format(v))
 
 
 def export1d(runid):
