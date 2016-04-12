@@ -1214,7 +1214,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
         if 'counts' in dataGrp:
             del dataGrp['counts']
-        ds_data = dataGrp.create_dataset('counts', data=new_data)
+        ds_data = dataGrp.create_dataset('counts', data=new_data, compression='gzip')
         ds_data.attrs['comments'] = 'Experimental data from channel ' + str(n)
 
     # summed data
@@ -1228,7 +1228,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
     if 'counts' in dataGrp:
         del dataGrp['counts']
-    ds_data = dataGrp.create_dataset('counts', data=sum_data)
+    ds_data = dataGrp.create_dataset('counts', data=sum_data, compression='gzip')
     ds_data.attrs['comments'] = 'Experimental data from channel sum'
 
     # position data
@@ -1448,7 +1448,7 @@ def get_name_value_from_db(name_list, data, datashape):
 #     return [v for v in all_keys if 'sclr1_' in v]
 
 
-def make_hdf(fpath, runid):
+def _make_hdf(fpath, runid):
     """
     Save the data from databroker to hdf file.
 
@@ -1510,6 +1510,32 @@ def make_hdf(fpath, runid):
 
     else:
         print("Databroker is not setup for this beamline")
+
+
+def make_hdf(start, end=None, prefix='scan2D_'):
+    """
+    Transfer multiple h5 files.
+
+    Parameters
+    ---------
+    start: int
+        start run id
+    end: int, optional
+        end run id
+    prefix: str, optional
+        prefix name of the file
+    """
+    if end is None:
+        end = start
+
+    datalist = range(start, end+1)
+    for v in datalist:
+        filename = prefix+str(v)+'.h5'
+        try:
+            _make_hdf(filename, v)
+            print('{} is created. \n'.format(filename))
+        except:
+            print('Can not transfer scan {}. \n'.format(v))
 
 
 def export1d(runid):
