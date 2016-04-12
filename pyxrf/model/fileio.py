@@ -74,9 +74,6 @@ except ImportError as e:
     logger.error('handler is not loaded.')
 
 
-beamline_name = 'SRX'  # this name will be changed according to beam lines.
-
-
 class FileIOModel(Atom):
     """
     This class focuses on file input and output.
@@ -319,18 +316,15 @@ class SpectrumCalculator(object):
 
 def file_handler(working_directory, file_name, load_each_channel=True):
     # send information on GUI level later !
+    get_data_nsls2 = True
     try:
-    	if beamline_name == 'HXN':
-                return read_hdf_APS(working_directory, file_name,
-                                    spectrum_cut=2000,
-                                    load_each_channel=load_each_channel)
-       	if beamline_name == 'SRX':
-                return read_hdf_APS(working_directory, file_name,
-                                   spectrum_cut=2000,
-                                   load_each_channel=load_each_channel)
-        if beamline_name == '2IDE-APS':
-                return read_MAPS(working_directory,
-                                 file_name, channel_num=1)
+        if get_data_nsls2 is True:
+            return read_hdf_APS(working_directory, file_name,
+                                spectrum_cut=2000,
+                                load_each_channel=load_each_channel)
+        else:
+            return read_MAPS(working_directory,
+                             file_name, channel_num=1)
     except IOError as e:
         logger.error("I/O error({0}): {1}".format(e.errno, e.strerror))
         logger.error('Please select .h5 file')
@@ -1416,45 +1410,45 @@ def get_name_value_from_db(name_list, data, datashape):
 #                     scaler_list=scaler_list)
 
 
-def get_roi_keys(all_keys, beamline='HXN'):
-    """
-    Get roi dict in terms of beamlines.
-    """
-    if beamline == 'HXN':
-        return get_roi_keys_hxn(all_keys)
+# def get_roi_keys(all_keys, beamline='HXN'):
+#     """
+#     Get roi dict in terms of beamlines.
+#     """
+#     if beamline == 'HXN':
+#         return get_roi_keys_hxn(all_keys)
+#
+#
+# def get_roi_keys_hxn(all_keys):
+#     """
+#     Reorganize detector names of roi detector.
+#
+#     Parameters
+#     ----------
+#     all_keys : list
+#         pv names
+#
+#     Returns
+#     -------
+#     dict:
+#         format as {'Ch0_sum': ['ch0_1', 'ch0_2', 'ch0_3']}
+#     """
+#     Ch1_list = sorted([v for v in all_keys if 'Det1' in v and 'xspress' not in v])
+#     Ch2_list = sorted([v for v in all_keys if 'Det2' in v and 'xspress' not in v])
+#     Ch3_list = sorted([v for v in all_keys if 'Det3' in v and 'xspress' not in v])
+#
+#     Ch_dict = {}
+#     for i in range(len(Ch1_list)):
+#         k = Ch1_list[i].replace('1', '_sum')
+#         val = [Ch1_list[i], Ch2_list[i], Ch3_list[i]]
+#         Ch_dict[k] = val
+#     return Ch_dict
 
 
-def get_roi_keys_hxn(all_keys):
-    """
-    Reorganize detector names of roi detector.
-
-    Parameters
-    ----------
-    all_keys : list
-        pv names
-
-    Returns
-    -------
-    dict:
-        format as {'Ch0_sum': ['ch0_1', 'ch0_2', 'ch0_3']}
-    """
-    Ch1_list = sorted([v for v in all_keys if 'Det1' in v and 'xspress' not in v])
-    Ch2_list = sorted([v for v in all_keys if 'Det2' in v and 'xspress' not in v])
-    Ch3_list = sorted([v for v in all_keys if 'Det3' in v and 'xspress' not in v])
-
-    Ch_dict = {}
-    for i in range(len(Ch1_list)):
-        k = Ch1_list[i].replace('1', '_sum')
-        val = [Ch1_list[i], Ch2_list[i], Ch3_list[i]]
-        Ch_dict[k] = val
-    return Ch_dict
+# def get_scaler_list_hxn(all_keys):
+#     return [v for v in all_keys if 'sclr1_' in v]
 
 
-def get_scaler_list_hxn(all_keys):
-    return [v for v in all_keys if 'sclr1_' in v]
-
-
-def make_hdf(fpath, runid, beamline=beamline_name):
+def make_hdf(fpath, runid):
     """
     Save the data from databroker to hdf file.
 
@@ -1467,11 +1461,11 @@ def make_hdf(fpath, runid, beamline=beamline_name):
     runid : int
         id number for given run
     """
+    hdr = db[runid]
+    print('Loading data from database.')
 
-    if beamline == 'HXN':
-        hdr = db[runid]
+    if hdr.start.beamline_id == 'HXN':
 
-        print('Loading data from database.')
         fields = ['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3', 'zpssx[um]', 'zpssy[um]',
                   'ssx[um]', 'ssy[um]', 'ssx', 'ssy', 'sclr1_ch3', 'sclr1_ch4']
         data = get_table(hdr, fields=fields)
@@ -1486,9 +1480,7 @@ def make_hdf(fpath, runid, beamline=beamline_name):
         write_db_to_hdf(fpath, data, datashape, fly_type=fly_type, subscan_dims=subscan_dims)
         print('Done!')
 
-    elif beamline == 'SRX':
-        hdr = db[runid]
-        print('Loading data from database.')
+    elif beamline.start.beamline_id == 'xf05id':
         # fields = [] to be used later
         data = get_table(hdr)
 
@@ -1517,7 +1509,7 @@ def make_hdf(fpath, runid, beamline=beamline_name):
         print('Done!')
 
     else:
-        print("Databroker is not setup for such beamline {}".format(beamline))
+        print("Databroker is not setup for this beamline")
 
 
 def export1d(runid):
