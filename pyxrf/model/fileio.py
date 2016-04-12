@@ -842,11 +842,6 @@ def read_hdf_APS(working_directory,
         exp_data = np.array(data['detsum/counts'][:, :, 0:spectrum_cut])
         logger.warning('We use spectrum range from 0 to {}'.format(spectrum_cut))
         logger.info('Exp. data from h5 has shape of: {}'.format(exp_data.shape))
-        # easy for line plot, the value on first one is so large.
-        try:
-            exp_data[0, 0, :] = exp_data[1, 0, :]
-        except IndexError:
-            exp_data[0, 0, :] = exp_data[0, 1, :]
 
         fname_sum = fname+'_sum'
         DS = DataSelection(filename=fname_sum,
@@ -875,10 +870,6 @@ def read_hdf_APS(working_directory,
                 det_name = 'det'+str(i)
                 file_channel = fname+'_det'+str(i)
                 exp_data_new = np.array(data[det_name+'/counts'][:, :, 0:spectrum_cut])
-                try:
-                    exp_data_new[0, 0, :] = exp_data_new[1, 0, :]
-                except IndexError:
-                    exp_data_new[0, 0, :] = exp_data_new[0, 1, :]
                 DS = DataSelection(filename=file_channel,
                                    raw_data=exp_data_new)
                 data_sets[file_channel] = DS

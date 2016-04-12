@@ -113,7 +113,7 @@ class DrawImageAdvanced(Atom):
     items_in_selected_group = List()
 
     scale_opt = Str('Linear')
-    color_opt = Str('gray')
+    color_opt = Str('bone')
     img_title = Str()
 
     scaler_norm_dict = Dict()
