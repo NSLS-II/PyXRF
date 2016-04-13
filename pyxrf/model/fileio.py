@@ -314,13 +314,13 @@ class SpectrumCalculator(object):
             return spectrum_sum
 
 
-def file_handler(working_directory, file_name, load_each_channel=True):
+def file_handler(working_directory, file_name, load_each_channel=True, spectrum_cut=3000):
     # send information on GUI level later !
     get_data_nsls2 = True
     try:
         if get_data_nsls2 is True:
             return read_hdf_APS(working_directory, file_name,
-                                spectrum_cut=2000,
+                                spectrum_cut=spectrum_cut,
                                 load_each_channel=load_each_channel)
         else:
             return read_MAPS(working_directory,
@@ -806,6 +806,7 @@ def output_data(fpath, output_folder, file_format='tiff'):
 
 def read_hdf_APS(working_directory,
                  file_name, spectrum_cut=3000,
+                 load_summed_data=False,
                  load_each_channel=True):
     """
     Data IO for files similar to APS Beamline 13 data format.
@@ -819,6 +820,8 @@ def read_hdf_APS(working_directory,
         selected h5 file
     spectrum_cut : int, optional
         only use spectrum from, say 0, 3000
+    load_summed_data : bool, optional
+        load summed spectrum or not
     load_each_channel : bool, optional
         load data from each channel or not
 
@@ -837,18 +840,21 @@ def read_hdf_APS(working_directory,
         data = f['xrfmap']
 
         fname = file_name.split('.')[0]
+        if load_summed_data is True:
+            try:
+                # data from channel summed
+                exp_data = np.array(data['detsum/counts'][:, :, 0:spectrum_cut])
+                logger.warning('We use spectrum range from 0 to {}'.format(spectrum_cut))
+                logger.info('Exp. data from h5 has shape of: {}'.format(exp_data.shape))
 
-        # data from channel summed
-        exp_data = np.array(data['detsum/counts'][:, :, 0:spectrum_cut])
-        logger.warning('We use spectrum range from 0 to {}'.format(spectrum_cut))
-        logger.info('Exp. data from h5 has shape of: {}'.format(exp_data.shape))
+                fname_sum = fname+'_sum'
+                DS = DataSelection(filename=fname_sum,
+                                   raw_data=exp_data)
 
-        fname_sum = fname+'_sum'
-        DS = DataSelection(filename=fname_sum,
-                           raw_data=exp_data)
-
-        data_sets[fname_sum] = DS
-        logger.info('Data of detector sum is loaded.')
+                data_sets[fname_sum] = DS
+                logger.info('Data of detector sum is loaded.')
+            except KeyError:
+                print('No data is loaded for detector sum.')
 
         if 'scalers' in data:
             det_name = data['scalers/name']
@@ -869,11 +875,14 @@ def read_hdf_APS(working_directory,
             for i in range(1, channel_num+1):
                 det_name = 'det'+str(i)
                 file_channel = fname+'_det'+str(i)
-                exp_data_new = np.array(data[det_name+'/counts'][:, :, 0:spectrum_cut])
-                DS = DataSelection(filename=file_channel,
-                                   raw_data=exp_data_new)
-                data_sets[file_channel] = DS
-                logger.info('Data from detector channel {} is loaded.'.format(i))
+                try:
+                    exp_data_new = np.array(data[det_name+'/counts'][:, :, 0:spectrum_cut])
+                    DS = DataSelection(filename=file_channel,
+                                       raw_data=exp_data_new)
+                    data_sets[file_channel] = DS
+                    logger.info('Data from detector channel {} is loaded.'.format(i))
+                except KeyError:
+                    print('No data is loaded for {}.'.format(det_name))
 
                 if 'xrf_fit' in data[det_name]:
                     try:
@@ -1456,25 +1465,21 @@ def _make_hdf(fpath, runid):
     print('Loading data from database.')
 
     if hdr.start.beamline_id == 'HXN':
-
-        fields = ['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3', 'zpssx[um]', 'zpssy[um]',
-                  'ssx[um]', 'ssy[um]', 'ssx', 'ssy', 'sclr1_ch3', 'sclr1_ch4']
-        data = get_table(hdr, fields=fields)
-
         start_doc = hdr['start']
         datashape = start_doc['dimensions']
         datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
         fly_type = start_doc.get('fly_type', None)
         subscan_dims = start_doc.get('subscan_dims', None)
 
+        fields = ['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3', 'zpssx[um]', 'zpssy[um]',
+                  'ssx[um]', 'ssy[um]', 'ssx', 'ssy', 'sclr1_ch3', 'sclr1_ch4']
+        data = get_table(hdr, fields=fields)
+
         print('Saving data to hdf file.')
         write_db_to_hdf(fpath, data, datashape, fly_type=fly_type, subscan_dims=subscan_dims)
         print('Done!')
 
     elif beamline.start.beamline_id == 'xf05id':
-        # fields = [] to be used later
-        data = get_table(hdr)
-
         start_doc = hdr['start']
         datashape = start_doc['shape']   # vertical first then horizontal
         fly_type = None
@@ -1483,11 +1488,23 @@ def _make_hdf(fpath, runid):
     	    fly_type = 'pyramid'
 
         current_dir = os.path.dirname(os.path.realpath(__file__))
-        print(current_dir)
         config_file = 'srx_pv_config.json'
         config_path = '/'.join(current_dir.split('/')[:-2]+['configs', config_file])
         with open(config_path, 'r') as json_data:
             config_data = json.load(json_data)
+
+        # fields = [] to be used later
+        try:
+            data = get_table(hdr)
+        except IndexError:
+            # namelist = set(hdr.descriptors[0].data_keys)
+            # xrf_det_list = set(config_data['xrf_detector'])
+            # scalers = namelist - xrf_det_list
+            # tmp = np.zeros(datashape)
+            # data = dict()
+            print('to be implemented.')
+
+
         print('Saving data to hdf file.')
         write_db_to_hdf(fpath, data,
                         datashape,
