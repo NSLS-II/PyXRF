@@ -49,6 +49,7 @@ import json
 import time
 import skimage.io as sio
 from PIL import Image
+import copy
 
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float, Bool
 
@@ -806,7 +807,7 @@ def output_data(fpath, output_folder, file_format='tiff'):
 
 def read_hdf_APS(working_directory,
                  file_name, spectrum_cut=3000,
-                 load_summed_data=False,
+                 load_summed_data=True,
                  load_each_channel=True):
     """
     Data IO for files similar to APS Beamline 13 data format.
@@ -969,7 +970,6 @@ def read_MAPS(working_directory,
     with h5py.File(file_path, 'r+') as f:
 
         data = f['MAPS']
-
         fname = file_name.split('.')[0]
 
         # for 2D MAP
@@ -1061,6 +1061,180 @@ def get_fit_data(namelist, data):
     for i in range(len(namelist)):
         data_temp.update({namelist[i]: data[i, :, :]})
     return data_temp
+
+
+def read_hdf_to_stitch(working_directory, filelist,
+                       shape, ignore_file=None):
+    """
+    Read fitted results from each hdf file, and stitch them together.
+
+    Parameters
+    ----------
+    working_directory : str
+        folder with all the h5 files and also the place to save output
+    filelist : list of str
+        names for all the h5 files
+    shape : list or tuple
+        shape defines how to stitch all the h5 files. [veritcal, horizontal]
+    ignore_file : list of str
+        to be implemented
+
+    Returns
+    -------
+    dict :
+        combined results from each h5 file
+    """
+    out = {}
+    shape_v = {}
+    horizontal_v = 0
+    vertical_v = 0
+    h_index = np.zeros(shape)
+    v_index = np.zeros(shape)
+
+    for i, file_name in enumerate(filelist):
+        img, _ = read_hdf_APS(working_directory, file_name,
+                              load_summed_data=False, load_each_channel=False)
+        tmp_shape = img['positions']['x_pos'].shape
+        m = i // shape[1]
+        n = i % shape[1]
+
+        if n == 0:
+            h_step = 0
+
+        h_index[m][n] = h_step
+        v_index[m][n] = m * tmp_shape[0]
+        h_step += tmp_shape[1]
+
+        if i<shape[1]:
+            horizontal_v += tmp_shape[1]
+        if i%shape[1] == 0:
+            vertical_v += tmp_shape[0]
+        if i == 0:
+            out = copy.deepcopy(img)
+
+    data_tmp = np.zeros([vertical_v, horizontal_v])
+
+    for k, v in six.iteritems(out):
+        for m, n in six.iteritems(v):
+            v[m] = np.array(data_tmp)
+
+    for i, file_name in enumerate(filelist):
+        img, _ = read_hdf_APS(working_directory, file_name,
+                              load_summed_data=False, load_each_channel=False)
+
+        tmp_shape = img['positions']['x_pos'].shape
+        m = i // shape[1]
+        n = i % shape[1]
+        h_i = h_index[m][n]
+        v_i = v_index[m][n]
+
+        keylist = ['fit', 'scaler', 'position']
+
+        for key_name in keylist:
+            fit_key0, = [v for v in out.keys() if key_name in v]
+            fit_key, = [v for v in img.keys() if key_name in v]
+            for k, v in six.iteritems(img[fit_key]):
+                out[fit_key0][k][v_i:v_i+tmp_shape[0], h_i:h_i+tmp_shape[1]] = img[fit_key][k]
+
+    return out
+
+
+def make_hdf_stitched(working_directory, filelist, fname,
+                      shape):
+    """
+    Read fitted results from each hdf file, stitch them together and save to
+    a new h5 file.
+
+    Parameters
+    ----------
+    working_directory : str
+        folder with all the h5 files and also the place to save output
+    filelist : list of str
+        names for all the h5 files
+    fname : str
+        name of output h5 file
+    shape : list or tuple
+        shape defines how to stitch all the h5 files. [veritcal, horizontal]
+    """
+    print('Reading data from each hdf file.')
+    fpath = os.path.join(working_directory, fname)
+    out = read_hdf_to_stitch(working_directory, filelist, shape)
+
+    result = {}
+    img_shape = None
+    for k, v in six.iteritems(out):
+        for m, n in six.iteritems(v):
+            if img_shape is None:
+                img_shape = n.shape
+            result[m] = n.ravel()
+    current_dir = os.path.dirname(os.path.realpath(__file__))
+    config_file = 'srx_pv_config.json'
+    config_path = '/'.join(current_dir.split('/')[:-2]+['configs', config_file])
+    with open(config_path, 'r') as json_data:
+        config_data = json.load(json_data)
+
+    print('Saving all the data into one hdf file.')
+    write_db_to_hdf(fpath, result,
+                    img_shape,
+                    det_list=config_data['xrf_detector'],
+                    #roi_dict=roi_dict,
+                    pos_list=('x_pos', 'y_pos'),
+                    scaler_list=config_data['scaler_list'],
+                    base_val=config_data['base_value'])  #base value shift for ic
+
+
+    fitkey, = [v for v in out.keys() if 'fit' in v]
+    save_fitdata_to_hdf(fpath, out[fitkey])
+
+    print('Done!')
+
+
+def save_fitdata_to_hdf(fpath, data_dict,
+                        datapath='xrfmap/detsum',
+                        data_saveas='xrf_fit',
+                        dataname_saveas='xrf_fit_name'):
+    """
+    Add fitting results to existing h5 file. This is to be moved to filestore.
+
+    Parameters
+    ----------
+    fpath : str
+        path of the hdf5 file
+    data_dict : dict
+        dict of array
+    datapath : str
+        path inside h5py file
+    data_saveas : str, optional
+        name in hdf for data array
+    dataname_saveas : str, optional
+        name list in hdf to explain what the saved data mean
+    """
+    f = h5py.File(fpath, 'a')
+    try:
+        dataGrp = f.create_group(datapath)
+    except ValueError:
+        dataGrp=f[datapath]
+
+    data = []
+    namelist = []
+    for k, v in six.iteritems(data_dict):
+        namelist.append(str(k))
+        data.append(v)
+
+    if data_saveas in dataGrp:
+        del dataGrp[data_saveas]
+
+    data = np.array(data)
+    ds_data = dataGrp.create_dataset(data_saveas, data=data)
+    ds_data.attrs['comments'] = ' '
+
+    if dataname_saveas in dataGrp:
+        del dataGrp[dataname_saveas]
+
+    name_data = dataGrp.create_dataset(dataname_saveas, data=namelist)
+    name_data.attrs['comments'] = ' '
+
+    f.close()
 
 
 def read_xspress(file_name):
@@ -1181,41 +1355,43 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     f = h5py.File(fpath, 'a')
 
     sum_data = None
+    new_v_shape = datashape[0]  # to be updated if scan is not completed
 
     for n in range(len(det_list)):
-        detname = 'det'+str(n+1)
-        try:
-            dataGrp = f.create_group(interpath+'/'+detname)
-        except ValueError:
-            dataGrp = f[interpath+'/'+detname]
-
         c_name = det_list[n]
-        logger.info('read data from %s' % c_name)
-        channel_data = data[c_name]
+        if c_name in data:
+            detname = 'det'+str(n+1)
+            try:
+                dataGrp = f.create_group(interpath+'/'+detname)
+            except ValueError:
+                dataGrp = f[interpath+'/'+detname]
 
-        # new veritcal shape is defined to ignore zeros points caused by stopped/aborted scans
-        new_v_shape = len(channel_data) // datashape[1]
-        #new_data = np.zeros([1, len(channel_data), len(channel_data[1])])
-        new_data = np.zeros([1, new_v_shape*datashape[1], len(channel_data[1])])
+            logger.info('read data from %s' % c_name)
+            channel_data = data[c_name]
 
-        for i in range(new_v_shape*datashape[1]):
-            #channel_data[i+1][pd.isnull(channel_data[i+1])] = 0
-            new_data[0, i, :] = channel_data[i+1]
+            # new veritcal shape is defined to ignore zeros points caused by stopped/aborted scans
+            new_v_shape = len(channel_data) // datashape[1]
+            #new_data = np.zeros([1, len(channel_data), len(channel_data[1])])
+            new_data = np.zeros([1, new_v_shape*datashape[1], len(channel_data[1])])
 
-        new_data = new_data.reshape([new_v_shape, datashape[1],
-                                     len(channel_data[1])])
-        if fly_type in ('pyramid',):
-            new_data = flip_data(new_data, subscan_dims=subscan_dims)
+            for i in range(new_v_shape*datashape[1]):
+                #channel_data[i+1][pd.isnull(channel_data[i+1])] = 0
+                new_data[0, i, :] = channel_data[i+1]
 
-        if sum_data is None:
-            sum_data = new_data
-        else:
-            sum_data += new_data
+            new_data = new_data.reshape([new_v_shape, datashape[1],
+                                         len(channel_data[1])])
+            if fly_type in ('pyramid',):
+                new_data = flip_data(new_data, subscan_dims=subscan_dims)
 
-        if 'counts' in dataGrp:
-            del dataGrp['counts']
-        ds_data = dataGrp.create_dataset('counts', data=new_data, compression='gzip')
-        ds_data.attrs['comments'] = 'Experimental data from channel ' + str(n)
+            if sum_data is None:
+                sum_data = new_data
+            else:
+                sum_data += new_data
+
+            if 'counts' in dataGrp:
+                del dataGrp['counts']
+            ds_data = dataGrp.create_dataset('counts', data=new_data, compression='gzip')
+            ds_data.attrs['comments'] = 'Experimental data from channel ' + str(n)
 
     # summed data
     try:
@@ -1223,13 +1399,14 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     except ValueError:
         dataGrp = f[interpath+'/detsum']
 
-    sum_data = sum_data.reshape([new_v_shape, datashape[1],
-                                 len(channel_data[1])])
+    if sum_data is not None:
+        sum_data = sum_data.reshape([new_v_shape, datashape[1],
+                                     len(channel_data[1])])
 
-    if 'counts' in dataGrp:
-        del dataGrp['counts']
-    ds_data = dataGrp.create_dataset('counts', data=sum_data, compression='gzip')
-    ds_data.attrs['comments'] = 'Experimental data from channel sum'
+        if 'counts' in dataGrp:
+            del dataGrp['counts']
+        ds_data = dataGrp.create_dataset('counts', data=sum_data, compression='gzip')
+        ds_data.attrs['comments'] = 'Experimental data from channel sum'
 
     # position data
     try:

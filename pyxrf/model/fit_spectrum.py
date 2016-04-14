@@ -63,6 +63,7 @@ from .guessparam import (calculate_profile, fit_strategy_list,
                          trim_escape_peak, define_range, get_energy,
                          get_Z, PreFitStatus, ElementController,
                          update_param_from_element)
+from .fileio import save_fitdata_to_hdf
 
 import lmfit
 
@@ -1677,53 +1678,6 @@ def get_branching_ratio(elemental_line, energy):
     ratio_v = e.cs(energy)[transition_lines[0]]/sum_v
     return ratio_v
 
-
-def save_fitdata_to_hdf(fpath, data_dict,
-                        datapath='xrfmap/detsum',
-                        data_saveas='xrf_fit',
-                        dataname_saveas='xrf_fit_name'):
-    """
-    Add fitting results to existing h5 file. This is to be moved to filestore.
-
-    Parameters
-    ----------
-    fpath : str
-        path of the hdf5 file
-    data_dict : dict
-        dict of array
-    datapath : str
-        path inside h5py file
-    data_saveas : str, optional
-        name in hdf for data array
-    dataname_saveas : str, optional
-        name list in hdf to explain what the saved data mean
-    """
-    f = h5py.File(fpath, 'a')
-    try:
-        dataGrp = f.create_group(datapath)
-    except ValueError:
-        dataGrp=f[datapath]
-
-    data = []
-    namelist = []
-    for k, v in six.iteritems(data_dict):
-        namelist.append(str(k))
-        data.append(v)
-
-    if data_saveas in dataGrp:
-        del dataGrp[data_saveas]
-
-    data = np.array(data)
-    ds_data = dataGrp.create_dataset(data_saveas, data=data)
-    ds_data.attrs['comments'] = ' '
-
-    if dataname_saveas in dataGrp:
-        del dataGrp[dataname_saveas]
-
-    name_data = dataGrp.create_dataset(dataname_saveas, data=namelist)
-    name_data.attrs['comments'] = ' '
-
-    f.close()
 
 #
 # def combine_data_to_hdf(fpath_read, file_prefix,
