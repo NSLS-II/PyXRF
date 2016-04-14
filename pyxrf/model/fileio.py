@@ -1625,7 +1625,7 @@ def get_name_value_from_db(name_list, data, datashape):
 #     return [v for v in all_keys if 'sclr1_' in v]
 
 
-def _make_hdf(fpath, runid):
+def make_hdf(fpath, runid):
     """
     Save the data from databroker to hdf file.
 
@@ -1656,7 +1656,7 @@ def _make_hdf(fpath, runid):
         write_db_to_hdf(fpath, data, datashape, fly_type=fly_type, subscan_dims=subscan_dims)
         print('Done!')
 
-    elif beamline.start.beamline_id == 'xf05id':
+    elif hdr.start.beamline_id == 'xf05id':
         start_doc = hdr['start']
         datashape = start_doc['shape']   # vertical first then horizontal
         fly_type = None
@@ -1713,7 +1713,7 @@ def _make_hdf(fpath, runid):
         print("Databroker is not setup for this beamline")
 
 
-def make_hdf(start, end=None, prefix='scan2D_'):
+def make_hdf_batch(start, end=None, prefix='scan2D_'):
     """
     Transfer multiple h5 files.
 
@@ -1733,7 +1733,7 @@ def make_hdf(start, end=None, prefix='scan2D_'):
     for v in datalist:
         filename = prefix+str(v)+'.h5'
         try:
-            _make_hdf(filename, v)
+            make_hdf(filename, v)
             print('{} is created. \n'.format(filename))
         except:
             print('Can not transfer scan {}. \n'.format(v))
