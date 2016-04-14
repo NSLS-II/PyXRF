@@ -1670,17 +1670,33 @@ def _make_hdf(fpath, runid):
         with open(config_path, 'r') as json_data:
             config_data = json.load(json_data)
 
-        # fields = [] to be used later
         try:
             data = get_table(hdr)
         except IndexError:
-            # namelist = set(hdr.descriptors[0].data_keys)
-            # xrf_det_list = set(config_data['xrf_detector'])
-            # scalers = namelist - xrf_det_list
-            # tmp = np.zeros(datashape)
-            # data = dict()
-            print('to be implemented.')
-
+            cut_num = 2
+            total_len = datashape[0]*datashape[1]
+            data = get_table(hdr, fill=False)
+            xrf_det_list = set(config_data['xrf_detector'])
+            evs, _ = zip(*zip(get_events(hdr), range(total_len-cut_num)))
+            evs = list(evs)
+            tmp1 = {}
+            tmp2 = {}
+            tmp3 = {}
+            for i in range(1, total_len-cut_num+1):
+                for detn in xrf_det_list:
+                    if 'ch1' in detn:
+                        tmp1[i] = evs[i-1].data[detn]
+                    if 'ch2' in detn:
+                        tmp2[i] = evs[i-1].data[detn]
+                    if 'ch3' in detn:
+                        tmp3[i] = evs[i-1].data[detn]
+            for detn in xrf_det_list:
+                if 'ch1' in detn:
+                    data[detn] = tmp1
+                if 'ch2' in detn:
+                    data[detn] = tmp2
+                if 'ch3' in detn:
+                    data[detn] = tmp3
 
         print('Saving data to hdf file.')
         write_db_to_hdf(fpath, data,
