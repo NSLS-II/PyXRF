@@ -57,7 +57,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 try:
-    from databroker.databroker import DataBroker as db, get_table
+    from databroker.databroker import DataBroker as db, get_table, get_events
     # registers a filestore handler for the XSPRESS3 detector
 except ImportError as e:
     db = None
@@ -939,8 +939,8 @@ def read_hdf_APS(working_directory,
             temp = {}
             for i, n in enumerate(pos_name):
                 #
-                #This should be cleaned up later.
-                #This is due to the messy in write_db_to_hdf function
+                # !!! This should be cleaned up later.
+                # !!! This is due to the messy in write_db_to_hdf function
                 #
                 if i==0:
                     temp[n] = np.fliplr(data['positions/pos'].value[i, :])
@@ -1332,6 +1332,9 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     Assume data is obained from databroker, and save the data to hdf file.
     This function can handle stopped/aborted scans.
 
+    !!! This function needs to be rewrite during beam shutdown. It is
+    better to pass 2D/3D array instead of dataframe or dict.
+    
     .. note:: This function should become part of suitcase
 
     Parameters
@@ -1414,13 +1417,14 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     except ValueError:
         dataGrp = f[interpath+'/positions']
 
+    # !!! rewrite during shutdown, pos_list should be defined at hdr
     try:
         pos_names, pos_data = get_name_value_from_db(pos_list, data,
                                                      datashape)
     except:
         pos_list = ('ssx[um]', 'ssy[um]')  # name is different for hxn zp scan
         pos_names, pos_data = get_name_value_from_db(pos_list, data,
-                                                     datashape)
+                                                      datashape)
 
     for i in range(len(pos_names)):
         if 'x' in pos_names[i]:
@@ -1544,6 +1548,7 @@ def get_name_value_from_db(name_list, data, datashape):
     pos_data = np.zeros([datashape[0], datashape[1], len(name_list)])
     for i, v in enumerate(name_list):
         posv = np.zeros(datashape[0]*datashape[1])  # keep shape unchanged, so stopped/aborted run can be handled.
+        data[v] = np.asarray(data[v])  # in case data might be list
         posv[:data[v].shape[0]] = np.asarray(data[v])
         pos_data[:, :, i] = posv.reshape([datashape[0], datashape[1]])
         pos_names.append(str(v))
@@ -1673,15 +1678,24 @@ def make_hdf(fpath, runid):
         try:
             data = get_table(hdr)
         except IndexError:
+            # !!! this part needs to rewrite during shutdown. it is better to pass
+            # !!! array data to write_db_to_hdf, instead of dataframe or dict 
             cut_num = 2
+            spectrum_len = 4096
             total_len = datashape[0]*datashape[1]
-            data = get_table(hdr, fill=False)
+            data0 = get_table(hdr, fill=False)
+            data = data0.to_dict(orient='list')
             xrf_det_list = set(config_data['xrf_detector'])
             evs, _ = zip(*zip(get_events(hdr), range(total_len-cut_num)))
             evs = list(evs)
             tmp1 = {}
             tmp2 = {}
             tmp3 = {}
+            tmp_array = np.zeros(spectrum_len)
+            for i in range(total_len):
+                tmp1[i+1] = np.array(tmp_array)
+                tmp2[i+1] = np.array(tmp_array)
+                tmp3[i+1] = np.array(tmp_array)
             for i in range(1, total_len-cut_num+1):
                 for detn in xrf_det_list:
                     if 'ch1' in detn:
@@ -1692,12 +1706,11 @@ def make_hdf(fpath, runid):
                         tmp3[i] = evs[i-1].data[detn]
             for detn in xrf_det_list:
                 if 'ch1' in detn:
-                    data[detn] = tmp1
+                    data[detn] = copy.deepcopy(tmp1)
                 if 'ch2' in detn:
-                    data[detn] = tmp2
+                    data[detn] = copy.deepcopy(tmp2)
                 if 'ch3' in detn:
-                    data[detn] = tmp3
-
+                    data[detn] = copy.deepcopy(tmp3)
         print('Saving data to hdf file.')
         write_db_to_hdf(fpath, data,
                         datashape,

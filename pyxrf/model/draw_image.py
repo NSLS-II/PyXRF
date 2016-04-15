@@ -178,7 +178,7 @@ class DrawImageAdvanced(Atom):
             try:
                 logger.info('get pos {}'.format(self.data_dict['positions'].keys()))
                 self.x_pos = list(self.data_dict['positions']['x_pos'][0, :])
-                self.y_pos = list(self.data_dict['positions']['y_pos'][:, 0])
+                self.y_pos = list(self.data_dict['positions']['y_pos'][:, -1])
 
                 # the only place to flip data is at fileIO
                 # the way to handle position at fileIO is a bit confusing
