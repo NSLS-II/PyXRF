@@ -248,7 +248,7 @@ class DrawImageAdvanced(Atom):
             if change['value'] == 0:
                 self.pixel_or_pos_for_plot = None
             elif change['value'] > 0 and len(self.x_pos) > 0 and len(self.y_pos) > 0:
-                self.pixel_or_pos_for_plot = (self.x_pos[0]+100, self.x_pos[-1]+100,
+                self.pixel_or_pos_for_plot = (self.x_pos[0], self.x_pos[-1],
                                               self.y_pos[0], self.y_pos[-1])
             self.show_image()
 
