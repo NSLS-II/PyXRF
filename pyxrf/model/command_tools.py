@@ -110,11 +110,10 @@ def fit_pixel_data_and_save(working_directory, file_name,
     if fit_channel_each is True:
         channel_num = len(param_channel_list)
         img_dict, data_sets = read_hdf_APS(working_directory, file_name,
-                                           channel_num=channel_num,
                                            spectrum_cut=spectrum_cut,
                                            load_each_channel=True)
         for i in range(channel_num):
-            filename_det = prefix_fname+'_ch'+str(i+1)
+            filename_det = prefix_fname+'_det'+str(i+1)
             inner_path = 'xrfmap/det'+str(i+1)
 
             # load param file
