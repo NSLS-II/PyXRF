@@ -1334,7 +1334,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
     !!! This function needs to be rewrite during beam shutdown. It is
     better to pass 2D/3D array instead of dataframe or dict.
-    
+
     .. note:: This function should become part of suitcase
 
     Parameters
@@ -1630,7 +1630,7 @@ def get_name_value_from_db(name_list, data, datashape):
 #     return [v for v in all_keys if 'sclr1_' in v]
 
 
-def make_hdf(fpath, runid):
+def _make_hdf(fpath, runid):
     """
     Save the data from databroker to hdf file.
 
@@ -1679,7 +1679,7 @@ def make_hdf(fpath, runid):
             data = get_table(hdr)
         except IndexError:
             # !!! this part needs to rewrite during shutdown. it is better to pass
-            # !!! array data to write_db_to_hdf, instead of dataframe or dict 
+            # !!! array data to write_db_to_hdf, instead of dataframe or dict
             cut_num = 2
             spectrum_len = 4096
             total_len = datashape[0]*datashape[1]
@@ -1726,30 +1726,36 @@ def make_hdf(fpath, runid):
         print("Databroker is not setup for this beamline")
 
 
-def make_hdf_batch(start, end=None, prefix='scan2D_'):
+def make_hdf(start, end=None, fpath=None, prefix='scan2D_'):
     """
     Transfer multiple h5 files.
 
     Parameters
     ---------
-    start: int
+    start : int
         start run id
-    end: int, optional
+    end : int, optional
         end run id
-    prefix: str, optional
+    fpath : string
+        path to save file when start equals to end, in this case only
+        one file is transfered.
+    prefix : str, optional
         prefix name of the file
     """
     if end is None:
         end = start
 
-    datalist = range(start, end+1)
-    for v in datalist:
-        filename = prefix+str(v)+'.h5'
-        try:
-            make_hdf(filename, v)
-            print('{} is created. \n'.format(filename))
-        except:
-            print('Can not transfer scan {}. \n'.format(v))
+    if end == start:
+        _make_hdf(fpath, start)  # only transfer one file
+    else:
+        datalist = range(start, end+1)
+        for v in datalist:
+            filename = prefix+str(v)+'.h5'
+            try:
+                _make_hdf(filename, v)
+                print('{} is created. \n'.format(filename))
+            except:
+                print('Can not transfer scan {}. \n'.format(v))
 
 
 def export1d(runid):
