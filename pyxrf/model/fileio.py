@@ -50,6 +50,7 @@ import time
 import skimage.io as sio
 from PIL import Image
 import copy
+import glob
 
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float, Bool
 
@@ -1187,6 +1188,106 @@ def make_hdf_stitched(working_directory, filelist, fname,
     save_fitdata_to_hdf(fpath, out[fitkey])
 
     print('Done!')
+
+
+def get_data_from_folder_helper(working_directory, foldername,
+                                filename, flip_h=False):
+    """
+    Read fitted data from given folder.
+
+    Parameters
+    ----------
+    working_directory : string
+        overall folder path where multiple fitting results are saved
+    foldername : string
+        folder name of given fitting result
+    filename : string
+        given element
+    flip_h : bool
+        x position is saved in a wrong way, so we may want to flip left right on the data,
+        to be removed.
+
+    Returns
+    -------
+    2D array
+    """
+    fpath = os.path.join(working_directory, foldername, filename)
+    if 'txt' in filename:
+        data = np.loadtxt(fpath)
+    elif 'tif' in filename:
+        data = np.array(Image.open(fpath))
+
+    # x position is saved in a wrong way
+    if flip_h == True:
+        data = np.fliplr(data)
+    return data
+
+
+def get_data_from_multiple_folders_helper(working_directory, folderlist,
+                                          filename, flip_h=False):
+    """
+    Read given element from fitted results in multiple folders.
+
+    Parameters
+    ----------
+    working_directory : string
+        overall folder path where multiple fitting results are saved
+    folderlist : list
+        list of folder names saving fitting result
+    filename : string
+        given element
+    flip_h : bool
+        x position is saved in a wrong way, so we may want to flip left right on the data,
+        to be removed.
+
+    Returns
+    -------
+    2D array
+    """
+    output = np.array([])
+    for foldername in folderlist:
+        result = get_data_from_folder_helper(working_directory, foldername,
+                                             filename, flip_h=flip_h)
+        output = np.concatenate([output, result.ravel()])
+    return output
+
+
+def stitch_fitted_results(working_directory, folderlist, output=None):
+    """
+    Stitch fitted data from multiple folders. Output stiched results as 1D array.
+
+    Parameters
+    ----------
+    working_directory : string
+        overall folder path where multiple fitting results are saved
+    folderlist : list
+        list of folder names saving fitting result
+    output : string, optional
+        output folder name to save all the stiched results.
+    """
+
+    # get all filenames
+    fpath = os.path.join(working_directory, folderlist[0], '*')
+    pathlist = [name for name in glob.glob(fpath)]
+    filelist = [name.split('/')[-1] for name in pathlist]
+    out = {}
+    for filename in filelist:
+        if 'x_pos' in filename:
+            flip_h = True
+        else:
+            flip_h = False
+        data = get_data_from_multiple_folders_helper(working_directory, folderlist,
+                                                     filename, flip_h=flip_h)
+        out[filename.split('.')[0]]=data
+
+    if output is not None:
+        outfolder = os.path.join(working_directory, output)
+        if os.path.exists(outfolder) is False:
+            os.mkdir(outfolder)
+        for k, v in out.items():
+            outpath = os.path.join(outfolder, k+'_stitched.txt')
+            np.savetxt(outpath, v)
+    return out
 
 
 def save_fitdata_to_hdf(fpath, data_dict,
