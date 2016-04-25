@@ -41,6 +41,7 @@ from collections import OrderedDict
 from scipy.interpolate import interp1d, interp2d
 import copy
 
+import matplotlib
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
@@ -100,6 +101,8 @@ class DrawImageAdvanced(Atom):
         argument passed to extent in imshow of matplotlib
     interpolation_opt: bool
         choose to interpolate 2D image in terms of x,y or not
+    limit_dict : Dict
+        save low and high limit for image scaling
     """
 
     fig = Typed(Figure)
@@ -107,16 +110,12 @@ class DrawImageAdvanced(Atom):
     data_dict = Dict()
     data_dict_keys = List()
     data_opt = Int(0)
-    #plot_opt = Int(0)
-    #plot_item = Str()
     dict_to_plot = Dict()
     items_in_selected_group = List()
 
     scale_opt = Str('Linear')
     color_opt = Str('jet')
     img_title = Str()
-    #group_names = List()
-    #group_name = Str()
 
     scaler_norm_dict = Dict()
     scaler_items = List()
@@ -132,10 +131,12 @@ class DrawImageAdvanced(Atom):
     pixel_or_pos_for_plot = Typed(object)
     interpolation_opt = Bool(True)
     data_dict_default = Dict()
+    limit_dict = Dict()
 
     def __init__(self):
         self.fig = plt.figure(figsize=(4,4))
         self.pixel_or_pos_for_plot = None
+        matplotlib.rcParams['axes.formatter.useoffset'] = True
 
     def data_dict_update(self, change):
         """
@@ -176,15 +177,18 @@ class DrawImageAdvanced(Atom):
         self.pixel_or_pos = 0
 
         if 'positions' in self.data_dict:
-            logger.debug('get pos {}'.format(self.data_dict['positions'].keys()))
-            self.x_pos = list(self.data_dict['positions']['x_pos'][0, :])
-            self.y_pos = list(self.data_dict['positions']['y_pos'][:, 0])
+            try:
+                logger.info('get pos {}'.format(self.data_dict['positions'].keys()))
+                self.x_pos = list(self.data_dict['positions']['x_pos'][0, :])
+                self.y_pos = list(self.data_dict['positions']['y_pos'][:, -1])
 
-            # the only place to flip data is at fileIO
-            # the way to handle position at fileIO is a bit confusing
-            # self.x_pos.reverse()
-            # we use imshow with lower as the origin, so flip y
-            self.y_pos.reverse()
+                # the only place to flip data is at fileIO
+                # the way to handle position at fileIO is a bit confusing
+                # self.x_pos.reverse()
+                # we use imshow with lower as the origin, so flip y
+                self.y_pos.reverse()
+            except KeyError, e:
+                logger.info(e)
 
         else:
             self.x_pos = []
@@ -301,6 +305,9 @@ class DrawImageAdvanced(Atom):
         self.stat_dict.clear()
         self.stat_dict = {k: bool_val for k in self.items_in_selected_group}
 
+        self.limit_dict.clear()
+        self.limit_dict = {k: {'low':0.0, 'high': 100.0} for k in self.items_in_selected_group}
+
     def show_image(self):
         img_show = 'imshow'
 
@@ -321,8 +328,8 @@ class DrawImageAdvanced(Atom):
                 ic_norm = 1.0
             if len(self.scaler_data[self.scaler_data == 0]) > 0:
                 logger.warning('scaler data has zero values at {}'.format(np.where(self.scaler_data == 0)))
-                self.scaler_data[self.scaler_data == 0] = np.mean(self.scaler_data)
-                logger.warning('Use mean value {} instead for those points'.format(np.mean(self.scaler_data)))
+                self.scaler_data[self.scaler_data == 0] = np.mean(self.scaler_data[self.scaler_data > 0])
+                logger.warning('Use mean value {} instead for those points'.format(np.mean(self.scaler_data[self.scaler_data > 0])))
 
         grey_use = self.color_opt
 
@@ -358,11 +365,16 @@ class DrawImageAdvanced(Atom):
                     data_dict = self.dict_to_plot[k]
 
                 if img_show == 'imshow':
+                    lowv = self.limit_dict[k]['low']/100.0
+                    highv = self.limit_dict[k]['high']/100.0
+                    low_limit = (np.max(data_dict)-np.min(data_dict))*lowv + np.min(data_dict)
+                    high_limit = (np.max(data_dict)-np.min(data_dict))*highv + np.min(data_dict)
+
                     im = grid[i].imshow(data_dict,
                                         cmap=grey_use,
                                         interpolation=plot_interp,
-                                        extent=self.pixel_or_pos_for_plot)
-                                        #clim=(0.3*np.max(data_dict), 0.7*np.max(data_dict)))
+                                        extent=self.pixel_or_pos_for_plot,
+                                        clim=(low_limit, high_limit))
                     grid_title = k #self.file_name+'_'+str(k)
                     if self.pixel_or_pos_for_plot is not None:
                         title_x = self.pixel_or_pos_for_plot[0]

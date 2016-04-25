@@ -63,7 +63,7 @@ from .guessparam import (calculate_profile, fit_strategy_list,
                          trim_escape_peak, define_range, get_energy,
                          get_Z, PreFitStatus, ElementController,
                          update_param_from_element)
-from .fileio import read_hdf_APS, output_data, flip_data
+from .fileio import save_fitdata_to_hdf
 
 import lmfit
 
@@ -71,6 +71,12 @@ import pickle
 
 import logging
 logger = logging.getLogger(__name__)
+
+# can't import, reason to be figured out.
+# try:
+#     from .fileio import output_data, flip_data
+# except ImportError, e:
+#     print('can not load output_data function')
 
 
 class Fit1D(Atom):
@@ -450,7 +456,6 @@ class Fit1D(Atom):
 
         #PC = ParamController(self.param_dict, self.element_list)
         #self.param_dict = PC.params
-        #print('param keys {}'.format(self.param_dict.keys()))
 
         if self.param_dict['non_fitting_values']['escape_ratio'] > 0:
             self.es_peak = trim_escape_peak(self.data,
@@ -558,13 +563,15 @@ class Fit1D(Atom):
         t1 = time.time()
         logger.info('Time used for pixel fitting is : {}'.format(t1-t0))
 
-        # interpolation then save
-        with h5py.File(self.hdf_path, 'r') as f:
-            self.x_data = np.array(f['xrfmap/positions/pos'][0, :, :])
-            self.y_data = np.array(f['xrfmap/positions/pos'][1, :, :])
+        try:
+            with h5py.File(self.hdf_path, 'r') as f:
+                self.x_data = np.array(f['xrfmap/positions/pos'][0, :, :])
+                self.y_data = np.array(f['xrfmap/positions/pos'][1, :, :])
 
-        # this is consistent with fileIO that x data is fliped.
-        self.x_data = np.fliplr(self.x_data)
+            # this is consistent with fileIO that x data is fliped.
+            self.x_data = np.fliplr(self.x_data)
+        except KeyError:
+            pass
 
         # get fitted spectrum and save them to figs
         if self.save_point is True:
@@ -617,14 +624,13 @@ class Fit1D(Atom):
         pixel_fit : str
             If nonlinear is chosen, more information needs to be saved.
         """
-        rangex = self.x_data[0,:]
-        rangey = self.y_data[:,0]
-        start_x = rangex[0]
-        start_y = rangey[0]
-
-        dimv = self.data_all.shape
         if self.map_interpolation is True:
             logger.info('Interpolating image... ')
+            rangex = self.x_data[0,:]
+            rangey = self.y_data[:,0]
+            start_x = rangex[0]
+            start_y = rangey[0]
+            dimv = self.data_all.shape
             for k, v in six.iteritems(self.result_map):
                 shapev = [dimv[1], dimv[0]]  # horizontal first, then vertical, different from dim in numpy
                 interp_d = interp1d_scan(shapev, rangex, rangey, start_x, start_y,
@@ -665,6 +671,9 @@ class Fit1D(Atom):
         to_tiff : str, optional
             save to tiff or not
         """
+        # importing output_data at the beginning of the file fails. need to figure out why!
+        from .fileio import output_data
+
         output_n = self.hdf_name.split('.')[0] + '_output'
         if to_tiff:
             output_data(self.hdf_path, os.path.join(self.result_folder, output_n))
@@ -1670,208 +1679,31 @@ def get_branching_ratio(elemental_line, energy):
     return ratio_v
 
 
-def fit_pixel_data_and_save(working_directory, file_name,
-                            fit_channel_sum=True, param_file_name=None,
-                            fit_channel_each=False, param_channel_list=[],
-                            incident_energy=None,
-                            method='nnls', pixel_bin=0, raise_bg=0,
-                            comp_elastic_combine=False,
-                            linear_bg=False,
-                            use_snip=True,
-                            bin_energy=0,
-                            spectrum_cut=3000,
-                            save_txt=False,
-                            save_tiff=True):
-    """
-    Do fitting for multiple data sets, and save data accordingly. Fitting can be performed on
-    either summed data or each channel data, or both.
-
-    Parameters
-    ----------
-    working_directory : str
-        path folder
-    file_names : str
-        selected h5 file
-    fit_channel_sum : bool, optional
-        fit summed data or not
-    param_file_name : str, optional
-        param file name for summed data fitting
-    fit_channel_each : bool, optional
-        fit each channel data or not
-    param_channel_list : list, optional
-        list of param file names for each channel
-    incident_energy : float, optional
-        use this energy as incident energy instead of the one in param file, i.e., XANES
-    method : str, optional
-        fitting method, default as nnls
-    pixel_bin : int, optional
-        bin pixel as 2by2, or 3by3
-    raise_bg : int, optional
-        add a constant value to each spectrum, better for fitting
-    comp_elastic_combine : bool, optional
-        combine elastic and compton as one component for fitting
-    linear_bg : bool, optional
-        use linear background instead of snip
-    use_snip : bool, optional
-        use snip method to remove background
-    bin_energy : int, optional
-        bin spectrum with given value
-    spectrum_cut : int, optional
-        only use spectrum from, say 0, 3000
-    save_txt : bool, optional
-        save data to txt or not
-    save_tiff : bool, optional
-        save data to tiff or not
-    """
-    fpath = os.path.join(working_directory, file_name)
-    t0 = time.time()
-    prefix_fname = file_name.split('.')[0]
-    if fit_channel_sum is True:
-        img_dict, data_sets = read_hdf_APS(working_directory, file_name,
-                                           spectrum_cut=spectrum_cut,
-                                           load_each_channel=False)
-
-        data_all_sum = data_sets[prefix_fname+'_sum'].raw_data
-        # load param file
-        param_path = os.path.join(working_directory, param_file_name)
-        with open(param_path, 'r') as json_data:
-            param_sum = json.load(json_data)
-
-        # update incident energy, required for XANES
-        if incident_energy is not None:
-            param_sum['coherent_sct_amplitude']['value'] = incident_energy
-
-        result_map_sum, calculation_info = single_pixel_fitting_controller(data_all_sum,
-                                                                           param_sum,
-                                                                           method=method,
-                                                                           pixel_bin=pixel_bin,
-                                                                           raise_bg=raise_bg,
-                                                                           comp_elastic_combine=comp_elastic_combine,
-                                                                           linear_bg=linear_bg,
-                                                                           use_snip=use_snip,
-                                                                           bin_energy=bin_energy)
-
-        # output to .h5 file
-        inner_path = 'xrfmap/detsum'
-        fit_name = prefix_fname+'_fit'
-        save_fitdata_to_hdf(fpath, result_map_sum, datapath=inner_path)
-
-    if fit_channel_each is True:
-        channel_num = len(param_channel_list)
-        img_dict, data_sets = read_hdf_APS(working_directory, file_name,
-                                           channel_num=channel_num,
-                                           spectrum_cut=spectrum_cut,
-                                           load_each_channel=True)
-        for i in range(channel_num):
-            filename_det = prefix_fname+'_ch'+str(i+1)
-            inner_path = 'xrfmap/det'+str(i+1)
-
-            # load param file
-            param_file_det = param_channel_list[i]
-            param_path = os.path.join(working_directory, param_file_det)
-            with open(param_path, 'r') as json_data:
-                param_det = json.load(json_data)
-
-            # update incident energy, required for XANES
-            if incident_energy is not None:
-                param_det['coherent_sct_amplitude']['value'] = incident_energy
-
-            data_all_det = data_sets[filename_det].raw_data
-            result_map_det, calculation_info = single_pixel_fitting_controller(data_all_det,
-                                                                               param_det,
-                                                                               method=method,
-                                                                               pixel_bin=pixel_bin,
-                                                                               raise_bg=raise_bg,
-                                                                               comp_elastic_combine=comp_elastic_combine,
-                                                                               linear_bg=linear_bg,
-                                                                               use_snip=use_snip,
-                                                                               bin_energy=bin_energy)
-            # output to .h5 file
-            save_fitdata_to_hdf(fpath, result_map_det, datapath=inner_path)
-
-    t1 = time.time()
-    print('Time used for pixel fitting for file {} is : {}'.format(file_name, t1-t0))
-
-    if save_txt is True:
-        output_folder = 'output_txt_'+prefix_fname
-        output_data(fpath, output_folder, file_format='txt')
-    if save_tiff is True:
-        output_folder = 'output_tiff_'+prefix_fname
-        output_data(fpath, output_folder, file_format='tiff')
-
-
-def save_fitdata_to_hdf(fpath, data_dict,
-                        datapath='xrfmap/detsum',
-                        data_saveas='xrf_fit',
-                        dataname_saveas='xrf_fit_name'):
-    """
-    Add fitting results to existing h5 file. This is to be moved to filestore.
-
-    Parameters
-    ----------
-    fpath : str
-        path of the hdf5 file
-    data_dict : dict
-        dict of array
-    datapath : str
-        path inside h5py file
-    data_saveas : str, optional
-        name in hdf for data array
-    dataname_saveas : str, optional
-        name list in hdf to explain what the saved data mean
-    """
-    f = h5py.File(fpath, 'a')
-    try:
-        dataGrp = f.create_group(datapath)
-    except ValueError:
-        dataGrp=f[datapath]
-
-    data = []
-    namelist = []
-    for k, v in six.iteritems(data_dict):
-        namelist.append(str(k))
-        data.append(v)
-
-    if data_saveas in dataGrp:
-        del dataGrp[data_saveas]
-
-    data = np.array(data)
-    ds_data = dataGrp.create_dataset(data_saveas, data=data)
-    ds_data.attrs['comments'] = ' '
-
-    if dataname_saveas in dataGrp:
-        del dataGrp[dataname_saveas]
-
-    name_data = dataGrp.create_dataset(dataname_saveas, data=namelist)
-    name_data.attrs['comments'] = ' '
-
-    f.close()
-
-
-def ccombine_data_to_hdf(fpath_read, file_prefix,
-                         start_id, end_id,
-                         interpath_read='entry/instrument/detector/data'):
-    """
-    Read data from each point scan, then save them to one hdf file.
-    Following APS X13 beamline structure.
-    """
-    datasum = None
-    for i in range(start_id, end_id+1):
-        num_str = '{:03d}'.format(i)
-        filename = file_prefix + num_str
-        file_path = os.path.join(fpath_read, filename)
-        with h5py.File(file_path, 'r') as f:
-            data_temp = f[interpath_read][:]
-            #data_temp = np.asarray(data_temp)
-            #datasum.append(np.sum(data_temp, axis=1))
-            if datasum is None:
-                datasum = np.zeros([end_id-start_id+1,
-                                    data_temp.shape[0],
-                                    data_temp.shape[1],
-                                    data_temp.shape[2]])
-            datasum[i-start_id, :, :, :] = data_temp
-
-    return datasum
+#
+# def combine_data_to_hdf(fpath_read, file_prefix,
+#                          start_id, end_id,
+#                          interpath_read='entry/instrument/detector/data'):
+#     """
+#     Read data from each point scan, then save them to one hdf file.
+#     Following APS X13 beamline structure.
+#     """
+#     datasum = None
+#     for i in range(start_id, end_id+1):
+#         num_str = '{:03d}'.format(i)
+#         filename = file_prefix + num_str
+#         file_path = os.path.join(fpath_read, filename)
+#         with h5py.File(file_path, 'r') as f:
+#             data_temp = f[interpath_read][:]
+#             #data_temp = np.asarray(data_temp)
+#             #datasum.append(np.sum(data_temp, axis=1))
+#             if datasum is None:
+#                 datasum = np.zeros([end_id-start_id+1,
+#                                     data_temp.shape[0],
+#                                     data_temp.shape[1],
+#                                     data_temp.shape[2]])
+#             datasum[i-start_id, :, :, :] = data_temp
+#
+#     return datasum
 
 
 def fit_pixel_fast(dir_path, file_prefix,

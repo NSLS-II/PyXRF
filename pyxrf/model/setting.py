@@ -251,21 +251,19 @@ class SettingModel(Atom):
         for fname, datav in six.iteritems(self.data_sets):
             # quick way to ignore channel data, only for summed data
             # to be updated
-
-            if 'sum' in fname:
-                temp = {}
-                for k, v in six.iteritems(self.roi_dict):
-                    leftv = v.left_val/1000
-                    rightv = v.right_val/1000
-                    sum2D = calculate_roi(datav.raw_data,
-                                          self.parameters['e_linear']['value'],
-                                          self.parameters['e_offset']['value'],
-                                          [leftv, rightv])
-                    temp.update({k: sum2D})
-                    logger.debug('Calculation is done for {}, {}, {}'.format(v.prefix,
-                                                                             fname, k))
-                roi_result[v.prefix+'_'+fname] = temp
-                return roi_result
+            temp = {}
+            for k, v in six.iteritems(self.roi_dict):
+                leftv = v.left_val/1000
+                rightv = v.right_val/1000
+                sum2D = calculate_roi(datav.raw_data,
+                                      self.parameters['e_linear']['value'],
+                                      self.parameters['e_offset']['value'],
+                                      [leftv, rightv])
+                temp.update({k: sum2D})
+                logger.debug('Calculation is done for {}, {}, {}'.format(v.prefix,
+                                                                         fname, k))
+            roi_result[v.prefix+'_'+fname] = temp
+            return roi_result
 
 
 def calculate_roi(data3D, e_linear, e_offset, range_v):

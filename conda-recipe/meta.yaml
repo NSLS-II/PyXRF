@@ -21,6 +21,7 @@ requirements:
     - h5py
     - six
     - matplotlib ==1.4.3
+    - ipython ==3.2.0
     - numpy
     - pandas
     - python
