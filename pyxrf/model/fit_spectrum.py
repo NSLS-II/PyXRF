@@ -536,7 +536,7 @@ class Fit1D(Atom):
         app = QApplication.instance()
         raise_bg = self.raise_bg
         pixel_bin = self.pixel_bin
-        comp_elastic_combine = True
+        comp_elastic_combine = False
         linear_bg = self.linear_bg
         use_snip = self.use_snip
         bin_energy = self.bin_energy
