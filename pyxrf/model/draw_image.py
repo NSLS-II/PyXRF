@@ -315,17 +315,11 @@ class DrawImageAdvanced(Atom):
         stat_temp = self.get_activated_num()
         stat_temp = OrderedDict(sorted(six.iteritems(stat_temp), key=lambda x: x[0]))
 
-        # ic value is low at SRX, better way needs to be considered.
-        ic_threshold = 1.0
-
         low_lim = 1e-4  # define the low limit for log image
-        ic_norm = 10000  # multiply by this value for ic normalization
         plot_interp = 'Nearest'
         name_not_scalable = ['r_squared']  # do not apply scaler norm on those data
 
         if self.scaler_data is not None:
-            if np.max(self.scaler_data) < ic_threshold:  # ic number is low at SRX
-                ic_norm = 1.0
             if len(self.scaler_data[self.scaler_data == 0]) > 0:
                 logger.warning('scaler data has zero values at {}'.format(np.where(self.scaler_data == 0)))
                 self.scaler_data[self.scaler_data == 0] = np.mean(self.scaler_data[self.scaler_data > 0])
@@ -359,7 +353,7 @@ class DrawImageAdvanced(Atom):
                     if k in name_not_scalable:
                         data_dict = self.dict_to_plot[k]
                     else:
-                        data_dict = self.dict_to_plot[k]/self.scaler_data*ic_norm
+                        data_dict = self.dict_to_plot[k]/self.scaler_data
 
                 else:
                     data_dict = self.dict_to_plot[k]
@@ -402,7 +396,7 @@ class DrawImageAdvanced(Atom):
                     if k in name_not_scalable:
                         data_dict = self.dict_to_plot[k]
                     else:
-                        data_dict = self.dict_to_plot[k]/self.scaler_data*ic_norm
+                        data_dict = self.dict_to_plot[k]/self.scaler_data
 
                 else:
                     data_dict = self.dict_to_plot[k]
