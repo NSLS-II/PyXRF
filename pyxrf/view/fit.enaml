@@ -291,7 +291,7 @@ enamldef FitView(DockItem): fit_view:
                         align = 'center'
                     Label: cs_name:
                         text = 'CS'
-                        tool_tip = 'Cross Section [cm2/g]'
+                        tool_tip = 'Cross Section [barns/atom]'
                         minimum_size = (20, 20)
                     #PushButton: select_all:
                     #    text = 'Show All'
