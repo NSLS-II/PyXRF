@@ -1789,9 +1789,7 @@ def _make_hdf(fpath, runid):
 
             evs, _ = zip(*zip(get_events(hdr), range(total_len-cut_num)))
 
-            namelist = config_data['xrf_detector'] +
-                       pos_list=config_data['pos_list'] +
-                       config_data['scaler_list']
+            namelist = config_data['xrf_detector'] +config_data['pos_list'] +config_data['scaler_list']
 
             dictv = {v:[] for v in namelist}
 
@@ -1816,7 +1814,7 @@ def _make_hdf(fpath, runid):
         print("Databroker is not setup for this beamline")
 
 
-def make_hdf(start, end=None, fpath=None, prefix='scan2D_'):
+def make_hdf(start, end=None, fname=None, prefix='scan2D_'):
     """
     Transfer multiple h5 files.
 
@@ -1826,7 +1824,7 @@ def make_hdf(start, end=None, fpath=None, prefix='scan2D_'):
         start run id
     end : int, optional
         end run id
-    fpath : string
+    fname : string
         path to save file when start equals to end, in this case only
         one file is transfered.
     prefix : str, optional
@@ -1836,7 +1834,9 @@ def make_hdf(start, end=None, fpath=None, prefix='scan2D_'):
         end = start
 
     if end == start:
-        _make_hdf(fpath, start)  # only transfer one file
+        if fname is None:
+            fname = prefix+str(start)+'.h5'
+        _make_hdf(fname, start)  # only transfer one file
     else:
         datalist = range(start, end+1)
         for v in datalist:
