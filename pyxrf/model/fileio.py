@@ -1781,37 +1781,26 @@ def _make_hdf(fpath, runid):
         except IndexError:
             # !!! this part needs to rewrite during shutdown. it is better to pass
             # !!! array data to write_db_to_hdf, instead of dataframe or dict
+            # !!! this is not optimized, to be update soon!
+
             cut_num = 2
             spectrum_len = 4096
             total_len = datashape[0]*datashape[1]
-            data0 = get_table(hdr, fill=False)
-            data = data0.to_dict(orient='list')
-            xrf_det_list = set(config_data['xrf_detector'])
+
             evs, _ = zip(*zip(get_events(hdr), range(total_len-cut_num)))
-            evs = list(evs)
-            tmp1 = {}
-            tmp2 = {}
-            tmp3 = {}
-            tmp_array = np.zeros(spectrum_len)
-            for i in range(total_len):
-                tmp1[i+1] = np.array(tmp_array)
-                tmp2[i+1] = np.array(tmp_array)
-                tmp3[i+1] = np.array(tmp_array)
-            for i in range(1, total_len-cut_num+1):
-                for detn in xrf_det_list:
-                    if 'ch1' in detn:
-                        tmp1[i] = evs[i-1].data[detn]
-                    if 'ch2' in detn:
-                        tmp2[i] = evs[i-1].data[detn]
-                    if 'ch3' in detn:
-                        tmp3[i] = evs[i-1].data[detn]
-            for detn in xrf_det_list:
-                if 'ch1' in detn:
-                    data[detn] = copy.deepcopy(tmp1)
-                if 'ch2' in detn:
-                    data[detn] = copy.deepcopy(tmp2)
-                if 'ch3' in detn:
-                    data[detn] = copy.deepcopy(tmp3)
+
+            namelist = config_data['xrf_detector'] +
+                       pos_list=config_data['pos_list'] +
+                       config_data['scaler_list']
+
+            dictv = {v:[] for v in namelist}
+
+            for e in evs:
+                for k,v in six.iteritems(dictv):
+                    dictv[k].append(e.data[k])
+
+            data = pd.DataFrame(dictv, index=np.arange(1, total_len-cut_num+1)) # need to start with 1
+
         print('Saving data to hdf file.')
         write_db_to_hdf(fpath, data,
                         datashape,
