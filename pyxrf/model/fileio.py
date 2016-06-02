@@ -8,7 +8,7 @@
 #                                                                      #
 # * Redistributions of source code must retain the above copyright     #
 #   notice, this list of conditions and the following disclaimer.      #
-#                                                                      #
+#                                                                       #
 # * Redistributions in binary form must reproduce the above copyright  #
 #   notice this list of conditions and the following disclaimer in     #
 #   the documentation and/or other materials provided with the         #
@@ -1729,6 +1729,60 @@ def get_name_value_from_db(name_list, data, datashape):
 
 # def get_scaler_list_hxn(all_keys):
 #     return [v for v in all_keys if 'sclr1_' in v]
+
+
+def add_extral_fields_hdf(fpath, config_path):
+    """Add extral information from databroker into h5 file.
+    In progress.
+    """
+    with open(config_path, 'r') as json_data:
+        config_data = json.load(json_data)
+    print(config_data.keys())
+
+    interpath = 'xrfmap'
+    with h5py.File(fpath, 'a') as f:
+
+        try:
+            dg = f.create_group(interpath+'/config')
+        except ValueError:
+            dg = f[interpath+'/config']
+
+        sub_name_dict = {'upstream': 'upstream_name_list',
+                         'microscope': 'microscope_name_list'}
+        for sub_name, v in sub_name_dict.items():
+            try:
+                dg_sub = dg.create_group(sub_name)
+            except ValueError:
+                dg_sub = dg[sub_name]
+
+            data_name = [str(val) for val in config_data[v]]
+
+            # need to read data from PV here
+            data_val = np.zeros(len(data_name))
+
+            try:
+                dg_sub.create_dataset('name', data=data_name)
+            except RuntimeError:
+                try:
+                    dg_sub['name'][:] = data_name
+                except TypeError:  # when the length of data items changes
+                    dg_sub.__delitem__('name')
+                    dg_sub.create_dataset('name', data=data_name)
+
+            try:
+                dg_sub.create_dataset('value', data=data_val)
+            except RuntimeError:
+                try:
+                    dg_sub['value'][:] = data_val
+                except TypeError:
+                    dg_sub.__delitem__('value')
+                    dg_sub.create_dataset('value', data=data_val)
+
+        # sub_name = 'microscope'
+        # try:
+        #     dg_m = dg.create_group(sub_name)
+        # except ValueError:
+        #     dg_m = dg[sub_name]
 
 
 def _make_hdf(fpath, runid):
