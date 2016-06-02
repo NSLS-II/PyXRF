@@ -187,8 +187,8 @@ class DrawImageAdvanced(Atom):
                 # self.x_pos.reverse()
                 # we use imshow with lower as the origin, so flip y
                 self.y_pos.reverse()
-            except KeyError, e:
-                logger.info(e)
+            except KeyError:
+                pass
 
         else:
             self.x_pos = []

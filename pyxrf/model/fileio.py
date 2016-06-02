@@ -60,7 +60,7 @@ logger = logging.getLogger(__name__)
 try:
     from databroker.databroker import DataBroker as db, get_table, get_events
     # registers a filestore handler for the XSPRESS3 detector
-except ImportError as e:
+except (ImportError, KeyError) as e:
     db = None
     logger.error('databroker is not available: %s', e)
 
@@ -1820,7 +1820,9 @@ def _make_hdf(fpath, runid):
         start_doc = hdr['start']
         datashape = start_doc['shape']   # vertical first then horizontal
         fly_type = None
-    	snake_scan = start_doc.get('snaking')
+
+        # issues on py3
+        snake_scan = start_doc.get('snaking')
     	if snake_scan[1] == True:
     	    fly_type = 'pyramid'
 
