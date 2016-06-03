@@ -67,6 +67,8 @@ except (ImportError, KeyError) as e:
 try:
     # registers a filestore handler for the XSPRESS3 detector
     from hxntools import handlers as hxn_handlers
+    from hxntools.handlers import register
+    register()
 except ImportError as e:
     logger.error('hxntools is not available from old version: %s', e)
 
@@ -1808,9 +1810,13 @@ def _make_hdf(fpath, runid):
         fly_type = start_doc.get('fly_type', None)
         subscan_dims = start_doc.get('subscan_dims', None)
 
+        #fields = ['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3', 'zpssx[um]', 'zpssy[um]',
+        #          'ssx[um]', 'ssy[um]', 'ssx', 'ssy', 'sclr1_ch3', 'sclr1_ch4']
+
+        # only for zone plate, to be updated
         fields = ['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3', 'zpssx[um]', 'zpssy[um]',
-                  'ssx[um]', 'ssy[um]', 'ssx', 'ssy', 'sclr1_ch3', 'sclr1_ch4']
-        data = get_table(hdr, fields=fields)
+                  'sclr1_ch3', 'sclr1_ch4']
+        data = get_table(hdr, fields=fields, fill=True)
 
         print('Saving data to hdf file.')
         write_db_to_hdf(fpath, data, datashape, fly_type=fly_type, subscan_dims=subscan_dims)
