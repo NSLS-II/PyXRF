@@ -60,13 +60,15 @@ logger = logging.getLogger(__name__)
 try:
     from databroker.databroker import DataBroker as db, get_table, get_events
     # registers a filestore handler for the XSPRESS3 detector
-except ImportError as e:
+except (ImportError, KeyError) as e:
     db = None
     logger.error('databroker is not available: %s', e)
 
 try:
     # registers a filestore handler for the XSPRESS3 detector
     from hxntools import handlers as hxn_handlers
+    from hxntools.handlers import register
+    register()
 except ImportError as e:
     logger.error('hxntools is not available from old version: %s', e)
 
@@ -1830,9 +1832,13 @@ def _make_hdf(fpath, runid):
         fly_type = start_doc.get('fly_type', None)
         subscan_dims = start_doc.get('subscan_dims', None)
 
+        #fields = ['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3', 'zpssx[um]', 'zpssy[um]',
+        #          'ssx[um]', 'ssy[um]', 'ssx', 'ssy', 'sclr1_ch3', 'sclr1_ch4']
+
+        # only for zone plate, to be updated
         fields = ['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3', 'zpssx[um]', 'zpssy[um]',
-                  'ssx[um]', 'ssy[um]', 'ssx', 'ssy', 'sclr1_ch3', 'sclr1_ch4']
-        data = get_table(hdr, fields=fields)
+                  'sclr1_ch3', 'sclr1_ch4']
+        data = get_table(hdr, fields=fields, fill=True)
 
         print('Saving data to hdf file.')
         write_db_to_hdf(fpath, data, datashape, fly_type=fly_type, subscan_dims=subscan_dims)
@@ -1842,7 +1848,9 @@ def _make_hdf(fpath, runid):
         start_doc = hdr['start']
         datashape = start_doc['shape']   # vertical first then horizontal
         fly_type = None
-    	snake_scan = start_doc.get('snaking')
+
+        # issues on py3
+        snake_scan = start_doc.get('snaking')
     	if snake_scan[1] == True:
     	    fly_type = 'pyramid'
 

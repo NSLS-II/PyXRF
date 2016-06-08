@@ -113,8 +113,8 @@ class ElementController(object):
             del self.element_dict[k]
             self.update_norm()
             logger.debug('Item {} is deleted.'.format(k))
-        except KeyError, e:
-            logger.info(e)
+        except KeyError:
+            pass
 
     def order(self, option='z'):
         """
