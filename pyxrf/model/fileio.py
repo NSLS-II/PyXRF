@@ -114,8 +114,13 @@ class FileIOModel(Atom):
     #file_name = Str()
     mask_data = Typed(object)
     mask_name = Str()
-    mask_opt = Bool(False)
+    mask_opt = Int(0)
     load_each_channel = Bool(True)
+
+    p1_row = Int(-1)
+    p1_col = Int(-1)
+    p2_row = Int(-1)
+    p2_col = Int(-1)
 
     def __init__(self, **kwargs):
         self.working_directory = kwargs['working_directory']
@@ -167,27 +172,8 @@ class FileIOModel(Atom):
         db_to_hdf_config(fpath, self.runid,
                          datashape, config_file)
 
-    @observe('file_opt', 'mask_name', 'mask_opt')
+    @observe('file_opt')
     def choose_file(self, change):
-        # load mask data
-        if len(self.mask_name) > 0 and self.mask_opt is True:
-            mask_file = os.path.join(self.working_directory, self.mask_name)
-            try:
-                if 'npy' in mask_file:
-                    self.mask_data = np.load(mask_file)
-                elif 'txt' in mask_file:
-                    self.mask_data = np.loadtxt(mask_file)
-                else:
-                    self.mask_data = np.array(Image.open(mask_file))
-            except IOError:
-                logger.error('Mask file cannot be loaded.')
-
-            for k in six.iterkeys(self.img_dict):
-                if 'fit' in k:
-                    self.img_dict[k][self.mask_name] = self.mask_data
-        else:
-            self.mask_data = None
-
         if self.file_opt == 0:
             return
 
@@ -197,20 +183,51 @@ class FileIOModel(Atom):
             self.selected_file_name = self.file_channel_list[self.file_opt-1]
         except IndexError:
             pass
+
         # passed to fitting part for single pixel fitting
         self.data_all = self.data_sets[self.selected_file_name].raw_data
         # get summed data or based on mask
-        self.data = self.data_sets[self.selected_file_name].get_sum(mask=self.mask_data)
+        self.data = self.data_sets[self.selected_file_name].get_sum()
 
-    # @observe('mask_name')
-    # def load_mask_data(self, change):
-    #     if change['type'] != 'create':
-    #         mask_file = os.path.join(self.working_directory, self.mask_name)
-    #         self.mask_data = np.load(mask_file)
-    #         spectrum = self.data_sets[names[self.file_opt-1]].get_sum(mask=self.mask_data)
-    #         print(np.sum(spectrum))
-    #         self.data = spectrum
+    def apply_mask(self):
+        """Apply mask with different options.
+        """
+        print("what is mask opt: ", self.mask_opt)
 
+        if self.mask_opt == 2:
+            # load mask data
+            if len(self.mask_name) > 0:
+                mask_file = os.path.join(self.working_directory, self.mask_name)
+                try:
+                    if 'npy' in mask_file:
+                        self.mask_data = np.load(mask_file)
+                    elif 'txt' in mask_file:
+                        self.mask_data = np.loadtxt(mask_file)
+                    else:
+                        self.mask_data = np.array(Image.open(mask_file))
+                except IOError:
+                    logger.error('Mask file cannot be loaded.')
+
+                for k in six.iterkeys(self.img_dict):
+                    if 'fit' in k:
+                        self.img_dict[k][self.mask_name] = self.mask_data
+        else:
+            self.mask_data = None
+
+            if self.mask_opt == 1:
+                print(self.p1_row, self.p1_col)
+                # define square mask region
+                if self.p1_row>=0 and self.p1_col>=0:
+                    self.data_sets[self.selected_file_name].point1 = [self.p1_row, self.p1_col]
+                if self.p2_row>=0 and self.p2_col>=0:
+                    self.data_sets[self.selected_file_name].point2 = [self.p2_row, self.p2_col]
+            else:
+                self.data_sets[self.selected_file_name].delete_points()
+
+        # passed to fitting part for single pixel fitting
+        self.data_all = self.data_sets[self.selected_file_name].raw_data
+        # get summed data or based on mask
+        self.data = self.data_sets[self.selected_file_name].get_sum(self.mask_data)
 
 
 plot_as = ['Sum', 'Point', 'Roi']
@@ -236,32 +253,45 @@ class DataSelection(Atom):
     """
     filename = Str()
     plot_choice = Enum(*plot_as)
-    point1 = Str('0, 0')
-    point2 = Str('0, 0')
+    #point1 = Str('0, 0')
+    #point2 = Str('0, 0')
+    point1 = List()
+    point2 = List()
     raw_data = Typed(np.ndarray)
     data = Typed(np.ndarray)
-    plot_index = Int(0)
+    #plot_index = Int(0)
     fit_name = Str()
     fit_data = Typed(np.ndarray)
 
-    @observe('plot_index', 'point1', 'point2')
-    def _update_roi(self, change):
-        if self.plot_index == 0:
-            return
-        elif self.plot_index == 1:
-            self.data = self.get_sum()
-        elif self.plot_index == 2:
-            SC = SpectrumCalculator(self.raw_data, pos1=self.point1)
-            self.data = SC.get_spectrum()
+    # @observe('point1', 'point2')
+    # def _update_roi(self, change):
+    #     # if self.plot_index == 0:
+    #     #     return
+    #     # elif self.plot_index == 1:
+    #     #     self.data = self.get_sum()
+    #     # elif self.plot_index == 2:
+    #     #     SC = SpectrumCalculator(self.raw_data, pos1=self.point1)
+    #     #     self.data = SC.get_spectrum()
+    #     # else:
+    #     SC = SpectrumCalculator(self.raw_data,
+    #                             pos1=self.point1,
+    #                             pos2=self.point2)
+    #     self.data = SC.get_spectrum()
+
+    def delete_points(self):
+        self.point1 = []
+        self.point2 = []
+
+    def get_sum(self, mask=None):
+        print('points {}'.format(self.point1))
+        if len(self.point1)==0 and len(self.point2)==0:
+            SC = SpectrumCalculator(self.raw_data)
+            return SC.get_spectrum(mask=mask)
         else:
             SC = SpectrumCalculator(self.raw_data,
                                     pos1=self.point1,
                                     pos2=self.point2)
-            self.data = SC.get_spectrum()
-
-    def get_sum(self, mask=None):
-        SC = SpectrumCalculator(self.raw_data)
-        return SC.get_spectrum(mask=mask)
+            return SC.get_spectrum()
 
 
 class SpectrumCalculator(object):
@@ -281,31 +311,23 @@ class SpectrumCalculator(object):
     def __init__(self, data,
                  pos1=None, pos2=None):
         self.data = data
-        if pos1:
-            self.pos1 = self._parse_pos(pos1)
-        else:
-            self.pos1 = None
-        if pos2:
-            self.pos2 = self._parse_pos(pos2)
-        else:
-            self.pos2 = None
-
-    def _parse_pos(self, pos):
-        if isinstance(pos, list):
-            return pos
-        return [int(v) for v in pos.split(',')]
+        self.pos1 = pos1
+        self.pos2 = pos2
 
     def get_spectrum(self, mask=None):
         """
         Get roi sum from point positions, or from mask file.
         """
+        print(mask)
+        print(self.pos1, self.pos2)
         if mask is None:
             if not self.pos1 and not self.pos2:
                 return np.sum(self.data, axis=(0, 1))
             elif self.pos1 and not self.pos2:
                 return self.data[self.pos1[0], self.pos1[1], :]
             else:
-                return np.sum(self.data[self.pos1[0]:self.pos2[0], self.pos1[1]:self.pos2[1], :],
+                return np.sum(self.data[self.pos1[0]:self.pos2[0],
+                                        self.pos1[1]:self.pos2[1], :],
                               axis=(0, 1))
         else:
             spectrum_sum = np.zeros(self.data.shape[2])

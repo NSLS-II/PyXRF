@@ -1272,7 +1272,7 @@ enamldef EditPileupPeak(Window): pileup_win:
     attr plot_model
     destroy_on_close = False
 
-    title = 'Pileup Peak Editor'
+    #title = 'Pileup Peak Editor'
     Container:
         Form:
             Label: e1:

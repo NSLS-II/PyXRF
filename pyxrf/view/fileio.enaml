@@ -63,6 +63,7 @@ enamldef FileView(DockItem): file_view:
     #attr img_model_adv
     attr fit_model
     attr setting_model
+    attr mask_edit
 
     Container:
         Container:
@@ -72,18 +73,17 @@ enamldef FileView(DockItem): file_view:
                     hbox(folder_fd),
                     hbox(cb_each, spacer),
                     hbox(files_btn, files_load, spacer),
-                    hbox(mask_btn, mask_load_note, mask_cb),
                     #hbox(pixel_h_label, pixel_h, pixel_v_label, pixel_v, spacer),
                     #hbox(cb_runid, run_lbl, run_num, load_btn, spacer),
                     hbox(gb_db),
                     hbox(gb_fit),
+                    hbox(mask_opt, spacer),
                     scroller,
                     hbox(plot_bt, spacer),
                 ),
                 folder_btn.width == files_btn.width,
-                folder_btn.width == mask_btn.width,
+                #folder_btn.width == mask_btn.width,
                 files_btn.height == files_load.height,
-                mask_btn.height == mask_load_note.height,
             ]
             PushButton: folder_btn:
                 text = "Working Directory"
@@ -119,19 +119,18 @@ enamldef FileView(DockItem): file_view:
             Label: files_load:
                 text = 'No data is loaded.'
 
-            PushButton: mask_btn:
-                text = "Load Mask File"
-                clicked ::
-                    path = FileDialogEx.get_open_file_names(file_view, current_path=io_model.working_directory)
-                    if path:
-                        io_model.mask_name = [item.split('/')[-1] for item in path][0]
-                        mask_load_note.text = [item.split('/')[-1] for item in path][0]
-            Label: mask_load_note:
-                text = 'No data is loaded.'
-            CheckBox: mask_cb:
-                text = 'Apply Mask'
+            PushButton: mask_opt:
+                text = 'Mask Option'
+                enabled = True
                 checkable = True
-                checked := io_model.mask_opt
+                checked := mask_edit.visible
+                clicked ::
+                    if checked:
+                        mask_edit.show()
+                    else:
+                        mask_edit.hide()
+
+
             GroupBox: gb_db:
                 title = 'Data from database'
                 constraints = [hbox(run_lbl, run_num, load_btn, spacer),]
@@ -178,9 +177,8 @@ enamldef FileView(DockItem): file_view:
                         iterable << io_model.file_channel_list
                         GroupBox:
                             title = '{}, data shape: {}, total counts: {}'.format(loop_item, io_model.data_sets[loop_item].raw_data.shape, int(np.sum(io_model.data_sets[loop_item].raw_data)))
-                            #title_align = 'center'
-                            #constraints = [hbox(cb, lb1, fd1, lb2, fd2, spacer)]
                             constraints = [hbox(rb_1, rb_2, rb_3, rb_4, lb1, fd1, lb2, fd2, spacer)]
+                            constraints = [hbox(rb_1, rb_2, spacer)]
                             padding = Box(0, 0, 0, 0)
 
                             RadioButton: rb_1:
@@ -197,42 +195,42 @@ enamldef FileView(DockItem): file_view:
                                     #plot_bt.enabled = True
                                     #plot_model.data_sets = io_model.data_sets
 
-                            RadioButton: rb_3:
-                                text = 'Point'
-                                clicked ::
-                                    io_model.data_sets[loop_item].plot_index = 2
-                                    fd1.enabled = True
-                                    fd2.enabled = False
+                            #RadioButton: rb_3:
+                            #    text = 'Point'
+                            #    clicked ::
+                            #        io_model.data_sets[loop_item].plot_index = 2
+                            #        fd1.enabled = True
+                            #        fd2.enabled = False
                                     #plot_bt.enabled = True
                                     #plot_model.data_sets = io_model.data_sets
 
-                            RadioButton: rb_4:
-                                text = 'ROI'
-                                clicked ::
-                                    io_model.data_sets[loop_item].plot_index = 3
-                                    fd1.enabled = True
-                                    fd2.enabled = True
+                            #RadioButton: rb_4:
+                            #    text = 'ROI'
+                            #    clicked ::
+                            #        io_model.data_sets[loop_item].plot_index = 3
+                            #        fd1.enabled = True
+                            #        fd2.enabled = True
                                     #plot_bt.enabled = True
                                     #plot_model.data_sets = io_model.data_sets
 
-                            Label: lb1:
-                                text = 'Start'
-                                minimum_size = (30, 10)
+                            #Label: lb1:
+                            #    text = 'Start'
+                            #    minimum_size = (30, 10)
                                 #maximum_size = 50
-                            Field: fd1:
-                                text := io_model.data_sets[loop_item].point1
-                                maximum_size = 40
-                                enabled = False
+                            #Field: fd1:
+                            #    text := io_model.data_sets[loop_item].point1
+                            #    maximum_size = 40
+                            #    enabled = False
                                 #plot_model.data_sets = io_model.data_sets
 
-                            Label: lb2:
-                                text = 'End'
-                                minimum_size = (30, 10)
+                            #Label: lb2:
+                            #    text = 'End'
+                            #    minimum_size = (30, 10)
                                 #maximum_size = 50
-                            Field: fd2:
-                                text := io_model.data_sets[loop_item].point2
-                                maximum_size = 40
-                                enabled = False
+                            #Field: fd2:
+                            #    text := io_model.data_sets[loop_item].point2
+                            #    maximum_size = 40
+                            #    enabled = False
                                 #plot_model.data_sets = io_model.data_sets
 
             PushButton: plot_bt:
@@ -250,3 +248,103 @@ enamldef FileView(DockItem): file_view:
                     else:
                         plot_model.show_exp_opt = False
                         plot_bt.text = 'Plot Experiments'
+
+
+enamldef MaskView(Window): mask_view:
+    attr io_model
+    title = 'Option to select given area'
+    destroy_on_close = False
+
+    Container:
+        constraints = [
+            vbox(
+                rb_pos,
+                gb_pos,
+                rb_file,
+                hbox(mask_btn, mask_load_note, spacer),
+                rb_nomask,
+                hbox(save_btn, spacer),
+            ),
+            mask_btn.height == mask_load_note.height,
+        ]
+
+        RadioButton: rb_pos:
+            text = "Define mask region based on positions"
+            checked = io_model.mask_opt==0
+            clicked ::
+                if checked:
+                    io_model.mask_opt = 1
+        RadioButton: rb_file:
+            text = "Load mask from a file"
+            checked = io_model.mask_opt==0
+            clicked ::
+                if checked:
+                    io_model.mask_opt = 2
+        RadioButton: rb_nomask:
+            text = 'Do not Apply Mask'
+            checked = io_model.mask_opt==0
+            clicked ::
+                if checked:
+                    io_model.mask_opt = 0
+
+        PushButton: mask_btn:
+            text = "Load"
+            clicked ::
+                path = FileDialogEx.get_open_file_names(mask_view, current_path=io_model.working_directory)
+                if path:
+                    io_model.mask_name = [item.split('/')[-1] for item in path][0]
+                    mask_load_note.text = [item.split('/')[-1] for item in path][0]
+        Label: mask_load_note:
+            text = 'No file is loaded.'
+
+        GroupBox: gb_pos:
+            constraints = [
+                vbox(
+                    hbox(p1, r1, r1f, c1, c1f),
+                    hbox(p2, r2, r2f, c2, c2f),
+                )
+            ]
+            Label: p1:
+                text = 'starting position: '
+            Label: r1:
+                text = 'row number'
+                minimum_size = (30, 10)
+                #maximum_size = 50
+            IntField: r1f:
+                value := io_model.p1_row
+                maximum_size = 40
+                enabled = True
+                #plot_model.data_sets = io_model.data_sets
+            Label: c1:
+                text = 'column number'
+                minimum_size = (30, 10)
+                #maximum_size = 50
+            IntField: c1f:
+                value := io_model.p1_col
+                maximum_size = 40
+                enabled = True
+                #plot_model.data_sets = io_model.data_sets
+            Label: p2:
+                text = 'ending position: '
+            Label: r2:
+                text = 'row number'
+                minimum_size = (30, 10)
+                #maximum_size = 50
+            IntField: r2f:
+                value := io_model.p2_row
+                maximum_size = 40
+                enabled = True
+            Label: c2:
+                text = 'column number'
+                minimum_size = (30, 10)
+                #maximum_size = 50
+            IntField: c2f:
+                value := io_model.p2_col
+                maximum_size = 40
+                enabled = True
+
+        PushButton: save_btn:
+            text = 'Save'
+            clicked ::
+                io_model.apply_mask()
+                mask_view.close()
