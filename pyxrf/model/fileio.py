@@ -217,7 +217,6 @@ class FileIOModel(Atom):
             self.mask_data = None
 
             if self.mask_opt == 1:
-                print(self.p1_row, self.p1_col)
                 # define square mask region
                 if self.p1_row>=0 and self.p1_col>=0:
                     self.data_sets[self.selected_file_name].point1 = [self.p1_row, self.p1_col]
@@ -265,27 +264,11 @@ class DataSelection(Atom):
     fit_name = Str()
     fit_data = Typed(np.ndarray)
 
-    # @observe('point1', 'point2')
-    # def _update_roi(self, change):
-    #     # if self.plot_index == 0:
-    #     #     return
-    #     # elif self.plot_index == 1:
-    #     #     self.data = self.get_sum()
-    #     # elif self.plot_index == 2:
-    #     #     SC = SpectrumCalculator(self.raw_data, pos1=self.point1)
-    #     #     self.data = SC.get_spectrum()
-    #     # else:
-    #     SC = SpectrumCalculator(self.raw_data,
-    #                             pos1=self.point1,
-    #                             pos2=self.point2)
-    #     self.data = SC.get_spectrum()
-
     def delete_points(self):
         self.point1 = []
         self.point2 = []
 
     def get_sum(self, mask=None):
-        print('points {}'.format(self.point1))
         if len(self.point1)==0 and len(self.point2)==0:
             SC = SpectrumCalculator(self.raw_data)
             return SC.get_spectrum(mask=mask)
@@ -320,8 +303,6 @@ class SpectrumCalculator(object):
         """
         Get roi sum from point positions, or from mask file.
         """
-        print(mask)
-        print(self.pos1, self.pos2)
         if mask is None:
             if not self.pos1 and not self.pos2:
                 return np.sum(self.data, axis=(0, 1))
