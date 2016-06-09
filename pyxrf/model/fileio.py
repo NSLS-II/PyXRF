@@ -117,7 +117,7 @@ class FileIOModel(Atom):
     mask_data = Typed(object)
     mask_name = Str()
     mask_opt = Int(0)
-    load_each_channel = Bool(True)
+    load_each_channel = Bool(False)
 
     p1_row = Int(-1)
     p1_col = Int(-1)
@@ -194,12 +194,11 @@ class FileIOModel(Atom):
     def apply_mask(self):
         """Apply mask with different options.
         """
-        print("what is mask opt: ", self.mask_opt)
-
         if self.mask_opt == 2:
             # load mask data
             if len(self.mask_name) > 0:
-                mask_file = os.path.join(self.working_directory, self.mask_name)
+                mask_file = os.path.join(self.working_directory,
+                                         self.mask_name)
                 try:
                     if 'npy' in mask_file:
                         self.mask_data = np.load(mask_file)
@@ -215,15 +214,22 @@ class FileIOModel(Atom):
                         self.img_dict[k][self.mask_name] = self.mask_data
         else:
             self.mask_data = None
-
+            data_s = self.data_all.shape
             if self.mask_opt == 1:
+                valid_opt = False
                 # define square mask region
-                if self.p1_row>=0 and self.p1_col>=0:
+                if self.p1_row>=0 and self.p1_col>=0 and self.p1_row<data_s[0] and self.p1_col<data_s[1]:
                     self.data_sets[self.selected_file_name].point1 = [self.p1_row, self.p1_col]
-                if self.p2_row>=0 and self.p2_col>=0:
-                    self.data_sets[self.selected_file_name].point2 = [self.p2_row, self.p2_col]
+                    logger.info('Starting position is {}.'.format([self.p1_row, self.p1_col]))
+                    valid_opt = True
+                    if self.p2_row>self.p1_row and self.p2_col>self.p1_col and self.p2_row<data_s[0] and self.p2_col<data_s[1]:
+                        self.data_sets[self.selected_file_name].point2 = [self.p2_row, self.p2_col]
+                        logger.info('Ending position is {}.'.format([self.p2_row, self.p2_col]))
+                if valid_opt is False:
+                    logger.info('The positions are not valid. No mask is applied.')
             else:
                 self.data_sets[self.selected_file_name].delete_points()
+                logger.info('Do not apply mask.')
 
         # passed to fitting part for single pixel fitting
         self.data_all = self.data_sets[self.selected_file_name].raw_data
