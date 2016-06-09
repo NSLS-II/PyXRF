@@ -319,7 +319,7 @@ enamldef FitView(DockItem): fit_view:
                     #            select_all.text = 'Show All'
 
                 ScrollArea: scr_area:
-                    constraints = [height <= 120]
+                    constraints = [height <= 230]
 
                     Form:
                         row_spacing = -1
