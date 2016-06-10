@@ -1875,7 +1875,7 @@ def _make_hdf(fpath, runid):
                         datashape,
                         det_list=config_data['xrf_detector'],
                         #roi_dict=roi_dict,
-                        pos_list=config_data['pos_list'],
+                        pos_list=hdr.start.motors,
                         scaler_list=config_data['scaler_list'],
                         fly_type=fly_type,
                         base_val=config_data['base_value'])  #base value shift for ic
