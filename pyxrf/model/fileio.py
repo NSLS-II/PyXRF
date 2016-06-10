@@ -1529,14 +1529,8 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     except ValueError:
         dataGrp = f[interpath+'/positions']
 
-    # !!! rewrite during shutdown, pos_list should be defined at hdr
-    try:
-        pos_names, pos_data = get_name_value_from_db(pos_list, data,
-                                                     datashape)
-    except:
-        pos_list = ('ssx[um]', 'ssy[um]')  # name is different for hxn zp scan
-        pos_names, pos_data = get_name_value_from_db(pos_list, data,
-                                                      datashape)
+    pos_names, pos_data = get_name_value_from_db(pos_list, data,
+                                                 datashape)
 
     for i in range(len(pos_names)):
         if 'x' in pos_names[i]:
@@ -1819,16 +1813,19 @@ def _make_hdf(fpath, runid):
         fly_type = start_doc.get('fly_type', None)
         subscan_dims = start_doc.get('subscan_dims', None)
 
-        #fields = ['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3', 'zpssx[um]', 'zpssy[um]',
-        #          'ssx[um]', 'ssy[um]', 'ssx', 'ssy', 'sclr1_ch3', 'sclr1_ch4']
+        if hdr.start.has_key('axes'):
+            pos_list = hdr.start.axes
+        else:
+            pos_list = ['zpssx[um]', 'zpssy[um]']
 
-        # only for zone plate, to be updated
-        fields = ['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3', 'zpssx[um]', 'zpssy[um]',
-                  'sclr1_ch3', 'sclr1_ch4']
+        fields = ['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3',
+                  'sclr1_ch3', 'sclr1_ch4'] + pos_list
         data = get_table(hdr, fields=fields, fill=True)
 
         print('Saving data to hdf file.')
-        write_db_to_hdf(fpath, data, datashape, fly_type=fly_type, subscan_dims=subscan_dims)
+        write_db_to_hdf(fpath, data, datashape,
+                        pos_list=pos_list,
+                        fly_type=fly_type, subscan_dims=subscan_dims)
         print('Done!')
 
     elif hdr.start.beamline_id == 'xf05id':
