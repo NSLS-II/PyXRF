@@ -20,7 +20,7 @@ requirements:
     - enaml
     - h5py
     - six
-    - matplotlib ==1.4.3
+    - matplotlib
     - ipython ==3.2.0
     - ipython-notebook ==3.2.0
     - numpy

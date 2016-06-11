@@ -291,7 +291,7 @@ enamldef FitView(DockItem): fit_view:
                         align = 'center'
                     Label: cs_name:
                         text = 'CS'
-                        tool_tip = 'Cross Section [cm2/g]'
+                        tool_tip = 'Cross Section [barns/atom]'
                         minimum_size = (20, 20)
                     #PushButton: select_all:
                     #    text = 'Show All'
@@ -319,7 +319,7 @@ enamldef FitView(DockItem): fit_view:
                     #            select_all.text = 'Show All'
 
                 ScrollArea: scr_area:
-                    constraints = [height <= 120]
+                    constraints = [height <= 230]
 
                     Form:
                         row_spacing = -1
@@ -1272,7 +1272,7 @@ enamldef EditPileupPeak(Window): pileup_win:
     attr plot_model
     destroy_on_close = False
 
-    title = 'Pileup Peak Editor'
+    #title = 'Pileup Peak Editor'
     Container:
         Form:
             Label: e1:

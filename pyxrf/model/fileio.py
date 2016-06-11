@@ -8,7 +8,7 @@
 #                                                                      #
 # * Redistributions of source code must retain the above copyright     #
 #   notice, this list of conditions and the following disclaimer.      #
-#                                                                      #
+#                                                                       #
 # * Redistributions in binary form must reproduce the above copyright  #
 #   notice this list of conditions and the following disclaimer in     #
 #   the documentation and/or other materials provided with the         #
@@ -60,13 +60,15 @@ logger = logging.getLogger(__name__)
 try:
     from databroker.databroker import DataBroker as db, get_table, get_events
     # registers a filestore handler for the XSPRESS3 detector
-except ImportError as e:
+except (ImportError, KeyError) as e:
     db = None
     logger.error('databroker is not available: %s', e)
 
 try:
     # registers a filestore handler for the XSPRESS3 detector
     from hxntools import handlers as hxn_handlers
+    from hxntools.handlers import register
+    register()
 except ImportError as e:
     logger.error('hxntools is not available from old version: %s', e)
 
@@ -114,8 +116,13 @@ class FileIOModel(Atom):
     #file_name = Str()
     mask_data = Typed(object)
     mask_name = Str()
-    mask_opt = Bool(False)
-    load_each_channel = Bool(True)
+    mask_opt = Int(0)
+    load_each_channel = Bool(False)
+
+    p1_row = Int(-1)
+    p1_col = Int(-1)
+    p2_row = Int(-1)
+    p2_col = Int(-1)
 
     def __init__(self, **kwargs):
         self.working_directory = kwargs['working_directory']
@@ -167,27 +174,8 @@ class FileIOModel(Atom):
         db_to_hdf_config(fpath, self.runid,
                          datashape, config_file)
 
-    @observe('file_opt', 'mask_name', 'mask_opt')
+    @observe('file_opt')
     def choose_file(self, change):
-        # load mask data
-        if len(self.mask_name) > 0 and self.mask_opt is True:
-            mask_file = os.path.join(self.working_directory, self.mask_name)
-            try:
-                if 'npy' in mask_file:
-                    self.mask_data = np.load(mask_file)
-                elif 'txt' in mask_file:
-                    self.mask_data = np.loadtxt(mask_file)
-                else:
-                    self.mask_data = np.array(Image.open(mask_file))
-            except IOError:
-                logger.error('Mask file cannot be loaded.')
-
-            for k in six.iterkeys(self.img_dict):
-                if 'fit' in k:
-                    self.img_dict[k][self.mask_name] = self.mask_data
-        else:
-            self.mask_data = None
-
         if self.file_opt == 0:
             return
 
@@ -197,20 +185,56 @@ class FileIOModel(Atom):
             self.selected_file_name = self.file_channel_list[self.file_opt-1]
         except IndexError:
             pass
+
         # passed to fitting part for single pixel fitting
         self.data_all = self.data_sets[self.selected_file_name].raw_data
         # get summed data or based on mask
-        self.data = self.data_sets[self.selected_file_name].get_sum(mask=self.mask_data)
+        self.data = self.data_sets[self.selected_file_name].get_sum()
 
-    # @observe('mask_name')
-    # def load_mask_data(self, change):
-    #     if change['type'] != 'create':
-    #         mask_file = os.path.join(self.working_directory, self.mask_name)
-    #         self.mask_data = np.load(mask_file)
-    #         spectrum = self.data_sets[names[self.file_opt-1]].get_sum(mask=self.mask_data)
-    #         print(np.sum(spectrum))
-    #         self.data = spectrum
+    def apply_mask(self):
+        """Apply mask with different options.
+        """
+        if self.mask_opt == 2:
+            # load mask data
+            if len(self.mask_name) > 0:
+                mask_file = os.path.join(self.working_directory,
+                                         self.mask_name)
+                try:
+                    if 'npy' in mask_file:
+                        self.mask_data = np.load(mask_file)
+                    elif 'txt' in mask_file:
+                        self.mask_data = np.loadtxt(mask_file)
+                    else:
+                        self.mask_data = np.array(Image.open(mask_file))
+                except IOError:
+                    logger.error('Mask file cannot be loaded.')
 
+                for k in six.iterkeys(self.img_dict):
+                    if 'fit' in k:
+                        self.img_dict[k][self.mask_name] = self.mask_data
+        else:
+            self.mask_data = None
+            data_s = self.data_all.shape
+            if self.mask_opt == 1:
+                valid_opt = False
+                # define square mask region
+                if self.p1_row>=0 and self.p1_col>=0 and self.p1_row<data_s[0] and self.p1_col<data_s[1]:
+                    self.data_sets[self.selected_file_name].point1 = [self.p1_row, self.p1_col]
+                    logger.info('Starting position is {}.'.format([self.p1_row, self.p1_col]))
+                    valid_opt = True
+                    if self.p2_row>self.p1_row and self.p2_col>self.p1_col and self.p2_row<data_s[0] and self.p2_col<data_s[1]:
+                        self.data_sets[self.selected_file_name].point2 = [self.p2_row, self.p2_col]
+                        logger.info('Ending position is {}.'.format([self.p2_row, self.p2_col]))
+                if valid_opt is False:
+                    logger.info('The positions are not valid. No mask is applied.')
+            else:
+                self.data_sets[self.selected_file_name].delete_points()
+                logger.info('Do not apply mask.')
+
+        # passed to fitting part for single pixel fitting
+        self.data_all = self.data_sets[self.selected_file_name].raw_data
+        # get summed data or based on mask
+        self.data = self.data_sets[self.selected_file_name].get_sum(self.mask_data)
 
 
 plot_as = ['Sum', 'Point', 'Roi']
@@ -236,32 +260,29 @@ class DataSelection(Atom):
     """
     filename = Str()
     plot_choice = Enum(*plot_as)
-    point1 = Str('0, 0')
-    point2 = Str('0, 0')
+    #point1 = Str('0, 0')
+    #point2 = Str('0, 0')
+    point1 = List()
+    point2 = List()
     raw_data = Typed(np.ndarray)
     data = Typed(np.ndarray)
-    plot_index = Int(0)
+    #plot_index = Int(0)
     fit_name = Str()
     fit_data = Typed(np.ndarray)
 
-    @observe('plot_index', 'point1', 'point2')
-    def _update_roi(self, change):
-        if self.plot_index == 0:
-            return
-        elif self.plot_index == 1:
-            self.data = self.get_sum()
-        elif self.plot_index == 2:
-            SC = SpectrumCalculator(self.raw_data, pos1=self.point1)
-            self.data = SC.get_spectrum()
+    def delete_points(self):
+        self.point1 = []
+        self.point2 = []
+
+    def get_sum(self, mask=None):
+        if len(self.point1)==0 and len(self.point2)==0:
+            SC = SpectrumCalculator(self.raw_data)
+            return SC.get_spectrum(mask=mask)
         else:
             SC = SpectrumCalculator(self.raw_data,
                                     pos1=self.point1,
                                     pos2=self.point2)
-            self.data = SC.get_spectrum()
-
-    def get_sum(self, mask=None):
-        SC = SpectrumCalculator(self.raw_data)
-        return SC.get_spectrum(mask=mask)
+            return SC.get_spectrum()
 
 
 class SpectrumCalculator(object):
@@ -281,19 +302,8 @@ class SpectrumCalculator(object):
     def __init__(self, data,
                  pos1=None, pos2=None):
         self.data = data
-        if pos1:
-            self.pos1 = self._parse_pos(pos1)
-        else:
-            self.pos1 = None
-        if pos2:
-            self.pos2 = self._parse_pos(pos2)
-        else:
-            self.pos2 = None
-
-    def _parse_pos(self, pos):
-        if isinstance(pos, list):
-            return pos
-        return [int(v) for v in pos.split(',')]
+        self.pos1 = pos1
+        self.pos2 = pos2
 
     def get_spectrum(self, mask=None):
         """
@@ -305,7 +315,8 @@ class SpectrumCalculator(object):
             elif self.pos1 and not self.pos2:
                 return self.data[self.pos1[0], self.pos1[1], :]
             else:
-                return np.sum(self.data[self.pos1[0]:self.pos2[0], self.pos1[1]:self.pos2[1], :],
+                return np.sum(self.data[self.pos1[0]:self.pos2[0],
+                                        self.pos1[1]:self.pos2[1], :],
                               axis=(0, 1))
         else:
             spectrum_sum = np.zeros(self.data.shape[2])
@@ -1518,14 +1529,8 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     except ValueError:
         dataGrp = f[interpath+'/positions']
 
-    # !!! rewrite during shutdown, pos_list should be defined at hdr
-    try:
-        pos_names, pos_data = get_name_value_from_db(pos_list, data,
-                                                     datashape)
-    except:
-        pos_list = ('ssx[um]', 'ssy[um]')  # name is different for hxn zp scan
-        pos_names, pos_data = get_name_value_from_db(pos_list, data,
-                                                      datashape)
+    pos_names, pos_data = get_name_value_from_db(pos_list, data,
+                                                 datashape)
 
     for i in range(len(pos_names)):
         if 'x' in pos_names[i]:
@@ -1731,6 +1736,60 @@ def get_name_value_from_db(name_list, data, datashape):
 #     return [v for v in all_keys if 'sclr1_' in v]
 
 
+def add_extral_fields_hdf(fpath, config_path):
+    """Add extral information from databroker into h5 file.
+    In progress.
+    """
+    with open(config_path, 'r') as json_data:
+        config_data = json.load(json_data)
+    print(config_data.keys())
+
+    interpath = 'xrfmap'
+    with h5py.File(fpath, 'a') as f:
+
+        try:
+            dg = f.create_group(interpath+'/config')
+        except ValueError:
+            dg = f[interpath+'/config']
+
+        sub_name_dict = {'upstream': 'upstream_name_list',
+                         'microscope': 'microscope_name_list'}
+        for sub_name, v in sub_name_dict.items():
+            try:
+                dg_sub = dg.create_group(sub_name)
+            except ValueError:
+                dg_sub = dg[sub_name]
+
+            data_name = [str(val) for val in config_data[v]]
+
+            # need to read data from PV here
+            data_val = np.zeros(len(data_name))
+
+            try:
+                dg_sub.create_dataset('name', data=data_name)
+            except RuntimeError:
+                try:
+                    dg_sub['name'][:] = data_name
+                except TypeError:  # when the length of data items changes
+                    dg_sub.__delitem__('name')
+                    dg_sub.create_dataset('name', data=data_name)
+
+            try:
+                dg_sub.create_dataset('value', data=data_val)
+            except RuntimeError:
+                try:
+                    dg_sub['value'][:] = data_val
+                except TypeError:
+                    dg_sub.__delitem__('value')
+                    dg_sub.create_dataset('value', data=data_val)
+
+        # sub_name = 'microscope'
+        # try:
+        #     dg_m = dg.create_group(sub_name)
+        # except ValueError:
+        #     dg_m = dg[sub_name]
+
+
 def _make_hdf(fpath, runid):
     """
     Save the data from databroker to hdf file.
@@ -1754,19 +1813,28 @@ def _make_hdf(fpath, runid):
         fly_type = start_doc.get('fly_type', None)
         subscan_dims = start_doc.get('subscan_dims', None)
 
-        fields = ['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3', 'zpssx[um]', 'zpssy[um]',
-                  'ssx[um]', 'ssy[um]', 'ssx', 'ssy', 'sclr1_ch3', 'sclr1_ch4']
-        data = get_table(hdr, fields=fields)
+        if hdr.start.has_key('axes'):
+            pos_list = hdr.start.axes
+        else:
+            pos_list = ['zpssx[um]', 'zpssy[um]']
+
+        fields = ['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3',
+                  'sclr1_ch3', 'sclr1_ch4'] + pos_list
+        data = get_table(hdr, fields=fields, fill=True)
 
         print('Saving data to hdf file.')
-        write_db_to_hdf(fpath, data, datashape, fly_type=fly_type, subscan_dims=subscan_dims)
+        write_db_to_hdf(fpath, data, datashape,
+                        pos_list=pos_list,
+                        fly_type=fly_type, subscan_dims=subscan_dims)
         print('Done!')
 
     elif hdr.start.beamline_id == 'xf05id':
         start_doc = hdr['start']
         datashape = start_doc['shape']   # vertical first then horizontal
         fly_type = None
-    	snake_scan = start_doc.get('snaking')
+
+        # issues on py3
+        snake_scan = start_doc.get('snaking')
     	if snake_scan[1] == True:
     	    fly_type = 'pyramid'
 
@@ -1781,43 +1849,30 @@ def _make_hdf(fpath, runid):
         except IndexError:
             # !!! this part needs to rewrite during shutdown. it is better to pass
             # !!! array data to write_db_to_hdf, instead of dataframe or dict
+            # !!! this is not optimized, to be update soon!
+
             cut_num = 2
             spectrum_len = 4096
             total_len = datashape[0]*datashape[1]
-            data0 = get_table(hdr, fill=False)
-            data = data0.to_dict(orient='list')
-            xrf_det_list = set(config_data['xrf_detector'])
+
             evs, _ = zip(*zip(get_events(hdr), range(total_len-cut_num)))
-            evs = list(evs)
-            tmp1 = {}
-            tmp2 = {}
-            tmp3 = {}
-            tmp_array = np.zeros(spectrum_len)
-            for i in range(total_len):
-                tmp1[i+1] = np.array(tmp_array)
-                tmp2[i+1] = np.array(tmp_array)
-                tmp3[i+1] = np.array(tmp_array)
-            for i in range(1, total_len-cut_num+1):
-                for detn in xrf_det_list:
-                    if 'ch1' in detn:
-                        tmp1[i] = evs[i-1].data[detn]
-                    if 'ch2' in detn:
-                        tmp2[i] = evs[i-1].data[detn]
-                    if 'ch3' in detn:
-                        tmp3[i] = evs[i-1].data[detn]
-            for detn in xrf_det_list:
-                if 'ch1' in detn:
-                    data[detn] = copy.deepcopy(tmp1)
-                if 'ch2' in detn:
-                    data[detn] = copy.deepcopy(tmp2)
-                if 'ch3' in detn:
-                    data[detn] = copy.deepcopy(tmp3)
+
+            namelist = config_data['xrf_detector'] +config_data['pos_list'] +config_data['scaler_list']
+
+            dictv = {v:[] for v in namelist}
+
+            for e in evs:
+                for k,v in six.iteritems(dictv):
+                    dictv[k].append(e.data[k])
+
+            data = pd.DataFrame(dictv, index=np.arange(1, total_len-cut_num+1)) # need to start with 1
+
         print('Saving data to hdf file.')
         write_db_to_hdf(fpath, data,
                         datashape,
                         det_list=config_data['xrf_detector'],
                         #roi_dict=roi_dict,
-                        pos_list=config_data['pos_list'],
+                        pos_list=hdr.start.motors,
                         scaler_list=config_data['scaler_list'],
                         fly_type=fly_type,
                         base_val=config_data['base_value'])  #base value shift for ic
@@ -1827,7 +1882,7 @@ def _make_hdf(fpath, runid):
         print("Databroker is not setup for this beamline")
 
 
-def make_hdf(start, end=None, fpath=None, prefix='scan2D_'):
+def make_hdf(start, end=None, fname=None, prefix='scan2D_'):
     """
     Transfer multiple h5 files.
 
@@ -1837,7 +1892,7 @@ def make_hdf(start, end=None, fpath=None, prefix='scan2D_'):
         start run id
     end : int, optional
         end run id
-    fpath : string
+    fname : string
         path to save file when start equals to end, in this case only
         one file is transfered.
     prefix : str, optional
@@ -1847,7 +1902,9 @@ def make_hdf(start, end=None, fpath=None, prefix='scan2D_'):
         end = start
 
     if end == start:
-        _make_hdf(fpath, start)  # only transfer one file
+        if fname is None:
+            fname = prefix+str(start)+'.h5'
+        _make_hdf(fname, start)  # only transfer one file
     else:
         datalist = range(start, end+1)
         for v in datalist:

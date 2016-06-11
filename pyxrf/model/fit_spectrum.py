@@ -1655,6 +1655,9 @@ def get_branching_ratio(elemental_line, energy):
     Calculate the ratio of branching ratio, such as ratio of
     branching ratio of Ka1 to sum of br of all K lines.
 
+    It doesn't matter which unit is used for cs calculation,
+    as we only want the ratio. So we still use e.cs function.
+
     Parameters
     ----------
     elemental_line : str
@@ -1884,7 +1887,8 @@ def roi_sum_multi_files(dir_path, file_prefix,
 
 def get_cs(elemental_line, eng=12, norm=False, round_n=2):
     """
-    Calculate cross section in cm2/g.
+    Calculate cross section in barns/atom, use e.csb function.
+
     Parameters
     ----------
     elemental_line: str
@@ -1912,11 +1916,11 @@ def get_cs(elemental_line, eng=12, norm=False, round_n=2):
 
     e = Element(ename)
     sumv = 0
-    for line_name in e.cs(eng).keys():
+    for line_name in e.csb(eng).keys():
         if name_label[0] in line_name:
-            sumv += e.cs(eng)[line_name]
+            sumv += e.csb(eng)[line_name]
     if norm is True:
-        return np.around(sumv/e.cs(eng)[name_label], round_n)
+        return np.around(sumv/e.csb(eng)[name_label], round_n)
     else:
         return np.around(sumv, round_n)
 

@@ -38,7 +38,7 @@ __author__ = 'Li Li'
 from enaml.widgets.api import (MainWindow, Container, DockArea)
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, TabLayout
 
-from .fileio import FileView
+from .fileio import FileView, MaskView
 from .guessparam import GuessParamView
 from .lineplot import PlotMain, AdjustEmissionLine
 from .image2D import ImageMain, ChooseElementAdvanced
@@ -75,6 +75,13 @@ enamldef XRFGui(MainWindow): main_window:
                 # img_model_adv = main_window.img_model_adv
                 fit_model = main_window.fit_model
                 setting_model = main_window.setting_model
+
+                mask_edit = MaskView(
+                    visible=False,
+                    destroy_on_close=False,
+                    parent=main_window,
+                    io_model = main_window.io_model)
+
                 name = 'file_view'
             #GuessParamView:
             #    closable = False
