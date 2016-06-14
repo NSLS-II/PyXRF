@@ -1835,8 +1835,8 @@ def _make_hdf(fpath, runid):
 
         # issues on py3
         snake_scan = start_doc.get('snaking')
-    	if snake_scan[1] == True:
-    	    fly_type = 'pyramid'
+        if snake_scan[1] == True:
+            fly_type = 'pyramid'
 
         current_dir = os.path.dirname(os.path.realpath(__file__))
         config_file = 'srx_pv_config.json'
