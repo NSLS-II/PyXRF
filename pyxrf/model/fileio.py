@@ -1808,12 +1808,21 @@ def _make_hdf(fpath, runid):
 
     if hdr.start.beamline_id == 'HXN':
         start_doc = hdr['start']
-        datashape = start_doc['dimensions']
+        if 'dimensions' in start_doc:
+            datashape = start_doc.dimensions
+        elif 'shape' in start_doc:
+            datashape = start_doc.shape
+        else:
+            logger.error('No dimension/shape is defined in hdr.start.')
+
         datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
         fly_type = start_doc.get('fly_type', None)
         subscan_dims = start_doc.get('subscan_dims', None)
 
-        if hdr.start.has_key('axes'):
+
+        if 'motors' in hdr.start:
+            pos_list = hdr.start.motors
+        elif 'axes' in hdr.start:
             pos_list = hdr.start.axes
         else:
             pos_list = ['zpssx[um]', 'zpssy[um]']
