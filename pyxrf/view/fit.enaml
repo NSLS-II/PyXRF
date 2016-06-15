@@ -787,8 +787,9 @@ enamldef AutoFindElements(Window): auto_win:
                             ff.value = param_model.param_new[loop_item]['default']
 
             Looper: looper:
-                iterable << list(sorted([v for k,v in six.iteritems(param_model.param_new['non_fitting_values'])
-                                        if k in ["energy_bound_low", "energy_bound_high"] ]))
+                iterable << [param_model.param_new['non_fitting_values'][k] for k in ('energy_bound_high', 'energy_bound_low')]
+                #iterable << [param_model.param_new['non_fitting_values'][k] for k in sorted(list(param_model.param_new['non_fitting_values'].keys()))]
+                #iiterable << sorted_param(param_model)
                 Label:
                     text = loop_item['description']
                     maximum_size = 140
@@ -827,6 +828,10 @@ enamldef AutoFindElements(Window): auto_win:
                 plot_model.show_fit_opt = False
                 plot_model.show_fit_opt = True
                 auto_win.close()
+
+
+def sorted_param(param_model):
+    return list(([v for k,v in six.iteritems(param_model.param_new['non_fitting_values']) if k in ["energy_bound_low", "energy_bound_high"] ]))
 
 
 enamldef ElementEdit(Window):

@@ -188,7 +188,7 @@ class SettingModel(Atom):
         SpinBox in Enaml can only read integer as input. To be updated.
         """
         for v in element_list:
-            if self.roi_dict.has_key(v):
+            if v in self.roi_dict:
                 continue
 
             if '_K' in v:

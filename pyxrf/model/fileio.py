@@ -149,7 +149,7 @@ class FileIOModel(Atom):
         self.img_dict, self.data_sets = file_handler(self.working_directory,
                                                      self.file_name,
                                                      load_each_channel=self.load_each_channel)
-        self.file_channel_list = self.data_sets.keys()
+        self.file_channel_list = list(self.data_sets.keys())
 
     @observe('runid')
     def _update_fname(self, change):
@@ -418,7 +418,7 @@ def read_runid(runid, c_list, dshape=None):
 
     data = fetch_data_from_db(runid)
 
-    exp_keys = data.keys()
+    exp_keys = list(data.keys())
 
     sumv = None
 
@@ -770,7 +770,7 @@ def output_data(fpath, output_folder, file_format='tiff'):
 
     f = h5py.File(fpath, 'r')
 
-    detlist = f['xrfmap'].keys()
+    detlist = list(f['xrfmap'].keys())
     fit_output = {}
 
     for detname in detlist:
@@ -878,7 +878,7 @@ def read_hdf_APS(working_directory,
 
         # find total channel:
         channel_num = 0
-        for v in data.keys():
+        for v in list(data.keys()):
             if 'det' in v:
                 channel_num = channel_num+1
         channel_num = channel_num-1  # do not consider det_sum
@@ -1143,8 +1143,8 @@ def read_hdf_to_stitch(working_directory, filelist,
         keylist = ['fit', 'scaler', 'position']
 
         for key_name in keylist:
-            fit_key0, = [v for v in out.keys() if key_name in v]
-            fit_key, = [v for v in img.keys() if key_name in v]
+            fit_key0, = [v for v in list(out.keys()) if key_name in v]
+            fit_key, = [v for v in list(img.keys()) if key_name in v]
             for k, v in six.iteritems(img[fit_key]):
                 out[fit_key0][k][v_i:v_i+tmp_shape[0], h_i:h_i+tmp_shape[1]] = img[fit_key][k]
 
@@ -1195,7 +1195,7 @@ def make_hdf_stitched(working_directory, filelist, fname,
                     base_val=config_data['base_value'])  #base value shift for ic
 
 
-    fitkey, = [v for v in out.keys() if 'fit' in v]
+    fitkey, = [v for v in list(out.keys()) if 'fit' in v]
     save_fitdata_to_hdf(fpath, out[fitkey])
 
     print('Done!')
@@ -1742,7 +1742,6 @@ def add_extral_fields_hdf(fpath, config_path):
     """
     with open(config_path, 'r') as json_data:
         config_data = json.load(json_data)
-    print(config_data.keys())
 
     interpath = 'xrfmap'
     with h5py.File(fpath, 'a') as f:
