@@ -38,7 +38,7 @@ __author__ = 'Li Li'
 from enaml.widgets.api import (Container, PushButton, Label,
                                Form, Field, FileDialogEx, DockItem,
                                DockArea, CheckBox, ComboBox, RadioButton,
-                               ScrollArea, Window, GroupBox)
+                               ScrollArea, Window, GroupBox, MultilineField)
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer, grid
 from enaml.core.api import Include, Looper
 from enaml.layout.geometry import Box
@@ -172,26 +172,12 @@ enamldef FileView(DockItem): file_view:
                     foreground = 'blue'
 
             ScrollArea: scroller:
-                Container:
-                    Looper: looper:
-                        iterable << io_model.file_channel_list
-                        GroupBox:
-                            title = '{}, data shape: {}, total counts: {}'.format(loop_item, io_model.data_sets[loop_item].raw_data.shape, int(np.sum(io_model.data_sets[loop_item].raw_data)))
-                            constraints = [hbox(rb_1, rb_2, rb_3, rb_4, lb1, fd1, lb2, fd2, spacer)]
-                            constraints = [hbox(rb_1, rb_2, spacer)]
-                            padding = Box(0, 0, 0, 0)
-
-                            RadioButton: rb_1:
-                                text = 'None'
-                                checked = True
-                                clicked ::
-                                    io_model.data_sets[loop_item].plot_index = 0
-                            RadioButton: rb_2:
-                                text = 'Sum'
-                                clicked ::
-                                    io_model.data_sets[loop_item].plot_index = 1
-                                    fd1.enabled = False
-                                    fd2.enabled = False
+                MultilineField: mf:
+                    text := guihandler.text
+                    read_only = True
+                    auto_sync_text = True
+                    
+                        
                                     #plot_bt.enabled = True
                                     #plot_model.data_sets = io_model.data_sets
 

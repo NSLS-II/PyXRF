@@ -40,6 +40,7 @@ from enaml.qt.qt_application import QtApplication
 import os
 import numpy as np
 import logging
+logger = logging.getLogger(__name__)
 
 from .model.fileio import FileIOModel
 from .model.lineplot import LinePlotModel #, SettingModel
@@ -78,16 +79,27 @@ def get_defaults():
     return defaults
 
 
+class GuiHandler(logging.Handler):
+    def __init__(self):
+        super(GuiHandler, self).__init__()
+        self.text = 'Log Area'
+
+    def handle(self, record):
+        self.text += self.format(record) + '\n'
+
 def run():
     LOG_F = 'log_example.out'
-    logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s',
-                        level=logging.INFO,
-                        #filename=LOG_F,
-                        filemode='w')
+    formatter = logging.Formatter(fmt='%(asctime)s : %(levelname)s : %(message)s')
+    guihandler = GuiHandler()
+    stream_handler = logging.StreamHandler()
+    guihandler.setLevel(logging.INFO)
+    stream_handler.setLevel(logging.INFO)
+    logger.setLevel(logging.INFO)
+    logger.addHandler(guihandler)
+    logger.addHandler(stream_handler)
 
     app = QtApplication()
     defaults = get_defaults()
-
     io_model = FileIOModel(**defaults)
     param_model = GuessParamModel(**defaults)
     plot_model = LinePlotModel()
@@ -123,14 +135,15 @@ def run():
     # send exp data to SettingModel for roi sum
     # got warning message
     #io_model.observe('data_sets', setting_model.data_sets_update)
-
+    logger.info('pyxrf started.')
     xrfview = XRFGui(io_model=io_model,
                      param_model=param_model,
                      plot_model=plot_model,
                      fit_model=fit_model,
                      setting_model=setting_model,
                      img_model_adv=img_model_adv,
-                     img_model_rgb=img_model_rgb)
+                     img_model_rgb=img_model_rgb,
+                     guihandler=guihandler)
 
     xrfview.show()
     app.start()

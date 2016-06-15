@@ -34,7 +34,7 @@
 ########################################################################
 
 from __future__ import (absolute_import, division,
-                        print_function)
+                        print_function, unicode_literals)
 
 __author__ = 'Li Li'
 
@@ -954,12 +954,17 @@ def read_hdf_APS(working_directory,
                 # !!! This should be cleaned up later.
                 # !!! This is due to the messy in write_db_to_hdf function
                 #
+                # n = six.text_type(n)
+                if not isinstance(n, six.string_types):
+                    n = n.decode()
                 if i==0:
                     temp[n] = np.fliplr(data['positions/pos'].value[i, :])
                 else:
                     temp[n] = data['positions/pos'].value[i, :]
                     #temp[n] = np.flipud(data['positions/pos'].value[i, :])
 
+            #import pdb
+            #pdb.set_trace()
             img_dict['positions'] = temp
 
     return img_dict, data_sets
