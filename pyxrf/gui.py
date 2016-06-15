@@ -40,8 +40,8 @@ from enaml.qt.qt_application import QtApplication
 import os
 import numpy as np
 import logging
-logger = logging.getLogger(__name__)
-
+logger = logging.getLogger()
+from atom.api import Atom, Str
 from .model.fileio import FileIOModel
 from .model.lineplot import LinePlotModel #, SettingModel
 from .model.guessparam import GuessParamModel
@@ -79,24 +79,20 @@ def get_defaults():
     return defaults
 
 
+class LogModel(Atom):
+    logtext = Str()
+
 class GuiHandler(logging.Handler):
-    def __init__(self):
+    def __init__(self, model=None):
         super(GuiHandler, self).__init__()
-        self.text = 'Log Area'
+        if model is None:
+            model = LogModel()
+        self.model = model
 
     def handle(self, record):
-        self.text += self.format(record) + '\n'
+        self.model.logtext += self.format(record) + '\n'
 
 def run():
-    LOG_F = 'log_example.out'
-    formatter = logging.Formatter(fmt='%(asctime)s : %(levelname)s : %(message)s')
-    guihandler = GuiHandler()
-    stream_handler = logging.StreamHandler()
-    guihandler.setLevel(logging.INFO)
-    stream_handler.setLevel(logging.INFO)
-    logger.setLevel(logging.INFO)
-    logger.addHandler(guihandler)
-    logger.addHandler(stream_handler)
 
     app = QtApplication()
     defaults = get_defaults()
@@ -107,6 +103,18 @@ def run():
     setting_model = SettingModel(**defaults)
     img_model_adv = DrawImageAdvanced()
     img_model_rgb = DrawImageRGB()
+
+    # Set up the model stuff
+    formatter = logging.Formatter(fmt='%(asctime)s : %(levelname)s : %(message)s')
+    guihandler = GuiHandler()
+    guihandler.setLevel(logging.INFO)
+    guihandler.setFormatter(formatter)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    stream_handler.setLevel(logging.INFO)
+    logger.setLevel(logging.INFO)
+    logger.addHandler(guihandler)
+    logger.addHandler(stream_handler)
 
     # send working directory changes to different models
     io_model.observe('working_directory', fit_model.result_folder_changed)
@@ -143,7 +151,7 @@ def run():
                      setting_model=setting_model,
                      img_model_adv=img_model_adv,
                      img_model_rgb=img_model_rgb,
-                     guihandler=guihandler)
+                     logmodel=guihandler.model)
 
     xrfview.show()
     app.start()

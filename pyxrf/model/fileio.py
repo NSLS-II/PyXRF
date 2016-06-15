@@ -55,7 +55,7 @@ import glob
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float, Bool
 
 import logging
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 try:
     from databroker.databroker import DataBroker as db, get_table, get_events
@@ -136,7 +136,7 @@ class FileIOModel(Atom):
     #     # directory changes
     #     self.output_directory = self.working_directory
 
-    @observe('file_name')
+    @observe(str('file_name'))
     def update_more_data(self, change):
         if change['value'] == 'temp':
             # 'temp' is used to reload the same file
@@ -151,7 +151,7 @@ class FileIOModel(Atom):
                                                      load_each_channel=self.load_each_channel)
         self.file_channel_list = list(self.data_sets.keys())
 
-    @observe('runid')
+    @observe(str('runid'))
     def _update_fname(self, change):
         self.fname_from_db = 'scan_'+str(self.runid)+'.h5'
 
@@ -174,7 +174,7 @@ class FileIOModel(Atom):
         db_to_hdf_config(fpath, self.runid,
                          datashape, config_file)
 
-    @observe('file_opt')
+    @observe(str('file_opt'))
     def choose_file(self, change):
         if self.file_opt == 0:
             return

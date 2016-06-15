@@ -50,7 +50,7 @@ from mpl_toolkits.axes_grid1.axes_rgb import make_rgb_axes, RGBAxes
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool, Float
 
 import logging
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 
 class DrawImageRGB(Atom):

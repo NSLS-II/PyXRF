@@ -49,7 +49,7 @@ from skbeam.fluorescence import XrfElement as Element
 from skbeam.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
 
 import logging
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 
 class ROIModel(Atom):
