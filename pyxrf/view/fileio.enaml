@@ -49,7 +49,7 @@ import numpy as np
 
 try:
     import databroker
-except (ImportError, KeyError):
+except ImportError:
     databroker = None
 
 enamldef IntField(DefaultIntField):
@@ -130,7 +130,6 @@ enamldef FileView(DockItem): file_view:
                     else:
                         mask_edit.hide()
 
-
             GroupBox: gb_db:
                 title = 'Data from database'
                 constraints = [hbox(run_lbl, run_num, load_btn, spacer),]
@@ -190,10 +189,10 @@ enamldef FileView(DockItem): file_view:
                                 text = 'Sum'
                                 clicked ::
                                     io_model.data_sets[loop_item].plot_index = 1
-                                    fd1.enabled = False
-                                    fd2.enabled = False
+                                    #fd1.enabled = False
+                                    #fd2.enabled = False
                                     #plot_bt.enabled = True
-                                    #plot_model.data_sets = io_model.data_sets
+                                    plot_model.data_sets = io_model.data_sets
 
                             #RadioButton: rb_3:
                             #    text = 'Point'

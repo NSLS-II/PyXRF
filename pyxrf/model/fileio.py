@@ -266,9 +266,16 @@ class DataSelection(Atom):
     point2 = List()
     raw_data = Typed(np.ndarray)
     data = Typed(np.ndarray)
-    #plot_index = Int(0)
+    plot_index = Int(0)
     fit_name = Str()
     fit_data = Typed(np.ndarray)
+
+    @observe('plot_index')
+    def _update_roi(self, change):
+        if self.plot_index == 0:
+            return
+        elif self.plot_index == 1:
+            self.data = self.get_sum()
 
     def delete_points(self):
         self.point1 = []
