@@ -56,7 +56,7 @@ from skbeam.core.fitting.xrf_model import (ParamController,
                                            linear_spectrum_fitting)
 
 import logging
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 
 bound_options = ['none', 'lohi', 'fixed', 'lo', 'hi']

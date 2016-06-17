@@ -51,7 +51,7 @@ from mpl_toolkits.axes_grid1 import ImageGrid
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool, Float
 
 import logging
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 
 class DrawImageAdvanced(Atom):

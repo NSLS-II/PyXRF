@@ -172,12 +172,13 @@ enamldef FileView(DockItem): file_view:
                     foreground = 'blue'
 
             ScrollArea: scroller:
-                MultilineField: mf:
-                    text := guihandler.text
-                    read_only = True
-                    auto_sync_text = True
-                    
-                        
+                Container:
+                    MultilineField: mf:
+                        text << logmodel.logtext
+                        read_only = True
+                        auto_sync_text = True
+
+
                                     #plot_bt.enabled = True
                                     #plot_model.data_sets = io_model.data_sets
 

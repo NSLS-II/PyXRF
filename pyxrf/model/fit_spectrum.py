@@ -70,7 +70,7 @@ import lmfit
 import pickle
 
 import logging
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 # can't import, reason to be figured out.
 # try:
