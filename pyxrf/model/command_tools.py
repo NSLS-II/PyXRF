@@ -88,12 +88,9 @@ def fit_pixel_data_and_save(working_directory, file_name,
         with open(param_path, 'r') as json_data:
             param_sum = json.load(json_data)
 
-        # update incident energy, required for XANES
-        if incident_energy is not None:
-            param_sum['coherent_sct_amplitude']['value'] = incident_energy
-
         result_map_sum, calculation_info = single_pixel_fitting_controller(data_all_sum,
                                                                            param_sum,
+                                                                           incident_energy=incident_energy
                                                                            method=method,
                                                                            pixel_bin=pixel_bin,
                                                                            raise_bg=raise_bg,

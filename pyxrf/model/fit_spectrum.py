@@ -1495,7 +1495,8 @@ def get_area_and_error_nonlinear_fit(elist, fit_results, reg_mat):
     return area_dict, error_dict, weights_mat
 
 
-def single_pixel_fitting_controller(input_data, param, method='nnls',
+def single_pixel_fitting_controller(input_data, parameter,
+                                    incident_energy=None, method='nnls',
                                     pixel_bin=0, raise_bg=0,
                                     comp_elastic_combine=False,
                                     linear_bg=False,
@@ -1506,8 +1507,10 @@ def single_pixel_fitting_controller(input_data, param, method='nnls',
     ----------
     input_data : array
         3D array of spectrum
-    param : dict
+    parameter : dict
         parameter for fitting
+    incident_energy : float, optional
+        incident beam energy in KeV
     method : str, optional
         fitting method, default as nnls
     pixel_bin : int, optional
@@ -1530,6 +1533,9 @@ def single_pixel_fitting_controller(input_data, param, method='nnls',
     calculation_info : dict
         dict of fitting information
     """
+    param = copy.deepcopy(parameter)
+    if incident_energy is not None:
+        param['coherent_sct_amplitude']['value'] = incident_energy
     # cut data into proper range
     x, exp_data, fit_range = get_cutted_spectrum_in3D(input_data,
                                                       param['non_fitting_values']['energy_bound_low']['value'],
