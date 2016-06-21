@@ -172,6 +172,7 @@ enamldef FileView(DockItem): file_view:
                     foreground = 'blue'
 
             ScrollArea: scroller:
+                constraints = [height <= 300]
                 Container:
                     MultilineField: mf:
                         text << logmodel.logtext

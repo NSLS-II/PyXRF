@@ -873,6 +873,8 @@ def read_hdf_APS(working_directory,
             det_name = data['scalers/name']
             temp = {}
             for i, n in enumerate(det_name):
+                if not isinstance(n, six.string_types):
+                    n = n.decode()
                 temp[n] = data['scalers/val'].value[:, :, i]
             img_dict[fname+'_scaler'] = temp
 
@@ -943,7 +945,7 @@ def read_hdf_APS(working_directory,
                 img_dict.update({fname+'_fit': fit_result})
                 if 'scalers' in data:
                     img_dict[fname+'_fit'].update(img_dict[fname+'_scaler'])
-            except IndexError:
+            except (IndexError, KeyError):
                 logger.info('No fitting data is loaded for channel summed data.')
 
         if 'positions' in data:
@@ -962,9 +964,6 @@ def read_hdf_APS(working_directory,
                 else:
                     temp[n] = data['positions/pos'].value[i, :]
                     #temp[n] = np.flipud(data['positions/pos'].value[i, :])
-
-            #import pdb
-            #pdb.set_trace()
             img_dict['positions'] = temp
 
     return img_dict, data_sets
@@ -1075,8 +1074,10 @@ def get_fit_data(namelist, data):
         3D array of fitting results
     """
     data_temp = dict()
-    for i in range(len(namelist)):
-        data_temp.update({namelist[i]: data[i, :, :]})
+    for i,v in enumerate(namelist):
+        if not isinstance(v, six.string_types):
+            v = v.decode()
+        data_temp.update({v: data[i, :, :]})
     return data_temp
 
 
@@ -1335,19 +1336,24 @@ def save_fitdata_to_hdf(fpath, data_dict,
     data = []
     namelist = []
     for k, v in six.iteritems(data_dict):
-        namelist.append(str(k))
+        if not isinstance(k, six.string_types):
+            k = k.decode()
+        namelist.append(k)
         data.append(v)
 
     if data_saveas in dataGrp:
         del dataGrp[data_saveas]
 
-    data = np.array(data)
+    data = np.asarray(data)
     ds_data = dataGrp.create_dataset(data_saveas, data=data)
     ds_data.attrs['comments'] = ' '
 
     if dataname_saveas in dataGrp:
         del dataGrp[dataname_saveas]
 
+    if not isinstance(dataname_saveas, six.string_types):
+        dataname_saveas = dataname_saveas.decode()
+    namelist = np.array(namelist).astype('|S9')
     name_data = dataGrp.create_dataset(dataname_saveas, data=namelist)
     name_data.attrs['comments'] = ' '
 
@@ -1563,7 +1569,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
             # flip position the same as data flip on det counts
             data_temp[i,:,:] = flip_data(data_temp[i,:,:], subscan_dims=subscan_dims)
 
-    dataGrp.create_dataset('name', data=pos_names)
+    dataGrp.create_dataset('name', data=helper_encode_list(pos_names))
     dataGrp.create_dataset('pos', data=data_temp[:,:new_v_shape,:])
 
     # scaler data
@@ -1583,7 +1589,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
     if 'name' in dataGrp:
         del dataGrp['name']
-    dataGrp.create_dataset('name', data=scaler_names)
+    dataGrp.create_dataset('name', data=helper_encode_list(scaler_names))
 
     if base_val is not None:  # base line shift for detector, for SRX
         scaler_data = np.abs(scaler_data - base_val)
@@ -1625,7 +1631,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
         if 'sum_raw' in dataGrp:
             del dataGrp['sum_raw']
-        dataGrp.create_dataset('sum_name', data=roi_name_list)
+        dataGrp.create_dataset('sum_name', data=helper_encode_list(roi_name_list))
         dataGrp.create_dataset('sum_raw', data=roi_data_all)
 
         # data from each channel
@@ -1634,7 +1640,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
         if 'det_raw' in dataGrp:
             del dataGrp['det_raw']
-        dataGrp.create_dataset('det_name', data=roi_name_all_ch)
+        dataGrp.create_dataset('det_name', data=helper_encode_list(roi_name_all_ch))
         dataGrp.create_dataset('det_raw', data=roi_data_all_ch)
 
         # if 'det_name' in dataGrp:
@@ -1649,6 +1655,10 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
         logger.info('roi names: {}'.format(roi_names))
 
     f.close()
+
+
+def helper_encode_list(data, data_type='utf-8'):
+    return [d.encode(data_type) for d in data]
 
 
 def get_name_value_from_db(name_list, data, datashape):
@@ -1817,7 +1827,7 @@ def _make_hdf(fpath, runid):
         fly_type = start_doc.get('fly_type', None)
         subscan_dims = start_doc.get('subscan_dims', None)
 
-        if hdr.start.has_key('axes'):
+        if 'axes' in hdr.start:
             pos_list = hdr.start.axes
         else:
             pos_list = ['zpssx[um]', 'zpssy[um]']
@@ -1837,7 +1847,6 @@ def _make_hdf(fpath, runid):
         datashape = start_doc['shape']   # vertical first then horizontal
         fly_type = None
 
-        # issues on py3
         snake_scan = start_doc.get('snaking')
         if snake_scan[1] == True:
             fly_type = 'pyramid'

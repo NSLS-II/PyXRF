@@ -719,7 +719,7 @@ enamldef FitView(DockItem): fit_view:
                     # add scalers to fit dict
                     scaler_key = [v for v in six.iterkeys(img_model_adv.data_dict) if 'scaler' in v]
                     if len(scaler_key) > 0:
-                        fit_model.fit_img[fit_model.fit_img.keys()[0]].update(img_model_adv.data_dict[scaler_key[0]])
+                        fit_model.fit_img[list(fit_model.fit_img.keys())[0]].update(img_model_adv.data_dict[scaler_key[0]])
 
                     img_model_adv.data_dict.update(fit_model.fit_img)
                     img_model_rgb.data_dict.update(fit_model.fit_img)
@@ -727,9 +727,9 @@ enamldef FitView(DockItem): fit_view:
 
                     # visualization purpose
                     img_model_adv.data_dict_keys = []
-                    img_model_adv.data_dict_keys = img_model_adv.data_dict.keys()
+                    img_model_adv.data_dict_keys = list(img_model_adv.data_dict.keys())
                     img_model_rgb.data_dict_keys = []
-                    img_model_rgb.data_dict_keys = img_model_rgb.data_dict.keys()
+                    img_model_rgb.data_dict_keys = list(img_model_rgb.data_dict.keys())
 
             Label: pixel_fit_information:
                 text := fit_model.pixel_fit_info
