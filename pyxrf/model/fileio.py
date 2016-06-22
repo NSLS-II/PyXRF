@@ -1588,8 +1588,13 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     dataGrp.create_dataset('name', data=scaler_names)
 
     if base_val is not None:  # base line shift for detector, for SRX
-        scaler_data = np.abs(scaler_data - base_val)
-
+        base_val = np.array([base_val])
+        if len(base_val) == 1:
+            scaler_data = np.abs(scaler_data - base_val)
+        else:
+            for i in scaler_shape.shape[2]:
+                scaler_data[:,:,i] = np.abs(scaler_data[:,:,i] - base_val[i])
+    
     dataGrp.create_dataset('val', data=scaler_data[:new_v_shape,:])
 
     # roi sum
@@ -1873,7 +1878,7 @@ def _make_hdf(fpath, runid):
 
             evs, _ = zip(*zip(get_events(hdr), range(total_len-cut_num)))
 
-            namelist = config_data['xrf_detector'] +config_data['pos_list'] +config_data['scaler_list']
+            namelist = config_data['xrf_detector'] +hdr.start.motors +config_data['scaler_list']
 
             dictv = {v:[] for v in namelist}
 

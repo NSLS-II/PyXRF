@@ -6,5 +6,5 @@
     },
     "pos_list": ["hf_stage_x", "hf_stage_y"],
     "scaler_list": ["current_preamp_ch2"],
-    "base_value": 7.24e-10
+    "base_value": [7.24e-10]
 }
