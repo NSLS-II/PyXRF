@@ -46,7 +46,7 @@ import numpy as np
 from matplotlib.figure import Figure
 
 import logging
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 
 enamldef ImageMain(DockItem):
@@ -152,7 +152,7 @@ enamldef ChooseElementAdvanced(Window): win:
                             iterable << sorted(img_model.items_in_selected_group)
                             Label:
                                 font = 'monospace'
-                                text = '{:>10}'.format(loop_item)
+                                text = str('{:>10}'.format(loop_item))
                             Container:
                                 constraints = [hbox(element_btn, min_lbl, dual_slider, max_lbl),]
                                 PushButton: element_btn:

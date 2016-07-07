@@ -59,7 +59,8 @@ enamldef FloatField(DefaultFloatField):
 
 enamldef SampleAction(Action):
     text = '%s action %d' % (parent.title, parent.children.index(self))
-    triggered :: print text
+    triggered :: 
+        print(text)
 
 
 enamldef SampleMenu(Menu):

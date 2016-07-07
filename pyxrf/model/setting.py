@@ -49,7 +49,7 @@ from skbeam.fluorescence import XrfElement as Element
 from skbeam.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
 
 import logging
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 
 class ROIModel(Atom):
@@ -188,7 +188,7 @@ class SettingModel(Atom):
         SpinBox in Enaml can only read integer as input. To be updated.
         """
         for v in element_list:
-            if self.roi_dict.has_key(v):
+            if v in self.roi_dict:
                 continue
 
             if '_K' in v:

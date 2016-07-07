@@ -50,7 +50,7 @@ from mpl_toolkits.axes_grid1.axes_rgb import make_rgb_axes, RGBAxes
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool, Float
 
 import logging
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 
 class DrawImageRGB(Atom):
@@ -157,10 +157,10 @@ class DrawImageRGB(Atom):
         # init of scaler for normalization
         self.scaler_name_index = 0
         self.data_dict_keys = []
-        self.data_dict_keys = self.data_dict.keys()
+        self.data_dict_keys = list(self.data_dict.keys())
         #logger.info('The following groups are included for 2D image display: {}'.format(self.data_dict_keys))
 
-        scaler_groups = [v for v in self.data_dict.keys() if 'scaler' in v]
+        scaler_groups = [v for v in list(self.data_dict.keys()) if 'scaler' in v]
         if len(scaler_groups) > 0:
             #self.scaler_group_name = scaler_groups[0]
             self.scaler_norm_dict = self.data_dict[scaler_groups[0]]
@@ -186,7 +186,7 @@ class DrawImageRGB(Atom):
                 self.dict_to_plot = self.data_dict[plot_item]
                 # for GUI purpose only
                 self.items_in_selected_group = []
-                self.items_in_selected_group = self.dict_to_plot.keys()
+                self.items_in_selected_group = list(self.dict_to_plot.keys())
                 self.set_stat_for_all(bool_val=False)
         except IndexError:
             pass
