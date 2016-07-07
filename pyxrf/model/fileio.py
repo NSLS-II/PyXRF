@@ -1594,7 +1594,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
         else:
             for i in scaler_shape.shape[2]:
                 scaler_data[:,:,i] = np.abs(scaler_data[:,:,i] - base_val[i])
-    
+
     dataGrp.create_dataset('val', data=scaler_data[:new_v_shape,:])
 
     # roi sum
@@ -1654,6 +1654,65 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
         # dataGrp.create_dataset('det_name', data=roi_names)
 
         logger.info('roi names: {}'.format(roi_names))
+
+    f.close()
+
+
+def save_data_hdf(hdr, fpath,
+        det_list=['xspress3_ch1']): #, 'xspress3_ch2', 'xspress3_ch3'),
+    """More work are needed here. This is not finished.
+    """
+    interpath = 'xrfmap'
+    f = h5py.File(fpath, 'a')
+
+    sum_data = None
+    shapev = hdr.start.shape
+
+    total_s = shapev[0] * shapev[1]
+    len_spectrum = 3000
+    #exp_data = np.zeros([shapev[0]*shapev[1], len_spectrum])
+    limit_size = 10000
+    #exp_data = np.zeros([limit_size, len_spectrum])
+
+    for n in range(len(det_list)):
+        c_name = det_list[n]
+        print(c_name)
+        detname = 'det'+str(n+1)
+        try:
+            dataGrp = f.create_group(interpath+'/'+detname)
+        except ValueError:
+            dataGrp = f[interpath+'/'+detname]
+
+        logger.info('read data from %s' % c_name)
+        #    channel_data = data[c_name]
+        evs = get_events(hdr, fill=True)
+        #for i,e in enumerate(evs):
+        #for i in range(total_s):
+        p = total_s/limit_size
+        q = total_s%limit_size
+        if q==0:
+            iter_n = int(p)
+        else:
+            iter_n = int(p)+1
+
+        for v in range(iter_n):
+            exp_data = np.zeros([limit_size, len_spectrum])
+            for i in range(limit_size):
+                if i%100==0:
+                    print(i)
+                e = evs.next()
+                exp_data[i,:] = e.data[c_name][:len_spectrum]
+                del e  # how to use memory efficiently?
+                if i>=limit_size-1:
+                    np.save('tmp_data'+str(v)+'.npy', exp_data)
+                    print('break here')
+
+                    break
+
+        #exp_data = exp_data.reshape([shapev[0], shapev[1], len_spectrum])
+
+        #ds_data = dataGrp.create_dataset('counts', data=new_data, compression='gzip')
+        #ds_data.attrs['comments'] = 'Experimental data from channel ' + str(n)
 
     f.close()
 
@@ -1743,9 +1802,6 @@ def get_name_value_from_db(name_list, data, datashape):
 #         Ch_dict[k] = val
 #     return Ch_dict
 
-
-# def get_scaler_list_hxn(all_keys):
-#     return [v for v in all_keys if 'sclr1_' in v]
 
 
 def add_extral_fields_hdf(fpath, config_path):
