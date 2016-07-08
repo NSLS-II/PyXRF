@@ -33,7 +33,7 @@
 # POSSIBILITY OF SUCH DAMAGE.                                          #
 ########################################################################
 import logging
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 from logging import NullHandler
 logger.addHandler(NullHandler())
