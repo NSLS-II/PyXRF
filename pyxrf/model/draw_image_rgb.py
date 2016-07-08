@@ -123,6 +123,7 @@ class DrawImageRGB(Atom):
     index_green = Int(1)
     index_blue = Int(2)
     ic_norm = Float()
+    rgb_limit = Dict()
 
     def __init__(self):
         self.fig = plt.figure(figsize=(4,4))
@@ -131,6 +132,8 @@ class DrawImageRGB(Atom):
 
         self.rgb_name_list = ['R', 'G', 'B']
         self.ic_norm = 1e4  # multiply by this value for ic normalization
+        for v in self.rgb_name_list:
+            self.rgb_limit[v] = [0.0, 100.0]
 
     def data_dict_update(self, change):
         """
@@ -257,9 +260,9 @@ class DrawImageRGB(Atom):
 
                 if self.scaler_data is not None:
                     if k in name_not_scalable:
-                        data_dict = self.dict_to_plot[k]
+                        data_dict = np.log(self.dict_to_plot[k])
                     else:
-                        data_dict = self.dict_to_plot[k]/self.scaler_data*self.ic_norm
+                        data_dict = np.log(self.dict_to_plot[k]/self.scaler_data*self.ic_norm)
 
                 else:
                     data_dict = np.log(self.dict_to_plot[k])
@@ -299,6 +302,14 @@ class DrawImageRGB(Atom):
         data_r = norm_data(data_r)
         data_g = norm_data(data_g)
         data_b = norm_data(data_b)
+
+        # set limit
+        data_r[data_r<self.rgb_limit['R'][0]/100.0] = 0.0
+        data_r[data_r>self.rgb_limit['R'][1]/100.0] = self.rgb_limit['R'][1]/100.0
+        data_g[data_g<self.rgb_limit['G'][0]/100.0] = 0.0
+        data_g[data_g>self.rgb_limit['G'][1]/100.0] = self.rgb_limit['G'][1]/100.0
+        data_b[data_b<self.rgb_limit['B'][0]/100.0] = 0.0
+        data_b[data_b>self.rgb_limit['B'][1]/100.0] = self.rgb_limit['B'][1]/100.0
 
         R, G, B, RGB = make_cube(data_r,
                                  data_g,

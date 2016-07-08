@@ -37,7 +37,8 @@ __author__ = 'Li Li'
 from enaml.widgets.api import (Container, PushButton, Label,
                                Form, Field, FileDialogEx, DockItem,
                                DockArea, MPLCanvas, CheckBox, ComboBox,
-                               ScrollArea, Window, GroupBox, Splitter, SplitItem, DualSlider)
+                               ScrollArea, Window, GroupBox,
+                               Splitter, SplitItem, DualSlider)
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer
 from enaml.core.api import Include, Looper
 
@@ -174,7 +175,7 @@ enamldef ChooseElementAdvanced(Window): win:
                                 Label: max_lbl:
                                     text << str(dual_slider.maximum)+str('%')
                                 DualSlider: dual_slider:
-                                    minimum_size = (100, 20)
+                                    minimum_size = (150, 20)
                                     tick_interval = 1000
                                     minimum = 0
                                     maximum = 100
