@@ -123,7 +123,6 @@ class DrawImageAdvanced(Atom):
     scaler_data = Typed(object)
 
     plot_all = Bool(False)
-
     x_pos = List()
     y_pos = List()
 

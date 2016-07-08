@@ -58,7 +58,7 @@ with enaml.imports():
 
 def get_defaults():
 
-    sub_folder = 'data_analysis'  # + '/xspress3'
+    sub_folder = 'data_analysis'
     working_directory = os.path.join(os.path.expanduser('~'),
                                      sub_folder)
     output_directory = working_directory
@@ -106,6 +106,7 @@ def run():
 
     ### Output log to gui, turn off for now
     ### error at mac, works fine on linux
+    ### so log info only outputs to terminal for now.
     formatter = logging.Formatter(fmt='%(asctime)s : %(levelname)s : %(message)s')
     guihandler = GuiHandler()
     guihandler.setLevel(logging.INFO)

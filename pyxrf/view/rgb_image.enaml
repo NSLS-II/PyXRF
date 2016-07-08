@@ -177,6 +177,7 @@ enamldef ImageRGB(DockItem):
                             img_model_adv.index_blue=2
 
         MPLCanvas: canvas:
+            toolbar_visible = True
             figure << img_model_adv.fig
 
         Label: lb_select:

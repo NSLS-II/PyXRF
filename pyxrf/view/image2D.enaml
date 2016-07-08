@@ -107,8 +107,8 @@ enamldef ImageMain(DockItem):
             text = 'Toolbar Visible'
             checked := canvas.toolbar_visible
         MPLCanvas: canvas:
+            toolbar_visible = True
             figure << choose_element.img_model.fig
-            #figure << figures[cbox_type.selected_item]
 
 
 enamldef ChooseElementAdvanced(Window): win:

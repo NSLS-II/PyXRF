@@ -59,7 +59,7 @@ enamldef XRFGui(MainWindow): main_window:
     attr fit_model
     attr setting_model
     attr Param
-    attr logmodel
+    attr logmodel   # to output log information at GUI level
 
     Container:
         DockArea:
