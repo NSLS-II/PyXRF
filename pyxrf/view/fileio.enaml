@@ -195,7 +195,7 @@ enamldef FileView(DockItem): file_view:
                                     #plot_bt.enabled = True
                                     plot_model.data_sets = io_model.data_sets
 
-                            ### To output status, turn off for now
+                            ### Output log to gui, turn off for now
                             ### error at mac, works fine on linux
                             #MultilineField: mf:
                             #    text << logmodel.logtext

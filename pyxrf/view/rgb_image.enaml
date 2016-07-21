@@ -100,7 +100,7 @@ enamldef ImageRGB(DockItem):
         Container: ct_rgb:
             constraints = [
                            vbox(
-                           hbox(lb_name, lb_color, lb_range, spacer),
+                           hbox(lb_name, lb_color, lb_range, spacer, reset),
                            hbox(ct_name, ct_r, ct_g, ct_b, slider, spacer),
                            ),
                            lb_name.width==ct_name.width,
@@ -187,22 +187,27 @@ enamldef ImageRGB(DockItem):
                     tick_interval = 100
                     minimum = 0
                     maximum = 100
-                    low_value >> img_model_adv.rgb_limit['R'][0]
-                    high_value >> img_model_adv.rgb_limit['R'][1]
+                    low_value := img_model_adv.r_low
+                    high_value := img_model_adv.r_high
                 DualSlider: slider_g:
                     minimum_size = (150, 22)
                     tick_interval = 100
                     minimum = 0
                     maximum = 100
-                    low_value >> img_model_adv.rgb_limit['G'][0]
-                    high_value >> img_model_adv.rgb_limit['G'][1]
+                    low_value := img_model_adv.g_low
+                    high_value := img_model_adv.g_high
                 DualSlider: slider_b:
                     minimum_size = (150, 22)
                     tick_interval = 100
                     minimum = 0
                     maximum = 100
-                    low_value >> img_model_adv.rgb_limit['B'][0]
-                    high_value >> img_model_adv.rgb_limit['B'][1]
+                    low_value := img_model_adv.b_low
+                    high_value := img_model_adv.b_high
+            PushButton: reset:
+                text = 'Reset'
+                clicked ::
+                    img_model_adv.init_rgb()
+                    img_model_adv.show_image()
         MPLCanvas: canvas:
             toolbar_visible = True
             figure << img_model_adv.fig
