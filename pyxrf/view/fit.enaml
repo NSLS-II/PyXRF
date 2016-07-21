@@ -86,6 +86,7 @@ enamldef FitView(DockItem): fit_view:
     attr img_model_rgb
     attr pileup_edit
     attr setting_model
+    attr output_edit
 
     Container:
         padding = Box(2, 2, 2, 2)
@@ -667,7 +668,7 @@ enamldef FitView(DockItem): fit_view:
             title = 'Fit spectrum of all individual pixels.'
             padding = Box(2, 2, 2, 2)
             constraints = [vbox(hbox(save_cb, lb1, fd1v, fd1h, lb2, fd2v, fd2h, spacer, interp_cb),
-                                hbox(fit_pixel, pixel_fit_information, spacer, to_tiff, to_txt))]
+                                hbox(fit_pixel, pixel_fit_information, spacer, output_btn, to_tiff, to_txt))]
             CheckBox: save_cb:
                 text = 'Save plots'
                 clicked ::
@@ -735,6 +736,17 @@ enamldef FitView(DockItem): fit_view:
                 text := fit_model.pixel_fit_info
                 foreground = 'red'
 
+            PushButton: output_btn:
+                text = 'Output setup'
+                enabled = True
+                checkable = True
+                checked := output_edit.visible
+                clicked ::
+                    if checked:
+                        output_edit.show()
+                    else:
+                        output_edit.hide()
+
             PushButton: to_tiff:
                 text = 'Save to tiff'
                 #minimum_size = (20, 20)
@@ -745,6 +757,32 @@ enamldef FitView(DockItem): fit_view:
                 #minimum_size = (20, 20)
                 clicked ::
                     fit_model.output_2Dimage(to_tiff=False)
+
+
+enamldef OutputSetup(Window): output_win:
+    attr fit_model
+
+    Container:
+        constraints = [vbox(cb1, gb_range, save_btn),]
+        CheckBox: cb1:
+            text = 'Calculate ROI sum within given range (KeV)'
+            checked := fit_model.roi_sum_opt['status']
+        GroupBox: gb_range:
+            constraints = [vbox(hbox(lbl_low, ff_low),
+                                hbox(lbl_high, ff_high),)]
+            Label: lbl_low:
+                text = 'low range'
+            FloatField: ff_low:
+                value := fit_model.roi_sum_opt['low']
+            Label: lbl_high:
+                text = 'high range'
+            FloatField: ff_high:
+                value := fit_model.roi_sum_opt['high']
+        PushButton: save_btn:
+            text = 'Save'
+            clicked ::
+                fit_model.calculate_roi_sum()
+                output_win.close()
 
 
 enamldef AutoFindElements(Window): auto_win:

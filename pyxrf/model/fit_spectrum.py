@@ -179,6 +179,8 @@ class Fit1D(Atom):
     hdf_path = Str()
     hdf_name = Str()
 
+    roi_sum_opt = Dict()
+
     def __init__(self, *args, **kwargs):
         self.working_directory = kwargs['working_directory']
         self.result_folder = kwargs['working_directory']
@@ -197,6 +199,11 @@ class Fit1D(Atom):
         self.fit_strategy2 = 0
         self.fit_strategy1 = 1
         self.fit_strategy2 = 4
+
+        # perform roi sum in given range
+        self.roi_sum_opt['status'] = False
+        self.roi_sum_opt['low'] = 0.0
+        self.roi_sum_opt['high'] = 10.0
 
     def result_folder_changed(self, change):
         """
@@ -662,6 +669,18 @@ class Fit1D(Atom):
 
         # Update GUI so that results can be seen immediately
         self.fit_img[fit_name] = self.result_map
+
+    def calculate_roi_sum(self):
+        if self.roi_sum_opt['status'] == True:
+            low = int(self.roi_sum_opt['low']*100)
+            high = int(self.roi_sum_opt['high']*100)
+            logger.info('ROI sum at range ({}, {})'.format(self.roi_sum_opt['low'],
+                                                           self.roi_sum_opt['high']))
+            sumv = np.sum(self.data_all[:,:,low:high], axis=2)
+            print(self.data_all.shape)
+            self.result_map['ROI']=sumv
+            # save to hdf again, this is not optimal
+            self.save2Dmap_to_hdf()
 
     def output_2Dimage(self, to_tiff=True):
         """Read data from h5 file and save them into either tiff or txt.
