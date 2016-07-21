@@ -1565,10 +1565,11 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     #
     # this needs to be corrected later. It is confusing to Reorganize position this way.
     #
-    pos_data = pos_data.transpose()
-    data_temp = np.zeros([pos_data.shape[0], pos_data.shape[2], pos_data.shape[1]])
-    for i in range(pos_data.shape[0]):
-        data_temp[i,:,:] = np.rot90(pos_data[i,:,:], k=3)
+    #pos_data = pos_data.transpose()
+    data_temp = np.zeros([pos_data.shape[2], pos_data.shape[0], pos_data.shape[1]])
+    for i in range(pos_data.shape[2]):
+        data_temp[i,:,:] = pos_data[:,:,i]
+        #data_temp[i,:,:] = np.rot90(pos_data[i,:,:], k=3)
 
     if fly_type in ('pyramid',):
         for i in range(data_temp.shape[0]):

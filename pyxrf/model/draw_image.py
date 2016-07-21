@@ -368,6 +368,8 @@ class DrawImageAdvanced(Atom):
                                         interpolation=plot_interp,
                                         extent=self.pixel_or_pos_for_plot,
                                         clim=(low_limit, high_limit))
+                    grid[i].get_xaxis().get_major_formatter().set_useOffset(False)
+                    grid[i].get_yaxis().get_major_formatter().set_useOffset(False)
                     grid_title = k #self.file_name+'_'+str(k)
                     if self.pixel_or_pos_for_plot is not None:
                         title_x = self.pixel_or_pos_for_plot[0]
@@ -408,7 +410,8 @@ class DrawImageAdvanced(Atom):
                                     cmap=grey_use,
                                     interpolation=plot_interp,
                                     extent=self.pixel_or_pos_for_plot)
-
+                grid[i].get_xaxis().get_major_formatter().set_useOffset(False)
+                grid[i].get_yaxis().get_major_formatter().set_useOffset(False)
                 grid_title = k #self.file_name+'_'+str(k)
                 if self.pixel_or_pos_for_plot is not None:
                     print(self.pixel_or_pos_for_plot)
