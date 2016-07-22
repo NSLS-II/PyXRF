@@ -90,7 +90,7 @@ def fit_pixel_data_and_save(working_directory, file_name,
 
         result_map_sum, calculation_info = single_pixel_fitting_controller(data_all_sum,
                                                                            param_sum,
-                                                                           incident_energy=incident_energy
+                                                                           incident_energy=incident_energy,
                                                                            method=method,
                                                                            pixel_bin=pixel_bin,
                                                                            raise_bg=raise_bg,
