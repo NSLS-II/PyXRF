@@ -1814,7 +1814,7 @@ def _make_hdf(fpath, runid):
             # !!! array data to write_db_to_hdf, instead of dataframe or dict
             # !!! this is not optimized, to be update soon!
 
-            cut_num = 2
+            cut_num = 10
             spectrum_len = 4096
             total_len = datashape[0]*datashape[1]
 
