@@ -1504,7 +1504,6 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
             # new veritcal shape is defined to ignore zeros points caused by stopped/aborted scans
             new_v_shape = len(channel_data) // datashape[1]
-            #new_data = np.zeros([1, len(channel_data), len(channel_data[1])])
             new_data = np.zeros([1, new_v_shape*datashape[1], len(channel_data[1])])
 
             for i in range(new_v_shape*datashape[1]):
@@ -1744,96 +1743,6 @@ def get_name_value_from_db(name_list, data, datashape):
         pos_data[:, :, i] = posv.reshape([datashape[0], datashape[1]])
         pos_names.append(str(v))
     return pos_names, pos_data
-
-
-# def db_to_hdf(fpath, runid,
-#               datashape,
-#               det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
-#               roi_dict={'Pt_9300_9600': ['Ch1 [9300:9600]', 'Ch2 [9300:9600]', 'Ch3 [9300:9600]']},
-#               pos_list=('ssx[um]', 'ssy[um]'),
-#               scaler_list=('sclr1_ch2', 'sclr1_ch3', 'sclr1_ch8')):
-#     """
-#     Read data from databroker, and save the data to hdf file.
-#
-#     .. note:: Requires the databroker package from NSLS2
-#     .. note:: This should probably be moved to suitcase!
-#
-#     Parameters
-#     ----------
-#     fpath: str
-#         path to save hdf file
-#     runid : int
-#         id number for given run
-#     datashape : tuple or list
-#         shape of two D image
-#     det_list : list, tuple or optional
-#         list of detector channels
-#     roi_list : list, tuple, optional
-#         list of roi pv names
-#     pos_list : list, tuple or optional
-#         list of pos pv
-#     scaler_list : list, tuple, optional
-#         list of scaler pv
-#     """
-#     data = fetch_data_from_db(runid)
-#     write_db_to_hdf(fpath, data,
-#                     datashape, det_list=det_list,
-#                     roi_dict=roi_dict,
-#                     pos_list=pos_list,
-#                     scaler_list=scaler_list)
-
-
-def add_extral_fields_hdf(fpath, config_path):
-    """Add extral information from databroker into h5 file.
-    In progress.
-    """
-    with open(config_path, 'r') as json_data:
-        config_data = json.load(json_data)
-
-    interpath = 'xrfmap'
-    with h5py.File(fpath, 'a') as f:
-
-        try:
-            dg = f.create_group(interpath+'/config')
-        except ValueError:
-            dg = f[interpath+'/config']
-
-        sub_name_dict = {'upstream': 'upstream_name_list',
-                         'microscope': 'microscope_name_list'}
-        for sub_name, v in sub_name_dict.items():
-            try:
-                dg_sub = dg.create_group(sub_name)
-            except ValueError:
-                dg_sub = dg[sub_name]
-
-            data_name = [str(val) for val in config_data[v]]
-
-            # need to read data from PV here
-            data_val = np.zeros(len(data_name))
-
-            try:
-                dg_sub.create_dataset('name', data=data_name)
-            except RuntimeError:
-                try:
-                    dg_sub['name'][:] = data_name
-                except TypeError:  # when the length of data items changes
-                    dg_sub.__delitem__('name')
-                    dg_sub.create_dataset('name', data=data_name)
-
-            try:
-                dg_sub.create_dataset('value', data=data_val)
-            except RuntimeError:
-                try:
-                    dg_sub['value'][:] = data_val
-                except TypeError:
-                    dg_sub.__delitem__('value')
-                    dg_sub.create_dataset('value', data=data_val)
-
-        # sub_name = 'microscope'
-        # try:
-        #     dg_m = dg.create_group(sub_name)
-        # except ValueError:
-        #     dg_m = dg[sub_name]
 
 
 def _make_hdf(fpath, runid):
