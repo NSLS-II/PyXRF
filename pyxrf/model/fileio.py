@@ -1810,15 +1810,10 @@ def _make_hdf(fpath, runid):
         try:
             data = get_table(hdr)
         except IndexError:
-            # !!! this part needs to rewrite during shutdown. it is better to pass
-            # !!! array data to write_db_to_hdf, instead of dataframe or dict
-            # !!! this is not optimized, to be update soon!
-
-            cut_num = 10
             spectrum_len = 4096
-            total_len = datashape[0]*datashape[1]
+            total_len = get_total_scan_point(hdr) - 1
 
-            evs, _ = zip(*zip(get_events(hdr), range(total_len-cut_num)))
+            evs, _ = zip(*zip(get_events(hdr), range(total_len)))
 
             namelist = config_data['xrf_detector'] +hdr.start.motors +config_data['scaler_list']
 
@@ -1828,7 +1823,7 @@ def _make_hdf(fpath, runid):
                 for k,v in six.iteritems(dictv):
                     dictv[k].append(e.data[k])
 
-            data = pd.DataFrame(dictv, index=np.arange(1, total_len-cut_num+1)) # need to start with 1
+            data = pd.DataFrame(dictv, index=np.arange(1, total_len+1)) # need to start with 1
 
         print('Saving data to hdf file.')
         write_db_to_hdf(fpath, data,
@@ -1843,6 +1838,21 @@ def _make_hdf(fpath, runid):
 
     else:
         print("Databroker is not setup for this beamline")
+
+
+def get_total_scan_point(hdr):
+    """
+    Find the how many data points are recorded. This number may not equal to the total number
+    defined at the start of the scan due to scan stop or abort. 
+    """
+    evs = get_events(hdr)
+    n = 0
+    try:
+        for e in evs:
+            n = n+1
+    except IndexError:
+        pass
+    return n
 
 
 def make_hdf(start, end=None, fname=None, prefix='scan2D_'):
