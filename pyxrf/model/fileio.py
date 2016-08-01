@@ -1808,12 +1808,12 @@ def _make_hdf(fpath, runid):
             config_data = json.load(json_data)
 
         try:
-            data = get_table(hdr)
+            data = get_table(hdr, fill=True)
         except IndexError:
             spectrum_len = 4096
-            total_len = get_total_scan_point(hdr) - 1
+            total_len = get_total_scan_point(hdr) - 2
 
-            evs, _ = zip(*zip(get_events(hdr), range(total_len)))
+            evs, _ = zip(*zip(get_events(hdr, fill=True), range(total_len)))
 
             namelist = config_data['xrf_detector'] +hdr.start.motors +config_data['scaler_list']
 
@@ -1843,7 +1843,7 @@ def _make_hdf(fpath, runid):
 def get_total_scan_point(hdr):
     """
     Find the how many data points are recorded. This number may not equal to the total number
-    defined at the start of the scan due to scan stop or abort. 
+    defined at the start of the scan due to scan stop or abort.
     """
     evs = get_events(hdr)
     n = 0
