@@ -131,7 +131,7 @@ class DrawImageAdvanced(Atom):
     interpolation_opt = Bool(True)
     data_dict_default = Dict()
     limit_dict = Dict()
-    img_show = Bool(True)
+    scatter_show = Bool(False)
 
     def __init__(self):
         self.fig = plt.figure(figsize=(4,4))
@@ -259,7 +259,7 @@ class DrawImageAdvanced(Atom):
         else:
             self.set_stat_for_all(bool_val=False)
 
-    @observe('img_show')
+    @observe('scatter_show')
     def _change_image_plot_method(self, change):
         if change['type'] != 'create':
             self.show_image()
@@ -361,7 +361,7 @@ class DrawImageAdvanced(Atom):
                 else:
                     data_dict = self.dict_to_plot[k]
 
-                if self.img_show is True:
+                if self.scatter_show is not True:
                     lowv = self.limit_dict[k]['low']/100.0
                     highv = self.limit_dict[k]['high']/100.0
                     low_limit = (np.max(data_dict)-np.min(data_dict))*lowv + np.min(data_dict)
