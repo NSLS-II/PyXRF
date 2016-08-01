@@ -80,7 +80,7 @@ def fit_pixel_data_and_save(working_directory, file_name,
 
         try:
             data_all_sum = data_sets[prefix_fname+'_sum'].raw_data
-        except KeyError, e:
+        except KeyError:
             data_all_sum = data_sets[prefix_fname].raw_data
 
         # load param file
