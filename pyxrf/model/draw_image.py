@@ -259,6 +259,11 @@ class DrawImageAdvanced(Atom):
         else:
             self.set_stat_for_all(bool_val=False)
 
+    @observe('img_show')
+    def _change_image_plot_method(self, change):
+        if change['type'] != 'create':
+            self.show_image()
+
     # @observe('interpolation_opt')
     # def _interp_update(self, change):
     #     """Do interpolation in terms of position or not.
@@ -381,20 +386,10 @@ class DrawImageAdvanced(Atom):
                     title_x = self.pixel_or_pos_for_plot[0]
                     title_y = self.pixel_or_pos_for_plot[3] + (self.pixel_or_pos_for_plot[3] -
                                                                self.pixel_or_pos_for_plot[2])*0.04
-
                 else:
                     title_x = 0
                     title_y = - data_dict.shape[0]*0.05
-
                 grid[i].text(title_x, title_y, grid_title)
-                #else:
-                #    scatter = grid[i].scatter(self.data_dict['positions']['x_pos'],
-                #                              self.data_dict['positions']['y_pos'],
-                #                              c=data_dict, marker='s', s=500, alpha=0.8,
-                #                              cmap=grey_use,
-                #                              linewidths=1, linewidth=0)
-                #    grid[i].set_xlim(min([self.x_pos[0], self.x_pos[-1]]), max([self.x_pos[0], self.x_pos[-1]]))
-                #    grid[i].set_ylim(min([self.y_pos[0], self.y_pos[-1]]), max([self.y_pos[0], self.y_pos[-1]]))
 
                 grid.cbar_axes[i].colorbar(im)
                 grid[i].get_xaxis().get_major_formatter().set_useOffset(False)
