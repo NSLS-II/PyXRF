@@ -50,7 +50,16 @@ from mpl_toolkits.axes_grid1.axes_rgb import make_rgb_axes, RGBAxes
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool, Float
 
 import logging
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
+
+#
+# class plot_limit(Atom):
+#     low = Float(0)
+#     high = Float(100)
+#     # g_low = Float(0)
+#     # g_high = Float(100)
+#     # b_low = Float(0)
+#     # b_high = Float(100)
 
 
 class DrawImageRGB(Atom):
@@ -122,7 +131,16 @@ class DrawImageRGB(Atom):
     index_red = Int(0)
     index_green = Int(1)
     index_blue = Int(2)
-    ic_norm = Float()
+    #ic_norm = Float()
+    rgb_limit = Dict()
+    r_low = Int(0)
+    r_high = Int(100)
+    g_low = Int(0)
+    g_high = Int(100)
+    b_low = Int(0)
+    b_high = Int(100)
+    #r_bound = List()
+    #rgb_limit = plot_limit()
 
     def __init__(self):
         self.fig = plt.figure(figsize=(4,4))
@@ -130,7 +148,8 @@ class DrawImageRGB(Atom):
         self.ax_r, self.ax_g, self.ax_b = make_rgb_axes(self.ax, pad=0.02)
 
         self.rgb_name_list = ['R', 'G', 'B']
-        self.ic_norm = 1e4  # multiply by this value for ic normalization
+        #self.ic_norm = 1e4  # multiply by this value for ic normalization
+        #self.r_bound = [0.0, 100.0]
 
     def data_dict_update(self, change):
         """
@@ -157,10 +176,10 @@ class DrawImageRGB(Atom):
         # init of scaler for normalization
         self.scaler_name_index = 0
         self.data_dict_keys = []
-        self.data_dict_keys = self.data_dict.keys()
+        self.data_dict_keys = list(self.data_dict.keys())
         #logger.info('The following groups are included for 2D image display: {}'.format(self.data_dict_keys))
 
-        scaler_groups = [v for v in self.data_dict.keys() if 'scaler' in v]
+        scaler_groups = [v for v in list(self.data_dict.keys()) if 'scaler' in v]
         if len(scaler_groups) > 0:
             #self.scaler_group_name = scaler_groups[0]
             self.scaler_norm_dict = self.data_dict[scaler_groups[0]]
@@ -186,10 +205,20 @@ class DrawImageRGB(Atom):
                 self.dict_to_plot = self.data_dict[plot_item]
                 # for GUI purpose only
                 self.items_in_selected_group = []
-                self.items_in_selected_group = self.dict_to_plot.keys()
+                self.items_in_selected_group = list(self.dict_to_plot.keys())
                 self.set_stat_for_all(bool_val=False)
+                # set rgb value to 0 and 100
+                self.init_rgb()
         except IndexError:
             pass
+
+    def init_rgb(self):
+        self.r_low = 0
+        self.r_high = 100
+        self.g_low = 0
+        self.g_high = 100
+        self.b_low = 0
+        self.b_high = 100
 
     @observe('scaler_name_index')
     def _get_scaler_data(self, change):
@@ -230,8 +259,6 @@ class DrawImageRGB(Atom):
         name_not_scalable = ['r_squared']  # do not apply scaler norm on those data
 
         if self.scaler_data is not None:
-            if np.max(self.scaler_data) < 1.0:  # use current as ic, such as SRX
-                self.ic_norm = 1.0
             if len(self.scaler_data[self.scaler_data == 0]) > 0:
                 logger.warning('scaler data has zero values at {}'.format(np.where(self.scaler_data == 0)))
                 self.scaler_data[self.scaler_data == 0] = np.mean(self.scaler_data[self.scaler_data != 0])
@@ -244,7 +271,7 @@ class DrawImageRGB(Atom):
                     if k in name_not_scalable:
                         data_dict = self.dict_to_plot[k]
                     else:
-                        data_dict = self.dict_to_plot[k]/self.scaler_data*self.ic_norm
+                        data_dict = self.dict_to_plot[k]/self.scaler_data
 
                 else:
                     data_dict = self.dict_to_plot[k]
@@ -257,18 +284,22 @@ class DrawImageRGB(Atom):
 
                 if self.scaler_data is not None:
                     if k in name_not_scalable:
-                        data_dict = self.dict_to_plot[k]
+                        data_dict = np.log(self.dict_to_plot[k])
                     else:
-                        data_dict = self.dict_to_plot[k]/self.scaler_data*self.ic_norm
+                        data_dict = np.log(self.dict_to_plot[k]/self.scaler_data*self.ic_norm)
 
                 else:
                     data_dict = np.log(self.dict_to_plot[k])
 
-                #maxz = np.max(data_dict)
                 selected_data.append(data_dict)
                 selected_name.append(k)
 
         return selected_data, selected_name
+
+    @observe('r_low, r_high, g_low, g_high, b_low, b_high')
+    def _update_scale(self, change):
+        if change['type'] != 'create':
+            self.show_image()
 
     def show_image(self):
 
@@ -280,7 +311,6 @@ class DrawImageRGB(Atom):
         elif len(selected_name) >= 3:
             if len(selected_name) > 3:
                 logger.warning('Please select only three elements for RGB plot.')
-            logger.warning('Elements {} are considered.'.format(selected_name[:3]))
             self.rgb_name_list = selected_name[:3]
 
         try:
@@ -299,6 +329,21 @@ class DrawImageRGB(Atom):
         data_r = norm_data(data_r)
         data_g = norm_data(data_g)
         data_b = norm_data(data_b)
+
+        # set limit
+        data_r[data_r<self.r_low/100.0] = 0.0
+        data_r[data_r>self.r_high/100.0] = self.r_high/100.0
+        data_g[data_g<self.g_low/100.0] = 0.0
+        data_g[data_g>self.g_high/100.0] = self.g_high/100.0
+        data_b[data_b<self.b_low/100.0] = 0.0
+        data_b[data_b>self.b_high/100.0] = self.g_high/100.0
+
+        # data_r[data_r<self.rgb_limit['R'][0]/100.0] = 0.0
+        # data_r[data_r>self.rgb_limit['R'][1]/100.0] = self.rgb_limit['R'][1]/100.0
+        # data_g[data_g<self.rgb_limit['G'][0]/100.0] = 0.0
+        # data_g[data_g>self.rgb_limit['G'][1]/100.0] = self.rgb_limit['G'][1]/100.0
+        # data_b[data_b<self.rgb_limit['B'][0]/100.0] = 0.0
+        # data_b[data_b>self.rgb_limit['B'][1]/100.0] = self.rgb_limit['B'][1]/100.0
 
         R, G, B, RGB = make_cube(data_r,
                                  data_g,

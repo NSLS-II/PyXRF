@@ -44,7 +44,8 @@ from .lineplot import PlotMain, AdjustEmissionLine
 from .image2D import ImageMain, ChooseElementAdvanced
 from .rgb_image import ImageRGB
 from .fit import (FitView, ElementEdit, ParameterEdit,
-                  OtherSettingEdit, EditPileupPeak, AutoFindElements)
+                  OtherSettingEdit, EditPileupPeak,
+                  AutoFindElements, OutputSetup)
 from .setting import SettingView
 
 
@@ -59,6 +60,7 @@ enamldef XRFGui(MainWindow): main_window:
     attr fit_model
     attr setting_model
     attr Param
+    attr logmodel   # to output log information at GUI level
 
     Container:
         DockArea:
@@ -142,7 +144,11 @@ enamldef XRFGui(MainWindow): main_window:
                     param_model=main_window.param_model,
                     plot_model=main_window.plot_model,
                     setting_model = main_window.setting_model)
-
+                output_edit = OutputSetup(
+                    visible=False,
+                    destroy_on_close=False,
+                    parent=main_window,
+                    fit_model=main_window.fit_model)
                 name = 'fitting_view'
             SettingView:
                 closable = False

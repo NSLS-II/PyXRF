@@ -56,7 +56,7 @@ from skbeam.core.fitting.xrf_model import (ParamController,
                                            linear_spectrum_fitting)
 
 import logging
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 
 bound_options = ['none', 'lohi', 'fixed', 'lo', 'hi']
@@ -135,7 +135,7 @@ class ElementController(object):
 
     def add_to_dict(self, dictv):
         self.element_dict.update(dictv)
-        logger.debug('Item {} is added.'.format(dictv.keys()))
+        logger.debug('Item {} is added.'.format(list(dictv.keys())))
         self.update_norm()
 
     def update_norm(self, threshv=0.0):
@@ -512,7 +512,7 @@ class GuessParamModel(Atom):
         """
         # need to clean list first, in order to refresh the list in GUI
         self.result_dict_names = []
-        self.result_dict_names = self.EC.element_dict.keys()
+        self.result_dict_names = list(self.EC.element_dict.keys())
         #logger.info('The full list for fitting is {}'.format(self.result_dict_names))
 
     def find_peak(self, threshv=0.1):
@@ -544,7 +544,7 @@ class GuessParamModel(Atom):
             prefit_dict.update({k: ps})
 
         logger.info('Automatic Peak Finding found elements as : {}'.format(
-            prefit_dict.keys()))
+            list(prefit_dict.keys())))
         self.EC.delete_all()
         self.EC.add_to_dict(prefit_dict)
 

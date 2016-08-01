@@ -40,7 +40,8 @@ from enaml.qt.qt_application import QtApplication
 import os
 import numpy as np
 import logging
-
+logger = logging.getLogger()
+from atom.api import Atom, Str
 from .model.fileio import FileIOModel
 from .model.lineplot import LinePlotModel #, SettingModel
 from .model.guessparam import GuessParamModel
@@ -57,7 +58,7 @@ with enaml.imports():
 
 def get_defaults():
 
-    sub_folder = 'data_analysis'  # + '/xspress3'
+    sub_folder = 'data_analysis'
     working_directory = os.path.join(os.path.expanduser('~'),
                                      sub_folder)
     output_directory = working_directory
@@ -78,16 +79,23 @@ def get_defaults():
     return defaults
 
 
+class LogModel(Atom):
+    logtext = Str()
+
+class GuiHandler(logging.Handler):
+    def __init__(self, model=None):
+        super(GuiHandler, self).__init__()
+        if model is None:
+            model = LogModel()
+        self.model = model
+
+    def handle(self, record):
+        self.model.logtext += self.format(record) + '\n'
+
 def run():
-    LOG_F = 'log_example.out'
-    logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s',
-                        level=logging.INFO,
-                        #filename=LOG_F,
-                        filemode='w')
 
     app = QtApplication()
     defaults = get_defaults()
-
     io_model = FileIOModel(**defaults)
     param_model = GuessParamModel(**defaults)
     plot_model = LinePlotModel()
@@ -95,6 +103,20 @@ def run():
     setting_model = SettingModel(**defaults)
     img_model_adv = DrawImageAdvanced()
     img_model_rgb = DrawImageRGB()
+
+    ### Output log to gui, turn off for now
+    ### error at mac, works fine on linux
+    ### so log info only outputs to terminal for now.
+    formatter = logging.Formatter(fmt='%(asctime)s : %(levelname)s : %(message)s')
+    guihandler = GuiHandler()
+    guihandler.setLevel(logging.INFO)
+    guihandler.setFormatter(formatter)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    stream_handler.setLevel(logging.INFO)
+    logger.setLevel(logging.INFO)
+    logger.addHandler(guihandler)
+    logger.addHandler(stream_handler)
 
     # send working directory changes to different models
     io_model.observe('working_directory', fit_model.result_folder_changed)
@@ -123,14 +145,15 @@ def run():
     # send exp data to SettingModel for roi sum
     # got warning message
     #io_model.observe('data_sets', setting_model.data_sets_update)
-
+    logger.info('pyxrf started.')
     xrfview = XRFGui(io_model=io_model,
                      param_model=param_model,
                      plot_model=plot_model,
                      fit_model=fit_model,
                      setting_model=setting_model,
                      img_model_adv=img_model_adv,
-                     img_model_rgb=img_model_rgb)
+                     img_model_rgb=img_model_rgb,
+                     logmodel=guihandler.model)
 
     xrfview.show()
     app.start()

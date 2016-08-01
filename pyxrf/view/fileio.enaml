@@ -38,7 +38,7 @@ __author__ = 'Li Li'
 from enaml.widgets.api import (Container, PushButton, Label,
                                Form, Field, FileDialogEx, DockItem,
                                DockArea, CheckBox, ComboBox, RadioButton,
-                               ScrollArea, Window, GroupBox)
+                               ScrollArea, Window, GroupBox, MultilineField)
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer, grid
 from enaml.core.api import Include, Looper
 from enaml.layout.geometry import Box
@@ -49,7 +49,7 @@ import numpy as np
 
 try:
     import databroker
-except (ImportError, KeyError):
+except ImportError:
     databroker = None
 
 enamldef IntField(DefaultIntField):
@@ -130,7 +130,6 @@ enamldef FileView(DockItem): file_view:
                     else:
                         mask_edit.hide()
 
-
             GroupBox: gb_db:
                 title = 'Data from database'
                 constraints = [hbox(run_lbl, run_num, load_btn, spacer),]
@@ -172,6 +171,7 @@ enamldef FileView(DockItem): file_view:
                     foreground = 'blue'
 
             ScrollArea: scroller:
+                constraints = [height <= 300]
                 Container:
                     Looper: looper:
                         iterable << io_model.file_channel_list
@@ -190,10 +190,17 @@ enamldef FileView(DockItem): file_view:
                                 text = 'Sum'
                                 clicked ::
                                     io_model.data_sets[loop_item].plot_index = 1
-                                    fd1.enabled = False
-                                    fd2.enabled = False
+                                    #fd1.enabled = False
+                                    #fd2.enabled = False
                                     #plot_bt.enabled = True
-                                    #plot_model.data_sets = io_model.data_sets
+                                    plot_model.data_sets = io_model.data_sets
+
+                            ### Output log to gui, turn off for now
+                            ### error at mac, works fine on linux
+                            #MultilineField: mf:
+                            #    text << logmodel.logtext
+                            #    read_only = True
+                            #    auto_sync_text = True
 
                             #RadioButton: rb_3:
                             #    text = 'Point'

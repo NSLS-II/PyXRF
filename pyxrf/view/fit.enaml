@@ -86,6 +86,7 @@ enamldef FitView(DockItem): fit_view:
     attr img_model_rgb
     attr pileup_edit
     attr setting_model
+    attr output_edit
 
     Container:
         padding = Box(2, 2, 2, 2)
@@ -667,7 +668,7 @@ enamldef FitView(DockItem): fit_view:
             title = 'Fit spectrum of all individual pixels.'
             padding = Box(2, 2, 2, 2)
             constraints = [vbox(hbox(save_cb, lb1, fd1v, fd1h, lb2, fd2v, fd2h, spacer, interp_cb),
-                                hbox(fit_pixel, pixel_fit_information, spacer, to_tiff, to_txt))]
+                                hbox(fit_pixel, pixel_fit_information, spacer, output_btn, to_tiff, to_txt))]
             CheckBox: save_cb:
                 text = 'Save plots'
                 clicked ::
@@ -719,7 +720,7 @@ enamldef FitView(DockItem): fit_view:
                     # add scalers to fit dict
                     scaler_key = [v for v in six.iterkeys(img_model_adv.data_dict) if 'scaler' in v]
                     if len(scaler_key) > 0:
-                        fit_model.fit_img[fit_model.fit_img.keys()[0]].update(img_model_adv.data_dict[scaler_key[0]])
+                        fit_model.fit_img[list(fit_model.fit_img.keys())[0]].update(img_model_adv.data_dict[scaler_key[0]])
 
                     img_model_adv.data_dict.update(fit_model.fit_img)
                     img_model_rgb.data_dict.update(fit_model.fit_img)
@@ -727,13 +728,24 @@ enamldef FitView(DockItem): fit_view:
 
                     # visualization purpose
                     img_model_adv.data_dict_keys = []
-                    img_model_adv.data_dict_keys = img_model_adv.data_dict.keys()
+                    img_model_adv.data_dict_keys = list(img_model_adv.data_dict.keys())
                     img_model_rgb.data_dict_keys = []
-                    img_model_rgb.data_dict_keys = img_model_rgb.data_dict.keys()
+                    img_model_rgb.data_dict_keys = list(img_model_rgb.data_dict.keys())
 
             Label: pixel_fit_information:
                 text := fit_model.pixel_fit_info
                 foreground = 'red'
+
+            PushButton: output_btn:
+                text = 'Output setup'
+                enabled = True
+                checkable = True
+                checked := output_edit.visible
+                clicked ::
+                    if checked:
+                        output_edit.show()
+                    else:
+                        output_edit.hide()
 
             PushButton: to_tiff:
                 text = 'Save to tiff'
@@ -745,6 +757,32 @@ enamldef FitView(DockItem): fit_view:
                 #minimum_size = (20, 20)
                 clicked ::
                     fit_model.output_2Dimage(to_tiff=False)
+
+
+enamldef OutputSetup(Window): output_win:
+    attr fit_model
+
+    Container:
+        constraints = [vbox(cb1, gb_range, save_btn),]
+        CheckBox: cb1:
+            text = 'Calculate ROI sum within given range (KeV)'
+            checked := fit_model.roi_sum_opt['status']
+        GroupBox: gb_range:
+            constraints = [vbox(hbox(lbl_low, ff_low),
+                                hbox(lbl_high, ff_high),)]
+            Label: lbl_low:
+                text = 'low range'
+            FloatField: ff_low:
+                value := fit_model.roi_sum_opt['low']
+            Label: lbl_high:
+                text = 'high range'
+            FloatField: ff_high:
+                value := fit_model.roi_sum_opt['high']
+        PushButton: save_btn:
+            text = 'Save'
+            clicked ::
+                fit_model.calculate_roi_sum()
+                output_win.close()
 
 
 enamldef AutoFindElements(Window): auto_win:
@@ -787,8 +825,9 @@ enamldef AutoFindElements(Window): auto_win:
                             ff.value = param_model.param_new[loop_item]['default']
 
             Looper: looper:
-                iterable << list(sorted([v for k,v in six.iteritems(param_model.param_new['non_fitting_values'])
-                                        if k in ["energy_bound_low", "energy_bound_high"] ]))
+                iterable << [param_model.param_new['non_fitting_values'][k] for k in ('energy_bound_high', 'energy_bound_low')]
+                #iterable << [param_model.param_new['non_fitting_values'][k] for k in sorted(list(param_model.param_new['non_fitting_values'].keys()))]
+                #iiterable << sorted_param(param_model)
                 Label:
                     text = loop_item['description']
                     maximum_size = 140
@@ -827,6 +866,10 @@ enamldef AutoFindElements(Window): auto_win:
                 plot_model.show_fit_opt = False
                 plot_model.show_fit_opt = True
                 auto_win.close()
+
+
+def sorted_param(param_model):
+    return list(([v for k,v in six.iteritems(param_model.param_new['non_fitting_values']) if k in ["energy_bound_low", "energy_bound_high"] ]))
 
 
 enamldef ElementEdit(Window):

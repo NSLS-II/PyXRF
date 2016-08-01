@@ -19,15 +19,6 @@ some of the unique features as follows.
 - Interface with NSLS-II database: A specific I/O interface was designed to
    obtain data directly from BNL/NSLS-II experimental database.
 
-
-## Conda Recipes
-
-Install the most recent tagged build: `conda install pyxrf -c lightsource2-tag`
-
-Install the most recent tagged build: `conda install pyxrf -c lightsource2-dev`
-
-Find the tagged recipe [here](https://github.com/NSLS-II/lightsource2-recipes/tree/master/recipes-tag/pyxrf) and the dev recipe [here](https://github.com/NSLS-II/lightsource2-recipes/tree/master/recipes-dev/pyxrf)
-
 ## Installation from Conda
 Currently PyXRF only works for python 2.7. `pyxrf` is not compatible with
 python 3+ because it relies on the [enaml] (http://github.com/nucleic/enaml) library, which is not python 3 compatible as of this writing (11/2015).

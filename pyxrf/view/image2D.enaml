@@ -37,7 +37,8 @@ __author__ = 'Li Li'
 from enaml.widgets.api import (Container, PushButton, Label,
                                Form, Field, FileDialogEx, DockItem,
                                DockArea, MPLCanvas, CheckBox, ComboBox,
-                               ScrollArea, Window, GroupBox, Splitter, SplitItem, DualSlider)
+                               ScrollArea, Window, GroupBox,
+                               Splitter, SplitItem, DualSlider)
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer
 from enaml.core.api import Include, Looper
 
@@ -46,7 +47,7 @@ import numpy as np
 from matplotlib.figure import Figure
 
 import logging
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 
 enamldef ImageMain(DockItem):
@@ -107,8 +108,8 @@ enamldef ImageMain(DockItem):
             text = 'Toolbar Visible'
             checked := canvas.toolbar_visible
         MPLCanvas: canvas:
+            toolbar_visible = True
             figure << choose_element.img_model.fig
-            #figure << figures[cbox_type.selected_item]
 
 
 enamldef ChooseElementAdvanced(Window): win:
@@ -152,7 +153,7 @@ enamldef ChooseElementAdvanced(Window): win:
                             iterable << sorted(img_model.items_in_selected_group)
                             Label:
                                 font = 'monospace'
-                                text = '{:>10}'.format(loop_item)
+                                text = str('{:>10}'.format(loop_item))
                             Container:
                                 constraints = [hbox(element_btn, min_lbl, dual_slider, max_lbl),]
                                 PushButton: element_btn:
@@ -174,7 +175,7 @@ enamldef ChooseElementAdvanced(Window): win:
                                 Label: max_lbl:
                                     text << str(dual_slider.maximum)+str('%')
                                 DualSlider: dual_slider:
-                                    minimum_size = (100, 20)
+                                    minimum_size = (150, 20)
                                     tick_interval = 1000
                                     minimum = 0
                                     maximum = 100

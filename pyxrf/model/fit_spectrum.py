@@ -70,7 +70,7 @@ import lmfit
 import pickle
 
 import logging
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 # can't import, reason to be figured out.
 # try:
@@ -179,6 +179,8 @@ class Fit1D(Atom):
     hdf_path = Str()
     hdf_name = Str()
 
+    roi_sum_opt = Dict()
+
     def __init__(self, *args, **kwargs):
         self.working_directory = kwargs['working_directory']
         self.result_folder = kwargs['working_directory']
@@ -197,6 +199,11 @@ class Fit1D(Atom):
         self.fit_strategy2 = 0
         self.fit_strategy1 = 1
         self.fit_strategy2 = 4
+
+        # perform roi sum in given range
+        self.roi_sum_opt['status'] = False
+        self.roi_sum_opt['low'] = 0.0
+        self.roi_sum_opt['high'] = 10.0
 
     def result_folder_changed(self, change):
         """
@@ -230,12 +237,12 @@ class Fit1D(Atom):
             selected_element = self.element_list[change['value']-1]
             if len(selected_element) <= 4:
                 element = selected_element.split('_')[0]
-                self.elementinfo_list = sorted([e for e in self.param_dict.keys()
+                self.elementinfo_list = sorted([e for e in list(self.param_dict.keys())
                                                 if (element+'_' in e) and  # error between S_k or Si_k
                                                 ('pileup' not in e)])  # Si_ka1 not Si_K
             else:
                 element = selected_element  # for pileup peaks
-                self.elementinfo_list = sorted([e for e in self.param_dict.keys()
+                self.elementinfo_list = sorted([e for e in list(self.param_dict.keys())
                                                 if element.replace('-', '_') in e])
 
     def keep_size(self):
@@ -663,6 +670,18 @@ class Fit1D(Atom):
         # Update GUI so that results can be seen immediately
         self.fit_img[fit_name] = self.result_map
 
+    def calculate_roi_sum(self):
+        if self.roi_sum_opt['status'] == True:
+            low = int(self.roi_sum_opt['low']*100)
+            high = int(self.roi_sum_opt['high']*100)
+            logger.info('ROI sum at range ({}, {})'.format(self.roi_sum_opt['low'],
+                                                           self.roi_sum_opt['high']))
+            sumv = np.sum(self.data_all[:,:,low:high], axis=2)
+            print(self.data_all.shape)
+            self.result_map['ROI']=sumv
+            # save to hdf again, this is not optimal
+            self.save2Dmap_to_hdf()
+
     def output_2Dimage(self, to_tiff=True):
         """Read data from h5 file and save them into either tiff or txt.
 
@@ -697,7 +716,7 @@ class Fit1D(Atom):
         filepath = os.path.join(self.result_folder, fname)
 
         area_list = []
-        for v in self.fit_result.params.keys():
+        for v in list(self.fit_result.params.keys()):
             if 'ka1_area' in v or 'la1_area' in v or 'ma1_area' in v or 'amplitude' in v:
                 area_list.append(v)
 
@@ -725,12 +744,12 @@ class Fit1D(Atom):
         self.elementinfo_list = []
 
         self.result_dict_names = []
-        self.result_dict_names = self.EC.element_dict.keys()
+        self.result_dict_names = list(self.EC.element_dict.keys())
         self.param_dict = update_param_from_element(self.param_dict,
-                                                    self.EC.element_dict.keys())
+                                                    list(self.EC.element_dict.keys()))
 
         self.element_list = []
-        self.element_list = self.EC.element_dict.keys()
+        self.element_list = list(self.EC.element_dict.keys())
         logger.info('The full list for fitting is {}'.format(self.element_list))
 
     def create_EC_list(self, element_list):
@@ -857,7 +876,7 @@ def define_param_bound_type(param,
     param_new = copy.deepcopy(param)
     for k, v in six.iteritems(param_new):
         for data in strategy_list:
-            if data in v.keys():
+            if data in list(v.keys()):
                 param_new[k][data] = b_type
     return param_new
 
@@ -1414,10 +1433,10 @@ def fit_pixel_nonlinear_per_line(row_num, data, x0,
         #                       weights=1/np.sqrt(c_weight+y0),
         #                       maxfev=fit_num,
         #                       xtol=ftol, ftol=ftol, gtol=ftol)
-        #namelist = result.keys()
+        #namelist = list(result.keys())
         temp = {}
-        temp['value'] = [result.params[v].value for v in result.params.keys()]
-        temp['err'] = [result.params[v].stderr for v in result.params.keys()]
+        temp['value'] = [result.params[v].value for v in list(result.params.keys())]
+        temp['err'] = [result.params[v].stderr for v in list(result.params.keys())]
         temp['snip_bg'] = snip_bg
         out.append(temp)
     return out
@@ -1495,7 +1514,8 @@ def get_area_and_error_nonlinear_fit(elist, fit_results, reg_mat):
     return area_dict, error_dict, weights_mat
 
 
-def single_pixel_fitting_controller(input_data, param, method='nnls',
+def single_pixel_fitting_controller(input_data, parameter,
+                                    incident_energy=None, method='nnls',
                                     pixel_bin=0, raise_bg=0,
                                     comp_elastic_combine=False,
                                     linear_bg=False,
@@ -1506,8 +1526,10 @@ def single_pixel_fitting_controller(input_data, param, method='nnls',
     ----------
     input_data : array
         3D array of spectrum
-    param : dict
+    parameter : dict
         parameter for fitting
+    incident_energy : float, optional
+        incident beam energy in KeV
     method : str, optional
         fitting method, default as nnls
     pixel_bin : int, optional
@@ -1530,6 +1552,9 @@ def single_pixel_fitting_controller(input_data, param, method='nnls',
     calculation_info : dict
         dict of fitting information
     """
+    param = copy.deepcopy(parameter)
+    if incident_energy is not None:
+        param['coherent_sct_amplitude']['value'] = incident_energy
     # cut data into proper range
     x, exp_data, fit_range = get_cutted_spectrum_in3D(input_data,
                                                       param['non_fitting_values']['energy_bound_low']['value'],
@@ -1916,7 +1941,7 @@ def get_cs(elemental_line, eng=12, norm=False, round_n=2):
 
     e = Element(ename)
     sumv = 0
-    for line_name in e.csb(eng).keys():
+    for line_name in list(e.csb(eng).keys()):
         if name_label[0] in line_name:
             sumv += e.csb(eng)[line_name]
     if norm is True:

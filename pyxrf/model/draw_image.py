@@ -51,7 +51,7 @@ from mpl_toolkits.axes_grid1 import ImageGrid
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool, Float
 
 import logging
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 
 class DrawImageAdvanced(Atom):
@@ -123,7 +123,6 @@ class DrawImageAdvanced(Atom):
     scaler_data = Typed(object)
 
     plot_all = Bool(False)
-
     x_pos = List()
     y_pos = List()
 
@@ -161,16 +160,16 @@ class DrawImageAdvanced(Atom):
         # init of scaler for normalization
         self.scaler_name_index = 0
         self.data_dict_keys = []
-        self.data_dict_keys = self.data_dict.keys()
+        self.data_dict_keys = list(self.data_dict.keys())
         logger.debug('The following groups are included for 2D image display: {}'.format(self.data_dict_keys))
 
-        scaler_groups = [v for v in self.data_dict.keys() if 'scaler' in v]
+        scaler_groups = [v for v in list(self.data_dict.keys()) if 'scaler' in v]
         if len(scaler_groups) > 0:
             #self.scaler_group_name = scaler_groups[0]
             self.scaler_norm_dict = self.data_dict[scaler_groups[0]]
             # for GUI purpose only
             self.scaler_items = []
-            self.scaler_items = self.scaler_norm_dict.keys()
+            self.scaler_items = list(self.scaler_norm_dict.keys())
             self.scaler_data = None
 
         # init of pos values
@@ -178,7 +177,7 @@ class DrawImageAdvanced(Atom):
 
         if 'positions' in self.data_dict:
             try:
-                logger.info('get pos {}'.format(self.data_dict['positions'].keys()))
+                logger.info('get pos {}'.format(list(self.data_dict['positions'].keys())))
                 self.x_pos = list(self.data_dict['positions']['x_pos'][0, :])
                 self.y_pos = list(self.data_dict['positions']['y_pos'][:, -1])
 
@@ -201,7 +200,7 @@ class DrawImageAdvanced(Atom):
         try:
             if self.data_opt == 0:
                 self.dict_to_plot = {}
-                self.items_in_selected_group = self.dict_to_plot.keys()
+                self.items_in_selected_group = list(self.dict_to_plot.keys())
                 self.set_stat_for_all(bool_val=False)
                 self.img_title = ''
             elif self.data_opt > 0:
@@ -212,7 +211,7 @@ class DrawImageAdvanced(Atom):
 
                 # for GUI purpose only
                 self.items_in_selected_group = []
-                self.items_in_selected_group = self.dict_to_plot.keys()
+                self.items_in_selected_group = list(self.dict_to_plot.keys())
                 self.set_stat_for_all(bool_val=False)
         except IndexError:
             pass
