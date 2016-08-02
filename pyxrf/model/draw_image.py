@@ -187,6 +187,11 @@ class DrawImageAdvanced(Atom):
                 # self.x_pos.reverse()
                 # we use imshow with lower as the origin, so flip y
                 self.y_pos.reverse()
+
+                # if scan always has increasing x from left to right
+                if self.x_pos[-1] < self.x_pos[0]:
+                    self.x_pos.reverse()
+
             except KeyError:
                 pass
 
@@ -371,15 +376,17 @@ class DrawImageAdvanced(Atom):
                                         cmap=grey_use,
                                         interpolation=plot_interp,
                                         extent=self.pixel_or_pos_for_plot,
+                                        origin='upper',
                                         clim=(low_limit, high_limit))
                 else:
                     im = grid[i].scatter(self.data_dict['positions']['x_pos'],
                                          self.data_dict['positions']['y_pos'],
-                                         c=data_dict, marker='s', s=500, alpha=0.8,
+                                         c=data_dict,marker='s', s=500, alpha=0.8,
                                          cmap=grey_use,
                                          linewidths=1, linewidth=0)
+                    # for scatter plot, the origin is at lower, no way to change that, so flip y
                     grid[i].set_xlim(min([self.x_pos[0], self.x_pos[-1]]), max([self.x_pos[0], self.x_pos[-1]]))
-                    grid[i].set_ylim(min([self.y_pos[0], self.y_pos[-1]]), max([self.y_pos[0], self.y_pos[-1]]))
+                    grid[i].set_ylim(max([self.y_pos[0], self.y_pos[-1]]), min([self.y_pos[0], self.y_pos[-1]]))
 
                 grid_title = k #self.file_name+'_'+str(k)
                 if self.pixel_or_pos_for_plot is not None:
