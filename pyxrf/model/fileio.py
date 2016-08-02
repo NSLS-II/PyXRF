@@ -966,10 +966,10 @@ def read_hdf_APS(working_directory,
                 # n = six.text_type(n)
                 if not isinstance(n, six.string_types):
                     n = n.decode()
-                if i==0:
-                    temp[n] = np.fliplr(data['positions/pos'].value[i, :])
-                else:
-                    temp[n] = data['positions/pos'].value[i, :]
+                #if i==0:
+                #    temp[n] = np.fliplr(data['positions/pos'].value[i, :])
+                #else:
+                temp[n] = data['positions/pos'].value[i, :]
                     #temp[n] = np.flipud(data['positions/pos'].value[i, :])
             img_dict['positions'] = temp
 

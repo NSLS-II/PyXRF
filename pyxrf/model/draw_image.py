@@ -189,8 +189,8 @@ class DrawImageAdvanced(Atom):
                 self.y_pos.reverse()
 
                 # if scan always has increasing x from left to right
-                if self.x_pos[-1] < self.x_pos[0]:
-                    self.x_pos.reverse()
+                #if self.x_pos[-1] < self.x_pos[0]:
+                #    self.x_pos.reverse()
 
             except KeyError:
                 pass
@@ -385,7 +385,8 @@ class DrawImageAdvanced(Atom):
                                          cmap=grey_use,
                                          linewidths=1, linewidth=0)
                     # for scatter plot, the origin is at lower, no way to change that, so flip y
-                    grid[i].set_xlim(min([self.x_pos[0], self.x_pos[-1]]), max([self.x_pos[0], self.x_pos[-1]]))
+                    #grid[i].set_xlim(min([self.x_pos[0], self.x_pos[-1]]), max([self.x_pos[0], self.x_pos[-1]]))
+                    grid[i].set_xlim(self.x_pos[0], self.x_pos[-1])
                     grid[i].set_ylim(max([self.y_pos[0], self.y_pos[-1]]), min([self.y_pos[0], self.y_pos[-1]]))
 
                 grid_title = k #self.file_name+'_'+str(k)
