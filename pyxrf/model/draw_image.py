@@ -131,6 +131,7 @@ class DrawImageAdvanced(Atom):
     interpolation_opt = Bool(True)
     data_dict_default = Dict()
     limit_dict = Dict()
+    scatter_show = Bool(False)
 
     def __init__(self):
         self.fig = plt.figure(figsize=(4,4))
@@ -180,12 +181,10 @@ class DrawImageAdvanced(Atom):
                 logger.info('get pos {}'.format(list(self.data_dict['positions'].keys())))
                 self.x_pos = list(self.data_dict['positions']['x_pos'][0, :])
                 self.y_pos = list(self.data_dict['positions']['y_pos'][:, -1])
-
-                # the only place to flip data is at fileIO
-                # the way to handle position at fileIO is a bit confusing
-                # self.x_pos.reverse()
-                # we use imshow with lower as the origin, so flip y
+                # when we use imshow, the x and y start at lower left,
+                # so flip y, we want y starts from top left
                 self.y_pos.reverse()
+
             except KeyError:
                 pass
 
@@ -258,6 +257,11 @@ class DrawImageAdvanced(Atom):
         else:
             self.set_stat_for_all(bool_val=False)
 
+    @observe('scatter_show')
+    def _change_image_plot_method(self, change):
+        if change['type'] != 'create':
+            self.show_image()
+
     # @observe('interpolation_opt')
     # def _interp_update(self, change):
     #     """Do interpolation in terms of position or not.
@@ -308,8 +312,6 @@ class DrawImageAdvanced(Atom):
         self.limit_dict = {k: {'low':0.0, 'high': 100.0} for k in self.items_in_selected_group}
 
     def show_image(self):
-        img_show = 'imshow'
-
         self.fig.clf()
         stat_temp = self.get_activated_num()
         stat_temp = OrderedDict(sorted(six.iteritems(stat_temp), key=lambda x: x[0]))
@@ -353,41 +355,45 @@ class DrawImageAdvanced(Atom):
                         data_dict = self.dict_to_plot[k]
                     else:
                         data_dict = self.dict_to_plot[k]/self.scaler_data
-
                 else:
                     data_dict = self.dict_to_plot[k]
 
-                if img_show == 'imshow':
-                    lowv = self.limit_dict[k]['low']/100.0
-                    highv = self.limit_dict[k]['high']/100.0
-                    low_limit = (np.max(data_dict)-np.min(data_dict))*lowv + np.min(data_dict)
-                    high_limit = (np.max(data_dict)-np.min(data_dict))*highv + np.min(data_dict)
+                lowv = self.limit_dict[k]['low']/100.0
+                highv = self.limit_dict[k]['high']/100.0
+                low_limit = (np.max(data_dict)-np.min(data_dict))*lowv + np.min(data_dict)
+                high_limit = (np.max(data_dict)-np.min(data_dict))*highv + np.min(data_dict)
 
+                if self.scatter_show is not True:
                     im = grid[i].imshow(data_dict,
                                         cmap=grey_use,
                                         interpolation=plot_interp,
                                         extent=self.pixel_or_pos_for_plot,
+                                        origin='upper',
                                         clim=(low_limit, high_limit))
-                    grid_title = k #self.file_name+'_'+str(k)
-                    if self.pixel_or_pos_for_plot is not None:
-                        title_x = self.pixel_or_pos_for_plot[0]
-                        title_y = self.pixel_or_pos_for_plot[3] + (self.pixel_or_pos_for_plot[3] -
-                                                                   self.pixel_or_pos_for_plot[2])*0.04
-
-                    else:
-                        title_x = 0
-                        title_y = - data_dict.shape[0]*0.05
-                    grid[i].text(title_x, title_y, grid_title)
-                    grid.cbar_axes[i].colorbar(im)
                 else:
-                    scatter = grid[i].scatter(self.data_dict['positions']['x_pos'],
-                                              self.data_dict['positions']['y_pos'],
-                                              c=data_dict, marker='s', s=250, alpha=0.8,
-                                              cmap=grey_use,
-                                              linewidths=1, linewidth=0)
-                    grid[i].set_xlim([self.x_pos[-1], self.x_pos[0]])
-                    grid[i].set_ylim([self.y_pos[0], self.y_pos[-1]])
-                    grid.cbar_axes[i].colorbar(scatter)
+                    im = grid[i].scatter(self.data_dict['positions']['x_pos'],
+                                         self.data_dict['positions']['y_pos'],
+                                         c=data_dict,marker='s', s=500, alpha=0.8,
+                                         cmap=grey_use,
+                                         linewidths=1, linewidth=0,
+                                         clim=(low_limit, high_limit))
+                    # for scatter plot, the origin is at lower, no way to change that, so flip y
+                    grid[i].set_xlim(self.x_pos[0], self.x_pos[-1])
+                    grid[i].set_ylim(max([self.y_pos[0], self.y_pos[-1]]), min([self.y_pos[0], self.y_pos[-1]]))
+
+                grid_title = k #self.file_name+'_'+str(k)
+                if self.pixel_or_pos_for_plot is not None:
+                    title_x = self.pixel_or_pos_for_plot[0]
+                    title_y = self.pixel_or_pos_for_plot[3] + (self.pixel_or_pos_for_plot[3] -
+                                                               self.pixel_or_pos_for_plot[2])*0.04
+                else:
+                    title_x = 0
+                    title_y = - data_dict.shape[0]*0.05
+                grid[i].text(title_x, title_y, grid_title)
+
+                grid.cbar_axes[i].colorbar(im)
+                grid[i].get_xaxis().get_major_formatter().set_useOffset(False)
+                grid[i].get_yaxis().get_major_formatter().set_useOffset(False)
         else:
             for i, (k, v) in enumerate(six.iteritems(stat_temp)):
 
@@ -408,10 +414,10 @@ class DrawImageAdvanced(Atom):
                                     cmap=grey_use,
                                     interpolation=plot_interp,
                                     extent=self.pixel_or_pos_for_plot)
-
+                grid[i].get_xaxis().get_major_formatter().set_useOffset(False)
+                grid[i].get_yaxis().get_major_formatter().set_useOffset(False)
                 grid_title = k #self.file_name+'_'+str(k)
                 if self.pixel_or_pos_for_plot is not None:
-                    print(self.pixel_or_pos_for_plot)
                     title_x = self.pixel_or_pos_for_plot[0]
                     title_y = self.pixel_or_pos_for_plot[3] + (self.pixel_or_pos_for_plot[3] -
                                                                self.pixel_or_pos_for_plot[2])*0.05

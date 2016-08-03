@@ -127,14 +127,6 @@ class FileIOModel(Atom):
     def __init__(self, **kwargs):
         self.working_directory = kwargs['working_directory']
         self.mask_data = None
-        #with self.suppress_notifications():
-        #    self.working_directory = working_directory
-
-    # @observe('working_directory')
-    # def working_directory_changed(self, changed):
-    #     # make sure that the output directory stays in sync with working
-    #     # directory changes
-    #     self.output_directory = self.working_directory
 
     @observe(str('file_name'))
     def update_more_data(self, change):
@@ -959,18 +951,9 @@ def read_hdf_APS(working_directory,
             pos_name = data['positions/name']
             temp = {}
             for i, n in enumerate(pos_name):
-                #
-                # !!! This should be cleaned up later.
-                # !!! This is due to the messy in write_db_to_hdf function
-                #
-                # n = six.text_type(n)
                 if not isinstance(n, six.string_types):
                     n = n.decode()
-                if i==0:
-                    temp[n] = np.fliplr(data['positions/pos'].value[i, :])
-                else:
-                    temp[n] = data['positions/pos'].value[i, :]
-                    #temp[n] = np.flipud(data['positions/pos'].value[i, :])
+                temp[n] = data['positions/pos'].value[i, :]
             img_dict['positions'] = temp
 
     return img_dict, data_sets
@@ -1562,13 +1545,9 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
         del dataGrp['name']
 
     # need to change shape to sth like [2, 100, 100]
-    #
-    # this needs to be corrected later. It is confusing to Reorganize position this way.
-    #
-    pos_data = pos_data.transpose()
-    data_temp = np.zeros([pos_data.shape[0], pos_data.shape[2], pos_data.shape[1]])
-    for i in range(pos_data.shape[0]):
-        data_temp[i,:,:] = np.rot90(pos_data[i,:,:], k=3)
+    data_temp = np.zeros([pos_data.shape[2], pos_data.shape[0], pos_data.shape[1]])
+    for i in range(pos_data.shape[2]):
+        data_temp[i,:,:] = pos_data[:,:,i]
 
     if fly_type in ('pyramid',):
         for i in range(data_temp.shape[0]):
@@ -1807,17 +1786,12 @@ def _make_hdf(fpath, runid):
             config_data = json.load(json_data)
 
         try:
-            data = get_table(hdr)
+            data = get_table(hdr, fill=True)
         except IndexError:
-            # !!! this part needs to rewrite during shutdown. it is better to pass
-            # !!! array data to write_db_to_hdf, instead of dataframe or dict
-            # !!! this is not optimized, to be update soon!
-
-            cut_num = 2
             spectrum_len = 4096
-            total_len = datashape[0]*datashape[1]
+            total_len = get_total_scan_point(hdr) - 2
 
-            evs, _ = zip(*zip(get_events(hdr), range(total_len-cut_num)))
+            evs, _ = zip(*zip(get_events(hdr, fill=True), range(total_len)))
 
             namelist = config_data['xrf_detector'] +hdr.start.motors +config_data['scaler_list']
 
@@ -1827,7 +1801,7 @@ def _make_hdf(fpath, runid):
                 for k,v in six.iteritems(dictv):
                     dictv[k].append(e.data[k])
 
-            data = pd.DataFrame(dictv, index=np.arange(1, total_len-cut_num+1)) # need to start with 1
+            data = pd.DataFrame(dictv, index=np.arange(1, total_len+1)) # need to start with 1
 
         print('Saving data to hdf file.')
         write_db_to_hdf(fpath, data,
@@ -1842,6 +1816,21 @@ def _make_hdf(fpath, runid):
 
     else:
         print("Databroker is not setup for this beamline")
+
+
+def get_total_scan_point(hdr):
+    """
+    Find the how many data points are recorded. This number may not equal to the total number
+    defined at the start of the scan due to scan stop or abort.
+    """
+    evs = get_events(hdr)
+    n = 0
+    try:
+        for e in evs:
+            n = n+1
+    except IndexError:
+        pass
+    return n
 
 
 def make_hdf(start, end=None, fname=None, prefix='scan2D_'):
