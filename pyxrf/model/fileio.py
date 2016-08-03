@@ -127,14 +127,6 @@ class FileIOModel(Atom):
     def __init__(self, **kwargs):
         self.working_directory = kwargs['working_directory']
         self.mask_data = None
-        #with self.suppress_notifications():
-        #    self.working_directory = working_directory
-
-    # @observe('working_directory')
-    # def working_directory_changed(self, changed):
-    #     # make sure that the output directory stays in sync with working
-    #     # directory changes
-    #     self.output_directory = self.working_directory
 
     @observe(str('file_name'))
     def update_more_data(self, change):
@@ -959,18 +951,9 @@ def read_hdf_APS(working_directory,
             pos_name = data['positions/name']
             temp = {}
             for i, n in enumerate(pos_name):
-                #
-                # !!! This should be cleaned up later.
-                # !!! This is due to the messy in write_db_to_hdf function
-                #
-                # n = six.text_type(n)
                 if not isinstance(n, six.string_types):
                     n = n.decode()
-                #if i==0:
-                #    temp[n] = np.fliplr(data['positions/pos'].value[i, :])
-                #else:
                 temp[n] = data['positions/pos'].value[i, :]
-                    #temp[n] = np.flipud(data['positions/pos'].value[i, :])
             img_dict['positions'] = temp
 
     return img_dict, data_sets
@@ -1562,14 +1545,9 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
         del dataGrp['name']
 
     # need to change shape to sth like [2, 100, 100]
-    #
-    # this needs to be corrected later. It is confusing to Reorganize position this way.
-    #
-    #pos_data = pos_data.transpose()
     data_temp = np.zeros([pos_data.shape[2], pos_data.shape[0], pos_data.shape[1]])
     for i in range(pos_data.shape[2]):
         data_temp[i,:,:] = pos_data[:,:,i]
-        #data_temp[i,:,:] = np.rot90(pos_data[i,:,:], k=3)
 
     if fly_type in ('pyramid',):
         for i in range(data_temp.shape[0]):
