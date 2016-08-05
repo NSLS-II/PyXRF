@@ -77,6 +77,11 @@ try:
 except ImportError as e:
     logger.error('handler is not loaded.')
 
+try:
+    import suitcase.hdf5 as sc
+except ImportError:
+    logger.error('suitcase is not loaded.')
+
 
 class FileIOModel(Atom):
     """
@@ -1865,6 +1870,34 @@ def make_hdf(start, end=None, fname=None, prefix='scan2D_'):
                 print('{} is created. \n'.format(filename))
             except:
                 print('Can not transfer scan {}. \n'.format(v))
+
+
+def export_hdf(runid, fname, xrf=False):
+    """Wrapper around suitcase.hdf5.export function.
+    Use can choose to select xrf data or not.
+
+    Parameters
+    ---------
+    runid : int
+        run id
+    fname : str
+        output name
+    xrf : Bool, optional
+        save xrf data or not, default as not saving.
+    """
+    hdr = db[runid]
+
+    if xrf is False:
+        tmp = set()
+        for descriptor in hdr.descriptors:
+            xs3 = [key for key in descriptor.data_keys.keys() if 'xspress3' in key]
+            roi = [key for key in descriptor.data_keys.keys() if 'Det' in key]
+            tmp.update(xs3)
+            tmp.update(roi)
+        fds = sc.filter_fields(hdr, tmp)
+        sc.export(hdr, fname, fields=fds, use_uid=False)
+    else:
+        sc.export(hdr, fname, use_uid=False)
 
 
 def export1d(runid):
