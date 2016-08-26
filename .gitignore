@@ -35,6 +35,9 @@ htmlcov/
 nosetests.xml
 coverage.xml
 
+#ipython notebook stuff
+.ipynb_checkpoints/
+
 # Translations
 *.mo
 
