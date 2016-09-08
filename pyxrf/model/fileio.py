@@ -1,5 +1,5 @@
 # ######################################################################
-# Copyright (c) 2014, Brookhaven Science Associates, Brookhaven        #
+# Copyright (c) 2014-, Brookhaven Science Associates, Brookhaven       #
 # National Laboratory. All rights reserved.                            #
 #                                                                      #
 # Redistribution and use in source and binary forms, with or without   #
@@ -333,7 +333,7 @@ class SpectrumCalculator(object):
 
 def file_handler(working_directory, file_name, load_each_channel=True, spectrum_cut=3000):
     # send information on GUI level later !
-    get_data_nsls2 = True
+    get_data_nsls2 = False
     try:
         if get_data_nsls2 is True:
             return read_hdf_APS(working_directory, file_name,
@@ -461,67 +461,6 @@ def read_runid(runid, c_list, dshape=None):
     return data_dict, data_sets
 
 
-# def read_hdf_HXN(working_directory,
-#                  file_names, channel_num=4):
-#     """
-#     Data IO for HXN temporary datasets. This might be changed later.
-#
-#     Parameters
-#     ----------
-#     working_directory : str
-#         path folder
-#     file_names : list
-#         list of chosen files
-#     channel_num : int, optional
-#         detector channel number
-#
-#     Returns
-#     -------
-#     data_dict : dict
-#         with fitting data
-#     data_sets : dict
-#         data from each channel and channel summed
-#     """
-#     data_dict = OrderedDict()
-#     data_sets = OrderedDict()
-#
-#     # cut off bad point on the last position of the spectrum
-#     bad_point_cut = 1
-#
-#     for fname in file_names:
-#         try:
-#             file_path = os.path.join(working_directory, fname)
-#             f = h5py.File(file_path, 'r+')
-#             data = f['entry/instrument']
-#
-#             fname = fname.split('.')[0]
-#
-#             # for 2D MAP???
-#             data_dict[fname] = data
-#
-#             # data from channel summed
-#             exp_data = np.asarray(data['detector/data'])
-#             logger.info('File : {} with total counts {}'.format(fname,
-#                                                                 np.sum(exp_data)))
-#             exp_data = exp_data[:, :, :-bad_point_cut]
-#             DS = DataSelection(filename=fname,
-#                                raw_data=exp_data)
-#             data_sets.update({fname: DS})
-#
-#             # data from each channel
-#             for i in range(channel_num):
-#                 file_channel = fname+'_channel_'+str(i+1)
-#                 exp_data_new = np.reshape(exp_data[0, i, :],
-#                                           [1, 1, exp_data[0, i, :].size])
-#                 DS = DataSelection(filename=file_channel,
-#                                    raw_data=exp_data_new)
-#                 data_sets.update({file_channel: DS})
-#
-#         except ValueError:
-#             continue
-#     return data_dict, data_sets
-
-
 def read_xspress3_data(file_path):
     """
     Data IO for xspress3 format.
@@ -603,37 +542,6 @@ def flip_data(input_data, subscan_dims=None):
                 new_data[start:end:2, :, :] = new_data[start:end:2, ::-1, :]
                 i += ny
     return new_data
-
-
-# def read_log_file_srx(fpath, name='ch 2'):
-#     """
-#     Read given column value from log file.
-#
-#     Parameters
-#     ----------
-#     fpath : str
-#         path to log file.
-#     name : str
-#         name of a given column
-#
-#     Returns
-#     -------
-#     1d array:
-#         selected ic value.
-#     """
-#     line_num = 7
-#     base_val = 8.5*1e-10
-#
-#     with open(fpath, 'r') as f:
-#         lines = f.readlines()
-#         col_names = lines[line_num].split('\t')
-#         col_names = [v for v in col_names if len(v) != 0]
-#
-#     df = pd.read_csv(fpath,
-#                      skiprows=line_num+1, skip_footer=1, sep='\s+', header=None)
-#     df.columns = col_names
-#     i0 = np.abs(np.array(df[name]) - base_val)
-#     return i0
 
 
 # def write_xspress3_data_to_hdf(fpath, data_dict):
@@ -724,38 +632,6 @@ def flip_data(input_data, subscan_dims=None):
 #             del dataGrp['name']
 #         dataGrp.create_dataset('name', data=scaler_names)
 #         dataGrp.create_dataset('val', data=scaler_data)
-
-
-# def xspress3_data_to_hdf(fpath_hdf5, fpath_log, fpath_out):
-#     """
-#     Assume data is obained from databroker, and save the data to hdf file.
-#
-#     Parameters
-#     ----------
-#     fpath_hdf5: str
-#         path to raw hdf file
-#     fpath_log: str
-#         path to log file
-#     fpath_out: str
-#         path to save hdf file
-#     """
-#     data_dict = read_xspress3_data(fpath_hdf5)
-#
-#     data_ic = read_log_file_srx(fpath_log)
-#     shapev = None
-#
-#     for k, v in six.iteritems(data_dict):
-#         data_dict[k] = flip_data(data_dict[k])
-#         if shapev is None:
-#             shapev = data_dict[k].shape
-#
-#     data_ic = data_ic.reshape([shapev[0], shapev[1]])
-#     print('data ic shape {}'.format(data_ic.shape))
-#     data_ic = flip_data(data_ic)
-#
-#     data_dict['scalers_ch2'] = data_ic
-#
-#     write_xspress3_data_to_hdf(fpath_out, data_dict)
 
 
 def output_data(fpath, output_folder, file_format='tiff'):
