@@ -1751,6 +1751,15 @@ def make_hdf(start, end=None, fname=None, prefix='scan2D_'):
                 print('{} is created. \n'.format(filename))
             except:
                 print('Can not transfer scan {}. \n'.format(v))
+    free_memory_from_handler()
+
+
+def free_memory_from_handler():
+    """Quick way to set 3D dataset at handler to None to release memory.
+    """
+    for h in db.fs._handler_cache.values():
+        setattr(h, '_dataset', None)
+    print('Memory is released.')
 
 
 def export_hdf(runid, fname, xrf=False):
