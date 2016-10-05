@@ -58,19 +58,24 @@ import logging
 logger = logging.getLogger()
 
 try:
-    from databroker.databroker import DataBroker as db, get_table, get_events
-    # registers a filestore handler for the XSPRESS3 detector
+    from databroker import db, get_table, get_events
+    try:
+        from hxntools.handlers.xspress3 import Xspress3HDF5Handler
+        db.fs.register_handler(Xspress3HDF5Handler.HANDLER_NAME,
+                               Xspress3HDF5Handler)
+    except:
+        logger.error('hxntools is not available from old version: %s', e)
 except (ImportError, KeyError) as e:
     db = None
     logger.error('databroker is not available: %s', e)
 
-try:
+#try:
     # registers a filestore handler for the XSPRESS3 detector
-    from hxntools import handlers as hxn_handlers
-    from hxntools.handlers import register
-    register()
-except ImportError as e:
-    logger.error('hxntools is not available from old version: %s', e)
+#    from hxntools import handlers as hxn_handlers
+#    from hxntools.handlers import register
+#    register()
+#except ImportError as e:
+#    logger.error('hxntools is not available from old version: %s', e)
 
 try:
     import vortex_handler
