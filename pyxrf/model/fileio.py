@@ -338,7 +338,7 @@ class SpectrumCalculator(object):
 
 def file_handler(working_directory, file_name, load_each_channel=True, spectrum_cut=3000):
     # send information on GUI level later !
-    get_data_nsls2 = False
+    get_data_nsls2 = True
     try:
         if get_data_nsls2 is True:
             return read_hdf_APS(working_directory, file_name,
@@ -1703,6 +1703,8 @@ def _make_hdf(fpath, runid):
     else:
         print("Databroker is not setup for this beamline")
 
+    free_memory_from_handler()
+
 
 def get_total_scan_point(hdr):
     """
@@ -1751,7 +1753,6 @@ def make_hdf(start, end=None, fname=None, prefix='scan2D_'):
                 print('{} is created. \n'.format(filename))
             except:
                 print('Can not transfer scan {}. \n'.format(v))
-    free_memory_from_handler()
 
 
 def free_memory_from_handler():
