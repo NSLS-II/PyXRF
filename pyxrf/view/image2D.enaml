@@ -120,7 +120,6 @@ enamldef ChooseElementAdvanced(Window): win:
         constraints = [
             vbox(
                 hbox(plot_btn),
-                #hbox(select_btn),
                 gb,
             ),
         ]
@@ -129,22 +128,12 @@ enamldef ChooseElementAdvanced(Window): win:
             text = 'Show Image'
             clicked ::
                 img_model.show_image()
-
         GroupBox: gb:
             title = 'Add/Remove Image'
-
             PushButton: select_btn:
                 text = 'Select All'
                 checkable = True
                 checked := img_model.plot_all
-                clicked ::
-                     if checked:
-                         img_model.plot_all = True
-                         select_btn.checked = True
-                     else:
-                         img_model.plot_all = False
-                         select_btn.checked = False
-
             ScrollArea:
                 constraints = [height >= 80]
                 Container:
@@ -181,3 +170,7 @@ enamldef ChooseElementAdvanced(Window): win:
                                     maximum = 100
                                     low_value >> img_model.limit_dict[loop_item]['low']
                                     high_value >> img_model.limit_dict[loop_item]['high']
+            PushButton: save_selected:
+                text = 'Save Selected as Default'
+                clicked ::
+                    img_model.record_selected()

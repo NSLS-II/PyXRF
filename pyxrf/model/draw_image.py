@@ -112,6 +112,7 @@ class DrawImageAdvanced(Atom):
     data_opt = Int(0)
     dict_to_plot = Dict()
     items_in_selected_group = List()
+    items_previous_selected = List()
 
     scale_opt = Str('Linear')
     color_opt = Str('jet')
@@ -156,14 +157,6 @@ class DrawImageAdvanced(Atom):
 
     @observe('data_dict')
     def init_plot_status(self, change):
-        # initiate the plotting status once new data is coming
-        self.data_opt = 0
-        # init of scaler for normalization
-        self.scaler_name_index = 0
-        self.data_dict_keys = []
-        self.data_dict_keys = list(self.data_dict.keys())
-        logger.debug('The following groups are included for 2D image display: {}'.format(self.data_dict_keys))
-
         scaler_groups = [v for v in list(self.data_dict.keys()) if 'scaler' in v]
         if len(scaler_groups) > 0:
             #self.scaler_group_name = scaler_groups[0]
@@ -187,12 +180,36 @@ class DrawImageAdvanced(Atom):
 
             except KeyError:
                 pass
-
         else:
             self.x_pos = []
             self.y_pos = []
 
+        # add previous selected items as default
+        if len(self.items_previous_selected) != 0:
+            default_items = {}
+            for item in self.items_previous_selected:
+                for v, k in self.data_dict.items():
+                    if item in k:
+                        default_items[item] = k[item]
+            self.data_dict['use_default_selection'] = default_items
+            logger.info('Use previously selected items as default: {}'.format(self.items_previous_selected))
+
+        # initiate the plotting status once new data is coming
+        self.reset_to_default()
+        self.data_dict_keys = []
+        self.data_dict_keys = list(self.data_dict.keys())
+        logger.debug('The following groups are included for 2D image display: {}'.format(self.data_dict_keys))
+
         self.show_image()
+
+    def reset_to_default(self):
+        """Set variables to default values as initiated.
+        """
+        self.data_opt = 0
+        # init of scaler for normalization
+        self.scaler_name_index = 0
+        self.plot_all = False
+
 
     @observe('data_opt')
     def _update_file(self, change):
@@ -214,14 +231,6 @@ class DrawImageAdvanced(Atom):
                 self.set_stat_for_all(bool_val=False)
         except IndexError:
             pass
-
-    # @observe('plot_item')
-    # def _update_file(self, change):
-    #     self.set_stat_for_all(bool_val=False)
-    #     self.items_in_selected_group = []
-    #     self.dict_to_plot = self.data_dict[self.plot_item]
-    #     self.items_in_selected_group = self.dict_to_plot.keys()
-    #     self.set_stat_for_all(bool_val=False)
 
     @observe('scaler_name_index')
     def _get_scaler_data(self, change):
@@ -261,45 +270,6 @@ class DrawImageAdvanced(Atom):
     def _change_image_plot_method(self, change):
         if change['type'] != 'create':
             self.show_image()
-
-    # @observe('interpolation_opt')
-    # def _interp_update(self, change):
-    #     """Do interpolation in terms of position or not.
-    #     """
-    #     if change['type']=='create':
-    #         return
-    #     #try:
-    #     self.data_dict = copy.deepcopy(self.data_dict_default)
-    #     print(self.data_dict.keys())
-    #     uninterp_list = ['positions']
-    #     rangex = self.data_dict['positions']['x_pos'][0, :]
-    #     rangey = self.data_dict['positions']['x_pos'][:, 0]
-    #     start_x = rangex[0]
-    #     start_y = rangey[0]
-    #
-    #     dimv = self.data_dict['positions']['x_pos'].shape
-    #     #if beamline_name in ['HXN']:
-    #     #result_tmp = {}
-    #     if self.interpolation_opt is True:
-    #         logger.info('Interpolating image... ')
-    #         all_dict_tmp = {}
-    #         for k1, v1 in six.iteritems(self.data_dict):
-    #             if 'position' == k1:
-    #                 continue
-    #             #if 'fit' in k1 or 'scaler' in k1:
-    #             result_tmp = {}
-    #             shapev = [dimv[1], dimv[0]]  # horizontal first, then vertical, different from dim in numpy
-    #             for k, v in six.iteritems(v1):
-    #                 interp_d = interp1d_scan(shapev, rangex, rangey, start_x, start_y,
-    #                                          self.data_dict['positions']['x_pos'],
-    #                                          self.data_dict['positions']['y_pos'],
-    #                                          v)
-    #                 interp_d[np.isnan(interp_d)] = 0
-    #                 result_tmp[k] = interp_d
-    #             all_dict_tmp.update(result_tmp)
-    #         self.data_dict.update(all_dict_tmp)
-    #
-    #     self.show_image()
 
     def set_stat_for_all(self, bool_val=False):
         """
@@ -434,4 +404,15 @@ class DrawImageAdvanced(Atom):
         self.fig.canvas.draw_idle()
 
     def get_activated_num(self):
-        return {k: v for (k, v) in six.iteritems(self.stat_dict) if v is True}
+        """Collect the selected items for plotting.
+        """
+        current_items = {k: v for (k, v) in six.iteritems(self.stat_dict) if v is True}
+        return current_items
+
+    def record_selected(self):
+        """Save the list of items in cache for later use.
+        """
+        self.items_previous_selected = [k for (k,v) in self.stat_dict.items() if v is True]
+        logger.info('Default selected items: {}'.format(self.items_previous_selected))
+        self.data_dict['use_default_selection'] = {k:self.dict_to_plot[k] for k in self.items_previous_selected}
+        self.data_dict_keys = list(self.data_dict.keys())
