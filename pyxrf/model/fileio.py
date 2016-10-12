@@ -152,6 +152,7 @@ class FileIOModel(Atom):
                                                      self.file_name,
                                                      load_each_channel=self.load_each_channel)
         self.file_channel_list = list(self.data_sets.keys())
+        self.file_opt = 1  # use summed data as default
 
     @observe(str('runid'))
     def _update_fname(self, change):
