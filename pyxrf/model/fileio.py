@@ -1792,15 +1792,18 @@ def export_hdf(runid, fname, xrf=False):
         sc.export(hdr, fname, use_uid=False)
 
 
-def export1d(runid):
+def export1d(runid, name=None):
     """
     Export all PVs to a file. Do not talk to filestore.
 
     Parameters
     ----------
+    name : str or optional
+        name for the file
     runid : int
         run number
     """
     t = get_table(db[runid], fill=False)
-    name = 'scan_'+str(runid)+'.txt'
+    if name is None:
+        name = 'scan_'+str(runid)+'.txt'
     t.to_csv(name)
