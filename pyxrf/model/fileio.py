@@ -77,10 +77,10 @@ except (ImportError, KeyError) as e:
 #except ImportError as e:
 #    logger.error('hxntools is not available from old version: %s', e)
 
-try:
-    import vortex_handler
-except ImportError as e:
-    logger.error('handler is not loaded.')
+#try:
+#    import vortex_handler
+#except ImportError as e:
+#    logger.error('handler is not loaded.')
 
 try:
     import suitcase.hdf5 as sc
