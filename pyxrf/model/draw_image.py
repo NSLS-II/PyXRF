@@ -132,6 +132,7 @@ class DrawImageAdvanced(Atom):
     interpolation_opt = Bool(True)
     data_dict_default = Dict()
     limit_dict = Dict()
+    range_dict = Dict()
     scatter_show = Bool(False)
 
     def __init__(self):
@@ -184,15 +185,8 @@ class DrawImageAdvanced(Atom):
             self.x_pos = []
             self.y_pos = []
 
-        # add previous selected items as default
-        if len(self.items_previous_selected) != 0:
-            default_items = {}
-            for item in self.items_previous_selected:
-                for v, k in self.data_dict.items():
-                    if item in k:
-                        default_items[item] = k[item]
-            self.data_dict['use_default_selection'] = default_items
-            logger.info('Use previously selected items as default: {}'.format(self.items_previous_selected))
+        self.get_default_items()   # use previous defined elements as default
+        logger.info('Use previously selected items as default: {}'.format(self.items_previous_selected))
 
         # initiate the plotting status once new data is coming
         self.reset_to_default()
@@ -210,25 +204,35 @@ class DrawImageAdvanced(Atom):
         self.scaler_name_index = 0
         self.plot_all = False
 
+    def get_default_items(self):
+        """Add previous selected items as default.
+        """
+        if len(self.items_previous_selected) != 0:
+            default_items = {}
+            for item in self.items_previous_selected:
+                for v, k in self.data_dict.items():
+                    if item in k:
+                        default_items[item] = k[item]
+            self.data_dict['use_default_selection'] = default_items
 
     @observe('data_opt')
     def _update_file(self, change):
         try:
             if self.data_opt == 0:
                 self.dict_to_plot = {}
-                self.items_in_selected_group = list(self.dict_to_plot.keys())
+                self.items_in_selected_group = []
                 self.set_stat_for_all(bool_val=False)
                 self.img_title = ''
             elif self.data_opt > 0:
-                self.set_stat_for_all(bool_val=False)
+                #self.set_stat_for_all(bool_val=False)
                 plot_item = sorted(self.data_dict_keys)[self.data_opt-1]
                 self.img_title = str(plot_item)
                 self.dict_to_plot = self.data_dict[plot_item]
-
-                # for GUI purpose only
-                self.items_in_selected_group = []
-                self.items_in_selected_group = list(self.dict_to_plot.keys())
                 self.set_stat_for_all(bool_val=False)
+
+                self.update_img_wizard_items()
+                self.get_default_items()   # get default elements every time when fitting is done
+
         except IndexError:
             pass
 
@@ -242,7 +246,17 @@ class DrawImageAdvanced(Atom):
             self.scaler_data = self.scaler_norm_dict[scaler_name]
             logger.info('Use scaler data to normalize, '
                         'and the shape of scaler data is {}'.format(self.scaler_data.shape))
+
+        self.set_low_high_value() # reset low high values based on normalization
         self.show_image()
+        self.update_img_wizard_items()
+
+    def update_img_wizard_items(self):
+        """This is for GUI purpose only.
+        Table items will not be updated if list items keep the same.
+        """
+        self.items_in_selected_group = []
+        self.items_in_selected_group = list(self.dict_to_plot.keys())
 
     @observe('scale_opt', 'color_opt')
     def _update_scale(self, change):
@@ -273,13 +287,43 @@ class DrawImageAdvanced(Atom):
 
     def set_stat_for_all(self, bool_val=False):
         """
-        Set plotting status for all the 2D images.
+        Set plotting status for all the 2D images, including low and high values.
         """
         self.stat_dict.clear()
-        self.stat_dict = {k: bool_val for k in self.items_in_selected_group}
+        self.stat_dict = {k: bool_val for k in self.dict_to_plot.keys()}
 
         self.limit_dict.clear()
-        self.limit_dict = {k: {'low':0.0, 'high': 100.0} for k in self.items_in_selected_group}
+        self.limit_dict = {k: {'low':0.0, 'high': 100.0} for k in self.dict_to_plot.keys()}
+
+        self.set_low_high_value()
+
+    def set_low_high_value(self, name_not_scalable=['r_squared']):
+        """Set default low and high values based on normalization for each image.
+        """
+        # do not apply scaler norm on not scalabel data
+        self.range_dict.clear()
+        for k in self.dict_to_plot.keys():
+            if self.scaler_data is not None:
+                if k in name_not_scalable:
+                    data_dict = self.dict_to_plot[k]
+                else:
+                    data_dict = self.dict_to_plot[k]/self.scaler_data
+            else:
+                data_dict = self.dict_to_plot[k]
+            lowv = np.min(data_dict)
+            highv = np.max(data_dict)
+            self.range_dict[k] = {'low':lowv, 'low_defualt':lowv,
+                                  'high':highv, 'high_defualt':highv}
+
+    def reset_low_high(self, name):
+        """Reset low and high value to default based on normalization.
+        """
+        self.range_dict[name]['low'] = self.range_dict[name]['low_defualt']
+        self.range_dict[name]['high'] = self.range_dict[name]['high_defualt']
+        self.limit_dict[name]['low'] = 0.0
+        self.limit_dict[name]['high'] = 100.0
+        self.update_img_wizard_items()
+        self.show_image()
 
     def show_image(self):
         self.fig.clf()
@@ -319,7 +363,6 @@ class DrawImageAdvanced(Atom):
 
         if self.scale_opt == 'Linear':
             for i, (k, v) in enumerate(six.iteritems(stat_temp)):
-
                 if self.scaler_data is not None:
                     if k in name_not_scalable:
                         data_dict = self.dict_to_plot[k]
@@ -328,10 +371,12 @@ class DrawImageAdvanced(Atom):
                 else:
                     data_dict = self.dict_to_plot[k]
 
-                lowv = self.limit_dict[k]['low']/100.0
-                highv = self.limit_dict[k]['high']/100.0
-                low_limit = (np.max(data_dict)-np.min(data_dict))*lowv + np.min(data_dict)
-                high_limit = (np.max(data_dict)-np.min(data_dict))*highv + np.min(data_dict)
+                low_ratio = self.limit_dict[k]['low']/100.0
+                high_ratio = self.limit_dict[k]['high']/100.0
+                minv = self.range_dict[k]['low']
+                maxv = self.range_dict[k]['high']
+                low_limit = (maxv-minv)*low_ratio + minv
+                high_limit = (maxv-minv)*high_ratio + minv
 
                 if self.scatter_show is not True:
                     im = grid[i].imshow(data_dict,
@@ -403,6 +448,7 @@ class DrawImageAdvanced(Atom):
         self.fig.suptitle(self.img_title, fontsize=20)
         self.fig.canvas.draw_idle()
 
+
     def get_activated_num(self):
         """Collect the selected items for plotting.
         """
@@ -413,6 +459,6 @@ class DrawImageAdvanced(Atom):
         """Save the list of items in cache for later use.
         """
         self.items_previous_selected = [k for (k,v) in self.stat_dict.items() if v is True]
-        logger.info('Default selected items: {}'.format(self.items_previous_selected))
+        logger.info('Items are set as default: {}'.format(self.items_previous_selected))
         self.data_dict['use_default_selection'] = {k:self.dict_to_plot[k] for k in self.items_previous_selected}
         self.data_dict_keys = list(self.data_dict.keys())
