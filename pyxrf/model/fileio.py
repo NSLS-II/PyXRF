@@ -640,7 +640,8 @@ def flip_data(input_data, subscan_dims=None):
 #         dataGrp.create_dataset('val', data=scaler_data)
 
 
-def output_data(fpath, output_folder, file_format='tiff'):
+def output_data(fpath, output_folder,
+                file_format='tiff', ic_name=None):
     """
     Read data from h5 file and transfer them into txt.
 
@@ -652,6 +653,8 @@ def output_data(fpath, output_folder, file_format='tiff'):
         which folder to save those txt file
     file_format : str, optional
         tiff or txt
+    ic_name : str, optional
+        if given, normalization will be performed.
     """
 
     f = h5py.File(fpath, 'r')
@@ -692,12 +695,19 @@ def output_data(fpath, output_folder, file_format='tiff'):
     if os.path.exists(output_folder) is False:
         os.mkdir(output_folder)
 
+    norm_sign = ''
+    if ic_name is not None:
+        ic_v = fit_output[ic_name]
+        norm_sign = '_norm'
+
     for k, v in six.iteritems(fit_output):
+        if ic_name is not None:
+            v /= ic_v
         if file_format == 'tiff':
-            fname = os.path.join(output_folder, k+'.tiff')
+            fname = os.path.join(output_folder, k+norm_sign+'.tiff')
             sio.imsave(fname, v.astype(np.float32))
         elif file_format == 'txt':
-            fname = os.path.join(output_folder, k+'.txt')
+            fname = os.path.join(output_folder, k+norm_sign+'.txt')
             np.savetxt(fname, v.astype(np.float32))
         else:
             pass

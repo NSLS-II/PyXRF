@@ -20,6 +20,7 @@ def fit_pixel_data_and_save(working_directory, file_name,
                             spectrum_cut=3000,
                             save_txt=False,
                             save_tiff=True,
+                            ic_name=None,
                             data_from='NSLS-II'):
     """
     Do fitting for multiple data sets, and save data accordingly. Fitting can be performed on
@@ -61,6 +62,8 @@ def fit_pixel_data_and_save(working_directory, file_name,
         save data to txt or not
     save_tiff : bool, optional
         save data to tiff or not
+    ic_name : str, optional
+        if given, normalization will be performed
     data_from : str, optional
         where do data come from? Data format includes data from NSLS-II, or 2IDE-APS
     """
@@ -146,8 +149,8 @@ def fit_pixel_data_and_save(working_directory, file_name,
     if save_txt is True:
         output_folder = 'output_txt_'+prefix_fname
         output_path = os.path.join(working_directory, output_folder)
-        output_data(fpath, output_path, file_format='txt')
+        output_data(fpath, output_path, file_format='txt', ic_name=ic_name)
     if save_tiff is True:
         output_folder = 'output_tiff_'+prefix_fname
         output_path = os.path.join(working_directory, output_folder)
-        output_data(fpath, output_path, file_format='tiff')
+        output_data(fpath, output_path, file_format='tiff', ic_name=ic_name)
