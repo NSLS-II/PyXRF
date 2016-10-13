@@ -641,7 +641,7 @@ def flip_data(input_data, subscan_dims=None):
 
 
 def output_data(fpath, output_folder,
-                file_format='tiff', ic_name=None):
+                file_format='tiff', norm_name=None):
     """
     Read data from h5 file and transfer them into txt.
 
@@ -653,12 +653,14 @@ def output_data(fpath, output_folder,
         which folder to save those txt file
     file_format : str, optional
         tiff or txt
-    ic_name : str, optional
+    norm_name : str, optional
         if given, normalization will be performed.
     """
 
     f = h5py.File(fpath, 'r')
 
+    tmp = output_folder.split('/')[-1]
+    name_append = tmp.split('_')[-1]
     detlist = list(f['xrfmap'].keys())
     fit_output = {}
 
@@ -669,45 +671,53 @@ def output_data(fpath, output_folder,
             fit_name = f['xrfmap/'+detname+'/xrf_fit_name']
 
             for i in np.arange(len(fit_name)):
-                fit_output[detname+'_'+fit_name[i]] = fit_data[i, :, :]
+                fit_output[detname+'_'+fit_name[i]] = np.asarray(fit_data[i, :, :])
         # fitted error
         if 'xrf_fit_error' in f['xrfmap/'+detname]:
             error_data = f['xrfmap/'+detname+'/xrf_fit_error']
             error_name = f['xrfmap/'+detname+'/xrf_fit_error_name']
 
             for i in np.arange(len(error_name)):
-                fit_output[detname+'_'+error_name[i]+'_error'] = error_data[i, :, :]
+                fit_output[detname+'_'+error_name[i]+'_error'] = np.asarray(error_data[i, :, :])
 
     # ic data
     if 'scalers' in f['xrfmap']:
         ic_data = f['xrfmap/scalers/val']
         ic_name = f['xrfmap/scalers/name']
         for i in np.arange(len(ic_name)):
-            fit_output[ic_name[i]] = ic_data[:, :, i]
+            fit_output[ic_name[i]] = np.asarray(ic_data[:, :, i])
 
     # position data
     if 'positions' in f['xrfmap']:
         pos_name = f['xrfmap/positions/name']
         for i, n in enumerate(pos_name):
-            fit_output[n] = f['xrfmap/positions/pos'].value[i, :]
+            fit_output[n] = np.asarray(f['xrfmap/positions/pos'].value[i, :])
 
     #save data
     if os.path.exists(output_folder) is False:
         os.mkdir(output_folder)
 
-    norm_sign = ''
-    if ic_name is not None:
-        ic_v = fit_output[ic_name]
+    if norm_name is not None:
+        ic_v = fit_output[str(norm_name)]
         norm_sign = '_norm'
+        for k1, v1 in six.iteritems(fit_output):
+            v = v1/ic_v
+            if file_format == 'tiff':
+                fname = os.path.join(output_folder, k1+'_'+name_append+norm_sign+'.tiff')
+                sio.imsave(fname, v.astype(np.float32))
+            elif file_format == 'txt':
+                fname = os.path.join(output_folder, k1+'_'+name_append+norm_sign+'.txt')
+                np.savetxt(fname, v.astype(np.float32))
+            else:
+                pass
 
+    norm_sign = ''
     for k, v in six.iteritems(fit_output):
-        if ic_name is not None:
-            v /= ic_v
         if file_format == 'tiff':
-            fname = os.path.join(output_folder, k+norm_sign+'.tiff')
+            fname = os.path.join(output_folder, k+'_'+name_append+norm_sign+'.tiff')
             sio.imsave(fname, v.astype(np.float32))
         elif file_format == 'txt':
-            fname = os.path.join(output_folder, k+norm_sign+'.txt')
+            fname = os.path.join(output_folder, k+'_'+name_append+norm_sign+'.txt')
             np.savetxt(fname, v.astype(np.float32))
         else:
             pass

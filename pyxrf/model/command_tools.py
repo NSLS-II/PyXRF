@@ -149,8 +149,8 @@ def fit_pixel_data_and_save(working_directory, file_name,
     if save_txt is True:
         output_folder = 'output_txt_'+prefix_fname
         output_path = os.path.join(working_directory, output_folder)
-        output_data(fpath, output_path, file_format='txt', ic_name=ic_name)
+        output_data(fpath, output_path, file_format='txt', norm_name=ic_name)
     if save_tiff is True:
         output_folder = 'output_tiff_'+prefix_fname
         output_path = os.path.join(working_directory, output_folder)
-        output_data(fpath, output_path, file_format='tiff', ic_name=ic_name)
+        output_data(fpath, output_path, file_format='tiff', norm_name=ic_name)
