@@ -876,6 +876,7 @@ def read_MAPS(working_directory,
     bad_point_cut = 0
 
     fit_val = None
+    fit_v_pyxrf = None
 
     file_path = os.path.join(working_directory, file_name)
     print('file path is {}'.format(file_path))
@@ -902,7 +903,15 @@ def read_MAPS(working_directory,
             # data from fit
             fit_val = data['XRF_fits'][:]
         except KeyError:
-            pass
+            logger.info('No fitting from MAPS can be loaded.')
+
+        try:
+            fit_data = f['xrfmap/detsum']
+            fit_v_pyxrf = fit_data['xrf_fit'][:]
+            fit_n_pyxrf = fit_data['xrf_fit_name'].value
+            print(fit_n_pyxrf)
+        except KeyError:
+            logger.info('No fitting from pyxrf can be loaded.')
 
     exp_shape = exp_data.shape
     exp_data = exp_data.T
@@ -927,6 +936,12 @@ def read_MAPS(working_directory,
     if fit_val is not None:
         for i, name in enumerate(roi_channel):
             temp_fit[name] = fit_val[i, :, :]
+        img_dict[fname+'_fit_MAPS'] = temp_fit
+
+    cut_bad_col = 1
+    if fit_v_pyxrf is not None:
+        for i, name in enumerate(fit_n_pyxrf):
+            temp_fit[name] = fit_v_pyxrf[i, :, cut_bad_col:]
         img_dict[fname+'_fit'] = temp_fit
 
     for i, name in enumerate(scaler_names):
