@@ -661,6 +661,8 @@ def output_data(fpath, output_folder,
 
     tmp = output_folder.split('/')[-1]
     name_append = tmp.split('_')[-1]
+    if not name_append.isdigit():
+         name_append = ''
     detlist = list(f['xrfmap'].keys())
     fit_output = {}
 

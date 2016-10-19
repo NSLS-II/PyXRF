@@ -692,12 +692,12 @@ class Fit1D(Atom):
         """
         # importing output_data at the beginning of the file fails. need to figure out why!
         from .fileio import output_data
-
-        output_n = self.hdf_name.split('.')[0] + '_output'
         if to_tiff:
+            output_n = 'output_tiff_' + self.hdf_name.split('.')[0]
             output_data(self.hdf_path, os.path.join(self.result_folder, output_n))
             logger.info('Done with saving data {} to tiff files.'.format(output_n))
         else:
+            output_n = 'output_txt_' + self.hdf_name.split('.')[0]
             output_data(self.hdf_path, os.path.join(self.result_folder, output_n),
                         file_format='txt')
             logger.info('Done with saving data {} to txt files.'.format(output_n))
