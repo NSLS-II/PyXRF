@@ -141,6 +141,7 @@ class Fit1D(Atom):
     nvar = Int(0)
     chi2 = Float(0.0)
     red_chi2 = Float(0.0)
+    r2 = Float(0.0)
     global_param_list = List()
 
     fit_num = Int(100)
@@ -508,6 +509,9 @@ class Fit1D(Atom):
 
                 self.fit_data(self.x0, y0)
                 self.update_param_with_result()
+
+                # calculate r2
+                self.r2 = cal_r2(y0, self.fit_y)
                 self.assign_fitting_result()
                 app.processEvents()
 
@@ -549,7 +553,7 @@ class Fit1D(Atom):
     def assign_fitting_result(self):
         self.function_num = self.fit_result.nfev
         self.nvar = self.fit_result.nvarys
-        self.chi2 = np.around(self.fit_result.chisqr, 4)
+        #self.chi2 = np.around(self.fit_result.chisqr, 4)
         self.red_chi2 = np.around(self.fit_result.redchi, 4)
 
     def fit_single_pixel(self):

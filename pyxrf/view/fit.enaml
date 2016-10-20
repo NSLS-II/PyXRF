@@ -631,7 +631,7 @@ enamldef FitView(DockItem): fit_view:
                 padding = Box(2, 2, 2, 2)
                 constraints = [vbox(hbox(lbl_number, lbl_number_v,
                                          lbl_var_number, lbl_var_number_v,
-                                         lbl_red_chi, lbl_red_chi_v, spacer),
+                                         lbl_r2, lbl_r2_v, spacer),
                                     )]
                 Label: lbl_number:
                     text = '# of iterations'
@@ -651,11 +651,11 @@ enamldef FitView(DockItem): fit_view:
                 #Label: lbl_chi_v:
                 #    text << str(fit_model.chi2)
                 #    minimum_size = (60, 16)
-                Label: lbl_red_chi:
-                    text = 'reduced chi-square'
+                Label: lbl_r2:
+                    text = 'R-squared'
                     minimum_size = (60, 16)
-                Label: lbl_red_chi_v:
-                    text << str(fit_model.red_chi2)
+                Label: lbl_r2_v:
+                    text << str(fit_model.r2)
                     minimum_size = (60, 16)
 
         GroupBox: gb_fit_pixel:
