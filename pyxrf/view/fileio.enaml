@@ -250,11 +250,9 @@ enamldef FileView(DockItem): file_view:
                     plot_model.data_sets = io_model.data_sets
                     plot_model.plot_multi_exp_data()
                     if checked:
-                        plot_bt.text = 'Remove Plot'
                         plot_model.show_exp_opt = True
                     else:
                         plot_model.show_exp_opt = False
-                        plot_bt.text = 'Plot Experiments'
 
 
 enamldef MaskView(Window): mask_view:
