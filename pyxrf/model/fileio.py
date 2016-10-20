@@ -705,6 +705,8 @@ def output_data(fpath, output_folder,
         ic_v = fit_output[str(norm_name)]
         norm_sign = '_norm'
         for k, v in six.iteritems(fit_output):
+            if 'pos' in k:
+                continue
             v = v/ic_v
             _fname = k + name_append + norm_sign
             if file_format == 'tiff':
