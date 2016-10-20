@@ -241,7 +241,7 @@ enamldef FileView(DockItem): file_view:
                                 #plot_model.data_sets = io_model.data_sets
 
             PushButton: plot_bt:
-                text = 'Plot Experiments'
+                text = 'Plot Experiments (Do not use, to be depreciated)'
                 #maximum_size = 100
                 enabled = True
                 checkable = True
