@@ -132,6 +132,7 @@ def run():
     io_model.observe('data', param_model.exp_data_update)
     io_model.observe('data', fit_model.exp_data_update)
     io_model.observe('data_all', fit_model.exp_data_all_update)
+    io_model.observe('img_dict', fit_model.img_dict_update)
 
     # send img dict to img_model for visualization
     io_model.observe('img_dict', img_model_adv.data_dict_update)

@@ -180,6 +180,8 @@ class Fit1D(Atom):
     hdf_name = Str()
 
     roi_sum_opt = Dict()
+    scaler_keys = List()
+    scaler_index = Int(0)
 
     def __init__(self, *args, **kwargs):
         self.working_directory = kwargs['working_directory']
@@ -230,6 +232,21 @@ class Fit1D(Atom):
             with the @observe decorator
         """
         self.data_title = change['value']
+
+    def img_dict_update(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        change : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        img_dict = change['value']
+        _key = [k for k in img_dict.keys() if 'scaler' in k]
+        self.scaler_keys = sorted(img_dict[_key[0]].keys())
 
     @observe('selected_index')
     def _selected_element_changed(self, change):
@@ -692,14 +709,19 @@ class Fit1D(Atom):
         """
         # importing output_data at the beginning of the file fails. need to figure out why!
         from .fileio import output_data
+        scaler_v = None
+        if self.scaler_index > 0:
+            scaler_v = self.scaler_keys[self.scaler_index-1]
+            print(scaler_v)
         if to_tiff:
             output_n = 'output_tiff_' + self.hdf_name.split('.')[0]
-            output_data(self.hdf_path, os.path.join(self.result_folder, output_n))
+            output_data(self.hdf_path, os.path.join(self.result_folder, output_n),
+                        norm_name=scaler_v)
             logger.info('Done with saving data {} to tiff files.'.format(output_n))
         else:
             output_n = 'output_txt_' + self.hdf_name.split('.')[0]
             output_data(self.hdf_path, os.path.join(self.result_folder, output_n),
-                        file_format='txt')
+                        file_format='txt', norm_name=scaler_v)
             logger.info('Done with saving data {} to txt files.'.format(output_n))
 
     def save_result(self, fname=None):

@@ -154,12 +154,6 @@ enamldef FitView(DockItem): fit_view:
                         plot_model.show_fit_opt = False
                         plot_model.show_fit_opt = True
 
-
-            #PushButton: reload_btn:
-            #    text = 'Reload'
-            #    clicked ::
-            #        fit_model.apply_default_param()
-
             Label: lbl_param:
                 text = 'No parameter is loaded.'
 
@@ -325,7 +319,7 @@ enamldef FitView(DockItem): fit_view:
                     Form:
                         row_spacing = -1
                         #padding = Box(0, 0, 0, 0)
-                        Looper: looper:
+                        Looper:
                             iterable << list(param_model.result_dict_names)
 
                             PushButton: delete_btn:
@@ -763,13 +757,23 @@ enamldef OutputSetup(Window): output_win:
     attr fit_model
 
     Container:
-        constraints = [vbox(cb1, gb_range, save_btn),]
-        CheckBox: cb1:
-            text = 'Calculate ROI sum within given range (KeV)'
-            checked := fit_model.roi_sum_opt['status']
+        constraints = [vbox(gb_norm, gb_range, save_btn),]
+
+        GroupBox: gb_norm:
+            constraints = [vbox(lbl_norm, cmb_scaler),]
+            Label: lbl_norm:
+                text = 'Output data with normalization'
+            ComboBox: cmb_scaler:
+                items << ['Normalized by'] + fit_model.scaler_keys
+                index >> fit_model.scaler_index
+                index = 0
+
         GroupBox: gb_range:
-            constraints = [vbox(hbox(lbl_low, ff_low),
+            constraints = [vbox(cb1, hbox(lbl_low, ff_low),
                                 hbox(lbl_high, ff_high),)]
+            CheckBox: cb1:
+                text = 'Calculate ROI sum within given range (KeV)'
+                checked := fit_model.roi_sum_opt['status']
             Label: lbl_low:
                 text = 'low range'
             FloatField: ff_low:
@@ -804,7 +808,7 @@ enamldef AutoFindElements(Window): auto_win:
         #constraints = [height <= 80]
         Form: param_form:
             row_spacing = -1
-            Looper: looper:
+            Looper:
                 #iterable << sorted([v for k,v in six.iteritems(param_model.param_new) if v.get('description')],
                 #                   key=lambda x: x['description'])
                 iterable << autofit_param
@@ -824,7 +828,7 @@ enamldef AutoFindElements(Window): auto_win:
                         clicked ::
                             ff.value = param_model.param_new[loop_item]['default']
 
-            Looper: looper:
+            Looper:
                 iterable << [param_model.param_new['non_fitting_values'][k] for k in ('energy_bound_high', 'energy_bound_low')]
                 #iterable << [param_model.param_new['non_fitting_values'][k] for k in sorted(list(param_model.param_new['non_fitting_values'].keys()))]
                 #iiterable << sorted_param(param_model)
@@ -878,13 +882,13 @@ enamldef ElementEdit(Window):
     attr plot_model
     attr setting_model
     Container:
-        constraints = [vbox(hbox(pb_cal, spacer),
+        constraints = [vbox(hbox(cal_pbn, spacer),
                             cmb_element,
                             hbox(lbl1, lbl2, lbl3, lbl4, lbl5, lbl6, lbl7, lbl8),
                             scr_area,)]
         padding = Box(5, 5, 5, 5)
 
-        PushButton: pb_cal:
+        PushButton: cal_pbn:
             text = 'Update & Plot'
             clicked ::
                 calculate_spectrum_helper(fit_model, plot_model,
@@ -919,7 +923,7 @@ enamldef ElementEdit(Window):
             constraints = [height <= 1000]
             Form:
                 row_spacing = -1
-                Looper: looper:
+                Looper:
                     #iterable << sorted([k for k in six.iterkeys(fit_model.param_dict) if k==k.lower() and k!='non_fitting_values'])
                     #iterable << list(sorted([v for v in six.iterkeys(fit_model.param_dict) if cmb_element.selected_item.split('_')[0] in str(v)]))
                     iterable << fit_model.elementinfo_list
@@ -1014,11 +1018,11 @@ enamldef ParameterEdit(Window):
 
     destroy_on_close = False
     Container:
-        constraints = [vbox(hbox(pb_cal, spacer),
+        constraints = [vbox(hbox(cal_pbn, spacer),
                             hbox(lbl1, lbl2, lbl3, lbl4, lbl5, lbl6, lbl7, lbl8),
                             scr_area,)]
         #padding = Box(5, 5, 5, 5)
-        PushButton: pb_cal:
+        PushButton: cal_pbn:
             text = 'Update & Plot'
             clicked ::
                 calculate_spectrum_helper(fit_model, plot_model,
@@ -1047,7 +1051,7 @@ enamldef ParameterEdit(Window):
             constraints = [height <= 1000]
             Form:
                 row_spacing = -1
-                Looper: looper:
+                Looper:
                     #iterable << sorted([k for k in six.iterkeys(fit_model.param_dict) if k==k.lower() and k!='non_fitting_values'])
                     iterable << fit_model.global_param_list
                     Label: name_lbl:
@@ -1148,7 +1152,7 @@ enamldef OtherSettingEdit(Window):
                             text = 'Escape peak'
                         FloatField:
                             value := fit_model.param_dict['non_fitting_values']['escape_ratio']
-                        PushButton: pb_cal:
+                        PushButton:
                             text = 'Apply'
                             clicked ::
                                 calculate_spectrum_helper(fit_model, plot_model,
@@ -1182,7 +1186,7 @@ enamldef OtherSettingEdit(Window):
                         #    text = 'Weighted c'
                         #FloatField:
                         #    value := fit_model.c_weight
-                        PushButton: pb_cal:
+                        PushButton:
                             text = 'Apply'
                             clicked ::
                                 calculate_spectrum_helper(fit_model, plot_model,
@@ -1262,7 +1266,7 @@ enamldef OtherSettingEdit(Window):
                         #    text = 'Weighted c'
                         #FloatField:
                         #    value := fit_model.c_weight
-                        PushButton: pb_cal:
+                        PushButton:
                             text = 'Apply'
                             clicked ::
                                 pass

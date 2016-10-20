@@ -661,8 +661,10 @@ def output_data(fpath, output_folder,
 
     tmp = output_folder.split('/')[-1]
     name_append = tmp.split('_')[-1]
-    if not name_append.isdigit():
-         name_append = ''
+    if name_append.isdigit():
+        name_append = '_'+name_append
+    else:
+        name_append = ''
     detlist = list(f['xrfmap'].keys())
     fit_output = {}
 
@@ -702,24 +704,25 @@ def output_data(fpath, output_folder,
     if norm_name is not None:
         ic_v = fit_output[str(norm_name)]
         norm_sign = '_norm'
-        for k1, v1 in six.iteritems(fit_output):
-            v = v1/ic_v
+        for k, v in six.iteritems(fit_output):
+            v = v/ic_v
+            _fname = k + name_append + norm_sign
             if file_format == 'tiff':
-                fname = os.path.join(output_folder, k1+'_'+name_append+norm_sign+'.tiff')
+                fname = os.path.join(output_folder, _fname + '.tiff')
                 sio.imsave(fname, v.astype(np.float32))
             elif file_format == 'txt':
-                fname = os.path.join(output_folder, k1+'_'+name_append+norm_sign+'.txt')
+                fname = os.path.join(output_folder, _fname + '.txt')
                 np.savetxt(fname, v.astype(np.float32))
             else:
                 pass
 
-    norm_sign = ''
     for k, v in six.iteritems(fit_output):
+        _fname = k + name_append
         if file_format == 'tiff':
-            fname = os.path.join(output_folder, k+'_'+name_append+norm_sign+'.tiff')
+            fname = os.path.join(output_folder, _fname + '.tiff')
             sio.imsave(fname, v.astype(np.float32))
         elif file_format == 'txt':
-            fname = os.path.join(output_folder, k+'_'+name_append+norm_sign+'.txt')
+            fname = os.path.join(output_folder, _fname + '.txt')
             np.savetxt(fname, v.astype(np.float32))
         else:
             pass
