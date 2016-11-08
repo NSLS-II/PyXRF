@@ -1715,7 +1715,7 @@ def _make_hdf(fpath, runid):
             config_data = json.load(json_data)
 
         try:
-            data = get_table(hdr, fill=True)
+            data = get_table(hdr, fill=True, convert_times=False)
         except IndexError:
             spectrum_len = 4096
             total_len = get_total_scan_point(hdr) - 2
