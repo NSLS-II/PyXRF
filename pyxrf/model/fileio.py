@@ -1697,6 +1697,18 @@ def _make_hdf(fpath, runid):
         write_db_to_hdf(fpath, data, datashape,
                         pos_list=pos_list,
                         fly_type=fly_type, subscan_dims=subscan_dims)
+
+        # use suitcase to save baseline data, and scaler data from primary
+        tmp = set()
+        for descriptor in hdr.descriptors:
+            xs3 = [key for key in descriptor.data_keys.keys() if 'xspress3' in key]
+            roi = [key for key in descriptor.data_keys.keys() if 'Det' in key]
+            tmp.update(xs3)
+            tmp.update(roi)
+            tmp.add('merlin1')
+            print(tmp)
+        fds = sc.filter_fields(hdr, tmp)
+        sc.export(hdr, fpath, fields=fds, use_uid=False)
         print('Done!')
 
     elif hdr.start.beamline_id == 'xf05id':
