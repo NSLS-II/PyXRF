@@ -61,8 +61,11 @@ try:
     from databroker import db, get_table, get_events
     try:
         from hxntools.handlers.xspress3 import Xspress3HDF5Handler
+        from hxntools.handlers.timepix import TimepixHDF5Handler
         db.fs.register_handler(Xspress3HDF5Handler.HANDLER_NAME,
                                Xspress3HDF5Handler)
+        db.fs.register_handler(TimepixHDF5Handler._handler_name,
+                               TimepixHDF5Handler, overwrite=True)
     except:
         logger.error('hxntools is not available from old version: %s', e)
 except (ImportError, KeyError) as e:
@@ -1701,15 +1704,12 @@ def _make_hdf(fpath, runid):
         # use suitcase to save baseline data, and scaler data from primary
         tmp = set()
         for descriptor in hdr.descriptors:
+            # no 3D vector data
             xs3 = [key for key in descriptor.data_keys.keys() if 'xspress3' in key]
-            roi = [key for key in descriptor.data_keys.keys() if 'Det' in key]
             tmp.update(xs3)
-            tmp.update(roi)
             tmp.add('merlin1')
-            print(tmp)
         fds = sc.filter_fields(hdr, tmp)
         sc.export(hdr, fpath, fields=fds, use_uid=False)
-        print('Done!')
 
     elif hdr.start.beamline_id == 'xf05id':
         start_doc = hdr['start']
