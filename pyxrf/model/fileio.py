@@ -1709,7 +1709,7 @@ def _make_hdf(fpath, runid):
             tmp.update(xs3)
             tmp.add('merlin1')
         fds = sc.filter_fields(hdr, tmp)
-        sc.export(hdr, fpath, fields=fds, use_uid=False)
+        sc.export(hdr, fpath, db.mds, fields=fds, use_uid=False)
 
     elif hdr.start.beamline_id == 'xf05id':
         start_doc = hdr['start']
@@ -1841,9 +1841,9 @@ def export_hdf(runid, fname, xrf=False):
             tmp.update(xs3)
             tmp.update(roi)
         fds = sc.filter_fields(hdr, tmp)
-        sc.export(hdr, fname, fields=fds, use_uid=False)
+        sc.export(hdr, fname, db.mds, fields=fds, use_uid=False)
     else:
-        sc.export(hdr, fname, use_uid=False)
+        sc.export(hdr, fname, db.mds, use_uid=False)
 
 
 def export1d(runid, name=None):
