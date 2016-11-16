@@ -141,6 +141,7 @@ class Fit1D(Atom):
     nvar = Int(0)
     chi2 = Float(0.0)
     red_chi2 = Float(0.0)
+    r2 = Float(0.0)
     global_param_list = List()
 
     fit_num = Int(100)
@@ -180,6 +181,8 @@ class Fit1D(Atom):
     hdf_name = Str()
 
     roi_sum_opt = Dict()
+    scaler_keys = List()
+    scaler_index = Int(0)
 
     def __init__(self, *args, **kwargs):
         self.working_directory = kwargs['working_directory']
@@ -230,6 +233,21 @@ class Fit1D(Atom):
             with the @observe decorator
         """
         self.data_title = change['value']
+
+    def img_dict_update(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        change : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        img_dict = change['value']
+        _key = [k for k in img_dict.keys() if 'scaler' in k]
+        self.scaler_keys = sorted(img_dict[_key[0]].keys())
 
     @observe('selected_index')
     def _selected_element_changed(self, change):
@@ -491,6 +509,9 @@ class Fit1D(Atom):
 
                 self.fit_data(self.x0, y0)
                 self.update_param_with_result()
+
+                # calculate r2
+                self.r2 = cal_r2(y0, self.fit_y)
                 self.assign_fitting_result()
                 app.processEvents()
 
@@ -532,7 +553,7 @@ class Fit1D(Atom):
     def assign_fitting_result(self):
         self.function_num = self.fit_result.nfev
         self.nvar = self.fit_result.nvarys
-        self.chi2 = np.around(self.fit_result.chisqr, 4)
+        #self.chi2 = np.around(self.fit_result.chisqr, 4)
         self.red_chi2 = np.around(self.fit_result.redchi, 4)
 
     def fit_single_pixel(self):
@@ -692,14 +713,19 @@ class Fit1D(Atom):
         """
         # importing output_data at the beginning of the file fails. need to figure out why!
         from .fileio import output_data
-
-        output_n = self.hdf_name.split('.')[0] + '_output'
+        scaler_v = None
+        if self.scaler_index > 0:
+            scaler_v = self.scaler_keys[self.scaler_index-1]
+            print(scaler_v)
         if to_tiff:
-            output_data(self.hdf_path, os.path.join(self.result_folder, output_n))
+            output_n = 'output_tiff_' + self.hdf_name.split('.')[0]
+            output_data(self.hdf_path, os.path.join(self.result_folder, output_n),
+                        norm_name=scaler_v)
             logger.info('Done with saving data {} to tiff files.'.format(output_n))
         else:
+            output_n = 'output_txt_' + self.hdf_name.split('.')[0]
             output_data(self.hdf_path, os.path.join(self.result_folder, output_n),
-                        file_format='txt')
+                        file_format='txt', norm_name=scaler_v)
             logger.info('Done with saving data {} to txt files.'.format(output_n))
 
     def save_result(self, fname=None):

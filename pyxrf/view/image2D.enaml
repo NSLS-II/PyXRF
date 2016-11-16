@@ -42,12 +42,17 @@ from enaml.widgets.api import (Container, PushButton, Label,
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer
 from enaml.core.api import Include, Looper
 
+from enaml.stdlib.fields import FloatField as DefaultFloatField
+
 import six
 import numpy as np
 from matplotlib.figure import Figure
 
 import logging
 logger = logging.getLogger()
+
+enamldef FloatField(DefaultFloatField):
+    submit_triggers = ['auto_sync'] #['return_pressed']
 
 
 enamldef ImageMain(DockItem):
@@ -120,7 +125,6 @@ enamldef ChooseElementAdvanced(Window): win:
         constraints = [
             vbox(
                 hbox(plot_btn),
-                #hbox(select_btn),
                 gb,
             ),
         ]
@@ -129,22 +133,12 @@ enamldef ChooseElementAdvanced(Window): win:
             text = 'Show Image'
             clicked ::
                 img_model.show_image()
-
         GroupBox: gb:
             title = 'Add/Remove Image'
-
             PushButton: select_btn:
                 text = 'Select All'
                 checkable = True
                 checked := img_model.plot_all
-                clicked ::
-                     if checked:
-                         img_model.plot_all = True
-                         select_btn.checked = True
-                     else:
-                         img_model.plot_all = False
-                         select_btn.checked = False
-
             ScrollArea:
                 constraints = [height >= 80]
                 Container:
@@ -155,12 +149,15 @@ enamldef ChooseElementAdvanced(Window): win:
                                 font = 'monospace'
                                 text = str('{:>10}'.format(loop_item))
                             Container:
-                                constraints = [hbox(element_btn, min_lbl, dual_slider, max_lbl),]
+                                constraints = [hbox(element_btn, min_lbl, dual_slider, max_lbl, ff_low, ff_high, reset_btn),]
                                 PushButton: element_btn:
                                     text = 'Select'
                                     minimum_size = (40, 20)
                                     checkable = True
-                                    checked << img_model.plot_all
+                                    #checked << img_model.plot_all
+                                    #checked << getattr(img_model.stat_dict, loop_item, False)
+                                    checked << get_status(img_model.stat_dict, loop_item)
+                                    #checked << img_model.stat_dict[loop_item]
                                     clicked ::
                                         if checked:
                                             img_model.stat_dict[loop_item] = True
@@ -181,3 +178,23 @@ enamldef ChooseElementAdvanced(Window): win:
                                     maximum = 100
                                     low_value >> img_model.limit_dict[loop_item]['low']
                                     high_value >> img_model.limit_dict[loop_item]['high']
+                                FloatField: ff_low:
+                                    value := img_model.range_dict[loop_item]['low']
+                                FloatField: ff_high:
+                                    value := img_model.range_dict[loop_item]['high']
+                                PushButton: reset_btn:
+                                    text = 'Reset Low & High'
+                                    clicked ::
+                                        img_model.reset_low_high(loop_item)
+
+            PushButton: save_selected:
+                text = 'Save Selected as Default'
+                clicked ::
+                    img_model.record_selected()
+
+
+def get_status(dictv, name):
+    try:
+        return dictv[name]
+    except:
+        return False

@@ -39,7 +39,7 @@ $ source activate pyxrf_test
 ```
 At the same environment, install pyxrf by simply typing
 ```
-$ conda install -c licode pyxrf
+$ conda install pyxrf pyqt=4.11 -c licode
 ```
 
 ### Run

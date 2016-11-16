@@ -52,6 +52,8 @@ from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool, Float
 import logging
 logger = logging.getLogger()
 
+np.seterr(divide='ignore', invalid='ignore') # turn off warning on invalid division
+
 #
 # class plot_limit(Atom):
 #     low = Float(0)

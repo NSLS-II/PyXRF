@@ -1,5 +1,5 @@
 # ######################################################################
-# Copyright (c) 2014, Brookhaven Science Associates, Brookhaven        #
+# Copyright (c) 2014-, Brookhaven Science Associates, Brookhaven       #
 # National Laboratory. All rights reserved.                            #
 #                                                                      #
 # Redistribution and use in source and binary forms, with or without   #
@@ -58,24 +58,32 @@ import logging
 logger = logging.getLogger()
 
 try:
-    from databroker.databroker import DataBroker as db, get_table, get_events
-    # registers a filestore handler for the XSPRESS3 detector
+    from databroker import db, get_table, get_events
+    try:
+        from hxntools.handlers.xspress3 import Xspress3HDF5Handler
+        from hxntools.handlers.timepix import TimepixHDF5Handler
+        db.fs.register_handler(Xspress3HDF5Handler.HANDLER_NAME,
+                               Xspress3HDF5Handler)
+        db.fs.register_handler(TimepixHDF5Handler._handler_name,
+                               TimepixHDF5Handler, overwrite=True)
+    except:
+        logger.error('hxntools is not available from old version: %s', e)
 except (ImportError, KeyError) as e:
     db = None
     logger.error('databroker is not available: %s', e)
 
-try:
+#try:
     # registers a filestore handler for the XSPRESS3 detector
-    from hxntools import handlers as hxn_handlers
-    from hxntools.handlers import register
-    register()
-except ImportError as e:
-    logger.error('hxntools is not available from old version: %s', e)
+#    from hxntools import handlers as hxn_handlers
+#    from hxntools.handlers import register
+#    register()
+#except ImportError as e:
+#    logger.error('hxntools is not available from old version: %s', e)
 
-try:
-    import vortex_handler
-except ImportError as e:
-    logger.error('handler is not loaded.')
+#try:
+#    import vortex_handler
+#except ImportError as e:
+#    logger.error('handler is not loaded.')
 
 try:
     import suitcase.hdf5 as sc
@@ -147,6 +155,7 @@ class FileIOModel(Atom):
                                                      self.file_name,
                                                      load_each_channel=self.load_each_channel)
         self.file_channel_list = list(self.data_sets.keys())
+        self.file_opt = 1  # use summed data as default
 
     @observe(str('runid'))
     def _update_fname(self, change):
@@ -461,67 +470,6 @@ def read_runid(runid, c_list, dshape=None):
     return data_dict, data_sets
 
 
-# def read_hdf_HXN(working_directory,
-#                  file_names, channel_num=4):
-#     """
-#     Data IO for HXN temporary datasets. This might be changed later.
-#
-#     Parameters
-#     ----------
-#     working_directory : str
-#         path folder
-#     file_names : list
-#         list of chosen files
-#     channel_num : int, optional
-#         detector channel number
-#
-#     Returns
-#     -------
-#     data_dict : dict
-#         with fitting data
-#     data_sets : dict
-#         data from each channel and channel summed
-#     """
-#     data_dict = OrderedDict()
-#     data_sets = OrderedDict()
-#
-#     # cut off bad point on the last position of the spectrum
-#     bad_point_cut = 1
-#
-#     for fname in file_names:
-#         try:
-#             file_path = os.path.join(working_directory, fname)
-#             f = h5py.File(file_path, 'r+')
-#             data = f['entry/instrument']
-#
-#             fname = fname.split('.')[0]
-#
-#             # for 2D MAP???
-#             data_dict[fname] = data
-#
-#             # data from channel summed
-#             exp_data = np.asarray(data['detector/data'])
-#             logger.info('File : {} with total counts {}'.format(fname,
-#                                                                 np.sum(exp_data)))
-#             exp_data = exp_data[:, :, :-bad_point_cut]
-#             DS = DataSelection(filename=fname,
-#                                raw_data=exp_data)
-#             data_sets.update({fname: DS})
-#
-#             # data from each channel
-#             for i in range(channel_num):
-#                 file_channel = fname+'_channel_'+str(i+1)
-#                 exp_data_new = np.reshape(exp_data[0, i, :],
-#                                           [1, 1, exp_data[0, i, :].size])
-#                 DS = DataSelection(filename=file_channel,
-#                                    raw_data=exp_data_new)
-#                 data_sets.update({file_channel: DS})
-#
-#         except ValueError:
-#             continue
-#     return data_dict, data_sets
-
-
 def read_xspress3_data(file_path):
     """
     Data IO for xspress3 format.
@@ -603,37 +551,6 @@ def flip_data(input_data, subscan_dims=None):
                 new_data[start:end:2, :, :] = new_data[start:end:2, ::-1, :]
                 i += ny
     return new_data
-
-
-# def read_log_file_srx(fpath, name='ch 2'):
-#     """
-#     Read given column value from log file.
-#
-#     Parameters
-#     ----------
-#     fpath : str
-#         path to log file.
-#     name : str
-#         name of a given column
-#
-#     Returns
-#     -------
-#     1d array:
-#         selected ic value.
-#     """
-#     line_num = 7
-#     base_val = 8.5*1e-10
-#
-#     with open(fpath, 'r') as f:
-#         lines = f.readlines()
-#         col_names = lines[line_num].split('\t')
-#         col_names = [v for v in col_names if len(v) != 0]
-#
-#     df = pd.read_csv(fpath,
-#                      skiprows=line_num+1, skip_footer=1, sep='\s+', header=None)
-#     df.columns = col_names
-#     i0 = np.abs(np.array(df[name]) - base_val)
-#     return i0
 
 
 # def write_xspress3_data_to_hdf(fpath, data_dict):
@@ -726,39 +643,8 @@ def flip_data(input_data, subscan_dims=None):
 #         dataGrp.create_dataset('val', data=scaler_data)
 
 
-# def xspress3_data_to_hdf(fpath_hdf5, fpath_log, fpath_out):
-#     """
-#     Assume data is obained from databroker, and save the data to hdf file.
-#
-#     Parameters
-#     ----------
-#     fpath_hdf5: str
-#         path to raw hdf file
-#     fpath_log: str
-#         path to log file
-#     fpath_out: str
-#         path to save hdf file
-#     """
-#     data_dict = read_xspress3_data(fpath_hdf5)
-#
-#     data_ic = read_log_file_srx(fpath_log)
-#     shapev = None
-#
-#     for k, v in six.iteritems(data_dict):
-#         data_dict[k] = flip_data(data_dict[k])
-#         if shapev is None:
-#             shapev = data_dict[k].shape
-#
-#     data_ic = data_ic.reshape([shapev[0], shapev[1]])
-#     print('data ic shape {}'.format(data_ic.shape))
-#     data_ic = flip_data(data_ic)
-#
-#     data_dict['scalers_ch2'] = data_ic
-#
-#     write_xspress3_data_to_hdf(fpath_out, data_dict)
-
-
-def output_data(fpath, output_folder, file_format='tiff'):
+def output_data(fpath, output_folder,
+                file_format='tiff', norm_name=None):
     """
     Read data from h5 file and transfer them into txt.
 
@@ -770,10 +656,18 @@ def output_data(fpath, output_folder, file_format='tiff'):
         which folder to save those txt file
     file_format : str, optional
         tiff or txt
+    norm_name : str, optional
+        if given, normalization will be performed.
     """
 
     f = h5py.File(fpath, 'r')
 
+    tmp = output_folder.split('/')[-1]
+    name_append = tmp.split('_')[-1]
+    if name_append.isdigit():
+        name_append = '_'+name_append
+    else:
+        name_append = ''
     detlist = list(f['xrfmap'].keys())
     fit_output = {}
 
@@ -784,38 +678,56 @@ def output_data(fpath, output_folder, file_format='tiff'):
             fit_name = f['xrfmap/'+detname+'/xrf_fit_name']
 
             for i in np.arange(len(fit_name)):
-                fit_output[detname+'_'+fit_name[i]] = fit_data[i, :, :]
+                fit_output[detname+'_'+fit_name[i]] = np.asarray(fit_data[i, :, :])
         # fitted error
         if 'xrf_fit_error' in f['xrfmap/'+detname]:
             error_data = f['xrfmap/'+detname+'/xrf_fit_error']
             error_name = f['xrfmap/'+detname+'/xrf_fit_error_name']
 
             for i in np.arange(len(error_name)):
-                fit_output[detname+'_'+error_name[i]+'_error'] = error_data[i, :, :]
+                fit_output[detname+'_'+error_name[i]+'_error'] = np.asarray(error_data[i, :, :])
 
     # ic data
     if 'scalers' in f['xrfmap']:
         ic_data = f['xrfmap/scalers/val']
         ic_name = f['xrfmap/scalers/name']
         for i in np.arange(len(ic_name)):
-            fit_output[ic_name[i]] = ic_data[:, :, i]
+            fit_output[ic_name[i]] = np.asarray(ic_data[:, :, i])
 
     # position data
     if 'positions' in f['xrfmap']:
         pos_name = f['xrfmap/positions/name']
         for i, n in enumerate(pos_name):
-            fit_output[n] = f['xrfmap/positions/pos'].value[i, :]
+            fit_output[n] = np.asarray(f['xrfmap/positions/pos'].value[i, :])
 
     #save data
     if os.path.exists(output_folder) is False:
         os.mkdir(output_folder)
 
+    if norm_name is not None:
+        ic_v = fit_output[str(norm_name)]
+        norm_sign = '_norm'
+        for k, v in six.iteritems(fit_output):
+            if 'pos' in k:
+                continue
+            v = v/ic_v
+            _fname = k + name_append + norm_sign
+            if file_format == 'tiff':
+                fname = os.path.join(output_folder, _fname + '.tiff')
+                sio.imsave(fname, v.astype(np.float32))
+            elif file_format == 'txt':
+                fname = os.path.join(output_folder, _fname + '.txt')
+                np.savetxt(fname, v.astype(np.float32))
+            else:
+                pass
+
     for k, v in six.iteritems(fit_output):
+        _fname = k + name_append
         if file_format == 'tiff':
-            fname = os.path.join(output_folder, k+'.tiff')
+            fname = os.path.join(output_folder, _fname + '.tiff')
             sio.imsave(fname, v.astype(np.float32))
         elif file_format == 'txt':
-            fname = os.path.join(output_folder, k+'.txt')
+            fname = os.path.join(output_folder, _fname + '.txt')
             np.savetxt(fname, v.astype(np.float32))
         else:
             pass
@@ -974,6 +886,7 @@ def read_MAPS(working_directory,
     bad_point_cut = 0
 
     fit_val = None
+    fit_v_pyxrf = None
 
     file_path = os.path.join(working_directory, file_name)
     print('file path is {}'.format(file_path))
@@ -1000,7 +913,15 @@ def read_MAPS(working_directory,
             # data from fit
             fit_val = data['XRF_fits'][:]
         except KeyError:
-            pass
+            logger.info('No fitting from MAPS can be loaded.')
+
+        try:
+            fit_data = f['xrfmap/detsum']
+            fit_v_pyxrf = fit_data['xrf_fit'][:]
+            fit_n_pyxrf = fit_data['xrf_fit_name'].value
+            print(fit_n_pyxrf)
+        except KeyError:
+            logger.info('No fitting from pyxrf can be loaded.')
 
     exp_shape = exp_data.shape
     exp_data = exp_data.T
@@ -1025,6 +946,12 @@ def read_MAPS(working_directory,
     if fit_val is not None:
         for i, name in enumerate(roi_channel):
             temp_fit[name] = fit_val[i, :, :]
+        img_dict[fname+'_fit_MAPS'] = temp_fit
+
+    cut_bad_col = 1
+    if fit_v_pyxrf is not None:
+        for i, name in enumerate(fit_n_pyxrf):
+            temp_fit[name] = fit_v_pyxrf[i, :, cut_bad_col:]
         img_dict[fname+'_fit'] = temp_fit
 
     for i, name in enumerate(scaler_names):
@@ -1773,7 +1700,16 @@ def _make_hdf(fpath, runid):
         write_db_to_hdf(fpath, data, datashape,
                         pos_list=pos_list,
                         fly_type=fly_type, subscan_dims=subscan_dims)
-        print('Done!')
+
+        # use suitcase to save baseline data, and scaler data from primary
+        tmp = set()
+        for descriptor in hdr.descriptors:
+            # no 3D vector data
+            xs3 = [key for key in descriptor.data_keys.keys() if 'xspress3' in key]
+            tmp.update(xs3)
+            tmp.add('merlin1')
+        fds = sc.filter_fields(hdr, tmp)
+        sc.export(hdr, fpath, db.mds, fields=fds, use_uid=False)
 
     elif hdr.start.beamline_id == 'xf05id':
         start_doc = hdr['start']
@@ -1791,7 +1727,7 @@ def _make_hdf(fpath, runid):
             config_data = json.load(json_data)
 
         try:
-            data = get_table(hdr, fill=True)
+            data = get_table(hdr, fill=True, convert_times=False)
         except IndexError:
             spectrum_len = 4096
             total_len = get_total_scan_point(hdr) - 2
@@ -1821,6 +1757,8 @@ def _make_hdf(fpath, runid):
 
     else:
         print("Databroker is not setup for this beamline")
+
+    free_memory_from_handler()
 
 
 def get_total_scan_point(hdr):
@@ -1872,6 +1810,14 @@ def make_hdf(start, end=None, fname=None, prefix='scan2D_'):
                 print('Can not transfer scan {}. \n'.format(v))
 
 
+def free_memory_from_handler():
+    """Quick way to set 3D dataset at handler to None to release memory.
+    """
+    for h in db.fs._handler_cache.values():
+        setattr(h, '_dataset', None)
+    print('Memory is released.')
+
+
 def export_hdf(runid, fname, xrf=False):
     """Wrapper around suitcase.hdf5.export function.
     Use can choose to select xrf data or not.
@@ -1895,20 +1841,23 @@ def export_hdf(runid, fname, xrf=False):
             tmp.update(xs3)
             tmp.update(roi)
         fds = sc.filter_fields(hdr, tmp)
-        sc.export(hdr, fname, fields=fds, use_uid=False)
+        sc.export(hdr, fname, db.mds, fields=fds, use_uid=False)
     else:
-        sc.export(hdr, fname, use_uid=False)
+        sc.export(hdr, fname, db.mds, use_uid=False)
 
 
-def export1d(runid):
+def export1d(runid, name=None):
     """
     Export all PVs to a file. Do not talk to filestore.
 
     Parameters
     ----------
+    name : str or optional
+        name for the file
     runid : int
         run number
     """
     t = get_table(db[runid], fill=False)
-    name = 'scan_'+str(runid)+'.txt'
+    if name is None:
+        name = 'scan_'+str(runid)+'.txt'
     t.to_csv(name)
