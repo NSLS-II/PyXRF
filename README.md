@@ -80,6 +80,9 @@ This h5 file mainly contains spectrum from 3 detectors, positions of x,y motors 
 
 For test purposes, a parameter file (https://drive.google.com/file/d/0B45Mm22EF9TNYW11OXozRXVic1E/view) is also provided for users to do fitting for this standard h5 file. However, you should never create parameter file manually. Parameter file can be easily created during the step of automatic peak finding.
 
+### spec file for PyXRF
+Users can transfer spec file to hdf file that pyxrf can take. Please see examples at https://github.com/NSLS-II/PyXRF/blob/master/examples/specfile_to_hdf.ipynb
+
 ### youtube tutorial
 The latest youtube tutorial of pyxrf version 0.0.4 is at https://www.youtube.com/watch?v=2nFLccehaHI
 
