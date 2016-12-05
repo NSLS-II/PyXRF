@@ -41,6 +41,10 @@ At the same environment, install pyxrf by simply typing
 ```
 $ conda install pyxrf pyqt=4.11 -c licode
 ```
+Also install ipython-notebook in the same environment (recommended by not required)
+```
+$ conda install ipython-notebook
+```
 
 ### Run
 ```
