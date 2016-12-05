@@ -1861,3 +1861,98 @@ def export1d(runid, name=None):
     if name is None:
         name = 'scan_'+str(runid)+'.txt'
     t.to_csv(name)
+
+
+def get_header(fname):
+    """
+    helper function to extract header in spec file.
+    .. warning :: This function works fine for spec file format
+    from Canadian light source. Others may need to be tested.
+
+    Parameters
+    ----------
+    fname : spec file name
+    """
+    mydata = []
+    with open(fname, 'r') as f:
+        for v in f:   # iterate the file
+            mydata.append(v)
+            _sign = '#'
+            _sign = _sign.encode('utf-8')
+            if _sign not in v:
+                break
+    header_line = mydata[-2]  # last line is space
+    n = [v.strip() for v in header_line[1:].split('\t') if v.strip()!='']
+    return n
+
+
+def spec_to_hdf(wd, spec_file, spectrum_file, output_file, img_shape,
+                ic_name=None, x_name=None, y_name=None):
+    """
+    Transform spec data to hdf file pyxrf can take. Using this function, users need to
+    have two input files ready, sepc_file and spectrum_file, with explanation as below.
+
+    .. warning :: This function should be better defined to take care spec file in general.
+    The work in suitcase should also be considered. This function works fine for spec file format
+    from Canadian light source. Others may need to be tested.
+
+    Parameters
+    ----------
+    wd : str
+        working directory for spec file, and created hdf
+    spec_file : str
+        spec txt data file
+    spectrum_file : str
+        fluorescence spectrum data file
+    output_file : str
+        the output h5 file for pyxrf
+    img_shape : list or array
+        the shape of two D scan
+    ic_name : str
+        the name of ion chamber for normalization, listed in spec file
+    x_name : str
+        x position name, listed in spec file
+    y_name : str
+        y position name, listed in spec file
+    """
+    # read scaler data from spec file
+    spec_path = os.path.join(wd, spec_file)
+    h = get_header(spec_path)
+    print(h)
+    spec_data = pd.read_csv(spec_path, names=h, sep='\t', comment='#', index_col=False)
+
+    if ic_name is not None:
+        scaler_name = [str(ic_name)]
+        scaler_val = spec_data[scaler_name].values
+        scaler_val = scaler_val.reshape(img_shape)
+        scaler_data = np.zeros([img_shape[0], img_shape[1], 1])
+        scaler_data[:,:,0] = scaler_val
+
+    if x_name is not None and y_name is not None:
+        xy_data = np.zeros([2, img_shape[0], img_shape[1]])
+        xy_data[0, :, :] = spec_data[x_name].values.reshape(img_shape)
+        xy_data[1, :, :] = spec_data[y_name].values.reshape(img_shape)
+        xy_name = ['x_pos', 'y_pos']
+
+    spectrum_path = os.path.join(wd, spectrum_file)
+    sum_data0 = np.loadtxt(spectrum_path)
+    sum_data = np.reshape(sum_data0, [sum_data0.shape[0], img_shape[0], img_shape[1]])
+    sum_data = np.transpose(sum_data, axes=(1,2,0))
+
+    interpath = 'xrfmap'
+
+    fpath = os.path.join(wd, output_file)
+    with h5py.File(fpath) as f:
+        dataGrp = f.create_group(interpath+'/detsum')
+        ds_data = dataGrp.create_dataset('counts', data=sum_data, compression='gzip')
+        ds_data.attrs['comments'] = 'Experimental data from channel sum'
+
+        if ic_name is not None:
+            dataGrp = f.create_group(interpath+'/scalers')
+            dataGrp.create_dataset('name', data=helper_encode_list(scaler_name))
+            dataGrp.create_dataset('val', data=scaler_data)
+
+        if x_name is not None and y_name is not None:
+            dataGrp = f.create_group(interpath+'/positions')
+            dataGrp.create_dataset('name', data=helper_encode_list(xy_name))
+            dataGrp.create_dataset('pos', data=xy_data)
