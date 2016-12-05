@@ -1907,7 +1907,7 @@ def spec_to_hdf(wd, spec_file, spectrum_file, output_file, img_shape,
     output_file : str
         the output h5 file for pyxrf
     img_shape : list or array
-        the shape of two D scan
+        the shape of two D scan, [num of row, num of column]
     ic_name : str
         the name of ion chamber for normalization, listed in spec file
     x_name : str
@@ -1918,7 +1918,6 @@ def spec_to_hdf(wd, spec_file, spectrum_file, output_file, img_shape,
     # read scaler data from spec file
     spec_path = os.path.join(wd, spec_file)
     h = get_header(spec_path)
-    print(h)
     spec_data = pd.read_csv(spec_path, names=h, sep='\t', comment='#', index_col=False)
 
     if ic_name is not None:
