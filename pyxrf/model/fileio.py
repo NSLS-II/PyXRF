@@ -1692,13 +1692,23 @@ def _make_hdf(fpath, runid):
         else:
             pos_list = ['zpssx[um]', 'zpssy[um]']
 
-        fields = ['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3',
-                  'sclr1_ch3', 'sclr1_ch4'] + pos_list
+
+        xspress3_det = ['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3']
+        mercury_det = ['mercury1_mca_spectrum']
+        keylist =  hdr.descriptors[0].data_keys.keys()
+        if xspress3_det[0] in keylist and mercury_det[0] in keylist:
+            det_list = xspress3_det + mercury_det
+        elif xspress3_det[0] not in keylist and mercury_det[0] in keylist:
+            det_list = mercury_det
+        else:
+            det_list = xspress3_det
+
+        fields = det_list + ['sclr1_ch3', 'sclr1_ch4'] + pos_list
         data = get_table(hdr, fields=fields, fill=True)
 
         print('Saving data to hdf file.')
         write_db_to_hdf(fpath, data, datashape,
-                        pos_list=pos_list,
+                        det_list=det_list, pos_list=pos_list,
                         fly_type=fly_type, subscan_dims=subscan_dims)
 
         # use suitcase to save baseline data, and scaler data from primary
