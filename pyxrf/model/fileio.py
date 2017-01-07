@@ -1404,6 +1404,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
     sum_data = None
     new_v_shape = datashape[0]  # to be updated if scan is not completed
+    spectrum_len = 4096  # standard
 
     for n in range(len(det_list)):
         c_name = det_list[n]
@@ -1427,6 +1428,12 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
             new_data = new_data.reshape([new_v_shape, datashape[1],
                                          len(channel_data[1])])
+            if new_data.shape[2] != spectrum_len:
+                # merlin detector has spectrum len 2048
+                # make all the spectrum len to 4096, to avoid unpredicted error in fitting part
+                new_tmp = np.zeros([new_data.shape[0], new_data.shape[1], spectrum_len])
+                new_tmp[:,:,:new_data.shape[2]] = new_data
+                new_data = new_tmp
             if fly_type in ('pyramid',):
                 new_data = flip_data(new_data, subscan_dims=subscan_dims)
 
@@ -1434,7 +1441,6 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
                 sum_data = new_data
             else:
                 sum_data += new_data
-
             if 'counts' in dataGrp:
                 del dataGrp['counts']
             ds_data = dataGrp.create_dataset('counts', data=new_data, compression='gzip')
@@ -1448,7 +1454,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
     if sum_data is not None:
         sum_data = sum_data.reshape([new_v_shape, datashape[1],
-                                     len(channel_data[1])])
+                                     spectrum_len])
 
         if 'counts' in dataGrp:
             del dataGrp['counts']
