@@ -1955,3 +1955,54 @@ def spec_to_hdf(wd, spec_file, spectrum_file, output_file, img_shape,
             dataGrp = f.create_group(interpath+'/positions')
             dataGrp.create_dataset('name', data=helper_encode_list(xy_name))
             dataGrp.create_dataset('pos', data=xy_data)
+
+
+def create_movie(data, fname='demo.mp4', dpi=100, cmap='jet',
+                 clim=None, fig_size=(6,8), fps=20):
+    """
+    Transfer 3d array into a movie.
+
+    Parameters
+    ----------
+    data : 3d array
+        data shape is [num_sequences, num_row, num_col]
+    fname : string, optional
+        name to save movie
+    dpi : int, optional
+        resolution of the movie
+    cmap : string, optional
+        color format
+    clim : list, tuple, optional
+        [low, high] value to define plotting range
+    fig_size : list, tuple, optional
+        size (horizontal size, vertical size) of each plot
+    fps : int, optional
+        frame per second
+    """
+    import matplotlib.animation as animation
+
+    fig, ax = plt.subplots()
+    ax.set_aspect('equal')
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+
+    im = ax.imshow(np.zeros([data.shape[1], data.shape[2]]),
+                   cmap=cmap, interpolation='nearest')
+
+    if clim is not None:
+        im.set_clim(clim)
+    else:
+        im.set_clim([0, np.max(data)])
+    fig.set_size_inches(fig_size)
+    fig.tight_layout()
+
+    def update_img(n):
+        tmp = data[n,:,:]
+        im.set_data(tmp)
+        return im
+
+    #legend(loc=0)
+    ani = animation.FuncAnimation(fig,update_img,data.shape[0],interval=30)
+    writer = animation.writers['ffmpeg'](fps=fps)
+
+    ani.save(fname,writer=writer,dpi=dpi)
