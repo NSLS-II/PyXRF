@@ -51,7 +51,8 @@ import skimage.io as sio
 from PIL import Image
 import copy
 import glob
-
+import matplotlib.animation as animation
+import matplotlib.pyplot as plt
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float, Bool
 
 import logging
@@ -1902,6 +1903,39 @@ def get_header(fname):
     return n
 
 
+def combine_data_to_recon(element_name, datalist, working_dir,
+                          folder_prefix='output_txt_scan2D_', ic_name='sclr1_ch4.txt'):
+    """
+    Combine 2D data to 3D array for reconstruction.
+
+    Parameters
+    ----------
+    element_name : str
+    datalist : list
+        list of run number
+    working_dir : str
+    folder_prefix : str
+    ic_name : str
+
+    Returns
+    -------
+    3d array : [num_sequences, num_row, num_col]
+    """
+    data3d = None
+    for i in range(len(datalist)):
+        v = datalist[i]
+        foldern = folder_prefix+str(v)
+        filen = os.path.join(working_dir, foldern, 'detsum_'+str(element_name)+'.txt')
+        fileic = os.path.join(working_dir, foldern, 'sclr1_ch4.txt')
+        data = np.loadtxt(filen)
+        normv = np.loadtxt(fileic)
+        if data3d is None:
+            data3d = np.zeros([len(datalist), data.shape[0], data.shape[1]])
+        newdata = data/normv
+        data3d[i,:,:] = newdata
+    return data3d
+
+
 def spec_to_hdf(wd, spec_file, spectrum_file, output_file, img_shape,
                 ic_name=None, x_name=None, y_name=None):
     """
@@ -1995,8 +2029,6 @@ def create_movie(data, fname='demo.mp4', dpi=100, cmap='jet',
     fps : int, optional
         frame per second
     """
-    import matplotlib.animation as animation
-
     fig, ax = plt.subplots()
     ax.set_aspect('equal')
     ax.get_xaxis().set_visible(False)
