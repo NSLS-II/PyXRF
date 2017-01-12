@@ -1663,7 +1663,7 @@ def get_name_value_from_db(name_list, data, datashape):
     return pos_names, pos_data
 
 
-def _make_hdf(fpath, runid):
+def _make_hdf(fpath, runid, full_data=True):
     """
     Save the data from databroker to hdf file.
 
@@ -1675,6 +1675,8 @@ def _make_hdf(fpath, runid):
         path to save hdf file
     runid : int
         id number for given run
+    full_data : bool, optional
+        save baseline data and all other information if True
     """
     hdr = db[runid]
     print('Loading data from database.')
@@ -1726,7 +1728,8 @@ def _make_hdf(fpath, runid):
             tmp.update(xs3)
             tmp.add('merlin1')
         fds = sc.filter_fields(hdr, tmp)
-        sc.export(hdr, fpath, db.mds, fields=fds, use_uid=False)
+        if full_data == True:
+            sc.export(hdr, fpath, db.mds, fields=fds, use_uid=False)
 
     elif hdr.start.beamline_id == 'xf05id':
         start_doc = hdr['start']
@@ -1793,7 +1796,7 @@ def get_total_scan_point(hdr):
     return n
 
 
-def make_hdf(start, end=None, fname=None, prefix='scan2D_'):
+def make_hdf(start, end=None, fname=None, prefix='scan2D_', full_data=True):
     """
     Transfer multiple h5 files.
 
@@ -1808,6 +1811,8 @@ def make_hdf(start, end=None, fname=None, prefix='scan2D_'):
         one file is transfered.
     prefix : str, optional
         prefix name of the file
+    full_data : bool, optional
+        save baseline data and all other information if True
     """
     if end is None:
         end = start
@@ -1815,13 +1820,13 @@ def make_hdf(start, end=None, fname=None, prefix='scan2D_'):
     if end == start:
         if fname is None:
             fname = prefix+str(start)+'.h5'
-        _make_hdf(fname, start)  # only transfer one file
+        _make_hdf(fname, start, full_data=full_data)  # only transfer one file
     else:
         datalist = range(start, end+1)
         for v in datalist:
             filename = prefix+str(v)+'.h5'
             try:
-                _make_hdf(filename, v)
+                _make_hdf(filename, v, full_data=full_data)
                 print('{} is created. \n'.format(filename))
             except:
                 print('Can not transfer scan {}. \n'.format(v))
