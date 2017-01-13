@@ -1421,11 +1421,9 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
             # new veritcal shape is defined to ignore zeros points caused by stopped/aborted scans
             new_v_shape = len(channel_data) // datashape[1]
-            new_data = np.zeros([1, new_v_shape*datashape[1], len(channel_data[1])])
 
-            for i in range(new_v_shape*datashape[1]):
-                #channel_data[i+1][pd.isnull(channel_data[i+1])] = 0
-                new_data[0, i, :] = channel_data[i+1]
+            new_data = np.vstack(channel_data)
+            new_data = new_data[:new_v_shape*datashape[1], :]
 
             new_data = new_data.reshape([new_v_shape, datashape[1],
                                          len(channel_data[1])])
