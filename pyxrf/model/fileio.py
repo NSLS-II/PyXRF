@@ -1907,7 +1907,7 @@ def get_header(fname):
 
 
 def combine_data_to_recon(element_name, datalist, working_dir,
-                          folder_prefix='output_txt_scan2D_', ic_name='sclr1_ch4.txt'):
+                          folder_prefix='output_txt_scan2D_', ic_name='sclr1_ch4.txt', expand_r=2):
     """
     Combine 2D data to 3D array for reconstruction.
 
@@ -1919,24 +1919,32 @@ def combine_data_to_recon(element_name, datalist, working_dir,
     working_dir : str
     folder_prefix : str
     ic_name : str
+    expand_r: int
+        expand initial array to a larger size to include each 2D image easily,
+        as each 2D image may have different size. Crop the 3D array back to a proper size in the end.
 
     Returns
     -------
     3d array : [num_sequences, num_row, num_col]
     """
     data3d = None
+    max_h = 0
+    max_v = 0
     for i in range(len(datalist)):
         v = datalist[i]
         foldern = folder_prefix+str(v)
-        filen = os.path.join(working_dir, foldern, 'detsum_'+str(element_name)+'.txt')
-        fileic = os.path.join(working_dir, foldern, 'sclr1_ch4.txt')
+        filen = os.path.join(working_dir, foldern, 'detsum_'+str(element_name)+'_'+str(v)+'.txt')
+        fileic = os.path.join(working_dir, foldern, 'sclr1_ch4_'+str(v)+'.txt')
         data = np.loadtxt(filen)
         normv = np.loadtxt(fileic)
         if data3d is None:
-            data3d = np.zeros([len(datalist), data.shape[0], data.shape[1]])
+            data3d = np.zeros([len(datalist), data.shape[0]*expand_r, data.shape[1]*expand_r])
         newdata = data/normv
-        data3d[i,:,:] = newdata
-    return data3d
+        data3d[i, :newdata.shape[0], :newdata.shape[1]] = newdata
+        max_h = max(max_h, data.shape[0])
+        max_v = max(max_v, data.shape[1])
+
+    return data3d[:,:max_h, :max_v]
 
 
 def spec_to_hdf(wd, spec_file, spectrum_file, output_file, img_shape,
