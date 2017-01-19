@@ -1947,6 +1947,88 @@ def combine_data_to_recon(element_name, datalist, working_dir,
     return data3d[:,:max_h, :max_v]
 
 
+def h5file_for_recon(element_dict, angle, runid=None, filename=None):
+    """
+    Save fitted 3d elemental data into h5 file for reconstruction use.
+
+    Parameters
+    ----------
+    element_dict : dict
+        elements 3d data after normalization
+    angle : list
+        angle information
+    runid : list or optional
+        run ID
+    filename : str
+    """
+
+    if filename is None:
+        filename = 'xrf3d.h5'
+    with h5py.File(filename) as f:
+        d_group = f.create_group('element_data')
+        for k, v in element_dict.items():
+            sub_g = d_group.create_group(k)
+            sub_g.create_dataset('data', data=np.asarray(v),
+                                 compression='gzip')
+            sub_g.attrs['comments'] = 'normalized fluorescence data for {}'.format(k)
+        angle_g = f.create_group('angle')
+        angle_g.create_dataset('data', data=np.asarray(angle))
+        angle_g.attrs['comments'] = 'angle information'
+        if runid is not None:
+            runid_g = f.create_group('runid')
+            runid_g.create_dataset('data', data=np.asarray(runid))
+            runid_g.attrs['comments'] = 'run id information'
+
+
+def create_movie(data, fname='demo.mp4', dpi=100, cmap='jet',
+                 clim=None, fig_size=(6,8), fps=20):
+    """
+    Transfer 3d array into a movie.
+
+    Parameters
+    ----------
+    data : 3d array
+        data shape is [num_sequences, num_row, num_col]
+    fname : string, optional
+        name to save movie
+    dpi : int, optional
+        resolution of the movie
+    cmap : string, optional
+        color format
+    clim : list, tuple, optional
+        [low, high] value to define plotting range
+    fig_size : list, tuple, optional
+        size (horizontal size, vertical size) of each plot
+    fps : int, optional
+        frame per second
+    """
+    fig, ax = plt.subplots()
+    ax.set_aspect('equal')
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+
+    im = ax.imshow(np.zeros([data.shape[1], data.shape[2]]),
+                   cmap=cmap, interpolation='nearest')
+
+    if clim is not None:
+        im.set_clim(clim)
+    else:
+        im.set_clim([0, np.max(data)])
+    fig.set_size_inches(fig_size)
+    fig.tight_layout()
+
+    def update_img(n):
+        tmp = data[n,:,:]
+        im.set_data(tmp)
+        return im
+
+    #legend(loc=0)
+    ani = animation.FuncAnimation(fig,update_img,data.shape[0],interval=30)
+    writer = animation.writers['ffmpeg'](fps=fps)
+
+    ani.save(fname,writer=writer,dpi=dpi)
+
+
 def spec_to_hdf(wd, spec_file, spectrum_file, output_file, img_shape,
                 ic_name=None, x_name=None, y_name=None):
     """
@@ -2016,52 +2098,3 @@ def spec_to_hdf(wd, spec_file, spectrum_file, output_file, img_shape,
             dataGrp = f.create_group(interpath+'/positions')
             dataGrp.create_dataset('name', data=helper_encode_list(xy_name))
             dataGrp.create_dataset('pos', data=xy_data)
-
-
-def create_movie(data, fname='demo.mp4', dpi=100, cmap='jet',
-                 clim=None, fig_size=(6,8), fps=20):
-    """
-    Transfer 3d array into a movie.
-
-    Parameters
-    ----------
-    data : 3d array
-        data shape is [num_sequences, num_row, num_col]
-    fname : string, optional
-        name to save movie
-    dpi : int, optional
-        resolution of the movie
-    cmap : string, optional
-        color format
-    clim : list, tuple, optional
-        [low, high] value to define plotting range
-    fig_size : list, tuple, optional
-        size (horizontal size, vertical size) of each plot
-    fps : int, optional
-        frame per second
-    """
-    fig, ax = plt.subplots()
-    ax.set_aspect('equal')
-    ax.get_xaxis().set_visible(False)
-    ax.get_yaxis().set_visible(False)
-
-    im = ax.imshow(np.zeros([data.shape[1], data.shape[2]]),
-                   cmap=cmap, interpolation='nearest')
-
-    if clim is not None:
-        im.set_clim(clim)
-    else:
-        im.set_clim([0, np.max(data)])
-    fig.set_size_inches(fig_size)
-    fig.tight_layout()
-
-    def update_img(n):
-        tmp = data[n,:,:]
-        im.set_data(tmp)
-        return im
-
-    #legend(loc=0)
-    ani = animation.FuncAnimation(fig,update_img,data.shape[0],interval=30)
-    writer = animation.writers['ffmpeg'](fps=fps)
-
-    ani.save(fname,writer=writer,dpi=dpi)
