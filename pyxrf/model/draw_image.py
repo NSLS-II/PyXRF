@@ -134,11 +134,13 @@ class DrawImageAdvanced(Atom):
     limit_dict = Dict()
     range_dict = Dict()
     scatter_show = Bool(False)
+    name_not_scalable = List()
 
     def __init__(self):
         self.fig = plt.figure(figsize=(4,4))
         self.pixel_or_pos_for_plot = None
         matplotlib.rcParams['axes.formatter.useoffset'] = True
+        self.name_not_scalable = ['r2_adjust'] # do not apply scaler norm on those data
 
     def data_dict_update(self, change):
         """
@@ -297,14 +299,14 @@ class DrawImageAdvanced(Atom):
 
         self.set_low_high_value()
 
-    def set_low_high_value(self, name_not_scalable=['r_squared']):
+    def set_low_high_value(self):
         """Set default low and high values based on normalization for each image.
         """
         # do not apply scaler norm on not scalabel data
         self.range_dict.clear()
         for k in self.dict_to_plot.keys():
             if self.scaler_data is not None:
-                if k in name_not_scalable:
+                if k in self.name_not_scalable:
                     data_dict = self.dict_to_plot[k]
                 else:
                     data_dict = self.dict_to_plot[k]/self.scaler_data
@@ -332,7 +334,6 @@ class DrawImageAdvanced(Atom):
 
         low_lim = 1e-4  # define the low limit for log image
         plot_interp = 'Nearest'
-        name_not_scalable = ['r_squared']  # do not apply scaler norm on those data
 
         if self.scaler_data is not None:
             if len(self.scaler_data[self.scaler_data == 0]) > 0:
@@ -364,7 +365,7 @@ class DrawImageAdvanced(Atom):
         if self.scale_opt == 'Linear':
             for i, (k, v) in enumerate(six.iteritems(stat_temp)):
                 if self.scaler_data is not None:
-                    if k in name_not_scalable:
+                    if k in self.name_not_scalable:
                         data_dict = self.dict_to_plot[k]
                     else:
                         data_dict = self.dict_to_plot[k]/self.scaler_data
@@ -413,7 +414,7 @@ class DrawImageAdvanced(Atom):
             for i, (k, v) in enumerate(six.iteritems(stat_temp)):
 
                 if self.scaler_data is not None:
-                    if k in name_not_scalable:
+                    if k in self.name_not_scalable:
                         data_dict = self.dict_to_plot[k]
                     else:
                         data_dict = self.dict_to_plot[k]/self.scaler_data

@@ -1174,7 +1174,7 @@ def calculate_area(e_select, matv, results,
     dict :
         dict of each 2D elemental distribution
     """
-    total_list = e_select + ['snip_bkg'] + ['r_squared']
+    total_list = e_select + ['snip_bkg'] + ['r2_adjust']
     mat_sum = np.sum(matv, axis=0)
 
     result_map = dict()
@@ -1314,7 +1314,7 @@ def save_fitted_as_movie(x_v, matv, results,
 
 
 def fit_per_line_nnls(row_num, data,
-                      matv, param, use_snip):
+                      matv, param, use_snip, num_data, num_feature):
     """
     Fit experiment data for a given row using nnls algorithm.
 
@@ -1330,6 +1330,10 @@ def fit_per_line_nnls(row_num, data,
         fitting parameters
     use_snip : bool
         use snip algorithm to remove background or not
+    num_data : int
+        number of total data points
+    num_feature : int
+        number of data features 
 
     Returns
     -------
@@ -1355,8 +1359,8 @@ def fit_per_line_nnls(row_num, data,
         result, res = nnls_fit(y, matv, weights=None)
 
         sst = np.sum((y-np.mean(y))**2)
-        r2 = 1 - res/sst
-        result = list(result) + [bg_sum, r2]
+        r2_adjusted = 1 - res/(num_data-num_feature-1)/(sst/(num_data-1))
+        result = list(result) + [bg_sum, r2_adjusted]
         out.append(result)
     return np.array(out)
 
@@ -1386,10 +1390,10 @@ def fit_pixel_multiprocess_nnls(exp_data, matv, param,
 
     logger.info('cpu count: {}'.format(num_processors_to_use))
     pool = multiprocessing.Pool(num_processors_to_use)
-
+    n_data, n_feature = matv.shape
     result_pool = [pool.apply_async(fit_per_line_nnls,
                                     (n, exp_data[n, :, :], matv,
-                                     param, use_snip))
+                                     param, use_snip, n_data, n_feature))
                    for n in range(exp_data.shape[0])]
 
     results = []
@@ -1402,10 +1406,6 @@ def fit_pixel_multiprocess_nnls(exp_data, matv, param,
     results = np.array(results)
 
     return results
-
-
-# def simple_spectrum_fun_for_nonlinear(x, **kwargs):
-#     return np.sum(kwargs['a{}'.format(i)] * reg_mat[:, i] for i in range(len(kwargs)))
 
 
 def spectrum_nonlinear_fit(pars, x, reg_mat):
