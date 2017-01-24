@@ -324,18 +324,27 @@ class DrawImageRGB(Atom):
         name_b = self.rgb_name_list[self.index_blue]
         data_b = selected_data[self.index_blue,:,:]
 
+        rgb_dict = {'data0':{'low':self.r_low, 'high':self.r_high},
+                    'data1':{'low':self.g_low, 'high':self.g_high},
+                    'data2':{'low':self.b_low, 'high':self.b_high}}
         # norm data
         data_r = norm_data(data_r)
         data_g = norm_data(data_g)
         data_b = norm_data(data_b)
 
-        # set limit
-        data_r[data_r<self.r_low/100.0] = 0.0
-        data_r[data_r>self.r_high/100.0] = self.r_high/100.0
-        data_g[data_g<self.g_low/100.0] = 0.0
-        data_g[data_g>self.g_high/100.0] = self.g_high/100.0
-        data_b[data_b<self.b_low/100.0] = 0.0
-        data_b[data_b>self.b_high/100.0] = self.g_high/100.0
+        # set limit, there should be a better way to do this
+        rl = rgb_dict['data'+str(self.index_red)]['low']
+        rh = rgb_dict['data'+str(self.index_red)]['high']
+        data_r[data_r<rl/100.0] = 0.0
+        data_r[data_r>rh/100.0] = rh/100.0
+        gl = rgb_dict['data'+str(self.index_green)]['low']
+        gh = rgb_dict['data'+str(self.index_green)]['high']
+        data_g[data_g<gl/100.0] = 0.0
+        data_g[data_g>gh/100.0] = gh/100.0
+        bl = rgb_dict['data'+str(self.index_blue)]['low']
+        bh = rgb_dict['data'+str(self.index_blue)]['high']
+        data_b[data_b<bl/100.0] = 0.0
+        data_b[data_b>bh/100.0] = bh/100.0
 
         # data_r[data_r<self.rgb_limit['R'][0]/100.0] = 0.0
         # data_r[data_r>self.rgb_limit['R'][1]/100.0] = self.rgb_limit['R'][1]/100.0
