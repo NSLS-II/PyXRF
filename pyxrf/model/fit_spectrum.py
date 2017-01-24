@@ -1314,7 +1314,8 @@ def save_fitted_as_movie(x_v, matv, results,
 
 
 def fit_per_line_nnls(row_num, data,
-                      matv, param, use_snip, num_data, num_feature):
+                      matv, param, use_snip,
+                      num_data, num_feature):
     """
     Fit experiment data for a given row using nnls algorithm.
 
@@ -1333,7 +1334,7 @@ def fit_per_line_nnls(row_num, data,
     num_data : int
         number of total data points
     num_feature : int
-        number of data features 
+        number of data features
 
     Returns
     -------
@@ -1356,8 +1357,8 @@ def fit_per_line_nnls(row_num, data,
 
         else:
             y = data[i, :]
-        result, res = nnls_fit(y, matv, weights=None)
 
+        result, res = nnls_fit(y, matv, weights=None)
         sst = np.sum((y-np.mean(y))**2)
         r2_adjusted = 1 - res/(num_data-num_feature-1)/(sst/(num_data-1))
         result = list(result) + [bg_sum, r2_adjusted]
@@ -1366,7 +1367,7 @@ def fit_per_line_nnls(row_num, data,
 
 
 def fit_pixel_multiprocess_nnls(exp_data, matv, param,
-                                use_snip=False):
+                                use_snip=False, lambda_reg=0.0):
     """
     Multiprocess fit of experiment data.
 
@@ -1380,6 +1381,8 @@ def fit_pixel_multiprocess_nnls(exp_data, matv, param,
         fitting parameters
     use_snip : bool, optional
         use snip algorithm to remove background or not
+    lambda_reg : float, optional
+        applied L2 norm regularizaiton if set above zero
 
     Returns
     -------
@@ -1391,6 +1394,14 @@ def fit_pixel_multiprocess_nnls(exp_data, matv, param,
     logger.info('cpu count: {}'.format(num_processors_to_use))
     pool = multiprocessing.Pool(num_processors_to_use)
     n_data, n_feature = matv.shape
+
+    if lambda_reg > 0:
+        logger.info('nnls fit with regularization term, lambda={}'.format(lambda_reg))
+        diag_m = np.diag(np.ones(n_feature))*np.sqrt(lambda_reg)
+        matv = np.concatenate((matv, diag_m), axis=0)
+        exp_tmp = np.zeros([exp_data.shape[0], exp_data.shape[1], n_feature])
+        exp_data = np.concatenate((exp_data, exp_tmp), axis=2)
+
     result_pool = [pool.apply_async(fit_per_line_nnls,
                                     (n, exp_data[n, :, :], matv,
                                      param, use_snip, n_data, n_feature))
@@ -1403,9 +1414,12 @@ def fit_pixel_multiprocess_nnls(exp_data, matv, param,
     pool.terminate()
     pool.join()
 
-    results = np.array(results)
+    # chop data back
+    if lambda_reg > 0:
+        matv = matv[:-n_feature, :]
+        exp_data = exp_data[:,:,:-n_feature]
 
-    return results
+    return np.asarray(results)
 
 
 def spectrum_nonlinear_fit(pars, x, reg_mat):
@@ -1631,8 +1645,9 @@ def single_pixel_fitting_controller(input_data, parameter,
 
     if method == 'nnls':
         logger.info('Fitting method: non-negative least squares')
+        lambda_reg = 0.0
         results = fit_pixel_multiprocess_nnls(exp_data, matv, param,
-                                              use_snip=use_snip)
+                                              use_snip=use_snip, lambda_reg=lambda_reg)
         # output area of dict
         result_map = calculate_area(e_select, matv, results,
                                     param, first_peak_area=False)
