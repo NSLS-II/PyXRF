@@ -201,7 +201,7 @@ class Fit1D(Atom):
         self.fit_strategy1 = 0
         self.fit_strategy2 = 0
         self.fit_strategy1 = 1
-        self.fit_strategy2 = 4
+        self.fit_strategy2 = 0
 
         # perform roi sum in given range
         self.roi_sum_opt['status'] = False
@@ -1640,7 +1640,8 @@ def single_pixel_fitting_controller(input_data, parameter,
 
     # make matrix smaller for single pixel fitting
     matv /= exp_data.shape[0]*exp_data.shape[1]
-
+    # save matrix to analyze collinearity
+    #np.save('mat.npy', matv)
     error_map = None
 
     if method == 'nnls':
