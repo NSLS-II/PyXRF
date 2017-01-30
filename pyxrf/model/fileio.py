@@ -1936,10 +1936,10 @@ def combine_data_to_recon(element_list, datalist, working_dir, norm=True,
         data3d = None
         max_h = 0
         max_v = 0
-        for v in datalist:
+        for i, v in enumerate(datalist):
             foldern = folder_prefix+str(v)
             all_files = glob.glob(os.path.join(working_dir, foldern, '*.txt'))
-            datafile = [myfile for myfile in all_files if element_name in myfile and v in myfile]
+            datafile = [myfile for myfile in all_files if element_name in myfile and str(v) in myfile]
             filen = os.path.join(working_dir, foldern, datafile[0])
             data = np.loadtxt(filen)
             if norm is True:
@@ -1952,7 +1952,7 @@ def combine_data_to_recon(element_list, datalist, working_dir, norm=True,
             data3d[i, :data.shape[0], :data.shape[1]] = data
             max_h = max(max_h, data.shape[0])
             max_v = max(max_v, data.shape[1])
-        element3d[element_name] = data3d
+        element3d[element_name] = data3d[:,:max_h, :max_v]
     return element3d
 
 
