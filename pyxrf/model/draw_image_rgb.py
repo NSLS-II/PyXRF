@@ -48,7 +48,6 @@ from matplotlib.colors import LogNorm
 import matplotlib.patches as mpatches
 from mpl_toolkits.axes_grid1.axes_rgb import make_rgb_axes, RGBAxes
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool, Float
-
 import logging
 logger = logging.getLogger()
 
@@ -143,15 +142,14 @@ class DrawImageRGB(Atom):
     b_high = Int(100)
     #r_bound = List()
     #rgb_limit = plot_limit()
+    name_not_scalable= List()
 
     def __init__(self):
         self.fig = plt.figure(figsize=(4,4))
         self.ax = self.fig.add_subplot(111)
         self.ax_r, self.ax_g, self.ax_b = make_rgb_axes(self.ax, pad=0.02)
-
         self.rgb_name_list = ['R', 'G', 'B']
-        #self.ic_norm = 1e4  # multiply by this value for ic normalization
-        #self.r_bound = [0.0, 100.0]
+        self.name_not_scalable = ['r2_adjust'] # do not apply scaler norm on those data
 
     def data_dict_update(self, change):
         """
@@ -258,7 +256,6 @@ class DrawImageRGB(Atom):
         stat_temp = OrderedDict(sorted(six.iteritems(stat_temp), key=lambda x: x[0]))
 
         plot_interp = 'Nearest'
-        name_not_scalable = ['r_squared']  # do not apply scaler norm on those data
 
         if self.scaler_data is not None:
             if len(self.scaler_data[self.scaler_data == 0]) > 0:
@@ -270,7 +267,7 @@ class DrawImageRGB(Atom):
             for i, (k, v) in enumerate(six.iteritems(stat_temp)):
 
                 if self.scaler_data is not None:
-                    if k in name_not_scalable:
+                    if k in self.name_not_scalable:
                         data_dict = self.dict_to_plot[k]
                     else:
                         data_dict = self.dict_to_plot[k]/self.scaler_data
@@ -285,7 +282,7 @@ class DrawImageRGB(Atom):
             for i, (k, v) in enumerate(six.iteritems(stat_temp)):
 
                 if self.scaler_data is not None:
-                    if k in name_not_scalable:
+                    if k in self.name_not_scalable:
                         data_dict = np.log(self.dict_to_plot[k])
                     else:
                         data_dict = np.log(self.dict_to_plot[k]/self.scaler_data*self.ic_norm)
@@ -327,18 +324,27 @@ class DrawImageRGB(Atom):
         name_b = self.rgb_name_list[self.index_blue]
         data_b = selected_data[self.index_blue,:,:]
 
+        rgb_dict = {'data0':{'low':self.r_low, 'high':self.r_high},
+                    'data1':{'low':self.g_low, 'high':self.g_high},
+                    'data2':{'low':self.b_low, 'high':self.b_high}}
         # norm data
         data_r = norm_data(data_r)
         data_g = norm_data(data_g)
         data_b = norm_data(data_b)
 
-        # set limit
-        data_r[data_r<self.r_low/100.0] = 0.0
-        data_r[data_r>self.r_high/100.0] = self.r_high/100.0
-        data_g[data_g<self.g_low/100.0] = 0.0
-        data_g[data_g>self.g_high/100.0] = self.g_high/100.0
-        data_b[data_b<self.b_low/100.0] = 0.0
-        data_b[data_b>self.b_high/100.0] = self.g_high/100.0
+        # set limit, there should be a better way to do this
+        rl = rgb_dict['data'+str(self.index_red)]['low']
+        rh = rgb_dict['data'+str(self.index_red)]['high']
+        data_r[data_r<rl/100.0] = 0.0
+        data_r[data_r>rh/100.0] = rh/100.0
+        gl = rgb_dict['data'+str(self.index_green)]['low']
+        gh = rgb_dict['data'+str(self.index_green)]['high']
+        data_g[data_g<gl/100.0] = 0.0
+        data_g[data_g>gh/100.0] = gh/100.0
+        bl = rgb_dict['data'+str(self.index_blue)]['low']
+        bh = rgb_dict['data'+str(self.index_blue)]['high']
+        data_b[data_b<bl/100.0] = 0.0
+        data_b[data_b>bh/100.0] = bh/100.0
 
         # data_r[data_r<self.rgb_limit['R'][0]/100.0] = 0.0
         # data_r[data_r>self.rgb_limit['R'][1]/100.0] = self.rgb_limit['R'][1]/100.0

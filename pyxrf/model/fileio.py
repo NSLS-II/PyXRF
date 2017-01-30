@@ -51,7 +51,8 @@ import skimage.io as sio
 from PIL import Image
 import copy
 import glob
-
+import matplotlib.animation as animation
+import matplotlib.pyplot as plt
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float, Bool
 
 import logging
@@ -1404,6 +1405,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
     sum_data = None
     new_v_shape = datashape[0]  # to be updated if scan is not completed
+    spectrum_len = 4096  # standard
 
     for n in range(len(det_list)):
         c_name = det_list[n]
@@ -1419,14 +1421,18 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
             # new veritcal shape is defined to ignore zeros points caused by stopped/aborted scans
             new_v_shape = len(channel_data) // datashape[1]
-            new_data = np.zeros([1, new_v_shape*datashape[1], len(channel_data[1])])
 
-            for i in range(new_v_shape*datashape[1]):
-                #channel_data[i+1][pd.isnull(channel_data[i+1])] = 0
-                new_data[0, i, :] = channel_data[i+1]
+            new_data = np.vstack(channel_data)
+            new_data = new_data[:new_v_shape*datashape[1], :]
 
             new_data = new_data.reshape([new_v_shape, datashape[1],
                                          len(channel_data[1])])
+            if new_data.shape[2] != spectrum_len:
+                # merlin detector has spectrum len 2048
+                # make all the spectrum len to 4096, to avoid unpredicted error in fitting part
+                new_tmp = np.zeros([new_data.shape[0], new_data.shape[1], spectrum_len])
+                new_tmp[:,:,:new_data.shape[2]] = new_data
+                new_data = new_tmp
             if fly_type in ('pyramid',):
                 new_data = flip_data(new_data, subscan_dims=subscan_dims)
 
@@ -1434,7 +1440,6 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
                 sum_data = new_data
             else:
                 sum_data += new_data
-
             if 'counts' in dataGrp:
                 del dataGrp['counts']
             ds_data = dataGrp.create_dataset('counts', data=new_data, compression='gzip')
@@ -1448,7 +1453,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
     if sum_data is not None:
         sum_data = sum_data.reshape([new_v_shape, datashape[1],
-                                     len(channel_data[1])])
+                                     spectrum_len])
 
         if 'counts' in dataGrp:
             del dataGrp['counts']
@@ -1656,7 +1661,7 @@ def get_name_value_from_db(name_list, data, datashape):
     return pos_names, pos_data
 
 
-def _make_hdf(fpath, runid):
+def _make_hdf(fpath, runid, full_data=True):
     """
     Save the data from databroker to hdf file.
 
@@ -1668,6 +1673,8 @@ def _make_hdf(fpath, runid):
         path to save hdf file
     runid : int
         id number for given run
+    full_data : bool, optional
+        save baseline data and all other information if True
     """
     hdr = db[runid]
     print('Loading data from database.')
@@ -1692,13 +1699,23 @@ def _make_hdf(fpath, runid):
         else:
             pos_list = ['zpssx[um]', 'zpssy[um]']
 
-        fields = ['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3',
-                  'sclr1_ch3', 'sclr1_ch4'] + pos_list
+
+        xspress3_det = ['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3']
+        mercury_det = ['mercury1_mca_spectrum']
+        keylist =  hdr.descriptors[0].data_keys.keys()
+        if xspress3_det[0] in keylist and mercury_det[0] in keylist:
+            det_list = xspress3_det + mercury_det
+        elif xspress3_det[0] not in keylist and mercury_det[0] in keylist:
+            det_list = mercury_det
+        else:
+            det_list = xspress3_det
+
+        fields = det_list + ['sclr1_ch3', 'sclr1_ch4'] + pos_list
         data = get_table(hdr, fields=fields, fill=True)
 
         print('Saving data to hdf file.')
         write_db_to_hdf(fpath, data, datashape,
-                        pos_list=pos_list,
+                        det_list=det_list, pos_list=pos_list,
                         fly_type=fly_type, subscan_dims=subscan_dims)
 
         # use suitcase to save baseline data, and scaler data from primary
@@ -1709,7 +1726,8 @@ def _make_hdf(fpath, runid):
             tmp.update(xs3)
             tmp.add('merlin1')
         fds = sc.filter_fields(hdr, tmp)
-        sc.export(hdr, fpath, db.mds, fields=fds, use_uid=False)
+        if full_data == True:
+            sc.export(hdr, fpath, db.mds, fields=fds, use_uid=False)
 
     elif hdr.start.beamline_id == 'xf05id':
         start_doc = hdr['start']
@@ -1776,7 +1794,7 @@ def get_total_scan_point(hdr):
     return n
 
 
-def make_hdf(start, end=None, fname=None, prefix='scan2D_'):
+def make_hdf(start, end=None, fname=None, prefix='scan2D_', full_data=True):
     """
     Transfer multiple h5 files.
 
@@ -1791,6 +1809,8 @@ def make_hdf(start, end=None, fname=None, prefix='scan2D_'):
         one file is transfered.
     prefix : str, optional
         prefix name of the file
+    full_data : bool, optional
+        save baseline data and all other information if True
     """
     if end is None:
         end = start
@@ -1798,13 +1818,13 @@ def make_hdf(start, end=None, fname=None, prefix='scan2D_'):
     if end == start:
         if fname is None:
             fname = prefix+str(start)+'.h5'
-        _make_hdf(fname, start)  # only transfer one file
+        _make_hdf(fname, start, full_data=full_data)  # only transfer one file
     else:
         datalist = range(start, end+1)
         for v in datalist:
             filename = prefix+str(v)+'.h5'
             try:
-                _make_hdf(filename, v)
+                _make_hdf(filename, v, full_data=full_data)
                 print('{} is created. \n'.format(filename))
             except:
                 print('Can not transfer scan {}. \n'.format(v))
@@ -1886,6 +1906,138 @@ def get_header(fname):
     return n
 
 
+def combine_data_to_recon(element_list, datalist, working_dir, norm=True,
+                          folder_prefix='output_txt_scan2D_', ic_name='sclr1_ch4', expand_r=2):
+    """
+    Combine 2D data to 3D array for reconstruction.
+
+    Parameters
+    ----------
+    element_list : list
+        list of elements
+    datalist : list
+        list of run number
+    working_dir : str
+    norm : bool, optional
+        normalization or not
+    folder_prefix : str
+    ic_name : str
+        ion chamber name for normalization
+    expand_r: int
+        expand initial array to a larger size to include each 2D image easily,
+        as each 2D image may have different size. Crop the 3D array back to a proper size in the end.
+
+    Returns
+    -------
+    dict of 3d array with each array's shape like [num_sequences, num_row, num_col]
+    """
+    element3d = {}
+    for element_name in element_list:
+        data3d = None
+        max_h = 0
+        max_v = 0
+        for i, v in enumerate(datalist):
+            foldern = folder_prefix+str(v)
+            all_files = glob.glob(os.path.join(working_dir, foldern, '*.txt'))
+            datafile = [myfile for myfile in all_files if element_name in myfile and str(v) in myfile]
+            filen = os.path.join(working_dir, foldern, datafile[0])
+            data = np.loadtxt(filen)
+            if norm is True:
+                fileic = os.path.join(working_dir, foldern, ic_name+'_'+str(v)+'.txt')
+                normv = np.loadtxt(fileic)
+                data = data/normv
+            if data3d is None:
+                data3d = np.zeros([len(datalist), data.shape[0]*expand_r, data.shape[1]*expand_r])
+
+            data3d[i, :data.shape[0], :data.shape[1]] = data
+            max_h = max(max_h, data.shape[0])
+            max_v = max(max_v, data.shape[1])
+        element3d[element_name] = data3d[:,:max_h, :max_v]
+    return element3d
+
+
+def h5file_for_recon(element_dict, angle, runid=None, filename=None):
+    """
+    Save fitted 3d elemental data into h5 file for reconstruction use.
+
+    Parameters
+    ----------
+    element_dict : dict
+        elements 3d data after normalization
+    angle : list
+        angle information
+    runid : list or optional
+        run ID
+    filename : str
+    """
+
+    if filename is None:
+        filename = 'xrf3d.h5'
+    with h5py.File(filename) as f:
+        d_group = f.create_group('element_data')
+        for k, v in element_dict.items():
+            sub_g = d_group.create_group(k)
+            sub_g.create_dataset('data', data=np.asarray(v),
+                                 compression='gzip')
+            sub_g.attrs['comments'] = 'normalized fluorescence data for {}'.format(k)
+        angle_g = f.create_group('angle')
+        angle_g.create_dataset('data', data=np.asarray(angle))
+        angle_g.attrs['comments'] = 'angle information'
+        if runid is not None:
+            runid_g = f.create_group('runid')
+            runid_g.create_dataset('data', data=np.asarray(runid))
+            runid_g.attrs['comments'] = 'run id information'
+
+
+def create_movie(data, fname='demo.mp4', dpi=100, cmap='jet',
+                 clim=None, fig_size=(6,8), fps=20):
+    """
+    Transfer 3d array into a movie.
+
+    Parameters
+    ----------
+    data : 3d array
+        data shape is [num_sequences, num_row, num_col]
+    fname : string, optional
+        name to save movie
+    dpi : int, optional
+        resolution of the movie
+    cmap : string, optional
+        color format
+    clim : list, tuple, optional
+        [low, high] value to define plotting range
+    fig_size : list, tuple, optional
+        size (horizontal size, vertical size) of each plot
+    fps : int, optional
+        frame per second
+    """
+    fig, ax = plt.subplots()
+    ax.set_aspect('equal')
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+
+    im = ax.imshow(np.zeros([data.shape[1], data.shape[2]]),
+                   cmap=cmap, interpolation='nearest')
+
+    if clim is not None:
+        im.set_clim(clim)
+    else:
+        im.set_clim([0, np.max(data)])
+    fig.set_size_inches(fig_size)
+    fig.tight_layout()
+
+    def update_img(n):
+        tmp = data[n,:,:]
+        im.set_data(tmp)
+        return im
+
+    #legend(loc=0)
+    ani = animation.FuncAnimation(fig,update_img,data.shape[0],interval=30)
+    writer = animation.writers['ffmpeg'](fps=fps)
+
+    ani.save(fname,writer=writer,dpi=dpi)
+
+
 def spec_to_hdf(wd, spec_file, spectrum_file, output_file, img_shape,
                 ic_name=None, x_name=None, y_name=None):
     """
@@ -1955,54 +2107,3 @@ def spec_to_hdf(wd, spec_file, spectrum_file, output_file, img_shape,
             dataGrp = f.create_group(interpath+'/positions')
             dataGrp.create_dataset('name', data=helper_encode_list(xy_name))
             dataGrp.create_dataset('pos', data=xy_data)
-
-
-def create_movie(data, fname='demo.mp4', dpi=100, cmap='jet',
-                 clim=None, fig_size=(6,8), fps=20):
-    """
-    Transfer 3d array into a movie.
-
-    Parameters
-    ----------
-    data : 3d array
-        data shape is [num_sequences, num_row, num_col]
-    fname : string, optional
-        name to save movie
-    dpi : int, optional
-        resolution of the movie
-    cmap : string, optional
-        color format
-    clim : list, tuple, optional
-        [low, high] value to define plotting range
-    fig_size : list, tuple, optional
-        size (horizontal size, vertical size) of each plot
-    fps : int, optional
-        frame per second
-    """
-    import matplotlib.animation as animation
-
-    fig, ax = plt.subplots()
-    ax.set_aspect('equal')
-    ax.get_xaxis().set_visible(False)
-    ax.get_yaxis().set_visible(False)
-
-    im = ax.imshow(np.zeros([data.shape[1], data.shape[2]]),
-                   cmap=cmap, interpolation='nearest')
-
-    if clim is not None:
-        im.set_clim(clim)
-    else:
-        im.set_clim([0, np.max(data)])
-    fig.set_size_inches(fig_size)
-    fig.tight_layout()
-
-    def update_img(n):
-        tmp = data[n,:,:]
-        im.set_data(tmp)
-        return im
-
-    #legend(loc=0)
-    ani = animation.FuncAnimation(fig,update_img,data.shape[0],interval=30)
-    writer = animation.writers['ffmpeg'](fps=fps)
-
-    ani.save(fname,writer=writer,dpi=dpi)
