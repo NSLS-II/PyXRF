@@ -1906,45 +1906,54 @@ def get_header(fname):
     return n
 
 
-def combine_data_to_recon(element_name, datalist, working_dir,
-                          folder_prefix='output_txt_scan2D_', ic_name='sclr1_ch4.txt', expand_r=2):
+def combine_data_to_recon(element_list, datalist, working_dir, norm=True,
+                          folder_prefix='output_txt_scan2D_', ic_name='sclr1_ch4', expand_r=2):
     """
     Combine 2D data to 3D array for reconstruction.
 
     Parameters
     ----------
-    element_name : str
+    element_list : list
+        list of elements
     datalist : list
         list of run number
     working_dir : str
+    norm : bool, optional
+        normalization or not
     folder_prefix : str
     ic_name : str
+        ion chamber name for normalization
     expand_r: int
         expand initial array to a larger size to include each 2D image easily,
         as each 2D image may have different size. Crop the 3D array back to a proper size in the end.
 
     Returns
     -------
-    3d array : [num_sequences, num_row, num_col]
+    dict of 3d array with each array's shape like [num_sequences, num_row, num_col]
     """
-    data3d = None
-    max_h = 0
-    max_v = 0
-    for i in range(len(datalist)):
-        v = datalist[i]
-        foldern = folder_prefix+str(v)
-        filen = os.path.join(working_dir, foldern, 'detsum_'+str(element_name)+'_'+str(v)+'.txt')
-        fileic = os.path.join(working_dir, foldern, 'sclr1_ch4_'+str(v)+'.txt')
-        data = np.loadtxt(filen)
-        normv = np.loadtxt(fileic)
-        if data3d is None:
-            data3d = np.zeros([len(datalist), data.shape[0]*expand_r, data.shape[1]*expand_r])
-        newdata = data/normv
-        data3d[i, :newdata.shape[0], :newdata.shape[1]] = newdata
-        max_h = max(max_h, data.shape[0])
-        max_v = max(max_v, data.shape[1])
+    element3d = {}
+    for element_name in element_list:
+        data3d = None
+        max_h = 0
+        max_v = 0
+        for v in datalist:
+            foldern = folder_prefix+str(v)
+            all_files = glob.glob(os.path.join(working_dir, foldern, '*.txt'))
+            datafile = [myfile for myfile in all_files if element_name in myfile and v in myfile]
+            filen = os.path.join(working_dir, foldern, datafile[0])
+            data = np.loadtxt(filen)
+            if norm is True:
+                fileic = os.path.join(working_dir, foldern, ic_name+'_'+str(v)+'.txt')
+                normv = np.loadtxt(fileic)
+                data = data/normv
+            if data3d is None:
+                data3d = np.zeros([len(datalist), data.shape[0]*expand_r, data.shape[1]*expand_r])
 
-    return data3d[:,:max_h, :max_v]
+            data3d[i, :data.shape[0], :data.shape[1]] = data
+            max_h = max(max_h, data.shape[0])
+            max_v = max(max_v, data.shape[1])
+        element3d[element_name] = data3d
+    return element3d
 
 
 def h5file_for_recon(element_dict, angle, runid=None, filename=None):
