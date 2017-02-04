@@ -1939,9 +1939,12 @@ def combine_data_to_recon(element_list, datalist, working_dir, norm=True,
         for i, v in enumerate(datalist):
             foldern = folder_prefix+str(v)
             all_files = glob.glob(os.path.join(working_dir, foldern, '*.txt'))
-            print(i, len(all_files))
+            print(i, len(all_files), foldern)
             datafile = [myfile for myfile in all_files if element_name in myfile and str(v) in myfile]
-            filen = os.path.join(working_dir, foldern, datafile[0])
+            try:
+                filen = os.path.join(working_dir, foldern, datafile[0])
+            except IndexError:
+                print(foldern + ' is missing!')
             data = np.loadtxt(filen)
             if norm is True:
                 fileic = os.path.join(working_dir, foldern, ic_name+'_'+str(v)+'.txt')
@@ -1991,7 +1994,7 @@ def h5file_for_recon(element_dict, angle, runid=None, filename=None):
 
 
 def create_movie(data, fname='demo.mp4', dpi=100, cmap='jet',
-                 clim=None, fig_size=(6,8), fps=20, data_power=1):
+                 clim=None, fig_size=(6,8), fps=20, data_power=1, angle=None, runid=None):
     """
     Transfer 3d array into a movie.
 
@@ -2030,6 +2033,13 @@ def create_movie(data, fname='demo.mp4', dpi=100, cmap='jet',
             im.set_clim(clim)
         else:
             im.set_clim([0,np.max(data[n,:,:])])
+        figname = ''
+        if runid is not None:
+            figname = 'runid: {} '.format(runid[n])
+        if angle is not None:
+            figname += 'angle: {}'.format(angle[n])
+        if len(figname) != 0:
+            im.ax.set_title(figname)
         return im
 
     #legend(loc=0)
