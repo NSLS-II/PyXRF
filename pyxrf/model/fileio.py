@@ -1939,6 +1939,7 @@ def combine_data_to_recon(element_list, datalist, working_dir, norm=True,
         for i, v in enumerate(datalist):
             foldern = folder_prefix+str(v)
             all_files = glob.glob(os.path.join(working_dir, foldern, '*.txt'))
+            print(i, len(all_files))
             datafile = [myfile for myfile in all_files if element_name in myfile and str(v) in myfile]
             filen = os.path.join(working_dir, foldern, datafile[0])
             data = np.loadtxt(filen)
@@ -1990,7 +1991,7 @@ def h5file_for_recon(element_dict, angle, runid=None, filename=None):
 
 
 def create_movie(data, fname='demo.mp4', dpi=100, cmap='jet',
-                 clim=None, fig_size=(6,8), fps=20):
+                 clim=None, fig_size=(6,8), fps=20, data_power=1):
     """
     Transfer 3d array into a movie.
 
@@ -2019,16 +2020,16 @@ def create_movie(data, fname='demo.mp4', dpi=100, cmap='jet',
     im = ax.imshow(np.zeros([data.shape[1], data.shape[2]]),
                    cmap=cmap, interpolation='nearest')
 
-    if clim is not None:
-        im.set_clim(clim)
-    else:
-        im.set_clim([0, np.max(data)])
     fig.set_size_inches(fig_size)
     fig.tight_layout()
 
     def update_img(n):
         tmp = data[n,:,:]
-        im.set_data(tmp)
+        im.set_data(tmp**data_power)
+        if clim is not None:
+            im.set_clim(clim)
+        else:
+            im.set_clim([0,np.max(data[n,:,:])])
         return im
 
     #legend(loc=0)
