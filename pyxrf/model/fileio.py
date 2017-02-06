@@ -1939,8 +1939,7 @@ def combine_data_to_recon(element_list, datalist, working_dir, norm=True,
         for i, v in enumerate(datalist):
             foldern = folder_prefix+str(v)
             all_files = glob.glob(os.path.join(working_dir, foldern, '*.txt'))
-            print(i, len(all_files), foldern)
-            datafile = [myfile for myfile in all_files if element_name in myfile and str(v) in myfile]
+            datafile = [myfile for myfile in all_files if element_name in myfile and str(v) in myfile and 'norm' not in myfile]
             try:
                 filen = os.path.join(working_dir, foldern, datafile[0])
             except IndexError:
