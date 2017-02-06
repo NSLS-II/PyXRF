@@ -93,7 +93,7 @@ enamldef ImageMain(DockItem):
                 img_model_adv.scale_opt = cb_select.selected_item
 
         ComboBox: color_select:
-            items = ['jet', 'bone', 'gray', 'Oranges', 'hot']  # use viribis later for matpltolib >1.5
+            items = ['viridis', 'jet', 'bone', 'gray', 'Oranges', 'hot']  # use viribis later for matpltolib >1.5
             index = 0
             index ::
                 img_model_adv.color_opt = color_select.selected_item

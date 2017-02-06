@@ -115,7 +115,7 @@ class DrawImageAdvanced(Atom):
     items_previous_selected = List()
 
     scale_opt = Str('Linear')
-    color_opt = Str('jet')
+    color_opt = Str('viridis')
     img_title = Str()
 
     scaler_norm_dict = Dict()
