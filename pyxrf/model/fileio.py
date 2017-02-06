@@ -2038,8 +2038,8 @@ def create_movie(data, fname='demo.mp4', dpi=100, cmap='jet',
             figname = 'runid: {} '.format(runid[n])
         if angle is not None:
             figname += 'angle: {}'.format(angle[n])
-        if len(figname) != 0:
-            im.ax.set_title(figname)
+        #if len(figname) != 0:
+        #    im.ax.set_title(figname)
         return im
 
     #legend(loc=0)
