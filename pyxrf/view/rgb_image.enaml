@@ -48,6 +48,8 @@ import six
 import numpy as np
 from matplotlib.figure import Figure
 
+from pyxrf.model.fileio import print_image
+
 import logging
 logger = logging.getLogger()
 
@@ -64,7 +66,7 @@ enamldef ImageRGB(DockItem):
         constraints = [
         vbox(
             #hbox(pb_all, spacer),
-            hbox(cbox_file, cb_norm, spacer),
+            hbox(cbox_file, cb_norm, spacer, pb_print),
             hbox(plot_btn, spacer, tb_check),
             #hbox(spacer, cb_select, cb_norm, tb_check),
             hbox(vbox(lb_select, sa_elements), vbox(canvas, ct_rgb),),
@@ -92,6 +94,11 @@ enamldef ImageRGB(DockItem):
             text = 'Show Image'
             clicked ::
                 img_model_adv.show_image()
+
+        PushButton: pb_print:
+            text  ='Print'
+            clicked ::
+                print_image()
 
         CheckBox: tb_check:
             text = 'Toolbar Visible'

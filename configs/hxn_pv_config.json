@@ -13,6 +13,7 @@
     "microscope_name_list": ["ssa2_hgap", "ssa2_vgap", "ssa2_hcen", "ssa2_vcen",
                              "s5_hcen", "s5_hgap", "s5_vcen", "s5_vgap",
                              "bsx", "bsy", "bsth",
-                             "hx", "hy", "hz", "hth", "vx", "vy", "vz", "vth", "vchi"]
-                        
+                             "hx", "hy", "hz", "hth", "vx", "vy", "vz", "vth", "vchi"],
+    "print_path": "/home/xf03id/Desktop/temp.png",
+    "print_command": "lp -d HXN-printer-1 /home/xf03id/Desktop/temp.png",
 }

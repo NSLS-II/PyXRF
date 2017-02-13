@@ -48,6 +48,8 @@ import six
 import numpy as np
 from matplotlib.figure import Figure
 
+from pyxrf.model.fileio import print_image
+
 import logging
 logger = logging.getLogger()
 
@@ -63,7 +65,7 @@ enamldef ImageMain(DockItem):
     Container:
         constraints = [
             vbox(
-                hbox(cbox_file, spacer, pb_all, scatter_cb),
+                hbox(cbox_file, spacer, pb_all, scatter_cb, pb_print),
                 hbox(spacer, cb_select, color_select, cb_norm, pixel_select, tb_check),
                 canvas,
             ),
@@ -112,6 +114,10 @@ enamldef ImageMain(DockItem):
         CheckBox: tb_check:
             text = 'Toolbar Visible'
             checked := canvas.toolbar_visible
+        PushButton: pb_print:
+            text  ='Print'
+            clicked ::
+                print_image()
         MPLCanvas: canvas:
             toolbar_visible = True
             figure << choose_element.img_model.fig
