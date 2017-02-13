@@ -4,10 +4,8 @@ PyXRF Release Notes
 v0.0.7 to be
 ------------
 - Image normalization and output normalization are synchronized.
-- More examples are added, such as batch mode fitting, and preparation for
-tomography reconstruction.
+- More examples are added, such as batch mode fitting, and preparation for tomography reconstruction (creating movie).
 - Only one strategy is selected for summed spectrum fitting.
-- Create movie function is added.
 
 
 v0.0.4
