@@ -108,7 +108,7 @@ enamldef PlotMain(DockItem):
         PushButton: pb_print:
             text  ='Print'
             clicked ::
-                print_image()
+                print_image(plot_model._fig)
 
         PushButton: plot_exp_btn:
             text = 'Plot Selected Exp. Data'

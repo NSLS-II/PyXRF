@@ -2059,7 +2059,7 @@ def create_movie(data, fname='demo.mp4', dpi=100, cmap='jet',
     ani.save(fname,writer=writer,dpi=dpi)
 
 
-def print_image():
+def print_image(fig):
     """
     Print function used at beamline only.
     """
@@ -2074,7 +2074,7 @@ def print_image():
             fpath = config_data.get('print_path', None)
             if fpath is None:
                 fpath = '/home/xf03id/Desktop/temp.png'
-            plt.savefig(fpath,  bbox_inches='tight', pad_inches=4)
+            fig.savefig(fpath,  bbox_inches='tight', pad_inches=4)
             os.system(config_data['print_command'])
         else:
             print('Printer is not set up yet.')

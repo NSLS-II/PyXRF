@@ -117,7 +117,7 @@ enamldef ImageMain(DockItem):
         PushButton: pb_print:
             text  ='Print'
             clicked ::
-                print_image()
+                print_image(img_model_adv.fig)
         MPLCanvas: canvas:
             toolbar_visible = True
             figure << choose_element.img_model.fig

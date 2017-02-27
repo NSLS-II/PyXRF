@@ -98,7 +98,7 @@ enamldef ImageRGB(DockItem):
         PushButton: pb_print:
             text  ='Print'
             clicked ::
-                print_image()
+                print_image(img_model_adv.fig)
 
         CheckBox: tb_check:
             text = 'Toolbar Visible'
