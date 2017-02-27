@@ -1699,8 +1699,13 @@ def _make_hdf(fpath, runid, full_data=True):
         else:
             pos_list = ['zpssx[um]', 'zpssy[um]']
 
+        current_dir = os.path.dirname(os.path.realpath(__file__))
+        config_file = 'hxn_pv_config.json'
+        config_path = '/'.join(current_dir.split('/')[:-2]+['configs', config_file])
+        with open(config_path, 'r') as json_data:
+            config_data = json.load(json_data)
 
-        xspress3_det = ['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3']
+        xspress3_det = config_data['xrf_detector']
         mercury_det = ['mercury1_mca_spectrum']
         keylist =  hdr.descriptors[0].data_keys.keys()
         if xspress3_det[0] in keylist and mercury_det[0] in keylist:
@@ -1710,12 +1715,18 @@ def _make_hdf(fpath, runid, full_data=True):
         else:
             det_list = xspress3_det
 
-        fields = det_list + ['sclr1_ch3', 'sclr1_ch4'] + pos_list
+        scaler_list_all = config_data['scaler_list']
+
+        all_keys = hdr.descriptors[0].data_keys.keys()
+        scaler_list = [v for v in scaler_list_all if v in all_keys]
+
+        fields = det_list + scaler_list + pos_list
         data = get_table(hdr, fields=fields, fill=True)
 
         print('Saving data to hdf file.')
         write_db_to_hdf(fpath, data, datashape,
                         det_list=det_list, pos_list=pos_list,
+                        scaler_list=scaler_list,
                         fly_type=fly_type, subscan_dims=subscan_dims)
 
         # use suitcase to save baseline data, and scaler data from primary
