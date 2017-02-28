@@ -729,7 +729,7 @@ class Fit1D(Atom):
         scaler_v = None
         if self.scaler_index > 0:
             scaler_v = self.scaler_keys[self.scaler_index-1]
-            print(scaler_v)
+            logger.info('*** Data will be saved with NORMALIZATION from {} ***'.format(scaler_v))
         if to_tiff:
             output_n = 'output_tiff_' + self.hdf_name.split('.')[0]
             output_data(self.hdf_path, os.path.join(self.result_folder, output_n),

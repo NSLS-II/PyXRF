@@ -166,6 +166,7 @@ class DrawImageAdvanced(Atom):
             # for GUI purpose only
             self.scaler_items = []
             self.scaler_items = list(self.scaler_norm_dict.keys())
+	    self.scaler_items.sort()
             self.scaler_data = None
 
         # init of pos values
@@ -243,11 +244,12 @@ class DrawImageAdvanced(Atom):
             self.scaler_data = None
         else:
             scaler_name = self.scaler_items[self.scaler_name_index-1]
-            #self.scaler_data = self.data_dict[self.scaler_group_name][scaler_name]
             self.scaler_data = self.scaler_norm_dict[scaler_name]
             logger.info('Use scaler data to normalize, '
-                        'and the shape of scaler data is {}'.format(self.scaler_data.shape))
-
+                        'and the shape of scaler data is {}, '
+			'with (low, high) as ({}, {})'.format(self.scaler_data.shape, 
+							      np.min(self.scaler_data), 
+							      np.max(self.scaler_data)))
         self.set_low_high_value() # reset low high values based on normalization
         self.show_image()
         self.update_img_wizard_items()
