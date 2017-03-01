@@ -554,96 +554,6 @@ def flip_data(input_data, subscan_dims=None):
     return new_data
 
 
-# def write_xspress3_data_to_hdf(fpath, data_dict):
-#     """
-#     Assume data is obained from databroker, and save the data to hdf file.
-#
-#     Parameters
-#     ----------
-#     fpath: str
-#         path to save hdf file
-#     data : dict
-#         data_dict with data from each channel
-#     """
-#
-#     interpath = 'xrfmap'
-#     sum_data = None
-#     channel_list = [k for k in six.iterkeys(data_dict) if 'channel' in k]
-#     pos_names = [k for k in six.iterkeys(data_dict) if 'pos' in k]
-#     scaler_names = [k for k in six.iterkeys(data_dict) if 'scaler' in k]
-#
-#     with h5py.File(fpath, 'a') as f:
-#
-#         for n in range(len(channel_list)):
-#             detname = 'det'+str(n+1)
-#             try:
-#                 dataGrp = f.create_group(interpath+'/'+detname)
-#             except ValueError:
-#                 dataGrp = f[interpath+'/'+detname]
-#
-#             if sum_data is None:
-#                 sum_data = data_dict[channel_list[n]]
-#             else:
-#                 sum_data += data_dict[channel_list[n]]
-#
-#             if 'counts' in dataGrp:
-#                 del dataGrp['counts']
-#             ds_data = dataGrp.create_dataset('counts', data=data_dict[channel_list[n]])
-#             ds_data.attrs['comments'] = 'Experimental data from channel ' + str(n)
-#
-#         # summed data
-#         try:
-#             dataGrp = f.create_group(interpath+'/detsum')
-#         except ValueError:
-#             dataGrp = f[interpath+'/detsum']
-#
-#         if 'counts' in dataGrp:
-#             del dataGrp['counts']
-#         ds_data = dataGrp.create_dataset('counts', data=sum_data)
-#         ds_data.attrs['comments'] = 'Experimental data from channel sum'
-#
-#         data_shape = sum_data.shape
-#
-#         # position data
-#         try:
-#             dataGrp = f.create_group(interpath+'/positions')
-#         except ValueError:
-#             dataGrp = f[interpath+'/positions']
-#
-#         pos_data = []
-#         for k in pos_names:
-#             pos_data.append(data_dict[k])
-#         pos_data = np.array(pos_data)
-#
-#         if 'pos' in dataGrp:
-#             del dataGrp['pos']
-#
-#         if 'name' in dataGrp:
-#             del dataGrp['name']
-#         dataGrp.create_dataset('name', data=pos_names)
-#         dataGrp.create_dataset('pos', data=pos_data)
-#
-#         # scaler data
-#         scaler_data = np.ones([data_shape[0], data_shape[1], len(scaler_names)])
-#         for i in np.arange(len(scaler_names)):
-#             scaler_data[:, :, i] = data_dict[scaler_names[i]]
-#         scaler_data = np.array(scaler_data)
-#         print('shape for scaler: {}'.format(scaler_data.shape))
-#
-#         try:
-#             dataGrp = f.create_group(interpath+'/scalers')
-#         except ValueError:
-#             dataGrp = f[interpath+'/scalers']
-#
-#         if 'val' in dataGrp:
-#             del dataGrp['val']
-#
-#         if 'name' in dataGrp:
-#             del dataGrp['name']
-#         dataGrp.create_dataset('name', data=scaler_names)
-#         dataGrp.create_dataset('val', data=scaler_data)
-
-
 def output_data(fpath, output_folder,
                 file_format='tiff', norm_name=None):
     """
@@ -737,7 +647,8 @@ def output_data(fpath, output_folder,
 def read_hdf_APS(working_directory,
                  file_name, spectrum_cut=3000,
                  load_summed_data=True,
-                 load_each_channel=True):
+                 load_each_channel=True,
+                 other_list=['alive', 'deal', 'elasped_time', 'scaler_alive']):
     """
     Data IO for files similar to APS Beamline 13 data format.
     This might be changed later.
@@ -754,6 +665,8 @@ def read_hdf_APS(working_directory,
         load summed spectrum or not
     load_each_channel : bool, optional
         load data from each channel or not
+    other_list : list, optional
+        data dumped from suitcase
 
     Returns
     -------
@@ -794,6 +707,15 @@ def read_hdf_APS(working_directory,
                     n = n.decode()
                 temp[n] = data['scalers/val'].value[:, :, i]
             img_dict[fname+'_scaler'] = temp
+
+        if 'positions' in data:
+            pos_name = data['positions/name']
+            temp = {}
+            for i, n in enumerate(pos_name):
+                if not isinstance(n, six.string_types):
+                    n = n.decode()
+                temp[n] = data['positions/pos'].value[i, :]
+            img_dict['positions'] = temp
 
         # find total channel:
         channel_num = 0
@@ -865,14 +787,36 @@ def read_hdf_APS(working_directory,
             except (IndexError, KeyError):
                 logger.info('No fitting data is loaded for channel summed data.')
 
-        if 'positions' in data:
-            pos_name = data['positions/name']
-            temp = {}
-            for i, n in enumerate(pos_name):
-                if not isinstance(n, six.string_types):
-                    n = n.decode()
-                temp[n] = data['positions/pos'].value[i, :]
-            img_dict['positions'] = temp
+        # also dump other data from databroker
+        other_data_list = [v for v in f.keys() if v!='xrfmap']
+        if len(other_data_list) > 0 and db != None:
+            other_data = f[other_data_list[0]]
+            extra_list = list(other_list)
+
+            runid = int(other_data_list[0].split('_')[0])
+            hdr = db[runid]
+            start_doc = hdr.start
+            snake_scan = start_doc.get('snaking')
+            if snake_scan[1] == True:
+                fly_type = 'pyramid'
+            subscan_dims = start_doc.get('subscan_dims', None)
+
+            if 'dimensions' in start_doc:
+                datashape = start_doc.dimensions
+            elif 'shape' in start_doc:
+                datashape = start_doc.shape
+            else:
+                logger.error('No dimension/shape is defined in hdr.start.')
+
+            datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
+
+            for k in extra_list:
+                _v = other_data[k]
+                v = _v.reshape(datashape)
+                if fly_type in ('pyramid',):
+                    # flip position the same as data flip on det counts
+                    v = flip_data(v, subscan_dims=subscan_dims)
+                img_dict[fname+'_scaler'][k] = v
 
     return img_dict, data_sets
 
