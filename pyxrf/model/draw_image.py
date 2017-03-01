@@ -139,7 +139,7 @@ class DrawImageAdvanced(Atom):
         self.fig = plt.figure(figsize=(4,4))
         self.pixel_or_pos_for_plot = None
         matplotlib.rcParams['axes.formatter.useoffset'] = True
-        self.name_not_scalable = ['r2_adjust'] # do not apply scaler norm on those data
+        self.name_not_scalable = ['r2_adjust','alive', 'dead', 'elapsed_time', 'scaler_alive'] # do not apply scaler norm on those data
 
     def data_dict_update(self, change):
         """

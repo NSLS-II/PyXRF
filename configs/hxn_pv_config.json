@@ -2,7 +2,7 @@
     "beamline": "HXN",
     "xrf_detector": ["xspress3_ch1", "xspress3_ch2", "xspress3_ch3"],
     "pos_list": ["ssx[um]", "ssy[um]"],
-    "scaler_list": ["sclr1_ch1", "sclr1_ch2", "sclr1_ch3", "sclr1_ch4", "sclr1_ch5", "sclr1_ch6", "sclr1_ch7", "sclr1_ch8"],
+    "scaler_list": ["sclr1_ch1", "sclr1_ch2", "sclr1_ch3", "sclr1_ch4", "sclr1_ch5", "sclr1_ch6", "sclr1_ch7", "sclr1_ch8", "alive", "dead", "elapsed_time", "scaler_alive"], 
     "print_path": "/home/xf03id/Desktop/temp.png",
     "print_command": "lp -d HXN-printer-1 /home/xf03id/Desktop/temp.png"
 }

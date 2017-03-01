@@ -648,7 +648,7 @@ def read_hdf_APS(working_directory,
                  file_name, spectrum_cut=3000,
                  load_summed_data=True,
                  load_each_channel=True,
-                 other_list=['alive', 'deal', 'elasped_time', 'scaler_alive']):
+		 other_list=['alive', 'dead', 'elapsed_time', 'scaler_alive']):
     """
     Data IO for files similar to APS Beamline 13 data format.
     This might be changed later.
@@ -716,6 +716,38 @@ def read_hdf_APS(working_directory,
                     n = n.decode()
                 temp[n] = data['positions/pos'].value[i, :]
             img_dict['positions'] = temp
+	
+        # also dump other data from suitcase, turn this off currently
+        other_data_list = [v for v in f.keys() if v!='xrfmap']
+        if len(other_data_list) < 0 and db != None:
+            other_data = f[other_data_list[0]+'/primary/data']
+	    print(other_data.keys())
+            extra_list = list(other_list)
+
+            runid = int(other_data_list[0].split('_')[-1])
+            hdr = db[runid]
+            start_doc = hdr.start
+	    if start_doc.beamline_id == 'HXN':
+	    	fly_type = start_doc.get('fly_type', None)
+	    	subscan_dims = start_doc.get('subscan_dims', None)
+
+	    	if 'dimensions' in start_doc:
+			datashape = start_doc.dimensions
+	    	elif 'shape' in start_doc:
+			datashape = start_doc.shape
+	    	else:
+			logger.error('No dimension/shape is defined in hdr.start.')
+
+	    	datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
+	    	for k in extra_list:
+		    #k = k.encode('utf-8')              
+		    _v = np.array(other_data[k])
+		    v = _v.reshape(datashape)
+
+		    if fly_type in ('pyramid',):
+		        # flip position the same as data flip on det counts
+		        v = flip_data(v, subscan_dims=subscan_dims)
+		    img_dict[fname+'_scaler'][k] = v
 
         # find total channel:
         channel_num = 0
@@ -787,36 +819,6 @@ def read_hdf_APS(working_directory,
             except (IndexError, KeyError):
                 logger.info('No fitting data is loaded for channel summed data.')
 
-        # also dump other data from databroker
-        other_data_list = [v for v in f.keys() if v!='xrfmap']
-        if len(other_data_list) > 0 and db != None:
-            other_data = f[other_data_list[0]]
-            extra_list = list(other_list)
-
-            runid = int(other_data_list[0].split('_')[0])
-            hdr = db[runid]
-            start_doc = hdr.start
-            snake_scan = start_doc.get('snaking')
-            if snake_scan[1] == True:
-                fly_type = 'pyramid'
-            subscan_dims = start_doc.get('subscan_dims', None)
-
-            if 'dimensions' in start_doc:
-                datashape = start_doc.dimensions
-            elif 'shape' in start_doc:
-                datashape = start_doc.shape
-            else:
-                logger.error('No dimension/shape is defined in hdr.start.')
-
-            datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
-
-            for k in extra_list:
-                _v = other_data[k]
-                v = _v.reshape(datashape)
-                if fly_type in ('pyramid',):
-                    # flip position the same as data flip on det counts
-                    v = flip_data(v, subscan_dims=subscan_dims)
-                img_dict[fname+'_scaler'][k] = v
 
     return img_dict, data_sets
 
