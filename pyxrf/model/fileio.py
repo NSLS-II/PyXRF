@@ -572,45 +572,49 @@ def output_data(fpath, output_folder,
         if given, normalization will be performed.
     """
 
-    f = h5py.File(fpath, 'r')
+    with h5py.File(fpath, 'r') as f:
+        tmp = output_folder.split('/')[-1]
+        name_append = tmp.split('_')[-1]
+        if name_append.isdigit():
+            name_append = '_'+name_append
+        else:
+            name_append = ''
+        detlist = list(f['xrfmap'].keys())
+        fit_output = {}
 
-    tmp = output_folder.split('/')[-1]
-    name_append = tmp.split('_')[-1]
-    if name_append.isdigit():
-        name_append = '_'+name_append
-    else:
-        name_append = ''
-    detlist = list(f['xrfmap'].keys())
-    fit_output = {}
+        for detname in detlist:
+            # fitted data
+            if 'xrf_fit' in f['xrfmap/'+detname]:
+                fit_data = f['xrfmap/'+detname+'/xrf_fit']
+                fit_name = f['xrfmap/'+detname+'/xrf_fit_name']
 
-    for detname in detlist:
-        # fitted data
-        if 'xrf_fit' in f['xrfmap/'+detname]:
-            fit_data = f['xrfmap/'+detname+'/xrf_fit']
-            fit_name = f['xrfmap/'+detname+'/xrf_fit_name']
+                for i in np.arange(len(fit_name)):
+                    fit_output[detname+'_'+fit_name[i]] = np.asarray(fit_data[i, :, :])
+            # fitted error
+            if 'xrf_fit_error' in f['xrfmap/'+detname]:
+                error_data = f['xrfmap/'+detname+'/xrf_fit_error']
+                error_name = f['xrfmap/'+detname+'/xrf_fit_error_name']
 
-            for i in np.arange(len(fit_name)):
-                fit_output[detname+'_'+fit_name[i]] = np.asarray(fit_data[i, :, :])
-        # fitted error
-        if 'xrf_fit_error' in f['xrfmap/'+detname]:
-            error_data = f['xrfmap/'+detname+'/xrf_fit_error']
-            error_name = f['xrfmap/'+detname+'/xrf_fit_error_name']
+                for i in np.arange(len(error_name)):
+                    fit_output[detname+'_'+error_name[i]+'_error'] = np.asarray(error_data[i, :, :])
 
-            for i in np.arange(len(error_name)):
-                fit_output[detname+'_'+error_name[i]+'_error'] = np.asarray(error_data[i, :, :])
+        # ic data
+        if 'scalers' in f['xrfmap']:
+            ic_data = f['xrfmap/scalers/val']
+            ic_name = f['xrfmap/scalers/name']
+            for i in np.arange(len(ic_name)):
+                fit_output[ic_name[i]] = np.asarray(ic_data[:, :, i])
 
-    # ic data
-    if 'scalers' in f['xrfmap']:
-        ic_data = f['xrfmap/scalers/val']
-        ic_name = f['xrfmap/scalers/name']
-        for i in np.arange(len(ic_name)):
-            fit_output[ic_name[i]] = np.asarray(ic_data[:, :, i])
+        # position data
+        if 'positions' in f['xrfmap']:
+            pos_name = f['xrfmap/positions/name']
+            for i, n in enumerate(pos_name):
+                fit_output[n] = np.asarray(f['xrfmap/positions/pos'].value[i, :])
 
-    # position data
-    if 'positions' in f['xrfmap']:
-        pos_name = f['xrfmap/positions/name']
-        for i, n in enumerate(pos_name):
-            fit_output[n] = np.asarray(f['xrfmap/positions/pos'].value[i, :])
+    # more data from suitcase part
+    data_sc = retrieve_data_from_hdf_suitcase(fpath)
+    if len(data_sc) != 0:
+        fit_output.update(data_sc)
 
     #save data
     if os.path.exists(output_folder) is False:
@@ -620,7 +624,7 @@ def output_data(fpath, output_folder,
         ic_v = fit_output[str(norm_name)]
         norm_sign = '_norm'
         for k, v in six.iteritems(fit_output):
-            if 'pos' in k:
+            if 'pos' in k or 'r2' in k:
                 continue
             v = v/ic_v
             _fname = k + name_append + norm_sign
@@ -648,8 +652,7 @@ def output_data(fpath, output_folder,
 def read_hdf_APS(working_directory,
                  file_name, spectrum_cut=3000,
                  load_summed_data=True,
-                 load_each_channel=True,
-		 other_list=['alive', 'dead', 'elapsed_time', 'scaler_alive']):
+                 load_each_channel=True):
     """
     Data IO for files similar to APS Beamline 13 data format.
     This might be changed later.
@@ -680,6 +683,10 @@ def read_hdf_APS(working_directory,
     img_dict = OrderedDict()
 
     file_path = os.path.join(working_directory, file_name)
+
+    # defined in other_list in config file
+    dict_sc = retrieve_data_from_hdf_suitcase(file_path)
+
     with h5py.File(file_path, 'r+') as f:
         data = f['xrfmap']
         fname = file_name.split('.')[0]
@@ -707,6 +714,9 @@ def read_hdf_APS(working_directory,
                     n = n.decode()
                 temp[n] = data['scalers/val'].value[:, :, i]
             img_dict[fname+'_scaler'] = temp
+            # also dump other data from suitcase if required
+            if len(dict_sc) != 0:
+                img_dict[fname+'_scaler'].update(dict_sc)
 
         if 'positions' in data:
             pos_name = data['positions/name']
@@ -716,39 +726,6 @@ def read_hdf_APS(working_directory,
                     n = n.decode()
                 temp[n] = data['positions/pos'].value[i, :]
             img_dict['positions'] = temp
-	
-        # also dump other data from suitcase, turn this off currently
-        other_data_list = [v for v in f.keys() if v!='xrfmap']
-        if len(other_data_list) > 0:
-	    f_hdr = f[other_data_list[0]].attrs['start']
-	    start_doc = ast.literal_eval(f_hdr)
-            other_data = f[other_data_list[0]+'/primary/data']
-	    print(other_data.keys())
-            extra_list = list(other_list)
-            
-	    if start_doc['beamline_id'] == 'HXN':
-	    	fly_type = start_doc.get('fly_type', None)
-	    	subscan_dims = start_doc.get('subscan_dims', None)
-
-	    	if 'dimensions' in start_doc:
-		    datashape = start_doc['dimensions']
-	    	elif 'shape' in start_doc:
-		    datashape = start_doc['shape']
-	    	else:
-		    logger.error('No dimension/shape is defined in hdr.start.')
-
-	    	datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
-		tmp_dict = {} 	    	
-		for k in extra_list:
-		    #k = k.encode('utf-8')              
-		    _v = np.array(other_data[k])
-		    v = _v.reshape(datashape)
-
-		    if fly_type in ('pyramid',):
-		        # flip position the same as data flip on det counts
-		        v = flip_data(v, subscan_dims=subscan_dims)
-		    tmp_dict[k] = v
-	        img_dict[fname+'_scaler'].update(tmp_dict)
 
         # find total channel:
         channel_num = 0
@@ -822,6 +799,50 @@ def read_hdf_APS(working_directory,
 
 
     return img_dict, data_sets
+
+
+def retrieve_data_from_hdf_suitcase(fpath):
+    """
+    Retrieve data from suitcase part in hdf file.
+    Data name is defined in config file.
+    """
+    data_dict = {}
+    with h5py.File(fpath, 'r+') as f:
+        other_data_list = [v for v in f.keys() if v!='xrfmap']
+        if len(other_data_list) > 0:
+            f_hdr = f[other_data_list[0]].attrs['start']
+            start_doc = ast.literal_eval(f_hdr)
+            other_data = f[other_data_list[0]+'/primary/data']
+
+        if start_doc['beamline_id'] == 'HXN':
+            current_dir = os.path.dirname(os.path.realpath(__file__))
+            config_file = 'hxn_pv_config.json'
+            config_path = '/'.join(current_dir.split('/')[:-2]+['configs', config_file])
+            with open(config_path, 'r') as json_data:
+                config_data = json.load(json_data)
+            extra_list = config_data['other_list']
+            fly_type = start_doc.get('fly_type', None)
+            subscan_dims = start_doc.get('subscan_dims', None)
+
+            if 'dimensions' in start_doc:
+                datashape = start_doc['dimensions']
+            elif 'shape' in start_doc:
+                datashape = start_doc['shape']
+            else:
+                logger.error('No dimension/shape is defined in hdr.start.')
+
+            datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
+        for k in extra_list:
+            #k = k.encode('utf-8')
+            if k not in other_data.keys():
+                continue
+            _v = np.array(other_data[k])
+            v = _v.reshape(datashape)
+            if fly_type in ('pyramid',):
+                # flip position the same as data flip on det counts
+                v = flip_data(v, subscan_dims=subscan_dims)
+            data_dict[k] = v
+    return data_dict
 
 
 def read_MAPS(working_directory,
