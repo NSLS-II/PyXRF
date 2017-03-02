@@ -814,34 +814,34 @@ def retrieve_data_from_hdf_suitcase(fpath):
             start_doc = ast.literal_eval(f_hdr)
             other_data = f[other_data_list[0]+'/primary/data']
 
-        if start_doc['beamline_id'] == 'HXN':
-            current_dir = os.path.dirname(os.path.realpath(__file__))
-            config_file = 'hxn_pv_config.json'
-            config_path = '/'.join(current_dir.split('/')[:-2]+['configs', config_file])
-            with open(config_path, 'r') as json_data:
-                config_data = json.load(json_data)
-            extra_list = config_data['other_list']
-            fly_type = start_doc.get('fly_type', None)
-            subscan_dims = start_doc.get('subscan_dims', None)
+            if start_doc['beamline_id'] == 'HXN':
+                current_dir = os.path.dirname(os.path.realpath(__file__))
+                config_file = 'hxn_pv_config.json'
+                config_path = '/'.join(current_dir.split('/')[:-2]+['configs', config_file])
+                with open(config_path, 'r') as json_data:
+                    config_data = json.load(json_data)
+                extra_list = config_data['other_list']
+                fly_type = start_doc.get('fly_type', None)
+                subscan_dims = start_doc.get('subscan_dims', None)
 
-            if 'dimensions' in start_doc:
-                datashape = start_doc['dimensions']
-            elif 'shape' in start_doc:
-                datashape = start_doc['shape']
-            else:
-                logger.error('No dimension/shape is defined in hdr.start.')
+                if 'dimensions' in start_doc:
+                    datashape = start_doc['dimensions']
+                elif 'shape' in start_doc:
+                    datashape = start_doc['shape']
+                else:
+                    logger.error('No dimension/shape is defined in hdr.start.')
 
-            datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
-        for k in extra_list:
-            #k = k.encode('utf-8')
-            if k not in other_data.keys():
-                continue
-            _v = np.array(other_data[k])
-            v = _v.reshape(datashape)
-            if fly_type in ('pyramid',):
-                # flip position the same as data flip on det counts
-                v = flip_data(v, subscan_dims=subscan_dims)
-            data_dict[k] = v
+                datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
+                for k in extra_list:
+                    #k = k.encode('utf-8')
+                    if k not in other_data.keys():
+                        continue
+                    _v = np.array(other_data[k])
+                    v = _v.reshape(datashape)
+                    if fly_type in ('pyramid',):
+                        # flip position the same as data flip on det counts
+                        v = flip_data(v, subscan_dims=subscan_dims)
+                    data_dict[k] = v
     return data_dict
 
 
