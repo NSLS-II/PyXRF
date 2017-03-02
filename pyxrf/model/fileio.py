@@ -51,6 +51,7 @@ import skimage.io as sio
 from PIL import Image
 import copy
 import glob
+import ast
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float, Bool
@@ -681,7 +682,6 @@ def read_hdf_APS(working_directory,
     file_path = os.path.join(working_directory, file_name)
     with h5py.File(file_path, 'r+') as f:
         data = f['xrfmap']
-
         fname = file_name.split('.')[0]
         if load_summed_data is True:
             try:
@@ -719,27 +719,27 @@ def read_hdf_APS(working_directory,
 	
         # also dump other data from suitcase, turn this off currently
         other_data_list = [v for v in f.keys() if v!='xrfmap']
-        if len(other_data_list) < 0 and db != None:
+        if len(other_data_list) > 0:
+	    f_hdr = f[other_data_list[0]].attrs['start']
+	    start_doc = ast.literal_eval(f_hdr)
             other_data = f[other_data_list[0]+'/primary/data']
 	    print(other_data.keys())
             extra_list = list(other_list)
-
-            runid = int(other_data_list[0].split('_')[-1])
-            hdr = db[runid]
-            start_doc = hdr.start
-	    if start_doc.beamline_id == 'HXN':
+            
+	    if start_doc['beamline_id'] == 'HXN':
 	    	fly_type = start_doc.get('fly_type', None)
 	    	subscan_dims = start_doc.get('subscan_dims', None)
 
 	    	if 'dimensions' in start_doc:
-			datashape = start_doc.dimensions
+		    datashape = start_doc['dimensions']
 	    	elif 'shape' in start_doc:
-			datashape = start_doc.shape
+		    datashape = start_doc['shape']
 	    	else:
-			logger.error('No dimension/shape is defined in hdr.start.')
+		    logger.error('No dimension/shape is defined in hdr.start.')
 
 	    	datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
-	    	for k in extra_list:
+		tmp_dict = {} 	    	
+		for k in extra_list:
 		    #k = k.encode('utf-8')              
 		    _v = np.array(other_data[k])
 		    v = _v.reshape(datashape)
@@ -747,7 +747,8 @@ def read_hdf_APS(working_directory,
 		    if fly_type in ('pyramid',):
 		        # flip position the same as data flip on det counts
 		        v = flip_data(v, subscan_dims=subscan_dims)
-		    img_dict[fname+'_scaler'][k] = v
+		    tmp_dict[k] = v
+	        img_dict[fname+'_scaler'].update(tmp_dict)
 
         # find total channel:
         channel_num = 0
