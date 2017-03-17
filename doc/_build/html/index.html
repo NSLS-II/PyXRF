@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Welcome to pyxrf’s documentation! &#8212; pyxrf v0.0.1 documentation</title>
+    <title>About PyXRF &#8212; pyxrf v0.0.1 documentation</title>
     
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -26,6 +26,7 @@
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Load data into pyxrf" href="data_input.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
@@ -41,9 +42,31 @@
         <div class="bodywrapper">
           <div class="body" role="main">
             
-  <div class="section" id="welcome-to-pyxrf-s-documentation">
-<h1>Welcome to pyxrf&#8217;s documentation!<a class="headerlink" href="#welcome-to-pyxrf-s-documentation" title="Permalink to this headline">¶</a></h1>
+  <div class="section" id="about-pyxrf">
+<h1>About PyXRF<a class="headerlink" href="#about-pyxrf" title="Permalink to this headline">¶</a></h1>
+<p>PyXRF is a python-based sophisticated fluorescence analysis package for fitting and
+visualizing X-ray fluorescence data. This package contains a high-level fitting engine,
+comprehensive command-line/GUI design, rigorous physics calculation and a powerful visualization interface. The theoretical part of PyXRF is based on MAPS, developed by Stefan Vogt at APS. PyXRF offers some of the unique features as follows.</p>
+<ul class="simple">
+<li>Automatic elements finding: Users do not need to spend extra time selecting elements manually.</li>
+<li>Forward calculation: Users can observe the spectrum from forward calculation at real time while adjusting input parameters. This will help users perform sensitivity analysis, and find an appropriate initial guess for fitting.</li>
+<li>Construct your own fitting algorithm: An advanced mode was created for advanced users to construct their own fitting strategies with a full control of each fitting parameter.</li>
+<li>Batch mode: Users can easily perform quick fitting of multiple fluorescence datasets or XANES datasets.</li>
+<li>Interface with NSLS-II database: A specific I/O interface was designed to obtain data directly from BNL/NSLS-II experimental database.</li>
+</ul>
+</div>
+<div class="section" id="table-of-contents">
+<h1>Table of Contents<a class="headerlink" href="#table-of-contents" title="Permalink to this headline">¶</a></h1>
 <div class="toctree-wrapper compound">
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="data_input.html">Load data into pyxrf</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="data_input.html#define-working-directory">Define working directory</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="summed_spectrum_fit.html">Summed spectrum fitting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="data_output.html">Output data from pyxrf</a></li>
+</ul>
 </div>
 </div>
 <div class="section" id="indices-and-tables">
@@ -63,13 +86,15 @@
         <div class="sphinxsidebarwrapper">
   <h3><a href="#">Table Of Contents</a></h3>
   <ul>
-<li><a class="reference internal" href="#">Welcome to pyxrf&#8217;s documentation!</a></li>
+<li><a class="reference internal" href="#">About PyXRF</a></li>
+<li><a class="reference internal" href="#table-of-contents">Table of Contents</a></li>
 <li><a class="reference internal" href="#indices-and-tables">Indices and tables</a></li>
 </ul>
 <div class="relations">
 <h3>Related Topics</h3>
 <ul>
   <li><a href="#">Documentation overview</a><ul>
+      <li>Next: <a href="data_input.html" title="next chapter">Load data into pyxrf</a></li>
   </ul></li>
 </ul>
 </div>
