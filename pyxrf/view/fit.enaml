@@ -54,6 +54,7 @@ from enaml.stdlib.fields import IntField as DefaultIntField
 
 from ..model.guessparam import fit_strategy_list, save_as, bound_options, autofit_param
 from ..model.fit_spectrum import get_cs
+from pyxrf.model.fileio import print_image
 from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 from skbeam.fluorescence import XrfElement as Element
 
@@ -757,16 +758,16 @@ enamldef OutputSetup(Window): output_win:
     attr fit_model
 
     Container:
-        constraints = [vbox(gb_norm, gb_range, save_btn),]
+        constraints = [vbox(gb_range, save_btn),]
 
-        GroupBox: gb_norm:
-            constraints = [vbox(lbl_norm, cmb_scaler),]
-            Label: lbl_norm:
-                text = 'Output data with normalization'
-            ComboBox: cmb_scaler:
-                items << ['Normalized by'] + fit_model.scaler_keys
-                index >> fit_model.scaler_index
-                index = 0
+        #GroupBox: gb_norm:
+        #    constraints = [vbox(lbl_norm, cmb_scaler),]
+        #    Label: lbl_norm:
+        #        text = 'Output data with normalization'
+        #    ComboBox: cmb_scaler:
+        #        items << ['Normalized by'] + fit_model.scaler_keys
+        #        index >> fit_model.scaler_index
+        #        index = 0
 
         GroupBox: gb_range:
             constraints = [vbox(cb1, hbox(lbl_low, ff_low),

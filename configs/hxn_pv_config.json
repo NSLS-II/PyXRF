@@ -1,18 +1,9 @@
 {
     "beamline": "HXN",
     "xrf_detector": ["xspress3_ch1", "xspress3_ch2", "xspress3_ch3"],
-    "xrf_roi_pv": {
-        "Pt_9300_9600": ["Ch1 [9300:9600]", "Ch2 [9300:9600]", "Ch3 [9300:9600]"]
-    },
     "pos_list": ["ssx[um]", "ssy[um]"],
-    "scaler_list": ["sclr1_ch2", "sclr1_ch3", "sclr1_ch8"],
-    "upstream_name_list": ["bpm1_x", "bpm1_y", "bpm2_x", "bpm2_y",
-                           "m1_x", "m1_y", "m1_p", "m1_b", "hcm-pf","bpm3_x",
-                           "fs1_y", "s1_bot", "s1_top", "s1_inb", "s1_outb",
-                           "Bragg", "Lateral", "2nd_Crystal Pitch", "2nd_Crystal_Roll", "dcm_pf", "dcm_rf"],
-    "microscope_name_list": ["ssa2_hgap", "ssa2_vgap", "ssa2_hcen", "ssa2_vcen",
-                             "s5_hcen", "s5_hgap", "s5_vcen", "s5_vgap",
-                             "bsx", "bsy", "bsth",
-                             "hx", "hy", "hz", "hth", "vx", "vy", "vz", "vth", "vchi"]
-                        
+    "scaler_list": ["sclr1_ch1", "sclr1_ch2", "sclr1_ch3", "sclr1_ch4", "sclr1_ch5", "sclr1_ch6", "sclr1_ch7", "sclr1_ch8"],
+    "other_list": ["alive", "dead", "elapsed_time", "scaler_alive"],
+    "print_path": "/home/xf03id/Desktop/temp.png",
+    "print_command": "lp -d HXN-printer-1 /home/xf03id/Desktop/temp.png"
 }

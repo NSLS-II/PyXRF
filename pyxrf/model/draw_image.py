@@ -46,7 +46,6 @@ from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import matplotlib.cm as cm
-
 from mpl_toolkits.axes_grid1 import ImageGrid
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool, Float
 
@@ -115,7 +114,7 @@ class DrawImageAdvanced(Atom):
     items_previous_selected = List()
 
     scale_opt = Str('Linear')
-    color_opt = Str('jet')
+    color_opt = Str('viridis')
     img_title = Str()
 
     scaler_norm_dict = Dict()
@@ -140,7 +139,7 @@ class DrawImageAdvanced(Atom):
         self.fig = plt.figure(figsize=(4,4))
         self.pixel_or_pos_for_plot = None
         matplotlib.rcParams['axes.formatter.useoffset'] = True
-        self.name_not_scalable = ['r2_adjust'] # do not apply scaler norm on those data
+        self.name_not_scalable = ['r2_adjust','alive', 'dead', 'elapsed_time', 'scaler_alive'] # do not apply scaler norm on those data
 
     def data_dict_update(self, change):
         """
@@ -167,6 +166,7 @@ class DrawImageAdvanced(Atom):
             # for GUI purpose only
             self.scaler_items = []
             self.scaler_items = list(self.scaler_norm_dict.keys())
+	    self.scaler_items.sort()
             self.scaler_data = None
 
         # init of pos values
@@ -244,11 +244,12 @@ class DrawImageAdvanced(Atom):
             self.scaler_data = None
         else:
             scaler_name = self.scaler_items[self.scaler_name_index-1]
-            #self.scaler_data = self.data_dict[self.scaler_group_name][scaler_name]
             self.scaler_data = self.scaler_norm_dict[scaler_name]
             logger.info('Use scaler data to normalize, '
-                        'and the shape of scaler data is {}'.format(self.scaler_data.shape))
-
+                        'and the shape of scaler data is {}, '
+			'with (low, high) as ({}, {})'.format(self.scaler_data.shape, 
+							      np.min(self.scaler_data), 
+							      np.max(self.scaler_data)))
         self.set_low_high_value() # reset low high values based on normalization
         self.show_image()
         self.update_img_wizard_items()

@@ -51,6 +51,7 @@ import skimage.io as sio
 from PIL import Image
 import copy
 import glob
+import ast
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float, Bool
@@ -554,96 +555,6 @@ def flip_data(input_data, subscan_dims=None):
     return new_data
 
 
-# def write_xspress3_data_to_hdf(fpath, data_dict):
-#     """
-#     Assume data is obained from databroker, and save the data to hdf file.
-#
-#     Parameters
-#     ----------
-#     fpath: str
-#         path to save hdf file
-#     data : dict
-#         data_dict with data from each channel
-#     """
-#
-#     interpath = 'xrfmap'
-#     sum_data = None
-#     channel_list = [k for k in six.iterkeys(data_dict) if 'channel' in k]
-#     pos_names = [k for k in six.iterkeys(data_dict) if 'pos' in k]
-#     scaler_names = [k for k in six.iterkeys(data_dict) if 'scaler' in k]
-#
-#     with h5py.File(fpath, 'a') as f:
-#
-#         for n in range(len(channel_list)):
-#             detname = 'det'+str(n+1)
-#             try:
-#                 dataGrp = f.create_group(interpath+'/'+detname)
-#             except ValueError:
-#                 dataGrp = f[interpath+'/'+detname]
-#
-#             if sum_data is None:
-#                 sum_data = data_dict[channel_list[n]]
-#             else:
-#                 sum_data += data_dict[channel_list[n]]
-#
-#             if 'counts' in dataGrp:
-#                 del dataGrp['counts']
-#             ds_data = dataGrp.create_dataset('counts', data=data_dict[channel_list[n]])
-#             ds_data.attrs['comments'] = 'Experimental data from channel ' + str(n)
-#
-#         # summed data
-#         try:
-#             dataGrp = f.create_group(interpath+'/detsum')
-#         except ValueError:
-#             dataGrp = f[interpath+'/detsum']
-#
-#         if 'counts' in dataGrp:
-#             del dataGrp['counts']
-#         ds_data = dataGrp.create_dataset('counts', data=sum_data)
-#         ds_data.attrs['comments'] = 'Experimental data from channel sum'
-#
-#         data_shape = sum_data.shape
-#
-#         # position data
-#         try:
-#             dataGrp = f.create_group(interpath+'/positions')
-#         except ValueError:
-#             dataGrp = f[interpath+'/positions']
-#
-#         pos_data = []
-#         for k in pos_names:
-#             pos_data.append(data_dict[k])
-#         pos_data = np.array(pos_data)
-#
-#         if 'pos' in dataGrp:
-#             del dataGrp['pos']
-#
-#         if 'name' in dataGrp:
-#             del dataGrp['name']
-#         dataGrp.create_dataset('name', data=pos_names)
-#         dataGrp.create_dataset('pos', data=pos_data)
-#
-#         # scaler data
-#         scaler_data = np.ones([data_shape[0], data_shape[1], len(scaler_names)])
-#         for i in np.arange(len(scaler_names)):
-#             scaler_data[:, :, i] = data_dict[scaler_names[i]]
-#         scaler_data = np.array(scaler_data)
-#         print('shape for scaler: {}'.format(scaler_data.shape))
-#
-#         try:
-#             dataGrp = f.create_group(interpath+'/scalers')
-#         except ValueError:
-#             dataGrp = f[interpath+'/scalers']
-#
-#         if 'val' in dataGrp:
-#             del dataGrp['val']
-#
-#         if 'name' in dataGrp:
-#             del dataGrp['name']
-#         dataGrp.create_dataset('name', data=scaler_names)
-#         dataGrp.create_dataset('val', data=scaler_data)
-
-
 def output_data(fpath, output_folder,
                 file_format='tiff', norm_name=None):
     """
@@ -661,45 +572,49 @@ def output_data(fpath, output_folder,
         if given, normalization will be performed.
     """
 
-    f = h5py.File(fpath, 'r')
+    with h5py.File(fpath, 'r') as f:
+        tmp = output_folder.split('/')[-1]
+        name_append = tmp.split('_')[-1]
+        if name_append.isdigit():
+            name_append = '_'+name_append
+        else:
+            name_append = ''
+        detlist = list(f['xrfmap'].keys())
+        fit_output = {}
 
-    tmp = output_folder.split('/')[-1]
-    name_append = tmp.split('_')[-1]
-    if name_append.isdigit():
-        name_append = '_'+name_append
-    else:
-        name_append = ''
-    detlist = list(f['xrfmap'].keys())
-    fit_output = {}
+        for detname in detlist:
+            # fitted data
+            if 'xrf_fit' in f['xrfmap/'+detname]:
+                fit_data = f['xrfmap/'+detname+'/xrf_fit']
+                fit_name = f['xrfmap/'+detname+'/xrf_fit_name']
 
-    for detname in detlist:
-        # fitted data
-        if 'xrf_fit' in f['xrfmap/'+detname]:
-            fit_data = f['xrfmap/'+detname+'/xrf_fit']
-            fit_name = f['xrfmap/'+detname+'/xrf_fit_name']
+                for i in np.arange(len(fit_name)):
+                    fit_output[detname+'_'+fit_name[i]] = np.asarray(fit_data[i, :, :])
+            # fitted error
+            if 'xrf_fit_error' in f['xrfmap/'+detname]:
+                error_data = f['xrfmap/'+detname+'/xrf_fit_error']
+                error_name = f['xrfmap/'+detname+'/xrf_fit_error_name']
 
-            for i in np.arange(len(fit_name)):
-                fit_output[detname+'_'+fit_name[i]] = np.asarray(fit_data[i, :, :])
-        # fitted error
-        if 'xrf_fit_error' in f['xrfmap/'+detname]:
-            error_data = f['xrfmap/'+detname+'/xrf_fit_error']
-            error_name = f['xrfmap/'+detname+'/xrf_fit_error_name']
+                for i in np.arange(len(error_name)):
+                    fit_output[detname+'_'+error_name[i]+'_error'] = np.asarray(error_data[i, :, :])
 
-            for i in np.arange(len(error_name)):
-                fit_output[detname+'_'+error_name[i]+'_error'] = np.asarray(error_data[i, :, :])
+        # ic data
+        if 'scalers' in f['xrfmap']:
+            ic_data = f['xrfmap/scalers/val']
+            ic_name = f['xrfmap/scalers/name']
+            for i in np.arange(len(ic_name)):
+                fit_output[ic_name[i]] = np.asarray(ic_data[:, :, i])
 
-    # ic data
-    if 'scalers' in f['xrfmap']:
-        ic_data = f['xrfmap/scalers/val']
-        ic_name = f['xrfmap/scalers/name']
-        for i in np.arange(len(ic_name)):
-            fit_output[ic_name[i]] = np.asarray(ic_data[:, :, i])
+        # position data
+        if 'positions' in f['xrfmap']:
+            pos_name = f['xrfmap/positions/name']
+            for i, n in enumerate(pos_name):
+                fit_output[n] = np.asarray(f['xrfmap/positions/pos'].value[i, :])
 
-    # position data
-    if 'positions' in f['xrfmap']:
-        pos_name = f['xrfmap/positions/name']
-        for i, n in enumerate(pos_name):
-            fit_output[n] = np.asarray(f['xrfmap/positions/pos'].value[i, :])
+    # more data from suitcase part
+    data_sc = retrieve_data_from_hdf_suitcase(fpath)
+    if len(data_sc) != 0:
+        fit_output.update(data_sc)
 
     #save data
     if os.path.exists(output_folder) is False:
@@ -709,7 +624,7 @@ def output_data(fpath, output_folder,
         ic_v = fit_output[str(norm_name)]
         norm_sign = '_norm'
         for k, v in six.iteritems(fit_output):
-            if 'pos' in k:
+            if 'pos' in k or 'r2' in k:
                 continue
             v = v/ic_v
             _fname = k + name_append + norm_sign
@@ -754,6 +669,8 @@ def read_hdf_APS(working_directory,
         load summed spectrum or not
     load_each_channel : bool, optional
         load data from each channel or not
+    other_list : list, optional
+        data dumped from suitcase
 
     Returns
     -------
@@ -766,9 +683,12 @@ def read_hdf_APS(working_directory,
     img_dict = OrderedDict()
 
     file_path = os.path.join(working_directory, file_name)
+
+    # defined in other_list in config file
+    dict_sc = retrieve_data_from_hdf_suitcase(file_path)
+
     with h5py.File(file_path, 'r+') as f:
         data = f['xrfmap']
-
         fname = file_name.split('.')[0]
         if load_summed_data is True:
             try:
@@ -794,6 +714,18 @@ def read_hdf_APS(working_directory,
                     n = n.decode()
                 temp[n] = data['scalers/val'].value[:, :, i]
             img_dict[fname+'_scaler'] = temp
+            # also dump other data from suitcase if required
+            if len(dict_sc) != 0:
+                img_dict[fname+'_scaler'].update(dict_sc)
+
+        if 'positions' in data:
+            pos_name = data['positions/name']
+            temp = {}
+            for i, n in enumerate(pos_name):
+                if not isinstance(n, six.string_types):
+                    n = n.decode()
+                temp[n] = data['positions/pos'].value[i, :]
+            img_dict['positions'] = temp
 
         # find total channel:
         channel_num = 0
@@ -865,16 +797,52 @@ def read_hdf_APS(working_directory,
             except (IndexError, KeyError):
                 logger.info('No fitting data is loaded for channel summed data.')
 
-        if 'positions' in data:
-            pos_name = data['positions/name']
-            temp = {}
-            for i, n in enumerate(pos_name):
-                if not isinstance(n, six.string_types):
-                    n = n.decode()
-                temp[n] = data['positions/pos'].value[i, :]
-            img_dict['positions'] = temp
 
     return img_dict, data_sets
+
+
+def retrieve_data_from_hdf_suitcase(fpath):
+    """
+    Retrieve data from suitcase part in hdf file.
+    Data name is defined in config file.
+    """
+    data_dict = {}
+    with h5py.File(fpath, 'r+') as f:
+        other_data_list = [v for v in f.keys() if v!='xrfmap']
+        if len(other_data_list) > 0:
+            f_hdr = f[other_data_list[0]].attrs['start']
+            start_doc = ast.literal_eval(f_hdr)
+            other_data = f[other_data_list[0]+'/primary/data']
+
+            if start_doc['beamline_id'] == 'HXN':
+                current_dir = os.path.dirname(os.path.realpath(__file__))
+                config_file = 'hxn_pv_config.json'
+                config_path = '/'.join(current_dir.split('/')[:-2]+['configs', config_file])
+                with open(config_path, 'r') as json_data:
+                    config_data = json.load(json_data)
+                extra_list = config_data['other_list']
+                fly_type = start_doc.get('fly_type', None)
+                subscan_dims = start_doc.get('subscan_dims', None)
+
+                if 'dimensions' in start_doc:
+                    datashape = start_doc['dimensions']
+                elif 'shape' in start_doc:
+                    datashape = start_doc['shape']
+                else:
+                    logger.error('No dimension/shape is defined in hdr.start.')
+
+                datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
+                for k in extra_list:
+                    #k = k.encode('utf-8')
+                    if k not in other_data.keys():
+                        continue
+                    _v = np.array(other_data[k])
+                    v = _v.reshape(datashape)
+                    if fly_type in ('pyramid',):
+                        # flip position the same as data flip on det counts
+                        v = flip_data(v, subscan_dims=subscan_dims)
+                    data_dict[k] = v
+    return data_dict
 
 
 def read_MAPS(working_directory,
@@ -1699,8 +1667,13 @@ def _make_hdf(fpath, runid, full_data=True):
         else:
             pos_list = ['zpssx[um]', 'zpssy[um]']
 
+        current_dir = os.path.dirname(os.path.realpath(__file__))
+        config_file = 'hxn_pv_config.json'
+        config_path = '/'.join(current_dir.split('/')[:-2]+['configs', config_file])
+        with open(config_path, 'r') as json_data:
+            config_data = json.load(json_data)
 
-        xspress3_det = ['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3']
+        xspress3_det = config_data['xrf_detector']
         mercury_det = ['mercury1_mca_spectrum']
         keylist =  hdr.descriptors[0].data_keys.keys()
         if xspress3_det[0] in keylist and mercury_det[0] in keylist:
@@ -1710,12 +1683,18 @@ def _make_hdf(fpath, runid, full_data=True):
         else:
             det_list = xspress3_det
 
-        fields = det_list + ['sclr1_ch3', 'sclr1_ch4'] + pos_list
+        scaler_list_all = config_data['scaler_list']
+
+        all_keys = hdr.descriptors[0].data_keys.keys()
+        scaler_list = [v for v in scaler_list_all if v in all_keys]
+
+        fields = det_list + scaler_list + pos_list
         data = get_table(hdr, fields=fields, fill=True)
 
         print('Saving data to hdf file.')
         write_db_to_hdf(fpath, data, datashape,
                         det_list=det_list, pos_list=pos_list,
+                        scaler_list=scaler_list,
                         fly_type=fly_type, subscan_dims=subscan_dims)
 
         # use suitcase to save baseline data, and scaler data from primary
@@ -1939,8 +1918,11 @@ def combine_data_to_recon(element_list, datalist, working_dir, norm=True,
         for i, v in enumerate(datalist):
             foldern = folder_prefix+str(v)
             all_files = glob.glob(os.path.join(working_dir, foldern, '*.txt'))
-            datafile = [myfile for myfile in all_files if element_name in myfile and str(v) in myfile]
-            filen = os.path.join(working_dir, foldern, datafile[0])
+            datafile = [myfile for myfile in all_files if element_name in myfile and str(v) in myfile and 'norm' not in myfile]
+            try:
+                filen = os.path.join(working_dir, foldern, datafile[0])
+            except IndexError:
+                print(foldern + ' is missing!')
             data = np.loadtxt(filen)
             if norm is True:
                 fileic = os.path.join(working_dir, foldern, ic_name+'_'+str(v)+'.txt')
@@ -1990,7 +1972,7 @@ def h5file_for_recon(element_dict, angle, runid=None, filename=None):
 
 
 def create_movie(data, fname='demo.mp4', dpi=100, cmap='jet',
-                 clim=None, fig_size=(6,8), fps=20):
+                 clim=None, fig_size=(6,8), fps=20, data_power=1, angle=None, runid=None):
     """
     Transfer 3d array into a movie.
 
@@ -2019,16 +2001,23 @@ def create_movie(data, fname='demo.mp4', dpi=100, cmap='jet',
     im = ax.imshow(np.zeros([data.shape[1], data.shape[2]]),
                    cmap=cmap, interpolation='nearest')
 
-    if clim is not None:
-        im.set_clim(clim)
-    else:
-        im.set_clim([0, np.max(data)])
     fig.set_size_inches(fig_size)
     fig.tight_layout()
 
     def update_img(n):
         tmp = data[n,:,:]
-        im.set_data(tmp)
+        im.set_data(tmp**data_power)
+        if clim is not None:
+            im.set_clim(clim)
+        else:
+            im.set_clim([0,np.max(data[n,:,:])])
+        figname = ''
+        if runid is not None:
+            figname = 'runid: {} '.format(runid[n])
+        if angle is not None:
+            figname += 'angle: {}'.format(angle[n])
+        #if len(figname) != 0:
+        #    im.ax.set_title(figname)
         return im
 
     #legend(loc=0)
@@ -2036,6 +2025,27 @@ def create_movie(data, fname='demo.mp4', dpi=100, cmap='jet',
     writer = animation.writers['ffmpeg'](fps=fps)
 
     ani.save(fname,writer=writer,dpi=dpi)
+
+
+def print_image(fig):
+    """
+    Print function used at beamline only.
+    """
+    if db is not None:
+        hdr = db[-1]
+        if hdr.start.beamline_id == 'HXN':
+            current_dir = os.path.dirname(os.path.realpath(__file__))
+            config_file = 'hxn_pv_config.json'
+            config_path = '/'.join(current_dir.split('/')[:-2]+['configs', config_file])
+            with open(config_path, 'r') as json_data:
+                config_data = json.load(json_data)
+            fpath = config_data.get('print_path', None)
+            if fpath is None:
+                fpath = '/home/xf03id/Desktop/temp.png'
+            fig.savefig(fpath,  bbox_inches='tight', pad_inches=4)
+            os.system(config_data['print_command'])
+        else:
+            print('Printer is not set up yet.')
 
 
 def spec_to_hdf(wd, spec_file, spectrum_file, output_file, img_shape,

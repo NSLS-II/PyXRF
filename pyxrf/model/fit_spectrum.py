@@ -249,6 +249,19 @@ class Fit1D(Atom):
         _key = [k for k in img_dict.keys() if 'scaler' in k]
         self.scaler_keys = sorted(img_dict[_key[0]].keys())
 
+    def scaler_index_update(self, change):
+        """
+        Observer function to be connected to the fit_model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        self.scaler_index = change['value']
+
     @observe('selected_index')
     def _selected_element_changed(self, change):
         if change['value'] > 0:
@@ -716,7 +729,7 @@ class Fit1D(Atom):
         scaler_v = None
         if self.scaler_index > 0:
             scaler_v = self.scaler_keys[self.scaler_index-1]
-            print(scaler_v)
+            logger.info('*** Data will be saved with NORMALIZATION from {} ***'.format(scaler_v))
         if to_tiff:
             output_n = 'output_tiff_' + self.hdf_name.split('.')[0]
             output_data(self.hdf_path, os.path.join(self.result_folder, output_n),
