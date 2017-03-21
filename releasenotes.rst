@@ -7,6 +7,7 @@ v0.0.7 to be
 - More examples are added, such as batch mode fitting, and preparation for tomography reconstruction (creating movie).
 - Only one strategy is selected for summed spectrum fitting.
 - More controls to output data to 2D image, and to visualize on GUI
+- Output data is normalized following equation norm_data = data1/data2 * np.mean(data2). 
 
 
 v0.0.4

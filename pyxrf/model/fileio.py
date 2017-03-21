@@ -556,7 +556,7 @@ def flip_data(input_data, subscan_dims=None):
 
 
 def output_data(fpath, output_folder,
-                file_format='tiff', norm_name=None):
+                file_format='tiff', norm_name=None, use_average=True):
     """
     Read data from h5 file and transfer them into txt.
 
@@ -570,6 +570,9 @@ def output_data(fpath, output_folder,
         tiff or txt
     norm_name : str, optional
         if given, normalization will be performed.
+    use_average : Bool, optional
+        when normalization, multiply mean value of denomenator,
+        i.e., norm_data = data1/data2 * np.mean(data2)
     """
 
     with h5py.File(fpath, 'r') as f:
@@ -626,7 +629,11 @@ def output_data(fpath, output_folder,
         for k, v in six.iteritems(fit_output):
             if 'pos' in k or 'r2' in k:
                 continue
-            v = v/ic_v
+            ave = 1.0
+            if use_average == True:
+                ave = np.mean(ic_v)
+            v = v/ic_v * ave
+
             _fname = k + name_append + norm_sign
             if file_format == 'tiff':
                 fname = os.path.join(output_folder, _fname + '.tiff')
