@@ -3,6 +3,7 @@
 import os
 import time
 import json
+import glob
 
 from .fileio import output_data, read_hdf_APS, read_MAPS
 from .fit_spectrum import single_pixel_fitting_controller, save_fitdata_to_hdf
@@ -10,7 +11,7 @@ from .fit_spectrum import single_pixel_fitting_controller, save_fitdata_to_hdf
 
 def fit_pixel_data_and_save(working_directory, file_name,
                             fit_channel_sum=True, param_file_name=None,
-                            fit_channel_each=False, param_channel_list=[],
+                            fit_channel_each=False, param_channel_list=None,
                             incident_energy=None,
                             method='nnls', pixel_bin=0, raise_bg=0,
                             comp_elastic_combine=False,
@@ -23,7 +24,7 @@ def fit_pixel_data_and_save(working_directory, file_name,
                             ic_name=None,
                             data_from='NSLS-II'):
     """
-    Do fitting for multiple data sets, and save data accordingly. Fitting can be performed on
+    Do fitting for signle data set, and save data accordingly. Fitting can be performed on
     either summed data or each channel data, or both.
 
     Parameters
@@ -111,7 +112,7 @@ def fit_pixel_data_and_save(working_directory, file_name,
         fit_name = prefix_fname+'_fit'
         save_fitdata_to_hdf(fpath, result_map_sum, datapath=inner_path)
 
-    if fit_channel_each is True:
+    if fit_channel_each is True and param_channel_list is not None:
         channel_num = len(param_channel_list)
         img_dict, data_sets = read_hdf_APS(working_directory, file_name,
                                            spectrum_cut=spectrum_cut,
@@ -154,3 +155,71 @@ def fit_pixel_data_and_save(working_directory, file_name,
         output_folder = 'output_tiff_'+prefix_fname
         output_path = os.path.join(working_directory, output_folder)
         output_data(fpath, output_path, file_format='tiff', norm_name=ic_name)
+
+
+def fit_multiple_pixel_data(start_id, end_id=None, wd=None, fit_channel_sum=True, param_file_name=None,
+                            fit_channel_each=False, param_channel_list=None, incident_energy=None,
+                            spectrum_cut=3000, save_txt=False, save_tiff=True, ic_name=None):
+    """
+    Do fitting for multiple data sets, and save data accordingly. Fitting can be performed on
+    either summed data or each channel data, or both. This is based on fit_pixel_data_and_save function.
+
+    Parameters
+    ----------
+    start_id : int
+        starting run id
+    end_id : int
+        ending run id
+    wd : str, or optional
+        path folder, default is the current folder
+    file_names : str
+        selected h5 file
+    fit_channel_sum : bool, optional
+        fit summed data or not
+    param_file_name : str, optional
+        param file name for summed data fitting
+    fit_channel_each : bool, optional
+        fit each channel data or not
+    param_channel_list : list, optional
+        list of param file names for each channel
+    incident_energy : float, optional
+        use this energy as incident energy instead of the one in param file, i.e., XANES
+    spectrum_cut : int, optional
+        only use spectrum from, say 0, 3000
+    save_txt : bool, optional
+        save data to txt or not
+    save_tiff : bool, optional
+        save data to tiff or not
+    ic_name : str, optional
+        if given, normalization will be performed
+    """
+    if wd is None:
+        wd = '.'
+    all_files = glob.glob(os.path.join(wd, '*.h5'))
+
+    if end_id is None:
+        flist = [fname for fname in all_files if str(start_id) in fname]
+        try:
+            fpath = flist[0]
+        except IndexError:
+            print("File with runid {} doesn't exist.".format(start_id))
+        fname = fpath.split('/')[-1]
+        working_directory = fpath[:-len(fname)]
+        fit_pixel_data_and_save(working_directory, fname, fit_channel_sum=fit_channel_sum, param_file_name=param_file_name,
+                                fit_channel_each=fit_channel_each, param_channel_list=param_channel_list,
+                                incident_energy=incident_energy, spectrum_cut=spectrum_cut,
+                                save_txt=save_txt, save_tiff=save_tiff,
+                                ic_name=ic_name)
+    else:
+        for data_id in range(start_id, end_id+1):
+            flist = [fname for fname in all_files if str(data_id) in fname]
+        print('Number of files: {} \n'.format(len(flist)))
+        print('\n'.join(flist))
+        for fpath in flist:
+            fname = fpath.split('/')[-1]
+            working_directory = fpath[:-len(fname)]
+            fit_pixel_data_and_save(working_directory, fname, fit_channel_sum=fit_channel_sum, param_file_name=param_file_name,
+                                    fit_channel_each=fit_channel_each, param_channel_list=param_channel_list,
+                                    incident_energy=incident_energy, spectrum_cut=spectrum_cut,
+                                    save_txt=save_txt, save_tiff=save_tiff,
+                                    ic_name=ic_name)
