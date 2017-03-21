@@ -211,9 +211,10 @@ def fit_multiple_pixel_data(start_id, end_id=None, wd=None, fit_channel_sum=True
                                 save_txt=save_txt, save_tiff=save_tiff,
                                 ic_name=ic_name)
     else:
+        flist = []
         for data_id in range(start_id, end_id+1):
-            flist = [fname for fname in all_files if str(data_id) in fname]
-        print('Number of files: {} \n'.format(len(flist)))
+            flist += [fname for fname in all_files if str(data_id) in fname]
+        print('Number of files to fit: {}'.format(len(flist)))
         print('\n'.join(flist))
         for fpath in flist:
             fname = fpath.split('/')[-1]
