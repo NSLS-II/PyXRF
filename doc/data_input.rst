@@ -2,8 +2,6 @@
 Load data into pyxrf
 ====================
 
-Define working directory
-------------------------
 
 * Define working directory by selecting "Working Directory" button, shown in figure 1.
 
@@ -25,5 +23,8 @@ Figure 2. Select which data set to work on
 
 * As default, we only load the summed spectrum. If you also want to load spectrum from each vortex detector,
   click the checkbox "Load data from each channel", and load h5 file again. Then you can select either the summed
-  spectrum or data from each detector to work on. Most of the time, if detector is well aligned, we only need to
-  load the summed spectrum and work on it.
+  spectrum or data from each detector to work on, shown in figure 3. Most of the time,
+  if detector is well aligned, we only need to load the summed spectrum and work on it.
+
+  .. image:: /_static/more_datasets.png
+  Figure 3. Select more data sets from different detectors

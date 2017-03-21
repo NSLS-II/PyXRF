@@ -49,7 +49,7 @@ import json
 from scipy.optimize import nnls
 from scipy.interpolate import interp1d, interp2d
 
-from enaml.qt.qt_application import QApplication
+#from enaml.qt.qt_application import QApplication
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
 from skbeam.core.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
@@ -488,7 +488,7 @@ class Fit1D(Atom):
         The param_dict is extended to cover elemental parameters.
         Use app.precessEvents() for multi-threading.
         """
-        app = QApplication.instance()
+        #app = QApplication.instance()
         self.define_range()
         self.get_background()
 
@@ -505,8 +505,8 @@ class Fit1D(Atom):
 
         t0 = time.time()
         self.fit_info = 'Summed spectrum fitting is in process.'
-        app.processEvents()
-        logger.info('-------- '+self.fit_info+' --------')
+        #app.processEvents()
+        #logger.info('-------- '+self.fit_info+' --------')
 
         for k, v in six.iteritems(self.all_strategy):
             if v:
@@ -526,7 +526,7 @@ class Fit1D(Atom):
                 # calculate r2
                 self.r2 = cal_r2(y0, self.fit_y)
                 self.assign_fitting_result()
-                app.processEvents()
+                #app.processEvents()
 
         t1 = time.time()
         logger.warning('Time used for summed spectrum fitting is : {}'.format(t1-t0))
@@ -574,7 +574,7 @@ class Fit1D(Atom):
         This function performs single pixel fitting.
         Multiprocess is considered.
         """
-        app = QApplication.instance()
+        #app = QApplication.instance()
         raise_bg = self.raise_bg
         pixel_bin = self.pixel_bin
         comp_elastic_combine = False
@@ -590,7 +590,7 @@ class Fit1D(Atom):
         logger.info('-------- Fitting of single pixels starts. --------')
         t0 = time.time()
         self.pixel_fit_info = 'Pixel fitting is in process.'
-        app.processEvents()
+        #app.processEvents()
         self.result_map, calculation_info = single_pixel_fitting_controller(self.data_all,
                                                                             self.param_dict,
                                                                             method=pixel_fit,
@@ -617,7 +617,7 @@ class Fit1D(Atom):
         # get fitted spectrum and save them to figs
         if self.save_point is True:
             self.pixel_fit_info = 'Saving output ...'
-            app.processEvents()
+            #app.processEvents()
             elist = calculation_info['fit_name']
             matv = calculation_info['regression_mat']
             results = calculation_info['results']
@@ -652,7 +652,7 @@ class Fit1D(Atom):
         self.save2Dmap_to_hdf(pixel_fit=pixel_fit)
 
         self.pixel_fit_info = 'Pixel fitting is done!'
-        app.processEvents()
+        #app.processEvents()
         logger.info('-------- Fitting of single pixels is done! --------')
 
     def save2Dmap_to_hdf(self, pixel_fit='nnls'):
