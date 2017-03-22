@@ -29,6 +29,7 @@ Table of Contents
    data_input
    summed_spectrum_fit
    data_output
+   work_at_beamlines
 
 
 Indices and tables

@@ -157,9 +157,9 @@ def fit_pixel_data_and_save(working_directory, file_name,
         output_data(fpath, output_path, file_format='tiff', norm_name=ic_name)
 
 
-def fit_multiple_pixel_data(start_id, end_id=None, wd=None, fit_channel_sum=True, param_file_name=None,
-                            fit_channel_each=False, param_channel_list=None, incident_energy=None,
-                            spectrum_cut=3000, save_txt=False, save_tiff=True, ic_name=None):
+def pyxrf_batch(start_id, end_id=None, wd=None, fit_channel_sum=True, param_file_name=None,
+                fit_channel_each=False, param_channel_list=None, incident_energy=None,
+                spectrum_cut=3000, save_txt=False, save_tiff=True, ic_name=None):
     """
     Do fitting for multiple data sets, and save data accordingly. Fitting can be performed on
     either summed data or each channel data, or both. This is based on fit_pixel_data_and_save function.
