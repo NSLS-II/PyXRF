@@ -247,8 +247,8 @@ class DrawImageAdvanced(Atom):
             self.scaler_data = self.scaler_norm_dict[scaler_name]
             logger.info('Use scaler data to normalize, '
                         'and the shape of scaler data is {}, '
-			'with (low, high) as ({}, {})'.format(self.scaler_data.shape, 
-							      np.min(self.scaler_data), 
+			'with (low, high) as ({}, {})'.format(self.scaler_data.shape,
+							      np.min(self.scaler_data),
 							      np.max(self.scaler_data)))
         self.set_low_high_value() # reset low high values based on normalization
         self.show_image()
@@ -310,7 +310,7 @@ class DrawImageAdvanced(Atom):
                 if k in self.name_not_scalable:
                     data_dict = self.dict_to_plot[k]
                 else:
-                    data_dict = self.dict_to_plot[k]/self.scaler_data
+                    data_dict = self.dict_to_plot[k]/self.scaler_data * np.mean(self.scaler_data)
             else:
                 data_dict = self.dict_to_plot[k]
             lowv = np.min(data_dict)
@@ -369,7 +369,7 @@ class DrawImageAdvanced(Atom):
                     if k in self.name_not_scalable:
                         data_dict = self.dict_to_plot[k]
                     else:
-                        data_dict = self.dict_to_plot[k]/self.scaler_data
+                        data_dict = self.dict_to_plot[k]/self.scaler_data * np.mean(self.scaler_data)
                 else:
                     data_dict = self.dict_to_plot[k]
 
