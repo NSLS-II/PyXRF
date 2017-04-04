@@ -495,13 +495,12 @@ enamldef FitView(DockItem): fit_view:
             constraints = [
                 vbox(
                     gb_advanced,
-                    hbox(lbl1, cb1, lbl2, cb2, lbl3, cb3, spacer),
-                    #hbox(lbl2, cb2, lbl4, cb4, spacer),
-                    hbox(pb_fit, spacer, pb_save_sum_fit),
-                    gb_result,
+                    hbox(lbl1, cb1, lbl2, cb2, spacer, pb_save_sum_fit),
+                    hbox(pb_fit, gb_result),
+                    #gb_result,
                 ),
                 lbl1.height == cb1.height == lbl2.height,
-                lbl2.height == cb2.height == lbl3.height == cb3.height,
+                lbl2.height == cb2.height,
             ]
             Label: lbl1:
                 text = 'Step 1'
@@ -515,12 +514,12 @@ enamldef FitView(DockItem): fit_view:
                 items = [''] + fit_strategy_list
                 index = 0
                 index := fit_model.fit_strategy2
-            Label: lbl3:
-                text = 'Step 3'
-            ComboBox: cb3:
-                items = [''] + fit_strategy_list
-                index = 0
-                index := fit_model.fit_strategy3
+            #Label: lbl3:
+            #    text = 'Step 3'
+            #ComboBox: cb3:
+            #    items = [''] + fit_strategy_list
+            #    index = 0
+            #    index := fit_model.fit_strategy3
             #Label: lbl4:
             #    text = 'Step 4'
             #ComboBox: cb4:
@@ -580,7 +579,7 @@ enamldef FitView(DockItem): fit_view:
                     setting_model.update_parameter(fit_model.param_dict)
 
             PushButton: pb_save_sum_fit:
-                text = 'Save Spectrum Fit to txt'
+                text = 'Save Spectrum/Fit'
                 clicked ::
                     fit_model.output_summed_data_fit()
             #Label: fit_information:

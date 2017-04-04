@@ -26,6 +26,7 @@
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Output data from pyxrf" href="data_output.html" />
     <link rel="prev" title="Load data into pyxrf" href="data_input.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
@@ -44,7 +45,38 @@
             
   <div class="section" id="summed-spectrum-fitting">
 <h1>Summed spectrum fitting<a class="headerlink" href="#summed-spectrum-fitting" title="Permalink to this headline">¶</a></h1>
-<p>work on it.</p>
+<p>Once you select which data to fit (either summed spectrum or from given detector), it
+is ready to move on to fitting step. Please click the Fit panel on the upper left,
+which is next to File IO.</p>
+<div class="section" id="load-parameter-file">
+<h2>Load parameter file<a class="headerlink" href="#load-parameter-file" title="Permalink to this headline">¶</a></h2>
+<p>In order to perform data fitting, you need to load <a href="#id1"><span class="problematic" id="id2">*</span></a>.json file into pyxrf by
+clicking &#8220;Import Parameters&#8221; (Figure 1). The json file saves all the
+parameters for data fitting.</p>
+<img alt="_images/load_parameter_file.png" src="_images/load_parameter_file.png" />
+<p>Figure 1. Load json file</p>
+</div>
+<div class="section" id="plot-emission-lines">
+<h2>Plot emission lines<a class="headerlink" href="#plot-emission-lines" title="Permalink to this headline">¶</a></h2>
+<p>Let&#8217;s first focus on the plotting (&#8220;Spectrum View&#8221; panel on the right). We can easily zoom in spectrum, and turn on elemental emission lines to
+see which element is missing (see Figure 2). You can use up and down arrows in your keyboard
+to browse the elements one by one.</p>
+<p>After loading parameter file, we can immediately see all the elements are listed in the
+&#8220;element list window&#8221; on the left. Each element includes varies of information including
+Z number, elemental name, emission energy [kev], peak intensity, relative intensity(normalized to max),
+and cross section [barns/atom] (Figure 2).</p>
+<img alt="_images/zoomin_plot.png" src="_images/zoomin_plot.png" />
+<p>Figure 1. Load json file</p>
+</div>
+<div class="section" id="add-remove-elements">
+<h2>Add/Remove elements<a class="headerlink" href="#add-remove-elements" title="Permalink to this headline">¶</a></h2>
+<p>Here we can clearly see that Fe element is missing. Following the instruction on how to add elements in Figure 2,
+we need to first select which elemental line to add, and confirm that by click &#8220;Add&#8221; button.
+Then you will see the element is shown in the element list window.</p>
+<p>You can also easily delete any element by clicking the Del button shown in Figure 2.</p>
+<p>You may also change the value of peak intensity to see plotting change in real time.</p>
+<p>Once you are happy with all the changes, please click &#8220;Update&#8221; button to save all the changes.</p>
+</div>
 </div>
 
 
@@ -52,11 +84,22 @@
         </div>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
-        <div class="sphinxsidebarwrapper"><div class="relations">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Summed spectrum fitting</a><ul>
+<li><a class="reference internal" href="#load-parameter-file">Load parameter file</a></li>
+<li><a class="reference internal" href="#plot-emission-lines">Plot emission lines</a></li>
+<li><a class="reference internal" href="#add-remove-elements">Add/Remove elements</a></li>
+</ul>
+</li>
+</ul>
+<div class="relations">
 <h3>Related Topics</h3>
 <ul>
   <li><a href="index.html">Documentation overview</a><ul>
       <li>Previous: <a href="data_input.html" title="previous chapter">Load data into pyxrf</a></li>
+      <li>Next: <a href="data_output.html" title="next chapter">Output data from pyxrf</a></li>
   </ul></li>
 </ul>
 </div>

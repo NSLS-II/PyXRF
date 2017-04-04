@@ -5,15 +5,15 @@ Load data into pyxrf
 
 * Define working directory by selecting "Working Directory" button, shown in figure 1.
 
-* Load h5 fine by clicking "Load Data File" button as shown in figure 1. This is an example data
-  from HXN beam line at NSLS II. (Currently we only support h5 file.)
+* After selecting working directory, you can load h5 file by clicking "Load Data File" button as shown in figure 1. This is an example data
+  from HXN beam line at NSLS II. (Currently we mainly support h5 file.)
 
 .. image:: /_static/define_h5file.jpg
 Figure 1. Load h5 file into pyxrf
 
 * Once the data is loaded, you can see the name of the data set, scan2D_19568_sum,
   which is just next to blue label "which channel data for fitting" as shown in figure 2.
-  This is the summed data from three vortex detectors.
+  This is the pixel summed data from three vortex detectors.
 
 .. image:: /_static/select_data_plot.png
 Figure 2. Select which data set to work on
