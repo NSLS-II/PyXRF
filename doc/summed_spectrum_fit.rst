@@ -3,13 +3,13 @@ Summed spectrum fitting
 =======================
 
 Once you select which data to fit (either summed spectrum or from given detector), it
-is ready to move on to fitting step. Please click the Fit panel on the upper left,
-which is next to File IO.
+is ready to move on to fitting step. Please click the Fit panel on the upper left corner,
+which is next to File IO (Figure 1).
 
 Load parameter file
 +++++++++++++++++++
 
-In order to perform data fitting, you need to load *.json file into pyxrf by
+In order to perform data fitting, you need to load a json file into pyxrf by
 clicking "Import Parameters" (Figure 1). The json file saves all the
 parameters for data fitting.
 
