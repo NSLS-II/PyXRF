@@ -590,13 +590,14 @@ def output_data(fpath, output_folder,
             if 'xrf_fit' in f['xrfmap/'+detname]:
                 fit_data = f['xrfmap/'+detname+'/xrf_fit']
                 fit_name = f['xrfmap/'+detname+'/xrf_fit_name']
-
+                fit_name = helper_decode_list(fit_name)
                 for i in np.arange(len(fit_name)):
                     fit_output[detname+'_'+fit_name[i]] = np.asarray(fit_data[i, :, :])
             # fitted error
             if 'xrf_fit_error' in f['xrfmap/'+detname]:
                 error_data = f['xrfmap/'+detname+'/xrf_fit_error']
                 error_name = f['xrfmap/'+detname+'/xrf_fit_error_name']
+                error_name = helper_decode_list(error_name)
 
                 for i in np.arange(len(error_name)):
                     fit_output[detname+'_'+error_name[i]+'_error'] = np.asarray(error_data[i, :, :])
@@ -605,12 +606,14 @@ def output_data(fpath, output_folder,
         if 'scalers' in f['xrfmap']:
             ic_data = f['xrfmap/scalers/val']
             ic_name = f['xrfmap/scalers/name']
+            ic_name = helper_decode_list(ic_name)
             for i in np.arange(len(ic_name)):
                 fit_output[ic_name[i]] = np.asarray(ic_data[:, :, i])
 
         # position data
         if 'positions' in f['xrfmap']:
             pos_name = f['xrfmap/positions/name']
+            pos_name = helper_decode_list(pos_name)
             for i, n in enumerate(pos_name):
                 fit_output[n] = np.asarray(f['xrfmap/positions/pos'].value[i, :])
 
@@ -818,6 +821,8 @@ def retrieve_data_from_hdf_suitcase(fpath):
         other_data_list = [v for v in f.keys() if v!='xrfmap']
         if len(other_data_list) > 0:
             f_hdr = f[other_data_list[0]].attrs['start']
+            if not isinstance(f_hdr, six.string_types):
+                f_hdr = f_hdr.decode('utf-8')
             start_doc = ast.literal_eval(f_hdr)
             other_data = f[other_data_list[0]+'/primary/data']
 
@@ -1577,7 +1582,6 @@ def save_data_hdf(hdr, fpath,
 
     for n in range(len(det_list)):
         c_name = det_list[n]
-        print(c_name)
         detname = 'det'+str(n+1)
         try:
             dataGrp = f.create_group(interpath+'/'+detname)
@@ -1620,6 +1624,8 @@ def save_data_hdf(hdr, fpath,
 def helper_encode_list(data, data_type='utf-8'):
     return [d.encode(data_type) for d in data]
 
+def helper_decode_list(data, data_type='utf-8'):
+    return [d.decode(data_type) for d in data]
 
 def get_name_value_from_db(name_list, data, datashape):
     """

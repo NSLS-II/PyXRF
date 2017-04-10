@@ -55,7 +55,7 @@ from HXN beam line at NSLS II. (Currently we mainly support h5 file.)</li>
 <ul class="simple">
 <li>Once the data is loaded, you can see the name of the data set, scan2D_19568_sum,
 which is just next to blue label &#8220;which channel data for fitting&#8221; as shown in figure 2.
-This is the pixel summed data from three vortex detectors.</li>
+The &#8220;_sum&#8221; in the name means this is the pixel summed data from three detectors, say vortex detector.</li>
 </ul>
 <img alt="_images/select_data_plot.png" src="_images/select_data_plot.png" />
 <p>Figure 2. Select which data set to work on</p>
@@ -64,9 +64,12 @@ This is the pixel summed data from three vortex detectors.</li>
 on the right part of the GUI, as shown in figure 2.</p>
 </li>
 <li><p class="first">As default, we only load the summed spectrum. If you also want to load spectrum from each vortex detector,
-click the checkbox &#8220;Load data from each channel&#8221;, and load h5 file again. Then you can select either the summed
-spectrum or data from each detector to work on, shown in figure 3. Most of the time,
-if detector is well aligned, we only need to load the summed spectrum and work on it.</p>
+click the checkbox &#8220;Load data from each channel&#8221;, and load h5 file again. This time you can select either the summed
+spectrum from all the detectors or only from one detector to work on, shown in figure 3.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Most of the time, if detectors are well aligned, we only need to load the summed spectrum of all the detectors and work on it.</p>
+</div>
 <img alt="_images/more_datasets.png" src="_images/more_datasets.png" />
 <p>Figure 3. Select more data sets from different detectors</p>
 </li>
@@ -112,7 +115,7 @@ if detector is well aligned, we only need to load the summed spectrum and work o
       &copy;2017, Li Li.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.5.1</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.5.4</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
       
       |
