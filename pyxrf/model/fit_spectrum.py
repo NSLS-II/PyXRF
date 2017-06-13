@@ -271,6 +271,7 @@ class Fit1D(Atom):
                 self.elementinfo_list = sorted([e for e in list(self.param_dict.keys())
                                                 if (element+'_' in e) and  # error between S_k or Si_k
                                                 ('pileup' not in e)])  # Si_ka1 not Si_K
+                print(self.elementinfo_list)
             else:
                 element = selected_element  # for pileup peaks
                 self.elementinfo_list = sorted([e for e in list(self.param_dict.keys())
@@ -711,7 +712,6 @@ class Fit1D(Atom):
             logger.info('ROI sum at range ({}, {})'.format(self.roi_sum_opt['low'],
                                                            self.roi_sum_opt['high']))
             sumv = np.sum(self.data_all[:,:,low:high], axis=2)
-            print(self.data_all.shape)
             self.result_map['ROI']=sumv
             # save to hdf again, this is not optimal
             self.save2Dmap_to_hdf()
