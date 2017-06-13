@@ -1899,7 +1899,8 @@ def get_header(fname):
 
 
 def combine_data_to_recon(element_list, datalist, working_dir, norm=True,
-                          folder_prefix='output_txt_scan2D_', ic_name='sclr1_ch4', expand_r=2):
+                          file_prefix='scan2D_', ic_name='sclr1_ch4',
+                          expand_r=2, internal_path='xrfmap/detsum'):
     """
     Combine 2D data to 3D array for reconstruction.
 
@@ -1912,12 +1913,15 @@ def combine_data_to_recon(element_list, datalist, working_dir, norm=True,
     working_dir : str
     norm : bool, optional
         normalization or not
-    folder_prefix : str
+    file_prefix : str, optional
+        prefix name for h5 file
     ic_name : str
         ion chamber name for normalization
     expand_r: int
         expand initial array to a larger size to include each 2D image easily,
         as each 2D image may have different size. Crop the 3D array back to a proper size in the end.
+    internal_path : str, optional
+        inside path to get fitting data in h5 file
 
     Returns
     -------
@@ -1925,29 +1929,46 @@ def combine_data_to_recon(element_list, datalist, working_dir, norm=True,
     """
     element3d = {}
     for element_name in element_list:
-        data3d = None
-        max_h = 0
-        max_v = 0
-        for i, v in enumerate(datalist):
-            foldern = folder_prefix+str(v)
-            all_files = glob.glob(os.path.join(working_dir, foldern, '*.txt'))
-            datafile = [myfile for myfile in all_files if element_name in myfile and str(v) in myfile and 'norm' not in myfile]
-            try:
-                filen = os.path.join(working_dir, foldern, datafile[0])
-            except IndexError:
-                print(foldern + ' is missing!')
-            data = np.loadtxt(filen)
-            if norm is True:
-                fileic = os.path.join(working_dir, foldern, ic_name+'_'+str(v)+'.txt')
-                normv = np.loadtxt(fileic)
-                data = data/normv
-            if data3d is None:
-                data3d = np.zeros([len(datalist), data.shape[0]*expand_r, data.shape[1]*expand_r])
+        element3d[element_name] = None
 
-            data3d[i, :data.shape[0], :data.shape[1]] = data
-            max_h = max(max_h, data.shape[0])
-            max_v = max(max_v, data.shape[1])
-        element3d[element_name] = data3d[:,:max_h, :max_v]
+    max_h = 0
+    max_v = 0
+    for i, v in enumerate(datalist):
+        filename = file_prefix+str(v)+'.h5'
+        filepath = os.path.join(working_dir, filename)
+        with h5py.File(filepath, 'r+') as f:
+            dataset = f[internal_path]
+            try:
+                data_all = dataset['xrf_fit'].value
+                data_name = dataset['xrf_fit_name'].value
+            except KeyError:
+                'Need to do fitting first.'
+            scaler_dataset = f['xrfmap/scalers']
+            scaler_v = scaler_dataset['val'].value
+            scaler_n = scaler_dataset['name'].value
+
+        data_dict = {}
+        for name_i, name_v in enumerate(data_name):
+            data_dict[name_v] = data_all[name_i, :, :]
+        if norm is True:
+            scaler_dict = {}
+            for s_i, s_v in enumerate(scaler_n):
+                scaler_dict[s_v] = scaler_v[:, :, s_i]
+
+        for element_name in element_list:
+            data = data_dict[element_name]
+            if norm is True:
+                normv = scaler_dict[ic_name]
+                data = data/normv
+            if element3d[element_name] is None:
+                element3d[element_name] = np.zeros([len(datalist), data.shape[0]*expand_r, data.shape[1]*expand_r])
+            element3d[element_name][i, :data.shape[0], :data.shape[1]] = data
+
+        max_h = max(max_h, data.shape[0])
+        max_v = max(max_v, data.shape[1])
+
+    for k, v in element3d.items():
+        element3d[k] = v[:,:max_h, :max_v]
     return element3d
 
 
