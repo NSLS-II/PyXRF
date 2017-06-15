@@ -1,4 +1,4 @@
-#PyXRF
+## PyXRF
 
 PyXRF is a python-based sophisticated fluorescence analysis package for
 fitting and visualizing X-ray fluorescence data. This package contains a
