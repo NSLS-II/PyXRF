@@ -54,7 +54,7 @@ from enaml.stdlib.fields import IntField as DefaultIntField
 
 from ..model.guessparam import fit_strategy_list, save_as, bound_options, autofit_param
 from ..model.fit_spectrum import get_cs
-from pyxrf.model.fileio import print_image
+
 from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 from skbeam.fluorescence import XrfElement as Element
 
@@ -495,13 +495,12 @@ enamldef FitView(DockItem): fit_view:
             constraints = [
                 vbox(
                     gb_advanced,
-                    hbox(lbl1, cb1, lbl2, cb2, lbl3, cb3, spacer),
-                    #hbox(lbl2, cb2, lbl4, cb4, spacer),
-                    hbox(pb_fit, fit_information, spacer, pb_save_sum_fit),
-                    gb_result,
+                    hbox(lbl1, cb1, lbl2, cb2, spacer, pb_save_sum_fit),
+                    hbox(pb_fit, gb_result),
+                    #gb_result,
                 ),
                 lbl1.height == cb1.height == lbl2.height,
-                lbl2.height == cb2.height == lbl3.height == cb3.height,
+                lbl2.height == cb2.height,
             ]
             Label: lbl1:
                 text = 'Step 1'
@@ -515,12 +514,12 @@ enamldef FitView(DockItem): fit_view:
                 items = [''] + fit_strategy_list
                 index = 0
                 index := fit_model.fit_strategy2
-            Label: lbl3:
-                text = 'Step 3'
-            ComboBox: cb3:
-                items = [''] + fit_strategy_list
-                index = 0
-                index := fit_model.fit_strategy3
+            #Label: lbl3:
+            #    text = 'Step 3'
+            #ComboBox: cb3:
+            #    items = [''] + fit_strategy_list
+            #    index = 0
+            #    index := fit_model.fit_strategy3
             #Label: lbl4:
             #    text = 'Step 4'
             #ComboBox: cb4:
@@ -542,9 +541,9 @@ enamldef FitView(DockItem): fit_view:
                     fit_model.update_default_param(param_model.param_new)
                     fit_model.apply_default_param()
 
-                    fit_information.text = 'Fitting of summed spectrum starts.'
+                    #fit_information.text = 'Fitting of summed spectrum starts.'
                     fit_model.fit_multiple()
-                    fit_information.text = 'Fitting of summed spectrum is done!'
+                    #fit_information.text = 'Fitting of summed spectrum is done!'
 
                     # BUG: line color for pileup is not correct from fit
                     fit_model.get_profile()
@@ -580,12 +579,12 @@ enamldef FitView(DockItem): fit_view:
                     setting_model.update_parameter(fit_model.param_dict)
 
             PushButton: pb_save_sum_fit:
-                text = 'Save Spectrum Fit to txt'
+                text = 'Save Spectrum/Fit'
                 clicked ::
                     fit_model.output_summed_data_fit()
-            Label: fit_information:
-                text := fit_model.fit_info
-                foreground = 'red'
+            #Label: fit_information:
+            #    text := fit_model.fit_info
+            #    foreground = 'red'
 
             Container: gb_advanced:
                 padding = Box(2, 2, 2, 2)
@@ -663,7 +662,7 @@ enamldef FitView(DockItem): fit_view:
             title = 'Fit spectrum of all individual pixels.'
             padding = Box(2, 2, 2, 2)
             constraints = [vbox(hbox(save_cb, lb1, fd1v, fd1h, lb2, fd2v, fd2h, spacer, interp_cb),
-                                hbox(fit_pixel, pixel_fit_information, spacer, output_btn, to_tiff, to_txt))]
+                                hbox(fit_pixel, spacer, output_btn, to_tiff, to_txt))]
             CheckBox: save_cb:
                 text = 'Save plots'
                 clicked ::
@@ -727,9 +726,9 @@ enamldef FitView(DockItem): fit_view:
                     img_model_rgb.data_dict_keys = []
                     img_model_rgb.data_dict_keys = list(img_model_rgb.data_dict.keys())
 
-            Label: pixel_fit_information:
-                text := fit_model.pixel_fit_info
-                foreground = 'red'
+            #Label: pixel_fit_information:
+            #    text := fit_model.pixel_fit_info
+            #    foreground = 'red'
 
             PushButton: output_btn:
                 text = 'Output setup'

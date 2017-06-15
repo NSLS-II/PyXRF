@@ -556,7 +556,7 @@ def flip_data(input_data, subscan_dims=None):
 
 
 def output_data(fpath, output_folder,
-                file_format='tiff', norm_name=None):
+                file_format='tiff', norm_name=None, use_average=True):
     """
     Read data from h5 file and transfer them into txt.
 
@@ -570,6 +570,9 @@ def output_data(fpath, output_folder,
         tiff or txt
     norm_name : str, optional
         if given, normalization will be performed.
+    use_average : Bool, optional
+        when normalization, multiply mean value of denomenator,
+        i.e., norm_data = data1/data2 * np.mean(data2)
     """
 
     with h5py.File(fpath, 'r') as f:
@@ -587,13 +590,14 @@ def output_data(fpath, output_folder,
             if 'xrf_fit' in f['xrfmap/'+detname]:
                 fit_data = f['xrfmap/'+detname+'/xrf_fit']
                 fit_name = f['xrfmap/'+detname+'/xrf_fit_name']
-
+                fit_name = helper_decode_list(fit_name)
                 for i in np.arange(len(fit_name)):
                     fit_output[detname+'_'+fit_name[i]] = np.asarray(fit_data[i, :, :])
             # fitted error
             if 'xrf_fit_error' in f['xrfmap/'+detname]:
                 error_data = f['xrfmap/'+detname+'/xrf_fit_error']
                 error_name = f['xrfmap/'+detname+'/xrf_fit_error_name']
+                error_name = helper_decode_list(error_name)
 
                 for i in np.arange(len(error_name)):
                     fit_output[detname+'_'+error_name[i]+'_error'] = np.asarray(error_data[i, :, :])
@@ -602,12 +606,14 @@ def output_data(fpath, output_folder,
         if 'scalers' in f['xrfmap']:
             ic_data = f['xrfmap/scalers/val']
             ic_name = f['xrfmap/scalers/name']
+            ic_name = helper_decode_list(ic_name)
             for i in np.arange(len(ic_name)):
                 fit_output[ic_name[i]] = np.asarray(ic_data[:, :, i])
 
         # position data
         if 'positions' in f['xrfmap']:
             pos_name = f['xrfmap/positions/name']
+            pos_name = helper_decode_list(pos_name)
             for i, n in enumerate(pos_name):
                 fit_output[n] = np.asarray(f['xrfmap/positions/pos'].value[i, :])
 
@@ -626,7 +632,11 @@ def output_data(fpath, output_folder,
         for k, v in six.iteritems(fit_output):
             if 'pos' in k or 'r2' in k:
                 continue
-            v = v/ic_v
+            ave = 1.0
+            if use_average == True:
+                ave = np.mean(ic_v)
+            v = v/ic_v * ave
+
             _fname = k + name_append + norm_sign
             if file_format == 'tiff':
                 fname = os.path.join(output_folder, _fname + '.tiff')
@@ -811,6 +821,8 @@ def retrieve_data_from_hdf_suitcase(fpath):
         other_data_list = [v for v in f.keys() if v!='xrfmap']
         if len(other_data_list) > 0:
             f_hdr = f[other_data_list[0]].attrs['start']
+            if not isinstance(f_hdr, six.string_types):
+                f_hdr = f_hdr.decode('utf-8')
             start_doc = ast.literal_eval(f_hdr)
             other_data = f[other_data_list[0]+'/primary/data']
 
@@ -1570,7 +1582,6 @@ def save_data_hdf(hdr, fpath,
 
     for n in range(len(det_list)):
         c_name = det_list[n]
-        print(c_name)
         detname = 'det'+str(n+1)
         try:
             dataGrp = f.create_group(interpath+'/'+detname)
@@ -1613,6 +1624,8 @@ def save_data_hdf(hdr, fpath,
 def helper_encode_list(data, data_type='utf-8'):
     return [d.encode(data_type) for d in data]
 
+def helper_decode_list(data, data_type='utf-8'):
+    return [d.decode(data_type) for d in data]
 
 def get_name_value_from_db(name_list, data, datashape):
     """
@@ -1886,7 +1899,8 @@ def get_header(fname):
 
 
 def combine_data_to_recon(element_list, datalist, working_dir, norm=True,
-                          folder_prefix='output_txt_scan2D_', ic_name='sclr1_ch4', expand_r=2):
+                          file_prefix='scan2D_', ic_name='sclr1_ch4',
+                          expand_r=2, internal_path='xrfmap/detsum'):
     """
     Combine 2D data to 3D array for reconstruction.
 
@@ -1899,12 +1913,15 @@ def combine_data_to_recon(element_list, datalist, working_dir, norm=True,
     working_dir : str
     norm : bool, optional
         normalization or not
-    folder_prefix : str
+    file_prefix : str, optional
+        prefix name for h5 file
     ic_name : str
         ion chamber name for normalization
     expand_r: int
         expand initial array to a larger size to include each 2D image easily,
         as each 2D image may have different size. Crop the 3D array back to a proper size in the end.
+    internal_path : str, optional
+        inside path to get fitting data in h5 file
 
     Returns
     -------
@@ -1912,29 +1929,46 @@ def combine_data_to_recon(element_list, datalist, working_dir, norm=True,
     """
     element3d = {}
     for element_name in element_list:
-        data3d = None
-        max_h = 0
-        max_v = 0
-        for i, v in enumerate(datalist):
-            foldern = folder_prefix+str(v)
-            all_files = glob.glob(os.path.join(working_dir, foldern, '*.txt'))
-            datafile = [myfile for myfile in all_files if element_name in myfile and str(v) in myfile and 'norm' not in myfile]
-            try:
-                filen = os.path.join(working_dir, foldern, datafile[0])
-            except IndexError:
-                print(foldern + ' is missing!')
-            data = np.loadtxt(filen)
-            if norm is True:
-                fileic = os.path.join(working_dir, foldern, ic_name+'_'+str(v)+'.txt')
-                normv = np.loadtxt(fileic)
-                data = data/normv
-            if data3d is None:
-                data3d = np.zeros([len(datalist), data.shape[0]*expand_r, data.shape[1]*expand_r])
+        element3d[element_name] = None
 
-            data3d[i, :data.shape[0], :data.shape[1]] = data
-            max_h = max(max_h, data.shape[0])
-            max_v = max(max_v, data.shape[1])
-        element3d[element_name] = data3d[:,:max_h, :max_v]
+    max_h = 0
+    max_v = 0
+    for i, v in enumerate(datalist):
+        filename = file_prefix+str(v)+'.h5'
+        filepath = os.path.join(working_dir, filename)
+        with h5py.File(filepath, 'r+') as f:
+            dataset = f[internal_path]
+            try:
+                data_all = dataset['xrf_fit'].value
+                data_name = dataset['xrf_fit_name'].value
+            except KeyError:
+                'Need to do fitting first.'
+            scaler_dataset = f['xrfmap/scalers']
+            scaler_v = scaler_dataset['val'].value
+            scaler_n = scaler_dataset['name'].value
+
+        data_dict = {}
+        for name_i, name_v in enumerate(data_name):
+            data_dict[name_v] = data_all[name_i, :, :]
+        if norm is True:
+            scaler_dict = {}
+            for s_i, s_v in enumerate(scaler_n):
+                scaler_dict[s_v] = scaler_v[:, :, s_i]
+
+        for element_name in element_list:
+            data = data_dict[element_name]
+            if norm is True:
+                normv = scaler_dict[ic_name]
+                data = data/normv
+            if element3d[element_name] is None:
+                element3d[element_name] = np.zeros([len(datalist), data.shape[0]*expand_r, data.shape[1]*expand_r])
+            element3d[element_name][i, :data.shape[0], :data.shape[1]] = data
+
+        max_h = max(max_h, data.shape[0])
+        max_v = max(max_v, data.shape[1])
+
+    for k, v in element3d.items():
+        element3d[k] = v[:,:max_h, :max_v]
     return element3d
 
 
