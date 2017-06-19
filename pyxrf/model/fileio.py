@@ -68,7 +68,7 @@ try:
                                Xspress3HDF5Handler)
         db.fs.register_handler(TimepixHDF5Handler._handler_name,
                                TimepixHDF5Handler, overwrite=True)
-    except:
+    except ImportError:
         logger.error('hxntools is not available')
     try:
         # srx detector, to be moved to filestore
@@ -93,10 +93,12 @@ try:
             def __call__(self, **kwargs):
                 with h5py.File(self._filepath, 'r') as f:
                     return np.asarray(f[self.XRF_DATA_KEY])
+    except ImportError:
+        logger.error('Filestore is not available.')
 
-except (ImportError, KeyError) as e:
+except (ImportError, KeyError):
     db = None
-    logger.error('databroker is not available: %s', e)
+    logger.error('databroker is not available')
 
 #try:
     # registers a filestore handler for the XSPRESS3 detector
