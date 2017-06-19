@@ -69,7 +69,31 @@ try:
         db.fs.register_handler(TimepixHDF5Handler._handler_name,
                                TimepixHDF5Handler, overwrite=True)
     except:
-        logger.error('hxntools is not available from old version: %s', e)
+        logger.error('hxntools is not available')
+    try:
+        # srx detector, to be moved to filestore
+        from filestore.handlers import Xspress3HDF5Handler, HandlerBase
+        class BulkXSPRESS(HandlerBase):
+            HANDLER_NAME = 'XPS3_FLY'
+            def __init__(self, resource_fn):
+                self._handle = h5py.File(resource_fn, 'r')
+
+            def __call__(self):
+                return self._handle['entry/instrument/detector/data'][:]
+
+        db.fs.register_handler(BulkXSPRESS.HANDLER_NAME, BulkXSPRESS,
+                               overwrite=True)
+
+        class SrxXSP3Handler:
+            XRF_DATA_KEY = 'entry/instrument/detector/data'
+
+            def __init__(self, filepath, **kwargs):
+                self._filepath = filepath
+
+            def __call__(self, **kwargs):
+                with h5py.File(self._filepath, 'r') as f:
+                    return np.asarray(f[self.XRF_DATA_KEY])
+
 except (ImportError, KeyError) as e:
     db = None
     logger.error('databroker is not available: %s', e)
