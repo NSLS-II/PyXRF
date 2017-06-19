@@ -84,15 +84,24 @@ try:
         db.fs.register_handler(BulkXSPRESS.HANDLER_NAME, BulkXSPRESS,
                                overwrite=True)
 
-        class SrxXSP3Handler:
-            XRF_DATA_KEY = 'entry/instrument/detector/data'
+        class ZebraHDF5Handler(HandlerBase):
+            HANDLER_NAME = 'ZEBRA_HDF51'
+            def __init__(self, resource_fn):
+                self._handle = h5py.File(resource_fn, 'r')
 
-            def __init__(self, filepath, **kwargs):
-                self._filepath = filepath
+            def __call__(self, *, column):
+                return self._handle[column][:]
 
-            def __call__(self, **kwargs):
-                with h5py.File(self._filepath, 'r') as f:
-                    return np.asarray(f[self.XRF_DATA_KEY])
+        class SISHDF5Handler(HandlerBase):
+            HANDLER_NAME = 'SIS_HDF51'
+            def __init__(self, resource_fn):
+                self._handle = h5py.File(resource_fn, 'r')
+
+            def __call__(self, *, column):
+                return self._handle[column][:]
+
+        db.fs.register_handler('SIS_HDF51', SISHDF5Handler, overwrite=True)
+        db.fs.register_handler('ZEBRA_HDF51', ZebraHDF5Handler, overwrite=True)
     except ImportError:
         logger.error('Filestore is not available.')
 
