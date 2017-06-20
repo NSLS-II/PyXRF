@@ -89,7 +89,7 @@ try:
             def __init__(self, resource_fn):
                 self._handle = h5py.File(resource_fn, 'r')
 
-            def __call__(self, *, column):
+            def __call__(self, column):
                 return self._handle[column][:]
 
         class SISHDF5Handler(HandlerBase):
@@ -97,7 +97,7 @@ try:
             def __init__(self, resource_fn):
                 self._handle = h5py.File(resource_fn, 'r')
 
-            def __call__(self, *, column):
+            def __call__(self, column):
                 return self._handle[column][:]
 
         db.fs.register_handler('SIS_HDF51', SISHDF5Handler, overwrite=True)
