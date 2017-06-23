@@ -20,8 +20,7 @@ some of the unique features as follows.
    obtain data directly from BNL/NSLS-II experimental database.
 
 ## Installation from Conda
-Currently PyXRF only works for python 2.7. `pyxrf` is not compatible with
-python 3+ because it relies on the [enaml] (http://github.com/nucleic/enaml) library, which is not python 3 compatible as of this writing (11/2015).
+PyXRF works for both python 2.7 and 3.5 in Linux/Mac system. For windows, we only support 3.5 for windows 10(64 bit).
 
 ### Linux/Mac
 First you need to install [conda] (http://continuum.io/downloads). We suggest
@@ -29,9 +28,9 @@ anaconda because it is a complete installation of the entire scientific python
 stack, but is ~400 MB.  For advanced users, consider downloading [miniconda]
 (http://conda.pydata.org/miniconda.html) because it is a smaller download (~20 MB).
 
-Then create a conda environment(say pyxrf_test) with python2.7.
+Then create a conda environment(say pyxrf_test) with python3.5.
 ```
-$ conda create -n pyxrf_test python=2.7
+$ conda create -n pyxrf_test python=3.5
 ```
 Then go to the environment named pyxrf_test
 ```
@@ -39,11 +38,24 @@ $ source activate pyxrf_test
 ```
 At the same environment, install pyxrf by simply typing
 ```
-$ conda install pyxrf pyqt=4.11 -c licode
+$ conda install pyxrf pyqt=4.11 enaml=0.9.8 -c lightsource2-tag
 ```
-Also install ipython-notebook in the same environment (recommended by not required)
+
+### Windows
+Install anaconda windows version from (http://continuum.io/downloads).
+Then you should Anaconda Prompt installed in your computer. Double click Anaconda Prompt, and type the following lines to finish the installation.
+
+Then create a conda environment(say pyxrf_test) with python3.5.
 ```
-$ conda install ipython-notebook
+$ conda create -n pyxrf_test python=3.5
+```
+Then go to the environment named pyxrf_test
+```
+$ activate pyxrf_test
+```
+At the same environment, install pyxrf by simply typing
+```
+$ conda install pyxrf xraylib pyqt=4.11 -c lightsource2-tag -c conda-forge
 ```
 
 ### Run
@@ -53,27 +65,31 @@ $ pyxrf
 
 #### Update
 ```
-$ conda update -c licode pyxrf
+$ conda update pyxrf -c lightsource2-tag
 ```
 
 #### Reminder
-Every time you open a new terminal, make sure to go to pyxrf_test environment first, then launch the software.
+Every time you open a new terminal, make sure to go to pyxrf_test environment first, then launch the software. For linux and mac system, type
 ```
 $ source activate pyxrf_test
+```
+for windows,
+```
+activate pyxrf_test        
+```
+then lanch pyxrf by typing
+```
 $ pyxrf
 ```
-To leave this environment, just type
+
+To leave this environment, at Linux and Mac system just type
 ```
 $ source deactivate
 ```
-
-
-### Windows
-The blocking issue for getting `pyxrf` running on windows is creating a conda
-package for [xraylib] (https://github.com/tschoonj/xraylib).  If enough users
-request this feature, we will make it happen.  Until then it is on the back
-burner.  
-
+and for Windows, type
+```
+deactivate          
+```
 
 ## Documentation
 
@@ -97,7 +113,7 @@ More documentation will be ready soon!
 
 ## Notes
 
-The core fitting functions are a part of the [scikit-xray]
-(https://github.com/scikit-beam/scikit-beam) data analysis library for xray data analysis.
+The core fitting functions are a part of the [scikit-beam]
+(https://github.com/scikit-beam/scikit-beam) data analysis library for x-ray data analysis.
 The design philosophy is to separate fitting and gui, so it is easy to maintain.
 For more questions, please submit issues through github, or contact Li at lili@bnl.gov.
