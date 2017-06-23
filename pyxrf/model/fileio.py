@@ -68,11 +68,46 @@ try:
                                Xspress3HDF5Handler)
         db.fs.register_handler(TimepixHDF5Handler._handler_name,
                                TimepixHDF5Handler, overwrite=True)
-    except:
-        logger.error('hxntools is not available from old version: %s', e)
-except (ImportError, KeyError) as e:
+    except ImportError:
+        logger.error('hxntools is not available')
+    try:
+        # srx detector, to be moved to filestore
+        from filestore.handlers import Xspress3HDF5Handler, HandlerBase
+        class BulkXSPRESS(HandlerBase):
+            HANDLER_NAME = 'XPS3_FLY'
+            def __init__(self, resource_fn):
+                self._handle = h5py.File(resource_fn, 'r')
+
+            def __call__(self):
+                return self._handle['entry/instrument/detector/data'][:]
+
+        db.fs.register_handler(BulkXSPRESS.HANDLER_NAME, BulkXSPRESS,
+                               overwrite=True)
+
+        class ZebraHDF5Handler(HandlerBase):
+            HANDLER_NAME = 'ZEBRA_HDF51'
+            def __init__(self, resource_fn):
+                self._handle = h5py.File(resource_fn, 'r')
+
+            def __call__(self, column):
+                return self._handle[column][:]
+
+        class SISHDF5Handler(HandlerBase):
+            HANDLER_NAME = 'SIS_HDF51'
+            def __init__(self, resource_fn):
+                self._handle = h5py.File(resource_fn, 'r')
+
+            def __call__(self, column):
+                return self._handle[column][:]
+
+        db.fs.register_handler('SIS_HDF51', SISHDF5Handler, overwrite=True)
+        db.fs.register_handler('ZEBRA_HDF51', ZebraHDF5Handler, overwrite=True)
+    except ImportError:
+        logger.error('Filestore is not available.')
+
+except (ImportError, KeyError):
     db = None
-    logger.error('databroker is not available: %s', e)
+    logger.error('databroker is not available')
 
 #try:
     # registers a filestore handler for the XSPRESS3 detector
@@ -1564,6 +1599,58 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     f.close()
 
 
+def write_db_to_hdf_base(fpath, data, num_det=3):
+    """
+    Data is obained based on databroker, and save the data to hdf file.
+
+    .. note:: This function should become part of suitcase
+
+    Parameters
+    ----------
+    fpath: str
+        path to save hdf file
+    data : dict
+        fluorescence data with scaler value and positions
+    num_det : int
+        number of detector
+    """
+    interpath = 'xrfmap'
+
+    sum_data = None
+    new_v_shape = datashape[0]  # to be updated if scan is not completed
+    spectrum_len = 4096  # standard
+
+    with h5py.File(fpath, 'a') as f:
+        for n in range(num_det):
+            detname = 'det' + str(n+1)
+            dataGrp = f.create_group(interpath+'/'+detname)
+            new_data = data[detname]
+
+            if sum_data is None:
+                sum_data = new_data
+            else:
+                sum_data += new_data
+            if 'counts' in dataGrp:
+                del dataGrp['counts']
+            ds_data = dataGrp.create_dataset('counts', data=new_data, compression='gzip')
+            ds_data.attrs['comments'] = 'Experimental data from channel ' + str(n)
+
+        # summed data
+        dataGrp = f.create_group(interpath+'/detsum')
+        if sum_data is not None:
+            ds_data = dataGrp.create_dataset('counts', data=sum_data, compression='gzip')
+            ds_data.attrs['comments'] = 'Experimental data from channel sum'
+
+        # add positions later
+
+        # scaler data
+        dataGrp = f.create_group(interpath+'/scalers')
+        scaler_names = data['scaler_names']
+        scaler_data = data['scaler_data']
+        dataGrp.create_dataset('name', data=helper_encode_list(scaler_names))
+        dataGrp.create_dataset('val', data=scaler_data)
+
+
 def save_data_hdf(hdr, fpath,
         det_list=['xspress3_ch1']): #, 'xspress3_ch2', 'xspress3_ch3'),
     """More work are needed here. This is not finished.
@@ -1702,7 +1789,7 @@ def _make_hdf(fpath, runid, full_data=True):
         scaler_list = [v for v in scaler_list_all if v in all_keys]
 
         fields = det_list + scaler_list + pos_list
-        data = get_table(hdr, fields=fields, fill=True)
+        data = db.get_table(hdr, fields=fields, fill=True)
 
         print('Saving data to hdf file.')
         write_db_to_hdf(fpath, data, datashape,
@@ -1723,47 +1810,64 @@ def _make_hdf(fpath, runid, full_data=True):
 
     elif hdr.start.beamline_id == 'xf05id':
         start_doc = hdr['start']
-        datashape = start_doc['shape']   # vertical first then horizontal
-        fly_type = None
+        plan_n = start_doc.get('plan_name')
+        if 'fly' not in plan_n: # not fly scan
+            datashape = start_doc['shape']   # vertical first then horizontal
+            fly_type = None
 
-        snake_scan = start_doc.get('snaking')
-        if snake_scan[1] == True:
-            fly_type = 'pyramid'
+            snake_scan = start_doc.get('snaking')
+            if snake_scan[1] == True:
+                fly_type = 'pyramid'
 
-        current_dir = os.path.dirname(os.path.realpath(__file__))
-        config_file = 'srx_pv_config.json'
-        config_path = '/'.join(current_dir.split('/')[:-2]+['configs', config_file])
-        with open(config_path, 'r') as json_data:
-            config_data = json.load(json_data)
+            current_dir = os.path.dirname(os.path.realpath(__file__))
+            config_file = 'srx_pv_config.json'
+            config_path = '/'.join(current_dir.split('/')[:-2]+['configs', config_file])
+            with open(config_path, 'r') as json_data:
+                config_data = json.load(json_data)
 
-        try:
-            data = get_table(hdr, fill=True, convert_times=False)
-        except IndexError:
+            try:
+                data = db.get_table(hdr, fill=True, convert_times=False)
+            except IndexError:
+                spectrum_len = 4096
+                total_len = get_total_scan_point(hdr) - 2
+
+                evs, _ = zip(*zip(get_events(hdr, fill=True), range(total_len)))
+
+                namelist = config_data['xrf_detector'] +hdr.start.motors +config_data['scaler_list']
+
+                dictv = {v:[] for v in namelist}
+
+                for e in evs:
+                    for k,v in six.iteritems(dictv):
+                        dictv[k].append(e.data[k])
+
+                data = pd.DataFrame(dictv, index=np.arange(1, total_len+1)) # need to start with 1
+
+            print('Saving data to hdf file.')
+            write_db_to_hdf(fpath, data,
+                            datashape,
+                            det_list=config_data['xrf_detector'],
+                            #roi_dict=roi_dict,
+                            pos_list=hdr.start.motors,
+                            scaler_list=config_data['scaler_list'],
+                            fly_type=fly_type,
+                            base_val=config_data['base_value'])  #base value shift for ic
+            print('Done!')
+        else:
+            # srx fly scan
+            num_det = 3
             spectrum_len = 4096
-            total_len = get_total_scan_point(hdr) - 2
+            datashape = [start_doc['shape'][1], start_doc['shape'][0]]   # vertical first then horizontal]   # vertical first then horizontal
+            data = db.get_table(hdr, fill=True, stream_name='stream0')
+            new_data = {}
+            datashape[0] = len(data['fluor'])  # in case some scan not finished
+            data_xrf = np.vstack(data['fluor'])
+            for i in range(num_det):
+                new_data['det'+str(i+1)] = data_xrf[:,i,:].reshape(datashape.append(spectrum_len))
 
-            evs, _ = zip(*zip(get_events(hdr, fill=True), range(total_len)))
-
-            namelist = config_data['xrf_detector'] +hdr.start.motors +config_data['scaler_list']
-
-            dictv = {v:[] for v in namelist}
-
-            for e in evs:
-                for k,v in six.iteritems(dictv):
-                    dictv[k].append(e.data[k])
-
-            data = pd.DataFrame(dictv, index=np.arange(1, total_len+1)) # need to start with 1
-
-        print('Saving data to hdf file.')
-        write_db_to_hdf(fpath, data,
-                        datashape,
-                        det_list=config_data['xrf_detector'],
-                        #roi_dict=roi_dict,
-                        pos_list=hdr.start.motors,
-                        scaler_list=config_data['scaler_list'],
-                        fly_type=fly_type,
-                        base_val=config_data['base_value'])  #base value shift for ic
-        print('Done!')
+            new_data['scaler_names'] = data['i0']
+            new_data['scaler_val'] = np.vstack(data['i0'])
+            write_db_to_hdf_base(fpath, new_data, num_det=num_det)
 
     else:
         print("Databroker is not setup for this beamline")
