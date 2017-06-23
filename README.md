@@ -1,4 +1,4 @@
-## PyXRF
+# PyXRF
 
 PyXRF is a python-based sophisticated fluorescence analysis package for
 fitting and visualizing X-ray fluorescence data. This package contains a
@@ -58,12 +58,14 @@ At the same environment, install pyxrf by simply typing
 $ conda install pyxrf xraylib pyqt=4.11 -c lightsource2-tag -c conda-forge
 ```
 
-### Run PyXRF
+## Run PyXRF
+At pyxrf_test environment, type
 ```
 $ pyxrf
 ```
 
-#### Update
+## Update PyXRF
+At pyxrf_test environment, type
 ```
 $ conda update pyxrf -c lightsource2-tag
 ```
