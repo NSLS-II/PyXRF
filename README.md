@@ -19,8 +19,8 @@ some of the unique features as follows.
 - Interface with NSLS-II database: A specific I/O interface was designed to
    obtain data directly from BNL/NSLS-II experimental database.
 
-## Installation from Conda
-PyXRF works for both python 2.7 and 3.5 in Linux/Mac system. For windows, we only support 3.5 for windows 10(64 bit).
+## Install PyXRF using Conda [Support Linux/Mac/Windows]
+PyXRF works for both python 2.7 and 3.5 in Linux/Mac system. For Windows, we only support python 3.5 version at windows 10(64 bit).
 
 ### Linux/Mac
 First you need to install [conda] (http://continuum.io/downloads). We suggest
@@ -42,10 +42,10 @@ $ conda install pyxrf pyqt=4.11 enaml=0.9.8 -c lightsource2-tag
 ```
 
 ### Windows
-Install anaconda windows version from (http://continuum.io/downloads).
-Then you should Anaconda Prompt installed in your computer. Double click Anaconda Prompt, and type the following lines to finish the installation.
+Install windows version of anaconda from (http://continuum.io/downloads).
+Then you should see Anaconda Prompt installed in your computer. Double click Anaconda Prompt, and type the following lines to finish the installation.
 
-Then create a conda environment(say pyxrf_test) with python3.5.
+Create a conda environment(say pyxrf_test) with python3.5.
 ```
 $ conda create -n pyxrf_test python=3.5
 ```
@@ -58,7 +58,7 @@ At the same environment, install pyxrf by simply typing
 $ conda install pyxrf xraylib pyqt=4.11 -c lightsource2-tag -c conda-forge
 ```
 
-### Run
+### Run PyXRF
 ```
 $ pyxrf
 ```
