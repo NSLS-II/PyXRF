@@ -1615,10 +1615,7 @@ def write_db_to_hdf_base(fpath, data, num_det=3):
         number of detector
     """
     interpath = 'xrfmap'
-
     sum_data = None
-    new_v_shape = datashape[0]  # to be updated if scan is not completed
-    spectrum_len = 4096  # standard
 
     with h5py.File(fpath, 'a') as f:
         for n in range(num_det):
@@ -1630,25 +1627,24 @@ def write_db_to_hdf_base(fpath, data, num_det=3):
                 sum_data = new_data
             else:
                 sum_data += new_data
-            if 'counts' in dataGrp:
-                del dataGrp['counts']
             ds_data = dataGrp.create_dataset('counts', data=new_data, compression='gzip')
             ds_data.attrs['comments'] = 'Experimental data from channel ' + str(n)
 
         # summed data
-        dataGrp = f.create_group(interpath+'/detsum')
         if sum_data is not None:
+            dataGrp = f.create_group(interpath+'/detsum')
             ds_data = dataGrp.create_dataset('counts', data=sum_data, compression='gzip')
             ds_data.attrs['comments'] = 'Experimental data from channel sum'
 
         # add positions later
 
         # scaler data
-        dataGrp = f.create_group(interpath+'/scalers')
-        scaler_names = data['scaler_names']
-        scaler_data = data['scaler_data']
-        dataGrp.create_dataset('name', data=helper_encode_list(scaler_names))
-        dataGrp.create_dataset('val', data=scaler_data)
+        if 'scaler_data' in data:
+            dataGrp = f.create_group(interpath+'/scalers')
+            scaler_names = data['scaler_names']
+            scaler_data = data['scaler_data']
+            dataGrp.create_dataset('name', data=helper_encode_list(scaler_names))
+            dataGrp.create_dataset('val', data=scaler_data)
 
 
 def save_data_hdf(hdr, fpath,
@@ -1857,16 +1853,21 @@ def _make_hdf(fpath, runid, full_data=True):
             # srx fly scan
             num_det = 3
             spectrum_len = 4096
+            scaler_list = ['i0', 'time']
+
             datashape = [start_doc['shape'][1], start_doc['shape'][0]]   # vertical first then horizontal]   # vertical first then horizontal
             data = db.get_table(hdr, fill=True, stream_name='stream0')
             new_data = {}
+            new_data['scaler_names'] = scaler_list
             datashape[0] = len(data['fluor'])  # in case some scan not finished
             data_xrf = np.vstack(data['fluor'])
             for i in range(num_det):
-                new_data['det'+str(i+1)] = data_xrf[:,i,:].reshape(datashape.append(spectrum_len))
-
-            new_data['scaler_names'] = data['i0']
-            new_data['scaler_val'] = np.vstack(data['i0'])
+                new_shape = datashape + [spectrum_len]
+                new_data['det'+str(i+1)] = data_xrf[:,i,:].reshape(new_shape)
+            scaler_tmp = np.zeros([datashape[0], datashape[1], len(scaler_list)])
+            for i,v in enumerate(scaler_list):
+                scaler_tmp[:,:,i] = np.vstack(data[v])
+            new_data['scaler_data'] = scaler_tmp
             write_db_to_hdf_base(fpath, new_data, num_det=num_det)
 
     else:
