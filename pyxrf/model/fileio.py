@@ -1455,8 +1455,6 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
                 sum_data = new_data
             else:
                 sum_data += new_data
-            if 'counts' in dataGrp:
-                del dataGrp['counts']
             ds_data = dataGrp.create_dataset('counts', data=new_data, compression='gzip')
             ds_data.attrs['comments'] = 'Experimental data from channel ' + str(n)
 
@@ -1490,12 +1488,6 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
         elif 'y' in pos_names[i]:
             pos_names[i] = 'y_pos'
 
-    if 'pos' in dataGrp:
-        del dataGrp['pos']
-
-    if 'name' in dataGrp:
-        del dataGrp['name']
-
     # need to change shape to sth like [2, 100, 100]
     data_temp = np.zeros([pos_data.shape[2], pos_data.shape[0], pos_data.shape[1]])
     for i in range(pos_data.shape[2]):
@@ -1521,11 +1513,6 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     if fly_type in ('pyramid',):
         scaler_data = flip_data(scaler_data, subscan_dims=subscan_dims)
 
-    if 'val' in dataGrp:
-        del dataGrp['val']
-
-    if 'name' in dataGrp:
-        del dataGrp['name']
     dataGrp.create_dataset('name', data=helper_encode_list(scaler_names))
 
     if base_val is not None:  # base line shift for detector, for SRX
@@ -1636,7 +1623,13 @@ def write_db_to_hdf_base(fpath, data, num_det=3):
             ds_data = dataGrp.create_dataset('counts', data=sum_data, compression='gzip')
             ds_data.attrs['comments'] = 'Experimental data from channel sum'
 
-        # add positions later
+        # add positions
+        if 'pos_names' in data:
+            dataGrp = f.create_group(interpath+'/positions')
+            pos_names = data['pos_names']
+            pos_data = data['pos_data']
+            dataGrp.create_dataset('name', data=helper_encode_list(pos_names))
+            dataGrp.create_dataset('pos', data=pos_data)
 
         # scaler data
         if 'scaler_data' in data:
@@ -1854,6 +1847,8 @@ def _make_hdf(fpath, runid, full_data=True):
             num_det = 3
             spectrum_len = 4096
             scaler_list = ['i0', 'time']
+            xpos_name = 'enc1'
+            ypos_name = 'hf_stage_y'
 
             datashape = [start_doc['shape'][1], start_doc['shape'][0]]   # vertical first then horizontal]   # vertical first then horizontal
             data = db.get_table(hdr, fill=True, stream_name='stream0')
@@ -1868,6 +1863,24 @@ def _make_hdf(fpath, runid, full_data=True):
             for i,v in enumerate(scaler_list):
                 scaler_tmp[:,:,i] = np.vstack(data[v])
             new_data['scaler_data'] = scaler_tmp
+
+            # get position data
+            data1 = db.get_table(hdr, fill=True, stream_name='primary')
+            y_pos = np.hstack(data1[ypos_name])
+            x_pos = np.vstack(data[xpos_name])
+            if len(y_pos) == x_pos.shape[0]:
+                x_tmp = np.ones(x_pos.shape[1])
+                xv, yv = np.meshgrid(x_tmp, y_pos)
+
+                # need to change shape to sth like [2, 100, 100]
+                data_tmp = np.zeros([2, x_pos.shape[0], x_pos.shape[1]])
+                data_tmp[0,:,:] = x_pos
+                data_tmp[1,:,:] = yv
+                new_data['pos_data'] = data_tmp
+                new_data['pos_names'] = ['x_pos', 'y_pos']
+            else:
+                print('x,y positions are not saved.')
+            # output to file
             write_db_to_hdf_base(fpath, new_data, num_det=num_det)
 
     else:
