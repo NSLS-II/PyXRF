@@ -1426,10 +1426,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
         c_name = det_list[n]
         if c_name in data:
             detname = 'det'+str(n+1)
-            try:
-                dataGrp = f.create_group(interpath+'/'+detname)
-            except ValueError:
-                dataGrp = f[interpath+'/'+detname]
+            dataGrp = f.create_group(interpath+'/'+detname)
 
             logger.info('read data from %s' % c_name)
             channel_data = data[c_name]
@@ -1455,31 +1452,20 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
                 sum_data = new_data
             else:
                 sum_data += new_data
-            if 'counts' in dataGrp:
-                del dataGrp['counts']
             ds_data = dataGrp.create_dataset('counts', data=new_data, compression='gzip')
             ds_data.attrs['comments'] = 'Experimental data from channel ' + str(n)
 
     # summed data
-    try:
-        dataGrp = f.create_group(interpath+'/detsum')
-    except ValueError:
-        dataGrp = f[interpath+'/detsum']
+    dataGrp = f.create_group(interpath+'/detsum')
 
     if sum_data is not None:
         sum_data = sum_data.reshape([new_v_shape, datashape[1],
                                      spectrum_len])
-
-        if 'counts' in dataGrp:
-            del dataGrp['counts']
         ds_data = dataGrp.create_dataset('counts', data=sum_data, compression='gzip')
         ds_data.attrs['comments'] = 'Experimental data from channel sum'
 
     # position data
-    try:
-        dataGrp = f.create_group(interpath+'/positions')
-    except ValueError:
-        dataGrp = f[interpath+'/positions']
+    dataGrp = f.create_group(interpath+'/positions')
 
     pos_names, pos_data = get_name_value_from_db(pos_list, data,
                                                  datashape)
@@ -1489,12 +1475,6 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
             pos_names[i] = 'x_pos'
         elif 'y' in pos_names[i]:
             pos_names[i] = 'y_pos'
-
-    if 'pos' in dataGrp:
-        del dataGrp['pos']
-
-    if 'name' in dataGrp:
-        del dataGrp['name']
 
     # need to change shape to sth like [2, 100, 100]
     data_temp = np.zeros([pos_data.shape[2], pos_data.shape[0], pos_data.shape[1]])
@@ -1510,10 +1490,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     dataGrp.create_dataset('pos', data=data_temp[:,:new_v_shape,:])
 
     # scaler data
-    try:
-        dataGrp = f.create_group(interpath+'/scalers')
-    except ValueError:
-        dataGrp = f[interpath+'/scalers']
+    dataGrp = f.create_group(interpath+'/scalers')
 
     scaler_names, scaler_data = get_name_value_from_db(scaler_list, data,
                                                        datashape)
@@ -1521,11 +1498,6 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     if fly_type in ('pyramid',):
         scaler_data = flip_data(scaler_data, subscan_dims=subscan_dims)
 
-    if 'val' in dataGrp:
-        del dataGrp['val']
-
-    if 'name' in dataGrp:
-        del dataGrp['name']
     dataGrp.create_dataset('name', data=helper_encode_list(scaler_names))
 
     if base_val is not None:  # base line shift for detector, for SRX
@@ -1540,10 +1512,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
     # roi sum
     if get_roi_sum_sign:
-        try:
-            dataGrp = f.create_group(interpath+'/roimap')
-        except ValueError:
-            dataGrp = f[interpath+'/roimap']
+        dataGrp = f.create_group(interpath+'/roimap')
 
         roi_data_all = np.zeros([datashape[0], datashape[1], len(roi_dict)])
         roi_name_list = []
@@ -1568,20 +1537,10 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
                 count += 1
 
         # summed data from each channel
-        if 'sum_name' in dataGrp:
-            del dataGrp['sum_name']
-
-        if 'sum_raw' in dataGrp:
-            del dataGrp['sum_raw']
         dataGrp.create_dataset('sum_name', data=helper_encode_list(roi_name_list))
         dataGrp.create_dataset('sum_raw', data=roi_data_all)
 
         # data from each channel
-        if 'det_name' in dataGrp:
-            del dataGrp['det_name']
-
-        if 'det_raw' in dataGrp:
-            del dataGrp['det_raw']
         dataGrp.create_dataset('det_name', data=helper_encode_list(roi_name_all_ch))
         dataGrp.create_dataset('det_raw', data=roi_data_all_ch)
 
@@ -1615,10 +1574,7 @@ def write_db_to_hdf_base(fpath, data, num_det=3):
         number of detector
     """
     interpath = 'xrfmap'
-
     sum_data = None
-    new_v_shape = datashape[0]  # to be updated if scan is not completed
-    spectrum_len = 4096  # standard
 
     with h5py.File(fpath, 'a') as f:
         for n in range(num_det):
@@ -1630,25 +1586,30 @@ def write_db_to_hdf_base(fpath, data, num_det=3):
                 sum_data = new_data
             else:
                 sum_data += new_data
-            if 'counts' in dataGrp:
-                del dataGrp['counts']
             ds_data = dataGrp.create_dataset('counts', data=new_data, compression='gzip')
             ds_data.attrs['comments'] = 'Experimental data from channel ' + str(n)
 
         # summed data
-        dataGrp = f.create_group(interpath+'/detsum')
         if sum_data is not None:
+            dataGrp = f.create_group(interpath+'/detsum')
             ds_data = dataGrp.create_dataset('counts', data=sum_data, compression='gzip')
             ds_data.attrs['comments'] = 'Experimental data from channel sum'
 
-        # add positions later
+        # add positions
+        if 'pos_names' in data:
+            dataGrp = f.create_group(interpath+'/positions')
+            pos_names = data['pos_names']
+            pos_data = data['pos_data']
+            dataGrp.create_dataset('name', data=helper_encode_list(pos_names))
+            dataGrp.create_dataset('pos', data=pos_data)
 
         # scaler data
-        dataGrp = f.create_group(interpath+'/scalers')
-        scaler_names = data['scaler_names']
-        scaler_data = data['scaler_data']
-        dataGrp.create_dataset('name', data=helper_encode_list(scaler_names))
-        dataGrp.create_dataset('val', data=scaler_data)
+        if 'scaler_data' in data:
+            dataGrp = f.create_group(interpath+'/scalers')
+            scaler_names = data['scaler_names']
+            scaler_data = data['scaler_data']
+            dataGrp.create_dataset('name', data=helper_encode_list(scaler_names))
+            dataGrp.create_dataset('val', data=scaler_data)
 
 
 def save_data_hdf(hdr, fpath,
@@ -1857,16 +1818,41 @@ def _make_hdf(fpath, runid, full_data=True):
             # srx fly scan
             num_det = 3
             spectrum_len = 4096
+            scaler_list = ['i0', 'time']
+            xpos_name = 'enc1'
+            ypos_name = 'hf_stage_y'
+
             datashape = [start_doc['shape'][1], start_doc['shape'][0]]   # vertical first then horizontal]   # vertical first then horizontal
             data = db.get_table(hdr, fill=True, stream_name='stream0')
             new_data = {}
+            new_data['scaler_names'] = scaler_list
             datashape[0] = len(data['fluor'])  # in case some scan not finished
             data_xrf = np.vstack(data['fluor'])
             for i in range(num_det):
-                new_data['det'+str(i+1)] = data_xrf[:,i,:].reshape(datashape.append(spectrum_len))
+                new_shape = datashape + [spectrum_len]
+                new_data['det'+str(i+1)] = data_xrf[:,i,:].reshape(new_shape)
+            scaler_tmp = np.zeros([datashape[0], datashape[1], len(scaler_list)])
+            for i,v in enumerate(scaler_list):
+                scaler_tmp[:,:,i] = np.vstack(data[v])
+            new_data['scaler_data'] = scaler_tmp
 
-            new_data['scaler_names'] = data['i0']
-            new_data['scaler_val'] = np.vstack(data['i0'])
+            # get position data
+            data1 = db.get_table(hdr, fill=True, stream_name='primary')
+            y_pos = np.hstack(data1[ypos_name])
+            x_pos = np.vstack(data[xpos_name])
+            if len(y_pos) == x_pos.shape[0]:
+                x_tmp = np.ones(x_pos.shape[1])
+                xv, yv = np.meshgrid(x_tmp, y_pos)
+
+                # need to change shape to sth like [2, 100, 100]
+                data_tmp = np.zeros([2, x_pos.shape[0], x_pos.shape[1]])
+                data_tmp[0,:,:] = x_pos
+                data_tmp[1,:,:] = yv
+                new_data['pos_data'] = data_tmp
+                new_data['pos_names'] = ['x_pos', 'y_pos']
+            else:
+                print('x,y positions are not saved.')
+            # output to file
             write_db_to_hdf_base(fpath, new_data, num_det=num_det)
 
     else:
