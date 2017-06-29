@@ -1426,10 +1426,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
         c_name = det_list[n]
         if c_name in data:
             detname = 'det'+str(n+1)
-            try:
-                dataGrp = f.create_group(interpath+'/'+detname)
-            except ValueError:
-                dataGrp = f[interpath+'/'+detname]
+            dataGrp = f.create_group(interpath+'/'+detname)
 
             logger.info('read data from %s' % c_name)
             channel_data = data[c_name]
@@ -1459,25 +1456,16 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
             ds_data.attrs['comments'] = 'Experimental data from channel ' + str(n)
 
     # summed data
-    try:
-        dataGrp = f.create_group(interpath+'/detsum')
-    except ValueError:
-        dataGrp = f[interpath+'/detsum']
+    dataGrp = f.create_group(interpath+'/detsum')
 
     if sum_data is not None:
         sum_data = sum_data.reshape([new_v_shape, datashape[1],
                                      spectrum_len])
-
-        if 'counts' in dataGrp:
-            del dataGrp['counts']
         ds_data = dataGrp.create_dataset('counts', data=sum_data, compression='gzip')
         ds_data.attrs['comments'] = 'Experimental data from channel sum'
 
     # position data
-    try:
-        dataGrp = f.create_group(interpath+'/positions')
-    except ValueError:
-        dataGrp = f[interpath+'/positions']
+    dataGrp = f.create_group(interpath+'/positions')
 
     pos_names, pos_data = get_name_value_from_db(pos_list, data,
                                                  datashape)
@@ -1502,10 +1490,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     dataGrp.create_dataset('pos', data=data_temp[:,:new_v_shape,:])
 
     # scaler data
-    try:
-        dataGrp = f.create_group(interpath+'/scalers')
-    except ValueError:
-        dataGrp = f[interpath+'/scalers']
+    dataGrp = f.create_group(interpath+'/scalers')
 
     scaler_names, scaler_data = get_name_value_from_db(scaler_list, data,
                                                        datashape)
@@ -1527,10 +1512,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
 
     # roi sum
     if get_roi_sum_sign:
-        try:
-            dataGrp = f.create_group(interpath+'/roimap')
-        except ValueError:
-            dataGrp = f[interpath+'/roimap']
+        dataGrp = f.create_group(interpath+'/roimap')
 
         roi_data_all = np.zeros([datashape[0], datashape[1], len(roi_dict)])
         roi_name_list = []
@@ -1555,20 +1537,10 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
                 count += 1
 
         # summed data from each channel
-        if 'sum_name' in dataGrp:
-            del dataGrp['sum_name']
-
-        if 'sum_raw' in dataGrp:
-            del dataGrp['sum_raw']
         dataGrp.create_dataset('sum_name', data=helper_encode_list(roi_name_list))
         dataGrp.create_dataset('sum_raw', data=roi_data_all)
 
         # data from each channel
-        if 'det_name' in dataGrp:
-            del dataGrp['det_name']
-
-        if 'det_raw' in dataGrp:
-            del dataGrp['det_raw']
         dataGrp.create_dataset('det_name', data=helper_encode_list(roi_name_all_ch))
         dataGrp.create_dataset('det_raw', data=roi_data_all_ch)
 
