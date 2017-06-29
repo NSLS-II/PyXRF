@@ -6,5 +6,5 @@
     },
     "pos_list": ["hf_stage_x", "hf_stage_y"],
     "scaler_list": ["sclr_i0"],
-    "base_value": [4e3]
+    "base_value": [0]
 }
