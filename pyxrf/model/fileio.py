@@ -1770,6 +1770,7 @@ def _make_hdf(fpath, runid, full_data=True):
             sc.export(hdr, fpath, db.mds, fields=fds, use_uid=False)
 
     elif hdr.start.beamline_id == 'xf05id':
+        spectrum_len = 4096
         start_doc = hdr['start']
         plan_n = start_doc.get('plan_name')
         if 'fly' not in plan_n: # not fly scan
@@ -1789,7 +1790,6 @@ def _make_hdf(fpath, runid, full_data=True):
             try:
                 data = db.get_table(hdr, fill=True, convert_times=False)
             except IndexError:
-                spectrum_len = 4096
                 total_len = get_total_scan_point(hdr) - 2
 
                 evs, _ = zip(*zip(get_events(hdr, fill=True), range(total_len)))
@@ -1817,7 +1817,6 @@ def _make_hdf(fpath, runid, full_data=True):
         else:
             # srx fly scan
             num_det = 3
-            spectrum_len = 4096
             scaler_list = ['i0', 'time']
             xpos_name = 'enc1'
             ypos_name = 'hf_stage_y'
@@ -1827,23 +1826,36 @@ def _make_hdf(fpath, runid, full_data=True):
             new_data = {}
             new_data['scaler_names'] = scaler_list
             datashape[0] = len(data['fluor'])  # in case some scan not finished
-            data_xrf = np.vstack(data['fluor'])
-            for i in range(num_det):
-                new_shape = datashape + [spectrum_len]
-                new_data['det'+str(i+1)] = data_xrf[:,i,:].reshape(new_shape)
+            new_shape = datashape + [spectrum_len]
             scaler_tmp = np.zeros([datashape[0], datashape[1], len(scaler_list)])
-            for i,v in enumerate(scaler_list):
-                scaler_tmp[:,:,i] = np.vstack(data[v])
-            new_data['scaler_data'] = scaler_tmp
+            try:
+                data_xrf = np.vstack(data['fluor'])
+                for i in range(num_det):
+                    new_data['det'+str(i+1)] = data_xrf[:,i,:].reshape(new_shape)
+                for i,v in enumerate(scaler_list):
+                    scaler_tmp[:,:,i] = np.vstack(data[v])
+                new_data['scaler_data'] = scaler_tmp
+                x_pos = np.vstack(data[xpos_name])
+            except ValueError: # in case the data length in each line is different
+                for i in range(num_det):
+                    tmp = np.zeros(new_shape)
+                    for m,linev in enumerate(data['fluor']):
+                        tmp[m,:linev.shape[0],:] = linevd[:,i,:]
+                    new_data['det'+str(i+1)] = tmp
+                for i,v in enumerate(scaler_list):
+                    for m, scalerv in enumerate(data[v]):
+                        scaler_tmp[m,:len(scalerv),i] = scalerv
+                new_data['scaler_data'] = scaler_tmp
+                x_pos = np.zeros(data_shape)
+                for i,v in enumerate(data[xpos_name]):
+                    x_pos[i,:v.shape[0]] = v
 
             # get position data
             data1 = db.get_table(hdr, fill=True, stream_name='primary')
             y_pos = np.hstack(data1[ypos_name])
-            x_pos = np.vstack(data[xpos_name])
             if len(y_pos) == x_pos.shape[0]:
                 x_tmp = np.ones(x_pos.shape[1])
                 xv, yv = np.meshgrid(x_tmp, y_pos)
-
                 # need to change shape to sth like [2, 100, 100]
                 data_tmp = np.zeros([2, x_pos.shape[0], x_pos.shape[1]])
                 data_tmp[0,:,:] = x_pos
