@@ -1839,21 +1839,24 @@ def _make_hdf(fpath, runid, full_data=True):
             except ValueError: # in case the data length in each line is different
                 for i in range(num_det):
                     tmp = np.zeros(new_shape)
-                    for m,linev in enumerate(data['fluor']):
-                        tmp[m,:linev.shape[0],:] = linevd[:,i,:]
+                    for m,v in enumerate(data['fluor']):
+                        tmp[m,:v.shape[0],:] = v[:,i,:]
                     new_data['det'+str(i+1)] = tmp
                 for i,v in enumerate(scaler_list):
                     for m, scalerv in enumerate(data[v]):
-                        scaler_tmp[m,:len(scalerv),i] = scalerv
+                        min_len = min(len(scalerv), datashape[1])
+                        scaler_tmp[m,:min_len,i] = scalerv[:min_len]
                 new_data['scaler_data'] = scaler_tmp
-                x_pos = np.zeros(data_shape)
+                x_pos = np.zeros(datashape)
                 for i,v in enumerate(data[xpos_name]):
-                    x_pos[i,:v.shape[0]] = v
+                    min_len = min(len(v), datashape[1])
+                    x_pos[i,:min_len] = v[:min_len]
 
             # get position data
             data1 = db.get_table(hdr, fill=True, stream_name='primary')
-            y_pos = np.hstack(data1[ypos_name])
-            if len(y_pos) == x_pos.shape[0]:
+            y_pos0 = np.hstack(data1[ypos_name])
+            if len(y_pos0) >= x_pos.shape[0]:
+                y_pos = y_pos0[:x_pos.shape[0]]
                 x_tmp = np.ones(x_pos.shape[1])
                 xv, yv = np.meshgrid(x_tmp, y_pos)
                 # need to change shape to sth like [2, 100, 100]
