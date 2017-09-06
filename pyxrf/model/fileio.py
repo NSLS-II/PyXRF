@@ -61,13 +61,19 @@ logger = logging.getLogger()
 
 try:
     config_path = '/etc/pyxrf/pyxrf.json'
-    with open(config_path, 'r') as beamline_d:
-        beamline_name = beamline_d['beamline_name']
+    with open(config_path, 'r') as beamline_pyxrf:
+        beamline_name = beamline_pyxrf['beamline_name']
     if beamline_name = 'HXN':
-        from db_config.hxn_db import db
+        from db_config.hxn_db_config import db
+    elif beamline_name = 'SRX':
+        from db_config.srx_db_config import db
+    else:
+        db = None
+        print('Beamline Database is not used in pyxrf.')
 except FileNotFoundError:
-    print('Database is not setup.')
     db = None
+    print('Beamline Database is not used in pyxrf.')
+
 
 
 class FileIOModel(Atom):
@@ -1630,41 +1636,6 @@ def get_name_value_from_db(name_list, data, datashape):
         pos_data[:, :, i] = posv.reshape([datashape[0], datashape[1]])
         pos_names.append(str(v))
     return pos_names, pos_data
-
-
-def db_config(beamline_name='HXN'):
-    """Temporary solution to deal with 2 databases at hxn.
-    """
-    if beamline_name == 'HXN_old':
-        _mds_config = {'host': 'xf03id-ca1',
-               'port': 27017,
-               'database': 'datastore',
-               'timezone': 'US/Eastern'}
-        mds = MDS(_mds_config, auth=False)
-        _fs_config = {'host': 'xf03id-ca1',
-                      'port': 27017,
-                      'database': 'filestore'}
-        db = Broker(mds, FileStore(_fs_config))
-        db.fs.register_handler(Xspress3HDF5Handler.HANDLER_NAME,
-                               Xspress3HDF5Handler)
-        db.fs.register_handler(TimepixHDF5Handler._handler_name,
-                               TimepixHDF5Handler, overwrite=True)
-        return db
-    elif beamline_name == 'HXN':
-        _mds_config = {'host': 'xf03id-ca1',
-                       'port': 27017,
-                       'database': 'datastore-new',
-                       'timezone': 'US/Eastern'}
-        mds = MDS(_mds_config, auth=False)
-        _fs_config = {'host': 'xf03id-ca1',
-                      'port': 27017,
-                      'database': 'filestore-new'}
-        db = Broker(mds, FileStore(_fs_config))
-        db.fs.register_handler(Xspress3HDF5Handler.HANDLER_NAME,
-                               Xspress3HDF5Handler)
-        db.fs.register_handler(TimepixHDF5Handler._handler_name,
-                               TimepixHDF5Handler, overwrite=True)
-        return db
 
 
 def _make_hdf(fpath, runid, full_data=True):

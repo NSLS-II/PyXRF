@@ -69,4 +69,3 @@ class Broker_New(Broker):
 db = Broker_New(mds, FileStore(_fs_config))
 
 import suitcase.hdf5 as sc
-from pyxrf.api import *
