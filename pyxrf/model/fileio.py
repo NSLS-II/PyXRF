@@ -422,7 +422,7 @@ def fetch_data_from_db(runid):
     # data = muxer.to_sparse_dataframe()
     fields = ['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3',
               'ssx[um]', 'ssy[um]', 'ssx', 'ssy', 'sclr1_ch3', 'sclr1_ch4']
-    d = get_table(db[runid], fields=fields)
+    d = db.get_table(db[runid], fields=fields)
     return d
 
 
@@ -2015,7 +2015,7 @@ def export1d(runid, name=None):
     runid : int
         run number
     """
-    t = get_table(db[runid], fill=False)
+    t = db.get_table(db[runid], fill=False)
     if name is None:
         name = 'scan_'+str(runid)+'.txt'
     t.to_csv(name)
