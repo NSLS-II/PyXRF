@@ -59,64 +59,6 @@ from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float, Bo
 import logging
 logger = logging.getLogger()
 
-try:
-    from databroker import db, get_table, get_events  # this line is to be removed
-    from databroker import Broker
-    from metadatastore.mds import MDS
-    from filestore.fs import FileStore
-    try:
-        from hxntools.handlers.xspress3 import Xspress3HDF5Handler
-        from hxntools.handlers.timepix import TimepixHDF5Handler
-        db.fs.register_handler(Xspress3HDF5Handler.HANDLER_NAME,
-                               Xspress3HDF5Handler)
-        db.fs.register_handler(TimepixHDF5Handler._handler_name,
-                               TimepixHDF5Handler, overwrite=True)
-    except ImportError:
-        logger.error('hxntools is not available')
-    try:
-        # srx detector, to be moved to filestore
-        from filestore.handlers import Xspress3HDF5Handler, HandlerBase
-        class BulkXSPRESS(HandlerBase):
-            HANDLER_NAME = 'XPS3_FLY'
-            def __init__(self, resource_fn):
-                self._handle = h5py.File(resource_fn, 'r')
-
-            def __call__(self):
-                return self._handle['entry/instrument/detector/data'][:]
-
-        db.fs.register_handler(BulkXSPRESS.HANDLER_NAME, BulkXSPRESS,
-                               overwrite=True)
-
-        class ZebraHDF5Handler(HandlerBase):
-            HANDLER_NAME = 'ZEBRA_HDF51'
-            def __init__(self, resource_fn):
-                self._handle = h5py.File(resource_fn, 'r')
-
-            def __call__(self, column):
-                return self._handle[column][:]
-
-        class SISHDF5Handler(HandlerBase):
-            HANDLER_NAME = 'SIS_HDF51'
-            def __init__(self, resource_fn):
-                self._handle = h5py.File(resource_fn, 'r')
-
-            def __call__(self, column):
-                return self._handle[column][:]
-
-        db.fs.register_handler('SIS_HDF51', SISHDF5Handler, overwrite=True)
-        db.fs.register_handler('ZEBRA_HDF51', ZebraHDF5Handler, overwrite=True)
-    except ImportError:
-        logger.error('Filestore is not available.')
-
-except (ImportError, KeyError):
-    db = None
-    logger.error('databroker is not available')
-
-try:
-    import suitcase.hdf5 as sc
-except ImportError:
-    logger.error('suitcase is not loaded.')
-
 
 class FileIOModel(Atom):
     """
@@ -1731,22 +1673,11 @@ def _make_hdf(fpath, runid, full_data=True, db=db):
         save baseline data and all other information if True
     db : databroker
     """
-    # check which beamline it is from config file
-    config_path = '~/.config/pyxrf'
-    with open(config_path, 'r') as json_data:
-        config_data = json.load(json_data)
-    beamline_name = config_data['beamline_name']
-
+    hdr_tmp = db[-1]
     print('Loading data from database.')
 
-    if beamline_name == 'HXN':
-        # two databases at hxn
-        try:
-            db = db_config(beamline_name='HXN')
-            hdr = db[runid]
-        except ValueError:
-            db = db_config(beamline_name='HXN_old')
-            hdr = db[runid]
+    if hdr_tmp.start.beamline_id == 'HXN':
+        hdr = db[runid]
 
         start_doc = hdr['start']
         if 'dimensions' in start_doc:
@@ -1808,7 +1739,7 @@ def _make_hdf(fpath, runid, full_data=True, db=db):
         if full_data == True:
             sc.export(hdr, fpath, db.mds, fields=fds, use_uid=False)
 
-    elif beamline_name == 'SRX':
+    elif hdr_tmp.start.beamline_id == 'xf05id':
         hdr = db[runid]
         spectrum_len = 4096
         start_doc = hdr['start']
