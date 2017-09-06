@@ -59,21 +59,29 @@ from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float, Bo
 import logging
 logger = logging.getLogger()
 
+import warnings
+warnings.filterwarnings('ignore')
+
 try:
     config_path = '/etc/pyxrf/pyxrf.json'
     with open(config_path, 'r') as beamline_pyxrf:
-        beamline_name = beamline_pyxrf['beamline_name']
-    if beamline_name = 'HXN':
-        from db_config.hxn_db_config import db
-    elif beamline_name = 'SRX':
-        from db_config.srx_db_config import db
+        beamline_config_pyxrf = json.load(beamline_pyxrf)
+        beamline_name = beamline_config_pyxrf['beamline_name']
+    if beamline_name == 'HXN':
+        from pyxrf.db_config.hxn_db_config import db
+    elif beamline_name == 'SRX':
+        from pyxrf.db_config.srx_db_config import db
     else:
         db = None
         print('Beamline Database is not used in pyxrf.')
-except FileNotFoundError:
+except IOError:
     db = None
     print('Beamline Database is not used in pyxrf.')
 
+try:
+    import suitcase.hdf5 as sc
+except ImportError:
+    pass
 
 
 class FileIOModel(Atom):
