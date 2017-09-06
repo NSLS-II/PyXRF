@@ -5,8 +5,3 @@ from .model.fileio import (stitch_fitted_results, make_hdf,
 
 from .model.command_tools import fit_pixel_data_and_save, pyxrf_batch
 
-try:
-    from .model.fileio import db
-except ImportError as e:
-    db = None
-    logger.error('databroker is not available: %s', e)

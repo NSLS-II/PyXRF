@@ -59,6 +59,16 @@ from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float, Bo
 import logging
 logger = logging.getLogger()
 
+try:
+    config_path = '/etc/pyxrf/pyxrf.json'
+    with open(config_path, 'r') as beamline_d:
+        beamline_name = beamline_d['beamline_name']
+    if beamline_name = 'HXN':
+        from db_config.hxn_db import db
+except FileNotFoundError:
+    print('Database is not setup.')
+    db = None
+
 
 class FileIOModel(Atom):
     """
@@ -1657,7 +1667,7 @@ def db_config(beamline_name='HXN'):
         return db
 
 
-def _make_hdf(fpath, runid, full_data=True, db=db):
+def _make_hdf(fpath, runid, full_data=True):
     """
     Save the data from databroker to hdf file.
 
@@ -1862,7 +1872,7 @@ def get_total_scan_point(hdr):
     return n
 
 
-def make_hdf(start, end=None, fname=None, prefix='scan2D_', full_data=True, db=db):
+def make_hdf(start, end=None, fname=None, prefix='scan2D_', full_data=True):
     """
     Transfer multiple h5 files.
 
@@ -1887,13 +1897,13 @@ def make_hdf(start, end=None, fname=None, prefix='scan2D_', full_data=True, db=d
     if end == start:
         if fname is None:
             fname = prefix+str(start)+'.h5'
-        _make_hdf(fname, start, full_data=full_data, db=db)  # only transfer one file
+        _make_hdf(fname, start, full_data=full_data)  # only transfer one file
     else:
         datalist = range(start, end+1)
         for v in datalist:
             filename = prefix+str(v)+'.h5'
             try:
-                _make_hdf(filename, v, full_data=full_data, db=db)
+                _make_hdf(filename, v, full_data=full_data)
                 print('{} is created. \n'.format(filename))
             except:
                 print('Can not transfer scan {}. \n'.format(v))
