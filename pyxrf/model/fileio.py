@@ -1715,7 +1715,7 @@ def db_config(beamline_name='HXN'):
         return db
 
 
-def _make_hdf(fpath, runid, full_data=True, db=db, db_type='new'):
+def _make_hdf(fpath, runid, full_data=True, db=db):
     """
     Save the data from databroker to hdf file.
 
@@ -1730,19 +1730,23 @@ def _make_hdf(fpath, runid, full_data=True, db=db, db_type='new'):
     full_data : bool, optional
         save baseline data and all other information if True
     db : databroker
-    db_type : str
-        two databases at hxn, temp solution
     """
-    hdr_tmp = db[-1]  # used to check which beamline it is, there should be better way
+    # check which beamline it is from config file
+    config_path = '~/.config/pyxrf'
+    with open(config_path, 'r') as json_data:
+        config_data = json.load(json_data)
+    beamline_name = config_data['beamline_name']
+
     print('Loading data from database.')
 
-    if hdr_tmp.start.beamline_id == 'HXN':
+    if beamline_name == 'HXN':
         # two databases at hxn
-        if db_type == 'new':
+        try:
             db = db_config(beamline_name='HXN')
-        else:
+            hdr = db[runid]
+        except ValueError:
             db = db_config(beamline_name='HXN_old')
-        hdr = db[runid]
+            hdr = db[runid]
 
         start_doc = hdr['start']
         if 'dimensions' in start_doc:
@@ -1804,7 +1808,7 @@ def _make_hdf(fpath, runid, full_data=True, db=db, db_type='new'):
         if full_data == True:
             sc.export(hdr, fpath, db.mds, fields=fds, use_uid=False)
 
-    elif hdr_tmp.start.beamline_id == 'xf05id':
+    elif beamline_name == 'SRX':
         hdr = db[runid]
         spectrum_len = 4096
         start_doc = hdr['start']
@@ -1927,7 +1931,7 @@ def get_total_scan_point(hdr):
     return n
 
 
-def make_hdf(start, end=None, fname=None, prefix='scan2D_', full_data=True, db=db, db_type='new'):
+def make_hdf(start, end=None, fname=None, prefix='scan2D_', full_data=True, db=db):
     """
     Transfer multiple h5 files.
 
@@ -1945,8 +1949,6 @@ def make_hdf(start, end=None, fname=None, prefix='scan2D_', full_data=True, db=d
     full_data : bool, optional
         save baseline data and all other information if True
     db : databroker
-    db_type : str
-        two databases at hxn, temp solution
     """
     if end is None:
         end = start
@@ -1954,13 +1956,13 @@ def make_hdf(start, end=None, fname=None, prefix='scan2D_', full_data=True, db=d
     if end == start:
         if fname is None:
             fname = prefix+str(start)+'.h5'
-        _make_hdf(fname, start, full_data=full_data, db=db, db_type=db_type)  # only transfer one file
+        _make_hdf(fname, start, full_data=full_data, db=db)  # only transfer one file
     else:
         datalist = range(start, end+1)
         for v in datalist:
             filename = prefix+str(v)+'.h5'
             try:
-                _make_hdf(filename, v, full_data=full_data, db=db, db_type=db_type)
+                _make_hdf(filename, v, full_data=full_data, db=db)
                 print('{} is created. \n'.format(filename))
             except:
                 print('Can not transfer scan {}. \n'.format(v))
