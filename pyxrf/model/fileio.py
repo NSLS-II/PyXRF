@@ -1833,7 +1833,6 @@ def _make_hdf(fpath, runid, full_data=True):
                 
             #data_xrf = np.vstack(data['fluor'])
             #data_xrf = np.zeros([datashape[0]*datashape[1], 3,spectrum_len])
-            print('Loading data from databroker')
             for i in range(num_det):
                 new_data['det'+str(i+1)] = np.zeros(new_shape)
             e = db.get_events(hdr, fill=True, 
@@ -1841,7 +1840,6 @@ def _make_hdf(fpath, runid, full_data=True):
             for m,v in enumerate(e):
                 for i in range(num_det):  # in case the data length in each line is different
                     new_data['det'+str(i+1)][m,:v.data['fluor'].shape[0],:] = v.data['fluor'][:,i,:]
-            print('Done with getting event data point by point')
             
             try:
                 for i,v in enumerate(scaler_list):
@@ -1882,7 +1880,7 @@ def _make_hdf(fpath, runid, full_data=True):
             else:
                 print('x,y positions are not saved.')
             # output to file
-            print('Wrting data to h5 file.')
+            print('Saving data to hdf file.')
             write_db_to_hdf_base(fpath, new_data, num_det=num_det)
             print('Done!')
     else:
