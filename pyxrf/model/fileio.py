@@ -1822,26 +1822,40 @@ def _make_hdf(fpath, runid, full_data=True):
             ypos_name = 'hf_stage_y'
 
             datashape = [start_doc['shape'][1], start_doc['shape'][0]]   # vertical first then horizontal]   # vertical first then horizontal
-            data = db.get_table(hdr, fill=True, stream_name='stream0')
+            data = db.get_table(hdr, fill=True, 
+                                fields=scaler_list+[xpos_name], 
+                                stream_name='stream0')
             new_data = {}
             new_data['scaler_names'] = scaler_list
-            datashape[0] = len(data['fluor'])  # in case some scan not finished
+            #datashape[0] = len(data['fluor'])  # in case some scan not finished
             new_shape = datashape + [spectrum_len]
             scaler_tmp = np.zeros([datashape[0], datashape[1], len(scaler_list)])
+                
+            #data_xrf = np.vstack(data['fluor'])
+            #data_xrf = np.zeros([datashape[0]*datashape[1], 3,spectrum_len])
+            print('Loading data from databroker')
+            for i in range(num_det):
+                new_data['det'+str(i+1)] = np.zeros(new_shape)
+            e = db.get_events(hdr, fill=True, 
+                              fields=['fluor'], stream_name='stream0')
+            for m,v in enumerate(e):
+                for i in range(num_det):  # in case the data length in each line is different
+                    new_data['det'+str(i+1)][m,:v.data['fluor'].shape[0],:] = v.data['fluor'][:,i,:]
+            print('Done with getting event data point by point')
+            
             try:
-                data_xrf = np.vstack(data['fluor'])
-                for i in range(num_det):
-                    new_data['det'+str(i+1)] = data_xrf[:,i,:].reshape(new_shape)
                 for i,v in enumerate(scaler_list):
                     scaler_tmp[:,:,i] = np.vstack(data[v])
                 new_data['scaler_data'] = scaler_tmp
                 x_pos = np.vstack(data[xpos_name])
             except ValueError: # in case the data length in each line is different
-                for i in range(num_det):
-                    tmp = np.zeros(new_shape)
-                    for m,v in enumerate(data['fluor']):
-                        tmp[m,:v.shape[0],:] = v[:,i,:]
-                    new_data['det'+str(i+1)] = tmp
+                #for i in range(num_det):
+                #    tmp = np.zeros(new_shape)
+                #    e = db.get_events(hdr, fill=True, stream_name='stream0')
+                    #for m,v in enumerate(data['fluor']):
+                #    for m,v in enumerate(e):
+                #        tmp[m,:v.shape[0],:] = v[:,i,:]
+                #    new_data['det'+str(i+1)] = tmp
                 for i,v in enumerate(scaler_list):
                     for m, scalerv in enumerate(data[v]):
                         min_len = min(len(scalerv), datashape[1])
@@ -1868,8 +1882,9 @@ def _make_hdf(fpath, runid, full_data=True):
             else:
                 print('x,y positions are not saved.')
             # output to file
+            print('Wrting data to h5 file.')
             write_db_to_hdf_base(fpath, new_data, num_det=num_det)
-
+            print('Done!')
     else:
         print("Databroker is not setup for this beamline")
 
