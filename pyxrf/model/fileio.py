@@ -54,6 +54,7 @@ import glob
 import ast
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
+import multiprocessing
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float, Bool
 
 import logging
@@ -1821,7 +1822,6 @@ def _make_hdf(fpath, runid, full_data=True):
                             base_val=config_data['base_value'])  #base value shift for ic
             print('Done!')
         else:
-            import time
             # srx fly scan
             num_det = 3
             scaler_list = ['i0', 'time']
@@ -1829,8 +1829,6 @@ def _make_hdf(fpath, runid, full_data=True):
             ypos_name = 'hf_stage_y'
             point_limit = 400*400  # if number of point is larger than this, only sum data is saved in h5 file
 
-            t = time.time()
-            print(t)
             datashape = [start_doc['shape'][1], start_doc['shape'][0]]   # vertical first then horizontal
             total_points = datashape[0]*datashape[1]
             #data = db.get_table(hdr, fill=True,
@@ -1858,6 +1856,8 @@ def _make_hdf(fpath, runid, full_data=True):
                 for n in scaler_list+[xpos_name]:
                     min_len = min(v.data[n].size, datashape[1])
                     data[n][m, :min_len] = v.data[n]
+
+
 
                 if total_points > point_limit:
                     for i in range(num_det):
@@ -1888,8 +1888,6 @@ def _make_hdf(fpath, runid, full_data=True):
                 print('x,y positions are not saved.')
             # output to file
             print('Saving data to hdf file.')
-            t = time.time()
-            print(t)
             if total_points > point_limit:
                 create_each_det=False
             write_db_to_hdf_base(fpath, new_data, num_det=num_det,
@@ -1900,8 +1898,28 @@ def _make_hdf(fpath, runid, full_data=True):
 
     free_memory_from_handler()
 
-    t = time.time()
-    print(t)
+
+def get_data_per_event(n, data, e, det_num):
+    db.fill_event(e)
+    min_len = e.data['fluor'].shape[0]
+    for i in range(det_num):
+        data[n, :min_len, :] += e.data['fluor'][:,i,:]
+
+
+def get_data_parallel(data, elist, det_num):
+    num_processors_to_use = multiprocessing.cpu_count()-2
+
+    print('cpu count: {}'.format(num_processors_to_use))
+    pool = multiprocessing.Pool(num_processors_to_use)
+
+    result_pool = [
+        pool.apply_async(get_data_per_event, (n, data, e, det_num))
+        for n, e in enumerate(elist)]
+
+    results = [r.get() for r in result_pool]
+
+    pool.terminate()
+    pool.join()
 
 
 def get_total_scan_point(hdr):
