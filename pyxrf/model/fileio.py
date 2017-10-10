@@ -1888,8 +1888,9 @@ def _make_hdf(fpath, runid, full_data=True):
                 print('x,y positions are not saved.')
             # output to file
             print('Saving data to hdf file.')
+            create_each_det = True
             if total_points > point_limit:
-                create_each_det=False
+                create_each_det = False
             write_db_to_hdf_base(fpath, new_data, num_det=num_det,
                                  create_each_det=create_each_det)
             print('Done!')
