@@ -54,6 +54,7 @@ import glob
 import ast
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
+import multiprocessing
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float, Bool
 
 import logging
@@ -1548,7 +1549,7 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
     f.close()
 
 
-def write_db_to_hdf_base(fpath, data, num_det=3):
+def write_db_to_hdf_base(fpath, data, num_det=3, create_each_det=True):
     """
     Data is obained based on databroker, and save the data to hdf file.
 
@@ -1562,22 +1563,28 @@ def write_db_to_hdf_base(fpath, data, num_det=3):
         fluorescence data with scaler value and positions
     num_det : int
         number of detector
+    create_each_det : Bool, optional
+        if number of point is too large, only sum data is saved in h5 file
     """
     interpath = 'xrfmap'
     sum_data = None
 
     with h5py.File(fpath, 'a') as f:
-        for n in range(num_det):
-            detname = 'det' + str(n+1)
-            dataGrp = f.create_group(interpath+'/'+detname)
-            new_data = data[detname]
+        if create_each_det is True:
+            for n in range(num_det):
+                detname = 'det' + str(n+1)
+                new_data = data[detname]
 
-            if sum_data is None:
-                sum_data = new_data
-            else:
-                sum_data += new_data
-            ds_data = dataGrp.create_dataset('counts', data=new_data, compression='gzip')
-            ds_data.attrs['comments'] = 'Experimental data from channel ' + str(n)
+                if sum_data is None:
+                    sum_data = new_data
+                else:
+                    sum_data += new_data
+
+                dataGrp = f.create_group(interpath+'/'+detname)
+                ds_data = dataGrp.create_dataset('counts', data=new_data, compression='gzip')
+                ds_data.attrs['comments'] = 'Experimental data from channel ' + str(n)
+        else:
+            sum_data = data['det_sum']
 
         # summed data
         if sum_data is not None:
@@ -1856,39 +1863,51 @@ def _make_hdf(fpath, runid, full_data=True, db=db, db_type='new'):
             scaler_list = ['i0', 'time']
             xpos_name = 'enc1'
             ypos_name = 'hf_stage_y'
+            point_limit = 400*400  # if number of point is larger than this, only sum data is saved in h5 file
 
-            datashape = [start_doc['shape'][1], start_doc['shape'][0]]   # vertical first then horizontal]   # vertical first then horizontal
-            data = db.get_table(hdr, fill=True, stream_name='stream0')
+            datashape = [start_doc['shape'][1], start_doc['shape'][0]]   # vertical first then horizontal
+            total_points = datashape[0]*datashape[1]
+            #data = db.get_table(hdr, fill=True,
+            #                    fields=scaler_list+[xpos_name],
+            #                    stream_name='stream0')
             new_data = {}
             new_data['scaler_names'] = scaler_list
-            datashape[0] = len(data['fluor'])  # in case some scan not finished
+            #datashape[0] = len(data['fluor'])  # in case some scan not finished
             new_shape = datashape + [spectrum_len]
             scaler_tmp = np.zeros([datashape[0], datashape[1], len(scaler_list)])
-            try:
-                data_xrf = np.vstack(data['fluor'])
-                for i in range(num_det):
-                    new_data['det'+str(i+1)] = data_xrf[:,i,:].reshape(new_shape)
-                for i,v in enumerate(scaler_list):
-                    scaler_tmp[:,:,i] = np.vstack(data[v])
-                new_data['scaler_data'] = scaler_tmp
-                x_pos = np.vstack(data[xpos_name])
-            except ValueError: # in case the data length in each line is different
-                for i in range(num_det):
-                    tmp = np.zeros(new_shape)
-                    for m,v in enumerate(data['fluor']):
-                        tmp[m,:v.shape[0],:] = v[:,i,:]
-                    new_data['det'+str(i+1)] = tmp
-                for i,v in enumerate(scaler_list):
-                    for m, scalerv in enumerate(data[v]):
-                        min_len = min(len(scalerv), datashape[1])
-                        scaler_tmp[m,:min_len,i] = scalerv[:min_len]
-                new_data['scaler_data'] = scaler_tmp
-                x_pos = np.zeros(datashape)
-                for i,v in enumerate(data[xpos_name]):
-                    min_len = min(len(v), datashape[1])
-                    x_pos[i,:min_len] = v[:min_len]
 
-            # get position data
+            e = db.get_events(hdr, fill=True, stream_name='stream0')
+            data = {}
+
+            for v in scaler_list+[xpos_name]:
+                data[v] = np.zeros([datashape[0], datashape[1]])
+
+            if total_points > point_limit:
+                new_data['det_sum'] = np.zeros(new_shape)
+            else:
+                for i in range(num_det):
+                    new_data['det'+str(i+1)] = np.zeros(new_shape)
+
+            for m,v in enumerate(e):
+                for n in scaler_list+[xpos_name]:
+                    min_len = min(v.data[n].size, datashape[1])
+                    data[n][m, :min_len] = v.data[n]
+
+
+
+                if total_points > point_limit:
+                    for i in range(num_det):
+                        new_data['det_sum'][m,:v.data['fluor'].shape[0],:] += v.data['fluor'][:,i,:]
+                else:
+                    for i in range(num_det):  # in case the data length in each line is different
+                        new_data['det'+str(i+1)][m,:v.data['fluor'].shape[0],:] = v.data['fluor'][:,i,:]
+
+            for i,v in enumerate(scaler_list):
+                scaler_tmp[:,:,i] = data[v]
+            new_data['scaler_data'] = scaler_tmp
+            x_pos = data[xpos_name]
+
+            # get y position data
             data1 = db.get_table(hdr, fill=True, stream_name='primary')
             y_pos0 = np.hstack(data1[ypos_name])
             if len(y_pos0) >= x_pos.shape[0]:
@@ -1904,12 +1923,40 @@ def _make_hdf(fpath, runid, full_data=True, db=db, db_type='new'):
             else:
                 print('x,y positions are not saved.')
             # output to file
-            write_db_to_hdf_base(fpath, new_data, num_det=num_det)
-
+            print('Saving data to hdf file.')
+            create_each_det = True
+            if total_points > point_limit:
+                create_each_det = False
+            write_db_to_hdf_base(fpath, new_data, num_det=num_det,
+                                 create_each_det=create_each_det)
+            print('Done!')
     else:
         print("Databroker is not setup for this beamline")
 
     free_memory_from_handler()
+
+
+def get_data_per_event(n, data, e, det_num):
+    db.fill_event(e)
+    min_len = e.data['fluor'].shape[0]
+    for i in range(det_num):
+        data[n, :min_len, :] += e.data['fluor'][:,i,:]
+
+
+def get_data_parallel(data, elist, det_num):
+    num_processors_to_use = multiprocessing.cpu_count()-2
+
+    print('cpu count: {}'.format(num_processors_to_use))
+    pool = multiprocessing.Pool(num_processors_to_use)
+
+    result_pool = [
+        pool.apply_async(get_data_per_event, (n, data, e, det_num))
+        for n, e in enumerate(elist)]
+
+    results = [r.get() for r in result_pool]
+
+    pool.terminate()
+    pool.join()
 
 
 def get_total_scan_point(hdr):
