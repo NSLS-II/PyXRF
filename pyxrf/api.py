@@ -10,3 +10,4 @@ try:
 except ImportError as e:
     db = None
     logger.error('databroker is not available: %s', e)
+

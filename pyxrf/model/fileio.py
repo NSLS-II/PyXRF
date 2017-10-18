@@ -60,63 +60,29 @@ from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float, Bo
 import logging
 logger = logging.getLogger()
 
+import warnings
+warnings.filterwarnings('ignore')
+
 try:
-    from databroker import db, get_table, get_events  # this line is to be removed
-    from databroker import Broker
-    from metadatastore.mds import MDS
-    from filestore.fs import FileStore
-    try:
-        from hxntools.handlers.xspress3 import Xspress3HDF5Handler
-        from hxntools.handlers.timepix import TimepixHDF5Handler
-        db.fs.register_handler(Xspress3HDF5Handler.HANDLER_NAME,
-                               Xspress3HDF5Handler)
-        db.fs.register_handler(TimepixHDF5Handler._handler_name,
-                               TimepixHDF5Handler, overwrite=True)
-    except ImportError:
-        logger.error('hxntools is not available')
-    try:
-        # srx detector, to be moved to filestore
-        from filestore.handlers import Xspress3HDF5Handler, HandlerBase
-        class BulkXSPRESS(HandlerBase):
-            HANDLER_NAME = 'XPS3_FLY'
-            def __init__(self, resource_fn):
-                self._handle = h5py.File(resource_fn, 'r')
-
-            def __call__(self):
-                return self._handle['entry/instrument/detector/data'][:]
-
-        db.fs.register_handler(BulkXSPRESS.HANDLER_NAME, BulkXSPRESS,
-                               overwrite=True)
-
-        class ZebraHDF5Handler(HandlerBase):
-            HANDLER_NAME = 'ZEBRA_HDF51'
-            def __init__(self, resource_fn):
-                self._handle = h5py.File(resource_fn, 'r')
-
-            def __call__(self, column):
-                return self._handle[column][:]
-
-        class SISHDF5Handler(HandlerBase):
-            HANDLER_NAME = 'SIS_HDF51'
-            def __init__(self, resource_fn):
-                self._handle = h5py.File(resource_fn, 'r')
-
-            def __call__(self, column):
-                return self._handle[column][:]
-
-        db.fs.register_handler('SIS_HDF51', SISHDF5Handler, overwrite=True)
-        db.fs.register_handler('ZEBRA_HDF51', ZebraHDF5Handler, overwrite=True)
-    except ImportError:
-        logger.error('Filestore is not available.')
-
-except (ImportError, KeyError):
+    config_path = '/etc/pyxrf/pyxrf.json'
+    with open(config_path, 'r') as beamline_pyxrf:
+        beamline_config_pyxrf = json.load(beamline_pyxrf)
+        beamline_name = beamline_config_pyxrf['beamline_name']
+    if beamline_name == 'HXN':
+        from pyxrf.db_config.hxn_db_config import db
+    elif beamline_name == 'SRX':
+        from pyxrf.db_config.srx_db_config import db
+    else:
+        db = None
+        print('Beamline Database is not used in pyxrf.')
+except IOError:
     db = None
-    logger.error('databroker is not available')
+    print('Beamline Database is not used in pyxrf.')
 
 try:
     import suitcase.hdf5 as sc
 except ImportError:
-    logger.error('suitcase is not loaded.')
+    pass
 
 
 class FileIOModel(Atom):
@@ -423,7 +389,7 @@ def fetch_data_from_db(runid):
     # data = muxer.to_sparse_dataframe()
     fields = ['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3',
               'ssx[um]', 'ssy[um]', 'ssx', 'ssy', 'sclr1_ch3', 'sclr1_ch4']
-    d = get_table(db[runid], fields=fields)
+    d = db.get_table(db[runid], fields=fields)
     return d
 
 
@@ -1687,42 +1653,7 @@ def get_name_value_from_db(name_list, data, datashape):
     return pos_names, pos_data
 
 
-def db_config(beamline_name='HXN'):
-    """Temporary solution to deal with 2 databases at hxn.
-    """
-    if beamline_name == 'HXN_old':
-        _mds_config = {'host': 'xf03id-ca1',
-               'port': 27017,
-               'database': 'datastore',
-               'timezone': 'US/Eastern'}
-        mds = MDS(_mds_config, auth=False)
-        _fs_config = {'host': 'xf03id-ca1',
-                      'port': 27017,
-                      'database': 'filestore'}
-        db = Broker(mds, FileStore(_fs_config))
-        db.fs.register_handler(Xspress3HDF5Handler.HANDLER_NAME,
-                               Xspress3HDF5Handler)
-        db.fs.register_handler(TimepixHDF5Handler._handler_name,
-                               TimepixHDF5Handler, overwrite=True)
-        return db
-    elif beamline_name == 'HXN':
-        _mds_config = {'host': 'xf03id-ca1',
-                       'port': 27017,
-                       'database': 'datastore-new',
-                       'timezone': 'US/Eastern'}
-        mds = MDS(_mds_config, auth=False)
-        _fs_config = {'host': 'xf03id-ca1',
-                      'port': 27017,
-                      'database': 'filestore-new'}
-        db = Broker(mds, FileStore(_fs_config))
-        db.fs.register_handler(Xspress3HDF5Handler.HANDLER_NAME,
-                               Xspress3HDF5Handler)
-        db.fs.register_handler(TimepixHDF5Handler._handler_name,
-                               TimepixHDF5Handler, overwrite=True)
-        return db
-
-
-def _make_hdf(fpath, runid, full_data=True, db=db, db_type='new'):
+def _make_hdf(fpath, runid, full_data=True):
     """
     Save the data from databroker to hdf file.
 
@@ -1737,18 +1668,11 @@ def _make_hdf(fpath, runid, full_data=True, db=db, db_type='new'):
     full_data : bool, optional
         save baseline data and all other information if True
     db : databroker
-    db_type : str
-        two databases at hxn, temp solution
     """
-    hdr_tmp = db[-1]  # used to check which beamline it is, there should be better way
+    hdr_tmp = db[-1]
     print('Loading data from database.')
 
     if hdr_tmp.start.beamline_id == 'HXN':
-        # two databases at hxn
-        if db_type == 'new':
-            db = db_config(beamline_name='HXN')
-        else:
-            db = db_config(beamline_name='HXN_old')
         hdr = db[runid]
 
         start_doc = hdr['start']
@@ -1974,7 +1898,7 @@ def get_total_scan_point(hdr):
     return n
 
 
-def make_hdf(start, end=None, fname=None, prefix='scan2D_', full_data=True, db=db, db_type='new'):
+def make_hdf(start, end=None, fname=None, prefix='scan2D_', full_data=False):
     """
     Transfer multiple h5 files.
 
@@ -1992,8 +1916,6 @@ def make_hdf(start, end=None, fname=None, prefix='scan2D_', full_data=True, db=d
     full_data : bool, optional
         save baseline data and all other information if True
     db : databroker
-    db_type : str
-        two databases at hxn, temp solution
     """
     if end is None:
         end = start
@@ -2001,13 +1923,13 @@ def make_hdf(start, end=None, fname=None, prefix='scan2D_', full_data=True, db=d
     if end == start:
         if fname is None:
             fname = prefix+str(start)+'.h5'
-        _make_hdf(fname, start, full_data=full_data, db=db, db_type=db_type)  # only transfer one file
+        _make_hdf(fname, start, full_data=full_data)  # only transfer one file
     else:
         datalist = range(start, end+1)
         for v in datalist:
             filename = prefix+str(v)+'.h5'
             try:
-                _make_hdf(filename, v, full_data=full_data, db=db, db_type=db_type)
+                _make_hdf(filename, v, full_data=full_data)
                 print('{} is created. \n'.format(filename))
             except:
                 print('Can not transfer scan {}. \n'.format(v))
@@ -2060,7 +1982,7 @@ def export1d(runid, name=None):
     runid : int
         run number
     """
-    t = get_table(db[runid], fill=False)
+    t = db.get_table(db[runid], fill=False)
     if name is None:
         name = 'scan_'+str(runid)+'.txt'
     t.to_csv(name)
