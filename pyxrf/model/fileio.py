@@ -1971,6 +1971,53 @@ def export_hdf(runid, fname, xrf=False):
         sc.export(hdr, fname, db.mds, use_uid=False)
 
 
+def export_to_view(fpath, output_name=None, output_folder='', namelist=None):
+    """
+    Output fitted data to tablet data for visulization.
+
+    Parameters
+    ----------
+    fpath : str
+        input file path, file is pyxrf h5 file
+    output_name : str
+        output file name
+    otuput_folder : str, optional
+        default as current working folder
+    """
+    with h5py.File(fpath, 'r') as f:
+        d = f['xrfmap/detsum/xrf_fit'][:]
+        d = d.reshape([d.shape[0], -1])
+        elementlist = f['xrfmap/detsum/xrf_fit_name'][:]
+        elementlist = helper_decode_list(elementlist)
+
+        xy = f['xrfmap/positions/pos'][:]
+        xy =  xy.reshape([xy.shape[0], -1])
+        xy_name = ['X', 'Y']
+
+        names = xy_name + elementlist
+        data = np.concatenate((xy, d), axis=0)
+
+    data_dict = OrderedDict()
+    if namelist is None:
+        for i, k in enumerate(names):
+            if 'Userpeak' in k or 'r2_adjust' in k:
+                continue
+            data_dict.update({k: data[i,:]})
+    else:
+        for i, k in enumerate(names):
+            if k in namelist or k in xy_name:
+                data_dict.update({k: data[i,:]})
+
+    df = pd.DataFrame(data_dict)
+    if output_name is None:
+        fname = fpath.split('/')[-1]
+        output_name = fname.split('.')[0] + '_fit_view.csv'
+
+    outpath = os.path.join(output_folder, output_name)
+    print('{} is created.'.format(outpath))
+    df.to_csv(outpath, index=False)
+
+
 def export1d(runid, name=None):
     """
     Export all PVs to a file. Do not talk to filestore.
