@@ -98,9 +98,9 @@ deactivate
 ### Credits
 We kindly request that you cite the following article for the use of PyXRF.
 
-Li Li, Hanfei Yan, Wei Xu, Dantong Yu, Annie Heroux, Wah-Keat Lee, Stuart I. Campbell and Yong S. Chu, “PyXRF: Python-based X-ray fluorescence analysis package”, Proceedings Volume 10389, X-Ray Nanoimaging: Instruments and Methods III; 103890U; doi: 10.1117/12.2272585  (2017)
+Li Li, Hanfei Yan, Wei Xu, Dantong Yu, Annie Heroux, Wah-Keat Lee, Stuart I. Campbell and Yong S. Chu, “PyXRF: Python-based X-ray fluorescence analysis package”, Proceedings Volume 10389, X-Ray Nanoimaging: Instruments and Methods III; 103890U (2017); doi: 10.1117/12.2272585
 
-https://www.spiedigitallibrary.org/conference-proceedings-of-spie/10389/103890U/PyXRF-Python-based-X-ray-fluorescence-analysis-package/10.1117/12.2272585.short?SSO=1
+http://dx.doi.org/10.1117/12.2272585
 
 
 ### Input of h5 file for PyXRF
