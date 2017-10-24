@@ -731,14 +731,12 @@ class Fit1D(Atom):
             scaler_v = self.scaler_keys[self.scaler_index-1]
             logger.info('*** Data will be saved with NORMALIZATION from {} ***'.format(scaler_v))
         if to_tiff:
-            foldernames = self.hdf_name.split('.')[0]
-            output_n = 'output_tiff_' + foldernames.split('\\')[-1]
+            output_n = 'output_tiff_' + self.hdf_name.split('.')[0]
             output_data(self.hdf_path, os.path.join(self.result_folder, output_n),
                         norm_name=scaler_v)
             logger.info('Done with saving data {} to tiff files.'.format(output_n))
         else:
-            foldernames = self.hdf_name.split('.')[0]
-            output_n = 'output_txt_' + foldernames.split('\\')[-1]
+            output_n = 'output_txt_' + self.hdf_name.split('.')[0]
             output_data(self.hdf_path, os.path.join(self.result_folder, output_n),
                         file_format='txt', norm_name=scaler_v)
             logger.info('Done with saving data {} to txt files.'.format(output_n))
