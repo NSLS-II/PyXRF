@@ -1983,6 +1983,8 @@ def export_to_view(fpath, output_name=None, output_folder='', namelist=None):
         output file name
     otuput_folder : str, optional
         default as current working folder
+    namelist : list, optional
+        list of elemental names
     """
     with h5py.File(fpath, 'r') as f:
         d = f['xrfmap/detsum/xrf_fit'][:]
