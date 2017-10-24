@@ -46,6 +46,7 @@ from enaml.stdlib.fields import FloatField
 from enaml.stdlib.fields import IntField as DefaultIntField
 import os
 import numpy as np
+from ..model.fileio import sep_v
 
 try:
     import databroker
@@ -55,7 +56,7 @@ except ImportError:
 enamldef IntField(DefaultIntField):
     submit_triggers = ['auto_sync'] #['return_pressed']
 
-sep_v = os.sep
+
 
 enamldef FileView(DockItem): file_view:
     attr io_model

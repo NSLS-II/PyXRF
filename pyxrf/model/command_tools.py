@@ -5,7 +5,7 @@ import time
 import json
 import glob
 
-from .fileio import output_data, read_hdf_APS, read_MAPS
+from .fileio import output_data, read_hdf_APS, read_MAPS, sep_v
 from .fit_spectrum import single_pixel_fitting_controller, save_fitdata_to_hdf
 
 
@@ -203,7 +203,7 @@ def pyxrf_batch(start_id, end_id=None, wd=None, fit_channel_sum=True, param_file
             fpath = flist[0]
         except IndexError:
             print("File with runid {} doesn't exist.".format(start_id))
-        fname = fpath.split('/')[-1]
+        fname = fpath.split(sep_v)[-1]
         working_directory = fpath[:-len(fname)]
         fit_pixel_data_and_save(working_directory, fname, fit_channel_sum=fit_channel_sum, param_file_name=param_file_name,
                                 fit_channel_each=fit_channel_each, param_channel_list=param_channel_list,
@@ -217,7 +217,7 @@ def pyxrf_batch(start_id, end_id=None, wd=None, fit_channel_sum=True, param_file
         print('Number of files to fit: {}'.format(len(flist)))
         print('\n'.join(flist))
         for fpath in flist:
-            fname = fpath.split('/')[-1]
+            fname = fpath.split(sep_v)[-1]
             working_directory = fpath[:-len(fname)]
             fit_pixel_data_and_save(working_directory, fname, fit_channel_sum=fit_channel_sum, param_file_name=param_file_name,
                                     fit_channel_each=fit_channel_each, param_channel_list=param_channel_list,
