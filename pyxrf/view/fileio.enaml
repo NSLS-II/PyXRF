@@ -44,8 +44,9 @@ from enaml.core.api import Include, Looper
 from enaml.layout.geometry import Box
 from enaml.stdlib.fields import FloatField
 from enaml.stdlib.fields import IntField as DefaultIntField
-
+import os
 import numpy as np
+from ..model.fileio import sep_v
 
 try:
     import databroker
@@ -54,6 +55,7 @@ except ImportError:
 
 enamldef IntField(DefaultIntField):
     submit_triggers = ['auto_sync'] #['return_pressed']
+
 
 
 enamldef FileView(DockItem): file_view:
@@ -107,7 +109,7 @@ enamldef FileView(DockItem): file_view:
                         # only load one file
                         # 'temp' is used to reload the same file, otherwise file_name will not update
                         io_model.file_name = 'temp'
-                        io_model.file_name = [item.split('/')[-1] for item in path][0:1][0]
+                        io_model.file_name = [item.split(sep_v)[-1] for item in path][0:1][0]
                         files_load.text = '{} is loaded.'.format(io_model.file_name)
 
                         plot_model.parameters = param_model.param_new
@@ -297,8 +299,8 @@ enamldef MaskView(Window): mask_view:
             clicked ::
                 path = FileDialogEx.get_open_file_names(mask_view, current_path=io_model.working_directory)
                 if path:
-                    io_model.mask_name = [item.split('/')[-1] for item in path][0]
-                    mask_load_note.text = [item.split('/')[-1] for item in path][0]
+                    io_model.mask_name = [item.split(sep_v)[-1] for item in path][0]
+                    mask_load_note.text = [item.split(sep_v)[-1] for item in path][0]
         Label: mask_load_note:
             text = 'No file is loaded.'
 

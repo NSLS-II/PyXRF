@@ -62,16 +62,6 @@ def get_defaults():
     working_directory = os.path.join(os.path.expanduser('~'),
                                      sub_folder)
     output_directory = working_directory
-
-    # grab the default parameter file
-    # current_dir = os.path.dirname(os.path.realpath(__file__))
-    # temp = current_dir.split('/')[:-1]
-    # temp.append('configs')
-    # param_dir = '/'.join(temp)
-    # default_parameter_file = os.path.join(
-    #     param_dir, 'xrf_parameter.json')
-    # with open(default_parameter_file, 'r') as json_data:
-    #     default_parameters = json.load(json_data)
     default_parameters = param_data
     defaults = {'working_directory': working_directory,
                 #'output_directory': output_directory,

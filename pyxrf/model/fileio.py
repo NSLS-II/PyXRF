@@ -63,6 +63,8 @@ logger = logging.getLogger()
 import warnings
 warnings.filterwarnings('ignore')
 
+sep_v = os.sep
+
 try:
     config_path = '/etc/pyxrf/pyxrf.json'
     with open(config_path, 'r') as beamline_pyxrf:
@@ -568,7 +570,7 @@ def output_data(fpath, output_folder,
     """
 
     with h5py.File(fpath, 'r') as f:
-        tmp = output_folder.split('/')[-1]
+        tmp = output_folder.split(sep_v)[-1]
         name_append = tmp.split('_')[-1]
         if name_append.isdigit():
             name_append = '_'+name_append
@@ -821,7 +823,7 @@ def retrieve_data_from_hdf_suitcase(fpath):
             if start_doc['beamline_id'] == 'HXN':
                 current_dir = os.path.dirname(os.path.realpath(__file__))
                 config_file = 'hxn_pv_config.json'
-                config_path = '/'.join(current_dir.split('/')[:-2]+['configs', config_file])
+                config_path = sep_v.join(current_dir.split(sep_v)[:-2]+['configs', config_file])
                 with open(config_path, 'r') as json_data:
                     config_data = json.load(json_data)
                 extra_list = config_data['other_list']
@@ -1082,7 +1084,7 @@ def make_hdf_stitched(working_directory, filelist, fname,
             result[m] = n.ravel()
     current_dir = os.path.dirname(os.path.realpath(__file__))
     config_file = 'srx_pv_config.json'
-    config_path = '/'.join(current_dir.split('/')[:-2]+['configs', config_file])
+    config_path = sep_v.join(current_dir.split(sep_v)[:-2]+['configs', config_file])
     with open(config_path, 'r') as json_data:
         config_data = json.load(json_data)
 
@@ -1181,7 +1183,7 @@ def stitch_fitted_results(working_directory, folderlist, output=None):
     # get all filenames
     fpath = os.path.join(working_directory, folderlist[0], '*')
     pathlist = [name for name in glob.glob(fpath)]
-    filelist = [name.split('/')[-1] for name in pathlist]
+    filelist = [name.split(sep_v)[-1] for name in pathlist]
     out = {}
     for filename in filelist:
         if 'x_pos' in filename:
@@ -1696,7 +1698,7 @@ def _make_hdf(fpath, runid, full_data=True):
 
         current_dir = os.path.dirname(os.path.realpath(__file__))
         config_file = 'hxn_pv_config.json'
-        config_path = '/'.join(current_dir.split('/')[:-2]+['configs', config_file])
+        config_path = sep_v.join(current_dir.split(sep_v)[:-2]+['configs', config_file])
         with open(config_path, 'r') as json_data:
             config_data = json.load(json_data)
 
@@ -1750,7 +1752,7 @@ def _make_hdf(fpath, runid, full_data=True):
 
             current_dir = os.path.dirname(os.path.realpath(__file__))
             config_file = 'srx_pv_config.json'
-            config_path = '/'.join(current_dir.split('/')[:-2]+['configs', config_file])
+            config_path = sep_v.join(current_dir.split(sep_v)[:-2]+['configs', config_file])
             with open(config_path, 'r') as json_data:
                 config_data = json.load(json_data)
 
@@ -2013,7 +2015,7 @@ def export_to_view(fpath, output_name=None, output_folder='', namelist=None):
 
     df = pd.DataFrame(data_dict)
     if output_name is None:
-        fname = fpath.split('/')[-1]
+        fname = fpath.split(sep_v)[-1]
         output_name = fname.split('.')[0] + '_fit_view.csv'
 
     outpath = os.path.join(output_folder, output_name)
@@ -2233,7 +2235,7 @@ def print_image(fig):
         if hdr.start.beamline_id == 'HXN':
             current_dir = os.path.dirname(os.path.realpath(__file__))
             config_file = 'hxn_pv_config.json'
-            config_path = '/'.join(current_dir.split('/')[:-2]+['configs', config_file])
+            config_path = sep_v.join(current_dir.split(sep_v)[:-2]+['configs', config_file])
             with open(config_path, 'r') as json_data:
                 config_data = json.load(json_data)
             fpath = config_data.get('print_path', None)

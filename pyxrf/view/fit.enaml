@@ -54,6 +54,7 @@ from enaml.stdlib.fields import IntField as DefaultIntField
 
 from ..model.guessparam import fit_strategy_list, save_as, bound_options, autofit_param
 from ..model.fit_spectrum import get_cs
+from ..model.fileio import sep_v
 
 from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 from skbeam.fluorescence import XrfElement as Element
@@ -142,7 +143,7 @@ enamldef FitView(DockItem): fit_view:
                         setting_model.update_parameter(fit_model.default_parameters)
 
                         # update file name
-                        lbl_param.text = 'Loaded file: {}'.format(parameter_file_path.split('/')[-1])
+                        lbl_param.text = 'Loaded file: {}'.format(parameter_file_path.split(sep_v)[-1])
 
                         # calculate profile and plot
                         fit_model.get_profile()
