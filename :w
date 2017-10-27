@@ -60,31 +60,73 @@ from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float, Bo
 import logging
 logger = logging.getLogger()
 
-import warnings
-warnings.filterwarnings('ignore')
-
-sep_v = os.sep
-
 try:
-    config_path = '/etc/pyxrf/pyxrf.json'
-    with open(config_path, 'r') as beamline_pyxrf:
-        beamline_config_pyxrf = json.load(beamline_pyxrf)
-        beamline_name = beamline_config_pyxrf['beamline_name']
-    if beamline_name == 'HXN':
-        from pyxrf.db_config.hxn_db_config import db
-    elif beamline_name == 'SRX':
-        from pyxrf.db_config.srx_db_config import db
-    else:
-        db = None
-        print('Beamline Database is not used in pyxrf.')
-except IOError:
+    from databroker import db, get_table, get_events
+    try:
+        from hxntools.handlers.xspress3 import Xspress3HDF5Handler
+        from hxntools.handlers.timepix import TimepixHDF5Handler
+        db.fs.register_handler(Xspress3HDF5Handler.HANDLER_NAME,
+                               Xspress3HDF5Handler)
+        db.fs.register_handler(TimepixHDF5Handler._handler_name,
+                               TimepixHDF5Handler, overwrite=True)
+    except ImportError:
+        logger.error('hxntools is not available')
+    try:
+        # srx detector, to be moved to filestore
+        from filestore.handlers import Xspress3HDF5Handler, HandlerBase
+        class BulkXSPRESS(HandlerBase):
+            HANDLER_NAME = 'XPS3_FLY'
+            def __init__(self, resource_fn):
+                self._handle = h5py.File(resource_fn, 'r')
+
+            def __call__(self):
+                return self._handle['entry/instrument/detector/data'][:]
+
+        db.fs.register_handler(BulkXSPRESS.HANDLER_NAME, BulkXSPRESS,
+                               overwrite=True)
+
+        class ZebraHDF5Handler(HandlerBase):
+            HANDLER_NAME = 'ZEBRA_HDF51'
+            def __init__(self, resource_fn):
+                self._handle = h5py.File(resource_fn, 'r')
+
+            def __call__(self, column):
+                return self._handle[column][:]
+
+        class SISHDF5Handler(HandlerBase):
+            HANDLER_NAME = 'SIS_HDF51'
+            def __init__(self, resource_fn):
+                self._handle = h5py.File(resource_fn, 'r')
+
+            def __call__(self, column):
+                return self._handle[column][:]
+
+        db.fs.register_handler('SIS_HDF51', SISHDF5Handler, overwrite=True)
+        db.fs.register_handler('ZEBRA_HDF51', ZebraHDF5Handler, overwrite=True)
+    except ImportError:
+        logger.error('Filestore is not available.')
+
+except (ImportError, KeyError):
     db = None
-    print('Beamline Database is not used in pyxrf.')
+    logger.error('databroker is not available')
+
+#try:
+    # registers a filestore handler for the XSPRESS3 detector
+#    from hxntools import handlers as hxn_handlers
+#    from hxntools.handlers import register
+#    register()
+#except ImportError as e:
+#    logger.error('hxntools is not available from old version: %s', e)
+
+#try:
+#    import vortex_handler
+#except ImportError as e:
+#    logger.error('handler is not loaded.')
 
 try:
     import suitcase.hdf5 as sc
 except ImportError:
-    pass
+    logger.error('suitcase is not loaded.')
 
 
 class FileIOModel(Atom):
@@ -391,7 +433,7 @@ def fetch_data_from_db(runid):
     # data = muxer.to_sparse_dataframe()
     fields = ['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3',
               'ssx[um]', 'ssy[um]', 'ssx', 'ssy', 'sclr1_ch3', 'sclr1_ch4']
-    d = db.get_table(db[runid], fields=fields)
+    d = get_table(db[runid], fields=fields)
     return d
 
 
@@ -570,7 +612,7 @@ def output_data(fpath, output_folder,
     """
 
     with h5py.File(fpath, 'r') as f:
-        tmp = output_folder.split(sep_v)[-1]
+        tmp = output_folder.split('/')[-1]
         name_append = tmp.split('_')[-1]
         if name_append.isdigit():
             name_append = '_'+name_append
@@ -823,7 +865,7 @@ def retrieve_data_from_hdf_suitcase(fpath):
             if start_doc['beamline_id'] == 'HXN':
                 current_dir = os.path.dirname(os.path.realpath(__file__))
                 config_file = 'hxn_pv_config.json'
-                config_path = sep_v.join(current_dir.split(sep_v)[:-2]+['configs', config_file])
+                config_path = '/'.join(current_dir.split('/')[:-2]+['configs', config_file])
                 with open(config_path, 'r') as json_data:
                     config_data = json.load(json_data)
                 extra_list = config_data['other_list']
@@ -1084,7 +1126,7 @@ def make_hdf_stitched(working_directory, filelist, fname,
             result[m] = n.ravel()
     current_dir = os.path.dirname(os.path.realpath(__file__))
     config_file = 'srx_pv_config.json'
-    config_path = sep_v.join(current_dir.split(sep_v)[:-2]+['configs', config_file])
+    config_path = '/'.join(current_dir.split('/')[:-2]+['configs', config_file])
     with open(config_path, 'r') as json_data:
         config_data = json.load(json_data)
 
@@ -1183,7 +1225,7 @@ def stitch_fitted_results(working_directory, folderlist, output=None):
     # get all filenames
     fpath = os.path.join(working_directory, folderlist[0], '*')
     pathlist = [name for name in glob.glob(fpath)]
-    filelist = [name.split(sep_v)[-1] for name in pathlist]
+    filelist = [name.split('/')[-1] for name in pathlist]
     out = {}
     for filename in filelist:
         if 'x_pos' in filename:
@@ -1669,14 +1711,11 @@ def _make_hdf(fpath, runid, full_data=True, create_each_det=False):
         id number for given run
     full_data : bool, optional
         save baseline data and all other information if True
-    db : databroker
     """
-    hdr_tmp = db[-1]
+    hdr = db[runid]
     print('Loading data from database.')
 
-    if hdr_tmp.start.beamline_id == 'HXN':
-        hdr = db[runid]
-
+    if hdr.start.beamline_id == 'HXN':
         start_doc = hdr['start']
         if 'dimensions' in start_doc:
             datashape = start_doc.dimensions
@@ -1698,7 +1737,7 @@ def _make_hdf(fpath, runid, full_data=True, create_each_det=False):
 
         current_dir = os.path.dirname(os.path.realpath(__file__))
         config_file = 'hxn_pv_config.json'
-        config_path = sep_v.join(current_dir.split(sep_v)[:-2]+['configs', config_file])
+        config_path = '/'.join(current_dir.split('/')[:-2]+['configs', config_file])
         with open(config_path, 'r') as json_data:
             config_data = json.load(json_data)
 
@@ -1737,8 +1776,7 @@ def _make_hdf(fpath, runid, full_data=True, create_each_det=False):
         if full_data == True:
             sc.export(hdr, fpath, db.mds, fields=fds, use_uid=False)
 
-    elif hdr_tmp.start.beamline_id == 'xf05id':
-        hdr = db[runid]
+    elif hdr.start.beamline_id == 'xf05id':
         spectrum_len = 4096
         start_doc = hdr['start']
         plan_n = start_doc.get('plan_name')
@@ -1752,7 +1790,7 @@ def _make_hdf(fpath, runid, full_data=True, create_each_det=False):
 
             current_dir = os.path.dirname(os.path.realpath(__file__))
             config_file = 'srx_pv_config.json'
-            config_path = sep_v.join(current_dir.split(sep_v)[:-2]+['configs', config_file])
+            config_path = '/'.join(current_dir.split('/')[:-2]+['configs', config_file])
             with open(config_path, 'r') as json_data:
                 config_data = json.load(json_data)
 
@@ -1920,7 +1958,6 @@ def make_hdf(start, end=None, fname=None,
         prefix name of the file
     full_data : bool, optional
         save baseline data and all other information if True
-    db : databroker
     create_each_det: bool, optional
         Do not create data for each detector is data size is too large, if set as false.
         This will slow down the speed of creating hdf file with large data size.
@@ -1979,55 +2016,6 @@ def export_hdf(runid, fname, xrf=False):
         sc.export(hdr, fname, db.mds, use_uid=False)
 
 
-def export_to_view(fpath, output_name=None, output_folder='', namelist=None):
-    """
-    Output fitted data to tablet data for visulization.
-
-    Parameters
-    ----------
-    fpath : str
-        input file path, file is pyxrf h5 file
-    output_name : str
-        output file name
-    otuput_folder : str, optional
-        default as current working folder
-    namelist : list, optional
-        list of elemental names
-    """
-    with h5py.File(fpath, 'r') as f:
-        d = f['xrfmap/detsum/xrf_fit'][:]
-        d = d.reshape([d.shape[0], -1])
-        elementlist = f['xrfmap/detsum/xrf_fit_name'][:]
-        elementlist = helper_decode_list(elementlist)
-
-        xy = f['xrfmap/positions/pos'][:]
-        xy =  xy.reshape([xy.shape[0], -1])
-        xy_name = ['X', 'Y']
-
-        names = xy_name + elementlist
-        data = np.concatenate((xy, d), axis=0)
-
-    data_dict = OrderedDict()
-    if namelist is None:
-        for i, k in enumerate(names):
-            if 'Userpeak' in k or 'r2_adjust' in k:
-                continue
-            data_dict.update({k: data[i,:]})
-    else:
-        for i, k in enumerate(names):
-            if k in namelist or k in xy_name:
-                data_dict.update({k: data[i,:]})
-
-    df = pd.DataFrame(data_dict)
-    if output_name is None:
-        fname = fpath.split(sep_v)[-1]
-        output_name = fname.split('.')[0] + '_fit_view.csv'
-
-    outpath = os.path.join(output_folder, output_name)
-    print('{} is created.'.format(outpath))
-    df.to_csv(outpath, index=False)
-
-
 def export1d(runid, name=None):
     """
     Export all PVs to a file. Do not talk to filestore.
@@ -2039,7 +2027,7 @@ def export1d(runid, name=None):
     runid : int
         run number
     """
-    t = db.get_table(db[runid], fill=False)
+    t = get_table(db[runid], fill=False)
     if name is None:
         name = 'scan_'+str(runid)+'.txt'
     t.to_csv(name)
@@ -2240,7 +2228,7 @@ def print_image(fig):
         if hdr.start.beamline_id == 'HXN':
             current_dir = os.path.dirname(os.path.realpath(__file__))
             config_file = 'hxn_pv_config.json'
-            config_path = sep_v.join(current_dir.split(sep_v)[:-2]+['configs', config_file])
+            config_path = '/'.join(current_dir.split('/')[:-2]+['configs', config_file])
             with open(config_path, 'r') as json_data:
                 config_data = json.load(json_data)
             fpath = config_data.get('print_path', None)
