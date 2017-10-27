@@ -1697,7 +1697,7 @@ def get_name_value_from_db(name_list, data, datashape):
     return pos_names, pos_data
 
 
-def _make_hdf(fpath, runid, full_data=True):
+def _make_hdf(fpath, runid, full_data=True, create_each_det=False):
     """
     Save the data from databroker to hdf file.
 
@@ -1846,7 +1846,7 @@ def _make_hdf(fpath, runid, full_data=True):
             for v in scaler_list+[xpos_name]:
                 data[v] = np.zeros([datashape[0], datashape[1]])
 
-            if total_points > point_limit:
+            if total_points > point_limit and create_each_det is False:
                 new_data['det_sum'] = np.zeros(new_shape)
             else:
                 for i in range(num_det):
@@ -1860,7 +1860,7 @@ def _make_hdf(fpath, runid, full_data=True):
                         len_diff = datashape[1] - min_len
                         interp_list = (v.data[n][-1]-v.data[n][-3])/2*np.arange(1,len_diff+1) + v.data[n][-1]
                         data[n][m, min_len:datashape[1]] = interp_list
-                if total_points > point_limit:
+                if total_points > point_limit and create_each_det is False:
                     for i in range(num_det):
                         new_data['det_sum'][m,:v.data['fluor'].shape[0],:] += v.data['fluor'][:,i,:]
                 else:
@@ -1889,9 +1889,10 @@ def _make_hdf(fpath, runid, full_data=True):
                 print('x,y positions are not saved.')
             # output to file
             print('Saving data to hdf file.')
-            create_each_det = True
-            if total_points > point_limit:
+            if total_points > point_limit and create_each_det is False:
                 create_each_det = False
+            else:
+                create_each_det = True
             write_db_to_hdf_base(fpath, new_data, num_det=num_det,
                                  create_each_det=create_each_det)
             print('Done!')
@@ -1939,7 +1940,8 @@ def get_total_scan_point(hdr):
     return n
 
 
-def make_hdf(start, end=None, fname=None, prefix='scan2D_', full_data=True):
+def make_hdf(start, end=None, fname=None,
+             prefix='scan2D_', full_data=True, create_each_det=False):
     """
     Transfer multiple h5 files.
 
@@ -1956,6 +1958,9 @@ def make_hdf(start, end=None, fname=None, prefix='scan2D_', full_data=True):
         prefix name of the file
     full_data : bool, optional
         save baseline data and all other information if True
+    create_each_det: bool, optional
+        Do not create data for each detector is data size is too large, if set as false.
+        This will slow down the speed of creating hdf file with large data size.
     """
     if end is None:
         end = start
@@ -1963,13 +1968,13 @@ def make_hdf(start, end=None, fname=None, prefix='scan2D_', full_data=True):
     if end == start:
         if fname is None:
             fname = prefix+str(start)+'.h5'
-        _make_hdf(fname, start, full_data=full_data)  # only transfer one file
+        _make_hdf(fname, start, full_data=full_data, create_each_det=create_each_det)  # only transfer one file
     else:
         datalist = range(start, end+1)
         for v in datalist:
             filename = prefix+str(v)+'.h5'
             try:
-                _make_hdf(filename, v, full_data=full_data)
+                _make_hdf(filename, v, full_data=full_data, create_each_det=create_each_det)
                 print('{} is created. \n'.format(filename))
             except:
                 print('Can not transfer scan {}. \n'.format(v))
