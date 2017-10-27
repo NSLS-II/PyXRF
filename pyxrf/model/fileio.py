@@ -1817,7 +1817,7 @@ def _make_hdf(fpath, runid, full_data=True):
             for m,v in enumerate(e):
                 for n in scaler_list+[xpos_name]:
                     min_len = min(v.data[n].size, datashape[1])
-                    data[n][m, :min_len] = v.data[n]
+                    data[n][m, :min_len] = v.data[n][:min_len]
                     if min_len < datashape[1]:  # position data or i0 has shorter length than fluor data
                         len_diff = datashape[1] - min_len
                         interp_list = (v.data[n][-1]-v.data[n][-3])/2*np.arange(1,len_diff+1) + v.data[n][-1]
