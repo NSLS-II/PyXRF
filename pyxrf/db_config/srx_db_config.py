@@ -1,5 +1,5 @@
+import h5py
 from metadatastore.mds import MDS
-# from metadataclient.mds import MDS
 from databroker import Broker
 from databroker.core import register_builtin_handlers
 from filestore.fs import FileStore
