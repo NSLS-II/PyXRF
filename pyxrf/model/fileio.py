@@ -689,7 +689,10 @@ def read_hdf_APS(working_directory,
     file_path = os.path.join(working_directory, file_name)
 
     # defined in other_list in config file
-    dict_sc = retrieve_data_from_hdf_suitcase(file_path)
+    try:
+        dict_sc = retrieve_data_from_hdf_suitcase(file_path)
+    except:
+        dict_sc = {}
 
     with h5py.File(file_path, 'r+') as f:
         data = f['xrfmap']
