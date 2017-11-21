@@ -1659,7 +1659,7 @@ def get_name_value_from_db(name_list, data, datashape):
 
 
 def _make_hdf(fpath, runid, full_data=True,
-              create_each_det=False, save_scaler=True):
+              create_each_det=False, save_scalar=True):
     """
     Save the data from databroker to hdf file.
 
@@ -1678,7 +1678,7 @@ def _make_hdf(fpath, runid, full_data=True,
         Do not create data for each detector is data size is too large,
         if set as false. This will slow down the speed of creating hdf file
         with large data size. srx beamline only.
-    save_scaler : bool, optional
+    save_scalar : bool, optional
         choose to save scaler data or not for srx beamline, test purpose only.
     """
     hdr_tmp = db[-1]
@@ -1796,7 +1796,7 @@ def _make_hdf(fpath, runid, full_data=True,
         else:
             # srx fly scan
             num_det = 3
-            if save_scaler is True:
+            if save_scalar is True:
                 scaler_list = ['i0', 'time']
                 xpos_name = 'enc1'
                 ypos_name = 'hf_stage_y'
@@ -1810,7 +1810,7 @@ def _make_hdf(fpath, runid, full_data=True,
             data = {}
             e = db.get_events(hdr, fill=True, stream_name='stream0')
 
-            if save_scaler is True:
+            if save_scalar is True:
                 new_data['scaler_names'] = scaler_list
                 scaler_tmp = np.zeros([datashape[0], datashape[1], len(scaler_list)])
                 for v in scaler_list+[xpos_name]:
@@ -1823,7 +1823,7 @@ def _make_hdf(fpath, runid, full_data=True,
                     new_data['det'+str(i+1)] = np.zeros(new_shape)
 
             for m,v in enumerate(e):
-                if save_scaler is True:
+                if save_scalar is True:
                     for n in scaler_list+[xpos_name]:
                         min_len = min(v.data[n].size, datashape[1])
                         data[n][m, :min_len] = v.data[n][:min_len]
@@ -1838,14 +1838,14 @@ def _make_hdf(fpath, runid, full_data=True,
                     for i in range(num_det):  # in case the data length in each line is different
                         new_data['det'+str(i+1)][m,:v.data['fluor'].shape[0],:] = v.data['fluor'][:,i,:]
 
-            if save_scaler is True:
+            if save_scalar is True:
                 for i,v in enumerate(scaler_list):
                     scaler_tmp[:, :, i] = data[v]
                 new_data['scaler_data'] = scaler_tmp
                 x_pos = data[xpos_name]
 
             # get y position data
-            if save_scaler is True:
+            if save_scalar is True:
                 data1 = db.get_table(hdr, fill=True, stream_name='primary')
                 y_pos0 = np.hstack(data1[ypos_name])
                 if len(y_pos0) >= x_pos.shape[0]:
@@ -1915,7 +1915,7 @@ def get_total_scan_point(hdr):
 
 def make_hdf(start, end=None, fname=None,
              prefix='scan2D_', full_data=True,
-             create_each_det=False, save_scaler=True):
+             create_each_det=False, save_scalar=True):
     """
     Transfer multiple h5 files.
 
@@ -1937,7 +1937,7 @@ def make_hdf(start, end=None, fname=None,
         Do not create data for each detector is data size is too large,
         if set as false. This will slow down the speed of creating hdf file
         with large data size. srx beamline only.
-    save_scaler : bool, optional
+    save_scalar : bool, optional
         choose to save scaler data or not for srx beamline, test purpose only.
     """
     if end is None:
@@ -1948,7 +1948,7 @@ def make_hdf(start, end=None, fname=None,
             fname = prefix+str(start)+'.h5'
         _make_hdf(fname, start, full_data=full_data,
                   create_each_det=create_each_det,
-                  save_scaler=save_scaler)  # only transfer one file
+                  save_scalar=save_scalar)  # only transfer one file
     else:
         datalist = range(start, end+1)
         for v in datalist:
@@ -1956,7 +1956,7 @@ def make_hdf(start, end=None, fname=None,
             try:
                 _make_hdf(filename, v, full_data=full_data,
                           create_each_det=create_each_det,
-                          save_scaler=save_scaler)
+                          save_scalar=save_scalar)
                 print('{} is created. \n'.format(filename))
             except:
                 print('Can not transfer scan {}. \n'.format(v))
