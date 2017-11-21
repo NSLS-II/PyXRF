@@ -1796,7 +1796,7 @@ def _make_hdf(fpath, runid, full_data=True,
         else:
             # srx fly scan
             num_det = 3
-            if save_scaler = True:
+            if save_scaler is True:
                 scaler_list = ['i0', 'time']
                 xpos_name = 'enc1'
                 ypos_name = 'hf_stage_y'
