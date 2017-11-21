@@ -1658,7 +1658,8 @@ def get_name_value_from_db(name_list, data, datashape):
     return pos_names, pos_data
 
 
-def _make_hdf(fpath, runid, full_data=True, create_each_det=False):
+def _make_hdf(fpath, runid, full_data=True,
+              create_each_det=False, save_scaler=True):
     """
     Save the data from databroker to hdf file.
 
@@ -1673,6 +1674,12 @@ def _make_hdf(fpath, runid, full_data=True, create_each_det=False):
     full_data : bool, optional
         save baseline data and all other information if True
     db : databroker
+    create_each_det: bool, optional
+        Do not create data for each detector is data size is too large,
+        if set as false. This will slow down the speed of creating hdf file
+        with large data size. srx beamline only.
+    save_scaler : bool, optional
+        choose to save scaler data or not for srx beamline, test purpose only.
     """
     hdr_tmp = db[-1]
     print('Loading data from database.')
@@ -1789,27 +1796,25 @@ def _make_hdf(fpath, runid, full_data=True, create_each_det=False):
         else:
             # srx fly scan
             num_det = 3
-            scaler_list = ['i0', 'time']
-            xpos_name = 'enc1'
-            ypos_name = 'hf_stage_y'
+            if save_scaler = True:
+                scaler_list = ['i0', 'time']
+                xpos_name = 'enc1'
+                ypos_name = 'hf_stage_y'
             point_limit = 400*400  # if number of point is larger than this, only sum data is saved in h5 file
 
             datashape = [start_doc['shape'][1], start_doc['shape'][0]]   # vertical first then horizontal
-            total_points = datashape[0]*datashape[1]
-            #data = db.get_table(hdr, fill=True,
-            #                    fields=scaler_list+[xpos_name],
-            #                    stream_name='stream0')
-            new_data = {}
-            new_data['scaler_names'] = scaler_list
-            #datashape[0] = len(data['fluor'])  # in case some scan not finished
             new_shape = datashape + [spectrum_len]
-            scaler_tmp = np.zeros([datashape[0], datashape[1], len(scaler_list)])
+            total_points = datashape[0]*datashape[1]
 
-            e = db.get_events(hdr, fill=True, stream_name='stream0')
+            new_data = {}
             data = {}
+            e = db.get_events(hdr, fill=True, stream_name='stream0')
 
-            for v in scaler_list+[xpos_name]:
-                data[v] = np.zeros([datashape[0], datashape[1]])
+            if save_scaler is True:
+                new_data['scaler_names'] = scaler_list
+                scaler_tmp = np.zeros([datashape[0], datashape[1], len(scaler_list)])
+                for v in scaler_list+[xpos_name]:
+                    data[v] = np.zeros([datashape[0], datashape[1]])
 
             if total_points > point_limit and create_each_det is False:
                 new_data['det_sum'] = np.zeros(new_shape)
@@ -1818,13 +1823,14 @@ def _make_hdf(fpath, runid, full_data=True, create_each_det=False):
                     new_data['det'+str(i+1)] = np.zeros(new_shape)
 
             for m,v in enumerate(e):
-                for n in scaler_list+[xpos_name]:
-                    min_len = min(v.data[n].size, datashape[1])
-                    data[n][m, :min_len] = v.data[n][:min_len]
-                    if min_len < datashape[1]:  # position data or i0 has shorter length than fluor data
-                        len_diff = datashape[1] - min_len
-                        interp_list = (v.data[n][-1]-v.data[n][-3])/2*np.arange(1,len_diff+1) + v.data[n][-1]
-                        data[n][m, min_len:datashape[1]] = interp_list
+                if save_scaler is True:
+                    for n in scaler_list+[xpos_name]:
+                        min_len = min(v.data[n].size, datashape[1])
+                        data[n][m, :min_len] = v.data[n][:min_len]
+                        if min_len < datashape[1]:  # position data or i0 has shorter length than fluor data
+                            len_diff = datashape[1] - min_len
+                            interp_list = (v.data[n][-1]-v.data[n][-3])/2*np.arange(1,len_diff+1) + v.data[n][-1]
+                            data[n][m, min_len:datashape[1]] = interp_list
                 if total_points > point_limit and create_each_det is False:
                     for i in range(num_det):
                         new_data['det_sum'][m,:v.data['fluor'].shape[0],:] += v.data['fluor'][:,i,:]
@@ -1832,26 +1838,28 @@ def _make_hdf(fpath, runid, full_data=True, create_each_det=False):
                     for i in range(num_det):  # in case the data length in each line is different
                         new_data['det'+str(i+1)][m,:v.data['fluor'].shape[0],:] = v.data['fluor'][:,i,:]
 
-            for i,v in enumerate(scaler_list):
-                scaler_tmp[:,:,i] = data[v]
-            new_data['scaler_data'] = scaler_tmp
-            x_pos = data[xpos_name]
+            if save_scaler is True:
+                for i,v in enumerate(scaler_list):
+                    scaler_tmp[:, :, i] = data[v]
+                new_data['scaler_data'] = scaler_tmp
+                x_pos = data[xpos_name]
 
             # get y position data
-            data1 = db.get_table(hdr, fill=True, stream_name='primary')
-            y_pos0 = np.hstack(data1[ypos_name])
-            if len(y_pos0) >= x_pos.shape[0]:
-                y_pos = y_pos0[:x_pos.shape[0]]
-                x_tmp = np.ones(x_pos.shape[1])
-                xv, yv = np.meshgrid(x_tmp, y_pos)
-                # need to change shape to sth like [2, 100, 100]
-                data_tmp = np.zeros([2, x_pos.shape[0], x_pos.shape[1]])
-                data_tmp[0,:,:] = x_pos
-                data_tmp[1,:,:] = yv
-                new_data['pos_data'] = data_tmp
-                new_data['pos_names'] = ['x_pos', 'y_pos']
-            else:
-                print('x,y positions are not saved.')
+            if save_scaler is True:
+                data1 = db.get_table(hdr, fill=True, stream_name='primary')
+                y_pos0 = np.hstack(data1[ypos_name])
+                if len(y_pos0) >= x_pos.shape[0]:
+                    y_pos = y_pos0[:x_pos.shape[0]]
+                    x_tmp = np.ones(x_pos.shape[1])
+                    xv, yv = np.meshgrid(x_tmp, y_pos)
+                    # need to change shape to sth like [2, 100, 100]
+                    data_tmp = np.zeros([2, x_pos.shape[0], x_pos.shape[1]])
+                    data_tmp[0,:,:] = x_pos
+                    data_tmp[1,:,:] = yv
+                    new_data['pos_data'] = data_tmp
+                    new_data['pos_names'] = ['x_pos', 'y_pos']
+                else:
+                    print('x,y positions are not saved.')
             # output to file
             print('Saving data to hdf file.')
             if total_points > point_limit and create_each_det is False:
@@ -1906,7 +1914,8 @@ def get_total_scan_point(hdr):
 
 
 def make_hdf(start, end=None, fname=None,
-             prefix='scan2D_', full_data=True, create_each_det=False):
+             prefix='scan2D_', full_data=True,
+             create_each_det=False, save_scaler=True):
     """
     Transfer multiple h5 files.
 
@@ -1925,8 +1934,11 @@ def make_hdf(start, end=None, fname=None,
         save baseline data and all other information if True
     db : databroker
     create_each_det: bool, optional
-        Do not create data for each detector is data size is too large, if set as false.
-        This will slow down the speed of creating hdf file with large data size.
+        Do not create data for each detector is data size is too large,
+        if set as false. This will slow down the speed of creating hdf file
+        with large data size. srx beamline only.
+    save_scaler : bool, optional
+        choose to save scaler data or not for srx beamline, test purpose only.
     """
     if end is None:
         end = start
@@ -1934,13 +1946,17 @@ def make_hdf(start, end=None, fname=None,
     if end == start:
         if fname is None:
             fname = prefix+str(start)+'.h5'
-        _make_hdf(fname, start, full_data=full_data, create_each_det=create_each_det)  # only transfer one file
+        _make_hdf(fname, start, full_data=full_data,
+                  create_each_det=create_each_det,
+                  save_scaler=save_scaler)  # only transfer one file
     else:
         datalist = range(start, end+1)
         for v in datalist:
             filename = prefix+str(v)+'.h5'
             try:
-                _make_hdf(filename, v, full_data=full_data, create_each_det=create_each_det)
+                _make_hdf(filename, v, full_data=full_data,
+                          create_each_det=create_each_det,
+                          save_scaler=save_scaler)
                 print('{} is created. \n'.format(filename))
             except:
                 print('Can not transfer scan {}. \n'.format(v))
