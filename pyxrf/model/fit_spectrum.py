@@ -247,7 +247,8 @@ class Fit1D(Atom):
         """
         img_dict = change['value']
         _key = [k for k in img_dict.keys() if 'scaler' in k]
-        self.scaler_keys = sorted(img_dict[_key[0]].keys())
+        if len(_key) != 0:
+            self.scaler_keys = sorted(img_dict[_key[0]].keys())
 
     def scaler_index_update(self, change):
         """
