@@ -1800,15 +1800,16 @@ def _make_hdf(fpath, runid, full_data=True,
                 scaler_list = ['i0', 'time']
                 xpos_name = 'enc1'
                 ypos_name = 'hf_stage_y'
-            vertical_fast = False  # fast scan is along vertical direction or not
+            vertical_fast = False  # assuming fast on x as default
+            datashape = [start_doc['shape'][1], start_doc['shape'][0]]   # vertical first then horizontal, assuming fast scan on x
             if 'fast_axis' in hdr.start.scaninfo:
                 if hdr.start.scaninfo['fast_axis'] == 'VER':  # fast scan along vertical, y is fast scan, x is slow
                     xpos_name = 'enc1'
                     ypos_name = 'hf_stage_x'
                     vertical_fast = True
+                    #datashape = [start_doc['shape'][0], start_doc['shape'][1]]   # fast vertical scan put shape[0] as vertical direction
             point_limit = 400*400  # if number of point is larger than this, only sum data is saved in h5 file
 
-            datashape = [start_doc['shape'][1], start_doc['shape'][0]]   # vertical first then horizontal
             new_shape = datashape + [spectrum_len]
             total_points = datashape[0]*datashape[1]
 
@@ -1819,6 +1820,8 @@ def _make_hdf(fpath, runid, full_data=True,
             if save_scalar is True:
                 new_data['scaler_names'] = scaler_list
                 scaler_tmp = np.zeros([datashape[0], datashape[1], len(scaler_list)])
+                if vertical_fast is True:  # data shape only has impact on scalar data
+                    scaler_tmp = np.zeros([datashape[1], datashape[0], len(scaler_list)])
                 for v in scaler_list+[xpos_name]:
                     data[v] = np.zeros([datashape[0], datashape[1]])
 
@@ -1876,7 +1879,7 @@ def _make_hdf(fpath, runid, full_data=True,
                     new_data['pos_data'] = data_tmp
                     new_data['pos_names'] = ['x_pos', 'y_pos']
                     if vertical_fast is True: # need to transpose the data, as we scan y first
-                        data_tmp = np.zeros([2, x_pos.shape[1], x_pos.shape[0]])
+                        data_tmp = np.zeros([2, x_pos.shape[1], x_pos.shape[0]]) # fast scan on y has impact for scalar data
                         data_tmp[1,:,:] = x_pos.T
                         data_tmp[0,:,:] = yv.T
                         new_data['pos_data'] = data_tmp
