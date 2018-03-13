@@ -173,10 +173,12 @@ class LinePlotModel(Atom):
     #roi_result = Dict()
 
     def __init__(self):
-        self._fig = plt.figure(figsize=(4,4))
-
+        self._fig = plt.figure(figsize=(3,2))
         self._ax = self._fig.add_subplot(111)
-        self._ax.set_axis_bgcolor('lightgrey')
+        try:
+            self._ax.set_axis_bgcolor('lightgrey')
+        except AttributeError:
+            self._ax.set_facecolor('lightgrey')
 
         self._ax.set_xlabel('Energy [keV]')
         self._ax.set_ylabel('Counts')

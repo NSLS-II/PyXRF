@@ -136,7 +136,7 @@ class DrawImageAdvanced(Atom):
     name_not_scalable = List()
 
     def __init__(self):
-        self.fig = plt.figure(figsize=(4,4))
+        self.fig = plt.figure(figsize=(3,2))
         self.pixel_or_pos_for_plot = None
         matplotlib.rcParams['axes.formatter.useoffset'] = True
         self.name_not_scalable = ['r2_adjust','alive', 'dead', 'elapsed_time', 'scaler_alive'] # do not apply scaler norm on those data
