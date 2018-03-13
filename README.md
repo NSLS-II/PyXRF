@@ -38,7 +38,7 @@ $ source activate pyxrf_test
 ```
 At the same environment, install pyxrf by simply typing
 ```
-$ conda install pyxrf pyqt=4.11 enaml=0.9.8 -c lightsource2-tag
+$ conda install pyxrf pyqt=4.11 enaml=0.9.8 -c lightsource2-tag -c conda-forge
 ```
 
 ### Windows
