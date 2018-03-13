@@ -145,7 +145,7 @@ class DrawImageRGB(Atom):
     name_not_scalable= List()
 
     def __init__(self):
-        self.fig = plt.figure(figsize=(4,4))
+        self.fig = plt.figure(figsize=(3,2))
         self.ax = self.fig.add_subplot(111)
         self.ax_r, self.ax_g, self.ax_b = make_rgb_axes(self.ax, pad=0.02)
         self.rgb_name_list = ['R', 'G', 'B']
