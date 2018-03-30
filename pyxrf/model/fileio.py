@@ -1760,7 +1760,7 @@ def _make_hdf(fpath, runid, full_data=True,
     free_memory_from_handler()
 
 
-def _make_hdf_srx(fpath, runid, create_each_det=create_each_det,
+def _make_hdf_srx(fpath, runid, create_each_det=False,
                   save_scalar=True, num_end_lines_excluded=None):
     """
     Save the data from databroker to hdf file for SRX beamline.
@@ -1867,7 +1867,7 @@ def _make_hdf_srx(fpath, runid, create_each_det=create_each_det,
                 new_data['det'+str(i+1)] = np.zeros(new_shape)
 
         for m,v in enumerate(e):
-            if m < datashape[0]*datashape[1]:
+            if m < datashape[0]:
                 if save_scalar is True:
                     for n in scaler_list+[xpos_name]:
                         min_len = min(v.data[n].size, datashape[1])
