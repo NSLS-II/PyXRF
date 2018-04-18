@@ -1826,6 +1826,18 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
                         scaler_list=config_data['scaler_list'],
                         fly_type=fly_type,
                         base_val=config_data['base_value'])  #base value shift for ic
+        if 'xs2' in hdr.start.detectors:
+            print('Saving data to hdf file for second xspress3 detector.')
+            tmp = fpath.split('.')
+            fpath1 = '.'.join([tmp[0]+'_1', tmp[1]])
+            write_db_to_hdf(fpath1, data,
+                            datashape,
+                            det_list=config_data['xrf_detector2'],
+                            #roi_dict=roi_dict,
+                            pos_list=hdr.start.motors,
+                            scaler_list=config_data['scaler_list'],
+                            fly_type=fly_type,
+                            base_val=config_data['base_value'])  #base value shift for ic
     else:
         # srx fly scan
         num_det = 3
