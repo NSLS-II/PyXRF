@@ -1749,7 +1749,7 @@ def _make_hdf(fpath, runid, full_data=True,
         if full_data == True:
             sc.export(hdr, fpath, db.mds, fields=fds, use_uid=False)
 
-    elif hdr_tmp.start.beamline_id == 'xf05id':
+    elif hdr_tmp.start.beamline_id == 'xf05id' or str(hdr_tmp.start.beamline_id) == 'SRX':
         _make_hdf_srx(fpath, runid, create_each_det=False,
                       save_scalar=save_scalar,
                       num_end_lines_excluded=num_end_lines_excluded)
