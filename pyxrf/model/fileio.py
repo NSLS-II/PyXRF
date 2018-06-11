@@ -1817,10 +1817,14 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
 
             data = pd.DataFrame(dictv, index=np.arange(1, total_len+1)) # need to start with 1
 
+        #express3 detector name changes in databroker
+        xrf_detector_names = config_data['xrf_detector']
+        if xrf_detector_names[0] not in data.keys():
+            xrf_detector_names = ['xs_channel'+str(i) for i in range(1,4)]
         print('Saving data to hdf file.')
         write_db_to_hdf(fpath, data,
                         datashape,
-                        det_list=config_data['xrf_detector'],
+                        det_list=xrf_detector_names,
                         #roi_dict=roi_dict,
                         pos_list=hdr.start.motors,
                         scaler_list=config_data['scaler_list'],
