@@ -14,14 +14,14 @@ _fs_config = {'host': 'xf03id1-mdb01',
               'database': 'filestore-new'}
 db_new = Broker(mds, FileStore(_fs_config))
 
-_mds_config_old = {'host': 'xf03id-ca1',
-               'port': 27017,
+_mds_config_old = {'host': 'gpu-001',
+               'port': 27019,
                'database': 'datastore',
                'timezone': 'US/Eastern'}
 mds_old = MDS(_mds_config_old, auth=False)
 
-_fs_config_old = {'host': 'xf03id-ca1',
-              'port': 27017,
+_fs_config_old = {'host': 'gpu-001',
+              'port': 27019,
               'database': 'filestore'}
 db_old = Broker(mds_old, FileStore(_fs_config_old))
 
