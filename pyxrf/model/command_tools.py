@@ -24,6 +24,7 @@ def fit_pixel_data_and_save(working_directory, file_name,
                             save_txt=False,
                             save_tiff=True,
                             ic_name=None,
+                            use_average=True,
                             data_from='NSLS-II'):
     """
     Do fitting for signle data set, and save data accordingly. Fitting can be performed on
@@ -67,6 +68,8 @@ def fit_pixel_data_and_save(working_directory, file_name,
         save data to tiff or not
     ic_name : str, optional
         if given, normalization will be performed
+    use_average : bool, optional
+        if true, norm is performed as data/IC*mean(IC), otherwise just data/IC
     data_from : str, optional
         where do data come from? Data format includes data from NSLS-II, or 2IDE-APS
     """
@@ -152,16 +155,16 @@ def fit_pixel_data_and_save(working_directory, file_name,
     if save_txt is True:
         output_folder = 'output_txt_'+prefix_fname
         output_path = os.path.join(working_directory, output_folder)
-        output_data(fpath, output_path, file_format='txt', norm_name=ic_name)
+        output_data(fpath, output_path, file_format='txt', norm_name=ic_name, use_average=use_average)
     if save_tiff is True:
         output_folder = 'output_tiff_'+prefix_fname
         output_path = os.path.join(working_directory, output_folder)
-        output_data(fpath, output_path, file_format='tiff', norm_name=ic_name)
+        output_data(fpath, output_path, file_format='tiff', norm_name=ic_name, use_average=use_average)
 
 
 def pyxrf_batch(start_id, end_id=None, wd=None, fit_channel_sum=True, param_file_name=None,
                 fit_channel_each=False, param_channel_list=None, incident_energy=None,
-                spectrum_cut=3000, save_txt=False, save_tiff=True, ic_name=None):
+                spectrum_cut=3000, save_txt=False, save_tiff=True, ic_name=None, use_average=True):
     """
     Do fitting for multiple data sets, and save data accordingly. Fitting can be performed on
     either summed data or each channel data, or both. This is based on fit_pixel_data_and_save function.
@@ -194,6 +197,8 @@ def pyxrf_batch(start_id, end_id=None, wd=None, fit_channel_sum=True, param_file
         save data to tiff or not
     ic_name : str, optional
         if given, normalization will be performed
+    use_average : bool, optional
+        if true, norm is performed as data/IC*mean(IC), otherwise just data/IC
     """
     if wd is None:
         wd = '.'
@@ -211,7 +216,7 @@ def pyxrf_batch(start_id, end_id=None, wd=None, fit_channel_sum=True, param_file
                                 fit_channel_each=fit_channel_each, param_channel_list=param_channel_list,
                                 incident_energy=incident_energy, spectrum_cut=spectrum_cut,
                                 save_txt=save_txt, save_tiff=save_tiff,
-                                ic_name=ic_name)
+                                ic_name=ic_name, use_average=use_average)
     else:
         flist = []
         for data_id in range(start_id, end_id+1):
