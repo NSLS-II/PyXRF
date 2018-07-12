@@ -1659,7 +1659,8 @@ def get_name_value_from_db(name_list, data, datashape):
 
 
 def _make_hdf(fpath, runid, full_data=True,
-              create_each_det=False, save_scalar=True):
+              create_each_det=False, save_scalar=True,
+              num_end_lines_excluded=None):
     """
     Save the data from databroker to hdf file.
 
@@ -1673,13 +1674,14 @@ def _make_hdf(fpath, runid, full_data=True,
         id number for given run
     full_data : bool, optional
         save baseline data and all other information if True
-    db : databroker
     create_each_det: bool, optional
         Do not create data for each detector is data size is too large,
         if set as false. This will slow down the speed of creating hdf file
         with large data size. srx beamline only.
     save_scalar : bool, optional
         choose to save scaler data or not for srx beamline, test purpose only.
+    num_end_lines_excluded : int, optional
+        remove the last few bad lines
     """
     hdr_tmp = db[-1]
     print('Loading data from database.')
@@ -1747,82 +1749,141 @@ def _make_hdf(fpath, runid, full_data=True,
         if full_data == True:
             sc.export(hdr, fpath, db.mds, fields=fds, use_uid=False)
 
-    elif hdr_tmp.start.beamline_id == 'xf05id':
-        hdr = db[runid]
-        spectrum_len = 4096
-        start_doc = hdr['start']
-        plan_n = start_doc.get('plan_name')
-        if 'fly' not in plan_n: # not fly scan
-            datashape = start_doc['shape']   # vertical first then horizontal
-            fly_type = None
+    elif hdr_tmp.start.beamline_id == 'xf05id' or str(hdr_tmp.start.beamline_id) == 'SRX':
+        _make_hdf_srx(fpath, runid, create_each_det=False,
+                      save_scalar=save_scalar,
+                      num_end_lines_excluded=num_end_lines_excluded)
+        print('Done!')
+    else:
+        print("Databroker is not setup for this beamline")
 
-            snake_scan = start_doc.get('snaking')
-            if snake_scan[1] == True:
-                fly_type = 'pyramid'
+    free_memory_from_handler()
 
-            current_dir = os.path.dirname(os.path.realpath(__file__))
-            config_file = 'srx_pv_config.json'
-            config_path = sep_v.join(current_dir.split(sep_v)[:-2]+['configs', config_file])
-            with open(config_path, 'r') as json_data:
-                config_data = json.load(json_data)
 
-            try:
-                data = db.get_table(hdr, fill=True, convert_times=False)
-            except IndexError:
-                total_len = get_total_scan_point(hdr) - 2
+def _make_hdf_srx(fpath, runid, create_each_det=False,
+                  save_scalar=True, num_end_lines_excluded=None):
+    """
+    Save the data from databroker to hdf file for SRX beamline.
 
-                evs, _ = zip(*zip(get_events(hdr, fill=True), range(total_len)))
+    .. note:: Requires the databroker package from NSLS2
 
-                namelist = config_data['xrf_detector'] +hdr.start.motors +config_data['scaler_list']
+    Parameters
+    ----------
+    fpath: str
+        path to save hdf file
+    runid : int
+        id number for given run
+    create_each_det: bool, optional
+        Do not create data for each detector is data size is too large,
+        if set as false. This will slow down the speed of creating hdf file
+        with large data size. srx beamline only.
+    save_scalar : bool, optional
+        choose to save scaler data or not for srx beamline, test purpose only.
+    num_end_lines_excluded : int, optional
+        remove the last few bad lines
+    """
+    hdr = db[runid]
+    spectrum_len = 4096
+    start_doc = hdr['start']
+    plan_n = start_doc.get('plan_name')
+    if 'fly' not in plan_n: # not fly scan
+        datashape = start_doc['shape']   # vertical first then horizontal
+        fly_type = None
 
-                dictv = {v:[] for v in namelist}
+        snake_scan = start_doc.get('snaking')
+        if snake_scan[1] == True:
+            fly_type = 'pyramid'
 
-                for e in evs:
-                    for k,v in six.iteritems(dictv):
-                        dictv[k].append(e.data[k])
+        current_dir = os.path.dirname(os.path.realpath(__file__))
+        config_file = 'srx_pv_config.json'
+        config_path = sep_v.join(current_dir.split(sep_v)[:-2]+['configs', config_file])
+        with open(config_path, 'r') as json_data:
+            config_data = json.load(json_data)
 
-                data = pd.DataFrame(dictv, index=np.arange(1, total_len+1)) # need to start with 1
+        try:
+            data = db.get_table(hdr, fill=True, convert_times=False)
+        except IndexError:
+            total_len = get_total_scan_point(hdr) - 2
 
-            print('Saving data to hdf file.')
-            write_db_to_hdf(fpath, data,
+            evs, _ = zip(*zip(get_events(hdr, fill=True), range(total_len)))
+
+            namelist = config_data['xrf_detector'] +hdr.start.motors +config_data['scaler_list']
+
+            dictv = {v:[] for v in namelist}
+
+            for e in evs:
+                for k,v in six.iteritems(dictv):
+                    dictv[k].append(e.data[k])
+
+            data = pd.DataFrame(dictv, index=np.arange(1, total_len+1)) # need to start with 1
+
+        #express3 detector name changes in databroker
+        xrf_detector_names = config_data['xrf_detector']
+        if xrf_detector_names[0] not in data.keys():
+            xrf_detector_names = ['xs_channel'+str(i) for i in range(1,4)]
+        print('Saving data to hdf file.')
+        write_db_to_hdf(fpath, data,
+                        datashape,
+                        det_list=xrf_detector_names,
+                        #roi_dict=roi_dict,
+                        pos_list=hdr.start.motors,
+                        scaler_list=config_data['scaler_list'],
+                        fly_type=fly_type,
+                        base_val=config_data['base_value'])  #base value shift for ic
+        if 'xs2' in hdr.start.detectors:
+            print('Saving data to hdf file for second xspress3 detector.')
+            tmp = fpath.split('.')
+            fpath1 = '.'.join([tmp[0]+'_1', tmp[1]])
+            write_db_to_hdf(fpath1, data,
                             datashape,
-                            det_list=config_data['xrf_detector'],
+                            det_list=config_data['xrf_detector2'],
                             #roi_dict=roi_dict,
                             pos_list=hdr.start.motors,
                             scaler_list=config_data['scaler_list'],
                             fly_type=fly_type,
                             base_val=config_data['base_value'])  #base value shift for ic
-            print('Done!')
+    else:
+        # srx fly scan
+        num_det = 3
+        if save_scalar is True:
+            scaler_list = ['i0', 'time']
+            xpos_name = 'enc1'
+            ypos_name = 'hf_stage_y'
+        vertical_fast = False  # assuming fast on x as default
+        if num_end_lines_excluded is None:
+            datashape = [start_doc['shape'][1], start_doc['shape'][0]]   # vertical first then horizontal, assuming fast scan on x
         else:
-            # srx fly scan
-            num_det = 3
-            if save_scalar is True:
-                scaler_list = ['i0', 'time']
+            datashape = [start_doc['shape'][1]-num_end_lines_excluded, start_doc['shape'][0]]
+        if 'fast_axis' in hdr.start.scaninfo:
+            if hdr.start.scaninfo['fast_axis'] == 'VER':  # fast scan along vertical, y is fast scan, x is slow
                 xpos_name = 'enc1'
-                ypos_name = 'hf_stage_y'
-            point_limit = 400*400  # if number of point is larger than this, only sum data is saved in h5 file
+                ypos_name = 'hf_stage_x'
+                vertical_fast = True
+                #datashape = [start_doc['shape'][0], start_doc['shape'][1]]   # fast vertical scan put shape[0] as vertical direction
 
-            datashape = [start_doc['shape'][1], start_doc['shape'][0]]   # vertical first then horizontal
-            new_shape = datashape + [spectrum_len]
-            total_points = datashape[0]*datashape[1]
+        new_shape = datashape + [spectrum_len]
+        total_points = datashape[0]*datashape[1]
 
-            new_data = {}
-            data = {}
-            e = db.get_events(hdr, fill=True, stream_name='stream0')
+        new_data = {}
+        data = {}
+        e = db.get_events(hdr, fill=True, stream_name='stream0')
 
-            if save_scalar is True:
-                new_data['scaler_names'] = scaler_list
-                scaler_tmp = np.zeros([datashape[0], datashape[1], len(scaler_list)])
-                for v in scaler_list+[xpos_name]:
-                    data[v] = np.zeros([datashape[0], datashape[1]])
+        if save_scalar is True:
+            new_data['scaler_names'] = scaler_list
+            scaler_tmp = np.zeros([datashape[0], datashape[1], len(scaler_list)])
+            if vertical_fast is True:  # data shape only has impact on scalar data
+                scaler_tmp = np.zeros([datashape[1], datashape[0], len(scaler_list)])
+            for v in scaler_list+[xpos_name]:
+                data[v] = np.zeros([datashape[0], datashape[1]])
 
-            if total_points > point_limit and create_each_det is False:
-                new_data['det_sum'] = np.zeros(new_shape)
-            else:
-                for i in range(num_det):
-                    new_data['det'+str(i+1)] = np.zeros(new_shape)
+        if create_each_det is False:
+            new_data['det_sum'] = np.zeros(new_shape)
+        else:
+            for i in range(num_det):
+                new_data['det'+str(i+1)] = np.zeros(new_shape)
 
-            for m,v in enumerate(e):
+        for m,v in enumerate(e):
+            if m < datashape[0]:
                 if save_scalar is True:
                     for n in scaler_list+[xpos_name]:
                         min_len = min(v.data[n].size, datashape[1])
@@ -1831,48 +1892,61 @@ def _make_hdf(fpath, runid, full_data=True,
                             len_diff = datashape[1] - min_len
                             interp_list = (v.data[n][-1]-v.data[n][-3])/2*np.arange(1,len_diff+1) + v.data[n][-1]
                             data[n][m, min_len:datashape[1]] = interp_list
-                if total_points > point_limit and create_each_det is False:
+                if create_each_det is False:
                     for i in range(num_det):
                         new_data['det_sum'][m,:v.data['fluor'].shape[0],:] += v.data['fluor'][:,i,:]
                 else:
                     for i in range(num_det):  # in case the data length in each line is different
                         new_data['det'+str(i+1)][m,:v.data['fluor'].shape[0],:] = v.data['fluor'][:,i,:]
 
-            if save_scalar is True:
+        if vertical_fast is True: # need to transpose the data, as we scan y first
+            if create_each_det is False:
+                new_data['det_sum'] = np.transpose(new_data['det_sum'], axes=(1,0,2))
+            else:
+                for i in range(num_det):
+                    new_data['det'+str(i+1)] = np.transpose(new_data['det'+str(i+1)], axes=(1,0,2))
+
+        if save_scalar is True:
+            if vertical_fast is False:
                 for i,v in enumerate(scaler_list):
                     scaler_tmp[:, :, i] = data[v]
-                new_data['scaler_data'] = scaler_tmp
-                x_pos = data[xpos_name]
-
-            # get y position data
-            if save_scalar is True:
-                data1 = db.get_table(hdr, fill=True, stream_name='primary')
-                y_pos0 = np.hstack(data1[ypos_name])
-                if len(y_pos0) >= x_pos.shape[0]:
-                    y_pos = y_pos0[:x_pos.shape[0]]
-                    x_tmp = np.ones(x_pos.shape[1])
-                    xv, yv = np.meshgrid(x_tmp, y_pos)
-                    # need to change shape to sth like [2, 100, 100]
-                    data_tmp = np.zeros([2, x_pos.shape[0], x_pos.shape[1]])
-                    data_tmp[0,:,:] = x_pos
-                    data_tmp[1,:,:] = yv
-                    new_data['pos_data'] = data_tmp
-                    new_data['pos_names'] = ['x_pos', 'y_pos']
-                else:
-                    print('x,y positions are not saved.')
-            # output to file
-            print('Saving data to hdf file.')
-            if total_points > point_limit and create_each_det is False:
-                create_each_det = False
             else:
-                create_each_det = True
-            write_db_to_hdf_base(fpath, new_data, num_det=num_det,
-                                 create_each_det=create_each_det)
-            print('Done!')
-    else:
-        print("Databroker is not setup for this beamline")
+                for i,v in enumerate(scaler_list):
+                    scaler_tmp[:, :, i] = data[v].T
+            new_data['scaler_data'] = scaler_tmp
+            x_pos = data[xpos_name]
 
-    free_memory_from_handler()
+        # get y position data
+        if save_scalar is True:
+            data1 = db.get_table(hdr, fill=True, stream_name='primary')
+            if num_end_lines_excluded is not None:
+                data1 = data1[:datashape[0]]
+            y_pos0 = np.hstack(data1[ypos_name])
+            if len(y_pos0) >= x_pos.shape[0]:  # y position is more than actual x pos, scan not finished?
+                y_pos = y_pos0[:x_pos.shape[0]]
+                x_tmp = np.ones(x_pos.shape[1])
+                xv, yv = np.meshgrid(x_tmp, y_pos)
+                # need to change shape to sth like [2, 100, 100]
+                data_tmp = np.zeros([2, x_pos.shape[0], x_pos.shape[1]])
+                data_tmp[0,:,:] = x_pos
+                data_tmp[1,:,:] = yv
+                new_data['pos_data'] = data_tmp
+                new_data['pos_names'] = ['x_pos', 'y_pos']
+                if vertical_fast is True: # need to transpose the data, as we scan y first
+                    data_tmp = np.zeros([2, x_pos.shape[1], x_pos.shape[0]]) # fast scan on y has impact for scalar data
+                    data_tmp[1,:,:] = x_pos.T
+                    data_tmp[0,:,:] = yv.T
+                    new_data['pos_data'] = data_tmp
+            else:
+                print('x,y positions are not saved.')
+        # output to file
+        print('Saving data to hdf file.')
+        if create_each_det is False:
+            create_each_det = False
+        else:
+            create_each_det = True
+        write_db_to_hdf_base(fpath, new_data, num_det=num_det,
+                             create_each_det=create_each_det)
 
 
 def get_data_per_event(n, data, e, det_num):
@@ -1915,7 +1989,8 @@ def get_total_scan_point(hdr):
 
 def make_hdf(start, end=None, fname=None,
              prefix='scan2D_', full_data=True,
-             create_each_det=False, save_scalar=True):
+             create_each_det=False, save_scalar=True,
+             num_end_lines_excluded=None):
     """
     Transfer multiple h5 files.
 
@@ -1939,6 +2014,8 @@ def make_hdf(start, end=None, fname=None,
         with large data size. srx beamline only.
     save_scalar : bool, optional
         choose to save scaler data or not for srx beamline, test purpose only.
+    num_end_lines_excluded : int, optional
+        remove the last few bad lines. Used at SRX beamline.
     """
     if end is None:
         end = start
@@ -1948,7 +2025,8 @@ def make_hdf(start, end=None, fname=None,
             fname = prefix+str(start)+'.h5'
         _make_hdf(fname, start, full_data=full_data,
                   create_each_det=create_each_det,
-                  save_scalar=save_scalar)  # only transfer one file
+                  save_scalar=save_scalar,
+                  num_end_lines_excluded=num_end_lines_excluded)  # only transfer one file
     else:
         datalist = range(start, end+1)
         for v in datalist:
@@ -1956,7 +2034,8 @@ def make_hdf(start, end=None, fname=None,
             try:
                 _make_hdf(filename, v, full_data=full_data,
                           create_each_det=create_each_det,
-                          save_scalar=save_scalar)
+                          save_scalar=save_scalar,
+                          num_end_lines_excluded=num_end_lines_excluded)
                 print('{} is created. \n'.format(filename))
             except:
                 print('Can not transfer scan {}. \n'.format(v))

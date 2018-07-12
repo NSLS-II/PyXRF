@@ -1,6 +1,7 @@
 {
     "beamline": "SRX",
     "xrf_detector": ["xs_settings_ch1", "xs_settings_ch2", "xs_settings_ch3"],
+    "xrf_detector2": ["xs2_settings_ch1"],
     "xrf_roi_pv": {
         "Pt_9300_9600": ["Ch1 [9300:9600]", "Ch2 [9300:9600]", "Ch3 [9300:9600]"]
     },
