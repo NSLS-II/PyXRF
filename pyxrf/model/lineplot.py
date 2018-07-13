@@ -50,6 +50,8 @@ from collections import OrderedDict
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
 
 from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
+from skbeam.core.fitting.xrf_model import (K_TRANSITIONS, L_TRANSITIONS, M_TRANSITIONS)
+
 from skbeam.fluorescence import XrfElement as Element
 
 import logging
@@ -443,6 +445,9 @@ class LinePlotModel(Atom):
             return
 
         incident_energy = self.incident_energy
+        k_len = len(K_TRANSITIONS)
+        l_len = len(L_TRANSITIONS)
+        m_len = len(M_TRANSITIONS)
 
         self.elist = []
         total_list = K_LINE + L_LINE + M_LINE
@@ -454,7 +459,7 @@ class LinePlotModel(Atom):
         if '_K' in ename:
             e = Element(ename[:-2])
             if e.cs(incident_energy)['ka1'] != 0:
-                for i in range(4):
+                for i in range(k_len):
                     self.elist.append((e.emission_line.all[i][1],
                                        e.cs(incident_energy).all[i][1]
                                        / e.cs(incident_energy).all[0][1]))
@@ -462,18 +467,18 @@ class LinePlotModel(Atom):
         elif '_L' in ename:
             e = Element(ename[:-2])
             if e.cs(incident_energy)['la1'] != 0:
-                for i in range(4, 17):
+                for i in range(k_len, k_len+l_len):
                     self.elist.append((e.emission_line.all[i][1],
                                        e.cs(incident_energy).all[i][1]
-                                       / e.cs(incident_energy).all[4][1]))
+                                       / e.cs(incident_energy).all[k_len][1]))
 
         else:
             e = Element(ename[:-2])
             if e.cs(incident_energy)['ma1'] != 0:
-                for i in range(17, 21):
+                for i in range(k_len+l_len, k_len+l_len+m_len):
                     self.elist.append((e.emission_line.all[i][1],
                                        e.cs(incident_energy).all[i][1]
-                                       / e.cs(incident_energy).all[17][1]))
+                                       / e.cs(incident_energy).all[k_len+l_len][1]))
         self.plot_emission_line()
         self._update_canvas()
 
