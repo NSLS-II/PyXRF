@@ -1844,7 +1844,7 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
                             base_val=config_data['base_value'])  #base value shift for ic
     else:
         # srx fly scan
-        num_det = 3
+        num_det = 1
         if save_scalar is True:
             scaler_list = ['i0', 'time']
             xpos_name = 'enc1'
