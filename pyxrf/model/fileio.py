@@ -1844,7 +1844,11 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
                             base_val=config_data['base_value'])  #base value shift for ic
     else:
         # srx fly scan
-        num_det = 3
+        # Added by AMK to allow flying of single element on xs2
+        if 'E_tomo' in start_doc['scaninfo']['type']:
+            num_det = 1
+        else:
+            num_det = 3
         if save_scalar is True:
             scaler_list = ['i0', 'time']
             xpos_name = 'enc1'
@@ -1921,6 +1925,8 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
             data1 = db.get_table(hdr, fill=True, stream_name='primary')
             if num_end_lines_excluded is not None:
                 data1 = data1[:datashape[0]]
+            if ypos_name not in data1.keys():
+                ypos_name = 'hf_stage_z'        #vertical along z
             y_pos0 = np.hstack(data1[ypos_name])
             if len(y_pos0) >= x_pos.shape[0]:  # y position is more than actual x pos, scan not finished?
                 y_pos = y_pos0[:x_pos.shape[0]]
