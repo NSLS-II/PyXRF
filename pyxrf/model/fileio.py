@@ -1095,7 +1095,6 @@ def make_hdf_stitched(working_directory, filelist, fname,
     write_db_to_hdf(fpath, result,
                     img_shape,
                     det_list=config_data['xrf_detector'],
-                    #roi_dict=roi_dict,
                     pos_list=('x_pos', 'y_pos'),
                     scaler_list=config_data['scaler_list'],
                     base_val=config_data['base_value'])  #base value shift for ic
@@ -1345,18 +1344,14 @@ def transfer_xspress(fpath, output_path):
     write_data_to_hdf(output_path, d)
 
 
-def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
+def write_db_to_hdf(fpath, data, datashape,
                     det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
-                    roi_dict={'Pt_9300_9600': ['Ch1 [9300:9600]', 'Ch2 [9300:9600]', 'Ch3 [9300:9600]']},
                     pos_list=('zpssx[um]', 'zpssy[um]'),
                     scaler_list=('sclr1_ch3', 'sclr1_ch4'),
                     fly_type=None, subscan_dims=None, base_val=None):
     """
     Assume data is obained from databroker, and save the data to hdf file.
     This function can handle stopped/aborted scans.
-
-    !!! This function needs to be rewrite during beam shutdown. It is
-    better to pass 2D/3D array instead of dataframe or dict.
 
     .. note:: This function should become part of suitcase
 
@@ -1370,154 +1365,105 @@ def write_db_to_hdf(fpath, data, datashape, get_roi_sum_sign=False,
         shape of two D image
     det_list : list, tuple, optional
         list of detector channels
-    roi_dict : dict
-        dict of roi pv names
     pos_list : list, tuple, optional
         list of pos pv
     scaler_list : list, tuple, optional
         list of scaler pv
     """
     interpath = 'xrfmap'
-    f = h5py.File(fpath, 'a')
+    with h5py.File(fpath, 'a') as f:
 
-    sum_data = None
-    new_v_shape = datashape[0]  # to be updated if scan is not completed
-    spectrum_len = 4096  # standard
+        sum_data = None
+        new_v_shape = datashape[0]  # to be updated if scan is not completed
+        spectrum_len = 4096  # standard
 
-    for n in range(len(det_list)):
-        c_name = det_list[n]
-        if c_name in data:
-            detname = 'det'+str(n+1)
-            dataGrp = f.create_group(interpath+'/'+detname)
+        for n in range(len(det_list)):
+            c_name = det_list[n]
+            if c_name in data:
+                detname = 'det'+str(n+1)
+                dataGrp = f.create_group(interpath+'/'+detname)
 
-            logger.info('read data from %s' % c_name)
-            channel_data = data[c_name]
+                logger.info('read data from %s' % c_name)
+                channel_data = data[c_name]
 
-            # new veritcal shape is defined to ignore zeros points caused by stopped/aborted scans
-            new_v_shape = len(channel_data) // datashape[1]
+                # new veritcal shape is defined to ignore zeros points caused by stopped/aborted scans
+                new_v_shape = len(channel_data) // datashape[1]
 
-            new_data = np.vstack(channel_data)
-            new_data = new_data[:new_v_shape*datashape[1], :]
+                new_data = np.vstack(channel_data)
+                new_data = new_data[:new_v_shape*datashape[1], :]
 
-            new_data = new_data.reshape([new_v_shape, datashape[1],
-                                         len(channel_data[1])])
-            if new_data.shape[2] != spectrum_len:
-                # merlin detector has spectrum len 2048
-                # make all the spectrum len to 4096, to avoid unpredicted error in fitting part
-                new_tmp = np.zeros([new_data.shape[0], new_data.shape[1], spectrum_len])
-                new_tmp[:,:,:new_data.shape[2]] = new_data
-                new_data = new_tmp
-            if fly_type in ('pyramid',):
-                new_data = flip_data(new_data, subscan_dims=subscan_dims)
+                new_data = new_data.reshape([new_v_shape, datashape[1],
+                                             len(channel_data[1])])
+                if new_data.shape[2] != spectrum_len:
+                    # merlin detector has spectrum len 2048
+                    # make all the spectrum len to 4096, to avoid unpredicted error in fitting part
+                    new_tmp = np.zeros([new_data.shape[0], new_data.shape[1], spectrum_len])
+                    new_tmp[:,:,:new_data.shape[2]] = new_data
+                    new_data = new_tmp
+                if fly_type in ('pyramid',):
+                    new_data = flip_data(new_data, subscan_dims=subscan_dims)
 
-            if sum_data is None:
-                sum_data = new_data
+                if sum_data is None:
+                    sum_data = new_data
+                else:
+                    sum_data += new_data
+                ds_data = dataGrp.create_dataset('counts', data=new_data, compression='gzip')
+                ds_data.attrs['comments'] = 'Experimental data from channel ' + str(n)
+
+        # summed data
+        dataGrp = f.create_group(interpath+'/detsum')
+
+        if sum_data is not None:
+            sum_data = sum_data.reshape([new_v_shape, datashape[1],
+                                         spectrum_len])
+            ds_data = dataGrp.create_dataset('counts', data=sum_data, compression='gzip')
+            ds_data.attrs['comments'] = 'Experimental data from channel sum'
+
+        # position data
+        dataGrp = f.create_group(interpath+'/positions')
+
+        pos_names, pos_data = get_name_value_from_db(pos_list, data,
+                                                     datashape)
+
+        for i in range(len(pos_names)):
+            if 'x' in pos_names[i]:
+                pos_names[i] = 'x_pos'
+            elif 'y' in pos_names[i]:
+                pos_names[i] = 'y_pos'
+
+        # need to change shape to sth like [2, 100, 100]
+        data_temp = np.zeros([pos_data.shape[2], pos_data.shape[0], pos_data.shape[1]])
+        for i in range(pos_data.shape[2]):
+            data_temp[i,:,:] = pos_data[:,:,i]
+
+        if fly_type in ('pyramid',):
+            for i in range(data_temp.shape[0]):
+                # flip position the same as data flip on det counts
+                data_temp[i,:,:] = flip_data(data_temp[i,:,:], subscan_dims=subscan_dims)
+
+        dataGrp.create_dataset('name', data=helper_encode_list(pos_names))
+        dataGrp.create_dataset('pos', data=data_temp[:,:new_v_shape,:])
+
+        # scaler data
+        dataGrp = f.create_group(interpath+'/scalers')
+
+        scaler_names, scaler_data = get_name_value_from_db(scaler_list, data,
+                                                           datashape)
+
+        if fly_type in ('pyramid',):
+            scaler_data = flip_data(scaler_data, subscan_dims=subscan_dims)
+
+        dataGrp.create_dataset('name', data=helper_encode_list(scaler_names))
+
+        if base_val is not None:  # base line shift for detector, for SRX
+            base_val = np.array([base_val])
+            if len(base_val) == 1:
+                scaler_data = np.abs(scaler_data - base_val)
             else:
-                sum_data += new_data
-            ds_data = dataGrp.create_dataset('counts', data=new_data, compression='gzip')
-            ds_data.attrs['comments'] = 'Experimental data from channel ' + str(n)
+                for i in scaler_shape.shape[2]:
+                    scaler_data[:,:,i] = np.abs(scaler_data[:,:,i] - base_val[i])
 
-    # summed data
-    dataGrp = f.create_group(interpath+'/detsum')
-
-    if sum_data is not None:
-        sum_data = sum_data.reshape([new_v_shape, datashape[1],
-                                     spectrum_len])
-        ds_data = dataGrp.create_dataset('counts', data=sum_data, compression='gzip')
-        ds_data.attrs['comments'] = 'Experimental data from channel sum'
-
-    # position data
-    dataGrp = f.create_group(interpath+'/positions')
-
-    pos_names, pos_data = get_name_value_from_db(pos_list, data,
-                                                 datashape)
-
-    for i in range(len(pos_names)):
-        if 'x' in pos_names[i]:
-            pos_names[i] = 'x_pos'
-        elif 'y' in pos_names[i]:
-            pos_names[i] = 'y_pos'
-
-    # need to change shape to sth like [2, 100, 100]
-    data_temp = np.zeros([pos_data.shape[2], pos_data.shape[0], pos_data.shape[1]])
-    for i in range(pos_data.shape[2]):
-        data_temp[i,:,:] = pos_data[:,:,i]
-
-    if fly_type in ('pyramid',):
-        for i in range(data_temp.shape[0]):
-            # flip position the same as data flip on det counts
-            data_temp[i,:,:] = flip_data(data_temp[i,:,:], subscan_dims=subscan_dims)
-
-    dataGrp.create_dataset('name', data=helper_encode_list(pos_names))
-    dataGrp.create_dataset('pos', data=data_temp[:,:new_v_shape,:])
-
-    # scaler data
-    dataGrp = f.create_group(interpath+'/scalers')
-
-    scaler_names, scaler_data = get_name_value_from_db(scaler_list, data,
-                                                       datashape)
-
-    if fly_type in ('pyramid',):
-        scaler_data = flip_data(scaler_data, subscan_dims=subscan_dims)
-
-    dataGrp.create_dataset('name', data=helper_encode_list(scaler_names))
-
-    if base_val is not None:  # base line shift for detector, for SRX
-        base_val = np.array([base_val])
-        if len(base_val) == 1:
-            scaler_data = np.abs(scaler_data - base_val)
-        else:
-            for i in scaler_shape.shape[2]:
-                scaler_data[:,:,i] = np.abs(scaler_data[:,:,i] - base_val[i])
-
-    dataGrp.create_dataset('val', data=scaler_data[:new_v_shape,:])
-
-    # roi sum
-    if get_roi_sum_sign:
-        dataGrp = f.create_group(interpath+'/roimap')
-
-        roi_data_all = np.zeros([datashape[0], datashape[1], len(roi_dict)])
-        roi_name_list = []
-
-        roi_data_all_ch = None
-        roi_name_all_ch = []
-
-        for i, (k, roi_list) in enumerate(six.iteritems(roi_dict)):
-            count = 0
-            if i == 0 and roi_data_all_ch is None:
-                roi_data_all_ch = np.zeros([datashape[0], datashape[1],
-                                            len(roi_dict)*len(roi_list)])
-
-            roi_names, roi_data = get_name_value_from_db(roi_list, data,
-                                                         datashape)
-            roi_name_list.append(str(k))
-            roi_data_all[:, :, i] = np.sum(roi_data, axis=2)
-
-            for n in range(len(roi_list)):
-                roi_name_all_ch.append(str(roi_list[n]))
-                roi_data_all_ch[:, :, count] = roi_data[:, :, n]
-                count += 1
-
-        # summed data from each channel
-        dataGrp.create_dataset('sum_name', data=helper_encode_list(roi_name_list))
-        dataGrp.create_dataset('sum_raw', data=roi_data_all)
-
-        # data from each channel
-        dataGrp.create_dataset('det_name', data=helper_encode_list(roi_name_all_ch))
-        dataGrp.create_dataset('det_raw', data=roi_data_all_ch)
-
-        # if 'det_name' in dataGrp:
-        #     del dataGrp['det_name']
-        #
-        # if 'det_raw' in dataGrp:
-        #     del dataGrp['det_raw']
-        #
-        # dataGrp.create_dataset('det_raw', data=roi_data)
-        # dataGrp.create_dataset('det_name', data=roi_names)
-
-        logger.info('roi names: {}'.format(roi_names))
-
-    f.close()
+        dataGrp.create_dataset('val', data=scaler_data[:new_v_shape,:])
 
 
 def write_db_to_hdf_base(fpath, data, num_det=3, create_each_det=True):
@@ -1825,7 +1771,6 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
         write_db_to_hdf(fpath, data,
                         datashape,
                         det_list=xrf_detector_names,
-                        #roi_dict=roi_dict,
                         pos_list=hdr.start.motors,
                         scaler_list=config_data['scaler_list'],
                         fly_type=fly_type,
@@ -1837,7 +1782,6 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
             write_db_to_hdf(fpath1, data,
                             datashape,
                             det_list=config_data['xrf_detector2'],
-                            #roi_dict=roi_dict,
                             pos_list=hdr.start.motors,
                             scaler_list=config_data['scaler_list'],
                             fly_type=fly_type,
