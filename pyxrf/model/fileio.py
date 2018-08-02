@@ -1466,11 +1466,96 @@ def write_db_to_hdf(fpath, data, datashape,
         dataGrp.create_dataset('val', data=scaler_data[:new_v_shape,:])
 
 
+def map_data2D(data, datashape,
+               det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
+               pos_list=('zpssx[um]', 'zpssy[um]'),
+               scaler_list=('sclr1_ch3', 'sclr1_ch4'),
+               fly_type=None, subscan_dims=None, spectrum_len=4096):
+    """
+    Data is obained from databroker. Transfer items from data to a dictionay of
+    numpy array, which has 2D shape same as scanning area.
+
+    This function can handle stopped/aborted scans. Raster scan (snake scan) is
+    also considered.
+
+    Parameters
+    ----------
+    data : pandas.core.frame.DataFrame
+        data from data broker
+    datashape : tuple or list
+        shape of two D image
+    det_list : list, tuple, optional
+        list of detector channels
+    pos_list : list, tuple, optional
+        list of pos pv
+    scaler_list : list, tuple, optional
+        list of scaler pv
+    fly_type : string or optional
+        raster scan (snake scan) or normal
+    subscan_dims : 1D array or optional
+        used at HXN, 2D of a large area is split into small area scans
+    spectrum_len : int, optional
+        standard spectrum length
+
+    Returns
+    -------
+    dict of numpy array
+    """
+    data_output = {}
+    sum_data = None
+    new_v_shape = datashape[0]  # updated if scan is not completed
+
+    for n in range(len(det_list)):
+        c_name = det_list[n]
+        if c_name in data:
+            detname = 'det'+str(n+1)
+            logger.info('read data from %s' % c_name)
+            channel_data = data[c_name]
+
+            # new veritcal shape is defined to ignore zeros points caused by stopped/aborted scans
+            new_v_shape = len(channel_data) // datashape[1]
+            new_data = np.vstack(channel_data)
+            new_data = new_data[:new_v_shape*datashape[1], :]
+            new_data = new_data.reshape([new_v_shape, datashape[1],
+                                         len(channel_data[1])])
+            if new_data.shape[2] != spectrum_len:
+                # merlin detector has spectrum len 2048
+                # make all the spectrum len to 4096, to avoid unpredicted error in fitting part
+                new_tmp = np.zeros([new_data.shape[0], new_data.shape[1], spectrum_len])
+                new_tmp[:,:,:new_data.shape[2]] = new_data
+                new_data = new_tmp
+            if fly_type in ('pyramid',):
+                new_data = flip_data(new_data, subscan_dims=subscan_dims)
+            data_output[detname] = new_data
+
+    # scanning position data
+    pos_names, pos_data = get_name_value_from_db(pos_list, data,
+                                                 datashape)
+    for i in range(len(pos_names)):
+        if 'x' in pos_names[i]:
+            pos_names[i] = 'x_pos'
+        elif 'y' in pos_names[i]:
+            pos_names[i] = 'y_pos'
+    if fly_type in ('pyramid',):
+        for i in range(pos_data.shape[2]):
+            # flip position the same as data flip on det counts
+            pos_data[:, :, i] = flip_data(pos_data_temp[:, :, i], subscan_dims=subscan_dims)
+    for i, v in enumerate(pos_names):
+        data_output[v] = pos_data[:, :, i]
+
+    # scaler data
+    scaler_names, scaler_data = get_name_value_from_db(scaler_list, data,
+                                                       datashape)
+    if fly_type in ('pyramid',):
+        scaler_data = flip_data(scaler_data, subscan_dims=subscan_dims)
+    for i, v in enumerate(scaler_names):
+        data_output[v] = scaler_data[:, :, i]
+    return data_output
+
+
 def write_db_to_hdf_base(fpath, data, num_det=3, create_each_det=True):
     """
     Data is obained based on databroker, and save the data to hdf file.
-
-    .. note:: This function should become part of suitcase
 
     Parameters
     ----------
@@ -1583,11 +1668,14 @@ def save_data_hdf(hdr, fpath,
 
     f.close()
 
+
 def helper_encode_list(data, data_type='utf-8'):
     return [d.encode(data_type) for d in data]
 
+
 def helper_decode_list(data, data_type='utf-8'):
     return [d.decode(data_type) for d in data]
+
 
 def get_name_value_from_db(name_list, data, datashape):
     """
