@@ -1844,24 +1844,27 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
                             base_val=config_data['base_value'])  #base value shift for ic
     else:
         # srx fly scan
-        # Added by AMK to allow flying of single element on xs2
-        if 'E_tomo' in start_doc['scaninfo']['type']:
-            num_det = 1
-        else:
-            num_det = 3
         if save_scalar is True:
             scaler_list = ['i0', 'time']
             xpos_name = 'enc1'
             ypos_name = 'hf_stage_y'
+        # Added by AMK to allow flying of single element on xs2
+        if 'E_tomo' in start_doc['scaninfo']['type']:
+            num_det = 1
+            ypos_name = 'e_tomo_y'
+        else:
+            num_det = 3
         vertical_fast = False  # assuming fast on x as default
         if num_end_lines_excluded is None:
             datashape = [start_doc['shape'][1], start_doc['shape'][0]]   # vertical first then horizontal, assuming fast scan on x
         else:
             datashape = [start_doc['shape'][1]-num_end_lines_excluded, start_doc['shape'][0]]
         if 'fast_axis' in hdr.start.scaninfo:
-            if hdr.start.scaninfo['fast_axis'] == 'VER':  # fast scan along vertical, y is fast scan, x is slow
+            if hdr.start.scaninfo['fast_axis'] in ('VER', 'DET2VER'):  # fast scan along vertical, y is fast scan, x is slow
                 xpos_name = 'enc1'
                 ypos_name = 'hf_stage_x'
+                if 'E_tomo' in start_doc['scaninfo']['type']:
+                    ypos_name = 'e_tomo_x'
                 vertical_fast = True
                 #datashape = [start_doc['shape'][0], start_doc['shape'][1]]   # fast vertical scan put shape[0] as vertical direction
 
@@ -1925,7 +1928,7 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
             data1 = db.get_table(hdr, fill=True, stream_name='primary')
             if num_end_lines_excluded is not None:
                 data1 = data1[:datashape[0]]
-            if ypos_name not in data1.keys():
+            if ypos_name not in data1.keys() and 'E_tomo' not in start_doc['scaninfo']['type']:
                 ypos_name = 'hf_stage_z'        #vertical along z
             y_pos0 = np.hstack(data1[ypos_name])
             if len(y_pos0) >= x_pos.shape[0]:  # y position is more than actual x pos, scan not finished?
