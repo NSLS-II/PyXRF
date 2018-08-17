@@ -2215,11 +2215,13 @@ def combine_data_to_recon(element_list, datalist, working_dir, norm=True,
             try:
                 data_all = dataset['xrf_fit'].value
                 data_name = dataset['xrf_fit_name'].value
+                data_name = helper_decode_list(data_name)
             except KeyError:
-                'Need to do fitting first.'
+                print('Need to do fitting first.')
             scaler_dataset = f['xrfmap/scalers']
             scaler_v = scaler_dataset['val'].value
             scaler_n = scaler_dataset['name'].value
+            scaler_n = helper_decode_list(scaler_n)
 
         data_dict = {}
         for name_i, name_v in enumerate(data_name):
@@ -2235,7 +2237,9 @@ def combine_data_to_recon(element_list, datalist, working_dir, norm=True,
                 normv = scaler_dict[ic_name]
                 data = data/normv
             if element3d[element_name] is None:
-                element3d[element_name] = np.zeros([len(datalist), data.shape[0]*expand_r, data.shape[1]*expand_r])
+                element3d[element_name] = np.zeros([len(datalist), 
+						    data.shape[0]*expand_r, 
+						    data.shape[1]*expand_r])
             element3d[element_name][i, :data.shape[0], :data.shape[1]] = data
 
         max_h = max(max_h, data.shape[0])
