@@ -1377,8 +1377,7 @@ def write_db_to_hdf(fpath, data, datashape,
         new_v_shape = datashape[0]  # to be updated if scan is not completed
         spectrum_len = 4096  # standard
 
-        for n in range(len(det_list)):
-            c_name = det_list[n]
+        for n, c_name in enumerate(det_list):
             if c_name in data:
                 detname = 'det'+str(n+1)
                 dataGrp = f.create_group(interpath+'/'+detname)
@@ -1505,8 +1504,7 @@ def map_data2D(data, datashape,
     sum_data = None
     new_v_shape = datashape[0]  # updated if scan is not completed
 
-    for n in range(len(det_list)):
-        c_name = det_list[n]
+    for n, c_name in enumerate(det_list):
         if c_name in data:
             detname = 'det'+str(n+1)
             logger.info('read data from %s' % c_name)
@@ -1609,64 +1607,6 @@ def write_db_to_hdf_base(fpath, data, num_det=3, create_each_det=True):
             scaler_data = data['scaler_data']
             dataGrp.create_dataset('name', data=helper_encode_list(scaler_names))
             dataGrp.create_dataset('val', data=scaler_data)
-
-
-def save_data_hdf(hdr, fpath,
-        det_list=['xspress3_ch1']): #, 'xspress3_ch2', 'xspress3_ch3'),
-    """More work are needed here. This is not finished.
-    """
-    interpath = 'xrfmap'
-    f = h5py.File(fpath, 'a')
-
-    sum_data = None
-    shapev = hdr.start.shape
-
-    total_s = shapev[0] * shapev[1]
-    len_spectrum = 3000
-    #exp_data = np.zeros([shapev[0]*shapev[1], len_spectrum])
-    limit_size = 10000
-    #exp_data = np.zeros([limit_size, len_spectrum])
-
-    for n in range(len(det_list)):
-        c_name = det_list[n]
-        detname = 'det'+str(n+1)
-        try:
-            dataGrp = f.create_group(interpath+'/'+detname)
-        except ValueError:
-            dataGrp = f[interpath+'/'+detname]
-
-        logger.info('read data from %s' % c_name)
-        #    channel_data = data[c_name]
-        evs = get_events(hdr, fill=True)
-        #for i,e in enumerate(evs):
-        #for i in range(total_s):
-        p = total_s/limit_size
-        q = total_s%limit_size
-        if q==0:
-            iter_n = int(p)
-        else:
-            iter_n = int(p)+1
-
-        for v in range(iter_n):
-            exp_data = np.zeros([limit_size, len_spectrum])
-            for i in range(limit_size):
-                if i%100==0:
-                    print(i)
-                e = evs.next()
-                exp_data[i,:] = e.data[c_name][:len_spectrum]
-                del e  # how to use memory efficiently?
-                if i>=limit_size-1:
-                    np.save('tmp_data'+str(v)+'.npy', exp_data)
-                    print('break here')
-
-                    break
-
-        #exp_data = exp_data.reshape([shapev[0], shapev[1], len_spectrum])
-
-        #ds_data = dataGrp.create_dataset('counts', data=new_data, compression='gzip')
-        #ds_data.attrs['comments'] = 'Experimental data from channel ' + str(n)
-
-    f.close()
 
 
 def helper_encode_list(data, data_type='utf-8'):
