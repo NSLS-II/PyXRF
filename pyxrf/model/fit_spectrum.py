@@ -55,7 +55,8 @@ from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
 from skbeam.core.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
                                            sum_area, set_parameter_bound,
                                            ParamController, K_LINE, L_LINE, M_LINE,
-                                           nnls_fit, trim, construct_linear_model, linear_spectrum_fitting,
+                                           nnls_fit, trim, construct_linear_model,
+                                           linear_spectrum_fitting,
                                            register_strategy, TRANSITIONS_LOOKUP)
 from skbeam.core.fitting.background import snip_method
 from skbeam.fluorescence import XrfElement as Element
@@ -1761,132 +1762,6 @@ def get_branching_ratio(elemental_line, energy):
         sum_v += e.cs(energy)[v]
     ratio_v = e.cs(energy)[transition_lines[0]]/sum_v
     return ratio_v
-
-
-#
-# def combine_data_to_hdf(fpath_read, file_prefix,
-#                          start_id, end_id,
-#                          interpath_read='entry/instrument/detector/data'):
-#     """
-#     Read data from each point scan, then save them to one hdf file.
-#     Following APS X13 beamline structure.
-#     """
-#     datasum = None
-#     for i in range(start_id, end_id+1):
-#         num_str = '{:03d}'.format(i)
-#         filename = file_prefix + num_str
-#         file_path = os.path.join(fpath_read, filename)
-#         with h5py.File(file_path, 'r') as f:
-#             data_temp = f[interpath_read][:]
-#             #data_temp = np.asarray(data_temp)
-#             #datasum.append(np.sum(data_temp, axis=1))
-#             if datasum is None:
-#                 datasum = np.zeros([end_id-start_id+1,
-#                                     data_temp.shape[0],
-#                                     data_temp.shape[1],
-#                                     data_temp.shape[2]])
-#             datasum[i-start_id, :, :, :] = data_temp
-#
-#     return datasum
-
-
-def fit_pixel_fast(dir_path, file_prefix,
-                   fileID, param, interpath,
-                   save_spectrum=True):
-    """
-    Single pixel fit of experiment data. No multiprocess is applied.
-
-    .. warning :: This function is not optimized as it calls
-    linear_spectrum_fitting function, where lots of repeated
-    calculation are processed.
-
-    Parameters
-    ----------
-    data : array
-        3D data of experiment spectrum
-    param : dict
-        fitting parameters
-
-    Returns
-    -------
-    dict :
-        fitting values for all the elements
-    """
-
-    num_str = '{:03d}'.format(fileID)
-    filename = file_prefix + num_str
-    file_path = os.path.join(dir_path, filename)
-    with h5py.File(file_path, 'r') as f:
-        data = f[interpath][:]
-    datas = data.shape
-
-    elist = param['non_fitting_values']['element_list'].split(', ')
-    elist = [e.strip(' ') for e in elist]
-
-    non_element = ['compton', 'elastic', 'background']
-    total_list = elist + non_element
-
-    result_map = dict()
-    for v in total_list:
-        if save_spectrum:
-            result_map.update({v: np.zeros([datas[0], datas[1], datas[2]])})
-        else:
-            result_map.update({v: np.zeros([datas[0], datas[1]])})
-
-    for i in xrange(datas[0]):
-        for j in xrange(datas[1]):
-            x, result, area_v = linear_spectrum_fitting(data[i, j, :], param,
-                                                        elemental_lines=elist,
-                                                        constant_weight=1.0)
-            for v in total_list:
-                if v in result:
-                    if save_spectrum:
-                        result_map[v][i, j, :len(result[v])] = result[v]
-                    else:
-                        result_map[v][i, j] = np.sum(result[v])
-
-    return result_map
-
-
-def fit_data_multi_files(dir_path, file_prefix,
-                         param, start_i, end_i,
-                         interpath='entry/instrument/detector/data'):
-    """
-    Fitting for multiple files with Multiprocessing.
-
-    Parameters
-    ----------
-    dir_path : str
-    file_prefix : str
-    param : dict
-    start_i : int
-        start id of given file
-    end_i: int
-        end id of given file
-    interpath : str
-        path inside hdf5 file to fetch the data
-
-    Returns
-    -------
-    result : list
-        fitting result as list of dict
-    """
-    num_processors_to_use = multiprocessing.cpu_count()
-    logger.info('cpu count: {}'.format(num_processors_to_use))
-    pool = multiprocessing.Pool(num_processors_to_use)
-
-    result_pool = [pool.apply_async(fit_pixel_fast,
-                                    (dir_path, file_prefix,
-                                     m, param, interpath))
-                   for m in range(start_i, end_i+1)]
-
-    results = []
-    for r in result_pool:
-        results.append(r.get())
-
-    pool.terminate()
-    pool.join()
-    return results
 
 
 def roi_sum_calculation(dir_path, file_prefix, fileID,

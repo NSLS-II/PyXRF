@@ -5,8 +5,10 @@ import time
 import json
 import glob
 
+from skbeam.core.fitting.xrf_model import (linear_spectrum_fitting, define_range)
 from .fileio import output_data, read_hdf_APS, read_MAPS, sep_v
-from .fit_spectrum import single_pixel_fitting_controller, save_fitdata_to_hdf
+from .fit_spectrum import (single_pixel_fitting_controller,
+                           save_fitdata_to_hdf)
 
 
 def fit_pixel_data_and_save(working_directory, file_name,
@@ -224,3 +226,135 @@ def pyxrf_batch(start_id, end_id=None, wd=None, fit_channel_sum=True, param_file
                                     incident_energy=incident_energy, spectrum_cut=spectrum_cut,
                                     save_txt=save_txt, save_tiff=save_tiff,
                                     ic_name=ic_name)
+
+
+def fit_each_pixel_with_nnls(data, params, elemental_lines=None,
+                             weights=None):
+    """
+    Fit a spectrum with a linear model.
+
+    Parameters
+    ----------
+    data : array
+        spectrum intensity
+    param : dict
+        fitting parameters
+    elemental_lines : list, optional
+            e.g., ['Na_K', Mg_K', 'Pt_M'] refers to the
+            K lines of Sodium, the K lines of Magnesium, and the M
+            lines of Platinum. If elemental_lines is set as None,
+            all the possible lines activated at given energy will be used.
+    """
+    param = copy.deepcopy(parameter)
+    if incident_energy is not None:
+        param['coherent_sct_amplitude']['value'] = incident_energy
+    # cut data into proper range
+    low = param['non_fitting_values']['energy_bound_low']['value']
+    high = param['non_fitting_values']['energy_bound_high']['value']
+    a0 = param['e_offset']['value']
+    a1 = param['e_linear']['value']
+    x, y = define_range(data, low, high, a0, a1)
+    # pixel fitting
+    _, result_dict, area_dict = linear_spectrum_fitting(x, y,
+                                    elemental_lines=elemental_lines,
+                                    weighs=weighs)
+    return result_dict
+
+
+def fit_pixel_per_file_no_multi(dir_path, file_prefix,
+                                fileID, param, interpath,
+                                save_spectrum=True):
+    """
+    Single pixel fit of experiment data. No multiprocess is applied.
+
+    .. warning :: This function is not optimized as it calls
+    linear_spectrum_fitting function, where lots of repeated
+    calculation are processed.
+
+    Parameters
+    ----------
+    data : array
+        3D data of experiment spectrum
+    param : dict
+        fitting parameters
+
+    Returns
+    -------
+    dict :
+        fitting values for all the elements
+    """
+
+    num_str = '{:03d}'.format(fileID)
+    filename = file_prefix + num_str
+    file_path = os.path.join(dir_path, filename)
+    with h5py.File(file_path, 'r') as f:
+        data = f[interpath][:]
+    datas = data.shape
+
+    elist = param['non_fitting_values']['element_list'].split(', ')
+    elist = [e.strip(' ') for e in elist]
+
+    non_element = ['compton', 'elastic', 'background']
+    total_list = elist + non_element
+
+    result_map = dict()
+    for v in total_list:
+        if save_spectrum:
+            result_map.update({v: np.zeros([datas[0], datas[1], datas[2]])})
+        else:
+            result_map.update({v: np.zeros([datas[0], datas[1]])})
+
+    for i in xrange(datas[0]):
+        for j in xrange(datas[1]):
+            x, result, area_v = linear_spectrum_fitting(data[i, j, :], param,
+                                                        elemental_lines=elist,
+                                                        constant_weight=1.0)
+            for v in total_list:
+                if v in result:
+                    if save_spectrum:
+                        result_map[v][i, j, :len(result[v])] = result[v]
+                    else:
+                        result_map[v][i, j] = np.sum(result[v])
+
+    return result_map
+
+
+def fit_data_multi_files(dir_path, file_prefix,
+                         param, start_i, end_i,
+                         interpath='entry/instrument/detector/data'):
+    """
+    Fitting for multiple files with Multiprocessing.
+
+    Parameters
+    ----------
+    dir_path : str
+    file_prefix : str
+    param : dict
+    start_i : int
+        start id of given file
+    end_i: int
+        end id of given file
+    interpath : str
+        path inside hdf5 file to fetch the data
+
+    Returns
+    -------
+    result : list
+        fitting result as list of dict
+    """
+    num_processors_to_use = multiprocessing.cpu_count()
+    logger.info('cpu count: {}'.format(num_processors_to_use))
+    pool = multiprocessing.Pool(num_processors_to_use)
+
+    result_pool = [pool.apply_async(fit_pixel_per_file_no_multi,
+                                    (dir_path, file_prefix,
+                                     m, param, interpath))
+                   for m in range(start_i, end_i+1)]
+
+    results = []
+    for r in result_pool:
+        results.append(r.get())
+
+    pool.terminate()
+    pool.join()
+    return results
