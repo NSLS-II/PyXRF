@@ -1503,6 +1503,7 @@ def map_data2D(data, datashape,
     data_output = {}
     sum_data = None
     new_v_shape = datashape[0]  # updated if scan is not completed
+    sum_data = None
 
     for n, c_name in enumerate(det_list):
         if c_name in data:
@@ -1525,6 +1526,11 @@ def map_data2D(data, datashape,
             if fly_type in ('pyramid',):
                 new_data = flip_data(new_data, subscan_dims=subscan_dims)
             data_output[detname] = new_data
+            if sum_data is None:
+                sum_data = new_data
+            else:
+                sum_data += new_data
+    data_output['detsum'] = sum_data
 
     # scanning position data
     pos_names, pos_data = get_name_value_from_db(pos_list, data,
@@ -1551,7 +1557,7 @@ def map_data2D(data, datashape,
     return data_output
 
 
-def write_db_to_hdf_base(fpath, data, num_det=3, create_each_det=True):
+def write_db_to_hdf_base(fpath, data, create_each_det=True):
     """
     Data is obained based on databroker, and save the data to hdf file.
 
@@ -1561,18 +1567,17 @@ def write_db_to_hdf_base(fpath, data, num_det=3, create_each_det=True):
         path to save hdf file
     data : dict
         fluorescence data with scaler value and positions
-    num_det : int
-        number of detector
     create_each_det : Bool, optional
         if number of point is too large, only sum data is saved in h5 file
     """
     interpath = 'xrfmap'
     sum_data = None
+    xrf_det_list = [n for n in data.keys() if 'det' in n and 'sum' not in n]
+    xrf_det_list.sort()
 
     with h5py.File(fpath, 'a') as f:
         if create_each_det is True:
-            for n in range(num_det):
-                detname = 'det' + str(n+1)
+            for detname in xrf_det_list:
                 new_data = data[detname]
 
                 if sum_data is None:
@@ -1581,15 +1586,17 @@ def write_db_to_hdf_base(fpath, data, num_det=3, create_each_det=True):
                     sum_data += new_data
 
                 dataGrp = f.create_group(interpath+'/'+detname)
-                ds_data = dataGrp.create_dataset('counts', data=new_data, compression='gzip')
-                ds_data.attrs['comments'] = 'Experimental data from channel ' + str(n)
+                ds_data = dataGrp.create_dataset('counts', data=new_data,
+                                                 compression='gzip')
+                ds_data.attrs['comments'] = 'Experimental data from {}'.format(detname)
         else:
             sum_data = data['det_sum']
 
         # summed data
         if sum_data is not None:
             dataGrp = f.create_group(interpath+'/detsum')
-            ds_data = dataGrp.create_dataset('counts', data=sum_data, compression='gzip')
+            ds_data = dataGrp.create_dataset('counts', data=sum_data,
+                                             compression='gzip')
             ds_data.attrs['comments'] = 'Experimental data from channel sum'
 
         # add positions
@@ -1923,7 +1930,7 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
             create_each_det = False
         else:
             create_each_det = True
-        write_db_to_hdf_base(fpath, new_data, num_det=num_det,
+        write_db_to_hdf_base(fpath, new_data,
                              create_each_det=create_each_det)
 
 
@@ -2209,8 +2216,8 @@ def combine_data_to_recon(element_list, datalist, working_dir, norm=True,
                 normv = scaler_dict[ic_name]
                 data = data/normv
             if element3d[element_name] is None:
-                element3d[element_name] = np.zeros([len(datalist), 
-						    data.shape[0]*expand_r, 
+                element3d[element_name] = np.zeros([len(datalist),
+						    data.shape[0]*expand_r,
 						    data.shape[1]*expand_r])
             element3d[element_name][i, :data.shape[0], :data.shape[1]] = data
 
