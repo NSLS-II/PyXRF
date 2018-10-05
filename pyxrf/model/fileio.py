@@ -1934,6 +1934,69 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
                              create_each_det=create_each_det)
 
 
+def _make_hdf_xfm(fpath, runid, create_each_det=False,
+                  save_scalar=True, num_end_lines_excluded=None):
+    """
+    First transfer the data from databroker into a correct format following the
+    shape of 2D scan. Then save the new data dictionary to hdf file.
+
+    .. note:: It is recommended to read data from databroker into memory
+    directly, instead of saving to files. This is ongoing work.
+
+    Parameters
+    ----------
+    fpath: str
+        path to save hdf file
+    runid : int
+        id number for given run
+    create_each_det: bool, optional
+        Do not create data for each detector is data size is too large,
+        if set as false. This will slow down the speed of creating hdf file
+        with large data size. srx beamline only.
+    save_scalar : bool, optional
+        choose to save scaler data or not for srx beamline, test purpose only.
+    num_end_lines_excluded : int, optional
+        remove the last few bad lines
+    """
+    hdr = db[runid]
+    spectrum_len = 4096
+    start_doc = hdr['start']
+    plan_n = start_doc.get('plan_name')
+    if 'fly' not in plan_n: # not fly scan
+        datashape = start_doc['shape']   # vertical first then horizontal
+        fly_type = None
+
+        snake_scan = start_doc.get('snaking')
+        if snake_scan[1] == True:
+            fly_type = 'pyramid'
+
+        current_dir = os.path.dirname(os.path.realpath(__file__))
+        config_file = 'xfm_pv_config.json'
+        config_path = sep_v.join(current_dir.split(sep_v)[:-2]+['configs', config_file])
+        with open(config_path, 'r') as json_data:
+            config_data = json.load(json_data)
+
+        # try except can be added later if scan is not completed.
+        data = db.get_table(hdr, fill=True, convert_times=False)
+
+        xrf_detector_names = config_data['xrf_detector']
+        print('Saving data to hdf file.')
+        data_output = map_data2D(data,
+                                 datashape,
+                                 det_list=xrf_detector_names,
+                                 pos_list=hdr.start.motors,
+                                 scaler_list=config_data['scaler_list'],
+                                 fly_type=fly_type)
+
+        # write_db_to_hdf(fpath, data,
+        #                 datashape,
+        #                 det_list=xrf_detector_names,
+        #                 pos_list=hdr.start.motors,
+        #                 scaler_list=config_data['scaler_list'],
+        #                 fly_type=fly_type,
+        #                 base_val=config_data['base_value'])  #base value shift for ic
+
+
 def get_data_per_event(n, data, e, det_num):
     db.fill_event(e)
     min_len = e.data['fluor'].shape[0]

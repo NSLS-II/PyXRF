@@ -1,0 +1,7 @@
+{
+    "beamline": "XFM",
+    "xrf_detector": ["xs_channel1", "xs_channel2", "xs_channel3", "xs_channel4"],
+    "pos_list": ["S_x", "S_y"],
+    "scaler_list": ["I0-MAIA"],
+    "base_value": [0]
+}
