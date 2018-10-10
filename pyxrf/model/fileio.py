@@ -1845,7 +1845,7 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
     else:
         # srx fly scan
         if save_scalar is True:
-            scaler_list = ['i0', 'time']
+            scaler_list = ['i0', 'time', 'i0_time', 'time_diff']
             xpos_name = 'enc1'
             ypos_name = 'hf_stage_y'
         # Added by AMK to allow flying of single element on xs2
@@ -1892,7 +1892,7 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
         for m,v in enumerate(e):
             if m < datashape[0]:
                 if save_scalar is True:
-                    for n in scaler_list+[xpos_name]:
+                    for n in scaler_list[:-1]+[xpos_name]:
                         min_len = min(v.data[n].size, datashape[1])
                         data[n][m, :min_len] = v.data[n][:min_len]
                         if min_len < datashape[1]:  # position data or i0 has shorter length than fluor data
@@ -1915,11 +1915,16 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
 
         if save_scalar is True:
             if vertical_fast is False:
-                for i,v in enumerate(scaler_list):
+                for i,v in enumerate(scaler_list[:-1]):
                     scaler_tmp[:, :, i] = data[v]
+                scaler_tmp[:, :-1, -1] = np.diff(data['time'], axis=1)
+                scaler_tmp[:, -1, -1] = data['time'][:, -1] - data['time'][:, -2]
             else:
-                for i,v in enumerate(scaler_list):
+                for i,v in enumerate(scaler_list[:-1]):
                     scaler_tmp[:, :, i] = data[v].T
+                data_t = data['time'].T
+                scaler_tmp[:-1, :, -1] = np.diff(data_t, axis=0)
+                scaler_tmp[-1, :, -1] = data_t[-1, :] - data_t[-2, :]
             new_data['scaler_data'] = scaler_tmp
             x_pos = data[xpos_name]
 
