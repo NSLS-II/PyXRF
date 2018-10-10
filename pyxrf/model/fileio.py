@@ -1735,6 +1735,9 @@ def _make_hdf(fpath, runid, full_data=True,
                       save_scalar=save_scalar,
                       num_end_lines_excluded=num_end_lines_excluded)
         print('Done!')
+    elif str(hdr_tmp.start.beamline_id) == 'XFM':
+        _make_hdf_xfm(fpath, runid, create_each_det=create_each_det,
+                      save_scalar=save_scalar)
     else:
         print("Databroker is not setup for this beamline")
 
@@ -1926,16 +1929,12 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
                 print('x,y positions are not saved.')
         # output to file
         print('Saving data to hdf file.')
-        if create_each_det is False:
-            create_each_det = False
-        else:
-            create_each_det = True
         write_db_to_hdf_base(fpath, new_data,
                              create_each_det=create_each_det)
 
 
 def _make_hdf_xfm(fpath, runid, create_each_det=False,
-                  save_scalar=True, num_end_lines_excluded=None):
+                  save_scalar=True):
     """
     First transfer the data from databroker into a correct format following the
     shape of 2D scan. Then save the new data dictionary to hdf file.
@@ -1955,8 +1954,6 @@ def _make_hdf_xfm(fpath, runid, create_each_det=False,
         with large data size. srx beamline only.
     save_scalar : bool, optional
         choose to save scaler data or not for srx beamline, test purpose only.
-    num_end_lines_excluded : int, optional
-        remove the last few bad lines
     """
     hdr = db[runid]
     spectrum_len = 4096
@@ -1987,7 +1984,8 @@ def _make_hdf_xfm(fpath, runid, create_each_det=False,
                                  pos_list=hdr.start.motors,
                                  scaler_list=config_data['scaler_list'],
                                  fly_type=fly_type)
-
+        write_db_to_hdf_base(fpath, data_output,
+                             create_each_det=create_each_det)
         # write_db_to_hdf(fpath, data,
         #                 datashape,
         #                 det_list=xrf_detector_names,
