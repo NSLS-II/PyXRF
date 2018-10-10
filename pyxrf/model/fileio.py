@@ -1816,24 +1816,27 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
                             base_val=config_data['base_value'])  #base value shift for ic
     else:
         # srx fly scan
+        if save_scalar is True:
+            scaler_list = ['i0', 'time', 'i0_time', 'time_diff']
+            xpos_name = 'enc1'
+            ypos_name = 'hf_stage_y'
         # Added by AMK to allow flying of single element on xs2
         if 'E_tomo' in start_doc['scaninfo']['type']:
             num_det = 1
+            ypos_name = 'e_tomo_y'
         else:
             num_det = 3
-        if save_scalar is True:
-            scaler_list = ['i0', 'time']
-            xpos_name = 'enc1'
-            ypos_name = 'hf_stage_y'
         vertical_fast = False  # assuming fast on x as default
         if num_end_lines_excluded is None:
             datashape = [start_doc['shape'][1], start_doc['shape'][0]]   # vertical first then horizontal, assuming fast scan on x
         else:
             datashape = [start_doc['shape'][1]-num_end_lines_excluded, start_doc['shape'][0]]
         if 'fast_axis' in hdr.start.scaninfo:
-            if hdr.start.scaninfo['fast_axis'] == 'VER':  # fast scan along vertical, y is fast scan, x is slow
+            if hdr.start.scaninfo['fast_axis'] in ('VER', 'DET2VER'):  # fast scan along vertical, y is fast scan, x is slow
                 xpos_name = 'enc1'
                 ypos_name = 'hf_stage_x'
+                if 'E_tomo' in start_doc['scaninfo']['type']:
+                    ypos_name = 'e_tomo_x'
                 vertical_fast = True
                 #datashape = [start_doc['shape'][0], start_doc['shape'][1]]   # fast vertical scan put shape[0] as vertical direction
 
@@ -1861,7 +1864,7 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
         for m,v in enumerate(e):
             if m < datashape[0]:
                 if save_scalar is True:
-                    for n in scaler_list+[xpos_name]:
+                    for n in scaler_list[:-1]+[xpos_name]:
                         min_len = min(v.data[n].size, datashape[1])
                         data[n][m, :min_len] = v.data[n][:min_len]
                         if min_len < datashape[1]:  # position data or i0 has shorter length than fluor data
@@ -1884,11 +1887,16 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
 
         if save_scalar is True:
             if vertical_fast is False:
-                for i,v in enumerate(scaler_list):
+                for i,v in enumerate(scaler_list[:-1]):
                     scaler_tmp[:, :, i] = data[v]
+                scaler_tmp[:, :-1, -1] = np.diff(data['time'], axis=1)
+                scaler_tmp[:, -1, -1] = data['time'][:, -1] - data['time'][:, -2]
             else:
-                for i,v in enumerate(scaler_list):
+                for i,v in enumerate(scaler_list[:-1]):
                     scaler_tmp[:, :, i] = data[v].T
+                data_t = data['time'].T
+                scaler_tmp[:-1, :, -1] = np.diff(data_t, axis=0)
+                scaler_tmp[-1, :, -1] = data_t[-1, :] - data_t[-2, :]
             new_data['scaler_data'] = scaler_tmp
             x_pos = data[xpos_name]
 
@@ -1897,7 +1905,7 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
             data1 = db.get_table(hdr, fill=True, stream_name='primary')
             if num_end_lines_excluded is not None:
                 data1 = data1[:datashape[0]]
-            if ypos_name not in data1.keys():
+            if ypos_name not in data1.keys() and 'E_tomo' not in start_doc['scaninfo']['type']:
                 ypos_name = 'hf_stage_z'        #vertical along z
             y_pos0 = np.hstack(data1[ypos_name])
             if len(y_pos0) >= x_pos.shape[0]:  # y position is more than actual x pos, scan not finished?
