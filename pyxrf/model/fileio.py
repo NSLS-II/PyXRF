@@ -74,6 +74,8 @@ try:
         from pyxrf.db_config.hxn_db_config import db
     elif beamline_name == 'SRX':
         from pyxrf.db_config.srx_db_config import db
+    elif beamline_name == 'XFM':
+        from pyxrf.db_config.xfm_db_config import db
     else:
         db = None
         print('Beamline Database is not used in pyxrf.')
@@ -1530,7 +1532,7 @@ def map_data2D(data, datashape,
                 sum_data = new_data
             else:
                 sum_data += new_data
-    data_output['detsum'] = sum_data
+    data_output['det_sum'] = sum_data
 
     # scanning position data
     pos_names, pos_data = get_name_value_from_db(pos_list, data,
@@ -1543,7 +1545,7 @@ def map_data2D(data, datashape,
     if fly_type in ('pyramid',):
         for i in range(pos_data.shape[2]):
             # flip position the same as data flip on det counts
-            pos_data[:, :, i] = flip_data(pos_data_temp[:, :, i], subscan_dims=subscan_dims)
+            pos_data[:, :, i] = flip_data(pos_data[:, :, i], subscan_dims=subscan_dims)
     for i, v in enumerate(pos_names):
         data_output[v] = pos_data[:, :, i]
 
@@ -1552,8 +1554,8 @@ def map_data2D(data, datashape,
                                                        datashape)
     if fly_type in ('pyramid',):
         scaler_data = flip_data(scaler_data, subscan_dims=subscan_dims)
-    for i, v in enumerate(scaler_names):
-        data_output[v] = scaler_data[:, :, i]
+    data_output['scaler_names'] = scaler_names
+    data_output['scaler_data'] = scaler_data
     return data_output
 
 
