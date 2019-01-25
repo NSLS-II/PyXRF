@@ -3,13 +3,13 @@ from databroker import Broker
 from databroker.core import register_builtin_handlers
 from filestore.fs import FileStore
 
-_mds_config = {'host': 'xf03id-ca1',
+_mds_config = {'host': 'xf03id1-mdb01',
                'port': 27017,
                'database': 'datastore-new',
                'timezone': 'US/Eastern'}
 mds = MDS(_mds_config, auth=False)
 
-_fs_config = {'host': 'xf03id-ca1',
+_fs_config = {'host': 'xf03id1-mdb01',
               'port': 27017,
               'database': 'filestore-new'}
 db_new = Broker(mds, FileStore(_fs_config))

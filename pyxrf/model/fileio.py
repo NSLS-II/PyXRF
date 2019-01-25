@@ -2217,8 +2217,8 @@ def combine_data_to_recon(element_list, datalist, working_dir, norm=True,
                 normv = scaler_dict[ic_name]
                 data = data/normv
             if element3d[element_name] is None:
-                element3d[element_name] = np.zeros([len(datalist), 
-						    data.shape[0]*expand_r, 
+                element3d[element_name] = np.zeros([len(datalist),
+						    data.shape[0]*expand_r,
 						    data.shape[1]*expand_r])
             element3d[element_name][i, :data.shape[0], :data.shape[1]] = data
 
