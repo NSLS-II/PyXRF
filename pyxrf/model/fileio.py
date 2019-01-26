@@ -74,6 +74,8 @@ try:
         from pyxrf.db_config.hxn_db_config import db
     elif beamline_name == 'SRX':
         from pyxrf.db_config.srx_db_config import db
+    elif beamline_name == 'XFM':
+        from pyxrf.db_config.xfm_db_config import db
     else:
         db = None
         print('Beamline Database is not used in pyxrf.')
@@ -1503,6 +1505,7 @@ def map_data2D(data, datashape,
     data_output = {}
     sum_data = None
     new_v_shape = datashape[0]  # updated if scan is not completed
+    sum_data = None
 
     for n, c_name in enumerate(det_list):
         if c_name in data:
@@ -1525,6 +1528,11 @@ def map_data2D(data, datashape,
             if fly_type in ('pyramid',):
                 new_data = flip_data(new_data, subscan_dims=subscan_dims)
             data_output[detname] = new_data
+            if sum_data is None:
+                sum_data = new_data
+            else:
+                sum_data += new_data
+    data_output['det_sum'] = sum_data
 
     # scanning position data
     pos_names, pos_data = get_name_value_from_db(pos_list, data,
@@ -1537,7 +1545,7 @@ def map_data2D(data, datashape,
     if fly_type in ('pyramid',):
         for i in range(pos_data.shape[2]):
             # flip position the same as data flip on det counts
-            pos_data[:, :, i] = flip_data(pos_data_temp[:, :, i], subscan_dims=subscan_dims)
+            pos_data[:, :, i] = flip_data(pos_data[:, :, i], subscan_dims=subscan_dims)
     for i, v in enumerate(pos_names):
         data_output[v] = pos_data[:, :, i]
 
@@ -1546,12 +1554,12 @@ def map_data2D(data, datashape,
                                                        datashape)
     if fly_type in ('pyramid',):
         scaler_data = flip_data(scaler_data, subscan_dims=subscan_dims)
-    for i, v in enumerate(scaler_names):
-        data_output[v] = scaler_data[:, :, i]
+    data_output['scaler_names'] = scaler_names
+    data_output['scaler_data'] = scaler_data
     return data_output
 
 
-def write_db_to_hdf_base(fpath, data, num_det=3, create_each_det=True):
+def write_db_to_hdf_base(fpath, data, create_each_det=True):
     """
     Data is obained based on databroker, and save the data to hdf file.
 
@@ -1561,18 +1569,17 @@ def write_db_to_hdf_base(fpath, data, num_det=3, create_each_det=True):
         path to save hdf file
     data : dict
         fluorescence data with scaler value and positions
-    num_det : int
-        number of detector
     create_each_det : Bool, optional
         if number of point is too large, only sum data is saved in h5 file
     """
     interpath = 'xrfmap'
     sum_data = None
+    xrf_det_list = [n for n in data.keys() if 'det' in n and 'sum' not in n]
+    xrf_det_list.sort()
 
     with h5py.File(fpath, 'a') as f:
         if create_each_det is True:
-            for n in range(num_det):
-                detname = 'det' + str(n+1)
+            for detname in xrf_det_list:
                 new_data = data[detname]
 
                 if sum_data is None:
@@ -1581,15 +1588,17 @@ def write_db_to_hdf_base(fpath, data, num_det=3, create_each_det=True):
                     sum_data += new_data
 
                 dataGrp = f.create_group(interpath+'/'+detname)
-                ds_data = dataGrp.create_dataset('counts', data=new_data, compression='gzip')
-                ds_data.attrs['comments'] = 'Experimental data from channel ' + str(n)
+                ds_data = dataGrp.create_dataset('counts', data=new_data,
+                                                 compression='gzip')
+                ds_data.attrs['comments'] = 'Experimental data from {}'.format(detname)
         else:
             sum_data = data['det_sum']
 
         # summed data
         if sum_data is not None:
             dataGrp = f.create_group(interpath+'/detsum')
-            ds_data = dataGrp.create_dataset('counts', data=sum_data, compression='gzip')
+            ds_data = dataGrp.create_dataset('counts', data=sum_data,
+                                             compression='gzip')
             ds_data.attrs['comments'] = 'Experimental data from channel sum'
 
         # add positions
@@ -1728,6 +1737,9 @@ def _make_hdf(fpath, runid, full_data=True,
                       save_scalar=save_scalar,
                       num_end_lines_excluded=num_end_lines_excluded)
         print('Done!')
+    elif str(hdr_tmp.start.beamline_id) == 'XFM':
+        _make_hdf_xfm(fpath, runid, create_each_det=create_each_det,
+                      save_scalar=save_scalar)
     else:
         print("Databroker is not setup for this beamline")
 
@@ -1927,12 +1939,70 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
                 print('x,y positions are not saved.')
         # output to file
         print('Saving data to hdf file.')
-        if create_each_det is False:
-            create_each_det = False
-        else:
-            create_each_det = True
-        write_db_to_hdf_base(fpath, new_data, num_det=num_det,
+        write_db_to_hdf_base(fpath, new_data,
                              create_each_det=create_each_det)
+
+
+def _make_hdf_xfm(fpath, runid, create_each_det=False,
+                  save_scalar=True):
+    """
+    First transfer the data from databroker into a correct format following the
+    shape of 2D scan. Then save the new data dictionary to hdf file.
+
+    .. note:: It is recommended to read data from databroker into memory
+    directly, instead of saving to files. This is ongoing work.
+
+    Parameters
+    ----------
+    fpath: str
+        path to save hdf file
+    runid : int
+        id number for given run
+    create_each_det: bool, optional
+        Do not create data for each detector is data size is too large,
+        if set as false. This will slow down the speed of creating hdf file
+        with large data size. srx beamline only.
+    save_scalar : bool, optional
+        choose to save scaler data or not for srx beamline, test purpose only.
+    """
+    hdr = db[runid]
+    spectrum_len = 4096
+    start_doc = hdr['start']
+    plan_n = start_doc.get('plan_name')
+    if 'fly' not in plan_n: # not fly scan
+        datashape = start_doc['shape']   # vertical first then horizontal
+        fly_type = None
+
+        snake_scan = start_doc.get('snaking')
+        if snake_scan[1] == True:
+            fly_type = 'pyramid'
+
+        current_dir = os.path.dirname(os.path.realpath(__file__))
+        config_file = 'xfm_pv_config.json'
+        config_path = sep_v.join(current_dir.split(sep_v)[:-2]+['configs', config_file])
+        with open(config_path, 'r') as json_data:
+            config_data = json.load(json_data)
+
+        # try except can be added later if scan is not completed.
+        data = db.get_table(hdr, fill=True, convert_times=False)
+
+        xrf_detector_names = config_data['xrf_detector']
+        print('Saving data to hdf file.')
+        data_output = map_data2D(data,
+                                 datashape,
+                                 det_list=xrf_detector_names,
+                                 pos_list=hdr.start.motors,
+                                 scaler_list=config_data['scaler_list'],
+                                 fly_type=fly_type)
+        write_db_to_hdf_base(fpath, data_output,
+                             create_each_det=create_each_det)
+        # write_db_to_hdf(fpath, data,
+        #                 datashape,
+        #                 det_list=xrf_detector_names,
+        #                 pos_list=hdr.start.motors,
+        #                 scaler_list=config_data['scaler_list'],
+        #                 fly_type=fly_type,
+        #                 base_val=config_data['base_value'])  #base value shift for ic
 
 
 def get_data_per_event(n, data, e, det_num):
@@ -2217,8 +2287,8 @@ def combine_data_to_recon(element_list, datalist, working_dir, norm=True,
                 normv = scaler_dict[ic_name]
                 data = data/normv
             if element3d[element_name] is None:
-                element3d[element_name] = np.zeros([len(datalist), 
-						    data.shape[0]*expand_r, 
+                element3d[element_name] = np.zeros([len(datalist),
+						    data.shape[0]*expand_r,
 						    data.shape[1]*expand_r])
             element3d[element_name][i, :data.shape[0], :data.shape[1]] = data
 
