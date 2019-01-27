@@ -1704,7 +1704,7 @@ def _make_hdf(fpath, runid, full_data=True,
         scaler_list = [v for v in scaler_list_all if v in all_keys]
 
         fields = det_list + scaler_list + pos_list
-        data = db.get_table(hdr, fields=fields, fill=True)
+        data = db.get_table(hdr, fill=True)
 
         print('Saving data to hdf file.')
         write_db_to_hdf(fpath, data, datashape,
