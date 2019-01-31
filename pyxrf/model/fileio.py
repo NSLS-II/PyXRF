@@ -1689,16 +1689,8 @@ def _make_hdf(fpath, runid, full_data=True,
         with open(config_path, 'r') as json_data:
             config_data = json.load(json_data)
 
-        mercury_det = ['mercury1_mca_spectrum']
         keylist =  hdr.descriptors[0].data_keys.keys()
-        #xspress3_det = config_data['xrf_detector']
-        xspress3_det = [v for v in keylist if 'xspress3' in v]  # find xspress3 det with key word matching
-        if mercury_det[0] in keylist:
-            det_list = xspress3_det + mercury_det
-        elif not len(xspress3_det) and mercury_det[0] in keylist:
-            det_list = mercury_det
-        else:
-            det_list = xspress3_det
+        det_list = [v for v in keylist if 'xspress3' in v]  # find xspress3 det with key word matching
 
         scaler_list_all = config_data['scaler_list']
 
