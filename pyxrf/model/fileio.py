@@ -612,7 +612,8 @@ def output_data(fpath, output_folder,
                 fit_output[n] = np.asarray(f['xrfmap/positions/pos'].value[i, :])
 
     # more data from suitcase part
-    data_sc = retrieve_data_from_hdf_suitcase(fpath)
+    data_sc = {}
+    #data_sc = retrieve_data_from_hdf_suitcase(fpath)
     if len(data_sc) != 0:
         fit_output.update(data_sc)
 
@@ -1688,12 +1689,13 @@ def _make_hdf(fpath, runid, full_data=True,
         with open(config_path, 'r') as json_data:
             config_data = json.load(json_data)
 
-        xspress3_det = config_data['xrf_detector']
         mercury_det = ['mercury1_mca_spectrum']
         keylist =  hdr.descriptors[0].data_keys.keys()
-        if xspress3_det[0] in keylist and mercury_det[0] in keylist:
+        #xspress3_det = config_data['xrf_detector']
+        xspress3_det = [v for v in keylist if 'xspress3' in v]  # find xspress3 det with key word matching
+        if mercury_det[0] in keylist:
             det_list = xspress3_det + mercury_det
-        elif xspress3_det[0] not in keylist and mercury_det[0] in keylist:
+        elif not len(xspress3_det) and mercury_det[0] in keylist:
             det_list = mercury_det
         else:
             det_list = xspress3_det
