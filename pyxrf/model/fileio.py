@@ -155,7 +155,7 @@ class FileIOModel(Atom):
 
     @observe(str('runid'))
     def _update_fname(self, change):
-        self.fname_from_db = 'scan_'+str(self.runid)+'.h5'
+        self.fname_from_db = 'scan2D_'+str(self.runid)+'.h5'
 
     def load_data_runid(self):
         """
@@ -170,11 +170,18 @@ class FileIOModel(Atom):
         if self.h_num != 0 and self.v_num != 0:
             datashape = [self.v_num, self.h_num]
 
-        self.file_name = self.fname_from_db
-        fpath = os.path.join(self.working_directory, self.file_name)
-        config_file = os.path.join(self.working_directory, 'pv_config.json')
-        db_to_hdf_config(fpath, self.runid,
-                         datashape, config_file)
+        #elf.file_name = self.fname_from_db
+        #fpath = os.path.join(self.working_directory, self.file_name)
+        #print("path is ", fpath)
+        # config_file = os.path.join(self.working_directory, 'pv_config.json')
+        # db_to_hdf_config(fpath, self.runid,
+        #                  datashape, config_file)
+        # focus on single file only
+        self.img_dict, self.data_sets = file_handler(self.working_directory,
+                                                     self.fname_from_db,
+                                                     load_each_channel=self.load_each_channel)
+        self.file_channel_list = list(self.data_sets.keys())
+        self.file_opt = 1  # use summed data as default
 
     @observe(str('file_opt'))
     def choose_file(self, change):
