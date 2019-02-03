@@ -170,16 +170,16 @@ class FileIOModel(Atom):
         if self.h_num != 0 and self.v_num != 0:
             datashape = [self.v_num, self.h_num]
 
-        #elf.file_name = self.fname_from_db
-        #fpath = os.path.join(self.working_directory, self.file_name)
-        #print("path is ", fpath)
-        # config_file = os.path.join(self.working_directory, 'pv_config.json')
-        # db_to_hdf_config(fpath, self.runid,
-        #                  datashape, config_file)
-        # focus on single file only
-        self.img_dict, self.data_sets = file_handler(self.working_directory,
-                                                     self.fname_from_db,
-                                                     load_each_channel=self.load_each_channel)
+        #tmp_wd = '~/.tmp/'
+        #if not os.path.exists(tmp_wd):
+        #    os.makedirs(tmp_wd)
+        #fpath = os.path.join(tmp_wd, self.fname_from_db)
+        #if not os.path.exists(fpath):
+        #    make_hdf(self.runid, fname=fpath)
+        #self.img_dict, self.data_sets = file_handler(tmp_wd,
+        #                                             self.fname_from_db,
+        #                                             load_each_channel=self.load_each_channel)
+        self.img_dict, self.data_sets = load_from_db(self.runid)
         self.file_channel_list = list(self.data_sets.keys())
         self.file_opt = 1  # use summed data as default
 
@@ -812,8 +812,88 @@ def read_hdf_APS(working_directory,
             except (IndexError, KeyError):
                 logger.info('No fitting data is loaded for channel summed data.')
 
-
     return img_dict, data_sets
+
+
+def load_from_db(runid):
+    """
+    Read data from databroker and save to Atom class which GUI can take.
+
+    .. note:: Requires the databroker package from NSLS2
+
+    Parameters
+    ----------
+    runid : int
+        id number for given run
+    """
+    hdr_tmp = db[-1]
+    print('Loading data from database.')
+    
+    data_sets = OrderedDict()
+    img_dict = OrderedDict()
+    fname = 'scan2D_{}'.format(runid)
+
+    if hdr_tmp.start.beamline_id == 'HXN':
+        hdr = db[runid]
+
+        start_doc = hdr['start']
+        if 'dimensions' in start_doc:
+            datashape = start_doc.dimensions
+        elif 'shape' in start_doc:
+            datashape = start_doc.shape
+        else:
+            logger.error('No dimension/shape is defined in hdr.start.')
+
+        datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
+        fly_type = start_doc.get('fly_type', None)
+        subscan_dims = start_doc.get('subscan_dims', None)
+
+        if 'motors' in hdr.start:
+            pos_list = hdr.start.motors
+        elif 'axes' in hdr.start:
+            pos_list = hdr.start.axes
+        else:
+            pos_list = ['zpssx[um]', 'zpssy[um]']
+
+        current_dir = os.path.dirname(os.path.realpath(__file__))
+        config_file = 'hxn_pv_config.json'
+        config_path = sep_v.join(current_dir.split(sep_v)[:-2]+['configs', config_file])
+        with open(config_path, 'r') as json_data:
+            config_data = json.load(json_data)
+
+        keylist =  hdr.descriptors[0].data_keys.keys()
+        det_list = [v for v in keylist if 'xspress3' in v]  # find xspress3 det with key word matching
+
+        scaler_list_all = config_data['scaler_list']
+
+        all_keys = hdr.descriptors[0].data_keys.keys()
+        scaler_list = [v for v in scaler_list_all if v in all_keys]
+
+        fields = det_list + scaler_list + pos_list
+        data = db.get_table(hdr, fill=True)
+
+        data_out = map_data2D(data, datashape,
+                              det_list=det_list,
+                              pos_list=pos_list,
+                              scaler_list=scaler_list,
+                              fly_type=fly_type, subscan_dims=subscan_dims, 
+                              spectrum_len=4096)
+
+        fname_sum = fname+'_sum'
+        det_sum = data_out['det1'] + data_out['det2'] + data_out['det3']
+        DS = DataSelection(filename=fname_sum,
+                           raw_data=det_sum)
+
+        data_sets[fname_sum] = DS
+        logger.info('Data of detector sum is loaded.')
+        
+        if 'x_pos' in data_sets and 'y_pos' in data_sets:
+            tmp = {}
+            for v in ['x_pos', 'y_pos']:
+                tmp[v] = data_sets[v]
+            img_dict['positions'] = tmp
+
+    return img_dict, data_sets 
 
 
 def retrieve_data_from_hdf_suitcase(fpath):
