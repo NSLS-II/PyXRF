@@ -1,13 +1,22 @@
 PyXRF Release Notes
 ===================
 
-v0.0.7 to be
-------------
+v0.0.9
+------
+- Pkg can be used for python 3.6 with pyqt>=5.9
+- Use latest databroker, with API like Broker.named. Remove old databroker config.
+- Init the work of loading data directly from Database
+- Support three beamlines including hxn, srx and xfm
+- Bug fix from previous versions
+
+
+v0.0.7
+-------
 - Image normalization and output normalization are synchronized.
 - More examples are added, such as batch mode fitting, and preparation for tomography reconstruction (creating movie).
 - Only one strategy is selected for summed spectrum fitting.
 - More controls to output data to 2D image, and to visualize on GUI
-- Output data is normalized following equation norm_data = data1/data2 * np.mean(data2). 
+- Output data is normalized following equation norm_data = data1/data2 * np.mean(data2).
 
 
 v0.0.4
