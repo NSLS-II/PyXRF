@@ -616,6 +616,8 @@ class Fit1D(Atom):
             self.x_data = np.fliplr(self.x_data)
         except KeyError:
             pass
+        except ValueError:
+            print('Fitting result can not be saved to h5 file.')
 
         # get fitted spectrum and save them to figs
         if self.save_point is True:
@@ -651,12 +653,15 @@ class Fit1D(Atom):
             #                      data_fit, self.param_dict,
             #                      self.result_folder, prefix=prefix_fname, use_snip=use_snip)
             logger.info('Done with saving fitting plots.')
+        try:
+            self.save2Dmap_to_hdf(pixel_fit=pixel_fit)
 
-        self.save2Dmap_to_hdf(pixel_fit=pixel_fit)
+            self.pixel_fit_info = 'Pixel fitting is done!'
+            #app.processEvents()
+            logger.info('-------- Fitting of single pixels is done! --------')
+        except ValueError:
+            print('Fitting result can not be saved to h5 file.')
 
-        self.pixel_fit_info = 'Pixel fitting is done!'
-        #app.processEvents()
-        logger.info('-------- Fitting of single pixels is done! --------')
 
     def save2Dmap_to_hdf(self, pixel_fit='nnls'):
         """
@@ -695,6 +700,10 @@ class Fit1D(Atom):
         else:
             inner_path = 'xrfmap/detsum'
             fit_name = prefix_fname+'_fit'
+
+        # Update GUI so that results can be seen immediately
+        self.fit_img[fit_name] = self.result_map        
+
         save_fitdata_to_hdf(self.hdf_path, self.result_map, datapath=inner_path)
 
         # output error
@@ -704,9 +713,7 @@ class Fit1D(Atom):
                                 data_saveas='xrf_fit_error',
                                 dataname_saveas='xrf_fit_error_name')
 
-        # Update GUI so that results can be seen immediately
-        self.fit_img[fit_name] = self.result_map
-
+        
     def calculate_roi_sum(self):
         if self.roi_sum_opt['status'] == True:
             low = int(self.roi_sum_opt['low']*100)

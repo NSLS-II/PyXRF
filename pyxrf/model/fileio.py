@@ -157,7 +157,7 @@ class FileIOModel(Atom):
 
     @observe(str('runid'))
     def _update_fname(self, change):
-        self.fname_from_db = 'scan_'+str(self.runid)+'.h5'
+        self.fname_from_db = 'scan2D_'+str(self.runid)+'.h5'
 
     def load_data_runid(self):
         """
@@ -172,11 +172,18 @@ class FileIOModel(Atom):
         if self.h_num != 0 and self.v_num != 0:
             datashape = [self.v_num, self.h_num]
 
-        self.file_name = self.fname_from_db
-        fpath = os.path.join(self.working_directory, self.file_name)
-        config_file = os.path.join(self.working_directory, 'pv_config.json')
-        db_to_hdf_config(fpath, self.runid,
-                         datashape, config_file)
+        #tmp_wd = '~/.tmp/'
+        #if not os.path.exists(tmp_wd):
+        #    os.makedirs(tmp_wd)
+        #fpath = os.path.join(tmp_wd, self.fname_from_db)
+        #if not os.path.exists(fpath):
+        #    make_hdf(self.runid, fname=fpath)
+        #self.img_dict, self.data_sets = file_handler(tmp_wd,
+        #                                             self.fname_from_db,
+        #                                             load_each_channel=self.load_each_channel)
+        self.img_dict, self.data_sets = fetch_data_from_db(self.runid)
+        self.file_channel_list = list(self.data_sets.keys())
+        self.file_opt = 1  # use summed data as default
 
     @observe(str('file_opt'))
     def choose_file(self, change):
@@ -357,117 +364,6 @@ def file_handler(working_directory, file_name, load_each_channel=True, spectrum_
         raise
 
 
-def fetch_data_from_db(runid):
-    """
-    Read data from database.
-
-    .. note:: Requires the databroker package from NSLS2
-
-    Parameters
-    ----------
-    runid : int
-        ID for given experimental measurement
-
-    Returns
-    -------
-    data : pandas.core.frame.DataFrame
-        data frame with keys as given PV names.
-    """
-
-    #hdr = db[runid]
-    # headers = db.find_headers(scan_id=runid)
-    # head_list = sorted(headers, key=lambda x: x.start_time)
-    # hdr = head_list[-1]
-    # # events = db.fetch_events(hdr, fill=False)
-    # # num_events = len(list(events))
-    # # print('%s events found' % num_events)
-    # ev = db.fetch_events(hdr)
-    #
-    # events = []
-    # for idx, event in enumerate(ev):
-    #     if idx % 1000 == 0:
-    #         print('event %s loaded' % (idx+1))
-    #     events.append(event)
-    #
-    # muxer = dm.from_events(events)
-    # data = muxer.to_sparse_dataframe()
-    fields = ['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3',
-              'ssx[um]', 'ssy[um]', 'ssx', 'ssy', 'sclr1_ch3', 'sclr1_ch4']
-    d = db.get_table(db[runid], fields=fields)
-    return d
-
-
-def read_runid(runid, c_list, dshape=None):
-    """
-    Read data from databroker.
-
-    .. note:: Requires the databroker package from NSLS2
-
-    .. note:: Not currently used in the gui
-
-    Parameters
-    ----------
-    runid : int
-        ID for given experimental measurement
-    c_list : list
-        channel list
-
-    Returns
-    -------
-    data_dict : dict
-        with fitting data
-    data_sets : dict
-        data from each channel and channel summed
-    """
-    data_dict = OrderedDict()
-    data_sets = OrderedDict()
-
-    # in case inputid is -1
-    if runid == -1:
-        hdr = db[-1]
-        runid = hdr.scan_id
-
-    data = fetch_data_from_db(runid)
-
-    exp_keys = list(data.keys())
-
-    sumv = None
-
-    for c_name in c_list:
-        channel_data = data[c_name]
-        new_data = np.zeros([1, len(channel_data), len(channel_data[0])])
-
-        for i in xrange(len(channel_data)):
-            channel_data[i][pd.isnull(channel_data[i])] = 0
-            new_data[0, i, :] = channel_data[i]
-
-        file_channel = 'run_'+str(runid)+'_'+c_name
-        DS = DataSelection(filename=file_channel,
-                           raw_data=new_data)
-        data_sets[file_channel] = DS
-
-        if sumv is None:
-            sumv = np.array(new_data)
-        else:
-            sumv += new_data
-
-    file_channel = 'run_'+str(runid)
-    DS = DataSelection(filename=file_channel,
-                       raw_data=sumv)
-    data_sets[file_channel] = DS
-
-    temp = {}
-    for v in exp_keys:
-        if v not in c_list:
-            # clean up nan data, should be done in lower level
-            data[v][pd.isnull(data[v])] = 0
-            pv_data = np.array(data[v])
-            temp[v] = pv_data.reshape(dshape)
-    data_dict['Run'+str(runid)+'_roi'] = temp
-
-    return data_dict, data_sets
-
-
 def read_xspress3_data(file_path):
     """
     Data IO for xspress3 format.
@@ -614,7 +510,8 @@ def output_data(fpath, output_folder,
                 fit_output[n] = np.asarray(f['xrfmap/positions/pos'].value[i, :])
 
     # more data from suitcase part
-    data_sc = retrieve_data_from_hdf_suitcase(fpath)
+    data_sc = {}
+    #data_sc = retrieve_data_from_hdf_suitcase(fpath)
     if len(data_sc) != 0:
         fit_output.update(data_sc)
 
@@ -806,8 +703,91 @@ def read_hdf_APS(working_directory,
             except (IndexError, KeyError):
                 logger.info('No fitting data is loaded for channel summed data.')
 
-
     return img_dict, data_sets
+
+
+def fetch_data_from_db(runid):
+    """
+    Read data from databroker and save to Atom class which GUI can take.
+
+    .. note:: Requires the databroker package from NSLS2
+
+    Parameters
+    ----------
+    runid : int
+        id number for given run
+    """
+    hdr_tmp = db[-1]
+    print('Loading data from database.')
+    
+    data_sets = OrderedDict()
+    img_dict = OrderedDict()
+    fname = 'scan2D_{}'.format(runid)
+
+    if hdr_tmp.start.beamline_id == 'HXN':
+        hdr = db[runid]
+
+        start_doc = hdr['start']
+        if 'dimensions' in start_doc:
+            datashape = start_doc.dimensions
+        elif 'shape' in start_doc:
+            datashape = start_doc.shape
+        else:
+            logger.error('No dimension/shape is defined in hdr.start.')
+
+        datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
+        fly_type = start_doc.get('fly_type', None)
+        subscan_dims = start_doc.get('subscan_dims', None)
+
+        if 'motors' in hdr.start:
+            pos_list = hdr.start.motors
+        elif 'axes' in hdr.start:
+            pos_list = hdr.start.axes
+        else:
+            pos_list = ['zpssx[um]', 'zpssy[um]']
+
+        current_dir = os.path.dirname(os.path.realpath(__file__))
+        config_file = 'hxn_pv_config.json'
+        config_path = sep_v.join(current_dir.split(sep_v)[:-2]+['configs', config_file])
+        with open(config_path, 'r') as json_data:
+            config_data = json.load(json_data)
+
+        keylist =  hdr.descriptors[0].data_keys.keys()
+        det_list = [v for v in keylist if 'xspress3' in v]  # find xspress3 det with key word matching
+
+        scaler_list_all = config_data['scaler_list']
+
+        all_keys = hdr.descriptors[0].data_keys.keys()
+        scaler_list = [v for v in scaler_list_all if v in all_keys]
+
+        fields = det_list + scaler_list + pos_list
+        data = db.get_table(hdr, fill=True)
+
+        data_out = map_data2D(data, datashape,
+                              det_list=det_list,
+                              pos_list=pos_list,
+                              scaler_list=scaler_list,
+                              fly_type=fly_type, subscan_dims=subscan_dims, 
+                              spectrum_len=4096)
+
+        fname_sum = fname+'_sum'
+        det_sum = data_out['det1'] + data_out['det2'] + data_out['det3']
+        DS = DataSelection(filename=fname_sum,
+                           raw_data=det_sum)
+
+        data_sets[fname_sum] = DS
+        logger.info('Data of detector sum is loaded.')
+        
+        if 'x_pos' in data_sets and 'y_pos' in data_sets:
+            tmp = {}
+            for v in ['x_pos', 'y_pos']:
+                tmp[v] = data_sets[v]
+            img_dict['positions'] = tmp
+        scaler_tmp = {}
+        for v in scaler_list:
+            scaler_tmp[v] = data_out[v]
+        img_dict[fname+'_scaler'] = scaler_tmp
+    return img_dict, data_sets 
 
 
 def retrieve_data_from_hdf_suitcase(fpath):
@@ -1697,15 +1677,8 @@ def _make_hdf(fpath, runid, full_data=True,
         with open(config_path, 'r') as json_data:
             config_data = json.load(json_data)
 
-        xspress3_det = config_data['xrf_detector']
-        mercury_det = ['mercury1_mca_spectrum']
         keylist =  hdr.descriptors[0].data_keys.keys()
-        if xspress3_det[0] in keylist and mercury_det[0] in keylist:
-            det_list = xspress3_det + mercury_det
-        elif xspress3_det[0] not in keylist and mercury_det[0] in keylist:
-            det_list = mercury_det
-        else:
-            det_list = xspress3_det
+        det_list = [v for v in keylist if 'xspress3' in v]  # find xspress3 det with key word matching
 
         scaler_list_all = config_data['scaler_list']
 
