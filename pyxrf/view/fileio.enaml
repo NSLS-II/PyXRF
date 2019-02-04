@@ -143,7 +143,6 @@ enamldef FileView(DockItem): file_view:
 
                 PushButton: load_btn:
                     enabled = databroker is not None
-                    checkable = databroker is not None
                     text = "Load Data from Database"
                     clicked ::
                         io_model.load_data_runid()

@@ -179,7 +179,7 @@ class FileIOModel(Atom):
         #self.img_dict, self.data_sets = file_handler(tmp_wd,
         #                                             self.fname_from_db,
         #                                             load_each_channel=self.load_each_channel)
-        self.img_dict, self.data_sets = load_from_db(self.runid)
+        self.img_dict, self.data_sets = fetch_data_from_db(self.runid)
         self.file_channel_list = list(self.data_sets.keys())
         self.file_opt = 1  # use summed data as default
 
@@ -360,117 +360,6 @@ def file_handler(working_directory, file_name, load_each_channel=True, spectrum_
     except:
         logger.error("Unexpected error:", sys.exc_info()[0])
         raise
-
-
-def fetch_data_from_db(runid):
-    """
-    Read data from database.
-
-    .. note:: Requires the databroker package from NSLS2
-
-    Parameters
-    ----------
-    runid : int
-        ID for given experimental measurement
-
-    Returns
-    -------
-    data : pandas.core.frame.DataFrame
-        data frame with keys as given PV names.
-    """
-
-    #hdr = db[runid]
-    # headers = db.find_headers(scan_id=runid)
-    # head_list = sorted(headers, key=lambda x: x.start_time)
-    # hdr = head_list[-1]
-    # # events = db.fetch_events(hdr, fill=False)
-    # # num_events = len(list(events))
-    # # print('%s events found' % num_events)
-    # ev = db.fetch_events(hdr)
-    #
-    # events = []
-    # for idx, event in enumerate(ev):
-    #     if idx % 1000 == 0:
-    #         print('event %s loaded' % (idx+1))
-    #     events.append(event)
-    #
-    # muxer = dm.from_events(events)
-    # data = muxer.to_sparse_dataframe()
-    fields = ['xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3',
-              'ssx[um]', 'ssy[um]', 'ssx', 'ssy', 'sclr1_ch3', 'sclr1_ch4']
-    d = db.get_table(db[runid], fields=fields)
-    return d
-
-
-def read_runid(runid, c_list, dshape=None):
-    """
-    Read data from databroker.
-
-    .. note:: Requires the databroker package from NSLS2
-
-    .. note:: Not currently used in the gui
-
-    Parameters
-    ----------
-    runid : int
-        ID for given experimental measurement
-    c_list : list
-        channel list
-
-    Returns
-    -------
-    data_dict : dict
-        with fitting data
-    data_sets : dict
-        data from each channel and channel summed
-    """
-    data_dict = OrderedDict()
-    data_sets = OrderedDict()
-
-    # in case inputid is -1
-    if runid == -1:
-        hdr = db[-1]
-        runid = hdr.scan_id
-
-    data = fetch_data_from_db(runid)
-
-    exp_keys = list(data.keys())
-
-    sumv = None
-
-    for c_name in c_list:
-        channel_data = data[c_name]
-        new_data = np.zeros([1, len(channel_data), len(channel_data[0])])
-
-        for i in xrange(len(channel_data)):
-            channel_data[i][pd.isnull(channel_data[i])] = 0
-            new_data[0, i, :] = channel_data[i]
-
-        file_channel = 'run_'+str(runid)+'_'+c_name
-        DS = DataSelection(filename=file_channel,
-                           raw_data=new_data)
-        data_sets[file_channel] = DS
-
-        if sumv is None:
-            sumv = np.array(new_data)
-        else:
-            sumv += new_data
-
-    file_channel = 'run_'+str(runid)
-    DS = DataSelection(filename=file_channel,
-                       raw_data=sumv)
-    data_sets[file_channel] = DS
-
-    temp = {}
-    for v in exp_keys:
-        if v not in c_list:
-            # clean up nan data, should be done in lower level
-            data[v][pd.isnull(data[v])] = 0
-            pv_data = np.array(data[v])
-            temp[v] = pv_data.reshape(dshape)
-    data_dict['Run'+str(runid)+'_roi'] = temp
-
-    return data_dict, data_sets
 
 
 def read_xspress3_data(file_path):
@@ -815,7 +704,7 @@ def read_hdf_APS(working_directory,
     return img_dict, data_sets
 
 
-def load_from_db(runid):
+def fetch_data_from_db(runid):
     """
     Read data from databroker and save to Atom class which GUI can take.
 
@@ -892,7 +781,10 @@ def load_from_db(runid):
             for v in ['x_pos', 'y_pos']:
                 tmp[v] = data_sets[v]
             img_dict['positions'] = tmp
-
+        scaler_tmp = {}
+        for v in scaler_list:
+            scaler_tmp[v] = data_out[v]
+        img_dict[fname+'_scaler'] = scaler_tmp
     return img_dict, data_sets 
 
 
