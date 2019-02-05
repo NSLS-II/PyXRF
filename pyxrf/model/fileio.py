@@ -784,9 +784,11 @@ def fetch_data_from_db(runid):
                 tmp[v] = data_sets[v]
             img_dict['positions'] = tmp
         scaler_tmp = {}
-        for v in scaler_list:
-            if v in data_out:
-                scaler_tmp[v] = data_out[v]
+        print(data_out.keys())
+        print(data_out['scaler_data'].shape)
+        for i, v in enumerate(data_out['scaler_names']):
+            print(v)
+            scaler_tmp[v] = data_out['scaler_data'][:, :, i]
         img_dict[fname+'_scaler'] = scaler_tmp
     return img_dict, data_sets
 

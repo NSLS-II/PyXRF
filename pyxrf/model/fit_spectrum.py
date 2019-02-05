@@ -702,7 +702,7 @@ class Fit1D(Atom):
             fit_name = prefix_fname+'_fit'
 
         # Update GUI so that results can be seen immediately
-        self.fit_img[fit_name] = self.result_map        
+        self.fit_img[fit_name] = self.result_map
 
         save_fitdata_to_hdf(self.hdf_path, self.result_map, datapath=inner_path)
 
@@ -713,7 +713,7 @@ class Fit1D(Atom):
                                 data_saveas='xrf_fit_error',
                                 dataname_saveas='xrf_fit_error_name')
 
-        
+
     def calculate_roi_sum(self):
         if self.roi_sum_opt['status'] == True:
             low = int(self.roi_sum_opt['low']*100)
@@ -767,21 +767,24 @@ class Fit1D(Atom):
         for v in list(self.fit_result.params.keys()):
             if 'ka1_area' in v or 'la1_area' in v or 'ma1_area' in v or 'amplitude' in v:
                 area_list.append(v)
+        try:
+            with open(filepath, 'w') as myfile:
+                myfile.write('\n {:<10} \t {} \t {}'.format('name', 'summed area', 'error in %'))
+                for k, v in six.iteritems(self.comps):
+                    if k == 'background':
+                        continue
+                    for name in area_list:
+                        if k.lower() in name.lower():
+                            errorv = self.fit_result.params[name].stderr/(self.fit_result.params[name].value+1e-8)
+                            errorv *= 100
+                            errorv = np.round(errorv, 3)
+                            myfile.write('\n {:<10} \t {} \t {}'.format(k, np.round(np.sum(v), 3), str(errorv)+'%'))
+                myfile.write('\n\n')
+                myfile.write(lmfit.fit_report(self.fit_result, sort_pars=True))
+                logger.warning('Results are saved to {}'.format(filepath))
+        except FileNotFoundError:
+            print("Summed spectrum fitting results are not saved.")
 
-        with open(filepath, 'w') as myfile:
-            myfile.write('\n {:<10} \t {} \t {}'.format('name', 'summed area', 'error in %'))
-            for k, v in six.iteritems(self.comps):
-                if k == 'background':
-                    continue
-                for name in area_list:
-                     if k.lower() in name.lower():
-                         errorv = self.fit_result.params[name].stderr/(self.fit_result.params[name].value+1e-8)
-                         errorv *= 100
-                         errorv = np.round(errorv, 3)
-                         myfile.write('\n {:<10} \t {} \t {}'.format(k, np.round(np.sum(v), 3), str(errorv)+'%'))
-            myfile.write('\n\n')
-            myfile.write(lmfit.fit_report(self.fit_result, sort_pars=True))
-            logger.warning('Results are saved to {}'.format(filepath))
 
     def update_name_list(self):
         """
