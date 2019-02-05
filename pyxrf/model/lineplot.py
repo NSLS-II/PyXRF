@@ -420,7 +420,6 @@ class LinePlotModel(Atom):
         escape_e = self.escape_e
 
         if len(self.elist):
-            self._ax.hold(True)
             for i in range(len(self.elist)):
                 eline, = self._ax.plot([self.elist[i][0], self.elist[i][0]],
                                        [0, self.elist[i][1]*self.max_v],
