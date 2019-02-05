@@ -719,7 +719,7 @@ def fetch_data_from_db(runid):
     """
     hdr_tmp = db[-1]
     print('Loading data from database.')
-    
+
     data_sets = OrderedDict()
     img_dict = OrderedDict()
     fname = 'scan2D_{}'.format(runid)
@@ -767,7 +767,7 @@ def fetch_data_from_db(runid):
                               det_list=det_list,
                               pos_list=pos_list,
                               scaler_list=scaler_list,
-                              fly_type=fly_type, subscan_dims=subscan_dims, 
+                              fly_type=fly_type, subscan_dims=subscan_dims,
                               spectrum_len=4096)
 
         fname_sum = fname+'_sum'
@@ -777,7 +777,7 @@ def fetch_data_from_db(runid):
 
         data_sets[fname_sum] = DS
         logger.info('Data of detector sum is loaded.')
-        
+
         if 'x_pos' in data_sets and 'y_pos' in data_sets:
             tmp = {}
             for v in ['x_pos', 'y_pos']:
@@ -785,9 +785,10 @@ def fetch_data_from_db(runid):
             img_dict['positions'] = tmp
         scaler_tmp = {}
         for v in scaler_list:
-            scaler_tmp[v] = data_out[v]
+            if v in data_out:
+                scaler_tmp[v] = data_out[v]
         img_dict[fname+'_scaler'] = scaler_tmp
-    return img_dict, data_sets 
+    return img_dict, data_sets
 
 
 def retrieve_data_from_hdf_suitcase(fpath):
