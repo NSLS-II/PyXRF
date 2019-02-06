@@ -237,7 +237,7 @@ class LinePlotModel(Atom):
     def _update_canvas(self):
         self._ax.legend(loc=2)
         try:
-            self._ax.legend(framealpha=0.2).draggable()
+            self._ax.legend(framealpha=0.2).set_draggable(True)
         except AttributeError:
             self._ax.legend(framealpha=0.2)
         self._fig.tight_layout(pad=0.5)
