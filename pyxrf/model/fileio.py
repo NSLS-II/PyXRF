@@ -1830,7 +1830,11 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
 
         new_data = {}
         data = {}
-        e = db.get_events(hdr, fill=True, stream_name='stream0')
+        des = [d for d in hdr.descriptors if d.name=='stream0'][0]
+        # merlin data doesn't need to be saved.
+        un_used_det = ['merlin', 'im'] # data not to be transfered for pyxrf
+        data_list_used = [v for v in des.data_keys.keys() if 'merlin' not in v.lower() ] 
+        e = db.get_events(hdr, fill=True, stream_name=des.name)
 
         if save_scalar is True:
             new_data['scaler_names'] = scaler_list
