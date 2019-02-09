@@ -515,8 +515,38 @@ def output_data(fpath, output_folder,
     if len(data_sc) != 0:
         fit_output.update(data_sc)
 
+    output_data_to_tiff(fit_output, output_folder=output_folder,
+                        file_format=file_format, name_append=name_append,
+                        norm_name=norm_name,
+                        use_average=use_average)
+
+
+def output_data_to_tiff(fit_output,
+                        output_folder="~/pyxrf_data_tmp/",
+                        file_format='tiff', name_append="",
+                        norm_name=None, use_average=True):
+    """
+    Read data in memory and save them into tiff to txt.
+
+    Parameters
+    ----------
+    fit_output:
+        dict of fitting data and scaler data
+    output_folder : str, optional
+        which folder to save those txt file
+    file_format : str, optional
+        tiff or txt
+    name_append: str, optional
+        more information saved to output file name
+    norm_name : str, optional
+        if given, normalization will be performed.
+    use_average : Bool, optional
+        when normalization, multiply mean value of denomenator,
+        i.e., norm_data = data1/data2 * np.mean(data2)
+    """
     #save data
     if os.path.exists(output_folder) is False:
+        logger.warning("Output_folder {} is created".format(output_folder))
         os.mkdir(output_folder)
 
     if norm_name is not None:
@@ -529,7 +559,6 @@ def output_data(fpath, output_folder,
             if use_average == True:
                 ave = np.mean(ic_v)
             v = v/ic_v * ave
-
             _fname = k + name_append + norm_sign
             if file_format == 'tiff':
                 fname = os.path.join(output_folder, _fname + '.tiff')
@@ -537,8 +566,6 @@ def output_data(fpath, output_folder,
             elif file_format == 'txt':
                 fname = os.path.join(output_folder, _fname + '.txt')
                 np.savetxt(fname, v.astype(np.float32))
-            else:
-                pass
 
     for k, v in six.iteritems(fit_output):
         _fname = k + name_append
@@ -548,8 +575,6 @@ def output_data(fpath, output_folder,
         elif file_format == 'txt':
             fname = os.path.join(output_folder, _fname + '.txt')
             np.savetxt(fname, v.astype(np.float32))
-        else:
-            pass
 
 
 def read_hdf_APS(working_directory,
@@ -1833,7 +1858,7 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
         des = [d for d in hdr.descriptors if d.name=='stream0'][0]
         # merlin data doesn't need to be saved.
         un_used_det = ['merlin', 'im'] # data not to be transfered for pyxrf
-        data_list_used = [v for v in des.data_keys.keys() if 'merlin' not in v.lower() ] 
+        data_list_used = [v for v in des.data_keys.keys() if 'merlin' not in v.lower() ]
         e = db.get_events(hdr, fill=True, stream_name=des.name)
 
         if save_scalar is True:
