@@ -470,9 +470,7 @@ def output_data(fpath, output_folder,
     with h5py.File(fpath, 'r') as f:
         tmp = output_folder.split(sep_v)[-1]
         name_append = tmp.split('_')[-1]
-        if name_append.isdigit():
-            name_append = '_'+name_append
-        else:
+        if not name_append.isdigit():
             name_append = ''
         detlist = list(f['xrfmap'].keys())
         fit_output = {}
@@ -559,7 +557,7 @@ def output_data_to_tiff(fit_output,
             if use_average == True:
                 ave = np.mean(ic_v)
             v = v/ic_v * ave
-            _fname = k + name_append + norm_sign
+            _fname = "_".join([k, name_append, norm_sign])
             if file_format == 'tiff':
                 fname = os.path.join(output_folder, _fname + '.tiff')
                 sio.imsave(fname, v.astype(np.float32))
@@ -568,7 +566,7 @@ def output_data_to_tiff(fit_output,
                 np.savetxt(fname, v.astype(np.float32))
 
     for k, v in six.iteritems(fit_output):
-        _fname = k + name_append
+        _fname = "_".join([k, name_append])
         if file_format == 'tiff':
             fname = os.path.join(output_folder, _fname + '.tiff')
             sio.imsave(fname, v.astype(np.float32))

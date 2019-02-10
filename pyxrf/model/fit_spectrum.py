@@ -48,7 +48,7 @@ import matplotlib.animation as animation
 import json
 from scipy.optimize import nnls
 from scipy.interpolate import interp1d, interp2d
-
+import lmfit
 #from enaml.qt.qt_application import QApplication
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
@@ -64,20 +64,10 @@ from .guessparam import (calculate_profile, fit_strategy_list,
                          trim_escape_peak, define_range, get_energy,
                          get_Z, PreFitStatus, ElementController,
                          update_param_from_element)
-from .fileio import save_fitdata_to_hdf
-
-import lmfit
-
-import pickle
+from .fileio import save_fitdata_to_hdf, output_data, output_data_to_tiff
 
 import logging
 logger = logging.getLogger()
-
-# can't import, reason to be figured out.
-# try:
-#     from .fileio import output_data, flip_data
-# except ImportError, e:
-#     print('can not load output_data function')
 
 
 class Fit1D(Atom):
@@ -662,7 +652,6 @@ class Fit1D(Atom):
         except ValueError:
             print('Fitting result can not be saved to h5 file.')
 
-
     def save2Dmap_to_hdf(self, pixel_fit='nnls'):
         """
         Save fitted 2D map of elements into hdf file after fitting is done. User
@@ -733,21 +722,37 @@ class Fit1D(Atom):
         to_tiff : str, optional
             save to tiff or not
         """
-        # importing output_data at the beginning of the file fails. need to figure out why!
-        from .fileio import output_data
         scaler_v = None
+        _post_name_folder = "_".join(self.data_title.split('_')[:-1])
+        _name_each_file = "_".join(self.data_title.split('_')[1:])
         if self.scaler_index > 0:
             scaler_v = self.scaler_keys[self.scaler_index-1]
-            logger.info('*** Data will be saved with NORMALIZATION from {} ***'.format(scaler_v))
+            logger.info('*** Data will be saved with NORMALIZATION '
+                        'from {} ***'.format(scaler_v))
         if to_tiff:
-            output_n = 'output_tiff_' + self.hdf_name.split('.')[0]
-            output_data(self.hdf_path, os.path.join(self.result_folder, output_n),
-                        norm_name=scaler_v)
+            output_n = 'output_tiff_' + _post_name_folder
+            output_full_name = os.path.join(self.result_folder, output_n)
+            # still keep the function of reading data from hdf and saving,
+            # for cases that user wants to output current data in hdf
+            # without rerun fitting again
+            if os.path.exists(self.hdf_path):
+                output_data(self.hdf_path, output_full_name,
+                            norm_name=scaler_v)
+            else:
+                output_data_to_tiff(self.result_map, output_full_name,
+                                    name_append=_name_each_file,
+                                    norm_name=scaler_v)
             logger.info('Done with saving data {} to tiff files.'.format(output_n))
         else:
-            output_n = 'output_txt_' + self.hdf_name.split('.')[0]
-            output_data(self.hdf_path, os.path.join(self.result_folder, output_n),
-                        file_format='txt', norm_name=scaler_v)
+            output_n = 'output_txt_' + _post_name_folder
+            output_full_name = os.path.join(self.result_folder, output_n)
+            if os.path.exists(self.hdf_path):
+                output_data(self.hdf_path, output_full_name,
+                            file_format='txt', norm_name=scaler_v)
+            else:
+                output_data_to_tiff(self.result_map, output_full_name,
+                                    name_append=_name_each_file,
+                                    file_format='txt', norm_name=scaler_v)
             logger.info('Done with saving data {} to txt files.'.format(output_n))
 
     def save_result(self, fname=None):
