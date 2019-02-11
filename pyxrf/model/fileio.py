@@ -549,7 +549,7 @@ def output_data_to_tiff(fit_output,
 
     if norm_name is not None:
         ic_v = fit_output[str(norm_name)]
-        norm_sign = '_norm'
+        norm_sign = 'norm'
         for k, v in six.iteritems(fit_output):
             if 'pos' in k or 'r2' in k:
                 continue
