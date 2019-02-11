@@ -3,7 +3,7 @@ from databroker import Broker
 from databroker._core import register_builtin_handlers
 
 db = Broker.named('srx')
-register_builtin_handlers(db.fs)
+register_builtin_handlers(db.reg)
 
 
 # srx detector, to be moved to filestore
@@ -17,8 +17,6 @@ class BulkXSPRESS(HandlerBase):
     def __call__(self):
         return self._handle['entry/instrument/detector/data'][:]
 
-db.reg.register_handler(BulkXSPRESS.HANDLER_NAME, BulkXSPRESS,
-                       overwrite=True)
 
 class ZebraHDF5Handler(HandlerBase):
     HANDLER_NAME = 'ZEBRA_HDF51'
@@ -28,6 +26,7 @@ class ZebraHDF5Handler(HandlerBase):
     def __call__(self, column):
         return self._handle[column][:]
 
+
 class SISHDF5Handler(HandlerBase):
     HANDLER_NAME = 'SIS_HDF51'
     def __init__(self, resource_fn):
@@ -36,5 +35,19 @@ class SISHDF5Handler(HandlerBase):
     def __call__(self, column):
         return self._handle[column][:]
 
-db.reg.register_handler('SIS_HDF51', SISHDF5Handler, overwrite=True)
-db.reg.register_handler('ZEBRA_HDF51', ZebraHDF5Handler, overwrite=True)
+
+class BulkMerlin(BulkXSPRESS):
+    HANDLER_NAME = 'MERLIN_FLY_STREAM_V1'
+    def __call__(self):
+        return self._handle['entry/instrument/detector/data'][:]
+
+
+db.reg.register_handler(BulkXSPRESS.HANDLER_NAME, BulkXSPRESS,
+                        overwrite=True)
+db.reg.register_handler('SIS_HDF51', SISHDF5Handler, 
+                        overwrite=True)
+db.reg.register_handler('ZEBRA_HDF51', ZebraHDF5Handler, 
+                        overwrite=True)
+db.reg.register_handler(BulkMerlin.HANDLER_NAME, BulkMerlin, 
+                        overwrite=True)
+

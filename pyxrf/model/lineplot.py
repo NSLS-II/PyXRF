@@ -237,7 +237,7 @@ class LinePlotModel(Atom):
     def _update_canvas(self):
         self._ax.legend(loc=2)
         try:
-            self._ax.legend(framealpha=0.2).draggable()
+            self._ax.legend(framealpha=0.2).set_draggable(True)
         except AttributeError:
             self._ax.legend(framealpha=0.2)
         self._fig.tight_layout(pad=0.5)
@@ -420,7 +420,6 @@ class LinePlotModel(Atom):
         escape_e = self.escape_e
 
         if len(self.elist):
-            self._ax.hold(True)
             for i in range(len(self.elist)):
                 eline, = self._ax.plot([self.elist[i][0], self.elist[i][0]],
                                        [0, self.elist[i][1]*self.max_v],

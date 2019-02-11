@@ -470,9 +470,7 @@ def output_data(fpath, output_folder,
     with h5py.File(fpath, 'r') as f:
         tmp = output_folder.split(sep_v)[-1]
         name_append = tmp.split('_')[-1]
-        if name_append.isdigit():
-            name_append = '_'+name_append
-        else:
+        if not name_append.isdigit():
             name_append = ''
         detlist = list(f['xrfmap'].keys())
         fit_output = {}
@@ -515,13 +513,43 @@ def output_data(fpath, output_folder,
     if len(data_sc) != 0:
         fit_output.update(data_sc)
 
+    output_data_to_tiff(fit_output, output_folder=output_folder,
+                        file_format=file_format, name_append=name_append,
+                        norm_name=norm_name,
+                        use_average=use_average)
+
+
+def output_data_to_tiff(fit_output,
+                        output_folder="~/pyxrf_data_tmp/",
+                        file_format='tiff', name_append="",
+                        norm_name=None, use_average=True):
+    """
+    Read data in memory and save them into tiff to txt.
+
+    Parameters
+    ----------
+    fit_output:
+        dict of fitting data and scaler data
+    output_folder : str, optional
+        which folder to save those txt file
+    file_format : str, optional
+        tiff or txt
+    name_append: str, optional
+        more information saved to output file name
+    norm_name : str, optional
+        if given, normalization will be performed.
+    use_average : Bool, optional
+        when normalization, multiply mean value of denomenator,
+        i.e., norm_data = data1/data2 * np.mean(data2)
+    """
     #save data
     if os.path.exists(output_folder) is False:
+        logger.warning("Output_folder {} is created".format(output_folder))
         os.mkdir(output_folder)
 
     if norm_name is not None:
         ic_v = fit_output[str(norm_name)]
-        norm_sign = '_norm'
+        norm_sign = 'norm'
         for k, v in six.iteritems(fit_output):
             if 'pos' in k or 'r2' in k:
                 continue
@@ -529,27 +557,22 @@ def output_data(fpath, output_folder,
             if use_average == True:
                 ave = np.mean(ic_v)
             v = v/ic_v * ave
-
-            _fname = k + name_append + norm_sign
+            _fname = "_".join([k, name_append, norm_sign])
             if file_format == 'tiff':
                 fname = os.path.join(output_folder, _fname + '.tiff')
                 sio.imsave(fname, v.astype(np.float32))
             elif file_format == 'txt':
                 fname = os.path.join(output_folder, _fname + '.txt')
                 np.savetxt(fname, v.astype(np.float32))
-            else:
-                pass
 
     for k, v in six.iteritems(fit_output):
-        _fname = k + name_append
+        _fname = "_".join([k, name_append])
         if file_format == 'tiff':
             fname = os.path.join(output_folder, _fname + '.tiff')
             sio.imsave(fname, v.astype(np.float32))
         elif file_format == 'txt':
             fname = os.path.join(output_folder, _fname + '.txt')
             np.savetxt(fname, v.astype(np.float32))
-        else:
-            pass
 
 
 def read_hdf_APS(working_directory,
@@ -719,7 +742,7 @@ def fetch_data_from_db(runid):
     """
     hdr_tmp = db[-1]
     print('Loading data from database.')
-    
+
     data_sets = OrderedDict()
     img_dict = OrderedDict()
     fname = 'scan2D_{}'.format(runid)
@@ -767,7 +790,7 @@ def fetch_data_from_db(runid):
                               det_list=det_list,
                               pos_list=pos_list,
                               scaler_list=scaler_list,
-                              fly_type=fly_type, subscan_dims=subscan_dims, 
+                              fly_type=fly_type, subscan_dims=subscan_dims,
                               spectrum_len=4096)
 
         fname_sum = fname+'_sum'
@@ -777,17 +800,17 @@ def fetch_data_from_db(runid):
 
         data_sets[fname_sum] = DS
         logger.info('Data of detector sum is loaded.')
-        
+
         if 'x_pos' in data_sets and 'y_pos' in data_sets:
             tmp = {}
             for v in ['x_pos', 'y_pos']:
                 tmp[v] = data_sets[v]
             img_dict['positions'] = tmp
         scaler_tmp = {}
-        for v in scaler_list:
-            scaler_tmp[v] = data_out[v]
+        for i, v in enumerate(data_out['scaler_names']):
+            scaler_tmp[v] = data_out['scaler_data'][:, :, i]
         img_dict[fname+'_scaler'] = scaler_tmp
-    return img_dict, data_sets 
+    return img_dict, data_sets
 
 
 def retrieve_data_from_hdf_suitcase(fpath):
@@ -1830,7 +1853,11 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
 
         new_data = {}
         data = {}
-        e = db.get_events(hdr, fill=True, stream_name='stream0')
+        des = [d for d in hdr.descriptors if d.name=='stream0'][0]
+        # merlin data doesn't need to be saved.
+        un_used_det = ['merlin', 'im'] # data not to be transfered for pyxrf
+        data_list_used = [v for v in des.data_keys.keys() if 'merlin' not in v.lower() ]
+        e = db.get_events(hdr, fill=True, stream_name=des.name)
 
         if save_scalar is True:
             new_data['scaler_names'] = scaler_list
