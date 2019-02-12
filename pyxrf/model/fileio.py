@@ -748,65 +748,22 @@ def fetch_data_from_db(runid):
     fname = 'scan2D_{}'.format(runid)
 
     if hdr_tmp.start.beamline_id == 'HXN':
-        hdr = db[runid]
-
-        start_doc = hdr['start']
-        if 'dimensions' in start_doc:
-            datashape = start_doc.dimensions
-        elif 'shape' in start_doc:
-            datashape = start_doc.shape
-        else:
-            logger.error('No dimension/shape is defined in hdr.start.')
-
-        datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
-        fly_type = start_doc.get('fly_type', None)
-        subscan_dims = start_doc.get('subscan_dims', None)
-
-        if 'motors' in hdr.start:
-            pos_list = hdr.start.motors
-        elif 'axes' in hdr.start:
-            pos_list = hdr.start.axes
-        else:
-            pos_list = ['zpssx[um]', 'zpssy[um]']
-
-        current_dir = os.path.dirname(os.path.realpath(__file__))
-        config_file = 'hxn_pv_config.json'
-        config_path = sep_v.join(current_dir.split(sep_v)[:-2]+['configs', config_file])
-        with open(config_path, 'r') as json_data:
-            config_data = json.load(json_data)
-
-        keylist =  hdr.descriptors[0].data_keys.keys()
-	# find xspress3 det with key word matching
-        det_list = [v for v in keylist if 'xspress3' in v]
-
-        scaler_list_all = config_data['scaler_list']
-
-        all_keys = hdr.descriptors[0].data_keys.keys()
-        scaler_list = [v for v in scaler_list_all if v in all_keys]
-
-        fields = det_list + scaler_list + pos_list
-        data = db.get_table(hdr, fill=True)
-
-        data_out = map_data2D(data, datashape,
-                              det_list=det_list,
-                              pos_list=pos_list,
-                              scaler_list=scaler_list,
-                              fly_type=fly_type, subscan_dims=subscan_dims,
-                              spectrum_len=4096)
-
-
+        data_out = map_data2D_hxn(runid, fpath=None,
+                                  output_to_file=False)
     elif (hdr_tmp.start.beamline_id == 'xf05id' or
           str(hdr_tmp.start.beamline_id) == 'SRX'):
         data_out = map_data2D_srx(runid, fpath=None,
                                   create_each_det=False,
                                   output_to_file=False,
                                   save_scalar=True)
-
     elif str(hdr_tmp.start.beamline_id) == 'XFM':
         data_out = map_data2D_xfm(runid, fpath=None,
                                   create_each_det=False,
                                   output_to_file=False)
-                                  
+    else:
+        print("Databroker is not setup for this beamline")
+    free_memory_from_handler()
+
     # Transfer to standard format pyxrf GUI can take
     fname_sum = fname+'_sum'
     if 'det_sum' in data_out:
@@ -1692,61 +1649,7 @@ def _make_hdf(fpath, runid, full_data=True,
     print('Loading data from database.')
 
     if hdr_tmp.start.beamline_id == 'HXN':
-        hdr = db[runid]
-
-        start_doc = hdr['start']
-        if 'dimensions' in start_doc:
-            datashape = start_doc.dimensions
-        elif 'shape' in start_doc:
-            datashape = start_doc.shape
-        else:
-            logger.error('No dimension/shape is defined in hdr.start.')
-
-        datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
-        fly_type = start_doc.get('fly_type', None)
-        subscan_dims = start_doc.get('subscan_dims', None)
-
-        if 'motors' in hdr.start:
-            pos_list = hdr.start.motors
-        elif 'axes' in hdr.start:
-            pos_list = hdr.start.axes
-        else:
-            pos_list = ['zpssx[um]', 'zpssy[um]']
-
-        current_dir = os.path.dirname(os.path.realpath(__file__))
-        config_file = 'hxn_pv_config.json'
-        config_path = sep_v.join(current_dir.split(sep_v)[:-2]+['configs', config_file])
-        with open(config_path, 'r') as json_data:
-            config_data = json.load(json_data)
-
-        keylist =  hdr.descriptors[0].data_keys.keys()
-        det_list = [v for v in keylist if 'xspress3' in v]  # find xspress3 det with key word matching
-
-        scaler_list_all = config_data['scaler_list']
-
-        all_keys = hdr.descriptors[0].data_keys.keys()
-        scaler_list = [v for v in scaler_list_all if v in all_keys]
-
-        fields = det_list + scaler_list + pos_list
-        data = db.get_table(hdr, fill=True)
-
-        print('Saving data to hdf file.')
-        write_db_to_hdf(fpath, data, datashape,
-                        det_list=det_list, pos_list=pos_list,
-                        scaler_list=scaler_list,
-                        fly_type=fly_type, subscan_dims=subscan_dims)
-
-        # use suitcase to save baseline data, and scaler data from primary
-        tmp = set()
-        for descriptor in hdr.descriptors:
-            # no 3D vector data
-            xs3 = [key for key in descriptor.data_keys.keys() if 'xspress3' in key]
-            tmp.update(xs3)
-            tmp.add('merlin1')
-        fds = sc.filter_fields(hdr, tmp)
-        if full_data == True:
-            sc.export(hdr, fpath, db.mds, fields=fds, use_uid=False)
-
+        data = map_data2D_hxn(runid, fpath)
     elif (hdr_tmp.start.beamline_id == 'xf05id' or
           str(hdr_tmp.start.beamline_id) == 'SRX'):
         data = map_data2D_srx(runid, fpath, create_each_det=False,
@@ -1758,6 +1661,88 @@ def _make_hdf(fpath, runid, full_data=True,
         print("Databroker is not setup for this beamline")
 
     free_memory_from_handler()
+
+
+def map_data2D_hxn(runid, fpath):
+    """
+    Save the data from databroker to hdf file.
+
+    .. note:: Requires the databroker package from NSLS2
+
+    Parameters
+    ----------
+    fpath: str
+        path to save hdf file
+    runid : int
+        id number for given run
+    """
+    hdr = db[runid]
+
+    start_doc = hdr['start']
+    if 'dimensions' in start_doc:
+        datashape = start_doc.dimensions
+    elif 'shape' in start_doc:
+        datashape = start_doc.shape
+    else:
+        logger.error('No dimension/shape is defined in hdr.start.')
+
+    datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
+    fly_type = start_doc.get('fly_type', None)
+    subscan_dims = start_doc.get('subscan_dims', None)
+
+    if 'motors' in hdr.start:
+        pos_list = hdr.start.motors
+    elif 'axes' in hdr.start:
+        pos_list = hdr.start.axes
+    else:
+        pos_list = ['zpssx[um]', 'zpssy[um]']
+
+    current_dir = os.path.dirname(os.path.realpath(__file__))
+    config_file = 'hxn_pv_config.json'
+    config_path = sep_v.join(current_dir.split(sep_v)[:-2]+['configs', config_file])
+    with open(config_path, 'r') as json_data:
+        config_data = json.load(json_data)
+
+    keylist =  hdr.descriptors[0].data_keys.keys()
+    det_list = [v for v in keylist if 'xspress3' in v]  # find xspress3 det with key word matching
+
+    scaler_list_all = config_data['scaler_list']
+
+    all_keys = hdr.descriptors[0].data_keys.keys()
+    scaler_list = [v for v in scaler_list_all if v in all_keys]
+
+    fields = det_list + scaler_list + pos_list
+    data = db.get_table(hdr, fill=True)
+
+    print('Saving data to hdf file.')
+    data_out = map_data2D(data, datashape,
+                          det_list=det_list,
+                          pos_list=pos_list,
+                          scaler_list=scaler_list,
+                          fly_type=fly_type, subscan_dims=subscan_dims,
+                          spectrum_len=4096)
+    if output_to_file:
+        # output to file
+        print('Saving data to hdf file.')
+        write_db_to_hdf_base(fpath, new_data,
+                             create_each_det=create_each_det)
+    return data_out
+    # write_db_to_hdf(fpath, data, datashape,
+    #                 det_list=det_list, pos_list=pos_list,
+    #                 scaler_list=scaler_list,
+    #                 fly_type=fly_type, subscan_dims=subscan_dims)
+    #
+    # # use suitcase to save baseline data, and scaler data from primary
+    # tmp = set()
+    # for descriptor in hdr.descriptors:
+    #     # no 3D vector data
+    #     xs3 = [key for key in descriptor.data_keys.keys() if 'xspress3' in key]
+    #     tmp.update(xs3)
+    #     tmp.add('merlin1')
+    # fds = sc.filter_fields(hdr, tmp)
+    # if full_data == True:
+    #     sc.export(hdr, fpath, db.mds, fields=fds, use_uid=False)
+
 
 
 def map_data2D_srx(runid, fpath,
