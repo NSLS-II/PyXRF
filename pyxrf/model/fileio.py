@@ -802,6 +802,11 @@ def fetch_data_from_db(runid):
                                   output_to_file=False,
                                   save_scalar=True)
 
+    elif str(hdr_tmp.start.beamline_id) == 'XFM':
+        data_out = map_data2D_xfm(runid, fpath=None,
+                                  create_each_det=False,
+                                  output_to_file=False)
+                                  
     # Transfer to standard format pyxrf GUI can take
     fname_sum = fname+'_sum'
     if 'det_sum' in data_out:
@@ -1742,14 +1747,13 @@ def _make_hdf(fpath, runid, full_data=True,
         if full_data == True:
             sc.export(hdr, fpath, db.mds, fields=fds, use_uid=False)
 
-    elif hdr_tmp.start.beamline_id == 'xf05id' or str(hdr_tmp.start.beamline_id) == 'SRX':
+    elif (hdr_tmp.start.beamline_id == 'xf05id' or
+          str(hdr_tmp.start.beamline_id) == 'SRX'):
         data = map_data2D_srx(runid, fpath, create_each_det=False,
                               save_scalar=save_scalar,
                               num_end_lines_excluded=num_end_lines_excluded)
-        print('Done!')
     elif str(hdr_tmp.start.beamline_id) == 'XFM':
-        _make_hdf_xfm(fpath, runid, create_each_det=create_each_det,
-                      save_scalar=save_scalar)
+        data = map_data2D_xfm(runid, fpath, create_each_det=create_each_det)
     else:
         print("Databroker is not setup for this beamline")
 
@@ -1760,7 +1764,8 @@ def map_data2D_srx(runid, fpath,
                    create_each_det=False, output_to_file=True,
                    save_scalar=True, num_end_lines_excluded=None):
     """
-    Read the data from databroker and rander the data to 2D image format.
+    Transfer the data from databroker into a correct format following the
+    shape of 2D scan.
     This function is used at SRX beamline for both fly scan and step scan.
     Save to hdf file if needed.
 
@@ -1972,27 +1977,34 @@ def map_data2D_srx(runid, fpath,
         return new_data
 
 
-def _make_hdf_xfm(fpath, runid, create_each_det=False,
-                  save_scalar=True):
+def map_data2D_xfm(runid, fpath,
+                   create_each_det=False,
+                   output_to_file=True):
     """
-    First transfer the data from databroker into a correct format following the
-    shape of 2D scan. Then save the new data dictionary to hdf file.
+    Transfer the data from databroker into a correct format following the
+    shape of 2D scan.
+    This function is used at XFM beamline for step scan.
+    Save the new data dictionary to hdf file if needed.
 
     .. note:: It is recommended to read data from databroker into memory
     directly, instead of saving to files. This is ongoing work.
 
     Parameters
     ----------
-    fpath: str
-        path to save hdf file
     runid : int
         id number for given run
+    fpath: str
+        path to save hdf file
     create_each_det: bool, optional
         Do not create data for each detector is data size is too large,
         if set as false. This will slow down the speed of creating hdf file
         with large data size. srx beamline only.
-    save_scalar : bool, optional
-        choose to save scaler data or not for srx beamline, test purpose only.
+    output_to_file : bool, optional
+        save data to hdf5 file if True
+
+    Returns
+    -------
+    dict of data in 2D format matching x,y scanning positions
     """
     hdr = db[runid]
     spectrum_len = 4096
@@ -2023,15 +2035,11 @@ def _make_hdf_xfm(fpath, runid, create_each_det=False,
                                  pos_list=hdr.start.motors,
                                  scaler_list=config_data['scaler_list'],
                                  fly_type=fly_type)
-        write_db_to_hdf_base(fpath, data_output,
-                             create_each_det=create_each_det)
-        # write_db_to_hdf(fpath, data,
-        #                 datashape,
-        #                 det_list=xrf_detector_names,
-        #                 pos_list=hdr.start.motors,
-        #                 scaler_list=config_data['scaler_list'],
-        #                 fly_type=fly_type,
-        #                 base_val=config_data['base_value'])  #base value shift for ic
+        if output_to_file:
+            print('Saving data to hdf file.')
+            write_db_to_hdf_base(fpath, data_output,
+                                 create_each_det=create_each_det)
+        return data_output
 
 
 def get_data_per_event(n, data, e, det_num):
