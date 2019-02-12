@@ -1663,7 +1663,8 @@ def _make_hdf(fpath, runid, full_data=True,
     free_memory_from_handler()
 
 
-def map_data2D_hxn(runid, fpath):
+def map_data2D_hxn(runid, fpath, 
+                   output_to_file=True):
     """
     Save the data from databroker to hdf file.
 
@@ -1671,10 +1672,12 @@ def map_data2D_hxn(runid, fpath):
 
     Parameters
     ----------
-    fpath: str
-        path to save hdf file
     runid : int
         id number for given run
+    fpath: str
+        path to save hdf file
+    output_to_file : bool, optional
+        save data to hdf5 file if True
     """
     hdr = db[runid]
 
