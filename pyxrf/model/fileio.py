@@ -1742,10 +1742,13 @@ def _make_hdf(fpath, runid, full_data=True,
     free_memory_from_handler()
 
 
-def _make_hdf_srx(fpath, runid, create_each_det=False,
-                  save_scalar=True, num_end_lines_excluded=None):
+def map_data2D_srx(fpath, runid,
+                   create_each_det=False, output_to_file=True,
+                   save_scalar=True, num_end_lines_excluded=None):
     """
-    Save the data from databroker to hdf file for SRX beamline.
+    Read the data from databroker and rander the data to 2D image format.
+    This function is used at SRX beamline for both fly scan and step scan.
+    Save to hdf file if needed.
 
     .. note:: Requires the databroker package from NSLS2
 
@@ -1759,17 +1762,22 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
         Do not create data for each detector is data size is too large,
         if set as false. This will slow down the speed of creating hdf file
         with large data size. srx beamline only.
+    output_to_file : bool, optional
+        save data to hdf5 file if True
     save_scalar : bool, optional
         choose to save scaler data or not for srx beamline, test purpose only.
     num_end_lines_excluded : int, optional
         remove the last few bad lines
+
+    Returns
+    -------
+    dict of data in 2D format matching x,y scanning positions
     """
     hdr = db[runid]
     spectrum_len = 4096
     start_doc = hdr['start']
     plan_n = start_doc.get('plan_name')
     if 'fly' not in plan_n: # not fly scan
-        datashape = start_doc['shape']   # vertical first then horizontal
         fly_type = None
 
         snake_scan = start_doc.get('snaking')
@@ -1786,48 +1794,47 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
             data = db.get_table(hdr, fill=True, convert_times=False)
         except IndexError:
             total_len = get_total_scan_point(hdr) - 2
-
             evs, _ = zip(*zip(get_events(hdr, fill=True), range(total_len)))
-
             namelist = config_data['xrf_detector'] +hdr.start.motors +config_data['scaler_list']
-
             dictv = {v:[] for v in namelist}
-
             for e in evs:
                 for k,v in six.iteritems(dictv):
                     dictv[k].append(e.data[k])
-
             data = pd.DataFrame(dictv, index=np.arange(1, total_len+1)) # need to start with 1
 
         #express3 detector name changes in databroker
-        xrf_detector_names = config_data['xrf_detector']
         if xrf_detector_names[0] not in data.keys():
             xrf_detector_names = ['xs_channel'+str(i) for i in range(1,4)]
-        print('Saving data to hdf file.')
-        write_db_to_hdf(fpath, data,
-                        datashape,
-                        det_list=xrf_detector_names,
-                        pos_list=hdr.start.motors,
-                        scaler_list=config_data['scaler_list'],
-                        fly_type=fly_type,
-                        base_val=config_data['base_value'])  #base value shift for ic
-        if 'xs2' in hdr.start.detectors:
-            print('Saving data to hdf file for second xspress3 detector.')
-            tmp = fpath.split('.')
-            fpath1 = '.'.join([tmp[0]+'_1', tmp[1]])
-            write_db_to_hdf(fpath1, data,
-                            datashape,
-                            det_list=config_data['xrf_detector2'],
+            config_data['xrf_detector'] = xrf_detector_names
+
+        if output_to_file:
+            print('Saving data to hdf file.')
+            write_db_to_hdf(fpath, data,
+                            hdr.start.datashape,
+                            det_list=config_data['xrf_detector'],
                             pos_list=hdr.start.motors,
                             scaler_list=config_data['scaler_list'],
                             fly_type=fly_type,
                             base_val=config_data['base_value'])  #base value shift for ic
+            if 'xs2' in hdr.start.detectors:
+                print('Saving data to hdf file for second xspress3 detector.')
+                tmp = fpath.split('.')
+                fpath1 = '.'.join([tmp[0]+'_1', tmp[1]])
+                write_db_to_hdf(fpath1, data,
+                                datashape,
+                                det_list=config_data['xrf_detector2'],
+                                pos_list=hdr.start.motors,
+                                scaler_list=config_data['scaler_list'],
+                                fly_type=fly_type,
+                                base_val=config_data['base_value'])  #base value shift for ic
+        return data
+
     else:
         # srx fly scan
         if save_scalar is True:
             scaler_list = ['i0', 'time', 'i0_time', 'time_diff']
             xpos_name = 'enc1'
-            ypos_name = 'hf_stage_y'
+            ypos_name = 'hf_stage_y' # 'hf_stage_x' if fast axis is vertical
         # Added by AMK to allow flying of single element on xs2
         if 'E_tomo' in start_doc['scaninfo']['type']:
             num_det = 1
@@ -1873,22 +1880,27 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
             for i in range(num_det):
                 new_data['det'+str(i+1)] = np.zeros(new_shape)
 
-        for m,v in enumerate(e):
-            if m < datashape[0]:
+        for m, v in enumerate(e):
+            if m < datashape[0]:   # scan is not finished
                 if save_scalar is True:
-                    for n in scaler_list[:-1]+[xpos_name]:
+                    for n in scaler_list[:-1] + [xpos_name]:
                         min_len = min(v.data[n].size, datashape[1])
                         data[n][m, :min_len] = v.data[n][:min_len]
-                        if min_len < datashape[1]:  # position data or i0 has shorter length than fluor data
+                        # position data or i0 has shorter length than fluor data
+                        if min_len < datashape[1]:
                             len_diff = datashape[1] - min_len
-                            interp_list = (v.data[n][-1]-v.data[n][-3])/2*np.arange(1,len_diff+1) + v.data[n][-1]
+                            # interpolation on scaler data
+                            interp_list = (v.data[n][-1] - v.data[n][-3]) / 2 * np.arange(1, len_diff + 1) + v.data[n][-1]
                             data[n][m, min_len:datashape[1]] = interp_list
+                fluor_len = v.data['fluor'].shape[0]
                 if create_each_det is False:
                     for i in range(num_det):
-                        new_data['det_sum'][m,:v.data['fluor'].shape[0],:] += v.data['fluor'][:,i,:]
+                        # in case the data length in each line is different
+                        new_data['det_sum'][m, :fluor_len, :] += v.data['fluor'][:,i,:]
                 else:
-                    for i in range(num_det):  # in case the data length in each line is different
-                        new_data['det'+str(i+1)][m,:v.data['fluor'].shape[0],:] = v.data['fluor'][:,i,:]
+                    for i in range(num_det):
+                        # in case the data length in each line is different
+                        new_data['det'+str(i+1)][m, :fluor_len, :] = v.data['fluor'][:,i,:]
 
         if vertical_fast is True: # need to transpose the data, as we scan y first
             if create_each_det is False:
@@ -1899,28 +1911,28 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
 
         if save_scalar is True:
             if vertical_fast is False:
-                for i,v in enumerate(scaler_list[:-1]):
+                for i, v in enumerate(scaler_list[:-1]):
                     scaler_tmp[:, :, i] = data[v]
                 scaler_tmp[:, :-1, -1] = np.diff(data['time'], axis=1)
                 scaler_tmp[:, -1, -1] = data['time'][:, -1] - data['time'][:, -2]
             else:
-                for i,v in enumerate(scaler_list[:-1]):
+                for i, v in enumerate(scaler_list[:-1]):
                     scaler_tmp[:, :, i] = data[v].T
                 data_t = data['time'].T
                 scaler_tmp[:-1, :, -1] = np.diff(data_t, axis=0)
                 scaler_tmp[-1, :, -1] = data_t[-1, :] - data_t[-2, :]
             new_data['scaler_data'] = scaler_tmp
-            x_pos = data[xpos_name]
+            x_pos = np.vstack(data[xpos_name])
 
-        # get y position data
-        if save_scalar is True:
+            # get y position data, from differet stream name primary
             data1 = db.get_table(hdr, fill=True, stream_name='primary')
             if num_end_lines_excluded is not None:
                 data1 = data1[:datashape[0]]
             if ypos_name not in data1.keys() and 'E_tomo' not in start_doc['scaninfo']['type']:
                 ypos_name = 'hf_stage_z'        #vertical along z
             y_pos0 = np.hstack(data1[ypos_name])
-            if len(y_pos0) >= x_pos.shape[0]:  # y position is more than actual x pos, scan not finished?
+            # y position is more than actual x pos, scan not finished?
+            if len(y_pos0) >= x_pos.shape[0]:
                 y_pos = y_pos0[:x_pos.shape[0]]
                 x_tmp = np.ones(x_pos.shape[1])
                 xv, yv = np.meshgrid(x_tmp, y_pos)
@@ -1937,10 +1949,13 @@ def _make_hdf_srx(fpath, runid, create_each_det=False,
                     new_data['pos_data'] = data_tmp
             else:
                 print('x,y positions are not saved.')
-        # output to file
-        print('Saving data to hdf file.')
-        write_db_to_hdf_base(fpath, new_data,
-                             create_each_det=create_each_det)
+
+        if output_to_file:
+            # output to file
+            print('Saving data to hdf file.')
+            write_db_to_hdf_base(fpath, new_data,
+                                 create_each_det=create_each_det)
+        return new_data
 
 
 def _make_hdf_xfm(fpath, runid, create_each_det=False,
