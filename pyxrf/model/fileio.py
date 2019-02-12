@@ -8,7 +8,7 @@
 #                                                                      #
 # * Redistributions of source code must retain the above copyright     #
 #   notice, this list of conditions and the following disclaimer.      #
-#                                                                       #
+#                                                                      #
 # * Redistributions in binary form must reproduce the above copyright  #
 #   notice this list of conditions and the following disclaimer in     #
 #   the documentation and/or other materials provided with the         #
@@ -776,7 +776,8 @@ def fetch_data_from_db(runid):
             config_data = json.load(json_data)
 
         keylist =  hdr.descriptors[0].data_keys.keys()
-        det_list = [v for v in keylist if 'xspress3' in v]  # find xspress3 det with key word matching
+	# find xspress3 det with key word matching
+        det_list = [v for v in keylist if 'xspress3' in v]
 
         scaler_list_all = config_data['scaler_list']
 
@@ -793,23 +794,36 @@ def fetch_data_from_db(runid):
                               fly_type=fly_type, subscan_dims=subscan_dims,
                               spectrum_len=4096)
 
-        fname_sum = fname+'_sum'
+
+    elif (hdr_tmp.start.beamline_id == 'xf05id' or
+          str(hdr_tmp.start.beamline_id) == 'SRX'):
+        data_out = map_data2D_srx(runid, fpath=None,
+                                  create_each_det=False,
+                                  output_to_file=False,
+                                  save_scalar=True)
+
+    # Transfer to standard format pyxrf GUI can take
+    fname_sum = fname+'_sum'
+    if 'det_sum' in data_out:
+        det_sum = data_out['det_sum']
+    else:
         det_sum = data_out['det1'] + data_out['det2'] + data_out['det3']
-        DS = DataSelection(filename=fname_sum,
-                           raw_data=det_sum)
+    DS = DataSelection(filename=fname_sum,
+                       raw_data=det_sum)
 
-        data_sets[fname_sum] = DS
-        logger.info('Data of detector sum is loaded.')
+    data_sets[fname_sum] = DS
+    logger.info('Data of detector sum is loaded.')
 
-        if 'x_pos' in data_sets and 'y_pos' in data_sets:
-            tmp = {}
-            for v in ['x_pos', 'y_pos']:
-                tmp[v] = data_sets[v]
-            img_dict['positions'] = tmp
-        scaler_tmp = {}
-        for i, v in enumerate(data_out['scaler_names']):
-            scaler_tmp[v] = data_out['scaler_data'][:, :, i]
-        img_dict[fname+'_scaler'] = scaler_tmp
+    if 'x_pos' in data_sets and 'y_pos' in data_sets:
+        tmp = {}
+        for v in ['x_pos', 'y_pos']:
+            tmp[v] = data_sets[v]
+        img_dict['positions'] = tmp
+    scaler_tmp = {}
+    for i, v in enumerate(data_out['scaler_names']):
+        scaler_tmp[v] = data_out['scaler_data'][:, :, i]
+    img_dict[fname+'_scaler'] = scaler_tmp
+
     return img_dict, data_sets
 
 
@@ -1729,9 +1743,9 @@ def _make_hdf(fpath, runid, full_data=True,
             sc.export(hdr, fpath, db.mds, fields=fds, use_uid=False)
 
     elif hdr_tmp.start.beamline_id == 'xf05id' or str(hdr_tmp.start.beamline_id) == 'SRX':
-        _make_hdf_srx(fpath, runid, create_each_det=False,
-                      save_scalar=save_scalar,
-                      num_end_lines_excluded=num_end_lines_excluded)
+        data = map_data2D_srx(runid, fpath, create_each_det=False,
+                              save_scalar=save_scalar,
+                              num_end_lines_excluded=num_end_lines_excluded)
         print('Done!')
     elif str(hdr_tmp.start.beamline_id) == 'XFM':
         _make_hdf_xfm(fpath, runid, create_each_det=create_each_det,
@@ -1742,7 +1756,7 @@ def _make_hdf(fpath, runid, full_data=True,
     free_memory_from_handler()
 
 
-def map_data2D_srx(fpath, runid,
+def map_data2D_srx(runid, fpath,
                    create_each_det=False, output_to_file=True,
                    save_scalar=True, num_end_lines_excluded=None):
     """
@@ -1754,10 +1768,10 @@ def map_data2D_srx(fpath, runid,
 
     Parameters
     ----------
-    fpath: str
-        path to save hdf file
     runid : int
         id number for given run
+    fpath: str
+        path to save hdf file
     create_each_det: bool, optional
         Do not create data for each detector is data size is too large,
         if set as false. This will slow down the speed of creating hdf file
