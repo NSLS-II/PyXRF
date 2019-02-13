@@ -56,7 +56,7 @@ import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import multiprocessing
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float, Bool
-from .load_data_from_db import (map_data2D_hxn, map_data2D_srx,
+from .load_data_from_db import (db, map_data2D_hxn, map_data2D_srx,
                                 map_data2D_xfm, free_memory_from_handler,
                                 helper_encode_list, helper_decode_list)
 
