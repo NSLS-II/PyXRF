@@ -7,6 +7,15 @@ import sys
 import h5py
 import numpy as np
 import os
+import json
+
+import logging
+logger = logging.getLogger()
+
+import warnings
+warnings.filterwarnings('ignore')
+
+sep_v = os.sep
 
 try:
     config_path = '/etc/pyxrf/pyxrf.json'
@@ -61,10 +70,12 @@ def _make_hdf(fpath, runid, full_data=True,
     print('Loading data from database.')
 
     if hdr_tmp.start.beamline_id == 'HXN':
-        data = map_data2D_hxn(runid, fpath)
+        data = map_data2D_hxn(runid, fpath, 
+                              create_each_det=create_each_det)
     elif (hdr_tmp.start.beamline_id == 'xf05id' or
           str(hdr_tmp.start.beamline_id) == 'SRX'):
-        data = map_data2D_srx(runid, fpath, create_each_det=False,
+        data = map_data2D_srx(runid, fpath, 
+                              create_each_det=create_each_det,
                               save_scalar=save_scalar,
                               num_end_lines_excluded=num_end_lines_excluded)
     elif str(hdr_tmp.start.beamline_id) == 'XFM':
@@ -130,6 +141,7 @@ def make_hdf(start, end=None, fname=None,
 
 
 def map_data2D_hxn(runid, fpath,
+                   create_each_det=False,
                    output_to_file=True):
     """
     Save the data from databroker to hdf file.
@@ -142,6 +154,10 @@ def map_data2D_hxn(runid, fpath,
         id number for given run
     fpath: str
         path to save hdf file
+    create_each_det: bool, optional
+        Do not create data for each detector is data size is too large,
+        if set as false. This will slow down the speed of creating hdf file
+        with large data size. srx beamline only.
     output_to_file : bool, optional
         save data to hdf5 file if True
     """
@@ -183,7 +199,6 @@ def map_data2D_hxn(runid, fpath,
     fields = det_list + scaler_list + pos_list
     data = db.get_table(hdr, fill=True)
 
-    print('Saving data to hdf file.')
     data_out = map_data2D(data, datashape,
                           det_list=det_list,
                           pos_list=pos_list,
@@ -193,7 +208,7 @@ def map_data2D_hxn(runid, fpath,
     if output_to_file:
         # output to file
         print('Saving data to hdf file.')
-        write_db_to_hdf_base(fpath, new_data,
+        write_db_to_hdf_base(fpath, data_out,
                              create_each_det=create_each_det)
     return data_out
     # write_db_to_hdf(fpath, data, datashape,
@@ -482,7 +497,6 @@ def map_data2D_xfm(runid, fpath,
         data = db.get_table(hdr, fill=True, convert_times=False)
 
         xrf_detector_names = config_data['xrf_detector']
-        print('Saving data to hdf file.')
         data_output = map_data2D(data,
                                  datashape,
                                  det_list=xrf_detector_names,
@@ -615,6 +629,21 @@ def write_db_to_hdf(fpath, data, datashape,
                     scaler_data[:,:,i] = np.abs(scaler_data[:,:,i] - base_val[i])
 
         dataGrp.create_dataset('val', data=scaler_data[:new_v_shape,:])
+
+
+def get_name_value_from_db(name_list, data, datashape):
+    """
+    Get name and data from db.
+    """
+    pos_names = []
+    pos_data = np.zeros([datashape[0], datashape[1], len(name_list)])
+    for i, v in enumerate(name_list):
+        posv = np.zeros(datashape[0]*datashape[1])  # keep shape unchanged, so stopped/aborted run can be handled.
+        data[v] = np.asarray(data[v])  # in case data might be list
+        posv[:data[v].shape[0]] = np.asarray(data[v])
+        pos_data[:, :, i] = posv.reshape([datashape[0], datashape[1]])
+        pos_names.append(str(v))
+    return pos_names, pos_data
 
 
 def map_data2D(data, datashape,
@@ -869,6 +898,14 @@ def export1d(runid, name=None):
     if name is None:
         name = 'scan_'+str(runid)+'.txt'
     t.to_csv(name)
+
+
+def helper_encode_list(data, data_type='utf-8'):
+    return [d.encode(data_type) for d in data]
+
+
+def helper_decode_list(data, data_type='utf-8'):
+    return [d.decode(data_type) for d in data]
 
 
 def get_data_per_event(n, data, e, det_num):

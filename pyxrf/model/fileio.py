@@ -57,7 +57,8 @@ import matplotlib.pyplot as plt
 import multiprocessing
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float, Bool
 from .load_data_from_db import (map_data2D_hxn, map_data2D_srx,
-                                map_data2D_xfm, free_memory_from_handler)
+                                map_data2D_xfm, free_memory_from_handler,
+                                helper_encode_list, helper_decode_list)
 
 import logging
 logger = logging.getLogger()
@@ -1168,29 +1169,6 @@ def save_fitdata_to_hdf(fpath, data_dict,
     name_data.attrs['comments'] = ' '
 
     f.close()
-
-
-def helper_encode_list(data, data_type='utf-8'):
-    return [d.encode(data_type) for d in data]
-
-
-def helper_decode_list(data, data_type='utf-8'):
-    return [d.decode(data_type) for d in data]
-
-
-def get_name_value_from_db(name_list, data, datashape):
-    """
-    Get name and data from db.
-    """
-    pos_names = []
-    pos_data = np.zeros([datashape[0], datashape[1], len(name_list)])
-    for i, v in enumerate(name_list):
-        posv = np.zeros(datashape[0]*datashape[1])  # keep shape unchanged, so stopped/aborted run can be handled.
-        data[v] = np.asarray(data[v])  # in case data might be list
-        posv[:data[v].shape[0]] = np.asarray(data[v])
-        pos_data[:, :, i] = posv.reshape([datashape[0], datashape[1]])
-        pos_names.append(str(v))
-    return pos_names, pos_data
 
 
 def get_total_scan_point(hdr):
