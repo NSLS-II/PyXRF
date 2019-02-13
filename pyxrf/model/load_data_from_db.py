@@ -41,53 +41,67 @@ except ImportError:
     pass
 
 
-def _make_hdf(fpath, runid, full_data=True,
-              create_each_det=False, save_scalar=True,
-              num_end_lines_excluded=None):
+def fetch_data_from_db(runid, fpath=None,
+                       create_each_det=False,
+                       output_to_file=False,
+                       save_scalar=True,
+                       num_end_lines_excluded=None):
     """
-    Save the data from databroker to hdf file.
+    Read data from databroker.
+    This is the place where new beamlines can be easily added
+    to pyxrf GUI.
+    Save the data from databroker to hdf file if needed.
 
     .. note:: Requires the databroker package from NSLS2
 
     Parameters
     ----------
-    fpath: str
-        path to save hdf file
     runid : int
         id number for given run
-    full_data : bool, optional
-        save baseline data and all other information if True
+    fpath: str, optional
+        path to save hdf file
     create_each_det: bool, optional
         Do not create data for each detector is data size is too large,
         if set as false. This will slow down the speed of creating hdf file
         with large data size. srx beamline only.
+    output_to_file : bool, optional
+        save data to hdf5 file if True
     save_scalar : bool, optional
         choose to save scaler data or not for srx beamline, test purpose only.
     num_end_lines_excluded : int, optional
         remove the last few bad lines
+
+    Returns
+    -------
+    dict of data in 2D format matching x,y scanning positions
     """
-    hdr_tmp = db[-1]
+    hdr = db[-1]
     print('Loading data from database.')
 
-    if hdr_tmp.start.beamline_id == 'HXN':
-        data = map_data2D_hxn(runid, fpath, 
-                              create_each_det=create_each_det)
-    elif (hdr_tmp.start.beamline_id == 'xf05id' or
-          str(hdr_tmp.start.beamline_id) == 'SRX'):
-        data = map_data2D_srx(runid, fpath, 
+    if hdr.start.beamline_id == 'HXN':
+        data = map_data2D_hxn(runid, fpath,
                               create_each_det=create_each_det,
+                              output_to_file=output_to_file)
+    elif (hdr.start.beamline_id == 'xf05id' or
+          hdr.start.beamline_id == 'SRX'):
+        data = map_data2D_srx(runid, fpath,
+                              create_each_det=create_each_det,
+                              output_to_file=output_to_file,
                               save_scalar=save_scalar,
                               num_end_lines_excluded=num_end_lines_excluded)
-    elif str(hdr_tmp.start.beamline_id) == 'XFM':
-        data = map_data2D_xfm(runid, fpath, create_each_det=create_each_det)
+    elif hdr.start.beamline_id == 'XFM':
+        data = map_data2D_xfm(runid, fpath,
+                              create_each_det=create_each_det,
+                              output_to_file=output_to_file)
     else:
         print("Databroker is not setup for this beamline")
-
+        return
     free_memory_from_handler()
+    return data
 
 
 def make_hdf(start, end=None, fname=None,
-             prefix='scan2D_', full_data=True,
+             prefix='scan2D_',
              create_each_det=False, save_scalar=True,
              num_end_lines_excluded=None):
     """
@@ -104,8 +118,6 @@ def make_hdf(start, end=None, fname=None,
         one file is transfered.
     prefix : str, optional
         prefix name of the file
-    full_data : bool, optional
-        save baseline data and all other information if True
     db : databroker
     create_each_det: bool, optional
         Do not create data for each detector is data size is too large,
@@ -122,19 +134,21 @@ def make_hdf(start, end=None, fname=None,
     if end == start:
         if fname is None:
             fname = prefix+str(start)+'.h5'
-        _make_hdf(fname, start, full_data=full_data,
-                  create_each_det=create_each_det,
-                  save_scalar=save_scalar,
-                  num_end_lines_excluded=num_end_lines_excluded)  # only transfer one file
+        fetch_data_from_db(start, fpath=fname,
+                           create_each_det=create_each_det,
+                           output_to_file=True,
+                           save_scalar=save_scalar,
+                           num_end_lines_excluded=num_end_lines_excluded)
     else:
         datalist = range(start, end+1)
         for v in datalist:
             filename = prefix+str(v)+'.h5'
             try:
-                _make_hdf(filename, v, full_data=full_data,
-                          create_each_det=create_each_det,
-                          save_scalar=save_scalar,
-                          num_end_lines_excluded=num_end_lines_excluded)
+                fetch_data_from_db(v, fpath=filename,
+                                   create_each_det=create_each_det,
+                                   output_to_file=True,
+                                   save_scalar=save_scalar,
+                                   num_end_lines_excluded=num_end_lines_excluded)
                 print('{} is created. \n'.format(filename))
             except:
                 print('Can not transfer scan {}. \n'.format(v))

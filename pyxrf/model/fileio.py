@@ -56,8 +56,7 @@ import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import multiprocessing
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float, Bool
-from .load_data_from_db import (db, map_data2D_hxn, map_data2D_srx,
-                                map_data2D_xfm, free_memory_from_handler,
+from .load_data_from_db import (db, fetch_data_from_db,
                                 helper_encode_list, helper_decode_list)
 
 import logging
@@ -161,7 +160,7 @@ class FileIOModel(Atom):
         #self.img_dict, self.data_sets = file_handler(tmp_wd,
         #                                             self.fname_from_db,
         #                                             load_each_channel=self.load_each_channel)
-        self.img_dict, self.data_sets = fetch_data_from_db(self.runid)
+        self.img_dict, self.data_sets = render_data_to_gui(self.runid)
         self.file_channel_list = list(self.data_sets.keys())
         self.file_opt = 1  # use summed data as default
 
@@ -709,7 +708,7 @@ def read_hdf_APS(working_directory,
     return img_dict, data_sets
 
 
-def fetch_data_from_db(runid):
+def render_data_to_gui(runid):
     """
     Read data from databroker and save to Atom class which GUI can take.
 
@@ -720,29 +719,12 @@ def fetch_data_from_db(runid):
     runid : int
         id number for given run
     """
-    hdr_tmp = db[-1]
-    print('Loading data from database.')
 
     data_sets = OrderedDict()
     img_dict = OrderedDict()
     fname = 'scan2D_{}'.format(runid)
 
-    if hdr_tmp.start.beamline_id == 'HXN':
-        data_out = map_data2D_hxn(runid, fpath=None,
-                                  output_to_file=False)
-    elif (hdr_tmp.start.beamline_id == 'xf05id' or
-          str(hdr_tmp.start.beamline_id) == 'SRX'):
-        data_out = map_data2D_srx(runid, fpath=None,
-                                  create_each_det=False,
-                                  output_to_file=False,
-                                  save_scalar=True)
-    elif str(hdr_tmp.start.beamline_id) == 'XFM':
-        data_out = map_data2D_xfm(runid, fpath=None,
-                                  create_each_det=False,
-                                  output_to_file=False)
-    else:
-        print("Databroker is not setup for this beamline")
-    free_memory_from_handler()
+    data_out = fetch_data_from_db(runid)
 
     # Transfer to standard format pyxrf GUI can take
     fname_sum = fname+'_sum'
