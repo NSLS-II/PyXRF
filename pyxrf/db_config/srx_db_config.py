@@ -41,6 +41,13 @@ class BulkMerlin(BulkXSPRESS):
     def __call__(self):
         return self._handle['entry/instrument/detector/data'][:]
 
+class BulkDexela(HandlerBase):
+    HANDLER_NAME = 'DEXELA_FLY_V1'
+    def __init__(self, resource_fn):
+        self._handle = h5py.File(resource_fn, 'r')
+
+    def __call__(self):
+        return self._handle['entry/instrument/detector/data'][:]
 
 db.reg.register_handler(BulkXSPRESS.HANDLER_NAME, BulkXSPRESS,
                         overwrite=True)
@@ -49,5 +56,7 @@ db.reg.register_handler('SIS_HDF51', SISHDF5Handler,
 db.reg.register_handler('ZEBRA_HDF51', ZebraHDF5Handler, 
                         overwrite=True)
 db.reg.register_handler(BulkMerlin.HANDLER_NAME, BulkMerlin, 
+                        overwrite=True)
+db.reg.register_handler(BulkDexela.HANDLER_NAME, BulkDexela,
                         overwrite=True)
 
