@@ -607,7 +607,7 @@ class Fit1D(Atom):
         except KeyError:
             pass
         except ValueError:
-            print('Fitting result can not be saved to h5 file.')
+            pass
 
         # get fitted spectrum and save them to figs
         if self.save_point is True:
@@ -645,12 +645,11 @@ class Fit1D(Atom):
             logger.info('Done with saving fitting plots.')
         try:
             self.save2Dmap_to_hdf(pixel_fit=pixel_fit)
-
             self.pixel_fit_info = 'Pixel fitting is done!'
             #app.processEvents()
             logger.info('-------- Fitting of single pixels is done! --------')
         except ValueError:
-            print('Fitting result can not be saved to h5 file.')
+            logger.warning('Fitting result can not be saved to h5 file.')
 
     def save2Dmap_to_hdf(self, pixel_fit='nnls'):
         """

@@ -3,7 +3,7 @@ from databroker import Broker
 from databroker._core import register_builtin_handlers
 
 db = Broker.named('xfm')
-register_builtin_handlers(db.fs)
+register_builtin_handlers(db.reg)
 
 
 # srx detector, to be moved to filestore
