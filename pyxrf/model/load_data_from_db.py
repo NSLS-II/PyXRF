@@ -23,13 +23,14 @@ try:
         beamline_config_pyxrf = json.load(beamline_pyxrf)
         beamline_name = beamline_config_pyxrf['beamline_name']
     if beamline_name == 'HXN':
-        from pyxrf.db_config.hxn_db_config import db
+        from pyxrf.db_config.hxn_db_config import db, db_analysis
     elif beamline_name == 'SRX':
         from pyxrf.db_config.srx_db_config import db
     elif beamline_name == 'XFM':
         from pyxrf.db_config.xfm_db_config import db
     else:
         db = None
+        db_analysis = None
         print('Beamline Database is not used in pyxrf.')
 except IOError:
     db = None
