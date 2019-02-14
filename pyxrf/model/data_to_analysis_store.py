@@ -7,14 +7,17 @@ from event_model import compose_run
 from pyxrf.api import db, db_analysis
 
 
-def simulated_result():
-    result = {}
-    for i in range(5):
-        result[f'data_{i}'] = np.ones([10,10]) + i
-    return result
+def fitting_result_sender(hdr, result, param):
+    """Transfer fitted results to generator.
 
-
-def sender(hdr, result, param):
+    Parameters
+    ----------
+    hdr : header
+    result : dict of 2D array
+        fitting results
+    param : dict
+        fitting parameters
+    """
     start_new = dict(hdr.start)
     start_new['param'] = param
     yield 'start', start_new
@@ -27,7 +30,9 @@ def sender(hdr, result, param):
 
 
 class ComposeDataForDB:
-
+    """Compose and validate data to format databroker
+    can take.
+    """
     def __init__(self):
         pass
 
@@ -68,9 +73,25 @@ class ComposeDataForDB:
 
 def save_data_to_db(uid, db, db_analysis,
                     result, param):
+    """
+    Save fitting result to analysis store.
+
+    Parameters
+    ----------
+    uid : int
+        run id
+    db : databroker
+        where exp data is saved
+    db : analysis store
+        where analysis result is to be saved
+    result : dict of 2D array
+        fitting results
+    param : dict
+        fitting parameters
+    """
     print('saving data to db for {}'.format(uid))
     hdr = db[uid]
-    gen = sender(hdr, res, param)
+    gen = fitting_result_sender(hdr, res, param)
     name, start_doc = next(gen)
 
     #assert name == 'start'
@@ -88,7 +109,14 @@ def save_data_to_db(uid, db, db_analysis,
         # insert to analysis store
         db_analysis.insert(name, processed_doc)
 
+
+# below to be removed
+def simulated_result():
+    result = {}
+    for i in range(5):
+        result[f'data_{i}'] = np.ones([10,10]) + i
+    return result
+
 res = simulated_result()
 param = {'a' : 1, 'b' : 2}
 save_data_to_db(54132, db, db_analysis, res, param)
-
