@@ -667,11 +667,15 @@ class Fit1D(Atom):
 
 
     def save_pixel_fitting_to_db(self):
-        """Save single pixel fitting results to analysis store
+        """Save fitting results to analysis store
         """
         from .data_to_analysis_store import save_data_to_db
-        save_data_to_db(self.runid, self.result_map, self.param_dict)
-        
+        doc = {}
+        doc['param'] = self.param_dict
+        doc['exp'] = self.data
+        doc['fitted'] = self.fit_y
+        save_data_to_db(self.runid, self.result_map, doc)
+
 
     def save2Dmap_to_hdf(self, pixel_fit='nnls'):
         """
