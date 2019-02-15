@@ -109,6 +109,7 @@ class Fit1D(Atom):
     fit_strategy5 = Int(0)
     fit_result = Typed(object)
     data_title = Str()
+    runid = Int(0)
 
     working_directory = Str()
     result_folder = Str()
@@ -224,6 +225,19 @@ class Fit1D(Atom):
             with the @observe decorator
         """
         self.data_title = change['value']
+
+    def runid_update(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        self.runid = change['value']
 
     def img_dict_update(self, change):
         """
@@ -650,6 +664,14 @@ class Fit1D(Atom):
             logger.info('-------- Fitting of single pixels is done! --------')
         except ValueError:
             logger.warning('Fitting result can not be saved to h5 file.')
+
+
+    def save_pixel_fitting_to_db(self):
+        """Save single pixel fitting results to analysis store
+        """
+        from .data_to_analysis_store import save_data_to_db
+        save_data_to_db(self.runid, self.result_map, self.param_dict)
+        
 
     def save2Dmap_to_hdf(self, pixel_fit='nnls'):
         """

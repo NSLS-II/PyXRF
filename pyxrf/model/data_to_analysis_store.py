@@ -2,8 +2,11 @@ import time
 import copy
 import numpy as np
 import logging
+try:
+    from event_model import compose_run
+except ModuleNotFoundError:
+    pass
 
-from event_model import compose_run
 from pyxrf.api import db, db_analysis
 
 
@@ -41,7 +44,7 @@ class ComposeDataForDB:
 
     def start(self, doc):
         metadata = {'raw_uid': doc['uid'],
-                    'raw_scan_id': 123, #doc['scan_id'],
+                    'raw_scan_id': doc['scan_id'],
                     'processor_parameters': doc['param']}
         self.compose_run_bundle = compose_run(metadata=metadata)
         return self.compose_run_bundle.start_doc
@@ -71,8 +74,8 @@ class ComposeDataForDB:
         return self.compose_run_bundle.compose_stop()
 
 
-def save_data_to_db(uid, db, db_analysis,
-                    result, param):
+def save_data_to_db(uid, result, param,
+                    db=db, db_analysis=db_analysis):
     """
     Save fitting result to analysis store.
 
@@ -80,14 +83,14 @@ def save_data_to_db(uid, db, db_analysis,
     ----------
     uid : int
         run id
-    db : databroker
-        where exp data is saved
-    db : analysis store
-        where analysis result is to be saved
     result : dict of 2D array
         fitting results
     param : dict
         fitting parameters
+    db : databroker, optional
+        where exp data is saved
+    db : analysis store, optional
+        where analysis result is to be saved
     """
     print('saving data to db for {}'.format(uid))
     hdr = db[uid]

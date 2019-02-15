@@ -59,6 +59,12 @@ from ..model.fileio import sep_v
 from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 from skbeam.fluorescence import XrfElement as Element
 
+try:
+    import databroker
+except ImportError:
+    databroker = None
+
+
 userpeak_list = ['Userpeak'+str(i) for i in range(1, 11)]  # 10 users peak
 
 enamldef FloatField(DefaultFloatField):
@@ -663,7 +669,7 @@ enamldef FitView(DockItem): fit_view:
             title = 'Fit spectrum of all individual pixels.'
             padding = Box(2, 2, 2, 2)
             constraints = [vbox(hbox(save_cb, lb1, fd1v, fd1h, lb2, fd2v, fd2h, spacer, interp_cb),
-                                hbox(fit_pixel, spacer, output_btn, to_tiff, to_txt))]
+                                hbox(fit_pixel, spacer, to_db, output_btn, to_tiff, to_txt))]
             CheckBox: save_cb:
                 text = 'Save plots'
                 clicked ::
@@ -730,6 +736,13 @@ enamldef FitView(DockItem): fit_view:
             #Label: pixel_fit_information:
             #    text := fit_model.pixel_fit_info
             #    foreground = 'red'
+
+            PushButton: to_db:
+                text = 'Save to database'
+                enabled = databroker is not None
+                #minimum_size = (20, 20)
+                clicked ::
+                    fit_model.save_pixel_fitting_to_db()
 
             PushButton: output_btn:
                 text = 'Output setup'
