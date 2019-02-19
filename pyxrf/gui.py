@@ -116,6 +116,7 @@ def run():
     # send the same file to fit model, as fitting results need to be saved
     io_model.observe('file_name', fit_model.filename_update)
     io_model.observe('file_name', plot_model.plot_exp_data_update)
+    io_model.observe('runid', fit_model.runid_update)
 
     # send exp data to different models
     io_model.observe('data', plot_model.exp_data_update)

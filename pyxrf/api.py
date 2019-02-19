@@ -8,7 +8,8 @@ import logging
 logger = logging.getLogger()
 
 try:
-    from .model.load_data_from_db import db
-except ImportError as e:
+    from .model.load_data_from_db import db, db_analysis
+except ImportError:
     db = None
-    logger.error('databroker is not available: %s', e)
+    db_analysis = None
+    logger.error('databroker is not available.')
