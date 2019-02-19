@@ -164,6 +164,7 @@ enamldef XRFGui(MainWindow): main_window:
                 title = 'Spectrum View'
                 # io_model = io_model
                 plot_model = main_window.plot_model
+                fit_model=main_window.fit_model
                 param_model = main_window.param_model
                 adjust_emission_line = AdjustEmissionLine(
                     visible=False,
