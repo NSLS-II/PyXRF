@@ -91,7 +91,7 @@ class FileIOModel(Atom):
     load_status = Str()
     data_sets = Typed(OrderedDict)
     img_dict = Dict()
-
+    param_fit = Dict()
     file_channel_list = List()
 
     runid = Int(-1)
@@ -151,6 +151,7 @@ class FileIOModel(Atom):
         if self.h_num != 0 and self.v_num != 0:
             datashape = [self.v_num, self.h_num]
 
+        # one way to cache data is to save as h5 file, to be considered later
         #tmp_wd = '~/.tmp/'
         #if not os.path.exists(tmp_wd):
         #    os.makedirs(tmp_wd)
@@ -160,9 +161,19 @@ class FileIOModel(Atom):
         #self.img_dict, self.data_sets = file_handler(tmp_wd,
         #                                             self.fname_from_db,
         #                                             load_each_channel=self.load_each_channel)
+
         self.img_dict, self.data_sets = render_data_to_gui(self.runid)
         self.file_channel_list = list(self.data_sets.keys())
         self.file_opt = 1  # use summed data as default
+        # result from analysis store
+        from .data_to_analysis_store import get_analysis_result
+        hdr = get_analysis_result(self.runid)
+        if hdr is not None:
+            d1 = hdr.table(stream_name='primary')
+            d2 = hdr.table(stream_name='spectrum')
+            print(d1.keys(), d2.keys())
+            self.param_fit = hdr.start.processor_parameters
+            #self.data = d2['summed_spectrum_experiment']
 
     @observe(str('file_opt'))
     def choose_file(self, change):
