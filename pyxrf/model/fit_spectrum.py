@@ -702,6 +702,8 @@ class Fit1D(Atom):
                 self.result_map[k] = interp_d
 
         prefix_fname = self.hdf_name.split('.')[0]
+        if len(prefix_fname) == 0:
+            prefix_fname = 'tmp'
         if 'det1' in self.data_title:
             inner_path = 'xrfmap/det1'
             fit_name = prefix_fname+'_det1_fit'
@@ -713,7 +715,7 @@ class Fit1D(Atom):
             fit_name = prefix_fname+'_det3_fit'
         else:
             inner_path = 'xrfmap/detsum'
-            fit_name = prefix_fname+'_fit'
+            fit_name = prefix_fname+ '_fit'
 
         # Update GUI so that results can be seen immediately
         self.fit_img[fit_name] = self.result_map

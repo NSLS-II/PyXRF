@@ -136,7 +136,7 @@ class FileIOModel(Atom):
 
     @observe(str('runid'))
     def _update_fname(self, change):
-        self.fname_from_db = 'scan2D_'+str(self.runid)+'.h5'
+        self.fname_from_db = 'scan2D_'+str(self.runid)
 
     def load_data_runid(self):
         """
