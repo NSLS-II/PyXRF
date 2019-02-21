@@ -162,7 +162,7 @@ class FileIOModel(Atom):
         #                                             self.fname_from_db,
         #                                             load_each_channel=self.load_each_channel)
 
-        self.img_dict, self.data_sets = render_data_to_gui(self.runid)
+        img_dict, self.data_sets = render_data_to_gui(self.runid)
         self.file_channel_list = list(self.data_sets.keys())
         self.file_opt = 1  # use summed data as default
         # result from analysis store
@@ -171,9 +171,12 @@ class FileIOModel(Atom):
         if hdr is not None:
             d1 = hdr.table(stream_name='primary')
             d2 = hdr.table(stream_name='spectrum')
-            print(d1.keys(), d2.keys())
             self.param_fit = hdr.start.processor_parameters
             #self.data = d2['summed_spectrum_experiment']
+            fit_result = {k:v for k,v in zip(d1['element_name'], d1['map'])}
+            tmp = {k: v for k, v in self.img_dict.items()}
+            img_dict['scan2D_{}_fit'.format(self.runid)] = fit_result
+        self.img_dict = img_dict
 
     @observe(str('file_opt'))
     def choose_file(self, change):
@@ -749,16 +752,15 @@ def render_data_to_gui(runid):
     data_sets[fname_sum] = DS
     logger.info('Data of detector sum is loaded.')
 
-    if 'x_pos' in data_sets and 'y_pos' in data_sets:
+    if 'x_pos' in data_out and 'y_pos' in data_out:
         tmp = {}
         for v in ['x_pos', 'y_pos']:
-            tmp[v] = data_sets[v]
+            tmp[v] = data_out[v]
         img_dict['positions'] = tmp
     scaler_tmp = {}
     for i, v in enumerate(data_out['scaler_names']):
         scaler_tmp[v] = data_out['scaler_data'][:, :, i]
     img_dict[fname+'_scaler'] = scaler_tmp
-
     return img_dict, data_sets
 
 

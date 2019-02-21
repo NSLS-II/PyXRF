@@ -27,14 +27,11 @@ def fitting_result_sender(hdr, result, **kwargs):
         start_new['param'] = param
     start_new['pyxrf_version'] = pyxrf.__version__
     yield 'start', start_new
-    #yield 'descriptor', {k: {'shape': hdr.start.shape, 'dtype': 'array', 'source': 'pyxrf fitting'} for k in result.keys()}
     # first descriptor
     yield 'descriptor', {'data_keys': {'element_name': {'shape':[1], 'dtype': 'string', 'source': 'pyxrf fitting'},
                                        'map': {'shape': hdr.start.shape, 'dtype': 'array', 'source': 'pyxrf fitting'}},
                          'name': 'primary'}
     time_when_analysis = time.time()
-    #time_result = {k : time_when_analysis  for k in result.keys()}
-    #events = {'data': result, 'time': time_result, 'seq_num' : 1}
     for i, (k, v) in enumerate(result.items()):
         data = {'element_name': k, 'map': v}
         timestamps = {'element_name': time_when_analysis, 'map': time_when_analysis}
