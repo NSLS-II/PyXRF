@@ -27,14 +27,11 @@ def fitting_result_sender(hdr, result, **kwargs):
         start_new['param'] = param
     start_new['pyxrf_version'] = pyxrf.__version__
     yield 'start', start_new
-    #yield 'descriptor', {k: {'shape': hdr.start.shape, 'dtype': 'array', 'source': 'pyxrf fitting'} for k in result.keys()}
     # first descriptor
     yield 'descriptor', {'data_keys': {'element_name': {'shape':[1], 'dtype': 'string', 'source': 'pyxrf fitting'},
                                        'map': {'shape': hdr.start.shape, 'dtype': 'array', 'source': 'pyxrf fitting'}},
                          'name': 'primary'}
     time_when_analysis = time.time()
-    #time_result = {k : time_when_analysis  for k in result.keys()}
-    #events = {'data': result, 'time': time_result, 'seq_num' : 1}
     for i, (k, v) in enumerate(result.items()):
         data = {'element_name': k, 'map': v}
         timestamps = {'element_name': time_when_analysis, 'map': time_when_analysis}
@@ -64,7 +61,7 @@ class ComposeDataForDB:
 
     def start(self, doc):
         metadata = {'raw_uid': doc['uid'],
-                    'raw_scan_id': 111, #doc['scan_id'],
+                    'raw_scan_id': doc['scan_id'],
                     'processor_parameters': doc['param']}
         self.compose_run_bundle = compose_run(metadata=metadata)
         return self.compose_run_bundle.start_doc
@@ -119,16 +116,44 @@ def save_data_to_db(uid, result, doc,
     processor = ComposeDataForDB()
     # Push the start_doc through.
     _, processed_doc = processor('start', start_doc)
-    print(f"start info {processed_doc}")
     # insert to analysis store
     db_analysis.insert('start', processed_doc)
 
     for name, doc in gen:
         print(name)
         _, processed_doc = processor(name, doc)
+        #print(processed_doc)
         processed_doc.pop('id', None)
         # insert to analysis store
         db_analysis.insert(name, processed_doc)
+
+
+def get_analysis_result(raw_scan_id,
+                        db_analysis=db_analysis):
+    """
+    Get data from analysis store with given raw_scan_id=uid.
+    More rich search can be implemented here.
+
+    Parameters
+    ----------
+    raw_scan_id : int
+        scan_id of original scan
+    db : analysis store, optional
+        where analysis result is to be saved
+
+    Returns
+    -------
+    header
+    """
+    res = db_analysis(raw_scan_id=raw_scan_id)
+    res = list(res)
+    if not len(res):
+        print('No analysis result is found for {}.'.format(raw_scan_id))
+        return
+    res = sorted(res, key=lambda x:x.start.time)
+    uid = res[-1].start.uid  # only latest result for now, to be modified.
+    hdr = db_analysis[uid]
+    return hdr
 
 
 # below to be removed
@@ -140,4 +165,5 @@ def simulated_result():
 
 #res = simulated_result()
 #param = {'a' : 1, 'b' : 2}
-#save_data_to_db(54132, res, param)
+#doc = {'param': param, 'exp': np.arange(10), 'fitted':np.arange(10)}
+#save_data_to_db(54132, res, doc)

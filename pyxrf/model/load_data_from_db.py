@@ -610,6 +610,8 @@ def write_db_to_hdf(fpath, data, datashape,
                 pos_names[i] = 'x_pos'
             elif 'y' in pos_names[i]:
                 pos_names[i] = 'y_pos'
+        if 'x_pos' not in pos_names or 'y_pos' not in pos_names:
+            pos_names = ['x_pos', 'y_pos']
 
         # need to change shape to sth like [2, 100, 100]
         data_temp = np.zeros([pos_data.shape[2], pos_data.shape[0], pos_data.shape[1]])
@@ -736,6 +738,9 @@ def map_data2D(data, datashape,
             pos_names[i] = 'x_pos'
         elif 'y' in pos_names[i]:
             pos_names[i] = 'y_pos'
+    if 'x_pos' not in pos_names or 'y_pos' not in pos_names:
+        pos_names = ['x_pos', 'y_pos']
+
     if fly_type in ('pyramid',):
         for i in range(pos_data.shape[2]):
             # flip position the same as data flip on det counts

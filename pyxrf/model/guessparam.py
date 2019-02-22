@@ -297,6 +297,11 @@ class GuessParamModel(Atom):
         self.param_new = copy.deepcopy(self.default_parameters)
         self.element_list = get_element(self.param_new)
 
+    def param_from_db_update(self, change):
+        self.default_parameters = change['value']
+        print('update fitting param from db')
+        self.update_new_param(self.default_parameters)
+
     def get_new_param_from_file(self, param_path):
         """
         Update parameters if new param_path is given.

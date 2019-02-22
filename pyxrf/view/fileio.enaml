@@ -147,7 +147,7 @@ enamldef FileView(DockItem): file_view:
                     clicked ::
                         io_model.load_data_runid()
 
-                        files_load.text = 'Number of files loaded: {}'.format(len(io_model.fname_from_db))
+                        files_load.text = '{} is loaded from database.'.format(io_model.fname_from_db)
 
                         # do not import original data for 2D image
                         #img_model_adv.data_dict = io_model.img_dict
@@ -156,6 +156,7 @@ enamldef FileView(DockItem): file_view:
                         #param_model.data_sets = io_model.data_sets
 
                         plot_model.parameters = param_model.param_new
+                        
                         #setting_model.parameters = param_model.param_new
                         #setting_model.data_sets = io_model.data_sets
                         #fit_model.save_name = io_model.file_names[0]
