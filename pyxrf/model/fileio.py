@@ -54,7 +54,6 @@ import glob
 import ast
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
-import multiprocessing
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float, Bool
 from .load_data_from_db import (db, fetch_data_from_db,
                                 helper_encode_list, helper_decode_list)

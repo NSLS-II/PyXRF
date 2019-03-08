@@ -11,4 +11,3 @@ db.reg.register_handler(Xspress3HDF5Handler.HANDLER_NAME,
 db.reg.register_handler(TimepixHDF5Handler._handler_name,
                        TimepixHDF5Handler, overwrite=True)
 
-import suitcase.hdf5 as sc
