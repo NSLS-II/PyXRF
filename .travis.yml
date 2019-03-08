@@ -1,30 +1,33 @@
 language: python
 sudo: false
 
+env:
+  global:
+    secure: ilIZbSUmdSElsIXXSh1MqYzjLrqRoQ6+gIMvAiJ1m8v+GfYpt+YEcA3IDf1nw59wYmAmvP5th6W/0NOv6k3JEJM5Bx5VfJj0ru3/uxhWhS2UB2JnIH06fvuMyn//QGpBXQPNIoosxdPFElGfZSaGRIXGTblp4ufOEOHnkxUekrmZXFGzi3orLQWXQfMQsjJC9W+HDm7ZEIB5oq5yWroi6zBuI+0xR8lT46+KDrcBUY0vP1UZsL7KswXVhNv85BJvobnEIZD4wXLARUd9Q2Tal/DpzX1AxQGk8WoIAFF0bE0P7A9EwD18FLbMWU/wJKWl0vbBarFIkMPNlS2fx5kvLjHS3M0NsdmKkuRm/wfeGsExeQtq9atL8H2RgoSdlj31mwuOadAkSiSt+uKBB7QMuvhPGHpV19DzQ2V/MFHslPPEN+lgsHe9utCiw+vmzk7JgLIQmgoZbz0zX1Xov+wCT+W4PWHz2+joKhSopZk7B1BB9G6g6TWvxrvYBoWDIrgRjKFJN0WeLtfxySYJyYzWe7xooDC3cNUP+ikvScE5DwPTmNXDjMg+wn3be0/3nacKyyu4kmvN+3XxfqyhiuJSNcSp2HZLcrq0WdtdZNyKnRCKOeOjpGMHmuKvBLkAHjqPZlzAOVtxH4j/CYUYKzgOlmP2roIFjBJLgIu+MbyQfbA=
+
 cache:
   directories:
-    - $HOME/.cache/pip
-    - $HOME/.cache/matplotlib
+  - "$HOME/.cache/pip"
+  - "$HOME/.cache/matplotlib"
 
 matrix:
   fast_finish: true
   include:
-    - python: 2.7
-    - python: 3.5
-    - python: 3.6
-      env: BUILD_DOCS=1
-    - python: nightly
+  - python: 2.7
+  - python: 3.5
+  - python: 3.6
+    env: BUILD_DOCS=1
+  - python: nightly
   allow_failures:
-    - python: nightly
+  - python: nightly
 
 script:
-  # Build docs.
-  - |
-    if [ $BUILD_DOCS ]; then
-      pip install -r docs-requirements.txt
-      pushd doc
-      make html
-      popd
-      # Publish docs.
-      doctr deploy --deploy-repo NSLS-II/NSLS-II.github.io --deploy-branch-name master PyXRF
-    fi
+- |
+  if [ $BUILD_DOCS ]; then
+    pip install -r docs-requirements.txt
+    pushd doc
+    make html
+    popd
+    # Publish docs.
+    doctr deploy --deploy-repo NSLS-II/NSLS-II.github.io --deploy-branch-name master PyXRF
+  fi
