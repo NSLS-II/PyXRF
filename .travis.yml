@@ -28,6 +28,3 @@ script:
       # Publish docs.
       doctr deploy --deploy-repo NSLS-II/NSLS-II.github.io --deploy-branch-name master PyXRF
     fi
-
-after_success:
-  - codecov

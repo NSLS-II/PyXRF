@@ -1,6 +1,0 @@
-setuptools
-six
-numpy
-scikit-xray
-matplotlib
-enaml
