@@ -8,6 +8,7 @@ import h5py
 import numpy as np
 import os
 import json
+import multiprocessing
 
 import logging
 logger = logging.getLogger()
@@ -873,34 +874,6 @@ def free_memory_from_handler():
     for h in db.fs._handler_cache.values():
         setattr(h, '_dataset', None)
     print('Memory is released.')
-
-
-def export_hdf(runid, fname, xrf=False):
-    """Wrapper around suitcase.hdf5.export function.
-    Use can choose to select xrf data or not.
-
-    Parameters
-    ---------
-    runid : int
-        run id
-    fname : str
-        output name
-    xrf : Bool, optional
-        save xrf data or not, default as not saving.
-    """
-    hdr = db[runid]
-
-    if xrf is False:
-        tmp = set()
-        for descriptor in hdr.descriptors:
-            xs3 = [key for key in descriptor.data_keys.keys() if 'xspress3' in key]
-            roi = [key for key in descriptor.data_keys.keys() if 'Det' in key]
-            tmp.update(xs3)
-            tmp.update(roi)
-        fds = sc.filter_fields(hdr, tmp)
-        sc.export(hdr, fname, db.mds, fields=fds, use_uid=False)
-    else:
-        sc.export(hdr, fname, db.mds, use_uid=False)
 
 
 def export1d(runid, name=None):
