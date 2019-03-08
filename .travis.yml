@@ -1,0 +1,33 @@
+language: python
+sudo: false
+
+cache:
+  directories:
+    - $HOME/.cache/pip
+    - $HOME/.cache/matplotlib
+
+matrix:
+  fast_finish: true
+  include:
+    - python: 2.7
+    - python: 3.5
+    - python: 3.6
+      env: BUILD_DOCS=1
+    - python: nightly
+  allow_failures:
+    - python: nightly
+
+script:
+  # Build docs.
+  - |
+    if [ $BUILD_DOCS ]; then
+      pip install -r docs-requirements.txt
+      pushd doc
+      make html
+      popd
+      # Publish docs.
+      doctr deploy --deploy-repo NSLS-II/NSLS-II.github.io --deploy-branch-name master PyXRF
+    fi
+
+after_success:
+  - codecov

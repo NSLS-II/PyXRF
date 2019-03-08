@@ -1,3 +1,5 @@
+# Created by .gitignore support plugin (hsz.mobi)
+### Python template
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -8,20 +10,84 @@ __pycache__/
 # Distribution / packaging
 .Python
 env/
-bin/
 build/
 develop-eggs/
 dist/
+downloads/
 eggs/
 lib/
 lib64/
 parts/
 sdist/
 var/
-.idea/
 *.egg-info/
 .installed.cfg
 *.egg
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.cache
+nosetests.xml
+coverage.xml
+cover/*
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+
+
+### Python template
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
 
 # Installer logs
 pip-log.txt
@@ -35,26 +101,31 @@ htmlcov/
 nosetests.xml
 coverage.xml
 
-#ipython notebook stuff
-.ipynb_checkpoints/
-
 # Translations
 *.mo
-
-# Mr Developer
-.mr.developer.cfg
-.project
-.pydevproject
-
-# Rope
-.ropeproject
+*.pot
 
 # Django stuff:
 *.log
-*.pot
+
+# vim
+*.swp
 
 # Sphinx documentation
-docs/_build/
+doc/build/
+doc/source/bluesky.*
 
-# Enaml stuff
-__enamlcache__
+# PyBuilder
+target/
+
+# PyCharm
+.idea/
+
+#ipython notebook stuff
+.ipynb_checkpoints/
+
+.tags
+
+# sphinx
+doc/source/generated/*.rst
+.pytest_cache

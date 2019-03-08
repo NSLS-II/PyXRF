@@ -1,29 +1,19 @@
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
-
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    
     <title>Load data into pyxrf &#8212; pyxrf v0.0.1 documentation</title>
-    
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    
-    <script type="text/javascript">
-      var DOCUMENTATION_OPTIONS = {
-        URL_ROOT:    './',
-        VERSION:     'v0.0.1',
-        COLLAPSE_INDEX: false,
-        FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true,
-        SOURCELINK_SUFFIX: '.txt'
-      };
-    </script>
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Summed spectrum fitting" href="summed_spectrum_fit.html" />
@@ -34,37 +24,38 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
-  </head>
-  <body role="document">
+  </head><body>
   
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
+          
+
           <div class="body" role="main">
             
   <div class="section" id="load-data-into-pyxrf">
 <h1>Load data into pyxrf<a class="headerlink" href="#load-data-into-pyxrf" title="Permalink to this headline">¶</a></h1>
 <ul class="simple">
-<li>Define working directory by selecting &#8220;Working Directory&#8221; button, shown in figure 1.</li>
-<li>After selecting working directory, you can load h5 file by clicking &#8220;Load Data File&#8221; button as shown in figure 1. This is an example data
+<li>Define working directory by selecting “Working Directory” button, shown in figure 1.</li>
+<li>After selecting working directory, you can load h5 file by clicking “Load Data File” button as shown in figure 1. This is an example data
 from HXN beam line at NSLS II. (Currently we mainly support h5 file.)</li>
 </ul>
 <img alt="_images/define_h5file.jpg" src="_images/define_h5file.jpg" />
 <p>Figure 1. Load h5 file into pyxrf</p>
 <ul class="simple">
 <li>Once the data is loaded, you can see the name of the data set, scan2D_19568_sum,
-which is just next to blue label &#8220;which channel data for fitting&#8221; as shown in figure 2.
-The &#8220;_sum&#8221; in the name means this is the pixel summed data from three detectors, say vortex detector.</li>
+which is just next to blue label “which channel data for fitting” as shown in figure 2.
+The “_sum” in the name means this is the pixel summed data from three detectors, say vortex detector.</li>
 </ul>
 <img alt="_images/select_data_plot.png" src="_images/select_data_plot.png" />
 <p>Figure 2. Select which data set to work on</p>
 <ul>
-<li><p class="first">In order to plot the spectrum, You can click &#8220;Plot Selected Exp. Data&#8221;
+<li><p class="first">In order to plot the spectrum, You can click “Plot Selected Exp. Data”
 on the right part of the GUI, as shown in figure 2.</p>
 </li>
 <li><p class="first">As default, we only load the summed spectrum. If you also want to load spectrum from each vortex detector,
-click the checkbox &#8220;Load data from each channel&#8221;, and load h5 file again. This time you can select either the summed
+click the checkbox “Load data from each channel”, and load h5 file again. This time you can select either the summed
 spectrum from all the detectors or only from one detector to work on, shown in figure 3.</p>
 <div class="admonition note">
 <p class="first admonition-title">Note</p>
@@ -78,10 +69,30 @@ spectrum from all the detectors or only from one detector to work on, shown in f
 
 
           </div>
+          
         </div>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
-        <div class="sphinxsidebarwrapper"><div class="relations">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">pyxrf</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Load data into pyxrf</a></li>
+<li class="toctree-l1"><a class="reference internal" href="summed_spectrum_fit.html">Summed spectrum fitting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="data_output.html">Output data from pyxrf</a></li>
+<li class="toctree-l1"><a class="reference internal" href="work_at_beamlines.html">Data analysis at NSLS II beamlines</a></li>
+</ul>
+
+<div class="relations">
 <h3>Related Topics</h3>
 <ul>
   <li><a href="index.html">Documentation overview</a><ul>
@@ -90,23 +101,26 @@ spectrum from all the detectors or only from one detector to work on, shown in f
   </ul></li>
 </ul>
 </div>
-  <div role="note" aria-label="source link">
-    <h3>This Page</h3>
-    <ul class="this-page-menu">
-      <li><a href="_sources/data_input.rst.txt"
-            rel="nofollow">Show Source</a></li>
-    </ul>
-   </div>
 <div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
+    <div class="searchformwrapper">
     <form class="search" action="search.html" method="get">
-      <div><input type="text" name="q" /></div>
-      <div><input type="submit" value="Go" /></div>
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
+    </div>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
         </div>
       </div>
       <div class="clearer"></div>
@@ -115,8 +129,8 @@ spectrum from all the detectors or only from one detector to work on, shown in f
       &copy;2017, Li Li.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.5.4</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
       <a href="_sources/data_input.rst.txt"
