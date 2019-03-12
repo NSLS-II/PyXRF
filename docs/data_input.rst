@@ -9,6 +9,7 @@ Load data into pyxrf
   from HXN beam line at NSLS II. (Currently we mainly support h5 file.)
 
 .. image:: /_static/define_h5file.jpg
+
 Figure 1. Load h5 file into pyxrf
 
 * Once the data is loaded, you can see the name of the data set, scan2D_19568_sum,
@@ -16,6 +17,7 @@ Figure 1. Load h5 file into pyxrf
   The "_sum" in the name means this is the pixel summed data from three detectors, say vortex detector.
 
 .. image:: /_static/select_data_plot.png
+
 Figure 2. Select which data set to work on
 
 * In order to plot the spectrum, You can click "Plot Selected Exp. Data"
@@ -30,4 +32,5 @@ Figure 2. Select which data set to work on
     Most of the time, if detectors are well aligned, we only need to load the summed spectrum of all the detectors and work on it.
 
   .. image:: /_static/more_datasets.png
+
   Figure 3. Select more data sets from different detectors
