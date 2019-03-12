@@ -26,6 +26,6 @@ script:
   if [ $BUILD_DOCS ]; then
     pip install -r docs-requirements.txt
     set -e  # If any of the following steps fail, just stop at that point.
-    make -C doc html  # Build the documentation.
-    doctr deploy --built-docs doc/_build/html .  # Publish the documentation.
+    make -C docs html  # Build the documentation.
+    doctr deploy --built-docs docs/_build/html .  # Publish the documentation.
   fi
