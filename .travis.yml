@@ -25,9 +25,7 @@ script:
 - |
   if [ $BUILD_DOCS ]; then
     pip install -r docs-requirements.txt
-    pushd doc
-    make html
-    popd
-    # Publish docs.
-    doctr deploy --deploy-repo NSLS-II/NSLS-II.github.io --deploy-branch-name master PyXRF
+    set -e  # If any of the following steps fail, just stop at that point.
+    make -C docs html  # Build the documentation.
+    doctr deploy --built-docs docs/build/html .  # Publish the documentation.
   fi
