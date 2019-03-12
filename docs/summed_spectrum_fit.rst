@@ -14,6 +14,7 @@ clicking "Import Parameters" (Figure 1). The json file saves all the
 parameters for data fitting.
 
 .. image:: /_static/load_parameter_file.png
+
 Figure 1. Load json file
 
 Plot emission lines
@@ -30,7 +31,8 @@ and cross section [barns/atom] (Figure 2).
 
 
 .. image:: /_static/zoomin_plot.png
-Figure 1. Load json file
+
+Figure 2. Zoom in plot
 
 Add/Remove elements
 +++++++++++++++++++
