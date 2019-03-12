@@ -1,6 +1,6 @@
-=======================
-Summed spectrum fitting
-=======================
+================
+Spectrum fitting
+================
 
 Once you select which data to fit (either summed spectrum or from given detector), it
 is ready to move on to fitting step. Please click the Fit panel on the upper left corner,
@@ -46,3 +46,26 @@ You can also easily delete any element by clicking the Del button shown in Figur
 You may also change the value of peak intensity to see plotting change in real time.
 
 Once you are happy with all the changes, please click "Update" button to save all the changes.
+
+Summed spectrum fitting
++++++++++++++++++++++++
+Once you are happy with all the parameter setting, you can start to fit the
+summed spectrum by simply click button "Spectrum Fitting" at the lower part of
+Fit panel.
+
+The fitting process may take longer time if more elements are included. For
+instance, more than 30 seconds are used if you want to fit more than 10 elements.
+
+You can also output summed spectrum fitting result by click button
+"Save Spectrum/Fit". The output data has 3 columns including energy, experiment
+and fitted results for summed spectrum.
+
+Individual Pixel fitting
+++++++++++++++++++++++++
+After summed spectrum fitting is done, you can move forward with individual
+pixel fitting. Please click button "Individual Pixel Fitting" at the very
+bottom of Fit panel. The individual pixel fitting will find all the elements
+defined from summed spectrum fitting.
+
+The fitting process is usually fast because multiprocessing is applied. After
+fitting is done, the output will be 2D map for different elements.
