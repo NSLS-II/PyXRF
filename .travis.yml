@@ -27,5 +27,5 @@ script:
     pip install -r docs-requirements.txt
     set -e  # If any of the following steps fail, just stop at that point.
     make -C doc html  # Build the documentation.
-    doctr deploy --built-docs doc/build/html .  # Publish the documentation.
+    doctr deploy --built-docs doc/_build/html .  # Publish the documentation.
   fi
