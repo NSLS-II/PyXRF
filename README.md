@@ -1,23 +1,17 @@
 # PyXRF
 
+[![Build Status](https://travis-ci.com/NSLS-II/PyXRF.svg)](https://travis-ci.com/NSLS-II/PyXRF)
+
 PyXRF is a python-based sophisticated fluorescence analysis package for
-fitting and visualizing X-ray fluorescence data. This package contains a
-high-level fitting engine, comprehensive command-line/GUI design, rigorous
-physics calculation and a powerful visualization interface. The theoretical
-part of PyXRF is based on MAPS, developed by Stefan Vogt at APS. PyXRF offers
-some of the unique features as follows.
-- Automatic elements finding: Users do not need to spend extra time selecting
-  elements manually.
-- Forward calculation: Users can observe the spectrum from forward calculation
-  at real time while adjusting input parameters. This will help users perform
-  sensitivity analysis, and find an appropriate initial guess for fitting.
-- Construct your own fitting algorithm: An advanced mode was created for
-  advanced users to construct their own fitting strategies with a full
-  control of each fitting parameter.
-- Batch mode: Users can easily perform quick fitting of multiple fluorescence
-  datasets or XANES datasets.
-- Interface with NSLS-II database: A specific I/O interface was designed to
-   obtain data directly from BNL/NSLS-II experimental database.
+fitting and visualizing X-ray fluorescence data.
+
+[PyXRF documentation](http://nsls-ii.github.io/PyXRF/)
+
+[Report an issue with PyXRF](https://github.com/NSLS-II/pyxrf/issues/new)
+
+-------------------------
+
+
 
 ## Install PyXRF using Conda [Support Linux/Mac/Windows]
 PyXRF works for both python 2.7 and 3.5 in Linux/Mac system. For Windows, we only support python 3.5 version at windows 10(64 bit).
@@ -95,7 +89,6 @@ deactivate
 
 ## Documentation
 
-
 ### Input of h5 file for PyXRF
 Please download a standard h5 file from the link
 https://drive.google.com/file/d/0B45Mm22EF9TNQzFkSW0xa01mbkE/view
@@ -107,7 +100,7 @@ For test purposes, a parameter file (https://drive.google.com/file/d/0B45Mm22EF9
 Users can transfer spec file to hdf file that pyxrf can take. Please see examples at https://github.com/NSLS-II/PyXRF/blob/master/examples/specfile_to_hdf.ipynb
 
 ### Youtube tutorial
-The latest youtube tutorial of pyxrf version 0.0.4 is at https://www.youtube.com/watch?v=2nFLccehaHI
+The youtube tutorial of pyxrf is at https://www.youtube.com/watch?v=2nFLccehaHI
 
 
 ## Notes
@@ -115,4 +108,3 @@ The latest youtube tutorial of pyxrf version 0.0.4 is at https://www.youtube.com
 The core fitting functions are a part of the [scikit-beam]
 (https://github.com/scikit-beam/scikit-beam) data analysis library for x-ray data analysis.
 The design philosophy is to separate fitting and gui, so it is easy to maintain.
-For more questions, please submit issues through github, or contact Li at lili@bnl.gov.
