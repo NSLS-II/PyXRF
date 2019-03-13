@@ -45,8 +45,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'pyxrf'
-copyright = u'2017, Li Li'
+project = u'PyXRF'
+copyright = u'2019, Li Li'
 author = u'Li Li'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -151,6 +151,3 @@ texinfo_documents = [
      author, 'pyxrf', 'One line description of project.',
      'Miscellaneous'),
 ]
-
-
-

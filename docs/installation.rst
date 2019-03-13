@@ -2,7 +2,7 @@
 Installation
 ============
 
-PyXRF works for python 2.7, 3.5 and 3.6 in Linux system. For Mac and Windows, we
+PyXRF works for python 2.7, 3.5 and 3.6 in Linux/Mac system. For Windows, we
 only support python 3.5 version. We plan to move PyXRF to conda-forge soon.
 
 First you need to install [conda] (http://continuum.io/downloads). We suggest
@@ -11,8 +11,8 @@ stack, but is ~400 MB.  For advanced users, consider downloading [miniconda]
 (http://conda.pydata.org/miniconda.html) because it is a smaller download (~20 MB).
 
 
-Linux or Mac
-============
+Linux/Mac
+=========
 
 Create a conda environment (say pyxrf_test) with python 3.6.
 
@@ -31,13 +31,11 @@ At the same environment, install pyxrf by simply typing
 
 .. code:: python
 
-    conda install pyxrf -c lightsource2-tag -c conda-forge
+    conda install pyxrf xraylib=3.2 -c lightsource2-tag -c conda-forge
 
-For python 3.5 (Mac), please type
 
-.. code:: python
-
-    conda install pyxrf pyqt=4.11 enaml=0.9.8 -c lightsource2-tag -c conda-forge
+Note: there is some conflict with xraylib=3.3, so we put a constraint on xraylib.
+This can be removed later.
 
 
 Windows
