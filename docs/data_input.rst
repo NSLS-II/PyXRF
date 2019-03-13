@@ -34,3 +34,19 @@ Figure 2. Select which data set to work on
   .. image:: /_static/more_datasets.png
 
   Figure 3. Select more data sets from different detectors
+
+
+Format of h5 file
+=================
+
+Please download a standard h5 file from the link
+https://drive.google.com/file/d/0B45Mm22EF9TNQzFkSW0xa01mbkE/view
+This h5 file mainly contains spectrum from 3 detectors, positions of x,y motors
+and scalers for normalization. Please create h5 file with a similar structure
+in order to use PyXRF.
+
+For test purposes, a parameter file
+(https://drive.google.com/file/d/0B45Mm22EF9TNYW11OXozRXVic1E/view) is also
+provided for users to do fitting for this standard h5 file. However, you should
+never create parameter file manually. Parameter file can be easily created
+during the step of automatic peak finding.

@@ -109,10 +109,6 @@ Users can transfer spec file to hdf file that pyxrf can take. Please see example
 ### Youtube tutorial
 The latest youtube tutorial of pyxrf version 0.0.4 is at https://www.youtube.com/watch?v=2nFLccehaHI
 
-You may also refer to http://nbviewer.ipython.org/gist/licode/06654b079fd617aaaeca
-
-More documentation will be ready soon!
-
 
 ## Notes
 
