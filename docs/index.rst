@@ -26,10 +26,12 @@ Table of Contents
    :maxdepth: 2
    :caption: Contents:
 
+   installation
    data_input
    summed_spectrum_fit
    data_output
    work_at_beamlines
+   credits
 
 
 Indices and tables
