@@ -31,6 +31,7 @@ Table of Contents
    summed_spectrum_fit
    data_output
    work_at_beamlines
+   questions
    credits
 
 
