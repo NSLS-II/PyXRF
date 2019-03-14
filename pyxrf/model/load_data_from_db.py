@@ -746,8 +746,11 @@ def map_data2D(data, datashape,
         for i in range(pos_data.shape[2]):
             # flip position the same as data flip on det counts
             pos_data[:, :, i] = flip_data(pos_data[:, :, i], subscan_dims=subscan_dims)
-    for i, v in enumerate(pos_names):
-        data_output[v] = pos_data[:, :, i]
+    new_p = np.zeros([len(pos_names), pos_data.shape[0], pos_data.shape[1]])
+    for i in range(len(pos_names)):
+        new_p[i, :, :] = pos_data[:, :, i]
+    data_output['pos_names'] = pos_names
+    data_output['pos_data'] = new_p
 
     # scaler data
     scaler_names, scaler_data = get_name_value_from_db(scaler_list, data,
