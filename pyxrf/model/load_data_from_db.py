@@ -24,7 +24,7 @@ try:
         beamline_config_pyxrf = json.load(beamline_pyxrf)
         beamline_name = beamline_config_pyxrf['beamline_name']
     if beamline_name == 'HXN':
-        from pyxrf.db_config.hxn_db_config import db, db_analysis
+        from pyxrf.db_config.hxn_db_config import db
     elif beamline_name == 'SRX':
         from pyxrf.db_config.srx_db_config import db
     elif beamline_name == 'XFM':
