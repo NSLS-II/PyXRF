@@ -6,12 +6,29 @@ Once you select which data to fit (either summed spectrum or from given detector
 is ready to move on to fitting step. Please click the Fit panel on the upper left corner,
 which is next to File IO (Figure 1).
 
+
+Automatic peak finding (create parameter json file)
++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+If you don't have a parameter json file, you can start from scratch with automatic
+peak finding.
+
+* Click button ``Find Elements Automatically``, you will see a small window
+  called ``Automatic Element Finding`` pop up.
+* Adjust parameter in this window, such as calibration parameters a0, a1,
+  incident E, etc.
+* Then click button ``Find Elements`` in the same window.
+* You will see that many elements are found automatically. You can remove small
+  intensity elements, or add/remove elements based on your own opinion.
+* Click button ``Save`` to save this parameter configuration for later use.
+
+
 Load parameter file
 +++++++++++++++++++
 
-In order to perform data fitting, you need to load a json file into pyxrf by
-clicking "Import Parameters" (Figure 1). The json file saves all the
-parameters for data fitting.
+If you already have a parameter json file, you need to load it into pyxrf by
+clicking "Import Parameters" (Figure 1). Otherwise, please refer to the previous
+step. The json file saves all the parameters for data fitting.
 
 .. image:: /_static/load_parameter_file.png
 

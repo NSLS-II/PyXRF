@@ -11,7 +11,7 @@ fitting and visualizing X-ray fluorescence data.
 
 -------------------------
 
-We support installation on Linux/Mac/Windows, please refer [How to install PyXRF](http://nsls-ii.github.io/PyXRF/installation.html)
+We support installation on Linux/Mac/Windows, please refer to [How to install PyXRF](http://nsls-ii.github.io/PyXRF/installation.html)
 
 
 ### Youtube tutorial
