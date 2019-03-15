@@ -75,17 +75,34 @@ Please also refer to jupyter notebook example
 https://github.com/NSLS-II/PyXRF/blob/master/examples/Batch_mode_fit.ipynb
 
 
+PyXRF configuration at beamlines
+================================
+
+A json was created to define beamline name at /etc/pyxrf/pyxrf.json .
+
+From file https://github.com/NSLS-II/PyXRF/blob/master/pyxrf/model/load_data_from_db.py ,
+pyxrf will search which beamline the machine is at, then connects to databroker
+accordingly. For instance, if it is hxn machine, pyxrf will read hxn database
+information from
+https://github.com/NSLS-II/PyXRF/blob/master/pyxrf/db_config/hxn_db_config.py,
+where databroker is defined and handlers are registered.
+
+In order to add new beamlines, the similar step should be followed to connect
+to database for that beamline.
+
+
 How to add more beamlines to use PyXRF
 ======================================
 
-We basically need to transform data from databroker into the format PyXRF can
-take. The only file we need to work on is
-``PyXRF/pyxrf/model/load_data_from_db.py``.
+After adding configuration file for new beamline, we need to work on how to
+transfer data from databroker into the format PyXRF can take. The only file we
+need to work on is ``PyXRF/pyxrf/model/load_data_from_db.py``.
 
 For instance, in order to transfer fluorescence data at HXN beamline to PyXRF
-format, you first need to write a function called ``map_data2D_hxn`` in file
+format, you first need to write a function of ``map_data2D_hxn`` in file
 ``load_data_from_db.py``. Then in function of ``fetch_data_from_db``, you
-simply add hxn beamline. Please refer to source code to see how it works.
+simply add ``map_data2D_hxn`` for hxn beamline. Please refer to source code to
+see how it works.
 
 Those functions on data IO should be moved to
 https://github.com/NSLS-II/suitcase-pyxrf later.
