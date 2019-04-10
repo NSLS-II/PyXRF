@@ -314,7 +314,7 @@ def map_data2D_srx(runid, fpath,
         if output_to_file:
             print('Saving data to hdf file.')
             write_db_to_hdf(fpath, data,
-                            hdr.start.datashape,
+                            start_doc['shape'],
                             det_list=config_data['xrf_detector'],
                             pos_list=hdr.start.motors,
                             scaler_list=config_data['scaler_list'],
@@ -325,7 +325,7 @@ def map_data2D_srx(runid, fpath,
                 tmp = fpath.split('.')
                 fpath1 = '.'.join([tmp[0]+'_1', tmp[1]])
                 write_db_to_hdf(fpath1, data,
-                                datashape,
+                                start_doc['shape'],
                                 det_list=config_data['xrf_detector2'],
                                 pos_list=hdr.start.motors,
                                 scaler_list=config_data['scaler_list'],
