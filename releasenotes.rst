@@ -1,6 +1,12 @@
 PyXRF Release Notes
 ===================
 
+v0.0.9.4
+--------
+- Add auto peak finding
+- Update readme doc and add beamline config
+
+
 v0.0.9
 ------
 - Pkg can be used for python 3.6 with pyqt>=5.9
