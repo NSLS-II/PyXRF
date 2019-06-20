@@ -27,10 +27,10 @@ Table of Contents
    :caption: Contents:
 
    installation
-   data_input
+   work_at_beamlines
    summed_spectrum_fit
    data_output
-   work_at_beamlines
+   data_input
    questions
    credits
 
