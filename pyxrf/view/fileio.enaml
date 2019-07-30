@@ -44,6 +44,8 @@ from enaml.core.api import Include, Looper
 from enaml.layout.geometry import Box
 from enaml.stdlib.fields import FloatField
 from enaml.stdlib.fields import IntField as DefaultIntField
+from enaml.stdlib.dialog_buttons import DialogButton
+from enaml.stdlib.message_box import MessageBox, critical
 import os
 import numpy as np
 from ..model.fileio import sep_v
@@ -90,11 +92,12 @@ enamldef FileView(DockItem): file_view:
             PushButton: folder_btn:
                 text = "Working Directory"
                 clicked ::
-                    path = FileDialogEx.get_existing_directory(file_view)
+                    path = FileDialogEx.get_existing_directory(file_view, current_path=io_model.working_directory)
                     if path:
                         io_model.working_directory = path
             Field: folder_fd:
                 text := io_model.working_directory
+                read_only = True
                 #maximum_size = 400
 
             CheckBox: cb_each:
@@ -104,19 +107,35 @@ enamldef FileView(DockItem): file_view:
             PushButton: files_btn:
                 text = "Load Data File"
                 clicked ::
-                    path = FileDialogEx.get_open_file_names(file_view, current_path=io_model.working_directory)
+                    path = FileDialogEx.get_open_file_names(file_view, 
+                                                            file_mode="existing_files", 
+                                                            name_filters=["*.h5", "*"],
+                                                            selected_name_filter="*.h5",
+                                                            current_path=io_model.working_directory)
                     if path:
                         # only load one file
                         # 'temp' is used to reload the same file, otherwise file_name will not update
                         io_model.file_name = 'temp'
-                        io_model.file_name = [item.split(sep_v)[-1] for item in path][0:1][0]
-                        files_load.text = '{} is loaded.'.format(io_model.file_name)
+                        f_dir, f_name = os.path.split(path[0])  # Open only the first of the selected files 
+                        io_model.working_directory = f_dir
+                        try: 
+                            io_model.file_name = f_name
+                        except:
+                            btns = [DialogButton('Ok', 'accept')]
+                            # 'critical' shows MessageBox
+                            critical(self, 'ERROR', f'Incorrect format of input file "{path[0]}": PyXRF accepts only custom HDF (.h5) files.', btns)
+                        else:    
+                            files_load.text = '{} is loaded.'.format(io_model.file_name)
 
-                        plot_model.parameters = param_model.param_new
-                        setting_model.parameters = param_model.param_new
-                        setting_model.data_sets = io_model.data_sets
-                        fit_model.data_sets = io_model.data_sets
-                        fit_model.fit_img = {} # clear dict in fitmodel to rm old results
+                            # Disable the button which calls Working Directory dialog. Changing working directory at this point
+                            #     will most likely make the program crash at some point
+                            folder_btn.enabled = False
+
+                            plot_model.parameters = param_model.param_new
+                            setting_model.parameters = param_model.param_new
+                            setting_model.data_sets = io_model.data_sets
+                            fit_model.data_sets = io_model.data_sets
+                            fit_model.fit_img = {} # clear dict in fitmodel to rm old results
 
             Label: files_load:
                 text = 'No data is loaded.'
