@@ -59,8 +59,12 @@ with enaml.imports():
 def get_defaults():
 
     sub_folder = 'data_analysis'
-    working_directory = os.path.join(os.path.expanduser('~'),
-                                     sub_folder)
+    working_directory = os.path.join(os.path.expanduser('~'), sub_folder)
+    # Ideally, if directory does not exist, it should be created, but for now
+    #     we just set working directory to user directory
+    if not os.path.exists(working_directory):
+        working_directory = os.path.expanduser('~')
+                                    
     output_directory = working_directory
     default_parameters = param_data
     defaults = {'working_directory': working_directory,
