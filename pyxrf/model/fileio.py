@@ -126,7 +126,6 @@ class FileIOModel(Atom):
         self.file_channel_list = []
         logger.info('File is loaded: %s' % (self.file_name))
 
-        print(f"wd: {self.working_directory}  fn: {self.file_name}")
 
         # focus on single file only
         self.img_dict, self.data_sets = file_handler(self.working_directory,
