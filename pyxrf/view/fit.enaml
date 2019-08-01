@@ -871,7 +871,6 @@ enamldef AutoFindElements(Window): auto_win:
             Looper: 
                 iterable << [param_model.param_new['non_fitting_values'][k] for k in ('energy_bound_low',)]
                 #iterable << [param_model.param_new['non_fitting_values'][k] for k in sorted(list(param_model.param_new['non_fitting_values'].keys()))]
-                #iiterable << sorted_param(param_model)
                 Label:
                     text = loop_item['description']
                     maximum_size = 140
