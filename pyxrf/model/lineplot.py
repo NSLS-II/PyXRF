@@ -136,7 +136,7 @@ class LinePlotModel(Atom):
 
     plot_type = List()
     max_v = Float()
-    incident_energy = Float(30.0)
+    incident_energy = Float(12.0)
 
     eline_obj = List()
 
