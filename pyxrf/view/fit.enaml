@@ -859,7 +859,6 @@ enamldef AutoFindElements(Window): auto_win:
                     padding = Box(2, 2, 2, 2)
                     constraints = [hbox(ff_bound_high, pb_bd_default)]
                     FloatField: ff_bound_high:
-                        #value := loop_item['value']
                         value := param_model.energy_bound_high_buf
                         maximum_size = 100
                     PushButton: pb_bd_default:
