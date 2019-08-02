@@ -95,8 +95,10 @@ class DrawImageAdvanced(Atom):
     y_pos : list
         define data range in vertical direction
     pixel_or_pos : int
-        index to choose plot with pixel or with positions
-    pixel_or_pos_for_plot : None, array
+        index to choose plot with pixel or with positions 
+    pixel_or_pos_flag : Bool
+        true - plot x,y coordinates in plot units, false - in pixels
+    pixel_or_pos_upper_left_xy : array, upper-left corner of the current plot in plot coordinates
         argument passed to extent in imshow of matplotlib
     interpolation_opt: bool
         choose to interpolate 2D image in terms of x,y or not
@@ -127,7 +129,8 @@ class DrawImageAdvanced(Atom):
     y_pos = List()
 
     pixel_or_pos = Int(0)
-    pixel_or_pos_for_plot = Typed(object)
+    pixel_or_pos_flag = Bool(False)
+    pixel_or_pos_upper_left_xy = Typed(object)
     interpolation_opt = Bool(True)
     data_dict_default = Dict()
     limit_dict = Dict()
@@ -137,9 +140,10 @@ class DrawImageAdvanced(Atom):
 
     def __init__(self):
         self.fig = plt.figure(figsize=(3,2))
-        self.pixel_or_pos_for_plot = None
+        self.pixel_or_pos_upper_left_xy = None
         matplotlib.rcParams['axes.formatter.useoffset'] = True
-        self.name_not_scalable = ['r2_adjust','alive', 'dead', 'elapsed_time', 'scaler_alive'] # do not apply scaler norm on those data
+        self.name_not_scalable = ['r2_adjust','alive', 'dead', 'elapsed_time', 'scaler_alive', 
+                                  'i0_time', 'time', 'time_diff'] # do not apply scaler norm on those data
 
     def data_dict_update(self, change):
         """
@@ -277,10 +281,9 @@ class DrawImageAdvanced(Atom):
     def _update_pp(self, change):
         if change['type'] != 'create':
             if change['value'] == 0:
-                self.pixel_or_pos_for_plot = None
-            elif change['value'] > 0 and len(self.x_pos) > 0 and len(self.y_pos) > 0:
-                self.pixel_or_pos_for_plot = (self.x_pos[0], self.x_pos[-1],
-                                              self.y_pos[0], self.y_pos[-1])
+                self.pixel_or_pos_flag = False
+            else: 
+                self.pixel_or_pos_flag = True
             self.show_image()
 
     @observe('plot_all')
@@ -359,7 +362,11 @@ class DrawImageAdvanced(Atom):
             nrow = 1
 
         a_pad_v = 0.8
-        a_pad_h = 0.3
+        a_pad_h = 0.5
+
+        if len(self.x_pos) > 0 and len(self.y_pos) > 0:
+            self.pixel_or_pos_upper_left_xy = (self.x_pos[0], self.x_pos[-1],
+                                               self.y_pos[0], self.y_pos[-1])
 
         grid = ImageGrid(self.fig, 111,
                          nrows_ncols=(nrow, ncol),
@@ -370,20 +377,49 @@ class DrawImageAdvanced(Atom):
                          cbar_pad='2%',
                          share_all=True)
 
+        def normalize_data_array(data_in, scaler, *, data_name, name_not_scalable):
+            ''' 
+            Normalize data based on the availability
+              data_in - numpy array
+              scaler - numpy array of the same size as data_in
+              data_name - string representing the name of the data set ('time' or 'i0' etc.)
+              name_not_scalable - list of names of not scalable datasets (['time', 'i0_time'])
+            Returns:
+              numpy array of the same size as data_in, data is normalized if necessary
+            '''
+            if scaler is not None:
+                if data_name in name_not_scalable:
+                    data_out = data_in
+                else:
+                    # Leave the commented old normalization for future reference !!! (Dmitri G.)
+                    # 'Old' normalization - 'scaler' is divided by its mean before it is applied
+                    # data_out = data_in / scaler * np.mean(scaler)
+                    
+                    # 'New', more appropriate, normalization, which preserves quantitative information: 
+                    #     'scaler' is directly applied
+                    data_out = data_in / scaler
+            else:
+                data_out = data_in
+            
+            return data_out
+
         if self.scale_opt == 'Linear':
             for i, (k, v) in enumerate(six.iteritems(stat_temp)):
-                if self.scaler_data is not None:
-                    if k in self.name_not_scalable:
-                        data_dict = self.dict_to_plot[k]
-                    else:
-                        data_dict = self.dict_to_plot[k]/self.scaler_data * np.mean(self.scaler_data)
-                else:
-                    data_dict = self.dict_to_plot[k]
+
+                data_dict = normalize_data_array(data_in=self.dict_to_plot[k], 
+                                                 scaler=self.scaler_data, 
+                                                 data_name=k,
+                                                 name_not_scalable=self.name_not_scalable)
 
                 low_ratio = self.limit_dict[k]['low']/100.0
                 high_ratio = self.limit_dict[k]['high']/100.0
-                minv = self.range_dict[k]['low']
-                maxv = self.range_dict[k]['high']
+                if self.scaler_data is None:
+                    minv = self.range_dict[k]['low']
+                    maxv = self.range_dict[k]['high']
+                else:
+                    # Unfortunately, the new normalization procedure requires to recalculate min and max values
+                    minv = np.min(data_dict)
+                    maxv = np.max(data_dict)
                 low_limit = (maxv-minv)*low_ratio + minv
                 high_limit = (maxv-minv)*high_ratio + minv
 
@@ -391,7 +427,7 @@ class DrawImageAdvanced(Atom):
                     im = grid[i].imshow(data_dict,
                                         cmap=grey_use,
                                         interpolation=plot_interp,
-                                        extent=self.pixel_or_pos_for_plot,
+                                        extent=self.pixel_or_pos_upper_left_xy if self.pixel_or_pos_flag else None,
                                         origin='upper',
                                         clim=(low_limit, high_limit))
                 else:
@@ -406,29 +442,35 @@ class DrawImageAdvanced(Atom):
                     grid[i].set_ylim(max([self.y_pos[0], self.y_pos[-1]]), min([self.y_pos[0], self.y_pos[-1]]))
 
                 grid_title = k #self.file_name+'_'+str(k)
-                if self.pixel_or_pos_for_plot is not None:
-                    title_x = self.pixel_or_pos_for_plot[0]
-                    title_y = self.pixel_or_pos_for_plot[3] + (self.pixel_or_pos_for_plot[3] -
-                                                               self.pixel_or_pos_for_plot[2])*0.04
+                if self.pixel_or_pos_flag or self.scatter_show:
+                    title_x = self.pixel_or_pos_upper_left_xy[0]
+                    title_y = self.pixel_or_pos_upper_left_xy[3] + (self.pixel_or_pos_upper_left_xy[3] -
+                                                                    self.pixel_or_pos_upper_left_xy[2])*0.04
                 else:
                     title_x = 0
                     title_y = - data_dict.shape[0]*0.05
+                
                 grid[i].text(title_x, title_y, grid_title)
 
                 grid.cbar_axes[i].colorbar(im)
+                
+                grid.cbar_axes[i].ticklabel_format(style='sci', scilimits=(-3,4), axis='both')
+                
+                # Do not remove this code, may be useful in the future (Dmitri G.) !!!
+                # Print label for colorbar 
+                #cax = grid.cbar_axes[i]
+                #axis = cax.axis[cax.orientation]
+                #axis.label.set_text("$[a.u.]$")
+
                 grid[i].get_xaxis().get_major_formatter().set_useOffset(False)
                 grid[i].get_yaxis().get_major_formatter().set_useOffset(False)
         else:
             for i, (k, v) in enumerate(six.iteritems(stat_temp)):
 
-                if self.scaler_data is not None:
-                    if k in self.name_not_scalable:
-                        data_dict = self.dict_to_plot[k]
-                    else:
-                        data_dict = self.dict_to_plot[k]/self.scaler_data * np.mean(self.scaler_data)
-
-                else:
-                    data_dict = self.dict_to_plot[k]
+                data_dict = normalize_data_array(data_in=self.dict_to_plot[k], 
+                                                 scaler=self.scaler_data, 
+                                                 data_name=k,
+                                                 name_not_scalable=self.name_not_scalable)
 
                 maxz = np.max(data_dict)
 
@@ -437,14 +479,14 @@ class DrawImageAdvanced(Atom):
                                                  vmax=maxz),
                                     cmap=grey_use,
                                     interpolation=plot_interp,
-                                    extent=self.pixel_or_pos_for_plot)
+                                    extent=self.pixel_or_pos_upper_left_xy)
                 grid[i].get_xaxis().get_major_formatter().set_useOffset(False)
                 grid[i].get_yaxis().get_major_formatter().set_useOffset(False)
                 grid_title = k #self.file_name+'_'+str(k)
-                if self.pixel_or_pos_for_plot is not None:
-                    title_x = self.pixel_or_pos_for_plot[0]
-                    title_y = self.pixel_or_pos_for_plot[3] + (self.pixel_or_pos_for_plot[3] -
-                                                               self.pixel_or_pos_for_plot[2])*0.05
+                if self.pixel_or_pos_flag:
+                    title_x = self.pixel_or_pos_upper_left_xy[0]
+                    title_y = self.pixel_or_pos_upper_left_xy[3] + (self.pixel_or_pos_upper_left_xy[3] -
+                                                                    self.pixel_or_pos_upper_left_xy[2])*0.05
 
                 else:
                     title_x = 0
