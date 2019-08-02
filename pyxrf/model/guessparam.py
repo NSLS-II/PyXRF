@@ -269,6 +269,8 @@ class GuessParamModel(Atom):
     auto_fit_all = Dict()
     bound_val = Float(1.0)
 
+    energy_bound_high_buf = Float(0.0)
+
     def __init__(self, **kwargs):
         try:
             # default parameter is the original parameter, for user to restore
@@ -281,6 +283,9 @@ class GuessParamModel(Atom):
         self.pileup_data = {'element1': 'Si_K',
                             'element2': 'Si_K',
                             'intensity': 0.0}
+
+        # The following line is part of the fix for automated updating of the energy bound in 'Automatic Element Finding' dialog box
+        self.energy_bound_high_buf = self.param_new['non_fitting_values']['energy_bound_high']['value']
 
     def default_param_update(self, change):
         """
@@ -296,6 +301,14 @@ class GuessParamModel(Atom):
         self.default_parameters = change['value']
         self.param_new = copy.deepcopy(self.default_parameters)
         self.element_list = get_element(self.param_new)
+
+        # The following line is part of the fix for automated updating of the energy bound in 'Automatic Element Finding' dialog box
+        self.energy_bound_high_buf = self.param_new['non_fitting_values']['energy_bound_high']['value']
+
+    # The following function is part of the fix for automated updating of the energy bound in 'Automatic Element Finding' dialog box
+    @observe('energy_bound_high_buf')
+    def _update_energy_bound_high_buf(self, change):
+        self.param_new['non_fitting_values']['energy_bound_high']['value'] = change['value']  
 
     def param_from_db_update(self, change):
         self.default_parameters = change['value']

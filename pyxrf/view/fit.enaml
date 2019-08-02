@@ -835,6 +835,12 @@ enamldef AutoFindElements(Window): auto_win:
                     constraints = [hbox(ff, pb_value_default)]
                     FloatField: ff:
                         value := param_model.param_new[loop_item]['value']
+                        value ::
+                            if loop_item == 'coherent_sct_energy':
+                                v = round((value + 0.8)*100.0)/100.0  # Add 0.8 to float in a reliable way
+                                plot_model.incident_energy = value  # Just copy the selected value of incident energy
+                                param_model.param_new['non_fitting_values']['energy_bound_high']['value'] = v
+                                param_model.energy_bound_high_buf = v
                         maximum_size = 160
                     PushButton: pb_value_default:
                         text = 'Default'
@@ -842,24 +848,40 @@ enamldef AutoFindElements(Window): auto_win:
                         clicked ::
                             ff.value = param_model.param_new[loop_item]['default']
 
-            Looper:
-                iterable << [param_model.param_new['non_fitting_values'][k] for k in ('energy_bound_high', 'energy_bound_low')]
-                #iterable << [param_model.param_new['non_fitting_values'][k] for k in sorted(list(param_model.param_new['non_fitting_values'].keys()))]
-                #iiterable << sorted_param(param_model)
+            Looper: 
+                iterable << [param_model.param_new['non_fitting_values'][k] for k in ('energy_bound_high',)]
+                Label:
+                    text = loop_item['description']
+                    maximum_size = 140
+                Container: cont:
+                    padding = Box(2, 2, 2, 2)
+                    constraints = [hbox(ff_bound_high, pb_bd_default)]
+                    FloatField: ff_bound_high:
+                        value := param_model.energy_bound_high_buf
+                        maximum_size = 100
+                    PushButton: pb_bd_default:
+                        text = 'Default'
+                        maximum_size = 100
+                        clicked ::
+                            ff_bound_high.value = loop_item['default_value']
+
+            Looper: 
+                iterable << [param_model.param_new['non_fitting_values'][k] for k in ('energy_bound_low',)]
                 Label:
                     text = loop_item['description']
                     maximum_size = 140
                 Container:
                     padding = Box(2, 2, 2, 2)
-                    constraints = [hbox(ff_bound, pb_bd_default)]
-                    FloatField: ff_bound:
+                    constraints = [hbox(ff_bound_low, pb_bd_default)]
+                    FloatField: ff_bound_low:
                         value := loop_item['value']
                         maximum_size = 100
                     PushButton: pb_bd_default:
                         text = 'Default'
                         maximum_size = 100
                         clicked ::
-                            ff_bound.value = loop_item['default_value']
+                            ff_bound_low.value = loop_item['default_value']
+
 
         PushButton: find_btn:
             text = 'Find Elements'
