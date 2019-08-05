@@ -83,7 +83,6 @@ enamldef FileView(DockItem): file_view:
                     hbox(gb_fit),
                     hbox(mask_opt, spacer),
                     scroller,
-                    hbox(plot_bt, spacer),
                 ),
                 folder_btn.width == files_btn.width,
                 #folder_btn.width == mask_btn.width,
@@ -216,65 +215,6 @@ enamldef FileView(DockItem): file_view:
                                     #fd2.enabled = False
                                     #plot_bt.enabled = True
                                     plot_model.data_sets = io_model.data_sets
-
-                            ### Output log to gui, turn off for now
-                            ### error at mac, works fine on linux
-                            #MultilineField: mf:
-                            #    text << logmodel.logtext
-                            #    read_only = True
-                            #    auto_sync_text = True
-
-                            #RadioButton: rb_3:
-                            #    text = 'Point'
-                            #    clicked ::
-                            #        io_model.data_sets[loop_item].plot_index = 2
-                            #        fd1.enabled = True
-                            #        fd2.enabled = False
-                                    #plot_bt.enabled = True
-                                    #plot_model.data_sets = io_model.data_sets
-
-                            #RadioButton: rb_4:
-                            #    text = 'ROI'
-                            #    clicked ::
-                            #        io_model.data_sets[loop_item].plot_index = 3
-                            #        fd1.enabled = True
-                            #        fd2.enabled = True
-                                    #plot_bt.enabled = True
-                                    #plot_model.data_sets = io_model.data_sets
-
-                            #Label: lb1:
-                            #    text = 'Start'
-                            #    minimum_size = (30, 10)
-                                #maximum_size = 50
-                            #Field: fd1:
-                            #    text := io_model.data_sets[loop_item].point1
-                            #    maximum_size = 40
-                            #    enabled = False
-                                #plot_model.data_sets = io_model.data_sets
-
-                            #Label: lb2:
-                            #    text = 'End'
-                            #    minimum_size = (30, 10)
-                                #maximum_size = 50
-                            #Field: fd2:
-                            #    text := io_model.data_sets[loop_item].point2
-                            #    maximum_size = 40
-                            #    enabled = False
-                                #plot_model.data_sets = io_model.data_sets
-
-            PushButton: plot_bt:
-                text = 'Plot Experiments (Do not use, to be depreciated)'
-                #maximum_size = 100
-                enabled = True
-                checkable = True
-                checked << plot_model.show_exp_opt
-                clicked ::
-                    plot_model.data_sets = io_model.data_sets
-                    plot_model.plot_multi_exp_data()
-                    if checked:
-                        plot_model.show_exp_opt = True
-                    else:
-                        plot_model.show_exp_opt = False
 
 
 enamldef MaskView(Window): mask_view:
