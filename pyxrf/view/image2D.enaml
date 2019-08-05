@@ -108,6 +108,8 @@ enamldef ImageMain(DockItem):
             items = ['pixel', 'x,y position']
             index = 0
             index := img_model_adv.pixel_or_pos
+            visible << not scatter_cb.checked
+            
         CheckBox: scatter_cb:
             text = 'Scatter plot'
             checked := img_model_adv.scatter_show
