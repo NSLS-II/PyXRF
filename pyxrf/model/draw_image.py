@@ -434,15 +434,7 @@ class DrawImageAdvanced(Atom):
                     grid[i].set_ylim(max([self.y_pos[0], self.y_pos[-1]]), min([self.y_pos[0], self.y_pos[-1]]))
 
                 grid_title = k 
-                if self.pixel_or_pos or self.scatter_show:
-                    title_x = self.pixel_or_pos_upper_left_xy[0]
-                    title_y = self.pixel_or_pos_upper_left_xy[3] + (self.pixel_or_pos_upper_left_xy[3] -
-                                                                    self.pixel_or_pos_upper_left_xy[2])*0.04
-                else:
-                    title_x = 0
-                    title_y = - data_dict.shape[0]*0.05
-                
-                grid[i].text(title_x, title_y, grid_title)
+                grid[i].text(0, 1.01, grid_title, ha='left', va='bottom', transform=grid[i].axes.transAxes)
 
                 grid.cbar_axes[i].colorbar(im)                
                 grid.cbar_axes[i].ticklabel_format(style='sci', scilimits=(-3,4), axis='both')
@@ -488,14 +480,8 @@ class DrawImageAdvanced(Atom):
                     grid[i].set_ylim(max([self.y_pos[0], self.y_pos[-1]]), min([self.y_pos[0], self.y_pos[-1]]))
 
                 grid_title = k
-                if self.pixel_or_pos or self.scatter_show:
-                    title_x = self.pixel_or_pos_upper_left_xy[0]
-                    title_y = self.pixel_or_pos_upper_left_xy[3] + (self.pixel_or_pos_upper_left_xy[3] -
-                                                                    self.pixel_or_pos_upper_left_xy[2])*0.05
-                else:
-                    title_x = 0
-                    title_y = - data_dict.shape[0]*0.05
-                grid[i].text(title_x, title_y, grid_title)
+                grid[i].text(0, 1.01, grid_title, ha='left', va='bottom', transform=grid[i].axes.transAxes)
+
                 grid.cbar_axes[i].colorbar(im)
 
                 grid[i].get_xaxis().get_major_formatter().set_useOffset(False)
