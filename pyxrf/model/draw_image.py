@@ -95,9 +95,7 @@ class DrawImageAdvanced(Atom):
     y_pos : list
         define data range in vertical direction
     pixel_or_pos : int
-        index to choose plot with pixel or with positions 
-    pixel_or_pos_flag : Bool
-        true - plot x,y coordinates in plot units, false - in pixels
+        index to choose plot with pixel (== 0) or with positions (== 1)
     pixel_or_pos_upper_left_xy : array, upper-left corner of the current plot in plot coordinates
         argument passed to extent in imshow of matplotlib
     interpolation_opt: bool
@@ -129,7 +127,6 @@ class DrawImageAdvanced(Atom):
     y_pos = List()
 
     pixel_or_pos = Int(0)
-    pixel_or_pos_flag = Bool(False)
     pixel_or_pos_upper_left_xy = Typed(object)
     interpolation_opt = Bool(True)
     data_dict_default = Dict()
@@ -279,11 +276,6 @@ class DrawImageAdvanced(Atom):
 
     @observe('pixel_or_pos')
     def _update_pp(self, change):
-        if change['type'] != 'create':
-            if change['value'] == 0:
-                self.pixel_or_pos_flag = False
-            else: 
-                self.pixel_or_pos_flag = True
             self.show_image()
 
     @observe('plot_all')
@@ -427,13 +419,13 @@ class DrawImageAdvanced(Atom):
                     im = grid[i].imshow(data_dict,
                                         cmap=grey_use,
                                         interpolation=plot_interp,
-                                        extent=self.pixel_or_pos_upper_left_xy if self.pixel_or_pos_flag else None,
+                                        extent=self.pixel_or_pos_upper_left_xy if self.pixel_or_pos else None,
                                         origin='upper',
                                         clim=(low_limit, high_limit))
                 else:
                     im = grid[i].scatter(self.data_dict['positions']['x_pos'],
                                          self.data_dict['positions']['y_pos'],
-                                         c=data_dict,marker='s', s=500, alpha=0.8,
+                                         c=data_dict, marker='s', s=500, alpha=0.8,
                                          cmap=grey_use,
                                          linewidths=1, linewidth=0,
                                          clim=(low_limit, high_limit))
@@ -441,8 +433,8 @@ class DrawImageAdvanced(Atom):
                     grid[i].set_xlim(self.x_pos[0], self.x_pos[-1])
                     grid[i].set_ylim(max([self.y_pos[0], self.y_pos[-1]]), min([self.y_pos[0], self.y_pos[-1]]))
 
-                grid_title = k #self.file_name+'_'+str(k)
-                if self.pixel_or_pos_flag or self.scatter_show:
+                grid_title = k 
+                if self.pixel_or_pos or self.scatter_show:
                     title_x = self.pixel_or_pos_upper_left_xy[0]
                     title_y = self.pixel_or_pos_upper_left_xy[3] + (self.pixel_or_pos_upper_left_xy[3] -
                                                                     self.pixel_or_pos_upper_left_xy[2])*0.04
@@ -452,8 +444,7 @@ class DrawImageAdvanced(Atom):
                 
                 grid[i].text(title_x, title_y, grid_title)
 
-                grid.cbar_axes[i].colorbar(im)
-                
+                grid.cbar_axes[i].colorbar(im)                
                 grid.cbar_axes[i].ticklabel_format(style='sci', scilimits=(-3,4), axis='both')
                 
                 # Do not remove this code, may be useful in the future (Dmitri G.) !!!
@@ -474,25 +465,41 @@ class DrawImageAdvanced(Atom):
 
                 maxz = np.max(data_dict)
 
-                im = grid[i].imshow(data_dict,
-                                    norm=LogNorm(vmin=low_lim*maxz,
-                                                 vmax=maxz),
-                                    cmap=grey_use,
-                                    interpolation=plot_interp,
-                                    extent=self.pixel_or_pos_upper_left_xy)
-                grid[i].get_xaxis().get_major_formatter().set_useOffset(False)
-                grid[i].get_yaxis().get_major_formatter().set_useOffset(False)
-                grid_title = k #self.file_name+'_'+str(k)
-                if self.pixel_or_pos_flag:
+                if self.scatter_show is not True:
+                    im = grid[i].imshow(data_dict,
+                                        norm=LogNorm(vmin=low_lim*maxz,
+                                                    vmax=maxz, clip=True),
+                                        cmap=grey_use,
+                                        interpolation=plot_interp,
+                                        extent=self.pixel_or_pos_upper_left_xy if self.pixel_or_pos else None,
+                                        origin='upper',
+                                        clim=(low_lim*maxz, maxz))
+                else:
+                    im = grid[i].scatter(self.data_dict['positions']['x_pos'],
+                                         self.data_dict['positions']['y_pos'],
+                                         norm=LogNorm(vmin=low_lim*maxz,
+                                                      vmax=maxz, clip=True),
+                                         c=data_dict, marker='s', s=500, alpha=0.8,
+                                         cmap=grey_use,
+                                         linewidths=1, linewidth=0,
+                                         clim=(low_lim*maxz, maxz))
+                    # for scatter plot, the origin is at lower, no way to change that, so flip y
+                    grid[i].set_xlim(self.x_pos[0], self.x_pos[-1])
+                    grid[i].set_ylim(max([self.y_pos[0], self.y_pos[-1]]), min([self.y_pos[0], self.y_pos[-1]]))
+
+                grid_title = k
+                if self.pixel_or_pos or self.scatter_show:
                     title_x = self.pixel_or_pos_upper_left_xy[0]
                     title_y = self.pixel_or_pos_upper_left_xy[3] + (self.pixel_or_pos_upper_left_xy[3] -
                                                                     self.pixel_or_pos_upper_left_xy[2])*0.05
-
                 else:
                     title_x = 0
                     title_y = - data_dict.shape[0]*0.05
                 grid[i].text(title_x, title_y, grid_title)
                 grid.cbar_axes[i].colorbar(im)
+
+                grid[i].get_xaxis().get_major_formatter().set_useOffset(False)
+                grid[i].get_yaxis().get_major_formatter().set_useOffset(False)
 
         #self.fig.tight_layout(pad=4.0, w_pad=0.8, h_pad=0.8)
         #self.fig.tight_layout()
