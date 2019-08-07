@@ -68,7 +68,7 @@ def get_color_name():
     nonred_list = [v for v in matplotlib.colors.cnames.keys()
                    if 'pink' not in v and 'fire' not in v and
                    'sage' not in v and 'tomato' not in v and 'red' not in v]
-    return first_ten + nonred_list + matplotlib.colors.cnames.keys()
+    return first_ten + nonred_list + list(matplotlib.colors.cnames.keys())
 
 
 class LinePlotModel(Atom):
@@ -251,7 +251,8 @@ class LinePlotModel(Atom):
     def _update_ylimit(self):
         # manually define y limit, from experience
         self.log_range = [self.max_v*1e-5, self.max_v*2]
-        self.linear_range = [-0.3*self.max_v, self.max_v*1.2]
+        #self.linear_range = [-0.3*self.max_v, self.max_v*1.2]
+        self.linear_range = [0, self.max_v*1.2]
 
     def exp_label_update(self, change):
         """
@@ -275,6 +276,8 @@ class LinePlotModel(Atom):
 
     @observe('parameters')
     def _update_energy(self, change):
+        if 'coherent_sct_energy' not in self.parameters:
+            return
         self.incident_energy = self.parameters['coherent_sct_energy']['value']
 
     @observe('scale_opt')
@@ -309,13 +312,38 @@ class LinePlotModel(Atom):
             with the @observe decorator
         """
         self.data = change['value']
+        if self.data is None:
+            return
 
         # conflicts between float and np.float32 ???
         self.max_v = float(np.max(self.data[self.limit_cut:-self.limit_cut]))
 
+        if not self.parameters:
+            return
+
+        try:
+            self.plot_exp_obj.remove()
+            logger.debug('Previous experimental data is removed.')
+        except AttributeError:
+            logger.debug('No need to remove experimental data.')
+
+        x_v = (self.parameters['e_offset']['value'] +
+               np.arange(len(self.data)) *
+               self.parameters['e_linear']['value'] +
+               np.arange(len(self.data))**2 *
+               self.parameters['e_quadratic']['value'])
+
+        self.plot_exp_obj, = self._ax.plot(x_v, self.data,
+                                           linestyle=self.plot_style['experiment']['linestyle'],
+                                           color=self.plot_style['experiment']['color'],
+                                           marker=self.plot_style['experiment']['marker'],
+                                           label=self.plot_style['experiment']['label'])
+
         self._update_ylimit()
         self.log_linear_plot()
         self._update_canvas()
+
+
 
     @observe('plot_exp_opt')
     def _new_exp_plot_opt(self, change):
@@ -335,26 +363,8 @@ class LinePlotModel(Atom):
         """
         PLot raw experiment data for fitting.
         """
-        try:
-            self.plot_exp_obj.remove()
-            logger.debug('Previous experimental data is removed.')
-        except AttributeError:
-            logger.debug('No need to remove experimental data.')
-
         data_arr = np.asarray(self.data)
         self.exp_data_update({'value': data_arr})
-
-        x_v = (self.parameters['e_offset']['value'] +
-               np.arange(len(data_arr)) *
-               self.parameters['e_linear']['value'] +
-               np.arange(len(data_arr))**2 *
-               self.parameters['e_quadratic']['value'])
-
-        self.plot_exp_obj, = self._ax.plot(x_v, data_arr,
-                                           linestyle=self.plot_style['experiment']['linestyle'],
-                                           color=self.plot_style['experiment']['color'],
-                                           marker=self.plot_style['experiment']['marker'],
-                                           label=self.plot_style['experiment']['label'])
 
     def plot_multi_exp_data(self):
         while(len(self.plot_exp_list)):

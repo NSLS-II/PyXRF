@@ -83,6 +83,7 @@ enamldef FileView(DockItem): file_view:
                     hbox(gb_fit),
                     hbox(mask_opt, spacer),
                     scroller,
+                    plot_bt
                 ),
                 folder_btn.width == files_btn.width,
                 #folder_btn.width == mask_btn.width,
@@ -112,6 +113,7 @@ enamldef FileView(DockItem): file_view:
                                                             selected_name_filter="*.h5",
                                                             current_path=io_model.working_directory)
                     if path:
+                        io_model.data_ready = False
                         # only load one file
                         # 'temp' is used to reload the same file, otherwise file_name will not update
                         io_model.file_name = 'temp'
@@ -135,6 +137,8 @@ enamldef FileView(DockItem): file_view:
                             setting_model.data_sets = io_model.data_sets
                             fit_model.data_sets = io_model.data_sets
                             fit_model.fit_img = {} # clear dict in fitmodel to rm old results
+
+                            plot_bt.enabled = True
 
             Label: files_load:
                 text = 'No data is loaded.'
@@ -163,6 +167,9 @@ enamldef FileView(DockItem): file_view:
                     enabled = databroker is not None
                     text = "Load Data from Database"
                     clicked ::
+                        
+                        io_model.data_ready = False
+
                         io_model.load_data_runid()
 
                         files_load.text = '{} is loaded from database.'.format(io_model.fname_from_db)
@@ -179,13 +186,16 @@ enamldef FileView(DockItem): file_view:
                         #setting_model.data_sets = io_model.data_sets
                         #fit_model.save_name = io_model.file_names[0]
 
+                        plot_bt.enabled = True
+
+
             GroupBox: gb_fit:
                 constraints = [hbox(fit_lbl, cb_select, spacer)]
                 Label : fit_lbl:
-                    text = 'Which channel data for fitting'
+                    text = 'Select channel data for fitting'
                     foreground = 'blue'
                 ComboBox: cb_select:
-                    items << ['Select Data '] + list(io_model.file_channel_list)
+                    items << list(io_model.file_channel_list)
                     index = 0
                     index := io_model.file_opt
                     minimum_size = (300, 16)
@@ -216,6 +226,28 @@ enamldef FileView(DockItem): file_view:
                                     #plot_bt.enabled = True
                                     plot_model.data_sets = io_model.data_sets
 
+            PushButton: plot_bt:
+                text = 'Plot Experiments'
+                #maximum_size = 100
+                enabled = False
+                checkable = True
+                checked << plot_model.show_exp_opt
+                clicked ::
+                    plot_model.data_sets = io_model.data_sets
+                    plot_model.plot_multi_exp_data()
+                    if checked:
+                        n_plots = 0
+                        for v in io_model.file_channel_list:
+                            if io_model.data_sets[v].plot_index:
+                                n_plots += 1
+                        if n_plots: 
+                            plot_bt.text = 'Remove Plot'
+                            plot_model.show_exp_opt = True
+                        else:
+                            plot_bt.checked = False
+                    else:
+                        plot_model.show_exp_opt = False
+                        plot_bt.text = 'Plot Experiments'
 
 enamldef MaskView(Window): mask_view:
     attr io_model

@@ -186,6 +186,7 @@ class DrawImageRGB(Atom):
             # for GUI purpose only
             self.scaler_items = []
             self.scaler_items = list(self.scaler_norm_dict.keys())
+            self.scaler_items.sort()
             self.scaler_data = None
 
         self.show_image()
@@ -222,6 +223,7 @@ class DrawImageRGB(Atom):
 
     @observe('scaler_name_index')
     def _get_scaler_data(self, change):
+
         if self.scaler_name_index == 0:
             self.scaler_data = None
         else:
@@ -279,13 +281,19 @@ class DrawImageRGB(Atom):
                 selected_name.append(k) #self.file_name+'_'+str(k)
 
         else:
+            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            # This block of code should not be executed, since 'self.ic_norm' is not defined
+            # Currently log scale presentation of data is disabled
             for i, (k, v) in enumerate(six.iteritems(stat_temp)):
 
                 if self.scaler_data is not None:
                     if k in self.name_not_scalable:
                         data_dict = np.log(self.dict_to_plot[k])
                     else:
-                        data_dict = np.log(self.dict_to_plot[k]/self.scaler_data*self.ic_norm)
+                        # Modified code (just in case this block is called)
+                        data_dict = np.log(self.dict_to_plot[k]/self.scaler_data)
+                        # Original code (decide how to define 'self.ic_norm' before enabling log scale
+                        #data_dict = np.log(self.dict_to_plot[k]/self.scaler_data*self.ic_norm)
 
                 else:
                     data_dict = np.log(self.dict_to_plot[k])
@@ -305,12 +313,10 @@ class DrawImageRGB(Atom):
         selected_data, selected_name = self.preprocess_data()
         selected_data = np.asarray(selected_data)
 
-        if len(selected_name) >0 and len(selected_name) < 3:
+        if len(selected_name) != 3:
             logger.error('Please select three elements for RGB plot.')
-        elif len(selected_name) >= 3:
-            if len(selected_name) > 3:
-                logger.warning('Please select only three elements for RGB plot.')
-            self.rgb_name_list = selected_name[:3]
+            return
+        self.rgb_name_list = selected_name[:3]
 
         try:
             data_r = selected_data[0,:,:]
@@ -368,8 +374,8 @@ class DrawImageRGB(Atom):
         self.ax_g.imshow(G, **kwargs)
         self.ax_b.imshow(B, **kwargs)
 
-        self.ax.set_xticklabels([])
-        self.ax.set_yticklabels([])
+        #self.ax.set_xticklabels([])
+        #self.ax.set_yticklabels([])
 
         # sb_x = 38
         # sb_y = 46
