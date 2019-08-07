@@ -369,15 +369,25 @@ class DrawImageAdvanced(Atom):
                          cbar_pad='2%',
                          share_all=True)
 
-        def normalize_data_array(data_in, scaler, *, data_name, name_not_scalable):
+        def _normalize_data_array(data_in, scaler, *, data_name, name_not_scalable):
             ''' 
-            Normalize data based on the availability
-              data_in - numpy array
-              scaler - numpy array of the same size as data_in
-              data_name - string representing the name of the data set ('time' or 'i0' etc.)
-              name_not_scalable - list of names of not scalable datasets (['time', 'i0_time'])
-            Returns:
-              numpy array of the same size as data_in, data is normalized if necessary
+            Normalize data based on the availability of scaler
+            
+            Parameters
+            ----------
+
+            data_in : ndarray
+                numpy array of input data
+            scaler : ndarray 
+                numpy array of scaling data, the same size as data_in
+            data_name : str 
+                name of the data set ('time' or 'i0' etc.)
+            name_not_scalable : list 
+                names of not scalable datasets (['time', 'i0_time'])
+            
+            Returns
+            -------
+            ndarray with normalized data, the same shape as data_in
             '''
             if scaler is not None:
                 if data_name in name_not_scalable:
@@ -398,10 +408,10 @@ class DrawImageAdvanced(Atom):
         if self.scale_opt == 'Linear':
             for i, (k, v) in enumerate(six.iteritems(stat_temp)):
 
-                data_dict = normalize_data_array(data_in=self.dict_to_plot[k], 
-                                                 scaler=self.scaler_data, 
-                                                 data_name=k,
-                                                 name_not_scalable=self.name_not_scalable)
+                data_dict = _normalize_data_array(data_in=self.dict_to_plot[k], 
+                                                  scaler=self.scaler_data, 
+                                                  data_name=k,
+                                                  name_not_scalable=self.name_not_scalable)
 
                 low_ratio = self.limit_dict[k]['low']/100.0
                 high_ratio = self.limit_dict[k]['high']/100.0
@@ -434,15 +444,7 @@ class DrawImageAdvanced(Atom):
                     grid[i].set_ylim(max([self.y_pos[0], self.y_pos[-1]]), min([self.y_pos[0], self.y_pos[-1]]))
 
                 grid_title = k 
-                if self.pixel_or_pos or self.scatter_show:
-                    title_x = self.pixel_or_pos_upper_left_xy[0]
-                    title_y = self.pixel_or_pos_upper_left_xy[3] + (self.pixel_or_pos_upper_left_xy[3] -
-                                                                    self.pixel_or_pos_upper_left_xy[2])*0.04
-                else:
-                    title_x = 0
-                    title_y = - data_dict.shape[0]*0.05
-                
-                grid[i].text(title_x, title_y, grid_title)
+                grid[i].text(0, 1.01, grid_title, ha='left', va='bottom', transform=grid[i].axes.transAxes)
 
                 grid.cbar_axes[i].colorbar(im)                
                 grid.cbar_axes[i].ticklabel_format(style='sci', scilimits=(-3,4), axis='both')
@@ -458,10 +460,10 @@ class DrawImageAdvanced(Atom):
         else:
             for i, (k, v) in enumerate(six.iteritems(stat_temp)):
 
-                data_dict = normalize_data_array(data_in=self.dict_to_plot[k], 
-                                                 scaler=self.scaler_data, 
-                                                 data_name=k,
-                                                 name_not_scalable=self.name_not_scalable)
+                data_dict = _normalize_data_array(data_in=self.dict_to_plot[k], 
+                                                  scaler=self.scaler_data, 
+                                                  data_name=k,
+                                                  name_not_scalable=self.name_not_scalable)
 
                 maxz = np.max(data_dict)
 
@@ -488,14 +490,8 @@ class DrawImageAdvanced(Atom):
                     grid[i].set_ylim(max([self.y_pos[0], self.y_pos[-1]]), min([self.y_pos[0], self.y_pos[-1]]))
 
                 grid_title = k
-                if self.pixel_or_pos or self.scatter_show:
-                    title_x = self.pixel_or_pos_upper_left_xy[0]
-                    title_y = self.pixel_or_pos_upper_left_xy[3] + (self.pixel_or_pos_upper_left_xy[3] -
-                                                                    self.pixel_or_pos_upper_left_xy[2])*0.05
-                else:
-                    title_x = 0
-                    title_y = - data_dict.shape[0]*0.05
-                grid[i].text(title_x, title_y, grid_title)
+                grid[i].text(0, 1.01, grid_title, ha='left', va='bottom', transform=grid[i].axes.transAxes)
+
                 grid.cbar_axes[i].colorbar(im)
 
                 grid[i].get_xaxis().get_major_formatter().set_useOffset(False)

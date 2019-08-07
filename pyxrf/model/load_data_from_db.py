@@ -120,7 +120,7 @@ def make_hdf(start, end=None, fname=None,
         one file is transfered.
     prefix : str, optional
         prefix name of the file
-    db : databroker
+    db : databrokerf
     create_each_det: bool, optional
         Do not create data for each detector is data size is too large,
         if set as false. This will slow down the speed of creating hdf file

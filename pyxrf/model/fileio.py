@@ -98,7 +98,7 @@ class FileIOModel(Atom):
     v_num = Int(1)
     fname_from_db = Str()
 
-    file_opt = Int()
+    file_opt = Int(-1)
     data = Typed(np.ndarray)
     data_all = Typed(np.ndarray)
     selected_file_name = Str()
@@ -113,6 +113,8 @@ class FileIOModel(Atom):
     p2_row = Int(-1)
     p2_col = Int(-1)
 
+    data_ready = Bool(False)
+
     def __init__(self, **kwargs):
         self.working_directory = kwargs['working_directory']
         self.mask_data = None
@@ -126,13 +128,16 @@ class FileIOModel(Atom):
         self.file_channel_list = []
         logger.info('File is loaded: %s' % (self.file_name))
 
-
         # focus on single file only
         self.img_dict, self.data_sets = file_handler(self.working_directory,
                                                      self.file_name,
                                                      load_each_channel=self.load_each_channel)
+
+        self.data_ready = True
+
         self.file_channel_list = list(self.data_sets.keys())
-        self.file_opt = 1  # use summed data as default
+        self.file_opt = 0  # use summed data as default
+        
 
     @observe(str('runid'))
     def _update_fname(self, change):
@@ -164,7 +169,10 @@ class FileIOModel(Atom):
 
         img_dict, self.data_sets = render_data_to_gui(self.runid)
         self.file_channel_list = list(self.data_sets.keys())
-        self.file_opt = 1  # use summed data as default
+
+        self.data_ready = True
+        self.file_opt = 0  # use summed data as default
+
         # result from analysis store
         from .data_to_analysis_store import get_analysis_result
         hdr = get_analysis_result(self.runid)
@@ -180,13 +188,17 @@ class FileIOModel(Atom):
 
     @observe(str('file_opt'))
     def choose_file(self, change):
-        if self.file_opt == 0:
+
+        if not self.data_ready:
             return
+
+        if self.file_opt < 0 or self.file_opt >= len(self.file_channel_list):
+            self.file_opt = 0
 
         # selected file name from all channels
         # controlled at top level gui.py startup
         try:
-            self.selected_file_name = self.file_channel_list[self.file_opt-1]
+            self.selected_file_name = self.file_channel_list[self.file_opt]
         except IndexError:
             pass
 
