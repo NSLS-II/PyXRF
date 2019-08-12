@@ -55,7 +55,7 @@ import ast
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float, Bool
-from .load_data_from_db import (db, fetch_data_from_db,
+from .load_data_from_db import (db, fetch_data_from_db, flip_data,
                                 helper_encode_list, helper_decode_list)
 
 import logging
@@ -412,46 +412,7 @@ def read_xspress3_data(file_path):
 
     return data_output
 
-
-def flip_data(input_data, subscan_dims=None):
-    """
-    Flip 2D or 3D array. The flip happens on the second index of shape.
-    .. warning :: This function mutates the input values.
-
-    Parameters
-    ----------
-    input_data : 2D or 3D array.
-
-    Returns
-    -------
-    flipped data
-    """
-    new_data = np.asarray(input_data)
-    data_shape = input_data.shape
-    if len(data_shape) == 2:
-        if subscan_dims is None:
-            new_data[1::2, :] = new_data[1::2, ::-1]
-        else:
-            i = 0
-            for nx, ny in subscan_dims:
-                start = i + 1
-                end = i + ny
-                new_data[start:end:2, :] = new_data[start:end:2, ::-1]
-                i += ny
-
-    if len(data_shape) == 3:
-        if subscan_dims is None:
-            new_data[1::2, :, :] = new_data[1::2, ::-1, :]
-        else:
-            i = 0
-            for nx, ny in subscan_dims:
-                start = i + 1
-                end = i + ny
-                new_data[start:end:2, :, :] = new_data[start:end:2, ::-1, :]
-                i += ny
-    return new_data
-
-
+    
 def output_data(fpath, output_folder,
                 file_format='tiff', norm_name=None, use_average=True):
     """
