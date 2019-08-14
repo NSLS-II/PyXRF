@@ -82,7 +82,6 @@ def flip_data(input_data, subscan_dims=None):
     return new_data
 
 
-
 def fetch_data_from_db(runid, fpath=None,
                        create_each_det=False,
                        output_to_file=False,
@@ -332,7 +331,7 @@ def map_data2D_srx(runid, fpath,
         if num_end_lines_excluded is None:
             datashape = [start_doc['shape'][1], start_doc['shape'][0]]   # vertical first then horizontal, assuming fast scan on x
         else:
-            datashape = [start_doc['shape'][1]-num_end_lines_excluded, start_doc['shape'][0]]
+            datashape = [start_doc['shape'][1] - num_end_lines_excluded, start_doc['shape'][0]]
         
         snake_scan = start_doc.get('snaking')
         if snake_scan[1] == True:
@@ -376,7 +375,7 @@ def map_data2D_srx(runid, fpath,
             if 'xs2' in hdr.start.detectors:
                 print('Saving data to hdf file for second xspress3 detector.')
                 root, ext = os.path.splitext(fpath)
-                fpath1 = ''.join([root+'_1', ext])
+                fpath1 = f"{root + '_1'}{ext}"
                 write_db_to_hdf(fpath1, data,
                                 datashape,
                                 det_list=config_data['xrf_detector2'],
@@ -400,7 +399,6 @@ def map_data2D_srx(runid, fpath,
 
         num_det = 0  # Some default value (should never be used)
 
-            
         # Added by AMK to allow flying of single element on xs2
         #if 'E_tomo' in start_doc['scaninfo']['type']:
         #    num_det = 1
@@ -451,7 +449,7 @@ def map_data2D_srx(runid, fpath,
                     new_data['det_sum'] = np.zeros(new_shape)
                 else:
                     for i in range(num_det):
-                        new_data['det'+str(i+1)] = np.zeros(new_shape)
+                        new_data[f'det{i + 1}'] = np.zeros(new_shape)
 
                 print(f"Number of the detector channels: {num_det}")
             
@@ -486,7 +484,7 @@ def map_data2D_srx(runid, fpath,
         s = f"_sum({num_det}ch)"
         if create_each_det:
             s += f"+{num_det}ch"
-        fpath = ''.join([root+s, ext])
+        fpath = f'{root + s}{ext}'
                         
         if vertical_fast is True: # need to transpose the data, as we scan y first
             if create_each_det is False:
