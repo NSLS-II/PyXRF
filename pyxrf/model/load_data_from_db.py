@@ -43,6 +43,45 @@ except ImportError:
     pass
 
 
+def flip_data(input_data, subscan_dims=None):
+    """
+    Flip 2D or 3D array. The flip happens on the second index of shape.
+    .. warning :: This function mutates the input values.
+
+    Parameters
+    ----------
+    input_data : 2D or 3D array.
+
+    Returns
+    -------
+    flipped data
+    """
+    new_data = np.asarray(input_data)
+    data_shape = input_data.shape
+    if len(data_shape) == 2:
+        if subscan_dims is None:
+            new_data[1::2, :] = new_data[1::2, ::-1]
+        else:
+            i = 0
+            for nx, ny in subscan_dims:
+                start = i + 1
+                end = i + ny
+                new_data[start:end:2, :] = new_data[start:end:2, ::-1]
+                i += ny
+
+    if len(data_shape) == 3:
+        if subscan_dims is None:
+            new_data[1::2, :, :] = new_data[1::2, ::-1, :]
+        else:
+            i = 0
+            for nx, ny in subscan_dims:
+                start = i + 1
+                end = i + ny
+                new_data[start:end:2, :, :] = new_data[start:end:2, ::-1, :]
+                i += ny
+    return new_data
+
+
 def fetch_data_from_db(runid, fpath=None,
                        create_each_det=False,
                        output_to_file=False,
@@ -120,7 +159,7 @@ def make_hdf(start, end=None, fname=None,
         one file is transfered.
     prefix : str, optional
         prefix name of the file
-    db : databrokerf
+    db : databroker
     create_each_det: bool, optional
         Do not create data for each detector is data size is too large,
         if set as false. This will slow down the speed of creating hdf file
@@ -282,8 +321,18 @@ def map_data2D_srx(runid, fpath,
     start_doc = hdr['start']
     plan_n = start_doc.get('plan_name')
     if 'fly' not in plan_n: # not fly scan
+
+        print(f"****************************************")
+        print(f"        Loading SRX step scan           ")
+        print(f"****************************************")
+
         fly_type = None
 
+        if num_end_lines_excluded is None:
+            datashape = [start_doc['shape'][1], start_doc['shape'][0]]   # vertical first then horizontal, assuming fast scan on x
+        else:
+            datashape = [start_doc['shape'][1] - num_end_lines_excluded, start_doc['shape'][0]]
+        
         snake_scan = start_doc.get('snaking')
         if snake_scan[1] == True:
             fly_type = 'pyramid'
@@ -306,15 +355,18 @@ def map_data2D_srx(runid, fpath,
                     dictv[k].append(e.data[k])
             data = pd.DataFrame(dictv, index=np.arange(1, total_len+1)) # need to start with 1
 
+            
+        # Commented by DG: Just use the detector names from .json configuration file. Do not delete commented code.    
         #express3 detector name changes in databroker
-        if xrf_detector_names[0] not in data.keys():
-            xrf_detector_names = ['xs_channel'+str(i) for i in range(1,4)]
-            config_data['xrf_detector'] = xrf_detector_names
+        #if xrf_detector_names[0] not in data.keys():
+        #    xrf_detector_names = ['xs_channel'+str(i) for i in range(1,4)]
+        #    config_data['xrf_detector'] = xrf_detector_names
 
         if output_to_file:
             print('Saving data to hdf file.')
             write_db_to_hdf(fpath, data,
-                            hdr.start.datashape,
+                            #hdr.start.datashape,
+                            datashape,
                             det_list=config_data['xrf_detector'],
                             pos_list=hdr.start.motors,
                             scaler_list=config_data['scaler_list'],
@@ -322,8 +374,8 @@ def map_data2D_srx(runid, fpath,
                             base_val=config_data['base_value'])  #base value shift for ic
             if 'xs2' in hdr.start.detectors:
                 print('Saving data to hdf file for second xspress3 detector.')
-                tmp = fpath.split('.')
-                fpath1 = '.'.join([tmp[0]+'_1', tmp[1]])
+                root, ext = os.path.splitext(fpath)
+                fpath1 = f"{root + '_1'}{ext}"
                 write_db_to_hdf(fpath1, data,
                                 datashape,
                                 det_list=config_data['xrf_detector2'],
@@ -335,16 +387,24 @@ def map_data2D_srx(runid, fpath,
 
     else:
         # srx fly scan
+
+        print(f"****************************************")
+        print(f"         Loading SRX fly scan           ")
+        print(f"****************************************")
+        
         if save_scalar is True:
             scaler_list = ['i0', 'time', 'i0_time', 'time_diff']
             xpos_name = 'enc1'
             ypos_name = 'hf_stage_y' # 'hf_stage_x' if fast axis is vertical
+
+        num_det = 0  # Some default value (should never be used)
+
         # Added by AMK to allow flying of single element on xs2
-        if 'E_tomo' in start_doc['scaninfo']['type']:
-            num_det = 1
-            ypos_name = 'e_tomo_y'
-        else:
-            num_det = 3
+        #if 'E_tomo' in start_doc['scaninfo']['type']:
+        #    num_det = 1
+        #    ypos_name = 'e_tomo_y'
+        #else:
+        #    num_det = 3
         vertical_fast = False  # assuming fast on x as default
         if num_end_lines_excluded is None:
             datashape = [start_doc['shape'][1], start_doc['shape'][0]]   # vertical first then horizontal, assuming fast scan on x
@@ -378,13 +438,24 @@ def map_data2D_srx(runid, fpath,
             for v in scaler_list+[xpos_name]:
                 data[v] = np.zeros([datashape[0], datashape[1]])
 
-        if create_each_det is False:
-            new_data['det_sum'] = np.zeros(new_shape)
-        else:
-            for i in range(num_det):
-                new_data['det'+str(i+1)] = np.zeros(new_shape)
+        # Total number of lines in fly scan
+        n_scan_lines_total = new_shape[0]
 
         for m, v in enumerate(e):
+
+            if m == 0:
+                # Determine the number of channels from the size of the table with fluorescence data
+                num_det = v.data['fluor'].shape[1]
+
+                # Now allocate space for fluorescence data
+                if create_each_det is False:
+                    new_data['det_sum'] = np.zeros(new_shape)
+                else:
+                    for i in range(num_det):
+                        new_data[f'det{i + 1}'] = np.zeros(new_shape)
+
+                print(f"Number of the detector channels: {num_det}")
+            
             if m < datashape[0]:   # scan is not finished
                 if save_scalar is True:
                     for n in scaler_list[:-1] + [xpos_name]:
@@ -397,6 +468,10 @@ def map_data2D_srx(runid, fpath,
                             interp_list = (v.data[n][-1] - v.data[n][-3]) / 2 * np.arange(1, len_diff + 1) + v.data[n][-1]
                             data[n][m, min_len:datashape[1]] = interp_list
                 fluor_len = v.data['fluor'].shape[0]
+                if m > 0 and not (m % 10):
+                    print(f"Processed {m} of {n_scan_lines_total} lines ...")
+                # print(f"m = {m} Data shape {v.data['fluor'].shape} - {v.data['fluor'].shape[1] }")
+                # print(f"Data keys: {v.data.keys()}")
                 if create_each_det is False:
                     for i in range(num_det):
                         # in case the data length in each line is different
@@ -406,6 +481,14 @@ def map_data2D_srx(runid, fpath,
                         # in case the data length in each line is different
                         new_data['det'+str(i+1)][m, :fluor_len, :] = v.data['fluor'][:,i,:]
 
+        # Modify file name (path) to include data on how many channels are included in the file and how many
+        #    channels are used for sum calculation
+        root, ext = os.path.splitext(fpath)
+        s = f"_sum({num_det}ch)"
+        if create_each_det:
+            s += f"+{num_det}ch"
+        fpath = f'{root + s}{ext}'
+                        
         if vertical_fast is True: # need to transpose the data, as we scan y first
             if create_each_det is False:
                 new_data['det_sum'] = np.transpose(new_data['det_sum'], axes=(1,0,2))
@@ -432,7 +515,9 @@ def map_data2D_srx(runid, fpath,
             data1 = db.get_table(hdr, fill=True, stream_name='primary')
             if num_end_lines_excluded is not None:
                 data1 = data1[:datashape[0]]
-            if ypos_name not in data1.keys() and 'E_tomo' not in start_doc['scaninfo']['type']:
+            # if ypos_name not in data1.keys() and 'E_tomo' not in start_doc['scaninfo']['type']:
+            #print(f"data1 keys: {data1.keys()}")
+            if ypos_name not in data1.keys():
                 ypos_name = 'hf_stage_z'        #vertical along z
             y_pos0 = np.hstack(data1[ypos_name])
             # y position is more than actual x pos, scan not finished?
@@ -452,7 +537,7 @@ def map_data2D_srx(runid, fpath,
                     data_tmp[0,:,:] = yv.T
                     new_data['pos_data'] = data_tmp
             else:
-                print('x,y positions are not saved.')
+                print('x,y positions are not saved: scan was not completed')
 
         if output_to_file:
             # output to file
