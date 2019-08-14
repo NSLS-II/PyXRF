@@ -438,6 +438,9 @@ def map_data2D_srx(runid, fpath,
             for v in scaler_list+[xpos_name]:
                 data[v] = np.zeros([datashape[0], datashape[1]])
 
+        # Total number of lines in fly scan
+        n_scan_lines_total = new_shape[0]
+
         for m, v in enumerate(e):
 
             if m == 0:
@@ -466,7 +469,7 @@ def map_data2D_srx(runid, fpath,
                             data[n][m, min_len:datashape[1]] = interp_list
                 fluor_len = v.data['fluor'].shape[0]
                 if m > 0 and not (m % 10):
-                    print(f"Processed #{m} lines ...")
+                    print(f"Processed {m} of {n_scan_lines_total} lines ...")
                 # print(f"m = {m} Data shape {v.data['fluor'].shape} - {v.data['fluor'].shape[1] }")
                 # print(f"Data keys: {v.data.keys()}")
                 if create_each_det is False:
