@@ -658,7 +658,7 @@ class Fit1D(Atom):
             #                      self.result_folder, prefix=prefix_fname, use_snip=use_snip)
             logger.info('Done with saving fitting plots.')
         try:
-            self.save2Dmap_to_hdf(pixel_fit=pixel_fit)
+            self.save2Dmap_to_hdf(calculation_info=calculation_info, pixel_fit=pixel_fit)
             self.pixel_fit_info = 'Pixel fitting is done!'
             #app.processEvents()
             logger.info('-------- Fitting of single pixels is done! --------')
@@ -677,7 +677,7 @@ class Fit1D(Atom):
         save_data_to_db(self.runid, self.result_map, doc)
 
 
-    def save2Dmap_to_hdf(self, pixel_fit='nnls'):
+    def save2Dmap_to_hdf(self, *, calculation_info=None, pixel_fit='nnls'):
         """
         Save fitted 2D map of elements into hdf file after fitting is done. User
         can choose to interpolate the image based on x,y position or not.
@@ -807,12 +807,26 @@ class Fit1D(Atom):
                         continue
                     for name in area_list:
                         if k.lower() in name.lower():
-                            errorv = self.fit_result.params[name].stderr/(self.fit_result.params[name].value+1e-8)
+                            std_error = self.fit_result.params[name].stderr
+                            # The following 2 lines are added for compatibility with lmfit 0.9.13
+                            # (as part of optimization results, lmfit 0.8.3 returns stderr==0,
+                            #                   and lmfit 0.9.13 returns stderr==None)
+                            if std_error is None:
+                                std_error = 0
+                            errorv = std_error/(self.fit_result.params[name].value+1e-8)
                             errorv *= 100
                             errorv = np.round(errorv, 3)
                             myfile.write('\n {:<10} \t {} \t {}'.format(k, np.round(np.sum(v), 3), str(errorv)+'%'))
                 myfile.write('\n\n')
-                myfile.write(lmfit.fit_report(self.fit_result, sort_pars=True))
+
+                # Print the report from lmfit
+                # Remove meaningless strings (about 50%) on the variables that stayed at initial value
+                report = lmfit.fit_report(self.fit_result, sort_pars=True)
+                report = report.split('\n')
+                report = [s for s in report if 'at initial value' not in s and '##' not in s]
+                report = '\n'.join(report)
+                myfile.write(report)
+
                 logger.warning('Results are saved to {}'.format(filepath))
         except FileNotFoundError:
             print("Summed spectrum fitting results are not saved.")
@@ -1526,6 +1540,7 @@ def fit_pixel_nonlinear_per_line(row_num, data, x0,
         result = lmfit.minimize(residual_nonlinear_fit,
                                 fit_params, args=(x0,),
                                 kws={'data':y0, 'reg_mat':reg_mat})
+
         # result = MS.model_fit(x0, y0,
         #                       weights=1/np.sqrt(c_weight+y0),
         #                       maxfev=fit_num,
