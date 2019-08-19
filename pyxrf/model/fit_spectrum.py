@@ -808,19 +808,19 @@ class Fit1D(Atom):
                     for name in area_list:
                         if k.lower() in name.lower():
                             std_error = self.fit_result.params[name].stderr
-                            # The following 2 lines are added for compatibility with lmfit 0.9.13
-                            # (as part of optimization results, lmfit 0.8.3 returns stderr==0,
-                            #                   and lmfit 0.9.13 returns stderr==None)
                             if std_error is None:
-                                std_error = 0
-                            errorv = std_error/(self.fit_result.params[name].value+1e-8)
-                            errorv *= 100
-                            errorv = np.round(errorv, 3)
-                            myfile.write('\n {:<10} \t {} \t {}'.format(k, np.round(np.sum(v), 3), str(errorv)+'%'))
+                                # Do not print 'std_error' if it is not computed by lmfit
+                                errorv_s = ''
+                            else:
+                                errorv = std_error/(self.fit_result.params[name].value+1e-8)
+                                errorv *= 100
+                                errorv = np.round(errorv, 3)
+                                errorv_s = f"{errorv}%"
+                            myfile.write('\n {:<10} \t {} \t {}'.format(k, np.round(np.sum(v), 3), errorv_s))
                 myfile.write('\n\n')
 
                 # Print the report from lmfit
-                # Remove meaningless strings (about 50%) on the variables that stayed at initial value
+                # Remove strings (about 50%) on the variables that stayed at initial value
                 report = lmfit.fit_report(self.fit_result, sort_pars=True)
                 report = report.split('\n')
                 report = [s for s in report if 'at initial value' not in s and '##' not in s]
