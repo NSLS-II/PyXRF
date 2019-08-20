@@ -363,6 +363,11 @@ class LinePlotModel(Atom):
         """
         PLot raw experiment data for fitting.
         """
+
+        # Do nothing if no data is loaded
+        if self.data is None:
+            return
+
         data_arr = np.asarray(self.data)
         self.exp_data_update({'value': data_arr})
 
@@ -703,6 +708,9 @@ class LinePlotModel(Atom):
         residual : array
             residual between fit and exp
         """
+        if fit_x is None or fit_y is None:
+            return
+
         while(len(self.plot_fit_obj)):
             self.plot_fit_obj.pop().remove()
 
