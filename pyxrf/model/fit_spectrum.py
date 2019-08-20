@@ -268,6 +268,23 @@ class Fit1D(Atom):
         """
         self.scaler_index = change['value']
 
+    def energy_bound_high_update(self, change):
+        """
+        Observer function that connects 'param_model' (GuessParamModel)
+        attribute 'energy_bound_high_buf' with the respective
+        value in 'self.param_dict'
+        """
+        self.param_dict['non_fitting_values']['energy_bound_high']['value'] = change['value']
+
+    def energy_bound_low_update(self, change):
+        """
+        Observer function that connects 'param_model' (GuessParamModel)
+        attribute 'energy_bound_low_buf' with the respective
+        value in 'self.param_dict'
+        """
+        self.param_dict['non_fitting_values']['energy_bound_low']['value'] = change['value']
+
+
     @observe('selected_index')
     def _selected_element_changed(self, change):
         if change['value'] > 0:
@@ -452,6 +469,11 @@ class Fit1D(Atom):
         Calculate profile based on current parameters.
         """
         #self.define_range()
+
+        # Do nothing if no data is loaded
+        if self.x0 is None or self.y0 is None:
+            return
+
         self.cal_x, self.cal_spectrum, area_dict = calculate_profile(self.x0,
                                                                      self.y0,
                                                                      self.param_dict,
