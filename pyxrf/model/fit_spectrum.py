@@ -812,7 +812,7 @@ class Fit1D(Atom):
                                 # Do not print 'std_error' if it is not computed by lmfit
                                 errorv_s = ''
                             else:
-                                errorv = std_error/(self.fit_result.params[name].value+1e-8)
+                                errorv = std_error / (self.fit_result.params[name].value + 1e-8)
                                 errorv *= 100
                                 errorv = np.round(errorv, 3)
                                 errorv_s = f"{errorv}%"
