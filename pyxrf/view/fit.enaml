@@ -126,41 +126,44 @@ enamldef FitView(DockItem): fit_view:
                 text = 'Import Parameters'
                 #maximum_size = 200
                 clicked ::
-                    parameter_file_path = FileDialogEx.get_open_file_name(fit_view)
-                    if parameter_file_path:
 
-                        # update parameter for fit
-                        fit_model.read_param_from_file(parameter_file_path)
-                        fit_model.apply_default_param()
+                    if fit_model.data is not None:
 
-                        # update experimental plots
-                        plot_model.parameters = fit_model.default_parameters
-                        plot_model.plot_experiment()
-                        plot_model.plot_exp_opt = False
-                        plot_model.plot_exp_opt = True
+                        parameter_file_path = FileDialogEx.get_open_file_name(fit_view)
+                        if parameter_file_path:
 
-                        # update autofit param
-                        param_model.update_new_param(fit_model.default_parameters)
-                        #param_model.get_new_param_from_file(parameter_file_path)
-                        param_model.update_name_list()
-                        param_model.EC.turn_on_all()
+                            # update parameter for fit
+                            fit_model.read_param_from_file(parameter_file_path)
+                            fit_model.apply_default_param()
 
-                        # update params for roi sum
-                        setting_model.update_parameter(fit_model.default_parameters)
+                            # update experimental plots
+                            plot_model.parameters = fit_model.default_parameters
+                            plot_model.plot_experiment()
+                            plot_model.plot_exp_opt = False
+                            plot_model.plot_exp_opt = True
 
-                        # update file name
-                        lbl_param.text = 'Loaded file: {}'.format(parameter_file_path.split(sep_v)[-1])
+                            # update autofit param
+                            param_model.update_new_param(fit_model.default_parameters)
+                            #param_model.get_new_param_from_file(parameter_file_path)
+                            param_model.update_name_list()
+                            param_model.EC.turn_on_all()
 
-                        # calculate profile and plot
-                        fit_model.get_profile()
+                            # update params for roi sum
+                            setting_model.update_parameter(fit_model.default_parameters)
 
-                        # update experimental plot with new calibration values
-                        plot_model.plot_fit(fit_model.cal_x, fit_model.cal_y,
-                                            fit_model.cal_spectrum,
-                                            fit_model.residual)
-                        # For plotting purposes, otherwise plot will not update
-                        plot_model.show_fit_opt = False
-                        plot_model.show_fit_opt = True
+                            # update file name
+                            lbl_param.text = 'Loaded file: {}'.format(parameter_file_path.split(sep_v)[-1])
+
+                            # calculate profile and plot
+                            fit_model.get_profile()
+
+                            # update experimental plot with new calibration values
+                            plot_model.plot_fit(fit_model.cal_x, fit_model.cal_y,
+                                                fit_model.cal_spectrum,
+                                                fit_model.residual)
+                            # For plotting purposes, otherwise plot will not update
+                            plot_model.show_fit_opt = False
+                            plot_model.show_fit_opt = True
 
             Label: lbl_param:
                 text = 'No parameter is loaded.'
@@ -183,13 +186,9 @@ enamldef FitView(DockItem): fit_view:
             PushButton: pb_auto:
                 text = 'Find Elements Automatically'
                 enabled = True
-                checkable = True
-                checked := autofind_edit.visible
                 clicked ::
-                    if checked:
+                    if fit_model.data is not None:
                         autofind_edit.show()
-                    else:
-                        autofind_edit.hide()
 
         GroupBox: control_element:
             title = 'Add/Remove elements (Userpeak with center energy at 5 keV can be added.).'
@@ -543,47 +542,50 @@ enamldef FitView(DockItem): fit_view:
             PushButton: pb_fit:
                 text = 'Spectrum Fitting'
                 clicked ::
-                    # update parameter for fit
-                    param_model.create_full_param()
-                    fit_model.update_default_param(param_model.param_new)
-                    fit_model.apply_default_param()
 
-                    #fit_information.text = 'Fitting of summed spectrum starts.'
-                    fit_model.fit_multiple()
-                    #fit_information.text = 'Fitting of summed spectrum is done!'
+                    if param_model.x0 is not None and param_model.y0 is not None:
 
-                    # BUG: line color for pileup is not correct from fit
-                    fit_model.get_profile()
+                        # update parameter for fit
+                        param_model.create_full_param()
+                        fit_model.update_default_param(param_model.param_new)
+                        fit_model.apply_default_param()
 
-                    # update experimental plot with new calibration values
-                    plot_model.parameters = fit_model.param_dict
-                    plot_model.plot_experiment()
+                        #fit_information.text = 'Fitting of summed spectrum starts.'
+                        fit_model.fit_multiple()
+                        #fit_information.text = 'Fitting of summed spectrum is done!'
 
-                    #pb_plot.enabled = True
-                    #plot_model.fit_x = fit_model.fit_x
-                    #plot_model.fit_y = fit_model.fit_y
-                    # BUG!!!
-                    #plot_model.fit_all = fit_model.comps
-                    #plot_model.fit_all = fit_model.cal_spectrum
-                    #plot_model.residual = fit_model.residual
-                    #plot_model.plot_fit()
+                        # BUG: line color for pileup is not correct from fit
+                        fit_model.get_profile()
 
-                    plot_model.plot_fit(fit_model.cal_x, fit_model.cal_y,
-                                        fit_model.cal_spectrum,
-                                        fit_model.residual)
+                        # update experimental plot with new calibration values
+                        plot_model.parameters = fit_model.param_dict
+                        plot_model.plot_experiment()
 
-                    # For plotting purposes, otherwise plot will not update
-                    plot_model.show_fit_opt = False
-                    plot_model.show_fit_opt = True
+                        #pb_plot.enabled = True
+                        #plot_model.fit_x = fit_model.fit_x
+                        #plot_model.fit_y = fit_model.fit_y
+                        # BUG!!!
+                        #plot_model.fit_all = fit_model.comps
+                        #plot_model.fit_all = fit_model.cal_spectrum
+                        #plot_model.residual = fit_model.residual
+                        #plot_model.plot_fit()
 
-                    # update autofit param
-                    param_model.update_new_param(fit_model.param_dict)
-                    #param_model.get_new_param_from_file(parameter_file_path)
-                    param_model.update_name_list()
-                    param_model.EC.turn_on_all()
+                        plot_model.plot_fit(fit_model.cal_x, fit_model.cal_y,
+                                            fit_model.cal_spectrum,
+                                            fit_model.residual)
 
-                    # update params for roi sum
-                    setting_model.update_parameter(fit_model.param_dict)
+                        # For plotting purposes, otherwise plot will not update
+                        plot_model.show_fit_opt = False
+                        plot_model.show_fit_opt = True
+
+                        # update autofit param
+                        param_model.update_new_param(fit_model.param_dict)
+                        #param_model.get_new_param_from_file(parameter_file_path)
+                        param_model.update_name_list()
+                        param_model.EC.turn_on_all()
+
+                        # update params for roi sum
+                        setting_model.update_parameter(fit_model.param_dict)
 
             PushButton: pb_save_sum_fit:
                 text = 'Save Spectrum/Fit'
@@ -717,21 +719,24 @@ enamldef FitView(DockItem): fit_view:
             PushButton: fit_pixel:
                 text = 'Individual Pixel Fitting'
                 clicked ::
-                    fit_model.fit_single_pixel()
-                    # add scalers to fit dict
-                    scaler_key = [v for v in six.iterkeys(img_model_adv.data_dict) if 'scaler' in v]
-                    if len(scaler_key) > 0:
-                        fit_model.fit_img[list(fit_model.fit_img.keys())[0]].update(img_model_adv.data_dict[scaler_key[0]])
 
-                    img_model_adv.data_dict.update(fit_model.fit_img)
-                    img_model_rgb.data_dict.update(fit_model.fit_img)
-                    img_model_adv.set_default_dict(img_model_adv.data_dict)
+                    if param_model.x0 is not None and param_model.y0 is not None:
 
-                    # visualization purpose
-                    img_model_adv.data_dict_keys = []
-                    img_model_adv.data_dict_keys = list(img_model_adv.data_dict.keys())
-                    img_model_rgb.data_dict_keys = []
-                    img_model_rgb.data_dict_keys = list(img_model_rgb.data_dict.keys())
+                        fit_model.fit_single_pixel()
+                        # add scalers to fit dict
+                        scaler_key = [v for v in six.iterkeys(img_model_adv.data_dict) if 'scaler' in v]
+                        if len(scaler_key) > 0:
+                            fit_model.fit_img[list(fit_model.fit_img.keys())[0]].update(img_model_adv.data_dict[scaler_key[0]])
+
+                        img_model_adv.data_dict.update(fit_model.fit_img)
+                        img_model_rgb.data_dict.update(fit_model.fit_img)
+                        img_model_adv.set_default_dict(img_model_adv.data_dict)
+
+                        # visualization purpose
+                        img_model_adv.data_dict_keys = []
+                        img_model_adv.data_dict_keys = list(img_model_adv.data_dict.keys())
+                        img_model_rgb.data_dict_keys = []
+                        img_model_rgb.data_dict_keys = list(img_model_rgb.data_dict.keys())
 
             #Label: pixel_fit_information:
             #    text := fit_model.pixel_fit_info
@@ -874,7 +879,7 @@ enamldef AutoFindElements(Window): auto_win:
                     padding = Box(2, 2, 2, 2)
                     constraints = [hbox(ff_bound_low, pb_bd_default)]
                     FloatField: ff_bound_low:
-                        value := loop_item['value']
+                        value := param_model.energy_bound_low_buf
                         maximum_size = 100
                     PushButton: pb_bd_default:
                         text = 'Default'
@@ -1213,11 +1218,13 @@ enamldef OtherSettingEdit(Window):
                         Label:
                             text = 'Lower bound'
                         FloatField:
-                            value := fit_model.param_dict['non_fitting_values']['energy_bound_low']['value']
+                            value := param_model.energy_bound_low_buf
+                            # value := fit_model.param_dict['non_fitting_values']['energy_bound_low']['value']
                         Label:
                             text = 'Higher bound'
                         FloatField:
-                            value := fit_model.param_dict['non_fitting_values']['energy_bound_high']['value']
+                            value := param_model.energy_bound_high_buf
+                            # value := fit_model.param_dict['non_fitting_values']['energy_bound_high']['value']
                         #Label:
                         #    text = 'Weighted c'
                         #FloatField:
@@ -1413,6 +1420,9 @@ def calculate_spectrum_helper(fit_model, plot_model,
     """
     Calculate spectrum, and update plotting and param_model.
     """
+    if fit_model.x0 is None or fit_model.y0 is None:
+        return
+
     fit_model.get_profile()
 
     # update experimental plot with new calibration values
