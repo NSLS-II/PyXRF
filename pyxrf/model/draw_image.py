@@ -435,7 +435,7 @@ class DrawImageAdvanced(Atom):
                 else:
                     im = grid[i].scatter(self.data_dict['positions']['x_pos'],
                                          self.data_dict['positions']['y_pos'],
-                                         c=data_dict, marker='s', s=500, alpha=0.8,
+                                         c=data_dict, marker='s', s=500, alpha=1.0,  # Originally: alpha=0.8
                                          cmap=grey_use,
                                          linewidths=1, linewidth=0,
                                          clim=(low_limit, high_limit))
@@ -481,7 +481,7 @@ class DrawImageAdvanced(Atom):
                                          self.data_dict['positions']['y_pos'],
                                          norm=LogNorm(vmin=low_lim*maxz,
                                                       vmax=maxz, clip=True),
-                                         c=data_dict, marker='s', s=500, alpha=0.8,
+                                         c=data_dict, marker='s', s=500, alpha=1.0,  # Originally: alpha=0.8
                                          cmap=grey_use,
                                          linewidths=1, linewidth=0,
                                          clim=(low_lim*maxz, maxz))
