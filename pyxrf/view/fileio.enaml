@@ -45,7 +45,7 @@ from enaml.layout.geometry import Box
 from enaml.stdlib.fields import FloatField
 from enaml.stdlib.fields import IntField as DefaultIntField
 from enaml.stdlib.dialog_buttons import DialogButton
-from enaml.stdlib.message_box import MessageBox, critical
+from enaml.stdlib.message_box import critical
 import os
 import numpy as np
 from ..model.fileio import sep_v
