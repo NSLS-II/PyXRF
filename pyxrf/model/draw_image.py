@@ -405,15 +405,28 @@ class DrawImageAdvanced(Atom):
             
             return data_out
 
-        def compute_equal_axes_ranges(x_min, x_max, y_min, y_max):
+        def _compute_equal_axes_ranges(x_min, x_max, y_min, y_max):
             """
-            Compute ranges for x- and y- axes of the based on maximum and
-            minimum values of point coordinates. The computed ranges along the axes
-            are equal and plotted data is centered.
+            Compute ranges for x- and y- axes of the plot. Make sure that the ranges for x- and y-axes are
+            always equal and fit the maximum of the ranges for x and y values:
+                  max(abs(x_max-x_min), abs(y_max-y_min))
+            The ranges are set so that the data is always centered in the middle of the ranges
+
+            Parameters
+            ----------
+
+            x_min, x_max, y_min, y_max : float
+                lower and upper boundaries of the x and y values
+
+            Returns
+            -------
+
+            x_axis_min, x_axis_max, y_axis_min, y_axis_max : float
+                lower and upper boundaries of the x- and y-axes ranges
             """
 
             x_axis_min, x_axis_max, y_axis_min, y_axis_max = x_min, x_max, y_min, y_max
-            x_range, y_range = x_max - x_min, y_max - y_min
+            x_range, y_range = abs(x_max - x_min), abs(y_max - y_min)
             if x_range > y_range:
                 y_center = (y_max + y_min) / 2
                 y_axis_max = y_center + x_range / 2
@@ -425,12 +438,27 @@ class DrawImageAdvanced(Atom):
 
             return x_axis_min, x_axis_max, y_axis_min, y_axis_max
 
-        def compute_data_range_with_min_ratio(c_min, c_max, c_axis_range, *, min_ratio=0.01):
+        def _adjust_data_range__min_ratio(c_min, c_max, c_axis_range, *, min_ratio=0.01):
             """
-            Compute the range for data plotted along the axis (x or y) such that it is greater
-            than 'axis_range * min_ratio'. The values are to used with 'extend' attribute
-            of imshow(). Such transformation is artificial, but it allows to make plots
-            of one (or two or three) line scans much better visible.
+            Adjust the range for plotted data along one axis (x or y). The adjusted range is
+            applied to the 'extend' attribute of imshow(). The adjusted range is always greater
+            than 'axis_range * min_ratio'. Such transformation has no physical meaning
+            and performed for aesthetic reasons: stretching the image presentation of
+            a scan with only a few lines (1-3) greatly improves visibility of data.
+
+            Parameters
+            ----------
+
+            c_min, c_max : float
+                boundaries of the data range (along x or y axis)
+            c_axis_range : float
+                range presented along the same axis
+
+            Returns
+            -------
+
+            cmin, c_max : float
+                adjusted boundaries of the data range
             """
             c_range = c_max - c_min
             if c_range < c_axis_range * min_ratio:
@@ -450,13 +478,13 @@ class DrawImageAdvanced(Atom):
             if self.pixel_or_pos or self.scatter_show:
 
                 xd_min, xd_max, yd_min, yd_max = min(self.x_pos), max(self.x_pos), min(self.y_pos), max(self.y_pos)
-                xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
+                xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
 
-                xd_min, xd_max = compute_data_range_with_min_ratio(xd_min, xd_max, xd_axis_max - xd_axis_min)
-                yd_min, yd_max = compute_data_range_with_min_ratio(yd_min, yd_max, yd_axis_max - yd_axis_min)
+                xd_min, xd_max = _adjust_data_range__min_ratio(xd_min, xd_max, xd_axis_max - xd_axis_min)
+                yd_min, yd_max = _adjust_data_range__min_ratio(yd_min, yd_max, yd_axis_max - yd_axis_min)
 
-                # Adjust the direction of each axes depending on the direction of encoder value change
-                # The data is plotted assuming that the scan started in the left lower corner of the plot
+                # Adjust the direction of each axis depending on the direction in which encoder values changed
+                #   during the experiment. Data is plotted starting from the lower-left corner of the plot
                 if self.x_pos[0] > self.x_pos[-1]:
                     xd_min, xd_max, xd_axis_min, xd_axis_max = xd_max, xd_min, xd_axis_max, xd_axis_min
                 if self.y_pos[0] > self.y_pos[-1]:
@@ -475,7 +503,7 @@ class DrawImageAdvanced(Atom):
                     xd_min, xd_max = -5, 4
 
                 self.pixel_or_pos_upper_left_xy = (xd_min, xd_max, yd_min, yd_max)
-                xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
+                xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
 
             if self.scale_opt == 'Linear':
 
@@ -512,7 +540,7 @@ class DrawImageAdvanced(Atom):
                 grid_title = k
                 grid[i].text(0, 1.01, grid_title, ha='left', va='bottom', transform=grid[i].axes.transAxes)
 
-                grid.cbar_axes[i].colorbar(im)                
+                grid.cbar_axes[i].colorbar(im)
                 grid.cbar_axes[i].ticklabel_format(style='sci', scilimits=(-3,4), axis='both')
                 
                 # Do not remove this code, may be useful in the future (Dmitri G.) !!!

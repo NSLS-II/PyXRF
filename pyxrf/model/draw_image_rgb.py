@@ -324,15 +324,28 @@ class DrawImageRGB(Atom):
             selected_data = np.ones([3,10,10])
 
 
-        def compute_equal_axes_ranges(x_min, x_max, y_min, y_max):
+        def _compute_equal_axes_ranges(x_min, x_max, y_min, y_max):
             """
-            Compute ranges for x- and y- axes of the based on maximum and
-            minimum values of point coordinates. The computed ranges along the axes
-            are equal and plotted data is centered.
+            Compute ranges for x- and y- axes of the plot. Make sure that the ranges for x- and y-axes are
+            always equal and fit the maximum of the ranges for x and y values:
+                  max(abs(x_max-x_min), abs(y_max-y_min))
+            The ranges are set so that the data is always centered in the middle of the ranges
+
+            Parameters
+            ----------
+
+            x_min, x_max, y_min, y_max : float
+                lower and upper boundaries of the x and y values
+
+            Returns
+            -------
+
+            x_axis_min, x_axis_max, y_axis_min, y_axis_max : float
+                lower and upper boundaries of the x- and y-axes ranges
             """
 
             x_axis_min, x_axis_max, y_axis_min, y_axis_max = x_min, x_max, y_min, y_max
-            x_range, y_range = x_max - x_min, y_max - y_min
+            x_range, y_range = abs(x_max - x_min), abs(y_max - y_min)
             if x_range > y_range:
                 y_center = (y_max + y_min) / 2
                 y_axis_max = y_center + x_range / 2
@@ -354,7 +367,7 @@ class DrawImageRGB(Atom):
         if xd <= 5:
             xd_min, xd_max = -5, 4
         pixel_or_pos_upper_left_xy = (xd_min, xd_max, yd_min, yd_max)
-        xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
+        xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
 
         name_r = self.rgb_name_list[self.index_red]
         data_r = selected_data[self.index_red,:,:]
