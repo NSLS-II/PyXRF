@@ -270,6 +270,7 @@ class GuessParamModel(Atom):
     bound_val = Float(1.0)
 
     energy_bound_high_buf = Float(0.0)
+    energy_bound_low_buf = Float(0.0)
 
     def __init__(self, **kwargs):
         try:
@@ -286,6 +287,7 @@ class GuessParamModel(Atom):
 
         # The following line is part of the fix for automated updating of the energy bound in 'Automatic Element Finding' dialog box
         self.energy_bound_high_buf = self.param_new['non_fitting_values']['energy_bound_high']['value']
+        self.energy_bound_low_buf = self.param_new['non_fitting_values']['energy_bound_low']['value']
 
     def default_param_update(self, change):
         """
@@ -304,11 +306,16 @@ class GuessParamModel(Atom):
 
         # The following line is part of the fix for automated updating of the energy bound in 'Automatic Element Finding' dialog box
         self.energy_bound_high_buf = self.param_new['non_fitting_values']['energy_bound_high']['value']
+        self.energy_bound_low_buf = self.param_new['non_fitting_values']['energy_bound_low']['value']
 
     # The following function is part of the fix for automated updating of the energy bound in 'Automatic Element Finding' dialog box
     @observe('energy_bound_high_buf')
     def _update_energy_bound_high_buf(self, change):
         self.param_new['non_fitting_values']['energy_bound_high']['value'] = change['value']  
+
+    @observe('energy_bound_low_buf')
+    def _update_energy_bound_high_low(self, change):
+        self.param_new['non_fitting_values']['energy_bound_low']['value'] = change['value']
 
     def param_from_db_update(self, change):
         self.default_parameters = change['value']

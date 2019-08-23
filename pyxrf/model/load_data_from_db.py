@@ -143,7 +143,7 @@ def fetch_data_from_db(runid, fpath=None,
 
 def make_hdf(start, end=None, fname=None,
              prefix='scan2D_',
-             create_each_det=False, save_scalar=True,
+             create_each_det=True, save_scalar=True,
              num_end_lines_excluded=None):
     """
     Transfer multiple h5 files.

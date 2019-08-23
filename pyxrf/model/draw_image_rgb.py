@@ -310,6 +310,11 @@ class DrawImageRGB(Atom):
 
     def show_image(self):
 
+        self.ax.cla()
+        self.ax_r.cla()
+        self.ax_g.cla()
+        self.ax_b.cla()
+
         selected_data, selected_name = self.preprocess_data()
         selected_data = np.asarray(selected_data)
 
@@ -322,6 +327,52 @@ class DrawImageRGB(Atom):
             data_r = selected_data[0,:,:]
         except IndexError:
             selected_data = np.ones([3,10,10])
+
+
+        def _compute_equal_axes_ranges(x_min, x_max, y_min, y_max):
+            """
+            Compute ranges for x- and y- axes of the plot. Make sure that the ranges for x- and y-axes are
+            always equal and fit the maximum of the ranges for x and y values:
+                  max(abs(x_max-x_min), abs(y_max-y_min))
+            The ranges are set so that the data is always centered in the middle of the ranges
+
+            Parameters
+            ----------
+
+            x_min, x_max, y_min, y_max : float
+                lower and upper boundaries of the x and y values
+
+            Returns
+            -------
+
+            x_axis_min, x_axis_max, y_axis_min, y_axis_max : float
+                lower and upper boundaries of the x- and y-axes ranges
+            """
+
+            x_axis_min, x_axis_max, y_axis_min, y_axis_max = x_min, x_max, y_min, y_max
+            x_range, y_range = abs(x_max - x_min), abs(y_max - y_min)
+            if x_range > y_range:
+                y_center = (y_max + y_min) / 2
+                y_axis_max = y_center + x_range / 2
+                y_axis_min = y_center - x_range / 2
+            else:
+                x_center = (x_max + x_min) / 2
+                x_axis_max = x_center + y_range / 2
+                x_axis_min = x_center - y_range / 2
+
+            return x_axis_min, x_axis_max, y_axis_min, y_axis_max
+
+
+        # Set equal ranges for the axes data
+        yd, xd = selected_data.shape[1], selected_data.shape[2]
+        xd_min, xd_max, yd_min, yd_max = 0, xd, 0, yd
+        # Select minimum range for data
+        if yd <= 5:
+            yd_min, yd_max = -5, 4
+        if xd <= 5:
+            xd_min, xd_max = -5, 4
+        pixel_or_pos_upper_left_xy = (xd_min, xd_max, yd_min, yd_max)
+        xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
 
         name_r = self.rgb_name_list[self.index_red]
         data_r = selected_data[self.index_red,:,:]
@@ -368,11 +419,20 @@ class DrawImageRGB(Atom):
         green_patch = mpatches.Patch(color='green', label=name_g)
         blue_patch = mpatches.Patch(color='blue', label=name_b)
 
-        kwargs = dict(origin="upper", interpolation="nearest")
+        kwargs = dict(origin="lower", interpolation="nearest", extent=pixel_or_pos_upper_left_xy)
         self.ax.imshow(RGB, **kwargs)
         self.ax_r.imshow(R, **kwargs)
         self.ax_g.imshow(G, **kwargs)
         self.ax_b.imshow(B, **kwargs)
+
+        self.ax.set_xlim(xd_axis_min, xd_axis_max)
+        self.ax.set_ylim(yd_axis_min, yd_axis_max)
+        self.ax_r.set_xlim(xd_axis_min, xd_axis_max)
+        self.ax_r.set_ylim(yd_axis_min, yd_axis_max)
+        self.ax_g.set_xlim(xd_axis_min, xd_axis_max)
+        self.ax_g.set_ylim(yd_axis_min, yd_axis_max)
+        self.ax_b.set_xlim(xd_axis_min, xd_axis_max)
+        self.ax_b.set_ylim(yd_axis_min, yd_axis_max)
 
         #self.ax.set_xticklabels([])
         #self.ax.set_yticklabels([])

@@ -268,6 +268,23 @@ class Fit1D(Atom):
         """
         self.scaler_index = change['value']
 
+    def energy_bound_high_update(self, change):
+        """
+        Observer function that connects 'param_model' (GuessParamModel)
+        attribute 'energy_bound_high_buf' with the respective
+        value in 'self.param_dict'
+        """
+        self.param_dict['non_fitting_values']['energy_bound_high']['value'] = change['value']
+
+    def energy_bound_low_update(self, change):
+        """
+        Observer function that connects 'param_model' (GuessParamModel)
+        attribute 'energy_bound_low_buf' with the respective
+        value in 'self.param_dict'
+        """
+        self.param_dict['non_fitting_values']['energy_bound_low']['value'] = change['value']
+
+
     @observe('selected_index')
     def _selected_element_changed(self, change):
         if change['value'] > 0:
@@ -452,6 +469,11 @@ class Fit1D(Atom):
         Calculate profile based on current parameters.
         """
         #self.define_range()
+
+        # Do nothing if no data is loaded
+        if self.x0 is None or self.y0 is None:
+            return
+
         self.cal_x, self.cal_spectrum, area_dict = calculate_profile(self.x0,
                                                                      self.y0,
                                                                      self.param_dict,
@@ -658,7 +680,7 @@ class Fit1D(Atom):
             #                      self.result_folder, prefix=prefix_fname, use_snip=use_snip)
             logger.info('Done with saving fitting plots.')
         try:
-            self.save2Dmap_to_hdf(pixel_fit=pixel_fit)
+            self.save2Dmap_to_hdf(calculation_info=calculation_info, pixel_fit=pixel_fit)
             self.pixel_fit_info = 'Pixel fitting is done!'
             #app.processEvents()
             logger.info('-------- Fitting of single pixels is done! --------')
@@ -677,7 +699,7 @@ class Fit1D(Atom):
         save_data_to_db(self.runid, self.result_map, doc)
 
 
-    def save2Dmap_to_hdf(self, pixel_fit='nnls'):
+    def save2Dmap_to_hdf(self, *, calculation_info=None, pixel_fit='nnls'):
         """
         Save fitted 2D map of elements into hdf file after fitting is done. User
         can choose to interpolate the image based on x,y position or not.
@@ -807,12 +829,26 @@ class Fit1D(Atom):
                         continue
                     for name in area_list:
                         if k.lower() in name.lower():
-                            errorv = self.fit_result.params[name].stderr/(self.fit_result.params[name].value+1e-8)
-                            errorv *= 100
-                            errorv = np.round(errorv, 3)
-                            myfile.write('\n {:<10} \t {} \t {}'.format(k, np.round(np.sum(v), 3), str(errorv)+'%'))
+                            std_error = self.fit_result.params[name].stderr
+                            if std_error is None:
+                                # Do not print 'std_error' if it is not computed by lmfit
+                                errorv_s = ''
+                            else:
+                                errorv = std_error / (self.fit_result.params[name].value + 1e-8)
+                                errorv *= 100
+                                errorv = np.round(errorv, 3)
+                                errorv_s = f"{errorv}%"
+                            myfile.write('\n {:<10} \t {} \t {}'.format(k, np.round(np.sum(v), 3), errorv_s))
                 myfile.write('\n\n')
-                myfile.write(lmfit.fit_report(self.fit_result, sort_pars=True))
+
+                # Print the report from lmfit
+                # Remove strings (about 50%) on the variables that stayed at initial value
+                report = lmfit.fit_report(self.fit_result, sort_pars=True)
+                report = report.split('\n')
+                report = [s for s in report if 'at initial value' not in s and '##' not in s]
+                report = '\n'.join(report)
+                myfile.write(report)
+
                 logger.warning('Results are saved to {}'.format(filepath))
         except FileNotFoundError:
             print("Summed spectrum fitting results are not saved.")
@@ -1526,6 +1562,7 @@ def fit_pixel_nonlinear_per_line(row_num, data, x0,
         result = lmfit.minimize(residual_nonlinear_fit,
                                 fit_params, args=(x0,),
                                 kws={'data':y0, 'reg_mat':reg_mat})
+
         # result = MS.model_fit(x0, y0,
         #                       weights=1/np.sqrt(c_weight+y0),
         #                       maxfev=fit_num,

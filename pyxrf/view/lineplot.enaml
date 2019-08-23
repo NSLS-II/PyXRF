@@ -166,8 +166,9 @@ enamldef AdjustEmissionLine(Window): emission_win:
                 )
         ]
         Label: elbl:
-            text = 'Energy (visualization only, not sync with fitting)'
+            text = 'Incident energy'
         FloatField: fd:
+            read_only = True
             value := plot_model.incident_energy
         Label: lbl_escape:
             text = 'Plot escape peak'

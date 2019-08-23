@@ -45,7 +45,7 @@ from enaml.layout.geometry import Box
 from enaml.stdlib.fields import FloatField
 from enaml.stdlib.fields import IntField as DefaultIntField
 from enaml.stdlib.dialog_buttons import DialogButton
-from enaml.stdlib.message_box import MessageBox, critical
+from enaml.stdlib.message_box import critical
 import os
 import numpy as np
 from ..model.fileio import sep_v
@@ -213,12 +213,12 @@ enamldef FileView(DockItem): file_view:
                             padding = Box(0, 0, 0, 0)
 
                             RadioButton: rb_1:
-                                text = 'None'
+                                text = 'HIDE'
                                 checked = True
                                 clicked ::
                                     io_model.data_sets[loop_item].plot_index = 0
                             RadioButton: rb_2:
-                                text = 'Sum'
+                                text = 'SHOW'
                                 clicked ::
                                     io_model.data_sets[loop_item].plot_index = 1
                                     #fd1.enabled = False
@@ -227,7 +227,7 @@ enamldef FileView(DockItem): file_view:
                                     plot_model.data_sets = io_model.data_sets
 
             PushButton: plot_bt:
-                text = 'Plot Experiments'
+                text = 'Plot Channels'
                 #maximum_size = 100
                 enabled = False
                 checkable = True
