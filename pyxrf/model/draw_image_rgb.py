@@ -310,6 +310,11 @@ class DrawImageRGB(Atom):
 
     def show_image(self):
 
+        self.ax.cla()
+        self.ax_r.cla()
+        self.ax_g.cla()
+        self.ax_b.cla()
+
         selected_data, selected_name = self.preprocess_data()
         selected_data = np.asarray(selected_data)
 
