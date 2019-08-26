@@ -125,6 +125,8 @@ enamldef FileView(DockItem): file_view:
                             btns = [DialogButton('Ok', 'accept')]
                             # 'critical' shows MessageBox
                             critical(self, 'ERROR', f'Incorrect format of input file "{path[0]}": PyXRF accepts only custom HDF (.h5) files.', btns)
+                            # Clear file name or scan id from window title
+                            io_model.window_title_clear()
                         else:    
                             files_load.text = '{} is loaded.'.format(io_model.file_name)
 
@@ -139,6 +141,9 @@ enamldef FileView(DockItem): file_view:
                             fit_model.fit_img = {} # clear dict in fitmodel to rm old results
 
                             plot_bt.enabled = True
+
+                            # Change window title (include file name)
+                            io_model.window_title_set_file_name(f_name)
 
             Label: files_load:
                 text = 'No data is loaded.'
@@ -170,24 +175,34 @@ enamldef FileView(DockItem): file_view:
                         
                         io_model.data_ready = False
 
-                        io_model.load_data_runid()
+                        try:
+                            io_model.load_data_runid()
 
-                        files_load.text = '{} is loaded from database.'.format(io_model.fname_from_db)
+                        except:
+                            btns = [DialogButton('Ok', 'accept')]
+                            critical(self, 'ERROR', f'Error occurred while reading data (Run ID: {io_model.runid}) from the database', btns)
+                            # Clear file name or scan id from window title
+                            io_model.window_title_clear()
 
-                        # do not import original data for 2D image
-                        #img_model_adv.data_dict = io_model.img_dict
+                        else:
+                            files_load.text = '{} is loaded from database.'.format(io_model.fname_from_db)
 
-                        # data passed for auto fitting and final fit
-                        #param_model.data_sets = io_model.data_sets
+                            # do not import original data for 2D image
+                            #img_model_adv.data_dict = io_model.img_dict
 
-                        plot_model.parameters = param_model.param_new
-                        
-                        #setting_model.parameters = param_model.param_new
-                        #setting_model.data_sets = io_model.data_sets
-                        #fit_model.save_name = io_model.file_names[0]
+                            # data passed for auto fitting and final fit
+                            #param_model.data_sets = io_model.data_sets
 
-                        plot_bt.enabled = True
+                            plot_model.parameters = param_model.param_new
 
+                            #setting_model.parameters = param_model.param_new
+                            #setting_model.data_sets = io_model.data_sets
+                            #fit_model.save_name = io_model.file_names[0]
+
+                            plot_bt.enabled = True
+
+                            # Change window title (include run id)
+                            io_model.window_title_set_run_id(io_model.runid)
 
             GroupBox: gb_fit:
                 constraints = [hbox(fit_lbl, cb_select, spacer)]
