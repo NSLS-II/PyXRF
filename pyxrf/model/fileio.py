@@ -58,6 +58,9 @@ from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float, Bo
 from .load_data_from_db import (db, fetch_data_from_db, flip_data,
                                 helper_encode_list, helper_decode_list)
 
+import pyxrf
+pyxrf_version = pyxrf.__version__
+
 import logging
 logger = logging.getLogger()
 
@@ -84,6 +87,9 @@ class FileIOModel(Atom):
     img_dict : dict
         Dict of 2D arrays, such as 2D roi pv or fitted data
     """
+    window_title = Str()
+    window_title_base = Str()
+
     working_directory = Str()
     file_name = Str()
     file_path = Str()
@@ -118,6 +124,22 @@ class FileIOModel(Atom):
     def __init__(self, **kwargs):
         self.working_directory = kwargs['working_directory']
         self.mask_data = None
+
+        # Display PyXRF version in the window title
+        global pyxrf_version
+        if pyxrf_version[0] not in 'vV':
+            pyxrf_version = f"v{pyxrf_version}"
+        self.window_title_base = f"PyXRF: X-ray Fluorescence Analysis Tool ({pyxrf_version})"
+        self.window_title = self.window_title_base
+
+    def window_title_clear(self):
+        self.window_title = self.window_title_base
+
+    def window_title_set_file_name(self, file_name):
+        self.window_title = f"{self.window_title_base} - File: {file_name}"
+
+    def window_title_set_run_id(self, run_id):
+        self.window_title = f"{self.window_title_base} - Run ID: {run_id}"
 
     @observe(str('file_name'))
     def update_more_data(self, change):
