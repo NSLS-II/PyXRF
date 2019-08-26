@@ -371,7 +371,6 @@ class DrawImageRGB(Atom):
             yd_min, yd_max = -5, 4
         if xd <= 5:
             xd_min, xd_max = -5, 4
-        pixel_or_pos_upper_left_xy = (xd_min, xd_max, yd_min, yd_max)
         xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
 
         name_r = self.rgb_name_list[self.index_red]
@@ -419,23 +418,30 @@ class DrawImageRGB(Atom):
         green_patch = mpatches.Patch(color='green', label=name_g)
         blue_patch = mpatches.Patch(color='blue', label=name_b)
 
-        kwargs = dict(origin="lower", interpolation="nearest", extent=pixel_or_pos_upper_left_xy)
+        kwargs = dict(origin="upper", interpolation="nearest", extent=(xd_min, xd_max, yd_max, yd_min))
         self.ax.imshow(RGB, **kwargs)
         self.ax_r.imshow(R, **kwargs)
         self.ax_g.imshow(G, **kwargs)
         self.ax_b.imshow(B, **kwargs)
 
         self.ax.set_xlim(xd_axis_min, xd_axis_max)
-        self.ax.set_ylim(yd_axis_min, yd_axis_max)
+        self.ax.set_ylim(yd_axis_max, yd_axis_min)
         self.ax_r.set_xlim(xd_axis_min, xd_axis_max)
-        self.ax_r.set_ylim(yd_axis_min, yd_axis_max)
+        self.ax_r.set_ylim(yd_axis_max, yd_axis_min)
         self.ax_g.set_xlim(xd_axis_min, xd_axis_max)
-        self.ax_g.set_ylim(yd_axis_min, yd_axis_max)
+        self.ax_g.set_ylim(yd_axis_max, yd_axis_min)
         self.ax_b.set_xlim(xd_axis_min, xd_axis_max)
-        self.ax_b.set_ylim(yd_axis_min, yd_axis_max)
+        self.ax_b.set_ylim(yd_axis_max, yd_axis_min)
 
-        #self.ax.set_xticklabels([])
-        #self.ax.set_yticklabels([])
+        plt.setp(self.ax_r.get_xticklabels(), visible=False)
+        plt.setp(self.ax_r.get_yticklabels(), visible=False)
+        plt.setp(self.ax_g.get_xticklabels(), visible=False)
+        plt.setp(self.ax_g.get_yticklabels(), visible=False)
+        plt.setp(self.ax_b.get_xticklabels(), visible=False)
+        plt.setp(self.ax_b.get_yticklabels(), visible=False)
+
+        #self.ax_r.set_xticklabels([])
+        #self.ax_r.set_yticklabels([])
 
         # sb_x = 38
         # sb_y = 46
