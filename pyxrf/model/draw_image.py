@@ -97,8 +97,6 @@ class DrawImageAdvanced(Atom):
         define data range in vertical direction
     pixel_or_pos : int
         index to choose plot with pixel (== 0) or with positions (== 1)
-    pixel_or_pos_upper_left_xy : array, upper-left corner of the current plot in plot coordinates
-        argument passed to extent in imshow of matplotlib
     interpolation_opt: bool
         choose to interpolate 2D image in terms of x,y or not
     limit_dict : Dict
@@ -128,7 +126,6 @@ class DrawImageAdvanced(Atom):
     y_pos = List()
 
     pixel_or_pos = Int(0)
-    pixel_or_pos_upper_left_xy = Typed(object)
     interpolation_opt = Bool(True)
     data_dict_default = Dict()
     limit_dict = Dict()
@@ -138,7 +135,6 @@ class DrawImageAdvanced(Atom):
 
     def __init__(self):
         self.fig = plt.figure(figsize=(3,2))
-        self.pixel_or_pos_upper_left_xy = None
         matplotlib.rcParams['axes.formatter.useoffset'] = True
         self.name_not_scalable = ['r2_adjust','alive', 'dead', 'elapsed_time', 'scaler_alive', 
                                   'i0_time', 'time', 'time_diff'] # do not apply scaler norm on those data
@@ -357,10 +353,6 @@ class DrawImageAdvanced(Atom):
         a_pad_v = 0.8
         a_pad_h = 0.5
 
-        if len(self.x_pos) > 0 and len(self.y_pos) > 0:
-            self.pixel_or_pos_upper_left_xy = (self.x_pos[0], self.x_pos[-1],
-                                               self.y_pos[0], self.y_pos[-1])
-
         grid = ImageGrid(self.fig, 111,
                          nrows_ncols=(nrow, ncol),
                          axes_pad=(a_pad_v, a_pad_h),
@@ -478,20 +470,21 @@ class DrawImageAdvanced(Atom):
 
             if self.pixel_or_pos or self.scatter_show:
 
-                xd_min, xd_max, yd_min, yd_max = min(self.x_pos), max(self.x_pos), min(self.y_pos), max(self.y_pos)
+                #xd_min, xd_max, yd_min, yd_max = min(self.x_pos), max(self.x_pos), min(self.y_pos), max(self.y_pos)
+                x_pos_2D = self.data_dict['positions']['x_pos']
+                y_pos_2D = self.data_dict['positions']['y_pos']
+                xd_min, xd_max, yd_min, yd_max = x_pos_2D.min(), x_pos_2D.max(), y_pos_2D.min(), y_pos_2D.max()
                 xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
 
                 xd_min, xd_max = _adjust_data_range__min_ratio(xd_min, xd_max, xd_axis_max - xd_axis_min)
                 yd_min, yd_max = _adjust_data_range__min_ratio(yd_min, yd_max, yd_axis_max - yd_axis_min)
 
                 # Adjust the direction of each axis depending on the direction in which encoder values changed
-                #   during the experiment. Data is plotted starting from the lower-left corner of the plot
-                if self.x_pos[0] > self.x_pos[-1]:
+                #   during the experiment. Data is plotted starting from the upper-right corner of the plot
+                if x_pos_2D[0, 0] > x_pos_2D[0, -1]:
                     xd_min, xd_max, xd_axis_min, xd_axis_max = xd_max, xd_min, xd_axis_max, xd_axis_min
-                if self.y_pos[0] > self.y_pos[-1]:
+                if y_pos_2D[0, 0] > y_pos_2D[-1, 0]:
                     yd_min, yd_max, yd_axis_min, yd_axis_max = yd_max, yd_min, yd_axis_max, yd_axis_min
-
-                self.pixel_or_pos_upper_left_xy = (xd_min, xd_max, yd_min, yd_max)
 
             else:
 
@@ -503,7 +496,6 @@ class DrawImageAdvanced(Atom):
                 if xd <= 5:
                     xd_min, xd_max = -5, 4
 
-                self.pixel_or_pos_upper_left_xy = (xd_min, xd_max, yd_min, yd_max)
                 xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
 
             if self.scale_opt == 'Linear':
@@ -524,9 +516,10 @@ class DrawImageAdvanced(Atom):
                     im = grid[i].imshow(data_dict,
                                         cmap=grey_use,
                                         interpolation=plot_interp,
-                                        extent=self.pixel_or_pos_upper_left_xy,
-                                        origin='lower',
+                                        extent=(xd_min, xd_max, yd_max, yd_min),
+                                        origin='upper',
                                         clim=(low_limit, high_limit))
+                    grid[i].set_ylim(yd_axis_max, yd_axis_min)
                 else:
                     im = grid[i].scatter(self.data_dict['positions']['x_pos'],
                                          self.data_dict['positions']['y_pos'],
@@ -534,9 +527,9 @@ class DrawImageAdvanced(Atom):
                                          cmap=grey_use,
                                          linewidths=1, linewidth=0,
                                          clim=(low_limit, high_limit))
+                    grid[i].set_ylim(yd_axis_max, yd_axis_min)
 
                 grid[i].set_xlim(xd_axis_min, xd_axis_max)
-                grid[i].set_ylim(yd_axis_min, yd_axis_max)
 
                 grid_title = k
                 grid[i].text(0, 1.01, grid_title, ha='left', va='bottom', transform=grid[i].axes.transAxes)
@@ -566,9 +559,10 @@ class DrawImageAdvanced(Atom):
                                                     vmax=maxz, clip=True),
                                         cmap=grey_use,
                                         interpolation=plot_interp,
-                                        extent=self.pixel_or_pos_upper_left_xy,
-                                        origin='lower',
+                                        extent=(xd_min, xd_max, yd_max, yd_min),
+                                        origin='upper',
                                         clim=(low_lim*maxz, maxz))
+                    grid[i].set_ylim(yd_axis_max, yd_axis_min)
                 else:
                     im = grid[i].scatter(self.data_dict['positions']['x_pos'],
                                          self.data_dict['positions']['y_pos'],
@@ -578,9 +572,9 @@ class DrawImageAdvanced(Atom):
                                          cmap=grey_use,
                                          linewidths=1, linewidth=0,
                                          clim=(low_lim*maxz, maxz))
+                    grid[i].set_ylim(yd_axis_min, yd_axis_max)
 
                 grid[i].set_xlim(xd_axis_min, xd_axis_max)
-                grid[i].set_ylim(yd_axis_min, yd_axis_max)
 
                 grid_title = k
                 grid[i].text(0, 1.01, grid_title, ha='left', va='bottom', transform=grid[i].axes.transAxes)
