@@ -2,71 +2,51 @@
 Installation
 ============
 
-PyXRF works for python 2.7, 3.5 and 3.6 in Linux/Mac system. For Windows, we
-only support python 3.5 version. We plan to move PyXRF to conda-forge soon.
+Current PyXRF version is supported for Python 3.6 and 3.7 in Linux/Mac/Windows systems.
+PyXRF is installed from `nsls2forge` channel (anaconda.org). Installation instructions are
+identical for all supported OS.
 
-First you need to install [conda] (http://continuum.io/downloads). We suggest
-anaconda because it is a complete installation of the entire scientific python
-stack, but is ~400 MB.  For advanced users, consider downloading [miniconda]
-(http://conda.pydata.org/miniconda.html) because it is a smaller download (~20 MB).
+1. Install [conda] (https://www.anaconda.com/distribution). Select Python 3.7 version.
+Anaconda package is recommended to casual users because it installs the entire
+scientific python stack. For advanced users, consider downloading [miniconda]
+(http://conda.pydata.org/miniconda.html) because it is a smaller download (~400 MB vs ~20 MB).
 
+2. Open terminal (Linux/Mac) or start Anaconda Prompt from Windows Start Menu (Windows)
 
-Linux/Mac
-=========
-
-Create a conda environment (say pyxrf_test) with python 3.6.
-
-.. code:: python
-
-    conda create -n pyxrf_test python=3.6
-
-
-Then go to the environment named pyxrf_test
+3. Create a conda environment (say `pyxrf-env`) with Python 3.6 or 3.7:
 
 .. code:: python
 
-    source activate pyxrf_test
-
-At the same environment, install pyxrf by simply typing
-
-.. code:: python
-
-    conda install pyxrf xraylib=3.2 -c lightsource2-tag -c conda-forge
+    conda create -n pyxrf-env python=3.7
 
 
-Note: there is some conflict with xraylib=3.3, so we put a constraint on xraylib.
-This can be removed later.
-
-
-Windows
-=======
-
-Install windows version of anaconda from (http://continuum.io/downloads).
-Then you should see Anaconda Prompt installed in your computer. Double click Anaconda Prompt, and type the following lines to finish the installation.
-
-Create a conda environment(say pyxrf_test) with python3.5.
+4. Then activate the newly created environment (`pyxrf-env`):
 
 .. code:: python
 
-    conda create -n pyxrf_test python=3.5
+    conda activate pyxrf-env
 
-Then go to the environment named pyxrf_test
-
-.. code:: python
-
-    activate pyxrf_test
-
-At the same environment, install pyxrf by simply typing
+5. Install pyxrf in the active environment (in our example `pyxrf-env`):
 
 .. code:: python
 
-    conda install pyxrf xraylib pyqt=4.11 -c lightsource2-tag -c conda-forge
+    conda install pyxrf -c nsls2forge
 
 
-Run PyXRF
-=========
+Starting PyXRF
+==============
 
-At pyxrf_test environment, type
+1. Open terminal (Linux/Mac) or start Anaconda Prompt from Windows Start Menu (Windows)
+
+2. Activate Conda environment that contains PyXRF installation
+   (in our example `pyxrf-env`):
+
+.. code:: python
+
+    conda activate pyxrf-env
+
+
+3. Start PyXRF by typing:
 
 .. code:: python
 
@@ -76,45 +56,27 @@ At pyxrf_test environment, type
 Update PyXRF
 ============
 
-At pyxrf_test environment, type
+1. Open terminal (Linux/Mac) or start Anaconda Prompt from Windows Start Menu (Windows)
+
+2. Activate Conda environment that contains PyXRF installation
+   (in our example `pyxrf-env`):
 
 .. code:: python
 
-    conda update pyxrf -c lightsource2-tag -c conda-forge
+    conda activate pyxrf-env
 
 
-Reminder
-========
-
-Every time you open a new terminal, make sure to go to pyxrf_test environment
-first, then launch the software. For linux and mac system, type
+3. Update PyXRF by typing:
 
 .. code:: python
 
-    source activate pyxrf_test
-
-For windows,
-
-.. code:: python
-
-    activate pyxrf_test
-
-then lanch pyxrf by typing
-
-.. code:: python
-
-    pyxrf
+    conda update pyxrf -c nsls2forge
 
 
-To leave this environment, at Linux and Mac system just type
-
+Leave the activated Conda environment
+=====================================
+    
 .. code:: python
 
     source deactivate
-
-
-and for Windows, type
-
-.. code:: python
-
-    deactivate
+    
