@@ -2,8 +2,9 @@
 Installation
 ============
 
-Current PyXRF version is supported for Python 3.6 and 3.7 in Linux/Mac/Windows systems.
-PyXRF is installed from `nsls2forge` channel (anaconda.org). Installation instructions are
+PyXRF is supported for Python 3.6 and 3.7 in Linux/Mac/Windows systems.
+The easiest way to install PyXRF is to load it into Conda environment from 
+`nsls2forge` Anaconda channel. Installation instructions are
 identical for all supported OS.
 
 1. Install [conda] (https://www.anaconda.com/distribution). Select Python 3.7 version.
@@ -20,7 +21,7 @@ scientific python stack. For advanced users, consider downloading [miniconda]
     conda create -n pyxrf-env python=3.7
 
 
-4. Then activate the newly created environment (`pyxrf-env`):
+4. Activate the newly created environment (`pyxrf-env`):
 
 .. code:: python
 
@@ -78,5 +79,5 @@ Leave the activated Conda environment
     
 .. code:: python
 
-    source deactivate
+    conda deactivate
     
