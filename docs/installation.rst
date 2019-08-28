@@ -96,5 +96,5 @@ Deactivating Conda environment
     
    .. code:: python
 
-        conda deactivate
+       conda deactivate
     
