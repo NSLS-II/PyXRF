@@ -91,10 +91,10 @@ Updating PyXRF
        conda update pyxrf -c nsls2forge
 
 
-4. Deactivating Conda environment
-=================================
+Deactivating Conda environment
+==============================
     
    .. code:: python
 
-        conda deactivate
+       conda deactivate
     
