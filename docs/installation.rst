@@ -2,119 +2,99 @@
 Installation
 ============
 
-PyXRF works for python 2.7, 3.5 and 3.6 in Linux/Mac system. For Windows, we
-only support python 3.5 version. We plan to move PyXRF to conda-forge soon.
+PyXRF is supported for Python 3.6 and 3.7 in Linux/Mac/Windows systems.
+The easiest way to install PyXRF is to load it into a Conda environment from 
+:code:`nsls2forge` Anaconda channel. Installation instructions are
+identical for all supported OS.
 
-First you need to install [conda] (http://continuum.io/downloads). We suggest
-anaconda because it is a complete installation of the entire scientific python
-stack, but is ~400 MB.  For advanced users, consider downloading [miniconda]
-(http://conda.pydata.org/miniconda.html) because it is a smaller download (~20 MB).
+1. Install `Conda <https://www.anaconda.com/distribution>`_. Select Python 3.7 version.
+   Anaconda package is recommended to casual users because it installs the entire
+   scientific Python stack. Advanced users may consider installing
+   `Miniconda <http://conda.pydata.org/miniconda.html>`_ since it is a much smaller
+   download (~400 MB vs. ~20 MB).
 
+   If Conda is already installed on your computer, proceed to the next step.
 
-Linux/Mac
-=========
+2. Open a terminal (Linux/Mac) or start Anaconda Prompt from Windows Start Menu (Windows).
 
-Create a conda environment (say pyxrf_test) with python 3.6.
+3. If you are using existing Conda installation, update Conda:
 
-.. code:: python
+   .. code:: python
 
-    conda create -n pyxrf_test python=3.6
+       conda update -n base -c defaults conda
 
+   If you are installing PyXRF on a Windows platform, close and restart Anaconda Prompt.
 
-Then go to the environment named pyxrf_test
+   .. note::
 
-.. code:: python
+      The following instructions work in an environment with Conda 4.6 or newer.
+      If PyXRF is installed in an older Conda environment then different command syntax 
+      must be used on some platforms (particularly Windows). Refer to the Conda documentation
+      for more details.
+   
+3. Create a new Conda environment (e.g. :code:`pyxrf-env`) with Python 3.6 or 3.7:
 
-    source activate pyxrf_test
+   .. code:: python
+ 
+       conda create -n pyxrf-env python=3.7
 
-At the same environment, install pyxrf by simply typing
+4. Activate the created Conda environment (in our example :code:`pyxrf-env`):
 
-.. code:: python
+   .. code:: python
 
-    conda install pyxrf xraylib=3.2 -c lightsource2-tag -c conda-forge
+       conda activate pyxrf-env
 
+5. Install PyXRF in the active Conda environment (in our example :code:`pyxrf-env`):
 
-Note: there is some conflict with xraylib=3.3, so we put a constraint on xraylib.
-This can be removed later.
+   .. code:: python
 
-
-Windows
-=======
-
-Install windows version of anaconda from (http://continuum.io/downloads).
-Then you should see Anaconda Prompt installed in your computer. Double click Anaconda Prompt, and type the following lines to finish the installation.
-
-Create a conda environment(say pyxrf_test) with python3.5.
-
-.. code:: python
-
-    conda create -n pyxrf_test python=3.5
-
-Then go to the environment named pyxrf_test
-
-.. code:: python
-
-    activate pyxrf_test
-
-At the same environment, install pyxrf by simply typing
-
-.. code:: python
-
-    conda install pyxrf xraylib pyqt=4.11 -c lightsource2-tag -c conda-forge
+       conda install pyxrf -c nsls2forge
 
 
-Run PyXRF
-=========
+Starting PyXRF
+==============
 
-At pyxrf_test environment, type
+1. Open a terminal (Linux/Mac) or start Anaconda Prompt from Windows Start Menu (Windows).
 
-.. code:: python
+2. Activate Conda environment that contains PyXRF installation
+   (in our example :code:`pyxrf-env`):
 
-    pyxrf
+   .. code:: python
 
-
-Update PyXRF
-============
-
-At pyxrf_test environment, type
-
-.. code:: python
-
-    conda update pyxrf -c lightsource2-tag -c conda-forge
+       conda activate pyxrf-env
 
 
-Reminder
-========
+3. Start PyXRF by typing:
 
-Every time you open a new terminal, make sure to go to pyxrf_test environment
-first, then launch the software. For linux and mac system, type
+   .. code:: python
 
-.. code:: python
-
-    source activate pyxrf_test
-
-For windows,
-
-.. code:: python
-
-    activate pyxrf_test
-
-then lanch pyxrf by typing
-
-.. code:: python
-
-    pyxrf
+       pyxrf
 
 
-To leave this environment, at Linux and Mac system just type
+Updating PyXRF
+==============
 
-.. code:: python
+1. Open a terminal (Linux/Mac) or start Anaconda Prompt from Windows Start Menu (Windows)
 
-    source deactivate
+2. Activate Conda environment that contains PyXRF installation
+   (in our example :code:`pyxrf-env`):
+
+   .. code:: python
+
+       conda activate pyxrf-env
 
 
-and for Windows, type
+3. Update PyXRF by typing:
 
-.. code:: python
+   .. code:: python
 
-    deactivate
+       conda update pyxrf -c nsls2forge
+
+
+4. Deactivating Conda environment
+=================================
+    
+   .. code:: python
+
+        conda deactivate
+    
