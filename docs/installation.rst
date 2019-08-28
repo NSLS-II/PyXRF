@@ -23,13 +23,13 @@ identical for all supported OS.
 
        conda update -n base -c defaults conda
 
-   If you are installing PyXRF on Windows platform, close and restart Anaconda Prompt.
+   If you are installing PyXRF on a Windows platform, close and restart Anaconda Prompt.
 
    .. note::
 
-      The following instructions work in environment with Conda 4.6 or newer.
-      If PyXRF is installed in older Conda environment then different command syntax 
-      must be used on some platforms (particulary Windows). Refer to Conda documentation
+      The following instructions work in an environment with Conda 4.6 or newer.
+      If PyXRF is installed in an older Conda environment then different command syntax 
+      must be used on some platforms (particularly Windows). Refer to the Conda documentation
       for more details.
    
 3. Create a new Conda environment (e.g. :code:`pyxrf-env`) with Python 3.6 or 3.7:
