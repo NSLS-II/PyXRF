@@ -320,6 +320,14 @@ def map_data2D_srx(runid, fpath,
     spectrum_len = 4096
     start_doc = hdr['start']
     plan_n = start_doc.get('plan_name')
+
+    # Load configuration file
+    current_dir = os.path.dirname(os.path.realpath(__file__))
+    config_file = 'srx_pv_config.json'
+    config_path = sep_v.join(current_dir.split(sep_v)[:-2] + ['configs', config_file])
+    with open(config_path, 'r') as json_data:
+        config_data = json.load(json_data)
+
     if 'fly' not in plan_n: # not fly scan
 
         print(f"****************************************")
@@ -337,11 +345,6 @@ def map_data2D_srx(runid, fpath,
         if snake_scan[1] == True:
             fly_type = 'pyramid'
 
-        current_dir = os.path.dirname(os.path.realpath(__file__))
-        config_file = 'srx_pv_config.json'
-        config_path = sep_v.join(current_dir.split(sep_v)[:-2]+['configs', config_file])
-        with open(config_path, 'r') as json_data:
-            config_data = json.load(json_data)
 
         try:
             data = db.get_table(hdr, fill=True, convert_times=False)
@@ -363,20 +366,23 @@ def map_data2D_srx(runid, fpath,
         #    config_data['xrf_detector'] = xrf_detector_names
 
         if output_to_file:
-            print('Saving data to hdf file.')
-            write_db_to_hdf(fpath, data,
-                            #hdr.start.datashape,
-                            datashape,
-                            det_list=config_data['xrf_detector'],
-                            pos_list=hdr.start.motors,
-                            scaler_list=config_data['scaler_list'],
-                            fly_type=fly_type,
-                            base_val=config_data['base_value'])  #base value shift for ic
-            if 'xs2' in hdr.start.detectors:
-                print('Saving data to hdf file for second xspress3 detector.')
+            if 'xs' in hdr.start.detectors:
+                print('Saving data to hdf file: Xpress3 detector #1 (three channels).')
                 root, ext = os.path.splitext(fpath)
-                fpath1 = f"{root + '_1'}{ext}"
-                write_db_to_hdf(fpath1, data,
+                fpath_out = f"{root + '_xs'}{ext}"
+                write_db_to_hdf(fpath_out, data,
+                                #hdr.start.datashape,
+                                datashape,
+                                det_list=config_data['xrf_detector'],
+                                pos_list=hdr.start.motors,
+                                scaler_list=config_data['scaler_list'],
+                                fly_type=fly_type,
+                                base_val=config_data['base_value'])  #base value shift for ic
+            if 'xs2' in hdr.start.detectors:
+                print('Saving data to hdf file: Xpress3 detector #2 (single channel).')
+                root, ext = os.path.splitext(fpath)
+                fpath_out = f"{root + '_xs2'}{ext}"
+                write_db_to_hdf(fpath_out, data,
                                 datashape,
                                 det_list=config_data['xrf_detector2'],
                                 pos_list=hdr.start.motors,
@@ -396,6 +402,13 @@ def map_data2D_srx(runid, fpath,
             scaler_list = ['i0', 'time', 'i0_time', 'time_diff']
             xpos_name = 'enc1'
             ypos_name = 'hf_stage_y' # 'hf_stage_x' if fast axis is vertical
+
+        # The dictionary of fields that are used to store data from different detectors (for fly scan only)
+        #   key - the name of the field used to store data read from the detector
+        #   value - the detector name (probably short abbreviation, attached to the created file name so that
+        #           the detector could be identified)
+        # A separate data file is created for each detector
+        detector_field_dict = config_data['xrf_flyscan_detector_fields']
 
         num_det = 0  # Some default value (should never be used)
 
@@ -422,128 +435,153 @@ def map_data2D_srx(runid, fpath,
         new_shape = datashape + [spectrum_len]
         total_points = datashape[0]*datashape[1]
 
-        new_data = {}
-        data = {}
         des = [d for d in hdr.descriptors if d.name=='stream0'][0]
         # merlin data doesn't need to be saved.
         un_used_det = ['merlin', 'im'] # data not to be transfered for pyxrf
         data_list_used = [v for v in des.data_keys.keys() if 'merlin' not in v.lower() ]
         e = db.get_events(hdr, fill=True, stream_name=des.name)
 
-        if save_scalar is True:
-            new_data['scaler_names'] = scaler_list
-            scaler_tmp = np.zeros([datashape[0], datashape[1], len(scaler_list)])
-            if vertical_fast is True:  # data shape only has impact on scalar data
-                scaler_tmp = np.zeros([datashape[1], datashape[0], len(scaler_list)])
-            for v in scaler_list+[xpos_name]:
-                data[v] = np.zeros([datashape[0], datashape[1]])
+        # The number of found detectors for which data exists in the database
+        n_detectors_found = 0
 
-        # Total number of lines in fly scan
-        n_scan_lines_total = new_shape[0]
+        for detector_field, detector_name in detector_field_dict.items():
 
-        for m, v in enumerate(e):
+            # Check if the detector field exists
+            if detector_field not in e.data:
+                continue
 
-            if m == 0:
-                # Determine the number of channels from the size of the table with fluorescence data
-                num_det = v.data['fluor'].shape[1]
+            print(f"Collecting data from detector '{detector_name}' (field'{detector_field}')")
+            new_data = {}
+            data = {}
 
-                # Now allocate space for fluorescence data
+            if save_scalar is True:
+                new_data['scaler_names'] = scaler_list
+                scaler_tmp = np.zeros([datashape[0], datashape[1], len(scaler_list)])
+                if vertical_fast is True:  # data shape only has impact on scalar data
+                    scaler_tmp = np.zeros([datashape[1], datashape[0], len(scaler_list)])
+                for v in scaler_list+[xpos_name]:
+                    data[v] = np.zeros([datashape[0], datashape[1]])
+
+            # Total number of lines in fly scan
+            n_scan_lines_total = new_shape[0]
+
+            for m, v in enumerate(e):
+
+                if m == 0:
+                    # Determine the number of channels from the size of the table with fluorescence data
+                    num_det = v.data[detector_field].shape[1]
+
+                    # Now allocate space for fluorescence data
+                    if create_each_det is False:
+                        new_data['det_sum'] = np.zeros(new_shape)
+                    else:
+                        for i in range(num_det):
+                            new_data[f'det{i + 1}'] = np.zeros(new_shape)
+
+                    print(f"Number of the detector channels: {num_det}")
+
+                if m < datashape[0]:   # scan is not finished
+                    if save_scalar is True:
+                        for n in scaler_list[:-1] + [xpos_name]:
+                            min_len = min(v.data[n].size, datashape[1])
+                            data[n][m, :min_len] = v.data[n][:min_len]
+                            # position data or i0 has shorter length than fluor data
+                            if min_len < datashape[1]:
+                                len_diff = datashape[1] - min_len
+                                # interpolation on scaler data
+                                interp_list = (v.data[n][-1] - v.data[n][-3]) / 2 * np.arange(1, len_diff + 1) + v.data[n][-1]
+                                data[n][m, min_len:datashape[1]] = interp_list
+                    fluor_len = v.data['fluor'].shape[0]
+                    if m > 0 and not (m % 10):
+                        print(f"Processed {m} of {n_scan_lines_total} lines ...")
+                    # print(f"m = {m} Data shape {v.data['fluor'].shape} - {v.data['fluor'].shape[1] }")
+                    # print(f"Data keys: {v.data.keys()}")
+                    if create_each_det is False:
+                        for i in range(num_det):
+                            # in case the data length in each line is different
+                            new_data['det_sum'][m, :fluor_len, :] += v.data['fluor'][:,i,:]
+                    else:
+                        for i in range(num_det):
+                            # in case the data length in each line is different
+                            new_data['det'+str(i+1)][m, :fluor_len, :] = v.data['fluor'][:,i,:]
+
+            # Modify file name (path) to include data on how many channels are included in the file and how many
+            #    channels are used for sum calculation
+            root, ext = os.path.splitext(fpath)
+            s = f"_{detector_name}_sum({num_det}ch)"
+            if create_each_det:
+                s += f"+{num_det}ch"
+            fpath = f'{root + s}{ext}'
+
+            if vertical_fast is True: # need to transpose the data, as we scan y first
                 if create_each_det is False:
-                    new_data['det_sum'] = np.zeros(new_shape)
+                    new_data['det_sum'] = np.transpose(new_data['det_sum'], axes=(1,0,2))
                 else:
                     for i in range(num_det):
-                        new_data[f'det{i + 1}'] = np.zeros(new_shape)
+                        new_data['det'+str(i+1)] = np.transpose(new_data['det'+str(i+1)], axes=(1,0,2))
 
-                print(f"Number of the detector channels: {num_det}")
-            
-            if m < datashape[0]:   # scan is not finished
-                if save_scalar is True:
-                    for n in scaler_list[:-1] + [xpos_name]:
-                        min_len = min(v.data[n].size, datashape[1])
-                        data[n][m, :min_len] = v.data[n][:min_len]
-                        # position data or i0 has shorter length than fluor data
-                        if min_len < datashape[1]:
-                            len_diff = datashape[1] - min_len
-                            # interpolation on scaler data
-                            interp_list = (v.data[n][-1] - v.data[n][-3]) / 2 * np.arange(1, len_diff + 1) + v.data[n][-1]
-                            data[n][m, min_len:datashape[1]] = interp_list
-                fluor_len = v.data['fluor'].shape[0]
-                if m > 0 and not (m % 10):
-                    print(f"Processed {m} of {n_scan_lines_total} lines ...")
-                # print(f"m = {m} Data shape {v.data['fluor'].shape} - {v.data['fluor'].shape[1] }")
-                # print(f"Data keys: {v.data.keys()}")
-                if create_each_det is False:
-                    for i in range(num_det):
-                        # in case the data length in each line is different
-                        new_data['det_sum'][m, :fluor_len, :] += v.data['fluor'][:,i,:]
+            if save_scalar is True:
+                if vertical_fast is False:
+                    for i, v in enumerate(scaler_list[:-1]):
+                        scaler_tmp[:, :, i] = data[v]
+                    scaler_tmp[:, :-1, -1] = np.diff(data['time'], axis=1)
+                    scaler_tmp[:, -1, -1] = data['time'][:, -1] - data['time'][:, -2]
                 else:
-                    for i in range(num_det):
-                        # in case the data length in each line is different
-                        new_data['det'+str(i+1)][m, :fluor_len, :] = v.data['fluor'][:,i,:]
+                    for i, v in enumerate(scaler_list[:-1]):
+                        scaler_tmp[:, :, i] = data[v].T
+                    data_t = data['time'].T
+                    scaler_tmp[:-1, :, -1] = np.diff(data_t, axis=0)
+                    scaler_tmp[-1, :, -1] = data_t[-1, :] - data_t[-2, :]
+                new_data['scaler_data'] = scaler_tmp
+                x_pos = np.vstack(data[xpos_name])
 
-        # Modify file name (path) to include data on how many channels are included in the file and how many
-        #    channels are used for sum calculation
-        root, ext = os.path.splitext(fpath)
-        s = f"_sum({num_det}ch)"
-        if create_each_det:
-            s += f"+{num_det}ch"
-        fpath = f'{root + s}{ext}'
-                        
-        if vertical_fast is True: # need to transpose the data, as we scan y first
-            if create_each_det is False:
-                new_data['det_sum'] = np.transpose(new_data['det_sum'], axes=(1,0,2))
-            else:
-                for i in range(num_det):
-                    new_data['det'+str(i+1)] = np.transpose(new_data['det'+str(i+1)], axes=(1,0,2))
-
-        if save_scalar is True:
-            if vertical_fast is False:
-                for i, v in enumerate(scaler_list[:-1]):
-                    scaler_tmp[:, :, i] = data[v]
-                scaler_tmp[:, :-1, -1] = np.diff(data['time'], axis=1)
-                scaler_tmp[:, -1, -1] = data['time'][:, -1] - data['time'][:, -2]
-            else:
-                for i, v in enumerate(scaler_list[:-1]):
-                    scaler_tmp[:, :, i] = data[v].T
-                data_t = data['time'].T
-                scaler_tmp[:-1, :, -1] = np.diff(data_t, axis=0)
-                scaler_tmp[-1, :, -1] = data_t[-1, :] - data_t[-2, :]
-            new_data['scaler_data'] = scaler_tmp
-            x_pos = np.vstack(data[xpos_name])
-
-            # get y position data, from differet stream name primary
-            data1 = db.get_table(hdr, fill=True, stream_name='primary')
-            if num_end_lines_excluded is not None:
-                data1 = data1[:datashape[0]]
-            # if ypos_name not in data1.keys() and 'E_tomo' not in start_doc['scaninfo']['type']:
-            #print(f"data1 keys: {data1.keys()}")
-            if ypos_name not in data1.keys():
-                ypos_name = 'hf_stage_z'        #vertical along z
-            y_pos0 = np.hstack(data1[ypos_name])
-            # y position is more than actual x pos, scan not finished?
-            if len(y_pos0) >= x_pos.shape[0]:
-                y_pos = y_pos0[:x_pos.shape[0]]
-                x_tmp = np.ones(x_pos.shape[1])
-                xv, yv = np.meshgrid(x_tmp, y_pos)
-                # need to change shape to sth like [2, 100, 100]
-                data_tmp = np.zeros([2, x_pos.shape[0], x_pos.shape[1]])
-                data_tmp[0,:,:] = x_pos
-                data_tmp[1,:,:] = yv
-                new_data['pos_data'] = data_tmp
-                new_data['pos_names'] = ['x_pos', 'y_pos']
-                if vertical_fast is True: # need to transpose the data, as we scan y first
-                    data_tmp = np.zeros([2, x_pos.shape[1], x_pos.shape[0]]) # fast scan on y has impact for scalar data
-                    data_tmp[1,:,:] = x_pos.T
-                    data_tmp[0,:,:] = yv.T
+                # get y position data, from differet stream name primary
+                data1 = db.get_table(hdr, fill=True, stream_name='primary')
+                if num_end_lines_excluded is not None:
+                    data1 = data1[:datashape[0]]
+                # if ypos_name not in data1.keys() and 'E_tomo' not in start_doc['scaninfo']['type']:
+                #print(f"data1 keys: {data1.keys()}")
+                if ypos_name not in data1.keys():
+                    ypos_name = 'hf_stage_z'        #vertical along z
+                y_pos0 = np.hstack(data1[ypos_name])
+                # y position is more than actual x pos, scan not finished?
+                if len(y_pos0) >= x_pos.shape[0]:
+                    y_pos = y_pos0[:x_pos.shape[0]]
+                    x_tmp = np.ones(x_pos.shape[1])
+                    xv, yv = np.meshgrid(x_tmp, y_pos)
+                    # need to change shape to sth like [2, 100, 100]
+                    data_tmp = np.zeros([2, x_pos.shape[0], x_pos.shape[1]])
+                    data_tmp[0,:,:] = x_pos
+                    data_tmp[1,:,:] = yv
                     new_data['pos_data'] = data_tmp
-            else:
-                print('x,y positions are not saved: scan was not completed')
+                    new_data['pos_names'] = ['x_pos', 'y_pos']
+                    if vertical_fast is True: # need to transpose the data, as we scan y first
+                        data_tmp = np.zeros([2, x_pos.shape[1], x_pos.shape[0]]) # fast scan on y has impact for scalar data
+                        data_tmp[1,:,:] = x_pos.T
+                        data_tmp[0,:,:] = yv.T
+                        new_data['pos_data'] = data_tmp
+                else:
+                    print("WARNING: x,y positions are not saved: scan was not completed")
 
-        if output_to_file:
-            # output to file
-            print('Saving data to hdf file.')
-            write_db_to_hdf_base(fpath, new_data,
-                                 create_each_det=create_each_det)
+
+            n_detectors_found += 1
+
+            if output_to_file:
+                # output to file
+                print('Saving data to hdf file #{n_detectors_found}: Xpress3 detector #2 (single channel).')
+                write_db_to_hdf_base(fpath, new_data,
+                                     create_each_det=create_each_det)
+
+        if n_detectors_found == 0:
+            print(f"ERROR: no data from known detectors were found in the database:")
+            print(f"     Check that appropriate fields are included in 'xrf_fly_scan_detector_fields'")
+            print(f"         of configuration file: {config_path}")
+        else:
+            print(f"Total of {n_detectors_found} were found", end="")
+            if output_to_file:
+                print(f", {n_detectors_found} data files were created", end="")
+            print(".")
+
         return new_data
 
 
