@@ -330,6 +330,7 @@ def map_data2D_srx(runid, fpath,
 
     if 'fly' not in plan_n: # not fly scan
 
+        print()
         print(f"****************************************")
         print(f"        Loading SRX step scan           ")
         print(f"****************************************")
@@ -394,6 +395,7 @@ def map_data2D_srx(runid, fpath,
     else:
         # srx fly scan
 
+        print()
         print(f"****************************************")
         print(f"         Loading SRX fly scan           ")
         print(f"****************************************")
@@ -439,18 +441,16 @@ def map_data2D_srx(runid, fpath,
         # merlin data doesn't need to be saved.
         un_used_det = ['merlin', 'im'] # data not to be transfered for pyxrf
         data_list_used = [v for v in des.data_keys.keys() if 'merlin' not in v.lower() ]
-        e = db.get_events(hdr, fill=True, stream_name=des.name)
 
         # The number of found detectors for which data exists in the database
         n_detectors_found = 0
 
+        # Try each data field listed in the config file
         for detector_field, detector_name in detector_field_dict.items():
 
-            # Check if the detector field exists
-            if detector_field not in e.data:
-                continue
+            # Assume that Databroker caches the tables locally, so that data will not be reloaded
+            e = db.get_events(hdr, fill=True, stream_name=des.name)
 
-            print(f"Collecting data from detector '{detector_name}' (field'{detector_field}')")
             new_data = {}
             data = {}
 
@@ -465,9 +465,20 @@ def map_data2D_srx(runid, fpath,
             # Total number of lines in fly scan
             n_scan_lines_total = new_shape[0]
 
+            detector_field_exists = True
+
             for m, v in enumerate(e):
 
                 if m == 0:
+
+                    # Check if detector field does not exist. If not, then the file should not be created.
+                    if detector_field not in v.data:
+                        detector_field_exists = False
+                        break
+
+                    print()
+                    print(f"Collecting data from detector '{detector_name}' (field '{detector_field}')")
+
                     # Determine the number of channels from the size of the table with fluorescence data
                     num_det = v.data[detector_field].shape[1]
 
@@ -505,13 +516,17 @@ def map_data2D_srx(runid, fpath,
                             # in case the data length in each line is different
                             new_data['det'+str(i+1)][m, :fluor_len, :] = v.data['fluor'][:,i,:]
 
+            # If the detector field does not exist, then try the next one from the list
+            if not detector_field_exists:
+                continue
+
             # Modify file name (path) to include data on how many channels are included in the file and how many
             #    channels are used for sum calculation
             root, ext = os.path.splitext(fpath)
             s = f"_{detector_name}_sum({num_det}ch)"
             if create_each_det:
                 s += f"+{num_det}ch"
-            fpath = f'{root + s}{ext}'
+            fpath_out = f'{root + s}{ext}'
 
             if vertical_fast is True: # need to transpose the data, as we scan y first
                 if create_each_det is False:
@@ -568,16 +583,17 @@ def map_data2D_srx(runid, fpath,
 
             if output_to_file:
                 # output to file
-                print('Saving data to hdf file #{n_detectors_found}: Xpress3 detector #2 (single channel).')
-                write_db_to_hdf_base(fpath, new_data,
+                print(f"Saving data to hdf file #{n_detectors_found}: Detector: {detector_name}.")
+                write_db_to_hdf_base(fpath_out, new_data,
                                      create_each_det=create_each_det)
 
+        print()
         if n_detectors_found == 0:
             print(f"ERROR: no data from known detectors were found in the database:")
             print(f"     Check that appropriate fields are included in 'xrf_fly_scan_detector_fields'")
             print(f"         of configuration file: {config_path}")
         else:
-            print(f"Total of {n_detectors_found} were found", end="")
+            print(f"Total of {n_detectors_found} detectors were found", end="")
             if output_to_file:
                 print(f", {n_detectors_found} data files were created", end="")
             print(".")
