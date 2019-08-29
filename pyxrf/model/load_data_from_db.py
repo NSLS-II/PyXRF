@@ -348,7 +348,9 @@ def map_data2D_srx(runid, fpath,
 
 
         try:
-            data = db.get_table(hdr, fill=True, convert_times=False)
+            #data = db.get_table(hdr, fill=True, convert_times=False)
+            data = hdr.table(fill=True, convert_times=False)
+
         except IndexError:
             total_len = get_total_scan_point(hdr) - 2
             evs, _ = zip(*zip(get_events(hdr, fill=True), range(total_len)))
@@ -449,7 +451,8 @@ def map_data2D_srx(runid, fpath,
         for detector_field, detector_name in detector_field_dict.items():
 
             # Assume that Databroker caches the tables locally, so that data will not be reloaded
-            e = db.get_events(hdr, fill=True, stream_name=des.name)
+            #e = db.get_events(hdr, fill=True, stream_name=des.name)
+            e = hdr.events(fill=True, stream_name=des.name)
 
             new_data = {}
             data = {}
@@ -551,7 +554,8 @@ def map_data2D_srx(runid, fpath,
                 x_pos = np.vstack(data[xpos_name])
 
                 # get y position data, from differet stream name primary
-                data1 = db.get_table(hdr, fill=True, stream_name='primary')
+                #data1 = db.get_table(hdr, fill=True, stream_name='primary')
+                data1 = hdr.table(fill=True, stream_name='primary')
                 if num_end_lines_excluded is not None:
                     data1 = data1[:datashape[0]]
                 # if ypos_name not in data1.keys() and 'E_tomo' not in start_doc['scaninfo']['type']:
