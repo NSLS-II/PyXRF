@@ -382,7 +382,7 @@ def map_data2D_srx(runid, fpath,
             if 'xs2' in hdr.start.detectors:
                 print('Saving data to hdf file: Xpress3 detector #2 (single channel).')
                 root, ext = os.path.splitext(fpath)
-                fpath_out = f"{root + '_xs2'}{ext}"
+                fpath_out = f"{root}_xs2{ext}"
                 write_db_to_hdf(fpath_out, data,
                                 datashape,
                                 det_list=config_data['xrf_detector2'],
@@ -526,7 +526,7 @@ def map_data2D_srx(runid, fpath,
             s = f"_{detector_name}_sum({num_det}ch)"
             if create_each_det:
                 s += f"+{num_det}ch"
-            fpath_out = f'{root + s}{ext}'
+            fpath_out = f'{root}{s}{ext}'
 
             if vertical_fast is True: # need to transpose the data, as we scan y first
                 if create_each_det is False:
