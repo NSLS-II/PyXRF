@@ -1454,7 +1454,7 @@ def fit_per_line_nnls(row_num, data,
 
         result, res = nnls_fit(y, matv, weights=None)
         sst = np.sum((y-np.mean(y))**2)
-        if not math.isclose(sst, 0, abs_tol=1e-10):
+        if not math.isclose(sst, 0, abs_tol=1e-20):
             r2_adjusted = 1 - res / (num_data - num_feature - 1) / (sst / (num_data - 1))
         else:
             # This happens if all elements of 'y' are equal (most likely == 0)
