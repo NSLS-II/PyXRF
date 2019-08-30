@@ -1,3 +1,15 @@
-include versioneer.py
-include requirements.txt
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
+
+include LICENSE
+include MANIFEST.in
+include README.md
+
 include pyxrf/_version.py
+include versioneer.py
+
+include requirements.txt
+
+recursive-include configs *.json
+recursive-include docs *.rst conf.py Makefile make.bat _static/*
+recursive-include * *.enaml
