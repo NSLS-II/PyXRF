@@ -40,6 +40,7 @@ import time
 import copy
 import six
 import os
+import math
 from collections import OrderedDict, deque
 import multiprocessing
 import h5py
@@ -1453,7 +1454,6 @@ def fit_per_line_nnls(row_num, data,
 
         result, res = nnls_fit(y, matv, weights=None)
         sst = np.sum((y-np.mean(y))**2)
-        import math
         if not math.isclose(sst, 0, abs_tol=1e-10):
             r2_adjusted = 1 - res / (num_data - num_feature - 1) / (sst / (num_data - 1))
         else:
