@@ -584,7 +584,6 @@ class DrawImageAdvanced(Atom):
                                          clim=(low_lim*maxz, maxz))
                     grid[i].set_ylim(yd_axis_min, yd_axis_max)
 
-
                 grid[i].set_xlim(xd_axis_min, xd_axis_max)
 
                 grid_title = k
