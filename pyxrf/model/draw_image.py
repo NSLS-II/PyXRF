@@ -41,6 +41,7 @@ from collections import OrderedDict
 from scipy.interpolate import interp1d, interp2d
 import copy
 
+import math
 import matplotlib
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
@@ -512,6 +513,11 @@ class DrawImageAdvanced(Atom):
                 low_limit = (maxv-minv)*low_ratio + minv
                 high_limit = (maxv-minv)*high_ratio + minv
 
+                # Set some minimum range for the colorbar (otherwise it will have white fill)
+                if math.isclose(low_limit, high_limit, abs_tol=2e-20):
+                    high_limit += 1e-20
+                    low_limit -= 1e-20
+
                 if self.scatter_show is not True:
                     im = grid[i].imshow(data_dict,
                                         cmap=grey_use,
@@ -552,6 +558,10 @@ class DrawImageAdvanced(Atom):
             else:
 
                 maxz = np.max(data_dict)
+                # Set some reasonable minimum range for the colorbar
+                #   Zeros or negative numbers will be shown in white
+                if maxz <= 1e30:
+                    maxz = 1
 
                 if self.scatter_show is not True:
                     im = grid[i].imshow(data_dict,
@@ -573,6 +583,7 @@ class DrawImageAdvanced(Atom):
                                          linewidths=1, linewidth=0,
                                          clim=(low_lim*maxz, maxz))
                     grid[i].set_ylim(yd_axis_min, yd_axis_max)
+
 
                 grid[i].set_xlim(xd_axis_min, xd_axis_max)
 
