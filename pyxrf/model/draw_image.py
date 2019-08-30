@@ -560,7 +560,7 @@ class DrawImageAdvanced(Atom):
                 maxz = np.max(data_dict)
                 # Set some reasonable minimum range for the colorbar
                 #   Zeros or negative numbers will be shown in white
-                if maxz <= 1e30:
+                if maxz <= 1e-30:
                     maxz = 1
 
                 if self.scatter_show is not True:
