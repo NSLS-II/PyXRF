@@ -311,14 +311,14 @@ class DrawImageAdvanced(Atom):
                 data_dict = self.dict_to_plot[k]
             lowv = np.min(data_dict)
             highv = np.max(data_dict)
-            self.range_dict[k] = {'low':lowv, 'low_defualt':lowv,
-                                  'high':highv, 'high_defualt':highv}
+            self.range_dict[k] = {'low':lowv, 'low_default':lowv,
+                                  'high':highv, 'high_default':highv}
 
     def reset_low_high(self, name):
         """Reset low and high value to default based on normalization.
         """
-        self.range_dict[name]['low'] = self.range_dict[name]['low_defualt']
-        self.range_dict[name]['high'] = self.range_dict[name]['high_defualt']
+        self.range_dict[name]['low'] = self.range_dict[name]['low_default']
+        self.range_dict[name]['high'] = self.range_dict[name]['high_default']
         self.limit_dict[name]['low'] = 0.0
         self.limit_dict[name]['high'] = 100.0
         self.update_img_wizard_items()
