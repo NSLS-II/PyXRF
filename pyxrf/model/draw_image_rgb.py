@@ -303,10 +303,10 @@ class DrawImageRGB(Atom):
 
         return selected_data, selected_name
 
-    @observe('r_low, r_high, g_low, g_high, b_low, b_high')
-    def _update_scale(self, change):
-        if change['type'] != 'create':
-            self.show_image()
+    #@observe('r_low', 'r_high', 'g_low', 'g_high', 'b_low', 'b_high')
+    #def _update_scale(self, change):
+    #    if change['type'] != 'create':
+    #        self.show_image()
 
     def show_image(self):
 
@@ -380,40 +380,52 @@ class DrawImageRGB(Atom):
         name_b = self.rgb_name_list[self.index_blue]
         data_b = selected_data[self.index_blue,:,:]
 
-        rgb_dict = {'data0':{'low':self.r_low, 'high':self.r_high},
-                    'data1':{'low':self.g_low, 'high':self.g_high},
-                    'data2':{'low':self.b_low, 'high':self.b_high}}
-        # norm data
-        data_r = norm_data(data_r)
-        data_g = norm_data(data_g)
-        data_b = norm_data(data_b)
+        rgb_l_h = ({'low':self.r_low, 'high':self.r_high},
+                   {'low':self.g_low, 'high':self.g_high},
+                   {'low':self.b_low, 'high':self.b_high})
+
+        def _norm_data(data):
+            """
+            Normalize data between (0,1).
+            Parameters
+            ----------
+            data : 2D array
+            """
+            return (data - np.min(data)) / (np.max(data) - np.min(data))
+
+        def _stretch_range(data_in, v_low, v_high):
+
+            # 'data is already normalized, so that the values are in the range 0..1
+            # v_low, v_high are in the range 0..100
+
+            if (v_low <= 0) and (v_high >= 100):
+                return data_in
+
+            if v_high - v_low < 1:  # This should not happen in practice, but check just in case
+                v_high = v_low + 1
+
+            v_low, v_high = v_low/100.0, v_high/100.0
+            c = 1.0/(v_high-v_low)
+            data_out = (data_in - v_low) * c
+            data_out[data_out < 0.0] = 0.0
+            data_out[data_out > 1.0] = 1.0
+
+            return data_out
+
+        # Normalize data
+        data_r = _norm_data(data_r)
+        data_g = _norm_data(data_g)
+        data_b = _norm_data(data_b)
 
         # set limit, there should be a better way to do this
-        rl = rgb_dict['data'+str(self.index_red)]['low']
-        rh = rgb_dict['data'+str(self.index_red)]['high']
-        data_r[data_r<rl/100.0] = 0.0
-        data_r[data_r>rh/100.0] = rh/100.0
-        gl = rgb_dict['data'+str(self.index_green)]['low']
-        gh = rgb_dict['data'+str(self.index_green)]['high']
-        data_g[data_g<gl/100.0] = 0.0
-        data_g[data_g>gh/100.0] = gh/100.0
-        bl = rgb_dict['data'+str(self.index_blue)]['low']
-        bh = rgb_dict['data'+str(self.index_blue)]['high']
-        data_b[data_b<bl/100.0] = 0.0
-        data_b[data_b>bh/100.0] = bh/100.0
-
-        # data_r[data_r<self.rgb_limit['R'][0]/100.0] = 0.0
-        # data_r[data_r>self.rgb_limit['R'][1]/100.0] = self.rgb_limit['R'][1]/100.0
-        # data_g[data_g<self.rgb_limit['G'][0]/100.0] = 0.0
-        # data_g[data_g>self.rgb_limit['G'][1]/100.0] = self.rgb_limit['G'][1]/100.0
-        # data_b[data_b<self.rgb_limit['B'][0]/100.0] = 0.0
-        # data_b[data_b>self.rgb_limit['B'][1]/100.0] = self.rgb_limit['B'][1]/100.0
+        data_r = _stretch_range(data_r, rgb_l_h[self.index_red]['low'], rgb_l_h[self.index_red]['high'])
+        data_g = _stretch_range(data_g, rgb_l_h[self.index_green]['low'], rgb_l_h[self.index_green]['high'])
+        data_b = _stretch_range(data_b, rgb_l_h[self.index_blue]['low'], rgb_l_h[self.index_blue]['high'])
 
         R, G, B, RGB = make_cube(data_r,
                                  data_g,
                                  data_b)
 
-        #self.fig.clf()
         red_patch = mpatches.Patch(color='red', label=name_r)
         green_patch = mpatches.Patch(color='green', label=name_g)
         blue_patch = mpatches.Patch(color='blue', label=name_b)
@@ -463,14 +475,6 @@ class DrawImageRGB(Atom):
         return {k: v for (k, v) in six.iteritems(self.stat_dict) if v is True}
 
 
-def norm_data(data):
-    """
-    Normalize data between (0,1).
-    Parameters
-    ----------
-    data : 2D array
-    """
-    return (data-np.min(data))/(np.max(data)-np.min(data))
 
 def make_cube(r, g, b):
     """
