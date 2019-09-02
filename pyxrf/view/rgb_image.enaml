@@ -91,7 +91,7 @@ enamldef ImageRGB(DockItem):
             index := img_model_adv.scaler_name_index
 
         PushButton: plot_btn:
-            text = 'Show Image'
+            text = 'Update Plot'
             clicked ::
                 img_model_adv.show_image()
 
