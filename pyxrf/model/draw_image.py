@@ -90,8 +90,6 @@ class DrawImageAdvanced(Atom):
         index to select on GUI level
     scaler_data : None or numpy
         selected scaler data
-    plot_all : Bool
-        to control plot all of the data or not
     x_pos : list
         define data range in horizontal direction
     y_pos : list
@@ -122,7 +120,6 @@ class DrawImageAdvanced(Atom):
     scaler_name_index = Int()
     scaler_data = Typed(object)
 
-    plot_all = Bool(False)
     x_pos = List()
     y_pos = List()
 
@@ -203,7 +200,7 @@ class DrawImageAdvanced(Atom):
         self.data_opt = 0
         # init of scaler for normalization
         self.scaler_name_index = 0
-        self.plot_all = False
+        self.plot_deselect_all()
 
     def get_default_items(self):
         """Add previous selected items as default.
@@ -276,12 +273,11 @@ class DrawImageAdvanced(Atom):
     def _update_pp(self, change):
             self.show_image()
 
-    @observe('plot_all')
-    def _update_all_plot(self, change):
-        if self.plot_all is True:
-            self.set_stat_for_all(bool_val=True)
-        else:
-            self.set_stat_for_all(bool_val=False)
+    def plot_select_all(self):
+        self.set_stat_for_all(bool_val=True)
+
+    def plot_deselect_all(self):
+        self.set_stat_for_all(bool_val=False)
 
     @observe('scatter_show')
     def _change_image_plot_method(self, change):
