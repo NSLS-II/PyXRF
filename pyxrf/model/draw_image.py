@@ -311,7 +311,7 @@ class DrawImageAdvanced(Atom):
         str - the string representation of the floating point variable
         """
         if value != 0:
-            value_log10 = math.log10(value)
+            value_log10 = math.log10(abs(value))
         else:
             value_log10 = 0
         if (value_log10 > 3) or (value_log10 < -3):
