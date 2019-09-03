@@ -391,7 +391,8 @@ class DrawImageRGB(Atom):
             ----------
             data : 2D array
             """
-            return (data - np.min(data)) / (np.max(data) - np.min(data))
+            data_min = np.min(data)
+            return (data - data_min) / (np.max(data) - data_min)
 
         def _stretch_range(data_in, v_low, v_high):
 
@@ -407,10 +408,8 @@ class DrawImageRGB(Atom):
             v_low, v_high = v_low / 100.0, v_high / 100.0
             c = 1.0 / (v_high - v_low)
             data_out = (data_in - v_low) * c
-            data_out[data_out < 0.0] = 0.0
-            data_out[data_out > 1.0] = 1.0
 
-            return data_out
+            return np.clip(data_out, 0, 1.0)
 
         # Normalize data
         data_r = _norm_data(data_r)
