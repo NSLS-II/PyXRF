@@ -380,13 +380,13 @@ class DrawImageRGB(Atom):
         name_b = self.rgb_name_list[self.index_blue]
         data_b = selected_data[self.index_blue,:,:]
 
-        rgb_l_h = ({'low':self.r_low, 'high':self.r_high},
-                   {'low':self.g_low, 'high':self.g_high},
-                   {'low':self.b_low, 'high':self.b_high})
+        rgb_l_h = ({'low': self.r_low, 'high': self.r_high},
+                   {'low': self.g_low, 'high': self.g_high},
+                   {'low': self.b_low, 'high': self.b_high})
 
         def _norm_data(data):
             """
-            Normalize data between (0,1).
+            Normalize data between (0, 1).
             Parameters
             ----------
             data : 2D array
@@ -405,7 +405,7 @@ class DrawImageRGB(Atom):
                 v_high = v_low + 1
 
             v_low, v_high = v_low/100.0, v_high/100.0
-            c = 1.0/(v_high-v_low)
+            c = 1.0 / (v_high - v_low)
             data_out = (data_in - v_low) * c
             data_out[data_out < 0.0] = 0.0
             data_out[data_out > 1.0] = 1.0

@@ -299,7 +299,10 @@ class DrawImageAdvanced(Atom):
         This function is used for formatting of range values in 'Image Wizard'.
         The presentation of the number was tweaked so that it is nicely formatted
            in the enaml field with adequate precision.
-        NOTE: The function is called externally from 'enaml' code.
+
+        ..note::
+        
+        The function is called externally from 'enaml' code.
 
         Parameters:
         ===========
@@ -360,8 +363,8 @@ class DrawImageAdvanced(Atom):
                                              data_name=data_name, name_not_scalable=self.name_not_scalable)
             lowv = np.min(data_arr)
             highv = np.max(data_arr)
-            self.range_dict[data_name] = {'low':lowv, 'low_default':lowv,
-                                          'high':highv, 'high_default':highv}
+            self.range_dict[data_name] = {'low': lowv, 'low_default': lowv,
+                                          'high': highv, 'high_default': highv}
 
     def reset_low_high(self, name):
         """Reset low and high value to default based on normalization.
