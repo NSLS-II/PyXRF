@@ -129,6 +129,7 @@ enamldef ChooseElementAdvanced(Window): win:
     attr img_model
 
     title = 'Select Elements to Plot'
+    initial_size = (900, 500)
     Container:
         constraints = [
             vbox(
@@ -138,16 +139,27 @@ enamldef ChooseElementAdvanced(Window): win:
         ]
 
         PushButton: plot_btn:
-            text = 'Show Image'
+            text = 'Update Plot'
             clicked ::
                 img_model.show_image()
         GroupBox: gb:
+            constraints = [vbox(
+                                hbox(select_all_btn, deselect_all_btn, spacer),
+                                hbox(scroll_select),)
+                                # hbox(save_selected, spacer),)
+                          ]
             title = 'Add/Remove Image'
-            PushButton: select_btn:
+            PushButton: select_all_btn:
                 text = 'Select All'
-                checkable = True
-                checked := img_model.plot_all
-            ScrollArea:
+                checkable = False
+                clicked ::
+                    img_model.plot_select_all()
+            PushButton: deselect_all_btn:
+                text = 'Deselect All'
+                checkable = False
+                clicked ::
+                    img_model.plot_deselect_all()
+            ScrollArea: scroll_select:
                 constraints = [height >= 80]
                 Container:
                     Form:
@@ -162,10 +174,7 @@ enamldef ChooseElementAdvanced(Window): win:
                                     text = 'Select'
                                     minimum_size = (40, 20)
                                     checkable = True
-                                    #checked << img_model.plot_all
-                                    #checked << getattr(img_model.stat_dict, loop_item, False)
                                     checked << get_status(img_model.stat_dict, loop_item)
-                                    #checked << img_model.stat_dict[loop_item]
                                     clicked ::
                                         if checked:
                                             img_model.stat_dict[loop_item] = True
@@ -186,19 +195,26 @@ enamldef ChooseElementAdvanced(Window): win:
                                     maximum = 100
                                     low_value >> img_model.limit_dict[loop_item]['low']
                                     high_value >> img_model.limit_dict[loop_item]['high']
-                                FloatField: ff_low:
-                                    value := img_model.range_dict[loop_item]['low']
-                                FloatField: ff_high:
-                                    value := img_model.range_dict[loop_item]['high']
+                                Field: ff_low:
+                                    read_only = True
+                                    text << img_model.format_img_wizard_limit(img_model.range_dict[loop_item]['low'])
+                                Field: ff_high:
+                                    read_only = True
+                                    text << img_model.format_img_wizard_limit(img_model.range_dict[loop_item]['high'])
                                 PushButton: reset_btn:
-                                    text = 'Reset Low & High'
+                                    text = 'Reset'
                                     clicked ::
-                                        img_model.reset_low_high(loop_item)
+                                        dual_slider.low_value = 0
+                                        dual_slider.high_value = 100
+                                        #img_model.reset_low_high(loop_item)
 
-            PushButton: save_selected:
-                text = 'Save Selected as Default'
-                clicked ::
-                    img_model.record_selected()
+            # 'Save Selected as Default' button does not serve any useful purpose now, but
+            #    it may make sense to implement it properly in the future. So I commented
+            #    the code to temporarily eliminate non-functional controls.
+            # PushButton: save_selected:
+            #     text = 'Save Selected as Default'
+            #     clicked ::
+            #         img_model.record_selected()
 
 
 def get_status(dictv, name):
