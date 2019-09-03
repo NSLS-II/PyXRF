@@ -55,6 +55,36 @@ import logging
 logger = logging.getLogger()
 
 
+def _normalize_data_array(data_in, scaler, *, data_name, name_not_scalable):
+    '''
+    Normalize data based on the availability of scaler
+
+    Parameters
+    ----------
+
+    data_in : ndarray
+        numpy array of input data
+    scaler : ndarray
+        numpy array of scaling data, the same size as data_in
+    data_name : str
+        name of the data set ('time' or 'i0' etc.)
+    name_not_scalable : list
+        names of not scalable datasets (['time', 'i0_time'])
+
+    Returns
+    -------
+    ndarray with normalized data, the same shape as data_in
+    '''
+    if scaler is not None:
+        if data_name in name_not_scalable:
+            data_out = data_in
+        else:
+            data_out = data_in / scaler
+    else:
+        data_out = data_in
+
+    return data_out
+
 class DrawImageAdvanced(Atom):
     """
     This class performs 2D image rendering, such as showing multiple
@@ -264,6 +294,30 @@ class DrawImageAdvanced(Atom):
         self.items_in_selected_group = []
         self.items_in_selected_group = list(self.dict_to_plot.keys())
 
+    def format_img_wizard_limit(self, value):
+        """
+        This function is used for formatting of range values in 'Image Wizard'.
+        The presentation of the number was tweaked so that it is nicely formatted
+           in the enaml field with adequate precision.
+        NOTE: The function is called externally from 'enaml' code.
+
+        Parameters:
+        ===========
+        value : float
+            The value to be formatted
+
+        Returns:
+        ========
+        str - the string representation of the floating point variable
+        """
+        if value != 0:
+            value_log10 = math.log10(value)
+        else:
+            value_log10 = 0
+        if (value_log10 > 3) or (value_log10 < -3):
+            return f"{value:.6e}"
+        return f"{value:.6f}"
+
     @observe('scale_opt', 'color_opt')
     def _update_scale(self, change):
         if change['type'] != 'create':
@@ -299,20 +353,15 @@ class DrawImageAdvanced(Atom):
     def set_low_high_value(self):
         """Set default low and high values based on normalization for each image.
         """
-        # do not apply scaler norm on not scalabel data
+        # do not apply scaler norm on not scalable data
         self.range_dict.clear()
-        for k in self.dict_to_plot.keys():
-            if self.scaler_data is not None:
-                if k in self.name_not_scalable:
-                    data_dict = self.dict_to_plot[k]
-                else:
-                    data_dict = self.dict_to_plot[k]/self.scaler_data * np.mean(self.scaler_data)
-            else:
-                data_dict = self.dict_to_plot[k]
-            lowv = np.min(data_dict)
-            highv = np.max(data_dict)
-            self.range_dict[k] = {'low':lowv, 'low_default':lowv,
-                                  'high':highv, 'high_default':highv}
+        for data_name in self.dict_to_plot.keys():
+            data_arr = _normalize_data_array(self.dict_to_plot[data_name], self.scaler_data,
+                                             data_name=data_name, name_not_scalable=self.name_not_scalable)
+            lowv = np.min(data_arr)
+            highv = np.max(data_arr)
+            self.range_dict[data_name] = {'low':lowv, 'low_default':lowv,
+                                          'high':highv, 'high_default':highv}
 
     def reset_low_high(self, name):
         """Reset low and high value to default based on normalization.
@@ -359,41 +408,6 @@ class DrawImageAdvanced(Atom):
                          cbar_pad='2%',
                          share_all=True)
 
-        def _normalize_data_array(data_in, scaler, *, data_name, name_not_scalable):
-            ''' 
-            Normalize data based on the availability of scaler
-            
-            Parameters
-            ----------
-
-            data_in : ndarray
-                numpy array of input data
-            scaler : ndarray 
-                numpy array of scaling data, the same size as data_in
-            data_name : str 
-                name of the data set ('time' or 'i0' etc.)
-            name_not_scalable : list 
-                names of not scalable datasets (['time', 'i0_time'])
-            
-            Returns
-            -------
-            ndarray with normalized data, the same shape as data_in
-            '''
-            if scaler is not None:
-                if data_name in name_not_scalable:
-                    data_out = data_in
-                else:
-                    # Leave the commented old normalization for future reference !!! (Dmitri G.)
-                    # 'Old' normalization - 'scaler' is divided by its mean before it is applied
-                    # data_out = data_in / scaler * np.mean(scaler)
-                    
-                    # 'New', more appropriate, normalization, which preserves quantitative information: 
-                    #     'scaler' is directly applied
-                    data_out = data_in / scaler
-            else:
-                data_out = data_in
-            
-            return data_out
 
         def _compute_equal_axes_ranges(x_min, x_max, y_min, y_max):
             """
