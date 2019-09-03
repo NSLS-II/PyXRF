@@ -404,7 +404,7 @@ class DrawImageRGB(Atom):
             if v_high - v_low < 1:  # This should not happen in practice, but check just in case
                 v_high = v_low + 1
 
-            v_low, v_high = v_low/100.0, v_high/100.0
+            v_low, v_high = v_low / 100.0, v_high / 100.0
             c = 1.0 / (v_high - v_low)
             data_out = (data_in - v_low) * c
             data_out[data_out < 0.0] = 0.0
