@@ -129,6 +129,7 @@ enamldef ChooseElementAdvanced(Window): win:
     attr img_model
 
     title = 'Select Elements to Plot'
+    initial_size = (900, 500)
     Container:
         constraints = [
             vbox(
