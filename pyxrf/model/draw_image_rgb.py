@@ -416,7 +416,6 @@ class DrawImageRGB(Atom):
         data_g = _norm_data(data_g)
         data_b = _norm_data(data_b)
 
-        # set limit, there should be a better way to do this
         data_r = _stretch_range(data_r, rgb_l_h[self.index_red]['low'], rgb_l_h[self.index_red]['high'])
         data_g = _stretch_range(data_g, rgb_l_h[self.index_green]['low'], rgb_l_h[self.index_green]['high'])
         data_b = _stretch_range(data_b, rgb_l_h[self.index_blue]['low'], rgb_l_h[self.index_blue]['high'])
