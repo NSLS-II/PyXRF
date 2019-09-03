@@ -208,7 +208,7 @@ enamldef ChooseElementAdvanced(Window): win:
                                         dual_slider.high_value = 100
                                         #img_model.reset_low_high(loop_item)
 
-            # 'Save Selected as Default' button does not serve any useful purpose now, but it
+            # 'Save Selected as Default' button does not serve any useful purpose now, but
             #    it may make sense to implement it properly in the future. So I commented
             #    the code to temporarily eliminate non-functional controls.
             # PushButton: save_selected:
