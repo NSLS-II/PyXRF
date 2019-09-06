@@ -367,9 +367,9 @@ class DrawImageRGB(Atom):
         yd, xd = selected_data.shape[1], selected_data.shape[2]
         xd_min, xd_max, yd_min, yd_max = 0, xd, 0, yd
         # Select minimum range for data
-        if yd <= 5:
+        if (yd <= 5) and (xd >= 200):
             yd_min, yd_max = -5, 4
-        if xd <= 5:
+        if (xd <= 5) and (yd >= 200):
             xd_min, xd_max = -5, 4
         xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
 
