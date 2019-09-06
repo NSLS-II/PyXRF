@@ -505,9 +505,9 @@ class DrawImageAdvanced(Atom):
                 yd, xd = data_dict.shape
 
                 xd_min, xd_max, yd_min, yd_max = 0, xd, 0, yd
-                if yd <= 5:
+                if (yd <= 5) and (xd >= 200):
                     yd_min, yd_max = -5, 4
-                if xd <= 5:
+                if (xd <= 5) and (yd >= 200):
                     xd_min, xd_max = -5, 4
 
                 xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
@@ -528,8 +528,12 @@ class DrawImageAdvanced(Atom):
 
                 # Set some minimum range for the colorbar (otherwise it will have white fill)
                 if math.isclose(low_limit, high_limit, abs_tol=2e-20):
-                    high_limit += 1e-20
-                    low_limit -= 1e-20
+                    if abs(low_limit) < 1e-20:  # The value is zero
+                        dv = 1e-20
+                    else:
+                        dv = low_limit * 0.01
+                    high_limit += dv
+                    low_limit -= dv
 
                 if self.scatter_show is not True:
                     im = grid[i].imshow(data_dict,
@@ -540,10 +544,21 @@ class DrawImageAdvanced(Atom):
                                         clim=(low_limit, high_limit))
                     grid[i].set_ylim(yd_axis_max, yd_axis_min)
                 else:
-                    im = grid[i].scatter(self.data_dict['positions']['x_pos'],
-                                         self.data_dict['positions']['y_pos'],
+                    #c_map = plt.get_cmap(grey_use)
+                    #colors = c_map(low_limit, high_limit, c_map.N)
+                    #color_map = matplotlib.colors.LinearSegmentedColormap.from_list('Upper Half', colors)
+                    #data_y_clipped = np.clip(self.data_dict['positions']['y_pos'])
+                    xx = self.data_dict['positions']['x_pos']
+                    yy = self.data_dict['positions']['y_pos']
+                    data_dict = np.clip(data_dict, low_limit, high_limit)
+                    (n1, n2) = np.shape(xx)
+                    xx = np.append(xx, np.ones(n2) * xd_axis_max + 1000)
+                    yy = np.append(yy, np.ones(n2) * yd_axis_max + 1000)
+                    data_dict = np.append(data_dict, np.ones(n2) * high_limit)
+                    im = grid[i].scatter(xx, yy,
                                          c=data_dict, marker='s', s=500, alpha=1.0,  # Originally: alpha=0.8
                                          cmap=grey_use,
+                                         #cmap=color_map,
                                          linewidths=1, linewidth=0,
                                          clim=(low_limit, high_limit))
                     grid[i].set_ylim(yd_axis_max, yd_axis_min)
