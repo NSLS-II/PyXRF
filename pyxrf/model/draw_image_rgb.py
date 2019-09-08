@@ -48,6 +48,9 @@ from matplotlib.colors import LogNorm
 import matplotlib.patches as mpatches
 from mpl_toolkits.axes_grid1.axes_rgb import make_rgb_axes, RGBAxes
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool, Float
+
+from .utils import normalize_data_by_scaler
+
 import logging
 logger = logging.getLogger()
 
@@ -91,8 +94,6 @@ class DrawImageRGB(Atom):
         selected data dict to plot, i.e., fitting data or roi is selected
     items_in_selected_group : list
         keys of dict_to_plot
-    scale_opt : str
-        linear or log plot
     color_opt : str
         orange or gray plot
     scaler_norm_dict : dict
@@ -121,7 +122,6 @@ class DrawImageRGB(Atom):
     #plot_item = Str()
     dict_to_plot = Dict()
     items_in_selected_group = List()
-    scale_opt = Str('Linear')
     scaler_norm_dict = Dict()
     scaler_items = List()
     scaler_name_index = Int()
@@ -234,11 +234,6 @@ class DrawImageRGB(Atom):
                         'and the shape of scaler data is {}'.format(self.scaler_data.shape))
         self.show_image()
 
-    @observe('scale_opt')
-    def _update_scale(self, change):
-        if change['type'] != 'create':
-            self.show_image()
-
     def set_stat_for_all(self, bool_val=False):
         """
         Set plotting status for all the 2D images.
@@ -265,43 +260,16 @@ class DrawImageRGB(Atom):
                 self.scaler_data[self.scaler_data == 0] = np.mean(self.scaler_data[self.scaler_data != 0])
                 logger.warning('Use mean value {} instead for those points'.format(np.mean(self.scaler_data)))
 
-        if self.scale_opt == 'Linear':
-            for i, (k, v) in enumerate(six.iteritems(stat_temp)):
+        for i, (k, v) in enumerate(six.iteritems(stat_temp)):
 
-                if self.scaler_data is not None:
-                    if k in self.name_not_scalable:
-                        data_dict = self.dict_to_plot[k]
-                    else:
-                        data_dict = self.dict_to_plot[k]/self.scaler_data
+            data_dict = normalize_data_by_scaler(self.dict_to_plot[k], self.scaler_data,
+                                                 data_name=k, name_not_scalable=self.name_not_scalable)
 
-                else:
-                    data_dict = self.dict_to_plot[k]
-
-                selected_data.append(data_dict)
-                selected_name.append(k) #self.file_name+'_'+str(k)
-
-        else:
-            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            # This block of code should not be executed, since 'self.ic_norm' is not defined
-            # Currently log scale presentation of data is disabled
-            for i, (k, v) in enumerate(six.iteritems(stat_temp)):
-
-                if self.scaler_data is not None:
-                    if k in self.name_not_scalable:
-                        data_dict = np.log(self.dict_to_plot[k])
-                    else:
-                        # Modified code (just in case this block is called)
-                        data_dict = np.log(self.dict_to_plot[k]/self.scaler_data)
-                        # Original code (decide how to define 'self.ic_norm' before enabling log scale
-                        #data_dict = np.log(self.dict_to_plot[k]/self.scaler_data*self.ic_norm)
-
-                else:
-                    data_dict = np.log(self.dict_to_plot[k])
-
-                selected_data.append(data_dict)
-                selected_name.append(k)
+            selected_data.append(data_dict)
+            selected_name.append(k)  # self.file_name+'_'+str(k)
 
         return selected_data, selected_name
+
 
     #@observe('r_low', 'r_high', 'g_low', 'g_high', 'b_low', 'b_high')
     #def _update_scale(self, change):
