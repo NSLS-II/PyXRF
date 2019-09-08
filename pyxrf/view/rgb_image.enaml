@@ -80,12 +80,6 @@ enamldef ImageRGB(DockItem):
             index >> img_model_adv.data_opt
             minimum_size = (200,20)
 
-        #ComboBox: cb_select:
-        #    items = ['Linear', 'Log']
-        #    index = 0
-        #    index ::
-        #        img_model_adv.scale_opt = cb_select.selected_item
-
         ComboBox: cb_norm:
             items << ['Normalized by '] + sorted(img_model_adv.scaler_items)
             index := img_model_adv.scaler_name_index
