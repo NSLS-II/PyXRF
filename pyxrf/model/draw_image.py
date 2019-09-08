@@ -55,7 +55,7 @@ import logging
 logger = logging.getLogger()
 
 
-def _normalize_data_array(data_in, scaler, *, data_name, name_not_scalable):
+def _normalize_data_array(data_in, scaler, *, data_name=None, name_not_scalable=None):
     '''
     Normalize data based on the availability of scaler
 
@@ -74,12 +74,45 @@ def _normalize_data_array(data_in, scaler, *, data_name, name_not_scalable):
     Returns
     -------
     ndarray with normalized data, the same shape as data_in
+        The returned array is the reference to 'data_in' if no normalization
+        is applied to data.
+
+    Normalization will not be performed if
+    - scaler is None
+    - scaler is not the same shape as data_in
+    - scaler contains all elements equal to zero
     '''
-    if scaler is not None:
-        if data_name in name_not_scalable:
-            data_out = data_in
-        else:
-            data_out = data_in / scaler
+
+    if data_in is None or scaler is None:  # Nothing to scale
+        return data_in
+
+    if data_in.shape != scaler.shape:
+        return data_in
+
+    do_scaling = False
+    # Check if data name is in the list of non-scalable items
+    # If data name or the list does not exits, then do the scaling
+    if name_not_scalable is None or \
+            data_name is None or \
+            data_name not in name_not_scalable:
+        do_scaling = True
+
+    # If scaler is all zeros, then don't scale the data:
+    #   check if there is at least one nonzero element
+    n_nonzero = np.count_nonzero(scaler)
+    if not n_nonzero:
+        do_scaling = False
+
+    if do_scaling:
+        # If scaler contains some zeros, set those zeros to mean value
+        if data_in.size != n_nonzero:
+            s_mean = np.mean(scaler)
+            # Avoid division by very small number (or zero)
+            if np.abs(s_mean) < 1e-10:
+                s_mean = 1e-10 if np.sign(s_mean) >= 0 else -1e-10
+            scaler = scaler.copy()
+            scaler[scaler == 0.0] = s_mean
+        data_out = data_in / scaler
     else:
         data_out = data_in
 
