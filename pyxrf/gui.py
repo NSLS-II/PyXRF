@@ -33,7 +33,6 @@
 # POSSIBILITY OF SUCH DAMAGE.                                          #
 ########################################################################
 from __future__ import absolute_import
-__author__ = 'Li Li'
 import enaml
 from enaml.qt.qt_application import QtApplication
 

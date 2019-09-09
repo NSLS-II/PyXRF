@@ -33,7 +33,6 @@
 # POSSIBILITY OF SUCH DAMAGE.                                          #
 ########################################################################
 from __future__ import absolute_import
-__author__ = 'Li Li'
 
 import numpy as np
 import time

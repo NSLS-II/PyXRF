@@ -36,8 +36,6 @@
 from __future__ import (absolute_import, division,
                         print_function)
 
-__author__ = 'Li Li'
-
 import numpy as np
 import six
 import json

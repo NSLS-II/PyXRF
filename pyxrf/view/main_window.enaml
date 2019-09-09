@@ -33,7 +33,6 @@
 # POSSIBILITY OF SUCH DAMAGE.                                          #
 ########################################################################
 from __future__ import absolute_import
-__author__ = 'Li Li'
 
 from enaml.widgets.api import (MainWindow, Container, DockArea)
 from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, TabLayout
