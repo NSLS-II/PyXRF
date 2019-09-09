@@ -256,10 +256,10 @@ class DrawImageRGB(Atom):
         plot_interp = 'Nearest'
 
         if self.scaler_data is not None:
-            if len(self.scaler_data[self.scaler_data == 0]) > 0:
-                logger.warning('scaler data has zero values at {}'.format(np.where(self.scaler_data == 0)))
-                self.scaler_data[self.scaler_data == 0] = np.mean(self.scaler_data[self.scaler_data != 0])
-                logger.warning('Use mean value {} instead for those points'.format(np.mean(self.scaler_data)))
+            if np.count_nonzero(self.scaler_data) == 0:
+                logger.warning('scaler is zero - scaling was not applied')
+            elif len(self.scaler_data[self.scaler_data == 0]) > 0:
+                logger.warning('scaler data has zero values')
 
         for i, (k, v) in enumerate(six.iteritems(stat_temp)):
 
