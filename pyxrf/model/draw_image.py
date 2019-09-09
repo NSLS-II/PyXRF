@@ -516,29 +516,19 @@ class DrawImageAdvanced(Atom):
                                         clim=(low_limit, high_limit))
                     grid[i].set_ylim(yd_axis_max, yd_axis_min)
                 else:
-                    # Colorbar range can not be easily controlled in 'scatter' plot
-                    # To control the range, amend the plotted data so that
-                    #   1. all the data points fall within the desired range
-                    #   2. the data points include values at the edges of the range
-                    #        (the range is defined with 'high_limit' and 'low_limit')
-                    #   Note: 'high_limit' must not necessarily be larger than 'low_limit'
-                    # To satisfy the requirement #2 we add two extra points to the plotted
-                    #   dataset. Those points should not be visible, so they are placed
-                    #   outside the visible plot region.
-                    xx = self.data_dict['positions']['x_pos'].flatten()
-                    yy = self.data_dict['positions']['y_pos'].flatten()
-                    data_dict = np.clip(data_dict, low_limit, high_limit)
-                    x_jump = 2 * xd_axis_max - xd_axis_min
-                    y_jump = 2 * yd_axis_max - yd_axis_min
-                    xx = np.append(xx, [x_jump, x_jump])
-                    yy = np.append(yy, [y_jump, y_jump])
-                    data_dict = np.append(data_dict, [high_limit, low_limit])
-                    im = grid[i].scatter(xx, yy, c=data_dict,
-                                         marker='s', s=500,
-                                         alpha=1.0,  # Originally: alpha=0.8
-                                         cmap=grey_use,
-                                         linewidths=1, linewidth=0)
-                    grid[i].set_ylim(yd_axis_max, yd_axis_min)
+                    xx = self.data_dict['positions']['x_pos']
+                    yy = self.data_dict['positions']['y_pos']
+
+                    # The following condition prevents crash if different file is loaded while
+                    #    the scatter plot is open (PyXRF specific issue)
+                    if data_dict.shape == xx.shape and data_dict.shape == yy.shape:
+                        im = grid[i].scatter(xx, yy, c=data_dict,
+                                             marker='s', s=500,
+                                             alpha=1.0,  # Originally: alpha=0.8
+                                             cmap=grey_use,
+                                             vmin=low_limit, vmax=high_limit,
+                                             linewidths=1, linewidth=0)
+                        grid[i].set_ylim(yd_axis_max, yd_axis_min)
 
                 grid[i].set_xlim(xd_axis_min, xd_axis_max)
 
