@@ -44,6 +44,7 @@ import json
 from collections import OrderedDict
 import copy
 import os
+import math
 
 from atom.api import (Atom, Str, observe, Typed,
                       Int, Dict, List, Float, Enum, Bool)
@@ -145,7 +146,7 @@ class ElementController(object):
         Parameters
         ----------
         threshv : float
-            No value is shown when smaller than the shreshold value
+            No value is shown when smaller than the threshold value
         """
         #max_dict = reduce(max, map(np.max, six.itervalues(self.element_dict)))
         max_dict = np.max([v.maxv for v in six.itervalues(self.element_dict)])
@@ -175,7 +176,11 @@ class ElementController(object):
         In case users change the max value.
         """
         for v in six.itervalues(self.element_dict):
-            factor = v.maxv/np.max(v.spectrum)
+            max_spectrum = np.max(v.spectrum)
+            if not math.isclose(max_spectrum, 0.0, abs_tol=1e-20):
+                factor = v.maxv/max_spectrum
+            else:
+                factor = 0
             v.spectrum *= factor
             v.area *= factor
         self.update_norm()
