@@ -473,6 +473,25 @@ class DrawImageAdvanced(Atom):
                     low_limit -= dv
 
                 if self.scatter_show is not True:
+
+                    xx = self.data_dict['positions']['x_pos']
+                    yy = self.data_dict['positions']['y_pos']
+
+                    if self.pixel_or_pos:
+                        nx, ny = xx.shape
+                        x_min, x_max = np.min(xx), np.max(xx)
+                        if xx[0, 0] > xx[-1][-1]:
+                            x_min, x_max = x_max, x_min
+                        #dx = (x_max - x_min) / nx
+                        y_min, y_max = np.min(yy), np.max(yy)
+                        if yy[0, 0] > yy[-1][-1]:
+                            y_min, y_max = y_max, y_min
+                        #dy = (y_max - y_min) / ny
+                        xx1, yy1 = np.mgrid[x_min: x_max: nx * 1j, y_min: y_max: ny * 1j]
+                        import scipy
+                        grid = scipy.interpolate.griddata((xx, yy), data_dict, (xx1, yy1),
+                                                          method='linear', fill_value=0)
+
                     im = grid[i].imshow(data_dict,
                                         cmap=grey_use,
                                         interpolation=plot_interp,
