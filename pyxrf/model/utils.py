@@ -65,7 +65,7 @@ def normalize_data_by_scaler(data_in, scaler, *, data_name=None, name_not_scalab
     if do_scaling:
         # If scaler contains some zeros, set those zeros to mean value
         if data_in.size != n_nonzero:
-            s_mean = np.mean(scaler)
+            s_mean = np.mean(scaler[scaler != 0])
             # Avoid division by very small number (or zero)
             if np.abs(s_mean) < 1e-10:
                 s_mean = 1e-10 if np.sign(s_mean) >= 0 else -1e-10
