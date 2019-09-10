@@ -1,6 +1,9 @@
 import numpy as np
 import scipy
 
+import logging
+logger = logging.getLogger()
+
 # =================================================================================
 #  The following set of functions are separated from the rest of the program
 #  and prepared to be moved to scikit-beam (skbeam.core.fitting.xrf_model)
@@ -30,10 +33,14 @@ def grid_interpolate(data, xx, yy):
         2D array with evenly spaced Y axis values (same shape as `data`)
     '''
     if (data.shape != xx.shape) or (data.shape != yy.shape):
+        logger.debug("Function utils.grid_interpolate: shapes of data and coordinate arrays do not match. "
+                     "Grid interpolation is skipped")
         return data, xx, yy
     ny, nx = data.shape
     # Data must be 2-dimensional to use the interpolation procedure
     if (nx <= 1) or (ny <= 1):
+        logger.debug("Function utils.grid_interpolate: single row or colomn scan. "
+                     "Grid interpolation is skipped")
         return data, xx, yy
     xx = xx.flatten()
     yy = yy.flatten()
@@ -92,9 +99,13 @@ def normalize_data_by_scaler(data_in, scaler, *, data_name=None, name_not_scalab
     '''
 
     if data_in is None or scaler is None:  # Nothing to scale
+        logger.debug("Function utils.gnormalize_data_by_scaler: data and/or scaler arrays are None. "
+                     "Data scaling is skipped.")
         return data_in
 
     if data_in.shape != scaler.shape:
+        logger.debug("Function utils.gnormalize_data_by_scaler: data and scaler arrays have different shape. "
+                     "Data scaling is skipped.")
         return data_in
 
     do_scaling = False
@@ -109,6 +120,8 @@ def normalize_data_by_scaler(data_in, scaler, *, data_name=None, name_not_scalab
     #   check if there is at least one nonzero element
     n_nonzero = np.count_nonzero(scaler)
     if not n_nonzero:
+        logger.debug("Function utils.gnormalize_data_by_scaler: scaler is all-zeros array. "
+                     "Data scaling is skipped.")
         do_scaling = False
 
     if do_scaling:
