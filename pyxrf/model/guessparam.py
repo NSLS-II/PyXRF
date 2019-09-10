@@ -141,9 +141,9 @@ class ElementController(object):
         for v in six.itervalues(self.element_dict):
             max_spectrum = np.max(v.spectrum)
             if not math.isclose(max_spectrum, 0.0, abs_tol=1e-20):
-                factor = v.maxv/max_spectrum
+                factor = v.maxv / max_spectrum
             else:
-                factor = 0
+                factor = 0.0
             v.spectrum *= factor
             v.area *= factor
         self.update_norm()

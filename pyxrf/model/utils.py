@@ -26,7 +26,7 @@ def grid_interpolate(data, xx, yy):
         2D array with data fitted to even grid (same shape as `data`)
     xx_uniform : ndarray
         2D array with evenly spaced X axis values (same shape as `data`)
-    xy_uniform : ndarray
+    yy_uniform : ndarray
         2D array with evenly spaced Y axis values (same shape as `data`)
     '''
     if (data.shape != xx.shape) or (data.shape != yy.shape):
@@ -47,11 +47,11 @@ def grid_interpolate(data, xx, yy):
     if yy[0] > yy[-1]:
         y_min, y_max = y_max, y_min
     # Create uniform grid
-    yy_uniform, xx_uniform = np.mgrid[y_min: y_max: ny * 1j, x_min: x_max: nx * 1j]
+    yy_uniform, xx_uniform = np.mgrid[y_min : y_max : ny * 1j, x_min : x_max : nx * 1j]
     xxyy = np.stack((xx, yy)).T
     # Do the fitting
     data_uniform = scipy.interpolate.griddata(xxyy, data, (xx_uniform, yy_uniform),
-                                           method='linear', fill_value=0)
+                                              method='linear', fill_value=0)
     return data_uniform, xx_uniform, yy_uniform
 
 def normalize_data_by_scaler(data_in, scaler, *, data_name=None, name_not_scalable=None):

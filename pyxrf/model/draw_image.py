@@ -442,10 +442,10 @@ class DrawImageAdvanced(Atom):
                 yd, xd = data_dict.shape
 
                 xd_min, xd_max, yd_min, yd_max = 0, xd, 0, yd
-                if (yd <= math.floor(xd/100)) and (xd >= 200):
-                    yd_min, yd_max = -math.floor(xd/200), math.ceil(xd/200)
-                if (xd <= math.floor(yd/100)) and (yd >= 200):
-                    xd_min, xd_max = -math.floor(yd/200), math.ceil(yd/200)
+                if (yd <= math.floor(xd / 100)) and (xd >= 200):
+                    yd_min, yd_max = -math.floor(xd / 200), math.ceil(xd / 200)
+                if (xd <= math.floor(yd / 100)) and (yd >= 200):
+                    xd_min, xd_max = -math.floor(yd / 200), math.ceil(yd / 200)
 
                 xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
 
