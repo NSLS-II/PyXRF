@@ -1,9 +1,58 @@
 import numpy as np
-
+import scipy
 
 # =================================================================================
 #  The following set of functions are separated from the rest of the program
 #  and prepared to be moved to scikit-beam (skbeam.core.fitting.xrf_model)
+
+def grid_interpolate(data, xx, yy):
+    '''
+    Interpolate unevenly sampled data to even grid. The new even grid has the same
+    dimensions as the original data and covers full range of original X and Y axes.
+
+    Parameters
+    ----------
+
+    data : ndarray
+        2D array with data values (`xx`, `yy` and `data` must have the same shape)
+    xx : ndarray
+        2D array with measured values of X coordinates of data points (the values may be unevenly spaced)
+    yy : ndarray
+        2D array with measured values of Y coordinates of data points (the values may be unevenly spaced)
+
+    Returns
+    -------
+    data_uniform : ndarray
+        2D array with data fitted to even grid (same shape as `data`)
+    xx_uniform : ndarray
+        2D array with evenly spaced X axis values (same shape as `data`)
+    xy_uniform : ndarray
+        2D array with evenly spaced Y axis values (same shape as `data`)
+    '''
+    if (data.shape != xx.shape) or (data.shape != yy.shape):
+        return data, xx, yy
+    ny, nx = data.shape
+    # Data must be 2-dimensional to use the interpolation procedure
+    if (nx <= 1) or (ny <= 1):
+        return data, xx, yy
+    xx = xx.flatten()
+    yy = yy.flatten()
+    data = data.flatten()
+
+    # Find the range of axes
+    x_min, x_max = np.min(xx), np.max(xx)
+    if xx[0] > xx[-1]:
+        x_min, x_max = x_max, x_min
+    y_min, y_max = np.min(yy), np.max(yy)
+    if yy[0] > yy[-1]:
+        y_min, y_max = y_max, y_min
+    # Create uniform grid
+    yy_uniform, xx_uniform = np.mgrid[y_min: y_max: ny * 1j, x_min: x_max: nx * 1j]
+    xxyy = np.stack((xx, yy)).T
+    # Do the fitting
+    data_uniform = scipy.interpolate.griddata(xxyy, data, (xx_uniform, yy_uniform),
+                                           method='linear', fill_value=0)
+    return data_uniform, xx_uniform, yy_uniform
 
 def normalize_data_by_scaler(data_in, scaler, *, data_name=None, name_not_scalable=None):
     '''
