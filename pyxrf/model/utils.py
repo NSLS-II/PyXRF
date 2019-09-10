@@ -39,7 +39,7 @@ def grid_interpolate(data, xx, yy):
     ny, nx = data.shape
     # Data must be 2-dimensional to use the interpolation procedure
     if (nx <= 1) or (ny <= 1):
-        logger.debug("Function utils.grid_interpolate: single row or colomn scan. "
+        logger.debug("Function utils.grid_interpolate: single row or column scan. "
                      "Grid interpolation is skipped")
         return data, xx, yy
     xx = xx.flatten()
