@@ -488,9 +488,14 @@ class DrawImageAdvanced(Atom):
                             y_min, y_max = y_max, y_min
                         #dy = (y_max - y_min) / ny
                         xx1, yy1 = np.mgrid[x_min: x_max: nx * 1j, y_min: y_max: ny * 1j]
+                        #xf = xx.flatten()
+                        #yf = yy.flatten()
+                        #xyct = np.stack((xf, yf)).T
+                        xxyy = np.stack((xx.flatten(), yy.flatten())).T
                         import scipy
-                        grid = scipy.interpolate.griddata((xx, yy), data_dict, (xx1, yy1),
+                        grid_data = scipy.interpolate.griddata(xxyy, data_dict.T.flatten(), (xx1, yy1),
                                                           method='linear', fill_value=0)
+                        data_dict = grid_data
 
                     im = grid[i].imshow(data_dict,
                                         cmap=grey_use,
