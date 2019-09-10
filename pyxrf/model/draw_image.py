@@ -16,7 +16,7 @@ import matplotlib.cm as cm
 from mpl_toolkits.axes_grid1 import ImageGrid
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool, Float
 
-from .utils import normalize_data_by_scaler
+from .utils import normalize_data_by_scaler, grid_interpolate
 
 import logging
 logger = logging.getLogger()
@@ -473,30 +473,10 @@ class DrawImageAdvanced(Atom):
                     low_limit -= dv
 
                 if self.scatter_show is not True:
-
-                    xx = self.data_dict['positions']['x_pos']
-                    yy = self.data_dict['positions']['y_pos']
-
                     if self.pixel_or_pos:
-                        nx, ny = xx.shape
-                        x_min, x_max = np.min(xx), np.max(xx)
-                        if xx[0, 0] > xx[-1][-1]:
-                            x_min, x_max = x_max, x_min
-                        #dx = (x_max - x_min) / nx
-                        y_min, y_max = np.min(yy), np.max(yy)
-                        if yy[0, 0] > yy[-1][-1]:
-                            y_min, y_max = y_max, y_min
-                        #dy = (y_max - y_min) / ny
-                        xx1, yy1 = np.mgrid[x_min: x_max: nx * 1j, y_min: y_max: ny * 1j]
-                        #xf = xx.flatten()
-                        #yf = yy.flatten()
-                        #xyct = np.stack((xf, yf)).T
-                        xxyy = np.stack((xx.flatten(), yy.flatten())).T
-                        import scipy
-                        grid_data = scipy.interpolate.griddata(xxyy, data_dict.T.flatten(), (xx1, yy1),
-                                                          method='linear', fill_value=0)
-                        data_dict = grid_data
-
+                        data_dict, _, _ = grid_interpolate(data_dict,
+                                                           self.data_dict['positions']['x_pos'],
+                                                           self.data_dict['positions']['y_pos'])
                     im = grid[i].imshow(data_dict,
                                         cmap=grey_use,
                                         interpolation=plot_interp,
@@ -548,6 +528,10 @@ class DrawImageAdvanced(Atom):
                     maxz = 1
 
                 if self.scatter_show is not True:
+                    if self.pixel_or_pos:
+                        data_dict, _, _ = grid_interpolate(data_dict,
+                                                           self.data_dict['positions']['x_pos'],
+                                                           self.data_dict['positions']['y_pos'])
                     im = grid[i].imshow(data_dict,
                                         norm=LogNorm(vmin=low_lim*maxz,
                                                     vmax=maxz, clip=True),
