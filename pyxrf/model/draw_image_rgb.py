@@ -1,44 +1,9 @@
-# ######################################################################
-# Copyright (c) 2014, Brookhaven Science Associates, Brookhaven        #
-# National Laboratory. All rights reserved.                            #
-#                                                                      #
-# Redistribution and use in source and binary forms, with or without   #
-# modification, are permitted provided that the following conditions   #
-# are met:                                                             #
-#                                                                      #
-# * Redistributions of source code must retain the above copyright     #
-#   notice, this list of conditions and the following disclaimer.      #
-#                                                                      #
-# * Redistributions in binary form must reproduce the above copyright  #
-#   notice this list of conditions and the following disclaimer in     #
-#   the documentation and/or other materials provided with the         #
-#   distribution.                                                      #
-#                                                                      #
-# * Neither the name of the Brookhaven Science Associates, Brookhaven  #
-#   National Laboratory nor the names of its contributors may be used  #
-#   to endorse or promote products derived from this software without  #
-#   specific prior written permission.                                 #
-#                                                                      #
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS  #
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT    #
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS    #
-# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE       #
-# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,           #
-# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES   #
-# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR   #
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)   #
-# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,  #
-# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OTHERWISE) ARISING   #
-# IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE   #
-# POSSIBILITY OF SUCH DAMAGE.                                          #
-########################################################################
 from __future__ import (absolute_import, division,
                         print_function)
 
-__author__ = 'Li Li'
-
 import six
 import numpy as np
+import math
 from collections import OrderedDict
 from matplotlib.figure import Figure, Axes
 import matplotlib.pyplot as plt
@@ -48,6 +13,9 @@ from matplotlib.colors import LogNorm
 import matplotlib.patches as mpatches
 from mpl_toolkits.axes_grid1.axes_rgb import make_rgb_axes, RGBAxes
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool, Float
+
+from .utils import normalize_data_by_scaler
+
 import logging
 logger = logging.getLogger()
 
@@ -91,8 +59,6 @@ class DrawImageRGB(Atom):
         selected data dict to plot, i.e., fitting data or roi is selected
     items_in_selected_group : list
         keys of dict_to_plot
-    scale_opt : str
-        linear or log plot
     color_opt : str
         orange or gray plot
     scaler_norm_dict : dict
@@ -121,7 +87,6 @@ class DrawImageRGB(Atom):
     #plot_item = Str()
     dict_to_plot = Dict()
     items_in_selected_group = List()
-    scale_opt = Str('Linear')
     scaler_norm_dict = Dict()
     scaler_items = List()
     scaler_name_index = Int()
@@ -234,11 +199,6 @@ class DrawImageRGB(Atom):
                         'and the shape of scaler data is {}'.format(self.scaler_data.shape))
         self.show_image()
 
-    @observe('scale_opt')
-    def _update_scale(self, change):
-        if change['type'] != 'create':
-            self.show_image()
-
     def set_stat_for_all(self, bool_val=False):
         """
         Set plotting status for all the 2D images.
@@ -260,48 +220,21 @@ class DrawImageRGB(Atom):
         plot_interp = 'Nearest'
 
         if self.scaler_data is not None:
-            if len(self.scaler_data[self.scaler_data == 0]) > 0:
-                logger.warning('scaler data has zero values at {}'.format(np.where(self.scaler_data == 0)))
-                self.scaler_data[self.scaler_data == 0] = np.mean(self.scaler_data[self.scaler_data != 0])
-                logger.warning('Use mean value {} instead for those points'.format(np.mean(self.scaler_data)))
+            if np.count_nonzero(self.scaler_data) == 0:
+                logger.warning('scaler is zero - scaling was not applied')
+            elif len(self.scaler_data[self.scaler_data == 0]) > 0:
+                logger.warning('scaler data has zero values')
 
-        if self.scale_opt == 'Linear':
-            for i, (k, v) in enumerate(six.iteritems(stat_temp)):
+        for i, (k, v) in enumerate(six.iteritems(stat_temp)):
 
-                if self.scaler_data is not None:
-                    if k in self.name_not_scalable:
-                        data_dict = self.dict_to_plot[k]
-                    else:
-                        data_dict = self.dict_to_plot[k]/self.scaler_data
+            data_dict = normalize_data_by_scaler(self.dict_to_plot[k], self.scaler_data,
+                                                 data_name=k, name_not_scalable=self.name_not_scalable)
 
-                else:
-                    data_dict = self.dict_to_plot[k]
-
-                selected_data.append(data_dict)
-                selected_name.append(k) #self.file_name+'_'+str(k)
-
-        else:
-            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            # This block of code should not be executed, since 'self.ic_norm' is not defined
-            # Currently log scale presentation of data is disabled
-            for i, (k, v) in enumerate(six.iteritems(stat_temp)):
-
-                if self.scaler_data is not None:
-                    if k in self.name_not_scalable:
-                        data_dict = np.log(self.dict_to_plot[k])
-                    else:
-                        # Modified code (just in case this block is called)
-                        data_dict = np.log(self.dict_to_plot[k]/self.scaler_data)
-                        # Original code (decide how to define 'self.ic_norm' before enabling log scale
-                        #data_dict = np.log(self.dict_to_plot[k]/self.scaler_data*self.ic_norm)
-
-                else:
-                    data_dict = np.log(self.dict_to_plot[k])
-
-                selected_data.append(data_dict)
-                selected_name.append(k)
+            selected_data.append(data_dict)
+            selected_name.append(k)  # self.file_name+'_'+str(k)
 
         return selected_data, selected_name
+
 
     #@observe('r_low', 'r_high', 'g_low', 'g_high', 'b_low', 'b_high')
     #def _update_scale(self, change):
@@ -367,10 +300,11 @@ class DrawImageRGB(Atom):
         yd, xd = selected_data.shape[1], selected_data.shape[2]
         xd_min, xd_max, yd_min, yd_max = 0, xd, 0, yd
         # Select minimum range for data
-        if yd <= 5:
-            yd_min, yd_max = -5, 4
-        if xd <= 5:
-            xd_min, xd_max = -5, 4
+        if (yd <= math.floor(xd / 100)) and (xd >= 200):
+            yd_min, yd_max = -math.floor(xd / 200), math.ceil(xd / 200)
+        if (xd <= math.floor(yd / 100)) and (yd >= 200):
+            xd_min, xd_max = -math.floor(yd / 200), math.ceil(yd / 200)
+
         xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
 
         name_r = self.rgb_name_list[self.index_red]
@@ -392,7 +326,8 @@ class DrawImageRGB(Atom):
             data : 2D array
             """
             data_min = np.min(data)
-            return (data - data_min) / (np.max(data) - data_min)
+            c_norm = np.max(data) - data_min
+            return (data - data_min) / c_norm if (c_norm != 0) else (data - data_min)
 
         def _stretch_range(data_in, v_low, v_high):
 

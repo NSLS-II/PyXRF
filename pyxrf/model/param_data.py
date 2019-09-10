@@ -1,5 +1,3 @@
-__author__ = 'Li Li'
-
 param_data = {
     "coherent_sct_amplitude": {
         "adjust_element1": "fixed",

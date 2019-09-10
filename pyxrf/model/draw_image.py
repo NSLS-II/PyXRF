@@ -1,39 +1,4 @@
-# ######################################################################
-# Copyright (c) 2014, Brookhaven Science Associates, Brookhaven        #
-# National Laboratory. All rights reserved.                            #
-#                                                                      #
-# Redistribution and use in source and binary forms, with or without   #
-# modification, are permitted provided that the following conditions   #
-# are met:                                                             #
-#                                                                      #
-# * Redistributions of source code must retain the above copyright     #
-#   notice, this list of conditions and the following disclaimer.      #
-#                                                                      #
-# * Redistributions in binary form must reproduce the above copyright  #
-#   notice this list of conditions and the following disclaimer in     #
-#   the documentation and/or other materials provided with the         #
-#   distribution.                                                      #
-#                                                                      #
-# * Neither the name of the Brookhaven Science Associates, Brookhaven  #
-#   National Laboratory nor the names of its contributors may be used  #
-#   to endorse or promote products derived from this software without  #
-#   specific prior written permission.                                 #
-#                                                                      #
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS  #
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT    #
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS    #
-# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE       #
-# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,           #
-# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES   #
-# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR   #
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)   #
-# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,  #
-# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OTHERWISE) ARISING   #
-# IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE   #
-# POSSIBILITY OF SUCH DAMAGE.                                          #
-########################################################################
 from __future__ import absolute_import
-__author__ = 'Li Li'
 
 import six
 import numpy as np
@@ -51,39 +16,11 @@ import matplotlib.cm as cm
 from mpl_toolkits.axes_grid1 import ImageGrid
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool, Float
 
+from .utils import normalize_data_by_scaler, grid_interpolate
+
 import logging
 logger = logging.getLogger()
 
-
-def _normalize_data_array(data_in, scaler, *, data_name, name_not_scalable):
-    '''
-    Normalize data based on the availability of scaler
-
-    Parameters
-    ----------
-
-    data_in : ndarray
-        numpy array of input data
-    scaler : ndarray
-        numpy array of scaling data, the same size as data_in
-    data_name : str
-        name of the data set ('time' or 'i0' etc.)
-    name_not_scalable : list
-        names of not scalable datasets (['time', 'i0_time'])
-
-    Returns
-    -------
-    ndarray with normalized data, the same shape as data_in
-    '''
-    if scaler is not None:
-        if data_name in name_not_scalable:
-            data_out = data_in
-        else:
-            data_out = data_in / scaler
-    else:
-        data_out = data_in
-
-    return data_out
 
 class DrawImageAdvanced(Atom):
     """
@@ -359,8 +296,8 @@ class DrawImageAdvanced(Atom):
         # do not apply scaler norm on not scalable data
         self.range_dict.clear()
         for data_name in self.dict_to_plot.keys():
-            data_arr = _normalize_data_array(self.dict_to_plot[data_name], self.scaler_data,
-                                             data_name=data_name, name_not_scalable=self.name_not_scalable)
+            data_arr = normalize_data_by_scaler(self.dict_to_plot[data_name], self.scaler_data,
+                                                data_name=data_name, name_not_scalable=self.name_not_scalable)
             lowv = np.min(data_arr)
             highv = np.max(data_arr)
             self.range_dict[data_name] = {'low': lowv, 'low_default': lowv,
@@ -385,10 +322,10 @@ class DrawImageAdvanced(Atom):
         plot_interp = 'Nearest'
 
         if self.scaler_data is not None:
-            if len(self.scaler_data[self.scaler_data == 0]) > 0:
-                logger.warning('scaler data has zero values at {}'.format(np.where(self.scaler_data == 0)))
-                self.scaler_data[self.scaler_data == 0] = np.mean(self.scaler_data[self.scaler_data > 0])
-                logger.warning('Use mean value {} instead for those points'.format(np.mean(self.scaler_data[self.scaler_data > 0])))
+            if np.count_nonzero(self.scaler_data) == 0:
+                logger.warning('scaler is zero - scaling was not applied')
+            elif len(self.scaler_data[self.scaler_data == 0]) > 0:
+                logger.warning('scaler data has zero values')
 
         grey_use = self.color_opt
 
@@ -477,10 +414,10 @@ class DrawImageAdvanced(Atom):
 
         for i, (k, v) in enumerate(six.iteritems(stat_temp)):
 
-            data_dict = _normalize_data_array(data_in=self.dict_to_plot[k],
-                                              scaler=self.scaler_data,
-                                              data_name=k,
-                                              name_not_scalable=self.name_not_scalable)
+            data_dict = normalize_data_by_scaler(data_in=self.dict_to_plot[k],
+                                                 scaler=self.scaler_data,
+                                                 data_name=k,
+                                                 name_not_scalable=self.name_not_scalable)
 
             if self.pixel_or_pos or self.scatter_show:
 
@@ -505,10 +442,10 @@ class DrawImageAdvanced(Atom):
                 yd, xd = data_dict.shape
 
                 xd_min, xd_max, yd_min, yd_max = 0, xd, 0, yd
-                if yd <= 5:
-                    yd_min, yd_max = -5, 4
-                if xd <= 5:
-                    xd_min, xd_max = -5, 4
+                if (yd <= math.floor(xd / 100)) and (xd >= 200):
+                    yd_min, yd_max = -math.floor(xd / 200), math.ceil(xd / 200)
+                if (xd <= math.floor(yd / 100)) and (yd >= 200):
+                    xd_min, xd_max = -math.floor(yd / 200), math.ceil(yd / 200)
 
                 xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
 
@@ -528,10 +465,18 @@ class DrawImageAdvanced(Atom):
 
                 # Set some minimum range for the colorbar (otherwise it will have white fill)
                 if math.isclose(low_limit, high_limit, abs_tol=2e-20):
-                    high_limit += 1e-20
-                    low_limit -= 1e-20
+                    if abs(low_limit) < 1e-20:  # The value is zero
+                        dv = 1e-20
+                    else:
+                        dv = math.fabs(low_limit * 0.01)
+                    high_limit += dv
+                    low_limit -= dv
 
                 if self.scatter_show is not True:
+                    if self.pixel_or_pos:
+                        data_dict, _, _ = grid_interpolate(data_dict,
+                                                           self.data_dict['positions']['x_pos'],
+                                                           self.data_dict['positions']['y_pos'])
                     im = grid[i].imshow(data_dict,
                                         cmap=grey_use,
                                         interpolation=plot_interp,
@@ -540,13 +485,19 @@ class DrawImageAdvanced(Atom):
                                         clim=(low_limit, high_limit))
                     grid[i].set_ylim(yd_axis_max, yd_axis_min)
                 else:
-                    im = grid[i].scatter(self.data_dict['positions']['x_pos'],
-                                         self.data_dict['positions']['y_pos'],
-                                         c=data_dict, marker='s', s=500, alpha=1.0,  # Originally: alpha=0.8
-                                         cmap=grey_use,
-                                         linewidths=1, linewidth=0,
-                                         clim=(low_limit, high_limit))
-                    grid[i].set_ylim(yd_axis_max, yd_axis_min)
+                    xx = self.data_dict['positions']['x_pos']
+                    yy = self.data_dict['positions']['y_pos']
+
+                    # The following condition prevents crash if different file is loaded while
+                    #    the scatter plot is open (PyXRF specific issue)
+                    if data_dict.shape == xx.shape and data_dict.shape == yy.shape:
+                        im = grid[i].scatter(xx, yy, c=data_dict,
+                                             marker='s', s=500,
+                                             alpha=1.0,  # Originally: alpha=0.8
+                                             cmap=grey_use,
+                                             vmin=low_limit, vmax=high_limit,
+                                             linewidths=1, linewidth=0)
+                        grid[i].set_ylim(yd_axis_max, yd_axis_min)
 
                 grid[i].set_xlim(xd_axis_min, xd_axis_max)
 
@@ -577,6 +528,10 @@ class DrawImageAdvanced(Atom):
                     maxz = 1
 
                 if self.scatter_show is not True:
+                    if self.pixel_or_pos:
+                        data_dict, _, _ = grid_interpolate(data_dict,
+                                                           self.data_dict['positions']['x_pos'],
+                                                           self.data_dict['positions']['y_pos'])
                     im = grid[i].imshow(data_dict,
                                         norm=LogNorm(vmin=low_lim*maxz,
                                                     vmax=maxz, clip=True),
@@ -593,8 +548,7 @@ class DrawImageAdvanced(Atom):
                                                       vmax=maxz, clip=True),
                                          c=data_dict, marker='s', s=500, alpha=1.0,  # Originally: alpha=0.8
                                          cmap=grey_use,
-                                         linewidths=1, linewidth=0,
-                                         clim=(low_lim*maxz, maxz))
+                                         linewidths=1, linewidth=0)
                     grid[i].set_ylim(yd_axis_min, yd_axis_max)
 
                 grid[i].set_xlim(xd_axis_min, xd_axis_max)
