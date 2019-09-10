@@ -4,9 +4,11 @@ import scipy
 import logging
 logger = logging.getLogger()
 
+
 # =================================================================================
 #  The following set of functions are separated from the rest of the program
 #  and prepared to be moved to scikit-beam (skbeam.core.fitting.xrf_model)
+
 
 def grid_interpolate(data, xx, yy):
     '''
@@ -54,12 +56,13 @@ def grid_interpolate(data, xx, yy):
     if yy[0] > yy[-1]:
         y_min, y_max = y_max, y_min
     # Create uniform grid
-    yy_uniform, xx_uniform = np.mgrid[y_min : y_max : ny * 1j, x_min : x_max : nx * 1j]
+    yy_uniform, xx_uniform = np.mgrid[y_min: y_max: ny * 1j, x_min: x_max: nx * 1j]
     xxyy = np.stack((xx, yy)).T
     # Do the fitting
     data_uniform = scipy.interpolate.griddata(xxyy, data, (xx_uniform, yy_uniform),
                                               method='linear', fill_value=0)
     return data_uniform, xx_uniform, yy_uniform
+
 
 def normalize_data_by_scaler(data_in, scaler, *, data_name=None, name_not_scalable=None):
     '''

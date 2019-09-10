@@ -2,7 +2,6 @@ from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 
 import six
-import sys
 import h5py
 import numpy as np
 import os
@@ -10,9 +9,9 @@ import json
 import multiprocessing
 
 import logging
-logger = logging.getLogger()
-
 import warnings
+
+logger = logging.getLogger()
 warnings.filterwarnings('ignore')
 
 sep_v = os.sep
@@ -36,10 +35,10 @@ except IOError:
     db = None
     print('Beamline Database is not used in pyxrf.')
 
-try:
-    import suitcase.hdf5 as sc
-except ImportError:
-    pass
+# try:
+#     import suitcase.hdf5 as sc
+# except ImportError:
+#     pass
 
 
 def flip_data(input_data, subscan_dims=None):
@@ -190,7 +189,7 @@ def make_hdf(start, end=None, fname=None,
                                    save_scalar=save_scalar,
                                    num_end_lines_excluded=num_end_lines_excluded)
                 print('{} is created. \n'.format(filename))
-            except:
+            except Exception:
                 print('Can not transfer scan {}. \n'.format(v))
 
 
@@ -242,7 +241,7 @@ def map_data2D_hxn(runid, fpath,
     with open(config_path, 'r') as json_data:
         config_data = json.load(json_data)
 
-    keylist =  hdr.descriptors[0].data_keys.keys()
+    keylist = hdr.descriptors[0].data_keys.keys()
     det_list = [v for v in keylist if 'xspress3' in v]  # find xspress3 det with key word matching
 
     scaler_list_all = config_data['scaler_list']
