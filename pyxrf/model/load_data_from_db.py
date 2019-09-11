@@ -12,8 +12,6 @@ import pandas as pd
 import logging
 import warnings
 
-from .fileio import save_fitdata_to_hdf, read_hdf_to_stitch, get_total_scan_point
-
 logger = logging.getLogger()
 warnings.filterwarnings('ignore')
 
@@ -282,6 +280,21 @@ def map_data2D_hxn(runid, fpath,
     # fds = sc.filter_fields(hdr, tmp)
     # if full_data == True:
     #     sc.export(hdr, fpath, db.mds, fields=fds, use_uid=False)
+
+
+def get_total_scan_point(hdr):
+    """
+    Find the how many data points are recorded. This number may not equal to the total number
+    defined at the start of the scan due to scan stop or abort.
+    """
+    evs = hdr.events()
+    n = 0
+    try:
+        for e in evs:
+            n = n+1
+    except IndexError:
+        pass
+    return n
 
 
 def map_data2D_srx(runid, fpath,
@@ -962,54 +975,6 @@ def write_db_to_hdf_base(fpath, data, create_each_det=True):
             scaler_data = data['scaler_data']
             dataGrp.create_dataset('name', data=helper_encode_list(scaler_names))
             dataGrp.create_dataset('val', data=scaler_data)
-
-
-def make_hdf_stitched(working_directory, filelist, fname,
-                      shape):
-    """
-    Read fitted results from each hdf file, stitch them together and save to
-    a new h5 file.
-
-    Parameters
-    ----------
-    working_directory : str
-        folder with all the h5 files and also the place to save output
-    filelist : list of str
-        names for all the h5 files
-    fname : str
-        name of output h5 file
-    shape : list or tuple
-        shape defines how to stitch all the h5 files. [veritcal, horizontal]
-    """
-    print('Reading data from each hdf file.')
-    fpath = os.path.join(working_directory, fname)
-    out = read_hdf_to_stitch(working_directory, filelist, shape)
-
-    result = {}
-    img_shape = None
-    for k, v in six.iteritems(out):
-        for m, n in six.iteritems(v):
-            if img_shape is None:
-                img_shape = n.shape
-            result[m] = n.ravel()
-    current_dir = os.path.dirname(os.path.realpath(__file__))
-    config_file = 'srx_pv_config.json'
-    config_path = sep_v.join(current_dir.split(sep_v)[:-2]+['configs', config_file])
-    with open(config_path, 'r') as json_data:
-        config_data = json.load(json_data)
-
-    print('Saving all the data into one hdf file.')
-    write_db_to_hdf(fpath, result,
-                    img_shape,
-                    det_list=config_data['xrf_detector'],
-                    pos_list=('x_pos', 'y_pos'),
-                    scaler_list=config_data['scaler_list'],
-                    base_val=config_data['base_value'])  # base value shift for ic
-
-    fitkey, = [v for v in list(out.keys()) if 'fit' in v]
-    save_fitdata_to_hdf(fpath, out[fitkey])
-
-    print('Done!')
 
 
 def free_memory_from_handler():
