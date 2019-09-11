@@ -7,6 +7,7 @@ import glob
 import multiprocessing
 import numpy as np
 import h5py
+import copy
 
 from skbeam.core.fitting.xrf_model import (linear_spectrum_fitting, define_range)
 from .fileio import output_data, read_hdf_APS, read_MAPS, sep_v
@@ -107,20 +108,21 @@ def fit_pixel_data_and_save(working_directory, file_name,
         if incident_energy is not None:
             param_sum['coherent_sct_energy']['value'] = incident_energy
 
-        result_map_sum, calculation_info = single_pixel_fitting_controller(data_all_sum,
-                                                                           param_sum,
-                                                                           incident_energy=incident_energy,
-                                                                           method=method,
-                                                                           pixel_bin=pixel_bin,
-                                                                           raise_bg=raise_bg,
-                                                                           comp_elastic_combine=comp_elastic_combine,
-                                                                           linear_bg=linear_bg,
-                                                                           use_snip=use_snip,
-                                                                           bin_energy=bin_energy)
+        result_map_sum, calculation_info = single_pixel_fitting_controller(
+            data_all_sum,
+            param_sum,
+            incident_energy=incident_energy,
+            method=method,
+            pixel_bin=pixel_bin,
+            raise_bg=raise_bg,
+            comp_elastic_combine=comp_elastic_combine,
+            linear_bg=linear_bg,
+            use_snip=use_snip,
+            bin_energy=bin_energy)
 
         # output to .h5 file
         inner_path = 'xrfmap/detsum'
-        fit_name = prefix_fname+'_fit'
+        # fit_name = prefix_fname+'_fit'
         save_fitdata_to_hdf(fpath, result_map_sum, datapath=inner_path)
 
     if fit_channel_each is True and param_channel_list is not None:
@@ -143,15 +145,16 @@ def fit_pixel_data_and_save(working_directory, file_name,
                 param_det['coherent_sct_energy']['value'] = incident_energy
 
             data_all_det = data_sets[filename_det].raw_data
-            result_map_det, calculation_info = single_pixel_fitting_controller(data_all_det,
-                                                                               param_det,
-                                                                               method=method,
-                                                                               pixel_bin=pixel_bin,
-                                                                               raise_bg=raise_bg,
-                                                                               comp_elastic_combine=comp_elastic_combine,
-                                                                               linear_bg=linear_bg,
-                                                                               use_snip=use_snip,
-                                                                               bin_energy=bin_energy)
+            result_map_det, calculation_info = single_pixel_fitting_controller(
+                data_all_det,
+                param_det,
+                method=method,
+                pixel_bin=pixel_bin,
+                raise_bg=raise_bg,
+                comp_elastic_combine=comp_elastic_combine,
+                linear_bg=linear_bg,
+                use_snip=use_snip,
+                bin_energy=bin_energy)
             # output to .h5 file
             save_fitdata_to_hdf(fpath, result_map_det, datapath=inner_path)
 
@@ -218,7 +221,8 @@ def pyxrf_batch(start_id, end_id=None, wd=None, fit_channel_sum=True, param_file
             print("File with runid {} doesn't exist.".format(start_id))
         fname = fpath.split(sep_v)[-1]
         working_directory = fpath[:-len(fname)]
-        fit_pixel_data_and_save(working_directory, fname, fit_channel_sum=fit_channel_sum, param_file_name=param_file_name,
+        fit_pixel_data_and_save(working_directory, fname,
+                                fit_channel_sum=fit_channel_sum, param_file_name=param_file_name,
                                 fit_channel_each=fit_channel_each, param_channel_list=param_channel_list,
                                 incident_energy=incident_energy, spectrum_cut=spectrum_cut,
                                 save_txt=save_txt, save_tiff=save_tiff,
@@ -232,14 +236,17 @@ def pyxrf_batch(start_id, end_id=None, wd=None, fit_channel_sum=True, param_file
         for fpath in flist:
             fname = fpath.split(sep_v)[-1]
             working_directory = fpath[:-len(fname)]
-            fit_pixel_data_and_save(working_directory, fname, fit_channel_sum=fit_channel_sum, param_file_name=param_file_name,
+            fit_pixel_data_and_save(working_directory, fname,
+                                    fit_channel_sum=fit_channel_sum, param_file_name=param_file_name,
                                     fit_channel_each=fit_channel_each, param_channel_list=param_channel_list,
                                     incident_energy=incident_energy, spectrum_cut=spectrum_cut,
                                     save_txt=save_txt, save_tiff=save_tiff,
                                     ic_name=ic_name)
 
 
-def fit_each_pixel_with_nnls(data, params, elemental_lines=None,
+def fit_each_pixel_with_nnls(data, params,
+                             elemental_lines=None,
+                             incident_energy=None,
                              weights=None):
     """
     Fit a spectrum with a linear model.
@@ -256,7 +263,7 @@ def fit_each_pixel_with_nnls(data, params, elemental_lines=None,
             lines of Platinum. If elemental_lines is set as None,
             all the possible lines activated at given energy will be used.
     """
-    param = copy.deepcopy(parameter)
+    param = copy.deepcopy(params)
     if incident_energy is not None:
         param['coherent_sct_amplitude']['value'] = incident_energy
     # cut data into proper range
@@ -267,8 +274,8 @@ def fit_each_pixel_with_nnls(data, params, elemental_lines=None,
     x, y = define_range(data, low, high, a0, a1)
     # pixel fitting
     _, result_dict, area_dict = linear_spectrum_fitting(x, y,
-                                    elemental_lines=elemental_lines,
-                                    weighs=weighs)
+                                                        elemental_lines=elemental_lines,
+                                                        weights=weights)
     return result_dict
 
 

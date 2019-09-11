@@ -104,7 +104,7 @@ class DrawImageRGB(Atom):
     b_high = Int(100)
     # r_bound = List()
     # rgb_limit = plot_limit()
-    name_not_scalable= List()
+    name_not_scalable = List()
 
     def __init__(self):
         self.fig = plt.figure(figsize=(3, 2))
