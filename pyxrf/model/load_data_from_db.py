@@ -352,7 +352,7 @@ def map_data2D_srx(runid, fpath,
 
         except IndexError:
             total_len = get_total_scan_point(hdr) - 2
-            evs, _ = zip(*zip(db.get_events(hdr, fill=True), range(total_len)))
+            evs, _ = zip(*zip(hdr.events(fill=True), range(total_len)))
             namelist = config_data['xrf_detector'] + hdr.start.motors + config_data['scaler_list']
             dictv = {v: [] for v in namelist}
             for e in evs:

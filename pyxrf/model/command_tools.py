@@ -4,11 +4,17 @@ import os
 import time
 import json
 import glob
+import multiprocessing
+import numpy as np
+import h5py
 
 from skbeam.core.fitting.xrf_model import (linear_spectrum_fitting, define_range)
 from .fileio import output_data, read_hdf_APS, read_MAPS, sep_v
 from .fit_spectrum import (single_pixel_fitting_controller,
                            save_fitdata_to_hdf)
+
+import logging
+logger = logging.getLogger()
 
 
 def fit_pixel_data_and_save(working_directory, file_name,
@@ -309,8 +315,8 @@ def fit_pixel_per_file_no_multi(dir_path, file_prefix,
         else:
             result_map.update({v: np.zeros([datas[0], datas[1]])})
 
-    for i in xrange(datas[0]):
-        for j in xrange(datas[1]):
+    for i in range(datas[0]):
+        for j in range(datas[1]):
             x, result, area_v = linear_spectrum_fitting(data[i, j, :], param,
                                                         elemental_lines=elist,
                                                         constant_weight=1.0)

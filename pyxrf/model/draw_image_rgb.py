@@ -7,19 +7,16 @@ import math
 from collections import OrderedDict
 from matplotlib.figure import Figure, Axes
 import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm
-#import matplotlib.cm as cm
-#from mpl_toolkits.axes_grid1 import ImageGrid
 import matplotlib.patches as mpatches
-from mpl_toolkits.axes_grid1.axes_rgb import make_rgb_axes, RGBAxes
-from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool, Float
+from mpl_toolkits.axes_grid1.axes_rgb import make_rgb_axes
+from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool
 
 from .utils import normalize_data_by_scaler
 
 import logging
 logger = logging.getLogger()
 
-np.seterr(divide='ignore', invalid='ignore') # turn off warning on invalid division
+np.seterr(divide='ignore', invalid='ignore')  # turn off warning on invalid division
 
 #
 # class plot_limit(Atom):
@@ -74,7 +71,7 @@ class DrawImageRGB(Atom):
     """
 
     fig = Typed(Figure)
-    ax =  Typed(Axes)
+    ax = Typed(Axes)
     ax_r = Typed(Axes)
     ax_g = Typed(Axes)
     ax_b = Typed(Axes)
@@ -83,8 +80,8 @@ class DrawImageRGB(Atom):
     data_dict_keys = List()
     data_opt = Int(0)
     img_title = Str()
-    #plot_opt = Int(0)
-    #plot_item = Str()
+    # plot_opt = Int(0)
+    # plot_item = Str()
     dict_to_plot = Dict()
     items_in_selected_group = List()
     scaler_norm_dict = Dict()
@@ -97,7 +94,7 @@ class DrawImageRGB(Atom):
     index_red = Int(0)
     index_green = Int(1)
     index_blue = Int(2)
-    #ic_norm = Float()
+    # ic_norm = Float()
     rgb_limit = Dict()
     r_low = Int(0)
     r_high = Int(100)
@@ -105,16 +102,16 @@ class DrawImageRGB(Atom):
     g_high = Int(100)
     b_low = Int(0)
     b_high = Int(100)
-    #r_bound = List()
-    #rgb_limit = plot_limit()
+    # r_bound = List()
+    # rgb_limit = plot_limit()
     name_not_scalable= List()
 
     def __init__(self):
-        self.fig = plt.figure(figsize=(3,2))
+        self.fig = plt.figure(figsize=(3, 2))
         self.ax = self.fig.add_subplot(111)
         self.ax_r, self.ax_g, self.ax_b = make_rgb_axes(self.ax, pad=0.02)
         self.rgb_name_list = ['R', 'G', 'B']
-        self.name_not_scalable = ['r2_adjust'] # do not apply scaler norm on those data
+        self.name_not_scalable = ['r2_adjust']  # do not apply scaler norm on those data
 
     def data_dict_update(self, change):
         """
@@ -142,11 +139,11 @@ class DrawImageRGB(Atom):
         self.scaler_name_index = 0
         self.data_dict_keys = []
         self.data_dict_keys = list(self.data_dict.keys())
-        #logger.info('The following groups are included for 2D image display: {}'.format(self.data_dict_keys))
+        # logger.info('The following groups are included for 2D image display: {}'.format(self.data_dict_keys))
 
         scaler_groups = [v for v in list(self.data_dict.keys()) if 'scaler' in v]
         if len(scaler_groups) > 0:
-            #self.scaler_group_name = scaler_groups[0]
+            # self.scaler_group_name = scaler_groups[0]
             self.scaler_norm_dict = self.data_dict[scaler_groups[0]]
             # for GUI purpose only
             self.scaler_items = []
@@ -193,7 +190,7 @@ class DrawImageRGB(Atom):
             self.scaler_data = None
         else:
             scaler_name = self.scaler_items[self.scaler_name_index-1]
-            #self.scaler_data = self.data_dict[self.scaler_group_name][scaler_name]
+            # self.scaler_data = self.data_dict[self.scaler_group_name][scaler_name]
             self.scaler_data = self.scaler_norm_dict[scaler_name]
             logger.info('Use scaler data to normalize,'
                         'and the shape of scaler data is {}'.format(self.scaler_data.shape))
@@ -217,7 +214,7 @@ class DrawImageRGB(Atom):
         stat_temp = self.get_activated_num()
         stat_temp = OrderedDict(sorted(six.iteritems(stat_temp), key=lambda x: x[0]))
 
-        plot_interp = 'Nearest'
+        # plot_interp = 'Nearest'
 
         if self.scaler_data is not None:
             if np.count_nonzero(self.scaler_data) == 0:
@@ -235,11 +232,10 @@ class DrawImageRGB(Atom):
 
         return selected_data, selected_name
 
-
-    #@observe('r_low', 'r_high', 'g_low', 'g_high', 'b_low', 'b_high')
-    #def _update_scale(self, change):
-    #    if change['type'] != 'create':
-    #        self.show_image()
+    # @observe('r_low', 'r_high', 'g_low', 'g_high', 'b_low', 'b_high')
+    # def _update_scale(self, change):
+    #     if change['type'] != 'create':
+    #         self.show_image()
 
     def show_image(self):
 
@@ -257,10 +253,9 @@ class DrawImageRGB(Atom):
         self.rgb_name_list = selected_name[:3]
 
         try:
-            data_r = selected_data[0,:,:]
+            data_r = selected_data[0, :, :]
         except IndexError:
-            selected_data = np.ones([3,10,10])
-
+            selected_data = np.ones([3, 10, 10])
 
         def _compute_equal_axes_ranges(x_min, x_max, y_min, y_max):
             """
@@ -295,7 +290,6 @@ class DrawImageRGB(Atom):
 
             return x_axis_min, x_axis_max, y_axis_min, y_axis_max
 
-
         # Set equal ranges for the axes data
         yd, xd = selected_data.shape[1], selected_data.shape[2]
         xd_min, xd_max, yd_min, yd_max = 0, xd, 0, yd
@@ -305,14 +299,15 @@ class DrawImageRGB(Atom):
         if (xd <= math.floor(yd / 100)) and (yd >= 200):
             xd_min, xd_max = -math.floor(yd / 200), math.ceil(yd / 200)
 
-        xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
+        xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = \
+            _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
 
         name_r = self.rgb_name_list[self.index_red]
-        data_r = selected_data[self.index_red,:,:]
+        data_r = selected_data[self.index_red, :, :]
         name_g = self.rgb_name_list[self.index_green]
-        data_g = selected_data[self.index_green,:,:]
+        data_g = selected_data[self.index_green, :, :]
         name_b = self.rgb_name_list[self.index_blue]
-        data_b = selected_data[self.index_blue,:,:]
+        data_b = selected_data[self.index_blue, :, :]
 
         rgb_l_h = ({'low': self.r_low, 'high': self.r_high},
                    {'low': self.g_low, 'high': self.g_high},
@@ -385,28 +380,28 @@ class DrawImageRGB(Atom):
         plt.setp(self.ax_b.get_xticklabels(), visible=False)
         plt.setp(self.ax_b.get_yticklabels(), visible=False)
 
-        #self.ax_r.set_xticklabels([])
-        #self.ax_r.set_yticklabels([])
+        # self.ax_r.set_xticklabels([])
+        # self.ax_r.set_yticklabels([])
 
         # sb_x = 38
         # sb_y = 46
         # sb_length = 10
         # sb_height = 1
-        #ax.add_patch(mpatches.Rectangle(( sb_x, sb_y), sb_length, sb_height, color='white'))
-        #ax.text(sb_x + sb_length /2, sb_y - 1*sb_height,  '100 nm', color='w', ha='center', va='bottom', backgroundcolor='black', fontsize=18)
+        # ax.add_patch(mpatches.Rectangle(( sb_x, sb_y), sb_length, sb_height, color='white'))
+        # ax.text(sb_x + sb_length /2, sb_y - 1*sb_height,  '100 nm', color='w', ha='center',
+        #         va='bottom', backgroundcolor='black', fontsize=18)
 
         self.ax.legend(bbox_to_anchor=(0., 1.0, 1., .10), ncol=3,
                        handles=[red_patch, green_patch, blue_patch], mode="expand", loc=3)
 
-        #self.fig.tight_layout(pad=4.0, w_pad=0.8, h_pad=0.8)
-        #self.fig.tight_layout()
-        #self.fig.canvas.draw_idle()
+        # self.fig.tight_layout(pad=4.0, w_pad=0.8, h_pad=0.8)
+        # self.fig.tight_layout()
+        # self.fig.canvas.draw_idle()
         self.fig.suptitle(self.img_title, fontsize=20)
         self.fig.canvas.draw_idle()
 
     def get_activated_num(self):
         return {k: v for (k, v) in six.iteritems(self.stat_dict) if v is True}
-
 
 
 def make_cube(r, g, b):
@@ -420,11 +415,11 @@ def make_cube(r, g, b):
     """
     ny, nx = r.shape
     R = np.zeros([ny, nx, 3])
-    R[:,:,0] = r
+    R[:, :, 0] = r
     G = np.zeros_like(R)
-    G[:,:,1] = g
+    G[:, :, 1] = g
     B = np.zeros_like(R)
-    B[:,:,2] = b
+    B[:, :, 2] = b
 
     RGB = R + G + B
 

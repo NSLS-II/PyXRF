@@ -9,7 +9,6 @@ import os
 from collections import OrderedDict
 import pandas as pd
 import json
-import time
 import skimage.io as sio
 from PIL import Image
 import copy
@@ -17,16 +16,16 @@ import glob
 import ast
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
-from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float, Bool
+from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Bool
 from .load_data_from_db import (db, fetch_data_from_db, flip_data,
                                 helper_encode_list, helper_decode_list)
+import logging
+import warnings
+
 import pyxrf
 pyxrf_version = pyxrf.__version__
 
-import logging
 logger = logging.getLogger()
-
-import warnings
 warnings.filterwarnings('ignore')
 
 sep_v = os.sep
@@ -70,7 +69,7 @@ class FileIOModel(Atom):
     data = Typed(np.ndarray)
     data_all = Typed(np.ndarray)
     selected_file_name = Str()
-    #file_name = Str()
+    # file_name = Str()
     mask_data = Typed(object)
     mask_name = Str()
     mask_opt = Int(0)
@@ -121,7 +120,6 @@ class FileIOModel(Atom):
 
         self.file_channel_list = list(self.data_sets.keys())
         self.file_opt = 0  # use summed data as default
-        
 
     @observe(str('runid'))
     def _update_fname(self, change):
@@ -137,17 +135,17 @@ class FileIOModel(Atom):
             raise RuntimeError("databroker is not installed. This function "
                                "is disabled.  To install databroker, see "
                                "https://nsls-ii.github.io/install.html")
-        if self.h_num != 0 and self.v_num != 0:
-            datashape = [self.v_num, self.h_num]
+        # if self.h_num != 0 and self.v_num != 0:
+        #     datashape = [self.v_num, self.h_num]
 
-        # one way to cache data is to save as h5 file, to be considered later
-        #tmp_wd = '~/.tmp/'
-        #if not os.path.exists(tmp_wd):
-        #    os.makedirs(tmp_wd)
-        #fpath = os.path.join(tmp_wd, self.fname_from_db)
-        #if not os.path.exists(fpath):
-        #    make_hdf(self.runid, fname=fpath)
-        #self.img_dict, self.data_sets = file_handler(tmp_wd,
+        #  one way to cache data is to save as h5 file, to be considered later
+        # tmp_wd = '~/.tmp/'
+        # if not os.path.exists(tmp_wd):
+        #     os.makedirs(tmp_wd)
+        # fpath = os.path.join(tmp_wd, self.fname_from_db)
+        # if not os.path.exists(fpath):
+        #     make_hdf(self.runid, fname=fpath)
+        # self.img_dict, self.data_sets = file_handler(tmp_wd,
         #                                             self.fname_from_db,
         #                                             load_each_channel=self.load_each_channel)
 
@@ -162,11 +160,11 @@ class FileIOModel(Atom):
         hdr = get_analysis_result(self.runid)
         if hdr is not None:
             d1 = hdr.table(stream_name='primary')
-            d2 = hdr.table(stream_name='spectrum')
+            # d2 = hdr.table(stream_name='spectrum')
             self.param_fit = hdr.start.processor_parameters
-            #self.data = d2['summed_spectrum_experiment']
-            fit_result = {k:v for k,v in zip(d1['element_name'], d1['map'])}
-            tmp = {k: v for k, v in self.img_dict.items()}
+            # self.data = d2['summed_spectrum_experiment']
+            fit_result = {k: v for k, v in zip(d1['element_name'], d1['map'])}
+            # tmp = {k: v for k, v in self.img_dict.items()}
             img_dict['scan2D_{}_fit'.format(self.runid)] = fit_result
         self.img_dict = img_dict
 
@@ -218,11 +216,12 @@ class FileIOModel(Atom):
             if self.mask_opt == 1:
                 valid_opt = False
                 # define square mask region
-                if self.p1_row>=0 and self.p1_col>=0 and self.p1_row<data_s[0] and self.p1_col<data_s[1]:
+                if self.p1_row >= 0 and self.p1_col >= 0 and self.p1_row < data_s[0] and self.p1_col < data_s[1]:
                     self.data_sets[self.selected_file_name].point1 = [self.p1_row, self.p1_col]
                     logger.info('Starting position is {}.'.format([self.p1_row, self.p1_col]))
                     valid_opt = True
-                    if self.p2_row>self.p1_row and self.p2_col>self.p1_col and self.p2_row<data_s[0] and self.p2_col<data_s[1]:
+                    if self.p2_row > self.p1_row and self.p2_col > self.p1_col and \
+                            self.p2_row < data_s[0] and self.p2_col < data_s[1]:
                         self.data_sets[self.selected_file_name].point2 = [self.p2_row, self.p2_col]
                         logger.info('Ending position is {}.'.format([self.p2_row, self.p2_col]))
                 if valid_opt is False:
@@ -260,8 +259,8 @@ class DataSelection(Atom):
     """
     filename = Str()
     plot_choice = Enum(*plot_as)
-    #point1 = Str('0, 0')
-    #point2 = Str('0, 0')
+    # point1 = Str('0, 0')
+    # point2 = Str('0, 0')
     point1 = List()
     point2 = List()
     raw_data = Typed(np.ndarray)
@@ -282,7 +281,7 @@ class DataSelection(Atom):
         self.point2 = []
 
     def get_sum(self, mask=None):
-        if len(self.point1)==0 and len(self.point2)==0:
+        if len(self.point1) == 0 and len(self.point2) == 0:
             SC = SpectrumCalculator(self.raw_data)
             return SC.get_spectrum(mask=mask)
         else:
@@ -329,7 +328,7 @@ class SpectrumCalculator(object):
             spectrum_sum = np.zeros(self.data.shape[2])
             for i in range(self.data.shape[0]):
                 for j in range(self.data.shape[1]):
-                    if mask[i,j] > 0:
+                    if mask[i, j] > 0:
                         spectrum_sum += self.data[i, j, :]
             return spectrum_sum
 
@@ -348,7 +347,7 @@ def file_handler(working_directory, file_name, load_each_channel=True, spectrum_
     except IOError as e:
         logger.error("I/O error({0}): {1}".format(e.errno, e.strerror))
         logger.error('Please select .h5 file')
-    except:
+    except Exception:
         logger.error("Unexpected error:", sys.exc_info()[0])
         raise
 
@@ -370,7 +369,7 @@ def read_xspress3_data(file_path):
     """
     data_output = {}
 
-    #file_path = os.path.join(working_directory, file_name)
+    # file_path = os.path.join(working_directory, file_name)
     with h5py.File(file_path, 'r') as f:
         data = f['entry/instrument']
 
@@ -396,7 +395,7 @@ def read_xspress3_data(file_path):
 
     return data_output
 
-    
+
 def output_data(fpath, output_folder,
                 file_format='tiff', norm_name=None, use_average=True):
     """
@@ -457,9 +456,9 @@ def output_data(fpath, output_folder,
             for i, n in enumerate(pos_name):
                 fit_output[n] = np.asarray(f['xrfmap/positions/pos'].value[i, :])
 
-    # more data from suitcase part
+    #  more data from suitcase part
     data_sc = {}
-    #data_sc = retrieve_data_from_hdf_suitcase(fpath)
+    # data_sc = retrieve_data_from_hdf_suitcase(fpath)
     if len(data_sc) != 0:
         fit_output.update(data_sc)
 
@@ -492,7 +491,7 @@ def output_data_to_tiff(fit_output,
         when normalization, multiply mean value of denomenator,
         i.e., norm_data = data1/data2 * np.mean(data2)
     """
-    #save data
+    # save data
     if os.path.exists(output_folder) is False:
         logger.warning("Output_folder {} is created".format(output_folder))
         os.mkdir(output_folder)
@@ -504,7 +503,7 @@ def output_data_to_tiff(fit_output,
             if 'pos' in k or 'r2' in k:
                 continue
             ave = 1.0
-            if use_average == True:
+            if use_average is True:
                 ave = np.mean(ic_v)
             v = v/ic_v * ave
             _fname = "_".join([k, name_append, norm_sign])
@@ -563,7 +562,7 @@ def read_hdf_APS(working_directory,
     # defined in other_list in config file
     try:
         dict_sc = retrieve_data_from_hdf_suitcase(file_path)
-    except:
+    except Exception:
         dict_sc = {}
 
     with h5py.File(file_path, 'r+') as f:
@@ -728,7 +727,7 @@ def retrieve_data_from_hdf_suitcase(fpath):
     """
     data_dict = {}
     with h5py.File(fpath, 'r+') as f:
-        other_data_list = [v for v in f.keys() if v!='xrfmap']
+        other_data_list = [v for v in f.keys() if v != 'xrfmap']
         if len(other_data_list) > 0:
             f_hdr = f[other_data_list[0]].attrs['start']
             if not isinstance(f_hdr, six.string_types):
@@ -755,7 +754,7 @@ def retrieve_data_from_hdf_suitcase(fpath):
 
                 datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
                 for k in extra_list:
-                    #k = k.encode('utf-8')
+                    # k = k.encode('utf-8')
                     if k not in other_data.keys():
                         continue
                     _v = np.array(other_data[k])
@@ -769,12 +768,12 @@ def retrieve_data_from_hdf_suitcase(fpath):
 
 def read_MAPS(working_directory,
               file_name, channel_num=1):
-    data_dict = OrderedDict()
+    # data_dict = OrderedDict()
     data_sets = OrderedDict()
     img_dict = OrderedDict()
 
-    # cut off bad point on the last position of the spectrum
-    bad_point_cut = 0
+    #  cut off bad point on the last position of the spectrum
+    # bad_point_cut = 0
 
     fit_val = None
     fit_v_pyxrf = None
@@ -787,8 +786,8 @@ def read_MAPS(working_directory,
         data = f['MAPS']
         fname = file_name.split('.')[0]
 
-        # for 2D MAP
-        #data_dict[fname] = data
+        #  for 2D MAP
+        # data_dict[fname] = data
 
         # raw data
         exp_data = data['mca_arr'][:]
@@ -814,7 +813,7 @@ def read_MAPS(working_directory,
         except KeyError:
             logger.info('No fitting from pyxrf can be loaded.')
 
-    exp_shape = exp_data.shape
+    # exp_shape = exp_data.shape
     exp_data = exp_data.T
     exp_data = np.rot90(exp_data, 1)
     logger.info('File : {} with total counts {}'.format(fname,
@@ -871,7 +870,7 @@ def get_roi_sum(namelist, data_range, data):
         highv = data_range[i, 1]
         data_sum = np.sum(data[:, :, lowv: highv], axis=2)
         data_temp.update({namelist[i]: data_sum})
-        #data_temp.update({namelist[i].replace(' ', '_'): data_sum})
+        # data_temp.update({namelist[i].replace(' ', '_'): data_sum})
     return data_temp
 
 
@@ -887,7 +886,7 @@ def get_fit_data(namelist, data):
         3D array of fitting results
     """
     data_temp = dict()
-    for i,v in enumerate(namelist):
+    for i, v in enumerate(namelist):
         if not isinstance(v, six.string_types):
             v = v.decode()
         data_temp.update({v: data[i, :, :]})
@@ -916,7 +915,7 @@ def read_hdf_to_stitch(working_directory, filelist,
         combined results from each h5 file
     """
     out = {}
-    shape_v = {}
+    # shape_v = {}
     horizontal_v = 0
     vertical_v = 0
     h_index = np.zeros(shape)
@@ -936,9 +935,9 @@ def read_hdf_to_stitch(working_directory, filelist,
         v_index[m][n] = m * tmp_shape[0]
         h_step += tmp_shape[1]
 
-        if i<shape[1]:
+        if i < shape[1]:
             horizontal_v += tmp_shape[1]
-        if i%shape[1] == 0:
+        if i % shape[1] == 0:
             vertical_v += tmp_shape[0]
         if i == 0:
             out = copy.deepcopy(img)
@@ -998,7 +997,7 @@ def get_data_from_folder_helper(working_directory, foldername,
         data = np.array(Image.open(fpath))
 
     # x position is saved in a wrong way
-    if flip_h == True:
+    if flip_h is True:
         data = np.fliplr(data)
     return data
 
@@ -1058,7 +1057,7 @@ def stitch_fitted_results(working_directory, folderlist, output=None):
             flip_h = False
         data = get_data_from_multiple_folders_helper(working_directory, folderlist,
                                                      filename, flip_h=flip_h)
-        out[filename.split('.')[0]]=data
+        out[filename.split('.')[0]] = data
 
     if output is not None:
         outfolder = os.path.join(working_directory, output)
@@ -1094,7 +1093,7 @@ def save_fitdata_to_hdf(fpath, data_dict,
     try:
         dataGrp = f.create_group(datapath)
     except ValueError:
-        dataGrp=f[datapath]
+        dataGrp = f[datapath]
 
     data = []
     namelist = []
@@ -1128,7 +1127,7 @@ def get_total_scan_point(hdr):
     Find the how many data points are recorded. This number may not equal to the total number
     defined at the start of the scan due to scan stop or abort.
     """
-    evs = get_events(hdr)
+    evs = hdr.events()
     n = 0
     try:
         for e in evs:
@@ -1160,7 +1159,7 @@ def export_to_view(fpath, output_name=None, output_folder='', namelist=None):
         elementlist = helper_decode_list(elementlist)
 
         xy = f['xrfmap/positions/pos'][:]
-        xy =  xy.reshape([xy.shape[0], -1])
+        xy = xy.reshape([xy.shape[0], -1])
         xy_name = ['X', 'Y']
 
         names = xy_name + elementlist
@@ -1171,11 +1170,11 @@ def export_to_view(fpath, output_name=None, output_folder='', namelist=None):
         for i, k in enumerate(names):
             if 'Userpeak' in k or 'r2_adjust' in k:
                 continue
-            data_dict.update({k: data[i,:]})
+            data_dict.update({k: data[i, :]})
     else:
         for i, k in enumerate(names):
             if k in namelist or k in xy_name:
-                data_dict.update({k: data[i,:]})
+                data_dict.update({k: data[i, :]})
 
     df = pd.DataFrame(data_dict)
     if output_name is None:
@@ -1206,7 +1205,7 @@ def get_header(fname):
             if _sign not in v:
                 break
     header_line = mydata[-2]  # last line is space
-    n = [v.strip() for v in header_line[1:].split('\t') if v.strip()!='']
+    n = [v.strip() for v in header_line[1:].split('\t') if v.strip() != '']
     return n
 
 
@@ -1275,16 +1274,17 @@ def combine_data_to_recon(element_list, datalist, working_dir, norm=True,
                 normv = scaler_dict[ic_name]
                 data = data/normv
             if element3d[element_name] is None:
-                element3d[element_name] = np.zeros([len(datalist),
-						    data.shape[0]*expand_r,
-						    data.shape[1]*expand_r])
+                element3d[element_name] = np.zeros(
+                    [len(datalist),
+                     data.shape[0]*expand_r,
+                     data.shape[1]*expand_r])
             element3d[element_name][i, :data.shape[0], :data.shape[1]] = data
 
         max_h = max(max_h, data.shape[0])
         max_v = max(max_v, data.shape[1])
 
     for k, v in element3d.items():
-        element3d[k] = v[:,:max_h, :max_v]
+        element3d[k] = v[:, :max_h, :max_v]
     return element3d
 
 
@@ -1322,7 +1322,7 @@ def h5file_for_recon(element_dict, angle, runid=None, filename=None):
 
 
 def create_movie(data, fname='demo.mp4', dpi=100, cmap='jet',
-                 clim=None, fig_size=(6,8), fps=20, data_power=1, angle=None, runid=None):
+                 clim=None, fig_size=(6, 8), fps=20, data_power=1, angle=None, runid=None):
     """
     Transfer 3d array into a movie.
 
@@ -1355,26 +1355,26 @@ def create_movie(data, fname='demo.mp4', dpi=100, cmap='jet',
     fig.tight_layout()
 
     def update_img(n):
-        tmp = data[n,:,:]
+        tmp = data[n, :, :]
         im.set_data(tmp**data_power)
         if clim is not None:
             im.set_clim(clim)
         else:
-            im.set_clim([0,np.max(data[n,:,:])])
+            im.set_clim([0, np.max(data[n, :, :])])
         figname = ''
         if runid is not None:
             figname = 'runid: {} '.format(runid[n])
         if angle is not None:
             figname += 'angle: {}'.format(angle[n])
-        #if len(figname) != 0:
-        #    im.ax.set_title(figname)
+        # if len(figname) != 0:
+        #     im.ax.set_title(figname)
         return im
 
-    #legend(loc=0)
-    ani = animation.FuncAnimation(fig,update_img,data.shape[0],interval=30)
+    # legend(loc=0)
+    ani = animation.FuncAnimation(fig, update_img, data.shape[0], interval=30)
     writer = animation.writers['ffmpeg'](fps=fps)
 
-    ani.save(fname,writer=writer,dpi=dpi)
+    ani.save(fname, writer=writer, dpi=dpi)
 
 
 def print_image(fig):
@@ -1437,7 +1437,7 @@ def spec_to_hdf(wd, spec_file, spectrum_file, output_file, img_shape,
         scaler_val = spec_data[scaler_name].values
         scaler_val = scaler_val.reshape(img_shape)
         scaler_data = np.zeros([img_shape[0], img_shape[1], 1])
-        scaler_data[:,:,0] = scaler_val
+        scaler_data[:, :, 0] = scaler_val
 
     if x_name is not None and y_name is not None:
         xy_data = np.zeros([2, img_shape[0], img_shape[1]])
@@ -1448,7 +1448,7 @@ def spec_to_hdf(wd, spec_file, spectrum_file, output_file, img_shape,
     spectrum_path = os.path.join(wd, spectrum_file)
     sum_data0 = np.loadtxt(spectrum_path)
     sum_data = np.reshape(sum_data0, [sum_data0.shape[0], img_shape[0], img_shape[1]])
-    sum_data = np.transpose(sum_data, axes=(1,2,0))
+    sum_data = np.transpose(sum_data, axes=(1, 2, 0))
 
     interpath = 'xrfmap'
 
