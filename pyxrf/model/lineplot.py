@@ -76,7 +76,7 @@ class LinePlotModel(Atom):
     incident_energy : float
         in KeV
     """
-    data = Typed(object) #Typed(np.ndarray)
+    data = Typed(object)  # Typed(np.ndarray)
     exp_data_label = Str('experiment')
 
     _fig = Typed(Figure)
@@ -86,16 +86,16 @@ class LinePlotModel(Atom):
     parameters = Dict()
     elist = List()
     scale_opt = Int(0)
-    #total_y = Dict()
-    #total_l = Dict()
-    #total_m = Dict()
-    #total_pileup = Dict()
+    # total_y = Dict()
+    # total_l = Dict()
+    # total_m = Dict()
+    # total_pileup = Dict()
 
     prefit_x = Typed(object)
     plot_title = Str()
-    #fit_x = Typed(np.ndarray)
-    #fit_y = Typed(np.ndarray)
-    #residual = Typed(np.ndarray)
+    # fit_x = Typed(np.ndarray)
+    # fit_y = Typed(np.ndarray)
+    # residual = Typed(np.ndarray)
 
     plot_type = List()
     max_v = Float()
@@ -113,14 +113,14 @@ class LinePlotModel(Atom):
     auto_fit_obj = List()
     show_autofit_opt = Bool()
 
-    plot_fit_obj = List() #Typed(Line2D)
+    plot_fit_obj = List()  # Typed(Line2D)
     show_fit_opt = Bool(False)
-    #fit_all = Typed(object)
+    # fit_all = Typed(object)
 
     plot_style = Dict()
 
     roi_plot_dict = Dict()
-    roi_dict = Typed(object) #OrderedDict()
+    roi_dict = Typed(object)  # OrderedDict()
 
     log_range = List()
     linear_range = List()
@@ -129,16 +129,16 @@ class LinePlotModel(Atom):
     det_materials = Int(0)
     escape_e = Float(1.73998)
     limit_cut = Int()
-    #prefix_name_roi = Str()
-    #element_for_roi = Str()
-    #element_list_roi = List()
-    #roi_dict = Typed(object) #OrderedDict()
+    # prefix_name_roi = Str()
+    # element_for_roi = Str()
+    # element_list_roi = List()
+    # roi_dict = Typed(object) #OrderedDict()
 
-    #data_dict = Dict()
-    #roi_result = Dict()
+    # data_dict = Dict()
+    # roi_result = Dict()
 
     def __init__(self):
-        self._fig = plt.figure(figsize=(3,2))
+        self._fig = plt.figure(figsize=(3, 2))
         self._ax = self._fig.add_subplot(111)
         try:
             self._ax.set_axis_bgcolor('lightgrey')
@@ -159,7 +159,7 @@ class LinePlotModel(Atom):
         # when we calculate max value, data smaller than 500, 0.5 Kev, can be ignored.
         # And the last point of data is also huge, and should be cut off.
         self.limit_cut = 100
-        #self._ax.margins(x=0.0, y=0.10)
+        # self._ax.margins(x=0.0, y=0.10)
 
     def _color_config(self):
         self.plot_style = {
@@ -177,7 +177,7 @@ class LinePlotModel(Atom):
             'escape': {'color': 'darkblue', 'label': 'escape'},
             'pileup': {'color': 'darkgoldenrod', 'label': 'pileup'},
             'userpeak': {'color': 'orange', 'label': 'userpeak'},
-            #'auto_fit': {'color': 'black', 'label': 'auto fitted', 'linewidth': 2.5},
+            # 'auto_fit': {'color': 'black', 'label': 'auto fitted', 'linewidth': 2.5},
             'fit': {'color': 'red', 'label': 'fit', 'linewidth': 2.5},
             'residual': {'color': 'black', 'label': 'residual', 'linewidth': 2.0}
         }
@@ -204,7 +204,7 @@ class LinePlotModel(Atom):
         except AttributeError:
             self._ax.legend(framealpha=0.2)
         self._fig.tight_layout(pad=0.5)
-        #self._ax.margins(x=0.0, y=0.10)
+        # self._ax.margins(x=0.0, y=0.10)
 
         # when we click the home button on matplotlib gui,
         # relim will remember the previously defined x range
@@ -214,7 +214,7 @@ class LinePlotModel(Atom):
     def _update_ylimit(self):
         # manually define y limit, from experience
         self.log_range = [self.max_v*1e-5, self.max_v*2]
-        #self.linear_range = [-0.3*self.max_v, self.max_v*1.2]
+        # self.linear_range = [-0.3*self.max_v, self.max_v*1.2]
         self.linear_range = [0, self.max_v*1.2]
 
     def exp_label_update(self, change):
@@ -251,16 +251,16 @@ class LinePlotModel(Atom):
     def log_linear_plot(self):
         if self.plot_type[self.scale_opt] == 'LinLog':
             self._ax.set_yscale('log')
-            #self._ax.margins(x=0.0, y=0.5)
-            #self._ax.autoscale_view(tight=True)
-            #self._ax.relim(visible_only=True)
+            # self._ax.margins(x=0.0, y=0.5)
+            # self._ax.autoscale_view(tight=True)
+            # self._ax.relim(visible_only=True)
             self._ax.set_ylim(self.log_range)
 
         else:
             self._ax.set_yscale('linear')
-            #self._ax.margins(x=0.0, y=0.10)
-            #self._ax.autoscale_view(tight=True)
-            #self._ax.relim(visible_only=True)
+            # self._ax.margins(x=0.0, y=0.10)
+            # self._ax.autoscale_view(tight=True)
+            # self._ax.relim(visible_only=True)
             self._ax.set_ylim(self.linear_range)
 
     def exp_data_update(self, change):
@@ -305,8 +305,6 @@ class LinePlotModel(Atom):
         self._update_ylimit()
         self.log_linear_plot()
         self._update_canvas()
-
-
 
     @observe('plot_exp_opt')
     def _new_exp_plot_opt(self, change):
@@ -476,7 +474,7 @@ class LinePlotModel(Atom):
         self.roi_plot_dict.clear()
 
         if len(self.roi_dict):
-            #self._ax.hold(True)
+            # self._ax.hold(True)
             for k, v in six.iteritems(self.roi_dict):
                 temp_list = []
                 for linev in np.array([v.left_val, v.line_val, v.right_val])/1000.:
@@ -684,9 +682,9 @@ class LinePlotModel(Atom):
         self.plot_fit_obj.append(ln)
 
         if residual is not None:
-            shiftv = 1.5  # move residual down by some amount
+            # shiftv = 1.5  # move residual down by some amount
             ln, = self._ax.plot(fit_x,
-                                residual - 0.15*self.max_v,  #shiftv*(np.max(np.abs(self.residual))),
+                                residual - 0.15*self.max_v,  # shiftv*(np.max(np.abs(self.residual))),
                                 label=self.plot_style['residual']['label'],
                                 color=self.plot_style['residual']['color'])
             self.plot_fit_obj.append(ln)
@@ -699,8 +697,8 @@ class LinePlotModel(Atom):
             if k == 'background':
                 ln, = self._ax.plot(fit_x, v,
                                     color=self.plot_style['background']['color'],
-                                    #marker=self.plot_style['background']['marker'],
-                                    #markersize=self.plot_style['background']['markersize'],
+                                    # marker=self.plot_style['background']['marker'],
+                                    # markersize=self.plot_style['background']['markersize'],
                                     label=self.plot_style['background']['label'])
                 self.plot_fit_obj.append(ln)
             elif k == 'compton':
@@ -777,7 +775,7 @@ class LinePlotModel(Atom):
             else:
                 pass
 
-        #self._update_canvas()
+        # self._update_canvas()
 
     @observe('show_fit_opt')
     def _update_fit(self, change):

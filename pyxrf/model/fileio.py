@@ -20,7 +20,6 @@ import matplotlib.pyplot as plt
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Float, Bool
 from .load_data_from_db import (db, fetch_data_from_db, flip_data,
                                 helper_encode_list, helper_decode_list)
-
 import pyxrf
 pyxrf_version = pyxrf.__version__
 

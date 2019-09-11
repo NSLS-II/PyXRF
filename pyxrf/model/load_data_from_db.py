@@ -7,9 +7,12 @@ import numpy as np
 import os
 import json
 import multiprocessing
+import pandas as pd
 
 import logging
 import warnings
+
+from .fileio import save_fitdata_to_hdf, read_hdf_to_stitch, get_total_scan_point
 
 logger = logging.getLogger()
 warnings.filterwarnings('ignore')
@@ -249,7 +252,7 @@ def map_data2D_hxn(runid, fpath,
     all_keys = hdr.descriptors[0].data_keys.keys()
     scaler_list = [v for v in scaler_list_all if v in all_keys]
 
-    fields = det_list + scaler_list + pos_list
+    # fields = det_list + scaler_list + pos_list
     data = db.get_table(hdr, fill=True)
 
     data_out = map_data2D(data, datashape,
@@ -279,7 +282,6 @@ def map_data2D_hxn(runid, fpath,
     # fds = sc.filter_fields(hdr, tmp)
     # if full_data == True:
     #     sc.export(hdr, fpath, db.mds, fields=fds, use_uid=False)
-
 
 
 def map_data2D_srx(runid, fpath,
@@ -326,7 +328,7 @@ def map_data2D_srx(runid, fpath,
     with open(config_path, 'r') as json_data:
         config_data = json.load(json_data)
 
-    if 'fly' not in plan_n: # not fly scan
+    if 'fly' not in plan_n:  # not fly scan
 
         print()
         print(f"****************************************")
@@ -336,34 +338,33 @@ def map_data2D_srx(runid, fpath,
         fly_type = None
 
         if num_end_lines_excluded is None:
-            datashape = [start_doc['shape'][1], start_doc['shape'][0]]   # vertical first then horizontal, assuming fast scan on x
+            # vertical first then horizontal, assuming fast scan on x
+            datashape = [start_doc['shape'][1], start_doc['shape'][0]]
         else:
             datashape = [start_doc['shape'][1] - num_end_lines_excluded, start_doc['shape'][0]]
-        
-        snake_scan = start_doc.get('snaking')
-        if snake_scan[1] == True:
-            fly_type = 'pyramid'
 
+        snake_scan = start_doc.get('snaking')
+        if snake_scan[1] is True:
+            fly_type = 'pyramid'
 
         try:
             data = hdr.table(fill=True, convert_times=False)
 
         except IndexError:
             total_len = get_total_scan_point(hdr) - 2
-            evs, _ = zip(*zip(get_events(hdr, fill=True), range(total_len)))
-            namelist = config_data['xrf_detector'] +hdr.start.motors +config_data['scaler_list']
-            dictv = {v:[] for v in namelist}
+            evs, _ = zip(*zip(db.get_events(hdr, fill=True), range(total_len)))
+            namelist = config_data['xrf_detector'] + hdr.start.motors + config_data['scaler_list']
+            dictv = {v: [] for v in namelist}
             for e in evs:
-                for k,v in six.iteritems(dictv):
+                for k, v in six.iteritems(dictv):
                     dictv[k].append(e.data[k])
-            data = pd.DataFrame(dictv, index=np.arange(1, total_len+1)) # need to start with 1
+            data = pd.DataFrame(dictv, index=np.arange(1, total_len+1))  # need to start with 1
 
-            
-        # Commented by DG: Just use the detector names from .json configuration file. Do not delete commented code.    
-        #express3 detector name changes in databroker
-        #if xrf_detector_names[0] not in data.keys():
-        #    xrf_detector_names = ['xs_channel'+str(i) for i in range(1,4)]
-        #    config_data['xrf_detector'] = xrf_detector_names
+        #  Commented by DG: Just use the detector names from .json configuration file. Do not delete the code.
+        # express3 detector name changes in databroker
+        # if xrf_detector_names[0] not in data.keys():
+        #     xrf_detector_names = ['xs_channel'+str(i) for i in range(1,4)]
+        #     config_data['xrf_detector'] = xrf_detector_names
 
         if output_to_file:
             if 'xs' in hdr.start.detectors:
@@ -371,13 +372,13 @@ def map_data2D_srx(runid, fpath,
                 root, ext = os.path.splitext(fpath)
                 fpath_out = f"{root + '_xs'}{ext}"
                 write_db_to_hdf(fpath_out, data,
-                                #hdr.start.datashape,
+                                # hdr.start.datashape,
                                 datashape,
                                 det_list=config_data['xrf_detector'],
                                 pos_list=hdr.start.motors,
                                 scaler_list=config_data['scaler_list'],
                                 fly_type=fly_type,
-                                base_val=config_data['base_value'])  #base value shift for ic
+                                base_val=config_data['base_value'])  # base value shift for ic
             if 'xs2' in hdr.start.detectors:
                 print('Saving data to hdf file: Xpress3 detector #2 (single channel).')
                 root, ext = os.path.splitext(fpath)
@@ -388,7 +389,7 @@ def map_data2D_srx(runid, fpath,
                                 pos_list=hdr.start.motors,
                                 scaler_list=config_data['scaler_list'],
                                 fly_type=fly_type,
-                                base_val=config_data['base_value'])  #base value shift for ic
+                                base_val=config_data['base_value'])  # base value shift for ic
         return data
 
     else:
@@ -398,11 +399,11 @@ def map_data2D_srx(runid, fpath,
         print(f"****************************************")
         print(f"         Loading SRX fly scan           ")
         print(f"****************************************")
-        
+
         if save_scalar is True:
             scaler_list = ['i0', 'time', 'i0_time', 'time_diff']
             xpos_name = 'enc1'
-            ypos_name = 'hf_stage_y' # 'hf_stage_x' if fast axis is vertical
+            ypos_name = 'hf_stage_y'  # 'hf_stage_x' if fast axis is vertical
 
         # The dictionary of fields that are used to store data from different detectors (for fly scan only)
         #   key - the name of the field used to store data read from the detector
@@ -413,33 +414,36 @@ def map_data2D_srx(runid, fpath,
 
         num_det = 0  # Some default value (should never be used)
 
-        # Added by AMK to allow flying of single element on xs2
-        #if 'E_tomo' in start_doc['scaninfo']['type']:
-        #    num_det = 1
-        #    ypos_name = 'e_tomo_y'
-        #else:
-        #    num_det = 3
+        #  Added by AMK to allow flying of single element on xs2
+        # if 'E_tomo' in start_doc['scaninfo']['type']:
+        #     num_det = 1
+        #     ypos_name = 'e_tomo_y'
+        # else:
+        #     num_det = 3
         vertical_fast = False  # assuming fast on x as default
         if num_end_lines_excluded is None:
-            datashape = [start_doc['shape'][1], start_doc['shape'][0]]   # vertical first then horizontal, assuming fast scan on x
+            # vertical first then horizontal, assuming fast scan on x
+            datashape = [start_doc['shape'][1], start_doc['shape'][0]]
         else:
             datashape = [start_doc['shape'][1]-num_end_lines_excluded, start_doc['shape'][0]]
         if 'fast_axis' in hdr.start.scaninfo:
-            if hdr.start.scaninfo['fast_axis'] in ('VER', 'DET2VER'):  # fast scan along vertical, y is fast scan, x is slow
+            # fast scan along vertical, y is fast scan, x is slow
+            if hdr.start.scaninfo['fast_axis'] in ('VER', 'DET2VER'):
                 xpos_name = 'enc1'
                 ypos_name = 'hf_stage_x'
                 if 'E_tomo' in start_doc['scaninfo']['type']:
                     ypos_name = 'e_tomo_x'
                 vertical_fast = True
-                #datashape = [start_doc['shape'][0], start_doc['shape'][1]]   # fast vertical scan put shape[0] as vertical direction
+                #   fast vertical scan put shape[0] as vertical direction
+                # datashape = [start_doc['shape'][0], start_doc['shape'][1]]
 
         new_shape = datashape + [spectrum_len]
-        total_points = datashape[0]*datashape[1]
+        # total_points = datashape[0]*datashape[1]
 
-        des = [d for d in hdr.descriptors if d.name=='stream0'][0]
-        # merlin data doesn't need to be saved.
-        un_used_det = ['merlin', 'im'] # data not to be transfered for pyxrf
-        data_list_used = [v for v in des.data_keys.keys() if 'merlin' not in v.lower() ]
+        des = [d for d in hdr.descriptors if d.name == 'stream0'][0]
+        #   merlin data doesn't need to be saved.
+        # un_used_det = ['merlin', 'im'] # data not to be transfered for pyxrf
+        # data_list_used = [v for v in des.data_keys.keys() if 'merlin' not in v.lower()]
 
         # The number of found detectors for which data exists in the database
         n_detectors_found = 0
@@ -499,7 +503,8 @@ def map_data2D_srx(runid, fpath,
                             if min_len < datashape[1]:
                                 len_diff = datashape[1] - min_len
                                 # interpolation on scaler data
-                                interp_list = (v.data[n][-1] - v.data[n][-3]) / 2 * np.arange(1, len_diff + 1) + v.data[n][-1]
+                                interp_list = (v.data[n][-1] - v.data[n][-3]) / 2 * \
+                                    np.arange(1, len_diff + 1) + v.data[n][-1]
                                 data[n][m, min_len:datashape[1]] = interp_list
                     fluor_len = v.data['fluor'].shape[0]
                     if m > 0 and not (m % 10):
@@ -509,11 +514,11 @@ def map_data2D_srx(runid, fpath,
                     if create_each_det is False:
                         for i in range(num_det):
                             # in case the data length in each line is different
-                            new_data['det_sum'][m, :fluor_len, :] += v.data['fluor'][:,i,:]
+                            new_data['det_sum'][m, :fluor_len, :] += v.data['fluor'][:, i, :]
                     else:
                         for i in range(num_det):
                             # in case the data length in each line is different
-                            new_data['det'+str(i+1)][m, :fluor_len, :] = v.data['fluor'][:,i,:]
+                            new_data['det'+str(i+1)][m, :fluor_len, :] = v.data['fluor'][:, i, :]
 
             # If the detector field does not exist, then try the next one from the list
             if not detector_field_exists:
@@ -527,12 +532,12 @@ def map_data2D_srx(runid, fpath,
                 s += f"+{num_det}ch"
             fpath_out = f'{root}{s}{ext}'
 
-            if vertical_fast is True: # need to transpose the data, as we scan y first
+            if vertical_fast is True:  # need to transpose the data, as we scan y first
                 if create_each_det is False:
-                    new_data['det_sum'] = np.transpose(new_data['det_sum'], axes=(1,0,2))
+                    new_data['det_sum'] = np.transpose(new_data['det_sum'], axes=(1, 0, 2))
                 else:
                     for i in range(num_det):
-                        new_data['det'+str(i+1)] = np.transpose(new_data['det'+str(i+1)], axes=(1,0,2))
+                        new_data['det'+str(i+1)] = np.transpose(new_data['det'+str(i+1)], axes=(1, 0, 2))
 
             if save_scalar is True:
                 if vertical_fast is False:
@@ -554,9 +559,9 @@ def map_data2D_srx(runid, fpath,
                 if num_end_lines_excluded is not None:
                     data1 = data1[:datashape[0]]
                 # if ypos_name not in data1.keys() and 'E_tomo' not in start_doc['scaninfo']['type']:
-                #print(f"data1 keys: {data1.keys()}")
+                # print(f"data1 keys: {data1.keys()}")
                 if ypos_name not in data1.keys():
-                    ypos_name = 'hf_stage_z'        #vertical along z
+                    ypos_name = 'hf_stage_z'        # vertical along z
                 y_pos0 = np.hstack(data1[ypos_name])
                 # y position is more than actual x pos, scan not finished?
                 if len(y_pos0) >= x_pos.shape[0]:
@@ -565,18 +570,18 @@ def map_data2D_srx(runid, fpath,
                     xv, yv = np.meshgrid(x_tmp, y_pos)
                     # need to change shape to sth like [2, 100, 100]
                     data_tmp = np.zeros([2, x_pos.shape[0], x_pos.shape[1]])
-                    data_tmp[0,:,:] = x_pos
-                    data_tmp[1,:,:] = yv
+                    data_tmp[0, :, :] = x_pos
+                    data_tmp[1, :, :] = yv
                     new_data['pos_data'] = data_tmp
                     new_data['pos_names'] = ['x_pos', 'y_pos']
-                    if vertical_fast is True: # need to transpose the data, as we scan y first
-                        data_tmp = np.zeros([2, x_pos.shape[1], x_pos.shape[0]]) # fast scan on y has impact for scalar data
-                        data_tmp[1,:,:] = x_pos.T
-                        data_tmp[0,:,:] = yv.T
+                    if vertical_fast is True:  # need to transpose the data, as we scan y first
+                        # fast scan on y has impact for scalar data
+                        data_tmp = np.zeros([2, x_pos.shape[1], x_pos.shape[0]])
+                        data_tmp[1, :, :] = x_pos.T
+                        data_tmp[0, :, :] = yv.T
                         new_data['pos_data'] = data_tmp
                 else:
                     print("WARNING: x,y positions are not saved: scan was not completed")
-
 
             n_detectors_found += 1
 
@@ -630,15 +635,15 @@ def map_data2D_xfm(runid, fpath,
     dict of data in 2D format matching x,y scanning positions
     """
     hdr = db[runid]
-    spectrum_len = 4096
+    # spectrum_len = 4096
     start_doc = hdr['start']
     plan_n = start_doc.get('plan_name')
-    if 'fly' not in plan_n: # not fly scan
+    if 'fly' not in plan_n:  # not fly scan
         datashape = start_doc['shape']   # vertical first then horizontal
         fly_type = None
 
         snake_scan = start_doc.get('snaking')
-        if snake_scan[1] == True:
+        if snake_scan[1] is True:
             fly_type = 'pyramid'
 
         current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -717,7 +722,7 @@ def write_db_to_hdf(fpath, data, datashape,
                     # merlin detector has spectrum len 2048
                     # make all the spectrum len to 4096, to avoid unpredicted error in fitting part
                     new_tmp = np.zeros([new_data.shape[0], new_data.shape[1], spectrum_len])
-                    new_tmp[:,:,:new_data.shape[2]] = new_data
+                    new_tmp[:, :, :new_data.shape[2]] = new_data
                     new_data = new_tmp
                 if fly_type in ('pyramid',):
                     new_data = flip_data(new_data, subscan_dims=subscan_dims)
@@ -755,15 +760,15 @@ def write_db_to_hdf(fpath, data, datashape,
         # need to change shape to sth like [2, 100, 100]
         data_temp = np.zeros([pos_data.shape[2], pos_data.shape[0], pos_data.shape[1]])
         for i in range(pos_data.shape[2]):
-            data_temp[i,:,:] = pos_data[:,:,i]
+            data_temp[i, :, :] = pos_data[:, :, i]
 
         if fly_type in ('pyramid',):
             for i in range(data_temp.shape[0]):
                 # flip position the same as data flip on det counts
-                data_temp[i,:,:] = flip_data(data_temp[i,:,:], subscan_dims=subscan_dims)
+                data_temp[i, :, :] = flip_data(data_temp[i, :, :], subscan_dims=subscan_dims)
 
         dataGrp.create_dataset('name', data=helper_encode_list(pos_names))
-        dataGrp.create_dataset('pos', data=data_temp[:,:new_v_shape,:])
+        dataGrp.create_dataset('pos', data=data_temp[:, :new_v_shape, :])
 
         # scaler data
         dataGrp = f.create_group(interpath+'/scalers')
@@ -781,10 +786,10 @@ def write_db_to_hdf(fpath, data, datashape,
             if len(base_val) == 1:
                 scaler_data = np.abs(scaler_data - base_val)
             else:
-                for i in scaler_shape.shape[2]:
-                    scaler_data[:,:,i] = np.abs(scaler_data[:,:,i] - base_val[i])
+                for i in scaler_data.shape[2]:
+                    scaler_data[:, :, i] = np.abs(scaler_data[:, :, i] - base_val[i])
 
-        dataGrp.create_dataset('val', data=scaler_data[:new_v_shape,:])
+        dataGrp.create_dataset('val', data=scaler_data[:new_v_shape, :])
 
 
 def get_name_value_from_db(name_list, data, datashape):
@@ -858,7 +863,7 @@ def map_data2D(data, datashape,
                 # merlin detector has spectrum len 2048
                 # make all the spectrum len to 4096, to avoid unpredicted error in fitting part
                 new_tmp = np.zeros([new_data.shape[0], new_data.shape[1], spectrum_len])
-                new_tmp[:,:,:new_data.shape[2]] = new_data
+                new_tmp[:, :, :new_data.shape[2]] = new_data
                 new_data = new_tmp
             if fly_type in ('pyramid',):
                 new_data = flip_data(new_data, subscan_dims=subscan_dims)
@@ -959,7 +964,6 @@ def write_db_to_hdf_base(fpath, data, create_each_det=True):
             dataGrp.create_dataset('val', data=scaler_data)
 
 
-
 def make_hdf_stitched(working_directory, filelist, fname,
                       shape):
     """
@@ -1000,8 +1004,7 @@ def make_hdf_stitched(working_directory, filelist, fname,
                     det_list=config_data['xrf_detector'],
                     pos_list=('x_pos', 'y_pos'),
                     scaler_list=config_data['scaler_list'],
-                    base_val=config_data['base_value'])  #base value shift for ic
-
+                    base_val=config_data['base_value'])  # base value shift for ic
 
     fitkey, = [v for v in list(out.keys()) if 'fit' in v]
     save_fitdata_to_hdf(fpath, out[fitkey])
@@ -1046,7 +1049,7 @@ def get_data_per_event(n, data, e, det_num):
     db.fill_event(e)
     min_len = e.data['fluor'].shape[0]
     for i in range(det_num):
-        data[n, :min_len, :] += e.data['fluor'][:,i,:]
+        data[n, :min_len, :] += e.data['fluor'][:, i, :]
 
 
 def get_data_parallel(data, elist, det_num):
@@ -1055,11 +1058,11 @@ def get_data_parallel(data, elist, det_num):
     print('cpu count: {}'.format(num_processors_to_use))
     pool = multiprocessing.Pool(num_processors_to_use)
 
-    result_pool = [
-        pool.apply_async(get_data_per_event, (n, data, e, det_num))
-        for n, e in enumerate(elist)]
+    # result_pool = [
+    #     pool.apply_async(get_data_per_event, (n, data, e, det_num))
+    #     for n, e in enumerate(elist)]
 
-    results = [r.get() for r in result_pool]
+    # results = [r.get() for r in result_pool]
 
     pool.terminate()
     pool.join()
