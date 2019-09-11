@@ -11,10 +11,15 @@ cache:
     - $HOME/.cache/pip
     - $HOME/.ccache
 
+install:
+    - pip install .
+    - pip install -r requirements-dev.txt
+
 matrix:
   fast_finish: true
   include:
     - python: 3.6
+    - python: 3.7
       env: BUILD_DOCS=1
     - python: nightly
   allow_failures:
