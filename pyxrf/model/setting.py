@@ -6,11 +6,10 @@ import numpy as np
 from collections import OrderedDict
 import copy
 
-from atom.api import (Atom, Str, observe, Typed,
-                      Dict, List, Int, Enum, Float, Bool)
+from atom.api import (Atom, Str, observe, Dict, List, Int, Bool)
 
 from skbeam.fluorescence import XrfElement as Element
-from skbeam.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
+from skbeam.core.fitting.xrf_model import K_LINE, L_LINE  # ,M_LINE
 
 import logging
 logger = logging.getLogger()
@@ -88,7 +87,7 @@ class SettingModel(Atom):
 
     def __init__(self, *args, **kwargs):
         self.parameters = kwargs['default_parameters']
-        self.element_for_roi = ', '.join(K_LINE+L_LINE)#+M_LINE)
+        self.element_for_roi = ', '.join(K_LINE+L_LINE)  # +M_LINE)
 
     @observe('element_for_roi')
     def _update_element(self, change):
@@ -107,8 +106,8 @@ class SettingModel(Atom):
         else:
             element_list = [v for v in self.element_for_roi.split(' ')]
 
-        #with self.suppress_notifications():
-        #    self.element_list_roi = element_list
+        # with self.suppress_notifications():
+        #     self.element_list_roi = element_list
         logger.debug('Current elements for ROI sum are: {}'.format(element_list))
         self.update_roi(element_list)
         self.element_list_roi = element_list
@@ -130,7 +129,7 @@ class SettingModel(Atom):
         self.parameters = copy.deepcopy(param)
 
     def use_default_elements(self):
-        self.element_for_roi = ', '.join(K_LINE+L_LINE)#+M_LINE)
+        self.element_for_roi = ', '.join(K_LINE+L_LINE)  # +M_LINE)
 
     def remove_all_roi(self):
         self.roi_dict.clear()
@@ -250,5 +249,5 @@ def calculate_roi(data3D, e_linear, e_offset, range_v):
     range_v = np.asarray(range_v)
     range_v = (range_v - e_offset)/e_linear
     range_v = [int(round(v)) for v in range_v]
-    #return np.sum(data3D[range_v[0]:range_v[1], :, :], axis=0)*e_linear
-    return np.sum(data3D[:, :, range_v[0]:range_v[1]], axis=2) # * e_linear
+    # return np.sum(data3D[range_v[0]:range_v[1], :, :], axis=0)*e_linear
+    return np.sum(data3D[:, :, range_v[0]:range_v[1]], axis=2)  # * e_linear

@@ -6,11 +6,10 @@ import six
 import json
 from collections import OrderedDict
 import copy
-import os
 import math
 
 from atom.api import (Atom, Str, observe, Typed,
-                      Int, Dict, List, Float, Enum, Bool)
+                      Int, Dict, List, Float, Bool)
 
 from skbeam.core.fitting.background import snip_method
 from skbeam.fluorescence import XrfElement as Element
@@ -111,7 +110,7 @@ class ElementController(object):
         threshv : float
             No value is shown when smaller than the threshold value
         """
-        #max_dict = reduce(max, map(np.max, six.itervalues(self.element_dict)))
+        # max_dict = reduce(max, map(np.max, six.itervalues(self.element_dict)))
         max_dict = np.max([v.maxv for v in six.itervalues(self.element_dict)])
 
         for v in six.itervalues(self.element_dict):
@@ -130,7 +129,7 @@ class ElementController(object):
                             in six.iterkeys(self.element_dict)
                             if (v.lower() != v)]
 
-        #logger.info('Current Elements for '
+        # logger.info('Current Elements for '
         #            'fitting are {}'.format(current_elements))
         return current_elements
 
@@ -222,13 +221,13 @@ class GuessParamModel(Atom):
     result_dict_names = List()
     param_new = Dict()
     total_y = Typed(object)
-    #total_l = Dict()
-    #total_m = Dict()
-    #total_pileup = Dict()
+    # total_l = Dict()
+    # total_m = Dict()
+    # total_pileup = Dict()
     e_name = Str()
     add_element_intensity = Float(1000.0)
     element_list = List()
-    #data_sets = Typed(OrderedDict)
+    # data_sets = Typed(OrderedDict)
     EC = Typed(object)
     x0 = Typed(np.ndarray)
     y0 = Typed(np.ndarray)
@@ -253,7 +252,8 @@ class GuessParamModel(Atom):
                             'element2': 'Si_K',
                             'intensity': 0.0}
 
-        # The following line is part of the fix for automated updating of the energy bound in 'Automatic Element Finding' dialog box
+        # The following line is part of the fix for automated updating of the energy bound
+        #     in 'Automatic Element Finding' dialog box
         self.energy_bound_high_buf = self.param_new['non_fitting_values']['energy_bound_high']['value']
         self.energy_bound_low_buf = self.param_new['non_fitting_values']['energy_bound_low']['value']
 
@@ -272,14 +272,16 @@ class GuessParamModel(Atom):
         self.param_new = copy.deepcopy(self.default_parameters)
         self.element_list = get_element(self.param_new)
 
-        # The following line is part of the fix for automated updating of the energy bound in 'Automatic Element Finding' dialog box
+        # The following line is part of the fix for automated updating of the energy bound
+        #     in 'Automatic Element Finding' dialog box
         self.energy_bound_high_buf = self.param_new['non_fitting_values']['energy_bound_high']['value']
         self.energy_bound_low_buf = self.param_new['non_fitting_values']['energy_bound_low']['value']
 
-    # The following function is part of the fix for automated updating of the energy bound in 'Automatic Element Finding' dialog box
+    # The following function is part of the fix for automated updating of the energy bound
+    #     in 'Automatic Element Finding' dialog box
     @observe('energy_bound_high_buf')
     def _update_energy_bound_high_buf(self, change):
-        self.param_new['non_fitting_values']['energy_bound_high']['value'] = change['value']  
+        self.param_new['non_fitting_values']['energy_bound_high']['value'] = change['value']
 
     @observe('energy_bound_low_buf')
     def _update_energy_bound_high_low(self, change):
@@ -506,7 +508,7 @@ class GuessParamModel(Atom):
         # need to clean list first, in order to refresh the list in GUI
         self.result_dict_names = []
         self.result_dict_names = list(self.EC.element_dict.keys())
-        #logger.info('The full list for fitting is {}'.format(self.result_dict_names))
+        # logger.info('The full list for fitting is {}'.format(self.result_dict_names))
 
     def find_peak(self, threshv=0.1):
         """
@@ -580,7 +582,7 @@ class GuessParamModel(Atom):
             for k, v in six.iteritems(self.param_new):
                 if 'area' in k:
                     if 'pileup' in k:
-                        name_cut = k[7:-5]  #remove pileup_ and _area
+                        name_cut = k[7:-5]  # remove pileup_ and _area
                         for p in pileup_temp:
                             if name_cut == p.replace('-', '_'):
                                 v['value'] = self.EC.element_dict[p].area
@@ -642,6 +644,7 @@ def save_as(file_path, data):
         json.dump(data, outfile,
                   sort_keys=True, indent=4)
 
+
 def define_range(data, low, high, a0, a1):
     """
     Cut x range according to values define in param_dict.
@@ -668,8 +671,8 @@ def define_range(data, low, high, a0, a1):
     """
     x = np.arange(data.size)
 
-    # ratio to transfer energy value back to channel value
-    #approx_ratio = 100
+    #  ratio to transfer energy value back to channel value
+    # approx_ratio = 100
 
     low_new = int(np.around((low - a0)/a1))
     high_new = int(np.around((high - a0)/a1))
@@ -801,6 +804,10 @@ def create_full_dict(param, name_list,
     return param_new
 
 
+def strip_line(ename):
+    return ename.split('_')[0]
+
+
 def get_Z(ename):
     """
     Return element's Z number.
@@ -815,7 +822,6 @@ def get_Z(ename):
     int or None
         element Z number
     """
-    strip_line = lambda ename: ename.split('_')[0]
 
     non_element = ['compton', 'elastic', 'background', 'escape']
     if (ename.lower() in non_element) or '-' in ename or 'user' in ename.lower():
@@ -829,7 +835,6 @@ def get_energy(ename):
     """
     Return energy value by given elemental name. Need to consider non-elemental case.
     """
-    strip_line = lambda ename: ename.split('_')[0]
     non_element = ['compton', 'elastic', 'background', 'escape']
     if (ename.lower() in non_element) or 'user' in ename.lower():
         return '-'
@@ -870,7 +875,7 @@ def param_dict_cleaner(parameter, element_list):
     param = copy.deepcopy(parameter)
     param_new = {}
 
-    elist_lower = [e.lower() for e in element_list if len(e)<=4]
+    elist_lower = [e.lower() for e in element_list if len(e) <= 4]
     pileup_list = [e for e in element_list if '-' in e]
     userpeak_list = [e for e in element_list if 'user' in e.lower()]
 
@@ -920,19 +925,19 @@ def update_param_from_element(param, element_list):
     # parameter values not updated based on param_new, so redo it
     param_temp = PC.params
 
-    # enforce adjust_element area to be fixed,
-    # while bound_type in xrf_model is defined as none for area
-    #for k, v in six.iteritems(param_temp):
-    #    if '_area' in k:
-    #        v['bound_type'] = 'fixed'
+    #  enforce adjust_element area to be fixed,
+    #  while bound_type in xrf_model is defined as none for area
+    # for k, v in six.iteritems(param_temp):
+    #     if '_area' in k:
+    #         v['bound_type'] = 'fixed'
 
     for k, v in six.iteritems(param_temp):
         if k == 'non_fitting_values':
             continue
         if k in param_new:
             param_temp[k] = param_new[k]
-            #for k1 in six.iterkeys(v):
-            #    v[k1] = param_new[k][k1]
+            # for k1 in six.iterkeys(v):
+            #     v[k1] = param_new[k][k1]
     param_new = param_temp
 
     # to create full param dict, for GUI only

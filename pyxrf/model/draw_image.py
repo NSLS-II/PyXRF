@@ -3,7 +3,7 @@ from __future__ import absolute_import
 import six
 import numpy as np
 from collections import OrderedDict
-from scipy.interpolate import interp1d, interp2d
+# from scipy.interpolate import interp1d, interp2d
 import copy
 
 import math
@@ -12,9 +12,8 @@ from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import matplotlib.ticker as mticker
-import matplotlib.cm as cm
 from mpl_toolkits.axes_grid1 import ImageGrid
-from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool, Float
+from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool
 
 from .utils import normalize_data_by_scaler, grid_interpolate
 
@@ -99,10 +98,10 @@ class DrawImageAdvanced(Atom):
     name_not_scalable = List()
 
     def __init__(self):
-        self.fig = plt.figure(figsize=(3,2))
+        self.fig = plt.figure(figsize=(3, 2))
         matplotlib.rcParams['axes.formatter.useoffset'] = True
-        self.name_not_scalable = ['r2_adjust','alive', 'dead', 'elapsed_time', 'scaler_alive', 
-                                  'i0_time', 'time', 'time_diff'] # do not apply scaler norm on those data
+        self.name_not_scalable = ['r2_adjust', 'alive', 'dead', 'elapsed_time', 'scaler_alive',
+                                  'i0_time', 'time', 'time_diff']  # do not apply scaler norm on those data
 
     def data_dict_update(self, change):
         """
@@ -124,7 +123,7 @@ class DrawImageAdvanced(Atom):
     def init_plot_status(self, change):
         scaler_groups = [v for v in list(self.data_dict.keys()) if 'scaler' in v]
         if len(scaler_groups) > 0:
-            #self.scaler_group_name = scaler_groups[0]
+            # self.scaler_group_name = scaler_groups[0]
             self.scaler_norm_dict = self.data_dict[scaler_groups[0]]
             # for GUI purpose only
             self.scaler_items = []
@@ -189,7 +188,7 @@ class DrawImageAdvanced(Atom):
                 self.set_stat_for_all(bool_val=False)
                 self.img_title = ''
             elif self.data_opt > 0:
-                #self.set_stat_for_all(bool_val=False)
+                # self.set_stat_for_all(bool_val=False)
                 plot_item = sorted(self.data_dict_keys)[self.data_opt-1]
                 self.img_title = str(plot_item)
                 self.dict_to_plot = self.data_dict[plot_item]
@@ -217,10 +216,10 @@ class DrawImageAdvanced(Atom):
                 self.scaler_data = self.scaler_norm_dict[scaler_name]
                 logger.info('Use scaler data to normalize, '
                             'and the shape of scaler data is {}, '
-		            'with (low, high) as ({}, {})'.format(self.scaler_data.shape,
-		    	    				          np.min(self.scaler_data),
-							          np.max(self.scaler_data)))
-        self.set_low_high_value() # reset low high values based on normalization
+                            'with (low, high) as ({}, {})'.format(self.scaler_data.shape,
+                                                                  np.min(self.scaler_data),
+                                                                  np.max(self.scaler_data)))
+        self.set_low_high_value()  # reset low high values based on normalization
         self.show_image()
         self.update_img_wizard_items()
 
@@ -238,7 +237,7 @@ class DrawImageAdvanced(Atom):
            in the enaml field with adequate precision.
 
         ..note::
-        
+
         The function is called externally from 'enaml' code.
 
         Parameters:
@@ -265,7 +264,7 @@ class DrawImageAdvanced(Atom):
 
     @observe('pixel_or_pos')
     def _update_pp(self, change):
-            self.show_image()
+        self.show_image()
 
     def plot_select_all(self):
         self.set_stat_for_all(bool_val=True)
@@ -286,7 +285,7 @@ class DrawImageAdvanced(Atom):
         self.stat_dict = {k: bool_val for k in self.dict_to_plot.keys()}
 
         self.limit_dict.clear()
-        self.limit_dict = {k: {'low':0.0, 'high': 100.0} for k in self.dict_to_plot.keys()}
+        self.limit_dict = {k: {'low': 0.0, 'high': 100.0} for k in self.dict_to_plot.keys()}
 
         self.set_low_high_value()
 
@@ -347,7 +346,6 @@ class DrawImageAdvanced(Atom):
                          cbar_size='7%',
                          cbar_pad='2%',
                          share_all=True)
-
 
         def _compute_equal_axes_ranges(x_min, x_max, y_min, y_max):
             """
@@ -421,11 +419,13 @@ class DrawImageAdvanced(Atom):
 
             if self.pixel_or_pos or self.scatter_show:
 
-                #xd_min, xd_max, yd_min, yd_max = min(self.x_pos), max(self.x_pos), min(self.y_pos), max(self.y_pos)
+                # xd_min, xd_max, yd_min, yd_max = min(self.x_pos), max(self.x_pos),
+                #     min(self.y_pos), max(self.y_pos)
                 x_pos_2D = self.data_dict['positions']['x_pos']
                 y_pos_2D = self.data_dict['positions']['y_pos']
                 xd_min, xd_max, yd_min, yd_max = x_pos_2D.min(), x_pos_2D.max(), y_pos_2D.min(), y_pos_2D.max()
-                xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
+                xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = \
+                    _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
 
                 xd_min, xd_max = _adjust_data_range__min_ratio(xd_min, xd_max, xd_axis_max - xd_axis_min)
                 yd_min, yd_max = _adjust_data_range__min_ratio(yd_min, yd_max, yd_axis_max - yd_axis_min)
@@ -447,7 +447,8 @@ class DrawImageAdvanced(Atom):
                 if (xd <= math.floor(yd / 100)) and (yd >= 200):
                     xd_min, xd_max = -math.floor(yd / 200), math.ceil(yd / 200)
 
-                xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
+                xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = \
+                    _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
 
             if self.scale_opt == 'Linear':
 
@@ -506,15 +507,15 @@ class DrawImageAdvanced(Atom):
 
                 grid.cbar_axes[i].colorbar(im)
                 im.colorbar.formatter = im.colorbar.cbar_axis.get_major_formatter()
-                #im.colorbar.ax.get_xaxis().set_ticks([])
-                #im.colorbar.ax.get_xaxis().set_ticks([], minor=True)
-                grid.cbar_axes[i].ticklabel_format(style='sci', scilimits=(-3,4), axis='both')
-                
-                # Do not remove this code, may be useful in the future (Dmitri G.) !!!
-                # Print label for colorbar 
-                #cax = grid.cbar_axes[i]
-                #axis = cax.axis[cax.orientation]
-                #axis.label.set_text("$[a.u.]$")
+                # im.colorbar.ax.get_xaxis().set_ticks([])
+                # im.colorbar.ax.get_xaxis().set_ticks([], minor=True)
+                grid.cbar_axes[i].ticklabel_format(style='sci', scilimits=(-3, 4), axis='both')
+
+                #  Do not remove this code, may be useful in the future (Dmitri G.) !!!
+                #  Print label for colorbar
+                # cax = grid.cbar_axes[i]
+                # axis = cax.axis[cax.orientation]
+                # axis.label.set_text("$[a.u.]$")
 
                 grid[i].get_xaxis().get_major_formatter().set_useOffset(False)
                 grid[i].get_yaxis().get_major_formatter().set_useOffset(False)
@@ -534,7 +535,7 @@ class DrawImageAdvanced(Atom):
                                                            self.data_dict['positions']['y_pos'])
                     im = grid[i].imshow(data_dict,
                                         norm=LogNorm(vmin=low_lim*maxz,
-                                                    vmax=maxz, clip=True),
+                                                     vmax=maxz, clip=True),
                                         cmap=grey_use,
                                         interpolation=plot_interp,
                                         extent=(xd_min, xd_max, yd_max, yd_min),
@@ -568,7 +569,6 @@ class DrawImageAdvanced(Atom):
         self.fig.suptitle(self.img_title, fontsize=20)
         self.fig.canvas.draw_idle()
 
-
     def get_activated_num(self):
         """Collect the selected items for plotting.
         """
@@ -578,7 +578,7 @@ class DrawImageAdvanced(Atom):
     def record_selected(self):
         """Save the list of items in cache for later use.
         """
-        self.items_previous_selected = [k for (k,v) in self.stat_dict.items() if v is True]
+        self.items_previous_selected = [k for (k, v) in self.stat_dict.items() if v is True]
         logger.info('Items are set as default: {}'.format(self.items_previous_selected))
-        self.data_dict['use_default_selection'] = {k:self.dict_to_plot[k] for k in self.items_previous_selected}
+        self.data_dict['use_default_selection'] = {k: self.dict_to_plot[k] for k in self.items_previous_selected}
         self.data_dict_keys = list(self.data_dict.keys())

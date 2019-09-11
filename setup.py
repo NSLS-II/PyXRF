@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 from __future__ import (absolute_import, division, print_function)
 
-#import sys
-#import warnings
-#import numpy as np
+# import sys
+# import warnings
+# import numpy as np
 import versioneer
 
 try:
@@ -14,7 +14,7 @@ except ImportError:
     except ImportError:
         from distutils.core import setup
 
-from distutils.core import setup
+# from distutils.core import setup
 
 setup(
     name='pyxrf',

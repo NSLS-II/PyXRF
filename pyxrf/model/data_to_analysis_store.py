@@ -1,7 +1,6 @@
 import time
-import copy
 import numpy as np
-import logging
+# import logging
 try:
     from event_model import compose_run
 except ModuleNotFoundError:
@@ -9,6 +8,7 @@ except ModuleNotFoundError:
 
 import pyxrf
 from pyxrf.api import db, db_analysis
+
 
 def fitting_result_sender(hdr, result, **kwargs):
     """Transfer fitted results to generator.
@@ -28,18 +28,21 @@ def fitting_result_sender(hdr, result, **kwargs):
     start_new['pyxrf_version'] = pyxrf.__version__
     yield 'start', start_new
     # first descriptor
-    yield 'descriptor', {'data_keys': {'element_name': {'shape':[1], 'dtype': 'string', 'source': 'pyxrf fitting'},
-                                       'map': {'shape': hdr.start.shape, 'dtype': 'array', 'source': 'pyxrf fitting'}},
+    yield 'descriptor', {'data_keys':
+                         {'element_name': {'shape': [1], 'dtype': 'string', 'source': 'pyxrf fitting'},
+                          'map': {'shape': hdr.start.shape, 'dtype': 'array', 'source': 'pyxrf fitting'}},
                          'name': 'primary'}
     time_when_analysis = time.time()
     for i, (k, v) in enumerate(result.items()):
         data = {'element_name': k, 'map': v}
         timestamps = {'element_name': time_when_analysis, 'map': time_when_analysis}
-        event = {'data':data, 'seq_num': i+1, 'timestamps': timestamps}
+        event = {'data': data, 'seq_num': i+1, 'timestamps': timestamps}
         yield 'event', event
     # second descriptor
-    yield 'descriptor', {'data_keys': {'summed_spectrum_experiment': {'shape': [4096], 'dtype': 'array', 'source': 'experiment'},
-                                       'summed_spectrum_fitted': {'shape': [4096], 'dtype': 'array', 'source': 'pyxrf fitting'}},
+    yield 'descriptor', {'data_keys': {'summed_spectrum_experiment':
+                                       {'shape': [4096], 'dtype': 'array', 'source': 'experiment'},
+                         'summed_spectrum_fitted':
+                                       {'shape': [4096], 'dtype': 'array', 'source': 'pyxrf fitting'}},
                          'name': 'spectrum'}
     data = {'summed_spectrum_experiment': kwargs['exp'], 'summed_spectrum_fitted': kwargs['fitted']}
     timestamps = {'summed_spectrum_experiment': time_when_analysis, 'summed_spectrum_fitted': time_when_analysis}
@@ -112,7 +115,7 @@ def save_data_to_db(uid, result, doc,
     gen = fitting_result_sender(hdr, result, **doc)
     name, start_doc = next(gen)
 
-    #assert name == 'start'
+    # assert name == 'start'
     processor = ComposeDataForDB()
     # Push the start_doc through.
     _, processed_doc = processor('start', start_doc)
@@ -122,7 +125,7 @@ def save_data_to_db(uid, result, doc,
     for name, doc in gen:
         print(name)
         _, processed_doc = processor(name, doc)
-        #print(processed_doc)
+        # print(processed_doc)
         processed_doc.pop('id', None)
         # insert to analysis store
         db_analysis.insert(name, processed_doc)
@@ -150,7 +153,7 @@ def get_analysis_result(raw_scan_id,
     if not len(res):
         print('No analysis result is found for {}.'.format(raw_scan_id))
         return
-    res = sorted(res, key=lambda x:x.start.time)
+    res = sorted(res, key=lambda x: x.start.time)
     uid = res[-1].start.uid  # only latest result for now, to be modified.
     hdr = db_analysis[uid]
     return hdr
@@ -160,10 +163,10 @@ def get_analysis_result(raw_scan_id,
 def simulated_result():
     result = {}
     for i in range(5):
-        result[f'data_{i}'] = np.ones([10,10]) + i
+        result[f'data_{i}'] = np.ones([10, 10]) + i
     return result
 
-#res = simulated_result()
-#param = {'a' : 1, 'b' : 2}
-#doc = {'param': param, 'exp': np.arange(10), 'fitted':np.arange(10)}
-#save_data_to_db(54132, res, doc)
+# res = simulated_result()
+# param = {'a' : 1, 'b' : 2}
+# doc = {'param': param, 'exp': np.arange(10), 'fitted':np.arange(10)}
+# save_data_to_db(54132, res, doc)

@@ -3,19 +3,20 @@ import enaml
 from enaml.qt.qt_application import QtApplication
 
 import os
-import numpy as np
-import logging
-logger = logging.getLogger()
+# import numpy as np
 from atom.api import Atom, Str
 from .model.fileio import FileIOModel
-from .model.lineplot import LinePlotModel #, SettingModel
+from .model.lineplot import LinePlotModel  # , SettingModel
 from .model.guessparam import GuessParamModel
 from .model.draw_image import DrawImageAdvanced
 from .model.draw_image_rgb import DrawImageRGB
 from .model.fit_spectrum import Fit1D
 from .model.setting import SettingModel
 from .model.param_data import param_data
-import json
+# import json
+
+import logging
+logger = logging.getLogger()
 
 with enaml.imports():
     from .view.main_window import XRFGui
@@ -29,17 +30,18 @@ def get_defaults():
     #     we just set working directory to user directory
     if not os.path.exists(working_directory):
         working_directory = os.path.expanduser('~')
-                                    
-    output_directory = working_directory
+
+    # output_directory = working_directory
     default_parameters = param_data
     defaults = {'working_directory': working_directory,
-                #'output_directory': output_directory,
+                # 'output_directory': output_directory,
                 'default_parameters': default_parameters}
     return defaults
 
 
 class LogModel(Atom):
     logtext = Str()
+
 
 class GuiHandler(logging.Handler):
     def __init__(self, model=None):
@@ -50,6 +52,7 @@ class GuiHandler(logging.Handler):
 
     def handle(self, record):
         self.model.logtext += self.format(record) + '\n'
+
 
 def run():
 
@@ -63,9 +66,9 @@ def run():
     img_model_adv = DrawImageAdvanced()
     img_model_rgb = DrawImageRGB()
 
-    ### Output log to gui, turn off for now
-    ### error at mac, works fine on linux
-    ### so log info only outputs to terminal for now.
+    # Output log to gui, turn off for now
+    # error at mac, works fine on linux
+    # so log info only outputs to terminal for now.
     formatter = logging.Formatter(fmt='%(asctime)s : %(levelname)s : %(message)s')
     guihandler = GuiHandler()
     guihandler.setLevel(logging.INFO)
@@ -106,14 +109,14 @@ def run():
     param_model.observe('energy_bound_high_buf', fit_model.energy_bound_high_update)
     param_model.observe('energy_bound_low_buf', fit_model.energy_bound_low_update)
 
-    # set default parameters
-    #io_model.observe('default_parameters', plot_model.parameters_update)
-    #param_model.observe('param_new', plot_model.parameters_update)
-    #fit_model.observe('param_dict', param_model.param_changed)
+    #  set default parameters
+    # io_model.observe('default_parameters', plot_model.parameters_update)
+    # param_model.observe('param_new', plot_model.parameters_update)
+    # fit_model.observe('param_dict', param_model.param_changed)
 
-    # send exp data to SettingModel for roi sum
-    # got warning message
-    #io_model.observe('data_sets', setting_model.data_sets_update)
+    #  send exp data to SettingModel for roi sum
+    #  got warning message
+    # io_model.observe('data_sets', setting_model.data_sets_update)
     logger.info('pyxrf started.')
     xrfview = XRFGui(io_model=io_model,
                      param_model=param_model,
