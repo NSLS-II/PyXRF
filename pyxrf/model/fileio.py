@@ -88,11 +88,61 @@ class FileIOModel(Atom):
         self.mask_data = None
 
         # Display PyXRF version in the window title
-        global pyxrf_version
-        if pyxrf_version[0] not in 'vV':
-            pyxrf_version = f"v{pyxrf_version}"
-        self.window_title_base = f"PyXRF: X-ray Fluorescence Analysis Tool ({pyxrf_version})"
+        ver, new_ver = self._get_pyxrf_version_str()
+        ver_str = ver
+        if new_ver:
+            ver_str += f" - new version {new_ver} is available"
+        self.window_title_base = f"PyXRF: X-ray Fluorescence Analysis Tool ({ver_str})"
         self.window_title = self.window_title_base
+
+    def _get_pyxrf_version_str(self):
+        """
+        The function returns the tuple of strings:
+        - current version number of PyXRF;
+        - the latest version of PyXRF from nsls2forge channel.
+        If current version is the latest, then the second string is empty
+        """
+
+        import requests
+        from distutils.version import LooseVersion
+
+        # Determine the current version of PyXRF
+        global pyxrf_version
+        pyxrf_version_str = pyxrf_version
+        if pyxrf_version_str[0] not in 'vV':
+            pyxrf_version_str = f"v{pyxrf_version_str}"
+
+        # Now find the latest version available at nsls2forge
+        pyxrf_latest_version_str = ""
+        try:
+            # Create a list of available versions
+            r = requests.get('https://conda.anaconda.org/nsls2forge/noarch/repodata.json')
+            pkgs = r.json()
+            pyxrf_ver = []
+            for pkg in pkgs['packages'].keys():
+                if pkg.startswith('pyxrf'):
+                    pkg_version = LooseVersion(pkg.split('-')[1])
+                    pyxrf_ver.append(pkg_version)
+
+            if len(pyxrf_ver):
+                max_version = pyxrf_ver[0]
+                for n, pkg_version in enumerate(pyxrf_ver):
+                    if max_version < pkg_version:
+                        max_version = pkg_version
+
+                current_version = LooseVersion(pyxrf_version)
+
+                if current_version < max_version:
+                    pyxrf_latest_version_str = f"v{max_version}"
+
+        except Exception:
+            # This exception is mostly likely to happen if there is no internet connection or
+            #    nsls2forge is unreachable. Then ignore the procedure, assume that the current
+            #    version is the latest.
+            logger.info("Failed to check availability of the latest version of PyXRF at 'nsls2forge'.")
+            pass
+
+        return pyxrf_version_str, pyxrf_latest_version_str
 
     def window_title_clear(self):
         self.window_title = self.window_title_base
