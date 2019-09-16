@@ -11,7 +11,7 @@ import matplotlib.patches as mpatches
 from mpl_toolkits.axes_grid1.axes_rgb import make_rgb_axes
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool
 
-from .utils import normalize_data_by_scaler
+from .utils import normalize_data_by_scaler, grid_interpolate
 
 import logging
 logger = logging.getLogger()
@@ -66,6 +66,8 @@ class DrawImageRGB(Atom):
         index to select on GUI level
     scaler_data : None or numpy
         selected scaler data
+    pixel_or_pos : int
+        index to choose plot with pixel (== 0) or with positions (== 1)
     plot_all : Bool
         to control plot all of the data or not
     """
@@ -88,6 +90,7 @@ class DrawImageRGB(Atom):
     scaler_items = List()
     scaler_name_index = Int()
     scaler_data = Typed(object)
+    pixel_or_pos = Int(0)
     plot_all = Bool(False)
 
     rgb_name_list = List()
@@ -107,11 +110,11 @@ class DrawImageRGB(Atom):
     name_not_scalable = List()
 
     def __init__(self):
-        self.fig = plt.figure(figsize=(3, 2))
-        self.ax = self.fig.add_subplot(111)
-        self.ax_r, self.ax_g, self.ax_b = make_rgb_axes(self.ax, pad=0.02)
+        # self.fig = plt.figure(figsize=(3, 2))
+        # self.ax = self.fig.add_subplot(111)
+        # self.ax_r, self.ax_g, self.ax_b = make_rgb_axes(self.ax, pad=0.02)
         self.rgb_name_list = ['R', 'G', 'B']
-        self.name_not_scalable = ['r2_adjust']  # do not apply scaler norm on those data
+        # self.name_not_scalable = ['r2_adjust']  # do not apply scaler norm on those data
 
     def data_dict_update(self, change):
         """
@@ -134,6 +137,9 @@ class DrawImageRGB(Atom):
         self.index_red = 0
         self.index_green = 1
         self.index_blue = 2
+
+        # init of pos values
+        self.pixel_or_pos = 0
 
         # init of scaler for normalization
         self.scaler_name_index = 0
@@ -196,6 +202,10 @@ class DrawImageRGB(Atom):
                         'and the shape of scaler data is {}'.format(self.scaler_data.shape))
         self.show_image()
 
+    @observe('pixel_or_pos')
+    def _update_pp(self, change):
+        self.show_image()
+
     def set_stat_for_all(self, bool_val=False):
         """
         Set plotting status for all the 2D images.
@@ -238,6 +248,12 @@ class DrawImageRGB(Atom):
     #         self.show_image()
 
     def show_image(self):
+
+        self.fig = plt.figure(figsize=(3, 2))
+        self.ax = self.fig.add_subplot(111)
+        self.ax_r, self.ax_g, self.ax_b = make_rgb_axes(self.ax, pad=0.02)
+        # self.rgb_name_list = ['R', 'G', 'B']
+        self.name_not_scalable = ['r2_adjust']  # do not apply scaler norm on those data
 
         self.ax.cla()
         self.ax_r.cla()
@@ -290,17 +306,69 @@ class DrawImageRGB(Atom):
 
             return x_axis_min, x_axis_max, y_axis_min, y_axis_max
 
-        # Set equal ranges for the axes data
-        yd, xd = selected_data.shape[1], selected_data.shape[2]
-        xd_min, xd_max, yd_min, yd_max = 0, xd, 0, yd
-        # Select minimum range for data
-        if (yd <= math.floor(xd / 100)) and (xd >= 200):
-            yd_min, yd_max = -math.floor(xd / 200), math.ceil(xd / 200)
-        if (xd <= math.floor(yd / 100)) and (yd >= 200):
-            xd_min, xd_max = -math.floor(yd / 200), math.ceil(yd / 200)
+        def _adjust_data_range__min_ratio(c_min, c_max, c_axis_range, *, min_ratio=0.01):
+            """
+            Adjust the range for plotted data along one axis (x or y). The adjusted range is
+            applied to the 'extend' attribute of imshow(). The adjusted range is always greater
+            than 'axis_range * min_ratio'. Such transformation has no physical meaning
+            and performed for aesthetic reasons: stretching the image presentation of
+            a scan with only a few lines (1-3) greatly improves visibility of data.
 
-        xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = \
-            _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
+            Parameters
+            ----------
+
+            c_min, c_max : float
+                boundaries of the data range (along x or y axis)
+            c_axis_range : float
+                range presented along the same axis
+
+            Returns
+            -------
+
+            cmin, c_max : float
+                adjusted boundaries of the data range
+            """
+            c_range = c_max - c_min
+            if c_range < c_axis_range * min_ratio:
+                c_center = (c_max + c_min) / 2
+                c_new_range = c_axis_range * min_ratio
+                c_min = c_center - c_new_range / 2
+                c_max = c_center + c_new_range / 2
+            return c_min, c_max
+
+        if self.pixel_or_pos:
+
+            # xd_min, xd_max, yd_min, yd_max = min(self.x_pos), max(self.x_pos),
+            #     min(self.y_pos), max(self.y_pos)
+            x_pos_2D = self.data_dict['positions']['x_pos']
+            y_pos_2D = self.data_dict['positions']['y_pos']
+            xd_min, xd_max, yd_min, yd_max = x_pos_2D.min(), x_pos_2D.max(), y_pos_2D.min(), y_pos_2D.max()
+            xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = \
+                _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
+
+            xd_min, xd_max = _adjust_data_range__min_ratio(xd_min, xd_max, xd_axis_max - xd_axis_min)
+            yd_min, yd_max = _adjust_data_range__min_ratio(yd_min, yd_max, yd_axis_max - yd_axis_min)
+
+            # Adjust the direction of each axis depending on the direction in which encoder values changed
+            #   during the experiment. Data is plotted starting from the upper-right corner of the plot
+            if x_pos_2D[0, 0] > x_pos_2D[0, -1]:
+                xd_min, xd_max, xd_axis_min, xd_axis_max = xd_max, xd_min, xd_axis_max, xd_axis_min
+            if y_pos_2D[0, 0] > y_pos_2D[-1, 0]:
+                yd_min, yd_max, yd_axis_min, yd_axis_max = yd_max, yd_min, yd_axis_max, yd_axis_min
+
+        else:
+
+            # Set equal ranges for the axes data
+            yd, xd = selected_data.shape[1], selected_data.shape[2]
+            xd_min, xd_max, yd_min, yd_max = 0, xd, 0, yd
+            # Select minimum range for data
+            if (yd <= math.floor(xd / 100)) and (xd >= 200):
+                yd_min, yd_max = -math.floor(xd / 200), math.ceil(xd / 200)
+            if (xd <= math.floor(yd / 100)) and (yd >= 200):
+                xd_min, xd_max = -math.floor(yd / 200), math.ceil(yd / 200)
+
+            xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = \
+                _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
 
         name_r = self.rgb_name_list[self.index_red]
         data_r = selected_data[self.index_red, :, :]
@@ -340,6 +408,18 @@ class DrawImageRGB(Atom):
             data_out = (data_in - v_low) * c
 
             return np.clip(data_out, 0, 1.0)
+
+        # Interpolate non-uniformly spaced data to uniform grid
+        if self.pixel_or_pos:
+            data_r, _, _ = grid_interpolate(data_r,
+                                            self.data_dict['positions']['x_pos'],
+                                            self.data_dict['positions']['y_pos'])
+            data_g, _, _ = grid_interpolate(data_g,
+                                            self.data_dict['positions']['x_pos'],
+                                            self.data_dict['positions']['y_pos'])
+            data_b, _, _ = grid_interpolate(data_b,
+                                            self.data_dict['positions']['x_pos'],
+                                            self.data_dict['positions']['y_pos'])
 
         # Normalize data
         data_r = _norm_data(data_r)
