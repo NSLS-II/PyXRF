@@ -517,9 +517,6 @@ class DrawImageAdvanced(Atom):
                 # axis = cax.axis[cax.orientation]
                 # axis.label.set_text("$[a.u.]$")
 
-                grid[i].get_xaxis().get_major_formatter().set_useOffset(False)
-                grid[i].get_yaxis().get_major_formatter().set_useOffset(False)
-
             else:
 
                 maxz = np.max(data_dict)
@@ -563,8 +560,11 @@ class DrawImageAdvanced(Atom):
                 im.colorbar.ax.get_xaxis().set_ticks([], minor=True)
                 im.colorbar.cbar_axis.set_minor_formatter(mticker.LogFormatter())
 
-                grid[i].get_xaxis().get_major_formatter().set_useOffset(False)
-                grid[i].get_yaxis().get_major_formatter().set_useOffset(False)
+            grid[i].get_xaxis().set_major_locator(mticker.MaxNLocator(nbins="auto"))
+            grid[i].get_yaxis().set_major_locator(mticker.MaxNLocator(nbins="auto"))
+
+            grid[i].get_xaxis().get_major_formatter().set_useOffset(False)
+            grid[i].get_yaxis().get_major_formatter().set_useOffset(False)
 
         self.fig.suptitle(self.img_title, fontsize=20)
         self.fig.canvas.draw_idle()
