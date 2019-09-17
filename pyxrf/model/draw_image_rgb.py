@@ -8,6 +8,7 @@ from collections import OrderedDict
 from matplotlib.figure import Figure, Axes
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+import matplotlib.ticker as mticker
 from mpl_toolkits.axes_grid1.axes_rgb import make_rgb_axes
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool
 
@@ -110,11 +111,7 @@ class DrawImageRGB(Atom):
     name_not_scalable = List()
 
     def __init__(self):
-        # self.fig = plt.figure(figsize=(3, 2))
-        # self.ax = self.fig.add_subplot(111)
-        # self.ax_r, self.ax_g, self.ax_b = make_rgb_axes(self.ax, pad=0.02)
         self.rgb_name_list = ['R', 'G', 'B']
-        # self.name_not_scalable = ['r2_adjust']  # do not apply scaler norm on those data
 
     def data_dict_update(self, change):
         """
@@ -252,13 +249,12 @@ class DrawImageRGB(Atom):
         self.fig = plt.figure(figsize=(3, 2))
         self.ax = self.fig.add_subplot(111)
         self.ax_r, self.ax_g, self.ax_b = make_rgb_axes(self.ax, pad=0.02)
-        # self.rgb_name_list = ['R', 'G', 'B']
         self.name_not_scalable = ['r2_adjust']  # do not apply scaler norm on those data
 
-        self.ax.cla()
-        self.ax_r.cla()
-        self.ax_g.cla()
-        self.ax_b.cla()
+        # self.ax.cla()
+        # self.ax_r.cla()
+        # self.ax_g.cla()
+        # self.ax_b.cla()
 
         selected_data, selected_name = self.preprocess_data()
         selected_data = np.asarray(selected_data)
@@ -452,6 +448,9 @@ class DrawImageRGB(Atom):
         self.ax_g.set_ylim(yd_axis_max, yd_axis_min)
         self.ax_b.set_xlim(xd_axis_min, xd_axis_max)
         self.ax_b.set_ylim(yd_axis_max, yd_axis_min)
+
+        self.ax.xaxis.set_major_locator(mticker.MaxNLocator(nbins="auto"))
+        self.ax.yaxis.set_major_locator(mticker.MaxNLocator(nbins="auto"))
 
         plt.setp(self.ax_r.get_xticklabels(), visible=False)
         plt.setp(self.ax_r.get_yticklabels(), visible=False)
