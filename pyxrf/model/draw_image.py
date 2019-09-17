@@ -62,7 +62,7 @@ class DrawImageAdvanced(Atom):
         define data range in vertical direction
     pixel_or_pos : int
         index to choose plot with pixel (== 0) or with positions (== 1)
-    interpolation_opt: bool
+    grid_interpolate: bool
         choose to interpolate 2D image in terms of x,y or not
     limit_dict : Dict
         save low and high limit for image scaling
@@ -90,7 +90,7 @@ class DrawImageAdvanced(Atom):
     y_pos = List()
 
     pixel_or_pos = Int(0)
-    interpolation_opt = Bool(True)
+    grid_interpolate = Bool(False)
     data_dict_default = Dict()
     limit_dict = Dict()
     range_dict = Dict()
@@ -264,6 +264,10 @@ class DrawImageAdvanced(Atom):
 
     @observe('pixel_or_pos')
     def _update_pp(self, change):
+        self.show_image()
+
+    @observe('grid_interpolate')
+    def _update_gi(self, change):
         self.show_image()
 
     def plot_select_all(self):
@@ -474,7 +478,7 @@ class DrawImageAdvanced(Atom):
                     low_limit -= dv
 
                 if self.scatter_show is not True:
-                    if self.pixel_or_pos:
+                    if self.grid_interpolate:
                         data_dict, _, _ = grid_interpolate(data_dict,
                                                            self.data_dict['positions']['x_pos'],
                                                            self.data_dict['positions']['y_pos'])
@@ -526,7 +530,7 @@ class DrawImageAdvanced(Atom):
                     maxz = 1
 
                 if self.scatter_show is not True:
-                    if self.pixel_or_pos:
+                    if self.grid_interpolate:
                         data_dict, _, _ = grid_interpolate(data_dict,
                                                            self.data_dict['positions']['x_pos'],
                                                            self.data_dict['positions']['y_pos'])
