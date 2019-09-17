@@ -69,6 +69,8 @@ class DrawImageRGB(Atom):
         selected scaler data
     pixel_or_pos : int
         index to choose plot with pixel (== 0) or with positions (== 1)
+    grid_interpolate: bool
+        choose to interpolate 2D image in terms of x,y or not
     plot_all : Bool
         to control plot all of the data or not
     """
@@ -92,6 +94,7 @@ class DrawImageRGB(Atom):
     scaler_name_index = Int()
     scaler_data = Typed(object)
     pixel_or_pos = Int(0)
+    grid_interpolate = Bool(False)
     plot_all = Bool(False)
 
     rgb_name_list = List()
@@ -201,6 +204,10 @@ class DrawImageRGB(Atom):
 
     @observe('pixel_or_pos')
     def _update_pp(self, change):
+        self.show_image()
+
+    @observe('grid_interpolate')
+    def _update_gi(self, change):
         self.show_image()
 
     def set_stat_for_all(self, bool_val=False):
@@ -406,7 +413,7 @@ class DrawImageRGB(Atom):
             return np.clip(data_out, 0, 1.0)
 
         # Interpolate non-uniformly spaced data to uniform grid
-        if self.pixel_or_pos:
+        if self.grid_interpolate:
             data_r, _, _ = grid_interpolate(data_r,
                                             self.data_dict['positions']['x_pos'],
                                             self.data_dict['positions']['y_pos'])
