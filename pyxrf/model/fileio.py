@@ -112,6 +112,8 @@ class FileIOModel(Atom):
         if not pyxrf_version_str.lower().startswith('v'):
             pyxrf_version_str = f"v{pyxrf_version_str}"
 
+        logger.info("Checking for new version availability ...")
+
         # Now find the latest version available at nsls2forge
         pyxrf_latest_version_str = None
         try:
@@ -135,12 +137,18 @@ class FileIOModel(Atom):
                 if current_version < max_version:
                     pyxrf_latest_version_str = f"v{max_version}"
 
+            if pyxrf_latest_version_str is not None:
+                logger.info(f"New version of PyXRF ({pyxrf_latest_version_str}) was found "
+                            "at the 'nsls2forge' conda channel")
+            else:
+                logger.info(f"You have the latest version of PyXRF")
+
         except Exception:
             # This exception is mostly likely to happen if there is no internet connection or
             #    nsls2forge is unreachable. Then ignore the procedure, assume that the current
             #    version is the latest.
-            logger.info("Failed to check availability of the latest version of PyXRF "
-                        "in the 'nsls2forge' conda channel.")
+            logger.warning("Failed to check availability of the latest version of PyXRF "
+                           "in the 'nsls2forge' conda channel.")
             pass
 
         return pyxrf_version_str, pyxrf_latest_version_str

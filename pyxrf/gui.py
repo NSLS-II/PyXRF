@@ -56,6 +56,15 @@ class GuiHandler(logging.Handler):
 
 def run():
 
+    logger.setLevel(logging.INFO)
+
+    formatter = logging.Formatter(fmt='%(asctime)s : %(levelname)s : %(message)s')
+
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    stream_handler.setLevel(logging.INFO)
+    logger.addHandler(stream_handler)
+
     app = QtApplication()
     defaults = get_defaults()
     io_model = FileIOModel(**defaults)
@@ -69,16 +78,10 @@ def run():
     # Output log to gui, turn off for now
     # error at mac, works fine on linux
     # so log info only outputs to terminal for now.
-    formatter = logging.Formatter(fmt='%(asctime)s : %(levelname)s : %(message)s')
     guihandler = GuiHandler()
     guihandler.setLevel(logging.INFO)
     guihandler.setFormatter(formatter)
-    stream_handler = logging.StreamHandler()
-    stream_handler.setFormatter(formatter)
-    stream_handler.setLevel(logging.INFO)
-    logger.setLevel(logging.INFO)
     logger.addHandler(guihandler)
-    logger.addHandler(stream_handler)
 
     # send working directory changes to different models
     io_model.observe('working_directory', fit_model.result_folder_changed)
