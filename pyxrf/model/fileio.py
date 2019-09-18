@@ -128,7 +128,7 @@ class FileIOModel(Atom):
 
             if len(pyxrf_ver):
                 max_version = pyxrf_ver[0]
-                for n, pkg_version in enumerate(pyxrf_ver):
+                for pkg_version in pyxrf_ver:
                     if max_version < pkg_version:
                         max_version = pkg_version
 
