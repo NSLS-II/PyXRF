@@ -91,8 +91,7 @@ class FileIOModel(Atom):
         self.mask_data = None
 
         # Display PyXRF version in the window title
-        ver, new_ver = self._get_pyxrf_version_str()
-        ver_str = ver
+        ver_str, new_ver = self._get_pyxrf_version_str()
         if new_ver is not None:
             ver_str += f" - new version {new_ver} is available"
         self.window_title_base = f"PyXRF: X-ray Fluorescence Analysis Tool ({ver_str})"
@@ -102,7 +101,7 @@ class FileIOModel(Atom):
         """
         The function returns the tuple of strings:
         - current version number of PyXRF;
-        - the latest version of PyXRF from nsls2forge channel.
+        - the latest version of PyXRF from nsls2forge conda channel.
         If current version is the latest, then the second string None.
         """
 
