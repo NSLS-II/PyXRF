@@ -109,7 +109,7 @@ class FileIOModel(Atom):
         # Determine the current version of PyXRF
         global pyxrf_version
         pyxrf_version_str = pyxrf_version
-        if pyxrf_version_str[0] not in 'vV':
+        if not pyxrf_version_str.lower().startswith('v'):
             pyxrf_version_str = f"v{pyxrf_version_str}"
 
         # Now find the latest version available at nsls2forge
