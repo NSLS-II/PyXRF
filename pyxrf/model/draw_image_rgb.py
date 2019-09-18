@@ -309,7 +309,7 @@ class DrawImageRGB(Atom):
 
             return x_axis_min, x_axis_max, y_axis_min, y_axis_max
 
-        def _adjust_data_range__min_ratio(c_min, c_max, c_axis_range, *, min_ratio=0.01):
+        def _adjust_data_range_using_min_ratio(c_min, c_max, c_axis_range, *, min_ratio=0.01):
             """
             Adjust the range for plotted data along one axis (x or y). The adjusted range is
             applied to the 'extent' attribute of imshow(). The adjusted range is always greater
@@ -349,8 +349,8 @@ class DrawImageRGB(Atom):
             xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = \
                 _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
 
-            xd_min, xd_max = _adjust_data_range__min_ratio(xd_min, xd_max, xd_axis_max - xd_axis_min)
-            yd_min, yd_max = _adjust_data_range__min_ratio(yd_min, yd_max, yd_axis_max - yd_axis_min)
+            xd_min, xd_max = _adjust_data_range_using_min_ratio(xd_min, xd_max, xd_axis_max - xd_axis_min)
+            yd_min, yd_max = _adjust_data_range_using_min_ratio(yd_min, yd_max, yd_axis_max - yd_axis_min)
 
             # Adjust the direction of each axis depending on the direction in which encoder values changed
             #   during the experiment. Data is plotted starting from the upper-right corner of the plot
