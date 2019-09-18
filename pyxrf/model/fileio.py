@@ -20,6 +20,9 @@ from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Bool
 from .load_data_from_db import (db, fetch_data_from_db, flip_data,
                                 helper_encode_list, helper_decode_list,
                                 write_db_to_hdf)
+import requests
+from distutils.version import LooseVersion
+
 import logging
 import warnings
 
@@ -90,7 +93,7 @@ class FileIOModel(Atom):
         # Display PyXRF version in the window title
         ver, new_ver = self._get_pyxrf_version_str()
         ver_str = ver
-        if new_ver:
+        if new_ver is not None:
             ver_str += f" - new version {new_ver} is available"
         self.window_title_base = f"PyXRF: X-ray Fluorescence Analysis Tool ({ver_str})"
         self.window_title = self.window_title_base
@@ -100,11 +103,8 @@ class FileIOModel(Atom):
         The function returns the tuple of strings:
         - current version number of PyXRF;
         - the latest version of PyXRF from nsls2forge channel.
-        If current version is the latest, then the second string is empty
+        If current version is the latest, then the second string None.
         """
-
-        import requests
-        from distutils.version import LooseVersion
 
         # Determine the current version of PyXRF
         global pyxrf_version
@@ -139,7 +139,8 @@ class FileIOModel(Atom):
             # This exception is mostly likely to happen if there is no internet connection or
             #    nsls2forge is unreachable. Then ignore the procedure, assume that the current
             #    version is the latest.
-            logger.info("Failed to check availability of the latest version of PyXRF in the 'nsls2forge' conda channel.")
+            logger.info("Failed to check availability of the latest version of PyXRF "
+                        "in the 'nsls2forge' conda channel.")
             pass
 
         return pyxrf_version_str, pyxrf_latest_version_str
