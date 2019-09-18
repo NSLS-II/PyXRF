@@ -139,7 +139,7 @@ class FileIOModel(Atom):
             # This exception is mostly likely to happen if there is no internet connection or
             #    nsls2forge is unreachable. Then ignore the procedure, assume that the current
             #    version is the latest.
-            logger.info("Failed to check availability of the latest version of PyXRF at 'nsls2forge'.")
+            logger.info("Failed to check availability of the latest version of PyXRF in the 'nsls2forge' conda channel.")
             pass
 
         return pyxrf_version_str, pyxrf_latest_version_str
