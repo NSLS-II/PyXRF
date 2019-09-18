@@ -109,7 +109,7 @@ class FileIOModel(Atom):
         # Determine the current version of PyXRF
         global pyxrf_version
         pyxrf_version_str = pyxrf_version
-        if not pyxrf_version_str.lower().startswith('v'):
+        if pyxrf_version_str[0].lower() != 'v':
             pyxrf_version_str = f"v{pyxrf_version_str}"
 
         logger.info("Checking for new version availability ...")
@@ -139,7 +139,7 @@ class FileIOModel(Atom):
 
             if pyxrf_latest_version_str is not None:
                 logger.info(f"New version of PyXRF ({pyxrf_latest_version_str}) was found "
-                            "at the 'nsls2forge' conda channel")
+                            "in the 'nsls2forge' conda channel")
             else:
                 logger.info(f"You have the latest version of PyXRF")
 
