@@ -62,7 +62,7 @@ class DrawImageAdvanced(Atom):
         define data range in vertical direction
     pixel_or_pos : int
         index to choose plot with pixel (== 0) or with positions (== 1)
-    interpolation_opt: bool
+    grid_interpolate: bool
         choose to interpolate 2D image in terms of x,y or not
     limit_dict : Dict
         save low and high limit for image scaling
@@ -90,7 +90,7 @@ class DrawImageAdvanced(Atom):
     y_pos = List()
 
     pixel_or_pos = Int(0)
-    interpolation_opt = Bool(True)
+    grid_interpolate = Bool(False)
     data_dict_default = Dict()
     limit_dict = Dict()
     range_dict = Dict()
@@ -266,6 +266,10 @@ class DrawImageAdvanced(Atom):
     def _update_pp(self, change):
         self.show_image()
 
+    @observe('grid_interpolate')
+    def _update_gi(self, change):
+        self.show_image()
+
     def plot_select_all(self):
         self.set_stat_for_all(bool_val=True)
 
@@ -380,7 +384,7 @@ class DrawImageAdvanced(Atom):
 
             return x_axis_min, x_axis_max, y_axis_min, y_axis_max
 
-        def _adjust_data_range__min_ratio(c_min, c_max, c_axis_range, *, min_ratio=0.01):
+        def _adjust_data_range_using_min_ratio(c_min, c_max, c_axis_range, *, min_ratio=0.01):
             """
             Adjust the range for plotted data along one axis (x or y). The adjusted range is
             applied to the 'extend' attribute of imshow(). The adjusted range is always greater
@@ -427,8 +431,8 @@ class DrawImageAdvanced(Atom):
                 xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = \
                     _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
 
-                xd_min, xd_max = _adjust_data_range__min_ratio(xd_min, xd_max, xd_axis_max - xd_axis_min)
-                yd_min, yd_max = _adjust_data_range__min_ratio(yd_min, yd_max, yd_axis_max - yd_axis_min)
+                xd_min, xd_max = _adjust_data_range_using_min_ratio(xd_min, xd_max, xd_axis_max - xd_axis_min)
+                yd_min, yd_max = _adjust_data_range_using_min_ratio(yd_min, yd_max, yd_axis_max - yd_axis_min)
 
                 # Adjust the direction of each axis depending on the direction in which encoder values changed
                 #   during the experiment. Data is plotted starting from the upper-right corner of the plot
@@ -474,7 +478,7 @@ class DrawImageAdvanced(Atom):
                     low_limit -= dv
 
                 if self.scatter_show is not True:
-                    if self.pixel_or_pos:
+                    if self.grid_interpolate:
                         data_dict, _, _ = grid_interpolate(data_dict,
                                                            self.data_dict['positions']['x_pos'],
                                                            self.data_dict['positions']['y_pos'])
@@ -517,9 +521,6 @@ class DrawImageAdvanced(Atom):
                 # axis = cax.axis[cax.orientation]
                 # axis.label.set_text("$[a.u.]$")
 
-                grid[i].get_xaxis().get_major_formatter().set_useOffset(False)
-                grid[i].get_yaxis().get_major_formatter().set_useOffset(False)
-
             else:
 
                 maxz = np.max(data_dict)
@@ -529,7 +530,7 @@ class DrawImageAdvanced(Atom):
                     maxz = 1
 
                 if self.scatter_show is not True:
-                    if self.pixel_or_pos:
+                    if self.grid_interpolate:
                         data_dict, _, _ = grid_interpolate(data_dict,
                                                            self.data_dict['positions']['x_pos'],
                                                            self.data_dict['positions']['y_pos'])
@@ -563,8 +564,11 @@ class DrawImageAdvanced(Atom):
                 im.colorbar.ax.get_xaxis().set_ticks([], minor=True)
                 im.colorbar.cbar_axis.set_minor_formatter(mticker.LogFormatter())
 
-                grid[i].get_xaxis().get_major_formatter().set_useOffset(False)
-                grid[i].get_yaxis().get_major_formatter().set_useOffset(False)
+            grid[i].get_xaxis().set_major_locator(mticker.MaxNLocator(nbins="auto"))
+            grid[i].get_yaxis().set_major_locator(mticker.MaxNLocator(nbins="auto"))
+
+            grid[i].get_xaxis().get_major_formatter().set_useOffset(False)
+            grid[i].get_yaxis().get_major_formatter().set_useOffset(False)
 
         self.fig.suptitle(self.img_title, fontsize=20)
         self.fig.canvas.draw_idle()

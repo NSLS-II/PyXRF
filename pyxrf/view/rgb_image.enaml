@@ -32,7 +32,7 @@ enamldef ImageRGB(DockItem):
         constraints = [
         vbox(
             #hbox(pb_all, spacer),
-            hbox(cbox_file, cb_norm, spacer, pb_print),
+            hbox(cbox_file, cb_norm, pixel_select, interpolate_cb, spacer, pb_print),
             hbox(plot_btn, spacer, tb_check),
             #hbox(spacer, cb_select, cb_norm, tb_check),
             hbox(vbox(lb_select, sa_elements), vbox(canvas, ct_rgb),),
@@ -49,6 +49,15 @@ enamldef ImageRGB(DockItem):
         ComboBox: cb_norm:
             items << ['Normalized by '] + sorted(img_model_adv.scaler_items)
             index := img_model_adv.scaler_name_index
+
+        ComboBox: pixel_select:
+            items = ['pixel', 'x,y position']
+            index = 0
+            index := img_model_adv.pixel_or_pos
+
+        CheckBox: interpolate_cb:
+            text = 'Interpolate'
+            checked := img_model_adv.grid_interpolate
 
         PushButton: plot_btn:
             text = 'Update Plot'
