@@ -113,7 +113,7 @@ class FileIOModel(Atom):
             pyxrf_version_str = f"v{pyxrf_version_str}"
 
         # Now find the latest version available at nsls2forge
-        pyxrf_latest_version_str = ""
+        pyxrf_latest_version_str = None
         try:
             # Create a list of available versions
             r = requests.get('https://conda.anaconda.org/nsls2forge/noarch/repodata.json')
