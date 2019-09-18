@@ -312,7 +312,7 @@ class DrawImageRGB(Atom):
         def _adjust_data_range__min_ratio(c_min, c_max, c_axis_range, *, min_ratio=0.01):
             """
             Adjust the range for plotted data along one axis (x or y). The adjusted range is
-            applied to the 'extend' attribute of imshow(). The adjusted range is always greater
+            applied to the 'extent' attribute of imshow(). The adjusted range is always greater
             than 'axis_range * min_ratio'. Such transformation has no physical meaning
             and performed for aesthetic reasons: stretching the image presentation of
             a scan with only a few lines (1-3) greatly improves visibility of data.
