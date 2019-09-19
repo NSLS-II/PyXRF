@@ -329,9 +329,10 @@ class DrawImageAdvanced(Atom):
         if 'positions' in self.data_dict.keys():
             positions_data_available = True
 
-        # Create local copies of self.pixel_or_pos and self.scatter_show
+        # Create local copies of self.pixel_or_pos, self.scatter_show and self.grid_interpolate
         pixel_or_pos_local = self.pixel_or_pos
         scatter_show_local = self.scatter_show
+        grid_interpolate_local = self.grid_interpolate
 
         # Disable plotting vs x-y coordinates if 'positions' data is not available
         if not positions_data_available:
@@ -341,7 +342,9 @@ class DrawImageAdvanced(Atom):
             if scatter_show_local:
                 scatter_show_local = False  # Switch to plotting vs. pixel number
                 logger.error("'Positions' data is not available. Scatter plot is disabled.")
-
+            if grid_interpolate_local:
+                grid_interpolate_local = False  # Switch to plotting vs. pixel number
+                logger.error("'Positions' data is not available. Interpolation is disabled.")
 
         low_lim = 1e-4  # define the low limit for log image
         plot_interp = 'Nearest'
@@ -500,7 +503,7 @@ class DrawImageAdvanced(Atom):
                     low_limit -= dv
 
                 if scatter_show_local is not True:
-                    if self.grid_interpolate:
+                    if grid_interpolate_local:
                         data_dict, _, _ = grid_interpolate(data_dict,
                                                            self.data_dict['positions']['x_pos'],
                                                            self.data_dict['positions']['y_pos'])
@@ -552,7 +555,7 @@ class DrawImageAdvanced(Atom):
                     maxz = 1
 
                 if scatter_show_local is not True:
-                    if self.grid_interpolate:
+                    if grid_interpolate_local:
                         data_dict, _, _ = grid_interpolate(data_dict,
                                                            self.data_dict['positions']['x_pos'],
                                                            self.data_dict['positions']['y_pos'])
