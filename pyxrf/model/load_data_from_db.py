@@ -8,6 +8,7 @@ import os
 import json
 import multiprocessing
 import pandas as pd
+import math
 
 import logging
 import warnings
@@ -576,7 +577,34 @@ def map_data2D_srx(runid, fpath,
                 if ypos_name not in data1.keys():
                     ypos_name = 'hf_stage_z'        # vertical along z
                 y_pos0 = np.hstack(data1[ypos_name])
-                # y position is more than actual x pos, scan not finished?
+                # Original comment (from the previous authors):
+                #      y position is more than actual x pos, scan not finished?
+                # The following (temporary) fix assumes that incomplete scan contains
+                #   at least two completed lines. The step between the scanned lines
+                #   may be used to recreate y-coordinates for the lines that were not
+                #   scanned: data for those lines will be filled with zeros.
+                #   Having some reasonable y-coordinate data for the missed lines
+                #   will allow to plot and process the data even if the scan is incomplete.
+                #   In the case if scan contain only one line, there is no reliable way
+                #   to to generate coordinates, use the same step as for x coordinates
+                #   or 1 if the first scannned line contains only one point.
+                if len(y_pos0) < x_pos.shape[0] and len(y_pos0) > 0:
+                    y_step = 1
+                    if len(y_pos0) > 1:
+                        y_step = (y_pos0[-1] - y_pos0[0])/(len(y_pos0) - 1)
+                    elif x_pos.shape[1] > 1:
+                        # Set 'y_step' equal to the absolute value of 'x_step'
+                        #    this is just to select some reasonable scale and happens if
+                        #    only one line was completed in the unfinished flyscan (probably rare)
+                        y_step = math.fabs((x_pos[0, -1] - x_pos[0, 0])/(x_pos.shape[1] - 1))
+                    # Now use 'y_step' to generate the remaining points
+                    n_pts = x_pos.shape[0] - len(y_pos0)
+                    v_start = y_pos0[-1] + y_step
+                    v_stop = v_start + (n_pts - 1) * y_step
+                    y_pos_filled = np.linspace(v_start, v_stop, n_pts)
+                    y_pos0 = y_pos0.append(y_pos_filled)
+                # The following condition check is left from the existing code. It is still checking
+                #   for the case if 0 lines were scanned.
                 if len(y_pos0) >= x_pos.shape[0]:
                     y_pos = y_pos0[:x_pos.shape[0]]
                     x_tmp = np.ones(x_pos.shape[1])
