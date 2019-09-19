@@ -577,8 +577,10 @@ def map_data2D_srx(runid, fpath,
                 if ypos_name not in data1.keys():
                     ypos_name = 'hf_stage_z'        # vertical along z
                 y_pos0 = np.hstack(data1[ypos_name])
+
                 # Original comment (from the previous authors):
                 #      y position is more than actual x pos, scan not finished?
+                #
                 # The following (temporary) fix assumes that incomplete scan contains
                 #   at least two completed lines. The step between the scanned lines
                 #   may be used to recreate y-coordinates for the lines that were not
@@ -588,24 +590,57 @@ def map_data2D_srx(runid, fpath,
                 #   In the case if scan contain only one line, there is no reliable way
                 #   to to generate coordinates, use the same step as for x coordinates
                 #   or 1 if the first scannned line contains only one point.
-                if len(y_pos0) < x_pos.shape[0] and len(y_pos0) > 0:
+
+                # First check if the scan of the last line was completed. If not,
+                #   then x-coordinates of the scan points are all ZERO
+                last_scan_line_no_data = False
+                if math.isclose(np.sum(x_pos[x_pos.shape[0] - 1, :]), 0.0, abs_tol=1e-20):
+                    last_scan_line_no_data = True
+
+                no_position_data = False
+                if len(y_pos0) == 0 or (len(y_pos0) == 1 and last_scan_line_no_data):
+                    no_position_data = True
+                    print("WARNING: The scan contains no completed scan lines")
+
+                if len(y_pos0) < x_pos.shape[0] and len(y_pos0) > 1:
+                    # The number of the lines for which the scan was initiated
+                    #   Unfortunately this is not the number of scanned lines,
+                    #   so x-axis values need to be restored for the line #'n_scanned_lines - 1' !!!
+                    n_scanned_lines = len(y_pos0)
+                    print(f"WARNING: The scan is not completed: {n_scanned_lines} "
+                          f"out of {x_pos.shape[0]} lines")
                     y_step = 1
-                    if len(y_pos0) > 1:
-                        y_step = (y_pos0[-1] - y_pos0[0])/(len(y_pos0) - 1)
+                    if n_scanned_lines > 1:
+                        y_step = (y_pos0[-1] - y_pos0[0])/(n_scanned_lines - 1)
                     elif x_pos.shape[1] > 1:
                         # Set 'y_step' equal to the absolute value of 'x_step'
                         #    this is just to select some reasonable scale and happens if
-                        #    only one line was completed in the unfinished flyscan (probably rare)
+                        #    only one line was completed in the unfinished flyscan.
+                        #    This is questionable decision, but it should be rarely applied
                         y_step = math.fabs((x_pos[0, -1] - x_pos[0, 0])/(x_pos.shape[1] - 1))
                     # Now use 'y_step' to generate the remaining points
-                    n_pts = x_pos.shape[0] - len(y_pos0)
+                    n_pts = x_pos.shape[0] - n_scanned_lines
                     v_start = y_pos0[-1] + y_step
                     v_stop = v_start + (n_pts - 1) * y_step
                     y_pos_filled = np.linspace(v_start, v_stop, n_pts)
-                    y_pos0 = y_pos0.append(y_pos_filled)
+                    y_pos0 = np.append(y_pos0, y_pos_filled)
+                    # Now duplicate x-coordinate values from the last scanned line to
+                    #   all the unscanned lines, otherwise they all will be zeros
+                    for n in range(n_scanned_lines - 1, x_pos.shape[0]):
+                        x_pos[n, :] = x_pos[n_scanned_lines - 2, :]
+
+                elif x_pos.shape[0] > 1 and last_scan_line_no_data:
+                    # One possible scenario is that if the scan was interrupted while scanning
+                    #   the last line. In this case the condition
+                    #                 len(y_pos0) >= x_pos.shape[0]
+                    #   will hold, but the last line of x-coordinates will be filleds with
+                    #   zeros, which will create a mess if data is plotted with PyXRF
+                    #   To fix the problem, fill the last line with values from the previous line
+                    x_pos[x_pos.shape[0] - 1, :] = x_pos[x_pos.shape[0] - 2, :]
+
                 # The following condition check is left from the existing code. It is still checking
                 #   for the case if 0 lines were scanned.
-                if len(y_pos0) >= x_pos.shape[0]:
+                if len(y_pos0) >= x_pos.shape[0] and not no_position_data:
                     y_pos = y_pos0[:x_pos.shape[0]]
                     x_tmp = np.ones(x_pos.shape[1])
                     xv, yv = np.meshgrid(x_tmp, y_pos)
@@ -622,7 +657,7 @@ def map_data2D_srx(runid, fpath,
                         data_tmp[0, :, :] = yv.T
                         new_data['pos_data'] = data_tmp
                 else:
-                    print("WARNING: x,y positions are not saved: scan was not completed")
+                    print("WARNING: Scan was interrupted: x,y positions are not saved")
 
             n_detectors_found += 1
 
