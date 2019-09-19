@@ -519,7 +519,7 @@ def map_data2D_srx(runid, fpath,
                                 interp_list = (v.data[n][-1] - v.data[n][-3]) / 2 * \
                                     np.arange(1, len_diff + 1) + v.data[n][-1]
                                 data[n][m, min_len:datashape[1]] = interp_list
-                    fluor_len = v.data['fluor'].shape[0]
+                    fluor_len = v.data[detector_field].shape[0]
                     if m > 0 and not (m % 10):
                         print(f"Processed {m} of {n_scan_lines_total} lines ...")
                     # print(f"m = {m} Data shape {v.data['fluor'].shape} - {v.data['fluor'].shape[1] }")
@@ -527,11 +527,11 @@ def map_data2D_srx(runid, fpath,
                     if create_each_det is False:
                         for i in range(num_det):
                             # in case the data length in each line is different
-                            new_data['det_sum'][m, :fluor_len, :] += v.data['fluor'][:, i, :]
+                            new_data['det_sum'][m, :fluor_len, :] += v.data[detector_field][:, i, :]
                     else:
                         for i in range(num_det):
                             # in case the data length in each line is different
-                            new_data['det'+str(i+1)][m, :fluor_len, :] = v.data['fluor'][:, i, :]
+                            new_data['det'+str(i+1)][m, :fluor_len, :] = v.data[detector_field][:, i, :]
 
             # If the detector field does not exist, then try the next one from the list
             if not detector_field_exists:
