@@ -258,10 +258,26 @@ class DrawImageRGB(Atom):
         self.ax_r, self.ax_g, self.ax_b = make_rgb_axes(self.ax, pad=0.02)
         self.name_not_scalable = ['r2_adjust']  # do not apply scaler norm on those data
 
-        # self.ax.cla()
-        # self.ax_r.cla()
-        # self.ax_g.cla()
-        # self.ax_b.cla()
+        # Check if positions data is available. Positions data may be unavailable
+        # (not recorded in HDF5 file) if experiment is has not been completed.
+        # While the data from the completed part of experiment may still be used,
+        # plotting vs. x-y or scatter plot may not be displayed.
+        positions_data_available = False
+        if 'positions' in self.data_dict.keys():
+            positions_data_available = True
+
+        # Create local copy of self.pixel_or_pos and self.grid_interpolate
+        pixel_or_pos_local = self.pixel_or_pos
+        grid_interpolate_local = self.grid_interpolate
+
+        # Disable plotting vs x-y coordinates if 'positions' data is not available
+        if not positions_data_available:
+            if pixel_or_pos_local:
+                pixel_or_pos_local = 0  # Switch to plotting vs. pixel number
+                logger.error("'Positions' data is not available. Plotting vs. x-y coordinates is disabled")
+            if grid_interpolate_local:
+                grid_interpolate_local = False  # Switch to plotting vs. pixel number
+                logger.error("'Positions' data is not available. Interpolation is disabled.")
 
         selected_data, selected_name = self.preprocess_data()
         selected_data = np.asarray(selected_data)
@@ -339,7 +355,7 @@ class DrawImageRGB(Atom):
                 c_max = c_center + c_new_range / 2
             return c_min, c_max
 
-        if self.pixel_or_pos:
+        if pixel_or_pos_local:
 
             # xd_min, xd_max, yd_min, yd_max = min(self.x_pos), max(self.x_pos),
             #     min(self.y_pos), max(self.y_pos)
@@ -413,7 +429,7 @@ class DrawImageRGB(Atom):
             return np.clip(data_out, 0, 1.0)
 
         # Interpolate non-uniformly spaced data to uniform grid
-        if self.grid_interpolate:
+        if grid_interpolate_local:
             data_r, _, _ = grid_interpolate(data_r,
                                             self.data_dict['positions']['x_pos'],
                                             self.data_dict['positions']['y_pos'])
