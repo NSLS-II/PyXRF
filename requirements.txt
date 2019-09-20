@@ -1,0 +1,13 @@
+atom
+enaml
+h5py
+lmfit
+matplotlib
+numpy
+pillow
+pandas
+requests
+scipy
+six
+scikit-beam
+scikit-image
