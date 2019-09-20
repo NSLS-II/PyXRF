@@ -4,10 +4,10 @@ h5py
 lmfit
 matplotlib
 numpy
-pillow
 pandas
+pillow
+pyqt5
 requests
 scipy
 six
-scikit-beam
 scikit-image
