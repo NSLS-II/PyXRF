@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 from setuptools import setup
 
 import versioneer
@@ -23,6 +22,7 @@ setup(
     license='BSD',
     classifiers=['Development Status :: 3 - Alpha',
                  "License :: OSI Approved :: BSD License",
+                 "Programming Language :: Python :: 3.6",
                  "Programming Language :: Python :: 3.7",
                  "Topic :: Software Development :: Libraries",
                  "Intended Audience :: Science/Research"]
