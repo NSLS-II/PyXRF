@@ -502,7 +502,7 @@ class DrawImageAdvanced(Atom):
                     high_limit += dv
                     low_limit -= dv
 
-                if scatter_show_local is not True:
+                if not scatter_show_local:
                     if grid_interpolate_local:
                         data_dict, _, _ = grid_interpolate(data_dict,
                                                            self.data_dict['positions']['x_pos'],
@@ -554,7 +554,7 @@ class DrawImageAdvanced(Atom):
                 if maxz <= 1e-30:
                     maxz = 1
 
-                if scatter_show_local is not True:
+                if not scatter_show_local:
                     if grid_interpolate_local:
                         data_dict, _, _ = grid_interpolate(data_dict,
                                                            self.data_dict['positions']['x_pos'],

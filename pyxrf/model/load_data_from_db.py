@@ -636,7 +636,7 @@ def map_data2D_srx(runid, fpath,
                     #   will hold, but the last line of x-coordinates will be filleds with
                     #   zeros, which will create a mess if data is plotted with PyXRF
                     #   To fix the problem, fill the last line with values from the previous line
-                    x_pos[x_pos.shape[0] - 1, :] = x_pos[x_pos.shape[0] - 2, :]
+                    x_pos[-1, :] = x_pos[-2, :]
 
                 # The following condition check is left from the existing code. It is still checking
                 #   for the case if 0 lines were scanned.
