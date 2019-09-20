@@ -1,15 +1,7 @@
 #!/usr/bin/env python
-from __future__ import (absolute_import, division, print_function)
+from setuptools import find_packages, setup
 
 import versioneer
-
-try:
-    from setuptools import setup
-except ImportError:
-    try:
-        from setuptools.core import setup
-    except ImportError:
-        from distutils.core import setup
 
 with open('requirements.txt') as f:
     requirements = f.read().splitlines()
@@ -21,7 +13,6 @@ setup(
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
     author='Brookhaven National Laboratory',
-    author_email='some_email@bnl.gov',
     url='https://github.com/NSLS-II/PyXRF',
     packages=['pyxrf', 'pyxrf.model', 'pyxrf.view', 'pyxrf.db_config', 'configs'],
     entry_points={'console_scripts': ['pyxrf = pyxrf.gui:run']},
