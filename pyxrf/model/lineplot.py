@@ -410,6 +410,19 @@ class LinePlotModel(Atom):
                                            linewidth=self.plot_style['emission_line']['linewidth'])
                     self.eline_obj.append(eline)
 
+    def get_element_line_name_by_id(self, n_id):
+        """
+        Returns element emission line name by ID (number in the list)
+          The ID is produced by the element selection combo box in
+          the
+        """
+        total_list = K_LINE + L_LINE + M_LINE
+        try:
+            ename = total_list[n_id-1]
+        except Exception:
+            ename = None
+        return ename
+
     @observe('element_id')
     def set_element(self, change):
         if change['value'] == 0:
@@ -424,38 +437,44 @@ class LinePlotModel(Atom):
         l_len = len(L_TRANSITIONS)
         m_len = len(M_TRANSITIONS)
 
-        self.elist = []
-        total_list = K_LINE + L_LINE + M_LINE
-        logger.debug('Plot emission line for element: '
-                     '{} with incident energy {}'.format(self.element_id,
-                                                         incident_energy))
-        ename = total_list[self.element_id-1]
+        ename = self.get_element_line_name_by_id(self.element_id)
 
-        if '_K' in ename:
-            e = Element(ename[:-2])
-            if e.cs(incident_energy)['ka1'] != 0:
-                for i in range(k_len):
-                    self.elist.append((e.emission_line.all[i][1],
-                                       e.cs(incident_energy).all[i][1]
-                                       / e.cs(incident_energy).all[0][1]))
+        if ename is not None:
 
-        elif '_L' in ename:
-            e = Element(ename[:-2])
-            if e.cs(incident_energy)['la1'] != 0:
-                for i in range(k_len, k_len+l_len):
-                    self.elist.append((e.emission_line.all[i][1],
-                                       e.cs(incident_energy).all[i][1]
-                                       / e.cs(incident_energy).all[k_len][1]))
+            logger.debug('Plot emission line for element: '
+                         '{} with incident energy {}'.format(self.element_id,
+                                                             incident_energy))
+            self.elist = []
+
+            if '_K' in ename:
+                e = Element(ename[:-2])
+                if e.cs(incident_energy)['ka1'] != 0:
+                    for i in range(k_len):
+                        self.elist.append((e.emission_line.all[i][1],
+                                           e.cs(incident_energy).all[i][1]
+                                           / e.cs(incident_energy).all[0][1]))
+
+            elif '_L' in ename:
+                e = Element(ename[:-2])
+                if e.cs(incident_energy)['la1'] != 0:
+                    for i in range(k_len, k_len+l_len):
+                        self.elist.append((e.emission_line.all[i][1],
+                                           e.cs(incident_energy).all[i][1]
+                                           / e.cs(incident_energy).all[k_len][1]))
+
+            else:
+                e = Element(ename[:-2])
+                if e.cs(incident_energy)['ma1'] != 0:
+                    for i in range(k_len+l_len, k_len+l_len+m_len):
+                        self.elist.append((e.emission_line.all[i][1],
+                                           e.cs(incident_energy).all[i][1]
+                                           / e.cs(incident_energy).all[k_len+l_len][1]))
+            self.plot_emission_line()
+            self._update_canvas()
 
         else:
-            e = Element(ename[:-2])
-            if e.cs(incident_energy)['ma1'] != 0:
-                for i in range(k_len+l_len, k_len+l_len+m_len):
-                    self.elist.append((e.emission_line.all[i][1],
-                                       e.cs(incident_energy).all[i][1]
-                                       / e.cs(incident_energy).all[k_len+l_len][1]))
-        self.plot_emission_line()
-        self._update_canvas()
+
+            logger.error(f"Selected emission line with ID #{self.element_id} is not in the list.")
 
     @observe('det_materials')
     def _update_det_materials(self, change):
