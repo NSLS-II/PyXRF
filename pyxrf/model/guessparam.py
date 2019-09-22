@@ -124,6 +124,15 @@ class ElementController(object):
     def delete_all(self):
         self.element_dict.clear()
 
+    def is_element_in_list(self, k):
+        """
+        Check if element 'k' is in the list of selected elements
+        """
+        if k in self.element_dict.keys():
+            return True
+        else:
+            return False
+
     def get_element_list(self):
         current_elements = [v for v
                             in six.iterkeys(self.element_dict)
