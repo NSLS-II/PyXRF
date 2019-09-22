@@ -47,7 +47,7 @@ enamldef PlotMain(DockItem):
         constraints = [
             vbox(
                 hbox(plot_exp_btn, pb_plot_fit, spacer, pb_print),
-                hbox(cbox1, spacer, pb_eline, cbox2, checkb),
+                hbox(cbox1, spacer, pb_eline, add_eline, remove_eline, cbox2, checkb),
                 canvas,
             ),
         ]
@@ -65,6 +65,12 @@ enamldef PlotMain(DockItem):
                     adjust_emission_line.show()
                 else:
                     adjust_emission_line.hide()
+
+        PushButton: add_eline:
+            text = 'Add line'
+
+        PushButton: remove_eline:
+            text = 'Remove line'
 
         ComboBox: cbox2:
             items = ['<Display emission lines>'] +\
