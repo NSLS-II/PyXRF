@@ -77,6 +77,7 @@ enamldef PlotMain(DockItem):
                     K_LINE + L_LINE + M_LINE
             index := plot_model.element_id
             index = 0
+
         PushButton: pb_print:
             text  ='Print'
             clicked ::
