@@ -68,15 +68,18 @@ enamldef PlotMain(DockItem):
 
         PushButton: add_eline:
             text = 'Add line'
+            enabled << plot_model.allow_add_eline
 
         PushButton: remove_eline:
             text = 'Remove line'
+            enabled << plot_model.allow_remove_eline
 
         ComboBox: cbox2:
             items = ['<Display emission lines>'] +\
                     K_LINE + L_LINE + M_LINE
             index := plot_model.element_id
             index = 0
+            enabled << plot_model.allow_select_elines
 
         PushButton: pb_print:
             text  ='Print'
@@ -86,13 +89,13 @@ enamldef PlotMain(DockItem):
         PushButton: plot_exp_btn:
             text = 'Plot Selected Exp. Data'
             checkable = True
-            checked << plot_model.plot_exp_opt
-            clicked ::
-                if checked:
-                    plot_model.plot_experiment()
-                    plot_model.plot_exp_opt = True
-                else:
-                    plot_model.plot_exp_opt = False
+            checked := plot_model.plot_exp_opt
+            #clicked ::
+            #    if checked:
+            #        plot_model.plot_experiment()
+            #        plot_model.plot_exp_opt = True
+            #    else:
+            #        plot_model.plot_exp_opt = False
 
         PushButton: pb_plot_fit:
             text = 'Plot Fit Result'
