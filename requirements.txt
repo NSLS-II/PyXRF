@@ -6,7 +6,6 @@ matplotlib
 numpy
 pandas
 pillow
-pyqt5<5.11
 requests
 scipy
 six
