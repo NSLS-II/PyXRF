@@ -118,6 +118,9 @@ enamldef PlotMain(DockItem):
                                             param_model.auto_fit_all)
                     except (AttributeError, ValueError):
                         pass
+                    if plot_model.plot_exp_opt:
+                        plot_model.plot_exp_opt = False
+                        plot_model.plot_exp_opt = True
                     plot_model.show_fit_opt = True
                 else:
                     plot_model.show_fit_opt = False
