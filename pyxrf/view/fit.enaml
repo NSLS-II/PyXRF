@@ -227,14 +227,14 @@ enamldef FitView(DockItem): fit_view:
 
             PushButton: pb_pileup:
                 text = 'Add Pileup Peaks'
-                enabled << cb_select.index > 0
-                checkable = True
-                checked := pileup_edit.visible
                 clicked ::
-                    if checked:
+                    # The following set of conditions is not complete, but sufficient
+                    if param_model.x0 is not None and param_model.y0 is not None:
                         pileup_edit.show()
                     else:
-                        pileup_edit.hide()
+                        btns = [DialogButton('Ok', 'accept')]
+                        # 'critical' shows MessageBox
+                        critical(self, 'ERROR', f'Experimental data is not loaded or initial spectrum fitting is not performed', btns)
 
             GroupBox: pre_fit:
                 padding = Box(2, 2, 2, 2)
