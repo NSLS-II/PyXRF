@@ -227,7 +227,7 @@ enamldef FitView(DockItem): fit_view:
 
             PushButton: pb_pileup:
                 text = 'Add Pileup Peaks'
-                enabled = True
+                enabled << cb_select.index > 0
                 checkable = True
                 checked := pileup_edit.visible
                 clicked ::
