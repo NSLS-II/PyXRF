@@ -236,7 +236,8 @@ class GuessParamModel(Atom):
     # total_l = Dict()
     # total_m = Dict()
     # total_pileup = Dict()
-    e_name = Str()
+    e_name = Str()        # Element line name selected in combo box
+    e_name_index = Int(0)  # The index of element line name selected in combo box
     add_element_intensity = Float(1000.0)
     element_list = List()
     # data_sets = Typed(OrderedDict)
@@ -511,7 +512,7 @@ class GuessParamModel(Atom):
                                                        elemental_lines=[e_name],
                                                        default_area=default_area)
             energy_float = float(get_energy(self.pileup_data['element1'])) + \
-                           float(get_energy(self.pileup_data['element2']))
+                float(get_energy(self.pileup_data['element2']))
             energy = f"{energy_float:.4f}"
 
             ratio_v = self.pileup_data['intensity'] / np.max(data_out[e_name])
