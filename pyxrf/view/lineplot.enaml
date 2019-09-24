@@ -81,8 +81,10 @@ enamldef PlotMain(DockItem):
                 cbox2.set_focus()  # Return focus to the combo box
 
         ComboBox: cbox2:
-            items = ['<Display emission lines>'] +\
-                    K_LINE + L_LINE + M_LINE
+            #items = ['<Display emission lines>'] +\
+            #        K_LINE + L_LINE + M_LINE
+            items = ['<Display emission lines>'] + param_model.get_user_peak_list(include_user_peaks=False)
+
             index = 0
             index := plot_model.element_id
             enabled << plot_model.allow_select_elines and plot_model.plot_exp_opt
