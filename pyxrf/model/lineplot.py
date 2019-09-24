@@ -567,7 +567,7 @@ class LinePlotModel(Atom):
         else:
             return False
 
-    def is_element_line_id_valid(self, n_id):
+    def is_element_line_id_valid(self, n_id, *, include_user_peaks=False):
         """
         Checks if ID ('n_id') of the element emission line is valid,
         i.e. the name of the line may be obtained by using the ID.
@@ -585,14 +585,14 @@ class LinePlotModel(Atom):
         # There may be a more efficient way to check 'n_id',
         #   but we want to use the same function as we use
         #   to retrive the line name
-        ename = self.get_element_line_name_by_id(n_id)
+        ename = self.get_element_line_name_by_id(n_id, include_user_peaks=include_user_peaks)
 
         if ename is None:
             return False
         else:
             return True
 
-    def get_element_line_name_by_id(self, n_id):
+    def get_element_line_name_by_id(self, n_id, *, include_user_peaks=False):
         """
         Retrievs the name of the element emission line from its ID
         (the number in the list). The lines are numbered starting with 1.
@@ -615,7 +615,7 @@ class LinePlotModel(Atom):
 
         # This is the fixed list of element emission line names.
         #   The element with ID==1 is found in total_list[0]
-        total_list = K_LINE + L_LINE + M_LINE
+        total_list = self.param_model.get_user_peak_list(include_user_peaks=include_user_peaks)
         try:
             ename = total_list[n_id-1]
         except Exception:
@@ -626,6 +626,7 @@ class LinePlotModel(Atom):
     def set_element(self, change):
 
         self._set_eline_select_controls(element_id=change['value'])
+        self.compute_manual_peak_intensity(n_id=change['value'])
 
         if change['value'] == 0:
             while(len(self.eline_obj)):
@@ -767,6 +768,32 @@ class LinePlotModel(Atom):
         self.show_fit_opt = False
         self.show_fit_opt = True
         self.param_model.update_name_list()
+
+    def compute_manual_peak_intensity(self, n_id=None):
+
+        if n_id is None:
+            n_id = self.element_id
+
+        if not self.is_element_line_id_valid(n_id):
+            # This is typicall the case when n_id==0
+            intensity = 0.0
+            if self.is_element_line_id_valid(n_id, include_user_peaks=True):
+                # This means we are dealing with user defined peak. Display intensity if the peak is in the list.
+                if self.is_line_in_selected_list(n_id):
+                    name = self.get_element_line_name_by_id(n_id, include_user_peaks=True)
+                    intensity = self.param_model.EC.element_dict[name].maxv
+
+        else:
+            if self.is_line_in_selected_list(n_id):
+                name = self.get_element_line_name_by_id(n_id)
+                intensity = self.param_model.EC.element_dict[name].maxv
+
+            else:
+                intensity = 3000.0
+
+        self.param_model.add_element_intensity = intensity
+
+
 
     # def plot_autofit(self):
     #     sum_y = 0
