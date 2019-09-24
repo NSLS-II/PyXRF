@@ -200,11 +200,11 @@ enamldef FitView(DockItem): fit_view:
             FloatField: intensity_fd:
                 value := param_model.add_element_intensity
                 maximum_size = 80
-                enabled << (cb_select.index > 0) and plot_model.allow_add_eline
+                enabled << (cb_select.index > 0) and plot_model.allow_add_eline_fit
 
             PushButton: manual_add:
                 text = 'Add'
-                enabled << (cb_select.index > 0) and plot_model.allow_add_eline
+                enabled << (cb_select.index > 0) and plot_model.allow_add_eline_fit
                 clicked ::
                     # The following set of conditions is not complete, but sufficient
                     if param_model.x0 is None or param_model.y0 is None:
@@ -220,7 +220,7 @@ enamldef FitView(DockItem): fit_view:
 
             PushButton: manual_remove:
                 text = 'Remove'
-                enabled << (cb_select.index > 0) and plot_model.allow_remove_eline
+                enabled << (cb_select.index > 0) and plot_model.allow_remove_eline_fit
                 clicked ::
                     plot_model.remove_peak_manual(param_model.e_name)
                     cb_select.set_focus()  # Return focus to the combo box
