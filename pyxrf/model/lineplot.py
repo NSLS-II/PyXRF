@@ -122,6 +122,10 @@ class LinePlotModel(Atom):
     allow_add_eline = Bool(False)
     allow_remove_eline = Bool(False)
     allow_select_elines = Bool(False)
+    # The same flag for 'Fit' spectrum window
+    #   Those flag also must allow to select Userpeak1 .. Userpeak10
+    allow_add_eline_fit = Bool(False)
+    allow_remove_eline_fit = Bool(False)
 
     plot_style = Dict()
 
@@ -490,14 +494,19 @@ class LinePlotModel(Atom):
         data : ndarray or None
             Reference to the data array.
         """
-        flag = True
+        flag, flag_fit = True, True
         if data is None:
-            flag = False
+            flag, flag_fit = False, False
         if not self.is_element_line_id_valid(element_id):
             flag = False
-        if self.is_line_in_selected_list(element_id):
+        elif self.is_line_in_selected_list(element_id):
             flag = False
+        if not self.is_element_line_id_valid(element_id, include_user_peaks=True):
+            flag_fit = False
+        elif self.is_line_in_selected_list(element_id, include_user_peaks=True):
+            flag_fit = False
         self.allow_add_eline = flag
+        self.allow_add_eline_fit = flag_fit
 
     def _set_allow_remove_eline(self, *, element_id, data):
         """
@@ -513,12 +522,15 @@ class LinePlotModel(Atom):
         data : ndarray or None
             Reference to the data array.
         """
-        flag = False
-        if data is None:
+        flag, flag_fit = False, False
+        if data is not None:
+            flag, flag_fit = True, True
+        if not self.is_line_in_selected_list(element_id):
             flag = False
-        if self.is_line_in_selected_list(element_id):
-            flag = True
+        if not self.is_line_in_selected_list(element_id, include_user_peaks=True):
+            flag_fit = False
         self.allow_remove_eline = flag
+        self.allow_remove_eline_fit = flag_fit
 
     def _set_allow_select_elines(self, data):
         """
@@ -540,7 +552,7 @@ class LinePlotModel(Atom):
             flag = False
         self.allow_select_elines = flag
 
-    def is_line_in_selected_list(self, n_id):
+    def is_line_in_selected_list(self, n_id, *, include_user_peaks=False):
         """
         Checks if the line with ID 'n_id' is in the list of
         selected element lines.
@@ -557,7 +569,7 @@ class LinePlotModel(Atom):
         is in the list of selected lines. False otherwise.
         """
 
-        ename = self.get_element_line_name_by_id(n_id)
+        ename = self.get_element_line_name_by_id(n_id, include_user_peaks=include_user_peaks)
 
         if ename is None:
             return False
@@ -628,11 +640,15 @@ class LinePlotModel(Atom):
         self._set_eline_select_controls(element_id=change['value'])
         self.compute_manual_peak_intensity(n_id=change['value'])
 
-        if change['value'] == 0:
+        def _reset_eline_plot():
             while(len(self.eline_obj)):
                 self.eline_obj.pop().remove()
             self.elist = []
             self._fig.canvas.draw()
+
+
+        if change['value'] == 0:
+            _reset_eline_plot()
             return
 
         incident_energy = self.incident_energy
@@ -672,12 +688,21 @@ class LinePlotModel(Atom):
                         self.elist.append((e.emission_line.all[i][1],
                                            e.cs(incident_energy).all[i][1]
                                            / e.cs(incident_energy).all[k_len+l_len][1]))
+
             self.plot_emission_line()
             self._update_canvas()
 
+            # Do it the second time, since the 'self.elist' has changed
+            self.compute_manual_peak_intensity(n_id=change['value'])
+
+
         else:
 
-            logger.error(f"Selected emission line with ID #{self.element_id} is not in the list.")
+            _reset_eline_plot()
+            logger.warning(f"Selected emission line with ID #{self.element_id} is not in the list.")
+
+
+
 
     @observe('det_materials')
     def _update_det_materials(self, change):
@@ -776,10 +801,10 @@ class LinePlotModel(Atom):
 
         if not self.is_element_line_id_valid(n_id):
             # This is typicall the case when n_id==0
-            intensity = 0.0
+            intensity = 1000.0
             if self.is_element_line_id_valid(n_id, include_user_peaks=True):
                 # This means we are dealing with user defined peak. Display intensity if the peak is in the list.
-                if self.is_line_in_selected_list(n_id):
+                if self.is_line_in_selected_list(n_id, include_user_peaks=True):
                     name = self.get_element_line_name_by_id(n_id, include_user_peaks=True)
                     intensity = self.param_model.EC.element_dict[name].maxv
 
@@ -789,7 +814,18 @@ class LinePlotModel(Atom):
                 intensity = self.param_model.EC.element_dict[name].maxv
 
             else:
+                # Range of energies in fitting results
+                e_min = self.param_model.prefit_x[0]
+                e_max = self.param_model.prefit_x[-1]
+
+                # self.param_model.total_y
+
                 intensity = 3000.0
+
+                print("**** Starting *****")
+                if self.elist:
+                    for e, i in self.elist:
+                        print(f"e = {e}  i = {i}")
 
         self.param_model.add_element_intensity = intensity
 
