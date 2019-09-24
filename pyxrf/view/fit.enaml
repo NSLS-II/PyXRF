@@ -34,7 +34,7 @@ except ImportError:
     databroker = None
 
 
-userpeak_list = ['Userpeak'+str(i) for i in range(1, 11)]  # 10 users peak
+# userpeak_list = ['Userpeak'+str(i) for i in range(1, 11)]  # 10 users peak
 
 enamldef FloatField(DefaultFloatField):
     submit_triggers = ['auto_sync'] #['return_pressed']
@@ -184,8 +184,9 @@ enamldef FitView(DockItem): fit_view:
                 ),
             ]
             ComboBox: cb_select:
-                items = ['Select Lines'] +\
-                        K_LINE + L_LINE + M_LINE + userpeak_list
+                #items = ['Select Lines'] +\
+                #        K_LINE + L_LINE + M_LINE + userpeak_list
+                items = ['Select Lines'] + param_model.get_user_peak_list(include_user_peaks=True)
                 index = 0
                 index := plot_model.element_id
                 enabled << plot_model.allow_select_elines
@@ -198,7 +199,7 @@ enamldef FitView(DockItem): fit_view:
 
             FloatField: intensity_fd:
                 value := param_model.add_element_intensity
-                maximum_size = 60
+                maximum_size = 80
                 enabled << (cb_select.index > 0) and plot_model.allow_add_eline
 
             PushButton: manual_add:
