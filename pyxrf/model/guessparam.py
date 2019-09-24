@@ -17,6 +17,7 @@ from skbeam.core.fitting.xrf_model import (ParamController,
                                            compute_escape_peak, trim,
                                            construct_linear_model,
                                            linear_spectrum_fitting)
+from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 
 import logging
 logger = logging.getLogger()
@@ -237,7 +238,6 @@ class GuessParamModel(Atom):
     # total_m = Dict()
     # total_pileup = Dict()
     e_name = Str()        # Element line name selected in combo box
-    e_name_index = Int(0)  # The index of element line name selected in combo box
     add_element_intensity = Float(1000.0)
     element_list = List()
     # data_sets = Typed(OrderedDict)
@@ -664,6 +664,18 @@ class GuessParamModel(Atom):
         #     else:
         #         self.total_y[k] = self.EC.element_dict[k].spectrum
 
+    def get_user_peak_list(self, *, include_user_peaks=False):
+        """
+        Returns the list of element emission peaks
+        """
+        items = K_LINE + L_LINE + M_LINE
+
+        if include_user_peaks:
+            userpeak_list = ['Userpeak' + str(i) for i in range(1, 11)]  # 10 users peak
+            items = items + userpeak_list
+
+        return items
+
 
 def save_as(file_path, data):
     """
@@ -972,3 +984,4 @@ def update_param_from_element(param, element_list):
     # to create full param dict, for GUI only
     param_new = create_full_dict(param_new, fit_strategy_list)
     return param_new
+
