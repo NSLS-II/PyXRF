@@ -17,8 +17,6 @@ from skbeam.core.fitting.xrf_model import (K_TRANSITIONS, L_TRANSITIONS, M_TRANS
 
 from skbeam.fluorescence import XrfElement as Element
 
-from .guessparam import GuessParamModel
-
 import logging
 logger = logging.getLogger()
 
@@ -330,8 +328,6 @@ class LinePlotModel(Atom):
         # _show_hide_exp_plot is called to show or hide current plot based
         #           on the state of _show_exp_opt flag
         self._show_hide_exp_plot(self.show_exp_opt)
-        self.print_status("Function: exp_data_update")
-
 
     def _show_hide_exp_plot(self, plot_show):
 
@@ -362,7 +358,7 @@ class LinePlotModel(Atom):
             #    but visibility flag was not used correctly. So we need to
             #    call it again.
             self._show_hide_exp_plot(change['value'])
-            self._set_eline_select_controls(exp_plot_visible=change['value'])
+            self._set_eline_select_controls()
 
     @observe('show_exp_opt')
     def _update_exp(self, change):
@@ -411,8 +407,6 @@ class LinePlotModel(Atom):
 
         data_arr = np.asarray(self.data)
         self.exp_data_update({'value': data_arr})
-        self.print_status("Function: plot_experiment")
-
 
     def plot_multi_exp_data(self):
         while(len(self.plot_exp_list)):
@@ -447,7 +441,6 @@ class LinePlotModel(Atom):
         self.log_linear_plot()
         self._update_canvas()
 
-
     def plot_emission_line(self):
         """
         Plot emission line and escape peaks associated with given lines.
@@ -474,19 +467,29 @@ class LinePlotModel(Atom):
                                            linewidth=self.plot_style['emission_line']['linewidth'])
                     self.eline_obj.append(eline)
 
-    def _set_eline_select_controls(self, *, element_id=None, exp_plot_visible=None, data="use_self_data"):
+    def _set_eline_select_controls(self, *, element_id=None, data="use_self_data"):
         if element_id is None:
             element_id = self.element_id
-        if exp_plot_visible is None:
-            exp_plot_visible = self.plot_exp_opt
         if data == "use_self_data":
             data = self.data
-        self._set_allow_add_eline(element_id=element_id, exp_plot_visible=exp_plot_visible, data=data)
-        self._set_allow_remove_eline(element_id=element_id, exp_plot_visible=exp_plot_visible, data=data)
-        self._set_allow_select_elines(exp_plot_visible=exp_plot_visible, data=data)
+        self._set_allow_add_eline(element_id=element_id, data=data)
+        self._set_allow_remove_eline(element_id=element_id, data=data)
+        self._set_allow_select_elines(data=data)
 
+    def _set_allow_add_eline(self, *, element_id, data):
+        """
+        Sets the flag, which enables/disables the controls
+        for manually adding element emission line
 
-    def _set_allow_add_eline(self, *, element_id, exp_plot_visible, data):
+        Parameters
+        ----------
+
+        element_id : Int
+            The number of the element emission line in the list
+
+        data : ndarray or None
+            Reference to the data array.
+        """
         flag = True
         if data is None:
             flag = False
@@ -494,36 +497,64 @@ class LinePlotModel(Atom):
             flag = False
         if self.is_line_in_selected_list(element_id):
             flag = False
-        if not exp_plot_visible:
-            flag = False
         self.allow_add_eline = flag
 
-    def _set_allow_remove_eline(self, *, element_id, exp_plot_visible, data):
+    def _set_allow_remove_eline(self, *, element_id, data):
+        """
+        Sets the flag, which enables/disables the controls
+        for manually removing element emission line
+
+        Parameters
+        ----------
+
+        element_id : Int
+            The number of the element emission line in the list
+
+        data : ndarray or None
+            Reference to the data array.
+        """
         flag = False
         if data is None:
             flag = False
         if self.is_line_in_selected_list(element_id):
             flag = True
-        if not exp_plot_visible:
-            flag = False
         self.allow_remove_eline = flag
 
-    def _set_allow_select_elines(self, exp_plot_visible, data):
+    def _set_allow_select_elines(self, data):
+        """
+        Sets the flag, which enables/disables the controls
+        for manual selection of element emission line.
+        The selected line may be added or removed.
+
+        Parameters
+        ----------
+
+        element_id : Int
+            The number of the element emission line in the list
+
+        data : ndarray or None
+            Reference to the data array.
+        """
         flag = True
         if data is None:
             flag = False
-        if not exp_plot_visible:
-            flag = False
         self.allow_select_elines = flag
-
 
     def is_line_in_selected_list(self, n_id):
         """
-        Returns True if the element line (self.element_id)
-        is in the list of selected element lines. False otherwise.
-        The function is supposed to be called with
-        n_id = self.element_id
+        Checks if the line with ID 'n_id' is in the list of
+        selected element lines.
         Used to enable/disable 'Add Line' and 'Remove Line' buttons.
+
+        Parameters
+        ----------
+
+        n_id : Int
+            index of the element emission line in the list
+            (often equal to 'self.element_id')
+
+        Returns True if the element line
+        is in the list of selected lines. False otherwise.
         """
 
         ename = self.get_element_line_name_by_id(n_id)
@@ -538,13 +569,22 @@ class LinePlotModel(Atom):
 
     def is_element_line_id_valid(self, n_id):
         """
-        Returns True if the current element line index is valid
-        (will return valid element line name) and may be used
-        to add an element line. (Used to enable/disable 'Add line' button).
-        The function is supposed to be called with
-        n_id = self.element_id
+        Checks if ID ('n_id') of the element emission line is valid,
+        i.e. the name of the line may be obtained by using the ID.
+
+        Parameters
+        ----------
+
+        n_id : Int
+            index of the element emission line in the list
+            (often equal to 'self.element_id')
+
+        Returns True if the element line is valid
         """
 
+        # There may be a more efficient way to check 'n_id',
+        #   but we want to use the same function as we use
+        #   to retrive the line name
         ename = self.get_element_line_name_by_id(n_id)
 
         if ename is None:
@@ -554,15 +594,27 @@ class LinePlotModel(Atom):
 
     def get_element_line_name_by_id(self, n_id):
         """
-        Returns element emission line name by ID (number in the list)
-          The ID is produced by the element selection combo box in
-          the
+        Retrievs the name of the element emission line from its ID
+        (the number in the list). The lines are numbered starting with 1.
+        If the ID is invalid, the function returns None.
+
+        Parameters
+        ----------
+
+        n_id : Int
+            index of the element emission line in the list
+            (often equal to 'self.element_id')
+
+        Returns the line name (Str). If the name can not be retrieve, then
+        the function returns None.
         """
         if n_id < 1:
             # Elements are numbered starting with 1. Element #0 does not exist.
             #   (Element #0 means that no element is selected)
             return None
 
+        # This is the fixed list of element emission line names.
+        #   The element with ID==1 is found in total_list[0]
         total_list = K_LINE + L_LINE + M_LINE
         try:
             ename = total_list[n_id-1]
@@ -570,18 +622,8 @@ class LinePlotModel(Atom):
             ename = None
         return ename
 
-    def print_status(self, message):
-        print(f"*** {message}")
-        print(f"    show_exp_opt: {self.show_exp_opt}")
-        print(f"    show_fit_opt: {self.show_fit_opt}")
-        print(f"    plot_exp_opt: {self.plot_exp_opt}")
-        print(f"    {self.allow_add_eline} {self.allow_remove_eline} {self.allow_select_elines}")
-
     @observe('element_id')
     def set_element(self, change):
-
-        self.print_status("Function: set_element (observe 'element_id')")
-        print(f"    element_id = {change['value']}")
 
         self._set_eline_select_controls(element_id=change['value'])
 
@@ -684,6 +726,47 @@ class LinePlotModel(Atom):
                     for l in self.roi_plot_dict[k]:
                         l.set_visible(False)
         self._update_canvas()
+
+    def add_peak_manual(self):
+
+        self.param_model.manual_input()
+        self.param_model.EC.update_peak_ratio()
+        self.param_model.update_name_list()
+        self.param_model.data_for_plot()
+
+        self.plot_fit(self.param_model.prefit_x,
+                      self.param_model.total_y,
+                      self.param_model.auto_fit_all)
+
+        # For plotting purposes, otherwise plot will not update
+        if self.plot_exp_opt:
+            self.plot_exp_opt = False
+            self.plot_exp_opt = True
+        else:
+            self.plot_exp_opt = True
+            self.plot_exp_opt = False
+        self.show_fit_opt = False
+        self.show_fit_opt = True
+
+    def remove_peak_manual(self, peak_name):
+
+        self.param_model.EC.delete_item(peak_name)
+        self.param_model.EC.update_peak_ratio()
+        self.param_model.data_for_plot()
+
+        self.plot_fit(self.param_model.prefit_x,
+                      self.param_model.total_y,
+                      self.param_model.auto_fit_all)
+        # For plotting purposes, otherwise plot will not update
+        if self.plot_exp_opt:
+            self.plot_exp_opt = False
+            self.plot_exp_opt = True
+        else:
+            self.plot_exp_opt = True
+            self.plot_exp_opt = False
+        self.show_fit_opt = False
+        self.show_fit_opt = True
+        self.param_model.update_name_list()
 
     # def plot_autofit(self):
     #     sum_y = 0
