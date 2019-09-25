@@ -984,4 +984,3 @@ def update_param_from_element(param, element_list):
     # to create full param dict, for GUI only
     param_new = create_full_dict(param_new, fit_strategy_list)
     return param_new
-
