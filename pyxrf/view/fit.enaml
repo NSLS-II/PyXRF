@@ -470,6 +470,9 @@ enamldef FitView(DockItem): fit_view:
                         # calculate profile and plot
                         fit_model.get_profile()
 
+                        # Update displayed intensity of the selected peak
+                        plot_model.compute_manual_peak_intensity()
+
                         # update experimental plot with new calibration values
                         plot_model.plot_fit(fit_model.cal_x, fit_model.cal_y,
                                             fit_model.cal_spectrum,
@@ -577,6 +580,9 @@ enamldef FitView(DockItem): fit_view:
 
                         # update params for roi sum
                         setting_model.update_parameter(fit_model.param_dict)
+
+                        # Update displayed intensity of the selected peak
+                        plot_model.compute_manual_peak_intensity()
 
                     else:
 
@@ -909,6 +915,9 @@ enamldef AutoFindElements(Window): auto_win:
                 plot_model.plot_fit(param_model.prefit_x,
                                     param_model.total_y,
                                     param_model.auto_fit_all)
+
+                # Update displayed intensity of the selected peak
+                plot_model.compute_manual_peak_intensity()
 
                 # Show the summed spectrum used for fitting
                 plot_model.plot_exp_opt = False
@@ -1501,6 +1510,9 @@ def apply_to_fit(param_model, plot_model,
 
     # update params for roi sum
     setting_model.update_parameter(fit_model.param_dict)
+
+    # Update displayed intensity of the selected peak
+    plot_model.compute_manual_peak_intensity()
 
 
 def get_energy(name):
