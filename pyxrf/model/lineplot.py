@@ -12,7 +12,6 @@ from collections import OrderedDict
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
 
-from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 from skbeam.core.fitting.xrf_model import (K_TRANSITIONS, L_TRANSITIONS, M_TRANSITIONS)
 
 from skbeam.fluorescence import XrfElement as Element
@@ -646,7 +645,6 @@ class LinePlotModel(Atom):
             self.elist = []
             self._fig.canvas.draw()
 
-
         if change['value'] == 0:
             _reset_eline_plot()
             return
@@ -695,14 +693,10 @@ class LinePlotModel(Atom):
             # Do it the second time, since the 'self.elist' has changed
             self.compute_manual_peak_intensity(n_id=change['value'])
 
-
         else:
 
             _reset_eline_plot()
             logger.warning(f"Selected emission line with ID #{self.element_id} is not in the list.")
-
-
-
 
     @observe('det_materials')
     def _update_det_materials(self, change):
@@ -783,6 +777,7 @@ class LinePlotModel(Atom):
         self.plot_fit(self.param_model.prefit_x,
                       self.param_model.total_y,
                       self.param_model.auto_fit_all)
+
         # For plotting purposes, otherwise plot will not update
         if self.plot_exp_opt:
             self.plot_exp_opt = False
@@ -801,7 +796,7 @@ class LinePlotModel(Atom):
 
         if not self.is_element_line_id_valid(n_id):
             # This is typicall the case when n_id==0
-            intensity = 1000.0
+            intensity = 0.0
             if self.is_element_line_id_valid(n_id, include_user_peaks=True):
                 # This means we are dealing with user defined peak. Display intensity if the peak is in the list.
                 if self.is_line_in_selected_list(n_id, include_user_peaks=True):
@@ -814,22 +809,63 @@ class LinePlotModel(Atom):
                 intensity = self.param_model.EC.element_dict[name].maxv
 
             else:
-                # Range of energies in fitting results
-                e_min = self.param_model.prefit_x[0]
-                e_max = self.param_model.prefit_x[-1]
 
-                # self.param_model.total_y
+                # Some default value
+                intensity = 1000.0
 
-                intensity = 3000.0
+                if self.data is not None and self.parameters is not None and \
+                        len(self.data) > 1 and len(self.param_model.prefit_x) > 1:
+                    # Range of energies in fitting results
+                    e_fit_min = self.param_model.prefit_x[0]
+                    e_fit_max = self.param_model.prefit_x[-1]
+                    de_fit = (e_fit_max - e_fit_min) / (len(self.param_model.prefit_x) - 1)
 
-                print("**** Starting *****")
-                if self.elist:
-                    for e, i in self.elist:
-                        print(f"e = {e}  i = {i}")
+                    e_raw_min = self.parameters['e_offset']['value']
+                    e_raw_max = self.parameters['e_offset']['value'] + \
+                        (len(self.data) - 1) * self.parameters['e_linear']['value'] + \
+                        (len(self.data) - 1) ** 2 * self.parameters['e_quadratic']['value']
+                    de_raw = (e_raw_max - e_raw_min) / (len(self.data) - 1)
 
+                    # Note: the above algorithm for finding 'de_raw' is far from perfect but will
+                    #    work for now. As a result 'de_fit' and 'de_raw' == self.parameters['e_linear']['value'].
+                    #    So the quadratic coefficent is ignored. This is OK, since currently
+                    #    quadratic coefficient is always ZERO. When the program is rewritten,
+                    #    the complete algorithm should be revised.
+
+                    # Find the line with maximum energy. It must come first in the list,
+                    #    but let's check just to make sure
+                    max_line_energy, max_line_intensity = 0, 0
+                    if self.elist:
+                        for e, i in self.elist:
+                            # e - line peak energy
+                            # i - peak intensity relative to maximum peak
+                            if e >= e_fit_min and e <= e_fit_max and e > e_raw_min and e < e_raw_max:
+                                if max_line_intensity < i:
+                                    max_line_energy, max_line_intensity = e, i
+
+                    # Find the index of peak maximum in the 'fitted' data array
+                    n = (max_line_energy - e_fit_min) / de_fit
+                    n = np.clip(n, 0, len(self.param_model.total_y) - 1)
+                    n_fit = int(round(n))
+                    # Find the index of peak maximum in the 'raw' data array
+                    n = (max_line_energy - e_raw_min) / de_raw
+                    n = np.clip(n, 0, len(self.data) - 1)
+                    n_raw = int(round(n))
+                    # Intensity of the fitted data at the peak
+                    in_fit = self.param_model.total_y[n_fit]
+                    # Intensity of the raw data at the peak
+                    in_raw = self.data[n_raw]
+                    # The estimated peak intensity is the difference:
+                    intensity = in_raw - in_fit
+
+                    # The following step is questionable. We assign some reasonable small number.
+                    #   The desired value can always be manually entered
+                    if intensity < 0.0:
+                        intensity = abs(in_raw / 100)
+
+        # Round for nicer printing
+        intensity = float(f"{intensity:.2f}")
         self.param_model.add_element_intensity = intensity
-
-
 
     # def plot_autofit(self):
     #     sum_y = 0
