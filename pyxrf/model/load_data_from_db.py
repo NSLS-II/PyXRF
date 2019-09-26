@@ -717,6 +717,18 @@ def map_data2D_tes(runid, fpath,
     dict of data in 2D format matching x,y scanning positions
     """
 
+    hdr = db[runid]
+    start_doc = hdr['start']
+
+    # Load configuration file
+    current_dir = os.path.dirname(os.path.realpath(__file__))
+    config_file = 'tes_pv_config.json'
+    config_path = sep_v.join(current_dir.split(sep_v)[:-2] + ['configs', config_file])
+    with open(config_path, 'r') as json_data:
+        config_data = json.load(json_data)
+
+
+
 
     return {}
 
