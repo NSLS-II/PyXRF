@@ -29,6 +29,8 @@ try:
         from pyxrf.db_config.srx_db_config import db
     elif beamline_name == 'XFM':
         from pyxrf.db_config.xfm_db_config import db
+    elif beamline_name == 'TES':
+        from pyxrf.db_config.tes_db_config import db
     else:
         db = None
         db_analysis = None
@@ -132,6 +134,10 @@ def fetch_data_from_db(runid, fpath=None,
                               num_end_lines_excluded=num_end_lines_excluded)
     elif hdr.start.beamline_id == 'XFM':
         data = map_data2D_xfm(runid, fpath,
+                              create_each_det=create_each_det,
+                              output_to_file=output_to_file)
+    elif hdr.start.beamline_id == 'TES':
+        data = map_data2D_tes(runid, fpath,
                               create_each_det=create_each_det,
                               output_to_file=output_to_file)
     else:
@@ -679,6 +685,40 @@ def map_data2D_srx(runid, fpath,
             print(".")
 
         return new_data
+
+
+def map_data2D_tes(runid, fpath,
+                   create_each_det=False,
+                   output_to_file=True):
+    """
+    Transfer the data from databroker into a correct format following the
+    shape of 2D scan.
+    This function is used at TES beamline for step scan.
+    Save the new data dictionary to hdf file if needed.
+
+    .. note:: It is recommended to read data from databroker into memory
+    directly, instead of saving to files. This is ongoing work.
+
+    Parameters
+    ----------
+    runid : int
+        id number for given run
+    fpath: str
+        path to save hdf file
+    create_each_det: bool, optional
+        Do not create data for each detector is data size is too large,
+        if set as false. This will slow down the speed of creating hdf file
+        with large data size. srx beamline only.
+    output_to_file : bool, optional
+        save data to hdf5 file if True
+
+    Returns
+    -------
+    dict of data in 2D format matching x,y scanning positions
+    """
+
+
+    return {}
 
 
 def map_data2D_xfm(runid, fpath,
