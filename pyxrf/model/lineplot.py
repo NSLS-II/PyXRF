@@ -482,7 +482,7 @@ class LinePlotModel(Atom):
     def _set_allow_add_eline(self, *, element_id, data):
         """
         Sets the flag, which enables/disables the controls
-        for manually adding element emission line
+        for manually adding an element emission line.
 
         Parameters
         ----------
