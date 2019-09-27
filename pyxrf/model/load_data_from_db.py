@@ -689,7 +689,8 @@ def map_data2D_srx(runid, fpath,
 
 def map_data2D_tes(runid, fpath,
                    create_each_det=False,
-                   output_to_file=True):
+                   output_to_file=True,
+                   save_scaler=True):
     """
     Transfer the data from databroker into a correct format following the
     shape of 2D scan.
@@ -718,7 +719,7 @@ def map_data2D_tes(runid, fpath,
     """
 
     hdr = db[runid]
-    start_doc = hdr['start']
+    # start_doc = hdr['start']
 
     # Load configuration file
     current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -727,10 +728,109 @@ def map_data2D_tes(runid, fpath,
     with open(config_path, 'r') as json_data:
         config_data = json.load(json_data)
 
+    # NOTE:
+    #   Currently implemented algorithm will work only with the following flyscan:
+    #     flyscanning along X-axis, stepping along Y-axis (to do otherwise or support both cases
+    #     the function has to be modified).
+    #   Each document will contain full data for a single line of N-point flyscan:
+    #     N-element arrays with values for X and Y axis
+    #     N-element arrays with values for each scaler
+    #     N fluorescent spectra (each spectrum is 4096 points, saved by Xspress3 into
+    #        separate file on GPFS, the document contains the path to file)
 
+    print()
+    print(f"****************************************")
+    print(f"         Loading TES fly scan           ")
+    print(f"****************************************")
 
+    xpos_name = 'x_centers'   # For now, we always fly on stage_x (fast axis)
+    ypos_name = 'y_centers'
 
-    return {}
+    # The dictionary of fields that are used to store data from different detectors (for fly scan only)
+    #   key - the name of the field used to store data read from the detector
+    #   value - the detector name (probably short abbreviation, attached to the created file name so that
+    #           the detector could be identified)
+    # A separate data file is created for each detector
+
+    # The following list will be used if the function is modified to work with multiple detectors
+    # detector_field_dict = config_data['xrf_flyscan_detector_fields']
+
+    spectrum_len = 4096  # It is typically fixed
+
+    # The dictionary that will contain the data extracted from scan data
+    #   This data will be saved to file and/or loaded into processing software
+    new_data = {}
+
+    # Typicall the scalers are saved
+    if save_scaler is True:
+
+        # Read the scalers
+        scaler_names = config_data['scaler_list']
+
+        # Save all scaler names using lowercase letters
+        scaler_names_lower = scaler_names.copy()
+        for n in range(len(scaler_names)):
+            scaler_names_lower[n] = scaler_names_lower[n].lower()
+        new_data['scaler_names'] = scaler_names_lower
+
+        n_scalers = len(config_data['scaler_list'])
+        scaler_data = None
+        data_shape = None
+        for n, name in enumerate(scaler_names):
+            s_data = hdr.table()[name]
+            # Convert pandas dataframe to a list of ndarrays (.to_numpy())
+            #   and then stack the arrays into a single 2D array
+            s_data = np.vstack(s_data.to_numpy())
+            if scaler_data is None:
+                data_shape = s_data.shape
+                scaler_data = np.zeros(shape=data_shape + (n_scalers,), dtype=float)
+            scaler_data[:, :, n] = s_data
+        new_data['scaler_data'] = scaler_data
+
+    # Read x-y coordinates
+    new_data['pos_names'] = ['x_pos', 'y_pos']
+    pos_data = np.zeros(shape=(2,) + data_shape, dtype=float)
+    # Convert pandas dataframes to 2D ndarrays
+    pos_data[0, :, :] = np.vstack(hdr.table()[xpos_name].to_numpy())
+    pos_data[1, :, :] = np.vstack(hdr.table()[ypos_name].to_numpy())
+    new_data['pos_data'] = pos_data
+
+    # Read detector values (for single detector)
+    detector_data = np.zeros(shape=data_shape + (spectrum_len,), dtype=float)
+    n_events = data_shape[0]
+    n_events_found = 0
+    e = hdr.events(fill=True, stream_name="primary")
+    for n, v in enumerate(e):
+        if n >= n_events:
+            print("The number of lines is less than expected")
+            break
+        data = v.data['fluor']
+        data_det1 = data[:, 0, :]
+        detector_data[n, :, :] = data_det1
+        n_events_found = n + 1
+    if n_events_found < n_events:
+        print("The number of lines is less than expected. The experiment may be incomplete")
+    new_data['det1'] = detector_data
+
+    num_det = 1
+    detector_name = "xs"
+    n_detectors_found = 1
+
+    # Modify file name (path) to include data on how many channels are included in the file and how many
+    #    channels are used for sum calculation
+    root, ext = os.path.splitext(fpath)
+    s = f"_{detector_name}_sum({num_det}ch)"
+    if create_each_det:
+        s += f"+{num_det}ch"
+    fpath_out = f'{root}{s}{ext}'
+
+    if output_to_file:
+        # output to file
+        print(f"Saving data to hdf file #{n_detectors_found}: Detector: {detector_name}.")
+        write_db_to_hdf_base(fpath_out, new_data,
+                             create_each_det=create_each_det)
+
+    return new_data
 
 
 def map_data2D_xfm(runid, fpath,
