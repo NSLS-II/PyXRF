@@ -487,7 +487,7 @@ class LinePlotModel(Atom):
         Parameters
         ----------
 
-        element_id : Int
+        element_id : int
             The number of the element emission line in the list
 
         data : ndarray or None
@@ -510,7 +510,7 @@ class LinePlotModel(Atom):
     def _set_allow_remove_eline(self, *, element_id, data):
         """
         Sets the flag, which enables/disables the controls
-        for manually removing element emission line
+        for manually removing an element emission line.
 
         Parameters
         ----------
@@ -534,13 +534,13 @@ class LinePlotModel(Atom):
     def _set_allow_select_elines(self, data):
         """
         Sets the flag, which enables/disables the controls
-        for manual selection of element emission line.
+        for manual selection of an element emission line.
         The selected line may be added or removed.
 
         Parameters
         ----------
 
-        element_id : Int
+        element_id : int
             The number of the element emission line in the list
 
         data : ndarray or None
@@ -553,7 +553,7 @@ class LinePlotModel(Atom):
 
     def is_line_in_selected_list(self, n_id, *, include_user_peaks=False):
         """
-        Checks if the line with ID 'n_id' is in the list of
+        Checks if the line with ID ``n_id`` is in the list of
         selected element lines.
         Used to enable/disable 'Add Line' and 'Remove Line' buttons.
 
@@ -562,7 +562,7 @@ class LinePlotModel(Atom):
 
         n_id : Int
             index of the element emission line in the list
-            (often equal to 'self.element_id')
+            (often equal to ``self.element_id``)
 
         Returns True if the element line
         is in the list of selected lines. False otherwise.
@@ -580,7 +580,7 @@ class LinePlotModel(Atom):
 
     def is_element_line_id_valid(self, n_id, *, include_user_peaks=False):
         """
-        Checks if ID ('n_id') of the element emission line is valid,
+        Checks if ID (``n_id``) of the element emission line is valid,
         i.e. the name of the line may be obtained by using the ID.
 
         Parameters
@@ -605,18 +605,18 @@ class LinePlotModel(Atom):
 
     def get_element_line_name_by_id(self, n_id, *, include_user_peaks=False):
         """
-        Retrievs the name of the element emission line from its ID
+        Retrieves the name of the element emission line from its ID
         (the number in the list). The lines are numbered starting with 1.
         If the ID is invalid, the function returns None.
 
         Parameters
         ----------
 
-        n_id : Int
+        n_id : int
             index of the element emission line in the list
             (often equal to 'self.element_id')
 
-        Returns the line name (Str). If the name can not be retrieve, then
+        Returns the line name (str). If the name can not be retrieved, then
         the function returns None.
         """
         if n_id < 1:
@@ -858,7 +858,7 @@ class LinePlotModel(Atom):
                     # The estimated peak intensity is the difference:
                     intensity = in_raw - in_fit
 
-                    # The following step is questionable. We assign some reasonable small number.
+                    # The following step is questionable. We assign some reasonably small number.
                     #   The desired value can always be manually entered
                     if intensity < 0.0:
                         intensity = abs(in_raw / 100)
