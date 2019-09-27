@@ -3,7 +3,7 @@
     "xrf_flyscan_detector_fields": {
         "fluor": "xs"
     },
-    "pos_list": ["stage_x", "stage_y", "stage_z"],
-    "scaler_list": ["Internal Clock", "I0", "It", "fbratio"],
+    "pos_list": ["x_centers", "y_centers", "z_centers"],
+    "scaler_list": ["dwell_time", "I0", "It", "fbratio"],
     "base_value": [0]
 }
