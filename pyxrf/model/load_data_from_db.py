@@ -698,7 +698,7 @@ def map_data2D_tes(runid, fpath,
     Save the new data dictionary to hdf5 file if needed.
 
     .. note::
-    
+
       It is recommended to read data from databroker into memory
     directly, instead of saving to files. This is ongoing work.
 
