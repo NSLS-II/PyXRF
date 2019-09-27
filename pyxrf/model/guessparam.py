@@ -672,7 +672,7 @@ class GuessParamModel(Atom):
 
         if include_user_peaks:
             userpeak_list = ['Userpeak' + str(i) for i in range(1, 11)]  # 10 users peak
-            items = items + userpeak_list
+            items += userpeak_list
 
         return items
 
