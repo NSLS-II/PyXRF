@@ -709,7 +709,7 @@ def map_data2D_tes(runid, fpath,
     fpath: str
         path to save hdf file
     create_each_det: bool, optional
-        Do not create data for each detector is data size is too large,
+        Do not create data for each detector if data size is too large,
         if set as false. This will slow down the speed of creating hdf file
         with large data size. srx beamline only.
     output_to_file : bool, optional
