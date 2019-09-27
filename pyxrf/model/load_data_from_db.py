@@ -697,7 +697,9 @@ def map_data2D_tes(runid, fpath,
     This function is used at TES beamline for step scan.
     Save the new data dictionary to hdf5 file if needed.
 
-    .. note:: It is recommended to read data from databroker into memory
+    .. note::
+    
+      It is recommended to read data from databroker into memory
     directly, instead of saving to files. This is ongoing work.
 
     Parameters
