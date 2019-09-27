@@ -100,8 +100,10 @@ class DrawImageAdvanced(Atom):
     def __init__(self):
         self.fig = plt.figure(figsize=(3, 2))
         matplotlib.rcParams['axes.formatter.useoffset'] = True
+
+        # Do not apply scaler norm on following data
         self.name_not_scalable = ['r2_adjust', 'alive', 'dead', 'elapsed_time', 'scaler_alive',
-                                  'i0_time', 'time', 'time_diff']  # do not apply scaler norm on those data
+                                  'i0_time', 'time', 'time_diff', 'dwell_time']
 
     def data_dict_update(self, change):
         """

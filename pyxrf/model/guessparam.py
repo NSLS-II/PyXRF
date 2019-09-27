@@ -17,6 +17,7 @@ from skbeam.core.fitting.xrf_model import (ParamController,
                                            compute_escape_peak, trim,
                                            construct_linear_model,
                                            linear_spectrum_fitting)
+from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 
 import logging
 logger = logging.getLogger()
@@ -97,6 +98,9 @@ class ElementController(object):
                 six.iteritems(self.element_dict), key=lambda t: t[1].maxv, reverse=True))
 
     def add_to_dict(self, dictv):
+        """
+        This function updates the dictionary element if it already exists.
+        """
         self.element_dict.update(dictv)
         logger.debug('Item {} is added.'.format(list(dictv.keys())))
         self.update_norm()
@@ -123,6 +127,15 @@ class ElementController(object):
 
     def delete_all(self):
         self.element_dict.clear()
+
+    def is_element_in_list(self, element_line_name):
+        """
+        Check if element 'k' is in the list of selected elements
+        """
+        if element_line_name in self.element_dict.keys():
+            return True
+        else:
+            return False
 
     def get_element_list(self):
         current_elements = [v for v
@@ -224,7 +237,7 @@ class GuessParamModel(Atom):
     # total_l = Dict()
     # total_m = Dict()
     # total_pileup = Dict()
-    e_name = Str()
+    e_name = Str()        # Element line name selected in combo box
     add_element_intensity = Float(1000.0)
     element_list = List()
     # data_sets = Typed(OrderedDict)
@@ -473,11 +486,24 @@ class GuessParamModel(Atom):
 
         self.EC.add_to_dict({self.e_name: ps})
 
+    def generate_pileup_peak_name(self):
+        """
+        Returns name for the pileup peak. The element line with the lowest
+        energy is placed first in the name.
+        """
+        # TODO: May be proper error processing should be added
+        e1 = float(get_energy(self.pileup_data['element1']))
+        e2 = float(get_energy(self.pileup_data['element2']))
+        name1 = self.pileup_data['element1']
+        name2 = self.pileup_data['element2']
+        if e1 > e2:
+            name1, name2 = name2, name1
+        return name1 + '-' + name2
+
     def add_pileup(self):
         default_area = 1e2
-        if self.pileup_data['intensity'] != 0:
-            e_name = (self.pileup_data['element1'] + '-'
-                      + self.pileup_data['element2'])
+        if self.pileup_data['intensity'] > 0:
+            e_name = self.generate_pileup_peak_name()
             # parse elemental lines into multiple lines
 
             x, data_out, area_dict = calculate_profile(self.x0,
@@ -485,8 +511,9 @@ class GuessParamModel(Atom):
                                                        self.param_new,
                                                        elemental_lines=[e_name],
                                                        default_area=default_area)
-            energy = str(float(get_energy(self.pileup_data['element1']))
-                         + float(get_energy(self.pileup_data['element2'])))
+            energy_float = float(get_energy(self.pileup_data['element1'])) + \
+                float(get_energy(self.pileup_data['element2']))
+            energy = f"{energy_float:.4f}"
 
             ratio_v = self.pileup_data['intensity'] / np.max(data_out[e_name])
 
@@ -499,6 +526,8 @@ class GuessParamModel(Atom):
                               status=True,    # for plotting
                               lbd_stat=False)
             logger.info('{} peak is added'.format(e_name))
+        else:
+            raise Exception("Pile-up peak intensity is negative")
         self.EC.add_to_dict({e_name: ps})
 
     def update_name_list(self):
@@ -634,6 +663,18 @@ class GuessParamModel(Atom):
         #         self.total_m[k] = self.EC.element_dict[k].spectrum
         #     else:
         #         self.total_y[k] = self.EC.element_dict[k].spectrum
+
+    def get_user_peak_list(self, *, include_user_peaks=False):
+        """
+        Returns the list of element emission peaks
+        """
+        items = K_LINE + L_LINE + M_LINE
+
+        if include_user_peaks:
+            userpeak_list = ['Userpeak' + str(i) for i in range(1, 11)]  # 10 users peak
+            items += userpeak_list
+
+        return items
 
 
 def save_as(file_path, data):

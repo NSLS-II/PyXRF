@@ -47,7 +47,7 @@ enamldef PlotMain(DockItem):
         constraints = [
             vbox(
                 hbox(plot_exp_btn, pb_plot_fit, spacer, pb_print),
-                hbox(cbox1, spacer, pb_eline, cbox2, checkb),
+                hbox(cbox1, spacer, pb_eline, add_eline, remove_eline, cbox2, checkb),
                 canvas,
             ),
         ]
@@ -66,11 +66,32 @@ enamldef PlotMain(DockItem):
                 else:
                     adjust_emission_line.hide()
 
+        PushButton: add_eline:
+            text = 'Add line'
+            enabled << plot_model.allow_add_eline and plot_model.plot_exp_opt
+            clicked ::
+                plot_model.add_peak_manual()
+                cbox2.set_focus()  # Return focus to the combo box
+
+        PushButton: remove_eline:
+            text = 'Remove line'
+            enabled << plot_model.allow_remove_eline and plot_model.plot_exp_opt
+            clicked ::
+                plot_model.remove_peak_manual(param_model.e_name)
+                cbox2.set_focus()  # Return focus to the combo box
+
         ComboBox: cbox2:
-            items = ['<Display emission lines>'] +\
-                    K_LINE + L_LINE + M_LINE
-            index := plot_model.element_id
+            #items = ['<Display emission lines>'] +\
+            #        K_LINE + L_LINE + M_LINE
+            items = ['<Display emission lines>'] + param_model.get_user_peak_list(include_user_peaks=False)
+
             index = 0
+            index := plot_model.element_id
+            enabled << plot_model.allow_select_elines and plot_model.plot_exp_opt
+            index ::
+                if cbox2.index > 0:
+                    param_model.e_name = cbox2.selected_item
+
         PushButton: pb_print:
             text  ='Print'
             clicked ::
@@ -79,13 +100,13 @@ enamldef PlotMain(DockItem):
         PushButton: plot_exp_btn:
             text = 'Plot Selected Exp. Data'
             checkable = True
-            checked << plot_model.plot_exp_opt
-            clicked ::
-                if checked:
-                    plot_model.plot_experiment()
-                    plot_model.plot_exp_opt = True
-                else:
-                    plot_model.plot_exp_opt = False
+            checked := plot_model.plot_exp_opt
+            #clicked ::
+            #    if checked:
+            #        plot_model.plot_experiment()
+            #        plot_model.plot_exp_opt = True
+            #    else:
+            #        plot_model.plot_exp_opt = False
 
         PushButton: pb_plot_fit:
             text = 'Plot Fit Result'
@@ -108,6 +129,9 @@ enamldef PlotMain(DockItem):
                                             param_model.auto_fit_all)
                     except (AttributeError, ValueError):
                         pass
+                    if plot_model.plot_exp_opt:
+                        plot_model.plot_exp_opt = False
+                        plot_model.plot_exp_opt = True
                     plot_model.show_fit_opt = True
                 else:
                     plot_model.show_fit_opt = False

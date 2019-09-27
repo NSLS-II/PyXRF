@@ -34,7 +34,7 @@ except ImportError:
     databroker = None
 
 
-userpeak_list = ['Userpeak'+str(i) for i in range(1, 11)]  # 10 users peak
+# userpeak_list = ['Userpeak'+str(i) for i in range(1, 11)]  # 10 users peak
 
 enamldef FloatField(DefaultFloatField):
     submit_triggers = ['auto_sync'] #['return_pressed']
@@ -130,6 +130,9 @@ enamldef FitView(DockItem): fit_view:
                             plot_model.plot_fit(fit_model.cal_x, fit_model.cal_y,
                                                 fit_model.cal_spectrum,
                                                 fit_model.residual)
+
+                            plot_model.plot_exp_opt = False
+                            plot_model.plot_exp_opt = True
                             # For plotting purposes, otherwise plot will not update
                             plot_model.show_fit_opt = False
                             plot_model.show_fit_opt = True
@@ -175,50 +178,63 @@ enamldef FitView(DockItem): fit_view:
             constraints = [
                 vbox(
                     hbox(cb_select, intensity_lb, intensity_fd,
-                         manual_add, spacer, pb_pileup),
+                         manual_add, manual_remove, spacer, pb_pileup),
                     pre_fit,
                     #hbox(saveas_btn, spacer),
                 ),
             ]
             ComboBox: cb_select:
-                items = ['Select Lines'] +\
-                        K_LINE + L_LINE + M_LINE + userpeak_list
+                #items = ['Select Lines'] +\
+                #        K_LINE + L_LINE + M_LINE + userpeak_list
+                items = ['Select Lines'] + param_model.get_user_peak_list(include_user_peaks=True)
                 index = 0
+                index := plot_model.element_id
+                enabled << plot_model.allow_select_elines
                 index ::
                     if cb_select.index > 0:
                         param_model.e_name = cb_select.selected_item
 
             Label: intensity_lb:
                 text = 'Peak Int'
+
             FloatField: intensity_fd:
                 value := param_model.add_element_intensity
-                maximum_size = 60
+                maximum_size = 80
+                enabled << (cb_select.index > 0) and plot_model.allow_add_eline_fit
 
             PushButton: manual_add:
                 text = 'Add'
+                enabled << (cb_select.index > 0) and plot_model.allow_add_eline_fit
                 clicked ::
-                    param_model.manual_input()
-                    param_model.EC.update_peak_ratio()
-                    param_model.update_name_list()
-                    param_model.data_for_plot()
+                    # The following set of conditions is not complete, but sufficient
+                    if param_model.x0 is None or param_model.y0 is None:
 
-                    plot_model.plot_fit(param_model.prefit_x,
-                                        param_model.total_y,
-                                        param_model.auto_fit_all)
-                    # For plotting purposes, otherwise plot will not update
-                    plot_model.show_fit_opt = False
-                    plot_model.show_fit_opt = True
+                        btns = [DialogButton('Ok', 'accept')]
+                        # 'critical' shows MessageBox
+                        critical(self, 'ERROR', f'Experimental data is not loaded or initial spectrum fitting is not performed', btns)
+
+                    else:
+
+                        plot_model.add_peak_manual()
+                        cb_select.set_focus()  # Return focus to the combo box
+
+            PushButton: manual_remove:
+                text = 'Remove'
+                enabled << (cb_select.index > 0) and plot_model.allow_remove_eline_fit
+                clicked ::
+                    plot_model.remove_peak_manual(param_model.e_name)
+                    cb_select.set_focus()  # Return focus to the combo box
 
             PushButton: pb_pileup:
                 text = 'Add Pileup Peaks'
-                enabled = True
-                checkable = True
-                checked := pileup_edit.visible
                 clicked ::
-                    if checked:
+                    # The following set of conditions is not complete, but sufficient
+                    if param_model.x0 is not None and param_model.y0 is not None:
                         pileup_edit.show()
                     else:
-                        pileup_edit.hide()
+                        btns = [DialogButton('Ok', 'accept')]
+                        # 'critical' shows MessageBox
+                        critical(self, 'ERROR', f'Experimental data is not loaded or initial spectrum fitting is not performed', btns)
 
             GroupBox: pre_fit:
                 padding = Box(2, 2, 2, 2)
@@ -312,19 +328,7 @@ enamldef FitView(DockItem): fit_view:
                                 text = 'Del'
                                 maximum_size = 30
                                 clicked ::
-                                    param_model.EC.delete_item(loop_item)
-                                    #apply_to_fit(param_model, plot_model, fit_model)
-                                    param_model.EC.update_peak_ratio()
-                                    param_model.data_for_plot()
-
-                                    plot_model.plot_fit(param_model.prefit_x,
-                                                        param_model.total_y,
-                                                        param_model.auto_fit_all)
-                                    # For plotting purposes, otherwise plot will not update
-                                    plot_model.show_fit_opt = False
-                                    plot_model.show_fit_opt = True
-                                    param_model.update_name_list()
-                                    #apply_to_fit(param_model, plot_model, fit_model, setting_model)
+                                    plot_model.remove_peak_manual(loop_item)
 
                             Container:
                                 padding = Box(2, 2, 2, 2)
@@ -451,8 +455,8 @@ enamldef FitView(DockItem): fit_view:
                         # update experimental plots
                         plot_model.parameters = fit_model.default_parameters
                         plot_model.plot_experiment()
-                        plot_model.plot_exp_opt = False
-                        plot_model.plot_exp_opt = True
+                        #plot_model.plot_exp_opt = False
+                        #plot_model.plot_exp_opt = True
 
                         # update autofit param
                         param_model.update_new_param(fit_model.default_parameters)
@@ -466,11 +470,20 @@ enamldef FitView(DockItem): fit_view:
                         # calculate profile and plot
                         fit_model.get_profile()
 
+                        # Update displayed intensity of the selected peak
+                        plot_model.compute_manual_peak_intensity()
+
                         # update experimental plot with new calibration values
                         plot_model.plot_fit(fit_model.cal_x, fit_model.cal_y,
                                             fit_model.cal_spectrum,
                                             fit_model.residual)
                         # For plotting purposes, otherwise plot will not update
+                        if plot_model.plot_exp_opt:
+                            plot_model.plot_exp_opt = False
+                            plot_model.plot_exp_opt = True
+                        else:
+                            plot_model.plot_exp_opt = True
+                            plot_model.plot_exp_opt = False
                         plot_model.show_fit_opt = False
                         plot_model.show_fit_opt = True
 
@@ -554,6 +567,8 @@ enamldef FitView(DockItem): fit_view:
                                             fit_model.residual)
 
                         # For plotting purposes, otherwise plot will not update
+                        plot_model.plot_exp_opt = False
+                        plot_model.plot_exp_opt = True
                         plot_model.show_fit_opt = False
                         plot_model.show_fit_opt = True
 
@@ -565,6 +580,9 @@ enamldef FitView(DockItem): fit_view:
 
                         # update params for roi sum
                         setting_model.update_parameter(fit_model.param_dict)
+
+                        # Update displayed intensity of the selected peak
+                        plot_model.compute_manual_peak_intensity()
 
                     else:
 
@@ -898,6 +916,12 @@ enamldef AutoFindElements(Window): auto_win:
                                     param_model.total_y,
                                     param_model.auto_fit_all)
 
+                # Update displayed intensity of the selected peak
+                plot_model.compute_manual_peak_intensity()
+
+                # Show the summed spectrum used for fitting
+                plot_model.plot_exp_opt = False
+                plot_model.plot_exp_opt = True
                 # For plotting purposes, otherwise plot will not update
                 plot_model.show_fit_opt = False
                 plot_model.show_fit_opt = True
@@ -1352,8 +1376,7 @@ enamldef EditPileupPeak(Window): pileup_win:
     attr param_model
     attr plot_model
     destroy_on_close = False
-
-    #title = 'Pileup Peak Editor'
+    title = 'Add Pileup Peak'
     Container:
         Form:
             Label: e1:
@@ -1372,23 +1395,37 @@ enamldef EditPileupPeak(Window): pileup_win:
                 text = 'Add'
                 maximum_size = 60
                 clicked ::
-                    param_model.pileup_data['element1'] = fd1.text
-                    param_model.pileup_data['element2'] = fd2.text
-                    param_model.pileup_data['intensity'] = intensity_ff.value
+                    try:
+                        param_model.pileup_data['element1'] = fd1.text
+                        param_model.pileup_data['element2'] = fd2.text
+                        param_model.pileup_data['intensity'] = intensity_ff.value
 
-                    param_model.add_pileup()
-                    param_model.EC.update_peak_ratio()
-                    param_model.update_name_list()
-                    param_model.data_for_plot()
+                        peak_name = param_model.generate_pileup_peak_name()
+                        if not param_model.EC.is_element_in_list(peak_name):
 
-                    plot_model.plot_fit(param_model.prefit_x,
-                                        param_model.total_y,
-                                        param_model.auto_fit_all)
-                    # For plotting purposes, otherwise plot will not update
-                    plot_model.show_fit_opt = False
-                    plot_model.show_fit_opt = True
-                    pileup_win.close()
+                            param_model.add_pileup()
+                            param_model.EC.update_peak_ratio()
+                            param_model.update_name_list()
+                            param_model.data_for_plot()
 
+                            plot_model.plot_fit(param_model.prefit_x,
+                                                param_model.total_y,
+                                                param_model.auto_fit_all)
+                            # For plotting purposes, otherwise plot will not update
+                            plot_model.show_fit_opt = False
+                            plot_model.show_fit_opt = True
+                            pileup_win.close()
+
+                        else:
+
+                            btns = [DialogButton('Ok', 'accept')]
+                            # 'critical' shows MessageBox
+                            critical(self, 'ERROR', f'Element emission line {peak_name} is already selected', btns)
+
+                    except Exception:
+                        btns = [DialogButton('Ok', 'accept')]
+                        # 'critical' shows MessageBox
+                        critical(self, 'ERROR', f'Unknown element emission lines or non-positive peak intensity', btns)
 
 def set_low_bound(value, thresh_v=0.1):
     """
@@ -1456,6 +1493,13 @@ def apply_to_fit(param_model, plot_model,
                         param_model.auto_fit_all)
 
     # For plotting purposes, otherwise plot will not update
+
+    if plot_model.plot_exp_opt:
+        plot_model.plot_exp_opt = False
+        plot_model.plot_exp_opt = True
+    else:
+        plot_model.plot_exp_opt = True
+        plot_model.plot_exp_opt = False
     plot_model.show_fit_opt = False
     plot_model.show_fit_opt = True
 
@@ -1466,6 +1510,9 @@ def apply_to_fit(param_model, plot_model,
 
     # update params for roi sum
     setting_model.update_parameter(fit_model.param_dict)
+
+    # Update displayed intensity of the selected peak
+    plot_model.compute_manual_peak_intensity()
 
 
 def get_energy(name):

@@ -69,7 +69,7 @@ def run():
     defaults = get_defaults()
     io_model = FileIOModel(**defaults)
     param_model = GuessParamModel(**defaults)
-    plot_model = LinePlotModel()
+    plot_model = LinePlotModel(param_model=param_model)
     fit_model = Fit1D(**defaults)
     setting_model = SettingModel(**defaults)
     img_model_adv = DrawImageAdvanced()
