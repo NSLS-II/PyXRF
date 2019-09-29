@@ -71,6 +71,9 @@ target/
 # PyCharm
 .idea/
 
+# VS Code
+.vscode/
+
 #ipython notebook stuff
 .ipynb_checkpoints/
 
