@@ -8,6 +8,8 @@ import multiprocessing
 import numpy as np
 import h5py
 import copy
+from collections.abc import Iterable
+import re
 
 from skbeam.core.fitting.xrf_model import (linear_spectrum_fitting, define_range)
 from .fileio import output_data, read_hdf_APS, read_MAPS, sep_v
@@ -100,7 +102,7 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
             data_all_sum = data_sets[prefix_fname].raw_data
 
         # load param file
-        if not param_file_name.startswith('/'):
+        if not os.path.isabs(param_file_name):
             param_path = os.path.join(working_directory, param_file_name)
         else:
             param_path = param_file_name
@@ -162,7 +164,7 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
             save_fitdata_to_hdf(fpath, result_map_det, datapath=inner_path)
 
     t1 = time.time()
-    print('Time used for pixel fitting for file {} is : {}'.format(file_name, t1-t0))
+    print(f"Time used for pixel fitting for file '{file_name}' is : {t1 - t0}")
 
     if save_txt is True:
         output_folder = 'output_txt_'+prefix_fname
@@ -174,7 +176,7 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
         output_data(fpath, output_path, file_format='tiff', norm_name=ic_name, use_average=use_average)
 
 
-def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, wd=None, fit_channel_sum=True,
+def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None, wd=None, fit_channel_sum=True,
                 fit_channel_each=False, param_channel_list=None, incident_energy=None,
                 spectrum_cut=3000, save_txt=False, save_tiff=True, ic_name=None, use_average=True):
     """
@@ -188,11 +190,17 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, wd=None, fit_cha
     end_id : int, optional
         ending run id
     param_file_name : str, required
-        param file name for summed data fitting
+        Parameter file name for data fitting (JSON)
+        If the parameter file name in the list does not contain full
+        path, then it is extended with the path in ``wd``.
+    data_files : str, tuple or list, optional
+        data file names: may be specified as a string for a single file,
+        or iterable container (list, tuple) of strings for multiple files
+        If ``data_files`` is specified (not None), then ``start_id`` and ``end_id``
+        parameters are ignored. If a file name in the list does not contain full
+        path, then it is extended with the path in ``wd``.
     wd : str, or optional
         path folder, default is the current folder
-    file_names : str
-        selected h5 file
     fit_channel_sum : bool, optional
         fit summed data or not
     fit_channel_each : bool, optional
@@ -220,6 +228,26 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, wd=None, fit_cha
 
             param_file_name="/home/user/data_parameters/parameters.json"
             param_file_name="~/data_parameters/parameters.json"
+
+    How does ``pyxrf-batch`` identify a file with a given Scan ID?
+    In order for the batch mode processing to work correctly, the data file name must
+    conform to the following structure requirements:
+
+        <prefix>_<scanID>(any non-digit character)(any character sequence).h5
+
+    <prefix> - any sequence of characters, not containing ``_``
+    <scanID> - string version of Scan ID, obtained as ``str(id)``
+    <prefix> and <scanID> are separated by ``_``
+    <scanID> is separated from the rest of the file name from the right by any non-number character.
+    Files must have extension .h5. (Note, that ``.`` separating the extension is a non-number character
+    that may terminate the Scan ID part of the file name
+
+    For example, the following files will be recognized as Scan ID 28355:
+
+        scan2D_28355.h5
+        scanNewName_28355_some_comments.h5
+        scan_2D_28355.h5  (incorrect, recognized as Scan ID 2, not 28355)
+        scan2D28355.h5 (incorrect, no ``_``)
 
     Examples
     --------
@@ -255,50 +283,94 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, wd=None, fit_cha
         wd = os.path.expanduser(wd)
     param_file_name = os.path.expanduser(param_file_name)
 
-    all_files = glob.glob(os.path.join(wd, '*.h5'))
+    if data_files is not None:
 
-    if start_id is None and end_id is None:
-        # ``start_id`` and ``end_id`` are not specified:
-        #   process all .h5 files in the current directory
-        flist = all_files
-    elif end_id is None:
-        # only ``start_id`` is specified:
-        #   process only one file that contains ``start_id`` in its name
-        #   (only if such file exists)
-        flist = [fname for fname in all_files if str(start_id) in fname]
-        if len(flist) < 1:
-            print(f"File with Scan ID {start_id} was not found.")
-        else:
-            print(f"Processing file with Scan ID {start_id}")
-    else:
-        # ``start_id`` and ``end_id`` are specified:
-        #   select files, which contain the respective ID substring in their names
+        # Check if ``data_files`` has valid value
+        data_files_valid = False
+        if isinstance(data_files, str):
+            data_files = [data_files]  # Convert to list
+            data_files_valid = True
+        elif isinstance(data_files, Iterable):
+            data_files = list(data_files)  # Convert to list
+            data_files_valid = True
+            for fln in data_files:
+                if not isinstance(fln, str):
+                    data_files_valid = False
+                    break
+
+        if not data_files_valid:
+            print(f"ERROR: the list of data files has invalid format. Check the parameter 'data_files'.")
+            print(f"   data_file = {data_files}")
+            return 1
+
+        # At this point ``data_files`` is a list of str.
+        for n, fln in enumerate(data_files):
+            data_files[n] = os.path.expanduser(fln)
+
+        # Working directory name is appended to each file name in the list,
+        #     which does not contain full path
+        for n, fln in enumerate(data_files):
+            if not os.path.isabs(fln):  # Check if ``fln`` is an absolute file path
+                data_files[n] = os.path.join(wd, fln)
+
+        # Create the list of files. Include only existing files in the list.
         flist = []
-        for data_id in range(start_id, end_id+1):
-            flist += [fname for fname in all_files if str(data_id) in fname]
-        if len(flist) < 1:
-            print(f"No files with Scan IDs in the range {start_id} .. {end_id} were not found.")
+        for fln in data_files:
+            if os.path.exists(fln) and os.path.isfile(fln):
+                flist += [fln]
+            else:
+                print(f"WARNING: file {fln} does not exist.")
+
+    else:
+
+        # ``data_files`` parameter is None
+
+        all_files = glob.glob(os.path.join(wd, '*.h5'))
+
+        if start_id is None and end_id is None:
+            # ``start_id`` and ``end_id`` are not specified:
+            #   process all .h5 files in the current directory
+            flist = all_files
+        elif end_id is None:
+            # only ``start_id`` is specified:
+            #   process only one file that contains ``start_id`` in its name
+            #   (only if such file exists)
+            flist = [fname for fname in all_files
+                     if re.search(f"^[^_]*_{str(start_id)}\D+", fname)]  # noqa: W605
+            if len(flist) < 1:
+                print(f"File with Scan ID {start_id} was not found.")
+            else:
+                print(f"Processing file with Scan ID {start_id}")
         else:
-            print(f"Processing file with Scan IDs in the range {start_id} .. {end_id}")
+            # ``start_id`` and ``end_id`` are specified:
+            #   select files, which contain the respective ID substring in their names
+            flist = []
+            for data_id in range(start_id, end_id+1):
+                flist += [fname for fname in all_files
+                          if re.search(f"^[^_]*_{str(data_id)}\D+", fname)]  # noqa: W605
+            if len(flist) < 1:
+                print(f"No files with Scan IDs in the range {start_id} .. {end_id} were not found.")
+            else:
+                print(f"Processing file with Scan IDs in the range {start_id} .. {end_id}")
 
     # Check if .json parameter file exists
-    if not param_file_name.startswith('/'):
+    if not os.path.isabs(param_file_name):
         pname = os.path.join(wd, param_file_name)
     else:
         pname = param_file_name
     if not os.path.exists(pname) and not os.path.isfile(pname):
         print(f"ERROR: can't find the parameter file {pname}. "
-              "Check the value of the parameter 'param_file_name'.")
+              "Check the value of 'param_file_name'.")
         return 1
     else:
         print(f"Parameter file: {pname}")
 
     if len(flist) > 0:
 
-        print(f"The following files were selected for processing:")
+        print(f"The following files are scheduled for processing:")
         for fln in flist:
             print(f"    {fln}")
-        print(f"Number of files to fit: {len(flist)}")
+        print(f"Total number of selected files: {len(flist)}")
         print()
         print("Processing ...")
         print()
