@@ -218,7 +218,7 @@ def map_data2D_hxn(runid, fpath,
     create_each_det: bool, optional
         Do not create data for each detector is data size is too large,
         if set as false. This will slow down the speed of creating hdf file
-        with large data size. srx beamline only.
+        with large data size.
     output_to_file : bool, optional
         save data to hdf5 file if True
     """
@@ -324,7 +324,7 @@ def map_data2D_srx(runid, fpath,
     create_each_det: bool, optional
         Do not create data for each detector is data size is too large,
         if set as false. This will slow down the speed of creating hdf file
-        with large data size. srx beamline only.
+        with large data size.
     output_to_file : bool, optional
         save data to hdf5 file if True
     save_scalar : bool, optional
@@ -711,7 +711,7 @@ def map_data2D_tes(runid, fpath,
     create_each_det: bool, optional
         Do not create data for each detector if data size is too large,
         if set as False. This will slow down the speed of creating an hdf5 file
-        with large data size. SRX beamline only.
+        with large data size.
     output_to_file : bool, optional
         save data to hdf5 file if True
 
@@ -856,7 +856,7 @@ def map_data2D_xfm(runid, fpath,
     create_each_det: bool, optional
         Do not create data for each detector is data size is too large,
         if set as false. This will slow down the speed of creating hdf file
-        with large data size. srx beamline only.
+        with large data size.
     output_to_file : bool, optional
         save data to hdf5 file if True
 
