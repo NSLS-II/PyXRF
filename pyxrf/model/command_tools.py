@@ -76,7 +76,7 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
     save_tiff : bool, optional
         save data to tiff or not
     ic_name : str, optional
-        if given, normalization will be performed
+        if given, normalization will be performed before saving data as .txt and .tiff
     use_average : bool, optional
         if true, norm is performed as data/IC*mean(IC), otherwise just data/IC
     data_from : str, optional
