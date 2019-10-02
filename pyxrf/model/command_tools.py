@@ -327,10 +327,7 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
         data_files = [os.path.expanduser(fln) for fln in data_files]
 
         # Working directory name is appended to each file name in the list,
-        #     which does not contain full path
-        for n, fln in enumerate(data_files):
-            if not os.path.isabs(fln):  # Check if ``fln`` is an absolute file path
-                data_files[n] = os.path.join(wd, fln)
+        data_files = [fln if os.path.isabs(fln) else os.path.join(wd, fln) for fln in data_files]
 
         # Create the list of files. Include only existing files in the list.
         flist = []
