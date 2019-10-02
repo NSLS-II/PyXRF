@@ -320,9 +320,8 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
                     break
 
         if not data_files_valid:
-            print(f"ERROR: the list of data files has invalid format. Check the parameter 'data_files'.")
-            print(f"   data_files = {data_files}")
-            raise ValueError("Function pyxrf_batch. Parameter 'data_files' has invalid format.")
+            raise ValueError("Function pyxrf_batch. Parameter 'data_files' has invalid format. \n"
+                             "data_files = '{data_files}'")
 
         # At this point ``data_files`` is a list of str.
         data_files = [os.path.expanduser(fln) for fln in data_files]
@@ -379,8 +378,6 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
     else:
         pname = param_file_name
     if not os.path.exists(pname) or not os.path.isfile(pname):
-        print(f"ERROR: can't find the parameter file {pname}. "
-              "Check the value of 'param_file_name'.")
         raise IOError(f"Function 'pyxrf_batch'. Processing parameter file '{pname}' does not exist.")
     else:
         print(f"Processing parameter file: {pname}")
@@ -390,8 +387,7 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
         print(f"The following files are scheduled for processing:")
         for fln in flist:
             print(f"    {fln}")
-        print(f"Total number of selected files: {len(flist)}")
-        print()
+        print(f"Total number of selected files: {len(flist)}\n")
 
         for fpath in flist:
             print(f"Processing file '{fpath}' ...")
@@ -404,8 +400,7 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
                                     save_txt=save_txt, save_tiff=save_tiff,
                                     ic_name=ic_name, use_average=use_average)
 
-        print()
-        print("All selected files were processed.")
+        print("\nAll selected files were processed.")
 
     else:
 
