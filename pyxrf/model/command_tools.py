@@ -349,7 +349,7 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
                 flist += [fname for fname in all_files
                           if re.search(f"^[^_]*_{str(data_id)}\D+", fname)]  # noqa: W605
             if len(flist) < 1:
-                print(f"No files with Scan IDs in the range {start_id} .. {end_id} were not found.")
+                print(f"No files with Scan IDs in the range {start_id} .. {end_id} were found.")
             else:
                 print(f"Processing file with Scan IDs in the range {start_id} .. {end_id}")
 
