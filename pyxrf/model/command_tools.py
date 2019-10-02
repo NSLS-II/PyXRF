@@ -252,7 +252,7 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
     Examples
     --------
 
-    In the following examples it is assumed that all .h5 files and .json parameter file are
+    In the following examples it is assumed that all .h5 files and the .json parameter file are
     located in the current directory.
 
     -- Process data file with Scan ID 455.
