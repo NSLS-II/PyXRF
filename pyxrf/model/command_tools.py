@@ -320,8 +320,8 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
                     break
 
         if not data_files_valid:
-            raise ValueError("Function pyxrf_batch. Parameter 'data_files' has invalid format. \n"
-                             "data_files = '{data_files}'")
+            raise ValueError(f"Function pyxrf_batch. Parameter 'data_files' has invalid format. \n"
+                             f"data_files = '{data_files}'")
 
         # At this point ``data_files`` is a list of str.
         data_files = [os.path.expanduser(fln) for fln in data_files]
