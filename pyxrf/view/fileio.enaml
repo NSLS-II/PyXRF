@@ -125,12 +125,14 @@ enamldef FileView(DockItem): file_view:
                         mask_edit.hide()
 
             GroupBox: gb_db:
+                enabled = databroker is not None
                 title = 'Data from database'
                 constraints = [hbox(run_lbl, run_num, load_btn, spacer),]
                 Label: run_lbl:
                     text = 'Run # '
 
                 IntField: run_num:
+                    enabled = databroker is not None
                     value := io_model.runid
 
                 PushButton: load_btn:
