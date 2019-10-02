@@ -236,7 +236,7 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
         <prefix>_<scanID>(any non-digit character)(any character sequence).h5
 
     <prefix> - any sequence of characters, not containing ``_``
-    <scanID> - string version of Scan ID, obtained as ``str(id)``
+    <scanID> - string version of Scan ID, obtained as ``str(ScanID)``
     <prefix> and <scanID> are separated by ``_``
     <scanID> is separated from the rest of the file name from the right by any non-number character.
     Files must have extension .h5. (Note, that ``.`` separating the extension is a non-number character
