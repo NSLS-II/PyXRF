@@ -317,7 +317,7 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
         flist = []
         for fln in data_files:
             if os.path.exists(fln) and os.path.isfile(fln):
-                flist += [fln]
+                flist.append(fln)
             else:
                 print(f"WARNING: file {fln} does not exist.")
 
