@@ -180,8 +180,12 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
                 fit_channel_each=False, param_channel_list=None, incident_energy=None,
                 spectrum_cut=3000, save_txt=False, save_tiff=True, ic_name=None, use_average=True):
     """
-    Do fitting for multiple data sets, and save data accordingly. Fitting can be performed on
-    either summed data or each channel data, or both. This is based on fit_pixel_data_and_save function.
+    Perform fitting on a batch of data files. The results are saved as new datasets
+    in the respective data files and may be viewed using PyXRF. Fitting can be performed on
+    the sum of all detector channels, data from selected detector channels, or both.
+    Internally, the function is calling the lower level function ``fit_pixel_data_and_save``.
+    While it is possible to write processing scripts that call ``fit_pixel_data_and_save`` directly,
+    but it is recommended, that ``pyxrf_batch`` is used instead.
 
     Parameters
     ----------
@@ -190,10 +194,10 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
     end_id : int, optional
         ending run id
     param_file_name : str, required
-        Parameter file name for data fitting (JSON)
+        File name of the processing parameter file (JSON) used for data fitting.
         If the parameter file name in the list does not contain full
         path, then it is extended with the path in ``wd``.
-    data_files : str, tuple or list, optional
+    data_files : str, tuple (str,) or list [str], optional
         data file names: may be specified as a string for a single file,
         or iterable container (list, tuple) of strings for multiple files
         If ``data_files`` is specified (not None), then ``start_id`` and ``end_id``
@@ -220,7 +224,21 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
     use_average : bool, optional
         if true, norm is performed as data/IC*mean(IC), otherwise just data/IC
 
-    The data files and the parameter file may be in different directories. If the parameter
+    Returns
+    -------
+
+    flist : [str]
+        list of absolute file names of processed files: the list is empty
+        if no files were processed.
+
+    Exceptions
+    ----------
+
+    ``ValueError`` is raised if the ``param_file_name" is not a string or is referencing
+    non-existing file or ``data_files`` is specified, but not a string or iterable object
+    containing strings.
+
+    The data files and the processing parameter file may be in different directories. If the parameter
     file is in a different directory from the data files, then the full path to the parameter
     file should be specified:
 
@@ -300,12 +318,11 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
 
         if not data_files_valid:
             print(f"ERROR: the list of data files has invalid format. Check the parameter 'data_files'.")
-            print(f"   data_file = {data_files}")
-            return 1
+            print(f"   data_files = {data_files}")
+            raise ValueError("Function pyxrf_batch. Parameter 'data_files' has invalid format.")
 
         # At this point ``data_files`` is a list of str.
-        for n, fln in enumerate(data_files):
-            data_files[n] = os.path.expanduser(fln)
+        data_files = [os.path.expanduser(fln) for fln in data_files]
 
         # Working directory name is appended to each file name in the list,
         #     which does not contain full path
@@ -358,12 +375,12 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
         pname = os.path.join(wd, param_file_name)
     else:
         pname = param_file_name
-    if not os.path.exists(pname) and not os.path.isfile(pname):
+    if not os.path.exists(pname) or not os.path.isfile(pname):
         print(f"ERROR: can't find the parameter file {pname}. "
               "Check the value of 'param_file_name'.")
-        return 1
+        raise IOError(f"Function 'pyxrf_batch'. Processing parameter file '{pname}' does not exist.")
     else:
-        print(f"Parameter file: {pname}")
+        print(f"Processing parameter file: {pname}")
 
     if len(flist) > 0:
 
@@ -372,11 +389,9 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
             print(f"    {fln}")
         print(f"Total number of selected files: {len(flist)}")
         print()
-        print("\nProcessing ...\n")
-        print()
 
         for fpath in flist:
-            print(f"Processing file {fpath} ...")
+            print(f"Processing file '{fpath}' ...")
             fname = fpath.split(sep_v)[-1]
             working_directory = fpath[:-len(fname)]
             fit_pixel_data_and_save(working_directory, fname,
@@ -392,6 +407,8 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
     else:
 
         print("No files were selected for processing.")
+
+    return flist
 
 
 def fit_each_pixel_with_nnls(data, params,
