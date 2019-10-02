@@ -372,7 +372,7 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
             print(f"    {fln}")
         print(f"Total number of selected files: {len(flist)}")
         print()
-        print("Processing ...")
+        print("\nProcessing ...\n")
         print()
 
         for fpath in flist:
