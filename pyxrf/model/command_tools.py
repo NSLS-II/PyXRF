@@ -228,8 +228,11 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
     -------
 
     flist : [str]
-        list of absolute file names of processed files: the list is empty
-        if no files were processed.
+        list of file names of processed files: the list is empty
+        if no files were processed. The file names contain relative path
+        (combination of ``wd`` and file names).
+        The file names are absolute if absolute paths are supplied in ``data_files``.
+        If file list is created based on scan IDs, then the paths are always relative.
 
     Exceptions
     ----------
@@ -353,7 +356,7 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
             #   process only one file that contains ``start_id`` in its name
             #   (only if such file exists)
             flist = [fname for fname in all_files
-                     if re.search(f"^[^_]*_{str(start_id)}\D+", fname)]  # noqa: W605
+                     if re.search(f"^[^_]*_{str(start_id)}\D+", os.path.basename(fname))]  # noqa: W605
             if len(flist) < 1:
                 print(f"File with Scan ID {start_id} was not found.")
             else:
@@ -364,7 +367,7 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
             flist = []
             for data_id in range(start_id, end_id+1):
                 flist += [fname for fname in all_files
-                          if re.search(f"^[^_]*_{str(data_id)}\D+", fname)]  # noqa: W605
+                          if re.search(f"^[^_]*_{str(data_id)}\D+", os.path.basename(fname))]  # noqa: W605
             if len(flist) < 1:
                 print(f"No files with Scan IDs in the range {start_id} .. {end_id} were found.")
             else:
