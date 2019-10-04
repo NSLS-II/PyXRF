@@ -173,7 +173,7 @@ class FileIOModel(Atom):
 
         if self.file_name_silent_change:
             self.file_name_silent_change = False
-            logger.info("File name is silently changed. New file name is '{change['value']}'")
+            logger.info(f"File name is silently changed. New file name is '{change['value']}'")
             return
 
         self.file_channel_list = []
@@ -217,7 +217,21 @@ class FileIOModel(Atom):
         #                                             self.fname_from_db,
         #                                             load_each_channel=self.load_each_channel)
 
-        img_dict, self.data_sets = render_data_to_gui(self.runid)
+        rv = render_data_to_gui(self.runid)
+
+        # If string is returned, then treat it as a file name for reading the data.
+        #   This happens for one rare type of scan. All other data is loaded directly.
+        if isinstance(rv, str):
+            self.file_name = os.path.basename(rv)
+            return
+
+        img_dict, self.data_sets, fname, detector_name = rv
+
+        # Change file name without rereading the file
+        self.file_name_silent_change = True
+        self.file_name = os.path.basename(fname)
+        logger.info(f"Dataset for detector {detector_name} was loaded.")
+
         self.file_channel_list = list(self.data_sets.keys())
 
         print(f"file_channel_list = {self.file_channel_list}")
@@ -783,12 +797,17 @@ def render_data_to_gui(runid):
     data_sets = OrderedDict()
     img_dict = OrderedDict()
 
-    data_from_db = fetch_data_from_db(runid, create_each_det=True)
+    data_from_db = fetch_data_from_db(runid, create_each_det=True, output_to_file=True)
 
     print(f"data_from_db = {data_from_db}")
 
+    if isinstance(data_from_db, str):
+        # File name was returned by the function (this happens only for one rare type of scan)
+        # Data must be loaded from the file. So again we return a plain string.
+        return data_from_db
+
     if not len(data_from_db):
-        logger.warning(f"No detector data was found in Scan #{runid}.")
+        logger.warning(f"No detector data was found in Scan #{runid}")
         return
     else:
         logger.info(f"Data from {len(data_from_db)} detectors were found in Scan #{runid}.")
@@ -797,6 +816,7 @@ def render_data_to_gui(runid):
 
     data_out = data_from_db[0]['dataset']
     fname = data_from_db[0]['file_name']
+    detector_name = data_from_db[0]['detector_name']
 
     print("Data is fetched from the database")
     print(f"data_out = {data_out}")
@@ -820,6 +840,16 @@ def render_data_to_gui(runid):
             else:
                 det_sum += data_out[det_name][:, :, 0:spectrum_cut]
 
+    print("\n=========================================")
+    print("   det_sum")
+    ii, kk, mm = det_sum.shape
+    sm = np.zeros(shape=(ii, kk))
+    for i in range(ii):
+        for k in range(kk):
+            sm[i, k] = sum(det_sum[i,k,:])
+    for i in range(ii):
+        print(f"\ni={i} {sm[i,:]}")
+
     print("'det_sum is computed")
     DS = DataSelection(filename=fname_sum,
                        raw_data=det_sum)
@@ -830,14 +860,37 @@ def render_data_to_gui(runid):
 
     for det_name in xrf_det_list:
         print(f"\n\n\ndata_out[{det_name}] < {data_out[det_name].shape} > = {data_out[det_name]}")
+        print(f"sum = {sum(data_out[det_name][2, 2, :])}")
         exp_data = np.array(data_out[det_name][:, :, 0:spectrum_cut])
         fln = f"{fname_no_ext}_{det_name}"
         DS = DataSelection(filename=fln,
                            raw_data=exp_data)
+        exp_data1 = exp_data
         data_sets[fln] = DS
 
-    logger.info('Detector data is loaded.')
+    print("\n=========================================")
+    print("   det1")
+    ii, kk, mm = exp_data1.shape
+    sm = np.zeros(shape=(ii, kk))
+    for i in range(ii):
+        for k in range(kk):
+            sm[i, k] = sum(exp_data1[i,k,:])
+    for i in range(ii):
+        print(f"\ni={i} {sm[i,:]}")
 
+    print(f"fname_sum = {fname_sum}")
+    print(f"sum of 'det_sum': {sum(data_sets[fname_sum].raw_data[2,2,:])}")
+    fln = f"{fname_no_ext}_det1"
+    print(f"detector = {fln}")
+    print(f"sum of 'det1': {sum(data_sets[fln].raw_data[2,2,:])}")
+    fln = f"{fname_no_ext}_det2"
+    print(f"detector = {fln}")
+    print(f"sum of 'det2': {sum(data_sets[fln].raw_data[2,2,:])}")
+    fln = f"{fname_no_ext}_det3"
+    print(f"detector = {fln}")
+    print(f"sum of 'det3': {sum(data_sets[fln].raw_data[2,2,:])}")
+
+    logger.info('Detector data is loaded.')
 
     if 'x_pos' in data_out and 'y_pos' in data_out:
         tmp = {}
@@ -849,7 +902,7 @@ def render_data_to_gui(runid):
         scaler_tmp[v] = data_out['scaler_data'][:, :, i]
     img_dict[fname+'_scaler'] = scaler_tmp
     print("Positions are computed")
-    return img_dict, data_sets
+    return img_dict, data_sets, fname, detector_name
 
 
 def retrieve_data_from_hdf_suitcase(fpath):
