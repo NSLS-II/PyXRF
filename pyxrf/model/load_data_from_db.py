@@ -398,28 +398,34 @@ def map_data2D_srx(runid, fpath,
                 print('Saving data to hdf file: Xpress3 detector #1 (three channels).')
                 root, ext = os.path.splitext(fpath)
                 fpath_out = f"{root + '_xs'}{ext}"
-                write_db_to_hdf(fpath_out, data,
-                                # hdr.start.datashape,
-                                datashape,
-                                det_list=config_data['xrf_detector'],
-                                pos_list=hdr.start.motors,
-                                scaler_list=config_data['scaler_list'],
-                                fly_type=fly_type,
-                                base_val=config_data['base_value'])  # base value shift for ic
-                data_output.append(data)
+                fpath_out = write_db_to_hdf(fpath_out, data,
+                    # hdr.start.datashape,
+                    datashape,
+                    det_list=config_data['xrf_detector'],
+                    pos_list=hdr.start.motors,
+                    scaler_list=config_data['scaler_list'],
+                    fly_type=fly_type,
+                    base_val=config_data['base_value'])  # base value shift for ic
+                data_output = fpath_out
             if 'xs2' in hdr.start.detectors:
                 print('Saving data to hdf file: Xpress3 detector #2 (single channel).')
                 root, ext = os.path.splitext(fpath)
                 fpath_out = f"{root}_xs2{ext}"
-                write_db_to_hdf(fpath_out, data,
-                                datashape,
-                                det_list=config_data['xrf_detector2'],
-                                pos_list=hdr.start.motors,
-                                scaler_list=config_data['scaler_list'],
-                                fly_type=fly_type,
-                                base_val=config_data['base_value'])  # base value shift for ic
-                data_output.append(data)
-
+                fpath_out = write_db_to_hdf(fpath_out, data,
+                    datashape,
+                    det_list=config_data['xrf_detector2'],
+                    pos_list=hdr.start.motors,
+                    scaler_list=config_data['scaler_list'],
+                    fly_type=fly_type,
+                    base_val=config_data['base_value'])  # base value shift for ic
+                #  We are loading the first instance, so check if 'data_output' is already set
+                if not isinstance(data_output, str):
+                    data_output = fpath_out
+        # This (very rare) type of stepscan can not be loaded directly into PyXRF at this point
+        #   Additional work is needed. But the data is saved to disk and can be loaded into PyXRF.
+        #   This can be done within the program without user interaction.
+        #   Note: the function returns a string (this is exceptional case). The calling function
+        #   must look for the output being a string and treat it as file name.
         return data_output
 
     else:
@@ -680,11 +686,11 @@ def map_data2D_srx(runid, fpath,
             if output_to_file:
                 # output to file
                 print(f"Saving data to hdf file #{n_detectors_found}: Detector: {detector_name}.")
-                write_db_to_hdf_base(fpath_out, new_data,
-                                     create_each_det=create_each_det)
+                fpath_out = write_db_to_hdf_base(fpath_out, new_data,
+                                                 create_each_det=create_each_det)
 
             print("Appending dictionary")
-            d_dict = {"dataset": new_data, "file_name": fpath_out}
+            d_dict = {"dataset": new_data, "file_name": fpath_out, "detector_name": detector_name}
             print("Dict. created")
             data_output.append(d_dict)
             print("Appended")
@@ -942,6 +948,9 @@ def write_db_to_hdf(fpath, data, datashape,
         list of scaler pv
     """
     interpath = 'xrfmap'
+
+    fpath = _get_fpath_not_existing(fpath)
+
     with h5py.File(fpath, 'a') as f:
 
         sum_data = None
@@ -1037,6 +1046,7 @@ def write_db_to_hdf(fpath, data, datashape,
 
         dataGrp.create_dataset('val', data=scaler_data[:new_v_shape, :])
 
+    return fpath
 
 def get_name_value_from_db(name_list, data, datashape):
     """
@@ -1150,6 +1160,22 @@ def map_data2D(data, datashape,
     data_output['scaler_data'] = scaler_data
     return data_output
 
+def _get_fpath_not_existing(fpath):
+    # Returns path to the new file that is guaranteed to not exist
+    # The function cycles through paths obtained by inserting
+    #   version number between name and extension in the prototype path ``fpath``
+    #  The version number is inserted in the form ``filename_(2).ext``
+
+    if os.path.exists(fpath):
+        p, e = os.path.splitext(fpath)
+        n = 1
+        while(True):
+            fpath = f"{p}_({n}){e}"
+            if not os.path.exists(fpath):
+                break
+            n += 1
+    return fpath
+
 
 def write_db_to_hdf_base(fpath, data, create_each_det=True):
     """
@@ -1168,6 +1194,8 @@ def write_db_to_hdf_base(fpath, data, create_each_det=True):
     sum_data = None
     xrf_det_list = [n for n in data.keys() if 'det' in n and 'sum' not in n]
     xrf_det_list.sort()
+
+    fpath = _get_fpath_not_existing(fpath)
 
     with h5py.File(fpath, 'a') as f:
         if create_each_det is True:
@@ -1209,6 +1237,7 @@ def write_db_to_hdf_base(fpath, data, create_each_det=True):
             dataGrp.create_dataset('name', data=helper_encode_list(scaler_names))
             dataGrp.create_dataset('val', data=scaler_data)
 
+    return fpath
 
 def free_memory_from_handler():
     """Quick way to set 3D dataset at handler to None to release memory.
