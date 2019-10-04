@@ -214,6 +214,10 @@ class FileIOModel(Atom):
         self.data_ready = True
         self.file_opt = 0  # use summed data as default
 
+        print(f"----------- DATA ------------")
+        print(f"self.data_sets = {self.data_sets}")
+        print(f"img_dict = {img_dict}")
+
         # Disable loading from 'analysis store' for now (because there is no 'analysis store')
         """
         # result from analysis store
@@ -753,6 +757,8 @@ def render_data_to_gui(runid):
         id number for given run
     """
 
+    spectrum_cut = 3000  # Constant: the number of spectrum points to load 3000 ~ 3 kEv
+
     data_sets = OrderedDict()
     img_dict = OrderedDict()
 
@@ -775,12 +781,21 @@ def render_data_to_gui(runid):
     print(f"data_out = {data_out}")
     print(f"fname = {fname}")
     # Transfer to standard format pyxrf GUI can take
-    fname_sum = os.path.basename(fname)+'_sum'
+    fname_no_ext = os.path.splitext(os.path.basename(fname))[0]
+    fname_sum = fname_no_ext +'_sum'
 
     print(f"fname_sum = {fname_sum}")
 
     xrf_det_list = [nm for nm in data_out.keys() if 'det' in nm and 'sum' not in nm]
     print(f"'xrf_det_list' is found: {xrf_det_list}")
+
+    for det_name in xrf_det_list:
+        print(f"\n\n\ndata_out[{det_name}] < {data_out[det_name].shape} > = {data_out[det_name]}")
+        exp_data = np.array(data_out[det_name][:, :, 0:spectrum_cut])
+        fln = f"{fname_no_ext}_{det_name}"
+        DS = DataSelection(filename=fln,
+                           raw_data=exp_data)
+        data_sets[fln] = DS
 
     det_sum = None
     if 'det_sum' in data_out:
@@ -795,6 +810,8 @@ def render_data_to_gui(runid):
     print("'det_sum is computed")
     DS = DataSelection(filename=fname_sum,
                        raw_data=det_sum)
+
+
     print("'DataSelection' was run")
 
     data_sets[fname_sum] = DS
