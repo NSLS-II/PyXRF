@@ -154,6 +154,10 @@ enamldef FileView(DockItem): file_view:
                         else:
                             files_load.text = '{} is loaded from database.'.format(io_model.fname_from_db)
 
+                            # Disable the button which calls Working Directory dialog. Changing working directory at this point
+                            #     will most likely make the program crash at some point
+                            folder_btn.enabled = False
+
                             # do not import original data for 2D image
                             #img_model_adv.data_dict = io_model.img_dict
 
