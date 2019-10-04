@@ -45,6 +45,9 @@ class FileIOModel(Atom):
         current working path
     file_name : str
         name of loaded file
+    file_name_silent_change : bool
+        If this flag is set True, then ``file_name`` may be changed once without
+        starting file read operation. The flag is automatically reset to False.
     load_status : str
         Description of file loading status
     data_sets : dict
@@ -57,6 +60,7 @@ class FileIOModel(Atom):
 
     working_directory = Str()
     file_name = Str()
+    file_name_silent_change = Bool(False)
     file_path = Str()
     load_status = Str()
     data_sets = Typed(OrderedDict)
@@ -159,12 +163,17 @@ class FileIOModel(Atom):
         self.window_title = f"{self.window_title_base} - File: {file_name}"
 
     def window_title_set_run_id(self, run_id):
-        self.window_title = f"{self.window_title_base} - Run ID: {run_id}"
+        self.window_title = f"{self.window_title_base} - Scan ID: {run_id}"
 
     @observe(str('file_name'))
     def update_more_data(self, change):
         if change['value'] == 'temp':
             # 'temp' is used to reload the same file
+            return
+
+        if self.file_name_silent_change:
+            self.file_name_silent_change = False
+            logger.info("File name is silently changed. New file name is '{change['value']}'")
             return
 
         self.file_channel_list = []
@@ -211,8 +220,7 @@ class FileIOModel(Atom):
         img_dict, self.data_sets = render_data_to_gui(self.runid)
         self.file_channel_list = list(self.data_sets.keys())
 
-        self.data_ready = True
-        self.file_opt = 0  # use summed data as default
+        print(f"file_channel_list = {self.file_channel_list}")
 
         print(f"----------- DATA ------------")
         print(f"self.data_sets = {self.data_sets}")
@@ -234,6 +242,19 @@ class FileIOModel(Atom):
         """
 
         self.img_dict = img_dict
+
+        try:
+            self.selected_file_name = self.file_channel_list[self.file_opt]
+        except IndexError:
+            pass
+
+        # passed to fitting part for single pixel fitting
+        self.data_all = self.data_sets[self.selected_file_name].raw_data
+        # get summed data or based on mask
+        self.data = self.data_sets[self.selected_file_name].get_sum()
+
+        self.data_ready = True
+        self.file_opt = 0  # use summed data as default
 
     @observe(str('file_opt'))
     def choose_file(self, change):
@@ -789,6 +810,24 @@ def render_data_to_gui(runid):
     xrf_det_list = [nm for nm in data_out.keys() if 'det' in nm and 'sum' not in nm]
     print(f"'xrf_det_list' is found: {xrf_det_list}")
 
+    det_sum = None
+    if 'det_sum' in data_out:
+        det_sum = data_out['det_sum']
+    else:
+        for det_name in xrf_det_list:
+            if det_sum is None:
+                det_sum = data_out[det_name][:, :, 0:spectrum_cut]
+            else:
+                det_sum += data_out[det_name][:, :, 0:spectrum_cut]
+
+    print("'det_sum is computed")
+    DS = DataSelection(filename=fname_sum,
+                       raw_data=det_sum)
+    data_sets[fname_sum] = DS
+
+    logger.info('Data of detector sum is loaded.')
+    print("Printing: data of detector sum is loaded")
+
     for det_name in xrf_det_list:
         print(f"\n\n\ndata_out[{det_name}] < {data_out[det_name].shape} > = {data_out[det_name]}")
         exp_data = np.array(data_out[det_name][:, :, 0:spectrum_cut])
@@ -797,26 +836,8 @@ def render_data_to_gui(runid):
                            raw_data=exp_data)
         data_sets[fln] = DS
 
-    det_sum = None
-    if 'det_sum' in data_out:
-        det_sum = data_out['det_sum']
-    else:
-        for det_name in xrf_det_list:
-            if det_sum is None:
-                det_sum = data_out[det_name]
-            else:
-                det_sum += data_out[det_name]
+    logger.info('Detector data is loaded.')
 
-    print("'det_sum is computed")
-    DS = DataSelection(filename=fname_sum,
-                       raw_data=det_sum)
-
-
-    print("'DataSelection' was run")
-
-    data_sets[fname_sum] = DS
-    logger.info('Data of detector sum is loaded.')
-    print("Printing: data of detector sum is loaded")
 
     if 'x_pos' in data_out and 'y_pos' in data_out:
         tmp = {}
