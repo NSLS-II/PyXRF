@@ -152,7 +152,7 @@ enamldef FileView(DockItem): file_view:
                             io_model.window_title_clear()
 
                         else:
-                            files_load.text = '{} is loaded from database.'.format(io_model.fname_from_db)
+                            files_load.text = f"Scan #{io_model.runid} from the database."
 
                             # Disable the button which calls Working Directory dialog. Changing working directory at this point
                             #     will most likely make the program crash at some point
