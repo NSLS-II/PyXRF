@@ -348,6 +348,13 @@ def map_data2D_srx(runid, fpath,
     with open(config_path, 'r') as json_data:
         config_data = json.load(json_data)
 
+    # Generate the default file name for the scan
+    if fpath is None:
+        fpath = f"scan2D_{runid}.h5"
+
+    # Output data is the list of data structures for all available detectors
+    data_output = []
+
     if 'fly' not in plan_n:  # not fly scan
 
         print()
@@ -399,6 +406,7 @@ def map_data2D_srx(runid, fpath,
                                 scaler_list=config_data['scaler_list'],
                                 fly_type=fly_type,
                                 base_val=config_data['base_value'])  # base value shift for ic
+                data_output.append(data)
             if 'xs2' in hdr.start.detectors:
                 print('Saving data to hdf file: Xpress3 detector #2 (single channel).')
                 root, ext = os.path.splitext(fpath)
@@ -410,7 +418,9 @@ def map_data2D_srx(runid, fpath,
                                 scaler_list=config_data['scaler_list'],
                                 fly_type=fly_type,
                                 base_val=config_data['base_value'])  # base value shift for ic
-        return data
+                data_output.append(data)
+
+        return data_output
 
     else:
         # srx fly scan
@@ -673,6 +683,12 @@ def map_data2D_srx(runid, fpath,
                 write_db_to_hdf_base(fpath_out, new_data,
                                      create_each_det=create_each_det)
 
+            print("Appending dictionary")
+            d_dict = {"dataset": new_data, "file_name": fpath_out}
+            print("Dict. created")
+            data_output.append(d_dict)
+            print("Appended")
+
         print()
         if n_detectors_found == 0:
             print(f"ERROR: no data from known detectors were found in the database:")
@@ -684,7 +700,7 @@ def map_data2D_srx(runid, fpath,
                 print(f", {n_detectors_found} data files were created", end="")
             print(".")
 
-        return new_data
+        return data_output
 
 
 def map_data2D_tes(runid, fpath,
