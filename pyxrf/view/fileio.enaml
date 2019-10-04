@@ -129,7 +129,7 @@ enamldef FileView(DockItem): file_view:
                 title = 'Data from database'
                 constraints = [hbox(run_lbl, run_num, load_btn, spacer),]
                 Label: run_lbl:
-                    text = 'Run # '
+                    text = 'Scan ID: '
 
                 IntField: run_num:
                     enabled = databroker is not None
