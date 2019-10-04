@@ -214,6 +214,8 @@ class FileIOModel(Atom):
         self.data_ready = True
         self.file_opt = 0  # use summed data as default
 
+        # Disable loading from 'analysis store' for now (because there is no 'analysis store')
+        """
         # result from analysis store
         from .data_to_analysis_store import get_analysis_result
         hdr = get_analysis_result(self.runid)
@@ -225,6 +227,8 @@ class FileIOModel(Atom):
             fit_result = {k: v for k, v in zip(d1['element_name'], d1['map'])}
             # tmp = {k: v for k, v in self.img_dict.items()}
             img_dict['scan2D_{}_fit'.format(self.runid)] = fit_result
+        """
+
         self.img_dict = img_dict
 
     @observe(str('file_opt'))
@@ -751,21 +755,51 @@ def render_data_to_gui(runid):
 
     data_sets = OrderedDict()
     img_dict = OrderedDict()
-    fname = 'scan2D_{}'.format(runid)
 
-    data_out = fetch_data_from_db(runid)
+    data_from_db = fetch_data_from_db(runid, create_each_det=True)
 
+    print(f"data_from_db = {data_from_db}")
+
+    if not len(data_from_db):
+        logger.warning(f"No detector data was found in Scan #{runid}.")
+        return
+    else:
+        logger.info(f"Data from {len(data_from_db)} detectors were found in Scan #{runid}.")
+        if len(data_from_db) > 1:
+            logger.warning(f"Selecting only the first dataset from Scan #{runid}.")
+
+    data_out = data_from_db[0]['dataset']
+    fname = data_from_db[0]['file_name']
+
+    print("Data is fetched from the database")
+    print(f"data_out = {data_out}")
+    print(f"fname = {fname}")
     # Transfer to standard format pyxrf GUI can take
-    fname_sum = fname+'_sum'
+    fname_sum = os.path.basename(fname)+'_sum'
+
+    print(f"fname_sum = {fname_sum}")
+
+    xrf_det_list = [nm for nm in data_out.keys() if 'det' in nm and 'sum' not in nm]
+    print(f"'xrf_det_list' is found: {xrf_det_list}")
+
+    det_sum = None
     if 'det_sum' in data_out:
         det_sum = data_out['det_sum']
     else:
-        det_sum = data_out['det1'] + data_out['det2'] + data_out['det3']
+        for det_name in xrf_det_list:
+            if det_sum is None:
+                det_sum = data_out[det_name]
+            else:
+                det_sum += data_out[det_name]
+
+    print("'det_sum is computed")
     DS = DataSelection(filename=fname_sum,
                        raw_data=det_sum)
+    print("'DataSelection' was run")
 
     data_sets[fname_sum] = DS
     logger.info('Data of detector sum is loaded.')
+    print("Printing: data of detector sum is loaded")
 
     if 'x_pos' in data_out and 'y_pos' in data_out:
         tmp = {}
@@ -776,6 +810,7 @@ def render_data_to_gui(runid):
     for i, v in enumerate(data_out['scaler_names']):
         scaler_tmp[v] = data_out['scaler_data'][:, :, i]
     img_dict[fname+'_scaler'] = scaler_tmp
+    print("Positions are computed")
     return img_dict, data_sets
 
 
