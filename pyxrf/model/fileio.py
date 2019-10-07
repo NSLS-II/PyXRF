@@ -920,7 +920,7 @@ def render_data_to_gui(runid):
     scaler_tmp = {}
     for i, v in enumerate(data_out['scaler_names']):
         scaler_tmp[v] = data_out['scaler_data'][:, :, i]
-    img_dict[fname+'_scaler'] = scaler_tmp
+    img_dict[fname_no_ext+'_scaler'] = scaler_tmp
     logger.info("Data loading: position data are loaded successfully.")
     return img_dict, data_sets, fname, detector_name
 
