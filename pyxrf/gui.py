@@ -24,12 +24,20 @@ with enaml.imports():
 
 def get_defaults():
 
-    sub_folder = 'data_analysis'
-    working_directory = os.path.join(os.path.expanduser('~'), sub_folder)
-    # Ideally, if directory does not exist, it should be created, but for now
-    #     we just set working directory to user directory
-    if not os.path.exists(working_directory):
-        working_directory = os.path.expanduser('~')
+    # Set working directory to current working directory (if PyXRF is started from shell)
+    working_directory = os.getcwd()
+    logger.info(f"Starting PyXRF in the current working directory '{working_directory}'")
+
+    # The original code for selection of working directory is temporarily commented.
+    #   The initial working directory is set to CWD, which may be more convenient.
+    #   Depending on results of user evaluation the original method will be restored or
+    #   the code will be deleted.
+    # sub_folder = 'data_analysis'
+    # working_directory = os.path.join(os.path.expanduser('~'), sub_folder)
+    # # Ideally, if directory does not exist, it should be created, but for now
+    # #     we just set working directory to user directory
+    # if not os.path.exists(working_directory):
+    #     working_directory = os.path.expanduser('~')
 
     # output_directory = working_directory
     default_parameters = param_data
