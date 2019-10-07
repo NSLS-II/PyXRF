@@ -837,7 +837,7 @@ def render_data_to_gui(runid):
     fname_sum = fname_no_ext +'_sum'
 
     ## print("**** Before any transformation ****")
-    ## print(f"sum of 'det1': {sum(data_out['det1'][2,2,:])}")
+    ## print (f"sum of 'det1': {sum(data_out['det1'][2,2,:])}")
     ## print(f"sum of 'det2': {sum(data_out['det2'][2,2,:])}")
     ## print(f"sum of 'det3': {sum(data_out['det3'][2,2,:])}")
 
