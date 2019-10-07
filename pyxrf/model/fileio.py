@@ -912,16 +912,20 @@ def render_data_to_gui(runid):
 
     logger.info("Data loading: channel data is loaded successfully.")
 
-    if 'x_pos' in data_out and 'y_pos' in data_out:
-        tmp = {}
-        for v in ['x_pos', 'y_pos']:
-            tmp[v] = data_out[v]
-        img_dict['positions'] = tmp
+    if ('pos_data' in data_out) and ('pos_names' in data_out):
+        if 'x_pos' in data_out['pos_names'] and 'y_pos' in data_out['pos_names']:
+            p_dict = {}
+            for v in ['x_pos', 'y_pos']:
+                ind = data_out['pos_names'].index(v)
+                p_dict[v] =  data_out['pos_data'][ind, :, :]
+            img_dict['positions'] = p_dict
+            logger.info("Data loading: positions data are loaded successfully.")
+
     scaler_tmp = {}
     for i, v in enumerate(data_out['scaler_names']):
         scaler_tmp[v] = data_out['scaler_data'][:, :, i]
     img_dict[fname_no_ext+'_scaler'] = scaler_tmp
-    logger.info("Data loading: position data are loaded successfully.")
+    logger.info("Data loading: scaler data are loaded successfully.")
     return img_dict, data_sets, fname, detector_name
 
 
