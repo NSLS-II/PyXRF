@@ -849,7 +849,7 @@ def map_data2D_tes(runid, fpath,
             print("The number of lines is less than expected")
             break
         data = v.data[detector_field]
-        data_det1 = data[:, 0, :]
+        data_det1 = np.array(data[:, 0, :])
         detector_data[n, :, :] = data_det1
         n_events_found = n + 1
     if n_events_found < n_events:
@@ -1157,8 +1157,9 @@ def map_data2D(data, datashape,
                 new_data = flip_data(new_data, subscan_dims=subscan_dims)
             data_output[detname] = new_data
             if sum_data is None:
-                sum_data = new_data
+                sum_data = np.copy(new_data)
             else:
+                sum_data += new_data
                 sum_data += new_data
     data_output['det_sum'] = sum_data
 
