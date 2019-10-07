@@ -230,30 +230,31 @@ class FileIOModel(Atom):
         # Change file name without rereading the file
         self.file_name_silent_change = True
         self.file_name = os.path.basename(fname)
-        logger.info(f"Dataset for detector {detector_name} was loaded.")
+        logger.info(f"Data loading: complete dataset for the detector "
+                    f"'{detector_name}' was loaded successfully.")
 
         self.file_channel_list = list(self.data_sets.keys())
 
-        print(f"file_channel_list = {self.file_channel_list}")
+        ## print(f"file_channel_list = {self.file_channel_list}")
 
-        print(f"----------- DATA ------------")
-        print(f"self.data_sets = {self.data_sets}")
-        print(f"img_dict = {img_dict}")
+        ## print(f"----------- DATA ------------")
+        ## print(f"self.data_sets = {self.data_sets}")
+        ## print(f"img_dict = {img_dict}")
 
         # Disable loading from 'analysis store' for now (because there is no 'analysis store')
-        """
-        # result from analysis store
-        from .data_to_analysis_store import get_analysis_result
-        hdr = get_analysis_result(self.runid)
-        if hdr is not None:
-            d1 = hdr.table(stream_name='primary')
-            # d2 = hdr.table(stream_name='spectrum')
-            self.param_fit = hdr.start.processor_parameters
-            # self.data = d2['summed_spectrum_experiment']
-            fit_result = {k: v for k, v in zip(d1['element_name'], d1['map'])}
-            # tmp = {k: v for k, v in self.img_dict.items()}
-            img_dict['scan2D_{}_fit'.format(self.runid)] = fit_result
-        """
+        # ----------------------------------------------------------------
+        # # Load results from the analysis store
+        # from .data_to_analysis_store import get_analysis_result
+        # hdr = get_analysis_result(self.runid)
+        # if hdr is not None:
+        #     d1 = hdr.table(stream_name='primary')
+        #     # d2 = hdr.table(stream_name='spectrum')
+        #     self.param_fit = hdr.start.processor_parameters
+        #     # self.data = d2['summed_spectrum_experiment']
+        #     fit_result = {k: v for k, v in zip(d1['element_name'], d1['map'])}
+        #     # tmp = {k: v for k, v in self.img_dict.items()}
+        #     img_dict['scan2D_{}_fit'.format(self.runid)] = fit_result
+        # ----------------------------------------------------------------
 
         self.img_dict = img_dict
 
@@ -799,7 +800,7 @@ def render_data_to_gui(runid):
 
     data_from_db = fetch_data_from_db(runid, create_each_det=True, output_to_file=True)
 
-    print(f"data_from_db = {data_from_db}")
+    ## print(f"data_from_db = {data_from_db}")
 
     if isinstance(data_from_db, str):
         # File name was returned by the function (this happens only for one rare type of scan)
@@ -814,26 +815,38 @@ def render_data_to_gui(runid):
         if len(data_from_db) > 1:
             logger.warning(f"Selecting only the first dataset from Scan #{runid}.")
 
+    # If the experiment contains data from multiple detectors (for example two separate
+    #   Xpress3 detectors) that need to be treated separately, only the data from the
+    #   first detector is loaded. Data from the second detector is saved to file and
+    #   can be loaded from the file. Currently this is a very rare case (only one set
+    #   of such experiments from SRX beamline exists).
     data_out = data_from_db[0]['dataset']
     fname = data_from_db[0]['file_name']
     detector_name = data_from_db[0]['detector_name']
 
-    print("Data is fetched from the database")
-    print(f"data_out = {data_out}")
-    print(f"fname = {fname}")
-    # Transfer to standard format pyxrf GUI can take
+    ## print("Data is fetched from the database")
+    ## print(f"data_out = {data_out}")
+    ## print(f"fname = {fname}")
+
+    # Create file name for the 'sum' dataset ('file names' are used as dictionary
+    #   keys in data storage containers, as channel labels in plot legends,
+    #   and as channel names in data selection widgets.
+    #   Since there is currently no consistent metadata in the start documents
+    #   and/or data files, let's leave original labeling conventions for now.
     fname_no_ext = os.path.splitext(os.path.basename(fname))[0]
     fname_sum = fname_no_ext +'_sum'
 
-    print("**** Before any transformation ****")
-    print(f"sum of 'det1': {sum(data_out['det1'][2,2,:])}")
-    print(f"sum of 'det2': {sum(data_out['det2'][2,2,:])}")
-    print(f"sum of 'det3': {sum(data_out['det3'][2,2,:])}")
+    ## print("**** Before any transformation ****")
+    ## print(f"sum of 'det1': {sum(data_out['det1'][2,2,:])}")
+    ## print(f"sum of 'det2': {sum(data_out['det2'][2,2,:])}")
+    ## print(f"sum of 'det3': {sum(data_out['det3'][2,2,:])}")
 
-    print(f"fname_sum = {fname_sum}")
+    ## print(f"fname_sum = {fname_sum}")
 
+    # Determine the number of available detector channels and create the list
+    #   of channel names. The channels are named as 'det1', 'det2', 'det3' etc.
     xrf_det_list = [nm for nm in data_out.keys() if 'det' in nm and 'sum' not in nm]
-    print(f"'xrf_det_list' is found: {xrf_det_list}")
+    ##print(f"'xrf_det_list' is found: {xrf_det_list}")
 
     det_sum = None
     if 'det_sum' in data_out:
@@ -845,59 +858,59 @@ def render_data_to_gui(runid):
             else:
                 det_sum += data_out[det_name][:, :, 0:spectrum_cut]
 
-    print("\n=========================================")
-    print("   det_sum")
-    ii, kk, mm = det_sum.shape
-    sm = np.zeros(shape=(ii, kk))
-    for i in range(ii):
-        for k in range(kk):
-            sm[i, k] = sum(det_sum[i,k,:])
-    for i in range(ii):
-        print(f"\ni={i} {sm[i,:]}")
+    ## print("\n=========================================")
+    ## print("   det_sum")
+    ## ii, kk, mm = det_sum.shape
+    ## sm = np.zeros(shape=(ii, kk))
+    ## for i in range(ii):
+    ##     for k in range(kk):
+    ##         sm[i, k] = sum(det_sum[i,k,:])
+    ## for i in range(ii):
+    ##     print(f"\ni={i} {sm[i,:]}")
 
-    print("'det_sum is computed")
+    ## print("'det_sum is computed")
     DS = DataSelection(filename=fname_sum,
                        raw_data=det_sum)
     data_sets[fname_sum] = DS
 
-    logger.info('Data of detector sum is loaded.')
-    print("Printing: data of detector sum is loaded")
+    logger.info("Data loading: channel sum is loaded successfully.")
+    ## print("Printing: data of detector sum is loaded")
 
     for det_name in xrf_det_list:
-        print(f"\n\n\ndata_out[{det_name}] < {data_out[det_name].shape} > = {data_out[det_name]}")
-        print(f"sum = {sum(data_out[det_name][2, 2, :])}")
+        ## print(f"\n\n\ndata_out[{det_name}] < {data_out[det_name].shape} > = {data_out[det_name]}")
+        ## print(f"sum = {sum(data_out[det_name][2, 2, :])}")
         exp_data = np.array(data_out[det_name][:, :, 0:spectrum_cut])
         fln = f"{fname_no_ext}_{det_name}"
         DS = DataSelection(filename=fln,
                            raw_data=exp_data)
-        if det_name == 'det1':
-            exp_data1_name = det_name
-            exp_data1 = exp_data
+        ## if det_name == 'det1':
+        ##     exp_data1_name = det_name
+        ##     exp_data1 = exp_data
         data_sets[fln] = DS
 
-    print("\n=========================================")
-    print(f"   {exp_data1_name}")
-    ii, kk, mm = exp_data1.shape
-    sm = np.zeros(shape=(ii, kk))
-    for i in range(ii):
-        for k in range(kk):
-            sm[i, k] = sum(exp_data1[i,k,:])
-    for i in range(ii):
-        print(f"\ni={i} {sm[i,:]}")
+    ## print("\n=========================================")
+    ## print(f"   {exp_data1_name}")
+    ## ii, kk, mm = exp_data1.shape
+    ## sm = np.zeros(shape=(ii, kk))
+    ## for i in range(ii):
+    ##     for k in range(kk):
+    ##         sm[i, k] = sum(exp_data1[i,k,:])
+    ## for i in range(ii):
+    ##     print(f"\ni={i} {sm[i,:]}")
 
-    print(f"fname_sum = {fname_sum}")
-    print(f"sum of 'det_sum': {sum(data_sets[fname_sum].raw_data[2,2,:])}")
-    fln = f"{fname_no_ext}_det1"
-    print(f"detector = {fln}")
-    print(f"sum of 'det1': {sum(data_sets[fln].raw_data[2,2,:])}")
-    fln = f"{fname_no_ext}_det2"
-    print(f"detector = {fln}")
-    print(f"sum of 'det2': {sum(data_sets[fln].raw_data[2,2,:])}")
-    fln = f"{fname_no_ext}_det3"
-    print(f"detector = {fln}")
-    print(f"sum of 'det3': {sum(data_sets[fln].raw_data[2,2,:])}")
+    ## print(f"fname_sum = {fname_sum}")
+    ## print(f"sum of 'det_sum': {sum(data_sets[fname_sum].raw_data[2,2,:])}")
+    ## fln = f"{fname_no_ext}_det1"
+    ## print(f"detector = {fln}")
+    ## print(f"sum of 'det1': {sum(data_sets[fln].raw_data[2,2,:])}")
+    ## fln = f"{fname_no_ext}_det2"
+    ## print(f"detector = {fln}")
+    ## print(f"sum of 'det2': {sum(data_sets[fln].raw_data[2,2,:])}")
+    ## fln = f"{fname_no_ext}_det3"
+    ## print(f"detector = {fln}")
+    ## print(f"sum of 'det3': {sum(data_sets[fln].raw_data[2,2,:])}")
 
-    logger.info('Detector data is loaded.')
+    logger.info("Data loading: channel data is loaded successfully.")
 
     if 'x_pos' in data_out and 'y_pos' in data_out:
         tmp = {}
@@ -908,7 +921,7 @@ def render_data_to_gui(runid):
     for i, v in enumerate(data_out['scaler_names']):
         scaler_tmp[v] = data_out['scaler_data'][:, :, i]
     img_dict[fname+'_scaler'] = scaler_tmp
-    print("Positions are computed")
+    logger.info("Data loading: position data are loaded successfully.")
     return img_dict, data_sets, fname, detector_name
 
 
