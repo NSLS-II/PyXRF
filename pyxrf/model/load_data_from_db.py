@@ -1203,7 +1203,7 @@ def write_db_to_hdf_base(fpath, data, create_each_det=True):
                 new_data = data[detname]
 
                 if sum_data is None:
-                    sum_data = new_data
+                    sum_data = np.copy(new_data)
                 else:
                     sum_data += new_data
 
