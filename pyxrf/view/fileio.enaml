@@ -47,8 +47,7 @@ enamldef FileView(DockItem): file_view:
                     hbox(gb_db),
                     hbox(gb_fit),
                     hbox(mask_opt, spacer),
-                    scroller,
-                    plot_bt
+                    scroller
                 ),
                 folder_btn.width == files_btn.width,
                 #folder_btn.width == mask_btn.width,
@@ -104,8 +103,6 @@ enamldef FileView(DockItem): file_view:
                             setting_model.data_sets = io_model.data_sets
                             fit_model.data_sets = io_model.data_sets
                             fit_model.fit_img = {} # clear dict in fitmodel to rm old results
-
-                            plot_bt.enabled = True
 
                             # Change window title (include file name)
                             io_model.window_title_set_file_name(f_name)
@@ -186,6 +183,8 @@ enamldef FileView(DockItem): file_view:
                     index := io_model.file_opt
                     minimum_size = (300, 16)
                     foreground = 'blue'
+                    index ::
+                        plot_model.plot_exp_opt = True
 
             ScrollArea: scroller:
                 constraints = [height <= 300]
@@ -203,37 +202,26 @@ enamldef FileView(DockItem): file_view:
                                 checked = True
                                 clicked ::
                                     io_model.data_sets[loop_item].plot_index = 0
+                                    plot_model.data_sets = io_model.data_sets
+                                    plot_model.plot_multi_exp_data()
+
+                                    # Check if there are any other plots shown. If not,
+                                    #   then hide the plot.
+                                    n_plots = 0
+                                    for v in io_model.file_channel_list:
+                                        if io_model.data_sets[v].plot_index:
+                                            n_plots += 1
+                                    if not n_plots:
+                                        # Hide plot (there are no channels selected)
+                                        plot_model.show_exp_opt = False
+
                             RadioButton: rb_2:
                                 text = 'SHOW'
                                 clicked ::
                                     io_model.data_sets[loop_item].plot_index = 1
-                                    #fd1.enabled = False
-                                    #fd2.enabled = False
-                                    #plot_bt.enabled = True
                                     plot_model.data_sets = io_model.data_sets
-
-            PushButton: plot_bt:
-                text = 'Plot Channels'
-                #maximum_size = 100
-                enabled = False
-                checkable = True
-                checked << plot_model.show_exp_opt
-                clicked ::
-                    plot_model.data_sets = io_model.data_sets
-                    plot_model.plot_multi_exp_data()
-                    if checked:
-                        n_plots = 0
-                        for v in io_model.file_channel_list:
-                            if io_model.data_sets[v].plot_index:
-                                n_plots += 1
-                        if n_plots: 
-                            plot_bt.text = 'Remove Plot'
-                            plot_model.show_exp_opt = True
-                        else:
-                            plot_bt.checked = False
-                    else:
-                        plot_model.show_exp_opt = False
-                        plot_bt.text = 'Plot Experiments'
+                                    plot_model.plot_multi_exp_data()
+                                    plot_model.show_exp_opt = True
 
 enamldef MaskView(Window): mask_view:
     attr io_model
