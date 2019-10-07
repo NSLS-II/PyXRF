@@ -224,6 +224,10 @@ def map_data2D_hxn(runid, fpath,
     """
     hdr = db[runid]
 
+    # Generate the default file name for the scan
+    if fpath is None:
+        fpath = f"scan2D_{runid}.h5"
+
     # Output data is the list of data structures for all available detectors
     data_output = []
 
@@ -752,6 +756,10 @@ def map_data2D_tes(runid, fpath,
     hdr = db[runid]
     # start_doc = hdr['start']
 
+    # Generate the default file name for the scan
+    if fpath is None:
+        fpath = f"scan2D_{runid}.h5"
+
     # Load configuration file
     current_dir = os.path.dirname(os.path.realpath(__file__))
     config_file = 'tes_pv_config.json'
@@ -869,7 +877,7 @@ def map_data2D_tes(runid, fpath,
     d_dict = {"dataset": new_data, "file_name": fpath_out, "detector_name": detector_name}
     data_output.append(d_dict)
 
-    return new_data
+    return data_output
 
 
 def map_data2D_xfm(runid, fpath,
