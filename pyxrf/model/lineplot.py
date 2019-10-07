@@ -346,7 +346,7 @@ class LinePlotModel(Atom):
                 self.plot_exp_obj.set_visible(False)
                 lab = self.plot_exp_obj.get_label()
                 self.plot_exp_obj.set_label('_' + lab)
-    
+
             self._update_canvas()
         except Exception:
             pass
