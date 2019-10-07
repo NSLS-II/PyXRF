@@ -825,6 +825,11 @@ def render_data_to_gui(runid):
     fname_no_ext = os.path.splitext(os.path.basename(fname))[0]
     fname_sum = fname_no_ext +'_sum'
 
+    print("**** Before any transformation ****")
+    print(f"sum of 'det1': {sum(data_out['det1'][2,2,:])}")
+    print(f"sum of 'det2': {sum(data_out['det2'][2,2,:])}")
+    print(f"sum of 'det3': {sum(data_out['det3'][2,2,:])}")
+
     print(f"fname_sum = {fname_sum}")
 
     xrf_det_list = [nm for nm in data_out.keys() if 'det' in nm and 'sum' not in nm]
@@ -832,11 +837,11 @@ def render_data_to_gui(runid):
 
     det_sum = None
     if 'det_sum' in data_out:
-        det_sum = data_out['det_sum']
+        det_sum = np.copy(data_out['det_sum'][:, :, 0:spectrum_cut])
     else:
         for det_name in xrf_det_list:
             if det_sum is None:
-                det_sum = data_out[det_name][:, :, 0:spectrum_cut]
+                det_sum = np.array(data_out[det_name][:, :, 0:spectrum_cut])
             else:
                 det_sum += data_out[det_name][:, :, 0:spectrum_cut]
 
@@ -865,11 +870,13 @@ def render_data_to_gui(runid):
         fln = f"{fname_no_ext}_{det_name}"
         DS = DataSelection(filename=fln,
                            raw_data=exp_data)
-        exp_data1 = exp_data
+        if det_name == 'det1':
+            exp_data1_name = det_name
+            exp_data1 = exp_data
         data_sets[fln] = DS
 
     print("\n=========================================")
-    print("   det1")
+    print(f"   {exp_data1_name}")
     ii, kk, mm = exp_data1.shape
     sm = np.zeros(shape=(ii, kk))
     for i in range(ii):
