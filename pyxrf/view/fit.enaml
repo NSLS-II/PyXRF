@@ -753,7 +753,8 @@ enamldef FitView(DockItem): fit_view:
 
             PushButton: to_db:
                 text = 'Save to database'
-                enabled = databroker is not None
+                enabled = False  # Disable this button (database for processing data does not exist yet)
+                #enabled = databroker is not None
                 #minimum_size = (20, 20)
                 clicked ::
                     fit_model.save_pixel_fitting_to_db()
