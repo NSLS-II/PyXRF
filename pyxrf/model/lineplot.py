@@ -330,23 +330,26 @@ class LinePlotModel(Atom):
 
         # _show_hide_exp_plot is called to show or hide current plot based
         #           on the state of _show_exp_opt flag
-        self._show_hide_exp_plot(self.show_exp_opt)
+        self._show_hide_exp_plot(self.show_exp_opt or self.plot_exp_opt)
 
     def _show_hide_exp_plot(self, plot_show):
 
         if self.data is None:
             return
 
-        if plot_show:
-            self.plot_exp_obj.set_visible(True)
-            lab = self.plot_exp_obj.get_label()
-            self.plot_exp_obj.set_label(lab.strip('_'))
-        else:
-            self.plot_exp_obj.set_visible(False)
-            lab = self.plot_exp_obj.get_label()
-            self.plot_exp_obj.set_label('_' + lab)
-
-        self._update_canvas()
+        try:
+            if plot_show:
+                self.plot_exp_obj.set_visible(True)
+                lab = self.plot_exp_obj.get_label()
+                self.plot_exp_obj.set_label(lab.strip('_'))
+            else:
+                self.plot_exp_obj.set_visible(False)
+                lab = self.plot_exp_obj.get_label()
+                self.plot_exp_obj.set_label('_' + lab)
+    
+            self._update_canvas()
+        except Exception:
+            pass
 
     @observe('plot_exp_opt')
     def _new_exp_plot_opt(self, change):
