@@ -138,7 +138,7 @@ class DrawImageAdvanced(Atom):
 
         if 'positions' in self.data_dict:
             try:
-                logger.info('get pos {}'.format(list(self.data_dict['positions'].keys())))
+                logger.debug(f"Position keys: {list(self.data_dict['positions'].keys())}")
                 self.x_pos = list(self.data_dict['positions']['x_pos'][0, :])
                 self.y_pos = list(self.data_dict['positions']['y_pos'][:, -1])
                 # when we use imshow, the x and y start at lower left,
