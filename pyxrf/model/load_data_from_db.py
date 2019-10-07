@@ -224,6 +224,9 @@ def map_data2D_hxn(runid, fpath,
     """
     hdr = db[runid]
 
+    # Output data is the list of data structures for all available detectors
+    data_output = []
+
     start_doc = hdr['start']
     if 'dimensions' in start_doc:
         datashape = start_doc.dimensions
@@ -271,7 +274,13 @@ def map_data2D_hxn(runid, fpath,
         print('Saving data to hdf file.')
         write_db_to_hdf_base(fpath, data_out,
                              create_each_det=create_each_det)
-    return data_out
+
+    detector_name = "xpress3"
+    d_dict = {"dataset": data_out, "file_name": fpath, "detector_name": detector_name}
+    data_output.append(d_dict)
+
+    return data_output
+
     # write_db_to_hdf(fpath, data, datashape,
     #                 det_list=det_list, pos_list=pos_list,
     #                 scaler_list=scaler_list,
@@ -781,6 +790,9 @@ def map_data2D_tes(runid, fpath,
 
     spectrum_len = 4096  # It is typically fixed
 
+    # Output data is the list of data structures for all available detectors
+    data_output = []
+
     # The dictionary that will contain the data extracted from scan data
     #   This data will be saved to file and/or loaded into processing software
     new_data = {}
@@ -819,6 +831,8 @@ def map_data2D_tes(runid, fpath,
     pos_data[1, :, :] = np.vstack(hdr.table()[ypos_name].to_numpy())
     new_data['pos_data'] = pos_data
 
+    detector_field = "fluor"
+
     # Read detector values (for single detector)
     detector_data = np.zeros(shape=data_shape + (spectrum_len,), dtype=float)
     n_events = data_shape[0]
@@ -828,7 +842,7 @@ def map_data2D_tes(runid, fpath,
         if n >= n_events:
             print("The number of lines is less than expected")
             break
-        data = v.data['fluor']
+        data = v.data[detector_field]
         data_det1 = data[:, 0, :]
         detector_data[n, :, :] = data_det1
         n_events_found = n + 1
@@ -853,6 +867,9 @@ def map_data2D_tes(runid, fpath,
         print(f"Saving data to hdf file #{n_detectors_found}: Detector: {detector_name}.")
         write_db_to_hdf_base(fpath_out, new_data,
                              create_each_det=create_each_det)
+
+    d_dict = {"dataset": new_data, "file_name": fpath_out, "detector_name": detector_name}
+    data_output.append(d_dict)
 
     return new_data
 
