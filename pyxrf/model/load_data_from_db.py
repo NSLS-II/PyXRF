@@ -904,6 +904,10 @@ def map_data2D_xfm(runid, fpath,
     dict of data in 2D format matching x,y scanning positions
     """
     hdr = db[runid]
+
+    # Output data is the list of data structures for all available detectors
+    data_output = []
+
     # spectrum_len = 4096
     start_doc = hdr['start']
     plan_n = start_doc.get('plan_name')
@@ -925,16 +929,21 @@ def map_data2D_xfm(runid, fpath,
         data = db.get_table(hdr, fill=True, convert_times=False)
 
         xrf_detector_names = config_data['xrf_detector']
-        data_output = map_data2D(data,
-                                 datashape,
-                                 det_list=xrf_detector_names,
-                                 pos_list=hdr.start.motors,
-                                 scaler_list=config_data['scaler_list'],
-                                 fly_type=fly_type)
+        data_out = map_data2D(data,
+                              datashape,
+                              det_list=xrf_detector_names,
+                              pos_list=hdr.start.motors,
+                              scaler_list=config_data['scaler_list'],
+                              fly_type=fly_type)
         if output_to_file:
             print('Saving data to hdf file.')
-            write_db_to_hdf_base(fpath, data_output,
+            write_db_to_hdf_base(fpath, data_out,
                                  create_each_det=create_each_det)
+
+        detector_name = "xs"
+        d_dict = {"dataset": data_out, "file_name": fpath, "detector_name": detector_name}
+        data_output.append(d_dict)
+
         return data_output
 
 
