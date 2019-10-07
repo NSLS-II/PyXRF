@@ -698,11 +698,9 @@ def map_data2D_srx(runid, fpath,
                 fpath_out = write_db_to_hdf_base(fpath_out, new_data,
                                                  create_each_det=create_each_det)
 
-            print("Appending dictionary")
+            # Preparing data for the detector ``detector_name`` for output
             d_dict = {"dataset": new_data, "file_name": fpath_out, "detector_name": detector_name}
-            print("Dict. created")
             data_output.append(d_dict)
-            print("Appended")
 
         print()
         if n_detectors_found == 0:
