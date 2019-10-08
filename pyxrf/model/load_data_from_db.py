@@ -1131,7 +1131,6 @@ def map_data2D(data, datashape,
     dict of numpy array
     """
     data_output = {}
-    sum_data = None
     new_v_shape = datashape[0]  # updated if scan is not completed
     sum_data = None
 
@@ -1157,9 +1156,23 @@ def map_data2D(data, datashape,
                 new_data = flip_data(new_data, subscan_dims=subscan_dims)
             data_output[detname] = new_data
             if sum_data is None:
+                # Note: Here is the place where the error was found!!!
+                #   The assignment in the next line used to be written as
+                #      sum_data = new_data
+                #   i.e. reference to data from 'det1' was assigned to 'sum_data'.
+                #   After computation of the sum, both 'sum_data' and detector 'det1'
+                #     were referencing the same ndarray, holding the sum of values
+                #     from detector channels 'det1', 'det2' and 'det3'. In addition, the sum is
+                #     computed again before data is saved into '.h5' file.
+                #     The algorithm for computing of the second sum is working correctly,
+                #     but since 'det1' already contains the true sum 'det1'+'det2'+'det3',
+                #     the computed sum equals 'det1'+2*'det2'+2*'det3'.
+                #   The problem was fixed by replacing assignment of reference during
+                #   initalization of 'sum_data' by copying the array.
+                # The error is documented because the code was used for a long time
+                #   for initial processing of XRF imaging data at HXN beamline.
                 sum_data = np.copy(new_data)
             else:
-                sum_data += new_data
                 sum_data += new_data
     data_output['det_sum'] = sum_data
 
