@@ -89,7 +89,7 @@ def fetch_data_from_db(runid, fpath=None,
                        fname_add_version=False,
                        completed_scans_only=False,
                        output_to_file=False,
-                       save_scalar=True,
+                       save_scaler=True,
                        num_end_lines_excluded=None):
     """
     Read data from databroker.
@@ -122,7 +122,7 @@ def fetch_data_from_db(runid, fpath=None,
         False: the feature is disabled, incomplete scan will be processed.
     output_to_file : bool, optional
         save data to hdf5 file if True
-    save_scalar : bool, optional
+    save_scaler : bool, optional
         choose to save scaler data or not for srx beamline, test purpose only.
     num_end_lines_excluded : int, optional
         remove the last few bad lines
@@ -147,7 +147,7 @@ def fetch_data_from_db(runid, fpath=None,
                               fname_add_version=fname_add_version,
                               completed_scans_only=completed_scans_only,
                               output_to_file=output_to_file,
-                              save_scalar=save_scalar,
+                              save_scaler=save_scaler,
                               num_end_lines_excluded=num_end_lines_excluded)
     elif hdr.start.beamline_id == 'XFM':
         data = map_data2D_xfm(runid, fpath,
@@ -260,7 +260,7 @@ def make_hdf(start, end=None, *, fname=None,
                            fname_add_version=fname_add_version,
                            completed_scans_only=completed_scans_only,
                            output_to_file=True,
-                           save_scalar=save_scalar,
+                           save_scaler=save_scaler,
                            num_end_lines_excluded=num_end_lines_excluded)
     else:
         # Both ``start`` and ``end`` are specified. Convert the scans in the range
@@ -275,7 +275,7 @@ def make_hdf(start, end=None, *, fname=None,
                                    fname_add_version=fname_add_version,
                                    completed_scans_only=completed_scans_only,
                                    output_to_file=True,
-                                   save_scalar=save_scalar,
+                                   save_scaler=save_scaler,
                                    num_end_lines_excluded=num_end_lines_excluded)
                 print(f"Scan #{v}: File '{filename}' is created.")
             except Exception:
@@ -445,7 +445,7 @@ def map_data2D_srx(runid, fpath,
                    fname_add_version=False,
                    completed_scans_only=False,
                    output_to_file=True,
-                   save_scalar=True,
+                   save_scaler=True,
                    num_end_lines_excluded=None):
     """
     Transfer the data from databroker into a correct format following the
@@ -478,7 +478,7 @@ def map_data2D_srx(runid, fpath,
         False: the feature is disabled, incomplete scan will be processed.
     output_to_file : bool, optional
         save data to hdf5 file if True
-    save_scalar : bool, optional
+    save_scaler : bool, optional
         choose to save scaler data or not for srx beamline, test purpose only.
     num_end_lines_excluded : int, optional
         remove the last few bad lines
@@ -593,7 +593,7 @@ def map_data2D_srx(runid, fpath,
         print(f"         Loading SRX fly scan           ")
         print(f"****************************************")
 
-        if save_scalar is True:
+        if save_scaler is True:
             scaler_list = ['i0', 'time', 'i0_time', 'time_diff']
             xpos_name = 'enc1'
             ypos_name = 'hf_stage_y'  # 'hf_stage_x' if fast axis is vertical
@@ -650,10 +650,10 @@ def map_data2D_srx(runid, fpath,
             new_data = {}
             data = {}
 
-            if save_scalar is True:
+            if save_scaler is True:
                 new_data['scaler_names'] = scaler_list
                 scaler_tmp = np.zeros([datashape[0], datashape[1], len(scaler_list)])
-                if vertical_fast is True:  # data shape only has impact on scalar data
+                if vertical_fast is True:  # data shape only has impact on scaler data
                     scaler_tmp = np.zeros([datashape[1], datashape[0], len(scaler_list)])
                 for v in scaler_list+[xpos_name]:
                     data[v] = np.zeros([datashape[0], datashape[1]])
@@ -688,7 +688,7 @@ def map_data2D_srx(runid, fpath,
                     print(f"Number of the detector channels: {num_det}")
 
                 if m < datashape[0]:   # scan is not finished
-                    if save_scalar is True:
+                    if save_scaler is True:
                         for n in scaler_list[:-1] + [xpos_name]:
                             min_len = min(v.data[n].size, datashape[1])
                             data[n][m, :min_len] = v.data[n][:min_len]
@@ -732,7 +732,7 @@ def map_data2D_srx(runid, fpath,
                     for i in range(num_det):
                         new_data['det'+str(i+1)] = np.transpose(new_data['det'+str(i+1)], axes=(1, 0, 2))
 
-            if save_scalar is True:
+            if save_scaler is True:
                 if vertical_fast is False:
                     for i, v in enumerate(scaler_list[:-1]):
                         scaler_tmp[:, :, i] = data[v]
@@ -830,7 +830,7 @@ def map_data2D_srx(runid, fpath,
                     new_data['pos_data'] = data_tmp
                     new_data['pos_names'] = ['x_pos', 'y_pos']
                     if vertical_fast is True:  # need to transpose the data, as we scan y first
-                        # fast scan on y has impact for scalar data
+                        # fast scan on y has impact for scaler data
                         data_tmp = np.zeros([2, x_pos.shape[1], x_pos.shape[0]])
                         data_tmp[1, :, :] = x_pos.T
                         data_tmp[0, :, :] = yv.T
