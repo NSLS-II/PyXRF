@@ -169,8 +169,8 @@ def fetch_data_from_db(runid, fpath=None,
 
 
 def make_hdf(start, end=None, *, fname=None,
-             fname_add_version = False,
-             completed_scans_only = False,
+             fname_add_version=False,
+             completed_scans_only=False,
              prefix='scan2D_',
              create_each_det=True, save_scaler=True,
              num_end_lines_excluded=None):
@@ -279,7 +279,7 @@ def make_hdf(start, end=None, *, fname=None,
                                    num_end_lines_excluded=num_end_lines_excluded)
                 print(f"Scan #{v}: File '{filename}' is created.")
             except Exception:
-                print(f"Scan #{v}: Can not complete the conversion")
+                print(f"Scan #{v}: Can not complete the conversion\n")
 
 
 def _is_scan_complete(hdr):
@@ -306,6 +306,7 @@ def _is_scan_complete(hdr):
         return False
 
     return True
+
 
 def map_data2D_hxn(runid, fpath,
                    create_each_det=False,
@@ -553,7 +554,8 @@ def map_data2D_srx(runid, fpath,
                 print('Saving data to hdf file: Xpress3 detector #1 (three channels).')
                 root, ext = os.path.splitext(fpath)
                 fpath_out = f"{root + '_xs'}{ext}"
-                fpath_out = write_db_to_hdf(fpath_out, data,
+                fpath_out = write_db_to_hdf(
+                    fpath_out, data,
                     # hdr.start.datashape,
                     datashape,
                     det_list=config_data['xrf_detector'],
@@ -567,7 +569,8 @@ def map_data2D_srx(runid, fpath,
                 print('Saving data to hdf file: Xpress3 detector #2 (single channel).')
                 root, ext = os.path.splitext(fpath)
                 fpath_out = f"{root}_xs2{ext}"
-                fpath_out = write_db_to_hdf(fpath_out, data,
+                fpath_out = write_db_to_hdf(
+                    fpath_out, data,
                     datashape,
                     det_list=config_data['xrf_detector2'],
                     pos_list=hdr.start.motors,
@@ -1269,6 +1272,7 @@ def write_db_to_hdf(fpath, data, datashape,
 
     return fpath
 
+
 def get_name_value_from_db(name_list, data, datashape):
     """
     Get name and data from db.
@@ -1395,6 +1399,7 @@ def map_data2D(data, datashape,
     data_output['scaler_data'] = scaler_data
     return data_output
 
+
 def _get_fpath_not_existing(fpath):
     # Returns path to the new file that is guaranteed to not exist
     # The function cycles through paths obtained by inserting
@@ -1484,6 +1489,7 @@ def write_db_to_hdf_base(fpath, data,
             dataGrp.create_dataset('val', data=scaler_data)
 
     return fpath
+
 
 def free_memory_from_handler():
     """Quick way to set 3D dataset at handler to None to release memory.
