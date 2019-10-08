@@ -830,7 +830,7 @@ def render_data_to_gui(runid):
     #   Since there is currently no consistent metadata in the start documents
     #   and/or data files, let's leave original labeling conventions for now.
     fname_no_ext = os.path.splitext(os.path.basename(fname))[0]
-    fname_sum = fname_no_ext +'_sum'
+    fname_sum = fname_no_ext + '_sum'
 
     # Determine the number of available detector channels and create the list
     #   of channel names. The channels are named as 'det1', 'det2', 'det3' etc.
@@ -866,7 +866,7 @@ def render_data_to_gui(runid):
             p_dict = {}
             for v in ['x_pos', 'y_pos']:
                 ind = data_out['pos_names'].index(v)
-                p_dict[v] =  data_out['pos_data'][ind, :, :]
+                p_dict[v] = data_out['pos_data'][ind, :, :]
             img_dict['positions'] = p_dict
             logger.info("Data loading: positions data are loaded successfully.")
 
