@@ -86,6 +86,8 @@ def flip_data(input_data, subscan_dims=None):
 
 def fetch_data_from_db(runid, fpath=None,
                        create_each_det=False,
+                       fname_add_version=False,
+                       completed_scans_only=False,
                        output_to_file=False,
                        save_scalar=True,
                        num_end_lines_excluded=None):
@@ -107,6 +109,17 @@ def fetch_data_from_db(runid, fpath=None,
         Do not create data for each detector is data size is too large,
         if set as false. This will slow down the speed of creating hdf file
         with large data size. srx beamline only.
+    fname_add_version : bool
+        True: if file already exists, then file version is added to the file name
+        so that it becomes unique in the current directory. The version is
+        added to <fname>.h5 in the form <fname>_(1).h5, <fname>_(2).h5, etc.
+        False: then conversion fails.
+    completed_scans_only : bool
+        True: process only completed scans (for which ``stop`` document exists in
+        the database). Failed scan for which ``stop`` document exists are considered
+        completed even if not the whole image was scanned. If incomplete scan is
+        encountered: an exception is thrown.
+        False: the feature is disabled, incomplete scan will be processed.
     output_to_file : bool, optional
         save data to hdf5 file if True
     save_scalar : bool, optional
@@ -124,21 +137,29 @@ def fetch_data_from_db(runid, fpath=None,
     if hdr.start.beamline_id == 'HXN':
         data = map_data2D_hxn(runid, fpath,
                               create_each_det=create_each_det,
+                              fname_add_version=fname_add_version,
+                              completed_scans_only=completed_scans_only,
                               output_to_file=output_to_file)
     elif (hdr.start.beamline_id == 'xf05id' or
           hdr.start.beamline_id == 'SRX'):
         data = map_data2D_srx(runid, fpath,
                               create_each_det=create_each_det,
+                              fname_add_version=fname_add_version,
+                              completed_scans_only=completed_scans_only,
                               output_to_file=output_to_file,
                               save_scalar=save_scalar,
                               num_end_lines_excluded=num_end_lines_excluded)
     elif hdr.start.beamline_id == 'XFM':
         data = map_data2D_xfm(runid, fpath,
                               create_each_det=create_each_det,
+                              fname_add_version=fname_add_version,
+                              completed_scans_only=completed_scans_only,
                               output_to_file=output_to_file)
     elif hdr.start.beamline_id == 'TES':
         data = map_data2D_tes(runid, fpath,
                               create_each_det=create_each_det,
+                              fname_add_version=fname_add_version,
+                              completed_scans_only=completed_scans_only,
                               output_to_file=output_to_file)
     else:
         print("Databroker is not setup for this beamline")
@@ -147,62 +168,149 @@ def fetch_data_from_db(runid, fpath=None,
     return data
 
 
-def make_hdf(start, end=None, fname=None,
+def make_hdf(start, end=None, *, fname=None,
+             fname_add_version = False,
+             completed_scans_only = False,
              prefix='scan2D_',
-             create_each_det=True, save_scalar=True,
+             create_each_det=True, save_scaler=True,
              num_end_lines_excluded=None):
     """
-    Transfer multiple h5 files.
+    Load data from database and save it in HDF5 files.
 
     Parameters
     ---------
-    start : int
-        start run id
-    end : int, optional
-        end run id
-    fname : string
-        path to save file when start equals to end, in this case only
-        one file is transfered.
-    prefix : str, optional
-        prefix name of the file
-    db : databroker
-    create_each_det: bool, optional
-        Do not create data for each detector is data size is too large,
-        if set as false. This will slow down the speed of creating hdf file
-        with large data size. srx beamline only.
-    save_scalar : bool, optional
-        choose to save scaler data or not for srx beamline, test purpose only.
-    num_end_lines_excluded : int, optional
-        remove the last few bad lines. Used at SRX beamline.
-    """
-    if end is None:
-        end = start
 
-    if end == start:
+    start : int
+        scan ID of the fist scan to convert.
+    end : int, optional
+        scan ID of the last scan to convert. If ``end`` is not specified or None, then
+        only the scan with ID ``start`` is converted and an exception is raised if an
+        error occurs during the conversion. If ``end`` is specified, then scans in the
+        range ``scan``..``end`` are converted and a scan in the sequence is skipped
+        if there is an issues during the conversion. For example:
+            make_hdf(2342)
+        will process scan #2342 and throw an exception if error occurs. On the other hand
+            make_hdf(2342, 2342)
+        will process scan #2342 and write data to file if conversion is successful, otherwise
+        no file will be created. The scans with IDs in the range 2342..2441 can be processed by
+        calling
+            make_hdf(2342, 2441)
+        Non-existing scans in the range or scans causing errors during conversion will be skipped.
+
+    Keyword parameters
+    ------------------
+
+    fname : string, optional
+        path to save data file when ``end`` is ``None`` (only one scan is processed).
+        File name is created automatically if ``fname`` is not specified.
+    fname_add_version : bool
+        True: if file already exists, then file version is added to the file name
+        so that it becomes unique in the current directory. The version is
+        added to <fname>.h5 in the form <fname>_(1).h5, <fname>_(2).h5, etc.
+        False: then conversion fails. If ``end`` is ``None``, then
+        the exception is raised. If ``end`` is specified, the scan is skipped
+        and the next scan in the range is processed.
+    completed_scans_only : bool
+        True: process only completed scans (for which ``stop`` document exists in
+        the database). Failed scan for which ``stop`` document exists are considered
+        completed even if not the whole image was scanned. If incomplete scan is
+        encountered: an exception is thrown (``end`` is not specified) or the scan
+        is skipped (``end`` is specified). This feature allows to use
+        ``make_hdf`` as part of the script for real time data analysis:
+            for scan_id in range(n_start, n_start + n_scans):
+                while True:
+                    try:
+                        # Load scan if it is available
+                        make_hdf(scan_id, completed_scans_only = True)
+                        # Process the file using the prepared parameter file
+                        pyxrf_batch(scan_id, param_file_name = "some_parameter_file.json")
+                        break
+                    except Exception:
+                        # Wait for 10 minutes and retry
+                        pause(600)
+        Such scripts are currently used at HXN and SRX beamlines of NSLS-II, so this feature
+        supports the existing workflows.
+        False: the feature is disabled, incomplete scan will be processed.
+    prefix : str, optional
+        prefix name of the created data file. If ``fname`` is not specified, it is generated
+        automatically in the form ``<prefix>_<scanID>_<some_additional data>.h5``
+    create_each_det: bool, optional
+        True: save data for each available detector channel into a file. Enabling this
+        feature leads to larger data files. Inspection of data from individual channels
+        of the detector may be helpful in evaluation of quality of the detector calibration
+        and adds flexibility to data analysis. This feature may be disabled if large number
+        of routine scans recorded by well tested system are processed and disk space
+        is an issue.
+        False: disable the feature. Only the sum of all detector channels is saved
+        to disk.
+    save_scaler : bool, optional
+        True: save scaler data in the data file
+        False: do not save scaler data
+    num_end_lines_excluded : int, optional
+        The number of lines at the end of the scan that will not be saved to the data file.
+    """
+
+    if end is None:
+        # Load one scan with ID specified by ``start``
+        #   If there is a problem while reading the scan, the exception is raised.
         if fname is None:
             fname = prefix+str(start)+'.h5'
         fetch_data_from_db(start, fpath=fname,
                            create_each_det=create_each_det,
+                           fname_add_version=fname_add_version,
+                           completed_scans_only=completed_scans_only,
                            output_to_file=True,
                            save_scalar=save_scalar,
                            num_end_lines_excluded=num_end_lines_excluded)
     else:
+        # Both ``start`` and ``end`` are specified. Convert the scans in the range
+        #   ``start`` .. ``end``. If there is a problem reading the scan,
+        #   then the scan is skipped and the next scan is processed
         datalist = range(start, end+1)
         for v in datalist:
             filename = prefix+str(v)+'.h5'
             try:
                 fetch_data_from_db(v, fpath=filename,
                                    create_each_det=create_each_det,
+                                   fname_add_version=fname_add_version,
+                                   completed_scans_only=completed_scans_only,
                                    output_to_file=True,
                                    save_scalar=save_scalar,
                                    num_end_lines_excluded=num_end_lines_excluded)
-                print('{} is created. \n'.format(filename))
+                print(f"Scan #{v}: File '{filename}' is created.")
             except Exception:
-                print('Can not transfer scan {}. \n'.format(v))
+                print(f"Scan #{v}: Can not complete the conversion")
 
+
+def _is_scan_complete(hdr):
+    """ Checks if the scan is complete ('stop' document exists)
+
+    Parameters
+    ----------
+
+    hdr : databroker.core.Header
+        header of the run
+        header = db[scan_id]
+
+    Returns
+
+    True: scan is complete
+    False: scan is incomplete
+    """
+
+    try:
+        # Try to access 'uid' of stop document
+        hdr.stop['uid']
+
+    except Exception:
+        return False
+
+    return True
 
 def map_data2D_hxn(runid, fpath,
                    create_each_det=False,
+                   fname_add_version=False,
+                   completed_scans_only=False,
                    output_to_file=True):
     """
     Save the data from databroker to hdf file.
@@ -219,10 +327,24 @@ def map_data2D_hxn(runid, fpath,
         Do not create data for each detector is data size is too large,
         if set as false. This will slow down the speed of creating hdf file
         with large data size.
+    fname_add_version : bool
+        True: if file already exists, then file version is added to the file name
+        so that it becomes unique in the current directory. The version is
+        added to <fname>.h5 in the form <fname>_(1).h5, <fname>_(2).h5, etc.
+        False: then conversion fails.
+    completed_scans_only : bool
+        True: process only completed scans (for which ``stop`` document exists in
+        the database). Failed scan for which ``stop`` document exists are considered
+        completed even if not the whole image was scanned. If incomplete scan is
+        encountered: an exception is thrown.
+        False: the feature is disabled, incomplete scan will be processed.
     output_to_file : bool, optional
         save data to hdf5 file if True
     """
     hdr = db[runid]
+
+    if completed_scans_only and not _is_scan_complete(hdr):
+        raise Exception("Scan is incomplete. Only completed scans are currently processed.")
 
     # Generate the default file name for the scan
     if fpath is None:
@@ -277,6 +399,7 @@ def map_data2D_hxn(runid, fpath,
         # output to file
         print('Saving data to hdf file.')
         write_db_to_hdf_base(fpath, data_out,
+                             fname_add_version=fname_add_version,
                              create_each_det=create_each_det)
 
     detector_name = "xpress3"
@@ -318,8 +441,12 @@ def get_total_scan_point(hdr):
 
 
 def map_data2D_srx(runid, fpath,
-                   create_each_det=False, output_to_file=True,
-                   save_scalar=True, num_end_lines_excluded=None):
+                   create_each_det=False,
+                   fname_add_version=False,
+                   completed_scans_only=False,
+                   output_to_file=True,
+                   save_scalar=True,
+                   num_end_lines_excluded=None):
     """
     Transfer the data from databroker into a correct format following the
     shape of 2D scan.
@@ -338,6 +465,17 @@ def map_data2D_srx(runid, fpath,
         Do not create data for each detector is data size is too large,
         if set as false. This will slow down the speed of creating hdf file
         with large data size.
+    fname_add_version : bool
+        True: if file already exists, then file version is added to the file name
+        so that it becomes unique in the current directory. The version is
+        added to <fname>.h5 in the form <fname>_(1).h5, <fname>_(2).h5, etc.
+        False: then conversion fails.
+    completed_scans_only : bool
+        True: process only completed scans (for which ``stop`` document exists in
+        the database). Failed scan for which ``stop`` document exists are considered
+        completed even if not the whole image was scanned. If incomplete scan is
+        encountered: an exception is thrown.
+        False: the feature is disabled, incomplete scan will be processed.
     output_to_file : bool, optional
         save data to hdf5 file if True
     save_scalar : bool, optional
@@ -350,6 +488,10 @@ def map_data2D_srx(runid, fpath,
     dict of data in 2D format matching x,y scanning positions
     """
     hdr = db[runid]
+
+    if completed_scans_only and not _is_scan_complete(hdr):
+        raise Exception("Scan is incomplete. Only completed scans are currently processed.")
+
     spectrum_len = 4096
     start_doc = hdr['start']
     plan_n = start_doc.get('plan_name')
@@ -417,6 +559,7 @@ def map_data2D_srx(runid, fpath,
                     det_list=config_data['xrf_detector'],
                     pos_list=hdr.start.motors,
                     scaler_list=config_data['scaler_list'],
+                    fname_add_version=fname_add_version,
                     fly_type=fly_type,
                     base_val=config_data['base_value'])  # base value shift for ic
                 data_output = fpath_out
@@ -429,6 +572,7 @@ def map_data2D_srx(runid, fpath,
                     det_list=config_data['xrf_detector2'],
                     pos_list=hdr.start.motors,
                     scaler_list=config_data['scaler_list'],
+                    fname_add_version=fname_add_version,
                     fly_type=fly_type,
                     base_val=config_data['base_value'])  # base value shift for ic
                 #  We are loading the first instance, so check if 'data_output' is already set
@@ -700,6 +844,7 @@ def map_data2D_srx(runid, fpath,
                 # output to file
                 print(f"Saving data to hdf file #{n_detectors_found}: Detector: {detector_name}.")
                 fpath_out = write_db_to_hdf_base(fpath_out, new_data,
+                                                 fname_add_version=fname_add_version,
                                                  create_each_det=create_each_det)
 
             # Preparing data for the detector ``detector_name`` for output
@@ -722,6 +867,8 @@ def map_data2D_srx(runid, fpath,
 
 def map_data2D_tes(runid, fpath,
                    create_each_det=False,
+                   fname_add_version=False,
+                   completed_scans_only=False,
                    output_to_file=True,
                    save_scaler=True):
     """
@@ -745,6 +892,17 @@ def map_data2D_tes(runid, fpath,
         Do not create data for each detector if data size is too large,
         if set as False. This will slow down the speed of creating an hdf5 file
         with large data size.
+    fname_add_version : bool
+        True: if file already exists, then file version is added to the file name
+        so that it becomes unique in the current directory. The version is
+        added to <fname>.h5 in the form <fname>_(1).h5, <fname>_(2).h5, etc.
+        False: then conversion fails.
+    completed_scans_only : bool
+        True: process only completed scans (for which ``stop`` document exists in
+        the database). Failed scan for which ``stop`` document exists are considered
+        completed even if not the whole image was scanned. If incomplete scan is
+        encountered: an exception is thrown.
+        False: the feature is disabled, incomplete scan will be processed.
     output_to_file : bool, optional
         save data to hdf5 file if True
 
@@ -755,6 +913,9 @@ def map_data2D_tes(runid, fpath,
 
     hdr = db[runid]
     # start_doc = hdr['start']
+
+    if completed_scans_only and not _is_scan_complete(hdr):
+        raise Exception("Scan is incomplete. Only completed scans are currently processed.")
 
     # Generate the default file name for the scan
     if fpath is None:
@@ -872,6 +1033,7 @@ def map_data2D_tes(runid, fpath,
         # output to file
         print(f"Saving data to hdf file #{n_detectors_found}: Detector: {detector_name}.")
         write_db_to_hdf_base(fpath_out, new_data,
+                             fname_add_version=fname_add_version,
                              create_each_det=create_each_det)
 
     d_dict = {"dataset": new_data, "file_name": fpath_out, "detector_name": detector_name}
@@ -882,6 +1044,8 @@ def map_data2D_tes(runid, fpath,
 
 def map_data2D_xfm(runid, fpath,
                    create_each_det=False,
+                   fname_add_version=False,
+                   completed_scans_only=False,
                    output_to_file=True):
     """
     Transfer the data from databroker into a correct format following the
@@ -902,6 +1066,17 @@ def map_data2D_xfm(runid, fpath,
         Do not create data for each detector is data size is too large,
         if set as false. This will slow down the speed of creating hdf file
         with large data size.
+    fname_add_version : bool
+        True: if file already exists, then file version is added to the file name
+        so that it becomes unique in the current directory. The version is
+        added to <fname>.h5 in the form <fname>_(1).h5, <fname>_(2).h5, etc.
+        False: then conversion fails.
+    completed_scans_only : bool
+        True: process only completed scans (for which ``stop`` document exists in
+        the database). Failed scan for which ``stop`` document exists are considered
+        completed even if not the whole image was scanned. If incomplete scan is
+        encountered: an exception is thrown.
+        False: the feature is disabled, incomplete scan will be processed.
     output_to_file : bool, optional
         save data to hdf5 file if True
 
@@ -910,6 +1085,9 @@ def map_data2D_xfm(runid, fpath,
     dict of data in 2D format matching x,y scanning positions
     """
     hdr = db[runid]
+
+    if completed_scans_only and not _is_scan_complete(hdr):
+        raise Exception("Scan is incomplete. Only completed scans are currently processed.")
 
     # Output data is the list of data structures for all available detectors
     data_output = []
@@ -944,6 +1122,7 @@ def map_data2D_xfm(runid, fpath,
         if output_to_file:
             print('Saving data to hdf file.')
             write_db_to_hdf_base(fpath, data_out,
+                                 fname_add_version=fname_add_version,
                                  create_each_det=create_each_det)
 
         detector_name = "xs"
@@ -957,6 +1136,7 @@ def write_db_to_hdf(fpath, data, datashape,
                     det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
                     pos_list=('zpssx[um]', 'zpssy[um]'),
                     scaler_list=('sclr1_ch3', 'sclr1_ch4'),
+                    fname_add_version=False,
                     fly_type=None, subscan_dims=None, base_val=None):
     """
     Assume data is obained from databroker, and save the data to hdf file.
@@ -978,10 +1158,19 @@ def write_db_to_hdf(fpath, data, datashape,
         list of pos pv
     scaler_list : list, tuple, optional
         list of scaler pv
+    fname_add_version : bool
+        True: if file already exists, then file version is added to the file name
+        so that it becomes unique in the current directory. The version is
+        added to <fname>.h5 in the form <fname>_(1).h5, <fname>_(2).h5, etc.
+        False: the exception is thrown if the file exists.
     """
     interpath = 'xrfmap'
 
-    fpath = _get_fpath_not_existing(fpath)
+    if os.path.exists(fpath):
+        if fname_add_version:
+            fpath = _get_fpath_not_existing(fpath)
+        else:
+            raise IOError(f"'write_db_to_hdf': File '{fpath}' already exists.")
 
     with h5py.File(fpath, 'a') as f:
 
@@ -1223,7 +1412,9 @@ def _get_fpath_not_existing(fpath):
     return fpath
 
 
-def write_db_to_hdf_base(fpath, data, create_each_det=True):
+def write_db_to_hdf_base(fpath, data,
+                         fname_add_version=False,
+                         create_each_det=True):
     """
     Data is obained based on databroker, and save the data to hdf file.
 
@@ -1233,6 +1424,11 @@ def write_db_to_hdf_base(fpath, data, create_each_det=True):
         path to save hdf file
     data : dict
         fluorescence data with scaler value and positions
+    fname_add_version : bool
+        True: if file already exists, then file version is added to the file name
+        so that it becomes unique in the current directory. The version is
+        added to <fname>.h5 in the form <fname>_(1).h5, <fname>_(2).h5, etc.
+        False: the exception is thrown if the file exists.
     create_each_det : Bool, optional
         if number of point is too large, only sum data is saved in h5 file
     """
@@ -1241,7 +1437,11 @@ def write_db_to_hdf_base(fpath, data, create_each_det=True):
     xrf_det_list = [n for n in data.keys() if 'det' in n and 'sum' not in n]
     xrf_det_list.sort()
 
-    fpath = _get_fpath_not_existing(fpath)
+    if os.path.exists(fpath):
+        if fname_add_version:
+            fpath = _get_fpath_not_existing(fpath)
+        else:
+            raise IOError(f"'write_db_to_hdf_base': File '{fpath}' already exists.")
 
     with h5py.File(fpath, 'a') as f:
         if create_each_det is True:
