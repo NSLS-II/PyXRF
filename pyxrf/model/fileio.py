@@ -798,7 +798,15 @@ def render_data_to_gui(runid):
     data_sets = OrderedDict()
     img_dict = OrderedDict()
 
-    data_from_db = fetch_data_from_db(runid, create_each_det=True, output_to_file=True)
+    data_from_db = fetch_data_from_db(runid,
+                                      # Always create unique file name by adding
+                                      #   version number
+                                      fname_add_version=True,
+                                      # Always load data from all detectors
+                                      create_each_det=True,
+                                      # Always create data file (processing results
+                                      #   are going to be saved in the file)
+                                      output_to_file=True)
 
     ## print(f"data_from_db = {data_from_db}")
 
