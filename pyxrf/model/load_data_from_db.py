@@ -277,9 +277,10 @@ def make_hdf(start, end=None, *, fname=None,
                                    output_to_file=True,
                                    save_scaler=save_scaler,
                                    num_end_lines_excluded=num_end_lines_excluded)
-                print(f"Scan #{v}: File '{filename}' is created.")
-            except Exception:
-                print(f"Scan #{v}: Can not complete the conversion\n")
+                print(f"Scan #{v}: File '{filename}' is created.\n")
+            except Exception as ex:
+                print(f"Scan #{v}: Can not complete the conversion")
+                print(f"    ({ex})\n")
 
 
 def _is_scan_complete(hdr):
