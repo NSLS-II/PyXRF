@@ -291,22 +291,21 @@ def _is_scan_complete(hdr):
 
     hdr : databroker.core.Header
         header of the run
-        header = db[scan_id]
+        hdr = db[scan_id]
+        The header must be reloaded each time before the function is called.
 
     Returns
+    -------
 
     True: scan is complete
-    False: scan is incomplete
+    False: scan is incomplete (still running)
     """
 
-    try:
-        # Try to access 'uid' of stop document
-        hdr.stop['uid']
-
-    except Exception:
+    if hdr.stop:
+        return True
+    else:
+        # hdr.stop is an empty dictionary if the scan is incomplete
         return False
-
-    return True
 
 
 def map_data2D_hxn(runid, fpath,
