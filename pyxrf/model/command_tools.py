@@ -241,6 +241,18 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
     non-existing file or ``data_files`` is specified, but not a string or iterable object
     containing strings.
 
+    ``IOError`` is raised if data file does not exist. The exception is raised only if
+    a single scan is to be processed (``end_id`` is not specied or None) or ``data_files``
+    is set to a string with a single data file name. If the range of scan IDs that
+    contains one scan (``start_id == end_id``) is specified, or ``data_files`` is
+    a list containing a single file name, the exception will not be raised. This
+    is consistent with the behavior of the ``make_hdf`` function.
+
+    If an exception is raised by the processing code, it is reraised if
+    processing of a single experiment is requested (the same conditions as for ``IOError``).
+    Otherwise the error message is printed and processing of the next file or scan in the list
+    is attempted.
+
     The data files and the processing parameter file may be in different directories. If the parameter
     file is in a different directory from the data files, then the full path to the parameter
     file should be specified:
@@ -304,6 +316,12 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
         wd = os.path.expanduser(wd)
     param_file_name = os.path.expanduser(param_file_name)
 
+    allow_raising_exceptions = False
+    if isinstance(data_files, str):
+        allow_raising_exceptions = True
+    elif (start_id is not None) and (end_id is None):
+        allow_raising_exceptions = True
+
     if data_files is not None:
 
         # Check if ``data_files`` has valid value
@@ -335,7 +353,11 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
             if os.path.exists(fln) and os.path.isfile(fln):
                 flist.append(fln)
             else:
-                print(f"WARNING: file {fln} does not exist.")
+                if allow_raising_exceptions:
+                    raise IOError(f"File {fln} does not exist")
+                else:
+                    print(f"WARNING: file {fln} does not exist.")
+
 
     else:
 
@@ -354,7 +376,10 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
             flist = [fname for fname in all_files
                      if re.search(f"^[^_]*_{str(start_id)}\D+", os.path.basename(fname))]  # noqa: W605
             if len(flist) < 1:
-                print(f"File with Scan ID {start_id} was not found.")
+                if allow_raising_exceptions:
+                    raise IOError(f"File with Scan ID {start_id} was not found")
+                else:
+                    print(f"File with Scan ID {start_id} was not found.")
             else:
                 print(f"Processing file with Scan ID {start_id}")
         else:
@@ -390,12 +415,18 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
             print(f"Processing file '{fpath}' ...")
             fname = fpath.split(sep_v)[-1]
             working_directory = fpath[:-len(fname)]
-            fit_pixel_data_and_save(working_directory, fname,
-                                    fit_channel_sum=fit_channel_sum, param_file_name=param_file_name,
-                                    fit_channel_each=fit_channel_each, param_channel_list=param_channel_list,
-                                    incident_energy=incident_energy, spectrum_cut=spectrum_cut,
-                                    save_txt=save_txt, save_tiff=save_tiff,
-                                    ic_name=ic_name, use_average=use_average)
+            try:
+                fit_pixel_data_and_save(working_directory, fname,
+                                        fit_channel_sum=fit_channel_sum, param_file_name=param_file_name,
+                                        fit_channel_each=fit_channel_each, param_channel_list=param_channel_list,
+                                        incident_energy=incident_energy, spectrum_cut=spectrum_cut,
+                                        save_txt=save_txt, save_tiff=save_tiff,
+                                        ic_name=ic_name, use_average=use_average)
+            except Exception as ex:
+                if allow_raising_exceptions:
+                    raise Exception from ex
+                else:
+                    print(f"ERROR: could not process the file '{fname}'. No results are saved.")
 
         print("\nAll selected files were processed.")
 
