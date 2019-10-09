@@ -9,7 +9,7 @@ import copy
 from atom.api import (Atom, Str, observe, Dict, List, Int, Bool)
 
 from skbeam.fluorescence import XrfElement as Element
-from skbeam.core.fitting.xrf_model import K_LINE, L_LINE  # ,M_LINE
+from skbeam.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
 
 import logging
 logger = logging.getLogger()
@@ -76,6 +76,10 @@ class SettingModel(Atom):
         list of elements after parsing
     roi_dict : dict
         dict of ROIModel object
+    enable_roi_computation : Bool
+        enables/disables GUI element that start ROI computation
+        At least one element must be selected and all entry in the element
+          list must be valid before ROI may be computed
     """
     parameters = Dict()
     data_sets = Dict()
@@ -84,10 +88,14 @@ class SettingModel(Atom):
     element_for_roi = Str()
     element_list_roi = List()
     roi_dict = OrderedDict()
+    enable_roi_computation = Bool(False)
 
     def __init__(self, *args, **kwargs):
         self.parameters = kwargs['default_parameters']
-        self.element_for_roi = ', '.join(K_LINE+L_LINE)  # +M_LINE)
+        # Initialize with an empty string (no elements selected)
+        self.element_for_roi = ""
+        self.prefix_name_roi = "ROI"
+        self.enable_roi_computation = False
 
     @observe('element_for_roi')
     def _update_element(self, change):
@@ -96,21 +104,31 @@ class SettingModel(Atom):
         This element information means the ones for roi setup.
         """
         self.element_for_roi = self.element_for_roi.strip(' ')
-        if len(self.element_for_roi) == 0:
-            logger.debug('No elements enetered.')
-            self.remove_all_roi()
-            self.element_list_roi = []
-            return
-        elif ',' in self.element_for_roi:
-            element_list = [v.strip(' ') for v in self.element_for_roi.split(',')]
-        else:
-            element_list = [v for v in self.element_for_roi.split(' ')]
+        # Remove leading and trailing ','
+        self.element_for_roi = self.element_for_roi.strip(',')
+        # Remove leading and trailing '.'
+        self.element_for_roi = self.element_for_roi.strip('.')
+        try:
+            if len(self.element_for_roi) == 0:
+                logger.debug('No elements entered.')
+                self.remove_all_roi()
+                self.element_list_roi = []
+                self.enable_roi_computation = False
+                return
+            elif ',' in self.element_for_roi:
+                element_list = [v.strip(' ') for v in self.element_for_roi.split(',')]
+            else:
+                element_list = [v for v in self.element_for_roi.split(' ')]
 
-        # with self.suppress_notifications():
-        #     self.element_list_roi = element_list
-        logger.debug('Current elements for ROI sum are: {}'.format(element_list))
-        self.update_roi(element_list)
-        self.element_list_roi = element_list
+            # with self.suppress_notifications():
+            #     self.element_list_roi = element_list
+            logger.debug('Current elements for ROI sum are: {}'.format(element_list))
+            self.update_roi(element_list)
+            self.element_list_roi = element_list
+            self.enable_roi_computation = True
+        except Exception as ex:
+            logger.warning(f"Incorrect specification of element lines for ROI computation: {ex}")
+            self.enable_roi_computation = False
 
     def data_sets_update(self, change):
         """
@@ -128,8 +146,14 @@ class SettingModel(Atom):
     def update_parameter(self, param):
         self.parameters = copy.deepcopy(param)
 
-    def use_default_elements(self):
+    def select_elements_from_list(self, element_list):
+        self.element_for_roi = ', '.join(element_list)
+
+    def use_all_elements(self):
         self.element_for_roi = ', '.join(K_LINE+L_LINE)  # +M_LINE)
+
+    def clear_selected_elements(self):
+        self.element_for_roi = ""
 
     def remove_all_roi(self):
         self.roi_dict.clear()
@@ -150,9 +174,15 @@ class SettingModel(Atom):
         The unit of energy is in ev in this function. The reason is
         SpinBox in Enaml can only read integer as input. To be updated.
         """
+
+        eline_list = K_LINE + L_LINE + M_LINE
+
         for v in element_list:
             if v in self.roi_dict:
                 continue
+
+            if v not in eline_list:
+                raise ValueError(f"Emission line {v} is unknown")
 
             if '_K' in v:
                 temp = v.split('_')[0]
@@ -181,7 +211,7 @@ class SettingModel(Atom):
             self.roi_dict.update({v: roi})
 
         # remove old items not included in element_list
-        for k in six.iterkeys(self.roi_dict):
+        for k in six.iterkeys(self.roi_dict.copy()):
             if k not in element_list:
                 del self.roi_dict[k]
 
