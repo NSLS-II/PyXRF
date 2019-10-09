@@ -83,6 +83,9 @@ def run():
     img_model_adv = DrawImageAdvanced()
     img_model_rgb = DrawImageRGB()
 
+    # Initialization needed to eliminate program crash
+    plot_model.roi_dict = setting_model.roi_dict
+
     # Output log to gui, turn off for now
     # error at mac, works fine on linux
     # so log info only outputs to terminal for now.
