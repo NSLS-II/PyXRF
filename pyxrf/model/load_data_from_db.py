@@ -227,7 +227,7 @@ def make_hdf(start, end=None, *, fname=None,
                         break
                     except Exception:
                         # Wait for 10 minutes and retry
-                        pause(600)
+                        time.sleep(600)
         Such scripts are currently used at HXN and SRX beamlines of NSLS-II, so this feature
         supports the existing workflows.
         False: the feature is disabled, incomplete scan will be processed.
