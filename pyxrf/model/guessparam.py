@@ -114,6 +114,10 @@ class ElementController(object):
         threshv : float
             No value is shown when smaller than the threshold value
         """
+        # Do nothing if no elements are selected
+        if not self.element_dict:
+            return
+
         # max_dict = reduce(max, map(np.max, six.itervalues(self.element_dict)))
         max_dict = np.max([v.maxv for v in six.itervalues(self.element_dict)])
 
@@ -226,6 +230,14 @@ class GuessParamModel(Atom):
     file_path : str
         The path where file is saved.
     element_list : list
+        The list of element lines selected for fitting
+    n_selected_elines_for_fitting : Int
+        The number of element lines selected for fitting
+    n_selected_pure_elines_for_fitting : Int
+        The number of element lines selected for fitting
+            excluding pileup peaks and user defined peaks.
+            Only 'pure' lines like Ca_K, K_K etc.
+
     """
     default_parameters = Dict()
     data = Typed(np.ndarray)
@@ -251,6 +263,9 @@ class GuessParamModel(Atom):
 
     energy_bound_high_buf = Float(0.0)
     energy_bound_low_buf = Float(0.0)
+
+    n_selected_elines_for_fitting = Int(0)
+    n_selected_pure_elines_for_fitting = Int(0)
 
     def __init__(self, **kwargs):
         try:
@@ -537,6 +552,14 @@ class GuessParamModel(Atom):
         # need to clean list first, in order to refresh the list in GUI
         self.result_dict_names = []
         self.result_dict_names = list(self.EC.element_dict.keys())
+
+        peak_list = self.get_user_peak_list()
+        # Create the list of selected emission lines such as Ca_K, K_K, etc.
+        #   No pileup or user peaks
+        pure_peak_list = [n for n in self.result_dict_names if n in peak_list]
+        self.n_selected_elines_for_fitting = len(peak_list)
+        self.n_selected_pure_elines_for_fitting = len(pure_peak_list)
+
         # logger.info('The full list for fitting is {}'.format(self.result_dict_names))
 
     def find_peak(self, threshv=0.1):
