@@ -10,6 +10,9 @@ from atom.api import (Atom, Str, observe, Dict, List, Int, Bool)
 
 from skbeam.fluorescence import XrfElement as Element
 from skbeam.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
+from skbeam.core.fitting.background import snip_method
+
+import multiprocessing
 
 import logging
 logger = logging.getLogger()
@@ -89,6 +92,8 @@ class SettingModel(Atom):
     element_list_roi = List()
     roi_dict = OrderedDict()
     enable_roi_computation = Bool(False)
+
+    subtract_background = Bool(False)
 
     def __init__(self, *args, **kwargs):
         self.parameters = kwargs['default_parameters']
@@ -244,31 +249,79 @@ class SettingModel(Atom):
         for fname, datav in six.iteritems(self.data_sets):
             # quick way to ignore channel data, only for summed data
             # to be updated
+
+            logger.info(f"Computing ROIs for dataset {fname} ...")
+
             temp = {}
+            data_raw = np.asarray(datav.raw_data)
+
+            if self.subtract_background:
+
+                logger.info(f"Subtracting background ...")
+
+                num_processors_to_use = multiprocessing.cpu_count()
+                logger.info(f"Cpu count: {format(num_processors_to_use)}")
+                pool = multiprocessing.Pool(num_processors_to_use)
+
+                result_pool = [pool.apply_async(
+                    _subtract_background_one_line,
+                    (data_raw[n, :, :],
+                     self.parameters['e_offset']['value'],
+                     self.parameters['e_linear']['value'],
+                     self.parameters['e_quadratic']['value'],
+                     self.parameters['non_fitting_values']['background_width']))
+                     for n in range(data_raw.shape[0])]
+
+                data_roi = []
+                for r in result_pool:
+                    data_roi.append(r.get())
+
+                pool.terminate()
+                pool.join()
+
+                data_roi = np.array(data_roi)
+
+                logger.info(f"Background subtraction completed.")
+
+            else:
+                data_roi = data_raw
+
+
             for k, v in six.iteritems(self.roi_dict):
                 leftv = v.left_val/1000
                 rightv = v.right_val/1000
-                sum2D = calculate_roi(datav.raw_data,
-                                      self.parameters['e_linear']['value'],
-                                      self.parameters['e_offset']['value'],
-                                      [leftv, rightv])
+                sum2D = calculate_roi(data_roi,
+                                      e_offset=self.parameters['e_offset']['value'],
+                                      e_linear=self.parameters['e_linear']['value'],
+                                      range_v=[leftv, rightv])
                 temp.update({k: sum2D})
-                logger.debug('Calculation is done for {}, {}, {}'.format(v.prefix,
-                                                                         fname, k))
+                logger.debug(f"Calculation is completed for {v.prefix}, {fname}, {k}")
             roi_result[v.prefix+'_'+fname] = temp
+
+            logger.info("ROI is computed.")
             return roi_result
 
 
-def calculate_roi(data3D, e_linear, e_offset, range_v):
+def calculate_roi(data3D, e_offset, e_linear, range_v):
     """
     Calculate 2D map for given ROI.
 
     Parameters
     ----------
     data3D : 3D array
-    e_linear : float
     e_offset : float
+        offset - coefficient for polynomial approximation of energy axis
+    e_linear : float
+        linear coefficient of polynomial approximation of energy axis
+    e_quadratic : float
+        quadratic coefficient of polynomial approximation of energy axis
+    background_width : float
+        parameter of snip algorithm for background estimation
     range_v : list
+        range for ROI calculation for the element
+    use_snip : bool
+        True - subtract background before computing ROIs
+        False - do not subtract background before computing ROIs
 
     Returns
     -------
@@ -281,3 +334,40 @@ def calculate_roi(data3D, e_linear, e_offset, range_v):
     range_v = [int(round(v)) for v in range_v]
     # return np.sum(data3D[range_v[0]:range_v[1], :, :], axis=0)*e_linear
     return np.sum(data3D[:, :, range_v[0]:range_v[1]], axis=2)  # * e_linear
+
+
+def _subtract_background_one_line(data_line, e_off, e_lin, e_quad, width):
+    """
+    Subtract background from spectra in a single line of the image
+
+    Parameters
+    ----------
+
+    data_line : ndarray
+        spectra for one line of an image, size NxM, N-the number of
+        pixels in the line, M - the number of points in one spectrum (typically 4096)
+    e_off : float
+        offset - coefficient for polynomial approximation of energy axis
+    e_lin : float
+        linear coefficient of polynomial approximation of energy axis
+    e_quad : float
+        quadratic coefficient of polynomial approximation of energy axis
+    background_width : float
+        parameter of snip algorithm for background estimation
+
+    Returns
+    -------
+
+    ndarray of the same shape as data_line. Contains spectra with subtracted background.
+    """
+
+    data_line = np.copy(data_line)
+    xx, _ = data_line.shape
+    for n in range(xx):
+        bg = snip_method(data_line[n, :],
+                         e_off=e_off,
+                         e_lin=e_lin,
+                         e_quad=e_quad,
+                         width=width)
+        data_line[n, :] -= bg
+    return data_line
