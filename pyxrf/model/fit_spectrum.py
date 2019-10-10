@@ -838,7 +838,9 @@ class Fit1D(Atom):
     def create_EC_list(self, element_list):
         temp_dict = OrderedDict()
         for e in element_list:
-            if '-' in e:  # pileup peaks
+            if e == "":
+                pass
+            elif '-' in e:  # pileup peaks
                 e1, e2 = e.split('-')
                 energy = float(get_energy(e1))+float(get_energy(e2))
 
