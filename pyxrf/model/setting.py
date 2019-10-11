@@ -286,7 +286,6 @@ class SettingModel(Atom):
             else:
                 data_roi = data_raw
 
-
             for k, v in six.iteritems(self.roi_dict):
                 leftv = v.left_val/1000
                 rightv = v.right_val/1000
