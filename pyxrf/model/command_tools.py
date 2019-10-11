@@ -358,7 +358,6 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
                 else:
                     print(f"WARNING: file {fln} does not exist.")
 
-
     else:
 
         # ``data_files`` parameter is None
