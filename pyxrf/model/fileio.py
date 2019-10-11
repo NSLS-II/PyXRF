@@ -219,10 +219,8 @@ class FileIOModel(Atom):
 
         rv = render_data_to_gui(self.runid)
 
-        # If string is returned, then treat it as a file name for reading the data.
-        #   This happens for one rare type of scan. All other data is loaded directly.
-        if isinstance(rv, str):
-            self.file_name = os.path.basename(rv)
+        if rv is None:
+            logger.error(f"Data from scan #{self.runid} was not loaded")
             return
 
         img_dict, self.data_sets, fname, detector_name = rv
@@ -801,11 +799,6 @@ def render_data_to_gui(runid):
                                       # Always create data file (processing results
                                       #   are going to be saved in the file)
                                       output_to_file=True)
-
-    if isinstance(data_from_db, str):
-        # File name was returned by the function (this happens only for one rare type of scan)
-        # Data must be loaded from the file. So again we return a plain string.
-        return data_from_db
 
     if not len(data_from_db):
         logger.warning(f"No detector data was found in Scan #{runid}")
