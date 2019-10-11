@@ -399,9 +399,9 @@ def map_data2D_hxn(runid, fpath,
     if output_to_file:
         # output to file
         print('Saving data to hdf file.')
-        write_db_to_hdf_base(fpath, data_out,
-                             fname_add_version=fname_add_version,
-                             create_each_det=create_each_det)
+        fpath = write_db_to_hdf_base(fpath, data_out,
+                                         fname_add_version=fname_add_version,
+                                         create_each_det=create_each_det)
 
     detector_name = "xpress3"
     d_dict = {"dataset": data_out, "file_name": fpath, "detector_name": detector_name}
@@ -554,9 +554,8 @@ def map_data2D_srx(runid, fpath,
                 print('Saving data to hdf file: Xpress3 detector #1 (three channels).')
                 root, ext = os.path.splitext(fpath)
                 fpath_out = f"{root + '_xs'}{ext}"
-                fpath_out = write_db_to_hdf(
-                    fpath_out, data,
-                    # hdr.start.datashape,
+                data_out = assemble_data_SRX_stepscan(
+                    data,
                     datashape,
                     det_list=config_data['xrf_detector'],
                     pos_list=hdr.start.motors,
@@ -564,13 +563,19 @@ def map_data2D_srx(runid, fpath,
                     fname_add_version=fname_add_version,
                     fly_type=fly_type,
                     base_val=config_data['base_value'])  # base value shift for ic
-                data_output = fpath_out
+                fpath_out = write_db_to_hdf_base(
+                    fpath_out, data_out,
+                    fname_add_version=fname_add_version,
+                    create_each_det=create_each_det)
+                d_dict = {"dataset": data_out, "file_name": fpath_out, "detector_name": "xs"}
+                data_output.append(d_dict)
+
             if 'xs2' in hdr.start.detectors:
                 print('Saving data to hdf file: Xpress3 detector #2 (single channel).')
                 root, ext = os.path.splitext(fpath)
                 fpath_out = f"{root}_xs2{ext}"
-                fpath_out = write_db_to_hdf(
-                    fpath_out, data,
+                data = assemble_data_SRX_stepscan(
+                    data,
                     datashape,
                     det_list=config_data['xrf_detector2'],
                     pos_list=hdr.start.motors,
@@ -578,18 +583,16 @@ def map_data2D_srx(runid, fpath,
                     fname_add_version=fname_add_version,
                     fly_type=fly_type,
                     base_val=config_data['base_value'])  # base value shift for ic
-                #  We are loading the first instance, so check if 'data_output' is already set
-                if not isinstance(data_output, str):
-                    data_output = fpath_out
-        # This (very rare) type of stepscan can not be loaded directly into PyXRF at this point
-        #   Additional work is needed. But the data is saved to disk and can be loaded into PyXRF.
-        #   This can be done within the program without user interaction.
-        #   Note: the function returns a string (this is exceptional case). The calling function
-        #   must look for the output being a string and treat it as file name.
+                fpath_out = write_db_to_hdf_base(
+                    fpath_out, data_out,
+                    fname_add_version=fname_add_version,
+                    create_each_det=create_each_det)
+                d_dict = {"dataset": data_out, "file_name": fpath_out, "detector_name": "xs"}
+                data_output.append(d_dict)
+
         return data_output
 
     else:
-        # srx fly scan
 
         print()
         print(f"****************************************")
@@ -1273,6 +1276,126 @@ def write_db_to_hdf(fpath, data, datashape,
     return fpath
 
 
+def assemble_data_SRX_stepscan(data, datashape,
+                    det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
+                    pos_list=('zpssx[um]', 'zpssy[um]'),
+                    scaler_list=('sclr1_ch3', 'sclr1_ch4'),
+                    fname_add_version=False,
+                    fly_type=None, subscan_dims=None, base_val=None):
+    """
+    Convert stepscan data from SRX beamline obtained from databroker into the for accepted
+    by ``write_db_to_hdf_base`` function.
+    This function can handle stopped/aborted scans.
+
+    Parameters
+    ----------
+    data : pandas.core.frame.DataFrame
+        data from data broker
+    datashape : tuple or list
+        shape of two D image
+    det_list : list, tuple, optional
+        list of detector channels
+    pos_list : list, tuple, optional
+        list of pos pv
+    scaler_list : list, tuple, optional
+        list of scaler pv
+    fname_add_version : bool
+        True: if file already exists, then file version is added to the file name
+        so that it becomes unique in the current directory. The version is
+        added to <fname>.h5 in the form <fname>_(1).h5, <fname>_(2).h5, etc.
+        False: the exception is thrown if the file exists.
+    """
+
+    data_assembled = {}
+
+    sum_data = None
+    new_v_shape = datashape[0]  # to be updated if scan is not completed
+    spectrum_len = 4096  # standard
+
+    for n, c_name in enumerate(det_list):
+        if c_name in data:
+            detname = 'det'+str(n+1)
+            channel_data = data[c_name]
+
+            # new veritcal shape is defined to ignore zeros points caused by stopped/aborted scans
+            new_v_shape = len(channel_data) // datashape[1]
+
+            new_data = np.vstack(channel_data)
+            new_data = new_data[:new_v_shape*datashape[1], :]
+
+            new_data = new_data.reshape([new_v_shape, datashape[1],
+                                         len(channel_data[1])])
+            if new_data.shape[2] != spectrum_len:
+                # merlin detector has spectrum len 2048
+                # make all the spectrum len to 4096, to avoid unpredicted error in fitting part
+                new_tmp = np.zeros([new_data.shape[0], new_data.shape[1], spectrum_len])
+                new_tmp[:, :, :new_data.shape[2]] = new_data
+                new_data = new_tmp
+            if fly_type in ('pyramid',):
+                new_data = flip_data(new_data, subscan_dims=subscan_dims)
+
+            if sum_data is None:
+                sum_data = np.copy(new_data)
+            else:
+                sum_data += new_data
+
+            data_assembled[detname] = new_data
+
+
+    if sum_data is not None:
+        data_assembled['det_sum'] = sum_data
+
+    # position data
+    pos_names, pos_data = get_name_value_from_db(pos_list, data, datashape)
+
+    # I don't have knowledge of all possible scenarios to change the following algorithm for
+    #   naming 'x_pos' and 'y_pos'. It definitely covers the basic cases of having x and y axis.
+    #   It will also produce good dataset if the naming is inconsistent.
+    for i in range(len(pos_names)):
+        if 'x' in pos_names[i]:
+            pos_names[i] = 'x_pos'
+        elif 'y' in pos_names[i]:
+            pos_names[i] = 'y_pos'
+    if 'x_pos' not in pos_names or 'y_pos' not in pos_names:
+        pos_names = ['x_pos', 'y_pos']
+
+    # need to change shape to sth like [2, 100, 100]
+    n_pos = min(pos_data.shape[2], len(pos_names))
+    data_temp = np.zeros([n_pos, pos_data.shape[0], pos_data.shape[1]])
+
+    for i in range(n_pos):
+        data_temp[i, :, :] = pos_data[:, :, i]
+
+    if fly_type in ('pyramid',):
+        for i in range(data_temp.shape[0]):
+            # flip position the same as data flip on det counts
+            data_temp[i, :, :] = flip_data(data_temp[i, :, :], subscan_dims=subscan_dims)
+
+    data_assembled['pos_names'] = pos_names
+    data_assembled['pos_data'] = data_temp[:, :new_v_shape, :]
+
+    # scaler data
+    scaler_names, scaler_data = get_name_value_from_db(scaler_list, data,
+                                                       datashape)
+
+    if fly_type in ('pyramid',):
+        scaler_data = flip_data(scaler_data, subscan_dims=subscan_dims)
+
+    if base_val is not None:  # base line shift for detector, for SRX
+        base_val = np.array([base_val])
+        if len(base_val) == 1:
+            scaler_data = np.abs(scaler_data - base_val)
+        else:
+            for i in scaler_data.shape[2]:
+                scaler_data[:, :, i] = np.abs(scaler_data[:, :, i] - base_val[i])
+
+    data_assembled['scaler_names'] = scaler_names
+    data_assembled['scaler_data'] = scaler_data[:new_v_shape, :]
+
+    return data_assembled
+
+
+
 def get_name_value_from_db(name_list, data, datashape):
     """
     Get name and data from db.
@@ -1421,7 +1544,8 @@ def write_db_to_hdf_base(fpath, data,
                          fname_add_version=False,
                          create_each_det=True):
     """
-    Data is obained based on databroker, and save the data to hdf file.
+    This is the function used to save raw experiment data into HDF5 file.
+    Typicall used after data is loaded from databroker.
 
     Parameters
     ----------
@@ -1436,6 +1560,15 @@ def write_db_to_hdf_base(fpath, data,
         False: the exception is thrown if the file exists.
     create_each_det : Bool, optional
         if number of point is too large, only sum data is saved in h5 file
+
+    The structure of the ``data`` dictionary:
+      keys 'det1', 'det2' etc. - 2D ndarrays, data from the detector channels
+      key 'det_sum' - 2D ndarray, sum of the channels
+      key 'scaler_names' - the list of scaler names
+      key 'scaler_data' - 3D ndarray with scaler values, 1st index matches the
+              index of scaler name in 'scaler_names' list
+      key 'pos_names' - the list of position field names, must have entries 'x_pos' and 'y_pos'
+      key 'pos_data' - 3D ndarray, 1st index matches the position in 'pos_names' list
     """
     interpath = 'xrfmap'
     sum_data = None
