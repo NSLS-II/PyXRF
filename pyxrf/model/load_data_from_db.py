@@ -400,8 +400,8 @@ def map_data2D_hxn(runid, fpath,
         # output to file
         print('Saving data to hdf file.')
         fpath = write_db_to_hdf_base(fpath, data_out,
-                                         fname_add_version=fname_add_version,
-                                         create_each_det=create_each_det)
+                                     fname_add_version=fname_add_version,
+                                     create_each_det=create_each_det)
 
     detector_name = "xpress3"
     d_dict = {"dataset": data_out, "file_name": fpath, "detector_name": detector_name}
@@ -1276,12 +1276,13 @@ def write_db_to_hdf(fpath, data, datashape,
     return fpath
 
 
-def assemble_data_SRX_stepscan(data, datashape,
-                    det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
-                    pos_list=('zpssx[um]', 'zpssy[um]'),
-                    scaler_list=('sclr1_ch3', 'sclr1_ch4'),
-                    fname_add_version=False,
-                    fly_type=None, subscan_dims=None, base_val=None):
+def assemble_data_SRX_stepscan(
+        data, datashape,
+        det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
+        pos_list=('zpssx[um]', 'zpssy[um]'),
+        scaler_list=('sclr1_ch3', 'sclr1_ch4'),
+        fname_add_version=False,
+        fly_type=None, subscan_dims=None, base_val=None):
     """
     Convert stepscan data from SRX beamline obtained from databroker into the for accepted
     by ``write_db_to_hdf_base`` function.
@@ -1341,7 +1342,6 @@ def assemble_data_SRX_stepscan(data, datashape,
 
             data_assembled[detname] = new_data
 
-
     if sum_data is not None:
         data_assembled['det_sum'] = sum_data
 
@@ -1393,7 +1393,6 @@ def assemble_data_SRX_stepscan(data, datashape,
     data_assembled['scaler_data'] = scaler_data[:new_v_shape, :]
 
     return data_assembled
-
 
 
 def get_name_value_from_db(name_list, data, datashape):
