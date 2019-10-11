@@ -1210,7 +1210,7 @@ def write_db_to_hdf(fpath, data, datashape,
                     new_data = flip_data(new_data, subscan_dims=subscan_dims)
 
                 if sum_data is None:
-                    sum_data = new_data
+                    sum_data = np.copy(new_data)
                 else:
                     sum_data += new_data
                 ds_data = dataGrp.create_dataset('counts', data=new_data, compression='gzip')
