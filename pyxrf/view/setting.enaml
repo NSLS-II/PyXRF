@@ -85,7 +85,11 @@ enamldef SettingView(DockItem):
 
                         #img_model_adv.set_initial_stat()
 
-                        time.sleep(1)  # 1 s. delay for ergonomic purposes (computations are instant)
+                        if not setting_model.subtract_background:
+                            # If background is not subtracted, then computations
+                            #   are almost instant. Additional short delay of 0.5s
+                            #   before message box pops up makes GUI feel more natural.
+                            time.sleep(0.5)
                         information(self, "Job Completed",
                                     "ROI are successfully computed. Use 'Element Map' "
                                     "and 'Element RGB' tabs to view the results")
