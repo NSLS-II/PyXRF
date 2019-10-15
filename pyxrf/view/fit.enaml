@@ -177,7 +177,7 @@ enamldef FitView(DockItem): fit_view:
             padding = Box(2, 2, 2, 2)
             constraints = [
                 vbox(
-                    hbox(btn_cb_prev, cb_select, btn_cb_next, intensity_lb, intensity_fd,
+                    hbox(btn_cb_prev, btn_cb_next, cb_select, intensity_lb, intensity_fd,
                          manual_add, manual_remove, spacer, pb_pileup),
                     pre_fit,
                     #hbox(saveas_btn, spacer),
@@ -195,18 +195,23 @@ enamldef FitView(DockItem): fit_view:
                         param_model.e_name = cb_select.selected_item
 
             PushButton: btn_cb_prev:
-                text = '<<'
+                text = '<'
                 enabled << plot_model.allow_select_elines
+                maximum_size = (15, 24)
                 clicked ::
                     if cb_select.index > 1:
                         cb_select.index -= 1
+                    cb_select.set_focus()  # Return focus to the combo box
+
 
             PushButton: btn_cb_next:
-                text = '>>'
+                text = '>'
                 enabled << plot_model.allow_select_elines
+                maximum_size = (15, 24)
                 clicked ::
                     if cb_select.index < len(cb_select.items) - 1:
                         cb_select.index += 1
+                    cb_select.set_focus()  # Return focus to the combo box
 
             Label: intensity_lb:
                 text = 'Peak Int'
