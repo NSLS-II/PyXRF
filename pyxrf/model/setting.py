@@ -74,6 +74,8 @@ class SettingModel(Atom):
         dict of 3D data
     prefix_name_roi : str
         name ID for roi calculation
+        This is not a prefix, but a label, which is placed after
+        the ``data_title`` in the name of the dataset containing the calculated ROI
     element_for_roi : str
         inputs given by users
     element_list_roi : list
@@ -150,6 +152,12 @@ class SettingModel(Atom):
             with the @observe decorator
         """
         self.data_title = change['value']
+
+        # It is assumed, that ``self.data_title`` was created in the ``fileio`` module
+        #   and has dataset label attached to the end of it.
+        #   The labels are ``sum``, ``det1``, ``det2`` etc. depending on the number
+        #   of detector channels.
+        self.prefix_name_roi = self.data_title.split('_')[-1]
 
     def __init__(self, *args, **kwargs):
         self.parameters = kwargs['default_parameters']
@@ -302,59 +310,69 @@ class SettingModel(Atom):
             nested dict as output
         """
         roi_result = {}
-        for fname, datav in six.iteritems(self.data_sets):
-            # quick way to ignore channel data, only for summed data
-            # to be updated
 
-            logger.info(f"Computing ROIs for dataset {fname} ...")
+        #for fname, datav in six.iteritems(self.data_sets):
+        #    # quick way to ignore channel data, only for summed data
+        #    # to be updated
 
-            temp = {}
-            data_raw = np.asarray(datav.raw_data)
+        datav = self.data_sets[self.data_title]
 
-            if self.subtract_background:
+        logger.info(f"Computing ROIs for dataset {self.data_title} ...")
 
-                logger.info(f"Subtracting background ...")
+        temp = {}
+        data_raw = np.asarray(datav.raw_data)
 
-                num_processors_to_use = multiprocessing.cpu_count()
-                logger.info(f"Cpu count: {format(num_processors_to_use)}")
-                pool = multiprocessing.Pool(num_processors_to_use)
+        if self.subtract_background:
 
-                result_pool = [pool.apply_async(
-                    _subtract_background_one_line,
-                    (data_raw[n, :, :],
-                     self.parameters['e_offset']['value'],
-                     self.parameters['e_linear']['value'],
-                     self.parameters['e_quadratic']['value'],
-                     self.parameters['non_fitting_values']['background_width']))
-                     for n in range(data_raw.shape[0])]
+            logger.info(f"Subtracting background ...")
 
-                data_roi = []
-                for r in result_pool:
-                    data_roi.append(r.get())
+            num_processors_to_use = multiprocessing.cpu_count()
+            logger.info(f"Cpu count: {format(num_processors_to_use)}")
+            pool = multiprocessing.Pool(num_processors_to_use)
 
-                pool.terminate()
-                pool.join()
+            result_pool = [pool.apply_async(
+                _subtract_background_one_line,
+                (data_raw[n, :, :],
+                 self.parameters['e_offset']['value'],
+                 self.parameters['e_linear']['value'],
+                 self.parameters['e_quadratic']['value'],
+                 self.parameters['non_fitting_values']['background_width']))
+                 for n in range(data_raw.shape[0])]
 
-                data_roi = np.array(data_roi)
+            data_roi = []
+            for r in result_pool:
+                data_roi.append(r.get())
 
-                logger.info(f"Background subtraction completed.")
+            pool.terminate()
+            pool.join()
 
-            else:
-                data_roi = data_raw
+            data_roi = np.array(data_roi)
 
-            for k, v in six.iteritems(self.roi_dict):
-                leftv = v.left_val/1000
-                rightv = v.right_val/1000
-                sum2D = calculate_roi(data_roi,
-                                      e_offset=self.parameters['e_offset']['value'],
-                                      e_linear=self.parameters['e_linear']['value'],
-                                      range_v=[leftv, rightv])
-                temp.update({k: sum2D})
-                logger.debug(f"Calculation is completed for {v.prefix}, {fname}, {k}")
-            roi_result[v.prefix+'_'+fname] = temp
+            logger.info(f"Background subtraction completed.")
 
-            logger.info("ROI is computed.")
-            return roi_result
+        else:
+            data_roi = data_raw
+
+        for k, v in six.iteritems(self.roi_dict):
+            leftv = v.left_val/1000
+            rightv = v.right_val/1000
+            sum2D = calculate_roi(data_roi,
+                                  e_offset=self.parameters['e_offset']['value'],
+                                  e_linear=self.parameters['e_linear']['value'],
+                                  range_v=[leftv, rightv])
+            temp.update({k: sum2D})
+            logger.debug(f"Calculation is completed for {v.prefix}, {self.data_title}, {k}")
+
+        # ``self.data_tile`` is generated in ``fileio`` module and contains
+        #   the default label string separated with '_' at the end
+        #   Here we remove the default label string from the title and then
+        #   attach a new label, which is equal to the default label unless changed
+        #   by the user.
+        title = '_'.join(self.data_title.split('_')[:-1])
+        roi_result[f"{title}_{v.prefix}_roi"] = temp
+
+        logger.info("ROI is computed.")
+        return roi_result
 
 
 def calculate_roi(data3D, e_offset, e_linear, range_v):
