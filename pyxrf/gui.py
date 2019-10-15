@@ -96,12 +96,15 @@ def run():
 
     # send working directory changes to different models
     io_model.observe('working_directory', fit_model.result_folder_changed)
+    io_model.observe('working_directory', setting_model.result_folder_changed)
     io_model.observe('selected_file_name', fit_model.data_title_update)
     io_model.observe('selected_file_name', plot_model.exp_label_update)
+    io_model.observe('selected_file_name', setting_model.data_title_update)
 
     # send the same file to fit model, as fitting results need to be saved
     io_model.observe('file_name', fit_model.filename_update)
     io_model.observe('file_name', plot_model.plot_exp_data_update)
+    io_model.observe('file_name', setting_model.filename_update)
     io_model.observe('runid', fit_model.runid_update)
 
     # send exp data to different models
