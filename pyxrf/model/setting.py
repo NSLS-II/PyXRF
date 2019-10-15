@@ -5,6 +5,7 @@ import six
 import numpy as np
 from collections import OrderedDict
 import copy
+import os
 
 from atom.api import (Atom, Str, observe, Dict, List, Int, Bool)
 
@@ -83,6 +84,13 @@ class SettingModel(Atom):
         enables/disables GUI element that start ROI computation
         At least one element must be selected and all entry in the element
           list must be valid before ROI may be computed
+
+    result_folder : Str
+        directory which contains HDF5 file, in which results of processing are saved
+    hdf_path : Str
+        full path to the HDF5 file, in which results are saved
+    hdf_name : Str
+        name of the HDF file, in which results are saved
     """
     parameters = Dict()
     data_sets = Dict()
@@ -94,6 +102,54 @@ class SettingModel(Atom):
     enable_roi_computation = Bool(False)
 
     subtract_background = Bool(False)
+
+    result_folder = Str()
+
+    hdf_path = Str()
+    hdf_name = Str()
+
+    data_title = Str()
+
+    def filename_update(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        self.hdf_name = change['value']
+        # output to .h5 file
+        self.hdf_path = os.path.join(self.result_folder, self.hdf_name)
+
+    def result_folder_changed(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        self.result_folder = change['value']
+
+    def data_title_update(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        self.data_title = change['value']
 
     def __init__(self, *args, **kwargs):
         self.parameters = kwargs['default_parameters']
