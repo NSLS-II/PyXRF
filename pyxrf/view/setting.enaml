@@ -53,7 +53,7 @@ enamldef SettingView(DockItem):
             Field: element_fd:
                 text := setting_model.element_for_roi
             Label: prefix_lbl:
-                text = 'Prefix'
+                text = 'Label'
             Field: prefix_fd:
                 text := setting_model.prefix_name_roi
                 submit_triggers = ['auto_sync']
@@ -67,7 +67,7 @@ enamldef SettingView(DockItem):
                     if len(setting_model.element_for_roi) == 0:
                         warning(self, 'Warning Dialog', 'Please select at least one element.')
                     elif len(setting_model.prefix_name_roi) == 0:
-                        warning(self, 'Warning Dialog', 'Please enter prefix name.')
+                        warning(self, 'Warning Dialog', 'Please enter Label name.')
                     else:
                         #box = MessageBox()
                         #box.title = 'Warning Message'
