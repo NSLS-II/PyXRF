@@ -311,10 +311,6 @@ class SettingModel(Atom):
         """
         roi_result = {}
 
-        #for fname, datav in six.iteritems(self.data_sets):
-        #    # quick way to ignore channel data, only for summed data
-        #    # to be updated
-
         datav = self.data_sets[self.data_title]
 
         logger.info(f"Computing ROIs for dataset {self.data_title} ...")
