@@ -13,6 +13,8 @@ from skbeam.fluorescence import XrfElement as Element
 from skbeam.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
 from skbeam.core.fitting.background import snip_method
 
+from .fileio import save_fitdata_to_hdf
+
 import multiprocessing
 
 import logging
@@ -68,14 +70,12 @@ class SettingModel(Atom):
 
     Parameters
     ----------
-    parameters : dict
+    parameters : Dict
         parameter values used for fitting
-    data_dict : dict
+    data_dict : Dict
         dict of 3D data
-    prefix_name_roi : str
-        name ID for roi calculation
-        This is not a prefix, but a label, which is placed after
-        the ``data_title`` in the name of the dataset containing the calculated ROI
+    img_dict : Dict
+        Reference to the respective field of the ``FileIOModel`` object
     element_for_roi : str
         inputs given by users
     element_list_roi : list
@@ -93,11 +93,20 @@ class SettingModel(Atom):
         full path to the HDF5 file, in which results are saved
     hdf_name : Str
         name of the HDF file, in which results are saved
+
+    data_title : str
+        The title of the selected dataset (from ``fileio`` module)
+    data_title_base : str
+        The title changed for internal use (suffix is removed)
+    data_title_adjusted : str
+        The title changed for internal use (suffix 'sum' is removed if it exists)
+    suffix_name_roi : str
+        The suffix may have values 'sum', 'det1', 'det2' etc.
     """
     parameters = Dict()
     data_sets = Dict()
+    img_dict = Dict()
 
-    prefix_name_roi = Str()
     element_for_roi = Str()
     element_list_roi = List()
     roi_dict = OrderedDict()
@@ -111,6 +120,9 @@ class SettingModel(Atom):
     hdf_name = Str()
 
     data_title = Str()
+    data_title_base = Str()
+    data_title_adjusted = Str()
+    suffix_name_roi = Str()
 
     def filename_update(self, change):
         """
@@ -157,13 +169,21 @@ class SettingModel(Atom):
         #   and has dataset label attached to the end of it.
         #   The labels are ``sum``, ``det1``, ``det2`` etc. depending on the number
         #   of detector channels.
-        self.prefix_name_roi = self.data_title.split('_')[-1]
+        self.suffix_name_roi = self.data_title.split('_')[-1]
+
+        self.data_title_base = '_'.join(self.data_title.split("_")[:-1])
+
+        if self.suffix_name_roi == "sum":
+            # If suffix is 'sum', then remove the suffix
+            self.data_title_adjusted = self.data_title_base
+        else:
+            # Else keep the original title
+            self.data_title_adjusted = self.data_title
 
     def __init__(self, *args, **kwargs):
         self.parameters = kwargs['default_parameters']
         # Initialize with an empty string (no elements selected)
         self.element_for_roi = ""
-        self.prefix_name_roi = "ROI"
         self.enable_roi_computation = False
 
     @observe('element_for_roi')
@@ -211,6 +231,19 @@ class SettingModel(Atom):
             with the @observe decorator
         """
         self.data_sets = change['value']
+
+    def img_dict_update(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        change : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        self.img_dict = change['value']
 
     def update_parameter(self, param):
         self.parameters = copy.deepcopy(param)
@@ -268,7 +301,7 @@ class SettingModel(Atom):
 
             delta_v = int(self.get_sigma(val/1000)*1000)
 
-            roi = ROIModel(prefix=self.prefix_name_roi,
+            roi = ROIModel(prefix=self.suffix_name_roi,
                            line_val=val,
                            left_val=val-delta_v*std_ratio,
                            right_val=val+delta_v*std_ratio,
@@ -283,14 +316,6 @@ class SettingModel(Atom):
         for k in six.iterkeys(self.roi_dict.copy()):
             if k not in element_list:
                 del self.roi_dict[k]
-
-    @observe('prefix_name_roi')
-    def _update_prefix(self, change):
-        if change['type'] == 'create':
-            return
-        logger.info('Use prefix name : {}'.format(self.prefix_name_roi))
-        for k, v in six.iteritems(self.roi_dict):
-            v.prefix = self.prefix_name_roi
 
     def get_sigma(self, energy, epsilon=2.96):
         """
@@ -359,16 +384,40 @@ class SettingModel(Atom):
             temp.update({k: sum2D})
             logger.debug(f"Calculation is completed for {v.prefix}, {self.data_title}, {k}")
 
-        # ``self.data_tile`` is generated in ``fileio`` module and contains
-        #   the default label string separated with '_' at the end
-        #   Here we remove the default label string from the title and then
-        #   attach a new label, which is equal to the default label unless changed
-        #   by the user.
-        title = '_'.join(self.data_title.split('_')[:-1])
-        roi_result[f"{title}_{v.prefix}_roi"] = temp
+        # Save ROI data to HDF5 file
+        self.saveROImap_to_hdf(temp)
+
+        # Add scalers to the ROI dataset, so that they can be selected from Image Wizard.
+        # We don't want to save scalers to the file, since they are already in the file.
+        # So we add scalers after data is saved.
+        scaler_key = f"{self.data_title_base}_scaler"
+        if scaler_key in self.img_dict:
+            temp.update(self.img_dict[scaler_key])
+
+        roi_result[f"{self.data_title_adjusted}_roi"] = temp
 
         logger.info("ROI is computed.")
         return roi_result
+
+    def saveROImap_to_hdf(self, data_dict_roi):
+
+        if 'det1' in self.data_title:
+            inner_path = 'xrfmap/det1'
+        elif 'det2' in self.data_title:
+            inner_path = 'xrfmap/det2'
+        elif 'det3' in self.data_title:
+            inner_path = 'xrfmap/det3'
+        else:
+            inner_path = 'xrfmap/detsum'
+
+        try:
+            save_fitdata_to_hdf(self.hdf_path, data_dict_roi, datapath=inner_path,
+                                data_saveas='xrf_roi', dataname_saveas='xrf_roi_name')
+        except Exception as ex:
+            logger.error(f"Failed to save ROI data to file '{self.hdf_path}'\n"
+                         f"    Exception: {ex}")
+        else:
+            logger.info(f"ROI data was successfully saved to file '{self.hdf_name}'")
 
 
 def calculate_roi(data3D, e_offset, e_linear, range_v):
