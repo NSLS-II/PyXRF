@@ -721,16 +721,30 @@ def read_hdf_APS(working_directory,
                 except KeyError:
                     print('No data is loaded for {}.'.format(det_name))
 
-                if 'xrf_fit' in data[det_name]:
-                    try:
-                        fit_result = get_fit_data(data[det_name]['xrf_fit_name'].value,
-                                                  data[det_name]['xrf_fit'].value)
-                        img_dict.update({file_channel+'_fit': fit_result})
-                        # also include scaler data
-                        if 'scalers' in data:
-                            img_dict[file_channel+'_fit'].update(img_dict[fname+'_scaler'])
-                    except IndexError:
-                        logger.info('No fitting data is loaded for channel {}.'.format(i))
+        for i in range(1, channel_num + 1):
+            det_name = 'det' + str(i)
+            file_channel = fname + '_det' + str(i)
+            if 'xrf_fit' in data[det_name]:
+                try:
+                    fit_result = get_fit_data(data[det_name]['xrf_fit_name'].value,
+                                              data[det_name]['xrf_fit'].value)
+                    img_dict.update({file_channel+'_fit': fit_result})
+                    # also include scaler data
+                    if 'scalers' in data:
+                        img_dict[file_channel+'_fit'].update(img_dict[fname+'_scaler'])
+                except IndexError:
+                    logger.info('No fitting data is loaded for channel {}.'.format(i))
+
+            if 'xrf_roi' in data[det_name]:
+                try:
+                    fit_result = get_fit_data(data[det_name]['xrf_roi_name'].value,
+                                              data[det_name]['xrf_roi'].value)
+                    img_dict.update({file_channel+'_roi': fit_result})
+                    # also include scaler data
+                    if 'scalers' in data:
+                        img_dict[file_channel+'_roi'].update(img_dict[fname+'_scaler'])
+                except IndexError:
+                    logger.info('No ROI data is loaded for channel {}.'.format(i))
 
         if 'roimap' in data:
             if 'sum_name' in data['roimap']:
@@ -769,6 +783,16 @@ def read_hdf_APS(working_directory,
                     img_dict[fname+'_fit'].update(img_dict[fname+'_scaler'])
             except (IndexError, KeyError):
                 logger.info('No fitting data is loaded for channel summed data.')
+
+        if 'xrf_roi' in data['detsum']:
+            try:
+                fit_result = get_fit_data(data['detsum']['xrf_roi_name'].value,
+                                          data['detsum']['xrf_roi'].value)
+                img_dict.update({fname+'_roi': fit_result})
+                if 'scalers' in data:
+                    img_dict[fname+'_roi'].update(img_dict[fname+'_scaler'])
+            except (IndexError, KeyError):
+                logger.info('No ROI data is loaded for summed data.')
 
     return img_dict, data_sets
 
