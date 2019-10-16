@@ -219,6 +219,11 @@ enamldef FitView(DockItem): fit_view:
                     index ::
                         if cb_select.index > 0:
                             param_model.e_name = cb_select.selected_item
+                            try:
+                                if "Userpeak" in cb_select.selected_item:
+                                    fit_model.select_index_by_eline_name(cb_select.selected_item)
+                            except Exception as ex:
+                                pass
 
             Label: intensity_lb:
                 text = 'Peak Int'
@@ -252,6 +257,16 @@ enamldef FitView(DockItem): fit_view:
                             btns = [DialogButton('Ok', 'accept')]
                             critical(self, 'ERROR', str(ex), btns)
 
+                        try:
+                            if "Userpeak" in cb_select.selected_item:
+                                fit_model.select_index_by_eline_name(cb_select.selected_item)
+                                param_model.data_for_plot()
+                                plot_model.plot_fit(param_model.prefit_x,
+                                                    param_model.total_y,
+                                                    param_model.auto_fit_all)
+                        except Exception as ex:
+                            pass
+
                         cb_select.set_focus()  # Return focus to the combo box
 
             PushButton: manual_remove:
@@ -274,21 +289,35 @@ enamldef FitView(DockItem): fit_view:
 
             Label: lb_userpeak_energy:
                 text = 'Energy'
-                visible << "Userpeak" in cb_select.selected_item and plot_model.allow_add_eline_fit
+                visible << "Userpeak" in cb_select.selected_item and plot_model.allow_remove_eline_fit
 
             FloatField: fd_userpeak_energy:
-                value := param_model.add_userpeak_energy
                 maximum_size = 80
-                visible << "Userpeak" in cb_select.selected_item and plot_model.allow_add_eline_fit
+                visible << "Userpeak" in cb_select.selected_item and plot_model.allow_remove_eline_fit
+                value := fit_model.add_userpeak_energy
+                value ::
+                    apply_to_fit(param_model, plot_model, fit_model, setting_model)
+
+                    #param_model.data_for_plot()
+                    #plot_model.plot_fit(param_model.prefit_x,
+                    #                    param_model.total_y,
+                    #                    param_model.auto_fit_all)
 
             Label: lb_userpeak_fwhm:
                 text = 'FWHM'
-                visible << "Userpeak" in cb_select.selected_item and plot_model.allow_add_eline_fit
+                visible << "Userpeak" in cb_select.selected_item and plot_model.allow_remove_eline_fit
 
             FloatField: fd_userpeak_fwhm:
-                value := param_model.add_userpeak_fwhm
                 maximum_size = 80
-                visible << "Userpeak" in cb_select.selected_item and plot_model.allow_add_eline_fit
+                visible << "Userpeak" in cb_select.selected_item and plot_model.allow_remove_eline_fit
+                value := fit_model.add_userpeak_fwhm
+                value ::
+                    apply_to_fit(param_model, plot_model, fit_model, setting_model)
+
+                    #param_model.data_for_plot()
+                    #plot_model.plot_fit(param_model.prefit_x,
+                    #                    param_model.total_y,
+                    #                    param_model.auto_fit_all)
 
             GroupBox: pre_fit:
                 padding = Box(2, 2, 2, 2)
