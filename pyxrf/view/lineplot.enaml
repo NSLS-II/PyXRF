@@ -10,6 +10,9 @@ from atom.api import *
 from ..model.lineplot import LinePlotModel
 from pyxrf.model.fileio import print_image
 
+from enaml.stdlib.dialog_buttons import DialogButton
+from enaml.stdlib.message_box import critical
+
 import numpy as np
 from matplotlib.figure import Figure
 from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
@@ -47,7 +50,8 @@ enamldef PlotMain(DockItem):
         constraints = [
             vbox(
                 hbox(plot_exp_btn, pb_plot_fit, spacer, pb_print),
-                hbox(cbox1, spacer, pb_eline, add_eline, remove_eline, cbox2, btn_cb_prev, btn_cb_next, checkb),
+                #hbox(cbox1, spacer, pb_eline, add_eline, remove_eline, cbox2, btn_cb_prev, btn_cb_next, checkb),
+                hbox(cbox1, spacer, pb_eline, add_eline, remove_eline, eline_selection, checkb),
                 canvas,
             ),
         ]
@@ -70,8 +74,17 @@ enamldef PlotMain(DockItem):
             text = 'Add line'
             enabled << plot_model.allow_add_eline and plot_model.plot_exp_opt
             clicked ::
-                plot_model.add_peak_manual()
-                cbox2.set_focus()  # Return focus to the combo box
+                # The following set of conditions is not complete, but sufficient
+                if param_model.x0 is None or param_model.y0 is None:
+
+                    btns = [DialogButton('Ok', 'accept')]
+                    # 'critical' shows MessageBox
+                    critical(self, 'ERROR', f'Experimental data is not loaded or initial spectrum fitting is not performed', btns)
+
+                else:
+
+                    plot_model.add_peak_manual()
+                    cbox2.set_focus()  # Return focus to the combo box
 
         PushButton: remove_eline:
             text = 'Remove line'
@@ -80,35 +93,43 @@ enamldef PlotMain(DockItem):
                 plot_model.remove_peak_manual(param_model.e_name)
                 cbox2.set_focus()  # Return focus to the combo box
 
-        ComboBox: cbox2:
-            #items = ['<Display emission lines>'] +\
-            #        K_LINE + L_LINE + M_LINE
-            items = ['<Display emission lines>'] + param_model.get_user_peak_list(include_user_peaks=False)
+        Container: eline_selection:
+            constraints = [
+                contents_left == cbox2.left,
+                cbox2.right+5 == btn_cb_prev.left,
+                btn_cb_prev.right+2 == btn_cb_next.left,
+                btn_cb_next.right == contents_right,
+            ]
 
-            index = 0
-            index := plot_model.element_id
-            enabled << plot_model.allow_select_elines and plot_model.plot_exp_opt
-            index ::
-                if cbox2.index > 0:
-                    param_model.e_name = cbox2.selected_item
+            ComboBox: cbox2:
+                #items = ['<Display emission lines>'] +\
+                #        K_LINE + L_LINE + M_LINE
+                items = ['<Display emission lines>'] + param_model.get_user_peak_list(include_user_peaks=False)
 
-        PushButton: btn_cb_prev:
-            text = '<'
-            enabled << plot_model.allow_select_elines and plot_model.plot_exp_opt
-            maximum_size = (15, 24)
-            clicked ::
-                if cbox2.index > 1:
-                    cbox2.index -= 1
-                cbox2.set_focus()  # Return focus to the combo box
+                index = 0
+                index := plot_model.element_id
+                enabled << plot_model.allow_select_elines and plot_model.plot_exp_opt
+                index ::
+                    if cbox2.index > 0:
+                        param_model.e_name = cbox2.selected_item
 
-        PushButton: btn_cb_next:
-            text = '>'
-            enabled << plot_model.allow_select_elines and plot_model.plot_exp_opt
-            maximum_size = (15, 24)
-            clicked ::
-                if cbox2.index < len(cbox2.items) - 1:
-                    cbox2.index += 1
-                cbox2.set_focus()  # Return focus to the combo box
+            PushButton: btn_cb_prev:
+                text = '<'
+                enabled << plot_model.allow_select_elines and plot_model.plot_exp_opt
+                maximum_size = (15, 24)
+                clicked ::
+                    if cbox2.index > 1:
+                        cbox2.index -= 1
+                    cbox2.set_focus()  # Return focus to the combo box
+
+            PushButton: btn_cb_next:
+                text = '>'
+                enabled << plot_model.allow_select_elines and plot_model.plot_exp_opt
+                maximum_size = (15, 24)
+                clicked ::
+                    if cbox2.index < len(cbox2.items) - 1:
+                        cbox2.index += 1
+                    cbox2.set_focus()  # Return focus to the combo box
 
         PushButton: pb_print:
             text  ='Print'
