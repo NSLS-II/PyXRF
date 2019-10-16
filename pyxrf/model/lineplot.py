@@ -816,8 +816,10 @@ class LinePlotModel(Atom):
                 # Some default value
                 intensity = 1000.0
 
-                if self.data is not None and self.parameters is not None and \
-                        len(self.data) > 1 and len(self.param_model.prefit_x) > 1:
+                if self.data is not None and self.parameters is not None \
+                        and self.param_model.prefit_x is not None \
+                        and len(self.data) > 1 and len(self.param_model.prefit_x) > 1:
+
                     # Range of energies in fitting results
                     e_fit_min = self.param_model.prefit_x[0]
                     e_fit_max = self.param_model.prefit_x[-1]
