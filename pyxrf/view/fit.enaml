@@ -240,8 +240,18 @@ enamldef FitView(DockItem): fit_view:
                         critical(self, 'ERROR', f'Experimental data is not loaded or initial spectrum fitting is not performed', btns)
 
                     else:
+                        try:
+                            plot_model.add_peak_manual()
+                            # ``apply_to_fit`` takes some time to execute, so do it only for the user defined peaks
+                            #   After calling ``apply_to_fit``, the line parameters may be edited
+                            #   For other lines, the button ``Update`` must be pressed first.
+                            if "Userpeak" in cb_select.selected_item:
+                                apply_to_fit(param_model, plot_model, fit_model, setting_model)
 
-                        plot_model.add_peak_manual()
+                        except Exception as ex:
+                            btns = [DialogButton('Ok', 'accept')]
+                            critical(self, 'ERROR', str(ex), btns)
+
                         cb_select.set_focus()  # Return focus to the combo box
 
             PushButton: manual_remove:
