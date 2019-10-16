@@ -251,8 +251,6 @@ class GuessParamModel(Atom):
     # total_pileup = Dict()
     e_name = Str()        # Element line name selected in combo box
     add_element_intensity = Float(1000.0)
-    add_userpeak_energy = Float(5000.0)
-    add_userpeak_fwhm = Float(1.0)
     element_list = List()
     # data_sets = Typed(OrderedDict)
     EC = Typed(object)
