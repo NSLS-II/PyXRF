@@ -490,6 +490,13 @@ class GuessParamModel(Atom):
                                                    elemental_lines=[self.e_name],
                                                    default_area=default_area)
 
+        # Check if element profile was calculated successfully.
+        #   Calculation may fail if the selected line is not activated.
+        #   The calculation is performed using ``xraylib` library, so there is no
+        #   control over it.
+        if not self.e_name in data_out:
+            raise Exception(f"Failed to add the emission line '{self.e_name}': line is not activated.")
+
         ratio_v = self.add_element_intensity / np.max(data_out[self.e_name])
 
         ps = PreFitStatus(z=get_Z(self.e_name),
