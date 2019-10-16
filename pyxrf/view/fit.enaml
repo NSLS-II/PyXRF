@@ -179,8 +179,8 @@ enamldef FitView(DockItem): fit_view:
                 vbox(
                     hbox(eline_selection, intensity_lb, intensity_fd,
                          manual_add, manual_remove, spacer, pb_pileup),
+                    hbox(spacer, lb_userpeak_energy, fd_userpeak_energy, lb_userpeak_fwhm, fd_userpeak_fwhm),
                     pre_fit,
-                    #hbox(saveas_btn, spacer),
                 ),
             ]
             Container: eline_selection:
@@ -261,6 +261,24 @@ enamldef FitView(DockItem): fit_view:
                         btns = [DialogButton('Ok', 'accept')]
                         # 'critical' shows MessageBox
                         critical(self, 'ERROR', f'Experimental data is not loaded or initial spectrum fitting is not performed', btns)
+
+            Label: lb_userpeak_energy:
+                text = 'Energy'
+                visible << "Userpeak" in cb_select.selected_item and plot_model.allow_add_eline_fit
+
+            FloatField: fd_userpeak_energy:
+                value := param_model.add_userpeak_energy
+                maximum_size = 80
+                visible << "Userpeak" in cb_select.selected_item and plot_model.allow_add_eline_fit
+
+            Label: lb_userpeak_fwhm:
+                text = 'FWHM'
+                visible << "Userpeak" in cb_select.selected_item and plot_model.allow_add_eline_fit
+
+            FloatField: fd_userpeak_fwhm:
+                value := param_model.add_userpeak_fwhm
+                maximum_size = 80
+                visible << "Userpeak" in cb_select.selected_item and plot_model.allow_add_eline_fit
 
             GroupBox: pre_fit:
                 padding = Box(2, 2, 2, 2)
