@@ -145,13 +145,32 @@ class Fit1D(Atom):
     scaler_keys = List()
     scaler_index = Int(0)
 
-    def __init__(self, *args, **kwargs):
+    # Reference to GuessParamModel object
+    param_model = Typed(object)
+
+    # Fields for updating user defined peak parameters
+    add_userpeak_energy = Float(0.0)
+    add_userpeak_fwhm = Float(0.0)
+    # If the following flags are True, then update
+    #   of the variables does not cause computations
+    add_userpeak_energy_noupdate = Bool(False)
+    add_userpeak_fwhm_noupdate = Bool(False)
+    # The names for the respective parameters
+    #   (used to access parameters in
+    #   self.param_model.param_dict)
+    name_userpeak_energy = Str()
+    name_userpeak_fwhm = Str()
+
+    def __init__(self, param_model, *args, **kwargs):
         self.working_directory = kwargs['working_directory']
         self.result_folder = kwargs['working_directory']
         self.default_parameters = kwargs['default_parameters']
         self.param_dict = copy.deepcopy(self.default_parameters)
         self.param_q = deque()
         self.all_strategy = OrderedDict()
+
+        # Reference to GuessParamModel object
+        self.param_model = param_model
 
         self.EC = ElementController()
         self.pileup_data = {'element1': 'Si_K',
@@ -262,11 +281,86 @@ class Fit1D(Atom):
                 self.elementinfo_list = sorted([e for e in list(self.param_dict.keys())
                                                 if (element+'_' in e) and  # error between S_k or Si_k
                                                 ('pileup' not in e)])  # Si_ka1 not Si_K
-                print(self.elementinfo_list)
+                logger.info(f"Element line info: {self.elementinfo_list}")
             else:
                 element = selected_element  # for pileup peaks
                 self.elementinfo_list = sorted([e for e in list(self.param_dict.keys())
                                                 if element.replace('-', '_') in e])
+                logger.info(f"User defined or pileup peak info: {self.elementinfo_list}")
+
+    def select_index_by_eline_name(self, eline_name):
+        # Select the element by name. If element is selected, then the ``elementinfo_list`` with
+        #   names of parameters is created. Originally the element could only be selected
+        #   by its index in the list (from dialog box ``ElementEdit``. This function is
+        #   used by interface components for editing parameters of user defined peaks.
+        if eline_name in self.element_list:
+            # This will fill the list ``self.elementinfo_list``
+            self.selected_index = self.element_list.index(eline_name) + 1
+            if "Userpeak" in eline_name:
+                names = [name for name in self.elementinfo_list if "_delta_center" in name]
+                if names:
+                    self.name_userpeak_energy = names[0]
+                else:
+                    self.name_userpeak_energy = ""
+
+                names = [name for name in self.elementinfo_list if "_delta_sigma" in name]
+                if names:
+                    self.name_userpeak_fwhm = names[0]
+                else:
+                    self.name_userpeak_fwhm = ""
+
+                if self.name_userpeak_energy and self.name_userpeak_fwhm:
+                    # Userpeak always has energy of 5.0 kEv, the user can set only the offset
+                    #   This is the internal representation, but we must display and let the user
+                    #   enter the true value of energy
+                    self.add_userpeak_energy_noupdate = True  # Don't redraw the plot
+                    self.add_userpeak_energy = \
+                        self.param_dict[self.name_userpeak_energy]["value"] + 5.0
+                    # Same with FWHM for the user defined peak.
+                    #   Also, sigma must be converted to FWHM: FWHM = 2.355 * sigma
+                    self.add_userpeak_fwhm_noupdate = True  # Don't redraw the plot
+                    self.add_userpeak_fwhm = \
+                        self.param_dict[self.name_userpeak_fwhm]["value"] * 2.355 + \
+                        self.param_model.default_parameters["fwhm_fanoprime"]["value"] + \
+                        self.param_model.default_parameters["fwhm_offset"]["value"]
+
+                    # Adjust formatting (5 digits after dot is sufficient
+                    self.add_userpeak_energy = float(f"{self.add_userpeak_energy:.5f}")
+                    self.add_userpeak_fwhm = float(f"{self.add_userpeak_fwhm:.5f}")
+
+        else:
+            raise Exception(f"Line '{eline_name}' is not in the list of selected element lines.")
+
+    @observe('add_userpeak_energy')
+    def _update_userpeak_energy(self, change):
+
+        if change['value'] <= 0:
+            logger.warning("User peak energy must be a positive number.")
+            return
+
+        if self.add_userpeak_energy_noupdate:
+            self.add_userpeak_energy_noupdate = False
+            return
+
+        self.param_dict[self.name_userpeak_energy]["value"] = \
+            self.add_userpeak_energy - 5.0
+
+    @observe('add_userpeak_fwhm')
+    def _update_userpeak_fwhm(self, change):
+
+        if change['value'] <= 0:
+            logger.warning("User peak FWHM must be a positive number.")
+            return
+
+        if self.add_userpeak_fwhm_noupdate:
+            self.add_userpeak_fwhm_noupdate = False
+            return
+
+        v = self.add_userpeak_fwhm - \
+            self.param_model.default_parameters["fwhm_fanoprime"]["value"] - \
+            self.param_model.default_parameters["fwhm_offset"]["value"]
+
+        self.param_dict[self.name_userpeak_fwhm]["value"] = v / 2.355
 
     def keep_size(self):
         """Keep the size of deque as 2.
