@@ -348,7 +348,7 @@ class SettingModel(Atom):
             logger.info(f"Subtracting background ...")
 
             num_processors_to_use = multiprocessing.cpu_count()
-            logger.info(f"Cpu count: {format(num_processors_to_use)}")
+            logger.info(f"Cpu count: {num_processors_to_use}")
             pool = multiprocessing.Pool(num_processors_to_use)
 
             result_pool = [pool.apply_async(
