@@ -313,7 +313,7 @@ class SettingModel(Atom):
             self.roi_dict.update({v: roi})
 
         # remove old items not included in element_list
-        for k in six.iterkeys(self.roi_dict.copy()):
+        for k in self.roi_dict.copy().keys():
             if k not in element_list:
                 del self.roi_dict[k]
 
@@ -374,7 +374,7 @@ class SettingModel(Atom):
         else:
             data_roi = data_raw
 
-        for k, v in six.iteritems(self.roi_dict):
+        for k, v in self.roi_dict.keys():
             leftv = v.left_val/1000
             rightv = v.right_val/1000
             sum2D = calculate_roi(data_roi,
@@ -401,14 +401,17 @@ class SettingModel(Atom):
 
     def saveROImap_to_hdf(self, data_dict_roi):
 
-        if 'det1' in self.data_title:
-            inner_path = 'xrfmap/det1'
-        elif 'det2' in self.data_title:
-            inner_path = 'xrfmap/det2'
-        elif 'det3' in self.data_title:
-            inner_path = 'xrfmap/det3'
-        else:
-            inner_path = 'xrfmap/detsum'
+        # Generate the path to computed ROIs in the HDF5 file
+        det_name = "detsum"  # Assume that ROIs are computed using the sum of channels
+
+        # Search for channel name in the data title. Channels are named
+        #   det1, det2, ... , i.e. 'det' followed by integer number.
+        # The channel name is always located at the end of the ``data_title``.
+        # If the channel name is found, then build the path using this name.
+        srch = re.search("det\d+$", self.data_title)
+        if srch:
+            det_name = srch.group(0)
+        inner_path = f"xrfmap/{det_name}"
 
         try:
             save_fitdata_to_hdf(self.hdf_path, data_dict_roi, datapath=inner_path,
