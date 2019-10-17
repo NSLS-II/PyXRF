@@ -809,7 +809,7 @@ def render_data_to_gui(runid):
         id number for given run
     """
 
-    spectrum_cut = 3000  # Constant: the number of spectrum points to load 3000 ~ 3 kEv
+    spectrum_cut = 3000  # Constant: the number of spectrum points to load 3000 ~ 3 keV
 
     data_sets = OrderedDict()
     img_dict = OrderedDict()
