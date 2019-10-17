@@ -46,7 +46,7 @@ class FileIOModel(Atom):
     file_name : str
         name of loaded file
     file_name_silent_change : bool
-        If this flag is set True, then ``file_name`` may be changed once without
+        If this flag is set to True, then ``file_name`` may be changed once without
         starting file read operation. The flag is automatically reset to False.
     load_status : str
         Description of file loading status
