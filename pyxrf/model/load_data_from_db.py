@@ -118,7 +118,7 @@ def fetch_data_from_db(runid, fpath=None,
         True: process only completed scans (for which ``stop`` document exists in
         the database). Failed scan for which ``stop`` document exists are considered
         completed even if not the whole image was scanned. If incomplete scan is
-        encountered: an exception is thrown.
+        encountered, an exception is thrown.
         False: the feature is disabled, incomplete scan will be processed.
     output_to_file : bool, optional
         save data to hdf5 file if True
