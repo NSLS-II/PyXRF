@@ -181,7 +181,7 @@ def make_hdf(start, end=None, *, fname=None,
     ---------
 
     start : int
-        scan ID of the fist scan to convert.
+        scan ID of the first scan to convert.
     end : int, optional
         scan ID of the last scan to convert. If ``end`` is not specified or None, then
         only the scan with ID ``start`` is converted and an exception is raised if an
