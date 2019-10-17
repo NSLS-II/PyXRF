@@ -233,7 +233,7 @@ def make_hdf(start, end=None, *, fname=None,
         False: the feature is disabled, incomplete scan will be processed.
     prefix : str, optional
         prefix name of the created data file. If ``fname`` is not specified, it is generated
-        automatically in the form ``<prefix>_<scanID>_<some_additional data>.h5``
+        automatically in the form ``<prefix>_<scanID>_<some_additional_data>.h5``
     create_each_det: bool, optional
         True: save data for each available detector channel into a file. Enabling this
         feature leads to larger data files. Inspection of data from individual channels
