@@ -375,10 +375,11 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
             flist = [fname for fname in all_files
                      if re.search(f"^[^_]*_{str(start_id)}\D+", os.path.basename(fname))]  # noqa: W605
             if len(flist) < 1:
+                msg = f"File with Scan ID {start_id} was not found"
                 if allow_raising_exceptions:
-                    raise IOError(f"File with Scan ID {start_id} was not found")
+                    raise IOError(msg)
                 else:
-                    print(f"File with Scan ID {start_id} was not found.")
+                    print(msg)
             else:
                 print(f"Processing file with Scan ID {start_id}")
         else:
