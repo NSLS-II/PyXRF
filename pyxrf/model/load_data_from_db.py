@@ -188,13 +188,25 @@ def make_hdf(start, end=None, *, fname=None,
         error occurs during the conversion. If ``end`` is specified, then scans in the
         range ``scan``..``end`` are converted and a scan in the sequence is skipped
         if there is an issue during the conversion. For example:
+
+        .. code-block:: python
+
             make_hdf(2342)
+
         will process scan #2342 and throw an exception if error occurs. On the other hand
+
+        .. code-block:: python
+
             make_hdf(2342, 2342)
+
         will process scan #2342 and write data to file if conversion is successful, otherwise
         no file will be created. The scans with IDs in the range 2342..2441 can be processed by
         calling
+
+        .. code-block:: python
+
             make_hdf(2342, 2441)
+
         Non-existing scans in the range or scans causing errors during conversion will be skipped.
 
     Keyword parameters
@@ -217,6 +229,9 @@ def make_hdf(start, end=None, *, fname=None,
         encountered: an exception is thrown (``end`` is not specified) or the scan
         is skipped (``end`` is specified). This feature allows to use
         ``make_hdf`` as part of the script for real time data analysis:
+
+        .. code-block:: python
+
             for scan_id in range(n_start, n_start + n_scans):
                 while True:
                     try:
@@ -228,6 +243,7 @@ def make_hdf(start, end=None, *, fname=None,
                     except Exception:
                         # Wait for 10 minutes and retry
                         time.sleep(600)
+
         Such scripts are currently used at HXN and SRX beamlines of NSLS-II, so this feature
         supports the existing workflows.
         False: the feature is disabled, incomplete scan will be processed.
@@ -301,11 +317,8 @@ def _is_scan_complete(hdr):
     False: scan is incomplete (still running)
     """
 
-    if hdr.stop:
-        return True
-    else:
-        # hdr.stop is an empty dictionary if the scan is incomplete
-        return False
+    # hdr.stop is an empty dictionary if the scan is incomplete
+    return bool(hdr.stop)
 
 
 def map_data2D_hxn(runid, fpath,
