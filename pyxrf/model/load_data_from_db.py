@@ -178,7 +178,7 @@ def make_hdf(start, end=None, *, fname=None,
     Load data from database and save it in HDF5 files.
 
     Parameters
-    ---------
+    ----------
 
     start : int
         scan ID of the first scan to convert.
@@ -209,20 +209,17 @@ def make_hdf(start, end=None, *, fname=None,
 
         Non-existing scans in the range or scans causing errors during conversion will be skipped.
 
-    Keyword parameters
-    ------------------
-
-    fname : string, optional
+    fname : string, optional keyword parameter
         path to save data file when ``end`` is ``None`` (only one scan is processed).
         File name is created automatically if ``fname`` is not specified.
-    fname_add_version : bool
+    fname_add_version : bool, keyword parameter
         True: if file already exists, then file version is added to the file name
         so that it becomes unique in the current directory. The version is
         added to <fname>.h5 in the form <fname>_(1).h5, <fname>_(2).h5, etc.
         False: then conversion fails. If ``end`` is ``None``, then
         the exception is raised. If ``end`` is specified, the scan is skipped
         and the next scan in the range is processed.
-    completed_scans_only : bool
+    completed_scans_only : bool, keyword parameter
         True: process only completed scans (for which ``stop`` document exists in
         the database). Failed scan for which ``stop`` document exists are considered
         completed even if not the whole image was scanned. If incomplete scan is
@@ -232,6 +229,9 @@ def make_hdf(start, end=None, *, fname=None,
 
         .. code-block:: python
 
+            # Wait time between retires in seconds. Select the value appropriate
+            #   for the workflow type.
+            wait_time = 600  # Wait for 10 minuts between retries.
             for scan_id in range(n_start, n_start + n_scans):
                 while True:
                     try:
@@ -241,8 +241,7 @@ def make_hdf(start, end=None, *, fname=None,
                         pyxrf_batch(scan_id, param_file_name="some_parameter_file.json")
                         break
                     except Exception:
-                        # Wait for 10 minutes and retry
-                        time.sleep(600)
+                        time.sleep(wait_time)
 
         Such scripts are currently used at HXN and SRX beamlines of NSLS-II, so this feature
         supports the existing workflows.
