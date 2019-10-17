@@ -223,7 +223,7 @@ def make_hdf(start, end=None, *, fname=None,
                         # Load scan if it is available
                         make_hdf(scan_id, completed_scans_only=True)
                         # Process the file using the prepared parameter file
-                        pyxrf_batch(scan_id, param_file_name = "some_parameter_file.json")
+                        pyxrf_batch(scan_id, param_file_name="some_parameter_file.json")
                         break
                     except Exception:
                         # Wait for 10 minutes and retry
