@@ -1544,7 +1544,7 @@ def write_db_to_hdf_base(fpath, data,
                          create_each_det=True):
     """
     This is the function used to save raw experiment data into HDF5 file.
-    Typicall used after data is loaded from databroker.
+    Typically used after data is loaded from databroker.
 
     Parameters
     ----------
