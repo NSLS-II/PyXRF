@@ -187,7 +187,7 @@ def make_hdf(start, end=None, *, fname=None,
         only the scan with ID ``start`` is converted and an exception is raised if an
         error occurs during the conversion. If ``end`` is specified, then scans in the
         range ``scan``..``end`` are converted and a scan in the sequence is skipped
-        if there is an issues during the conversion. For example:
+        if there is an issue during the conversion. For example:
             make_hdf(2342)
         will process scan #2342 and throw an exception if error occurs. On the other hand
             make_hdf(2342, 2342)
