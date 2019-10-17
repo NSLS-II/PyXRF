@@ -313,12 +313,12 @@ class Fit1D(Atom):
                     # Userpeak always has energy of 5.0 kEv, the user can set only the offset
                     #   This is the internal representation, but we must display and let the user
                     #   enter the true value of energy
-                    self.add_userpeak_energy_noupdate = True  # Don't redraw the plot
+                    #self.add_userpeak_energy_noupdate = True  # Don't run extra calculations
                     self.add_userpeak_energy = \
                         self.param_dict[self.name_userpeak_energy]["value"] + 5.0
                     # Same with FWHM for the user defined peak.
                     #   Also, sigma must be converted to FWHM: FWHM = 2.355 * sigma
-                    self.add_userpeak_fwhm_noupdate = True  # Don't redraw the plot
+                    #self.add_userpeak_fwhm_noupdate = True  # Don't run extra calculations
                     self.add_userpeak_fwhm = \
                         self.param_dict[self.name_userpeak_fwhm]["value"] * 2.355 + \
                         self.param_model.default_parameters["fwhm_fanoprime"]["value"] + \
@@ -342,8 +342,11 @@ class Fit1D(Atom):
             self.add_userpeak_energy_noupdate = False
             return
 
-        self.param_dict[self.name_userpeak_energy]["value"] = \
-            self.add_userpeak_energy - 5.0
+        energy = self.add_userpeak_energy - 5.0
+        self.param_dict[self.name_userpeak_energy]["value"] = energy
+        self.param_dict[self.name_userpeak_energy]["max"] = energy + 0.005
+        self.param_dict[self.name_userpeak_energy]["min"] = energy - 0.005
+
 
     @observe('add_userpeak_fwhm')
     def _update_userpeak_fwhm(self, change):
@@ -356,11 +359,14 @@ class Fit1D(Atom):
             self.add_userpeak_fwhm_noupdate = False
             return
 
-        v = self.add_userpeak_fwhm - \
-            self.param_model.default_parameters["fwhm_fanoprime"]["value"] - \
+        fwhm = self.param_model.default_parameters["fwhm_fanoprime"]["value"] - \
             self.param_model.default_parameters["fwhm_offset"]["value"]
 
-        self.param_dict[self.name_userpeak_fwhm]["value"] = v / 2.355
+        fwhm = (self.add_userpeak_fwhm - fwhm) / 2.355
+
+        self.param_dict[self.name_userpeak_fwhm]["value"] = fwhm
+        self.param_dict[self.name_userpeak_fwhm]["max"] = fwhm + 0.02
+        self.param_dict[self.name_userpeak_fwhm]["min"] = fwhm - 0.02
 
     def keep_size(self):
         """Keep the size of deque as 2.
