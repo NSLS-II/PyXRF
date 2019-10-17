@@ -1,11 +1,11 @@
 from __future__ import (absolute_import, division,
                         print_function)
 
-import six
 import numpy as np
 from collections import OrderedDict
 import copy
 import os
+import re
 
 from atom.api import (Atom, Str, observe, Dict, List, Int, Bool)
 
@@ -408,7 +408,7 @@ class SettingModel(Atom):
         #   det1, det2, ... , i.e. 'det' followed by integer number.
         # The channel name is always located at the end of the ``data_title``.
         # If the channel name is found, then build the path using this name.
-        srch = re.search("det\d+$", self.data_title)
+        srch = re.search("det\d+$", self.data_title)  # noqa: W605
         if srch:
             det_name = srch.group(0)
         inner_path = f"xrfmap/{det_name}"
