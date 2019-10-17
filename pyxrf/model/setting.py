@@ -374,7 +374,7 @@ class SettingModel(Atom):
         else:
             data_roi = data_raw
 
-        for k, v in self.roi_dict.keys():
+        for k, v in self.roi_dict.items():
             leftv = v.left_val/1000
             rightv = v.right_val/1000
             sum2D = calculate_roi(data_roi,
