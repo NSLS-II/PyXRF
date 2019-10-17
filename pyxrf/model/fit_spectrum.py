@@ -5,6 +5,7 @@ import time
 import copy
 import six
 import os
+import re
 import math
 from collections import OrderedDict, deque
 import multiprocessing
@@ -692,18 +693,20 @@ class Fit1D(Atom):
         prefix_fname = self.hdf_name.split('.')[0]
         if len(prefix_fname) == 0:
             prefix_fname = 'tmp'
-        if 'det1' in self.data_title:
-            inner_path = 'xrfmap/det1'
-            fit_name = prefix_fname+'_det1_fit'
-        elif 'det2' in self.data_title:
-            inner_path = 'xrfmap/det2'
-            fit_name = prefix_fname+'_det2_fit'
-        elif 'det3' in self.data_title:
-            inner_path = 'xrfmap/det3'
-            fit_name = prefix_fname+'_det3_fit'
-        else:
-            inner_path = 'xrfmap/detsum'
-            fit_name = prefix_fname + '_fit'
+
+        # Generate the path to computed ROIs in the HDF5 file
+        det_name = "detsum"  # Assume that ROIs are computed using the sum of channels
+        fit_name = f"{prefix_fname}_fit"
+
+        # Search for channel name in the data title. Channels are named
+        #   det1, det2, ... , i.e. 'det' followed by integer number.
+        # The channel name is always located at the end of the ``data_title``.
+        # If the channel name is found, then build the path using this name.
+        srch = re.search("det\d+$", self.data_title)  # noqa: W605
+        if srch:
+            det_name = srch.group(0)
+            fit_name = f"{prefix_fname}_{det_name}_fit"
+        inner_path = f"xrfmap/{det_name}"
 
         # Update GUI so that results can be seen immediately
         self.fit_img[fit_name] = self.result_map
@@ -838,7 +841,9 @@ class Fit1D(Atom):
     def create_EC_list(self, element_list):
         temp_dict = OrderedDict()
         for e in element_list:
-            if '-' in e:  # pileup peaks
+            if e == "":
+                pass
+            elif '-' in e:  # pileup peaks
                 e1, e2 = e.split('-')
                 energy = float(get_energy(e1))+float(get_energy(e2))
 

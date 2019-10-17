@@ -86,8 +86,10 @@ def flip_data(input_data, subscan_dims=None):
 
 def fetch_data_from_db(runid, fpath=None,
                        create_each_det=False,
+                       fname_add_version=False,
+                       completed_scans_only=False,
                        output_to_file=False,
-                       save_scalar=True,
+                       save_scaler=True,
                        num_end_lines_excluded=None):
     """
     Read data from databroker.
@@ -107,9 +109,20 @@ def fetch_data_from_db(runid, fpath=None,
         Do not create data for each detector is data size is too large,
         if set as false. This will slow down the speed of creating hdf file
         with large data size. srx beamline only.
+    fname_add_version : bool
+        True: if file already exists, then file version is added to the file name
+        so that it becomes unique in the current directory. The version is
+        added to <fname>.h5 in the form <fname>_(1).h5, <fname>_(2).h5, etc.
+        False: then conversion fails.
+    completed_scans_only : bool
+        True: process only completed scans (for which ``stop`` document exists in
+        the database). Failed scan for which ``stop`` document exists are considered
+        completed even if not the whole image was scanned. If incomplete scan is
+        encountered, an exception is thrown.
+        False: the feature is disabled, incomplete scan will be processed.
     output_to_file : bool, optional
         save data to hdf5 file if True
-    save_scalar : bool, optional
+    save_scaler : bool, optional
         choose to save scaler data or not for srx beamline, test purpose only.
     num_end_lines_excluded : int, optional
         remove the last few bad lines
@@ -124,21 +137,29 @@ def fetch_data_from_db(runid, fpath=None,
     if hdr.start.beamline_id == 'HXN':
         data = map_data2D_hxn(runid, fpath,
                               create_each_det=create_each_det,
+                              fname_add_version=fname_add_version,
+                              completed_scans_only=completed_scans_only,
                               output_to_file=output_to_file)
     elif (hdr.start.beamline_id == 'xf05id' or
           hdr.start.beamline_id == 'SRX'):
         data = map_data2D_srx(runid, fpath,
                               create_each_det=create_each_det,
+                              fname_add_version=fname_add_version,
+                              completed_scans_only=completed_scans_only,
                               output_to_file=output_to_file,
-                              save_scalar=save_scalar,
+                              save_scaler=save_scaler,
                               num_end_lines_excluded=num_end_lines_excluded)
     elif hdr.start.beamline_id == 'XFM':
         data = map_data2D_xfm(runid, fpath,
                               create_each_det=create_each_det,
+                              fname_add_version=fname_add_version,
+                              completed_scans_only=completed_scans_only,
                               output_to_file=output_to_file)
     elif hdr.start.beamline_id == 'TES':
         data = map_data2D_tes(runid, fpath,
                               create_each_det=create_each_det,
+                              fname_add_version=fname_add_version,
+                              completed_scans_only=completed_scans_only,
                               output_to_file=output_to_file)
     else:
         print("Databroker is not setup for this beamline")
@@ -147,62 +168,162 @@ def fetch_data_from_db(runid, fpath=None,
     return data
 
 
-def make_hdf(start, end=None, fname=None,
+def make_hdf(start, end=None, *, fname=None,
+             fname_add_version=False,
+             completed_scans_only=False,
              prefix='scan2D_',
-             create_each_det=True, save_scalar=True,
+             create_each_det=True, save_scaler=True,
              num_end_lines_excluded=None):
     """
-    Transfer multiple h5 files.
+    Load data from database and save it in HDF5 files.
 
     Parameters
-    ---------
-    start : int
-        start run id
-    end : int, optional
-        end run id
-    fname : string
-        path to save file when start equals to end, in this case only
-        one file is transfered.
-    prefix : str, optional
-        prefix name of the file
-    db : databroker
-    create_each_det: bool, optional
-        Do not create data for each detector is data size is too large,
-        if set as false. This will slow down the speed of creating hdf file
-        with large data size. srx beamline only.
-    save_scalar : bool, optional
-        choose to save scaler data or not for srx beamline, test purpose only.
-    num_end_lines_excluded : int, optional
-        remove the last few bad lines. Used at SRX beamline.
-    """
-    if end is None:
-        end = start
+    ----------
 
-    if end == start:
+    start : int
+        scan ID of the first scan to convert.
+    end : int, optional
+        scan ID of the last scan to convert. If ``end`` is not specified or None, then
+        only the scan with ID ``start`` is converted and an exception is raised if an
+        error occurs during the conversion. If ``end`` is specified, then scans in the
+        range ``scan``..``end`` are converted and a scan in the sequence is skipped
+        if there is an issue during the conversion. For example:
+
+        .. code-block:: python
+
+            make_hdf(2342)
+
+        will process scan #2342 and throw an exception if error occurs. On the other hand
+
+        .. code-block:: python
+
+            make_hdf(2342, 2342)
+
+        will process scan #2342 and write data to file if conversion is successful, otherwise
+        no file will be created. The scans with IDs in the range 2342..2441 can be processed by
+        calling
+
+        .. code-block:: python
+
+            make_hdf(2342, 2441)
+
+        Non-existing scans in the range or scans causing errors during conversion will be skipped.
+
+    fname : string, optional keyword parameter
+        path to save data file when ``end`` is ``None`` (only one scan is processed).
+        File name is created automatically if ``fname`` is not specified.
+    fname_add_version : bool, keyword parameter
+        True: if file already exists, then file version is added to the file name
+        so that it becomes unique in the current directory. The version is
+        added to <fname>.h5 in the form <fname>_(1).h5, <fname>_(2).h5, etc.
+        False: then conversion fails. If ``end`` is ``None``, then
+        the exception is raised. If ``end`` is specified, the scan is skipped
+        and the next scan in the range is processed.
+    completed_scans_only : bool, keyword parameter
+        True: process only completed scans (for which ``stop`` document exists in
+        the database). Failed scan for which ``stop`` document exists are considered
+        completed even if not the whole image was scanned. If incomplete scan is
+        encountered: an exception is thrown (``end`` is not specified) or the scan
+        is skipped (``end`` is specified). This feature allows to use
+        ``make_hdf`` as part of the script for real time data analysis:
+
+        .. code-block:: python
+
+            # Wait time between retires in seconds. Select the value appropriate
+            #   for the workflow type.
+            wait_time = 600  # Wait for 10 minuts between retries.
+            for scan_id in range(n_start, n_start + n_scans):
+                while True:
+                    try:
+                        # Load scan if it is available
+                        make_hdf(scan_id, completed_scans_only=True)
+                        # Process the file using the prepared parameter file
+                        pyxrf_batch(scan_id, param_file_name="some_parameter_file.json")
+                        break
+                    except Exception:
+                        time.sleep(wait_time)
+
+        Such scripts are currently used at HXN and SRX beamlines of NSLS-II, so this feature
+        supports the existing workflows.
+        False: the feature is disabled, incomplete scan will be processed.
+    prefix : str, optional
+        prefix name of the created data file. If ``fname`` is not specified, it is generated
+        automatically in the form ``<prefix>_<scanID>_<some_additional_data>.h5``
+    create_each_det: bool, optional
+        True: save data for each available detector channel into a file. Enabling this
+        feature leads to larger data files. Inspection of data from individual channels
+        of the detector may be helpful in evaluation of quality of the detector calibration
+        and adds flexibility to data analysis. This feature may be disabled if large number
+        of routine scans recorded by well tested system are processed and disk space
+        is an issue.
+        False: disable the feature. Only the sum of all detector channels is saved
+        to disk.
+    save_scaler : bool, optional
+        True: save scaler data in the data file
+        False: do not save scaler data
+    num_end_lines_excluded : int, optional
+        The number of lines at the end of the scan that will not be saved to the data file.
+    """
+
+    if end is None:
+        # Load one scan with ID specified by ``start``
+        #   If there is a problem while reading the scan, the exception is raised.
         if fname is None:
             fname = prefix+str(start)+'.h5'
         fetch_data_from_db(start, fpath=fname,
                            create_each_det=create_each_det,
+                           fname_add_version=fname_add_version,
+                           completed_scans_only=completed_scans_only,
                            output_to_file=True,
-                           save_scalar=save_scalar,
+                           save_scaler=save_scaler,
                            num_end_lines_excluded=num_end_lines_excluded)
     else:
+        # Both ``start`` and ``end`` are specified. Convert the scans in the range
+        #   ``start`` .. ``end``. If there is a problem reading the scan,
+        #   then the scan is skipped and the next scan is processed
         datalist = range(start, end+1)
         for v in datalist:
             filename = prefix+str(v)+'.h5'
             try:
                 fetch_data_from_db(v, fpath=filename,
                                    create_each_det=create_each_det,
+                                   fname_add_version=fname_add_version,
+                                   completed_scans_only=completed_scans_only,
                                    output_to_file=True,
-                                   save_scalar=save_scalar,
+                                   save_scaler=save_scaler,
                                    num_end_lines_excluded=num_end_lines_excluded)
-                print('{} is created. \n'.format(filename))
-            except Exception:
-                print('Can not transfer scan {}. \n'.format(v))
+                print(f"Scan #{v}: Conversion completed.\n")
+            except Exception as ex:
+                print(f"Scan #{v}: Can not complete the conversion")
+                print(f"    ({ex})\n")
+
+
+def _is_scan_complete(hdr):
+    """ Checks if the scan is complete ('stop' document exists)
+
+    Parameters
+    ----------
+
+    hdr : databroker.core.Header
+        header of the run
+        hdr = db[scan_id]
+        The header must be reloaded each time before the function is called.
+
+    Returns
+    -------
+
+    True: scan is complete
+    False: scan is incomplete (still running)
+    """
+
+    # hdr.stop is an empty dictionary if the scan is incomplete
+    return bool(hdr.stop)
 
 
 def map_data2D_hxn(runid, fpath,
                    create_each_det=False,
+                   fname_add_version=False,
+                   completed_scans_only=False,
                    output_to_file=True):
     """
     Save the data from databroker to hdf file.
@@ -219,10 +340,31 @@ def map_data2D_hxn(runid, fpath,
         Do not create data for each detector is data size is too large,
         if set as false. This will slow down the speed of creating hdf file
         with large data size.
+    fname_add_version : bool
+        True: if file already exists, then file version is added to the file name
+        so that it becomes unique in the current directory. The version is
+        added to <fname>.h5 in the form <fname>_(1).h5, <fname>_(2).h5, etc.
+        False: then conversion fails.
+    completed_scans_only : bool
+        True: process only completed scans (for which ``stop`` document exists in
+        the database). Failed scan for which ``stop`` document exists are considered
+        completed even if not the whole image was scanned. If incomplete scan is
+        encountered: an exception is thrown.
+        False: the feature is disabled, incomplete scan will be processed.
     output_to_file : bool, optional
         save data to hdf5 file if True
     """
     hdr = db[runid]
+
+    if completed_scans_only and not _is_scan_complete(hdr):
+        raise Exception("Scan is incomplete. Only completed scans are currently processed.")
+
+    # Generate the default file name for the scan
+    if fpath is None:
+        fpath = f"scan2D_{runid}.h5"
+
+    # Output data is the list of data structures for all available detectors
+    data_output = []
 
     start_doc = hdr['start']
     if 'dimensions' in start_doc:
@@ -269,9 +411,16 @@ def map_data2D_hxn(runid, fpath,
     if output_to_file:
         # output to file
         print('Saving data to hdf file.')
-        write_db_to_hdf_base(fpath, data_out,
-                             create_each_det=create_each_det)
-    return data_out
+        fpath = write_db_to_hdf_base(fpath, data_out,
+                                     fname_add_version=fname_add_version,
+                                     create_each_det=create_each_det)
+
+    detector_name = "xpress3"
+    d_dict = {"dataset": data_out, "file_name": fpath, "detector_name": detector_name}
+    data_output.append(d_dict)
+
+    return data_output
+
     # write_db_to_hdf(fpath, data, datashape,
     #                 det_list=det_list, pos_list=pos_list,
     #                 scaler_list=scaler_list,
@@ -305,8 +454,12 @@ def get_total_scan_point(hdr):
 
 
 def map_data2D_srx(runid, fpath,
-                   create_each_det=False, output_to_file=True,
-                   save_scalar=True, num_end_lines_excluded=None):
+                   create_each_det=False,
+                   fname_add_version=False,
+                   completed_scans_only=False,
+                   output_to_file=True,
+                   save_scaler=True,
+                   num_end_lines_excluded=None):
     """
     Transfer the data from databroker into a correct format following the
     shape of 2D scan.
@@ -325,9 +478,20 @@ def map_data2D_srx(runid, fpath,
         Do not create data for each detector is data size is too large,
         if set as false. This will slow down the speed of creating hdf file
         with large data size.
+    fname_add_version : bool
+        True: if file already exists, then file version is added to the file name
+        so that it becomes unique in the current directory. The version is
+        added to <fname>.h5 in the form <fname>_(1).h5, <fname>_(2).h5, etc.
+        False: then conversion fails.
+    completed_scans_only : bool
+        True: process only completed scans (for which ``stop`` document exists in
+        the database). Failed scan for which ``stop`` document exists are considered
+        completed even if not the whole image was scanned. If incomplete scan is
+        encountered: an exception is thrown.
+        False: the feature is disabled, incomplete scan will be processed.
     output_to_file : bool, optional
         save data to hdf5 file if True
-    save_scalar : bool, optional
+    save_scaler : bool, optional
         choose to save scaler data or not for srx beamline, test purpose only.
     num_end_lines_excluded : int, optional
         remove the last few bad lines
@@ -337,6 +501,10 @@ def map_data2D_srx(runid, fpath,
     dict of data in 2D format matching x,y scanning positions
     """
     hdr = db[runid]
+
+    if completed_scans_only and not _is_scan_complete(hdr):
+        raise Exception("Scan is incomplete. Only completed scans are currently processed.")
+
     spectrum_len = 4096
     start_doc = hdr['start']
     plan_n = start_doc.get('plan_name')
@@ -347,6 +515,13 @@ def map_data2D_srx(runid, fpath,
     config_path = sep_v.join(current_dir.split(sep_v)[:-2] + ['configs', config_file])
     with open(config_path, 'r') as json_data:
         config_data = json.load(json_data)
+
+    # Generate the default file name for the scan
+    if fpath is None:
+        fpath = f"scan2D_{runid}.h5"
+
+    # Output data is the list of data structures for all available detectors
+    data_output = []
 
     if 'fly' not in plan_n:  # not fly scan
 
@@ -391,36 +566,52 @@ def map_data2D_srx(runid, fpath,
                 print('Saving data to hdf file: Xpress3 detector #1 (three channels).')
                 root, ext = os.path.splitext(fpath)
                 fpath_out = f"{root + '_xs'}{ext}"
-                write_db_to_hdf(fpath_out, data,
-                                # hdr.start.datashape,
-                                datashape,
-                                det_list=config_data['xrf_detector'],
-                                pos_list=hdr.start.motors,
-                                scaler_list=config_data['scaler_list'],
-                                fly_type=fly_type,
-                                base_val=config_data['base_value'])  # base value shift for ic
+                data_out = assemble_data_SRX_stepscan(
+                    data,
+                    datashape,
+                    det_list=config_data['xrf_detector'],
+                    pos_list=hdr.start.motors,
+                    scaler_list=config_data['scaler_list'],
+                    fname_add_version=fname_add_version,
+                    fly_type=fly_type,
+                    base_val=config_data['base_value'])  # base value shift for ic
+                fpath_out = write_db_to_hdf_base(
+                    fpath_out, data_out,
+                    fname_add_version=fname_add_version,
+                    create_each_det=create_each_det)
+                d_dict = {"dataset": data_out, "file_name": fpath_out, "detector_name": "xs"}
+                data_output.append(d_dict)
+
             if 'xs2' in hdr.start.detectors:
                 print('Saving data to hdf file: Xpress3 detector #2 (single channel).')
                 root, ext = os.path.splitext(fpath)
                 fpath_out = f"{root}_xs2{ext}"
-                write_db_to_hdf(fpath_out, data,
-                                datashape,
-                                det_list=config_data['xrf_detector2'],
-                                pos_list=hdr.start.motors,
-                                scaler_list=config_data['scaler_list'],
-                                fly_type=fly_type,
-                                base_val=config_data['base_value'])  # base value shift for ic
-        return data
+                data = assemble_data_SRX_stepscan(
+                    data,
+                    datashape,
+                    det_list=config_data['xrf_detector2'],
+                    pos_list=hdr.start.motors,
+                    scaler_list=config_data['scaler_list'],
+                    fname_add_version=fname_add_version,
+                    fly_type=fly_type,
+                    base_val=config_data['base_value'])  # base value shift for ic
+                fpath_out = write_db_to_hdf_base(
+                    fpath_out, data_out,
+                    fname_add_version=fname_add_version,
+                    create_each_det=create_each_det)
+                d_dict = {"dataset": data_out, "file_name": fpath_out, "detector_name": "xs"}
+                data_output.append(d_dict)
+
+        return data_output
 
     else:
-        # srx fly scan
 
         print()
         print(f"****************************************")
         print(f"         Loading SRX fly scan           ")
         print(f"****************************************")
 
-        if save_scalar is True:
+        if save_scaler is True:
             scaler_list = ['i0', 'time', 'i0_time', 'time_diff']
             xpos_name = 'enc1'
             ypos_name = 'hf_stage_y'  # 'hf_stage_x' if fast axis is vertical
@@ -477,10 +668,10 @@ def map_data2D_srx(runid, fpath,
             new_data = {}
             data = {}
 
-            if save_scalar is True:
+            if save_scaler is True:
                 new_data['scaler_names'] = scaler_list
                 scaler_tmp = np.zeros([datashape[0], datashape[1], len(scaler_list)])
-                if vertical_fast is True:  # data shape only has impact on scalar data
+                if vertical_fast is True:  # data shape only has impact on scaler data
                     scaler_tmp = np.zeros([datashape[1], datashape[0], len(scaler_list)])
                 for v in scaler_list+[xpos_name]:
                     data[v] = np.zeros([datashape[0], datashape[1]])
@@ -515,7 +706,7 @@ def map_data2D_srx(runid, fpath,
                     print(f"Number of the detector channels: {num_det}")
 
                 if m < datashape[0]:   # scan is not finished
-                    if save_scalar is True:
+                    if save_scaler is True:
                         for n in scaler_list[:-1] + [xpos_name]:
                             min_len = min(v.data[n].size, datashape[1])
                             data[n][m, :min_len] = v.data[n][:min_len]
@@ -559,7 +750,7 @@ def map_data2D_srx(runid, fpath,
                     for i in range(num_det):
                         new_data['det'+str(i+1)] = np.transpose(new_data['det'+str(i+1)], axes=(1, 0, 2))
 
-            if save_scalar is True:
+            if save_scaler is True:
                 if vertical_fast is False:
                     for i, v in enumerate(scaler_list[:-1]):
                         scaler_tmp[:, :, i] = data[v]
@@ -657,7 +848,7 @@ def map_data2D_srx(runid, fpath,
                     new_data['pos_data'] = data_tmp
                     new_data['pos_names'] = ['x_pos', 'y_pos']
                     if vertical_fast is True:  # need to transpose the data, as we scan y first
-                        # fast scan on y has impact for scalar data
+                        # fast scan on y has impact for scaler data
                         data_tmp = np.zeros([2, x_pos.shape[1], x_pos.shape[0]])
                         data_tmp[1, :, :] = x_pos.T
                         data_tmp[0, :, :] = yv.T
@@ -670,8 +861,13 @@ def map_data2D_srx(runid, fpath,
             if output_to_file:
                 # output to file
                 print(f"Saving data to hdf file #{n_detectors_found}: Detector: {detector_name}.")
-                write_db_to_hdf_base(fpath_out, new_data,
-                                     create_each_det=create_each_det)
+                fpath_out = write_db_to_hdf_base(fpath_out, new_data,
+                                                 fname_add_version=fname_add_version,
+                                                 create_each_det=create_each_det)
+
+            # Preparing data for the detector ``detector_name`` for output
+            d_dict = {"dataset": new_data, "file_name": fpath_out, "detector_name": detector_name}
+            data_output.append(d_dict)
 
         print()
         if n_detectors_found == 0:
@@ -684,11 +880,13 @@ def map_data2D_srx(runid, fpath,
                 print(f", {n_detectors_found} data files were created", end="")
             print(".")
 
-        return new_data
+        return data_output
 
 
 def map_data2D_tes(runid, fpath,
                    create_each_det=False,
+                   fname_add_version=False,
+                   completed_scans_only=False,
                    output_to_file=True,
                    save_scaler=True):
     """
@@ -712,6 +910,17 @@ def map_data2D_tes(runid, fpath,
         Do not create data for each detector if data size is too large,
         if set as False. This will slow down the speed of creating an hdf5 file
         with large data size.
+    fname_add_version : bool
+        True: if file already exists, then file version is added to the file name
+        so that it becomes unique in the current directory. The version is
+        added to <fname>.h5 in the form <fname>_(1).h5, <fname>_(2).h5, etc.
+        False: then conversion fails.
+    completed_scans_only : bool
+        True: process only completed scans (for which ``stop`` document exists in
+        the database). Failed scan for which ``stop`` document exists are considered
+        completed even if not the whole image was scanned. If incomplete scan is
+        encountered: an exception is thrown.
+        False: the feature is disabled, incomplete scan will be processed.
     output_to_file : bool, optional
         save data to hdf5 file if True
 
@@ -722,6 +931,13 @@ def map_data2D_tes(runid, fpath,
 
     hdr = db[runid]
     # start_doc = hdr['start']
+
+    if completed_scans_only and not _is_scan_complete(hdr):
+        raise Exception("Scan is incomplete. Only completed scans are currently processed.")
+
+    # Generate the default file name for the scan
+    if fpath is None:
+        fpath = f"scan2D_{runid}.h5"
 
     # Load configuration file
     current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -758,6 +974,9 @@ def map_data2D_tes(runid, fpath,
     # detector_field_dict = config_data['xrf_flyscan_detector_fields']
 
     spectrum_len = 4096  # It is typically fixed
+
+    # Output data is the list of data structures for all available detectors
+    data_output = []
 
     # The dictionary that will contain the data extracted from scan data
     #   This data will be saved to file and/or loaded into processing software
@@ -797,6 +1016,8 @@ def map_data2D_tes(runid, fpath,
     pos_data[1, :, :] = np.vstack(hdr.table()[ypos_name].to_numpy())
     new_data['pos_data'] = pos_data
 
+    detector_field = "fluor"
+
     # Read detector values (for single detector)
     detector_data = np.zeros(shape=data_shape + (spectrum_len,), dtype=float)
     n_events = data_shape[0]
@@ -806,8 +1027,8 @@ def map_data2D_tes(runid, fpath,
         if n >= n_events:
             print("The number of lines is less than expected")
             break
-        data = v.data['fluor']
-        data_det1 = data[:, 0, :]
+        data = v.data[detector_field]
+        data_det1 = np.array(data[:, 0, :])
         detector_data[n, :, :] = data_det1
         n_events_found = n + 1
     if n_events_found < n_events:
@@ -830,13 +1051,19 @@ def map_data2D_tes(runid, fpath,
         # output to file
         print(f"Saving data to hdf file #{n_detectors_found}: Detector: {detector_name}.")
         write_db_to_hdf_base(fpath_out, new_data,
+                             fname_add_version=fname_add_version,
                              create_each_det=create_each_det)
 
-    return new_data
+    d_dict = {"dataset": new_data, "file_name": fpath_out, "detector_name": detector_name}
+    data_output.append(d_dict)
+
+    return data_output
 
 
 def map_data2D_xfm(runid, fpath,
                    create_each_det=False,
+                   fname_add_version=False,
+                   completed_scans_only=False,
                    output_to_file=True):
     """
     Transfer the data from databroker into a correct format following the
@@ -857,6 +1084,17 @@ def map_data2D_xfm(runid, fpath,
         Do not create data for each detector is data size is too large,
         if set as false. This will slow down the speed of creating hdf file
         with large data size.
+    fname_add_version : bool
+        True: if file already exists, then file version is added to the file name
+        so that it becomes unique in the current directory. The version is
+        added to <fname>.h5 in the form <fname>_(1).h5, <fname>_(2).h5, etc.
+        False: then conversion fails.
+    completed_scans_only : bool
+        True: process only completed scans (for which ``stop`` document exists in
+        the database). Failed scan for which ``stop`` document exists are considered
+        completed even if not the whole image was scanned. If incomplete scan is
+        encountered: an exception is thrown.
+        False: the feature is disabled, incomplete scan will be processed.
     output_to_file : bool, optional
         save data to hdf5 file if True
 
@@ -865,6 +1103,13 @@ def map_data2D_xfm(runid, fpath,
     dict of data in 2D format matching x,y scanning positions
     """
     hdr = db[runid]
+
+    if completed_scans_only and not _is_scan_complete(hdr):
+        raise Exception("Scan is incomplete. Only completed scans are currently processed.")
+
+    # Output data is the list of data structures for all available detectors
+    data_output = []
+
     # spectrum_len = 4096
     start_doc = hdr['start']
     plan_n = start_doc.get('plan_name')
@@ -886,16 +1131,22 @@ def map_data2D_xfm(runid, fpath,
         data = db.get_table(hdr, fill=True, convert_times=False)
 
         xrf_detector_names = config_data['xrf_detector']
-        data_output = map_data2D(data,
-                                 datashape,
-                                 det_list=xrf_detector_names,
-                                 pos_list=hdr.start.motors,
-                                 scaler_list=config_data['scaler_list'],
-                                 fly_type=fly_type)
+        data_out = map_data2D(data,
+                              datashape,
+                              det_list=xrf_detector_names,
+                              pos_list=hdr.start.motors,
+                              scaler_list=config_data['scaler_list'],
+                              fly_type=fly_type)
         if output_to_file:
             print('Saving data to hdf file.')
-            write_db_to_hdf_base(fpath, data_output,
+            write_db_to_hdf_base(fpath, data_out,
+                                 fname_add_version=fname_add_version,
                                  create_each_det=create_each_det)
+
+        detector_name = "xs"
+        d_dict = {"dataset": data_out, "file_name": fpath, "detector_name": detector_name}
+        data_output.append(d_dict)
+
         return data_output
 
 
@@ -903,6 +1154,7 @@ def write_db_to_hdf(fpath, data, datashape,
                     det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
                     pos_list=('zpssx[um]', 'zpssy[um]'),
                     scaler_list=('sclr1_ch3', 'sclr1_ch4'),
+                    fname_add_version=False,
                     fly_type=None, subscan_dims=None, base_val=None):
     """
     Assume data is obained from databroker, and save the data to hdf file.
@@ -924,8 +1176,20 @@ def write_db_to_hdf(fpath, data, datashape,
         list of pos pv
     scaler_list : list, tuple, optional
         list of scaler pv
+    fname_add_version : bool
+        True: if file already exists, then file version is added to the file name
+        so that it becomes unique in the current directory. The version is
+        added to <fname>.h5 in the form <fname>_(1).h5, <fname>_(2).h5, etc.
+        False: the exception is thrown if the file exists.
     """
     interpath = 'xrfmap'
+
+    if os.path.exists(fpath):
+        if fname_add_version:
+            fpath = _get_fpath_not_existing(fpath)
+        else:
+            raise IOError(f"'write_db_to_hdf': File '{fpath}' already exists.")
+
     with h5py.File(fpath, 'a') as f:
 
         sum_data = None
@@ -958,7 +1222,7 @@ def write_db_to_hdf(fpath, data, datashape,
                     new_data = flip_data(new_data, subscan_dims=subscan_dims)
 
                 if sum_data is None:
-                    sum_data = new_data
+                    sum_data = np.copy(new_data)
                 else:
                     sum_data += new_data
                 ds_data = dataGrp.create_dataset('counts', data=new_data, compression='gzip')
@@ -1021,6 +1285,127 @@ def write_db_to_hdf(fpath, data, datashape,
 
         dataGrp.create_dataset('val', data=scaler_data[:new_v_shape, :])
 
+    return fpath
+
+
+def assemble_data_SRX_stepscan(
+        data, datashape,
+        det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
+        pos_list=('zpssx[um]', 'zpssy[um]'),
+        scaler_list=('sclr1_ch3', 'sclr1_ch4'),
+        fname_add_version=False,
+        fly_type=None, subscan_dims=None, base_val=None):
+    """
+    Convert stepscan data from SRX beamline obtained from databroker into the for accepted
+    by ``write_db_to_hdf_base`` function.
+    This function can handle stopped/aborted scans.
+
+    Parameters
+    ----------
+    data : pandas.core.frame.DataFrame
+        data from data broker
+    datashape : tuple or list
+        shape of two D image
+    det_list : list, tuple, optional
+        list of detector channels
+    pos_list : list, tuple, optional
+        list of pos pv
+    scaler_list : list, tuple, optional
+        list of scaler pv
+    fname_add_version : bool
+        True: if file already exists, then file version is added to the file name
+        so that it becomes unique in the current directory. The version is
+        added to <fname>.h5 in the form <fname>_(1).h5, <fname>_(2).h5, etc.
+        False: the exception is thrown if the file exists.
+    """
+
+    data_assembled = {}
+
+    sum_data = None
+    new_v_shape = datashape[0]  # to be updated if scan is not completed
+    spectrum_len = 4096  # standard
+
+    for n, c_name in enumerate(det_list):
+        if c_name in data:
+            detname = 'det'+str(n+1)
+            channel_data = data[c_name]
+
+            # new veritcal shape is defined to ignore zeros points caused by stopped/aborted scans
+            new_v_shape = len(channel_data) // datashape[1]
+
+            new_data = np.vstack(channel_data)
+            new_data = new_data[:new_v_shape*datashape[1], :]
+
+            new_data = new_data.reshape([new_v_shape, datashape[1],
+                                         len(channel_data[1])])
+            if new_data.shape[2] != spectrum_len:
+                # merlin detector has spectrum len 2048
+                # make all the spectrum len to 4096, to avoid unpredicted error in fitting part
+                new_tmp = np.zeros([new_data.shape[0], new_data.shape[1], spectrum_len])
+                new_tmp[:, :, :new_data.shape[2]] = new_data
+                new_data = new_tmp
+            if fly_type in ('pyramid',):
+                new_data = flip_data(new_data, subscan_dims=subscan_dims)
+
+            if sum_data is None:
+                sum_data = np.copy(new_data)
+            else:
+                sum_data += new_data
+
+            data_assembled[detname] = new_data
+
+    if sum_data is not None:
+        data_assembled['det_sum'] = sum_data
+
+    # position data
+    pos_names, pos_data = get_name_value_from_db(pos_list, data, datashape)
+
+    # I don't have knowledge of all possible scenarios to change the following algorithm for
+    #   naming 'x_pos' and 'y_pos'. It definitely covers the basic cases of having x and y axis.
+    #   It will also produce good dataset if the naming is inconsistent.
+    for i in range(len(pos_names)):
+        if 'x' in pos_names[i]:
+            pos_names[i] = 'x_pos'
+        elif 'y' in pos_names[i]:
+            pos_names[i] = 'y_pos'
+    if 'x_pos' not in pos_names or 'y_pos' not in pos_names:
+        pos_names = ['x_pos', 'y_pos']
+
+    # need to change shape to sth like [2, 100, 100]
+    n_pos = min(pos_data.shape[2], len(pos_names))
+    data_temp = np.zeros([n_pos, pos_data.shape[0], pos_data.shape[1]])
+
+    for i in range(n_pos):
+        data_temp[i, :, :] = pos_data[:, :, i]
+
+    if fly_type in ('pyramid',):
+        for i in range(data_temp.shape[0]):
+            # flip position the same as data flip on det counts
+            data_temp[i, :, :] = flip_data(data_temp[i, :, :], subscan_dims=subscan_dims)
+
+    data_assembled['pos_names'] = pos_names
+    data_assembled['pos_data'] = data_temp[:, :new_v_shape, :]
+
+    # scaler data
+    scaler_names, scaler_data = get_name_value_from_db(scaler_list, data,
+                                                       datashape)
+
+    if fly_type in ('pyramid',):
+        scaler_data = flip_data(scaler_data, subscan_dims=subscan_dims)
+
+    if base_val is not None:  # base line shift for detector, for SRX
+        base_val = np.array([base_val])
+        if len(base_val) == 1:
+            scaler_data = np.abs(scaler_data - base_val)
+        else:
+            for i in scaler_data.shape[2]:
+                scaler_data[:, :, i] = np.abs(scaler_data[:, :, i] - base_val[i])
+
+    data_assembled['scaler_names'] = scaler_names
+    data_assembled['scaler_data'] = scaler_data[:new_v_shape, :]
+
+    return data_assembled
+
 
 def get_name_value_from_db(name_list, data, datashape):
     """
@@ -1073,7 +1458,6 @@ def map_data2D(data, datashape,
     dict of numpy array
     """
     data_output = {}
-    sum_data = None
     new_v_shape = datashape[0]  # updated if scan is not completed
     sum_data = None
 
@@ -1099,7 +1483,22 @@ def map_data2D(data, datashape,
                 new_data = flip_data(new_data, subscan_dims=subscan_dims)
             data_output[detname] = new_data
             if sum_data is None:
-                sum_data = new_data
+                # Note: Here is the place where the error was found!!!
+                #   The assignment in the next line used to be written as
+                #      sum_data = new_data
+                #   i.e. reference to data from 'det1' was assigned to 'sum_data'.
+                #   After computation of the sum, both 'sum_data' and detector 'det1'
+                #     were referencing the same ndarray, holding the sum of values
+                #     from detector channels 'det1', 'det2' and 'det3'. In addition, the sum is
+                #     computed again before data is saved into '.h5' file.
+                #     The algorithm for computing of the second sum is working correctly,
+                #     but since 'det1' already contains the true sum 'det1'+'det2'+'det3',
+                #     the computed sum equals 'det1'+2*'det2'+2*'det3'.
+                #   The problem was fixed by replacing assignment of reference during
+                #   initalization of 'sum_data' by copying the array.
+                # The error is documented because the code was used for a long time
+                #   for initial processing of XRF imaging data at HXN beamline.
+                sum_data = np.copy(new_data)
             else:
                 sum_data += new_data
     data_output['det_sum'] = sum_data
@@ -1135,9 +1534,29 @@ def map_data2D(data, datashape,
     return data_output
 
 
-def write_db_to_hdf_base(fpath, data, create_each_det=True):
+def _get_fpath_not_existing(fpath):
+    # Returns path to the new file that is guaranteed to not exist
+    # The function cycles through paths obtained by inserting
+    #   version number between name and extension in the prototype path ``fpath``
+    #  The version number is inserted in the form ``filename_(2).ext``
+
+    if os.path.exists(fpath):
+        p, e = os.path.splitext(fpath)
+        n = 1
+        while(True):
+            fpath = f"{p}_({n}){e}"
+            if not os.path.exists(fpath):
+                break
+            n += 1
+    return fpath
+
+
+def write_db_to_hdf_base(fpath, data,
+                         fname_add_version=False,
+                         create_each_det=True):
     """
-    Data is obained based on databroker, and save the data to hdf file.
+    This is the function used to save raw experiment data into HDF5 file.
+    Typically used after data is loaded from databroker.
 
     Parameters
     ----------
@@ -1145,13 +1564,33 @@ def write_db_to_hdf_base(fpath, data, create_each_det=True):
         path to save hdf file
     data : dict
         fluorescence data with scaler value and positions
+    fname_add_version : bool
+        True: if file already exists, then file version is added to the file name
+        so that it becomes unique in the current directory. The version is
+        added to <fname>.h5 in the form <fname>_(1).h5, <fname>_(2).h5, etc.
+        False: the exception is thrown if the file exists.
     create_each_det : Bool, optional
         if number of point is too large, only sum data is saved in h5 file
+
+    The structure of the ``data`` dictionary:
+      keys 'det1', 'det2' etc. - 2D ndarrays, data from the detector channels
+      key 'det_sum' - 2D ndarray, sum of the channels
+      key 'scaler_names' - the list of scaler names
+      key 'scaler_data' - 3D ndarray with scaler values, 1st index matches the
+              index of scaler name in 'scaler_names' list
+      key 'pos_names' - the list of position field names, must have entries 'x_pos' and 'y_pos'
+      key 'pos_data' - 3D ndarray, 1st index matches the position in 'pos_names' list
     """
     interpath = 'xrfmap'
     sum_data = None
     xrf_det_list = [n for n in data.keys() if 'det' in n and 'sum' not in n]
     xrf_det_list.sort()
+
+    if os.path.exists(fpath):
+        if fname_add_version:
+            fpath = _get_fpath_not_existing(fpath)
+        else:
+            raise IOError(f"'write_db_to_hdf_base': File '{fpath}' already exists.")
 
     with h5py.File(fpath, 'a') as f:
         if create_each_det is True:
@@ -1159,7 +1598,7 @@ def write_db_to_hdf_base(fpath, data, create_each_det=True):
                 new_data = data[detname]
 
                 if sum_data is None:
-                    sum_data = new_data
+                    sum_data = np.copy(new_data)
                 else:
                     sum_data += new_data
 
@@ -1192,6 +1631,8 @@ def write_db_to_hdf_base(fpath, data, create_each_det=True):
             scaler_data = data['scaler_data']
             dataGrp.create_dataset('name', data=helper_encode_list(scaler_names))
             dataGrp.create_dataset('val', data=scaler_data)
+
+    return fpath
 
 
 def free_memory_from_handler():

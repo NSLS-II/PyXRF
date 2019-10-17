@@ -24,12 +24,20 @@ with enaml.imports():
 
 def get_defaults():
 
-    sub_folder = 'data_analysis'
-    working_directory = os.path.join(os.path.expanduser('~'), sub_folder)
-    # Ideally, if directory does not exist, it should be created, but for now
-    #     we just set working directory to user directory
-    if not os.path.exists(working_directory):
-        working_directory = os.path.expanduser('~')
+    # Set working directory to current working directory (if PyXRF is started from shell)
+    working_directory = os.getcwd()
+    logger.info(f"Starting PyXRF in the current working directory '{working_directory}'")
+
+    # The original code for selection of working directory is temporarily commented.
+    #   The initial working directory is set to CWD, which may be more convenient.
+    #   Depending on results of user evaluation the original method will be restored or
+    #   the code will be deleted.
+    # sub_folder = 'data_analysis'
+    # working_directory = os.path.join(os.path.expanduser('~'), sub_folder)
+    # # Ideally, if directory does not exist, it should be created, but for now
+    # #     we just set working directory to user directory
+    # if not os.path.exists(working_directory):
+    #     working_directory = os.path.expanduser('~')
 
     # output_directory = working_directory
     default_parameters = param_data
@@ -75,6 +83,9 @@ def run():
     img_model_adv = DrawImageAdvanced()
     img_model_rgb = DrawImageRGB()
 
+    # Initialization needed to eliminate program crash
+    plot_model.roi_dict = setting_model.roi_dict
+
     # Output log to gui, turn off for now
     # error at mac, works fine on linux
     # so log info only outputs to terminal for now.
@@ -85,12 +96,15 @@ def run():
 
     # send working directory changes to different models
     io_model.observe('working_directory', fit_model.result_folder_changed)
+    io_model.observe('working_directory', setting_model.result_folder_changed)
     io_model.observe('selected_file_name', fit_model.data_title_update)
     io_model.observe('selected_file_name', plot_model.exp_label_update)
+    io_model.observe('selected_file_name', setting_model.data_title_update)
 
     # send the same file to fit model, as fitting results need to be saved
     io_model.observe('file_name', fit_model.filename_update)
     io_model.observe('file_name', plot_model.plot_exp_data_update)
+    io_model.observe('file_name', setting_model.filename_update)
     io_model.observe('runid', fit_model.runid_update)
 
     # send exp data to different models
@@ -99,6 +113,7 @@ def run():
     io_model.observe('data', fit_model.exp_data_update)
     io_model.observe('data_all', fit_model.exp_data_all_update)
     io_model.observe('img_dict', fit_model.img_dict_update)
+    io_model.observe('img_dict', setting_model.img_dict_update)
 
     # send fitting param of summed spectrum to param_model
     io_model.observe('param_fit', param_model.param_from_db_update)

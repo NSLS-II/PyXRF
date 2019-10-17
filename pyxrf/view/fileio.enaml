@@ -47,8 +47,7 @@ enamldef FileView(DockItem): file_view:
                     hbox(gb_db),
                     hbox(gb_fit),
                     hbox(mask_opt, spacer),
-                    scroller,
-                    plot_bt
+                    scroller
                 ),
                 folder_btn.width == files_btn.width,
                 #folder_btn.width == mask_btn.width,
@@ -105,8 +104,6 @@ enamldef FileView(DockItem): file_view:
                             fit_model.data_sets = io_model.data_sets
                             fit_model.fit_img = {} # clear dict in fitmodel to rm old results
 
-                            plot_bt.enabled = True
-
                             # Change window title (include file name)
                             io_model.window_title_set_file_name(f_name)
 
@@ -129,17 +126,22 @@ enamldef FileView(DockItem): file_view:
                 title = 'Data from database'
                 constraints = [hbox(run_lbl, run_num, load_btn, spacer),]
                 Label: run_lbl:
-                    text = 'Run # '
+                    text = 'Scan ID: '
 
                 IntField: run_num:
                     enabled = databroker is not None
-                    value := io_model.runid
+                    value = -1
+                    # value := io_model.runid
 
                 PushButton: load_btn:
                     enabled = databroker is not None
                     text = "Load Data from Database"
                     clicked ::
-                        
+
+                        # Copy value to 'runid' field ('runid' field should not change
+                        #   during processing unless new data is loaded)
+                        io_model.runid = run_num.value
+
                         io_model.data_ready = False
 
                         try:
@@ -152,24 +154,26 @@ enamldef FileView(DockItem): file_view:
                             io_model.window_title_clear()
 
                         else:
-                            files_load.text = '{} is loaded from database.'.format(io_model.fname_from_db)
+                            files_load.text = f"Scan #{io_model.runid} from the database."
+                            plot_model.plot_exp_opt = False
+
+                            # Disable the button which calls Working Directory dialog. Changing working directory at this point
+                            #     will most likely make the program crash at some point
+                            folder_btn.enabled = False
 
                             # do not import original data for 2D image
-                            #img_model_adv.data_dict = io_model.img_dict
-
-                            # data passed for auto fitting and final fit
-                            #param_model.data_sets = io_model.data_sets
+                            # img_model_adv.data_dict = io_model.img_dict
 
                             plot_model.parameters = param_model.param_new
-
-                            #setting_model.parameters = param_model.param_new
-                            #setting_model.data_sets = io_model.data_sets
-                            #fit_model.save_name = io_model.file_names[0]
-
-                            plot_bt.enabled = True
+                            setting_model.parameters = param_model.param_new
+                            setting_model.data_sets = io_model.data_sets
+                            fit_model.data_sets = io_model.data_sets
+                            fit_model.fit_img = {} # clear dict in fitmodel to rm old results
 
                             # Change window title (include run id)
                             io_model.window_title_set_run_id(io_model.runid)
+
+                        run_num.value = -1
 
             GroupBox: gb_fit:
                 constraints = [hbox(fit_lbl, cb_select, spacer)]
@@ -182,6 +186,8 @@ enamldef FileView(DockItem): file_view:
                     index := io_model.file_opt
                     minimum_size = (300, 16)
                     foreground = 'blue'
+                    index ::
+                        plot_model.plot_exp_opt = True
 
             ScrollArea: scroller:
                 constraints = [height <= 300]
@@ -199,37 +205,26 @@ enamldef FileView(DockItem): file_view:
                                 checked = True
                                 clicked ::
                                     io_model.data_sets[loop_item].plot_index = 0
+                                    plot_model.data_sets = io_model.data_sets
+                                    plot_model.plot_multi_exp_data()
+
+                                    # Check if there are any other plots shown. If not,
+                                    #   then hide the plot.
+                                    n_plots = 0
+                                    for v in io_model.file_channel_list:
+                                        if io_model.data_sets[v].plot_index:
+                                            n_plots += 1
+                                    if not n_plots:
+                                        # Hide plot (there are no channels selected)
+                                        plot_model.show_exp_opt = False
+
                             RadioButton: rb_2:
                                 text = 'SHOW'
                                 clicked ::
                                     io_model.data_sets[loop_item].plot_index = 1
-                                    #fd1.enabled = False
-                                    #fd2.enabled = False
-                                    #plot_bt.enabled = True
                                     plot_model.data_sets = io_model.data_sets
-
-            PushButton: plot_bt:
-                text = 'Plot Channels'
-                #maximum_size = 100
-                enabled = False
-                checkable = True
-                checked << plot_model.show_exp_opt
-                clicked ::
-                    plot_model.data_sets = io_model.data_sets
-                    plot_model.plot_multi_exp_data()
-                    if checked:
-                        n_plots = 0
-                        for v in io_model.file_channel_list:
-                            if io_model.data_sets[v].plot_index:
-                                n_plots += 1
-                        if n_plots: 
-                            plot_bt.text = 'Remove Plot'
-                            plot_model.show_exp_opt = True
-                        else:
-                            plot_bt.checked = False
-                    else:
-                        plot_model.show_exp_opt = False
-                        plot_bt.text = 'Plot Experiments'
+                                    plot_model.plot_multi_exp_data()
+                                    plot_model.show_exp_opt = True
 
 enamldef MaskView(Window): mask_view:
     attr io_model

@@ -45,6 +45,9 @@ class FileIOModel(Atom):
         current working path
     file_name : str
         name of loaded file
+    file_name_silent_change : bool
+        If this flag is set to True, then ``file_name`` may be changed once without
+        starting file read operation. The flag is automatically reset to False.
     load_status : str
         Description of file loading status
     data_sets : dict
@@ -57,6 +60,7 @@ class FileIOModel(Atom):
 
     working_directory = Str()
     file_name = Str()
+    file_name_silent_change = Bool(False)
     file_path = Str()
     load_status = Str()
     data_sets = Typed(OrderedDict)
@@ -159,12 +163,17 @@ class FileIOModel(Atom):
         self.window_title = f"{self.window_title_base} - File: {file_name}"
 
     def window_title_set_run_id(self, run_id):
-        self.window_title = f"{self.window_title_base} - Run ID: {run_id}"
+        self.window_title = f"{self.window_title_base} - Scan ID: {run_id}"
 
     @observe(str('file_name'))
     def update_more_data(self, change):
         if change['value'] == 'temp':
             # 'temp' is used to reload the same file
+            return
+
+        if self.file_name_silent_change:
+            self.file_name_silent_change = False
+            logger.info(f"File name is silently changed. New file name is '{change['value']}'")
             return
 
         self.file_channel_list = []
@@ -208,24 +217,51 @@ class FileIOModel(Atom):
         #                                             self.fname_from_db,
         #                                             load_each_channel=self.load_each_channel)
 
-        img_dict, self.data_sets = render_data_to_gui(self.runid)
+        rv = render_data_to_gui(self.runid)
+
+        if rv is None:
+            logger.error(f"Data from scan #{self.runid} was not loaded")
+            return
+
+        img_dict, self.data_sets, fname, detector_name = rv
+
+        # Change file name without rereading the file
+        self.file_name_silent_change = True
+        self.file_name = os.path.basename(fname)
+        logger.info(f"Data loading: complete dataset for the detector "
+                    f"'{detector_name}' was loaded successfully.")
+
         self.file_channel_list = list(self.data_sets.keys())
+
+        # Disable loading from 'analysis store' for now (because there is no 'analysis store')
+        # ----------------------------------------------------------------
+        # # Load results from the analysis store
+        # from .data_to_analysis_store import get_analysis_result
+        # hdr = get_analysis_result(self.runid)
+        # if hdr is not None:
+        #     d1 = hdr.table(stream_name='primary')
+        #     # d2 = hdr.table(stream_name='spectrum')
+        #     self.param_fit = hdr.start.processor_parameters
+        #     # self.data = d2['summed_spectrum_experiment']
+        #     fit_result = {k: v for k, v in zip(d1['element_name'], d1['map'])}
+        #     # tmp = {k: v for k, v in self.img_dict.items()}
+        #     img_dict['scan2D_{}_fit'.format(self.runid)] = fit_result
+        # ----------------------------------------------------------------
+
+        self.img_dict = img_dict
+
+        try:
+            self.selected_file_name = self.file_channel_list[self.file_opt]
+        except IndexError:
+            pass
+
+        # passed to fitting part for single pixel fitting
+        self.data_all = self.data_sets[self.selected_file_name].raw_data
+        # get summed data or based on mask
+        self.data = self.data_sets[self.selected_file_name].get_sum()
 
         self.data_ready = True
         self.file_opt = 0  # use summed data as default
-
-        # result from analysis store
-        from .data_to_analysis_store import get_analysis_result
-        hdr = get_analysis_result(self.runid)
-        if hdr is not None:
-            d1 = hdr.table(stream_name='primary')
-            # d2 = hdr.table(stream_name='spectrum')
-            self.param_fit = hdr.start.processor_parameters
-            # self.data = d2['summed_spectrum_experiment']
-            fit_result = {k: v for k, v in zip(d1['element_name'], d1['map'])}
-            # tmp = {k: v for k, v in self.img_dict.items()}
-            img_dict['scan2D_{}_fit'.format(self.runid)] = fit_result
-        self.img_dict = img_dict
 
     @observe(str('file_opt'))
     def choose_file(self, change):
@@ -631,10 +667,10 @@ def read_hdf_APS(working_directory,
             try:
                 # data from channel summed
                 exp_data = np.array(data['detsum/counts'][:, :, 0:spectrum_cut])
-                logger.warning('We use spectrum range from 0 to {}'.format(spectrum_cut))
-                logger.info('Exp. data from h5 has shape of: {}'.format(exp_data.shape))
+                logger.warning(f"We use spectrum range from 0 to {spectrum_cut}")
+                logger.info(f"Exp. data from h5 has shape of: {exp_data.shape}")
 
-                fname_sum = fname+'_sum'
+                fname_sum = f"{fname}_sum"
                 DS = DataSelection(filename=fname_sum,
                                    raw_data=exp_data)
 
@@ -650,10 +686,10 @@ def read_hdf_APS(working_directory,
                 if not isinstance(n, six.string_types):
                     n = n.decode()
                 temp[n] = data['scalers/val'].value[:, :, i]
-            img_dict[fname+'_scaler'] = temp
+            img_dict[f"{fname}_scaler"] = temp
             # also dump other data from suitcase if required
             if len(dict_sc) != 0:
-                img_dict[fname+'_scaler'].update(dict_sc)
+                img_dict[f"{fname}_scaler"].update(dict_sc)
 
         if 'positions' in data:
             pos_name = data['positions/name']
@@ -674,27 +710,41 @@ def read_hdf_APS(working_directory,
         # data from each channel
         if load_each_channel:
             for i in range(1, channel_num+1):
-                det_name = 'det'+str(i)
-                file_channel = fname+'_det'+str(i)
+                det_name = f"det{i}"
+                file_channel = f"{fname}_det{i}"
                 try:
-                    exp_data_new = np.array(data[det_name+'/counts'][:, :, 0:spectrum_cut])
+                    exp_data_new = np.array(data[f"{det_name}/counts"][:, :, 0:spectrum_cut])
                     DS = DataSelection(filename=file_channel,
                                        raw_data=exp_data_new)
                     data_sets[file_channel] = DS
-                    logger.info('Data from detector channel {} is loaded.'.format(i))
+                    logger.info(f"Data from detector channel {i} is loaded.")
                 except KeyError:
-                    print('No data is loaded for {}.'.format(det_name))
+                    print(f"No data is loaded for {det_name}.")
 
-                if 'xrf_fit' in data[det_name]:
-                    try:
-                        fit_result = get_fit_data(data[det_name]['xrf_fit_name'].value,
-                                                  data[det_name]['xrf_fit'].value)
-                        img_dict.update({file_channel+'_fit': fit_result})
-                        # also include scaler data
-                        if 'scalers' in data:
-                            img_dict[file_channel+'_fit'].update(img_dict[fname+'_scaler'])
-                    except IndexError:
-                        logger.info('No fitting data is loaded for channel {}.'.format(i))
+        for i in range(1, channel_num + 1):
+            det_name = f"det{i}"
+            file_channel = f"{fname}_det{i}"
+            if 'xrf_fit' in data[det_name]:
+                try:
+                    fit_result = get_fit_data(data[det_name]['xrf_fit_name'].value,
+                                              data[det_name]['xrf_fit'].value)
+                    img_dict.update({f"{file_channel}_fit": fit_result})
+                    # also include scaler data
+                    if 'scalers' in data:
+                        img_dict[f"{file_channel}_fit"].update(img_dict[f"{fname}_scaler"])
+                except IndexError:
+                    logger.info(f"No fitting data is loaded for channel {i}.")
+
+            if 'xrf_roi' in data[det_name]:
+                try:
+                    fit_result = get_fit_data(data[det_name]['xrf_roi_name'].value,
+                                              data[det_name]['xrf_roi'].value)
+                    img_dict.update({f"{file_channel}_roi": fit_result})
+                    # also include scaler data
+                    if 'scalers' in data:
+                        img_dict[f"{file_channel}_roi"].update(img_dict[f"{fname}_scaler"])
+                except IndexError:
+                    logger.info(f"No ROI data is loaded for channel {i}.")
 
         if 'roimap' in data:
             if 'sum_name' in data['roimap']:
@@ -707,10 +757,10 @@ def read_hdf_APS(working_directory,
                         temp[n][0, 0] = temp[n][1, 0]
                     except IndexError:
                         temp[n][0, 0] = temp[n][0, 1]
-                img_dict[fname+'_roi'] = temp
+                img_dict[f"{fname}_roi"] = temp
                 # also include scaler data
                 if 'scalers' in data:
-                    img_dict[fname+'_roi'].update(img_dict[fname+'_scaler'])
+                    img_dict[f"{fname}_roi"].update(img_dict[f"{fname}_scaler"])
 
             if 'det_name' in data['roimap']:
                 det_name = data['roimap/det_name']
@@ -721,18 +771,28 @@ def read_hdf_APS(working_directory,
                         temp[n][0, 0] = temp[n][1, 0]
                     except IndexError:
                         temp[n][0, 0] = temp[n][0, 1]
-                img_dict[fname+'_roi_each'] = temp
+                img_dict[f"{fname}_roi_each"] = temp
 
         # read fitting results from summed data
         if 'xrf_fit' in data['detsum']:
             try:
                 fit_result = get_fit_data(data['detsum']['xrf_fit_name'].value,
                                           data['detsum']['xrf_fit'].value)
-                img_dict.update({fname+'_fit': fit_result})
+                img_dict.update({f"{fname}_fit": fit_result})
                 if 'scalers' in data:
-                    img_dict[fname+'_fit'].update(img_dict[fname+'_scaler'])
+                    img_dict[f"{fname}_fit"].update(img_dict[f"{fname}_scaler"])
             except (IndexError, KeyError):
                 logger.info('No fitting data is loaded for channel summed data.')
+
+        if 'xrf_roi' in data['detsum']:
+            try:
+                fit_result = get_fit_data(data['detsum']['xrf_roi_name'].value,
+                                          data['detsum']['xrf_roi'].value)
+                img_dict.update({f"{fname}_roi": fit_result})
+                if 'scalers' in data:
+                    img_dict[f"{fname}_roi"].update(img_dict[f"{fname}_scaler"])
+            except (IndexError, KeyError):
+                logger.info('No ROI data is loaded for summed data.')
 
     return img_dict, data_sets
 
@@ -749,34 +809,90 @@ def render_data_to_gui(runid):
         id number for given run
     """
 
+    spectrum_cut = 3000  # Constant: the number of spectrum points to load 3000 ~ 3 keV
+
     data_sets = OrderedDict()
     img_dict = OrderedDict()
-    fname = 'scan2D_{}'.format(runid)
 
-    data_out = fetch_data_from_db(runid)
+    data_from_db = fetch_data_from_db(runid,
+                                      # Always create unique file name by adding
+                                      #   version number
+                                      fname_add_version=True,
+                                      # Always load data from all detectors
+                                      create_each_det=True,
+                                      # Always create data file (processing results
+                                      #   are going to be saved in the file)
+                                      output_to_file=True)
 
-    # Transfer to standard format pyxrf GUI can take
-    fname_sum = fname+'_sum'
-    if 'det_sum' in data_out:
-        det_sum = data_out['det_sum']
+    if not len(data_from_db):
+        logger.warning(f"No detector data was found in Scan #{runid}")
+        return
     else:
-        det_sum = data_out['det1'] + data_out['det2'] + data_out['det3']
+        logger.info(f"Data from {len(data_from_db)} detectors were found in Scan #{runid}.")
+        if len(data_from_db) > 1:
+            logger.warning(f"Selecting only the first dataset from Scan #{runid}.")
+
+    # If the experiment contains data from multiple detectors (for example two separate
+    #   Xpress3 detectors) that need to be treated separately, only the data from the
+    #   first detector is loaded. Data from the second detector is saved to file and
+    #   can be loaded from the file. Currently this is a very rare case (only one set
+    #   of such experiments from SRX beamline exists).
+    data_out = data_from_db[0]['dataset']
+    fname = data_from_db[0]['file_name']
+    detector_name = data_from_db[0]['detector_name']
+
+    # Create file name for the 'sum' dataset ('file names' are used as dictionary
+    #   keys in data storage containers, as channel labels in plot legends,
+    #   and as channel names in data selection widgets.
+    #   Since there is currently no consistent metadata in the start documents
+    #   and/or data files, let's leave original labeling conventions for now.
+    fname_no_ext = os.path.splitext(os.path.basename(fname))[0]
+    fname_sum = fname_no_ext + '_sum'
+
+    # Determine the number of available detector channels and create the list
+    #   of channel names. The channels are named as 'det1', 'det2', 'det3' etc.
+    xrf_det_list = [nm for nm in data_out.keys() if 'det' in nm and 'sum' not in nm]
+
+    det_sum = None
+    if 'det_sum' in data_out:
+        det_sum = np.copy(data_out['det_sum'][:, :, 0:spectrum_cut])
+    else:
+        for det_name in xrf_det_list:
+            if det_sum is None:
+                det_sum = np.array(data_out[det_name][:, :, 0:spectrum_cut])
+            else:
+                det_sum += data_out[det_name][:, :, 0:spectrum_cut]
+
     DS = DataSelection(filename=fname_sum,
                        raw_data=det_sum)
-
     data_sets[fname_sum] = DS
-    logger.info('Data of detector sum is loaded.')
 
-    if 'x_pos' in data_out and 'y_pos' in data_out:
-        tmp = {}
-        for v in ['x_pos', 'y_pos']:
-            tmp[v] = data_out[v]
-        img_dict['positions'] = tmp
+    logger.info("Data loading: channel sum is loaded successfully.")
+
+    for det_name in xrf_det_list:
+        exp_data = np.array(data_out[det_name][:, :, 0:spectrum_cut])
+        fln = f"{fname_no_ext}_{det_name}"
+        DS = DataSelection(filename=fln,
+                           raw_data=exp_data)
+        data_sets[fln] = DS
+
+    logger.info("Data loading: channel data is loaded successfully.")
+
+    if ('pos_data' in data_out) and ('pos_names' in data_out):
+        if 'x_pos' in data_out['pos_names'] and 'y_pos' in data_out['pos_names']:
+            p_dict = {}
+            for v in ['x_pos', 'y_pos']:
+                ind = data_out['pos_names'].index(v)
+                p_dict[v] = data_out['pos_data'][ind, :, :]
+            img_dict['positions'] = p_dict
+            logger.info("Data loading: positions data are loaded successfully.")
+
     scaler_tmp = {}
     for i, v in enumerate(data_out['scaler_names']):
         scaler_tmp[v] = data_out['scaler_data'][:, :, i]
-    img_dict[fname+'_scaler'] = scaler_tmp
-    return img_dict, data_sets
+    img_dict[fname_no_ext+'_scaler'] = scaler_tmp
+    logger.info("Data loading: scaler data are loaded successfully.")
+    return img_dict, data_sets, fname, detector_name
 
 
 def retrieve_data_from_hdf_suitcase(fpath):

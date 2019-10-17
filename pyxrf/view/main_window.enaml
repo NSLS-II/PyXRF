@@ -121,6 +121,7 @@ enamldef XRFGui(MainWindow): main_window:
                 title = 'ROI Setting'
                 io_model = main_window.io_model
                 plot_model = main_window.plot_model
+                param_model = main_window.param_model
                 img_model_adv = main_window.img_model_adv
                 img_model_rgb = main_window.img_model_rgb
                 setting_model = main_window.setting_model
