@@ -221,7 +221,7 @@ def make_hdf(start, end=None, *, fname=None,
                 while True:
                     try:
                         # Load scan if it is available
-                        make_hdf(scan_id, completed_scans_only = True)
+                        make_hdf(scan_id, completed_scans_only=True)
                         # Process the file using the prepared parameter file
                         pyxrf_batch(scan_id, param_file_name = "some_parameter_file.json")
                         break
