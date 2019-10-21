@@ -151,15 +151,15 @@ class Fit1D(Atom):
     # Fields for updating user defined peak parameters
     add_userpeak_energy = Float(0.0)
     add_userpeak_fwhm = Float(0.0)
-    # If the following flags are True, then update
-    #   of the variables does not cause computations
-    add_userpeak_energy_noupdate = Bool(False)
-    add_userpeak_fwhm_noupdate = Bool(False)
+    # Copies of the variables that hold old value during update
+    #add_userpeak_energy_old = Float(0.0)
+    #add_userpeak_fwhm_old = Float(0.0)
     # The names for the respective parameters
     #   (used to access parameters in
     #   self.param_model.param_dict)
     name_userpeak_energy = Str()
     name_userpeak_fwhm = Str()
+    #name_userpeak_area = Str()
 
     def __init__(self, param_model, *args, **kwargs):
         self.working_directory = kwargs['working_directory']
@@ -288,6 +288,47 @@ class Fit1D(Atom):
                                                 if element.replace('-', '_') in e])
                 logger.info(f"User defined or pileup peak info: {self.elementinfo_list}")
 
+    def _compute_fwhm_base(self):
+        # Computes 'sigma' value based on default parameters and peak energy (for Userpeaks)
+        #   does not include corrections for fwhm
+        # If both peak center (energy) and fwhm is updated, energy needs to be set first,
+        #   since it is used in computation of ``fwhm_base``
+
+        v_const = 2 * np.sqrt(2 * np.log(2))
+        sigma = self.param_model.default_parameters["fwhm_offset"]["value"] / v_const
+
+        sigma_sqr = self.param_dict[self.name_userpeak_energy]["value"] + 5.0  # center
+        sigma_sqr *= self.param_model.default_parameters["non_fitting_values"]["epsilon"]  # epsilon
+        sigma_sqr *= self.param_model.default_parameters["fwhm_fanoprime"]["value"]  # fanoprime
+        sigma_sqr += sigma * sigma  # We have computed the expression under sqrt
+
+        sigma_total = np.sqrt(sigma_sqr)
+
+        return self._sigma_to_fwhm(sigma_total)
+
+    def _sigma_to_fwhm(self, sigma):
+        # Converts 'sigma' to 'fwhm'
+        v_const = 2 * np.sqrt(2 * np.log(2))
+        return sigma * v_const
+
+    def _fwhm_to_sigma(self, fwhm):
+        # Converts 'fwhm' to 'sigma'
+        v_const = 2 * np.sqrt(2 * np.log(2))
+        return fwhm / v_const
+
+    def _area_from_max(self, peak_max, peak_sigma):
+        # Returns the area of Gaussian peak for the given maximum and sigma
+        s2pi = np.sqrt(2 * np.pi)
+        return peak_max * s2pi * peak_sigma
+
+    def _max_from_area(self, peak_area, peak_sigma):
+        # Returns maximum of the area of Gaussian peak for the given peak area and sigma
+        s2pi = np.sqrt(2 * np.pi)
+        if peak_sigma == 0:
+            return 0
+        else:
+            return peak_area / s2pi / peak_sigma
+
     def select_index_by_eline_name(self, eline_name):
         # Select the element by name. If element is selected, then the ``elementinfo_list`` with
         #   names of parameters is created. Originally the element could only be selected
@@ -309,64 +350,112 @@ class Fit1D(Atom):
                 else:
                     self.name_userpeak_fwhm = ""
 
+                #names = [name for name in self.elementinfo_list if "_area" in name]
+                #if names:
+                #    self.name_userpeak_area = names[0]
+                #else:
+                #    self.name_userpeak_area = ""
+
                 if self.name_userpeak_energy and self.name_userpeak_fwhm:
                     # Userpeak always has energy of 5.0 kEv, the user can set only the offset
                     #   This is the internal representation, but we must display and let the user
                     #   enter the true value of energy
-                    #self.add_userpeak_energy_noupdate = True  # Don't run extra calculations
                     self.add_userpeak_energy = \
                         self.param_dict[self.name_userpeak_energy]["value"] + 5.0
                     # Same with FWHM for the user defined peak.
                     #   Also, sigma must be converted to FWHM: FWHM = 2.355 * sigma
-                    #self.add_userpeak_fwhm_noupdate = True  # Don't run extra calculations
                     self.add_userpeak_fwhm = \
-                        self.param_dict[self.name_userpeak_fwhm]["value"] * 2.355 + \
-                        self.param_model.default_parameters["fwhm_fanoprime"]["value"] + \
-                        self.param_model.default_parameters["fwhm_offset"]["value"]
+                        self.param_dict[self.name_userpeak_fwhm]["value"] + \
+                        self._compute_fwhm_base()
 
                     # Adjust formatting (5 digits after dot is sufficient
                     self.add_userpeak_energy = float(f"{self.add_userpeak_energy:.5f}")
                     self.add_userpeak_fwhm = float(f"{self.add_userpeak_fwhm:.5f}")
+                    # Create copies
+                    #self.add_userpeak_energy_old = self.add_userpeak_energy
+                    #self.add_userpeak_fwhm_old = self.add_userpeak_fwhm
 
         else:
             raise Exception(f"Line '{eline_name}' is not in the list of selected element lines.")
 
-    @observe('add_userpeak_energy')
-    def _update_userpeak_energy(self, change):
+    def _update_userpeak_energy(self):
 
-        if change['value'] <= 0:
-            logger.warning("User peak energy must be a positive number.")
-            return
+        # According to the accepted peak model, as energy of the peak center grows,
+        #   the peak becomes wider. The most user friendly solution is to automatically
+        #   increase FWHM as the peak moves along the energy axis to the right and
+        #   decrease otherwise. So generally, the user should first place the peak
+        #   center at the desired energy, and then adjust FWHM.
 
-        if self.add_userpeak_energy_noupdate:
-            self.add_userpeak_energy_noupdate = False
-            return
+        # We change energy, so we will have to change FWHM as well
+        #  so before updating energy we will save the difference between
+        #  the default (base) FWHM and the displayed FWHM
+        fwhm_difference = self.add_userpeak_fwhm - self._compute_fwhm_base()
 
+        # Now we change energy.
         energy = self.add_userpeak_energy - 5.0
         self.param_dict[self.name_userpeak_energy]["value"] = energy
         self.param_dict[self.name_userpeak_energy]["max"] = energy + 0.005
         self.param_dict[self.name_userpeak_energy]["min"] = energy - 0.005
 
+        # The base value is updated now (since the energy has changed)
+        fwhm_base = self._compute_fwhm_base()
+        fwhm = fwhm_difference + fwhm_base
+        # Also adjust precision, so that the new value fits the input field
+        fwhm = float(f"{fwhm:.5f}")
 
-    @observe('add_userpeak_fwhm')
-    def _update_userpeak_fwhm(self, change):
+        # Finally update the displayed 'fwhm'. It will be saved to ``param_dict`` later.
+        self.add_userpeak_fwhm = fwhm
 
-        if change['value'] <= 0:
-            logger.warning("User peak FWHM must be a positive number.")
-            return
+    def _update_userpeak_fwhm(self):
 
-        if self.add_userpeak_fwhm_noupdate:
-            self.add_userpeak_fwhm_noupdate = False
-            return
 
-        fwhm = self.param_model.default_parameters["fwhm_fanoprime"]["value"] - \
-            self.param_model.default_parameters["fwhm_offset"]["value"]
-
-        fwhm = (self.add_userpeak_fwhm - fwhm) / 2.355
+        fwhm_base = self._compute_fwhm_base()
+        fwhm = self.add_userpeak_fwhm - fwhm_base
 
         self.param_dict[self.name_userpeak_fwhm]["value"] = fwhm
         self.param_dict[self.name_userpeak_fwhm]["max"] = fwhm + 0.02
         self.param_dict[self.name_userpeak_fwhm]["min"] = fwhm - 0.02
+
+    def update_userpeak(self):
+        # Update current user peak. Called when 'Update peak' button is pressed.
+
+        # Some checks of the input values
+        if self.add_userpeak_energy <= 0:
+            logger.warning("User peak energy must be a positive number.")
+            return
+        if self.add_userpeak_fwhm <= 0:
+            logger.warning("User peak FWHM must be a positive number.")
+            return
+
+        # Find and save the value of peak maximum. Restore the maximum after FWHM is changed.
+        # Note, that ``peak_sigma`` and ``peak_area`` may change if energy changes,
+        #   but ``peak_max`` must remain the same (for better visual presentation)
+        #peak_sigma = self._fwhm_to_sigma(self.add_userpeak_fwhm_old)
+        #peak_area = self.param_dict[self.name_userpeak_area]["value"]
+        #peak_max = self._max_from_area(peak_area, peak_sigma)  # Keep this value
+
+        #print(f"Peak sigma before transformations: {peak_sigma}")
+        #print(f"Peak area before transformations: {peak_area}")
+        #print(f"Peak max (computed) before transformations: {peak_max}")
+
+        self._update_userpeak_energy()
+        self._update_userpeak_fwhm()
+
+        # Restore peak height by adjusting the area (for new fwhm)
+        #peak_sigma = self._fwhm_to_sigma(self.add_userpeak_fwhm)
+        #peak_area = self._area_from_max(peak_max, peak_sigma)
+        #self.param_dict[self.name_userpeak_area]["value"] = peak_area
+
+        #print(f"Peak sigma after transformations: {peak_sigma}")
+        #print(f"Peak area after transformations: {peak_area}")
+
+        # Create copies
+        #self.add_userpeak_energy_old = self.add_userpeak_energy
+        #self.add_userpeak_fwhm_old = self.add_userpeak_fwhm
+
+        logger.debug(f"The parameters of the user defined peak. The new values:\n"
+                     f"          Energy: {self.add_userpeak_energy} keV\n"
+                     f"          FWHM: {self.add_userpeak_fwhm} keV")
 
     def keep_size(self):
         """Keep the size of deque as 2.
