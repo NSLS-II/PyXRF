@@ -317,13 +317,6 @@ enamldef FitView(DockItem): fit_view:
                     calculate_spectrum_helper(fit_model, plot_model,
                                               param_model, setting_model)
 
-                    # Restore peak maximum value
-                    param_model.EC.element_dict[selected_eline].maxv = peak_value
-
-                    apply_to_fit(param_model, plot_model, fit_model, setting_model)
-                    calculate_spectrum_helper(fit_model, plot_model,
-                                              param_model, setting_model)
-
             GroupBox: pre_fit:
                 padding = Box(2, 2, 2, 2)
                 constraints = [vbox(scr_area_title,
