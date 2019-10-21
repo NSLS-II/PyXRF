@@ -492,7 +492,7 @@ class GuessParamModel(Atom):
         #   Calculation may fail if the selected line is not activated.
         #   The calculation is performed using ``xraylib` library, so there is no
         #   control over it.
-        if not self.e_name in data_out:
+        if self.e_name not in data_out:
             raise Exception(f"Failed to add the emission line '{self.e_name}': line is not activated.")
 
         ratio_v = self.add_element_intensity / np.max(data_out[self.e_name])
