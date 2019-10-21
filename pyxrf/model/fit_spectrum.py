@@ -329,8 +329,8 @@ class Fit1D(Atom):
         #   along the enery axis, computation of sigma must be identical here and in
         #   the function ``element_peak_xrf``
         sigma_sqr = 5.0  # center (ignore ``delta_sigma``)
-        # Correct line (but may be enabled only if the bug in scikit-beam is corrected)
-        #sigma_sqr = self.param_dict[self.name_userpeak_dcenter]["value"] + 5.0  # center
+        # The next line is correct (but may be enabled only if the bug in scikit-beam is corrected)
+        # sigma_sqr = self.param_dict[self.name_userpeak_dcenter]["value"] + 5.0  # center
 
         sigma_sqr *= self.param_model.default_parameters["non_fitting_values"]["epsilon"]  # epsilon
         sigma_sqr *= self.param_model.default_parameters["fwhm_fanoprime"]["value"]  # fanoprime
@@ -441,7 +441,6 @@ class Fit1D(Atom):
         self.add_userpeak_fwhm = fwhm
 
     def _update_userpeak_fwhm(self):
-
 
         fwhm_base = self._compute_fwhm_base()
         fwhm = self.add_userpeak_fwhm - fwhm_base
