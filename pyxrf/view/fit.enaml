@@ -179,7 +179,7 @@ enamldef FitView(DockItem): fit_view:
                 vbox(
                     hbox(eline_selection, intensity_lb, intensity_fd,
                          manual_add, manual_remove, spacer, pb_pileup),
-                    hbox(spacer, lb_userpeak_energy, fd_userpeak_energy, lb_userpeak_fwhm, fd_userpeak_fwhm),
+                    hbox(spacer, lb_userpeak_energy, fd_userpeak_energy, lb_userpeak_fwhm, fd_userpeak_fwhm, pb_userpeak_update),
                     pre_fit,
                 ),
             ]
@@ -295,16 +295,6 @@ enamldef FitView(DockItem): fit_view:
                 maximum_size = 80
                 visible << "Userpeak" in cb_select.selected_item and plot_model.allow_remove_eline_fit
                 value := fit_model.add_userpeak_energy
-                value ::
-                    calculate_spectrum_helper(fit_model, plot_model,
-                                              param_model, setting_model)
-
-                    # apply_to_fit(param_model, plot_model, fit_model, setting_model)
-
-                    #param_model.data_for_plot()
-                    #plot_model.plot_fit(param_model.prefit_x,
-                    #                    param_model.total_y,
-                    #                    param_model.auto_fit_all)
 
             Label: lb_userpeak_fwhm:
                 text = 'FWHM'
@@ -314,16 +304,25 @@ enamldef FitView(DockItem): fit_view:
                 maximum_size = 80
                 visible << "Userpeak" in cb_select.selected_item and plot_model.allow_remove_eline_fit
                 value := fit_model.add_userpeak_fwhm
-                value ::
+
+            PushButton: pb_userpeak_update:
+                text = 'Update peak'
+                visible << "Userpeak" in cb_select.selected_item and plot_model.allow_remove_eline_fit
+                clicked ::
+                    # Save peak maximum value
+                    selected_eline = cb_select.selected_item
+                    peak_value = param_model.EC.element_dict[selected_eline].maxv
+                    fit_model.update_userpeak()
+
                     calculate_spectrum_helper(fit_model, plot_model,
                                               param_model, setting_model)
 
-                    # apply_to_fit(param_model, plot_model, fit_model, setting_model)
+                    # Restore peak maximum value
+                    param_model.EC.element_dict[selected_eline].maxv = peak_value
 
-                    #param_model.data_for_plot()
-                    #plot_model.plot_fit(param_model.prefit_x,
-                    #                    param_model.total_y,
-                    #                    param_model.auto_fit_all)
+                    apply_to_fit(param_model, plot_model, fit_model, setting_model)
+                    calculate_spectrum_helper(fit_model, plot_model,
+                                              param_model, setting_model)
 
             GroupBox: pre_fit:
                 padding = Box(2, 2, 2, 2)
@@ -448,10 +447,11 @@ enamldef FitView(DockItem): fit_view:
                                     submit_triggers = ['return_pressed']
                                     value ::
                                         param_model.EC.element_dict[loop_item].maxv = value
+                                        # if loop_item == cb_select.selected_item:
+                                        #     param_model.add_element_intensity = value
                                         apply_to_fit(param_model, plot_model, fit_model, setting_model)
                                         calculate_spectrum_helper(fit_model, plot_model,
                                                                   param_model, setting_model)
-
                                 Label: lb_norm:
                                     text << set_low_bound(np.around(param_model.EC.element_dict[loop_item].norm, 2))
                                     minimum_size = (60, 20)
