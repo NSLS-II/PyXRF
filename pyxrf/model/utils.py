@@ -144,3 +144,92 @@ def normalize_data_by_scaler(data_in, scaler, *, data_name=None, name_not_scalab
 
 
 # ===============================================================================
+
+
+# ===============================================================================
+# The following functions are prepared to be eventually moved to scikit-beam
+
+def _get_2_sqrt_2_log2():
+    return 2 * np.sqrt(2 * np.log(2))
+
+
+def gaussian_sigma_to_fwhm(sigma):
+    """
+    Converts parameters of Gaussian curve: 'sigma' to 'fwhm'
+
+    Parameters
+    ----------
+
+    sigma : float
+        sigma of the Gaussian curve
+
+    Returns
+    -------
+    FWHM of the Gaussian curve
+    """
+    return sigma * _get_2_sqrt_2_log2()
+
+
+def gaussian_fwhm_to_sigma(fwhm):
+    """
+    Converts parameters of Gaussian curve: 'fwhm' to 'sigma'
+
+    Parameters
+    ----------
+
+    fwhm : float
+        Full Width at Half Maximum of the Gaussian curve
+
+    Returns
+    -------
+    sigma of the Gaussian curve
+    """
+    return fwhm / _get_2_sqrt_2_log2()
+
+
+def _get_sqrt_2_pi():
+    return np.sqrt(2 * np.pi)
+
+
+def gaussian_max_to_area(peak_max, peak_sigma):
+    """
+    Computes the area under Gaussian curve based on maximum and sigma
+
+    Parameters
+    ----------
+
+    peak_max : float
+        maximum of the Gaussian curve
+    peak_sigma : float
+        sigma of the Gaussian curve
+
+    Returns
+    -------
+    area under the Gaussian curve
+    """
+    return peak_max * peak_sigma * _get_sqrt_2_pi()
+
+
+def gaussian_area_to_max(peak_area, peak_sigma):
+    """
+    Computes the maximum of the Gaussian curve based on area
+    under the curve and sigma
+
+    Parameters
+    ----------
+
+    peak_area : float
+        maximum of the Gaussian curve
+    peak_sigma : float
+        sigma of the Gaussian curve
+
+    Returns
+    -------
+    area under the Gaussian curve
+    """
+    if peak_sigma == 0:
+        return 0
+    else:
+        return peak_area / peak_sigma / _get_sqrt_2_pi()
+
+# ==================================================================================
