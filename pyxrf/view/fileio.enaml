@@ -183,9 +183,9 @@ enamldef FileView(DockItem): file_view:
                         if checked:
                             res = question(
                                 self, "Warning",
-                                "Loading data from the database with this option enabled\n"
+                                "Loading data from the database with 'Overwrite Existing Files' option enabled\n"
                                 "may result in overwriting existing files that contain processing results.\n"
-                                "Do you want to enable this option?")
+                                "Are you sure you want to enable this option?")
                             if res.text == "No":
                                 cb_file_overwrite_existing.checked = False
 
