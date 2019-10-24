@@ -35,6 +35,9 @@ from .guessparam import (calculate_profile, fit_strategy_list,
                          update_param_from_element)
 from .fileio import save_fitdata_to_hdf, output_data, output_data_to_tiff
 
+from .utils import (gaussian_sigma_to_fwhm, gaussian_fwhm_to_sigma,
+                    gaussian_max_to_area, gaussian_area_to_max)
+
 import logging
 logger = logging.getLogger()
 
@@ -297,8 +300,7 @@ class Fit1D(Atom):
         # If both peak center (energy) and fwhm is updated, energy needs to be set first,
         #   since it is used in computation of ``fwhm_base``
 
-        v_const = 2 * np.sqrt(2 * np.log(2))
-        sigma = self.param_model.default_parameters["fwhm_offset"]["value"] / v_const
+        sigma = gaussian_fwhm_to_sigma(self.param_model.default_parameters["fwhm_offset"]["value"])
 
         # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         # The error was detected in scikit-beam, but not corrected
@@ -338,30 +340,7 @@ class Fit1D(Atom):
 
         sigma_total = np.sqrt(sigma_sqr)
 
-        return self._sigma_to_fwhm(sigma_total)
-
-    def _sigma_to_fwhm(self, sigma):
-        # Converts 'sigma' to 'fwhm'
-        v_const = 2 * np.sqrt(2 * np.log(2))
-        return sigma * v_const
-
-    def _fwhm_to_sigma(self, fwhm):
-        # Converts 'fwhm' to 'sigma'
-        v_const = 2 * np.sqrt(2 * np.log(2))
-        return fwhm / v_const
-
-    def _gaussian_max_to_area(self, peak_max, peak_sigma):
-        # Returns the area of Gaussian peak for the given maximum and sigma
-        s2pi = np.sqrt(2 * np.pi)
-        return peak_max * s2pi * peak_sigma
-
-    def _gaussian_area_to_max(self, peak_area, peak_sigma):
-        # Returns maximum of the area of Gaussian peak for the given peak area and sigma
-        s2pi = np.sqrt(2 * np.pi)
-        if peak_sigma == 0:
-            return 0
-        else:
-            return peak_area / s2pi / peak_sigma
+        return gaussian_sigma_to_fwhm(sigma_total)
 
     def select_index_by_eline_name(self, eline_name):
         # Select the element by name. If element is selected, then the ``elementinfo_list`` with
@@ -399,7 +378,7 @@ class Fit1D(Atom):
                     # Same with FWHM for the user defined peak.
                     #   Also, sigma must be converted to FWHM: FWHM = 2.355 * sigma
                     self.add_userpeak_fwhm = \
-                        self._sigma_to_fwhm(self.param_dict[self.name_userpeak_dsigma]["value"]) + \
+                        gaussian_sigma_to_fwhm(self.param_dict[self.name_userpeak_dsigma]["value"]) + \
                         self._compute_fwhm_base()
 
                     # Create copies (before rounding)
@@ -445,7 +424,7 @@ class Fit1D(Atom):
         fwhm_base = self._compute_fwhm_base()
         fwhm = self.add_userpeak_fwhm - fwhm_base
 
-        sigma = self._fwhm_to_sigma(fwhm)
+        sigma = gaussian_fwhm_to_sigma(fwhm)
 
         self.param_dict[self.name_userpeak_dsigma]["value"] = sigma
         self.param_dict[self.name_userpeak_dsigma]["max"] = sigma + 0.02
@@ -475,13 +454,13 @@ class Fit1D(Atom):
         # Find and save the value of peak maximum. Restore the maximum after FWHM is changed.
         # Note, that ``peak_sigma`` and ``peak_area`` may change if energy changes,
         #   but ``peak_max`` must remain the same (for better visual presentation)
-        peak_sigma = self._fwhm_to_sigma(self.add_userpeak_fwhm_old)
+        peak_sigma = gaussian_fwhm_to_sigma(self.add_userpeak_fwhm_old)
         peak_area = self.param_dict[self.name_userpeak_area]["value"]
-        peak_max = self._gaussian_area_to_max(peak_area, peak_sigma)  # Keep this value
+        peak_max = gaussian_area_to_max(peak_area, peak_sigma)  # Keep this value
 
         # Restore peak height by adjusting the area (for new fwhm)
-        peak_sigma = self._fwhm_to_sigma(self.add_userpeak_fwhm)
-        peak_area = self._gaussian_max_to_area(peak_max, peak_sigma)
+        peak_sigma = gaussian_fwhm_to_sigma(self.add_userpeak_fwhm)
+        peak_area = gaussian_max_to_area(peak_max, peak_sigma)
         self.param_dict[self.name_userpeak_area]["value"] = peak_area
 
         # Create copies
