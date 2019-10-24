@@ -1657,16 +1657,15 @@ def write_db_to_hdf_base(fpath, data,
     xrf_det_list.sort()
 
     file_open_mode = "a"
-    if file_overwrite_existing:
-        # Overwrite the existing file. This completely deletes all information in HDF5 file,
-        #   including processing results. The option should be used only if such behavior is
-        #   desired
-        file_open_mode = "w"
-    else:
-        # Creates unique file name or raises an exception
-        if os.path.exists(fpath):
-            if fname_add_version:
-                fpath = _get_fpath_not_existing(fpath)
+    if os.path.exists(fpath):
+        if fname_add_version:
+            # Creates unique file name
+            fpath = _get_fpath_not_existing(fpath)
+        else:
+            if file_overwrite_existing:
+                # Overwrite the existing file. This completely deletes the HDF5 file,
+                #   including all information (possibly processing results).
+                file_open_mode = "w"
             else:
                 raise IOError(f"'write_db_to_hdf_base': File '{fpath}' already exists.")
 
