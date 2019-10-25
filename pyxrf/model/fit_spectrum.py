@@ -406,9 +406,14 @@ class Fit1D(Atom):
 
         # Now we change energy.
         energy = self.add_userpeak_energy - 5.0
+
+        v_center = self.param_dict[self.name_userpeak_dcenter]["value"]
+        v_max = self.param_dict[self.name_userpeak_dcenter]["max"]
+        v_min = self.param_dict[self.name_userpeak_dcenter]["min"]
+        # Keep the possible range for value change the same
         self.param_dict[self.name_userpeak_dcenter]["value"] = energy
-        self.param_dict[self.name_userpeak_dcenter]["max"] = energy + 0.005
-        self.param_dict[self.name_userpeak_dcenter]["min"] = energy - 0.005
+        self.param_dict[self.name_userpeak_dcenter]["max"] = energy + v_max - v_center
+        self.param_dict[self.name_userpeak_dcenter]["min"] = energy - (v_center - v_min)
 
         # The base value is updated now (since the energy has changed)
         fwhm_base = self._compute_fwhm_base()
@@ -426,9 +431,13 @@ class Fit1D(Atom):
 
         sigma = gaussian_fwhm_to_sigma(fwhm)
 
+        v_center = self.param_dict[self.name_userpeak_dsigma]["value"]
+        v_max = self.param_dict[self.name_userpeak_dsigma]["max"]
+        v_min = self.param_dict[self.name_userpeak_dsigma]["min"]
+        # Keep the possible range for value change the same
         self.param_dict[self.name_userpeak_dsigma]["value"] = sigma
-        self.param_dict[self.name_userpeak_dsigma]["max"] = sigma + 0.02
-        self.param_dict[self.name_userpeak_dsigma]["min"] = sigma - 0.02
+        self.param_dict[self.name_userpeak_dsigma]["max"] = sigma + v_max - v_center
+        self.param_dict[self.name_userpeak_dsigma]["min"] = sigma - (v_center - v_min)
 
     def update_userpeak(self):
         # Update current user peak. Called when 'Update peak' button is pressed.
@@ -442,11 +451,14 @@ class Fit1D(Atom):
             return
 
         # Ensure, that the values are greater than some small value to ensure that
-        #   there is no computational problems
-        if self.add_userpeak_energy < 0.001:  # 1 eV is very small, the scale is in keV
-            self.add_userpeak_energy = 0.001
-        if self.add_userpeak_fwhm < 0.001:  # 1 eV FWHM is very small, energy axis has 10 eV step
-            self.add_userpeak_fwhm = 0.001
+        #   there is no computational problems.
+        # Energy resolution for the existing beamlines is 0.01 keV, so 0.001 is small
+        #   enough both for center energy and FWHM.
+        energy_small_value = 0.001
+        if self.add_userpeak_energy < energy_small_value:
+            self.add_userpeak_energy = energy_small_value
+        if self.add_userpeak_fwhm < energy_small_value:
+            self.add_userpeak_fwhm = energy_small_value
 
         self._update_userpeak_energy()
         self._update_userpeak_fwhm()
