@@ -147,7 +147,7 @@ def normalize_data_by_scaler(data_in, scaler, *, data_name=None, name_not_scalab
 
 
 # ===============================================================================
-# The following functions are prepared to be eventually moved to scikit-beam
+# The following functions are prepared to be moved to scikit-beam
 
 def _get_2_sqrt_2_log2():
     return 2 * np.sqrt(2 * np.log(2))
