@@ -97,11 +97,6 @@ class FileIOModel(Atom):
 
     # Scan metadata (key:value)
     scan_metadata = Dict()
-    # Names for scan metadata (key:nice-string-representation)
-    #   Names are used for printing of metadata on the screen
-    #   If name is not in the dictionary, then key name is
-    #   used as a name of the respective field.
-    scan_metadata_names = Dict()
 
     # Changing this variable sets incident energy in ``plot_model``
     #   Must be linked with the function ``plot_model.set_incident_energy``
@@ -182,6 +177,16 @@ class FileIOModel(Atom):
     def window_title_set_run_id(self, run_id):
         self.window_title = f"{self.window_title_base} - Scan ID: {run_id}"
 
+    def _gen_scan_metadata_key_descriptions(self):
+
+        descriptions = {
+            # The descriptions are not capitalized. They can be capitalized
+            #   before printing.
+            "mono_incident_energy": "incident energy"
+        }
+
+        return descriptions
+
     @observe(str('file_name'))
     def update_more_data(self, change):
         if change['value'] == 'temp':
@@ -197,9 +202,17 @@ class FileIOModel(Atom):
         logger.info('File is loaded: %s' % (self.file_name))
 
         # focus on single file only
-        self.img_dict, self.data_sets = file_handler(self.working_directory,
-                                                     self.file_name,
-                                                     load_each_channel=self.load_each_channel)
+        self.img_dict, self.data_sets, self.scan_metadata = \
+            file_handler(self.working_directory,
+                         self.file_name,
+                         load_each_channel=self.load_each_channel)
+
+        if self.scan_metadata is not None:
+            # Create descriptions (even if there is no metadata)
+            self.scan_metadata['key_descriptions'] = self._gen_scan_metadata_key_descriptions()
+            if 'values' in self.scan_metadata:
+                if 'mono_incident_energy' in self.scan_metadata['values']:
+                    self.incident_energy_set = self.scan_metadata['values']['mono_incident_energy']
 
         self.data_ready = True
 
@@ -243,6 +256,13 @@ class FileIOModel(Atom):
         img_dict, self.data_sets, fname, detector_name, scan_metadata = rv
 
         self.scan_metadata = scan_metadata
+        if self.scan_metadata is not None:
+            # Create descriptions (even if there is no metadata)
+            self.scan_metadata['key_descriptions'] = self._gen_scan_metadata_key_descriptions()
+            if 'values' in self.scan_metadata:
+                if 'mono_incident_energy' in self.scan_metadata['values']:
+                    self.incident_energy_set = self.scan_metadata['values']['mono_incident_energy']
+
 
         # Change file name without rereading the file
         self.file_name_silent_change = True
@@ -671,6 +691,11 @@ def read_hdf_APS(working_directory,
     data_sets = OrderedDict()
     img_dict = OrderedDict()
 
+    # Dictionary for metadata
+    mdata = {}
+    mdata['values'] = {}
+    mdata['key_descriptions'] = {}
+
     file_path = os.path.join(working_directory, file_name)
 
     # defined in other_list in config file
@@ -813,7 +838,7 @@ def read_hdf_APS(working_directory,
             except (IndexError, KeyError):
                 logger.info('No ROI data is loaded for summed data.')
 
-    return img_dict, data_sets
+    return img_dict, data_sets, mdata
 
 
 def render_data_to_gui(runid, *, file_overwrite_existing=False):
@@ -972,6 +997,11 @@ def read_MAPS(working_directory,
     data_sets = OrderedDict()
     img_dict = OrderedDict()
 
+    # Dictionary for metadata
+    mdata = {}
+    mdata['values'] = {}
+    mdata['key_descriptions'] = {}
+
     #  cut off bad point on the last position of the spectrum
     # bad_point_cut = 0
 
@@ -1060,7 +1090,7 @@ def read_MAPS(working_directory,
     #                               data[detID]['xrf_fit'].value)
     #     img_dict.update({fname+'_fit': fit_result})
 
-    return img_dict, data_sets
+    return img_dict, data_sets, mdata
 
 
 def get_roi_sum(namelist, data_range, data):
