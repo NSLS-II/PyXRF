@@ -16,7 +16,7 @@ import glob
 import ast
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
-from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Bool
+from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Float, Enum, Bool
 from .load_data_from_db import (db, fetch_data_from_db, flip_data,
                                 helper_encode_list, helper_decode_list,
                                 write_db_to_hdf)
@@ -94,6 +94,18 @@ class FileIOModel(Atom):
     p2_col = Int(-1)
 
     data_ready = Bool(False)
+
+    # Scan metadata (key:value)
+    scan_metadata = Dict()
+    # Names for scan metadata (key:nice-string-representation)
+    #   Names are used for printing of metadata on the screen
+    #   If name is not in the dictionary, then key name is
+    #   used as a name of the respective field.
+    scan_metadata_names = Dict()
+
+    # Changing this variable sets incident energy in ``plot_model``
+    #   Must be linked with the function ``plot_model.set_incident_energy``
+    incident_energy_set = Float(0.0)
 
     def __init__(self, **kwargs):
         self.working_directory = kwargs['working_directory']
@@ -228,7 +240,9 @@ class FileIOModel(Atom):
             logger.error(f"Data from scan #{self.runid} was not loaded")
             return
 
-        img_dict, self.data_sets, fname, detector_name = rv
+        img_dict, self.data_sets, fname, detector_name, scan_metadata = rv
+
+        self.scan_metadata = scan_metadata
 
         # Change file name without rereading the file
         self.file_name_silent_change = True
@@ -850,6 +864,7 @@ def render_data_to_gui(runid, *, file_overwrite_existing=False):
     data_out = data_from_db[0]['dataset']
     fname = data_from_db[0]['file_name']
     detector_name = data_from_db[0]['detector_name']
+    scan_metadata = data_from_db[0]['metadata']
 
     # Create file name for the 'sum' dataset ('file names' are used as dictionary
     #   keys in data storage containers, as channel labels in plot legends,
@@ -902,7 +917,7 @@ def render_data_to_gui(runid, *, file_overwrite_existing=False):
         scaler_tmp[v] = data_out['scaler_data'][:, :, i]
     img_dict[fname_no_ext+'_scaler'] = scaler_tmp
     logger.info("Data loading: scaler data are loaded successfully.")
-    return img_dict, data_sets, fname, detector_name
+    return img_dict, data_sets, fname, detector_name, scan_metadata
 
 
 def retrieve_data_from_hdf_suitcase(fpath):
