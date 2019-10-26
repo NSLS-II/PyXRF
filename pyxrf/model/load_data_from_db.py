@@ -347,6 +347,11 @@ def _is_scan_complete(hdr):
     return bool(hdr.stop)
 
 
+def _extract_metadata_from_start_document(start_document):
+
+    return {}
+
+
 def map_data2D_hxn(runid, fpath,
                    create_each_det=False,
                    fname_add_version=False,
@@ -403,6 +408,9 @@ def map_data2D_hxn(runid, fpath,
     data_output = []
 
     start_doc = hdr['start']
+    # The dictionary holding scan metadata
+    mdata = _extract_metadata_from_start_document(start_doc)
+
     if 'dimensions' in start_doc:
         datashape = start_doc.dimensions
     elif 'shape' in start_doc:
@@ -447,15 +455,14 @@ def map_data2D_hxn(runid, fpath,
     if output_to_file:
         # output to file
         print('Saving data to hdf file.')
-        fpath = write_db_to_hdf_base(fpath, data_out,
+        fpath = write_db_to_hdf_base(fpath, data_out, metadata=mdata,
                                      fname_add_version=fname_add_version,
                                      file_overwrite_existing=file_overwrite_existing,
                                      create_each_det=create_each_det)
 
     detector_name = "xpress3"
-    d_dict = {"dataset": data_out, "file_name": fpath, "detector_name": detector_name}
+    d_dict = {"dataset": data_out, "file_name": fpath, "detector_name": detector_name, "metadata": mdata}
     data_output.append(d_dict)
-
     return data_output
 
     # write_db_to_hdf(fpath, data, datashape,
@@ -553,6 +560,8 @@ def map_data2D_srx(runid, fpath,
 
     spectrum_len = 4096
     start_doc = hdr['start']
+    # The dictionary holding scan metadata
+    mdata = _extract_metadata_from_start_document(start_doc)
     plan_n = start_doc.get('plan_name')
 
     # Load configuration file
@@ -622,11 +631,12 @@ def map_data2D_srx(runid, fpath,
                     fly_type=fly_type,
                     base_val=config_data['base_value'])  # base value shift for ic
                 fpath_out = write_db_to_hdf_base(
-                    fpath_out, data_out,
+                    fpath_out, data_out, metadata=mdata,
                     fname_add_version=fname_add_version,
                     file_overwrite_existing=file_overwrite_existing,
                     create_each_det=create_each_det)
-                d_dict = {"dataset": data_out, "file_name": fpath_out, "detector_name": "xs"}
+                d_dict = {"dataset": data_out, "file_name": fpath_out,
+                          "detector_name": "xs", "metadata": mdata}
                 data_output.append(d_dict)
 
             if 'xs2' in hdr.start.detectors:
@@ -643,11 +653,12 @@ def map_data2D_srx(runid, fpath,
                     fly_type=fly_type,
                     base_val=config_data['base_value'])  # base value shift for ic
                 fpath_out = write_db_to_hdf_base(
-                    fpath_out, data_out,
+                    fpath_out, data_out, metadata=mdata,
                     fname_add_version=fname_add_version,
                     file_overwrite_existing=file_overwrite_existing,
                     create_each_det=create_each_det)
-                d_dict = {"dataset": data_out, "file_name": fpath_out, "detector_name": "xs"}
+                d_dict = {"dataset": data_out, "file_name": fpath_out,
+                          "detector_name": "xs", "metadata": mdata}
                 data_output.append(d_dict)
 
         return data_output
@@ -909,13 +920,14 @@ def map_data2D_srx(runid, fpath,
             if output_to_file:
                 # output to file
                 print(f"Saving data to hdf file #{n_detectors_found}: Detector: {detector_name}.")
-                fpath_out = write_db_to_hdf_base(fpath_out, new_data,
+                fpath_out = write_db_to_hdf_base(fpath_out, new_data, metadata=mdata,
                                                  fname_add_version=fname_add_version,
                                                  file_overwrite_existing=file_overwrite_existing,
                                                  create_each_det=create_each_det)
 
             # Preparing data for the detector ``detector_name`` for output
-            d_dict = {"dataset": new_data, "file_name": fpath_out, "detector_name": detector_name}
+            d_dict = {"dataset": new_data, "file_name": fpath_out,
+                      "detector_name": detector_name, "metadata": mdata}
             data_output.append(d_dict)
 
         print()
@@ -988,7 +1000,10 @@ def map_data2D_tes(runid, fpath,
     """
 
     hdr = db[runid]
-    # start_doc = hdr['start']
+    start_doc = hdr['start']
+
+    # The dictionary holding scan metadata
+    mdata = _extract_metadata_from_start_document(start_doc)
 
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
@@ -1108,12 +1123,13 @@ def map_data2D_tes(runid, fpath,
     if output_to_file:
         # output to file
         print(f"Saving data to hdf file #{n_detectors_found}: Detector: {detector_name}.")
-        write_db_to_hdf_base(fpath_out, new_data,
+        write_db_to_hdf_base(fpath_out, new_data, metadata=mdata,
                              fname_add_version=fname_add_version,
                              file_overwrite_existing=file_overwrite_existing,
                              create_each_det=create_each_det)
 
-    d_dict = {"dataset": new_data, "file_name": fpath_out, "detector_name": detector_name}
+    d_dict = {"dataset": new_data, "file_name": fpath_out,
+              "detector_name": detector_name, "metadata": mdata}
     data_output.append(d_dict)
 
     return data_output
@@ -1172,6 +1188,8 @@ def map_data2D_xfm(runid, fpath,
     """
     hdr = db[runid]
 
+    mdata = {}  # This dictionary will hold scan metadata
+
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
 
@@ -1180,6 +1198,8 @@ def map_data2D_xfm(runid, fpath,
 
     # spectrum_len = 4096
     start_doc = hdr['start']
+    # The dictionary holding scan metadata
+    mdata = _extract_metadata_from_start_document(start_doc)
     plan_n = start_doc.get('plan_name')
     if 'fly' not in plan_n:  # not fly scan
         datashape = start_doc['shape']   # vertical first then horizontal
@@ -1207,13 +1227,14 @@ def map_data2D_xfm(runid, fpath,
                               fly_type=fly_type)
         if output_to_file:
             print('Saving data to hdf file.')
-            write_db_to_hdf_base(fpath, data_out,
+            write_db_to_hdf_base(fpath, data_out, metadata=mdata,
                                  fname_add_version=fname_add_version,
                                  file_overwrite_existing=file_overwrite_existing,
                                  create_each_det=create_each_det)
 
         detector_name = "xs"
-        d_dict = {"dataset": data_out, "file_name": fpath, "detector_name": detector_name}
+        d_dict = {"dataset": data_out, "file_name": fpath,
+                  "detector_name": detector_name, "metadata": mdata}
         data_output.append(d_dict)
 
         return data_output
@@ -1620,7 +1641,7 @@ def _get_fpath_not_existing(fpath):
     return fpath
 
 
-def write_db_to_hdf_base(fpath, data,
+def write_db_to_hdf_base(fpath, data, *, metadata=None,
                          fname_add_version=False,
                          file_overwrite_existing=False,
                          create_each_det=True):
@@ -1651,6 +1672,9 @@ def write_db_to_hdf_base(fpath, data,
       key 'pos_names' - the list of position field names, must have entries 'x_pos' and 'y_pos'
       key 'pos_data' - 3D ndarray, 1st index matches the position in 'pos_names' list
     """
+    if metadata is None:
+        metadata = {}
+
     interpath = 'xrfmap'
     sum_data = None
     xrf_det_list = [n for n in data.keys() if 'det' in n and 'sum' not in n]
