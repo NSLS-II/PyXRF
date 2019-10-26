@@ -937,10 +937,11 @@ enamldef AutoFindElements(Window): auto_win:
                         value := param_model.param_new[loop_item]['value']
                         value ::
                             if loop_item == 'coherent_sct_energy':
-                                v = round((value + 0.8)*100.0)/100.0  # Add 0.8 to float in a reliable way
-                                plot_model.incident_energy = value  # Just copy the selected value of incident energy
-                                param_model.param_new['non_fitting_values']['energy_bound_high']['value'] = v
-                                param_model.energy_bound_high_buf = v
+                                #v = round((value + 0.8)*100.0)/100.0  # Add 0.8 to float in a reliable way
+                                io_model.incident_energy_set = value
+                                #plot_model.incident_energy = value  # Just copy the selected value of incident energy
+                                #param_model.param_new['non_fitting_values']['energy_bound_high']['value'] = v
+                                #param_model.energy_bound_high_buf = v
                         maximum_size = 160
                     PushButton: pb_value_default:
                         text = 'Default'
