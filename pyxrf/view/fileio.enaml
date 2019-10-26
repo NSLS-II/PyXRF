@@ -41,7 +41,7 @@ enamldef FileView(DockItem): file_view:
                     hbox(folder_btn, spacer),
                     hbox(folder_fd),
                     hbox(cb_each, spacer),
-                    hbox(files_btn, files_load, spacer),
+                    hbox(files_btn, files_load, spacer, view_metadata_btn),
                     #hbox(pixel_h_label, pixel_h, pixel_v_label, pixel_v, spacer),
                     #hbox(cb_runid, run_lbl, run_num, load_btn, spacer),
                     hbox(gb_db),
@@ -109,6 +109,11 @@ enamldef FileView(DockItem): file_view:
 
             Label: files_load:
                 text = 'No data is loaded.'
+
+            PushButton: view_metadata_btn:
+                text = "View Metadata"
+                clicked ::
+                    pass
 
             PushButton: mask_opt:
                 text = 'Mask Option'
