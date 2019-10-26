@@ -348,8 +348,26 @@ def _is_scan_complete(hdr):
 
 
 def _extract_metadata_from_start_document(start_document):
+    """
+    Extract metadata from start document. Metadata extracted from other document
+    in the scan are beamline specific and added to dictionary at later time.
+    """
 
-    return {}
+    mdata = {}
+
+    # This dictionary contains key-value pairs that represent parameter values
+    mdata['values'] = {}
+    # This dictionary contains key-description pairs, that represent
+    #   user-friendly description of each key, that may be used for printing.
+    #   It is not assumed that there is one-to-one match for the keys
+    #   in 'values' and 'key_description' dictionaries. The 'key_descriptions'
+    #   should contain comprehensive list of keys. It is also assumed that
+    #   some keys in 'values' dictionary may not have matching descriptions.
+    #   'key_descriptions' dictionary set at the different place in the program.
+    #   In principle the descriptions may not be set at all.
+    mdata['key_descriptions'] = {}
+
+    return mdata
 
 
 def map_data2D_hxn(runid, fpath,
