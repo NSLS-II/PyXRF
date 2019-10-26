@@ -122,6 +122,8 @@ def run():
     io_model.observe('img_dict', img_model_adv.data_dict_update)
     io_model.observe('img_dict', img_model_rgb.data_dict_update)
 
+    io_model.observe('incident_energy_set', plot_model.set_incident_energy)
+
     img_model_adv.observe('scaler_name_index', fit_model.scaler_index_update)
 
     param_model.observe('energy_bound_high_buf', fit_model.energy_bound_high_update)
