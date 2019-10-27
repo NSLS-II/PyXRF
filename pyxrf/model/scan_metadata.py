@@ -113,8 +113,10 @@ class ScanMetadataXRF(ScanMetadataBase):
             "scan_id": "scan ID",
             "scan_uid": "scan Unique ID",
             "scan_time_start": "start time",
+            "scan_time_stop": "stop time",
             "scan_instrument_id": "beamline ID",
             "scan_instrument_name": "beamline name",
+            "scan_exit_status": "exit status",
 
             "instrument_mono_incident_energy": "incident energy",
             "instrument_beam_current": "beam current",
