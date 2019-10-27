@@ -9,6 +9,7 @@ import json
 import multiprocessing
 import pandas as pd
 import math
+import time as ttime
 
 import logging
 import warnings
@@ -349,13 +350,111 @@ def _is_scan_complete(hdr):
     return bool(hdr.stop)
 
 
-def _extract_metadata_from_start_document(start_document):
+def _extract_metadata_from_start_document(hdr):
     """
-    Extract metadata from start document. Metadata extracted from other document
+    Extract metadata from start and stop document. Metadata extracted from other document
     in the scan are beamline specific and added to dictionary at later time.
     """
 
-    mdata = ScanMetadataXRF()
+    def _convert_time_to_nexus(t):
+        t = ttime.localtime(t)  # May be it should be UTC time, not local
+        # Convert to NEXUS compatible format
+        t = ttime.strftime("%Y-%m-%dT%H:%M:%S+00:00", t)
+        # May always be converted back by parsing the string:
+        #                              ttime.strptime(t, "%Y-%m-%dT%H:%M:%S+00:00")
+        return t
+
+    start_document = hdr.start
+
+    #mdata = ScanMetadataXRF()
+    mdata = {}
+
+    data_locations = {
+        "scan_id": ["scan_id"],
+        "scan_uid": ["uid"],
+        "scan_instrument_id": ["beamline_id"],
+        "scan_instrument_name": [],
+        "scan_time_start": ["time"],
+
+        "instrument_mono_incident_energy": ["beamline_status/energy"],
+        "instrument_beam_current": [],
+        "instrument_detectors": ["detectors"],
+
+        "sample_name": ["sample/name", "sample"],
+
+        "experiment_plan_name": ["plan_name"],
+        "experiment_plan_type": ["plan_type"],
+
+        "proposal_num": ["proposal/proposal_num"],
+        "proposal_title": ["proposal/proposal_title"],
+        "proposal_PI_lastname": ["proposal/PI_lastname"],
+        "proposal_saf_num": ["proposal/saf_num"],
+        "proposal_cycle": ["proposal/cycle"]
+    }
+
+    for key, locations in data_locations.items():
+        # Go to the next key if no location is defined for the current key.
+        #   No locations means that the data is not yet defined in start document on any beamline
+        #   Multiple locations point to locations at different beamlines
+        if not locations:
+            continue
+
+        # For each metadata key there could be none, one or multiple locations in the start document
+        for loc in locations:
+            path = loc.split('/')  #
+            ref = start_document
+            for n, p in enumerate(path):
+                if n >= len(path) - 1:
+                    break
+                # 'ref' must always point to dictionary
+                if not isinstance(ref, dict):
+                    ref = None
+                    break
+                if p in ref:
+                    ref = ref[p]
+                else:
+                    ref = None
+                    break
+            # At this point 'ref' must be a dictionary
+            value = None
+            if ref is not None and isinstance(ref, dict):
+                if path[-1] in ref:
+                    value = ref[path[-1]]
+            # Now we finally arrived to the end of the path: the 'value' must be a scalar or a list
+            if value is not None and not isinstance(value, dict):
+                #if isinstance(value, list) or isinstance(value, tuple):
+                #    value = f"{value}"  # Print the list
+                if path[-1] == 'time':
+                    value = _convert_time_to_nexus(value)
+                mdata[key] = value
+                break
+
+    stop_document = hdr.stop
+
+    if stop_document:
+
+        if "time" in stop_document:
+            mdata["scan_time_stop"] = _convert_time_to_nexus(stop_document["time"])
+
+        if "exit_status" in stop_document:
+            mdata["scan exist_status"] = stop_document["exit_status"]
+
+    else:
+
+        mdata["scan_exit_status"] = "incomplete"
+
+    # Add full beamline name (if available, otherwise don't create the entry).
+    #   Also, don't overwrite the existing name if it was read from the start document
+    if "scan_instrument_id" in mdata and "scan_instrument_name" not in mdata:
+        instruments = {
+            "srx": "Submicron Resolution X-ray Spectroscopy",
+            "hxn": "Hard X-ray Nanoprobe",
+            "tes": "Tender Energy X-ray Absorption Spectroscopy",
+            "xfm": "X-ray Fluorescence Microprobe"
+        }
+        iname = instruments.get(mdata["scan_instrument_id"].lower(), "")
+        if iname:
+            mdata["scan_instrument_name"] = iname
 
     return mdata
 
@@ -417,7 +516,7 @@ def map_data2D_hxn(runid, fpath,
 
     start_doc = hdr['start']
     # The dictionary holding scan metadata
-    mdata = _extract_metadata_from_start_document(start_doc)
+    mdata = _extract_metadata_from_start_document(hdr)
 
     if 'dimensions' in start_doc:
         datashape = start_doc.dimensions
@@ -569,7 +668,7 @@ def map_data2D_srx(runid, fpath,
     spectrum_len = 4096
     start_doc = hdr['start']
     # The dictionary holding scan metadata
-    mdata = _extract_metadata_from_start_document(start_doc)
+    mdata = _extract_metadata_from_start_document(hdr)
     plan_n = start_doc.get('plan_name')
 
     # Load configuration file
@@ -1011,7 +1110,7 @@ def map_data2D_tes(runid, fpath,
     start_doc = hdr['start']
 
     # The dictionary holding scan metadata
-    mdata = _extract_metadata_from_start_document(start_doc)
+    mdata = _extract_metadata_from_start_document(hdr)
 
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
@@ -1207,7 +1306,7 @@ def map_data2D_xfm(runid, fpath,
     # spectrum_len = 4096
     start_doc = hdr['start']
     # The dictionary holding scan metadata
-    mdata = _extract_metadata_from_start_document(start_doc)
+    mdata = _extract_metadata_from_start_document(hdr)
     plan_n = start_doc.get('plan_name')
     if 'fly' not in plan_n:  # not fly scan
         datashape = start_doc['shape']   # vertical first then horizontal
