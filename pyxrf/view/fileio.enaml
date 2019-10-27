@@ -10,7 +10,7 @@ from enaml.layout.geometry import Box
 from enaml.stdlib.fields import FloatField
 from enaml.stdlib.fields import IntField as DefaultIntField
 from enaml.stdlib.dialog_buttons import DialogButton
-from enaml.stdlib.message_box import critical, question
+from enaml.stdlib.message_box import critical, warning, question, information
 import os
 import numpy as np
 from ..model.fileio import sep_v
@@ -107,13 +107,20 @@ enamldef FileView(DockItem): file_view:
                             # Change window title (include file name)
                             io_model.window_title_set_file_name(f_name)
 
+                            if not io_model.is_incident_energy_in_metadata():
+                                warning(self, "Warning",
+                                    "Incident energy is not available in scan metadata and must be set manually:\n\n"
+                                    "    click 'Find Elements Automatically' button in 'Fit' tab\n"
+                                    "        and change 'Incident E [keV]' parameter in the dialog box.")
+
             Label: files_load:
                 text = 'No data is loaded.'
 
             PushButton: view_metadata_btn:
                 text = "View Metadata"
+                enabled << io_model.scan_metadata_available
                 clicked ::
-                    pass
+                    information(self, "Scan Metadata", "Scan metadata\n             is printed here")
 
             PushButton: mask_opt:
                 text = 'Mask Option'
