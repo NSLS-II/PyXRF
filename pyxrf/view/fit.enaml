@@ -906,7 +906,7 @@ enamldef OutputSetup(Window): output_win:
 enamldef AutoFindElements(Window): auto_win:
     attr parameter_model
     attr plot_model
-    title = 'Automatic Element Finding'
+    title = 'Automated Element Search Parameters'
     destroy_on_close = False
 
     Container:
