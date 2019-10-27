@@ -97,6 +97,9 @@ class FileIOModel(Atom):
 
     # Scan metadata (key:value)
     scan_metadata = Dict()
+    # True: metadata is available, used to activate respective controls
+    #   which should be inactive if metadata do not exist
+    scan_metadata_available = Bool(False)
 
     # Changing this variable sets incident energy in ``plot_model``
     #   Must be linked with the function ``plot_model.set_incident_energy``
@@ -187,6 +190,54 @@ class FileIOModel(Atom):
 
         return descriptions
 
+    def _metadata_update_program_state(self):
+        """
+        Update program state based on metadata:
+
+        -- enable controls (mostly ``View Metadata`` button in ``File IO`` tab
+
+        -- set incident energy if it is available
+
+        -- print logger warning if incident energy is not available in metadata
+        (or if metadata does not exist)
+        """
+
+        self.scan_metadata_available = False
+        incident_energy_exists = False
+        if self.scan_metadata is not None:
+            # Create descriptions (even if there is no metadata)
+            self.scan_metadata['key_descriptions'] = self._gen_scan_metadata_key_descriptions()
+            if 'values' in self.scan_metadata:
+                # Check if there is any metadata and enable GUI controls if needed
+                if len(self.scan_metadata['values']):
+                  self.scan_metadata_available = True  # Enable controls
+
+                if 'mono_incident_energy' in self.scan_metadata['values']:
+                    self.incident_energy_set = self.scan_metadata['values']['mono_incident_energy']
+                    incident_energy_exists = True
+
+        logger.warning(f"Incident energy is not available in scan metadata and needs to be set manually: "
+                       f"click 'Find Elements Automatically' button in 'Fit' "
+                       f"tab to access the settings dialog box.")
+
+    def is_incident_energy_in_metadata(self):
+        """
+        Check if metadata for currently loaded scan contain incident energy value.
+        This value is important for analysis of XRF images.
+
+        Returns
+        -------
+
+        True: incident energy information exists in metadata
+
+        False: there is no incident energy information and incident energy
+        needs to be entered manually
+        """
+        if (self.scan_metadata is not None) and ('values' in self.scan_metadata) and \
+                ('mono_incident_energy' in self.scan_metadata['values']):
+            return True
+        return False
+
     @observe(str('file_name'))
     def update_more_data(self, change):
         if change['value'] == 'temp':
@@ -207,12 +258,8 @@ class FileIOModel(Atom):
                          self.file_name,
                          load_each_channel=self.load_each_channel)
 
-        if self.scan_metadata is not None:
-            # Create descriptions (even if there is no metadata)
-            self.scan_metadata['key_descriptions'] = self._gen_scan_metadata_key_descriptions()
-            if 'values' in self.scan_metadata:
-                if 'mono_incident_energy' in self.scan_metadata['values']:
-                    self.incident_energy_set = self.scan_metadata['values']['mono_incident_energy']
+        # Process metadata
+        self._metadata_update_program_state()
 
         self.data_ready = True
 
@@ -256,13 +303,8 @@ class FileIOModel(Atom):
         img_dict, self.data_sets, fname, detector_name, scan_metadata = rv
 
         self.scan_metadata = scan_metadata
-        if self.scan_metadata is not None:
-            # Create descriptions (even if there is no metadata)
-            self.scan_metadata['key_descriptions'] = self._gen_scan_metadata_key_descriptions()
-            if 'values' in self.scan_metadata:
-                if 'mono_incident_energy' in self.scan_metadata['values']:
-                    self.incident_energy_set = self.scan_metadata['values']['mono_incident_energy']
-
+        # Process metadata
+        self._metadata_update_program_state()
 
         # Change file name without rereading the file
         self.file_name_silent_change = True
