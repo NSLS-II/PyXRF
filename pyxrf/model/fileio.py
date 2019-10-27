@@ -20,6 +20,7 @@ from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Float, Enum, Bo
 from .load_data_from_db import (db, fetch_data_from_db, flip_data,
                                 helper_encode_list, helper_decode_list,
                                 write_db_to_hdf)
+from .scan_metadata import ScanMetadataXRF
 import requests
 from distutils.version import LooseVersion
 
@@ -95,14 +96,17 @@ class FileIOModel(Atom):
 
     data_ready = Bool(False)
 
-    # Scan metadata (key:value)
-    scan_metadata = Dict()
-    # True: metadata is available, used to activate respective controls
-    #   which should be inactive if metadata do not exist
+    # Scan metadata
+    scan_metadata = Typed(ScanMetadataXRF)
+    # Indicates if metadata is available for recently loaded scan
     scan_metadata_available = Bool(False)
+    # Indicates if the incident energy is available in metadata for recently loaded scan
+    incident_energy_available = Bool(False)
 
-    # Changing this variable sets incident energy in ``plot_model``
+    # Changing this variable sets incident energy in the ``plot_model``
     #   Must be linked with the function ``plot_model.set_incident_energy``
+    # This value is not updated if incident energy parameter is changed somewhere else, therefore
+    #   its value should not be used for computations!!!
     incident_energy_set = Float(0.0)
 
     def __init__(self, **kwargs):
@@ -180,53 +184,6 @@ class FileIOModel(Atom):
     def window_title_set_run_id(self, run_id):
         self.window_title = f"{self.window_title_base} - Scan ID: {run_id}"
 
-    def _gen_scan_metadata_key_descriptions(self):
-
-        descriptions = {
-            # The descriptions are not capitalized. They can be capitalized
-            #   before printing.
-            "scan_id": "scan ID",
-            "scan_uid": "scan Unique ID",
-            "scan_time_start": "start time",
-            "scan_instrument_id": "beamline ID",
-            "scan_instrument_name": "beamline name",
-
-            "instrument_mono_incident_energy": "incident energy",
-            "instrument_beam_current": "beam current",
-            "instrument_detectors": "detectors",
-
-            "sample_name": "sample name",
-
-            "experiment_plan_name": "plan name",
-            "experiment_plan_type": "plan type",
-
-            "proposal_num": "proposal #",
-            "proposal_title": "proposal title",
-            "proposal_PI_lastname": "PI last name",
-            "proposal_saf_num": "proposal SAF #",
-            "proposal_cycle": "cycle"
-        }
-
-        return descriptions
-
-    def _gen_scan_metadata_printing_order(self):
-        """
-        Generates a list of strings, used to determine printing order of metadata
-        The strings in the list are treated as regex strings:
-        the symbols ^ and $ are added at the beginning and the end of each string.
-        Empty string "" means that the empty string is inserted in the printout.
-        The metadata entries are never repeated in the printout, so in each group
-        the patterns are specified from more specific to more general.
-        """
-
-        printing_order = ["scan_id", "scan_uid", "scan_instrument_name",
-                          "scan_instrument_id", "scan_time_start",
-                          "", "sample_name", "sample.*",
-                          "", "proposal_num", "proposal_title", "proposal.*",
-                          "", "experiment.*",
-                          "", "instrument.*"]
-        return printing_order
-
     def _metadata_update_program_state(self):
         """
         Update program state based on metadata:
@@ -240,44 +197,20 @@ class FileIOModel(Atom):
         """
 
         self.scan_metadata_available = False
-        incident_energy_exists = False
+        self.incident_energy_available = False
         if self.scan_metadata is not None:
-            # Create descriptions (even if there is no metadata)
-            self.scan_metadata['key_descriptions'] = self._gen_scan_metadata_key_descriptions()
-            if 'values' in self.scan_metadata:
-                # Check if there is any metadata and enable GUI controls if needed
-                if len(self.scan_metadata['values']):
-                  self.scan_metadata_available = True  # Enable controls
+            self.scan_metadata_available = self.scan_metadata.is_metadata_available()
+            self.incident_energy_available = self.scan_metadata.is_mono_incident_energy_available()
 
-                if 'instrument_mono_incident_energy' in self.scan_metadata['values']:
-                    self.incident_energy_set = self.scan_metadata['values']['instrument_mono_incident_energy']
-                    incident_energy_exists = True
-
-        if incident_energy_exists:
+        if self.incident_energy_available:
+            # Fetch incident energy from metadata if it exists
+            self.incident_energy_set = self.scan_metadata.get_mono_incident_energy()
             logger.info(f"Incident energy {self.incident_energy_set} keV was extracted from the scan metadata")
         else:
             logger.warning(
                 "Incident energy is not available in scan metadata and needs to be set manually: "
                 "click 'Find Elements Automatically' button in 'Fit' "
                 "tab to access the settings dialog box.")
-
-    def is_incident_energy_in_metadata(self):
-        """
-        Check if metadata for currently loaded scan contain incident energy value.
-        This value is important for analysis of XRF images.
-
-        Returns
-        -------
-
-        True: incident energy information exists in metadata
-
-        False: there is no incident energy information and incident energy
-        needs to be entered manually
-        """
-        if (self.scan_metadata is not None) and ('values' in self.scan_metadata) and \
-                ('instrument_mono_incident_energy' in self.scan_metadata['values']):
-            return True
-        return False
 
     @observe(str('file_name'))
     def update_more_data(self, change):
@@ -774,10 +707,8 @@ def read_hdf_APS(working_directory,
     data_sets = OrderedDict()
     img_dict = OrderedDict()
 
-    # Dictionary for metadata
-    mdata = {}
-    mdata['values'] = {}
-    mdata['key_descriptions'] = {}
+    # Empty container for metadata
+    mdata = ScanMetadataXRF()
 
     file_path = os.path.join(working_directory, file_name)
 
@@ -1080,10 +1011,8 @@ def read_MAPS(working_directory,
     data_sets = OrderedDict()
     img_dict = OrderedDict()
 
-    # Dictionary for metadata
-    mdata = {}
-    mdata['values'] = {}
-    mdata['key_descriptions'] = {}
+    # Empty container for metadata
+    mdata = ScanMetadataXRF()
 
     #  cut off bad point on the last position of the spectrum
     # bad_point_cut = 0
