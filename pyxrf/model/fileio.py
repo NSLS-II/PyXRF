@@ -185,10 +185,47 @@ class FileIOModel(Atom):
         descriptions = {
             # The descriptions are not capitalized. They can be capitalized
             #   before printing.
-            "mono_incident_energy": "incident energy"
+            "scan_id": "scan ID",
+            "scan_uid": "scan Unique ID",
+            "scan_time_start": "start time",
+            "scan_instrument_id": "beamline ID",
+            "scan_instrument_name": "beamline name",
+
+            "instrument_mono_incident_energy": "incident energy",
+            "instrument_beam_current": "beam current",
+            "instrument_detectors": "detectors",
+
+            "sample_name": "sample name",
+
+            "experiment_plan_name": "plan name",
+            "experiment_plan_type": "plan type",
+
+            "proposal_num": "proposal #",
+            "proposal_title": "proposal title",
+            "proposal_PI_lastname": "PI last name",
+            "proposal_saf_num": "proposal SAF #",
+            "proposal_cycle": "cycle"
         }
 
         return descriptions
+
+    def _gen_scan_metadata_printing_order(self):
+        """
+        Generates a list of strings, used to determine printing order of metadata
+        The strings in the list are treated as regex strings:
+        the symbols ^ and $ are added at the beginning and the end of each string.
+        Empty string "" means that the empty string is inserted in the printout.
+        The metadata entries are never repeated in the printout, so in each group
+        the patterns are specified from more specific to more general.
+        """
+
+        printing_order = ["scan_id", "scan_uid", "scan_instrument_name",
+                          "scan_instrument_id", "scan_time_start",
+                          "", "sample_name", "sample.*",
+                          "", "proposal_num", "proposal_title", "proposal.*",
+                          "", "experiment.*",
+                          "", "instrument.*"]
+        return printing_order
 
     def _metadata_update_program_state(self):
         """
@@ -212,13 +249,17 @@ class FileIOModel(Atom):
                 if len(self.scan_metadata['values']):
                   self.scan_metadata_available = True  # Enable controls
 
-                if 'mono_incident_energy' in self.scan_metadata['values']:
-                    self.incident_energy_set = self.scan_metadata['values']['mono_incident_energy']
+                if 'instrument_mono_incident_energy' in self.scan_metadata['values']:
+                    self.incident_energy_set = self.scan_metadata['values']['instrument_mono_incident_energy']
                     incident_energy_exists = True
 
-        logger.warning(f"Incident energy is not available in scan metadata and needs to be set manually: "
-                       f"click 'Find Elements Automatically' button in 'Fit' "
-                       f"tab to access the settings dialog box.")
+        if incident_energy_exists:
+            logger.info(f"Incident energy {self.incident_energy_set} keV was extracted from the scan metadata")
+        else:
+            logger.warning(
+                "Incident energy is not available in scan metadata and needs to be set manually: "
+                "click 'Find Elements Automatically' button in 'Fit' "
+                "tab to access the settings dialog box.")
 
     def is_incident_energy_in_metadata(self):
         """
@@ -234,7 +275,7 @@ class FileIOModel(Atom):
         needs to be entered manually
         """
         if (self.scan_metadata is not None) and ('values' in self.scan_metadata) and \
-                ('mono_incident_energy' in self.scan_metadata['values']):
+                ('instrument_mono_incident_energy' in self.scan_metadata['values']):
             return True
         return False
 
