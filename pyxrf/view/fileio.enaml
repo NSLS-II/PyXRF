@@ -107,11 +107,12 @@ enamldef FileView(DockItem): file_view:
                             # Change window title (include file name)
                             io_model.window_title_set_file_name(f_name)
 
-                            if not io_model.is_incident_energy_in_metadata():
+                            if not io_model.incident_energy_available:
                                 warning(self, "Warning",
-                                    "Incident energy is not available in scan metadata and must be set manually:\n\n"
-                                    "    click 'Find Elements Automatically' button in 'Fit' tab\n"
-                                    "        and change 'Incident E [keV]' parameter in the dialog box.")
+                                    "Incident energy is not available in scan metadata and must be set manually\n\n"
+                                    "    Incident energy may be set by changing 'Incident E [keV]' parameter\n"
+                                    "    in 'Automated Element Search Parameters' dialog box, which is accessed\n"
+                                    "    by using 'Find Elements Automatically' button in 'Fit' tab.\n")
 
             Label: files_load:
                 text = 'No data is loaded.'
@@ -120,7 +121,9 @@ enamldef FileView(DockItem): file_view:
                 text = "View Metadata"
                 enabled << io_model.scan_metadata_available
                 clicked ::
-                    information(self, "Scan Metadata", "Scan metadata\n             is printed here")
+                    metadata_string = "SCAN METADATA\n\n"
+                    metadata_string += io_model.scan_metadata.get_formatted_output()
+                    information(self, "Scan Metadata", metadata_string)
 
             PushButton: mask_opt:
                 text = 'Mask Option'
