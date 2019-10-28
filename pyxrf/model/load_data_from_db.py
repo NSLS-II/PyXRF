@@ -522,6 +522,15 @@ def map_data2D_hxn(runid, fpath,
     start_doc = hdr['start']
     # The dictionary holding scan metadata
     mdata = _extract_metadata_from_start_document(hdr)
+    # Some metadata is located at specific places in the descriptor documents
+    # Search through the descriptor documents for the metadata
+    v = _get_data_from_descriptor_document(hdr, data_key="beamline_status_beam_current",
+                                           stream_name="baseline")
+    # Incident energy in the descriptor document is expected to be more accurate, so
+    #   overwrite the value if it already exists
+    if v is not None:
+        mdata["instrument_beam_current"] = v
+
 
     if 'dimensions' in start_doc:
         datashape = start_doc.dimensions
@@ -1055,6 +1064,23 @@ def map_data2D_srx(runid, fpath,
 
         return data_output
 
+def _get_data_from_descriptor_document(hdr, *, data_key, stream_name='baseline'):
+
+    # Returns None if the parameter is not found
+
+    value = None
+    docs = hdr.documents(stream_name=stream_name)
+    for doc in docs:
+        if doc[0] != "event":
+            continue
+        if doc[1] != "descriptor":
+            continue
+        try:
+            value = doc[2][1]['data'][data_key]
+            break  # Don't go through the rest of the documents
+        except:
+            pass
+
 
 def map_data2D_tes(runid, fpath,
                    create_each_det=False,
@@ -1116,6 +1142,13 @@ def map_data2D_tes(runid, fpath,
 
     # The dictionary holding scan metadata
     mdata = _extract_metadata_from_start_document(hdr)
+    # Some metadata is located at specific places in the descriptor documents
+    # Search through the descriptor documents for the metadata
+    v = _get_data_from_descriptor_document(hdr, data_key="mono_energy", stream_name="baseline")
+    # Incident energy in the descriptor document is expected to be more accurate, so
+    #   overwrite the value if it already exists
+    if v is not None:
+        mdata["instrument_mono_incident_energy"] = v
 
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
