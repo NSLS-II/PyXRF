@@ -719,6 +719,17 @@ def read_hdf_APS(working_directory,
         dict_sc = {}
 
     with h5py.File(file_path, 'r+') as f:
+
+        # Retrieve metadata if it exists
+        if "xrfmap/scan_metadata" in f:
+            metadata = f["xrfmap/scan_metadata"]
+            for key, value in metadata.attrs:
+                # If data is recorded as ``ndarray``, then convert it to list.
+                #   Typically this would be the list of strings.
+                if isinstance(value, np.ndarray):
+                    value = list(value)
+                mdata[key] = value
+
         data = f['xrfmap']
         fname = file_name.split('.')[0]
         if load_summed_data is True:
