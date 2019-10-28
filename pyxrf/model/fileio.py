@@ -21,6 +21,7 @@ from .load_data_from_db import (db, fetch_data_from_db, flip_data,
                                 helper_encode_list, helper_decode_list,
                                 write_db_to_hdf)
 from .scan_metadata import ScanMetadataXRF
+from .utils import convert_string_to_list
 import requests
 from distutils.version import LooseVersion
 
@@ -724,26 +725,11 @@ def read_hdf_APS(working_directory,
         if "xrfmap/scan_metadata" in f:
             metadata = f["xrfmap/scan_metadata"]
             for key, value in metadata.attrs.items():
-                # If data is recorded as ``ndarray``, then convert it to list.
-                #   Typically this would be the list of strings.
                 if isinstance(value, str) and value and value[0] == "[" and value[-1] == "]":
-                    # The value represents a list, so the list must be retrieved
-                    value = value.strip("[]").split(", ")
-                    for n, v in enumerate(value.copy()):
-                        if v and v[0] == "'" and v[-1] == "'":
-                            # The list element is a string, so remove single quotes
-                            value[n] = v.strip("'")
-                        else:
-                            try:
-                                # Try converting to int
-                                value[n] = int(v)
-                            except:
-                                try:
-                                    # Try converting to float
-                                    value[n] = float(v)
-                                except:
-                                    pass
-                            # If everything fails, then leave as is
+                    value = convert_string_to_list(value)
+                # Newer version of n5py (above 2.9.0) allow using ndarrays as attribute values
+                #   Convert ndarrays to lists (those are typically very small ndarrays, so
+                #   there will be no performance issues).
                 if isinstance(value, np.ndarray):
                     value = list(value)
                 mdata[key] = value
