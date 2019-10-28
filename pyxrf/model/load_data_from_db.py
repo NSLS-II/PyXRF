@@ -442,7 +442,7 @@ def _extract_metadata_from_start_document(hdr):
             mdata["scan_time_stop"] = _convert_time_to_nexus(stop_document["time"])
 
         if "exit_status" in stop_document:
-            mdata["scan exist_status"] = stop_document["exit_status"]
+            mdata["scan_exit_status"] = stop_document["exit_status"]
 
     else:
 
@@ -1809,8 +1809,8 @@ def write_db_to_hdf_base(fpath, data, *, metadata=None,
         metadataGrp = f.create_group(f"{interpath}/scan_metadata")
         # This group of attributes are always created. It doesn't matter if metadata
         #   is provided to the function.
-        metadataGrp.attrs["file_type"] = "xrf_imaging"
-        metadataGrp.attrs["file_format"] = "NSLS2 XRF imaging"
+        metadataGrp.attrs["file_type"] = "XRF-MAP"
+        metadataGrp.attrs["file_format"] = "NSLS2-XRF-MAP"
         metadataGrp.attrs["file_format_version"] = "1.0"
         metadataGrp.attrs["file_software"] =  "PyXRF"
         metadataGrp.attrs["file_software_version"] = pyxrf_version
