@@ -723,13 +723,13 @@ def read_hdf_APS(working_directory,
         # Retrieve metadata if it exists
         if "xrfmap/scan_metadata" in f:
             metadata = f["xrfmap/scan_metadata"]
-            for key, value in metadata.attrs:
+            for key, value in metadata.attrs.items():
                 # If data is recorded as ``ndarray``, then convert it to list.
                 #   Typically this would be the list of strings.
                 if isinstance(value, str) and value and value[0] == "[" and value[-1] == "]":
                     # The value represents a list, so the list must be retrieved
                     value = value.strip("[]").split(", ")
-                    for n, v in enumerate(value.copy())
+                    for n, v in enumerate(value.copy()):
                         if v and v[0] == "'" and v[-1] == "'":
                             # The list element is a string, so remove single quotes
                             value[n] = v.strip("'")
@@ -741,7 +741,8 @@ def read_hdf_APS(working_directory,
                                 try:
                                     # Try converting to float
                                     value[n] = float(v)
-                                pass
+                                except:
+                                    pass
                             # If everything fails, then leave as is
                 if isinstance(value, np.ndarray):
                     value = list(value)
