@@ -60,6 +60,9 @@ class ScanMetadataBase:
     def values(self):
         return self._values.values()
 
+    def items(self):
+        return self._values.items()
+
     def get_metadata_dictionary(self):
         """
         Returns reference to metadata dictionary ``self._values``
@@ -142,7 +145,8 @@ class ScanMetadataXRF(ScanMetadataBase):
         the patterns are specified from more specific to more general.
         """
         print_order = ["scan_id", "scan_uid", "scan_instrument_name",
-                       "scan_instrument_id", "scan_time_start", "scan.*"
+                       "scan_instrument_id", "scan_time_start",
+                       "scan_time_stop", "scan.*"
                        "", "sample_name", "sample.*",
                        "", "proposal_num", "proposal_title", "proposal.*",
                        "", "experiment.*",
@@ -165,7 +169,7 @@ class ScanMetadataXRF(ScanMetadataBase):
             "scan_exit_status": "exit status",
 
             "instrument_mono_incident_energy": "incident energy",
-            "": "beam current",
+            "instrument_beam_current": "beam current",
             "instrument_detectors": "detectors",
 
             "sample_name": "sample name",
