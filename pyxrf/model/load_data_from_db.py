@@ -14,6 +14,9 @@ import time as ttime
 import logging
 import warnings
 
+import pyxrf
+pyxrf_version = pyxrf.__version__
+
 from .scan_metadata import ScanMetadataXRF
 
 logger = logging.getLogger()
@@ -1801,6 +1804,26 @@ def write_db_to_hdf_base(fpath, data, *, metadata=None,
                 raise IOError(f"'write_db_to_hdf_base': File '{fpath}' already exists.")
 
     with h5py.File(fpath, file_open_mode) as f:
+
+        # Create metadata group
+        metadataGrp = f.create_group(f"{interpath}/scan_metadata")
+        # This group of attributes are always created. It doesn't matter if metadata
+        #   is provided to the function.
+        metadataGrp.attrs["file_type"] = "xrf_imaging"
+        metadataGrp.attrs["file_format"] = "NSLS2 XRF imaging"
+        metadataGrp.attrs["file_format_version"] = "1.0"
+        metadataGrp.attrs["file_software"] =  "PyXRF"
+        metadataGrp.attrs["file_software_version"] = pyxrf_version
+        # Present time in NEXUS format (should it be UTC time)?
+        metadataGrp.attrs["file_created_time"] = ttime.strftime("%Y-%m-%dT%H:%M:%S+00:00", ttime.localtime())
+
+        # Now save the rest of the scan metadata if metadata is provided
+        if metadata:
+            # We assume, that metadata does not contain repeated keys. Otherwise the
+            #   entry with the last occurrence of the key will override the previous ones.
+            for key, value in metadata.items():
+                metadataGrp.attrs[key] = value
+
         if create_each_det is True:
             for detname in xrf_det_list:
                 new_data = data[detname]
