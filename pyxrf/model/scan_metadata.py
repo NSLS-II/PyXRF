@@ -165,7 +165,7 @@ class ScanMetadataXRF(ScanMetadataBase):
             "scan_exit_status": "exit status",
 
             "instrument_mono_incident_energy": "incident energy",
-            "instrument_beam_current": "beam current",
+            "": "beam current",
             "instrument_detectors": "detectors",
 
             "sample_name": "sample name",
