@@ -1,3 +1,4 @@
+import re
 
 class ScanMetadataBase:
     """
@@ -79,10 +80,52 @@ class ScanMetadataBase:
         list. Key names are replaced by descriptions from ``self.descriptions`` if
         the available.
         """
-        str = ""
-        for key, value in self._values.items():
-            str += f"{key}: {value}\n"
-        return str
+        str_out = ""
+
+        printed_keys = set()
+        flag_empty_line = False  # Indicates if empty line was just printed
+
+        for ptn in self._gen_default_print_order():
+            # We don't want to print multiple empty lines in a row
+            if ptn == "" and not flag_empty_line:
+                str_out += "\n"
+                flag_empty_line = True
+                continue
+
+            for key, v in self._values.items():
+                if re.search(f"^{ptn}$", key) and (key not in printed_keys):
+                    flag_empty_line = False  # Something is getting printed
+                    # Mark the entry as printed
+                    printed_keys.add(key)
+                    # Extracted printable expression for the key
+                    s_key = key
+                    if key in self.descriptions and self.descriptions[key]:
+                        s_key = self.descriptions[key]
+                        # Capitalize the first letter
+                        s_key = s_key[:1].upper() + s_key[1:]
+
+                    val = v
+
+                    # If the value is a string and it is too long, then add line breaks
+                    #   so that it fits the width of a normal sized window
+                    if isinstance(val, str):
+                        # Now check if 'v' is too long and insert line breaks if needed
+                        n_max = 60  # Maximum number of symbols in the line
+                        n_gap = len(s_key) + 2  # Size of the left margin
+                        s_insert = "\n" + " " * n_gap  # New line and spaces to form a paragraph
+
+                        nc = n_max
+                        while True:
+                            n = val.find(' ', nc)
+                            if n < 0:  # n is -1 if nc > len(val).
+                                break  # Exit here if the line is too short as well
+                            val = val[:n] + s_insert + val[n+1:]
+                            nc += n_max + len(s_insert)
+
+                    # Print the key
+                    str_out += f"{s_key}: {val}\n"
+
+        return str_out
 
 class ScanMetadataXRF(ScanMetadataBase):
 
@@ -99,11 +142,14 @@ class ScanMetadataXRF(ScanMetadataBase):
         the patterns are specified from more specific to more general.
         """
         print_order = ["scan_id", "scan_uid", "scan_instrument_name",
-                          "scan_instrument_id", "scan_time_start",
-                          "", "sample_name", "sample.*",
-                          "", "proposal_num", "proposal_title", "proposal.*",
-                          "", "experiment.*",
-                          "", "instrument.*"]
+                       "scan_instrument_id", "scan_time_start", "scan.*"
+                       "", "sample_name", "sample.*",
+                       "", "proposal_num", "proposal_title", "proposal.*",
+                       "", "experiment.*",
+                       "", "instrument.*",
+                       "", "(?!file).*",
+                       "", "file_format", "file_format_version",
+                       "file_software", "file_software_version", "file.*"]
         return print_order
 
     def _gen_default_descriptions(self):
@@ -131,7 +177,14 @@ class ScanMetadataXRF(ScanMetadataBase):
             "proposal_title": "proposal title",
             "proposal_PI_lastname": "PI last name",
             "proposal_saf_num": "proposal SAF #",
-            "proposal_cycle": "cycle"
+            "proposal_cycle": "cycle",
+
+            "file_created_time": "file creation time",
+            "file_format": "file format",
+            "file_format_version": "file format version",
+            "file_software": "software",
+            "file_software_version": "version",
+            "file_type": "file type"
         }
 
         return descriptions
