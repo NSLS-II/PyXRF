@@ -726,6 +726,23 @@ def read_hdf_APS(working_directory,
             for key, value in metadata.attrs:
                 # If data is recorded as ``ndarray``, then convert it to list.
                 #   Typically this would be the list of strings.
+                if isinstance(value, str) and value and value[0] == "[" and value[-1] == "]":
+                    # The value represents a list, so the list must be retrieved
+                    value = value.strip("[]").split(", ")
+                    for n, v in enumerate(value.copy())
+                        if v and v[0] == "'" and v[-1] == "'":
+                            # The list element is a string, so remove single quotes
+                            value[n] = v.strip("'")
+                        else:
+                            try:
+                                # Try converting to int
+                                value[n] = int(v)
+                            except:
+                                try:
+                                    # Try converting to float
+                                    value[n] = float(v)
+                                pass
+                            # If everything fails, then leave as is
                 if isinstance(value, np.ndarray):
                     value = list(value)
                 mdata[key] = value
