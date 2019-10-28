@@ -219,7 +219,7 @@ def gaussian_area_to_max(peak_area, peak_sigma):
     ----------
 
     peak_area : float
-        maximum of the Gaussian curve
+       area under the Gaussian curve
     peak_sigma : float
         sigma of the Gaussian curve
 
