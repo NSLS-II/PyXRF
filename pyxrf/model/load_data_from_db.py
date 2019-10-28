@@ -1818,13 +1818,28 @@ def write_db_to_hdf_base(fpath, data, *, metadata=None,
 
         # Now save the rest of the scan metadata if metadata is provided
         if metadata:
+            metadata['list_int'] = [1, 2, 3, 4, 100, -5]
+            metadata['list_float'] = [2.0, 3.4539865, 3.4523345, 5.3452e-6, -4.4354e+30]
             # We assume, that metadata does not contain repeated keys. Otherwise the
             #   entry with the last occurrence of the key will override the previous ones.
             for key, value in metadata.items():
                 print(f"Metadata: key = '{key}' value = '{value}' type = {type(value)}")
                 # Convert list to ndarray
                 if isinstance(value, list) or isinstance(value, tuple):
-                    value = np.array(value)
+                    # Save list (or tuple) as a string (lists are not supported by h5py 2.6.0
+                    #   which is widely deployed). Once h5py is updated (2.9.0), lists
+                    #   can be saved directly without converting them to strings.
+                    for i in value:
+                        print(f'i = {i} value = "{value}"')
+                    for n, v in enumerate(value.copy()):
+                        if isinstance(v, str):
+                            value[n] = f"'{v}'"
+                        elif isinstance(v, float):
+                            value[n] = f"{v:.15e}"
+                        else:
+                            # This may be an integer, just use the default printing format
+                            value[n] = f"{v}"
+                    value = f"[{', '.join(value)}]"
                 print(f"Metadata: key = '{key}' value = '{value}' type = {type(value)}")
                 metadataGrp.attrs[key] = value
 
