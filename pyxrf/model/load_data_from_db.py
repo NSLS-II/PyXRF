@@ -1782,8 +1782,6 @@ def write_db_to_hdf_base(fpath, data, *, metadata=None,
       key 'pos_names' - the list of position field names, must have entries 'x_pos' and 'y_pos'
       key 'pos_data' - 3D ndarray, 1st index matches the position in 'pos_names' list
     """
-    if metadata is None:
-        metadata = {}
 
     interpath = 'xrfmap'
     sum_data = None
@@ -1805,6 +1803,7 @@ def write_db_to_hdf_base(fpath, data, *, metadata=None,
 
     with h5py.File(fpath, file_open_mode) as f:
 
+        print(f"Writing metadata ...")
         # Create metadata group
         metadataGrp = f.create_group(f"{interpath}/scan_metadata")
         # This group of attributes are always created. It doesn't matter if metadata
@@ -1822,6 +1821,11 @@ def write_db_to_hdf_base(fpath, data, *, metadata=None,
             # We assume, that metadata does not contain repeated keys. Otherwise the
             #   entry with the last occurrence of the key will override the previous ones.
             for key, value in metadata.items():
+                print(f"Metadata: key = '{key}' value = '{value}' type = {type(value)}")
+                # Convert list to ndarray
+                if isinstance(value, list) or isinstance(value, tuple):
+                    value = np.array(value)
+                print(f"Metadata: key = '{key}' value = '{value}' type = {type(value)}")
                 metadataGrp.attrs[key] = value
 
         if create_each_det is True:
