@@ -14,6 +14,8 @@ import time as ttime
 import logging
 import warnings
 
+from .utils import convert_list_to_string
+
 import pyxrf
 pyxrf_version = pyxrf.__version__
 
@@ -1825,17 +1827,7 @@ def write_db_to_hdf_base(fpath, data, *, metadata=None,
                     # Save list (or tuple) as a string (lists are not supported by h5py 2.6.0
                     #   which is widely deployed). Once h5py is updated (2.9.0), lists
                     #   can be saved directly without converting them to strings.
-                    for i in value:
-                        print(f'i = {i} value = "{value}"')
-                    for n, v in enumerate(value.copy()):
-                        if isinstance(v, str):
-                            value[n] = f"'{v}'"
-                        elif isinstance(v, float):
-                            value[n] = f"{v:.15e}"
-                        else:
-                            # This may be an integer, just use the default printing format
-                            value[n] = f"{v}"
-                    value = f"[{', '.join(value)}]"
+                    value = convert_list_to_string(value)
                 metadataGrp.attrs[key] = value
 
         if create_each_det is True:
