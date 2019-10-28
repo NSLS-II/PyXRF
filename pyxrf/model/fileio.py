@@ -275,9 +275,8 @@ class FileIOModel(Atom):
             logger.error(f"Data from scan #{self.runid} was not loaded")
             return
 
-        img_dict, self.data_sets, fname, detector_name, scan_metadata = rv
+        img_dict, self.data_sets, fname, detector_name, self.scan_metadata = rv
 
-        self.scan_metadata = scan_metadata
         # Process metadata
         self._metadata_update_program_state()
 
