@@ -80,7 +80,7 @@ class ScanMetadataBase:
         the available.
         """
         str = ""
-        for key, value in self._values:
+        for key, value in self._values.items():
             str += f"{key}: {value}\n"
         return str
 
