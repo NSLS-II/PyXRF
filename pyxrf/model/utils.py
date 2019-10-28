@@ -233,3 +233,99 @@ def gaussian_area_to_max(peak_area, peak_sigma):
         return peak_area / peak_sigma / _get_sqrt_2_pi()
 
 # ==================================================================================
+
+
+def convert_list_to_string(value):
+    """
+    Convert iterable object to a string (custom operation).
+    The function is intended to be used for converting lists (tuples, ndarrays)
+    to strings before recording them as attribute values in HDF5 files.
+    (Older versions of ``h5py`` 2.6.0 do not support ndarrays as attribute arguments)
+
+    The input container may contain elements of different types. The output string
+    is enclosed in square brackets (indicates that the string represent a list).
+    The strings are enclosed in single quotes (even if they are already enclosed in
+    single quotes). Single quotes are always removed during conversion back to list.
+    Integers and floats are replaced by their printed version (``%d`` and ``%.15e``).
+    Scientific notation is selected for floats to represent wide range of values with
+    good precision.
+
+    Example:
+
+    The list with elements ``abcd``, ``56``, and ``3.05`` is converted to the string
+    ``['abcd', 56, 3.0500000000000e00]``.
+
+    Parameters
+    ----------
+
+    value : list, tuple, ndarray
+        input list of strings, ints or floats
+
+    Returns
+    -------
+
+    string representation of the input list
+    """
+
+    # The elements of value may change
+    value = value.copy()
+
+    for n, v in enumerate(value):
+        if isinstance(v, str):
+            value[n] = f"'{v}'"
+        elif isinstance(v, float):
+            value[n] = f"{v:.15e}"
+        else:
+            # This may be an integer, just use the default printing format
+            value[n] = f"{v}"
+    value = f"[{', '.join(value)}]"
+
+    return value
+
+
+def convert_string_to_list(value):
+    """
+    Convert list represented as string to list representation.
+    The operation is reverse to the operation performed by ``convert_list_to_string``.
+    The function is intended to be used for converting between lists (tuples, ndarrays)
+    and their string representations in working with attribute values in HDF5 files.
+    (Older versions of ``h5py`` 2.6.0 do not support ndarrays as attribute arguments)
+    See the docstring from ``convert_list_to_string`` for more details.
+
+    The function returns the original value of ``value`` if it is not a list
+    (not enclosed in ``[`` and ``]``).
+
+    Parameters
+    ----------
+
+    value : str
+        string representation of a list (created by function ``convert_list_to_string``
+
+    Returns
+    -------
+
+    list containing values from string representation of the list
+    """
+
+    # Still check whether it is a string representation of the list
+    if isinstance(value, str) and value and value[0] == "[" and value[-1] == "]":
+        # The value represents a list, so the list must be retrieved
+        value = value.strip("[]").split(", ")
+        for n, v in enumerate(value.copy()):
+            if v and v[0] == "'" and v[-1] == "'":
+                # The list element is a string, so remove single quotes
+                value[n] = v.strip("'")
+            else:
+                try:
+                    # Try converting to int
+                    value[n] = int(v)
+                except:
+                    try:
+                        # Try converting to float
+                        value[n] = float(v)
+                    except:
+                        pass
+                # If everything fails, then leave the element as is
+
+    return value
+
