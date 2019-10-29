@@ -1,5 +1,6 @@
 import re
 
+
 class ScanMetadataBase:
     """
     This is a base class. Instances of classes should be created from
@@ -129,6 +130,7 @@ class ScanMetadataBase:
                     str_out += f"{s_key}: {val}\n"
 
         return str_out
+
 
 class ScanMetadataXRF(ScanMetadataBase):
 
