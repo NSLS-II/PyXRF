@@ -35,6 +35,9 @@ from .guessparam import (calculate_profile, fit_strategy_list,
                          update_param_from_element)
 from .fileio import save_fitdata_to_hdf, output_data, output_data_to_tiff
 
+from .utils import (gaussian_sigma_to_fwhm, gaussian_fwhm_to_sigma,
+                    gaussian_max_to_area, gaussian_area_to_max)
+
 import logging
 logger = logging.getLogger()
 
@@ -145,13 +148,31 @@ class Fit1D(Atom):
     scaler_keys = List()
     scaler_index = Int(0)
 
-    def __init__(self, *args, **kwargs):
+    # Reference to GuessParamModel object
+    param_model = Typed(object)
+
+    # Fields for updating user defined peak parameters
+    add_userpeak_energy = Float(0.0)
+    add_userpeak_fwhm = Float(0.0)
+    # Copies of the variables that hold old value during update
+    add_userpeak_fwhm_old = Float(0.0)
+    # The names for the respective parameters
+    #   (used to access parameters in
+    #   self.param_model.param_dict)
+    name_userpeak_dcenter = Str()
+    name_userpeak_dsigma = Str()
+    name_userpeak_area = Str()
+
+    def __init__(self, param_model, *args, **kwargs):
         self.working_directory = kwargs['working_directory']
         self.result_folder = kwargs['working_directory']
         self.default_parameters = kwargs['default_parameters']
         self.param_dict = copy.deepcopy(self.default_parameters)
         self.param_q = deque()
         self.all_strategy = OrderedDict()
+
+        # Reference to GuessParamModel object
+        self.param_model = param_model
 
         self.EC = ElementController()
         self.pileup_data = {'element1': 'Si_K',
@@ -256,17 +277,210 @@ class Fit1D(Atom):
     @observe('selected_index')
     def _selected_element_changed(self, change):
         if change['value'] > 0:
-            selected_element = self.element_list[change['value']-1]
+            ind_sel = change['value'] - 1
+            if ind_sel >= len(self.element_list):
+                ind_sel = len(self.element_list) - 1
+                self.selected_index = ind_sel + 1  # Change the selection as well
+            selected_element = self.element_list[ind_sel]
             if len(selected_element) <= 4:
                 element = selected_element.split('_')[0]
                 self.elementinfo_list = sorted([e for e in list(self.param_dict.keys())
                                                 if (element+'_' in e) and  # error between S_k or Si_k
                                                 ('pileup' not in e)])  # Si_ka1 not Si_K
-                print(self.elementinfo_list)
+                logger.info(f"Element line info: {self.elementinfo_list}")
             else:
                 element = selected_element  # for pileup peaks
                 self.elementinfo_list = sorted([e for e in list(self.param_dict.keys())
                                                 if element.replace('-', '_') in e])
+                logger.info(f"User defined or pileup peak info: {self.elementinfo_list}")
+
+    def _compute_fwhm_base(self):
+        # Computes 'sigma' value based on default parameters and peak energy (for Userpeaks)
+        #   does not include corrections for fwhm
+        # If both peak center (energy) and fwhm is updated, energy needs to be set first,
+        #   since it is used in computation of ``fwhm_base``
+
+        sigma = gaussian_fwhm_to_sigma(self.param_model.default_parameters["fwhm_offset"]["value"])
+
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # The error was detected in scikit-beam, but not corrected
+        # Note: Corrections are required in the function ``element_peak_xrf``
+        #   from file ``xrf_model.py`` (package Scikit-Beam)
+        # The error: the original center position for the peak was used to
+        #   compute sigma of the Gaussian approximation of the peak. It almost not matter
+        #   for element peaks, since they don't move along the energy axis. But it is
+        #   invalid for Userpeaks, which are placed at a fixed position (5 keV) and then
+        #   moved to the desired position by changing ``delta_center``. Sigma depends
+        #   on actual center position, so ``delta_center`` should be taken into account.
+        #
+        # The original code for computing Gaussian function:
+        # def get_sigma(center):
+        #     temp_val = 2 * np.sqrt(2 * np.log(2))
+        #     return np.sqrt((fwhm_offset / temp_val) ** 2 + center * epsilon * fwhm_fanoprime)
+        #
+        # x = e_offset + x * e_linear + x ** 2 * e_quadratic
+        #
+        # return gaussian(x, area, center + delta_center,
+        #                 delta_sigma + get_sigma(center)) * ratio * ratio_adjust
+        #
+        # To correct the error, the last statement should be changed to the following:
+        # return gaussian(x, area, center + delta_center,
+        #                 delta_sigma + get_sigma(center + delta_center)) * ratio * ratio_adjust
+
+        # Temporary fix for the error mentioned above (to keep peak hight consistent as it moves
+        #   along the enery axis, computation of sigma must be identical here and in
+        #   the function ``element_peak_xrf``
+        sigma_sqr = 5.0  # center (ignore ``delta_sigma``)
+        # The next line is correct (but may be enabled only if the bug in scikit-beam is corrected)
+        # sigma_sqr = self.param_dict[self.name_userpeak_dcenter]["value"] + 5.0  # center
+
+        sigma_sqr *= self.param_model.default_parameters["non_fitting_values"]["epsilon"]  # epsilon
+        sigma_sqr *= self.param_model.default_parameters["fwhm_fanoprime"]["value"]  # fanoprime
+        sigma_sqr += sigma * sigma  # We have computed the expression under sqrt
+
+        sigma_total = np.sqrt(sigma_sqr)
+
+        return gaussian_sigma_to_fwhm(sigma_total)
+
+    def select_index_by_eline_name(self, eline_name):
+        # Select the element by name. If element is selected, then the ``elementinfo_list`` with
+        #   names of parameters is created. Originally the element could only be selected
+        #   by its index in the list (from dialog box ``ElementEdit``. This function is
+        #   used by interface components for editing parameters of user defined peaks.
+        if eline_name in self.element_list:
+            # This will fill the list ``self.elementinfo_list``
+            self.selected_index = self.element_list.index(eline_name) + 1
+            if "Userpeak" in eline_name:
+                names = [name for name in self.elementinfo_list if "_delta_center" in name]
+                if names:
+                    self.name_userpeak_dcenter = names[0]
+                else:
+                    self.name_userpeak_dcenter = ""
+
+                names = [name for name in self.elementinfo_list if "_delta_sigma" in name]
+                if names:
+                    self.name_userpeak_dsigma = names[0]
+                else:
+                    self.name_userpeak_dsigma = ""
+
+                names = [name for name in self.elementinfo_list if "_area" in name]
+                if names:
+                    self.name_userpeak_area = names[0]
+                else:
+                    self.name_userpeak_area = ""
+
+                if self.name_userpeak_dcenter and self.name_userpeak_dsigma:
+                    # Userpeak always has energy of 5.0 keV, the user can set only the offset
+                    #   This is the internal representation, but we must display and let the user
+                    #   enter the true value of energy
+                    self.add_userpeak_energy = \
+                        self.param_dict[self.name_userpeak_dcenter]["value"] + 5.0
+                    # Same with FWHM for the user defined peak.
+                    #   Also, sigma must be converted to FWHM: FWHM = 2.355 * sigma
+                    self.add_userpeak_fwhm = \
+                        gaussian_sigma_to_fwhm(self.param_dict[self.name_userpeak_dsigma]["value"]) + \
+                        self._compute_fwhm_base()
+
+                    # Create copies (before rounding)
+                    self.add_userpeak_fwhm_old = self.add_userpeak_fwhm
+
+                    # Adjust formatting (5 digits after dot is sufficient)
+                    self.add_userpeak_energy = float(f"{self.add_userpeak_energy:.5f}")
+                    self.add_userpeak_fwhm = float(f"{self.add_userpeak_fwhm:.5f}")
+
+        else:
+            raise Exception(f"Line '{eline_name}' is not in the list of selected element lines.")
+
+    def _update_userpeak_energy(self):
+
+        # According to the accepted peak model, as energy of the peak center grows,
+        #   the peak becomes wider. The most user friendly solution is to automatically
+        #   increase FWHM as the peak moves along the energy axis to the right and
+        #   decrease otherwise. So generally, the user should first place the peak
+        #   center at the desired energy, and then adjust FWHM.
+
+        # We change energy, so we will have to change FWHM as well
+        #  so before updating energy we will save the difference between
+        #  the default (base) FWHM and the displayed FWHM
+        fwhm_difference = self.add_userpeak_fwhm - self._compute_fwhm_base()
+
+        # Now we change energy.
+        energy = self.add_userpeak_energy - 5.0
+
+        v_center = self.param_dict[self.name_userpeak_dcenter]["value"]
+        v_max = self.param_dict[self.name_userpeak_dcenter]["max"]
+        v_min = self.param_dict[self.name_userpeak_dcenter]["min"]
+        # Keep the possible range for value change the same
+        self.param_dict[self.name_userpeak_dcenter]["value"] = energy
+        self.param_dict[self.name_userpeak_dcenter]["max"] = energy + v_max - v_center
+        self.param_dict[self.name_userpeak_dcenter]["min"] = energy - (v_center - v_min)
+
+        # The base value is updated now (since the energy has changed)
+        fwhm_base = self._compute_fwhm_base()
+        fwhm = fwhm_difference + fwhm_base
+        # Also adjust precision, so that the new value fits the input field
+        fwhm = float(f"{fwhm:.5f}")
+
+        # Finally update the displayed 'fwhm'. It will be saved to ``param_dict`` later.
+        self.add_userpeak_fwhm = fwhm
+
+    def _update_userpeak_fwhm(self):
+
+        fwhm_base = self._compute_fwhm_base()
+        fwhm = self.add_userpeak_fwhm - fwhm_base
+
+        sigma = gaussian_fwhm_to_sigma(fwhm)
+
+        v_center = self.param_dict[self.name_userpeak_dsigma]["value"]
+        v_max = self.param_dict[self.name_userpeak_dsigma]["max"]
+        v_min = self.param_dict[self.name_userpeak_dsigma]["min"]
+        # Keep the possible range for value change the same
+        self.param_dict[self.name_userpeak_dsigma]["value"] = sigma
+        self.param_dict[self.name_userpeak_dsigma]["max"] = sigma + v_max - v_center
+        self.param_dict[self.name_userpeak_dsigma]["min"] = sigma - (v_center - v_min)
+
+    def update_userpeak(self):
+        # Update current user peak. Called when 'Update peak' button is pressed.
+
+        # Some checks of the input values
+        if self.add_userpeak_energy <= 0.0:
+            logger.warning("User peak energy must be a positive number greater than 0.001.")
+            return
+        if self.add_userpeak_fwhm <= 0:
+            logger.warning("User peak FWHM must be a positive number.")
+            return
+
+        # Ensure, that the values are greater than some small value to ensure that
+        #   there is no computational problems.
+        # Energy resolution for the existing beamlines is 0.01 keV, so 0.001 is small
+        #   enough both for center energy and FWHM.
+        energy_small_value = 0.001
+        if self.add_userpeak_energy < energy_small_value:
+            self.add_userpeak_energy = energy_small_value
+        if self.add_userpeak_fwhm < energy_small_value:
+            self.add_userpeak_fwhm = energy_small_value
+
+        self._update_userpeak_energy()
+        self._update_userpeak_fwhm()
+
+        # Find and save the value of peak maximum. Restore the maximum after FWHM is changed.
+        # Note, that ``peak_sigma`` and ``peak_area`` may change if energy changes,
+        #   but ``peak_max`` must remain the same (for better visual presentation)
+        peak_sigma = gaussian_fwhm_to_sigma(self.add_userpeak_fwhm_old)
+        peak_area = self.param_dict[self.name_userpeak_area]["value"]
+        peak_max = gaussian_area_to_max(peak_area, peak_sigma)  # Keep this value
+
+        # Restore peak height by adjusting the area (for new fwhm)
+        peak_sigma = gaussian_fwhm_to_sigma(self.add_userpeak_fwhm)
+        peak_area = gaussian_max_to_area(peak_max, peak_sigma)
+        self.param_dict[self.name_userpeak_area]["value"] = peak_area
+
+        # Create copies
+        self.add_userpeak_fwhm_old = self.add_userpeak_fwhm
+
+        logger.debug(f"The parameters of the user defined peak. The new values:\n"
+                     f"          Energy: {self.add_userpeak_energy} keV\n"
+                     f"          FWHM: {self.add_userpeak_fwhm} keV")
 
     def keep_size(self):
         """Keep the size of deque as 2.

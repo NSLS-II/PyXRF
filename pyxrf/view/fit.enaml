@@ -177,41 +177,53 @@ enamldef FitView(DockItem): fit_view:
             padding = Box(2, 2, 2, 2)
             constraints = [
                 vbox(
-                    hbox(btn_cb_prev, btn_cb_next, cb_select, intensity_lb, intensity_fd,
+                    hbox(eline_selection, intensity_lb, intensity_fd,
                          manual_add, manual_remove, spacer, pb_pileup),
+                    hbox(spacer, lb_userpeak_energy, fd_userpeak_energy, lb_userpeak_fwhm, fd_userpeak_fwhm, pb_userpeak_update),
                     pre_fit,
-                    #hbox(saveas_btn, spacer),
                 ),
             ]
-            ComboBox: cb_select:
-                #items = ['Select Lines'] +\
-                #        K_LINE + L_LINE + M_LINE + userpeak_list
-                items = ['Select Lines'] + param_model.get_user_peak_list(include_user_peaks=True)
-                index = 0
-                index := plot_model.element_id
-                enabled << plot_model.allow_select_elines
-                index ::
-                    if cb_select.index > 0:
-                        param_model.e_name = cb_select.selected_item
+            Container: eline_selection:
+                constraints = [
+                    contents_left == btn_cb_prev.left,
+                    btn_cb_prev.right+2 == btn_cb_next.left,
+                    btn_cb_next.right+5 == cb_select.left,
+                    cb_select.right == contents_right,
+                ]
 
-            PushButton: btn_cb_prev:
-                text = '<'
-                enabled << plot_model.allow_select_elines
-                maximum_size = (15, 24)
-                clicked ::
-                    if cb_select.index > 1:
-                        cb_select.index -= 1
-                    cb_select.set_focus()  # Return focus to the combo box
+                PushButton: btn_cb_prev:
+                    text = '<'
+                    enabled << plot_model.allow_select_elines
+                    maximum_size = (15, 24)
+                    clicked ::
+                        if cb_select.index > 1:
+                            cb_select.index -= 1
+                        cb_select.set_focus()  # Return focus to the combo box
 
+                PushButton: btn_cb_next:
+                    text = '>'
+                    enabled << plot_model.allow_select_elines
+                    maximum_size = (15, 24)
+                    clicked ::
+                        if cb_select.index < len(cb_select.items) - 1:
+                            cb_select.index += 1
+                        cb_select.set_focus()  # Return focus to the combo box
 
-            PushButton: btn_cb_next:
-                text = '>'
-                enabled << plot_model.allow_select_elines
-                maximum_size = (15, 24)
-                clicked ::
-                    if cb_select.index < len(cb_select.items) - 1:
-                        cb_select.index += 1
-                    cb_select.set_focus()  # Return focus to the combo box
+                ComboBox: cb_select:
+                    #items = ['Select Lines'] +\
+                    #        K_LINE + L_LINE + M_LINE + userpeak_list
+                    items = ['Select Lines'] + param_model.get_user_peak_list(include_user_peaks=True)
+                    index = 0
+                    index := plot_model.element_id
+                    enabled << plot_model.allow_select_elines
+                    index ::
+                        if cb_select.index > 0:
+                            param_model.e_name = cb_select.selected_item
+                            try:
+                                if "Userpeak" in cb_select.selected_item:
+                                    fit_model.select_index_by_eline_name(cb_select.selected_item)
+                            except Exception as ex:
+                                pass
 
             Label: intensity_lb:
                 text = 'Peak Int'
@@ -233,8 +245,28 @@ enamldef FitView(DockItem): fit_view:
                         critical(self, 'ERROR', f'Experimental data is not loaded or initial spectrum fitting is not performed', btns)
 
                     else:
+                        try:
+                            plot_model.add_peak_manual()
+                            # ``apply_to_fit`` takes some time to execute, so do it only for the user defined peaks
+                            #   After calling ``apply_to_fit``, the line parameters may be edited
+                            #   For other lines, the button ``Update`` must be pressed first.
+                            if "Userpeak" in cb_select.selected_item:
+                                apply_to_fit(param_model, plot_model, fit_model, setting_model)
 
-                        plot_model.add_peak_manual()
+                        except Exception as ex:
+                            btns = [DialogButton('Ok', 'accept')]
+                            critical(self, 'ERROR', str(ex), btns)
+
+                        try:
+                            if "Userpeak" in cb_select.selected_item:
+                                fit_model.select_index_by_eline_name(cb_select.selected_item)
+                                param_model.data_for_plot()
+                                plot_model.plot_fit(param_model.prefit_x,
+                                                    param_model.total_y,
+                                                    param_model.auto_fit_all)
+                        except Exception as ex:
+                            pass
+
                         cb_select.set_focus()  # Return focus to the combo box
 
             PushButton: manual_remove:
@@ -254,6 +286,36 @@ enamldef FitView(DockItem): fit_view:
                         btns = [DialogButton('Ok', 'accept')]
                         # 'critical' shows MessageBox
                         critical(self, 'ERROR', f'Experimental data is not loaded or initial spectrum fitting is not performed', btns)
+
+            Label: lb_userpeak_energy:
+                text = 'Energy'
+                visible << "Userpeak" in cb_select.selected_item and plot_model.allow_remove_eline_fit
+
+            FloatField: fd_userpeak_energy:
+                maximum_size = 80
+                visible << "Userpeak" in cb_select.selected_item and plot_model.allow_remove_eline_fit
+                value := fit_model.add_userpeak_energy
+
+            Label: lb_userpeak_fwhm:
+                text = 'FWHM'
+                visible << "Userpeak" in cb_select.selected_item and plot_model.allow_remove_eline_fit
+
+            FloatField: fd_userpeak_fwhm:
+                maximum_size = 80
+                visible << "Userpeak" in cb_select.selected_item and plot_model.allow_remove_eline_fit
+                value := fit_model.add_userpeak_fwhm
+
+            PushButton: pb_userpeak_update:
+                text = 'Update peak'
+                visible << "Userpeak" in cb_select.selected_item and plot_model.allow_remove_eline_fit
+                clicked ::
+                    # Save peak maximum value
+                    selected_eline = cb_select.selected_item
+                    peak_value = param_model.EC.element_dict[selected_eline].maxv
+                    fit_model.update_userpeak()
+
+                    calculate_spectrum_helper(fit_model, plot_model,
+                                              param_model, setting_model)
 
             GroupBox: pre_fit:
                 padding = Box(2, 2, 2, 2)
@@ -377,8 +439,12 @@ enamldef FitView(DockItem): fit_view:
                                     minimum = 0.00001
                                     submit_triggers = ['return_pressed']
                                     value ::
+                                        param_model.EC.element_dict[loop_item].maxv = value
+                                        # if loop_item == cb_select.selected_item:
+                                        #     param_model.add_element_intensity = value
                                         apply_to_fit(param_model, plot_model, fit_model, setting_model)
-
+                                        calculate_spectrum_helper(fit_model, plot_model,
+                                                                  param_model, setting_model)
                                 Label: lb_norm:
                                     text << set_low_bound(np.around(param_model.EC.element_dict[loop_item].norm, 2))
                                     minimum_size = (60, 20)
