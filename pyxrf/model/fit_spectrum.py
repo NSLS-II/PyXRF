@@ -451,10 +451,10 @@ class Fit1D(Atom):
             return
 
         # Make sure that the energy of the user peak is within the selected fitting range
-        energy_bound_high = self.param_model.param_new["non_fitting_values"]\
-            ["energy_bound_high"]["value"]
-        energy_bound_low = self.param_model.param_new["non_fitting_values"]\
-            ["energy_bound_low"]["value"]
+        energy_bound_high = \
+            self.param_model.param_new["non_fitting_values"]["energy_bound_high"]["value"]
+        energy_bound_low = \
+            self.param_model.param_new["non_fitting_values"]["energy_bound_low"]["value"]
         self.add_userpeak_energy = np.clip(self.add_userpeak_energy, energy_bound_low, energy_bound_high)
 
         # Ensure, that the values are greater than some small value to ensure that
