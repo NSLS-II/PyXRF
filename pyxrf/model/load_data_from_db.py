@@ -525,6 +525,7 @@ def map_data2D_hxn(runid, fpath,
         save data to hdf5 file if True
     """
     hdr = db[runid]
+    runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
 
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
@@ -695,6 +696,7 @@ def map_data2D_srx(runid, fpath,
     dict of data in 2D format matching x,y scanning positions
     """
     hdr = db[runid]
+    runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
 
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
@@ -1141,7 +1143,7 @@ def map_data2D_tes(runid, fpath,
     """
 
     hdr = db[runid]
-    start_doc = hdr['start']
+    runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
 
     # The dictionary holding scan metadata
     mdata = _extract_metadata_from_start_document(hdr)
@@ -1335,11 +1337,14 @@ def map_data2D_xfm(runid, fpath,
     dict of data in 2D format matching x,y scanning positions
     """
     hdr = db[runid]
-
-    mdata = {}  # This dictionary will hold scan metadata
+    runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
 
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
+
+    # Generate the default file name for the scan
+    if fpath is None:
+        fpath = f"scan2D_{runid}.h5"
 
     # Output data is the list of data structures for all available detectors
     data_output = []
