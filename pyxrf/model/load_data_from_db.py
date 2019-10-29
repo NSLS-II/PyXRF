@@ -14,7 +14,7 @@ import time as ttime
 import logging
 import warnings
 
-from .utils import convert_list_to_string
+#from .utils import convert_list_to_string
 
 import pyxrf
 pyxrf_version = pyxrf.__version__
@@ -1864,11 +1864,11 @@ def write_db_to_hdf_base(fpath, data, *, metadata=None,
             #   entry with the last occurrence of the key will override the previous ones.
             for key, value in metadata.items():
                 # Convert list to ndarray
-                if isinstance(value, list) or isinstance(value, tuple):
+                #if isinstance(value, list) or isinstance(value, tuple):
                     # Save list (or tuple) as a string (lists are not supported by h5py 2.6.0
                     #   which is widely deployed). Once h5py is updated (2.9.0), lists
                     #   can be saved directly without converting them to strings.
-                    value = convert_list_to_string(value)
+                    #value = convert_list_to_string(value)
                 metadataGrp.attrs[key] = value
 
         if create_each_det is True:

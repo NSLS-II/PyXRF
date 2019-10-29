@@ -278,8 +278,8 @@ class FileIOModel(Atom):
         img_dict, self.data_sets, fname, detector_name, self.scan_metadata = rv
 
         # Replace relative scan ID with true scan ID.
-        if (self.runid) < 0 and ("instrument_mono_incident_energy" in self.scan_metadata):
-            self.runid = int(self.scan_metadata["instrument_mono_incident_energy"])
+        if (self.runid) < 0 and ("scan_id" in self.scan_metadata):
+            self.runid = int(self.scan_metadata["scan_id"])
 
         # Process metadata
         self._metadata_update_program_state()
@@ -728,8 +728,8 @@ def read_hdf_APS(working_directory,
         if "xrfmap/scan_metadata" in f:
             metadata = f["xrfmap/scan_metadata"]
             for key, value in metadata.attrs.items():
-                if isinstance(value, str) and value and value[0] == "[" and value[-1] == "]":
-                    value = convert_string_to_list(value)
+                #if isinstance(value, str) and value and value[0] == "[" and value[-1] == "]":
+                    #value = convert_string_to_list(value)
                 # Newer version of n5py (above 2.9.0) allow using ndarrays as attribute values
                 #   Convert ndarrays to lists (those are typically very small ndarrays, so
                 #   there will be no performance issues).
