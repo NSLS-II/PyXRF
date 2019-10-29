@@ -277,6 +277,10 @@ class FileIOModel(Atom):
 
         img_dict, self.data_sets, fname, detector_name, self.scan_metadata = rv
 
+        # Replace relative scan ID with true scan ID.
+        if (self.runid) < 0 and ("instrument_mono_incident_energy" in self.scan_metadata):
+            self.runid = int(self.scan_metadata["instrument_mono_incident_energy"])
+
         # Process metadata
         self._metadata_update_program_state()
 
