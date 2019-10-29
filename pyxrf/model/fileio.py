@@ -822,11 +822,8 @@ def render_data_to_gui(runid, *, file_overwrite_existing=False):
     data_sets = OrderedDict()
     img_dict = OrderedDict()
 
-    if file_overwrite_existing:
-        # Don't create unique file name if the existing file is to be overwritten
-        fname_add_version = False
-    else:
-        fname_add_version = True
+    # Don't create unique file name if the existing file is to be overwritten
+    fname_add_version = not file_overwrite_existing
 
     data_from_db = fetch_data_from_db(runid,
                                       fname_add_version=fname_add_version,
