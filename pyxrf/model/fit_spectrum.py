@@ -370,7 +370,7 @@ class Fit1D(Atom):
                     self.name_userpeak_area = ""
 
                 if self.name_userpeak_dcenter and self.name_userpeak_dsigma:
-                    # Userpeak always has energy of 5.0 kEv, the user can set only the offset
+                    # Userpeak always has energy of 5.0 keV, the user can set only the offset
                     #   This is the internal representation, but we must display and let the user
                     #   enter the true value of energy
                     self.add_userpeak_energy = \
