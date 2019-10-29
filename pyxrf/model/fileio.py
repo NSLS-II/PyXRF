@@ -21,7 +21,6 @@ from .load_data_from_db import (db, fetch_data_from_db, flip_data,
                                 helper_encode_list, helper_decode_list,
                                 write_db_to_hdf)
 from .scan_metadata import ScanMetadataXRF
-from .utils import convert_string_to_list
 import requests
 from distutils.version import LooseVersion
 
@@ -728,11 +727,7 @@ def read_hdf_APS(working_directory,
         if "xrfmap/scan_metadata" in f:
             metadata = f["xrfmap/scan_metadata"]
             for key, value in metadata.attrs.items():
-                #if isinstance(value, str) and value and value[0] == "[" and value[-1] == "]":
-                    #value = convert_string_to_list(value)
-                # Newer version of n5py (above 2.9.0) allow using ndarrays as attribute values
-                #   Convert ndarrays to lists (those are typically very small ndarrays, so
-                #   there will be no performance issues).
+                # Convert ndarrays to lists (they were lists before they were saved)
                 if isinstance(value, np.ndarray):
                     value = list(value)
                 mdata[key] = value
