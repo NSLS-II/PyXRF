@@ -83,6 +83,11 @@ class FileIOModel(Atom):
     mask_opt = Int(0)
     load_each_channel = Bool(False)
 
+    # Used while loading data from database
+    # True: overwrite existing data file if it exists
+    # False: create new file with unique name (original name + version number)
+    file_overwrite_existing = Bool(False)
+
     p1_row = Int(-1)
     p1_col = Int(-1)
     p2_row = Int(-1)
@@ -217,7 +222,7 @@ class FileIOModel(Atom):
         #                                             self.fname_from_db,
         #                                             load_each_channel=self.load_each_channel)
 
-        rv = render_data_to_gui(self.runid)
+        rv = render_data_to_gui(self.runid, file_overwrite_existing=self.file_overwrite_existing)
 
         if rv is None:
             logger.error(f"Data from scan #{self.runid} was not loaded")
@@ -797,7 +802,7 @@ def read_hdf_APS(working_directory,
     return img_dict, data_sets
 
 
-def render_data_to_gui(runid):
+def render_data_to_gui(runid, *, file_overwrite_existing=False):
     """
     Read data from databroker and save to Atom class which GUI can take.
 
@@ -807,6 +812,9 @@ def render_data_to_gui(runid):
     ----------
     runid : int
         id number for given run
+    file_overwrite_existing : bool
+        True: overwrite data file if it exists
+        False: create unique file name by adding version number
     """
 
     spectrum_cut = 3000  # Constant: the number of spectrum points to load 3000 ~ 3 keV
@@ -814,10 +822,12 @@ def render_data_to_gui(runid):
     data_sets = OrderedDict()
     img_dict = OrderedDict()
 
+    # Don't create unique file name if the existing file is to be overwritten
+    fname_add_version = not file_overwrite_existing
+
     data_from_db = fetch_data_from_db(runid,
-                                      # Always create unique file name by adding
-                                      #   version number
-                                      fname_add_version=True,
+                                      fname_add_version=fname_add_version,
+                                      file_overwrite_existing=file_overwrite_existing,
                                       # Always load data from all detectors
                                       create_each_det=True,
                                       # Always create data file (processing results

@@ -10,7 +10,7 @@ from enaml.layout.geometry import Box
 from enaml.stdlib.fields import FloatField
 from enaml.stdlib.fields import IntField as DefaultIntField
 from enaml.stdlib.dialog_buttons import DialogButton
-from enaml.stdlib.message_box import critical
+from enaml.stdlib.message_box import critical, question
 import os
 import numpy as np
 from ..model.fileio import sep_v
@@ -124,7 +124,7 @@ enamldef FileView(DockItem): file_view:
             GroupBox: gb_db:
                 enabled = databroker is not None
                 title = 'Data from database'
-                constraints = [hbox(run_lbl, run_num, load_btn, spacer),]
+                constraints = [hbox(run_lbl, run_num, load_btn, cb_file_overwrite_existing, spacer),]
                 Label: run_lbl:
                     text = 'Scan ID: '
 
@@ -174,6 +174,20 @@ enamldef FileView(DockItem): file_view:
                             io_model.window_title_set_run_id(io_model.runid)
 
                         run_num.value = -1
+
+                CheckBox: cb_file_overwrite_existing:
+                    text = 'Overwrite Existing Files'
+                    checkable = True
+                    checked := io_model.file_overwrite_existing
+                    checked ::
+                        if checked:
+                            res = question(
+                                self, "Warning",
+                                "Loading data from the database with 'Overwrite Existing Files' option enabled\n"
+                                "may result in overwriting existing files that contain processing results.\n"
+                                "Are you sure you want to enable this option?")
+                            if res.text == "No":
+                                cb_file_overwrite_existing.checked = False
 
             GroupBox: gb_fit:
                 constraints = [hbox(fit_lbl, cb_select, spacer)]

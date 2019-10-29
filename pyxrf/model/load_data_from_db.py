@@ -88,6 +88,7 @@ def fetch_data_from_db(runid, fpath=None,
                        create_each_det=False,
                        fname_add_version=False,
                        completed_scans_only=False,
+                       file_overwrite_existing=False,
                        output_to_file=False,
                        save_scaler=True,
                        num_end_lines_excluded=None):
@@ -120,6 +121,15 @@ def fetch_data_from_db(runid, fpath=None,
         completed even if not the whole image was scanned. If incomplete scan is
         encountered, an exception is thrown.
         False: the feature is disabled, incomplete scan will be processed.
+    file_overwrite_existing : bool, keyword parameter
+        This option should be used if the existing file should be deleted and replaced
+        with the new file with the same name. This option should be used with caution,
+        since the existing file may contain processed data, which will be permanently deleted.
+        True: overwrite existing files if needed. Note, that if ``fname_add_version`` is ``True``,
+        then new versions of the existing file will always be created.
+        False: do not overwrite existing files. If the file already exists, then the exception
+        will be raised (loading the single scan) or the scan will be skipped (loading the range
+        of scans).
     output_to_file : bool, optional
         save data to hdf5 file if True
     save_scaler : bool, optional
@@ -139,6 +149,7 @@ def fetch_data_from_db(runid, fpath=None,
                               create_each_det=create_each_det,
                               fname_add_version=fname_add_version,
                               completed_scans_only=completed_scans_only,
+                              file_overwrite_existing=file_overwrite_existing,
                               output_to_file=output_to_file)
     elif (hdr.start.beamline_id == 'xf05id' or
           hdr.start.beamline_id == 'SRX'):
@@ -146,6 +157,7 @@ def fetch_data_from_db(runid, fpath=None,
                               create_each_det=create_each_det,
                               fname_add_version=fname_add_version,
                               completed_scans_only=completed_scans_only,
+                              file_overwrite_existing=file_overwrite_existing,
                               output_to_file=output_to_file,
                               save_scaler=save_scaler,
                               num_end_lines_excluded=num_end_lines_excluded)
@@ -154,12 +166,14 @@ def fetch_data_from_db(runid, fpath=None,
                               create_each_det=create_each_det,
                               fname_add_version=fname_add_version,
                               completed_scans_only=completed_scans_only,
+                              file_overwrite_existing=file_overwrite_existing,
                               output_to_file=output_to_file)
     elif hdr.start.beamline_id == 'TES':
         data = map_data2D_tes(runid, fpath,
                               create_each_det=create_each_det,
                               fname_add_version=fname_add_version,
                               completed_scans_only=completed_scans_only,
+                              file_overwrite_existing=file_overwrite_existing,
                               output_to_file=output_to_file)
     else:
         print("Databroker is not setup for this beamline")
@@ -171,6 +185,7 @@ def fetch_data_from_db(runid, fpath=None,
 def make_hdf(start, end=None, *, fname=None,
              fname_add_version=False,
              completed_scans_only=False,
+             file_overwrite_existing=False,
              prefix='scan2D_',
              create_each_det=True, save_scaler=True,
              num_end_lines_excluded=None):
@@ -207,7 +222,8 @@ def make_hdf(start, end=None, *, fname=None,
 
             make_hdf(2342, 2441)
 
-        Non-existing scans in the range or scans causing errors during conversion will be skipped.
+        Scans with IDs in specified range, but not existing in the database, or scans causing errors
+        during conversion will be skipped.
 
     fname : string, optional keyword parameter
         path to save data file when ``end`` is ``None`` (only one scan is processed).
@@ -246,6 +262,15 @@ def make_hdf(start, end=None, *, fname=None,
         Such scripts are currently used at HXN and SRX beamlines of NSLS-II, so this feature
         supports the existing workflows.
         False: the feature is disabled, incomplete scan will be processed.
+    file_overwrite_existing : bool, keyword parameter
+        This option should be used if the existing file should be deleted and replaced
+        with the new file with the same name. This option should be used with caution,
+        since the existing file may contain processed data, which will be permanently deleted.
+        True: overwrite existing files if needed. Note, that if ``fname_add_version`` is ``True``,
+        then new versions of the existing file will always be created.
+        False: do not overwrite existing files. If the file already exists, then the exception
+        will be raised (loading the single scan) or the scan will be skipped (loading the range
+        of scans).
     prefix : str, optional
         prefix name of the created data file. If ``fname`` is not specified, it is generated
         automatically in the form ``<prefix>_<scanID>_<some_additional_data>.h5``
@@ -274,6 +299,7 @@ def make_hdf(start, end=None, *, fname=None,
                            create_each_det=create_each_det,
                            fname_add_version=fname_add_version,
                            completed_scans_only=completed_scans_only,
+                           file_overwrite_existing=file_overwrite_existing,
                            output_to_file=True,
                            save_scaler=save_scaler,
                            num_end_lines_excluded=num_end_lines_excluded)
@@ -289,6 +315,7 @@ def make_hdf(start, end=None, *, fname=None,
                                    create_each_det=create_each_det,
                                    fname_add_version=fname_add_version,
                                    completed_scans_only=completed_scans_only,
+                                   file_overwrite_existing=file_overwrite_existing,
                                    output_to_file=True,
                                    save_scaler=save_scaler,
                                    num_end_lines_excluded=num_end_lines_excluded)
@@ -324,6 +351,7 @@ def map_data2D_hxn(runid, fpath,
                    create_each_det=False,
                    fname_add_version=False,
                    completed_scans_only=False,
+                   file_overwrite_existing=False,
                    output_to_file=True):
     """
     Save the data from databroker to hdf file.
@@ -351,6 +379,14 @@ def map_data2D_hxn(runid, fpath,
         completed even if not the whole image was scanned. If incomplete scan is
         encountered: an exception is thrown.
         False: the feature is disabled, incomplete scan will be processed.
+    file_overwrite_existing : bool, keyword parameter
+        This option should be used if the existing file should be deleted and replaced
+        with the new file with the same name. This option should be used with caution,
+        since the existing file may contain processed data, which will be permanently deleted.
+        True: overwrite existing files if needed. Note, that if ``fname_add_version`` is ``True``,
+        then new versions of the existing file will always be created.
+        False: do not overwrite existing files. If the file already exists, then the exception
+        is raised.
     output_to_file : bool, optional
         save data to hdf5 file if True
     """
@@ -413,6 +449,7 @@ def map_data2D_hxn(runid, fpath,
         print('Saving data to hdf file.')
         fpath = write_db_to_hdf_base(fpath, data_out,
                                      fname_add_version=fname_add_version,
+                                     file_overwrite_existing=file_overwrite_existing,
                                      create_each_det=create_each_det)
 
     detector_name = "xpress3"
@@ -457,6 +494,7 @@ def map_data2D_srx(runid, fpath,
                    create_each_det=False,
                    fname_add_version=False,
                    completed_scans_only=False,
+                   file_overwrite_existing=False,
                    output_to_file=True,
                    save_scaler=True,
                    num_end_lines_excluded=None):
@@ -489,6 +527,14 @@ def map_data2D_srx(runid, fpath,
         completed even if not the whole image was scanned. If incomplete scan is
         encountered: an exception is thrown.
         False: the feature is disabled, incomplete scan will be processed.
+    file_overwrite_existing : bool, keyword parameter
+        This option should be used if the existing file should be deleted and replaced
+        with the new file with the same name. This option should be used with caution,
+        since the existing file may contain processed data, which will be permanently deleted.
+        True: overwrite existing files if needed. Note, that if ``fname_add_version`` is ``True``,
+        then new versions of the existing file will always be created.
+        False: do not overwrite existing files. If the file already exists, then the exception
+        is raised.
     output_to_file : bool, optional
         save data to hdf5 file if True
     save_scaler : bool, optional
@@ -578,6 +624,7 @@ def map_data2D_srx(runid, fpath,
                 fpath_out = write_db_to_hdf_base(
                     fpath_out, data_out,
                     fname_add_version=fname_add_version,
+                    file_overwrite_existing=file_overwrite_existing,
                     create_each_det=create_each_det)
                 d_dict = {"dataset": data_out, "file_name": fpath_out, "detector_name": "xs"}
                 data_output.append(d_dict)
@@ -598,6 +645,7 @@ def map_data2D_srx(runid, fpath,
                 fpath_out = write_db_to_hdf_base(
                     fpath_out, data_out,
                     fname_add_version=fname_add_version,
+                    file_overwrite_existing=file_overwrite_existing,
                     create_each_det=create_each_det)
                 d_dict = {"dataset": data_out, "file_name": fpath_out, "detector_name": "xs"}
                 data_output.append(d_dict)
@@ -863,6 +911,7 @@ def map_data2D_srx(runid, fpath,
                 print(f"Saving data to hdf file #{n_detectors_found}: Detector: {detector_name}.")
                 fpath_out = write_db_to_hdf_base(fpath_out, new_data,
                                                  fname_add_version=fname_add_version,
+                                                 file_overwrite_existing=file_overwrite_existing,
                                                  create_each_det=create_each_det)
 
             # Preparing data for the detector ``detector_name`` for output
@@ -887,6 +936,7 @@ def map_data2D_tes(runid, fpath,
                    create_each_det=False,
                    fname_add_version=False,
                    completed_scans_only=False,
+                   file_overwrite_existing=False,
                    output_to_file=True,
                    save_scaler=True):
     """
@@ -921,6 +971,14 @@ def map_data2D_tes(runid, fpath,
         completed even if not the whole image was scanned. If incomplete scan is
         encountered: an exception is thrown.
         False: the feature is disabled, incomplete scan will be processed.
+    file_overwrite_existing : bool, keyword parameter
+        This option should be used if the existing file should be deleted and replaced
+        with the new file with the same name. This option should be used with caution,
+        since the existing file may contain processed data, which will be permanently deleted.
+        True: overwrite existing files if needed. Note, that if ``fname_add_version`` is ``True``,
+        then new versions of the existing file will always be created.
+        False: do not overwrite existing files. If the file already exists, then the exception
+        is raised.
     output_to_file : bool, optional
         save data to hdf5 file if True
 
@@ -1052,6 +1110,7 @@ def map_data2D_tes(runid, fpath,
         print(f"Saving data to hdf file #{n_detectors_found}: Detector: {detector_name}.")
         write_db_to_hdf_base(fpath_out, new_data,
                              fname_add_version=fname_add_version,
+                             file_overwrite_existing=file_overwrite_existing,
                              create_each_det=create_each_det)
 
     d_dict = {"dataset": new_data, "file_name": fpath_out, "detector_name": detector_name}
@@ -1064,6 +1123,7 @@ def map_data2D_xfm(runid, fpath,
                    create_each_det=False,
                    fname_add_version=False,
                    completed_scans_only=False,
+                   file_overwrite_existing=False,
                    output_to_file=True):
     """
     Transfer the data from databroker into a correct format following the
@@ -1095,6 +1155,14 @@ def map_data2D_xfm(runid, fpath,
         completed even if not the whole image was scanned. If incomplete scan is
         encountered: an exception is thrown.
         False: the feature is disabled, incomplete scan will be processed.
+    file_overwrite_existing : bool, keyword parameter
+        This option should be used if the existing file should be deleted and replaced
+        with the new file with the same name. This option should be used with caution,
+        since the existing file may contain processed data, which will be permanently deleted.
+        True: overwrite existing files if needed. Note, that if ``fname_add_version`` is ``True``,
+        then new versions of the existing file will always be created.
+        False: do not overwrite existing files. If the file already exists, then the exception
+        is raised.
     output_to_file : bool, optional
         save data to hdf5 file if True
 
@@ -1141,6 +1209,7 @@ def map_data2D_xfm(runid, fpath,
             print('Saving data to hdf file.')
             write_db_to_hdf_base(fpath, data_out,
                                  fname_add_version=fname_add_version,
+                                 file_overwrite_existing=file_overwrite_existing,
                                  create_each_det=create_each_det)
 
         detector_name = "xs"
@@ -1553,6 +1622,7 @@ def _get_fpath_not_existing(fpath):
 
 def write_db_to_hdf_base(fpath, data,
                          fname_add_version=False,
+                         file_overwrite_existing=False,
                          create_each_det=True):
     """
     This is the function used to save raw experiment data into HDF5 file.
@@ -1586,13 +1656,20 @@ def write_db_to_hdf_base(fpath, data,
     xrf_det_list = [n for n in data.keys() if 'det' in n and 'sum' not in n]
     xrf_det_list.sort()
 
+    file_open_mode = "a"
     if os.path.exists(fpath):
         if fname_add_version:
+            # Creates unique file name
             fpath = _get_fpath_not_existing(fpath)
         else:
-            raise IOError(f"'write_db_to_hdf_base': File '{fpath}' already exists.")
+            if file_overwrite_existing:
+                # Overwrite the existing file. This completely deletes the HDF5 file,
+                #   including all information (possibly processed results).
+                file_open_mode = "w"
+            else:
+                raise IOError(f"'write_db_to_hdf_base': File '{fpath}' already exists.")
 
-    with h5py.File(fpath, 'a') as f:
+    with h5py.File(fpath, file_open_mode) as f:
         if create_each_det is True:
             for detname in xrf_det_list:
                 new_data = data[detname]

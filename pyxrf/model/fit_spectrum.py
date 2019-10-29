@@ -450,15 +450,20 @@ class Fit1D(Atom):
             logger.warning("User peak FWHM must be a positive number.")
             return
 
+        # Make sure that the energy of the user peak is within the selected fitting range
+        energy_bound_high = \
+            self.param_model.param_new["non_fitting_values"]["energy_bound_high"]["value"]
+        energy_bound_low = \
+            self.param_model.param_new["non_fitting_values"]["energy_bound_low"]["value"]
+        self.add_userpeak_energy = np.clip(self.add_userpeak_energy, energy_bound_low, energy_bound_high)
+
         # Ensure, that the values are greater than some small value to ensure that
         #   there is no computational problems.
         # Energy resolution for the existing beamlines is 0.01 keV, so 0.001 is small
         #   enough both for center energy and FWHM.
         energy_small_value = 0.001
-        if self.add_userpeak_energy < energy_small_value:
-            self.add_userpeak_energy = energy_small_value
-        if self.add_userpeak_fwhm < energy_small_value:
-            self.add_userpeak_fwhm = energy_small_value
+        self.add_userpeak_energy = max(self.add_userpeak_energy, energy_small_value)
+        self.add_userpeak_fwhm = max(self.add_userpeak_fwhm, energy_small_value)
 
         self._update_userpeak_energy()
         self._update_userpeak_fwhm()
