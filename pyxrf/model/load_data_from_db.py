@@ -543,10 +543,13 @@ def map_data2D_hxn(runid, fpath,
     # Search through the descriptor documents for the metadata
     v = _get_metadata_from_descriptor_document(hdr, data_key="beamline_status_beam_current",
                                            stream_name="baseline")
-    # Incident energy in the descriptor document is expected to be more accurate, so
-    #   overwrite the value if it already exists
     if v is not None:
         mdata["instrument_beam_current"] = v
+
+    v = _get_metadata_from_descriptor_document(hdr, data_key="energy",
+                                           stream_name="baseline")
+    if v is not None:
+        mdata["instrument_mono_incident_energy"] = v
 
 
     if 'dimensions' in start_doc:
