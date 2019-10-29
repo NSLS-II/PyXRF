@@ -14,12 +14,10 @@ import time as ttime
 import logging
 import warnings
 
-#from .utils import convert_list_to_string
+from .scan_metadata import ScanMetadataXRF
 
 import pyxrf
 pyxrf_version = pyxrf.__version__
-
-from .scan_metadata import ScanMetadataXRF
 
 logger = logging.getLogger()
 warnings.filterwarnings('ignore')
@@ -426,8 +424,6 @@ def _extract_metadata_from_start_document(hdr):
                     value = ref[path[-1]]
             # Now we finally arrived to the end of the path: the 'value' must be a scalar or a list
             if value is not None and not isinstance(value, dict):
-                #if isinstance(value, list) or isinstance(value, tuple):
-                #    value = f"{value}"  # Print the list
                 if path[-1] == 'time':
                     value = _convert_time_to_nexus(value)
                 mdata[key] = value
@@ -475,7 +471,7 @@ def _get_metadata_from_descriptor_document(hdr, *, data_key, stream_name='baseli
         try:
             value = doc[1]['data'][data_key]
             break  # Don't go through the rest of the documents
-        except:
+        except Exception:
             pass
 
     return value
@@ -543,15 +539,14 @@ def map_data2D_hxn(runid, fpath,
     # Some metadata is located at specific places in the descriptor documents
     # Search through the descriptor documents for the metadata
     v = _get_metadata_from_descriptor_document(hdr, data_key="beamline_status_beam_current",
-                                           stream_name="baseline")
+                                               stream_name="baseline")
     if v is not None:
         mdata["instrument_beam_current"] = v
 
     v = _get_metadata_from_descriptor_document(hdr, data_key="energy",
-                                           stream_name="baseline")
+                                               stream_name="baseline")
     if v is not None:
         mdata["instrument_mono_incident_energy"] = v
-
 
     if 'dimensions' in start_doc:
         datashape = start_doc.dimensions
@@ -1853,7 +1848,7 @@ def write_db_to_hdf_base(fpath, data, *, metadata=None,
         metadataGrp.attrs["file_type"] = "XRF-MAP"
         metadataGrp.attrs["file_format"] = "NSLS2-XRF-MAP"
         metadataGrp.attrs["file_format_version"] = "1.0"
-        metadataGrp.attrs["file_software"] =  "PyXRF"
+        metadataGrp.attrs["file_software"] = "PyXRF"
         metadataGrp.attrs["file_software_version"] = pyxrf_version
         # Present time in NEXUS format (should it be UTC time)?
         metadataGrp.attrs["file_created_time"] = ttime.strftime("%Y-%m-%dT%H:%M:%S+00:00", ttime.localtime())
@@ -1863,12 +1858,6 @@ def write_db_to_hdf_base(fpath, data, *, metadata=None,
             # We assume, that metadata does not contain repeated keys. Otherwise the
             #   entry with the last occurrence of the key will override the previous ones.
             for key, value in metadata.items():
-                # Convert list to ndarray
-                #if isinstance(value, list) or isinstance(value, tuple):
-                    # Save list (or tuple) as a string (lists are not supported by h5py 2.6.0
-                    #   which is widely deployed). Once h5py is updated (2.9.0), lists
-                    #   can be saved directly without converting them to strings.
-                    #value = convert_list_to_string(value)
                 metadataGrp.attrs[key] = value
 
         if create_each_det is True:
