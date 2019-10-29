@@ -1664,7 +1664,7 @@ def write_db_to_hdf_base(fpath, data,
         else:
             if file_overwrite_existing:
                 # Overwrite the existing file. This completely deletes the HDF5 file,
-                #   including all information (possibly processing results).
+                #   including all information (possibly processed results).
                 file_open_mode = "w"
             else:
                 raise IOError(f"'write_db_to_hdf_base': File '{fpath}' already exists.")
