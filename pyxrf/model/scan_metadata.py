@@ -147,8 +147,9 @@ class ScanMetadataXRF(ScanMetadataBase):
         the patterns are specified from more specific to more general.
         """
         print_order = ["scan_id", "scan_uid", "scan_instrument_name",
-                       "scan_instrument_id", "scan_time_start",
-                       "scan_time_stop", "scan.*"
+                       "scan_instrument_id",
+                       "scan_time_start", "scan_time_start_utc",
+                       "scan_time_stop", "scan_time_stop_utc", "scan.*",
                        "", "sample_name", "sample.*",
                        "", "proposal_num", "proposal_title", "proposal.*",
                        "", "experiment.*",
@@ -166,6 +167,8 @@ class ScanMetadataXRF(ScanMetadataBase):
             "scan_uid": "scan Unique ID",
             "scan_time_start": "start time",
             "scan_time_stop": "stop time",
+            "scan_time_start_utc": "start time (UTC)",
+            "scan_time_stop_utc": "stop time (UTC)",
             "scan_instrument_id": "beamline ID",
             "scan_instrument_name": "beamline name",
             "scan_exit_status": "exit status",
