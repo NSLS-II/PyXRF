@@ -20,6 +20,7 @@ from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Float, Enum, Bo
 from .load_data_from_db import (db, fetch_data_from_db, flip_data,
                                 helper_encode_list, helper_decode_list,
                                 write_db_to_hdf)
+from .utils import normalize_data_by_scaler
 from .scan_metadata import ScanMetadataXRF
 import requests
 from distutils.version import LooseVersion
@@ -550,7 +551,7 @@ def read_xspress3_data(file_path):
 
 
 def output_data(fpath, output_folder,
-                file_format='tiff', norm_name=None, use_average=True):
+                file_format='tiff', scaler_name=None, use_average=False):
     """
     Read data from h5 file and transfer them into txt.
 
@@ -562,11 +563,11 @@ def output_data(fpath, output_folder,
         which folder to save those txt file
     file_format : str, optional
         tiff or txt
-    norm_name : str, optional
+    scaler_name : str, optional
         if given, normalization will be performed.
     use_average : Bool, optional
-        when normalization, multiply mean value of denomenator,
-        i.e., norm_data = data1/data2 * np.mean(data2)
+        when normalization, multiply by the mean value of scaler,
+        i.e., norm_data = data/scaler * np.mean(scaler)
     """
 
     with h5py.File(fpath, 'r') as f:
@@ -617,14 +618,14 @@ def output_data(fpath, output_folder,
 
     output_data_to_tiff(fit_output, output_folder=output_folder,
                         file_format=file_format, name_append=name_append,
-                        norm_name=norm_name,
+                        scaler_name=scaler_name,
                         use_average=use_average)
 
 
 def output_data_to_tiff(fit_output,
                         output_folder="~/pyxrf_data_tmp/",
                         file_format='tiff', name_append="",
-                        norm_name=None, use_average=True):
+                        scaler_name=None, use_average=False):
     """
     Read data in memory and save them into tiff to txt.
 
@@ -638,35 +639,41 @@ def output_data_to_tiff(fit_output,
         tiff or txt
     name_append: str, optional
         more information saved to output file name
-    norm_name : str, optional
+    scaler_name : str, optional
         if given, normalization will be performed.
     use_average : Bool, optional
-        when normalization, multiply mean value of denomenator,
-        i.e., norm_data = data1/data2 * np.mean(data2)
+        when normalization, multiply by the mean value of scaler,
+        i.e., norm_data = data/scaler * np.mean(scaler)
     """
     # save data
     if os.path.exists(output_folder) is False:
-        logger.warning("Output_folder {} is created".format(output_folder))
+        logger.warning("Output_folder '{}' is created".format(output_folder))
         os.mkdir(output_folder)
 
-    if norm_name is not None:
-        ic_v = fit_output[str(norm_name)]
-        norm_sign = 'norm'
-        for k, v in six.iteritems(fit_output):
-            if 'pos' in k or 'r2' in k:
-                continue
-            ave = 1.0
-            if use_average is True:
-                ave = np.mean(ic_v)
-            v = v/ic_v * ave
-            _fname = "_".join([k, name_append, norm_sign])
-            if file_format == 'tiff':
-                fname = os.path.join(output_folder, _fname + '.tiff')
-                sio.imsave(fname, v.astype(np.float32))
-            elif file_format == 'txt':
-                fname = os.path.join(output_folder, _fname + '.txt')
-                np.savetxt(fname, v.astype(np.float32))
+    # Normalize data if scaler is provided
+    if scaler_name is not None:
+        if scaler_name in fit_output:
+            ic_v = fit_output[scaler_name]
+            norm_sign = 'norm'
+            for k, v in six.iteritems(fit_output):
+                if 'pos' in k or 'r2' in k:
+                    continue
+                # Normalization of data
+                v = normalize_data_by_scaler(v, ic_v)
+                if use_average is True:
+                    v *= np.mean(ic_v)
+                _fname = "_".join([k, name_append, norm_sign])
+                if file_format == 'tiff':
+                    fname = os.path.join(output_folder, _fname + '.tiff')
+                    sio.imsave(fname, v.astype(np.float32))
+                elif file_format == 'txt':
+                    fname = os.path.join(output_folder, _fname + '.txt')
+                    np.savetxt(fname, v.astype(np.float32))
+        else:
+            logger.warning(f"The scaler '{scaler_name}' was not found. Data normalization "
+                           f"was not performed for {file_format.upper()} file.")
 
+    # Always save not normalized data
     for k, v in six.iteritems(fit_output):
         _fname = "_".join([k, name_append])
         if file_format == 'tiff':
