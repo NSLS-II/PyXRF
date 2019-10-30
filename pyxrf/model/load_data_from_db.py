@@ -14,6 +14,7 @@ import time as ttime
 import logging
 import warnings
 
+from .utils import convert_time_to_nexus_string
 from .scan_metadata import ScanMetadataXRF
 
 import pyxrf
@@ -359,12 +360,6 @@ def _extract_metadata_from_start_document(hdr):
     in the scan are beamline specific and added to dictionary at later time.
     """
 
-    def _convert_time_to_nexus(t):
-        # Convert to sting format recommented for NEXUS files
-        t = ttime.strftime("%Y-%m-%dT%H:%M:%S+00:00", t)
-        # May always be converted back by parsing the string:
-        #                              ttime.strptime(t, "%Y-%m-%dT%H:%M:%S+00:00")
-        return t
 
     start_document = hdr.start
 
@@ -426,9 +421,9 @@ def _extract_metadata_from_start_document(hdr):
             if value is not None and not isinstance(value, dict):
                 if path[-1] == 'time':
                     if key.endswith("_utc"):
-                        value = _convert_time_to_nexus(ttime.gmtime(value))
+                        value = convert_time_to_nexus_string(ttime.gmtime(value))
                     else:
-                        value = _convert_time_to_nexus(ttime.localtime(value))
+                        value = convert_time_to_nexus_string(ttime.localtime(value))
                 mdata[key] = value
                 break
 
@@ -438,8 +433,8 @@ def _extract_metadata_from_start_document(hdr):
 
         if "time" in stop_document:
             t = stop_document["time"]
-            mdata["scan_time_stop"] = _convert_time_to_nexus(ttime.localtime(t))
-            mdata["scan_time_stop_utc"] = _convert_time_to_nexus(ttime.gmtime(t))
+            mdata["scan_time_stop"] = convert_time_to_nexus_string(ttime.localtime(t))
+            mdata["scan_time_stop_utc"] = convert_time_to_nexus_string(ttime.gmtime(t))
 
         if "exit_status" in stop_document:
             mdata["scan_exit_status"] = stop_document["exit_status"]
