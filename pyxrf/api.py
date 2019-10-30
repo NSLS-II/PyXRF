@@ -11,6 +11,15 @@ from .model.command_tools import fit_pixel_data_and_save, pyxrf_batch  # noqa: F
 import logging
 logger = logging.getLogger()
 
+logger.setLevel(logging.INFO)
+
+formatter = logging.Formatter(fmt='%(asctime)s : %(levelname)s : %(message)s')
+
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(formatter)
+stream_handler.setLevel(logging.INFO)
+logger.addHandler(stream_handler)
+
 try:
     from .model.load_data_from_db import db, db_analysis
 except ImportError:
