@@ -35,6 +35,7 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
                             save_tiff=True,
                             scaler_name=None,
                             use_average=False,
+                            interpolate_to_uniform_grid=False,
                             data_from='NSLS-II'):
     """
     Do fitting for signle data set, and save data accordingly. Fitting can be performed on
@@ -88,6 +89,10 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
         if given, normalization will be performed before saving data as .txt and .tiff
     use_average : bool, optional
         if true, norm is performed as data/scaler*mean(scaler), otherwise just data/scaler
+    interpolate_to_uniform_grid : bool
+        interpolate the result to uniform grid before saving to tiff and txt files
+        The grid dimensions match the dimensions of positional data for X and Y axes.
+        The range of axes is chosen to fit the values of X and Y.
     data_from : str, optional
         where do data come from? Data format includes data from NSLS-II, or 2IDE-APS
     """
@@ -125,9 +130,9 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
         elif mdata.is_metadata_available() and "instrument_mono_incident_energy" in mdata \
                 and not ignore_datafile_metadata:
             param_sum['coherent_sct_energy']['value'] = mdata["instrument_mono_incident_energy"]
-            print(f"Using incident beam energy from the data file {file_name}.")
+            print(f"Using incident beam energy from the data file '{file_name}'.")
         else:
-            print(f"Using incident beam energy from the parameter file {param_path}.")
+            print(f"Using incident beam energy from the parameter file '{param_path}'.")
 
         print(f"Incident beam energy: {param_sum['coherent_sct_energy']['value']}.")
 
@@ -179,9 +184,9 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
             elif mdata.is_metadata_available() and "instrument_mono_incident_energy" in mdata \
                     and not ignore_datafile_metadata:
                 param_det['coherent_sct_energy']['value'] = mdata["instrument_mono_incident_energy"]
-                print(f"Using incident beam energy from the data file {file_name}.")
+                print(f"Using incident beam energy from the data file '{file_name}'.")
             else:
-                print(f"Using incident beam energy from the parameter file {param_path}.")
+                print(f"Using incident beam energy from the parameter file '{param_path}'.")
 
             print(f"Incident beam energy: {param_det['coherent_sct_energy']['value']}.")
 
@@ -205,17 +210,23 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
     if save_txt is True:
         output_folder = 'output_txt_'+prefix_fname
         output_path = os.path.join(working_directory, output_folder)
-        output_data(fpath, output_path, file_format='txt', scaler_name=scaler_name, use_average=use_average)
+        output_data(fpath, output_path, file_format='txt',
+                    scaler_name=scaler_name, use_average=use_average,
+                    interpolate_to_uniform_grid=interpolate_to_uniform_grid)
     if save_tiff is True:
         output_folder = 'output_tiff_'+prefix_fname
         output_path = os.path.join(working_directory, output_folder)
-        output_data(fpath, output_path, file_format='tiff', scaler_name=scaler_name, use_average=use_average)
+        output_data(fpath, output_path, file_format='tiff',
+                    scaler_name=scaler_name, use_average=use_average,
+                    interpolate_to_uniform_grid=interpolate_to_uniform_grid)
 
 
 def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None, wd=None,
                 fit_channel_sum=True, fit_channel_each=False, param_channel_list=None,
                 incident_energy=None, ignore_datafile_metadata=False,
-                spectrum_cut=3000, save_txt=False, save_tiff=True, scaler_name=None, use_average=False):
+                spectrum_cut=3000, save_txt=False, save_tiff=True,
+                scaler_name=None, use_average=False,
+                interpolate_to_uniform_grid=False):
     """
     Perform fitting on a batch of data files. The results are saved as new datasets
     in the respective data files and may be viewed using PyXRF. Fitting can be performed on
@@ -268,6 +279,10 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
         if given, normalization will be performed
     use_average : bool, optional
         if true, norm is performed as data/scaler*mean(scaler), otherwise just data/scaler
+    interpolate_to_uniform_grid : bool
+        interpolate the result to uniform grid before saving to tiff and txt files
+        The grid dimensions match the dimensions of positional data for X and Y axes.
+        The range of axes is chosen to fit the values of X and Y.
 
     Returns
     -------
@@ -466,7 +481,8 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
                                         fit_channel_each=fit_channel_each, param_channel_list=param_channel_list,
                                         incident_energy=incident_energy, spectrum_cut=spectrum_cut,
                                         save_txt=save_txt, save_tiff=save_tiff,
-                                        scaler_name=scaler_name, use_average=use_average)
+                                        scaler_name=scaler_name, use_average=use_average,
+                                        interpolate_to_uniform_grid=interpolate_to_uniform_grid)
             except Exception as ex:
                 if allow_raising_exceptions:
                     raise Exception from ex
