@@ -360,8 +360,7 @@ def _extract_metadata_from_start_document(hdr):
     """
 
     def _convert_time_to_nexus(t):
-        t = ttime.localtime(t)  # May be it should be UTC time, not local
-        # Convert to NEXUS compatible format
+        # Convert to sting format recommented for NEXUS files
         t = ttime.strftime("%Y-%m-%dT%H:%M:%S+00:00", t)
         # May always be converted back by parsing the string:
         #                              ttime.strptime(t, "%Y-%m-%dT%H:%M:%S+00:00")
@@ -377,6 +376,7 @@ def _extract_metadata_from_start_document(hdr):
         "scan_instrument_id": ["beamline_id"],
         "scan_instrument_name": [],
         "scan_time_start": ["time"],
+        "scan_time_start_utc": ["time"],
 
         "instrument_mono_incident_energy": ["beamline_status/energy"],
         "instrument_beam_current": [],
@@ -425,7 +425,10 @@ def _extract_metadata_from_start_document(hdr):
             # Now we finally arrived to the end of the path: the 'value' must be a scalar or a list
             if value is not None and not isinstance(value, dict):
                 if path[-1] == 'time':
-                    value = _convert_time_to_nexus(value)
+                    if key.endswith("_utc"):
+                        value = _convert_time_to_nexus(ttime.gmtime(value))
+                    else:
+                        value = _convert_time_to_nexus(ttime.localtime(value))
                 mdata[key] = value
                 break
 
@@ -434,7 +437,9 @@ def _extract_metadata_from_start_document(hdr):
     if stop_document:
 
         if "time" in stop_document:
-            mdata["scan_time_stop"] = _convert_time_to_nexus(stop_document["time"])
+            t = stop_document["time"]
+            mdata["scan_time_stop"] = _convert_time_to_nexus(ttime.localtime(t))
+            mdata["scan_time_stop_utc"] = _convert_time_to_nexus(ttime.gmtime(t))
 
         if "exit_status" in stop_document:
             mdata["scan_exit_status"] = stop_document["exit_status"]
