@@ -20,7 +20,7 @@ from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Float, Enum, Bo
 from .load_data_from_db import (db, fetch_data_from_db, flip_data,
                                 helper_encode_list, helper_decode_list,
                                 write_db_to_hdf)
-from .utils import normalize_data_by_scaler
+from .utils import normalize_data_by_scaler, grid_interpolate
 from .scan_metadata import ScanMetadataXRF
 import requests
 from distutils.version import LooseVersion
@@ -551,7 +551,8 @@ def read_xspress3_data(file_path):
 
 
 def output_data(fpath, output_folder,
-                file_format='tiff', scaler_name=None, use_average=False):
+                file_format='tiff', scaler_name=None, use_average=False,
+                interpolate_to_uniform_grid=False):
     """
     Read data from h5 file and transfer them into txt.
 
@@ -568,6 +569,10 @@ def output_data(fpath, output_folder,
     use_average : Bool, optional
         when normalization, multiply by the mean value of scaler,
         i.e., norm_data = data/scaler * np.mean(scaler)
+    interpolate_to_uniform_grid : bool
+        interpolate the result to uniform grid before saving to tiff and txt files
+        The grid dimensions match the dimensions of positional data for X and Y axes.
+        The range of axes is chosen to fit the values of X and Y.
     """
 
     with h5py.File(fpath, 'r') as f:
@@ -616,6 +621,18 @@ def output_data(fpath, output_folder,
     if len(data_sc) != 0:
         fit_output.update(data_sc)
 
+    if(interpolate_to_uniform_grid):
+        for k, v in fit_output.items():
+            # Do not interpolation positions
+            if 'pos' in k:
+                continue
+
+            fit_output[k], xx, yy = grid_interpolate(v, fit_output["x_pos"], fit_output["y_pos"])
+
+        fit_output["x_pos"] = xx
+        fit_output["y_pos"] = yy
+
+    print(f"Finished fitting")
     output_data_to_tiff(fit_output, output_folder=output_folder,
                         file_format=file_format, name_append=name_append,
                         scaler_name=scaler_name,
