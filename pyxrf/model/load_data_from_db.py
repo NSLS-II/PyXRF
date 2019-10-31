@@ -1148,7 +1148,7 @@ def map_data2D_tes(runid, fpath,
     # Incident energy in the descriptor document is expected to be more accurate, so
     #   overwrite the value if it already exists
     if v is not None:
-        mdata["instrument_mono_incident_energy"] = v
+        mdata["instrument_mono_incident_energy"] = v / 1000.0  # eV to keV
 
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
