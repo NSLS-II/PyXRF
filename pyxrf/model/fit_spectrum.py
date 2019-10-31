@@ -13,10 +13,7 @@ import h5py
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import json
-# from scipy.optimize import nnls
-from scipy.interpolate import interp1d, interp2d
 import lmfit
-# from enaml.qt.qt_application import QApplication
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
 from skbeam.core.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
@@ -71,7 +68,6 @@ class Fit1D(Atom):
 
     img_dict = Dict()
     data_sets = Typed(OrderedDict)
-
 
     element_list = List()
     data_sets = Dict()
@@ -144,8 +140,6 @@ class Fit1D(Atom):
     pixel_fit_method = Int(0)
     param_q = Typed(object)
 
-    #x_data = Typed(np.ndarray)
-    #y_data = Typed(np.ndarray)
     result_map = Dict()
     map_interpolation = Bool(False)
     hdf_path = Str()
@@ -834,23 +828,6 @@ class Fit1D(Atom):
 
         t1 = time.time()
         logger.info('Time used for pixel fitting is : {}'.format(t1-t0))
-
-        #if self.data_sets and "positions" in self.data_sets:
-        #    self.x_data = self.data_sets["positions"]["x_pos"]
-        #    #  self.x_data = np.fliplr(self.x_data)
-        #    self.y_data = self.data_sets["positions"]["y_pos"]
-
-        #try:
-        #    with h5py.File(self.hdf_path, 'r') as f:
-        #        self.x_data = np.array(f['xrfmap/positions/pos'][0, :, :])
-        #        self.y_data = np.array(f['xrfmap/positions/pos'][1, :, :])
-
-            # this is consistent with fileIO that x data is fliped.
-        #    self.x_data = np.fliplr(self.x_data)
-        #except KeyError:
-        #    pass
-        #except ValueError:
-        #    pass
 
         #  get fitted spectrum and save them to figs
         if self.save_point is True:
