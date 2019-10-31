@@ -894,28 +894,6 @@ class Fit1D(Atom):
             If nonlinear is chosen, more information needs to be saved.
         """
 
-        #  Interpolation is removed, because saving interpolated data along with raw
-        #    data violates logic of processing workflow: the data saved in .h5 file
-        #    must be plotted against actual x,y positions. Interpolation must be
-        #    performed on data export (currently to .tiff and .txt) file. Also
-        #    interpolation can be done in image browsing tabs (Element Map and Element RGB).
-        #    Also the interpolation procedure is wrong (makes no sense), so no one was using it.
-        #    Keep the commented code for reference.
-        #    TODO: remove this code and this comment later
-        # if self.map_interpolation is True:
-        #     logger.info('Interpolating image... ')
-        #     rangex = self.x_data[0, :]
-        #     rangey = self.y_data[:, 0]
-        #     start_x = rangex[0]
-        #     start_y = rangey[0]
-        #     dimv = self.data_all.shape
-        #     for k, v in six.iteritems(self.result_map):
-        #         shapev = [dimv[1], dimv[0]]  # horizontal first, then vertical, different from dim in numpy
-        #         interp_d = interp1d_scan(shapev, rangex, rangey, start_x, start_y,
-        #                                  self.x_data, self.y_data, v)
-        #         interp_d[np.isnan(interp_d)] = 0
-        #         self.result_map[k] = interp_d
-
         prefix_fname = self.hdf_name.split('.')[0]
         if len(prefix_fname) == 0:
             prefix_fname = 'tmp'
