@@ -621,7 +621,12 @@ def output_data(fpath, output_folder,
     if len(data_sc) != 0:
         fit_output.update(data_sc)
 
+    logger.info(f"Saving data as {file_format.upper()} files. Directory '{output_folder}'")
+    if scaler_name:
+        logger.info(f"Data is NORMALIZED before saving. Scaler: {scaler_name}")
+
     if(interpolate_to_uniform_grid):
+        logger.info(f"Data is INTERPOLATED to uniform grid.")
         for k, v in fit_output.items():
             # Do not interpolation positions
             if 'pos' in k:
@@ -632,7 +637,6 @@ def output_data(fpath, output_folder,
         fit_output["x_pos"] = xx
         fit_output["y_pos"] = yy
 
-    print(f"Finished fitting")
     output_data_to_tiff(fit_output, output_folder=output_folder,
                         file_format=file_format, name_append=name_append,
                         scaler_name=scaler_name,
@@ -664,7 +668,6 @@ def output_data_to_tiff(fit_output,
     """
     # save data
     if os.path.exists(output_folder) is False:
-        logger.warning("Output_folder '{}' is created".format(output_folder))
         os.mkdir(output_folder)
 
     # Normalize data if scaler is provided
