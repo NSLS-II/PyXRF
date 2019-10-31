@@ -113,6 +113,7 @@ def run():
     io_model.observe('data', fit_model.exp_data_update)
     io_model.observe('data_all', fit_model.exp_data_all_update)
     io_model.observe('img_dict', fit_model.img_dict_update)
+    io_model.observe('data_sets', fit_model.data_sets_update)
     io_model.observe('img_dict', setting_model.img_dict_update)
 
     # send fitting param of summed spectrum to param_model
