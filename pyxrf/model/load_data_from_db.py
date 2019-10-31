@@ -360,7 +360,6 @@ def _extract_metadata_from_start_document(hdr):
     in the scan are beamline specific and added to dictionary at later time.
     """
 
-
     start_document = hdr.start
 
     mdata = ScanMetadataXRF()
