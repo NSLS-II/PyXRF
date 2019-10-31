@@ -256,6 +256,7 @@ def convert_time_to_nexus_string(t):
     t = ttime.strftime("%Y-%m-%dT%H:%M:%S+00:00", t)
     return t
 
+
 def convert_time_from_nexus_string(t):
     """
     Convert time from NEXUS string to ``time.struct_time``
