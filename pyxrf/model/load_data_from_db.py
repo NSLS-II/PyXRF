@@ -354,7 +354,7 @@ def _is_scan_complete(hdr):
     return bool(hdr.stop)
 
 
-def _extract_metadata_from_start_document(hdr):
+def _extract_metadata_from_header(hdr):
     """
     Extract metadata from start and stop document. Metadata extracted from other document
     in the scan are beamline specific and added to dictionary at later time.
@@ -464,11 +464,11 @@ def _get_metadata_from_descriptor_document(hdr, *, data_key, stream_name='baseli
 
     value = None
     docs = hdr.documents(stream_name=stream_name)
-    for doc in docs:
-        if (len(doc) < 2) or (doc[0] != "event") or ("descriptor" not in doc[1]):
+    for name, doc in docs:
+        if (name != "event") or ("descriptor" not in doc):
             continue
         try:
-            value = doc[1]['data'][data_key]
+            value = doc['data'][data_key]
             break  # Don't go through the rest of the documents
         except Exception:
             pass
@@ -534,7 +534,7 @@ def map_data2D_hxn(runid, fpath,
 
     start_doc = hdr['start']
     # The dictionary holding scan metadata
-    mdata = _extract_metadata_from_start_document(hdr)
+    mdata = _extract_metadata_from_header(hdr)
     # Some metadata is located at specific places in the descriptor documents
     # Search through the descriptor documents for the metadata
     v = _get_metadata_from_descriptor_document(hdr, data_key="beamline_status_beam_current",
@@ -698,7 +698,7 @@ def map_data2D_srx(runid, fpath,
     spectrum_len = 4096
     start_doc = hdr['start']
     # The dictionary holding scan metadata
-    mdata = _extract_metadata_from_start_document(hdr)
+    mdata = _extract_metadata_from_header(hdr)
     plan_n = start_doc.get('plan_name')
 
     # Load configuration file
@@ -1140,7 +1140,7 @@ def map_data2D_tes(runid, fpath,
     runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
 
     # The dictionary holding scan metadata
-    mdata = _extract_metadata_from_start_document(hdr)
+    mdata = _extract_metadata_from_header(hdr)
     # Some metadata is located at specific places in the descriptor documents
     # Search through the descriptor documents for the metadata
     v = _get_metadata_from_descriptor_document(hdr, data_key="mono_energy", stream_name="baseline")
@@ -1346,7 +1346,7 @@ def map_data2D_xfm(runid, fpath,
     # spectrum_len = 4096
     start_doc = hdr['start']
     # The dictionary holding scan metadata
-    mdata = _extract_metadata_from_start_document(hdr)
+    mdata = _extract_metadata_from_header(hdr)
     plan_n = start_doc.get('plan_name')
     if 'fly' not in plan_n:  # not fly scan
         datashape = start_doc['shape']   # vertical first then horizontal
