@@ -86,7 +86,9 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
     save_tiff : bool, optional
         save data to tiff or not
     scaler_name : str, optional
-        if given, normalization will be performed before saving data as .txt and .tiff
+        name of the field name representing the scaler (for example 'i0'), which must be present
+        in the data files. If given, normalization will be performed before saving data
+        as .txt and .tiff
     use_average : bool, optional
         if true, norm is performed as data/scaler*mean(scaler), otherwise just data/scaler
     interpolate_to_uniform_grid : bool
@@ -126,7 +128,7 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
         # update incident energy, required for XANES
         if incident_energy is not None:
             param_sum['coherent_sct_energy']['value'] = incident_energy
-            print(f"Using incident beam energy passed as the function parameter.")
+            print("Using incident beam energy passed as the function parameter.")
         elif mdata.is_metadata_available() and "instrument_mono_incident_energy" in mdata \
                 and not ignore_datafile_metadata:
             param_sum['coherent_sct_energy']['value'] = mdata["instrument_mono_incident_energy"]
