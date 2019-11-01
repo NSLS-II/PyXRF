@@ -915,7 +915,7 @@ class Fit1D(Atom):
         # Update GUI so that results can be seen immediately
         self.fit_img[fit_name] = self.result_map
 
-        if not os.path.exists(self.hdf_path) and not os.path.isfile(self.hdf_path):
+        if not os.path.isfile(self.hdf_path):
             raise IOError(f"File '{self.hdf_path}' does not exist. Data is not saved to HDF5 file.")
 
         save_fitdata_to_hdf(self.hdf_path, self.result_map, datapath=inner_path)
@@ -979,7 +979,7 @@ class Fit1D(Atom):
                 if self.map_interpolation:
                     logger.info(f"The data is INTERPOLATED to uniform grid before saving.")
                     for k, v in result_map_prepared.items():
-                        # Do not interpolation positions
+                        # Do not interpolate positions
                         if 'pos' in k:
                             continue
 
