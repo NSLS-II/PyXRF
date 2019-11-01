@@ -1,4 +1,5 @@
 import re
+import textwrap
 
 
 class ScanMetadataBase:
@@ -106,25 +107,24 @@ class ScanMetadataBase:
                     if key in self.descriptions and self.descriptions[key]:
                         s_key = self.descriptions[key]
                         # Capitalize the first letter
-                        s_key.capitalize()
+                        s_key = s_key.capitalize()
 
-                    val = v
-
-                    # If the value is a string and it is too long, then add line breaks
-                    #   so that it fits the width of a normal sized window
-                    if isinstance(val, str):
-                        # Now check if 'v' is too long and insert line breaks if needed
-                        n_max = 60  # Maximum number of symbols in the line
-                        n_gap = len(s_key) + 2  # Size of the left margin
-                        s_insert = "\n" + " " * n_gap  # New line and spaces to form a paragraph
-
-                        nc = n_max
-                        while True:
-                            n = val.find(' ', nc)
-                            if n < 0:  # n is -1 if nc > len(val).
-                                break  # Exit here if the line is too short as well
-                            val = val[:n] + s_insert + val[n+1:]
-                            nc += n_max + len(s_insert)
+                    if isinstance(v, str):
+                        # Wrap the string if it is too long ('fill' function does not change
+                        #   short strings, so call it for every value string)
+                        n_indent = len(s_key) + 2
+                        text_width = 60
+                        indent = " " * n_indent  # Size of the left margin
+                        # Create lines with the same indent. Indent width should not be included
+                        #   in the text width.
+                        val = textwrap.fill(v, width=text_width + n_indent,
+                                            initial_indent=indent,
+                                            subsequent_indent=indent)
+                        # Now remove spaces at the beginning of the line, since the key will be
+                        #   printed instead of the spaces
+                        val = val.lstrip()
+                    else:
+                        val = v
 
                     # Print the key
                     str_out += f"{s_key}: {val}\n"
