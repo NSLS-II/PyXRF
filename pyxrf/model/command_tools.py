@@ -86,7 +86,7 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
     save_tiff : bool, optional
         save data to tiff or not
     scaler_name : str, optional
-        name of the field name representing the scaler (for example 'i0'), which must be present
+        name of the field representing the scaler (for example 'i0'), which must be present
         in the data files. If given, normalization will be performed before saving data
         as .txt and .tiff
     use_average : bool, optional
