@@ -89,15 +89,15 @@ class ScanMetadataBase:
         printed_keys = set()
         flag_empty_line = False  # Indicates if empty line was just printed
 
-        for ptn in self._gen_default_print_order():
+        for ppattern in self._gen_default_print_order():
             # We don't want to print multiple empty lines in a row
-            if ptn == "" and not flag_empty_line:
+            if ppattern == "" and not flag_empty_line:
                 str_out += "\n"
                 flag_empty_line = True
                 continue
 
             for key, v in self._values.items():
-                if re.search(f"^{ptn}$", key) and (key not in printed_keys):
+                if re.search(f"^{ppattern}$", key) and (key not in printed_keys):
                     flag_empty_line = False  # Something is getting printed
                     # Mark the entry as printed
                     printed_keys.add(key)
@@ -106,7 +106,7 @@ class ScanMetadataBase:
                     if key in self.descriptions and self.descriptions[key]:
                         s_key = self.descriptions[key]
                         # Capitalize the first letter
-                        s_key = s_key[:1].upper() + s_key[1:]
+                        s_key.capitalize()
 
                     val = v
 
@@ -134,8 +134,8 @@ class ScanMetadataBase:
 
 class ScanMetadataXRF(ScanMetadataBase):
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def _gen_default_print_order(self):
         """
