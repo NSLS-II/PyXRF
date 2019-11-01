@@ -283,7 +283,7 @@ class LinePlotModel(Atom):
 
         energy_new = change["value"]
         # Limit the number of decimal points for better visual presentation
-        energy_new = np.round(energy_new, decimals=6)
+        energy_new = round(energy_new, ndigits=6)
         # Change the value twice to ensure that all observer functions are called
         self.incident_energy = energy_new + 1.0  # Arbitrary number different from 'energy_new'
         self.incident_energy = energy_new
@@ -294,7 +294,7 @@ class LinePlotModel(Atom):
         self.param_model.energy_bound_high_buf = energy_new + 1.8  # Arbitrary number
         upper_bound = energy_new + margin
         # Limit the number of decimal points for better visual presentation
-        upper_bound = np.round(upper_bound, decimals=6)
+        upper_bound = round(upper_bound, ndigits=5)
         self.param_model.energy_bound_high_buf = upper_bound
 
     @observe('scale_opt')
