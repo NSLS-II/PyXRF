@@ -625,7 +625,7 @@ def output_data(fpath, output_folder,
 
     logger.info(f"Saving data as {file_format.upper()} files. Directory '{output_folder}'")
     if scaler_name:
-        logger.info(f"Data is NORMALIZED before saving. Scaler: {scaler_name}")
+        logger.info(f"Data is NORMALIZED before saving. Scaler: '{scaler_name}'")
 
     if(interpolate_to_uniform_grid):
         logger.info(f"Data is INTERPOLATED to uniform grid.")
@@ -646,7 +646,7 @@ def output_data(fpath, output_folder,
 
 
 def output_data_to_tiff(fit_output,
-                        output_folder="~/pyxrf_data_tmp/",
+                        output_folder=None,
                         file_format='tiff', name_append="",
                         scaler_name=None, use_average=False):
     """
@@ -669,7 +669,19 @@ def output_data_to_tiff(fit_output,
         i.e., norm_data = data/scaler * np.mean(scaler)
     """
 
+    if output_folder is None:
+        raise ValueError("Output directory is not specified.")
+
+    if name_append:
+        name_append = f"_{name_append}"
+
     file_format = file_format.lower()
+    if file_format == "tiff":
+        file_extension = "tiff"
+    elif file_format == "txt":
+        file_extension = "txt"
+    else:
+        raise ValueError(f"Function is called with invalid file format '{file_format}'.")
 
     # save data
     if os.path.exists(output_folder) is False:
@@ -679,7 +691,6 @@ def output_data_to_tiff(fit_output,
     if scaler_name is not None:
         if scaler_name in fit_output:
             ic_v = fit_output[scaler_name]
-            norm_sign = 'norm'
             for k, v in fit_output.items():
                 if 'pos' in k or 'r2' in k:
                     continue
@@ -687,26 +698,28 @@ def output_data_to_tiff(fit_output,
                 v = normalize_data_by_scaler(v, ic_v)
                 if use_average is True:
                     v *= np.mean(ic_v)
-                _fname = "_".join([k, name_append, norm_sign])
+                fname = f"{k}{name_append}_norm.{file_extension}"
+                fname = os.path.join(output_folder, fname)
                 if file_format.lower() == 'tiff':
-                    fname = os.path.join(output_folder, _fname + '.tiff')
                     sio.imsave(fname, v.astype(np.float32))
                 elif file_format.lower() == 'txt':
-                    fname = os.path.join(output_folder, _fname + '.txt')
                     np.savetxt(fname, v.astype(np.float32))
+                else:
+                    raise ValueError(f"Function is called with invalid file format '{file_format}'.")
         else:
             logger.warning(f"The scaler '{scaler_name}' was not found. Data normalization "
                            f"was not performed for {file_format.upper()} file.")
 
     # Always save not normalized data
     for k, v in fit_output.items():
-        _fname = "_".join([k, name_append])
+        fname = f"{k}{name_append}.{file_extension}"
+        fname = os.path.join(output_folder, fname)
         if file_format == 'tiff':
-            fname = os.path.join(output_folder, _fname + '.tiff')
             sio.imsave(fname, v.astype(np.float32))
         elif file_format == 'txt':
-            fname = os.path.join(output_folder, _fname + '.txt')
             np.savetxt(fname, v.astype(np.float32))
+        else:
+            raise ValueError(f"Function is called with invalid file format '{file_format}'.")
 
 
 def read_hdf_APS(working_directory,
