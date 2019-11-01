@@ -575,6 +575,8 @@ def output_data(fpath, output_folder,
         The range of axes is chosen to fit the values of X and Y.
     """
 
+    file_format = file_format.lower()
+
     with h5py.File(fpath, 'r') as f:
         tmp = output_folder.split(sep_v)[-1]
         name_append = tmp.split('_')[-1]
@@ -666,6 +668,9 @@ def output_data_to_tiff(fit_output,
         when normalization, multiply by the mean value of scaler,
         i.e., norm_data = data/scaler * np.mean(scaler)
     """
+
+    file_format = file_format.lower()
+
     # save data
     if os.path.exists(output_folder) is False:
         os.mkdir(output_folder)
@@ -675,7 +680,7 @@ def output_data_to_tiff(fit_output,
         if scaler_name in fit_output:
             ic_v = fit_output[scaler_name]
             norm_sign = 'norm'
-            for k, v in six.iteritems(fit_output):
+            for k, v in fit_output.items():
                 if 'pos' in k or 'r2' in k:
                     continue
                 # Normalization of data
@@ -683,10 +688,10 @@ def output_data_to_tiff(fit_output,
                 if use_average is True:
                     v *= np.mean(ic_v)
                 _fname = "_".join([k, name_append, norm_sign])
-                if file_format == 'tiff':
+                if file_format.lower() == 'tiff':
                     fname = os.path.join(output_folder, _fname + '.tiff')
                     sio.imsave(fname, v.astype(np.float32))
-                elif file_format == 'txt':
+                elif file_format.lower() == 'txt':
                     fname = os.path.join(output_folder, _fname + '.txt')
                     np.savetxt(fname, v.astype(np.float32))
         else:
@@ -694,7 +699,7 @@ def output_data_to_tiff(fit_output,
                            f"was not performed for {file_format.upper()} file.")
 
     # Always save not normalized data
-    for k, v in six.iteritems(fit_output):
+    for k, v in fit_output.items():
         _fname = "_".join([k, name_append])
         if file_format == 'tiff':
             fname = os.path.join(output_folder, _fname + '.tiff')
