@@ -676,12 +676,8 @@ def output_data_to_tiff(fit_output,
         name_append = f"_{name_append}"
 
     file_format = file_format.lower()
-    if file_format == "tiff":
-        file_extension = "tiff"
-    elif file_format == "txt":
-        file_extension = "txt"
-    else:
-        raise ValueError(f"Function is called with invalid file format '{file_format}'.")
+    # The following works only if 'file_format' is specified by extension ('txt', 'tiff', etc.)
+    file_extension = file_format
 
     # save data
     if os.path.exists(output_folder) is False:
