@@ -64,7 +64,6 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
         If True, then the incident energy from the parameter JSON file is used; if False, then
         the energy from metadata is used. If the function parameter ``incident_energy`` is
         not None, then its value overrides the incident energy from metadata or JSON file.
-        Default: False.
     method : str, optional
         fitting method, default as nnls
     pixel_bin : int, optional
