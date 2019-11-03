@@ -724,14 +724,20 @@ def output_data_to_tiff(fit_output,
 
 def read_hdf_APS(working_directory,
                  file_name, spectrum_cut=3000,
-                 load_summed_data=True,
-                 load_each_channel=True):
+                 # The following parameters allow fine grained control over what is loaded from the file
+                 load_summed_data=True,  # Enable loading of RAW, FIT or ROI data from 'sum' channel
+                 load_each_channel=True,  # .. RAW data from individual detector channels
+                 load_processed_each_channel=True,  # .. FIT or ROI data from the detector channels
+                 load_raw_data=True,  # For all channels: load RAW data
+                 load_fit_results=True,  # .. load FIT data
+                 load_roi_results=True):  # .. load ROI data
     """
     Data IO for files similar to APS Beamline 13 data format.
     This might be changed later.
 
     Parameters
     ----------
+
     working_directory : str
         path folder
     file_name : str
@@ -741,9 +747,15 @@ def read_hdf_APS(working_directory,
     load_summed_data : bool, optional
         load summed spectrum or not
     load_each_channel : bool, optional
-        load data from each channel or not
-    other_list : list, optional
-        data dumped from suitcase
+        indicates whether to load raw experimental data for each detector channel or not
+    load_raw_data : bool
+        load raw experimental data
+    load_processed_each_channel : bool
+        indicates whether or not to load processed results (fit, roi) for each detector channel
+    load_fit_results :bool
+        load fitting results
+    load_roi_results : bool
+        load results of roi computation
 
     Returns
     -------
@@ -769,7 +781,7 @@ def read_hdf_APS(working_directory,
     with h5py.File(file_path, 'r+') as f:
 
         # Retrieve metadata if it exists
-        if "xrfmap/scan_metadata" in f:
+        if "xrfmap/scan_metadata" in f:  # Metadata is always loaded
             metadata = f["xrfmap/scan_metadata"]
             for key, value in metadata.attrs.items():
                 # Convert ndarrays to lists (they were lists before they were saved)
@@ -779,7 +791,7 @@ def read_hdf_APS(working_directory,
 
         data = f['xrfmap']
         fname = file_name.split('.')[0]
-        if load_summed_data is True:
+        if load_summed_data and load_raw_data:
             try:
                 # data from channel summed
                 exp_data = np.array(data['detsum/counts'][:, :, 0:spectrum_cut])
@@ -795,7 +807,7 @@ def read_hdf_APS(working_directory,
             except KeyError:
                 print('No data is loaded for detector sum.')
 
-        if 'scalers' in data:
+        if 'scalers' in data:  # Scalers are always loaded if data is available
             det_name = data['scalers/name']
             temp = {}
             for i, n in enumerate(det_name):
@@ -807,7 +819,7 @@ def read_hdf_APS(working_directory,
             if len(dict_sc) != 0:
                 img_dict[f"{fname}_scaler"].update(dict_sc)
 
-        if 'positions' in data:
+        if 'positions' in data:  # Positions are always loaded if data is available
             pos_name = data['positions/name']
             temp = {}
             for i, n in enumerate(pos_name):
@@ -824,7 +836,7 @@ def read_hdf_APS(working_directory,
         channel_num = channel_num-1  # do not consider det_sum
 
         # data from each channel
-        if load_each_channel:
+        if load_each_channel and load_raw_data:
             for i in range(1, channel_num+1):
                 det_name = f"det{i}"
                 file_channel = f"{fname}_det{i}"
@@ -837,60 +849,63 @@ def read_hdf_APS(working_directory,
                 except KeyError:
                     print(f"No data is loaded for {det_name}.")
 
-        for i in range(1, channel_num + 1):
-            det_name = f"det{i}"
-            file_channel = f"{fname}_det{i}"
-            if 'xrf_fit' in data[det_name]:
-                try:
-                    fit_result = get_fit_data(data[det_name]['xrf_fit_name'].value,
-                                              data[det_name]['xrf_fit'].value)
-                    img_dict.update({f"{file_channel}_fit": fit_result})
-                    # also include scaler data
-                    if 'scalers' in data:
-                        img_dict[f"{file_channel}_fit"].update(img_dict[f"{fname}_scaler"])
-                except IndexError:
-                    logger.info(f"No fitting data is loaded for channel {i}.")
-
-            if 'xrf_roi' in data[det_name]:
-                try:
-                    fit_result = get_fit_data(data[det_name]['xrf_roi_name'].value,
-                                              data[det_name]['xrf_roi'].value)
-                    img_dict.update({f"{file_channel}_roi": fit_result})
-                    # also include scaler data
-                    if 'scalers' in data:
-                        img_dict[f"{file_channel}_roi"].update(img_dict[f"{fname}_scaler"])
-                except IndexError:
-                    logger.info(f"No ROI data is loaded for channel {i}.")
-
-        if 'roimap' in data:
-            if 'sum_name' in data['roimap']:
-                det_name = data['roimap/sum_name']
-                temp = {}
-                for i, n in enumerate(det_name):
-                    temp[n] = data['roimap/sum_raw'].value[:, :, i]
-                    # bad points on first one
+        if load_processed_each_channel:
+            for i in range(1, channel_num + 1):
+                det_name = f"det{i}"
+                file_channel = f"{fname}_det{i}"
+                if 'xrf_fit' in data[det_name] and load_fit_results:
                     try:
-                        temp[n][0, 0] = temp[n][1, 0]
+                        fit_result = get_fit_data(data[det_name]['xrf_fit_name'].value,
+                                                  data[det_name]['xrf_fit'].value)
+                        img_dict.update({f"{file_channel}_fit": fit_result})
+                        # also include scaler data
+                        if 'scalers' in data:
+                            img_dict[f"{file_channel}_fit"].update(img_dict[f"{fname}_scaler"])
                     except IndexError:
-                        temp[n][0, 0] = temp[n][0, 1]
-                img_dict[f"{fname}_roi"] = temp
-                # also include scaler data
-                if 'scalers' in data:
-                    img_dict[f"{fname}_roi"].update(img_dict[f"{fname}_scaler"])
+                        logger.info(f"No fitting data is loaded for channel {i}.")
 
-            if 'det_name' in data['roimap']:
-                det_name = data['roimap/det_name']
-                temp = {}
-                for i, n in enumerate(det_name):
-                    temp[n] = data['roimap/det_raw'].value[:, :, i]
+                if 'xrf_roi' in data[det_name] and load_roi_results:
                     try:
-                        temp[n][0, 0] = temp[n][1, 0]
+                        fit_result = get_fit_data(data[det_name]['xrf_roi_name'].value,
+                                                  data[det_name]['xrf_roi'].value)
+                        img_dict.update({f"{file_channel}_roi": fit_result})
+                        # also include scaler data
+                        if 'scalers' in data:
+                            img_dict[f"{file_channel}_roi"].update(img_dict[f"{fname}_scaler"])
                     except IndexError:
-                        temp[n][0, 0] = temp[n][0, 1]
-                img_dict[f"{fname}_roi_each"] = temp
+                        logger.info(f"No ROI data is loaded for channel {i}.")
+
+        # Prepare the following code for possible deletion in the future
+        #               (we don't use ROI maps recorded during the experiment)
+        # if 'roimap' in data:
+        #    if 'sum_name' in data['roimap']:
+        #        det_name = data['roimap/sum_name']
+        #        temp = {}
+        #        for i, n in enumerate(det_name):
+        #            temp[n] = data['roimap/sum_raw'].value[:, :, i]
+        #            # bad points on first one
+        #            try:
+        #                temp[n][0, 0] = temp[n][1, 0]
+        #            except IndexError:
+        #                temp[n][0, 0] = temp[n][0, 1]
+        #        img_dict[f"{fname}_roi"] = temp
+        #        # also include scaler data
+        #        if 'scalers' in data:
+        #            img_dict[f"{fname}_roi"].update(img_dict[f"{fname}_scaler"])
+        #
+        #    if 'det_name' in data['roimap']:
+        #        det_name = data['roimap/det_name']
+        #        temp = {}
+        #        for i, n in enumerate(det_name):
+        #            temp[n] = data['roimap/det_raw'].value[:, :, i]
+        #            try:
+        #                temp[n][0, 0] = temp[n][1, 0]
+        #            except IndexError:
+        #                temp[n][0, 0] = temp[n][0, 1]
+        #        img_dict[f"{fname}_roi_each"] = temp
 
         # read fitting results from summed data
-        if 'xrf_fit' in data['detsum']:
+        if 'xrf_fit' in data['detsum'] and load_summed_data and load_fit_results:
             try:
                 fit_result = get_fit_data(data['detsum']['xrf_fit_name'].value,
                                           data['detsum']['xrf_fit'].value)
@@ -900,7 +915,7 @@ def read_hdf_APS(working_directory,
             except (IndexError, KeyError):
                 logger.info('No fitting data is loaded for channel summed data.')
 
-        if 'xrf_roi' in data['detsum']:
+        if 'xrf_roi' in data['detsum'] and load_summed_data and load_roi_results:
             try:
                 fit_result = get_fit_data(data['detsum']['xrf_roi_name'].value,
                                           data['detsum']['xrf_roi'].value)
