@@ -3,7 +3,7 @@ from .model.fileio import (stitch_fitted_results,  spec_to_hdf, create_movie,  #
                            make_hdf_stitched)  # noqa: F401
 from .model.load_data_from_db import make_hdf, export1d  # noqa: F401
 from .model.command_tools import fit_pixel_data_and_save, pyxrf_batch  # noqa: F401
-from .model.xrf_energy import xrf_energy_batch, xrf_energy_batch_api  # noqa: F401
+from .model.xrf_energy import build_energy_map, build_energy_map_api  # noqa: F401
 # from .model.command_tools import pyxrf_batch  # noqa: F401
 
 # Note:  the statement '# noqa: F401' is telling flake8 to ignore violation F401 at the given line
