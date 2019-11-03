@@ -189,7 +189,7 @@ def fetch_data_from_db(runid, fpath=None,
     return data
 
 
-def make_hdf(start, end=None, *, fname=None,
+def make_hdf(start, end=None, *, fname=None, wd=None,
              fname_add_version=False,
              completed_scans_only=False,
              file_overwrite_existing=False,
@@ -235,6 +235,10 @@ def make_hdf(start, end=None, *, fname=None,
     fname : string, optional keyword parameter
         path to save data file when ``end`` is ``None`` (only one scan is processed).
         File name is created automatically if ``fname`` is not specified.
+    wd : str
+        working directory, the file(s) will be created in this directory. The directory
+        will be created if it does not exist. If ``wd`` is not specified, then the file(s)
+        will be saved to the current directory.
     fname_add_version : bool, keyword parameter
         True: if file already exists, then file version is added to the file name
         so that it becomes unique in the current directory. The version is
@@ -297,11 +301,18 @@ def make_hdf(start, end=None, *, fname=None,
         The number of lines at the end of the scan that will not be saved to the data file.
     """
 
+    if wd:
+        # Create the directory
+        wd = os.path.abspath(wd)  # 'make_dirs' does not accept paths that contain '..'
+        os.makedirs(wd, exist_ok=True)  # Does nothing if the directory already exists
+
     if end is None:
         # Load one scan with ID specified by ``start``
         #   If there is a problem while reading the scan, the exception is raised.
         if fname is None:
             fname = prefix+str(start)+'.h5'
+            if wd:
+                fname = os.path.join(wd, fname)
         fetch_data_from_db(start, fpath=fname,
                            create_each_det=create_each_det,
                            fname_add_version=fname_add_version,
@@ -317,6 +328,8 @@ def make_hdf(start, end=None, *, fname=None,
         datalist = range(start, end+1)
         for v in datalist:
             filename = prefix+str(v)+'.h5'
+            if wd:
+                fname = os.path.join(wd, fname)
             try:
                 fetch_data_from_db(v, fpath=filename,
                                    create_each_det=create_each_det,
