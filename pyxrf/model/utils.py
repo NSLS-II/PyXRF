@@ -21,6 +21,8 @@ def grid_interpolate(data, xx, yy, xx_uniform=None, yy_uniform=None):
 
     data : ndarray
         2D array with data values (`xx`, `yy` and `data` must have the same shape)
+        ``data`` may be None. In this case interpolation will not be performed, but uniform
+        grid will be generated. Use this feature to generate uniform grid.
     xx : ndarray
         2D array with measured values of X coordinates of data points (the values may be unevenly spaced)
     yy : ndarray
@@ -43,20 +45,25 @@ def grid_interpolate(data, xx, yy, xx_uniform=None, yy_uniform=None):
     """
 
     # Check if data shape and shape of coordinate arrays match
-    if (data.shape != xx.shape) or (data.shape != yy.shape):
-        msg = "Shapes of data and coordinate arrays do not match. "\
+    if data is not None:
+        if data.shape != xx.shape:
+            msg = "Shapes of data and coordinate arrays do not match. "\
+                  "(function 'grid_interpolate')"
+            raise ValueError(msg)
+    if xx.shape != yy.shape:
+        msg = "Shapes of coordinate arrays 'xx' and 'yy' do not match. "\
               "(function 'grid_interpolate')"
         raise ValueError(msg)
-    if (xx_uniform is not None) and (xx_uniform.shape != data.shape):
+    if (xx_uniform is not None) and (xx_uniform.shape != xx.shape):
         msg = "Shapes of data and array of uniform coordinates 'xx_uniform' do not match. "\
               "(function 'grid_interpolate')"
         raise ValueError(msg)
-    if (yy_uniform is not None) and (xx_uniform.shape != data.shape):
+    if (yy_uniform is not None) and (xx_uniform.shape != xx.shape):
         msg = "Shapes of data and array of uniform coordinates 'yy_uniform' do not match. "\
               "(function 'grid_interpolate')"
         raise ValueError(msg)
 
-    ny, nx = data.shape
+    ny, nx = xx.shape
     # Data must be 2-dimensional to use the following interpolation procedure.
     if (nx <= 1) or (ny <= 1):
         logger.debug("Function utils.grid_interpolate: single row or column scan. "
@@ -106,12 +113,18 @@ def grid_interpolate(data, xx, yy, xx_uniform=None, yy_uniform=None):
 
     xx = xx.flatten()
     yy = yy.flatten()
-    data = data.flatten()
-
     xxyy = np.stack((xx, yy)).T
-    # Do the interpolation
-    data_uniform = scipy.interpolate.griddata(xxyy, data, (xx_uniform, yy_uniform),
-                                              method='linear', fill_value=0)
+
+
+    if data is not None:
+        # Do the interpolation only if data is provided
+        data = data.flatten()
+        # Do the interpolation
+        data_uniform = scipy.interpolate.griddata(xxyy, data, (xx_uniform, yy_uniform),
+                                                  method='linear', fill_value=0)
+    else:
+        data_uniform = None
+
     return data_uniform, xx_uniform, yy_uniform
 
 

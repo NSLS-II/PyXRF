@@ -1,9 +1,12 @@
 import os
 import re
+import numpy as np
+from pystackreg import StackReg
 
 from .load_data_from_db import make_hdf
 from .command_tools import pyxrf_batch
 from .fileio import read_hdf_APS
+from .utils import grid_interpolate, normalize_data_by_scaler
 
 import logging
 logger = logging.getLogger()
@@ -143,28 +146,92 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
                   f"{[scan_ids[n] for n in index_no_energy]}"
             raise(RuntimeError(msg))
 
+        #  TODO: check that the processed datasets are present for each file, also
+        #     check that the selected scaler is present in each dataset
+
         print(f"Collected scan IDs: {scan_ids}")
         print(f"Collected scan energies: {scan_energy}")
+
+
 
         # Sort the lists based on energy
         #print(f"{sorted(zip(scan_energy, range(len(scan_energy))))}")
         scan_energy, sorted_indexes = list(zip(*sorted(zip(scan_energy, range(len(scan_energy))))))
         files_h5 = [files_h5[n] for n in sorted_indexes]
         scan_ids = [scan_ids[n] for n in sorted_indexes]
-        scan_img_dict = [scan_img_dict for n in sorted_indexes]
-        scan_dataset = [scan_dataset for n in sorted_indexes]
+        scan_img_dict = [scan_img_dict[n] for n in sorted_indexes]
+        scan_dataset = [scan_dataset[n] for n in sorted_indexes]
+
+
 
         print(f"scan_energy={scan_energy}")
         print(f"sorted_indexes={sorted_indexes}")
 
+        n_scans = len(scan_ids)
 
-        print(f"scan_ids={scan_ids}")
-        print(f"files_h5={files_h5}")
+        # Create the list of positional data
+        positions_x_all = np.asarray([element['positions']['x_pos'] for element in scan_img_dict])
+        positions_y_all = np.asarray([element['positions']['y_pos'] for element in scan_img_dict])
+        # Median positions are probably the best for generating common uniform grid
+        positions_x_median = np.median(positions_x_all, axis=0)
+        positions_y_median = np.median(positions_y_all, axis=0)
+        # Generate uniform grid
+        _, positions_x_uniform, positions_y_uniform = grid_interpolate(
+            None, positions_x_median, positions_y_median)
 
+
+        # Create the arrays of XRF amplitudes for each emission line and normalize them
+        dataset_names = [get_dataset_name(img_dict) for img_dict in scan_img_dict]
         eline_list = get_eline_list(files_h5[0], scan_img_dict[0])
-        print(f"elines: {eline_list}")
+        eline_data = {}
+        for eline in eline_list:
+            data = []
+            for img_dict in scan_img_dict:
+                dataset_name = get_dataset_name(img_dict)
+                d = img_dict[dataset_name][eline]
+                if scaler_name:
+                    d = normalize_data_by_scaler(d, img_dict[dataset_name][scaler_name])
+                data.append(d)
+            eline_data[eline] = np.asarray(data)
+
+
+        print(f"emission line keys: {eline_data.keys()}")
+        print(f"{eline_data['Cl_K'].shape}")
+
+
+        # Interpolate each image based on the common uniform positions
+        for eline, data in eline_data.items():
+            n_scans, _, _ = data.shape
+            for n in range(n_scans):
+                data[n, :, :], _, _ = grid_interpolate(data[n, :, :],
+                                                       xx=positions_x_all[n, :, :],
+                                                       yy=positions_y_all[n, :, :])
+                                                       #xx_uniform=positions_x_uniform,
+                                                       #yy_uniform=positions_y_uniform)
+
+
+        # Align images
+
+        # Select the reference element (strongest)
+        ref_eline = eline_list[0]  # Select first for now TODO: rewrite this
+        ref_eline = "Mn_K"
+        sr = StackReg(StackReg.TRANSLATION)
+        sr.register_stack(eline_data[ref_eline], reference="previous")
+
+        eline_data_aligned = {}
+        for eline, data in eline_data.items():
+            eline_data_aligned[eline] = sr.transform_stack(data)
+
+        print(f"after alignment: {eline_data_aligned[ref_eline].shape}")
+
+        show_image_stack(eline_data_aligned[ref_eline], scan_energy)
+
         print(f"scan_ids={scan_ids}")
         print(f"files_h5={files_h5}")
+
+        print(f"elines: {eline_list}")
+        #print(f"scan_ids={scan_ids}")
+        #print(f"files_h5={files_h5}")
 
 
 
@@ -173,21 +240,105 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
         # Interpolate all the scans to common grid
 
 
-def get_dataset_name(file_name, detector=None):
-    if detector is None:
-        # The dataset is obtained by processing the sum of all channels
-        suffix = "fit"
-    else:
-        raise ValueError(f"Unknown detector {detector} (function 'get_dataset_name')")
-    base_fln = os.path.splitext(os.path.basename(file_name))[0]
-    return f"{base_fln}_{suffix}"
+def show_image_stack(stack, energy, axis=0, **kwargs):
+    """
+    Display a 3d ndarray with a slider to move along the third dimension.
 
+    Extra keyword arguments are passed to imshow
+	http://nbarbey.github.io/2011/07/08/matplotlib-slider.html
+
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.widgets import Slider, Button, RadioButtons
+
+    # check dim
+    if not stack.ndim == 3:
+        raise ValueError("stack should be an ndarray with ndim == 3")
+
+    fig = plt.figure()
+    ax1 = plt.subplot(121)
+    ax2 = plt.subplot(122)
+    fig.subplots_adjust(left=0.05, right=0.95, bottom=0.25)
+
+    # select first image
+    s = [slice(0, 1) if i == axis else slice(None) for i in range(3)]
+    im = stack[s].squeeze()
+
+    # display image
+    l = ax1.imshow(im, **kwargs)
+
+    # define slider
+    axcolor = 'lightgoldenrodyellow'
+    ax_slider_energy = plt.axes([0.25, 0.05, 0.65, 0.03], facecolor=axcolor)
+    ax_slider_energy.set_title(f"{energy[0]:.5f}")
+
+    slider = Slider(ax_slider_energy, 'Energy', 0, len(energy) - 1, valinit=0, valfmt='%i')
+
+    def update(val):
+        ind = int(slider.val)
+        s = [slice(ind, ind + 1) if i == axis else slice(None)
+                 for i in range(3)]
+        im = stack[s].squeeze()
+        l.set_data(im, **kwargs)
+        fig.canvas.draw()
+        ax_slider_energy.set_title(f"{energy[ind]:.5f}")
+
+    slider.on_changed(update)
+
+    plt.show()
+
+    import time as ttime
+    ttime.sleep(10)
+
+
+def get_dataset_name(img_dict, detector=None):
+    """
+    Finds the name of dataset with fitted data in the ``img_dict``.
+    Dataset name contains file name in it, so it is changing from file to file.
+    The dataset ends with suffix '_fit'. Datasets for individual detector
+    channels end with 'det1_fit', 'det2_fit' etc.
+
+    Parameters
+    ----------
+
+    img_dict : dict
+        dictionary of xrf image data loaded from .h5 file
+    detector : int
+        detector channel number: 1, 2, 3 etc. Set to None if the sum of all channels
+        data should be used.
+
+    Returns
+    -------
+    dataset name, raises RuntimeError exception if dataset is not found
+    """
+    if detector is None:
+        # Dataset name for the sum should not have 'det'+number preceding '_fit'
+        #   Assume that the number of digits does not exceed 3 (in practice it
+        #   doesn't exceed 1)
+        patterns = ["(?<!det\d)fit$", "(?<!det\d\d)fit$", "(?<!det\d\d\d)fit$"]
+    else:
+        patterns = [f"det{detector}_fit"]
+    for name in img_dict.keys():
+        name_found = True
+        for p in patterns:
+            #  All patterns must show a match
+            if not re.search(p, name):
+                name_found = False
+        if name_found:
+            return name
+
+    raise RuntimeError(f"No dataset name was found for the detector {detector} ('get_dataset_name').")
 
 def get_eline_list(file_name, img_dict):
 
-    dataset_name = get_dataset_name(file_name)
+    dataset_name = get_dataset_name(img_dict)
     all_keys = img_dict[dataset_name].keys()
     # The following pattern is based on assumption that elines names
     #        are of the form Si_K, La_L, P_K etc.
     re_pattern = "^[A-Z][a-z]?_[KLM]$"
     return [key for key in all_keys if re.search(re_pattern, key)]
+
+
+if __name__ == "__main__":
+    build_energy_map_api(start_id=92276, end_id=92281, param_file_name="param_335",
+                         scaler_name="sclr1_ch4", wd=None, sequence="build_energy_map")

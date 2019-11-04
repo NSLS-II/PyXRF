@@ -425,6 +425,9 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
 
         all_files = glob.glob(os.path.join(wd, '*.h5'))
 
+        # Sort files (processing unsorted list of files is unsightly)
+        all_files.sort()
+
         if start_id is None and end_id is None:
             # ``start_id`` and ``end_id`` are not specified:
             #   process all .h5 files in the current directory
@@ -435,6 +438,7 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
             #   (only if such file exists)
             flist = [fname for fname in all_files
                      if re.search(f"^[^_]*_{str(start_id)}\D+", os.path.basename(fname))]  # noqa: W605
+
             if len(flist) < 1:
                 msg = f"File with Scan ID {start_id} was not found"
                 if allow_raising_exceptions:
