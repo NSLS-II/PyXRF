@@ -327,11 +327,11 @@ def make_hdf(start, end=None, *, fname=None, wd=None,
         #   then the scan is skipped and the next scan is processed
         datalist = range(start, end+1)
         for v in datalist:
-            filename = prefix+str(v)+'.h5'
+            fname = prefix+str(v)+'.h5'
             if wd:
                 fname = os.path.join(wd, fname)
             try:
-                fetch_data_from_db(v, fpath=filename,
+                fetch_data_from_db(v, fpath=fname,
                                    create_each_det=create_each_det,
                                    fname_add_version=fname_add_version,
                                    completed_scans_only=completed_scans_only,
