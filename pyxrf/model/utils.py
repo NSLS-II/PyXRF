@@ -11,8 +11,8 @@ logger = logging.getLogger()
 #  and prepared to be moved to scikit-beam (skbeam.core.fitting.xrf_model)
 
 
-def grid_interpolate(data, xx, yy):
-    '''
+def grid_interpolate(data, xx, yy, xx_uniform=None, yy_uniform=None):
+    """
     Interpolate unevenly sampled data to even grid. The new even grid has the same
     dimensions as the original data and covers full range of original X and Y axes.
 
@@ -25,6 +25,12 @@ def grid_interpolate(data, xx, yy):
         2D array with measured values of X coordinates of data points (the values may be unevenly spaced)
     yy : ndarray
         2D array with measured values of Y coordinates of data points (the values may be unevenly spaced)
+    xx_uniform : ndarray
+        2D array with evenly spaced X axis values (same shape as `data`). If not provided, then
+        generated automatically and returned by the function.
+    yy_uniform : ndarray
+        2D array with evenly spaced Y axis values (same shape as `data`). If not provided, then
+        generated automatically and returned by the function.
 
     Returns
     -------
@@ -34,32 +40,76 @@ def grid_interpolate(data, xx, yy):
         2D array with evenly spaced X axis values (same shape as `data`)
     yy_uniform : ndarray
         2D array with evenly spaced Y axis values (same shape as `data`)
-    '''
+    """
+
+    # Check if data shape and shape of coordinate arrays match
     if (data.shape != xx.shape) or (data.shape != yy.shape):
-        logger.debug("Function utils.grid_interpolate: shapes of data and coordinate arrays do not match. "
-                     "Grid interpolation is skipped")
-        return data, xx, yy
+        msg = "Shapes of data and coordinate arrays do not match. "\
+              "(function 'grid_interpolate')"
+        raise ValueError(msg)
+    if (xx_uniform is not None) and (xx_uniform.shape != data.shape):
+        msg = "Shapes of data and array of uniform coordinates 'xx_uniform' do not match. "\
+              "(function 'grid_interpolate')"
+        raise ValueError(msg)
+    if (yy_uniform is not None) and (xx_uniform.shape != data.shape):
+        msg = "Shapes of data and array of uniform coordinates 'yy_uniform' do not match. "\
+              "(function 'grid_interpolate')"
+        raise ValueError(msg)
+
     ny, nx = data.shape
-    # Data must be 2-dimensional to use the interpolation procedure
+    # Data must be 2-dimensional to use the following interpolation procedure.
     if (nx <= 1) or (ny <= 1):
         logger.debug("Function utils.grid_interpolate: single row or column scan. "
                      "Grid interpolation is skipped")
         return data, xx, yy
+
+    def _get_range(vv):
+        """
+        Returns the range of the data coordinates along X or Y axis. Coordinate
+        data for a single axis is represented as a 2D array ``vv``. The array
+        will have all rows or all columns identical or almost identical.
+        The range is returned as ``vv_min`` (leftmost or topmost value)
+        and ``vv_max`` (rightmost or bottommost value). Note, that ``vv_min`` may
+        be greater than ``vv_max``
+
+        Parameters
+        ----------
+        vv : ndarray
+            2-d array of coordinates
+
+        Returns
+        -------
+        vv_min : float
+            starting point of the range
+        vv_max : float
+            end of the range
+        """
+        if abs(vv[0, 0] - vv[0, -1]) > abs(vv[0, 0] - vv[-1, 0]):
+            vv_min = np.median(vv[:, 0])
+            vv_max = np.median(vv[:, -1])
+        else:
+            vv_min = np.median(vv[0, :])
+            vv_max = np.median(vv[-1, :])
+
+        return vv_min, vv_max
+
+    if xx_uniform is None or yy_uniform is None:
+        # Find the range of axes
+        x_min, x_max = _get_range(xx)
+        y_min, y_max = _get_range(yy)
+        _yy_uniform, _xx_uniform = np.mgrid[y_min: y_max: ny * 1j, x_min: x_max: nx * 1j]
+
+    if xx_uniform is None:
+        xx_uniform = _xx_uniform
+    if yy_uniform is None:
+        yy_uniform = _yy_uniform
+
     xx = xx.flatten()
     yy = yy.flatten()
     data = data.flatten()
 
-    # Find the range of axes
-    x_min, x_max = np.min(xx), np.max(xx)
-    if xx[0] > xx[-1]:
-        x_min, x_max = x_max, x_min
-    y_min, y_max = np.min(yy), np.max(yy)
-    if yy[0] > yy[-1]:
-        y_min, y_max = y_max, y_min
-    # Create uniform grid
-    yy_uniform, xx_uniform = np.mgrid[y_min: y_max: ny * 1j, x_min: x_max: nx * 1j]
     xxyy = np.stack((xx, yy)).T
-    # Do the fitting
+    # Do the interpolation
     data_uniform = scipy.interpolate.griddata(xxyy, data, (xx_uniform, yy_uniform),
                                               method='linear', fill_value=0)
     return data_uniform, xx_uniform, yy_uniform
