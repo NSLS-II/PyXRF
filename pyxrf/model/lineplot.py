@@ -264,6 +264,39 @@ class LinePlotModel(Atom):
             return
         self.incident_energy = self.parameters['coherent_sct_energy']['value']
 
+    def set_incident_energy(self, change):
+        """
+        The observer function that changes the value of incident energy
+        and upper bound for fitted energy range.
+
+        Parameters
+        ----------
+
+        energy_new : float
+            New value of incident energy
+        """
+
+        margin = 0.8  # Value by which the upper bound of the range used for fitting
+        #               exceeds the incident energy. Selected for convenience, but
+        #               is subject to change. This is the place to change it to take effect
+        #               throughout the program.
+
+        energy_new = change["value"]
+        # Limit the number of decimal points for better visual presentation
+        energy_new = round(energy_new, ndigits=6)
+        # Change the value twice to ensure that all observer functions are called
+        self.incident_energy = energy_new + 1.0  # Arbitrary number different from 'energy_new'
+        self.incident_energy = energy_new
+        if 'coherent_sct_energy' in self.param_model.param_new:
+            self.param_model.param_new['coherent_sct_energy']['value'] = energy_new
+
+        # Change the value twice to ensure that all observer functions are called
+        self.param_model.energy_bound_high_buf = energy_new + 1.8  # Arbitrary number
+        upper_bound = energy_new + margin
+        # Limit the number of decimal points for better visual presentation
+        upper_bound = round(upper_bound, ndigits=5)
+        self.param_model.energy_bound_high_buf = upper_bound
+
     @observe('scale_opt')
     def _new_opt(self, change):
         self.log_linear_plot()

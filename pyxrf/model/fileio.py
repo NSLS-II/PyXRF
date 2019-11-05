@@ -16,10 +16,12 @@ import glob
 import ast
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
-from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Enum, Bool
+from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Float, Enum, Bool
 from .load_data_from_db import (db, fetch_data_from_db, flip_data,
                                 helper_encode_list, helper_decode_list,
                                 write_db_to_hdf)
+from .utils import normalize_data_by_scaler, grid_interpolate
+from .scan_metadata import ScanMetadataXRF
 import requests
 from distutils.version import LooseVersion
 
@@ -94,6 +96,19 @@ class FileIOModel(Atom):
     p2_col = Int(-1)
 
     data_ready = Bool(False)
+
+    # Scan metadata
+    scan_metadata = Typed(ScanMetadataXRF)
+    # Indicates if metadata is available for recently loaded scan
+    scan_metadata_available = Bool(False)
+    # Indicates if the incident energy is available in metadata for recently loaded scan
+    incident_energy_available = Bool(False)
+
+    # Changing this variable sets incident energy in the ``plot_model``
+    #   Must be linked with the function ``plot_model.set_incident_energy``
+    # This value is not updated if incident energy parameter is changed somewhere else, therefore
+    #   its value should not be used for computations!!!
+    incident_energy_set = Float(0.0)
 
     def __init__(self, **kwargs):
         self.working_directory = kwargs['working_directory']
@@ -170,6 +185,34 @@ class FileIOModel(Atom):
     def window_title_set_run_id(self, run_id):
         self.window_title = f"{self.window_title_base} - Scan ID: {run_id}"
 
+    def _metadata_update_program_state(self):
+        """
+        Update program state based on metadata:
+
+        -- enable controls (mostly ``View Metadata`` button in ``File IO`` tab
+
+        -- set incident energy if it is available
+
+        -- print logger warning if incident energy is not available in metadata
+        (or if metadata does not exist)
+        """
+
+        self.scan_metadata_available = False
+        self.incident_energy_available = False
+        if self.scan_metadata is not None:
+            self.scan_metadata_available = self.scan_metadata.is_metadata_available()
+            self.incident_energy_available = self.scan_metadata.is_mono_incident_energy_available()
+
+        if self.incident_energy_available:
+            # Fetch incident energy from metadata if it exists
+            self.incident_energy_set = self.scan_metadata.get_mono_incident_energy()
+            logger.info(f"Incident energy {self.incident_energy_set} keV was extracted from the scan metadata")
+        else:
+            logger.warning(
+                "Incident energy is not available in scan metadata and needs to be set manually: "
+                "click 'Find Elements Automatically' button in 'Fit' "
+                "tab to access the settings dialog box.")
+
     @observe(str('file_name'))
     def update_more_data(self, change):
         if change['value'] == 'temp':
@@ -185,9 +228,13 @@ class FileIOModel(Atom):
         logger.info('File is loaded: %s' % (self.file_name))
 
         # focus on single file only
-        self.img_dict, self.data_sets = file_handler(self.working_directory,
-                                                     self.file_name,
-                                                     load_each_channel=self.load_each_channel)
+        self.img_dict, self.data_sets, self.scan_metadata = \
+            file_handler(self.working_directory,
+                         self.file_name,
+                         load_each_channel=self.load_each_channel)
+
+        # Process metadata
+        self._metadata_update_program_state()
 
         self.data_ready = True
 
@@ -228,7 +275,14 @@ class FileIOModel(Atom):
             logger.error(f"Data from scan #{self.runid} was not loaded")
             return
 
-        img_dict, self.data_sets, fname, detector_name = rv
+        img_dict, self.data_sets, fname, detector_name, self.scan_metadata = rv
+
+        # Replace relative scan ID with true scan ID.
+        if (self.runid) < 0 and ("scan_id" in self.scan_metadata):
+            self.runid = int(self.scan_metadata["scan_id"])
+
+        # Process metadata
+        self._metadata_update_program_state()
 
         # Change file name without rereading the file
         self.file_name_silent_change = True
@@ -497,7 +551,8 @@ def read_xspress3_data(file_path):
 
 
 def output_data(fpath, output_folder,
-                file_format='tiff', norm_name=None, use_average=True):
+                file_format='tiff', scaler_name=None, use_average=False,
+                interpolate_to_uniform_grid=False):
     """
     Read data from h5 file and transfer them into txt.
 
@@ -509,12 +564,18 @@ def output_data(fpath, output_folder,
         which folder to save those txt file
     file_format : str, optional
         tiff or txt
-    norm_name : str, optional
+    scaler_name : str, optional
         if given, normalization will be performed.
     use_average : Bool, optional
-        when normalization, multiply mean value of denomenator,
-        i.e., norm_data = data1/data2 * np.mean(data2)
+        when normalization, multiply by the mean value of scaler,
+        i.e., norm_data = data/scaler * np.mean(scaler)
+    interpolate_to_uniform_grid : bool
+        interpolate the result to uniform grid before saving to tiff and txt files
+        The grid dimensions match the dimensions of positional data for X and Y axes.
+        The range of axes is chosen to fit the values of X and Y.
     """
+
+    file_format = file_format.lower()
 
     with h5py.File(fpath, 'r') as f:
         tmp = output_folder.split(sep_v)[-1]
@@ -562,16 +623,32 @@ def output_data(fpath, output_folder,
     if len(data_sc) != 0:
         fit_output.update(data_sc)
 
+    logger.info(f"Saving data as {file_format.upper()} files. Directory '{output_folder}'")
+    if scaler_name:
+        logger.info(f"Data is NORMALIZED before saving. Scaler: '{scaler_name}'")
+
+    if(interpolate_to_uniform_grid):
+        logger.info(f"Data is INTERPOLATED to uniform grid.")
+        for k, v in fit_output.items():
+            # Do not interpolation positions
+            if 'pos' in k:
+                continue
+
+            fit_output[k], xx, yy = grid_interpolate(v, fit_output["x_pos"], fit_output["y_pos"])
+
+        fit_output["x_pos"] = xx
+        fit_output["y_pos"] = yy
+
     output_data_to_tiff(fit_output, output_folder=output_folder,
                         file_format=file_format, name_append=name_append,
-                        norm_name=norm_name,
+                        scaler_name=scaler_name,
                         use_average=use_average)
 
 
 def output_data_to_tiff(fit_output,
-                        output_folder="~/pyxrf_data_tmp/",
+                        output_folder=None,
                         file_format='tiff', name_append="",
-                        norm_name=None, use_average=True):
+                        scaler_name=None, use_average=False):
     """
     Read data in memory and save them into tiff to txt.
 
@@ -585,43 +662,64 @@ def output_data_to_tiff(fit_output,
         tiff or txt
     name_append: str, optional
         more information saved to output file name
-    norm_name : str, optional
+    scaler_name : str, optional
         if given, normalization will be performed.
     use_average : Bool, optional
-        when normalization, multiply mean value of denomenator,
-        i.e., norm_data = data1/data2 * np.mean(data2)
+        when normalization, multiply by the mean value of scaler,
+        i.e., norm_data = data/scaler * np.mean(scaler)
     """
+
+    if output_folder is None:
+        raise ValueError("Output directory is not specified.")
+
+    if name_append:
+        name_append = f"_{name_append}"
+
+    file_format = file_format.lower()
+
+    allowed_formats = ('txt', 'tiff')
+    assert file_format in allowed_formats, f"The specified format '{file_format}' not in {allowed_formats}"
+
+    # The 'file_format' is specified as file extension
+    file_extension = file_format
+
     # save data
     if os.path.exists(output_folder) is False:
-        logger.warning("Output_folder {} is created".format(output_folder))
         os.mkdir(output_folder)
 
-    if norm_name is not None:
-        ic_v = fit_output[str(norm_name)]
-        norm_sign = 'norm'
-        for k, v in six.iteritems(fit_output):
-            if 'pos' in k or 'r2' in k:
-                continue
-            ave = 1.0
-            if use_average is True:
-                ave = np.mean(ic_v)
-            v = v/ic_v * ave
-            _fname = "_".join([k, name_append, norm_sign])
-            if file_format == 'tiff':
-                fname = os.path.join(output_folder, _fname + '.tiff')
-                sio.imsave(fname, v.astype(np.float32))
-            elif file_format == 'txt':
-                fname = os.path.join(output_folder, _fname + '.txt')
-                np.savetxt(fname, v.astype(np.float32))
+    # Normalize data if scaler is provided
+    if scaler_name is not None:
+        if scaler_name in fit_output:
+            ic_v = fit_output[scaler_name]
+            for k, v in fit_output.items():
+                if 'pos' in k or 'r2' in k:
+                    continue
+                # Normalization of data
+                v = normalize_data_by_scaler(v, ic_v)
+                if use_average is True:
+                    v *= np.mean(ic_v)
+                fname = f"{k}{name_append}_norm.{file_extension}"
+                fname = os.path.join(output_folder, fname)
+                if file_format.lower() == 'tiff':
+                    sio.imsave(fname, v.astype(np.float32))
+                elif file_format.lower() == 'txt':
+                    np.savetxt(fname, v.astype(np.float32))
+                else:
+                    raise ValueError(f"Function is called with invalid file format '{file_format}'.")
+        else:
+            logger.warning(f"The scaler '{scaler_name}' was not found. Data normalization "
+                           f"was not performed for {file_format.upper()} file.")
 
-    for k, v in six.iteritems(fit_output):
-        _fname = "_".join([k, name_append])
+    # Always save not normalized data
+    for k, v in fit_output.items():
+        fname = f"{k}{name_append}.{file_extension}"
+        fname = os.path.join(output_folder, fname)
         if file_format == 'tiff':
-            fname = os.path.join(output_folder, _fname + '.tiff')
             sio.imsave(fname, v.astype(np.float32))
         elif file_format == 'txt':
-            fname = os.path.join(output_folder, _fname + '.txt')
             np.savetxt(fname, v.astype(np.float32))
+        else:
+            raise ValueError(f"Function is called with invalid file format '{file_format}'.")
 
 
 def read_hdf_APS(working_directory,
@@ -657,6 +755,9 @@ def read_hdf_APS(working_directory,
     data_sets = OrderedDict()
     img_dict = OrderedDict()
 
+    # Empty container for metadata
+    mdata = ScanMetadataXRF()
+
     file_path = os.path.join(working_directory, file_name)
 
     # defined in other_list in config file
@@ -666,6 +767,16 @@ def read_hdf_APS(working_directory,
         dict_sc = {}
 
     with h5py.File(file_path, 'r+') as f:
+
+        # Retrieve metadata if it exists
+        if "xrfmap/scan_metadata" in f:
+            metadata = f["xrfmap/scan_metadata"]
+            for key, value in metadata.attrs.items():
+                # Convert ndarrays to lists (they were lists before they were saved)
+                if isinstance(value, np.ndarray):
+                    value = list(value)
+                mdata[key] = value
+
         data = f['xrfmap']
         fname = file_name.split('.')[0]
         if load_summed_data is True:
@@ -799,7 +910,7 @@ def read_hdf_APS(working_directory,
             except (IndexError, KeyError):
                 logger.info('No ROI data is loaded for summed data.')
 
-    return img_dict, data_sets
+    return img_dict, data_sets, mdata
 
 
 def render_data_to_gui(runid, *, file_overwrite_existing=False):
@@ -850,6 +961,7 @@ def render_data_to_gui(runid, *, file_overwrite_existing=False):
     data_out = data_from_db[0]['dataset']
     fname = data_from_db[0]['file_name']
     detector_name = data_from_db[0]['detector_name']
+    scan_metadata = data_from_db[0]['metadata']
 
     # Create file name for the 'sum' dataset ('file names' are used as dictionary
     #   keys in data storage containers, as channel labels in plot legends,
@@ -902,7 +1014,7 @@ def render_data_to_gui(runid, *, file_overwrite_existing=False):
         scaler_tmp[v] = data_out['scaler_data'][:, :, i]
     img_dict[fname_no_ext+'_scaler'] = scaler_tmp
     logger.info("Data loading: scaler data are loaded successfully.")
-    return img_dict, data_sets, fname, detector_name
+    return img_dict, data_sets, fname, detector_name, scan_metadata
 
 
 def retrieve_data_from_hdf_suitcase(fpath):
@@ -956,6 +1068,9 @@ def read_MAPS(working_directory,
     # data_dict = OrderedDict()
     data_sets = OrderedDict()
     img_dict = OrderedDict()
+
+    # Empty container for metadata
+    mdata = ScanMetadataXRF()
 
     #  cut off bad point on the last position of the spectrum
     # bad_point_cut = 0
@@ -1045,7 +1160,7 @@ def read_MAPS(working_directory,
     #                               data[detID]['xrf_fit'].value)
     #     img_dict.update({fname+'_fit': fit_result})
 
-    return img_dict, data_sets
+    return img_dict, data_sets, mdata
 
 
 def get_roi_sum(namelist, data_range, data):

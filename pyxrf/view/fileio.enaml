@@ -10,7 +10,7 @@ from enaml.layout.geometry import Box
 from enaml.stdlib.fields import FloatField
 from enaml.stdlib.fields import IntField as DefaultIntField
 from enaml.stdlib.dialog_buttons import DialogButton
-from enaml.stdlib.message_box import critical, question
+from enaml.stdlib.message_box import critical, warning, question, information
 import os
 import numpy as np
 from ..model.fileio import sep_v
@@ -41,7 +41,7 @@ enamldef FileView(DockItem): file_view:
                     hbox(folder_btn, spacer),
                     hbox(folder_fd),
                     hbox(cb_each, spacer),
-                    hbox(files_btn, files_load, spacer),
+                    hbox(files_btn, files_load, spacer, view_metadata_btn),
                     #hbox(pixel_h_label, pixel_h, pixel_v_label, pixel_v, spacer),
                     #hbox(cb_runid, run_lbl, run_num, load_btn, spacer),
                     hbox(gb_db),
@@ -107,8 +107,23 @@ enamldef FileView(DockItem): file_view:
                             # Change window title (include file name)
                             io_model.window_title_set_file_name(f_name)
 
+                            if not io_model.incident_energy_available:
+                                warning(self, "Warning",
+                                    "Incident energy is not available in scan metadata and must be set manually\n\n"
+                                    "    Incident energy may be set by changing 'Incident E [keV]' parameter\n"
+                                    "    in 'Automated Element Search Parameters' dialog box, which is accessed\n"
+                                    "    by using 'Find Elements Automatically' button in 'Fit' tab.\n")
+
             Label: files_load:
                 text = 'No data is loaded.'
+
+            PushButton: view_metadata_btn:
+                text = "View Metadata"
+                enabled << io_model.scan_metadata_available
+                clicked ::
+                    metadata_string = "SCAN METADATA\n\n"
+                    metadata_string += io_model.scan_metadata.get_formatted_output()
+                    information(self, "Scan Metadata", metadata_string)
 
             PushButton: mask_opt:
                 text = 'Mask Option'

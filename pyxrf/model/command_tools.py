@@ -24,6 +24,7 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
                             param_file_name, fit_channel_sum=True,
                             fit_channel_each=False, param_channel_list=None,
                             incident_energy=None,
+                            ignore_datafile_metadata=False,
                             method='nnls', pixel_bin=0, raise_bg=0,
                             comp_elastic_combine=False,
                             linear_bg=False,
@@ -32,8 +33,9 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
                             spectrum_cut=3000,
                             save_txt=False,
                             save_tiff=True,
-                            ic_name=None,
-                            use_average=True,
+                            scaler_name=None,
+                            use_average=False,
+                            interpolate_to_uniform_grid=False,
                             data_from='NSLS-II'):
     """
     Do fitting for signle data set, and save data accordingly. Fitting can be performed on
@@ -55,6 +57,13 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
         list of param file names for each channel
     incident_energy : float, optional
         use this energy as incident energy instead of the one in param file, i.e., XANES
+        This value overrides the incident energy from metadata and from JSON parameter file
+    ignore_datafile_metadata : bool
+        tells whether to ignore metadata from the data file (if data file contains metadata).
+        At the moment, only incident energy (monochromator energy) is used by the processing routine.
+        If True, then the incident energy from the parameter JSON file is used; if False, then
+        the energy from metadata is used. If the function parameter ``incident_energy`` is
+        not None, then its value overrides the incident energy from metadata or JSON file.
     method : str, optional
         fitting method, default as nnls
     pixel_bin : int, optional
@@ -75,10 +84,16 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
         save data to txt or not
     save_tiff : bool, optional
         save data to tiff or not
-    ic_name : str, optional
-        if given, normalization will be performed before saving data as .txt and .tiff
+    scaler_name : str, optional
+        name of the field representing the scaler (for example 'i0'), which must be present
+        in the data files. If given, normalization will be performed before saving data
+        as .txt and .tiff
     use_average : bool, optional
-        if true, norm is performed as data/IC*mean(IC), otherwise just data/IC
+        if true, norm is performed as data/scaler*mean(scaler), otherwise just data/scaler
+    interpolate_to_uniform_grid : bool
+        interpolate the result to uniform grid before saving to tiff and txt files
+        The grid dimensions match the dimensions of positional data for X and Y axes.
+        The range of axes is chosen to fit the values of X and Y.
     data_from : str, optional
         where do data come from? Data format includes data from NSLS-II, or 2IDE-APS
     """
@@ -87,14 +102,14 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
     prefix_fname = file_name.split('.')[0]
     if fit_channel_sum is True:
         if data_from == 'NSLS-II':
-            img_dict, data_sets = read_hdf_APS(working_directory, file_name,
-                                               spectrum_cut=spectrum_cut,
-                                               load_each_channel=False)
+            img_dict, data_sets, mdata = read_hdf_APS(working_directory, file_name,
+                                                      spectrum_cut=spectrum_cut,
+                                                      load_each_channel=False)
         elif data_from == '2IDE-APS':
-            img_dict, data_sets = read_MAPS(working_directory,
-                                            file_name, channel_num=1)
+            img_dict, data_sets, mdata = read_MAPS(working_directory,
+                                                   file_name, channel_num=1)
         else:
-            print('Unkonw data sets.')
+            print('Unknown data sets.')
 
         try:
             data_all_sum = data_sets[prefix_fname+'_sum'].raw_data
@@ -112,6 +127,15 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
         # update incident energy, required for XANES
         if incident_energy is not None:
             param_sum['coherent_sct_energy']['value'] = incident_energy
+            print("Using incident beam energy passed as the function parameter.")
+        elif mdata.is_metadata_available() and "instrument_mono_incident_energy" in mdata \
+                and not ignore_datafile_metadata:
+            param_sum['coherent_sct_energy']['value'] = mdata["instrument_mono_incident_energy"]
+            print(f"Using incident beam energy from the data file '{file_name}'.")
+        else:
+            print(f"Using incident beam energy from the parameter file '{param_path}'.")
+
+        print(f"Incident beam energy: {param_sum['coherent_sct_energy']['value']}.")
 
         result_map_sum, calculation_info = single_pixel_fitting_controller(
             data_all_sum,
@@ -132,12 +156,13 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
 
     if fit_channel_each is True and param_channel_list is not None:
         channel_num = len(param_channel_list)
-        img_dict, data_sets = read_hdf_APS(working_directory, file_name,
-                                           spectrum_cut=spectrum_cut,
-                                           load_each_channel=True)
+        img_dict, data_sets, mdata = read_hdf_APS(working_directory, file_name,
+                                                  spectrum_cut=spectrum_cut,
+                                                  load_each_channel=True)
         for i in range(channel_num):
             filename_det = prefix_fname+'_det'+str(i+1)
             inner_path = 'xrfmap/det'+str(i+1)
+            print(f"Processing data from detector channel #{i+1} ...")
 
             # load param file
             param_file_det = param_channel_list[i]
@@ -145,9 +170,26 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
             with open(param_path, 'r') as json_data:
                 param_det = json.load(json_data)
 
+            # load param file
+            if not os.path.isabs(param_file_name):
+                param_path = os.path.join(working_directory, param_file_name)
+            else:
+                param_path = param_file_name
+            with open(param_path, 'r') as json_data:
+                param_sum = json.load(json_data)
+
             # update incident energy, required for XANES
             if incident_energy is not None:
                 param_det['coherent_sct_energy']['value'] = incident_energy
+                print(f"Using incident beam energy passed as the function parameter.")
+            elif mdata.is_metadata_available() and "instrument_mono_incident_energy" in mdata \
+                    and not ignore_datafile_metadata:
+                param_det['coherent_sct_energy']['value'] = mdata["instrument_mono_incident_energy"]
+                print(f"Using incident beam energy from the data file '{file_name}'.")
+            else:
+                print(f"Using incident beam energy from the parameter file '{param_path}'.")
+
+            print(f"Incident beam energy: {param_det['coherent_sct_energy']['value']}.")
 
             data_all_det = data_sets[filename_det].raw_data
             result_map_det, calculation_info = single_pixel_fitting_controller(
@@ -164,21 +206,28 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
             save_fitdata_to_hdf(fpath, result_map_det, datapath=inner_path)
 
     t1 = time.time()
-    print(f"Time used for pixel fitting for file '{file_name}' is : {t1 - t0}")
+    print(f"Processing time: {t1 - t0}")
 
     if save_txt is True:
         output_folder = 'output_txt_'+prefix_fname
         output_path = os.path.join(working_directory, output_folder)
-        output_data(fpath, output_path, file_format='txt', norm_name=ic_name, use_average=use_average)
+        output_data(fpath, output_path, file_format='txt',
+                    scaler_name=scaler_name, use_average=use_average,
+                    interpolate_to_uniform_grid=interpolate_to_uniform_grid)
     if save_tiff is True:
         output_folder = 'output_tiff_'+prefix_fname
         output_path = os.path.join(working_directory, output_folder)
-        output_data(fpath, output_path, file_format='tiff', norm_name=ic_name, use_average=use_average)
+        output_data(fpath, output_path, file_format='tiff',
+                    scaler_name=scaler_name, use_average=use_average,
+                    interpolate_to_uniform_grid=interpolate_to_uniform_grid)
 
 
-def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None, wd=None, fit_channel_sum=True,
-                fit_channel_each=False, param_channel_list=None, incident_energy=None,
-                spectrum_cut=3000, save_txt=False, save_tiff=True, ic_name=None, use_average=True):
+def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None, wd=None,
+                fit_channel_sum=True, fit_channel_each=False, param_channel_list=None,
+                incident_energy=None, ignore_datafile_metadata=False,
+                spectrum_cut=3000, save_txt=False, save_tiff=True,
+                scaler_name=None, use_average=False,
+                interpolate_to_uniform_grid=False):
     """
     Perform fitting on a batch of data files. The results are saved as new datasets
     in the respective data files and may be viewed using PyXRF. Fitting can be performed on
@@ -213,16 +262,28 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
         list of param file names for each channel
     incident_energy : float, optional
         use this energy as incident energy instead of the one in param file, i.e., XANES
+        This value overrides the incident energy from metadata and from JSON parameter file.
+    ignore_datafile_metadata : bool
+        tells whether to ignore metadata from the data file (if data file contains metadata).
+        At the moment, only incident energy (monochromator energy) is used by the processing routine.
+        If True, then the incident energy from the parameter JSON file is used; if False, then
+        the energy from metadata is used. If the function parameter ``incident_energy`` is
+        not None, then its value overrides the incident energy from metadata or JSON file.
+        Default: False.
     spectrum_cut : int, optional
         only use spectrum from, say 0, 3000
     save_txt : bool, optional
         save data to txt or not
     save_tiff : bool, optional
         save data to tiff or not
-    ic_name : str, optional
+    scaler_name : str, optional
         if given, normalization will be performed
     use_average : bool, optional
-        if true, norm is performed as data/IC*mean(IC), otherwise just data/IC
+        if true, norm is performed as data/scaler*mean(scaler), otherwise just data/scaler
+    interpolate_to_uniform_grid : bool
+        interpolate the result to uniform grid before saving to tiff and txt files
+        The grid dimensions match the dimensions of positional data for X and Y axes.
+        The range of axes is chosen to fit the values of X and Y.
 
     Returns
     -------
@@ -354,9 +415,9 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
                 flist.append(fln)
             else:
                 if allow_raising_exceptions:
-                    raise IOError(f"File {fln} does not exist")
+                    raise IOError(f"File '{fln}' does not exist")
                 else:
-                    print(f"WARNING: file {fln} does not exist.")
+                    print(f"WARNING: file '{fln}' does not exist.")
 
     else:
 
@@ -402,7 +463,7 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
     if not os.path.exists(pname) or not os.path.isfile(pname):
         raise IOError(f"Function 'pyxrf_batch'. Processing parameter file '{pname}' does not exist.")
     else:
-        print(f"Processing parameter file: {pname}")
+        print(f"Processing parameter file: '{pname}'")
 
     if len(flist) > 0:
 
@@ -419,9 +480,12 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
                 fit_pixel_data_and_save(working_directory, fname,
                                         fit_channel_sum=fit_channel_sum, param_file_name=param_file_name,
                                         fit_channel_each=fit_channel_each, param_channel_list=param_channel_list,
-                                        incident_energy=incident_energy, spectrum_cut=spectrum_cut,
+                                        incident_energy=incident_energy,
+                                        ignore_datafile_metadata=ignore_datafile_metadata,
+                                        spectrum_cut=spectrum_cut,
                                         save_txt=save_txt, save_tiff=save_tiff,
-                                        ic_name=ic_name, use_average=use_average)
+                                        scaler_name=scaler_name, use_average=use_average,
+                                        interpolate_to_uniform_grid=interpolate_to_uniform_grid)
             except Exception as ex:
                 if allow_raising_exceptions:
                     raise Exception from ex

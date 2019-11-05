@@ -9,9 +9,16 @@ import json
 import multiprocessing
 import pandas as pd
 import math
+import time as ttime
 
 import logging
 import warnings
+
+from .utils import convert_time_to_nexus_string
+from .scan_metadata import ScanMetadataXRF
+
+import pyxrf
+pyxrf_version = pyxrf.__version__
 
 logger = logging.getLogger()
 warnings.filterwarnings('ignore')
@@ -347,6 +354,128 @@ def _is_scan_complete(hdr):
     return bool(hdr.stop)
 
 
+def _extract_metadata_from_header(hdr):
+    """
+    Extract metadata from start and stop document. Metadata extracted from other document
+    in the scan are beamline specific and added to dictionary at later time.
+    """
+
+    start_document = hdr.start
+
+    mdata = ScanMetadataXRF()
+
+    data_locations = {
+        "scan_id": ["scan_id"],
+        "scan_uid": ["uid"],
+        "scan_instrument_id": ["beamline_id"],
+        "scan_instrument_name": [],
+        "scan_time_start": ["time"],
+        "scan_time_start_utc": ["time"],
+
+        "instrument_mono_incident_energy": ["beamline_status/energy"],
+        "instrument_beam_current": [],
+        "instrument_detectors": ["detectors"],
+
+        "sample_name": ["sample/name", "sample"],
+
+        "experiment_plan_name": ["plan_name"],
+        "experiment_plan_type": ["plan_type"],
+
+        "proposal_num": ["proposal/proposal_num"],
+        "proposal_title": ["proposal/proposal_title"],
+        "proposal_PI_lastname": ["proposal/PI_lastname"],
+        "proposal_saf_num": ["proposal/saf_num"],
+        "proposal_cycle": ["proposal/cycle"]
+    }
+
+    for key, locations in data_locations.items():
+        # Go to the next key if no location is defined for the current key.
+        #   No locations means that the data is not yet defined in start document on any beamline
+        #   Multiple locations point to locations at different beamlines
+        if not locations:
+            continue
+
+        # For each metadata key there could be none, one or multiple locations in the start document
+        for loc in locations:
+            path = loc.split('/')  #
+            ref = start_document
+            for n, p in enumerate(path):
+                if n >= len(path) - 1:
+                    break
+                # 'ref' must always point to dictionary
+                if not isinstance(ref, dict):
+                    ref = None
+                    break
+                if p in ref:
+                    ref = ref[p]
+                else:
+                    ref = None
+                    break
+            # At this point 'ref' must be a dictionary
+            value = None
+            if ref is not None and isinstance(ref, dict):
+                if path[-1] in ref:
+                    value = ref[path[-1]]
+            # Now we finally arrived to the end of the path: the 'value' must be a scalar or a list
+            if value is not None and not isinstance(value, dict):
+                if path[-1] == 'time':
+                    if key.endswith("_utc"):
+                        value = convert_time_to_nexus_string(ttime.gmtime(value))
+                    else:
+                        value = convert_time_to_nexus_string(ttime.localtime(value))
+                mdata[key] = value
+                break
+
+    stop_document = hdr.stop
+
+    if stop_document:
+
+        if "time" in stop_document:
+            t = stop_document["time"]
+            mdata["scan_time_stop"] = convert_time_to_nexus_string(ttime.localtime(t))
+            mdata["scan_time_stop_utc"] = convert_time_to_nexus_string(ttime.gmtime(t))
+
+        if "exit_status" in stop_document:
+            mdata["scan_exit_status"] = stop_document["exit_status"]
+
+    else:
+
+        mdata["scan_exit_status"] = "incomplete"
+
+    # Add full beamline name (if available, otherwise don't create the entry).
+    #   Also, don't overwrite the existing name if it was read from the start document
+    if "scan_instrument_id" in mdata and "scan_instrument_name" not in mdata:
+        instruments = {
+            "srx": "Submicron Resolution X-ray Spectroscopy",
+            "hxn": "Hard X-ray Nanoprobe",
+            "tes": "Tender Energy X-ray Absorption Spectroscopy",
+            "xfm": "X-ray Fluorescence Microprobe"
+        }
+        iname = instruments.get(mdata["scan_instrument_id"].lower(), "")
+        if iname:
+            mdata["scan_instrument_name"] = iname
+
+    return mdata
+
+
+def _get_metadata_from_descriptor_document(hdr, *, data_key, stream_name='baseline'):
+
+    # Returns None if the parameter is not found
+
+    value = None
+    docs = hdr.documents(stream_name=stream_name)
+    for name, doc in docs:
+        if (name != "event") or ("descriptor" not in doc):
+            continue
+        try:
+            value = doc['data'][data_key]
+            break  # Don't go through the rest of the documents
+        except Exception:
+            pass
+
+    return value
+
+
 def map_data2D_hxn(runid, fpath,
                    create_each_det=False,
                    fname_add_version=False,
@@ -391,6 +520,7 @@ def map_data2D_hxn(runid, fpath,
         save data to hdf5 file if True
     """
     hdr = db[runid]
+    runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
 
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
@@ -403,6 +533,20 @@ def map_data2D_hxn(runid, fpath,
     data_output = []
 
     start_doc = hdr['start']
+    # The dictionary holding scan metadata
+    mdata = _extract_metadata_from_header(hdr)
+    # Some metadata is located at specific places in the descriptor documents
+    # Search through the descriptor documents for the metadata
+    v = _get_metadata_from_descriptor_document(hdr, data_key="beamline_status_beam_current",
+                                               stream_name="baseline")
+    if v is not None:
+        mdata["instrument_beam_current"] = v
+
+    v = _get_metadata_from_descriptor_document(hdr, data_key="energy",
+                                               stream_name="baseline")
+    if v is not None:
+        mdata["instrument_mono_incident_energy"] = v
+
     if 'dimensions' in start_doc:
         datashape = start_doc.dimensions
     elif 'shape' in start_doc:
@@ -447,15 +591,14 @@ def map_data2D_hxn(runid, fpath,
     if output_to_file:
         # output to file
         print('Saving data to hdf file.')
-        fpath = write_db_to_hdf_base(fpath, data_out,
+        fpath = write_db_to_hdf_base(fpath, data_out, metadata=mdata,
                                      fname_add_version=fname_add_version,
                                      file_overwrite_existing=file_overwrite_existing,
                                      create_each_det=create_each_det)
 
     detector_name = "xpress3"
-    d_dict = {"dataset": data_out, "file_name": fpath, "detector_name": detector_name}
+    d_dict = {"dataset": data_out, "file_name": fpath, "detector_name": detector_name, "metadata": mdata}
     data_output.append(d_dict)
-
     return data_output
 
     # write_db_to_hdf(fpath, data, datashape,
@@ -547,12 +690,15 @@ def map_data2D_srx(runid, fpath,
     dict of data in 2D format matching x,y scanning positions
     """
     hdr = db[runid]
+    runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
 
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
 
     spectrum_len = 4096
     start_doc = hdr['start']
+    # The dictionary holding scan metadata
+    mdata = _extract_metadata_from_header(hdr)
     plan_n = start_doc.get('plan_name')
 
     # Load configuration file
@@ -622,11 +768,12 @@ def map_data2D_srx(runid, fpath,
                     fly_type=fly_type,
                     base_val=config_data['base_value'])  # base value shift for ic
                 fpath_out = write_db_to_hdf_base(
-                    fpath_out, data_out,
+                    fpath_out, data_out, metadata=mdata,
                     fname_add_version=fname_add_version,
                     file_overwrite_existing=file_overwrite_existing,
                     create_each_det=create_each_det)
-                d_dict = {"dataset": data_out, "file_name": fpath_out, "detector_name": "xs"}
+                d_dict = {"dataset": data_out, "file_name": fpath_out,
+                          "detector_name": "xs", "metadata": mdata}
                 data_output.append(d_dict)
 
             if 'xs2' in hdr.start.detectors:
@@ -643,11 +790,12 @@ def map_data2D_srx(runid, fpath,
                     fly_type=fly_type,
                     base_val=config_data['base_value'])  # base value shift for ic
                 fpath_out = write_db_to_hdf_base(
-                    fpath_out, data_out,
+                    fpath_out, data_out, metadata=mdata,
                     fname_add_version=fname_add_version,
                     file_overwrite_existing=file_overwrite_existing,
                     create_each_det=create_each_det)
-                d_dict = {"dataset": data_out, "file_name": fpath_out, "detector_name": "xs"}
+                d_dict = {"dataset": data_out, "file_name": fpath_out,
+                          "detector_name": "xs", "metadata": mdata}
                 data_output.append(d_dict)
 
         return data_output
@@ -909,13 +1057,14 @@ def map_data2D_srx(runid, fpath,
             if output_to_file:
                 # output to file
                 print(f"Saving data to hdf file #{n_detectors_found}: Detector: {detector_name}.")
-                fpath_out = write_db_to_hdf_base(fpath_out, new_data,
+                fpath_out = write_db_to_hdf_base(fpath_out, new_data, metadata=mdata,
                                                  fname_add_version=fname_add_version,
                                                  file_overwrite_existing=file_overwrite_existing,
                                                  create_each_det=create_each_det)
 
             # Preparing data for the detector ``detector_name`` for output
-            d_dict = {"dataset": new_data, "file_name": fpath_out, "detector_name": detector_name}
+            d_dict = {"dataset": new_data, "file_name": fpath_out,
+                      "detector_name": detector_name, "metadata": mdata}
             data_output.append(d_dict)
 
         print()
@@ -988,7 +1137,17 @@ def map_data2D_tes(runid, fpath,
     """
 
     hdr = db[runid]
-    # start_doc = hdr['start']
+    runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
+
+    # The dictionary holding scan metadata
+    mdata = _extract_metadata_from_header(hdr)
+    # Some metadata is located at specific places in the descriptor documents
+    # Search through the descriptor documents for the metadata
+    v = _get_metadata_from_descriptor_document(hdr, data_key="mono_energy", stream_name="baseline")
+    # Incident energy in the descriptor document is expected to be more accurate, so
+    #   overwrite the value if it already exists
+    if v is not None:
+        mdata["instrument_mono_incident_energy"] = v / 1000.0  # eV to keV
 
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
@@ -1108,12 +1267,13 @@ def map_data2D_tes(runid, fpath,
     if output_to_file:
         # output to file
         print(f"Saving data to hdf file #{n_detectors_found}: Detector: {detector_name}.")
-        write_db_to_hdf_base(fpath_out, new_data,
+        write_db_to_hdf_base(fpath_out, new_data, metadata=mdata,
                              fname_add_version=fname_add_version,
                              file_overwrite_existing=file_overwrite_existing,
                              create_each_det=create_each_det)
 
-    d_dict = {"dataset": new_data, "file_name": fpath_out, "detector_name": detector_name}
+    d_dict = {"dataset": new_data, "file_name": fpath_out,
+              "detector_name": detector_name, "metadata": mdata}
     data_output.append(d_dict)
 
     return data_output
@@ -1171,15 +1331,22 @@ def map_data2D_xfm(runid, fpath,
     dict of data in 2D format matching x,y scanning positions
     """
     hdr = db[runid]
+    runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
 
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
+
+    # Generate the default file name for the scan
+    if fpath is None:
+        fpath = f"scan2D_{runid}.h5"
 
     # Output data is the list of data structures for all available detectors
     data_output = []
 
     # spectrum_len = 4096
     start_doc = hdr['start']
+    # The dictionary holding scan metadata
+    mdata = _extract_metadata_from_header(hdr)
     plan_n = start_doc.get('plan_name')
     if 'fly' not in plan_n:  # not fly scan
         datashape = start_doc['shape']   # vertical first then horizontal
@@ -1207,13 +1374,14 @@ def map_data2D_xfm(runid, fpath,
                               fly_type=fly_type)
         if output_to_file:
             print('Saving data to hdf file.')
-            write_db_to_hdf_base(fpath, data_out,
+            write_db_to_hdf_base(fpath, data_out, metadata=mdata,
                                  fname_add_version=fname_add_version,
                                  file_overwrite_existing=file_overwrite_existing,
                                  create_each_det=create_each_det)
 
         detector_name = "xs"
-        d_dict = {"dataset": data_out, "file_name": fpath, "detector_name": detector_name}
+        d_dict = {"dataset": data_out, "file_name": fpath,
+                  "detector_name": detector_name, "metadata": mdata}
         data_output.append(d_dict)
 
         return data_output
@@ -1620,7 +1788,7 @@ def _get_fpath_not_existing(fpath):
     return fpath
 
 
-def write_db_to_hdf_base(fpath, data,
+def write_db_to_hdf_base(fpath, data, *, metadata=None,
                          fname_add_version=False,
                          file_overwrite_existing=False,
                          create_each_det=True):
@@ -1651,6 +1819,7 @@ def write_db_to_hdf_base(fpath, data,
       key 'pos_names' - the list of position field names, must have entries 'x_pos' and 'y_pos'
       key 'pos_data' - 3D ndarray, 1st index matches the position in 'pos_names' list
     """
+
     interpath = 'xrfmap'
     sum_data = None
     xrf_det_list = [n for n in data.keys() if 'det' in n and 'sum' not in n]
@@ -1670,6 +1839,26 @@ def write_db_to_hdf_base(fpath, data,
                 raise IOError(f"'write_db_to_hdf_base': File '{fpath}' already exists.")
 
     with h5py.File(fpath, file_open_mode) as f:
+
+        # Create metadata group
+        metadata_grp = f.create_group(f"{interpath}/scan_metadata")
+        # This group of attributes are always created. It doesn't matter if metadata
+        #   is provided to the function.
+        metadata_grp.attrs["file_type"] = "XRF-MAP"
+        metadata_grp.attrs["file_format"] = "NSLS2-XRF-MAP"
+        metadata_grp.attrs["file_format_version"] = "1.0"
+        metadata_grp.attrs["file_software"] = "PyXRF"
+        metadata_grp.attrs["file_software_version"] = pyxrf_version
+        # Present time in NEXUS format (should it be UTC time)?
+        metadata_grp.attrs["file_created_time"] = ttime.strftime("%Y-%m-%dT%H:%M:%S+00:00", ttime.localtime())
+
+        # Now save the rest of the scan metadata if metadata is provided
+        if metadata:
+            # We assume, that metadata does not contain repeated keys. Otherwise the
+            #   entry with the last occurrence of the key will override the previous ones.
+            for key, value in metadata.items():
+                metadata_grp.attrs[key] = value
+
         if create_each_det is True:
             for detname in xrf_det_list:
                 new_data = data[detname]

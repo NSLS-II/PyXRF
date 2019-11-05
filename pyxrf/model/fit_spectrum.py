@@ -13,10 +13,7 @@ import h5py
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import json
-# from scipy.optimize import nnls
-from scipy.interpolate import interp1d, interp2d
 import lmfit
-# from enaml.qt.qt_application import QApplication
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
 from skbeam.core.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
@@ -36,7 +33,8 @@ from .guessparam import (calculate_profile, fit_strategy_list,
 from .fileio import save_fitdata_to_hdf, output_data, output_data_to_tiff
 
 from .utils import (gaussian_sigma_to_fwhm, gaussian_fwhm_to_sigma,
-                    gaussian_max_to_area, gaussian_area_to_max)
+                    gaussian_max_to_area, gaussian_area_to_max,
+                    grid_interpolate)
 
 import logging
 logger = logging.getLogger()
@@ -57,6 +55,8 @@ class Fit1D(Atom):
         dict of 2D array map for each fitted element
     map_interpolation : bool
         option to interpolate the 2D map according to x,y position or not
+        Interpolation is performed only before exporting data
+        (currently .tiff or .txt)
     hdf_path : str
         path to hdf file
     hdf_name : str
@@ -65,6 +65,9 @@ class Fit1D(Atom):
     file_status = Str()
     default_parameters = Dict()
     param_dict = Dict()
+
+    img_dict = Dict()
+    data_sets = Typed(OrderedDict)
 
     element_list = List()
     data_sets = Dict()
@@ -137,8 +140,6 @@ class Fit1D(Atom):
     pixel_fit_method = Int(0)
     param_q = Typed(object)
 
-    x_data = Typed(np.ndarray)
-    y_data = Typed(np.ndarray)
     result_map = Dict()
     map_interpolation = Bool(False)
     hdf_path = Str()
@@ -240,10 +241,17 @@ class Fit1D(Atom):
             This is the dictionary that gets passed to a function
             with the @observe decorator
         """
-        img_dict = change['value']
-        _key = [k for k in img_dict.keys() if 'scaler' in k]
+        self.img_dict = change['value']
+        _key = [k for k in self.img_dict.keys() if 'scaler' in k]
         if len(_key) != 0:
-            self.scaler_keys = sorted(img_dict[_key[0]].keys())
+            self.scaler_keys = sorted(self.img_dict[_key[0]].keys())
+
+    def data_sets_update(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+        """
+        self.data_sets = change['value']
 
     def scaler_index_update(self, change):
         """
@@ -821,18 +829,6 @@ class Fit1D(Atom):
         t1 = time.time()
         logger.info('Time used for pixel fitting is : {}'.format(t1-t0))
 
-        try:
-            with h5py.File(self.hdf_path, 'r') as f:
-                self.x_data = np.array(f['xrfmap/positions/pos'][0, :, :])
-                self.y_data = np.array(f['xrfmap/positions/pos'][1, :, :])
-
-            # this is consistent with fileIO that x data is fliped.
-            self.x_data = np.fliplr(self.x_data)
-        except KeyError:
-            pass
-        except ValueError:
-            pass
-
         #  get fitted spectrum and save them to figs
         if self.save_point is True:
             self.pixel_fit_info = 'Saving output ...'
@@ -871,9 +867,11 @@ class Fit1D(Atom):
             self.save2Dmap_to_hdf(calculation_info=calculation_info, pixel_fit=pixel_fit)
             self.pixel_fit_info = 'Pixel fitting is done!'
             # app.processEvents()
-            logger.info('-------- Fitting of single pixels is done! --------')
         except ValueError:
             logger.warning('Fitting result can not be saved to h5 file.')
+        except IOError as ex:
+            logger.warning(f"{ex}")
+        logger.info('-------- Fitting of single pixels is done! --------')
 
     def save_pixel_fitting_to_db(self):
         """Save fitting results to analysis store
@@ -895,19 +893,6 @@ class Fit1D(Atom):
         pixel_fit : str
             If nonlinear is chosen, more information needs to be saved.
         """
-        if self.map_interpolation is True:
-            logger.info('Interpolating image... ')
-            rangex = self.x_data[0, :]
-            rangey = self.y_data[:, 0]
-            start_x = rangex[0]
-            start_y = rangey[0]
-            dimv = self.data_all.shape
-            for k, v in six.iteritems(self.result_map):
-                shapev = [dimv[1], dimv[0]]  # horizontal first, then vertical, different from dim in numpy
-                interp_d = interp1d_scan(shapev, rangex, rangey, start_x, start_y,
-                                         self.x_data, self.y_data, v)
-                interp_d[np.isnan(interp_d)] = 0
-                self.result_map[k] = interp_d
 
         prefix_fname = self.hdf_name.split('.')[0]
         if len(prefix_fname) == 0:
@@ -929,6 +914,9 @@ class Fit1D(Atom):
 
         # Update GUI so that results can be seen immediately
         self.fit_img[fit_name] = self.result_map
+
+        if not os.path.isfile(self.hdf_path):
+            raise IOError(f"File '{self.hdf_path}' does not exist. Data is not saved to HDF5 file.")
 
         save_fitdata_to_hdf(self.hdf_path, self.result_map, datapath=inner_path)
 
@@ -963,33 +951,54 @@ class Fit1D(Atom):
         _name_each_file = "_".join(self.data_title.split('_')[1:])
         if self.scaler_index > 0:
             scaler_v = self.scaler_keys[self.scaler_index-1]
-            logger.info('*** Data will be saved with NORMALIZATION '
-                        'from {} ***'.format(scaler_v))
+            logger.info(f"*** NORMALIZED data is saved. Scaler: '{scaler_v}' ***")
+
         if to_tiff:
-            output_n = 'output_tiff_' + _post_name_folder
-            output_full_name = os.path.join(self.result_folder, output_n)
-            # still keep the function of reading data from hdf and saving,
-            # for cases that user wants to output current data in hdf
-            # without rerun fitting again
-            if os.path.exists(self.hdf_path):
-                output_data(self.hdf_path, output_full_name,
-                            norm_name=scaler_v)
-            else:
-                output_data_to_tiff(self.result_map, output_full_name,
-                                    name_append=_name_each_file,
-                                    norm_name=scaler_v)
-            logger.info('Done with saving data {} to tiff files.'.format(output_n))
+            dir_prefix = "output_tiff_"
+            file_format = "tiff"
         else:
-            output_n = 'output_txt_' + _post_name_folder
-            output_full_name = os.path.join(self.result_folder, output_n)
-            if os.path.exists(self.hdf_path):
-                output_data(self.hdf_path, output_full_name,
-                            file_format='txt', norm_name=scaler_v)
-            else:
-                output_data_to_tiff(self.result_map, output_full_name,
+            dir_prefix = "output_txt_"
+            file_format = "txt"
+
+        output_n = dir_prefix + _post_name_folder
+        output_full_name = os.path.join(self.result_folder, output_n)
+        # still keep the function of reading data from hdf and saving,
+        # for cases that user wants to output current data in hdf
+        # without rerun fitting again
+        if os.path.exists(self.hdf_path):
+            output_data(self.hdf_path, output_full_name,
+                        interpolate_to_uniform_grid=self.map_interpolation,
+                        file_format=file_format, scaler_name=scaler_v)
+        else:
+            # The result map is filled after single-pixel fitting. If data is simply
+            #   loaded from the file, the map is empty. It is possible to save data
+            #   from loaded image data, but there must be some GUI widget to select
+            #   the dataset.
+            if self.result_map:
+                result_map_prepared = self.result_map.copy()
+                if self.map_interpolation:
+                    logger.info(f"The data is INTERPOLATED to uniform grid before saving.")
+                    for k, v in result_map_prepared.items():
+                        # Do not interpolate positions
+                        if 'pos' in k:
+                            continue
+
+                        result_map_prepared[k], xx, yy = \
+                            grid_interpolate(v, self.img_dict["positions"]["x_pos"],
+                                             self.img_dict["positions"]["y_pos"])
+
+                    # 'x_pos' and 'y_pos' do not exist in the 'self.result_map'
+                    result_map_prepared["x_pos"] = xx
+                    result_map_prepared["y_pos"] = yy
+
+                output_data_to_tiff(result_map_prepared, output_full_name,
                                     name_append=_name_each_file,
-                                    file_format='txt', norm_name=scaler_v)
-            logger.info('Done with saving data {} to txt files.'.format(output_n))
+                                    file_format=file_format, scaler_name=scaler_v)
+                logger.info(f"Saving data to {file_format.upper()} files is completed.")
+
+            else:
+                logger.error(f"No data to save to {file_format.upper()} files. "
+                             f"Run 'Individual Pixel Fitting' to generate processed data.")
 
     def save_result(self, fname=None):
         """
@@ -2149,87 +2158,3 @@ def get_cs(elemental_line, eng=12, norm=False, round_n=2):
         return np.around(sumv/e.csb(eng)[name_label], round_n)
     else:
         return np.around(sumv, round_n)
-
-
-def fly2d_grid(dimv, rangex, rangey, start_x, start_y,
-               x_data=None, y_data=None):
-    """Get ideal gridded points for a 2D flyscan.
-    .. warning: dimv[dimh, dimv] here is different from tradition dim in python which is [dimv, dimh].
-
-    Parameters
-    ----------
-    dimv : array
-        horizontal first, then vertical.
-    rangex : array, list
-        range along horizontal direction.
-    rangey : array, list
-        range along vertical direction
-    start_x : float
-        starting value in horizontal direction.
-    start_y : float
-        starting value in vertical direction.
-    """
-    # try:
-    #     nx, ny = hdr['dimensions']
-    # except ValueError:
-    #     raise ValueError('Not a 2D flyscan (dimensions={})'
-    #                      ''.format(hdr['dimensions']))
-    nx, ny = dimv
-    # rangex, rangey = hdr['scan_range']
-    width = rangex[-1] - rangex[0]
-    height = rangey[-1] - rangey[0]
-
-    # macros = eval(hdr['subscan_0']['macros'], dict(array=np.array))
-    # start_x, start_y = macros['scan_starts']
-    dx = width / nx
-    dy = height / ny
-
-    #  original code use dx/2, dy/2, so value of the last column will not be interpolated
-    # grid_x = np.linspace(start_x, start_x + width + dx/2, nx)
-    # grid_y = np.linspace(start_y, start_y + height + dy/2, ny)
-    grid_x = np.linspace(start_x, start_x + width - dx / 2, nx)
-    grid_y = np.linspace(start_y, start_y + height - dy / 2, ny)
-
-    return grid_x, grid_y
-
-
-def interp1d_scan(dimv, rangex, rangey, start_x, start_y,
-                  x_data, y_data, spectrum, kind='linear',
-                  **kwargs):
-    """
-    Interpolate a 2D flyscan only over the fast-scanning direction
-    """
-
-    # grid_x, grid_y = fly2d_grid(hdr, x_data, y_data, plot=plot_points)
-    grid_x, grid_y = fly2d_grid(dimv, rangex, rangey, start_x, start_y, x_data, y_data)
-    # x_data = fly2d_reshape(hdr, x_data, verbose=False)
-    # grid_x = flip_data(grid_x)
-
-    if False:
-        mesh_x, mesh_y = np.meshgrid(grid_x, grid_y)
-        plt.figure()
-        if x_data is not None and y_data is not None:
-            plt.scatter(x_data, y_data, c='blue', label='actual')
-        plt.scatter(mesh_x, mesh_y, c='red', label='gridded',
-                    alpha=0.5)
-        plt.legend()
-        plt.show()
-
-    spectrum2 = np.zeros_like(spectrum)
-    for row in range(len(grid_y)):
-        spectrum2[row, :] = interp1d(x_data[row, :], spectrum[row, :],
-                                     kind=kind, bounds_error=False,
-                                     **kwargs)(grid_x)
-
-    return spectrum2
-
-
-def interp2d_scan(dimv, rangex, rangey, start_x, start_y,
-                  x_data, y_data, spectrum, kind='linear',
-                  **kwargs):
-    '''Interpolate a 2D flyscan over a grid, borrowed from Ken'''
-
-    new_x, new_y = fly2d_grid(dimv, rangex, rangey, start_x, start_y, x_data, y_data)
-
-    f = interp2d(x_data, y_data, spectrum, kind=kind, **kwargs)
-    return f(new_x, new_y)

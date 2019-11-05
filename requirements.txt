@@ -1,6 +1,6 @@
 atom
 enaml
-h5py
+h5py>=2.9.0
 lmfit
 matplotlib
 numpy

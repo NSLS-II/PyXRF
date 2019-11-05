@@ -1,5 +1,6 @@
 import numpy as np
 import scipy
+import time as ttime
 
 import logging
 logger = logging.getLogger()
@@ -233,3 +234,45 @@ def gaussian_area_to_max(peak_area, peak_sigma):
         return peak_area / peak_sigma / _get_sqrt_2_pi()
 
 # ==================================================================================
+
+
+def convert_time_to_nexus_string(t):
+    """
+    Convert time to a string according to NEXUS format
+
+    Parameters
+    ----------
+
+    t : time.struct_time
+        Time in the format returned by ``time.localtime`` or ``time.gmtime``
+
+    Returns
+    -------
+
+    t : str
+        A string represetation of time according to NEXUS standard
+    """
+    # Convert to sting format recommented for NEXUS files
+    t = ttime.strftime("%Y-%m-%dT%H:%M:%S+00:00", t)
+    return t
+
+
+def convert_time_from_nexus_string(t):
+    """
+    Convert time from NEXUS string to ``time.struct_time``
+
+    Parameters
+    ----------
+
+    t : str
+        A string represetation of time according to NEXUS standard
+
+    Returns
+    -------
+
+    t : time.struct_time
+        Time in the format returned by ``time.localtime`` or ``time.gmtime``
+    """
+    # Convert to sting format recommented for NEXUS files
+    t = ttime.strptime(t, "%Y-%m-%dT%H:%M:%S+00:00")
+    return t
