@@ -224,7 +224,7 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
 
         print(f"after alignment: {eline_data_aligned[ref_eline].shape}")
 
-        show_image_stack(eline_data_aligned[ref_eline], scan_energy)
+        show_image_stack(eline_data_aligned, scan_energy)
 
         print(f"scan_ids={scan_ids}")
         print(f"files_h5={files_h5}")
@@ -240,7 +240,7 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
         # Interpolate all the scans to common grid
 
 
-def show_image_stack(stack, energy, axis=0, **kwargs):
+def show_image_stack(eline_data, energy, axis=0):
     """
     Display a 3d ndarray with a slider to move along the third dimension.
 
@@ -251,41 +251,70 @@ def show_image_stack(stack, energy, axis=0, **kwargs):
     import matplotlib.pyplot as plt
     from matplotlib.widgets import Slider, Button, RadioButtons
 
-    # check dim
+    label_fontsize = 15
+
+    if not eline_data:
+        logger.warning("Emission line data dictionary is empty. There is nothing to plot.")
+        return
+
+    labels = list(eline_data.keys())
+    label_current = labels[0]  # Set the first emission line as initial choice
+    stack = eline_data[label_current]
+
+    # Check dimensions
     if not stack.ndim == 3:
         raise ValueError("stack should be an ndarray with ndim == 3")
 
-    fig = plt.figure()
+    fig = plt.figure(figsize=(11, 6))
     ax1 = plt.subplot(121)
     ax2 = plt.subplot(122)
-    fig.subplots_adjust(left=0.05, right=0.95, bottom=0.25)
+    fig.subplots_adjust(left=0.07, right=0.95, bottom=0.25)
+    ax1.set_xlabel("X", fontsize=label_fontsize)
+    ax1.set_ylabel("Y", fontsize=label_fontsize)
 
     # select first image
-    #s = [slice(0, 1) if i == axis else slice(None) for i in range(3)]
     s = stack[0, :, :]
-    #im = stack[s].squeeze()
     im = s
 
     # display image
     l = ax1.imshow(im)
-    energy_plot, = ax2.plot(energy, stack[:, 0, 0])
+    ax2.plot(energy, stack[:, 0, 0])
     ax2.grid()
-    plt.xlabel("Energy, keV")
-    plt.ylabel("Fluorescence")
+    ax2.set_xlabel("Energy, keV", fontsize=label_fontsize)
+    ax2.set_ylabel("Fluorescence", fontsize=label_fontsize)
 
     # define slider
     axcolor = 'lightgoldenrodyellow'
-    ax_slider_energy = plt.axes([0.25, 0.05, 0.65, 0.03], facecolor=axcolor)
+    ax_slider_energy = plt.axes([0.25, 0.07, 0.65, 0.03], facecolor=axcolor)
     ax_slider_energy.set_title(f"{energy[0]:.5f} keV")
 
     slider = Slider(ax_slider_energy, 'Energy', 0, len(energy) - 1, valinit=0, valfmt='%i')
+
+    #labels = ["Ab_C", "De_F", "Gh_I"]
+
+    # Create buttons
+    btn, ax_btn = [], []
+    for n in range(len(labels)):
+        p_left = 0.05 + 0.08 * n
+        ax_btn.append(plt.axes([p_left, 0.01, 0.07, 0.04]))
+        btn.append(Button(ax_btn[-1], labels[n]))
+
+    def btn_clicked(event):
+        for n, ab in enumerate(ax_btn):
+            if event.inaxes is ab:
+                print(f"Button is pressed: {labels[n]}")
+    # Set events to each button
+    for b in btn:
+        b.on_clicked(btn_clicked)
+
+
 
     def update(val):
         ind = int(slider.val)
         s = [slice(ind, ind + 1) if i == axis else slice(None)
                  for i in range(3)]
         im = stack[s].squeeze()
-        l.set_data(im, **kwargs)
+        l.set_data(im)
         fig.canvas.draw()
         ax_slider_energy.set_title(f"{energy[ind]:.5f} keV")
 
@@ -296,25 +325,17 @@ def show_image_stack(stack, energy, axis=0, **kwargs):
             xd, yd = event.xdata, event.ydata
             nx, ny = int(xd), int(yd)
             print(f"xd = {xd}   yd = {yd}    nx = {nx}  ny = {ny}")
-            #energy_plot.set_data(energy, stack[:, ny, nx])
             ax2.clear()
             ax2.plot(energy, stack[:, ny, nx])
             ax2.grid()
-            plt.xlabel("Energy, keV")
-            plt.ylabel("Fluorescence")
+            ax2.set_xlabel("Energy, keV", fontsize=label_fontsize)
+            ax2.set_ylabel("Fluorescence", fontsize=label_fontsize)
             fig.canvas.draw()
             fig.canvas.flush_events()
-            #ax2.cla()
-            #ax2.plot(energy, stack[:, ny, nx])
-            #plt. show()
-
 
     fig.canvas.mpl_connect("button_press_event", onclick)
 
     plt.show()
-
-    #import time as ttime
-    #ttime.sleep(10)
 
 
 def get_dataset_name(img_dict, detector=None):
