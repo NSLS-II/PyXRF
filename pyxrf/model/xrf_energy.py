@@ -261,16 +261,22 @@ def show_image_stack(stack, energy, axis=0, **kwargs):
     fig.subplots_adjust(left=0.05, right=0.95, bottom=0.25)
 
     # select first image
-    s = [slice(0, 1) if i == axis else slice(None) for i in range(3)]
-    im = stack[s].squeeze()
+    #s = [slice(0, 1) if i == axis else slice(None) for i in range(3)]
+    s = stack[0, :, :]
+    #im = stack[s].squeeze()
+    im = s
 
     # display image
-    l = ax1.imshow(im, **kwargs)
+    l = ax1.imshow(im)
+    energy_plot, = ax2.plot(energy, stack[:, 0, 0])
+    ax2.grid()
+    plt.xlabel("Energy, keV")
+    plt.ylabel("Fluorescence")
 
     # define slider
     axcolor = 'lightgoldenrodyellow'
     ax_slider_energy = plt.axes([0.25, 0.05, 0.65, 0.03], facecolor=axcolor)
-    ax_slider_energy.set_title(f"{energy[0]:.5f}")
+    ax_slider_energy.set_title(f"{energy[0]:.5f} keV")
 
     slider = Slider(ax_slider_energy, 'Energy', 0, len(energy) - 1, valinit=0, valfmt='%i')
 
@@ -281,14 +287,34 @@ def show_image_stack(stack, energy, axis=0, **kwargs):
         im = stack[s].squeeze()
         l.set_data(im, **kwargs)
         fig.canvas.draw()
-        ax_slider_energy.set_title(f"{energy[ind]:.5f}")
+        ax_slider_energy.set_title(f"{energy[ind]:.5f} keV")
 
     slider.on_changed(update)
 
+    def onclick(event):
+        if (event.inaxes == ax1) and (event.button == 1):
+            xd, yd = event.xdata, event.ydata
+            nx, ny = int(xd), int(yd)
+            print(f"xd = {xd}   yd = {yd}    nx = {nx}  ny = {ny}")
+            #energy_plot.set_data(energy, stack[:, ny, nx])
+            ax2.clear()
+            ax2.plot(energy, stack[:, ny, nx])
+            ax2.grid()
+            plt.xlabel("Energy, keV")
+            plt.ylabel("Fluorescence")
+            fig.canvas.draw()
+            fig.canvas.flush_events()
+            #ax2.cla()
+            #ax2.plot(energy, stack[:, ny, nx])
+            #plt. show()
+
+
+    fig.canvas.mpl_connect("button_press_event", onclick)
+
     plt.show()
 
-    import time as ttime
-    ttime.sleep(10)
+    #import time as ttime
+    #ttime.sleep(10)
 
 
 def get_dataset_name(img_dict, detector=None):
