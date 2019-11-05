@@ -676,7 +676,11 @@ def output_data_to_tiff(fit_output,
         name_append = f"_{name_append}"
 
     file_format = file_format.lower()
-    # The following works only if 'file_format' is specified by extension ('txt', 'tiff', etc.)
+
+    allowed_formats = ('txt', 'tiff')
+    assert file_format in allowed_formats, f"The specified format '{file_format}' not in {allowed_formats}"
+
+    # The 'file_format' is specified as file extension
     file_extension = file_format
 
     # save data
