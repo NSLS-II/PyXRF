@@ -277,7 +277,7 @@ def show_image_stack(eline_data, energy, axis=0):
     im = s
 
     # display image
-    l = ax1.imshow(im)
+    im_plot = ax1.imshow(im)
     ax2.plot(energy, stack[:, 0, 0])
     ax2.grid()
     ax2.set_xlabel("Energy, keV", fontsize=label_fontsize)
@@ -288,7 +288,8 @@ def show_image_stack(eline_data, energy, axis=0):
     ax_slider_energy = plt.axes([0.25, 0.07, 0.65, 0.03], facecolor=axcolor)
     ax_slider_energy.set_title(f"{energy[0]:.5f} keV")
 
-    slider = Slider(ax_slider_energy, 'Energy', 0, len(energy) - 1, valinit=0, valfmt='%i')
+    n_energy = 0
+    slider = Slider(ax_slider_energy, 'Energy', 0, len(energy) - 1, valinit=n_energy, valfmt='%i')
 
     #labels = ["Ab_C", "De_F", "Gh_I"]
 
@@ -300,23 +301,32 @@ def show_image_stack(eline_data, energy, axis=0):
         btn.append(Button(ax_btn[-1], labels[n]))
 
     def btn_clicked(event):
+        nonlocal stack
+        nonlocal label_current
         for n, ab in enumerate(ax_btn):
             if event.inaxes is ab:
+                label_current = labels[n]  # Set the first emission line as initial choice
+                stack = eline_data[label_current]
+                redraw_image()
                 print(f"Button is pressed: {labels[n]}")
+                break
+
     # Set events to each button
     for b in btn:
         b.on_clicked(btn_clicked)
 
-
+    def redraw_image():
+        nonlocal n_energy
+        im = stack[n_energy, :, :]
+        im_plot.set_data(im)
+        ax_slider_energy.set_title(f"{energy[n_energy]:.5f} keV")
+        fig.canvas.draw()
 
     def update(val):
-        ind = int(slider.val)
-        s = [slice(ind, ind + 1) if i == axis else slice(None)
-                 for i in range(3)]
-        im = stack[s].squeeze()
-        l.set_data(im)
-        fig.canvas.draw()
-        ax_slider_energy.set_title(f"{energy[ind]:.5f} keV")
+        nonlocal n_energy
+        n_energy = int(slider.val)
+
+        redraw_image()
 
     slider.on_changed(update)
 
