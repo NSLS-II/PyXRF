@@ -115,7 +115,6 @@ def grid_interpolate(data, xx, yy, xx_uniform=None, yy_uniform=None):
     yy = yy.flatten()
     xxyy = np.stack((xx, yy)).T
 
-
     if data is not None:
         # Do the interpolation only if data is provided
         data = data.flatten()

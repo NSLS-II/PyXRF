@@ -2,6 +2,8 @@ import os
 import re
 import numpy as np
 from pystackreg import StackReg
+import matplotlib.pyplot as plt
+from matplotlib.widgets import Slider, Button
 
 from .load_data_from_db import make_hdf
 from .command_tools import pyxrf_batch
@@ -189,7 +191,7 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
 
         # Sort the lists based on energy. Prior to this point the data was arrange in the
         #   alphabetical order of files.
-        scan_energy, sorted_indexes = list(zip(*sorted(zip(scan_energy, range(len(scan_energy))))))
+        scan_energies, sorted_indexes = list(zip(*sorted(zip(scan_energies, range(len(scan_energies))))))
         files_h5 = [files_h5[n] for n in sorted_indexes]
         scan_ids = [scan_ids[n] for n in sorted_indexes]
         scan_img_dict = [scan_img_dict[n] for n in sorted_indexes]
@@ -275,7 +277,7 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
         logger.info("Aligning the image stack: success.")
 
         # Show stacks
-        show_image_stack(eline_data_aligned, scan_energy)
+        show_image_stack(eline_data_aligned, scan_energies)
 
         logger.info("Processing is complete.")
 
@@ -307,7 +309,6 @@ def _load_dataset_from_hdf5(*, start_id, end_id, wd_xrf):
                          load_raw_data=False, load_fit_results=True,
                          load_roi_results=False)
 
-        msg = None
         if "scan_id" not in mdata:
             logger.error(f"Metadata value 'scan_id' is missing in data file '{fln}': "
                          " the file was not loaded.")
@@ -346,7 +347,6 @@ def _check_dataset_consistency(*, scan_ids, scan_img_dict, files_h5, scaler_name
         img_data_keys_union = img_data_keys_union.union(ks)
     img_data_keys_union = list(img_data_keys_union)
 
-
     def _raise_error_exception(slist, data_tuples, msg_phrase):
         """
         Report error by raising the RuntimeError exception. Print the list
@@ -373,7 +373,6 @@ def _check_dataset_consistency(*, scan_ids, scan_img_dict, files_h5, scaler_name
                 msg += f"    {dt[0]}:  {dt[1]}"
             msg += "\n"
         raise RuntimeError(msg)
-
 
     def _check_for_specific_elines(img_data_keys, elines, files_h5, scan_ids, msg_phrase):
         """
@@ -409,7 +408,7 @@ def _check_dataset_consistency(*, scan_ids, scan_img_dict, files_h5, scaler_name
                 break
 
         if not success:
-            msg = ("Files in the dataset were processed for different sets of emission lines:\n"            
+            msg = ("Files in the dataset were processed for different sets of emission lines:\n"
                    "    may be fixed by rerunning the processing of the dataset "
                    "with the same parameter file.")
             raise RuntimeError(msg)
@@ -469,15 +468,8 @@ def _check_dataset_consistency(*, scan_ids, scan_img_dict, files_h5, scaler_name
 
 def show_image_stack(eline_data, energy, axis=0):
     """
-    Display a 3d ndarray with a slider to move along the third dimension.
-
-    Extra keyword arguments are passed to imshow
-	http://nbarbey.github.io/2011/07/08/matplotlib-slider.html
-
+    Display XRF Map stack
     """
-    import matplotlib.pyplot as plt
-    from matplotlib.widgets import Slider, Button, RadioButtons
-
     label_fontsize = 15
 
     if not eline_data:
@@ -517,8 +509,6 @@ def show_image_stack(eline_data, energy, axis=0):
 
     n_energy = 0
     slider = Slider(ax_slider_energy, 'Energy', 0, len(energy) - 1, valinit=n_energy, valfmt='%i')
-
-    #labels = ["Ab_C", "De_F", "Gh_I"]
 
     # Create buttons
     btn, ax_btn = [], []
@@ -641,7 +631,7 @@ def _get_dataset_name(img_dict, detector=None):
         # Dataset name for the sum should not have 'det'+number preceding '_fit'
         #   Assume that the number of digits does not exceed 3 (in practice it
         #   doesn't exceed 1)
-        patterns = ["(?<!det\d)fit$", "(?<!det\d\d)fit$", "(?<!det\d\d\d)fit$"]
+        patterns = ["(?<!det\d)fit$", "(?<!det\d\d)fit$", "(?<!det\d\d\d)fit$"]  # noqa W605
     else:
         patterns = [f"det{detector}_fit"]
     for name in img_dict.keys():
@@ -654,6 +644,7 @@ def _get_dataset_name(img_dict, detector=None):
             return name
 
     raise RuntimeError(f"No dataset name was found for the detector {detector} ('get_dataset_name').")
+
 
 if __name__ == "__main__":
     build_energy_map_api(start_id=92276, end_id=92281, param_file_name="param_335",
