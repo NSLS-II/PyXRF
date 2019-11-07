@@ -3,7 +3,7 @@ import re
 import numpy as np
 from pystackreg import StackReg
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider, Button
+from matplotlib.widgets import Slider, Button, TextBox
 
 from .load_data_from_db import make_hdf
 from .command_tools import pyxrf_batch
@@ -37,9 +37,9 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
                          wd=None,
                          xrf_subdir="xrf_data",
                          sequence="build_energy_map",
-                         emission_line=None,
-                         emission_line_references=None,
-                         emission_line_alignment=None):
+                         emission_line,
+                         emission_line_alignment=None,
+                         file_name_references=None):
 
     """
     Parameters
@@ -88,12 +88,12 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
         the name of the selected emission line ("Ca_K", "Fe_K", etc.). The emission line
         of interest.
 
-    emission_line_references : str
-        file name with emission line references.
-
-    emission_line : str
+    emission_line_alignment : str
         the name of the emission line used for image alignment ("Ca_K", "Fe_K", etc.).
         If None, then the line specified as ``emission_line`` used for alignment
+
+    file_references : str
+        file name with emission line references.
 
     Returns
     -------
@@ -181,6 +181,8 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
         scan_ids, scan_energies, scan_img_dict, files_h5 = \
             _load_dataset_from_hdf5(start_id=start_id, end_id=end_id, wd_xrf=wd_xrf)
 
+        print(f"scan_ids: {scan_ids}")
+
         # The following function checks dataset for consistency. If additional checks
         #   needs to be performed, they should be added to the implementation of this function.
         _check_dataset_consistency(scan_ids=scan_ids, scan_img_dict=scan_img_dict,
@@ -203,7 +205,7 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
         positions_y_all = np.asarray([element['positions']['y_pos'] for element in scan_img_dict])
 
         # Find uniform grid that can be applied to the whole dataset (mostly for data plotting)
-        def _get_uniform_grid():
+        def _get_uniform_grid(positions_x_all, positions_y_all):
             """Compute uniform grid common to the whole dataset"""
             # Median positions are probably the best for generating common uniform grid
             positions_x_median = np.median(positions_x_all, axis=0)
@@ -231,14 +233,14 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
 
             -- dimensions 1 and 2 - Y and X coordinates of the map
             """
-            eline_list = _get_eline_keys(_get_img_keys(scan_img_dict))
+            eline_list = _get_eline_keys(_get_img_keys(scan_img_dict[0]))
             eline_data = {}
             for eline in eline_list:
                 data = []
                 for img_dict in scan_img_dict:
-                    d = _get_img_data(img_dict=scan_img_dict, key=eline)
+                    d = _get_img_data(img_dict=img_dict, key=eline)
                     if scaler_name:  # Normalization
-                        d = normalize_data_by_scaler(d, _get_img_data(img_dict=scan_img_dict,
+                        d = normalize_data_by_scaler(d, _get_img_data(img_dict=img_dict,
                                                                       key=scaler_name))
                     data.append(d)
                 eline_data[eline] = np.asarray(data)
@@ -277,8 +279,7 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
         logger.info("Aligning the image stack: success.")
 
         # Show stacks
-        show_image_stack(eline_data_aligned, scan_energies)
-
+        show_image_stack(eline_data=eline_data_aligned, energies=scan_energies, eline_selected=eline_selected)
         logger.info("Processing is complete.")
 
 
@@ -435,11 +436,11 @@ def _check_dataset_consistency(*, scan_ids, scan_img_dict, files_h5, scaler_name
         # Create the list of image sizes for all files
         xy_list = []
         for img in scan_img_dict:
-            xy_list.append(img["positions"]["xpos"].shape)
+            xy_list.append(img["positions"]["x_pos"].shape)
 
         # Determine if all sizes are identical
-        if not [_ for _ in xy_list if _ != xy_list[0]]:
-            _raise_error_exception(slist=list(range(xy_list)),
+        if [_ for _ in xy_list if _ != xy_list[0]]:
+            _raise_error_exception(slist=list(range(len(xy_list))),
                                    data_tuples=[(scan_ids, "scan_ID"),
                                                 (files_h5, "file"),
                                                 (xy_list, "image size")],
@@ -471,7 +472,7 @@ def _check_dataset_consistency(*, scan_ids, scan_img_dict, files_h5, scaler_name
                                     scan_ids=scan_ids)
 
 
-def show_image_stack(eline_data, energy, axis=0):
+def show_image_stack(*, eline_data, energies, eline_selected):
     """
     Display XRF Map stack
     """
@@ -481,93 +482,207 @@ def show_image_stack(eline_data, energy, axis=0):
         logger.warning("Emission line data dictionary is empty. There is nothing to plot.")
         return
 
-    labels = list(eline_data.keys())
-    label_current = labels[0]  # Set the first emission line as initial choice
-    stack = eline_data[label_current]
+    class EnergyMapPlot:
 
-    # Check dimensions
-    if not stack.ndim == 3:
-        raise ValueError("stack should be an ndarray with ndim == 3")
+        def __init__(self, *, energy, stack_all_data, label_default):
+            """
+            Parameters
+            ----------
 
-    fig = plt.figure(figsize=(11, 6))
-    ax1 = plt.subplot(121)
-    ax2 = plt.subplot(122)
-    fig.subplots_adjust(left=0.07, right=0.95, bottom=0.25)
-    ax1.set_xlabel("X", fontsize=label_fontsize)
-    ax1.set_ylabel("Y", fontsize=label_fontsize)
+            energy : ndarray, 1-D
+                values of energy, the number of elements must match the number of images in the stacks
 
-    # select first image
-    s = stack[0, :, :]
-    im = s
+            stack_all_data : dict of 3-D ndarrays
+                dictionary that contains stacks of images: key - the label of the stack,
+                value - 3D ndarray with dimension 0 representing the image number and dimensions
+                1 and 2 representing positions along Y and X axes.
 
-    # display image
-    im_plot = ax1.imshow(im)
-    ax2.plot(energy, stack[:, 0, 0])
-    ax2.grid()
-    ax2.set_xlabel("Energy, keV", fontsize=label_fontsize)
-    ax2.set_ylabel("Fluorescence", fontsize=label_fontsize)
+            label_default : str
+                default label which is used to select the image stack which is selected at the start.
+                If the value does not match any keys of ``stack_all_data``, then it is ignored
+            """
 
-    # define slider
-    axcolor = 'lightgoldenrodyellow'
-    ax_slider_energy = plt.axes([0.25, 0.07, 0.65, 0.03], facecolor=axcolor)
-    ax_slider_energy.set_title(f"{energy[0]:.5f} keV")
+            self.stack_all_data = stack_all_data
+            self.energy = energy
+            self.label_default = label_default
 
-    n_energy = 0
-    slider = Slider(ax_slider_energy, 'Energy', 0, len(energy) - 1, valinit=n_energy, valfmt='%i')
+            self.labels = list(eline_data.keys())
 
-    # Create buttons
-    btn, ax_btn = [], []
-    for n in range(len(labels)):
-        p_left = 0.05 + 0.08 * n
-        ax_btn.append(plt.axes([p_left, 0.01, 0.07, 0.04]))
-        btn.append(Button(ax_btn[-1], labels[n]))
+            if self.label_default not in self.labels:
+                logger.warning(f"XRF Energy Plot: the default label {self.label_default} "
+                               "is not in the list and will be ignored")
+                self.label_default = self.labels[0]  # Set the first emission line as default
+            self.label_selected = self.label_default
+            self.select_stack()
 
-    def btn_clicked(event):
-        nonlocal stack
-        nonlocal label_current
-        for n, ab in enumerate(ax_btn):
-            if event.inaxes is ab:
-                label_current = labels[n]  # Set the first emission line as initial choice
-                stack = eline_data[label_current]
-                redraw_image()
-                print(f"Button is pressed: {labels[n]}")
-                break
+            self.n_energy_selected = 0
+            self.img_selected = self.stack_selected[self.n_energy_selected, :, :]
+            self.pt_selected = [0, 0]
 
-    # Set events to each button
-    for b in btn:
-        b.on_clicked(btn_clicked)
+        def select_stack(self):
+            self.stack_selected = self.stack_all_data[self.label_selected]
+            if not isinstance(self.stack_selected, np.ndarray) or not self.stack_selected.ndim == 3:
+                raise ValueError("Image stack must be 3-D numpy array.")
 
-    def redraw_image():
-        nonlocal n_energy
-        im = stack[n_energy, :, :]
-        im_plot.set_data(im)
-        ax_slider_energy.set_title(f"{energy[n_energy]:.5f} keV")
-        fig.canvas.draw()
+        def set_cbar_range(self):
+            v_min = np.min(self.stack_selected)
+            v_max = np.max(self.stack_selected)
+            self.img_plot.set_clim(v_min, v_max)
 
-    def update(val):
-        nonlocal n_energy
-        n_energy = int(slider.val)
+        def show(self):
+            self.fig = plt.figure(figsize=(11, 6))
+            self.ax_img_stack = plt.axes([0.07, 0.25, 0.35, 0.65])
+            self.ax_img_cbar = plt.axes([0.425, 0.26, 0.013, 0.63])
+            self.ax_fluor_plot = plt.axes([0.55, 0.25, 0.4, 0.65])
+            self.fig.subplots_adjust(left=0.07, right=0.95, bottom=0.25)
+            self.ax_img_stack.set_xlabel("X", fontsize=label_fontsize)
+            self.ax_img_stack.set_ylabel("Y", fontsize=label_fontsize)
 
-        redraw_image()
 
-    slider.on_changed(update)
+            # display image
+            self.img_plot = self.ax_img_stack.imshow(self.img_selected)
+            self.img_label_text = self.ax_img_stack.text(0.5, 1.01, self.label_selected, ha='left', va='bottom',
+                                   fontsize=label_fontsize,
+                                   transform=self.ax_img_stack.axes.transAxes)
+            self.cbar = self.fig.colorbar(self.img_plot, cax=self.ax_img_cbar, orientation="vertical")
+            self.ax_img_cbar.ticklabel_format(style='sci', scilimits=(-3, 4), axis='both')
+            self.set_cbar_range()
+            self.ax_fluor_plot.plot(self.energy,
+                                    self.stack_selected[:, self.pt_selected[0], self.pt_selected[1]])
+            self.ax_fluor_plot.grid()
+            self.ax_fluor_plot.set_xlabel("Energy, keV", fontsize=label_fontsize)
+            self.ax_fluor_plot.set_ylabel("Fluorescence", fontsize=label_fontsize)
+            self.ax_fluor_plot.ticklabel_format(style='sci', scilimits=(-3, 4), axis='y')
+            self.show_fluor_point_coordinates()
 
-    def onclick(event):
-        if (event.inaxes == ax1) and (event.button == 1):
-            xd, yd = event.xdata, event.ydata
-            nx, ny = int(xd), int(yd)
-            print(f"xd = {xd}   yd = {yd}    nx = {nx}  ny = {ny}")
-            ax2.clear()
-            ax2.plot(energy, stack[:, ny, nx])
-            ax2.grid()
-            ax2.set_xlabel("Energy, keV", fontsize=label_fontsize)
-            ax2.set_ylabel("Fluorescence", fontsize=label_fontsize)
-            fig.canvas.draw()
-            fig.canvas.flush_events()
+            # define slider
+            axcolor = 'lightgoldenrodyellow'
+            self.ax_slider_energy = plt.axes([0.2, 0.1, 0.6, 0.03], facecolor=axcolor)
+            self.set_slider_energy_title()
 
-    fig.canvas.mpl_connect("button_press_event", onclick)
+            self.slider = Slider(self.ax_slider_energy, 'Energy',
+                                 0, len(self.energy) - 1,
+                                 valinit=self.n_energy_selected, valfmt='%i')
 
-    plt.show()
+            #self.create_buttons_each_label()
+            self.create_buttons_prev_next()
+
+            self.slider.on_changed(self.slider_update)
+
+            self.fig.canvas.mpl_connect("button_press_event", self.canvas_onclick)
+
+            plt.show()
+
+        def show_fluor_point_coordinates(self):
+            self.fluor_label_text = self.ax_fluor_plot.text(
+                0.99, 0.99, f"({self.pt_selected[0]}, {self.pt_selected[1]})",
+                ha='right', va='top', fontsize=label_fontsize,
+                transform=self.ax_fluor_plot.axes.transAxes)
+
+        def create_buttons_each_label(self):
+            """
+            Create separate button for each label. The maximum number of labels
+            that can be assigned unique buttons is 10. More buttons may
+            not fit the screen
+            """
+            n_labels = len(self.labels)
+
+            max_labels = 10
+            assert n_labels <= max_labels, \
+                f"The stack contains too many labels ({len(self.labels)}). "\
+                f"Maximum allowed number of labels is {max_labels}"
+
+            bwidth = 0.07  # Width of a button
+            bgap = 0.01  # Gap between buttons
+
+            pos_left_start = 0.5 - n_labels / 2 * bwidth - (n_labels - 1) / 2 *bgap
+
+            # Create buttons
+            self.btn_eline, self.ax_btn_eline = [], []
+            for n in range(n_labels):
+                p_left = pos_left_start + (bwidth + bgap) * n
+                self.ax_btn_eline.append(plt.axes([p_left, 0.03, bwidth, 0.04]))
+                self.btn_eline.append(Button(self.ax_btn_eline[-1], self.labels[n]))
+
+            # Set events to each button
+            for b in self.btn_eline:
+                b.on_clicked(self.btn_eline_clicked)
+
+        def create_buttons_prev_next(self):
+
+            n_labels = len(self.labels)
+
+            bwidth = 0.07  # Width of prev. and next button button
+            lwidth = 0.08  # Width of the text label between prev and next buttons
+            bgap = 0.01  # Gap between buttons
+
+            self.ax_btn_prev = plt.axes([0.5 - lwidth/2 - bwidth - bgap, 0.03, bwidth, 0.04])
+            self.btn_prev = Button(self.ax_btn_prev, "Previous")
+            #self.ax_text_nlabel = plt.axes([0.5 - lwidth/2, 0.03, lwidth, 0.04])
+            #self.textbox_nlabel = TextBox(self.ax_textbox_nlabel,
+            #                              f"{self.labels.index(self.label_selected)}")
+            #self.text_nlabel = self.ax_text_nlabel.text(
+            #    0.5, 0.5, f"({self.labels.index(self.label_selected)} of {len(self.labels)})",
+            #    ha='center', va='center', fontsize=label_fontsize,
+            #    transform=self.ax_fluor_plot.axes.transAxes)
+            self.text_nlabel = plt.text(0.5, 0.03, "Hello", ha='center', va='bottom')
+
+            self.ax_btn_next = plt.axes([0.5 + lwidth/2 + bgap, 0.03, bwidth, 0.04])
+            self.btn_next = Button(self.ax_btn_next, "Next")
+
+        def set_slider_energy_title(self):
+            n = self.n_energy_selected
+            n_total = len(self.energy)
+            e = self.energy[n]
+            self.ax_slider_energy.set_title(f"{e:.5f} keV (frame #{n + 1} of {n_total})")
+
+        def btn_eline_clicked(self, event):
+            """Callback"""
+            for n, ab in enumerate(self.ax_btn_eline):
+                if event.inaxes is ab:
+                    self.label_selected = self.labels[n]  # Set the first emission line as initial choice
+                    self.select_stack()
+                    self.redraw_image()
+                    self.set_cbar_range()
+                    self.fig.canvas.draw()
+                    self.fig.canvas.flush_events()
+                    print(f"Button is pressed: {self.label_selected}")#
+                    break
+
+        def redraw_fluorescence_plot(self):
+            self.ax_fluor_plot.clear()
+            self.ax_fluor_plot.plot(self.energy,
+                                    self.stack_selected[:, self.pt_selected[0], self.pt_selected[1]])
+            self.ax_fluor_plot.grid()
+            self.ax_fluor_plot.set_xlabel("Energy, keV", fontsize=label_fontsize)
+            self.ax_fluor_plot.set_ylabel("Fluorescence", fontsize=label_fontsize)
+            self.ax_fluor_plot.ticklabel_format(style='sci', scilimits=(-3, 4), axis='y')
+            self.show_fluor_point_coordinates()
+
+        def redraw_image(self):
+            self.img_selected = self.stack_selected[self.n_energy_selected, :, :]
+            self.img_plot.set_data(self.img_selected)
+            self.img_label_text.set_text(self.label_selected)
+            self.redraw_fluorescence_plot()
+
+        def slider_update(self, val):
+            self.n_energy_selected = int(self.slider.val)
+            self.set_slider_energy_title()
+            self.redraw_image()
+            self.fig.canvas.draw()
+            self.fig.canvas.flush_events()
+
+        def canvas_onclick(self, event):
+            """Callback"""
+            if (event.inaxes == self.ax_img_stack) and (event.button == 1):
+                xd, yd = event.xdata, event.ydata
+                self.pt_selected = [int(xd), int(yd)]
+                self.redraw_fluorescence_plot()
+                self.fig.canvas.draw()
+                self.fig.canvas.flush_events()
+
+    map_plot = EnergyMapPlot(energy=energies, stack_all_data=eline_data, label_default=eline_selected)
+    map_plot.show()
 
 
 def _get_img_data(img_dict, key, detector=None):
@@ -652,5 +767,6 @@ def _get_dataset_name(img_dict, detector=None):
 
 
 if __name__ == "__main__":
-    build_energy_map_api(start_id=92276, end_id=92281, param_file_name="param_335",
-                         scaler_name="sclr1_ch4", wd=None, sequence="build_energy_map")
+    build_energy_map_api(start_id=92276, end_id=92335, param_file_name="param_335",
+                         scaler_name="sclr1_ch4", wd=None, sequence="build_energy_map",
+                         emission_line="Ca_K", emission_line_alignment="Mn_K")
