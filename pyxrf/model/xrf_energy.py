@@ -178,7 +178,7 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
     if seq_build_energy_map:
         logger.info("Building energy map ...")
 
-        scan_ids, scan_energies, scan_img_dict = \
+        scan_ids, scan_energies, scan_img_dict, files_h5 = \
             _load_dataset_from_hdf5(start_id=start_id, end_id=end_id, wd_xrf=wd_xrf)
 
         # The following function checks dataset for consistency. If additional checks
@@ -297,7 +297,7 @@ def _load_dataset_from_hdf5(*, start_id, end_id, wd_xrf):
     files_h5 = [fl.name for fl in os.scandir(path=wd_xrf) if fl.name.lower().endswith(".h5")]
     # Sorting file names will make loading a little more orderly, but generally file names
     #   can be arbitrary (scan ID is not extracted from file names)
-    files_h5.sorted()
+    files_h5.sort()
 
     scan_ids = []
     scan_energies = []
@@ -328,15 +328,18 @@ def _load_dataset_from_hdf5(*, start_id, end_id, wd_xrf):
         scan_ids.append(mdata["scan_id"])
         scan_energies.append(mdata["instrument_mono_incident_energy"])
 
-    return scan_ids, scan_energies, scan_img_dict
+    return scan_ids, scan_energies, scan_img_dict, files_h5
 
 
 def _check_dataset_consistency(*, scan_ids, scan_img_dict, files_h5, scaler_name,
                                eline_selected, eline_alignment):
 
+    if not scan_img_dict:
+        raise RuntimeError("Loaded dataset is empty. No data to process.")
+
     # First check if processing dataset exists. The following call will raise the exception
     #   if there is not dataset with processed data.
-    _get_dataset_name(scan_img_dict)
+    _get_dataset_name(scan_img_dict[0])
 
     # Create a list of 'img_dict' keys
     img_data_keys = []
@@ -370,7 +373,7 @@ def _check_dataset_consistency(*, scan_ids, scan_img_dict, files_h5, scaler_name
         msg = f"Some scans in the dataset {msg_phrase}:\n"
         for n in slist:
             for dt in data_tuples:
-                msg += f"    {dt[0]}:  {dt[1]}"
+                msg += f"    {dt[1]}:  {dt[0][n]}"
             msg += "\n"
         raise RuntimeError(msg)
 
@@ -401,8 +404,10 @@ def _check_dataset_consistency(*, scan_ids, scan_img_dict, files_h5, scaler_name
         """
         success = True
         all_eline_keys = _get_eline_keys(img_data_keys_union)
+        all_eline_keys.sort()
         for n, ks in enumerate(img_data_keys):
             eks = _get_eline_keys(ks)
+            eks.sort()
             if eks != all_eline_keys:
                 success = False
                 break
@@ -456,7 +461,7 @@ def _check_dataset_consistency(*, scan_ids, scan_img_dict, files_h5, scaler_name
                                elines=[eline_selected, eline_alignment],
                                files_h5=files_h5,
                                scan_ids=scan_ids,
-                               msg_phrase=f"have no emission lines ('{eline_selected}' "
+                               msg_phrase=f"have no emission line data ('{eline_selected}' "
                                           f"or '{eline_alignment}')")
 
     _check_for_positional_data(scan_img_dict=scan_img_dict)
