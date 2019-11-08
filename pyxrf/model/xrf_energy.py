@@ -508,6 +508,9 @@ def show_image_stack(*, eline_data, energies, eline_selected):
 
             self.labels = list(eline_data.keys())
 
+            self.textbox_nlabel = None
+            self.busy = False
+
             if self.label_default not in self.labels:
                 logger.warning(f"XRF Energy Plot: the default label {self.label_default} "
                                "is not in the list and will be ignored")
@@ -530,6 +533,9 @@ def show_image_stack(*, eline_data, energies, eline_selected):
             self.img_plot.set_clim(v_min, v_max)
 
         def show(self):
+
+            self.textbox_nlabel = None
+
             self.fig = plt.figure(figsize=(11, 6))
             self.ax_img_stack = plt.axes([0.07, 0.25, 0.35, 0.65])
             self.ax_img_cbar = plt.axes([0.425, 0.26, 0.013, 0.63])
@@ -606,7 +612,7 @@ def show_image_stack(*, eline_data, energies, eline_selected):
 
             # Set events to each button
             for b in self.btn_eline:
-                b.on_clicked(self.btn_eline_clicked)
+                b.on_clicked(self.btn_stack_clicked)
 
         def create_buttons_prev_next(self):
 
@@ -617,18 +623,22 @@ def show_image_stack(*, eline_data, energies, eline_selected):
             bgap = 0.01  # Gap between buttons
 
             self.ax_btn_prev = plt.axes([0.5 - lwidth/2 - bwidth - bgap, 0.03, bwidth, 0.04])
-            self.btn_prev = Button(self.ax_btn_prev, "Previous")
-            #self.ax_text_nlabel = plt.axes([0.5 - lwidth/2, 0.03, lwidth, 0.04])
-            #self.textbox_nlabel = TextBox(self.ax_textbox_nlabel,
-            #                              f"{self.labels.index(self.label_selected)}")
-            #self.text_nlabel = self.ax_text_nlabel.text(
-            #    0.5, 0.5, f"({self.labels.index(self.label_selected)} of {len(self.labels)})",
-            #    ha='center', va='center', fontsize=label_fontsize,
-            #    transform=self.ax_fluor_plot.axes.transAxes)
-            self.text_nlabel = plt.text(0.5, 0.03, "Hello", ha='center', va='bottom')
+            self.btn_prev = Button(self.ax_btn_prev, "Previous", color="#00ff00", hovercolor="#ff0000")
+            self.btn_prev.on_clicked(self.btn_stack_prev_clicked)
+
+            self.ax_text_nlabel = plt.axes([0.5 - lwidth/2, 0.03, lwidth, 0.04])
+            self.textbox_nlabel = Button(self.ax_text_nlabel, "",
+                                         color="lightgray", hovercolor="lightgray")
+            self.display_btn_stack_label()
 
             self.ax_btn_next = plt.axes([0.5 + lwidth/2 + bgap, 0.03, bwidth, 0.04])
-            self.btn_next = Button(self.ax_btn_next, "Next")
+            self.btn_next = Button(self.ax_btn_next, "Next", color="#00ff00", hovercolor="#ff0000")
+            self.btn_next.on_clicked(self.btn_stack_next_clicked)
+
+        def display_btn_stack_label(self):
+            if self.textbox_nlabel:
+                self.textbox_nlabel.label.set_text(
+                    f"{self.labels.index(self.label_selected) + 1} ({len(self.labels)})")
 
         def set_slider_energy_title(self):
             n = self.n_energy_selected
@@ -636,18 +646,34 @@ def show_image_stack(*, eline_data, energies, eline_selected):
             e = self.energy[n]
             self.ax_slider_energy.set_title(f"{e:.5f} keV (frame #{n + 1} of {n_total})")
 
-        def btn_eline_clicked(self, event):
+        def btn_stack_clicked(self, event):
             """Callback"""
             for n, ab in enumerate(self.ax_btn_eline):
                 if event.inaxes is ab:
-                    self.label_selected = self.labels[n]  # Set the first emission line as initial choice
-                    self.select_stack()
-                    self.redraw_image()
-                    self.set_cbar_range()
-                    self.fig.canvas.draw()
-                    self.fig.canvas.flush_events()
-                    print(f"Button is pressed: {self.label_selected}")#
+                    self.switch_to_different_stack(self.labels[n])
                     break
+
+        def btn_stack_next_clicked(self, event):
+            """Callback"""
+            n_labels = len(self.labels)
+            n_current = self.labels.index(self.label_selected)
+            if n_current < n_labels - 1:
+                self.switch_to_different_stack(self.labels[n_current + 1])
+
+        def btn_stack_prev_clicked(self, event):
+            """Callback"""
+            n_current = self.labels.index(self.label_selected)
+            if n_current > 0:
+                self.switch_to_different_stack(self.labels[n_current - 1])
+
+        def switch_to_different_stack(self, label):
+            self.label_selected = label
+            self.select_stack()
+            self.redraw_image()
+            self.set_cbar_range()
+            self.display_btn_stack_label()
+            self.fig.canvas.draw()
+            self.fig.canvas.flush_events()
 
         def redraw_fluorescence_plot(self):
             self.ax_fluor_plot.clear()
@@ -666,11 +692,16 @@ def show_image_stack(*, eline_data, energies, eline_selected):
             self.redraw_fluorescence_plot()
 
         def slider_update(self, val):
-            self.n_energy_selected = int(self.slider.val)
-            self.set_slider_energy_title()
-            self.redraw_image()
-            self.fig.canvas.draw()
-            self.fig.canvas.flush_events()
+            if not self.busy:
+                self.busy = True
+                n_slider = int(round(val))
+                if n_slider != self.n_energy_selected:
+                    self.n_energy_selected = n_slider
+                    self.set_slider_energy_title()
+                    self.redraw_image()
+                    self.fig.canvas.draw()
+                    self.fig.canvas.flush_events()
+                self.busy = False
 
         def canvas_onclick(self, event):
             """Callback"""
