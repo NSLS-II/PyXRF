@@ -19,7 +19,7 @@ from enaml.stdlib.fields import FloatField as DefaultFloatField
 from enaml.stdlib.fields import IntField as DefaultIntField
 
 from enaml.stdlib.dialog_buttons import DialogButton
-from enaml.stdlib.message_box import critical
+from enaml.stdlib.message_box import critical, question
 
 from ..model.guessparam import fit_strategy_list, save_as, bound_options, autofit_param
 from ..model.fit_spectrum import get_cs
@@ -102,40 +102,78 @@ enamldef FitView(DockItem): fit_view:
                         if parameter_file_path:
 
                             # update parameter for fit
-                            fit_model.read_param_from_file(parameter_file_path)
-                            fit_model.apply_default_param()
+                            try:
+                                fit_model.read_param_from_file(parameter_file_path)
+                            except Exception as ex:
+                                print(f"Error occurred while reading parameter file: {ex}")
+                            else:
 
-                            # update experimental plots
-                            plot_model.parameters = fit_model.default_parameters
-                            plot_model.plot_experiment()
-                            plot_model.plot_exp_opt = False
-                            plot_model.plot_exp_opt = True
+                                # Make a decision, if the incident energy from metadata should be replaced
+                                #   with the incident energy from the parameter file
+                                overwrite_metadata_incident_energy = False
+                                if io_model.incident_energy_available:
+                                    msg = f"Metadata for the currently opened file contains incident energy.\n"\
+                                          f"  Incident energy from metadata: {io_model.scan_metadata.get_mono_incident_energy()}\n"\
+                                          f"  Incident energy from the loaded parameter file: {fit_model.default_parameters['coherent_sct_energy']['value']}\n"\
+                                          f"Do you want to replace the incident energy from data file by the incident energy from the parameter file?"
+                                    btn_pressed = question(self, 'Question Dialog', msg)
+                                    if btn_pressed and (btn_pressed.text.lower() == "yes"):
+                                        overwrite_metadata_incident_energy = True
+                                if overwrite_metadata_incident_energy:
+                                    print(f"Using incident energy from the parameter file: {fit_model.default_parameters['coherent_sct_energy']['value']}")
+                                else:
+                                    # Keep the incident energy from the file
+                                    print(f"Using incident energy from the datafile metadata: {io_model.scan_metadata.get_mono_incident_energy()}")
+                                    params["coherent_sct_energy"]["value"] = round(self.io_model.scan_metadata.get_mono_incident_energy(), 6)
 
-                            # update autofit param
-                            param_model.update_new_param(fit_model.default_parameters)
-                            #param_model.get_new_param_from_file(parameter_file_path)
-                            param_model.update_name_list()
-                            param_model.EC.turn_on_all()
+                                fit_model.apply_default_param()
 
-                            # update params for roi sum
-                            setting_model.update_parameter(fit_model.default_parameters)
+                                # update experimental plots
+                                plot_model.parameters = fit_model.default_parameters
+                                plot_model.plot_experiment()
+                                plot_model.plot_exp_opt = False
+                                plot_model.plot_exp_opt = True
 
-                            # update file name
-                            lbl_param.text = 'Loaded file: {}'.format(parameter_file_path.split(sep_v)[-1])
+                                # update autofit param
+                                param_model.update_new_param(fit_model.default_parameters)
+                                #param_model.get_new_param_from_file(parameter_file_path)
 
-                            # calculate profile and plot
-                            fit_model.get_profile()
+                                param_model.EC.order()
+                                param_model.update_name_list()
+                                param_model.EC.turn_on_all()
+                                param_model.data_for_plot()
 
-                            # update experimental plot with new calibration values
-                            plot_model.plot_fit(fit_model.cal_x, fit_model.cal_y,
-                                                fit_model.cal_spectrum,
-                                                fit_model.residual)
+                                # update params for roi sum
+                                setting_model.update_parameter(fit_model.default_parameters)
 
-                            plot_model.plot_exp_opt = False
-                            plot_model.plot_exp_opt = True
-                            # For plotting purposes, otherwise plot will not update
-                            plot_model.show_fit_opt = False
-                            plot_model.show_fit_opt = True
+                                # update file name
+                                lbl_param.text = 'Loaded file: {}'.format(parameter_file_path.split(sep_v)[-1])
+
+                                # calculate profile and plot
+                                fit_model.get_profile()
+
+                                # update experimental plot with new calibration values
+                                plot_model.plot_fit(fit_model.cal_x, fit_model.cal_y,
+                                                    fit_model.cal_spectrum,
+                                                    fit_model.residual)
+
+                                plot_model.plot_exp_opt = False
+                                plot_model.plot_exp_opt = True
+                                # For plotting purposes, otherwise plot will not update
+                                plot_model.show_fit_opt = False
+                                plot_model.show_fit_opt = True
+
+                                # The following statement is necessary mostly to set the correct value of
+                                #   the upper boundary of the energy range used for emission line search.
+                                plot_model.change_incident_energy(fit_model.default_parameters["coherent_sct_energy"]["value"])
+
+                                # Unfortunately it is not clear, how the value of 'energy_bound_high' is
+                                #   propagated after loading from configuration file, therefore we
+                                #   just set the value of incident energy again
+                                # if io_model.incident_energy_available:
+                                #     plot_model.change_incident_energy(io_model.scan_metadata.get_mono_incident_energy())
+                                # else:
+                                #     plot_model.change_incident_energy(fit_model.default_parameters["coherent_sct_energy"]["value"])
 
                     else:
 

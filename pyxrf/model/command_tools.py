@@ -637,3 +637,20 @@ def fit_data_multi_files(dir_path, file_prefix,
     pool.terminate()
     pool.join()
     return results
+
+
+if __name__ == "__main__":
+    logger = logging.getLogger()
+
+    logger.setLevel(logging.INFO)
+
+    formatter = logging.Formatter(fmt='%(asctime)s : %(levelname)s : %(message)s')
+
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    stream_handler.setLevel(logging.INFO)
+    logger.addHandler(stream_handler)
+
+    pyxrf_batch(start_id=92276, end_id=92276,
+                param_file_name="param_335",
+                wd=".", save_tiff=False)

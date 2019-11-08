@@ -39,7 +39,8 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
                          sequence="build_energy_map",
                          emission_line,
                          emission_line_alignment=None,
-                         file_name_references=None):
+                         file_name_references=None,
+                         use_incident_energy_from_param_file=True):
 
     """
     Parameters
@@ -94,6 +95,11 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
 
     file_references : str
         file name with emission line references.
+
+    use_incident_energy_from_param_file : bool
+        indicates if incident energy from parameter file will be used to process all
+        files: True - use incident energy from parameter files, False - use incident
+        energy from data files.
 
     Returns
     -------
@@ -173,6 +179,7 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
         #   as additional datasets in the original .h5 files.
         pyxrf_batch(start_id=start_id, end_id=end_id,
                     param_file_name=param_file_name,
+                    ignore_datafile_metadata=use_incident_energy_from_param_file,
                     wd=wd_xrf, save_tiff=False)
 
     if seq_build_energy_map:
@@ -799,5 +806,7 @@ def _get_dataset_name(img_dict, detector=None):
 
 if __name__ == "__main__":
     build_energy_map_api(start_id=92276, end_id=92335, param_file_name="param_335",
-                         scaler_name="sclr1_ch4", wd=None, sequence="build_energy_map",
+                         scaler_name="sclr1_ch4", wd=None,
+                         sequence="process",
+                         # sequence="build_energy_map",
                          emission_line="Ca_K", emission_line_alignment="Mn_K")
