@@ -278,7 +278,8 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
 
             eline_data_aligned = {}
             for eline, data in eline_data.items():
-                eline_data_aligned[eline] = sr.transform_stack(data)
+                data_transformed = sr.transform_stack(data)
+                eline_data_aligned[eline] = data_transformed.clip(min=0)
             return eline_data_aligned
 
         eline_data_aligned = _align_stacks(eline_data=eline_data, eline_alignment=eline_alignment)
@@ -807,6 +808,6 @@ def _get_dataset_name(img_dict, detector=None):
 if __name__ == "__main__":
     build_energy_map_api(start_id=92276, end_id=92335, param_file_name="param_335",
                          scaler_name="sclr1_ch4", wd=None,
-                         sequence="process",
-                         # sequence="build_energy_map",
-                         emission_line="Ca_K", emission_line_alignment="Mn_K")
+                         # sequence="process",
+                         sequence="build_energy_map",
+                         emission_line="Fe_K", emission_line_alignment="Mn_K")
