@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 import numpy as np
+import math
 import six
 
 from enaml.widgets.api import (Container, PushButton, Label,
@@ -106,25 +107,46 @@ enamldef FitView(DockItem): fit_view:
                                 fit_model.read_param_from_file(parameter_file_path)
                             except Exception as ex:
                                 print(f"Error occurred while reading parameter file: {ex}")
-                            else:
 
+                                btns = [DialogButton('Ok', 'accept')]
+                                critical(self, 'ERROR',
+                                         "Error occurred while reading the parameter file:\n"\
+                                         f"'{parameter_file_path}'", btns)
+
+                            else:
                                 # Make a decision, if the incident energy from metadata should be replaced
                                 #   with the incident energy from the parameter file
                                 overwrite_metadata_incident_energy = False
+
+                                # Incident energy from the parameter file
+                                param_incident_energy = fit_model.default_parameters['coherent_sct_energy']['value']
+
                                 if io_model.incident_energy_available:
-                                    msg = f"Metadata for the currently opened file contains incident energy.\n"\
-                                          f"  Incident energy from metadata: {io_model.scan_metadata.get_mono_incident_energy()}\n"\
-                                          f"  Incident energy from the loaded parameter file: {fit_model.default_parameters['coherent_sct_energy']['value']}\n"\
-                                          f"Do you want to replace the incident energy from data file by the incident energy from the parameter file?"
-                                    btn_pressed = question(self, 'Question Dialog', msg)
-                                    if btn_pressed and (btn_pressed.text.lower() == "yes"):
-                                        overwrite_metadata_incident_energy = True
+
+                                    # Incident energy from datafile metadata
+                                    mdata_incident_energy = io_model.scan_metadata.get_mono_incident_energy()
+
+                                    # If two energies have very close values (say 1 eV), then the difference doesn't matter
+                                    #   Consider two energies equal (they probably ARE equal) and use the value
+                                    #   from datafile metadata.
+                                    if not math.isclose(param_incident_energy, mdata_incident_energy, abs_tol=0.001):
+
+                                        msg = f"The values of incident energy from data file metadata and parameter file are different.\n"\
+                                              f"  Incident energy from metadata: {mdata_incident_energy} keV.\n"\
+                                              f"  Incident energy from the loaded parameter file: {param_incident_energy} keV.\n"\
+                                              f"Would you prefer to use the incident energy from the parameter file for processing?"
+
+                                        btn_pressed = question(self, 'Question Dialog', msg)
+                                        if btn_pressed and (btn_pressed.text.lower() == "yes"):
+                                            overwrite_metadata_incident_energy = True
+
                                 if overwrite_metadata_incident_energy:
-                                    print(f"Using incident energy from the parameter file: {fit_model.default_parameters['coherent_sct_energy']['value']}")
+                                    print(f"Using incident energy from the parameter file: {param_incident_energy} keV")
                                 else:
                                     # Keep the incident energy from the file
-                                    print(f"Using incident energy from the datafile metadata: {io_model.scan_metadata.get_mono_incident_energy()}")
-                                    params["coherent_sct_energy"]["value"] = round(self.io_model.scan_metadata.get_mono_incident_energy(), 6)
+                                    print(f"Using incident energy from the datafile metadata: "
+                                          f"{mdata_incident_energy} keV")
+                                    fit_model.default_parameters["coherent_sct_energy"]["value"] = round(mdata_incident_energy, 6)
 
                                 fit_model.apply_default_param()
 
@@ -166,14 +188,6 @@ enamldef FitView(DockItem): fit_view:
                                 # The following statement is necessary mostly to set the correct value of
                                 #   the upper boundary of the energy range used for emission line search.
                                 plot_model.change_incident_energy(fit_model.default_parameters["coherent_sct_energy"]["value"])
-
-                                # Unfortunately it is not clear, how the value of 'energy_bound_high' is
-                                #   propagated after loading from configuration file, therefore we
-                                #   just set the value of incident energy again
-                                # if io_model.incident_energy_available:
-                                #     plot_model.change_incident_energy(io_model.scan_metadata.get_mono_incident_energy())
-                                # else:
-                                #     plot_model.change_incident_energy(fit_model.default_parameters["coherent_sct_energy"]["value"])
 
                     else:
 

@@ -517,14 +517,8 @@ class Fit1D(Atom):
             path to save the file
         """
         with open(param_path, 'r') as json_data:
-            params = json.load(json_data)
-            # In case if incident energy was loaded from data file, it will not be
-            #   replaced by incident energy from the json file.
-            #if self.io_model.incident_energy_available:
-            #     incident_energy = round(self.io_model.scan_metadata.get_mono_incident_energy(), 6)
-            #     params["coherent_sct_energy"]["value"] = incident_energy
+            self.default_parameters = json.load(json_data)
 
-            self.default_parameters = params
         #  use queue to save the status of parameters
         self.param_q.append(copy.deepcopy(self.default_parameters))
         self.keep_size()
