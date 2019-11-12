@@ -326,6 +326,15 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
 
         logger.info("Aligning the image stack: success.")
 
+        def _interpolate_energy(energy, energy_refs, absorption_refs):
+            _, n = energy_refs.shape
+            interpolated_refs = np.array(shape=[len(energy), n])
+            for m, a_ref in enumerate(absorption_refs):
+                ref_i = np.interp(energy, energy_refs, a_ref)
+                interpolated_refs[:, m] = ref_i
+            interpolated_refs = np.asarray(interpolated_refs)
+            return interpolated_refs
+
         # Show stacks
         show_image_stack(eline_data=eline_data_aligned, energies=scan_energies, eline_selected=eline_selected)
         logger.info("Processing is complete.")
