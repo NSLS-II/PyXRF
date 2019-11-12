@@ -5,6 +5,8 @@ from pystackreg import StackReg
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button, TextBox
 
+from skbeam.core.fitting.xrf_model import nnls_fit
+
 from .load_data_from_db import make_hdf
 from .command_tools import pyxrf_batch
 from .fileio import read_hdf_APS
@@ -186,6 +188,11 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
         if n_ref_data_columns != len(ref_labels):
             raise Exception(f"Reference data file '{ref_file_name}' has unequal number of labels and data columns")
 
+        # Scale the energy in the reference file (given in eV, but the rest of the program is uing keV)
+        ref_energy /= 1000.0
+        # Data may contain some small negative values, so clip them to 0
+        ref_data = ref_data.clip(min=0)
+
         return ref_energy, ref_data, ref_labels
 
     ref_energy, ref_data, ref_labels = read_ref_data(ref_file_name)
@@ -327,17 +334,73 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
         logger.info("Aligning the image stack: success.")
 
         def _interpolate_energy(energy, energy_refs, absorption_refs):
-            _, n = energy_refs.shape
-            interpolated_refs = np.array(shape=[len(energy), n])
-            for m, a_ref in enumerate(absorption_refs):
-                ref_i = np.interp(energy, energy_refs, a_ref)
-                interpolated_refs[:, m] = ref_i
-            interpolated_refs = np.asarray(interpolated_refs)
+            _, n_states = absorption_refs.shape
+            interpolated_refs = np.zeros(shape=[len(energy), n_states], dtype=float)
+            for n in range(n_states):
+                a_ref = absorption_refs[:, n]
+                interpolated_refs[:, n] = np.interp(energy, energy_refs, a_ref)
             return interpolated_refs
+
+        def _fit_xanes_map(map_data, absorption_refs):
+            _, nny, nnx = map_data.shape
+            _, n_states = absorption_refs.shape
+            map_data_fitted = np.zeros(shape=[n_states, nny, nnx])
+            map_residual = np.zeros(shape=[nny, nnx])
+            for ny in range(nny):
+                for nx in range(nnx):
+                    result, residual = nnls_fit(map_data[:, ny, nx], absorption_refs, weights=None)
+                    map_data_fitted[:, ny, nx] = result
+                    map_residual[ny, nx] = residual
+            return map_data_fitted, map_residual
+
+
+        scan_absorption_refs = _interpolate_energy(scan_energies, ref_energy, ref_data)
+
+        xanes_map_data, xanes_map_residual = _fit_xanes_map(eline_data_aligned[eline_selected], scan_absorption_refs)
+
+        ny, nx = 30, 40
+        mp = xanes_map_data[:, ny, nx]
+        data = eline_data_aligned[eline_selected]
+        yy = np.zeros(shape=[data.shape[0]])
+        for n, v in enumerate(mp):
+            yy += v * scan_absorption_refs[:, n]
+
+        for n in range(len(yy)):
+            print(f"yy={yy[n]}  data={data[n, ny, nx]}")
+
+        # print(f"result = {result}\n")
+        # print(f"res = {res}\n")
+
+        def plot_xanes_map(map_data, *, block=True):
+
+            fig = plt.figure(figsize=(11, 6))
+
+
+            ax_img = plt.axes([0.1, 0.1, 0.5, 0.8])
+            ax_img_cbar = plt.axes([0.9, 0.1, 0.03, 0.8])
+            ax_img.set_xlabel("X", fontsize=20)
+            ax_img.set_ylabel("Y", fontsize=20)
+
+
+            # display image
+            img_plot = ax_img.imshow(map_data)
+            cbar = fig.colorbar(img_plot, cax=ax_img_cbar, orientation="vertical")
+            ax_img_cbar.ticklabel_format(style='sci', scilimits=(-3, 4), axis='both')
+            #set_cbar_range()
+
+            plt.show(block=block)
+
+        for map_data in xanes_map_data:
+            plot_xanes_map(map_data, block=False)
+
+        plot_xanes_map(xanes_map_residual, block=False)
+
 
         # Show stacks
         show_image_stack(eline_data=eline_data_aligned, energies=scan_energies, eline_selected=eline_selected)
         logger.info("Processing is complete.")
+
+
 
 
 def _load_dataset_from_hdf5(*, start_id, end_id, wd_xrf):
