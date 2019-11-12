@@ -166,10 +166,25 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
         """Read file with reference data (for XANES fitting)"""
         ref_labels=[]
 
+        with open(ref_file_name, "r") as f:
+            line_first = f.readline()
+            lb = line_first.split()
+            # Strip spaces
+            ref_labels = [_.strip() for _ in lb]
+            # Remove the first label (which is probably 'Energy', but unused in processing)
+            ref_labels.pop(0)
+
+        print(f"ref_labels={ref_labels}")
+
         data_ref_file = np.genfromtxt(ref_file_name, skip_header=1)
         ref_energy = data_ref_file[:, 0]
         # The references are columns 'ref_data'
         ref_data = data_ref_file[:, 1:]
+
+        _, n_ref_data_columns = ref_data.shape
+
+        if n_ref_data_columns != len(ref_labels):
+            raise Exception(f"Reference data file '{ref_file_name}' has unequal number of labels and data columns")
 
         return ref_energy, ref_data, ref_labels
 
@@ -831,8 +846,21 @@ def _get_dataset_name(img_dict, detector=None):
 
 
 if __name__ == "__main__":
+
+    logger = logging.getLogger()
+
+    logger.setLevel(logging.INFO)
+
+    formatter = logging.Formatter(fmt='%(asctime)s : %(levelname)s : %(message)s')
+
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    stream_handler.setLevel(logging.INFO)
+    logger.addHandler(stream_handler)
+
     build_energy_map_api(start_id=92276, end_id=92335, param_file_name="param_335",
                          scaler_name="sclr1_ch4", wd=None,
                          # sequence="process",
                          sequence="build_energy_map",
+                         ref_file_name="refs_Fe_P23.txt",
                          emission_line="Fe_K", emission_line_alignment="Mn_K")
