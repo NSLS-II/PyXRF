@@ -39,7 +39,7 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
                          sequence="build_energy_map",
                          emission_line,
                          emission_line_alignment=None,
-                         file_name_references=None,
+                         ref_file_name=None,
                          use_incident_energy_from_param_file=True):
 
     """
@@ -93,7 +93,7 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
         the name of the emission line used for image alignment ("Ca_K", "Fe_K", etc.).
         If None, then the line specified as ``emission_line`` used for alignment
 
-    file_references : str
+    ref_file_name : str
         file name with emission line references.
 
     use_incident_energy_from_param_file : bool
@@ -117,9 +117,20 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
     param_file_name = os.path.expanduser(param_file_name)
     param_file_name = os.path.abspath(param_file_name)
 
+    if not ref_file_name:
+        raise ValueError("The parameter 'ref_file_name' is None or contains an empty string "
+                         "('build_energy_map_api').")
+
+    if not os.path.isfile(ref_file_name):
+        raise ValueError(f"The parameter file '{ref_file_name}' does not exist. Check the value of"
+                         f" the parameer 'ref_file_name' ('build_energy_map_api').")
+
+    ref_file_name = os.path.expanduser(ref_file_name)
+    ref_file_name = os.path.abspath(ref_file_name)
+
     if not xrf_subdir:
         raise ValueError("The parameter 'xrf_subdir' is None or contains an empty string "
-                         "('build_energy_map_api'.")
+                         "('build_energy_map_api').")
 
     if not scaler_name:
         logger.warning("Scaler was not specified. The processing will still be performed,"
@@ -131,9 +142,8 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
         eline_alignment = emission_line_alignment
     else:
         eline_alignment = eline_selected
-
-    # TODO: check if 'eline_selected' and 'eline_alignment' are valid emission lines
-    #   (use the lists of K, L and M lines from scikit-beam)
+    # We don't check if the emission lines are correctly specified. Instead we check
+    #   if the datasets for the emission lines are present in the processed data files.
 
     # Depending on the selected sequence, determine which steps must be executed
     seq_load_data = True
@@ -149,6 +159,21 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
     else:
         ValueError(f"Unknown sequence name '{sequence}' is passed as a parameter "
                    "to the function 'build_energy_map_api'.")
+
+    # Load reference file. (If there is a problem reading the reference file, it is better
+    #   to learn it before the processing starts.)
+    def read_ref_data(ref_file_name):
+        """Read file with reference data (for XANES fitting)"""
+        ref_labels=[]
+
+        data_ref_file = np.genfromtxt(ref_file_name, skip_header=1)
+        ref_energy = data_ref_file[:, 0]
+        # The references are columns 'ref_data'
+        ref_data = data_ref_file[:, 1:]
+
+        return ref_energy, ref_data, ref_labels
+
+    ref_energy, ref_data, ref_labels = read_ref_data(ref_file_name)
 
     # XRF data will be placed in the subdirectory 'xrf_data' of the directory 'wd'
     wd_xrf = os.path.join(wd, xrf_subdir)
