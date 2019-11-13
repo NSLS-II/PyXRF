@@ -371,15 +371,38 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
         # print(f"result = {result}\n")
         # print(f"res = {res}\n")
 
-        def plot_xanes_map(map_data, *, block=True):
+        def plot_xanes_map(map_data, *, label=None, block=True):
+            """
+            Plot XANES map
 
-            fig = plt.figure(figsize=(6, 6))
+            Parameters
+            ----------
+            map_data : ndarray, 2D
+                map to be plotted, dimensions: (Ny, Nx)
+            label : str
+                reference label that is included in the image title and window title
+            block : bool
+                the parameter is passed to ``plt.show()``. Indicates if the execution of the
+                program should be paused until the figure is closed.
+
+            Returns
+            -------
+                Reference to the figure containing the plot
+
+            """
+
+
+            if label:
+                fig_title = f"MAP: {label}"
+                img_title = f"MAP: {label}"
+
+            fig = plt.figure(figsize=(6, 6), num=fig_title)
 
             img_plot = plt.imshow(map_data)
             plt.colorbar(img_plot, orientation="vertical")
             plt.axes().set_xlabel("X", fontsize=15)
             plt.axes().set_ylabel("Y", fontsize=15)
-            fig.suptitle("Title", fontsize=20)
+            fig.suptitle(img_title, fontsize=20)
             plt.show(block=block)
             return fig
 
@@ -401,9 +424,13 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
             ref_labels : list(str)
                 K elements, the labels for references. If None or empty, then no labels will be
                 printed
+            block : bool
+                the parameter is passed to ``plt.show()``. Indicates if the execution of the
+                program should be paused until the figure is closed.
 
             Returns
-                The figure containing the plot
+            -------
+                Reference to the figure containing the plot
             """
 
             # Check if the number of original and sampled references match
@@ -442,11 +469,11 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
                                    block=False)
 
         figures = []
-        for map_data in xanes_map_data:
-            fig = plot_xanes_map(map_data, block=False)
+        for n, map_data in enumerate(xanes_map_data):
+            fig = plot_xanes_map(map_data, label=ref_labels[n], block=False)
             figures.append(fig)
 
-        plot_xanes_map(xanes_map_residual, block=False)
+        plot_xanes_map(xanes_map_residual, label="residual", block=False)
 
 
         # Show stacks
