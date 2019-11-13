@@ -373,25 +373,78 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
 
         def plot_xanes_map(map_data, *, block=True):
 
-            fig = plt.figure(figsize=(11, 6))
+            fig = plt.figure(figsize=(6, 6))
 
-
-            ax_img = plt.axes([0.1, 0.1, 0.5, 0.8])
-            ax_img_cbar = plt.axes([0.9, 0.1, 0.03, 0.8])
-            ax_img.set_xlabel("X", fontsize=20)
-            ax_img.set_ylabel("Y", fontsize=20)
-
-
-            # display image
-            img_plot = ax_img.imshow(map_data)
-            cbar = fig.colorbar(img_plot, cax=ax_img_cbar, orientation="vertical")
-            ax_img_cbar.ticklabel_format(style='sci', scilimits=(-3, 4), axis='both')
-            #set_cbar_range()
-
+            img_plot = plt.imshow(map_data)
+            plt.colorbar(img_plot, orientation="vertical")
+            plt.axes().set_xlabel("X", fontsize=15)
+            plt.axes().set_ylabel("Y", fontsize=15)
+            fig.suptitle("Title", fontsize=20)
             plt.show(block=block)
+            return fig
 
+        def plot_absorption_references(*, ref_energy, ref_data, scan_energies,
+                                       scan_absorption_refs, ref_labels=None, block=True):
+            """
+            Plots absorption references
+
+            Parameters
+            ----------
+            ref_energy : ndarray, 1D
+                N elements, energy values for the original references (loaded from file)
+            ref_data : ndarray, 2D
+                NxK elements, K - the number of references
+            scan_energies : ndarray, 1D
+                M elements, energy values for resampled references, M - the number of scanned images
+            scan_absorption_refs : ndarray, 2D
+                MxK elements
+            ref_labels : list(str)
+                K elements, the labels for references. If None or empty, then no labels will be
+                printed
+
+            Returns
+                The figure containing the plot
+            """
+
+            # Check if the number of original and sampled references match
+            _, n_refs = ref_data.shape
+            _, n2 = scan_absorption_refs.shape
+            assert n_refs == n2, "The number of original and sample references does not match"
+            if ref_labels:
+                assert n_refs == len(ref_labels), "The number of references and labels does not match"
+
+            if ref_labels:
+                labels = ref_labels
+            else:
+                labels = [""] * n_refs
+
+            fig = plt.figure(figsize=(6, 6), num="Absorption References")
+
+            for n in range(n_refs):
+                plt.plot(ref_energy, ref_data[:, n], label=labels[n])
+
+            for n in range(n_refs):
+                plt.plot(scan_energies, scan_absorption_refs[:, n], "o", label=labels[n])
+
+            plt.axes().set_xlabel("Energy", fontsize=15)
+            plt.axes().set_ylabel("Absorption", fontsize=15)
+            plt.grid(True)
+            fig.suptitle("Absorption References", fontsize=20)
+            if ref_labels:
+                plt.legend(loc="upper right")
+            plt.show(block=block)
+            return fig
+
+        plot_absorption_references(ref_energy=ref_energy, ref_data=ref_data,
+                                   scan_energies=scan_energies,
+                                   scan_absorption_refs=scan_absorption_refs,
+                                   ref_labels=ref_labels,
+                                   block=False)
+
+        figures = []
         for map_data in xanes_map_data:
-            plot_xanes_map(map_data, block=False)
+            fig = plot_xanes_map(map_data, block=False)
+            figures.append(fig)
 
         plot_xanes_map(xanes_map_residual, block=False)
 
@@ -399,6 +452,12 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
         # Show stacks
         show_image_stack(eline_data=eline_data_aligned, energies=scan_energies, eline_selected=eline_selected)
         logger.info("Processing is complete.")
+
+        #for fig in figures:
+        #    plt.close(fig)
+
+        logger.info("Figures are deleted.")
+
 
 
 
