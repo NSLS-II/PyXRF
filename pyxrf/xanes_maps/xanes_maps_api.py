@@ -4,13 +4,15 @@ import numpy as np
 from pystackreg import StackReg
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button, TextBox
+import time as ttime
+import tifffile
 
 from skbeam.core.fitting.xrf_model import nnls_fit
 
 from ..model.load_data_from_db import make_hdf
 from ..model.command_tools import pyxrf_batch
 from ..model.fileio import read_hdf_APS
-from ..model.utils import grid_interpolate, normalize_data_by_scaler
+from ..model.utils import grid_interpolate, normalize_data_by_scaler, convert_time_to_nexus_string
 
 import logging
 logger = logging.getLogger()
@@ -96,7 +98,9 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
         If None, then the line specified as ``emission_line`` used for alignment
 
     ref_file_name : str
-        file name with emission line references.
+        file name with emission line references. If ``ref_file_name`` is not provided,
+        then no XANES maps are generated. The rest of the processing is still performed
+        as expected.
 
     use_incident_energy_from_param_file : bool
         indicates if incident energy from parameter file will be used to process all
@@ -119,16 +123,9 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
     param_file_name = os.path.expanduser(param_file_name)
     param_file_name = os.path.abspath(param_file_name)
 
-    if not ref_file_name:
-        raise ValueError("The parameter 'ref_file_name' is None or contains an empty string "
-                         "('build_energy_map_api').")
-
-    if not os.path.isfile(ref_file_name):
-        raise ValueError(f"The parameter file '{ref_file_name}' does not exist. Check the value of"
-                         f" the parameer 'ref_file_name' ('build_energy_map_api').")
-
-    ref_file_name = os.path.expanduser(ref_file_name)
-    ref_file_name = os.path.abspath(ref_file_name)
+    if ref_file_name:
+        ref_file_name = os.path.expanduser(ref_file_name)
+        ref_file_name = os.path.abspath(ref_file_name)
 
     if not xrf_subdir:
         raise ValueError("The parameter 'xrf_subdir' is None or contains an empty string "
@@ -151,6 +148,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
     seq_load_data = True
     seq_process_xrf_data = True
     seq_build_energy_map = True
+    seq_generate_xanes_map = True
     if sequence == "load_and_process":
         pass
     elif sequence == "process":
@@ -162,40 +160,15 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
         ValueError(f"Unknown sequence name '{sequence}' is passed as a parameter "
                    "to the function 'build_energy_map_api'.")
 
-    # Load reference file. (If there is a problem reading the reference file, it is better
-    #   to learn it before the processing starts.)
-    def read_ref_data(ref_file_name):
-        """Read file with reference data (for XANES fitting)"""
-        ref_labels=[]
-
-        with open(ref_file_name, "r") as f:
-            line_first = f.readline()
-            lb = line_first.split()
-            # Strip spaces
-            ref_labels = [_.strip() for _ in lb]
-            # Remove the first label (which is probably 'Energy', but unused in processing)
-            ref_labels.pop(0)
-
-        print(f"ref_labels={ref_labels}")
-
-        data_ref_file = np.genfromtxt(ref_file_name, skip_header=1)
-        ref_energy = data_ref_file[:, 0]
-        # The references are columns 'ref_data'
-        ref_data = data_ref_file[:, 1:]
-
-        _, n_ref_data_columns = ref_data.shape
-
-        if n_ref_data_columns != len(ref_labels):
-            raise Exception(f"Reference data file '{ref_file_name}' has unequal number of labels and data columns")
-
-        # Scale the energy in the reference file (given in eV, but the rest of the program is uing keV)
-        ref_energy /= 1000.0
-        # Data may contain some small negative values, so clip them to 0
-        ref_data = ref_data.clip(min=0)
-
-        return ref_energy, ref_data, ref_labels
-
-    ref_energy, ref_data, ref_labels = read_ref_data(ref_file_name)
+    if not ref_file_name:
+        seq_generate_xanes_map = False
+        ref_energy = None
+        ref_data = None
+        ref_labels = None
+    else:
+        # Load reference file. (If there is a problem reading the reference file, it is better
+        #   to learn it before the processing starts.)
+        ref_energy, ref_data, ref_labels = read_ref_data(ref_file_name)
 
     # XRF data will be placed in the subdirectory 'xrf_data' of the directory 'wd'
     wd_xrf = os.path.join(wd, xrf_subdir)
@@ -234,8 +207,6 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
 
         scan_ids, scan_energies, scan_img_dict, files_h5 = \
             _load_dataset_from_hdf5(start_id=start_id, end_id=end_id, wd_xrf=wd_xrf)
-
-        print(f"scan_ids: {scan_ids}")
 
         # The following function checks dataset for consistency. If additional checks
         #   needs to be performed, they should be added to the implementation of this function.
@@ -353,23 +324,26 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
                     map_residual[ny, nx] = residual
             return map_data_fitted, map_residual
 
+        if seq_generate_xanes_map:
+            scan_absorption_refs = _interpolate_energy(scan_energies, ref_energy, ref_data)
+            xanes_map_data, xanes_map_residual = _fit_xanes_map(eline_data_aligned[eline_selected], scan_absorption_refs)
 
-        scan_absorption_refs = _interpolate_energy(scan_energies, ref_energy, ref_data)
+            ny, nx = 30, 40
+            mp = xanes_map_data[:, ny, nx]
+            data = eline_data_aligned[eline_selected]
+            yy = np.zeros(shape=[data.shape[0]])
+            for n, v in enumerate(mp):
+                yy += v * scan_absorption_refs[:, n]
 
-        xanes_map_data, xanes_map_residual = _fit_xanes_map(eline_data_aligned[eline_selected], scan_absorption_refs)
+            for n in range(len(yy)):
+                print(f"yy={yy[n]}  data={data[n, ny, nx]}")
 
-        ny, nx = 30, 40
-        mp = xanes_map_data[:, ny, nx]
-        data = eline_data_aligned[eline_selected]
-        yy = np.zeros(shape=[data.shape[0]])
-        for n, v in enumerate(mp):
-            yy += v * scan_absorption_refs[:, n]
+        else:
+            scan_absorption_refs = None
+            xanes_map_data = None
+            xanes_map_residual = None
 
-        for n in range(len(yy)):
-            print(f"yy={yy[n]}  data={data[n, ny, nx]}")
 
-        # print(f"result = {result}\n")
-        # print(f"res = {res}\n")
 
         def plot_xanes_map(map_data, *, label=None, block=True):
             """
@@ -462,39 +436,34 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
             plt.show(block=block)
             return fig
 
-        import skimage.io as sio
-        print(f"plugin_order={sio.plugin_order()}")
 
-        sio.imsave("data_stack.tiff", eline_data_aligned[eline_selected].astype(np.float32),
-                   plugin="tifffile", imagej=True)
 
-        sio.imsave("data_xanes_map.tiff", xanes_map_data.astype(np.float32), plugin="tifffile", imagej=True)
+        _save_xanes_maps_to_tiff(eline_data_aligned=eline_data_aligned,
+                                 eline_selected=eline_selected,
+                                 xanes_map_data=xanes_map_data,
+                                 xanes_map_labels=ref_labels,
+                                 scan_energies=scan_energies,
+                                 scan_ids=scan_ids)
 
-        plot_absorption_references(ref_energy=ref_energy, ref_data=ref_data,
-                                   scan_energies=scan_energies,
-                                   scan_absorption_refs=scan_absorption_refs,
-                                   ref_labels=ref_labels,
-                                   block=False)
+        if seq_generate_xanes_map:
 
-        figures = []
-        for n, map_data in enumerate(xanes_map_data):
-            fig = plot_xanes_map(map_data, label=ref_labels[n], block=False)
-            figures.append(fig)
+            plot_absorption_references(ref_energy=ref_energy, ref_data=ref_data,
+                                       scan_energies=scan_energies,
+                                       scan_absorption_refs=scan_absorption_refs,
+                                       ref_labels=ref_labels,
+                                       block=False)
 
-        plot_xanes_map(xanes_map_residual, label="residual", block=False)
+            figures = []
+            for n, map_data in enumerate(xanes_map_data):
+                fig = plot_xanes_map(map_data, label=ref_labels[n], block=False)
+                figures.append(fig)
+
+            plot_xanes_map(xanes_map_residual, label="residual", block=False)
 
 
         # Show stacks
         show_image_stack(eline_data=eline_data_aligned, energies=scan_energies, eline_selected=eline_selected)
         logger.info("Processing is complete.")
-
-        #for fig in figures:
-        #    plt.close(fig)
-
-        logger.info("Figures are deleted.")
-
-
-
 
 
 def _load_dataset_from_hdf5(*, start_id, end_id, wd_xrf):
@@ -1016,6 +985,114 @@ def _get_dataset_name(img_dict, detector=None):
     raise RuntimeError(f"No dataset name was found for the detector {detector} ('get_dataset_name').")
 
 
+def read_ref_data(ref_file_name):
+    """Read file with reference data (for XANES fitting)"""
+
+    ref_labels=[]
+
+    if not os.path.isfile(ref_file_name):
+        raise ValueError(f"The parameter file '{ref_file_name}' does not exist. Check the value of"
+                         f" the parameer 'ref_file_name' ('build_energy_map_api').")
+
+    with open(ref_file_name, "r") as f:
+        line_first = f.readline()
+        lb = line_first.split()
+        # Strip spaces
+        ref_labels = [_.strip() for _ in lb]
+        # Remove the first label (which is probably 'Energy', but unused in processing)
+        ref_labels.pop(0)
+
+    print(f"ref_labels={ref_labels}")
+
+    data_ref_file = np.genfromtxt(ref_file_name, skip_header=1)
+    ref_energy = data_ref_file[:, 0]
+    # The references are columns 'ref_data'
+    ref_data = data_ref_file[:, 1:]
+
+    _, n_ref_data_columns = ref_data.shape
+
+    if n_ref_data_columns != len(ref_labels):
+        raise Exception(f"Reference data file '{ref_file_name}' has unequal number of labels and data columns")
+
+    # Scale the energy in the reference file (given in eV, but the rest of the program is uing keV)
+    ref_energy /= 1000.0
+    # Data may contain some small negative values, so clip them to 0
+    ref_data = ref_data.clip(min=0)
+
+    return ref_energy, ref_data, ref_labels
+
+def _save_xanes_maps_to_tiff(*, eline_data_aligned, eline_selected,
+                             xanes_map_data, xanes_map_labels,
+                             scan_energies, scan_ids):
+
+    """
+    Saves the results of processing in stacked .tiff files and creates .txt log file
+    with the list of contents of .tiff files.
+    It is assumed that the input data is consistent.
+
+    If ``xanes_map_data`` or ``xanes_map_labels`` are None, then XANES maps are not
+    saved. XANES maps are not generated if file with references is not available.
+    This is one of the legitimate modes of operation.
+
+    Parameters
+    ----------
+    eline_data_aligned : dict(ndarray)
+        The dictionary that contains aligned datasets. Key: emission line,
+        value: ndarray [K, Ny, Nx], K - the number of scans, Ny and Nx - the
+        number of pixels along y- and x- axes.
+    eline_selected : str
+        The name of the selected emission line. If the emission line is not present
+        in the dictionary ``eline_data_aligned``, then the image stack is not saved.
+    xanes_map_data : ndarray [M, Ny, Nx]
+        XANES maps. M - the number of maps
+    xanes_map_labels : list(str)
+        Labels for XANES maps. The number of labels must be equal to M.
+    scan_energies : list(float)
+        Beam energy values for the scans. The number of values must be K.
+    scan_ids : list(int)
+        Scan IDs of the scans. There must be K scan IDs.
+\           """
+
+    if eline_selected is None:
+        eline_selected = ""
+
+    # A .txt file is created along with saving the rest of the data.
+    fln_log = f"maps_{eline_selected}.txt"
+    with open(fln_log, "w") as f_log:
+
+        print(f"Processing completed at {convert_time_to_nexus_string(ttime.localtime())}", file=f_log)
+
+        if eline_data_aligned and eline_selected and (eline_selected in eline_data_aligned):
+            # Save the stack of XRF maps for the selected emission line
+            fln_stack = f"xrf_maps_{eline_selected}.tiff"
+            tifffile.imsave(fln_stack, eline_data_aligned[eline_selected].astype(np.float32),
+                       imagej=True)
+            logger.info(f"The stack of XRF maps for the emission line {eline_selected} is saved "
+                        f"to file '{fln_stack}'")
+
+            # Save the contents of the .tiff file to .txt file
+            print(f"\nThe stack of XRF maps is saved to file '{fln_stack}'.", file=f_log)
+            print("Contents:", file=f_log)
+            if scan_energies and scan_ids:
+                for n, energy, scan_id in zip(range(len(scan_energies)), scan_energies, scan_ids):
+                    print(f"   Frame {n + 1}:  scan ID = {scan_id}  beam energy = {energy}",
+                          file=f_log)
+
+        if (xanes_map_data is not None) and xanes_map_labels and eline_selected:
+            # Save XANES maps for references
+            fln_xanes = f"xanes_maps_{eline_selected}.tiff"
+            tifffile.imsave(fln_xanes, xanes_map_data.astype(np.float32), imagej=True)
+            logger.info(f"XANES maps for the emission line {eline_selected} are saved "
+                        f"to file '{fln_xanes}'")
+
+            # Save the contents of the .tiff file to .txt file
+            print(f"\nXANES maps are saved to file '{fln_xanes}'.", file=f_log)
+            print("Contents:", file=f_log)
+            if xanes_map_labels:
+                for n, label in enumerate(xanes_map_labels):
+                    print(f"   Frame {n + 1}:  reference = '{xanes_map_labels[n]}'", file=f_log)
+
+
 if __name__ == "__main__":
 
     logger = logging.getLogger()
@@ -1029,7 +1106,8 @@ if __name__ == "__main__":
     stream_handler.setLevel(logging.INFO)
     logger.addHandler(stream_handler)
 
-    build_xanes_map_api(start_id=92276, end_id=92335, param_file_name="param_335",
+    build_xanes_map_api(start_id=92276, end_id=92335,
+                         param_file_name="param_335",
                          scaler_name="sclr1_ch4", wd=None,
                          # sequence="process",
                          sequence="build_energy_map",
