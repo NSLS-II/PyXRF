@@ -462,6 +462,14 @@ def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
             plt.show(block=block)
             return fig
 
+        import skimage.io as sio
+        print(f"plugin_order={sio.plugin_order()}")
+
+        sio.imsave("data_stack.tiff", eline_data_aligned[eline_selected].astype(np.float32),
+                   plugin="tifffile", imagej=True)
+
+        sio.imsave("data_xanes_map.tiff", xanes_map_data.astype(np.float32), plugin="tifffile", imagej=True)
+
         plot_absorption_references(ref_energy=ref_energy, ref_data=ref_data,
                                    scan_energies=scan_energies,
                                    scan_absorption_refs=scan_absorption_refs,
