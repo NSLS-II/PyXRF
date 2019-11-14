@@ -20,12 +20,12 @@ logger = logging.getLogger()
 
 def build_xanes_map(*args, **kwargs):
     """
-    A wrapper for the function ``build_energy_map_api`` that catches exceptions
+    A wrapper for the function ``build_xanes_map_api`` that catches exceptions
     and prints the error message. Use this wrapper to run processing manually from
-    iPython and use ``build_energy_map_api`` for custom scripts.
+    iPython and use ``build_xanes_map_api`` for custom scripts.
 
     For description of the function parameters see the docstring for
-    ``build_energy_map_api``
+    ``build_xanes_map_api``
     """
     try:
         build_xanes_map_api(*args, **kwargs)
@@ -40,9 +40,10 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
                          scaler_name=None,
                          wd=None,
                          xrf_subdir="xrf_data",
-                         sequence="build_energy_map",
+                         sequence="build_xanes_map",
                          emission_line,
                          emission_line_alignment=None,
+                         alignment_starts_from="top",
                          ref_file_name=None,
                          use_incident_energy_from_param_file=True):
 
@@ -74,7 +75,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
 
     xrf_subdir : str
         subdirectory inside the working directory in which raw data files will be loaded.
-        If the "process" or "build_energy_map" sequence is executed, then the program
+        If the "process" or "build_xanes_map" sequence is executed, then the program
         looks for raw or processed files in this subfolder. In majority of cases, the
         default value is sufficient.
 
@@ -86,7 +87,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
         -- ``process`` - full processing of data, including xrf mapping
         and building the energy map,
 
-        -- ``build_energy_map`` - build the energy map using xrf mapping data,
+        -- ``build_xanes_map`` - build the energy map using xrf mapping data,
         all data must be processed.
 
     emission_line : str
@@ -96,6 +97,15 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
     emission_line_alignment : str
         the name of the emission line used for image alignment ("Ca_K", "Fe_K", etc.).
         If None, then the line specified as ``emission_line`` used for alignment
+
+    alignment_starts_from : str
+        The order of alignment of the image stack: "top" - start from the top of the stack
+        (scan with highest energy) and proceed to the bottom of the stack (lowest energy),
+        "bottom" - start from the bottom of the stack (lowest energy) and proceed to the top.
+        Starting from the top typically produces better results, because scans at higher
+        energy are more defined. If the same emission line is selected for XANES and
+        for alignment reference, then alignment should always be performed starting from
+        the top of the stack.
 
     ref_file_name : str
         file name with emission line references. If ``ref_file_name`` is not provided,
@@ -129,11 +139,18 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
 
     if not xrf_subdir:
         raise ValueError("The parameter 'xrf_subdir' is None or contains an empty string "
-                         "('build_energy_map_api').")
+                         "('build_xanes_map_api').")
 
     if not scaler_name:
         logger.warning("Scaler was not specified. The processing will still be performed,"
                        "but the DATA WILL NOT BE NORMALIZED!")
+
+    alignment_starts_from_values = ["top", "bottom"]
+    alignment_starts_from = alignment_starts_from.lower()
+    if alignment_starts_from not in alignment_starts_from_values:
+        raise ValueError("The parameter 'alignment_starts_from' has illegal value "
+                         f"'{alignment_starts_from}' ('build_xanes_map_api').")
+
 
     # Set emission lines
     eline_selected = emission_line
@@ -147,19 +164,21 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
     # Depending on the selected sequence, determine which steps must be executed
     seq_load_data = True
     seq_process_xrf_data = True
-    seq_build_energy_map = True
+    seq_build_xrf_map_stack = True
     seq_generate_xanes_map = True
     if sequence == "load_and_process":
         pass
     elif sequence == "process":
         seq_load_data = False
-    elif sequence == "build_energy_map":
+    elif sequence == "build_xanes_map":
         seq_load_data = False
         seq_process_xrf_data = False
     else:
         ValueError(f"Unknown sequence name '{sequence}' is passed as a parameter "
-                   "to the function 'build_energy_map_api'.")
+                   "to the function 'build_xanes_map_api'.")
 
+    # No XANES maps will be generated if references are not provided
+    #                 (this is one of the built-in options, not an error)
     if not ref_file_name:
         seq_generate_xanes_map = False
         ref_energy = None
@@ -202,7 +221,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
                     ignore_datafile_metadata=use_incident_energy_from_param_file,
                     wd=wd_xrf, save_tiff=False)
 
-    if seq_build_energy_map:
+    if seq_build_xrf_map_stack:
         logger.info("Building energy map ...")
 
         scan_ids, scan_energies, scan_img_dict, files_h5 = \
@@ -289,18 +308,35 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
         logger.info("Interpolating XRF maps to uniform grid: success.")
 
         # Align the stack of images
-        def _align_stacks(eline_data, eline_alignment):
+        def _align_stacks(eline_data, eline_alignment, alignment_starts_from="top"):
+
+            alignment_starts_from = alignment_starts_from.lower()
+            assert alignment_starts_from in ["top", "bottom"], \
+                f"Parameter 'alignment_starts_from' has invalid value: '{alignment_starts_from}'"
+
+            def _flip_stack(img_stack, alignment_starts_from):
+                """Flip image stack if alignment should be started from the top image"""
+                if alignment_starts_from == "top":
+                    return np.flip(img_stack, 0)
+                else:
+                    return img_stack
+
             """Align stack of XRF maps for each element"""
             sr = StackReg(StackReg.TRANSLATION)
-            sr.register_stack(eline_data[eline_alignment], reference="previous")
+            sr.register_stack(_flip_stack(eline_data[eline_alignment], alignment_starts_from),
+                              reference="previous")
 
             eline_data_aligned = {}
             for eline, data in eline_data.items():
-                data_transformed = sr.transform_stack(data)
+                data_prepared = _flip_stack(data, alignment_starts_from)
+                data_transformed = sr.transform_stack(data_prepared)
+                data_transformed = _flip_stack(data_transformed, alignment_starts_from)
                 eline_data_aligned[eline] = data_transformed.clip(min=0)
             return eline_data_aligned
 
-        eline_data_aligned = _align_stacks(eline_data=eline_data, eline_alignment=eline_alignment)
+        eline_data_aligned = _align_stacks(eline_data=eline_data,
+                                           eline_alignment=eline_alignment,
+                                           alignment_starts_from=alignment_starts_from)
 
         logger.info("Aligning the image stack: success.")
 
@@ -992,7 +1028,7 @@ def read_ref_data(ref_file_name):
 
     if not os.path.isfile(ref_file_name):
         raise ValueError(f"The parameter file '{ref_file_name}' does not exist. Check the value of"
-                         f" the parameer 'ref_file_name' ('build_energy_map_api').")
+                         f" the parameer 'ref_file_name' ('build_xanes_map_api').")
 
     with open(ref_file_name, "r") as f:
         line_first = f.readline()
@@ -1001,8 +1037,6 @@ def read_ref_data(ref_file_name):
         ref_labels = [_.strip() for _ in lb]
         # Remove the first label (which is probably 'Energy', but unused in processing)
         ref_labels.pop(0)
-
-    print(f"ref_labels={ref_labels}")
 
     data_ref_file = np.genfromtxt(ref_file_name, skip_header=1)
     ref_energy = data_ref_file[:, 0]
@@ -1110,6 +1144,7 @@ if __name__ == "__main__":
                          param_file_name="param_335",
                          scaler_name="sclr1_ch4", wd=None,
                          # sequence="process",
-                         sequence="build_energy_map",
+                         sequence="build_xanes_map",
+                         alignment_starts_from="top",
                          ref_file_name="refs_Fe_P23.txt",
                          emission_line="Fe_K", emission_line_alignment="P_K")
