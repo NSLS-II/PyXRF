@@ -7,16 +7,16 @@ from matplotlib.widgets import Slider, Button, TextBox
 
 from skbeam.core.fitting.xrf_model import nnls_fit
 
-from .load_data_from_db import make_hdf
-from .command_tools import pyxrf_batch
-from .fileio import read_hdf_APS
-from .utils import grid_interpolate, normalize_data_by_scaler
+from ..model.load_data_from_db import make_hdf
+from ..model.command_tools import pyxrf_batch
+from ..model.fileio import read_hdf_APS
+from ..model.utils import grid_interpolate, normalize_data_by_scaler
 
 import logging
 logger = logging.getLogger()
 
 
-def build_energy_map(*args, **kwargs):
+def build_xanes_map(*args, **kwargs):
     """
     A wrapper for the function ``build_energy_map_api`` that catches exceptions
     and prints the error message. Use this wrapper to run processing manually from
@@ -26,7 +26,7 @@ def build_energy_map(*args, **kwargs):
     ``build_energy_map_api``
     """
     try:
-        build_energy_map_api(*args, **kwargs)
+        build_xanes_map_api(*args, **kwargs)
     except BaseException as ex:
         msg = f"Processing is incomplete! Exception was raised during execution:\n   {ex}"
         logger.error(msg)
@@ -34,7 +34,7 @@ def build_energy_map(*args, **kwargs):
         logger.info("Processing was completed successfully.")
 
 
-def build_energy_map_api(start_id=None, end_id=None, *, param_file_name,
+def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
                          scaler_name=None,
                          wd=None,
                          xrf_subdir="xrf_data",
@@ -750,7 +750,7 @@ def show_image_stack(*, eline_data, energies, eline_selected):
 
             self.textbox_nlabel = None
 
-            self.fig = plt.figure(figsize=(11, 6))
+            self.fig = plt.figure(figsize=(11, 6), num="XRF MAPS")
             self.ax_img_stack = plt.axes([0.07, 0.25, 0.35, 0.65])
             self.ax_img_cbar = plt.axes([0.425, 0.26, 0.013, 0.63])
             self.ax_fluor_plot = plt.axes([0.55, 0.25, 0.4, 0.65])
@@ -784,8 +784,12 @@ def show_image_stack(*, eline_data, energies, eline_selected):
                                  0, len(self.energy) - 1,
                                  valinit=self.n_energy_selected, valfmt='%i')
 
-            #self.create_buttons_each_label()
-            self.create_buttons_prev_next()
+            if len(self.labels) <= 10:
+                # Individual button per label (emission line). Only 10 buttons will fit windows
+                self.create_buttons_each_label()
+            else:
+                # Alternative way to organize switching between labels
+                self.create_buttons_prev_next()
 
             self.slider.on_changed(self.slider_update)
 
@@ -822,7 +826,8 @@ def show_image_stack(*, eline_data, energies, eline_selected):
             for n in range(n_labels):
                 p_left = pos_left_start + (bwidth + bgap) * n
                 self.ax_btn_eline.append(plt.axes([p_left, 0.03, bwidth, 0.04]))
-                self.btn_eline.append(Button(self.ax_btn_eline[-1], self.labels[n]))
+                self.btn_eline.append(Button(self.ax_btn_eline[-1], self.labels[n],
+                                             color="#00ff00", hovercolor="#ff0000"))
 
             # Set events to each button
             for b in self.btn_eline:
@@ -1024,9 +1029,9 @@ if __name__ == "__main__":
     stream_handler.setLevel(logging.INFO)
     logger.addHandler(stream_handler)
 
-    build_energy_map_api(start_id=92276, end_id=92335, param_file_name="param_335",
+    build_xanes_map_api(start_id=92276, end_id=92335, param_file_name="param_335",
                          scaler_name="sclr1_ch4", wd=None,
                          # sequence="process",
                          sequence="build_energy_map",
                          ref_file_name="refs_Fe_P23.txt",
-                         emission_line="Fe_K", emission_line_alignment="Mn_K")
+                         emission_line="Fe_K", emission_line_alignment="P_K")

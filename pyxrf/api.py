@@ -3,7 +3,8 @@ from .model.fileio import (stitch_fitted_results,  spec_to_hdf, create_movie,  #
                            make_hdf_stitched)  # noqa: F401
 from .model.load_data_from_db import make_hdf, export1d  # noqa: F401
 from .model.command_tools import fit_pixel_data_and_save, pyxrf_batch  # noqa: F401
-from .model.xrf_energy import build_energy_map, build_energy_map_api  # noqa: F401
+from .xanes_maps.xanes_maps_api import build_xanes_map, build_xanes_map_api  # noqa: F401
+
 # from .model.command_tools import pyxrf_batch  # noqa: F401
 
 # Note:  the statement '# noqa: F401' is telling flake8 to ignore violation F401 at the given line
@@ -22,8 +23,15 @@ stream_handler.setLevel(logging.INFO)
 logger.addHandler(stream_handler)
 
 try:
-    from .model.load_data_from_db import db, db_analysis
+    from .model.load_data_from_db import db
 except ImportError:
     db = None
+    logger.error("Databroker is not available.")
+
+try:
+    from .model.load_data_from_db import db_analysis
+except ImportError:
     db_analysis = None
-    logger.error('databroker is not available.')
+    # We don't use 'analysis' databroker, so disable the message for now
+    # logger.error("'Analysis' databroker is not available.")
+
