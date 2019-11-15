@@ -12,7 +12,8 @@ from skbeam.core.fitting.xrf_model import nnls_fit
 from ..model.load_data_from_db import make_hdf
 from ..model.command_tools import pyxrf_batch
 from ..model.fileio import read_hdf_APS
-from ..model.utils import grid_interpolate, normalize_data_by_scaler, convert_time_to_nexus_string
+from ..model.utils import (grid_interpolate, normalize_data_by_scaler, convert_time_to_nexus_string,
+                           check_if_eline_is_activated)
 
 import logging
 logger = logging.getLogger()
@@ -37,15 +38,18 @@ def build_xanes_map(*args, **kwargs):
 
 
 def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
-                         scaler_name=None,
-                         wd=None,
-                         xrf_subdir="xrf_data",
-                         sequence="build_xanes_map",
-                         emission_line,
-                         emission_line_alignment=None,
-                         alignment_starts_from="top",
-                         ref_file_name=None,
-                         use_incident_energy_from_param_file=True):
+                        scaler_name=None,
+                        wd=None,
+                        xrf_subdir="xrf_data",
+                        sequence="build_xanes_map",
+                        emission_line,
+                        emission_line_alignment=None,
+                        alignment_starts_from="top",
+                        incident_energy_low_bound=None,
+                        interpolation_enable=True,
+                        alignment_enable=True,
+                        ref_file_name=None,
+                        use_incident_energy_from_param_file=True):
 
     """
     Parameters
@@ -106,6 +110,20 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
         energy are more defined. If the same emission line is selected for XANES and
         for alignment reference, then alignment should always be performed starting from
         the top of the stack.
+
+    incident_energy_low_bound : float
+        files in the set are processed using the value of incident energy which equal to
+        the greater of the values of ``incident_energy_low_bound`` or incident energy
+        from file metadata. If None, then the lower energy bound is found automatically
+        as the largest value of energy in the set which still activates the selected
+        emission line (specified as the ``emission_line`` parameter)
+
+    interpolation_enable : True
+        enable interpolation of XRF maps to uniform grid before alignment of maps.
+
+    alignment_enable : True
+        enable alignment of the stack of maps. In typical processing workflow the alignment
+        should be enabled.
 
     ref_file_name : str
         file name with emission line references. If ``ref_file_name`` is not provided,
@@ -214,12 +232,59 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
         if not os.path.isdir(wd_xrf):
             # Unfortunately there is no way to continue if there is no directory with data
             raise IOError(f"XRF data directory '{wd_xrf}' does not exist.")
-        # Process .h5 files in the directory 'wd_xrf'. Processing results are saved
-        #   as additional datasets in the original .h5 files.
-        pyxrf_batch(start_id=start_id, end_id=end_id,
-                    param_file_name=param_file_name,
-                    ignore_datafile_metadata=use_incident_energy_from_param_file,
-                    wd=wd_xrf, save_tiff=False)
+
+        # Load scan metadata (only ids, energies and file names are extracted)
+        scan_ids, scan_energies, _, files_h5 = \
+            _load_dataset_from_hdf5(start_id=start_id, end_id=end_id,
+                                    wd_xrf=wd_xrf, load_fit_results=False)
+
+        # Sort the lists based on energy. Prior to this point the data was arrange in the
+        #   alphabetical order of files.
+        scan_energies, sorted_indexes = list(zip(*sorted(zip(scan_energies, range(len(scan_energies))))))
+        scan_energies = list(scan_energies)
+        files_h5 = [files_h5[n] for n in sorted_indexes]
+        scan_ids = [scan_ids[n] for n in sorted_indexes]
+
+        scan_energies_adjusted = scan_energies.copy()
+
+        print(f"scan_ids: {scan_ids}")
+        print(f"scan_energies: {scan_energies}")
+        print(f"files_h5: {files_h5}")
+
+        if incident_energy_low_bound is not None:
+            for n, v in enumerate(scan_energies_adjusted):
+                if v < incident_energy_low_bound:
+                    scan_energies_adjusted[n] = incident_energy_low_bound
+        else:
+
+
+            # Find the first activated line for the element line 'emission_line'
+            n_first_activated = None
+            for n, energy in enumerate(scan_energies):
+                if check_if_eline_is_activated(emission_line, energy):
+                    n_first_activated = n
+                    break
+
+            if n_first_activated is None:
+                raise RuntimeError(
+                    f"The emission line '{emission_line}' is not activated\n"
+                    f"    in the range of energies {scan_energies[0]} - {scan_energies[-1]} keV.\n"
+                    f"    Check if the emission line is specified correctly.")
+            else:
+                for n in range(n_first_activated):
+                    scan_energies_adjusted[n] = scan_energies[n_first_activated]
+
+        print(f"scan_energies_adjusted={scan_energies_adjusted}")
+
+        # Process data files from the list. Use adjusted energy value.
+        for fln, energy in zip(files_h5, scan_energies_adjusted):
+            # Process .h5 files in the directory 'wd_xrf'. Processing results are saved
+            #   as additional datasets in the original .h5 files.
+            pyxrf_batch(data_files=fln,  # Process only one data file
+                        param_file_name=param_file_name,
+                        #ignore_datafile_metadata=use_incident_energy_from_param_file,
+                        incident_energy=energy,  # This value overrides incident energy from other sources
+                        wd=wd_xrf, save_tiff=False)
 
     if seq_build_xrf_map_stack:
         logger.info("Building energy map ...")
@@ -502,7 +567,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
         logger.info("Processing is complete.")
 
 
-def _load_dataset_from_hdf5(*, start_id, end_id, wd_xrf):
+def _load_dataset_from_hdf5(*, start_id, end_id, wd_xrf, load_fit_results=True):
     """
     Load dataset from processed HDF5 files
 
@@ -511,6 +576,9 @@ def _load_dataset_from_hdf5(*, start_id, end_id, wd_xrf):
 
     wd_xrf : str
         full (absolute) path name to the directory that contains processed HDF5 files
+    load_fit_results : bool
+        indicates if fit results should be loaded. If set to False, then only metadata
+        is loaded and output dictionary ``scan_img_dict`` is empty.
     """
 
     # The list of file names
@@ -524,9 +592,9 @@ def _load_dataset_from_hdf5(*, start_id, end_id, wd_xrf):
     scan_img_dict = []
     for fln in files_h5:
         img_dict, _, mdata = \
-            read_hdf_APS(working_directory=wd_xrf, file_name=fln, load_summed_data=True,
+            read_hdf_APS(working_directory=wd_xrf, file_name=fln, load_summed_data=load_fit_results,
                          load_each_channel=False, load_processed_each_channel=False,
-                         load_raw_data=False, load_fit_results=True,
+                         load_raw_data=False, load_fit_results=load_fit_results,
                          load_roi_results=False)
 
         if "scan_id" not in mdata:
@@ -544,7 +612,8 @@ def _load_dataset_from_hdf5(*, start_id, end_id, wd_xrf):
             logger.error("Metadata value 'instrument_mono_incident_energy' is missing "
                          f"in data file '{fln}': the file was not loaded.")
 
-        scan_img_dict.append(img_dict)
+        if load_fit_results:
+            scan_img_dict.append(img_dict)
         scan_ids.append(mdata["scan_id"])
         scan_energies.append(mdata["instrument_mono_incident_energy"])
 
@@ -1141,10 +1210,10 @@ if __name__ == "__main__":
     logger.addHandler(stream_handler)
 
     build_xanes_map_api(start_id=92276, end_id=92335,
-                         param_file_name="param_335",
-                         scaler_name="sclr1_ch4", wd=None,
-                         # sequence="process",
-                         sequence="build_xanes_map",
-                         alignment_starts_from="top",
-                         ref_file_name="refs_Fe_P23.txt",
-                         emission_line="Fe_K", emission_line_alignment="P_K")
+                        param_file_name="param_335",
+                        scaler_name="sclr1_ch4", wd=None,
+                        sequence="process",
+                        # sequence="build_xanes_map",
+                        alignment_starts_from="top",
+                        ref_file_name="refs_Fe_P23.txt",
+                        emission_line="Fe_K", emission_line_alignment="P_K")
