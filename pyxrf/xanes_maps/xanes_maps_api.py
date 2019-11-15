@@ -13,7 +13,7 @@ from ..model.load_data_from_db import make_hdf
 from ..model.command_tools import pyxrf_batch
 from ..model.fileio import read_hdf_APS
 from ..model.utils import (grid_interpolate, normalize_data_by_scaler, convert_time_to_nexus_string,
-                           check_if_eline_is_activated)
+                           check_if_eline_is_activated, check_eline_name)
 
 import logging
 logger = logging.getLogger()
@@ -45,10 +45,10 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
                         emission_line,
                         emission_line_alignment=None,
                         alignment_starts_from="top",
-                        incident_energy_low_bound=None,
                         interpolation_enable=True,
                         alignment_enable=True,
                         ref_file_name=None,
+                        incident_energy_low_bound=None,
                         use_incident_energy_from_param_file=True):
 
     """
@@ -111,13 +111,6 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
         for alignment reference, then alignment should always be performed starting from
         the top of the stack.
 
-    incident_energy_low_bound : float
-        files in the set are processed using the value of incident energy which equal to
-        the greater of the values of ``incident_energy_low_bound`` or incident energy
-        from file metadata. If None, then the lower energy bound is found automatically
-        as the largest value of energy in the set which still activates the selected
-        emission line (specified as the ``emission_line`` parameter)
-
     interpolation_enable : True
         enable interpolation of XRF maps to uniform grid before alignment of maps.
 
@@ -129,6 +122,13 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
         file name with emission line references. If ``ref_file_name`` is not provided,
         then no XANES maps are generated. The rest of the processing is still performed
         as expected.
+
+    incident_energy_low_bound : float
+        files in the set are processed using the value of incident energy which equal to
+        the greater of the values of ``incident_energy_low_bound`` or incident energy
+        from file metadata. If None, then the lower energy bound is found automatically
+        as the largest value of energy in the set which still activates the selected
+        emission line (specified as the ``emission_line`` parameter)
 
     use_incident_energy_from_param_file : bool
         indicates if incident energy from parameter file will be used to process all
@@ -169,15 +169,21 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
         raise ValueError("The parameter 'alignment_starts_from' has illegal value "
                          f"'{alignment_starts_from}' ('build_xanes_map_api').")
 
-
     # Set emission lines
     eline_selected = emission_line
     if emission_line_alignment:
         eline_alignment = emission_line_alignment
     else:
         eline_alignment = eline_selected
-    # We don't check if the emission lines are correctly specified. Instead we check
-    #   if the datasets for the emission lines are present in the processed data files.
+
+    # Check emission line names. They must be in the list of supported emission lines.
+    #   The check is case-sensitive.
+    if not check_eline_name(eline_selected):
+        raise ValueError(f"The emission line '{eline_selected}' does not exist or is not supported. "
+                         f"Check the value of the parameter 'eline_selected' ('build_xanes_map_api').")
+    if not check_eline_name(eline_alignment):
+        raise ValueError(f"The emission line '{eline_alignment}' does not exist or is not supported. "
+                         f"Check the value of the parameter 'eline_alignment' ('build_xanes_map_api').")
 
     # Depending on the selected sequence, determine which steps must be executed
     seq_load_data = True
@@ -192,7 +198,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
         seq_load_data = False
         seq_process_xrf_data = False
     else:
-        ValueError(f"Unknown sequence name '{sequence}' is passed as a parameter "
+        raise ValueError(f"Unknown sequence name '{sequence}' is passed as a parameter "
                    "to the function 'build_xanes_map_api'.")
 
     # No XANES maps will be generated if references are not provided
@@ -256,8 +262,6 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
                 if v < incident_energy_low_bound:
                     scan_energies_adjusted[n] = incident_energy_low_bound
         else:
-
-
             # Find the first activated line for the element line 'emission_line'
             n_first_activated = None
             for n, energy in enumerate(scan_energies):
@@ -314,240 +318,73 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
         positions_y_all = np.asarray([element['positions']['y_pos'] for element in scan_img_dict])
 
         # Find uniform grid that can be applied to the whole dataset (mostly for data plotting)
-        def _get_uniform_grid(positions_x_all, positions_y_all):
-            """Compute uniform grid common to the whole dataset"""
-            # Median positions are probably the best for generating common uniform grid
-            positions_x_median = np.median(positions_x_all, axis=0)
-            positions_y_median = np.median(positions_y_all, axis=0)
-            # Generate uniform grid
-            _, positions_x_uniform, positions_y_uniform = grid_interpolate(
-                None, positions_x_median, positions_y_median)
-            return positions_x_uniform, positions_y_uniform
-
         positions_x_uniform, positions_y_uniform = _get_uniform_grid(positions_x_all,
                                                                      positions_y_all)
-
         logger.info("Generating common uniform grid: success.")
 
         # Create the arrays of XRF amplitudes for each emission line and normalize them
-        def _get_eline_data(scan_img_dict, scaler_name):
-            """
-            Create the list of emission lines and the array with emission data.
-
-            Array ``eline_data`` contains XRF maps for the emission lines:
-
-            -- dimension 0 - the number of the emission line,
-            the name of the emission line may be extracted from the respective
-            entry of the list ``eline_list``
-
-            -- dimensions 1 and 2 - Y and X coordinates of the map
-            """
-            eline_list = _get_eline_keys(_get_img_keys(scan_img_dict[0]))
-            eline_data = {}
-            for eline in eline_list:
-                data = []
-                for img_dict in scan_img_dict:
-                    d = _get_img_data(img_dict=img_dict, key=eline)
-                    if scaler_name:  # Normalization
-                        d = normalize_data_by_scaler(d, _get_img_data(img_dict=img_dict,
-                                                                      key=scaler_name))
-                    data.append(d)
-                eline_data[eline] = np.asarray(data)
-            return eline_list, eline_data
-
         eline_list, eline_data = _get_eline_data(scan_img_dict=scan_img_dict,
                                                  scaler_name=scaler_name)
-
         logger.info("Extracting XRF maps for emission lines: success.")
 
-        # Interpolate each image. I tried to use common uniform grid to do interpolation,
-        #   but it didn't work very well. In the current implementation, the interpolation
-        #   of each set is performed separately using the uniform grid specific for the set.
-        for eline, data in eline_data.items():
-            n_scans, _, _ = data.shape
-            for n in range(n_scans):
-                data[n, :, :], _, _ = grid_interpolate(data[n, :, :],
-                                                       xx=positions_x_all[n, :, :],
-                                                       yy=positions_y_all[n, :, :])
-
-        logger.info("Interpolating XRF maps to uniform grid: success.")
+        if interpolation_enable:
+            # Interpolate each image. I tried to use common uniform grid to do interpolation,
+            #   but it didn't work very well. In the current implementation, the interpolation
+            #   of each set is performed separately using the uniform grid specific for the set.
+            for eline, data in eline_data.items():
+                n_scans, _, _ = data.shape
+                for n in range(n_scans):
+                    data[n, :, :], _, _ = grid_interpolate(data[n, :, :],
+                                                           xx=positions_x_all[n, :, :],
+                                                           yy=positions_y_all[n, :, :])
+            logger.info("Interpolating XRF maps to uniform grid: success.")
+        else:
+            logger.info("Interpolating XRF maps to uniform grid: skipped.")
 
         # Align the stack of images
-        def _align_stacks(eline_data, eline_alignment, alignment_starts_from="top"):
-
-            alignment_starts_from = alignment_starts_from.lower()
-            assert alignment_starts_from in ["top", "bottom"], \
-                f"Parameter 'alignment_starts_from' has invalid value: '{alignment_starts_from}'"
-
-            def _flip_stack(img_stack, alignment_starts_from):
-                """Flip image stack if alignment should be started from the top image"""
-                if alignment_starts_from == "top":
-                    return np.flip(img_stack, 0)
-                else:
-                    return img_stack
-
-            """Align stack of XRF maps for each element"""
-            sr = StackReg(StackReg.TRANSLATION)
-            sr.register_stack(_flip_stack(eline_data[eline_alignment], alignment_starts_from),
-                              reference="previous")
-
-            eline_data_aligned = {}
-            for eline, data in eline_data.items():
-                data_prepared = _flip_stack(data, alignment_starts_from)
-                data_transformed = sr.transform_stack(data_prepared)
-                data_transformed = _flip_stack(data_transformed, alignment_starts_from)
-                eline_data_aligned[eline] = data_transformed.clip(min=0)
-            return eline_data_aligned
-
-        eline_data_aligned = _align_stacks(eline_data=eline_data,
-                                           eline_alignment=eline_alignment,
-                                           alignment_starts_from=alignment_starts_from)
-
-        logger.info("Aligning the image stack: success.")
-
-        def _interpolate_energy(energy, energy_refs, absorption_refs):
-            _, n_states = absorption_refs.shape
-            interpolated_refs = np.zeros(shape=[len(energy), n_states], dtype=float)
-            for n in range(n_states):
-                a_ref = absorption_refs[:, n]
-                interpolated_refs[:, n] = np.interp(energy, energy_refs, a_ref)
-            return interpolated_refs
-
-        def _fit_xanes_map(map_data, absorption_refs):
-            _, nny, nnx = map_data.shape
-            _, n_states = absorption_refs.shape
-            map_data_fitted = np.zeros(shape=[n_states, nny, nnx])
-            map_residual = np.zeros(shape=[nny, nnx])
-            for ny in range(nny):
-                for nx in range(nnx):
-                    result, residual = nnls_fit(map_data[:, ny, nx], absorption_refs, weights=None)
-                    map_data_fitted[:, ny, nx] = result
-                    map_residual[ny, nx] = residual
-            return map_data_fitted, map_residual
+        if alignment_enable:
+            eline_data_aligned = _align_stacks(eline_data=eline_data,
+                                               eline_alignment=eline_alignment,
+                                               alignment_starts_from=alignment_starts_from)
+            logger.info("Alignment of the image stack: success.")
+        else:
+            eline_data_aligned = eline_data
+            logger.info("Alignment of the image stack: skipped.")
 
         if seq_generate_xanes_map:
             scan_absorption_refs = _interpolate_energy(scan_energies, ref_energy, ref_data)
             xanes_map_data, xanes_map_residual = _fit_xanes_map(eline_data_aligned[eline_selected], scan_absorption_refs)
 
+            # Scale xanes maps so that the values represent counts
+            n_refs, _, _ = xanes_map_data.shape
+            xanes_map_data_counts = np.zeros(shape=xanes_map_data.shape)
+            for n in range(n_refs):
+                xanes_map_data_counts[n, :, :] = xanes_map_data[n, :, :] * np.sum(scan_absorption_refs[:, n])
+
+            ### The following is debug code. Remove it from final code.
             ny, nx = 30, 40
             mp = xanes_map_data[:, ny, nx]
             data = eline_data_aligned[eline_selected]
             yy = np.zeros(shape=[data.shape[0]])
             for n, v in enumerate(mp):
                 yy += v * scan_absorption_refs[:, n]
-
             for n in range(len(yy)):
                 print(f"yy={yy[n]}  data={data[n, ny, nx]}")
 
         else:
             scan_absorption_refs = None
             xanes_map_data = None
+            xanes_map_data_counts = None
             xanes_map_residual = None
-
-
-
-        def plot_xanes_map(map_data, *, label=None, block=True):
-            """
-            Plot XANES map
-
-            Parameters
-            ----------
-            map_data : ndarray, 2D
-                map to be plotted, dimensions: (Ny, Nx)
-            label : str
-                reference label that is included in the image title and window title
-            block : bool
-                the parameter is passed to ``plt.show()``. Indicates if the execution of the
-                program should be paused until the figure is closed.
-
-            Returns
-            -------
-                Reference to the figure containing the plot
-
-            """
-
-
-            if label:
-                fig_title = f"MAP: {label}"
-                img_title = f"MAP: {label}"
-
-            fig = plt.figure(figsize=(6, 6), num=fig_title)
-
-            img_plot = plt.imshow(map_data)
-            plt.colorbar(img_plot, orientation="vertical")
-            plt.axes().set_xlabel("X", fontsize=15)
-            plt.axes().set_ylabel("Y", fontsize=15)
-            fig.suptitle(img_title, fontsize=20)
-            plt.show(block=block)
-            return fig
-
-        def plot_absorption_references(*, ref_energy, ref_data, scan_energies,
-                                       scan_absorption_refs, ref_labels=None, block=True):
-            """
-            Plots absorption references
-
-            Parameters
-            ----------
-            ref_energy : ndarray, 1D
-                N elements, energy values for the original references (loaded from file)
-            ref_data : ndarray, 2D
-                NxK elements, K - the number of references
-            scan_energies : ndarray, 1D
-                M elements, energy values for resampled references, M - the number of scanned images
-            scan_absorption_refs : ndarray, 2D
-                MxK elements
-            ref_labels : list(str)
-                K elements, the labels for references. If None or empty, then no labels will be
-                printed
-            block : bool
-                the parameter is passed to ``plt.show()``. Indicates if the execution of the
-                program should be paused until the figure is closed.
-
-            Returns
-            -------
-                Reference to the figure containing the plot
-            """
-
-            # Check if the number of original and sampled references match
-            _, n_refs = ref_data.shape
-            _, n2 = scan_absorption_refs.shape
-            assert n_refs == n2, "The number of original and sample references does not match"
-            if ref_labels:
-                assert n_refs == len(ref_labels), "The number of references and labels does not match"
-
-            if ref_labels:
-                labels = ref_labels
-            else:
-                labels = [""] * n_refs
-
-            fig = plt.figure(figsize=(6, 6), num="Absorption References")
-
-            for n in range(n_refs):
-                plt.plot(ref_energy, ref_data[:, n], label=labels[n])
-
-            for n in range(n_refs):
-                plt.plot(scan_energies, scan_absorption_refs[:, n], "o", label=labels[n])
-
-            plt.axes().set_xlabel("Energy", fontsize=15)
-            plt.axes().set_ylabel("Absorption", fontsize=15)
-            plt.grid(True)
-            fig.suptitle("Absorption References", fontsize=20)
-            if ref_labels:
-                plt.legend(loc="upper right")
-            plt.show(block=block)
-            return fig
-
-
 
         _save_xanes_maps_to_tiff(eline_data_aligned=eline_data_aligned,
                                  eline_selected=eline_selected,
-                                 xanes_map_data=xanes_map_data,
+                                 xanes_map_data=xanes_map_data_counts,
                                  xanes_map_labels=ref_labels,
                                  scan_energies=scan_energies,
                                  scan_ids=scan_ids)
 
         if seq_generate_xanes_map:
-
             plot_absorption_references(ref_energy=ref_energy, ref_data=ref_data,
                                        scan_energies=scan_energies,
                                        scan_absorption_refs=scan_absorption_refs,
@@ -555,14 +392,14 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
                                        block=False)
 
             figures = []
-            for n, map_data in enumerate(xanes_map_data):
+            for n, map_data in enumerate(xanes_map_data_counts):
                 fig = plot_xanes_map(map_data, label=ref_labels[n], block=False)
                 figures.append(fig)
 
             plot_xanes_map(xanes_map_residual, label="residual", block=False)
 
 
-        # Show stacks
+        # Show image stacks for the selected elements
         show_image_stack(eline_data=eline_data_aligned, energies=scan_energies, eline_selected=eline_selected)
         logger.info("Processing is complete.")
 
@@ -758,6 +595,97 @@ def _check_dataset_consistency(*, scan_ids, scan_img_dict, files_h5, scaler_name
     _check_for_identical_image_size(scan_img_dict=scan_img_dict,
                                     files_h5=files_h5,
                                     scan_ids=scan_ids)
+
+
+# ============================================================================================
+#   Functions used for processing
+
+def _get_uniform_grid(positions_x_all, positions_y_all):
+    """Compute uniform grid common to the whole dataset"""
+    # Median positions are probably the best for generating common uniform grid
+    positions_x_median = np.median(positions_x_all, axis=0)
+    positions_y_median = np.median(positions_y_all, axis=0)
+    # Generate uniform grid
+    _, positions_x_uniform, positions_y_uniform = grid_interpolate(
+        None, positions_x_median, positions_y_median)
+    return positions_x_uniform, positions_y_uniform
+
+
+def _get_eline_data(scan_img_dict, scaler_name):
+    """
+    Create the list of emission lines and the array with emission data.
+
+    Array ``eline_data`` contains XRF maps for the emission lines:
+
+    -- dimension 0 - the number of the emission line,
+    the name of the emission line may be extracted from the respective
+    entry of the list ``eline_list``
+
+    -- dimensions 1 and 2 - Y and X coordinates of the map
+    """
+    eline_list = _get_eline_keys(_get_img_keys(scan_img_dict[0]))
+    eline_data = {}
+    for eline in eline_list:
+        data = []
+        for img_dict in scan_img_dict:
+            d = _get_img_data(img_dict=img_dict, key=eline)
+            if scaler_name:  # Normalization
+                d = normalize_data_by_scaler(d, _get_img_data(img_dict=img_dict,
+                                                              key=scaler_name))
+            data.append(d)
+        eline_data[eline] = np.asarray(data)
+    return eline_list, eline_data
+
+
+def _align_stacks(eline_data, eline_alignment, alignment_starts_from="top"):
+    """
+    Align stack of images
+    """
+    alignment_starts_from = alignment_starts_from.lower()
+    assert alignment_starts_from in ["top", "bottom"], \
+        f"Parameter 'alignment_starts_from' has invalid value: '{alignment_starts_from}'"
+
+    def _flip_stack(img_stack, alignment_starts_from):
+        """Flip image stack if alignment should be started from the top image"""
+        if alignment_starts_from == "top":
+            return np.flip(img_stack, 0)
+        else:
+            return img_stack
+
+    """Align stack of XRF maps for each element"""
+    sr = StackReg(StackReg.TRANSLATION)
+    sr.register_stack(_flip_stack(eline_data[eline_alignment], alignment_starts_from),
+                      reference="previous")
+
+    eline_data_aligned = {}
+    for eline, data in eline_data.items():
+        data_prepared = _flip_stack(data, alignment_starts_from)
+        data_transformed = sr.transform_stack(data_prepared)
+        data_transformed = _flip_stack(data_transformed, alignment_starts_from)
+        eline_data_aligned[eline] = data_transformed.clip(min=0)
+    return eline_data_aligned
+
+
+def _interpolate_energy(energy, energy_refs, absorption_refs):
+    _, n_states = absorption_refs.shape
+    interpolated_refs = np.zeros(shape=[len(energy), n_states], dtype=float)
+    for n in range(n_states):
+        a_ref = absorption_refs[:, n]
+        interpolated_refs[:, n] = np.interp(energy, energy_refs, a_ref)
+    return interpolated_refs
+
+
+def _fit_xanes_map(map_data, absorption_refs):
+    _, nny, nnx = map_data.shape
+    _, n_states = absorption_refs.shape
+    map_data_fitted = np.zeros(shape=[n_states, nny, nnx])
+    map_residual = np.zeros(shape=[nny, nnx])
+    for ny in range(nny):
+        for nx in range(nnx):
+            result, residual = nnls_fit(map_data[:, ny, nx], absorption_refs, weights=None)
+            map_data_fitted[:, ny, nx] = result
+            map_residual[ny, nx] = residual
+    return map_data_fitted, map_residual
 
 
 def show_image_stack(*, eline_data, energies, eline_selected):
@@ -1009,6 +937,98 @@ def show_image_stack(*, eline_data, energies, eline_selected):
     map_plot.show()
 
 
+def plot_xanes_map(map_data, *, label=None, block=True):
+    """
+    Plot XANES map
+
+    Parameters
+    ----------
+    map_data : ndarray, 2D
+        map to be plotted, dimensions: (Ny, Nx)
+    label : str
+        reference label that is included in the image title and window title
+    block : bool
+        the parameter is passed to ``plt.show()``. Indicates if the execution of the
+        program should be paused until the figure is closed.
+
+    Returns
+    -------
+        Reference to the figure containing the plot
+
+    """
+
+    if label:
+        fig_title = f"MAP: {label}"
+        img_title = f"MAP: {label}"
+
+    fig = plt.figure(figsize=(6, 6), num=fig_title)
+
+    img_plot = plt.imshow(map_data)
+    plt.colorbar(img_plot, orientation="vertical")
+    plt.axes().set_xlabel("X", fontsize=15)
+    plt.axes().set_ylabel("Y", fontsize=15)
+    fig.suptitle(img_title, fontsize=20)
+    plt.show(block=block)
+    return fig
+
+
+def plot_absorption_references(*, ref_energy, ref_data, scan_energies,
+                               scan_absorption_refs, ref_labels=None, block=True):
+    """
+    Plots absorption references
+
+    Parameters
+    ----------
+    ref_energy : ndarray, 1D
+        N elements, energy values for the original references (loaded from file)
+    ref_data : ndarray, 2D
+        NxK elements, K - the number of references
+    scan_energies : ndarray, 1D
+        M elements, energy values for resampled references, M - the number of scanned images
+    scan_absorption_refs : ndarray, 2D
+        MxK elements
+    ref_labels : list(str)
+        K elements, the labels for references. If None or empty, then no labels will be
+        printed
+    block : bool
+        the parameter is passed to ``plt.show()``. Indicates if the execution of the
+        program should be paused until the figure is closed.
+
+    Returns
+    -------
+        Reference to the figure containing the plot
+    """
+
+    # Check if the number of original and sampled references match
+    _, n_refs = ref_data.shape
+    _, n2 = scan_absorption_refs.shape
+    assert n_refs == n2, "The number of original and sample references does not match"
+    if ref_labels:
+        assert n_refs == len(ref_labels), "The number of references and labels does not match"
+
+    if ref_labels:
+        labels = ref_labels
+    else:
+        labels = [""] * n_refs
+
+    fig = plt.figure(figsize=(6, 6), num="Absorption References")
+
+    for n in range(n_refs):
+        plt.plot(ref_energy, ref_data[:, n], label=labels[n])
+
+    for n in range(n_refs):
+        plt.plot(scan_energies, scan_absorption_refs[:, n], "o", label=labels[n])
+
+    plt.axes().set_xlabel("Energy", fontsize=15)
+    plt.axes().set_ylabel("Absorption", fontsize=15)
+    plt.grid(True)
+    fig.suptitle("Absorption References", fontsize=20)
+    if ref_labels:
+        plt.legend(loc="upper right")
+    plt.show(block=block)
+    return fig
+
+
 def _get_img_data(img_dict, key, detector=None):
     """
     Retrieves entry of ``img_dict``. The difficulty is that the dataset key (first key)
@@ -1212,8 +1232,10 @@ if __name__ == "__main__":
     build_xanes_map_api(start_id=92276, end_id=92335,
                         param_file_name="param_335",
                         scaler_name="sclr1_ch4", wd=None,
-                        sequence="process",
-                        # sequence="build_xanes_map",
+                        # sequence="process",
+                        sequence="build_xanes_map",
                         alignment_starts_from="top",
                         ref_file_name="refs_Fe_P23.txt",
-                        emission_line="Fe_K", emission_line_alignment="P_K")
+                        emission_line="Fe_K", emission_line_alignment="P_K",
+                        interpolation_enable=True,
+                        alignment_enable=True)
