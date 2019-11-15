@@ -1,6 +1,7 @@
 import numpy as np
 import scipy
 import time as ttime
+from skbeam.core.constants import XrfElement as Element
 
 import logging
 logger = logging.getLogger()
@@ -294,6 +295,31 @@ def gaussian_area_to_max(peak_area, peak_sigma):
         return 0
     else:
         return peak_area / peak_sigma / _get_sqrt_2_pi()
+
+
+def check_if_eline_is_activated(elemental_line, incident_energy):
+    """
+    Checks if emission line is activated at given incident beam energy
+
+    Parameters
+    ----------
+
+    elemental_line : str
+        emission line in the format K_K or Fe_K
+    incident_energy : float
+        incident energy in keV
+
+    Returns
+    -------
+        bool value, indicating if the emission line is activated
+    """
+    element = elemental_line.split('_')[0]
+    e = Element(element)
+    if e.cs(incident_energy)['ka1'] == 0:
+        return False
+    else:
+        return True
+
 
 # ==================================================================================
 
