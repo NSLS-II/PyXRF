@@ -2,6 +2,7 @@ import numpy as np
 import scipy
 import time as ttime
 from skbeam.core.constants import XrfElement as Element
+from skbeam.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
 
 import logging
 logger = logging.getLogger()
@@ -295,6 +296,40 @@ def gaussian_area_to_max(peak_area, peak_sigma):
         return 0
     else:
         return peak_area / peak_sigma / _get_sqrt_2_pi()
+
+
+def get_full_eline_list():
+    """
+    Returns the list of the emission lines supported by ``scikit-beam``
+    """
+    eline_list = K_LINE + L_LINE + M_LINE
+    return eline_list
+
+
+def check_eline_name(eline_name):
+    """
+    Check if the emission line name is in the list of supported names.
+    Emission name must be in the format: K_K, Fe_K etc. The list includes K, L and M lines.
+    The function is case-sensitive.
+
+    Parameters
+    ----------
+    eline_name : str
+        name of the emission line (K_K, Fe_K etc. for valid emission line). In general
+        the string may contain arbitrary sequence characters, may be empty or None. The
+        function will return True only if the sequence represents emission line from
+        the list of supported emission lines.
+
+    Returns
+        True if ``eline_name`` is in the list of supported emission lines, False otherwise
+    """
+    if not eline_name or not isinstance(eline_name, str):
+        return False
+
+    if eline_name in get_full_eline_list():
+        return True
+    else:
+        return False
 
 
 def check_if_eline_is_activated(elemental_line, incident_energy):
