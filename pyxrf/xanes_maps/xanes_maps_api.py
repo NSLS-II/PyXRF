@@ -128,12 +128,14 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
         the greater of the values of ``incident_energy_low_bound`` or incident energy
         from file metadata. If None, then the lower energy bound is found automatically
         as the largest value of energy in the set which still activates the selected
-        emission line (specified as the ``emission_line`` parameter)
+        emission line (specified as the ``emission_line`` parameter). This parameter
+        overrides the parameter ``use_incident_energy_from_param_file``.
 
     use_incident_energy_from_param_file : bool
         indicates if incident energy from parameter file will be used to process all
         files: True - use incident energy from parameter files, False - use incident
-        energy from data files.
+        energy from data files. If ``incident_energy_low_bound`` is specified, then
+        this parameter is ignored.
 
     Returns
     -------
@@ -244,8 +246,9 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
             _load_dataset_from_hdf5(start_id=start_id, end_id=end_id,
                                     wd_xrf=wd_xrf, load_fit_results=False)
 
-        # Sort the lists based on energy. Prior to this point the data was arrange in the
-        #   alphabetical order of files.
+        # Sort the lists based on incident beam energy. (The loaded data is sorted in the
+        #   alphabetical order of file names, which may not match the acending order or
+        #   incident energy values.
         scan_energies, sorted_indexes = list(zip(*sorted(zip(scan_energies, range(len(scan_energies))))))
         scan_energies = list(scan_energies)
         files_h5 = [files_h5[n] for n in sorted_indexes]
@@ -257,26 +260,19 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
         print(f"scan_energies: {scan_energies}")
         print(f"files_h5: {files_h5}")
 
+        ignore_metadata = False
         if incident_energy_low_bound is not None:
             for n, v in enumerate(scan_energies_adjusted):
                 if v < incident_energy_low_bound:
                     scan_energies_adjusted[n] = incident_energy_low_bound
+        elif use_incident_energy_from_param_file:
+            # If 'pyxrf_batch' is called with 'incident_energy' set to None, and
+            #   'ignore_datafile_metadata' is True, then
+            #   the value of the incident energy from the parameter file is used
+            scan_energies_adjusted = [None] * len(scan_energies)
+            ignore_metadata = True
         else:
-            # Find the first activated line for the element line 'emission_line'
-            n_first_activated = None
-            for n, energy in enumerate(scan_energies):
-                if check_if_eline_is_activated(emission_line, energy):
-                    n_first_activated = n
-                    break
-
-            if n_first_activated is None:
-                raise RuntimeError(
-                    f"The emission line '{emission_line}' is not activated\n"
-                    f"    in the range of energies {scan_energies[0]} - {scan_energies[-1]} keV.\n"
-                    f"    Check if the emission line is specified correctly.")
-            else:
-                for n in range(n_first_activated):
-                    scan_energies_adjusted[n] = scan_energies[n_first_activated]
+            scan_energies_adjusted = adjust_incident_beam_energies(scan_energies, emission_line)
 
         print(f"scan_energies_adjusted={scan_energies_adjusted}")
 
@@ -286,7 +282,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
             #   as additional datasets in the original .h5 files.
             pyxrf_batch(data_files=fln,  # Process only one data file
                         param_file_name=param_file_name,
-                        #ignore_datafile_metadata=use_incident_energy_from_param_file,
+                        ignore_datafile_metadata=ignore_metadata,
                         incident_energy=energy,  # This value overrides incident energy from other sources
                         wd=wd_xrf, save_tiff=False)
 
@@ -595,6 +591,43 @@ def _check_dataset_consistency(*, scan_ids, scan_img_dict, files_h5, scaler_name
     _check_for_identical_image_size(scan_img_dict=scan_img_dict,
                                     files_h5=files_h5,
                                     scan_ids=scan_ids)
+
+
+# ============================================================================================
+#   Functions for parameter manipulation
+
+def adjust_incident_beam_energies(scan_energies, emission_line):
+    """
+    Adjust the values of incident beam energy in the list ``scan_energies`` so that
+    fitting for the ``emission_line`` could be done at each energy value. Adjustment
+    is done by finding the lowest incident energy value in the list that still activates
+    the ``emission_line`` and setting every smaller energy value to the lowest value.
+
+    Parameters
+    ----------
+
+    scan_energies : list(float)
+        the list of incident beam energy values, keV
+    emission_line : str
+        valid name of the emission line (supported by ``scikit-beam``) in the
+        form of K_K or Fe_K
+
+    Returns
+    -------
+        the list of adjusted values of the incident energy. The returned list has the
+        same dimensions as ``scan_energies``.
+    """
+
+    e_activation = [_ for _ in scan_energies if check_if_eline_is_activated(emission_line, _)]
+
+    if not e_activation:
+        raise RuntimeError(
+            f"The emission line '{emission_line}' is not activated\n"
+            f"    in the range of energies {min(scan_energies)} - {max(scan_energies)} keV.\n"
+            f"    Check if the emission line is specified correctly.")
+
+    min_activation_energy = min(e_activation)
+    return [max(_, min_activation_energy) for _ in scan_energies]
 
 
 # ============================================================================================
@@ -1232,8 +1265,8 @@ if __name__ == "__main__":
     build_xanes_map_api(start_id=92276, end_id=92335,
                         param_file_name="param_335",
                         scaler_name="sclr1_ch4", wd=None,
-                        # sequence="process",
-                        sequence="build_xanes_map",
+                        sequence="process",
+                        # sequence="build_xanes_map",
                         alignment_starts_from="top",
                         ref_file_name="refs_Fe_P23.txt",
                         emission_line="Fe_K", emission_line_alignment="P_K",
