@@ -318,6 +318,10 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
                         incident_energy=energy,  # This value overrides incident energy from other sources
                         wd=wd_xrf, save_tiff=False)
 
+        logger.info("Processing data files (computing XRF maps): success.")
+    else:
+        logger.info("Processing data files (computing XRF maps): skipped.")
+
     if seq_build_xrf_map_stack:
         logger.info("Building energy map ...")
 
@@ -389,16 +393,6 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
             for n in range(n_refs):
                 xanes_map_data_counts[n, :, :] = xanes_map_data[n, :, :] * np.sum(scan_absorption_refs[:, n])
 
-            ### The following is debug code. Remove it from final code.
-            ny, nx = 30, 40
-            mp = xanes_map_data[:, ny, nx]
-            data = eline_data_aligned[eline_selected]
-            yy = np.zeros(shape=[data.shape[0]])
-            for n, v in enumerate(mp):
-                yy += v * scan_absorption_refs[:, n]
-            for n in range(len(yy)):
-                print(f"yy={yy[n]}  data={data[n, ny, nx]}")
-
             logger.info("XANES fitting: success.")
         else:
             scan_absorption_refs = None
@@ -406,7 +400,6 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
             xanes_map_data_counts = None
             xanes_map_residual = None
             logger.info("XANES fitting: skipped.")
-
 
         if "tiff" in output_file_formats:
             _save_xanes_maps_to_tiff(eline_data_aligned=eline_data_aligned,
@@ -431,10 +424,12 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
 
                 figures = []
                 for n, map_data in enumerate(xanes_map_data_counts):
-                    fig = plot_xanes_map(map_data, label=ref_labels[n], block=False)
+                    fig = plot_xanes_map(map_data, label=ref_labels[n], block=False,
+                                         positions_x=pos_x, positions_y=pos_y, axes_units=axes_units)
                     figures.append(fig)
 
-                plot_xanes_map(xanes_map_residual, label="residual", block=False)
+                plot_xanes_map(xanes_map_residual, label="residual", block=False,
+                               positions_x=pos_x, positions_y=pos_y, axes_units=axes_units)
 
 
             # Show image stacks for the selected elements
@@ -762,6 +757,12 @@ def _fit_xanes_map(map_data, absorption_refs):
     for ny in range(nny):
         for nx in range(nnx):
             result, residual = nnls_fit(map_data[:, ny, nx], absorption_refs, weights=None)
+
+            # Residual computed by 'nnls' function is a scaled version of the square norm:
+            #      sqrt(sqrt(N-1)) * sum((Ax-b)^2)
+            # If there is a need for not scaled square norm, then use the following code:
+            #      residual = residual / np.sqrt(np.sqrt(n_data_points - 1))
+
             map_data_fitted[:, ny, nx] = result
             map_residual[ny, nx] = residual
     return map_data_fitted, map_residual
@@ -822,6 +823,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             axes_units : str
                 units for X and Y axes that are used if ``positions_x`` and ``positions_y`` are specified
                 Units may include latex expressions, for example "$\mu $m" will print units of microns.
+                If ``axes_units`` is None, then the name of arbitrary units (``a.u.``) is used.
             """
 
             self.stack_all_data = stack_all_data
@@ -842,21 +844,21 @@ def show_image_stack(*, eline_data, energies, eline_selected,
 
             self.n_energy_selected = 0
             self.img_selected = self.stack_selected[self.n_energy_selected, :, :]
-            self.pt_selected = [0, 0]
+            self.pt_selected = [0, 0]  # The coordinates of the point are in pixels
 
             # Check existence or the size of 'positions_x' and 'positions_y' arrays
             ny, nx = self.img_selected.shape
             if (positions_x is None) or (positions_y is None):
-                self.positions_x = range(nx)
-                self.positions_y = range(ny)
+                self.pos_x_min, self.pos_x_max = 0, nx - 1
+                self.pos_y_min, self.pos_y_max = 0, ny - 1
+                self.pos_dx, self.pos_dy = 1, 1
                 self.axes_units = "pixels"
             else:
-                self.positions_x = positions_x
-                self.positions_y = positions_y
-                if not axes_units:
-                    self.axes_units = "a.u."
-                else:
-                    self.axes_units = axes_units
+                self.pos_x_min, self.pos_x_max = positions_x[0], positions_x[-1]
+                self.pos_y_min, self.pos_y_max = positions_y[0], positions_y[-1]
+                self.pos_dx = (self.pos_x_max - self.pos_x_min)/max(nx - 1, 1)
+                self.pos_dy = (self.pos_y_max - self.pos_y_min)/max(ny - 1, 1)
+                self.axes_units = axes_units if axes_units else "a.u."
 
         def select_stack(self):
             self.stack_selected = self.stack_all_data[self.label_selected]
@@ -881,8 +883,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.ax_img_stack.set_ylabel(f"Y, {self.axes_units}", fontsize=label_fontsize)
 
             # display image
-            extent = [self.positions_x[0], self.positions_x[-1],
-                      self.positions_y[-1], self.positions_y[0]]
+            extent = [self.pos_x_min, self.pos_x_max, self.pos_y_max, self.pos_y_min]
             self.img_plot = self.ax_img_stack.imshow(self.img_selected,
                                                      origin="upper",
                                                      extent=extent)
@@ -925,8 +926,11 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             plt.show()
 
         def show_fluor_point_coordinates(self):
+            pt_x = self.pt_selected[0] *self.pos_dx + self.pos_x_min
+            pt_y = self.pt_selected[1] *self.pos_dy + self.pos_y_min
+            pt_x_str, pt_y_str = f"{pt_x:.5g}", f"{pt_y:.5g}"
             self.fluor_label_text = self.ax_fluor_plot.text(
-                0.99, 0.99, f"({self.pt_selected[0]}, {self.pt_selected[1]})",
+                0.99, 0.99, f"({pt_x_str}, {pt_y_str})",
                 ha='right', va='top', fontsize=label_fontsize,
                 transform=self.ax_fluor_plot.axes.transAxes)
 
@@ -1053,7 +1057,10 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             """Callback"""
             if (event.inaxes == self.ax_img_stack) and (event.button == 1):
                 xd, yd = event.xdata, event.ydata
-                self.pt_selected = [int(xd), int(yd)]
+                # Compute pixel coordinates
+                xd_px = round((xd - self.pos_x_min)/self.pos_dx)
+                yd_px = round((yd - self.pos_y_min)/self.pos_dy)
+                self.pt_selected = [int(xd_px), int(yd_px)]
                 self.redraw_fluorescence_plot()
                 self.fig.canvas.draw()
                 self.fig.canvas.flush_events()
@@ -1063,19 +1070,36 @@ def show_image_stack(*, eline_data, energies, eline_selected,
     map_plot.show()
 
 
-def plot_xanes_map(map_data, *, label=None, block=True):
+def plot_xanes_map(map_data, *, label=None, block=True,
+                   positions_x=None, positions_y=None, axes_units=None):
     """
     Plot XANES map
 
     Parameters
     ----------
+
     map_data : ndarray, 2D
         map to be plotted, dimensions: (Ny, Nx)
+
     label : str
         reference label that is included in the image title and window title
+
     block : bool
         the parameter is passed to ``plt.show()``. Indicates if the execution of the
         program should be paused until the figure is closed.
+
+    positions_x : ndarray
+        values of coordinate X of the image. Only the first and the last value of the list
+        is used to set the axis range, so [xmin, xmax] is sufficient.
+
+    positions_y : ndarray
+        values of coordinate Y of the image. Only the first and the last value of the list
+        is used to set the axis range, so [ymin, ymax] is sufficient.
+
+    axes_units : str
+        units for X and Y axes that are used if ``positions_x`` and ``positions_y`` are specified
+        Units may include latex expressions, for example "$\mu $m" will print units of microns.
+        If ``axes_units`` is None, then the name of arbitrary units (``a.u.``) is used.
 
     Returns
     -------
@@ -1083,16 +1107,28 @@ def plot_xanes_map(map_data, *, label=None, block=True):
 
     """
 
+    # Check existence or the size of 'positions_x' and 'positions_y' arrays
+    ny, nx = map_data.shape
+    if (positions_x is None) or (positions_y is None):
+        positions_x = range(nx)
+        positions_y = range(ny)
+        axes_units = "pixels"
+    else:
+        axes_units = axes_units if axes_units else "a.u."
+
     if label:
-        fig_title = f"MAP: {label}"
-        img_title = f"MAP: {label}"
+        fig_title = f"XANES MAP: {label}"
+        img_title = f"XANES: {label}"
 
     fig = plt.figure(figsize=(6, 6), num=fig_title)
 
-    img_plot = plt.imshow(map_data)
+    # display image
+    extent = [positions_x[0], positions_x[-1],
+              positions_y[-1], positions_y[0]]
+    img_plot = plt.imshow(map_data, origin="upper", extent=extent)
     plt.colorbar(img_plot, orientation="vertical")
-    plt.axes().set_xlabel("X", fontsize=15)
-    plt.axes().set_ylabel("Y", fontsize=15)
+    plt.axes().set_xlabel(f"X, {axes_units}", fontsize=15)
+    plt.axes().set_ylabel(f"Y, {axes_units}", fontsize=15)
     fig.suptitle(img_title, fontsize=20)
     plt.show(block=block)
     return fig
@@ -1145,7 +1181,7 @@ def plot_absorption_references(*, ref_energy, ref_data, scan_energies,
     for n in range(n_refs):
         plt.plot(scan_energies, scan_absorption_refs[:, n], "o", label=labels[n])
 
-    plt.axes().set_xlabel("Energy", fontsize=15)
+    plt.axes().set_xlabel("Energy, keV", fontsize=15)
     plt.axes().set_ylabel("Absorption", fontsize=15)
     plt.grid(True)
     fig.suptitle("Absorption References", fontsize=20)
@@ -1364,4 +1400,6 @@ if __name__ == "__main__":
                         ref_file_name="refs_Fe_P23.txt",
                         emission_line="Fe_K", emission_line_alignment="P_K",
                         interpolation_enable=True,
-                        alignment_enable=True)
+                        alignment_enable=True,
+                        plot_use_position_coordinates=True,
+                        plot_results=True)
