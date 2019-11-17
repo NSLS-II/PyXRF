@@ -49,7 +49,11 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
                         alignment_enable=True,
                         ref_file_name=None,
                         incident_energy_low_bound=None,
-                        use_incident_energy_from_param_file=True):
+                        use_incident_energy_from_param_file=True,
+                        plot_results=True,
+                        plot_use_position_coordinates=True,
+                        plot_position_axes_units="$\mu $m",
+                        output_file_formats = ["tiff"]):
 
     """
     Parameters
@@ -137,6 +141,25 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
         energy from data files. If ``incident_energy_low_bound`` is specified, then
         this parameter is ignored.
 
+    plot_results : bool
+        indicates if results (image stack and XANES maps) are to be plotted. If set to
+        False, the processing results are saved to file (if enabled) and the program
+        exits without showing data plots.
+
+    plot_use_position_coordinates : bool
+        results (image stack and XANES maps) are plotted vs. position coordinates if
+        the parameter is set to True, otherwise images are plotted vs. pixel number
+
+    plot_position_axes_units : str
+        units for position coordinates along X and Y axes. The units are used while
+        plotting the results vs. position coordinates. The string specifying units
+        may contain LaTeX expressions: for example ``"$\mu $m"`` will print units
+        of ``micron`` as part of X and Y axes labels.
+
+    file_output_formats : list(str)
+        list of output file formats. Currently only "tiff" format is supported
+        (XRF map stack and XANES maps are saved as stacked TIFF files).
+
     Returns
     -------
 
@@ -164,6 +187,15 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
     if not scaler_name:
         logger.warning("Scaler was not specified. The processing will still be performed,"
                        "but the DATA WILL NOT BE NORMALIZED!")
+
+    # Convert all tags specifying output format to lower case
+    for n, fmt in enumerate(output_file_formats):
+        output_file_formats[n] = fmt.lower()
+    # Now check every value agains the list of supported formats.
+    supported_formats = ("tiff",)
+    for fmt in output_file_formats:
+        assert (fmt in supported_formats), f"Output format '{fmt}' is not supported. "\
+                                           "Check values of the parameter 'output_file_formats'"
 
     alignment_starts_from_values = ["top", "bottom"]
     alignment_starts_from = alignment_starts_from.lower()
@@ -367,36 +399,50 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
             for n in range(len(yy)):
                 print(f"yy={yy[n]}  data={data[n, ny, nx]}")
 
+            logger.info("XANES fitting: success.")
         else:
             scan_absorption_refs = None
             xanes_map_data = None
             xanes_map_data_counts = None
             xanes_map_residual = None
-
-        _save_xanes_maps_to_tiff(eline_data_aligned=eline_data_aligned,
-                                 eline_selected=eline_selected,
-                                 xanes_map_data=xanes_map_data_counts,
-                                 xanes_map_labels=ref_labels,
-                                 scan_energies=scan_energies,
-                                 scan_ids=scan_ids)
-
-        if seq_generate_xanes_map:
-            plot_absorption_references(ref_energy=ref_energy, ref_data=ref_data,
-                                       scan_energies=scan_energies,
-                                       scan_absorption_refs=scan_absorption_refs,
-                                       ref_labels=ref_labels,
-                                       block=False)
-
-            figures = []
-            for n, map_data in enumerate(xanes_map_data_counts):
-                fig = plot_xanes_map(map_data, label=ref_labels[n], block=False)
-                figures.append(fig)
-
-            plot_xanes_map(xanes_map_residual, label="residual", block=False)
+            logger.info("XANES fitting: skipped.")
 
 
-        # Show image stacks for the selected elements
-        show_image_stack(eline_data=eline_data_aligned, energies=scan_energies, eline_selected=eline_selected)
+        if "tiff" in output_file_formats:
+            _save_xanes_maps_to_tiff(eline_data_aligned=eline_data_aligned,
+                                     eline_selected=eline_selected,
+                                     xanes_map_data=xanes_map_data_counts,
+                                     xanes_map_labels=ref_labels,
+                                     scan_energies=scan_energies,
+                                     scan_ids=scan_ids)
+
+        if plot_results:
+            axes_units=plot_position_axes_units
+            # If positions are none, then axes units are pixels
+            pos_x, pos_y = (positions_x_uniform[0, :], positions_y_uniform[:, 0]) \
+                if plot_use_position_coordinates else (None, None)
+
+            if seq_generate_xanes_map:
+                plot_absorption_references(ref_energy=ref_energy, ref_data=ref_data,
+                                           scan_energies=scan_energies,
+                                           scan_absorption_refs=scan_absorption_refs,
+                                           ref_labels=ref_labels,
+                                           block=False)
+
+                figures = []
+                for n, map_data in enumerate(xanes_map_data_counts):
+                    fig = plot_xanes_map(map_data, label=ref_labels[n], block=False)
+                    figures.append(fig)
+
+                plot_xanes_map(xanes_map_residual, label="residual", block=False)
+
+
+            # Show image stacks for the selected elements
+            show_image_stack(eline_data=eline_data_aligned, energies=scan_energies, eline_selected=eline_selected,
+                             positions_x=pos_x, positions_y=pos_y, axes_units=axes_units)
+        else:
+            logger.info("Plotting results: skipped.")
+
         logger.info("Processing is complete.")
 
 
@@ -721,9 +767,23 @@ def _fit_xanes_map(map_data, absorption_refs):
     return map_data_fitted, map_residual
 
 
-def show_image_stack(*, eline_data, energies, eline_selected):
+# ==============================================================================================
+#     Functions for plotting the results
+
+def show_image_stack(*, eline_data, energies, eline_selected,
+                     positions_x=None, positions_y=None, axes_units=None):
     """
     Display XRF Map stack
+
+
+    Parameters
+    ----------
+
+    positions_x : ndarray
+        values of coordinate X of the image. Must match the size of dimension 1 of the image
+
+    positions_y : ndarray
+        values of coordinate Y of the image. Must match the size of dimension 0 of the image
     """
     label_fontsize = 15
 
@@ -733,7 +793,8 @@ def show_image_stack(*, eline_data, energies, eline_selected):
 
     class EnergyMapPlot:
 
-        def __init__(self, *, energy, stack_all_data, label_default):
+        def __init__(self, *, energy, stack_all_data, label_default,
+                     positions_x=None, positions_y=None, axes_units=None):
             """
             Parameters
             ----------
@@ -749,6 +810,18 @@ def show_image_stack(*, eline_data, energies, eline_selected):
             label_default : str
                 default label which is used to select the image stack which is selected at the start.
                 If the value does not match any keys of ``stack_all_data``, then it is ignored
+
+            positions_x : ndarray
+                values of coordinate X of the image. Only the first and the last value of the list
+                is used to set the axis range, so [xmin, xmax] is sufficient.
+
+            positions_y : ndarray
+                values of coordinate Y of the image. Only the first and the last value of the list
+                is used to set the axis range, so [ymin, ymax] is sufficient.
+
+            axes_units : str
+                units for X and Y axes that are used if ``positions_x`` and ``positions_y`` are specified
+                Units may include latex expressions, for example "$\mu $m" will print units of microns.
             """
 
             self.stack_all_data = stack_all_data
@@ -771,6 +844,20 @@ def show_image_stack(*, eline_data, energies, eline_selected):
             self.img_selected = self.stack_selected[self.n_energy_selected, :, :]
             self.pt_selected = [0, 0]
 
+            # Check existence or the size of 'positions_x' and 'positions_y' arrays
+            ny, nx = self.img_selected.shape
+            if (positions_x is None) or (positions_y is None):
+                self.positions_x = range(nx)
+                self.positions_y = range(ny)
+                self.axes_units = "pixels"
+            else:
+                self.positions_x = positions_x
+                self.positions_y = positions_y
+                if not axes_units:
+                    self.axes_units = "a.u."
+                else:
+                    self.axes_units = axes_units
+
         def select_stack(self):
             self.stack_selected = self.stack_all_data[self.label_selected]
             if not isinstance(self.stack_selected, np.ndarray) or not self.stack_selected.ndim == 3:
@@ -790,15 +877,20 @@ def show_image_stack(*, eline_data, energies, eline_selected):
             self.ax_img_cbar = plt.axes([0.425, 0.26, 0.013, 0.63])
             self.ax_fluor_plot = plt.axes([0.55, 0.25, 0.4, 0.65])
             self.fig.subplots_adjust(left=0.07, right=0.95, bottom=0.25)
-            self.ax_img_stack.set_xlabel("X", fontsize=label_fontsize)
-            self.ax_img_stack.set_ylabel("Y", fontsize=label_fontsize)
-
+            self.ax_img_stack.set_xlabel(f"X, {self.axes_units}", fontsize=label_fontsize)
+            self.ax_img_stack.set_ylabel(f"Y, {self.axes_units}", fontsize=label_fontsize)
 
             # display image
-            self.img_plot = self.ax_img_stack.imshow(self.img_selected)
-            self.img_label_text = self.ax_img_stack.text(0.5, 1.01, self.label_selected, ha='left', va='bottom',
-                                   fontsize=label_fontsize,
-                                   transform=self.ax_img_stack.axes.transAxes)
+            extent = [self.positions_x[0], self.positions_x[-1],
+                      self.positions_y[-1], self.positions_y[0]]
+            self.img_plot = self.ax_img_stack.imshow(self.img_selected,
+                                                     origin="upper",
+                                                     extent=extent)
+            self.img_label_text = self.ax_img_stack.text(
+                0.5, 1.01, self.label_selected,
+                ha='left', va='bottom',
+                fontsize=label_fontsize,
+                transform=self.ax_img_stack.axes.transAxes)
             self.cbar = self.fig.colorbar(self.img_plot, cax=self.ax_img_cbar, orientation="vertical")
             self.ax_img_cbar.ticklabel_format(style='sci', scilimits=(-3, 4), axis='both')
             self.set_cbar_range()
@@ -966,7 +1058,8 @@ def show_image_stack(*, eline_data, energies, eline_selected):
                 self.fig.canvas.draw()
                 self.fig.canvas.flush_events()
 
-    map_plot = EnergyMapPlot(energy=energies, stack_all_data=eline_data, label_default=eline_selected)
+    map_plot = EnergyMapPlot(energy=energies, stack_all_data=eline_data, label_default=eline_selected,
+                             positions_x=positions_x, positions_y=positions_y, axes_units=axes_units)
     map_plot.show()
 
 
@@ -1265,8 +1358,8 @@ if __name__ == "__main__":
     build_xanes_map_api(start_id=92276, end_id=92335,
                         param_file_name="param_335",
                         scaler_name="sclr1_ch4", wd=None,
-                        sequence="process",
-                        # sequence="build_xanes_map",
+                        # sequence="process",
+                        sequence="build_xanes_map",
                         alignment_starts_from="top",
                         ref_file_name="refs_Fe_P23.txt",
                         emission_line="Fe_K", emission_line_alignment="P_K",
