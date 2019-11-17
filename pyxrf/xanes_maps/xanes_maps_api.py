@@ -434,7 +434,9 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
 
             # Show image stacks for the selected elements
             show_image_stack(eline_data=eline_data_aligned, energies=scan_energies, eline_selected=eline_selected,
-                             positions_x=pos_x, positions_y=pos_y, axes_units=axes_units)
+                             positions_x=pos_x, positions_y=pos_y, axes_units=axes_units,
+                             xanes_map_data=xanes_map_data, absorption_refs=scan_absorption_refs,
+                             ref_labels=ref_labels)
         else:
             logger.info("Plotting results: skipped.")
 
@@ -772,7 +774,8 @@ def _fit_xanes_map(map_data, absorption_refs):
 #     Functions for plotting the results
 
 def show_image_stack(*, eline_data, energies, eline_selected,
-                     positions_x=None, positions_y=None, axes_units=None):
+                     positions_x=None, positions_y=None, axes_units=None,
+                     xanes_map_data=None, absorption_refs=None, ref_labels=None):
     """
     Display XRF Map stack
 
@@ -794,7 +797,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
     class EnergyMapPlot:
 
         def __init__(self, *, energy, stack_all_data, label_default,
-                     positions_x=None, positions_y=None, axes_units=None):
+                     positions_x=None, positions_y=None, axes_units=None,
+                     xanes_map_data=None, absorption_refs=None, ref_labels=None):
             """
             Parameters
             ----------
@@ -823,6 +827,10 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                 units for X and Y axes that are used if ``positions_x`` and ``positions_y`` are specified
                 Units may include latex expressions, for example "$\mu $m" will print units of microns.
                 If ``axes_units`` is None, then the name of arbitrary units (``a.u.``) is used.
+
+            xanes_map_data : 3D ndarray
+
+            absorption_refs : 2D ndarray
             """
 
             self.label_fontsize = 15
@@ -836,6 +844,10 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.textbox_nlabel = None
             self.busy = False
 
+            self.xanes_map_data = xanes_map_data
+            self.absorption_refs = absorption_refs
+            self.ref_labels = ref_labels
+
             if self.label_default not in self.labels:
                 logger.warning(f"XRF Energy Plot: the default label {self.label_default} "
                                "is not in the list and will be ignored")
@@ -843,9 +855,12 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.label_selected = self.label_default
             self.select_stack()
 
-            self.n_energy_selected = 0
+            n_images, ny, nx = self.stack_selected.shape
+            self.n_energy_selected = int(n_images/2)  # Select image in the middle of the stack
             self.img_selected = self.stack_selected[self.n_energy_selected, :, :]
-            self.pt_selected = [0, 0]  # The coordinates of the point are in pixels
+
+            # Select point in the middle of the plot
+            self.pt_selected = [int(nx / 2), int(ny / 2)]  # The coordinates of the point are in pixels
 
             # Check existence or the size of 'positions_x' and 'positions_y' arrays
             ny, nx = self.img_selected.shape
@@ -924,6 +939,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
 
             self.fig.canvas.mpl_connect("button_press_event", self.canvas_onclick)
 
+            self.redraw_fluorescence_plot()
+
             plt.show()
 
         def show_fluor_point_coordinates(self):
@@ -958,8 +975,9 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             for n in range(n_labels):
                 p_left = pos_left_start + (bwidth + bgap) * n
                 self.ax_btn_eline.append(plt.axes([p_left, 0.03, bwidth, 0.04]))
+                c = "#ffff00" if self.labels[n] == self.label_default else "#00ff00"
                 self.btn_eline.append(Button(self.ax_btn_eline[-1], self.labels[n],
-                                             color="#00ff00", hovercolor="#ff0000"))
+                                             color=c, hovercolor="#ff0000"))
 
             # Set events to each button
             for b in self.btn_eline:
@@ -1028,8 +1046,31 @@ def show_image_stack(*, eline_data, energies, eline_selected,
 
         def redraw_fluorescence_plot(self):
             self.ax_fluor_plot.clear()
+
             self.ax_fluor_plot.plot(self.energy,
-                                    self.stack_selected[:, self.pt_selected[0], self.pt_selected[1]])
+                                    self.stack_selected[:, self.pt_selected[0], self.pt_selected[1]],
+                                    marker=".", linestyle="solid", label="XANES spectrum")
+
+            if (self.label_selected == self.label_default) and (self.xanes_map_data is not None) \
+                    and (self.absorption_refs is not None):
+                # Plot the results of fitting
+
+                refs_scaled = self.absorption_refs.copy()
+                xanes_fit_pt = self.xanes_map_data[:, self.pt_selected[0], self.pt_selected[1]]
+                _, n_refs = refs_scaled.shape
+                for n in range(n_refs):
+                    refs_scaled[:, n] = refs_scaled[:, n] * xanes_fit_pt[n]
+                refs_scaled_sum = np.sum(refs_scaled, axis=1)
+
+                labels = self.ref_labels if self.ref_labels else [""] * n_refs
+
+                self.ax_fluor_plot.plot(self.energy, refs_scaled_sum, label="XANES fit")
+                for n in range(n_refs):
+                    self.ax_fluor_plot.plot(self.energy, refs_scaled[:, n], label=labels[n])
+
+            if self.ref_labels:
+                self.ax_fluor_plot.legend(loc="upper left")
+
             self.ax_fluor_plot.grid()
             self.ax_fluor_plot.set_xlabel("Energy, keV", fontsize=self.label_fontsize)
             self.ax_fluor_plot.set_ylabel("Fluorescence", fontsize=self.label_fontsize)
@@ -1067,7 +1108,9 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                 self.fig.canvas.flush_events()
 
     map_plot = EnergyMapPlot(energy=energies, stack_all_data=eline_data, label_default=eline_selected,
-                             positions_x=positions_x, positions_y=positions_y, axes_units=axes_units)
+                             positions_x=positions_x, positions_y=positions_y, axes_units=axes_units,
+                             xanes_map_data=xanes_map_data, absorption_refs=absorption_refs,
+                             ref_labels=ref_labels)
     map_plot.show()
 
 
