@@ -786,7 +786,6 @@ def show_image_stack(*, eline_data, energies, eline_selected,
     positions_y : ndarray
         values of coordinate Y of the image. Must match the size of dimension 0 of the image
     """
-    label_fontsize = 15
 
     if not eline_data:
         logger.warning("Emission line data dictionary is empty. There is nothing to plot.")
@@ -825,6 +824,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                 Units may include latex expressions, for example "$\mu $m" will print units of microns.
                 If ``axes_units`` is None, then the name of arbitrary units (``a.u.``) is used.
             """
+
+            self.label_fontsize = 15
 
             self.stack_all_data = stack_all_data
             self.energy = energy
@@ -879,8 +880,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.ax_img_cbar = plt.axes([0.425, 0.26, 0.013, 0.63])
             self.ax_fluor_plot = plt.axes([0.55, 0.25, 0.4, 0.65])
             self.fig.subplots_adjust(left=0.07, right=0.95, bottom=0.25)
-            self.ax_img_stack.set_xlabel(f"X, {self.axes_units}", fontsize=label_fontsize)
-            self.ax_img_stack.set_ylabel(f"Y, {self.axes_units}", fontsize=label_fontsize)
+            self.ax_img_stack.set_xlabel(f"X, {self.axes_units}", fontsize=self.label_fontsize)
+            self.ax_img_stack.set_ylabel(f"Y, {self.axes_units}", fontsize=self.label_fontsize)
 
             # display image
             extent = [self.pos_x_min, self.pos_x_max, self.pos_y_max, self.pos_y_min]
@@ -890,7 +891,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.img_label_text = self.ax_img_stack.text(
                 0.5, 1.01, self.label_selected,
                 ha='left', va='bottom',
-                fontsize=label_fontsize,
+                fontsize=self.label_fontsize,
                 transform=self.ax_img_stack.axes.transAxes)
             self.cbar = self.fig.colorbar(self.img_plot, cax=self.ax_img_cbar, orientation="vertical")
             self.ax_img_cbar.ticklabel_format(style='sci', scilimits=(-3, 4), axis='both')
@@ -898,8 +899,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.ax_fluor_plot.plot(self.energy,
                                     self.stack_selected[:, self.pt_selected[0], self.pt_selected[1]])
             self.ax_fluor_plot.grid()
-            self.ax_fluor_plot.set_xlabel("Energy, keV", fontsize=label_fontsize)
-            self.ax_fluor_plot.set_ylabel("Fluorescence", fontsize=label_fontsize)
+            self.ax_fluor_plot.set_xlabel("Energy, keV", fontsize=self.label_fontsize)
+            self.ax_fluor_plot.set_ylabel("Fluorescence", fontsize=self.label_fontsize)
             self.ax_fluor_plot.ticklabel_format(style='sci', scilimits=(-3, 4), axis='y')
             self.show_fluor_point_coordinates()
 
@@ -931,7 +932,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             pt_x_str, pt_y_str = f"{pt_x:.5g}", f"{pt_y:.5g}"
             self.fluor_label_text = self.ax_fluor_plot.text(
                 0.99, 0.99, f"({pt_x_str}, {pt_y_str})",
-                ha='right', va='top', fontsize=label_fontsize,
+                ha='right', va='top', fontsize=self.label_fontsize,
                 transform=self.ax_fluor_plot.axes.transAxes)
 
         def create_buttons_each_label(self):
@@ -1030,8 +1031,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.ax_fluor_plot.plot(self.energy,
                                     self.stack_selected[:, self.pt_selected[0], self.pt_selected[1]])
             self.ax_fluor_plot.grid()
-            self.ax_fluor_plot.set_xlabel("Energy, keV", fontsize=label_fontsize)
-            self.ax_fluor_plot.set_ylabel("Fluorescence", fontsize=label_fontsize)
+            self.ax_fluor_plot.set_xlabel("Energy, keV", fontsize=self.label_fontsize)
+            self.ax_fluor_plot.set_ylabel("Fluorescence", fontsize=self.label_fontsize)
             self.ax_fluor_plot.ticklabel_format(style='sci', scilimits=(-3, 4), axis='y')
             self.show_fluor_point_coordinates()
 
