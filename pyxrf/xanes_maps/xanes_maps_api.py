@@ -49,7 +49,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
                         alignment_enable=True,
                         ref_file_name=None,
                         incident_energy_low_bound=None,
-                        use_incident_energy_from_param_file=True,
+                        use_incident_energy_from_param_file=False,
                         plot_results=True,
                         plot_use_position_coordinates=True,
                         plot_position_axes_units="$\mu $m",
@@ -76,6 +76,11 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
         the name of the JSON parameter file. The parameters are used for automated
         processing of data with ``pyxrf_batch``. The parameter file is typically produced
         by PyXRF.
+
+    scaler_name : str
+        the name of the scaler used for normalization. The name should be valid, i.e.
+        present in each scan data. It may be set to None: in this case no normalization
+        will be performed.
 
     wd : str
         working directory: if ``wd`` is not specified then current directory will be
@@ -203,7 +208,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
         raise ValueError("The parameter 'alignment_starts_from' has illegal value "
                          f"'{alignment_starts_from}' ('build_xanes_map_api').")
 
-    # Set emission lines
+    # Selected emission lines for XANES and image stack alignment
     eline_selected = emission_line
     if emission_line_alignment:
         eline_alignment = emission_line_alignment
@@ -259,7 +264,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
 
     if seq_process_xrf_data:
         _process_xrf_data(start_id=start_id, end_id=end_id, wd_xrf=wd_xrf,
-                          param_file_name=param_file_name, emission_line=emission_line,
+                          param_file_name=param_file_name, eline_selected=eline_selected,
                           incident_energy_low_bound=incident_energy_low_bound,
                           use_incident_energy_from_param_file=use_incident_energy_from_param_file)
         logger.info("Processing data files (computing XRF maps): success.")
@@ -267,128 +272,27 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
         logger.info("Processing data files (computing XRF maps): skipped.")
 
     if seq_build_xrf_map_stack:
-        logger.info("Building energy map ...")
+        processing_results = _compute_xanes_maps(
+            start_id=start_id, end_id=end_id, wd_xrf=wd_xrf, eline_selected=eline_selected,
+            eline_alignment=eline_alignment, scaler_name=scaler_name,
+            interpolation_enable=interpolation_enable, alignment_enable=alignment_enable,
+            seq_generate_xanes_map=seq_generate_xanes_map,
+            alignment_starts_from=alignment_starts_from, ref_energy=ref_energy, ref_data=ref_data)
 
-        scan_ids, scan_energies, scan_img_dict, files_h5 = \
-            _load_dataset_from_hdf5(start_id=start_id, end_id=end_id, wd_xrf=wd_xrf)
-
-        # The following function checks dataset for consistency. If additional checks
-        #   needs to be performed, they should be added to the implementation of this function.
-        _check_dataset_consistency(scan_ids=scan_ids, scan_img_dict=scan_img_dict,
-                                   files_h5=files_h5, scaler_name=scaler_name,
-                                   eline_selected=eline_selected, eline_alignment=eline_alignment)
-
-        logger.info("Checking dataset for consistency: success.")
-
-        # Sort the lists based on energy. Prior to this point the data was arrange in the
-        #   alphabetical order of files.
-        scan_energies, sorted_indexes = list(zip(*sorted(zip(scan_energies, range(len(scan_energies))))))
-        files_h5 = [files_h5[n] for n in sorted_indexes]
-        scan_ids = [scan_ids[n] for n in sorted_indexes]
-        scan_img_dict = [scan_img_dict[n] for n in sorted_indexes]
-
-        logger.info("Sorting dataset: success.")
-
-        # Create the lists of positional data for all scans
-        positions_x_all = np.asarray([element['positions']['x_pos'] for element in scan_img_dict])
-        positions_y_all = np.asarray([element['positions']['y_pos'] for element in scan_img_dict])
-
-        # Find uniform grid that can be applied to the whole dataset (mostly for data plotting)
-        positions_x_uniform, positions_y_uniform = _get_uniform_grid(positions_x_all,
-                                                                     positions_y_all)
-        logger.info("Generating common uniform grid: success.")
-
-        # Create the arrays of XRF amplitudes for each emission line and normalize them
-        eline_list, eline_data = _get_eline_data(scan_img_dict=scan_img_dict,
-                                                 scaler_name=scaler_name)
-        logger.info("Extracting XRF maps for emission lines: success.")
-
-        if interpolation_enable:
-            # Interpolate each image. I tried to use common uniform grid to do interpolation,
-            #   but it didn't work very well. In the current implementation, the interpolation
-            #   of each set is performed separately using the uniform grid specific for the set.
-            for eline, data in eline_data.items():
-                n_scans, _, _ = data.shape
-                for n in range(n_scans):
-                    data[n, :, :], _, _ = grid_interpolate(data[n, :, :],
-                                                           xx=positions_x_all[n, :, :],
-                                                           yy=positions_y_all[n, :, :])
-            logger.info("Interpolating XRF maps to uniform grid: success.")
-        else:
-            logger.info("Interpolating XRF maps to uniform grid: skipped.")
-
-        # Align the stack of images
-        if alignment_enable:
-            eline_data_aligned = _align_stacks(eline_data=eline_data,
-                                               eline_alignment=eline_alignment,
-                                               alignment_starts_from=alignment_starts_from)
-            logger.info("Alignment of the image stack: success.")
-        else:
-            eline_data_aligned = eline_data
-            logger.info("Alignment of the image stack: skipped.")
-
-        if seq_generate_xanes_map:
-            scan_absorption_refs = _interpolate_energy(scan_energies, ref_energy, ref_data)
-            xanes_map_data, xanes_map_residual = _fit_xanes_map(eline_data_aligned[eline_selected], scan_absorption_refs)
-
-            # Scale xanes maps so that the values represent counts
-            n_refs, _, _ = xanes_map_data.shape
-            xanes_map_data_counts = np.zeros(shape=xanes_map_data.shape)
-            for n in range(n_refs):
-                xanes_map_data_counts[n, :, :] = xanes_map_data[n, :, :] * np.sum(scan_absorption_refs[:, n])
-
-            logger.info("XANES fitting: success.")
-        else:
-            scan_absorption_refs = None
-            xanes_map_data = None
-            xanes_map_data_counts = None
-            xanes_map_residual = None
-            logger.info("XANES fitting: skipped.")
-
-        if "tiff" in output_file_formats:
-            pos_x, pos_y = positions_x_uniform[0, :], positions_y_uniform[:, 0]
-            _save_xanes_maps_to_tiff(eline_data_aligned=eline_data_aligned,
-                                     eline_selected=eline_selected,
-                                     xanes_map_data=xanes_map_data_counts,
-                                     xanes_map_labels=ref_labels,
-                                     scan_energies=scan_energies,
-                                     scan_ids=scan_ids,
-                                     files_h5=files_h5,
-                                     positions_x=pos_x,
-                                     positions_y=pos_y)
+        _save_xanes_processing_results(eline_selected=eline_selected, ref_labels=ref_labels,
+                                       output_file_formats=output_file_formats,
+                                       processing_results=processing_results)
 
         if plot_results:
-            axes_units=plot_position_axes_units
-            # If positions are none, then axes units are pixels
-            pos_x, pos_y = (positions_x_uniform[0, :], positions_y_uniform[:, 0]) \
-                if plot_use_position_coordinates else (None, None)
-
-            if seq_generate_xanes_map:
-                plot_absorption_references(ref_energy=ref_energy, ref_data=ref_data,
-                                           scan_energies=scan_energies,
-                                           scan_absorption_refs=scan_absorption_refs,
-                                           ref_labels=ref_labels,
-                                           block=False)
-
-                figures = []
-                for n, map_data in enumerate(xanes_map_data_counts):
-                    fig = plot_xanes_map(map_data, label=ref_labels[n], block=False,
-                                         positions_x=pos_x, positions_y=pos_y, axes_units=axes_units)
-                    figures.append(fig)
-
-                plot_xanes_map(xanes_map_residual, label="residual", block=False,
-                               positions_x=pos_x, positions_y=pos_y, axes_units=axes_units)
-
-
-            # Show image stacks for the selected elements
-            show_image_stack(eline_data=eline_data_aligned, energies=scan_energies, eline_selected=eline_selected,
-                             positions_x=pos_x, positions_y=pos_y, axes_units=axes_units,
-                             xanes_map_data=xanes_map_data, absorption_refs=scan_absorption_refs,
-                             ref_labels=ref_labels)
+            _plot_processing_results(ref_energy=ref_energy, ref_data=ref_data, ref_labels=ref_labels,
+                                     plot_position_axes_units=plot_position_axes_units,
+                                     plot_use_position_coordinates=plot_use_position_coordinates,
+                                     eline_selected=eline_selected,
+                                     processing_results=processing_results)
         else:
             logger.info("Plotting results: skipped.")
 
-        logger.info("Processing is complete.")
+    logger.info("Processing is complete.")
 
 
 def _load_data_from_databroker(*, start_id, end_id, wd_xrf):
@@ -423,7 +327,7 @@ def _load_data_from_databroker(*, start_id, end_id, wd_xrf):
              create_each_det=False, save_scaler=True)
 
 
-def _process_xrf_data(*, start_id, end_id, wd_xrf, param_file_name, emission_line,
+def _process_xrf_data(*, start_id, end_id, wd_xrf, param_file_name, eline_selected,
                       incident_energy_low_bound, use_incident_energy_from_param_file):
     """
     Implements the second step of the processing sequence: processing of XRF scans
@@ -446,7 +350,7 @@ def _process_xrf_data(*, start_id, end_id, wd_xrf, param_file_name, emission_lin
         processing of data with ``pyxrf_batch``. The parameter file is typically produced
         by PyXRF.
 
-    emission_line : str
+    eline_selected : str
         the name of the selected emission line ("Ca_K", "Fe_K", etc.). The emission line
         of interest.
 
@@ -496,7 +400,7 @@ def _process_xrf_data(*, start_id, end_id, wd_xrf, param_file_name, emission_lin
         scan_energies_adjusted = [None] * len(scan_energies)
         ignore_metadata = True
     else:
-        scan_energies_adjusted = adjust_incident_beam_energies(scan_energies, emission_line)
+        scan_energies_adjusted = adjust_incident_beam_energies(scan_energies, eline_selected)
 
     # Process data files from the list. Use adjusted energy value.
     for fln, energy in zip(files_h5, scan_energies_adjusted):
@@ -507,6 +411,308 @@ def _process_xrf_data(*, start_id, end_id, wd_xrf, param_file_name, emission_lin
                     ignore_datafile_metadata=ignore_metadata,
                     incident_energy=energy,  # This value overrides incident energy from other sources
                     wd=wd_xrf, save_tiff=False)
+
+
+def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
+                        eline_selected, eline_alignment, alignment_starts_from,
+                        scaler_name, ref_energy, ref_data,
+                        interpolation_enable, alignment_enable, seq_generate_xanes_map):
+    """
+    Implements the third step of the processing sequence: computation of XANES maps based
+    on the set of XRF maps from scan in the range ``start_id`` .. ``end_id``.
+
+    Parameters
+    ----------
+
+    start_id : int
+        first scan ID of the batch of scans
+
+    end_id : int
+        last scan ID of the batch of scans
+
+    wd_xrf : str
+        full (absolute) name of the directory, where loaded .h5 files are placed
+
+    eline_selected : str
+        the name of the selected emission line ("Ca_K", "Fe_K", etc.). The emission line
+        of interest.
+
+    eline_alignment : str
+        the name of the emission line ("Ca_K", "Fe_K", etc.) used for alignment of image stack.
+        The emission line may be the same as ``eline_selected``.
+
+    alignment_starts_from : str
+        The order of alignment of the image stack: "top" - start from the top of the stack
+        (scan with highest energy) and proceed to the bottom of the stack (lowest energy),
+        "bottom" - start from the bottom of the stack (lowest energy) and proceed to the top.
+        This is user defined parameter, which is passed as an argument to the program.
+
+    scaler_name : str
+        the name of the scaler used for normalization. The name should be valid, i.e.
+        present in each scan data. It may be set to None: in this case no normalization
+        will be performed.
+
+    ref_energy : ndarray(float), 1D
+        values of incident energy for XANES reference data specified in ``ref_data``. If
+        ``ref_data`` has shape (N, M), then ``ref_energy`` must have N elements.
+
+    ref_data : ndarray(float), 2D
+        reference data for the element states, used for XANES fitting. The array of shape (N, M)
+        contains reference data for M element states specified at N energy points.
+
+    interpolation_enable : bool
+        enable interpolation of XRF maps to uniform grid before alignment of maps.
+
+    alignment_enable : bool
+        enable alignment of the stack of maps. In typical processing workflow the alignment
+        should be enabled.
+
+    seq_generate_xanes_map : bool
+        indicates if XANES maps should be generated based on the aligned stack. If set to False,
+        then the step of generation XANES maps is skipped.
+
+    Returns
+    -------
+
+    Dictionary with the results of processing. For structure of the dictionary entries look
+    at the end of the function code.
+    """
+
+    logger.info("Building energy map ...")
+
+    scan_ids, scan_energies, scan_img_dict, files_h5 = \
+        _load_dataset_from_hdf5(start_id=start_id, end_id=end_id, wd_xrf=wd_xrf)
+
+    # The following function checks dataset for consistency. If additional checks
+    #   needs to be performed, they should be added to the implementation of this function.
+    _check_dataset_consistency(scan_ids=scan_ids, scan_img_dict=scan_img_dict,
+                               files_h5=files_h5, scaler_name=scaler_name,
+                               eline_selected=eline_selected, eline_alignment=eline_alignment)
+
+    logger.info("Checking dataset for consistency: success.")
+
+    # Sort the lists based on energy. Prior to this point the data was arrange in the
+    #   alphabetical order of files.
+    scan_energies, sorted_indexes = list(zip(*sorted(zip(scan_energies, range(len(scan_energies))))))
+    files_h5 = [files_h5[n] for n in sorted_indexes]
+    scan_ids = [scan_ids[n] for n in sorted_indexes]
+    scan_img_dict = [scan_img_dict[n] for n in sorted_indexes]
+
+    logger.info("Sorting dataset: success.")
+
+    # Create the lists of positional data for all scans
+    positions_x_all = np.asarray([element['positions']['x_pos'] for element in scan_img_dict])
+    positions_y_all = np.asarray([element['positions']['y_pos'] for element in scan_img_dict])
+
+    # Find uniform grid that can be applied to the whole dataset (mostly for data plotting)
+    positions_x_uniform, positions_y_uniform = _get_uniform_grid(positions_x_all,
+                                                                 positions_y_all)
+    logger.info("Generating common uniform grid: success.")
+
+    # Create the arrays of XRF amplitudes for each emission line and normalize them
+    eline_list, eline_data = _get_eline_data(scan_img_dict=scan_img_dict,
+                                             scaler_name=scaler_name)
+    logger.info("Extracting XRF maps for emission lines: success.")
+
+    if interpolation_enable:
+        # Interpolate each image. I tried to use common uniform grid to do interpolation,
+        #   but it didn't work very well. In the current implementation, the interpolation
+        #   of each set is performed separately using the uniform grid specific for the set.
+        for eline, data in eline_data.items():
+            n_scans, _, _ = data.shape
+            for n in range(n_scans):
+                data[n, :, :], _, _ = grid_interpolate(data[n, :, :],
+                                                       xx=positions_x_all[n, :, :],
+                                                       yy=positions_y_all[n, :, :])
+        logger.info("Interpolating XRF maps to uniform grid: success.")
+    else:
+        logger.info("Interpolating XRF maps to uniform grid: skipped.")
+
+    # Align the stack of images
+    if alignment_enable:
+        eline_data_aligned = _align_stacks(eline_data=eline_data,
+                                           eline_alignment=eline_alignment,
+                                           alignment_starts_from=alignment_starts_from)
+        logger.info("Alignment of the image stack: success.")
+    else:
+        eline_data_aligned = eline_data
+        logger.info("Alignment of the image stack: skipped.")
+
+    if seq_generate_xanes_map:
+        scan_absorption_refs = _interpolate_energy(scan_energies, ref_energy, ref_data)
+        xanes_map_data, xanes_map_residual = _fit_xanes_map(eline_data_aligned[eline_selected],
+                                                            scan_absorption_refs)
+
+        # Scale xanes maps so that the values represent counts
+        n_refs, _, _ = xanes_map_data.shape
+        xanes_map_data_counts = np.zeros(shape=xanes_map_data.shape)
+        for n in range(n_refs):
+            xanes_map_data_counts[n, :, :] = xanes_map_data[n, :, :] * np.sum(scan_absorption_refs[:, n])
+
+        logger.info("XANES fitting: success.")
+    else:
+        scan_absorption_refs = None
+        xanes_map_data = None
+        xanes_map_data_counts = None
+        xanes_map_residual = None
+        logger.info("XANES fitting: skipped.")
+
+    processing_results = {
+        # The processing results
+        "eline_data_aligned": eline_data_aligned,
+        "xanes_map_data": xanes_map_data,
+        "xanes_map_data_counts": xanes_map_data_counts,
+        "xanes_map_residual": xanes_map_residual,
+        # Initial dataset information
+        "scan_energies": scan_energies,
+        "scan_ids": scan_ids,
+        "files_h5": files_h5,
+        # Global positions (uniform grid based on avarage values of position coordinates,
+        #   may be useful for plotting data)
+        "positions_x_uniform": positions_x_uniform,
+        "positions_y_uniform": positions_y_uniform,
+        # The values of absorption references sampled at energy values in 'scan_energies'
+        "scan_absorption_refs": scan_absorption_refs,
+    }
+
+    return processing_results
+
+def _save_xanes_processing_results(*, eline_selected, ref_labels, output_file_formats, processing_results):
+    """
+    Implements one of the final steps of the processing sequence: saving processing results.
+    Currently only TIFF files are saved: TIFF with the aligned stack of XRF maps and TIFF with
+    XANES maps. In addition, a .txt file is saved that contains of the list of images included in
+    each TIFF.
+
+    Parameters
+    ----------
+
+    eline_selected : str
+        the name of the selected emission line ("Ca_K", "Fe_K", etc.). The emission line
+        of interest.
+
+    ref_labels : list(str)
+        list of labels for the references
+
+    output_file_formats : list(str)
+        list of output file formats
+
+    processing_results : dict
+        Results of processing returned by the function '_compute_xanes_maps'.
+    """
+    positions_x_uniform = processing_results["positions_x_uniform"]
+    positions_y_uniform = processing_results["positions_y_uniform"]
+
+    eline_data_aligned = processing_results["eline_data_aligned"]
+    xanes_map_data_counts = processing_results["xanes_map_data_counts"]
+
+    scan_energies = processing_results["scan_energies"]
+    scan_ids = processing_results["scan_ids"]
+    files_h5 = processing_results["files_h5"]
+
+    if "tiff" in output_file_formats:
+        pos_x, pos_y = positions_x_uniform[0, :], positions_y_uniform[:, 0]
+        _save_xanes_maps_to_tiff(eline_data_aligned=eline_data_aligned,
+                                 eline_selected=eline_selected,
+                                 xanes_map_data=xanes_map_data_counts,
+                                 xanes_map_labels=ref_labels,
+                                 scan_energies=scan_energies,
+                                 scan_ids=scan_ids,
+                                 files_h5=files_h5,
+                                 positions_x=pos_x,
+                                 positions_y=pos_y)
+
+
+def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
+                             plot_position_axes_units, plot_use_position_coordinates,
+                             eline_selected, processing_results):
+    """
+    Implements one of the final steps of the processing sequence: plotting processing results.
+    The data is displayed on a set of Matplotlib figures:
+
+    -- interactive plot of a stack of aligned XRF maps. Interactive options include switching
+       between emission lines, browsing images of the stack and displaying of XANES spectrum
+       for a selected pixel. If the emission line ``eline_selected`` is activated in the window
+       and XANES maps were computed, then the results of fitting to references is displayed along
+       with the XANES spectrum.
+
+    -- plot of absorption references (if available)
+
+    -- XANES map for each reference (if available)
+
+    Parameters
+    ----------
+
+    ref_energy : ndarray(float), 1D
+        values of incident energy for XANES reference data specified in ``ref_data``. If
+        ``ref_data`` has shape (N, M), then ``ref_energy`` must have N elements.
+
+    ref_data : ndarray(float), 2D
+        reference data for the element states, used for XANES fitting. The array of shape (N, M)
+        contains reference data for M element states specified at N energy points.
+
+    ref_labels : list(str)
+        list of labels for the references
+
+    plot_position_axes_units : str
+        units for position coordinates along X and Y axes. The units are used while
+        plotting the results vs. position coordinates. The string specifying units
+        may contain LaTeX expressions: for example ``"$\mu $m"`` will print units
+        of ``micron`` as part of X and Y axes labels.
+
+    plot_use_position_coordinates : bool
+        results (image stack and XANES maps) are plotted vs. position coordinates if
+        the parameter is set to True, otherwise images are plotted vs. pixel number
+
+    eline_selected : str
+        the name of the selected emission line ("Ca_K", "Fe_K", etc.). The emission line
+        of interest.
+
+    processing_results : dict
+        Results of processing returned by the function '_compute_xanes_maps'.
+    """
+
+    positions_x_uniform = processing_results["positions_x_uniform"]
+    positions_y_uniform = processing_results["positions_y_uniform"]
+
+    eline_data_aligned = processing_results["eline_data_aligned"]
+    xanes_map_data = processing_results["xanes_map_data"]
+    xanes_map_data_counts = processing_results["xanes_map_data_counts"]
+    xanes_map_residual = processing_results["xanes_map_residual"]
+
+    scan_energies = processing_results["scan_energies"]
+
+    scan_absorption_refs = processing_results["scan_absorption_refs"]
+
+    axes_units = plot_position_axes_units
+    # If positions are none, then axes units are pixels
+    pos_x, pos_y = (positions_x_uniform[0, :], positions_y_uniform[:, 0]) \
+        if plot_use_position_coordinates else (None, None)
+
+    # The following arrays must be different from None if XANES maps were generated
+    if (scan_absorption_refs is not None) and (xanes_map_data is not None) and \
+            (xanes_map_data_counts is not None) and (xanes_map_residual is not None):
+
+        plot_absorption_references(ref_energy=ref_energy, ref_data=ref_data,
+                                   scan_energies=scan_energies,
+                                   scan_absorption_refs=scan_absorption_refs,
+                                   ref_labels=ref_labels,
+                                   block=False)
+
+        figures = []
+        for n, map_data in enumerate(xanes_map_data_counts):
+            fig = plot_xanes_map(map_data, label=ref_labels[n], block=False,
+                                 positions_x=pos_x, positions_y=pos_y, axes_units=axes_units)
+            figures.append(fig)
+
+        plot_xanes_map(xanes_map_residual, label="residual", block=False,
+                       positions_x=pos_x, positions_y=pos_y, axes_units=axes_units)
+
+    # Show image stacks for the selected elements
+    show_image_stack(eline_data=eline_data_aligned, energies=scan_energies, eline_selected=eline_selected,
+                     positions_x=pos_x, positions_y=pos_y, axes_units=axes_units,
+                     xanes_map_data=xanes_map_data, absorption_refs=scan_absorption_refs,
+                     ref_labels=ref_labels)
 
 
 def _load_dataset_from_hdf5(*, start_id, end_id, wd_xrf, load_fit_results=True):
@@ -1412,6 +1618,7 @@ def read_ref_data(ref_file_name):
 
     return ref_energy, ref_data, ref_labels
 
+
 def _save_xanes_maps_to_tiff(*, eline_data_aligned, eline_selected,
                              xanes_map_data, xanes_map_labels,
                              scan_energies, scan_ids, files_h5, positions_x, positions_y):
@@ -1530,8 +1737,8 @@ if __name__ == "__main__":
     build_xanes_map_api(start_id=92276, end_id=92335,
                         param_file_name="param_335",
                         scaler_name="sclr1_ch4", wd=None,
-                        # sequence="process",
-                        sequence="build_xanes_map",
+                        sequence="process",
+                        #sequence="build_xanes_map",
                         alignment_starts_from="top",
                         ref_file_name="refs_Fe_P23.txt",
                         emission_line="Fe_K", emission_line_alignment="P_K",
