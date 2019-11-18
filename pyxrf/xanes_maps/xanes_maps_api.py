@@ -1,6 +1,7 @@
 import os
 import re
 import numpy as np
+import csv
 from pystackreg import StackReg
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button, TextBox
@@ -56,6 +57,55 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
                         output_file_formats = ["tiff"]):
 
     """
+    The function builds XANES maps based on a set of XRF scans. The maps may be built based
+    on data from the following sources:
+
+    -- database (set the parameter ``sequence`` to ``load_and_process``). The data
+    for the specified range of scan IDs ``start_id`` .. ``end_id`` is loaded using
+    databroker, saved to .h5 files placed in subdirectory ``xrf_subdir`` of the working
+    directory ``wd`` and processed using ``pyxrf_batch`` with the set of parameters from
+    ``param_file_name`` to generate XRF maps. XANES maps are computed from the stack of
+    the XRF maps. The maps are interpolated to uniform grid of position coordinates
+    (important if positions of data points are unevenly spaced), aligned along the spatial
+    coordinates and fitted with the element references from file ``ref_file_name``. The
+    resulting XANES maps and XRF map stack are saved to the hard drive in the directory ``wd``.
+    (Currently only stacked TIFF files are supported). The results are also plotted in
+    multiple Matplotlib figures.
+
+    -- .h5 data files in subfolder ``xrf_subdir`` of the directory ``wd`` (set the parameter
+    ``sequence`` to ``process``). This option should be selected if data is already loaded
+    on local hard drive, since downloading a stack of images may significantly increase
+    the total processing time. Select this option to process existing raw data files,
+    or process data files with different set of parameters to generate XRF maps.
+
+    -- processed .h5 files in subfolder ``xrf_subdir`` of the directory ``wd`` (set the parameter
+    ``sequence`` to ``build_xanes_map``. This is the quickest processing option and should be
+    used if properly generated XRF maps for the selected set of element emission line is
+    already present in the .h5 files.
+
+
+    Format of the reference file (see parameter ``ref_file_name``).
+
+    The element references for XANES fitting must be formatted as columns of CSV file.
+    The first column of the file must contain incident energy values. The first line of the file
+    must contain labels for each column. The labels must be comma separated. If labels contain
+    separator ',', they must be enclosed in double quotes '"'. (Note, that spreadsheet programs
+    tend to use other characters as opening and closing quotes. Those characters look similar
+    to double quotes, but are not recognized by the CSV reading software. It is better to
+    avoid using separator ',' in the labels.) Labels often represent chemical formulas.
+    Since Matplotlib renders LaTeX formatted strings, the labels can use LaTeX formatting
+    for better quality plotting.
+
+    The example of the CSV file with LaTeX formatted labels:
+
+    Energy,$Fe_3P$,$LiFePO_4$,$Fe_2O_3$
+    7061.9933,0.0365,0.0235,0.0153
+    7063.9925,0.0201,0.0121,0.00378
+    7065.9994,0.0181,0.0111,0.00327
+    7067.9994,0.0161,0.0101,0.00238
+    7070.0038,0.0144,0.00949,0.00233
+    ... etc. ...
+
     Parameters
     ----------
 
@@ -279,7 +329,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
             seq_generate_xanes_map=seq_generate_xanes_map,
             alignment_starts_from=alignment_starts_from, ref_energy=ref_energy, ref_data=ref_data)
 
-        _save_xanes_processing_results(eline_selected=eline_selected, ref_labels=ref_labels,
+        _save_xanes_processing_results(wd=wd, eline_selected=eline_selected, ref_labels=ref_labels,
                                        output_file_formats=output_file_formats,
                                        processing_results=processing_results)
 
@@ -577,7 +627,7 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
 
     return processing_results
 
-def _save_xanes_processing_results(*, eline_selected, ref_labels, output_file_formats, processing_results):
+def _save_xanes_processing_results(*, wd, eline_selected, ref_labels, output_file_formats, processing_results):
     """
     Implements one of the final steps of the processing sequence: saving processing results.
     Currently only TIFF files are saved: TIFF with the aligned stack of XRF maps and TIFF with
@@ -586,6 +636,9 @@ def _save_xanes_processing_results(*, eline_selected, ref_labels, output_file_fo
 
     Parameters
     ----------
+
+    wd : str
+        working directory where the output data files are saved
 
     eline_selected : str
         the name of the selected emission line ("Ca_K", "Fe_K", etc.). The emission line
@@ -612,7 +665,7 @@ def _save_xanes_processing_results(*, eline_selected, ref_labels, output_file_fo
 
     if "tiff" in output_file_formats:
         pos_x, pos_y = positions_x_uniform[0, :], positions_y_uniform[:, 0]
-        _save_xanes_maps_to_tiff(eline_data_aligned=eline_data_aligned,
+        _save_xanes_maps_to_tiff(wd=wd, eline_data_aligned=eline_data_aligned,
                                  eline_selected=eline_selected,
                                  xanes_map_data=xanes_map_data_counts,
                                  xanes_map_labels=ref_labels,
@@ -1428,9 +1481,15 @@ def plot_xanes_map(map_data, *, label=None, block=True,
     else:
         axes_units = axes_units if axes_units else "a.u."
 
+    # Element label may be LaTex expression. Remove '$' and '_' from it before using it
+    #   in the figure title, since LaTeX it is not rendered in the figure title.
+    label_fig_title = label.replace("$", "")
+    label_fig_title = label_fig_title.replace("_", "")
+
+
     if label:
-        fig_title = f"XANES MAP: {label}"
-        img_title = f"XANES: {label}"
+        fig_title = f"XANES map: {label_fig_title}"
+        img_title = f"XANES map: {label}"
 
     fig = plt.figure(figsize=(6, 6), num=fig_title)
 
@@ -1485,7 +1544,7 @@ def plot_absorption_references(*, ref_energy, ref_data, scan_energies,
     else:
         labels = [""] * n_refs
 
-    fig = plt.figure(figsize=(6, 6), num="Absorption References")
+    fig = plt.figure(figsize=(6, 6), num="Element References")
 
     for n in range(n_refs):
         plt.plot(ref_energy, ref_data[:, n], label=labels[n])
@@ -1496,7 +1555,7 @@ def plot_absorption_references(*, ref_energy, ref_data, scan_energies,
     plt.axes().set_xlabel("Energy, keV", fontsize=15)
     plt.axes().set_ylabel("Absorption", fontsize=15)
     plt.grid(True)
-    fig.suptitle("Absorption References", fontsize=20)
+    fig.suptitle("Element References", fontsize=20)
     if ref_labels:
         plt.legend(loc="upper right")
     plt.show(block=block)
@@ -1585,23 +1644,55 @@ def _get_dataset_name(img_dict, detector=None):
 
 
 def read_ref_data(ref_file_name):
-    """Read file with reference data (for XANES fitting)"""
+    """
+    Read reference data from CSV file (for XANES fitting). The first column of the file must
+    contain incident energy values. The first line of the file must contain labels for each column.
+    The labels must be comma separated. If labels contain separator ',', they must be enclosed in
+    double quotes '"'. Note, that spreadsheet programs tend to use other characters as opening
+    and closing quotes. Those characters are not treated correctly by the CSV reading software.
 
-    ref_labels=[]
+    The example of the CSV file with LaTeX formatted labels
+    Energy,$Fe_3P$,$LiFePO_4$,$Fe_2O_3$
+    7061.9933,0.0365,0.0235,0.0153
+    7063.9925,0.0201,0.0121,0.00378
+    7065.9994,0.0181,0.0111,0.00327
+    7067.9994,0.0161,0.0101,0.00238
+    7070.0038,0.0144,0.00949,0.00233
+    ... etc. ...
+
+    Parameters
+    ----------
+
+    ref_file_name : str
+        path to CSV file that contain element references
+
+
+    Returns
+    -------
+
+    ref_energy : ndarray, 1D
+         array of N energy values
+
+    ref_data : ndarray, 2D
+        array of (N, M) values, which specify references for M elements at N energy values
+
+    ref_labels : list
+        list of M reference names
+    """
 
     if not os.path.isfile(ref_file_name):
         raise ValueError(f"The parameter file '{ref_file_name}' does not exist. Check the value of"
                          f" the parameer 'ref_file_name' ('build_xanes_map_api').")
+    # Read the header (first line) using 'csv' (delimiter ',' and quotechar '"')
+    with open(ref_file_name, 'r') as csv_file:
+        for row in csv.reader(csv_file):
+            ref_labels = [_ for _ in row]
+            break
 
-    with open(ref_file_name, "r") as f:
-        line_first = f.readline()
-        lb = line_first.split()
-        # Strip spaces
-        ref_labels = [_.strip() for _ in lb]
-        # Remove the first label (which is probably 'Energy', but unused in processing)
         ref_labels.pop(0)
 
-    data_ref_file = np.genfromtxt(ref_file_name, skip_header=1)
+    # The rest of the file may be loaded as ndarray
+    data_ref_file = np.genfromtxt(ref_file_name, skip_header=1, delimiter=",")
     ref_energy = data_ref_file[:, 0]
     # The references are columns 'ref_data'
     ref_data = data_ref_file[:, 1:]
@@ -1611,15 +1702,17 @@ def read_ref_data(ref_file_name):
     if n_ref_data_columns != len(ref_labels):
         raise Exception(f"Reference data file '{ref_file_name}' has unequal number of labels and data columns")
 
-    # Scale the energy in the reference file (given in eV, but the rest of the program is uing keV)
-    ref_energy /= 1000.0
+    # Scale the energy. Scaling is based on assumption that if energy is > 100, it is given in eV,
+    #   otherwise it is given in keV.
+    if sum(ref_energy > 100.0):
+        ref_energy /= 1000.0
     # Data may contain some small negative values, so clip them to 0
     ref_data = ref_data.clip(min=0)
 
     return ref_energy, ref_data, ref_labels
 
 
-def _save_xanes_maps_to_tiff(*, eline_data_aligned, eline_selected,
+def _save_xanes_maps_to_tiff(*, wd, eline_data_aligned, eline_selected,
                              xanes_map_data, xanes_map_labels,
                              scan_energies, scan_ids, files_h5, positions_x, positions_y):
 
@@ -1634,6 +1727,10 @@ def _save_xanes_maps_to_tiff(*, eline_data_aligned, eline_selected,
 
     Parameters
     ----------
+
+    wd : str
+        working directory where the output data files are saved
+
     eline_data_aligned : dict(ndarray)
         The dictionary that contains aligned datasets. Key: emission line,
         value: ndarray [K, Ny, Nx], K - the number of scans, Ny and Nx - the
@@ -1672,6 +1769,7 @@ def _save_xanes_maps_to_tiff(*, eline_data_aligned, eline_selected,
 
     # A .txt file is created along with saving the rest of the data.
     fln_log = f"maps_{eline_selected}_tiff.txt"
+    fln_log = os.path.join(wd, fln_log)
     with open(fln_log, "w") as f_log:
 
         print(f"Processing completed at {convert_time_to_nexus_string(ttime.localtime())}", file=f_log)
@@ -1691,6 +1789,7 @@ def _save_xanes_maps_to_tiff(*, eline_data_aligned, eline_selected,
         if eline_data_aligned and eline_selected and (eline_selected in eline_data_aligned):
             # Save the stack of XRF maps for the selected emission line
             fln_stack = f"maps_XRF_{eline_selected}.tiff"
+            fln_stack = os.path.join(wd, fln_stack)
             tifffile.imsave(fln_stack, eline_data_aligned[eline_selected].astype(np.float32),
                        imagej=True)
             logger.info(f"The stack of XRF maps for the emission line {eline_selected} is saved "
@@ -1709,6 +1808,7 @@ def _save_xanes_maps_to_tiff(*, eline_data_aligned, eline_selected,
         if (xanes_map_data is not None) and xanes_map_labels and eline_selected:
             # Save XANES maps for references
             fln_xanes = f"maps_XANES_{eline_selected}.tiff"
+            fln_xanes = os.path.join(wd, fln_xanes)
             tifffile.imsave(fln_xanes, xanes_map_data.astype(np.float32), imagej=True)
             logger.info(f"XANES maps for the emission line {eline_selected} are saved "
                         f"to file '{fln_xanes}'")
@@ -1737,10 +1837,10 @@ if __name__ == "__main__":
     build_xanes_map_api(start_id=92276, end_id=92335,
                         param_file_name="param_335",
                         scaler_name="sclr1_ch4", wd=None,
-                        sequence="process",
-                        #sequence="build_xanes_map",
+                        #sequence="process",
+                        sequence="build_xanes_map",
                         alignment_starts_from="top",
-                        ref_file_name="refs_Fe_P23.txt",
+                        ref_file_name="refs_Fe_P23.csv",
                         emission_line="Fe_K", emission_line_alignment="P_K",
                         interpolation_enable=True,
                         alignment_enable=True,
