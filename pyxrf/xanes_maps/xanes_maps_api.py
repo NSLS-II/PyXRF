@@ -911,13 +911,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.cbar = self.fig.colorbar(self.img_plot, cax=self.ax_img_cbar, orientation="vertical")
             self.ax_img_cbar.ticklabel_format(style='sci', scilimits=(-3, 4), axis='both')
             self.set_cbar_range()
-            self.ax_fluor_plot.plot(self.energy,
-                                    self.stack_selected[:, self.pt_selected[0], self.pt_selected[1]])
-            self.ax_fluor_plot.grid()
-            self.ax_fluor_plot.set_xlabel("Energy, keV", fontsize=self.label_fontsize)
-            self.ax_fluor_plot.set_ylabel("Fluorescence", fontsize=self.label_fontsize)
-            self.ax_fluor_plot.ticklabel_format(style='sci', scilimits=(-3, 4), axis='y')
-            self.show_fluor_point_coordinates()
+
+            self.redraw_fluorescence_plot()
 
             # define slider
             axcolor = 'lightgoldenrodyellow'
@@ -938,8 +933,6 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.slider.on_changed(self.slider_update)
 
             self.fig.canvas.mpl_connect("button_press_event", self.canvas_onclick)
-
-            self.redraw_fluorescence_plot()
 
             plt.show()
 
@@ -1051,9 +1044,13 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                                     self.stack_selected[:, self.pt_selected[0], self.pt_selected[1]],
                                     marker=".", linestyle="solid", label="XANES spectrum")
 
+            # Plot the results of fitting (if the fitting was performed
             if (self.label_selected == self.label_default) and (self.xanes_map_data is not None) \
                     and (self.absorption_refs is not None):
-                # Plot the results of fitting
+
+                # Labels should always be supplied when calling the function.
+                #   This is not user controlled option, therefore exception should be raised.
+                assert self.labels, "No labels are provided. Fitting results can not be displayed properly"
 
                 refs_scaled = self.absorption_refs.copy()
                 xanes_fit_pt = self.xanes_map_data[:, self.pt_selected[0], self.pt_selected[1]]
@@ -1062,14 +1059,12 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                     refs_scaled[:, n] = refs_scaled[:, n] * xanes_fit_pt[n]
                 refs_scaled_sum = np.sum(refs_scaled, axis=1)
 
-                labels = self.ref_labels if self.ref_labels else [""] * n_refs
-
                 self.ax_fluor_plot.plot(self.energy, refs_scaled_sum, label="XANES fit")
                 for n in range(n_refs):
-                    self.ax_fluor_plot.plot(self.energy, refs_scaled[:, n], label=labels[n])
+                    self.ax_fluor_plot.plot(self.energy, refs_scaled[:, n], label=self.ref_labels[n])
 
-            if self.ref_labels:
-                self.ax_fluor_plot.legend(loc="upper left")
+            # Always display the legend
+            self.ax_fluor_plot.legend(loc="upper left")
 
             self.ax_fluor_plot.grid()
             self.ax_fluor_plot.set_xlabel("Energy, keV", fontsize=self.label_fontsize)
