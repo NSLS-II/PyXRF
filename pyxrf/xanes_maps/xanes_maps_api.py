@@ -251,73 +251,17 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
     wd_xrf = os.path.join(wd, xrf_subdir)
 
     if seq_load_data:
-        logger.info("Loading data from databroker ...")
-        # Try to create the directory (does nothing if the directory exists)
-        os.makedirs(wd_xrf, exist_ok=True)
-        files_h5 = [fl.path for fl in os.scandir(path=wd_xrf) if fl.name.lower().endswith(".h5")]
-        if files_h5:
-            logger.warning(f"The temporary directory '{wd_xrf}' is not empty. "
-                           f"Deleting {len(files_h5)} files (.h5) ...")
-            for fln in files_h5:
-                logger.info(f"Removing raw xrf data file: '{fln}'.")
-                os.remove(path=fln)
-        make_hdf(start_id, end_id, wd=wd_xrf,
-                 completed_scans_only=True, file_overwrite_existing=True,
-                 create_each_det=False, save_scaler=True)
+        _load_data_from_databroker(start_id=start_id, end_id=end_id, wd_xrf=wd_xrf)
+        logger.info("Loading data from databroker: success.")
     else:
-        logger.info("Loading of data from databroker is skipped ...")
+        logger.info("Loading of data from databroker: skipped.")
+
 
     if seq_process_xrf_data:
-        # Make sure that the directory with xrf data exists
-        if not os.path.isdir(wd_xrf):
-            # Unfortunately there is no way to continue if there is no directory with data
-            raise IOError(f"XRF data directory '{wd_xrf}' does not exist.")
-
-        # Load scan metadata (only ids, energies and file names are extracted)
-        scan_ids, scan_energies, _, files_h5 = \
-            _load_dataset_from_hdf5(start_id=start_id, end_id=end_id,
-                                    wd_xrf=wd_xrf, load_fit_results=False)
-
-        # Sort the lists based on incident beam energy. (The loaded data is sorted in the
-        #   alphabetical order of file names, which may not match the acending order or
-        #   incident energy values.
-        scan_energies, sorted_indexes = list(zip(*sorted(zip(scan_energies, range(len(scan_energies))))))
-        scan_energies = list(scan_energies)
-        files_h5 = [files_h5[n] for n in sorted_indexes]
-        scan_ids = [scan_ids[n] for n in sorted_indexes]
-
-        scan_energies_adjusted = scan_energies.copy()
-
-        print(f"scan_ids: {scan_ids}")
-        print(f"scan_energies: {scan_energies}")
-        print(f"files_h5: {files_h5}")
-
-        ignore_metadata = False
-        if incident_energy_low_bound is not None:
-            for n, v in enumerate(scan_energies_adjusted):
-                if v < incident_energy_low_bound:
-                    scan_energies_adjusted[n] = incident_energy_low_bound
-        elif use_incident_energy_from_param_file:
-            # If 'pyxrf_batch' is called with 'incident_energy' set to None, and
-            #   'ignore_datafile_metadata' is True, then
-            #   the value of the incident energy from the parameter file is used
-            scan_energies_adjusted = [None] * len(scan_energies)
-            ignore_metadata = True
-        else:
-            scan_energies_adjusted = adjust_incident_beam_energies(scan_energies, emission_line)
-
-        print(f"scan_energies_adjusted={scan_energies_adjusted}")
-
-        # Process data files from the list. Use adjusted energy value.
-        for fln, energy in zip(files_h5, scan_energies_adjusted):
-            # Process .h5 files in the directory 'wd_xrf'. Processing results are saved
-            #   as additional datasets in the original .h5 files.
-            pyxrf_batch(data_files=fln,  # Process only one data file
-                        param_file_name=param_file_name,
-                        ignore_datafile_metadata=ignore_metadata,
-                        incident_energy=energy,  # This value overrides incident energy from other sources
-                        wd=wd_xrf, save_tiff=False)
-
+        _process_xrf_data(start_id=start_id, end_id=end_id, wd_xrf=wd_xrf,
+                          param_file_name=param_file_name, emission_line=emission_line,
+                          incident_energy_low_bound=incident_energy_low_bound,
+                          use_incident_energy_from_param_file=use_incident_energy_from_param_file)
         logger.info("Processing data files (computing XRF maps): success.")
     else:
         logger.info("Processing data files (computing XRF maps): skipped.")
@@ -402,12 +346,16 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
             logger.info("XANES fitting: skipped.")
 
         if "tiff" in output_file_formats:
+            pos_x, pos_y = positions_x_uniform[0, :], positions_y_uniform[:, 0]
             _save_xanes_maps_to_tiff(eline_data_aligned=eline_data_aligned,
                                      eline_selected=eline_selected,
                                      xanes_map_data=xanes_map_data_counts,
                                      xanes_map_labels=ref_labels,
                                      scan_energies=scan_energies,
-                                     scan_ids=scan_ids)
+                                     scan_ids=scan_ids,
+                                     files_h5=files_h5,
+                                     positions_x=pos_x,
+                                     positions_y=pos_y)
 
         if plot_results:
             axes_units=plot_position_axes_units
@@ -441,6 +389,124 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
             logger.info("Plotting results: skipped.")
 
         logger.info("Processing is complete.")
+
+
+def _load_data_from_databroker(*, start_id, end_id, wd_xrf):
+    """
+    Implements the first step of processing sequence: loading the batch of scan data
+    from databroker.
+
+    Parameters
+    ----------
+
+    start_id : int
+        first scan ID of the batch of scans
+
+    end_id : int
+        last scan ID of the batch of scans
+
+    wd_xrf : str
+        full (absolute) name of the directory, where loaded .h5 files are placed
+    """
+
+    # Try to create the directory (does nothing if the directory exists)
+    os.makedirs(wd_xrf, exist_ok=True)
+    files_h5 = [fl.path for fl in os.scandir(path=wd_xrf) if fl.name.lower().endswith(".h5")]
+    if files_h5:
+        logger.warning(f"The temporary directory '{wd_xrf}' is not empty. "
+                       f"Deleting {len(files_h5)} files (.h5) ...")
+        for fln in files_h5:
+            logger.info(f"Removing raw xrf data file: '{fln}'.")
+            os.remove(path=fln)
+    make_hdf(start_id, end_id, wd=wd_xrf,
+             completed_scans_only=True, file_overwrite_existing=True,
+             create_each_det=False, save_scaler=True)
+
+
+def _process_xrf_data(*, start_id, end_id, wd_xrf, param_file_name, emission_line,
+                      incident_energy_low_bound, use_incident_energy_from_param_file):
+    """
+    Implements the second step of the processing sequence: processing of XRF scans
+    and generation of XRF maps
+
+    Parameters
+    ----------
+
+    start_id : int
+        first scan ID of the batch of scans
+
+    end_id : int
+        last scan ID of the batch of scans
+
+    wd_xrf : str
+        full (absolute) name of the directory, where loaded .h5 files are placed
+
+    param_file_name : str
+        the name of the JSON parameter file. The parameters are used for automated
+        processing of data with ``pyxrf_batch``. The parameter file is typically produced
+        by PyXRF.
+
+    emission_line : str
+        the name of the selected emission line ("Ca_K", "Fe_K", etc.). The emission line
+        of interest.
+
+    incident_energy_low_bound : float
+        files in the set are processed using the value of incident energy which equal to
+        the greater of the values of ``incident_energy_low_bound`` or incident energy
+        from file metadata. If None, then the lower energy bound is found automatically
+        as the largest value of energy in the set which still activates the selected
+        emission line (specified as the ``emission_line`` parameter). This parameter
+        overrides the parameter ``use_incident_energy_from_param_file``.
+
+    use_incident_energy_from_param_file : bool
+        indicates if incident energy from parameter file will be used to process all
+        files: True - use incident energy from parameter files, False - use incident
+        energy from data files. If ``incident_energy_low_bound`` is specified, then
+        this parameter is ignored.
+    """
+    # Make sure that the directory with xrf data exists
+    if not os.path.isdir(wd_xrf):
+        # Unfortunately there is no way to continue if there is no directory with data
+        raise IOError(f"XRF data directory '{wd_xrf}' does not exist.")
+
+    # Load scan metadata (only ids, energies and file names are extracted)
+    scan_ids, scan_energies, _, files_h5 = \
+        _load_dataset_from_hdf5(start_id=start_id, end_id=end_id,
+                                wd_xrf=wd_xrf, load_fit_results=False)
+
+    # Sort the lists based on incident beam energy. (The loaded data is sorted in the
+    #   alphabetical order of file names, which may not match the acending order or
+    #   incident energy values.
+    scan_energies, sorted_indexes = list(zip(*sorted(zip(scan_energies, range(len(scan_energies))))))
+    scan_energies = list(scan_energies)
+    files_h5 = [files_h5[n] for n in sorted_indexes]
+    scan_ids = [scan_ids[n] for n in sorted_indexes]
+
+    scan_energies_adjusted = scan_energies.copy()
+
+    ignore_metadata = False
+    if incident_energy_low_bound is not None:
+        for n, v in enumerate(scan_energies_adjusted):
+            if v < incident_energy_low_bound:
+                scan_energies_adjusted[n] = incident_energy_low_bound
+    elif use_incident_energy_from_param_file:
+        # If 'pyxrf_batch' is called with 'incident_energy' set to None, and
+        #   'ignore_datafile_metadata' is True, then
+        #   the value of the incident energy from the parameter file is used
+        scan_energies_adjusted = [None] * len(scan_energies)
+        ignore_metadata = True
+    else:
+        scan_energies_adjusted = adjust_incident_beam_energies(scan_energies, emission_line)
+
+    # Process data files from the list. Use adjusted energy value.
+    for fln, energy in zip(files_h5, scan_energies_adjusted):
+        # Process .h5 files in the directory 'wd_xrf'. Processing results are saved
+        #   as additional datasets in the original .h5 files.
+        pyxrf_batch(data_files=fln,  # Process only one data file
+                    param_file_name=param_file_name,
+                    ignore_datafile_metadata=ignore_metadata,
+                    incident_energy=energy,  # This value overrides incident energy from other sources
+                    wd=wd_xrf, save_tiff=False)
 
 
 def _load_dataset_from_hdf5(*, start_id, end_id, wd_xrf, load_fit_results=True):
@@ -1061,7 +1127,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
 
                 self.ax_fluor_plot.plot(self.energy, refs_scaled_sum, label="XANES fit")
                 for n in range(n_refs):
-                    self.ax_fluor_plot.plot(self.energy, refs_scaled[:, n], label=self.ref_labels[n])
+                    self.ax_fluor_plot.plot(self.energy, refs_scaled[:, n],
+                                            label=self.ref_labels[n], linestyle="dashed")
 
             # Always display the legend
             self.ax_fluor_plot.legend(loc="upper left")
@@ -1347,7 +1414,7 @@ def read_ref_data(ref_file_name):
 
 def _save_xanes_maps_to_tiff(*, eline_data_aligned, eline_selected,
                              xanes_map_data, xanes_map_labels,
-                             scan_energies, scan_ids):
+                             scan_energies, scan_ids, files_h5, positions_x, positions_y):
 
     """
     Saves the results of processing in stacked .tiff files and creates .txt log file
@@ -1364,31 +1431,59 @@ def _save_xanes_maps_to_tiff(*, eline_data_aligned, eline_selected,
         The dictionary that contains aligned datasets. Key: emission line,
         value: ndarray [K, Ny, Nx], K - the number of scans, Ny and Nx - the
         number of pixels along y- and x- axes.
+
     eline_selected : str
         The name of the selected emission line. If the emission line is not present
         in the dictionary ``eline_data_aligned``, then the image stack is not saved.
+
     xanes_map_data : ndarray [M, Ny, Nx]
         XANES maps. M - the number of maps
+
     xanes_map_labels : list(str)
         Labels for XANES maps. The number of labels must be equal to M.
+
     scan_energies : list(float)
         Beam energy values for the scans. The number of values must be K.
+
     scan_ids : list(int)
         Scan IDs of the scans. There must be K scan IDs.
-\           """
+
+    files_h5 : list(str)
+        list of names of the files that contain XRF scan data. The number of values must be K.
+
+    positions_x : 1D ndarray
+        vector of coordinates along X-axis, used to determine range and the number
+        of scan points
+
+    positions_y : 1D ndarray
+        vector of coordinates along Y-axis, used to determine range and the number
+        of scan points
+    """
 
     if eline_selected is None:
         eline_selected = ""
 
     # A .txt file is created along with saving the rest of the data.
-    fln_log = f"maps_{eline_selected}.txt"
+    fln_log = f"maps_{eline_selected}_tiff.txt"
     with open(fln_log, "w") as f_log:
 
         print(f"Processing completed at {convert_time_to_nexus_string(ttime.localtime())}", file=f_log)
 
+        if positions_x is not None and positions_y is not None:
+            n_x_pixels = len(positions_x)
+            n_y_pixels = len(positions_y)
+            x_min, x_max = positions_x[0], positions_x[-1]
+            y_min, y_max = positions_y[0], positions_y[-1]
+            print(f"\nXANES scan parameters:", file=f_log)
+            print(f"    image size (Ny, Nx): ({n_y_pixels}, {n_x_pixels})", file=f_log)
+            print(f"    Y-axis scan range [Y_min, Y_max, abs(Y_max-Y_min)]: "
+                  f"[{y_min:.5g}, {y_max:.5g}, {abs(y_max-y_min):.5g}]", file=f_log)
+            print(f"    X-axis scan range [X_min, X_max, abs(X_max-X_min)]: "
+                  f"[{x_min:.5g}, {x_max:.5g}, {abs(x_max-x_min):.5g}]", file=f_log)
+
         if eline_data_aligned and eline_selected and (eline_selected in eline_data_aligned):
             # Save the stack of XRF maps for the selected emission line
-            fln_stack = f"xrf_maps_{eline_selected}.tiff"
+            fln_stack = f"maps_XRF_{eline_selected}.tiff"
             tifffile.imsave(fln_stack, eline_data_aligned[eline_selected].astype(np.float32),
                        imagej=True)
             logger.info(f"The stack of XRF maps for the emission line {eline_selected} is saved "
@@ -1396,22 +1491,24 @@ def _save_xanes_maps_to_tiff(*, eline_data_aligned, eline_selected,
 
             # Save the contents of the .tiff file to .txt file
             print(f"\nThe stack of XRF maps is saved to file '{fln_stack}'.", file=f_log)
-            print("Contents:", file=f_log)
-            if scan_energies and scan_ids:
-                for n, energy, scan_id in zip(range(len(scan_energies)), scan_energies, scan_ids):
-                    print(f"   Frame {n + 1}:  scan ID = {scan_id}  beam energy = {energy}",
+            print("Included maps:", file=f_log)
+            if scan_energies and scan_ids and files_h5:
+                for n, energy, scan_id, fln in zip(
+                        range(len(scan_energies)), scan_energies, scan_ids, files_h5):
+                    print(f"   Frame {n + 1}:  scan ID = {scan_id}   "
+                          f"incident energy = {energy:.4f} keV   file name = '{fln}'",
                           file=f_log)
 
         if (xanes_map_data is not None) and xanes_map_labels and eline_selected:
             # Save XANES maps for references
-            fln_xanes = f"xanes_maps_{eline_selected}.tiff"
+            fln_xanes = f"maps_XANES_{eline_selected}.tiff"
             tifffile.imsave(fln_xanes, xanes_map_data.astype(np.float32), imagej=True)
             logger.info(f"XANES maps for the emission line {eline_selected} are saved "
                         f"to file '{fln_xanes}'")
 
             # Save the contents of the .tiff file to .txt file
             print(f"\nXANES maps are saved to file '{fln_xanes}'.", file=f_log)
-            print("Contents:", file=f_log)
+            print("Included maps:", file=f_log)
             if xanes_map_labels:
                 for n, label in enumerate(xanes_map_labels):
                     print(f"   Frame {n + 1}:  reference = '{xanes_map_labels[n]}'", file=f_log)
