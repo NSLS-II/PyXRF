@@ -53,7 +53,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
                         use_incident_energy_from_param_file=False,
                         plot_results=True,
                         plot_use_position_coordinates=True,
-                        plot_position_axes_units="$\mu $m",  # noqa W605
+                        plot_position_axes_units="$\mu $m",  # noqa: W605
                         output_file_formats=["tiff"]):
 
     """
@@ -255,7 +255,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
 
     Throws exception if processing can not be completed. The error message may be printed to
     indicate the reason of the failure to the user.
-    """  # noqa W605
+    """  # noqa: W605
 
     if wd is None:
         wd = '.'
@@ -758,7 +758,7 @@ def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
 
     processing_results : dict
         Results of processing returned by the function '_compute_xanes_maps'.
-    """  # noqa W605
+    """  # noqa: W605
 
     positions_x_uniform = processing_results["positions_x_uniform"]
     positions_y_uniform = processing_results["positions_y_uniform"]
@@ -1340,7 +1340,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             xanes_map_data : 3D ndarray
 
             absorption_refs : 2D ndarray
-            """  # noqa W605
+            """  # noqa: W605
 
             self.label_fontsize = 15
 
@@ -1652,7 +1652,7 @@ def plot_xanes_map(map_data, *, label=None, block=True,
     -------
         Reference to the figure containing the plot
 
-    """  # noqa W605
+    """  # noqa: W605
 
     # Check existence or the size of 'positions_x' and 'positions_y' arrays
     ny, nx = map_data.shape
@@ -1823,7 +1823,7 @@ def _get_dataset_name(img_dict, detector=None):
         # Dataset name for the sum should not have 'det'+number preceding '_fit'
         #   Assume that the number of digits does not exceed 3 (in practice it
         #   doesn't exceed 1)
-        patterns = ["(?<!det\d)fit$", "(?<!det\d\d)fit$", "(?<!det\d\d\d)fit$"]  # noqa W605
+        patterns = ["(?<!det\d)fit$", "(?<!det\d\d)fit$", "(?<!det\d\d\d)fit$"]  # noqa: W605
     else:
         patterns = [f"det{detector}_fit"]
     for name in img_dict.keys():
