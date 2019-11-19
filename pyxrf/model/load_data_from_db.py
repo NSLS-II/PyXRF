@@ -303,6 +303,7 @@ def make_hdf(start, end=None, *, fname=None, wd=None,
 
     if wd:
         # Create the directory
+        wd = os.path.expanduser(wd)
         wd = os.path.abspath(wd)  # 'make_dirs' does not accept paths that contain '..'
         os.makedirs(wd, exist_ok=True)  # Does nothing if the directory already exists
 
