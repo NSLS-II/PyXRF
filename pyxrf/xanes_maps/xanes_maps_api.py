@@ -4,7 +4,7 @@ import numpy as np
 import csv
 from pystackreg import StackReg
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider, Button, TextBox
+from matplotlib.widgets import Slider, Button
 import time as ttime
 import tifffile
 
@@ -53,8 +53,8 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
                         use_incident_energy_from_param_file=False,
                         plot_results=True,
                         plot_use_position_coordinates=True,
-                        plot_position_axes_units="$\mu $m",
-                        output_file_formats = ["tiff"]):
+                        plot_position_axes_units="$\mu $m",  # noqa W605
+                        output_file_formats=["tiff"]):
 
     """
     The function builds XANES maps based on a set of XRF scans. The maps may be built based
@@ -255,7 +255,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
 
     Throws exception if processing can not be completed. The error message may be printed to
     indicate the reason of the failure to the user.
-    """
+    """  # noqa W605
 
     if wd is None:
         wd = '.'
@@ -323,7 +323,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
         seq_process_xrf_data = False
     else:
         raise ValueError(f"Unknown sequence name '{sequence}' is passed as a parameter "
-                   "to the function 'build_xanes_map_api'.")
+                         "to the function 'build_xanes_map_api'.")
 
     # No XANES maps will be generated if references are not provided
     #                 (this is one of the built-in options, not an error)
@@ -345,7 +345,6 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
         logger.info("Loading data from databroker: success.")
     else:
         logger.info("Loading of data from databroker: skipped.")
-
 
     if seq_process_xrf_data:
         _process_xrf_data(start_id=start_id, end_id=end_id, wd_xrf=wd_xrf,
@@ -662,6 +661,7 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
 
     return processing_results
 
+
 def _save_xanes_processing_results(*, wd, eline_selected, ref_labels, output_file_formats, processing_results):
     """
     Implements one of the final steps of the processing sequence: saving processing results.
@@ -758,7 +758,7 @@ def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
 
     processing_results : dict
         Results of processing returned by the function '_compute_xanes_maps'.
-    """
+    """  # noqa W605
 
     positions_x_uniform = processing_results["positions_x_uniform"]
     positions_y_uniform = processing_results["positions_y_uniform"]
@@ -1340,7 +1340,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             xanes_map_data : 3D ndarray
 
             absorption_refs : 2D ndarray
-            """
+            """  # noqa W605
 
             self.label_fontsize = 15
 
@@ -1446,8 +1446,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             plt.show()
 
         def show_fluor_point_coordinates(self):
-            pt_x = self.pt_selected[0] *self.pos_dx + self.pos_x_min
-            pt_y = self.pt_selected[1] *self.pos_dy + self.pos_y_min
+            pt_x = self.pt_selected[0] * self.pos_dx + self.pos_x_min
+            pt_y = self.pt_selected[1] * self.pos_dy + self.pos_y_min
             pt_x_str, pt_y_str = f"{pt_x:.5g}", f"{pt_y:.5g}"
             self.fluor_label_text = self.ax_fluor_plot.text(
                 0.99, 0.99, f"({pt_x_str}, {pt_y_str})",
@@ -1470,7 +1470,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             bwidth = 0.07  # Width of a button
             bgap = 0.01  # Gap between buttons
 
-            pos_left_start = 0.5 - n_labels / 2 * bwidth - (n_labels - 1) / 2 *bgap
+            pos_left_start = 0.5 - n_labels / 2 * bwidth - (n_labels - 1) / 2 * bgap
 
             # Create buttons
             self.btn_eline, self.ax_btn_eline = [], []
@@ -1486,8 +1486,6 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                 b.on_clicked(self.btn_stack_clicked)
 
         def create_buttons_prev_next(self):
-
-            n_labels = len(self.labels)
 
             bwidth = 0.07  # Width of prev. and next button button
             lwidth = 0.08  # Width of the text label between prev and next buttons
@@ -1654,7 +1652,7 @@ def plot_xanes_map(map_data, *, label=None, block=True,
     -------
         Reference to the figure containing the plot
 
-    """
+    """  # noqa W605
 
     # Check existence or the size of 'positions_x' and 'positions_y' arrays
     ny, nx = map_data.shape
@@ -1669,7 +1667,6 @@ def plot_xanes_map(map_data, *, label=None, block=True,
     #   in the figure title, since LaTeX it is not rendered in the figure title.
     label_fig_title = label.replace("$", "")
     label_fig_title = label_fig_title.replace("_", "")
-
 
     if label:
         fig_title = f"XANES map: {label_fig_title}"
@@ -1989,7 +1986,7 @@ def _save_xanes_maps_to_tiff(*, wd, eline_data_aligned, eline_selected,
             fln_stack = f"maps_XRF_{eline_selected}.tiff"
             fln_stack = os.path.join(wd, fln_stack)
             tifffile.imsave(fln_stack, eline_data_aligned[eline_selected].astype(np.float32),
-                       imagej=True)
+                            imagej=True)
             logger.info(f"The stack of XRF maps for the emission line {eline_selected} is saved "
                         f"to file '{fln_stack}'")
 
@@ -2035,7 +2032,7 @@ if __name__ == "__main__":
     build_xanes_map_api(start_id=92276, end_id=92335,
                         param_file_name="param_335",
                         scaler_name="sclr1_ch4", wd=None,
-                        #sequence="process",
+                        # sequence="process",
                         sequence="build_xanes_map",
                         alignment_starts_from="top",
                         ref_file_name="refs_Fe_P23.csv",
