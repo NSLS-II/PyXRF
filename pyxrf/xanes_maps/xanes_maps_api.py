@@ -83,8 +83,43 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
     used if properly generated XRF maps for the selected set of element emission line is
     already present in the .h5 files.
 
+    Example of function call for the batch of scans with IDs in the range 92276-92335:
 
-    Format of the reference file (see parameter ``ref_file_name``).
+    build_xanes_map(92276, 92335, param_file_name="param_335", scaler_name="sclr1_ch4",
+    sequence="load_and_process", ref_file_name="refs_Fe_P23.csv", emission_line="Fe_K",
+    emission_line_alignment="P_K")
+
+    Options:
+
+    Typical processing sequence includes operation of XRF map interpolation and stack alignment.
+    But those operations may be disabled by setting parameters ``interpolation_enable`` and
+    ``alignment enable`` to False. For example, if the position coordinates of XRF maps form
+    uniform grid, then disabling interpolation will reduce processing time.
+
+    There are two parameters that control stack alignment. The stack alignment for all emission
+    lines is performed based on the emission line selected for XANES (parameter ``emission_line``).
+    If maps for different emission line are better suited for alignment, then the default behavior
+    can be changed by setting the parameter ``emission_line_alignment``. The other parameter
+    controls the order of the stack alignment. The default order (starting from the top of
+    the stack or XRF map measured with highest energy) may be changed by setting the parameter
+    ``alignment_starts_from="bottom"``. In this case the alignment will start from the map
+    acquired with the lowest incident energy.
+
+    Incident energy used for generation of XRF maps is automatically computed as the lowest of
+    the energy read from the respective .h data file or the energy which activates the
+    emission line of interest (parameter ``emission_line``). The default behavior may be
+    changed by setting True the parameter ``use_incident_energy_from_param_file`` (use fixed
+    energy from parameter file set by ``param_file_name``) or specifying lower bound for
+    incident energy ``incident_energy_low_bound`` (if the energy read from the .h5 data file
+    is less than ``incident_energy_low_bound``, then use the lower bound, otherwise use
+    the value of energy from the data file.
+
+    If ``plot_results`` is set to False, then the results will not be plotted (no Matplotlib
+    windows will be opened). The processing results will still be saved to files with selected
+    format.
+
+    Format of the reference file (see parameter ``ref_file_name``)
+    --------------------------------------------------------------
 
     The element references for XANES fitting must be formatted as columns of CSV file.
     The first column of the file must contain incident energy values. The first line of the file
@@ -589,7 +624,7 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
         logger.info("Alignment of the image stack: skipped.")
 
     if seq_generate_xanes_map:
-        scan_absorption_refs = _interpolate_energy(scan_energies, ref_energy, ref_data)
+        scan_absorption_refs = _interpolate_references(scan_energies, ref_energy, ref_data)
         xanes_map_data, xanes_map_residual = _fit_xanes_map(eline_data_aligned[eline_selected],
                                                             scan_absorption_refs)
 
@@ -823,6 +858,40 @@ def _load_dataset_from_hdf5(*, start_id, end_id, wd_xrf, load_fit_results=True):
 
 def _check_dataset_consistency(*, scan_ids, scan_img_dict, files_h5, scaler_name,
                                eline_selected, eline_alignment):
+    """
+    Perform some checks for consistency of input data and parameters
+    before starting XANES mapping steps. The following of the processing steps
+    assume that the data is consistent.
+
+    Parameters
+    ----------
+
+    scan_ids : list(int)
+        list of scan IDs for the XRF map stack
+
+    scan_img_dict : list(dict)
+        list of dictionaries, each dictionary contains dataset for the respective scan ID
+        from the ``scan_id`` list.
+
+    files_h5 : list(str)
+        list of file names
+
+    scaler_name : str
+        name of the scaler to be used for data normalization. The function checks if the
+        scaler is present in each dataset
+
+    eline_selected : str
+        name of the emission line selected for XANES. The function checks if the emission
+        line is represented in each dataset
+
+    eline_alignment : str
+        name of the emission line selected for stack alignment. The function checks if the emission
+        line is represented in each dataset. The emission line may be the same as the one
+        selected for XANES.
+
+    The function raises exception if dataset is inconsistent, parameters have invalid values
+    or important data is missing.
+    """
 
     if not scan_img_dict:
         raise RuntimeError("Loaded dataset is empty. No data to process.")
@@ -976,6 +1045,7 @@ def adjust_incident_beam_energies(scan_energies, emission_line):
 
     scan_energies : list(float)
         the list of incident beam energy values, keV
+
     emission_line : str
         valid name of the emission line (supported by ``scikit-beam``) in the
         form of K_K or Fe_K
@@ -1002,11 +1072,36 @@ def adjust_incident_beam_energies(scan_energies, emission_line):
 #   Functions used for processing
 
 def _get_uniform_grid(positions_x_all, positions_y_all):
-    """Compute uniform grid common to the whole dataset"""
-    # Median positions are probably the best for generating common uniform grid
+    """
+    Compute common uniform grid based on position coordinates for a stack of maps.
+    The grid is computed in two steps: the median of X and Y coordinates is computed
+    for each point of the map; uniform grid is generated based on median X and Y values.
+
+    Parameters
+    ----------
+
+    positions_x_all : ndarray, 3D
+        values of X coordinates for each point of the map. Shape (K, M, N): the stack
+        of K maps, each map is MxN pixels.
+
+    positions_y_all : ndarray, 3D
+        values of Y coordinates.
+
+    Returns
+    -------
+
+    positions_x_uniform : ndarray, 3D
+        uniform grid with X coordinates, shape (K, M, N)
+
+    positions_y_uniform : ndarray, 3D
+        uniform grid with Y coordinates, shape (K, M, N)
+    """
+
+    # Median positions seem to be the best for generating common uniform grid
     positions_x_median = np.median(positions_x_all, axis=0)
     positions_y_median = np.median(positions_y_all, axis=0)
-    # Generate uniform grid
+    # Generate uniform grid (interpolation function simply generates the grid if
+    #   if only position data is provided).
     _, positions_x_uniform, positions_y_uniform = grid_interpolate(
         None, positions_x_median, positions_y_median)
     return positions_x_uniform, positions_y_uniform
@@ -1014,15 +1109,34 @@ def _get_uniform_grid(positions_x_all, positions_y_all):
 
 def _get_eline_data(scan_img_dict, scaler_name):
     """
-    Create the list of emission lines and the array with emission data.
+    Rearrange data for more convenient processing: 1. Create the list of available emission lines.
+    2. Create the dictionary of stacks of XRF maps: key - emission line name, value - 3D ndarray of
+    the shape (K, M, N), where K is the number of maps in the stack for the emission line, each
+    map is MxN pixels.
 
-    Array ``eline_data`` contains XRF maps for the emission lines:
+    The function is also normalizing the data by the scaler if the scaler is specified (not None).
 
-    -- dimension 0 - the number of the emission line,
-    the name of the emission line may be extracted from the respective
-    entry of the list ``eline_list``
+    Parameters
+    ----------
 
-    -- dimensions 1 and 2 - Y and X coordinates of the map
+    scan_img_dict : list(dict)
+        list of dictionaries, each dictionary contains dataset from one XRF scan.
+
+    scaler_name : str
+        name of the scaler. The name should be present in the dataset.
+        Data should be checked for consistency at the beginning of the process.
+        ``scaler_name`` may be None. In this case normalization is skipped.
+
+    Returns
+    -------
+
+    eline_list : list(str)
+        list of available emission lines
+
+    eline_data : dict(ndarray)
+        dictionary of stacks of XRF maps: key - emission line name, value - 3D ndarray of
+        the shape (K, M, N), where K is the number of maps in the stack for the emission line,
+        each map is MxN pixels.
     """
     eline_list = _get_eline_keys(_get_img_keys(scan_img_dict[0]))
     eline_data = {}
@@ -1040,7 +1154,32 @@ def _get_eline_data(scan_img_dict, scaler_name):
 
 def _align_stacks(eline_data, eline_alignment, alignment_starts_from="top"):
     """
-    Align stack of images
+    Align stacks of maps from the dictionary ``eline_data`` based on the stack for
+    emission line specified by ``eline_alignment``. Alignment may be performed
+    starting from the ``"top"`` (default) or the ``"bottom"`` of the stack.
+
+    Parameters
+    ----------
+
+    eline_data : dict(ndarray)
+        dictionary of stacks of XRF maps: key - emission line name, value - 3D ndarray of
+        the shape (K, M, N), where K is the number of maps in the stack for the emission line,
+        each map is MxN pixels.
+
+    eline_alignment : str
+        name of the emission line. The stack of maps for this emission line will be
+        used to align the rest of the stacks.
+
+    alignment_starts_from : str
+        order of the alignment. The allowed values are ``"top"`` (alignment starts from
+        the map acquired with the highest incident energy) and ``"bottom"`` (lowest energy).
+
+    Returns
+    -------
+
+    eline_data_aligned : dict(ndarray)
+        dictionary of stacks of aligned XRF maps. All dimensions match the dimensions of
+        ``eline_data``.
     """
     alignment_starts_from = alignment_starts_from.lower()
     assert alignment_starts_from in ["top", "bottom"], \
@@ -1067,7 +1206,30 @@ def _align_stacks(eline_data, eline_alignment, alignment_starts_from="top"):
     return eline_data_aligned
 
 
-def _interpolate_energy(energy, energy_refs, absorption_refs):
+def _interpolate_references(energy, energy_refs, absorption_refs):
+    """
+    Interpolate XANES references
+
+    Parameters
+    ----------
+
+    energy : ndarray(float), 1D
+        array that represents energy values for the interpolated reference data (P points)
+
+    energy_refs : ndarray(float), 1D
+        array that represents energy axis for XANES references (N points)
+
+    absorption_refs : ndarray(float), 2D
+        array of XANES references, shape (N, K), where K is the number of references
+        and N is the number of points (same number of points as in ``energy_refs``).
+
+    Returns
+    -------
+
+    interpolated_refs : ndarray(float), 2D
+        array of interpolated XANES references, shape (P, K), where K is the number of references
+        and P is the number of points (same number of points as in ``energy``).
+    """
     _, n_states = absorption_refs.shape
     interpolated_refs = np.zeros(shape=[len(energy), n_states], dtype=float)
     for n in range(n_states):
@@ -1077,6 +1239,28 @@ def _interpolate_energy(energy, energy_refs, absorption_refs):
 
 
 def _fit_xanes_map(map_data, absorption_refs):
+    """
+    Compute XANES map on the stack of XRF maps (XANES fitting).
+
+    Parameters
+    ----------
+
+    map_data : ndarray(float), 3D
+        stack of XRF maps, shape (K, M, N), where K is the number of maps in the stack,
+        each map has size of MxN pixels.
+
+    absorption_refs : ndarray(float), 2D
+        array of references, shape (K, P), where P is the number of references.
+
+    Returns
+    -------
+
+    map_data_fitted : ndarray(float), 3D
+        stack of XANES maps, shape (P, M, N), where P is the number of references.
+
+    map_residual : ndarray(float), 2D
+        map that represents residual of ``nnls`` fitting, shape (M,N).
+    """
     _, nny, nnx = map_data.shape
     _, n_states = absorption_refs.shape
     map_data_fitted = np.zeros(shape=[n_states, nny, nnx])
@@ -1595,7 +1779,21 @@ def _get_img_keys(img_dict, detector=None):
 
 def _get_eline_keys(key_list):
     """
-    Returns list of emission line keys that are present in the list of keys.
+    Returns list of emission line names that are present in the list of keys.
+    The function checks if key matches the pattern for the emission line name,
+    it does not check if the name is valid.
+
+    The following names will match pattern: P_K, Ca_K, Fe_L, Fe_M etc.
+
+    Parameters
+    ----------
+
+    key_list : list(str)
+        list of keys (strings), some of the keys may be emission line names
+
+    Returns
+    -------
+        list of emission line names extracted from the list of keys
     """
 
     # The following pattern is based on assumption that elines names
