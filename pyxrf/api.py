@@ -34,4 +34,3 @@ except ImportError:
     db_analysis = None
     # We don't use 'analysis' databroker, so disable the message for now
     # logger.error("'Analysis' databroker is not available.")
-
