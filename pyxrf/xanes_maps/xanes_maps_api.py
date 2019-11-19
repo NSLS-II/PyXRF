@@ -55,7 +55,6 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
                         plot_use_position_coordinates=True,
                         plot_position_axes_units="$\mu $m",  # noqa: W605
                         output_file_formats=["tiff"]):
-
     """
     The function builds XANES maps based on a set of XRF scans. The maps may be built based
     on data from the following sources:
