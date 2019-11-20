@@ -623,7 +623,7 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
 
     if seq_generate_xanes_map:
         scan_absorption_refs = _interpolate_references(scan_energies, ref_energy, ref_data)
-        xanes_map_data, xanes_map_residual = _fit_xanes_map(eline_data_aligned[eline_selected],
+        xanes_map_data, xanes_map_rfactor = _fit_xanes_map(eline_data_aligned[eline_selected],
                                                             scan_absorption_refs)
 
         # Scale xanes maps so that the values represent counts
@@ -637,7 +637,7 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
         scan_absorption_refs = None
         xanes_map_data = None
         xanes_map_data_counts = None
-        xanes_map_residual = None
+        xanes_map_rfactor = None
         logger.info("XANES fitting: skipped.")
 
     processing_results = {
@@ -645,7 +645,7 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
         "eline_data_aligned": eline_data_aligned,
         "xanes_map_data": xanes_map_data,
         "xanes_map_data_counts": xanes_map_data_counts,
-        "xanes_map_residual": xanes_map_residual,
+        "xanes_map_rfactor": xanes_map_rfactor,
         # Initial dataset information
         "scan_energies": scan_energies,
         "scan_ids": scan_ids,
@@ -765,7 +765,7 @@ def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
     eline_data_aligned = processing_results["eline_data_aligned"]
     xanes_map_data = processing_results["xanes_map_data"]
     xanes_map_data_counts = processing_results["xanes_map_data_counts"]
-    xanes_map_residual = processing_results["xanes_map_residual"]
+    xanes_map_rfactor = processing_results["xanes_map_rfactor"]
 
     scan_energies = processing_results["scan_energies"]
 
@@ -778,7 +778,7 @@ def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
 
     # The following arrays must be different from None if XANES maps were generated
     if (scan_absorption_refs is not None) and (xanes_map_data is not None) and \
-            (xanes_map_data_counts is not None) and (xanes_map_residual is not None):
+            (xanes_map_data_counts is not None) and (xanes_map_rfactor is not None):
 
         plot_absorption_references(ref_energy=ref_energy, ref_data=ref_data,
                                    scan_energies=scan_energies,
@@ -792,8 +792,8 @@ def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
                                  positions_x=pos_x, positions_y=pos_y, axes_units=axes_units)
             figures.append(fig)
 
-        plot_xanes_map(xanes_map_residual, label="residual", block=False,
-                       positions_x=pos_x, positions_y=pos_y, axes_units=axes_units)
+        plot_xanes_map(xanes_map_rfactor, label="R-factor", block=False,
+                       positions_x=pos_x, positions_y=pos_y, axes_units=axes_units, map_margin=10)
 
     # Show image stacks for the selected elements
     show_image_stack(eline_data=eline_data_aligned, energies=scan_energies, eline_selected=eline_selected,
@@ -1257,25 +1257,27 @@ def _fit_xanes_map(map_data, absorption_refs):
     map_data_fitted : ndarray(float), 3D
         stack of XANES maps, shape (P, M, N), where P is the number of references.
 
-    map_residual : ndarray(float), 2D
-        map that represents residual of ``nnls`` fitting, shape (M,N).
+    map_rfactor : ndarray(float), 2D
+        map that represents R-factor for the fitting, shape (M,N).
     """
     _, nny, nnx = map_data.shape
     _, n_states = absorption_refs.shape
     map_data_fitted = np.zeros(shape=[n_states, nny, nnx])
-    map_residual = np.zeros(shape=[nny, nnx])
+    map_rfactor = np.zeros(shape=[nny, nnx])
     for ny in range(nny):
         for nx in range(nnx):
-            result, residual = nnls_fit(map_data[:, ny, nx], absorption_refs, weights=None)
+            map_sel = map_data[:, ny, nx]
+            result, _ = nnls_fit(map_sel, absorption_refs, weights=None)
 
-            # Residual computed by 'nnls' function is a scaled version of the square norm:
-            #      sqrt(sqrt(N-1)) * sum((Ax-b)^2)
-            # If there is a need for not scaled square norm, then use the following code:
-            #      residual = residual / np.sqrt(np.sqrt(n_data_points - 1))
+            # Compute R-factor
+            dif = map_sel - np.matmul(result, np.transpose(absorption_refs))
+            dif_sum = np.sum(np.abs(dif))
+            data_sum = np.sum(np.abs(map_sel))
+            rfactor = dif_sum/data_sum
 
             map_data_fitted[:, ny, nx] = result
-            map_residual[ny, nx] = residual
-    return map_data_fitted, map_residual
+            map_rfactor[ny, nx] = rfactor
+    return map_data_fitted, map_rfactor
 
 
 # ==============================================================================================
@@ -1617,7 +1619,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
 
 
 def plot_xanes_map(map_data, *, label=None, block=True,
-                   positions_x=None, positions_y=None, axes_units=None):
+                   positions_x=None, positions_y=None, axes_units=None, map_margin=0):
     """
     Plot XANES map
 
@@ -1647,6 +1649,12 @@ def plot_xanes_map(map_data, *, label=None, block=True,
         Units may include latex expressions, for example "$\mu $m" will print units of microns.
         If ``axes_units`` is None, then the name of arbitrary units (``a.u.``) is used.
 
+    map_margin : float
+        width of the map margin in percent. The pixels that fall within the margin are not used
+        to compute the range of the colorbar. Setting margin different from zero may be important
+        when displaying residual data (R-factor) for XANES maps, because error values for pixels
+        close to edges of the map may be very large. Typically the value 10% should be fine.
+
     Returns
     -------
         Reference to the figure containing the plot
@@ -1662,6 +1670,14 @@ def plot_xanes_map(map_data, *, label=None, block=True,
     else:
         axes_units = axes_units if axes_units else "a.u."
 
+    # Find max and min values. The margins are likely to contain strong artifacts that distort images.
+    c = max(map_margin/100.0, 0)  # Make sure it is positive
+    x_margin, y_margin = int(nx * c), int(ny * c)
+    x_range = range(x_margin, nx - x_margin)
+    y_range = range(y_margin, ny - y_margin)
+    vmin = np.min(map_data[y_range, x_range])
+    vmax = np.max(map_data[y_range, x_range])
+
     # Element label may be LaTex expression. Remove '$' and '_' from it before using it
     #   in the figure title, since LaTeX it is not rendered in the figure title.
     label_fig_title = label.replace("$", "")
@@ -1676,7 +1692,7 @@ def plot_xanes_map(map_data, *, label=None, block=True,
     # display image
     extent = [positions_x[0], positions_x[-1],
               positions_y[-1], positions_y[0]]
-    img_plot = plt.imshow(map_data, origin="upper", extent=extent)
+    img_plot = plt.imshow(map_data, vmin=vmin, vmax=vmax, origin="upper", extent=extent)
     plt.colorbar(img_plot, orientation="vertical")
     plt.axes().set_xlabel(f"X, {axes_units}", fontsize=15)
     plt.axes().set_ylabel(f"Y, {axes_units}", fontsize=15)
