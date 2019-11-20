@@ -624,7 +624,7 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
     if seq_generate_xanes_map:
         scan_absorption_refs = _interpolate_references(scan_energies, ref_energy, ref_data)
         xanes_map_data, xanes_map_rfactor = _fit_xanes_map(eline_data_aligned[eline_selected],
-                                                            scan_absorption_refs)
+                                                           scan_absorption_refs)
 
         # Scale xanes maps so that the values represent counts
         n_refs, _, _ = xanes_map_data.shape
