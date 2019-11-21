@@ -93,6 +93,10 @@ def grid_interpolate(data, xx, yy, xx_uniform=None, yy_uniform=None):
         vv_max : float
             end of the range
         """
+        # The assumption is that X values are mostly changing along the dimension 1 and
+        #   Y values change along the dimension 0 of the 2D array and only slightly change
+        #   along the alternative dimension. Determine, if the range is for X or Y
+        #   axis based on the dimension in which value change is the largest.
         if abs(vv[0, 0] - vv[0, -1]) > abs(vv[0, 0] - vv[-1, 0]):
             vv_min = np.median(vv[:, 0])
             vv_max = np.median(vv[:, -1])

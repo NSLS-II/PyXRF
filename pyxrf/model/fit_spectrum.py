@@ -1641,7 +1641,7 @@ def fit_per_line_nnls(row_num, data,
         fitting values for all the elements at a given row. Background is
         calculated as a summed value. Also residual is included.
     """
-    logger.debug('Row number at {}'.format(row_num))
+    logger.debug(f"Row number at {row_num}")
     out = []
     bg_sum = 0
     for i in range(data.shape[0]):

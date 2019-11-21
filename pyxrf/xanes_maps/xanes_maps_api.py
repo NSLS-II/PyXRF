@@ -38,7 +38,7 @@ def build_xanes_map(*args, **kwargs):
         logger.info("Processing was completed successfully.")
 
 
-def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
+def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
                         scaler_name=None,
                         wd=None,
                         xrf_subdir="xrf_data",
@@ -80,14 +80,14 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
 
     -- processed .h5 files in subfolder ``xrf_subdir`` of the directory ``wd`` (set the parameter
     ``sequence`` to ``build_xanes_map``. This is the quickest processing option and should be
-    used if properly generated XRF maps for the selected set of element emission line is
+    used if properly generated XRF maps for the selected set of element emission lines is
     already present in the .h5 files.
 
     Example of function call for the batch of scans with IDs in the range 92276-92335:
 
     build_xanes_map(92276, 92335, param_file_name="param_335", scaler_name="sclr1_ch4",
     sequence="load_and_process", ref_file_name="refs_Fe_P23.csv", emission_line="Fe_K",
-    emission_line_alignment="P_K")
+    emission_line_alignment="P_K", incident_energy_shift_keV=-0.0013)
 
     Options:
 
@@ -98,25 +98,25 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
 
     There are two parameters that control stack alignment. The stack alignment for all emission
     lines is performed based on the emission line selected for XANES (parameter ``emission_line``).
-    If maps for different emission line are better suited for alignment, then the default behavior
+    If maps for different emission lines are better suited for alignment, then the default behavior
     can be changed by setting the parameter ``emission_line_alignment``. The other parameter
     controls the order of the stack alignment. The default order (starting from the top of
     the stack or XRF map measured with highest energy) may be changed by setting the parameter
     ``alignment_starts_from="bottom"``. In this case the alignment will start from the map
     acquired with the lowest incident energy.
 
-    Incident energy used for generation of XRF maps is automatically computed as the lowest of
-    the energy read from the respective .h data file or the energy which activates the
-    emission line of interest (parameter ``emission_line``). The default behavior may be
-    changed by setting True the parameter ``use_incident_energy_from_param_file`` (use fixed
-    energy from parameter file set by ``param_file_name``) or specifying lower bound for
-    incident energy ``incident_energy_low_bound`` (if the energy read from the .h5 data file
-    is less than ``incident_energy_low_bound``, then use the lower bound, otherwise use
-    the value of energy from the data file.
+    Incident energy used for generation of XRF maps is automatically computed as the highest of
+    the energies: incident energy from the respective .h data file or the lowest energy which 
+    activates the emission line of interest (line specified by the parameter ``emission_line``). 
+    The default behavior may be changed by setting True the parameter 
+    ``use_incident_energy_from_param_file`` (use fixed energy from parameter file set by 
+    ``param_file_name``) or specifying lower bound for incident energy ``incident_energy_low_bound`` 
+    (if the energy read from the .h5 data file is less than ``incident_energy_low_bound``, then 
+    use the lower bound, otherwise use the value of energy from the data file.
 
     If ``plot_results`` is set to False, then the results will not be plotted (no Matplotlib
     windows will be opened). The processing results will still be saved to files with selected
-    format.
+    format(s).
 
     Format of the reference file (see parameter ``ref_file_name``)
     --------------------------------------------------------------
@@ -160,7 +160,8 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
     param_file_name : str
         the name of the JSON parameter file. The parameters are used for automated
         processing of data with ``pyxrf_batch``. The parameter file is typically produced
-        by PyXRF.
+        by PyXRF. The parameter is not used for XANES analysis and may be skipped if
+        if XRF maps are already generated (``sequence="build_xanes_maps"``).
 
     scaler_name : str
         the name of the scaler used for normalization. The name should be valid, i.e.
@@ -225,7 +226,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
         as expected.
 
     incident_energy_low_bound : float
-        files in the set are processed using the value of incident energy which equal to
+        files in the set are processed using the value of incident energy equal to
         the greater of the values of ``incident_energy_low_bound`` or incident energy
         from file metadata. If None, then the lower energy bound is found automatically
         as the largest value of energy in the set which still activates the selected
@@ -260,7 +261,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
     Returns
     -------
 
-    Throws exception if processing can not be completed. The error message may be printed to
+    Throws an exception if processing can not be completed. The error message may be printed to
     indicate the reason of the failure to the user.
     """  # noqa: W605
 
@@ -269,9 +270,6 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
     else:
         wd = os.path.expanduser(wd)
     wd = os.path.abspath(wd)
-
-    param_file_name = os.path.expanduser(param_file_name)
-    param_file_name = os.path.abspath(param_file_name)
 
     if ref_file_name:
         ref_file_name = os.path.expanduser(ref_file_name)
@@ -331,6 +329,14 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
     else:
         raise ValueError(f"Unknown sequence name '{sequence}' is passed as a parameter "
                          "to the function 'build_xanes_map_api'.")
+
+    if seq_process_xrf_data:
+        if not param_file_name:
+            raise ValueError("Parameter file name is not specified and XRF maps can not be generated: "
+                             "set the value the parameter 'param_file_name' of 'build_xanes_map_api'.")
+        param_file_name = os.path.expanduser(param_file_name)
+        param_file_name = os.path.abspath(param_file_name)
+
 
     # No XANES maps will be generated if references are not provided
     #                 (this is one of the built-in options, not an error)
@@ -448,7 +454,7 @@ def _process_xrf_data(*, start_id, end_id, wd_xrf, param_file_name, eline_select
         of interest.
 
     incident_energy_low_bound : float
-        files in the set are processed using the value of incident energy which equal to
+        files in the set are processed using the value of incident energy equal to
         the greater of the values of ``incident_energy_low_bound`` or incident energy
         from file metadata. If None, then the lower energy bound is found automatically
         as the largest value of energy in the set which still activates the selected
@@ -472,7 +478,7 @@ def _process_xrf_data(*, start_id, end_id, wd_xrf, param_file_name, eline_select
                                 wd_xrf=wd_xrf, load_fit_results=False)
 
     # Sort the lists based on incident beam energy. (The loaded data is sorted in the
-    #   alphabetical order of file names, which may not match the acending order or
+    #   alphabetical order of file names, which may not match the ascending order or
     #   incident energy values.
     scan_energies, sorted_indexes = list(zip(*sorted(zip(scan_energies, range(len(scan_energies))))))
     scan_energies = list(scan_energies)
@@ -591,7 +597,7 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
 
     logger.info("Checking dataset for consistency: success.")
 
-    # Sort the lists based on energy. Prior to this point the data was arrange in the
+    # Sort the lists based on energy. Prior to this point the data was arranged in the
     #   alphabetical order of files.
     scan_energies, sorted_indexes = list(zip(*sorted(zip(scan_energies, range(len(scan_energies))))))
     files_h5 = [files_h5[n] for n in sorted_indexes]
@@ -884,7 +890,7 @@ def _check_dataset_consistency(*, scan_ids, scan_img_dict, files_h5, scaler_name
                                eline_selected, eline_alignment):
     """
     Perform some checks for consistency of input data and parameters
-    before starting XANES mapping steps. The following of the processing steps
+    before starting XANES mapping steps. The following processing steps
     assume that the data is consistent.
 
     Parameters
@@ -913,7 +919,7 @@ def _check_dataset_consistency(*, scan_ids, scan_img_dict, files_h5, scaler_name
         line is represented in each dataset. The emission line may be the same as the one
         selected for XANES.
 
-    The function raises exception if dataset is inconsistent, parameters have invalid values
+    The function raises an exception if the dataset is inconsistent, parameters have invalid values
     or important data is missing.
     """
 
@@ -1021,7 +1027,7 @@ def _check_dataset_consistency(*, scan_ids, scan_img_dict, files_h5, scaler_name
             xy_list.append(img["positions"]["x_pos"].shape)
 
         # Determine if all sizes are identical
-        if [_ for _ in xy_list if _ != xy_list[0]]:
+        if any([_ != xy_list[0] for _ in xy_list ]):
             _raise_error_exception(slist=list(range(len(xy_list))),
                                    data_tuples=[(scan_ids, "scan_ID"),
                                                 (files_h5, "file"),
@@ -1099,7 +1105,9 @@ def _get_uniform_grid(positions_x_all, positions_y_all):
     """
     Compute common uniform grid based on position coordinates for a stack of maps.
     The grid is computed in two steps: the median of X and Y coordinates is computed
-    for each point of the map; uniform grid is generated based on median X and Y values.
+    for each point of the map over the stack of maps (for X and Y positions the 3D array
+    containing a stack of point positions is converted to 2D array containing a single map);
+    uniform grid is generated based on median X and Y values in the map.
 
     Parameters
     ----------
@@ -1298,7 +1306,7 @@ def _fit_xanes_map(map_data, absorption_refs):
             dif = map_sel - np.matmul(result, np.transpose(absorption_refs))
             dif_sum = np.sum(np.abs(dif))
             data_sum = np.sum(np.abs(map_sel))
-            # Check if data_sum is non-zero, otherwise consi
+            # Avoid accidental division by zero (or a very small number)
             rfactor = dif_sum/data_sum if data_sum > 1e-30 else 0
 
             map_data_fitted[:, ny, nx] = result
@@ -1362,7 +1370,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             axes_units : str
                 units for X and Y axes that are used if ``positions_x`` and ``positions_y`` are specified
                 Units may include latex expressions, for example "$\mu $m" will print units of microns.
-                If ``axes_units`` is None, then the name of arbitrary units (``a.u.``) is used.
+                If ``axes_units`` is None, then printed label will not include unit information.
 
             xanes_map_data : 3D ndarray
 
@@ -1410,7 +1418,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                 self.pos_y_min, self.pos_y_max = positions_y[0], positions_y[-1]
                 self.pos_dx = (self.pos_x_max - self.pos_x_min)/max(nx - 1, 1)
                 self.pos_dy = (self.pos_y_max - self.pos_y_min)/max(ny - 1, 1)
-                self.axes_units = axes_units if axes_units else "a.u."
+                self.axes_units = axes_units if axes_units else ""
 
         def select_stack(self):
             self.stack_selected = self.stack_all_data[self.label_selected]
@@ -1431,8 +1439,11 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.ax_img_cbar = plt.axes([0.425, 0.26, 0.013, 0.63])
             self.ax_fluor_plot = plt.axes([0.55, 0.25, 0.4, 0.65])
             self.fig.subplots_adjust(left=0.07, right=0.95, bottom=0.25)
-            self.ax_img_stack.set_xlabel(f"X, {self.axes_units}", fontsize=self.label_fontsize)
-            self.ax_img_stack.set_ylabel(f"Y, {self.axes_units}", fontsize=self.label_fontsize)
+
+            x_label = f"X, {axes_units}" if axes_units else f"X"
+            y_label = f"Y, {axes_units}" if axes_units else f"Y"
+            self.ax_img_stack.set_xlabel(x_label, fontsize=self.label_fontsize)
+            self.ax_img_stack.set_ylabel(y_label, fontsize=self.label_fontsize)
 
             # display image
             extent = [self.pos_x_min, self.pos_x_max, self.pos_y_max, self.pos_y_min]
@@ -1673,7 +1684,7 @@ def plot_xanes_map(map_data, *, label=None, block=True,
     axes_units : str
         units for X and Y axes that are used if ``positions_x`` and ``positions_y`` are specified
         Units may include latex expressions, for example "$\mu $m" will print units of microns.
-        If ``axes_units`` is None, then the name of arbitrary units (``a.u.``) is used.
+        If ``axes_units`` is None, then axes labels will be printed without unit information.
 
     map_margin : float
         width of the map margin in percent. The pixels that fall within the margin are not used
@@ -1694,7 +1705,10 @@ def plot_xanes_map(map_data, *, label=None, block=True,
         positions_y = range(ny)
         axes_units = "pixels"
     else:
-        axes_units = axes_units if axes_units else "a.u."
+        axes_units = axes_units if axes_units else ""
+
+    x_label = f"X, {axes_units}" if axes_units else f"X"
+    y_label = f"Y, {axes_units}" if axes_units else f"Y"
 
     # Find max and min values. The margins are likely to contain strong artifacts that distort images.
     c = max(map_margin/100.0, 0)  # Make sure it is positive
@@ -1718,8 +1732,8 @@ def plot_xanes_map(map_data, *, label=None, block=True,
               positions_y[-1], positions_y[0]]
     img_plot = plt.imshow(map_data, vmin=vmin, vmax=vmax, origin="upper", extent=extent)
     plt.colorbar(img_plot, orientation="vertical")
-    plt.axes().set_xlabel(f"X, {axes_units}", fontsize=15)
-    plt.axes().set_ylabel(f"Y, {axes_units}", fontsize=15)
+    plt.axes().set_xlabel(x_label, fontsize=15)
+    plt.axes().set_ylabel(y_label, fontsize=15)
     fig.suptitle(img_title, fontsize=20)
     plt.show(block=block)
     return fig
@@ -1858,21 +1872,15 @@ def _get_dataset_name(img_dict, detector=None):
     -------
     dataset name, raises RuntimeError exception if dataset is not found
     """
-    if detector is None:
-        # Dataset name for the sum should not have 'det'+number preceding '_fit'
-        #   Assume that the number of digits does not exceed 3 (in practice it
-        #   doesn't exceed 1)
-        patterns = ["(?<!det\d)fit$", "(?<!det\d\d)fit$", "(?<!det\d\d\d)fit$"]  # noqa: W605
-    else:
-        patterns = [f"det{detector}_fit"]
     for name in img_dict.keys():
-        name_found = True
-        for p in patterns:
-            #  All patterns must show a match
-            if not re.search(p, name):
-                name_found = False
-        if name_found:
-            return name
+
+        if detector is None:
+            # Dataset name for the sum should have no 'det1', 'det2' etc. preceding '_fit'
+            if re.search("fit$", name) and not re.search("det\d+_fit", name):
+                return name
+        else:
+            if re.search(f"det{detector}_fit$", name):
+                return name
 
     raise RuntimeError(f"No dataset name was found for the detector {detector} ('get_dataset_name').")
 
@@ -2081,7 +2089,7 @@ if __name__ == "__main__":
                         alignment_starts_from="top",
                         ref_file_name="refs_Fe_P23.csv",
                         emission_line="Fe_K", emission_line_alignment="P_K",
-                        incident_energy_shift_keV=-0.001,
+                        incident_energy_shift_keV=-0.0013,
                         interpolation_enable=True,
                         alignment_enable=True,
                         plot_use_position_coordinates=True,
