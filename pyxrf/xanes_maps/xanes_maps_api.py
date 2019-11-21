@@ -45,6 +45,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
                         sequence="build_xanes_map",
                         emission_line,
                         emission_line_alignment=None,
+                        incident_energy_shift_keV=0,
                         alignment_starts_from="top",
                         interpolation_enable=True,
                         alignment_enable=True,
@@ -194,6 +195,13 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
     emission_line_alignment : str
         the name of the emission line used for image alignment ("Ca_K", "Fe_K", etc.).
         If None, then the line specified as ``emission_line`` used for alignment
+
+    incident_energy_shift_keV : float
+        shift (in keV) applied to incident energy axis of the observed data before
+        XANES fitting. The positive shift value shifts observed data in the direction of
+        higher energies. The shift may be used to compensate for the difference in the
+        adjustments of measurement setups used for acquisition of references and
+        observed dataset.
 
     alignment_starts_from : str
         The order of alignment of the image stack: "top" - start from the top of the stack
@@ -360,7 +368,9 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name,
             eline_alignment=eline_alignment, scaler_name=scaler_name,
             interpolation_enable=interpolation_enable, alignment_enable=alignment_enable,
             seq_generate_xanes_map=seq_generate_xanes_map,
-            alignment_starts_from=alignment_starts_from, ref_energy=ref_energy, ref_data=ref_data)
+            incident_energy_shift_keV=incident_energy_shift_keV,
+            alignment_starts_from=alignment_starts_from,
+            ref_energy=ref_energy, ref_data=ref_data)
 
         _save_xanes_processing_results(wd=wd, eline_selected=eline_selected, ref_labels=ref_labels,
                                        output_file_formats=output_file_formats,
@@ -498,7 +508,7 @@ def _process_xrf_data(*, start_id, end_id, wd_xrf, param_file_name, eline_select
 
 def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
                         eline_selected, eline_alignment, alignment_starts_from,
-                        scaler_name, ref_energy, ref_data,
+                        scaler_name, ref_energy, ref_data, incident_energy_shift_keV,
                         interpolation_enable, alignment_enable, seq_generate_xanes_map):
     """
     Implements the third step of the processing sequence: computation of XANES maps based
@@ -543,6 +553,13 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
         reference data for the element states, used for XANES fitting. The array of shape (N, M)
         contains reference data for M element states specified at N energy points.
 
+    incident_energy_shift_keV : float
+        shift (in keV) applied to incident energy axis of the observed data before
+        XANES fitting. The positive shift value shifts observed data in the direction of
+        higher energies. The shift may be used to compensate for the difference in the
+        adjustments of measurement setups used for acquisition of references and
+        observed dataset.
+
     interpolation_enable : bool
         enable interpolation of XRF maps to uniform grid before alignment of maps.
 
@@ -583,6 +600,9 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
 
     logger.info("Sorting dataset: success.")
 
+    # Apply shift to scan energies
+    scan_energies_shifted = [_ + incident_energy_shift_keV for _ in scan_energies]
+
     # Create the lists of positional data for all scans
     positions_x_all = np.asarray([element['positions']['x_pos'] for element in scan_img_dict])
     positions_y_all = np.asarray([element['positions']['y_pos'] for element in scan_img_dict])
@@ -622,7 +642,7 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
         logger.info("Alignment of the image stack: skipped.")
 
     if seq_generate_xanes_map:
-        scan_absorption_refs = _interpolate_references(scan_energies, ref_energy, ref_data)
+        scan_absorption_refs = _interpolate_references(scan_energies_shifted, ref_energy, ref_data)
         xanes_map_data, xanes_map_rfactor = _fit_xanes_map(eline_data_aligned[eline_selected],
                                                            scan_absorption_refs)
 
@@ -647,7 +667,8 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
         "xanes_map_data_counts": xanes_map_data_counts,
         "xanes_map_rfactor": xanes_map_rfactor,
         # Initial dataset information
-        "scan_energies": scan_energies,
+        "scan_energies": scan_energies,  # Those values are used for logging only
+        "scan_energies_shifted": scan_energies_shifted,  # Those values are used for processing and plotting
         "scan_ids": scan_ids,
         "files_h5": files_h5,
         # Global positions (uniform grid based on avarage values of position coordinates,
@@ -693,7 +714,8 @@ def _save_xanes_processing_results(*, wd, eline_selected, ref_labels, output_fil
     eline_data_aligned = processing_results["eline_data_aligned"]
     xanes_map_data_counts = processing_results["xanes_map_data_counts"]
 
-    scan_energies = processing_results["scan_energies"]
+    scan_energies = processing_results["scan_energies"]  # Only for logging !!!
+    scan_energies_shifted = processing_results["scan_energies_shifted"]
     scan_ids = processing_results["scan_ids"]
     files_h5 = processing_results["files_h5"]
 
@@ -704,6 +726,7 @@ def _save_xanes_processing_results(*, wd, eline_selected, ref_labels, output_fil
                                  xanes_map_data=xanes_map_data_counts,
                                  xanes_map_labels=ref_labels,
                                  scan_energies=scan_energies,
+                                 scan_energies_shifted=scan_energies_shifted,
                                  scan_ids=scan_ids,
                                  files_h5=files_h5,
                                  positions_x=pos_x,
@@ -767,7 +790,9 @@ def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
     xanes_map_data_counts = processing_results["xanes_map_data_counts"]
     xanes_map_rfactor = processing_results["xanes_map_rfactor"]
 
-    scan_energies = processing_results["scan_energies"]
+    # Only 'shifted' values of scan energies are used for plotting, since those are
+    #   the values used for processing.
+    scan_energies_shifted = processing_results["scan_energies_shifted"]
 
     scan_absorption_refs = processing_results["scan_absorption_refs"]
 
@@ -781,7 +806,7 @@ def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
             (xanes_map_data_counts is not None) and (xanes_map_rfactor is not None):
 
         plot_absorption_references(ref_energy=ref_energy, ref_data=ref_data,
-                                   scan_energies=scan_energies,
+                                   scan_energies=scan_energies_shifted,
                                    scan_absorption_refs=scan_absorption_refs,
                                    ref_labels=ref_labels,
                                    block=False)
@@ -796,7 +821,7 @@ def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
                        positions_x=pos_x, positions_y=pos_y, axes_units=axes_units, map_margin=10)
 
     # Show image stacks for the selected elements
-    show_image_stack(eline_data=eline_data_aligned, energies=scan_energies, eline_selected=eline_selected,
+    show_image_stack(eline_data=eline_data_aligned, energies=scan_energies_shifted, eline_selected=eline_selected,
                      positions_x=pos_x, positions_y=pos_y, axes_units=axes_units,
                      xanes_map_data=xanes_map_data, absorption_refs=scan_absorption_refs,
                      ref_labels=ref_labels)
@@ -1673,10 +1698,8 @@ def plot_xanes_map(map_data, *, label=None, block=True,
     # Find max and min values. The margins are likely to contain strong artifacts that distort images.
     c = max(map_margin/100.0, 0)  # Make sure it is positive
     x_margin, y_margin = int(nx * c), int(ny * c)
-    x_range = range(x_margin, nx - x_margin)
-    y_range = range(y_margin, ny - y_margin)
-    vmin = np.min(map_data[y_range, x_range])
-    vmax = np.max(map_data[y_range, x_range])
+    vmin = np.min(map_data[y_margin: ny - y_margin, x_margin: nx - x_margin])
+    vmax = np.max(map_data[y_margin: ny - y_margin, x_margin: nx - x_margin])
 
     # Element label may be LaTex expression. Remove '$' and '_' from it before using it
     #   in the figure title, since LaTeX it is not rendered in the figure title.
@@ -1924,7 +1947,8 @@ def read_ref_data(ref_file_name):
 
 def _save_xanes_maps_to_tiff(*, wd, eline_data_aligned, eline_selected,
                              xanes_map_data, xanes_map_labels,
-                             scan_energies, scan_ids, files_h5, positions_x, positions_y):
+                             scan_energies, scan_energies_shifted, scan_ids,
+                             files_h5, positions_x, positions_y):
 
     """
     Saves the results of processing in stacked .tiff files and creates .txt log file
@@ -1958,6 +1982,9 @@ def _save_xanes_maps_to_tiff(*, wd, eline_data_aligned, eline_selected,
 
     scan_energies : list(float)
         Beam energy values for the scans. The number of values must be K.
+
+    scan_energies_shifted : list(float)
+        Beam energy values with applied correction shift. The number of values must be K.
 
     scan_ids : list(int)
         Scan IDs of the scans. There must be K scan IDs.
@@ -2008,12 +2035,13 @@ def _save_xanes_maps_to_tiff(*, wd, eline_data_aligned, eline_selected,
             # Save the contents of the .tiff file to .txt file
             print(f"\nThe stack of XRF maps is saved to file '{fln_stack}'.", file=f_log)
             print("Included maps:", file=f_log)
-            if scan_energies and scan_ids and files_h5:
-                for n, energy, scan_id, fln in zip(
-                        range(len(scan_energies)), scan_energies, scan_ids, files_h5):
+            if scan_energies and scan_energies_shifted and scan_ids and files_h5:
+                for n, energy, energy_shifted, scan_id, fln in zip(
+                        range(len(scan_energies)), scan_energies,
+                        scan_energies_shifted, scan_ids, files_h5):
                     print(f"   Frame {n + 1}:  scan ID = {scan_id}   "
-                          f"incident energy = {energy:.4f} keV   file name = '{fln}'",
-                          file=f_log)
+                          f"incident energy = {energy:.4f} keV (corrected to {energy_shifted:.4f} keV) "
+                          f"file name = '{fln}'", file=f_log)
 
         if (xanes_map_data is not None) and xanes_map_labels and eline_selected:
             # Save XANES maps for references
@@ -2052,6 +2080,7 @@ if __name__ == "__main__":
                         alignment_starts_from="top",
                         ref_file_name="refs_Fe_P23.csv",
                         emission_line="Fe_K", emission_line_alignment="P_K",
+                        incident_energy_shift_keV=-0.001,
                         interpolation_enable=True,
                         alignment_enable=True,
                         plot_use_position_coordinates=True,
