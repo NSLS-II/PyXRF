@@ -106,12 +106,12 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
     acquired with the lowest incident energy.
 
     Incident energy used for generation of XRF maps is automatically computed as the highest of
-    the energies: incident energy from the respective .h data file or the lowest energy which 
-    activates the emission line of interest (line specified by the parameter ``emission_line``). 
-    The default behavior may be changed by setting True the parameter 
-    ``use_incident_energy_from_param_file`` (use fixed energy from parameter file set by 
-    ``param_file_name``) or specifying lower bound for incident energy ``incident_energy_low_bound`` 
-    (if the energy read from the .h5 data file is less than ``incident_energy_low_bound``, then 
+    the energies: incident energy from the respective .h data file or the lowest energy which
+    activates the emission line of interest (line specified by the parameter ``emission_line``).
+    The default behavior may be changed by setting True the parameter
+    ``use_incident_energy_from_param_file`` (use fixed energy from parameter file set by
+    ``param_file_name``) or specifying lower bound for incident energy ``incident_energy_low_bound``
+    (if the energy read from the .h5 data file is less than ``incident_energy_low_bound``, then
     use the lower bound, otherwise use the value of energy from the data file.
 
     If ``plot_results`` is set to False, then the results will not be plotted (no Matplotlib
@@ -336,7 +336,6 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
                              "set the value the parameter 'param_file_name' of 'build_xanes_map_api'.")
         param_file_name = os.path.expanduser(param_file_name)
         param_file_name = os.path.abspath(param_file_name)
-
 
     # No XANES maps will be generated if references are not provided
     #                 (this is one of the built-in options, not an error)
@@ -1027,7 +1026,7 @@ def _check_dataset_consistency(*, scan_ids, scan_img_dict, files_h5, scaler_name
             xy_list.append(img["positions"]["x_pos"].shape)
 
         # Determine if all sizes are identical
-        if any([_ != xy_list[0] for _ in xy_list ]):
+        if any([_ != xy_list[0] for _ in xy_list]):
             _raise_error_exception(slist=list(range(len(xy_list))),
                                    data_tuples=[(scan_ids, "scan_ID"),
                                                 (files_h5, "file"),
@@ -1876,7 +1875,7 @@ def _get_dataset_name(img_dict, detector=None):
 
         if detector is None:
             # Dataset name for the sum should have no 'det1', 'det2' etc. preceding '_fit'
-            if re.search("fit$", name) and not re.search("det\d+_fit", name):
+            if re.search("fit$", name) and not re.search("det\d+_fit", name):  # noqa: W605
                 return name
         else:
             if re.search(f"det{detector}_fit$", name):
