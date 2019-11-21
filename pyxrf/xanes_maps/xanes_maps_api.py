@@ -1298,7 +1298,8 @@ def _fit_xanes_map(map_data, absorption_refs):
             dif = map_sel - np.matmul(result, np.transpose(absorption_refs))
             dif_sum = np.sum(np.abs(dif))
             data_sum = np.sum(np.abs(map_sel))
-            rfactor = dif_sum/data_sum
+            # Check if data_sum is non-zero, otherwise consi
+            rfactor = dif_sum/data_sum if data_sum > 1e-30 else 0
 
             map_data_fitted[:, ny, nx] = result
             map_rfactor[ny, nx] = rfactor
