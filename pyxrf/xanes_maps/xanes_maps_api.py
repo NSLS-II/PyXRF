@@ -718,6 +718,7 @@ def _save_xanes_processing_results(*, wd, eline_selected, ref_labels, output_fil
 
     eline_data_aligned = processing_results["eline_data_aligned"]
     xanes_map_data_counts = processing_results["xanes_map_data_counts"]
+    xanes_map_rfactor = processing_results["xanes_map_rfactor"]
 
     scan_energies = processing_results["scan_energies"]  # Only for logging !!!
     scan_energies_shifted = processing_results["scan_energies_shifted"]
@@ -729,6 +730,7 @@ def _save_xanes_processing_results(*, wd, eline_selected, ref_labels, output_fil
         _save_xanes_maps_to_tiff(wd=wd, eline_data_aligned=eline_data_aligned,
                                  eline_selected=eline_selected,
                                  xanes_map_data=xanes_map_data_counts,
+                                 xanes_map_rfactor=xanes_map_rfactor,
                                  xanes_map_labels=ref_labels,
                                  scan_energies=scan_energies,
                                  scan_energies_shifted=scan_energies_shifted,
@@ -1954,7 +1956,7 @@ def read_ref_data(ref_file_name):
 
 
 def _save_xanes_maps_to_tiff(*, wd, eline_data_aligned, eline_selected,
-                             xanes_map_data, xanes_map_labels,
+                             xanes_map_data, xanes_map_rfactor, xanes_map_labels,
                              scan_energies, scan_energies_shifted, scan_ids,
                              files_h5, positions_x, positions_y):
 
@@ -1984,6 +1986,9 @@ def _save_xanes_maps_to_tiff(*, wd, eline_data_aligned, eline_selected,
 
     xanes_map_data : ndarray [M, Ny, Nx]
         XANES maps. M - the number of maps
+
+    xanes_map_rfactor : ndarray [Ny, Nx]
+        R-factor for XANES maps.
 
     xanes_map_labels : list(str)
         Labels for XANES maps. The number of labels must be equal to M.
@@ -2065,6 +2070,17 @@ def _save_xanes_maps_to_tiff(*, wd, eline_data_aligned, eline_selected,
             if xanes_map_labels:
                 for n, label in enumerate(xanes_map_labels):
                     print(f"   Frame {n + 1}:  reference = '{xanes_map_labels[n]}'", file=f_log)
+
+        if xanes_map_rfactor is not None:
+            # Save XANES maps for references
+            fln_xanes_rfactor = f"maps_XANES_{eline_selected}_rfactor.tiff"
+            fln_xanes_rfactor = os.path.join(wd, fln_xanes_rfactor)
+            tifffile.imsave(fln_xanes_rfactor, xanes_map_rfactor.astype(np.float32), imagej=True)
+            logger.info(f"R-factors for XANES maps for the emission line {eline_selected} are saved "
+                        f"to file '{fln_xanes_rfactor}'")
+
+            # Save the contents of the .tiff file to .txt file
+            print(f"\nR-factors for XANES maps are saved to file '{fln_xanes_rfactor}'.", file=f_log)
 
 
 if __name__ == "__main__":
