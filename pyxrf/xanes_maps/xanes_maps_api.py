@@ -1587,7 +1587,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.ax_fluor_plot.clear()
 
             self.ax_fluor_plot.plot(self.energy,
-                                    self.stack_selected[:, self.pt_selected[0], self.pt_selected[1]],
+                                    self.stack_selected[:, self.pt_selected[1], self.pt_selected[0]],
                                     marker=".", linestyle="solid", label="XANES spectrum")
 
             # Plot the results of fitting (if the fitting was performed
@@ -1599,7 +1599,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                 assert self.labels, "No labels are provided. Fitting results can not be displayed properly"
 
                 refs_scaled = self.absorption_refs.copy()
-                xanes_fit_pt = self.xanes_map_data[:, self.pt_selected[0], self.pt_selected[1]]
+                xanes_fit_pt = self.xanes_map_data[:, self.pt_selected[1], self.pt_selected[0]]
                 _, n_refs = refs_scaled.shape
                 for n in range(n_refs):
                     refs_scaled[:, n] = refs_scaled[:, n] * xanes_fit_pt[n]
