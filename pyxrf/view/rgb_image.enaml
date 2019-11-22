@@ -14,11 +14,8 @@ import six
 import numpy as np
 from matplotlib.figure import Figure
 
-from pyxrf.model.fileio import print_image
-
 import logging
 logger = logging.getLogger()
-
 
 enamldef RadioButton(DefaultRadioButton):
     minimum_size = (5, 26)
@@ -64,11 +61,6 @@ enamldef ImageRGB(DockItem):
             text = 'Update Plot'
             clicked ::
                 img_model_adv.show_image()
-
-        #PushButton: pb_print:
-        #    text  ='Print'
-        #    clicked ::
-        #        print_image(img_model_adv.fig)
 
         CheckBox: tb_check:
             text = 'Toolbar Visible'
