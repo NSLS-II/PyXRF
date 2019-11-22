@@ -33,7 +33,8 @@ enamldef ImageMain(DockItem):
     Container:
         constraints = [
             vbox(
-                hbox(cbox_file, spacer, pb_all, interpolate_cb, scatter_cb, pb_print),
+                hbox(cbox_file, spacer, pb_all, interpolate_cb, scatter_cb),
+                #hbox(cbox_file, spacer, pb_all, interpolate_cb, scatter_cb, pb_print),
                 hbox(spacer, cb_select, color_select, cb_norm, pixel_select, tb_check),
                 canvas,
             ),
@@ -91,10 +92,11 @@ enamldef ImageMain(DockItem):
             text = 'Toolbar Visible'
             checked := canvas.toolbar_visible
 
-        PushButton: pb_print:
-            text  ='Print'
-            clicked ::
-                print_image(img_model_adv.fig)
+#        PushButton: pb_print:
+#            text  ='Print'
+#            clicked ::
+#                print_image(img_model_adv.fig)
+
         MPLCanvas: canvas:
             toolbar_visible = True
             figure << choose_element.img_model.fig
