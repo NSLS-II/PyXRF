@@ -275,13 +275,25 @@ class LinePlotModel(Atom):
         energy_new : float
             New value of incident energy
         """
+        self.change_incident_energy(change["value"])
+
+    def change_incident_energy(self, energy_new):
+        """
+        The function that perfroms the changes the value of incident energy
+        and upper bound for fitted energy range.
+
+        Parameters
+        ----------
+
+        incident_energy : float
+            New value of incident energy
+        """
 
         margin = 0.8  # Value by which the upper bound of the range used for fitting
         #               exceeds the incident energy. Selected for convenience, but
         #               is subject to change. This is the place to change it to take effect
         #               throughout the program.
 
-        energy_new = change["value"]
         # Limit the number of decimal points for better visual presentation
         energy_new = round(energy_new, ndigits=6)
         # Change the value twice to ensure that all observer functions are called

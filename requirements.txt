@@ -6,7 +6,9 @@ matplotlib
 numpy
 pandas
 pillow
+pystackreg
 requests
+scikit-image
 scipy
 six
-scikit-image
+tifffile

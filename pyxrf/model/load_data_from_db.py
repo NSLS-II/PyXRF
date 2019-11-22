@@ -189,7 +189,7 @@ def fetch_data_from_db(runid, fpath=None,
     return data
 
 
-def make_hdf(start, end=None, *, fname=None,
+def make_hdf(start, end=None, *, fname=None, wd=None,
              fname_add_version=False,
              completed_scans_only=False,
              file_overwrite_existing=False,
@@ -235,6 +235,10 @@ def make_hdf(start, end=None, *, fname=None,
     fname : string, optional keyword parameter
         path to save data file when ``end`` is ``None`` (only one scan is processed).
         File name is created automatically if ``fname`` is not specified.
+    wd : str
+        working directory, the file(s) will be created in this directory. The directory
+        will be created if it does not exist. If ``wd`` is not specified, then the file(s)
+        will be saved to the current directory.
     fname_add_version : bool, keyword parameter
         True: if file already exists, then file version is added to the file name
         so that it becomes unique in the current directory. The version is
@@ -297,11 +301,19 @@ def make_hdf(start, end=None, *, fname=None,
         The number of lines at the end of the scan that will not be saved to the data file.
     """
 
+    if wd:
+        # Create the directory
+        wd = os.path.expanduser(wd)
+        wd = os.path.abspath(wd)  # 'make_dirs' does not accept paths that contain '..'
+        os.makedirs(wd, exist_ok=True)  # Does nothing if the directory already exists
+
     if end is None:
         # Load one scan with ID specified by ``start``
         #   If there is a problem while reading the scan, the exception is raised.
         if fname is None:
             fname = prefix+str(start)+'.h5'
+            if wd:
+                fname = os.path.join(wd, fname)
         fetch_data_from_db(start, fpath=fname,
                            create_each_det=create_each_det,
                            fname_add_version=fname_add_version,
@@ -316,9 +328,11 @@ def make_hdf(start, end=None, *, fname=None,
         #   then the scan is skipped and the next scan is processed
         datalist = range(start, end+1)
         for v in datalist:
-            filename = prefix+str(v)+'.h5'
+            fname = prefix+str(v)+'.h5'
+            if wd:
+                fname = os.path.join(wd, fname)
             try:
-                fetch_data_from_db(v, fpath=filename,
+                fetch_data_from_db(v, fpath=fname,
                                    create_each_det=create_each_det,
                                    fname_add_version=fname_add_version,
                                    completed_scans_only=completed_scans_only,
@@ -877,55 +891,62 @@ def map_data2D_srx(runid, fpath,
 
             detector_field_exists = True
 
-            for m, v in enumerate(e):
+            # This 'try' block was added in response to the request to retrieve data after
+            #   detector failure (empty files were saved by Xpress3). The program is supposed
+            #   to retrieve 'good' data from the scan.
+            try:
+                for m, v in enumerate(e):
 
-                if m == 0:
+                    if m == 0:
 
-                    # Check if detector field does not exist. If not, then the file should not be created.
-                    if detector_field not in v.data:
-                        detector_field_exists = False
-                        break
+                        # Check if detector field does not exist. If not, then the file should not be created.
+                        if detector_field not in v.data:
+                            detector_field_exists = False
+                            break
 
-                    print()
-                    print(f"Collecting data from detector '{detector_name}' (field '{detector_field}')")
+                        print()
+                        print(f"Collecting data from detector '{detector_name}' (field '{detector_field}')")
 
-                    # Determine the number of channels from the size of the table with fluorescence data
-                    num_det = v.data[detector_field].shape[1]
+                        # Determine the number of channels from the size of the table with fluorescence data
+                        num_det = v.data[detector_field].shape[1]
 
-                    # Now allocate space for fluorescence data
-                    if create_each_det is False:
-                        new_data['det_sum'] = np.zeros(new_shape)
-                    else:
-                        for i in range(num_det):
-                            new_data[f'det{i + 1}'] = np.zeros(new_shape)
+                        # Now allocate space for fluorescence data
+                        if create_each_det is False:
+                            new_data['det_sum'] = np.zeros(new_shape)
+                        else:
+                            for i in range(num_det):
+                                new_data[f'det{i + 1}'] = np.zeros(new_shape)
 
-                    print(f"Number of the detector channels: {num_det}")
+                        print(f"Number of the detector channels: {num_det}")
 
-                if m < datashape[0]:   # scan is not finished
-                    if save_scaler is True:
-                        for n in scaler_list[:-1] + [xpos_name]:
-                            min_len = min(v.data[n].size, datashape[1])
-                            data[n][m, :min_len] = v.data[n][:min_len]
-                            # position data or i0 has shorter length than fluor data
-                            if min_len < datashape[1]:
-                                len_diff = datashape[1] - min_len
-                                # interpolation on scaler data
-                                interp_list = (v.data[n][-1] - v.data[n][-3]) / 2 * \
-                                    np.arange(1, len_diff + 1) + v.data[n][-1]
-                                data[n][m, min_len:datashape[1]] = interp_list
-                    fluor_len = v.data[detector_field].shape[0]
-                    if m > 0 and not (m % 10):
-                        print(f"Processed {m} of {n_scan_lines_total} lines ...")
-                    # print(f"m = {m} Data shape {v.data['fluor'].shape} - {v.data['fluor'].shape[1] }")
-                    # print(f"Data keys: {v.data.keys()}")
-                    if create_each_det is False:
-                        for i in range(num_det):
-                            # in case the data length in each line is different
-                            new_data['det_sum'][m, :fluor_len, :] += v.data[detector_field][:, i, :]
-                    else:
-                        for i in range(num_det):
-                            # in case the data length in each line is different
-                            new_data['det'+str(i+1)][m, :fluor_len, :] = v.data[detector_field][:, i, :]
+                    if m < datashape[0]:   # scan is not finished
+                        if save_scaler is True:
+                            for n in scaler_list[:-1] + [xpos_name]:
+                                min_len = min(v.data[n].size, datashape[1])
+                                data[n][m, :min_len] = v.data[n][:min_len]
+                                # position data or i0 has shorter length than fluor data
+                                if min_len < datashape[1]:
+                                    len_diff = datashape[1] - min_len
+                                    # interpolation on scaler data
+                                    interp_list = (v.data[n][-1] - v.data[n][-3]) / 2 * \
+                                        np.arange(1, len_diff + 1) + v.data[n][-1]
+                                    data[n][m, min_len:datashape[1]] = interp_list
+                        fluor_len = v.data[detector_field].shape[0]
+                        if m > 0 and not (m % 10):
+                            print(f"Processed {m} of {n_scan_lines_total} lines ...")
+                        # print(f"m = {m} Data shape {v.data['fluor'].shape} - {v.data['fluor'].shape[1] }")
+                        # print(f"Data keys: {v.data.keys()}")
+                        if create_each_det is False:
+                            for i in range(num_det):
+                                # in case the data length in each line is different
+                                new_data['det_sum'][m, :fluor_len, :] += v.data[detector_field][:, i, :]
+                        else:
+                            for i in range(num_det):
+                                # in case the data length in each line is different
+                                new_data['det'+str(i+1)][m, :fluor_len, :] = v.data[detector_field][:, i, :]
+
+            except Exception as ex:
+                logger.error(f"Error occurred while reading data: {ex}. Trying to retrieve available data ...")
 
             # If the detector field does not exist, then try the next one from the list
             if not detector_field_exists:

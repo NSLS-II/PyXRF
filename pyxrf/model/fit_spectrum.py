@@ -152,6 +152,9 @@ class Fit1D(Atom):
     # Reference to GuessParamModel object
     param_model = Typed(object)
 
+    # Reference to FileIOMOdel
+    io_model = Typed(object)
+
     # Fields for updating user defined peak parameters
     add_userpeak_energy = Float(0.0)
     add_userpeak_fwhm = Float(0.0)
@@ -164,7 +167,7 @@ class Fit1D(Atom):
     name_userpeak_dsigma = Str()
     name_userpeak_area = Str()
 
-    def __init__(self, param_model, *args, **kwargs):
+    def __init__(self, param_model, io_model, *args, **kwargs):
         self.working_directory = kwargs['working_directory']
         self.result_folder = kwargs['working_directory']
         self.default_parameters = kwargs['default_parameters']
@@ -174,6 +177,9 @@ class Fit1D(Atom):
 
         # Reference to GuessParamModel object
         self.param_model = param_model
+
+        # Reference to FileIOMOdel
+        self.io_model = io_model
 
         self.EC = ElementController()
         self.pileup_data = {'element1': 'Si_K',
@@ -512,6 +518,7 @@ class Fit1D(Atom):
         """
         with open(param_path, 'r') as json_data:
             self.default_parameters = json.load(json_data)
+
         #  use queue to save the status of parameters
         self.param_q.append(copy.deepcopy(self.default_parameters))
         self.keep_size()
@@ -728,7 +735,8 @@ class Fit1D(Atom):
             y0 = self.y0 - self.bg
 
         t0 = time.time()
-        self.fit_info = 'Summed spectrum fitting is in process.'
+        self.fit_info = "Spectrum fitting of the sum spectrum (incident energy "\
+                        f"{self.param_dict['coherent_sct_energy']['value']})."
         # app.processEvents()
         # logger.info('-------- '+self.fit_info+' --------')
 
@@ -811,7 +819,8 @@ class Fit1D(Atom):
         elif self.pixel_fit_method == 1:
             pixel_fit = 'nonlinear'
 
-        logger.info('-------- Fitting of single pixels starts. --------')
+        logger.info("-------- Fitting of single pixels starts (incident_energy "
+                    f"{self.param_dict['coherent_sct_energy']['value']} keV) --------")
         t0 = time.time()
         self.pixel_fit_info = 'Pixel fitting is in process.'
         # app.processEvents()
@@ -1632,7 +1641,7 @@ def fit_per_line_nnls(row_num, data,
         fitting values for all the elements at a given row. Background is
         calculated as a summed value. Also residual is included.
     """
-    logger.info('Row number at {}'.format(row_num))
+    logger.debug(f"Row number at {row_num}")
     out = []
     bg_sum = 0
     for i in range(data.shape[0]):
@@ -1888,7 +1897,7 @@ def single_pixel_fitting_controller(input_data, parameter,
     """
     param = copy.deepcopy(parameter)
     if incident_energy is not None:
-        param['coherent_sct_amplitude']['value'] = incident_energy
+        param['coherent_sct_energy']['value'] = incident_energy
     # cut data into proper range
     x, exp_data, fit_range = get_cutted_spectrum_in3D(input_data,
                                                       param['non_fitting_values']['energy_bound_low']['value'],
@@ -1900,6 +1909,18 @@ def single_pixel_fitting_controller(input_data, parameter,
     elist = param['non_fitting_values']['element_list'].split(', ')
     elist = [e.strip(' ') for e in elist]
     e_select, matv, e_area = construct_linear_model(x, param, elist)
+
+    # The initial list of elines may contain lines that are not activated for the incident beam
+    #   energy. This always happens for at least one line when batches of XRF scans obtained for
+    #   the range of beam energies are fitted for the same selection of emission lines to generate
+    #   XANES amps. In such experiments, the line of interest is typically not activated at the
+    #   lower energies of the band. It is impossible to include non-activated lines in the linear
+    #   model. In order to make processing results consistent throughout the batch (contain the
+    #   same set of emission lines), the non-activated lines are represented by maps filled with zeros.
+    elist_non_activated = list(set(elist) - set(e_select))
+    if elist_non_activated:
+        logger.warning("Some of the emission lines in the list are not activated: "
+                       f"{elist_non_activated} at {param['coherent_sct_energy']['value']} keV.")
 
     if comp_elastic_combine is True:
         e_select = e_select[:-1]
@@ -1955,6 +1976,10 @@ def single_pixel_fitting_controller(input_data, parameter,
         result_map, error_map, results = get_area_and_error_nonlinear_fit(e_select,
                                                                           fit_results,
                                                                           matv/matrix_norm)
+
+    # Generate 'zero' maps for the emission lines that were not activated
+    for eline in elist_non_activated:
+        result_map[eline] = np.zeros(shape=exp_data.shape[0:2])
 
     calculation_info = dict()
     if error_map is not None:

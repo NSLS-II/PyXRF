@@ -1,6 +1,8 @@
 import numpy as np
 import scipy
 import time as ttime
+from skbeam.core.constants import XrfElement as Element
+from skbeam.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
 
 import logging
 logger = logging.getLogger()
@@ -11,8 +13,8 @@ logger = logging.getLogger()
 #  and prepared to be moved to scikit-beam (skbeam.core.fitting.xrf_model)
 
 
-def grid_interpolate(data, xx, yy):
-    '''
+def grid_interpolate(data, xx, yy, xx_uniform=None, yy_uniform=None):
+    """
     Interpolate unevenly sampled data to even grid. The new even grid has the same
     dimensions as the original data and covers full range of original X and Y axes.
 
@@ -21,10 +23,18 @@ def grid_interpolate(data, xx, yy):
 
     data : ndarray
         2D array with data values (`xx`, `yy` and `data` must have the same shape)
+        ``data`` may be None. In this case interpolation will not be performed, but uniform
+        grid will be generated. Use this feature to generate uniform grid.
     xx : ndarray
         2D array with measured values of X coordinates of data points (the values may be unevenly spaced)
     yy : ndarray
         2D array with measured values of Y coordinates of data points (the values may be unevenly spaced)
+    xx_uniform : ndarray
+        2D array with evenly spaced X axis values (same shape as `data`). If not provided, then
+        generated automatically and returned by the function.
+    yy_uniform : ndarray
+        2D array with evenly spaced Y axis values (same shape as `data`). If not provided, then
+        generated automatically and returned by the function.
 
     Returns
     -------
@@ -34,34 +44,92 @@ def grid_interpolate(data, xx, yy):
         2D array with evenly spaced X axis values (same shape as `data`)
     yy_uniform : ndarray
         2D array with evenly spaced Y axis values (same shape as `data`)
-    '''
-    if (data.shape != xx.shape) or (data.shape != yy.shape):
-        logger.debug("Function utils.grid_interpolate: shapes of data and coordinate arrays do not match. "
-                     "Grid interpolation is skipped")
-        return data, xx, yy
-    ny, nx = data.shape
-    # Data must be 2-dimensional to use the interpolation procedure
+    """
+
+    # Check if data shape and shape of coordinate arrays match
+    if data is not None:
+        if data.shape != xx.shape:
+            msg = "Shapes of data and coordinate arrays do not match. "\
+                  "(function 'grid_interpolate')"
+            raise ValueError(msg)
+    if xx.shape != yy.shape:
+        msg = "Shapes of coordinate arrays 'xx' and 'yy' do not match. "\
+              "(function 'grid_interpolate')"
+        raise ValueError(msg)
+    if (xx_uniform is not None) and (xx_uniform.shape != xx.shape):
+        msg = "Shapes of data and array of uniform coordinates 'xx_uniform' do not match. "\
+              "(function 'grid_interpolate')"
+        raise ValueError(msg)
+    if (yy_uniform is not None) and (xx_uniform.shape != xx.shape):
+        msg = "Shapes of data and array of uniform coordinates 'yy_uniform' do not match. "\
+              "(function 'grid_interpolate')"
+        raise ValueError(msg)
+
+    ny, nx = xx.shape
+    # Data must be 2-dimensional to use the following interpolation procedure.
     if (nx <= 1) or (ny <= 1):
         logger.debug("Function utils.grid_interpolate: single row or column scan. "
                      "Grid interpolation is skipped")
         return data, xx, yy
+
+    def _get_range(vv):
+        """
+        Returns the range of the data coordinates along X or Y axis. Coordinate
+        data for a single axis is represented as a 2D array ``vv``. The array
+        will have all rows or all columns identical or almost identical.
+        The range is returned as ``vv_min`` (leftmost or topmost value)
+        and ``vv_max`` (rightmost or bottommost value). Note, that ``vv_min`` may
+        be greater than ``vv_max``
+
+        Parameters
+        ----------
+        vv : ndarray
+            2-d array of coordinates
+
+        Returns
+        -------
+        vv_min : float
+            starting point of the range
+        vv_max : float
+            end of the range
+        """
+        # The assumption is that X values are mostly changing along the dimension 1 and
+        #   Y values change along the dimension 0 of the 2D array and only slightly change
+        #   along the alternative dimension. Determine, if the range is for X or Y
+        #   axis based on the dimension in which value change is the largest.
+        if abs(vv[0, 0] - vv[0, -1]) > abs(vv[0, 0] - vv[-1, 0]):
+            vv_min = np.median(vv[:, 0])
+            vv_max = np.median(vv[:, -1])
+        else:
+            vv_min = np.median(vv[0, :])
+            vv_max = np.median(vv[-1, :])
+
+        return vv_min, vv_max
+
+    if xx_uniform is None or yy_uniform is None:
+        # Find the range of axes
+        x_min, x_max = _get_range(xx)
+        y_min, y_max = _get_range(yy)
+        _yy_uniform, _xx_uniform = np.mgrid[y_min: y_max: ny * 1j, x_min: x_max: nx * 1j]
+
+    if xx_uniform is None:
+        xx_uniform = _xx_uniform
+    if yy_uniform is None:
+        yy_uniform = _yy_uniform
+
     xx = xx.flatten()
     yy = yy.flatten()
-    data = data.flatten()
-
-    # Find the range of axes
-    x_min, x_max = np.min(xx), np.max(xx)
-    if xx[0] > xx[-1]:
-        x_min, x_max = x_max, x_min
-    y_min, y_max = np.min(yy), np.max(yy)
-    if yy[0] > yy[-1]:
-        y_min, y_max = y_max, y_min
-    # Create uniform grid
-    yy_uniform, xx_uniform = np.mgrid[y_min: y_max: ny * 1j, x_min: x_max: nx * 1j]
     xxyy = np.stack((xx, yy)).T
-    # Do the fitting
-    data_uniform = scipy.interpolate.griddata(xxyy, data, (xx_uniform, yy_uniform),
-                                              method='linear', fill_value=0)
+
+    if data is not None:
+        # Do the interpolation only if data is provided
+        data = data.flatten()
+        # Do the interpolation
+        data_uniform = scipy.interpolate.griddata(xxyy, data, (xx_uniform, yy_uniform),
+                                                  method='linear', fill_value=0)
+    else:
+        data_uniform = None
+
     return data_uniform, xx_uniform, yy_uniform
 
 
@@ -232,6 +300,65 @@ def gaussian_area_to_max(peak_area, peak_sigma):
         return 0
     else:
         return peak_area / peak_sigma / _get_sqrt_2_pi()
+
+
+def get_full_eline_list():
+    """
+    Returns the list of the emission lines supported by ``scikit-beam``
+    """
+    eline_list = K_LINE + L_LINE + M_LINE
+    return eline_list
+
+
+def check_eline_name(eline_name):
+    """
+    Check if the emission line name is in the list of supported names.
+    Emission name must be in the format: K_K, Fe_K etc. The list includes K, L and M lines.
+    The function is case-sensitive.
+
+    Parameters
+    ----------
+    eline_name : str
+        name of the emission line (K_K, Fe_K etc. for valid emission line). In general
+        the string may contain arbitrary sequence characters, may be empty or None. The
+        function will return True only if the sequence represents emission line from
+        the list of supported emission lines.
+
+    Returns
+        True if ``eline_name`` is in the list of supported emission lines, False otherwise
+    """
+    if not eline_name or not isinstance(eline_name, str):
+        return False
+
+    if eline_name in get_full_eline_list():
+        return True
+    else:
+        return False
+
+
+def check_if_eline_is_activated(elemental_line, incident_energy):
+    """
+    Checks if emission line is activated at given incident beam energy
+
+    Parameters
+    ----------
+
+    elemental_line : str
+        emission line in the format K_K or Fe_K
+    incident_energy : float
+        incident energy in keV
+
+    Returns
+    -------
+        bool value, indicating if the emission line is activated
+    """
+    element = elemental_line.split('_')[0]
+    e = Element(element)
+    if e.cs(incident_energy)['ka1'] == 0:
+        return False
+    else:
+        return True
+
 
 # ==================================================================================
 
