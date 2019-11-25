@@ -8,7 +8,6 @@ from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer
 from enaml.stdlib.fields import FloatField as DefaultFloatField
 from atom.api import *
 from ..model.lineplot import LinePlotModel
-from pyxrf.model.fileio import print_image
 
 from enaml.stdlib.dialog_buttons import DialogButton
 from enaml.stdlib.message_box import critical
@@ -49,7 +48,7 @@ enamldef PlotMain(DockItem):
     Container:
         constraints = [
             vbox(
-                hbox(plot_exp_btn, pb_plot_fit, spacer, pb_print),
+                hbox(plot_exp_btn, pb_plot_fit, spacer),
                 #hbox(cbox1, spacer, pb_eline, add_eline, remove_eline, cbox2, btn_cb_prev, btn_cb_next, checkb),
                 hbox(cbox1, spacer, pb_eline, add_eline, remove_eline, eline_selection, checkb),
                 canvas,
@@ -130,11 +129,6 @@ enamldef PlotMain(DockItem):
                     if cbox2.index < len(cbox2.items) - 1:
                         cbox2.index += 1
                     cbox2.set_focus()  # Return focus to the combo box
-
-        PushButton: pb_print:
-            text  ='Print'
-            clicked ::
-                print_image(plot_model._fig)
 
         PushButton: plot_exp_btn:
             text = 'Plot Selected Exp. Data'

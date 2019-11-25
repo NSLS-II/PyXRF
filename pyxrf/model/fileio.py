@@ -1677,27 +1677,6 @@ def create_movie(data, fname='demo.mp4', dpi=100, cmap='jet',
     ani.save(fname, writer=writer, dpi=dpi)
 
 
-def print_image(fig):
-    """
-    Print function used at beamline only.
-    """
-    if db is not None:
-        hdr = db[-1]
-        if hdr.start.beamline_id == 'HXN':
-            current_dir = os.path.dirname(os.path.realpath(__file__))
-            config_file = 'hxn_pv_config.json'
-            config_path = sep_v.join(current_dir.split(sep_v)[:-2]+['configs', config_file])
-            with open(config_path, 'r') as json_data:
-                config_data = json.load(json_data)
-            fpath = config_data.get('print_path', None)
-            if fpath is None:
-                fpath = '/home/xf03id/Desktop/temp.png'
-            fig.savefig(fpath,  bbox_inches='tight', pad_inches=4)
-            os.system(config_data['print_command'])
-        else:
-            print('Printer is not set up yet.')
-
-
 def spec_to_hdf(wd, spec_file, spectrum_file, output_file, img_shape,
                 ic_name=None, x_name=None, y_name=None):
     """

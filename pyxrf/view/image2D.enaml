@@ -10,11 +10,11 @@ from enaml.core.api import Include, Looper
 
 from enaml.stdlib.fields import FloatField as DefaultFloatField
 
+from enaml.validator import FloatValidator
+
 import six
 import numpy as np
 from matplotlib.figure import Figure
-
-from pyxrf.model.fileio import print_image
 
 import logging
 logger = logging.getLogger()
@@ -31,7 +31,7 @@ enamldef ImageMain(DockItem):
     Container:
         constraints = [
             vbox(
-                hbox(cbox_file, spacer, pb_all, interpolate_cb, scatter_cb, pb_print),
+                hbox(cbox_file, spacer, pb_all, interpolate_cb, scatter_cb),
                 hbox(spacer, cb_select, color_select, cb_norm, pixel_select, tb_check),
                 canvas,
             ),
@@ -89,10 +89,6 @@ enamldef ImageMain(DockItem):
             text = 'Toolbar Visible'
             checked := canvas.toolbar_visible
 
-        PushButton: pb_print:
-            text  ='Print'
-            clicked ::
-                print_image(img_model_adv.fig)
         MPLCanvas: canvas:
             toolbar_visible = True
             figure << choose_element.img_model.fig
@@ -168,12 +164,41 @@ enamldef ChooseElementAdvanced(Window): win:
                                     maximum = 100
                                     low_value >> img_model.limit_dict[loop_item]['low']
                                     high_value >> img_model.limit_dict[loop_item]['high']
+                                    high_value ::
+                                        lw = img_model.range_dict[loop_item]['low']
+                                        hg = img_model.range_dict[loop_item]['high']
+                                        ff_high.text = img_model.format_img_wizard_limit(lw + (hg - lw) * high_value / 100.0)
+
+                                    low_value ::
+                                        lw = img_model.range_dict[loop_item]['low']
+                                        hg = img_model.range_dict[loop_item]['high']
+                                        ff_low.text = img_model.format_img_wizard_limit(lw + (hg - lw) * low_value / 100.0)
                                 Field: ff_low:
-                                    read_only = True
                                     text << img_model.format_img_wizard_limit(img_model.range_dict[loop_item]['low'])
+                                    validator = FloatValidator(minimum=img_model.range_dict[loop_item]['low'],
+                                                               maximum=img_model.range_dict[loop_item]['high'])
+                                    text ::
+                                        val = float(text)  # Validator guarantees that the text can be parsed to float
+                                        lw = img_model.range_dict[loop_item]['low']
+                                        hg = img_model.range_dict[loop_item]['high']
+                                        val = np.clip(val, a_min=lw, a_max=hg)
+                                        s_val = (val - lw) / (hg - lw) * 100
+                                        dual_slider.low_value = int(round(s_val))
+                                        img_model.limit_dict[loop_item]['low'] = s_val
+                                        # Note: the text field is not getting updated, so it remains correct
                                 Field: ff_high:
-                                    read_only = True
                                     text << img_model.format_img_wizard_limit(img_model.range_dict[loop_item]['high'])
+                                    validator = FloatValidator(minimum=img_model.range_dict[loop_item]['low'],
+                                                               maximum=img_model.range_dict[loop_item]['high'])
+                                    text ::
+                                        val = float(text)  # Validator guarantees that the text can be parsed to float
+                                        lw = img_model.range_dict[loop_item]['low']
+                                        hg = img_model.range_dict[loop_item]['high']
+                                        val = np.clip(val, a_min=lw, a_max=hg)
+                                        s_val = (val - lw) / (hg - lw) * 100
+                                        dual_slider.high_value = int(round(s_val))
+                                        img_model.limit_dict[loop_item]['high'] = s_val
+                                        # Note: the text field is not getting updated, so it remains correct
                                 PushButton: reset_btn:
                                     text = 'Reset'
                                     clicked ::

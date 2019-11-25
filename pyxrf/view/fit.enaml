@@ -1072,6 +1072,9 @@ enamldef ElementEdit(Window):
     attr param_model
     attr plot_model
     attr setting_model
+
+    title = "Edit Fitting Parameters for Selected Emission Lines"
+
     Container:
         constraints = [vbox(hbox(cal_pbn, spacer),
                             cmb_element,
@@ -1080,7 +1083,7 @@ enamldef ElementEdit(Window):
         padding = Box(5, 5, 5, 5)
 
         PushButton: cal_pbn:
-            text = 'Update & Plot'
+            text = 'Update and Plot'
             clicked ::
                 calculate_spectrum_helper(fit_model, plot_model,
                                           param_model, setting_model)
