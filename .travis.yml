@@ -27,10 +27,13 @@ matrix:
 
 script:
 - flake8
-- coverage run run_tests.py
-- coverage report -m
 - |
-  if [ $BUILD_DOCS ]; then
+  if [ $RUN_VALIDATION == 'true' ]; then
+    coverage run run_tests.py
+    coverage report -m
+  fi
+- |
+  if [ $RUN_VALIDATION == 'true' AND $BUILD_DOCS ]; then
     pip install -r requirements-docs.txt
     set -e  # If any of the following steps fail, just stop at that point.
     make -C docs html  # Build the documentation.
