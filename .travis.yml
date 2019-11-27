@@ -27,6 +27,8 @@ matrix:
 
 script:
 - flake8
+- coverage run run_tests.py
+- coverage report -m
 - |
   if [ $BUILD_DOCS ]; then
     pip install -r requirements-docs.txt
