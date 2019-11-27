@@ -212,8 +212,90 @@ def normalize_data_by_scaler(data_in, scaler, *, data_name=None, name_not_scalab
     return data_out
 
 
-# ===============================================================================
+def fitting_admm(data, ref_spectra, *, rate=0.2, maxiter=50, epsilon=1e-30):
 
+
+    assert ref_spectra.ndim == 2, "The array 'ref_spectra' must have 2 dimensions"
+
+    n_pts = data.shape[0]
+    data_dims = data.shape[1:]
+    n_pts_2 = ref_spectra.shape[0]
+    n_refs = ref_spectra.shape[1]
+
+    assert n_pts == n_pts_2, f"ADMM fitting: number of spectrum points in data ({n_pts}) "\
+                             f"and references ({n_pts_2}) do not match."
+
+    assert rate > 0.0, f"ADMM fitting: parameter 'rate' is zero or negative ({rate:.6g})"
+
+    assert maxiter > 0, f"ADMM fitting: parameter 'maxiter' is zero or negative ({rate})"
+
+    assert epsilon > 0.0, f"ADMM fitting: parameter 'epsilon' is zero or negative ({rate:.6g})"
+
+    # Depending on 'data_dim', there could be three cases
+    #   'data_dim' is empty - data is 1D array representing a single point, 1D array of weights
+    #                         will be returned, data must be converted to 2D array for processing
+    #   'data_dim' has one element - data is 2D array, representing one line of pixels, process as is
+    #   'data_dim' has more than one element - data is multidimensional array representing
+    #                        multidimensional image, reshape to 1D data (2D array) for processing
+    #                        and the convert back to multidimensional representation
+
+    if not data_dims:
+        data_1D = np.expand_dims(data, axis=1)
+    elif len(data_dims) > 1:
+        data_1D = np.reshape(data, [n_pts, np.prod(data_dims)])
+    else:
+        data_1D = data
+
+    _, n_pixels = data_1D.shape
+
+    y = data_1D
+    # Calculate some quantity to be used in the iteration
+    A = ref_spectra
+    At = np.transpose(A)
+
+    z = np.matmul(At, y)
+    c = np.matmul(At, A)
+
+    # Initialize variables
+    w = np.ones(shape=[n_refs, n_pixels])
+    u = np.zeros(shape=[n_refs, n_pixels])
+
+    # Feasibility test: x == w
+    convergence = np.zeros(shape=[maxiter])
+    feasibility = np.zeros(shape=[maxiter])
+
+    dg = np.eye(n_refs, dtype=float) * rate
+    m1 = np.linalg.inv((c + dg))
+
+    n_iter = 0
+    for i in range(maxiter):
+        m2 = z + (w-u) * rate
+        x = np.matmul(m1, m2)
+        w_updated = x + u
+        w_updated = w_updated.clip(min=0)
+        u = u + x - w_updated
+
+        conv = np.linalg.norm(w_updated - w) / np.linalg.norm(w_updated)
+        convergence[i] = conv
+        feasibility[i] = np.linalg.norm(x - w_updated)
+
+        w = w_updated
+
+        if conv < epsilon:
+            n_iter = i + 1
+            break
+
+    if not data_dims:
+        w = np.squeeze(w, axis=1)
+    elif len(data_dims) > 1:
+        w = np.reshape(w, np.insert(data_dims, 0, n_refs))
+
+    convergence = convergence[:n_iter]
+    feasibility = feasibility[:n_iter]
+
+    return w, convergence, feasibility
+
+# ===============================================================================
 
 # ===============================================================================
 # The following functions are prepared to be moved to scikit-beam
