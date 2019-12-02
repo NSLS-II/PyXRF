@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 
-from ..model.utils import fitting_admm
+from ..utils import fitting_admm
 
 # Tolerance used for comparing floating point numbers
 tolerance_compare_floats = 1e-30
