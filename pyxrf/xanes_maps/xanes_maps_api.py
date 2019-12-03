@@ -21,7 +21,7 @@ logger = logging.getLogger()
 
 
 def build_xanes_map(*args, **kwargs):
-    """
+    r"""
     A wrapper for the function ``build_xanes_map_api`` that catches exceptions
     and prints the error message. Use this wrapper to run processing manually from
     iPython and use ``build_xanes_map_api`` for custom scripts.
@@ -56,7 +56,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
                         plot_use_position_coordinates=True,
                         plot_position_axes_units="$\mu $m",  # noqa: W605
                         output_file_formats=["tiff"]):
-    """
+    r"""
     The function builds XANES maps based on a set of XRF scans. The maps may be built based
     on data from the following sources:
 
@@ -263,7 +263,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
 
     Throws an exception if processing can not be completed. The error message may be printed to
     indicate the reason of the failure to the user.
-    """  # noqa: W605
+    """
 
     if wd is None:
         wd = '.'
@@ -394,7 +394,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
 
 
 def _load_data_from_databroker(*, start_id, end_id, wd_xrf):
-    """
+    r"""
     Implements the first step of processing sequence: loading the batch of scan data
     from databroker.
 
@@ -427,7 +427,7 @@ def _load_data_from_databroker(*, start_id, end_id, wd_xrf):
 
 def _process_xrf_data(*, start_id, end_id, wd_xrf, param_file_name, eline_selected,
                       incident_energy_low_bound, use_incident_energy_from_param_file):
-    """
+    r"""
     Implements the second step of the processing sequence: processing of XRF scans
     and generation of XRF maps
 
@@ -515,7 +515,7 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
                         eline_selected, eline_alignment, alignment_starts_from,
                         scaler_name, ref_energy, ref_data, incident_energy_shift_keV,
                         interpolation_enable, alignment_enable, seq_generate_xanes_map):
-    """
+    r"""
     Implements the third step of the processing sequence: computation of XANES maps based
     on the set of XRF maps from scan in the range ``start_id`` .. ``end_id``.
 
@@ -688,7 +688,7 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
 
 
 def _save_xanes_processing_results(*, wd, eline_selected, ref_labels, output_file_formats, processing_results):
-    """
+    r"""
     Implements one of the final steps of the processing sequence: saving processing results.
     Currently only TIFF files are saved: TIFF with the aligned stack of XRF maps and TIFF with
     XANES maps. In addition, a .txt file is saved that contains of the list of images included in
@@ -743,7 +743,7 @@ def _save_xanes_processing_results(*, wd, eline_selected, ref_labels, output_fil
 def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
                              plot_position_axes_units, plot_use_position_coordinates,
                              eline_selected, processing_results):
-    """
+    r"""
     Implements one of the final steps of the processing sequence: plotting processing results.
     The data is displayed on a set of Matplotlib figures:
 
@@ -787,7 +787,7 @@ def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
 
     processing_results : dict
         Results of processing returned by the function '_compute_xanes_maps'.
-    """  # noqa: W605
+    """
 
     positions_x_uniform = processing_results["positions_x_uniform"]
     positions_y_uniform = processing_results["positions_y_uniform"]
@@ -835,7 +835,7 @@ def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
 
 
 def _load_dataset_from_hdf5(*, start_id, end_id, wd_xrf, load_fit_results=True):
-    """
+    r"""
     Load dataset from processed HDF5 files
 
     Parameters
@@ -889,7 +889,7 @@ def _load_dataset_from_hdf5(*, start_id, end_id, wd_xrf, load_fit_results=True):
 
 def _check_dataset_consistency(*, scan_ids, scan_img_dict, files_h5, scaler_name,
                                eline_selected, eline_alignment):
-    """
+    r"""
     Perform some checks for consistency of input data and parameters
     before starting XANES mapping steps. The following processing steps
     assume that the data is consistent.
@@ -968,7 +968,7 @@ def _check_dataset_consistency(*, scan_ids, scan_img_dict, files_h5, scaler_name
         raise RuntimeError(msg)
 
     def _check_for_specific_elines(img_data_keys, elines, files_h5, scan_ids, msg_phrase):
-        """
+        r"""
         Check if all emission lines from the list are present in all scan data
         """
         slist = []
@@ -988,7 +988,7 @@ def _check_dataset_consistency(*, scan_ids, scan_img_dict, files_h5, scaler_name
                                    msg_phrase=msg_phrase)
 
     def _check_for_identical_eline_key_set(img_data_keys, img_data_keys_union):
-        """
+        r"""
         Check if all processed datasets contain data for the same emission lines.
         If not, then processing has to be run again on the datasets
         """
@@ -1065,7 +1065,7 @@ def _check_dataset_consistency(*, scan_ids, scan_img_dict, files_h5, scaler_name
 #   Functions for parameter manipulation
 
 def adjust_incident_beam_energies(scan_energies, emission_line):
-    """
+    r"""
     Adjust the values of incident beam energy in the list ``scan_energies`` so that
     fitting for the ``emission_line`` could be done at each energy value. Adjustment
     is done by finding the lowest incident energy value in the list that still activates
@@ -1103,7 +1103,7 @@ def adjust_incident_beam_energies(scan_energies, emission_line):
 #   Functions used for processing
 
 def _get_uniform_grid(positions_x_all, positions_y_all):
-    """
+    r"""
     Compute common uniform grid based on position coordinates for a stack of maps.
     The grid is computed in two steps: the median of X and Y coordinates is computed
     for each point of the map over the stack of maps (for X and Y positions the 3D array
@@ -1141,7 +1141,7 @@ def _get_uniform_grid(positions_x_all, positions_y_all):
 
 
 def _get_eline_data(scan_img_dict, scaler_name):
-    """
+    r"""
     Rearrange data for more convenient processing: 1. Create the list of available emission lines.
     2. Create the dictionary of stacks of XRF maps: key - emission line name, value - 3D ndarray of
     the shape (K, M, N), where K is the number of maps in the stack for the emission line, each
@@ -1186,7 +1186,7 @@ def _get_eline_data(scan_img_dict, scaler_name):
 
 
 def _align_stacks(eline_data, eline_alignment, alignment_starts_from="top"):
-    """
+    r"""
     Align stacks of maps from the dictionary ``eline_data`` based on the stack for
     emission line specified by ``eline_alignment``. Alignment may be performed
     starting from the ``"top"`` (default) or the ``"bottom"`` of the stack.
@@ -1240,7 +1240,7 @@ def _align_stacks(eline_data, eline_alignment, alignment_starts_from="top"):
 
 
 def _interpolate_references(energy, energy_refs, absorption_refs):
-    """
+    r"""
     Interpolate XANES references
 
     Parameters
@@ -1272,7 +1272,7 @@ def _interpolate_references(energy, energy_refs, absorption_refs):
 
 
 def _fit_xanes_map(map_data, absorption_refs):
-    """
+    r"""
     Compute XANES map on the stack of XRF maps (XANES fitting).
 
     Parameters
@@ -1321,7 +1321,7 @@ def _fit_xanes_map(map_data, absorption_refs):
 def show_image_stack(*, eline_data, energies, eline_selected,
                      positions_x=None, positions_y=None, axes_units=None,
                      xanes_map_data=None, absorption_refs=None, ref_labels=None):
-    """
+    r"""
     Display XRF Map stack
 
 
@@ -1344,7 +1344,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
         def __init__(self, *, energy, stack_all_data, label_default,
                      positions_x=None, positions_y=None, axes_units=None,
                      xanes_map_data=None, absorption_refs=None, ref_labels=None):
-            """
+            r"""
             Parameters
             ----------
 
@@ -1376,7 +1376,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             xanes_map_data : 3D ndarray
 
             absorption_refs : 2D ndarray
-            """  # noqa: W605
+            """
 
             self.label_fontsize = 15
 
@@ -1494,7 +1494,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                 transform=self.ax_fluor_plot.axes.transAxes)
 
         def create_buttons_each_label(self):
-            """
+            r"""
             Create separate button for each label. The maximum number of labels
             that can be assigned unique buttons is 10. More buttons may
             not fit the screen
@@ -1658,7 +1658,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
 
 def plot_xanes_map(map_data, *, label=None, block=True,
                    positions_x=None, positions_y=None, axes_units=None, map_margin=0):
-    """
+    r"""
     Plot XANES map
 
     Parameters
@@ -1697,7 +1697,7 @@ def plot_xanes_map(map_data, *, label=None, block=True,
     -------
         Reference to the figure containing the plot
 
-    """  # noqa: W605
+    """
 
     # Check existence or the size of 'positions_x' and 'positions_y' arrays
     ny, nx = map_data.shape
@@ -1742,7 +1742,7 @@ def plot_xanes_map(map_data, *, label=None, block=True,
 
 def plot_absorption_references(*, ref_energy, ref_data, scan_energies,
                                scan_absorption_refs, ref_labels=None, block=True):
-    """
+    r"""
     Plots absorption references
 
     Parameters
@@ -1798,7 +1798,7 @@ def plot_absorption_references(*, ref_energy, ref_data, scan_energies,
 
 
 def _get_img_data(img_dict, key, detector=None):
-    """
+    r"""
     Retrieves entry of ``img_dict``. The difficulty is that the dataset key (first key)
     contains file name so it is variable, so at the first step the appropriate key has to
     be found. Then the data for the element line or scaler (specified by ``key``)
@@ -1829,7 +1829,7 @@ def _get_img_keys(img_dict, detector=None):
 
 
 def _get_eline_keys(key_list):
-    """
+    r"""
     Returns list of emission line names that are present in the list of keys.
     The function checks if key matches the pattern for the emission line name,
     it does not check if the name is valid.
@@ -1854,7 +1854,7 @@ def _get_eline_keys(key_list):
 
 
 def _get_dataset_name(img_dict, detector=None):
-    """
+    r"""
     Finds the name of dataset with fitted data in the ``img_dict``.
     Dataset name contains file name in it, so it is changing from file to file.
     The dataset ends with suffix '_fit'. Datasets for individual detector
@@ -1887,7 +1887,7 @@ def _get_dataset_name(img_dict, detector=None):
 
 
 def read_ref_data(ref_file_name):
-    """
+    r"""
     Read reference data from CSV file (for XANES fitting). The first column of the file must
     contain incident energy values. The first line of the file must contain labels for each column.
     The labels must be comma separated. If labels contain separator ',', they must be enclosed in
@@ -1960,7 +1960,7 @@ def _save_xanes_maps_to_tiff(*, wd, eline_data_aligned, eline_selected,
                              scan_energies, scan_energies_shifted, scan_ids,
                              files_h5, positions_x, positions_y):
 
-    """
+    r"""
     Saves the results of processing in stacked .tiff files and creates .txt log file
     with the list of contents of .tiff files.
     It is assumed that the input data is consistent.
