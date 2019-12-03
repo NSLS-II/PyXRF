@@ -3,6 +3,7 @@ import scipy
 import time as ttime
 from skbeam.core.constants import XrfElement as Element
 from skbeam.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
+from scipy.optimize import nnls
 
 import logging
 logger = logging.getLogger()
@@ -171,12 +172,12 @@ def normalize_data_by_scaler(data_in, scaler, *, data_name=None, name_not_scalab
     '''
 
     if data_in is None or scaler is None:  # Nothing to scale
-        logger.debug("Function utils.gnormalize_data_by_scaler: data and/or scaler arrays are None. "
+        logger.debug("Function utils.normalize_data_by_scaler: data and/or scaler arrays are None. "
                      "Data scaling is skipped.")
         return data_in
 
     if data_in.shape != scaler.shape:
-        logger.debug("Function utils.gnormalize_data_by_scaler: data and scaler arrays have different shape. "
+        logger.debug("Function utils.normalize_data_by_scaler: data and scaler arrays have different shape. "
                      "Data scaling is skipped.")
         return data_in
 
@@ -192,7 +193,7 @@ def normalize_data_by_scaler(data_in, scaler, *, data_name=None, name_not_scalab
     #   check if there is at least one nonzero element
     n_nonzero = np.count_nonzero(scaler)
     if not n_nonzero:
-        logger.debug("Function utils.gnormalize_data_by_scaler: scaler is all-zeros array. "
+        logger.debug("Function utils.normalize_data_by_scaler: scaler is all-zeros array. "
                      "Data scaling is skipped.")
         do_scaling = False
 
@@ -212,24 +213,82 @@ def normalize_data_by_scaler(data_in, scaler, *, data_name=None, name_not_scalab
     return data_out
 
 
-def fitting_admm(data, ref_spectra, *, rate=0.2, maxiter=50, epsilon=1e-30):
+# ======================================================================================
+#   Optimization algorithms
+
+def rfactor_compute(spectrum, fit_results, ref_spectra):
+    r"""
+    Computes R-factor for the fitting results
+
+    Parameters
+    ----------
+    spectrum : ndarray
+        spectrum data on which fitting is performed (N elements)
+
+    fit_results : ndarray
+        results of fitting (coefficients, K elements)
+
+    ref_spectra : 2D ndarray
+        reference spectra used for fitting (NxK element array)
+
+    Results
+    -------
+        float, the value of R-factor
+    """
+
+    # Check if input parameters are valid
+    assert spectrum.ndim == 1, "Parameter 'spectrum' must be 1D array, ({spectrum.ndim})"
+    assert fit_results.ndim == 1, "Parameter 'fit_results' must be 1D array, ({fit_results.ndim})"
+    assert ref_spectra.ndim == 2, "Parameter 'ref_spectra' must be 2D array, ({ref_spectra.ndim})"
+    assert len(spectrum) == ref_spectra.shape[0], \
+        "Arrays 'spectrum' ({spectrum.shape}) and 'ref_spectra' ({ref_spectra.shape}) "\
+        "must have the same number of data points"
+    assert len(fit_results) == ref_spectra.shape[1], \
+        "Arrays 'fit_results' ({fit_results.shape}) and 'ref_spectra' ({ref_spectra.shape}) "\
+        "must have the same number of spectrum points"
+
+    # Compute R-factor
+    dif = spectrum - np.matmul(fit_results, np.transpose(ref_spectra))
+    dif_sum = np.sum(np.abs(dif))
+    data_sum = np.sum(np.abs(spectrum))
+    # Avoid accidental division by zero (or a very small number)
+    return dif_sum / data_sum if data_sum > 1e-30 else 0
 
 
-    assert ref_spectra.ndim == 2, "The array 'ref_spectra' must have 2 dimensions"
+def fitting_spectrum(data, ref_spectra, *, method="nnls", axis=0, maxiter=100, rate=0.2, epsilon=1e-30):
+
+    # Explicitely check if one of the supported optimisation method is specified
+    method=method.lower()
+    supported_fitting_methods = ("nnls", "admm")
+    assert method in supported_fitting_methods, \
+        f"Fitting method '{method}' is not supported"
+
+    data = np.asarray(data)
+    ref_spectra = np.asarray(ref_spectra)
+
+    assert ref_spectra.ndim == 2, f"The array 'ref_spectra' must have 2 dimensions "\
+                                  f"instead of {ref_spectra.ndim}"
+
+    assert (axis >= -data.ndim) and (axis < data.ndim), \
+            f"Specified axis {axis} does not exist in data array. "\
+            f"Allowed values: {-data.ndim} .. {data.ndim - 1}"
+
+    # Switch to standard data view (spectrum points along axis==0)
+    data = np.moveaxis(data, axis, 0)
 
     n_pts = data.shape[0]
     data_dims = data.shape[1:]
     n_pts_2 = ref_spectra.shape[0]
     n_refs = ref_spectra.shape[1]
 
-    assert n_pts == n_pts_2, f"ADMM fitting: number of spectrum points in data ({n_pts}) "\
+    assert n_pts == n_pts_2, f"The number of spectrum points in data ({n_pts}) "\
                              f"and references ({n_pts_2}) do not match."
 
-    assert rate > 0.0, f"ADMM fitting: parameter 'rate' is zero or negative ({rate:.6g})"
+    assert rate > 0.0, f"The parameter 'rate' is zero or negative ({rate:.6g})"
 
-    assert maxiter > 0, f"ADMM fitting: parameter 'maxiter' is zero or negative ({rate})"
+    assert maxiter > 0, f"The parameter 'maxiter' is zero or negative ({rate})"
 
-    assert epsilon > 0.0, f"ADMM fitting: parameter 'epsilon' is zero or negative ({rate:.6g})"
+    assert epsilon > 0.0, f"The parameter 'epsilon' is zero or negative ({rate:.6g})"
 
     # Depending on 'data_dim', there could be three cases
     #   'data_dim' is empty - data is 1D array representing a single point, 1D array of weights
@@ -246,9 +305,120 @@ def fitting_admm(data, ref_spectra, *, rate=0.2, maxiter=50, epsilon=1e-30):
     else:
         data_1D = data
 
-    _, n_pixels = data_1D.shape
+    if method == "admm":
+        weights, rfactor, convergence, feasibility = \
+            _fitting_admm(data_1D, ref_spectra, rate=rate, maxiter=maxiter, epsilon=epsilon)
+    else:
+        # Call the default "nnls" method, since this is the only choice left.
+        weights, rfactor, residual = _fitting_nnls(data_1D, ref_spectra, maxiter=maxiter)
 
-    y = data_1D
+    # Reshape the fitting results in case of a single pixel or multidimensional map
+    if not data_dims:
+        weights = np.squeeze(weights, axis=1)
+        rfactor = rfactor[0]
+        if method == "nnls":
+            residual = residual[0]
+    elif len(data_dims) > 1:
+        weights = np.reshape(weights, np.insert(data_dims, 0, n_refs))
+        rfactor = np.reshape(rfactor, data_dims)
+        if method == "nnls":
+            residual = np.reshape(residual, data_dims)
+
+    # Now swap back the results of fitting (coefficients are along the same axis as the spectrum points)
+    weights = np.moveaxis(weights, 0, axis)
+
+    # The results returned for each optimization method include 'weights' and 'rfactor'
+    #   Additional results are different for each optimisation method and are returned as
+    #   elements of the dictionary ``results_dict``.
+    if method == "admm":
+        results_dict = {
+            "method": method,
+            "convergence": convergence,
+            "feasibility": feasibility,
+        }
+    else:
+        results_dict = {
+            "method": method,
+            "residual": residual,
+        }
+
+    return weights, rfactor, results_dict
+
+
+def _fitting_nnls(data, ref_spectra, *, maxiter=100):
+    r"""
+    Compute XANES map on the stack of XRF maps (XANES fitting).
+
+    Parameters
+    ----------
+
+    data : ndarray(float), 3D
+        stack of XRF maps, shape (K, M, N), where K is the number of maps in the stack,
+        each map has size of MxN pixels.
+
+    absorption_refs : ndarray(float), 2D
+        array of references, shape (K, P), where P is the number of references.
+
+    Returns
+    -------
+
+    map_data_fitted : ndarray(float), 3D
+        stack of XANES maps, shape (P, M, N), where P is the number of references.
+
+    map_rfactor : ndarray(float), 2D
+        map that represents R-factor for the fitting, shape (M,N).
+    """
+
+    assert data.ndim == 2, "Data array 'data' must have 2 dimensions"
+    assert ref_spectra.ndim == 2, "Data array 'ref_spectra' must have 2 dimensions"
+
+    n_pts = data.shape[0]
+    n_pixels = data.shape[1]
+    n_pts_2 = ref_spectra.shape[0]
+    n_refs = ref_spectra.shape[1]
+
+    assert n_pts == n_pts_2, f"The number of spectrum points in data ({n_pts}) "\
+                             f"and references ({n_pts_2}) do not match."
+
+    assert maxiter > 0, f"The parameter 'maxiter' is zero or negative ({maxiter})"
+
+    map_data_fitted = np.zeros(shape=[n_refs, n_pixels])
+    map_rfactor = np.zeros(shape=[n_pixels])
+    map_residual = np.zeros(shape=[n_pixels])
+    for n in range(n_pixels):
+        map_sel = data[:, n]
+        result, residual = nnls(ref_spectra, map_sel, maxiter=maxiter)
+
+        rfactor = rfactor_compute(map_sel, result, ref_spectra)
+
+        map_data_fitted[:, n] = result
+        map_rfactor[n] = rfactor
+        map_residual[n] = residual
+
+    return map_data_fitted, map_rfactor, map_residual
+
+
+def _fitting_admm(data, ref_spectra, *, rate=0.2, maxiter=100, epsilon=1e-30):
+
+
+    assert data.ndim == 2, "Data array 'data' must have 2 dimensions"
+    assert ref_spectra.ndim == 2, "Data array 'ref_spectra' must have 2 dimensions"
+
+    n_pts = data.shape[0]
+    n_pixels = data.shape[1]
+    n_pts_2 = ref_spectra.shape[0]
+    n_refs = ref_spectra.shape[1]
+
+    assert n_pts == n_pts_2, f"ADMM fitting: number of spectrum points in data ({n_pts}) "\
+                             f"and references ({n_pts_2}) do not match."
+
+    assert rate > 0.0, f"ADMM fitting: parameter 'rate' is zero or negative ({rate:.6g})"
+
+    assert maxiter > 0, f"ADMM fitting: parameter 'maxiter' is zero or negative ({rate})"
+
+    assert epsilon > 0.0, f"ADMM fitting: parameter 'epsilon' is zero or negative ({rate:.6g})"
+
+    y = data
     # Calculate some quantity to be used in the iteration
     A = ref_spectra
     At = np.transpose(A)
@@ -285,15 +455,15 @@ def fitting_admm(data, ref_spectra, *, rate=0.2, maxiter=50, epsilon=1e-30):
             n_iter = i + 1
             break
 
-    if not data_dims:
-        w = np.squeeze(w, axis=1)
-    elif len(data_dims) > 1:
-        w = np.reshape(w, np.insert(data_dims, 0, n_refs))
+    # Compute R-factor
+    rfactor = np.zeros(shape=[n_pixels])
+    for n in range(n_pixels):
+        rfactor[n] = rfactor_compute(data[:, n], w[:, n], ref_spectra)
 
     convergence = convergence[:n_iter]
     feasibility = feasibility[:n_iter]
 
-    return w, convergence, feasibility
+    return w, rfactor, convergence, feasibility
 
 # ===============================================================================
 
