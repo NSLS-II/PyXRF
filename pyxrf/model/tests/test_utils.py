@@ -7,6 +7,7 @@ from ..utils import rfactor_compute, _fitting_nnls, _fitting_admm, fitting_spect
 # ------------------------------------------------------------------------------
 #  useful functions for generating of datasets for testing of fitting algorithms
 
+
 def _generate_gaussian_spectra(x_values, gaussian_centers, gaussian_std):
 
     assert len(gaussian_centers) == len(gaussian_std), \
@@ -21,6 +22,7 @@ def _generate_gaussian_spectra(x_values, gaussian_centers, gaussian_std):
 
     return spectra
 
+
 class DataForFittingTest:
     """
     The class that generates and stores dataset used for testing of fitting algorithms
@@ -32,8 +34,8 @@ class DataForFittingTest:
 
         self.generate_dataset(**kwargs)
 
-    def generate_dataset(self, *, n_pts = 101, pts_range=(0, 100),
-                         n_spectra = 3, n_gaus_centers_range=(20,80), gauss_std_range=(10, 20),
+    def generate_dataset(self, *, n_pts=101, pts_range=(0, 100),
+                         n_spectra=3, n_gaus_centers_range=(20, 80), gauss_std_range=(10, 20),
                          weights_range=(0.1, 1), n_data_dimensions=(8,), axis=0):
 
         if n_data_dimensions:
@@ -48,17 +50,17 @@ class DataForFittingTest:
         gaussian_centers = np.mgrid[n_gaus_centers_range[0]: n_gaus_centers_range[1]: n_spectra * 1j]
         # Standard deviations are uniformly distributed in the range
         gaussian_std = np.random.rand(n_spectra) * \
-                       (gauss_std_range[1] - gauss_std_range[0]) + gauss_std_range[0]
+            (gauss_std_range[1] - gauss_std_range[0]) + gauss_std_range[0]
 
         self.spectra = _generate_gaussian_spectra(x_values=self.x_values,
-                                                 gaussian_centers=gaussian_centers,
-                                                 gaussian_std=gaussian_std)
+                                                  gaussian_centers=gaussian_centers,
+                                                  gaussian_std=gaussian_std)
 
         # The number of pixels in the flattened multidimensional image
         dims = np.prod(data_dim)
         # Generate data for every pixel of the multidimensional image
         self.weights = np.random.rand(n_spectra, dims) * \
-                       (weights_range[1] - weights_range[0]) + weights_range[0]
+            (weights_range[1] - weights_range[0]) + weights_range[0]
         self.data_input = np.matmul(self.spectra, self.weights)
 
         if n_data_dimensions:
@@ -87,12 +89,12 @@ class DataForFittingTest:
             err_msg="Estimated weights do not match the weights used for dataset generation")
 
 
-def test_rfactor_compute():
+def test_rfactor_compute_testing_single_spectrum():
     r"""
     Basic test for 'rfactor_compute' function. Performed once on a random dataset.
+    The case of a single spectra ('spectrum' and 'fit_results' are 1D arrays)
     """
-    n_pts = 100
-    n_refs = 5
+    n_pts, n_refs = 100, 5
 
     # Matrix with reference spectra
     ref_spectra = np.random.randn(n_pts, n_refs)
@@ -115,34 +117,83 @@ def test_rfactor_compute():
         err_msg=f"Error in evaluating R-factor: {rfactor}, expected is {rfactor_expected}")
 
 
+def test_rfactor_compute_testing_multiple_spectra():
+    r"""
+    Basic test for 'rfactor_compute' function. Performed once on a random dataset.
+    The case of multiple spectra ('spectrum' and 'fit_results' are 2D arrays)
+    """
+    n_pts, n_refs, n_spec = 100, 5, 10
+
+    # Matrix with reference spectra
+    ref_spectra = np.random.randn(n_pts, n_refs)
+    # Weights
+    fit_results = np.random.randn(n_refs, n_spec)
+    # Observed data (pure, no residual)
+    b = np.matmul(ref_spectra, fit_results)
+    # Residual
+    res = np.random.randn(n_pts, n_spec)
+    spectrum = b + res
+
+    # This is the equation used to compute R-factor
+    rfactor_expected = np.sum(abs(res), axis=0)/np.sum(abs(spectrum), axis=0)
+
+    # Now call the function
+    rfactor = rfactor_compute(spectrum, fit_results, ref_spectra)
+
+    npt.assert_almost_equal(
+        rfactor, rfactor_expected,
+        err_msg=f"Error in evaluating R-factor: {rfactor}, expected is {rfactor_expected}")
+
+
 def test_rfactor_compute_fail():
     r"""
     Function rfactor_compute. Test the cases that will cause the function to fail.
     """
 
-    n_pts = 100
-    n_refs = 5
+    n_pts, n_refs, n_spec = 100, 5, 3
 
     # There will be no computations performed, so all zeros are good enough
     ref_spectra = np.zeros(shape=[n_pts, n_refs])
     fit_results = np.zeros(shape=[n_refs])
     spectrum = np.zeros(shape=[n_pts])
 
+    fit_results_2D = np.zeros(shape=[n_refs, n_spec])
+    spectrum_2D = np.zeros(shape=[n_pts, n_spec])
+
+    # For testing of wrong dimensionality of the arrays, otherwise
+    #   those are meaningless arrays
+    ref_spectra_3D = np.zeros(shape=[n_pts, n_refs, n_refs])
+    spectrum_3D = np.zeros(shape=[n_pts, n_spec, n_spec])
+
     # Wrong dimensions of parameter 'spectrum'
-    with pytest.raises(AssertionError, match="must be 1D array"):
-        rfactor_compute(ref_spectra, fit_results, ref_spectra)
-    # Wrong dimensions of parameter 'fit_results'
-    with pytest.raises(AssertionError, match="must be 1D array"):
-        rfactor_compute(spectrum, ref_spectra, ref_spectra)
+    with pytest.raises(AssertionError, match="spectrum' must be 1D or 2D array"):
+        rfactor_compute(spectrum_3D, fit_results, ref_spectra)
+
+    # No match between dimensions of 'spectrum' and 'fit_results' dimensionality
+    with pytest.raises(AssertionError,
+                       match="Spectrum data .+ and fitting results .+ "
+                       f"must have the same number of dimensions"):
+        rfactor_compute(spectrum, fit_results_2D, ref_spectra)
+
     # Wrong dimensions of parameter 'ref_spectra'
-    with pytest.raises(AssertionError, match="must be 2D array"):
-        rfactor_compute(spectrum, fit_results, fit_results)
+    with pytest.raises(AssertionError, match="'ref_spectra' must be 2D array"):
+        rfactor_compute(spectrum, fit_results, ref_spectra_3D)
+
     # Mismatch between the number of data points
     with pytest.raises(AssertionError, match="must have the same number of data points"):
         rfactor_compute(np.delete(spectrum, -1), fit_results, ref_spectra)
+    with pytest.raises(AssertionError, match="must have the same number of data points"):
+        rfactor_compute(np.delete(spectrum_2D, -1, axis=0), fit_results_2D, ref_spectra)
+
     # Mismatch between the number of spectrum points
     with pytest.raises(AssertionError, match="must have the same number of spectrum points"):
         rfactor_compute(spectrum, np.delete(fit_results, -1), ref_spectra)
+    with pytest.raises(AssertionError, match="must have the same number of spectrum points"):
+        rfactor_compute(spectrum_2D, np.delete(fit_results_2D, -1, axis=0), ref_spectra)
+
+    # Mismatch between the number of columns in 'fit_results' and 'spectrum'
+    with pytest.raises(AssertionError, match="must have the same number of columns"):
+        rfactor_compute(spectrum_2D, np.delete(fit_results_2D, -1, axis=1), ref_spectra)
 
 
 @pytest.mark.parametrize("dataset_params", [
@@ -192,11 +243,11 @@ def test_fitting_nnls_arguments(dataset_params):
     data_input = fitting_data.data_input
 
     # Try running with 'maxiter' argument
-    _fitting_nnls(data_input, spectra, maxiter = 10)  # Valid call
+    _fitting_nnls(data_input, spectra, maxiter=10)  # Valid call
     with pytest.raises(AssertionError, match="'maxiter' is zero or negative"):
-        _fitting_nnls(data_input, spectra, maxiter = 0)
+        _fitting_nnls(data_input, spectra, maxiter=0)
     with pytest.raises(AssertionError, match="'maxiter' is zero or negative"):
-        _fitting_nnls(data_input, spectra, maxiter = -5)
+        _fitting_nnls(data_input, spectra, maxiter=-5)
 
 
 def test_fitting_nnls_fail():
@@ -248,8 +299,8 @@ def test_fitting_admm(dataset_params):
 
     # Check the convergence data
     assert (convergence.ndim == 1) and (convergence.size >= 1) \
-           and convergence[-1] < 1e-20, \
-           "Convergence array has incorrect dimensions or the alogrithm did not converge"
+        and convergence[-1] < 1e-20, \
+        "Convergence array has incorrect dimensions or the alogrithm did not converge"
 
     # Check feasibility array dimensions
     assert (feasibility.ndim == 1) and (feasibility.size >= 1), \
@@ -269,25 +320,25 @@ def test_fitting_admm_arguments(dataset_params):
     data_input = fitting_data.data_input
 
     # Argument 'maxiter'
-    _fitting_admm(data_input, spectra, maxiter = 10)  # Valid call
+    _fitting_admm(data_input, spectra, maxiter=10)  # Valid call
     with pytest.raises(AssertionError, match="'maxiter' is zero or negative"):
-        _fitting_admm(data_input, spectra, maxiter = 0)
+        _fitting_admm(data_input, spectra, maxiter=0)
     with pytest.raises(AssertionError, match="'maxiter' is zero or negative"):
-        _fitting_admm(data_input, spectra, maxiter = -5)
+        _fitting_admm(data_input, spectra, maxiter=-5)
 
     # Argument 'rate'
-    _fitting_admm(data_input, spectra, rate = 0.2)  # Valid call
+    _fitting_admm(data_input, spectra, rate=0.2)  # Valid call
     with pytest.raises(AssertionError, match="'rate' is zero or negative"):
-        _fitting_admm(data_input, spectra, rate = 0)
+        _fitting_admm(data_input, spectra, rate=0)
     with pytest.raises(AssertionError, match="'rate' is zero or negative"):
-        _fitting_admm(data_input, spectra, rate = -0.2)
+        _fitting_admm(data_input, spectra, rate=-0.2)
 
     # Argument 'epsilon'
-    _fitting_admm(data_input, spectra, epsilon = 1e-10)  # Valid call
+    _fitting_admm(data_input, spectra, epsilon=1e-10)  # Valid call
     with pytest.raises(AssertionError, match="'epsilon' is zero or negative"):
-        _fitting_admm(data_input, spectra, epsilon = 0)
+        _fitting_admm(data_input, spectra, epsilon=0)
     with pytest.raises(AssertionError, match="'epsilon' is zero or negative"):
-        _fitting_admm(data_input, spectra, epsilon = -1e-10)
+        _fitting_admm(data_input, spectra, epsilon=-1e-10)
 
 
 def test_fitting_admm_fail():
@@ -408,35 +459,35 @@ def test_fitting_spectrum_arguments(dataset_params):
     data_input = fitting_data.data_input
 
     # Argument 'maxiter'
-    fitting_spectrum(data_input, spectra, maxiter = 10)  # Valid call
+    fitting_spectrum(data_input, spectra, maxiter=10)  # Valid call
     with pytest.raises(AssertionError, match="'maxiter' is zero or negative"):
-        fitting_spectrum(data_input, spectra, maxiter = 0)
+        fitting_spectrum(data_input, spectra, maxiter=0)
     with pytest.raises(AssertionError, match="'maxiter' is zero or negative"):
-        fitting_spectrum(data_input, spectra, maxiter = -5)
+        fitting_spectrum(data_input, spectra, maxiter=-5)
 
     # Argument 'rate'
-    fitting_spectrum(data_input, spectra, rate = 0.2)  # Valid call
+    fitting_spectrum(data_input, spectra, rate=0.2)  # Valid call
     with pytest.raises(AssertionError, match="'rate' is zero or negative"):
-        fitting_spectrum(data_input, spectra, rate = 0)
+        fitting_spectrum(data_input, spectra, rate=0)
     with pytest.raises(AssertionError, match="'rate' is zero or negative"):
-        fitting_spectrum(data_input, spectra, rate = -0.2)
+        fitting_spectrum(data_input, spectra, rate=-0.2)
 
     # Argument 'epsilon'
-    fitting_spectrum(data_input, spectra, epsilon = 1e-10)  # Valid call
+    fitting_spectrum(data_input, spectra, epsilon=1e-10)  # Valid call
     with pytest.raises(AssertionError, match="'epsilon' is zero or negative"):
-        fitting_spectrum(data_input, spectra, epsilon = 0)
+        fitting_spectrum(data_input, spectra, epsilon=0)
     with pytest.raises(AssertionError, match="'epsilon' is zero or negative"):
-        fitting_spectrum(data_input, spectra, epsilon = -1e-10)
+        fitting_spectrum(data_input, spectra, epsilon=-1e-10)
 
     # Argument 'method'
     with pytest.raises(AssertionError, match="Fitting method .+ is not supported"):
-        fitting_spectrum(data_input, spectra, method = "abc")  # Arbitrary string
+        fitting_spectrum(data_input, spectra, method="abc")  # Arbitrary string
 
     # Argument 'axis'
     with pytest.raises(AssertionError, match="Specified axis .+ does not exist in data array"):
-        fitting_spectrum(data_input, spectra, axis = 3)  # Outside the range
+        fitting_spectrum(data_input, spectra, axis=3)  # Outside the range
     with pytest.raises(AssertionError, match="Specified axis .+ does not exist in data array"):
-        fitting_spectrum(data_input, spectra, axis = -4)  # Outside the range
+        fitting_spectrum(data_input, spectra, axis=-4)  # Outside the range
 
 
 def test_fitting_spectrum_fail():
@@ -449,83 +500,3 @@ def test_fitting_spectrum_fail():
     data_input = np.zeros(shape=[n_pts, n_refs])
     with pytest.raises(AssertionError, match="number of spectrum points in data .+ do not match"):
         fitting_spectrum(spectra, data_input)
-
-
-
-"""
-@pytest.mark.parametrize("dataset_params", [
-    {"n_data_dimensions": (8,)},
-    {"n_data_dimensions": (9,)},
-    {"n_data_dimensions": (1,)},
-    {"n_data_dimensions": (3, 8)},
-    {"n_data_dimensions": (4, 7)},
-    {"n_data_dimensions": (1, 8)},
-    {"n_data_dimensions": (8, 1)},
-    {"n_data_dimensions": ()},
-])
-def test_admm_normal_use(dataset_params):
-
-    fitting_data = DataForAdmmFittingTest(**dataset_params)
-
-    spectra = fitting_data.spectra
-    data_input = fitting_data.data_input
-
-    # -------------- Test regular fitting ---------------
-    weights_estimated, convergence, feasibility = fitting_admm(data_input, spectra)
-
-    fitting_data.validate_output_weights(weights_estimated, decimal=10)
-
-    # Check the convergence data
-    assert (convergence.ndim == 1) and (convergence.size >= 1) \
-           and convergence[-1] < 1e-20, \
-           "Convergence array has incorrect dimensions or the alogrithm did not converge"
-
-    # Check feasibility array dimensions
-    assert (feasibility.ndim == 1) and (feasibility.size >= 1), \
-        "Feasibility array has incorrect dimensions"
-
-
-@pytest.mark.parametrize("dataset_params", [
-    {"n_data_dimensions": (3, 8)},
-])
-def test_admm_try_wrong_input_dimensions(dataset_params):
-
-    fitting_data = DataForAdmmFittingTest(**dataset_params)
-
-    spectra = fitting_data.spectra
-    data_input = fitting_data.data_input
-
-    # -------------- Try feeding input data with wrong dimensions ----------------
-    # Remove one data point (along axis 0)
-    data_input_wrong_dimensions = np.delete(data_input, -1, axis=0)
-    with pytest.raises(AssertionError,
-                       match=r"number of spectrum points in data \(\d+\) " \
-                             r"and references \(\d+\) do not match"):
-        fitting_admm(data_input_wrong_dimensions, spectra)
-
-
-@pytest.mark.parametrize("dataset_params", [
-    {"n_data_dimensions": (3, 8)},
-])
-def test_admm_try_wrong_fitting_param_value(dataset_params):
-
-    fitting_data = DataForAdmmFittingTest(**dataset_params)
-
-    spectra = fitting_data.spectra
-    data_input = fitting_data.data_input
-
-    # -------------- Set 'rate' to 0.0 ----------------
-    with pytest.raises(AssertionError,
-                       match=r"parameter 'rate' is zero or negative"):
-        fitting_admm(data_input, spectra, rate=0.0)
-
-    # -------------- Set 'maxiter' to 0 ----------------
-    with pytest.raises(AssertionError,
-                       match=r"parameter 'maxiter' is zero or negative"):
-        fitting_admm(data_input, spectra, maxiter=0)
-
-    # -------------- Set 'epsilon' to 0.0 ----------------
-    with pytest.raises(AssertionError,
-                       match=r"parameter 'epsilon' is zero or negative"):
-        fitting_admm(data_input, spectra, epsilon=0.0)
-"""
