@@ -50,6 +50,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
                         interpolation_enable=True,
                         alignment_enable=True,
                         ref_file_name=None,
+                        fitting_method="nnls",
                         incident_energy_low_bound=None,
                         use_incident_energy_from_param_file=False,
                         plot_results=True,
@@ -224,6 +225,10 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
         file name with emission line references. If ``ref_file_name`` is not provided,
         then no XANES maps are generated. The rest of the processing is still performed
         as expected.
+
+    fitting_method : str
+        method used for fitting XANES spectra. The currently supported methods are
+        'nnls' and 'admm'.
 
     incident_energy_low_bound : float
         files in the set are processed using the value of incident energy equal to
