@@ -265,7 +265,7 @@ def rfactor_compute(spectrum, fit_results, ref_spectra):
     return dif_sum / data_sum
 
 
-def fitting_spectrum(data, ref_spectra, *, method="nnls", axis=0, maxiter=100, rate=0.2, epsilon=1e-30):
+def fit_spectrum(data, ref_spectra, *, method="nnls", axis=0, maxiter=100, rate=0.2, epsilon=1e-30):
 
     # Explicitely check if one of the supported optimisation method is specified
     method = method.lower()
