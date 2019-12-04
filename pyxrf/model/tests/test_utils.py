@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 import numpy.testing as npt
 
-from ..utils import rfactor_compute, _fitting_nnls, _fitting_admm, fitting_spectrum
+from ..utils import rfactor_compute, _fitting_nnls, _fitting_admm, fit_spectrum
 
 # ------------------------------------------------------------------------------
 #  useful functions for generating of datasets for testing of fitting algorithms
@@ -392,7 +392,7 @@ def test_fitting_admm_fail():
     {"method": "nnls"},
     {"method": "admm"},
 ])
-def test_fitting_spectrum(dataset_params, process_params):
+def test_fit_spectrum(dataset_params, process_params):
 
     fitting_data = DataForFittingTest(**dataset_params)
 
@@ -405,7 +405,7 @@ def test_fitting_spectrum(dataset_params, process_params):
     data_input = fitting_data.data_input
 
     # -------------- Test regular fitting ---------------
-    weights_estimated, rfactor, results_dict = fitting_spectrum(data_input, spectra, **params)
+    weights_estimated, rfactor, results_dict = fit_spectrum(data_input, spectra, **params)
 
     fitting_data.validate_output_weights(weights_estimated, decimal=10)
 
@@ -449,7 +449,7 @@ def test_fitting_spectrum(dataset_params, process_params):
 @pytest.mark.parametrize("dataset_params", [
     {"n_data_dimensions": (8, 6)},
 ])
-def test_fitting_spectrum_arguments(dataset_params):
+def test_fit_spectrum_arguments(dataset_params):
     r"""
     Test _fit_nnls for different values of the parameter 'maxiter' (maximum number of iterations)
     """
@@ -459,38 +459,38 @@ def test_fitting_spectrum_arguments(dataset_params):
     data_input = fitting_data.data_input
 
     # Argument 'maxiter'
-    fitting_spectrum(data_input, spectra, maxiter=10)  # Valid call
+    fit_spectrum(data_input, spectra, maxiter=10)  # Valid call
     with pytest.raises(AssertionError, match="'maxiter' is zero or negative"):
-        fitting_spectrum(data_input, spectra, maxiter=0)
+        fit_spectrum(data_input, spectra, maxiter=0)
     with pytest.raises(AssertionError, match="'maxiter' is zero or negative"):
-        fitting_spectrum(data_input, spectra, maxiter=-5)
+        fit_spectrum(data_input, spectra, maxiter=-5)
 
     # Argument 'rate'
-    fitting_spectrum(data_input, spectra, rate=0.2)  # Valid call
+    fit_spectrum(data_input, spectra, rate=0.2)  # Valid call
     with pytest.raises(AssertionError, match="'rate' is zero or negative"):
-        fitting_spectrum(data_input, spectra, rate=0)
+        fit_spectrum(data_input, spectra, rate=0)
     with pytest.raises(AssertionError, match="'rate' is zero or negative"):
-        fitting_spectrum(data_input, spectra, rate=-0.2)
+        fit_spectrum(data_input, spectra, rate=-0.2)
 
     # Argument 'epsilon'
-    fitting_spectrum(data_input, spectra, epsilon=1e-10)  # Valid call
+    fit_spectrum(data_input, spectra, epsilon=1e-10)  # Valid call
     with pytest.raises(AssertionError, match="'epsilon' is zero or negative"):
-        fitting_spectrum(data_input, spectra, epsilon=0)
+        fit_spectrum(data_input, spectra, epsilon=0)
     with pytest.raises(AssertionError, match="'epsilon' is zero or negative"):
-        fitting_spectrum(data_input, spectra, epsilon=-1e-10)
+        fit_spectrum(data_input, spectra, epsilon=-1e-10)
 
     # Argument 'method'
     with pytest.raises(AssertionError, match="Fitting method .+ is not supported"):
-        fitting_spectrum(data_input, spectra, method="abc")  # Arbitrary string
+        fit_spectrum(data_input, spectra, method="abc")  # Arbitrary string
 
     # Argument 'axis'
     with pytest.raises(AssertionError, match="Specified axis .+ does not exist in data array"):
-        fitting_spectrum(data_input, spectra, axis=3)  # Outside the range
+        fit_spectrum(data_input, spectra, axis=3)  # Outside the range
     with pytest.raises(AssertionError, match="Specified axis .+ does not exist in data array"):
-        fitting_spectrum(data_input, spectra, axis=-4)  # Outside the range
+        fit_spectrum(data_input, spectra, axis=-4)  # Outside the range
 
 
-def test_fitting_spectrum_fail():
+def test_fit_spectrum_fail():
     r"""
     Test _fit_nnls for supported cases of failure
     """
@@ -499,4 +499,4 @@ def test_fitting_spectrum_fail():
     spectra = np.zeros(shape=[n_pts - 1, n_pixels])  # Wrong number of data points
     data_input = np.zeros(shape=[n_pts, n_refs])
     with pytest.raises(AssertionError, match="number of spectrum points in data .+ do not match"):
-        fitting_spectrum(spectra, data_input)
+        fit_spectrum(spectra, data_input)
