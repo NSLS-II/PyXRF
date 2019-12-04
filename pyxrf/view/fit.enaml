@@ -675,9 +675,11 @@ enamldef FitView(DockItem): fit_view:
                     if param_model.x0 is not None and param_model.y0 is not None:
 
                         # update parameter for fit
-                        param_model.create_full_param()
-                        fit_model.update_default_param(param_model.param_new)
-                        fit_model.apply_default_param()
+                        #param_model.create_full_param()
+                        #fit_model.update_default_param(param_model.param_new)
+                        #fit_model.apply_default_param()
+                        # The previous 3 lines are replaced by the following
+                        apply_to_fit(param_model, plot_model, fit_model, setting_model)
 
                         #fit_information.text = 'Fitting of summed spectrum starts.'
                         fit_model.fit_multiple()
@@ -861,6 +863,8 @@ enamldef FitView(DockItem): fit_view:
                 clicked ::
 
                     if param_model.x0 is not None and param_model.y0 is not None:
+
+                        apply_to_fit(param_model, plot_model, fit_model, setting_model)
 
                         fit_model.fit_single_pixel()
                         # add scalers to fit dict
