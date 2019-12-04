@@ -14,7 +14,7 @@ from ..model.load_data_from_db import make_hdf
 from ..model.command_tools import pyxrf_batch
 from ..model.fileio import read_hdf_APS
 from ..model.utils import (grid_interpolate, normalize_data_by_scaler, convert_time_to_nexus_string,
-                           check_if_eline_is_activated, check_eline_name)
+                           check_if_eline_is_activated, check_eline_name, fit_spectrum)
 
 import logging
 logger = logging.getLogger()
@@ -51,6 +51,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
                         alignment_enable=True,
                         ref_file_name=None,
                         fitting_method="nnls",
+                        fitting_descent_rate=0.2,
                         incident_energy_low_bound=None,
                         use_incident_energy_from_param_file=False,
                         plot_results=True,
@@ -230,6 +231,10 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
         method used for fitting XANES spectra. The currently supported methods are
         'nnls' and 'admm'.
 
+    fitting_descent_rate : float
+        optimization parameter: descent rate for the fitting algorithm.
+        Used only for 'admm' algorithm (rate = 1/lambda), ignored for 'nnls' algorithm.
+
     incident_energy_low_bound : float
         files in the set are processed using the value of incident energy equal to
         the greater of the values of ``incident_energy_low_bound`` or incident energy
@@ -318,6 +323,13 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
     if not check_eline_name(eline_alignment):
         raise ValueError(f"The emission line '{eline_alignment}' does not exist or is not supported. "
                          f"Check the value of the parameter 'eline_alignment' ('build_xanes_map_api').")
+
+    # Check fitting method
+    fitting_method = fitting_method.lower()
+    supported_fitting_methods = ("nnls", "admm")
+    if fitting_method not in supported_fitting_methods:
+        raise ValueError(f"The fitting method '{fitting_method}' is not supported. "
+                         f"Supported methods: {supported_fitting_methods}")
 
     # Depending on the selected sequence, determine which steps must be executed
     seq_load_data = True
@@ -518,7 +530,8 @@ def _process_xrf_data(*, start_id, end_id, wd_xrf, param_file_name, eline_select
 
 def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
                         eline_selected, eline_alignment, alignment_starts_from,
-                        scaler_name, ref_energy, ref_data, incident_energy_shift_keV,
+                        scaler_name, ref_energy, ref_data, fitting_method,
+                        fitting_descent_rate, incident_energy_shift_keV,
                         interpolation_enable, alignment_enable, seq_generate_xanes_map):
     r"""
     Implements the third step of the processing sequence: computation of XANES maps based
@@ -562,6 +575,14 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
     ref_data : ndarray(float), 2D
         reference data for the element states, used for XANES fitting. The array of shape (N, M)
         contains reference data for M element states specified at N energy points.
+
+    fitting_method : str
+        method used for fitting XANES spectra. The currently supported methods are
+        'nnls' and 'admm'.
+
+    fitting_descent_rate : float
+        optimization parameter: descent rate for the fitting algorithm.
+        Used only for 'admm' algorithm (rate = 1/lambda), ignored for 'nnls' algorithm.
 
     incident_energy_shift_keV : float
         shift (in keV) applied to incident energy axis of the observed data before
@@ -653,8 +674,15 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
 
     if seq_generate_xanes_map:
         scan_absorption_refs = _interpolate_references(scan_energies_shifted, ref_energy, ref_data)
-        xanes_map_data, xanes_map_rfactor = _fit_xanes_map(eline_data_aligned[eline_selected],
-                                                           scan_absorption_refs)
+        #xanes_map_data, xanes_map_rfactor = _fit_xanes_map(eline_data_aligned[eline_selected],
+        #                                                   scan_absorption_refs)
+        logger.info(f"Fitting XANES specta using '{fitting_method}' method")
+        xanes_map_data, xanes_map_rfactor, _ = fit_spectrum(eline_data_aligned[eline_selected],
+                                                            scan_absorption_refs,
+                                                            method=fitting_method,
+                                                            rate=fitting_descent_rate)
+
+
 
         # Scale xanes maps so that the values represent counts
         n_refs, _, _ = xanes_map_data.shape
