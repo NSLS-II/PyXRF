@@ -237,28 +237,38 @@ def rfactor_compute(spectrum, fit_results, ref_spectra):
     """
 
     # Check if input parameters are valid
-    assert spectrum.ndim == 1, "Parameter 'spectrum' must be 1D array, ({spectrum.ndim})"
-    assert fit_results.ndim == 1, "Parameter 'fit_results' must be 1D array, ({fit_results.ndim})"
+    assert spectrum.ndim == 1 or spectrum.ndim == 2, \
+        "Parameter 'spectrum' must be 1D or 2D array, ({spectrum.ndim})"
+    assert spectrum.ndim == fit_results.ndim, \
+        f"Spectrum data (ndim = {spectrum.ndim}) and fitting results "\
+        f"(ndim = {fit_results.ndim}) must have the same number of dimensions"
     assert ref_spectra.ndim == 2, "Parameter 'ref_spectra' must be 2D array, ({ref_spectra.ndim})"
-    assert len(spectrum) == ref_spectra.shape[0], \
-        "Arrays 'spectrum' ({spectrum.shape}) and 'ref_spectra' ({ref_spectra.shape}) "\
+    assert spectrum.shape[0] == ref_spectra.shape[0], \
+        f"Arrays 'spectrum' ({spectrum.shape}) and 'ref_spectra' ({ref_spectra.shape}) "\
         "must have the same number of data points"
-    assert len(fit_results) == ref_spectra.shape[1], \
-        "Arrays 'fit_results' ({fit_results.shape}) and 'ref_spectra' ({ref_spectra.shape}) "\
+    assert fit_results.shape[0] == ref_spectra.shape[1], \
+        f"Arrays 'fit_results' ({fit_results.shape}) and 'ref_spectra' ({ref_spectra.shape}) "\
         "must have the same number of spectrum points"
+    if spectrum.ndim == 2:  # Only if multiple spectra are processed
+        assert spectrum.shape[1] == fit_results.shape[1], \
+            f"Arrays 'spectrum' {spectrum.shape} and 'fit_results' {fit_results.shape}"\
+            "must have the same number of columns"
 
     # Compute R-factor
-    dif = spectrum - np.matmul(fit_results, np.transpose(ref_spectra))
-    dif_sum = np.sum(np.abs(dif))
-    data_sum = np.sum(np.abs(spectrum))
+    dif = spectrum - np.matmul(ref_spectra, fit_results)
+    dif_sum = np.sum(np.abs(dif), axis=0)
+    data_sum = np.sum(np.abs(spectrum), axis=0)
+
     # Avoid accidental division by zero (or a very small number)
-    return dif_sum / data_sum if data_sum > 1e-30 else 0
+    data_sum = np.clip(data_sum, a_min=1e-30, a_max=None)
+
+    return dif_sum / data_sum
 
 
 def fitting_spectrum(data, ref_spectra, *, method="nnls", axis=0, maxiter=100, rate=0.2, epsilon=1e-30):
 
     # Explicitely check if one of the supported optimisation method is specified
-    method=method.lower()
+    method = method.lower()
     supported_fitting_methods = ("nnls", "admm")
     assert method in supported_fitting_methods, \
         f"Fitting method '{method}' is not supported"
@@ -270,8 +280,8 @@ def fitting_spectrum(data, ref_spectra, *, method="nnls", axis=0, maxiter=100, r
                                   f"instead of {ref_spectra.ndim}"
 
     assert (axis >= -data.ndim) and (axis < data.ndim), \
-            f"Specified axis {axis} does not exist in data array. "\
-            f"Allowed values: {-data.ndim} .. {data.ndim - 1}"
+        f"Specified axis {axis} does not exist in data array. "\
+        f"Allowed values: {-data.ndim} .. {data.ndim - 1}"
 
     # Switch to standard data view (spectrum points along axis==0)
     data = np.moveaxis(data, axis, 0)
@@ -400,7 +410,6 @@ def _fitting_nnls(data, ref_spectra, *, maxiter=100):
 
 def _fitting_admm(data, ref_spectra, *, rate=0.2, maxiter=100, epsilon=1e-30):
 
-
     assert data.ndim == 2, "Data array 'data' must have 2 dimensions"
     assert ref_spectra.ndim == 2, "Data array 'ref_spectra' must have 2 dimensions"
 
@@ -456,9 +465,7 @@ def _fitting_admm(data, ref_spectra, *, rate=0.2, maxiter=100, epsilon=1e-30):
             break
 
     # Compute R-factor
-    rfactor = np.zeros(shape=[n_pixels])
-    for n in range(n_pixels):
-        rfactor[n] = rfactor_compute(data[:, n], w[:, n], ref_spectra)
+    rfactor = rfactor_compute(data, w, ref_spectra)
 
     convergence = convergence[:n_iter]
     feasibility = feasibility[:n_iter]
@@ -469,6 +476,7 @@ def _fitting_admm(data, ref_spectra, *, rate=0.2, maxiter=100, epsilon=1e-30):
 
 # ===============================================================================
 # The following functions are prepared to be moved to scikit-beam
+
 
 def _get_2_sqrt_2_log2():
     return 2 * np.sqrt(2 * np.log(2))
