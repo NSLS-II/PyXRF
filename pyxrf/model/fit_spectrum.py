@@ -755,6 +755,21 @@ class Fit1D(Atom):
                 self.fit_data(self.x0, y0)
                 self.update_param_with_result()
 
+                # The following is a patch for rare cases when fitting results in negative
+                #   areas for some emission lines. These are typically non-existent lines, but
+                #   they should not be automatically eliminated from the list. To prevent
+                #   elimination, set the area to some small positive value.
+                for key, val in self.param_dict.items():
+                    if key.endswith("_area") and val["value"] <= 0.0:
+                        _small_value_for_area = 0.1
+                        logger.warning(
+                            f"Fitting resulted in negative value for '{key}' ({val['value']}). \n"
+                            f"    In order to continue using the emission line in future computations, "
+                            f"it is reset a small value of {_small_value_for_area}.\n    Delete "
+                            f"the emission line from the list if you know it is not present in "
+                            f"the sample.")
+                        val["value"] = _small_value_for_area  # Some small number
+
                 #  calculate r2
                 self.r2 = cal_r2(y0, self.fit_y)
                 self.assign_fitting_result()
