@@ -21,6 +21,7 @@ matrix:
     - python: nightly
   allow_failures:
     - python: nightly
+      env: NUMPY=1.17
 
 python:
   - 3.6
