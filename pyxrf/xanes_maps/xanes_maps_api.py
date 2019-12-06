@@ -1475,6 +1475,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.ax_fluor_plot = plt.axes([0.55, 0.25, 0.4, 0.65])
             self.fig.subplots_adjust(left=0.07, right=0.95, bottom=0.25)
 
+            self.tb = plt.get_current_fig_manager().toolbar
+
             x_label = f"X, {axes_units}" if axes_units else f"X"
             y_label = f"Y, {axes_units}" if axes_units else f"Y"
             self.ax_img_stack.set_xlabel(x_label, fontsize=self.label_fontsize)
@@ -1514,7 +1516,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
 
             self.slider.on_changed(self.slider_update)
 
-            self.fig.canvas.mpl_connect("button_press_event", self.canvas_onclick)
+            self.fig.canvas.mpl_connect("button_press_event", self.canvas_onpress)
+            self.fig.canvas.mpl_connect("button_release_event", self.canvas_onrelease)
 
             plt.show()
 
@@ -1671,9 +1674,21 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                     self.fig.canvas.flush_events()
                 self.busy = False
 
-        def canvas_onclick(self, event):
-            """Callback"""
-            if (event.inaxes == self.ax_img_stack) and (event.button == 1):
+        def canvas_onpress(self, event):
+            """Callback, mouse button pressed"""
+            # self.tb.mode == "" is True if no toolbar items are activated (zoom, pan etc.)
+            if (self.tb.mode == "") and (event.inaxes == self.ax_img_stack) and (event.button == 1):
+                xd, yd = event.xdata, event.ydata
+                # Compute pixel coordinates
+                xd_px = round((xd - self.pos_x_min)/self.pos_dx)
+                yd_px = round((yd - self.pos_y_min)/self.pos_dy)
+                self.start_sel = (int(xd_px), int(yd_px))
+                print("Button is pressed")
+
+        def canvas_onrelease(self, event):
+            """Callback, mouse button released"""
+            # self.tb.mode == "" is True if no toolbar items are activated (zoom, pan etc.)
+            if (self.tb.mode == "") and (event.inaxes == self.ax_img_stack) and (event.button == 1):
                 xd, yd = event.xdata, event.ydata
                 # Compute pixel coordinates
                 xd_px = round((xd - self.pos_x_min)/self.pos_dx)
@@ -1682,6 +1697,9 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                 self.redraw_fluorescence_plot()
                 self.fig.canvas.draw()
                 self.fig.canvas.flush_events()
+
+                print(f"Button is released: {self.start_sel} - {(xd_px, yd_px)}")
+
 
     map_plot = EnergyMapPlot(energy=energies, stack_all_data=eline_data, label_default=eline_selected,
                              positions_x=positions_x, positions_y=positions_y, axes_units=axes_units,
