@@ -1316,50 +1316,6 @@ def _interpolate_references(energy, energy_refs, absorption_refs):
         interpolated_refs[:, n] = np.interp(energy, energy_refs, a_ref)
     return interpolated_refs
 
-'''
-def _fit_xanes_map(map_data, absorption_refs):
-    r"""
-    Compute XANES map on the stack of XRF maps (XANES fitting).
-
-    Parameters
-    ----------
-
-    map_data : ndarray(float), 3D
-        stack of XRF maps, shape (K, M, N), where K is the number of maps in the stack,
-        each map has size of MxN pixels.
-
-    absorption_refs : ndarray(float), 2D
-        array of references, shape (K, P), where P is the number of references.
-
-    Returns
-    -------
-
-    map_data_fitted : ndarray(float), 3D
-        stack of XANES maps, shape (P, M, N), where P is the number of references.
-
-    map_rfactor : ndarray(float), 2D
-        map that represents R-factor for the fitting, shape (M,N).
-    """
-    _, nny, nnx = map_data.shape
-    _, n_states = absorption_refs.shape
-    map_data_fitted = np.zeros(shape=[n_states, nny, nnx])
-    map_rfactor = np.zeros(shape=[nny, nnx])
-    for ny in range(nny):
-        for nx in range(nnx):
-            map_sel = map_data[:, ny, nx]
-            result, _ = nnls_fit(map_sel, absorption_refs, weights=None)
-
-            # Compute R-factor
-            dif = map_sel - np.matmul(result, np.transpose(absorption_refs))
-            dif_sum = np.sum(np.abs(dif))
-            data_sum = np.sum(np.abs(map_sel))
-            # Avoid accidental division by zero (or a very small number)
-            rfactor = dif_sum/data_sum if data_sum > 1e-30 else 0
-
-            map_data_fitted[:, ny, nx] = result
-            map_rfactor[ny, nx] = rfactor
-    return map_data_fitted, map_rfactor
-'''
 
 # ==============================================================================================
 #     Functions for plotting the results
