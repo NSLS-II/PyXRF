@@ -506,6 +506,8 @@ def _fitting_admm(data, ref_spectra, *, rate=0.2, maxiter=100, epsilon=1e-30):
 
     map_rfactor : ndarray(float), 2D
         map that represents R-factor for the fitting, shape (M,N).
+
+    The prototype for the ADMM fitting function was implemented by Hanfei Yan in Matlab.
     """
     assert data.ndim == 2, "Data array 'data' must have 2 dimensions"
     assert ref_spectra.ndim == 2, "Data array 'ref_spectra' must have 2 dimensions"
