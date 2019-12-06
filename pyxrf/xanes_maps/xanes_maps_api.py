@@ -8,8 +8,6 @@ from matplotlib.widgets import Slider, Button
 import time as ttime
 import tifffile
 
-from skbeam.core.fitting.xrf_model import nnls_fit
-
 from ..model.load_data_from_db import make_hdf
 from ..model.command_tools import pyxrf_batch
 from ..model.fileio import read_hdf_APS
@@ -677,15 +675,12 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
 
     if seq_generate_xanes_map:
         scan_absorption_refs = _interpolate_references(scan_energies_shifted, ref_energy, ref_data)
-        #xanes_map_data, xanes_map_rfactor = _fit_xanes_map(eline_data_aligned[eline_selected],
-        #                                                   scan_absorption_refs)
+
         logger.info(f"Fitting XANES specta using '{fitting_method}' method")
         xanes_map_data, xanes_map_rfactor, _ = fit_spectrum(eline_data_aligned[eline_selected],
                                                             scan_absorption_refs,
                                                             method=fitting_method,
                                                             rate=fitting_descent_rate)
-
-
 
         # Scale xanes maps so that the values represent counts
         n_refs, _, _ = xanes_map_data.shape
@@ -780,8 +775,7 @@ def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
                              plot_position_axes_units, plot_use_position_coordinates,
                              eline_selected, processing_results,
                              fitting_method,
-                             fitting_descent_rate
-    ):
+                             fitting_descent_rate):
     r"""
     Implements one of the final steps of the processing sequence: plotting processing results.
     The data is displayed on a set of Matplotlib figures:
@@ -1651,8 +1645,9 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                     plot_comments = f"Area: {n_averaged_pts} px."
 
                 fit_real_time = True
-                #if plot_single_point:  # For now let's always do fitting on the fly
-                    #fit_real_time = False
+                if plot_single_point:
+                    # fit_real_time = True
+                    fit_real_time = True  # For now let's always do fitting on the fly
                 if fit_real_time:
                     xanes_fit_pt, xanes_fit_rfactor, _ = fit_spectrum(data_selected,
                                                                       self.absorption_refs,
@@ -1673,7 +1668,6 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                 for n, v in enumerate(xanes_fit_pt_counts):
                     plot_comments += f"\n{self.ref_labels[n]}: {xanes_fit_pt_counts[n]:.2f} c."
                 plot_comments += f"\nR-factor: {xanes_fit_rfactor:.5g}"
-
 
                 # Labels should always be supplied when calling the function.
                 #   This is not user controlled option, therefore exception should be raised.
@@ -1697,7 +1691,6 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                         0.99, 0.05, plot_comments,
                         ha='right', va='bottom', fontsize=self.coord_fontsize,
                         transform=self.ax_fluor_plot.axes.transAxes)
-
 
             # Always display the legend
             self.ax_fluor_plot.legend(loc="upper left")
