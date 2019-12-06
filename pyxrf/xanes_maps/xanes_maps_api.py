@@ -1450,7 +1450,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             v_max = np.max(self.stack_selected)
             self.img_plot.set_clim(v_min, v_max)
 
-        def show(self):
+        def show(self, block=True):
 
             self.textbox_nlabel = None
 
@@ -1504,7 +1504,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.fig.canvas.mpl_connect("button_press_event", self.canvas_onpress)
             self.fig.canvas.mpl_connect("button_release_event", self.canvas_onrelease)
 
-            plt.show()
+            plt.show(block=block)
 
         def show_fluor_point_coordinates(self):
 
@@ -1759,7 +1759,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                              positions_x=positions_x, positions_y=positions_y, axes_units=axes_units,
                              xanes_map_data=xanes_map_data, absorption_refs=absorption_refs,
                              ref_labels=ref_labels)
-    map_plot.show()
+    map_plot.show(block=True)
 
 
 def plot_xanes_map(map_data, *, label=None, block=True,
