@@ -765,7 +765,7 @@ class Fit1D(Atom):
                         logger.warning(
                             f"Fitting resulted in negative value for '{key}' ({val['value']}). \n"
                             f"    In order to continue using the emission line in future computations, "
-                            f"it is reset a small value of {_small_value_for_area}.\n    Delete "
+                            f"the fitted area is set to a small value ({_small_value_for_area}).\n    Delete "
                             f"the emission line from the list if you know it is not present in "
                             f"the sample.")
                         val["value"] = _small_value_for_area  # Some small number
