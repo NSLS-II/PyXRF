@@ -231,7 +231,7 @@ def rfactor_compute(spectrum, fit_results, ref_spectra):
     ref_spectra : 2D ndarray
         reference spectra used for fitting (NxK element array)
 
-    Results
+    Returns
     -------
         float, the value of R-factor
     """
@@ -266,7 +266,72 @@ def rfactor_compute(spectrum, fit_results, ref_spectra):
 
 
 def fit_spectrum(data, ref_spectra, *, method="nnls", axis=0, maxiter=100, rate=0.2, epsilon=1e-30):
+    r"""
+    Perform fitting of a single or or multiple spectra. A single spectra is represented as
+    a 1D ndarray. Multiple spectra collected from scan of a line, 2D or 3D image may be represented
+    as multidimensional array containing spectral information along axis ``axis``. The returned
+    fitting result have the same dimensionality as the input data with fitted coefficients
+    located along the same axis as the spectrum data.
 
+    Parameters
+    ----------
+    data : ndarray
+        single or multidimensional spectral data. If fitting done for a single spectrum with K energy points,
+        ``data`` is a 1D ndarray with K points. If 'data' contains spectra obtained by scanning NxM map,
+        ``data`` is 3D ndarray with dimensions (K,N,M), (N,K,M) or (N,M,K). The axis containing spectra
+        is specified by the parameter ``axis``, which should be set to 0 (default), 1 or 2 for the for the
+        3D example above. Dimensionality of ``data`` array is not restricted and the function will perform
+        properly if ``axis`` points to the correct dimension.
+
+    ref_spectra : ndarray (2D)
+        array with columns representing the reference spectra. If fitting is performed for Q reference
+        spectra, then ``ref_spectra`` has dimensions (K,Q), where K is the number of energy points.
+
+    method : str
+        optimization method used for fitting. Currently supported methods are "nnls" and "admm".
+
+    axis : int
+        the number of the axis in the ``data`` array that hold the spectral information. If ``data``
+        array has ``n`` dimensions, then ``axis`` may take values in the range ``-n .. n-1``. The
+        fitting results will be placed in the output data array along the same axis.
+
+    maxiter : int
+        maximum number of iterations. Optimization may stop prematurely if convergence criteria are met.
+
+    rate : float
+        descent rate for optimization algorithm. Currently is used only for ADMM fitting (1/lambda).
+
+    epsilon : float
+        small value used in stopping criterion of ADMM optimization algorithm.
+
+    Returns
+    -------
+    weights : ndarray
+        array with the same number of dimensions as ``data``. Weights are placed along the axis ``axis``.
+        For example, if ``data`` has the shape (N,K,M) and ``axis=1``, then ``weights`` has
+        the shape (N,Q,M), where Q is the number of spectrum references.
+
+    rfactor : ndarray
+        array that contains R-factor value for each fitted spectrum. For example, if ``data`` has shape
+        (N,K,M) and ``axis=1``, then ``rfactor`` has shape (N,M)
+
+    results_dict : dict
+        dictionary that contains additional information returned by a fitting routine. The contents of
+        the dictionary depends on the optimization routine. Common information: ``method`` - string
+        that contains the name of the optimization method (``nnls`` or ``admm``).
+
+        NNLS optimization:
+
+            - ``residual`` - an array that contains values of least-squares difference between the observed
+            and fitted spectra. The same shape as ``rfactor``.
+
+        ADMM optimization:
+
+            - ``convergence`` - 1D array of values that represent change of weights at each iteration of
+            the optimization. The number of elements is equal to the number of iterations.
+
+            - ``feasibility`` - 1D array, same shape as ``convergence``
+    """
     # Explicitely check if one of the supported optimisation method is specified
     method = method.lower()
     supported_fitting_methods = ("nnls", "admm")
@@ -357,28 +422,30 @@ def fit_spectrum(data, ref_spectra, *, method="nnls", axis=0, maxiter=100, rate=
 
 def _fitting_nnls(data, ref_spectra, *, maxiter=100):
     r"""
-    Compute XANES map on the stack of XRF maps (XANES fitting).
+    Fitting of multiple spectra using NNLS method.
 
     Parameters
     ----------
 
-    data : ndarray(float), 3D
-        stack of XRF maps, shape (K, M, N), where K is the number of maps in the stack,
-        each map has size of MxN pixels.
+    data : ndarray(float), 2D
+        array holding multiple observed spectra, shape (K, N), where K is the number of energy points,
+        and N is the number of spectra
 
     absorption_refs : ndarray(float), 2D
-        array of references, shape (K, P), where P is the number of references.
+        array of references, shape (K, Q), where Q is the number of references.
+
+    maxiter : int
+        maximum number of iterations. Optimization may stop prematurely if convergence criteria are met.
 
     Returns
     -------
 
-    map_data_fitted : ndarray(float), 3D
-        stack of XANES maps, shape (P, M, N), where P is the number of references.
+    map_data_fitted : ndarray(float), 2D
+        fitting results, shape (Q, N), where Q is the number of references and N is the number of spectra.
 
     map_rfactor : ndarray(float), 2D
         map that represents R-factor for the fitting, shape (M,N).
     """
-
     assert data.ndim == 2, "Data array 'data' must have 2 dimensions"
     assert ref_spectra.ndim == 2, "Data array 'ref_spectra' must have 2 dimensions"
 
@@ -409,7 +476,37 @@ def _fitting_nnls(data, ref_spectra, *, maxiter=100):
 
 
 def _fitting_admm(data, ref_spectra, *, rate=0.2, maxiter=100, epsilon=1e-30):
+    r"""
+    Fitting of multiple spectra using ADMM method.
 
+    Parameters
+    ----------
+
+    data : ndarray(float), 2D
+        array holding multiple observed spectra, shape (K, N), where K is the number of energy points,
+        and N is the number of spectra
+
+    absorption_refs : ndarray(float), 2D
+        array of references, shape (K, Q), where Q is the number of references.
+
+    maxiter : int
+        maximum number of iterations. Optimization may stop prematurely if convergence criteria are met.
+
+    rate : float
+        descent rate for optimization algorithm. Currently is used only for ADMM fitting (1/lambda).
+
+    epsilon : float
+        small value used in stopping criterion of ADMM optimization algorithm.
+
+    Returns
+    -------
+
+    map_data_fitted : ndarray(float), 2D
+        fitting results, shape (Q, N), where Q is the number of references and N is the number of spectra.
+
+    map_rfactor : ndarray(float), 2D
+        map that represents R-factor for the fitting, shape (M,N).
+    """
     assert data.ndim == 2, "Data array 'data' must have 2 dimensions"
     assert ref_spectra.ndim == 2, "Data array 'ref_spectra' must have 2 dimensions"
 
