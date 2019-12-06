@@ -567,7 +567,7 @@ class GuessParamModel(Atom):
         self.n_selected_elines_for_fitting = len(self.result_dict_names)
         self.n_selected_pure_elines_for_fitting = len(pure_peak_list)
 
-        logger.info('The full list for fitting is {}'.format(self.result_dict_names))##
+        logger.info(f"The full list for fitting is {self.result_dict_names}")
 
     def find_peak(self, threshv=0.1):
         """
