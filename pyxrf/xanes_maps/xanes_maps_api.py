@@ -14,7 +14,7 @@ from ..model.load_data_from_db import make_hdf
 from ..model.command_tools import pyxrf_batch
 from ..model.fileio import read_hdf_APS
 from ..model.utils import (grid_interpolate, normalize_data_by_scaler, convert_time_to_nexus_string,
-                           check_if_eline_is_activated, check_eline_name, fit_spectrum)
+                           check_if_eline_is_activated, check_eline_name, fit_spectrum, rfactor_compute)
 
 import logging
 logger = logging.getLogger()
@@ -404,7 +404,9 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
                                      plot_position_axes_units=plot_position_axes_units,
                                      plot_use_position_coordinates=plot_use_position_coordinates,
                                      eline_selected=eline_selected,
-                                     processing_results=processing_results)
+                                     processing_results=processing_results,
+                                     fitting_method=fitting_method,
+                                     fitting_descent_rate=fitting_descent_rate)
         else:
             logger.info("Plotting results: skipped.")
 
@@ -776,7 +778,10 @@ def _save_xanes_processing_results(*, wd, eline_selected, ref_labels, output_fil
 
 def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
                              plot_position_axes_units, plot_use_position_coordinates,
-                             eline_selected, processing_results):
+                             eline_selected, processing_results,
+                             fitting_method,
+                             fitting_descent_rate
+    ):
     r"""
     Implements one of the final steps of the processing sequence: plotting processing results.
     The data is displayed on a set of Matplotlib figures:
@@ -821,6 +826,12 @@ def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
 
     processing_results : dict
         Results of processing returned by the function '_compute_xanes_maps'.
+
+    fitting_method : str
+        method used for fitting, the currently supported methods are 'nnls' and 'admm'
+
+    fitting_descent_rate : float
+        descent rate for fitting algorithm, currently used only for ADMM fitting
     """
 
     positions_x_uniform = processing_results["positions_x_uniform"]
@@ -865,7 +876,8 @@ def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
     show_image_stack(eline_data=eline_data_aligned, energies=scan_energies_shifted, eline_selected=eline_selected,
                      positions_x=pos_x, positions_y=pos_y, axes_units=axes_units,
                      xanes_map_data=xanes_map_data, absorption_refs=scan_absorption_refs,
-                     ref_labels=ref_labels)
+                     ref_labels=ref_labels, fitting_method=fitting_method,
+                     fitting_descent_rate=fitting_descent_rate)
 
 
 def _load_dataset_from_hdf5(*, start_id, end_id, wd_xrf, load_fit_results=True):
@@ -1354,7 +1366,8 @@ def _fit_xanes_map(map_data, absorption_refs):
 
 def show_image_stack(*, eline_data, energies, eline_selected,
                      positions_x=None, positions_y=None, axes_units=None,
-                     xanes_map_data=None, absorption_refs=None, ref_labels=None):
+                     xanes_map_data=None, absorption_refs=None, ref_labels=None,
+                     fitting_method="nnls", fitting_descent_rate=0.2):
     r"""
     Display XRF Map stack
 
@@ -1377,7 +1390,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
 
         def __init__(self, *, energy, stack_all_data, label_default,
                      positions_x=None, positions_y=None, axes_units=None,
-                     xanes_map_data=None, absorption_refs=None, ref_labels=None):
+                     xanes_map_data=None, absorption_refs=None, ref_labels=None,
+                     fitting_method="nnls", fitting_descent_rate=0.2):
             r"""
             Parameters
             ----------
@@ -1408,11 +1422,29 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                 If ``axes_units`` is None, then printed label will not include unit information.
 
             xanes_map_data : 3D ndarray
+                The stack of XRF maps: shape = (K, N, M) - the stack of K maps, the size of each map is NxM
 
             absorption_refs : 2D ndarray
+                Absorption references, used to display fitting results and for real-time fitting.
+                Shape = (K, Q) - K data points, Q references
+
+            ref_labels : list(str)
+                The list of Q reference labels, used for data plotting
+
+            fitting_method : str
+                Fitting method used for real-time fitting (used when displaying fitting for selections
+                of pixels)
+
+            fitting_descent_rate : float
+                descent rate for fitting algorithm, currently used only for ADMM fitting
             """
 
+            # The following are the fitting parameters that are sent to the fitting algorithm
+            self.fitting_method = fitting_method
+            self.fitting_descent_rate = fitting_descent_rate
+
             self.label_fontsize = 15
+            self.coord_fontsize = 10
 
             self.stack_all_data = stack_all_data
             self.energy = energy
@@ -1427,6 +1459,9 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.absorption_refs = absorption_refs
             self.ref_labels = ref_labels
 
+            # The state of the left mouse button (True - button is in pressed state)
+            self.button_pressed = False
+
             if self.label_default not in self.labels:
                 logger.warning(f"XRF Energy Plot: the default label {self.label_default} "
                                "is not in the list and will be ignored")
@@ -1438,8 +1473,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.n_energy_selected = int(n_images/2)  # Select image in the middle of the stack
             self.img_selected = self.stack_selected[self.n_energy_selected, :, :]
 
-            # Select point in the middle of the plot
-            self.pt_selected = [int(nx / 2), int(ny / 2)]  # The coordinates of the point are in pixels
+            # Select point in the middle of the plot, the coordinates of the point are in pixels
+            self.pts_selected = [int(nx / 2), int(ny / 2), int(nx / 2), int(ny / 2)]
 
             # Check existence or the size of 'positions_x' and 'positions_y' arrays
             ny, nx = self.img_selected.shape
@@ -1475,7 +1510,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.ax_fluor_plot = plt.axes([0.55, 0.25, 0.4, 0.65])
             self.fig.subplots_adjust(left=0.07, right=0.95, bottom=0.25)
 
-            self.tb = plt.get_current_fig_manager().toolbar
+            self.t_bar = plt.get_current_fig_manager().toolbar
 
             x_label = f"X, {axes_units}" if axes_units else f"X"
             y_label = f"Y, {axes_units}" if axes_units else f"Y"
@@ -1522,12 +1557,23 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             plt.show()
 
         def show_fluor_point_coordinates(self):
-            pt_x = self.pt_selected[0] * self.pos_dx + self.pos_x_min
-            pt_y = self.pt_selected[1] * self.pos_dy + self.pos_y_min
-            pt_x_str, pt_y_str = f"{pt_x:.5g}", f"{pt_y:.5g}"
+
+            x_min, y_min, x_max, y_max = self.pts_selected
+
+            pt_x_min = x_min * self.pos_dx + self.pos_x_min
+            pt_y_min = y_min * self.pos_dy + self.pos_y_min
+
+            if x_min == x_max and y_min == y_max:
+                pt_x_str, pt_y_str = f"{pt_x_min:.5g}", f"{pt_y_min:.5g}"
+            else:
+                pt_x_max = x_max * self.pos_dx + self.pos_x_min
+                pt_y_max = y_max * self.pos_dy + self.pos_y_min
+                pt_x_str = f"{pt_x_min:.5g} .. {pt_x_max:.5g}"
+                pt_y_str = f"{pt_y_min:.5g} .. {pt_y_max:.5g}"
+
             self.fluor_label_text = self.ax_fluor_plot.text(
                 0.99, 0.99, f"({pt_x_str}, {pt_y_str})",
-                ha='right', va='top', fontsize=self.label_fontsize,
+                ha='right', va='top', fontsize=self.coord_fontsize,
                 transform=self.ax_fluor_plot.axes.transAxes)
 
         def create_buttons_each_label(self):
@@ -1623,20 +1669,61 @@ def show_image_stack(*, eline_data, energies, eline_selected,
         def redraw_fluorescence_plot(self):
             self.ax_fluor_plot.clear()
 
+            xd_px_min, yd_px_min, xd_px_max, yd_px_max = self.pts_selected
+
+            if xd_px_min == xd_px_max and yd_px_min == yd_px_max:
+                plot_single_point = True
+            else:
+                plot_single_point = False
+
+            data_stack_selected = self.stack_selected[:, yd_px_min: yd_px_max + 1, xd_px_min: xd_px_max + 1]
+            data_selected = np.sum(np.sum(data_stack_selected, axis=2), axis=1)
+
             self.ax_fluor_plot.plot(self.energy,
-                                    self.stack_selected[:, self.pt_selected[1], self.pt_selected[0]],
+                                    data_selected,
                                     marker=".", linestyle="solid", label="XANES spectrum")
 
             # Plot the results of fitting (if the fitting was performed
             if (self.label_selected == self.label_default) and (self.xanes_map_data is not None) \
                     and (self.absorption_refs is not None):
 
+                # The number of averaged points
+                n_averaged_pts = (xd_px_max - xd_px_min + 1) * (yd_px_max - yd_px_min + 1)
+
+                plot_comments = ""
+                if n_averaged_pts > 1:
+                    plot_comments = f"Area: {n_averaged_pts} px."
+
+                fit_real_time = True
+                #if plot_single_point:  # For now let's always do fitting on the fly
+                    #fit_real_time = False
+                if fit_real_time:
+                    xanes_fit_pt, xanes_fit_rfactor, _ = fit_spectrum(data_selected,
+                                                                      self.absorption_refs,
+                                                                      method=self.fitting_method,
+                                                                      rate=self.fitting_descent_rate)
+
+                else:
+                    # Use precomputed data
+                    xanes_fit_pt = self.xanes_map_data[:, yd_px_min, xd_px_min]
+                    # We still compute R-factor
+                    xanes_fit_rfactor = rfactor_compute(data_selected, xanes_fit_pt, self.absorption_refs)
+
+                # Compute fit results represented in counts (for output)
+                xanes_fit_pt_counts = xanes_fit_pt.copy()
+                for n, v in enumerate(xanes_fit_pt):
+                    xanes_fit_pt_counts[n] = v * np.sum(self.absorption_refs[:, n])
+
+                for n, v in enumerate(xanes_fit_pt_counts):
+                    plot_comments += f"\n{self.ref_labels[n]}: {xanes_fit_pt_counts[n]:.2f} c."
+                plot_comments += f"\nR-factor: {xanes_fit_rfactor:.5g}"
+
+
                 # Labels should always be supplied when calling the function.
                 #   This is not user controlled option, therefore exception should be raised.
                 assert self.labels, "No labels are provided. Fitting results can not be displayed properly"
 
                 refs_scaled = self.absorption_refs.copy()
-                xanes_fit_pt = self.xanes_map_data[:, self.pt_selected[1], self.pt_selected[0]]
                 _, n_refs = refs_scaled.shape
                 for n in range(n_refs):
                     refs_scaled[:, n] = refs_scaled[:, n] * xanes_fit_pt[n]
@@ -1646,6 +1733,15 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                 for n in range(n_refs):
                     self.ax_fluor_plot.plot(self.energy, refs_scaled[:, n],
                                             label=self.ref_labels[n], linestyle="dashed")
+
+                # Plot notes, containing the number of averaged points, counts per reference
+                #  and R-factor (only for the emission line used for XANES analysis)
+                if plot_comments:
+                    self.fluor_plot_comments = self.ax_fluor_plot.text(
+                        0.99, 0.05, plot_comments,
+                        ha='right', va='bottom', fontsize=self.coord_fontsize,
+                        transform=self.ax_fluor_plot.axes.transAxes)
+
 
             # Always display the legend
             self.ax_fluor_plot.legend(loc="upper left")
@@ -1676,30 +1772,39 @@ def show_image_stack(*, eline_data, energies, eline_selected,
 
         def canvas_onpress(self, event):
             """Callback, mouse button pressed"""
-            # self.tb.mode == "" is True if no toolbar items are activated (zoom, pan etc.)
-            if (self.tb.mode == "") and (event.inaxes == self.ax_img_stack) and (event.button == 1):
+            self.button_pressed = False  # May be pressed outside the region
+            # self.t_bar.mode == "" is True if no toolbar items are activated (zoom, pan etc.)
+            if (self.t_bar.mode == "") and (event.inaxes == self.ax_img_stack) and (event.button == 1):
+                self.button_pressed = True  # Left mouse button is in pressed state
+                #     and it was pressed when the cursor was inside the plot area
                 xd, yd = event.xdata, event.ydata
                 # Compute pixel coordinates
                 xd_px = round((xd - self.pos_x_min)/self.pos_dx)
                 yd_px = round((yd - self.pos_y_min)/self.pos_dy)
                 self.start_sel = (int(xd_px), int(yd_px))
-                print("Button is pressed")
 
         def canvas_onrelease(self, event):
             """Callback, mouse button released"""
-            # self.tb.mode == "" is True if no toolbar items are activated (zoom, pan etc.)
-            if (self.tb.mode == "") and (event.inaxes == self.ax_img_stack) and (event.button == 1):
+            # self.t_bar.mode == "" is True if no toolbar items are activated (zoom, pan etc.)
+            if self.button_pressed and (self.t_bar.mode == "") and \
+                    (event.inaxes == self.ax_img_stack) and (event.button == 1):
                 xd, yd = event.xdata, event.ydata
-                # Compute pixel coordinates
-                xd_px = round((xd - self.pos_x_min)/self.pos_dx)
-                yd_px = round((yd - self.pos_y_min)/self.pos_dy)
-                self.pt_selected = [int(xd_px), int(yd_px)]
+                # Pixel coordinates (button pressed)
+                xd_px_min = self.start_sel[0]
+                yd_px_min = self.start_sel[1]
+                # Compute pixel coordinates (button release)
+                xd_px_max = int(round((xd - self.pos_x_min)/self.pos_dx))
+                yd_px_max = int(round((yd - self.pos_y_min)/self.pos_dy))
+                # Sort coordinates (top-left goes first)
+                xd_px_min, xd_px_max = min(xd_px_min, xd_px_max), max(xd_px_min, xd_px_max)
+                yd_px_min, yd_px_max = min(yd_px_min, yd_px_max), max(yd_px_min, yd_px_max)
+                self.pts_selected = [xd_px_min, yd_px_min, xd_px_max, yd_px_max]
                 self.redraw_fluorescence_plot()
                 self.fig.canvas.draw()
                 self.fig.canvas.flush_events()
 
-                print(f"Button is released: {self.start_sel} - {(xd_px, yd_px)}")
-
+            self.button_pressed = False   # Left mouse button is released
+            #                               (it doesn't matter where the cursor is)
 
     map_plot = EnergyMapPlot(energy=energies, stack_all_data=eline_data, label_default=eline_selected,
                              positions_x=positions_x, positions_y=positions_y, axes_units=axes_units,
@@ -2155,7 +2260,7 @@ if __name__ == "__main__":
                         sequence="build_xanes_map",
                         alignment_starts_from="top",
                         ref_file_name="refs_Fe_P23.csv",
-                        fitting_method="admm",
+                        fitting_method="nnls",
                         emission_line="Fe_K", emission_line_alignment="P_K",
                         incident_energy_shift_keV=-0.0013,
                         interpolation_enable=True,
