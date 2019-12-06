@@ -1316,7 +1316,7 @@ def _interpolate_references(energy, energy_refs, absorption_refs):
         interpolated_refs[:, n] = np.interp(energy, energy_refs, a_ref)
     return interpolated_refs
 
-
+'''
 def _fit_xanes_map(map_data, absorption_refs):
     r"""
     Compute XANES map on the stack of XRF maps (XANES fitting).
@@ -1359,7 +1359,7 @@ def _fit_xanes_map(map_data, absorption_refs):
             map_data_fitted[:, ny, nx] = result
             map_rfactor[ny, nx] = rfactor
     return map_data_fitted, map_rfactor
-
+'''
 
 # ==============================================================================================
 #     Functions for plotting the results
