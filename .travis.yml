@@ -55,7 +55,7 @@ install:
   - export GIT_FULL_HASH=`git rev-parse HEAD`
   - conda create -y -n testenv python=$TRAVIS_PYTHON_VERSION numpy=$NUMPY
   - conda activate testenv
-  - conda install xraylib  # this is the only package not available on PyPI
+  - conda install scikit-beam -n nsls2forge
   - pip install -r requirements.txt
   - pip install -r requirements-dev.txt
   - pip install numpy==$NUMPY
