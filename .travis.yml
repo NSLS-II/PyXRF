@@ -19,6 +19,7 @@ matrix:
     - python: 3.7
       env: BUILD_DOCS=true SUBMIT_CODECOV=true NUMPY=1.17
     - python: nightly
+      env: NUMPY=1.17
   allow_failures:
     - python: nightly
       env: NUMPY=1.17
