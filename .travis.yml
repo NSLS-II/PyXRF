@@ -65,6 +65,14 @@ install:
   - pip list
 
 script:
+- python -c "import platform; import os; pv_installed = platform.python_version();
+  pv_requested = os.environ['TRAVIS_PYTHON_VERSION'];
+  assert pv_installed.startswith(f'{pv_requested}.'),
+  f'Installed Python version {pv_installed} is different from the requested version {pv_requested}'"
+- python -c "import numpy; import os; npv_installed = numpy.__version__;
+  npv_requested = os.environ['NUMPY'];
+  assert npv_installed.startswith(f'{npv_requested}.'),
+  f'Installed Numpy version {npv_installed} is different from the requested version {pv_requested}'"
 - flake8
 - coverage run run_tests.py
 - coverage report -m
