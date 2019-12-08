@@ -68,6 +68,7 @@ install:
 script:
 - python -c "import platform; import os; ver_installed = platform.python_version();
   ver_requested = os.environ['TRAVIS_PYTHON_VERSION'];
+  print(f'\nPython: requested version {ver_requensted}, installed version {ver_installed}');
   assert ver_installed.startswith(f'{ver_requested}.');"
 #- python -c "import platform; import os; ver_installed = platform.python_version();
 #  ver_requested = os.environ['TRAVIS_PYTHON_VERSION'];
