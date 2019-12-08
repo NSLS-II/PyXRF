@@ -28,6 +28,7 @@ matrix:
 python:
   - 3.6
   - 3.7
+  - 3.8
 
 env:
   - NUMPY=1.15
@@ -65,10 +66,15 @@ install:
   - pip list
 
 script:
-- python -c "import platform; import os; pv_installed = platform.python_version();
-  pv_requested = os.environ['TRAVIS_PYTHON_VERSION'];
-  assert pv_installed.startswith(f'{pv_requested}.'),
-  f'Installed Python version {pv_installed} is different from the requested version {pv_requested}'"
+- python -c "import platform; import os;
+  ver_installed = platform.python_version();
+  ver_requested = os.environ['TRAVIS_PYTHON_VERSION'];
+  print(f'\nPython: requested version {ver_requensted}, installed version {ver_installed}');
+  assert ver_installed.startswith(f'{ver_requested}.')"
+- python -c "import numpy; import os; ver_installed = numpy.__version__;
+  ver_requested = os.environ['NUMPY'];
+  print(f'\nNumpy: requested version {ver_requensted}, installed version {ver_installed}');
+  assert ver_installed.startswith(f'{ver_requested}.')"
 - python -c "import numpy; import os; npv_installed = numpy.__version__;
   npv_requested = os.environ['NUMPY'];
   assert npv_installed.startswith(f'{npv_requested}.'),
