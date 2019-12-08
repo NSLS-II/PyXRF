@@ -28,7 +28,6 @@ matrix:
 python:
   - 3.6
   - 3.7
-  - 3.8
 
 env:
   - NUMPY=1.15
@@ -69,10 +68,6 @@ script:
 - python -c "import platform; import os; ver_installed = platform.python_version();
   ver_requested = os.environ['TRAVIS_PYTHON_VERSION'];
   assert ver_installed.startswith(f'{ver_requested}.');"
-#- python -c "import platform; import os; ver_installed = platform.python_version();
-#  ver_requested = os.environ['TRAVIS_PYTHON_VERSION'];
-#  print(f'\nPython: requested version {ver_requensted}, installed version {ver_installed}');
-#  assert ver_installed.startswith(f'{ver_requested}.');"
 - python -c "import numpy; import os; ver_installed = numpy.__version__;
   ver_requested = os.environ['NUMPY'];
   assert ver_installed.startswith(f'{ver_requested}.')"
