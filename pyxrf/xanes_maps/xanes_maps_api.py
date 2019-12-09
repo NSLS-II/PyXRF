@@ -87,8 +87,8 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
     Example of function call for the batch of scans with IDs in the range 92276-92335:
 
     build_xanes_map(92276, 92335, param_file_name="param_335", scaler_name="sclr1_ch4",
-    sequence="load_and_process", ref_file_name="refs_Fe_P23.csv", emission_line="Fe_K",
-    emission_line_alignment="P_K", incident_energy_shift_keV=-0.0013)
+    sequence="load_and_process", ref_file_name="refs_Fe_P23.csv", fitting_method="nnls",
+    emission_line="Fe_K", emission_line_alignment="P_K", incident_energy_shift_keV=-0.0013)
 
     Options:
 
