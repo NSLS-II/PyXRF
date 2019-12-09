@@ -37,6 +37,68 @@ def build_xanes_map(*args, **kwargs):
         logger.info("Processing was completed successfully.")
 
 
+# Default input parameters for 'build_xanes_map_api' and 'build_xanes_map' functions
+_build_xanes_map_param_default = {
+    "start_id": None,
+    "end_id": None,
+    "xrf_fitting_param_fln": None,
+    "scaler_name": None,
+    "wd": None,
+    "xrf_subdir": "xrf_data",
+    "sequence": "build_xanes_map",
+    "emission_line": None,
+    "emission_line_alignment": None,
+    "incident_energy_shift_keV": 0,
+    "alignment_starts_from": "top",
+    "interpolation_enable": True,
+    "alignment_enable": True,
+    "ref_file_name": None,
+    "fitting_method": "nnls",
+    "fitting_descent_rate": 0.2,
+    "incident_energy_low_bound": None,
+    "use_incident_energy_from_param_file": False,
+    "plot_results": True,
+    "plot_use_position_coordinates": True,
+    "plot_position_axes_units": r"$\mu $m",
+    "output_file_formats": ["tiff"]
+}
+
+# Comments that are saved in the default ('empty') yaml file. The file is expected to be edited
+#   by users, so brief comments are helpful.
+_build_xanes_map_param_comments = {
+    "start_id": "Scan ID, the first scan of the batch (not necessary if raw data is downloaded)",
+    "end_id": "Scan ID, the last scan of the batch (not necessary if raw data is downloaded)",
+    "xrf_fitting_param_fln": "Name of the JSON file containing parameters for XRF fitting",
+    "scaler_name": "Valid name of the scaler for XRF map normalization",
+    "wd": "Working directory for batch processing (set to None to use current directory)",
+    "xrf_subdir": "Subdirectory inside 'wd', used to store .h5 files with XRF maps",
+    "sequence": "Processing sequence: 'load_and_process', 'process' or 'build_xanes_map'",
+    "emission_line": "Emission line for XANES mapping (ex. 'Fe_K')",
+    "emission_line_alignment":
+        "Emission line for alignment of XRF maps (set to None to use 'emission_line' value)",
+    "incident_energy_shift_keV":
+        "Bias value in keV added to incident energy axis value for the observed data",
+    "alignment_starts_from":
+        "The order of the stack alignment for XRF map stack: \n"
+        "        'top' start from the map with the map observed with highest incident energy, \n"
+        "        'bottom' - from the lowest energy",
+    "interpolation_enable": "True/False: enable/disable interpolation of XRF maps to uniform grid",
+    "alignment_enable": "True/False: enable/disable alignment of XRF maps",
+    "ref_file_name": "File name with XANES spectral references, set to None to disable XANES fitting",
+    "fitting_method": "Method for XANES fitting: supported methods are 'nnls', 'admm'",
+    "fitting_descent_rate": "Descent rate for ADMM fitting method",
+    "incident_energy_low_bound":
+        "Lower bound for incident energy used in XRF processing, \n"
+        "        None - determine the lower bound automatically",
+    "use_incident_energy_from_param_file":
+        "True - use incident energy from parameter file 'xrf_fitting_param_fln'",
+    "plot_results": "True/False - enable/disable plotting of the processing results",
+    "plot_use_position_coordinates": "True - use positional coordinates when plotting data",
+    "plot_position_axes_units": "Label for the positional axes (LaTeX is supported)",
+    "output_file_formats": "List of formats for data output (currently only 'tiff' is supported)"
+}
+
+
 def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
                         scaler_name=None,
                         wd=None,
