@@ -99,7 +99,137 @@ _build_xanes_map_param_comments = {
 }
 
 
-def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
+def _parse_docstring_parameters(doc_string):
+    r"""
+    Parses Google-style docstring and returns the list of (``parameter_name``, ``parameter_description``)
+    pairs. The properly composed parameter section of the docstring should start with the line
+    containing the word ``    Parameters`` followed by the line containing ``    ----------`` and
+    end with the line containing the word ``    Returns`` followed by the line containing ``    -------``.
+    The parameter descriptions must start with the line containing parameter name and type:
+    ``   parameter_name : type``. Parameter name may contain symbols '_', 'A-Z', 'a-z', '0'-'9' and
+    start with a letter or '_'. Every line in parameter description section must be empty or
+    start with FOUR spaces. The lines that contain description text may contain additional spaces.
+
+    This function:
+
+    - finds the parameter description section;
+
+    - removes 4 spaces from the beginning of each line;
+
+    - finds parameter names and descriptions for each parameter.
+
+    Parameters
+    ----------
+
+    doc_string : str
+        doc string as return by ``some_function.__doc__``
+
+    Returns
+    -------
+
+        A list of tuples ``(parameter_name, parameter_description)``:
+
+        - ``parameter_name`` is a string
+
+        - ``parameter_description`` is a list of strings
+    """
+
+    str_list = doc_string.split('\n')
+
+    # Remove all spaces at the end of the strings (the should be no spaces there, but still)
+    str_list = [s.rstrip() for s in str_list]
+
+    # We are interested only in the part of the docstring that contains description of parameters
+    #   Google-style docstrings are expected
+    n_first, n_last = None, None
+    for n in range(1, len(str_list) - 1):
+        if (str_list[n - 1] == "    Parameters") and re.search(r"^    -+$", str_list[n]):
+            n_first = n + 1
+        if (str_list[n] == "    Returns") and re.search(r"^    -+$", str_list[n + 1]):
+            n_last = n - 1
+            break
+
+    assert (n_first is not None) or (n_last is not None), \
+        "Incorrect docstring format: 'Parameters' or 'Return' statement was not found in the docstring"
+
+    # The list of strings contains parameter descriptions
+    str_list = str_list[n_first:n_last + 1]
+    # Each line must start with 4 spaces or be empty. Verify this
+    assert all([(not s) or re.search(r"^    ", s) for s in str_list]), \
+        "Incorrect docstring format: parameter descriptions should be indented by at least FOUR spaces"
+    # Now remove the spaces from nonempty lines
+    str_list = [s[4:] if s else s for s in str_list]
+
+    param_pos = [n for n, s in enumerate(str_list) if re.search(r"^[_A-Za-z][_A-Za-z0-9]* :", s)]
+    n_parameters = len(param_pos)
+    assert n_parameters, "Incorrect docstring format: no parameters were found"
+
+    param_pos.append(len(str_list))  # Having the last index will be helpful
+
+    param_names = [re.search("[_A-Za-z][_A-Za-z0-9]*", str_list[param_pos[n]])[0]
+                   for n in range(n_parameters)]
+    param_descriptions = [str_list[param_pos[n]: param_pos[n + 1]] for n in range(n_parameters)]
+
+    # Remove empty strings from the end of each description (if any)
+    for pd in param_descriptions:
+        while pd and (not pd[-1]):
+            pd.pop(-1)
+
+    # Check if some of the parameter has no descriptions (the number of line must be > 1)
+    #   The fist line of the description is actually the
+    assert all([len(s) > 1 for s in param_descriptions]), \
+        "Incomplete docstring: some parameters have not descriptions"
+
+    params = list(zip(param_names, param_descriptions))
+
+    return params
+
+
+def _verify_parsed_docstring(parameters, param_dict):
+    """
+    Verification of consistency of the parameters extracted from docstring and
+    dictionary of parameters (probably default parameters). There must be one-to-one
+    match between the entries of the list of the parameters extracted from the docstring
+    and the parameter dictionary.
+
+    Parameters
+    ----------
+
+    parameters : list(tuple)
+        The list of ``(parameter_name, parameter_description)`` tuples.
+        Descriptions are not analyzed by this function.
+
+    param_dict : dict
+        The dictionary of parameters: key - parameter name, value - default value.
+        Values are not analyized by this function.
+
+    Raises exception if there is mismatch between the parameter sets.
+    """
+
+    pd = param_dict.copy()
+    missing_param_list = []
+    for p_name, _ in parameters:
+        if p_name in pd:
+            del pd[p_name]
+        else:
+            missing_param_list.append(p_name)
+
+    extra_param_list = pd.keys()
+
+    err_msg_list = []
+    if missing_param_list:
+        err_msg_list.append(f"parameters that are in docstring, but not in the dictionary {missing_param_list}")
+    if extra_param_list:
+        err_msg_list.append(f"dictionary parameters that are not found in the docstring: {extra_param_list}")
+
+    if err_msg_list:
+        err_msg = "Parsed parameter verification failed: parameter set is inconsistent:\n"
+        err_msg += ", ".join(err_msg_list)
+        assert False, err_msg
+
+
+def build_xanes_map_api(start_id=None, end_id=None, *,
+                        xrf_fitting_param_fln=None,
                         scaler_name=None,
                         wd=None,
                         xrf_subdir="xrf_data",
@@ -117,7 +247,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
                         use_incident_energy_from_param_file=False,
                         plot_results=True,
                         plot_use_position_coordinates=True,
-                        plot_position_axes_units="$\mu $m",  # noqa: W605
+                        plot_position_axes_units=r"$\mu $m",
                         output_file_formats=["tiff"]):
     r"""
     The function builds XANES maps based on a set of XRF scans. The maps may be built based
@@ -127,7 +257,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
     for the specified range of scan IDs ``start_id`` .. ``end_id`` is loaded using
     databroker, saved to .h5 files placed in subdirectory ``xrf_subdir`` of the working
     directory ``wd`` and processed using ``pyxrf_batch`` with the set of parameters from
-    ``param_file_name`` to generate XRF maps. XANES maps are computed from the stack of
+    ``xrf_fitting_param_fln`` to generate XRF maps. XANES maps are computed from the stack of
     the XRF maps. The maps are interpolated to uniform grid of position coordinates
     (important if positions of data points are unevenly spaced), aligned along the spatial
     coordinates and fitted with the element references from file ``ref_file_name``. The
@@ -148,7 +278,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
 
     Example of function call for the batch of scans with IDs in the range 92276-92335:
 
-    build_xanes_map(92276, 92335, param_file_name="param_335", scaler_name="sclr1_ch4",
+    build_xanes_map(92276, 92335, xrf_fitting_param_fln="param_335", scaler_name="sclr1_ch4",
     sequence="load_and_process", ref_file_name="refs_Fe_P23.csv", fitting_method="nnls",
     emission_line="Fe_K", emission_line_alignment="P_K", incident_energy_shift_keV=-0.0013)
 
@@ -173,7 +303,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
     activates the emission line of interest (line specified by the parameter ``emission_line``).
     The default behavior may be changed by setting True the parameter
     ``use_incident_energy_from_param_file`` (use fixed energy from parameter file set by
-    ``param_file_name``) or specifying lower bound for incident energy ``incident_energy_low_bound``
+    ``xrf_fitting_param_fln``) or specifying lower bound for incident energy ``incident_energy_low_bound``
     (if the energy read from the .h5 data file is less than ``incident_energy_low_bound``, then
     use the lower bound, otherwise use the value of energy from the data file.
 
@@ -220,7 +350,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
         The values of ``start_id`` and ``end_id`` must be set to proper values in order
         to load data from the databroker.
 
-    param_file_name : str
+    xrf_fitting_param_fln : str
         the name of the JSON parameter file. The parameters are used for automated
         processing of data with ``pyxrf_batch``. The parameter file is typically produced
         by PyXRF. The parameter is not used for XANES analysis and may be skipped if
@@ -325,7 +455,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
         may contain LaTeX expressions: for example ``"$\mu $m"`` will print units
         of ``micron`` as part of X and Y axes labels.
 
-    file_output_formats : list(str)
+    output_file_formats : list(str)
         list of output file formats. Currently only "tiff" format is supported
         (XRF map stack and XANES maps are saved as stacked TIFF files).
 
@@ -409,11 +539,11 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
                          "to the function 'build_xanes_map_api'.")
 
     if seq_process_xrf_data:
-        if not param_file_name:
+        if not xrf_fitting_param_fln:
             raise ValueError("Parameter file name is not specified and XRF maps can not be generated: "
-                             "set the value the parameter 'param_file_name' of 'build_xanes_map_api'.")
-        param_file_name = os.path.expanduser(param_file_name)
-        param_file_name = os.path.abspath(param_file_name)
+                             "set the value the parameter 'xrf_fitting_param_fln' of 'build_xanes_map_api'.")
+        xrf_fitting_param_fln = os.path.expanduser(xrf_fitting_param_fln)
+        xrf_fitting_param_fln = os.path.abspath(xrf_fitting_param_fln)
 
     # No XANES maps will be generated if references are not provided
     #                 (this is one of the built-in options, not an error)
@@ -438,7 +568,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
 
     if seq_process_xrf_data:
         _process_xrf_data(start_id=start_id, end_id=end_id, wd_xrf=wd_xrf,
-                          param_file_name=param_file_name, eline_selected=eline_selected,
+                          xrf_fitting_param_fln=xrf_fitting_param_fln, eline_selected=eline_selected,
                           incident_energy_low_bound=incident_energy_low_bound,
                           use_incident_energy_from_param_file=use_incident_energy_from_param_file)
         logger.info("Processing data files (computing XRF maps): success.")
@@ -506,7 +636,7 @@ def _load_data_from_databroker(*, start_id, end_id, wd_xrf):
              create_each_det=False, save_scaler=True)
 
 
-def _process_xrf_data(*, start_id, end_id, wd_xrf, param_file_name, eline_selected,
+def _process_xrf_data(*, start_id, end_id, wd_xrf, xrf_fitting_param_fln, eline_selected,
                       incident_energy_low_bound, use_incident_energy_from_param_file):
     r"""
     Implements the second step of the processing sequence: processing of XRF scans
@@ -524,7 +654,7 @@ def _process_xrf_data(*, start_id, end_id, wd_xrf, param_file_name, eline_select
     wd_xrf : str
         full (absolute) name of the directory, where loaded .h5 files are placed
 
-    param_file_name : str
+    xrf_fitting_param_fln : str
         the name of the JSON parameter file. The parameters are used for automated
         processing of data with ``pyxrf_batch``. The parameter file is typically produced
         by PyXRF.
@@ -586,7 +716,7 @@ def _process_xrf_data(*, start_id, end_id, wd_xrf, param_file_name, eline_select
         # Process .h5 files in the directory 'wd_xrf'. Processing results are saved
         #   as additional datasets in the original .h5 files.
         pyxrf_batch(data_files=fln,  # Process only one data file
-                    param_file_name=param_file_name,
+                    xrf_fitting_param_fln=xrf_fitting_param_fln,
                     ignore_datafile_metadata=ignore_metadata,
                     incident_energy=energy,  # This value overrides incident energy from other sources
                     wd=wd_xrf, save_tiff=False)
@@ -2046,7 +2176,7 @@ def _get_dataset_name(img_dict, detector=None):
 
         if detector is None:
             # Dataset name for the sum should have no 'det1', 'det2' etc. preceding '_fit'
-            if re.search("fit$", name) and not re.search("det\d+_fit", name):  # noqa: W605
+            if re.search("fit$", name) and not re.search(r"det\d+_fit", name):  # noqa: W605
                 return name
         else:
             if re.search(f"det{detector}_fit$", name):
@@ -2266,7 +2396,7 @@ if __name__ == "__main__":
     logger.addHandler(stream_handler)
 
     build_xanes_map_api(start_id=92276, end_id=92335,
-                        param_file_name="param_335",
+                        xrf_fitting_param_fln="param_335",
                         scaler_name="sclr1_ch4", wd=None,
                         # sequence="process",
                         sequence="build_xanes_map",
