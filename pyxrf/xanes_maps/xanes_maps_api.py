@@ -228,6 +228,61 @@ def _verify_parsed_docstring(parameters, param_dict):
         assert False, err_msg
 
 
+def create_yaml_parameter_file(*, file_path, function_docstring, param_value_dict,
+                               dir_create=False, file_overwrite=False):
+    """
+    Creates YAML parameter file based on parameter names and descriptions from ``parameters``
+    and default values from ``param_value_dict``. The file is supposed to have simple
+    human-readable and editable structure.
+
+    The function should be used to create YAML file with default parameter values that are later
+    modified by users according to their needs.
+
+    TODO: edit this docstring
+    """
+
+    # Convert to absolute path
+    file_path = os.path.expanduser(file_path)
+    file_path = os.path.abspath(file_path)
+
+    # Parse docstring (returns the list of param_name/param_description pairs)
+    parameters = _parse_docstring_parameters(function_docstring)
+
+    # Check if entries in 'parameters' and 'param_value_dict' match (will raise an exception).
+    _verify_parsed_docstring(parameters, param_value_dict)
+
+    # Check if file already exists
+    file_exists = False
+    if not file_overwrite:
+        file_exists = os.path.exists(file_path)
+    else:
+        # We would like to overwrite only files, not directories etc.
+        file_exists = os.path.exists(file_path) and not os.path.isfile(file_path)
+
+    if file_exists:
+        raise IOError(f"File '{file_path}' already exists")
+
+    # Create the directory if necessary
+    dir_path, _ = os.path.split(file_path)
+    if not dir_create and not os.path.isdir(dir_path):
+        raise IOError(f"Directory '{dir_create}' does not exist")
+
+    # Attempt to create the directory
+    os.makedirs(dir_path, exist_ok=True)
+
+    # Create the file output
+    s_output = ""
+    for p_name, p_desc in parameters:
+        desc = [f"#  {p}" for p in p_desc]
+        s = "\n".join(desc)
+        s += "\n"
+        s += f"{p_name}: {param_value_dict[p_name]}\n\n"
+        s_output += s
+
+    with open(file_path, "w") as f:
+        f.write(s_output)
+
+
 def build_xanes_map_api(start_id=None, end_id=None, *,
                         xrf_fitting_param_fln=None,
                         scaler_name=None,
