@@ -1,5 +1,6 @@
 atom
 enaml
+jsonschema
 h5py>=2.9.0
 lmfit
 matplotlib
