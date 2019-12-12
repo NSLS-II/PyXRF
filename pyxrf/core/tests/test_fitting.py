@@ -273,20 +273,28 @@ def test_fitting_nnls_fail():
 
 
 @pytest.mark.parametrize("dataset_params", [
-    {"n_data_dimensions": (8,)},
-    {"n_data_dimensions": (15,)},
+    {"n_data_dimensions": (8,), "non_negative": True},
+    {"n_data_dimensions": (15,), "non_negative": True},
     # Check with negative weights
-    {"n_data_dimensions": (15,), "weights_range": (-1, -0.1)},
-    {"n_data_dimensions": (15,), "weights_range": (20, 20)},
+    {"n_data_dimensions": (15,), "weights_range": (-1, -0.1), "non_negative": False},
+    {"n_data_dimensions": (15,), "weights_range": (-20, 20), "non_negative": False},
+    {"n_data_dimensions": (15,), "weights_range": (0.1, 1), "non_negative": False},
+    # Fitting will fail, but we need to check that all estimated weights are positive
+    {"n_data_dimensions": (15,), "weights_range": (-20, 20), "non_negative": True,
+     "only_check_weights_ge_0": True},
 ])
 def test_fitting_admm(dataset_params):
 
-    # Determine if the dataset will have any negative weights
-    neg_weights = False
-    if ("weights_range" in dataset_params):
-        wr = np.asarray(dataset_params["weights_range"])
-        if any(wr < 0):
-            neg_weights = True
+    # Determines if 'non-negative' or regular ADMM fitting is used
+    non_negative = dataset_params["non_negative"]
+    del dataset_params["non_negative"]
+
+    # Determines if detailed verification of results should be performed.
+    #   The only check performed is the sign of the weights.
+    only_check_weights_ge_0 = False
+    if "only_check_weights_ge_0" in dataset_params:
+        only_check_weights_ge_0 = dataset_params["only_check_weights_ge_0"]
+        del dataset_params["only_check_weights_ge_0"]
 
     fitting_data = DataForFittingTest(**dataset_params)
 
@@ -296,7 +304,7 @@ def test_fitting_admm(dataset_params):
     # -------------- Test regular fitting ---------------
     # Different processing options depending on whether negative weights were
     #   used to generate the dataset
-    if not neg_weights:
+    if non_negative:
         # Only positive weights
         weights_estimated, rfactor, convergence, feasibility = \
             _fitting_admm(data_input, spectra)
@@ -305,24 +313,30 @@ def test_fitting_admm(dataset_params):
         weights_estimated, rfactor, convergence, feasibility = \
             _fitting_admm(data_input, spectra, non_negative=False)
 
-    fitting_data.validate_output_weights(weights_estimated, decimal=10)
+    if not only_check_weights_ge_0:
 
-    # Validate 'rfactor' (do it for a single point)
-    data_fitted = np.matmul(weights_estimated[:, 0], np.transpose(spectra))
-    res = data_fitted - data_input[:, 0]
-    assert rfactor.ndim == 1 and len(rfactor) == weights_estimated.shape[1], \
-        f"'rfactor' dimensions are incorrect ({rfactor.shape})"
-    rf = np.sum(np.abs(res))/np.sum(np.abs(data_input))  # Desired value
-    npt.assert_almost_equal(rfactor[0], rf, err_msg="R-factor is computed incorrectly")
+        fitting_data.validate_output_weights(weights_estimated, decimal=10)
 
-    # Check the convergence data
-    assert (convergence.ndim == 1) and (convergence.size >= 1) \
-        and convergence[-1] < 1e-20, \
-        "Convergence array has incorrect dimensions or the alogrithm did not converge"
+        # Validate 'rfactor' (do it for a single point)
+        data_fitted = np.matmul(weights_estimated[:, 0], np.transpose(spectra))
+        res = data_fitted - data_input[:, 0]
+        assert rfactor.ndim == 1 and len(rfactor) == weights_estimated.shape[1], \
+            f"'rfactor' dimensions are incorrect ({rfactor.shape})"
+        rf = np.sum(np.abs(res))/np.sum(np.abs(data_input))  # Desired value
+        npt.assert_almost_equal(rfactor[0], rf, err_msg="R-factor is computed incorrectly")
 
-    # Check feasibility array dimensions
-    assert (feasibility.ndim == 1) and (feasibility.size >= 1), \
-        "Feasibility array has incorrect dimensions"
+        # Check the convergence data
+        assert (convergence.ndim == 1) and (convergence.size >= 1) \
+            and convergence[-1] < 1e-20, \
+            "Convergence array has incorrect dimensions or the alogrithm did not converge"
+
+        # Check feasibility array dimensions
+        assert (feasibility.ndim == 1) and (feasibility.size >= 1), \
+            "Feasibility array has incorrect dimensions"
+
+    else:
+
+        assert np.all(weights_estimated >= 0), "Non-negative fitting produced at least one negative weight"
 
 
 @pytest.mark.parametrize("dataset_params", [
