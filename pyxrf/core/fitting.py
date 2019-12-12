@@ -261,7 +261,7 @@ def _fitting_nnls(data, ref_spectra, *, maxiter=100):
     return map_data_fitted, map_rfactor, map_residual
 
 
-def _fitting_admm(data, ref_spectra, *, rate=0.2, maxiter=100, epsilon=1e-30):
+def _fitting_admm(data, ref_spectra, *, rate=0.2, maxiter=100, epsilon=1e-30, non_negative=True):
     r"""
     Fitting of multiple spectra using ADMM method.
 
@@ -283,6 +283,9 @@ def _fitting_admm(data, ref_spectra, *, rate=0.2, maxiter=100, epsilon=1e-30):
 
     epsilon : float
         small value used in stopping criterion of ADMM optimization algorithm.
+
+    non_negative : bool
+        if True, then the solution is guaranteed to be non-negative
 
     Returns
     -------
@@ -336,7 +339,8 @@ def _fitting_admm(data, ref_spectra, *, rate=0.2, maxiter=100, epsilon=1e-30):
         m2 = z + (w-u) * rate
         x = np.matmul(m1, m2)
         w_updated = x + u
-        w_updated = w_updated.clip(min=0)
+        if non_negative:
+            w_updated = w_updated.clip(min=0)
         u = u + x - w_updated
 
         conv = np.linalg.norm(w_updated - w) / np.linalg.norm(w_updated)
