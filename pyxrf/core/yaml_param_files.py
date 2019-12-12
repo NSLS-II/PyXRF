@@ -3,7 +3,7 @@ import re
 import os
 
 
-def _parse_docstring_parameters(doc_string):
+def _parse_docstring_parameters(doc_string, search_param_section=True):
     r"""
     Parses Google-style docstring and returns the list of (``parameter_name``, ``parameter_description``)
     pairs. The properly composed parameter section of the docstring should start with the line
@@ -26,7 +26,17 @@ def _parse_docstring_parameters(doc_string):
     ----------
 
     doc_string : str
-        doc string as return by ``some_function.__doc__``
+        doc string as return by ``some_function.__doc__``. Every line of the docstring must be
+        indented at least by 4 spaces.
+
+    search_param_section : bool
+        tells the function to separate the parameter section of the docstring before parsing it.
+        If set ``False``, the function assumes that ``doc_string`` is contains only descriptions
+        of parameters (already separated parameter section of the docstring). This option may
+        be useful if the ``doc_string`` is not actual function docstring, but just the prepared
+        description of parameters to be saved in the YAML file. Such description should not
+        contain ``Parameters`` and ``Returns`` section titles. Note, that every line of the
+        description must be indented at least by 4 spaces (as in docstrings).
 
     Returns
     -------
@@ -43,15 +53,19 @@ def _parse_docstring_parameters(doc_string):
     # Remove all spaces at the end of the strings (the should be no spaces there, but still)
     str_list = [s.rstrip() for s in str_list]
 
-    # We are interested only in the part of the docstring that contains description of parameters
-    #   Google-style docstrings are expected
-    n_first, n_last = None, None
-    for n in range(1, len(str_list) - 1):
-        if (str_list[n - 1] == "    Parameters") and re.search(r"^    -+$", str_list[n]):
-            n_first = n + 1
-        if (str_list[n] == "    Returns") and re.search(r"^    -+$", str_list[n + 1]):
-            n_last = n - 1
-            break
+    if search_param_section:
+        # We are interested only in the part of the docstring that contains description of parameters
+        #   Google-style docstrings are expected
+        n_first, n_last = None, None
+        for n in range(1, len(str_list) - 1):
+            if (str_list[n - 1] == "    Parameters") and re.search(r"^    -+$", str_list[n]):
+                n_first = n + 1
+            if (str_list[n] == "    Returns") and re.search(r"^    -+$", str_list[n + 1]):
+                n_last = n - 1
+                break
+    else:
+        # Not search for the parameter section. All the lines of the list should be parsed
+        n_first, n_last = 0, len(str_list) - 1
 
     assert (n_first is not None) or (n_last is not None), \
         "Incorrect docstring format: 'Parameters' or 'Return' statement was not found in the docstring"
@@ -107,6 +121,9 @@ def _verify_parsed_docstring(parameters, param_dict):
         The dictionary of parameters: key - parameter name, value - default value.
         Values are not analyized by this function.
 
+    Returns
+    -------
+
     Raises exception if there is mismatch between the parameter sets.
     """
 
@@ -132,27 +149,134 @@ def _verify_parsed_docstring(parameters, param_dict):
         assert False, err_msg
 
 
+_user_instructions_on_editing_yaml = """
+--------------------------------------------------
+Brief instructions on editing YAML parameter files
+--------------------------------------------------
+
+Parameters are presented in the form:
+
+parameter_name: parameter_value
+
+Parameter values may be numbers (integers or floating point numbers), strings, lists and
+  dictionaries. STRINGS are presented without quotes:
+
+parameter_name: some_string_value
+
+or
+
+parameter_name: Some string value
+
+LISTS are presented in the form:
+
+parameter_name:
+- item1   # Items have the same indentation as 'parameter_name'
+- item2
+- item3
+
+DICTIONARIES are presented in the form:
+
+parameter_name:
+  dict_key1: dict_value1  # Indented by 2 spaces
+  dict_key2: dict_value2
+  dict_key3:    # The value for this dictionary pair is an array with 3 items
+  - list_item1  # Same indentation as 'dict_key3'
+  - list_item2
+  - list_item3
+
+Some parameters may be set to the value of 'None'. Python value 'None' is represented
+as 'null' in YAML files:
+
+parameter_name: null  # The parameter has a value of None
+--------------------------------------------------
+"""
+
+
 def create_yaml_parameter_file(*, file_path, function_docstring, param_value_dict,
-                               dir_create=False, file_overwrite=False):
+                               dir_create=False, file_overwrite=False,
+                               search_param_section=True,
+                               user_editing_instructions=_user_instructions_on_editing_yaml):
     """
     Creates YAML parameter file based on parameter names and descriptions from ``parameters``
     and default values from ``param_value_dict``. The file is supposed to have simple
-    human-readable and editable structure.
+    human-readable and editable structure, so the descriptions from the docstring are
+    inserted above each parameter entry in the YAML file. Values from the ``param_value_dict``
+    are used as the default values of the parameters. In addition, a set of instructions for the
+    user may be inserted at the beginning of the YAML file (as comments). By default, the
+    basic instructions on editing YAML file are inserted.
+
+    Instead of Google-style docstring (which contains Parameters and Returns) statements,
+    a string that contains only parameter descriptions may be supplied as ``function_docstring``.
+    The parameter descriptions must still be formatted according to Google style and have
+    indentation of at least 4 spaces. In this case search of the parameter section should
+    be disabled by setting ``search_param_section=False``.
 
     The function should be used to create YAML file with default parameter values that are later
     modified by users according to their needs.
 
-    TODO: edit this docstring
+    Parameters
+    ----------
+
+    file_path : str
+        absolute or relative path of the new YAML parameter file. The file may have any
+        extension. The function may create the nonexisting directory or overwrite existing
+        files if ``dir_create`` and/or ``file_overwrite`` are set ``True``.
+
+    function_docstring : str
+        doc string as return by ``some_function.__doc__``. Every line of the docstring must be
+        indented at least by 4 spaces.
+
+    param_value_dict : dict
+        the dictionary that contains (param_name: param_value) pairs. The values of the parameters
+        are saved in the YAML file (may be considered default values). ``function_docstring`` and
+        ``param_value_dict`` must contain the same parameters (one-to-one match). Exception will
+        be raised if there is mismatch between the number or names of parameters.
+
+    dir_create : bool
+        if set True, then the directory will be automatically created if it does not exist,
+        if set False, then the exception will be raised if the directory does not exist
+
+    file_overwrite : bool
+        if set True, then existing parameter file may be overwritten with the new file if it exists,
+        otherwise the exception ``IOError`` is be raised if file with the name ``file_path``
+        already exists.
+
+    search_param_section : bool
+        tells the function to separate the parameter section of the docstring before parsing it.
+        If set ``False``, the function assumes that ``doc_string`` is contains only descriptions
+        of parameters (already separated parameter section of the docstring). This option may
+        be useful if the ``doc_string`` is not actual function docstring, but just the prepared
+        description of parameters to be saved in the YAML file. Such description should not
+        contain ``Parameters`` and ``Returns`` section titles. Note, that every line of the
+        description must be indented at least by 4 spaces (as in docstrings).
+
+    user_editing_instructions : str
+        text that is added to the beginning of the YAML file. Typically the text will contain
+        the instruction for the user. The default set of instructions contain brief information
+        on editing the YAML file. Before the text is added to the YAML file, the "# "
+        is added to the beginning of each line, so that the text appears as a comment in
+        the YAML file. Set to ``None`` if no instructions need to be added.
+
+    Returns
+    -------
+
+    No value is returned
+
+    The function will raise ``IOError`` if the directory in the ``file_path`` does not exist or
+    the file already exists, unless the parameters ``dir_create`` and/or ``file_overwrite`` are
+    set ``True``. The function will raise ``AssertionError`` if parsing of the docstring is
+    not successful or there is a mismatch between parameter set found in docstring and
+    the dictionary ``param_value_dict``.
     """
 
     # Convert to absolute path
     file_path = os.path.expanduser(file_path)
     file_path = os.path.abspath(file_path)
 
-    # Parse docstring (returns the list of param_name/param_description pairs)
-    parameters = _parse_docstring_parameters(function_docstring)
+    # Parse docstring (returns the list of param_name/param_description pairs, may raise AssertionError)
+    parameters = _parse_docstring_parameters(function_docstring, search_param_section=search_param_section)
 
-    # Check if entries in 'parameters' and 'param_value_dict' match (will raise an exception).
+    # Check if entries in 'parameters' and 'param_value_dict' match (may raise AssertionError).
     _verify_parsed_docstring(parameters, param_value_dict)
 
     # Check if file already exists
@@ -176,6 +300,21 @@ def create_yaml_parameter_file(*, file_path, function_docstring, param_value_dic
 
     # Create the file output
     s_output = ""
+    s_output += "# This file is autogenerated with the default parameters "\
+                "and expected to be modified by the user\n"
+
+    # Insert the user instructions if provided
+    if user_editing_instructions:
+        # Remove the last '\n'
+        if user_editing_instructions[-1] == "\n":
+            user_editing_instructions = user_editing_instructions[:-1]
+        # Now add "# " to the beginning of each non-empty line,
+        #   and replace empty lines with "#"
+        list_lines = user_editing_instructions.split("\n")
+        list_lines = [f"# {s}" if s else "#" for s in list_lines]
+        user_editing_instructions = "\n".join(list_lines)
+        s_output += user_editing_instructions + "\n\n"
+
     for p_name, p_desc in parameters:
         desc = [f"#  {p}" for p in p_desc]
         s = "\n".join(desc)
@@ -192,6 +331,24 @@ def create_yaml_parameter_file(*, file_path, function_docstring, param_value_dic
 
 
 def read_yaml_parameter_file(*, file_path):
+    """
+    Reads YAML parameter file. It is assumed that the file is created by the function
+    ``create_yaml_parameter_file`` and subsequent editing did not change the overall file
+    layout. The function does not check the schema, so any compatible parameter file
+    will be loaded as a dictionary.
+
+    Parameters
+    ----------
+
+    file_path : str
+        relative or absolute path to the YAML file. The exception ``IOError`` will be
+        raised if the file does not exist.
+
+    Returns
+    -------
+
+    The dictionary that contains (param_name, param_value) pairs
+    """
 
     # Convert to absolute path
     file_path = os.path.expanduser(file_path)

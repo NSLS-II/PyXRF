@@ -79,11 +79,14 @@ def _generate_parameter_set_schema():
     return param_schema
 
 
-def _generate_sample_docstring(param_dict):
+def _generate_sample_docstring(param_dict, include_section_titles=True):
     """
     Generates sample docstring based on the supplied parameter dictionary,
     returns docstring and the list of parameter/description pairs.
     For testing of ``_parse_docstring_parameters`` function.
+    If ``include_section_titles`` is ``False``, then the titles
+    ``Parameters`` and ``Returns`` are not included in the output string,
+    i.e. the string contains only parameter descriptions.
     """
     parameters = []
     for p_name in param_dict.keys():
@@ -99,8 +102,9 @@ def _generate_sample_docstring(param_dict):
     n_empty_lines_before, n_empty_lines_after = 5, 5
     d_str = [""] * n_empty_lines_before
 
-    d_str.append("    Parameters")
-    d_str.append("    ----------")
+    if include_section_titles:
+        d_str.append("    Parameters")
+        d_str.append("    ----------")
 
     for p in parameters:
         # Indentation by 4 spaces
@@ -109,8 +113,9 @@ def _generate_sample_docstring(param_dict):
         s += "\n" * np.random.choice(4)  # Insert 0 .. 3 empty strings
         d_str.append(s)
 
-    d_str.append("    Returns")
-    d_str.append("    -------")
+    if include_section_titles:
+        d_str.append("    Returns")
+        d_str.append("    -------")
 
     d_str.extend([""] * n_empty_lines_after)
 
@@ -126,6 +131,24 @@ def test_parse_docstring_parameters():
     d_str, parameters = _generate_sample_docstring(param_dict)
     parameters_output = _parse_docstring_parameters(d_str)
     assert parameters == parameters_output, "Parsed parameters or parameter descriptions are invalid"
+
+    # Basically repeats the same test, but enables section titles explicitely
+    param_dict = _generate_parameter_set()
+    d_str, parameters = _generate_sample_docstring(param_dict, include_section_titles=True)
+    parameters_output = _parse_docstring_parameters(d_str, search_param_section=True)
+    assert parameters == parameters_output, "Parsed parameters or parameter descriptions are invalid"
+
+    # Disable section titles and see if parsing still works
+    param_dict = _generate_parameter_set()
+    d_str, parameters = _generate_sample_docstring(param_dict, include_section_titles=False)
+    parameters_output = _parse_docstring_parameters(d_str, search_param_section=False)
+    assert parameters == parameters_output, "Parsed parameters or parameter descriptions are invalid"
+
+    # Check for exception if the section titles are required, but don't exist
+    param_dict = _generate_parameter_set()
+    d_str, parameters = _generate_sample_docstring(param_dict, include_section_titles=False)
+    with pytest.raises(AssertionError, match="'Parameters' or 'Return' statement was not found in the docstring"):
+        _parse_docstring_parameters(d_str, search_param_section=True)
 
 
 def test_verify_parsed_docstring():
@@ -188,4 +211,27 @@ def test_create_read_yaml_parameter_file(tmp_path):
     jsonschema.validate(instance=param_dict_recovered, schema=param_schema)
 
     assert param_dict == param_dict_recovered, \
+        "Parameter dictionary read from YAML file is different from the original parameter dictionary"
+
+    # Test: creating parameter file without instructions (and read it)
+    yaml_fln2 = "parameter2.yaml"
+    file_path2 = os.path.join(tmp_path, *yaml_dirs, yaml_fln2)
+    create_yaml_parameter_file(file_path=file_path2, function_docstring=doc_string,
+                               param_value_dict=param_dict, dir_create=False,
+                               user_editing_instructions=False)
+    param_dict_recovered2 = read_yaml_parameter_file(file_path=file_path2)
+    jsonschema.validate(instance=param_dict_recovered2, schema=param_schema)
+    assert param_dict == param_dict_recovered2, \
+        "Parameter dictionary read from YAML file is different from the original parameter dictionary"
+
+    # Test: creating parameter file with custom instructions (and read it)
+    yaml_fln3 = "parameter3.yaml"
+    file_path3 = os.path.join(tmp_path, *yaml_dirs, yaml_fln3)
+    instructions = "    Those are custom instructions\n        in the correct format"
+    create_yaml_parameter_file(file_path=file_path3, function_docstring=doc_string,
+                               param_value_dict=param_dict, dir_create=False,
+                               user_editing_instructions=instructions)
+    param_dict_recovered3 = read_yaml_parameter_file(file_path=file_path3)
+    jsonschema.validate(instance=param_dict_recovered3, schema=param_schema)
+    assert param_dict == param_dict_recovered3, \
         "Parameter dictionary read from YAML file is different from the original parameter dictionary"
