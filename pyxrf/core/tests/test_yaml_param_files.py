@@ -7,9 +7,6 @@ from pyxrf.core.yaml_param_files import (
     _parse_docstring_parameters, _verify_parsed_docstring,
     create_yaml_parameter_file, read_yaml_parameter_file)
 
-# ---------------------------------------------------------------------------
-#   Testing _parse_docstring_parameters
-
 
 def _generate_parameter_set():
     """
@@ -235,3 +232,119 @@ def test_create_read_yaml_parameter_file(tmp_path):
     jsonschema.validate(instance=param_dict_recovered3, schema=param_schema)
     assert param_dict == param_dict_recovered3, \
         "Parameter dictionary read from YAML file is different from the original parameter dictionary"
+
+
+@pytest.mark.parametrize("test_params", [
+    # Writing to existing directory (absolute and relative paths)
+    {"path_create": ["yaml", "file", "dirs"], "path_current": ["yaml", "file"],
+     "path_write": ["."], "path_read": ["."], "dir_create": False,
+     "succeed_write": True, "succeed_read": True},
+    {"path_create": ["yaml", "file", "dirs"], "path_current": ["yaml", "file"],
+     "path_write": [".", "dirs"], "path_read": ["yaml", "file", "dirs"],
+     "dir_create": False, "succeed_write": True, "succeed_read": True},
+    {"path_create": ["yaml", "file", "dirs"], "path_current": ["yaml", "file"],
+     "path_write": ["yaml", "file", "dirs"], "path_read": [".", "dirs"],
+     "dir_create": False, "succeed_write": True, "succeed_read": True},
+    {"path_create": ["yaml", "file", "dirs"], "path_current": ["yaml", "file"],
+     "path_write": [".."], "path_read": [".."], "dir_create": False,
+     "succeed_write": True, "succeed_read": True},
+    {"path_create": ["yaml", "file", "dirs"], "path_current": ["yaml", "file"],
+     "path_write": [".."], "path_read": ["yaml"], "dir_create": False,
+     "succeed_write": True, "succeed_read": True},
+    {"path_create": ["yaml", "file", "dirs"], "path_current": ["yaml", "file"],
+     "path_write": ["yaml"], "path_read": [".."], "dir_create": False,
+     "succeed_write": True, "succeed_read": True},
+
+    # Writing to non-existing directory
+    {"path_create": ["yaml", "file"], "path_current": ["yaml", "file"],
+     "path_write": [".", "dirs"], "path_read": [".", "dirs"], "dir_create": False,
+     "succeed_write": False, "succeed_read": False},
+    {"path_create": ["yaml", "file"], "path_current": ["yaml", "file"],
+     "path_write": [".", "dirs"], "path_read": [".", "dirs"], "dir_create": True,
+     "succeed_write": True, "succeed_read": True},
+
+    # Reading non-existing file
+    {"path_create": ["yaml", "file"], "path_current": ["yaml", "file"],
+     "path_write": ["yaml"], "path_read": ["yaml", "file"], "dir_create": False,
+     "succeed_write": True, "succeed_read": False},
+])
+def test_create_yaml_parameter_file1(tmp_path, test_params):
+    """Test functions ``create_yaml_parameter_file`` and ``read_yaml_parameter_file``
+    for different combinations of input/output directories"""
+
+    path_create = test_params["path_create"]
+    path_current = test_params["path_current"]
+    path_write = test_params["path_write"]
+    path_read = test_params["path_read"]
+    dir_create = test_params["dir_create"]
+    succeed_write = test_params["succeed_write"]
+    succeed_read = test_params["succeed_read"]
+
+    def assemble_path(tmp_path, components):
+        path = tmp_path
+        if components:
+            if components[0] in (".", ".."):
+                # Relative path
+                if components[0] == ".":
+                    components.pop(0)
+                if components:
+                    path = os.path.join(*components)
+                else:
+                    path = ""
+            else:
+                # Absolute path
+                components = [tmp_path] + components
+                path = os.path.join(*components)
+        return path
+
+    path_create = assemble_path(tmp_path, path_create)
+    path_current = assemble_path(tmp_path, path_current)
+    path_write = assemble_path(tmp_path, path_write)
+    path_read = assemble_path(tmp_path, path_read)
+
+    # Generate the set of parameters (we don't use docstring in this test)
+    param_dict = _generate_parameter_set()
+    doc_string, parameters = _generate_sample_docstring(param_dict)
+
+    os.makedirs(path_create, exist_ok=True)
+    os.chdir(path_current)
+
+    yaml_fln = "parameters.yaml"
+    if succeed_write:
+        create_yaml_parameter_file(file_path=os.path.join(path_write, yaml_fln),
+                                   function_docstring=doc_string, param_value_dict=param_dict,
+                                   dir_create=dir_create)
+    else:
+        with pytest.raises(IOError):
+            create_yaml_parameter_file(file_path=os.path.join(path_write, yaml_fln),
+                                       function_docstring=doc_string, param_value_dict=param_dict,
+                                       dir_create=dir_create)
+
+    if succeed_read:
+        param_dict_recovered = read_yaml_parameter_file(file_path=os.path.join(path_read, yaml_fln))
+    else:
+        with pytest.raises(IOError):
+            param_dict_recovered = read_yaml_parameter_file(file_path=os.path.join(path_read, yaml_fln))
+
+    if succeed_write and succeed_read:
+        assert param_dict == param_dict_recovered, \
+            "Parameter dictionary read from YAML file is different from the original parameter dictionary"
+
+
+def test_create_yaml_parameter_file2(tmp_path):
+    """ Test if file overwriting protection works"""
+
+    fln = os.path.join(tmp_path, "parameters.yaml")
+
+    # Generate the set of parameters (we don't use docstring in this test)
+    param_dict = _generate_parameter_set()
+    doc_string, parameters = _generate_sample_docstring(param_dict)
+
+    # Write the file the first time
+    create_yaml_parameter_file(file_path=fln, function_docstring=doc_string, param_value_dict=param_dict)
+    # Try to write it again
+    with pytest.raises(IOError):
+        create_yaml_parameter_file(file_path=fln, function_docstring=doc_string, param_value_dict=param_dict)
+    # Try again, but allow overwriting the file
+    create_yaml_parameter_file(file_path=fln, function_docstring=doc_string,
+                               param_value_dict=param_dict, file_overwrite=True)
