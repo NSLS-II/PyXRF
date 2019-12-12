@@ -275,8 +275,18 @@ def test_fitting_nnls_fail():
 @pytest.mark.parametrize("dataset_params", [
     {"n_data_dimensions": (8,)},
     {"n_data_dimensions": (15,)},
+    # Check with negative weights
+    {"n_data_dimensions": (15,), "weights_range": (-1, -0.1)},
+    {"n_data_dimensions": (15,), "weights_range": (20, 20)},
 ])
 def test_fitting_admm(dataset_params):
+
+    # Determine if the dataset will have any negative weights
+    neg_weights = False
+    if ("weights_range" in dataset_params):
+        wr = np.asarray(dataset_params["weights_range"])
+        if any(wr < 0):
+            neg_weights = True
 
     fitting_data = DataForFittingTest(**dataset_params)
 
@@ -284,8 +294,16 @@ def test_fitting_admm(dataset_params):
     data_input = fitting_data.data_input
 
     # -------------- Test regular fitting ---------------
-    weights_estimated, rfactor, convergence, feasibility = \
-        _fitting_admm(data_input, spectra)
+    # Different processing options depending on whether negative weights were
+    #   used to generate the dataset
+    if not neg_weights:
+        # Only positive weights
+        weights_estimated, rfactor, convergence, feasibility = \
+            _fitting_admm(data_input, spectra)
+    else:
+        # May contain negative weights
+        weights_estimated, rfactor, convergence, feasibility = \
+            _fitting_admm(data_input, spectra, non_negative=False)
 
     fitting_data.validate_output_weights(weights_estimated, decimal=10)
 
