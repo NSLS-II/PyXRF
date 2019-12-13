@@ -4,7 +4,7 @@ import numpy as np
 import csv
 from pystackreg import StackReg
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider, Button
+from matplotlib.widgets import Slider, Button, TextBox
 from matplotlib.patches import Rectangle, FancyArrow
 import time as ttime
 import tifffile
@@ -511,7 +511,8 @@ def build_xanes_map_api(start_id=None, end_id=None, *,
                                      eline_selected=eline_selected,
                                      processing_results=processing_results,
                                      fitting_method=fitting_method,
-                                     fitting_descent_rate=fitting_descent_rate)
+                                     fitting_descent_rate=fitting_descent_rate,
+                                     incident_energy_shift_keV=incident_energy_shift_keV)
         else:
             logger.info("Plotting results: skipped.")
 
@@ -881,8 +882,7 @@ def _save_xanes_processing_results(*, wd, eline_selected, ref_labels, output_fil
 def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
                              plot_position_axes_units, plot_use_position_coordinates,
                              eline_selected, processing_results,
-                             fitting_method,
-                             fitting_descent_rate):
+                             fitting_method, fitting_descent_rate, incident_energy_shift_keV):
     r"""
     Implements one of the final steps of the processing sequence: plotting processing results.
     The data is displayed on a set of Matplotlib figures:
@@ -933,6 +933,9 @@ def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
 
     fitting_descent_rate : float
         descent rate for fitting algorithm, currently used only for ADMM fitting
+
+    incident_energy_shift_keV : float
+        the value of the shift (already) applied to energy points of the observed data
     """
 
     positions_x_uniform = processing_results["positions_x_uniform"]
@@ -978,7 +981,7 @@ def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
                      positions_x=pos_x, positions_y=pos_y, axes_units=axes_units,
                      xanes_map_data=xanes_map_data, absorption_refs=scan_absorption_refs,
                      ref_labels=ref_labels, fitting_method=fitting_method,
-                     fitting_descent_rate=fitting_descent_rate)
+                     fitting_descent_rate=fitting_descent_rate, energy_shift_keV=incident_energy_shift_keV)
 
 
 def _load_dataset_from_hdf5(*, start_id, end_id, wd_xrf, load_fit_results=True):
@@ -1424,7 +1427,7 @@ def _interpolate_references(energy, energy_refs, absorption_refs):
 def show_image_stack(*, eline_data, energies, eline_selected,
                      positions_x=None, positions_y=None, axes_units=None,
                      xanes_map_data=None, absorption_refs=None, ref_labels=None,
-                     fitting_method="nnls", fitting_descent_rate=0.2):
+                     fitting_method="nnls", fitting_descent_rate=0.2, energy_shift_keV=0.0):
     r"""
     Display XRF Map stack
 
@@ -1448,7 +1451,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
         def __init__(self, *, energy, stack_all_data, label_default,
                      positions_x=None, positions_y=None, axes_units=None,
                      xanes_map_data=None, absorption_refs=None, ref_labels=None,
-                     fitting_method="nnls", fitting_descent_rate=0.2):
+                     fitting_method="nnls", fitting_descent_rate=0.2, energy_shift_keV=0.0):
             r"""
             Parameters
             ----------
@@ -1494,11 +1497,24 @@ def show_image_stack(*, eline_data, energies, eline_selected,
 
             fitting_descent_rate : float
                 descent rate for fitting algorithm, currently used only for ADMM fitting
+
+            energy_shift_keV : float
+                shift (in keV) applied to incident energy for observed data. The energy values
+                supplied to this function are already shifted by this amount. The user will
+                have opportunity to experiment with different values of energy shift, so the
+                online processing routine will resample the references for new shifted
+                energy points. This online processing will not influence data in the rest of the
+                program.
             """
 
             # The following are the fitting parameters that are sent to the fitting algorithm
             self.fitting_method = fitting_method
             self.fitting_descent_rate = fitting_descent_rate
+            # This is the value of already applied energy shift
+            self.incident_energy_shift_keV = energy_shift_keV
+            # This value will changed and the difference of the updated and the original value
+            #   will be applied to the energy points before processing
+            self.incident_energy_shift_keV_updated = energy_shift_keV
 
             self.label_fontsize = 15
             self.coord_fontsize = 10
@@ -1638,6 +1654,12 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.slider = Slider(self.ax_slider_energy, 'Energy',
                                  0, len(self.energy) - 1,
                                  valinit=self.n_energy_selected, valfmt='%i')
+
+            self.ax_tb_energy_shift = plt.axes([0.85, 0.935, 0.1, 0.03])
+            self.tb_energy_shift = TextBox(self.ax_tb_energy_shift, "Energy shift (keV):",
+                                           label_pad=0.07)
+            self.tb_energy_shift.set_val(self.incident_energy_shift_keV)
+            self.tb_energy_shift.on_submit(self.tb_energy_shift_onsubmit)
 
             if len(self.labels) <= 10:
                 # Individual button per label (emission line). Only 10 buttons will fit windows
@@ -1866,6 +1888,15 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                     self.fig.canvas.flush_events()
                 self.busy = False
 
+        def tb_energy_shift_onsubmit(self, event):
+            # 'event' is just a string that contains the number
+            try:
+                new_val = float(event)
+                self.incident_energy_shift_keV_updated = new_val
+            except Exception:
+                pass
+            self.tb_energy_shift.set_val(f"{self.incident_energy_shift_keV_updated}")
+
         def canvas_onpress(self, event):
             """Callback, mouse button pressed"""
             self.button_pressed = False  # May be pressed outside the region
@@ -1906,7 +1937,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
     map_plot = EnergyMapPlot(energy=energies, stack_all_data=eline_data, label_default=eline_selected,
                              positions_x=positions_x, positions_y=positions_y, axes_units=axes_units,
                              xanes_map_data=xanes_map_data, absorption_refs=absorption_refs,
-                             ref_labels=ref_labels)
+                             ref_labels=ref_labels, fitting_method=fitting_method,
+                             fitting_descent_rate=fitting_descent_rate, energy_shift_keV=energy_shift_keV)
     map_plot.show(block=True)
 
 
