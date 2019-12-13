@@ -5,6 +5,7 @@ import csv
 from pystackreg import StackReg
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button
+from matplotlib.patches import Rectangle, FancyArrow
 import time as ttime
 import tifffile
 
@@ -1515,6 +1516,10 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.absorption_refs = absorption_refs
             self.ref_labels = ref_labels
 
+            # References to Arrow and Rectangle patches, used to mark selection on the stack image
+            self.img_arrow = None
+            self.img_rect = None
+
             # The state of the left mouse button (True - button is in pressed state)
             self.button_pressed = False
 
@@ -1556,6 +1561,33 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             v_max = np.max(self.stack_selected)
             self.img_plot.set_clim(v_min, v_max)
 
+        def draw_selection_mark(self):
+            # Remove existing marked points and regions
+            if self.img_arrow and self.img_arrow.figure:
+                self.img_arrow.remove()
+            if self.img_rect and self.img_rect.figure:
+                self.img_rect.remove()
+
+            x_min, y_min, x_max, y_max = self.pts_selected
+            pt_x_min = x_min * self.pos_dx + self.pos_x_min
+            pt_y_min = y_min * self.pos_dy + self.pos_y_min
+
+            if (x_min == x_max) and (y_min == y_max):
+                # Single point is marked with an arrow
+                arr_param = {"length_includes_head": True, "color": 'r', "width": self.arr_width}
+                self.img_arrow = FancyArrow(pt_x_min - self.arr_length, pt_y_min - self.arr_length,
+                                            self.arr_length, self.arr_length, **arr_param)
+                self.ax_img_stack.add_patch(self.img_arrow)
+            else:
+                # Region is marked with rectangle
+                pt_x_max = x_max * self.pos_dx + self.pos_x_min
+                pt_y_max = y_max * self.pos_dy + self.pos_y_min
+                rect_param = {"linewidth": 1, "edgecolor": 'r', "facecolor": 'none'}
+                self.img_rect = Rectangle((pt_x_min, pt_y_min),
+                                          pt_x_max - pt_x_min, pt_y_max - pt_y_min,
+                                          **rect_param)
+                self.ax_img_stack.add_patch(self.img_rect)
+
         def show(self, block=True):
 
             self.textbox_nlabel = None
@@ -1573,6 +1605,13 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.ax_img_stack.set_xlabel(x_label, fontsize=self.label_fontsize)
             self.ax_img_stack.set_ylabel(y_label, fontsize=self.label_fontsize)
 
+            # Compute parameters of the arrow (width and length), used to mark
+            #   selected point on the image plot
+            max_dim = max(abs(self.pos_x_max - self.pos_x_min),
+                          abs(self.pos_y_max - self.pos_y_min))
+            self.arr_width = max_dim / 200
+            self.arr_length = max_dim / 20
+
             # display image
             extent = [self.pos_x_min, self.pos_x_max, self.pos_y_max, self.pos_y_min]
             self.img_plot = self.ax_img_stack.imshow(self.img_selected,
@@ -1586,6 +1625,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.cbar = self.fig.colorbar(self.img_plot, cax=self.ax_img_cbar, orientation="vertical")
             self.ax_img_cbar.ticklabel_format(style='sci', scilimits=(-3, 4), axis='both')
             self.set_cbar_range()
+
+            self.draw_selection_mark()
 
             self.redraw_fluorescence_plot()
 
@@ -1854,6 +1895,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                 xd_px_min, xd_px_max = min(xd_px_min, xd_px_max), max(xd_px_min, xd_px_max)
                 yd_px_min, yd_px_max = min(yd_px_min, yd_px_max), max(yd_px_min, yd_px_max)
                 self.pts_selected = [xd_px_min, yd_px_min, xd_px_max, yd_px_max]
+                self.draw_selection_mark()
                 self.redraw_fluorescence_plot()
                 self.fig.canvas.draw()
                 self.fig.canvas.flush_events()
