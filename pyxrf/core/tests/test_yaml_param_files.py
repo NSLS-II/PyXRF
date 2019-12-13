@@ -90,7 +90,7 @@ def _generate_sample_docstring(param_dict, include_section_titles=True):
         # Create tuple (param_name, param_description), param_description - array of strings,
         #   each string will be printed in the separate line
         p = (f"{p_name}",
-             [f"{p_name} : {type(p_name)}",
+             [f"{p_name} : {type(param_dict[p_name])}",
               f"Description of parameter {p_name}",
               "",
               f"The end of the description of {p_name}"])
