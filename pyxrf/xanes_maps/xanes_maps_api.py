@@ -979,9 +979,10 @@ def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
     # Show image stacks for the selected elements
     show_image_stack(eline_data=eline_data_aligned, energies=scan_energies_shifted, eline_selected=eline_selected,
                      positions_x=pos_x, positions_y=pos_y, axes_units=axes_units,
-                     xanes_map_data=xanes_map_data, absorption_refs=scan_absorption_refs,
-                     ref_labels=ref_labels, fitting_method=fitting_method,
-                     fitting_descent_rate=fitting_descent_rate, energy_shift_keV=incident_energy_shift_keV)
+                     xanes_map_data=xanes_map_data, scan_absorption_refs=scan_absorption_refs,
+                     ref_labels=ref_labels, ref_energy=ref_energy, ref_data=ref_data,
+                     fitting_method=fitting_method, fitting_descent_rate=fitting_descent_rate,
+                     energy_shift_keV=incident_energy_shift_keV)
 
 
 def _load_dataset_from_hdf5(*, start_id, end_id, wd_xrf, load_fit_results=True):
@@ -1426,7 +1427,8 @@ def _interpolate_references(energy, energy_refs, absorption_refs):
 
 def show_image_stack(*, eline_data, energies, eline_selected,
                      positions_x=None, positions_y=None, axes_units=None,
-                     xanes_map_data=None, absorption_refs=None, ref_labels=None,
+                     xanes_map_data=None, scan_absorption_refs=None, ref_labels=None,
+                     ref_energy=None, ref_data=None,  # Those are original sets of reference data
                      fitting_method="nnls", fitting_descent_rate=0.2, energy_shift_keV=0.0):
     r"""
     Display XRF Map stack
@@ -1450,7 +1452,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
 
         def __init__(self, *, energy, stack_all_data, label_default,
                      positions_x=None, positions_y=None, axes_units=None,
-                     xanes_map_data=None, absorption_refs=None, ref_labels=None,
+                     xanes_map_data=None, scan_absorption_refs=None, ref_labels=None,
+                     ref_energy=None, ref_data=None,
                      fitting_method="nnls", fitting_descent_rate=0.2, energy_shift_keV=0.0):
             r"""
             Parameters
@@ -1484,12 +1487,19 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             xanes_map_data : 3D ndarray
                 The stack of XRF maps: shape = (K, N, M) - the stack of K maps, the size of each map is NxM
 
-            absorption_refs : 2D ndarray
+            scan_absorption_refs : 2D ndarray
                 Absorption references, used to display fitting results and for real-time fitting.
                 Shape = (K, Q) - K data points, Q references
 
             ref_labels : list(str)
                 The list of Q reference labels, used for data plotting
+
+            ref_energy : array (1D)
+                The array of energy values for original (not resampled) loaded reference data (B points)
+
+            ref_data : array (2D)
+                The array of reference data, shape (B,C) for C references. The array needs to be resampled
+                before using for processing
 
             fitting_method : str
                 Fitting method used for real-time fitting (used when displaying fitting for selections
@@ -1520,7 +1530,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.coord_fontsize = 10
 
             self.stack_all_data = stack_all_data
-            self.energy = energy
+            self.energy_original = energy  # The energy values shifted by 'self.incident_energy_shift_keV'
+            self.energy = energy  # The contents of this array will change if additional shift is applied
             self.label_default = label_default
 
             self.labels = list(eline_data.keys())
@@ -1529,8 +1540,12 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.busy = False
 
             self.xanes_map_data = xanes_map_data
-            self.absorption_refs = absorption_refs
+            self.absorption_refs = scan_absorption_refs
             self.ref_labels = ref_labels
+
+            # Original reference data (used for resampling when fitting with different energy shift)
+            self.ref_energy = ref_energy
+            self.ref_data = ref_data
 
             # References to Arrow and Rectangle patches, used to mark selection on the stack image
             self.img_arrow = None
@@ -1659,6 +1674,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.tb_energy_shift = TextBox(self.ax_tb_energy_shift, "Energy shift (keV):",
                                            label_pad=0.07)
             self.tb_energy_shift.set_val(self.incident_energy_shift_keV)
+            self.tb_energy_shift.color = "#00ff00"
+            self.tb_energy_shift.hovercolor = "#ff0000"
             self.tb_energy_shift.on_submit(self.tb_energy_shift_onsubmit)
 
             if len(self.labels) <= 10:
@@ -1798,13 +1815,27 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             data_stack_selected = self.stack_selected[:, yd_px_min: yd_px_max + 1, xd_px_min: xd_px_max + 1]
             data_selected = np.sum(np.sum(data_stack_selected, axis=2), axis=1)
 
+            # Apply energy shift (it influences all plots, so it should be done regardless of the rest
+            #   of the options
+            if (self.incident_energy_shift_keV == self.incident_energy_shift_keV_updated):
+                self.energy = self.energy_original
+            else:
+                # Find difference between the original value of the shift (that was already
+                #   applied and the new value)
+                de = self.incident_energy_shift_keV_updated - self.incident_energy_shift_keV
+                # Apply the shift to energy points for the observed data
+                self.energy = [_ + de for _ in self.energy_original]
+
+            # Fluorescence plot will display the new energy values
             self.ax_fluor_plot.plot(self.energy,
                                     data_selected,
                                     marker=".", linestyle="solid", label="XANES spectrum")
 
-            # Plot the results of fitting (if the fitting was performed
+            # Plot the results of fitting (if the fitting was performed and the value for the
+            #    shift of incident energy was not changed)
             if (self.label_selected == self.label_default) and (self.xanes_map_data is not None) \
-                    and (self.absorption_refs is not None):
+                    and (self.absorption_refs is not None) and (self.ref_data is not None) \
+                    and (self.ref_energy is not None):
 
                 # The number of averaged points
                 n_averaged_pts = (xd_px_max - xd_px_min + 1) * (yd_px_max - yd_px_min + 1)
@@ -1814,15 +1845,17 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                     plot_comments = f"Area: {n_averaged_pts} px."
 
                 fit_real_time = True
-                if plot_single_point:
-                    # fit_real_time = True
+                if plot_single_point and (self.incident_energy_shift_keV ==
+                                          self.incident_energy_shift_keV_updated):
+                    # fit_real_time = False
                     fit_real_time = True  # For now let's always do fitting on the fly
                 if fit_real_time:
+                    # Interpolate references (same function as in the main processing routine)
+                    refs = _interpolate_references(self.energy, self.ref_energy, self.ref_data)
                     xanes_fit_pt, xanes_fit_rfactor, _ = fit_spectrum(data_selected,
-                                                                      self.absorption_refs,
+                                                                      refs,
                                                                       method=self.fitting_method,
                                                                       rate=self.fitting_descent_rate)
-
                 else:
                     # Use precomputed data
                     xanes_fit_pt = self.xanes_map_data[:, yd_px_min, xd_px_min]
@@ -1893,9 +1926,18 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             try:
                 new_val = float(event)
                 self.incident_energy_shift_keV_updated = new_val
+                self.redraw_fluorescence_plot()
+                self.fig.canvas.draw()
+                self.fig.canvas.flush_events()
             except Exception:
                 pass
             self.tb_energy_shift.set_val(f"{self.incident_energy_shift_keV_updated}")
+            if self.incident_energy_shift_keV == self.incident_energy_shift_keV_updated:
+                self.tb_energy_shift.color = "#00ff00"
+                self.tb_energy_shift.hovercolor = "#ff0000"
+            else:
+                self.tb_energy_shift.color = "#ffff00"
+                self.tb_energy_shift.hovercolor = "#ff0000"
 
         def canvas_onpress(self, event):
             """Callback, mouse button pressed"""
@@ -1936,9 +1978,10 @@ def show_image_stack(*, eline_data, energies, eline_selected,
 
     map_plot = EnergyMapPlot(energy=energies, stack_all_data=eline_data, label_default=eline_selected,
                              positions_x=positions_x, positions_y=positions_y, axes_units=axes_units,
-                             xanes_map_data=xanes_map_data, absorption_refs=absorption_refs,
-                             ref_labels=ref_labels, fitting_method=fitting_method,
-                             fitting_descent_rate=fitting_descent_rate, energy_shift_keV=energy_shift_keV)
+                             xanes_map_data=xanes_map_data, scan_absorption_refs=scan_absorption_refs,
+                             ref_labels=ref_labels, ref_energy=ref_energy, ref_data=ref_data,
+                             fitting_method=fitting_method, fitting_descent_rate=fitting_descent_rate,
+                             energy_shift_keV=energy_shift_keV)
     map_plot.show(block=True)
 
 
