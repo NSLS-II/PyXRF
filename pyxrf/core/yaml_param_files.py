@@ -293,7 +293,7 @@ def create_yaml_parameter_file(*, file_path, function_docstring, param_value_dic
     # Create the directory if necessary
     dir_path, _ = os.path.split(file_path)
     if not dir_create and not os.path.isdir(dir_path):
-        raise IOError(f"Directory '{dir_create}' does not exist")
+        raise IOError(f"Directory '{dir_path}' does not exist")
 
     # Attempt to create the directory
     os.makedirs(dir_path, exist_ok=True)
