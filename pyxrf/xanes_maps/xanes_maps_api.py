@@ -15,6 +15,7 @@ from ..model.fileio import read_hdf_APS
 from ..model.utils import (grid_interpolate, normalize_data_by_scaler, convert_time_to_nexus_string,
                            check_if_eline_is_activated, check_eline_name)
 from ..core.fitting import fit_spectrum, rfactor_compute
+from ..core.yaml_param_files import (create_yaml_parameter_file)  # , read_yaml_parameter_file)
 
 import logging
 logger = logging.getLogger()
@@ -106,40 +107,34 @@ _build_xanes_map_param_schema = {
 }
 
 
-# Comments that are saved in the default ('empty') yaml file. The file is expected to be edited
-#   by users, so brief comments are helpful.
-_build_xanes_map_param_comments = {
-    "start_id": "Scan ID, the first scan of the batch (not necessary if raw data is downloaded)",
-    "end_id": "Scan ID, the last scan of the batch (not necessary if raw data is downloaded)",
-    "xrf_fitting_param_fln": "Name of the JSON file containing parameters for XRF fitting",
-    "scaler_name": "Valid name of the scaler for XRF map normalization",
-    "wd": "Working directory for batch processing (set to None to use current directory)",
-    "xrf_subdir": "Subdirectory inside 'wd', used to store .h5 files with XRF maps",
-    "sequence": "Processing sequence: 'load_and_process', 'process' or 'build_xanes_map'",
-    "emission_line": "Emission line for XANES mapping (ex. 'Fe_K')",
-    "emission_line_alignment":
-        "Emission line for alignment of XRF maps (set to None to use 'emission_line' value)",
-    "incident_energy_shift_keV":
-        "Bias value in keV added to incident energy axis value for the observed data",
-    "alignment_starts_from":
-        "The order of the stack alignment for XRF map stack: \n"
-        "        'top' start from the map with the map observed with highest incident energy, \n"
-        "        'bottom' - from the lowest energy",
-    "interpolation_enable": "True/False: enable/disable interpolation of XRF maps to uniform grid",
-    "alignment_enable": "True/False: enable/disable alignment of XRF maps",
-    "ref_file_name": "File name with XANES spectral references, set to None to disable XANES fitting",
-    "fitting_method": "Method for XANES fitting: supported methods are 'nnls', 'admm'",
-    "fitting_descent_rate": "Descent rate for ADMM fitting method",
-    "incident_energy_low_bound":
-        "Lower bound for incident energy used in XRF processing, \n"
-        "        None - determine the lower bound automatically",
-    "use_incident_energy_from_param_file":
-        "True - use incident energy from parameter file 'xrf_fitting_param_fln'",
-    "plot_results": "True/False - enable/disable plotting of the processing results",
-    "plot_use_position_coordinates": "True - use positional coordinates when plotting data",
-    "plot_position_axes_units": "Label for the positional axes (LaTeX is supported)",
-    "output_file_formats": "List of formats for data output (currently only 'tiff' is supported)"
-}
+def create_xanes_map_parameters(file_path, *, allow_exceptions=False):
+    """
+    Creates YAML parameter file with default parameters. The file may be editied by the user
+    to select processing options and tune the processing algorithms. The function will not
+    overwrite the existing files or create new directories. This is a safety feature, which
+    prevents creation of random directories or overwriting existing parameter files.
+
+    Parameters
+    ----------
+
+    file_path : str
+        absolute or relative path to the new parameter file.
+
+    allow_exceptions : bool
+        True - raise exception in case of errors, False - print error message and exit
+
+    Returns
+    -------
+
+    No return value
+    """
+    try:
+        create_yaml_parameter_file(file_path=file_path, function_docstring=build_xanes_map_api.__doc__,
+                                   param_value_dict=_build_xanes_map_param_default)
+    except Exception as ex:
+        logger.error(f"Error occurred while creating file '{file_path}': {ex}")
+        if allow_exceptions:
+            raise
 
 
 def build_xanes_map_api(start_id=None, end_id=None, *,
@@ -1675,7 +1670,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                                            label_pad=0.07)
             self.tb_energy_shift.set_val(self.incident_energy_shift_keV)
             self.tb_energy_shift.color = "#00ff00"
-            self.tb_energy_shift.hovercolor = "#ff0000"
+            self.tb_energy_shift.hovercolor = "#00ff00"
             self.tb_energy_shift.on_submit(self.tb_energy_shift_onsubmit)
 
             if len(self.labels) <= 10:
@@ -1689,6 +1684,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
 
             self.fig.canvas.mpl_connect("button_press_event", self.canvas_onpress)
             self.fig.canvas.mpl_connect("button_release_event", self.canvas_onrelease)
+
+            self.fig.canvas.draw_idle()
 
             plt.show(block=block)
 
@@ -1923,21 +1920,25 @@ def show_image_stack(*, eline_data, energies, eline_selected,
 
         def tb_energy_shift_onsubmit(self, event):
             # 'event' is just a string that contains the number
+            new_val_valid = False
             try:
                 new_val = float(event)
                 self.incident_energy_shift_keV_updated = new_val
-                self.redraw_fluorescence_plot()
-                self.fig.canvas.draw()
-                self.fig.canvas.flush_events()
+                new_val_valid = True
             except Exception:
                 pass
             self.tb_energy_shift.set_val(f"{self.incident_energy_shift_keV_updated}")
-            if self.incident_energy_shift_keV == self.incident_energy_shift_keV_updated:
-                self.tb_energy_shift.color = "#00ff00"
-                self.tb_energy_shift.hovercolor = "#ff0000"
-            else:
-                self.tb_energy_shift.color = "#ffff00"
-                self.tb_energy_shift.hovercolor = "#ff0000"
+            if new_val_valid:
+                if self.incident_energy_shift_keV == self.incident_energy_shift_keV_updated:
+                    self.tb_energy_shift.color = "#00ff00"
+                    self.tb_energy_shift.hovercolor = "#00ff00"
+                else:
+                    self.tb_energy_shift.color = "#ffff00"
+                    self.tb_energy_shift.hovercolor = "#ffff00"
+                self.redraw_fluorescence_plot()
+                # self.fig.canvas.draw()
+                self.fig.canvas.draw_idle()
+                self.fig.canvas.flush_events()
 
         def canvas_onpress(self, event):
             """Callback, mouse button pressed"""
