@@ -15,149 +15,14 @@ from ..model.fileio import read_hdf_APS
 from ..model.utils import (grid_interpolate, normalize_data_by_scaler, convert_time_to_nexus_string,
                            check_if_eline_is_activated, check_eline_name)
 from ..core.fitting import fit_spectrum, rfactor_compute
-from ..core.yaml_param_files import (create_yaml_parameter_file)  # , read_yaml_parameter_file)
+from ..core.yaml_param_files import (create_yaml_parameter_file, read_yaml_parameter_file)
 
 import logging
 logger = logging.getLogger()
 
 
-def build_xanes_map(*args, **kwargs):
-    r"""
-    A wrapper for the function ``build_xanes_map_api`` that catches exceptions
-    and prints the error message. Use this wrapper to run processing manually from
-    iPython and use ``build_xanes_map_api`` for custom scripts.
-
-    For description of the function parameters see the docstring for
-    ``build_xanes_map_api``
-    """
-    try:
-        build_xanes_map_api(*args, **kwargs)
-    except BaseException as ex:
-        msg = f"Processing is incomplete! Exception was raised during execution:\n   {ex}"
-        logger.error(msg)
-    else:
-        logger.info("Processing was completed successfully.")
-
-
-# Default input parameters for 'build_xanes_map_api' and 'build_xanes_map' functions
-_build_xanes_map_param_default = {
-    "start_id": None,
-    "end_id": None,
-    "xrf_fitting_param_fln": None,
-    "scaler_name": None,
-    "wd": None,
-    "xrf_subdir": "xrf_data",
-    "sequence": "build_xanes_map",
-    "emission_line": None,
-    "emission_line_alignment": None,
-    "incident_energy_shift_keV": 0,
-    "alignment_starts_from": "top",
-    "interpolation_enable": True,
-    "alignment_enable": True,
-    "ref_file_name": None,
-    "fitting_method": "nnls",
-    "fitting_descent_rate": 0.2,
-    "incident_energy_low_bound": None,
-    "use_incident_energy_from_param_file": False,
-    "plot_results": True,
-    "plot_use_position_coordinates": True,
-    "plot_position_axes_units": r"$\mu $m",
-    "output_file_formats": ["tiff"]
-}
-
-# Default input parameters for 'build_xanes_map_api' and 'build_xanes_map' functions
-_build_xanes_map_param_schema = {
-    "type": "object",
-    "additionalProperties": False,
-    "required": ["start_id", "end_id", "xrf_fitting_param_fln", "scaler_name", "wd", "xrf_subdir",
-                 "sequence", "emission_line", "emission_line_alignment", "incident_energy_shift_keV",
-                 "alignment_starts_from", "interpolation_enable", "alignment_enable", "ref_file_name",
-                 "fitting_method", "fitting_descent_rate", "incident_energy_low_bound",
-                 "use_incident_energy_from_param_file", "plot_results", "plot_use_position_coordinates",
-                 "plot_position_axes_units", "output_file_formats"],
-    "properties": {
-        "start_id": {"type": ["integer", "null"], "exclusiveMinimum": 0},
-        "end_id": {"type": ["integer", "null"], "exclusiveMinimum": 0},
-        "xrf_fitting_param_fln": {"type": ["string", "null"]},
-        "scaler_name": {"type": ["string", "null"]},
-        "wd": {"type": ["string", "null"]},
-        "xrf_subdir": {"type": ["string", "null"]},
-        "sequence": {"type": "string"},
-        "emission_line": {"type": ["string", "null"]},
-        "emission_line_alignment": {"type": ["string", "null"]},
-        "incident_energy_shift_keV": {"type": "number"},
-        "alignment_starts_from": {"type": "string", "enum": ["top", "bottom"]},
-        "interpolation_enable": {"type": "boolean"},
-        "alignment_enable": {"type": "boolean"},
-        "ref_file_name": {"type": ["string", "null"]},
-        "fitting_method": {"type": "string", "enum": ["nnls", "admm"]},
-        "fitting_descent_rate": {"type": "number", "exclusiveMinimum": 0.0},
-        "incident_energy_low_bound": {"type": ["number", "null"], "exclusiveMinimum": 0.0},
-        "use_incident_energy_from_param_file": {"type": "boolean"},
-        "plot_results": {"type": "boolean"},
-        "plot_use_position_coordinates": {"type": "boolean"},
-        "plot_position_axes_units": {"type": "string"},
-        "output_file_formats": {"type": "array",
-                                "uniqueItems": True,
-                                "items": {
-                                    "type": "string",
-                                    "enum": ["tiff"]
-                                }}
-    }
-}
-
-
-def create_xanes_map_parameters(file_path, *, allow_exceptions=False):
-    """
-    Creates YAML parameter file with default parameters. The file may be editied by the user
-    to select processing options and tune the processing algorithms. The function will not
-    overwrite the existing files or create new directories. This is a safety feature, which
-    prevents creation of random directories or overwriting existing parameter files.
-
-    Parameters
-    ----------
-
-    file_path : str
-        absolute or relative path to the new parameter file.
-
-    allow_exceptions : bool
-        True - raise exception in case of errors, False - print error message and exit
-
-    Returns
-    -------
-
-    No return value
-    """
-    try:
-        create_yaml_parameter_file(file_path=file_path, function_docstring=build_xanes_map_api.__doc__,
-                                   param_value_dict=_build_xanes_map_param_default)
-    except Exception as ex:
-        logger.error(f"Error occurred while creating file '{file_path}': {ex}")
-        if allow_exceptions:
-            raise
-
-
-def build_xanes_map_api(start_id=None, end_id=None, *,
-                        xrf_fitting_param_fln=None,
-                        scaler_name=None,
-                        wd=None,
-                        xrf_subdir="xrf_data",
-                        sequence="build_xanes_map",
-                        emission_line,
-                        emission_line_alignment=None,
-                        incident_energy_shift_keV=0,
-                        alignment_starts_from="top",
-                        interpolation_enable=True,
-                        alignment_enable=True,
-                        ref_file_name=None,
-                        fitting_method="nnls",
-                        fitting_descent_rate=0.2,
-                        incident_energy_low_bound=None,
-                        use_incident_energy_from_param_file=False,
-                        plot_results=True,
-                        plot_use_position_coordinates=True,
-                        plot_position_axes_units=r"$\mu $m",
-                        output_file_formats=["tiff"]):
+def build_xanes_map(start_id=None, end_id=None, *, parameter_file_path=None,
+                    create_parameter_file=False, allow_exceptions=False, **kwargs):
     r"""
     The function builds XANES maps based on a set of XRF scans. The maps may be built based
     on data from the following sources:
@@ -368,11 +233,334 @@ def build_xanes_map_api(start_id=None, end_id=None, *,
         list of output file formats. Currently only "tiff" format is supported
         (XRF map stack and XANES maps are saved as stacked TIFF files).
 
+    parameter_file_path : str
+        absolute or relative path to the YAML file, which contains the processing parameters.
+
+    create_parameter_file : bool
+        indicates whether a new parameter file needs to be created.
+
+    allow_exceptions : bool
+        True - raise exception in case of errors, False - print error message and exit
+
     Returns
     -------
 
-    Throws an exception if processing can not be completed. The error message may be printed to
-    indicate the reason of the failure to the user.
+    no value is returned
+
+    Raises
+    ------
+
+    Raise exceptions if processing can not be completed and exceptions are allowed
+    (``allow_exceptions=True``). The error message indicates the reason of failure.
+    If exceptions are disabled, then error message is printed.
+    """
+
+    # First process the case of creating new parameter file (with default values)
+    #   This step is using 'create_parameter_file' and 'parameter_file_path' arguments
+    #   and ignores the rest.
+    if create_parameter_file is True:
+        # It is allowed to specify path to the new parameter file as the first argument.
+        # This will work only if 'create_parameter_file' is set True.
+        if not parameter_file_path and isinstance(start_id, str):
+            parameter_file_path = start_id
+        if parameter_file_path:
+            try:
+                create_yaml_parameter_file(file_path=parameter_file_path,
+                                           function_docstring=_build_xanes_map_api.__doc__,
+                                           param_value_dict=_build_xanes_map_param_default)
+            except Exception as ex:
+                logger.error(f"Error occurred while creating file '{parameter_file_path}': {ex}")
+                if allow_exceptions:
+                    raise
+        else:
+            msg = f"New parameter file can't be created, because no file path is specified"
+            if allow_exceptions:
+                raise RuntimeError(msg)
+            else:
+                logger.error(msg)
+        return
+
+    # Move 'start_id' and 'end_id' to kwargs
+    kwargs["start_id"] = start_id
+    kwargs["end_id"] = end_id
+
+    # Assemble the dictionary of arguments for the processing function
+    arguments = _build_xanes_map_param_default
+    # Modify default values to values from yaml parameter file (if file name is given)
+    if parameter_file_path:
+        param_file_args = read_yaml_parameter_file(file_path=parameter_file_path)
+        # 'param_file_args' is checked against the schema, but in principle they may contain
+        #   extra parameters or some parameters could be missing, so copy only the parameters
+        #   that are already present in 'arguments'
+        keys_in_both = set(arguments.keys()) & set(param_file_args.keys())
+        args_modified = {key: param_file_args[key] for key in keys_in_both}
+        arguments.update(args_modified)
+    # Modify the default values if additional arguments are specified. The arguments
+    #   in function call will override the values from the parameter file
+    unsupported_args = set(kwargs.keys()) - set(arguments.keys())
+    # Sort the unsupported keys in the order they appear in the function call (kwargs dict)
+    unsupported_args = [key for key in kwargs.keys() if key in unsupported_args]
+    if unsupported_args:  # Error occurred: at least one argument is not supported
+        msg = ", ".join(unsupported_args)
+        msg = "The function is called with invalid arguments: " + msg
+        if allow_exceptions:
+            raise RuntimeError(msg)
+        else:
+            logger.error(msg)
+            return
+    else:
+        arguments.update(kwargs)
+
+    # Now call the processing function
+    try:
+        _build_xanes_map_api(**kwargs)
+    except BaseException as ex:
+        if allow_exceptions:
+            raise
+        else:
+            msg = f"Processing is incomplete! Exception was raised during execution:\n   {ex}"
+            logger.error(msg)
+    else:
+        logger.info("Processing was completed successfully.")
+
+
+# Default input parameters for '_build_xanes_map_api' and 'build_xanes_map' functions
+_build_xanes_map_param_default = {
+    "start_id": None,
+    "end_id": None,
+    "xrf_fitting_param_fln": None,
+    "scaler_name": None,
+    "wd": None,
+    "xrf_subdir": "xrf_data",
+    "sequence": "build_xanes_map",
+    "emission_line": None,
+    "emission_line_alignment": None,
+    "incident_energy_shift_keV": 0,
+    "alignment_starts_from": "top",
+    "interpolation_enable": True,
+    "alignment_enable": True,
+    "ref_file_name": None,
+    "fitting_method": "nnls",
+    "fitting_descent_rate": 0.2,
+    "incident_energy_low_bound": None,
+    "use_incident_energy_from_param_file": False,
+    "plot_results": True,
+    "plot_use_position_coordinates": True,
+    "plot_position_axes_units": r"$\mu $m",
+    "output_file_formats": ["tiff"]
+}
+
+# Default input parameters for '_build_xanes_map_api' and 'build_xanes_map' functions
+_build_xanes_map_param_schema = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["start_id", "end_id", "xrf_fitting_param_fln", "scaler_name", "wd", "xrf_subdir",
+                 "sequence", "emission_line", "emission_line_alignment", "incident_energy_shift_keV",
+                 "alignment_starts_from", "interpolation_enable", "alignment_enable", "ref_file_name",
+                 "fitting_method", "fitting_descent_rate", "incident_energy_low_bound",
+                 "use_incident_energy_from_param_file", "plot_results", "plot_use_position_coordinates",
+                 "plot_position_axes_units", "output_file_formats"],
+    "properties": {
+        "start_id": {"type": ["integer", "null"], "exclusiveMinimum": 0},
+        "end_id": {"type": ["integer", "null"], "exclusiveMinimum": 0},
+        "xrf_fitting_param_fln": {"type": ["string", "null"]},
+        "scaler_name": {"type": ["string", "null"]},
+        "wd": {"type": ["string", "null"]},
+        "xrf_subdir": {"type": ["string", "null"]},
+        "sequence": {"type": "string"},
+        "emission_line": {"type": ["string", "null"]},
+        "emission_line_alignment": {"type": ["string", "null"]},
+        "incident_energy_shift_keV": {"type": "number"},
+        "alignment_starts_from": {"type": "string", "enum": ["top", "bottom"]},
+        "interpolation_enable": {"type": "boolean"},
+        "alignment_enable": {"type": "boolean"},
+        "ref_file_name": {"type": ["string", "null"]},
+        "fitting_method": {"type": "string", "enum": ["nnls", "admm"]},
+        "fitting_descent_rate": {"type": "number", "exclusiveMinimum": 0.0},
+        "incident_energy_low_bound": {"type": ["number", "null"], "exclusiveMinimum": 0.0},
+        "use_incident_energy_from_param_file": {"type": "boolean"},
+        "plot_results": {"type": "boolean"},
+        "plot_use_position_coordinates": {"type": "boolean"},
+        "plot_position_axes_units": {"type": "string"},
+        "output_file_formats": {"type": "array",
+                                "uniqueItems": True,
+                                "items": {
+                                    "type": "string",
+                                    "enum": ["tiff"]
+                                }}
+    }
+}
+
+
+def _build_xanes_map_api(*, start_id=None, end_id=None,
+                         xrf_fitting_param_fln=None,
+                         scaler_name=None,
+                         wd=None,
+                         xrf_subdir="xrf_data",
+                         sequence="build_xanes_map",
+                         emission_line,
+                         emission_line_alignment=None,
+                         incident_energy_shift_keV=0,
+                         alignment_starts_from="top",
+                         interpolation_enable=True,
+                         alignment_enable=True,
+                         ref_file_name=None,
+                         fitting_method="nnls",
+                         fitting_descent_rate=0.2,
+                         incident_energy_low_bound=None,
+                         use_incident_energy_from_param_file=False,
+                         plot_results=True,
+                         plot_use_position_coordinates=True,
+                         plot_position_axes_units=r"$\mu $m",
+                         output_file_formats=["tiff"]):
+    r"""
+    The function builds XANES map from a set of XRF maps. It also may perform loading of data
+    from databroker and processing of raw data to obtain XRF maps. For detailed descriptions,
+    see docstring for the wrapper function ``build_xanes_map``.
+
+    Note, that the list and the description of parameters in this docstring is used for
+    generation of the YAML parameter file, so it has to be maintained properly. The set of
+    parameters should match the list of keys in ``_build_xanes_map_param_default`` and
+    the parameter values should satisfy the schema ``_build_xanes_map_param_schema``
+    Also, the list of parameters in the docstring for ``build_xanes_map`` is displayed to the user and
+    used for generation of documentation. So both docstrings should match and be maintained to
+    contain complete information.
+
+    Parameters
+    ----------
+
+    start_id : int
+        scan ID of the first run of the sequence
+
+    end_id : int
+        scan ID of the last run of the sequence
+
+        When processing data files from the local drive, both ``start_id`` and ``end_id``
+        may be set to ``None`` (default). In this case all files in the ``xrf_subdir``
+        subdirectory of the working directory ``wd`` are loaded and processed. The values
+        of ``start_id`` and ``end_id`` will limit the range of processed scans.
+        The values of ``start_id`` and ``end_id`` must be set to proper values in order
+        to load data from the databroker.
+
+    xrf_fitting_param_fln : str
+        the name of the JSON parameter file. The parameters are used for automated
+        processing of data with ``pyxrf_batch``. The parameter file is typically produced
+        by PyXRF. The parameter is not used for XANES analysis and may be skipped if
+        if XRF maps are already generated (``sequence="build_xanes_maps"``).
+
+    scaler_name : str
+        the name of the scaler used for normalization. The name should be valid, i.e.
+        present in each scan data. It may be set to None: in this case no normalization
+        will be performed.
+
+    wd : str
+        working directory: if ``wd`` is not specified then current directory will be
+        used as the working directory for processing
+
+    xrf_subdir : str
+        subdirectory inside the working directory in which raw data files will be loaded.
+        If the "process" or "build_xanes_map" sequence is executed, then the program
+        looks for raw or processed files in this subfolder. In majority of cases, the
+        default value is sufficient.
+
+    sequence : str
+        the sequence of operations performed by the function:
+
+        -- ``load_and_process`` - loading data and full processing,
+
+        -- ``process`` - full processing of data, including xrf mapping
+        and building the energy map,
+
+        -- ``build_xanes_map`` - build the energy map using xrf mapping data,
+        all data must be processed.
+
+    emission_line : str
+        the name of the selected emission line ("Ca_K", "Fe_K", etc.). The emission line
+        of interest.
+
+    emission_line_alignment : str
+        the name of the emission line used for image alignment ("Ca_K", "Fe_K", etc.).
+        If None, then the line specified as ``emission_line`` used for alignment
+
+    incident_energy_shift_keV : float
+        shift (in keV) applied to incident energy axis of the observed data before
+        XANES fitting. The positive shift value shifts observed data in the direction of
+        higher energies. The shift may be used to compensate for the difference in the
+        adjustments of measurement setups used for acquisition of references and
+        observed dataset.
+
+    alignment_starts_from : str
+        The order of alignment of the image stack: "top" - start from the top of the stack
+        (scan with highest energy) and proceed to the bottom of the stack (lowest energy),
+        "bottom" - start from the bottom of the stack (lowest energy) and proceed to the top.
+        Starting from the top typically produces better results, because scans at higher
+        energy are more defined. If the same emission line is selected for XANES and
+        for alignment reference, then alignment should always be performed starting from
+        the top of the stack.
+
+    interpolation_enable : True
+        enable interpolation of XRF maps to uniform grid before alignment of maps.
+
+    alignment_enable : True
+        enable alignment of the stack of maps. In typical processing workflow the alignment
+        should be enabled.
+
+    ref_file_name : str
+        file name with emission line references. If ``ref_file_name`` is not provided,
+        then no XANES maps are generated. The rest of the processing is still performed
+        as expected.
+
+    fitting_method : str
+        method used for fitting XANES spectra. The currently supported methods are
+        'nnls' and 'admm'.
+
+    fitting_descent_rate : float
+        optimization parameter: descent rate for the fitting algorithm.
+        Used only for 'admm' algorithm (rate = 1/lambda), ignored for 'nnls' algorithm.
+
+    incident_energy_low_bound : float
+        files in the set are processed using the value of incident energy equal to
+        the greater of the values of ``incident_energy_low_bound`` or incident energy
+        from file metadata. If None, then the lower energy bound is found automatically
+        as the largest value of energy in the set which still activates the selected
+        emission line (specified as the ``emission_line`` parameter). This parameter
+        overrides the parameter ``use_incident_energy_from_param_file``.
+
+    use_incident_energy_from_param_file : bool
+        indicates if incident energy from parameter file will be used to process all
+        files: True - use incident energy from parameter files, False - use incident
+        energy from data files. If ``incident_energy_low_bound`` is specified, then
+        this parameter is ignored.
+
+    plot_results : bool
+        indicates if results (image stack and XANES maps) are to be plotted. If set to
+        False, the processing results are saved to file (if enabled) and the program
+        exits without showing data plots.
+
+    plot_use_position_coordinates : bool
+        results (image stack and XANES maps) are plotted vs. position coordinates if
+        the parameter is set to True, otherwise images are plotted vs. pixel number
+
+    plot_position_axes_units : str
+        units for position coordinates along X and Y axes. The units are used while
+        plotting the results vs. position coordinates. The string specifying units
+        may contain LaTeX expressions: for example ``"$\mu $m"`` will print units
+        of ``micron`` as part of X and Y axes labels.
+
+    output_file_formats : list(str)
+        list of output file formats. Currently only "tiff" format is supported
+        (XRF map stack and XANES maps are saved as stacked TIFF files).
+
+    Returns
+    -------
+
+    no value is returned
+
+    Raises
+    ------
+
+    Raise exceptions if processing can not be completed. The error message indicates the reason
+    of failure.
     """
 
     if wd is None:
@@ -387,7 +575,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *,
 
     if not xrf_subdir:
         raise ValueError("The parameter 'xrf_subdir' is None or contains an empty string "
-                         "('build_xanes_map_api').")
+                         "('_build_xanes_map_api').")
 
     if not scaler_name:
         logger.warning("Scaler was not specified. The processing will still be performed,"
@@ -406,7 +594,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *,
     alignment_starts_from = alignment_starts_from.lower()
     if alignment_starts_from not in alignment_starts_from_values:
         raise ValueError("The parameter 'alignment_starts_from' has illegal value "
-                         f"'{alignment_starts_from}' ('build_xanes_map_api').")
+                         f"'{alignment_starts_from}' ('_build_xanes_map_api').")
 
     # Selected emission lines for XANES and image stack alignment
     eline_selected = emission_line
@@ -419,10 +607,10 @@ def build_xanes_map_api(start_id=None, end_id=None, *,
     #   The check is case-sensitive.
     if not check_eline_name(eline_selected):
         raise ValueError(f"The emission line '{eline_selected}' does not exist or is not supported. "
-                         f"Check the value of the parameter 'eline_selected' ('build_xanes_map_api').")
+                         f"Check the value of the parameter 'eline_selected' ('_build_xanes_map_api').")
     if not check_eline_name(eline_alignment):
         raise ValueError(f"The emission line '{eline_alignment}' does not exist or is not supported. "
-                         f"Check the value of the parameter 'eline_alignment' ('build_xanes_map_api').")
+                         f"Check the value of the parameter 'eline_alignment' ('_build_xanes_map_api').")
 
     # Check fitting method
     fitting_method = fitting_method.lower()
@@ -445,12 +633,12 @@ def build_xanes_map_api(start_id=None, end_id=None, *,
         seq_process_xrf_data = False
     else:
         raise ValueError(f"Unknown sequence name '{sequence}' is passed as a parameter "
-                         "to the function 'build_xanes_map_api'.")
+                         "to the function '_build_xanes_map_api'.")
 
     if seq_process_xrf_data:
         if not xrf_fitting_param_fln:
             raise ValueError("Parameter file name is not specified and XRF maps can not be generated: "
-                             "set the value the parameter 'xrf_fitting_param_fln' of 'build_xanes_map_api'.")
+                             "set the value the parameter 'xrf_fitting_param_fln' of '_build_xanes_map_api'.")
         xrf_fitting_param_fln = os.path.expanduser(xrf_fitting_param_fln)
         xrf_fitting_param_fln = os.path.abspath(xrf_fitting_param_fln)
 
@@ -1671,6 +1859,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.tb_energy_shift.set_val(self.incident_energy_shift_keV)
             self.tb_energy_shift.color = "#00ff00"
             self.tb_energy_shift.hovercolor = "#00ff00"
+            # The following line actually updates the color, not just sets the attribute
+            self.tb_energy_shift.ax.set_facecolor(self.tb_energy_shift.color)
             self.tb_energy_shift.on_submit(self.tb_energy_shift_onsubmit)
 
             if len(self.labels) <= 10:
@@ -1935,9 +2125,10 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                 else:
                     self.tb_energy_shift.color = "#ffff00"
                     self.tb_energy_shift.hovercolor = "#ffff00"
+                # The following line actually updates the color, not just sets the attribute
+                self.tb_energy_shift.ax.set_facecolor(self.tb_energy_shift.color)
                 self.redraw_fluorescence_plot()
-                # self.fig.canvas.draw()
-                self.fig.canvas.draw_idle()
+                self.fig.canvas.draw()
                 self.fig.canvas.flush_events()
 
         def canvas_onpress(self, event):
@@ -2255,7 +2446,7 @@ def read_ref_data(ref_file_name):
 
     if not os.path.isfile(ref_file_name):
         raise ValueError(f"The parameter file '{ref_file_name}' does not exist. Check the value of"
-                         f" the parameer 'ref_file_name' ('build_xanes_map_api').")
+                         f" the parameer 'ref_file_name' ('_build_xanes_map_api').")
     # Read the header (first line) using 'csv' (delimiter ',' and quotechar '"')
     with open(ref_file_name, 'r') as csv_file:
         for row in csv.reader(csv_file):
@@ -2426,17 +2617,18 @@ if __name__ == "__main__":
     stream_handler.setLevel(logging.INFO)
     logger.addHandler(stream_handler)
 
-    build_xanes_map_api(start_id=92276, end_id=92335,
-                        xrf_fitting_param_fln="param_335",
-                        scaler_name="sclr1_ch4", wd=None,
-                        # sequence="process",
-                        sequence="build_xanes_map",
-                        alignment_starts_from="top",
-                        ref_file_name="refs_Fe_P23.csv",
-                        fitting_method="nnls",
-                        emission_line="Fe_K", emission_line_alignment="P_K",
-                        incident_energy_shift_keV=-0.0013,
-                        interpolation_enable=True,
-                        alignment_enable=True,
-                        plot_use_position_coordinates=True,
-                        plot_results=True)
+    build_xanes_map(start_id=92276, end_id=92335,
+                    xrf_fitting_param_fln="param_335",
+                    scaler_name="sclr1_ch4", wd=None,
+                    # sequence="process",
+                    sequence="build_xanes_map",
+                    alignment_starts_from="top",
+                    ref_file_name="refs_Fe_P23.csv",
+                    fitting_method="nnls",
+                    emission_line="Fe_K", emission_line_alignment="P_K",
+                    incident_energy_shift_keV=-0.0013,
+                    interpolation_enable=True,
+                    alignment_enable=True,
+                    plot_use_position_coordinates=True,
+                    plot_results=True,
+                    allow_exceptions=True)
