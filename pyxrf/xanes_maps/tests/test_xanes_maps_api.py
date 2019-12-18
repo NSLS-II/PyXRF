@@ -74,10 +74,10 @@ def test_build_xanes_map_1(tmp_path):
         build_xanes_map(parameter_file_path=file_path3, create_parameter_file=True, allow_exceptions=True)
 
     # Try creating the parameter file without specifying the path
-    with pytest.raises(RuntimeError, match="no file path is specified"):
+    with pytest.raises(RuntimeError, match="parameter file path is not specified"):
         build_xanes_map(create_parameter_file=True, allow_exceptions=True)
     # Specify scan ID instead of the path as the first argument
-    with pytest.raises(RuntimeError, match="no file path is specified"):
+    with pytest.raises(RuntimeError, match="parameter file path is not specified"):
         build_xanes_map(1000, create_parameter_file=True, allow_exceptions=True)
 
 
@@ -95,7 +95,7 @@ def test_build_xanes_map_3():
     """Test passing arguments to ``_build_xanes_map_api``"""
 
     # The function should fail, because the emission line is not specified
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError):
         build_xanes_map(allow_exceptions=True)
 
     # The function is supposed to fail, because 'xrf_subdir' is not specified
