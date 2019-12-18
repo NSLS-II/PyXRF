@@ -128,7 +128,9 @@ def build_xanes_map(start_id=None, end_id=None, *, parameter_file_path=None,
         the name of the JSON parameter file. The parameters are used for automated
         processing of data with ``pyxrf_batch``. The parameter file is typically produced
         by PyXRF. The parameter is not used for XANES analysis and may be skipped if
-        if XRF maps are already generated (``sequence="build_xanes_maps"``).
+        if XRF maps are already generated (``sequence="build_xanes_maps"``). The file
+        name may include absolute or relative path from current directory (not directory
+        ``wd``).
 
     scaler_name : str
         the name of the scaler used for normalization. The name should be valid, i.e.
@@ -137,7 +139,10 @@ def build_xanes_map(start_id=None, end_id=None, *, parameter_file_path=None,
 
     wd : str
         working directory: if ``wd`` is not specified then current directory will be
-        used as the working directory for processing
+        used as the working directory for processing. The working directory is used
+        to store raw and processed HDF5 files (in subdirectory specified by
+        ``xrf_subdir``) and write processing results. Path to configuration files
+        is specified separately.
 
     xrf_subdir : str
         subdirectory inside the working directory in which raw data files will be loaded.
@@ -190,7 +195,8 @@ def build_xanes_map(start_id=None, end_id=None, *, parameter_file_path=None,
     ref_file_name : str
         file name with emission line references. If ``ref_file_name`` is not provided,
         then no XANES maps are generated. The rest of the processing is still performed
-        as expected.
+        as expected. The file name may include absolute or relative path from the current
+        directory (not directory ``wd``).
 
     fitting_method : str
         method used for fitting XANES spectra. The currently supported methods are
@@ -235,6 +241,7 @@ def build_xanes_map(start_id=None, end_id=None, *, parameter_file_path=None,
 
     parameter_file_path : str
         absolute or relative path to the YAML file, which contains the processing parameters.
+        Relative path is specified from the current directory (not ``wd``).
 
     create_parameter_file : bool
         indicates whether a new parameter file needs to be created.
@@ -446,7 +453,9 @@ def _build_xanes_map_api(*, start_id=None, end_id=None,
         the name of the JSON parameter file. The parameters are used for automated
         processing of data with ``pyxrf_batch``. The parameter file is typically produced
         by PyXRF. The parameter is not used for XANES analysis and may be skipped if
-        if XRF maps are already generated (``sequence="build_xanes_maps"``).
+        if XRF maps are already generated (``sequence="build_xanes_maps"``). The file
+        name may include absolute or relative path from current directory (not directory
+        ``wd``).
 
     scaler_name : str
         the name of the scaler used for normalization. The name should be valid, i.e.
@@ -455,7 +464,10 @@ def _build_xanes_map_api(*, start_id=None, end_id=None,
 
     wd : str
         working directory: if ``wd`` is not specified then current directory will be
-        used as the working directory for processing
+        used as the working directory for processing. The working directory is used
+        to store raw and processed HDF5 files (in subdirectory specified by
+        ``xrf_subdir``) and write processing results. Path to configuration files
+        is specified separately.
 
     xrf_subdir : str
         subdirectory inside the working directory in which raw data files will be loaded.
@@ -508,7 +520,8 @@ def _build_xanes_map_api(*, start_id=None, end_id=None,
     ref_file_name : str
         file name with emission line references. If ``ref_file_name`` is not provided,
         then no XANES maps are generated. The rest of the processing is still performed
-        as expected.
+        as expected. The file name may include absolute or relative path from the current
+        directory (not directory ``wd``).
 
     fitting_method : str
         method used for fitting XANES spectra. The currently supported methods are
