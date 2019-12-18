@@ -273,7 +273,7 @@ def build_xanes_map(start_id=None, end_id=None, *, parameter_file_path=None,
                 if allow_exceptions:
                     raise
         else:
-            msg = f"New parameter file can't be created, because no file path is specified"
+            msg = f"New parameter file can't be created: parameter file path is not specified"
             if allow_exceptions:
                 raise RuntimeError(msg)
             else:
@@ -313,7 +313,7 @@ def build_xanes_map(start_id=None, end_id=None, *, parameter_file_path=None,
 
     # Now call the processing function
     try:
-        _build_xanes_map_api(**kwargs)
+        _build_xanes_map_api(**arguments)
     except BaseException as ex:
         if allow_exceptions:
             raise
@@ -398,7 +398,7 @@ def _build_xanes_map_api(*, start_id=None, end_id=None,
                          wd=None,
                          xrf_subdir="xrf_data",
                          sequence="build_xanes_map",
-                         emission_line,
+                         emission_line=None,  # This is the REQUIRED parameter
                          emission_line_alignment=None,
                          incident_energy_shift_keV=0,
                          alignment_starts_from="top",
@@ -580,6 +580,10 @@ def _build_xanes_map_api(*, start_id=None, end_id=None,
     if not scaler_name:
         logger.warning("Scaler was not specified. The processing will still be performed,"
                        "but the DATA WILL NOT BE NORMALIZED!")
+
+    if not emission_line:
+        raise ValueError("Emission line is not specified (parameter 'emission_line'). "
+                         "XANES maps can not be built.")
 
     # Convert all tags specifying output format to lower case
     for n, fmt in enumerate(output_file_formats):
@@ -2617,6 +2621,7 @@ if __name__ == "__main__":
     stream_handler.setLevel(logging.INFO)
     logger.addHandler(stream_handler)
 
+    """
     build_xanes_map(start_id=92276, end_id=92335,
                     xrf_fitting_param_fln="param_335",
                     scaler_name="sclr1_ch4", wd=None,
@@ -2632,3 +2637,6 @@ if __name__ == "__main__":
                     plot_use_position_coordinates=True,
                     plot_results=True,
                     allow_exceptions=True)
+    """
+
+    build_xanes_map(parameter_file_path="xanes_parameters.yaml")
