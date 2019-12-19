@@ -1,14 +1,67 @@
 import os
 import jsonschema
 import pytest
+import numpy as np
 
 from pyxrf.xanes_maps.xanes_maps_api import (
     _build_xanes_map_api, _build_xanes_map_param_default, _build_xanes_map_param_schema,
-    build_xanes_map)
+    build_xanes_map, check_elines_activation_status, adjust_incident_beam_energies)
 
 from pyxrf.core.yaml_param_files import (
     _parse_docstring_parameters, _verify_parsed_docstring,
     create_yaml_parameter_file, read_yaml_parameter_file)
+
+
+def test_check_elines_activation_status():
+    r""" Tests for ``check_elines_activation_status``"""
+
+    eline = "Fe_K"
+    eline_activation_energy = 7.115  # keV, an approximate value that makes test suceed
+    e_min, e_max, de = 7.05, 7.15, 0.01
+    incident_energies = np.mgrid[e_min: e_max: ((e_max - e_min) / de + 1) * 1j]
+    incident_energies = np.round(incident_energies, 5)  # Nicer view for debugging
+    incident_energies = np.random.permutation(incident_energies)
+
+    activation_status = [_ >= eline_activation_energy for _ in incident_energies]
+
+    # Send incident energies as an array
+    activation_status_output = check_elines_activation_status(np.asarray(incident_energies), eline)
+    assert activation_status == activation_status_output, \
+        "Activation status of some energy values is determined incorrectly"
+
+    # Send incident energies as a list
+    activation_status_output = check_elines_activation_status(list(incident_energies), eline)
+    assert activation_status == activation_status_output, \
+        "Activation status of some energy values is determined incorrectly"
+
+    # Empty list of energy should yield empty list of flags
+    activation_status_output = check_elines_activation_status([], eline)
+    assert not activation_status_output, \
+        "Empty list of incident energies is processed incorrectly"
+
+
+def test_adjust_incident_beam_energies():
+    r""" Tests for ``adjust_incident_beam_energies``"""
+
+    eline = "Fe_K"
+    eline_activation_energy = 7.115  # keV, an approximate value that makes test suceed
+    e_min, e_max, de = 7.05, 7.15, 0.01
+    incident_energies = np.mgrid[e_min: e_max: ((e_max - e_min) / de + 1) * 1j]
+    incident_energies = np.round(incident_energies, 5)  # Nicer view for debugging
+    incident_energies = np.random.permutation(incident_energies)
+
+    threshold = np.min(incident_energies[incident_energies >= eline_activation_energy])
+    ie_adjusted = np.clip(incident_energies, a_min=threshold, a_max=None)
+
+    # Send incident energies as an array
+    ie_adjusted_output = adjust_incident_beam_energies(np.asarray(incident_energies), eline)
+    np.testing.assert_almost_equal(ie_adjusted_output, ie_adjusted,
+                                   err_msg="Incident energies are adjusted incorrectly")
+
+    # Send incident energies as a list
+    ie_adjusted_output = adjust_incident_beam_energies(list(incident_energies), eline)
+    np.testing.assert_almost_equal(ie_adjusted_output, ie_adjusted,
+                                   err_msg="Incident energies are adjusted incorrectly")
 
 
 def test_parse_docstring_parameters__build_xanes_map_api():
