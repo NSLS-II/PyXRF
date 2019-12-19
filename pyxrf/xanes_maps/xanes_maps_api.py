@@ -788,7 +788,8 @@ def _build_xanes_map_api(*, start_id=None, end_id=None,
 
         _save_xanes_processing_results(wd=wd, eline_selected=eline_selected, ref_labels=ref_labels,
                                        output_file_formats=output_file_formats,
-                                       processing_results=processing_results)
+                                       processing_results=processing_results,
+                                       output_save_all=output_save_all)
 
         if plot_results:
             _plot_processing_results(ref_energy=ref_energy, ref_data=ref_data, ref_labels=ref_labels,
@@ -1132,7 +1133,8 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
     return processing_results
 
 
-def _save_xanes_processing_results(*, wd, eline_selected, ref_labels, output_file_formats, processing_results):
+def _save_xanes_processing_results(*, wd, eline_selected, ref_labels, output_file_formats,
+                                   processing_results, output_save_all):
     r"""
     Implements one of the final steps of the processing sequence: saving processing results.
     Currently only TIFF files are saved: TIFF with the aligned stack of XRF maps and TIFF with
@@ -1182,7 +1184,8 @@ def _save_xanes_processing_results(*, wd, eline_selected, ref_labels, output_fil
                                  scan_ids=scan_ids,
                                  files_h5=files_h5,
                                  positions_x=pos_x,
-                                 positions_y=pos_y)
+                                 positions_y=pos_y,
+                                 output_save_all=output_save_all)
 
 
 def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
@@ -2721,7 +2724,7 @@ def read_ref_data(ref_file_name):
 def _save_xanes_maps_to_tiff(*, wd, eline_data_aligned, eline_selected,
                              xanes_map_data, xanes_map_rfactor, xanes_map_labels,
                              scan_energies, scan_energies_shifted, scan_ids,
-                             files_h5, positions_x, positions_y):
+                             files_h5, positions_x, positions_y, output_save_all):
 
     r"""
     Saves the results of processing in stacked .tiff files and creates .txt log file
@@ -2819,6 +2822,18 @@ def _save_xanes_maps_to_tiff(*, wd, eline_data_aligned, eline_selected,
                           f"incident energy = {energy:.4f} keV (corrected to {energy_shifted:.4f} keV) "
                           f"file name = '{fln}'", file=f_log)
 
+        if output_save_all:
+            for eline in eline_data_aligned.keys():
+                # The data for the emission line used for xanes fitting is already saved
+                if eline == eline_selected:
+                    continue
+                fln_stack = f"maps_XRF_{eline}.tiff"
+                fln_stack = os.path.join(wd, fln_stack)
+                logger.info(f"Saving XRF map stack for the emission line {eline}")
+                print(f"XRF map stack for the emission line {eline} is saved to file '{fln_stack}'", file=f_log)
+                tifffile.imsave(fln_stack, eline_data_aligned[eline].astype(np.float32),
+                                imagej=True)
+
         if (xanes_map_data is not None) and xanes_map_labels and eline_selected:
             # Save XANES maps for references
             fln_xanes = f"maps_XANES_{eline_selected}.tiff"
@@ -2877,4 +2892,4 @@ if __name__ == "__main__":
                     allow_exceptions=True)
     """
 
-    build_xanes_map(parameter_file_path="xanes_parameters.yaml")
+    build_xanes_map(parameter_file_path="xanes_parameters.yaml", output_save_all=True)
