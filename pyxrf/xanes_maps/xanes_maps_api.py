@@ -798,7 +798,8 @@ def _build_xanes_map_api(*, start_id=None, end_id=None,
                                      processing_results=processing_results,
                                      fitting_method=fitting_method,
                                      fitting_descent_rate=fitting_descent_rate,
-                                     incident_energy_shift_keV=incident_energy_shift_keV)
+                                     incident_energy_shift_keV=incident_energy_shift_keV,
+                                     subtract_pre_edge_baseline=subtract_pre_edge_baseline)
         else:
             logger.info("Plotting results: skipped.")
 
@@ -1077,8 +1078,20 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
     if seq_generate_xanes_map:
         scan_absorption_refs = _interpolate_references(scan_energies_shifted, ref_energy, ref_data)
 
+        skip_bl_sub = True
+        if subtract_pre_edge_baseline:
+            logger.info(f"Subtracting pre-edge baseline")
+            try:
+                xrf_data = subtract_xanes_pre_edge_baseline(eline_data_aligned[eline_selected],
+                                                            scan_energies_shifted, eline_selected)
+                skip_bl_sub = False
+            except RuntimeError as ex:
+                logger.error(f"XANES baseline was not subtracted: {ex}")
+        if skip_bl_sub:
+            xrf_data = eline_data_aligned[eline_selected]
+
         logger.info(f"Fitting XANES specta using '{fitting_method}' method")
-        xanes_map_data, xanes_map_rfactor, _ = fit_spectrum(eline_data_aligned[eline_selected],
+        xanes_map_data, xanes_map_rfactor, _ = fit_spectrum(xrf_data,
                                                             scan_absorption_refs,
                                                             method=fitting_method,
                                                             rate=fitting_descent_rate)
@@ -1175,7 +1188,8 @@ def _save_xanes_processing_results(*, wd, eline_selected, ref_labels, output_fil
 def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
                              plot_position_axes_units, plot_use_position_coordinates,
                              eline_selected, processing_results,
-                             fitting_method, fitting_descent_rate, incident_energy_shift_keV):
+                             fitting_method, fitting_descent_rate, incident_energy_shift_keV,
+                             subtract_pre_edge_baseline):
     r"""
     Implements one of the final steps of the processing sequence: plotting processing results.
     The data is displayed on a set of Matplotlib figures:
@@ -1229,6 +1243,12 @@ def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
 
     incident_energy_shift_keV : float
         the value of the shift (already) applied to energy points of the observed data
+
+    subtract_pre_edge_baseline : bool
+        indicates if pre-edge baseline is subtracted from XANES spectra before fitting.
+        Currently the subtracted baseline is constant, computed as a median value of spectrum
+        points with energies insufficient to activate the emission line of interest
+        (argument ``emission_line``).
     """
 
     positions_x_uniform = processing_results["positions_x_uniform"]
@@ -1275,7 +1295,8 @@ def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
                      xanes_map_data=xanes_map_data, scan_absorption_refs=scan_absorption_refs,
                      ref_labels=ref_labels, ref_energy=ref_energy, ref_data=ref_data,
                      fitting_method=fitting_method, fitting_descent_rate=fitting_descent_rate,
-                     energy_shift_keV=incident_energy_shift_keV)
+                     energy_shift_keV=incident_energy_shift_keV,
+                     subtract_pre_edge_baseline=subtract_pre_edge_baseline)
 
 
 def _load_dataset_from_hdf5(*, start_id, end_id, wd_xrf, load_fit_results=True):
@@ -1569,6 +1590,71 @@ def adjust_incident_beam_energies(scan_energies, emission_line):
     return [max(_, min_activation_energy) for _ in scan_energies]
 
 
+def subtract_xanes_pre_edge_baseline(xrf_map_stack, scan_energies, eline_selected, *, non_negative=True):
+    r"""
+    Subtract baseline from XANES spectrum of an XRF map stack. The stack is represented
+    as multidimensional array ``xrf_map_stack``: the spectral points are arranged along ``axis=0``.
+    If ``xrf_map_stack`` is 1D array, then it is assumed that it represents a single spectrum
+
+    Subtraction of the pre-edge baseline. The baseline is assumed constant throughout
+    the spectrum and estimated separately for each pixel. Pre-edge is found as a set of
+    spectral points with energies that do not activate the emission line ``eline_selected``.
+    The baseline value is estimated as a median of all pre-edge points.
+
+    Parameters
+    ----------
+
+    xrf_map_stack : ndarray
+        single- or multidimensional array with XANES map spectra. The spectral points are
+        along ``axis=0``.
+
+    scan_energies : list or ndarray
+        incident energies for spectral points (same number of points as axis 0 of ``xrf_map_stack``
+
+    eline_selected : str
+        emission line, i.e. "Fe_K"
+
+    Returns
+    -------
+
+        array of the same dimensions as ``xrf_map_stack`` that contains XANES spectra with
+        subtracted baseline.
+
+    Raises
+    ------
+
+        RuntimeError if no pre-edge points are detected. Typically this means that all
+        the spectral point in ``scan_energies`` activate the emission line.
+    """
+
+    # If data is 1D (contains only one spectrum), then add one extra dimension for consistency
+    is_data_1d = xrf_map_stack.ndim == 1
+    if is_data_1d:
+        xrf_map_stack = np.expand_dims(xrf_map_stack, axis=1)
+
+    # Deterimine if 'eline_selected' is activated for each point
+    e_status = check_elines_activation_status(scan_energies, eline_selected)
+    # Find pre-edge points (points for which the emission line is not activated
+    pre_edge_pts = np.logical_not(e_status)
+    if not np.sum(pre_edge_pts):
+        raise RuntimeError("No pre-edge points were found. Baseline can not be estimated.")
+    # Separate pre-edge points (typically consecutive points at the lower values of the index,
+    #   but the function will work with randomly permuted energy array)
+    xrf_map_pre_edge = xrf_map_stack[np.asarray(pre_edge_pts)]
+    # Find constant baseline values: baseline is different for each pixel
+    baseline_const = np.median(xrf_map_pre_edge, axis=0)
+    # Subtract the baseline
+    xrf_map_out = xrf_map_stack - baseline_const
+    if non_negative:
+        xrf_map_out = np.clip(xrf_map_out, a_min=0, a_max=None)
+
+    # Remove extra dimension if input data is 1D
+    if is_data_1d:
+        xrf_map_out = np.squeeze(xrf_map_out, axis=1)
+
+    return xrf_map_out
+
+
 # ============================================================================================
 #   Functions used for processing
 
@@ -1748,7 +1834,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                      positions_x=None, positions_y=None, axes_units=None,
                      xanes_map_data=None, scan_absorption_refs=None, ref_labels=None,
                      ref_energy=None, ref_data=None,  # Those are original sets of reference data
-                     fitting_method="nnls", fitting_descent_rate=0.2, energy_shift_keV=0.0):
+                     fitting_method="nnls", fitting_descent_rate=0.2, energy_shift_keV=0.0,
+                     subtract_pre_edge_baseline=True):
     r"""
     Display XRF Map stack
 
@@ -1773,7 +1860,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                      positions_x=None, positions_y=None, axes_units=None,
                      xanes_map_data=None, scan_absorption_refs=None, ref_labels=None,
                      ref_energy=None, ref_data=None,
-                     fitting_method="nnls", fitting_descent_rate=0.2, energy_shift_keV=0.0):
+                     fitting_method="nnls", fitting_descent_rate=0.2, energy_shift_keV=0.0,
+                     subtract_pre_edge_baseline=True):
             r"""
             Parameters
             ----------
@@ -1834,6 +1922,12 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                 online processing routine will resample the references for new shifted
                 energy points. This online processing will not influence data in the rest of the
                 program.
+
+            subtract_pre_edge_baseline : bool
+                indicates if pre-edge baseline is subtracted from XANES spectra before fitting.
+                Currently the subtracted baseline is constant, computed as a median value of spectrum
+                points with energies insufficient to activate the emission line of interest
+                (argument ``emission_line``).
             """
 
             # The following are the fitting parameters that are sent to the fitting algorithm
@@ -1844,6 +1938,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             # This value will changed and the difference of the updated and the original value
             #   will be applied to the energy points before processing
             self.incident_energy_shift_keV_updated = energy_shift_keV
+
+            self.subtract_pre_edge_baseline = subtract_pre_edge_baseline
 
             self.label_fontsize = 15
             self.coord_fontsize = 10
@@ -2149,6 +2245,14 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                 # Apply the shift to energy points for the observed data
                 self.energy = [_ + de for _ in self.energy_original]
 
+            # Subtract baseline if needed
+            if (self.label_selected == self.label_default) and self.subtract_pre_edge_baseline:
+                try:
+                    data_selected = subtract_xanes_pre_edge_baseline(
+                        data_selected, self.energy, self.label_default, non_negative=False)
+                except RuntimeError as ex:
+                    logger.error(f"Background was not subtracted: {ex}")
+
             # Fluorescence plot will display the new energy values
             self.ax_fluor_plot.plot(self.energy,
                                     data_selected,
@@ -2175,7 +2279,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                 if fit_real_time:
                     # Interpolate references (same function as in the main processing routine)
                     refs = _interpolate_references(self.energy, self.ref_energy, self.ref_data)
-                    xanes_fit_pt, xanes_fit_rfactor, _ = fit_spectrum(data_selected,
+                    data_nn = np.clip(data_selected, a_min=0, a_max=None)
+                    xanes_fit_pt, xanes_fit_rfactor, _ = fit_spectrum(data_nn,
                                                                       refs,
                                                                       method=self.fitting_method,
                                                                       rate=self.fitting_descent_rate)
@@ -2309,7 +2414,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                              xanes_map_data=xanes_map_data, scan_absorption_refs=scan_absorption_refs,
                              ref_labels=ref_labels, ref_energy=ref_energy, ref_data=ref_data,
                              fitting_method=fitting_method, fitting_descent_rate=fitting_descent_rate,
-                             energy_shift_keV=energy_shift_keV)
+                             energy_shift_keV=energy_shift_keV,
+                             subtract_pre_edge_baseline=subtract_pre_edge_baseline)
     map_plot.show(block=True)
 
 
