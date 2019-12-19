@@ -783,7 +783,8 @@ def _build_xanes_map_api(*, start_id=None, end_id=None,
             fitting_method=fitting_method, fitting_descent_rate=fitting_descent_rate,
             incident_energy_shift_keV=incident_energy_shift_keV,
             alignment_starts_from=alignment_starts_from,
-            ref_energy=ref_energy, ref_data=ref_data)
+            ref_energy=ref_energy, ref_data=ref_data,
+            subtract_pre_edge_baseline=subtract_pre_edge_baseline)
 
         _save_xanes_processing_results(wd=wd, eline_selected=eline_selected, ref_labels=ref_labels,
                                        output_file_formats=output_file_formats,
@@ -926,7 +927,8 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
                         eline_selected, eline_alignment, alignment_starts_from,
                         scaler_name, ref_energy, ref_data, fitting_method,
                         fitting_descent_rate, incident_energy_shift_keV,
-                        interpolation_enable, alignment_enable, seq_generate_xanes_map):
+                        interpolation_enable, alignment_enable,
+                        subtract_pre_edge_baseline, seq_generate_xanes_map):
     r"""
     Implements the third step of the processing sequence: computation of XANES maps based
     on the set of XRF maps from scan in the range ``start_id`` .. ``end_id``.
@@ -991,6 +993,12 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
     alignment_enable : bool
         enable alignment of the stack of maps. In typical processing workflow the alignment
         should be enabled.
+
+    subtract_pre_edge_baseline : bool
+        indicates if pre-edge baseline is subtracted from XANES spectra before fitting.
+        Currently the subtracted baseline is constant, computed as a median value of spectrum
+        points with energies insufficient to activate the emission line of interest
+        (argument ``emission_line``).
 
     seq_generate_xanes_map : bool
         indicates if XANES maps should be generated based on the aligned stack. If set to False,
@@ -1500,6 +1508,31 @@ def _check_dataset_consistency(*, scan_ids, scan_img_dict, files_h5, scaler_name
 # ============================================================================================
 #   Functions for parameter manipulation
 
+def check_elines_activation_status(scan_energies, emission_line):
+    r"""
+    Check if ``emission_line`` is activated at each scan energy in the list ``scan_energies``
+
+    Parameters
+    ----------
+
+    scan_energies : list(float)
+        the list (or an array) of incident beam energy values, keV. The energy values
+        don't need to be sorted.
+
+    emission_line : str
+        valid name of the emission line (supported by ``scikit-beam``) in the
+        form of K_K or Fe_K
+
+    Returns
+    -------
+        the list of ``bool`` values, indicating if the emission line is activated at
+        the respective energy in the list ``scan_energies``
+    """
+
+    is_activated = [check_if_eline_is_activated(emission_line, _) for _ in scan_energies]
+    return is_activated
+
+
 def adjust_incident_beam_energies(scan_energies, emission_line):
     r"""
     Adjust the values of incident beam energy in the list ``scan_energies`` so that
@@ -1511,7 +1544,7 @@ def adjust_incident_beam_energies(scan_energies, emission_line):
     ----------
 
     scan_energies : list(float)
-        the list of incident beam energy values, keV
+        the list (or ndarray) of incident beam energy values, keV
 
     emission_line : str
         valid name of the emission line (supported by ``scikit-beam``) in the
@@ -1523,15 +1556,16 @@ def adjust_incident_beam_energies(scan_energies, emission_line):
         same dimensions as ``scan_energies``.
     """
 
-    e_activation = [_ for _ in scan_energies if check_if_eline_is_activated(emission_line, _)]
+    activation_status = check_elines_activation_status(scan_energies, emission_line)
+    e_activation = np.asarray(scan_energies)[activation_status]
 
-    if not e_activation:
+    if not e_activation.size:
         raise RuntimeError(
             f"The emission line '{emission_line}' is not activated\n"
             f"    in the range of energies {min(scan_energies)} - {max(scan_energies)} keV.\n"
             f"    Check if the emission line is specified correctly.")
 
-    min_activation_energy = min(e_activation)
+    min_activation_energy = np.min(e_activation)
     return [max(_, min_activation_energy) for _ in scan_energies]
 
 
