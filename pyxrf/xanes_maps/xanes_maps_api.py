@@ -4,59 +4,27 @@ import numpy as np
 import csv
 from pystackreg import StackReg
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider, Button
+from matplotlib.widgets import Slider, Button, TextBox
+from matplotlib.patches import Rectangle, FancyArrow
 import time as ttime
 import tifffile
-
-from skbeam.core.fitting.xrf_model import nnls_fit
+import jsonschema
 
 from ..model.load_data_from_db import make_hdf
 from ..model.command_tools import pyxrf_batch
 from ..model.fileio import read_hdf_APS
 from ..model.utils import (grid_interpolate, normalize_data_by_scaler, convert_time_to_nexus_string,
                            check_if_eline_is_activated, check_eline_name)
+from ..core.fitting import fit_spectrum, rfactor_compute
+from ..core.yaml_param_files import (create_yaml_parameter_file, read_yaml_parameter_file)
 
 import logging
 logger = logging.getLogger()
 
 
-def build_xanes_map(*args, **kwargs):
-    """
-    A wrapper for the function ``build_xanes_map_api`` that catches exceptions
-    and prints the error message. Use this wrapper to run processing manually from
-    iPython and use ``build_xanes_map_api`` for custom scripts.
-
-    For description of the function parameters see the docstring for
-    ``build_xanes_map_api``
-    """
-    try:
-        build_xanes_map_api(*args, **kwargs)
-    except BaseException as ex:
-        msg = f"Processing is incomplete! Exception was raised during execution:\n   {ex}"
-        logger.error(msg)
-    else:
-        logger.info("Processing was completed successfully.")
-
-
-def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
-                        scaler_name=None,
-                        wd=None,
-                        xrf_subdir="xrf_data",
-                        sequence="build_xanes_map",
-                        emission_line,
-                        emission_line_alignment=None,
-                        incident_energy_shift_keV=0,
-                        alignment_starts_from="top",
-                        interpolation_enable=True,
-                        alignment_enable=True,
-                        ref_file_name=None,
-                        incident_energy_low_bound=None,
-                        use_incident_energy_from_param_file=False,
-                        plot_results=True,
-                        plot_use_position_coordinates=True,
-                        plot_position_axes_units="$\mu $m",  # noqa: W605
-                        output_file_formats=["tiff"]):
-    """
+def build_xanes_map(start_id=None, end_id=None, *, parameter_file_path=None,
+                    create_parameter_file=False, allow_exceptions=False, **kwargs):
+    r"""
     The function builds XANES maps based on a set of XRF scans. The maps may be built based
     on data from the following sources:
 
@@ -64,7 +32,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
     for the specified range of scan IDs ``start_id`` .. ``end_id`` is loaded using
     databroker, saved to .h5 files placed in subdirectory ``xrf_subdir`` of the working
     directory ``wd`` and processed using ``pyxrf_batch`` with the set of parameters from
-    ``param_file_name`` to generate XRF maps. XANES maps are computed from the stack of
+    ``xrf_fitting_param_fln`` to generate XRF maps. XANES maps are computed from the stack of
     the XRF maps. The maps are interpolated to uniform grid of position coordinates
     (important if positions of data points are unevenly spaced), aligned along the spatial
     coordinates and fitted with the element references from file ``ref_file_name``. The
@@ -85,9 +53,34 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
 
     Example of function call for the batch of scans with IDs in the range 92276-92335:
 
-    build_xanes_map(92276, 92335, param_file_name="param_335", scaler_name="sclr1_ch4",
-    sequence="load_and_process", ref_file_name="refs_Fe_P23.csv", emission_line="Fe_K",
-    emission_line_alignment="P_K", incident_energy_shift_keV=-0.0013)
+    build_xanes_map(92276, 92335, xrf_fitting_param_fln="param_335", scaler_name="sclr1_ch4",
+    sequence="load_and_process", ref_file_name="refs_Fe_P23.csv", fitting_method="nnls",
+    emission_line="Fe_K", emission_line_alignment="P_K", incident_energy_shift_keV=-0.0013)
+
+    There are two ways of setting processing parameters:
+
+    -- Method 1. The parameter values different from default may be sent to ``build_xanes_map`` as
+    function arguments (as in the example above).
+
+    -- Method 2. Use YAML file with processing parameters. The YAML file may be created by
+    calling ``build_xanes_map`` with parameter ``create_parameter_file=True`` and supplying
+    the name of the parameter file ``parameter_file_path`` (absolute or relative path).
+    The file contains the description of each parameter and brief notes on editing YAML files.
+    Parameter values are initially set to default values. Some values must be changed before
+    processing can be run (e.g. ``emission_line`` must be set to some valid name). Once
+    parameters in YAML file are set, the function may be called as
+    ``build_xanes_map(parameter_file_path="path-to-file")``.
+    It is not requiremed that each parameter is specified in the YAML file: the parameters
+    that are not specified will be assigned the default value. If the YAML file contains
+    parameters that are unsupported by the program, the list of such parameters and their
+    values will be printed. Unsupported parameters are ignored by the program.
+    Additional parameter values may be sent as function arguments: such parameters have
+    precedence before the default parameters and the parameters from YAML file.
+    For example, the function call
+
+    build_xanes_map(parameter_file_path="path-to-file", incident_energy_shift_keV=0.001)
+
+    will override the value of the incident energy shift specified in the YAML file.
 
     Options:
 
@@ -110,7 +103,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
     activates the emission line of interest (line specified by the parameter ``emission_line``).
     The default behavior may be changed by setting True the parameter
     ``use_incident_energy_from_param_file`` (use fixed energy from parameter file set by
-    ``param_file_name``) or specifying lower bound for incident energy ``incident_energy_low_bound``
+    ``xrf_fitting_param_fln``) or specifying lower bound for incident energy ``incident_energy_low_bound``
     (if the energy read from the .h5 data file is less than ``incident_energy_low_bound``, then
     use the lower bound, otherwise use the value of energy from the data file.
 
@@ -141,11 +134,17 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
     7070.0038,0.0144,0.00949,0.00233
     ... etc. ...
 
+    By default, the function is catch all exceptions and prints the error messages on the screen.
+    This is the most user-friendly mode of operation, since routine error messages are presented
+    in readable form. If the function is used as part of a script, the exceptions may be
+    allowed by setting the parameter ``allow_exceptions=True``.
+
     Parameters
     ----------
 
     start_id : int
-        scan ID of the first run of the sequence
+        scan ID of the first run of the sequence.
+        Default: ``None``
 
     end_id : int
         scan ID of the last run of the sequence
@@ -156,27 +155,37 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
         of ``start_id`` and ``end_id`` will limit the range of processed scans.
         The values of ``start_id`` and ``end_id`` must be set to proper values in order
         to load data from the databroker.
+        Default: ``None``
 
-    param_file_name : str
+    xrf_fitting_param_fln : str
         the name of the JSON parameter file. The parameters are used for automated
         processing of data with ``pyxrf_batch``. The parameter file is typically produced
         by PyXRF. The parameter is not used for XANES analysis and may be skipped if
-        if XRF maps are already generated (``sequence="build_xanes_maps"``).
+        if XRF maps are already generated (``sequence="build_xanes_maps"``). The file
+        name may include absolute or relative path from current directory
+        (not the directory ``wd``).
+        Default: ``None``
 
     scaler_name : str
         the name of the scaler used for normalization. The name should be valid, i.e.
         present in each scan data. It may be set to None: in this case no normalization
         will be performed.
+        Default: ``None``
 
     wd : str
         working directory: if ``wd`` is not specified then current directory will be
-        used as the working directory for processing
+        used as the working directory for processing. The working directory is used
+        to store raw and processed HDF5 files (in subdirectory specified by
+        ``xrf_subdir``) and write processing results. Path to configuration files
+        is specified separately.
+        Default: ``None``
 
     xrf_subdir : str
         subdirectory inside the working directory in which raw data files will be loaded.
         If the "process" or "build_xanes_map" sequence is executed, then the program
         looks for raw or processed files in this subfolder. In majority of cases, the
         default value is sufficient.
+        Default: ``"xrf_data"``
 
     sequence : str
         the sequence of operations performed by the function:
@@ -189,13 +198,19 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
         -- ``build_xanes_map`` - build the energy map using xrf mapping data,
         all data must be processed.
 
+        Default: ``"build_xanes_map"``
+
     emission_line : str
         the name of the selected emission line ("Ca_K", "Fe_K", etc.). The emission line
-        of interest.
+        of interest. This is the REQUIRED parameter. Processing can not be performed unless
+        valid emission line is selected. The emission line must be in the list used for
+        XRF mapping.
+        Default: ``None``
 
     emission_line_alignment : str
         the name of the emission line used for image alignment ("Ca_K", "Fe_K", etc.).
         If None, then the line specified as ``emission_line`` used for alignment
+        Default: ``None``
 
     incident_energy_shift_keV : float
         shift (in keV) applied to incident energy axis of the observed data before
@@ -203,6 +218,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
         higher energies. The shift may be used to compensate for the difference in the
         adjustments of measurement setups used for acquisition of references and
         observed dataset.
+        Default: ``0``
 
     alignment_starts_from : str
         The order of alignment of the image stack: "top" - start from the top of the stack
@@ -212,18 +228,39 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
         energy are more defined. If the same emission line is selected for XANES and
         for alignment reference, then alignment should always be performed starting from
         the top of the stack.
+        Default: ``"top"``
 
     interpolation_enable : True
         enable interpolation of XRF maps to uniform grid before alignment of maps.
+        Default: ``True``
 
     alignment_enable : True
         enable alignment of the stack of maps. In typical processing workflow the alignment
         should be enabled.
+        Default: ``True``
+
+    subtract_pre_edge_baseline : bool
+        indicates if pre-edge baseline is subtracted from XANES spectra before fitting.
+        Currently the subtracted baseline is constant, computed as a median value of spectrum
+        points in the pre-edge region.
+        Default : ``True``
 
     ref_file_name : str
         file name with emission line references. If ``ref_file_name`` is not provided,
         then no XANES maps are generated. The rest of the processing is still performed
-        as expected.
+        as expected. The file name may include absolute or relative path from the current
+        directory (not directory ``wd``).
+        Default: ``None``
+
+    fitting_method : str
+        method used for fitting XANES spectra. The currently supported methods are
+        'nnls' and 'admm'.
+        Default: ``"nnls"``
+
+    fitting_descent_rate : float
+        optimization parameter: descent rate for the fitting algorithm.
+        Used only for 'admm' algorithm (rate = 1/lambda), ignored for 'nnls' algorithm.
+        Default: ``0.2``
 
     incident_energy_low_bound : float
         files in the set are processed using the value of incident energy equal to
@@ -232,38 +269,440 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
         as the largest value of energy in the set which still activates the selected
         emission line (specified as the ``emission_line`` parameter). This parameter
         overrides the parameter ``use_incident_energy_from_param_file``.
+        Default: ``None``
 
     use_incident_energy_from_param_file : bool
         indicates if incident energy from parameter file will be used to process all
         files: True - use incident energy from parameter files, False - use incident
         energy from data files. If ``incident_energy_low_bound`` is specified, then
         this parameter is ignored.
+        Default: ``False``
 
     plot_results : bool
         indicates if results (image stack and XANES maps) are to be plotted. If set to
         False, the processing results are saved to file (if enabled) and the program
         exits without showing data plots.
+        Default: ``True``
 
     plot_use_position_coordinates : bool
         results (image stack and XANES maps) are plotted vs. position coordinates if
         the parameter is set to True, otherwise images are plotted vs. pixel number
+        Default: ``True``
 
     plot_position_axes_units : str
         units for position coordinates along X and Y axes. The units are used while
         plotting the results vs. position coordinates. The string specifying units
         may contain LaTeX expressions: for example ``"$\mu $m"`` will print units
         of ``micron`` as part of X and Y axes labels.
+        Default: ``"$\mu $m"``
 
-    file_output_formats : list(str)
+    output_file_formats : list(str)
         list of output file formats. Currently only "tiff" format is supported
         (XRF map stack and XANES maps are saved as stacked TIFF files).
+        Default: ``["tiff"]``
+
+    output_save_all : bool
+        indicates if processing results for every emission line, which is selected for XRF
+        fitting, are saved. If set to ``True``, the (aligned) stacks of XRF maps are saved
+        for each element. If set to False, then only the stack for the emission line
+        selected for XANES fitting is saved (argument ``emission_line``).
+        Default value: False
+
+    parameter_file_path : str
+        absolute or relative path to the YAML file, which contains the processing parameters.
+        Relative path is specified from the current directory (not ``wd``).
+
+    create_parameter_file : bool
+        indicates whether a new parameter file needs to be created.
+
+    allow_exceptions : bool
+        True - raise exception in case of errors, False - print error message and exit
 
     Returns
     -------
 
-    Throws an exception if processing can not be completed. The error message may be printed to
-    indicate the reason of the failure to the user.
-    """  # noqa: W605
+    no value is returned
+
+    Raises
+    ------
+
+    Raise exceptions if processing can not be completed and exceptions are allowed
+    (``allow_exceptions=True``). The error message indicates the reason of failure.
+    If exceptions are disabled, then error message is printed.
+    """
+
+    # First process the case of creating new parameter file (with default values)
+    #   This step is using 'create_parameter_file' and 'parameter_file_path' arguments
+    #   and ignores the rest.
+    if create_parameter_file is True:
+        # It is allowed to specify path to the new parameter file as the first argument.
+        # This will work only if 'create_parameter_file' is set True.
+        if not parameter_file_path and isinstance(start_id, str):
+            parameter_file_path = start_id
+        if parameter_file_path:
+            try:
+                create_yaml_parameter_file(file_path=parameter_file_path,
+                                           function_docstring=_build_xanes_map_api.__doc__,
+                                           param_value_dict=_build_xanes_map_param_default)
+            except Exception as ex:
+                logger.error(f"Error occurred while creating file '{parameter_file_path}': {ex}")
+                if allow_exceptions:
+                    raise
+        else:
+            msg = f"New parameter file can't be created: parameter file path is not specified"
+            if allow_exceptions:
+                raise RuntimeError(msg)
+            else:
+                logger.error(msg)
+        return
+
+    # Move 'start_id' and 'end_id' to kwargs
+    kwargs["start_id"] = start_id
+    kwargs["end_id"] = end_id
+
+    # Assemble the dictionary of arguments for the processing function
+    arguments = _build_xanes_map_param_default
+    # Modify default values to values from yaml parameter file (if file name is given)
+    if parameter_file_path:
+        param_file_args = read_yaml_parameter_file(file_path=parameter_file_path)
+        # The set of parameters listed in 'param_file_args' may not match the set of supported parameters.
+        # Unsupported parameters are ignored. The list of unsupported parameter names is printed
+        # (those could be misspelled valid parameter names, so the information may be valuable)
+        param_file_args_unsupported = {key: value
+                                       for key, value in param_file_args.items()
+                                       if key not in arguments}
+        msg = [f"{key}: {value}"
+               for key, value in param_file_args_unsupported.items()]
+        if msg:
+            msg = f"Parameter file '{parameter_file_path}' contains unsupported parameters:\n" \
+                  + "    " + "\n    ".join(msg)
+            logger.warning(msg)
+        # The supported parameters are replacing the default parameters.
+        args_modified = {key: value
+                         for key, value in param_file_args.items()
+                         if key in arguments}
+        arguments.update(args_modified)
+    # Verify if all arguments ('kwargs') of the function are supported. If the function is
+    #   called with invalid arguments, then return from the function or raise the exception.
+    #   The 'unsupported_args' list will keep the order of the arguments the same as in 'kwargs'.
+    unsupported_args = {key: value for key, value in kwargs.items() if key not in arguments}
+    if unsupported_args:  # Error occurred: at least one argument is not supported
+        msg = [f"{key}: {value}"
+               for key, value in unsupported_args.items()]
+        msg = "\n    ".join(msg)
+        msg = "The function is called with invalid arguments:\n    " + msg
+        if allow_exceptions:
+            raise RuntimeError(msg)
+        else:
+            logger.error(msg)
+            return
+    else:
+        arguments.update(kwargs)
+
+    # Now call the processing function
+    try:
+        # Validate the argument dictionary (exception will be raised if there is not match with the schema)
+        jsonschema.validate(instance=arguments, schema=_build_xanes_map_param_schema)
+        _build_xanes_map_api(**arguments)
+    except BaseException as ex:
+        if allow_exceptions:
+            raise
+        else:
+            msg = f"Processing is incomplete! Exception was raised during execution:\n   {ex}"
+            logger.error(msg)
+    else:
+        logger.info("Processing was completed successfully.")
+
+
+# Default input parameters for '_build_xanes_map_api' and 'build_xanes_map' functions
+_build_xanes_map_param_default = {
+    "start_id": None,
+    "end_id": None,
+    "xrf_fitting_param_fln": None,
+    "scaler_name": None,
+    "wd": None,
+    "xrf_subdir": "xrf_data",
+    "sequence": "build_xanes_map",
+    "emission_line": None,
+    "emission_line_alignment": None,
+    "incident_energy_shift_keV": 0,
+    "alignment_starts_from": "top",
+    "interpolation_enable": True,
+    "alignment_enable": True,
+    "subtract_pre_edge_baseline": True,
+    "ref_file_name": None,
+    "fitting_method": "nnls",
+    "fitting_descent_rate": 0.2,
+    "incident_energy_low_bound": None,
+    "use_incident_energy_from_param_file": False,
+    "plot_results": True,
+    "plot_use_position_coordinates": True,
+    "plot_position_axes_units": r"$\mu $m",
+    "output_file_formats": ["tiff"],
+    "output_save_all": False
+}
+
+# Default input parameters for '_build_xanes_map_api' and 'build_xanes_map' functions
+_build_xanes_map_param_schema = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["start_id", "end_id", "xrf_fitting_param_fln", "scaler_name", "wd", "xrf_subdir",
+                 "sequence", "emission_line", "emission_line_alignment", "incident_energy_shift_keV",
+                 "alignment_starts_from", "interpolation_enable", "alignment_enable",
+                 "subtract_pre_edge_baseline", "ref_file_name",
+                 "fitting_method", "fitting_descent_rate", "incident_energy_low_bound",
+                 "use_incident_energy_from_param_file", "plot_results", "plot_use_position_coordinates",
+                 "plot_position_axes_units", "output_file_formats", "output_save_all"],
+    "properties": {
+        "start_id": {"type": ["integer", "null"], "exclusiveMinimum": 0},
+        "end_id": {"type": ["integer", "null"], "exclusiveMinimum": 0},
+        "xrf_fitting_param_fln": {"type": ["string", "null"]},
+        "scaler_name": {"type": ["string", "null"]},
+        "wd": {"type": ["string", "null"]},
+        "xrf_subdir": {"type": ["string", "null"]},
+        "sequence": {"type": "string"},
+        "emission_line": {"type": ["string", "null"]},
+        "emission_line_alignment": {"type": ["string", "null"]},
+        "incident_energy_shift_keV": {"type": "number"},
+        "alignment_starts_from": {"type": "string", "enum": ["top", "bottom"]},
+        "interpolation_enable": {"type": "boolean"},
+        "alignment_enable": {"type": "boolean"},
+        "subtract_pre_edge_baseline": {"type": "boolean"},
+        "ref_file_name": {"type": ["string", "null"]},
+        "fitting_method": {"type": "string", "enum": ["nnls", "admm"]},
+        "fitting_descent_rate": {"type": "number", "exclusiveMinimum": 0.0},
+        "incident_energy_low_bound": {"type": ["number", "null"], "exclusiveMinimum": 0.0},
+        "use_incident_energy_from_param_file": {"type": "boolean"},
+        "plot_results": {"type": "boolean"},
+        "plot_use_position_coordinates": {"type": "boolean"},
+        "plot_position_axes_units": {"type": "string"},
+        "output_file_formats": {"type": "array",
+                                "uniqueItems": True,
+                                "items": {
+                                    "type": "string",
+                                    "enum": ["tiff"]
+                                }},
+        "output_save_all": {"type": "boolean"},
+    }
+}
+
+
+def _build_xanes_map_api(*, start_id=None, end_id=None,
+                         xrf_fitting_param_fln=None,
+                         scaler_name=None,
+                         wd=None,
+                         xrf_subdir="xrf_data",
+                         sequence="build_xanes_map",
+                         emission_line=None,  # This is the REQUIRED parameter
+                         emission_line_alignment=None,
+                         incident_energy_shift_keV=0,
+                         alignment_starts_from="top",
+                         interpolation_enable=True,
+                         alignment_enable=True,
+                         subtract_pre_edge_baseline=True,
+                         ref_file_name=None,
+                         fitting_method="nnls",
+                         fitting_descent_rate=0.2,
+                         incident_energy_low_bound=None,
+                         use_incident_energy_from_param_file=False,
+                         plot_results=True,
+                         plot_use_position_coordinates=True,
+                         plot_position_axes_units=r"$\mu $m",
+                         output_file_formats=["tiff"],
+                         output_save_all=False):
+    r"""
+    The function builds XANES map from a set of XRF maps. It also may perform loading of data
+    from databroker and processing of raw data to obtain XRF maps. For detailed descriptions,
+    see docstring for the wrapper function ``build_xanes_map``.
+
+    Note, that the list and the description of parameters in this docstring is used for
+    generation of the YAML parameter file, so it has to be maintained properly. The set of
+    parameters should match the list of keys in ``_build_xanes_map_param_default`` and
+    the parameter values should satisfy the schema ``_build_xanes_map_param_schema``
+    Also, the list of parameters in the docstring for ``build_xanes_map`` is displayed to the user and
+    used for generation of documentation. So both docstrings should match and be maintained to
+    contain complete information.
+
+    Parameters
+    ----------
+
+    start_id : int
+        scan ID of the first run of the sequence.
+        Default: ``None``
+
+    end_id : int
+        scan ID of the last run of the sequence
+
+        When processing data files from the local drive, both ``start_id`` and ``end_id``
+        may be set to ``None`` (default). In this case all files in the ``xrf_subdir``
+        subdirectory of the working directory ``wd`` are loaded and processed. The values
+        of ``start_id`` and ``end_id`` will limit the range of processed scans.
+        The values of ``start_id`` and ``end_id`` must be set to proper values in order
+        to load data from the databroker.
+        Default: ``None``
+
+    xrf_fitting_param_fln : str
+        the name of the JSON parameter file. The parameters are used for automated
+        processing of data with ``pyxrf_batch``. The parameter file is typically produced
+        by PyXRF. The parameter is not used for XANES analysis and may be skipped if
+        if XRF maps are already generated (``sequence="build_xanes_maps"``). The file
+        name may include absolute or relative path from current directory
+        (not the directory ``wd``).
+        Default: ``None``
+
+    scaler_name : str
+        the name of the scaler used for normalization. The name should be valid, i.e.
+        present in each scan data. It may be set to None: in this case no normalization
+        will be performed.
+        Default: ``None``
+
+    wd : str
+        working directory: if ``wd`` is not specified then current directory will be
+        used as the working directory for processing. The working directory is used
+        to store raw and processed HDF5 files (in subdirectory specified by
+        ``xrf_subdir``) and write processing results. Path to configuration files
+        is specified separately.
+        Default: ``None``
+
+    xrf_subdir : str
+        subdirectory inside the working directory in which raw data files will be loaded.
+        If the "process" or "build_xanes_map" sequence is executed, then the program
+        looks for raw or processed files in this subfolder. In majority of cases, the
+        default value is sufficient.
+        Default: ``"xrf_data"``
+
+    sequence : str
+        the sequence of operations performed by the function:
+
+        -- ``load_and_process`` - loading data and full processing,
+
+        -- ``process`` - full processing of data, including xrf mapping
+        and building the energy map,
+
+        -- ``build_xanes_map`` - build the energy map using xrf mapping data,
+        all data must be processed.
+
+        Default: ``"build_xanes_map"``
+
+    emission_line : str
+        the name of the selected emission line ("Ca_K", "Fe_K", etc.). The emission line
+        of interest. This is the REQUIRED parameter. Processing can not be performed unless
+        valid emission line is selected. The emission line must be in the list used for
+        XRF mapping.
+        Default: ``None``
+
+    emission_line_alignment : str
+        the name of the emission line used for image alignment ("Ca_K", "Fe_K", etc.).
+        If None, then the line specified as ``emission_line`` used for alignment
+        Default: ``None``
+
+    incident_energy_shift_keV : float
+        shift (in keV) applied to incident energy axis of the observed data before
+        XANES fitting. The positive shift value shifts observed data in the direction of
+        higher energies. The shift may be used to compensate for the difference in the
+        adjustments of measurement setups used for acquisition of references and
+        observed dataset.
+        Default: ``0``
+
+    alignment_starts_from : str
+        The order of alignment of the image stack: "top" - start from the top of the stack
+        (scan with highest energy) and proceed to the bottom of the stack (lowest energy),
+        "bottom" - start from the bottom of the stack (lowest energy) and proceed to the top.
+        Starting from the top typically produces better results, because scans at higher
+        energy are more defined. If the same emission line is selected for XANES and
+        for alignment reference, then alignment should always be performed starting from
+        the top of the stack.
+        Default: ``"top"``
+
+    interpolation_enable : True
+        enable interpolation of XRF maps to uniform grid before alignment of maps.
+        Default: ``True``
+
+    alignment_enable : True
+        enable alignment of the stack of maps. In typical processing workflow the alignment
+        should be enabled.
+        Default: ``True``
+
+    subtract_pre_edge_baseline : bool
+        indicates if pre-edge baseline is subtracted from XANES spectra before fitting.
+        Currently the subtracted baseline is constant, computed as a median value of spectrum
+        points in the pre-edge region.
+        Default : ``True``
+
+    ref_file_name : str
+        file name with emission line references. If ``ref_file_name`` is not provided,
+        then no XANES maps are generated. The rest of the processing is still performed
+        as expected. The file name may include absolute or relative path from the current
+        directory (not directory ``wd``).
+        Default: ``None``
+
+    fitting_method : str
+        method used for fitting XANES spectra. The currently supported methods are
+        'nnls' and 'admm'.
+        Default: ``"nnls"``
+
+    fitting_descent_rate : float
+        optimization parameter: descent rate for the fitting algorithm.
+        Used only for 'admm' algorithm (rate = 1/lambda), ignored for 'nnls' algorithm.
+        Default: ``0.2``
+
+    incident_energy_low_bound : float
+        files in the set are processed using the value of incident energy equal to
+        the greater of the values of ``incident_energy_low_bound`` or incident energy
+        from file metadata. If None, then the lower energy bound is found automatically
+        as the largest value of energy in the set which still activates the selected
+        emission line (specified as the ``emission_line`` parameter). This parameter
+        overrides the parameter ``use_incident_energy_from_param_file``.
+        Default: ``None``
+
+    use_incident_energy_from_param_file : bool
+        indicates if incident energy from parameter file will be used to process all
+        files: True - use incident energy from parameter files, False - use incident
+        energy from data files. If ``incident_energy_low_bound`` is specified, then
+        this parameter is ignored.
+        Default: ``False``
+
+    plot_results : bool
+        indicates if results (image stack and XANES maps) are to be plotted. If set to
+        False, the processing results are saved to file (if enabled) and the program
+        exits without showing data plots.
+        Default: ``True``
+
+    plot_use_position_coordinates : bool
+        results (image stack and XANES maps) are plotted vs. position coordinates if
+        the parameter is set to True, otherwise images are plotted vs. pixel number
+        Default: ``True``
+
+    plot_position_axes_units : str
+        units for position coordinates along X and Y axes. The units are used while
+        plotting the results vs. position coordinates. The string specifying units
+        may contain LaTeX expressions: for example ``"$\mu $m"`` will print units
+        of ``micron`` as part of X and Y axes labels.
+        Default: ``"$\mu $m"``
+
+    output_file_formats : list(str)
+        list of output file formats. Currently only "tiff" format is supported
+        (XRF map stack and XANES maps are saved as stacked TIFF files).
+        Default: ``["tiff"]``
+
+    output_save_all : bool
+        indicates if processing results for every emission line, which is selected for XRF
+        fitting, are saved. If set to ``True``, the (aligned) stacks of XRF maps are saved
+        for each element. If set to False, then only the stack for the emission line
+        selected for XANES fitting is saved (argument ``emission_line``).
+        Default value: False
+
+    Returns
+    -------
+
+    no value is returned
+
+    Raises
+    ------
+
+    Raise exceptions if processing can not be completed. The error message indicates the reason
+    of failure.
+    """
 
     if wd is None:
         wd = '.'
@@ -277,11 +716,15 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
 
     if not xrf_subdir:
         raise ValueError("The parameter 'xrf_subdir' is None or contains an empty string "
-                         "('build_xanes_map_api').")
+                         "('_build_xanes_map_api').")
 
     if not scaler_name:
         logger.warning("Scaler was not specified. The processing will still be performed,"
                        "but the DATA WILL NOT BE NORMALIZED!")
+
+    if not emission_line:
+        raise ValueError("Emission line is not specified (parameter 'emission_line'). "
+                         "XANES maps can not be built.")
 
     # Convert all tags specifying output format to lower case
     for n, fmt in enumerate(output_file_formats):
@@ -296,7 +739,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
     alignment_starts_from = alignment_starts_from.lower()
     if alignment_starts_from not in alignment_starts_from_values:
         raise ValueError("The parameter 'alignment_starts_from' has illegal value "
-                         f"'{alignment_starts_from}' ('build_xanes_map_api').")
+                         f"'{alignment_starts_from}' ('_build_xanes_map_api').")
 
     # Selected emission lines for XANES and image stack alignment
     eline_selected = emission_line
@@ -309,10 +752,17 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
     #   The check is case-sensitive.
     if not check_eline_name(eline_selected):
         raise ValueError(f"The emission line '{eline_selected}' does not exist or is not supported. "
-                         f"Check the value of the parameter 'eline_selected' ('build_xanes_map_api').")
+                         f"Check the value of the parameter 'eline_selected' ('_build_xanes_map_api').")
     if not check_eline_name(eline_alignment):
         raise ValueError(f"The emission line '{eline_alignment}' does not exist or is not supported. "
-                         f"Check the value of the parameter 'eline_alignment' ('build_xanes_map_api').")
+                         f"Check the value of the parameter 'eline_alignment' ('_build_xanes_map_api').")
+
+    # Check fitting method
+    fitting_method = fitting_method.lower()
+    supported_fitting_methods = ("nnls", "admm")
+    if fitting_method not in supported_fitting_methods:
+        raise ValueError(f"The fitting method '{fitting_method}' is not supported. "
+                         f"Supported methods: {supported_fitting_methods}")
 
     # Depending on the selected sequence, determine which steps must be executed
     seq_load_data = True
@@ -328,14 +778,14 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
         seq_process_xrf_data = False
     else:
         raise ValueError(f"Unknown sequence name '{sequence}' is passed as a parameter "
-                         "to the function 'build_xanes_map_api'.")
+                         "to the function '_build_xanes_map_api'.")
 
     if seq_process_xrf_data:
-        if not param_file_name:
+        if not xrf_fitting_param_fln:
             raise ValueError("Parameter file name is not specified and XRF maps can not be generated: "
-                             "set the value the parameter 'param_file_name' of 'build_xanes_map_api'.")
-        param_file_name = os.path.expanduser(param_file_name)
-        param_file_name = os.path.abspath(param_file_name)
+                             "set the value the parameter 'xrf_fitting_param_fln' of '_build_xanes_map_api'.")
+        xrf_fitting_param_fln = os.path.expanduser(xrf_fitting_param_fln)
+        xrf_fitting_param_fln = os.path.abspath(xrf_fitting_param_fln)
 
     # No XANES maps will be generated if references are not provided
     #                 (this is one of the built-in options, not an error)
@@ -360,7 +810,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
 
     if seq_process_xrf_data:
         _process_xrf_data(start_id=start_id, end_id=end_id, wd_xrf=wd_xrf,
-                          param_file_name=param_file_name, eline_selected=eline_selected,
+                          xrf_fitting_param_fln=xrf_fitting_param_fln, eline_selected=eline_selected,
                           incident_energy_low_bound=incident_energy_low_bound,
                           use_incident_energy_from_param_file=use_incident_energy_from_param_file)
         logger.info("Processing data files (computing XRF maps): success.")
@@ -373,20 +823,27 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
             eline_alignment=eline_alignment, scaler_name=scaler_name,
             interpolation_enable=interpolation_enable, alignment_enable=alignment_enable,
             seq_generate_xanes_map=seq_generate_xanes_map,
+            fitting_method=fitting_method, fitting_descent_rate=fitting_descent_rate,
             incident_energy_shift_keV=incident_energy_shift_keV,
             alignment_starts_from=alignment_starts_from,
-            ref_energy=ref_energy, ref_data=ref_data)
+            ref_energy=ref_energy, ref_data=ref_data,
+            subtract_pre_edge_baseline=subtract_pre_edge_baseline)
 
         _save_xanes_processing_results(wd=wd, eline_selected=eline_selected, ref_labels=ref_labels,
                                        output_file_formats=output_file_formats,
-                                       processing_results=processing_results)
+                                       processing_results=processing_results,
+                                       output_save_all=output_save_all)
 
         if plot_results:
             _plot_processing_results(ref_energy=ref_energy, ref_data=ref_data, ref_labels=ref_labels,
                                      plot_position_axes_units=plot_position_axes_units,
                                      plot_use_position_coordinates=plot_use_position_coordinates,
                                      eline_selected=eline_selected,
-                                     processing_results=processing_results)
+                                     processing_results=processing_results,
+                                     fitting_method=fitting_method,
+                                     fitting_descent_rate=fitting_descent_rate,
+                                     incident_energy_shift_keV=incident_energy_shift_keV,
+                                     subtract_pre_edge_baseline=subtract_pre_edge_baseline)
         else:
             logger.info("Plotting results: skipped.")
 
@@ -394,7 +851,7 @@ def build_xanes_map_api(start_id=None, end_id=None, *, param_file_name=None,
 
 
 def _load_data_from_databroker(*, start_id, end_id, wd_xrf):
-    """
+    r"""
     Implements the first step of processing sequence: loading the batch of scan data
     from databroker.
 
@@ -425,9 +882,9 @@ def _load_data_from_databroker(*, start_id, end_id, wd_xrf):
              create_each_det=False, save_scaler=True)
 
 
-def _process_xrf_data(*, start_id, end_id, wd_xrf, param_file_name, eline_selected,
+def _process_xrf_data(*, start_id, end_id, wd_xrf, xrf_fitting_param_fln, eline_selected,
                       incident_energy_low_bound, use_incident_energy_from_param_file):
-    """
+    r"""
     Implements the second step of the processing sequence: processing of XRF scans
     and generation of XRF maps
 
@@ -443,7 +900,7 @@ def _process_xrf_data(*, start_id, end_id, wd_xrf, param_file_name, eline_select
     wd_xrf : str
         full (absolute) name of the directory, where loaded .h5 files are placed
 
-    param_file_name : str
+    xrf_fitting_param_fln : str
         the name of the JSON parameter file. The parameters are used for automated
         processing of data with ``pyxrf_batch``. The parameter file is typically produced
         by PyXRF.
@@ -505,7 +962,7 @@ def _process_xrf_data(*, start_id, end_id, wd_xrf, param_file_name, eline_select
         # Process .h5 files in the directory 'wd_xrf'. Processing results are saved
         #   as additional datasets in the original .h5 files.
         pyxrf_batch(data_files=fln,  # Process only one data file
-                    param_file_name=param_file_name,
+                    xrf_fitting_param_fln=xrf_fitting_param_fln,
                     ignore_datafile_metadata=ignore_metadata,
                     incident_energy=energy,  # This value overrides incident energy from other sources
                     wd=wd_xrf, save_tiff=False)
@@ -513,9 +970,11 @@ def _process_xrf_data(*, start_id, end_id, wd_xrf, param_file_name, eline_select
 
 def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
                         eline_selected, eline_alignment, alignment_starts_from,
-                        scaler_name, ref_energy, ref_data, incident_energy_shift_keV,
-                        interpolation_enable, alignment_enable, seq_generate_xanes_map):
-    """
+                        scaler_name, ref_energy, ref_data, fitting_method,
+                        fitting_descent_rate, incident_energy_shift_keV,
+                        interpolation_enable, alignment_enable,
+                        subtract_pre_edge_baseline, seq_generate_xanes_map):
+    r"""
     Implements the third step of the processing sequence: computation of XANES maps based
     on the set of XRF maps from scan in the range ``start_id`` .. ``end_id``.
 
@@ -558,6 +1017,14 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
         reference data for the element states, used for XANES fitting. The array of shape (N, M)
         contains reference data for M element states specified at N energy points.
 
+    fitting_method : str
+        method used for fitting XANES spectra. The currently supported methods are
+        'nnls' and 'admm'.
+
+    fitting_descent_rate : float
+        optimization parameter: descent rate for the fitting algorithm.
+        Used only for 'admm' algorithm (rate = 1/lambda), ignored for 'nnls' algorithm.
+
     incident_energy_shift_keV : float
         shift (in keV) applied to incident energy axis of the observed data before
         XANES fitting. The positive shift value shifts observed data in the direction of
@@ -571,6 +1038,11 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
     alignment_enable : bool
         enable alignment of the stack of maps. In typical processing workflow the alignment
         should be enabled.
+
+    subtract_pre_edge_baseline : bool
+        indicates if pre-edge baseline is subtracted from XANES spectra before fitting.
+        Currently the subtracted baseline is constant, computed as a median value of spectrum
+        points in the pre-edge region.
 
     seq_generate_xanes_map : bool
         indicates if XANES maps should be generated based on the aligned stack. If set to False,
@@ -648,8 +1120,24 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
 
     if seq_generate_xanes_map:
         scan_absorption_refs = _interpolate_references(scan_energies_shifted, ref_energy, ref_data)
-        xanes_map_data, xanes_map_rfactor = _fit_xanes_map(eline_data_aligned[eline_selected],
-                                                           scan_absorption_refs)
+
+        skip_bl_sub = True
+        if subtract_pre_edge_baseline:
+            logger.info(f"Subtracting pre-edge baseline")
+            try:
+                xrf_data = subtract_xanes_pre_edge_baseline(eline_data_aligned[eline_selected],
+                                                            scan_energies_shifted, eline_selected)
+                skip_bl_sub = False
+            except RuntimeError as ex:
+                logger.error(f"XANES baseline was not subtracted: {ex}")
+        if skip_bl_sub:
+            xrf_data = eline_data_aligned[eline_selected]
+
+        logger.info(f"Fitting XANES specta using '{fitting_method}' method")
+        xanes_map_data, xanes_map_rfactor, _ = fit_spectrum(xrf_data,
+                                                            scan_absorption_refs,
+                                                            method=fitting_method,
+                                                            rate=fitting_descent_rate)
 
         # Scale xanes maps so that the values represent counts
         n_refs, _, _ = xanes_map_data.shape
@@ -687,8 +1175,9 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
     return processing_results
 
 
-def _save_xanes_processing_results(*, wd, eline_selected, ref_labels, output_file_formats, processing_results):
-    """
+def _save_xanes_processing_results(*, wd, eline_selected, ref_labels, output_file_formats,
+                                   processing_results, output_save_all):
+    r"""
     Implements one of the final steps of the processing sequence: saving processing results.
     Currently only TIFF files are saved: TIFF with the aligned stack of XRF maps and TIFF with
     XANES maps. In addition, a .txt file is saved that contains of the list of images included in
@@ -712,6 +1201,12 @@ def _save_xanes_processing_results(*, wd, eline_selected, ref_labels, output_fil
 
     processing_results : dict
         Results of processing returned by the function '_compute_xanes_maps'.
+
+    output_save_all : bool
+        indicates if processing results for every emission line, which is selected for XRF
+        fitting, are saved. If set to ``True``, the (aligned) stacks of XRF maps are saved
+        for each element. If set to False, then only the stack for the emission line
+        selected for XANES fitting is saved (argument ``emission_line``).
     """
     positions_x_uniform = processing_results["positions_x_uniform"]
     positions_y_uniform = processing_results["positions_y_uniform"]
@@ -737,13 +1232,16 @@ def _save_xanes_processing_results(*, wd, eline_selected, ref_labels, output_fil
                                  scan_ids=scan_ids,
                                  files_h5=files_h5,
                                  positions_x=pos_x,
-                                 positions_y=pos_y)
+                                 positions_y=pos_y,
+                                 output_save_all=output_save_all)
 
 
 def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
                              plot_position_axes_units, plot_use_position_coordinates,
-                             eline_selected, processing_results):
-    """
+                             eline_selected, processing_results,
+                             fitting_method, fitting_descent_rate, incident_energy_shift_keV,
+                             subtract_pre_edge_baseline):
+    r"""
     Implements one of the final steps of the processing sequence: plotting processing results.
     The data is displayed on a set of Matplotlib figures:
 
@@ -787,7 +1285,21 @@ def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
 
     processing_results : dict
         Results of processing returned by the function '_compute_xanes_maps'.
-    """  # noqa: W605
+
+    fitting_method : str
+        method used for fitting, the currently supported methods are 'nnls' and 'admm'
+
+    fitting_descent_rate : float
+        descent rate for fitting algorithm, currently used only for ADMM fitting
+
+    incident_energy_shift_keV : float
+        the value of the shift (already) applied to energy points of the observed data
+
+    subtract_pre_edge_baseline : bool
+        indicates if pre-edge baseline is subtracted from XANES spectra before fitting.
+        Currently the subtracted baseline is constant, computed as a median value of spectrum
+        points in the pre-edge region.
+    """
 
     positions_x_uniform = processing_results["positions_x_uniform"]
     positions_y_uniform = processing_results["positions_y_uniform"]
@@ -830,12 +1342,15 @@ def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
     # Show image stacks for the selected elements
     show_image_stack(eline_data=eline_data_aligned, energies=scan_energies_shifted, eline_selected=eline_selected,
                      positions_x=pos_x, positions_y=pos_y, axes_units=axes_units,
-                     xanes_map_data=xanes_map_data, absorption_refs=scan_absorption_refs,
-                     ref_labels=ref_labels)
+                     xanes_map_data=xanes_map_data, scan_absorption_refs=scan_absorption_refs,
+                     ref_labels=ref_labels, ref_energy=ref_energy, ref_data=ref_data,
+                     fitting_method=fitting_method, fitting_descent_rate=fitting_descent_rate,
+                     energy_shift_keV=incident_energy_shift_keV,
+                     subtract_pre_edge_baseline=subtract_pre_edge_baseline)
 
 
 def _load_dataset_from_hdf5(*, start_id, end_id, wd_xrf, load_fit_results=True):
-    """
+    r"""
     Load dataset from processed HDF5 files
 
     Parameters
@@ -889,7 +1404,7 @@ def _load_dataset_from_hdf5(*, start_id, end_id, wd_xrf, load_fit_results=True):
 
 def _check_dataset_consistency(*, scan_ids, scan_img_dict, files_h5, scaler_name,
                                eline_selected, eline_alignment):
-    """
+    r"""
     Perform some checks for consistency of input data and parameters
     before starting XANES mapping steps. The following processing steps
     assume that the data is consistent.
@@ -968,7 +1483,7 @@ def _check_dataset_consistency(*, scan_ids, scan_img_dict, files_h5, scaler_name
         raise RuntimeError(msg)
 
     def _check_for_specific_elines(img_data_keys, elines, files_h5, scan_ids, msg_phrase):
-        """
+        r"""
         Check if all emission lines from the list are present in all scan data
         """
         slist = []
@@ -988,7 +1503,7 @@ def _check_dataset_consistency(*, scan_ids, scan_img_dict, files_h5, scaler_name
                                    msg_phrase=msg_phrase)
 
     def _check_for_identical_eline_key_set(img_data_keys, img_data_keys_union):
-        """
+        r"""
         Check if all processed datasets contain data for the same emission lines.
         If not, then processing has to be run again on the datasets
         """
@@ -1064,8 +1579,33 @@ def _check_dataset_consistency(*, scan_ids, scan_img_dict, files_h5, scaler_name
 # ============================================================================================
 #   Functions for parameter manipulation
 
-def adjust_incident_beam_energies(scan_energies, emission_line):
+def check_elines_activation_status(scan_energies, emission_line):
+    r"""
+    Check if ``emission_line`` is activated at each scan energy in the list ``scan_energies``
+
+    Parameters
+    ----------
+
+    scan_energies : list(float)
+        the list (or an array) of incident beam energy values, keV. The energy values
+        don't need to be sorted.
+
+    emission_line : str
+        valid name of the emission line (supported by ``scikit-beam``) in the
+        form of K_K or Fe_K
+
+    Returns
+    -------
+        the list of ``bool`` values, indicating if the emission line is activated at
+        the respective energy in the list ``scan_energies``
     """
+
+    is_activated = [check_if_eline_is_activated(emission_line, _) for _ in scan_energies]
+    return is_activated
+
+
+def adjust_incident_beam_energies(scan_energies, emission_line):
+    r"""
     Adjust the values of incident beam energy in the list ``scan_energies`` so that
     fitting for the ``emission_line`` could be done at each energy value. Adjustment
     is done by finding the lowest incident energy value in the list that still activates
@@ -1075,7 +1615,7 @@ def adjust_incident_beam_energies(scan_energies, emission_line):
     ----------
 
     scan_energies : list(float)
-        the list of incident beam energy values, keV
+        the list (or ndarray) of incident beam energy values, keV
 
     emission_line : str
         valid name of the emission line (supported by ``scikit-beam``) in the
@@ -1087,23 +1627,111 @@ def adjust_incident_beam_energies(scan_energies, emission_line):
         same dimensions as ``scan_energies``.
     """
 
-    e_activation = [_ for _ in scan_energies if check_if_eline_is_activated(emission_line, _)]
+    activation_status = check_elines_activation_status(scan_energies, emission_line)
+    e_activation = np.asarray(scan_energies)[activation_status]
 
-    if not e_activation:
+    if not e_activation.size:
         raise RuntimeError(
             f"The emission line '{emission_line}' is not activated\n"
             f"    in the range of energies {min(scan_energies)} - {max(scan_energies)} keV.\n"
             f"    Check if the emission line is specified correctly.")
 
-    min_activation_energy = min(e_activation)
+    min_activation_energy = np.min(e_activation)
     return [max(_, min_activation_energy) for _ in scan_energies]
+
+
+def subtract_xanes_pre_edge_baseline(xrf_map_stack, scan_energies, eline_selected, *,
+                                     pre_edge_upper_keV=-0.01, non_negative=True):
+    r"""
+    Subtract baseline from XANES spectrum of an XRF map stack. The stack is represented
+    as multidimensional array ``xrf_map_stack``: the spectral points are arranged along ``axis=0``.
+    If ``xrf_map_stack`` is 1D array, then it is assumed that it represents a single spectrum
+
+    Subtraction of the pre-edge baseline. The baseline is assumed constant throughout
+    the spectrum and estimated separately for each pixel. Pre-edge is found as a set of
+    spectral points with energies smaller than the lowest energy that activates
+    ``eline_selected`` by the value of ``- pre_edge_upper_keV``. The baseline value is estimated
+    as a median of all pre-edge points.
+
+    Parameters
+    ----------
+
+    xrf_map_stack : ndarray
+        single- or multidimensional array with XANES map spectra. The spectral points are
+        along ``axis=0``.
+
+    scan_energies : list or ndarray
+        incident energies for spectral points (same number of points as axis 0 of ``xrf_map_stack``)
+
+    eline_selected : str
+        emission line, i.e. "Fe_K"
+
+    pre_edge_upper_keV : float
+        the upper boundary of the pre-edge region relative to the lowest activation energy.
+        The value is added to the lowest emission line activation energy, so it should be
+        negative.
+
+    non_negative : bool
+        True - set all negative values to zero, False - return the results of baseline subtraction
+        without change
+
+    Returns
+    -------
+
+        array of the same dimensions as ``xrf_map_stack`` that contains XANES spectra with
+        subtracted baseline.
+
+    Raises
+    ------
+
+        RuntimeError if no pre-edge points are detected. Typically this means that all
+        the spectral point in ``scan_energies`` activate the emission line.
+    """
+
+    scan_energies = np.asarray(scan_energies)  # Make sure that 'scan_energies' is an array
+    assert scan_energies.ndim == 1, f"Parameter 'scan_energies' must be 1D array "\
+                                    f"(number of dimensions {scan_energies.ndim})"
+
+    assert xrf_map_stack.shape[0] == scan_energies.shape[0], \
+        f"The shapes of 'xrf_map_stack' {xrf_map_stack.shape} and 'scan_energies'"\
+        f" {scan_energies.shape} do not match"
+
+    # If data is 1D (contains only one spectrum), then add one extra dimension for consistency
+    is_data_1d = xrf_map_stack.ndim == 1
+    if is_data_1d:
+        xrf_map_stack = np.expand_dims(xrf_map_stack, axis=1)
+
+    # Deterimine if 'eline_selected' is activated for each point
+    e_status = check_elines_activation_status(scan_energies, eline_selected)
+    # Find the incident energy of the edge
+    edge_energy = np.min(scan_energies[np.asarray(e_status)])
+    # Mark the points in the pre-edge region
+    pre_edge_pts = scan_energies < (edge_energy + pre_edge_upper_keV)
+    # Find pre-edge points (points for which the emission line is not activated
+    if not np.sum(pre_edge_pts):
+        raise RuntimeError("No pre-edge points were found. Baseline can not be estimated.")
+    # Separate pre-edge points (typically consecutive points at the lower values of the index,
+    #   but the function will work with randomly permuted energy array)
+    xrf_map_pre_edge = xrf_map_stack[np.asarray(pre_edge_pts)]
+    # Find constant baseline values: baseline is different for each pixel
+    baseline_const = np.median(xrf_map_pre_edge, axis=0)
+    # Subtract the baseline
+    xrf_map_out = xrf_map_stack - baseline_const
+    if non_negative:
+        xrf_map_out = np.clip(xrf_map_out, a_min=0, a_max=None)
+
+    # Remove extra dimension if input data is 1D
+    if is_data_1d:
+        xrf_map_out = np.squeeze(xrf_map_out, axis=1)
+
+    return xrf_map_out
 
 
 # ============================================================================================
 #   Functions used for processing
 
 def _get_uniform_grid(positions_x_all, positions_y_all):
-    """
+    r"""
     Compute common uniform grid based on position coordinates for a stack of maps.
     The grid is computed in two steps: the median of X and Y coordinates is computed
     for each point of the map over the stack of maps (for X and Y positions the 3D array
@@ -1141,7 +1769,7 @@ def _get_uniform_grid(positions_x_all, positions_y_all):
 
 
 def _get_eline_data(scan_img_dict, scaler_name):
-    """
+    r"""
     Rearrange data for more convenient processing: 1. Create the list of available emission lines.
     2. Create the dictionary of stacks of XRF maps: key - emission line name, value - 3D ndarray of
     the shape (K, M, N), where K is the number of maps in the stack for the emission line, each
@@ -1186,7 +1814,7 @@ def _get_eline_data(scan_img_dict, scaler_name):
 
 
 def _align_stacks(eline_data, eline_alignment, alignment_starts_from="top"):
-    """
+    r"""
     Align stacks of maps from the dictionary ``eline_data`` based on the stack for
     emission line specified by ``eline_alignment``. Alignment may be performed
     starting from the ``"top"`` (default) or the ``"bottom"`` of the stack.
@@ -1240,7 +1868,7 @@ def _align_stacks(eline_data, eline_alignment, alignment_starts_from="top"):
 
 
 def _interpolate_references(energy, energy_refs, absorption_refs):
-    """
+    r"""
     Interpolate XANES references
 
     Parameters
@@ -1271,57 +1899,16 @@ def _interpolate_references(energy, energy_refs, absorption_refs):
     return interpolated_refs
 
 
-def _fit_xanes_map(map_data, absorption_refs):
-    """
-    Compute XANES map on the stack of XRF maps (XANES fitting).
-
-    Parameters
-    ----------
-
-    map_data : ndarray(float), 3D
-        stack of XRF maps, shape (K, M, N), where K is the number of maps in the stack,
-        each map has size of MxN pixels.
-
-    absorption_refs : ndarray(float), 2D
-        array of references, shape (K, P), where P is the number of references.
-
-    Returns
-    -------
-
-    map_data_fitted : ndarray(float), 3D
-        stack of XANES maps, shape (P, M, N), where P is the number of references.
-
-    map_rfactor : ndarray(float), 2D
-        map that represents R-factor for the fitting, shape (M,N).
-    """
-    _, nny, nnx = map_data.shape
-    _, n_states = absorption_refs.shape
-    map_data_fitted = np.zeros(shape=[n_states, nny, nnx])
-    map_rfactor = np.zeros(shape=[nny, nnx])
-    for ny in range(nny):
-        for nx in range(nnx):
-            map_sel = map_data[:, ny, nx]
-            result, _ = nnls_fit(map_sel, absorption_refs, weights=None)
-
-            # Compute R-factor
-            dif = map_sel - np.matmul(result, np.transpose(absorption_refs))
-            dif_sum = np.sum(np.abs(dif))
-            data_sum = np.sum(np.abs(map_sel))
-            # Avoid accidental division by zero (or a very small number)
-            rfactor = dif_sum/data_sum if data_sum > 1e-30 else 0
-
-            map_data_fitted[:, ny, nx] = result
-            map_rfactor[ny, nx] = rfactor
-    return map_data_fitted, map_rfactor
-
-
 # ==============================================================================================
 #     Functions for plotting the results
 
 def show_image_stack(*, eline_data, energies, eline_selected,
                      positions_x=None, positions_y=None, axes_units=None,
-                     xanes_map_data=None, absorption_refs=None, ref_labels=None):
-    """
+                     xanes_map_data=None, scan_absorption_refs=None, ref_labels=None,
+                     ref_energy=None, ref_data=None,  # Those are original sets of reference data
+                     fitting_method="nnls", fitting_descent_rate=0.2, energy_shift_keV=0.0,
+                     subtract_pre_edge_baseline=True):
+    r"""
     Display XRF Map stack
 
 
@@ -1343,8 +1930,11 @@ def show_image_stack(*, eline_data, energies, eline_selected,
 
         def __init__(self, *, energy, stack_all_data, label_default,
                      positions_x=None, positions_y=None, axes_units=None,
-                     xanes_map_data=None, absorption_refs=None, ref_labels=None):
-            """
+                     xanes_map_data=None, scan_absorption_refs=None, ref_labels=None,
+                     ref_energy=None, ref_data=None,
+                     fitting_method="nnls", fitting_descent_rate=0.2, energy_shift_keV=0.0,
+                     subtract_pre_edge_baseline=True):
+            r"""
             Parameters
             ----------
 
@@ -1374,14 +1964,60 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                 If ``axes_units`` is None, then printed label will not include unit information.
 
             xanes_map_data : 3D ndarray
+                The stack of XRF maps: shape = (K, N, M) - the stack of K maps, the size of each map is NxM
 
-            absorption_refs : 2D ndarray
-            """  # noqa: W605
+            scan_absorption_refs : 2D ndarray
+                Absorption references, used to display fitting results and for real-time fitting.
+                Shape = (K, Q) - K data points, Q references
+
+            ref_labels : list(str)
+                The list of Q reference labels, used for data plotting
+
+            ref_energy : array (1D)
+                The array of energy values for original (not resampled) loaded reference data (B points)
+
+            ref_data : array (2D)
+                The array of reference data, shape (B,C) for C references. The array needs to be resampled
+                before using for processing
+
+            fitting_method : str
+                Fitting method used for real-time fitting (used when displaying fitting for selections
+                of pixels)
+
+            fitting_descent_rate : float
+                descent rate for fitting algorithm, currently used only for ADMM fitting
+
+            energy_shift_keV : float
+                shift (in keV) applied to incident energy for observed data. The energy values
+                supplied to this function are already shifted by this amount. The user will
+                have opportunity to experiment with different values of energy shift, so the
+                online processing routine will resample the references for new shifted
+                energy points. This online processing will not influence data in the rest of the
+                program.
+
+            subtract_pre_edge_baseline : bool
+                indicates if pre-edge baseline is subtracted from XANES spectra before fitting.
+                Currently the subtracted baseline is constant, computed as a median value of spectrum
+                points in the pre-edge region.
+            """
+
+            # The following are the fitting parameters that are sent to the fitting algorithm
+            self.fitting_method = fitting_method
+            self.fitting_descent_rate = fitting_descent_rate
+            # This is the value of already applied energy shift
+            self.incident_energy_shift_keV = energy_shift_keV
+            # This value will changed and the difference of the updated and the original value
+            #   will be applied to the energy points before processing
+            self.incident_energy_shift_keV_updated = energy_shift_keV
+
+            self.subtract_pre_edge_baseline = subtract_pre_edge_baseline
 
             self.label_fontsize = 15
+            self.coord_fontsize = 10
 
             self.stack_all_data = stack_all_data
-            self.energy = energy
+            self.energy_original = energy  # The energy values shifted by 'self.incident_energy_shift_keV'
+            self.energy = energy  # The contents of this array will change if additional shift is applied
             self.label_default = label_default
 
             self.labels = list(eline_data.keys())
@@ -1390,8 +2026,19 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.busy = False
 
             self.xanes_map_data = xanes_map_data
-            self.absorption_refs = absorption_refs
+            self.absorption_refs = scan_absorption_refs
             self.ref_labels = ref_labels
+
+            # Original reference data (used for resampling when fitting with different energy shift)
+            self.ref_energy = ref_energy
+            self.ref_data = ref_data
+
+            # References to Arrow and Rectangle patches, used to mark selection on the stack image
+            self.img_arrow = None
+            self.img_rect = None
+
+            # The state of the left mouse button (True - button is in pressed state)
+            self.button_pressed = False
 
             if self.label_default not in self.labels:
                 logger.warning(f"XRF Energy Plot: the default label {self.label_default} "
@@ -1404,8 +2051,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.n_energy_selected = int(n_images/2)  # Select image in the middle of the stack
             self.img_selected = self.stack_selected[self.n_energy_selected, :, :]
 
-            # Select point in the middle of the plot
-            self.pt_selected = [int(nx / 2), int(ny / 2)]  # The coordinates of the point are in pixels
+            # Select point in the middle of the plot, the coordinates of the point are in pixels
+            self.pts_selected = [int(nx / 2), int(ny / 2), int(nx / 2), int(ny / 2)]
 
             # Check existence or the size of 'positions_x' and 'positions_y' arrays
             ny, nx = self.img_selected.shape
@@ -1431,7 +2078,34 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             v_max = np.max(self.stack_selected)
             self.img_plot.set_clim(v_min, v_max)
 
-        def show(self):
+        def draw_selection_mark(self):
+            # Remove existing marked points and regions
+            if self.img_arrow and self.img_arrow.figure:
+                self.img_arrow.remove()
+            if self.img_rect and self.img_rect.figure:
+                self.img_rect.remove()
+
+            x_min, y_min, x_max, y_max = self.pts_selected
+            pt_x_min = x_min * self.pos_dx + self.pos_x_min
+            pt_y_min = y_min * self.pos_dy + self.pos_y_min
+
+            if (x_min == x_max) and (y_min == y_max):
+                # Single point is marked with an arrow
+                arr_param = {"length_includes_head": True, "color": 'r', "width": self.arr_width}
+                self.img_arrow = FancyArrow(pt_x_min - self.arr_length, pt_y_min - self.arr_length,
+                                            self.arr_length, self.arr_length, **arr_param)
+                self.ax_img_stack.add_patch(self.img_arrow)
+            else:
+                # Region is marked with rectangle
+                pt_x_max = x_max * self.pos_dx + self.pos_x_min
+                pt_y_max = y_max * self.pos_dy + self.pos_y_min
+                rect_param = {"linewidth": 1, "edgecolor": 'r', "facecolor": 'none'}
+                self.img_rect = Rectangle((pt_x_min, pt_y_min),
+                                          pt_x_max - pt_x_min, pt_y_max - pt_y_min,
+                                          **rect_param)
+                self.ax_img_stack.add_patch(self.img_rect)
+
+        def show(self, block=True):
 
             self.textbox_nlabel = None
 
@@ -1441,10 +2115,19 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.ax_fluor_plot = plt.axes([0.55, 0.25, 0.4, 0.65])
             self.fig.subplots_adjust(left=0.07, right=0.95, bottom=0.25)
 
+            self.t_bar = plt.get_current_fig_manager().toolbar
+
             x_label = f"X, {axes_units}" if axes_units else f"X"
             y_label = f"Y, {axes_units}" if axes_units else f"Y"
             self.ax_img_stack.set_xlabel(x_label, fontsize=self.label_fontsize)
             self.ax_img_stack.set_ylabel(y_label, fontsize=self.label_fontsize)
+
+            # Compute parameters of the arrow (width and length), used to mark
+            #   selected point on the image plot
+            max_dim = max(abs(self.pos_x_max - self.pos_x_min),
+                          abs(self.pos_y_max - self.pos_y_min))
+            self.arr_width = max_dim / 200
+            self.arr_length = max_dim / 20
 
             # display image
             extent = [self.pos_x_min, self.pos_x_max, self.pos_y_max, self.pos_y_min]
@@ -1460,6 +2143,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.ax_img_cbar.ticklabel_format(style='sci', scilimits=(-3, 4), axis='both')
             self.set_cbar_range()
 
+            self.draw_selection_mark()
+
             self.redraw_fluorescence_plot()
 
             # define slider
@@ -1471,6 +2156,16 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                                  0, len(self.energy) - 1,
                                  valinit=self.n_energy_selected, valfmt='%i')
 
+            self.ax_tb_energy_shift = plt.axes([0.85, 0.935, 0.1, 0.03])
+            self.tb_energy_shift = TextBox(self.ax_tb_energy_shift, "Energy shift (keV):",
+                                           label_pad=0.07)
+            self.tb_energy_shift.set_val(self.incident_energy_shift_keV)
+            self.tb_energy_shift.color = "#00ff00"
+            self.tb_energy_shift.hovercolor = "#00ff00"
+            # The following line actually updates the color, not just sets the attribute
+            self.tb_energy_shift.ax.set_facecolor(self.tb_energy_shift.color)
+            self.tb_energy_shift.on_submit(self.tb_energy_shift_onsubmit)
+
             if len(self.labels) <= 10:
                 # Individual button per label (emission line). Only 10 buttons will fit windows
                 self.create_buttons_each_label()
@@ -1480,21 +2175,35 @@ def show_image_stack(*, eline_data, energies, eline_selected,
 
             self.slider.on_changed(self.slider_update)
 
-            self.fig.canvas.mpl_connect("button_press_event", self.canvas_onclick)
+            self.fig.canvas.mpl_connect("button_press_event", self.canvas_onpress)
+            self.fig.canvas.mpl_connect("button_release_event", self.canvas_onrelease)
 
-            plt.show()
+            self.fig.canvas.draw_idle()
+
+            plt.show(block=block)
 
         def show_fluor_point_coordinates(self):
-            pt_x = self.pt_selected[0] * self.pos_dx + self.pos_x_min
-            pt_y = self.pt_selected[1] * self.pos_dy + self.pos_y_min
-            pt_x_str, pt_y_str = f"{pt_x:.5g}", f"{pt_y:.5g}"
+
+            x_min, y_min, x_max, y_max = self.pts_selected
+
+            pt_x_min = x_min * self.pos_dx + self.pos_x_min
+            pt_y_min = y_min * self.pos_dy + self.pos_y_min
+
+            if x_min == x_max and y_min == y_max:
+                pt_x_str, pt_y_str = f"{pt_x_min:.5g}", f"{pt_y_min:.5g}"
+            else:
+                pt_x_max = x_max * self.pos_dx + self.pos_x_min
+                pt_y_max = y_max * self.pos_dy + self.pos_y_min
+                pt_x_str = f"{pt_x_min:.5g} .. {pt_x_max:.5g}"
+                pt_y_str = f"{pt_y_min:.5g} .. {pt_y_max:.5g}"
+
             self.fluor_label_text = self.ax_fluor_plot.text(
                 0.99, 0.99, f"({pt_x_str}, {pt_y_str})",
-                ha='right', va='top', fontsize=self.label_fontsize,
+                ha='right', va='top', fontsize=self.coord_fontsize,
                 transform=self.ax_fluor_plot.axes.transAxes)
 
         def create_buttons_each_label(self):
-            """
+            r"""
             Create separate button for each label. The maximum number of labels
             that can be assigned unique buttons is 10. More buttons may
             not fit the screen
@@ -1586,20 +2295,86 @@ def show_image_stack(*, eline_data, energies, eline_selected,
         def redraw_fluorescence_plot(self):
             self.ax_fluor_plot.clear()
 
+            xd_px_min, yd_px_min, xd_px_max, yd_px_max = self.pts_selected
+
+            if xd_px_min == xd_px_max and yd_px_min == yd_px_max:
+                plot_single_point = True
+            else:
+                plot_single_point = False
+
+            data_stack_selected = self.stack_selected[:, yd_px_min: yd_px_max + 1, xd_px_min: xd_px_max + 1]
+            data_selected = np.sum(np.sum(data_stack_selected, axis=2), axis=1)
+
+            # Apply energy shift (it influences all plots, so it should be done regardless of the rest
+            #   of the options
+            if (self.incident_energy_shift_keV == self.incident_energy_shift_keV_updated):
+                self.energy = self.energy_original
+            else:
+                # Find difference between the original value of the shift (that was already
+                #   applied and the new value)
+                de = self.incident_energy_shift_keV_updated - self.incident_energy_shift_keV
+                # Apply the shift to energy points for the observed data
+                self.energy = [_ + de for _ in self.energy_original]
+
+            # Subtract baseline if needed
+            if (self.label_selected == self.label_default) and self.subtract_pre_edge_baseline:
+                try:
+                    data_selected = subtract_xanes_pre_edge_baseline(
+                        data_selected, self.energy, self.label_default, non_negative=False)
+                except RuntimeError as ex:
+                    logger.error(f"Background was not subtracted: {ex}")
+
+            # Fluorescence plot will display the new energy values
             self.ax_fluor_plot.plot(self.energy,
-                                    self.stack_selected[:, self.pt_selected[1], self.pt_selected[0]],
+                                    data_selected,
                                     marker=".", linestyle="solid", label="XANES spectrum")
 
-            # Plot the results of fitting (if the fitting was performed
+            # Plot the results of fitting (if the fitting was performed and the value for the
+            #    shift of incident energy was not changed)
             if (self.label_selected == self.label_default) and (self.xanes_map_data is not None) \
-                    and (self.absorption_refs is not None):
+                    and (self.absorption_refs is not None) and (self.ref_data is not None) \
+                    and (self.ref_energy is not None):
+
+                # The number of averaged points
+                n_averaged_pts = (xd_px_max - xd_px_min + 1) * (yd_px_max - yd_px_min + 1)
+
+                plot_comments = ""
+                if n_averaged_pts > 1:
+                    plot_comments = f"Area: {n_averaged_pts} px."
+
+                fit_real_time = True
+                if plot_single_point and (self.incident_energy_shift_keV ==
+                                          self.incident_energy_shift_keV_updated):
+                    # fit_real_time = False
+                    fit_real_time = True  # For now let's always do fitting on the fly
+                if fit_real_time:
+                    # Interpolate references (same function as in the main processing routine)
+                    refs = _interpolate_references(self.energy, self.ref_energy, self.ref_data)
+                    data_nn = np.clip(data_selected, a_min=0, a_max=None)
+                    xanes_fit_pt, xanes_fit_rfactor, _ = fit_spectrum(data_nn,
+                                                                      refs,
+                                                                      method=self.fitting_method,
+                                                                      rate=self.fitting_descent_rate)
+                else:
+                    # Use precomputed data
+                    xanes_fit_pt = self.xanes_map_data[:, yd_px_min, xd_px_min]
+                    # We still compute R-factor
+                    xanes_fit_rfactor = rfactor_compute(data_selected, xanes_fit_pt, self.absorption_refs)
+
+                # Compute fit results represented in counts (for output)
+                xanes_fit_pt_counts = xanes_fit_pt.copy()
+                for n, v in enumerate(xanes_fit_pt):
+                    xanes_fit_pt_counts[n] = v * np.sum(self.absorption_refs[:, n])
+
+                for n, v in enumerate(xanes_fit_pt_counts):
+                    plot_comments += f"\n{self.ref_labels[n]}: {xanes_fit_pt_counts[n]:.2f} c."
+                plot_comments += f"\nR-factor: {xanes_fit_rfactor:.5g}"
 
                 # Labels should always be supplied when calling the function.
                 #   This is not user controlled option, therefore exception should be raised.
                 assert self.labels, "No labels are provided. Fitting results can not be displayed properly"
 
                 refs_scaled = self.absorption_refs.copy()
-                xanes_fit_pt = self.xanes_map_data[:, self.pt_selected[1], self.pt_selected[0]]
                 _, n_refs = refs_scaled.shape
                 for n in range(n_refs):
                     refs_scaled[:, n] = refs_scaled[:, n] * xanes_fit_pt[n]
@@ -1609,6 +2384,14 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                 for n in range(n_refs):
                     self.ax_fluor_plot.plot(self.energy, refs_scaled[:, n],
                                             label=self.ref_labels[n], linestyle="dashed")
+
+                # Plot notes, containing the number of averaged points, counts per reference
+                #  and R-factor (only for the emission line used for XANES analysis)
+                if plot_comments:
+                    self.fluor_plot_comments = self.ax_fluor_plot.text(
+                        0.99, 0.05, plot_comments,
+                        ha='right', va='bottom', fontsize=self.coord_fontsize,
+                        transform=self.ax_fluor_plot.axes.transAxes)
 
             # Always display the legend
             self.ax_fluor_plot.legend(loc="upper left")
@@ -1637,28 +2420,78 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                     self.fig.canvas.flush_events()
                 self.busy = False
 
-        def canvas_onclick(self, event):
-            """Callback"""
-            if (event.inaxes == self.ax_img_stack) and (event.button == 1):
-                xd, yd = event.xdata, event.ydata
-                # Compute pixel coordinates
-                xd_px = round((xd - self.pos_x_min)/self.pos_dx)
-                yd_px = round((yd - self.pos_y_min)/self.pos_dy)
-                self.pt_selected = [int(xd_px), int(yd_px)]
+        def tb_energy_shift_onsubmit(self, event):
+            # 'event' is just a string that contains the number
+            new_val_valid = False
+            try:
+                new_val = float(event)
+                self.incident_energy_shift_keV_updated = new_val
+                new_val_valid = True
+            except Exception:
+                pass
+            self.tb_energy_shift.set_val(f"{self.incident_energy_shift_keV_updated}")
+            if new_val_valid:
+                if self.incident_energy_shift_keV == self.incident_energy_shift_keV_updated:
+                    self.tb_energy_shift.color = "#00ff00"
+                    self.tb_energy_shift.hovercolor = "#00ff00"
+                else:
+                    self.tb_energy_shift.color = "#ffff00"
+                    self.tb_energy_shift.hovercolor = "#ffff00"
+                # The following line actually updates the color, not just sets the attribute
+                self.tb_energy_shift.ax.set_facecolor(self.tb_energy_shift.color)
                 self.redraw_fluorescence_plot()
                 self.fig.canvas.draw()
                 self.fig.canvas.flush_events()
 
+        def canvas_onpress(self, event):
+            """Callback, mouse button pressed"""
+            self.button_pressed = False  # May be pressed outside the region
+            if (self.t_bar.mode == "") and (event.inaxes == self.ax_img_stack) and (event.button == 1):
+                self.button_pressed = True  # Left mouse button is in pressed state
+                #     and it was pressed when the cursor was inside the plot area
+                xd, yd = event.xdata, event.ydata
+                # Compute pixel coordinates
+                xd_px = round((xd - self.pos_x_min)/self.pos_dx)
+                yd_px = round((yd - self.pos_y_min)/self.pos_dy)
+                self.start_sel = (int(xd_px), int(yd_px))
+
+        def canvas_onrelease(self, event):
+            """Callback, mouse button released"""
+            # self.t_bar.mode == "" is True if no toolbar items are activated (zoom, pan etc.)
+            if self.button_pressed and (self.t_bar.mode == "") and \
+                    (event.inaxes == self.ax_img_stack) and (event.button == 1):
+                xd, yd = event.xdata, event.ydata
+                # Pixel coordinates (button pressed)
+                xd_px_min = self.start_sel[0]
+                yd_px_min = self.start_sel[1]
+                # Compute pixel coordinates (button release)
+                xd_px_max = int(round((xd - self.pos_x_min)/self.pos_dx))
+                yd_px_max = int(round((yd - self.pos_y_min)/self.pos_dy))
+                # Sort coordinates (top-left goes first)
+                xd_px_min, xd_px_max = min(xd_px_min, xd_px_max), max(xd_px_min, xd_px_max)
+                yd_px_min, yd_px_max = min(yd_px_min, yd_px_max), max(yd_px_min, yd_px_max)
+                self.pts_selected = [xd_px_min, yd_px_min, xd_px_max, yd_px_max]
+                self.draw_selection_mark()
+                self.redraw_fluorescence_plot()
+                self.fig.canvas.draw()
+                self.fig.canvas.flush_events()
+
+            self.button_pressed = False   # Left mouse button is released
+            #                               (it doesn't matter where the cursor is)
+
     map_plot = EnergyMapPlot(energy=energies, stack_all_data=eline_data, label_default=eline_selected,
                              positions_x=positions_x, positions_y=positions_y, axes_units=axes_units,
-                             xanes_map_data=xanes_map_data, absorption_refs=absorption_refs,
-                             ref_labels=ref_labels)
-    map_plot.show()
+                             xanes_map_data=xanes_map_data, scan_absorption_refs=scan_absorption_refs,
+                             ref_labels=ref_labels, ref_energy=ref_energy, ref_data=ref_data,
+                             fitting_method=fitting_method, fitting_descent_rate=fitting_descent_rate,
+                             energy_shift_keV=energy_shift_keV,
+                             subtract_pre_edge_baseline=subtract_pre_edge_baseline)
+    map_plot.show(block=True)
 
 
 def plot_xanes_map(map_data, *, label=None, block=True,
                    positions_x=None, positions_y=None, axes_units=None, map_margin=0):
-    """
+    r"""
     Plot XANES map
 
     Parameters
@@ -1697,7 +2530,7 @@ def plot_xanes_map(map_data, *, label=None, block=True,
     -------
         Reference to the figure containing the plot
 
-    """  # noqa: W605
+    """
 
     # Check existence or the size of 'positions_x' and 'positions_y' arrays
     ny, nx = map_data.shape
@@ -1742,7 +2575,7 @@ def plot_xanes_map(map_data, *, label=None, block=True,
 
 def plot_absorption_references(*, ref_energy, ref_data, scan_energies,
                                scan_absorption_refs, ref_labels=None, block=True):
-    """
+    r"""
     Plots absorption references
 
     Parameters
@@ -1798,7 +2631,7 @@ def plot_absorption_references(*, ref_energy, ref_data, scan_energies,
 
 
 def _get_img_data(img_dict, key, detector=None):
-    """
+    r"""
     Retrieves entry of ``img_dict``. The difficulty is that the dataset key (first key)
     contains file name so it is variable, so at the first step the appropriate key has to
     be found. Then the data for the element line or scaler (specified by ``key``)
@@ -1829,7 +2662,7 @@ def _get_img_keys(img_dict, detector=None):
 
 
 def _get_eline_keys(key_list):
-    """
+    r"""
     Returns list of emission line names that are present in the list of keys.
     The function checks if key matches the pattern for the emission line name,
     it does not check if the name is valid.
@@ -1854,7 +2687,7 @@ def _get_eline_keys(key_list):
 
 
 def _get_dataset_name(img_dict, detector=None):
-    """
+    r"""
     Finds the name of dataset with fitted data in the ``img_dict``.
     Dataset name contains file name in it, so it is changing from file to file.
     The dataset ends with suffix '_fit'. Datasets for individual detector
@@ -1877,7 +2710,7 @@ def _get_dataset_name(img_dict, detector=None):
 
         if detector is None:
             # Dataset name for the sum should have no 'det1', 'det2' etc. preceding '_fit'
-            if re.search("fit$", name) and not re.search("det\d+_fit", name):  # noqa: W605
+            if re.search("fit$", name) and not re.search(r"det\d+_fit", name):  # noqa: W605
                 return name
         else:
             if re.search(f"det{detector}_fit$", name):
@@ -1887,7 +2720,7 @@ def _get_dataset_name(img_dict, detector=None):
 
 
 def read_ref_data(ref_file_name):
-    """
+    r"""
     Read reference data from CSV file (for XANES fitting). The first column of the file must
     contain incident energy values. The first line of the file must contain labels for each column.
     The labels must be comma separated. If labels contain separator ',', they must be enclosed in
@@ -1925,7 +2758,7 @@ def read_ref_data(ref_file_name):
 
     if not os.path.isfile(ref_file_name):
         raise ValueError(f"The parameter file '{ref_file_name}' does not exist. Check the value of"
-                         f" the parameer 'ref_file_name' ('build_xanes_map_api').")
+                         f" the parameer 'ref_file_name' ('_build_xanes_map_api').")
     # Read the header (first line) using 'csv' (delimiter ',' and quotechar '"')
     with open(ref_file_name, 'r') as csv_file:
         for row in csv.reader(csv_file):
@@ -1958,9 +2791,9 @@ def read_ref_data(ref_file_name):
 def _save_xanes_maps_to_tiff(*, wd, eline_data_aligned, eline_selected,
                              xanes_map_data, xanes_map_rfactor, xanes_map_labels,
                              scan_energies, scan_energies_shifted, scan_ids,
-                             files_h5, positions_x, positions_y):
+                             files_h5, positions_x, positions_y, output_save_all):
 
-    """
+    r"""
     Saves the results of processing in stacked .tiff files and creates .txt log file
     with the list of contents of .tiff files.
     It is assumed that the input data is consistent.
@@ -2012,13 +2845,19 @@ def _save_xanes_maps_to_tiff(*, wd, eline_data_aligned, eline_selected,
     positions_y : 1D ndarray
         vector of coordinates along Y-axis, used to determine range and the number
         of scan points
+
+    output_save_all : bool
+        indicates if processing results for every emission line, which is selected for XRF
+        fitting, are saved. If set to ``True``, the (aligned) stacks of XRF maps are saved
+        for each element. If set to False, then only the stack for the emission line
+        selected for XANES fitting is saved (argument ``emission_line``).
     """
 
     if eline_selected is None:
         eline_selected = ""
 
     # A .txt file is created along with saving the rest of the data.
-    fln_log = f"maps_{eline_selected}_tiff.txt"
+    fln_log = "maps_log_tiff.txt"
     fln_log = os.path.join(wd, fln_log)
     with open(fln_log, "w") as f_log:
 
@@ -2055,6 +2894,18 @@ def _save_xanes_maps_to_tiff(*, wd, eline_data_aligned, eline_selected,
                     print(f"   Frame {n + 1}:  scan ID = {scan_id}   "
                           f"incident energy = {energy:.4f} keV (corrected to {energy_shifted:.4f} keV) "
                           f"file name = '{fln}'", file=f_log)
+
+        if output_save_all:
+            for eline in eline_data_aligned.keys():
+                # The data for the emission line used for xanes fitting is already saved
+                if eline == eline_selected:
+                    continue
+                fln_stack = f"maps_XRF_{eline}.tiff"
+                fln_stack = os.path.join(wd, fln_stack)
+                logger.info(f"Saving XRF map stack for the emission line {eline}")
+                print(f"XRF map stack for the emission line {eline} is saved to file '{fln_stack}'", file=f_log)
+                tifffile.imsave(fln_stack, eline_data_aligned[eline].astype(np.float32),
+                                imagej=True)
 
         if (xanes_map_data is not None) and xanes_map_labels and eline_selected:
             # Save XANES maps for references
@@ -2096,16 +2947,22 @@ if __name__ == "__main__":
     stream_handler.setLevel(logging.INFO)
     logger.addHandler(stream_handler)
 
-    build_xanes_map_api(start_id=92276, end_id=92335,
-                        param_file_name="param_335",
-                        scaler_name="sclr1_ch4", wd=None,
-                        # sequence="process",
-                        sequence="build_xanes_map",
-                        alignment_starts_from="top",
-                        ref_file_name="refs_Fe_P23.csv",
-                        emission_line="Fe_K", emission_line_alignment="P_K",
-                        incident_energy_shift_keV=-0.0013,
-                        interpolation_enable=True,
-                        alignment_enable=True,
-                        plot_use_position_coordinates=True,
-                        plot_results=True)
+    """
+    build_xanes_map(start_id=92276, end_id=92335,
+                    xrf_fitting_param_fln="param_335",
+                    scaler_name="sclr1_ch4", wd=None,
+                    # sequence="process",
+                    sequence="build_xanes_map",
+                    alignment_starts_from="top",
+                    ref_file_name="refs_Fe_P23.csv",
+                    fitting_method="nnls",
+                    emission_line="Fe_K", emission_line_alignment="P_K",
+                    incident_energy_shift_keV=-0.0013,
+                    interpolation_enable=True,
+                    alignment_enable=True,
+                    plot_use_position_coordinates=True,
+                    plot_results=True,
+                    allow_exceptions=True)
+    """
+
+    build_xanes_map(parameter_file_path="xanes_parameters.yaml", output_save_all=True)

@@ -171,12 +171,12 @@ def normalize_data_by_scaler(data_in, scaler, *, data_name=None, name_not_scalab
     '''
 
     if data_in is None or scaler is None:  # Nothing to scale
-        logger.debug("Function utils.gnormalize_data_by_scaler: data and/or scaler arrays are None. "
+        logger.debug("Function utils.normalize_data_by_scaler: data and/or scaler arrays are None. "
                      "Data scaling is skipped.")
         return data_in
 
     if data_in.shape != scaler.shape:
-        logger.debug("Function utils.gnormalize_data_by_scaler: data and scaler arrays have different shape. "
+        logger.debug("Function utils.normalize_data_by_scaler: data and scaler arrays have different shape. "
                      "Data scaling is skipped.")
         return data_in
 
@@ -192,7 +192,7 @@ def normalize_data_by_scaler(data_in, scaler, *, data_name=None, name_not_scalab
     #   check if there is at least one nonzero element
     n_nonzero = np.count_nonzero(scaler)
     if not n_nonzero:
-        logger.debug("Function utils.gnormalize_data_by_scaler: scaler is all-zeros array. "
+        logger.debug("Function utils.normalize_data_by_scaler: scaler is all-zeros array. "
                      "Data scaling is skipped.")
         do_scaling = False
 
@@ -211,12 +211,9 @@ def normalize_data_by_scaler(data_in, scaler, *, data_name=None, name_not_scalab
 
     return data_out
 
-
-# ===============================================================================
-
-
 # ===============================================================================
 # The following functions are prepared to be moved to scikit-beam
+
 
 def _get_2_sqrt_2_log2():
     return 2 * np.sqrt(2 * np.log(2))

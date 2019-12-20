@@ -3,7 +3,7 @@ from .model.fileio import (stitch_fitted_results,  spec_to_hdf, create_movie,  #
                            make_hdf_stitched)  # noqa: F401
 from .model.load_data_from_db import make_hdf, export1d  # noqa: F401
 from .model.command_tools import fit_pixel_data_and_save, pyxrf_batch  # noqa: F401
-from .xanes_maps.xanes_maps_api import build_xanes_map, build_xanes_map_api  # noqa: F401
+from .xanes_maps.xanes_maps_api import build_xanes_map  # noqa: F401
 
 # from .model.command_tools import pyxrf_batch  # noqa: F401
 
