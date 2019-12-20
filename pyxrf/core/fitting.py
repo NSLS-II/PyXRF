@@ -122,7 +122,7 @@ def fit_spectrum(data, ref_spectra, *, method="nnls", axis=0, maxiter=100, rate=
     method = method.lower()
     supported_fitting_methods = ("nnls", "admm")
     assert method in supported_fitting_methods, \
-        f"Fitting method '{method}' is not supported"
+        f"Fitting method '{method}' is not supported. Supported methods: {supported_fitting_methods}"
 
     data = np.asarray(data)
     ref_spectra = np.asarray(ref_spectra)
@@ -231,6 +231,9 @@ def _fitting_nnls(data, ref_spectra, *, maxiter=100):
 
     map_rfactor : ndarray(float), 2D
         map that represents R-factor for the fitting, shape (M,N).
+
+    map_residual : ndarray(float), 2D
+        residual returned by NNLS algorithm
     """
     assert data.ndim == 2, "Data array 'data' must have 2 dimensions"
     assert ref_spectra.ndim == 2, "Data array 'ref_spectra' must have 2 dimensions"
@@ -295,6 +298,12 @@ def _fitting_admm(data, ref_spectra, *, rate=0.2, maxiter=100, epsilon=1e-30, no
 
     map_rfactor : ndarray(float), 2D
         map that represents R-factor for the fitting, shape (M,N).
+
+    convergence : ndarray(float), 1D
+        convergence data returned by ADMM algorithm
+
+    feasibility : ndarray(float), 1D
+        feasibility data returned by ADMM algorithm
 
     The prototype for the ADMM fitting function was implemented by Hanfei Yan in Matlab.
     """
