@@ -1688,12 +1688,18 @@ def subtract_xanes_pre_edge_baseline(xrf_map_stack, scan_energies, eline_selecte
         the spectral point in ``scan_energies`` activate the emission line.
     """
 
+    scan_energies = np.asarray(scan_energies)  # Make sure that 'scan_energies' is an array
+    assert scan_energies.ndim == 1, f"Parameter 'scan_energies' must be 1D array "\
+                                    f"(number of dimensions {scan_energies.ndim})"
+
+    assert xrf_map_stack.shape[0] == scan_energies.shape[0], \
+        f"The shapes of 'xrf_map_stack' {xrf_map_stack.shape} and 'scan_energies'"\
+        f" {scan_energies.shape} do not match"
+
     # If data is 1D (contains only one spectrum), then add one extra dimension for consistency
     is_data_1d = xrf_map_stack.ndim == 1
     if is_data_1d:
         xrf_map_stack = np.expand_dims(xrf_map_stack, axis=1)
-
-    scan_energies = np.asarray(scan_energies)  # Make sure that 'scan_energies' is an array
 
     # Deterimine if 'eline_selected' is activated for each point
     e_status = check_elines_activation_status(scan_energies, eline_selected)
