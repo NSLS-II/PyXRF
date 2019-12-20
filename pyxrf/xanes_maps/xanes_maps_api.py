@@ -57,6 +57,31 @@ def build_xanes_map(start_id=None, end_id=None, *, parameter_file_path=None,
     sequence="load_and_process", ref_file_name="refs_Fe_P23.csv", fitting_method="nnls",
     emission_line="Fe_K", emission_line_alignment="P_K", incident_energy_shift_keV=-0.0013)
 
+    There are two ways of setting processing parameters:
+
+    -- Method 1. The parameter values different from default may be sent to ``build_xanes_map`` as
+    function arguments (as in the example above).
+
+    -- Method 2. Use YAML file with processing parameters. The YAML file may be created by
+    calling ``build_xanes_map`` with parameter ``create_parameter_file=True`` and supplying
+    the name of the parameter file ``parameter_file_path`` (absolute or relative path).
+    The file contains the description of each parameter and brief notes on editing YAML files.
+    Parameter values are initially set to default values. Some values must be changed before
+    processing can be run (e.g. ``emission_line`` must be set to some valid name). Once
+    parameters in YAML file are set, the function may be called as
+    ``build_xanes_map(parameter_file_path="path-to-file")``.
+    It is not requiremed that each parameter is specified in the YAML file: the parameters
+    that are not specified will be assigned the default value. If the YAML file contains
+    parameters that are unsupported by the program, the list of such parameters and their
+    values will be printed. Unsupported parameters are ignored by the program.
+    Additional parameter values may be sent as function arguments: such parameters have
+    precedence before the default parameters and the parameters from YAML file.
+    For example, the function call
+
+    build_xanes_map(parameter_file_path="path-to-file", incident_energy_shift_keV=0.001)
+
+    will override the value of the incident energy shift specified in the YAML file.
+
     Options:
 
     Typical processing sequence includes operation of XRF map interpolation and stack alignment.
@@ -108,6 +133,11 @@ def build_xanes_map(start_id=None, end_id=None, *, parameter_file_path=None,
     7067.9994,0.0161,0.0101,0.00238
     7070.0038,0.0144,0.00949,0.00233
     ... etc. ...
+
+    By default, the function is catch all exceptions and prints the error messages on the screen.
+    This is the most user-friendly mode of operation, since routine error messages are presented
+    in readable form. If the function is used as part of a script, the exceptions may be
+    allowed by setting the parameter ``allow_exceptions=True``.
 
     Parameters
     ----------
