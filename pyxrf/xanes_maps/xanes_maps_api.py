@@ -8,6 +8,7 @@ from matplotlib.widgets import Slider, Button, TextBox
 from matplotlib.patches import Rectangle, FancyArrow
 import time as ttime
 import tifffile
+import jsonschema
 
 from ..model.load_data_from_db import make_hdf
 from ..model.command_tools import pyxrf_batch
@@ -335,20 +336,32 @@ def build_xanes_map(start_id=None, end_id=None, *, parameter_file_path=None,
     # Modify default values to values from yaml parameter file (if file name is given)
     if parameter_file_path:
         param_file_args = read_yaml_parameter_file(file_path=parameter_file_path)
-        # 'param_file_args' is checked against the schema, but in principle they may contain
-        #   extra parameters or some parameters could be missing, so copy only the parameters
-        #   that are already present in 'arguments'
-        keys_in_both = set(arguments.keys()) & set(param_file_args.keys())
-        args_modified = {key: param_file_args[key] for key in keys_in_both}
+        # The set of parameters listed in 'param_file_args' may not match the set of supported parameters.
+        # Unsupported parameters are ignored. The list of unsupported parameter names is printed
+        # (those could be misspelled valid parameter names, so the information may be valuable)
+        param_file_args_unsupported = {key: value
+                                       for key, value in param_file_args.items()
+                                       if key not in arguments}
+        msg = [f"{key}: {value}"
+               for key, value in param_file_args_unsupported.items()]
+        if msg:
+            msg = f"Parameter file '{parameter_file_path}' contains unsupported parameters:\n" \
+                  + "    " + "\n    ".join(msg)
+            logger.warning(msg)
+        # The supported parameters are replacing the default parameters.
+        args_modified = {key: value
+                         for key, value in param_file_args.items()
+                         if key in arguments}
         arguments.update(args_modified)
-    # Modify the default values if additional arguments are specified. The arguments
-    #   in function call will override the values from the parameter file
-    unsupported_args = set(kwargs.keys()) - set(arguments.keys())
-    # Sort the unsupported keys in the order they appear in the function call (kwargs dict)
-    unsupported_args = [key for key in kwargs.keys() if key in unsupported_args]
+    # Verify if all arguments ('kwargs') of the function are supported. If the function is
+    #   called with invalid arguments, then return from the function or raise the exception.
+    #   The 'unsupported_args' list will keep the order of the arguments the same as in 'kwargs'.
+    unsupported_args = {key: value for key, value in kwargs.items() if key not in arguments}
     if unsupported_args:  # Error occurred: at least one argument is not supported
-        msg = ", ".join(unsupported_args)
-        msg = "The function is called with invalid arguments: " + msg
+        msg = [f"{key}: {value}"
+               for key, value in unsupported_args.items()]
+        msg = "\n    ".join(msg)
+        msg = "The function is called with invalid arguments:\n    " + msg
         if allow_exceptions:
             raise RuntimeError(msg)
         else:
@@ -359,6 +372,8 @@ def build_xanes_map(start_id=None, end_id=None, *, parameter_file_path=None,
 
     # Now call the processing function
     try:
+        # Validate the argument dictionary (exception will be raised if there is not match with the schema)
+        jsonschema.validate(instance=arguments, schema=_build_xanes_map_param_schema)
         _build_xanes_map_api(**arguments)
     except BaseException as ex:
         if allow_exceptions:
