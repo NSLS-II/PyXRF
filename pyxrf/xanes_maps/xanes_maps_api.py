@@ -212,8 +212,7 @@ def build_xanes_map(start_id=None, end_id=None, *, parameter_file_path=None,
     subtract_pre_edge_baseline : bool
         indicates if pre-edge baseline is subtracted from XANES spectra before fitting.
         Currently the subtracted baseline is constant, computed as a median value of spectrum
-        points with energies insufficient to activate the emission line of interest
-        (argument ``emission_line``).
+        points in the pre-edge region.
         Default : ``True``
 
     ref_file_name : str
@@ -597,8 +596,7 @@ def _build_xanes_map_api(*, start_id=None, end_id=None,
     subtract_pre_edge_baseline : bool
         indicates if pre-edge baseline is subtracted from XANES spectra before fitting.
         Currently the subtracted baseline is constant, computed as a median value of spectrum
-        points with energies insufficient to activate the emission line of interest
-        (argument ``emission_line``).
+        points in the pre-edge region.
         Default : ``True``
 
     ref_file_name : str
@@ -1014,8 +1012,7 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
     subtract_pre_edge_baseline : bool
         indicates if pre-edge baseline is subtracted from XANES spectra before fitting.
         Currently the subtracted baseline is constant, computed as a median value of spectrum
-        points with energies insufficient to activate the emission line of interest
-        (argument ``emission_line``).
+        points in the pre-edge region.
 
     seq_generate_xanes_map : bool
         indicates if XANES maps should be generated based on the aligned stack. If set to False,
@@ -1174,6 +1171,12 @@ def _save_xanes_processing_results(*, wd, eline_selected, ref_labels, output_fil
 
     processing_results : dict
         Results of processing returned by the function '_compute_xanes_maps'.
+
+    output_save_all : bool
+        indicates if processing results for every emission line, which is selected for XRF
+        fitting, are saved. If set to ``True``, the (aligned) stacks of XRF maps are saved
+        for each element. If set to False, then only the stack for the emission line
+        selected for XANES fitting is saved (argument ``emission_line``).
     """
     positions_x_uniform = processing_results["positions_x_uniform"]
     positions_y_uniform = processing_results["positions_y_uniform"]
@@ -1265,8 +1268,7 @@ def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
     subtract_pre_edge_baseline : bool
         indicates if pre-edge baseline is subtracted from XANES spectra before fitting.
         Currently the subtracted baseline is constant, computed as a median value of spectrum
-        points with energies insufficient to activate the emission line of interest
-        (argument ``emission_line``).
+        points in the pre-edge region.
     """
 
     positions_x_uniform = processing_results["positions_x_uniform"]
@@ -1608,7 +1610,8 @@ def adjust_incident_beam_energies(scan_energies, emission_line):
     return [max(_, min_activation_energy) for _ in scan_energies]
 
 
-def subtract_xanes_pre_edge_baseline(xrf_map_stack, scan_energies, eline_selected, *, non_negative=True):
+def subtract_xanes_pre_edge_baseline(xrf_map_stack, scan_energies, eline_selected, *,
+                                     pre_edge_upper_keV=-0.01, non_negative=True):
     r"""
     Subtract baseline from XANES spectrum of an XRF map stack. The stack is represented
     as multidimensional array ``xrf_map_stack``: the spectral points are arranged along ``axis=0``.
@@ -1616,8 +1619,9 @@ def subtract_xanes_pre_edge_baseline(xrf_map_stack, scan_energies, eline_selecte
 
     Subtraction of the pre-edge baseline. The baseline is assumed constant throughout
     the spectrum and estimated separately for each pixel. Pre-edge is found as a set of
-    spectral points with energies that do not activate the emission line ``eline_selected``.
-    The baseline value is estimated as a median of all pre-edge points.
+    spectral points with energies smaller than the lowest energy that activates
+    ``eline_selected`` by the value of ``- pre_edge_upper_keV``. The baseline value is estimated
+    as a median of all pre-edge points.
 
     Parameters
     ----------
@@ -1627,10 +1631,19 @@ def subtract_xanes_pre_edge_baseline(xrf_map_stack, scan_energies, eline_selecte
         along ``axis=0``.
 
     scan_energies : list or ndarray
-        incident energies for spectral points (same number of points as axis 0 of ``xrf_map_stack``
+        incident energies for spectral points (same number of points as axis 0 of ``xrf_map_stack``)
 
     eline_selected : str
         emission line, i.e. "Fe_K"
+
+    pre_edge_upper_keV : float
+        the upper boundary of the pre-edge region relative to the lowest activation energy.
+        The value is added to the lowest emission line activation energy, so it should be
+        negative.
+
+    non_negative : bool
+        True - set all negative values to zero, False - return the results of baseline subtraction
+        without change
 
     Returns
     -------
@@ -1650,10 +1663,15 @@ def subtract_xanes_pre_edge_baseline(xrf_map_stack, scan_energies, eline_selecte
     if is_data_1d:
         xrf_map_stack = np.expand_dims(xrf_map_stack, axis=1)
 
+    scan_energies = np.asarray(scan_energies)  # Make sure that 'scan_energies' is an array
+
     # Deterimine if 'eline_selected' is activated for each point
     e_status = check_elines_activation_status(scan_energies, eline_selected)
+    # Find the incident energy of the edge
+    edge_energy = np.min(scan_energies[np.asarray(e_status)])
+    # Mark the points in the pre-edge region
+    pre_edge_pts = scan_energies < (edge_energy + pre_edge_upper_keV)
     # Find pre-edge points (points for which the emission line is not activated
-    pre_edge_pts = np.logical_not(e_status)
     if not np.sum(pre_edge_pts):
         raise RuntimeError("No pre-edge points were found. Baseline can not be estimated.")
     # Separate pre-edge points (typically consecutive points at the lower values of the index,
@@ -1944,8 +1962,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             subtract_pre_edge_baseline : bool
                 indicates if pre-edge baseline is subtracted from XANES spectra before fitting.
                 Currently the subtracted baseline is constant, computed as a median value of spectrum
-                points with energies insufficient to activate the emission line of interest
-                (argument ``emission_line``).
+                points in the pre-edge region.
             """
 
             # The following are the fitting parameters that are sent to the fitting algorithm
@@ -2393,7 +2410,6 @@ def show_image_stack(*, eline_data, energies, eline_selected,
         def canvas_onpress(self, event):
             """Callback, mouse button pressed"""
             self.button_pressed = False  # May be pressed outside the region
-            # self.t_bar.mode == "" is True if no toolbar items are activated (zoom, pan etc.)
             if (self.t_bar.mode == "") and (event.inaxes == self.ax_img_stack) and (event.button == 1):
                 self.button_pressed = True  # Left mouse button is in pressed state
                 #     and it was pressed when the cursor was inside the plot area
@@ -2793,13 +2809,19 @@ def _save_xanes_maps_to_tiff(*, wd, eline_data_aligned, eline_selected,
     positions_y : 1D ndarray
         vector of coordinates along Y-axis, used to determine range and the number
         of scan points
+
+    output_save_all : bool
+        indicates if processing results for every emission line, which is selected for XRF
+        fitting, are saved. If set to ``True``, the (aligned) stacks of XRF maps are saved
+        for each element. If set to False, then only the stack for the emission line
+        selected for XANES fitting is saved (argument ``emission_line``).
     """
 
     if eline_selected is None:
         eline_selected = ""
 
     # A .txt file is created along with saving the rest of the data.
-    fln_log = f"maps_{eline_selected}_tiff.txt"
+    fln_log = "maps_log_tiff.txt"
     fln_log = os.path.join(wd, fln_log)
     with open(fln_log, "w") as f_log:
 
