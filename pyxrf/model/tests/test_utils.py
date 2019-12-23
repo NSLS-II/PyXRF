@@ -8,14 +8,30 @@ from pyxrf.model.utils import parse_compound_formula, split_compound_mass
     ("Fe2O3", ("Fe", "O"), (2, 3)),
     ("He", ("He",), (1,)),
     ("H2SO4", ("H", "S", "O"), (2, 1, 4)),
-    ("C", ("C",), (1,))
+    ("C", ("C",), (1,)),
+    ("C2H5OH", ("C", "H", "O"), (2, 6, 1))
 ])
-def test_parse_compound_formula(formula, elements, n_atoms):
+def test_parse_compound_formula1(formula, elements, n_atoms):
     data = parse_compound_formula(formula)
     assert len(data) == len(elements), "The number of parsed elements is incorrect"
     assert set(elements) == set(data.keys()), "The set of parsed elements is incorrect"
     assert tuple(data[e]["nAtoms"] for e in elements) == n_atoms, \
         "The number of atoms in parsed data is determined incorrectly"
+
+
+@pytest.mark.parametrize("formula, element_mass_fraction", [
+    ("Fe2O3", {"Fe": 0.6994364433312461, "O": 0.30056355666875395}),
+    ("C", {"C": 1.0})
+])
+def test_parse_compound_formula2(formula, element_mass_fraction):
+    # Verify that mass fraction is found correctly
+    data = parse_compound_formula(formula)
+    assert len(data) == len(element_mass_fraction), \
+        "The number of elements in the parsed data is incorrect"
+    for e in element_mass_fraction.keys():
+        assert e in data, f"Element {e} is not found in parsed data"
+        npt.assert_almost_equal(data[e]["massFraction"], element_mass_fraction[e],
+                                err_msg=f"Mass fraction for element {e} was evaluated incorrectly")
 
 
 @pytest.mark.parametrize("formula", [
