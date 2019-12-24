@@ -4,6 +4,7 @@ import jsonschema
 import copy
 import numpy as np
 import numpy.testing as npt
+from pyxrf.core.xrf_utils import validate_element_str
 from pyxrf.core.quant_analysis import (
     save_xrf_standard_yaml_file, load_xrf_standard_yaml_file, _xrf_standard_schema,
     load_included_xrf_standard_yaml_file, compute_standard_element_densities)
@@ -154,6 +155,7 @@ def test_compute_standard_element_densities():
 
     for data in standard_data:
 
+        # Find total density
         if "density" in data:
             total_density = data["density"]
         else:
@@ -161,5 +163,10 @@ def test_compute_standard_element_densities():
 
         element_densities = compute_standard_element_densities(data["compounds"])
 
+        # Validate that all the keys of the returned dictionary represent elements
+        assert all([validate_element_str(_) for _ in element_densities.keys()]), \
+            f"Some of the elements in the list {list(element_densities.keys())} have invalid representation"
+
+        # Check if the sum of all return densities equals total density
         npt.assert_almost_equal(np.sum(list(element_densities.values())), total_density,
                                 err_msg="The sum of element densities and the total sum don't match")
