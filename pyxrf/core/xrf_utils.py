@@ -1,6 +1,56 @@
 import xraylib
 
 
+def get_element_atomic_number(element_str):
+    r"""
+    A wrapper to ``SymbolToAtomicNumber`` function from ``xraylib``.
+    Returns atomic number for the sybmolic element name (e.g. ``C`` or ``Fe``).
+
+    Parameters
+    ----------
+
+    element_str: str
+        sybmolic representation of an element
+
+    Returns
+    -------
+
+    Atomic number of the element ``element_str``. If element is invalid, then
+    the function returns 0.
+
+    """
+    xraylib.SetErrorMessages(0)  # Turn off error messages from ``xraylib``
+
+    return xraylib.SymbolToAtomicNumber(element_str)
+
+
+def validate_element_str(element_str):
+    r"""
+    Checks if ``element_str`` is valid representation of an element according to
+    standard notation for chemical formulas. Valid representation of elements can
+    be processed by ``xraylib`` tools. This functions attempts to find the atomic
+    number for the element and returns ``True`` if it succeeds and ``False`` if
+    it fails.
+
+    Parameters
+    ----------
+
+    element_str: str
+        sybmolic representation of an element
+
+    Returns
+    -------
+
+    ``True`` if ``element_str`` is valid representation of an element and ``False``
+    otherwise.
+    """
+
+    if get_element_atomic_number(element_str):
+        return True
+    else:
+        return False
+
+
 def parse_compound_formula(compound_formula):
     r"""
     Parses the chemical formula of a compound and returns the dictionary,
