@@ -1,7 +1,32 @@
 import pytest
 import numpy as np
 import numpy.testing as npt
-from pyxrf.core.xrf_utils import parse_compound_formula, split_compound_mass
+from pyxrf.core.xrf_utils import (
+    get_element_atomic_number, validate_element_str, parse_compound_formula, split_compound_mass)
+
+
+@pytest.mark.parametrize("element_number", [
+    ("He", 2), ("H", 1), ("Fe", 26),
+    # Failing cases, 0 is returned
+    ("he", 0), ("h", 0), ("Fe2O3", 0), ("50", 0), ("Fe ", 0), ("", 0)
+])
+def test_get_element_atomic_number(element_number):
+
+    element_str, atomic_number = element_number
+    assert get_element_atomic_number(element_str) == atomic_number, \
+        "Atomic number returned by the function is incorrect"
+
+
+@pytest.mark.parametrize("element_valid", [
+    ("He", True), ("H", True), ("Fe", True),
+    # Failing cases
+    ("he", False), ("h", False), ("Fe2O3", False), ("50", False), ("Fe ", False), ("", False)
+])
+def test_validate_element_str(element_valid):
+
+    element_str, is_valid = element_valid
+    assert validate_element_str(element_str) == is_valid, \
+        "Element validation is not successful"
 
 
 @pytest.mark.parametrize("formula, elements, n_atoms", [
