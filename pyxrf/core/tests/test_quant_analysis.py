@@ -2,9 +2,11 @@ import os
 import pytest
 import jsonschema
 import copy
+import numpy as np
+import numpy.testing as npt
 from pyxrf.core.quant_analysis import (
     save_xrf_standard_yaml_file, load_xrf_standard_yaml_file, _xrf_standard_schema,
-    load_included_xrf_standard_yaml_file)
+    load_included_xrf_standard_yaml_file, compute_standard_element_densities)
 
 # Short example of XRF standard data
 _standard_data_sample = [
@@ -144,3 +146,20 @@ def test_load_included_xrf_standard_yaml_file():
 
     data = load_included_xrf_standard_yaml_file()
     assert len(data) > 1, "Standard YAML file can not be read"
+
+
+def test_compute_standard_element_densities():
+
+    standard_data = _standard_data_sample
+
+    for data in standard_data:
+
+        if "density" in data:
+            total_density = data["density"]
+        else:
+            total_density = np.sum(list(data["compounds"].values()))
+
+        element_densities = compute_standard_element_densities(data["compounds"])
+
+        npt.assert_almost_equal(np.sum(list(element_densities.values())), total_density,
+                                err_msg="The sum of element densities and the total sum don't match")
