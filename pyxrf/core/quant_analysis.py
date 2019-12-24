@@ -3,6 +3,7 @@ import yaml
 import jsonschema
 import numpy as np
 import math
+from .xrf_utils import split_compound_mass
 
 _xrf_standard_schema = {
     "type": "object",
@@ -183,6 +184,20 @@ def load_xrf_standard_yaml_file(file_path, *, schema=_xrf_standard_schema):
 
 
 def load_included_xrf_standard_yaml_file():
+    r"""
+    Load YAML file with descriptions of XRF standards that is part of the
+    package.
+
+    Returns
+    -------
+
+    List of dictionaries, each dictionary represents description of one XRF standard.
+
+    Raises
+    ------
+
+    Exceptions may be raised by ``load_xrf_standard_yaml_file`` function
+    """
 
     # Generate file name (assuming that YAML file is in the same directory)
     file_name = "xrf_quant_standards.yaml"
@@ -191,3 +206,36 @@ def load_included_xrf_standard_yaml_file():
     file_path = os.path.join(file_path, file_name)
 
     return load_xrf_standard_yaml_file(file_path)
+
+
+def compute_standard_element_densities(compounds):
+    r"""
+    Computes areal density of each element in the mix of compounds.
+    Some compounds in the mix may contain the same elements.
+
+    Parameters
+    ----------
+
+    compounds: dict
+
+        dictionary of compound densities: key - compound formula,
+        value - density (typically ug/cm^2)
+
+    Returns
+    -------
+
+    Dictionary of element densities: key - element name (symbolic),
+    value - elmenet density.
+    """
+
+    element_densities = {}
+
+    for key, value in compounds.items():
+        el_dens = split_compound_mass(key, value)
+        for el, dens in el_dens.items():
+            if el in element_densities:
+                element_densities[el] += dens
+            else:
+                element_densities[el] = dens
+
+    return element_densities
