@@ -3,7 +3,11 @@ import yaml
 import jsonschema
 import numpy as np
 import math
+import json
 from .xrf_utils import split_compound_mass
+
+# ==========================================================================================
+#    Functions for operations with YAML files used for keeping descriptions of XRF standards
 
 _xrf_standard_schema = {
     "type": "object",
@@ -239,3 +243,143 @@ def compute_standard_element_densities(compounds):
                 element_densities[el] = dens
 
     return element_densities
+
+
+# ==========================================================================================
+#    Functions for operations with JSON files used for keeping quantitative data obtained
+#      after processing of XRF standard samples. The data is saved after processing
+#      XRF scan of standard samples and later used for quantitative analysis of
+#      experimental samples.
+
+_xrf_quant_fluor_schema = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["name", "serial", "description", "elements", "fluorescence"],
+    "properties": {
+        # 'name', 'serial' and 'description' (optional) are copied
+        #   from the structure used for description of XRF standard samples
+        "name": {"type": "string"},
+        "serial": {"type": "string"},
+        "description": {"type": "string"},
+        # The list of element lines. The list is not expected to be comprehensive:
+        #   it includes only the lines selected for processing of standard samples.
+        "element_lines": {
+            "type": "object",
+            "additionalProperties": False,
+            "minProperties": 1,
+            # Symbolic expression representing an element line:
+            # Fe - represents all lines, Fe_k - K-lines, Fe_ka - K alpha lines,
+            # Fe_ka1 - K alpha 1 line. Currently only selections that contain
+            # all K, L or M lines is supported.
+            "patternProperties": {
+                r"^[A-Z][a-z]?(_[klm]([ab]\d?)?)?$": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["density", "fluorescence"],
+                    "properties": {
+                        "density": "number",
+                        "fluorescence": "number"
+                    }
+                }
+            },
+        },
+        # Incident energy used in the processing experiment
+        "incident_energy": {"type": "number"},
+        # Name of the valid scaler name (specific for data recorded on the beamline
+        "scaler_name": {"type": "string"},
+        # Distance to the sample (number or null)
+        "distance_to_sample": {"type": ["number", None]},
+    }
+}
+
+
+def save_xrf_quant_fluor_json_file(file_path, fluor_data, *, overwrite_existing=False):
+    r"""
+    Save the results of processing of a scan data for XRF standard sample to a JSON file.
+    The saved data will be used later for quantitative analysis of experimental samples.
+
+    Parameters
+    ----------
+
+    file_path: str
+        absolute or relative path to the saved JSON file. If the path does not exist, then
+        it is created.
+
+    fluor_data: dict
+        dictionary, which contains the results of processing of a scan of an XRF standard.
+        The dictionary should conform to ``_xrf_quantitative_fluorescence_schema``.
+        The schema is verified before saving to ensure that the data can be successfully read.
+
+    overwrite_existing: bool
+        indicates if existing file should be overwritten. Default is False, since
+        overwriting of an existing parameter file will lead to loss of data.
+
+    Returns
+    -------
+
+        no value is returned
+
+    Raises
+    ------
+
+    IOError if the JSON file already exists and ``overwrite_existing`` is not enabled.
+
+    jsonschema.ValidationError if schema validation fails
+    """
+
+    # Note: the schema is fixed (not passed as a parameter). If data format is changed,
+    #   then the built-in schema must be changed. The same schema is always used
+    #   both for reading and writing of data.
+    jsonschema.validate(instance=fluor_data, schema=_xrf_quant_fluor_schema)
+
+    # Make sure that the directory exists
+    file_path = os.path.expanduser(file_path)
+    file_path = os.path.abspath(file_path)
+    flp, _ = os.path.split(file_path)
+    os.makedirs(flp, exist_ok=True)
+
+    if not overwrite_existing and os.path.isfile(file_path):
+        raise IOError(f"File '{file_path}' already exists")
+
+    s_output = json.dumps(fluor_data, sort_keys=False, indent=4)
+    with open(file_path, "w") as f:
+        f.write(s_output)
+
+
+def load_xrf_quant_fluor_json_file(file_path, *, schema=_xrf_quant_fluor_schema):
+    r"""
+    Load the quantitative data for XRF standard sample from JSON file and verify the schema.
+
+    Parameters
+    ----------
+
+    file_path: str
+        absolute or relative path to JSON file. If file does not exist then IOError is raised.
+
+    schema: dict
+        reference to schema used for validation of the descriptions. If ``schema`` is ``None``,
+        then validation is disabled (this is not the default behavior).
+
+    Returns
+    -------
+
+        dictionary containing quantitative fluorescence data on XRF sample.
+
+    Raises
+    ------
+
+    IOError is raised if the YAML file does not exist.
+
+    jsonschema.ValidationError is raised if schema validation fails.
+    """
+
+    if not os.path.isfile(file_path):
+        raise IOError(f"File '{file_path}' does not exist")
+
+    with open(file_path, 'r') as f:
+        fluor_data = json.load(f, parse_float=True, parse_int=True)
+
+    if schema is not None:
+        jsonschema.validate(instance=fluor_data, schema=schema)
+
+    return fluor_data
