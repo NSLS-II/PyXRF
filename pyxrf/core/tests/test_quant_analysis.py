@@ -7,7 +7,8 @@ import numpy.testing as npt
 from pyxrf.core.xrf_utils import validate_element_str
 from pyxrf.core.quant_analysis import (
     save_xrf_standard_yaml_file, load_xrf_standard_yaml_file, _xrf_standard_schema,
-    load_included_xrf_standard_yaml_file, compute_standard_element_densities)
+    load_included_xrf_standard_yaml_file, compute_standard_element_densities,
+    _xrf_quant_fluor_schema, save_xrf_quant_fluor_json_file, load_xrf_quant_fluor_json_file)
 
 # Short example of XRF standard data
 _standard_data_sample = [
@@ -172,6 +173,9 @@ def test_compute_standard_element_densities():
                                 err_msg="The sum of element densities and the total sum don't match")
 
 
+# -----------------------------------------------------------------------------------------------------
+
+
 # Short example of XRF standard quantitative data record
 #   The data has no physical meaning, used for testing of saving/loading of JSON file
 _xrf_standard_fluor_sample = {
@@ -186,7 +190,7 @@ _xrf_standard_fluor_sample = {
         "Cr_Ka": {"density": 19.8, "fluorescence": 0.7435234},
         "Ni_Kb": {"density": 19.2, "fluorescence": 0.7435234},
         "Ga_Ka1": {"density": 8.3, "fluorescence": 0.7435234},
-        "Mg_Ka2": {"density": 9.6, "fluorescence": 0.7435234}
+        "Mg_Ka2": {"density": 9.6, "fluorescence": None}
     },
     "incident_energy": 10.5,
     "scaler_name": "i0",
@@ -194,20 +198,81 @@ _xrf_standard_fluor_sample = {
 }
 
 
-def test_save_xrf_quant_fluor_json_file(tmp_path):
-    r"""Basic test of function 'save_xrf_standard_yaml_file' and 'load_xrf_standard_yaml_file'"""
+def _get_data_and_json_path(tmp_path):
 
+    # Create some complicated path
     json_path = ["json", "param", "file"]
     file_name = "standard.yaml"
-    yaml_path = os.path.join(tmp_path, *json_path, file_name)
+    json_path = os.path.join(tmp_path, *json_path, file_name)
 
     data = _xrf_standard_fluor_sample
 
+    return data, json_path
+
+
+def test_save_xrf_quant_fluor_json_file1(tmp_path):
+    r"""Basic test of function 'save_xrf_standard_yaml_file' and 'load_xrf_standard_yaml_file'"""
+
+    data, json_path = _get_data_and_json_path(tmp_path)
+
     # Sample data
-    save_xrf_quant_fluor_json_file(yaml_path, data)
+    save_xrf_quant_fluor_json_file(json_path, data)
 
     data_loaded = load_xrf_quant_fluor_json_file(json_path)
 
     assert data_loaded == data, \
         "Loaded data is not equal to the original data"
 
+
+def test_save_xrf_quant_fluor_json_file2(tmp_path):
+    # 'save_xrf_quant_fluor_json_file' - overwrite existing file
+
+    data, json_path = _get_data_and_json_path(tmp_path)
+
+    # Create file
+    save_xrf_quant_fluor_json_file(json_path, data)
+
+    # Attempt to overwrite
+    with pytest.raises(IOError, match=f"File '{json_path}' already exists"):
+        save_xrf_quant_fluor_json_file(json_path, data)
+
+    # Now overwrite the file by setting the flag 'overwrite_existing=True'
+    save_xrf_quant_fluor_json_file(json_path, data, overwrite_existing=True)
+
+
+def test_save_xrf_quant_fluor_json_file3(tmp_path):
+    # 'save_xrf_quant_fluor_json_file' - invalid schema
+
+    data, json_path = _get_data_and_json_path(tmp_path)
+
+    data = copy.deepcopy(data)
+    # Change the data so that it doesn't satisfy the schema
+    data["incident_energy"] = "incident_energy"  # Supposed to be a number
+
+    with pytest.raises(jsonschema.ValidationError):
+        save_xrf_quant_fluor_json_file(json_path, data)
+
+
+def test_load_xrf_quant_fluor_json_file1(tmp_path):
+    # 'load_xrf_quant_fluor_json_file' - non-existing file
+
+    _, json_path = _get_data_and_json_path(tmp_path)
+
+    with pytest.raises(IOError, match=f"File '{json_path}' does not exist"):
+        load_xrf_quant_fluor_json_file(json_path)
+
+
+def test_load_xrf_quant_fluor_json_file2(tmp_path):
+    # 'load_xrf_quant_fluor_json_file' - schema is not matched
+
+    data, json_path = _get_data_and_json_path(tmp_path)
+
+    # Create file
+    save_xrf_quant_fluor_json_file(json_path, data)
+
+    schema = copy.deepcopy(_xrf_quant_fluor_schema)
+    # Modify schema, so that it is incorrect
+    schema["properties"]["scaler_name"] = {"type": "number"}  # Supposed to be a string
+
+    with pytest.raises(jsonschema.ValidationError):
+        load_xrf_quant_fluor_json_file(json_path, schema=schema)

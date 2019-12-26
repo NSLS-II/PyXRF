@@ -254,7 +254,8 @@ def compute_standard_element_densities(compounds):
 _xrf_quant_fluor_schema = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["name", "serial", "description", "elements", "fluorescence"],
+    "required": ["name", "serial", "description", "element_lines",
+                 "incident_energy", "scaler_name", "distance_to_sample"],
     "properties": {
         # 'name', 'serial' and 'description' (optional) are copied
         #   from the structure used for description of XRF standard samples
@@ -277,8 +278,8 @@ _xrf_quant_fluor_schema = {
                     "additionalProperties": False,
                     "required": ["density", "fluorescence"],
                     "properties": {
-                        "density": "number",
-                        "fluorescence": "number"
+                        "density": {"type": "number"},
+                        "fluorescence": {"type": ["number", "null"]}
                     }
                 }
             },
@@ -288,7 +289,7 @@ _xrf_quant_fluor_schema = {
         # Name of the valid scaler name (specific for data recorded on the beamline
         "scaler_name": {"type": "string"},
         # Distance to the sample (number or null)
-        "distance_to_sample": {"type": ["number", None]},
+        "distance_to_sample": {"type": ["number", "null"]},
     }
 }
 
@@ -377,7 +378,7 @@ def load_xrf_quant_fluor_json_file(file_path, *, schema=_xrf_quant_fluor_schema)
         raise IOError(f"File '{file_path}' does not exist")
 
     with open(file_path, 'r') as f:
-        fluor_data = json.load(f, parse_float=True, parse_int=True)
+        fluor_data = json.load(f)
 
     if schema is not None:
         jsonschema.validate(instance=fluor_data, schema=schema)
