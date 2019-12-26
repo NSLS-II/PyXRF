@@ -7,11 +7,11 @@ from enaml.widgets.api import (Container, PushButton, Label,
                                Form, Field, FileDialogEx, DockItem,
                                DockArea, CheckBox, ComboBox,
                                ScrollArea, Window, GroupBox, RadioButton,
-                               MainWindow)
+                               MainWindow, Dialog)
 
 from enaml.widgets.api import RadioButton as DefaultRadioButton
 
-from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, TabLayout, spacer
+from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, TabLayout, spacer, align
 from enaml.stdlib.fields import FloatField
 from enaml.layout.geometry import Box
 from enaml.core.api import Include, Looper
@@ -60,6 +60,7 @@ enamldef FitView(DockItem): fit_view:
     attr parameter_edit
     attr othersetting_edit
     attr autofind_edit
+    attr select_standard_edit
     attr img_model_adv
     attr img_model_rgb
     attr pileup_edit
@@ -86,9 +87,7 @@ enamldef FitView(DockItem): fit_view:
             constraints = [vbox(
                                 hbox(lbl_load, spacer),
                                 hbox(new_param_load, saveas_btn, lbl_param, spacer),
-                                #hbox(lbl_param, spacer),
-                                hbox(lbl_auto, pb_auto, spacer),)
-                                #hbox(pb_auto, spacer))
+                                hbox(pb_auto, pb_select_standard, lbl_standard, spacer),)
                            ]
             Label: lbl_load:
                 text = 'Load elemental parameters from file.'
@@ -211,8 +210,6 @@ enamldef FitView(DockItem): fit_view:
         #    padding = Box(2, 2, 2, 2)
         #    constraints = [hbox(pb_auto, spacer)]
 
-            Label: lbl_auto:
-                text = 'Or use automatic peak finding method.'
             PushButton: pb_auto:
                 text = 'Find Elements Automatically'
                 enabled = True
@@ -223,6 +220,25 @@ enamldef FitView(DockItem): fit_view:
                         btns = [DialogButton('Ok', 'accept')]
                         # 'critical' shows MessageBox
                         critical(self, 'ERROR', f'Experimental data is not loaded', btns)
+
+            PushButton: pb_select_standard:
+                text = 'Select Standard'
+                enabled = True
+                clicked ::
+                    # Reload standards (some of them may change, reloading refreshes the copy)
+                    fit_model.param_quant_estimation.clear_standards()
+                    fit_model.param_quant_estimation.load_standards()
+
+                    if pb_select_standard.text == 'Select Standard':
+                        if select_standard_edit.exec_():
+                            pb_select_standard.text = 'Deselect Standard'
+                            lbl_standard.text = 'Some standard is selected'
+                    else:
+                        pb_select_standard.text = 'Select Standard'
+                        lbl_standard.text = 'No quantitative standard is selected'
+
+            Label: lbl_standard:
+                text = 'No quantitative standard is selected'
 
         GroupBox: control_element:
             title = 'Add/Remove elements (Userpeak with center energy at 5 keV can be added.).'
@@ -921,6 +937,64 @@ enamldef FitView(DockItem): fit_view:
                 #minimum_size = (20, 20)
                 clicked ::
                     fit_model.output_2Dimage(to_tiff=False)
+
+
+enamldef SelectStandard(Dialog): select_standard_win:
+    attr fit_model
+
+    title = "Select Quantitative Standard"
+    initial_size = (500, 600)
+
+    Container:
+        constraints = [vbox(
+            hbox(scr_area, spacer),
+            hbox(spacer, select_btn, cancel_btn),
+        )]
+
+        ScrollArea: scr_area:
+            #constraints = [height <= 230]
+
+            Form:
+                row_spacing = 5
+                #padding = Box(0, 0, 0, 0)
+                Looper:
+                    iterable << fit_model.param_quant_estimation.standards_built_in
+
+                    Container:
+                        #padding = Box(2, 2, 2, 2)
+                        constraints = [vbox(hbox(select_btn,
+                            vbox(hbox(standard_info_serial, spacer),
+                                 hbox(standard_info_name, spacer),
+                                 hbox(standard_info_description, spacer)),
+                            spacer)), align("top")]
+                        #), lb_norm.height==select_cb.height]
+
+                        CheckBox: select_btn:
+                            text = ''
+                            maximum_size = 20
+                            clicked ::
+                                fit_model.param_quant_estimation.standard_selected = loop_item
+
+                        Label: standard_info_serial:
+                            text << f"Serial: {loop_item['serial']}"
+
+                        Label: standard_info_name:
+                            text << f"Name: {loop_item['name']}"
+
+                        Label: standard_info_description:
+                            text << f"Description: {loop_item['description']}"
+
+
+        PushButton: select_btn:
+            text = "Select"
+            clicked ::
+                 select_standard_win.accept()
+
+        PushButton: cancel_btn:
+            text = "Cancel"
+            clicked ::
+                 select_standard_win.reject()
+
 
 
 enamldef OutputSetup(Window): output_win:

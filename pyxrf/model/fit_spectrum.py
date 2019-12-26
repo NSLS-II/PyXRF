@@ -36,6 +36,8 @@ from .utils import (gaussian_sigma_to_fwhm, gaussian_fwhm_to_sigma,
                     gaussian_max_to_area, gaussian_area_to_max,
                     grid_interpolate)
 
+from ..core.quant_analysis import ParamQuantEstimation
+
 import logging
 logger = logging.getLogger()
 
@@ -166,6 +168,9 @@ class Fit1D(Atom):
     name_userpeak_dcenter = Str()
     name_userpeak_dsigma = Str()
     name_userpeak_area = Str()
+
+    # Quantitative analysis: estimation step
+    param_quant_estimation = ParamQuantEstimation()
 
     def __init__(self, param_model, io_model, *args, **kwargs):
         self.working_directory = kwargs['working_directory']

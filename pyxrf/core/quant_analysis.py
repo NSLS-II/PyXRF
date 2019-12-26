@@ -6,6 +6,9 @@ import math
 import json
 from .xrf_utils import split_compound_mass
 
+import logging
+logger = logging.getLogger()
+
 # ==========================================================================================
 #    Functions for operations with YAML files used for keeping descriptions of XRF standards
 
@@ -120,7 +123,8 @@ def save_xrf_standard_yaml_file(file_path, standard_data, *, overwrite_existing=
         raise IOError(f"File '{file_path}' already exists")
 
     s_output = _xrf_standard_schema_instructions
-    s_output += yaml.dump(standard_data, default_flow_style=False, sort_keys=False, indent=4)
+    if standard_data:
+        s_output += yaml.dump(standard_data, default_flow_style=False, sort_keys=False, indent=4)
     with open(file_path, "w") as f:
         f.write(s_output)
 
@@ -164,6 +168,9 @@ def load_xrf_standard_yaml_file(file_path, *, schema=_xrf_standard_schema):
 
     with open(file_path, 'r') as f:
         standard_data = yaml.load(f, Loader=yaml.FullLoader)
+
+    if standard_data is None:
+        standard_data = []
 
     if schema is not None:
         for data in standard_data:
@@ -384,3 +391,44 @@ def load_xrf_quant_fluor_json_file(file_path, *, schema=_xrf_quant_fluor_schema)
         jsonschema.validate(instance=fluor_data, schema=schema)
 
     return fluor_data
+
+
+#-------------------------------------------------------------------------------------------------
+
+class ParamQuantEstimation:
+
+    def __init__(self):
+
+        custom_path = ("~", ".pyxrf", "quantitative_standards.yaml")
+        self.custom_standards_file_path = os.path.join(*custom_path)
+
+        # If file with custom set of standards does not exist, create one
+        if not os.path.isfile(self.custom_standards_file_path):
+            try:
+                save_xrf_standard_yaml_file(self.custom_standards_file_path, [])
+            except Exception as ex:
+                logger.error(f"Failed to create empty file for custom set of quantitative standards: {ex}")
+
+        # Lists of standard descriptions
+        self.standards_built_in = None
+        self.standards_custom = None
+
+        # Reference to the selected standard description (in custom or built-in list)
+        self.standard_selected = None
+
+    def load_standards(self):
+
+        try:
+            self.standards_built_in = load_included_xrf_standard_yaml_file()
+        except Exception as ex:
+            logger.error(f"Failed to load built-in set of quantitative standards: {ex}")
+        try:
+            self.standards_custom = load_xrf_standard_yaml_file(self.custom_standards_file_path)
+        except Exception as ex:
+            logger.error(f"Failed to load custom set of quantitative standards: {ex}")
+
+    def clear_standards(self):
+
+        self.standards_included = None
+        self.standards_custom = None
+        self.standard_selected = None
