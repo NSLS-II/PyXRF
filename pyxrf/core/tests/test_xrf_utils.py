@@ -1,8 +1,11 @@
 import pytest
+import re
 import numpy as np
 import numpy.testing as npt
 from pyxrf.core.xrf_utils import (
-    get_element_atomic_number, validate_element_str, parse_compound_formula, split_compound_mass)
+    get_element_atomic_number, validate_element_str, parse_compound_formula, split_compound_mass,
+    get_supported_eline_list, check_if_eline_supported, check_if_eline_is_activated,
+    generate_eline_list)
 
 
 @pytest.mark.parametrize("element_number", [
@@ -95,3 +98,94 @@ def test_split_compound_mass(formula, elements, n_atoms):
 def test_split_compound_mass_fail(formula):
     with pytest.raises(RuntimeError, match=f"Invalid chemical formula.*{formula}"):
         split_compound_mass(formula, 10.0)
+
+
+#--------------------------------------------------------------------------------------
+
+def test_get_supported_eline_list():
+
+    list_k = get_supported_eline_list(lines=("K",))
+    list_l = get_supported_eline_list(lines=("L",))
+    list_m = get_supported_eline_list(lines=("M",))
+
+    list_kl = get_supported_eline_list(lines=("K","L"))
+    list_lm = get_supported_eline_list(lines=("L","M"))
+
+    list_klm = get_supported_eline_list(lines=("K", "L","M"))
+    list_default = get_supported_eline_list()
+
+    # Check eline formatting
+    for v in list_klm:
+        assert re.search(r"[A-Z][a-z]?_[KLM]", v), \
+            f"Emission line name {v} is not properly formatted"
+
+    assert (len(list_k) > 0) and (len(list_l) > 0) and (len(list_m) > 0), \
+        "At least one of the lists for K, L or M lines is empty"
+    assert list_klm == list_default, "The complete list of emission lines is incorrectly assembled"
+    assert list_klm == list_k + list_l + list_m, "The complete list does not include all for K, L and M lines"
+    assert list_kl == list_k + list_l, "The list for K and L lines is not equivalent to the sum of the lists"
+    assert list_lm == list_l + list_m, "The list for K and L lines is not equivalent to the sum of the lists"
+
+
+@pytest.mark.parametrize("eline, success", [
+    ("Fe_K", True),
+    ("W_L", True),
+    ("Ta_M", True),
+    ("Ab_K", False),
+    ("Fe_A", False),
+    ("", False),
+    (None, False)
+])
+def test_check_if_eline_supported(eline, success):
+    assert check_if_eline_supported(eline) == success, \
+        f"Emission line {eline} is indentified incorrectly"
+
+
+@pytest.mark.parametrize("eline, incident_energy, success", [
+    ("Fe_K", 8.0, True),
+    ("Fe_K", 6.0, False),
+    ("W_L", 12.0, True),
+    ("W_L", 8.0, False),
+    ("Ta_M", 2.0, True),
+    ("Ta_M", 1.0, False),
+
+])
+def test_check_if_eline_is_activated(eline, incident_energy, success):
+    assert check_if_eline_is_activated(eline, incident_energy) == success, \
+        f"Activation status for the emission line {eline} at {incident_energy} keV is {success}"
+
+
+@pytest.mark.parametrize("elements, incident_energy, elines", [
+    (["Fe", "W", "Ta"], 12.0, ['Fe_K', 'W_L', 'W_M', 'Ta_L', 'Ta_M']),
+    (["Fe", "W", "Ta"], 6.0, ['W_M', 'Ta_M']),
+])
+def test_generate_eline_list1(elements, incident_energy, elines):
+    r"""
+    ``generate_eline_list``: search all lines
+    """
+    assert generate_eline_list(elements, incident_energy=incident_energy) == elines, \
+        "Emission line list is generated incorrectly"
+
+@pytest.mark.parametrize("elements, incident_energy, lines, elines", [
+    (["Fe", "W", "Ta"], 12.0, ("K", "L", "M"), ['Fe_K', 'W_L', 'W_M', 'Ta_L', 'Ta_M']),
+    (["Fe", "W", "Ta"], 12.0, ("K",), ['Fe_K']),
+    (["Fe", "W", "Ta"], 12.0, ("L",), ['W_L', 'Ta_L']),
+    (["Fe", "W", "Ta"], 12.0, ("M",), ['W_M', 'Ta_M']),
+    (["Fe", "W", "Ta"], 12.0, ("K", "L"), ['Fe_K', 'W_L', 'Ta_L']),
+    (["Fe", "W", "Ta"], 12.0, ("K", "M"), ['Fe_K', 'W_M', 'Ta_M']),
+    (["Fe", "W", "Ta"], 12.0, ("L", "M"), ['W_L', 'W_M', 'Ta_L', 'Ta_M']),
+])
+def test_generate_eline_list2(elements, incident_energy, lines, elines):
+    r"""
+    ``generate_eline_list``: explicitely select eline categories
+    """
+    assert generate_eline_list(elements, incident_energy=incident_energy, lines=lines) == elines, \
+        "Emission line list is generated incorrectly"
+
+
+def test_generate_eline_list3():
+    r"""
+    ``generate_eline_list``: fails if emission line category is specified incorrectly
+    """
+    with pytest.raises(RuntimeError, match="Some of the selected emission lines are incorrect"):
+        generate_eline_list(["Fe", "W", "Ta"], incident_energy=12.0, lines=["K", "Ka"])

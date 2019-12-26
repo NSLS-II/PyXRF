@@ -1,4 +1,7 @@
+import re
 import xraylib
+from skbeam.core.constants import XrfElement as Element
+from skbeam.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
 
 
 def get_element_atomic_number(element_str):
@@ -132,3 +135,159 @@ def split_compound_mass(compound_formula, compound_mass):
         element_dict[el_name] = el_info["massFraction"] * compound_mass
 
     return element_dict
+
+
+def get_supported_eline_list(*, lines=None):
+    """
+    Returns the list of the emission lines supported by ``scikit-beam``
+
+    Parameters
+    ----------
+
+    lines : list(str)
+        tuple or list of strings, that defines, which emission lines are going to be included
+        in the output list (e.g. ``("K",)`` or ``("L", "M")`` etc.) If ``None`` (default),
+        then K, L and M lines are going to be included.
+
+    Returns
+    -------
+        the list of supported emission line. The lines are in the format ``"Fe_K"`` or ``"Mg_M"``.
+    """
+
+    if lines is None:
+        lines = ("K", "L", "M")
+
+    eline_list = []
+    if "K" in lines:
+        eline_list += K_LINE
+    if "L" in lines:
+        eline_list += L_LINE
+    if "M" in lines:
+        eline_list += M_LINE
+
+    return eline_list
+
+
+def check_if_eline_supported(eline_name, *, lines=None):
+    """
+    Check if the emission line name is in the list of supported names.
+    Emission name must be in the format: K_K, Fe_K etc. The list includes K, L and M lines.
+    The function is case-sensitive.
+
+    Parameters
+    ----------
+    eline_name : str
+        name of the emission line (K_K, Fe_K etc. for valid emission line). In general
+        the string may contain arbitrary sequence characters, may be empty or None. The
+        function will return True only if the sequence represents emission line from
+        the list of supported emission lines.
+
+    lines : list(str)
+        tuple or list of strings, that defines, which emission lines are going to be included
+        in the output list (e.g. ``("K",)`` or ``("L", "M")`` etc.) If ``None`` (default),
+        then K, L and M lines are going to be included.
+
+    Returns
+        True if ``eline_name`` is in the list of supported emission lines, False otherwise
+    """
+    if not eline_name or not isinstance(eline_name, str):
+        return False
+
+    if eline_name in get_supported_eline_list(lines=lines):
+        return True
+    else:
+        return False
+
+
+def check_if_eline_is_activated(elemental_line, incident_energy):
+    """
+    Checks if emission line is activated at given incident beam energy
+
+    Parameters
+    ----------
+
+    elemental_line : str
+        emission line in the format K_K or Fe_K
+    incident_energy : float
+        incident energy in keV
+
+    Returns
+    -------
+        bool value, indicating if the emission line is activated
+    """
+
+    # Check if the emission line has correct format
+    if not re.search(r"^[A-Z][a-z]?_[KLM]([ab]\d?)?$", elemental_line):
+        raise RuntimeError(f"Elemental line {elemental_line} is improperly formatted")
+
+    # The validation of 'elemental_line' is strict enough to do the rest of the processing
+    #   without further checks.
+    [element, line] = elemental_line.split('_')
+    line = line.lower()
+    if len(line) == 1:
+        line += 'a1'
+    elif len(line) == 1:
+        line += "1"
+
+    e = Element(element)
+    if e.cs(incident_energy)[line] == 0:
+        return False
+    else:
+        return True
+
+
+def generate_eline_list(element_list, *, incident_energy, lines=None):
+    r"""
+    Generate a list of emission lines based on the list of elements (``element_list``)
+    and incident energy. Only the emission lines that are supported by ``scikit-beam``
+    and activated by the incident energy are included in the list.
+
+    Parameters
+    ----------
+
+    element_list: list(str)
+        list of valid element names (e.g. ["S", "Al", "Fe"])
+
+    incident_energy: float
+        incident beam energy, keV
+
+    lines: list(str)
+        tuple or list of strings, that defines, which classes of emission lines to include
+        in the output list (e.g. ``("K",)`` or ``("L", "M")`` etc.) If ``None`` (default),
+        then K, L and M lines are going to be included.
+
+    Returns
+    -------
+
+    list(str) - the list of emission lines
+
+    Raises
+    ------
+
+    RuntimeError is raised if 'lines' contains incorrect specification of emission line class.
+    """
+
+    if lines is None:
+        # By default lines "K", "L" and "M" are included in the output list
+        lines = ("K", "L", "M")
+
+    # Verify line selection
+    invalid_lines = []
+    for l in lines:
+        if not re.search(r"^[KLM]$", l):
+            invalid_lines.append(l)
+    if invalid_lines:
+        msg = f"Some of the selected emission lines are incorrect: {invalid_lines}"
+        raise RuntimeError(msg)
+
+    eline_list = []
+
+    for element in element_list:
+        for l in lines:
+            eline = f"{element}_{l}"
+            is_activated = check_if_eline_is_activated(eline, incident_energy)
+            is_supported = check_if_eline_supported(eline)
+            if is_activated and is_supported:
+                eline_list.append(eline)
+
+    return eline_list
