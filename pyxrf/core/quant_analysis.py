@@ -268,11 +268,11 @@ _xrf_quant_fluor_schema = {
             "additionalProperties": False,
             "minProperties": 1,
             # Symbolic expression representing an element line:
-            # Fe - represents all lines, Fe_k - K-lines, Fe_ka - K alpha lines,
-            # Fe_ka1 - K alpha 1 line. Currently only selections that contain
+            # Fe - represents all lines, Fe_K - K-lines, Fe_Ka - K alpha lines,
+            # Fe_Ka1 - K alpha 1 line. Currently only selections that contain
             # all K, L or M lines is supported.
             "patternProperties": {
-                r"^[A-Z][a-z]?(_[klm]([ab]\d?)?)?$": {
+                r"^[A-Z][a-z]?(_[KLM]([ab]\d?)?)?$": {
                     "type": "object",
                     "additionalProperties": False,
                     "required": ["density", "fluorescence"],
