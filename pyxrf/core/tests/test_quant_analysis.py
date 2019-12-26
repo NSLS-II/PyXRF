@@ -170,3 +170,44 @@ def test_compute_standard_element_densities():
         # Check if the sum of all return densities equals total density
         npt.assert_almost_equal(np.sum(list(element_densities.values())), total_density,
                                 err_msg="The sum of element densities and the total sum don't match")
+
+
+# Short example of XRF standard quantitative data record
+#   The data has no physical meaning, used for testing of saving/loading of JSON file
+_xrf_standard_fluor_sample = {
+    "name": "Hypothetical sample #41157",
+    "serial": "41157",
+    "description": "Name of hypothetical sample",
+    "element_lines": {
+        "In": {"density": 16.0, "fluorescence": 1.5453452},
+        "S_K": {"density": 6.4, "fluorescence": 2.0344345},
+        "Sr_L": {"density": 20.6, "fluorescence": 0.93452365},
+        "Au_M": {"density": 10.4, "fluorescence": 0.734234},
+        "Cr_Ka": {"density": 19.8, "fluorescence": 0.7435234},
+        "Ni_Kb": {"density": 19.2, "fluorescence": 0.7435234},
+        "Ga_Ka1": {"density": 8.3, "fluorescence": 0.7435234},
+        "Mg_Ka2": {"density": 9.6, "fluorescence": 0.7435234}
+    },
+    "incident_energy": 10.5,
+    "scaler_name": "i0",
+    "distance_to_sample": 50.6
+}
+
+
+def test_save_xrf_quant_fluor_json_file(tmp_path):
+    r"""Basic test of function 'save_xrf_standard_yaml_file' and 'load_xrf_standard_yaml_file'"""
+
+    json_path = ["json", "param", "file"]
+    file_name = "standard.yaml"
+    yaml_path = os.path.join(tmp_path, *json_path, file_name)
+
+    data = _xrf_standard_fluor_sample
+
+    # Sample data
+    save_xrf_quant_fluor_json_file(yaml_path, data)
+
+    data_loaded = load_xrf_quant_fluor_json_file(json_path)
+
+    assert data_loaded == data, \
+        "Loaded data is not equal to the original data"
+
