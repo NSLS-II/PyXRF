@@ -169,8 +169,20 @@ class Fit1D(Atom):
     name_userpeak_dsigma = Str()
     name_userpeak_area = Str()
 
-    # Quantitative analysis: estimation step
+    # Quantitative analysis: used during estimation step
     param_quant_estimation = ParamQuantEstimation()
+    # The following two references are used exclusively to update the list of standards
+    #   in the dialog box.
+    qe_param_built_in_ref = Typed(object)
+    qe_param_custom_ref = Typed(object)
+    # The following reference used to track the selected standard while the selection
+    #   dialog box is open. Once the dialog box is opened again, the reference becomes
+    #   invalid, since the descriptions of the standards are reloaded from files.
+    qe_standard_selected_ref = Typed(object)
+    # Keep the actual copy of the selected standard. The copy is used to keep information
+    #   on the selected standard while descriptions are reloaded (references become invalid).
+    qe_standard_selected_copy = Typed(object)
+
 
     def __init__(self, param_model, io_model, *args, **kwargs):
         self.working_directory = kwargs['working_directory']
@@ -201,6 +213,10 @@ class Fit1D(Atom):
         self.roi_sum_opt['status'] = False
         self.roi_sum_opt['low'] = 0.0
         self.roi_sum_opt['high'] = 10.0
+
+        self.qe_standard_selected_ref = None
+        self.qe_standard_selected_copy = None
+
 
     def result_folder_changed(self, change):
         """

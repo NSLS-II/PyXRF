@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 import numpy as np
 import math
+import copy
 import six
 
 from enaml.widgets.api import (Container, PushButton, Label,
@@ -222,24 +223,39 @@ enamldef FitView(DockItem): fit_view:
                         critical(self, 'ERROR', f'Experimental data is not loaded', btns)
 
             PushButton: pb_select_standard:
-                text = 'Select Standard'
+                text = 'Load Standard'
                 enabled = True
                 clicked ::
+
                     # Reload standards (some of them may change, reloading refreshes the copy)
                     fit_model.param_quant_estimation.clear_standards()
                     fit_model.param_quant_estimation.load_standards()
+                    # Update the following fields will update the list of available standards
+                    #   if the loaded files changed
+                    fit_model.qe_param_built_in_ref = fit_model.param_quant_estimation.standards_built_in
+                    fit_model.qe_param_custom_ref = fit_model.param_quant_estimation.standards_custom
 
-                    if pb_select_standard.text == 'Select Standard':
-                        #if select_standard_edit.exec_():
-                        if select_standard_edit.show():
-                            pb_select_standard.text = 'Deselect Standard'
-                            lbl_standard.text = 'Some standard is selected'
-                    else:
-                        pb_select_standard.text = 'Select Standard'
-                        lbl_standard.text = 'No quantitative standard is selected'
+
+                    # Another move, necessary to make the list in the dialog box working properly:
+                    #   the selected standard must be 'checked' when the window opens
+                    fit_model.qe_standard_selected_ref = None
+
+                    fit_model.qe_standard_selected_ref = \
+                        fit_model.param_quant_estimation.set_selected_standard(fit_model.qe_standard_selected_copy)
+
+                    if select_standard_edit.exec_():
+                        fit_model.param_quant_estimation.set_selected_standard(fit_model.qe_standard_selected_ref)
+                        fit_model.qe_standard_selected_copy = copy.deepcopy(fit_model.qe_standard_selected_ref)
+                        if fit_model.qe_standard_selected_ref is not None:
+                            msg = f"Standard #{fit_model.qe_standard_selected_ref['serial']}"
+                            if fit_model.param_quant_estimation.is_standard_custom(fit_model.qe_standard_selected_ref):
+                                msg += " (user-defined)"
+                            lbl_standard.text = msg
+                        else:
+                            lbl_standard.text = "No quantitative standard is loaded"
 
             Label: lbl_standard:
-                text = 'No quantitative standard is selected'
+                text = 'No quantitative standard is loaded'
 
         GroupBox: control_element:
             title = 'Add/Remove elements (Userpeak with center energy at 5 keV can be added.).'
@@ -940,7 +956,7 @@ enamldef FitView(DockItem): fit_view:
                     fit_model.output_2Dimage(to_tiff=False)
 
 
-enamldef SelectStandard(Window): select_standard_win:
+enamldef SelectStandard(Dialog): select_standard_win:
     attr fit_model
 
     title = "Select Quantitative Standard"
@@ -954,20 +970,53 @@ enamldef SelectStandard(Window): select_standard_win:
 
         ScrollArea: scr_area:
             #constraints = [height <= 230]
-            #widget_resizable = True
-            #horizontal_policy = "always_off"
+
 
             Form:
                 row_spacing = 15
                 #padding = Box(0, 0, 0, 0)
+
                 Looper:
-                    iterable << fit_model.param_quant_estimation.standards_built_in
+
+                    iterable << fit_model.qe_param_custom_ref
 
                     RadioButton: select_btn:
                         text = ''
-                        maximum_size = 20
+                        checked << loop_item == fit_model.qe_standard_selected_ref
                         clicked ::
-                            fit_model.param_quant_estimation.standard_selected = loop_item
+                            fit_model.qe_standard_selected_ref = loop_item
+
+                    Container:
+                        padding = Box(2, 2, 2, 2)
+                        constraints = [vbox(
+                            hbox(select_btn,
+                                 vbox(hbox(standard_info_serial, spacer),
+                                      hbox(standard_info_name, spacer),
+                                      hbox(standard_info_description, spacer)),
+                            spacer)), align("top", select_btn, standard_info_serial)]
+
+
+                        Label: standard_info_serial:
+                            text << f"Serial Number: {loop_item['serial']}" + " (user-defined)"
+
+                        Label: standard_info_name:
+                            text << f"Name: {loop_item['name']}"
+
+                        Label: standard_info_description:
+                            text << f"Description: {loop_item['description']}"
+
+                Looper:
+                    iterable << fit_model.qe_param_built_in_ref
+
+                    RadioButton: select_btn:
+                        text = ''
+                        # The item should not be 'checked' if the same standard is present
+                        #   in the list of custom (user-defined) standards. User-defined
+                        #   standards have priority over built-in standards to be 'checked'.
+                        checked << (loop_item == fit_model.qe_standard_selected_ref) and \
+                            not fit_model.param_quant_estimation.is_standard_custom(loop_item)
+                        clicked ::
+                            fit_model.qe_standard_selected_ref = loop_item
 
                     Container:
                         padding = Box(2, 2, 2, 2)
@@ -992,14 +1041,12 @@ enamldef SelectStandard(Window): select_standard_win:
         PushButton: select_btn:
             text = "Select"
             clicked ::
-                 #select_standard_win.accept()
-                 select_standard_win.close()
+                 select_standard_win.accept()
 
         PushButton: cancel_btn:
             text = "Cancel"
             clicked ::
-                 #select_standard_win.reject()
-                 select_standard_win.close()
+                 select_standard_win.reject()
 
 
 

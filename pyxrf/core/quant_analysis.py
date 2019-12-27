@@ -163,6 +163,9 @@ def load_xrf_standard_yaml_file(file_path, *, schema=_xrf_standard_schema):
     check is not performed.
     """
 
+    file_path = os.path.expanduser(file_path)
+    file_path = os.path.abspath(file_path)
+
     if not os.path.isfile(file_path):
         raise IOError(f"File '{file_path}' does not exist")
 
@@ -381,6 +384,9 @@ def load_xrf_quant_fluor_json_file(file_path, *, schema=_xrf_quant_fluor_schema)
     jsonschema.ValidationError is raised if schema validation fails.
     """
 
+    file_path = os.path.expanduser(file_path)
+    file_path = os.path.abspath(file_path)
+
     if not os.path.isfile(file_path):
         raise IOError(f"File '{file_path}' does not exist")
 
@@ -429,6 +435,56 @@ class ParamQuantEstimation:
 
     def clear_standards(self):
 
-        self.standards_included = None
+        self.standards_built_in = None
         self.standards_custom = None
         self.standard_selected = None
+
+    def _find_standard_custom(self, standard):
+
+        standard_ref = None
+        if self.standards_custom:
+            for st in self.standards_custom:
+                if st == standard:
+                    standard_ref = st
+                    break
+        return standard_ref
+
+    def _find_standard_built_in(self, standard):
+
+        standard_ref = None
+        if self.standards_built_in:
+            for st in self.standards_built_in:
+                if st == standard:
+                    standard_ref = st
+                    break
+        return standard_ref
+
+    def find_standard(self, standard):
+
+        standard_ref = self._find_standard_custom(standard)
+        if not standard_ref:
+            standard_ref = self._find_standard_built_in(standard)
+        return standard_ref
+
+    def set_selected_standard(self, standard):
+
+        standard_ref = self.find_standard(standard)
+
+        if not standard_ref:
+            # Set reference pointing to the first available standard description
+            if self.standards_custom:
+                self.standard_selected = self.standards_custom[0]
+            elif self.standards_built_in:
+                self.standard_selected = self.standards_built_in[0]
+            else:
+                self.standard_selected = None
+
+        else:
+            # The reference was found in one of the arrays
+            self.standard_selected = standard_ref
+
+        return self.standard_selected
+
+    def is_standard_custom(self, standard):
+
+        return bool(self._find_standard_custom(standard))
