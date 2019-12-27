@@ -569,19 +569,24 @@ class GuessParamModel(Atom):
 
         logger.info(f"The full list for fitting is {self.result_dict_names}")
 
-    def find_peak(self, threshv=0.1):
+    def find_peak(self, *, threshv=0.1, elemental_lines=None):
         """
         Run automatic peak finding, and save results as dict of object.
 
         Parameters
         ----------
-        threshv : float
+        threshv: float
             The value will not be shown on GUI if it is smaller than the threshold.
+
+        elemental_lines: list(str)
+            The list of elemental lines to find. If ``None``, then all supported
+            lines (K, L and M) are searched.
         """
         self.define_range()  # in case the energy calibraiton changes
         self.prefit_x, out_dict, area_dict = linear_spectrum_fitting(self.x0,
                                                                      self.y0,
-                                                                     self.param_new)
+                                                                     self.param_new,
+                                                                     elemental_lines=elemental_lines)
         logger.info('Energy range: {}, {}'.format(
             self.param_new['non_fitting_values']['energy_bound_low']['value'],
             self.param_new['non_fitting_values']['energy_bound_high']['value']))

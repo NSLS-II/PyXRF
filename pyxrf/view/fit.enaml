@@ -227,32 +227,73 @@ enamldef FitView(DockItem): fit_view:
                 enabled = True
                 clicked ::
 
-                    # Reload standards (some of them may change, reloading refreshes the copy)
-                    fit_model.param_quant_estimation.clear_standards()
-                    fit_model.param_quant_estimation.load_standards()
-                    # Update the following fields will update the list of available standards
-                    #   if the loaded files changed
-                    fit_model.qe_param_built_in_ref = fit_model.param_quant_estimation.standards_built_in
-                    fit_model.qe_param_custom_ref = fit_model.param_quant_estimation.standards_custom
+                    if fit_model.data is None:
+                        # The data is not loaded
+                        btns = [DialogButton('Ok', 'accept')]
+                        critical(self, 'ERROR', f'Experimental data is not loaded', btns)
+                    else:
+
+                        # Reload standards (some of them may change, reloading refreshes the copy)
+                        fit_model.param_quant_estimation.clear_standards()
+                        fit_model.param_quant_estimation.load_standards()
+                        # Update the following fields will update the list of available standards
+                        #   if the loaded files changed
+                        fit_model.qe_param_built_in_ref = fit_model.param_quant_estimation.standards_built_in
+                        fit_model.qe_param_custom_ref = fit_model.param_quant_estimation.standards_custom
 
 
-                    # Another move, necessary to make the list in the dialog box working properly:
-                    #   the selected standard must be 'checked' when the window opens
-                    fit_model.qe_standard_selected_ref = None
+                        # Another move, necessary to make the list in the dialog box working properly:
+                        #   the selected standard must be 'checked' when the window opens
+                        fit_model.qe_standard_selected_ref = None
 
-                    fit_model.qe_standard_selected_ref = \
-                        fit_model.param_quant_estimation.set_selected_standard(fit_model.qe_standard_selected_copy)
+                        fit_model.qe_standard_selected_ref = \
+                            fit_model.param_quant_estimation.set_selected_standard(fit_model.qe_standard_selected_copy)
 
-                    if select_standard_edit.exec_():
-                        fit_model.param_quant_estimation.set_selected_standard(fit_model.qe_standard_selected_ref)
-                        fit_model.qe_standard_selected_copy = copy.deepcopy(fit_model.qe_standard_selected_ref)
-                        if fit_model.qe_standard_selected_ref is not None:
-                            msg = f"Standard #{fit_model.qe_standard_selected_ref['serial']}"
-                            if fit_model.param_quant_estimation.is_standard_custom(fit_model.qe_standard_selected_ref):
-                                msg += " (user-defined)"
-                            lbl_standard.text = msg
-                        else:
-                            lbl_standard.text = "No quantitative standard is loaded"
+                        find_peaks = False
+                        if select_standard_edit.exec_():
+                            fit_model.param_quant_estimation.set_selected_standard(fit_model.qe_standard_selected_ref)
+                            fit_model.qe_standard_selected_copy = copy.deepcopy(fit_model.qe_standard_selected_ref)
+                            if fit_model.qe_standard_selected_ref is not None:
+                                msg = f"Standard #{fit_model.qe_standard_selected_ref['serial']}"
+                                if fit_model.param_quant_estimation.is_standard_custom(fit_model.qe_standard_selected_ref):
+                                    msg += " (user-defined)"
+                                lbl_standard.text = msg
+                                find_peaks = True
+                            else:
+                                lbl_standard.text = "No quantitative standard is loaded"
+
+                        if find_peaks:
+
+                            incident_energy = param_model.param_new['coherent_sct_energy']['value']
+                            # Generate the data structure for the results of processing of standard data
+                            fit_model.param_quant_estimation.gen_fluorescence_data_dict(incident_energy)
+                            # Obtain the list (dictionary) of elemental lines from the generated structure
+                            elemental_lines = fit_model.param_quant_estimation.fluorescence_data_dict["element_lines"]
+
+                            param_model.find_peak(elemental_lines=elemental_lines.keys())
+                            param_model.EC.order()
+                            param_model.update_name_list()
+
+                            param_model.EC.turn_on_all()
+                            param_model.data_for_plot()
+
+                            # update experimental plots in case the coefficients change
+                            plot_model.parameters = param_model.param_new
+                            plot_model.plot_experiment()
+
+                            plot_model.plot_fit(param_model.prefit_x,
+                                                param_model.total_y,
+                                                param_model.auto_fit_all)
+
+                            # Update displayed intensity of the selected peak
+                            plot_model.compute_manual_peak_intensity()
+
+                            # Show the summed spectrum used for fitting
+                            plot_model.plot_exp_opt = False
+                            plot_model.plot_exp_opt = True
+                            # For plotting purposes, otherwise plot will not update
+                            plot_model.show_fit_opt = False
+                            plot_model.show_fit_opt = True
 
             Label: lbl_standard:
                 text = 'No quantitative standard is loaded'
@@ -572,7 +613,7 @@ enamldef FitView(DockItem): fit_view:
                     maximum_size = 40
                     minimum = 0.00001
                 PushButton: pb_delete_unselected:
-                    text = 'Delete not selected items'
+                    text = 'Delete Unchecked Items'
                     maximum_size = 350
                     visible = True
                     clicked ::
@@ -1089,7 +1130,7 @@ enamldef OutputSetup(Window): output_win:
 enamldef AutoFindElements(Window): auto_win:
     attr parameter_model
     attr plot_model
-    title = 'Automated Element Search Parameters'
+    title = 'Automated Element Search'
     destroy_on_close = False
 
     Container:

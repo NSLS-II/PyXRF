@@ -52,7 +52,7 @@
     compounds:
         Ga: 15.4
         P: 5.8
-        GaF2: 14.6
+        CaF2: 14.6
         V: 26.4
         Mn: 17.5
         Co: 21.7
@@ -65,7 +65,7 @@
     compounds:
         Ga: 15.4
         P: 5.7
-        GaF2: 14.6
+        CaF2: 14.6
         V: 25.1
         Mn: 18.1
         Co: 20.6
@@ -78,7 +78,7 @@
     compounds:
         Ga: 15.4
         P: 6.0
-        GaF2: 16.6
+        CaF2: 16.6
         V: 23.4
         Mn: 17.4
         Co: 19.0
@@ -91,7 +91,7 @@
     compounds:
         Ga: 15.3
         P: 6.0
-        GaF2: 16.3
+        CaF2: 16.3
         V: 24.8
         Mn: 17.1
         Co: 19.8

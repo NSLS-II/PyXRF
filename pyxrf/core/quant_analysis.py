@@ -4,7 +4,7 @@ import jsonschema
 import numpy as np
 import math
 import json
-from .xrf_utils import split_compound_mass
+from .xrf_utils import split_compound_mass, generate_eline_list
 
 import logging
 logger = logging.getLogger()
@@ -399,7 +399,40 @@ def load_xrf_quant_fluor_json_file(file_path, *, schema=_xrf_quant_fluor_schema)
     return fluor_data
 
 
+def get_quant_fluor_data_dict(quant_param_dict, incident_energy):
+
+    quant_fluor_data_dict = {}
+    quant_fluor_data_dict["name"] = quant_param_dict["name"]
+    quant_fluor_data_dict["serial"] = quant_param_dict["serial"]
+    quant_fluor_data_dict["description"] = quant_param_dict["description"]
+    quant_fluor_data_dict["incident_energy"] = incident_energy
+
+    # The parameters that are not available yet
+    quant_fluor_data_dict["scaler_name"] = None
+    quant_fluor_data_dict["distance_to_sample"] = None
+
+    element_dict = {}
+    for compound, mass in quant_param_dict["compounds"].items():
+        el_and_mass = split_compound_mass(compound, mass)
+        for el, ms in el_and_mass.items():
+            if el in element_dict:
+                element_dict[el] += ms
+            else:
+                element_dict[el] = ms
+
+    element_lines = {}
+    for el, ms in element_dict.items():
+        lines = generate_eline_list([el], incident_energy=incident_energy)
+        e = {_: {"density": ms, "fluorescence": None} for _ in lines}
+        element_lines.update(e)
+
+    quant_fluor_data_dict["element_lines"] = element_lines
+
+    return quant_fluor_data_dict
+
+
 #-------------------------------------------------------------------------------------------------
+
 
 class ParamQuantEstimation:
 
@@ -422,6 +455,13 @@ class ParamQuantEstimation:
         # Reference to the selected standard description (in custom or built-in list)
         self.standard_selected = None
 
+        # List of emission lines for the selected incident energy
+        self.incident_energy = 0.0
+        self.emission_line_list = None
+
+        # Dictionary with fluorescence data for the selected standard. Filled as data is processed
+        self.fluorescence_data_dict = None
+
     def load_standards(self):
 
         try:
@@ -438,6 +478,7 @@ class ParamQuantEstimation:
         self.standards_built_in = None
         self.standards_custom = None
         self.standard_selected = None
+        self.emission_line_list = None
 
     def _find_standard_custom(self, standard):
 
@@ -488,3 +529,14 @@ class ParamQuantEstimation:
     def is_standard_custom(self, standard):
 
         return bool(self._find_standard_custom(standard))
+
+    def gen_fluorescence_data_dict(self, incident_energy):
+
+        if incident_energy:
+            self.incident_energy = incident_energy
+        np.clip(self.incident_energy, a_min=0.0, a_max=None)
+
+        if incident_energy == 0.0:
+            logger.warning("Attempting to compute the list of emission lines with incident energy set to 0")
+
+        self.fluorescence_data_dict = get_quant_fluor_data_dict(self.standard_selected, incident_energy)
