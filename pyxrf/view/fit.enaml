@@ -246,11 +246,14 @@ enamldef FitView(DockItem): fit_view:
                         #   the selected standard must be 'checked' when the window opens
                         fit_model.qe_standard_selected_ref = None
 
+                        # The current selection is set to the currently selected standard
+                        #   held in 'fit_model.qe_standard_selected_copy'
                         fit_model.qe_standard_selected_ref = \
                             fit_model.param_quant_estimation.set_selected_standard(fit_model.qe_standard_selected_copy)
 
                         find_peaks = False
                         if select_standard_edit.exec_():
+                            # Process the new selection
                             fit_model.param_quant_estimation.set_selected_standard(fit_model.qe_standard_selected_ref)
                             fit_model.qe_standard_selected_copy = copy.deepcopy(fit_model.qe_standard_selected_ref)
                             if fit_model.qe_standard_selected_ref is not None:
@@ -260,7 +263,21 @@ enamldef FitView(DockItem): fit_view:
                                 lbl_standard.text = msg
                                 find_peaks = True
                             else:
+                                fit_model.param_quant_estimation.clear_standards()
+                                fit_model.qe_standard_selected_ref = None
+                                fit_model.qe_standard_selected_copy = None
                                 lbl_standard.text = "No quantitative standard is loaded"
+                        else:
+                            # If standard selection is cancelled, but currently selected standard is not in the list
+                            #   then clear selection completely. If the selected standard is present in the new
+                            #   loaded set, then the selection remains unchanged
+                            if not fit_model.param_quant_estimation.find_standard(fit_model.qe_standard_selected_copy):
+                                fit_model.param_quant_estimation.clear_standards()
+                                fit_model.qe_standard_selected_ref = None
+                                fit_model.qe_standard_selected_copy = None
+                                lbl_standard.text = "No quantitative standard is loaded"
+                            # There is not need to find peaks, since the selection was not changed and
+                            #   the dialog box could be opened by mistake
 
                         if find_peaks:
 
@@ -887,7 +904,7 @@ enamldef FitView(DockItem): fit_view:
             title = 'Fit spectrum of all individual pixels.'
             padding = Box(2, 2, 2, 2)
             constraints = [vbox(hbox(save_cb, lb1, fd1v, fd1h, lb2, fd2v, fd2h, spacer, interp_cb),
-                                hbox(fit_pixel, spacer, to_db, output_btn, to_tiff, to_txt))]
+                                hbox(fit_pixel, spacer, save_q_standard_btn, to_db, output_btn, to_tiff, to_txt))]
             CheckBox: save_cb:
                 text = 'Save plots'
                 clicked ::
@@ -966,8 +983,17 @@ enamldef FitView(DockItem): fit_view:
             #    text := fit_model.pixel_fit_info
             #    foreground = 'red'
 
+            PushButton: save_q_standard_btn:
+                text = 'Save Q. Standard'
+                # Disable the button is enabled only if the standard is loaded
+                enabled << bool(fit_model.qe_standard_selected_copy)
+                #minimum_size = (20, 20)
+                clicked ::
+                    #fit_model.save_pixel_fitting_to_db()
+                    pass
+
             PushButton: to_db:
-                text = 'Save to database'
+                text = 'Save to DB'
                 enabled = False  # Disable this button (database for processing data does not exist yet)
                 #enabled = databroker is not None
                 #minimum_size = (20, 20)
