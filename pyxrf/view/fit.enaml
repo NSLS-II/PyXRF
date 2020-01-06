@@ -6,7 +6,7 @@ import os
 import six
 
 from enaml.widgets.api import (Container, PushButton, Label,
-                               Form, Field, FileDialogEx, DockItem,
+                               Form, Field, MultilineField, FileDialogEx, DockItem,
                                DockArea, CheckBox, ComboBox,
                                ScrollArea, Window, GroupBox, RadioButton,
                                MainWindow, Dialog)
@@ -63,6 +63,7 @@ enamldef FitView(DockItem): fit_view:
     attr othersetting_edit
     attr autofind_edit
     attr select_standard_edit
+    attr save_quant_calibration_edit
     attr img_model_adv
     attr img_model_rgb
     attr pileup_edit
@@ -995,20 +996,36 @@ enamldef FitView(DockItem): fit_view:
                         btns = [DialogButton('Ok', 'accept')]
                         critical(self, 'ERROR', f'No XRF maps were found. Run Individual Pixel Fitting to generate XRF maps.', btns)
                     else:
-                        print(f"scaler = '{scaler_name}' keys = {result_map.keys()}")
-                        print(f"selected_det_channel = '{selected_det_channel}'")
+                        fit_model.qe_standard_path_name = io_model.working_directory + "/"
+                        fit_model.qe_standard_file_name = fit_model.param_quant_estimation.get_suggested_json_fln()
 
+                        # Fill the available fluorescence data
                         fit_model.param_quant_estimation.fill_fluorescence_data_dict(
                             xrf_map_dict=result_map, scaler_name=scaler_name)
-
                         fit_model.param_quant_estimation.set_detector_channel_in_data_dict(
                             detector_channel=selected_det_channel)
-                        fit_model.param_quant_estimation.set_distance_to_sample_in_data_dict(
-                            distance_to_sample=2.0)
 
-                        fln_json = fit_model.param_quant_estimation.get_suggested_json_fln()
-                        path_json = os.path.join(io_model.working_directory, fln_json)
-                        fit_model.param_quant_estimation.save_fluorescence_data_dict(path_json, overwrite_existing=True)
+                        fit_model.qe_standard_data_preview = \
+                            fit_model.param_quant_estimation.get_fluorescence_data_dict_text_preview(
+                                distance_to_sample=fit_model.get_qe_standard_distance_as_float())
+
+                        if save_quant_calibration_edit.exec_():
+                            try:
+                                # Create full path to file
+                                fln_json = fit_model.qe_standard_file_name.strip()
+                                path_json = os.path.join(io_model.working_directory, fln_json)
+
+                                fit_model.param_quant_estimation.set_distance_to_sample_in_data_dict(
+                                    distance_to_sample=fit_model.get_qe_standard_distance_as_float())
+
+                                fit_model.param_quant_estimation.save_fluorescence_data_dict(path_json,
+                                    overwrite_existing=fit_model.qe_standard_overwrite_existing)
+
+                                print(f"Quantitative calibration is saved successfully to the file '{path_json}'")
+
+                            except Exception as ex:
+                                btns = [DialogButton('Ok', 'accept')]
+                                critical(self, 'ERROR', f'Failed to save quantitative calibration: {ex}', btns)
 
             PushButton: to_db:
                 text = 'Save to DB'
@@ -1055,7 +1072,6 @@ enamldef SelectStandard(Dialog): select_standard_win:
 
         ScrollArea: scr_area:
             #constraints = [height <= 230]
-
 
             Form:
                 row_spacing = 15
@@ -1133,6 +1149,55 @@ enamldef SelectStandard(Dialog): select_standard_win:
             clicked ::
                  select_standard_win.reject()
 
+
+enamldef SaveQuantCalibration(Dialog): save_quant_calibration_dialog:
+
+    attr fit_model
+
+    title = "Save Quantitative Calibration"
+    initial_size = (500, 600)
+
+    Container:
+        constraints = [vbox(
+            hbox(data_preview_lb),
+            hbox(data_preview_mf),
+            hbox(file_path_lb, file_name_fld),
+            hbox(dist_to_sample_lb, dist_to_sample_fld, spacer, overwrite_cb),
+            hbox(spacer, save_btn, cancel_btn),
+        ), align("v_center", file_path_lb, file_name_fld)]
+
+        Label: data_preview_lb:
+            text = "The following data will be saved to the JSON file:"
+
+        MultilineField: data_preview_mf:
+            read_only = True
+            text << fit_model.qe_standard_data_preview
+
+        Label: file_path_lb:
+            text << f"Full file name: {fit_model.qe_standard_path_name}"
+
+        Field: file_name_fld:
+            text := fit_model.qe_standard_file_name
+
+        Label: dist_to_sample_lb:
+            text = "Distance to sample: "
+
+        FloatField: dist_to_sample_fld:
+            text := fit_model.qe_standard_distance
+
+        CheckBox: overwrite_cb:
+            text = "Overwrite existing file"
+            checked := fit_model.qe_standard_overwrite_existing
+
+        PushButton: save_btn:
+            text = "Save"
+            clicked ::
+                 save_quant_calibration_dialog.accept()
+
+        PushButton: cancel_btn:
+            text = "Cancel"
+            clicked ::
+                 save_quant_calibration_dialog.reject()
 
 
 enamldef OutputSetup(Window): output_win:
