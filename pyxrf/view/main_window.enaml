@@ -10,7 +10,8 @@ from .image2D import ImageMain, ChooseElementAdvanced
 from .rgb_image import ImageRGB
 from .fit import (FitView, ElementEdit, ParameterEdit,
                   OtherSettingEdit, EditPileupPeak,
-                  AutoFindElements, OutputSetup, SelectStandard)
+                  AutoFindElements, OutputSetup, SelectStandard,
+                  SaveQuantCalibration)
 from .setting import SettingView
 
 
@@ -97,6 +98,11 @@ enamldef XRFGui(MainWindow): main_window:
                     parameter_model=main_window.param_model,
                     plot_model=main_window.plot_model)
                 select_standard_edit = SelectStandard(
+                    visible=False,
+                    destroy_on_close=False,
+                    parent=main_window,
+                    fit_model=main_window.fit_model)
+                save_quant_calibration_edit = SaveQuantCalibration(
                     visible=False,
                     destroy_on_close=False,
                     parent=main_window,
