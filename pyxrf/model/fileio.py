@@ -343,6 +343,21 @@ class FileIOModel(Atom):
         # get summed data or based on mask
         self.data = self.data_sets[self.selected_file_name].get_sum()
 
+    def get_selected_detector_channel(self):
+        r"""
+        Returns selected channel name. Expected values are ``sum``, ``det1``, ``det2``, etc.
+        If no channel is selected or it is impossible to determine the channel name, then
+        the return value is ``None`` (this is not a normal outcome).
+        """
+        det_channel = None
+        if self.selected_file_name:
+            try:
+                # The channel is supposed to be the last component of the 'selected_file_name'
+                det_channel = self.selected_file_name.split("_")[-1]
+            except Exception:
+                pass
+        return det_channel
+
     def apply_mask(self):
         """Apply mask with different options.
         """

@@ -2,6 +2,7 @@ from __future__ import absolute_import
 import numpy as np
 import math
 import copy
+import os
 import six
 
 from enaml.widgets.api import (Container, PushButton, Label,
@@ -987,10 +988,27 @@ enamldef FitView(DockItem): fit_view:
                 text = 'Save Q. Standard'
                 # Disable the button is enabled only if the standard is loaded
                 enabled << bool(fit_model.qe_standard_selected_copy)
-                #minimum_size = (20, 20)
                 clicked ::
-                    #fit_model.save_pixel_fitting_to_db()
-                    pass
+                    result_map, scaler_name = fit_model.get_latest_single_pixel_fitting_data()
+                    selected_det_channel = io_model.get_selected_detector_channel()
+                    if not result_map:
+                        btns = [DialogButton('Ok', 'accept')]
+                        critical(self, 'ERROR', f'No XRF maps were found. Run Individual Pixel Fitting to generate XRF maps.', btns)
+                    else:
+                        print(f"scaler = '{scaler_name}' keys = {result_map.keys()}")
+                        print(f"selected_det_channel = '{selected_det_channel}'")
+
+                        fit_model.param_quant_estimation.fill_fluorescence_data_dict(
+                            xrf_map_dict=result_map, scaler_name=scaler_name)
+
+                        fit_model.param_quant_estimation.set_detector_channel_in_data_dict(
+                            detector_channel=selected_det_channel)
+                        fit_model.param_quant_estimation.set_distance_to_sample_in_data_dict(
+                            distance_to_sample=2.0)
+
+                        fln_json = fit_model.param_quant_estimation.get_suggested_json_fln()
+                        path_json = os.path.join(io_model.working_directory, fln_json)
+                        fit_model.param_quant_estimation.save_fluorescence_data_dict(path_json, overwrite_existing=True)
 
             PushButton: to_db:
                 text = 'Save to DB'

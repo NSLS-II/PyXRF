@@ -5,7 +5,7 @@ import numpy as np
 import math
 import json
 from .xrf_utils import split_compound_mass, generate_eline_list
-
+from ..model.utils import normalize_data_by_scaler
 import logging
 logger = logging.getLogger()
 
@@ -296,8 +296,10 @@ _xrf_quant_fluor_schema = {
         },
         # Incident energy used in the processing experiment
         "incident_energy": {"type": "number"},
+        # Selected channel, expected values are 'sum', 'det1', 'det2', 'det3' etc.
+        "detector_channel": {"type": ["string", "null"]},
         # Name of the valid scaler name (specific for data recorded on the beamline
-        "scaler_name": {"type": "string"},
+        "scaler_name": {"type": ["string", "null"]},
         # Distance to the sample (number or null)
         "distance_to_sample": {"type": ["number", "null"]},
     }
@@ -405,11 +407,6 @@ def get_quant_fluor_data_dict(quant_param_dict, incident_energy):
     quant_fluor_data_dict["name"] = quant_param_dict["name"]
     quant_fluor_data_dict["serial"] = quant_param_dict["serial"]
     quant_fluor_data_dict["description"] = quant_param_dict["description"]
-    quant_fluor_data_dict["incident_energy"] = incident_energy
-
-    # The parameters that are not available yet
-    quant_fluor_data_dict["scaler_name"] = None
-    quant_fluor_data_dict["distance_to_sample"] = None
 
     element_dict = {}
     for compound, mass in quant_param_dict["compounds"].items():
@@ -428,8 +425,41 @@ def get_quant_fluor_data_dict(quant_param_dict, incident_energy):
 
     quant_fluor_data_dict["element_lines"] = element_lines
 
+    quant_fluor_data_dict["incident_energy"] = incident_energy
+
+    quant_fluor_data_dict["detector_channel"] = None
+    quant_fluor_data_dict["scaler_name"] = None
+    quant_fluor_data_dict["distance_to_sample"] = None
+
     return quant_fluor_data_dict
 
+
+def fill_quant_fluor_data_dict(quant_fluor_data_dict, *, xrf_map_dict, scaler_name):
+
+    if not scaler_name:
+        logger.warning(f"No scaler is selected for computing quantitative coefficients. Data is not normalized.")
+    elif scaler_name not in xrf_map_dict:
+        logger.warning(f"Scaler '{scaler_name}' is not in XRF map dictionary. Normalization can not be performed.")
+        scaler_name = None
+
+    # Clear ALL fluorescence values. Don't touch any other data
+    for eline, info in quant_fluor_data_dict["element_lines"].items():
+        info["fluorescence"] = None
+
+    # Save the scaler name
+    quant_fluor_data_dict["scaler_name"] = scaler_name
+
+    # Compute fluorescence of the emission lines
+    eline_list = tuple(quant_fluor_data_dict["element_lines"].keys())
+    for eline, map in xrf_map_dict.items():
+        if eline in eline_list:
+            # Normalize the map if scaler is selected. (Typically scaler IS selected.)
+            if scaler_name:
+                norm_map = normalize_data_by_scaler(xrf_map_dict[eline], xrf_map_dict[scaler_name])
+            else:
+                norm_map = xrf_map_dict[eline]
+            mean_fluor = np.mean(norm_map)
+            quant_fluor_data_dict["element_lines"][eline]["fluorescence"] = mean_fluor
 
 #-------------------------------------------------------------------------------------------------
 
@@ -540,3 +570,25 @@ class ParamQuantEstimation:
             logger.warning("Attempting to compute the list of emission lines with incident energy set to 0")
 
         self.fluorescence_data_dict = get_quant_fluor_data_dict(self.standard_selected, incident_energy)
+
+    def fill_fluorescence_data_dict(self, *, xrf_map_dict, scaler_name):
+
+        fill_quant_fluor_data_dict(self.fluorescence_data_dict,
+                                   xrf_map_dict=xrf_map_dict,
+                                   scaler_name=scaler_name)
+
+    def set_detector_channel_in_data_dict(self, *, detector_channel=None):
+        self.fluorescence_data_dict["detector_channel"] = detector_channel
+
+    def set_distance_to_sample_in_data_dict(self, *, distance_to_sample=None):
+        self.fluorescence_data_dict["distance_to_sample"] = distance_to_sample
+
+    def get_suggested_json_fln(self):
+        r"""Requires that the fluorescence data dict is filled"""
+        fln = f"standard_{self.fluorescence_data_dict['serial']}.json"
+        return fln
+
+    def save_fluorescence_data_dict(self, file_path, *, overwrite_existing=False):
+
+        save_xrf_quant_fluor_json_file(file_path, self.fluorescence_data_dict,
+                                       overwrite_existing=overwrite_existing)

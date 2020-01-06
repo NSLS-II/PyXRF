@@ -193,6 +193,7 @@ _xrf_standard_fluor_sample = {
         "Mg_Ka2": {"density": 9.6, "fluorescence": None}
     },
     "incident_energy": 10.5,
+    "detector_channel": "sum",
     "scaler_name": "i0",
     "distance_to_sample": 50.6
 }
@@ -251,6 +252,24 @@ def test_save_xrf_quant_fluor_json_file3(tmp_path):
 
     with pytest.raises(jsonschema.ValidationError):
         save_xrf_quant_fluor_json_file(json_path, data)
+
+def test_save_xrf_quant_fluor_json_file4(tmp_path):
+    r"""Schema allows some data fields to hold value of ``None``. Test if this works."""
+    data, json_path = _get_data_and_json_path(tmp_path)
+
+    # Modify some elements of the dictionary
+    data = copy.deepcopy(data)
+    data["detector_channel"] = None
+    data["scaler_name"] = None
+    data["distance_to_sample"] = None
+
+    # Sample data
+    save_xrf_quant_fluor_json_file(json_path, data)
+
+    data_loaded = load_xrf_quant_fluor_json_file(json_path)
+
+    assert data_loaded == data, \
+        "Loaded data is not equal to the original data"
 
 
 def test_load_xrf_quant_fluor_json_file1(tmp_path):

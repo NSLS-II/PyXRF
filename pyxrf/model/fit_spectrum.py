@@ -983,6 +983,25 @@ class Fit1D(Atom):
             # save to hdf again, this is not optimal
             self.save2Dmap_to_hdf()
 
+    def get_latest_single_pixel_fitting_data(self):
+        r"""
+        Returns the latest results of single pixel fitting. The returned results include
+        the name of the scaler (None if no scaler is selected) and the dictionary of
+        the computed XRF maps for selected emission lines.
+        """
+
+        # Find the selected scaler name. Scaler is None if not scaler is selected.
+        scaler_name = None
+        if self.scaler_index > 0:
+            scaler_name = self.scaler_keys[self.scaler_index-1]
+
+
+        # Result map. If 'None', then no fitting results exists.
+        #   Single pixel fitting must be run
+        result_map = self.result_map.copy()
+
+        return result_map, scaler_name
+
     def output_2Dimage(self, to_tiff=True):
         """Read data from h5 file and save them into either tiff or txt.
 
