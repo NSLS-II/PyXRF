@@ -171,8 +171,8 @@ class Fit1D(Atom):
 
     # Quantitative analysis: used during estimation step
     param_quant_estimation = ParamQuantEstimation()
-    # The following two references are used exclusively to update the list of standards
-    #   in the dialog box.
+    # *** The following two references are used exclusively to update the list of standards ***
+    # ***   in the dialog box. ***
     qe_param_built_in_ref = Typed(object)
     qe_param_custom_ref = Typed(object)
     # The following reference used to track the selected standard while the selection
@@ -182,7 +182,14 @@ class Fit1D(Atom):
     # Keep the actual copy of the selected standard. The copy is used to keep information
     #   on the selected standard while descriptions are reloaded (references become invalid).
     qe_standard_selected_copy = Typed(object)
-
+    # *** The following fields are used exclusively to store input values ***
+    # ***   for the 'SaveQuantCalibration' dialog box. ***
+    # *** The fields are not guaranteed to have valid values at any other time. ***
+    qe_standard_path_name = Str()
+    qe_standard_file_name = Str()
+    qe_standard_distance = Str("0.0")
+    qe_standard_overwrite_existing = Bool(False)
+    qe_standard_data_preview = Str()
 
     def __init__(self, param_model, io_model, *args, **kwargs):
         self.working_directory = kwargs['working_directory']
@@ -328,6 +335,28 @@ class Fit1D(Atom):
                 self.elementinfo_list = sorted([e for e in list(self.param_dict.keys())
                                                 if element.replace('-', '_') in e])
                 logger.info(f"User defined or pileup peak info: {self.elementinfo_list}")
+
+    @observe('qe_standard_distance')
+    def _qe_standard_distance_changed(self, change):
+        try:
+            d = float(change["value"])
+        except Exception:
+            d = None
+        if d <= 0.0:
+            d = None
+        # Change preview if distance value changed
+        self.qe_standard_data_preview = \
+            self.param_quant_estimation.get_fluorescence_data_dict_text_preview(distance_to_sample=d)
+
+    def get_qe_standard_distance_as_float(self):
+        r"""Return distance from sample as positive float or None"""
+        try:
+            d = float(self.qe_standard_distance)
+        except Exception:
+            d = None
+        if d <= 0.0:
+            d = None
+        return d
 
     def _compute_fwhm_base(self):
         # Computes 'sigma' value based on default parameters and peak energy (for Userpeaks)
