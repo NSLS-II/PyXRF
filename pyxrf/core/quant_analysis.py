@@ -4,6 +4,7 @@ import jsonschema
 import numpy as np
 import math
 import json
+import copy
 from .xrf_utils import split_compound_mass, generate_eline_list
 from ..model.utils import normalize_data_by_scaler
 import logging
@@ -402,6 +403,7 @@ def load_xrf_quant_fluor_json_file(file_path, *, schema=_xrf_quant_fluor_schema)
 
 
 def get_quant_fluor_data_dict(quant_param_dict, incident_energy):
+    # TODO: Documentation and tests
 
     quant_fluor_data_dict = {}
     quant_fluor_data_dict["name"] = quant_param_dict["name"]
@@ -435,6 +437,7 @@ def get_quant_fluor_data_dict(quant_param_dict, incident_energy):
 
 
 def fill_quant_fluor_data_dict(quant_fluor_data_dict, *, xrf_map_dict, scaler_name):
+    # TODO: Documentation and tests
 
     if not scaler_name:
         logger.warning(f"No scaler is selected for computing quantitative coefficients. Data is not normalized.")
@@ -459,12 +462,32 @@ def fill_quant_fluor_data_dict(quant_fluor_data_dict, *, xrf_map_dict, scaler_na
             else:
                 norm_map = xrf_map_dict[eline]
             mean_fluor = np.mean(norm_map)
-            quant_fluor_data_dict["element_lines"][eline]["fluorescence"] = mean_fluor
+            # Note: numpy 'float64' is explicitely converted to 'float'
+            #     (yaml package does not seem to support 'float64')
+            quant_fluor_data_dict["element_lines"][eline]["fluorescence"] = float(mean_fluor)
+
+def prune_quant_fluor_data_dict(quant_fluor_data_dict):
+    r"""
+    Prunes the fluorescence data dictionary by removing the element lines that are not
+    present (fluorescence is None) or have fluorescence <= 0. 'Pruning' is performed before
+    saving calibration data, so that only meaningful information is saved.
+    The function does not modify the original data structure. Instead it returns the
+    copy of the original dictionary with non-existent emission line removed.
+    """
+    # TODO: Documentation and tests
+
+    quant_fluor_data_dict = copy.deepcopy(quant_fluor_data_dict)
+    for key, val in quant_fluor_data_dict["element_lines"].copy().items():
+        if (val["fluorescence"] is None) or (val["fluorescence"] <= 0):
+            del quant_fluor_data_dict["element_lines"][key]
+
+    return quant_fluor_data_dict
 
 #-------------------------------------------------------------------------------------------------
 
 
 class ParamQuantEstimation:
+    # TODO: Documentation and tests
 
     def __init__(self):
 
@@ -588,7 +611,19 @@ class ParamQuantEstimation:
         fln = f"standard_{self.fluorescence_data_dict['serial']}.json"
         return fln
 
-    def save_fluorescence_data_dict(self, file_path, *, overwrite_existing=False):
+    def get_fluorescence_data_dict_text_preview(self, distance_to_sample=None,
+                                                enable_warnings=True):
 
-        save_xrf_quant_fluor_json_file(file_path, self.fluorescence_data_dict,
-                                       overwrite_existing=overwrite_existing)
+        pruned_dict = prune_quant_fluor_data_dict(self.fluorescence_data_dict)
+        # This will not modify the original dictionary
+        pruned_dict["distance_to_sample"] = distance_to_sample
+        # Print preview in YAML format (easier to read)
+        s = yaml.dump(pruned_dict, default_flow_style=False, sort_keys=False, indent=4)
+        if enable_warnings:
+            if (pruned_dict["scaler_name"] == None) or (pruned_dict["scaler_name"] == ""):
+                s = "WARNING: Scaler is not selected, data is not normalized.\n\n" + s
+        return s
+
+    def save_fluorescence_data_dict(self, file_path, *, overwrite_existing=False):
+        pruned_dict = prune_quant_fluor_data_dict(self.fluorescence_data_dict)
+        save_xrf_quant_fluor_json_file(file_path, pruned_dict, overwrite_existing=overwrite_existing)
