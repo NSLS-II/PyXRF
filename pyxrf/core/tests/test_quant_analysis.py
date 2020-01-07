@@ -253,6 +253,7 @@ def test_save_xrf_quant_fluor_json_file3(tmp_path):
     with pytest.raises(jsonschema.ValidationError):
         save_xrf_quant_fluor_json_file(json_path, data)
 
+
 def test_save_xrf_quant_fluor_json_file4(tmp_path):
     r"""Schema allows some data fields to hold value of ``None``. Test if this works."""
     data, json_path = _get_data_and_json_path(tmp_path)
