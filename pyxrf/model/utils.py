@@ -1,8 +1,6 @@
 import numpy as np
 import scipy
 import time as ttime
-from skbeam.core.constants import XrfElement as Element
-from skbeam.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
 
 import logging
 logger = logging.getLogger()
