@@ -17,6 +17,8 @@ from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool
 
 from .utils import normalize_data_by_scaler, grid_interpolate
 
+from ..core.quant_analysis import ParamQuantitativeAnalysis
+
 import logging
 logger = logging.getLogger()
 
@@ -97,6 +99,13 @@ class DrawImageAdvanced(Atom):
     scatter_show = Bool(False)
     name_not_scalable = List()
 
+    # The following fields are used for storing parameters used for quantitative analysis
+    param_quant_analysis = Typed(object)
+    # The following fields are used to facilitate GUI operation, not for data storage
+    quant_calibration_data = List()
+    quant_calibration_settings = List()
+    quant_calibration_data_preview = Str()
+
     def __init__(self):
         self.fig = plt.figure(figsize=(3, 2))
         matplotlib.rcParams['axes.formatter.useoffset'] = True
@@ -104,6 +113,8 @@ class DrawImageAdvanced(Atom):
         # Do not apply scaler norm on following data
         self.name_not_scalable = ['r2_adjust', 'alive', 'dead', 'elapsed_time', 'scaler_alive',
                                   'i0_time', 'time', 'time_diff', 'dwell_time']
+
+        self.param_quant_analysis = ParamQuantitativeAnalysis()
 
     def data_dict_update(self, change):
         """
@@ -224,6 +235,26 @@ class DrawImageAdvanced(Atom):
         self.set_low_high_value()  # reset low high values based on normalization
         self.show_image()
         self.update_img_wizard_items()
+
+    # TODO: document the following functions
+    def update_quant_calibration_gui(self):
+        self.quant_calibration_data = []
+        self.quant_calibration_data = self.param_quant_analysis.calibration_data
+        self.quant_calibration_settings = []
+        self.quant_calibration_settings = self.param_quant_analysis.calibration_settings
+
+    def load_quantitative_calibration_data(self, file_path):
+        self.param_quant_analysis.load_calibration_data(file_path)
+        self.update_quant_calibration_gui()
+
+    def remove_quantitative_calibration_data(self, file_path):
+        n_item = self.param_quant_analysis.find_calibration_data(file_path)
+        if n_item is not None:
+            self.param_quant_analysis.calibration_data.pop(n_item)
+            self.param_quant_analysis.calibration_settings.pop(n_item)
+            self.update_quant_calibration_gui()
+        else:
+            logger.error(f"Calibration data read from file '{file_path}' is not found. The record was not deleted")
 
     def update_img_wizard_items(self):
         """This is for GUI purpose only.
