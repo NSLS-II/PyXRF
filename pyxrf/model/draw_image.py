@@ -104,6 +104,7 @@ class DrawImageAdvanced(Atom):
     # The following fields are used to facilitate GUI operation, not for data storage
     quant_calibration_data = List()
     quant_calibration_settings = List()
+    quant_active_emission_lines = List()
     quant_calibration_data_preview = Str()
 
     def __init__(self):
@@ -242,19 +243,38 @@ class DrawImageAdvanced(Atom):
         self.quant_calibration_data = self.param_quant_analysis.calibration_data
         self.quant_calibration_settings = []
         self.quant_calibration_settings = self.param_quant_analysis.calibration_settings
+        self.quant_active_emission_lines = []
+        self.quant_active_emission_lines = self.param_quant_analysis.active_emission_lines
 
     def load_quantitative_calibration_data(self, file_path):
         self.param_quant_analysis.load_calibration_data(file_path)
         self.update_quant_calibration_gui()
 
     def remove_quantitative_calibration_data(self, file_path):
-        n_item = self.param_quant_analysis.find_calibration_data(file_path)
-        if n_item is not None:
-            self.param_quant_analysis.calibration_data.pop(n_item)
-            self.param_quant_analysis.calibration_settings.pop(n_item)
+        try:
+            self.param_quant_analysis.remove_calibration_data(file_path)
             self.update_quant_calibration_gui()
-        else:
-            logger.error(f"Calibration data read from file '{file_path}' is not found. The record was not deleted")
+        except Exception as ex:
+            logger.error(f"Calibration data was not removed: {ex}")
+
+    def get_quantitative_eline_records(self, emission_line):
+        eline_records = []
+        for n in range(len(self.param_quant_analysis.calibration_data)):
+            try:
+                # Include only references to
+                data = self.param_quant_analysis.calibration_data[n]["element_lines"][emission_line]
+                print(f"data={data}")
+                settings = self.param_quant_analysis.calibration_settings[n]["element_lines"][emission_line]
+                print(f"settings={settings}")
+                record = {}
+                record["standard_data"] = self.param_quant_analysis.calibration_data[n]
+                record["standard_settings"] = self.param_quant_analysis.calibration_settings[n]
+                record["eline_data"] = data
+                record["eline_settings"] = settings
+                eline_records.append(record)
+            except Exception:
+                pass
+        return eline_records
 
     def update_img_wizard_items(self):
         """This is for GUI purpose only.
