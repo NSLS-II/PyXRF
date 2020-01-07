@@ -224,7 +224,6 @@ class Fit1D(Atom):
         self.qe_standard_selected_ref = None
         self.qe_standard_selected_copy = None
 
-
     def result_folder_changed(self, change):
         """
         Observer function to be connected to the fileio model
@@ -1023,7 +1022,6 @@ class Fit1D(Atom):
         scaler_name = None
         if self.scaler_index > 0:
             scaler_name = self.scaler_keys[self.scaler_index-1]
-
 
         # Result map. If 'None', then no fitting results exists.
         #   Single pixel fitting must be run
