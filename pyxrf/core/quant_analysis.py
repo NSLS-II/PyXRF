@@ -638,6 +638,7 @@ class ParamQuantitativeAnalysis:
         # List of opened calibration standards
         self.calibration_data = []
         self.calibration_settings = []
+        self.active_emission_lines = []
 
     def load_calibration_data(self, file_path):
 
@@ -653,9 +654,26 @@ class ParamQuantitativeAnalysis:
 
             settings = {}
             settings['file_path'] = file_path
+            settings['element_lines'] = {}
+            for l in data_new['element_lines']:
+                settings["element_lines"][l] = {}
+                # Do not select the emission line
+                settings["element_lines"][l]["selected"] = False
+
             self.calibration_settings.append(settings)
+            # This will also select the emission line if it occurs the first time
+            self.gen_emission_line_list()
         else:
             logger.info(f"Calibration data file '{file_path}' is already loaded")
+
+    def remove_calibration_data(self, file_path):
+        n_item = self.find_calibration_data(file_path)
+        if n_item is not None:
+            self.calibration_data.pop(n_item)
+            self.calibration_settings.pop(n_item)
+            self.gen_emission_line_list()
+        else:
+            raise RuntimeError(f"Calibration data from source '{file_path}' is not found.")
 
     def find_calibration_data(self, file_path):
         n_item = None
@@ -673,3 +691,37 @@ class ParamQuantitativeAnalysis:
         else:
             s = ""
         return s
+
+    def gen_emission_line_list(self):
+        # The emission lines are arrange in the order in which they appear
+        #   Changing the order of the list will change the order in which
+        #   the lines are presented in the preview tab
+        elines_all = set()
+        self.active_emission_lines = []  # Clear the list, it is recreated
+        for data in self.calibration_data:
+            for l in data["element_lines"].keys():
+                if l not in elines_all:
+                    elines_all.add(l)
+                    self.active_emission_lines.append(l)
+
+        # Make sure that emission line is selected only once
+        elines_selected = set()  # We make sure that each emission line is selected
+        for settings in self.calibration_settings:
+            for k, v in settings["element_lines"].items():
+                if v["selected"]:
+                    if k in elines_selected:
+                        # If eline is in the set, then deselect it (it is selected twice)
+                        v["selected"] = False
+                    else:
+                        # Add to the list
+                        elines_selected.add(k)
+
+        elines_not_selected = elines_all - elines_selected
+
+        if elines_not_selected:
+            for settings in self.calibration_settings:
+                for k, v in settings["element_lines"].items():
+                    if k in elines_not_selected:
+                        v["selected"] = True
+                        elines_not_selected.remove(k)
+
