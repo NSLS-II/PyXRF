@@ -1,0 +1,117 @@
+from enaml.widgets.api import (Container, PushButton, Label,
+                               Form, Field, MultilineField, FileDialogEx, DockItem,
+                               DockArea, CheckBox, ComboBox, SpinBox,
+                               ScrollArea, Window, PopupView, GroupBox)
+from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, spacer, grid
+from enaml.core.api import Include, Looper
+from enaml.layout.geometry import Box
+from enaml.stdlib.fields import FloatField
+from enaml.stdlib.message_box import MessageBox, warning, information
+
+from enaml.stdlib.dialog_buttons import DialogButton
+from enaml.stdlib.message_box import critical, warning, question, information
+
+import numpy as np
+
+enamldef QuantAnalysisView(DockItem): quant_analysis_view:
+    attr io_model
+    attr plot_model
+    attr param_model
+    attr img_model_adv
+    attr view_quant_calibration_edit
+
+    Container:
+        Container:
+            constraints = [
+                vbox(
+                    hbox(load_calibration_btn, spacer),
+                    scroller,
+                ),
+            ]
+
+            PushButton: load_calibration_btn:
+                text = "Load Quantitative Calibration"
+                clicked ::
+                    file_path = FileDialogEx.get_open_file_names(quant_analysis_view,
+                                                                 file_mode="existing_files",
+                                                                 name_filters=["*.json", "*"],
+                                                                 selected_name_filter="*.json",
+                                                                 current_path=io_model.working_directory)
+                    if file_path:
+                        try:
+                            img_model_adv.load_quantitative_calibration_data(file_path[0])
+                        except Exception as ex:
+                            btns = [DialogButton('Ok', 'accept')]
+                            critical(self, 'ERROR', f"Error occurred while loading the file '{file_path}': {ex}", btns)
+
+            ScrollArea: scroller:
+                Container:
+                    Looper: looper:
+                        iterable << zip(img_model_adv.quant_calibration_data, img_model_adv.quant_calibration_settings)
+                        GroupBox:
+                            constraints = [vbox(
+                                hbox(serial_lb, name_lb, spacer, view_btn, remove_btn),
+                                hbox(description_lb, spacer),
+                                hbox(emission_lines_lb, spacer),
+                                hbox(incident_energy_lb, scaler_lb, detector_channel_lb, distance_to_sample_lb, spacer),
+                                hbox(file_path_lb, spacer),
+                                )]
+                            Label: serial_lb:
+                                text << "Standard #" + loop_item[0]["serial"]
+                            Label: name_lb:
+                                text << "'" + loop_item[0]["name"] + "'"
+                            PushButton: view_btn:
+                                text = "View"
+                                clicked ::
+                                    view_quant_calibration_edit.file_path = loop_item[1]["file_path"]
+                                    view_quant_calibration_edit.preview_text = \
+                                        img_model_adv.param_quant_analysis.get_calibration_data_text_preview(loop_item[1]["file_path"])
+                                    view_quant_calibration_edit.show()
+                            PushButton: remove_btn:
+                                text = "Remove"
+                                clicked ::
+                                    img_model_adv.remove_quantitative_calibration_data(loop_item[1]["file_path"])
+                            Label: description_lb:
+                                text << f"Description: {loop_item[0]['description']}"
+                            Label: emission_lines_lb:
+                                text << f"Active emission lines: {list(loop_item[0]['element_lines'].keys())}"
+                            Label: incident_energy_lb:
+                                text << f"Incident energy, keV: {loop_item[0]['incident_energy']}"
+                            Label: scaler_lb:
+                                text << f"Scaler: '{loop_item[0]['scaler_name']}'"
+                            Label: detector_channel_lb:
+                                text << f"Detector channel: '{loop_item[0]['detector_channel']}'"
+                            Label: distance_to_sample_lb:
+                                text << f"Distance to sample: {loop_item[0]['distance_to_sample']}"
+
+                            Label: file_path_lb:
+                                text << f"Source file: '{loop_item[1]['file_path']}'"
+
+
+enamldef ViewQuantCalibrationData(Window): view_quant_calibration_window:
+
+    attr img_model_adv
+    attr preview_text
+    attr file_path
+
+    title = "Quantitative Calibration Data"
+    initial_size = (500, 600)
+
+    Container:
+        constraints = [vbox(
+            hbox(data_preview_lb),
+            hbox(data_preview_mf),
+            hbox(spacer, close_btn),
+            )]
+
+        Label: data_preview_lb:
+            text << f"Source file: {file_path}"
+
+        MultilineField: data_preview_mf:
+            read_only = True
+            text << preview_text
+
+        PushButton: close_btn:
+            text = "Close"
+            clicked ::
+                 view_quant_calibration_window.close()
