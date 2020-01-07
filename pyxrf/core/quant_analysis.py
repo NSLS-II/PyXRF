@@ -466,6 +466,7 @@ def fill_quant_fluor_data_dict(quant_fluor_data_dict, *, xrf_map_dict, scaler_na
             #     (yaml package does not seem to support 'float64')
             quant_fluor_data_dict["element_lines"][eline]["fluorescence"] = float(mean_fluor)
 
+
 def prune_quant_fluor_data_dict(quant_fluor_data_dict):
     r"""
     Prunes the fluorescence data dictionary by removing the element lines that are not
@@ -483,7 +484,7 @@ def prune_quant_fluor_data_dict(quant_fluor_data_dict):
 
     return quant_fluor_data_dict
 
-#-------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------
 
 
 class ParamQuantEstimation:
@@ -620,10 +621,55 @@ class ParamQuantEstimation:
         # Print preview in YAML format (easier to read)
         s = yaml.dump(pruned_dict, default_flow_style=False, sort_keys=False, indent=4)
         if enable_warnings:
-            if (pruned_dict["scaler_name"] == None) or (pruned_dict["scaler_name"] == ""):
+            if (pruned_dict["scaler_name"] is None) or (pruned_dict["scaler_name"] == ""):
                 s = "WARNING: Scaler is not selected, data is not normalized.\n\n" + s
         return s
 
     def save_fluorescence_data_dict(self, file_path, *, overwrite_existing=False):
         pruned_dict = prune_quant_fluor_data_dict(self.fluorescence_data_dict)
         save_xrf_quant_fluor_json_file(file_path, pruned_dict, overwrite_existing=overwrite_existing)
+
+
+class ParamQuantitativeAnalysis:
+    # TODO: documentation and tests
+
+    def __init__(self):
+
+        # List of opened calibration standards
+        self.calibration_data = []
+        self.calibration_settings = []
+
+    def load_calibration_data(self, file_path):
+
+        # Do not load duplicates (distinguished by file name). Different file names may contain
+        #   the same data, but this is totally up to the user. Loading duplicates should not
+        #   disrupt the processing, since the user may choose the source of calibration data
+        #   for each emission line.
+        if not any(file_path == _["file_path"] for _ in self.calibration_settings):
+            # May raise exception if not successful
+            data_new = load_xrf_quant_fluor_json_file(file_path)
+
+            self.calibration_data.append(data_new)
+
+            settings = {}
+            settings['file_path'] = file_path
+            self.calibration_settings.append(settings)
+        else:
+            logger.info(f"Calibration data file '{file_path}' is already loaded")
+
+    def find_calibration_data(self, file_path):
+        n_item = None
+        for n, v in enumerate(self.calibration_settings):
+            if v["file_path"] == file_path:
+                n_item = n
+                break
+        return n_item
+
+    def get_calibration_data_text_preview(self, file_path):
+        n_item = self.find_calibration_data(file_path)
+        if n_item is not None:
+            s = yaml.dump(self.calibration_data[n_item], default_flow_style=False,
+                          sort_keys=False, indent=4)
+        else:
+            s = ""
+        return s
