@@ -13,6 +13,7 @@ from .fit import (FitView, ElementEdit, ParameterEdit,
                   AutoFindElements, OutputSetup, SelectStandard,
                   SaveQuantCalibration)
 from .setting import SettingView
+from .quant_analysis import QuantAnalysisView, ViewQuantCalibrationData
 
 
 enamldef XRFGui(MainWindow): main_window:
@@ -32,7 +33,7 @@ enamldef XRFGui(MainWindow): main_window:
     Container:
         DockArea:
             layout = HSplitLayout(
-                TabLayout('file_view', 'fitting_view', 'setting_view'),
+                TabLayout('file_view', 'fitting_view', 'setting_view', 'quant_analysis_view'),
                 TabLayout('lineplot_view', 'image_view', 'image_rgb'),
                 )
             FileView:
@@ -137,6 +138,20 @@ enamldef XRFGui(MainWindow): main_window:
                 img_model_rgb = main_window.img_model_rgb
                 setting_model = main_window.setting_model
                 name = 'setting_view'
+            QuantAnalysisView:
+                closable=False
+                title = 'Quantitative Analysis'
+                io_model = main_window.io_model
+                plot_model = main_window.plot_model
+                param_model = main_window.param_model
+                img_model_adv = main_window.img_model_adv
+                name = 'quant_analysis_view'
+                view_quant_calibration_edit = ViewQuantCalibrationData(
+                    visible=False,
+                    destroy_on_close=False,
+                    parent=main_window,
+                    preview_text="",
+                    img_model_adv=main_window.img_model_adv)
             PlotMain:
                 closable = False
                 title = 'Spectrum View'
