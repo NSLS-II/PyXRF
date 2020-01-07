@@ -100,7 +100,7 @@ def test_split_compound_mass_fail(formula):
         split_compound_mass(formula, 10.0)
 
 
-#--------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------
 
 def test_get_supported_eline_list():
 
@@ -108,10 +108,10 @@ def test_get_supported_eline_list():
     list_l = get_supported_eline_list(lines=("L",))
     list_m = get_supported_eline_list(lines=("M",))
 
-    list_kl = get_supported_eline_list(lines=("K","L"))
-    list_lm = get_supported_eline_list(lines=("L","M"))
+    list_kl = get_supported_eline_list(lines=("K", "L"))
+    list_lm = get_supported_eline_list(lines=("L", "M"))
 
-    list_klm = get_supported_eline_list(lines=("K", "L","M"))
+    list_klm = get_supported_eline_list(lines=("K", "L", "M"))
     list_default = get_supported_eline_list()
 
     # Check eline formatting
@@ -165,6 +165,7 @@ def test_generate_eline_list1(elements, incident_energy, elines):
     """
     assert generate_eline_list(elements, incident_energy=incident_energy) == elines, \
         "Emission line list is generated incorrectly"
+
 
 @pytest.mark.parametrize("elements, incident_energy, lines, elines", [
     (["Fe", "W", "Ta"], 12.0, ("K", "L", "M"), ['Fe_K', 'W_L', 'W_M', 'Ta_L', 'Ta_M']),
