@@ -6,6 +6,7 @@ import sys
 import h5py
 import numpy as np
 import os
+import re
 from collections import OrderedDict
 import pandas as pd
 import json
@@ -567,6 +568,7 @@ def read_xspress3_data(file_path):
 
 def output_data(fpath, output_folder,
                 file_format='tiff', scaler_name=None, use_average=False,
+                dataset_name=None, quant_norm=False,
                 interpolate_to_uniform_grid=False):
     """
     Read data from h5 file and transfer them into txt.
@@ -584,11 +586,29 @@ def output_data(fpath, output_folder,
     use_average : Bool, optional
         when normalization, multiply by the mean value of scaler,
         i.e., norm_data = data/scaler * np.mean(scaler)
+    dataset_name : str
+        the name of the selected datset (in Element Map tab)
+        should end with the suffix '_fit' (for sum of all channels), '_det1_fit" etc.
+    quant_norm : bool
+        True - quantitative normalization is enabled, False - disabled
     interpolate_to_uniform_grid : bool
         interpolate the result to uniform grid before saving to tiff and txt files
         The grid dimensions match the dimensions of positional data for X and Y axes.
         The range of axes is chosen to fit the values of X and Y.
     """
+
+    if not dataset_name:
+        raise RuntimeError("Dataset is not selected. Data can not be saved.")
+
+    dset = None
+    if re.search(r"_det\d+_fit$", dataset_name):
+        dset = re.search(r"_det\d_", dataset_name)[0]
+        dset = dset.strip('_')
+    elif re.search(r"_fit$", dataset_name):
+        dset = "detsum"
+    if not dset:
+        raise RuntimeError(f"Dataset '{dataset_name}' contains no useful data. "
+                           "Select different dataset to save data.")
 
     file_format = file_format.lower()
 
@@ -601,21 +621,24 @@ def output_data(fpath, output_folder,
         fit_output = {}
 
         for detname in detlist:
-            # fitted data
-            if 'xrf_fit' in f['xrfmap/'+detname]:
-                fit_data = f['xrfmap/'+detname+'/xrf_fit']
-                fit_name = f['xrfmap/'+detname+'/xrf_fit_name']
-                fit_name = helper_decode_list(fit_name)
-                for i in np.arange(len(fit_name)):
-                    fit_output[detname+'_'+fit_name[i]] = np.asarray(fit_data[i, :, :])
-            # fitted error
-            if 'xrf_fit_error' in f['xrfmap/'+detname]:
-                error_data = f['xrfmap/'+detname+'/xrf_fit_error']
-                error_name = f['xrfmap/'+detname+'/xrf_fit_error_name']
-                error_name = helper_decode_list(error_name)
+            # Save only the selected dataset. This is important for saving results
+            #   of quantitative normalization !!!
+            if detname != dset:
+                # fitted data
+                if 'xrf_fit' in f['xrfmap/'+detname]:
+                    fit_data = f['xrfmap/'+detname+'/xrf_fit']
+                    fit_name = f['xrfmap/'+detname+'/xrf_fit_name']
+                    fit_name = helper_decode_list(fit_name)
+                    for i in np.arange(len(fit_name)):
+                        fit_output[detname+'_'+fit_name[i]] = np.asarray(fit_data[i, :, :])
+                # fitted error
+                if 'xrf_fit_error' in f['xrfmap/'+detname]:
+                    error_data = f['xrfmap/'+detname+'/xrf_fit_error']
+                    error_name = f['xrfmap/'+detname+'/xrf_fit_error_name']
+                    error_name = helper_decode_list(error_name)
 
-                for i in np.arange(len(error_name)):
-                    fit_output[detname+'_'+error_name[i]+'_error'] = np.asarray(error_data[i, :, :])
+                    for i in np.arange(len(error_name)):
+                        fit_output[detname+'_'+error_name[i]+'_error'] = np.asarray(error_data[i, :, :])
 
         # ic data
         if 'scalers' in f['xrfmap']:
