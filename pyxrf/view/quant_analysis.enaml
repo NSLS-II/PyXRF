@@ -20,13 +20,12 @@ enamldef QuantAnalysisView(DockItem): quant_analysis_view:
     attr img_model_adv
     attr view_quant_calibration_edit
 
-    attr eline
-
     Container:
         Container:
             constraints = [
                 vbox(
-                    hbox(load_calibration_btn, spacer),
+                    hbox(load_calibration_btn, spacer, update_plot_btn),
+                    hbox(distance_to_sample_lb, distance_to_sample_fld, spacer),
                     scroller,
                 ),
             ]
@@ -45,6 +44,26 @@ enamldef QuantAnalysisView(DockItem): quant_analysis_view:
                         except Exception as ex:
                             btns = [DialogButton('Ok', 'accept')]
                             critical(self, 'ERROR', f"Error occurred while loading the file '{file_path}': {ex}", btns)
+
+            PushButton: update_plot_btn:
+                text = "Update Plot"
+                # enabled << bool(len(img_model_adv.quant_calibration_data))
+                clicked ::
+                    # Update the value displayed in 'distance_to_sample_fld'
+                    #   Make sure that the value is non-negative
+                    val = float(img_model_adv.quant_distance_to_sample)
+                    if (val < 0):
+                        val = 0
+                    img_model_adv.quant_distance_to_sample = "-132435.464564565"
+                    img_model_adv.quant_distance_to_sample = f"{val}"
+                    # Update the plot
+                    img_model_adv.show_image()
+
+            Label: distance_to_sample_lb:
+                text = "Distance to sample (currently processed scan):"
+
+            FloatField: distance_to_sample_fld:
+                text := img_model_adv.quant_distance_to_sample
 
             ScrollArea: scroller:
                 Container:
@@ -99,16 +118,15 @@ enamldef QuantAnalysisView(DockItem): quant_analysis_view:
                         Looper:
                             iterable << img_model_adv.quant_active_emission_lines
                             GroupBox:
-                                #quant_analysis_view.eline = loop_item
                                 constraints = [vbox(
                                     hbox(emission_line_lb, spacer),
                                     hbox(container3),
                                     )]
                                 Label: emission_line_lb:
                                     text << f"Emission line: {loop_item}"
-                                Container: container3:
+                                Form: container3:
                                     Looper:
-                                        iterable << img_model_adv.get_quantitative_eline_records(loop_item)
+                                        iterable << img_model_adv.param_quant_analysis.get_collected_eline_info(loop_item)
 
                                         RadioButton: selected_rb:
                                             checked << loop_item['eline_settings']['selected']
@@ -116,26 +134,19 @@ enamldef QuantAnalysisView(DockItem): quant_analysis_view:
                                                 loop_item['eline_settings']['selected'] = selected_rb.checked
 
                                         Container:
+                                            padding = (0, 0, 0, 0)
                                             constraints = [vbox(
-                                                hbox(selected_rb,
-                                                    hbox(number_lb, density_lb, fluorescence_lb, spacer),
-                                                )), align("v_center", selected_rb, number_lb)]
+                                                hbox(
+                                                    selected_rb, number_lb, fluor_to_density_lb, density_lb, fluorescence_lb, spacer,
+                                                )), align("top", selected_rb, number_lb)]
                                             Label: number_lb:
-                                                text << f"{loop_item['standard_data']['name']}"
+                                                text << f"'{loop_item['standard_data']['name']}'"
                                             Label: density_lb:
-                                                text << f"Density: {loop_item['eline_data']['density']}"
+                                                text << f"Density (D): {loop_item['eline_data']['density']:5g}"
                                             Label: fluorescence_lb:
-                                                text << f"Density: {loop_item['eline_data']['fluorescence']}"
-
-
-
-                            #iterable << zip(img_model_adv.quant_calibration_data, img_model_adv.quant_calibration_settings)
-                            #GroupBox:
-                            #    constraints = [vbox(
-                            #        hbox(emission_line_lb, spacer),
-                            #        )]
-                            #    Label: emission_line_lb:
-                            #        text << "Standard #" + loop_item[0]["serial"]
+                                                text << f"Fluorescence (F): {loop_item['eline_data']['fluorescence']:5g}"
+                                            Label: fluor_to_density_lb:
+                                                text << f"F/D: {loop_item['eline_data']['fluorescence'] / loop_item['eline_data']['density'] if loop_item['eline_data']['density'] else 0:5g}"
 
 
 enamldef ViewQuantCalibrationData(Window): view_quant_calibration_window:
