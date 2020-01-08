@@ -1050,12 +1050,25 @@ enamldef FitView(DockItem): fit_view:
                 text = 'Save to tiff'
                 #minimum_size = (20, 20)
                 clicked ::
-                    fit_model.output_2Dimage()
+                    try:
+                        fit_model.output_2Dimage()
+                    except Exception as ex:
+                        btns = [DialogButton('Ok', 'accept')]
+                        critical(self, 'ERROR', f"Error occurred while saving data to TIFF files: {ex}", btns)
+                    else:
+                        print("Data was successfully saved to TIFF files")
+
             PushButton: to_txt:
                 text = 'Save to txt'
                 #minimum_size = (20, 20)
                 clicked ::
-                    fit_model.output_2Dimage(to_tiff=False)
+                    try:
+                        fit_model.output_2Dimage(to_tiff=False)
+                    except Exception as ex:
+                        btns = [DialogButton('Ok', 'accept')]
+                        critical(self, 'ERROR', f"Error occurred while saving data to TEXT files: {ex}", btns)
+                    else:
+                        print("Data was successfully saved to TEXT files")
 
 
 enamldef SelectStandard(Dialog): select_standard_win:
