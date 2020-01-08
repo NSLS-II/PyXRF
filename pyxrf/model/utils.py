@@ -209,6 +209,7 @@ def normalize_data_by_scaler(data_in, scaler, *, data_name=None, name_not_scalab
 
     return data_out
 
+
 # ===============================================================================
 # The following functions are prepared to be moved to scikit-beam
 
