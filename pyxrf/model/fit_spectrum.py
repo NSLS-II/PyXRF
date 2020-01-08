@@ -106,6 +106,13 @@ class Fit1D(Atom):
     selected_index = Int()
     elementinfo_list = List()
 
+    # The variable contains the image title displayed in "Element Map' tab.
+    #   The variable is synchronized with the identical variable in 'DrawImageAdvanced' class.
+    img_title = Str()
+    # The variable is replicating the identical variable in 'DrawImageAdvanced' class
+    #   True - quantitative normalization is ON, False - OFF
+    quantitative_normalization = Bool()
+
     function_num = Int(0)
     nvar = Int(0)
     chi2 = Float(0.0)
@@ -298,6 +305,16 @@ class Fit1D(Atom):
             with the @observe decorator
         """
         self.scaler_index = change['value']
+
+    def img_title_update(self, change):
+        r"""Observer function. Sets ``img_title`` field to the same value as
+        the identical variable in ``DrawImageAdvanced`` class"""
+        self.img_title = change['value']
+
+    def quantitative_normalization_update(self, change):
+        r"""Observer function. Sets ``img_title`` field to the same value as
+        the identical variable in ``DrawImageAdvanced`` class"""
+        self.quantitative_normalization = change['value']
 
     def energy_bound_high_update(self, change):
         """
@@ -1059,6 +1076,7 @@ class Fit1D(Atom):
         if os.path.exists(self.hdf_path):
             output_data(self.hdf_path, output_full_name,
                         interpolate_to_uniform_grid=self.map_interpolation,
+                        dataset_name=self.img_title, quant_norm=self.quantitative_normalization,
                         file_format=file_format, scaler_name=scaler_v)
         else:
             # The result map is filled after single-pixel fitting. If data is simply
