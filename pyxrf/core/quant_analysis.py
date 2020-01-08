@@ -725,3 +725,98 @@ class ParamQuantitativeAnalysis:
                         v["selected"] = True
                         elines_not_selected.remove(k)
 
+    def get_collected_eline_info(self, eline):
+        r"""
+        Collect emission line data from each loaded calibration set and return it as a list
+        of dictionaries. This is convenient for GUI presentation of data to user.
+        If the emission line is not present in any loaded calibration set, then empty list is returned.
+        """
+        eline_info = []
+        for n in range(len(self.calibration_data)):
+            try:
+                # Include only references to
+                data = self.calibration_data[n]["element_lines"][eline]
+                settings = self.calibration_settings[n]["element_lines"][eline]
+                record = {}
+                record["standard_data"] = self.calibration_data[n]
+                record["standard_settings"] = self.calibration_settings[n]
+                record["eline_data"] = data
+                record["eline_settings"] = settings
+                eline_info.append(record)
+            except Exception:
+                pass
+        return eline_info
+
+    def get_eline_calibration(self, emission_line):
+        for n in range(len(self.calibration_data)):
+            if (emission_line in self.calibration_data[n]["element_lines"]) and \
+                    (emission_line in self.calibration_settings[n]["element_lines"]):
+                data = self.calibration_data[n]["element_lines"][emission_line]
+                settings = self.calibration_settings[n]["element_lines"][emission_line]
+                if settings["selected"]:
+                    e_info = {
+                        "density": data["density"],
+                        "fluorescence": data["fluorescence"],
+                        "incident_energy": self.calibration_data[n]["incident_energy"],
+                        "detector_channel": self.calibration_data[n]["detector_channel"],
+                        "scaler_name": self.calibration_data[n]["scaler_name"],
+                        "distance_to_sample": self.calibration_data[n]["distance_to_sample"],
+                    }
+                    return e_info
+        return None
+
+    def get_selected_calibrations(self):
+        info = {}
+        for eline in self.active_emission_lines:
+            e_info = self.get_eline_calibration(eline)
+            if e_info:
+                info[eline] = e_info
+        return info
+
+    def apply_quantitative_normalization(self, data_in, *, scaler_dict, scaler_name_fixed, distance_to_sample,
+                                         data_name, name_not_scalable=None):
+
+        is_quant_normalization_applied = False
+
+        # Check input data integrity
+        if data_in is None:
+            return data_in, is_quant_normalization_applied
+
+        # Data name should not necessarily be emission line name. Some data should not be normalized.
+        #   Return input data without change
+        if data_name in name_not_scalable:
+            return data_in, is_quant_normalization_applied
+
+        e_info = self.get_eline_calibration(data_name)
+        if e_info and (e_info["scaler_name"] in scaler_dict):
+            # Quantitative calibration for the emission line is loaded, so normalization is
+            #   performed. The scaler used to obtain calibration is used. Note, that
+            #   if the scaler is None, then the function returns data without change
+            data_arr = normalize_data_by_scaler(data_in=data_in,
+                                                scaler=scaler_dict[e_info["scaler_name"]],
+                                                data_name=data_name,
+                                                name_not_scalable=name_not_scalable)
+            # Normalization function above returns reference if not transformations were applied
+            #   Make a copy in this case.
+            if data_arr is data_in:
+                data_arr = data_in.copy()
+            data_arr *= e_info["density"] / e_info["fluorescence"]
+            # If distance to sample is set for calibration data and current scan, then apply correction
+            #   If either value is ZERO, then don't perform the correction.
+            r1 = e_info["distance_to_sample"]
+            r2 = distance_to_sample
+            if (r1 is not None) and (r2 is not None) and (r1 > 0) and (r2 > 0):
+                # Element density increase as the distance becomes larger
+                #   (fluorescence is reduced as r**2)
+                data_arr *= (r2 / r1) ** 2
+            is_quant_normalization_applied = True
+        else:
+            if scaler_name_fixed in scaler_dict:
+                data_arr = normalize_data_by_scaler(data_in=data_in,
+                                                    scaler=scaler_dict[scaler_name_fixed],
+                                                    data_name=data_name,
+                                                    name_not_scalable=name_not_scalable)
+            else:
+                data_arr = data_in
+
+        return data_arr, is_quant_normalization_applied
