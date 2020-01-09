@@ -566,18 +566,25 @@ def read_xspress3_data(file_path):
     return data_output
 
 
-def output_data(fpath, output_folder,
+def output_data(dataset_dict=None, output_dir=None,
                 file_format='tiff', scaler_name=None, use_average=False,
                 dataset_name=None, quant_norm=False,
-                interpolate_to_uniform_grid=False):
+                param_quant_analysis=None, distance_to_sample=0.0,
+                positions_dict=None,
+                interpolate_to_uniform_grid=False,
+                scaler_name_list=None):
     """
     Read data from h5 file and transfer them into txt.
 
     Parameters
     ----------
-    fpath : str
-        path to h5 file
-    output_folder : str
+    dataset_dict : dict(ndarray)
+        Dictionary of XRF maps contained in the selected dataset. Each XRF map is saved in
+        the individual file. File name consists of the detector channel name (e.g. 'detsum', 'det1' etc.)
+        and map name (dictionary key). Optional list of scaler names 'scaler_name_list' may be passed
+        to the function. If map name is contained in the scaler name list, then the detector channel
+        name is not attached to the file name.
+    output_dir : str
         which folder to save those txt file
     file_format : str, optional
         tiff or txt
@@ -591,15 +598,29 @@ def output_data(fpath, output_folder,
         should end with the suffix '_fit' (for sum of all channels), '_det1_fit" etc.
     quant_norm : bool
         True - quantitative normalization is enabled, False - disabled
+    param_quant_analysis : ParamQuantitativeAnalysis
+        reference to class, which contains parameters for quantitative normalization
     interpolate_to_uniform_grid : bool
         interpolate the result to uniform grid before saving to tiff and txt files
         The grid dimensions match the dimensions of positional data for X and Y axes.
         The range of axes is chosen to fit the values of X and Y.
+    scaler_name_list : list(str)
+        The list of names of scalers that may exist in the dataset 'dataset_dict'
     """
 
     if not dataset_name:
         raise RuntimeError("Dataset is not selected. Data can not be saved.")
 
+    if dataset_dict is None:
+        dataset_dict = {}
+
+    if positions_dict is None:
+        positions_dict = {}
+
+    # Extract the detector channel name from dataset name
+    #   Dataset name ends with '_fit' for the sum of all channels
+    #   and '_detX_fit' for detector X (X is 1, 2, 3 ..)
+    # The extracted detector channel name should be 'detsum', 'det1', 'det2' etc.
     dset = None
     if re.search(r"_det\d+_fit$", dataset_name):
         dset = re.search(r"_det\d_", dataset_name)[0]
@@ -612,81 +633,49 @@ def output_data(fpath, output_folder,
 
     file_format = file_format.lower()
 
-    with h5py.File(fpath, 'r') as f:
-        tmp = output_folder.split(sep_v)[-1]
-        name_append = tmp.split('_')[-1]
-        if not name_append.isdigit():
-            name_append = ''
-        detlist = list(f['xrfmap'].keys())
-        fit_output = {}
+    fit_output = {}
+    for k, v in dataset_dict.items():
+        fit_output[k] = v
 
-        for detname in detlist:
-            # Save only the selected dataset. This is important for saving results
-            #   of quantitative normalization !!!
-            if detname != dset:
-                # fitted data
-                if 'xrf_fit' in f['xrfmap/'+detname]:
-                    fit_data = f['xrfmap/'+detname+'/xrf_fit']
-                    fit_name = f['xrfmap/'+detname+'/xrf_fit_name']
-                    fit_name = helper_decode_list(fit_name)
-                    for i in np.arange(len(fit_name)):
-                        fit_output[detname+'_'+fit_name[i]] = np.asarray(fit_data[i, :, :])
-                # fitted error
-                if 'xrf_fit_error' in f['xrfmap/'+detname]:
-                    error_data = f['xrfmap/'+detname+'/xrf_fit_error']
-                    error_name = f['xrfmap/'+detname+'/xrf_fit_error_name']
-                    error_name = helper_decode_list(error_name)
+    for k, v in positions_dict.items():
+        fit_output[k] = v
 
-                    for i in np.arange(len(error_name)):
-                        fit_output[detname+'_'+error_name[i]+'_error'] = np.asarray(error_data[i, :, :])
-
-        # ic data
-        if 'scalers' in f['xrfmap']:
-            ic_data = f['xrfmap/scalers/val']
-            ic_name = f['xrfmap/scalers/name']
-            ic_name = helper_decode_list(ic_name)
-            for i in np.arange(len(ic_name)):
-                fit_output[ic_name[i]] = np.asarray(ic_data[:, :, i])
-
-        # position data
-        if 'positions' in f['xrfmap']:
-            pos_name = f['xrfmap/positions/name']
-            pos_name = helper_decode_list(pos_name)
-            for i, n in enumerate(pos_name):
-                fit_output[n] = np.asarray(f['xrfmap/positions/pos'].value[i, :])
-
-    #  more data from suitcase part
-    data_sc = {}
-    # data_sc = retrieve_data_from_hdf_suitcase(fpath)
-    if len(data_sc) != 0:
-        fit_output.update(data_sc)
-
-    logger.info(f"Saving data as {file_format.upper()} files. Directory '{output_folder}'")
+    logger.info(f"Saving data as {file_format.upper()} files. Directory '{output_dir}'")
     if scaler_name:
         logger.info(f"Data is NORMALIZED before saving. Scaler: '{scaler_name}'")
 
     if(interpolate_to_uniform_grid):
-        logger.info(f"Data is INTERPOLATED to uniform grid.")
-        for k, v in fit_output.items():
-            # Do not interpolation positions
-            if 'pos' in k:
-                continue
+        if ("x_pos" in fit_output) and ("y_pos" in fit_output):
+            logger.info(f"Data is INTERPOLATED to uniform grid.")
+            for k, v in fit_output.items():
+                # Do not interpolation positions
+                if 'pos' in k:
+                    continue
 
-            fit_output[k], xx, yy = grid_interpolate(v, fit_output["x_pos"], fit_output["y_pos"])
+                fit_output[k], xx, yy = grid_interpolate(v, fit_output["x_pos"], fit_output["y_pos"])
 
-        fit_output["x_pos"] = xx
-        fit_output["y_pos"] = yy
+            fit_output["x_pos"] = xx
+            fit_output["y_pos"] = yy
+        else:
+            logger.error(f"Positional data 'x_pos' and 'y_pos' is not found in the dataset.\n"
+                         "Iterpolation to uniform grid can not be performed. "
+                         "Data is saved without interpolation.")
 
-    output_data_to_tiff(fit_output, output_folder=output_folder,
-                        file_format=file_format, name_append=name_append,
-                        scaler_name=scaler_name,
-                        use_average=use_average)
+    output_data_to_tiff(fit_output, output_dir=output_dir,
+                        file_format=file_format, name_prefix_detector=dset, name_append="",
+                        scaler_name=scaler_name, quant_norm=quant_norm,
+                        param_quant_analysis=param_quant_analysis,
+                        distance_to_sample=distance_to_sample,
+                        use_average=use_average,
+                        scaler_name_list=scaler_name_list)
 
 
 def output_data_to_tiff(fit_output,
-                        output_folder=None,
-                        file_format='tiff', name_append="",
-                        scaler_name=None, use_average=False):
+                        output_dir=None,
+                        file_format='tiff', name_prefix_detector=None, name_append=None,
+                        scaler_name=None, scaler_name_list=None,
+                        quant_norm=False, param_quant_analysis=None, distance_to_sample=0.0,
+                        use_average=False):
     """
     Read data in memory and save them into tiff to txt.
 
@@ -694,70 +683,122 @@ def output_data_to_tiff(fit_output,
     ----------
     fit_output:
         dict of fitting data and scaler data
-    output_folder : str, optional
+    output_dir : str, optional
         which folder to save those txt file
     file_format : str, optional
         tiff or txt
+    name_prefix_detector : str
+        prefix appended to file name except for the files that contain positional data and scalers
     name_append: str, optional
         more information saved to output file name
     scaler_name : str, optional
         if given, normalization will be performed.
+    scaler_name_list : list(str)
+        The list of names of scalers that may exist in the dataset 'dataset_dict'
+    quant_norm : bool
+        True - apply quantitative normalization, False - use normalization by scaler
+    param_quant_analysis : ParamQuantitativeAnalysis
+        reference to class, which contains parameters for quantitative normalization,
+        if None, then quantitative normalization will be skipped
+    distance_to_sample : float
+        parameter used for quantitative normalization
     use_average : Bool, optional
         when normalization, multiply by the mean value of scaler,
         i.e., norm_data = data/scaler * np.mean(scaler)
     """
 
-    if output_folder is None:
+    if output_dir is None:
         raise ValueError("Output directory is not specified.")
 
     if name_append:
         name_append = f"_{name_append}"
+    else:
+        # If 'name_append' is None, set it to "" so that it could be safely appended to a string
+        name_append = ""
 
     file_format = file_format.lower()
 
     allowed_formats = ('txt', 'tiff')
-    assert file_format in allowed_formats, f"The specified format '{file_format}' not in {allowed_formats}"
+    if file_format not in allowed_formats:
+        raise RuntimeError(f"The specified format '{file_format}' not in {allowed_formats}")
 
-    # The 'file_format' is specified as file extension
-    file_extension = file_format
+    # Create the output directory if it does not exist
+    os.makedirs(output_dir, exist_ok=True)
 
-    # save data
-    if os.path.exists(output_folder) is False:
-        os.mkdir(output_folder)
+    def _save_data(data, *, output_dir, file_name,
+                   name_prefix_detector, name_append,
+                   file_format, scaler_name_list):
+
+        # The 'file_format' is specified as file extension
+        file_extension = file_format.lower()
+
+        # If data is scalar or position, then don't attach the prefix
+        fname = f"{name_prefix_detector}_{file_name}" \
+            if (file_name not in scaler_name_list) and ("pos" not in file_name) \
+            else file_name
+
+        fname = f"{fname}{name_append}.{file_extension}"
+        fname = os.path.join(output_dir, fname)
+        if file_format.lower() == 'tiff':
+            sio.imsave(fname, data.astype(np.float32))
+        elif file_format.lower() == 'txt':
+            np.savetxt(fname, data.astype(np.float32))
+        else:
+            raise ValueError(f"Function is called with invalid file format '{file_format}'.")
+
+    if quant_norm:
+        if param_quant_analysis:
+            for data_name, data in fit_output.items():
+                # Quantitative normalization
+                data_normalized, quant_norm_applied = param_quant_analysis.apply_quantitative_normalization(
+                    data_in=data,
+                    scaler_dict=fit_output,
+                    scaler_name_fixed=None,  # We don't want data to be scaled
+                    distance_to_sample=distance_to_sample,
+                    data_name=data_name,
+                    name_not_scalable=None)  # For simplicity, all saved maps are normalized
+                if quant_norm_applied:
+                    # Save data only if quantitative normalization was performed.
+                   _save_data(data_normalized, output_dir=output_dir,
+                              file_name=data_name,
+                              name_prefix_detector=name_prefix_detector,
+                              name_append=f"{name_append}_quantitative",
+                              file_format=file_format,
+                              scaler_name_list=scaler_name_list)
+        else:
+            logger.error("Quantitative analysis parameters are not provided. "
+                         f"Quantitative data is not saved in {file_format.upper()} format.")
 
     # Normalize data if scaler is provided
     if scaler_name is not None:
         if scaler_name in fit_output:
-            ic_v = fit_output[scaler_name]
-            for k, v in fit_output.items():
-                if 'pos' in k or 'r2' in k:
+            scaler_data = fit_output[scaler_name]
+            for data_name, data in fit_output.items():
+                if 'pos' in data_name or 'r2' in data_name:
                     continue
                 # Normalization of data
-                v = normalize_data_by_scaler(v, ic_v)
+                data_normalized = normalize_data_by_scaler(data, scaler_data)
                 if use_average is True:
-                    v *= np.mean(ic_v)
-                fname = f"{k}{name_append}_norm.{file_extension}"
-                fname = os.path.join(output_folder, fname)
-                if file_format.lower() == 'tiff':
-                    sio.imsave(fname, v.astype(np.float32))
-                elif file_format.lower() == 'txt':
-                    np.savetxt(fname, v.astype(np.float32))
-                else:
-                    raise ValueError(f"Function is called with invalid file format '{file_format}'.")
+                    data_normalized *= np.mean(scaler_data)
+
+                _save_data(data_normalized, output_dir=output_dir,
+                           file_name=data_name,
+                           name_prefix_detector=name_prefix_detector,
+                           name_append=f"{name_append}_norm",
+                           file_format=file_format,
+                           scaler_name_list=scaler_name_list)
         else:
             logger.warning(f"The scaler '{scaler_name}' was not found. Data normalization "
                            f"was not performed for {file_format.upper()} file.")
 
     # Always save not normalized data
-    for k, v in fit_output.items():
-        fname = f"{k}{name_append}.{file_extension}"
-        fname = os.path.join(output_folder, fname)
-        if file_format == 'tiff':
-            sio.imsave(fname, v.astype(np.float32))
-        elif file_format == 'txt':
-            np.savetxt(fname, v.astype(np.float32))
-        else:
-            raise ValueError(f"Function is called with invalid file format '{file_format}'.")
+    for data_name, data in fit_output.items():
+        _save_data(data, output_dir=output_dir,
+                   file_name=data_name,
+                   name_prefix_detector=name_prefix_detector,
+                   name_append=name_append,
+                   file_format=file_format,
+                   scaler_name_list=scaler_name_list)
 
 
 def read_hdf_APS(working_directory,
