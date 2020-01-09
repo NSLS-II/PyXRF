@@ -322,6 +322,12 @@ class DrawImageAdvanced(Atom):
 
     @observe('quantitative_normalization')
     def _update_qn(self, change):
+
+        # Propagate current value of 'self.param_quant_analysis' (activate 'observer' functions)
+        tmp = self.param_quant_analysis
+        self.param_quant_analysis = []
+        self.param_quant_analysis = tmp
+
         self.set_low_high_value()  # reset low high values based on normalization
         self.show_image()
         self.update_img_wizard_items()
