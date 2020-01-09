@@ -127,8 +127,11 @@ def run():
 
     img_model_adv.observe('scaler_name_index', fit_model.scaler_index_update)
 
+    img_model_adv.observe('dict_to_plot', fit_model.dict_to_plot_update)
     img_model_adv.observe('img_title', fit_model.img_title_update)
     img_model_adv.observe('quantitative_normalization', fit_model.quantitative_normalization_update)
+    img_model_adv.observe('param_quant_analysis', fit_model.param_quant_analysis_update)
+    img_model_adv.observe('quant_distance_to_sample', fit_model.quant_distance_to_sample_update)
 
     param_model.observe('energy_bound_high_buf', fit_model.energy_bound_high_update)
     param_model.observe('energy_bound_low_buf', fit_model.energy_bound_low_update)
