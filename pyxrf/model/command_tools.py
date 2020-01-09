@@ -11,6 +11,8 @@ import copy
 from collections.abc import Iterable
 import re
 
+from ..core.quant_analysis import ParamQuantitativeAnalysis
+
 from skbeam.core.fitting.xrf_model import (linear_spectrum_fitting, define_range)
 from .fileio import output_data, read_hdf_APS, read_MAPS, sep_v
 from .fit_spectrum import (single_pixel_fitting_controller,
@@ -25,6 +27,8 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
                             fit_channel_each=False, param_channel_list=None,
                             incident_energy=None,
                             ignore_datafile_metadata=False,
+                            fln_quant_calib_data=None,
+                            quant_distance_to_sample=0,
                             method='nnls', pixel_bin=0, raise_bg=0,
                             comp_elastic_combine=False,
                             linear_bg=False,
@@ -64,6 +68,12 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
         If True, then the incident energy from the parameter JSON file is used; if False, then
         the energy from metadata is used. If the function parameter ``incident_energy`` is
         not None, then its value overrides the incident energy from metadata or JSON file.
+    fln_quant_calib_data : str or list(str)
+        file name or a list of file names that contain quantitative calibration data
+    quant_distance_to_sample : float
+        distance-to-sample used in quantitative calibration. If 0, then correction for
+        distance is not applied (assumed that the standard and the sample were placed
+        at the same distance from the detector).
     method : str, optional
         fitting method, default as nnls
     pixel_bin : int, optional
@@ -98,6 +108,25 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
         where do data come from? Data format includes data from NSLS-II, or 2IDE-APS
     """
     fpath = os.path.join(working_directory, file_name)
+
+    # Load quantitative calibration files (if necessary)
+    quant_norm = False  # Indicates if at least one calibration file is loaded
+    if fln_quant_calib_data:
+        param_quant_analysis = ParamQuantitativeAnalysis()
+        if isinstance(fln_quant_calib_data, str):
+            fln_quant_calib_data = [fln_quant_calib_data]
+        for fln in fln_quant_calib_data:
+            if os.path.isabs(fln):
+                f = fln
+            else:
+                f = os.path.join(working_directory, fln)
+            try:
+                param_quant_analysis.load_calibration_data(f)
+                quant_norm = True
+                logger.info(f"Quantitative calibration is loaded successfully from file '{f}'")
+            except Exception as ex:
+                logger.error(f"Error occurred while loading quantitative calibration from file '{f}': {ex}")
+
     t0 = time.time()
     prefix_fname = file_name.split('.')[0]
     if fit_channel_sum is True:
@@ -154,6 +183,55 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
         # fit_name = prefix_fname+'_fit'
         save_fitdata_to_hdf(fpath, result_map_sum, datapath=inner_path)
 
+        def get_scaler_set(img_dict):
+            sc_set_names = [_ for _ in img_dict if _.endswith("_scaler")]
+            if sc_set_names:
+                return img_dict[sc_set_names[0]]
+            else:
+                return {}
+
+        def get_positions_set(img_dict):
+            if "positions" in img_dict:
+                return img_dict["positions"]
+            else:
+                return {}
+
+        scaler_dict = get_scaler_set(img_dict)
+        scaler_name_list = list(scaler_dict.keys())
+        positions_dict = get_positions_set(img_dict)
+        # Generate dataset
+        dataset = copy.deepcopy(scaler_dict)
+        dataset.update(result_map_sum)
+
+        if save_txt is True:
+            output_folder = 'output_txt_'+prefix_fname
+            output_path = os.path.join(working_directory, output_folder)
+            output_data(output_dir=output_path,
+                        interpolate_to_uniform_grid=interpolate_to_uniform_grid,
+                        dataset_name="dataset_fit",  # Sum of all detectors: should end with '_fit'
+                        quant_norm=quant_norm,
+                        param_quant_analysis=param_quant_analysis,
+                        distance_to_sample=quant_distance_to_sample,
+                        dataset_dict=dataset, positions_dict=positions_dict,
+                        file_format="txt", scaler_name=scaler_name,
+                        scaler_name_list=scaler_name_list,
+                        use_average=use_average)
+
+        if save_tiff is True:
+            output_folder = 'output_tiff_'+prefix_fname
+            output_path = os.path.join(working_directory, output_folder)
+            output_data(output_dir=output_path,
+                        interpolate_to_uniform_grid=interpolate_to_uniform_grid,
+                        dataset_name="dataset_fit",  # Sum of all detectors: should end with '_fit'
+                        quant_norm=quant_norm,
+                        param_quant_analysis=param_quant_analysis,
+                        distance_to_sample=quant_distance_to_sample,
+                        dataset_dict=dataset, positions_dict=positions_dict,
+                        file_format="tiff", scaler_name=scaler_name,
+                        scaler_name_list=scaler_name_list,
+                        use_average=use_average)
+
+
     if fit_channel_each is True and param_channel_list is not None:
         channel_num = len(param_channel_list)
         img_dict, data_sets, mdata = read_hdf_APS(working_directory, file_name,
@@ -208,23 +286,12 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
     t1 = time.time()
     print(f"Processing time: {t1 - t0}")
 
-    if save_txt is True:
-        output_folder = 'output_txt_'+prefix_fname
-        output_path = os.path.join(working_directory, output_folder)
-        output_data(fpath, output_path, file_format='txt',
-                    scaler_name=scaler_name, use_average=use_average,
-                    interpolate_to_uniform_grid=interpolate_to_uniform_grid)
-    if save_tiff is True:
-        output_folder = 'output_tiff_'+prefix_fname
-        output_path = os.path.join(working_directory, output_folder)
-        output_data(fpath, output_path, file_format='tiff',
-                    scaler_name=scaler_name, use_average=use_average,
-                    interpolate_to_uniform_grid=interpolate_to_uniform_grid)
 
 
 def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None, wd=None,
                 fit_channel_sum=True, fit_channel_each=False, param_channel_list=None,
                 incident_energy=None, ignore_datafile_metadata=False,
+                fln_quant_calib_data=None, quant_distance_to_sample=0,
                 spectrum_cut=3000, save_txt=False, save_tiff=True,
                 scaler_name=None, use_average=False,
                 interpolate_to_uniform_grid=False):
@@ -270,6 +337,12 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
         the energy from metadata is used. If the function parameter ``incident_energy`` is
         not None, then its value overrides the incident energy from metadata or JSON file.
         Default: False.
+    fln_quant_calib_data : str or list(str)
+        file name or a list of file names that contain quantitative calibration data
+    quant_distance_to_sample : float
+        distance-to-sample used in quantitative calibration. If 0, then correction for
+        distance is not applied (assumed that the standard and the sample were placed
+        at the same distance from the detector).
     spectrum_cut : int, optional
         only use spectrum from, say 0, 3000
     save_txt : bool, optional
@@ -383,6 +456,16 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
     elif (start_id is not None) and (end_id is None):
         allow_raising_exceptions = True
 
+    if fln_quant_calib_data is not None:
+        if not isinstance(fln_quant_calib_data, str) and not isinstance(fln_quant_calib_data, list):
+            raise ValueError("Parameter 'fln_quant_calib_data' must be a string or a list of strings")
+        if isinstance(fln_quant_calib_data, list) and \
+                any([not isinstance(_, str) for _ in fln_quant_calib_data]):
+            raise ValueError("List passed with the parameter 'fln_quant_calib_data' must contain only strings")
+
+    if not isinstance(quant_distance_to_sample, float) and not isinstance(quant_distance_to_sample, int):
+        raise ValueError("Value of the parameter 'quant_distance_to_sample' must be floating point number")
+
     if data_files is not None:
 
         # Check if ``data_files`` has valid value
@@ -486,6 +569,8 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
                                         fit_channel_each=fit_channel_each, param_channel_list=param_channel_list,
                                         incident_energy=incident_energy,
                                         ignore_datafile_metadata=ignore_datafile_metadata,
+                                        fln_quant_calib_data=fln_quant_calib_data,
+                                        quant_distance_to_sample=quant_distance_to_sample,
                                         spectrum_cut=spectrum_cut,
                                         save_txt=save_txt, save_tiff=save_tiff,
                                         scaler_name=scaler_name, use_average=use_average,
@@ -651,6 +736,17 @@ if __name__ == "__main__":
     stream_handler.setLevel(logging.INFO)
     logger.addHandler(stream_handler)
 
-    pyxrf_batch(start_id=92276, end_id=92276,
-                param_file_name="param_335",
-                wd=".", save_tiff=False)
+    # pyxrf_batch(start_id=92276, end_id=92276,
+    #             param_file_name="param_335",
+    #             wd=".", save_tiff=False)
+
+    pyxrf_batch(start_id=22873,
+                param_file_name="test2",
+                wd=".", save_tiff=True,
+                fln_quant_calib_data=['standard_32654A.json',
+                                      'standard_32654A a.json',
+                                      'standard_41147.json'],
+                fit_channel_each=True,
+                param_channel_list=['det1', 'det2', 'det3']
+                )
+
