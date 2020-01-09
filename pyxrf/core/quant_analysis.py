@@ -776,6 +776,11 @@ class ParamQuantitativeAnalysis:
     def apply_quantitative_normalization(self, data_in, *, scaler_dict, scaler_name_fixed, distance_to_sample,
                                          data_name, name_not_scalable=None):
 
+        # scaler_name_fixed may be None. In this case normalization will be performed only
+        #   if quantitative data is available for the emission line 'data_name'
+        # data_name may represent an emission line or other type of data
+
+
         is_quant_normalization_applied = False
 
         # Check input data integrity
@@ -784,16 +789,24 @@ class ParamQuantitativeAnalysis:
 
         # Data name should not necessarily be emission line name. Some data should not be normalized.
         #   Return input data without change
-        if data_name in name_not_scalable:
+        if name_not_scalable and (data_name in name_not_scalable):
             return data_in, is_quant_normalization_applied
 
         e_info = self.get_eline_calibration(data_name)
-        if e_info and (e_info["scaler_name"] in scaler_dict):
+        # Scaler is not strictly required to perform quanitative calibration, so it is allowed
+        #   to run the function without a scaler. The scaler name is None if the standard was
+        #   processed without normalization, so the sample data will not be normalized as well.
+        #   But the results are expected to be much better if the scaler is used.
+        if e_info and ((e_info["scaler_name"] in scaler_dict) or (e_info["scaler_name"] is None)):
             # Quantitative calibration for the emission line is loaded, so normalization is
             #   performed. The scaler used to obtain calibration is used. Note, that
             #   if the scaler is None, then the function returns data without change
+            if e_info["scaler_name"] is None:
+                scaler = None
+            else:
+                scaler = scaler_dict[e_info["scaler_name"]]
             data_arr = normalize_data_by_scaler(data_in=data_in,
-                                                scaler=scaler_dict[e_info["scaler_name"]],
+                                                scaler=scaler,
                                                 data_name=data_name,
                                                 name_not_scalable=name_not_scalable)
             # Normalization function above returns reference if not transformations were applied
@@ -811,6 +824,7 @@ class ParamQuantitativeAnalysis:
                 data_arr *= (r2 / r1) ** 2
             is_quant_normalization_applied = True
         else:
+            # The following condition also takes care of the case when 'scaler_name_fixed' is None
             if scaler_name_fixed in scaler_dict:
                 data_arr = normalize_data_by_scaler(data_in=data_in,
                                                     scaler=scaler_dict[scaler_name_fixed],
