@@ -109,9 +109,18 @@ class Fit1D(Atom):
     # The variable contains the image title displayed in "Element Map' tab.
     #   The variable is synchronized with the identical variable in 'DrawImageAdvanced' class.
     img_title = Str()
+    # Reference to the dictionary that contains dataset currently displayed in 'Element Map' tab
+    #   The variable is synchronized with the identical variable in 'DrawImageAdvanced' class
+    dict_to_plot = Dict()
+
     # The variable is replicating the identical variable in 'DrawImageAdvanced' class
     #   True - quantitative normalization is ON, False - OFF
     quantitative_normalization = Bool()
+    # The reference to the object holding parameters for quantitative normalization
+    #   The variable is synchronized to the identical variable in 'DrawImageAdvanced' class
+    param_quant_analysis = Typed(object)
+    # Copy of identical variable from 'DrawImageClass': parameter used in quantitative normalization
+    quant_distance_to_sample = Float()
 
     function_num = Int(0)
     nvar = Int(0)
@@ -311,10 +320,25 @@ class Fit1D(Atom):
         the identical variable in ``DrawImageAdvanced`` class"""
         self.img_title = change['value']
 
+    def dict_to_plot_update(self, change):
+        r"""Observer function. Sets ``dict_to_plot`` field to the same value as
+        the identical variable in ``DrawImageAdvanced`` class"""
+        self.dict_to_plot = change['value']
+
     def quantitative_normalization_update(self, change):
-        r"""Observer function. Sets ``img_title`` field to the same value as
+        r"""Observer function. Sets ``quantitative_normalization`` field to the same value as
         the identical variable in ``DrawImageAdvanced`` class"""
         self.quantitative_normalization = change['value']
+
+    def param_quant_analysis_update(self, change):
+        r"""Observer function. Sets ``param_quant_analysis`` field to the same value as
+        the identical variable in ``DrawImageAdvanced`` class"""
+        self.param_quant_analysis = change['value']
+
+    def quant_distance_to_sample_update(self, change):
+        r"""Observer function. Sets ``quant_distance_to_sample`` field to the same value as
+        the identical variable in ``DrawImageAdvanced`` class"""
+        self.quant_distance_to_sample = float(change['value'])
 
     def energy_bound_high_update(self, change):
         """
@@ -1069,45 +1093,33 @@ class Fit1D(Atom):
             file_format = "txt"
 
         output_n = dir_prefix + _post_name_folder
-        output_full_name = os.path.join(self.result_folder, output_n)
-        # still keep the function of reading data from hdf and saving,
-        # for cases that user wants to output current data in hdf
-        # without rerun fitting again
-        if os.path.exists(self.hdf_path):
-            output_data(self.hdf_path, output_full_name,
-                        interpolate_to_uniform_grid=self.map_interpolation,
-                        dataset_name=self.img_title, quant_norm=self.quantitative_normalization,
-                        file_format=file_format, scaler_name=scaler_v)
+        output_dir = os.path.join(self.result_folder, output_n)
+
+        # self.img_dict contains ALL loaded datasets, including a separate "positions" dataset
+        if "positions" in self.img_dict:
+            positions_dict = self.img_dict["positions"]
         else:
-            # The result map is filled after single-pixel fitting. If data is simply
-            #   loaded from the file, the map is empty. It is possible to save data
-            #   from loaded image data, but there must be some GUI widget to select
-            #   the dataset.
-            if self.result_map:
-                result_map_prepared = self.result_map.copy()
-                if self.map_interpolation:
-                    logger.info(f"The data is INTERPOLATED to uniform grid before saving.")
-                    for k, v in result_map_prepared.items():
-                        # Do not interpolate positions
-                        if 'pos' in k:
-                            continue
+            positions_dict = {}
 
-                        result_map_prepared[k], xx, yy = \
-                            grid_interpolate(v, self.img_dict["positions"]["x_pos"],
-                                             self.img_dict["positions"]["y_pos"])
+        # Scalers are located in a separate dataset in 'img_dict'. They are also referenced
+        #   in each '_fit' dataset (and in the selected dataset 'self.dict_to_plot')
+        #   The list of scaler names is used to avoid attaching the detector channel name
+        #   to file names that contain scaler data (scalers typically do not depend on
+        #   the selection of detector channels.
+        scaler_dsets = [_ for _ in self.img_dict.keys() if re.search(r"_scaler$", _)]
+        if scaler_dsets:
+            scaler_name_list = list(self.img_dict[scaler_dsets[0]].keys())
+        else:
+            scaler_name_list = None
 
-                    # 'x_pos' and 'y_pos' do not exist in the 'self.result_map'
-                    result_map_prepared["x_pos"] = xx
-                    result_map_prepared["y_pos"] = yy
-
-                output_data_to_tiff(result_map_prepared, output_full_name,
-                                    name_append=_name_each_file,
-                                    file_format=file_format, scaler_name=scaler_v)
-                logger.info(f"Saving data to {file_format.upper()} files is completed.")
-
-            else:
-                logger.error(f"No data to save to {file_format.upper()} files. "
-                             f"Run 'Individual Pixel Fitting' to generate processed data.")
+        output_data(output_dir=output_dir,
+                    interpolate_to_uniform_grid=self.map_interpolation,
+                    dataset_name=self.img_title, quant_norm=self.quantitative_normalization,
+                    param_quant_analysis=self.param_quant_analysis,
+                    distance_to_sample=self.quant_distance_to_sample,
+                    dataset_dict=self.dict_to_plot, positions_dict=positions_dict,
+                    file_format=file_format, scaler_name=scaler_v,
+                    scaler_name_list=scaler_name_list)
 
     def save_result(self, fname=None):
         """
