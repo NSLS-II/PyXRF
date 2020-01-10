@@ -21,7 +21,7 @@ from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Float, Enum, Bo
 from .load_data_from_db import (db, fetch_data_from_db, flip_data,
                                 helper_encode_list, helper_decode_list,
                                 write_db_to_hdf)
-from .utils import normalize_data_by_scaler, grid_interpolate
+from ..core.utils import normalize_data_by_scaler, grid_interpolate
 from .scan_metadata import ScanMetadataXRF
 import requests
 from distutils.version import LooseVersion

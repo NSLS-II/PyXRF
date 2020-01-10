@@ -195,7 +195,11 @@ _xrf_standard_fluor_sample = {
     "incident_energy": 10.5,
     "detector_channel": "sum",
     "scaler_name": "i0",
-    "distance_to_sample": 50.6
+    "distance_to_sample": 50.6,
+    "creation_time_local": "2020-01-10T11:50:39+00:00",
+    "source_scan_id": 92276,
+    "source_scan_uid": "f07e3065-ab92-4b20-a702-ef61ed164dbc"
+
 }
 
 

@@ -111,8 +111,8 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
 
     # Load quantitative calibration files (if necessary)
     quant_norm = False  # Indicates if at least one calibration file is loaded
+    param_quant_analysis = ParamQuantitativeAnalysis()
     if fln_quant_calib_data:
-        param_quant_analysis = ParamQuantitativeAnalysis()
         if isinstance(fln_quant_calib_data, str):
             fln_quant_calib_data = [fln_quant_calib_data]
         for fln in fln_quant_calib_data:
@@ -746,7 +746,7 @@ if __name__ == "__main__":
                 fln_quant_calib_data=['standard_32654A.json',
                                       'standard_32654A a.json',
                                       'standard_41147.json'],
-                fit_channel_each=True,
-                param_channel_list=['det1', 'det2', 'det3']
+                #fit_channel_each=True,
+                #param_channel_list=['det1', 'det2', 'det3']
                 )
 

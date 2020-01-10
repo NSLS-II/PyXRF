@@ -1005,18 +1005,28 @@ enamldef FitView(DockItem): fit_view:
                         fit_model.param_quant_estimation.set_detector_channel_in_data_dict(
                             detector_channel=selected_det_channel)
 
+                        fit_model.param_quant_estimation.set_distance_to_sample_in_data_dict(
+                            distance_to_sample=fit_model.get_qe_standard_distance_as_float())
+
+                        # Set optional parameters
+                        if io_model.scan_metadata_available:
+                            _scan_id = None
+                            _scan_uid = None
+                            if "scan_id" in io_model.scan_metadata:
+                                _scan_id = io_model.scan_metadata["scan_id"]
+                            if "scan_uid" in io_model.scan_metadata:
+                                _scan_uid = io_model.scan_metadata["scan_uid"]
+                            fit_model.param_quant_estimation.set_optional_parameters(
+                                scan_id=_scan_id, scan_uid=_scan_uid)
+
                         fit_model.qe_standard_data_preview = \
-                            fit_model.param_quant_estimation.get_fluorescence_data_dict_text_preview(
-                                distance_to_sample=fit_model.get_qe_standard_distance_as_float())
+                            fit_model.param_quant_estimation.get_fluorescence_data_dict_text_preview()
 
                         if save_quant_calibration_edit.exec_():
                             try:
                                 # Create full path to file
                                 fln_json = fit_model.qe_standard_file_name.strip()
                                 path_json = os.path.join(io_model.working_directory, fln_json)
-
-                                fit_model.param_quant_estimation.set_distance_to_sample_in_data_dict(
-                                    distance_to_sample=fit_model.get_qe_standard_distance_as_float())
 
                                 fit_model.param_quant_estimation.save_fluorescence_data_dict(path_json,
                                     overwrite_existing=fit_model.qe_standard_overwrite_existing)

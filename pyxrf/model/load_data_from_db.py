@@ -14,7 +14,7 @@ import time as ttime
 import logging
 import warnings
 
-from .utils import convert_time_to_nexus_string
+from ..core.utils import convert_time_to_nexus_string
 from .scan_metadata import ScanMetadataXRF
 
 import pyxrf

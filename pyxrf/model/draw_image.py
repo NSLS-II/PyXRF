@@ -5,6 +5,7 @@ import numpy as np
 from collections import OrderedDict
 # from scipy.interpolate import interp1d, interp2d
 import copy
+import re
 
 import math
 import matplotlib
@@ -15,7 +16,7 @@ import matplotlib.ticker as mticker
 from mpl_toolkits.axes_grid1 import ImageGrid
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool
 
-from .utils import normalize_data_by_scaler, grid_interpolate
+from ..core.utils import normalize_data_by_scaler, grid_interpolate
 
 from ..core.quant_analysis import ParamQuantitativeAnalysis
 
@@ -203,6 +204,18 @@ class DrawImageAdvanced(Atom):
                         default_items[item] = k[item]
             self.data_dict['use_default_selection'] = default_items
 
+    def get_detector_channel_name(self):
+        # Return the name of the selected detector channel ('sum', 'det1', 'det2' etc)
+        #   The channel name is extracted from 'self.img_title' (selected in 'ElementMap' tab)
+        if self.img_title:
+            if(re.search(r"_det\d+_fit$", self.img_title)):
+                s = re.search(r"_det\d+_", self.img_title)[0]
+                return s.strip('_')
+            if(re.search(r"_fit", self.img_title)):
+                return "sum"
+        else:
+            return None
+
     @observe('data_opt')
     def _update_file(self, change):
         try:
@@ -218,8 +231,12 @@ class DrawImageAdvanced(Atom):
                 self.dict_to_plot = self.data_dict[plot_item]
                 self.set_stat_for_all(bool_val=False)
 
+
                 self.update_img_wizard_items()
                 self.get_default_items()   # get default elements every time when fitting is done
+
+            # The detector channel name should be updated in any case
+            self.param_quant_analysis.experiment_detector_channel = self.get_detector_channel_name()
 
         except IndexError:
             pass
@@ -325,7 +342,7 @@ class DrawImageAdvanced(Atom):
 
         # Propagate current value of 'self.param_quant_analysis' (activate 'observer' functions)
         tmp = self.param_quant_analysis
-        self.param_quant_analysis = []
+        self.param_quant_analysis = ParamQuantitativeAnalysis()
         self.param_quant_analysis = tmp
 
         self.set_low_high_value()  # reset low high values based on normalization

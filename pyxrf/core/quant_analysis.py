@@ -5,8 +5,9 @@ import numpy as np
 import math
 import json
 import copy
+import time as ttime
 from .xrf_utils import split_compound_mass, generate_eline_list
-from ..model.utils import normalize_data_by_scaler
+from .utils import normalize_data_by_scaler, convert_time_to_nexus_string
 import logging
 logger = logging.getLogger()
 
@@ -266,7 +267,8 @@ _xrf_quant_fluor_schema = {
     "type": "object",
     "additionalProperties": False,
     "required": ["name", "serial", "description", "element_lines",
-                 "incident_energy", "scaler_name", "distance_to_sample"],
+                 "incident_energy", "scaler_name", "distance_to_sample",
+                 "creation_time_local", "source_scan_id", "source_scan_uid"],
     "properties": {
         # 'name', 'serial' and 'description' (optional) are copied
         #   from the structure used for description of XRF standard samples
@@ -303,6 +305,12 @@ _xrf_quant_fluor_schema = {
         "scaler_name": {"type": ["string", "null"]},
         # Distance to the sample (number or null)
         "distance_to_sample": {"type": ["number", "null"]},
+        # Time of file creation (NEXUS format), optional, null if not set
+        "creation_time_local": {"type": ["string", "null"]},
+        # Scan ID of the source (scan of the standard), optional, null if not set
+        "source_scan_id": {"type": ["integer", "null"]},
+        # Scan UID of the source (scan of the standard), optional, null if not set
+        "source_scan_uid": {"type": ["string", "null"]}
     }
 }
 
@@ -405,6 +413,10 @@ def load_xrf_quant_fluor_json_file(file_path, *, schema=_xrf_quant_fluor_schema)
 def get_quant_fluor_data_dict(quant_param_dict, incident_energy):
     # TODO: Documentation and tests
 
+    if incident_energy is not None:
+        # Make sure that it is 'float', not 'float64', since 'float64' is not supported by 'yaml' package
+        incident_energy = float(max(incident_energy, 0))
+
     quant_fluor_data_dict = {}
     quant_fluor_data_dict["name"] = quant_param_dict["name"]
     quant_fluor_data_dict["serial"] = quant_param_dict["serial"]
@@ -432,6 +444,10 @@ def get_quant_fluor_data_dict(quant_param_dict, incident_energy):
     quant_fluor_data_dict["detector_channel"] = None
     quant_fluor_data_dict["scaler_name"] = None
     quant_fluor_data_dict["distance_to_sample"] = None
+
+    quant_fluor_data_dict["creation_time_local"] = None
+    quant_fluor_data_dict["source_scan_id"] = None
+    quant_fluor_data_dict["source_scan_uid"] = None
 
     return quant_fluor_data_dict
 
@@ -483,6 +499,45 @@ def prune_quant_fluor_data_dict(quant_fluor_data_dict):
             del quant_fluor_data_dict["element_lines"][key]
 
     return quant_fluor_data_dict
+
+
+def set_quant_fluor_data_dict_optional(quant_fluor_data_dict, *, scan_id=None, scan_uid=None):
+    r"""Set optional parameters in the existing dictionary with quantitative fluorescence data.
+    The parameters include: source_scan_id (if provided), source_scan_uid (if provided)"""
+    # TODO: Documentation and tests
+
+    # Set scan ID (optional parameter)
+    if scan_id is not None:
+        try:
+            # Attempt to convert to 'int' (from str, 'int64' etc)
+            scan_id = int(scan_id)
+        except:
+            raise RuntimeError("Parameter 'scan_id' must be integer or a string representing integer")
+
+        quant_fluor_data_dict["source_scan_id"] = scan_id
+
+    # Set scan UID (optional parameter)
+    if scan_uid is not None:
+        if not isinstance(scan_uid, str):
+            raise RuntimeError("Parameter 'scan_uid' must be a string representing scan UID")
+
+        quant_fluor_data_dict["source_scan_uid"] = scan_uid
+
+    # Set time as well (it may be changed later)
+    quant_fluor_data_dict = set_quant_fluor_data_dict_time(quant_fluor_data_dict)
+
+    return quant_fluor_data_dict
+
+
+def set_quant_fluor_data_dict_time(quant_fluor_data_dict):
+    r"""Set creation time to current local time"""
+    # TODO: Documentation and tests
+
+    # Set creation time (current local time in NEXUS format)
+    quant_fluor_data_dict["creation_time_local"] = convert_time_to_nexus_string(ttime.localtime())
+
+    return quant_fluor_data_dict
+
 
 # -------------------------------------------------------------------------------------------------
 
@@ -588,7 +643,9 @@ class ParamQuantEstimation:
 
         if incident_energy:
             self.incident_energy = incident_energy
-        np.clip(self.incident_energy, a_min=0.0, a_max=None)
+        self.incident_energy = float(max(self.incident_energy, 0.0))
+        # 'incident_energy' must be 'float', not numpy 'float64' in order to be correctly displayed
+        #   in 'yaml' formatted preview ('yaml' package does not support 'float64')
 
         if incident_energy == 0.0:
             logger.warning("Attempting to compute the list of emission lines with incident energy set to 0")
@@ -605,27 +662,42 @@ class ParamQuantEstimation:
         self.fluorescence_data_dict["detector_channel"] = detector_channel
 
     def set_distance_to_sample_in_data_dict(self, *, distance_to_sample=None):
+        if distance_to_sample is not None:
+            distance_to_sample = float(max(distance_to_sample, 0.0))
         self.fluorescence_data_dict["distance_to_sample"] = distance_to_sample
+
+    def set_optional_parameters(self, *, scan_id=None, scan_uid=None):
+        self.fluorescence_data_dict = set_quant_fluor_data_dict_optional(
+            self.fluorescence_data_dict, scan_id=scan_id, scan_uid=scan_uid)
 
     def get_suggested_json_fln(self):
         r"""Requires that the fluorescence data dict is filled"""
         fln = f"standard_{self.fluorescence_data_dict['serial']}.json"
         return fln
 
-    def get_fluorescence_data_dict_text_preview(self, distance_to_sample=None,
-                                                enable_warnings=True):
+    def get_fluorescence_data_dict_text_preview(self, enable_warnings=True):
 
         pruned_dict = prune_quant_fluor_data_dict(self.fluorescence_data_dict)
-        # This will not modify the original dictionary
-        pruned_dict["distance_to_sample"] = distance_to_sample
         # Print preview in YAML format (easier to read)
         s = yaml.dump(pruned_dict, default_flow_style=False, sort_keys=False, indent=4)
         if enable_warnings:
+            s_warnings = ""
             if (pruned_dict["scaler_name"] is None) or (pruned_dict["scaler_name"] == ""):
-                s = "WARNING: Scaler is not selected, data is not normalized.\n\n" + s
+                s_warnings += "WARNING: Scaler is not selected, data is not normalized.\n"
+            if (pruned_dict["distance_to_sample"] is None) or \
+                    (pruned_dict["distance_to_sample"] == 0):
+                s_warnings += "WARNING: Distance-to-sample is set to 0 or None. "\
+                              "Set it to estimated distance between the detector and the standard sample "\
+                              "if you expect to it to change in the series of scans. Otherwise " \
+                              "the respective corrections may not be computed. Ignore if the distance "\
+                              "stays constant throughout the series of scans.\n"
+            s = s_warnings + "\n" + s
         return s
 
     def save_fluorescence_data_dict(self, file_path, *, overwrite_existing=False):
+        # Set time (in the original dictionary)
+        self.fluorescence_data_dict = set_quant_fluor_data_dict_time(self.fluorescence_data_dict)
+        # The next step creates a copy of the dictionary with removed inactive emission lines
         pruned_dict = prune_quant_fluor_data_dict(self.fluorescence_data_dict)
         save_xrf_quant_fluor_json_file(file_path, pruned_dict, overwrite_existing=overwrite_existing)
 
@@ -639,6 +711,19 @@ class ParamQuantitativeAnalysis:
         self.calibration_data = []
         self.calibration_settings = []
         self.active_emission_lines = []
+
+        # Some parameters of the experimental data that is currently being processed.
+        #   Those parameters must be set manually before 'apply_quantitative_normalization'
+        #   is run. The parameters MUST be set to the correct value.
+
+        # Detector channel (values 'detsum', 'det1', 'det2' etc.) must match
+        #   the channel used to obtain the calibration selected for an emission line.
+        #   (check is performed for each emission line separately, since calibration data
+        #   may come from different calibration files depending on user's choice).
+        self.experiment_detector_channel = None
+
+        # Incident energy values should be approximately equal
+        self.experiment_incident_energy = None
 
     def load_calibration_data(self, file_path):
 
@@ -773,13 +858,18 @@ class ParamQuantitativeAnalysis:
                 info[eline] = e_info
         return info
 
+    def set_experiment_detector_channel(self, detector_channel):
+        self.experiment_detector_channel = detector_channel
+
+    def set_experiment_incident_energy(self, incident_energy):
+        self.experiment_incident_energy = incident_energy
+
     def apply_quantitative_normalization(self, data_in, *, scaler_dict, scaler_name_fixed, distance_to_sample,
                                          data_name, name_not_scalable=None):
 
         # scaler_name_fixed may be None. In this case normalization will be performed only
         #   if quantitative data is available for the emission line 'data_name'
         # data_name may represent an emission line or other type of data
-
 
         is_quant_normalization_applied = False
 
@@ -797,7 +887,31 @@ class ParamQuantitativeAnalysis:
         #   to run the function without a scaler. The scaler name is None if the standard was
         #   processed without normalization, so the sample data will not be normalized as well.
         #   But the results are expected to be much better if the scaler is used.
-        if e_info and ((e_info["scaler_name"] in scaler_dict) or (e_info["scaler_name"] is None)):
+
+        run_quant = False
+        if e_info:
+            run_quant = True
+            if (self.experiment_detector_channel is None) or \
+                    (e_info["detector_channel"] is None) or \
+                    (self.experiment_detector_channel.lower() != e_info["detector_channel"].lower()):
+                # Detector channels must match. This is critical.
+                logger.error(f"Emission line: {data_name}. Different detector channels are selected "
+                             f"for calibration ('{e_info['detector_channel']}') and experimental "
+                             f"('{self.experiment_detector_channel}') scans. "
+                             f"Quantitative normalization will not be performed.")
+                run_quant = False
+
+            if (self.experiment_incident_energy is None) or \
+                    (e_info['incident_energy'] is None) or \
+                    not math.isclose(self.experiment_incident_energy, e_info['incident_energy'], abs_tol=0.001):
+                # Still do normalization, but print the warning (result may be inaccurate)
+                logger.warning(f"Emission line {data_name}. Incident energy for standard "
+                               f"('{e_info['incident_energy']}') and experimental "
+                               f"('{self.experiment_incident_energy}') scans don't match. "
+                               f"Quantitative normalization will still be performed, but the results may "
+                               f"be inaccurate.")
+
+        if run_quant and ((e_info["scaler_name"] in scaler_dict) or (e_info["scaler_name"] is None)):
             # Quantitative calibration for the emission line is loaded, so normalization is
             #   performed. The scaler used to obtain calibration is used. Note, that
             #   if the scaler is None, then the function returns data without change
@@ -822,6 +936,11 @@ class ParamQuantitativeAnalysis:
                 # Element density increase as the distance becomes larger
                 #   (fluorescence is reduced as r**2)
                 data_arr *= (r2 / r1) ** 2
+                logger.info(f"Emission line {data_name}. Distance-to-sample correction was performed "
+                            f"(standard: {r1}, sample: {r2}")
+            else:
+                logger.info(f"Emission line {data_name}. Distance-to-sample correction was ignored "
+                            f"(standard: {r1}, sample: {r2}")
             is_quant_normalization_applied = True
         else:
             # The following condition also takes care of the case when 'scaler_name_fixed' is None

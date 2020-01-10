@@ -13,7 +13,7 @@ import jsonschema
 from ..model.load_data_from_db import make_hdf
 from ..model.command_tools import pyxrf_batch
 from ..model.fileio import read_hdf_APS
-from ..model.utils import (grid_interpolate, normalize_data_by_scaler, convert_time_to_nexus_string)
+from ..core.utils import (grid_interpolate, normalize_data_by_scaler, convert_time_to_nexus_string)
 from ..core.xrf_utils import check_if_eline_is_activated, check_if_eline_supported
 from ..core.fitting import fit_spectrum, rfactor_compute
 from ..core.yaml_param_files import (create_yaml_parameter_file, read_yaml_parameter_file)

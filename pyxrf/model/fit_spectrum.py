@@ -32,7 +32,7 @@ from .guessparam import (calculate_profile, fit_strategy_list,
                          update_param_from_element)
 from .fileio import save_fitdata_to_hdf, output_data, output_data_to_tiff
 
-from .utils import (gaussian_sigma_to_fwhm, gaussian_fwhm_to_sigma,
+from ..core.utils import (gaussian_sigma_to_fwhm, gaussian_fwhm_to_sigma,
                     gaussian_max_to_area, gaussian_area_to_max,
                     grid_interpolate)
 
@@ -385,8 +385,9 @@ class Fit1D(Atom):
         if d <= 0.0:
             d = None
         # Change preview if distance value changed
+        self.param_quant_estimation.set_distance_to_sample_in_data_dict(distance_to_sample=d)
         self.qe_standard_data_preview = \
-            self.param_quant_estimation.get_fluorescence_data_dict_text_preview(distance_to_sample=d)
+            self.param_quant_estimation.get_fluorescence_data_dict_text_preview()
 
     def get_qe_standard_distance_as_float(self):
         r"""Return distance from sample as positive float or None"""
