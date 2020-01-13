@@ -511,7 +511,7 @@ def set_quant_fluor_data_dict_optional(quant_fluor_data_dict, *, scan_id=None, s
         try:
             # Attempt to convert to 'int' (from str, 'int64' etc)
             scan_id = int(scan_id)
-        except:
+        except Exception:
             raise RuntimeError("Parameter 'scan_id' must be integer or a string representing integer")
 
         quant_fluor_data_dict["source_scan_id"] = scan_id
@@ -712,18 +712,19 @@ class ParamQuantitativeAnalysis:
         self.calibration_settings = []
         self.active_emission_lines = []
 
-        # Some parameters of the experimental data that is currently being processed.
-        #   Those parameters must be set manually before 'apply_quantitative_normalization'
-        #   is run. The parameters MUST be set to the correct value.
+        # Parameters of the experiment for the currently processed dataset:
+        #   'experiment_detector_channel', 'experiment_incident_energy', 'experiment_distance_to_sample'.
+        #   Set those parameters manually before running 'apply_quantitative_normalization'.
 
-        # Detector channel (values 'detsum', 'det1', 'det2' etc.) must match
-        #   the channel used to obtain the calibration selected for an emission line.
+        # Detector channel (values 'sum', 'det1', 'det2' etc.) must match
+        #   the channel specified for the quantitative calibration data for the emission line.
         #   (check is performed for each emission line separately, since calibration data
         #   may come from different calibration files depending on user's choice).
         self.experiment_detector_channel = None
-
         # Incident energy values should be approximately equal
         self.experiment_incident_energy = None
+        # Distance to sample. If 0 or None, the respective correction is not applied
+        self.experiment_distance_to_sample = None
 
     def load_calibration_data(self, file_path):
 
@@ -864,12 +865,20 @@ class ParamQuantitativeAnalysis:
     def set_experiment_incident_energy(self, incident_energy):
         self.experiment_incident_energy = incident_energy
 
-    def apply_quantitative_normalization(self, data_in, *, scaler_dict, scaler_name_fixed, distance_to_sample,
+    def set_experiment_distance_to_sample(self, distance_to_sample):
+        self.experiment_distance_to_sample = distance_to_sample
+
+    def apply_quantitative_normalization(self, data_in, *, scaler_dict, scaler_name_fixed,
                                          data_name, name_not_scalable=None):
 
         # scaler_name_fixed may be None. In this case normalization will be performed only
         #   if quantitative data is available for the emission line 'data_name'
         # data_name may represent an emission line or other type of data
+
+        logger.debug(f"Starting quantiative normalization with scan parameters:\n"
+                     f"    Detector channel: '{self.experiment_detector_channel}'\n"
+                     f"    Distance to sample: {self.experiment_distance_to_sample}\n"
+                     f"    Incident energy: {self.experiment_incident_energy}")
 
         is_quant_normalization_applied = False
 
@@ -891,12 +900,14 @@ class ParamQuantitativeAnalysis:
         run_quant = False
         if e_info:
             run_quant = True
+            e_info_scaler = e_info["scaler_name"]
+
             if (self.experiment_detector_channel is None) or \
                     (e_info["detector_channel"] is None) or \
                     (self.experiment_detector_channel.lower() != e_info["detector_channel"].lower()):
                 # Detector channels must match. This is critical.
-                logger.error(f"Emission line: {data_name}. Different detector channels are selected "
-                             f"for calibration ('{e_info['detector_channel']}') and experimental "
+                logger.error(f"Emission line: {data_name}. Mismatch between channels used "
+                             f"for calibration ('{e_info['detector_channel']}') and current experimental "
                              f"('{self.experiment_detector_channel}') scans. "
                              f"Quantitative normalization will not be performed.")
                 run_quant = False
@@ -911,14 +922,19 @@ class ParamQuantitativeAnalysis:
                                f"Quantitative normalization will still be performed, but the results may "
                                f"be inaccurate.")
 
-        if run_quant and ((e_info["scaler_name"] in scaler_dict) or (e_info["scaler_name"] is None)):
+            if (e_info_scaler is not None) and (e_info_scaler not in scaler_dict):
+                run_quant = False
+                logger.error(f"Emission line {data_name}. Scaler '{e_info_scaler}' is not available "
+                             f"for this dataset. Quantitative normalization is skipped")
+
+        if run_quant:
             # Quantitative calibration for the emission line is loaded, so normalization is
             #   performed. The scaler used to obtain calibration is used. Note, that
             #   if the scaler is None, then the function returns data without change
-            if e_info["scaler_name"] is None:
+            if e_info_scaler is None:
                 scaler = None
             else:
-                scaler = scaler_dict[e_info["scaler_name"]]
+                scaler = scaler_dict[e_info_scaler]
             data_arr = normalize_data_by_scaler(data_in=data_in,
                                                 scaler=scaler,
                                                 data_name=data_name,
@@ -931,16 +947,17 @@ class ParamQuantitativeAnalysis:
             # If distance to sample is set for calibration data and current scan, then apply correction
             #   If either value is ZERO, then don't perform the correction.
             r1 = e_info["distance_to_sample"]
-            r2 = distance_to_sample
-            if (r1 is not None) and (r2 is not None) and (r1 > 0) and (r2 > 0):
+            r2 = self.experiment_distance_to_sample
+            if (r1 is not None) and (r2 is not None) and (r1 > 0) and (r2 > 0) and \
+                    not math.isclose(r1, r2, abs_tol=1e-20):
                 # Element density increase as the distance becomes larger
                 #   (fluorescence is reduced as r**2)
                 data_arr *= (r2 / r1) ** 2
-                logger.info(f"Emission line {data_name}. Distance-to-sample correction was performed "
-                            f"(standard: {r1}, sample: {r2}")
+                logger.info(f"Emission line {data_name}. Correction for distance-to_sample was performed "
+                            f"(standard: {r1}, sample: {r2})")
             else:
-                logger.info(f"Emission line {data_name}. Distance-to-sample correction was ignored "
-                            f"(standard: {r1}, sample: {r2}")
+                logger.info(f"Emission line {data_name}. Correction for distance-to_sample was skipped "
+                            f"(standard: {r1}, sample: {r2})")
             is_quant_normalization_applied = True
         else:
             # The following condition also takes care of the case when 'scaler_name_fixed' is None

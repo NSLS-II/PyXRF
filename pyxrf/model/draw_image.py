@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import matplotlib.ticker as mticker
 from mpl_toolkits.axes_grid1 import ImageGrid
-from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool
+from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool, Float
 
 from ..core.utils import normalize_data_by_scaler, grid_interpolate
 
@@ -100,6 +100,10 @@ class DrawImageAdvanced(Atom):
     scatter_show = Bool(False)
     name_not_scalable = List()
 
+    # The value is synchronized with currently selected value of incident energy
+    #   Should not be changed directly
+    incident_energy = Float(12.0)
+
     # Variable that indicates whether quanitative normalization should be applied to data
     #   Associated with 'Quantitative' checkbox
     quantitative_normalization = Bool(False)
@@ -110,7 +114,7 @@ class DrawImageAdvanced(Atom):
     #   of the field in 'Quantitative Analysis' tab, may be used for computations
     #   Enaml 'FloatField' requires this variable to be a string, but the string will always
     #   represent valid 'float' number
-    quant_distance_to_sample = Str("0.0")
+    quant_distance_to_sample = Float(0.0)
     # The following fields are used to facilitate GUI operation, not for long-term data storage
     #   Don't use those fields for any computations outside the GUI controls
     quant_calibration_data = List()
@@ -127,6 +131,8 @@ class DrawImageAdvanced(Atom):
                                   'i0_time', 'time', 'time_diff', 'dwell_time']
 
         self.param_quant_analysis = ParamQuantitativeAnalysis()
+        self.param_quant_analysis.set_experiment_distance_to_sample(distance_to_sample=0.0)
+        self.param_quant_analysis.set_experiment_incident_energy(incident_energy=self.incident_energy)
 
     def data_dict_update(self, change):
         """
@@ -230,7 +236,6 @@ class DrawImageAdvanced(Atom):
                 self.img_title = str(plot_item)
                 self.dict_to_plot = self.data_dict[plot_item]
                 self.set_stat_for_all(bool_val=False)
-
 
                 self.update_img_wizard_items()
                 self.get_default_items()   # get default elements every time when fitting is done
@@ -360,6 +365,32 @@ class DrawImageAdvanced(Atom):
         if change['type'] != 'create':
             self.show_image()
 
+    @observe('quant_distance_to_sample')
+    def _on_change_distance_to_sample(self, change):
+        # Set the value of the quantitative analysis parameter
+        self.param_quant_analysis.set_experiment_distance_to_sample(self.quant_distance_to_sample)
+        # Recompute range of plotted values (for each emission line in the dataset)
+        self.set_low_high_value()
+        # Update limits shown in 'Image Wizard'
+        self.update_img_wizard_items()
+
+    def set_incident_energy(self, change):
+        """
+        The observer function that changes the value of incident energy
+        and upper bound for fitted energy range. Should not be called directly.
+
+        Parameters
+        ----------
+
+        change : dict
+            ``change["value"]`` is the new value of incident energy
+        """
+        self.incident_energy = change["value"]
+
+    @observe('incident_energy')
+    def _on_change_incident_energy(self, change):
+        self.param_quant_analysis.set_experiment_incident_energy(incident_energy=self.incident_energy)
+
     def set_stat_for_all(self, bool_val=False):
         """
         Set plotting status for all the 2D images, including low and high values.
@@ -386,7 +417,6 @@ class DrawImageAdvanced(Atom):
                     data_in=self.dict_to_plot[data_name],
                     scaler_dict=self.scaler_norm_dict,
                     scaler_name_fixed=self.get_selected_scaler_name(),
-                    distance_to_sample=float(self.quant_distance_to_sample),
                     data_name=data_name,
                     name_not_scalable=self.name_not_scalable)
             else:
@@ -543,7 +573,6 @@ class DrawImageAdvanced(Atom):
                     data_in=self.dict_to_plot[k],
                     scaler_dict=self.scaler_norm_dict,
                     scaler_name_fixed=self.get_selected_scaler_name(),
-                    distance_to_sample=float(self.quant_distance_to_sample),
                     data_name=k,
                     name_not_scalable=self.name_not_scalable)
             else:

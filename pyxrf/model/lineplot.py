@@ -267,13 +267,13 @@ class LinePlotModel(Atom):
     def set_incident_energy(self, change):
         """
         The observer function that changes the value of incident energy
-        and upper bound for fitted energy range.
+        and upper bound for fitted energy range. Should not be called directly.
 
         Parameters
         ----------
 
-        energy_new : float
-            New value of incident energy
+        change : dict
+            ``change["value"]`` is the new value of incident energy
         """
         self.change_incident_energy(change["value"])
 

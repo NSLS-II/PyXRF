@@ -1066,7 +1066,7 @@ enamldef FitView(DockItem): fit_view:
                         btns = [DialogButton('Ok', 'accept')]
                         critical(self, 'ERROR', f"Error occurred while saving data to TIFF files: {ex}", btns)
                     else:
-                        print("Data was successfully saved to TIFF files")
+                        logger.info("Data was successfully saved to TIFF files")
 
             PushButton: to_txt:
                 text = 'Save to txt'
@@ -1078,7 +1078,7 @@ enamldef FitView(DockItem): fit_view:
                         btns = [DialogButton('Ok', 'accept')]
                         critical(self, 'ERROR', f"Error occurred while saving data to TEXT files: {ex}", btns)
                     else:
-                        print("Data was successfully saved to TEXT files")
+                        logger.info("Data was successfully saved to TEXT files")
 
 
 enamldef SelectStandard(Dialog): select_standard_win:

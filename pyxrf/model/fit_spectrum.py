@@ -30,11 +30,10 @@ from .guessparam import (calculate_profile, fit_strategy_list,
                          trim_escape_peak, define_range, get_energy,
                          get_Z, PreFitStatus, ElementController,
                          update_param_from_element)
-from .fileio import save_fitdata_to_hdf, output_data, output_data_to_tiff
+from .fileio import save_fitdata_to_hdf, output_data
 
 from ..core.utils import (gaussian_sigma_to_fwhm, gaussian_fwhm_to_sigma,
-                    gaussian_max_to_area, gaussian_area_to_max,
-                    grid_interpolate)
+                          gaussian_max_to_area, gaussian_area_to_max)
 
 from ..core.quant_analysis import ParamQuantEstimation
 
@@ -119,8 +118,6 @@ class Fit1D(Atom):
     # The reference to the object holding parameters for quantitative normalization
     #   The variable is synchronized to the identical variable in 'DrawImageAdvanced' class
     param_quant_analysis = Typed(object)
-    # Copy of identical variable from 'DrawImageClass': parameter used in quantitative normalization
-    quant_distance_to_sample = Float()
 
     function_num = Int(0)
     nvar = Int(0)
@@ -335,11 +332,6 @@ class Fit1D(Atom):
         the identical variable in ``DrawImageAdvanced`` class"""
         self.param_quant_analysis = change['value']
 
-    def quant_distance_to_sample_update(self, change):
-        r"""Observer function. Sets ``quant_distance_to_sample`` field to the same value as
-        the identical variable in ``DrawImageAdvanced`` class"""
-        self.quant_distance_to_sample = float(change['value'])
-
     def energy_bound_high_update(self, change):
         """
         Observer function that connects 'param_model' (GuessParamModel)
@@ -385,7 +377,6 @@ class Fit1D(Atom):
         if d <= 0.0:
             d = None
         # Change preview if distance value changed
-        self.param_quant_estimation.set_distance_to_sample_in_data_dict(distance_to_sample=d)
         self.qe_standard_data_preview = \
             self.param_quant_estimation.get_fluorescence_data_dict_text_preview()
 
@@ -1081,7 +1072,6 @@ class Fit1D(Atom):
         """
         scaler_v = None
         _post_name_folder = "_".join(self.data_title.split('_')[:-1])
-        _name_each_file = "_".join(self.data_title.split('_')[1:])
         if self.scaler_index > 0:
             scaler_v = self.scaler_keys[self.scaler_index-1]
             logger.info(f"*** NORMALIZED data is saved. Scaler: '{scaler_v}' ***")
@@ -1117,7 +1107,6 @@ class Fit1D(Atom):
                     interpolate_to_uniform_grid=self.map_interpolation,
                     dataset_name=self.img_title, quant_norm=self.quantitative_normalization,
                     param_quant_analysis=self.param_quant_analysis,
-                    distance_to_sample=self.quant_distance_to_sample,
                     dataset_dict=self.dict_to_plot, positions_dict=positions_dict,
                     file_format=file_format, scaler_name=scaler_v,
                     scaler_name_list=scaler_name_list)

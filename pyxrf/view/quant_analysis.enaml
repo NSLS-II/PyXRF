@@ -51,11 +51,11 @@ enamldef QuantAnalysisView(DockItem): quant_analysis_view:
                 clicked ::
                     # Update the value displayed in 'distance_to_sample_fld'
                     #   Make sure that the value is non-negative
-                    val = float(img_model_adv.quant_distance_to_sample)
+                    val = img_model_adv.quant_distance_to_sample
                     if (val < 0):
                         val = 0
-                    img_model_adv.quant_distance_to_sample = "-132435.464564565"
-                    img_model_adv.quant_distance_to_sample = f"{val}"
+                    #img_model_adv.quant_distance_to_sample = -132435.464564565
+                    img_model_adv.quant_distance_to_sample = val
                     # Update the plot
                     img_model_adv.show_image()
 
@@ -63,7 +63,9 @@ enamldef QuantAnalysisView(DockItem): quant_analysis_view:
                 text = "Distance to sample (currently processed scan):"
 
             FloatField: distance_to_sample_fld:
-                text := img_model_adv.quant_distance_to_sample
+                value << img_model_adv.quant_distance_to_sample
+                value ::
+                    img_model_adv.quant_distance_to_sample = value
 
             ScrollArea: scroller:
                 Container:

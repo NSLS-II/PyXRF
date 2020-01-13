@@ -569,7 +569,7 @@ def read_xspress3_data(file_path):
 def output_data(dataset_dict=None, output_dir=None,
                 file_format='tiff', scaler_name=None, use_average=False,
                 dataset_name=None, quant_norm=False,
-                param_quant_analysis=None, distance_to_sample=0.0,
+                param_quant_analysis=None,
                 positions_dict=None,
                 interpolate_to_uniform_grid=False,
                 scaler_name_list=None):
@@ -665,7 +665,6 @@ def output_data(dataset_dict=None, output_dir=None,
                         file_format=file_format, name_prefix_detector=dset, name_append="",
                         scaler_name=scaler_name, quant_norm=quant_norm,
                         param_quant_analysis=param_quant_analysis,
-                        distance_to_sample=distance_to_sample,
                         use_average=use_average,
                         scaler_name_list=scaler_name_list)
 
@@ -674,7 +673,7 @@ def output_data_to_tiff(fit_output,
                         output_dir=None,
                         file_format='tiff', name_prefix_detector=None, name_append=None,
                         scaler_name=None, scaler_name_list=None,
-                        quant_norm=False, param_quant_analysis=None, distance_to_sample=0.0,
+                        quant_norm=False, param_quant_analysis=None,
                         use_average=False):
     """
     Read data in memory and save them into tiff to txt.
@@ -700,8 +699,6 @@ def output_data_to_tiff(fit_output,
     param_quant_analysis : ParamQuantitativeAnalysis
         reference to class, which contains parameters for quantitative normalization,
         if None, then quantitative normalization will be skipped
-    distance_to_sample : float
-        parameter used for quantitative normalization
     use_average : Bool, optional
         when normalization, multiply by the mean value of scaler,
         i.e., norm_data = data/scaler * np.mean(scaler)
@@ -754,17 +751,16 @@ def output_data_to_tiff(fit_output,
                     data_in=data,
                     scaler_dict=fit_output,
                     scaler_name_fixed=None,  # We don't want data to be scaled
-                    distance_to_sample=distance_to_sample,
                     data_name=data_name,
                     name_not_scalable=None)  # For simplicity, all saved maps are normalized
                 if quant_norm_applied:
                     # Save data only if quantitative normalization was performed.
-                   _save_data(data_normalized, output_dir=output_dir,
-                              file_name=data_name,
-                              name_prefix_detector=name_prefix_detector,
-                              name_append=f"{name_append}_quantitative",
-                              file_format=file_format,
-                              scaler_name_list=scaler_name_list)
+                    _save_data(data_normalized, output_dir=output_dir,
+                               file_name=data_name,
+                               name_prefix_detector=name_prefix_detector,
+                               name_append=f"{name_append}_quantitative",
+                               file_format=file_format,
+                               scaler_name_list=scaler_name_list)
         else:
             logger.error("Quantitative analysis parameters are not provided. "
                          f"Quantitative data is not saved in {file_format.upper()} format.")
