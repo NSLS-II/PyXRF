@@ -589,31 +589,31 @@ class ParamQuantEstimation:
         self.standard_selected = None
         self.emission_line_list = None
 
-    def _find_standard_custom(self, standard):
+    def _find_standard_custom(self, standard, key=None):
 
         standard_ref = None
         if self.standards_custom:
             for st in self.standards_custom:
-                if st == standard:
+                if (st == standard) if (key is None) else (st[key] == standard):
                     standard_ref = st
                     break
         return standard_ref
 
-    def _find_standard_built_in(self, standard):
+    def _find_standard_built_in(self, standard, key=None):
 
         standard_ref = None
         if self.standards_built_in:
             for st in self.standards_built_in:
-                if st == standard:
+                if (st == standard) if (key is None) else (st[key] == standard):
                     standard_ref = st
                     break
         return standard_ref
 
-    def find_standard(self, standard):
+    def find_standard(self, standard, key=None):
 
-        standard_ref = self._find_standard_custom(standard)
+        standard_ref = self._find_standard_custom(standard, key=key)
         if not standard_ref:
-            standard_ref = self._find_standard_built_in(standard)
+            standard_ref = self._find_standard_built_in(standard, key=key)
         return standard_ref
 
     def set_selected_standard(self, standard):
