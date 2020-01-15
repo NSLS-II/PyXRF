@@ -3,14 +3,14 @@ import numpy as np
 import math
 import os
 
-from skbeam.core.fitting.xrf_model import get_line_energy
-from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE, K_TRANSITIONS,
-                                           L_TRANSITIONS, M_TRANSITIONS, TRANSITIONS_LOOKUP)
+from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 from skbeam.core.constants.xrf import XrfElement
 from skbeam.core.fitting.lineshapes import gaussian
 
 from ..model.load_data_from_db import write_db_to_hdf_base
 from ..core.quant_analysis import ParamQuantEstimation
+
+from ..core.xrf_utils import generate_eline_list
 
 import logging
 logger = logging.getLogger()
@@ -66,7 +66,7 @@ def _get_elemental_line_parameters(*, elemental_line, incident_energy):
     i_line_a1 = e.cs(incident_energy)[em_line_a1]
     if i_line_a1 > 0:
         for num, item in enumerate(e.emission_line.all):
-            l_name = item[0] # Line name (ka1, kb2 etc.)
+            l_name = item[0]  # Line name (ka1, kb2 etc.)
             energy_v = item[1]  # Energy (in kEv)
             if line.lower() not in l_name:
                 continue
@@ -98,13 +98,14 @@ def gen_xrf_spectrum(element_line_groups=None, *,
     Parameters
     ----------
 
-    element_line_groups: list(tuple)
-        List of element line groups that need to be included in the spectrum. Each element line
-        group must be one of ``K``, ``L`` or ``M`` groups supported by ``scikit-beam``.
-        Each group represented as a tuple that contains the group name (e.g. ``Fe_K``)
-        and the dictionary of the group parameters (currently only parameter ``area`` is
-        supported). The area is expressed in counts (must be positive floating point number).
-        Example: ``[("Si_K", {'area' : 800}), ("Ba_L", {'area' : 900}), ("Pt_M", {'area' : 1000})]``
+    element_line_groups: dict(dict)
+        Dictionary of element line groups that need to be included in the spectrum: key - element
+        line group (``K``, ``L`` or ``M`` group suppoted by scikit beam, e.g. ``Si_K``, ``Ba_L``,
+        ``Pt_M`` etc.); value - dictionary that contains spectrum parameters for the group.
+        Currently only the parameter ``area`` is supported, which defines the area under the
+        spectrum composed of all emission lines that belong to the group expressed in counts
+        (must be positive floating point number).
+        Example: ``{"Si_K": {'area' : 800}, "Ba_L": {'area' : 900}, "Pt_M": {'area' : 1000}}``
 
     incident_energy: float
         incident energy of the beam (used in simulation)
@@ -143,6 +144,10 @@ def gen_xrf_spectrum(element_line_groups=None, *,
         raise RuntimeError(f"Spectrum must contain at least one point "
                            f"(n_spectrum_points={n_spectrum_points})")
 
+    if (element_line_groups is not None) and (not isinstance(element_line_groups, dict)):
+        raise RuntimeError(f"Parameter 'element_line_groups' has invalid type {type(element_line_groups)} "
+                           f"(must be None or dict)")
+
     spectrum_total = np.zeros((n_spectrum_points,), dtype="float")
 
     # Energy axis
@@ -151,7 +156,7 @@ def gen_xrf_spectrum(element_line_groups=None, *,
 
     if element_line_groups is not None:
 
-        for element_line_group, parameters in element_line_groups:
+        for element_line_group, parameters in element_line_groups.items():
 
             element_area = parameters['area']
 
@@ -183,15 +188,14 @@ def gen_xrf_map_const(element_line_groups=None, *,
     r"""
     Generate ny (vertical) by nx (horizontal) XRF map with identical spectrum for each pixel.
 
-    Parameters
-    ----------
-    element_line_groups: list(tuple)
-        List of element line groups that need to be included in the spectrum. Each element line
-        group must be one of ``K``, ``L`` or ``M`` groups supported by ``scikit-beam``.
-        Each group represented as a tuple that contains the group name (e.g. ``Fe_K``)
-        and the dictionary of the group parameters (currently only parameter ``area`` is
-        supported). The area is expressed in counts (must be positive floating point number).
-        Example: ``[("Si_K", {'area' : 800}), ("Ba_L", {'area' : 900}), ("Pt_M", {'area' : 1000})]``
+    element_line_groups: dict(dict)
+        Dictionary of element line groups that need to be included in the spectrum: key - element
+        line group (``K``, ``L`` or ``M`` group suppoted by scikit beam, e.g. ``Si_K``, ``Ba_L``,
+        ``Pt_M`` etc.); value - dictionary that contains spectrum parameters for the group.
+        Currently only the parameter ``area`` is supported, which defines the area under the
+        spectrum composed of all emission lines that belong to the group expressed in counts
+        (must be positive floating point number).
+        Example: ``{"Si_K": {'area' : 800}, "Ba_L": {'area' : 900}, "Pt_M": {'area' : 1000}}``
 
     nx: int
         Horizontal dimension (axis 1) of the XRF map
@@ -254,6 +258,91 @@ def create_xrf_map_data(*, scan_id,
                         n_spectrum_points=4096,
                         background_area=0,
                         spectrum_parameters=None):
+    r"""
+    Generates a complete simulated XRF dataset based on set of element lines, XRF map size,
+    incident energy etc. The dataset may be used for testing of XRF map processing functions.
+
+    Parameters
+    ----------
+
+    scan_id: str or int
+
+        Scan ID that is included in metadata of the generated dataset.
+
+    element_line_groups: dict(dict)
+
+        Dictionary of element line groups that need to be included in the spectrum: key - element
+        line group (``K``, ``L`` or ``M`` group suppoted by scikit beam, e.g. ``Si_K``, ``Ba_L``,
+        ``Pt_M`` etc.); value - dictionary that contains spectrum parameters for the group.
+        Currently only the parameter ``area`` is supported, which defines the area under the
+        spectrum composed of all emission lines that belong to the group expressed in counts
+        (must be positive floating point number).
+        Example: ``{"Si_K": {'area' : 800}, "Ba_L": {'area' : 900}, "Pt_M": {'area' : 1000}}``
+
+    num_det_channels: int
+
+        The number of detector channels to simulate. Must be integer greater than 1.
+
+    nx: int
+
+        Horizontal dimension (axis 1) of the XRF map
+
+    ny: int
+
+        Vertical dimension (axis 0) of the XRF map
+
+    incident_energy: float
+
+        incident energy of the beam (used in simulation)
+
+    n_spectrum_points: int
+
+        the number of spectrum points. Currently PyXRF is working 4096-point spectra
+
+    background_area: float
+
+        The area of the background. The background represents a rectangle, which occupies
+        all ``n_spectrum_points``. If the generated spectrum is truncated later, the value
+        of the area will change proportionally.
+
+    spectrum_parameters: dict
+        dict of optional spectrum parameters, which is passed to ``gen_xrf_map_const``.
+        May be None.
+
+    Returns
+    -------
+
+    data_xrf: dict(ndarray)
+        The dictionary of the datasets. The dictionary keys are ``det_sum``, ``det1``, ``det2`` etc.
+        The values are 3D arrays with ``shape = (ny, nx, n_spectrum_points)``.
+
+    data_scalers: dict
+        The dictionary with scaler information. The dictionary has two entries:
+        ``data_scalers["scaler_names"]`` contains the list of scaler names (currently
+        ``["i0", "time", "time_diff"]``). ``data_scalers["scaler_data"]`` contains 3D array
+        with scaler data (``shape = (ny, nx, N_SCALERS)``, ``N_SCALERS`` is equal to the number
+        of scaler names).
+
+    data_pos: dict
+        The dictionary of positional data: ``data_pos["pos_names"]=["x_pos", "y_pos"]``,
+        ``data_pos["pos_data"]`` is 3D array with ``shape=(N_POS, ny, nx)``, where ``N_POS``
+        is equal to the number of position names (currently 2). Note, that the ``y_pos``
+        is measured along vertical dimension (axis 0 of the array) and ``x_pos`` is measured
+        along horizontal dimension (axis 1 of the array).
+
+    metadata: dict
+        dictionary of metadata values, which include ``scan_id`` (passed to the function,
+        ``scan_uid`` (randomly generated), and ``instrument_mono_incident_energy``
+        (incident energy passed to the function).
+
+    Raises
+    ------
+
+    RuntimeError
+        Raised if the list of emission line groups contains incorrectly formatted or not supported
+        emission lines. Also raised if ``n_spectrum_points`` is zero or negative, or map with zero
+        points is generated (``nx`` or ``ny`` is 0).
+    """
 
     if spectrum_parameters is None:
         spectrum_parameters = {}
@@ -311,6 +400,7 @@ def create_xrf_map_data(*, scan_id,
     # Generate metadata
     metadata = {}
     metadata["scan_id"] = scan_id
+
     def _gen_rs(n):
         uid_characters = list("abcdef0123456789")
         s = ""
@@ -325,6 +415,7 @@ def create_xrf_map_data(*, scan_id,
 
 
 def create_hdf5_xrf_map_const(*, scan_id, wd=None,
+                              fln_suffix=None,
                               element_line_groups=None,
                               save_det_sum=True,
                               save_det_channels=True,
@@ -334,14 +425,93 @@ def create_hdf5_xrf_map_const(*, scan_id, wd=None,
                               n_spectrum_points=4096,
                               background_area=0,
                               spectrum_parameters=None):
+    r"""
+    Generates and saves the simulated XRF map data to file. The file may be loaded in PyXRF
+    and used for testing processing functions. The function overwrites existing files.
 
+    Parameters
+    ----------
 
+    scan_id: str or int
+
+        Scan ID (positive integer) that is included in the file metadata and used in file name.
+
+    wd: str or None
+
+        The directory where data is to be saved. If None, then current directory is used
+
+    fln_suffix: str or None
+
+        File name suffix, which is attached to file name (before extension). May be used
+        to specify some additional information, useful for visual interpretation of file name.
+
+    element_line_groups: dict(dict)
+
+        Dictionary of element lines, see docstring for ``create_xrf_map_data`` for detailed
+        information.
+
+    save_det_sum: bool
+
+        Indicates if the sum of detector channels should be saved (currently the sum is always
+        saved, so False value is ignored)
+
+    save_det_channels: bool
+
+        Indicates if the individual detector channels are saved.
+
+    num_det_channels: int
+
+        The number of the detector channels. The area specified in ``element_line_groups`` is
+        distributed between the detector channels.
+
+    nx, ny: int
+
+        The dimensions along vertical (``ny``, axis 0) and horizontal (``nx``, axis 1) axes.
+
+    incident_energy: float
+
+        Incident beam energy, used for dataset generation and also saved in metadata.
+
+    n_spectrum_points: int
+
+        The number of points in the spectrum
+
+    background_area: float
+
+        The area of the simulated background, see docstring for ``create_xrf_map_data``
+        for detailed discussion.
+
+    spectrum_parameters: dict
+        dict of optional spectrum parameters, which is passed to ``create_xrf_map_data``.
+        May be None.
+
+    Returns
+    -------
+
+    fpath: str
+
+        The path to the saved file.
+
+    Raises
+    ------
+
+    RuntimeError
+        Raised if the list of emission line groups contains incorrectly formatted or not supported
+        emission lines. Also raised if ``n_spectrum_points`` is zero or negative, or map with zero
+        points is generated (``nx`` or ``ny`` is 0).
+
+    IOError may be raised in case of IO errors.
+    """
 
     if not save_det_sum:
         logger.warning("The sum of the detector channels is always saved. ")
 
     # Prepare file name
-    fln = f"scan2D_{scan_id}_sim.h5"
+    fln = f"scan2D_{scan_id}_sim"
+    if fln_suffix:
+        fln += f"_{fln_suffix}"
+    fln += ".h5"
+
     if wd:
         wd = os.path.expanduser(wd)
         os.makedirs(wd, exist_ok=True)
@@ -369,11 +539,61 @@ def create_hdf5_xrf_map_const(*, scan_id, wd=None,
                          file_overwrite_existing=True,
                          create_each_det=save_det_channels)
 
+    return fpath
 
-def gen_hdf5_quantitative_analysis_dataset(*, wd=None, standards_serial_list = None,
-                                           test_element_concentrations = None):
 
-    if not standards_serial_list:
+def gen_hdf5_qa_dataset(*, wd=None, standards_serials=None, test_elements=None):
+    r"""
+    Create a set of data files for testing quantitative analysis features.
+    The following files are created:
+
+    -- one simulated raw .h5 is created for each reference standard in the list
+    ``standards_serials``. The file name is scan2D_<scanID>_sim_<serial>.h5,
+    where ``scanID`` is integer that starts from 1000 and increments for each
+    saved file and ``serial`` is the respective serial number of reference standard
+    from the list. In order for the function to work, the descriptions of all used
+    standards must exist in the built-in file ``xrf_quant_standards.yaml`` or
+    in the file ``quantitative_standards.yaml`` in ``~/.pyxrf`` directory.
+
+    -- one simulated raw .h5 file for the set of elements specified in ``test_elements``.
+    Any elements may be included (both present and not present in calibration references).
+    ``test_elements`` is a dictionary, with the key representing element name (such as Fe, Ca, K),
+    and the value is the dictionary of element spectrum parameters. Currently the only
+    required parameter is ``density``. The following code will create the dictionary with
+    three elements (density is typically expressed in ug/cm^2):
+
+    test_elements = {}
+    test_elements["Fe"] = {"density": 50}
+    test_elements["W"] = {"density": 70}
+    test_elements["Au"] = {"density": 80}
+
+    -- log file ``qa_files_log.txt`` with information on each saved file
+
+    Parameters
+    ----------
+
+    wd: str (optional)
+
+        Working directory, where the files are saved. Files are saved in local
+        directory if ``wd`` is not specified.
+
+    standards_serials: list(str)
+
+        The list of serial numbers of standards. One simulated reference data file will be
+        generated for each serial number. See the description above
+
+    test_elements: dict(dict)
+
+        The dictionary with parameters of element spectra for generation of the test files.
+        See the description above.
+
+    Returns
+    -------
+
+        The list of saved files.
+    """
+
+    if not standards_serials:
         raise RuntimeError("There must be at least one standard loaded. Pass the list "
                            "of standards as value of the parameter 'standard_list'")
 
@@ -382,21 +602,25 @@ def gen_hdf5_quantitative_analysis_dataset(*, wd=None, standards_serial_list = N
     incident_energy = 13.0
 
     # For simplicity use the same emission intensity for all lines
-    intensity_counts_per_ug = 10.0
-    # Density for elements that are not part of the standard
-    density_not_in_standard = 20
+    #   This should be the same value for reference and test files
+    counts_per_unit = 10.0
 
-    if test_element_concentrations is None:
-        test_element_concentrations = []
-    test_element_lines = []
+    # If there are no test elements, then the test file is not generated
+    if test_elements is None:
+        test_elements = {}
 
     # Load standards
     param_quant_estimation = ParamQuantEstimation()
     param_quant_estimation.load_standards()
 
-    lines_for_testing = []
-    scan_id = 1000
-    for serial in standards_serial_list:
+    element_lines = []
+    lines_for_testing = {}
+
+    scan_id = 1000  # Starting scan ID for reference scans
+    # Go through the list of reference scans and save the data on present element lines
+    #   in 'element_lines' list. If an exception is raised (one of the serials is not found)
+    #   then no files are saved.
+    for serial in standards_serials:
         standard = param_quant_estimation.find_standard(serial, key="serial")
         # ALL standards must exist
         if not standard:
@@ -404,104 +628,113 @@ def gen_hdf5_quantitative_analysis_dataset(*, wd=None, standards_serial_list = N
 
         param_quant_estimation.set_selected_standard(standard)
         param_quant_estimation.gen_fluorescence_data_dict(incident_energy=incident_energy)
-        element_lines = param_quant_estimation.fluorescence_data_dict["element_lines"].copy()
-        line_group = []
-        for key, value in element_lines.items():
-            area = value["density"] * intensity_counts_per_ug
-            line_group.append((key, {"area": value["density"] * intensity_counts_per_ug},))
-            el = key.split('_')[0]
-            if (el in test_element_concentrations) and (key not in test_element_lines):
-                lines_for_testing.append((key, {"area": area},))
-                test_element_lines.append(key)
-            #else:
-            #    lines_for_testing.append((key, {"area": density_not_in_standard * intensity_counts_per_ug},))
+        element_lines.append(param_quant_estimation.fluorescence_data_dict["element_lines"].copy())
 
-        create_hdf5_xrf_map_const(scan_id=scan_id, wd=wd, element_line_groups=line_group,
-                                  nx=nx, ny=ny, incident_energy=incident_energy)
-        scan_id += 1
+    files_saved = []
 
-    create_hdf5_xrf_map_const(scan_id=2000, wd=wd, element_line_groups=lines_for_testing,
-                              nx=nx, ny=ny, incident_energy=incident_energy)
+    # Log file that contains brief data on every saved file
+    fln_log = "qa_files_log.txt"
+    if wd:
+        wd = os.path.expanduser(wd)
+        os.makedirs(wd, exist_ok=True)
+        fln_log = os.path.join(wd, fln_log)
+
+    with open(fln_log, "wt") as f_log:
+
+        for serial, elines in zip(standards_serials, element_lines):
+            el_grp = {}
+            for line, info in elines.items():
+                el_grp[line] = {"area": info["density"] * counts_per_unit}
+                el = line.split('_')[0]  # Element: e.g. Fe_K -> Fe
+                if (line not in lines_for_testing):
+                    if (el in test_elements):
+                        density = test_elements[el]["density"]
+                        lines_for_testing[line] = \
+                            {"area": density * counts_per_unit,
+                             "counts_per_unit": counts_per_unit,
+                             "density": density,
+                             "in_reference": True}
+
+            fln = create_hdf5_xrf_map_const(scan_id=scan_id, wd=wd, fln_suffix=f"{serial}",
+                                            element_line_groups=el_grp,
+                                            nx=nx, ny=ny, incident_energy=incident_energy)
+            s = f"Reference standard file: '{fln}'\n"\
+                f"    Standard serial: {serial}\n"\
+                f"    Emission lines:\n"
+            for line, info in elines.items():
+                s += f"        {line}: density = {info['density']}\n"
+            f_log.write(f"{s}\n")
+
+            files_saved.append(fln)
+            scan_id += 1
+
+        test_elines = generate_eline_list(list(test_elements.keys()), incident_energy=incident_energy)
+        for line in test_elines:
+            if line not in lines_for_testing:
+                el = line.split('_')[0]
+                density = test_elements[el]["density"]
+                lines_for_testing[line] = {"area": density * counts_per_unit,
+                                           "counts_per_unit": counts_per_unit,
+                                           "density": density,
+                                           "in_reference": False}
+
+        fln_suffix = "test" + "_" + "_".join(test_elements.keys())
+        fln = create_hdf5_xrf_map_const(scan_id=2000, wd=wd, fln_suffix=fln_suffix,
+                                        element_line_groups=lines_for_testing,
+                                        nx=nx, ny=ny, incident_energy=incident_energy)
+        s = f"Test file '{fln}'\n"\
+            f"    Emission lines:\n"
+        for line, info in lines_for_testing.items():
+            s += f"        {line}: density = {info['density']}, "\
+                 f"counts_per_unit = {info['counts_per_unit']}, " \
+                 f"area = {info['area']}, "\
+                 f"in_reference = {info['in_reference']}\n"
+        f_log.write(f"{s}\n")
+
+        files_saved.append(fln)
+        files_saved.append(fln_log)
+
+    return files_saved
 
 
+def gen_hdf5_qa_dataset_preset_1(*, wd=None):
+    r"""
+    Generate a set of HDF5 files for testing of quantitative analysis procedures.
+    The following files are created:
+        calibration (reference) files:
+            ``scan2D_1000_sim_41151.h5`` - based on standard with serial 41151
+            ``scan2D_1001_sim_41163.h5`` - based on standard with serial 41163
+        test file with elements Fe, W and Au:
+            ``scan2D_2000_sim_test_Fe_W_Au.h5
+    It is required that standards 41151 and 41163 are present in the list of
+    quantitative standards (``xrf_quant_standards.yaml``).
+    The test file contains the elements with the following densities:
+        ``Fe``: 50 um/cm^2
+        ``W``:  70 um/cm^2
+        ``Au``: 80 um/cm^2
+    The files contain scaler ``i0`` which could be used for normalization.
+    Additionally, the log file ``qa_files_log.txt`` with information on the dataset is saved.
 
-"""
+    Parameters
+    ----------
 
-#element_line_groups = [("Si_K", {'area' : 10})]
-#element_line_groups = [("Ba_L", {'area' : 10})]
-#element_line_groups = [("Pt_M", {'area' : 10})]
-element_line_groups = [("Si_K", {'area' : 10}), ("Ba_L", {'area' : 10}), ("Pt_M", {'area' : 10})]
+    wd: str (optional)
 
-spectrum, xx_energy = gen_spectrum(element_line_groups)
+        Working directory, where the files are saved. Files are saved in local
+        directory if ``wd`` is not specified.
+    """
 
-# Add constant background
-#background = np.ones_like(spectrum, dtype=float) / spectrum.size * 10.0
-#spectrum += background
+    standards_serials = ["41151", "41163"]
+    test_elements = {}
+    test_elements["Fe"] = {"density": 50}  # Density in ug/cm^2 (for simulated test scan)
+    test_elements["W"] = {"density": 70}
+    test_elements["Au"] = {"density": 80}
+    files_saved = gen_hdf5_qa_dataset(wd=wd,
+                                      standards_serials=standards_serials,
+                                      test_elements=test_elements)
 
-#plt.semilogy(xx_energy, spectrum)
-plt.plot(xx_energy, spectrum)
-plt.show()
-
-nx, ny = 5, 10
-#nx, ny = 1, 1
-#nx, ny = 1, 200
-#nx, ny = 200, 1
-#nx, ny = 2, 200
-#nx, ny = 200, 2
-n_spectrum_samples = 4096
-
-hdf_file_name = "test.h5"
-print(f"Creating new hdf5 file: '{hdf_file_name}'")
-with h5py.File(hdf_file_name, "w") as f:  # Erase the old one "w"
-
-    grp_xrfmap = f.create_group("xrfmap")
-
-    grp_xrfmap_detsum = grp_xrfmap.create_group("detsum")
-    dset_xrfmap_detsum_counts = grp_xrfmap_detsum.create_dataset("counts", (ny, nx, n_spectrum_samples), dtype = 'f')
-
-    counts = np.ndarray(shape=(ny, nx, n_spectrum_samples), dtype=float)
-    for n1 in range(ny):
-        for n2 in range(nx):
-            # counts[n1, n2, :] = n1 * ny + n2
-            # counts[n1, n2, :] = 1
-            counts[n1, n2, :] = spectrum.copy()
-    dset_xrfmap_detsum_counts[:, :, :] = counts
-
-    grp_xrfmap_positions = grp_xrfmap.create_group("positions")
-    dset_xrfmap_positions_name = grp_xrfmap_positions.create_dataset("name", (2,), dtype="S10")
-    dset_xrfmap_positions_pos = grp_xrfmap_positions.create_dataset("pos", (2, ny, nx), dtype = 'f')
-
-    dset_xrfmap_positions_name[:] = np.array([b"x_pos", b"y_pos"])
-    x_offset, x_step, y_offset, y_step = 0.05, 0.001, 0.1, 0.002
-    xy = np.ndarray(shape=(2, ny, nx), dtype=float)
-    # Change along x
-    for n in range(nx):
-        xy[0, :, n] = x_step * n + x_offset
-    # Change along y
-    for n in range(ny):
-        xy[1, n, :] = y_step * n + y_offset
-    dset_xrfmap_positions_pos[:, :, :] = xy
-
-    grp_xrfmap_scalers = grp_xrfmap.create_group("scalers")
-    dset_xrfmap_scalers_name = grp_xrfmap_scalers.create_dataset("name", (4,), dtype="S10")
-    dset_xrfmap_scalers_pos = grp_xrfmap_scalers.create_dataset("val", (ny, nx, 4), dtype = 'f')
-
-    dset_xrfmap_scalers_name[:] = np.array([b"i0", b"time", b"i0_time", b"time_diff"])
-    scalers = np.ndarray(shape=(ny, nx, 4), dtype=float)
-    # Scaler 'i0'
-    scalers[:, :, 0] = 10
-    #scalers[0, 0, 0] = 0  # The scaler has one zero (for testing of normalization)
-    #scalers[:, :, 0] = 0   # Zero scaler (for testing of normalization)
-    # Scaler 'time' (scanning along x axis)
-    t0, dt = 2.5, 5
-    for n in range(nx):
-        scalers[:, n, 1] = dt * n + t0
-    # Scaler 'i0_time'
-    dt_i0 = 1000
-    scalers[:, :, 2] = dt_i0
-    # Scaler 'time_diff'
-    scalers[:, :, 3] = dt
-
-    dset_xrfmap_scalers_pos[:, :, :] = scalers
-
-"""
+    # Print saved file names
+    f_names = [f"    '{_}'" for _ in files_saved]
+    f_names = "\n".join(f_names)
+    s = "Success. The following files were created:\n" + f_names
+    logger.info(s)
