@@ -370,27 +370,59 @@ def create_hdf5_xrf_map_const(*, scan_id, wd=None,
                          create_each_det=save_det_channels)
 
 
-def gen_hdf5_quantitative_analysis_dataset(*, standards_serial_list = None,
+def gen_hdf5_quantitative_analysis_dataset(*, wd=None, standards_serial_list = None,
                                            test_element_concentrations = None):
 
     if not standards_serial_list:
         raise RuntimeError("There must be at least one standard loaded. Pass the list "
                            "of standards as value of the parameter 'standard_list'")
 
+    nx, ny = 30, 20
+
     incident_energy = 13.0
 
+    # For simplicity use the same emission intensity for all lines
+    intensity_counts_per_ug = 10.0
+    # Density for elements that are not part of the standard
+    density_not_in_standard = 20
+
     if test_element_concentrations is None:
-        test_element_concentration = []
+        test_element_concentrations = []
+    test_element_lines = []
 
     # Load standards
     param_quant_estimation = ParamQuantEstimation()
     param_quant_estimation.load_standards()
 
+    lines_for_testing = []
+    scan_id = 1000
     for serial in standards_serial_list:
         standard = param_quant_estimation.find_standard(serial, key="serial")
+        # ALL standards must exist
+        if not standard:
+            raise RuntimeError(f"Standard with serial #{serial} is not found.")
+
         param_quant_estimation.set_selected_standard(standard)
         param_quant_estimation.gen_fluorescence_data_dict(incident_energy=incident_energy)
-        pass
+        element_lines = param_quant_estimation.fluorescence_data_dict["element_lines"].copy()
+        line_group = []
+        for key, value in element_lines.items():
+            area = value["density"] * intensity_counts_per_ug
+            line_group.append((key, {"area": value["density"] * intensity_counts_per_ug},))
+            el = key.split('_')[0]
+            if (el in test_element_concentrations) and (key not in test_element_lines):
+                lines_for_testing.append((key, {"area": area},))
+                test_element_lines.append(key)
+            #else:
+            #    lines_for_testing.append((key, {"area": density_not_in_standard * intensity_counts_per_ug},))
+
+        create_hdf5_xrf_map_const(scan_id=scan_id, wd=wd, element_line_groups=line_group,
+                                  nx=nx, ny=ny, incident_energy=incident_energy)
+        scan_id += 1
+
+    create_hdf5_xrf_map_const(scan_id=2000, wd=wd, element_line_groups=lines_for_testing,
+                              nx=nx, ny=ny, incident_energy=incident_energy)
+
 
 
 """
