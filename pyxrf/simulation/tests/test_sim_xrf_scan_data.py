@@ -163,11 +163,13 @@ def test_create_hdf5_xrf_map_const(tmp_path):
     assert os.path.isfile(os.path.join(wd, file_name)), f"File '{file_name}' was not created"
 
 
-def test_gen_hdf5_quantitative_analysis_dataset():
+def test_gen_hdf5_quantitative_analysis_dataset(tmp_path):
+
+    wd = os.path.join(tmp_path, "file_dir")
 
     standards_serial_list = ["41147", "41151"]
     test_element_concentrations = {}
     test_element_concentrations["Fe"] = 50  # Concentrations in ug/cm^2 (for simulated test scan)
     test_element_concentrations["Ca"] = 90
-    gen_hdf5_quantitative_analysis_dataset(standards_serial_list=standards_serial_list,
+    gen_hdf5_quantitative_analysis_dataset(wd=wd, standards_serial_list=standards_serial_list,
                                            test_element_concentrations=test_element_concentrations)
