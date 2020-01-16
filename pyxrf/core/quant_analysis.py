@@ -411,8 +411,32 @@ def load_xrf_quant_fluor_json_file(file_path, *, schema=_xrf_quant_fluor_schema)
 
 
 def get_quant_fluor_data_dict(quant_param_dict, incident_energy):
-    # TODO: Documentation and tests
+    r"""
+    Create the dictionary used for storage of data on XRF reference sample. The field
+    ``element_lines`` is the dictionary, which stores data on density density of the
+    element (in the sample) and fluorescence of the emission line (computed later
+    during processing of the reference scan.
 
+    Parameters
+    ----------
+
+    quant_param_dict: dict
+        Dictionary with the information on reference sample (loaded from YAML configuration
+        file). The dictionary should satifsfy the ``_xrf_standard_schema`` schema.
+
+    incident_energy: float
+        Incident beam energy
+
+    Returns
+    -------
+
+    quant_fluor_data_dict: dict
+        Dictionary that contains data on XRF reference sample, including the field
+        ``element_lines``, which relates the emission lines (active at ``incident_energy``)
+        with respective fluorescence (area under the line spectra) and density of the element.
+        The fluorescence is set to None and needs to be computed later. The dictionary
+        should satisfy the ``_xrf_quant_fluor_schema`` schema.
+    """
     if incident_energy is not None:
         # Make sure that it is 'float', not 'float64', since 'float64' is not supported by 'yaml' package
         incident_energy = float(max(incident_energy, 0))
@@ -422,8 +446,11 @@ def get_quant_fluor_data_dict(quant_param_dict, incident_energy):
     quant_fluor_data_dict["serial"] = quant_param_dict["serial"]
     quant_fluor_data_dict["description"] = quant_param_dict["description"]
 
+    # Find the density (mass) of each element in the mis of compounds.
+    #   Note, that the sample may contain the same element as a component of multiple compounds.
     element_dict = {}
     for compound, mass in quant_param_dict["compounds"].items():
+        # Split compound/compound_density into elements/element_density
         el_and_mass = split_compound_mass(compound, mass)
         for el, ms in el_and_mass.items():
             if el in element_dict:
@@ -431,6 +458,8 @@ def get_quant_fluor_data_dict(quant_param_dict, incident_energy):
             else:
                 element_dict[el] = ms
 
+    # Create the dictionary of element lines. Fluorescence is unknown at this point,
+    #   so it is always None.
     element_lines = {}
     for el, ms in element_dict.items():
         lines = generate_eline_list([el], incident_energy=incident_energy)
@@ -453,7 +482,40 @@ def get_quant_fluor_data_dict(quant_param_dict, incident_energy):
 
 
 def fill_quant_fluor_data_dict(quant_fluor_data_dict, *, xrf_map_dict, scaler_name):
-    # TODO: Documentation and tests
+    r"""
+    Computes average normalized fluorescence values for element lines that are part of
+    the reference sample and listed in ``quant_fluor_data_dict["element_lines"]`` and
+    present in the ``xrf_map_dict`` and writes the result to
+    ``quant_fluor_data_dict["element_lines"][<element_line>]["fluorescence"]``.
+    Fluorescence is set to None for the element lines that are not present in ``xrf_map_dict``.
+    Element lines that are present in ``xrf_map_dict``, but not part of the reference
+    standard, are ignored. If `scaler_name` is one of the keys of ``xrf_map_dict``, then
+    fluorescence map is normalized by the scaler before average value is computed. If
+    ``scaler_name`` is not one of the keys of ``xrf_map_dict`` or set to None, then
+    the average fluorescence is computed without normalization.
+
+    Parameters
+    ----------
+
+    quant_fluor_data_dict: dict
+        Dictionary with XRF reference sample data. This dictionary is modified by the function.
+        The dictionary must satisfy the '_xrf_quant_fluor_schema' schema.
+
+    xrf_map_dict: dict(array)
+        The dictionary of 2D ndarrays, which contain XRF maps for element lines and scalers.
+        Dictionary keys are the names of the emission lines (e.g. Fe_K, S_K, Au_M etc.)
+
+    scaler_name: str
+        Scaler name. In order for the scaler to be applied, the name must match one of the
+        keys of `xrf_map_dict'. If the scaler name is not one of the list keys or set to None,
+        then fluorescence is not normalized
+
+    Returns
+
+        No value is returned. The computed fluorescence for the element lines is saved to
+        ``quant_fluor_data_dict["element_lines"][<element_line>]["fluorescence"]``
+
+    """
 
     if not scaler_name:
         logger.warning(f"No scaler is selected for computing quantitative coefficients. Data is not normalized.")
@@ -489,10 +551,22 @@ def prune_quant_fluor_data_dict(quant_fluor_data_dict):
     present (fluorescence is None) or have fluorescence <= 0. 'Pruning' is performed before
     saving calibration data, so that only meaningful information is saved.
     The function does not modify the original data structure. Instead it returns the
-    copy of the original dictionary with non-existent emission line removed.
-    """
-    # TODO: Documentation and tests
+    copy of the original dictionary with some emission line removed.
 
+    Parameters
+    ----------
+
+    quant_fluor_data_dict: dict
+
+        Dictionary with XRF reference sample data. This dictionary is modified by the function.
+        The dictionary must satisfy the '_xrf_quant_fluor_schema' schema.
+
+    Returns
+    -------
+
+        Copy of ``quant_fluor_data_dict`` with some emission lines removed. Only the emission
+        lines that have fluorescence set to valid value are left.
+    """
     quant_fluor_data_dict = copy.deepcopy(quant_fluor_data_dict)
     for key, val in quant_fluor_data_dict["element_lines"].copy().items():
         if (val["fluorescence"] is None) or (val["fluorescence"] <= 0):
@@ -502,10 +576,32 @@ def prune_quant_fluor_data_dict(quant_fluor_data_dict):
 
 
 def set_quant_fluor_data_dict_optional(quant_fluor_data_dict, *, scan_id=None, scan_uid=None):
-    r"""Set optional parameters in the existing dictionary with quantitative fluorescence data.
-    The parameters include: source_scan_id (if provided), source_scan_uid (if provided)"""
-    # TODO: Documentation and tests
+    r"""
+    Set optional parameters in the existing dictionary with quantitative fluorescence data.
+    The parameters include: source_scan_id (if provided), source_scan_uid (if provided),
+    and creation time (local time). The function modifies the dictionary ``quant_fluor_data_dict``
 
+    Parameters
+    ----------
+
+    quant_fluor_data_dict: dict
+
+        Dictionary with XRF reference sample data. This dictionary is modified by the function.
+        The dictionary must satisfy the '_xrf_quant_fluor_schema' schema.
+
+    scan_id: int or str
+        Scan ID, must be positive int or a string representing int. If None, then the current
+        value of Scan ID is not changed.
+
+    scan_uid: str
+        Scan UID. UID has defined format, but it is not checked by the function, so it may
+        be any string. If None, then the current value of Scan UID is not changed.
+
+    Returns
+    -------
+
+        No value is returned. Instead ``quant_fluor_data_dict`` is modified.
+    """
     # Set scan ID (optional parameter)
     if scan_id is not None:
         try:
@@ -524,19 +620,30 @@ def set_quant_fluor_data_dict_optional(quant_fluor_data_dict, *, scan_id=None, s
         quant_fluor_data_dict["source_scan_uid"] = scan_uid
 
     # Set time as well (it may be changed later)
-    quant_fluor_data_dict = set_quant_fluor_data_dict_time(quant_fluor_data_dict)
-
-    return quant_fluor_data_dict
+    set_quant_fluor_data_dict_time(quant_fluor_data_dict)
 
 
 def set_quant_fluor_data_dict_time(quant_fluor_data_dict):
-    r"""Set creation time to current local time"""
+    r"""
+    Set creation time to current local time
+
+    Parameters
+    ----------
+
+    quant_fluor_data_dict: dict
+
+        Dictionary with XRF reference sample data. This dictionary is modified by the function.
+        The dictionary must satisfy the '_xrf_quant_fluor_schema' schema.
+
+    Returns
+    -------
+
+        No value is returned. Instead ``quant_fluor_data_dict`` is modified.
+    """
     # TODO: Documentation and tests
 
     # Set creation time (current local time in NEXUS format)
     quant_fluor_data_dict["creation_time_local"] = convert_time_to_nexus_string(ttime.localtime())
-
-    return quant_fluor_data_dict
 
 
 # -------------------------------------------------------------------------------------------------
@@ -667,8 +774,9 @@ class ParamQuantEstimation:
         self.fluorescence_data_dict["distance_to_sample"] = distance_to_sample
 
     def set_optional_parameters(self, *, scan_id=None, scan_uid=None):
-        self.fluorescence_data_dict = set_quant_fluor_data_dict_optional(
-            self.fluorescence_data_dict, scan_id=scan_id, scan_uid=scan_uid)
+        set_quant_fluor_data_dict_optional(self.fluorescence_data_dict,
+                                           scan_id=scan_id,
+                                           scan_uid=scan_uid)
 
     def get_suggested_json_fln(self):
         r"""Requires that the fluorescence data dict is filled"""
@@ -696,7 +804,7 @@ class ParamQuantEstimation:
 
     def save_fluorescence_data_dict(self, file_path, *, overwrite_existing=False):
         # Set time (in the original dictionary)
-        self.fluorescence_data_dict = set_quant_fluor_data_dict_time(self.fluorescence_data_dict)
+        set_quant_fluor_data_dict_time(self.fluorescence_data_dict)
         # The next step creates a copy of the dictionary with removed inactive emission lines
         pruned_dict = prune_quant_fluor_data_dict(self.fluorescence_data_dict)
         save_xrf_quant_fluor_json_file(file_path, pruned_dict, overwrite_existing=overwrite_existing)
