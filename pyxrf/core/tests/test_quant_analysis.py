@@ -4,11 +4,15 @@ import jsonschema
 import copy
 import numpy as np
 import numpy.testing as npt
-from pyxrf.core.xrf_utils import validate_element_str
+import time as ttime
+from pyxrf.core.utils import convert_time_from_nexus_string
+from pyxrf.core.xrf_utils import validate_element_str, generate_eline_list, split_compound_mass
 from pyxrf.core.quant_analysis import (
     save_xrf_standard_yaml_file, load_xrf_standard_yaml_file, _xrf_standard_schema,
     load_included_xrf_standard_yaml_file, compute_standard_element_densities,
-    _xrf_quant_fluor_schema, save_xrf_quant_fluor_json_file, load_xrf_quant_fluor_json_file)
+    _xrf_quant_fluor_schema, save_xrf_quant_fluor_json_file, load_xrf_quant_fluor_json_file,
+    get_quant_fluor_data_dict, fill_quant_fluor_data_dict, prune_quant_fluor_data_dict,
+    set_quant_fluor_data_dict_optional, set_quant_fluor_data_dict_time)
 
 # Short example of XRF standard data
 _standard_data_sample = [
@@ -122,7 +126,7 @@ def test_load_xrf_standard_yaml_file2(tmp_path):
     file_name = "standard.yaml"
     yaml_path = os.path.join(tmp_path, *yaml_path, file_name)
 
-    standard_data = _standard_data_sample
+    standard_data = copy.deepcopy(_standard_data_sample)
     # Change name from string to number (this will not satisfy the built-in schema)
     for v in standard_data:
         v["name"] = 50.36
@@ -300,3 +304,204 @@ def test_load_xrf_quant_fluor_json_file2(tmp_path):
 
     with pytest.raises(jsonschema.ValidationError):
         load_xrf_quant_fluor_json_file(json_path, schema=schema)
+
+
+def test_get_quant_fluor_data_dict():
+    f"""Tests for 'get_quant_fluor_data_dict': basic tests for consistensy of the returned dictionary"""
+
+    for standard_data in _standard_data_sample:
+
+        quant_fluor_data_dict = get_quant_fluor_data_dict(standard_data, incident_energy=12.0)
+        # Will raise exception is schema is not satisfied
+        jsonschema.validate(instance=quant_fluor_data_dict, schema=_xrf_quant_fluor_schema)
+
+        assert quant_fluor_data_dict["name"] == standard_data["name"], \
+            "Dictionary element 'name' is incorrect"
+
+        assert quant_fluor_data_dict["serial"] == standard_data["serial"], \
+            "Dictionary element 'serial' is incorrect"
+
+        assert quant_fluor_data_dict["description"] == standard_data["description"], \
+            "Dictionary element 'description' is incorrect"
+
+        eline_set = set()
+        # The 'mass' is not actual mass. If elements has multiple emission lines activated, then
+        #   the mass (density) of the element will be counted multiple times. There is no
+        #   physical meaning in the computed value: it is used to verify the sum of densities in
+        #   the 'element_lines' dictionary of emission lines in 'quant_fluor_data_dict'
+        mass_sum_expected = 0
+        for cmpd, mass in standard_data["compounds"].items():
+            em_dict = split_compound_mass(cmpd, mass)
+            for el, ms in em_dict.items():
+                elines = generate_eline_list([el], incident_energy=12.0)
+                n_elines = len(elines)
+                if n_elines:
+                    mass_sum_expected += n_elines * ms
+                    eline_set.update(elines)
+
+        eline_out_list = list(quant_fluor_data_dict["element_lines"].keys())
+        assert len(eline_out_list) == len(eline_set), "The number of emission lines is not as expected"
+        assert set(eline_out_list) == eline_set, \
+            "Generated object contains emission lines that are different from expected"
+
+        mass_sum = sum([_["density"] for _ in quant_fluor_data_dict["element_lines"].values()])
+        assert mass_sum == mass_sum_expected, \
+            "The total mass (density) of the components is different from expected"
+
+
+def test_fill_quant_fluor_data_dict():
+    r"""Test for 'fill_quant_fluor_data_dict': testing basic functionality"""
+    # Create copy, because the dictionary will be modified
+    fluor_standard = copy.deepcopy(_xrf_standard_fluor_sample)
+
+    # Create dictionary 'img' with XRF maps
+    nx, ny = 10, 5
+    map_S_K = np.random.rand(ny, nx)
+    map_S_K_fluor = np.mean(map_S_K)
+
+    # The line Fe_K is not present in the reference standard
+    map_Fe_K = np.random.rand(ny, nx) * 3
+
+    map_Au_M = np.random.rand(ny, nx) * 2
+    map_Au_M_fluor = np.mean(map_Au_M)
+
+    # Scaler
+    v_sclr = 1.4
+    map_sclr = np.ones(shape=(ny, nx), dtype=float) * 1.4
+
+    img = {}
+    img["S_K"] = map_S_K
+    img["Fe_K"] = map_Fe_K
+    img["Au_M"] = map_Au_M
+    img["sclr"] = map_sclr
+
+    # Fill the dictionary, use existing scaler 'sclr'
+    fill_quant_fluor_data_dict(fluor_standard, xrf_map_dict=img, scaler_name="sclr")
+
+    npt.assert_almost_equal(fluor_standard["element_lines"]["S_K"]["fluorescence"],
+                            map_S_K_fluor / v_sclr,
+                            err_msg=f"Fluorescence of 'S_K' is estimated incorrectly")
+    npt.assert_almost_equal(fluor_standard["element_lines"]["Au_M"]["fluorescence"],
+                            map_Au_M_fluor / v_sclr,
+                            err_msg=f"Fluorescence of 'Au_M' is estimated incorrectly")
+    for eline, param in fluor_standard["element_lines"].items():
+        assert (eline in img) or (param["fluorescence"] is None), \
+            f"Fluorescence line {eline} is not present in the dataset and it was not reset to None"
+
+    # Fill the dictionary, use non-existing scaler 'abc'
+    fill_quant_fluor_data_dict(fluor_standard, xrf_map_dict=img, scaler_name="abc")
+    npt.assert_almost_equal(fluor_standard["element_lines"]["S_K"]["fluorescence"],
+                            map_S_K_fluor,
+                            err_msg=f"Fluorescence of 'S_K' is estimated incorrectly")
+
+    # Fill the dictionary, don't use a scaler (set to None)
+    fill_quant_fluor_data_dict(fluor_standard, xrf_map_dict=img, scaler_name=None)
+    npt.assert_almost_equal(fluor_standard["element_lines"]["S_K"]["fluorescence"],
+                            map_S_K_fluor,
+                            err_msg=f"Fluorescence of 'S_K' is estimated incorrectly")
+
+
+def test_prune_quant_fluor_data_dict():
+    r"""Test for ``prune_quant_fluor_data_dict``: basic test of functionality"""
+
+    # Create copy, because the dictionary will be modified
+    fluor_standard = copy.deepcopy(_xrf_standard_fluor_sample)
+
+    elines_not_none = []
+    for eline, info in fluor_standard["element_lines"].items():
+        set_to_none = np.random.rand() < 0.5  # 50% chance
+        if set_to_none:
+            info["fluorescence"] = None
+        # For some emission lines, fluorescence could already be set to None
+        if info["fluorescence"] is not None:
+            elines_not_none.append(eline)
+
+    fluor_standard_pruned = prune_quant_fluor_data_dict(fluor_standard)
+    for eline, info in fluor_standard_pruned["element_lines"].items():
+        assert eline in elines_not_none, \
+            f"Emission line {eline} should have been removed from the dictionary"
+        assert info["fluorescence"] is not None, \
+            f"Emission line {eline} has 'fluorescence' set to None"
+
+
+def test_set_quant_fluor_data_dict_optional_1():
+    r"""
+    Tests for 'set_quant_fluor_data_dict_optional': basic test of functionality.
+    Successful tests.
+    """
+
+    # Create copy, because the dictionary will be modified
+    fluor_standard = copy.deepcopy(_xrf_standard_fluor_sample)
+
+    scan_id = 45378  # scan_id has to be int or a string representing int
+    scan_uid = "abc-12345"  # Just some string, format is not checked
+
+    set_quant_fluor_data_dict_optional(fluor_standard,
+                                       scan_id=scan_id,
+                                       scan_uid=scan_uid)
+
+    # Check if scan_id and scan_uid are set
+    assert fluor_standard["source_scan_id"] == scan_id, "Scan ID is set incorrectly"
+    assert fluor_standard["source_scan_uid"] == scan_uid, "Scan UID is set incorrectly"
+
+    # Check if time is set correctly
+    t = fluor_standard["creation_time_local"]
+    assert t is not None, "Time is not set"
+
+    t = convert_time_from_nexus_string(t)
+    t = ttime.mktime(t)
+    t_current = ttime.mktime(ttime.localtime())
+
+    # 5 seconds is more than sufficient to complete this test
+    assert abs(t_current - t) < 5.0, "Time is set incorrectly"
+
+    # Test if sending Scan ID as a string works
+    scan_id2 = 45346
+    scan_id2_str = f"{scan_id2}"
+    set_quant_fluor_data_dict_optional(fluor_standard,
+                                       scan_id=scan_id2_str)
+    assert fluor_standard["source_scan_id"] == scan_id2, "Scan ID is set incorrectly"
+
+
+def test_set_quant_fluor_data_dict_optional_2():
+    r"""
+    Tests for 'set_quant_fluor_data_dict_optional'.
+    Failing tests.
+    """
+
+    # Create copy, because the dictionary will be modified
+    fluor_standard = copy.deepcopy(_xrf_standard_fluor_sample)
+
+    # Scan ID is a string, which can not be interpreted as int
+    with pytest.raises(RuntimeError,
+                       match="Parameter 'scan_id' must be integer or a string representing integer"):
+        set_quant_fluor_data_dict_optional(fluor_standard, scan_id="abc_34g")
+
+    # Scan ID is of wrong type
+    with pytest.raises(RuntimeError,
+                       match="Parameter 'scan_id' must be integer or a string representing integer"):
+        set_quant_fluor_data_dict_optional(fluor_standard, scan_id=[1, 5, 14])
+
+    # Scan UID is of wrong type
+    with pytest.raises(RuntimeError,
+                       match="Parameter 'scan_uid' must be a string representing scan UID"):
+        set_quant_fluor_data_dict_optional(fluor_standard, scan_uid=[1, 5, 14])
+
+
+def test_set_quant_fluor_data_dict_time():
+
+    # Create copy, because the dictionary will be modified
+    fluor_standard = copy.deepcopy(_xrf_standard_fluor_sample)
+
+    set_quant_fluor_data_dict_time(fluor_standard)
+
+    # Check if time is set correctly
+    t = fluor_standard["creation_time_local"]
+    assert t is not None, "Time is not set"
+
+    t = convert_time_from_nexus_string(t)
+    t = ttime.mktime(t)
+    t_current = ttime.mktime(ttime.localtime())
+
+    # 5 seconds is more than sufficient to complete this test
+    assert abs(t_current - t) < 5.0, "Time is set incorrectly"
