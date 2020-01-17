@@ -5,6 +5,7 @@ import copy
 import numpy as np
 import numpy.testing as npt
 import time as ttime
+import re
 from pyxrf.core.utils import convert_time_from_nexus_string
 from pyxrf.core.xrf_utils import validate_element_str, generate_eline_list, split_compound_mass
 from pyxrf.core.quant_analysis import (
@@ -12,13 +13,14 @@ from pyxrf.core.quant_analysis import (
     load_included_xrf_standard_yaml_file, compute_standard_element_densities,
     _xrf_quant_fluor_schema, save_xrf_quant_fluor_json_file, load_xrf_quant_fluor_json_file,
     get_quant_fluor_data_dict, fill_quant_fluor_data_dict, prune_quant_fluor_data_dict,
-    set_quant_fluor_data_dict_optional, set_quant_fluor_data_dict_time)
+    set_quant_fluor_data_dict_optional, set_quant_fluor_data_dict_time,
+    ParamQuantEstimation)
 
 # Short example of XRF standard data
 _standard_data_sample = [
         {
-            "name": "Micromatter 41157",
-            "serial": "41157",
+            "name": "Test Micromatter 411570",
+            "serial": "411570",
             "description": "InSx 22.4 (In=16.0 S=6.4) / SrF2 20.6 / "
                            "Cr 19.8 / Ni 19.2 / GaAs 19.1 (Ga=8.3 As=10.8)",
             "compounds": {
@@ -33,8 +35,8 @@ _standard_data_sample = [
             "density": 101.1
         },
         {
-            "name": "Micromatter 41164",
-            "serial": "41164",
+            "name": "Test Micromatter 411640",
+            "serial": "411640",
             "description": "CeF3 21.1 / Au 20.6",
             "compounds": {
                 "CeF3": 21.1,
@@ -349,31 +351,31 @@ def test_get_quant_fluor_data_dict():
             "The total mass (density) of the components is different from expected"
 
 
+def gen_xrf_map_dict(nx=10, ny=5, elines=["S_K", "Au_M", "Fe_K"]):
+    r"""
+    Create dictionary with the given set of emission lines and scaler ``sclr``
+    """
+    img = {}
+    for e in elines:
+        map = np.random.rand(ny, nx) * np.random.rand() * 10
+        img[e] = map
+
+    # Scaler
+    map_sclr = np.ones(shape=(ny, nx), dtype=float) * np.random.rand() * 2
+    img['sclr'] = map_sclr
+
+    return img
+
+
 def test_fill_quant_fluor_data_dict():
     r"""Test for 'fill_quant_fluor_data_dict': testing basic functionality"""
     # Create copy, because the dictionary will be modified
     fluor_standard = copy.deepcopy(_xrf_standard_fluor_sample)
 
-    # Create dictionary 'img' with XRF maps
-    nx, ny = 10, 5
-    map_S_K = np.random.rand(ny, nx)
-    map_S_K_fluor = np.mean(map_S_K)
-
-    # The line Fe_K is not present in the reference standard
-    map_Fe_K = np.random.rand(ny, nx) * 3
-
-    map_Au_M = np.random.rand(ny, nx) * 2
-    map_Au_M_fluor = np.mean(map_Au_M)
-
-    # Scaler
-    v_sclr = 1.4
-    map_sclr = np.ones(shape=(ny, nx), dtype=float) * 1.4
-
-    img = {}
-    img["S_K"] = map_S_K
-    img["Fe_K"] = map_Fe_K
-    img["Au_M"] = map_Au_M
-    img["sclr"] = map_sclr
+    img = gen_xrf_map_dict()
+    map_S_K_fluor = np.mean(img["S_K"])
+    map_Au_M_fluor = np.mean(img["Au_M"])
+    v_sclr = np.mean(img["sclr"])
 
     # Fill the dictionary, use existing scaler 'sclr'
     fill_quant_fluor_data_dict(fluor_standard, xrf_map_dict=img, scaler_name="sclr")
@@ -505,3 +507,184 @@ def test_set_quant_fluor_data_dict_time():
 
     # 5 seconds is more than sufficient to complete this test
     assert abs(t_current - t) < 5.0, "Time is set incorrectly"
+
+
+#--------------------------------------------------------------------------------------------------------
+
+def test_ParamQuantEstimation_1(tmp_path):
+    r"""
+    Create the object of the 'ParamQuantEstimation' class. Load and then clear reference data.
+    """
+
+    # 'home_dir' is typically '~', but for testing it is set to 'tmp_dir'
+    home_dir = tmp_path
+    config_dir = ".pyxrf"
+    standards_fln = "quantitative_standards.yaml"
+
+    pqe = ParamQuantEstimation(home_dir=home_dir)
+
+    # Verify that the cofig file was created
+    file_path = os.path.join(home_dir, config_dir, standards_fln)
+    assert os.path.isfile(file_path), \
+        f"Empty file for user-defined reference standards '{file_path}' was not created"
+
+    # Load reference standards
+    pqe.load_standards()
+    assert pqe.standards_built_in is not None, f"Failed to load built-in standards"
+    assert pqe.standards_custom is not None, f"Failed to load user-defined standards"
+
+    # Clear loaded standards
+    pqe.clear_standards()
+    assert pqe.standards_built_in is None, f"Failed to clear loaded built-in standards"
+    assert pqe.standards_custom is None, f"Failed to clear loaded user-defined standards"
+
+
+def test_ParamQuantEstimation_2(tmp_path):
+
+    standard_data = _standard_data_sample
+
+    # 'home_dir' is typically '~', but for testing it is set to 'tmp_dir'
+    home_dir = tmp_path
+    config_dir = ".pyxrf"
+    standards_fln = "quantitative_standards.yaml"
+
+    # Create the file with user-defined reference definitions
+    file_path = os.path.join(home_dir, config_dir, standards_fln)
+    save_xrf_standard_yaml_file(file_path, standard_data)
+
+    # Create the object and load references
+    pqe = ParamQuantEstimation(home_dir=home_dir)
+    pqe.load_standards()
+    assert pqe.standards_built_in is not None, f"Failed to load built-in standards"
+    assert len(pqe.standards_built_in) > 0, f"The number of loaded built-in standards is ZERO"
+    assert pqe.standards_custom is not None, f"Failed to load user-defined standards"
+    assert len(pqe.standards_custom) > 0, f"The number of loaded user-defined standards is ZERO"
+
+    # Verify if the functions for searching the user-defined standards
+    for st in pqe.standards_custom:
+        serial = st["serial"]
+        assert pqe._find_standard_custom(st), f"Standard {serial} was not found in user-defined list"
+        assert not pqe._find_standard_built_in(st), f"Standard {serial} was found in built-in list"
+        assert pqe.find_standard(st), f"Standard {serial} was not found"
+        assert pqe.find_standard(st["name"], key="name"), \
+            f"Failed to find standard {serial} by name"
+        assert pqe.find_standard(st["serial"], key="serial"), \
+            f"Failed to find standard {serial} by serial number"
+        assert pqe.is_standard_custom(st), f"Standard {serial} was not identified as user-defined"
+        pqe.set_selected_standard(st)
+        assert pqe.standard_selected == st, f"Can't select standard {serial}"
+
+    # Verify if the functions for searching the user-defined standards
+    for st in pqe.standards_built_in:
+        serial = st["serial"]
+        assert not pqe._find_standard_custom(st), f"Standard {serial} was found in user-defined list"
+        assert pqe._find_standard_built_in(st), f"Standard {serial} was not found in built-in list"
+        assert pqe.find_standard(st), f"Standard {serial} was not found"
+        assert pqe.find_standard(st["name"], key="name"), \
+            f"Failed to find standard {serial} by name"
+        assert pqe.find_standard(st["serial"], key="serial"), \
+            f"Failed to find standard {serial} by serial number"
+        assert not pqe.is_standard_custom(st), f"Standard {serial} was identified as user-defined"
+        pqe.set_selected_standard(st)
+        assert pqe.standard_selected == st, f"Can't select standard {serial}"
+
+    # Selecting non-existing standard
+    st = {"serial": "09876", "name": "Some name"}  # Some arbitatry dictionary
+    st_selected = pqe.set_selected_standard(st)
+    assert st_selected == pqe.standard_selected, f"Return value of 'set_selected_standard' is incorrect"
+    assert st_selected == pqe.standards_custom[0], f"Incorrect standard is selected"
+    # No argument (standard is None)
+    pqe.set_selected_standard()
+    assert st_selected == pqe.standards_custom[0], f"Incorrect standard is selected"
+    # Delete the user-defined standards (this is not normal operation, but it's OK for testing)
+    pqe.standards_custom = None
+    pqe.set_selected_standard(st)
+    assert pqe.standard_selected == pqe.standards_built_in[0], f"Incorrect standard is selected"
+    pqe.standards_built_in=None
+    pqe.set_selected_standard(st)
+    assert pqe.standard_selected is None, f"Incorrect standard is selected"
+
+def test_ParamQuantEstimation_3(tmp_path):
+
+    standard_data = _standard_data_sample
+
+    # 'home_dir' is typically '~', but for testing it is set to 'tmp_dir'
+    home_dir = tmp_path
+    config_dir = ".pyxrf"
+    standards_fln = "quantitative_standards.yaml"
+
+    # Create the file with user-defined reference definitions
+    file_path = os.path.join(home_dir, config_dir, standards_fln)
+    save_xrf_standard_yaml_file(file_path, standard_data)
+
+    # Create the object and load references
+    pqe = ParamQuantEstimation(home_dir=home_dir)
+    pqe.load_standards()
+
+    # Select first 'user-defined' sample (from '_standard_data_sample' list)
+    incident_energy = 12.0
+    img = gen_xrf_map_dict()
+
+    # Generate and fill fluorescence data dictionary
+    pqe.set_selected_standard()
+    pqe.gen_fluorescence_data_dict(incident_energy=incident_energy)
+    scaler_name = "sclr"
+    pqe.fill_fluorescence_data_dict(xrf_map_dict=img, scaler_name=scaler_name)
+
+    # Equivalent transformations using functions that are already tested. The sequence
+    #   must give the same result (same functions are called).
+    qfdd = get_quant_fluor_data_dict(standard_data[0], incident_energy)
+    fill_quant_fluor_data_dict(qfdd, xrf_map_dict=img, scaler_name=scaler_name)
+
+    assert pqe.fluorescence_data_dict == qfdd, \
+        f"The filled fluorescence data dictionary does not match the expected"
+
+    # Test generation of preview (superficial)
+    pview = pqe.get_fluorescence_data_dict_text_preview()
+    # It is expected that the preview will contain 'WARNING:'
+    assert "WARNING:" in pview, "Warning is not found in preview"
+    # Disable warnings
+    pview = pqe.get_fluorescence_data_dict_text_preview(enable_warnings=False)
+    assert pview.count("WARNING:") == 0, "Warnings are disabled, but still generated"
+
+    # Test function for setting detector channel name
+    pqe.set_detector_channel_in_data_dict(detector_channel="sum")
+    assert pqe.fluorescence_data_dict["detector_channel"] == "sum", \
+        "Detector channel was not set correctly"
+
+    # Test function for setting distance to sample
+    distance_to_sample = 2.5
+    pqe.set_distance_to_sample_in_data_dict(distance_to_sample=distance_to_sample)
+    assert pqe.fluorescence_data_dict["distance_to_sample"] == distance_to_sample, \
+        "Distance-to-sample was not set correctly"
+
+    # Function for setting Scan ID and Scan UID
+    scan_id = 65476
+    scan_uid = "abcdef-12345678"  # Some string
+
+    qfdd = copy.deepcopy(pqe.fluorescence_data_dict)
+    pqe.set_optional_parameters(scan_id=scan_id, scan_uid=scan_uid)
+    set_quant_fluor_data_dict_optional(qfdd, scan_id=scan_id, scan_uid=scan_uid)
+    # We don't check if time is computed correctly (this was checked at different place)
+    #   Time computed at different function calls may be different
+    qfdd["creation_time_local"] = pqe.fluorescence_data_dict["creation_time_local"]
+    assert pqe.fluorescence_data_dict == qfdd, "Optional parameters are not set correctly"
+
+    # Try generating preview again: there should be no warnings
+    pview = pqe.get_fluorescence_data_dict_text_preview()
+    # There should be no warnings in preview (all parameters are set)
+    assert "WARNING:" not in pview, "Preview must contain no warnings"
+
+    #  Test the method 'get_suggested_json_fln'
+    fln_suggested = pqe.get_suggested_json_fln()
+    assert f"_{pqe.fluorescence_data_dict['serial']}." in fln_suggested, \
+        f"Serial of the reference is not found in the suggested file name {fln_suggested}"
+
+    # Test saving calibration data
+    file_path = os.path.join(tmp_path, fln_suggested)
+    pqe.save_fluorescence_data_dict(file_path=file_path)
+
+    qfdd = load_xrf_quant_fluor_json_file(file_path=file_path)
+    assert qfdd == prune_quant_fluor_data_dict(pqe.fluorescence_data_dict), \
+        "Error occurred while saving and loading calibration data dictionary. Dictionaries don't match"
+
