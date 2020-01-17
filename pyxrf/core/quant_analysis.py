@@ -650,7 +650,42 @@ def set_quant_fluor_data_dict_time(quant_fluor_data_dict):
 
 
 class ParamQuantEstimation:
-    # TODO: Documentation and tests
+    r"""
+    The class is used for measurement of parameters in the process of estimation of
+    quantitative calibration data.
+
+    The methods of the class are designed to be used in the followingsequence:
+
+    # Create object
+    pqe = ParamQuantEstimation()
+    # Load standards
+    pqe.load_standards()
+    # Find standard if needed (different options are available)
+    st = pqe.find_standard(serial_number, key="serial")
+    # Select standard
+    pqe.set_selected_standard(st)
+
+    # Generate data dictionary
+    pqe.gen_fluorescence_data_dict(incident_energy=12.0)
+    # Fill the dictionary using XRF map dictionary (e.g. ``img_dict``) and scaler name (e.g. ``i0``)
+    pqe.fill_fluorescence_data_dict(xrf_map_dict=img_dict, scaler_name="i0")
+    # Set different (optional but desired) parameters
+    pqe.set_detector_channel_in_data_dict(detector_channel="sum")
+    pqe.set_optional_parameters(scan_id=12345, scan_uid="some-uid-string"):
+
+    # Get preview (if needed) for displaying to users
+    preview_str = pqe.get_fluorescence_data_dict_text_preview()
+
+    # Get suggested file name for the parameter file
+    fln = pqe.get_suggested_json_fln()
+    # Generate full path based on fln
+    file_path = .....
+    # Save data to file
+    pqe.save_fluorescence_data_dict(file_path=file_path)
+
+    At any time, the generated/filled fluorescence data dictionary may be
+    accessed as ``self.fluorescence_data_dict``.
+    """
 
     def __init__(self, *, home_dir="~",
                  config_dir=".pyxrf",
@@ -705,6 +740,8 @@ class ParamQuantEstimation:
         Load reference standards data (both built-in and user-defined). Must be called before
         attempting to access the reference standards
         """
+        self.clear_standards()
+
         try:
             self.standards_built_in = load_included_xrf_standard_yaml_file()
         except Exception as ex:
