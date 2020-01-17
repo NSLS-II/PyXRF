@@ -652,12 +652,34 @@ def set_quant_fluor_data_dict_time(quant_fluor_data_dict):
 class ParamQuantEstimation:
     # TODO: Documentation and tests
 
-    def __init__(self):
+    def __init__(self, *, home_dir="~",
+                 config_dir=".pyxrf",
+                 standards_fln="quantitative_standards.yaml"):
+        r"""
+        Constructor of the ``ParamQuantEstiomation`` class. In addition to initalization
+        of the fields, the constructor checks if the default file with user-defined
+        reference standards exists in the PyXRF config directory and creates an empty file
+        if it does not exist.
 
-        custom_path = ("~", ".pyxrf", "quantitative_standards.yaml")
+        Parameters
+        ----------
+
+        home_dir: str
+            HOME directory for PyXRF configuration files. Typically it is ``~``,
+            but may be changed to temporary directory to run unit tests
+
+        config_dir: str
+            subdirectory in the HOME directory, used to keep PyXRF config files.
+            Typical value is ``.pyxrf``.
+
+        standards_fln: str
+            name of the file for storing the data on user-defined reference standards.
+        """
+
+        custom_path = (os.path.expanduser(home_dir), config_dir, standards_fln)
         self.custom_standards_file_path = os.path.join(*custom_path)
 
-        # If file with custom set of standards does not exist, create one
+        # If file with user-defined set of reference standards does not exist, create one
         if not os.path.isfile(self.custom_standards_file_path):
             try:
                 save_xrf_standard_yaml_file(self.custom_standards_file_path, [])
@@ -679,51 +701,123 @@ class ParamQuantEstimation:
         self.fluorescence_data_dict = None
 
     def load_standards(self):
-
+        r"""
+        Load reference standards data (both built-in and user-defined). Must be called before
+        attempting to access the reference standards
+        """
         try:
             self.standards_built_in = load_included_xrf_standard_yaml_file()
         except Exception as ex:
+            self.standards_built_in = None
             logger.error(f"Failed to load built-in set of quantitative standards: {ex}")
+
         try:
             self.standards_custom = load_xrf_standard_yaml_file(self.custom_standards_file_path)
         except Exception as ex:
+            self.standards_custom = None
             logger.error(f"Failed to load custom set of quantitative standards: {ex}")
 
     def clear_standards(self):
-
+        r"""
+        Clear the lists of reference standards and all data that was computed based on
+        loaded reference standards. This function is called before reloading the standards.
+        It is recommended that the data is reloaded often (each time the dialog box
+        for reference standard selection is opened), because the reference files may be
+        edited by the user and the most recent version of the data should be displayed
+        in the dialog box
+        """
         self.standards_built_in = None
         self.standards_custom = None
         self.standard_selected = None
         self.emission_line_list = None
+        self.fluorescence_data_dict=None
 
     def _find_standard_custom(self, standard, key=None):
-
+        r"""
+        Search for standard in user-defined list. For more detailed description
+        see docstring for ``find_standard`` function
+        """
         standard_ref = None
         if self.standards_custom:
             for st in self.standards_custom:
-                if (st == standard) if (key is None) else (st[key] == standard):
+                if ((st == standard) if (key is None) else (st[key] == standard)):
                     standard_ref = st
                     break
         return standard_ref
 
     def _find_standard_built_in(self, standard, key=None):
+        r"""
+        Search for standard in built-in list. For more detailed description
+        see docstring for ``find_standard`` function
+        """
 
         standard_ref = None
         if self.standards_built_in:
             for st in self.standards_built_in:
-                if (st == standard) if (key is None) else (st[key] == standard):
+                if ((st == standard) if (key is None) else (st[key] == standard)):
                     standard_ref = st
                     break
         return standard_ref
 
     def find_standard(self, standard, key=None):
+        r"""
+        Search for the standard in the lists of user-defined or built-in standards.
+        Search may be performed by using the complete standard information (dictionary)
+        or by one of the keys. The function returns reference to the first matching
+        entry in the list or None.
+
+            Examples:
+            ``find_standard(st)`` - search for dictionary ``st``
+            ``find_standard(st["name"], key="name")`` - search by key ``name``.
+
+        Parameters
+        ----------
+
+        standard: dict or other
+            The dictionary with standard information (the complete dictionary
+            must match one of the list elements) or the value of one of the
+            dictionary element (e.g. serial, or name). In the latter case,
+            the ``key`` must be specified
+
+        key: str or None
+            The name of the dictionary key used for searching. The first
+            matching entry is returned.
+
+        Returns
+        -------
+
+            Reference to one of the entries of user-defined or built-in lists
+            if search is successful or None if the standard was not found.
+        """
+        if standard is None:
+            return None
 
         standard_ref = self._find_standard_custom(standard, key=key)
         if not standard_ref:
             standard_ref = self._find_standard_built_in(standard, key=key)
+
         return standard_ref
 
-    def set_selected_standard(self, standard):
+    def set_selected_standard(self, standard=None):
+        r"""
+        Set standard ``standard`` as currently selected. If ``standard`` does not
+        exist in user-defined or built-in list, then the first entry of the
+        user-defined list is set as current. If user-defined list is empty or
+        None, then the first entry of the built-in list is set as current.
+        If both lists are empty or None, then then nothing is selected.
+        If ``standard`` is None, then the first available standard is selected.
+
+        Parameters
+        ----------
+
+        standard: dict
+            The dictionary holding standard information. The complete dictionary
+            is compared with entries of internally stored lists to find the match.
+
+        Returns
+        -------
+            Returns reference to the selected standard (None if no entry is selected)
+        """
 
         standard_ref = self.find_standard(standard)
 
@@ -743,10 +837,30 @@ class ParamQuantEstimation:
         return self.standard_selected
 
     def is_standard_custom(self, standard):
+        r"""
+        Returns True if standard ``standard`` is user-defined and False otherwise
 
+        Parameters
+        ----------
+
+        standard: dict
+            The dictionary holding standard information. The complete dictionary
+            is compared with entries of internally stored lists to find the match.
+        """
         return bool(self._find_standard_custom(standard))
 
     def gen_fluorescence_data_dict(self, incident_energy):
+        r"""
+        Generate fluorescence data dictionary based on the description of the selected
+        reference standard (reference standard must be selected using ``set_selected_standard``).
+
+        Parameters
+        ----------
+
+        incident_energy: float
+
+            Incident beam energy, keV
+        """
 
         if incident_energy:
             self.incident_energy = incident_energy
@@ -760,31 +874,128 @@ class ParamQuantEstimation:
         self.fluorescence_data_dict = get_quant_fluor_data_dict(self.standard_selected, incident_energy)
 
     def fill_fluorescence_data_dict(self, *, xrf_map_dict, scaler_name):
+        r"""
+        Fills the generated fluorescence data dictionary based on XRF map dictionary and scaler name.
+        The function resets fluorescence for all emission lines in the dictionary to None and then
+        iterates through the list of the emission lines. If the map for the emission line is found
+        in the ``xrf_map_dict``, then the fluorescence value is computed and filled. Fluorescence
+        is computed as mean value of the respective map (over all pixels). If the scaler with name
+        ``scaler_name`` is found in ``xrf_map_dict`` then XRF map is normalized by the scaler before
+        computing fluorescence, otherwise no normalization is performed.
+
+        Before this function is called, the standards must be loaded (``load_standards``),
+        a standard selected (``set_selected_standard``) and fluorescence data dictionary generated
+        (``gen_fluorescence_data_dict``).
+
+        Parameters
+        ----------
+
+        xrf_map_dict: dict(array)
+            The dictionary of 2D ndarrays, which contain XRF maps for element lines and scalers.
+            Dictionary keys are the names of the emission lines (e.g. Fe_K, S_K, Au_M etc.)
+
+        scaler_name: str
+            Scaler name. In order for the scaler to be applied, the name must match one of the
+            keys of `xrf_map_dict'. If the scaler name is not one of the list keys or set to None,
+            then fluorescence is not normalized
+        """
 
         fill_quant_fluor_data_dict(self.fluorescence_data_dict,
                                    xrf_map_dict=xrf_map_dict,
                                    scaler_name=scaler_name)
 
     def set_detector_channel_in_data_dict(self, *, detector_channel=None):
+        r"""
+        Set detector channel (``sum``, ``det1``, ``det2`` etc.) in the fluorescence data dictionary.
+        Information on the selected detector channel will be used to ensure that correct
+        detector channel is selected when processing data (the channels MUST match).
+
+        Parameters
+        ----------
+
+        detector_channel: str or None
+
+            The name of the detector channel (``sum``, ``det1``, ``det2`` etc.)
+        """
         self.fluorescence_data_dict["detector_channel"] = detector_channel
 
     def set_distance_to_sample_in_data_dict(self, *, distance_to_sample=None):
+        r"""
+        Set distance-to-sample in the fluorescence data dictionary. The value must be
+        postive float or ZERO. Distance-to-sample is the distance between the sample
+        and the detector that is used to adjust calibration in case the distance
+        changes between calibration and experimental scans. If distance-to-sample is
+        zero, then no adjustment will be performed. If both calibration and experimental
+        scans are performed without moving the detector, the value may be kept zero (or None)
+
+        Parameters
+        ----------
+
+        distance_to_sample: float
+
+            Distance-to-sample, may be positive float or 0.0.
+        """
         if distance_to_sample is not None:
             distance_to_sample = float(max(distance_to_sample, 0.0))
         self.fluorescence_data_dict["distance_to_sample"] = distance_to_sample
 
     def set_optional_parameters(self, *, scan_id=None, scan_uid=None):
+        r"""
+        Set optional parameters in the existing dictionary with quantitative fluorescence data.
+        The parameters include: source_scan_id (if provided), source_scan_uid (if provided),
+        and creation time (local time). The function modifies the dictionary ``quant_fluor_data_dict``
+
+        Parameters
+        ----------
+
+        quant_fluor_data_dict: dict
+
+            Dictionary with XRF reference sample data. This dictionary is modified by the function.
+            The dictionary must satisfy the '_xrf_quant_fluor_schema' schema.
+
+        scan_id: int or str
+            Scan ID, must be positive int or a string representing int. If None, then the current
+            value of Scan ID is not changed.
+
+        scan_uid: str
+            Scan UID. UID has defined format, but it is not checked by the function, so it may
+            be any string. If None, then the current value of Scan UID is not changed.
+        """
+
         set_quant_fluor_data_dict_optional(self.fluorescence_data_dict,
                                            scan_id=scan_id,
                                            scan_uid=scan_uid)
 
     def get_suggested_json_fln(self):
-        r"""Requires that the fluorescence data dict is filled"""
+        r"""
+        Get suggested file name for the reference standard data. File name
+        serial number of the standard, therefore the fluorescence data dict must be filled
+        before calling this function
+        """
         fln = f"standard_{self.fluorescence_data_dict['serial']}.json"
         return fln
 
     def get_fluorescence_data_dict_text_preview(self, enable_warnings=True):
+        r"""
+        Generate preview of fluorescence data dictionary. The preview is a human-readable
+        multiline string, which displays the dictionary in YAML format. Warnings are
+        added to the beginning of the string if ``scaler_name`` or ``distance_to_sample``
+        are not set. Warnings can be disabled if ``enable_warnings`` is set to ``False``.
 
+        Parameters
+        ----------
+
+        enable_warnings: bool
+
+            True - warnings are enabled, False - warnings are disabled and not be included
+            in the output string
+
+        Returns
+        -------
+
+            A string that contains the preview of the fluorescence data dictionary
+            (calibration data).
+        """
         pruned_dict = prune_quant_fluor_data_dict(self.fluorescence_data_dict)
         # Print preview in YAML format (easier to read)
         s = yaml.dump(pruned_dict, default_flow_style=False, sort_keys=False, indent=4)
@@ -803,6 +1014,40 @@ class ParamQuantEstimation:
         return s
 
     def save_fluorescence_data_dict(self, file_path, *, overwrite_existing=False):
+        r"""
+        Save the results of processing of a scan data for XRF standard sample to a JSON file.
+        The saved data will be used later for quantitative analysis of experimental samples.
+        Before saving, the copy of the original dictionary is createda and inactive emission
+        lines (with ZERO fluorescence) are removed from the copy. Original dictionary is not
+        modified and the copy is saved to the file.
+
+        Before this function is called, the standards must be loaded (``load_standards``),
+        a standard selected (``set_selected_standard``),  fluorescence data dictionary generated
+        (``gen_fluorescence_data_dict``) and filled (``fill_fluorescence_data_dict``).
+
+        Parameters
+        ----------
+
+        file_path: str
+            absolute or relative path to the saved JSON file. If the path does not exist, then
+            it is created.
+
+        overwrite_existing: bool
+            indicates if existing file should be overwritten. Default is False, since
+            overwriting of an existing parameter file will lead to loss of data.
+
+        Returns
+        -------
+
+            no value is returned
+
+        Raises
+        ------
+
+        IOError if the JSON file already exists and ``overwrite_existing`` is not enabled.
+
+        jsonschema.ValidationError if schema validation fails
+        """
         # Set time (in the original dictionary)
         set_quant_fluor_data_dict_time(self.fluorescence_data_dict)
         # The next step creates a copy of the dictionary with removed inactive emission lines
