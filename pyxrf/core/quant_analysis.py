@@ -671,7 +671,7 @@ class ParamQuantEstimation:
     pqe.fill_fluorescence_data_dict(xrf_map_dict=img_dict, scaler_name="i0")
     # Set different (optional but desired) parameters
     pqe.set_detector_channel_in_data_dict(detector_channel="sum")
-    pqe.set_optional_parameters(scan_id=12345, scan_uid="some-uid-string"):
+    pqe.set_optional_parameters(scan_id=12345, scan_uid="some-uid-string")
 
     # Get preview (if needed) for displaying to users
     preview_str = pqe.get_fluorescence_data_dict_text_preview()
@@ -1096,6 +1096,9 @@ class ParamQuantitativeAnalysis:
     # TODO: documentation and tests
 
     def __init__(self):
+        r"""
+        Constructor. Initialization.
+        """
 
         # List of opened calibration standards
         self.calibration_data = []
