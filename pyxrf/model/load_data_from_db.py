@@ -1254,7 +1254,6 @@ def map_data2D_tes(runid, fpath,
                 if s_data[_n].shape != ():
                     n_full = _n
                     break
-            print(f"type s_data: {type(s_data)}  type s_data[0]: {type(s_data[0])}")
             for _n in range(len(s_data)):
                 if s_data[_n].shape == ():
                     s_data[_n] = np.copy(s_data[n_full])
@@ -1288,7 +1287,7 @@ def map_data2D_tes(runid, fpath,
     detector_field = "fluor"
 
     # Read detector values (for single detector)
-    detector_data = np.zeros(shape=data_shape + (spectrum_len,), dtype=float)
+    detector_data = np.zeros(shape=data_shape + (spectrum_len,), dtype=np.float32)
     n_events = data_shape[0]
     n_events_found = 0
     e = hdr.events(fill=True, stream_name="primary")
@@ -1317,7 +1316,7 @@ def map_data2D_tes(runid, fpath,
         s += f"+{num_det}ch"
     fpath_out = f'{root}{s}{ext}'
 
-    if output_to_file and False:
+    if output_to_file:
         # output to file
         print(f"Saving data to hdf file #{n_detectors_found}: Detector: {detector_name}.")
         write_db_to_hdf_base(fpath_out, new_data, metadata=mdata,
