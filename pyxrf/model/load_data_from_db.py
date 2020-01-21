@@ -1235,15 +1235,15 @@ def map_data2D_tes(runid, fpath,
         n_scalers = len(config_data['scaler_list'])
         scaler_data = None
         data_shape = None
-        print(f"Scaler names: {scaler_names}")
+        #print(f"Scaler names: {scaler_names}")
         for n, name in enumerate(scaler_names):
-            print(f"Reading table entries")
+            #print(f"Reading table entries")
             s_data = hdr.table()[name]
-            print(f"s_data type = {type(s_data)}")
-            print(f"Scaler '{name}' - size (Pandas) = {s_data.size}")
+            #print(f"s_data type = {type(s_data)}")
+            #print(f"Scaler '{name}' - size (Pandas) = {s_data.size}")
             s_data = s_data.to_numpy()
-            print(f"Scaler '{name}' - shape = {s_data.shape}")
-            print(f"Scaler element #0: {s_data[0].shape}")
+            #print(f"Scaler '{name}' - shape = {s_data.shape}")
+            #print(f"Scaler element #0: {s_data[0].shape}")
             # Convert pandas dataframe to a list of ndarrays (.to_numpy())
             #   and then stack the arrays into a single 2D array
 
@@ -1262,18 +1262,18 @@ def map_data2D_tes(runid, fpath,
                 else:
                     n_full = _n
 
-            for _n in range(len(s_data)):
-                print(f"Element {_n} shape is: {s_data[_n].shape}")
-                print(f"Empty array detected: {s_data[_n].shape == ()}")
+            #for _n in range(len(s_data)):
+            #    print(f"Element {_n} shape is: {s_data[_n].shape}")
+            #    print(f"Empty array detected: {s_data[_n].shape == ()}")
             s_data = np.vstack(s_data)
-            print(f"stacked")
+            #print(f"stacked")
             if scaler_data is None:
-                print(f"Creating scalar_data")
+                #print(f"Creating scalar_data")
                 data_shape = s_data.shape
                 scaler_data = np.zeros(shape=data_shape + (n_scalers,), dtype=float)
-                print(f"Created successfully")
+                #print(f"Created successfully")
             scaler_data[:, :, n] = s_data
-            print(f"Adding s_data to scalar_data")
+            #print(f"Adding s_data to scalar_data")
         new_data['scaler_data'] = scaler_data
 
     # Read x-y coordinates
