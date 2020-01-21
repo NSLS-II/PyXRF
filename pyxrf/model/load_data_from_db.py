@@ -1240,8 +1240,10 @@ def map_data2D_tes(runid, fpath,
             print(f"Reading table entries")
             s_data = hdr.table()[name]
             print(f"s_data type = {type(s_data)}")
+            print(f"Scaler '{name}' - size (Pandas) = {s_data.size}")
             s_data = s_data.to_numpy()
             print(f"Scaler '{name}' - shape = {s_data.shape}")
+            print(f"Scaler element: {s_data[0].shape}")
             # Convert pandas dataframe to a list of ndarrays (.to_numpy())
             #   and then stack the arrays into a single 2D array
             s_data = np.vstack(s_data)
