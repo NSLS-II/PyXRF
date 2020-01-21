@@ -1246,8 +1246,9 @@ def map_data2D_tes(runid, fpath,
             print(f"Scaler element #0: {s_data[0].shape}")
             # Convert pandas dataframe to a list of ndarrays (.to_numpy())
             #   and then stack the arrays into a single 2D array
-            for n in range(len(s_data)):
-                print(f"Element {n} shape is: {s_data[n].shape}")
+            for _n in range(len(s_data)):
+                print(f"Element {_n} shape is: {s_data[_n].shape}")
+                print(f"Empty array detected: {s_data[_n].shape == ()}")
             s_data = np.vstack(s_data)
             print(f"stacked")
             if scaler_data is None:
