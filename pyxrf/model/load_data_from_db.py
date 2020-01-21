@@ -1237,14 +1237,19 @@ def map_data2D_tes(runid, fpath,
         data_shape = None
         for n, name in enumerate(scaler_names):
             s_data = hdr.table()[name]
+            s_data = s_data.to_numpy()
             print(f"Scaler '{name}' - shape = {s_data.shape}")
             # Convert pandas dataframe to a list of ndarrays (.to_numpy())
             #   and then stack the arrays into a single 2D array
-            s_data = np.vstack(s_data.to_numpy())
+            s_data = np.vstack(s_data)
+            print(f"stacked")
             if scaler_data is None:
+                print(f"Creating scalar_data")
                 data_shape = s_data.shape
                 scaler_data = np.zeros(shape=data_shape + (n_scalers,), dtype=float)
+                print(f"Created successfully")
             scaler_data[:, :, n] = s_data
+            print(f"Adding s_data to scalar_data")
         new_data['scaler_data'] = scaler_data
 
     # Read x-y coordinates
