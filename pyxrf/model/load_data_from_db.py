@@ -1246,6 +1246,22 @@ def map_data2D_tes(runid, fpath,
             print(f"Scaler element #0: {s_data[0].shape}")
             # Convert pandas dataframe to a list of ndarrays (.to_numpy())
             #   and then stack the arrays into a single 2D array
+
+            # Temporary fix for rows with 'empty' scaler
+            # TODO: investigate the issue of 'empty' scaler at TES
+            n_full = -1
+            for _n in range(len(s_data)):
+                if s_data[_n].shape != ():
+                    n_full = _n
+                    break
+            for _n in range(len(s_data)):
+                if s_data[_n].shape == ():
+                    s_data[_n] = np.copy(s_data[n_full])
+                    logger.error(f"Scaler '{name}': row #{_n} contains no data. "
+                                 f"Replaced by data from row #{n_full}")
+                else:
+                    n_full = _n
+
             for _n in range(len(s_data)):
                 print(f"Element {_n} shape is: {s_data[_n].shape}")
                 print(f"Empty array detected: {s_data[_n].shape == ()}")
