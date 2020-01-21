@@ -1317,7 +1317,7 @@ def map_data2D_tes(runid, fpath,
         s += f"+{num_det}ch"
     fpath_out = f'{root}{s}{ext}'
 
-    if output_to_file:
+    if output_to_file and False:
         # output to file
         print(f"Saving data to hdf file #{n_detectors_found}: Detector: {detector_name}.")
         write_db_to_hdf_base(fpath_out, new_data, metadata=mdata,
