@@ -285,12 +285,12 @@ class DrawImageAdvanced(Atom):
         self.quant_active_emission_lines = self.param_quant_analysis.active_emission_lines
 
     def load_quantitative_calibration_data(self, file_path):
-        self.param_quant_analysis.load_calibration_data(file_path)
+        self.param_quant_analysis.load_entry(file_path)
         self.update_quant_calibration_gui()
 
     def remove_quantitative_calibration_data(self, file_path):
         try:
-            self.param_quant_analysis.remove_calibration_data(file_path)
+            self.param_quant_analysis.remove_entry(file_path)
             self.update_quant_calibration_gui()
         except Exception as ex:
             logger.error(f"Calibration data was not removed: {ex}")

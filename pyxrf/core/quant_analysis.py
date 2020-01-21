@@ -1119,42 +1119,149 @@ class ParamQuantitativeAnalysis:
         # Distance to sample. If 0 or None, the respective correction is not applied
         self.experiment_distance_to_sample = None
 
-    def load_calibration_data(self, file_path):
+    def load_entry(self, file_path):
+        r"""
+        Load QA calibration data from file. The calibration data file must be JSON file which
+        satisfies schema ``_xrf_quant_fluor_schema``.
+
+        Data may be loaded from the same file only once.
+        If data is loaded from the same file repeatedly, then only one (first) copy is going to be
+        stored in the memory.
+
+        Parameters
+        ----------
+
+        file_path: str
+
+            Full path to file with QA calibration data.
+        """
+        # May raise exception if reading the file fails
+        calib_data = load_xrf_quant_fluor_json_file(file_path)
+        # Data will be added only if file path ``file_path`` was not loaded before. Otherwise
+        #   the message will be printed.
+        self.add_entry(file_path, calibration_data=calib_data)
+
+
+    def add_entry(self, file_path, *, calibration_data):
+        r"""
+        Add QA calibration data to the object. Calibration data is represented as a dictionary
+        which satisfies ``_xrf_quant_fluor_schema`` schema. Calibration data may be loaded
+        from JSON file (with file name ``file_path``), but it may already exist in memory
+        as a dictionary (for example it may be generated or stored by some other module of
+        the program). ``file_path`` does not have to represent valid file path, but some
+        unique meaningful string, which may be used to identify calibration entries.
+        This function DOES NOT LOAD calibration data from file! Use the function
+        ``load_entry()`` to load data from file.
+
+        Parameters
+        ----------
+
+        file_path: str
+
+            String (perferably meaningful and human readable) used to identify the data entry.
+            The value of this parameter is used to distinguish between calibration data
+            entries (identify duplicates, search for calibration entries etc.). If data is
+            loaded from file, then this parameter is naturally set to full path to the file
+            that holds calibration data entry.
+
+        calibration_data: dict
+
+            Calibration data entry: dictionary that satisfies schema ``_xrf_quant_fluor_schema``.
+
+        """
 
         # Do not load duplicates (distinguished by file name). Different file names may contain
         #   the same data, but this is totally up to the user. Loading duplicates should not
         #   disrupt the processing, since the user may choose the source of calibration data
         #   for each emission line.
         if not any(file_path == _["file_path"] for _ in self.calibration_settings):
-            # May raise exception if not successful
-            data_new = load_xrf_quant_fluor_json_file(file_path)
 
-            self.calibration_data.append(data_new)
+            self.calibration_data.append(calibration_data)
 
             settings = {}
             settings['file_path'] = file_path
             settings['element_lines'] = {}
-            for l in data_new['element_lines']:
+            for l in calibration_data['element_lines']:
                 settings["element_lines"][l] = {}
                 # Do not select the emission line
                 settings["element_lines"][l]["selected"] = False
 
             self.calibration_settings.append(settings)
             # This will also select the emission line if it occurs the first time
-            self.gen_emission_line_list()
+            self.update_emission_line_list()
         else:
             logger.info(f"Calibration data file '{file_path}' is already loaded")
 
-    def remove_calibration_data(self, file_path):
-        n_item = self.find_calibration_data(file_path)
+    def remove_entry(self, file_path):
+        r"""
+        Remove QA calibration data entry identified by ``file_path`` from memory
+        (from object's internal list). Removes the entry if ``file_path`` is found, otherwise
+        prints error message (``logger.error``).
+
+        Parameters
+        ----------
+
+            The string used to identify QA calibration data entry. See the docstring for
+            ``add_entry`` for more detailed comments.
+        """
+        n_item = self.find_entry_index(file_path)
         if n_item is not None:
             self.calibration_data.pop(n_item)
             self.calibration_settings.pop(n_item)
-            self.gen_emission_line_list()
+            self.update_emission_line_list()
         else:
             raise RuntimeError(f"Calibration data from source '{file_path}' is not found.")
 
-    def find_calibration_data(self, file_path):
+    def get_file_path_list(self):
+        r"""
+        Returns the list of file paths, which identify the available calibration data entries.
+        If calibration data entries are not directly loaded from files ``load_entry``,
+        but instead added using ``add_entry``, the strings may not represent actual
+        file paths, but instead be any strings used to uniquely identify calibration data entries.
+
+        Returns
+        -------
+
+        file_path_list: list(str)
+
+            List of strings that identify QA calibration data entries, may represent paths to
+            files in which calibration data entries are stored. Returns empty list if no
+            QA calibration data are loaded.
+        """
+        file_path_list = []
+        for v in self.calibration_settings:
+            file_path_list.append(v["file_path"])
+        return file_path_list
+
+    def get_n_entries(self):
+        r"""
+        Returns the number of QA calibration data entries.
+
+        Returns
+        -------
+
+            The number of available calibration entries. If not calibration data was loaded or added,
+            then the returned value is 0.
+        """
+        if not self.calibration_settings:
+            return 0
+        else:
+            return len(self.calibration_settings)
+
+    def find_entry_index(self, file_path):
+        r"""
+        Find the index of calibration data entry with the given file path. Returns ``None``
+        if ``file_path`` is not found.
+
+        Parameters
+        ----------
+
+        file_path: str
+
+            The string used to identify QA calibration data entry. See the docstring for
+            ``add_entry`` for more detailed comments.
+
+        """
         n_item = None
         for n, v in enumerate(self.calibration_settings):
             if v["file_path"] == file_path:
@@ -1162,8 +1269,26 @@ class ParamQuantitativeAnalysis:
                 break
         return n_item
 
-    def get_calibration_data_text_preview(self, file_path):
-        n_item = self.find_calibration_data(file_path)
+    def get_entry_text_preview(self, file_path):
+        r"""
+        Returns text (YAML) preview of the dictionary with QA calibration data entry.
+        Only original data (loaded from file) is printed.
+
+        Parameters
+        ----------
+
+        file_path: str
+
+            The string used to identify QA calibration data entry. See the docstring for
+            ``add_entry`` for more detailed comments.
+
+        Returns
+        -------
+
+            String wich contains text (YAML) representation of QA calibration data entry.
+            Empty string if the entry is not found.
+        """
+        n_item = self.find_entry_index(file_path)
         if n_item is not None:
             s = yaml.dump(self.calibration_data[n_item], default_flow_style=False,
                           sort_keys=False, indent=4)
@@ -1171,10 +1296,20 @@ class ParamQuantitativeAnalysis:
             s = ""
         return s
 
-    def gen_emission_line_list(self):
-        # The emission lines are arrange in the order in which they appear
-        #   Changing the order of the list will change the order in which
-        #   the lines are presented in the preview tab
+    def update_emission_line_list(self):
+        r"""
+        Update the internal list of emission lines. Also check and adjust if necessary
+        the selected (assigned) calibration data entry for each emission line.
+
+        This function is called by ``load_entry``, ``add_entry`` and ``remove_entry``
+        functions, since the set of emission lines is changed during those operations.
+        If manual changes are made to loaded calibration data entries, this function
+        has to be called again before any other operation is performed. Particularly,
+        it is recommended that the function is called after changing the selection of
+        calibration sources for emission lines.
+        """
+
+        # The emission lines are arranged in the list in the order in which they appear
         elines_all = set()
         self.active_emission_lines = []  # Clear the list, it is recreated
         for data in self.calibration_data:
@@ -1204,11 +1339,21 @@ class ParamQuantitativeAnalysis:
                         v["selected"] = True
                         elines_not_selected.remove(k)
 
-    def get_collected_eline_info(self, eline):
+    def get_eline_info_complete(self, eline):
         r"""
-        Collect emission line data from each loaded calibration set and return it as a list
-        of dictionaries. This is convenient for GUI presentation of data to user.
-        If the emission line is not present in any loaded calibration set, then empty list is returned.
+        Collects emission line data from each loaded calibration entry and return it as a list
+        of dictionaries. The size of the list determines the number of entries in which the
+        emission line is present. If the emission line is not present in any loaded calibration set,
+        then empty list is returned.
+
+        The returned representation of complete calibration data is used in GUI interface for
+        selection of calibration data sources.
+
+        Returns
+        -------
+
+        eline_info: list(dict)
+        
         """
         eline_info = []
         for n in range(len(self.calibration_data)):

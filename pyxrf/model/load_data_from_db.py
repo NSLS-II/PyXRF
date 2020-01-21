@@ -1266,6 +1266,7 @@ def map_data2D_tes(runid, fpath,
             print("The number of lines is less than expected")
             break
         data = v.data[detector_field]
+        print(f"New data array shape: {data.shape}")
         data_det1 = np.array(data[:, 0, :])
         detector_data[n, :, :] = data_det1
         n_events_found = n + 1

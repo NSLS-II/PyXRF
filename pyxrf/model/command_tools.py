@@ -121,7 +121,7 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
             else:
                 f = os.path.join(working_directory, fln)
             try:
-                param_quant_analysis.load_calibration_data(f)
+                param_quant_analysis.load_entry(f)
                 quant_norm = True
                 logger.info(f"Quantitative calibration is loaded successfully from file '{f}'")
             except Exception as ex:

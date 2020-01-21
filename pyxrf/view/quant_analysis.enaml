@@ -95,7 +95,7 @@ enamldef QuantAnalysisView(DockItem): quant_analysis_view:
                                     clicked ::
                                         view_quant_calibration_edit.file_path = loop_item[1]["file_path"]
                                         view_quant_calibration_edit.preview_text = \
-                                            img_model_adv.param_quant_analysis.get_calibration_data_text_preview(loop_item[1]["file_path"])
+                                            img_model_adv.param_quant_analysis.get_entry_text_preview(loop_item[1]["file_path"])
                                         view_quant_calibration_edit.show()
                                 PushButton: remove_btn:
                                     text = "Remove"
@@ -128,7 +128,7 @@ enamldef QuantAnalysisView(DockItem): quant_analysis_view:
                                     text << f"Emission line: {loop_item}"
                                 Form: container3:
                                     Looper:
-                                        iterable << img_model_adv.param_quant_analysis.get_collected_eline_info(loop_item)
+                                        iterable << img_model_adv.param_quant_analysis.get_eline_info_complete(loop_item)
 
                                         RadioButton: selected_rb:
                                             checked << loop_item['eline_settings']['selected']
