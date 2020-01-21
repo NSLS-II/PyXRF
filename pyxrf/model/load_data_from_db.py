@@ -1237,6 +1237,7 @@ def map_data2D_tes(runid, fpath,
         data_shape = None
         for n, name in enumerate(scaler_names):
             s_data = hdr.table()[name]
+            print(f"Scaler '{name}' - shape = {s_data.shape}")
             # Convert pandas dataframe to a list of ndarrays (.to_numpy())
             #   and then stack the arrays into a single 2D array
             s_data = np.vstack(s_data.to_numpy())
@@ -1266,7 +1267,7 @@ def map_data2D_tes(runid, fpath,
             print("The number of lines is less than expected")
             break
         data = v.data[detector_field]
-        print(f"New data array shape: {data.shape}")
+        print(f"New data array {n} shape: {data.shape}")
         data_det1 = np.array(data[:, 0, :])
         detector_data[n, :, :] = data_det1
         n_events_found = n + 1
