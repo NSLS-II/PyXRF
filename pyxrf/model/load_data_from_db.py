@@ -1235,7 +1235,9 @@ def map_data2D_tes(runid, fpath,
         n_scalers = len(config_data['scaler_list'])
         scaler_data = None
         data_shape = None
+        print(f"Scaler names: {scaler_names}")
         for n, name in enumerate(scaler_names):
+            print(f"Reading table entries")
             s_data = hdr.table()[name]
             print(f"s_data type = {type(s_data)}")
             s_data = s_data.to_numpy()
