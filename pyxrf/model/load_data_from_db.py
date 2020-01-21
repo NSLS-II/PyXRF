@@ -1237,6 +1237,7 @@ def map_data2D_tes(runid, fpath,
         data_shape = None
         for n, name in enumerate(scaler_names):
             s_data = hdr.table()[name]
+            print(f"s_data type = {type(s_data)}")
             s_data = s_data.to_numpy()
             print(f"Scaler '{name}' - shape = {s_data.shape}")
             # Convert pandas dataframe to a list of ndarrays (.to_numpy())
