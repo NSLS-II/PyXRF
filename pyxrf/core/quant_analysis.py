@@ -767,7 +767,7 @@ class ParamQuantEstimation:
         self.standards_custom = None
         self.standard_selected = None
         self.emission_line_list = None
-        self.fluorescence_data_dict=None
+        self.fluorescence_data_dict = None
 
     def _find_standard_custom(self, standard, key=None):
         r"""
@@ -1194,7 +1194,6 @@ class ParamQuantitativeAnalysis:
         # Data will be added only if file path ``file_path`` was not loaded before. Otherwise
         #   the message will be printed.
         self.add_entry(file_path, calibration_data=calib_data)
-
 
     def add_entry(self, file_path, *, calibration_data):
         r"""
