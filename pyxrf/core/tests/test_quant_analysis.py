@@ -5,7 +5,6 @@ import copy
 import numpy as np
 import numpy.testing as npt
 import time as ttime
-import re
 from pyxrf.core.utils import convert_time_from_nexus_string
 from pyxrf.core.xrf_utils import validate_element_str, generate_eline_list, split_compound_mass
 from pyxrf.core.quant_analysis import (
@@ -509,7 +508,7 @@ def test_set_quant_fluor_data_dict_time():
     assert abs(t_current - t) < 5.0, "Time is set incorrectly"
 
 
-#--------------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------
 
 def test_ParamQuantEstimation_1(tmp_path):
     r"""
@@ -600,9 +599,10 @@ def test_ParamQuantEstimation_2(tmp_path):
     pqe.standards_custom = None
     pqe.set_selected_standard(st)
     assert pqe.standard_selected == pqe.standards_built_in[0], f"Incorrect standard is selected"
-    pqe.standards_built_in=None
+    pqe.standards_built_in = None
     pqe.set_selected_standard(st)
     assert pqe.standard_selected is None, f"Incorrect standard is selected"
+
 
 def test_ParamQuantEstimation_3(tmp_path):
 
@@ -689,7 +689,7 @@ def test_ParamQuantEstimation_3(tmp_path):
         "Error occurred while saving and loading calibration data dictionary. Dictionaries don't match"
 
 
-#---------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------
 
 def _create_file_with_ref_standards(*, wd):
     r"""
@@ -725,7 +725,7 @@ def _create_file_with_ref_standards(*, wd):
 
     # Create sets of XRF maps for each simulated 'standard'. The images
     #   will have random fluorescence
-    img_list=[]
+    img_list = []
     # Pick two overlapping sets of emission lines
     eline_lists = [("Ni_K", "Ga_K", "S_K"), ("S_K", "Cr_K", "Ni_K")]
     for elist in eline_lists:
@@ -1008,7 +1008,7 @@ def test_ParamQuantitativeAnalysis(tmp_path):
 
     # Skip quantitative normalization (normalize by 'scaler2') because scaler is not
     #   in the scaler dictionary
-    scaler_dict2 = scaler_dict.copy()  #The new scaler dict contains only scaler 'sclr2'
+    scaler_dict2 = scaler_dict.copy()  # The new scaler dict contains only scaler 'sclr2'
     del scaler_dict2["sclr"]
     data_out, is_applied = pqa.apply_quantitative_normalization(
         img_dict[eline], scaler_dict=scaler_dict2,
