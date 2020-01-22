@@ -1157,6 +1157,12 @@ def map_data2D_tes(runid, fpath,
     dict of data in 2D format matching x,y scanning positions
     """
 
+    # Disable loading data from all detectors (only 1 channel physically exists on TES beamline)
+    if create_each_det:
+        create_each_det = False
+        logger.warning("Only single-channel detector is available on TES beamline: "
+                       "the 'sum' channel is loaded to save memory.")
+
     hdr = db[runid]
     runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
 
