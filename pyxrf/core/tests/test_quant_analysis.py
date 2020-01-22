@@ -757,6 +757,7 @@ def _create_files_with_ref_calib(*, wd, img_list, incident_energy=12.0):
         pqe.gen_fluorescence_data_dict(incident_energy=incident_energy)
         pqe.fill_fluorescence_data_dict(xrf_map_dict=img_list[n], scaler_name="sclr")
         pqe.set_detector_channel_in_data_dict(detector_channel="sum")
+        pqe.set_distance_to_sample_in_data_dict(distance_to_sample=2.0)
         pqe.set_optional_parameters(scan_id=f"12345{n}", scan_uid="some-uid-string-{n}")
         fln = pqe.get_suggested_json_fln()
         f_path = os.path.join(wd, fln)
@@ -786,7 +787,7 @@ def create_ref_calib_data(tmp_path, incident_energy=12.0):
     return file_paths, img_list
 
 
-def test_ParamQuantitativeAnalysis_1(tmp_path):
+def test_ParamQuantitativeAnalysis(tmp_path):
 
     incident_energy = 12.0
     file_paths, img_list = create_ref_calib_data(tmp_path, incident_energy=incident_energy)
@@ -916,5 +917,122 @@ def test_ParamQuantitativeAnalysis_1(tmp_path):
     pqa.load_entry(fln1)  # Send 'fpath' as arg, not kwarg
     sel_list = [True] * len(elist)
     check_selection(pqa, elist, sel_list)
-    # -----------------------------------------------
 
+    # -----------------------------------------------------
+
+    # Check function 'get_eline_info_complete'
+    el_info = pqa.get_eline_info_complete(elist[0])
+    assert el_info[0]["eline_data"] == pqa.calibration_data[0]["element_lines"][elist[0]], \
+        "Returned calibration data does not match the expected data"
+    assert el_info[0]["eline_settings"] == pqa.calibration_settings[0]["element_lines"][elist[0]], \
+        "Returned calibration settings do not match the settings dictionary"
+    assert el_info[0]["standard_data"] == pqa.calibration_data[0], \
+        "Returned standard data does not match the expected data"
+    assert el_info[0]["standard_settings"] == pqa.calibration_settings[0], \
+        "Returned standard settings does not match the settings dictionary"
+
+    # Check function 'get_eline_calibration'
+    el_calib = pqa.get_eline_calibration(elist[0])
+    assert el_calib["fluorescence"] == pqa.calibration_data[0]["element_lines"][elist[0]]["fluorescence"], \
+        "The returned selected emission line calibration is incorrect"
+
+    pqa.set_experiment_detector_channel("sum")
+    assert pqa.experiment_detector_channel == "sum", "Detector channel is set incorrectly"
+
+    pqa.set_experiment_distance_to_sample(2.0)
+    assert pqa.experiment_distance_to_sample == 2.0, "Distance-to-sample is set incorrectly"
+
+    pqa.set_experiment_incident_energy(12.0)
+    assert pqa.experiment_incident_energy == 12.0, "Incident energy is set incorrectly"
+
+    # -------------------------------------------------------------------------------
+    # Check processing function 'apply_quantitative_normalization'. Most of the possible
+    #   combinations of parameters are checked for cases when quantitative normalization
+    #   is performed, q.n. is skipped and regular normalization is performed and no
+    #   normalization is performed.
+
+    # Select the emission line, which is definitely exists in the dataset
+    img_dict = img_list[0]
+    eline = elist[0]  # The dataset is 'img_dict[eline]'
+
+    # Create a separate dictionary of scalers
+    scaler, scaler2 = "sclr", "sclr2"
+    scaler_dict = {scaler: img_dict[scaler], scaler2: img_dict[scaler] * 2}
+
+    data_mean, scaler_mean = np.mean(img_dict[eline]), np.mean(scaler_dict[scaler])
+
+    # Calibration parameters (we use it to predict the output
+    el_calib = pqa.get_eline_calibration(elist[0])
+    calib_fluor, calib_density = el_calib["fluorescence"], el_calib["density"]
+
+    # Successfully perform quantitative normalization
+    data_out, is_applied = pqa.apply_quantitative_normalization(
+        img_dict[eline], scaler_dict=scaler_dict,
+        scaler_name_default=scaler2, data_name=eline,
+        name_not_scalable=None)
+    npt.assert_almost_equal(np.mean(data_out), data_mean/scaler_mean * calib_density/calib_fluor,
+                            err_msg="The value of normalized map is different from expected")
+    assert is_applied, "Quantitative normalization was not applied"
+
+    # Ignore correction for the distance to sample
+    pqa.set_experiment_distance_to_sample(0.0)
+    # Successfully perform quantitative normalization
+    data_out, is_applied = pqa.apply_quantitative_normalization(
+        img_dict[eline], scaler_dict=scaler_dict,
+        scaler_name_default=scaler2, data_name=eline,
+        name_not_scalable=None)
+    npt.assert_almost_equal(np.mean(data_out), data_mean/scaler_mean * calib_density/calib_fluor,
+                            err_msg="The value of normalized map is different from expected")
+    assert is_applied, "Quantitative normalization was not applied"
+
+    # Increase distance-to-sample by the factor of 2
+    pqa.set_experiment_distance_to_sample(4.0)
+    # Successfully perform quantitative normalization
+    data_out, is_applied = pqa.apply_quantitative_normalization(
+        img_dict[eline], scaler_dict=scaler_dict,
+        scaler_name_default=scaler2, data_name=eline,
+        name_not_scalable=None)
+    npt.assert_almost_equal(np.mean(data_out), data_mean/scaler_mean * calib_density/calib_fluor * 4.0,
+                            err_msg="The value of normalized map is different from expected")
+    assert is_applied, "Quantitative normalization was not applied"
+
+    # Skip quantitative normalization (normalize by 'scaler2') because eline 'data_name'
+    #   does not have loaded calibration data associated with it
+    data_out, is_applied = pqa.apply_quantitative_normalization(
+        img_dict[eline], scaler_dict=scaler_dict,
+        scaler_name_default=scaler2, data_name="Cu_K",
+        name_not_scalable=None)
+    npt.assert_almost_equal(np.mean(data_out), data_mean/(scaler_mean * 2),
+                            err_msg="The value of normalized map is different from expected")
+    assert not is_applied, "Quantitative normalization was applied"
+
+    # Skip quantitative normalization (normalize by 'scaler2') because scaler is not
+    #   in the scaler dictionary
+    scaler_dict2 = scaler_dict.copy()  #The new scaler dict contains only scaler 'sclr2'
+    del scaler_dict2["sclr"]
+    data_out, is_applied = pqa.apply_quantitative_normalization(
+        img_dict[eline], scaler_dict=scaler_dict2,
+        scaler_name_default=scaler2, data_name=eline,
+        name_not_scalable=None)
+    npt.assert_almost_equal(np.mean(data_out), data_mean/(scaler_mean * 2),
+                            err_msg="The value of normalized map is different from expected")
+    assert not is_applied, "Quantitative normalization was applied"
+
+    # Skip normalization completely because the scaler name is invalid (non-existing scaler)
+    data_out, is_applied = pqa.apply_quantitative_normalization(
+        img_dict[eline], scaler_dict=scaler_dict,
+        scaler_name_default="sclr3", data_name="Cu_K",  # Non-existing scaler
+        name_not_scalable=["sclr2", "sclr"])
+    assert data_out is img_dict[eline], "Function output is not a reference to the input data"
+    assert not is_applied, "Quantitative normalization was applied"
+
+    # Skip normalization completely because eline 'data_name'
+    #   is in the list of non-scalable names
+    data_out, is_applied = pqa.apply_quantitative_normalization(
+        img_dict[eline], scaler_dict=scaler_dict,
+        scaler_name_default=scaler2, data_name=eline,
+        name_not_scalable=["sclr2", eline, "sclr"])
+    assert data_out is img_dict[eline], "Function output is not a reference to the input data"
+    assert not is_applied, "Quantitative normalization was applied"
+
+    # ----------------------------------------------------------------------
