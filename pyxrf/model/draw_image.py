@@ -416,7 +416,7 @@ class DrawImageAdvanced(Atom):
                 data_arr, _ = self.param_quant_analysis.apply_quantitative_normalization(
                     data_in=self.dict_to_plot[data_name],
                     scaler_dict=self.scaler_norm_dict,
-                    scaler_name_fixed=self.get_selected_scaler_name(),
+                    scaler_name_default=self.get_selected_scaler_name(),
                     data_name=data_name,
                     name_not_scalable=self.name_not_scalable)
             else:
@@ -572,7 +572,7 @@ class DrawImageAdvanced(Atom):
                 data_dict, quant_norm_applied = self.param_quant_analysis.apply_quantitative_normalization(
                     data_in=self.dict_to_plot[k],
                     scaler_dict=self.scaler_norm_dict,
-                    scaler_name_fixed=self.get_selected_scaler_name(),
+                    scaler_name_default=self.get_selected_scaler_name(),
                     data_name=k,
                     name_not_scalable=self.name_not_scalable)
             else:
