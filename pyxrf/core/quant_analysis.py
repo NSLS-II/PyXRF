@@ -1349,11 +1349,29 @@ class ParamQuantitativeAnalysis:
         The returned representation of complete calibration data is used in GUI interface for
         selection of calibration data sources.
 
+        Parameters
+        ----------
+
+        eline: str
+
+            Emission line name. Must match the emission line names used in calibration data.
+            Typical format: ``Fe_K``, ``S_K`` etc.
+
         Returns
         -------
 
         eline_info: list(dict)
-        
+
+            List of dictionaries that hold calibration data for the given emission line.
+            The length of the list is equal to the number of calibration data entries that
+            contain information on the emission line ``eline``. Each dictionary contains
+            the following fields: ``eline_data`` - reference to ``eline`` part of the
+            calibration data entry, ``eline_settings`` - reference to ``eline`` part of
+            the calibration settings entry (can be used to change the selection status
+            of the entry), ``standard_data`` - reference to the full calibration data entry,
+            ``standard_settings`` - reference to the full settings data entry. References
+            to the full entries seem redundant, but they can be used to access data,
+            which is common to the entry.
         """
         eline_info = []
         for n in range(len(self.calibration_data)):
@@ -1371,12 +1389,38 @@ class ParamQuantitativeAnalysis:
                 pass
         return eline_info
 
-    def get_eline_calibration(self, emission_line):
+    def get_eline_calibration(self, eline):
+        r"""
+        Returns calibration data for the emission line ``eline`` from the selected
+        QA calibration data entry.
+
+        Parameters
+        ----------
+
+        eline: str
+
+            Emission line name. Must match the emission line names used in calibration data.
+            Typical format: ``Fe_K``, ``S_K`` etc.
+
+        Returns
+        -------
+
+        The dictionary with calibration settings. Keys ``density`` - density of the sample
+        material in the standard scan (typically in ug/cm^2), ``fluorescence`` - collected
+        fluorescence during calibration experiment due to the emission line ``eline``,
+        ``incident_energy`` - incident beam energy (in keV) used during the calibration scan,
+        ``detector_channel`` - name of the detector channel used in calibration experiment
+        (``sum``, ``det1``, ``det2`` etc), ``scaler_name`` - name of the scaler used in
+        calibration experiment (valid name from the scan dataset), ``distance_to_sample`` -
+        distance from the sample to the detector in calibration scan (units are selected by
+        the user, only the ratio between the distances in calibration and experimental scans
+        matter, if distance-to-sample is 0, then no correction is applied)
+        """
         for n in range(len(self.calibration_data)):
-            if (emission_line in self.calibration_data[n]["element_lines"]) and \
-                    (emission_line in self.calibration_settings[n]["element_lines"]):
-                data = self.calibration_data[n]["element_lines"][emission_line]
-                settings = self.calibration_settings[n]["element_lines"][emission_line]
+            if (eline in self.calibration_data[n]["element_lines"]) and \
+                    (eline in self.calibration_settings[n]["element_lines"]):
+                data = self.calibration_data[n]["element_lines"][eline]
+                settings = self.calibration_settings[n]["element_lines"][eline]
                 if settings["selected"]:
                     e_info = {
                         "density": data["density"],
@@ -1389,7 +1433,22 @@ class ParamQuantitativeAnalysis:
                     return e_info
         return None
 
-    def get_selected_calibrations(self):
+    def get_calibrations_selected(self):
+        r"""
+        Returns the dictionary of calibration data from selected data entries for each
+        available emission line: keys - emission line names (``Fe_K``, ``S_K`` etc.),
+        values - calibration data for the emission line returned by the function
+        ``get_eline_calibration``. See docstring for ``get_eline_calibration`` for
+        additional information.
+
+        Returns
+        -------
+
+        info: dict(dict)
+
+            Dictionary of dictionaries, which contains selected calibration data for each available
+            emission line.
+        """
         info = {}
         for eline in self.active_emission_lines:
             e_info = self.get_eline_calibration(eline)
@@ -1398,20 +1457,136 @@ class ParamQuantitativeAnalysis:
         return info
 
     def set_experiment_detector_channel(self, detector_channel):
+        r"""
+        Set detector channel name for the currently processed experimental dataset. The
+        channel name is used by the function ``apply_quantitative_normalization``.
+
+        The channel names used in calibration and experimental scans must match.
+
+        Parameters
+        ----------
+
+        detector_channel: str
+
+            Name of the detector channel (``sum``, ``det1``, ``det2`` etc)
+        """
         self.experiment_detector_channel = detector_channel
 
     def set_experiment_incident_energy(self, incident_energy):
+        r"""
+        Set incident energy value for the currently processed experimental dataset. The
+        incident energy value is used by the function ``apply_quantitative_normalization``.
+
+        The incident energy value used in calibration and experimental scans must match.
+
+        Parameters
+        ----------
+
+        incident_energy: float
+
+            The value of the incident energy in keV.
+        """
         self.experiment_incident_energy = incident_energy
 
     def set_experiment_distance_to_sample(self, distance_to_sample):
+        r"""
+        Set distance-to-sample value for the currently processed experimental dataset. The
+        distance-to-sample value is used by the function ``apply_quantitative_normalization``
+        to compute the correction coefficient in case the calibration and experimental scans
+        are performed at different distances.
+
+        Parameters
+        ----------
+
+        distance-to-sample: float
+
+            The distance between the sample and the detector. Any convenient units can
+            be used. The same units must be used for calibration and experimental scans.
+            Only the ratio between distance-to-sample values during the experimental
+            and calibration scans is used for computations. If distance-to-sample is set
+            to 0 for calibration or experimental scan, then the correction coefficient
+            is not computed or applied (it is assumed that the calibration and experimental
+            scans are performed with the same distance).
+        """
         self.experiment_distance_to_sample = distance_to_sample
 
     def apply_quantitative_normalization(self, data_in, *, scaler_dict, scaler_name_fixed,
                                          data_name, name_not_scalable=None):
 
-        # scaler_name_fixed may be None. In this case normalization will be performed only
-        #   if quantitative data is available for the emission line 'data_name'
-        # data_name may represent an emission line or other type of data
+        r"""
+        Apply quantitative normalization to the experimental XRF map ``data_in``. The quantitative
+        normalization is applied if the following conditions are met:
+
+        -- ``data_name`` is not in the list ``name_not_scalable``.
+
+        -- ``data_name`` represents an emission line for which quanitative calibration is available
+           in one of the entries.
+
+        -- scaler name specified the selected quantitative calibration entry is available
+           in ``scaler_dict``.
+
+        -- detector channel selected for the experimental data processing matches the detector
+           channel used during calibration.
+
+        If there is significant difference in incident beam energy set for calibration and
+        experimental scans, the normalization is still performed, but warning is printed in
+        the terminal.
+
+        If quantitative normalization is not performed, but ``scaler_name_fixed`` is a valid key
+        of ``scaler_dict``, then regular normalization by the scaler is performed.
+
+        If normalization can not be performed, then the reference to the input array ``data_in``
+        is returned.
+
+        The boolean value ``is_quant_normalization_applied`` is set True only if QUANTITATIVE
+        normalization is applied.
+
+        Parameters
+        ----------
+
+        data_in: ndarray
+
+            XRF map (shape (ny,nx)) needs to be normalized.
+
+        scaler_dict: dict(key: str, value: ndarray)
+
+            Dictionary of the available scaler data for the experimental scan
+            (key: scaler name, value: map of scaler values with shape (ny, nx)).
+
+        scaler_name_fixed: str or None
+
+            Name of the default scaler that is selected for the normalization of experimental
+            data. If ``scaler_name_fixed`` is None or not found in the dictionary ``scaler_dict``,
+            then normalization is not applied. If quanitative calibration data is available
+            for the emission line ``data_name``, then ``scaler_name_fixed`` is ignored and
+            the scaler name that was applied during quantitative calibration is applied.
+            If ``scaler_name_fixed`` is ``None``, then normalization is applied only if
+            quantitative calibration is available for the emission line ``data_name``.
+
+        data_name: str
+
+            The name of XRF map ``data_in``. This may be emission line name (such as ``Fe_K``, ``S_K``)
+            or the name of the scalar or positional data. If ``data_name`` represents an emission line,
+            then quantitative calibration may be applied to the data.
+
+        name_not_scalable: list or None
+
+            List of map names that are not supposed to be normalized (some scalers, time, positions
+            should not be normalized by the scaler). Normalization is skipped for this data.
+
+        Returns
+        -------
+
+        data_arr: ndarray
+
+            Output XRF map (normalized or not normalized). If normalization is not applied, then
+            output array is the reference to the input array (``data_arr is data_in == True``).
+
+        is_quant_normalization_applied: bool
+
+            Indicates if quantitative normalization was applied to the input map. If normalization
+            by fixed (selected) scaler is applied, then the returned value is False.
+        """
 
         logger.debug(f"Starting quantiative normalization with scan parameters:\n"
                      f"    Detector channel: '{self.experiment_detector_channel}'\n"
