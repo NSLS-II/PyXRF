@@ -1308,7 +1308,10 @@ def map_data2D_tes(runid, fpath,
         n_events_found = n + 1
     if n_events_found < n_events:
         print("The number of lines is less than expected. The experiment may be incomplete")
-    new_data['det1'] = detector_data
+    if create_each_det:
+        new_data['det1'] = detector_data
+    else:
+        new_data['det_sum'] = detector_data
 
     num_det = 1
     detector_name = "xs"
