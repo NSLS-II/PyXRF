@@ -750,7 +750,7 @@ def output_data_to_tiff(fit_output,
                 data_normalized, quant_norm_applied = param_quant_analysis.apply_quantitative_normalization(
                     data_in=data,
                     scaler_dict=fit_output,
-                    scaler_name_fixed=None,  # We don't want data to be scaled
+                    scaler_name_default=None,  # We don't want data to be scaled
                     data_name=data_name,
                     name_not_scalable=None)  # For simplicity, all saved maps are normalized
                 if quant_norm_applied:
