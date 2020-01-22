@@ -1093,7 +1093,61 @@ class ParamQuantEstimation:
 
 
 class ParamQuantitativeAnalysis:
-    # TODO: documentation and tests
+    r"""
+    The class is used to load and manipulate quantitative calibration data and apply quantitative
+    normalization to XRF maps. Calibration data is loaded as entries, one calibration entry is
+    produced by processing one calibration scan based on a reference standards. Typically calibration
+    entry is stored in JSON file, but it can be added to the class directly. Multiple entries
+    based on different reference standards may be loaded simultaneously. The same emission line
+    may be used in different reference standards and therefore be present in multiple calibration
+    entries. The class allows to select the source of calibration data (entry) for each emission
+    line.
+
+    The functions should be applied in the following sequence:
+
+    pqa = ParamQuantitativeAnalysis()
+    # Load calibration entries
+    pqa.load_entry(<file_path1>)
+    pqa.load_entry(<file_path2>)
+    ...
+    # or add calibration entries (the 1st parameter doesn't need to be a file path)
+    pqa.add_entry("calibration1", calibration_data=<calib1>)
+    pqa.add_entry("calibration2", calibration_data=<calib2>)
+    ...
+    # Entry may be removed as
+    pqa.remove_entry(<file_path1>)
+    # Get the list of file paths (or IDs)
+    file_paths = pqa.get_file_path_list()
+    # Get the number of entries
+    n_entries = pqa.get_n_entries()
+    # Entry index (index of loaded entry in the internal dictionaries)
+    entry_index = pqa.find_entry_index(<file_path>)
+    # Get text preview of loaded calibration entry
+    text_preview = pqa.get_entry_text_preview(<file_path>)
+    # Update the internal state of the object (including the list of available emission lines)
+    #   Should be run each time the fields of the object are manually modified.
+    pqa.update_emission_line_list()
+    # Get the complete set of loaded calibration entries for the given emission line
+    #   Note, then the index of the entry in 'eline_info' may be different from the
+    #   index of the entry, since 'eline_info' contains only the entries which contain calibration
+    #   for the emission line. The list 'eline_info' may be useful for GUI presentation of data.
+    eline_info = pqa.get_eline_info_complete(<emission line, e.g. "Cu_K">)
+    # Get calibration data for the emission line (only from the selected entry)
+    #   The information is useful at the stage of applying quantitative normalization
+    eline_calib = pqa.get_calibrations_selected(<emission_line>)
+    # Get calibration data on all emission lines as a list of dictionaries (the function
+    #   calls 'get_calibrations_selected' for each emission line in the set)
+    all_elines_calib = pqa.get_calibrations_selected
+    # Set parameters of the experiment (before processing XRF map)
+    pqa.set_experiment_incident_energy(<incident_energy>)
+    pqa.set_experiment_detector_channel(<detector_channel>)
+    pqa.set_experiment_distance_to_sample(<distance_to_sample>)
+    # Process XRF map using selected calibrations and set experiment parameters
+    data_normalized = apply_quantitative_normalization(<data_in>, scaler_dict=<scaler_dict>,
+                                                       scaler_name_default = <scaler_name_default>,
+                                                       data_name = <emission_line>,
+                                                       name_not_scalable=["sclr", "sclr2", "time" etc.]):
+    """
 
     def __init__(self):
         r"""
@@ -1510,7 +1564,7 @@ class ParamQuantitativeAnalysis:
         """
         self.experiment_distance_to_sample = distance_to_sample
 
-    def apply_quantitative_normalization(self, data_in, *, scaler_dict, scaler_name_fixed,
+    def apply_quantitative_normalization(self, data_in, *, scaler_dict, scaler_name_default,
                                          data_name, name_not_scalable=None):
 
         r"""
@@ -1553,7 +1607,7 @@ class ParamQuantitativeAnalysis:
             Dictionary of the available scaler data for the experimental scan
             (key: scaler name, value: map of scaler values with shape (ny, nx)).
 
-        scaler_name_fixed: str or None
+        scaler_name_default: str or None
 
             Name of the default scaler that is selected for the normalization of experimental
             data. If ``scaler_name_fixed`` is None or not found in the dictionary ``scaler_dict``,
@@ -1674,9 +1728,9 @@ class ParamQuantitativeAnalysis:
             is_quant_normalization_applied = True
         else:
             # The following condition also takes care of the case when 'scaler_name_fixed' is None
-            if scaler_name_fixed in scaler_dict:
+            if scaler_name_default in scaler_dict:
                 data_arr = normalize_data_by_scaler(data_in=data_in,
-                                                    scaler=scaler_dict[scaler_name_fixed],
+                                                    scaler=scaler_dict[scaler_name_default],
                                                     data_name=data_name,
                                                     name_not_scalable=name_not_scalable)
             else:
