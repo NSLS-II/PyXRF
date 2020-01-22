@@ -36,6 +36,7 @@ except ImportError:
     # We don't use 'analysis' databroker, so disable the message for now
     # logger.error("'Analysis' databroker is not available.")
 
+
 def pyxrf_api():
     r"""
     =======================================================================================
@@ -59,5 +60,6 @@ def pyxrf_api():
     =========================================================================================
     """
     print(pyxrf_api.__doc__)
+
 
 pyxrf_api()
