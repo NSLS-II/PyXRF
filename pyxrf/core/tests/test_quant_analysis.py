@@ -868,10 +868,14 @@ def test_ParamQuantitativeAnalysis_1(tmp_path):
 
     def set_selection(pqa, elist, selection):
         for l, sel in zip(elist, selection):
-            pqa.calibration_settings[0]["element_lines"][l]["selected"] = sel
-            pqa.calibration_settings[1]["element_lines"][l]["selected"] = not sel
+            el_info = pqa.get_eline_info_complete(l)
+            assert len(el_info) >= 2, f"The emission line {l} must exist in at least 2 entries"
+            el_info[0]["eline_settings"]["selected"] = sel
+            el_info[1]["eline_settings"]["selected"] = not sel
 
     def check_selection(pqa, elist, selection):
+        # We check the selection status directly
+        #   (in part to verify if 'get_eline_info_complete' works correctly)
         for l, sel in zip(elist, selection):
             selected = pqa.calibration_settings[0]["element_lines"][l]["selected"]
             selected1 = pqa.calibration_settings[1]["element_lines"][l]["selected"]
