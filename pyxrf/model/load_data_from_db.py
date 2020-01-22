@@ -1242,13 +1242,13 @@ def map_data2D_tes(runid, fpath,
         scaler_data = None
         data_shape = None
         for n, name in enumerate(scaler_names):
-            s_data = s_data.to_numpy()
+            s_data = hdr.table()[name]
             # Convert pandas dataframe to a list of ndarrays (.to_numpy())
             #   and then stack the arrays into a single 2D array
-            s_data = hdr.table()[name]
+            s_data = s_data.to_numpy()
 
-            # Fix for 'empty' rows in scaler data. This code may stay after the issue
-            #   with 'empty' rows is fixed in case the problem comes back.
+            # Fix for the issue: 'empty' rows in scaler data. Fill 'empty' row
+            #   with the nearest (preceding) row.
             # TODO: investigate the issue of 'empty' scaler ('dwell_time') rows at TES
             n_full = -1
             for _n in range(len(s_data)):
