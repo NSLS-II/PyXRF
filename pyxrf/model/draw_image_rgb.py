@@ -12,7 +12,7 @@ import matplotlib.ticker as mticker
 from mpl_toolkits.axes_grid1.axes_rgb import make_rgb_axes
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool
 
-from .utils import normalize_data_by_scaler, grid_interpolate
+from ..core.utils import normalize_data_by_scaler, grid_interpolate
 
 import logging
 logger = logging.getLogger()

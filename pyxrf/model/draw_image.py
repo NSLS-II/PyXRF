@@ -5,6 +5,7 @@ import numpy as np
 from collections import OrderedDict
 # from scipy.interpolate import interp1d, interp2d
 import copy
+import re
 
 import math
 import matplotlib
@@ -13,9 +14,11 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import matplotlib.ticker as mticker
 from mpl_toolkits.axes_grid1 import ImageGrid
-from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool
+from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool, Float
 
-from .utils import normalize_data_by_scaler, grid_interpolate
+from ..core.utils import normalize_data_by_scaler, grid_interpolate
+
+from ..core.quant_analysis import ParamQuantitativeAnalysis
 
 import logging
 logger = logging.getLogger()
@@ -97,6 +100,28 @@ class DrawImageAdvanced(Atom):
     scatter_show = Bool(False)
     name_not_scalable = List()
 
+    # The value is synchronized with currently selected value of incident energy
+    #   Should not be changed directly
+    incident_energy = Float(12.0)
+
+    # Variable that indicates whether quanitative normalization should be applied to data
+    #   Associated with 'Quantitative' checkbox
+    quantitative_normalization = Bool(False)
+
+    # The following fields are used for storing parameters used for quantitative analysis
+    param_quant_analysis = Typed(object)
+    # Distance to sample for the scan that is currently processed, synchronized with the contents
+    #   of the field in 'Quantitative Analysis' tab, may be used for computations
+    #   Enaml 'FloatField' requires this variable to be a string, but the string will always
+    #   represent valid 'float' number
+    quant_distance_to_sample = Float(0.0)
+    # The following fields are used to facilitate GUI operation, not for long-term data storage
+    #   Don't use those fields for any computations outside the GUI controls
+    quant_calibration_data = List()
+    quant_calibration_settings = List()
+    quant_active_emission_lines = List()
+    quant_calibration_data_preview = Str()
+
     def __init__(self):
         self.fig = plt.figure(figsize=(3, 2))
         matplotlib.rcParams['axes.formatter.useoffset'] = True
@@ -104,6 +129,10 @@ class DrawImageAdvanced(Atom):
         # Do not apply scaler norm on following data
         self.name_not_scalable = ['r2_adjust', 'alive', 'dead', 'elapsed_time', 'scaler_alive',
                                   'i0_time', 'time', 'time_diff', 'dwell_time']
+
+        self.param_quant_analysis = ParamQuantitativeAnalysis()
+        self.param_quant_analysis.set_experiment_distance_to_sample(distance_to_sample=0.0)
+        self.param_quant_analysis.set_experiment_incident_energy(incident_energy=self.incident_energy)
 
     def data_dict_update(self, change):
         """
@@ -181,6 +210,18 @@ class DrawImageAdvanced(Atom):
                         default_items[item] = k[item]
             self.data_dict['use_default_selection'] = default_items
 
+    def get_detector_channel_name(self):
+        # Return the name of the selected detector channel ('sum', 'det1', 'det2' etc)
+        #   The channel name is extracted from 'self.img_title' (selected in 'ElementMap' tab)
+        if self.img_title:
+            if(re.search(r"_det\d+_fit$", self.img_title)):
+                s = re.search(r"_det\d+_", self.img_title)[0]
+                return s.strip('_')
+            if(re.search(r"_fit", self.img_title)):
+                return "sum"
+        else:
+            return None
+
     @observe('data_opt')
     def _update_file(self, change):
         try:
@@ -199,8 +240,17 @@ class DrawImageAdvanced(Atom):
                 self.update_img_wizard_items()
                 self.get_default_items()   # get default elements every time when fitting is done
 
+            # The detector channel name should be updated in any case
+            self.param_quant_analysis.experiment_detector_channel = self.get_detector_channel_name()
+
         except IndexError:
             pass
+
+    def get_selected_scaler_name(self):
+        if self.scaler_name_index == 0:
+            return None
+        else:
+            return self.scaler_items[self.scaler_name_index - 1]
 
     @observe('scaler_name_index')
     def _get_scaler_data(self, change):
@@ -224,6 +274,26 @@ class DrawImageAdvanced(Atom):
         self.set_low_high_value()  # reset low high values based on normalization
         self.show_image()
         self.update_img_wizard_items()
+
+    # TODO: document the following functions
+    def update_quant_calibration_gui(self):
+        self.quant_calibration_data = []
+        self.quant_calibration_data = self.param_quant_analysis.calibration_data
+        self.quant_calibration_settings = []
+        self.quant_calibration_settings = self.param_quant_analysis.calibration_settings
+        self.quant_active_emission_lines = []
+        self.quant_active_emission_lines = self.param_quant_analysis.active_emission_lines
+
+    def load_quantitative_calibration_data(self, file_path):
+        self.param_quant_analysis.load_entry(file_path)
+        self.update_quant_calibration_gui()
+
+    def remove_quantitative_calibration_data(self, file_path):
+        try:
+            self.param_quant_analysis.remove_entry(file_path)
+            self.update_quant_calibration_gui()
+        except Exception as ex:
+            logger.error(f"Calibration data was not removed: {ex}")
 
     def update_img_wizard_items(self):
         """This is for GUI purpose only.
@@ -272,6 +342,18 @@ class DrawImageAdvanced(Atom):
     def _update_gi(self, change):
         self.show_image()
 
+    @observe('quantitative_normalization')
+    def _update_qn(self, change):
+
+        # Propagate current value of 'self.param_quant_analysis' (activate 'observer' functions)
+        tmp = self.param_quant_analysis
+        self.param_quant_analysis = ParamQuantitativeAnalysis()
+        self.param_quant_analysis = tmp
+
+        self.set_low_high_value()  # reset low high values based on normalization
+        self.show_image()
+        self.update_img_wizard_items()
+
     def plot_select_all(self):
         self.set_stat_for_all(bool_val=True)
 
@@ -282,6 +364,32 @@ class DrawImageAdvanced(Atom):
     def _change_image_plot_method(self, change):
         if change['type'] != 'create':
             self.show_image()
+
+    @observe('quant_distance_to_sample')
+    def _on_change_distance_to_sample(self, change):
+        # Set the value of the quantitative analysis parameter
+        self.param_quant_analysis.set_experiment_distance_to_sample(self.quant_distance_to_sample)
+        # Recompute range of plotted values (for each emission line in the dataset)
+        self.set_low_high_value()
+        # Update limits shown in 'Image Wizard'
+        self.update_img_wizard_items()
+
+    def set_incident_energy(self, change):
+        """
+        The observer function that changes the value of incident energy
+        and upper bound for fitted energy range. Should not be called directly.
+
+        Parameters
+        ----------
+
+        change : dict
+            ``change["value"]`` is the new value of incident energy
+        """
+        self.incident_energy = change["value"]
+
+    @observe('incident_energy')
+    def _on_change_incident_energy(self, change):
+        self.param_quant_analysis.set_experiment_incident_energy(incident_energy=self.incident_energy)
 
     def set_stat_for_all(self, bool_val=False):
         """
@@ -300,9 +408,24 @@ class DrawImageAdvanced(Atom):
         """
         # do not apply scaler norm on not scalable data
         self.range_dict.clear()
+
         for data_name in self.dict_to_plot.keys():
-            data_arr = normalize_data_by_scaler(self.dict_to_plot[data_name], self.scaler_data,
-                                                data_name=data_name, name_not_scalable=self.name_not_scalable)
+
+            if self.quantitative_normalization:
+                # Quantitative normalization
+                data_arr, _ = self.param_quant_analysis.apply_quantitative_normalization(
+                    data_in=self.dict_to_plot[data_name],
+                    scaler_dict=self.scaler_norm_dict,
+                    scaler_name_default=self.get_selected_scaler_name(),
+                    data_name=data_name,
+                    name_not_scalable=self.name_not_scalable)
+            else:
+                # Normalize by the selected scaler in a regular way
+                data_arr = normalize_data_by_scaler(data_in=self.dict_to_plot[data_name],
+                                                    scaler=self.scaler_data,
+                                                    data_name=data_name,
+                                                    name_not_scalable=self.name_not_scalable)
+
             lowv = np.min(data_arr)
             highv = np.max(data_arr)
             self.range_dict[data_name] = {'low': lowv, 'low_default': lowv,
@@ -443,10 +566,21 @@ class DrawImageAdvanced(Atom):
 
         for i, (k, v) in enumerate(six.iteritems(stat_temp)):
 
-            data_dict = normalize_data_by_scaler(data_in=self.dict_to_plot[k],
-                                                 scaler=self.scaler_data,
-                                                 data_name=k,
-                                                 name_not_scalable=self.name_not_scalable)
+            quant_norm_applied = False
+            if self.quantitative_normalization:
+                # Quantitative normalization
+                data_dict, quant_norm_applied = self.param_quant_analysis.apply_quantitative_normalization(
+                    data_in=self.dict_to_plot[k],
+                    scaler_dict=self.scaler_norm_dict,
+                    scaler_name_default=self.get_selected_scaler_name(),
+                    data_name=k,
+                    name_not_scalable=self.name_not_scalable)
+            else:
+                # Normalize by the selected scaler in a regular way
+                data_dict = normalize_data_by_scaler(data_in=self.dict_to_plot[k],
+                                                     scaler=self.scaler_data,
+                                                     data_name=k,
+                                                     name_not_scalable=self.name_not_scalable)
 
             if pixel_or_pos_local or scatter_show_local:
 
@@ -485,7 +619,7 @@ class DrawImageAdvanced(Atom):
 
                 low_ratio = self.limit_dict[k]['low']/100.0
                 high_ratio = self.limit_dict[k]['high']/100.0
-                if self.scaler_data is None:
+                if (self.scaler_data is None) and (not quant_norm_applied):
                     minv = self.range_dict[k]['low']
                     maxv = self.range_dict[k]['high']
                 else:
@@ -534,6 +668,8 @@ class DrawImageAdvanced(Atom):
                 grid[i].set_xlim(xd_axis_min, xd_axis_max)
 
                 grid_title = k
+                if quant_norm_applied:
+                    grid_title += " - Q"  # Mark the plots that represent quantitative information
                 grid[i].text(0, 1.01, grid_title, ha='left', va='bottom', transform=grid[i].axes.transAxes)
 
                 grid.cbar_axes[i].colorbar(im)
@@ -583,6 +719,8 @@ class DrawImageAdvanced(Atom):
                 grid[i].set_xlim(xd_axis_min, xd_axis_max)
 
                 grid_title = k
+                if quant_norm_applied:
+                    grid_title += " - Q"  # Mark the plots that represent quantitative information
                 grid[i].text(0, 1.01, grid_title, ha='left', va='bottom', transform=grid[i].axes.transAxes)
 
                 grid.cbar_axes[i].colorbar(im)

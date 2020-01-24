@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 import versioneer
 
@@ -13,8 +13,7 @@ setup(
     cmdclass=versioneer.get_cmdclass(),
     author='Brookhaven National Laboratory',
     url='https://github.com/NSLS-II/PyXRF',
-    packages=['pyxrf', 'pyxrf.model', 'pyxrf.view', 'pyxrf.xanes_maps',
-              'pyxrf.core', 'pyxrf.db_config', 'configs'],
+    packages=find_packages(),
     entry_points={'console_scripts': ['pyxrf = pyxrf.gui:run']},
     package_data={'pyxrf.view': ['*.enaml'], 'configs': ['*.json']},
     include_package_data=True,

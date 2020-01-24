@@ -13,8 +13,8 @@ import jsonschema
 from ..model.load_data_from_db import make_hdf
 from ..model.command_tools import pyxrf_batch
 from ..model.fileio import read_hdf_APS
-from ..model.utils import (grid_interpolate, normalize_data_by_scaler, convert_time_to_nexus_string,
-                           check_if_eline_is_activated, check_eline_name)
+from ..core.utils import (grid_interpolate, normalize_data_by_scaler, convert_time_to_nexus_string)
+from ..core.xrf_utils import check_if_eline_is_activated, check_if_eline_supported
 from ..core.fitting import fit_spectrum, rfactor_compute
 from ..core.yaml_param_files import (create_yaml_parameter_file, read_yaml_parameter_file)
 
@@ -750,10 +750,10 @@ def _build_xanes_map_api(*, start_id=None, end_id=None,
 
     # Check emission line names. They must be in the list of supported emission lines.
     #   The check is case-sensitive.
-    if not check_eline_name(eline_selected):
+    if not check_if_eline_supported(eline_selected):
         raise ValueError(f"The emission line '{eline_selected}' does not exist or is not supported. "
                          f"Check the value of the parameter 'eline_selected' ('_build_xanes_map_api').")
-    if not check_eline_name(eline_alignment):
+    if not check_if_eline_supported(eline_alignment):
         raise ValueError(f"The emission line '{eline_alignment}' does not exist or is not supported. "
                          f"Check the value of the parameter 'eline_alignment' ('_build_xanes_map_api').")
 

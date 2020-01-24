@@ -32,7 +32,7 @@ enamldef ImageMain(DockItem):
         constraints = [
             vbox(
                 hbox(cbox_file, spacer, pb_all, interpolate_cb, scatter_cb),
-                hbox(spacer, cb_select, color_select, cb_norm, pixel_select, tb_check),
+                hbox(spacer, cb_quantitative, cb_select, color_select, cb_norm, pixel_select, tb_check),
                 canvas,
             ),
             #cbox_type.v_center == check.v_center,
@@ -53,6 +53,10 @@ enamldef ImageMain(DockItem):
                     choose_element.show()
                 else:
                     choose_element.hide()
+
+        CheckBox: cb_quantitative:
+            text = 'Quantitative'
+            checked := img_model_adv.quantitative_normalization
 
         ComboBox: cb_select:
             items = ['Linear', 'Log']

@@ -30,11 +30,12 @@ from .guessparam import (calculate_profile, fit_strategy_list,
                          trim_escape_peak, define_range, get_energy,
                          get_Z, PreFitStatus, ElementController,
                          update_param_from_element)
-from .fileio import save_fitdata_to_hdf, output_data, output_data_to_tiff
+from .fileio import save_fitdata_to_hdf, output_data
 
-from .utils import (gaussian_sigma_to_fwhm, gaussian_fwhm_to_sigma,
-                    gaussian_max_to_area, gaussian_area_to_max,
-                    grid_interpolate)
+from ..core.utils import (gaussian_sigma_to_fwhm, gaussian_fwhm_to_sigma,
+                          gaussian_max_to_area, gaussian_area_to_max)
+
+from ..core.quant_analysis import ParamQuantEstimation
 
 import logging
 logger = logging.getLogger()
@@ -104,6 +105,20 @@ class Fit1D(Atom):
     selected_index = Int()
     elementinfo_list = List()
 
+    # The variable contains the image title displayed in "Element Map' tab.
+    #   The variable is synchronized with the identical variable in 'DrawImageAdvanced' class.
+    img_title = Str()
+    # Reference to the dictionary that contains dataset currently displayed in 'Element Map' tab
+    #   The variable is synchronized with the identical variable in 'DrawImageAdvanced' class
+    dict_to_plot = Dict()
+
+    # The variable is replicating the identical variable in 'DrawImageAdvanced' class
+    #   True - quantitative normalization is ON, False - OFF
+    quantitative_normalization = Bool()
+    # The reference to the object holding parameters for quantitative normalization
+    #   The variable is synchronized to the identical variable in 'DrawImageAdvanced' class
+    param_quant_analysis = Typed(object)
+
     function_num = Int(0)
     nvar = Int(0)
     chi2 = Float(0.0)
@@ -167,6 +182,28 @@ class Fit1D(Atom):
     name_userpeak_dsigma = Str()
     name_userpeak_area = Str()
 
+    # Quantitative analysis: used during estimation step
+    param_quant_estimation = ParamQuantEstimation()
+    # *** The following two references are used exclusively to update the list of standards ***
+    # ***   in the dialog box. ***
+    qe_param_built_in_ref = Typed(object)
+    qe_param_custom_ref = Typed(object)
+    # The following reference used to track the selected standard while the selection
+    #   dialog box is open. Once the dialog box is opened again, the reference becomes
+    #   invalid, since the descriptions of the standards are reloaded from files.
+    qe_standard_selected_ref = Typed(object)
+    # Keep the actual copy of the selected standard. The copy is used to keep information
+    #   on the selected standard while descriptions are reloaded (references become invalid).
+    qe_standard_selected_copy = Typed(object)
+    # *** The following fields are used exclusively to store input values ***
+    # ***   for the 'SaveQuantCalibration' dialog box. ***
+    # *** The fields are not guaranteed to have valid values at any other time. ***
+    qe_standard_path_name = Str()
+    qe_standard_file_name = Str()
+    qe_standard_distance = Str("0.0")
+    qe_standard_overwrite_existing = Bool(False)
+    qe_standard_data_preview = Str()
+
     def __init__(self, param_model, io_model, *args, **kwargs):
         self.working_directory = kwargs['working_directory']
         self.result_folder = kwargs['working_directory']
@@ -196,6 +233,9 @@ class Fit1D(Atom):
         self.roi_sum_opt['status'] = False
         self.roi_sum_opt['low'] = 0.0
         self.roi_sum_opt['high'] = 10.0
+
+        self.qe_standard_selected_ref = None
+        self.qe_standard_selected_copy = None
 
     def result_folder_changed(self, change):
         """
@@ -272,6 +312,26 @@ class Fit1D(Atom):
         """
         self.scaler_index = change['value']
 
+    def img_title_update(self, change):
+        r"""Observer function. Sets ``img_title`` field to the same value as
+        the identical variable in ``DrawImageAdvanced`` class"""
+        self.img_title = change['value']
+
+    def dict_to_plot_update(self, change):
+        r"""Observer function. Sets ``dict_to_plot`` field to the same value as
+        the identical variable in ``DrawImageAdvanced`` class"""
+        self.dict_to_plot = change['value']
+
+    def quantitative_normalization_update(self, change):
+        r"""Observer function. Sets ``quantitative_normalization`` field to the same value as
+        the identical variable in ``DrawImageAdvanced`` class"""
+        self.quantitative_normalization = change['value']
+
+    def param_quant_analysis_update(self, change):
+        r"""Observer function. Sets ``param_quant_analysis`` field to the same value as
+        the identical variable in ``DrawImageAdvanced`` class"""
+        self.param_quant_analysis = change['value']
+
     def energy_bound_high_update(self, change):
         """
         Observer function that connects 'param_model' (GuessParamModel)
@@ -307,6 +367,28 @@ class Fit1D(Atom):
                 self.elementinfo_list = sorted([e for e in list(self.param_dict.keys())
                                                 if element.replace('-', '_') in e])
                 logger.info(f"User defined or pileup peak info: {self.elementinfo_list}")
+
+    @observe('qe_standard_distance')
+    def _qe_standard_distance_changed(self, change):
+        try:
+            d = float(change["value"])
+        except Exception:
+            d = None
+        if d <= 0.0:
+            d = None
+        # Change preview if distance value changed
+        self.qe_standard_data_preview = \
+            self.param_quant_estimation.get_fluorescence_data_dict_text_preview()
+
+    def get_qe_standard_distance_as_float(self):
+        r"""Return distance from sample as positive float or None"""
+        try:
+            d = float(self.qe_standard_distance)
+        except Exception:
+            d = None
+        if d <= 0.0:
+            d = None
+        return d
 
     def _compute_fwhm_base(self):
         # Computes 'sigma' value based on default parameters and peak energy (for Userpeaks)
@@ -962,6 +1044,24 @@ class Fit1D(Atom):
             # save to hdf again, this is not optimal
             self.save2Dmap_to_hdf()
 
+    def get_latest_single_pixel_fitting_data(self):
+        r"""
+        Returns the latest results of single pixel fitting. The returned results include
+        the name of the scaler (None if no scaler is selected) and the dictionary of
+        the computed XRF maps for selected emission lines.
+        """
+
+        # Find the selected scaler name. Scaler is None if not scaler is selected.
+        scaler_name = None
+        if self.scaler_index > 0:
+            scaler_name = self.scaler_keys[self.scaler_index-1]
+
+        # Result map. If 'None', then no fitting results exists.
+        #   Single pixel fitting must be run
+        result_map = self.result_map.copy()
+
+        return result_map, scaler_name
+
     def output_2Dimage(self, to_tiff=True):
         """Read data from h5 file and save them into either tiff or txt.
 
@@ -972,7 +1072,6 @@ class Fit1D(Atom):
         """
         scaler_v = None
         _post_name_folder = "_".join(self.data_title.split('_')[:-1])
-        _name_each_file = "_".join(self.data_title.split('_')[1:])
         if self.scaler_index > 0:
             scaler_v = self.scaler_keys[self.scaler_index-1]
             logger.info(f"*** NORMALIZED data is saved. Scaler: '{scaler_v}' ***")
@@ -985,44 +1084,32 @@ class Fit1D(Atom):
             file_format = "txt"
 
         output_n = dir_prefix + _post_name_folder
-        output_full_name = os.path.join(self.result_folder, output_n)
-        # still keep the function of reading data from hdf and saving,
-        # for cases that user wants to output current data in hdf
-        # without rerun fitting again
-        if os.path.exists(self.hdf_path):
-            output_data(self.hdf_path, output_full_name,
-                        interpolate_to_uniform_grid=self.map_interpolation,
-                        file_format=file_format, scaler_name=scaler_v)
+        output_dir = os.path.join(self.result_folder, output_n)
+
+        # self.img_dict contains ALL loaded datasets, including a separate "positions" dataset
+        if "positions" in self.img_dict:
+            positions_dict = self.img_dict["positions"]
         else:
-            # The result map is filled after single-pixel fitting. If data is simply
-            #   loaded from the file, the map is empty. It is possible to save data
-            #   from loaded image data, but there must be some GUI widget to select
-            #   the dataset.
-            if self.result_map:
-                result_map_prepared = self.result_map.copy()
-                if self.map_interpolation:
-                    logger.info(f"The data is INTERPOLATED to uniform grid before saving.")
-                    for k, v in result_map_prepared.items():
-                        # Do not interpolate positions
-                        if 'pos' in k:
-                            continue
+            positions_dict = {}
 
-                        result_map_prepared[k], xx, yy = \
-                            grid_interpolate(v, self.img_dict["positions"]["x_pos"],
-                                             self.img_dict["positions"]["y_pos"])
+        # Scalers are located in a separate dataset in 'img_dict'. They are also referenced
+        #   in each '_fit' dataset (and in the selected dataset 'self.dict_to_plot')
+        #   The list of scaler names is used to avoid attaching the detector channel name
+        #   to file names that contain scaler data (scalers typically do not depend on
+        #   the selection of detector channels.
+        scaler_dsets = [_ for _ in self.img_dict.keys() if re.search(r"_scaler$", _)]
+        if scaler_dsets:
+            scaler_name_list = list(self.img_dict[scaler_dsets[0]].keys())
+        else:
+            scaler_name_list = None
 
-                    # 'x_pos' and 'y_pos' do not exist in the 'self.result_map'
-                    result_map_prepared["x_pos"] = xx
-                    result_map_prepared["y_pos"] = yy
-
-                output_data_to_tiff(result_map_prepared, output_full_name,
-                                    name_append=_name_each_file,
-                                    file_format=file_format, scaler_name=scaler_v)
-                logger.info(f"Saving data to {file_format.upper()} files is completed.")
-
-            else:
-                logger.error(f"No data to save to {file_format.upper()} files. "
-                             f"Run 'Individual Pixel Fitting' to generate processed data.")
+        output_data(output_dir=output_dir,
+                    interpolate_to_uniform_grid=self.map_interpolation,
+                    dataset_name=self.img_title, quant_norm=self.quantitative_normalization,
+                    param_quant_analysis=self.param_quant_analysis,
+                    dataset_dict=self.dict_to_plot, positions_dict=positions_dict,
+                    file_format=file_format, scaler_name=scaler_v,
+                    scaler_name_list=scaler_name_list)
 
     def save_result(self, fname=None):
         """

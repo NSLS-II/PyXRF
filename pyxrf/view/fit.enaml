@@ -1,17 +1,19 @@
 from __future__ import absolute_import
 import numpy as np
 import math
+import copy
+import os
 import six
 
 from enaml.widgets.api import (Container, PushButton, Label,
-                               Form, Field, FileDialogEx, DockItem,
+                               Form, Field, MultilineField, FileDialogEx, DockItem,
                                DockArea, CheckBox, ComboBox,
                                ScrollArea, Window, GroupBox, RadioButton,
-                               MainWindow)
+                               MainWindow, Dialog)
 
 from enaml.widgets.api import RadioButton as DefaultRadioButton
 
-from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, TabLayout, spacer
+from enaml.layout.api import hbox, vbox, HSplitLayout, VSplitLayout, TabLayout, spacer, align
 from enaml.stdlib.fields import FloatField
 from enaml.layout.geometry import Box
 from enaml.core.api import Include, Looper
@@ -60,6 +62,8 @@ enamldef FitView(DockItem): fit_view:
     attr parameter_edit
     attr othersetting_edit
     attr autofind_edit
+    attr select_standard_edit
+    attr save_quant_calibration_edit
     attr img_model_adv
     attr img_model_rgb
     attr pileup_edit
@@ -86,9 +90,7 @@ enamldef FitView(DockItem): fit_view:
             constraints = [vbox(
                                 hbox(lbl_load, spacer),
                                 hbox(new_param_load, saveas_btn, lbl_param, spacer),
-                                #hbox(lbl_param, spacer),
-                                hbox(lbl_auto, pb_auto, spacer),)
-                                #hbox(pb_auto, spacer))
+                                hbox(pb_auto, pb_select_standard, lbl_standard, spacer),)
                            ]
             Label: lbl_load:
                 text = 'Load elemental parameters from file.'
@@ -211,8 +213,6 @@ enamldef FitView(DockItem): fit_view:
         #    padding = Box(2, 2, 2, 2)
         #    constraints = [hbox(pb_auto, spacer)]
 
-            Label: lbl_auto:
-                text = 'Or use automatic peak finding method.'
             PushButton: pb_auto:
                 text = 'Find Elements Automatically'
                 enabled = True
@@ -223,6 +223,99 @@ enamldef FitView(DockItem): fit_view:
                         btns = [DialogButton('Ok', 'accept')]
                         # 'critical' shows MessageBox
                         critical(self, 'ERROR', f'Experimental data is not loaded', btns)
+
+            PushButton: pb_select_standard:
+                text = 'Load Standard'
+                enabled = True
+                clicked ::
+
+                    if fit_model.data is None:
+                        # The data is not loaded
+                        btns = [DialogButton('Ok', 'accept')]
+                        critical(self, 'ERROR', f'Experimental data is not loaded', btns)
+                    else:
+
+                        # Reload standards (some of them may change, reloading refreshes the copy)
+                        fit_model.param_quant_estimation.clear_standards()
+                        fit_model.param_quant_estimation.load_standards()
+                        # Update the following fields will update the list of available standards
+                        #   if the loaded files changed
+                        fit_model.qe_param_built_in_ref = fit_model.param_quant_estimation.standards_built_in
+                        fit_model.qe_param_custom_ref = fit_model.param_quant_estimation.standards_custom
+
+
+                        # Another move, necessary to make the list in the dialog box working properly:
+                        #   the selected standard must be 'checked' when the window opens
+                        fit_model.qe_standard_selected_ref = None
+
+                        # The current selection is set to the currently selected standard
+                        #   held in 'fit_model.qe_standard_selected_copy'
+                        fit_model.qe_standard_selected_ref = \
+                            fit_model.param_quant_estimation.set_selected_standard(fit_model.qe_standard_selected_copy)
+
+                        find_peaks = False
+                        if select_standard_edit.exec_():
+                            # Process the new selection
+                            fit_model.param_quant_estimation.set_selected_standard(fit_model.qe_standard_selected_ref)
+                            fit_model.qe_standard_selected_copy = copy.deepcopy(fit_model.qe_standard_selected_ref)
+                            if fit_model.qe_standard_selected_ref is not None:
+                                msg = f"Standard #{fit_model.qe_standard_selected_ref['serial']}"
+                                if fit_model.param_quant_estimation.is_standard_custom(fit_model.qe_standard_selected_ref):
+                                    msg += " (user-defined)"
+                                lbl_standard.text = msg
+                                find_peaks = True
+                            else:
+                                fit_model.param_quant_estimation.clear_standards()
+                                fit_model.qe_standard_selected_ref = None
+                                fit_model.qe_standard_selected_copy = None
+                                lbl_standard.text = "No quantitative standard is loaded"
+                        else:
+                            # If standard selection is cancelled, but currently selected standard is not in the list
+                            #   then clear selection completely. If the selected standard is present in the new
+                            #   loaded set, then the selection remains unchanged
+                            if not fit_model.param_quant_estimation.find_standard(fit_model.qe_standard_selected_copy):
+                                fit_model.param_quant_estimation.clear_standards()
+                                fit_model.qe_standard_selected_ref = None
+                                fit_model.qe_standard_selected_copy = None
+                                lbl_standard.text = "No quantitative standard is loaded"
+                            # There is not need to find peaks, since the selection was not changed and
+                            #   the dialog box could be opened by mistake
+
+                        if find_peaks:
+
+                            incident_energy = param_model.param_new['coherent_sct_energy']['value']
+                            # Generate the data structure for the results of processing of standard data
+                            fit_model.param_quant_estimation.gen_fluorescence_data_dict(incident_energy)
+                            # Obtain the list (dictionary) of elemental lines from the generated structure
+                            elemental_lines = fit_model.param_quant_estimation.fluorescence_data_dict["element_lines"]
+
+                            param_model.find_peak(elemental_lines=elemental_lines.keys())
+                            param_model.EC.order()
+                            param_model.update_name_list()
+
+                            param_model.EC.turn_on_all()
+                            param_model.data_for_plot()
+
+                            # update experimental plots in case the coefficients change
+                            plot_model.parameters = param_model.param_new
+                            plot_model.plot_experiment()
+
+                            plot_model.plot_fit(param_model.prefit_x,
+                                                param_model.total_y,
+                                                param_model.auto_fit_all)
+
+                            # Update displayed intensity of the selected peak
+                            plot_model.compute_manual_peak_intensity()
+
+                            # Show the summed spectrum used for fitting
+                            plot_model.plot_exp_opt = False
+                            plot_model.plot_exp_opt = True
+                            # For plotting purposes, otherwise plot will not update
+                            plot_model.show_fit_opt = False
+                            plot_model.show_fit_opt = True
+
+            Label: lbl_standard:
+                text = 'No quantitative standard is loaded'
 
         GroupBox: control_element:
             title = 'Add/Remove elements (Userpeak with center energy at 5 keV can be added.).'
@@ -539,7 +632,7 @@ enamldef FitView(DockItem): fit_view:
                     maximum_size = 40
                     minimum = 0.00001
                 PushButton: pb_delete_unselected:
-                    text = 'Delete not selected items'
+                    text = 'Delete Unchecked Items'
                     maximum_size = 350
                     visible = True
                     clicked ::
@@ -813,7 +906,7 @@ enamldef FitView(DockItem): fit_view:
             title = 'Fit spectrum of all individual pixels.'
             padding = Box(2, 2, 2, 2)
             constraints = [vbox(hbox(save_cb, lb1, fd1v, fd1h, lb2, fd2v, fd2h, spacer, interp_cb),
-                                hbox(fit_pixel, spacer, to_db, output_btn, to_tiff, to_txt))]
+                                hbox(fit_pixel, spacer, save_q_standard_btn, to_db, output_btn, to_tiff, to_txt))]
             CheckBox: save_cb:
                 text = 'Save plots'
                 clicked ::
@@ -892,8 +985,60 @@ enamldef FitView(DockItem): fit_view:
             #    text := fit_model.pixel_fit_info
             #    foreground = 'red'
 
+            PushButton: save_q_standard_btn:
+                text = 'Save Q. Standard'
+                # Disable the button is enabled only if the standard is loaded
+                enabled << bool(fit_model.qe_standard_selected_copy)
+                clicked ::
+                    result_map, scaler_name = fit_model.get_latest_single_pixel_fitting_data()
+                    selected_det_channel = io_model.get_selected_detector_channel()
+                    if not result_map:
+                        btns = [DialogButton('Ok', 'accept')]
+                        critical(self, 'ERROR', f'No XRF maps were found. Run Individual Pixel Fitting to generate XRF maps.', btns)
+                    else:
+                        fit_model.qe_standard_path_name = io_model.working_directory + "/"
+                        fit_model.qe_standard_file_name = fit_model.param_quant_estimation.get_suggested_json_fln()
+
+                        # Fill the available fluorescence data
+                        fit_model.param_quant_estimation.fill_fluorescence_data_dict(
+                            xrf_map_dict=result_map, scaler_name=scaler_name)
+                        fit_model.param_quant_estimation.set_detector_channel_in_data_dict(
+                            detector_channel=selected_det_channel)
+
+                        fit_model.param_quant_estimation.set_distance_to_sample_in_data_dict(
+                            distance_to_sample=fit_model.get_qe_standard_distance_as_float())
+
+                        # Set optional parameters
+                        if io_model.scan_metadata_available:
+                            _scan_id = None
+                            _scan_uid = None
+                            if "scan_id" in io_model.scan_metadata:
+                                _scan_id = io_model.scan_metadata["scan_id"]
+                            if "scan_uid" in io_model.scan_metadata:
+                                _scan_uid = io_model.scan_metadata["scan_uid"]
+                            fit_model.param_quant_estimation.set_optional_parameters(
+                                scan_id=_scan_id, scan_uid=_scan_uid)
+
+                        fit_model.qe_standard_data_preview = \
+                            fit_model.param_quant_estimation.get_fluorescence_data_dict_text_preview()
+
+                        if save_quant_calibration_edit.exec_():
+                            try:
+                                # Create full path to file
+                                fln_json = fit_model.qe_standard_file_name.strip()
+                                path_json = os.path.join(io_model.working_directory, fln_json)
+
+                                fit_model.param_quant_estimation.save_fluorescence_data_dict(path_json,
+                                    overwrite_existing=fit_model.qe_standard_overwrite_existing)
+
+                                print(f"Quantitative calibration is saved successfully to the file '{path_json}'")
+
+                            except Exception as ex:
+                                btns = [DialogButton('Ok', 'accept')]
+                                critical(self, 'ERROR', f'Failed to save quantitative calibration: {ex}', btns)
+
             PushButton: to_db:
-                text = 'Save to database'
+                text = 'Save to DB'
                 enabled = False  # Disable this button (database for processing data does not exist yet)
                 #enabled = databroker is not None
                 #minimum_size = (20, 20)
@@ -915,12 +1060,167 @@ enamldef FitView(DockItem): fit_view:
                 text = 'Save to tiff'
                 #minimum_size = (20, 20)
                 clicked ::
-                    fit_model.output_2Dimage()
+                    try:
+                        fit_model.output_2Dimage()
+                    except Exception as ex:
+                        btns = [DialogButton('Ok', 'accept')]
+                        critical(self, 'ERROR', f"Error occurred while saving data to TIFF files: {ex}", btns)
+                    else:
+                        logger.info("Data was successfully saved to TIFF files")
+
             PushButton: to_txt:
                 text = 'Save to txt'
                 #minimum_size = (20, 20)
                 clicked ::
-                    fit_model.output_2Dimage(to_tiff=False)
+                    try:
+                        fit_model.output_2Dimage(to_tiff=False)
+                    except Exception as ex:
+                        btns = [DialogButton('Ok', 'accept')]
+                        critical(self, 'ERROR', f"Error occurred while saving data to TEXT files: {ex}", btns)
+                    else:
+                        logger.info("Data was successfully saved to TEXT files")
+
+
+enamldef SelectStandard(Dialog): select_standard_win:
+    attr fit_model
+
+    title = "Select Quantitative Standard"
+    initial_size = (500, 600)
+
+    Container:
+        constraints = [vbox(
+            scr_area,
+            hbox(spacer, select_btn, cancel_btn),
+        )]
+
+        ScrollArea: scr_area:
+            #constraints = [height <= 230]
+
+            Form:
+                row_spacing = 15
+                #padding = Box(0, 0, 0, 0)
+
+                Looper:
+
+                    iterable << fit_model.qe_param_custom_ref
+
+                    RadioButton: select_btn:
+                        text = ''
+                        checked << loop_item == fit_model.qe_standard_selected_ref
+                        clicked ::
+                            fit_model.qe_standard_selected_ref = loop_item
+
+                    Container:
+                        padding = Box(2, 2, 2, 2)
+                        constraints = [vbox(
+                            hbox(select_btn,
+                                 vbox(hbox(standard_info_serial, spacer),
+                                      hbox(standard_info_name, spacer),
+                                      hbox(standard_info_description, spacer)),
+                            spacer)), align("top", select_btn, standard_info_serial)]
+
+
+                        Label: standard_info_serial:
+                            text << f"Serial Number: {loop_item['serial']}" + " (user-defined)"
+
+                        Label: standard_info_name:
+                            text << f"Name: {loop_item['name']}"
+
+                        Label: standard_info_description:
+                            text << f"Description: {loop_item['description']}"
+
+                Looper:
+                    iterable << fit_model.qe_param_built_in_ref
+
+                    RadioButton: select_btn:
+                        text = ''
+                        # The item should not be 'checked' if the same standard is present
+                        #   in the list of custom (user-defined) standards. User-defined
+                        #   standards have priority over built-in standards to be 'checked'.
+                        checked << (loop_item == fit_model.qe_standard_selected_ref) and \
+                            not fit_model.param_quant_estimation.is_standard_custom(loop_item)
+                        clicked ::
+                            fit_model.qe_standard_selected_ref = loop_item
+
+                    Container:
+                        padding = Box(2, 2, 2, 2)
+                        constraints = [vbox(
+                            hbox(select_btn,
+                                 vbox(hbox(standard_info_serial, spacer),
+                                      hbox(standard_info_name, spacer),
+                                      hbox(standard_info_description, spacer)),
+                            spacer)), align("top", select_btn, standard_info_serial)]
+
+
+                        Label: standard_info_serial:
+                            text << f"Serial Number: {loop_item['serial']}"
+
+                        Label: standard_info_name:
+                            text << f"Name: {loop_item['name']}"
+
+                        Label: standard_info_description:
+                            text << f"Description: {loop_item['description']}"
+
+
+        PushButton: select_btn:
+            text = "Select"
+            clicked ::
+                 select_standard_win.accept()
+
+        PushButton: cancel_btn:
+            text = "Cancel"
+            clicked ::
+                 select_standard_win.reject()
+
+
+enamldef SaveQuantCalibration(Dialog): save_quant_calibration_dialog:
+
+    attr fit_model
+
+    title = "Save Quantitative Calibration"
+    initial_size = (500, 600)
+
+    Container:
+        constraints = [vbox(
+            hbox(data_preview_lb),
+            hbox(data_preview_mf),
+            hbox(file_path_lb, file_name_fld),
+            hbox(dist_to_sample_lb, dist_to_sample_fld, spacer, overwrite_cb),
+            hbox(spacer, save_btn, cancel_btn),
+        ), align("v_center", file_path_lb, file_name_fld)]
+
+        Label: data_preview_lb:
+            text = "The following data will be saved to the JSON file:"
+
+        MultilineField: data_preview_mf:
+            read_only = True
+            text << fit_model.qe_standard_data_preview
+
+        Label: file_path_lb:
+            text << f"Full file name: {fit_model.qe_standard_path_name}"
+
+        Field: file_name_fld:
+            text := fit_model.qe_standard_file_name
+
+        Label: dist_to_sample_lb:
+            text = "Distance to sample: "
+
+        FloatField: dist_to_sample_fld:
+            text := fit_model.qe_standard_distance
+
+        CheckBox: overwrite_cb:
+            text = "Overwrite existing file"
+            checked := fit_model.qe_standard_overwrite_existing
+
+        PushButton: save_btn:
+            text = "Save"
+            clicked ::
+                 save_quant_calibration_dialog.accept()
+
+        PushButton: cancel_btn:
+            text = "Cancel"
+            clicked ::
+                 save_quant_calibration_dialog.reject()
 
 
 enamldef OutputSetup(Window): output_win:
@@ -962,7 +1262,7 @@ enamldef OutputSetup(Window): output_win:
 enamldef AutoFindElements(Window): auto_win:
     attr parameter_model
     attr plot_model
-    title = 'Automated Element Search Parameters'
+    title = 'Automated Element Search'
     destroy_on_close = False
 
     Container:

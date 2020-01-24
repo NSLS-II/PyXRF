@@ -14,7 +14,7 @@ import time as ttime
 import logging
 import warnings
 
-from .utils import convert_time_to_nexus_string
+from ..core.utils import convert_time_to_nexus_string
 from .scan_metadata import ScanMetadataXRF
 
 import pyxrf
@@ -1157,6 +1157,12 @@ def map_data2D_tes(runid, fpath,
     dict of data in 2D format matching x,y scanning positions
     """
 
+    # Disable loading data from all detectors (only 1 channel physically exists on TES beamline)
+    if create_each_det:
+        create_each_det = False
+        logger.warning("Only single-channel detector is available on TES beamline: "
+                       "the 'sum' channel is loaded to save memory.")
+
     hdr = db[runid]
     runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
 
@@ -1239,7 +1245,25 @@ def map_data2D_tes(runid, fpath,
             s_data = hdr.table()[name]
             # Convert pandas dataframe to a list of ndarrays (.to_numpy())
             #   and then stack the arrays into a single 2D array
-            s_data = np.vstack(s_data.to_numpy())
+            s_data = s_data.to_numpy()
+
+            # Fix for the issue: 'empty' rows in scaler data. Fill 'empty' row
+            #   with the nearest (preceding) row.
+            # TODO: investigate the issue of 'empty' scaler ('dwell_time') rows at TES
+            n_full = -1
+            for _n in range(len(s_data)):
+                if s_data[_n].shape != ():
+                    n_full = _n
+                    break
+            for _n in range(len(s_data)):
+                if s_data[_n].shape == ():
+                    s_data[_n] = np.copy(s_data[n_full])
+                    logger.error(f"Scaler '{name}': row #{_n} contains no data. "
+                                 f"Replaced by data from row #{n_full}")
+                else:
+                    n_full = _n
+
+            s_data = np.vstack(s_data)
             if scaler_data is None:
                 data_shape = s_data.shape
                 scaler_data = np.zeros(shape=data_shape + (n_scalers,), dtype=float)
@@ -1257,7 +1281,7 @@ def map_data2D_tes(runid, fpath,
     detector_field = "fluor"
 
     # Read detector values (for single detector)
-    detector_data = np.zeros(shape=data_shape + (spectrum_len,), dtype=float)
+    detector_data = np.zeros(shape=data_shape + (spectrum_len,), dtype=np.float32)
     n_events = data_shape[0]
     n_events_found = 0
     e = hdr.events(fill=True, stream_name="primary")
@@ -1271,7 +1295,10 @@ def map_data2D_tes(runid, fpath,
         n_events_found = n + 1
     if n_events_found < n_events:
         print("The number of lines is less than expected. The experiment may be incomplete")
-    new_data['det1'] = detector_data
+    if create_each_det:
+        new_data['det1'] = detector_data
+    else:
+        new_data['det_sum'] = detector_data
 
     num_det = 1
     detector_name = "xs"

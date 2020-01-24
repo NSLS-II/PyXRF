@@ -1,0 +1,281 @@
+
+# The file was automatically generated.
+#
+# Instructions for editing this file:
+#
+# Description of each standard starts with '- name: ...'. Every following line
+#   must be indented by 4 spaces. Each description contains the following items:
+#   'name' (name of the standard, arbitrary string), 'serial' (serial number, of
+#   the standard, but can be arbitrary string, 'description' (string that contains
+#   description of the standard). Those fields may be filled with arbitrary information,
+#   best suited to distinguish the standard later. If string consists of only digits
+#   (in case of serial number) it must be enclosed in quotes.
+#
+# The field 'compounds' lists all compounds in the standard. The compounds are
+#   presented in the form <compound_formula>: <concentration>.
+#   <compound_formula> has to be a valid chemical formula, representing a pure
+#   element (C, Fe, Ga, etc.) or compound (Fe2O3, GaAs, etc). Element names
+#   must start with a capital letter followed by a lowercase letter (if present).
+#   No characters except 'A-Z', 'a-z' and '0-1' are allowed. Lines containing
+#   compound specifications must be indented by extra 4 spaces.
+#
+# The optional field 'density' specifies total density of the sample and used
+#   to check integrity of the data (the sum of densities of all compounds
+#   must be equaly to 'density' value.
+#
+# All density values (for compounds and total density) are specified in ug/cm^2
+#
+# Example (the lines contain extra '#' character, which is not part of YAML file):
+#
+#-   name: Micromatter 41164
+#    serial: '41164'
+#    description: CeF3 21.1 / Au 20.6
+#    compounds:
+#        CeF3: 21.1
+#        Au: 20.6
+#    density: 41.7
+#
+# The easiest way to start creating the list of custom standards is to uncomment
+#   and edit the following example. To create extra records, duplicate and
+#   edit the example or any existing record.
+
+#-    name: Name of the Standard
+#     serial: '32654'
+#     description: CeF3 21.1 / Au 20.6 (any convenient description)
+#     compounds:
+#         CeF3: 21.1
+#         Au: 20.6
+
+-   name: Micromatter 41147
+    serial: '41147'
+    description: GaP 21.2 (Ga=15.4, P=5.8) / CaF2 14.6 / V 26.4 / Mn 17.5 / Co 21.7 / Cu 20.3
+    compounds:
+        Ga: 15.4
+        P: 5.8
+        CaF2: 14.6
+        V: 26.4
+        Mn: 17.5
+        Co: 21.7
+        Cu: 20.3
+    density: 121.7
+
+-   name: Micromatter 41148
+    serial: '41148'
+    description: GaP 21.1 (Ga=15.4, P=5.7) / CaF2 14.6 / V 25.1 / Mn 18.1 / Co 20.6 / Cu 20.5
+    compounds:
+        Ga: 15.4
+        P: 5.7
+        CaF2: 14.6
+        V: 25.1
+        Mn: 18.1
+        Co: 20.6
+        Cu: 20.5
+    density: 120.0
+
+-   name: Micromatter 41149
+    serial: '41149'
+    description: GaP 21.4 (Ga=15.4, P=6.0) / CaF2 16.6 / V 23.4 / Mn 17.4 / Co 19.0 / Cu 20.3
+    compounds:
+        Ga: 15.4
+        P: 6.0
+        CaF2: 16.6
+        V: 23.4
+        Mn: 17.4
+        Co: 19.0
+        Cu: 20.3
+    density: 118.1
+
+-   name: Micromatter 41150
+    serial: '41150'
+    description: GaP 21.3 (Ga=15.3, P=6.0) / CaF2 16.3 / V 24.8 / Mn 17.1 / Co 19.8 / Cu 20.4
+    compounds:
+        Ga: 15.3
+        P: 6.0
+        CaF2: 16.3
+        V: 24.8
+        Mn: 17.1
+        Co: 19.8
+        Cu: 20.4
+    density: 119.7
+
+-   name: Micromatter 41151
+    serial: '41151'
+    description: KCl 21.9 / Ti 21.3 / Fe 24.4 / ZnTe 20.3 / Pb 22.3
+    compounds:
+        KCl: 21.9
+        Ti: 21.3
+        Fe: 24.4
+        ZnTe: 20.3
+        Pb: 22.3
+    density: 110.2
+
+-   name: Micromatter 41152
+    serial: '41152'
+    description: KCl 20.8 / Ti 20.1 / Fe 23.0 / ZnTe 20.1 / Pb 22.6
+    compounds:
+        KCl: 20.8
+        Ti: 20.1
+        Fe: 23.0
+        ZnTe: 20.1
+        Pb: 22.6
+    density: 106.6
+
+-   name: Micromatter 41153
+    serial: '41153'
+    description: KCl 21.2 / Ti 20.8 / Fe 23.3 / ZnTe 21.0 / Pb 22.9
+    compounds:
+        KCl: 21.2
+        Ti: 20.8
+        Fe: 23.3
+        ZnTe: 21.0
+        Pb: 22.9
+    density: 109.2
+
+-   name: Micromatter 41154
+    serial: '41154'
+    description: KCl 20.4 / Ti 20.1 / Fe 22.4 / ZnTe 20.3 / Pb 21.4
+    compounds:
+        KCl: 20.4
+        Ti: 20.1
+        Fe: 22.4
+        ZnTe: 20.3
+        Pb: 21.4
+    density: 104.6
+
+-   name: Micromatter 41155
+    serial: '41155'
+    description: InSx 18.6 (In=14.6 S=4.0) / SrF2 21.7 / Cr 18.9 / Ni 19.7 / GaAs 19.1 (Ga=8.4 As=10.7)
+    compounds:
+        In: 14.6
+        S: 4.0
+        SrF2: 21.7
+        Cr: 18.9
+        Ni: 19.7
+        Ga: 8.4
+        As: 10.7
+    density: 98.0
+
+-   name: Micromatter 41156
+    serial: '41156'
+    description: InSx 21.0 (In=15.0 S=6.0) / SrF2 21.5 / Cr 19.8 / Ni 19.9 / GaAs 19.5 (Ga=8.5 As=11.0)
+    compounds:
+        In: 15.0
+        S: 6.0
+        SrF2: 21.5
+        Cr: 19.8
+        Ni: 19.9
+        Ga: 8.5
+        As: 11.0
+    density: 101.7
+
+-   name: Micromatter 41157
+    serial: '41157'
+    description: InSx 22.4 (In=16.0 S=6.4) / SrF2 20.6 / Cr 19.8 / Ni 19.2 / GaAs
+        19.1 (Ga=8.3 As=10.8)
+    compounds:
+        In: 16.0
+        S: 6.4
+        SrF2: 20.6
+        Cr: 19.8
+        Ni: 19.2
+        Ga: 8.3
+        As: 10.8
+    density: 101.1
+
+-   name: Micromatter 41158
+    serial: '41158'
+    description: InSx 21.4 (In=15.8 S=5.6) / SrF2 21.4 / Cr 19.5 / Ni 19.7 / GaAs
+        19.7 (Ga=8.3 As=10.9)
+    compounds:
+        In: 15.8
+        S: 5.6
+        SrF2: 21.4
+        Cr: 19.5
+        Ni: 19.7
+        Ga: 8.3
+        As: 10.9
+    density: 101.2
+
+-   name: Micromatter 41159
+    serial: '41159'
+    description: SiO 20.9 / Mn 21.2 / GaP 20.5 (Ga=15.4 P=5.1) / CsBr 19.9 / ZrF4 20.7 / YF3 18.4
+    compounds:
+        SiO: 20.9
+        Mn: 21.2
+        Ga: 15.4
+        P: 5.1
+        CsBr: 19.9
+        ZrF4: 20.7
+        YF3: 18.4
+    density: 121.6
+
+-   name: Micromatter 41160
+    serial: '41160'
+    description: SiO 21.2 / Mn 21.7 / GaP 20.9 (Ga=15.8 P=5.1) / CsBr 22.4 / ZrF4 21.6 / YF3 19.3
+    compounds:
+        SiO: 21.2
+        Mn: 21.7
+        Ga: 15.8
+        P: 5.1
+        CsBr: 22.4
+        ZrF4: 21.6
+        YF3: 19.3
+    density: 127.1
+
+-   name: Micromatter 41161
+    serial: '41161'
+    description: SiO 24.0 / Mn 22.9 / GaP 21.5 (Ga=15.6 P=5.9) / CsBr 21.5 / ZrF4 21.9 / YF3 25.4
+    compounds:
+        SiO: 24.0
+        Mn: 22.9
+        Ga: 15.6
+        P: 5.9
+        CsBr: 21.5
+        ZrF4: 21.9
+        YF3: 25.4
+    density: 137.2
+
+-   name: Micromatter 41162
+    serial: '41162'
+    description: SiO 22.9 / Mn 21.6 / GaP 21.1 (Ga=15.4 P=5.7) / CsBr 18.9 / ZrF4 21.1 / YF3 24.3
+    compounds:
+        SiO: 22.9
+        Mn: 21.6
+        Ga: 15.4
+        P: 5.7
+        CsBr: 18.9
+        ZrF4: 21.1
+        YF3: 24.3
+    density: 129.9
+
+-   name: Micromatter 41163
+    serial: '41163'
+    description: CeF3 21.3 / Au 20.4
+    compounds:
+        CeF3: 21.3
+        Au: 20.4
+    density: 41.7
+
+-   name: Micromatter 41164
+    serial: '41164'
+    description: CeF3 21.1 / Au 20.6
+    compounds:
+        CeF3: 21.1
+        Au: 20.6
+    density: 41.7
+
+-   name: Micromatter 41165
+    serial: '41165'
+    description: CeF3 23.1 / Au 21.8
+    compounds:
+        CeF3: 23.1
+        Au: 21.8
+    density: 44.9
+
+-   name: Micromatter 41166
+    serial: '41166'
+    description: CeF3 23.0 / Au 21.6
+    compounds:
+        CeF3: 23.0
+        Au: 21.6
+    density: 44.6
