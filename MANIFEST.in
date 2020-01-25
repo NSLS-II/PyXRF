@@ -13,3 +13,4 @@ include requirements.txt
 recursive-include configs *.json
 recursive-include docs *.rst conf.py Makefile make.bat _static/*
 recursive-include * *.enaml
+recursive-include * *.yaml
