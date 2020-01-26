@@ -1873,6 +1873,23 @@ def write_db_to_hdf_base(fpath, data, *, metadata=None,
     xrf_det_list = [n for n in data.keys() if 'det' in n and 'sum' not in n]
     xrf_det_list.sort()
 
+    # Verify that raw fluorescence data is represented with np.float32 precision: print the warning message
+    #   and convert the raw spectrum data to np.float32. Assume that data is represented as ndarray.
+    def incorrect_type_msg(channel, data_type):
+        logger.warning(f"Attemptying to save raw fluorescence data for the channel '{channel}' "
+                       f"as '{data_type}' numbers.\n    Memory may not be used efficiently. "
+                       f"Please, inform the PyXRF developers.\n    The data is converted from '{data_type}' "
+                       f"to 'np.float32' before saving to file.")
+    if "det_sum" in data and isinstance(data["det_sum"], np.ndarray):
+        if data["det_sum"].dtype != np.float32:
+            incorrect_type_msg("det_sum", data["det_sum"].dtype)
+            data["det_sum"] = np.float32(data["det_sum"])
+    for detname in xrf_det_list:
+        if detname in data and isinstance(data[detname], np.ndarray):
+            if data[detname].dtype != np.float32:
+                incorrect_type_msg(detname, data[detname].dtype)
+                data[detname] = np.float32(data[detname])
+
     file_open_mode = "a"
     if os.path.exists(fpath):
         if fname_add_version:
