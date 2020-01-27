@@ -453,12 +453,14 @@ class DataSelection(Atom):
     def get_sum(self, mask=None):
         if len(self.point1) == 0 and len(self.point2) == 0:
             SC = SpectrumCalculator(self.raw_data)
-            return SC.get_spectrum(mask=mask)
+            spec = SC.get_spectrum(mask=mask)
         else:
             SC = SpectrumCalculator(self.raw_data,
                                     pos1=self.point1,
                                     pos2=self.point2)
-            return SC.get_spectrum()
+            spec = SC.get_spectrum()
+        # Return the 'sum' spectrum as regular 64-bit float (raw data is in 'np.float32')
+        return np.float64(spec)
 
 
 class SpectrumCalculator(object):
@@ -801,7 +803,7 @@ def read_hdf_APS(working_directory,
                  file_name, spectrum_cut=3000,
                  # The following parameters allow fine grained control over what is loaded from the file
                  load_summed_data=True,  # Enable loading of RAW, FIT or ROI data from 'sum' channel
-                 load_each_channel=True,  # .. RAW data from individual detector channels
+                 load_each_channel=False,  # .. RAW data from individual detector channels
                  load_processed_each_channel=True,  # .. FIT or ROI data from the detector channels
                  load_raw_data=True,  # For all channels: load RAW data
                  load_fit_results=True,  # .. load FIT data
@@ -869,7 +871,8 @@ def read_hdf_APS(working_directory,
         if load_summed_data and load_raw_data:
             try:
                 # data from channel summed
-                exp_data = np.array(data['detsum/counts'][:, :, 0:spectrum_cut])
+                exp_data = np.array(data['detsum/counts'][:, :, 0:spectrum_cut],
+                                    dtype=np.float32)
                 logger.warning(f"We use spectrum range from 0 to {spectrum_cut}")
                 logger.info(f"Exp. data from h5 has shape of: {exp_data.shape}")
 
@@ -903,6 +906,7 @@ def read_hdf_APS(working_directory,
                 temp[n] = data['positions/pos'].value[i, :]
             img_dict['positions'] = temp
 
+        # TODO: rewrite the algorithm for finding the detector channels (not robust)
         # find total channel:
         channel_num = 0
         for v in list(data.keys()):
@@ -916,7 +920,8 @@ def read_hdf_APS(working_directory,
                 det_name = f"det{i}"
                 file_channel = f"{fname}_det{i}"
                 try:
-                    exp_data_new = np.array(data[f"{det_name}/counts"][:, :, 0:spectrum_cut])
+                    exp_data_new = np.array(data[f"{det_name}/counts"][:, :, 0:spectrum_cut],
+                                            dtype=np.float32)
                     DS = DataSelection(filename=file_channel,
                                        raw_data=exp_data_new)
                     data_sets[file_channel] = DS
