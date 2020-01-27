@@ -194,7 +194,7 @@ def make_hdf(start, end=None, *, fname=None, wd=None,
              completed_scans_only=False,
              file_overwrite_existing=False,
              prefix='scan2D_',
-             create_each_det=True, save_scaler=True,
+             create_each_det=False, save_scaler=True,
              num_end_lines_excluded=None):
     """
     Load data from database and save it in HDF5 files.
@@ -912,10 +912,10 @@ def map_data2D_srx(runid, fpath,
 
                         # Now allocate space for fluorescence data
                         if create_each_det is False:
-                            new_data['det_sum'] = np.zeros(new_shape)
+                            new_data['det_sum'] = np.zeros(new_shape, dtype=np.float32)
                         else:
                             for i in range(num_det):
-                                new_data[f'det{i + 1}'] = np.zeros(new_shape)
+                                new_data[f'det{i + 1}'] = np.zeros(new_shape, dtype=np.float32)
 
                         print(f"Number of the detector channels: {num_det}")
 
@@ -1157,12 +1157,6 @@ def map_data2D_tes(runid, fpath,
     dict of data in 2D format matching x,y scanning positions
     """
 
-    # Disable loading data from all detectors (only 1 channel physically exists on TES beamline)
-    if create_each_det:
-        create_each_det = False
-        logger.warning("Only single-channel detector is available on TES beamline: "
-                       "the 'sum' channel is loaded to save memory.")
-
     hdr = db[runid]
     runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
 
@@ -1290,11 +1284,14 @@ def map_data2D_tes(runid, fpath,
             print("The number of lines is less than expected")
             break
         data = v.data[detector_field]
-        data_det1 = np.array(data[:, 0, :])
+        data_det1 = np.array(data[:, 0, :], dtype=np.float32)
         detector_data[n, :, :] = data_det1
         n_events_found = n + 1
     if n_events_found < n_events:
         print("The number of lines is less than expected. The experiment may be incomplete")
+    # Note: the following code assumes that the detector has only one channel.
+    #   If the detector is upgraded, the following code will have to be rewritten, but
+    #   the rest of the data loading procedure will have to be modified anyway.
     if create_each_det:
         new_data['det1'] = detector_data
     else:
@@ -1619,6 +1616,7 @@ def assemble_data_SRX_stepscan(
             new_v_shape = len(channel_data) // datashape[1]
 
             new_data = np.vstack(channel_data)
+            new_data = np.float32(new_data)  # Change representation to np.float32
             new_data = new_data[:new_v_shape*datashape[1], :]
 
             new_data = new_data.reshape([new_v_shape, datashape[1],
@@ -1766,7 +1764,7 @@ def map_data2D(data, datashape,
                 new_data = new_tmp
             if fly_type in ('pyramid',):
                 new_data = flip_data(new_data, subscan_dims=subscan_dims)
-            data_output[detname] = new_data
+            data_output[detname] = np.float32(new_data)  # Convert to np.float32 representation
             if sum_data is None:
                 # Note: Here is the place where the error was found!!!
                 #   The assignment in the next line used to be written as
