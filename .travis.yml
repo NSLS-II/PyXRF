@@ -81,4 +81,4 @@ script:
   fi
 
 after_success:
-  - if [ $SUBMIT_CODECOV == 'true' ]; then codecov; fi;
+  #- if [ $SUBMIT_CODECOV == 'true' ]; then codecov; fi;
