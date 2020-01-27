@@ -1416,6 +1416,7 @@ def map_data2D_xfm(runid, fpath,
                               datashape,
                               det_list=xrf_detector_names,
                               pos_list=hdr.start.motors,
+                              create_each_det=create_each_det,
                               scaler_list=config_data['scaler_list'],
                               fly_type=fly_type)
         if output_to_file:
