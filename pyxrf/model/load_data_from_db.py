@@ -600,6 +600,7 @@ def map_data2D_hxn(runid, fpath,
                           det_list=det_list,
                           pos_list=pos_list,
                           scaler_list=scaler_list,
+                          create_each_det=create_each_det,
                           fly_type=fly_type, subscan_dims=subscan_dims,
                           spectrum_len=4096)
     if output_to_file:
@@ -1709,6 +1710,7 @@ def map_data2D(data, datashape,
                det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
                pos_list=('zpssx[um]', 'zpssy[um]'),
                scaler_list=('sclr1_ch3', 'sclr1_ch4'),
+               create_each_det=False,
                fly_type=None, subscan_dims=None, spectrum_len=4096):
     """
     Data is obained from databroker. Transfer items from data to a dictionay of
@@ -1753,18 +1755,21 @@ def map_data2D(data, datashape,
             # new veritcal shape is defined to ignore zeros points caused by stopped/aborted scans
             new_v_shape = len(channel_data) // datashape[1]
             new_data = np.vstack(channel_data)
+            new_data = np.float32(new_data)  # Convert to np.float32 representation
             new_data = new_data[:new_v_shape*datashape[1], :]
             new_data = new_data.reshape([new_v_shape, datashape[1],
                                          len(channel_data[1])])
             if new_data.shape[2] != spectrum_len:
                 # merlin detector has spectrum len 2048
                 # make all the spectrum len to 4096, to avoid unpredicted error in fitting part
-                new_tmp = np.zeros([new_data.shape[0], new_data.shape[1], spectrum_len])
+                new_tmp = np.zeros([new_data.shape[0], new_data.shape[1], spectrum_len],
+                                   dtype=np.float32)
                 new_tmp[:, :, :new_data.shape[2]] = new_data
                 new_data = new_tmp
             if fly_type in ('pyramid',):
                 new_data = flip_data(new_data, subscan_dims=subscan_dims)
-            data_output[detname] = np.float32(new_data)  # Convert to np.float32 representation
+            if create_each_det:
+                data_output[detname] = new_data
             if sum_data is None:
                 # Note: Here is the place where the error was found!!!
                 #   The assignment in the next line used to be written as
@@ -1875,7 +1880,7 @@ def write_db_to_hdf_base(fpath, data, *, metadata=None,
     #   and convert the raw spectrum data to np.float32. Assume that data is represented as ndarray.
     def incorrect_type_msg(channel, data_type):
         logger.warning(f"Attemptying to save raw fluorescence data for the channel '{channel}' "
-                       f"as '{data_type}' numbers.\n    Memory may not be used efficiently. "
+                       f"as '{data_type}' numbers.\n    Memory may be used inefficiently. "
                        f"Please, inform the PyXRF developers.\n    The data is converted from '{data_type}' "
                        f"to 'np.float32' before saving to file.")
     if "det_sum" in data and isinstance(data["det_sum"], np.ndarray):
