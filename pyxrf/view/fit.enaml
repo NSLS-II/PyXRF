@@ -1037,6 +1037,12 @@ enamldef FitView(DockItem): fit_view:
                                 btns = [DialogButton('Ok', 'accept')]
                                 critical(self, 'ERROR', f'Failed to save quantitative calibration: {ex}', btns)
 
+                        # If the checkbox is set True in 'save_quant_calibration_edit', reset it to False
+                        #   This checkbox is a safety feature, and should be checked each time the
+                        #   Dialog Box is opened (for each new file, or each attempt to save the same file)
+                        fit_model.qe_standard_overwrite_existing = False
+
+
             PushButton: to_db:
                 text = 'Save to DB'
                 enabled = False  # Disable this button (database for processing data does not exist yet)
