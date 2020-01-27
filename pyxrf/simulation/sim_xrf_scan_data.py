@@ -216,8 +216,9 @@ def gen_xrf_map_const(element_line_groups=None, *,
     Returns
     -------
 
-    xrf_map: ndarray(float)
+    xrf_map: ndarray(np.float32)
         XRF map with the shape ``(ny, nx, n_spectrum_points)``.
+        Raw XRF spectra are represented with 32-bit precision.
 
     xx_energy: ndarray(float)
         The values for the energy axis. Size: 'n_spectrum_points'.
@@ -244,6 +245,9 @@ def gen_xrf_map_const(element_line_groups=None, *,
 
     background = background_area / spectrum.size
     spectrum += background
+
+    # One spectrum is computed. Now change precision to 32 bit before using it to create a map
+    spectrum = np.float32(spectrum)
 
     xrf_map = np.broadcast_to(spectrum, shape=[ny, nx, len(spectrum)])
 
@@ -364,9 +368,9 @@ def create_xrf_map_data(*, scan_id,
 
     # Create datasets
     data_xrf = {}
-    data_xrf["det_sum"] = np.copy(xrf_map)
+    data_xrf["det_sum"] = xrf_map  # 'xrf_map' is np.float32
     for n in range(num_det_channels):
-        data_xrf[f"det{n + 1}"] = xrf_map * channel_coef[n]
+        data_xrf[f"det{n + 1}"] = xrf_map * channel_coef[n]  # The arrays remain np.float32
 
     data_scalers = {}
     scaler_names = ["i0", "time", "time_diff"]
