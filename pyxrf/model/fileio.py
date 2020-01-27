@@ -270,7 +270,9 @@ class FileIOModel(Atom):
         #                                             self.fname_from_db,
         #                                             load_each_channel=self.load_each_channel)
 
-        rv = render_data_to_gui(self.runid, file_overwrite_existing=self.file_overwrite_existing)
+        rv = render_data_to_gui(self.runid,
+                                create_each_det=self.load_each_channel,
+                                file_overwrite_existing=self.file_overwrite_existing)
 
         if rv is None:
             logger.error(f"Data from scan #{self.runid} was not loaded")
@@ -1008,7 +1010,7 @@ def read_hdf_APS(working_directory,
     return img_dict, data_sets, mdata
 
 
-def render_data_to_gui(runid, *, file_overwrite_existing=False):
+def render_data_to_gui(runid, *, create_each_det=False, file_overwrite_existing=False):
     """
     Read data from databroker and save to Atom class which GUI can take.
 
@@ -1018,6 +1020,9 @@ def render_data_to_gui(runid, *, file_overwrite_existing=False):
     ----------
     runid : int
         id number for given run
+    create_each_det : bool
+        True: load data from all detector channels
+        False: load only the sum of all channels
     file_overwrite_existing : bool
         True: overwrite data file if it exists
         False: create unique file name by adding version number
@@ -1034,8 +1039,7 @@ def render_data_to_gui(runid, *, file_overwrite_existing=False):
     data_from_db = fetch_data_from_db(runid,
                                       fname_add_version=fname_add_version,
                                       file_overwrite_existing=file_overwrite_existing,
-                                      # Always load data from all detectors
-                                      create_each_det=True,
+                                      create_each_det=create_each_det,
                                       # Always create data file (processing results
                                       #   are going to be saved in the file)
                                       output_to_file=True)
