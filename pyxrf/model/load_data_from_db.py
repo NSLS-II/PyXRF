@@ -740,10 +740,21 @@ def map_data2D_srx(runid, fpath,
         fly_type = None
 
         if num_end_lines_excluded is None:
-            # vertical first then horizontal, assuming fast scan on x
-            datashape = [start_doc['shape'][1], start_doc['shape'][0]]
+            # It seems like the 'shape' in plan is in the form of [y, x], where
+            #    y - is the vertical and x is horizontal axis. This matches the
+            #    shape of the matrix that is used for storage of the maps.
+            #    In step scan, the results are represented as 1D array, not 2D array,
+            #    so it needs to be reshaped before processing. So the datashape
+            #    needs to be determined correctly.
+            # We also assume that scanning is performed along the x-axis first
+            #    before stepping along y-axis. Snaking may be on or off.
+            #    Different order (along y-axis first, then along x-axis) will require
+            #    some additional parameter in the start document to indicate this.
+            #    And the 'datashape' will need to be set the opposite way. Also
+            #    the map representation will be transposed.
+            datashape = [start_doc['shape'][0], start_doc['shape'][1]]
         else:
-            datashape = [start_doc['shape'][1] - num_end_lines_excluded, start_doc['shape'][0]]
+            datashape = [start_doc['shape'][0] - num_end_lines_excluded, start_doc['shape'][1]]
 
         snake_scan = start_doc.get('snaking')
         if snake_scan[1] is True:
