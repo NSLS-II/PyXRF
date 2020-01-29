@@ -920,6 +920,7 @@ class Fit1D(Atom):
                     f"{self.param_dict['coherent_sct_energy']['value']} keV) --------")
         t0 = time.time()
         self.pixel_fit_info = 'Pixel fitting is in process.'
+
         # app.processEvents()
         self.result_map, calculation_info = single_pixel_fitting_controller(
             self.data_all,

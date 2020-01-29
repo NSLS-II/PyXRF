@@ -344,6 +344,11 @@ class SettingModel(Atom):
         data_raw = np.asarray(datav.raw_data)
 
         if self.subtract_background:
+            # TODO: Implementation of background subtraction is not memory efficient
+            #   and may cause problems when processing large scans. Eventually it
+            #   needs to be rewritten, so that the data is processed in batches and
+            #   no complete copy of raw data is created in memory. This does not affect
+            #   computation of ROI without background subtraction (which is typical).
 
             logger.info(f"Subtracting background ...")
 
@@ -381,6 +386,7 @@ class SettingModel(Atom):
                                   e_offset=self.parameters['e_offset']['value'],
                                   e_linear=self.parameters['e_linear']['value'],
                                   range_v=[leftv, rightv])
+            sum2D = sum2D.astype(np.float64, copy=False)  # Convert to 64-bit representation
             temp.update({k: sum2D})
             logger.debug(f"Calculation is completed for {v.prefix}, {self.data_title}, {k}")
 

@@ -194,7 +194,7 @@ def make_hdf(start, end=None, *, fname=None, wd=None,
              completed_scans_only=False,
              file_overwrite_existing=False,
              prefix='scan2D_',
-             create_each_det=True, save_scaler=True,
+             create_each_det=False, save_scaler=True,
              num_end_lines_excluded=None):
     """
     Load data from database and save it in HDF5 files.
@@ -600,6 +600,7 @@ def map_data2D_hxn(runid, fpath,
                           det_list=det_list,
                           pos_list=pos_list,
                           scaler_list=scaler_list,
+                          create_each_det=create_each_det,
                           fly_type=fly_type, subscan_dims=subscan_dims,
                           spectrum_len=4096)
     if output_to_file:
@@ -739,10 +740,21 @@ def map_data2D_srx(runid, fpath,
         fly_type = None
 
         if num_end_lines_excluded is None:
-            # vertical first then horizontal, assuming fast scan on x
-            datashape = [start_doc['shape'][1], start_doc['shape'][0]]
+            # It seems like the 'shape' in plan is in the form of [y, x], where
+            #    y - is the vertical and x is horizontal axis. This matches the
+            #    shape of the matrix that is used for storage of the maps.
+            #    In step scan, the results are represented as 1D array, not 2D array,
+            #    so it needs to be reshaped before processing. So the datashape
+            #    needs to be determined correctly.
+            # We also assume that scanning is performed along the x-axis first
+            #    before stepping along y-axis. Snaking may be on or off.
+            #    Different order (along y-axis first, then along x-axis) will require
+            #    some additional parameter in the start document to indicate this.
+            #    And the 'datashape' will need to be set the opposite way. Also
+            #    the map representation will be transposed.
+            datashape = [start_doc['shape'][0], start_doc['shape'][1]]
         else:
-            datashape = [start_doc['shape'][1] - num_end_lines_excluded, start_doc['shape'][0]]
+            datashape = [start_doc['shape'][0] - num_end_lines_excluded, start_doc['shape'][1]]
 
         snake_scan = start_doc.get('snaking')
         if snake_scan[1] is True:
@@ -912,10 +924,10 @@ def map_data2D_srx(runid, fpath,
 
                         # Now allocate space for fluorescence data
                         if create_each_det is False:
-                            new_data['det_sum'] = np.zeros(new_shape)
+                            new_data['det_sum'] = np.zeros(new_shape, dtype=np.float32)
                         else:
                             for i in range(num_det):
-                                new_data[f'det{i + 1}'] = np.zeros(new_shape)
+                                new_data[f'det{i + 1}'] = np.zeros(new_shape, dtype=np.float32)
 
                         print(f"Number of the detector channels: {num_det}")
 
@@ -1157,12 +1169,6 @@ def map_data2D_tes(runid, fpath,
     dict of data in 2D format matching x,y scanning positions
     """
 
-    # Disable loading data from all detectors (only 1 channel physically exists on TES beamline)
-    if create_each_det:
-        create_each_det = False
-        logger.warning("Only single-channel detector is available on TES beamline: "
-                       "the 'sum' channel is loaded to save memory.")
-
     hdr = db[runid]
     runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
 
@@ -1290,11 +1296,14 @@ def map_data2D_tes(runid, fpath,
             print("The number of lines is less than expected")
             break
         data = v.data[detector_field]
-        data_det1 = np.array(data[:, 0, :])
+        data_det1 = np.array(data[:, 0, :], dtype=np.float32)
         detector_data[n, :, :] = data_det1
         n_events_found = n + 1
     if n_events_found < n_events:
         print("The number of lines is less than expected. The experiment may be incomplete")
+    # Note: the following code assumes that the detector has only one channel.
+    #   If the detector is upgraded, the following code will have to be rewritten, but
+    #   the rest of the data loading procedure will have to be modified anyway.
     if create_each_det:
         new_data['det1'] = detector_data
     else:
@@ -1418,6 +1427,7 @@ def map_data2D_xfm(runid, fpath,
                               datashape,
                               det_list=xrf_detector_names,
                               pos_list=hdr.start.motors,
+                              create_each_det=create_each_det,
                               scaler_list=config_data['scaler_list'],
                               fly_type=fly_type)
         if output_to_file:
@@ -1619,6 +1629,7 @@ def assemble_data_SRX_stepscan(
             new_v_shape = len(channel_data) // datashape[1]
 
             new_data = np.vstack(channel_data)
+            new_data = new_data.astype(np.float32, copy=False)  # Change representation to np.float32
             new_data = new_data[:new_v_shape*datashape[1], :]
 
             new_data = new_data.reshape([new_v_shape, datashape[1],
@@ -1711,6 +1722,7 @@ def map_data2D(data, datashape,
                det_list=('xspress3_ch1', 'xspress3_ch2', 'xspress3_ch3'),
                pos_list=('zpssx[um]', 'zpssy[um]'),
                scaler_list=('sclr1_ch3', 'sclr1_ch4'),
+               create_each_det=False,
                fly_type=None, subscan_dims=None, spectrum_len=4096):
     """
     Data is obained from databroker. Transfer items from data to a dictionay of
@@ -1755,18 +1767,21 @@ def map_data2D(data, datashape,
             # new veritcal shape is defined to ignore zeros points caused by stopped/aborted scans
             new_v_shape = len(channel_data) // datashape[1]
             new_data = np.vstack(channel_data)
+            new_data = new_data.astype(np.float32, copy=False)  # Change representation to np.float32
             new_data = new_data[:new_v_shape*datashape[1], :]
             new_data = new_data.reshape([new_v_shape, datashape[1],
                                          len(channel_data[1])])
             if new_data.shape[2] != spectrum_len:
                 # merlin detector has spectrum len 2048
                 # make all the spectrum len to 4096, to avoid unpredicted error in fitting part
-                new_tmp = np.zeros([new_data.shape[0], new_data.shape[1], spectrum_len])
+                new_tmp = np.zeros([new_data.shape[0], new_data.shape[1], spectrum_len],
+                                   dtype=np.float32)
                 new_tmp[:, :, :new_data.shape[2]] = new_data
                 new_data = new_tmp
             if fly_type in ('pyramid',):
                 new_data = flip_data(new_data, subscan_dims=subscan_dims)
-            data_output[detname] = new_data
+            if create_each_det:
+                data_output[detname] = new_data
             if sum_data is None:
                 # Note: Here is the place where the error was found!!!
                 #   The assignment in the next line used to be written as
@@ -1872,6 +1887,23 @@ def write_db_to_hdf_base(fpath, data, *, metadata=None,
     sum_data = None
     xrf_det_list = [n for n in data.keys() if 'det' in n and 'sum' not in n]
     xrf_det_list.sort()
+
+    # Verify that raw fluorescence data is represented with np.float32 precision: print the warning message
+    #   and convert the raw spectrum data to np.float32. Assume that data is represented as ndarray.
+    def incorrect_type_msg(channel, data_type):
+        logger.warning(f"Attemptying to save raw fluorescence data for the channel '{channel}' "
+                       f"as '{data_type}' numbers.\n    Memory may be used inefficiently. "
+                       f"Please, inform the PyXRF developers.\n    The data is converted from '{data_type}' "
+                       f"to 'np.float32' before saving to file.")
+    if "det_sum" in data and isinstance(data["det_sum"], np.ndarray):
+        if data["det_sum"].dtype != np.float32:
+            incorrect_type_msg("det_sum", data["det_sum"].dtype)
+            data["det_sum"] = data["det_sum"].astype(np.float32, copy=False)
+    for detname in xrf_det_list:
+        if detname in data and isinstance(data[detname], np.ndarray):
+            if data[detname].dtype != np.float32:
+                incorrect_type_msg(detname, data[detname].dtype)
+                data[detname] = data[detname].astype(np.float32, copy=False)
 
     file_open_mode = "a"
     if os.path.exists(fpath):

@@ -31,6 +31,9 @@ from ..model.fileio import sep_v
 from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 from skbeam.fluorescence import XrfElement as Element
 
+import logging
+logger = logging.getLogger()
+
 try:
     import databroker
 except ImportError:
@@ -1036,6 +1039,12 @@ enamldef FitView(DockItem): fit_view:
                             except Exception as ex:
                                 btns = [DialogButton('Ok', 'accept')]
                                 critical(self, 'ERROR', f'Failed to save quantitative calibration: {ex}', btns)
+
+                        # If the checkbox is set True in 'save_quant_calibration_edit', reset it to False
+                        #   This checkbox is a safety feature, and should be checked each time the
+                        #   Dialog Box is opened (for each new file, or each attempt to save the same file)
+                        fit_model.qe_standard_overwrite_existing = False
+
 
             PushButton: to_db:
                 text = 'Save to DB'
