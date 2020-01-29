@@ -462,7 +462,7 @@ class DataSelection(Atom):
                                     pos2=self.point2)
             spec = SC.get_spectrum()
         # Return the 'sum' spectrum as regular 64-bit float (raw data is in 'np.float32')
-        return np.float64(spec)
+        return spec.astype(np.float64, copy=False)
 
 
 class SpectrumCalculator(object):

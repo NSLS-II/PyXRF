@@ -1629,7 +1629,7 @@ def assemble_data_SRX_stepscan(
             new_v_shape = len(channel_data) // datashape[1]
 
             new_data = np.vstack(channel_data)
-            new_data = np.float32(new_data)  # Change representation to np.float32
+            new_data = new_data.astype(np.float32, copy=False)  # Change representation to np.float32
             new_data = new_data[:new_v_shape*datashape[1], :]
 
             new_data = new_data.reshape([new_v_shape, datashape[1],
@@ -1767,7 +1767,7 @@ def map_data2D(data, datashape,
             # new veritcal shape is defined to ignore zeros points caused by stopped/aborted scans
             new_v_shape = len(channel_data) // datashape[1]
             new_data = np.vstack(channel_data)
-            new_data = np.float32(new_data)  # Convert to np.float32 representation
+            new_data = new_data.astype(np.float32, copy=False)  # Change representation to np.float32
             new_data = new_data[:new_v_shape*datashape[1], :]
             new_data = new_data.reshape([new_v_shape, datashape[1],
                                          len(channel_data[1])])
@@ -1898,12 +1898,12 @@ def write_db_to_hdf_base(fpath, data, *, metadata=None,
     if "det_sum" in data and isinstance(data["det_sum"], np.ndarray):
         if data["det_sum"].dtype != np.float32:
             incorrect_type_msg("det_sum", data["det_sum"].dtype)
-            data["det_sum"] = np.float32(data["det_sum"])
+            data["det_sum"] = data["det_sum"].astype(np.float32, copy=False)
     for detname in xrf_det_list:
         if detname in data and isinstance(data[detname], np.ndarray):
             if data[detname].dtype != np.float32:
                 incorrect_type_msg(detname, data[detname].dtype)
-                data[detname] = np.float32(data[detname])
+                data[detname] = data[detname].astype(np.float32, copy=False)
 
     file_open_mode = "a"
     if os.path.exists(fpath):
