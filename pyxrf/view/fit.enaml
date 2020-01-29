@@ -31,6 +31,9 @@ from ..model.fileio import sep_v
 from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 from skbeam.fluorescence import XrfElement as Element
 
+import logging
+logger = logging.getLogger()
+
 try:
     import databroker
 except ImportError:
