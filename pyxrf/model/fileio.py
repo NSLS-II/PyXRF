@@ -270,6 +270,7 @@ class FileIOModel(Atom):
         #                                             self.fname_from_db,
         #                                             load_each_channel=self.load_each_channel)
 
+        print(f"Working directory: {self.working_directory}") ##!!
         rv = render_data_to_gui(self.runid,
                                 create_each_det=self.load_each_channel,
                                 working_directory=self.working_directory,
@@ -1039,8 +1040,14 @@ def render_data_to_gui(runid, *, create_each_det=False, working_directory=None, 
     # Don't create unique file name if the existing file is to be overwritten
     fname_add_version = not file_overwrite_existing
 
+    # Create file name here, so that working directory may be attached to the file name
+    prefix = 'scan2D_'
+    fname = f"{prefix}{runid}.h5"
+    if working_directory:
+        fname = os.path.join(working_directory, fname)
+
     data_from_db = fetch_data_from_db(runid,
-                                      fpath=working_directory,
+                                      fpath=fname,
                                       fname_add_version=fname_add_version,
                                       file_overwrite_existing=file_overwrite_existing,
                                       create_each_det=create_each_det,
