@@ -494,6 +494,11 @@ def fill_quant_fluor_data_dict(quant_fluor_data_dict, *, xrf_map_dict, scaler_na
     ``scaler_name`` is not one of the keys of ``xrf_map_dict`` or set to None, then
     the average fluorescence is computed without normalization.
 
+    Pixels along the edges of the map are very likely to contain outliers, so the edges
+    are not used in computation whenever sufficient data is available (if map contains
+    more than 2 pixels along a dimension, the the first and the last pixel not used
+    for averaging)
+
     Parameters
     ----------
 
