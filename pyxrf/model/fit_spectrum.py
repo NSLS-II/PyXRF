@@ -376,6 +376,7 @@ class Fit1D(Atom):
             d = None
         if d <= 0.0:
             d = None
+        self.param_quant_estimation.set_distance_to_sample_in_data_dict(distance_to_sample=d)
         # Change preview if distance value changed
         self.qe_standard_data_preview = \
             self.param_quant_estimation.get_fluorescence_data_dict_text_preview()
@@ -386,7 +387,7 @@ class Fit1D(Atom):
             d = float(self.qe_standard_distance)
         except Exception:
             d = None
-        if d <= 0.0:
+        if (d is not None) and (d <= 0.0):
             d = None
         return d
 
