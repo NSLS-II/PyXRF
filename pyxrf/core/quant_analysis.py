@@ -539,7 +539,18 @@ def fill_quant_fluor_data_dict(quant_fluor_data_dict, *, xrf_map_dict, scaler_na
                 norm_map = normalize_data_by_scaler(xrf_map_dict[eline], xrf_map_dict[scaler_name])
             else:
                 norm_map = xrf_map_dict[eline]
-            mean_fluor = np.mean(norm_map)
+            # Ignore pixels along the edges (those pixels are likely to be outliers that will visibly bias
+            #   the mean value in small calibration scans). If scan is smaller that 2 pixels along any
+            #   dimension, then all pixels are used, including edges.
+            def _get_range(n_elements):
+                if n_elements > 2:
+                    n_min, n_max = 1, n_elements - 1
+                else:
+                    n_min, n_max = 0, n_elements
+                return n_min, n_max
+            ny_min, ny_max = _get_range(norm_map.shape[0])
+            nx_min, nx_max = _get_range(norm_map.shape[1])
+            mean_fluor = np.mean(norm_map[ny_min: ny_max, nx_min: nx_max])
             # Note: numpy 'float64' is explicitely converted to 'float'
             #     (yaml package does not seem to support 'float64')
             quant_fluor_data_dict["element_lines"][eline]["fluorescence"] = float(mean_fluor)
