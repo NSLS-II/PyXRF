@@ -1300,9 +1300,6 @@ enamldef AutoFindElements(Window): auto_win:
                     constraints = [hbox(ff, pb_value_default)]
                     FloatField: ff:
                         value := param_model.param_new[loop_item]['value']
-                        value ::
-                            if loop_item == 'coherent_sct_energy':
-                                io_model.incident_energy_set = value
                         maximum_size = 160
                     PushButton: pb_value_default:
                         text = 'Default'

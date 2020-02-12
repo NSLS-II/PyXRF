@@ -365,6 +365,7 @@ def gen_xrf_map_dict(nx=10, ny=5, elines=["S_K", "Au_M", "Fe_K"]):
 
     return img
 
+
 @pytest.mark.parametrize("map_dims", [
     {"nx": 10, "ny": 5},
     {"nx": 1, "ny": 5},
