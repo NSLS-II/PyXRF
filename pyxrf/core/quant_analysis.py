@@ -496,7 +496,7 @@ def fill_quant_fluor_data_dict(quant_fluor_data_dict, *, xrf_map_dict, scaler_na
 
     Pixels along the edges of the map are very likely to contain outliers, so the edges
     are not used in computation whenever sufficient data is available (if map contains
-    more than 2 pixels along a dimension, the the first and the last pixel not used
+    more than 2 pixels along a dimension, the first and the last pixels are not used
     for averaging)
 
     Parameters
