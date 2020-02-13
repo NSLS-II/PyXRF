@@ -272,6 +272,7 @@ class FileIOModel(Atom):
 
         rv = render_data_to_gui(self.runid,
                                 create_each_det=self.load_each_channel,
+                                working_directory=self.working_directory,
                                 file_overwrite_existing=self.file_overwrite_existing)
 
         if rv is None:
@@ -1010,7 +1011,7 @@ def read_hdf_APS(working_directory,
     return img_dict, data_sets, mdata
 
 
-def render_data_to_gui(runid, *, create_each_det=False, file_overwrite_existing=False):
+def render_data_to_gui(runid, *, create_each_det=False, working_directory=None, file_overwrite_existing=False):
     """
     Read data from databroker and save to Atom class which GUI can take.
 
@@ -1023,6 +1024,8 @@ def render_data_to_gui(runid, *, create_each_det=False, file_overwrite_existing=
     create_each_det : bool
         True: load data from all detector channels
         False: load only the sum of all channels
+    working_directory : str
+        path to the directory where data files are saved
     file_overwrite_existing : bool
         True: overwrite data file if it exists
         False: create unique file name by adding version number
@@ -1036,7 +1039,14 @@ def render_data_to_gui(runid, *, create_each_det=False, file_overwrite_existing=
     # Don't create unique file name if the existing file is to be overwritten
     fname_add_version = not file_overwrite_existing
 
+    # Create file name here, so that working directory may be attached to the file name
+    prefix = 'scan2D_'
+    fname = f"{prefix}{runid}.h5"
+    if working_directory:
+        fname = os.path.join(working_directory, fname)
+
     data_from_db = fetch_data_from_db(runid,
+                                      fpath=fname,
                                       fname_add_version=fname_add_version,
                                       file_overwrite_existing=file_overwrite_existing,
                                       create_each_det=create_each_det,

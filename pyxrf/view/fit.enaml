@@ -1300,15 +1300,31 @@ enamldef AutoFindElements(Window): auto_win:
                     constraints = [hbox(ff, pb_value_default)]
                     FloatField: ff:
                         value := param_model.param_new[loop_item]['value']
-                        value ::
-                            if loop_item == 'coherent_sct_energy':
-                                io_model.incident_energy_set = value
                         maximum_size = 160
                     PushButton: pb_value_default:
                         text = 'Default'
                         maximum_size = 100
                         clicked ::
                             ff.value = param_model.param_new[loop_item]['default']
+
+            Looper:
+                iterable << [param_model.param_new[k] for k in ('coherent_sct_energy',)]
+                Label:
+                    text = loop_item['description']
+                    maximum_size = 140
+                Container: cont:
+                    padding = Box(2, 2, 2, 2)
+                    constraints = [hbox(ff_incident_energy, pb_bd_default)]
+                    FloatField: ff_incident_energy:
+                        value := plot_model.incident_energy
+                        value ::
+                            io_model.incident_energy_set = value
+                        maximum_size = 100
+                    PushButton: pb_bd_default:
+                        text = 'Default'
+                        maximum_size = 100
+                        clicked ::
+                            ff_incident_energy.value = loop_item['default_value']
 
             Looper: 
                 iterable << [param_model.param_new['non_fitting_values'][k] for k in ('energy_bound_high',)]

@@ -366,15 +366,38 @@ def gen_xrf_map_dict(nx=10, ny=5, elines=["S_K", "Au_M", "Fe_K"]):
     return img
 
 
-def test_fill_quant_fluor_data_dict():
+@pytest.mark.parametrize("map_dims", [
+    {"nx": 10, "ny": 5},
+    {"nx": 1, "ny": 5},
+    {"nx": 2, "ny": 5},
+    {"nx": 3, "ny": 5},
+    {"nx": 10, "ny": 1},
+    {"nx": 10, "ny": 2},
+    {"nx": 10, "ny": 3},
+])
+def test_fill_quant_fluor_data_dict(map_dims):
     r"""Test for 'fill_quant_fluor_data_dict': testing basic functionality"""
     # Create copy, because the dictionary will be modified
     fluor_standard = copy.deepcopy(_xrf_standard_fluor_sample)
 
-    img = gen_xrf_map_dict()
-    map_S_K_fluor = np.mean(img["S_K"])
-    map_Au_M_fluor = np.mean(img["Au_M"])
-    v_sclr = np.mean(img["sclr"])
+    nx = map_dims["nx"]
+    ny = map_dims["ny"]
+
+    img = gen_xrf_map_dict(nx=nx, ny=ny)
+
+    if nx < 3:
+        nx_min, nx_max = 0, nx
+    else:
+        nx_min, nx_max = 1, -1
+
+    if ny < 3:
+        ny_min, ny_max = 0, nx
+    else:
+        ny_min, ny_max = 1, -1
+
+    map_S_K_fluor = np.mean(img["S_K"][ny_min: ny_max, nx_min: nx_max])
+    map_Au_M_fluor = np.mean(img["Au_M"][ny_min: ny_max, nx_min: nx_max])
+    v_sclr = np.mean(img["sclr"][ny_min: ny_max, nx_min: nx_max])
 
     # Fill the dictionary, use existing scaler 'sclr'
     fill_quant_fluor_data_dict(fluor_standard, xrf_map_dict=img, scaler_name="sclr")

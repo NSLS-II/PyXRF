@@ -27,8 +27,7 @@ bound_options = ['none', 'lohi', 'fixed', 'lo', 'hi']
 fit_strategy_list = ['fit_with_tail', 'free_more',
                      'e_calibration', 'linear',
                      'adjust_element1', 'adjust_element2', 'adjust_element3']
-autofit_param = ['e_offset', 'e_linear', 'fwhm_offset', 'fwhm_fanoprime',
-                 'coherent_sct_energy']
+autofit_param = ['e_offset', 'e_linear', 'fwhm_offset', 'fwhm_fanoprime']
 
 
 class PreFitStatus(Atom):
