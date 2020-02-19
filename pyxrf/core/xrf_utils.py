@@ -24,7 +24,13 @@ def get_element_atomic_number(element_str):
     """
     xraylib.SetErrorMessages(0)  # Turn off error messages from ``xraylib``
 
-    return xraylib.SymbolToAtomicNumber(element_str)
+
+    try:
+        val = xraylib.SymbolToAtomicNumber(element_str)
+    except ValueError:
+        # Imitate the behavior of xraylib 3
+        val = 0
+    return val
 
 
 def validate_element_str(element_str):
@@ -86,7 +92,7 @@ def parse_compound_formula(compound_formula):
 
     try:
         compound_data = xraylib.CompoundParser(compound_formula)
-    except SystemError:
+    except (SystemError, ValueError):
         msg = f"Invalid chemical formula '{compound_formula}' is passed, parsing failed"
         raise RuntimeError(msg)
 
