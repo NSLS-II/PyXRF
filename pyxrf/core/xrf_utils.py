@@ -24,7 +24,6 @@ def get_element_atomic_number(element_str):
     """
     xraylib.SetErrorMessages(0)  # Turn off error messages from ``xraylib``
 
-
     try:
         val = xraylib.SymbolToAtomicNumber(element_str)
     except ValueError:
