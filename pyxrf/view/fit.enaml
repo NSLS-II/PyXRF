@@ -412,6 +412,7 @@ enamldef FitView(DockItem): fit_view:
                                 plot_model.plot_fit(param_model.prefit_x,
                                                     param_model.total_y,
                                                     param_model.auto_fit_all)
+                                fit_model.update_userpeak_controls()
                         except Exception as ex:
                             pass
 

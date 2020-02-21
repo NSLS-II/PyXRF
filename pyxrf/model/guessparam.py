@@ -485,7 +485,8 @@ class GuessParamModel(Atom):
                                                    self.y0,
                                                    self.param_new,
                                                    elemental_lines=[self.e_name],
-                                                   default_area=default_area)
+                                                   default_area=default_area,
+                                                   default_userpeak_center=2.5)
 
         # Check if element profile was calculated successfully.
         #   Calculation may fail if the selected line is not activated.
@@ -756,7 +757,7 @@ def define_range(data, low, high, a0, a1):
 
 
 def calculate_profile(x, y, param, elemental_lines,
-                      default_area=1e5):
+                      default_area=1e5, default_userpeak_center=None):
     """
     Calculate the spectrum profile based on given paramters. Use function
     construct_linear_model from xrf_model.
@@ -776,6 +777,9 @@ def calculate_profile(x, y, param, elemental_lines,
         predifine the length to a given value.
     default_area : float
         default value for the gaussian area of each element
+    default_userpeak_center: float
+        location of the center of the new user defined peaks that are being added,
+        if None, then the peaks are placed in the location defined by the built-in parameter
 
     Returns
     -------
@@ -792,7 +796,8 @@ def calculate_profile(x, y, param, elemental_lines,
     total_list, matv, area_dict = construct_linear_model(x,
                                                          fitting_parameters,
                                                          elemental_lines,
-                                                         default_area=default_area)
+                                                         default_area=default_area,
+                                                         default_userpeak_center=default_userpeak_center)
 
     temp_d = {k: v for (k, v) in zip(total_list, matv.transpose())}
 

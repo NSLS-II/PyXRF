@@ -584,6 +584,25 @@ class Fit1D(Atom):
                      f"          Energy: {self.add_userpeak_energy} keV\n"
                      f"          FWHM: {self.add_userpeak_fwhm} keV")
 
+    def update_userpeak_controls(self):
+        """
+        The function should be called right after adding a userpeak to update the fields
+        for userpeak energy and fwhm. Uses data for the currently selected Userpeak
+        (the peak should be selected at the time of creation!!!)
+        """
+        # Set energy
+        v_center = self.param_dict[self.name_userpeak_dcenter]["value"]
+        v_energy = v_center + 5.0
+        v_energy = round(v_energy, 3)
+        self.add_userpeak_energy = v_energy
+        # Set fwhm
+        fwhm_base = self._compute_fwhm_base()
+        v_dsigma = self.param_dict[self.name_userpeak_dsigma]["value"]
+        v_dfwhm = gaussian_sigma_to_fwhm(v_dsigma)
+        v_fwhm = v_dfwhm + fwhm_base
+        v_fwhm = round(v_fwhm, 5)
+        self.add_userpeak_fwhm = v_fwhm
+
     def keep_size(self):
         """Keep the size of deque as 2.
         """

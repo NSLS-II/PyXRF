@@ -149,6 +149,10 @@ class LinePlotModel(Atom):
     # Reference to GuessParamModel object
     param_model = Typed(object)
 
+    # Location of the vertical (mouse-selected) marker on the plot.
+    # Value is in kev. Negative value - no marker is placed.
+    plot_vertical_marker_kev = Float(-1)
+
     def __init__(self, param_model):
 
         # Reference to GuessParamModel object
@@ -178,6 +182,8 @@ class LinePlotModel(Atom):
         # And the last point of data is also huge, and should be cut off.
         self.limit_cut = 100
         # self._ax.margins(x=0.0, y=0.10)
+
+        self.plot_vertical_marker_kev = 2.0
 
     def _color_config(self):
         self.plot_style = {
