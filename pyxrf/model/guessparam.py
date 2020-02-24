@@ -182,7 +182,7 @@ class ElementController(object):
         remove_list = []
         non_element = ['compton', 'elastic', 'background']
         for k, v in six.iteritems(self.element_dict):
-            if v.norm <= threshv:
+            if v.norm < threshv:
                 remove_list.append(k)
         for name in remove_list:
             if name in non_element:
@@ -461,7 +461,17 @@ class GuessParamModel(Atom):
                     temp_dict[e] = ps
         self.EC.add_to_dict(temp_dict)
 
-    def manual_input(self):
+    def manual_input(self, userpeak_center=2.5):
+        """
+        Manually add emission line (or peak)
+
+        Parameters
+        ----------
+        userpeak_center: float
+            Center of the user defined peak. Ignored if emission line other
+            than 'userpeak' is added
+        """
+
         default_area = 1e2
 
         # if self.e_name == 'escape':
@@ -481,12 +491,38 @@ class GuessParamModel(Atom):
         #     logger.info('{} peak is added'.format(self.e_name))
         #
         # else:
+
+        # Add the new data entry to the parameter dictionary. This operation is necessary for 'userpeak'
+        #   lines, because they need to be placed to the specific position (by setting 'delta_center'
+        #   parameter, while regular element lines are placed to their default positions.
+        d_energy = userpeak_center - 5.0
+
+        # PC.params will contain a deepcopy of 'self.param_new' with the new line added
+        PC = ParamController(self.param_new, [self.e_name])
+
+        if "userpeak" in self.e_name.lower():
+            # Default values for 'delta_center'
+            dc = copy.deepcopy(PC.params[f"{self.e_name}_delta_center"])
+            # Modify the default values in the dictionary of parameters
+            PC.params[f"{self.e_name}_delta_center"]["value"] = d_energy
+            PC.params[f"{self.e_name}_delta_center"]["min"] = d_energy - (dc["value"] - dc["min"])
+            PC.params[f"{self.e_name}_delta_center"]["max"] = d_energy + (dc["max"] - dc["value"])
+            # 'param_tmp' temporary (possibly extended) set of parameters.
+            #param_tmp = PC.params
+        #else:
+            # For all other emission lines we (probably) don't need to create parameters at this
+            #   point, since they are initially used with default parameter values.
+        #    param_tmp = self.param_new
+        param_tmp = PC.params
+
+        # 'self.param_new' is used to provide 'hint' values for the model, but all active
+        #    emission lines in 'elemental_lines' will be included in the model.
+        #  The model will contain lines in 'elemental_lines', Compton and ellastic
         x, data_out, area_dict = calculate_profile(self.x0,
                                                    self.y0,
-                                                   self.param_new,
+                                                   param_tmp,
                                                    elemental_lines=[self.e_name],
-                                                   default_area=default_area,
-                                                   default_userpeak_center=2.5)
+                                                   default_area=default_area)
 
         # Check if element profile was calculated successfully.
         #   Calculation may fail if the selected line is not activated.
@@ -494,6 +530,10 @@ class GuessParamModel(Atom):
         #   control over it.
         if self.e_name not in data_out:
             raise Exception(f"Failed to add the emission line '{self.e_name}': line is not activated.")
+
+        # If model was generated successfully (the emission line was successfully added), then
+        #   make temporary parameters permanent
+        self.param_new = param_tmp
 
         ratio_v = self.add_element_intensity / np.max(data_out[self.e_name])
 
@@ -757,7 +797,7 @@ def define_range(data, low, high, a0, a1):
 
 
 def calculate_profile(x, y, param, elemental_lines,
-                      default_area=1e5, default_userpeak_center=None):
+                      default_area=1e5):
     """
     Calculate the spectrum profile based on given paramters. Use function
     construct_linear_model from xrf_model.
@@ -777,9 +817,6 @@ def calculate_profile(x, y, param, elemental_lines,
         predifine the length to a given value.
     default_area : float
         default value for the gaussian area of each element
-    default_userpeak_center: float
-        location of the center of the new user defined peaks that are being added,
-        if None, then the peaks are placed in the location defined by the built-in parameter
 
     Returns
     -------
@@ -796,8 +833,7 @@ def calculate_profile(x, y, param, elemental_lines,
     total_list, matv, area_dict = construct_linear_model(x,
                                                          fitting_parameters,
                                                          elemental_lines,
-                                                         default_area=default_area,
-                                                         default_userpeak_center=default_userpeak_center)
+                                                         default_area=default_area)
 
     temp_d = {k: v for (k, v) in zip(total_list, matv.transpose())}
 

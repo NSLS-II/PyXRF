@@ -101,7 +101,7 @@ class Fit1D(Atom):
     cal_spectrum = Dict()
 
     #  attributes used by the ElementEdit window
-    # selected_element = Str()
+    selected_element = Str()
     selected_index = Int()
     elementinfo_list = List()
 
@@ -348,6 +348,38 @@ class Fit1D(Atom):
         """
         self.param_dict['non_fitting_values']['energy_bound_low']['value'] = change['value']
 
+    def update_selected_index(self, selected_element=None,
+                              element_list_new=None):
+
+        if selected_element is None:
+            # Currently selected element
+            element = self.selected_element
+        else:
+            # Selected element (probably saved before update of the element list)
+            element = selected_element
+
+        if element_list_new is None:
+            # Current element list
+            element_list = self.element_list
+        else:
+            # Future element list (before it is updated)
+            element_list = element_list_new
+
+        if not element_list:
+            # Empty element list
+            ind = 0
+        else:
+            try:
+                # Combo-box has additional element 'Select element'
+                ind = element_list.index(element) + 1
+            except ValueError:
+                # Element is not found (was deleted), so deselect the element
+                ind = 0
+        if ind == self.selected_index:
+            # We want the content to update (deselect, then select again)
+            self.selected_index = 0
+        self.selected_index = ind
+
     @observe('selected_index')
     def _selected_element_changed(self, change):
         if change['value'] > 0:
@@ -355,18 +387,20 @@ class Fit1D(Atom):
             if ind_sel >= len(self.element_list):
                 ind_sel = len(self.element_list) - 1
                 self.selected_index = ind_sel + 1  # Change the selection as well
-            selected_element = self.element_list[ind_sel]
-            if len(selected_element) <= 4:
-                element = selected_element.split('_')[0]
+            self.selected_element = self.element_list[ind_sel]
+            if len(self.selected_element) <= 4:
+                element = self.selected_element.split('_')[0]
                 self.elementinfo_list = sorted([e for e in list(self.param_dict.keys())
                                                 if (element+'_' in e) and  # error between S_k or Si_k
                                                 ('pileup' not in e)])  # Si_ka1 not Si_K
                 logger.info(f"Element line info: {self.elementinfo_list}")
             else:
-                element = selected_element  # for pileup peaks
+                element = self.selected_element  # for pileup peaks
                 self.elementinfo_list = sorted([e for e in list(self.param_dict.keys())
                                                 if element.replace('-', '_') in e])
                 logger.info(f"User defined or pileup peak info: {self.elementinfo_list}")
+        else:
+            self.elementinfo_list = []
 
     @observe('qe_standard_distance')
     def _qe_standard_distance_changed(self, change):
@@ -641,15 +675,25 @@ class Fit1D(Atom):
         """
         Update param_dict with default parameters, also update element list.
         """
-        self.param_dict = copy.deepcopy(self.default_parameters)
+        # Save currently selected element name
+        selected_element = self.selected_element
+        self.selected_index = 0
 
-        element_list = self.param_dict['non_fitting_values']['element_list']
-        self.element_list = [e.strip(' ') for e in element_list.split(',')]
+        element_list = self.default_parameters['non_fitting_values']['element_list']
+        element_list = [e.strip(' ') for e in element_list.split(',')]
+        element_list = [_ for _ in element_list if _]  # Get rid of empty strings in the list
+        self.element_list = element_list
+
+        self.param_dict = copy.deepcopy(self.default_parameters)
 
         # show the list of elements on add/remove window
         self.EC.delete_all()
         self.create_EC_list(self.element_list)
         self.update_name_list()
+
+        # Update the index in case the selected emission line disappeared from the list
+        self.update_selected_index(selected_element=selected_element,
+                                   element_list_new=element_list)
 
         # global parameters
         # for GUI purpose only

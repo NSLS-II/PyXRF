@@ -803,7 +803,7 @@ class LinePlotModel(Atom):
 
     def add_peak_manual(self):
 
-        self.param_model.manual_input()
+        self.param_model.manual_input(userpeak_center=2.0)
         self.param_model.EC.update_peak_ratio()
         self.param_model.update_name_list()
         self.param_model.data_for_plot()

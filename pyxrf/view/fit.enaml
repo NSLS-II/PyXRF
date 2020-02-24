@@ -424,6 +424,13 @@ enamldef FitView(DockItem): fit_view:
                 clicked ::
                     plot_model.remove_peak_manual(param_model.e_name)
                     cb_select.set_focus()  # Return focus to the combo box
+                    # Completely remove userpeaks from all dictionaries. This operation
+                    #   takes considerable time, so do it only for userpeaks. For other
+                    #   peaks, the button 'Update' needs to be pressed to completely
+                    #   remove peaks (this is faster and enables 'Undo').
+                    if "userpeak" in param_model.e_name.lower():
+                        param_model.update_name_list()
+                        apply_to_fit(param_model, plot_model, fit_model, setting_model)
 
             PushButton: pb_pileup:
                 text = 'Add Pileup Peaks'
