@@ -433,38 +433,7 @@ class Fit1D(Atom):
 
         sigma = gaussian_fwhm_to_sigma(self.param_model.default_parameters["fwhm_offset"]["value"])
 
-        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        # The error was detected in scikit-beam, but not corrected
-        # Note: Corrections are required in the function ``element_peak_xrf``
-        #   from file ``xrf_model.py`` (package Scikit-Beam)
-        # The error: the original center position for the peak was used to
-        #   compute sigma of the Gaussian approximation of the peak. It almost not matter
-        #   for element peaks, since they don't move along the energy axis. But it is
-        #   invalid for Userpeaks, which are placed at a fixed position (5 keV) and then
-        #   moved to the desired position by changing ``delta_center``. Sigma depends
-        #   on actual center position, so ``delta_center`` should be taken into account.
-        #
-        # The original code for computing Gaussian function:
-        # def get_sigma(center):
-        #     temp_val = 2 * np.sqrt(2 * np.log(2))
-        #     return np.sqrt((fwhm_offset / temp_val) ** 2 + center * epsilon * fwhm_fanoprime)
-        #
-        # x = e_offset + x * e_linear + x ** 2 * e_quadratic
-        #
-        # return gaussian(x, area, center + delta_center,
-        #                 delta_sigma + get_sigma(center)) * ratio * ratio_adjust
-        #
-        # To correct the error, the last statement should be changed to the following:
-        # return gaussian(x, area, center + delta_center,
-        #                 delta_sigma + get_sigma(center + delta_center)) * ratio * ratio_adjust
-
-        # Temporary fix for the error mentioned above (to keep peak hight consistent as it moves
-        #   along the enery axis, computation of sigma must be identical here and in
-        #   the function ``element_peak_xrf``
-        sigma_sqr = 5.0  # center (ignore ``delta_sigma``)
-        # The next line is correct (but may be enabled only if the bug in scikit-beam is corrected)
-        # sigma_sqr = self.param_dict[self.name_userpeak_dcenter]["value"] + 5.0  # center
-
+        sigma_sqr = self.param_dict[self.name_userpeak_dcenter]["value"] + 5.0  # center
         sigma_sqr *= self.param_model.default_parameters["non_fitting_values"]["epsilon"]  # epsilon
         sigma_sqr *= self.param_model.default_parameters["fwhm_fanoprime"]["value"]  # fanoprime
         sigma_sqr += sigma * sigma  # We have computed the expression under sqrt
