@@ -8,6 +8,7 @@ from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from matplotlib.collections import BrokenBarHCollection
 from collections import OrderedDict
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
@@ -107,6 +108,9 @@ class LinePlotModel(Atom):
     plot_exp_opt = Bool(False)
     plot_exp_obj = Typed(Line2D)
     show_exp_opt = Bool(False)
+
+    # Reference to artist responsible for displaying the selected range of energies on the plot
+    plot_energy_barh = Typed(BrokenBarHCollection)
 
     plot_exp_list = List()
     data_sets = Typed(OrderedDict)
@@ -320,6 +324,20 @@ class LinePlotModel(Atom):
         self.log_linear_plot()
         self._update_canvas()
 
+    def energy_bound_high_update(self, change):
+        """Observer function for 'param_model.energy_bound_high_buf'"""
+        if self.data is None:
+            return
+        self.plot_selected_energy_range(e_high=change["value"])
+        self._update_canvas()
+
+    def energy_bound_low_update(self, change):
+        """Observer function for 'param_model.energy_bound_low_buf'"""
+        if self.data is None:
+            return
+        self.plot_selected_energy_range(e_low=change["value"])
+        self._update_canvas()
+
     def log_linear_plot(self):
         if self.plot_type[self.scale_opt] == 'LinLog':
             self._ax.set_yscale('log')
@@ -378,6 +396,8 @@ class LinePlotModel(Atom):
         self.log_linear_plot()
 
         self._set_eline_select_controls()
+
+        self.plot_selected_energy_range()
 
         # _show_hide_exp_plot is called to show or hide current plot based
         #           on the state of _show_exp_opt flag
@@ -465,6 +485,42 @@ class LinePlotModel(Atom):
         data_arr = np.asarray(self.data)
         self.exp_data_update({'value': data_arr})
 
+    def plot_selected_energy_range(self, *, e_low=None, e_high=None):
+        """
+        Plot the range of energies selected for processing. The range may be optionally
+        provided as arguments. The range values that are not provided, are read from
+        globally accessible dictionary of parameters. The values passed as arguments
+        are mainly used if the function is called during interactive update of the
+        range, when the order of update is undetermined and the parameter dictionary
+        may be updated after the function is called.
+        """
+        # The range of energy selected for analysis
+        if e_low is None:
+            e_low = self.param_model.param_new['non_fitting_values']['energy_bound_low']['value']
+        if e_high is None:
+            e_high = self.param_model.param_new['non_fitting_values']['energy_bound_high']['value']
+
+        n_x = 4096  # Set to the maximum possible number of points
+
+        # Generate the values for 'energy' axis
+        x_v = (self.parameters['e_offset']['value'] +
+               np.arange(n_x) *
+               self.parameters['e_linear']['value'] +
+               np.arange(n_x) ** 2 *
+               self.parameters['e_quadratic']['value'])
+
+        ss = (x_v < e_high) & (x_v > e_low)
+        y_min, y_max = 1e-30, 1e30  # Select the max and min values for plotted rectangles
+
+        # Remove the plot if it exists
+        if self.plot_energy_barh in self._ax.collections:
+            self._ax.collections.remove(self.plot_energy_barh)
+
+        # Create the new plot (based on new parameters if necessary
+        self.plot_energy_barh = BrokenBarHCollection.span_where(
+            x_v, ymin=y_min, ymax=y_max, where=ss, facecolor='white', edgecolor='yellow', alpha=1)
+        self._ax.add_collection(self.plot_energy_barh)
+
     def plot_multi_exp_data(self):
         while(len(self.plot_exp_list)):
             self.plot_exp_list.pop().remove()
@@ -473,7 +529,7 @@ class LinePlotModel(Atom):
 
         self.max_v = 1.0
         m = 0
-        for (k, v) in six.iteritems(self.data_sets):
+        for (k, v) in self.data_sets.items():
             if v.plot_index:
 
                 data_arr = np.asarray(v.data)
@@ -493,6 +549,8 @@ class LinePlotModel(Atom):
                                               marker=self.plot_style['experiment']['marker'])
                 self.plot_exp_list.append(plot_exp_obj)
                 m += 1
+
+        self.plot_selected_energy_range()
 
         self._update_ylimit()
         self.log_linear_plot()

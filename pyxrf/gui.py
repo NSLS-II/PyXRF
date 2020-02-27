@@ -135,6 +135,9 @@ def run():
 
     param_model.observe('energy_bound_high_buf', fit_model.energy_bound_high_update)
     param_model.observe('energy_bound_low_buf', fit_model.energy_bound_low_update)
+    param_model.observe('energy_bound_high_buf', plot_model.energy_bound_high_update)
+    param_model.observe('energy_bound_low_buf', plot_model.energy_bound_low_update)
+
 
     #  set default parameters
     # io_model.observe('default_parameters', plot_model.parameters_update)
