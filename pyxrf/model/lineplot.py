@@ -111,6 +111,7 @@ class LinePlotModel(Atom):
 
     # Reference to artist responsible for displaying the selected range of energies on the plot
     plot_energy_barh = Typed(BrokenBarHCollection)
+    t_bar = Typed(object)
 
     plot_exp_list = List()
     data_sets = Typed(OrderedDict)
@@ -165,6 +166,7 @@ class LinePlotModel(Atom):
         self.data = None
 
         self._fig = plt.figure(figsize=(3, 2))
+
         self._ax = self._fig.add_subplot(111)
         try:
             self._ax.set_axis_bgcolor('lightgrey')
@@ -188,6 +190,7 @@ class LinePlotModel(Atom):
         # self._ax.margins(x=0.0, y=0.10)
 
         self.plot_vertical_marker_kev = 2.0
+        # self._fig.canvas.mpl_connect("button_press_event", self.canvas_onpress)
 
     def _color_config(self):
         self.plot_style = {
@@ -551,6 +554,11 @@ class LinePlotModel(Atom):
                 m += 1
 
         self.plot_selected_energy_range()
+
+        # Reference to the toolbar
+        self.t_bar = self._fig.canvas.toolbar
+        # Set callback for Button Press event
+        self._fig.canvas.mpl_connect("button_press_event", self.canvas_onpress)
 
         self._update_ylimit()
         self.log_linear_plot()
@@ -1251,3 +1259,13 @@ class LinePlotModel(Atom):
                 pass
 
         # self._update_canvas()
+
+    def canvas_onpress(self, event):
+        """Callback, mouse button pressed"""
+        #self.button_pressed = False  # May be pressed outside the region
+        if (self.t_bar.mode == "") and (event.inaxes == self._ax) and (event.button == 1):
+        #if (event.inaxes == self._ax) and (event.button == 1):
+            #self.button_pressed = True  # Left mouse button is in pressed state
+            #     and it was pressed when the cursor was inside the plot area
+            xd, yd = event.xdata, event.ydata
+            print(f"xd = {xd}, yd = {yd}")
