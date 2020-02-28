@@ -511,7 +511,7 @@ class LinePlotModel(Atom):
 
         if self.line_vertical_marker:
             self._ax.lines.remove(self.line_vertical_marker)
-            self.line_vertical_marker=None
+            self.line_vertical_marker = None
         if self.vertical_marker_is_visible:
             self.line_vertical_marker, = self._ax.plot(x_v, y_v, color="blue")
 
@@ -848,24 +848,24 @@ class LinePlotModel(Atom):
                 if e.cs(incident_energy)['ka1'] != 0:
                     for i in range(k_len):
                         _elist.append((e.emission_line.all[i][1],
-                                           e.cs(incident_energy).all[i][1]
-                                           / e.cs(incident_energy).all[0][1]))
+                                       e.cs(incident_energy).all[i][1]
+                                       / e.cs(incident_energy).all[0][1]))
 
             elif '_L' in ename:
                 e = Element(ename[:-2])
                 if e.cs(incident_energy)['la1'] != 0:
                     for i in range(k_len, k_len+l_len):
                         _elist.append((e.emission_line.all[i][1],
-                                           e.cs(incident_energy).all[i][1]
-                                           / e.cs(incident_energy).all[k_len][1]))
+                                       e.cs(incident_energy).all[i][1]
+                                       / e.cs(incident_energy).all[k_len][1]))
 
             else:
                 e = Element(ename[:-2])
                 if e.cs(incident_energy)['ma1'] != 0:
                     for i in range(k_len+l_len, k_len+l_len+m_len):
                         _elist.append((e.emission_line.all[i][1],
-                                           e.cs(incident_energy).all[i][1]
-                                           / e.cs(incident_energy).all[k_len+l_len][1]))
+                                       e.cs(incident_energy).all[i][1]
+                                       / e.cs(incident_energy).all[k_len+l_len][1]))
 
             return _elist
 
@@ -1018,8 +1018,8 @@ class LinePlotModel(Atom):
 
             e_raw_min = self.parameters['e_offset']['value']
             e_raw_max = self.parameters['e_offset']['value'] + \
-                        (len(self.data) - 1) * self.parameters['e_linear']['value'] + \
-                        (len(self.data) - 1) ** 2 * self.parameters['e_quadratic']['value']
+                (len(self.data) - 1) * self.parameters['e_linear']['value'] + \
+                (len(self.data) - 1) ** 2 * self.parameters['e_quadratic']['value']
             de_raw = (e_raw_max - e_raw_min) / (len(self.data) - 1)
 
             # Note: the above algorithm for finding 'de_raw' is far from perfect but will
@@ -1361,7 +1361,7 @@ class LinePlotModel(Atom):
         """Callback, mouse button pressed"""
         if (self.t_bar.mode == ""):
             if (event.inaxes == self._ax) and (event.button == 1):
-                xd, yd = event.xdata, event.ydata
+                xd = event.xdata
                 self.set_plot_vertical_marker(marker_position=xd)
             else:
                 self.hide_plot_vertical_marker()

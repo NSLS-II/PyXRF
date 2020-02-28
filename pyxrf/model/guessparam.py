@@ -507,12 +507,7 @@ class GuessParamModel(Atom):
             PC.params[f"{self.e_name}_delta_center"]["value"] = d_energy
             PC.params[f"{self.e_name}_delta_center"]["min"] = d_energy - (dc["value"] - dc["min"])
             PC.params[f"{self.e_name}_delta_center"]["max"] = d_energy + (dc["max"] - dc["value"])
-            # 'param_tmp' temporary (possibly extended) set of parameters.
-            #param_tmp = PC.params
-        #else:
-            # For all other emission lines we (probably) don't need to create parameters at this
-            #   point, since they are initially used with default parameter values.
-        #    param_tmp = self.param_new
+
         param_tmp = PC.params
 
         # 'self.param_new' is used to provide 'hint' values for the model, but all active
