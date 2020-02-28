@@ -156,7 +156,10 @@ class LinePlotModel(Atom):
 
     # Location of the vertical (mouse-selected) marker on the plot.
     # Value is in kev. Negative value - no marker is placed.
-    plot_vertical_marker_kev = Float(-1)
+    vertical_marker_kev = Float(-1)
+    # Reference to the respective Matplotlib artist
+    line_vertical_marker = Typed(object)
+    vertical_marker_is_visible = Bool(False)
 
     def __init__(self, param_model):
 
@@ -188,8 +191,6 @@ class LinePlotModel(Atom):
         # And the last point of data is also huge, and should be cut off.
         self.limit_cut = 100
         # self._ax.margins(x=0.0, y=0.10)
-
-        self.plot_vertical_marker_kev = 2.0
 
     def _color_config(self):
         self.plot_style = {
@@ -241,6 +242,7 @@ class LinePlotModel(Atom):
         # It may be sufficient to initialize the event only once, but at this point
         #   it seems to be the most reliable option. May be changed in the future.
         self.init_mouse_event()
+        self.plot_vertical_marker()
 
         self._ax.legend(loc=2)
         try:
@@ -342,6 +344,7 @@ class LinePlotModel(Atom):
         if self.data is None:
             return
         self.plot_selected_energy_range(e_high=change["value"])
+        self.plot_vertical_marker(e_high=change["value"])
         self._update_canvas()
 
     def energy_bound_low_update(self, change):
@@ -349,6 +352,7 @@ class LinePlotModel(Atom):
         if self.data is None:
             return
         self.plot_selected_energy_range(e_low=change["value"])
+        self.plot_vertical_marker(e_low=change["value"])
         self._update_canvas()
 
     def log_linear_plot(self):
@@ -497,6 +501,51 @@ class LinePlotModel(Atom):
 
         data_arr = np.asarray(self.data)
         self.exp_data_update({'value': data_arr})
+
+    def plot_vertical_marker(self, *, e_low=None, e_high=None):
+
+        self._vertical_marker_set_inside_range(e_low=e_low, e_high=e_high)
+
+        x_v = (self.vertical_marker_kev, self.vertical_marker_kev)
+        y_v = (-1e30, 1e30)  # This will cover the range of possible values of accumulated counts
+
+        if self.line_vertical_marker:
+            self._ax.lines.remove(self.line_vertical_marker)
+            self.line_vertical_marker=None
+        if self.vertical_marker_is_visible:
+            self.line_vertical_marker, = self._ax.plot(x_v, y_v, color="blue")
+
+    def set_plot_vertical_marker(self, marker_position=None):
+        """
+        The function is called when setting the position of the marker interactively
+
+        If the parameter `marker_position` is `None`, then don't set or change the value.
+        Just make the marker visible.
+        """
+
+        # Ignore the new value if it is outside the range of selected energies
+        if marker_position is not None:
+            e_low = self.param_model.param_new['non_fitting_values']['energy_bound_low']['value']
+            e_high = self.param_model.param_new['non_fitting_values']['energy_bound_high']['value']
+            if (marker_position >= e_low) and (marker_position <= e_high):
+                self.vertical_marker_kev = marker_position
+
+        # Compute peak intensity. The displayed value will change only for user defined peak,
+        #   since it is moved to the position of the marker.
+        self.compute_manual_peak_intensity()
+
+        # Make the marker visible
+        self.vertical_marker_is_visible = True
+
+        # Update the location of the marker and the canvas
+        self.plot_vertical_marker()
+        self._update_canvas()
+
+    def hide_plot_vertical_marker(self):
+        """Hide vertical marker"""
+        self.vertical_marker_is_visible = False
+        self.plot_vertical_marker()
+        self._update_canvas()
 
     def plot_selected_energy_range(self, *, e_low=None, e_high=None):
         """
@@ -758,6 +807,68 @@ class LinePlotModel(Atom):
             ename = None
         return ename
 
+    def _vertical_marker_set_inside_range(self, *, e_low=None, e_high=None):
+        """
+        Don't move the marker if it is inside range. If it is outside range,
+        then set the marker to the center of the range
+        """
+        # The range of energy selected for analysis
+        if e_low is None:
+            e_low = self.param_model.param_new['non_fitting_values']['energy_bound_low']['value']
+        if e_high is None:
+            e_high = self.param_model.param_new['non_fitting_values']['energy_bound_high']['value']
+
+        # By default, place the marker in the middle of the range if its original position
+        #   is outside the range
+        if (self.vertical_marker_kev > e_high) or (self.vertical_marker_kev < e_low):
+            self.vertical_marker_kev = (e_low + e_high) / 2.0
+
+    def _fill_elist(self):
+
+        _elist = []
+
+        incident_energy = self.incident_energy
+        k_len = len(K_TRANSITIONS)
+        l_len = len(L_TRANSITIONS)
+        m_len = len(M_TRANSITIONS)
+
+        ename = self.get_element_line_name_by_id(self.element_id, include_user_peaks=True)
+
+        if ename is not None:
+
+            _elist = []
+            if ename.lower().startswith("userpeak"):
+                # Make sure that the marker is in the selected range of energies
+                self._vertical_marker_set_inside_range()
+                # The tuple structure: (center_energy, ratio)
+                _elist.append((self.vertical_marker_kev, 1.0))
+
+            elif '_K' in ename:
+                e = Element(ename[:-2])
+                if e.cs(incident_energy)['ka1'] != 0:
+                    for i in range(k_len):
+                        _elist.append((e.emission_line.all[i][1],
+                                           e.cs(incident_energy).all[i][1]
+                                           / e.cs(incident_energy).all[0][1]))
+
+            elif '_L' in ename:
+                e = Element(ename[:-2])
+                if e.cs(incident_energy)['la1'] != 0:
+                    for i in range(k_len, k_len+l_len):
+                        _elist.append((e.emission_line.all[i][1],
+                                           e.cs(incident_energy).all[i][1]
+                                           / e.cs(incident_energy).all[k_len][1]))
+
+            else:
+                e = Element(ename[:-2])
+                if e.cs(incident_energy)['ma1'] != 0:
+                    for i in range(k_len+l_len, k_len+l_len+m_len):
+                        _elist.append((e.emission_line.all[i][1],
+                                           e.cs(incident_energy).all[i][1]
+                                           / e.cs(incident_energy).all[k_len+l_len][1]))
+
+            return _elist
+
     @observe('element_id')
     def set_element(self, change):
 
@@ -775,43 +886,19 @@ class LinePlotModel(Atom):
             return
 
         incident_energy = self.incident_energy
-        k_len = len(K_TRANSITIONS)
-        l_len = len(L_TRANSITIONS)
-        m_len = len(M_TRANSITIONS)
-
-        ename = self.get_element_line_name_by_id(self.element_id)
+        ename = self.get_element_line_name_by_id(self.element_id, include_user_peaks=True)
 
         if ename is not None:
 
             logger.debug('Plot emission line for element: '
                          '{} with incident energy {}'.format(self.element_id,
                                                              incident_energy))
-            self.elist = []
 
-            if '_K' in ename:
-                e = Element(ename[:-2])
-                if e.cs(incident_energy)['ka1'] != 0:
-                    for i in range(k_len):
-                        self.elist.append((e.emission_line.all[i][1],
-                                           e.cs(incident_energy).all[i][1]
-                                           / e.cs(incident_energy).all[0][1]))
-
-            elif '_L' in ename:
-                e = Element(ename[:-2])
-                if e.cs(incident_energy)['la1'] != 0:
-                    for i in range(k_len, k_len+l_len):
-                        self.elist.append((e.emission_line.all[i][1],
-                                           e.cs(incident_energy).all[i][1]
-                                           / e.cs(incident_energy).all[k_len][1]))
-
+            _elist = self._fill_elist()
+            if not ename.lower().startswith("userpeak"):
+                self.elist = _elist
             else:
-                e = Element(ename[:-2])
-                if e.cs(incident_energy)['ma1'] != 0:
-                    for i in range(k_len+l_len, k_len+l_len+m_len):
-                        self.elist.append((e.emission_line.all[i][1],
-                                           e.cs(incident_energy).all[i][1]
-                                           / e.cs(incident_energy).all[k_len+l_len][1]))
-
+                self.elist = []
             self.plot_emission_line()
             self._update_canvas()
 
@@ -874,10 +961,12 @@ class LinePlotModel(Atom):
 
     def add_peak_manual(self):
 
-        self.param_model.manual_input(userpeak_center=2.0)
+        self.param_model.manual_input(userpeak_center=self.vertical_marker_kev)
         self.param_model.EC.update_peak_ratio()
         self.param_model.update_name_list()
         self.param_model.data_for_plot()
+
+        self.hide_plot_vertical_marker()
 
         self.plot_fit(self.param_model.prefit_x,
                       self.param_model.total_y,
@@ -914,12 +1003,70 @@ class LinePlotModel(Atom):
         self.show_fit_opt = True
         self.param_model.update_name_list()
 
+    def _compute_intensity(self, elist):
+        # Some default value
+        intensity = 1000.0
+
+        if self.data is not None and self.parameters is not None \
+                and self.param_model.prefit_x is not None \
+                and len(self.data) > 1 and len(self.param_model.prefit_x) > 1:
+
+            # Range of energies in fitting results
+            e_fit_min = self.param_model.prefit_x[0]
+            e_fit_max = self.param_model.prefit_x[-1]
+            de_fit = (e_fit_max - e_fit_min) / (len(self.param_model.prefit_x) - 1)
+
+            e_raw_min = self.parameters['e_offset']['value']
+            e_raw_max = self.parameters['e_offset']['value'] + \
+                        (len(self.data) - 1) * self.parameters['e_linear']['value'] + \
+                        (len(self.data) - 1) ** 2 * self.parameters['e_quadratic']['value']
+            de_raw = (e_raw_max - e_raw_min) / (len(self.data) - 1)
+
+            # Note: the above algorithm for finding 'de_raw' is far from perfect but will
+            #    work for now. As a result 'de_fit' and 'de_raw' == self.parameters['e_linear']['value'].
+            #    So the quadratic coefficent is ignored. This is OK, since currently
+            #    quadratic coefficient is always ZERO. When the program is rewritten,
+            #    the complete algorithm should be revised.
+
+            # Find the line with maximum energy. It must come first in the list,
+            #    but let's check just to make sure
+            max_line_energy, max_line_intensity = 0, 0
+            if elist:
+                for e, i in elist:
+                    # e - line peak energy
+                    # i - peak intensity relative to maximum peak
+                    if e >= e_fit_min and e <= e_fit_max and e > e_raw_min and e < e_raw_max:
+                        if max_line_intensity < i:
+                            max_line_energy, max_line_intensity = e, i
+
+            # Find the index of peak maximum in the 'fitted' data array
+            n = (max_line_energy - e_fit_min) / de_fit
+            n = np.clip(n, 0, len(self.param_model.total_y) - 1)
+            n_fit = int(round(n))
+            # Find the index of peak maximum in the 'raw' data array
+            n = (max_line_energy - e_raw_min) / de_raw
+            n = np.clip(n, 0, len(self.data) - 1)
+            n_raw = int(round(n))
+            # Intensity of the fitted data at the peak
+            in_fit = self.param_model.total_y[n_fit]
+            # Intensity of the raw data at the peak
+            in_raw = self.data[n_raw]
+            # The estimated peak intensity is the difference:
+            intensity = in_raw - in_fit
+
+            # The following step is questionable. We assign some reasonably small number.
+            #   The desired value can always be manually entered
+            if intensity < 0.0:
+                intensity = abs(in_raw / 100)
+
+        return intensity
+
     def compute_manual_peak_intensity(self, n_id=None):
 
         if n_id is None:
             n_id = self.element_id
 
-        if not self.is_element_line_id_valid(n_id):
+        if not self.is_element_line_id_valid(n_id, include_user_peaks=True):
             # This is typicall the case when n_id==0
             intensity = 0.0
             if self.is_element_line_id_valid(n_id, include_user_peaks=True):
@@ -929,70 +1076,15 @@ class LinePlotModel(Atom):
                     intensity = self.param_model.EC.element_dict[name].maxv
 
         else:
-            if self.is_line_in_selected_list(n_id):
-                name = self.get_element_line_name_by_id(n_id)
+            if self.is_line_in_selected_list(n_id, include_user_peaks=True):
+                name = self.get_element_line_name_by_id(n_id, include_user_peaks=True)
                 intensity = self.param_model.EC.element_dict[name].maxv
-
             else:
+                _elist = self._fill_elist()
+                intensity = self._compute_intensity(_elist)
 
-                # Some default value
-                intensity = 1000.0
-
-                if self.data is not None and self.parameters is not None \
-                        and self.param_model.prefit_x is not None \
-                        and len(self.data) > 1 and len(self.param_model.prefit_x) > 1:
-
-                    # Range of energies in fitting results
-                    e_fit_min = self.param_model.prefit_x[0]
-                    e_fit_max = self.param_model.prefit_x[-1]
-                    de_fit = (e_fit_max - e_fit_min) / (len(self.param_model.prefit_x) - 1)
-
-                    e_raw_min = self.parameters['e_offset']['value']
-                    e_raw_max = self.parameters['e_offset']['value'] + \
-                        (len(self.data) - 1) * self.parameters['e_linear']['value'] + \
-                        (len(self.data) - 1) ** 2 * self.parameters['e_quadratic']['value']
-                    de_raw = (e_raw_max - e_raw_min) / (len(self.data) - 1)
-
-                    # Note: the above algorithm for finding 'de_raw' is far from perfect but will
-                    #    work for now. As a result 'de_fit' and 'de_raw' == self.parameters['e_linear']['value'].
-                    #    So the quadratic coefficent is ignored. This is OK, since currently
-                    #    quadratic coefficient is always ZERO. When the program is rewritten,
-                    #    the complete algorithm should be revised.
-
-                    # Find the line with maximum energy. It must come first in the list,
-                    #    but let's check just to make sure
-                    max_line_energy, max_line_intensity = 0, 0
-                    if self.elist:
-                        for e, i in self.elist:
-                            # e - line peak energy
-                            # i - peak intensity relative to maximum peak
-                            if e >= e_fit_min and e <= e_fit_max and e > e_raw_min and e < e_raw_max:
-                                if max_line_intensity < i:
-                                    max_line_energy, max_line_intensity = e, i
-
-                    # Find the index of peak maximum in the 'fitted' data array
-                    n = (max_line_energy - e_fit_min) / de_fit
-                    n = np.clip(n, 0, len(self.param_model.total_y) - 1)
-                    n_fit = int(round(n))
-                    # Find the index of peak maximum in the 'raw' data array
-                    n = (max_line_energy - e_raw_min) / de_raw
-                    n = np.clip(n, 0, len(self.data) - 1)
-                    n_raw = int(round(n))
-                    # Intensity of the fitted data at the peak
-                    in_fit = self.param_model.total_y[n_fit]
-                    # Intensity of the raw data at the peak
-                    in_raw = self.data[n_raw]
-                    # The estimated peak intensity is the difference:
-                    intensity = in_raw - in_fit
-
-                    # The following step is questionable. We assign some reasonably small number.
-                    #   The desired value can always be manually entered
-                    if intensity < 0.0:
-                        intensity = abs(in_raw / 100)
-
-        # Round for nicer printing
-        intensity = float(f"{intensity:.2f}")
-        self.param_model.add_element_intensity = intensity
+        # Round the intensity for nicer printing
+        self.param_model.add_element_intensity = round(intensity, 2)
 
     # def plot_autofit(self):
     #     sum_y = 0
@@ -1267,10 +1359,9 @@ class LinePlotModel(Atom):
 
     def canvas_onpress(self, event):
         """Callback, mouse button pressed"""
-        #self.button_pressed = False  # May be pressed outside the region
-        if (self.t_bar.mode == "") and (event.inaxes == self._ax) and (event.button == 1):
-        #if (event.inaxes == self._ax) and (event.button == 1):
-            #self.button_pressed = True  # Left mouse button is in pressed state
-            #     and it was pressed when the cursor was inside the plot area
-            xd, yd = event.xdata, event.ydata
-            print(f"xd = {xd}, yd = {yd}")
+        if (self.t_bar.mode == ""):
+            if (event.inaxes == self._ax) and (event.button == 1):
+                xd, yd = event.xdata, event.ydata
+                self.set_plot_vertical_marker(marker_position=xd)
+            else:
+                self.hide_plot_vertical_marker()
