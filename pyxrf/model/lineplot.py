@@ -190,7 +190,6 @@ class LinePlotModel(Atom):
         # self._ax.margins(x=0.0, y=0.10)
 
         self.plot_vertical_marker_kev = 2.0
-        # self._fig.canvas.mpl_connect("button_press_event", self.canvas_onpress)
 
     def _color_config(self):
         self.plot_style = {
@@ -231,7 +230,18 @@ class LinePlotModel(Atom):
         # Reset currently selected element_id (mostly to reset GUI elements)
         self.element_id = 0
 
+    def init_mouse_event(self):
+        """Set up callback for mouse button-press event"""
+        # Reference to the toolbar
+        self.t_bar = self._fig.canvas.toolbar
+        # Set callback for Button Press event
+        self._fig.canvas.mpl_connect("button_press_event", self.canvas_onpress)
+
     def _update_canvas(self):
+        # It may be sufficient to initialize the event only once, but at this point
+        #   it seems to be the most reliable option. May be changed in the future.
+        self.init_mouse_event()
+
         self._ax.legend(loc=2)
         try:
             self._ax.legend(framealpha=0.2).set_draggable(True)
@@ -554,11 +564,6 @@ class LinePlotModel(Atom):
                 m += 1
 
         self.plot_selected_energy_range()
-
-        # Reference to the toolbar
-        self.t_bar = self._fig.canvas.toolbar
-        # Set callback for Button Press event
-        self._fig.canvas.mpl_connect("button_press_event", self.canvas_onpress)
 
         self._update_ylimit()
         self.log_linear_plot()
