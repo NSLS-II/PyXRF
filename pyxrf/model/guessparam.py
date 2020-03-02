@@ -512,7 +512,7 @@ class GuessParamModel(Atom):
 
         # 'self.param_new' is used to provide 'hint' values for the model, but all active
         #    emission lines in 'elemental_lines' will be included in the model.
-        #  The model will contain lines in 'elemental_lines', Compton and ellastic
+        #  The model will contain lines in 'elemental_lines', Compton and elastic
         x, data_out, area_dict = calculate_profile(self.x0,
                                                    self.y0,
                                                    param_tmp,
