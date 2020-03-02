@@ -594,7 +594,7 @@ class Fit1D(Atom):
         (the peak should be selected at the time of creation!!!)
         """
         if (self.name_userpeak_dcenter not in self.param_dict) or \
-            (self.name_userpeak_dsigma not in self.param_dict):
+                (self.name_userpeak_dsigma not in self.param_dict):
             return
         # Set energy
         v_center = self.param_dict[self.name_userpeak_dcenter]["value"]
