@@ -463,7 +463,7 @@ class GuessParamModel(Atom):
 
     def manual_input(self, userpeak_center=2.5):
         """
-        Manually add emission line (or peak)
+        Manually add an emission line (or peak).
 
         Parameters
         ----------
