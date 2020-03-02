@@ -370,7 +370,11 @@ enamldef FitView(DockItem): fit_view:
                             try:
                                 if "Userpeak" in cb_select.selected_item:
                                     fit_model.select_index_by_eline_name(cb_select.selected_item)
+                                    # Show the marker at the center of the userpeak
+                                    plot_model.set_plot_vertical_marker(fit_model.add_userpeak_energy)
                             except Exception as ex:
+                                # Show the marker at its current or default location
+                                plot_model.set_plot_vertical_marker()
                                 pass
 
             Label: intensity_lb:
@@ -385,12 +389,22 @@ enamldef FitView(DockItem): fit_view:
                 text = 'Add'
                 enabled << (cb_select.index > 0) and plot_model.allow_add_eline_fit
                 clicked ::
+                    # Verify if we are adding a userpeak
+                    is_userpeak = False
+                    ename = plot_model.get_element_line_name_by_id(plot_model.element_id, include_user_peaks=True)
+                    if ename and (ename.lower().startswith("userpeak")):
+                        is_userpeak = True
+
                     # The following set of conditions is not complete, but sufficient
                     if param_model.x0 is None or param_model.y0 is None:
-
                         btns = [DialogButton('Ok', 'accept')]
                         # 'critical' shows MessageBox
                         critical(self, 'ERROR', f'Experimental data is not loaded or initial spectrum fitting is not performed', btns)
+
+                    elif is_userpeak and (not plot_model.vertical_marker_is_visible):
+                        btns = [DialogButton('Ok', 'accept')]
+                        # 'critical' shows MessageBox
+                        critical(self, '', f'Select position of userpeak by clicking at the plot', btns)
 
                     else:
                         try:
@@ -412,6 +426,7 @@ enamldef FitView(DockItem): fit_view:
                                 plot_model.plot_fit(param_model.prefit_x,
                                                     param_model.total_y,
                                                     param_model.auto_fit_all)
+                                fit_model.update_userpeak_controls()
                         except Exception as ex:
                             pass
 
@@ -423,6 +438,13 @@ enamldef FitView(DockItem): fit_view:
                 clicked ::
                     plot_model.remove_peak_manual(param_model.e_name)
                     cb_select.set_focus()  # Return focus to the combo box
+                    # Completely remove userpeaks from all dictionaries. This operation
+                    #   takes considerable time, so do it only for userpeaks. For other
+                    #   peaks, the button 'Update' needs to be pressed to completely
+                    #   remove peaks (this is faster and enables 'Undo').
+                    if "userpeak" in param_model.e_name.lower():
+                        param_model.update_name_list()
+                        apply_to_fit(param_model, plot_model, fit_model, setting_model)
 
             PushButton: pb_pileup:
                 text = 'Add Pileup Peaks'
@@ -818,6 +840,9 @@ enamldef FitView(DockItem): fit_view:
 
                         # Update displayed intensity of the selected peak
                         plot_model.compute_manual_peak_intensity()
+
+                        # Amplitude and FWHM may change in the process of fitting. Update the controls.
+                        fit_model.update_userpeak_controls()
 
                     else:
 

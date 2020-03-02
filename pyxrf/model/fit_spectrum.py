@@ -101,7 +101,7 @@ class Fit1D(Atom):
     cal_spectrum = Dict()
 
     #  attributes used by the ElementEdit window
-    # selected_element = Str()
+    selected_element = Str()
     selected_index = Int()
     elementinfo_list = List()
 
@@ -348,6 +348,38 @@ class Fit1D(Atom):
         """
         self.param_dict['non_fitting_values']['energy_bound_low']['value'] = change['value']
 
+    def update_selected_index(self, selected_element=None,
+                              element_list_new=None):
+
+        if selected_element is None:
+            # Currently selected element
+            element = self.selected_element
+        else:
+            # Selected element (probably saved before update of the element list)
+            element = selected_element
+
+        if element_list_new is None:
+            # Current element list
+            element_list = self.element_list
+        else:
+            # Future element list (before it is updated)
+            element_list = element_list_new
+
+        if not element_list:
+            # Empty element list
+            ind = 0
+        else:
+            try:
+                # Combo-box has additional element 'Select element'
+                ind = element_list.index(element) + 1
+            except ValueError:
+                # Element is not found (was deleted), so deselect the element
+                ind = 0
+        if ind == self.selected_index:
+            # We want the content to update (deselect, then select again)
+            self.selected_index = 0
+        self.selected_index = ind
+
     @observe('selected_index')
     def _selected_element_changed(self, change):
         if change['value'] > 0:
@@ -355,18 +387,20 @@ class Fit1D(Atom):
             if ind_sel >= len(self.element_list):
                 ind_sel = len(self.element_list) - 1
                 self.selected_index = ind_sel + 1  # Change the selection as well
-            selected_element = self.element_list[ind_sel]
-            if len(selected_element) <= 4:
-                element = selected_element.split('_')[0]
+            self.selected_element = self.element_list[ind_sel]
+            if len(self.selected_element) <= 4:
+                element = self.selected_element.split('_')[0]
                 self.elementinfo_list = sorted([e for e in list(self.param_dict.keys())
                                                 if (element+'_' in e) and  # error between S_k or Si_k
                                                 ('pileup' not in e)])  # Si_ka1 not Si_K
                 logger.info(f"Element line info: {self.elementinfo_list}")
             else:
-                element = selected_element  # for pileup peaks
+                element = self.selected_element  # for pileup peaks
                 self.elementinfo_list = sorted([e for e in list(self.param_dict.keys())
                                                 if element.replace('-', '_') in e])
                 logger.info(f"User defined or pileup peak info: {self.elementinfo_list}")
+        else:
+            self.elementinfo_list = []
 
     @observe('qe_standard_distance')
     def _qe_standard_distance_changed(self, change):
@@ -399,38 +433,7 @@ class Fit1D(Atom):
 
         sigma = gaussian_fwhm_to_sigma(self.param_model.default_parameters["fwhm_offset"]["value"])
 
-        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        # The error was detected in scikit-beam, but not corrected
-        # Note: Corrections are required in the function ``element_peak_xrf``
-        #   from file ``xrf_model.py`` (package Scikit-Beam)
-        # The error: the original center position for the peak was used to
-        #   compute sigma of the Gaussian approximation of the peak. It almost not matter
-        #   for element peaks, since they don't move along the energy axis. But it is
-        #   invalid for Userpeaks, which are placed at a fixed position (5 keV) and then
-        #   moved to the desired position by changing ``delta_center``. Sigma depends
-        #   on actual center position, so ``delta_center`` should be taken into account.
-        #
-        # The original code for computing Gaussian function:
-        # def get_sigma(center):
-        #     temp_val = 2 * np.sqrt(2 * np.log(2))
-        #     return np.sqrt((fwhm_offset / temp_val) ** 2 + center * epsilon * fwhm_fanoprime)
-        #
-        # x = e_offset + x * e_linear + x ** 2 * e_quadratic
-        #
-        # return gaussian(x, area, center + delta_center,
-        #                 delta_sigma + get_sigma(center)) * ratio * ratio_adjust
-        #
-        # To correct the error, the last statement should be changed to the following:
-        # return gaussian(x, area, center + delta_center,
-        #                 delta_sigma + get_sigma(center + delta_center)) * ratio * ratio_adjust
-
-        # Temporary fix for the error mentioned above (to keep peak hight consistent as it moves
-        #   along the enery axis, computation of sigma must be identical here and in
-        #   the function ``element_peak_xrf``
-        sigma_sqr = 5.0  # center (ignore ``delta_sigma``)
-        # The next line is correct (but may be enabled only if the bug in scikit-beam is corrected)
-        # sigma_sqr = self.param_dict[self.name_userpeak_dcenter]["value"] + 5.0  # center
-
+        sigma_sqr = self.param_dict[self.name_userpeak_dcenter]["value"] + 5.0  # center
         sigma_sqr *= self.param_model.default_parameters["non_fitting_values"]["epsilon"]  # epsilon
         sigma_sqr *= self.param_model.default_parameters["fwhm_fanoprime"]["value"]  # fanoprime
         sigma_sqr += sigma * sigma  # We have computed the expression under sqrt
@@ -584,6 +587,28 @@ class Fit1D(Atom):
                      f"          Energy: {self.add_userpeak_energy} keV\n"
                      f"          FWHM: {self.add_userpeak_fwhm} keV")
 
+    def update_userpeak_controls(self):
+        """
+        The function should be called right after adding a userpeak to update the fields
+        for userpeak energy and fwhm. Uses data for the currently selected Userpeak
+        (the peak should be selected at the time of creation!!!)
+        """
+        if (self.name_userpeak_dcenter not in self.param_dict) or \
+                (self.name_userpeak_dsigma not in self.param_dict):
+            return
+        # Set energy
+        v_center = self.param_dict[self.name_userpeak_dcenter]["value"]
+        v_energy = v_center + 5.0
+        v_energy = round(v_energy, 3)
+        self.add_userpeak_energy = v_energy
+        # Set fwhm
+        fwhm_base = self._compute_fwhm_base()
+        v_dsigma = self.param_dict[self.name_userpeak_dsigma]["value"]
+        v_dfwhm = gaussian_sigma_to_fwhm(v_dsigma)
+        v_fwhm = v_dfwhm + fwhm_base
+        v_fwhm = round(v_fwhm, 5)
+        self.add_userpeak_fwhm = v_fwhm
+
     def keep_size(self):
         """Keep the size of deque as 2.
         """
@@ -622,15 +647,25 @@ class Fit1D(Atom):
         """
         Update param_dict with default parameters, also update element list.
         """
-        self.param_dict = copy.deepcopy(self.default_parameters)
+        # Save currently selected element name
+        selected_element = self.selected_element
+        self.selected_index = 0
 
-        element_list = self.param_dict['non_fitting_values']['element_list']
-        self.element_list = [e.strip(' ') for e in element_list.split(',')]
+        element_list = self.default_parameters['non_fitting_values']['element_list']
+        element_list = [e.strip(' ') for e in element_list.split(',')]
+        element_list = [_ for _ in element_list if _]  # Get rid of empty strings in the list
+        self.element_list = element_list
+
+        self.param_dict = copy.deepcopy(self.default_parameters)
 
         # show the list of elements on add/remove window
         self.EC.delete_all()
         self.create_EC_list(self.element_list)
         self.update_name_list()
+
+        # Update the index in case the selected emission line disappeared from the list
+        self.update_selected_index(selected_element=selected_element,
+                                   element_list_new=element_list)
 
         # global parameters
         # for GUI purpose only
