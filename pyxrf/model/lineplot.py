@@ -1360,8 +1360,9 @@ class LinePlotModel(Atom):
     def canvas_onpress(self, event):
         """Callback, mouse button pressed"""
         if (self.t_bar.mode == ""):
-            if (event.inaxes == self._ax) and (event.button == 1):
-                xd = event.xdata
-                self.set_plot_vertical_marker(marker_position=xd)
-            else:
-                self.hide_plot_vertical_marker()
+            if event.inaxes == self._ax:
+                if event.button == 1:
+                    xd = event.xdata
+                    self.set_plot_vertical_marker(marker_position=xd)
+                else:
+                    self.hide_plot_vertical_marker()

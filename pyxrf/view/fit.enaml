@@ -841,6 +841,9 @@ enamldef FitView(DockItem): fit_view:
                         # Update displayed intensity of the selected peak
                         plot_model.compute_manual_peak_intensity()
 
+                        # Amplitude and FWHM may change in the process of fitting. Update the controls.
+                        fit_model.update_userpeak_controls()
+
                     else:
 
                         btns = [DialogButton('Ok', 'accept')]
