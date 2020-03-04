@@ -2120,6 +2120,12 @@ def single_pixel_fitting_controller(input_data, parameter,
     for eline in elist_non_activated:
         result_map[eline] = np.zeros(shape=exp_data.shape[0:2])
 
+    # Compute total count
+    total_count = np.sum(input_data, axis=2)
+    # Save it as rearely used emission line
+    # TODO: implement saving of total count in appropriate way
+    result_map['U_M'] = total_count
+
     calculation_info = dict()
     if error_map is not None:
         calculation_info['error_map'] = error_map

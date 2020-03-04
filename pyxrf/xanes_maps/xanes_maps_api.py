@@ -1855,7 +1855,14 @@ def _align_stacks(eline_data, eline_alignment, alignment_starts_from="top"):
 
     """Align stack of XRF maps for each element"""
     sr = StackReg(StackReg.TRANSLATION)
-    sr.register_stack(_flip_stack(eline_data[eline_alignment], alignment_starts_from),
+
+    # Normalize data used to compute matrix
+    data = np.array(eline_data[eline_alignment])
+    for n in range(data.shape[0]):
+        data[n, :, :] = data[n, :, :] / np.sum(data[n, :, :])
+    eline_data["ALIGN"] = np.array(data)  ###! (just for testing)
+
+    sr.register_stack(_flip_stack(data, alignment_starts_from),
                       reference="previous")
 
     eline_data_aligned = {}
