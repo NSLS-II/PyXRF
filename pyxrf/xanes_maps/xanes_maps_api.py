@@ -962,7 +962,7 @@ def _process_xrf_data(*, start_id, end_id, wd_xrf, xrf_fitting_param_fln, eline_
         # Process .h5 files in the directory 'wd_xrf'. Processing results are saved
         #   as additional datasets in the original .h5 files.
         pyxrf_batch(data_files=fln,  # Process only one data file
-                    xrf_fitting_param_fln=xrf_fitting_param_fln,
+                    param_file_name=xrf_fitting_param_fln,
                     ignore_datafile_metadata=ignore_metadata,
                     incident_energy=energy,  # This value overrides incident energy from other sources
                     wd=wd_xrf, save_tiff=False)
@@ -2947,12 +2947,11 @@ if __name__ == "__main__":
     stream_handler.setLevel(logging.INFO)
     logger.addHandler(stream_handler)
 
-    """
     build_xanes_map(start_id=92276, end_id=92335,
                     xrf_fitting_param_fln="param_335",
                     scaler_name="sclr1_ch4", wd=None,
-                    # sequence="process",
-                    sequence="build_xanes_map",
+                    sequence="process",
+                    # sequence="build_xanes_map",
                     alignment_starts_from="top",
                     ref_file_name="refs_Fe_P23.csv",
                     fitting_method="nnls",
@@ -2963,6 +2962,7 @@ if __name__ == "__main__":
                     plot_use_position_coordinates=True,
                     plot_results=True,
                     allow_exceptions=True)
-    """
 
+    """
     build_xanes_map(parameter_file_path="xanes_parameters.yaml", output_save_all=True)
+    """
