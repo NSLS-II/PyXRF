@@ -2947,7 +2947,6 @@ if __name__ == "__main__":
     stream_handler.setLevel(logging.INFO)
     logger.addHandler(stream_handler)
 
-
     build_xanes_map(start_id=92276, end_id=92335,
                     xrf_fitting_param_fln="param_335",
                     scaler_name="sclr1_ch4", wd=None,
