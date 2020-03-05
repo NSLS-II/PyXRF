@@ -863,7 +863,7 @@ def _build_xanes_map_api(*, start_id=None, end_id=None,
                                      fitting_method=fitting_method,
                                      fitting_descent_rate=fitting_descent_rate,
                                      incident_energy_shift_keV=incident_energy_shift_keV,
-                                     subtract_pre_edge_baseline=subtract_pre_edge_baseline)
+                                     subtract_pre_edge_baseline=subtract_pre_edge_baseline, wd=wd)
         else:
             logger.info("Plotting results: skipped.")
 
@@ -1267,7 +1267,7 @@ def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
                              plot_position_axes_units, plot_use_position_coordinates,
                              eline_selected, processing_results,
                              fitting_method, fitting_descent_rate, incident_energy_shift_keV,
-                             subtract_pre_edge_baseline):
+                             subtract_pre_edge_baseline, wd):
     r"""
     Implements one of the final steps of the processing sequence: plotting processing results.
     The data is displayed on a set of Matplotlib figures:
@@ -1326,6 +1326,9 @@ def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
         indicates if pre-edge baseline is subtracted from XANES spectra before fitting.
         Currently the subtracted baseline is constant, computed as a median value of spectrum
         points in the pre-edge region.
+
+    wd : str
+        working directory (for saving data files)
     """
 
     positions_x_uniform = processing_results["positions_x_uniform"]
@@ -1373,7 +1376,7 @@ def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
                      ref_labels=ref_labels, ref_energy=ref_energy, ref_data=ref_data,
                      fitting_method=fitting_method, fitting_descent_rate=fitting_descent_rate,
                      energy_shift_keV=incident_energy_shift_keV,
-                     subtract_pre_edge_baseline=subtract_pre_edge_baseline)
+                     subtract_pre_edge_baseline=subtract_pre_edge_baseline, wd=wd)
 
 
 def _load_dataset_from_hdf5(*, start_id, end_id, wd_xrf, load_fit_results=True):
@@ -1965,7 +1968,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                      xanes_map_data=None, scan_absorption_refs=None, ref_labels=None,
                      ref_energy=None, ref_data=None,  # Those are original sets of reference data
                      fitting_method="nnls", fitting_descent_rate=0.2, energy_shift_keV=0.0,
-                     subtract_pre_edge_baseline=True):
+                     subtract_pre_edge_baseline=True, wd=None):
     r"""
     Display XRF Map stack
 
@@ -1991,7 +1994,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                      xanes_map_data=None, scan_absorption_refs=None, ref_labels=None,
                      ref_energy=None, ref_data=None,
                      fitting_method="nnls", fitting_descent_rate=0.2, energy_shift_keV=0.0,
-                     subtract_pre_edge_baseline=True):
+                     subtract_pre_edge_baseline=True, wd=None):
             r"""
             Parameters
             ----------
@@ -2057,7 +2060,12 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                 indicates if pre-edge baseline is subtracted from XANES spectra before fitting.
                 Currently the subtracted baseline is constant, computed as a median value of spectrum
                 points in the pre-edge region.
+
+            wd : str
+                working directory
             """
+
+            self.wd = wd  # Working directory (for saving files)
 
             # The following are the fitting parameters that are sent to the fitting algorithm
             self.fitting_method = fitting_method
@@ -2077,6 +2085,10 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.energy_original = energy  # The energy values shifted by 'self.incident_energy_shift_keV'
             self.energy = energy  # The contents of this array will change if additional shift is applied
             self.label_default = label_default
+
+            # XANES spectrum based on currently selected area in the plot. Once it is set,
+            # it can be used along with 'self.energy' (e.g. saved to file)
+            self.xanes_spectrum_selected = None
 
             self.labels = list(eline_data.keys())
 
@@ -2214,6 +2226,11 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                                  0, len(self.energy) - 1,
                                  valinit=self.n_energy_selected, valfmt='%i')
 
+            self.ax_btn_save_spectrum = plt.axes([0.85, 0.1, 0.13, 0.05])
+            self.btn_save_spectrum = Button(self.ax_btn_save_spectrum, "Save Spectrum",
+                                            color="#00ff00", hovercolor="#ff0000")
+            self.btn_save_spectrum.on_clicked(self.btn_save_spectrum_clicked)
+
             self.ax_tb_energy_shift = plt.axes([0.85, 0.935, 0.1, 0.03])
             self.tb_energy_shift = TextBox(self.ax_tb_energy_shift, "Energy shift (keV):",
                                            label_pad=0.07)
@@ -2341,6 +2358,30 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             if n_current > 0:
                 self.switch_to_different_stack(self.labels[n_current - 1])
 
+        def btn_save_spectrum_clicked(self, event):
+            # Create file name for the CSV file
+            fln = "spectrum"
+            fln += f"_{self.label_selected}"
+            x_min, y_min, x_max, y_max = self.pts_selected
+            x_str = f"_x_{x_min}" if (x_min == x_max) else f"_x_{x_min}_{x_max}"
+            y_str = f"_y_{y_min}" if (y_min == y_max) else f"_y_{y_min}_{y_max}"
+            fln += x_str + y_str + ".csv"
+
+            # Compute the positional coordinates of the selected area
+            pt_x_min = x_min * self.pos_dx + self.pos_x_min
+            pt_y_min = y_min * self.pos_dy + self.pos_y_min
+            pt_x_max = x_max * self.pos_dx + self.pos_x_min
+            pt_y_max = y_max * self.pos_dy + self.pos_y_min
+            # This message will the placed in the first line of the csv file
+            msg_info = f"# Selection - x: {x_min} .. {x_max} ({pt_x_min:.5g} .. {pt_x_max:.5g})   "\
+                       f"y: {y_min} .. {y_max} ({pt_y_min:.5g} .. {pt_y_max:.5g})"
+
+            _save_spectrum_as_csv(fln=fln,
+                                  wd=wd,
+                                  msg_info=msg_info,
+                                  energy=self.energy,
+                                  spectrum=self.xanes_spectrum_selected)
+
         def switch_to_different_stack(self, label):
             self.label_selected = label
             self.select_stack()
@@ -2386,6 +2427,9 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.ax_fluor_plot.plot(self.energy,
                                     data_selected,
                                     marker=".", linestyle="solid", label="XANES spectrum")
+
+            # Save currently displayed spectrum data, so that it could be reused (e.g. saved to file)
+            self.xanes_spectrum_selected = data_selected
 
             # Plot the results of fitting (if the fitting was performed and the value for the
             #    shift of incident energy was not changed)
@@ -2543,7 +2587,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                              ref_labels=ref_labels, ref_energy=ref_energy, ref_data=ref_data,
                              fitting_method=fitting_method, fitting_descent_rate=fitting_descent_rate,
                              energy_shift_keV=energy_shift_keV,
-                             subtract_pre_edge_baseline=subtract_pre_edge_baseline)
+                             subtract_pre_edge_baseline=subtract_pre_edge_baseline, wd=wd)
     map_plot.show(block=True)
 
 
@@ -2990,6 +3034,59 @@ def _save_xanes_maps_to_tiff(*, wd, eline_data_aligned, eline_selected,
 
             # Save the contents of the .tiff file to .txt file
             print(f"\nR-factors for XANES maps are saved to file '{fln_xanes_rfactor}'.", file=f_log)
+
+
+def _save_spectrum_as_csv(*, fln, wd=None, msg_info=None, energy=None, spectrum=None):
+    """
+    Saves spectrum as CSV file.
+
+    Parameters
+    ----------
+
+    fln: str
+        name of the file to save spectrum
+
+    wd: str
+        working directory where the file ``file`` is to be placed
+
+    msg_info: str
+        A string that will be placed at the beginning of the CSV file before the file header.
+        Each line in the string must start with # (to separate the comment).
+
+    energy: ndarray(float)
+        The array of energy values in keV
+
+    spectrum: ndarray(float)
+        The array of spectrum values. Must have the same size as 'energy'.
+    """
+
+    # Full file path
+    file_path = os.path.join(wd, fln) if wd else fln
+
+    msg = None
+    if energy is None:
+        msg = "The array 'energy' is None"
+    elif spectrum is None:
+        msg = "The array 'spectrum' is None"
+    elif len(energy) != len(spectrum):
+        msg = "The arrays 'energy' and 'spectrum' have different size"
+
+    if msg:
+        logger.error(f"Selected spectrum can not be saved: {msg}")
+        return
+    else:
+        with open(file_path, "w") as f:
+            # Add comment (not typical for CSV file, but this information should be included)
+            # When loading CSV file, the first row(s) can be skipped. They can be deleted manually
+            # by the user as well.
+            if msg_info:
+                print(f"{msg_info}", file=f)
+            # Header
+            print('"Incident Energy, keV", "XANES spectrum"', file=f)
+            # Data
+            for e, s in zip(energy, spectrum):
+                print(f"{e}, {s}", file=f)
+    logger.info(f"Selected spectrum was saved to file '{file_path}'")
 
 
 if __name__ == "__main__":
