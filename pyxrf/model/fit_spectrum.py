@@ -2122,8 +2122,8 @@ def single_pixel_fitting_controller(input_data, parameter,
 
     # Compute total count for each pixel
     total_count = np.sum(input_data, axis=2)
-    # Save the map as 'total_count'
-    result_map['total_count'] = total_count
+    # Save the map as 'total_cnt'
+    result_map['total_cnt'] = total_count
 
     calculation_info = dict()
     if error_map is not None:
