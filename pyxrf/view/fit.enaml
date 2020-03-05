@@ -404,7 +404,8 @@ enamldef FitView(DockItem): fit_view:
                     elif is_userpeak and (not plot_model.vertical_marker_is_visible):
                         btns = [DialogButton('Ok', 'accept')]
                         # 'critical' shows MessageBox
-                        critical(self, '', f'Select position of userpeak by clicking at the plot', btns)
+                        critical(self, '', f'Select position of userpeak by clicking on the spectrum plot. \n'
+                                 'Note: plot toolbar options, such as Pan and Zoom, must be turned off before selecting the position.', btns)
 
                     else:
                         try:
