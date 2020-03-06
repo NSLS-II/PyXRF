@@ -2372,7 +2372,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             pt_x_max = x_max * self.pos_dx + self.pos_x_min
             pt_y_max = y_max * self.pos_dy + self.pos_y_min
             # This message will the placed in the first line of the csv file
-            msg_info = f"# Selection - x: {x_min} .. {x_max} ({pt_x_min:.5g} .. {pt_x_max:.5g})   "\
+            msg_info = f"Selection - x: {x_min} .. {x_max} ({pt_x_min:.5g} .. {pt_x_max:.5g})   "\
                        f"y: {y_min} .. {y_max} ({pt_y_min:.5g} .. {pt_y_max:.5g})"
 
             _save_spectrum_as_csv(fln=fln,
@@ -3050,7 +3050,6 @@ def _save_spectrum_as_csv(*, fln, wd=None, msg_info=None, energy=None, spectrum=
 
     msg_info: str
         A string that will be placed at the beginning of the CSV file before the file header.
-        Each line in the string must start with # (to separate the comment).
 
     energy: ndarray(float)
         The array of energy values in keV
@@ -3079,7 +3078,11 @@ def _save_spectrum_as_csv(*, fln, wd=None, msg_info=None, energy=None, spectrum=
         # Format as 'CSV'
         str = data.to_csv(index=False)
         # Attach the comment to the beginning of the formatted string
-        str = f"{msg_info}\n{str}"
+        #   If 'msg_info' is '' or None, then don't add the comment
+        if msg_info:
+            # Add '# ' at the beginning of each line
+            msg_info = "\n".join([f"# {_}" for _ in msg_info.split("\n")])
+            str = f"{msg_info}\n{str}"
         # Save to file
         with open(file_path, "w") as f:
             f.write(str)
