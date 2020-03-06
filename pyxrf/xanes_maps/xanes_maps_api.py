@@ -9,6 +9,7 @@ from matplotlib.patches import Rectangle, FancyArrow
 import time as ttime
 import tifffile
 import jsonschema
+import pandas as pd
 
 from ..model.load_data_from_db import make_hdf
 from ..model.command_tools import pyxrf_batch
@@ -2360,12 +2361,10 @@ def show_image_stack(*, eline_data, energies, eline_selected,
 
         def btn_save_spectrum_clicked(self, event):
             # Create file name for the CSV file
-            fln = "spectrum"
-            fln += f"_{self.label_selected}"
             x_min, y_min, x_max, y_max = self.pts_selected
             x_str = f"_x_{x_min}" if (x_min == x_max) else f"_x_{x_min}_{x_max}"
             y_str = f"_y_{y_min}" if (y_min == y_max) else f"_y_{y_min}_{y_max}"
-            fln += x_str + y_str + ".csv"
+            fln = f"spectrum_{self.label_selected}{x_str}{y_str}.csv"
 
             # Compute the positional coordinates of the selected area
             pt_x_min = x_min * self.pos_dx + self.pos_x_min
@@ -3063,30 +3062,31 @@ def _save_spectrum_as_csv(*, fln, wd=None, msg_info=None, energy=None, spectrum=
     # Full file path
     file_path = os.path.join(wd, fln) if wd else fln
 
-    msg = None
-    if energy is None:
-        msg = "The array 'energy' is None"
-    elif spectrum is None:
-        msg = "The array 'spectrum' is None"
-    elif len(energy) != len(spectrum):
-        msg = "The arrays 'energy' and 'spectrum' have different size"
-
-    if msg:
-        logger.error(f"Selected spectrum can not be saved: {msg}")
-        return
-    else:
+    try:
+        # Verify that the arrays are valid and provide user-friendly message
+        if energy is None:
+            raise ValueError("The array 'energy' is None")
+        if spectrum is None:
+            raise ValueError("The array 'spectrum' is None")
+        if len(energy) != len(spectrum):
+            raise ValueError(f"Arrays 'energy' and 'spectrum' have different size: "
+                             f"len(energy)={len(energy)} len(spectrum)={len(spectrum)}")
+        # Create 2D array with 'energy' and 'spectrum' as columns
+        energy = np.asarray(energy)
+        spectrum = np.asarray(spectrum)
+        data = np.transpose(np.vstack((energy, spectrum)))
+        data = pd.DataFrame(data, columns=["Incident Energy, keV", "XANES spectrum"])
+        # Format as 'CSV'
+        str = data.to_csv(index=False)
+        # Attach the comment to the beginning of the formatted string
+        str = f"{msg_info}\n{str}"
+        # Save to file
         with open(file_path, "w") as f:
-            # Add comment (not typical for CSV file, but this information should be included)
-            # When loading CSV file, the first row(s) can be skipped. They can be deleted manually
-            # by the user as well.
-            if msg_info:
-                print(f"{msg_info}", file=f)
-            # Header
-            print('"Incident Energy, keV", "XANES spectrum"', file=f)
-            # Data
-            for e, s in zip(energy, spectrum):
-                print(f"{e}, {s}", file=f)
-    logger.info(f"Selected spectrum was saved to file '{file_path}'")
+            f.write(str)
+    except Exception as ex:
+        logger.error(f"Selected spectrum can not be saved: {ex}")
+    else:
+        logger.info(f"Selected spectrum was saved to file '{file_path}'")
 
 
 if __name__ == "__main__":
