@@ -9,6 +9,7 @@ from matplotlib.patches import Rectangle, FancyArrow
 import time as ttime
 import tifffile
 import jsonschema
+import pandas as pd
 
 from ..model.load_data_from_db import make_hdf
 from ..model.command_tools import pyxrf_batch
@@ -208,8 +209,11 @@ def build_xanes_map(start_id=None, end_id=None, *, parameter_file_path=None,
         Default: ``None``
 
     emission_line_alignment : str
-        the name of the emission line used for image alignment ("Ca_K", "Fe_K", etc.).
-        If None, then the line specified as ``emission_line`` used for alignment
+        the name of the stack of maps used as a reference for alignment of all other stacks.
+        The name can represent a valid emission line (e.g. "Ca_K", "Fe_K", etc.) or arbitrary
+        stack name (e.g. "total_cnt"). The map with the specified name must be present
+        in each processed data file. If ``None``, then the name of the line specified as
+        ``emission_line`` used for alignment.
         Default: ``None``
 
     incident_energy_shift_keV : float
@@ -230,13 +234,17 @@ def build_xanes_map(start_id=None, end_id=None, *, parameter_file_path=None,
         the top of the stack.
         Default: ``"top"``
 
-    interpolation_enable : True
+    interpolation_enable : bool
         enable interpolation of XRF maps to uniform grid before alignment of maps.
         Default: ``True``
 
-    alignment_enable : True
+    alignment_enable : bool
         enable alignment of the stack of maps. In typical processing workflow the alignment
         should be enabled.
+        Default: ``True``
+
+    normalize_alignment_stack : bool
+        enable normalization of the image stack used for alignment
         Default: ``True``
 
     subtract_pre_edge_baseline : bool
@@ -429,6 +437,7 @@ _build_xanes_map_param_default = {
     "alignment_starts_from": "top",
     "interpolation_enable": True,
     "alignment_enable": True,
+    "normalize_alignment_stack": True,
     "subtract_pre_edge_baseline": True,
     "ref_file_name": None,
     "fitting_method": "nnls",
@@ -449,7 +458,7 @@ _build_xanes_map_param_schema = {
     "required": ["start_id", "end_id", "xrf_fitting_param_fln", "scaler_name", "wd", "xrf_subdir",
                  "sequence", "emission_line", "emission_line_alignment", "incident_energy_shift_keV",
                  "alignment_starts_from", "interpolation_enable", "alignment_enable",
-                 "subtract_pre_edge_baseline", "ref_file_name",
+                 "normalize_alignment_stack", "subtract_pre_edge_baseline", "ref_file_name",
                  "fitting_method", "fitting_descent_rate", "incident_energy_low_bound",
                  "use_incident_energy_from_param_file", "plot_results", "plot_use_position_coordinates",
                  "plot_position_axes_units", "output_file_formats", "output_save_all"],
@@ -467,6 +476,7 @@ _build_xanes_map_param_schema = {
         "alignment_starts_from": {"type": "string", "enum": ["top", "bottom"]},
         "interpolation_enable": {"type": "boolean"},
         "alignment_enable": {"type": "boolean"},
+        "normalize_alignment_stack": {"type": "boolean"},
         "subtract_pre_edge_baseline": {"type": "boolean"},
         "ref_file_name": {"type": ["string", "null"]},
         "fitting_method": {"type": "string", "enum": ["nnls", "admm"]},
@@ -499,6 +509,7 @@ def _build_xanes_map_api(*, start_id=None, end_id=None,
                          alignment_starts_from="top",
                          interpolation_enable=True,
                          alignment_enable=True,
+                         normalize_alignment_stack=True,
                          subtract_pre_edge_baseline=True,
                          ref_file_name=None,
                          fitting_method="nnls",
@@ -592,8 +603,11 @@ def _build_xanes_map_api(*, start_id=None, end_id=None,
         Default: ``None``
 
     emission_line_alignment : str
-        the name of the emission line used for image alignment ("Ca_K", "Fe_K", etc.).
-        If None, then the line specified as ``emission_line`` used for alignment
+        the name of the stack of maps used as a reference for alignment of all other stacks.
+        The name can represent a valid emission line (e.g. "Ca_K", "Fe_K", etc.) or arbitrary
+        stack name (e.g. "total_cnt"). The map with the specified name must be present
+        in each processed data file. If ``None``, then the name of the line specified as
+        ``emission_line`` used for alignment.
         Default: ``None``
 
     incident_energy_shift_keV : float
@@ -614,13 +628,17 @@ def _build_xanes_map_api(*, start_id=None, end_id=None,
         the top of the stack.
         Default: ``"top"``
 
-    interpolation_enable : True
+    interpolation_enable : bool
         enable interpolation of XRF maps to uniform grid before alignment of maps.
         Default: ``True``
 
-    alignment_enable : True
+    alignment_enable : bool
         enable alignment of the stack of maps. In typical processing workflow the alignment
         should be enabled.
+        Default: ``True``
+
+    normalize_alignment_stack : bool
+        enable normalization of the image stack used for alignment
         Default: ``True``
 
     subtract_pre_edge_baseline : bool
@@ -753,9 +771,11 @@ def _build_xanes_map_api(*, start_id=None, end_id=None,
     if not check_if_eline_supported(eline_selected):
         raise ValueError(f"The emission line '{eline_selected}' does not exist or is not supported. "
                          f"Check the value of the parameter 'eline_selected' ('_build_xanes_map_api').")
+    # The map used for stack alignment doesn't have to represent fluorescence due to an emission line
+    #   It can contain some other quantity (e.g. 'total_cnt'). So just print a warning.
     if not check_if_eline_supported(eline_alignment):
-        raise ValueError(f"The emission line '{eline_alignment}' does not exist or is not supported. "
-                         f"Check the value of the parameter 'eline_alignment' ('_build_xanes_map_api').")
+        logger.warning(f"The map '{eline_alignment}' selected for alignment does not represent "
+                       f"a supported emission line")
 
     # Check fitting method
     fitting_method = fitting_method.lower()
@@ -822,6 +842,7 @@ def _build_xanes_map_api(*, start_id=None, end_id=None,
             start_id=start_id, end_id=end_id, wd_xrf=wd_xrf, eline_selected=eline_selected,
             eline_alignment=eline_alignment, scaler_name=scaler_name,
             interpolation_enable=interpolation_enable, alignment_enable=alignment_enable,
+            normalize_alignment_stack=normalize_alignment_stack,
             seq_generate_xanes_map=seq_generate_xanes_map,
             fitting_method=fitting_method, fitting_descent_rate=fitting_descent_rate,
             incident_energy_shift_keV=incident_energy_shift_keV,
@@ -843,7 +864,7 @@ def _build_xanes_map_api(*, start_id=None, end_id=None,
                                      fitting_method=fitting_method,
                                      fitting_descent_rate=fitting_descent_rate,
                                      incident_energy_shift_keV=incident_energy_shift_keV,
-                                     subtract_pre_edge_baseline=subtract_pre_edge_baseline)
+                                     subtract_pre_edge_baseline=subtract_pre_edge_baseline, wd=wd)
         else:
             logger.info("Plotting results: skipped.")
 
@@ -972,7 +993,7 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
                         eline_selected, eline_alignment, alignment_starts_from,
                         scaler_name, ref_energy, ref_data, fitting_method,
                         fitting_descent_rate, incident_energy_shift_keV,
-                        interpolation_enable, alignment_enable,
+                        interpolation_enable, alignment_enable, normalize_alignment_stack,
                         subtract_pre_edge_baseline, seq_generate_xanes_map):
     r"""
     Implements the third step of the processing sequence: computation of XANES maps based
@@ -1039,6 +1060,10 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
         enable alignment of the stack of maps. In typical processing workflow the alignment
         should be enabled.
 
+    normalize_alignment_stack : bool
+        enable normalization of the image stack used for alignment
+        Default: ``True``
+
     subtract_pre_edge_baseline : bool
         indicates if pre-edge baseline is subtracted from XANES spectra before fitting.
         Currently the subtracted baseline is constant, computed as a median value of spectrum
@@ -1091,7 +1116,9 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
 
     # Create the arrays of XRF amplitudes for each emission line and normalize them
     eline_list, eline_data = _get_eline_data(scan_img_dict=scan_img_dict,
-                                             scaler_name=scaler_name)
+                                             scaler_name=scaler_name,
+                                             eline_selected=eline_selected,
+                                             eline_alignment=eline_alignment)
     logger.info("Extracting XRF maps for emission lines: success.")
 
     if interpolation_enable:
@@ -1112,7 +1139,8 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
     if alignment_enable:
         eline_data_aligned = _align_stacks(eline_data=eline_data,
                                            eline_alignment=eline_alignment,
-                                           alignment_starts_from=alignment_starts_from)
+                                           alignment_starts_from=alignment_starts_from,
+                                           normalize_alignment_stack=normalize_alignment_stack)
         logger.info("Alignment of the image stack: success.")
     else:
         eline_data_aligned = eline_data
@@ -1240,7 +1268,7 @@ def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
                              plot_position_axes_units, plot_use_position_coordinates,
                              eline_selected, processing_results,
                              fitting_method, fitting_descent_rate, incident_energy_shift_keV,
-                             subtract_pre_edge_baseline):
+                             subtract_pre_edge_baseline, wd):
     r"""
     Implements one of the final steps of the processing sequence: plotting processing results.
     The data is displayed on a set of Matplotlib figures:
@@ -1299,6 +1327,9 @@ def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
         indicates if pre-edge baseline is subtracted from XANES spectra before fitting.
         Currently the subtracted baseline is constant, computed as a median value of spectrum
         points in the pre-edge region.
+
+    wd : str
+        working directory (for saving data files)
     """
 
     positions_x_uniform = processing_results["positions_x_uniform"]
@@ -1346,7 +1377,7 @@ def _plot_processing_results(*, ref_energy, ref_data, ref_labels,
                      ref_labels=ref_labels, ref_energy=ref_energy, ref_data=ref_data,
                      fitting_method=fitting_method, fitting_descent_rate=fitting_descent_rate,
                      energy_shift_keV=incident_energy_shift_keV,
-                     subtract_pre_edge_baseline=subtract_pre_edge_baseline)
+                     subtract_pre_edge_baseline=subtract_pre_edge_baseline, wd=wd)
 
 
 def _load_dataset_from_hdf5(*, start_id, end_id, wd_xrf, load_fit_results=True):
@@ -1768,7 +1799,7 @@ def _get_uniform_grid(positions_x_all, positions_y_all):
     return positions_x_uniform, positions_y_uniform
 
 
-def _get_eline_data(scan_img_dict, scaler_name):
+def _get_eline_data(scan_img_dict, scaler_name, eline_selected=None, eline_alignment=None):
     r"""
     Rearrange data for more convenient processing: 1. Create the list of available emission lines.
     2. Create the dictionary of stacks of XRF maps: key - emission line name, value - 3D ndarray of
@@ -1788,6 +1819,14 @@ def _get_eline_data(scan_img_dict, scaler_name):
         Data should be checked for consistency at the beginning of the process.
         ``scaler_name`` may be None. In this case normalization is skipped.
 
+    eline_selected : str
+        the name of the selected emission line ("Ca_K", "Fe_K", etc.). The emission line
+        of interest.
+
+    eline_alignment : str
+        the name of the emission line ("Ca_K", "Fe_K", etc.) used for alignment of image stack.
+        The emission line may be the same as ``eline_selected``.
+
     Returns
     -------
 
@@ -1800,6 +1839,11 @@ def _get_eline_data(scan_img_dict, scaler_name):
         each map is MxN pixels.
     """
     eline_list = _get_eline_keys(_get_img_keys(scan_img_dict[0]))
+    # If 'eline_selected' and 'eline_alignment' are specified and not present in the list,
+    #   then add them to the end of the list
+    for eline in (eline_selected, eline_alignment):
+        if eline and (eline not in eline_list):
+            eline_list.append(eline)
     eline_data = {}
     for eline in eline_list:
         data = []
@@ -1813,7 +1857,8 @@ def _get_eline_data(scan_img_dict, scaler_name):
     return eline_list, eline_data
 
 
-def _align_stacks(eline_data, eline_alignment, alignment_starts_from="top"):
+def _align_stacks(eline_data, eline_alignment, alignment_starts_from="top",
+                  normalize_alignment_stack=True):
     r"""
     Align stacks of maps from the dictionary ``eline_data`` based on the stack for
     emission line specified by ``eline_alignment``. Alignment may be performed
@@ -1835,6 +1880,10 @@ def _align_stacks(eline_data, eline_alignment, alignment_starts_from="top"):
         order of the alignment. The allowed values are ``"top"`` (alignment starts from
         the map acquired with the highest incident energy) and ``"bottom"`` (lowest energy).
 
+    normalize_alignment_stack : bool
+        enable normalization of the image stack used for alignment
+        Default: ``True``
+
     Returns
     -------
 
@@ -1855,7 +1904,19 @@ def _align_stacks(eline_data, eline_alignment, alignment_starts_from="top"):
 
     """Align stack of XRF maps for each element"""
     sr = StackReg(StackReg.TRANSLATION)
-    sr.register_stack(_flip_stack(eline_data[eline_alignment], alignment_starts_from),
+
+    # Normalize data used to compute matrix
+    logger.info(f"Stacks are aligned using the map '{eline_alignment}'")
+    data = np.array(eline_data[eline_alignment])  # Create a copy
+    if normalize_alignment_stack:
+        logger.info(f"Normalizing the alignment stack ...")
+        for n in range(data.shape[0]):
+            data[n, :, :] = data[n, :, :] / np.sum(data[n, :, :])
+    # Add the data selected for stack alignment in the original dictionary of stacks
+    #   It will also be present in the aligned stack
+    eline_data["ALIGN"] = data
+
+    sr.register_stack(_flip_stack(data, alignment_starts_from),
                       reference="previous")
 
     eline_data_aligned = {}
@@ -1864,6 +1925,7 @@ def _align_stacks(eline_data, eline_alignment, alignment_starts_from="top"):
         data_transformed = sr.transform_stack(data_prepared)
         data_transformed = _flip_stack(data_transformed, alignment_starts_from)
         eline_data_aligned[eline] = data_transformed.clip(min=0)
+
     return eline_data_aligned
 
 
@@ -1907,7 +1969,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                      xanes_map_data=None, scan_absorption_refs=None, ref_labels=None,
                      ref_energy=None, ref_data=None,  # Those are original sets of reference data
                      fitting_method="nnls", fitting_descent_rate=0.2, energy_shift_keV=0.0,
-                     subtract_pre_edge_baseline=True):
+                     subtract_pre_edge_baseline=True, wd=None):
     r"""
     Display XRF Map stack
 
@@ -1933,7 +1995,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                      xanes_map_data=None, scan_absorption_refs=None, ref_labels=None,
                      ref_energy=None, ref_data=None,
                      fitting_method="nnls", fitting_descent_rate=0.2, energy_shift_keV=0.0,
-                     subtract_pre_edge_baseline=True):
+                     subtract_pre_edge_baseline=True, wd=None):
             r"""
             Parameters
             ----------
@@ -1999,7 +2061,12 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                 indicates if pre-edge baseline is subtracted from XANES spectra before fitting.
                 Currently the subtracted baseline is constant, computed as a median value of spectrum
                 points in the pre-edge region.
+
+            wd : str
+                working directory
             """
+
+            self.wd = wd  # Working directory (for saving files)
 
             # The following are the fitting parameters that are sent to the fitting algorithm
             self.fitting_method = fitting_method
@@ -2019,6 +2086,10 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.energy_original = energy  # The energy values shifted by 'self.incident_energy_shift_keV'
             self.energy = energy  # The contents of this array will change if additional shift is applied
             self.label_default = label_default
+
+            # XANES spectrum based on currently selected area in the plot. Once it is set,
+            # it can be used along with 'self.energy' (e.g. saved to file)
+            self.xanes_spectrum_selected = None
 
             self.labels = list(eline_data.keys())
 
@@ -2156,6 +2227,11 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                                  0, len(self.energy) - 1,
                                  valinit=self.n_energy_selected, valfmt='%i')
 
+            self.ax_btn_save_spectrum = plt.axes([0.85, 0.1, 0.13, 0.05])
+            self.btn_save_spectrum = Button(self.ax_btn_save_spectrum, "Save Spectrum",
+                                            color="#00ff00", hovercolor="#ff0000")
+            self.btn_save_spectrum.on_clicked(self.btn_save_spectrum_clicked)
+
             self.ax_tb_energy_shift = plt.axes([0.85, 0.935, 0.1, 0.03])
             self.tb_energy_shift = TextBox(self.ax_tb_energy_shift, "Energy shift (keV):",
                                            label_pad=0.07)
@@ -2283,6 +2359,28 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             if n_current > 0:
                 self.switch_to_different_stack(self.labels[n_current - 1])
 
+        def btn_save_spectrum_clicked(self, event):
+            # Create file name for the CSV file
+            x_min, y_min, x_max, y_max = self.pts_selected
+            x_str = f"_x_{x_min}" if (x_min == x_max) else f"_x_{x_min}_{x_max}"
+            y_str = f"_y_{y_min}" if (y_min == y_max) else f"_y_{y_min}_{y_max}"
+            fln = f"spectrum_{self.label_selected}{x_str}{y_str}.csv"
+
+            # Compute the positional coordinates of the selected area
+            pt_x_min = x_min * self.pos_dx + self.pos_x_min
+            pt_y_min = y_min * self.pos_dy + self.pos_y_min
+            pt_x_max = x_max * self.pos_dx + self.pos_x_min
+            pt_y_max = y_max * self.pos_dy + self.pos_y_min
+            # This message will the placed in the first line of the csv file
+            msg_info = f"Selection - x: {x_min} .. {x_max} ({pt_x_min:.5g} .. {pt_x_max:.5g})   "\
+                       f"y: {y_min} .. {y_max} ({pt_y_min:.5g} .. {pt_y_max:.5g})"
+
+            _save_spectrum_as_csv(fln=fln,
+                                  wd=wd,
+                                  msg_info=msg_info,
+                                  energy=self.energy,
+                                  spectrum=self.xanes_spectrum_selected)
+
         def switch_to_different_stack(self, label):
             self.label_selected = label
             self.select_stack()
@@ -2328,6 +2426,9 @@ def show_image_stack(*, eline_data, energies, eline_selected,
             self.ax_fluor_plot.plot(self.energy,
                                     data_selected,
                                     marker=".", linestyle="solid", label="XANES spectrum")
+
+            # Save currently displayed spectrum data, so that it could be reused (e.g. saved to file)
+            self.xanes_spectrum_selected = data_selected
 
             # Plot the results of fitting (if the fitting was performed and the value for the
             #    shift of incident energy was not changed)
@@ -2485,7 +2586,7 @@ def show_image_stack(*, eline_data, energies, eline_selected,
                              ref_labels=ref_labels, ref_energy=ref_energy, ref_data=ref_data,
                              fitting_method=fitting_method, fitting_descent_rate=fitting_descent_rate,
                              energy_shift_keV=energy_shift_keV,
-                             subtract_pre_edge_baseline=subtract_pre_edge_baseline)
+                             subtract_pre_edge_baseline=subtract_pre_edge_baseline, wd=wd)
     map_plot.show(block=True)
 
 
@@ -2934,6 +3035,73 @@ def _save_xanes_maps_to_tiff(*, wd, eline_data_aligned, eline_selected,
             print(f"\nR-factors for XANES maps are saved to file '{fln_xanes_rfactor}'.", file=f_log)
 
 
+def _save_spectrum_as_csv(*, fln, wd=None, msg_info=None, energy=None, spectrum=None):
+    """
+    Saves spectrum as CSV file.
+
+    Parameters
+    ----------
+
+    fln: str
+        name of the file to save spectrum
+
+    wd: str
+        working directory where the file ``file`` is to be placed
+
+    msg_info: str
+        A string that will be placed at the beginning of the CSV file before the file header.
+
+    energy: ndarray(float)
+        The array of energy values in keV
+
+    spectrum: ndarray(float)
+        The array of spectrum values. Must have the same size as 'energy'.
+    """
+
+    try:
+        if wd:
+            # Full file path
+            wd = os.path.expanduser(wd)
+            file_path = os.path.join(wd, fln) if wd else fln
+            # Create directory (just in case it doesn't exist)
+            os.makedirs(wd, exist_ok=True)
+        else:
+            # 'wd' is not set, so write to current directory
+            file_path = fln
+
+        # Absolute path is more informative in the user input
+        file_path = os.path.abspath(file_path)
+
+        # Verify that the arrays are valid and provide user-friendly message
+        if energy is None:
+            raise ValueError("The array 'energy' is None")
+        if spectrum is None:
+            raise ValueError("The array 'spectrum' is None")
+        if len(energy) != len(spectrum):
+            raise ValueError(f"Arrays 'energy' and 'spectrum' have different size: "
+                             f"len(energy)={len(energy)} len(spectrum)={len(spectrum)}")
+        # Create 2D array with 'energy' and 'spectrum' as columns
+        energy = np.asarray(energy)
+        spectrum = np.asarray(spectrum)
+        data = np.transpose(np.vstack((energy, spectrum)))
+        data = pd.DataFrame(data, columns=["Incident Energy, keV", "XANES spectrum"])
+        # Format as 'CSV'
+        str = data.to_csv(index=False)
+        # Attach the comment to the beginning of the formatted string
+        #   If 'msg_info' is '' or None, then don't add the comment
+        if msg_info:
+            # Add '# ' at the beginning of each line
+            msg_info = "\n".join([f"# {_}" for _ in msg_info.split("\n")])
+            str = f"{msg_info}\n{str}"
+        # Save to file
+        with open(file_path, "w") as f:
+            f.write(str)
+    except Exception as ex:
+        logger.error(f"Selected spectrum can not be saved: {ex}")
+    else:
+        logger.info(f"Selected spectrum was saved to file '{file_path}'")
+
+
 if __name__ == "__main__":
 
     logger = logging.getLogger()
@@ -2955,10 +3123,12 @@ if __name__ == "__main__":
                     alignment_starts_from="top",
                     ref_file_name="refs_Fe_P23.csv",
                     fitting_method="nnls",
-                    emission_line="Fe_K", emission_line_alignment="P_K",
+                    # emission_line="Fe_K", emission_line_alignment="P_K",
+                    emission_line="Fe_K", emission_line_alignment="total_cnt",
                     incident_energy_shift_keV=-0.0013,
                     interpolation_enable=True,
                     alignment_enable=True,
+                    normalize_alignment_stack=True,
                     plot_use_position_coordinates=True,
                     plot_results=True,
                     allow_exceptions=True)

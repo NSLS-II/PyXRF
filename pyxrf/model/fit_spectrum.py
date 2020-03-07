@@ -2120,6 +2120,11 @@ def single_pixel_fitting_controller(input_data, parameter,
     for eline in elist_non_activated:
         result_map[eline] = np.zeros(shape=exp_data.shape[0:2])
 
+    # Compute total count for each pixel
+    total_count = np.sum(input_data, axis=2)
+    # Save the map as 'total_cnt'
+    result_map['total_cnt'] = total_count
+
     calculation_info = dict()
     if error_map is not None:
         calculation_info['error_map'] = error_map

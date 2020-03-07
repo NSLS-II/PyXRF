@@ -2,11 +2,15 @@ import os
 import jsonschema
 import pytest
 import numpy as np
+import numpy.testing as npt
+from io import StringIO
+import logging
+import pandas as pd
 
 from pyxrf.xanes_maps.xanes_maps_api import (
     _build_xanes_map_api, _build_xanes_map_param_default, _build_xanes_map_param_schema,
     build_xanes_map, check_elines_activation_status, adjust_incident_beam_energies,
-    subtract_xanes_pre_edge_baseline)
+    subtract_xanes_pre_edge_baseline, _save_spectrum_as_csv)
 
 from pyxrf.core.yaml_param_files import (
     _parse_docstring_parameters, _verify_parsed_docstring,
@@ -266,3 +270,84 @@ def test_build_xanes_map_4(tmp_path):
 
     # Repeat the same operation with exceptions disabled. The operation should succeed.
     build_xanes_map(emission_line="Fe_K", parameter_file_path=file_path, xrf_subdir="")
+
+
+@pytest.mark.parametrize("kwargs", [{}, {"wd": None}, {"wd": "."},
+                                    {"wd": "test_dir"},
+                                    {"wd": ("test_dir1", "test_dir2")}])
+def test_save_spectrum_as_csv_1(tmp_path, caplog, kwargs):
+    """Save data file, then read it and verify that the data match"""
+
+    fln = "output.csv"
+
+    os.chdir(tmp_path)  # Make 'tmp_path' current directory
+
+    fln_full = fln
+    if ("wd" in kwargs) and (kwargs["wd"] is not None):
+        if isinstance(kwargs["wd"], tuple):
+            kwargs["wd"] = os.path.join(*kwargs["wd"])
+        fln_full = os.path.join(kwargs["wd"], fln)
+    fln_full = os.path.abspath(fln_full)
+
+    n_pts = 50
+    energy = np.random.rand(n_pts)
+    spectrum = np.random.rand(n_pts)
+
+    caplog.set_level(logging.INFO)
+
+    # Save CSV file
+    _save_spectrum_as_csv(fln=fln, energy=energy, spectrum=spectrum, **kwargs)
+
+    assert f"Selected spectrum was saved to file '{fln_full}'" in str(caplog.text), \
+        "Incorrect reporting of the event of the correctly saved file"
+    caplog.clear()
+
+    # Now read the CSV file as a string
+    with open(fln_full, "r") as f:
+        s = f.read()
+    # Remove comments (lines that start with #, may contain spaces at the beginning of the string)
+    s = "\n".join([_ for _ in s.split("\n") if not _.strip().startswith("#")])
+
+    dframe = pd.read_csv(StringIO(s))
+    assert tuple(dframe.columns) == ("Incident Energy, keV", "XANES spectrum"), \
+        f"Incorrect column labels: {tuple(dframe.columns)}"
+
+    data = dframe.values
+    energy2, spectrum2 = data[:, 0], data[:, 1]
+    npt.assert_array_almost_equal(energy, energy2,
+                                  err_msg="Recovered energy array is different from the original")
+    npt.assert_array_almost_equal(spectrum, spectrum2,
+                                  err_msg="Recovered spectrum array is different from the original")
+
+
+def test_save_spectrum_as_csv_2(tmp_path, caplog):
+    """Failing cases"""
+
+    fln = "output.csv"
+    os.chdir(tmp_path)  # Make 'tmp_path' current directory
+
+    n_pts = 50
+    energy = np.random.rand(n_pts)
+    spectrum = np.random.rand(n_pts)
+
+    caplog.set_level(logging.INFO)
+    _save_spectrum_as_csv(fln=fln, energy=None, spectrum=spectrum)
+    assert "The array 'energy' is None" in str(caplog.text)
+    caplog.clear()
+
+    _save_spectrum_as_csv(fln=fln, spectrum=spectrum)
+    assert "The array 'energy' is None" in str(caplog.text)
+    caplog.clear()
+
+    _save_spectrum_as_csv(fln=fln, energy=energy, spectrum=None)
+    assert "The array 'spectrum' is None" in str(caplog.text)
+    caplog.clear()
+
+    _save_spectrum_as_csv(fln=fln, energy=energy)
+    assert "The array 'spectrum' is None" in str(caplog.text)
+    caplog.clear()
+
+    spectrum = spectrum[:-1]
+    _save_spectrum_as_csv(fln=fln, energy=energy, spectrum=spectrum)
+    assert "Arrays 'energy' and 'spectrum' have different size:" in str(caplog.text)
+    caplog.clear()
