@@ -272,9 +272,11 @@ def test_build_xanes_map_4(tmp_path):
     build_xanes_map(emission_line="Fe_K", parameter_file_path=file_path, xrf_subdir="")
 
 
-@pytest.mark.parametrize("kwargs", [{}, {"wd": None}, {"wd": "."},
-                                    {"wd": "test_dir"},
-                                    {"wd": ("test_dir1", "test_dir2")}])
+@pytest.mark.parametrize("kwargs", [{},
+                                    {"wd": None, "msg_info": "header line 1"},
+                                    {"wd": ".", "msg_info": "line1\nline2"},
+                                    {"wd": "test_dir", "msg_info": "line1\n  line2"},
+                                    {"wd": ("test_dir1", "test_dir2"), "msg_info": "line1\n line2"}])
 def test_save_spectrum_as_csv_1(tmp_path, caplog, kwargs):
     """Save data file, then read it and verify that the data match"""
 
@@ -305,6 +307,13 @@ def test_save_spectrum_as_csv_1(tmp_path, caplog, kwargs):
     # Now read the CSV file as a string
     with open(fln_full, "r") as f:
         s = f.read()
+
+    # Check if the comment lines were written in the file
+    if "msg_info" in kwargs:
+        # Find the match for each line in 'msg_info'
+        for s_msg in kwargs["msg_info"].split("\n"):
+            assert f"# {s_msg}" in s, "Mismatch between original and loaded comment lines"
+
     # Remove comments (lines that start with #, may contain spaces at the beginning of the string)
     s = "\n".join([_ for _ in s.split("\n") if not _.strip().startswith("#")])
 
