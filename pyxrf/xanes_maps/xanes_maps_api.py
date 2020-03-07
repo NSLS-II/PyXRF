@@ -3058,10 +3058,20 @@ def _save_spectrum_as_csv(*, fln, wd=None, msg_info=None, energy=None, spectrum=
         The array of spectrum values. Must have the same size as 'energy'.
     """
 
-    # Full file path
-    file_path = os.path.join(wd, fln) if wd else fln
-
     try:
+        if wd:
+            # Full file path
+            wd = os.path.expanduser(wd)
+            file_path = os.path.join(wd, fln) if wd else fln
+            # Create directory (just in case it doesn't exist)
+            os.makedirs(wd, exist_ok=True)
+        else:
+            # 'wd' is not set, so write to current directory
+            file_path = fln
+
+        # Absolute path is more informative in the user input
+        file_path = os.path.abspath(file_path)
+
         # Verify that the arrays are valid and provide user-friendly message
         if energy is None:
             raise ValueError("The array 'energy' is None")
@@ -3108,8 +3118,8 @@ if __name__ == "__main__":
     build_xanes_map(start_id=92276, end_id=92335,
                     xrf_fitting_param_fln="param_335",
                     scaler_name="sclr1_ch4", wd=None,
-                    # sequence="process",
-                    sequence="build_xanes_map",
+                    sequence="process",
+                    # sequence="build_xanes_map",
                     alignment_starts_from="top",
                     ref_file_name="refs_Fe_P23.csv",
                     fitting_method="nnls",
