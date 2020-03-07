@@ -274,8 +274,9 @@ def test_build_xanes_map_4(tmp_path):
 
 @pytest.mark.parametrize("kwargs", [{}, {"wd": None}, {"wd": "."},
                                     {"wd": "test_dir"},
-                                    {"wd": ("test_dir1","test_dir2")}])
+                                    {"wd": ("test_dir1", "test_dir2")}])
 def test_save_spectrum_as_csv_1(tmp_path, caplog, kwargs):
+    """Save data file, then read it and verify that the data match"""
 
     fln = "output.csv"
 
@@ -308,7 +309,7 @@ def test_save_spectrum_as_csv_1(tmp_path, caplog, kwargs):
     s = "\n".join([_ for _ in s.split("\n") if not _.strip().startswith("#")])
 
     dframe = pd.read_csv(StringIO(s))
-    assert  tuple(dframe.columns) == ("Incident Energy, keV", "XANES spectrum"), \
+    assert tuple(dframe.columns) == ("Incident Energy, keV", "XANES spectrum"), \
         f"Incorrect column labels: {tuple(dframe.columns)}"
 
     data = dframe.values
@@ -320,7 +321,7 @@ def test_save_spectrum_as_csv_1(tmp_path, caplog, kwargs):
 
 
 def test_save_spectrum_as_csv_2(tmp_path, caplog):
-    """Failing tests"""
+    """Failing cases"""
 
     fln = "output.csv"
     os.chdir(tmp_path)  # Make 'tmp_path' current directory
@@ -328,7 +329,6 @@ def test_save_spectrum_as_csv_2(tmp_path, caplog):
     n_pts = 50
     energy = np.random.rand(n_pts)
     spectrum = np.random.rand(n_pts)
-
 
     caplog.set_level(logging.INFO)
     _save_spectrum_as_csv(fln=fln, energy=None, spectrum=spectrum)
