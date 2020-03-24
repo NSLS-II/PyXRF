@@ -9,11 +9,13 @@ import re
 import math
 from collections import OrderedDict, deque
 import multiprocessing
+import multiprocessing.pool
 import h5py
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import json
 import lmfit
+import platform
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
 from skbeam.core.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
@@ -1834,7 +1836,33 @@ def fit_pixel_multiprocess_nnls(exp_data, matv, param,
     num_processors_to_use = multiprocessing.cpu_count()
 
     logger.info('cpu count: {}'.format(num_processors_to_use))
-    pool = multiprocessing.Pool(num_processors_to_use)
+
+    # TODO: find better permanent solution for issue with multiprocessing on Catalina MacOS
+    # =======================================================================================
+    # The following is a temporary patch for the issue with multiprocessing on Catalina MacOS.
+    # The issue is solved by disabling multiprocessing if current OS is Catalina MacOS.
+    # The code will change when the better solution is found.
+
+    # Check if the OS is MacOS Catalina (10.15) or older
+    disable_multiprocessing = False
+    try:
+        os_version = platform.mac_ver()[0]
+        # 'os_version' is an empty string if the system is not MacOS
+        if os_version:  # os_version has format '10.15.3'
+            ver = os_version.split('.')
+            if int(ver[0]) >= 10 and int(ver[1]) >= 15:  # Catalina MacOS is 10.15
+                disable_multiprocessing = True
+    except Exception as ex:
+        logger.error(f"Error occurred while checking the version of MacOS: {ex}")
+
+    if disable_multiprocessing:
+        pool = multiprocessing.pool.ThreadPool(num_processors_to_use)
+        logger.warning("Multiprocessing is currently not supported when running PyXRF in MacOS Catalina. "
+                       "Computations are executed in multithreading mode instead.")
+    else:
+        pool = multiprocessing.Pool(num_processors_to_use)
+        logger.info("Computations are executed in multiprocessing mode.")
+
     n_data, n_feature = matv.shape
 
     if lambda_reg > 0:
