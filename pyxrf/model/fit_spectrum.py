@@ -16,6 +16,7 @@ import matplotlib.animation as animation
 import json
 import lmfit
 import platform
+from distutils.version import LooseVersion
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
 from skbeam.core.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
@@ -1848,10 +1849,9 @@ def fit_pixel_multiprocess_nnls(exp_data, matv, param,
     try:
         os_version = platform.mac_ver()[0]
         # 'os_version' is an empty string if the system is not MacOS
-        if os_version:  # os_version has format '10.15.3'
-            ver = os_version.split('.')
-            if int(ver[0]) >= 10 and int(ver[1]) >= 15:  # Catalina MacOS is 10.15
-                disable_multiprocessing = True
+        # os_version has format similar to '10.15.3', MacOS Catalina is 10.15
+        if os_version and (LooseVersion(os_version) >= LooseVersion("10.15")):
+            disable_multiprocessing = True
     except Exception as ex:
         logger.error(f"Error occurred while checking the version of MacOS: {ex}")
 
