@@ -958,35 +958,6 @@ def read_hdf_APS(working_directory,
                     except IndexError:
                         logger.info(f"No ROI data is loaded for channel {i}.")
 
-        # Prepare the following code for possible deletion in the future
-        #               (we don't use ROI maps recorded during the experiment)
-        # if 'roimap' in data:
-        #    if 'sum_name' in data['roimap']:
-        #        det_name = data['roimap/sum_name']
-        #        temp = {}
-        #        for i, n in enumerate(det_name):
-        #            temp[n] = data['roimap/sum_raw'].value[:, :, i]
-        #            # bad points on first one
-        #            try:
-        #                temp[n][0, 0] = temp[n][1, 0]
-        #            except IndexError:
-        #                temp[n][0, 0] = temp[n][0, 1]
-        #        img_dict[f"{fname}_roi"] = temp
-        #        # also include scaler data
-        #        if 'scalers' in data:
-        #            img_dict[f"{fname}_roi"].update(img_dict[f"{fname}_scaler"])
-        #
-        #    if 'det_name' in data['roimap']:
-        #        det_name = data['roimap/det_name']
-        #        temp = {}
-        #        for i, n in enumerate(det_name):
-        #            temp[n] = data['roimap/det_raw'].value[:, :, i]
-        #            try:
-        #                temp[n][0, 0] = temp[n][1, 0]
-        #            except IndexError:
-        #                temp[n][0, 0] = temp[n][0, 1]
-        #        img_dict[f"{fname}_roi_each"] = temp
-
         # read fitting results from summed data
         if 'xrf_fit' in data['detsum'] and load_summed_data and load_fit_results:
             try:
