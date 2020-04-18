@@ -70,17 +70,21 @@ def test_map_averaged_counts():
 
 
 @pytest.mark.parametrize("n_rows_max", [1, 3])
-@pytest.mark.parametrize("array_size", [(10, 10, 7), (15, 3, 7), (10, 1, 7), (1, 10, 7)])
+@pytest.mark.parametrize("n_columns_max", [1, 3])
+@pytest.mark.parametrize("array_size", [(10, 10, 7), (15, 3, 7), (3, 15, 7), (10, 1, 7), (1, 10, 7)])
 @pytest.mark.parametrize("random_array", [
     np.random.random,
     da.random.random
 ])
-def test_process_chunk(random_array, array_size, n_rows_max):
+def test_process_chunk(random_array, array_size, n_rows_max, n_columns_max):
+    """Basic tests for `process_chunk` function"""
 
     data = random_array(size=array_size)
-    nr, _, _ = array_size
+    nr, nc, _ = array_size
     n_row_start = math.floor(nr / 3)
     n_rows = min(nr - n_row_start, n_rows_max)
+    n_col_start = math.floor(nc / 3)
+    n_cols = min(nc - n_col_start, n_columns_max)
 
     def processing_func(data, coefficient, *, bias):
         return np. sum(data, axis=data.ndim - 1) * coefficient + bias
@@ -89,11 +93,12 @@ def test_process_chunk(random_array, array_size, n_rows_max):
     processing_func = functools.partial(processing_func, coefficient=coefficient, bias=bias)
 
     result = process_map_chunk(data,
-                               n_row_start=n_row_start,
-                               n_rows=n_rows,
+                               (n_row_start, n_col_start, n_rows, n_cols),
                                func=processing_func)
     data_np = np.asarray(data)
-    result_expected = np.sum(data_np[n_row_start: n_row_start + n_rows, :, :], axis=data_np.ndim - 1)
+    result_expected = np.sum(data_np[n_row_start: n_row_start + n_rows,
+                                     n_col_start: n_col_start + n_cols, :],
+                             axis=data_np.ndim - 1)
     result_expected = result_expected * coefficient + bias
 
     npt.assert_array_almost_equal(result, result_expected,
@@ -109,12 +114,21 @@ def test_process_chunk_failing():
     # Wrong dimensions of the data array, must be 3D array
     data = np.random.random(size=(5, 5))
     with pytest.raises(TypeError, match="The input parameter `data` must be 3D array"):
-        process_map_chunk(data, n_row_start=1, n_rows=2, func=processing_func)
+        process_map_chunk(data, selection=(1, 1, 2, 2), func=processing_func)
+
+    # Wrong number of elements: 'selection' parameter
+    data = np.random.random(size=(5, 5, 3))
+    with pytest.raises(TypeError, match="Argument `selection` must be an iterable returning 4 elements"):
+        process_map_chunk(data, selection=(1, 1, 2), func=processing_func)
 
     # Data chunk is incorrectly defined
-    data = np.random.random(size=(5, 5, 3))
-    with pytest.raises(ValueError, match="The data chunk is defined incorrectly.*is outside the range 0"):
-        process_map_chunk(data, n_row_start=10, n_rows=2, func=processing_func)
-    data = np.random.random(size=(5, 5, 3))
-    with pytest.raises(ValueError, match="The data chunk is defined incorrectly.*fall outside"):
-        process_map_chunk(data, n_row_start=1, n_rows=10, func=processing_func)
+    data = np.random.random(size=(5, 7, 3))
+    test_cases = [(-1, 1, 2, 2), (5, 1, 2, 2), (6, 1, 2, 2),  # Index 0
+                  (1, -1, 2, 2), (1, 7, 2, 2), (1, 8, 2, 2),  # Index 1
+                  # Test wrong number of selected points
+                  (0, 0, 6, 2), (0, 0, 0, 2),  # Index 2
+                  (0, 0, 2, 8), (0, 0, 2, 0)]  # Index 3
+    for selection in test_cases:
+        with pytest.raises(TypeError,
+                           match="Some points in the selected chunk are not contained in the `data` array:"):
+            process_map_chunk(data, selection=selection, func=processing_func)
