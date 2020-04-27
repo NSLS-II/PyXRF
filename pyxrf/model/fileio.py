@@ -22,6 +22,7 @@ from .load_data_from_db import (db, fetch_data_from_db, flip_data,
                                 helper_encode_list, helper_decode_list,
                                 write_db_to_hdf)
 from ..core.utils import normalize_data_by_scaler, grid_interpolate
+from ..core.map_processing import RawHDF5Dataset
 from .scan_metadata import ScanMetadataXRF
 import requests
 from distutils.version import LooseVersion
@@ -436,7 +437,9 @@ class DataSelection(Atom):
     # point2 = Str('0, 0')
     point1 = List()
     point2 = List()
-    raw_data = Typed(np.ndarray)
+    # 'raw_data' may be numpy array, dask array or core.map_processing.RawHDF5Dataset
+    #   Processing functions are expected to support all those types
+    raw_data = Typed(object)
     data = Typed(np.ndarray)
     plot_index = Int(0)
     fit_name = Str()
@@ -874,8 +877,9 @@ def read_hdf_APS(working_directory,
         if load_summed_data and load_raw_data:
             try:
                 # data from channel summed
-                exp_data = np.array(data['detsum/counts'][:, :, 0:spectrum_cut],
-                                    dtype=np.float32)
+                # exp_data = np.array(data['detsum/counts'][:, :, 0:spectrum_cut],
+                #                    dtype=np.float32)
+                exp_data = RawHDF5Dataset(file_path, 'detsum/counts')
                 logger.warning(f"We use spectrum range from 0 to {spectrum_cut}")
                 logger.info(f"Exp. data from h5 has shape of: {exp_data.shape}")
 
@@ -923,8 +927,10 @@ def read_hdf_APS(working_directory,
                 det_name = f"det{i}"
                 file_channel = f"{fname}_det{i}"
                 try:
-                    exp_data_new = np.array(data[f"{det_name}/counts"][:, :, 0:spectrum_cut],
-                                            dtype=np.float32)
+                    # exp_data_new = np.array(data[f"{det_name}/counts"][:, :, 0:spectrum_cut],
+                    #                        dtype=np.float32)
+                    exp_data_new = RawHDF5Dataset(file_path, f"{det_name}/counts")
+
                     DS = DataSelection(filename=file_channel,
                                        raw_data=exp_data_new)
                     data_sets[file_channel] = DS
