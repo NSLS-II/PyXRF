@@ -3,140 +3,51 @@ import numpy as np
 import dask.array as da
 import numpy.testing as npt
 import h5py
-# import math
-# import functools
 import os
+from dask.distributed import Client
 
 from pyxrf.core.map_processing import (
+    TerminalProgressBar, wait_and_display_progress,
     _compute_optimal_chunk_size, _chunk_numpy_array, _array_numpy_to_dask,
-    RawHDF5Dataset, compute_total_spectrum)
+    RawHDF5Dataset, _prepare_xrf_map, _prepare_xrf_mask, compute_total_spectrum)
 
-'''
-def test_map_averaged_counts():
-    """Basic functionality of 'map_averaged_counts'"""
-
-    # Zero-dimensional input data
-    data = 10.0
-    total_count_expected, spectrum_expected = data, data
-    total_count, spectrum = map_total_counts(data)
-    npt.assert_almost_equal(total_count, total_count_expected,
-                            err_msg="scalar: total count maps don't match")
-    npt.assert_almost_equal(spectrum, spectrum_expected,
-                            err_msg="scalar: averaged spectra don't match")
-
-    # One dimensional input data
-    data = np.random.rand(10)
-    total_count_expected, spectrum_expected = np.sum(data), data
-    total_count, spectrum = map_total_counts(data)
-    npt.assert_almost_equal(total_count, total_count_expected,
-                            err_msg="1D array: total count maps don't match")
-    npt.assert_almost_equal(spectrum, spectrum_expected,
-                            err_msg="1D array: averaged spectra don't match")
-
-    # Two-dimensional input data
-    data = np.random.rand(5, 10)
-    total_count_expected, spectrum_expected = np.sum(data, axis=1), np.sum(data, axis=0)
-    total_count, spectrum = map_total_counts(data)
-    npt.assert_almost_equal(total_count, total_count_expected,
-                            err_msg="2D array: total count maps don't match")
-    npt.assert_almost_equal(spectrum, spectrum_expected,
-                            err_msg="2D array: averaged spectra don't match")
-
-    # Three-dimensional input data
-    data = np.random.rand(4, 5, 10)
-    total_count_expected, spectrum_expected = np.sum(data, axis=2), np.sum(np.sum(data, axis=0), axis=0)
-    total_count, spectrum = map_total_counts(data)
-    npt.assert_almost_equal(total_count, total_count_expected,
-                            err_msg="3D array: total count maps don't match")
-    npt.assert_almost_equal(spectrum, spectrum_expected,
-                            err_msg="3D array: averaged spectra don't match")
-
-    # Four-dimensional input data
-    data = np.random.rand(3, 4, 5, 10)
-    total_count_expected, spectrum_expected = np.sum(data, axis=3), \
-        np.sum(np.sum(np.sum(data, axis=0), axis=0), axis=0)
-    total_count, spectrum = map_total_counts(data)
-    npt.assert_almost_equal(total_count, total_count_expected,
-                            err_msg="4D array: total count maps don't match")
-    npt.assert_almost_equal(spectrum, spectrum_expected,
-                            err_msg="4D array: averaged spectra don't match")
-
-    # Two-dimensional input data represented as a list
-    data = np.random.rand(5, 10)
-    # Convert to 2D list
-    data_list = [list(_) for _ in list(data)]
-    total_count_expected, spectrum_expected = np.sum(data, axis=1), np.sum(data, axis=0)
-    total_count, spectrum = map_total_counts(data_list)
-    npt.assert_almost_equal(total_count, total_count_expected,
-                            err_msg="2D list: total count maps don't match")
-    npt.assert_almost_equal(spectrum, spectrum_expected,
-                            err_msg="2D list: averaged spectra don't match")
+import logging
+logger = logging.getLogger()
 
 
-@pytest.mark.parametrize("n_rows_max", [1, 3])
-@pytest.mark.parametrize("n_columns_max", [1, 3])
-@pytest.mark.parametrize("array_size", [(10, 10, 7), (15, 3, 7), (3, 15, 7), (10, 1, 7), (1, 10, 7)])
-@pytest.mark.parametrize("random_array", [
-    np.random.random,
-    da.random.random
-])
-def test_process_chunk(random_array, array_size, n_rows_max, n_columns_max):
-    """Basic tests for `process_chunk` function"""
+def test_TerminalProgressBar():
+    """Basic functionality of `TerminalProgressBar`"""
 
-    data = random_array(size=array_size)
-    nr, nc, _ = array_size
-    n_row_start = math.floor(nr / 3)
-    n_rows = min(nr - n_row_start, n_rows_max)
-    n_col_start = math.floor(nc / 3)
-    n_cols = min(nc - n_col_start, n_columns_max)
+    # We just run the sequence of instructions. I didn't find a way to check the output,
+    #   since 'progress' package requires TTY terminal. Otherwise output is blocked
+    title = "Monitor progress"
+    pbar = TerminalProgressBar(title)
+    pbar.start()
+    for n in range(10):
+        pbar(n * 10)  # Go from 0 to 90%
+    pbar.finish()  # This should set it to 100%
 
-    def processing_func(data, coefficient, *, bias):
-        return np. sum(data, axis=data.ndim - 1) * coefficient + bias
+@pytest.mark.parametrize("progress_bar", [TerminalProgressBar("Monitoring progress: "),
+                                          None])
+def test_wait_and_display_progress(progress_bar):
+    """Basic test for the function `wait_and_display_progress`"""
 
-    coefficient, bias = 3.0, 5.0
-    processing_func = functools.partial(processing_func, coefficient=coefficient, bias=bias)
+    # There is no way to monitor the output (no TTY device -> no output is generated)
+    # So we just run a typical sequence of commands and make sure it doesn't crash
 
-    result = process_map_chunk(data,
-                               (n_row_start, n_col_start, n_rows, n_cols),
-                               func=processing_func)
-    data_np = np.asarray(data)
-    result_expected = np.sum(data_np[n_row_start: n_row_start + n_rows,
-                                     n_col_start: n_col_start + n_cols, :],
-                             axis=data_np.ndim - 1)
-    result_expected = result_expected * coefficient + bias
+    client = Client()
+    data = da.random.random(size=(100, 100), chunks=(10, 10))
+    sm_fut = da.sum(data, axis=0).persist(scheduler=client)
 
-    npt.assert_array_almost_equal(result, result_expected,
-                                  err_msg="Computation result and the expected result don't match")
+    # Call the progress monitor
+    wait_and_display_progress(sm_fut, progress_bar)
 
+    sm = sm_fut.compute(scheduler=client)
+    client.close()
 
-def test_process_chunk_failing():
-    """Tests for failing cases of `process_chunk` function"""
-
-    def processing_func(data):
-        return np. sum(data, axis=data.ndim - 1)
-
-    # Wrong dimensions of the data array, must be 3D array
-    data = np.random.random(size=(5, 5))
-    with pytest.raises(TypeError, match="The input parameter `data` must be 3D array"):
-        process_map_chunk(data, selection=(1, 1, 2, 2), func=processing_func)
-
-    # Wrong number of elements: 'selection' parameter
-    data = np.random.random(size=(5, 5, 3))
-    with pytest.raises(TypeError, match="Argument `selection` must be an iterable returning 4 elements"):
-        process_map_chunk(data, selection=(1, 1, 2), func=processing_func)
-
-    # Data chunk is incorrectly defined
-    data = np.random.random(size=(5, 7, 3))
-    test_cases = [(-1, 1, 2, 2), (5, 1, 2, 2), (6, 1, 2, 2),  # Index 0
-                  (1, -1, 2, 2), (1, 7, 2, 2), (1, 8, 2, 2),  # Index 1
-                  # Test wrong number of selected points
-                  (0, 0, 6, 2), (0, 0, 0, 2),  # Index 2
-                  (0, 0, 2, 8), (0, 0, 2, 0)]  # Index 3
-    for selection in test_cases:
-        with pytest.raises(TypeError,
-                           match="Some points in the selected chunk are not contained in the `data` array:"):
-            process_map_chunk(data, selection=selection, func=processing_func)
-'''
+    # Just in case check that the computations were done correctly.
+    sm_expected = np.sum(data.compute(), axis=0)
+    npt.assert_array_almost_equal(sm, sm_expected, err_msg="Computations are incorrect")
 
 
 def test_RawHDF5Dataset(tmpdir):
@@ -287,41 +198,8 @@ def test_array_numpy_to_dask_fail(data):
         _array_numpy_to_dask(data, (5, 2))
 
 
-@pytest.mark.parametrize("data_representation", ["numpy_array", "dask_array", "hdf5_file_dset"])
-@pytest.mark.parametrize("apply_mask", [False, True])
-@pytest.mark.parametrize("select_area", [False, True])
-def test_compute_total_spectrum(tmpdir, data_representation, apply_mask, select_area):
-
-    # Start with dask array
-    data_shape = (7, 12, 20)
-    data_dask = da.random.random(data_shape, chunks=(2, 3, 4))
-    data_numpy = data_dask.compute()
-
-    # Mask may be float
-    if apply_mask:
-        mask = np.random.randint(0, 2, data_shape[0:2])
-        mask[3, 4] = 0  # Make sure that at least 1 element is zero
-        mask[2, 4] = 1  # Make sure that at least 1 element is non-zero
-    else:
-        mask = None
-
-    # Selected area (between two points, the second point is not included)
-    if select_area:
-        selection = (2, 3, 4, 2)  # (y0, x0, ny, nx)
-    else:
-        selection = None
-
-    # Compute the expected result
-    data_tmp = data_numpy
-    if mask is not None:
-        mask_conv = (mask > 0).astype(dtype=int)
-        mask_conv = np.broadcast_to(np.expand_dims(mask_conv, axis=2), data_tmp.shape)
-        data_tmp = data_tmp * mask_conv
-    if selection is not None:
-        y0, x0, ny, nx = selection
-        data_tmp = data_tmp[y0: y0 + ny, x0: x0 + nx, :]
-    total_spectrum_expected = np.sum(np.sum(data_tmp, axis=0), axis=0)
-
+def _create_xrf_data(data_dask, data_representation):
+    """Prepare data represented as numpy array, dask array (no change) or HDF5 dataset"""
     if data_representation == "numpy_array":
         data = data_dask.compute()
     elif data_representation == "dask_array":
@@ -340,12 +218,178 @@ def test_compute_total_spectrum(tmpdir, data_representation, apply_mask, select_
         raise RuntimeError(f"Error in test parameter: unknown value of 'data_representation' = "
                            f"{data_representation}")
 
+    return data
+
+
+def _create_xrf_mask(data_shape, apply_mask, select_area):
+    """
+    Generate a mask for testing of XRF dataset processing functions.
+
+    Parameters
+    ----------
+    data_shape: tuple or list
+        (ny, nx, ...) - the shape of XRF dataset. All dimensions except 0 and 1 are ignored
+    apply_mask: bool
+        True: generate random mask,
+    select_area: bool
+        True: select area of the XRF map for processing.
+
+    Returns
+    -------
+    mask: ndarray(int) or None
+        mask is ndarray with shape (ny, nx). Integer values: 0 - pixel inactive,
+        1, 2 - pixel active. Note: any positive integer marks pixel as active, but only
+        values of 1 and 2 are generated.
+    selection: tuple or None
+        selected area is (y0, x0, ny_sel, nx_sel)
+
+    If `select_area==True`, then all pixels in `mask` outside the selected area
+    are disabled.
+    """
+    if apply_mask:
+        mask = np.random.randint(0, 2, data_shape[0:2])
+        mask[3, 4] = 0  # Make sure that at least 1 element is zero
+        mask[2, 4] = 1  # Make sure that at least 1 element is non-zero
+    else:
+        mask = None
+
+    # Selected area (between two points, the second point is not included)
+    if select_area:
+        selection = (2, 3, 4, 2)  # (y0, x0, ny, nx)
+    else:
+        selection = None
+
+    return mask, selection
+
+
+@pytest.mark.parametrize("data_representation", ["numpy_array", "dask_array", "hdf5_file_dset"])
+def test_prepare_xrf_data(tmpdir, data_representation):
+    # Start with dask array
+    data_shape = (7, 12, 20)
+    data_dask = da.random.random(data_shape, chunks=(2, 3, 4))
+    data_numpy = data_dask.compute()
+
+    data = _create_xrf_data(data_dask, data_representation)
+    data, file_obj = _prepare_xrf_map(data, chunk_pixels=12, n_chunks_min=4)
+
+    assert data.chunksize[0] * data.chunksize[1] == 12, f"Dataset was not properly chunked: "\
+                                                        f"data.chunksize={data.chunksize}"
+
+    npt.assert_array_almost_equal(data.compute(), data_numpy,
+                                  err_msg="Prepared dataset is different from the original")
+
+
+def test_prepare_xrf_data_fail():
+    """Failing test for `_prepare_xrf_mask_fail`"""
+    data = 50.0  # Just a number
+    with pytest.raises(TypeError, match="Type of parameter 'data' is not supported"):
+        _prepare_xrf_map(data, chunk_pixels=12, n_chunks_min=4)
+
+
+@pytest.mark.parametrize("apply_mask", [False, True])
+@pytest.mark.parametrize("select_area", [False, True])
+def test_prepare_xrf_mask(apply_mask, select_area):
+    """Basic functionality of `_prepare_xrf_mask`"""
+    data_shape = (7, 12, 20)
+    data_dask = da.random.random(data_shape, chunks=(2, 3, 4))
+    mask, selection = _create_xrf_mask(data_shape, apply_mask, select_area)
+
+    # Apply selection to mask
+    mask_expected = None
+    if mask is not None:
+        mask_expected = mask
+    if selection:
+        if mask_expected is None:
+            mask_expected = np.ones(shape=data_shape[0:2])
+        ny, nx = mask_expected.shape
+        y0, x0 = selection[0], selection[1]
+        y1, x1 = y0 + selection[2], x0 + selection[3]
+        for y in range(ny):
+            if (y < y0) or (y >= y1):
+                mask_expected[y, :] = 0
+        for x in range(nx):
+            if (x < x0) or (x >= x1):
+                mask_expected[:, x] = 0
+
+    mask_prepared = _prepare_xrf_mask(data_dask, mask=mask, selection=selection)
+
+    npt.assert_array_equal(mask_prepared, mask_expected,
+                           err_msg="The prepared mask is not equal to expected")
+
+
+@pytest.mark.parametrize("data_dask, mask, selection, msg", [
+    (np.random.random((5, 5, 10)), np.random.randint(0, 3, size=(5, 5)), None,
+     "Parameter 'data' must be a Dask array"),
+    (da.random.random((5,)), np.random.randint(0, 3, size=(5, 5)), None,
+     "Parameter 'data' must have at least 2 dimensions"),
+    (da.random.random((5, 4, 10)), np.random.randint(0, 3, size=(5, 5)), None,
+     "Dimensions 0 and 1 of parameters 'data' and 'mask' do not match"),
+    (da.random.random((5, 5, 10)), np.random.randint(0, 3, size=(5, 5)), (1, 3, 4),
+     "Parameter 'selection' must be iterable with 4 elements"),
+])
+def test_prepare_xrf_mask_fail(data_dask, mask, selection, msg):
+    """Failing cases of `_prepare_xrf_mask`"""
+    with pytest.raises(TypeError, match=msg):
+        _prepare_xrf_mask(data_dask, mask=mask, selection=selection)
+
+
+@pytest.mark.parametrize("data_representation", ["numpy_array", "dask_array", "hdf5_file_dset"])
+@pytest.mark.parametrize("apply_mask", [False, True])
+@pytest.mark.parametrize("select_area", [False, True])
+def test_compute_total_spectrum1(tmpdir, data_representation, apply_mask, select_area):
+
+    # Start with dask array
+    data_shape = (7, 12, 20)
+    data_dask = da.random.random(data_shape, chunks=(2, 3, 4))
+    data_numpy = data_dask.compute()
+
+    mask, selection = _create_xrf_mask(data_shape, apply_mask, select_area)
+
+    # Compute the expected result
+    data_tmp = data_numpy
+    if mask is not None:
+        mask_conv = (mask > 0).astype(dtype=int)
+        mask_conv = np.broadcast_to(np.expand_dims(mask_conv, axis=2), data_tmp.shape)
+        data_tmp = data_tmp * mask_conv
+    if selection is not None:
+        y0, x0, ny, nx = selection
+        data_tmp = data_tmp[y0: y0 + ny, x0: x0 + nx, :]
+    total_spectrum_expected = np.sum(np.sum(data_tmp, axis=0), axis=0)
+
+    data = _create_xrf_data(data_dask, data_representation)
+
     total_spectrum = compute_total_spectrum(data, selection=selection, mask=mask,
-                                            chunk_pixels=12)
+                                            chunk_pixels=12,
+                                            # Also run all computations with the progress bar
+                                            progress_bar=TerminalProgressBar("Monitoring progress: "))
 
     npt.assert_array_almost_equal(total_spectrum, total_spectrum_expected,
                                   err_msg="Total spectrum was computed incorrectly")
 
 
-def test_run_processing_with_dask():
-    ...
+def test_compute_total_spectrum2():
+    # Start with dask array
+    data_shape = (7, 12, 20)
+    data_dask = da.random.random(data_shape, chunks=(2, 3, 4))
+
+    data_numpy = data_dask.compute()
+    total_spectrum_expected = np.sum(np.sum(data_numpy, axis=0), axis=0)
+
+    data = _create_xrf_data(data_dask, "dask_array")
+
+    # Create 'external' client and send the reference to 'compute_total_spectrum'
+    client = Client(processes=True, silence_logs=logging.ERROR)
+    # Run computations without the progress bar
+    total_spectrum = compute_total_spectrum(data, chunk_pixels=12, client=client)
+    client.close()
+
+    npt.assert_array_almost_equal(total_spectrum, total_spectrum_expected,
+                                  err_msg="Total spectrum was computed incorrectly")
+
+
+@pytest.mark.parametrize("mask", [da.random.random((7, 12)), (7, 12), 20, "abcde"])
+def test_compute_total_spectrum_fail(mask):
+    """Failing cases: incorrect type for the mask ndarray"""
+    data_dask = da.random.random((7, 12, 20), chunks=(2, 3, 4))
+    with pytest.raises(TypeError, match="Parameter 'mask' must be a numpy array or None"):
+        compute_total_spectrum(data_dask, mask=mask, chunk_pixels=12)
