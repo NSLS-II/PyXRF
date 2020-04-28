@@ -198,13 +198,14 @@ def test_array_numpy_to_dask_fail(data):
         _array_numpy_to_dask(data, (5, 2))
 
 
-def _create_xrf_data(data_dask, data_representation):
+def _create_xrf_data(data_dask, data_representation, tmpdir):
     """Prepare data represented as numpy array, dask array (no change) or HDF5 dataset"""
     if data_representation == "numpy_array":
         data = data_dask.compute()
     elif data_representation == "dask_array":
         data = data_dask
     elif data_representation == "hdf5_file_dset":
+        os.chdir(tmpdir)
         fln = "test_hdf5_file.h5"
         dset_name = "level1/level2"
         with h5py.File(fln, "w") as f:
@@ -269,7 +270,7 @@ def test_prepare_xrf_data(tmpdir, data_representation):
     data_dask = da.random.random(data_shape, chunks=(2, 3, 4))
     data_numpy = data_dask.compute()
 
-    data = _create_xrf_data(data_dask, data_representation)
+    data = _create_xrf_data(data_dask, data_representation, tmpdir)
     data, file_obj = _prepare_xrf_map(data, chunk_pixels=12, n_chunks_min=4)
 
     assert data.chunksize[0] * data.chunksize[1] == 12, f"Dataset was not properly chunked: "\
@@ -356,7 +357,7 @@ def test_compute_total_spectrum1(tmpdir, data_representation, apply_mask, select
         data_tmp = data_tmp[y0: y0 + ny, x0: x0 + nx, :]
     total_spectrum_expected = np.sum(np.sum(data_tmp, axis=0), axis=0)
 
-    data = _create_xrf_data(data_dask, data_representation)
+    data = _create_xrf_data(data_dask, data_representation, tmpdir)
 
     total_spectrum = compute_total_spectrum(data, selection=selection, mask=mask,
                                             chunk_pixels=12,
@@ -367,7 +368,7 @@ def test_compute_total_spectrum1(tmpdir, data_representation, apply_mask, select
                                   err_msg="Total spectrum was computed incorrectly")
 
 
-def test_compute_total_spectrum2():
+def test_compute_total_spectrum2(tmpdir):
     # Start with dask array
     data_shape = (7, 12, 20)
     data_dask = da.random.random(data_shape, chunks=(2, 3, 4))
@@ -375,7 +376,7 @@ def test_compute_total_spectrum2():
     data_numpy = data_dask.compute()
     total_spectrum_expected = np.sum(np.sum(data_numpy, axis=0), axis=0)
 
-    data = _create_xrf_data(data_dask, "dask_array")
+    data = _create_xrf_data(data_dask, "dask_array", tmpdir=tmpdir)
 
     # Create 'external' client and send the reference to 'compute_total_spectrum'
     client = Client(processes=True, silence_logs=logging.ERROR)
