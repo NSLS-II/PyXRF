@@ -91,13 +91,13 @@ def wait_and_display_progress(fut, progress_bar=None):
         n_total = n_completed + n_pending
         percent_completed = n_completed / n_total * 100.0 if n_total > 0 else 100.0
 
+        # It is guaranteed that 'progress_bar' is called for 100% completion
         progress_bar(percent_completed)
 
         if not n_pending:
             break
         ttime.sleep(0.5)
 
-    progress_bar(100.0)
     if hasattr(progress_bar, "finish"):
         progress_bar.finish()
 
