@@ -27,9 +27,45 @@ def test_TerminalProgressBar():
         pbar(n * 10)  # Go from 0 to 90%
     pbar.finish()  # This should set it to 100%
 
-@pytest.mark.parametrize("progress_bar", [TerminalProgressBar("Monitoring progress: "),
-                                          None])
-def test_wait_and_display_progress(progress_bar):
+
+class _SampleProgressBar:
+    """
+    Progress bar class convenient for testing of the functions that
+    display progress bar.
+    """
+    def __init__(self, title):
+        self.title = title
+
+        # The list of strings, which we expect to see in the output (capsys out)
+        #   Used only for testing purposes only.
+        self._expected_output = [
+            f"Starting progress bar: {self.title}",
+            f"Percent completed: 100.0",
+            f"Finished: {self.title}"
+        ]
+
+    def start(self):
+        print(f"Starting progress bar: {self.title}")
+
+    def __call__(self, percent_completed):
+        print(f"Percent completed: {percent_completed}")
+
+    def finish(self):
+        print(f"Finished: {self.title}")
+
+    def _check_output(self, capsys_out):
+        # For testing purposes only, not needed for actual progress bar implementation
+        for s in self._expected_output:
+            assert s in capsys_out, \
+                f"Expected string {s} is missing in the progress bar object output:\n"\
+                f"{capsys_out}"
+
+
+@pytest.mark.parametrize("progress_bar", [
+    _SampleProgressBar("Monitoring progress"),
+    TerminalProgressBar("Monitoring progress: "),
+    None])
+def test_wait_and_display_progress(progress_bar, capsys):
     """Basic test for the function `wait_and_display_progress`"""
 
     # There is no way to monitor the output (no TTY device -> no output is generated)
@@ -48,6 +84,11 @@ def test_wait_and_display_progress(progress_bar):
     # Just in case check that the computations were done correctly.
     sm_expected = np.sum(data.compute(), axis=0)
     npt.assert_array_almost_equal(sm, sm_expected, err_msg="Computations are incorrect")
+
+    # Make sure that the output contains all necessary components
+    if isinstance(progress_bar, _SampleProgressBar):
+        captured = capsys.readouterr()
+        progress_bar._check_output(captured.out)
 
 
 def test_RawHDF5Dataset(tmpdir):
