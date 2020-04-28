@@ -3,104 +3,103 @@ import math
 import os
 import h5py
 import dask.array as da
-from dask.distributed import Client  # , wait
-# from progress.bar import ChargingBar, Bar
-
+import time as ttime
+from dask.distributed import Client, wait
+from progress.bar import Bar
 
 import logging
 logger = logging.getLogger()
 
-'''
-def map_total_counts(data):
+
+class TerminalProgressBar:
     """
-    Computes the map of total counts and the averaged spectrum for the XRF experiment data.
+    Custom class that displays the progress bar in the terminal. Progress
+    is displayed in %. Unfortunately it works only in the terminal (or emulated
+    terminal) and nothing will be printed in stderr if TTY is disabled.
+
+    Examples
+    --------
+    .. code-block:: python
+
+        title = "Monitor progress"
+        pbar = TerminalProgressBar(title)
+        pbar.start()
+        for n in range(10):
+           pbar(n * 10)  # Go from 0 to 90%
+        pbar.finish()  # This should set it to 100%
+    """
+
+    def __init__(self, title):
+        self.title = title
+
+    def start(self):
+        self.bar = Bar(self.title, max=100, suffix='%(percent)d%%')
+
+    def __call__(self, percent_completed):
+        while self.bar.index < percent_completed:
+            self.bar.next()
+
+    def finish(self):
+        while self.bar.index < 100.0:
+            self.bar.next()
+        self.bar.finish()
+
+
+def wait_and_display_progress(fut, progress_bar=None):
+    """
+    Wait for the future to complete and display the progress bar.
+    This method may be used to drive any custom progress bar, which
+    displays progress in percent from 0 to 100.
 
     Parameters
     ----------
-    data: ndarray
-        Spectrum is located along the axis with the largest index. For example, the data with
-        `data.shape` of `(3, 5, 4096)`, contains 3x5 map with each pixel represented with 4096
-        spectral points. The function will return 3x5 map of total count values and 4096 point
-        average spectrum. If `data` is a list, then it is converted to ndarray. The function
-        will also work correctly if `data` is a scalar, but in general it doesn't make much sense.
+    fut: dask future
+        future object for the batch of tasks submitted to the distributed
+        client.
+    progress_bar: callable or None
+        callable function or callable object with methods `start()`,
+        `__call__(float)` and `finish()`. The methods `start()` and
+        `finish()` are optional. For example, this could be a reference
+        to an instance of the object `TerminalProgressBar`
 
-    Returns
-    -------
-    a tuple `(total_count_map, spectrum)`
+    Examples
+    --------
+
+    .. code-block::
+
+        client = Client()
+        data = da.random.random(size=(100, 100), chunks=(10, 10))
+        sm_fut = da.sum(data, axis=0).persist(scheduler=client)
+
+        # Call the progress monitor
+        wait_and_display_progress(sm_fut, TerminalProgressBar("Monitoring progress: "))
+
+        sm = sm_fut.compute(scheduler=client)
+        client.close()
     """
 
-    data = np.asarray(data)
-    n_dim = data.ndim
+    # If there is no progress bar, then just return without waiting for the future
+    if progress_bar is None:
+        return
 
-    if n_dim == 0:
-        # `data` is a scalar
-        total_count_map, spectrum = data, data
-    else:
-        # Total count map
-        total_count_map = np.sum(data, n_dim - 1)
-        if n_dim == 1:
-            spectrum = data
-        else:
-            spectrum = np.sum(data, axis=0)
-            for i in range(1, n_dim - 1):
-                spectrum = np.sum(spectrum, axis=0)
+    if hasattr(progress_bar, "start"):
+        progress_bar.start()
 
-    return total_count_map, spectrum
+    while True:
+        done, not_done = wait(fut, return_when='FIRST_COMPLETED')
+        n_completed, n_pending = len(done), len(not_done)
+        n_total = n_completed + n_pending
+        percent_completed = n_completed / n_total * 100.0 if n_total > 0 else 100.0
 
+        progress_bar(percent_completed)
 
-def process_map_chunk(data, selection, func):
-    """
-    Process a chunk of XRF map. The map `data` is 3D array with dimensions (ny, nx, n_spectrum).
-    The chunk is determined as the range of rows: `n_row_start .. n_row_start + n_rows`.
-    If 'data' is a dask array, then the slice of the array is filled and forwarded
-    to the function `func`.
+        if not n_pending:
+            break
+        ttime.sleep(0.5)
 
-    Parameters
-    ----------
-    data: ndarray or dask array
-        3D XRF map with the shape `(ny, nx, n_spectrum)`
-    selection: iterable(int) that contains 4 elements
-        Iterable (typically tuple or list) that contains the coordinates of the selected region
-        of the `data` array: (ny_start, nx_start, ny_points, nx_points)
-    func: callable
-        The function that is called for processing of each chunk. The function signature:
-        `func(data_chunk, *args, **kwargs)`. The `args` and `kwargs` can be passed to the
-        function by applying `functools.partial` to the function.
-
-    Returns
-    -------
-    Forwards the output of the function `func`.
-    """
-
-    # Always convert to tuple for consistency
-    selection = tuple(selection)
-    if len(selection) != 4:
-        raise TypeError(f"Argument `selection` must be an iterable returning 4 elements: "
-                        f"type(selection)={type(selection)}")
-
-    ny_start, nx_start, ny_points, nx_points = selection
-    ny_stop, nx_stop = ny_start + ny_points, nx_start + nx_points
-
-    if data.ndim != 3:
-        raise TypeError(f"The input parameter `data` must be 3D array: number of dimensions = {data.ndim}")
-
-    n_rows, n_columns, _ = data.shape  # The number of rows
-    if ((ny_start < 0) or (ny_start >= n_rows) or
-        (ny_stop <= 0) or (ny_stop > n_rows) or
-        (nx_start < 0) or (nx_start >= n_columns) or
-        (nx_stop <= 0) or (nx_stop > n_columns)):
-            raise TypeError(f"Some points in the selected chunk are not contained in the `data` array: "
-                            f"selection={tuple(selection)}, data dimensions={(n_rows, n_columns)}")
-
-    data_chunk = data[ny_start: ny_stop, nx_start: nx_stop, :]
-
-    if hasattr(data, "compute"):
-        # This is a dask array. Fill the array and convert it to ndarray
-        data_chunk = data_chunk.compute(scheduler="synchronous")
-        data_chunk = np.asarray(data_chunk)
-
-    return func(data_chunk)
-'''
+    progress_bar(100.0)
+    if hasattr(progress_bar, "finish"):
+        progress_bar.finish()
 
 
 class RawHDF5Dataset():
@@ -265,9 +264,37 @@ def _array_numpy_to_dask(data, chunk_pixels, n_chunks_min=4):
 def _prepare_xrf_map(data, chunk_pixels=5000, n_chunks_min=4):
 
     """
+    Convert XRF map from it's initial representation to properly chunked Dask array.
 
-    `file_obj` must be kept alive until processing is completed. Closing the file will
-    invalidate references in the respective Dask array.
+    Parameters
+    ----------
+    data: da.core.Array, np.ndarray or RawHDF5Dataset (this is a custom type)
+        Raw XRF map represented as Dask array, numpy array or reference to a dataset in
+        HDF5 file. The XRF map must have dimensions `(ny, nx, ne)`, where `ny` and `nx`
+        define image size and `ne` is the number of spectrum points
+    chunk_pixels: int
+        The number of pixels in a single chunk. The XRF map will be rechunked so that
+        each block contains approximately `chunk_pixels` pixels and contain all `ne`
+        spectrum points for each pixel.
+    n_chunks_min: int
+        Minimum number of chunks. The algorithm will try to split the map into the number
+        of chunks equal or greater than `n_chunks_min`.
+
+    Returns
+    -------
+    data: da.core.Array
+        XRF map represented as Dask array with proper chunk size. The XRF map may be loaded
+        block by block when processing using `dask.array.map_blocks` and `dask.array.blockwise`
+        functions with Dask multiprocessing scheduler.
+    file_obj: h5py.File object
+        File object that points to HDF5 file. `None` if input parameter `data` is Dask or
+        numpy array. Note, that `file_obj` must be kept alive until processing is completed.
+        Closing the file will invalidate references to the dataset in the respective
+        Dask array.
+
+    Raises
+    ------
+    TypeError if input parameter `data` is not one of supported types.
     """
 
     file_obj = None  # It will remain None, unless 'data' is 'RawHDF5Dataset'
@@ -303,6 +330,47 @@ def _prepare_xrf_map(data, chunk_pixels=5000, n_chunks_min=4):
 
 
 def _prepare_xrf_mask(data, mask=None, selection=None):
+    """
+    Create mask for processing XRF maps based on the provided mask, selection
+    and XRF dataset. If only `mask` is provided, then it is passed to the output.
+    If only `selection` is provided, then the new mask is generated based on selected pixels.
+    If both `mask` and `selection` are provided, then all pixels in the mask that fall outside
+    the selected area are disabled. Input `mask` is a numpy array. Output `mask` is a Dask
+    array with chunk size matching `data`.
+
+    Parameters
+    ----------
+    data: da.core.Array
+        dask array representing XRF dataset with dimensions (ny, nx, ne) and chunksize
+        (chunk_y, chunk_x)
+    mask: ndarray or None
+        mask represented as numpy array with dimensions (ny, nx)
+    selection: tuple or list or None
+        selected area represented as (y0, x0, ny_sel, nx_sel)
+
+    Returns
+    -------
+    mask: da.core.Array
+        mask represented as Dask array of size (ny, nx) and chunk size (chunk_y, chunk_x)
+
+    Raises
+    ------
+    TypeError if type of some input parameters is incorrect
+
+    """
+
+    if not isinstance(data, da.core.Array):
+        raise TypeError(f"Parameter 'data' must be a Dask array: type(data) = {type(data)}")
+    if data.ndim < 2:
+        raise TypeError(f"Parameter 'data' must have at least 2 dimensions: data.ndim = {data.ndim}")
+    if mask is not None:
+        if mask.shape != data.shape[0:2]:
+            raise TypeError(f"Dimensions 0 and 1 of parameters 'data' and 'mask' do not match: "
+                            f"data.shape={data.shape} mask.shape={mask.shape}")
+    if selection is not None:
+        if len(selection) != 4:
+            raise TypeError(f"Parameter 'selection' must be iterable with 4 elements: "
+                            f"selection = {selection}")
 
     if selection is not None:
         y0, x0, ny, nx = selection
@@ -323,15 +391,50 @@ def _prepare_xrf_mask(data, mask=None, selection=None):
 
 
 def compute_total_spectrum(data, *, selection=None, mask=None,
-                           chunk_pixels=5000, n_chunks_min=4, client=None):
+                           chunk_pixels=5000, n_chunks_min=4,
+                           progress_bar=None, client=None):
+    """
+    Parameters
+    ----------
+    data: da.core.Array, np.ndarray or RawHDF5Dataset (this is a custom type)
+        Raw XRF map represented as Dask array, numpy array or reference to a dataset in
+        HDF5 file. The XRF map must have dimensions `(ny, nx, ne)`, where `ny` and `nx`
+        define image size and `ne` is the number of spectrum points
+    selection: tuple or list or None
+        selected area represented as (y0, x0, ny_sel, nx_sel)
+    mask: ndarray or None
+        mask represented as numpy array with dimensions (ny, nx)
+    chunk_pixels: int
+        The number of pixels in a single chunk. The XRF map will be rechunked so that
+        each block contains approximately `chunk_pixels` pixels and contain all `ne`
+        spectrum points for each pixel.
+    n_chunks_min: int
+        Minimum number of chunks. The algorithm will try to split the map into the number
+        of chunks equal or greater than `n_chunks_min`.
+    progress_bar: callable or None
+        reference to the callable object that implements progress bar. The example of
+        such a class for progress bar object is `TerminalProgressBar`.
+    client: dask.distributed.Client or None
+        Dask client. If None, then local client will be created
+
+    Returns
+    -------
+    result: ndarray
+        Spectrum averaged over the XRF dataset taking into account mask and selectied area.
+    """
 
     if not isinstance(mask, np.ndarray) and (mask is not None):
         raise TypeError(f"Parameter 'mask' must be a numpy array or None: type(mask) = {type(mask)}")
 
-    data, file_obj = _prepare_xrf_map(data, chunk_pixels=5000, n_chunks_min=4)
+    data, file_obj = _prepare_xrf_map(data, chunk_pixels=chunk_pixels, n_chunks_min=n_chunks_min)
     mask = _prepare_xrf_mask(data, mask=mask, selection=selection)
 
-    client = Client(processes=True, silence_logs=logging.ERROR)
+    if client is None:
+        client = Client(processes=True, silence_logs=logging.ERROR)
+        client_is_local = True
+    else:
+        client_is_local = False
+
     if mask is None:
         result_fut = da.sum(da.sum(data, axis=0), axis=0).persist(scheduler=client)
     else:
@@ -341,35 +444,16 @@ def compute_total_spectrum(data, *, selection=None, mask=None,
             return np.array([[sm]])
         result_fut = da.blockwise(_masked_sum, 'ijk', data, "ijk", mask, "ij", dtype="float")
 
+    # Call the progress monitor
+    wait_and_display_progress(result_fut, progress_bar)
+
     result = result_fut.compute(scheduler=client)
-    client.close()
+
+    if client_is_local:
+        client.close()
+
     if mask is not None:
         # The sum computed for each block still needs to be assembled,
         #   but 'result' is much smaller array than 'data'
         result = np.sum(np.sum(result, axis=0), axis=0)
     return result
-
-
-def run_processing_with_dask(data, *, func=None, chunks_pixels=5000, client=None):
-
-    # If true, then the client will be created and then closed in the functions
-    using_local_client = bool(client is None)
-    if using_local_client:
-        client = Client(processes=True, silence_logs=logging.ERROR)
-        logger.debug("Starting processing with local Dask client")
-    else:
-        logger.debug("Starting processing with externally provided Dask client")
-
-    # Get the number of workers
-    n_workers = len(client.scheduler_info()["workers"])
-    logger.debug(f"The number of workers: {n_workers}")
-
-    if hasattr(data, "compute"):
-        # 'data' is Dask array
-        pass
-    else:
-        # create chunked dask array
-        pass
-
-    if using_local_client:
-        client.close()
