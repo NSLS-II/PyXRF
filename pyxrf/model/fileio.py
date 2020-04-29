@@ -22,7 +22,7 @@ from .load_data_from_db import (db, fetch_data_from_db, flip_data,
                                 helper_encode_list, helper_decode_list,
                                 write_db_to_hdf)
 from ..core.utils import normalize_data_by_scaler, grid_interpolate
-from ..core.map_processing import RawHDF5Dataset
+from ..core.map_processing import RawHDF5Dataset, compute_total_spectrum
 from .scan_metadata import ScanMetadataXRF
 import requests
 from distutils.version import LooseVersion
@@ -79,7 +79,7 @@ class FileIOModel(Atom):
 
     file_opt = Int(-1)
     data = Typed(np.ndarray)
-    data_all = Typed(np.ndarray)
+    data_all = Typed(object)
     selected_file_name = Str()
     # file_name = Str()
     mask_data = Typed(object)
@@ -445,6 +445,8 @@ class DataSelection(Atom):
     fit_name = Str()
     fit_data = Typed(np.ndarray)
 
+    _cached_spectrum = Dict()
+
     @observe(str('plot_index'))
     def _update_roi(self, change):
         if self.plot_index == 0:
@@ -457,14 +459,34 @@ class DataSelection(Atom):
         self.point2 = []
 
     def get_sum(self, mask=None):
-        if len(self.point1) == 0 and len(self.point2) == 0:
-            SC = SpectrumCalculator(self.raw_data)
-            spec = SC.get_spectrum(mask=mask)
+        pos1 = self.point1 if len(self.point1) else None
+        pos2 = self.point2 if len(self.point2) else None
+
+        cache_valid = False
+        if self._cached_spectrum:
+            # Verify that all necessary keys are in the dictionary
+            if all([_ in self._cached_spectrum.keys()
+                    for _ in ("pos1", "pos2", "mask", "spec")]):
+                # Mask may be None or iterable (ndarray)
+                if (self._cached_spectrum["pos1"] == pos1) and \
+                    (self._cached_spectrum["pos2"] == pos2) and \
+                    ((self._cached_spectrum["mask"] is None and mask is None) or
+                     (self._cached_spectrum["mask"] == mask).all()):
+                    cache_valid = True
+
+        if cache_valid:
+            # We create copy to make sure that cache remains intact
+            spec = self._cached_spectrum["spec"].copy()
         else:
-            SC = SpectrumCalculator(self.raw_data,
-                                    pos1=self.point1,
-                                    pos2=self.point2)
-            spec = SC.get_spectrum()
+            SC = SpectrumCalculator(self.raw_data, pos1=pos1, pos2=pos2)
+            spec = SC.get_spectrum(mask=mask)
+
+            # Save cache the computed spectrum (with all settings)
+            self._cached_spectrum["pos1"] = pos1.copy() if pos1 is not None else None
+            self._cached_spectrum["pos2"] = pos2.copy() if pos2 is not None else None
+            self._cached_spectrum["mask"] = mask.copy() if mask is not None else None
+            self._cached_spectrum["spec"] = spec.copy()
+
         # Return the 'sum' spectrum as regular 64-bit float (raw data is in 'np.float32')
         return spec.astype(np.float64, copy=False)
 
@@ -493,22 +515,41 @@ class SpectrumCalculator(object):
         """
         Get roi sum from point positions, or from mask file.
         """
-        if mask is None:
-            if not self.pos1 and not self.pos2:
-                return np.sum(self.data, axis=(0, 1))
-            elif self.pos1 and not self.pos2:
-                return self.data[self.pos1[0], self.pos1[1], :]
+        selection = None
+        if self.pos1:
+            if self.pos2:
+                # Region is selected
+                selection = (self.pos1[0],
+                             self.pos1[1],
+                             self.pos2[0] - self.pos1[0],
+                             self.pos2[1] - self.pos1[1])
             else:
-                return np.sum(self.data[self.pos1[0]:self.pos2[0],
-                                        self.pos1[1]:self.pos2[1], :],
-                              axis=(0, 1))
-        else:
-            spectrum_sum = np.zeros(self.data.shape[2])
-            for i in range(self.data.shape[0]):
-                for j in range(self.data.shape[1]):
-                    if mask[i, j] > 0:
-                        spectrum_sum += self.data[i, j, :]
-            return spectrum_sum
+                # Only a single point is selected
+                selection = (self.pos1[0], self.pos1[1], 1, 1)
+
+        spectrum_sum = compute_total_spectrum(
+            self.data, selection=selection, mask=mask,
+            chunk_pixels=5000, n_chunks_min=4,
+            progress_bar=None, client=None)
+
+        # The following code is prepared for removal
+        # if mask is None:
+        #     if not self.pos1 and not self.pos2:
+        #         return np.sum(self.data, axis=(0, 1))
+        #     elif self.pos1 and not self.pos2:
+        #         return self.data[self.pos1[0], self.pos1[1], :]
+        #     else:
+        #         return np.sum(self.data[self.pos1[0]:self.pos2[0],
+        #                                 self.pos1[1]:self.pos2[1], :],
+        #                       axis=(0, 1))
+        # else:
+        #     spectrum_sum = np.zeros(self.data.shape[2])
+        #     for i in range(self.data.shape[0]):
+        #         for j in range(self.data.shape[1]):
+        #             if mask[i, j] > 0:
+        #                 spectrum_sum += self.data[i, j, :]
+
+        return spectrum_sum
 
 
 def file_handler(working_directory, file_name, load_each_channel=True, spectrum_cut=3000):
@@ -878,10 +919,12 @@ def read_hdf_APS(working_directory,
             try:
                 # data from channel summed
                 # exp_data = np.array(data['detsum/counts'][:, :, 0:spectrum_cut],
-                #                    dtype=np.float32)
-                exp_data = RawHDF5Dataset(file_path, 'detsum/counts')
+                #                   dtype=np.float32)
+                data_shape = data['detsum/counts'].shape
+                exp_data = RawHDF5Dataset(file_path, 'xrfmap/detsum/counts',
+                                          shape=data_shape)
                 logger.warning(f"We use spectrum range from 0 to {spectrum_cut}")
-                logger.info(f"Exp. data from h5 has shape of: {exp_data.shape}")
+                logger.info(f"Exp. data from h5 has shape of: {data_shape}")
 
                 fname_sum = f"{fname}_sum"
                 DS = DataSelection(filename=fname_sum,
@@ -929,7 +972,10 @@ def read_hdf_APS(working_directory,
                 try:
                     # exp_data_new = np.array(data[f"{det_name}/counts"][:, :, 0:spectrum_cut],
                     #                        dtype=np.float32)
-                    exp_data_new = RawHDF5Dataset(file_path, f"{det_name}/counts")
+
+                    data_shape = data[f"{det_name}/counts"].shape
+                    exp_data_new = RawHDF5Dataset(file_path, f"xrfmap/{det_name}/counts",
+                                                  shape=data_shape)
 
                     DS = DataSelection(filename=file_channel,
                                        raw_data=exp_data_new)

@@ -75,7 +75,7 @@ class Fit1D(Atom):
 
     element_list = List()
     data_sets = Dict()
-    data_all = Typed(np.ndarray)
+    data_all = Typed(object)
     data = Typed(np.ndarray)
     fit_x = Typed(np.ndarray)
     fit_y = Typed(np.ndarray)
@@ -715,7 +715,7 @@ class Fit1D(Atom):
             This is the dictionary that gets passed to a function
             with the @observe decorator
         """
-        self.data_all = np.asarray(change['value'])
+        self.data_all = change['value']
 
     def filename_update(self, change):
         """
