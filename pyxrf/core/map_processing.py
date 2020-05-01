@@ -6,6 +6,8 @@ import dask.array as da
 import time as ttime
 from dask.distributed import Client, wait
 from progress.bar import Bar
+from skbeam.core.fitting.background import snip_method
+from .fitting import fit_spectrum
 
 import logging
 logger = logging.getLogger()
@@ -145,6 +147,7 @@ def _compute_optimal_chunk_size(chunk_pixels, data_chunksize, data_shape, n_chun
         (ny, nx) - the shape of the data array
     n_chunks_min: int
         The minimum number of chunks.
+
     Returns
     -------
     (chunk_y, chunk_x): tuple(int)
@@ -440,6 +443,9 @@ def compute_total_spectrum(data, *, selection=None, mask=None,
     else:
         client_is_local = False
 
+    n_workers = len(client.scheduler_info()["workers"])
+    logger.info(f"Dask distributed client: {n_workers} workers")
+
     if mask is None:
         result_fut = da.sum(da.sum(data, axis=0), axis=0).persist(scheduler=client)
     else:
@@ -461,4 +467,157 @@ def compute_total_spectrum(data, *, selection=None, mask=None,
         # The sum computed for each block still needs to be assembled,
         #   but 'result' is much smaller array than 'data'
         result = np.sum(np.sum(result, axis=0), axis=0)
+    return result
+
+
+def _fit_xrf_block(data, data_sel_indices,
+                   matv, snip_param, use_snip):
+    """
+    Spectrum fitting for a block of XRF dataset. The function is intended to be
+    called using `map_blocks` function for parallel processing using Dask distributed
+    package.
+
+    Parameters
+    ----------
+    data : ndarray
+        block of an XRF dataset. Shape=(ny, nx, ne).
+    data_sel_indices: tuple
+        tuple `(n_start, n_end)` which defines the indices along axis 2 of `data` array
+        that are used for fitting. Note that `ne` (in `data`) and `ne_model` (in `matv`)
+        are not equal. But `n_end - n_start` MUST be equal to `ne_model`! Indexes
+        `n_start .. n_end - 1` will be selected from each pixel.
+    matv: ndarray
+        Matrix of spectra of the selected elements (emission lines). Shape=(ne_model, n_lines)
+    snip_param: dict
+        Dictionary of parameters forwarded to 'snip' method for background removal.
+        Keys: `e_offset`, `e_linear`, `e_quadratic` (parameters of the energy axis approximation),
+        `b_width` (width of the window that defines resolution of the snip algorithm).
+    use_snip: bool, optional
+        enable/disable background removal using snip algorithm
+
+    Returns
+    -------
+    data_out: ndarray
+        array with fitting results. Shape: `(ny, nx, ne_model + 4)`. For each pixel
+        the output data contains: `ne_model` values that represent area under the emission
+        line spectra; background area (only in the selected energy range), error (R-factor),
+        total count in the selected energy range, total count of the full experimental spectrum.
+    """
+
+    data_out = np.zeros(shape=(data.shape[0], data.shape[1], matv.shape[1] + 4))
+
+    for ny in range(data.shape[0]):
+        for nx in range(data.shape[1]):
+
+            # Full spectrum (all points)
+            spec = data[ny, nx, :]
+            spec_sel = spec[data_sel_indices[0]: data_sel_indices[1]]
+
+            if use_snip:
+
+                bg = snip_method(spec_sel,
+                                 snip_param['e_offset'],
+                                 snip_param['e_linear'],
+                                 snip_param['e_quadratic'],
+                                 width=snip_param['b_width'])
+                y = spec_sel - bg
+                # Force spectrum to be always positive for better performance of nnls
+                y = np.clip(y, a_min=0, a_max=None)
+
+                bg_sum = np.sum(bg)
+
+            else:
+                y = spec_sel
+                bg_sum = 0
+
+            weights, rfactor, _ = fit_spectrum(y, matv, method="nnls")
+
+            # Total number of counts in the selected region
+            total_cnt = np.sum(spec)
+            sel_cnt = np.sum(spec_sel)
+
+            result = np.concatenate((weights, np.array([bg_sum, rfactor,
+                                                        sel_cnt, total_cnt])))
+
+            data_out[ny, nx, :] = result
+
+    return data_out
+
+
+def fit_xrf_map(data, data_sel_indices, matv, snip_param, use_snip=True,
+                chunk_pixels=5000, n_chunks_min=4, progress_bar=None, client=None):
+    """
+    Fit XRF map.
+
+    Parameters
+    ----------
+    data: da.core.Array, np.ndarray or RawHDF5Dataset (this is a custom type)
+        Raw XRF map represented as Dask array, numpy array or reference to a dataset in
+        HDF5 file. The XRF map must have dimensions `(ny, nx, ne)`, where `ny` and `nx`
+        define image size and `ne` is the number of spectrum points
+    data_sel_indices: tuple
+        tuple `(n_start, n_end)` which defines the indices along axis 2 of `data` array
+        that are used for fitting. Note that `ne` (in `data`) and `ne_model` (in `matv`)
+        are not equal. But `n_end - n_start` MUST be equal to `ne_model`! Indexes
+        `n_start .. n_end - 1` will be selected from each pixel.
+    matv: array
+        Matrix of spectra of the selected elements (emission lines). Shape=(ne_model, n_lines)
+    snip_param: dict
+        Dictionary of parameters forwarded to 'snip' method for background removal.
+        Keys: `e_offset`, `e_linear`, `e_quadratic` (parameters of the energy axis approximation),
+        `b_width` (width of the window that defines resolution of the snip algorithm).
+    use_snip: bool, optional
+        enable/disable background removal using snip algorithm
+    chunk_pixels: int
+        The number of pixels in a single chunk. The XRF map will be rechunked so that
+        each block contains approximately `chunk_pixels` pixels and contain all `ne`
+        spectrum points for each pixel.
+    n_chunks_min: int
+        Minimum number of chunks. The algorithm will try to split the map into the number
+        of chunks equal or greater than `n_chunks_min`.
+    progress_bar: callable or None
+        reference to the callable object that implements progress bar. The example of
+        such a class for progress bar object is `TerminalProgressBar`.
+    client: dask.distributed.Client or None
+        Dask client. If None, then local client will be created
+
+    Returns
+    -------
+    results: ndarray
+        array with fitting results. Shape: `(ny, nx, ne_model + 4)`. For each pixel
+        the output data contains: `ne_model` values that represent area under the emission
+        line spectra; background area (only in the selected energy range), error (R-factor),
+        total count in the selected energy range, total count of the full experimental spectrum.
+    """
+
+    logger.info("Starting single-pixel fitting ...")
+
+    data, file_obj = _prepare_xrf_map(data, chunk_pixels=chunk_pixels, n_chunks_min=n_chunks_min)
+
+    if client is None:
+        client = Client(processes=True, silence_logs=logging.ERROR)
+        client_is_local = True
+    else:
+        client_is_local = False
+
+    n_workers = len(client.scheduler_info()["workers"])
+    logger.info(f"Dask distributed client: {n_workers} workers")
+
+    result_fut = da.map_blocks(_fit_xrf_block, data,
+                               # Parameters of the '_fit_xrf_block' function
+                               data_sel_indices=data_sel_indices,
+                               matv=matv,
+                               snip_param=snip_param,
+                               use_snip=use_snip,
+                               # Output data type
+                               dtype="float")
+
+    # Call the progress monitor
+    wait_and_display_progress(result_fut, progress_bar)
+
+    result = result_fut.compute(scheduler=client)
+
+    if client_is_local:
+        client.close()
+
     return result
