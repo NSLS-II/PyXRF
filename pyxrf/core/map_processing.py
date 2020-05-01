@@ -544,7 +544,7 @@ def _fit_xrf_block(data, data_sel_indices,
     return data_out
 
 
-def fit_xrf_map(data, data_sel_indices, matv, snip_param, use_snip=True,
+def fit_xrf_map(data, data_sel_indices, matv, snip_param=None, use_snip=True,
                 chunk_pixels=5000, n_chunks_min=4, progress_bar=None, client=None):
     """
     Fit XRF map.
@@ -566,6 +566,7 @@ def fit_xrf_map(data, data_sel_indices, matv, snip_param, use_snip=True,
         Dictionary of parameters forwarded to 'snip' method for background removal.
         Keys: `e_offset`, `e_linear`, `e_quadratic` (parameters of the energy axis approximation),
         `b_width` (width of the window that defines resolution of the snip algorithm).
+        It may be an empty dictionary or None if `use_snip` is `False`.
     use_snip: bool, optional
         enable/disable background removal using snip algorithm
     chunk_pixels: int
@@ -592,7 +593,53 @@ def fit_xrf_map(data, data_sel_indices, matv, snip_param, use_snip=True,
 
     logger.info("Starting single-pixel fitting ...")
 
+    if snip_param is None:
+        snip_param = {}  # For consistency
+
+    # Verify that input parameters are valid
+    if not isinstance(data_sel_indices, (tuple, list)):
+        raise TypeError(f"Parameter 'data_sel_indices' must be tuple or list: "
+                        f"type(data_sel_indices) = {type(data_sel_indices)}")
+
+    if not len(data_sel_indices) == 2:
+        raise TypeError(f"Parameter 'data_sel_indices' must contain two elements: "
+                        f"data_sel_indices = {data_sel_indices}")
+
+    if any([_ < 0 for _ in data_sel_indices]):
+        raise ValueError(f"Some of the indices in 'data_sel_indices' are negative: "
+                         f"data_sel_indices = {data_sel_indices}")
+
+    if data_sel_indices[1] <= data_sel_indices[0]:
+        raise ValueError(f"Parameter 'data_sel_indices' must select at least 1 element: "
+                         f"data_sel_indices = {data_sel_indices}")
+
+    if not isinstance(matv, np.ndarray) or matv.ndim != 2:
+        raise TypeError(f"Parameter 'matv' must be 2D ndarray: "
+                        f"type(matv) = {type(matv)}, matv = {matv}")
+
+    ne_spec, _ = matv.shape
+    nsel = data_sel_indices[1] - data_sel_indices[0]
+    if ne_spec != nsel:
+        raise ValueError(f"The number of selected points ({nsel}) is not equal "
+                         f"to the number of points in reference spectrum ({ne_spec})")
+
+    if not isinstance(snip_param, dict):
+        raise TypeError(f"Parameter 'snip_param' must be a dictionary: "
+                        f"type(snip_param) = {type(snip_param)}")
+
+    required_keys = ("e_offset", "e_linear", "e_quadratic", "b_width")
+    if use_snip and not all([_ in snip_param.keys()
+                            for _ in required_keys]):
+        raise TypeError(f"Parameter 'snip_param' must a dictionary with keys {required_keys}: "
+                        f"snip_param.keys() = {snip_param.keys()}")
+
+    # Convert data to Dask array
     data, file_obj = _prepare_xrf_map(data, chunk_pixels=chunk_pixels, n_chunks_min=n_chunks_min)
+
+    # Verify that selection makes sense (data is Dask array at this point)
+    _, _, ne = data.shape
+    if data_sel_indices[0] >= ne or data_sel_indices[1] > ne:
+        raise ValueError(f"Selection indices {data_sel_indices} are outside the allowed range 0 .. {ne}")
 
     if client is None:
         client = Client(processes=True, silence_logs=logging.ERROR)
