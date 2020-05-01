@@ -4,12 +4,16 @@ import dask.array as da
 import numpy.testing as npt
 import h5py
 import os
+import uuid
 from dask.distributed import Client
 
 from pyxrf.core.map_processing import (
     TerminalProgressBar, wait_and_display_progress,
     _compute_optimal_chunk_size, _chunk_numpy_array, _array_numpy_to_dask,
-    RawHDF5Dataset, _prepare_xrf_map, _prepare_xrf_mask, compute_total_spectrum)
+    RawHDF5Dataset, _prepare_xrf_map, _prepare_xrf_mask, compute_total_spectrum,
+    _fit_xrf_block, fit_xrf_map)
+
+from pyxrf.core.tests.test_fitting import DataForFittingTest
 
 import logging
 logger = logging.getLogger()
@@ -252,7 +256,7 @@ def _create_xrf_data(data_dask, data_representation, tmpdir):
         data = data_dask
     elif data_representation == "hdf5_file_dset":
         os.chdir(tmpdir)
-        fln = "test_hdf5_file.h5"
+        fln = f"test-{uuid.uuid4()}.h5"  # Include UUID in the file name
         dset_name = "level1/level2"
         with h5py.File(fln, "w") as f:
             # In this test all computations are performed using 'float64' precision,
@@ -440,3 +444,197 @@ def test_compute_total_spectrum_fail(mask):
     data_dask = da.random.random((7, 12, 20), chunks=(2, 3, 4))
     with pytest.raises(TypeError, match="Parameter 'mask' must be a numpy array or None"):
         compute_total_spectrum(data_dask, mask=mask, chunk_pixels=12)
+
+
+class _FitXRFMapTesting:
+    """
+    The class implements methods for testing of XRF fitting algorithm.
+    Used for testing `_fit_xrf_block` and `fit_xrf_map` functions.
+    See the respective tests for examples
+    """
+    def __init__(self, *, dataset_params, use_snip, add_pts_before, add_pts_after):
+        self.use_snip = use_snip
+        self.add_pts_before = add_pts_before
+        self.add_pts_after = add_pts_after
+
+        self.fitting_data = DataForFittingTest(**dataset_params)
+
+        # 'spectra' has dimensions (n_spec_points, n_lines), which is correct
+        self.spectra = self.fitting_data.spectra
+        self.n_spectrum_points, self.n_lines = self.spectra.shape
+
+        # 'data_tmp' has dimensions (n_spec_points, ny, nx), so it needs to be rearranged
+        self.data_tmp = self.fitting_data.data_input
+
+        # Add some small background if snip is used
+        if self.use_snip:
+            self.data_tmp += 1.0
+
+        # We want to also add points at the beginning and the end of the spectra
+        # The original data is filled with random values. Those values should be either
+        #   overwritten by actual spectral data or ignored during fitting.
+        self.data_input = np.random.random(
+            size=(self.data_tmp.shape[1], self.data_tmp.shape[2],
+                  self.data_tmp.shape[0] + self.add_pts_before + self.add_pts_after))
+
+        # Range of indices of the experimental spectrum that should be used for fitting
+        #   (it contains the spectrum data). The rest of the points should be ignored
+        ne_start = self.add_pts_before
+        ne_stop = self.add_pts_before + self.data_tmp.shape[0]
+        self.data_sel_indices = (ne_start, ne_stop)
+
+        for ny in range(self.data_tmp.shape[1]):
+            for nx in range(self.data_tmp.shape[2]):
+                ne_start = self.add_pts_before
+                ne_stop = self.add_pts_before + self.data_tmp.shape[0]
+                self.data_input[ny, nx, ne_start: ne_stop] = self.data_tmp[:, ny, nx]
+
+        # The snip parameters are set so that the snip width is about 10 points
+        self.snip_param = {"e_offset": 0.0, "e_linear": 0.1,
+                           "e_quadratic": 0.0, "b_width": 1}
+
+    def verify_output(self, *, data_out):
+
+        assert data_out.shape == (self.data_tmp.shape[1],
+                                  self.data_tmp.shape[2],
+                                  self.n_lines + 4), \
+            f"The shape of 'data_out' is incorrect: data_out.shape={data_out.shape}"
+
+        # Check weights (the axes has to be rearranged to the same order as in 'data_tmp'
+        weights_estimated = np.moveaxis(data_out[:, :, 0: self.n_lines], 2, 0)
+
+        # If background subtraction is used, then it's not so easy to test the fitting
+        if not self.use_snip:
+            self.fitting_data.validate_output_weights(weights_estimated, decimal=10)
+
+        # Let's trust, that R-factor is correctly inserted into
+        #   the 'data_out' array. Computation of R-factor is tested elsewhere,
+
+        bg_sum = data_out[:, :, self.n_lines] / self.n_spectrum_points
+        if self.use_snip:
+            assert ((bg_sum - 1.0) < 0.3).all(), \
+                f"Baseline is estimated incorrectly (snip method): \n"\
+                f"bg_sum = {bg_sum}\nmin(bg_sum) = {np.min(bg_sum)}\nmax(bg_sum) = {np.max(bg_sum)}"
+        else:
+            assert (bg_sum == 0.0).all(), \
+                f"Baseline estimate is non-zero when snip method is disabled: \n"\
+                f"bg_sum = {bg_sum}\nmin(bg_sum) = {np.min(bg_sum)}\nmax(bg_sum) = {np.max(bg_sum)}"
+
+        # Verify if the total count for the whole spectra and the selected region
+        #   was computed correctly
+        sm_total = np.sum(self.data_input, axis=2)
+        sm_sel = np.sum(self.data_tmp, axis=0)  # Sum over the original dataset
+        npt.assert_array_almost_equal(
+            data_out[:, :, self.n_lines + 2], sm_sel,
+            err_msg="Total count for the selected region is computed incorrectly")
+        npt.assert_array_almost_equal(
+            data_out[:, :, self.n_lines + 3], sm_total,
+            err_msg="Total count is computed incorrectly")
+
+
+@pytest.mark.parametrize("dataset_params", [
+    {"n_data_dimensions": (8, 1)},
+    {"n_data_dimensions": (1, 8)},
+    {"n_data_dimensions": (4, 4)},
+    {"n_data_dimensions": (3, 5)},
+])
+@pytest.mark.parametrize("add_pts_before, add_pts_after", [(0, 0), (50, 100)])
+@pytest.mark.parametrize("use_snip", [False, True])
+def test_fit_xrf_block(dataset_params, add_pts_before, add_pts_after, use_snip):
+
+    ft = _FitXRFMapTesting(dataset_params=dataset_params,
+                           use_snip=use_snip,
+                           add_pts_before=add_pts_before,
+                           add_pts_after=add_pts_after)
+
+    data_out = _fit_xrf_block(ft.data_input, data_sel_indices=ft.data_sel_indices,
+                              matv=ft.spectra, snip_param=ft.snip_param, use_snip=use_snip)
+
+    ft.verify_output(data_out=data_out)
+
+
+# Used in 'test_fit_xrf_map' tests
+
+
+@pytest.mark.parametrize("data_representation", ["numpy_array", "dask_array", "hdf5_file_dset"])
+@pytest.mark.parametrize("dataset_params", [
+    {"n_data_dimensions": (10, 10)},
+    {"n_data_dimensions": (9, 11)},
+    {"n_data_dimensions": (1, 100)},
+    {"n_data_dimensions": (100, 1)},
+])
+def test_fit_xrf_map1(data_representation, dataset_params, tmpdir):
+    """
+    Basic functionality of `fit_xrf_map`.
+    Tests are run using global Dask clients to inprove testing speed.
+    """
+
+    def _run_test(data_representation, dataset_params, add_pts_before,
+                  add_pts_after, use_snip, tmpdir, client):
+
+        ft = _FitXRFMapTesting(dataset_params=dataset_params,
+                               use_snip=use_snip,
+                               add_pts_before=add_pts_before,
+                               add_pts_after=add_pts_after)
+
+        # Unfortunately 'data_input' is ndarray, but we need dask array to work with
+        #   Select very small chunk size. This is not efficient, but works fine for testing.
+        data_dask = _array_numpy_to_dask(ft.data_input, chunk_pixels=4, n_chunks_min=1)
+        # Now create the dataset we need
+        data = _create_xrf_data(data_dask, data_representation, tmpdir)
+
+        # Run fitting
+        data_out = fit_xrf_map(data,
+                               data_sel_indices=ft.data_sel_indices,
+                               matv=ft.spectra,
+                               snip_param=ft.snip_param,
+                               use_snip=use_snip,
+                               chunk_pixels=10, n_chunks_min=4,
+                               progress_bar=None, client=client)
+
+        ft.verify_output(data_out=data_out)
+
+    # Dask client object is used for multiple tests to save execution time
+    global_client = Client(processes=True, silence_logs=logging.ERROR)
+
+    for add_pts_before, add_pts_after in [(0, 0), (50, 100)]:
+        for use_snip in [False, True]:
+            _run_test(data_representation=data_representation,
+                      dataset_params=dataset_params,
+                      add_pts_before=add_pts_before,
+                      add_pts_after=add_pts_after,
+                      use_snip=use_snip,
+                      tmpdir=tmpdir,
+                      client=global_client)
+
+    global_client.close()
+
+
+def test_fit_xrf_map2():
+    """
+    Basic functionality of `fit_xrf_map`.
+    Tests are run using global Dask clients to inprove testing speed.
+    """
+
+    dataset_params = {"n_data_dimensions": (50, 50)}
+    add_pts_before, add_pts_after = 15, 10
+    use_snip = False
+
+    ft = _FitXRFMapTesting(dataset_params=dataset_params,
+                           use_snip=use_snip,
+                           add_pts_before=add_pts_before,
+                           add_pts_after=add_pts_after)
+
+    # Just run the test with input data represented as numpy array
+    data = ft.data_input
+
+    # Run fitting
+    data_out = fit_xrf_map(data,
+                           data_sel_indices=ft.data_sel_indices,
+                           matv=ft.spectra,
+                           snip_param=ft.snip_param,
+                           use_snip=use_snip,
+                           chunk_pixels=10, n_chunks_min=4,
+                           progress_bar=None, client=None)
+
+    ft.verify_output(data_out=data_out)
