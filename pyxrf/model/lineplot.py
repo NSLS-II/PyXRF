@@ -81,6 +81,8 @@ class LinePlotModel(Atom):
     data = Typed(object)  # Typed(np.ndarray)
     exp_data_label = Str('experiment')
 
+    number_pts_to_show = Int(3000)  # The number of spectrum point to show
+
     _fig = Typed(Figure)
     _ax = Typed(Axes)
     _canvas = Typed(object)
@@ -397,13 +399,14 @@ class LinePlotModel(Atom):
         except AttributeError:
             logger.debug('No need to remove experimental data.')
 
+        data_arr = self.data[0: self.number_pts_to_show]
         x_v = (self.parameters['e_offset']['value'] +
-               np.arange(len(self.data)) *
+               np.arange(len(data_arr)) *
                self.parameters['e_linear']['value'] +
-               np.arange(len(self.data))**2 *
+               np.arange(len(data_arr))**2 *
                self.parameters['e_quadratic']['value'])
 
-        self.plot_exp_obj, = self._ax.plot(x_v, self.data,
+        self.plot_exp_obj, = self._ax.plot(x_v, data_arr,
                                            linestyle=self.plot_style['experiment']['linestyle'],
                                            color=self.plot_style['experiment']['color'],
                                            marker=self.plot_style['experiment']['marker'],
@@ -595,6 +598,8 @@ class LinePlotModel(Atom):
             if v.plot_index:
 
                 data_arr = np.asarray(v.data)
+                # Truncate the array (1D spectrum)
+                data_arr = data_arr[0: self.number_pts_to_show]
                 self.max_v = np.max([self.max_v,
                                      np.max(data_arr[self.limit_cut:-self.limit_cut])])
 
