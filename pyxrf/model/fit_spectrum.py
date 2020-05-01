@@ -2167,6 +2167,47 @@ def single_pixel_fitting_controller(input_data, parameter,
     return result_map, calculation_info
 
 
+def get_energy_bin_range(num_energy_bins, low_e, high_e,
+                         e_offset, e_linear):
+    """
+    Find the bin numbers in the range `0 .. num_energy_bins-1` that correspond
+    to the selected energy range `low_e` .. `high_e`.
+
+    The range `(n_low:n_high)` includes the bin with energies `low_e` .. `high_e`
+    (note that `n_high` is not part of the range).
+
+    Parameters
+    ----------
+    num_energy_bins : int
+        number of energy bins
+    low_e : float
+        low energy bound, in keV
+    high_e : float
+        high energy bound, in keV
+    e_offset : float
+        offset term in energy calibration (energy for bin #0), keV
+    e_linear : float
+        linear term in energy calibration
+
+    Returns
+    -------
+    n_low: int
+        the number of the bin that corresponds to `low_e`
+    n_high: int
+        the number of the bin above the one that corresponds to `high_e`
+    """
+
+    v_low = (low_e - e_offset) / e_linear
+    v_high = (high_e - e_offset) / e_linear + 1
+
+    def _get_index(v):
+        return int(np.clip(v, a_min=0, a_max=num_energy_bins))
+
+    n_low, n_high = _get_index(v_low), _get_index(v_high)
+
+    return n_low, n_high
+
+
 def get_cutted_spectrum_in3D(exp_data, low_e, high_e,
                              e_offset, e_linear):
     """
