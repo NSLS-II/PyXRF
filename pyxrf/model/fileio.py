@@ -22,7 +22,7 @@ from .load_data_from_db import (db, fetch_data_from_db, flip_data,
                                 helper_encode_list, helper_decode_list,
                                 write_db_to_hdf)
 from ..core.utils import normalize_data_by_scaler, grid_interpolate
-from ..core.map_processing import RawHDF5Dataset, compute_total_spectrum
+from ..core.map_processing import RawHDF5Dataset, compute_total_spectrum, TerminalProgressBar
 from .scan_metadata import ScanMetadataXRF
 import requests
 from distutils.version import LooseVersion
@@ -415,6 +415,25 @@ plot_as = ['Sum', 'Point', 'Roi']
 
 class DataSelection(Atom):
     """
+    The class used for management of raw data. Function
+    `get_sum` is used to compute the total spectrum (sum of spectra for all pixels).
+    Selection of pixels may be set by selecting an area (limited by `point1` and
+    `point2` or the mask `mask`. Selection of area also applied to the mask if
+    both are set.
+
+    There are some unresolved questions about logic:
+    - what is exactly the role of `self.data`? It is definitely used when
+    the data is plotted, but is it ever bypassed by directly calling `get_sum`?
+    If the data is always accessed using `self.data`, then storing the averaged
+    spectrum in cache is redundant, but since the array is small, it's not
+    much overhead to keep another copy just in case.
+    - there is no obvious way to set `point1` and `point2`
+    (it seems like point selection doesn't work in PyXRF). May be at some point
+    this needs to be fixed.
+    Anyway, the logic is not defined to the level when it makes sense to
+    write tests for this class. There are tests for underlying computational
+    functions though.
+
     Attributes
     ----------
     filename : str
@@ -462,22 +481,40 @@ class DataSelection(Atom):
         pos1 = self.point1 if len(self.point1) else None
         pos2 = self.point2 if len(self.point2) else None
 
-        cache_valid = False
-        if self._cached_spectrum:
+        def _compare_cached_settings(cache, pos1, pos2, mask):
+            if not cache:
+                return False
+
             # Verify that all necessary keys are in the dictionary
-            if all([_ in self._cached_spectrum.keys()
-                    for _ in ("pos1", "pos2", "mask", "spec")]):
-                # Mask may be None or iterable (ndarray)
-                if (self._cached_spectrum["pos1"] == pos1) and \
-                    (self._cached_spectrum["pos2"] == pos2) and \
-                    ((self._cached_spectrum["mask"] is None and mask is None) or
-                     (self._cached_spectrum["mask"] == mask).all()):
-                    cache_valid = True
+            if not all([_ in cache.keys()
+                        for _ in ("pos1", "pos2", "mask", "spec")]):
+                return False
+
+            if (cache["pos1"] != pos1) or (cache["pos2"] != pos2):
+                return False
+
+            mask_none = [_ is None for _ in (mask, cache["mask"])]
+            if all(mask_none):
+                return True
+            elif any(mask_none):
+                return False
+
+            if not (cache["mask"] == mask).all():
+                return False
+
+            return True
+
+        cache_valid = _compare_cached_settings(self._cached_spectrum,
+                                               pos1=pos1, pos2=pos2,
+                                               mask=mask)
 
         if cache_valid:
             # We create copy to make sure that cache remains intact
+            logger.info(f"Using cached copy of the averaged spectrum ...")
             spec = self._cached_spectrum["spec"].copy()
         else:
+            logger.info(f"Computing the total spectrum from raw data ...")
+
             SC = SpectrumCalculator(self.raw_data, pos1=pos1, pos2=pos2)
             spec = SC.get_spectrum(mask=mask)
 
@@ -527,27 +564,11 @@ class SpectrumCalculator(object):
                 # Only a single point is selected
                 selection = (self.pos1[0], self.pos1[1], 1, 1)
 
+        progress_bar = TerminalProgressBar("Computing total spectrum: ")
         spectrum_sum = compute_total_spectrum(
             self.data, selection=selection, mask=mask,
             chunk_pixels=5000, n_chunks_min=4,
-            progress_bar=None, client=None)
-
-        # The following code is prepared for removal
-        # if mask is None:
-        #     if not self.pos1 and not self.pos2:
-        #         return np.sum(self.data, axis=(0, 1))
-        #     elif self.pos1 and not self.pos2:
-        #         return self.data[self.pos1[0], self.pos1[1], :]
-        #     else:
-        #         return np.sum(self.data[self.pos1[0]:self.pos2[0],
-        #                                 self.pos1[1]:self.pos2[1], :],
-        #                       axis=(0, 1))
-        # else:
-        #     spectrum_sum = np.zeros(self.data.shape[2])
-        #     for i in range(self.data.shape[0]):
-        #         for j in range(self.data.shape[1]):
-        #             if mask[i, j] > 0:
-        #                 spectrum_sum += self.data[i, j, :]
+            progress_bar=progress_bar, client=None)
 
         return spectrum_sum
 
@@ -920,9 +941,11 @@ def read_hdf_APS(working_directory,
                 # data from channel summed
                 # exp_data = np.array(data['detsum/counts'][:, :, 0:spectrum_cut],
                 #                   dtype=np.float32)
+                exp_data = np.array(data['detsum/counts'], dtype=np.float32)
+
                 data_shape = data['detsum/counts'].shape
-                exp_data = RawHDF5Dataset(file_path, 'xrfmap/detsum/counts',
-                                          shape=data_shape)
+                # exp_data = RawHDF5Dataset(file_path, 'xrfmap/detsum/counts',
+                #                          shape=data_shape)
                 logger.warning(f"We use spectrum range from 0 to {spectrum_cut}")
                 logger.info(f"Exp. data from h5 has shape of: {data_shape}")
 
