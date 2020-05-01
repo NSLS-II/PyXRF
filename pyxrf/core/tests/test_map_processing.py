@@ -616,7 +616,7 @@ def test_fit_xrf_map2():
     Tests are run using global Dask clients to inprove testing speed.
     """
 
-    dataset_params = {"n_data_dimensions": (50, 50)}
+    dataset_params = {"n_data_dimensions": (20, 20)}
     add_pts_before, add_pts_after = 15, 10
     use_snip = False
 
@@ -638,3 +638,65 @@ def test_fit_xrf_map2():
                            progress_bar=None, client=None)
 
     ft.verify_output(data_out=data_out)
+
+
+@pytest.mark.parametrize("params, except_type, err_msg", [
+    ({"data_sel_indices": 50}, TypeError,
+     "Parameter 'data_sel_indices' must be tuple or list"),
+    ({"data_sel_indices": (3, 10, 5)}, TypeError,
+     "Parameter 'data_sel_indices' must contain two elements"),
+    ({"data_sel_indices": [3]}, TypeError,
+     "Parameter 'data_sel_indices' must contain two elements"),
+    ({"data_sel_indices": (-1, 10)}, ValueError,
+     "Some of the indices in 'data_sel_indices' are negative"),
+    ({"data_sel_indices": [0, -10]}, ValueError,
+     "Some of the indices in 'data_sel_indices' are negative"),
+    ({"data_sel_indices": [3, 3]}, ValueError,
+     "Parameter 'data_sel_indices' must select at least 1 element"),
+    ({"data_sel_indices": [3, 2]}, ValueError,
+     "Parameter 'data_sel_indices' must select at least 1 element"),
+    ({"matv": np.zeros(shape=(2, 3, 5))}, TypeError,
+     "Parameter 'matv' must be 2D ndarray"),
+    ({"matv": np.zeros(shape=(50, 3)), "data_sel_indices": (5, 5 + 51)}, ValueError,
+     "The number of selected points .* is not equal"),
+    ({"snip_param": [1, 2, 3]}, TypeError,
+     "Parameter 'snip_param' must be a dictionary"),
+    ({"snip_param": {}, "use_snip": True}, TypeError,
+     "Parameter 'snip_param' must a dictionary with keys"),
+    ({"snip_param": {"e_offset": 0, "e_linear": 0.1, "e_quadratic": 0},
+      "use_snip": True}, TypeError,
+     "Parameter 'snip_param' must a dictionary with keys"),
+    ({"data": np.zeros(shape=(10, 15, 100)), "matv": np.zeros(shape=(50, 3)),
+      "data_sel_indices": (70, 70 + 50)}, ValueError,
+     "Selection indices .* are outside the allowed range"),
+
+])
+def test_fit_xrf_map_fail(params, except_type, err_msg):
+    """Failing cases of `fit_xrf_map` (wrong input parameters)"""
+
+    # Create a dataset first
+    dataset_params = {"n_data_dimensions": (20, 20)}
+    add_pts_before, add_pts_after = 15, 10
+    use_snip = False
+
+    ft = _FitXRFMapTesting(dataset_params=dataset_params,
+                           use_snip=use_snip,
+                           add_pts_before=add_pts_before,
+                           add_pts_after=add_pts_after)
+
+    kwargs = {
+        "data": ft.data_input,
+        "data_sel_indices": ft.data_sel_indices,
+        "matv": ft.spectra,
+        "snip_param": ft.snip_param,
+        "use_snip": use_snip,
+        "chunk_pixels": 10,
+        "n_chunks_min": 4,
+        "progress_bar": None,
+        "client": None
+    }
+    kwargs.update(params)
+
+    # Run fitting
+    with pytest.raises(except_type, match=err_msg):
+        fit_xrf_map(**kwargs)
