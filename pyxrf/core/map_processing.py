@@ -453,7 +453,8 @@ def compute_total_spectrum(data, *, selection=None, mask=None,
             mask = np.broadcast_to(np.expand_dims(mask, axis=2), data.shape)
             sm = np.sum(np.sum(data * mask, axis=0), axis=0)
             return np.array([[sm]])
-        result_fut = da.blockwise(_masked_sum, 'ijk', data, "ijk", mask, "ij", dtype="float")
+        result_fut = da.blockwise(_masked_sum, 'ijk', data, "ijk",
+                                  mask, "ij", dtype="float").persist(scheduler=client)
 
     # Call the progress monitor
     wait_and_display_progress(result_fut, progress_bar)
@@ -512,7 +513,7 @@ def _fit_xrf_block(data, data_sel_indices,
             # Full spectrum (all points)
             spec = data[ny, nx, :]
             spec_sel = spec[data_sel_indices[0]: data_sel_indices[1]]
-
+            #use_snip = False
             if use_snip:
 
                 bg = snip_method(spec_sel,
@@ -522,7 +523,7 @@ def _fit_xrf_block(data, data_sel_indices,
                                  width=snip_param['b_width'])
                 y = spec_sel - bg
                 # Force spectrum to be always positive for better performance of nnls
-                y = np.clip(y, a_min=0, a_max=None)
+                #y = np.clip(y, a_min=0, a_max=None)
 
                 bg_sum = np.sum(bg)
 
@@ -642,7 +643,7 @@ def fit_xrf_map(data, data_sel_indices, matv, snip_param=None, use_snip=True,
         raise ValueError(f"Selection indices {data_sel_indices} are outside the allowed range 0 .. {ne}")
 
     if client is None:
-        client = Client(processes=True, silence_logs=logging.ERROR)
+        client = Client(processes=True, silence_logs=logging.ERROR) ##
         client_is_local = True
     else:
         client_is_local = False
@@ -650,14 +651,15 @@ def fit_xrf_map(data, data_sel_indices, matv, snip_param=None, use_snip=True,
     n_workers = len(client.scheduler_info()["workers"])
     logger.info(f"Dask distributed client: {n_workers} workers")
 
+    matv_fut = client.scatter(matv)
     result_fut = da.map_blocks(_fit_xrf_block, data,
                                # Parameters of the '_fit_xrf_block' function
                                data_sel_indices=data_sel_indices,
-                               matv=matv,
+                               matv=matv_fut,
                                snip_param=snip_param,
                                use_snip=use_snip,
                                # Output data type
-                               dtype="float")
+                               dtype="float").persist(scheduler=client)
 
     # Call the progress monitor
     wait_and_display_progress(result_fut, progress_bar)
