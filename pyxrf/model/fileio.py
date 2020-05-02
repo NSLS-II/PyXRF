@@ -941,11 +941,11 @@ def read_hdf_APS(working_directory,
                 # data from channel summed
                 # exp_data = np.array(data['detsum/counts'][:, :, 0:spectrum_cut],
                 #                   dtype=np.float32)
-                exp_data = np.array(data['detsum/counts'], dtype=np.float32)
+                # exp_data = np.array(data['detsum/counts'], dtype=np.float32)
 
                 data_shape = data['detsum/counts'].shape
-                # exp_data = RawHDF5Dataset(file_path, 'xrfmap/detsum/counts',
-                #                          shape=data_shape)
+                exp_data = RawHDF5Dataset(file_path, 'xrfmap/detsum/counts',
+                                          shape=data_shape)
                 logger.warning(f"We use spectrum range from 0 to {spectrum_cut}")
                 logger.info(f"Exp. data from h5 has shape of: {data_shape}")
 
