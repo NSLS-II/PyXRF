@@ -39,7 +39,7 @@ from ..core.utils import (gaussian_sigma_to_fwhm, gaussian_fwhm_to_sigma,
                           gaussian_max_to_area, gaussian_area_to_max)
 
 from ..core.quant_analysis import ParamQuantEstimation
-
+from ..core.map_processing import fit_xrf_map, TerminalProgressBar
 import logging
 logger = logging.getLogger()
 
@@ -1594,7 +1594,9 @@ def cal_r2(y, y_cal):
     return 1-sse/sst
 
 
-def calculate_area(e_select, matv, results,
+# TODO: remove the following function once the new processing function is proved working
+'''
+def calculate_area_(e_select, matv, results,
                    param, first_peak_area=False):
     """
     Parameters
@@ -1633,6 +1635,63 @@ def calculate_area(e_select, matv, results,
     # add background and res
     result_map.update({total_list[-2]: results[:, :, -2]})
     result_map.update({total_list[-1]: results[:, :, -1]})
+
+    return result_map
+'''
+
+def calculate_area(e_select, matv, results,
+                   param, first_peak_area=False):
+    """
+    Parameters
+    ----------
+    e_select : list
+        elements
+    matv : 2D array
+        matrix constains elemental profile as columns
+    results : 3D array
+        x, y positions, and each element's weight on third dim
+    param : dict
+        parameters of fitting
+    first_peak_area : Bool, optional
+        get overall peak area or only the first peak area, such as Ar_Ka1
+
+    Returns
+    -------
+    dict :
+        dict of each 2D elemental distribution
+    """
+    total_list = e_select + ['snip_bkg', 'r_factor', 'sel_cnt', 'total_cnt']
+    mat_sum = np.sum(matv, axis=0)
+
+    if len(total_list) != results.shape[2]:
+        logger.error(f"The number of features in the list ({len(total_list)} "
+                     f"is not equal to the number of features in the 'results' array "
+                     f"({results.shape[2]}). This issue needs to be investigated,"
+                     f"since some of the generated XRF maps may be invalid.")
+
+    result_map = dict()
+    for i, eline in enumerate(total_list):
+        if i < len(e_select):
+            # We are processing the component due to emission line (and may be
+            #   additional constant spectrum representing background)
+            if first_peak_area is not True:
+                result_map.update({total_list[i]: results[:, :, i]*mat_sum[i]})
+            else:
+                if total_list[i] not in K_LINE+L_LINE+M_LINE:
+                    ratio_v = 1
+                else:
+                    ratio_v = get_branching_ratio(total_list[i],
+                                                  param['coherent_sct_energy']['value'])
+                result_map.update({total_list[i]: results[:, :, i]*mat_sum[i]*ratio_v})
+        else:
+            # We are just copying additional computed data
+            result_map.update({eline: results[:, :, i]})
+
+    # add background and res
+    #result_map.update({total_list[-4]: results[:, :, -4]})
+    #result_map.update({total_list[-3]: results[:, :, -3]})
+    #result_map.update({total_list[-2]: results[:, :, -2]})
+    #result_map.update({total_list[-1]: results[:, :, -1]})
 
     return result_map
 
@@ -2024,7 +2083,10 @@ def get_area_and_error_nonlinear_fit(elist, fit_results, reg_mat):
     return area_dict, error_dict, weights_mat
 
 
-def single_pixel_fitting_controller(input_data, parameter,
+# TODO: remove the following code when it is shown that the new code is
+#   working correctly
+'''
+def single_pixel_fitting_controller_(input_data, parameter,
                                     incident_energy=None, method='nnls',
                                     pixel_bin=0, raise_bg=0,
                                     comp_elastic_combine=False,
@@ -2165,6 +2227,192 @@ def single_pixel_fitting_controller(input_data, parameter,
     calculation_info['exp_data'] = exp_data
 
     return result_map, calculation_info
+'''
+
+
+def single_pixel_fitting_controller(input_data, parameter,
+                                    incident_energy=None, method='nnls',
+                                    pixel_bin=0, raise_bg=0,
+                                    comp_elastic_combine=False,
+                                    linear_bg=False,
+                                    use_snip=True,
+                                    bin_energy=1):
+    """
+    Parameters
+    ----------
+    input_data : array
+        3D array of spectrum
+    parameter : dict
+        parameter for fitting
+    incident_energy : float, optional
+        incident beam energy in KeV
+    method : str, optional
+        fitting method, default as nnls
+    pixel_bin : int, optional
+        bin pixel as 2by2, or 3by3
+    raise_bg : int, optional
+        add a constant value to each spectrum, better for fitting
+    comp_elastic_combine : bool, optional
+        combine elastic and compton as one component for fitting
+    linear_bg : bool, optional
+        use linear background instead of snip
+    use_snip : bool, optional
+        use snip method to remove background
+    bin_energy : int, optional
+        bin spectrum with given value
+
+    Returns
+    -------
+    result_map : dict
+        of elemental map for given elements
+    calculation_info : dict
+        dict of fitting information
+    """
+    param = copy.deepcopy(parameter)
+    if incident_energy is not None:
+        param['coherent_sct_energy']['value'] = incident_energy
+    # cut data into proper range
+    #x, exp_data, fit_range = get_cutted_spectrum_in3D(input_data,
+    #                                                  param['non_fitting_values']['energy_bound_low']['value'],
+    #                                                  param['non_fitting_values']['energy_bound_high']['value'],
+    #                                                  param['e_offset']['value'],
+    #                                                  param['e_linear']['value'])
+
+    n_bin_low, n_bin_high = get_energy_bin_range(
+        num_energy_bins=input_data.shape[2],
+        low_e=param['non_fitting_values']['energy_bound_low']['value'],
+        high_e=param['non_fitting_values']['energy_bound_high']['value'],
+        e_offset=param['e_offset']['value'],
+        e_linear=param['e_linear']['value'])
+
+    n_bin = np.arange(n_bin_low, n_bin_high)
+
+    # calculate matrix for regression analysis
+    elist = param['non_fitting_values']['element_list'].split(', ')
+    elist = [e.strip(' ') for e in elist]
+    e_select, matv, e_area = construct_linear_model(n_bin, param, elist)
+
+    # The initial list of elines may contain lines that are not activated for the incident beam
+    #   energy. This always happens for at least one line when batches of XRF scans obtained for
+    #   the range of beam energies are fitted for the same selection of emission lines to generate
+    #   XANES amps. In such experiments, the line of interest is typically not activated at the
+    #   lower energies of the band. It is impossible to include non-activated lines in the linear
+    #   model. In order to make processing results consistent throughout the batch (contain the
+    #   same set of emission lines), the non-activated lines are represented by maps filled with zeros.
+    elist_non_activated = list(set(elist) - set(e_select))
+    if elist_non_activated:
+        logger.warning("Some of the emission lines in the list are not activated: "
+                       f"{elist_non_activated} at {param['coherent_sct_energy']['value']} keV.")
+
+    if comp_elastic_combine is True:
+        e_select = e_select[:-1]
+        e_select[-1] = 'comp_elastic'
+
+        matv_old = np.array(matv)
+        matv = matv_old[:, :-1]
+        matv[:, -1] += matv_old[:, -1]
+
+    if linear_bg is True:
+        e_select.append('const_bkg')
+
+        matv_old = np.array(matv)
+        matv = np.ones([matv_old.shape[0], matv_old.shape[1] + 1])
+        matv[:, :-1] = matv_old
+
+    logger.info('Matrix used for linear fitting has components: {}'.format(e_select))
+
+    def _log_unsupported_option(option):
+        logger.warning(f"Option '{option}' is enabled. This option is not supported "
+                       f"and will be ignored. Disable the option to eliminate this warning.")
+
+    if raise_bg > 0:
+        _log_unsupported_option(f"raise_bg == {raise_bg}")
+
+    # add const background, so nnls works better for values above zero
+    # if raise_bg > 0:
+    #     exp_data += raise_bg
+
+    if pixel_bin > 1:
+        _log_unsupported_option(f"pixel_bin == {pixel_bin}")
+
+    # bin data based on nearest pixels, only two options
+    # if pixel_bin in [4, 9]:
+    #     logger.info('Bin pixel data with parameter: {}'.format(pixel_bin))
+    #     exp_data = bin_data_spacial(exp_data, bin_size=int(np.sqrt(pixel_bin)))
+    #     # exp_data = bin_data_pixel(exp_data, nearest_n=pixel_bin)  # return a copy of data
+
+    if bin_energy > 1:
+        _log_unsupported_option(f"pixel_bin == {pixel_bin}")
+    # bin data based on energy spectrum
+    # if bin_energy in [2, 3]:
+    #     exp_data = conv_expdata_energy(exp_data, width=bin_energy)
+
+    # make matrix smaller for single pixel fitting
+    matv /= input_data.shape[0] * input_data.shape[1]
+    # save matrix to analyze collinearity
+    # np.save('mat.npy', matv)
+    error_map = None
+
+    if method != 'nnls':
+        logger.warning(f"Fitting using '{method}' is not supported: 'nnls' method will be used instead.")
+
+    logger.info('Fitting method: non-negative least squares')
+
+    snip_param = {
+        "e_offset": param["e_offset"]["value"],
+        "e_linear": param["e_linear"]["value"],
+        "e_quadratic": param["e_quadratic"]["value"],
+        "b_width": param["non_fitting_values"]["background_width"]
+    }
+    results = fit_xrf_map(data=input_data,
+                          data_sel_indices=(n_bin_low, n_bin_high),
+                          matv=matv,
+                          snip_param=snip_param,
+                          use_snip=use_snip,
+                          chunk_pixels=5000,
+                          n_chunks_min=8,  #must be 4
+                          progress_bar=TerminalProgressBar("NNLS fitting"),
+                          client=None)
+
+    # output area of dict
+    result_map = calculate_area(e_select, matv, results,
+                                param, first_peak_area=False)
+
+    # Alternative fitting method (nonlinear fit). Very slow and nobody seems to be using it
+    # logger.info('Fitting method: nonlinear least squares')
+    # matrix_norm = exp_data.shape[0]*exp_data.shape[1]
+    # fit_results = fit_pixel_multiprocess_nonlinear(exp_data, x, param, matv/matrix_norm,
+    #                                               use_snip=use_snip)
+    # result_map, error_map, results = get_area_and_error_nonlinear_fit(e_select,
+    #                                                                  fit_results,
+    #                                                                  matv/matrix_norm)
+
+    # Generate 'zero' maps for the emission lines that were not activated
+    for eline in elist_non_activated:
+        result_map[eline] = np.zeros(shape=input_data.shape[0:2])
+
+    # Compute total count for each pixel
+    #total_count = np.sum(input_data, axis=2)
+    # Save the map as 'total_cnt'
+    #result_map['total_cnt'] = total_count
+
+
+    calculation_info = dict()
+    if error_map is not None:
+        calculation_info['error_map'] = error_map
+
+    calculation_info['fit_name'] = e_select
+    calculation_info['regression_mat'] = matv
+    calculation_info['results'] = results
+    calculation_info['fit_range'] = (n_bin_low, n_bin_high)
+    calculation_info['energy_axis'] = n_bin
+    # Used to be 'exp_data'(selected data), now it is the full dataset,
+    #   which can be ndarray, Dask array or RawHDF5Dataset. In order
+    #   to get the selected set, 'input_data' must be sliced along axis2
+    #   using 'fit_range' values.
+    calculation_info['exp_data'] = input_data
+
+    return result_map, calculation_info
 
 
 def get_energy_bin_range(num_energy_bins, low_e, high_e,
@@ -2208,6 +2456,8 @@ def get_energy_bin_range(num_energy_bins, low_e, high_e,
     return n_low, n_high
 
 
+# TODO: remove the following code when not needed
+'''
 def get_cutted_spectrum_in3D(exp_data, low_e, high_e,
                              e_offset, e_linear):
     """
@@ -2247,6 +2497,7 @@ def get_cutted_spectrum_in3D(exp_data, low_e, high_e,
 
     data = data[:, :, lowv: highv+1]
     return x, data, [lowv, highv]
+'''
 
 
 def get_branching_ratio(elemental_line, energy):
