@@ -24,7 +24,7 @@ from skbeam.core.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
                                            set_parameter_bound,
                                            # ParamController,
                                            K_LINE, L_LINE, M_LINE,
-                                           nnls_fit, trim, construct_linear_model,
+                                           nnls_fit, construct_linear_model,
                                            # linear_spectrum_fitting,
                                            register_strategy, TRANSITIONS_LOOKUP)
 from skbeam.core.fitting.background import snip_method
@@ -1639,6 +1639,7 @@ def calculate_area_(e_select, matv, results,
     return result_map
 '''
 
+
 def calculate_area(e_select, matv, results,
                    param, first_peak_area=False):
     """
@@ -1686,12 +1687,6 @@ def calculate_area(e_select, matv, results,
         else:
             # We are just copying additional computed data
             result_map.update({eline: results[:, :, i]})
-
-    # add background and res
-    #result_map.update({total_list[-4]: results[:, :, -4]})
-    #result_map.update({total_list[-3]: results[:, :, -3]})
-    #result_map.update({total_list[-2]: results[:, :, -2]})
-    #result_map.update({total_list[-1]: results[:, :, -1]})
 
     return result_map
 
@@ -2236,30 +2231,36 @@ def single_pixel_fitting_controller(input_data, parameter,
                                     comp_elastic_combine=False,
                                     linear_bg=False,
                                     use_snip=True,
-                                    bin_energy=1):
+                                    bin_energy=1,
+                                    dask_client=None):
     """
     Parameters
     ----------
-    input_data : array
+    input_data: array
         3D array of spectrum
-    parameter : dict
+    parameter: dict
         parameter for fitting
-    incident_energy : float, optional
+    incident_energy: float, optional
         incident beam energy in KeV
-    method : str, optional
+    method: str, optional
         fitting method, default as nnls
-    pixel_bin : int, optional
+    pixel_bin: int, optional
         bin pixel as 2by2, or 3by3
-    raise_bg : int, optional
+    raise_bg: int, optional
         add a constant value to each spectrum, better for fitting
-    comp_elastic_combine : bool, optional
+    comp_elastic_combine: bool, optional
         combine elastic and compton as one component for fitting
-    linear_bg : bool, optional
+    linear_bg: bool, optional
         use linear background instead of snip
-    use_snip : bool, optional
+    use_snip: bool, optional
         use snip method to remove background
-    bin_energy : int, optional
+    bin_energy: int, optional
         bin spectrum with given value
+    dask_client: dask.distributed.Client
+        Dask client object. If None, then Dask client is created automatically.
+        If a batch of files is processed, then creating Dask client and
+        passing the reference to it to the processing functions will save
+        execution time: `client = Client(processes=True, silence_logs=logging.ERROR)`
 
     Returns
     -------
@@ -2271,12 +2272,6 @@ def single_pixel_fitting_controller(input_data, parameter,
     param = copy.deepcopy(parameter)
     if incident_energy is not None:
         param['coherent_sct_energy']['value'] = incident_energy
-    # cut data into proper range
-    #x, exp_data, fit_range = get_cutted_spectrum_in3D(input_data,
-    #                                                  param['non_fitting_values']['energy_bound_low']['value'],
-    #                                                  param['non_fitting_values']['energy_bound_high']['value'],
-    #                                                  param['e_offset']['value'],
-    #                                                  param['e_linear']['value'])
 
     n_bin_low, n_bin_high = get_energy_bin_range(
         num_energy_bins=input_data.shape[2],
@@ -2370,9 +2365,9 @@ def single_pixel_fitting_controller(input_data, parameter,
                           snip_param=snip_param,
                           use_snip=use_snip,
                           chunk_pixels=5000,
-                          n_chunks_min=8,  #must be 4
+                          n_chunks_min=4,
                           progress_bar=TerminalProgressBar("NNLS fitting"),
-                          client=None)
+                          client=dask_client)
 
     # output area of dict
     result_map = calculate_area(e_select, matv, results,
@@ -2390,12 +2385,6 @@ def single_pixel_fitting_controller(input_data, parameter,
     # Generate 'zero' maps for the emission lines that were not activated
     for eline in elist_non_activated:
         result_map[eline] = np.zeros(shape=input_data.shape[0:2])
-
-    # Compute total count for each pixel
-    #total_count = np.sum(input_data, axis=2)
-    # Save the map as 'total_cnt'
-    #result_map['total_cnt'] = total_count
-
 
     calculation_info = dict()
     if error_map is not None:
