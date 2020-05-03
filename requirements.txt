@@ -6,6 +6,7 @@ jsonschema
 h5py>=2.9.0
 lmfit
 matplotlib
+numba
 numpy>=1.15
 pandas
 pillow
