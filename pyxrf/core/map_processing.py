@@ -291,7 +291,7 @@ def _array_numpy_to_dask(data, chunk_pixels, n_chunks_min=4):
     return _chunk_numpy_array(data, (chunk_y, chunk_x))
 
 
-def _prepare_xrf_map(data, chunk_pixels=5000, n_chunks_min=4):
+def prepare_xrf_map(data, chunk_pixels=5000, n_chunks_min=4):
 
     """
     Convert XRF map from it's initial representation to properly chunked Dask array.
@@ -456,7 +456,7 @@ def compute_total_spectrum(data, *, selection=None, mask=None,
     if not isinstance(mask, np.ndarray) and (mask is not None):
         raise TypeError(f"Parameter 'mask' must be a numpy array or None: type(mask) = {type(mask)}")
 
-    data, file_obj = _prepare_xrf_map(data, chunk_pixels=chunk_pixels, n_chunks_min=n_chunks_min)
+    data, file_obj = prepare_xrf_map(data, chunk_pixels=chunk_pixels, n_chunks_min=n_chunks_min)
     mask = _prepare_xrf_mask(data, mask=mask, selection=selection)
 
     if client is None:
@@ -693,7 +693,7 @@ def fit_xrf_map(data, data_sel_indices, matv, snip_param=None, use_snip=True,
                         f"snip_param.keys() = {snip_param.keys()}")
 
     # Convert data to Dask array
-    data, file_obj = _prepare_xrf_map(data, chunk_pixels=chunk_pixels, n_chunks_min=n_chunks_min)
+    data, file_obj = prepare_xrf_map(data, chunk_pixels=chunk_pixels, n_chunks_min=n_chunks_min)
 
     # Verify that selection makes sense (data is Dask array at this point)
     _, _, ne = data.shape
