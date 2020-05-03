@@ -18,6 +18,8 @@ from .fileio import output_data, read_hdf_APS, read_MAPS, sep_v
 from .fit_spectrum import (single_pixel_fitting_controller,
                            save_fitdata_to_hdf)
 
+from ..core.map_processing import dask_client_create
+
 import logging
 logger = logging.getLogger()
 
@@ -40,7 +42,8 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
                             scaler_name=None,
                             use_average=False,
                             interpolate_to_uniform_grid=False,
-                            data_from='NSLS-II'):
+                            data_from='NSLS-II',
+                            dask_client=None):
     """
     Do fitting for signle data set, and save data accordingly. Fitting can be performed on
     either summed data or each channel data, or both.
@@ -106,6 +109,11 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
         The range of axes is chosen to fit the values of X and Y.
     data_from : str, optional
         where do data come from? Data format includes data from NSLS-II, or 2IDE-APS
+    dask_client: dask.distributed.Client
+        Dask client object. If None, then Dask client is created automatically.
+        If a batch of files is processed, then creating Dask client and
+        passing the reference to it to the processing functions will save
+        execution time: `client = Client(processes=True, silence_logs=logging.ERROR)`
     """
     fpath = os.path.join(working_directory, file_name)
 
@@ -178,7 +186,8 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
             comp_elastic_combine=comp_elastic_combine,
             linear_bg=linear_bg,
             use_snip=use_snip,
-            bin_energy=bin_energy)
+            bin_energy=bin_energy,
+            dask_client=dask_client)
 
         # output to .h5 file
         inner_path = 'xrfmap/detsum'
@@ -297,7 +306,8 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
                 comp_elastic_combine=comp_elastic_combine,
                 linear_bg=linear_bg,
                 use_snip=use_snip,
-                bin_energy=bin_energy)
+                bin_energy=bin_energy,
+                dask_client=dask_client)
 
             # output to .h5 file
             save_fitdata_to_hdf(fpath, result_map_det, datapath=inner_path)
@@ -360,10 +370,11 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
 def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None, wd=None,
                 fit_channel_sum=True, fit_channel_each=False, param_channel_list=None,
                 incident_energy=None, ignore_datafile_metadata=False,
-                fln_quant_calib_data=None, quant_distance_to_sample=0,
+                fln_quant_calib_data=None, quant_distance_to_sample=0, use_snip=True,
                 spectrum_cut=3000, save_txt=False, save_tiff=True,
                 scaler_name=None, use_average=False,
-                interpolate_to_uniform_grid=False):
+                interpolate_to_uniform_grid=False,
+                dask_client=None):
     """
     Perform fitting on a batch of data files. The results are saved as new datasets
     in the respective data files and may be viewed using PyXRF. Fitting can be performed on
@@ -412,6 +423,9 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
         distance-to-sample used in quantitative calibration. If 0, then correction for
         distance is not applied (assumed that the standard and the sample were placed
         at the same distance from the detector).
+    use_snip : bool, optional
+        use snip method to remove background (`True`). If `False`, then do fitting
+        without removing the background (runs faster)
     spectrum_cut : int, optional
         only use spectrum from, say 0, 3000
     save_txt : bool, optional
@@ -426,6 +440,11 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
         interpolate the result to uniform grid before saving to tiff and txt files
         The grid dimensions match the dimensions of positional data for X and Y axes.
         The range of axes is chosen to fit the values of X and Y.
+    dask_client: dask.distributed.Client
+        Dask client object. If None, then Dask client is created automatically.
+        If a batch of files is processed, then creating Dask client and
+        passing the reference to it to the processing functions will save
+        execution time: `client = Client(processes=True, silence_logs=logging.ERROR)`
 
     Returns
     -------
@@ -622,6 +641,20 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
         print(f"Processing parameter file: '{pname}'")
 
     if len(flist) > 0:
+        # If no external Dask client is provided and we are processing a batch
+        #   then create a local client that will be used to process the whole batch
+        if (len(flist) > 1) and (dask_client is None):
+            logger.info("Creating local Dask client for processing the batch of files ...")
+            dask_client = dask_client_create()
+            client_is_local = True
+        else:
+            client_is_local = False
+
+        def _dask_client_close(is_local):
+            # We don't want to close an externally provided client
+            if is_local:
+                logger.info("Closing the local Dask client ...")
+                dask_client.close()
 
         print(f"The following files are scheduled for processing:")
         for fln in flist:
@@ -640,17 +673,22 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
                                         ignore_datafile_metadata=ignore_datafile_metadata,
                                         fln_quant_calib_data=fln_quant_calib_data,
                                         quant_distance_to_sample=quant_distance_to_sample,
+                                        use_snip=use_snip,
                                         spectrum_cut=spectrum_cut,
                                         save_txt=save_txt, save_tiff=save_tiff,
                                         scaler_name=scaler_name, use_average=use_average,
-                                        interpolate_to_uniform_grid=interpolate_to_uniform_grid)
+                                        interpolate_to_uniform_grid=interpolate_to_uniform_grid,
+                                        dask_client=dask_client)
             except Exception as ex:
                 if allow_raising_exceptions:
+                    _dask_client_close(client_is_local)
                     raise Exception from ex
                 else:
                     print(f"ERROR: could not process the file '{fname}'. No results are saved.")
 
         print("\nAll selected files were processed.")
+
+        _dask_client_close(client_is_local)
 
     else:
 
