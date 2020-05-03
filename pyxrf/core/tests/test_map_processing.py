@@ -12,7 +12,7 @@ from skbeam.core.fitting.background import snip_method
 from pyxrf.core.map_processing import (
     dask_client_create, TerminalProgressBar, wait_and_display_progress,
     _compute_optimal_chunk_size, _chunk_numpy_array, _array_numpy_to_dask,
-    RawHDF5Dataset, _prepare_xrf_map, _prepare_xrf_mask, compute_total_spectrum,
+    RawHDF5Dataset, prepare_xrf_map, _prepare_xrf_mask, compute_total_spectrum,
     _fit_xrf_block, fit_xrf_map, snip_method_numba)
 
 from pyxrf.core.tests.test_fitting import DataForFittingTest
@@ -344,7 +344,7 @@ def test_prepare_xrf_data(tmpdir, data_representation):
     data_numpy = data_dask.compute()
 
     data = _create_xrf_data(data_dask, data_representation, tmpdir)
-    data, file_obj = _prepare_xrf_map(data, chunk_pixels=12, n_chunks_min=4)
+    data, file_obj = prepare_xrf_map(data, chunk_pixels=12, n_chunks_min=4)
 
     assert data.chunksize[0] * data.chunksize[1] == 12, f"Dataset was not properly chunked: "\
                                                         f"data.chunksize={data.chunksize}"
@@ -357,7 +357,7 @@ def test_prepare_xrf_data_fail():
     """Failing test for `_prepare_xrf_mask_fail`"""
     data = 50.0  # Just a number
     with pytest.raises(TypeError, match="Type of parameter 'data' is not supported"):
-        _prepare_xrf_map(data, chunk_pixels=12, n_chunks_min=4)
+        prepare_xrf_map(data, chunk_pixels=12, n_chunks_min=4)
 
 
 @pytest.mark.parametrize("apply_mask", [False, True])
