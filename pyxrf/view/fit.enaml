@@ -145,6 +145,12 @@ enamldef FitView(DockItem): fit_view:
                                         if btn_pressed and (btn_pressed.text.lower() == "yes"):
                                             overwrite_metadata_incident_energy = True
 
+                                else:
+
+                                    # If incident energy is not present in file metadata, then
+                                    #   just load the incident energy from the parameter file.
+                                    overwrite_metadata_incident_energy = True
+
                                 if overwrite_metadata_incident_energy:
                                     print(f"Using incident energy from the parameter file: {param_incident_energy} keV")
                                 else:
