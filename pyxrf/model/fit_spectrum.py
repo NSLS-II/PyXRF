@@ -17,6 +17,7 @@ import json
 import lmfit
 import platform
 from distutils.version import LooseVersion
+import dask.array as da
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
 from skbeam.core.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
@@ -39,7 +40,9 @@ from ..core.utils import (gaussian_sigma_to_fwhm, gaussian_fwhm_to_sigma,
                           gaussian_max_to_area, gaussian_area_to_max)
 
 from ..core.quant_analysis import ParamQuantEstimation
-from ..core.map_processing import fit_xrf_map, TerminalProgressBar
+from ..core.map_processing import (fit_xrf_map, TerminalProgressBar,
+                                   prepare_xrf_map, snip_method_numba)
+
 import logging
 logger = logging.getLogger()
 
@@ -987,7 +990,8 @@ class Fit1D(Atom):
             x = (self.param_dict['e_offset']['value'] +
                  self.param_dict['e_linear']['value']*x +
                  self.param_dict['e_quadratic']['value'] * x**2)
-            data_fit = calculation_info['exp_data']
+            data_fit = calculation_info['input_data']
+            data_sel_indices = calculation_info['data_sel_indices']
 
             p1 = [self.point1v, self.point1h]
             p2 = [self.point2v, self.point2h]
@@ -999,7 +1003,8 @@ class Fit1D(Atom):
                     os.mkdir(output_folder)
                 save_fitted_fig(x, matv, results[:, :, 0:len(elist)],
                                 p1, p2,
-                                data_fit, self.param_dict,
+                                data_fit, data_sel_indices,
+                                self.param_dict,
                                 output_folder, use_snip=use_snip)
 
             # the output movie are saved as the same name
@@ -1692,30 +1697,41 @@ def calculate_area(e_select, matv, results,
 
 
 def save_fitted_fig(x_v, matv, results,
-                    p1, p2, data_all, param_dict,
+                    p1, p2, data_all, data_sel_indices, param_dict,
                     result_folder, use_snip=False):
     """
-    Save single pixel fitting resutls to figs.
+    Save single pixel fitting results to figs.
+    `data_all` can be numpy array, Dask array or RawHDF5Dataset.
     """
+    logger.info(f"Saving plots of the fitted data to file. "
+                f"Selection: {tuple(p1)} .. {tuple(p2)}")
+
+    # Convert the 'data_all', which can be numpy array, Dask array or
+    #   RawHDF5Dataset into Dask array, so that it could be treated uniformly
+    data_all_dask, file_obj = prepare_xrf_map(data_all)
+    # Selection (indices of the processed interval) of `data_all` along axis 2
+    d_start, d_stop = data_sel_indices
+    # 'file_obj' must remain alive until the function exits
+
     low_limit_v = 0.5
 
     fig, ax = plt.subplots(nrows=1, ncols=1)
     ax.set_xlabel('Energy [keV]')
     ax.set_ylabel('Counts')
-    max_v = np.max(data_all[p1[0]:p2[0], p1[1]:p2[1], :])
+    max_v = da.max(data_all_dask[p1[0]:p2[0], p1[1]:p2[1], d_start:d_stop]).compute()
 
     fitted_sum = None
     for m in range(p1[0], p2[0]):
         for n in range(p1[1], p2[1]):
-            data_y = data_all[m, n, :]
+            data_y = data_all_dask[m, n, d_start:d_stop].compute()
 
             fitted_y = np.sum(matv*results[m, n, :], axis=1)
             if use_snip is True:
-                bg = snip_method(data_y,
-                                 param_dict['e_offset']['value'],
-                                 param_dict['e_linear']['value'],
-                                 param_dict['e_quadratic']['value'],
-                                 width=param_dict['non_fitting_values']['background_width'])
+                bg = snip_method_numba(data_y,
+                                       param_dict['e_offset']['value'],
+                                       param_dict['e_linear']['value'],
+                                       param_dict['e_quadratic']['value'],
+                                       width=param_dict['non_fitting_values']['background_width'])
                 fitted_y += bg
 
             if fitted_sum is None:
@@ -1737,7 +1753,7 @@ def save_fitted_fig(x_v, matv, results,
             plt.savefig(output_path)
 
     ax.cla()
-    sum_y = np.sum(data_all[p1[0]:p2[0], p1[1]:p2[1], :], axis=(0, 1))
+    sum_y = da.sum(data_all_dask[p1[0]:p2[0], p1[1]:p2[1], d_start:d_stop], axis=(0, 1)).compute()
     ax.set_title('Summed spectrum from point ({},{}) '
                  'to ({},{})'.format(p1[0], p1[1], p2[0], p2[1]))
     ax.set_xlabel('Energy [keV]')
@@ -1750,6 +1766,8 @@ def save_fitted_fig(x_v, matv, results,
     fit_sum_name = 'pixel_sum_'+str(p1[0])+'-'+str(p1[1])+'_'+str(p2[0])+'-'+str(p2[1])+'.png'
     output_path = os.path.join(result_folder, fit_sum_name)
     plt.savefig(output_path)
+
+    logger.info(f"Fitted data is saved to the directory '{result_folder}'")
 
 
 def save_fitted_as_movie(x_v, matv, results,
@@ -2399,7 +2417,8 @@ def single_pixel_fitting_controller(input_data, parameter,
     #   which can be ndarray, Dask array or RawHDF5Dataset. In order
     #   to get the selected set, 'input_data' must be sliced along axis2
     #   using 'fit_range' values.
-    calculation_info['exp_data'] = input_data
+    calculation_info['input_data'] = input_data
+    calculation_info['data_sel_indices'] = (n_bin_low, n_bin_high)
 
     return result_map, calculation_info
 
