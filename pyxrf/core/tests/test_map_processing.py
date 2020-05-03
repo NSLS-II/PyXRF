@@ -5,18 +5,41 @@ import numpy.testing as npt
 import h5py
 import os
 import uuid
-from dask.distributed import Client
+from pyxrf.core.fitting import fit_spectrum
+
+from skbeam.core.fitting.background import snip_method
 
 from pyxrf.core.map_processing import (
-    TerminalProgressBar, wait_and_display_progress,
+    dask_client_create, TerminalProgressBar, wait_and_display_progress,
     _compute_optimal_chunk_size, _chunk_numpy_array, _array_numpy_to_dask,
     RawHDF5Dataset, _prepare_xrf_map, _prepare_xrf_mask, compute_total_spectrum,
-    _fit_xrf_block, fit_xrf_map)
+    _fit_xrf_block, fit_xrf_map, snip_method_numba)
 
 from pyxrf.core.tests.test_fitting import DataForFittingTest
 
 import logging
 logger = logging.getLogger()
+
+
+def test_dask_client_create():
+    """
+    `dask_client_create` is a trivial function that instantiates Dask client
+    in uniform way throughout the program. We test that we can pass addition
+    kwargs to the object constructor or override default parameters.
+    """
+    # Set the number of workers to some strange number (11 is unusual)
+    #   (pass another kwarg in addition to default)
+    client = dask_client_create(n_workers=11)
+    n_workers = len(client.scheduler_info()["workers"])
+    assert n_workers == 11, "The number of workers was set incorrectly"
+    client.close()
+
+    # Disable multiprocessing: client is expected to have a single worker
+    #   (replace the default value of the parameter)
+    client = dask_client_create(processes=False)
+    n_workers = len(client.scheduler_info()["workers"])
+    assert n_workers == 1, "Dask client is expected to have one worker"
+    client.close()
 
 
 def test_TerminalProgressBar():
@@ -75,7 +98,7 @@ def test_wait_and_display_progress(progress_bar, capsys):
     # There is no way to monitor the output (no TTY device -> no output is generated)
     # So we just run a typical sequence of commands and make sure it doesn't crash
 
-    client = Client()
+    client = dask_client_create()
     data = da.random.random(size=(100, 100), chunks=(10, 10))
     sm_fut = da.sum(data, axis=0).persist(scheduler=client)
 
@@ -429,7 +452,8 @@ def test_compute_total_spectrum2(tmpdir):
     data = _create_xrf_data(data_dask, "dask_array", tmpdir=tmpdir)
 
     # Create 'external' client and send the reference to 'compute_total_spectrum'
-    client = Client(processes=True, silence_logs=logging.ERROR)
+    client = dask_client_create()
+
     # Run computations without the progress bar
     total_spectrum = compute_total_spectrum(data, chunk_pixels=12, client=client)
     client.close()
@@ -493,32 +517,55 @@ class _FitXRFMapTesting:
         self.snip_param = {"e_offset": 0.0, "e_linear": 0.1,
                            "e_quadratic": 0.0, "b_width": 1}
 
-    def verify_output(self, *, data_out):
+    def verify_output(self, *, data_out, snip_param=None):
 
         assert data_out.shape == (self.data_tmp.shape[1],
                                   self.data_tmp.shape[2],
                                   self.n_lines + 4), \
             f"The shape of 'data_out' is incorrect: data_out.shape={data_out.shape}"
 
-        # Check weights (the axes has to be rearranged to the same order as in 'data_tmp'
-        weights_estimated = np.moveaxis(data_out[:, :, 0: self.n_lines], 2, 0)
+        weights_estimated = data_out[:, :, 0: self.n_lines]
+        bg_sum = data_out[:, :, self.n_lines]
 
-        # If background subtraction is used, then it's not so easy to test the fitting
         if not self.use_snip:
-            self.fitting_data.validate_output_weights(weights_estimated, decimal=10)
+            # No background
+            self.fitting_data.validate_output_weights(
+                np.moveaxis(weights_estimated, 2, 0), decimal=10)
 
-        # Let's trust, that R-factor is correctly inserted into
-        #   the 'data_out' array. Computation of R-factor is tested elsewhere,
-
-        bg_sum = data_out[:, :, self.n_lines] / self.n_spectrum_points
-        if self.use_snip:
-            assert ((bg_sum - 1.0) < 0.3).all(), \
-                f"Baseline is estimated incorrectly (snip method): \n"\
-                f"bg_sum = {bg_sum}\nmin(bg_sum) = {np.min(bg_sum)}\nmax(bg_sum) = {np.max(bg_sum)}"
-        else:
             assert (bg_sum == 0.0).all(), \
                 f"Baseline estimate is non-zero when snip method is disabled: \n"\
                 f"bg_sum = {bg_sum}\nmin(bg_sum) = {np.min(bg_sum)}\nmax(bg_sum) = {np.max(bg_sum)}"
+        else:
+            # Background is present in the data. Here we repreat the procedure
+            #   of background subtraction and fitting. Unfortunately, the test code
+            #   is very similar to the computational code used
+            assert snip_param is not None, \
+                "Test parameter `snip_param` must be provided if 'use_snip' is enabled"
+            _data = np.moveaxis(self.data_tmp, 0, 2)
+            bg_sel = np.zeros(shape=_data.shape)
+            for ny in range(bg_sel.shape[0]):
+                for nx in range(bg_sel.shape[1]):
+                    bg = snip_method_numba(_data[ny, nx, :],
+                                           snip_param['e_offset'],
+                                           snip_param['e_linear'],
+                                           snip_param['e_quadratic'],
+                                           width=snip_param['b_width'])
+                    bg_sel[ny, nx, :] = bg
+
+            _data_no_bg = _data - bg_sel
+            weights_expected, rfactor, _ = fit_spectrum(_data_no_bg, self.spectra,
+                                                        axis=2, method="nnls")
+            npt.assert_array_almost_equal(
+                weights_estimated, weights_expected,
+                err_msg="Estimated weights are not equal to expected (use_snip==True)")
+
+            bg_sum_expected = np.sum(bg_sel, axis=2)
+            npt.assert_array_almost_equal(
+                bg_sum, bg_sum_expected,
+                err_msg=f"Baseline is estimated incorrectly (use_snip==True)")
+
+        # Let's trust, that R-factor is correctly inserted into
+        #   the 'data_out' array. Computation of R-factor is tested elsewhere,
 
         # Verify if the total count for the whole spectra and the selected region
         #   was computed correctly
@@ -550,7 +597,7 @@ def test_fit_xrf_block(dataset_params, add_pts_before, add_pts_after, use_snip):
     data_out = _fit_xrf_block(ft.data_input, data_sel_indices=ft.data_sel_indices,
                               matv=ft.spectra, snip_param=ft.snip_param, use_snip=use_snip)
 
-    ft.verify_output(data_out=data_out)
+    ft.verify_output(data_out=data_out, snip_param=ft.snip_param)
 
 
 # Used in 'test_fit_xrf_map' tests
@@ -592,10 +639,10 @@ def test_fit_xrf_map1(data_representation, dataset_params, tmpdir):
                                chunk_pixels=10, n_chunks_min=4,
                                progress_bar=None, client=client)
 
-        ft.verify_output(data_out=data_out)
+        ft.verify_output(data_out=data_out, snip_param=ft.snip_param)
 
     # Dask client object is used for multiple tests to save execution time
-    global_client = Client(processes=True, silence_logs=logging.ERROR)
+    global_client = dask_client_create()
 
     for add_pts_before, add_pts_after in [(0, 0), (50, 100)]:
         for use_snip in [False, True]:
@@ -637,7 +684,7 @@ def test_fit_xrf_map2():
                            chunk_pixels=10, n_chunks_min=4,
                            progress_bar=None, client=None)
 
-    ft.verify_output(data_out=data_out)
+    ft.verify_output(data_out=data_out, snip_param=ft.snip_param)
 
 
 @pytest.mark.parametrize("params, except_type, err_msg", [
@@ -700,3 +747,36 @@ def test_fit_xrf_map_fail(params, except_type, err_msg):
     # Run fitting
     with pytest.raises(except_type, match=err_msg):
         fit_xrf_map(**kwargs)
+
+
+def test_snip_method_numba():
+    """
+    Compare the output of `snip_method_numba` with the output produced
+    by `snip_method` to make sure the functions are equivalent.
+    """
+
+    dataset_params = {"n_data_dimensions": (20, 20)}
+    add_pts_before, add_pts_after = 0, 0
+    use_snip = True
+
+    ft = _FitXRFMapTesting(dataset_params=dataset_params,
+                           use_snip=use_snip,
+                           add_pts_before=add_pts_before,
+                           add_pts_after=add_pts_after)
+
+    # Just run the test with input data represented as numpy array
+    data = ft.data_input
+
+    width = 0.5
+
+    for ny in range(data.shape[0]):
+        for nx in range(data.shape[1]):
+
+            spec_sel = data[ny, nx, :]
+
+            bg = snip_method_numba(spec_sel, 0, 0.01, 0, width=width)
+            bg_expected = snip_method(spec_sel, 0, 0.01, 0, width=width)
+
+            npt.assert_array_almost_equal(
+                bg, bg_expected,
+                err_msg=f"Background estimates don't match for the pixel ({ny}, {nx})")
