@@ -929,10 +929,15 @@ class Fit1D(Atom):
     def output_summed_data_fit(self):
         """Save energy, summed data and fitting curve to a file.
         """
+        if (self.x0 is None) or (self.y0 is None) or (self.fit_y is None):
+            logger.error("Not enough data to save spectrum/fit data. "
+                         "Run spectrum fitting and then try again.")
+            return
         data = np.array([self.x0, self.y0, self.fit_y])
         output_fit_name = self.data_title + '_summed_spectrum_fit.txt'
         fpath = os.path.join(self.result_folder, output_fit_name)
         np.savetxt(fpath, data.T)
+        logger.info(f"Spectrum fit data is saved to file '{fpath}'")
 
     def assign_fitting_result(self):
         self.function_num = self.fit_result.nfev
