@@ -511,6 +511,7 @@ _build_xanes_map_param_schema = {
                                     "enum": ["tiff"]
                                 }},
         "output_save_all": {"type": "boolean"},
+        "dask_client": {},
     }
 }
 
