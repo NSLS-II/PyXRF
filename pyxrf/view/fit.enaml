@@ -860,7 +860,17 @@ enamldef FitView(DockItem): fit_view:
             PushButton: pb_save_sum_fit:
                 text = 'Save Spectrum/Fit'
                 clicked ::
-                    fit_model.output_summed_data_fit()
+                    if fit_model.x0 is not None and \
+                            fit_model.y0 is not None and \
+                            fit_model.fit_y is not None:
+                        fit_model.output_summed_data_fit()
+                    else:
+                        btns = [DialogButton('Ok', 'accept')]
+                        # 'critical' shows MessageBox
+                        critical(self, 'ERROR',
+                                 "Data is not ready. Complete the processing "
+                                 "by pressing 'Spectrum Fitting' button and the try again.", btns)
+
             #Label: fit_information:
             #    text := fit_model.fit_info
             #    foreground = 'red'
