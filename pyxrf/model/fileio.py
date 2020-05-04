@@ -1077,8 +1077,6 @@ def render_data_to_gui(runid, *, create_each_det=False, working_directory=None, 
         False: create unique file name by adding version number
     """
 
-    spectrum_cut = 3000  # Constant: the number of spectrum points to load 3000 ~ 3 keV
-
     data_sets = OrderedDict()
     img_dict = OrderedDict()
 
@@ -1130,29 +1128,37 @@ def render_data_to_gui(runid, *, create_each_det=False, working_directory=None, 
     #   of channel names. The channels are named as 'det1', 'det2', 'det3' etc.
     xrf_det_list = [nm for nm in data_out.keys() if 'det' in nm and 'sum' not in nm]
 
-    det_sum = None
-    if 'det_sum' in data_out:
-        det_sum = np.copy(data_out['det_sum'][:, :, 0:spectrum_cut])
-    else:
-        for det_name in xrf_det_list:
-            if det_sum is None:
-                det_sum = np.array(data_out[det_name][:, :, 0:spectrum_cut])
-            else:
-                det_sum += data_out[det_name][:, :, 0:spectrum_cut]
+    # Replace the references to raw data by the references to HDF5 datasets.
+    #   This should also release memory used for storage of raw data
+    #   It is expected that 'data_out' has keys 'det_sum', 'det1', 'det2', etc.
+    interpath = "xrfmap"
+    dset = "counts"
 
+    # Data from individual detectors may or may not be present in the file
+    for det_name in xrf_det_list:
+        dset_name = f"{interpath}/{det_name}/{dset}"
+        with h5py.File(fname, "r") as f:
+            dset_shape = f[dset_name].shape
+        data_out[det_name] = RawHDF5Dataset(fname, dset_name, dset_shape)
+
+    # The file is always expected to have 'detsum' dataset
+    dset_name = f"{interpath}/detsum/{dset}"
+    with h5py.File(fname, "r") as f:
+        dset_shape = f[dset_name].shape
+    data_out["det_sum"] = RawHDF5Dataset(fname, dset_name, dset_shape)
+
+    # Now fill 'data_sets' dictionary
     DS = DataSelection(filename=fname_sum,
-                       raw_data=det_sum)
+                       raw_data=data_out["det_sum"])
     data_sets[fname_sum] = DS
-
     logger.info("Data loading: channel sum is loaded successfully.")
 
     for det_name in xrf_det_list:
-        exp_data = np.array(data_out[det_name][:, :, 0:spectrum_cut])
+        exp_data = data_out[det_name]
         fln = f"{fname_no_ext}_{det_name}"
         DS = DataSelection(filename=fln,
                            raw_data=exp_data)
         data_sets[fln] = DS
-
     logger.info("Data loading: channel data is loaded successfully.")
 
     if ('pos_data' in data_out) and ('pos_names' in data_out):
