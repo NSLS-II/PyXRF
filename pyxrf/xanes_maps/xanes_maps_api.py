@@ -18,6 +18,7 @@ from ..core.utils import (grid_interpolate, normalize_data_by_scaler, convert_ti
 from ..core.xrf_utils import check_if_eline_is_activated, check_if_eline_supported
 from ..core.fitting import fit_spectrum, rfactor_compute
 from ..core.yaml_param_files import (create_yaml_parameter_file, read_yaml_parameter_file)
+from ..core.map_processing import dask_client_create
 
 import logging
 logger = logging.getLogger()
@@ -1043,7 +1044,7 @@ def _process_xrf_data(*, start_id, end_id, wd_xrf, xrf_fitting_param_fln,
                     param_file_name=xrf_fitting_param_fln,
                     ignore_datafile_metadata=ignore_metadata,
                     incident_energy=energy,  # This value overrides incident energy from other sources
-                    use_snip = xrf_subtract_baseline,
+                    use_snip=xrf_subtract_baseline,
                     wd=wd_xrf, save_tiff=False, dask_client=dask_client)
 
     # Close the client if it was created locally
