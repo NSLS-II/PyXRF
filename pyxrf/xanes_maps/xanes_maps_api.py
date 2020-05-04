@@ -167,6 +167,13 @@ def build_xanes_map(start_id=None, end_id=None, *, parameter_file_path=None,
         (not the directory ``wd``).
         Default: ``None``
 
+    xrf_subtract_baseline : bool
+        Subtract baseline before spectral decomposition while generating XRF maps.
+        Typically baseline subtraction is enabled. Disabling it will reduce time
+        used for generation of XRF maps. (This parameter is identical to 'use_snip'
+        of `pyxrf_batch`.
+        Default: True
+
     scaler_name : str
         the name of the scaler used for normalization. The name should be valid, i.e.
         present in each scan data. It may be set to None: in this case no normalization
@@ -315,6 +322,12 @@ def build_xanes_map(start_id=None, end_id=None, *, parameter_file_path=None,
         for each element. If set to False, then only the stack for the emission line
         selected for XANES fitting is saved (argument ``emission_line``).
         Default value: False
+
+    dask_client : dask.distributed.Client
+        Dask client object. If None, then Dask client is created automatically.
+        If a batch of files is processed, then creating Dask client and
+        passing the reference to it to the processing functions will save
+        execution time: `client = Client(processes=True, silence_logs=logging.ERROR)`
 
     parameter_file_path : str
         absolute or relative path to the YAML file, which contains the processing parameters.
@@ -427,6 +440,7 @@ _build_xanes_map_param_default = {
     "start_id": None,
     "end_id": None,
     "xrf_fitting_param_fln": None,
+    "xrf_subtract_baseline": True,
     "scaler_name": None,
     "wd": None,
     "xrf_subdir": "xrf_data",
@@ -448,14 +462,16 @@ _build_xanes_map_param_default = {
     "plot_use_position_coordinates": True,
     "plot_position_axes_units": r"$\mu $m",
     "output_file_formats": ["tiff"],
-    "output_save_all": False
+    "output_save_all": False,
+    "dask_client": None,
 }
 
 # Default input parameters for '_build_xanes_map_api' and 'build_xanes_map' functions
 _build_xanes_map_param_schema = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["start_id", "end_id", "xrf_fitting_param_fln", "scaler_name", "wd", "xrf_subdir",
+    "required": ["start_id", "end_id", "xrf_fitting_param_fln", "xrf_subtract_baseline",
+                 "scaler_name", "wd", "xrf_subdir",
                  "sequence", "emission_line", "emission_line_alignment", "incident_energy_shift_keV",
                  "alignment_starts_from", "interpolation_enable", "alignment_enable",
                  "normalize_alignment_stack", "subtract_pre_edge_baseline", "ref_file_name",
@@ -466,6 +482,7 @@ _build_xanes_map_param_schema = {
         "start_id": {"type": ["integer", "null"], "exclusiveMinimum": 0},
         "end_id": {"type": ["integer", "null"], "exclusiveMinimum": 0},
         "xrf_fitting_param_fln": {"type": ["string", "null"]},
+        "xrf_subtract_baseline": {"type": "boolean"},
         "scaler_name": {"type": ["string", "null"]},
         "wd": {"type": ["string", "null"]},
         "xrf_subdir": {"type": ["string", "null"]},
@@ -499,6 +516,7 @@ _build_xanes_map_param_schema = {
 
 def _build_xanes_map_api(*, start_id=None, end_id=None,
                          xrf_fitting_param_fln=None,
+                         xrf_subtract_baseline=True,
                          scaler_name=None,
                          wd=None,
                          xrf_subdir="xrf_data",
@@ -520,7 +538,8 @@ def _build_xanes_map_api(*, start_id=None, end_id=None,
                          plot_use_position_coordinates=True,
                          plot_position_axes_units=r"$\mu $m",
                          output_file_formats=["tiff"],
-                         output_save_all=False):
+                         output_save_all=False,
+                         dask_client=None):
     r"""
     The function builds XANES map from a set of XRF maps. It also may perform loading of data
     from databroker and processing of raw data to obtain XRF maps. For detailed descriptions,
@@ -560,6 +579,13 @@ def _build_xanes_map_api(*, start_id=None, end_id=None,
         name may include absolute or relative path from current directory
         (not the directory ``wd``).
         Default: ``None``
+
+    xrf_subtract_baseline : bool
+        Subtract baseline before spectral decomposition while generating XRF maps.
+        Typically baseline subtraction is enabled. Disabling it will reduce time
+        used for generation of XRF maps. (This parameter is identical to 'use_snip'
+        of `pyxrf_batch`.
+        Default: True
 
     scaler_name : str
         the name of the scaler used for normalization. The name should be valid, i.e.
@@ -709,6 +735,12 @@ def _build_xanes_map_api(*, start_id=None, end_id=None,
         for each element. If set to False, then only the stack for the emission line
         selected for XANES fitting is saved (argument ``emission_line``).
         Default value: False
+
+    dask_client : dask.distributed.Client
+        Dask client object. If None, then Dask client is created automatically.
+        If a batch of files is processed, then creating Dask client and
+        passing the reference to it to the processing functions will save
+        execution time: `client = Client(processes=True, silence_logs=logging.ERROR)`
 
     Returns
     -------
@@ -830,9 +862,12 @@ def _build_xanes_map_api(*, start_id=None, end_id=None,
 
     if seq_process_xrf_data:
         _process_xrf_data(start_id=start_id, end_id=end_id, wd_xrf=wd_xrf,
-                          xrf_fitting_param_fln=xrf_fitting_param_fln, eline_selected=eline_selected,
+                          xrf_fitting_param_fln=xrf_fitting_param_fln,
+                          xrf_subtract_baseline=xrf_subtract_baseline,
+                          eline_selected=eline_selected,
                           incident_energy_low_bound=incident_energy_low_bound,
-                          use_incident_energy_from_param_file=use_incident_energy_from_param_file)
+                          use_incident_energy_from_param_file=use_incident_energy_from_param_file,
+                          dask_client=dask_client)
         logger.info("Processing data files (computing XRF maps): success.")
     else:
         logger.info("Processing data files (computing XRF maps): skipped.")
@@ -903,8 +938,10 @@ def _load_data_from_databroker(*, start_id, end_id, wd_xrf):
              create_each_det=False, save_scaler=True)
 
 
-def _process_xrf_data(*, start_id, end_id, wd_xrf, xrf_fitting_param_fln, eline_selected,
-                      incident_energy_low_bound, use_incident_energy_from_param_file):
+def _process_xrf_data(*, start_id, end_id, wd_xrf, xrf_fitting_param_fln,
+                      xrf_subtract_baseline, eline_selected,
+                      incident_energy_low_bound, use_incident_energy_from_param_file,
+                      dask_client):
     r"""
     Implements the second step of the processing sequence: processing of XRF scans
     and generation of XRF maps
@@ -926,6 +963,12 @@ def _process_xrf_data(*, start_id, end_id, wd_xrf, xrf_fitting_param_fln, eline_
         processing of data with ``pyxrf_batch``. The parameter file is typically produced
         by PyXRF.
 
+    dask_client : dask.distributed.Client
+        Dask client object. If None, then Dask client is created automatically.
+        If a batch of files is processed, then creating Dask client and
+        passing the reference to it to the processing functions will save
+        execution time: `client = Client(processes=True, silence_logs=logging.ERROR)`
+
     eline_selected : str
         the name of the selected emission line ("Ca_K", "Fe_K", etc.). The emission line
         of interest.
@@ -943,6 +986,12 @@ def _process_xrf_data(*, start_id, end_id, wd_xrf, xrf_fitting_param_fln, eline_
         files: True - use incident energy from parameter files, False - use incident
         energy from data files. If ``incident_energy_low_bound`` is specified, then
         this parameter is ignored.
+
+    dask_client : dask.distributed.Client
+        Dask client object. If None, then Dask client is created automatically.
+        If a batch of files is processed, then creating Dask client and
+        passing the reference to it to the processing functions will save
+        execution time: `client = Client(processes=True, silence_logs=logging.ERROR)`
     """
     # Make sure that the directory with xrf data exists
     if not os.path.isdir(wd_xrf):
@@ -978,6 +1027,14 @@ def _process_xrf_data(*, start_id, end_id, wd_xrf, xrf_fitting_param_fln, eline_
     else:
         scan_energies_adjusted = adjust_incident_beam_energies(scan_energies, eline_selected)
 
+    # Create Dask client for processing the batch of files unless one is provided
+    if dask_client is None:
+        logger.info("Creating local Dask client for processing the batch of files ...")
+        dask_client = dask_client_create()
+        client_is_local = True
+    else:
+        client_is_local = False
+
     # Process data files from the list. Use adjusted energy value.
     for fln, energy in zip(files_h5, scan_energies_adjusted):
         # Process .h5 files in the directory 'wd_xrf'. Processing results are saved
@@ -986,7 +1043,13 @@ def _process_xrf_data(*, start_id, end_id, wd_xrf, xrf_fitting_param_fln, eline_
                     param_file_name=xrf_fitting_param_fln,
                     ignore_datafile_metadata=ignore_metadata,
                     incident_energy=energy,  # This value overrides incident energy from other sources
-                    wd=wd_xrf, save_tiff=False)
+                    use_snip = xrf_subtract_baseline,
+                    wd=wd_xrf, save_tiff=False, dask_client=dask_client)
+
+    # Close the client if it was created locally
+    if client_is_local:
+        logger.info("Closing Dask client ...")
+        dask_client.close()
 
 
 def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
