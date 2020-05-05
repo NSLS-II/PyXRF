@@ -14,8 +14,8 @@ from skbeam.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
 from skbeam.core.fitting.background import snip_method
 
 from .fileio import save_fitdata_to_hdf
-
-import multiprocessing
+from .fit_spectrum import get_energy_bin_range
+from ..core.map_processing import compute_selected_rois, TerminalProgressBar
 
 import logging
 logger = logging.getLogger()
@@ -336,6 +336,63 @@ class SettingModel(Atom):
         """
         roi_result = {}
 
+        datav = self.data_sets[self.data_title].raw_data
+
+        logger.info(f"Computing ROIs for dataset {self.data_title} ...")
+
+        snip_param = {
+            "e_offset": self.parameters["e_offset"]["value"],
+            "e_linear": self.parameters["e_linear"]["value"],
+            "e_quadratic": self.parameters["e_quadratic"]["value"],
+            "b_width": self.parameters["non_fitting_values"]["background_width"]
+        }
+
+        n_bin_low, n_bin_high = get_energy_bin_range(
+            num_energy_bins=datav.shape[2],
+            low_e=self.parameters['non_fitting_values']['energy_bound_low']['value'],
+            high_e=self.parameters['non_fitting_values']['energy_bound_high']['value'],
+            e_offset=self.parameters['e_offset']['value'],
+            e_linear=self.parameters['e_linear']['value'])
+
+        roi_dict_computed = compute_selected_rois(
+            data=datav,
+            data_sel_indices=(n_bin_low, n_bin_high),
+            roi_dict=self.roi_dict,
+            snip_param=snip_param,
+            use_snip=self.subtract_background,
+            chunk_pixels=5000,
+            n_chunks_min=4,
+            progress_bar=TerminalProgressBar("Computing ROIs: "),
+            client=None)
+
+        # Save ROI data to HDF5 file
+        self.saveROImap_to_hdf(roi_dict_computed)
+
+        # Add scalers to the ROI dataset, so that they can be selected from Image Wizard.
+        # We don't want to save scalers to the file, since they are already in the file.
+        # So we add scalers after data is saved.
+        scaler_key = f"{self.data_title_base}_scaler"
+        if scaler_key in self.img_dict:
+            roi_dict_computed.update(self.img_dict[scaler_key])
+
+        roi_result[f"{self.data_title_adjusted}_roi"] = roi_dict_computed
+
+        logger.info("ROI is computed.")
+        return roi_result
+
+    # TODO: delete the following code when not needed
+    '''
+    def get_roi_sum(self):
+        """
+        Save roi sum into a dict.
+
+        Returns
+        -------
+        dict
+            nested dict as output
+        """
+        roi_result = {}
+
         datav = self.data_sets[self.data_title]
 
         logger.info(f"Computing ROIs for dataset {self.data_title} ...")
@@ -404,6 +461,7 @@ class SettingModel(Atom):
 
         logger.info("ROI is computed.")
         return roi_result
+        '''
 
     def saveROImap_to_hdf(self, data_dict_roi):
 
