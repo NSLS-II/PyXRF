@@ -536,17 +536,6 @@ def _fit_xrf_block(data, data_sel_indices,
                                      snip_param['e_quadratic'],
                                      width=snip_param['b_width'])
 
-        '''
-        bg_sel = np.zeros(shape=spec_sel.shape)
-        for ny in range(spec_sel.shape[0]):
-            for nx in range(spec_sel.shape[1]):
-                bg = snip_method_numba(spec_sel[ny, nx, :],
-                                       snip_param['e_offset'],
-                                       snip_param['e_linear'],
-                                       snip_param['e_quadratic'],
-                                       width=snip_param['b_width'])
-                bg_sel[ny, nx, :] = bg
-        '''
         y = spec_sel - bg_sel
         bg_sum = np.sum(bg_sel, axis=2)
 
@@ -562,44 +551,6 @@ def _fit_xrf_block(data, data_sel_indices,
     # Stack depth-wise (along axis 2)
     data_out = np.dstack((weights, bg_sum, rfactor, sel_cnt, total_cnt))
 
-    '''
-    data_out = np.zeros(shape=(data.shape[0], data.shape[1], matv.shape[1] + 4))
-
-    for ny in range(data.shape[0]):
-        for nx in range(data.shape[1]):
-
-            # Full spectrum (all points)
-            spec = data[ny, nx, :]
-            spec_sel = spec[data_sel_indices[0]: data_sel_indices[1]]
-
-            if use_snip:
-
-                bg = snip_method_numba(spec_sel,
-                                       snip_param['e_offset'],
-                                       snip_param['e_linear'],
-                                       snip_param['e_quadratic'],
-                                       width=snip_param['b_width'])
-                y = spec_sel - bg
-
-                # Force spectrum to be always positive for better performance of nnls
-                #y = np.clip(y, a_min=0, a_max=None)
-
-                bg_sum = np.sum(bg)
-            else:
-                y = spec_sel
-                bg_sum = 0
-
-            weights, rfactor, _ = fit_spectrum(y, matv, method="nnls")
-
-            # Total number of counts in the selected region
-            total_cnt = np.sum(spec)
-            sel_cnt = np.sum(spec_sel)
-
-            result = np.concatenate((weights, np.array([bg_sum, rfactor,
-                                                        sel_cnt, total_cnt])))
-
-            data_out[ny, nx, :] = result
-        '''
     return data_out
 
 
@@ -651,6 +602,7 @@ def fit_xrf_map(data, data_sel_indices, matv, snip_param=None, use_snip=True,
     """
 
     logger.info("Starting single-pixel fitting ...")
+    logger.info(f"Baseline subtraction (SNIP): {'enabled' if use_snip else 'disabled'}.")
 
     if snip_param is None:
         snip_param = {}  # For consistency
@@ -728,6 +680,202 @@ def fit_xrf_map(data, data_sel_indices, matv, snip_param=None, use_snip=True,
         client.close()
 
     return result
+
+
+def _compute_roi(data, data_sel_indices, roi_bands, snip_param, use_snip):
+    """
+    Spectrum fitting for a block of XRF dataset. The function is intended to be
+    called using `map_blocks` function for parallel processing using Dask distributed
+    package.
+
+    Parameters
+    ----------
+    data : ndarray
+        block of an XRF dataset. Shape=(ny, nx, ne).
+    data_sel_indices: tuple
+        tuple `(n_start, n_end)` which defines the indices along axis 2 of `data` array
+        that are used for fitting. Note that `ne` (in `data`) and `ne_model` (in `matv`)
+        are not equal. But `n_end - n_start` MUST be equal to `ne_model`! Indexes
+        `n_start .. n_end - 1` will be selected from each pixel.
+    matv: ndarray
+        Matrix of spectra of the selected elements (emission lines). Shape=(ne_model, n_lines)
+    snip_param: dict
+        Dictionary of parameters forwarded to 'snip' method for background removal.
+        Keys: `e_offset`, `e_linear`, `e_quadratic` (parameters of the energy axis approximation),
+        `b_width` (width of the window that defines resolution of the snip algorithm).
+    use_snip: bool, optional
+        enable/disable background removal using snip algorithm
+
+    Returns
+    -------
+    data_out: ndarray
+        array with fitting results. Shape: `(ny, nx, ne_model + 4)`. For each pixel
+        the output data contains: `ne_model` values that represent area under the emission
+        line spectra; background area (only in the selected energy range), error (R-factor),
+        total count in the selected energy range, total count of the full experimental spectrum.
+    """
+    spec = data
+    spec_sel = spec[:, :, data_sel_indices[0]: data_sel_indices[1]]
+
+    e_offset = snip_param['e_offset']
+    e_linear = snip_param['e_linear']
+    e_quadratic = snip_param['e_quadratic']
+
+    if use_snip:
+        bg_sel = np.apply_along_axis(snip_method_numba, 2, spec_sel,
+                                     e_offset, e_linear, e_quadratic,
+                                     width=snip_param['b_width'])
+        y = spec_sel - bg_sel
+
+    else:
+        y = spec_sel
+
+    # The number of available spectrum points
+    ny, nx, n_pts = y.shape
+    n_sel_start = data_sel_indices[0]
+
+    def _energy_to_index(energy):
+        # 'y' is truncated array, and energy axis is aligned with the full array
+        n_index = int(round((energy - e_offset) / e_linear)) - n_sel_start
+        n_index = int(np.clip(n_index, a_min=0, a_max=n_pts - 1))
+        return n_index
+
+    roi_data = np.zeros(shape=(ny, nx, len(roi_bands)))
+    for n, band in enumerate(roi_bands):
+        n_left = _energy_to_index(band[0])
+        n_right = _energy_to_index(band[1])
+        roi_data[:, :, n] = np.sum(y[:, :, n_left: n_right], axis=2) \
+            if n_right > n_left else np.zeros(shape=(ny, nx))
+
+    return roi_data
+
+
+def compute_selected_rois(data, data_sel_indices, roi_dict, snip_param=None, use_snip=True,
+                          chunk_pixels=5000, n_chunks_min=4, progress_bar=None, client=None):
+    """
+    Fit XRF map.
+
+    Parameters
+    ----------
+    data: da.core.Array, np.ndarray or RawHDF5Dataset (this is a custom type)
+        Raw XRF map represented as Dask array, numpy array or reference to a dataset in
+        HDF5 file. The XRF map must have dimensions `(ny, nx, ne)`, where `ny` and `nx`
+        define image size and `ne` is the number of spectrum points
+    data_sel_indices: tuple
+        tuple `(n_start, n_end)` which defines the indices along axis 2 of `data` array
+        that are used for fitting. Note that `ne` (in `data`) and `ne_model` (in `matv`)
+        are not equal. But `n_end - n_start` MUST be equal to `ne_model`! Indexes
+        `n_start .. n_end - 1` will be selected from each pixel.
+    matv: array
+        Matrix of spectra of the selected elements (emission lines). Shape=(ne_model, n_lines)
+    snip_param: dict
+        Dictionary of parameters forwarded to 'snip' method for background removal.
+        Keys: `e_offset`, `e_linear`, `e_quadratic` (parameters of the energy axis approximation),
+        `b_width` (width of the window that defines resolution of the snip algorithm).
+        It may be an empty dictionary or None if `use_snip` is `False`.
+    use_snip: bool, optional
+        enable/disable background removal using snip algorithm
+    chunk_pixels: int
+        The number of pixels in a single chunk. The XRF map will be rechunked so that
+        each block contains approximately `chunk_pixels` pixels and contain all `ne`
+        spectrum points for each pixel.
+    n_chunks_min: int
+        Minimum number of chunks. The algorithm will try to split the map into the number
+        of chunks equal or greater than `n_chunks_min`.
+    progress_bar: callable or None
+        reference to the callable object that implements progress bar. The example of
+        such a class for progress bar object is `TerminalProgressBar`.
+    client: dask.distributed.Client or None
+        Dask client. If None, then local client will be created
+
+    Returns
+    -------
+    results: ndarray
+        array with fitting results. Shape: `(ny, nx, ne_model + 4)`. For each pixel
+        the output data contains: `ne_model` values that represent area under the emission
+        line spectra; background area (only in the selected energy range), error (R-factor),
+        total count in the selected energy range, total count of the full experimental spectrum.
+    """
+
+    logger.info("Starting ROI computation ...")
+    logger.info(f"Baseline subtraction (SNIP): {'enabled' if use_snip else 'disabled'}.")
+
+    if snip_param is None:
+        snip_param = {}  # For consistency
+
+    # Verify that input parameters are valid
+    if not isinstance(data_sel_indices, (tuple, list)):
+        raise TypeError(f"Parameter 'data_sel_indices' must be tuple or list: "
+                        f"type(data_sel_indices) = {type(data_sel_indices)}")
+
+    if not len(data_sel_indices) == 2:
+        raise TypeError(f"Parameter 'data_sel_indices' must contain two elements: "
+                        f"data_sel_indices = {data_sel_indices}")
+
+    if any([_ < 0 for _ in data_sel_indices]):
+        raise ValueError(f"Some of the indices in 'data_sel_indices' are negative: "
+                         f"data_sel_indices = {data_sel_indices}")
+
+    if data_sel_indices[1] <= data_sel_indices[0]:
+        raise ValueError(f"Parameter 'data_sel_indices' must select at least 1 element: "
+                         f"data_sel_indices = {data_sel_indices}")
+
+    if not isinstance(snip_param, dict):
+        raise TypeError(f"Parameter 'snip_param' must be a dictionary: "
+                        f"type(snip_param) = {type(snip_param)}")
+
+    required_keys = ("e_offset", "e_linear", "e_quadratic", "b_width")
+    if use_snip and not all([_ in snip_param.keys()
+                            for _ in required_keys]):
+        raise TypeError(f"Parameter 'snip_param' must a dictionary with keys {required_keys}: "
+                        f"snip_param.keys() = {snip_param.keys()}")
+
+    # Convert data to Dask array
+    data, file_obj = prepare_xrf_map(data, chunk_pixels=chunk_pixels, n_chunks_min=n_chunks_min)
+
+    # Verify that selection makes sense (data is Dask array at this point)
+    _, _, ne = data.shape
+    if data_sel_indices[0] >= ne or data_sel_indices[1] > ne:
+        raise ValueError(f"Selection indices {data_sel_indices} are outside the allowed range 0 .. {ne}")
+
+    if client is None:
+        client = dask_client_create()
+        client_is_local = True
+    else:
+        client_is_local = False
+
+    n_workers = len(client.scheduler_info()["workers"])
+    logger.info(f"Dask distributed client: {n_workers} workers")
+
+    # Prepare ROI bands in the form of a list
+    roi_band_keys = []
+    roi_bands = []
+    for k, v in roi_dict.items():
+        leftv = v.left_val / 1000
+        rightv = v.right_val / 1000
+        roi_band_keys.append(k)
+        roi_bands.append((leftv, rightv))
+
+    result_fut = da.map_blocks(_compute_roi, data,
+                               # Parameters of the '_fit_xrf_block' function
+                               data_sel_indices=data_sel_indices,
+                               roi_bands=roi_bands,
+                               snip_param=snip_param,
+                               use_snip=use_snip,
+                               # Output data type
+                               dtype="float").persist(scheduler=client)
+
+    # Call the progress monitor
+    wait_and_display_progress(result_fut, progress_bar)
+
+    result = result_fut.compute(scheduler=client)
+
+    roi_dict_computed = {roi_band_keys[_]: result[:, :, _] for _ in range(len(roi_band_keys))}
+
+    if client_is_local:
+        client.close()
+
+    return roi_dict_computed
 
 
 # The following function `snip_method_numba` is a copy of the function
