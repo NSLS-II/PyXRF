@@ -129,16 +129,13 @@ def test_RawHDF5Dataset(tmpdir):
         pass
 
     # 'fln' should be converted to absolute
-    rds = RawHDF5Dataset(fln, dset)
+    # 'shape' is set to some arbitrary valid tuple
+    rds = RawHDF5Dataset(fln, dset, shape=(10, 50))
 
     assert os.path.isabs(rds.abs_path), "Path was not successfully converted to absolute path"
     # If file exists, then the file name was correctly set
     assert os.path.exists(rds.abs_path), "Path was not correctly set"
     assert rds.dset_name == dset, "Dataset name was not currectly set"
-    assert not hasattr(rds, "shape"), "Attribute 'shape' exists, while it should not exist"
-
-    # Try to set shape attribute now (use just some arbitrary value)
-    rds = RawHDF5Dataset(fln, dset, shape=(10, 50))
     assert rds.shape == (10, 50), "Attribute 'shape' was not set correctly"
 
 
