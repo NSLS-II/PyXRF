@@ -354,7 +354,7 @@ class SettingModel(Atom):
             e_linear=self.parameters['e_linear']['value'])
 
         # Prepare the 'roi_dict' parameter for computations
-        roi_dict = {_: (self.roi_dict[_].left_val/1000.0, self.roi_dict[_].right_dict/1000.0)
+        roi_dict = {_: (self.roi_dict[_].left_val/1000.0, self.roi_dict[_].right_val/1000.0)
                     for _ in self.roi_dict.keys()}
 
         roi_dict_computed = compute_selected_rois(
