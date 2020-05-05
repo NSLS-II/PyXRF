@@ -11,7 +11,6 @@ from atom.api import (Atom, Str, observe, Dict, List, Int, Bool)
 
 from skbeam.fluorescence import XrfElement as Element
 from skbeam.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
-from skbeam.core.fitting.background import snip_method
 
 from .fileio import save_fitdata_to_hdf
 from .fit_spectrum import get_energy_bin_range
@@ -521,6 +520,8 @@ def calculate_roi(data3D, e_offset, e_linear, range_v):
     return np.sum(data3D[:, :, range_v[0]:range_v[1]], axis=2)  # * e_linear
 
 
+# TODO: remove the following code when not needed
+'''
 def _subtract_background_one_line(data_line, e_off, e_lin, e_quad, width):
     """
     Subtract background from spectra in a single line of the image
@@ -556,3 +557,4 @@ def _subtract_background_one_line(data_line, e_off, e_lin, e_quad, width):
                          width=width)
         data_line[n, :] -= bg
     return data_line
+'''
