@@ -139,15 +139,15 @@ class RawHDF5Dataset():
         absolute path to the HDF5 file
     dset_name: str
         name of the dataset in the HDF5 file
-    shape: tuple, optional
-        if shape is provided (not None), then the object will have additional
-        attribute 'shape'. Keeping shape information is sometimes convenient.
+    shape: tuple
+        the object is expected to have additional attribute `shape`. Keeping valid shape
+        information is very convenient. There is no check, so `shape` may be any value, but
+        typically this should be a tuple with actual dataset shape.
     """
-    def __init__(self, _abs_path, _dset_name, shape=None):
+    def __init__(self, _abs_path, _dset_name, shape):
         self.abs_path = os.path.abspath(os.path.expanduser(_abs_path))
         self.dset_name = _dset_name
-        if shape is not None:
-            self.shape = shape
+        self.shape = shape
 
 
 def _compute_optimal_chunk_size(chunk_pixels, data_chunksize, data_shape, n_chunks_min=4):
