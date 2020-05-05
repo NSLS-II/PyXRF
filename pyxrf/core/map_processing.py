@@ -684,7 +684,7 @@ def fit_xrf_map(data, data_sel_indices, matv, snip_param=None, use_snip=True,
 
 def _compute_roi(data, data_sel_indices, roi_bands, snip_param, use_snip):
     """
-    Spectrum fitting for a block of XRF dataset. The function is intended to be
+    Compute intensity for ROIs (energy bands) in XRF datasets. The function is intended to be
     called using `map_blocks` function for parallel processing using Dask distributed
     package.
 
@@ -694,25 +694,27 @@ def _compute_roi(data, data_sel_indices, roi_bands, snip_param, use_snip):
         block of an XRF dataset. Shape=(ny, nx, ne).
     data_sel_indices: tuple
         tuple `(n_start, n_end)` which defines the indices along axis 2 of `data` array
-        that are used for fitting. Note that `ne` (in `data`) and `ne_model` (in `matv`)
-        are not equal. But `n_end - n_start` MUST be equal to `ne_model`! Indexes
+        that are used for fitting. Note that `ne` (in `data`). Indexes
         `n_start .. n_end - 1` will be selected from each pixel.
-    matv: ndarray
-        Matrix of spectra of the selected elements (emission lines). Shape=(ne_model, n_lines)
+    roi_bands: list(tuple)
+        list of ROI bands, elements are tuples `(left_val, right_val)`, where `left_val` and
+        `right_val` are energy values in keV that define the ROI band. If `left_val >= right_val`,
+        then the width of the band is considered zero and and ROI will be zero.
     snip_param: dict
         Dictionary of parameters forwarded to 'snip' method for background removal.
         Keys: `e_offset`, `e_linear`, `e_quadratic` (parameters of the energy axis approximation),
         `b_width` (width of the window that defines resolution of the snip algorithm).
+        The values of `e_offset` and `e_linear` are used to compute indices for ROIs, so they
+        need to be always provided.
     use_snip: bool, optional
         enable/disable background removal using snip algorithm
 
     Returns
     -------
     data_out: ndarray
-        array with fitting results. Shape: `(ny, nx, ne_model + 4)`. For each pixel
-        the output data contains: `ne_model` values that represent area under the emission
-        line spectra; background area (only in the selected energy range), error (R-factor),
-        total count in the selected energy range, total count of the full experimental spectrum.
+        array with ROI counts. Shape: `(ny, nx, len(roi_bands))`. For each pixel
+        the output data contains `len(roi_bands)` values that represent area under
+        the experimental spectrum inside the band.
     """
     spec = data
     spec_sel = spec[:, :, data_sel_indices[0]: data_sel_indices[1]]
@@ -753,7 +755,7 @@ def _compute_roi(data, data_sel_indices, roi_bands, snip_param, use_snip):
 def compute_selected_rois(data, data_sel_indices, roi_dict, snip_param=None, use_snip=True,
                           chunk_pixels=5000, n_chunks_min=4, progress_bar=None, client=None):
     """
-    Fit XRF map.
+    Compute XRF map based on ROIs for XRF dataset.
 
     Parameters
     ----------
@@ -763,16 +765,18 @@ def compute_selected_rois(data, data_sel_indices, roi_dict, snip_param=None, use
         define image size and `ne` is the number of spectrum points
     data_sel_indices: tuple
         tuple `(n_start, n_end)` which defines the indices along axis 2 of `data` array
-        that are used for fitting. Note that `ne` (in `data`) and `ne_model` (in `matv`)
-        are not equal. But `n_end - n_start` MUST be equal to `ne_model`! Indexes
+        that are used for fitting. Note that `ne` (in `data`). Indexes
         `n_start .. n_end - 1` will be selected from each pixel.
-    matv: array
-        Matrix of spectra of the selected elements (emission lines). Shape=(ne_model, n_lines)
+    roi_dict: dict
+        Dictionary that specifies ROIs for the selected emission lines:
+        key - emission line, value - tuple (left_val, right_val).
+        Energy values are in keV.
     snip_param: dict
         Dictionary of parameters forwarded to 'snip' method for background removal.
         Keys: `e_offset`, `e_linear`, `e_quadratic` (parameters of the energy axis approximation),
         `b_width` (width of the window that defines resolution of the snip algorithm).
-        It may be an empty dictionary or None if `use_snip` is `False`.
+        The values of `e_offset` and `e_linear` are used to compute indices for ROIs, so they
+        need to be always provided.
     use_snip: bool, optional
         enable/disable background removal using snip algorithm
     chunk_pixels: int
@@ -790,18 +794,15 @@ def compute_selected_rois(data, data_sel_indices, roi_dict, snip_param=None, use
 
     Returns
     -------
-    results: ndarray
-        array with fitting results. Shape: `(ny, nx, ne_model + 4)`. For each pixel
-        the output data contains: `ne_model` values that represent area under the emission
-        line spectra; background area (only in the selected energy range), error (R-factor),
-        total count in the selected energy range, total count of the full experimental spectrum.
+    roi_dict_computed: dict
+        Dictionary with XRF maps computed for ROIs specified by `roi_dict`.
+        Key: emission line. Value: numpy array with shape `(ny, nx)`.
+        XRF map values represent area under of the experimental spectrum computed
+        over ROI.
     """
 
     logger.info("Starting ROI computation ...")
     logger.info(f"Baseline subtraction (SNIP): {'enabled' if use_snip else 'disabled'}.")
-
-    if snip_param is None:
-        snip_param = {}  # For consistency
 
     # Verify that input parameters are valid
     if not isinstance(data_sel_indices, (tuple, list)):
@@ -825,8 +826,7 @@ def compute_selected_rois(data, data_sel_indices, roi_dict, snip_param=None, use
                         f"type(snip_param) = {type(snip_param)}")
 
     required_keys = ("e_offset", "e_linear", "e_quadratic", "b_width")
-    if use_snip and not all([_ in snip_param.keys()
-                            for _ in required_keys]):
+    if not all([_ in snip_param.keys() for _ in required_keys]):
         raise TypeError(f"Parameter 'snip_param' must a dictionary with keys {required_keys}: "
                         f"snip_param.keys() = {snip_param.keys()}")
 
@@ -851,10 +851,8 @@ def compute_selected_rois(data, data_sel_indices, roi_dict, snip_param=None, use
     roi_band_keys = []
     roi_bands = []
     for k, v in roi_dict.items():
-        leftv = v.left_val / 1000
-        rightv = v.right_val / 1000
         roi_band_keys.append(k)
-        roi_bands.append((leftv, rightv))
+        roi_bands.append(v)
 
     result_fut = da.map_blocks(_compute_roi, data,
                                # Parameters of the '_fit_xrf_block' function
