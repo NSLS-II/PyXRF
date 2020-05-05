@@ -28,7 +28,6 @@ from skbeam.core.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
                                            nnls_fit, construct_linear_model,
                                            # linear_spectrum_fitting,
                                            register_strategy, TRANSITIONS_LOOKUP)
-from skbeam.core.fitting.background import snip_method
 from skbeam.fluorescence import XrfElement as Element
 from .guessparam import (calculate_profile, fit_strategy_list,
                          trim_escape_peak, define_range, get_energy,
@@ -784,11 +783,11 @@ class Fit1D(Atom):
                                         self.param_dict['e_linear']['value'])
 
     def get_background(self):
-        self.bg = snip_method(self.y0,
-                              self.param_dict['e_offset']['value'],
-                              self.param_dict['e_linear']['value'],
-                              self.param_dict['e_quadratic']['value'],
-                              width=self.param_dict['non_fitting_values']['background_width'])
+        self.bg = snip_method_numba(self.y0,
+                                    self.param_dict['e_offset']['value'],
+                                    self.param_dict['e_linear']['value'],
+                                    self.param_dict['e_quadratic']['value'],
+                                    width=self.param_dict['non_fitting_values']['background_width'])
 
     def get_profile(self):
         """
@@ -1808,11 +1807,11 @@ def save_fitted_as_movie(x_v, matv, results,
 
         fitted_y = np.sum(matv*results[m, n, :], axis=1)
         if use_snip is True:
-            bg = snip_method(data_y,
-                             param_dict['e_offset']['value'],
-                             param_dict['e_linear']['value'],
-                             param_dict['e_quadratic']['value'],
-                             width=param_dict['non_fitting_values']['background_width'])
+            bg = snip_method_numba(data_y,
+                                   param_dict['e_offset']['value'],
+                                   param_dict['e_linear']['value'],
+                                   param_dict['e_quadratic']['value'],
+                                   width=param_dict['non_fitting_values']['background_width'])
             fitted_y += bg
 
         ax.set_title('Single pixel fitting for point ({}, {})'.format(m, n))
@@ -1865,11 +1864,11 @@ def fit_per_line_nnls(row_num, data,
     bg_sum = 0
     for i in range(data.shape[0]):
         if use_snip is True:
-            bg = snip_method(data[i, :],
-                             param['e_offset']['value'],
-                             param['e_linear']['value'],
-                             param['e_quadratic']['value'],
-                             width=param['non_fitting_values']['background_width'])
+            bg = snip_method_numba(data[i, :],
+                                   param['e_offset']['value'],
+                                   param['e_linear']['value'],
+                                   param['e_quadratic']['value'],
+                                   width=param['non_fitting_values']['background_width'])
             y = data[i, :] - bg
             bg_sum = np.sum(bg)
 
@@ -1998,11 +1997,11 @@ def fit_pixel_nonlinear_per_line(row_num, data, x0,
     snip_bg = 0
     for i in range(data.shape[0]):
         if use_snip is True:
-            bg = snip_method(data[i, :],
-                             param['e_offset']['value'],
-                             param['e_linear']['value'],
-                             param['e_quadratic']['value'],
-                             width=param['non_fitting_values']['background_width'])
+            bg = snip_method_numba(data[i, :],
+                                   param['e_offset']['value'],
+                                   param['e_linear']['value'],
+                                   param['e_quadratic']['value'],
+                                   width=param['non_fitting_values']['background_width'])
             y0 = data[i, :] - bg
             snip_bg = np.sum(bg)
         else:
