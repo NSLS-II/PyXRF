@@ -353,10 +353,14 @@ class SettingModel(Atom):
             e_offset=self.parameters['e_offset']['value'],
             e_linear=self.parameters['e_linear']['value'])
 
+        # Prepare the 'roi_dict' parameter for computations
+        roi_dict = {_: (self.roi_dict[_].left_val/1000.0, self.roi_dict[_].right_dict/1000.0)
+                    for _ in self.roi_dict.keys()}
+
         roi_dict_computed = compute_selected_rois(
             data=datav,
             data_sel_indices=(n_bin_low, n_bin_high),
-            roi_dict=self.roi_dict,
+            roi_dict=roi_dict,
             snip_param=snip_param,
             use_snip=self.subtract_background,
             chunk_pixels=5000,
@@ -486,6 +490,8 @@ class SettingModel(Atom):
             logger.info(f"ROI data was successfully saved to file '{self.hdf_name}'")
 
 
+# TODO: remove the following code when not needed
+'''
 def calculate_roi(data3D, e_offset, e_linear, range_v):
     """
     Calculate 2D map for given ROI.
@@ -518,7 +524,7 @@ def calculate_roi(data3D, e_offset, e_linear, range_v):
     range_v = [int(round(v)) for v in range_v]
     # return np.sum(data3D[range_v[0]:range_v[1], :, :], axis=0)*e_linear
     return np.sum(data3D[:, :, range_v[0]:range_v[1]], axis=2)  # * e_linear
-
+'''
 
 # TODO: remove the following code when not needed
 '''
