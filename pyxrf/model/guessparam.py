@@ -11,13 +11,13 @@ import math
 from atom.api import (Atom, Str, observe, Typed,
                       Int, Dict, List, Float, Bool)
 
-from skbeam.core.fitting.background import snip_method
 from skbeam.fluorescence import XrfElement as Element
 from skbeam.core.fitting.xrf_model import (ParamController,
                                            compute_escape_peak, trim,
                                            construct_linear_model,
                                            linear_spectrum_fitting)
 from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
+from ..core.map_processing import snip_method_numba
 
 import logging
 logger = logging.getLogger()
@@ -833,11 +833,11 @@ def calculate_profile(x, y, param, elemental_lines,
     temp_d = {k: v for (k, v) in zip(total_list, matv.transpose())}
 
     # add background
-    bg = snip_method(y,
-                     fitting_parameters['e_offset']['value'],
-                     fitting_parameters['e_linear']['value'],
-                     fitting_parameters['e_quadratic']['value'],
-                     width=fitting_parameters['non_fitting_values']['background_width'])
+    bg = snip_method_numba(y,
+                           fitting_parameters['e_offset']['value'],
+                           fitting_parameters['e_linear']['value'],
+                           fitting_parameters['e_quadratic']['value'],
+                           width=fitting_parameters['non_fitting_values']['background_width'])
     temp_d['background'] = bg
 
     x_energy = (fitting_parameters['e_offset']['value']
