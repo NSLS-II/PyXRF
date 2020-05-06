@@ -44,7 +44,13 @@ identical for all supported OS.
 
        conda activate pyxrf-env
 
-5. Install PyXRF in the active Conda environment (in our example :code:`pyxrf-env`):
+5. Install dependencies from conda-forge:
+
+   .. code:: python
+
+       conda install enaml atom -c conda-forge
+
+6. Install PyXRF in the active Conda environment (in our example :code:`pyxrf-env`):
 
    .. code:: python
 
@@ -97,4 +103,3 @@ Deactivating Conda environment
    .. code:: python
 
        conda deactivate
-    
