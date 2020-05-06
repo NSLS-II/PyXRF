@@ -284,7 +284,7 @@ def _create_xrf_data(data_dask, data_representation, tmpdir):
             dset = f.create_dataset(dset_name, shape=data_dask.shape,
                                     chunks=data_dask.chunksize, dtype="float64")
             dset[:, :, :] = data_dask.compute()
-        data = RawHDF5Dataset(fln, dset_name)
+        data = RawHDF5Dataset(fln, dset_name, shape=data_dask.shape)
     else:
         raise RuntimeError(f"Error in test parameter: unknown value of 'data_representation' = "
                            f"{data_representation}")
