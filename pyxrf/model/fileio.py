@@ -237,9 +237,7 @@ class FileIOModel(Atom):
 
         # Process metadata
         self._metadata_update_program_state()
-
         self.data_ready = True
-
         self.file_channel_list = list(self.data_sets.keys())
         self.file_opt = 0  # use summed data as default
 
