@@ -44,17 +44,11 @@ identical for all supported OS.
 
        conda activate pyxrf-env
 
-5. Install dependencies from conda-forge:
+5. Install PyXRF in the active Conda environment (in our example :code:`pyxrf-env`):
 
    .. code:: python
 
-       conda install enaml atom -c conda-forge
-
-6. Install PyXRF in the active Conda environment (in our example :code:`pyxrf-env`):
-
-   .. code:: python
-
-       conda install pyxrf scikit-beam -c nsls2forge
+       conda install pyxrf atom=0.4.3 -c nsls2forge
 
 
 Starting PyXRF
