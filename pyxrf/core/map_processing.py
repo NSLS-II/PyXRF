@@ -2,6 +2,7 @@ import numpy as np
 import math
 import os
 import h5py
+import dask
 import dask.array as da
 import time as ttime
 from numba import jit
@@ -31,6 +32,9 @@ def dask_client_create(**kwargs):
     _kwargs = {"processes": True, "silence_logs": logging.ERROR}
     _kwargs.update(kwargs)
     client = Client(**_kwargs)
+    dask.config.set(shuffle="disk")
+    path_dask_data = os.path.expanduser("~/.dask")
+    dask.config.set({"temporary_directory": path_dask_data})
     return client
 
 
