@@ -404,41 +404,65 @@ def test_prepare_xrf_mask_fail(data_dask, mask, selection, msg):
         _prepare_xrf_mask(data_dask, mask=mask, selection=selection)
 
 
-@pytest.mark.parametrize("data_representation", ["numpy_array", "dask_array", "hdf5_file_dset"])
-@pytest.mark.parametrize("apply_mask", [False, True])
-@pytest.mark.parametrize("select_area", [False, True])
-def test_compute_total_spectrum1(tmpdir, data_representation, apply_mask, select_area):
+@pytest.fixture(scope="class")
+def _start_dask_client(request):
 
-    # Start with dask array
-    data_shape = (7, 12, 20)
-    data_dask = da.random.random(data_shape, chunks=(2, 3, 4))
-    data_numpy = data_dask.compute()
+    # Setup
+    client = dask_client_create()
 
-    mask, selection = _create_xrf_mask(data_shape, apply_mask, select_area)
+    # Set class variables
+    request.cls.client = client
+    yield
 
-    # Compute the expected result
-    data_tmp = data_numpy
-    if mask is not None:
-        mask_conv = (mask > 0).astype(dtype=int)
-        mask_conv = np.broadcast_to(np.expand_dims(mask_conv, axis=2), data_tmp.shape)
-        data_tmp = data_tmp * mask_conv
-    if selection is not None:
-        y0, x0, ny, nx = selection
-        data_tmp = data_tmp[y0: y0 + ny, x0: x0 + nx, :]
-    total_spectrum_expected = np.sum(np.sum(data_tmp, axis=0), axis=0)
+    # Tear down (after all tests in the class are completed)
+    client.close()
 
-    data = _create_xrf_data(data_dask, data_representation, tmpdir)
 
-    total_spectrum = compute_total_spectrum(data, selection=selection, mask=mask,
-                                            chunk_pixels=12,
-                                            # Also run all computations with the progress bar
-                                            progress_bar=TerminalProgressBar("Monitoring progress: "))
+@pytest.mark.usefixtures("_start_dask_client")
+class TestComputeTotalSpectrum:
 
-    npt.assert_array_almost_equal(total_spectrum, total_spectrum_expected,
-                                  err_msg="Total spectrum was computed incorrectly")
+    @pytest.mark.parametrize("data_representation", ["numpy_array", "dask_array", "hdf5_file_dset"])
+    @pytest.mark.parametrize("apply_mask", [False, True])
+    @pytest.mark.parametrize("select_area", [False, True])
+    def test_compute_total_spectrum1(self, data_representation, apply_mask, select_area, tmpdir):
+        """Using 'global' dask client to save time"""
+
+        global_client = self.client
+
+        # Start with dask array
+        data_shape = (7, 12, 20)
+        data_dask = da.random.random(data_shape, chunks=(2, 3, 4))
+        # Using the same distributed scheduler doesn't work as expected
+        data_numpy = data_dask.compute(scheduler="synchronous")
+
+        mask, selection = _create_xrf_mask(data_shape, apply_mask, select_area)
+
+        # Compute the expected result
+        data_tmp = data_numpy
+        if mask is not None:
+            mask_conv = (mask > 0).astype(dtype=int)
+            mask_conv = np.broadcast_to(np.expand_dims(mask_conv, axis=2), data_tmp.shape)
+            data_tmp = data_tmp * mask_conv
+        if selection is not None:
+            y0, x0, ny, nx = selection
+            data_tmp = data_tmp[y0: y0 + ny, x0: x0 + nx, :]
+        total_spectrum_expected = np.sum(np.sum(data_tmp, axis=0), axis=0)
+
+        data = _create_xrf_data(data_dask, data_representation, tmpdir)
+
+        total_spectrum = compute_total_spectrum(data, selection=selection, mask=mask,
+                                                chunk_pixels=12,
+                                                # Also run all computations with the progress bar
+                                                progress_bar=TerminalProgressBar("Monitoring progress: "),
+                                                client=global_client)
+
+        npt.assert_array_almost_equal(total_spectrum, total_spectrum_expected,
+                                      err_msg="Total spectrum was computed incorrectly")
 
 
 def test_compute_total_spectrum2(tmpdir):
+    """Create an instance of Dask client in the 'compute_total_spectrum' function to test if it works"""
+
     # Start with dask array
     data_shape = (7, 12, 20)
     data_dask = da.random.random(data_shape, chunks=(2, 3, 4))
@@ -448,12 +472,8 @@ def test_compute_total_spectrum2(tmpdir):
 
     data = _create_xrf_data(data_dask, "dask_array", tmpdir=tmpdir)
 
-    # Create 'external' client and send the reference to 'compute_total_spectrum'
-    client = dask_client_create()
-
     # Run computations without the progress bar
-    total_spectrum = compute_total_spectrum(data, chunk_pixels=12, client=client)
-    client.close()
+    total_spectrum = compute_total_spectrum(data, chunk_pixels=12)
 
     npt.assert_array_almost_equal(total_spectrum, total_spectrum_expected,
                                   err_msg="Total spectrum was computed incorrectly")
@@ -654,21 +674,28 @@ def test_fit_xrf_block(dataset_params, add_pts_before, add_pts_after, use_snip):
     ft.verify_fit_output(data_out=data_out, snip_param=ft.snip_param)
 
 
-@pytest.mark.parametrize("data_representation", ["numpy_array", "dask_array", "hdf5_file_dset"])
-@pytest.mark.parametrize("dataset_params", [
-    {"n_data_dimensions": (10, 10)},
-    {"n_data_dimensions": (9, 11)},
-    {"n_data_dimensions": (1, 100)},
-    {"n_data_dimensions": (100, 1)},
-])
-def test_fit_xrf_map1(data_representation, dataset_params, tmpdir):
-    """
-    Basic functionality of `fit_xrf_map`.
-    Tests are run using global Dask clients to inprove testing speed.
-    """
+@pytest.mark.usefixtures("_start_dask_client")
+class TestFitXRFMap:
 
-    def _run_test(data_representation, dataset_params, add_pts_before,
-                  add_pts_after, use_snip, tmpdir, client):
+    @pytest.mark.parametrize("data_representation", ["numpy_array", "dask_array", "hdf5_file_dset"])
+    @pytest.mark.parametrize("dataset_params", [
+        {"n_data_dimensions": (10, 10)},
+        {"n_data_dimensions": (9, 11)},
+        {"n_data_dimensions": (1, 100)},
+        {"n_data_dimensions": (100, 1)},
+    ])
+    @pytest.mark.parametrize("add_pts", [(0, 0), (50, 100)])
+    @pytest.mark.parametrize("use_snip", [False, True])
+    def test_fit_xrf_map1(self, data_representation, dataset_params, add_pts, use_snip, tmpdir):
+        """
+        Basic functionality of `fit_xrf_map`.
+        Tests are run using global Dask clients to inprove testing speed.
+        """
+
+        # Dask client object is used for multiple tests to save execution time
+        global_client = self.client
+
+        add_pts_before, add_pts_after = add_pts
 
         ft = _FitXRFMapTesting(dataset_params=dataset_params,
                                use_snip=use_snip,
@@ -688,24 +715,9 @@ def test_fit_xrf_map1(data_representation, dataset_params, tmpdir):
                                snip_param=ft.snip_param,
                                use_snip=use_snip,
                                chunk_pixels=10, n_chunks_min=4,
-                               progress_bar=None, client=client)
+                               progress_bar=None, client=global_client)
 
         ft.verify_fit_output(data_out=data_out, snip_param=ft.snip_param)
-
-    # Dask client object is used for multiple tests to save execution time
-    global_client = dask_client_create()
-
-    for add_pts_before, add_pts_after in [(0, 0), (50, 100)]:
-        for use_snip in [False, True]:
-            _run_test(data_representation=data_representation,
-                      dataset_params=dataset_params,
-                      add_pts_before=add_pts_before,
-                      add_pts_after=add_pts_after,
-                      use_snip=use_snip,
-                      tmpdir=tmpdir,
-                      client=global_client)
-
-    global_client.close()
 
 
 def test_fit_xrf_map2():
@@ -852,21 +864,28 @@ def test_compute_roi(dataset_params, add_pts_before, add_pts_after, use_snip):
     ft.verify_roi_output(data_out=data_out, roi_dict=roi_dict, snip_param=snip_param)
 
 
-@pytest.mark.parametrize("data_representation", ["numpy_array", "dask_array", "hdf5_file_dset"])
-@pytest.mark.parametrize("dataset_params", [
-    {"n_data_dimensions": (10, 10)},
-    {"n_data_dimensions": (9, 11)},
-    {"n_data_dimensions": (1, 100)},
-    {"n_data_dimensions": (100, 1)},
-])
-def test_compute_selected_rois1(data_representation, dataset_params, tmpdir):
-    """
-    Basic functionality of `compute_selected_rois`.
-    Tests are run using global Dask clients to inprove testing speed.
-    """
+@pytest.mark.usefixtures("_start_dask_client")
+class TestComputeSelectedROIs:
 
-    def _run_test(data_representation, dataset_params, add_pts_before,
-                  add_pts_after, use_snip, tmpdir, client):
+    @pytest.mark.parametrize("data_representation", ["numpy_array", "dask_array", "hdf5_file_dset"])
+    @pytest.mark.parametrize("dataset_params", [
+        {"n_data_dimensions": (10, 10)},
+        {"n_data_dimensions": (9, 11)},
+        {"n_data_dimensions": (1, 100)},
+        {"n_data_dimensions": (100, 1)},
+    ])
+    @pytest.mark.parametrize("add_pts", [(0, 0), (50, 100)])
+    @pytest.mark.parametrize("use_snip", [False, True])
+    def test_compute_selected_rois1(self, data_representation, dataset_params, add_pts, use_snip, tmpdir):
+        """
+        Basic functionality of `compute_selected_rois`.
+        Tests are run using global Dask clients to inprove testing speed.
+        """
+
+        # Dask client object is used for multiple tests to save execution time
+        global_client = self.client
+
+        add_pts_before, add_pts_after = add_pts
 
         ft = _FitXRFMapTesting(dataset_params=dataset_params,
                                use_snip=use_snip,
@@ -902,25 +921,10 @@ def test_compute_selected_rois1(data_representation, dataset_params, tmpdir):
 
         data_out = compute_selected_rois(
             data, data_sel_indices=ft.data_sel_indices,
-            roi_dict=roi_dict, snip_param=snip_param, use_snip=use_snip, client=client)
+            roi_dict=roi_dict, snip_param=snip_param, use_snip=use_snip, client=global_client)
 
         # Verify the dictionary
         ft.verify_roi_output(data_out=data_out, roi_dict=roi_dict, snip_param=snip_param)
-
-    # Dask client object is used for multiple tests to save execution time
-    global_client = dask_client_create()
-
-    for add_pts_before, add_pts_after in [(0, 0), (50, 100)]:
-        for use_snip in [False, True]:
-            _run_test(data_representation=data_representation,
-                      dataset_params=dataset_params,
-                      add_pts_before=add_pts_before,
-                      add_pts_after=add_pts_after,
-                      use_snip=use_snip,
-                      tmpdir=tmpdir,
-                      client=global_client)
-
-    global_client.close()
 
 
 def test_compute_selected_rois2():
