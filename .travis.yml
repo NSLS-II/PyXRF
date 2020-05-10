@@ -3,10 +3,11 @@ sudo: false
 
 env:
   global:
+    # Doctr deploy key for dmgav/test_doc
+    # - secure: "vxwIdGm1WhAad542sAyVjpwkFsv8Z68KwYqoj8//ndA7FklIJys0F6ciYUVToNh8680CDDg05uSgucO4anKWnhU/eiq3ObLPYZivJBmeQyjI3Z5LbpCvO9vJdgENFZeCT9LPz6yv2y8ez9sweM/vocXV0uzkKrYxGLneoLI/Jr1fPJyocI0QUORZzHhzFsuawSB+BgqwmkEJaSJn5ja85nIkhdEgkAWiWPvCfi2P10kn+cOl635NoC0GVZ65WpblowiQgZDEiBj/uAjP7oCoxIY6Mlx3xvNL9GGbAy85CcB9Ntu58CQDep+cROVJ9YcQrxZjFCx7KPAHLaiQkgZAl/nj9vkXVXByY0iORbREyq4o5R5Bma/Ytw7epzf8LmmPw+K2lC62uNS1ZYhvT58gH43TzSWLxvUydUe2nrPvUNZXTz6ypu0cpwh4gC/VtH532O6E+CWHXsl0w8pVIoVlweWoa8XWX9Xxyz9XziRJ1D76To6xsvaFDWdEFCPSNrxCj2wXCbIgizi/uYDLXZBVAoXLNoiVswpUyjoyLM0UqOpucQGU40n8MSRQzduJyh2rwm/zbzQMpU0qwYy6sovEoHwzkNqTNJWKH2BsOerJ2tduoCkOHPXWa0S/OYtT2dfBSruk4gpSyKKRl2FK9C74Y9m5f7RixnObCL7U555uliE="
     - SUBMIT_CODECOV: false
     - BUILD_DOCS: false
     - GH_REF: github.com/NSLS-II/PyXRF.git
-    - secure: "ZYRymELlWT6UQNEU4M57jEWfHGy+e04OBEqbhzLiJMc1LBAOKyBlQrGDloYC0mg6C6TtLhVqqxiiYQFDi4aPRxu9iBRcD4dloIZiEBXXn0DAVWmEj2n7rsORyGxbWbEnhyAkyKSu1pfzVUAPZqpXnfRKTqW2rI/9GG4cG0i7B5zP3uL8kT1dji0L9zWB9MMdZygOyPaqlJlHJ/OicWhKcqZYMuxh1D3o4VzYhjuaEctoEWNm8T+NhQehwL9uEEoUHwjm1pIIEul7O2T9Sn0X6+A5+qpUPPKwFd3M4O1QNkGbdNxZxBy4Kd5WfdsVveOQIM4YIHdQ97xbtigFLNVSjdwaUiI2YCuyGWPNyQGP0ak3qxlVqVC4yM5Wo7NPefPXwGi/dyGyTzKdD+4Z4+9vLMgKVXOIZCiUDHZBbEtHEs5Rf33O8WRKvwz3WxsT6FJz+2YfnTCCBv6NFqvduYyE9T1E3RxZR97EA5Vw+B53VHvvhakjTTlXIwIAES81oV489Wz6nbtER4QRuJK89vs4Gn8l9tQ8K48p3vM3ezbUcaek7/fLF2zca+P7Riys0mHMPie5gmBlsM5t7In9eYhv4sQpKvFRoL/NbP29npdeO0ev4QV0mH1OJTWogcDeTnLiIcHYaCpynT5cC8Qfq73PAy1D/Y6AGMjI2iSkWdm7+qQ="
 
 cache:
   directories:
@@ -55,6 +56,7 @@ install:
   - conda create -y -n testenv python=$TRAVIS_PYTHON_VERSION numpy=$NUMPY
   - conda activate testenv
   - conda install -y scikit-beam -c nsls2forge
+  - conda update -y scikit-beam -c nsls2forge
   - pip install -r requirements.txt
   - pip install -r requirements-dev.txt
   - pip install codecov
@@ -77,8 +79,22 @@ script:
   if [ $BUILD_DOCS == 'true' ]; then
     pip install -r requirements-docs.txt
     make -C docs html  # Build the documentation.
-    doctr deploy --built-docs docs/_build/html .  # Publish the documentation.
+    # Disable Jekyll theme
+    touch docs/_build/html/.nojekyll
+    # doctr deploy --built-docs docs/_build/html .  # Publish the documentation.
   fi
 
-after_success:
-  #- if [ $SUBMIT_CODECOV == 'true' ]; then codecov; fi;
+deploy:
+  provider: pages
+  skip_cleanup: true
+  github_token: $GITHUB_TOKEN  # Set in the settings page of your repository, as a secure variable
+  keep_history: true
+  local_dir: "docs/_build/html"
+  on:
+    branch: master
+    # The following conditions guarantees that the docs will be deployed only if the build
+    #   is run in the main repository (this may easily changed)
+    condition: $BUILD_DOCS == true && $TRAVIS_REPO_SLUG == "NSLS-II/PyXRF"
+
+# after_success:
+#  - if [ $SUBMIT_CODECOV == 'true' ]; then codecov; fi;
