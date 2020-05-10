@@ -79,6 +79,8 @@ script:
   if [ $BUILD_DOCS == 'true' ]; then
     pip install -r requirements-docs.txt
     make -C docs html  # Build the documentation.
+    # Disable Jekyll theme
+    touch docs/_build/html/.nojekyll
     # doctr deploy --built-docs docs/_build/html .  # Publish the documentation.
   fi
 
