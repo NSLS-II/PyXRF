@@ -5,7 +5,7 @@ from .gui.main_window import MainWindow
 
 
 def run():
-
+    """Run the application"""
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
     app.setApplicationName("PyXRF")
