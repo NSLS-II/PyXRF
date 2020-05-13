@@ -308,7 +308,7 @@ def test_load_xrf_quant_fluor_json_file2(tmp_path):
 
 
 def test_get_quant_fluor_data_dict():
-    f"""Tests for 'get_quant_fluor_data_dict': basic tests for consistensy of the returned dictionary"""
+    """Tests for 'get_quant_fluor_data_dict': basic tests for consistensy of the returned dictionary"""
 
     for standard_data in _standard_data_sample:
 
@@ -404,10 +404,10 @@ def test_fill_quant_fluor_data_dict(map_dims):
 
     npt.assert_almost_equal(fluor_standard["element_lines"]["S_K"]["fluorescence"],
                             map_S_K_fluor / v_sclr,
-                            err_msg=f"Fluorescence of 'S_K' is estimated incorrectly")
+                            err_msg="Fluorescence of 'S_K' is estimated incorrectly")
     npt.assert_almost_equal(fluor_standard["element_lines"]["Au_M"]["fluorescence"],
                             map_Au_M_fluor / v_sclr,
-                            err_msg=f"Fluorescence of 'Au_M' is estimated incorrectly")
+                            err_msg="Fluorescence of 'Au_M' is estimated incorrectly")
     for eline, param in fluor_standard["element_lines"].items():
         assert (eline in img) or (param["fluorescence"] is None), \
             f"Fluorescence line {eline} is not present in the dataset and it was not reset to None"
@@ -416,13 +416,13 @@ def test_fill_quant_fluor_data_dict(map_dims):
     fill_quant_fluor_data_dict(fluor_standard, xrf_map_dict=img, scaler_name="abc")
     npt.assert_almost_equal(fluor_standard["element_lines"]["S_K"]["fluorescence"],
                             map_S_K_fluor,
-                            err_msg=f"Fluorescence of 'S_K' is estimated incorrectly")
+                            err_msg="Fluorescence of 'S_K' is estimated incorrectly")
 
     # Fill the dictionary, don't use a scaler (set to None)
     fill_quant_fluor_data_dict(fluor_standard, xrf_map_dict=img, scaler_name=None)
     npt.assert_almost_equal(fluor_standard["element_lines"]["S_K"]["fluorescence"],
                             map_S_K_fluor,
-                            err_msg=f"Fluorescence of 'S_K' is estimated incorrectly")
+                            err_msg="Fluorescence of 'S_K' is estimated incorrectly")
 
 
 def test_prune_quant_fluor_data_dict():
@@ -552,13 +552,13 @@ def test_ParamQuantEstimation_1(tmp_path):
 
     # Load reference standards
     pqe.load_standards()
-    assert pqe.standards_built_in is not None, f"Failed to load built-in standards"
-    assert pqe.standards_custom is not None, f"Failed to load user-defined standards"
+    assert pqe.standards_built_in is not None, "Failed to load built-in standards"
+    assert pqe.standards_custom is not None, "Failed to load user-defined standards"
 
     # Clear loaded standards
     pqe.clear_standards()
-    assert pqe.standards_built_in is None, f"Failed to clear loaded built-in standards"
-    assert pqe.standards_custom is None, f"Failed to clear loaded user-defined standards"
+    assert pqe.standards_built_in is None, "Failed to clear loaded built-in standards"
+    assert pqe.standards_custom is None, "Failed to clear loaded user-defined standards"
 
 
 def test_ParamQuantEstimation_2(tmp_path):
@@ -577,10 +577,10 @@ def test_ParamQuantEstimation_2(tmp_path):
     # Create the object and load references
     pqe = ParamQuantEstimation(home_dir=home_dir)
     pqe.load_standards()
-    assert pqe.standards_built_in is not None, f"Failed to load built-in standards"
-    assert len(pqe.standards_built_in) > 0, f"The number of loaded built-in standards is ZERO"
-    assert pqe.standards_custom is not None, f"Failed to load user-defined standards"
-    assert len(pqe.standards_custom) > 0, f"The number of loaded user-defined standards is ZERO"
+    assert pqe.standards_built_in is not None, "Failed to load built-in standards"
+    assert len(pqe.standards_built_in) > 0, "The number of loaded built-in standards is ZERO"
+    assert pqe.standards_custom is not None, "Failed to load user-defined standards"
+    assert len(pqe.standards_custom) > 0, "The number of loaded user-defined standards is ZERO"
 
     # Verify if the functions for searching the user-defined standards
     for st in pqe.standards_custom:
@@ -613,18 +613,18 @@ def test_ParamQuantEstimation_2(tmp_path):
     # Selecting non-existing standard
     st = {"serial": "09876", "name": "Some name"}  # Some arbitatry dictionary
     st_selected = pqe.set_selected_standard(st)
-    assert st_selected == pqe.standard_selected, f"Return value of 'set_selected_standard' is incorrect"
-    assert st_selected == pqe.standards_custom[0], f"Incorrect standard is selected"
+    assert st_selected == pqe.standard_selected, "Return value of 'set_selected_standard' is incorrect"
+    assert st_selected == pqe.standards_custom[0], "Incorrect standard is selected"
     # No argument (standard is None)
     pqe.set_selected_standard()
-    assert st_selected == pqe.standards_custom[0], f"Incorrect standard is selected"
+    assert st_selected == pqe.standards_custom[0], "Incorrect standard is selected"
     # Delete the user-defined standards (this is not normal operation, but it's OK for testing)
     pqe.standards_custom = None
     pqe.set_selected_standard(st)
-    assert pqe.standard_selected == pqe.standards_built_in[0], f"Incorrect standard is selected"
+    assert pqe.standard_selected == pqe.standards_built_in[0], "Incorrect standard is selected"
     pqe.standards_built_in = None
     pqe.set_selected_standard(st)
-    assert pqe.standard_selected is None, f"Incorrect standard is selected"
+    assert pqe.standard_selected is None, "Incorrect standard is selected"
 
 
 def test_ParamQuantEstimation_3(tmp_path):
@@ -660,7 +660,7 @@ def test_ParamQuantEstimation_3(tmp_path):
     fill_quant_fluor_data_dict(qfdd, xrf_map_dict=img, scaler_name=scaler_name)
 
     assert pqe.fluorescence_data_dict == qfdd, \
-        f"The filled fluorescence data dictionary does not match the expected"
+        "The filled fluorescence data dictionary does not match the expected"
 
     # Test generation of preview (superficial)
     pview = pqe.get_fluorescence_data_dict_text_preview()
@@ -874,9 +874,9 @@ def test_ParamQuantitativeAnalysis(tmp_path):
     # Get the emission line list and verify if it matches the expected list (including the order of the lines)
     eline_list_expected = []
     for settings in pqa.calibration_settings:
-        for l in settings["element_lines"].keys():
-            if l not in eline_list_expected:
-                eline_list_expected.append(l)
+        for ln in settings["element_lines"].keys():
+            if ln not in eline_list_expected:
+                eline_list_expected.append(ln)
     pqa.update_emission_line_list()
     assert pqa.active_emission_lines == eline_list_expected, \
         "Generated emission line list does not match the expected list"
@@ -891,20 +891,20 @@ def test_ParamQuantitativeAnalysis(tmp_path):
     elist = list(set(elist0).intersection(set(elist1)))
 
     def set_selection(pqa, elist, selection):
-        for l, sel in zip(elist, selection):
-            el_info = pqa.get_eline_info_complete(l)
-            assert len(el_info) >= 2, f"The emission line {l} must exist in at least 2 entries"
+        for ln, sel in zip(elist, selection):
+            el_info = pqa.get_eline_info_complete(ln)
+            assert len(el_info) >= 2, f"The emission line {ln} must exist in at least 2 entries"
             el_info[0]["eline_settings"]["selected"] = sel
             el_info[1]["eline_settings"]["selected"] = not sel
 
     def check_selection(pqa, elist, selection):
         # We check the selection status directly
         #   (in part to verify if 'get_eline_info_complete' works correctly)
-        for l, sel in zip(elist, selection):
-            selected = pqa.calibration_settings[0]["element_lines"][l]["selected"]
-            selected1 = pqa.calibration_settings[1]["element_lines"][l]["selected"]
-            assert selected == sel, f"Entry 0: selection state of element line '{l}' incorrect"
-            assert selected1 != sel, f"Entry 1: selection state of element line '{l}' incorrect"
+        for ln, sel in zip(elist, selection):
+            selected = pqa.calibration_settings[0]["element_lines"][ln]["selected"]
+            selected1 = pqa.calibration_settings[1]["element_lines"][ln]["selected"]
+            assert selected == sel, f"Entry 0: selection state of element line '{ln}' incorrect"
+            assert selected1 != sel, f"Entry 1: selection state of element line '{ln}' incorrect"
 
     # This should be run at least once to select all entries of the 0th set
     pqa.update_emission_line_list()
@@ -931,9 +931,9 @@ def test_ParamQuantitativeAnalysis(tmp_path):
     fln1 = pqa.calibration_settings[0]["file_path"]
     pqa.remove_entry(fln1)
     # Check only the entry #0 (all lines must be selected
-    for l in elist:
-        assert pqa.calibration_settings[0]["element_lines"][l]["selected"], \
-            f"Element line {l} is not selected in calibration entry #0"
+    for ln in elist:
+        assert pqa.calibration_settings[0]["element_lines"][ln]["selected"], \
+            f"Element line {ln} is not selected in calibration entry #0"
 
     # Reload the entry (now the entries are arranged in the order 'fln0', 'fln1')
     #   Entry #0 should still remain selected for all emission lines
