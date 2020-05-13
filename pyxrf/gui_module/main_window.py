@@ -14,6 +14,9 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
+        # Indicates that the window was closed (used mostly for testing)
+        self._is_closed = False
+
         self.initialize()
 
     def initialize(self):
@@ -24,3 +27,10 @@ class MainWindow(QMainWindow):
         self.setMinimumHeight(_main_window_geometry["min_height"])
 
         self.setWindowTitle("PyXRF window title")
+
+    def closeEvent(self, event):
+
+        event.accept()
+
+        # This flag is used for CI tests
+        self._is_closed = True
