@@ -258,7 +258,7 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
             param_channel_list = [param_file_name] * 3
         else:
             if not isinstance(param_channel_list, list) and not isinstance(param_channel_list, tuple):
-                raise RuntimeError(f"Parameter 'param_channel_list' must be a list or a tuple of strings")
+                raise RuntimeError("Parameter 'param_channel_list' must be a list or a tuple of strings")
             if len(param_channel_list) != len(det_channels):
                 raise RuntimeError(f"Parameter 'param_channel_list' must be 'None' "
                                    f"or contain {len(det_channels)} file names.")
@@ -282,7 +282,7 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
             # update incident energy, required for XANES
             if incident_energy is not None:
                 param_det['coherent_sct_energy']['value'] = incident_energy
-                print(f"Using incident beam energy passed as the function parameter.")
+                print("Using incident beam energy passed as the function parameter.")
             elif mdata.is_metadata_available() and "instrument_mono_incident_energy" in mdata \
                     and not ignore_datafile_metadata:
                 param_det['coherent_sct_energy']['value'] = mdata["instrument_mono_incident_energy"]
@@ -656,7 +656,7 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
                 logger.info("Closing the local Dask client ...")
                 dask_client.close()
 
-        print(f"The following files are scheduled for processing:")
+        print("The following files are scheduled for processing:")
         for fln in flist:
             print(f"    {fln}")
         print(f"Total number of selected files: {len(flist)}\n")
