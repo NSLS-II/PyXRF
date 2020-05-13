@@ -22,3 +22,5 @@ class MainWindow(QMainWindow):
 
         self.setMinimumWidth(_main_window_geometry["min_width"])
         self.setMinimumHeight(_main_window_geometry["min_height"])
+
+        self.setWindowTitle("PyXRF window title")
