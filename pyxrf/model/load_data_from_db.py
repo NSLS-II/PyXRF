@@ -733,9 +733,9 @@ def map_data2D_srx(runid, fpath,
     if 'fly' not in plan_n:  # not fly scan
 
         print()
-        print(f"****************************************")
-        print(f"        Loading SRX step scan           ")
-        print(f"****************************************")
+        print("****************************************")
+        print("        Loading SRX step scan           ")
+        print("****************************************")
 
         fly_type = None
 
@@ -829,9 +829,9 @@ def map_data2D_srx(runid, fpath,
     else:
 
         print()
-        print(f"****************************************")
-        print(f"         Loading SRX fly scan           ")
-        print(f"****************************************")
+        print("****************************************")
+        print("         Loading SRX fly scan           ")
+        print("****************************************")
 
         if save_scaler is True:
             scaler_list = ['i0', 'time', 'i0_time', 'time_diff']
@@ -1102,8 +1102,8 @@ def map_data2D_srx(runid, fpath,
 
         print()
         if n_detectors_found == 0:
-            print(f"ERROR: no data from known detectors were found in the database:")
-            print(f"     Check that appropriate fields are included in 'xrf_fly_scan_detector_fields'")
+            print("ERROR: no data from known detectors were found in the database:")
+            print("     Check that appropriate fields are included in 'xrf_fly_scan_detector_fields'")
             print(f"         of configuration file: {config_path}")
         else:
             print(f"Total of {n_detectors_found} detectors were found", end="")
@@ -1207,9 +1207,9 @@ def map_data2D_tes(runid, fpath,
     #        separate file on GPFS, the document contains the path to file)
 
     print()
-    print(f"****************************************")
-    print(f"         Loading TES fly scan           ")
-    print(f"****************************************")
+    print("****************************************")
+    print("         Loading TES fly scan           ")
+    print("****************************************")
 
     xpos_name = 'x_centers'   # For now, we always fly on stage_x (fast axis)
     ypos_name = 'y_centers'
