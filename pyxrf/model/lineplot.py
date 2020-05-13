@@ -957,11 +957,11 @@ class LinePlotModel(Atom):
         if len(self.roi_dict):
             for k, v in six.iteritems(self.roi_dict):
                 if v.show_plot:
-                    for l in self.roi_plot_dict[k]:
-                        l.set_visible(True)
+                    for ln in self.roi_plot_dict[k]:
+                        ln.set_visible(True)
                 else:
-                    for l in self.roi_plot_dict[k]:
-                        l.set_visible(False)
+                    for ln in self.roi_plot_dict[k]:
+                        ln.set_visible(False)
         self._update_canvas()
 
     def add_peak_manual(self):
