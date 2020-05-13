@@ -172,7 +172,7 @@ def test_rfactor_compute_fail():
     # No match between dimensions of 'spectrum' and 'fit_results' dimensionality
     with pytest.raises(AssertionError,
                        match="Spectrum data .+ and fitting results .+ "
-                       f"must have the same number of dimensions"):
+                       "must have the same number of dimensions"):
         rfactor_compute(spectrum, fit_results_2D, ref_spectra)
 
     # Wrong dimensions of parameter 'ref_spectra'

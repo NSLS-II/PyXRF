@@ -371,7 +371,7 @@ def build_xanes_map(start_id=None, end_id=None, *, parameter_file_path=None,
                 if allow_exceptions:
                     raise
         else:
-            msg = f"New parameter file can't be created: parameter file path is not specified"
+            msg = "New parameter file can't be created: parameter file path is not specified"
             if allow_exceptions:
                 raise RuntimeError(msg)
             else:
@@ -1216,7 +1216,7 @@ def _compute_xanes_maps(*, start_id, end_id, wd_xrf,
 
         skip_bl_sub = True
         if subtract_pre_edge_baseline:
-            logger.info(f"Subtracting pre-edge baseline")
+            logger.info("Subtracting pre-edge baseline")
             try:
                 xrf_data = subtract_xanes_pre_edge_baseline(eline_data_aligned[eline_selected],
                                                             scan_energies_shifted, eline_selected)
@@ -1974,7 +1974,7 @@ def _align_stacks(eline_data, eline_alignment, alignment_starts_from="top",
     logger.info(f"Stacks are aligned using the map '{eline_alignment}'")
     data = np.array(eline_data[eline_alignment])  # Create a copy
     if normalize_alignment_stack:
-        logger.info(f"Normalizing the alignment stack ...")
+        logger.info("Normalizing the alignment stack ...")
         for n in range(data.shape[0]):
             data[n, :, :] = data[n, :, :] / np.sum(data[n, :, :])
     # Add the data selected for stack alignment in the original dictionary of stacks
@@ -2253,8 +2253,8 @@ def show_image_stack(*, eline_data, energies, eline_selected,
 
             self.t_bar = plt.get_current_fig_manager().toolbar
 
-            x_label = f"X, {axes_units}" if axes_units else f"X"
-            y_label = f"Y, {axes_units}" if axes_units else f"Y"
+            x_label = "X, {axes_units}" if axes_units else "X"
+            y_label = "Y, {axes_units}" if axes_units else "Y"
             self.ax_img_stack.set_xlabel(x_label, fontsize=self.label_fontsize)
             self.ax_img_stack.set_ylabel(y_label, fontsize=self.label_fontsize)
 
@@ -2707,8 +2707,8 @@ def plot_xanes_map(map_data, *, label=None, block=True,
     else:
         axes_units = axes_units if axes_units else ""
 
-    x_label = f"X, {axes_units}" if axes_units else f"X"
-    y_label = f"Y, {axes_units}" if axes_units else f"Y"
+    x_label = "X, {axes_units}" if axes_units else "X"
+    y_label = "Y, {axes_units}" if axes_units else "Y"
 
     # Find max and min values. The margins are likely to contain strong artifacts that distort images.
     c = max(map_margin/100.0, 0)  # Make sure it is positive
@@ -3034,7 +3034,7 @@ def _save_xanes_maps_to_tiff(*, wd, eline_data_aligned, eline_selected,
             n_y_pixels = len(positions_y)
             x_min, x_max = positions_x[0], positions_x[-1]
             y_min, y_max = positions_y[0], positions_y[-1]
-            print(f"\nXANES scan parameters:", file=f_log)
+            print("\nXANES scan parameters:", file=f_log)
             print(f"    image size (Ny, Nx): ({n_y_pixels}, {n_x_pixels})", file=f_log)
             print(f"    Y-axis scan range [Y_min, Y_max, abs(Y_max-Y_min)]: "
                   f"[{y_min:.5g}, {y_max:.5g}, {abs(y_max-y_min):.5g}]", file=f_log)

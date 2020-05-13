@@ -133,17 +133,17 @@ def test_gen_xrf_map_const_2():
     background_area = 1000
     nx, ny = 50, 100
 
-    with pytest.raises(RuntimeError, match=f"Elemental line Fe_L is not supported"):
+    with pytest.raises(RuntimeError, match="Elemental line Fe_L is not supported"):
         gen_xrf_map_const(element_groups, nx=nx, ny=ny,
                           incident_energy=12.0, background_area=background_area)
 
     # Spectrum with ZERO points
-    with pytest.raises(RuntimeError, match=f"Spectrum must contain at least one point"):
+    with pytest.raises(RuntimeError, match="Spectrum must contain at least one point"):
         gen_xrf_map_const(element_groups, nx=nx, ny=ny, n_spectrum_points=0,
                           incident_energy=12.0, background_area=background_area)
 
     # XRF map has ZERO points
-    with pytest.raises(RuntimeError, match=f"XRF map has zero pixels"):
+    with pytest.raises(RuntimeError, match="XRF map has zero pixels"):
         gen_xrf_map_const(element_groups, nx=0, ny=ny, n_spectrum_points=1000,
                           incident_energy=12.0, background_area=background_area)
 

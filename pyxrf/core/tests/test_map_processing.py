@@ -67,7 +67,7 @@ class _SampleProgressBar:
         #   Used only for testing purposes only.
         self._expected_output = [
             f"Starting progress bar: {self.title}",
-            f"Percent completed: 100.0",
+            "Percent completed: 100.0",
             f"Finished: {self.title}"
         ]
 
@@ -579,7 +579,7 @@ class _FitXRFMapTesting:
             bg_sum_expected = np.sum(bg_sel, axis=2)
             npt.assert_array_almost_equal(
                 bg_sum, bg_sum_expected,
-                err_msg=f"Baseline is estimated incorrectly (use_snip==True)")
+                err_msg="Baseline is estimated incorrectly (use_snip==True)")
 
         # Let's trust, that R-factor is correctly inserted into
         #   the 'data_out' array. Computation of R-factor is tested elsewhere,

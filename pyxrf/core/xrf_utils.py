@@ -282,9 +282,9 @@ def generate_eline_list(element_list, *, incident_energy, lines=None):
 
     # Verify line selection
     invalid_lines = []
-    for l in lines:
-        if not re.search(r"^[KLM]$", l):
-            invalid_lines.append(l)
+    for ln in lines:
+        if not re.search(r"^[KLM]$", ln):
+            invalid_lines.append(ln)
     if invalid_lines:
         msg = f"Some of the selected emission lines are incorrect: {invalid_lines}"
         raise RuntimeError(msg)
@@ -292,8 +292,8 @@ def generate_eline_list(element_list, *, incident_energy, lines=None):
     eline_list = []
 
     for element in element_list:
-        for l in lines:
-            eline = f"{element}_{l}"
+        for ln in lines:
+            eline = f"{element}_{ln}"
             is_activated = check_if_eline_is_activated(eline, incident_energy)
             is_supported = check_if_eline_supported(eline)
             if is_activated and is_supported:

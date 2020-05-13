@@ -523,9 +523,9 @@ def fill_quant_fluor_data_dict(quant_fluor_data_dict, *, xrf_map_dict, scaler_na
     """
 
     if not scaler_name:
-        logger.warning(f"No scaler is selected for computing quantitative coefficients. Data is not normalized.")
+        logger.warning("No scaler is selected for computing quantitative coefficients. Data is not normalized.")
     elif scaler_name not in xrf_map_dict:
-        logger.warning(f"Scaler '{scaler_name}' is not in XRF map dictionary. Normalization can not be performed.")
+        logger.warning("Scaler '{scaler_name}' is not in XRF map dictionary. Normalization can not be performed.")
         scaler_name = None
 
     # Clear ALL fluorescence values. Don't touch any other data
@@ -1252,10 +1252,10 @@ class ParamQuantitativeAnalysis:
             settings = {}
             settings['file_path'] = file_path
             settings['element_lines'] = {}
-            for l in calibration_data['element_lines']:
-                settings["element_lines"][l] = {}
+            for ln in calibration_data['element_lines']:
+                settings["element_lines"][ln] = {}
                 # Do not select the emission line
-                settings["element_lines"][l]["selected"] = False
+                settings["element_lines"][ln]["selected"] = False
 
             self.calibration_settings.append(settings)
             # This will also select the emission line if it occurs the first time
@@ -1384,10 +1384,10 @@ class ParamQuantitativeAnalysis:
         elines_all = set()
         self.active_emission_lines = []  # Clear the list, it is recreated
         for data in self.calibration_data:
-            for l in data["element_lines"].keys():
-                if l not in elines_all:
-                    elines_all.add(l)
-                    self.active_emission_lines.append(l)
+            for ln in data["element_lines"].keys():
+                if ln not in elines_all:
+                    elines_all.add(ln)
+                    self.active_emission_lines.append(ln)
 
         # Make sure that emission line is selected only once
         elines_selected = set()  # We make sure that each emission line is selected
