@@ -1324,10 +1324,10 @@ def map_data2D_tes(runid, fpath,
     if output_to_file:
         # output to file
         print(f"Saving data to hdf file #{n_detectors_found}: Detector: {detector_name}.")
-        write_db_to_hdf_base(fpath_out, new_data, metadata=mdata,
-                             fname_add_version=fname_add_version,
-                             file_overwrite_existing=file_overwrite_existing,
-                             create_each_det=create_each_det)
+        fpath_out = write_db_to_hdf_base(fpath_out, new_data, metadata=mdata,
+                                         fname_add_version=fname_add_version,
+                                         file_overwrite_existing=file_overwrite_existing,
+                                         create_each_det=create_each_det)
 
     d_dict = {"dataset": new_data, "file_name": fpath_out,
               "detector_name": detector_name, "metadata": mdata}

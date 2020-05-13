@@ -224,7 +224,9 @@ enamldef FileView(DockItem): file_view:
                     Looper: looper:
                         iterable << io_model.file_channel_list
                         GroupBox:
-                            title = '{}, data shape: {}, total counts: {}'.format(loop_item, io_model.data_sets[loop_item].raw_data.shape, int(np.sum(io_model.data_sets[loop_item].raw_data)))
+                            # Commented because some of the data is not available
+                            # title = '{}, data shape: {}, total counts: {}'.format(loop_item, io_model.data_sets[loop_item].raw_data.shape, int(np.sum(io_model.data_sets[loop_item].raw_data)))
+                            title = '{} - data shape: {}'.format(loop_item, io_model.data_sets[loop_item].raw_data.shape)
                             constraints = [hbox(rb_1, rb_2, rb_3, rb_4, lb1, fd1, lb2, fd2, spacer)]
                             constraints = [hbox(rb_1, rb_2, spacer)]
                             padding = Box(0, 0, 0, 0)

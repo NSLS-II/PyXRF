@@ -127,8 +127,8 @@ class DrawImageAdvanced(Atom):
         matplotlib.rcParams['axes.formatter.useoffset'] = True
 
         # Do not apply scaler norm on following data
-        self.name_not_scalable = ['r2_adjust', 'alive', 'dead', 'elapsed_time', 'scaler_alive',
-                                  'i0_time', 'time', 'time_diff', 'dwell_time']
+        self.name_not_scalable = ['r2_adjust', 'r_factor', 'alive', 'dead', 'elapsed_time',
+                                  'scaler_alive', 'i0_time', 'time', 'time_diff', 'dwell_time']
 
         self.param_quant_analysis = ParamQuantitativeAnalysis()
         self.param_quant_analysis.set_experiment_distance_to_sample(distance_to_sample=0.0)

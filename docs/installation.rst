@@ -48,7 +48,7 @@ identical for all supported OS.
 
    .. code:: python
 
-       conda install pyxrf scikit-beam -c nsls2forge
+       conda install pyxrf atom=0.4.3 -c nsls2forge
 
 
 Starting PyXRF
@@ -97,4 +97,3 @@ Deactivating Conda environment
    .. code:: python
 
        conda deactivate
-    

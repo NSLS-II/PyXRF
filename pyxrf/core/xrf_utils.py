@@ -1,5 +1,7 @@
 import re
 import xraylib
+from distutils.version import LooseVersion
+
 from skbeam.core.constants import XrfElement as Element
 from skbeam.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
 
@@ -22,7 +24,8 @@ def get_element_atomic_number(element_str):
     the function returns 0.
 
     """
-    xraylib.SetErrorMessages(0)  # Turn off error messages from ``xraylib``
+    if LooseVersion(xraylib.__version__) < LooseVersion("4.0.0"):
+        xraylib.SetErrorMessages(0)  # Turn off error messages from ``xraylib``
 
     try:
         val = xraylib.SymbolToAtomicNumber(element_str)
@@ -86,8 +89,9 @@ def parse_compound_formula(compound_formula):
         RuntimeError is raised if compound formula cannot be parsed
     """
 
-    xraylib.SetErrorMessages(0)  # This is supposed to stop XRayLib from printing
-    #                              internal error messages, but it doesn't work
+    if LooseVersion(xraylib.__version__) < LooseVersion("4.0.0"):
+        xraylib.SetErrorMessages(0)  # This is supposed to stop XRayLib from printing
+        #                              internal error messages, but it doesn't work
 
     try:
         compound_data = xraylib.CompoundParser(compound_formula)
