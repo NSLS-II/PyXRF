@@ -166,7 +166,7 @@ class FileIOModel(Atom):
                 logger.info(f"New version of PyXRF ({pyxrf_latest_version_str}) was found "
                             "in the 'nsls2forge' conda channel")
             else:
-                logger.info(f"You have the latest version of PyXRF")
+                logger.info("You have the latest version of PyXRF")
 
         except Exception:
             # This exception is mostly likely to happen if there is no internet connection or
@@ -508,10 +508,10 @@ class DataSelection(Atom):
 
         if cache_valid:
             # We create copy to make sure that cache remains intact
-            logger.info(f"Using cached copy of the averaged spectrum ...")
+            logger.info("Using cached copy of the averaged spectrum ...")
             spec = self._cached_spectrum["spec"].copy()
         else:
-            logger.info(f"Computing the total spectrum from raw data ...")
+            logger.info("Computing the total spectrum from raw data ...")
 
             SC = SpectrumCalculator(self.raw_data, pos1=pos1, pos2=pos2)
             spec = SC.get_spectrum(mask=mask)
@@ -714,7 +714,7 @@ def output_data(dataset_dict=None, output_dir=None,
 
     if(interpolate_to_uniform_grid):
         if ("x_pos" in fit_output) and ("y_pos" in fit_output):
-            logger.info(f"Data is INTERPOLATED to uniform grid.")
+            logger.info("Data is INTERPOLATED to uniform grid.")
             for k, v in fit_output.items():
                 # Do not interpolation positions
                 if 'pos' in k:
@@ -725,7 +725,7 @@ def output_data(dataset_dict=None, output_dir=None,
             fit_output["x_pos"] = xx
             fit_output["y_pos"] = yy
         else:
-            logger.error(f"Positional data 'x_pos' and 'y_pos' is not found in the dataset.\n"
+            logger.error("Positional data 'x_pos' and 'y_pos' is not found in the dataset.\n"
                          "Iterpolation to uniform grid can not be performed. "
                          "Data is saved without interpolation.")
 
