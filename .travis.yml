@@ -1,6 +1,9 @@
 language: python
 sudo: false
 
+services:
+  - xvfb
+
 env:
   global:
     # Doctr deploy key for dmgav/test_doc

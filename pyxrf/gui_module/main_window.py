@@ -2,8 +2,8 @@ from PyQt5.QtWidgets import QMainWindow
 
 
 _main_window_geometry = {
-    "initial_height": 800,
-    "initial_width": 1000,
+    "initial_height": 2000,
+    "initial_width": 3000,
     "min_height": 400,
     "min_width": 500,
 }
