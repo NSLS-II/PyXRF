@@ -1,11 +1,11 @@
-from PyQt5.QtWidgets import QMainWindow
+from PyQt5.QtWidgets import QMainWindow, QMessageBox
 
 
 _main_window_geometry = {
-    "initial_height": 2000,
-    "initial_width": 3000,
-    "min_height": 400,
-    "min_width": 500,
+    "initial_height": 800,
+    "initial_width": 1200,
+    "min_height": 800,
+    "min_width": 1200,
 }
 
 
@@ -30,7 +30,12 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
 
-        event.accept()
-
-        # This flag is used for CI tests
-        self._is_closed = True
+        mb_close = QMessageBox(QMessageBox.Question, "Exit",
+                               "Are you sure you want to EXIT the program?",
+                               QMessageBox.Yes | QMessageBox.No)
+        if mb_close.exec() == QMessageBox.Yes:
+            event.accept()
+            # This flag is used for CI tests
+            self._is_closed = True
+        else:
+            event.ignore()
