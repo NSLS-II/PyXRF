@@ -1,4 +1,7 @@
-from PyQt5.QtWidgets import QMainWindow, QMessageBox, QLabel, QAction
+from PyQt5.QtWidgets import (QMainWindow, QMessageBox, QLabel, QAction)
+# from PyQt5.QtCore import Qt
+
+from .central_widget import TwoPanelWidget
 
 
 _main_window_geometry = {
@@ -92,6 +95,9 @@ class MainWindow(QMainWindow):
 
         help = menubar.addMenu('&Help')
         help.addAction(action_show_about)
+
+        central_widget = TwoPanelWidget()
+        self.setCentralWidget(central_widget)
 
     def closeEvent(self, event):
 
