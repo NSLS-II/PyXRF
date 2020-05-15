@@ -1,5 +1,7 @@
-from PyQt5.QtWidgets import (QFrame, QSplitter)
+from PyQt5.QtWidgets import (QFrame, QSplitter, QHBoxLayout)
 from PyQt5.QtCore import Qt
+from .left_panel import LeftPanel
+from .right_panel import RightPanel
 
 
 class TwoPanelWidget(QSplitter):
@@ -17,6 +19,21 @@ class TwoPanelWidget(QSplitter):
         self.addWidget(self.frame_left)
         self.addWidget(self.frame_right)
 
-        # Don't stretch the left panel of the splitter
-        self.setStretchFactor(0, 2)
-        self.setStretchFactor(1, 5)
+        hbox = QHBoxLayout()
+        left_panel = LeftPanel()
+        hbox.addWidget(left_panel)
+        self.frame_left.setLayout(hbox)
+
+        hbox = QHBoxLayout()
+        right_panel = RightPanel()
+        hbox.addWidget(right_panel)
+        self.frame_right.setLayout(hbox)
+
+        self._show_first_time = True
+
+    def showEvent(self, event):
+
+        # Set the ratio for the splitter (only the first time the window is shown)
+        if self._show_first_time:
+            self.setSizes([400, self.width() - 400])
+            self._show_first_time = False
