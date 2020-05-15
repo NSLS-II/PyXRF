@@ -5,3 +5,4 @@ class FormBaseWidget(QWidget):
 
     def __init__(self):
         super().__init__()
+        self.setMinimumSize(400, 100)

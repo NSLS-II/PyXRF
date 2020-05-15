@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import QTabWidget, QScrollArea
 from .form_base_widget import FormBaseWidget
 from .wd_load_data import LoadDataWidget
 
+
 class LeftPanel(QTabWidget):
 
     def __init__(self):

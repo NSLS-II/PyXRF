@@ -12,27 +12,6 @@ _main_window_geometry = {
 }
 
 
-def position_window(child, parent):
-    """
-    Position `child` window in respect to the `parent` window in visually
-    acceptable way.
-
-    Parameters
-    ----------
-    child: QWidget
-        reference to the child window
-
-    parent: QWidget
-        reference to the parent window
-    """
-    frm_parent = parent.geometry()
-
-    x_center = frm_parent.width() // 3 + frm_parent.x()
-    y_center = frm_parent.height() // 3 + frm_parent.y()
-
-    child.move(x_center, y_center)
-
-
 class MainWindow(QMainWindow):
 
     def __init__(self):
@@ -103,10 +82,9 @@ class MainWindow(QMainWindow):
 
         mb_close = QMessageBox(QMessageBox.Question, "Exit",
                                "Are you sure you want to EXIT the program?",
-                               QMessageBox.Yes | QMessageBox.No)
+                               QMessageBox.Yes | QMessageBox.No,
+                               parent=self)
         mb_close.setDefaultButton(QMessageBox.No)
-
-        position_window(mb_close, self)
 
         if mb_close.exec() == QMessageBox.Yes:
             event.accept()

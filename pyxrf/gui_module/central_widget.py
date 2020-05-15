@@ -35,5 +35,5 @@ class TwoPanelWidget(QSplitter):
 
         # Set the ratio for the splitter (only the first time the window is shown)
         if self._show_first_time:
-            self.setSizes([400, self.width() - 400])
+            self.setSizes([460, self.width() - 460])
             self._show_first_time = False
