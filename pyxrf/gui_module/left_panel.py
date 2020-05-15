@@ -1,4 +1,5 @@
-from PyQt5.QtWidgets import QTabWidget, QWidget
+from PyQt5.QtWidgets import QTabWidget
+from .form_base_widget import FormBaseWidget
 
 
 class LeftPanel(QTabWidget):
@@ -8,5 +9,5 @@ class LeftPanel(QTabWidget):
 
         self.setTabPosition(QTabWidget.West)
 
-        self.addTab(QWidget(), "Left 1")
-        self.addTab(QWidget(), "Left 2")
+        self.addTab(FormBaseWidget(), "Left 1")
+        self.addTab(FormBaseWidget(), "Left 2")

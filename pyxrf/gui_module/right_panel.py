@@ -1,4 +1,5 @@
-from PyQt5.QtWidgets import QTabWidget, QWidget
+from PyQt5.QtWidgets import QTabWidget
+from .form_base_widget import FormBaseWidget
 
 
 class RightPanel(QTabWidget):
@@ -6,5 +7,5 @@ class RightPanel(QTabWidget):
     def __init__(self):
         super().__init__()
 
-        self.addTab(QWidget(), "Right 1")
-        self.addTab(QWidget(), "Right 2")
+        self.addTab(FormBaseWidget(), "Right 1")
+        self.addTab(FormBaseWidget(), "Right 2")

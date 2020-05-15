@@ -9,6 +9,8 @@ def run():
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
     app.setApplicationName("PyXRF")
+    # app.setStyleSheet('QWidget {font: "Roboto Mono"; font-size: 14px}')
+    app.setStyleSheet('QWidget {font-size: 16px}')
 
     main_window = MainWindow()
     main_window.show()
