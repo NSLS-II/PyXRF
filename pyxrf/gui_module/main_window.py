@@ -93,7 +93,7 @@ class MainWindow(QMainWindow):
         proc.addAction(action_refine_params)
         proc.addAction(action_gen_xrf_map)
 
-        help = menubar.addMenu('&Help')
+        help = menubar.addMenu('&Test')
         help.addAction(action_show_about)
 
         central_widget = TwoPanelWidget()

@@ -10,7 +10,7 @@ def run():
     app.setStyle('Fusion')
     app.setApplicationName("PyXRF")
     # app.setStyleSheet('QWidget {font: "Roboto Mono"; font-size: 14px}')
-    app.setStyleSheet('QWidget {font-size: 16px}')
+    app.setStyleSheet('QWidget {font-size: 14px}')
 
     main_window = MainWindow()
     main_window.show()

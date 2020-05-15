@@ -1,6 +1,7 @@
-from PyQt5.QtWidgets import QTabWidget
-from .form_base_widget import FormBaseWidget
+from PyQt5.QtWidgets import QTabWidget, QScrollArea
 
+from .form_base_widget import FormBaseWidget
+from .wd_load_data import LoadDataWidget
 
 class LeftPanel(QTabWidget):
 
@@ -9,5 +10,14 @@ class LeftPanel(QTabWidget):
 
         self.setTabPosition(QTabWidget.West)
 
-        self.addTab(FormBaseWidget(), "Left 1")
-        self.addTab(FormBaseWidget(), "Left 2")
+        _scroll = QScrollArea()
+        _scroll.setWidget(LoadDataWidget())
+        self.addTab(_scroll, "Load")
+
+        _scroll = QScrollArea()
+        _scroll.setWidget(FormBaseWidget())
+        self.addTab(_scroll, "Model")
+
+        _scroll = QScrollArea()
+        _scroll.setWidget(FormBaseWidget())
+        self.addTab(_scroll, "Fit")
