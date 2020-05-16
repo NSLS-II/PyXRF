@@ -1,9 +1,11 @@
 from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout,
                              QGroupBox, QLineEdit, QCheckBox, QLabel,
                              QComboBox, QListWidget, QListWidgetItem,
-                             QDialog, QDialogButtonBox, QFileDialog)
+                             QDialog, QDialogButtonBox, QFileDialog,
+                             QRadioButton, QButtonGroup)
 from PyQt5.QtCore import Qt
 
+from .useful_widgets import LineEditReadOnly
 from .form_base_widget import FormBaseWidget
 
 
@@ -20,7 +22,7 @@ class LoadDataWidget(FormBaseWidget):
         self._setup_wd_group()
         vbox.addWidget(self.group_wd)
 
-        self._setup_file_group()
+        self._setup_load_group()
         vbox.addWidget(self.group_file)
 
         self._setup_dbase_group()
@@ -47,8 +49,7 @@ class LoadDataWidget(FormBaseWidget):
         self.pb_set_wd.setMaximumSize(pb_size.height() * 2 // 3, pb_size.height())
         self.pb_set_wd.clicked.connect(self.pb_set_wd_clicked)
 
-        self.le_wd = QLineEdit()
-        self.le_wd.setReadOnly(True)
+        self.le_wd = LineEditReadOnly()
 
         self.le_wd.setText("/Example/Of/Some/Long/Directory/Name")
 
@@ -58,24 +59,28 @@ class LoadDataWidget(FormBaseWidget):
 
         self.group_wd.setLayout(hbox)
 
-    def _setup_file_group(self):
+    def _setup_load_group(self):
 
-        self.group_file = QGroupBox("Load Data From File")
+        self.group_file = QGroupBox("Load Data")
 
         self.pb_file = QPushButton("Read File ...")
         self.pb_file.clicked.connect(self.pb_file_clicked)
 
+        self.pb_dbase = QPushButton("Load Run ...")
+        self.pb_dbase.clicked.connect(self.pb_dbase_clicked)
+
         self.cb_file_all_channels = QCheckBox("All channels")
-        self.lb_file = QLabel("No file data is loaded")
+        self.le_file = LineEditReadOnly("No file data is loaded")
 
         vbox = QVBoxLayout()
 
         hbox = QHBoxLayout()
         hbox.addWidget(self.pb_file)
+        hbox.addWidget(self.pb_dbase)
         hbox.addWidget(self.cb_file_all_channels)
         vbox.addLayout(hbox)
 
-        vbox.addWidget(self.lb_file)
+        vbox.addWidget(self.le_file)
 
         self.group_file.setLayout(vbox)
 
@@ -188,13 +193,45 @@ class DialogSelectScan(QDialog):
 
         super().__init__()
 
+        self.resize(400, 200)
+        self.setWindowTitle("Load Run From Database")
+
+        label = QLabel("Enter run ID or UID:")
+        self.le_id_uid = QLineEdit()
+        self.rb_id = QRadioButton("Run ID")
+        self.rb_id.setChecked(True)
+        self.rb_uid = QRadioButton("Run UID")
+
+        self.btn_group = QButtonGroup()
+        self.btn_group.addButton(self.rb_id)
+        self.btn_group.addButton(self.rb_uid)
+
         button_box = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)
 
         vbox = QVBoxLayout()
+
+        vbox.addStretch(1)
+
+        hbox = QHBoxLayout()
+        hbox.addWidget(label)
+        hbox.addStretch(1)
+        vbox.addLayout(hbox)
+        vbox.addWidget(self.le_id_uid)
+
+        hbox = QHBoxLayout()
+        hbox.addStretch(1)
+        hbox.addWidget(self.rb_id)
+        hbox.addStretch(1)
+        hbox.addWidget(self.rb_uid)
+        hbox.addStretch(1)
+        vbox.addLayout(hbox)
+
+        vbox.addStretch(1)
         vbox.addWidget(button_box)
         self.setLayout(vbox)
 
-        self.setWindowTitle("Open Scan")
+        # This is how the button from QDialogButtonBox can be disabled
+        # button_box.button(QDialogButtonBox.Ok).setEnabled(False)
