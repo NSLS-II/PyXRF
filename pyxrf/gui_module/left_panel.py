@@ -13,7 +13,7 @@ class LeftPanel(QTabWidget):
 
         _scroll = QScrollArea()
         _scroll.setWidget(LoadDataWidget())
-        self.addTab(_scroll, "Load")
+        self.addTab(_scroll, "Data")
 
         _scroll = QScrollArea()
         _scroll.setWidget(FormBaseWidget())
