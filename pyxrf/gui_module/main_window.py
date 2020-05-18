@@ -2,7 +2,8 @@ from PyQt5.QtWidgets import (QMainWindow, QMessageBox, QLabel, QAction)
 # from PyQt5.QtCore import Qt
 
 from .central_widget import TwoPanelWidget
-
+from .useful_widgets import global_gui_variables
+from .wd_model import WndManageEmissionLines
 
 _main_window_geometry = {
     "initial_height": 700,
@@ -17,10 +18,15 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
+        global_gui_variables["ref_main_window"] = self
+        self.wnd_manage_emission_lines = WndManageEmissionLines()
+
         # Indicates that the window was closed (used mostly for testing)
         self._is_closed = False
 
         self.initialize()
+
+
 
     def initialize(self):
 
@@ -88,6 +94,7 @@ class MainWindow(QMainWindow):
 
         if mb_close.exec() == QMessageBox.Yes:
             event.accept()
+            self.wnd_manage_emission_lines.close()
             # This flag is used for CI tests
             self._is_closed = True
         else:

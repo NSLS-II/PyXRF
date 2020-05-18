@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout,
 from PyQt5.QtGui import QWindow, QBrush, QColor
 from PyQt5.QtCore import Qt
 
-from .useful_widgets import LineEditReadOnly, global_gui_parameters
+from .useful_widgets import LineEditReadOnly, global_gui_parameters, global_gui_variables
 from .form_base_widget import FormBaseWidget
 
 
@@ -21,7 +21,10 @@ class ModelWidget(FormBaseWidget):
 
     def initialize(self):
 
-        self.wnd_manage_emission_lines = WndManageEmissionLines()
+        # Reference to the main window. The main window will hold
+        #   references to all non-modal windows that could be opened
+        #   from multiple places in the program.
+        self.ref_main_window = global_gui_variables["ref_main_window"]
 
         v_spacing = global_gui_parameters["vertical_spacing_in_tabs"]
 
@@ -87,9 +90,9 @@ class ModelWidget(FormBaseWidget):
             self.pb_manage_emission_lines_clicked)
 
     def pb_manage_emission_lines_clicked(self, event):
-        if not self.wnd_manage_emission_lines.isVisible():
-            self.wnd_manage_emission_lines.show()
-        self.wnd_manage_emission_lines.activateWindow()
+        if not self.ref_main_window.wnd_manage_emission_lines.isVisible():
+            self.ref_main_window.wnd_manage_emission_lines.show()
+        self.ref_main_window.wnd_manage_emission_lines.activateWindow()
 
 
 class WndManageEmissionLines(QWidget):
@@ -102,23 +105,63 @@ class WndManageEmissionLines(QWidget):
         self.setWindowTitle("PyXRF: Add/Remove Emission Lines")
         self.resize(600, 600)
 
-        self._setup_select_elines_group()
+        top_buttons = self._setup_select_elines()
         self._setup_elines_table()
-        vbox_sel_desel = self._setup_select_deselect_buttons()
+        bottom_buttons = self._setup_action_buttons()
 
         vbox = QVBoxLayout()
-        hbox = QHBoxLayout()
-        hbox.addLayout(vbox_sel_desel)
-        hbox.addWidget(self.group_select_elines)
-        hbox.addStretch(1)
-        vbox.addLayout(hbox)
+
+        # Group of buttons above the table
+        vbox.addLayout(top_buttons)
+
+        # Tables
         hbox = QHBoxLayout()
         hbox.addWidget(self.tbl_elines)
         vbox.addLayout(hbox)
+
+        vbox.addLayout(bottom_buttons)
+
         self.setLayout(vbox)
 
-        hbox = self._setup_action_buttons()
+    def _setup_select_elines(self):
+
+        self.cb_select_all = QCheckBox("All")
+        self.cb_select_all.setChecked(True)
+
+        self.cb_eline_list = QComboBox()
+        # The following field should switched to 'editable' state from when needed
+        self.le_peak_intensity = LineEditReadOnly()
+        self.pb_add_eline = QPushButton("Add")
+        self.pb_remove_eline = QPushButton("Remove")
+
+        self.pb_add_user_peak = QPushButton("Add User Peak ...")
+        self.pb_add_pileup_peak = QPushButton("Add Pileup Peak ...")
+
+        # Some emission lines to populate the combo box
+        eline_sample_list = ["Li_K", "B_K", "C_K", "N_K", "Fe_K"]
+        self.cb_eline_list.addItems(eline_sample_list)
+
+        vbox = QVBoxLayout()
+
+        hbox = QHBoxLayout()
+        hbox.addWidget(self.cb_eline_list)
+        hbox.addWidget(self.le_peak_intensity)
+        hbox.addWidget(self.pb_add_eline)
+        hbox.addWidget(self.pb_remove_eline)
         vbox.addLayout(hbox)
+
+        hbox = QHBoxLayout()
+        hbox.addWidget(self.cb_select_all)
+        hbox.addStretch(1)
+        hbox.addWidget(self.pb_add_user_peak)
+        hbox.addWidget(self.pb_add_pileup_peak)
+        vbox.addLayout(hbox)
+
+        # Wrap vbox into hbox, because it will be inserted into vbox
+        hbox = QHBoxLayout()
+        hbox.addLayout(vbox)
+        hbox.addStretch(1)
+        return hbox
 
     def _setup_select_deselect_buttons(self):
         self.cb_select_all = QCheckBox("All")

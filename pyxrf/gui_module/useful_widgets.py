@@ -6,6 +6,8 @@ global_gui_parameters = {
     "vertical_spacing_in_tabs": 5
 }
 
+global_gui_variables = {
+}
 
 class LineEditReadOnly(QLineEdit):
     """
