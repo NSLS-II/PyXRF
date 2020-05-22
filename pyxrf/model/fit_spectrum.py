@@ -1082,6 +1082,12 @@ class Fit1D(Atom):
                                 data_saveas='xrf_fit_error',
                                 dataname_saveas='xrf_fit_error_name')
 
+    # TODO: the function 'calculate_roi_sum" should be converted to work with
+    #   DASK arrays and HDF5 datasets if needed, otherwise it can be removed.
+    #   The function was called at the exit of dialog box 'OutputSetup'
+    #   (button 'Output Setup') in the Fit tab. This option is eliminated
+    #   from the new interface.
+    """    
     def calculate_roi_sum(self):
         if self.roi_sum_opt['status'] is True:
             low = int(self.roi_sum_opt['low']*100)
@@ -1092,6 +1098,7 @@ class Fit1D(Atom):
             self.result_map['ROI'] = sumv
             # save to hdf again, this is not optimal
             self.save2Dmap_to_hdf()
+    """
 
     def get_latest_single_pixel_fitting_data(self):
         r"""

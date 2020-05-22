@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import (QMainWindow, QMessageBox, QLabel, QAction)
 from .central_widget import TwoPanelWidget
 from .useful_widgets import global_gui_variables
 from .wd_model import WndManageEmissionLines
+from .wd_fit_maps import WndComputeRoiMaps
 
 _main_window_geometry = {
     "initial_height": 700,
@@ -20,6 +21,7 @@ class MainWindow(QMainWindow):
 
         global_gui_variables["ref_main_window"] = self
         self.wnd_manage_emission_lines = WndManageEmissionLines()
+        self.wnd_compute_roi_maps = WndComputeRoiMaps()
 
         # Indicates that the window was closed (used mostly for testing)
         self._is_closed = False
@@ -95,6 +97,8 @@ class MainWindow(QMainWindow):
         if mb_close.exec() == QMessageBox.Yes:
             event.accept()
             self.wnd_manage_emission_lines.close()
+            self.wnd_compute_roi_maps.close()
+
             # This flag is used for CI tests
             self._is_closed = True
         else:

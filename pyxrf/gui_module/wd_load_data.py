@@ -1,3 +1,5 @@
+import os
+
 from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout,
                              QGroupBox, QLineEdit, QCheckBox, QLabel,
                              QComboBox, QListWidget, QListWidgetItem,
@@ -57,7 +59,10 @@ class LoadDataWidget(FormBaseWidget):
 
         self.le_wd = LineEditReadOnly()
         self.le_wd.setToolTip("Currently selected Working Directory")
-        self.le_wd.setText("/Example/Of/Some/Long/Directory/Name")
+
+        # Initial working directory. Set to the HOME directory for now
+        current_dir = os.path.expanduser("~")
+        self.le_wd.setText(current_dir)
 
         hbox = QHBoxLayout()
         hbox.addWidget(self.pb_set_wd)

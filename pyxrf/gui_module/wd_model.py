@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import textwrap
 
@@ -158,6 +159,8 @@ class ModelWidget(FormBaseWidget):
 
         self.pb_start_fitting = QPushButton("Start Fitting")
         self.pb_save_spectrum = QPushButton("Save Spectrum/Fit")
+        self.pb_save_spectrum.clicked.connect(self.pb_save_spectrum_clicked)
+
         self.lb_fitting_results = LineEditReadOnly(
             f"Iterations: {0}  Variables: {0}  R-squared: {0.000}")
 
@@ -187,8 +190,9 @@ class ModelWidget(FormBaseWidget):
 
     def pb_load_elines_clicked(self, event):
         # TODO: Propagate current directory here and use it in the dialog call
-        file_name = QFileDialog.getOpenFileName(self, "Load Model Parameters From File",
-                                                ".",
+        current_dir = os.path.expanduser("~")
+        file_name = QFileDialog.getOpenFileName(self, "Select File with Model Parameters",
+                                                current_dir,
                                                 "JSON (*.json);; All (*)")
         file_name = file_name[0]
         if file_name:
@@ -205,8 +209,9 @@ class ModelWidget(FormBaseWidget):
 
     def pb_save_elines_clicked(self, event):
         # TODO: Propagate full path to the saved file here
-        file_name = QFileDialog.getSaveFileName(self, "Save Model Parameters To File",
-                                                ".",
+        fln = os.path.expanduser("~/model_parameters.json")
+        file_name = QFileDialog.getSaveFileName(self, "Select File to Save Model Parameters",
+                                                fln,
                                                 "JSON (*.json);; All (*)")
         file_name = file_name[0]
         if file_name:
@@ -240,6 +245,17 @@ class ModelWidget(FormBaseWidget):
             print("'Global Parameters' dialog closed. Changes accepted.")
         else:
             print("Cancelled.")
+
+    def pb_save_spectrum_clicked(self, event):
+        # TODO: Propagate current directory here and use it in the dialog call
+        current_dir = os.path.expanduser("~")
+        dir = QFileDialog.getExistingDirectory(
+            self, "Select Directory to Save Spectrum/Fit", current_dir,
+            QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks)
+        if dir:
+            print(f"Spectrum/Fit is saved to directory {dir}")
+        else:
+            print(f"Spectrum/Fit saving is cancelled")
 
 
 class WndManageEmissionLines(QWidget):
@@ -789,7 +805,7 @@ class _FittingSettings():
         table.setColumnCount(len(self.tbl_labels))
         table.verticalHeader().hide()
         table.setHorizontalHeaderLabels(self.tbl_labels)
-        table.setAlternatingRowColors(True)
+        # table.setAlternatingRowColors(True)
 
         header = table.horizontalHeader()
         for n, lbl in enumerate(self.tbl_labels):
