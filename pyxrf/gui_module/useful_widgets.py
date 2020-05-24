@@ -54,3 +54,95 @@ def adjust_qlistwidget_height(list_widget, min_height=40):
     height = max(height, min_height)
     list_widget.setMinimumHeight(height)
     list_widget.setMaximumHeight(height)
+
+"""
+MAXVAL = 650000
+
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLayout, QFrame, QSlider
+from PyQt5.QtGui import QFont
+from PyQt5.QtCore import Qt, QSize, QMetaObject, pyqtSlot
+
+class RangeSliderClass(QWidget):
+
+    def __init__(self):
+        super().__init__()
+
+        self.minTime = 0
+        self.maxTime = 0
+        self.minRangeTime = 0
+        self.maxRangeTime = 0
+
+        self.sliderMin = MAXVAL
+        self.sliderMax = MAXVAL
+
+        self.setupUi(self)
+
+    def setupUi(self, RangeSlider):
+        RangeSlider.setObjectName("RangeSlider")
+        RangeSlider.resize(1000, 65)
+        RangeSlider.setMaximumSize(QSize(16777215, 65))
+        self.RangeBarVLayout = QVBoxLayout(RangeSlider)
+        self.RangeBarVLayout.setContentsMargins(5, 0, 5, 0)
+        self.RangeBarVLayout.setSpacing(0)
+        self.RangeBarVLayout.setObjectName("RangeBarVLayout")
+
+        self.slidersFrame = QFrame(RangeSlider)
+        self.slidersFrame.setMaximumSize(QSize(16777215, 25))
+        self.slidersFrame.setFrameShape(QFrame.StyledPanel)
+        self.slidersFrame.setFrameShadow(QFrame.Raised)
+        self.slidersFrame.setObjectName("slidersFrame")
+        self.horizontalLayout = QHBoxLayout(self.slidersFrame)
+        self.horizontalLayout.setSizeConstraint(QLayout.SetMinimumSize)
+        self.horizontalLayout.setContentsMargins(5, 2, 5, 2)
+        self.horizontalLayout.setSpacing(0)
+        self.horizontalLayout.setObjectName("horizontalLayout")
+
+        ## Start Slider Widget
+        self.startSlider = QSlider(self.slidersFrame)
+        self.startSlider.setMaximum(self.sliderMin)
+        self.startSlider.setMinimumSize(QSize(100, 5))
+        self.startSlider.setMaximumSize(QSize(16777215, 10))
+
+        font = QFont()
+        font.setKerning(True)
+
+        self.startSlider.setFont(font)
+        self.startSlider.setAcceptDrops(False)
+        self.startSlider.setAutoFillBackground(False)
+        self.startSlider.setOrientation(Qt.Horizontal)
+        self.startSlider.setInvertedAppearance(True)
+        self.startSlider.setObjectName("startSlider")
+        self.startSlider.setValue(MAXVAL)
+        self.startSlider.valueChanged.connect(self.handleStartSliderValueChange)
+        self.horizontalLayout.addWidget(self.startSlider)
+
+        ## End Slider Widget
+        self.endSlider = QSlider(self.slidersFrame)
+        self.endSlider.setMaximum(MAXVAL)
+        self.endSlider.setMinimumSize(QSize(100, 5))
+        self.endSlider.setMaximumSize(QSize(16777215, 10))
+        self.endSlider.setTracking(True)
+        self.endSlider.setOrientation(Qt.Horizontal)
+        self.endSlider.setObjectName("endSlider")
+        self.endSlider.setValue(self.sliderMax)
+        self.endSlider.valueChanged.connect(self.handleEndSliderValueChange)
+
+        #self.endSlider.sliderReleased.connect(self.handleEndSliderValueChange)
+
+        self.horizontalLayout.addWidget(self.endSlider)
+
+        self.RangeBarVLayout.addWidget(self.slidersFrame)
+
+        #self.retranslateUi(RangeSlider)
+        QMetaObject.connectSlotsByName(RangeSlider)
+
+        self.show()
+
+    @pyqtSlot(int)
+    def handleStartSliderValueChange(self, value):
+        self.startSlider.setValue(value)
+
+    @pyqtSlot(int)
+    def handleEndSliderValueChange(self, value):
+        self.endSlider.setValue(value)
+"""
