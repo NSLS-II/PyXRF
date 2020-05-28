@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import (QWidget, QTabWidget, QLabel, QVBoxLayout, QHBoxLayo
                              QRadioButton, QButtonGroup, QComboBox, QLineEdit, QDial)
 from PyQt5.QtCore import Qt
 
-# from .useful_widgets import RangeSliderClass
+from .useful_widgets import RangeManager
 
 class PreviewPlots(QTabWidget):
 
@@ -71,8 +71,11 @@ class PreviewPlotCount(QWidget):
         self.le_range_max.setAlignment(Qt.AlignCenter)
 
         # Set some sample values
-        self.le_range_min.setText("200.0")
-        self.le_range_max.setText("1500.0")
+        #self.le_range_min.setText("200.0")
+        #self.le_range_max.setText("1500.0")
+
+        self.range = RangeManager(add_sliders=False)
+        self.range.setMaximumWidth(200)
 
         label = QLabel()
         comment = \
@@ -89,9 +92,7 @@ class PreviewPlotCount(QWidget):
         hbox.addWidget(self.cb_color_scheme)
         hbox.addStretch(1)
         hbox.addWidget(QLabel("Range (counts):"))
-        hbox.addWidget(self.le_range_min)
-        hbox.addWidget(QLabel(".."))
-        hbox.addWidget(self.le_range_max)
+        hbox.addWidget(self.range)
         vbox.addLayout(hbox)
 
         vbox.addWidget(label)

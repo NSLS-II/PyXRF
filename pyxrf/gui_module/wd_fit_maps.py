@@ -6,7 +6,8 @@ from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout,
                              QDialog, QDialogButtonBox, QFileDialog,
                              QRadioButton, QButtonGroup, QGridLayout,
                              QTextEdit, QTableWidget, QTableWidgetItem,
-                             QHeaderView, QWidget, QSpinBox)
+                             QHeaderView, QWidget, QSpinBox, QScrollArea,
+                             QTabWidget)
 from PyQt5.QtGui import QWindow, QBrush, QColor
 from PyQt5.QtCore import Qt
 
@@ -33,6 +34,7 @@ class FitMapsWidget(FormBaseWidget):
         self._setup_start_fitting()
         self._setup_compute_roi_maps()
         self._setup_save_results()
+        self._setup_quantitative_analysis()
 
         vbox = QVBoxLayout()
         vbox.addWidget(self.group_settings)
@@ -43,6 +45,9 @@ class FitMapsWidget(FormBaseWidget):
         vbox.addSpacing(v_spacing)
 
         vbox.addWidget(self.group_save_results)
+
+        vbox.addWidget(self.group_quant_analysis)
+
         self.setLayout(vbox)
 
     def _setup_settings(self):
@@ -115,6 +120,16 @@ class FitMapsWidget(FormBaseWidget):
 
         self.group_save_results.setLayout(grid)
 
+    def _setup_quantitative_analysis(self):
+        self.group_quant_analysis = QGroupBox("Quantitative Analysis")
+
+        self.pb_load_quant_calib = QPushButton("Load Quantitative Calibration")
+        self.pb_load_quant_calib.clicked.connect(self.pb_load_quant_calib_clicked)
+
+        vbox = QVBoxLayout()
+        vbox.addWidget(self.pb_load_quant_calib)
+        self.group_quant_analysis.setLayout(vbox)
+
     def pb_compute_roi_maps_clicked(self, event):
         if not self.ref_main_window.wnd_compute_roi_maps.isVisible():
             self.ref_main_window.wnd_compute_roi_maps.show()
@@ -152,6 +167,11 @@ class FitMapsWidget(FormBaseWidget):
             print(f"XRF Maps are saved as TXT files to directory {dir}")
         else:
             print(f"Saving of XRF Maps is cancelled")
+
+    def pb_load_quant_calib_clicked(self, event):
+        if not self.ref_main_window.wnd_load_quantitative_calibration.isVisible():
+            self.ref_main_window.wnd_load_quantitative_calibration.show()
+        self.ref_main_window.wnd_load_quantitative_calibration.activateWindow()
 
 
 class WndComputeRoiMaps(QWidget):
@@ -202,7 +222,7 @@ class WndComputeRoiMaps(QWidget):
         # Labels for horizontal header
         self.tbl_labels = ["Line", "E, eV", "Min", "Max", "Show", "Reset"]
 
-        # The list of columns with fixed size
+        # The list of columns that stretch with the table
         self.tbl_cols_stretch = ("E, eV", "Min", "Max")
 
         # Table item representation if different from default
@@ -323,3 +343,55 @@ class WndComputeRoiMaps(QWidget):
         hbox.addWidget(self.pb_compute_roi)
 
         return hbox
+
+
+class WndLoadQuantitativeCalibration(QWidget):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.initialize()
+
+    def initialize(self):
+        self.setWindowTitle("PyXRF: Load Quantitative Calibration")
+        self.setMinimumWidth(700)
+        self.setMinimumHeight(600)
+        self.resize(700, 600)
+
+        self.pb_load_calib = QPushButton("Load Calibration ...")
+        self.cb_auto_update = QCheckBox("Auto")
+        self.pb_update_plots = QPushButton("Update Plots")
+
+        self.grp_current_scan = QGroupBox("Parameters of Currently Processed Scan")
+        self.le_distance_to_sample = QLineEdit()
+        hbox = QHBoxLayout()
+        hbox.addWidget(QLabel("Distance-to-sample:"))
+        hbox.addWidget(self.le_distance_to_sample)
+        hbox.addStretch(1)
+        self.grp_current_scan.setLayout(hbox)
+
+        self._setup_tab_widget()
+        #self.scroll_area = QScrollArea()
+
+        vbox = QVBoxLayout()
+
+        hbox = QHBoxLayout()
+        hbox.addWidget(self.pb_load_calib)
+        hbox.addStretch(1)
+        hbox.addWidget(self.cb_auto_update)
+        hbox.addWidget(self.pb_update_plots)
+        vbox.addLayout(hbox)
+
+        vbox.addWidget(self.tab_widget)
+
+        vbox.addWidget(self.grp_current_scan)
+
+        self.setLayout(vbox)
+
+    def _setup_tab_widget(self):
+
+        self.tab_widget = QTabWidget()
+        _scroll = QScrollArea()
+        _scroll.setWidget(QWidget())  # Set some actual widget
+        self.tab_widget.addTab(_scroll, "Loaded Standards")
+        self.table = QTableWidget()
+        self.tab_widget.addTab(self.table, "Selected Emission Lines")

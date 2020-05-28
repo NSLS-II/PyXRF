@@ -31,6 +31,12 @@ class TwoPanelWidget(QSplitter):
 
         self._show_first_time = True
 
+        # Set stretch factor of the left panel to 0 (we want it to keep its width
+        #   as the window is resized. The panel can still be resized manually
+        self.setStretchFactor(0, 0)
+        # Set stretch factor for the right panel to some non-zero value, e.g. 1
+        self.setStretchFactor(1, 1)
+
     def showEvent(self, event):
 
         # Set the ratio for the splitter (only the first time the window is shown)

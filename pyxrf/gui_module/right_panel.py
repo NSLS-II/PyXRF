@@ -1,8 +1,10 @@
 from PyQt5.QtWidgets import QTabWidget
-from .form_base_widget import FormBaseWidget
 
-from .wd_preview import PreviewPlots
-from .wd_fitting_model import PlotFittingModel
+from .wd_plots_preview import PreviewPlots
+from .wd_plots_fitting_model import PlotFittingModel
+from .wd_plots_xrf_maps import PlotXrfMaps
+from .wd_plots_rgb_maps import PlotRgbMaps
+
 
 class RightPanel(QTabWidget):
 
@@ -11,5 +13,5 @@ class RightPanel(QTabWidget):
 
         self.addTab(PreviewPlots(), "Preview")
         self.addTab(PlotFittingModel(), "Fitting Model")
-        self.addTab(FormBaseWidget(), "XRF Maps")
-        self.addTab(FormBaseWidget(), "RGB")
+        self.addTab(PlotXrfMaps(), "XRF Maps")
+        self.addTab(PlotRgbMaps(), "RGB")

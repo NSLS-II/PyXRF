@@ -12,7 +12,9 @@ from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout,
 from PyQt5.QtGui import QWindow, QBrush, QColor, QPalette
 from PyQt5.QtCore import Qt
 
-from .useful_widgets import LineEditReadOnly, global_gui_parameters, global_gui_variables
+from .useful_widgets import (LineEditReadOnly, global_gui_parameters, global_gui_variables,
+                             ElementSelection)
+
 from .form_base_widget import FormBaseWidget
 
 
@@ -291,7 +293,8 @@ class WndManageEmissionLines(QWidget):
         self.cb_select_all = QCheckBox("All")
         self.cb_select_all.setChecked(True)
 
-        self.cb_eline_list = QComboBox()
+        self.element_selection = ElementSelection()
+
         # The following field should switched to 'editable' state from when needed
         self.le_peak_intensity = LineEditReadOnly()
         self.pb_add_eline = QPushButton("Add")
@@ -301,13 +304,13 @@ class WndManageEmissionLines(QWidget):
         self.pb_add_pileup_peak = QPushButton("Add Pileup Peak ...")
 
         # Some emission lines to populate the combo box
-        eline_sample_list = ["Li_K", "B_K", "C_K", "N_K", "Fe_K"]
-        self.cb_eline_list.addItems(eline_sample_list)
+        eline_sample_list = ["Li_K", "B_K", "C_K", "N_K", "Fe_K", "Userpeak1"]
+        self.element_selection.addItems(eline_sample_list)
 
         vbox = QVBoxLayout()
 
         hbox = QHBoxLayout()
-        hbox.addWidget(self.cb_eline_list)
+        hbox.addWidget(self.element_selection)
         hbox.addWidget(self.le_peak_intensity)
         hbox.addWidget(self.pb_add_eline)
         hbox.addWidget(self.pb_remove_eline)

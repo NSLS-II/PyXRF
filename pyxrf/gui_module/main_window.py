@@ -4,7 +4,8 @@ from PyQt5.QtWidgets import (QMainWindow, QMessageBox, QLabel, QAction)
 from .central_widget import TwoPanelWidget
 from .useful_widgets import global_gui_variables
 from .wd_model import WndManageEmissionLines
-from .wd_fit_maps import WndComputeRoiMaps
+from .wd_fit_maps import WndComputeRoiMaps, WndLoadQuantitativeCalibration
+from .wd_plots_xrf_maps import WndImageWizard
 
 _main_window_geometry = {
     "initial_height": 700,
@@ -22,13 +23,12 @@ class MainWindow(QMainWindow):
         global_gui_variables["ref_main_window"] = self
         self.wnd_manage_emission_lines = WndManageEmissionLines()
         self.wnd_compute_roi_maps = WndComputeRoiMaps()
-
+        self.wnd_image_wizard = WndImageWizard()
+        self.wnd_load_quantitative_calibration = WndLoadQuantitativeCalibration()
         # Indicates that the window was closed (used mostly for testing)
         self._is_closed = False
 
         self.initialize()
-
-
 
     def initialize(self):
 
@@ -65,6 +65,10 @@ class MainWindow(QMainWindow):
         action_gen_xrf_map.setStatusTip(
             "Compute XRF map by individually fitting of spectra for each pixel")
 
+        action_show_matplotlib_toolbar = QAction("Show &Matplotlib toolbar", self)
+        action_show_matplotlib_toolbar.setCheckable(True)
+        action_show_matplotlib_toolbar.setChecked(True)
+
         action_show_about = QAction("&About", self)
         action_show_about.setStatusTip("Show information about this program")
 
@@ -80,7 +84,10 @@ class MainWindow(QMainWindow):
         proc.addAction(action_refine_params)
         proc.addAction(action_gen_xrf_map)
 
-        help = menubar.addMenu('&Test')
+        view = menubar.addMenu('&View')
+        view.addAction(action_show_matplotlib_toolbar)
+
+        help = menubar.addMenu('&Help')
         help.addAction(action_show_about)
 
         central_widget = TwoPanelWidget()
@@ -96,8 +103,11 @@ class MainWindow(QMainWindow):
 
         if mb_close.exec() == QMessageBox.Yes:
             event.accept()
+
             self.wnd_manage_emission_lines.close()
             self.wnd_compute_roi_maps.close()
+            self.wnd_image_wizard.close()
+            self.wnd_load_quantitative_calibration.close()
 
             # This flag is used for CI tests
             self._is_closed = True
