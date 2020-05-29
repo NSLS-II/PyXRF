@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import (QLineEdit, QWidget, QHBoxLayout, QVBoxLayout, QFrame,
                              QSizePolicy, QLabel, QPushButton, QGridLayout, QSlider,
-                             QComboBox)
+                             QComboBox, QTextEdit)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPalette
 
@@ -10,6 +10,7 @@ global_gui_parameters = {
 
 global_gui_variables = {
 }
+
 
 class LineEditReadOnly(QLineEdit):
     """
@@ -24,6 +25,22 @@ class LineEditReadOnly(QLineEdit):
         p = self.palette()
         p.setColor(QPalette.Base, p.color(QPalette.Disabled, QPalette.Base))
         self.setPalette(p)
+
+
+class TextEditReadOnly(QTextEdit):
+    """
+    Read-only version of QTextEdit with background set to the same color
+    as the background of the disabled QLineEdit, but font color the same
+    as active QLineEdit.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setReadOnly(True)
+        # Set background color the same as for disabled window.
+        p = self.palette()
+        p.setColor(QPalette.Base, p.color(QPalette.Disabled, QPalette.Base))
+        self.setPalette(p)
+
 
 
 def adjust_qlistwidget_height(list_widget, min_height=40):
