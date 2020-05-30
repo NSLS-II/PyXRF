@@ -472,6 +472,8 @@ class WndLoadQuantitativeCalibration(QWidget):
         self.initialize()
 
     def initialize(self):
+        self.table_header_display_names = False
+
         self.setWindowTitle("PyXRF: Load Quantitative Calibration")
         self.setMinimumWidth(750)
         self.setMinimumHeight(400)
@@ -511,6 +513,7 @@ class WndLoadQuantitativeCalibration(QWidget):
 
         # Display data
         self.display_loaded_standards()
+        self.display_standard_selection_table()
 
     def _setup_tab_widget(self):
 
@@ -521,8 +524,31 @@ class WndLoadQuantitativeCalibration(QWidget):
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.scroll.setWidget(self.loaded_standards)
         self.tab_widget.addTab(self.scroll, "Loaded Standards")
+
+        self.combo_set_table_header = QComboBox()
+        self.combo_set_table_header.addItems(["Standard Serial #", "Standard Name"])
+        self.combo_set_table_header.currentIndexChanged.connect(
+            self.combo_set_table_header_index_changed)
+
+        vbox = QVBoxLayout()
+        vbox.addSpacing(5)
+        hbox = QHBoxLayout()
+        hbox.addWidget(QLabel("Display in table header:"))
+        hbox.addWidget(self.combo_set_table_header)
+        hbox.addStretch(1)
+        vbox.addLayout(hbox)
         self.table = QTableWidget()
-        self.tab_widget.addTab(self.table, "Selected Emission Lines")
+        self.table.verticalHeader().hide()
+        self.table.setSelectionMode(QTableWidget.NoSelection)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.table.horizontalHeader().setMinimumSectionSize(150)
+        vbox.addWidget(self.table)
+
+        frame = QFrame()
+        vbox.setContentsMargins(0, 0, 0, 0)
+        frame.setLayout(vbox)
+
+        self.tab_widget.addTab(frame, "Selected Emission Lines")
 
     def display_loaded_standards(self):
         calib_data = quant_calib
@@ -628,6 +654,114 @@ class WndLoadQuantitativeCalibration(QWidget):
         # contents of the scroll area.
         self.scroll.setWidget(self.loaded_standards)
 
+    def display_table_header(self):
+        calib_data = quant_calib
+        header_by_name = self.table_header_display_names
+
+        tbl_labels = ["Lines"]
+        for n, cdata in enumerate(calib_data):
+            if header_by_name:
+                txt = cdata[0]['name']
+            else:
+                txt = cdata[0]['serial']
+            txt = textwrap.fill(txt, width=20)
+            tbl_labels.append(txt)
+
+        self.table.setHorizontalHeaderLabels(tbl_labels)
+
+    def display_standard_selection_table(self):
+        calib_data = quant_calib
+
+        brightness = 220
+        table_colors = [(255, brightness, brightness), (brightness, 255, brightness)]
+
+        self.table.clear()
+
+        if not calib_data:
+            self.table.setRowCount(0)
+            self.table.setColumnCount(0)
+        else:
+            # Create the sorted list of available element lines
+            line_set = set()
+            for cdata in calib_data:
+                ks = list(cdata[0]['element_lines'].keys())
+                line_set.update(list(ks))
+            self.eline_list = list(line_set)
+            self.eline_list.sort()
+
+            # This list will hold radio button groups for horizontal rows
+            #   Those are exclusive groups. They are not going to be
+            #   used directly, but they must be kept alive in order
+            #   for the radiobuttons to work properly. Most of the groups
+            #   will contain only 1 radiobutton, which will always remain checked.
+            self.eline_rb_exclusive = []
+            # The following list will contain the list of radio buttons for each
+            #   row. If there is no radiobutton in a position, then the element is
+            #   set to None.
+            # N rows: the number of emission lines, N cols: the number of standards
+            self.eline_rb_lists = []
+            for n in range(len(self.eline_list)):
+                self.eline_rb_exclusive.append(QButtonGroup())
+                self.eline_rb_lists.append([None] * len(calib_data))
+
+            self.table.setColumnCount(len(calib_data) + 1)
+            self.table.setRowCount(len(self.eline_list))
+            self.display_table_header()
+
+            for n, eline in enumerate(self.eline_list):
+
+                rgb = table_colors[n % 2]
+
+                item = QTableWidgetItem(eline)
+                item.setTextAlignment(Qt.AlignCenter)
+                item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+                item.setBackground(QBrush(QColor(*rgb)))
+                self.table.setItem(n, 0, item)
+
+                for ns, cdata in enumerate(calib_data):
+                    if eline in cdata[0]['element_lines']:
+                        rb = QRadioButton()
+                        if all([(_ is None) for _ in self.eline_rb_lists[n]]):
+                            rb.setChecked(True)
+
+                        self.eline_rb_lists[n][ns] = rb
+                        # self.eline_rb_by_standard[ns].addButton(rb)
+                        self.eline_rb_exclusive[n].addButton(rb)
+
+                        item = QWidget()
+                        item_hbox = QHBoxLayout(item)
+                        item_hbox.addWidget(rb)
+                        item_hbox.setAlignment(Qt.AlignCenter)
+                        item_hbox.setContentsMargins(0, 0, 0, 0)
+
+                        item.setStyleSheet(get_background_css(rgb))
+
+                        # Generate tooltip
+                        density = cdata[0]['element_lines'][eline]['density']
+                        fluorescence = cdata[0]['element_lines'][eline]['fluorescence']
+                        f_to_d = fluorescence / density
+                        ttip = (f"Fluorescence (F): {fluorescence:12g}\n"
+                                f"Density (D): {density:12g}\n")
+                        # Avoid very small values of density (probably zero)
+                        if abs(density) > 1e-30:
+                            ttip += f"F/D: {fluorescence/density:12g}"
+
+                        item.setToolTip(ttip)
+
+
+                        self.table.setCellWidget(n, ns + 1, item)
+                    else:
+                        # There is no radio button, but we still need to fill the cell
+                        item = QTableWidgetItem("")
+                        item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+                        item.setBackground(QBrush(QColor(*rgb)))
+                        self.table.setItem(n, ns + 1, item)
+
+            # Now the table is set (specifically radio buttons).
+            # So we can connect the button groups with the event processing function
+            for bgroup in self.eline_rb_exclusive:
+                bgroup.buttonToggled.connect(self.rb_selection_toggled)
+
     def pb_load_calib_clicked(self):
         # TODO: Propagate current directory here and use it in the dialog call
         current_dir = os.path.expanduser("~")
@@ -655,6 +789,29 @@ class WndLoadQuantitativeCalibration(QWidget):
         except ValueError:
             print("'Remove' button was pressed, but not found in the list")
 
+    def rb_selection_toggled(self, button, checked):
+        if checked:
+            # Find the button in 2D list 'self.eline_rb_lists'
+            button_found = False
+            for nr, rb_list in enumerate(self.eline_rb_lists):
+                try:
+                    nc = rb_list.index(button)
+                    button_found = True
+                    break
+                except ValueError:
+                    pass
+
+            if button_found:
+                eline = self.eline_list[nr]
+                print(f"Selected emission line {eline} ({nr}) from standard #{nc}")
+            else:
+                # This should never happen
+                print(f"Selection radio button was pressed, but not found in the list")
+
+    def combo_set_table_header_index_changed(self, index):
+
+        self.table_header_display_names = bool(index)
+        self.display_table_header()
 
 class DialogFindElements(QDialog):
 
@@ -690,4 +847,3 @@ class DialogFindElements(QDialog):
         vbox.addWidget(button_box)
 
         self.setLayout(vbox)
-

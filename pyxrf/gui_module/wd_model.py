@@ -709,7 +709,6 @@ class DialogGeneralFittingSettings(QDialog):
         self.group_energy_range.setLayout(grid)
         vbox_left.addWidget(self.group_energy_range)
 
-
         vbox_right = QVBoxLayout()
 
         # ===== Top-right section of the dialog box =====

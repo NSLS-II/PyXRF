@@ -1,11 +1,17 @@
-from PyQt5.QtWidgets import (QMainWindow, QMessageBox, QLabel, QAction)
-# from PyQt5.QtCore import Qt
+import webbrowser
+from datetime import datetime
+
+from PyQt5.QtWidgets import (QMainWindow, QMessageBox, QLabel, QAction,
+                             QDialog, QVBoxLayout, QDialogButtonBox, QHBoxLayout)
+from PyQt5.QtCore import Qt
 
 from .central_widget import TwoPanelWidget
 from .useful_widgets import global_gui_variables
 from .wd_model import WndManageEmissionLines
 from .wd_fit_maps import WndComputeRoiMaps, WndLoadQuantitativeCalibration
 from .wd_plots_xrf_maps import WndImageWizard
+
+import pyxrf
 
 _main_window_geometry = {
     "initial_height": 700,
@@ -69,8 +75,13 @@ class MainWindow(QMainWindow):
         action_show_matplotlib_toolbar.setCheckable(True)
         action_show_matplotlib_toolbar.setChecked(True)
 
-        action_show_about = QAction("&About", self)
-        action_show_about.setStatusTip("Show information about this program")
+        action_online_docs = QAction("Online &documentation", self)
+        action_online_docs.setStatusTip("Open online documentation in browser")
+        action_online_docs.triggered.connect(self.action_online_docs_triggered)
+
+        action_about = QAction("&About PyXRF", self)
+        action_about.setStatusTip("Show information about this program")
+        action_about.triggered.connect(self.action_about_triggered)
 
         # Main menu
         menubar = self.menuBar()
@@ -88,7 +99,8 @@ class MainWindow(QMainWindow):
         view.addAction(action_show_matplotlib_toolbar)
 
         help = menubar.addMenu('&Help')
-        help.addAction(action_show_about)
+        help.addAction(action_online_docs)
+        help.addAction(action_about)
 
         central_widget = TwoPanelWidget()
         self.setCentralWidget(central_widget)
@@ -113,3 +125,94 @@ class MainWindow(QMainWindow):
             self._is_closed = True
         else:
             event.ignore()
+
+    def action_online_docs_triggered(self):
+        """
+        Display online documentation: open the URL in the default browser.
+        """
+        doc_url = "http://nsls-ii.github.io/PyXRF/"
+        try:
+            webbrowser.open(doc_url, autoraise=True)
+        except Exception:
+            print(f"Error occurred while opening URL '{doc_url}' in the default browser")
+
+    def action_about_triggered(self):
+        """
+        Display 'About' dialog box
+        """
+        dlg = DialogAbout()
+        dlg.exec()
+
+
+class DialogAbout(QDialog):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("About PyXRF")
+        self.setFixedSize(500, 500)
+
+        text_name = "PyXRF:"
+        text_description = "X-Ray Fluorescence Analysis Tool"
+
+        text_ver = f"Version: {pyxrf.__version__}"
+
+        text_credit = "Credits:"
+        text_credit_org = ("Data Acquisition, Management and Analysis Group\n"
+                           "National Synchrontron Light Source II\n"
+                           "Brookhaven National Laboratory")
+
+        text_copyright = u"\u00A9" + "2015" + u"\u2014" + f"{datetime.now().year}" +\
+                         " Brookhaven National Laboratory"
+
+        label_name = QLabel(text_name)
+        label_description = QLabel(text_description)
+        label_ver = QLabel(text_ver)
+        label_credit = QLabel(text_credit)
+        label_org = QLabel(text_credit_org)
+        label_copyright = QLabel(text_copyright)
+
+        button_box = QDialogButtonBox(QDialogButtonBox.Close)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+
+        vbox = QVBoxLayout()
+
+        vbox.addStretch(1)
+
+        hbox = QHBoxLayout()
+        hbox.addSpacing(30)
+        hbox.addWidget(label_name)
+        hbox.addWidget(label_description)
+        hbox.addStretch(1)
+        vbox.addLayout(hbox)
+
+        vbox.addSpacing(30)
+
+        hbox = QHBoxLayout()
+        hbox.addSpacing(30)
+        hbox.addWidget(label_ver)
+        hbox.addStretch(1)
+        vbox.addLayout(hbox)
+
+        vbox.addStretch(1)
+
+        hbox = QHBoxLayout()
+        hbox.addSpacing(30)
+        hbox.addWidget(label_copyright)
+        hbox.addStretch(1)
+        vbox.addLayout(hbox)
+
+        vbox.addSpacing(20)
+
+        hbox = QHBoxLayout()
+        hbox.addSpacing(30)
+        hbox.addWidget(label_credit, 0, Qt.AlignTop)
+        hbox.addWidget(label_org, 0, Qt.AlignTop)
+        hbox.addStretch(1)
+        vbox.addLayout(hbox)
+
+        vbox.addSpacing(20)
+
+        vbox.addWidget(button_box)
+
+        self.setLayout(vbox)
