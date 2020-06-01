@@ -225,8 +225,8 @@ class RgbSelectionWidget(QWidget):
                 # Combo box: update both QComboBox and QWidget backgrounds
                 #   QWidget - background of the drop-down selection list
                 css1 = get_background_css(rgb, widget="QComboBox", editable=False)
-                css2 = get_background_css(rgb, widget="QWidget", editable=False)
-                wd.setStyleSheet(css1 + css2)
+                css2 = get_background_css(rgb, widget="QWidget", editable=True)
+                wd.setStyleSheet(css2 + css1)
             elif n_col <= 3:
                 # 3 QRadioButton's. The buttons are inserted into QWidget objects,
                 #   and we need to change backgrounds of QWidgets, not only buttons.

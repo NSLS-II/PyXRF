@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout,
 from PyQt5.QtCore import Qt
 
 from .useful_widgets import (LineEditReadOnly, adjust_qlistwidget_height,
-                             global_gui_parameters)
+                             global_gui_parameters, PushButtonMinimumWidth)
 from .form_base_widget import FormBaseWidget
 
 
@@ -51,10 +51,8 @@ class LoadDataWidget(FormBaseWidget):
     def _setup_wd_group(self):
         self.group_wd = QGroupBox("Working Directory")
 
-        self.pb_set_wd = QPushButton("..")
+        self.pb_set_wd = PushButtonMinimumWidth("..")
         self.pb_set_wd.setToolTip("Select Working Directory. Press to open the dialog.")
-        pb_size = self.pb_set_wd.sizeHint()
-        self.pb_set_wd.setMaximumSize(pb_size.height() * 2 // 3, pb_size.height())
         self.pb_set_wd.clicked.connect(self.pb_set_wd_clicked)
 
         self.le_wd = LineEditReadOnly()

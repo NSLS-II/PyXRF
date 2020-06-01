@@ -13,7 +13,7 @@ from PyQt5.QtGui import QWindow, QBrush, QColor, QPalette
 from PyQt5.QtCore import Qt
 
 from .useful_widgets import (LineEditReadOnly, global_gui_parameters, global_gui_variables,
-                             ElementSelection)
+                             ElementSelection, get_background_css)
 
 from .form_base_widget import FormBaseWidget
 
@@ -300,8 +300,10 @@ class WndManageEmissionLines(QWidget):
         self.pb_add_eline = QPushButton("Add")
         self.pb_remove_eline = QPushButton("Remove")
 
-        self.pb_add_user_peak = QPushButton("Add User Peak ...")
-        self.pb_add_pileup_peak = QPushButton("Add Pileup Peak ...")
+        self.pb_user_peaks = QPushButton("User Peaks ...")
+        self.pb_user_peaks.clicked.connect(self.pb_user_peaks_clicked)
+        self.pb_pileup_peaks = QPushButton("Pileup Peaks ...")
+        self.pb_pileup_peaks.clicked.connect(self.pb_pileup_peaks_clicked)
 
         # Some emission lines to populate the combo box
         eline_sample_list = ["Li_K", "B_K", "C_K", "N_K", "Fe_K", "Userpeak1"]
@@ -319,8 +321,8 @@ class WndManageEmissionLines(QWidget):
         hbox = QHBoxLayout()
         hbox.addWidget(self.cb_select_all)
         hbox.addStretch(1)
-        hbox.addWidget(self.pb_add_user_peak)
-        hbox.addWidget(self.pb_add_pileup_peak)
+        hbox.addWidget(self.pb_user_peaks)
+        hbox.addWidget(self.pb_pileup_peaks)
         vbox.addLayout(hbox)
 
         # Wrap vbox into hbox, because it will be inserted into vbox
@@ -336,36 +338,6 @@ class WndManageEmissionLines(QWidget):
         vbox.addSpacing(70)
         vbox.addWidget(self.cb_select_all)
         return vbox
-
-    def _setup_select_elines_group(self):
-
-        self.group_select_elines = QGroupBox("Add/Remove Emission Lines")
-
-        self.cb_eline_list = QComboBox()
-        # The following field should switched to 'editable' state from when needed
-        self.le_peak_intensity = LineEditReadOnly()
-        self.pb_add_eline = QPushButton("Add")
-        self.pb_remove_eline = QPushButton("Remove")
-
-        self.pb_add_user_peak = QPushButton("Add User Peak ...")
-        self.pb_add_pileup_peak = QPushButton("Add Pileup Peak ...")
-
-        # Some emission lines to populate the combo box
-        eline_sample_list = ["Li_K", "B_K", "C_K", "N_K", "Fe_K"]
-        self.cb_eline_list.addItems(eline_sample_list)
-
-        vbox = QVBoxLayout()
-        hbox = QHBoxLayout()
-        hbox.addWidget(self.cb_eline_list)
-        hbox.addWidget(self.le_peak_intensity)
-        hbox.addWidget(self.pb_add_eline)
-        hbox.addWidget(self.pb_remove_eline)
-        vbox.addLayout(hbox)
-        hbox = QHBoxLayout()
-        hbox.addWidget(self.pb_add_user_peak)
-        hbox.addWidget(self.pb_add_pileup_peak)
-        vbox.addLayout(hbox)
-        self.group_select_elines.setLayout(vbox)
 
     def _setup_elines_table(self):
         """The table has only functionality necessary to demonstrate how it is going
@@ -482,6 +454,15 @@ class WndManageEmissionLines(QWidget):
         hbox.addStretch(1)
         return hbox
 
+    def pb_pileup_peaks_clicked(self):
+        dlg = DialogPileupPeakParameters()
+        if dlg.exec():
+            print("Pileup peak is added")
+
+    def pb_user_peaks_clicked(self):
+        dlg = DialogUserPeakParameters()
+        if dlg.exec():
+            print("User defined peak is added")
 
 class DialogFindElements(QDialog):
 
@@ -860,13 +841,9 @@ class _FittingSettings():
                 else:
                     item = QComboBox()
 
-                    # It is unclear how background color of QComboBox is set, but
-                    #   experimentally it was found, that the color needs to be adjusted
-                    #   (made darker) in order to match background colors of the cell.
-                    # Also, changing color using palette didn't work (on Linux).
-                    rgb_bckg = [_ - 35 if (_ < 255) else _ for _ in rgb_bckg]
-                    color_css = f"rgb({rgb_bckg[0]}, {rgb_bckg[1]}, {rgb_bckg[2]})"
-                    item.setStyleSheet(f"QComboBox {{ background-color: {color_css}; }}")
+                    css1 = get_background_css(rgb_bckg, widget="QComboBox", editable=False)
+                    css2 = get_background_css(rgb_bckg, widget="QWidget", editable=False)
+                    item.setStyleSheet(css2 + css1)
 
                     item.addItems(self.cbox_settings_items)
                     if item.findText(entry) < 0:
@@ -914,7 +891,6 @@ class DialogElementSettings(QDialog):
         hbox.addStretch(1)
 
         return hbox
-
 
     def _setup_table(self):
 
@@ -983,3 +959,109 @@ class DialogGlobalParamsSettings(QDialog):
     def fill_table(self, table_contents):
 
         self.table_settings.fill_table(self.table, table_contents)
+
+
+class DialogPileupPeakParameters(QDialog):
+
+    def __init__(self, parent=None):
+
+        super().__init__(parent)
+
+        self.setWindowTitle("Pileup Peak Parameters")
+
+        self.rb_edit_existing = QRadioButton("Edit Existing")
+        self.rb_add_new = QRadioButton("Add New")
+
+        self.btn_group = QButtonGroup()
+        self.btn_group.addButton(self.rb_edit_existing)
+        self.btn_group.addButton(self.rb_add_new)
+
+        self.rb_add_new.setChecked(True)
+
+        self.le_element1 = QLineEdit()
+        self.le_element2 = QLineEdit()
+        self.peak_intensity = QLineEdit()
+
+        instructions = QLabel("Specify two emission lines, e.g. Si_Ka1 and Fe_Ka1")
+
+        grid = QGridLayout()
+        grid.addWidget(QLabel("Emission line 1:"), 0, 0)
+        grid.addWidget(self.le_element1, 0, 1)
+        grid.addWidget(QLabel("Emission line 2:"), 1, 0)
+        grid.addWidget(self.le_element2, 1, 1)
+        grid.addWidget(QLabel("Peak intensity:"), 2, 0)
+        grid.addWidget(self.peak_intensity, 2, 1)
+
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.button(QDialogButtonBox.Cancel).setDefault(True)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+
+        vbox = QVBoxLayout()
+
+        hbox = QHBoxLayout()
+        hbox.addStretch(1)
+        hbox.addWidget(self.rb_edit_existing)
+        hbox.addWidget(self.rb_add_new)
+        hbox.addStretch(1)
+        vbox.addLayout(hbox)
+
+        vbox.addSpacing(10)
+
+        vbox.addWidget(instructions)
+        vbox.addSpacing(10)
+        vbox.addLayout(grid)
+        vbox.addWidget(button_box)
+        self.setLayout(vbox)
+
+
+class DialogUserPeakParameters(QDialog):
+
+    def __init__(self, parent=None):
+
+        super().__init__(parent)
+
+        self.setWindowTitle("User Defined Peak Parameters")
+
+        self.rb_edit_existing = QRadioButton("Edit Existing")
+        self.rb_add_new = QRadioButton("Add New")
+
+        self.btn_group = QButtonGroup()
+        self.btn_group.addButton(self.rb_edit_existing)
+        self.btn_group.addButton(self.rb_add_new)
+
+        self.rb_add_new.setChecked(True)
+
+        self.le_name = LineEditReadOnly()
+        self.le_intensity = QLineEdit()
+        self.le_energy = QLineEdit()
+        self.le_fwhm = QLineEdit()
+
+        vbox = QVBoxLayout()
+
+        hbox = QHBoxLayout()
+        hbox.addStretch(1)
+        hbox.addWidget(self.rb_edit_existing)
+        hbox.addWidget(self.rb_add_new)
+        hbox.addStretch(1)
+        vbox.addLayout(hbox)
+
+        grid = QGridLayout()
+        grid.addWidget(QLabel("Peak name:"), 0, 0)
+        grid.addWidget(self.le_name, 0, 1)
+        grid.addWidget(QLabel("Intensity:"), 1, 0)
+        grid.addWidget(self.le_intensity, 1, 1)
+        grid.addWidget(QLabel("Energy, keV"), 2, 0)
+        grid.addWidget(self.le_energy, 2, 1)
+        grid.addWidget(QLabel("FWHM, keV"), 3, 0)
+        grid.addWidget(self.le_fwhm)
+        vbox.addLayout(grid)
+
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.button(QDialogButtonBox.Cancel).setDefault(True)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+
+        vbox.addWidget(button_box)
+
+        self.setLayout(vbox)

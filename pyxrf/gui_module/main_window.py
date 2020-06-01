@@ -3,6 +3,7 @@ from datetime import datetime
 
 from PyQt5.QtWidgets import (QMainWindow, QMessageBox, QLabel, QAction,
                              QDialog, QVBoxLayout, QDialogButtonBox, QHBoxLayout)
+from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt
 
 from .central_widget import TwoPanelWidget
@@ -151,22 +152,28 @@ class DialogAbout(QDialog):
         self.setWindowTitle("About PyXRF")
         self.setFixedSize(500, 500)
 
-        text_name = "PyXRF:"
+        text_name = "PyXRF"
         text_description = "X-Ray Fluorescence Analysis Tool"
 
         text_ver = f"Version: {pyxrf.__version__}"
+        text_latest_ver = "Latest stable version:"
 
         text_credit = "Credits:"
         text_credit_org = ("Data Acquisition, Management and Analysis Group\n"
                            "National Synchrontron Light Source II\n"
                            "Brookhaven National Laboratory")
 
-        text_copyright = u"\u00A9" + "2015" + u"\u2014" + f"{datetime.now().year}" +\
+        text_copyright = f"\u00A92015\u2014{datetime.now().year}"\
                          " Brookhaven National Laboratory"
 
         label_name = QLabel(text_name)
+        label_name.setStyleSheet('QLabel {font-weight: bold; font-size: 32px}')
+
         label_description = QLabel(text_description)
+        label_description.setStyleSheet('QLabel {font-style: italic; font-size: 18px}')
+
         label_ver = QLabel(text_ver)
+        label_latest_ver = QLabel(text_latest_ver)
         label_credit = QLabel(text_credit)
         label_org = QLabel(text_credit_org)
         label_copyright = QLabel(text_copyright)
@@ -180,17 +187,14 @@ class DialogAbout(QDialog):
         vbox.addStretch(1)
 
         hbox = QHBoxLayout()
-        hbox.addSpacing(30)
+        hbox.addStretch(1)
         hbox.addWidget(label_name)
-        hbox.addWidget(label_description)
         hbox.addStretch(1)
         vbox.addLayout(hbox)
 
-        vbox.addSpacing(30)
-
         hbox = QHBoxLayout()
-        hbox.addSpacing(30)
-        hbox.addWidget(label_ver)
+        hbox.addStretch(1)
+        hbox.addWidget(label_description)
         hbox.addStretch(1)
         vbox.addLayout(hbox)
 
@@ -198,7 +202,22 @@ class DialogAbout(QDialog):
 
         hbox = QHBoxLayout()
         hbox.addSpacing(30)
-        hbox.addWidget(label_copyright)
+        hbox.addWidget(label_ver)
+        hbox.addStretch(1)
+        vbox.addLayout(hbox)
+
+        hbox = QHBoxLayout()
+        hbox.addSpacing(30)
+        hbox.addWidget(label_latest_ver)
+        hbox.addStretch(1)
+        vbox.addLayout(hbox)
+
+        vbox.addStretch(1)
+
+        hbox = QHBoxLayout()
+        hbox.addSpacing(30)
+        hbox.addWidget(label_credit, 0, Qt.AlignTop)
+        hbox.addWidget(label_org, 0, Qt.AlignTop)
         hbox.addStretch(1)
         vbox.addLayout(hbox)
 
@@ -206,8 +225,7 @@ class DialogAbout(QDialog):
 
         hbox = QHBoxLayout()
         hbox.addSpacing(30)
-        hbox.addWidget(label_credit, 0, Qt.AlignTop)
-        hbox.addWidget(label_org, 0, Qt.AlignTop)
+        hbox.addWidget(label_copyright)
         hbox.addStretch(1)
         vbox.addLayout(hbox)
 

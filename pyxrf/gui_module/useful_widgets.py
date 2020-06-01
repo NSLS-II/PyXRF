@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import (QLineEdit, QWidget, QHBoxLayout, QVBoxLayout, QFram
                              QSizePolicy, QLabel, QPushButton, QGridLayout, QSlider,
                              QComboBox, QTextEdit)
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPalette
+from PyQt5.QtGui import QPalette, QFontMetrics
 
 global_gui_parameters = {
     "vertical_spacing_in_tabs": 5
@@ -41,6 +41,20 @@ class TextEditReadOnly(QTextEdit):
         p.setColor(QPalette.Base, p.color(QPalette.Disabled, QPalette.Base))
         self.setPalette(p)
 
+
+class PushButtonMinimumWidth(QPushButton):
+    """
+    Push button with text ".." and minimum width
+    """
+    def __init__(self, *args, **kwargs):
+
+        super().__init__(*args, **kwargs)
+        text = self.text()
+        font = self.font()
+
+        fm = QFontMetrics(font)
+        text_width = fm.width(text) + 6
+        self.setFixedWidth(text_width)
 
 
 def adjust_qlistwidget_height(list_widget, min_height=40):
@@ -87,7 +101,7 @@ def get_background_css(rgb, widget="QWidget", editable=False):
     # Shaded widgets appear brighter, so the brightness needs to be reduced
     shaded_widgets = ("QComboBox", "QPushButton")
     if widget in shaded_widgets:
-        rgb = [int(_ * 0.9) if _ != 255 else _ for _ in rgb]
+        rgb = [max(int(255 - (255 - _) * 1.5), 0) for _ in rgb]
 
     # Increase brightness of editable element
     if editable:
@@ -132,7 +146,6 @@ class RangeManager(QWidget):
 
         self.sld_min_value.setValue(self.sld_min_value.maximum())
         self.sld_max_value.setValue(self.sld_max_value.maximum())
-
 
         grid = QGridLayout()
         grid.setHorizontalSpacing(0)
@@ -197,14 +210,8 @@ class ElementSelection(QWidget):
 
         self.cb_element_list = QComboBox()
         self.setMaximumWidth(300)
-        self.pb_prev = QPushButton("<")
-        self.pb_next = QPushButton(">")
-
-        def _set_pb_width(push_button):
-            pb_size = push_button.sizeHint()
-            push_button.setFixedSize(pb_size.height() * 2 // 3, pb_size.height())
-        _set_pb_width(self.pb_prev)
-        _set_pb_width(self.pb_next)
+        self.pb_prev = PushButtonMinimumWidth("<")
+        self.pb_next = PushButtonMinimumWidth(">")
 
         hbox = QHBoxLayout()
         hbox.setSpacing(0)

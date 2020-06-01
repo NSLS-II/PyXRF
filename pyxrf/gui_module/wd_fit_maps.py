@@ -15,7 +15,7 @@ from PyQt5.QtGui import QWindow, QBrush, QColor
 from PyQt5.QtCore import Qt
 
 from .useful_widgets import (LineEditReadOnly, global_gui_parameters, global_gui_variables,
-                             get_background_css, TextEditReadOnly)
+                             get_background_css,PushButtonMinimumWidth)
 from .form_base_widget import FormBaseWidget
 
 class FitMapsWidget(FormBaseWidget):
@@ -140,14 +140,13 @@ class FitMapsWidget(FormBaseWidget):
 
     def pb_save_q_calibration_clicked(self, event):
         # TODO: Propagate full path to the saved file here
-        fln = "~/quant_calibration.json"
-        fln = os.path.expanduser(fln)
-        file_name = QFileDialog.getSaveFileName(self, "Select File to Save Quantitative Standard Calibration",
-                                                fln,
-                                                "JSON (*.json);; All (*)")
-        file_name = file_name[0]
-        if file_name:
-            print(f"Saving quantitative standard calibration to file file: {file_name}")
+        file_path = "~/quant_calibration.json"
+        file_path = os.path.expanduser(file_path)
+
+        dlg = DialogSaveCalibration(file_path=file_path)
+        res = dlg.exec()
+        if res:
+            print(f"Saving quantitative calibration to the file '{dlg.file_path}'")
 
     def pb_save_to_tiff_clicked(self, event):
         # TODO: Propagate current directory here and use it in the dialog call
@@ -775,9 +774,9 @@ class WndLoadQuantitativeCalibration(QWidget):
     def pb_view_clicked(self, button):
         try:
             n_standard = self.pbs_view.index(button)
-            dlg = DialogFindElements(None,
-                                     file_path=quant_calib[n_standard][1]['file_path'],
-                                     calibration_data=quant_calib_json[n_standard])
+            dlg = DialogViewCalibStandard(None,
+                                          file_path=quant_calib[n_standard][1]['file_path'],
+                                          calibration_data=quant_calib_json[n_standard])
             dlg.exec()
         except ValueError:
             print("'View' button was pressed, but not found in the list")
@@ -813,7 +812,8 @@ class WndLoadQuantitativeCalibration(QWidget):
         self.table_header_display_names = bool(index)
         self.display_table_header()
 
-class DialogFindElements(QDialog):
+
+class DialogViewCalibStandard(QDialog):
 
     def __init__(self, parent=None, *, file_path="", calibration_data=""):
 
@@ -847,3 +847,81 @@ class DialogFindElements(QDialog):
         vbox.addWidget(button_box)
 
         self.setLayout(vbox)
+
+
+class DialogSaveCalibration(QDialog):
+
+    def __init__(self, parent=None, *, file_path=""):
+
+        super().__init__(parent)
+
+        self.__file_path = ""
+
+        self.setWindowTitle("Save Quantitative Calibration")
+        self.setMinimumHeight(600)
+        self.setMinimumWidth(600)
+        self.resize(600, 600)
+
+        self.text_edit = QTextEdit()
+        self.text_edit.setReadOnly(True)
+
+        self.le_file_path = LineEditReadOnly()
+        self.pb_file_path = PushButtonMinimumWidth("..")
+        self.pb_file_path.clicked.connect(self.pb_file_path_clicked)
+
+        self.le_distance_to_sample = QLineEdit()
+
+        self.cb_overwrite = QCheckBox("OverwriteExisting")
+
+        vbox = QVBoxLayout()
+
+        hbox = QHBoxLayout()
+        hbox.addWidget(QLabel("The following data will be saved to JSON file:"))
+        hbox.addStretch(1)
+        vbox.addLayout(hbox)
+
+        vbox.addWidget(self.text_edit)
+
+        hbox = QHBoxLayout()
+        hbox.addWidget(QLabel("Path: "))
+        hbox.addWidget(self.pb_file_path)
+        hbox.addWidget(self.le_file_path)
+        vbox.addLayout(hbox)
+
+        hbox = QHBoxLayout()
+        hbox.addWidget(QLabel("Distance-to-sample:"))
+        hbox.addWidget(self.le_distance_to_sample)
+        hbox.addStretch(1)
+        hbox.addWidget(self.cb_overwrite)
+        vbox.addLayout(hbox)
+
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        vbox.addWidget(button_box)
+
+        self.setLayout(vbox)
+
+        # Set and display file path
+        file_path = os.path.expanduser(file_path)
+        self.file_path = file_path
+
+    @property
+    def file_path(self):
+        return self.__file_path
+
+    @file_path.setter
+    def file_path(self, file_path):
+        self.__file_path = file_path
+        self.le_file_path.setText(file_path)
+
+    def pb_file_path_clicked(self):
+        # TODO: Propagate full path to the saved file here
+        file_path = QFileDialog.getSaveFileName(self, "Select File to Save Quantitative Calibration",
+                                                self.file_path,
+                                                "JSON (*.json);; All (*)",
+                                                options=QFileDialog.DontConfirmOverwrite)
+        file_path = file_path[0]
+        if file_path:
+            self.file_path = file_path
+            print(f"Selected file path for saving calibration standard: '{file_path}'")
