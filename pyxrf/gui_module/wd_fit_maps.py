@@ -457,12 +457,15 @@ quant_calib = [
         }
     ]
 ]
+
+
 # The following list is to demonstrate how 'View' button works. Data is treated
 #   differently in the actual code, but the resulting format will be similar.
 quant_calib_json = [
     yaml.dump(quant_calib[0][0], default_flow_style=False, sort_keys=False, indent=4),
     yaml.dump(quant_calib[1][0], default_flow_style=False, sort_keys=False, indent=4),
 ]
+
 
 class WndLoadQuantitativeCalibration(QWidget):
 

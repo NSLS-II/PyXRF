@@ -18,6 +18,18 @@ from .useful_widgets import (LineEditReadOnly, global_gui_parameters, global_gui
 from .form_base_widget import FormBaseWidget
 
 
+_fitting_preset_names = {
+    "None": "None",
+    "fit_with_tail": "With Tail",
+    "free_more": "Free",
+    "e_calibration": "E-axis",
+    "linear": "Area",
+    "adjust_element1": "Custom 1",
+    "adjust_element2": "Custom 2",
+    "adjust_element3": "Custom 3",
+}
+
+
 class ModelWidget(FormBaseWidget):
 
     def __init__(self):
@@ -122,14 +134,13 @@ class ModelWidget(FormBaseWidget):
         self.pb_global_params = QPushButton("Global Parameters ...")
         self.pb_global_params.clicked.connect(self.pb_global_params_clicked)
 
-        # TODO: those items should be loaded from some global source
-        combo_items = ("None", "fit_with_tail", "free_more", "e_calibration",
-                       "linear", "adjust_element1", "adjust_element2",
-                       "adjust_element3")
+        combo_items = list(_fitting_preset_names.values())
         self.cb_step1 = QComboBox()
+        self.cb_step1.setMinimumWidth(150)
         self.cb_step1.addItems(combo_items)
         self.cb_step1.setCurrentIndex(1)  # Should also be set based on data
         self.cb_step2 = QComboBox()
+        self.cb_step2.setMinimumWidth(150)
         self.cb_step2.addItems(combo_items)
 
         vbox = QVBoxLayout()
@@ -758,17 +769,17 @@ class _FittingSettings():
 
     def __init__(self, energy_column=True):
 
+        labels_presets = [_ for _ in _fitting_preset_names.values() if _ is not "None"]
+
         # Labels for horizontal header
-        self.tbl_labels = ["Name", "E, keV", "Value", "Min", "Max",
-                           "With Tail", "Free", "E axis", "Area",
-                           "Custom 1", "Custom 2", "Custom 3"]
+        self.tbl_labels = ["Name", "E, keV", "Value", "Min", "Max"] + labels_presets
+
 
         # Labels for editable columns
         self.tbl_cols_editable = ("Value", "Min", "Max")
 
         # Labels for the columns that contain comboboxes
-        self.tbl_cols_combobox = ("With Tail", "Free", "E axis", "Area",
-                                  "Custom 1", "Custom 2", "Custom 3")
+        self.tbl_cols_combobox = labels_presets
 
         # The list of columns with fixed size
         self.tbl_cols_stretch = ("Value", "Min", "Max")
@@ -788,6 +799,7 @@ class _FittingSettings():
         table.setColumnCount(len(self.tbl_labels))
         table.verticalHeader().hide()
         table.setHorizontalHeaderLabels(self.tbl_labels)
+        #table.horizontalHeader().setMinimumSectionSize(100)
         # table.setAlternatingRowColors(True)
 
         header = table.horizontalHeader()
@@ -1012,6 +1024,7 @@ class DialogPileupPeakParameters(QDialog):
         vbox.addSpacing(10)
         vbox.addLayout(grid)
         vbox.addWidget(button_box)
+
         self.setLayout(vbox)
 
 
