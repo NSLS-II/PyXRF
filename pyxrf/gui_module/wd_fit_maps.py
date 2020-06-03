@@ -2,6 +2,7 @@ import os
 import json
 import yaml
 import textwrap
+import time
 
 from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout,
                              QGroupBox, QLineEdit, QCheckBox, QLabel,
@@ -95,6 +96,7 @@ class FitMapsWidget(FormBaseWidget):
 
     def _setup_start_fitting(self):
         self.pb_start_map_fitting = QPushButton("Start XRF Map Fitting")
+        self.pb_start_map_fitting.clicked.connect(self.pb_start_map_fitting_clicked)
 
     def _setup_compute_roi_maps(self):
         self.pb_compute_roi_maps = QPushButton("Compute XRF Maps Based on ROI ...")
@@ -103,42 +105,38 @@ class FitMapsWidget(FormBaseWidget):
     def _setup_save_results(self):
         self.group_save_results = QGroupBox("Save Results")
 
-        self.pb_save_to_db = QPushButton("Save to Database (Databroker)")
+        self.pb_save_to_db = QPushButton("Save to Database (Databroker) ...")
         self.pb_save_to_db.setEnabled(False)
 
-        self.pb_save_q_calibration = QPushButton("Save Quantitative Calibration")
+        self.pb_save_q_calibration = QPushButton("Save Quantitative Calibration ...")
         self.pb_save_q_calibration.clicked.connect(self.pb_save_q_calibration_clicked)
 
-        self.pb_save_to_tiff = QPushButton("Save to TIFF")
-        self.pb_save_to_tiff.clicked.connect(self.pb_save_to_tiff_clicked)
-
-        self.pb_save_to_txt = QPushButton("Save to TXT")
-        self.pb_save_to_txt.clicked.connect(self.pb_save_to_txt_clicked)
+        self.pb_export_to_tiff_and_txt = QPushButton("Export to TIFF and TXT ...")
+        self.pb_export_to_tiff_and_txt.clicked.connect(self.pb_export_to_tiff_and_txt_clicked)
 
         grid = QGridLayout()
         grid.addWidget(self.pb_save_to_db, 0, 0, 1, 2)
         grid.addWidget(self.pb_save_q_calibration, 1, 0, 1, 2)
-        grid.addWidget(self.pb_save_to_tiff, 2, 0)
-        grid.addWidget(self.pb_save_to_txt, 2, 1)
+        grid.addWidget(self.pb_export_to_tiff_and_txt, 2, 0, 1, 2)
 
         self.group_save_results.setLayout(grid)
 
     def _setup_quantitative_analysis(self):
         self.group_quant_analysis = QGroupBox("Quantitative Analysis")
 
-        self.pb_load_quant_calib = QPushButton("Load Quantitative Calibration")
+        self.pb_load_quant_calib = QPushButton("Load Quantitative Calibration ...")
         self.pb_load_quant_calib.clicked.connect(self.pb_load_quant_calib_clicked)
 
         vbox = QVBoxLayout()
         vbox.addWidget(self.pb_load_quant_calib)
         self.group_quant_analysis.setLayout(vbox)
 
-    def pb_compute_roi_maps_clicked(self, event):
+    def pb_compute_roi_maps_clicked(self):
         if not self.ref_main_window.wnd_compute_roi_maps.isVisible():
             self.ref_main_window.wnd_compute_roi_maps.show()
         self.ref_main_window.wnd_compute_roi_maps.activateWindow()
 
-    def pb_save_q_calibration_clicked(self, event):
+    def pb_save_q_calibration_clicked(self):
         # TODO: Propagate full path to the saved file here
         file_path = "~/quant_calibration.json"
         file_path = os.path.expanduser(file_path)
@@ -148,32 +146,36 @@ class FitMapsWidget(FormBaseWidget):
         if res:
             print(f"Saving quantitative calibration to the file '{dlg.file_path}'")
 
-    def pb_save_to_tiff_clicked(self, event):
-        # TODO: Propagate current directory here and use it in the dialog call
-        current_dir = os.path.expanduser("~")
-        dir = QFileDialog.getExistingDirectory(
-            self, "Select Directory to Save XRF Maps to TIFF Files", current_dir,
-            QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks)
-        if dir:
-            print(f"XRF Maps are saved as TIFF files to directory {dir}")
-        else:
-            print(f"Saving of XRF Maps is cancelled")
+    def pb_export_to_tiff_and_txt_clicked(self):
+        # TODO: Propagate full path to the saved file here
+        dir_path = os.path.expanduser("~")
 
-    def pb_save_to_txt_clicked(self, event):
-        # TODO: Propagate current directory here and use it in the dialog call
-        current_dir = os.path.expanduser("~")
-        dir = QFileDialog.getExistingDirectory(
-            self, "Select Directory to Save XRF Maps to TXT Files", current_dir,
-            QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks)
-        if dir:
-            print(f"XRF Maps are saved as TXT files to directory {dir}")
-        else:
-            print(f"Saving of XRF Maps is cancelled")
+        dlg = DialogExportToTiffAndTxt(dir_path=dir_path)
+        res = dlg.exec()
+        if res:
+            print(f"Saving TIFF and TXT files to the directory '{dlg.dir_path}'")
 
-    def pb_load_quant_calib_clicked(self, event):
+    def pb_load_quant_calib_clicked(self):
         if not self.ref_main_window.wnd_load_quantitative_calibration.isVisible():
             self.ref_main_window.wnd_load_quantitative_calibration.show()
         self.ref_main_window.wnd_load_quantitative_calibration.activateWindow()
+
+    def pb_start_map_fitting_clicked(self):
+        global_gui_variables["gui_state"]["running_computations"] = True
+        self.ref_main_window.update_widget_state()
+
+        progress_bar = self.ref_main_window.statusProgressBar
+        status_bar = self.ref_main_window.statusBar()
+        for i in range(100):
+            progress_bar.setValue(i + 1)
+            time.sleep(0.05)
+        time.sleep(0.5)
+        progress_bar.setValue(0)
+        status_bar.showMessage("XRF Maps are generated. "
+                               "Results are presented in 'XRF Maps' tab.", 5000)
+
+        global_gui_variables["gui_state"]["running_computations"] = False
+        self.ref_main_window.update_widget_state()
 
 
 class WndComputeRoiMaps(QWidget):
@@ -586,7 +588,7 @@ class WndLoadQuantitativeCalibration(QWidget):
             # If name is long, then print it in a separate line
             _name_is_long = len(name) > 30
 
-            pb_view = QPushButton("View")
+            pb_view = QPushButton("View ...")
             self.group_view.addButton(pb_view)
             pb_remove = QPushButton("Remove")
             self.group_remove.addButton(pb_remove)
@@ -919,7 +921,6 @@ class DialogSaveCalibration(QDialog):
         self.le_file_path.setText(file_path)
 
     def pb_file_path_clicked(self):
-        # TODO: Propagate full path to the saved file here
         file_path = QFileDialog.getSaveFileName(self, "Select File to Save Quantitative Calibration",
                                                 self.file_path,
                                                 "JSON (*.json);; All (*)",
@@ -928,3 +929,127 @@ class DialogSaveCalibration(QDialog):
         if file_path:
             self.file_path = file_path
             print(f"Selected file path for saving calibration standard: '{file_path}'")
+
+
+class DialogExportToTiffAndTxt(QDialog):
+
+    def __init__(self, parent=None, *, dir_path=""):
+
+        super().__init__(parent)
+
+        self.__dir_path = ""
+
+        self.setWindowTitle("Export XRF Maps to TIFF and/or TXT Files")
+        self.setMinimumHeight(600)
+        self.setMinimumWidth(600)
+        self.resize(600, 600)
+
+        self.combo_select_dataset = QComboBox()
+        sample_datasets = ["scan2D_28844_amk_fit", "scan2D_28844_amk_roi",
+                           "scan2D_28844_amk_scaler", "positions"]
+        # datasets = ["Select Dataset ..."] + sample_datasets
+        datasets = sample_datasets
+        self.combo_select_dataset.addItems(datasets)
+
+        self.combo_normalization = QComboBox()
+        sample_scalers = ["i0", "i0_time", "time", "time_diff"]
+        scalers = ["Normalize by ..."] + sample_scalers
+        self.combo_normalization.addItems(scalers)
+
+        self.cb_interpolate = QCheckBox("Interpolate to uniform grid")
+        self.cb_quantitative = QCheckBox("Quantitative normalization")
+
+        self.group_settings = QGroupBox("Settings (selections from XRF Maps tab)")
+        grid = QGridLayout()
+        grid.addWidget(self.combo_select_dataset, 0, 0)
+        grid.addWidget(self.combo_normalization, 0, 1)
+        grid.addWidget(self.cb_interpolate, 1, 0)
+        grid.addWidget(self.cb_quantitative, 1, 1)
+        self.group_settings.setLayout(grid)
+
+        self.te_saved_files = QTextEdit()
+        self.te_saved_files.setReadOnly(True)
+
+        self.le_dir_path = LineEditReadOnly()
+        self.pb_dir_path = PushButtonMinimumWidth("..")
+        self.pb_dir_path.clicked.connect(self.pb_dir_path_clicked)
+
+        self.cb_save_tiff = QCheckBox("Save TIFF")
+        self.cb_save_tiff.setChecked(True)
+        self.cb_save_tiff.toggled.connect(self.cb_save_tiff_toggled)
+        self.cb_save_txt = QCheckBox("Save TXT")
+        self.cb_save_txt.toggled.connect(self.cb_save_txt_toggled)
+
+        vbox = QVBoxLayout()
+
+        hbox = QHBoxLayout()
+        #hbox.addStretch(1)
+        hbox.addWidget(self.group_settings)
+        hbox.addStretch(1)
+        vbox.addLayout(hbox)
+
+        hbox = QHBoxLayout()
+        hbox.addWidget(QLabel("The following files will be created:"))
+        hbox.addStretch(1)
+        vbox.addLayout(hbox)
+        vbox.addWidget(self.te_saved_files)
+
+        hbox = QHBoxLayout()
+        hbox.addWidget(QLabel("Directory: "))
+        hbox.addWidget(self.pb_dir_path)
+        hbox.addWidget(self.le_dir_path)
+        vbox.addLayout(hbox)
+
+        self.button_box = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
+        self.button_box.accepted.connect(self.accept)
+        self.button_box.rejected.connect(self.reject)
+
+        hbox = QHBoxLayout()
+        hbox.addStretch(1)
+        hbox.addWidget(self.cb_save_tiff)
+        hbox.addWidget(self.cb_save_txt)
+        hbox.addStretch(1)
+        hbox.addWidget(self.button_box)
+        vbox.addLayout(hbox)
+
+        self.setLayout(vbox)
+
+        # Set and display file path
+        dir_path = os.path.expanduser(dir_path)
+        self.dir_path = dir_path
+
+    @property
+    def dir_path(self):
+        return self.__dir_path
+
+    @dir_path.setter
+    def dir_path(self, dir_path):
+        self.__dir_path = dir_path
+        self.le_dir_path.setText(dir_path)
+
+    def pb_dir_path_clicked(self):
+        # Note: QFileDialog.ShowDirsOnly is not set on purpose, so that the dialog
+        #   could be used to inspect directory contents. Files can not be selected anyway.
+        dir_path = QFileDialog.getExistingDirectory(self, "Select Root Directory for TIFF and TXT Files",
+                                                    self.dir_path,
+                                                    options=QFileDialog.DontResolveSymlinks)
+        if dir_path:
+            self.dir_path = dir_path
+            print(f"Selected directory: '{self.dir_path}'")
+
+    def enable_save_button(self):
+
+        btn_ok = self.button_box.button(QDialogButtonBox.Save)
+
+        if self.cb_save_tiff.isChecked() or self.cb_save_txt.isChecked():
+            btn_ok.setEnabled(True)
+            print("Enable Save button")
+        else:
+            btn_ok.setEnabled(False)
+            print("Disable Save button")
+
+    def cb_save_tiff_toggled(self, state):
+        self.enable_save_button()
+
+    def cb_save_txt_toggled(self, state):
+        self.enable_save_button()

@@ -2,9 +2,10 @@ import webbrowser
 from datetime import datetime
 
 from PyQt5.QtWidgets import (QMainWindow, QMessageBox, QLabel, QAction,
-                             QDialog, QVBoxLayout, QDialogButtonBox, QHBoxLayout)
+                             QDialog, QVBoxLayout, QDialogButtonBox, QHBoxLayout,
+                             QProgressBar)
 from PyQt5.QtGui import QFont
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSlot
 
 from .central_widget import TwoPanelWidget
 from .useful_widgets import global_gui_variables
@@ -47,67 +48,164 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle("PyXRF window title")
 
+        self.central_widget = TwoPanelWidget()
+        self.setCentralWidget(self.central_widget)
+
         # Status bar
         self.statusLabel = QLabel()
         self.statusBar().addWidget(self.statusLabel)
+        self.statusProgressBar = QProgressBar()
+        self.statusProgressBar.setFixedWidth(200)
+        self.statusBar().addPermanentWidget(self.statusProgressBar)
+
         self.statusLabelDefaultText = \
             "Load data by selecting one of the options in 'Load Data' menu ..."
         self.statusLabel.setText(self.statusLabelDefaultText)
 
-        # Define some actions
-        action_open_file = QAction("&Open data file", self)
-        action_open_file.setStatusTip('Load data from file')
+        # 'Scan Data' menu item
+        action_read_file = QAction("&Read File...", self)
+        action_read_file.setStatusTip('Load data from HDF5 file')
+        action_read_file.triggered.connect(
+            self.central_widget.left_panel.load_data_widget.pb_file.clicked)
 
-        action_load_from_db = QAction("Load data from &database", self)
-        action_load_from_db.setStatusTip('Load data from database')
+        action_load_run = QAction("&Load Run...", self)
+        action_load_run.setStatusTip('Load data from database (Databroker)')
+        action_load_run.triggered.connect(
+            self.central_widget.left_panel.load_data_widget.pb_dbase.clicked)
 
-        action_load_params = QAction("Load &processing parameters", self)
-        action_load_params.setStatusTip('Load processing parameters from file')
+        action_view_metadata = QAction("View Metadata...", self)
+        action_view_metadata.setStatusTip('View metadata for loaded run')
+        action_view_metadata.triggered.connect(
+            self.central_widget.left_panel.load_data_widget.pb_view_metadata.clicked)
 
-        action_refine_params = QAction("Re&fine processing parameters", self)
-        action_refine_params.setStatusTip(
-            "Refine processing parameters by fitting total spectrum")
+        # Main menu
+        menubar = self.menuBar()
+        loadData = menubar.addMenu('Scan &Data')
+        loadData.addAction(action_read_file)
+        loadData.addAction(action_load_run)
+        loadData.addSeparator()
+        loadData.addAction(action_view_metadata)
 
-        action_gen_xrf_map = QAction("&Compute XRF map", self)
-        action_gen_xrf_map.setStatusTip(
-            "Compute XRF map by individually fitting of spectra for each pixel")
+        # 'Fitting Model' menu item
+        action_lines_find_automatically = QAction("Find &Automatically...", self)
+        action_lines_find_automatically.setStatusTip(
+            "Automatically find emission lines in total spectrum")
+        action_lines_find_automatically.triggered.connect(
+            self.central_widget.left_panel.model_widget.pb_find_elines.clicked)
 
+        action_lines_load_from_file = QAction("Load From &File...", self)
+        action_lines_load_from_file.setStatusTip(
+            "Load processing parameters, including selected emission lines, from JSON file")
+        action_lines_load_from_file.triggered.connect(
+            self.central_widget.left_panel.model_widget.pb_load_elines.clicked)
+
+        action_lines_load_quant_standard = QAction("Load &Quantitative Standards...", self)
+        action_lines_load_quant_standard.setStatusTip(
+            "Load quantitative standard. The emission lines from the standard are automatically selected")
+        action_lines_load_quant_standard.triggered.connect(
+            self.central_widget.left_panel.model_widget.pb_load_qstandard.clicked)
+
+        action_add_remove_emission_lines = QAction("&Add/Remove Emission Lines...", self)
+        action_add_remove_emission_lines.setStatusTip(
+            "Manually add and remove emission lines")
+        action_add_remove_emission_lines.triggered.connect(
+            self.central_widget.left_panel.model_widget.pb_manage_emission_lines.clicked)
+
+        action_save_model_params = QAction("&Save Model Parameters...", self)
+        action_save_model_params.setStatusTip(
+            "Save model parameters to JSON file")
+        action_save_model_params.triggered.connect(
+            self.central_widget.left_panel.model_widget.pb_save_elines.clicked)
+
+        action_add_remove_emission_lines = QAction("Start Model &Fitting", self)
+        action_add_remove_emission_lines.setStatusTip(
+            "Run computations: start fitting for total spectrum")
+        action_add_remove_emission_lines.triggered.connect(
+            self.central_widget.left_panel.model_widget.pb_start_fitting.clicked)
+
+        fittingModel = menubar.addMenu('Scan &Data')
+        emissionLines = fittingModel.addMenu("&Emission Lines")
+        emissionLines.addAction(action_lines_find_automatically)
+        emissionLines.addAction(action_lines_load_from_file)
+        emissionLines.addAction(action_lines_load_quant_standard)
+        fittingModel.addAction(action_add_remove_emission_lines)
+        fittingModel.addSeparator()
+        fittingModel.addAction(action_save_model_params)
+        fittingModel.addSeparator()
+        fittingModel.addAction(action_add_remove_emission_lines)
+
+        # "XRF Maps" menu item
+        action_start_xrf_map_fitting = QAction("Start XRF Map &Fitting", self)
+        action_start_xrf_map_fitting.setStatusTip(
+            "Run computations: start fitting for XRF maps")
+        action_start_xrf_map_fitting.triggered.connect(
+            self.central_widget.left_panel.fit_maps_widget.pb_start_map_fitting.clicked)
+
+        action_compute_rois = QAction("Compute &ROIs...", self)
+        action_compute_rois.setStatusTip(
+            "Compute XRF Maps based on spectral ROIs")
+        action_compute_rois.triggered.connect(
+            self.central_widget.left_panel.fit_maps_widget.pb_compute_roi_maps.clicked)
+
+        action_load_quant_calibration = QAction("&Load Quantitative Calibration...", self)
+        action_load_quant_calibration.setStatusTip(
+            "Load quantitative calibration from JSON file. Calibration is used for scaling of XRF Maps")
+        action_load_quant_calibration.triggered.connect(
+            self.central_widget.left_panel.fit_maps_widget.pb_load_quant_calib.clicked)
+
+        action_save_quant_calibration = QAction("&Save Quantitative Calibration...", self)
+        action_save_quant_calibration.setStatusTip(
+            "Save Quantitative Calibration based on XRF map of the standard sample")
+        action_save_quant_calibration.triggered.connect(
+            self.central_widget.left_panel.fit_maps_widget.pb_save_q_calibration.clicked)
+
+        action_export_to_tiff_and_txt = QAction("&Export to TIFF and TXT...", self)
+        action_export_to_tiff_and_txt.setStatusTip(
+            "Export XRF Maps as TIFF and/or TXT files")
+        action_export_to_tiff_and_txt.triggered.connect(
+            self.central_widget.left_panel.fit_maps_widget.pb_export_to_tiff_and_txt.clicked)
+
+        xrfMaps = menubar.addMenu('XRF &Maps')
+        xrfMaps.addAction(action_start_xrf_map_fitting)
+        xrfMaps.addAction(action_compute_rois)
+        xrfMaps.addSeparator()
+        xrfMaps.addAction(action_load_quant_calibration)
+        xrfMaps.addSeparator()
+        xrfMaps.addAction(action_save_quant_calibration)
+        xrfMaps.addAction(action_export_to_tiff_and_txt)
+
+        # "View" menu item
         action_show_matplotlib_toolbar = QAction("Show &Matplotlib toolbar", self)
         action_show_matplotlib_toolbar.setCheckable(True)
         action_show_matplotlib_toolbar.setChecked(True)
+        action_show_matplotlib_toolbar.setStatusTip(
+            "Show Matplotlib Toolbar on the plots")
 
-        action_online_docs = QAction("Online &documentation", self)
-        action_online_docs.setStatusTip("Open online documentation in browser")
+        view = menubar.addMenu('&View')
+        view.addAction(action_show_matplotlib_toolbar)
+
+        # "Help" menu item
+        action_online_docs = QAction("Online &Documentation", self)
+        action_online_docs.setStatusTip("Open online documentation in the default browser")
         action_online_docs.triggered.connect(self.action_online_docs_triggered)
 
         action_about = QAction("&About PyXRF", self)
         action_about.setStatusTip("Show information about this program")
         action_about.triggered.connect(self.action_about_triggered)
 
-        # Main menu
-        menubar = self.menuBar()
-        loadData = menubar.addMenu('&Load Data')
-        loadData.addAction(action_open_file)
-        loadData.addAction(action_load_from_db)
-        loadData.addSeparator()
-        loadData.addAction(action_load_params)
-
-        proc = menubar.addMenu('&Processing')
-        proc.addAction(action_refine_params)
-        proc.addAction(action_gen_xrf_map)
-
-        view = menubar.addMenu('&View')
-        view.addAction(action_show_matplotlib_toolbar)
-
         help = menubar.addMenu('&Help')
         help.addAction(action_online_docs)
+        help.addSeparator()
         help.addAction(action_about)
 
-        central_widget = TwoPanelWidget()
-        self.setCentralWidget(central_widget)
+
+    def update_widget_state(self):
+        self.central_widget.update_widget_state()
+        # Update the state of the menu bar
+        state = not global_gui_variables["gui_state"]["running_computations"]
+        self.menuBar().setEnabled(state)
 
     def closeEvent(self, event):
-
         mb_close = QMessageBox(QMessageBox.Question, "Exit",
                                "Are you sure you want to EXIT the program?",
                                QMessageBox.Yes | QMessageBox.No,

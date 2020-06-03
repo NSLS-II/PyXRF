@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import textwrap
+import time
 
 from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout,
                              QGroupBox, QLineEdit, QCheckBox, QLabel,
@@ -171,7 +172,9 @@ class ModelWidget(FormBaseWidget):
         self.group_model_fitting = QGroupBox("Model Fitting Based on Total Spectrum")
 
         self.pb_start_fitting = QPushButton("Start Fitting")
-        self.pb_save_spectrum = QPushButton("Save Spectrum/Fit")
+        self.pb_start_fitting.clicked.connect(self.pb_start_fitting_clicked)
+
+        self.pb_save_spectrum = QPushButton("Save Spectrum/Fit ...")
         self.pb_save_spectrum.clicked.connect(self.pb_save_spectrum_clicked)
 
         self.lb_fitting_results = LineEditReadOnly(
@@ -270,6 +273,22 @@ class ModelWidget(FormBaseWidget):
         else:
             print(f"Spectrum/Fit saving is cancelled")
 
+    def pb_start_fitting_clicked(self):
+        global_gui_variables["gui_state"]["running_computations"] = True
+        self.ref_main_window.update_widget_state()
+
+        progress_bar = self.ref_main_window.statusProgressBar
+        status_bar = self.ref_main_window.statusBar()
+        for i in range(100):
+            progress_bar.setValue(i + 1)
+            time.sleep(0.02)
+        time.sleep(0.5)
+        progress_bar.setValue(0)
+        status_bar.showMessage("Total spectrum fitting is successfully completed. "
+                               "Results are presented in 'Fitting Model' tab.", 5000)
+
+        global_gui_variables["gui_state"]["running_computations"] = False
+        self.ref_main_window.update_widget_state()
 
 class WndManageEmissionLines(QWidget):
 
@@ -799,8 +818,6 @@ class _FittingSettings():
         table.setColumnCount(len(self.tbl_labels))
         table.verticalHeader().hide()
         table.setHorizontalHeaderLabels(self.tbl_labels)
-        #table.horizontalHeader().setMinimumSectionSize(100)
-        # table.setAlternatingRowColors(True)
 
         header = table.horizontalHeader()
         for n, lbl in enumerate(self.tbl_labels):

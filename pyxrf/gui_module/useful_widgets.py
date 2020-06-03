@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (QLineEdit, QWidget, QHBoxLayout, QVBoxLayout, QFrame,
                              QSizePolicy, QLabel, QPushButton, QGridLayout, QSlider,
                              QComboBox, QTextEdit)
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QPalette, QFontMetrics
 
 global_gui_parameters = {
@@ -9,8 +9,10 @@ global_gui_parameters = {
 }
 
 global_gui_variables = {
+    "gui_state": {
+        "running_computations": False
+    }
 }
-
 
 class LineEditReadOnly(QLineEdit):
     """
