@@ -205,12 +205,6 @@ class MainWindow(QMainWindow):
         help.addSeparator()
         help.addAction(action_about)
 
-        # The following workaround is supposed to fix the issue with inactive main menu on MacOS.
-        #   The created 'dummy' menu doesn't influence the rest of the program.
-        dummy_menu = QMenuBar()
-        dummy_menu.show()
-        dummy_menu.deleteLater()
-
         self.update_widget_state()
 
     def update_widget_state(self, condition=None):
