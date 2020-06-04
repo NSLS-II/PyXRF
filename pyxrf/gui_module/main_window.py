@@ -187,9 +187,9 @@ class MainWindow(QMainWindow):
             "Show widget tooltips")
         action_show_widget_tooltips.toggled.connect(self.action_show_widget_tooltips_toggled)
 
-        view = menubar.addMenu('&View')
-        view.addAction(action_show_widget_tooltips)
-        view.addAction(action_show_matplotlib_toolbar)
+        options = menubar.addMenu('&Options')
+        options.addAction(action_show_widget_tooltips)
+        options.addAction(action_show_matplotlib_toolbar)
 
         # "Help" menu item
         action_online_docs = QAction("Online &Documentation", self)
