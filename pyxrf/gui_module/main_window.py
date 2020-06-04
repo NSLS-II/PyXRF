@@ -122,7 +122,7 @@ class MainWindow(QMainWindow):
         action_add_remove_emission_lines.triggered.connect(
             self.central_widget.left_panel.model_widget.pb_start_fitting.clicked)
 
-        fittingModel = menubar.addMenu('Scan &Data')
+        fittingModel = menubar.addMenu('Fitting &Model')
         emissionLines = fittingModel.addMenu("&Emission Lines")
         emissionLines.addAction(action_lines_find_automatically)
         emissionLines.addAction(action_lines_load_from_file)
