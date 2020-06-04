@@ -13,7 +13,8 @@ from PyQt5.QtGui import QBrush, QColor
 from PyQt5.QtCore import Qt
 
 from .useful_widgets import (LineEditReadOnly, global_gui_parameters, global_gui_variables,
-                             get_background_css, PushButtonMinimumWidth, SecondaryWindow)
+                             get_background_css, PushButtonMinimumWidth, SecondaryWindow,
+                             set_tooltip)
 from .form_base_widget import FormBaseWidget
 
 
@@ -52,46 +53,19 @@ class FitMapsWidget(FormBaseWidget):
 
         self.setLayout(vbox)
 
+        self._set_tooltips()
+
     def _setup_settings(self):
         self.group_settings = QGroupBox("Options")
-        self.group_settings.setToolTip(
-            "Raw spectra of individual pixels are saved for the selected region of the map."
-            "The region is selected by specifying the <b>Start</b> and <b>End</b> coordinates "
-            "in pixels. The coordinates are defined by numbers of row and column. 'End row' and "
-            "'End column' are not included in the selection. The end row and column are "
-            "<b>not included</b> in the selection. If only 'Start' coordinates are specified, "
-            "then one spectrum for the pixel defined by 'Start row' and 'Start column' coordinates "
-            "is saved")
 
         self.cb_save_plots = QCheckBox("Save spectra for pixels in the selected region")
         self.le_start_row = QLineEdit("0")
-        self.le_start_row.setToolTip(
-            "Number of the <b>first row</b> of the map to be included in the selection. "
-            "The number must be less than the number entered into 'End row' box.")
         self.le_start_col = QLineEdit("0")
-        self.le_start_col.setToolTip(
-            "Number of the <b>first column</b> of the map to be included in the selection. "
-            "The number must be less than the number entered into 'End column' box.")
 
         self.le_end_row = QLineEdit("0")
-        self.le_end_row.setToolTip(
-            "Number of the <b>row following the last row</b> included in the selection. "
-            "The number must be greater than the number entered into 'Start row' box. "
-            "The field may be left empty. If 'End row' and 'End column' are empty, then "
-            "only one spectrum for the pixel with coordinates 'Start row' and 'Start column' "
-            "is saved")
+
         self.le_end_col = QLineEdit("0")
-        self.le_end_col.setToolTip(
-            "Number of the <b>column following the last column</b> included in the selection. "
-            "The number must be greater than the number entered into 'Start column' box."
-            "The field may be left empty. If 'End row' and 'End column' are empty, then "
-            "only one spectrum for the pixel with coordinates 'Start row' and 'Start column' "
-            "is saved")
         self.cb_interpolate_with_x_y = QCheckBox("Interpolate with (x,y) coordinates")
-        self.cb_interpolate_with_x_y.setToolTip(
-            "Interpolate coordinates to uniform grid before saving maps to <b>TIFF</b> and <b>TXT</b> "
-            "files. <b>THIS CONTROL WILL PROBABLY BE DELETED, BECAUSE IT DUPLICATES CONTROL IN "
-            "THE WINDOW 'Export to TIFF and TXT files ...'")
 
         self.group_save_plots = QGroupBox("Save spectra for pixels in the selected region")
         self.group_save_plots.setCheckable(True)
@@ -125,34 +99,22 @@ class FitMapsWidget(FormBaseWidget):
 
     def _setup_start_fitting(self):
         self.pb_start_map_fitting = QPushButton("Start XRF Map Fitting")
-        self.pb_start_map_fitting.setToolTip(
-            "Click to start <b>fitting of the XRF Maps</b>. The generated XRF Maps can be viewed "
-            "in <b>'XRF Maps' tab</b>")
         self.pb_start_map_fitting.clicked.connect(self.pb_start_map_fitting_clicked)
 
     def _setup_compute_roi_maps(self):
         self.pb_compute_roi_maps = QPushButton("Compute XRF Maps Based on ROI ...")
-        self.pb_compute_roi_maps.setToolTip(
-            "Opens the window for setting up spectral ROIs and computating XRF Maps "
-            "based on the ROIs")
         self.pb_compute_roi_maps.clicked.connect(self.pb_compute_roi_maps_clicked)
 
     def _setup_save_results(self):
         self.group_save_results = QGroupBox("Save Results")
 
         self.pb_save_to_db = QPushButton("Save to Database (Databroker) ...")
-        self.pb_save_to_db.setToolTip(
-            "Save generated XRF Maps to a <b>database</b> via Databroker")
         self.pb_save_to_db.setEnabled(False)
 
         self.pb_save_q_calibration = QPushButton("Save Quantitative Calibration ...")
-        self.pb_save_q_calibration.setToolTip(
-            "Opens a Dialog Box which allows to preview and save <b>Quantitative Calibration data</b>")
         self.pb_save_q_calibration.clicked.connect(self.pb_save_q_calibration_clicked)
 
         self.pb_export_to_tiff_and_txt = QPushButton("Export to TIFF and TXT ...")
-        self.pb_export_to_tiff_and_txt.setToolTip(
-            "Open a Dialog box which allows to export XRF Maps as <b>TIFF</b> and <b>TXT</b> files")
         self.pb_export_to_tiff_and_txt.clicked.connect(self.pb_export_to_tiff_and_txt_clicked)
 
         grid = QGridLayout()
@@ -166,16 +128,80 @@ class FitMapsWidget(FormBaseWidget):
         self.group_quant_analysis = QGroupBox("Quantitative Analysis")
 
         self.pb_load_quant_calib = QPushButton("Load Quantitative Calibration ...")
-        self.pb_load_quant_calib.setToolTip(
-            "Open a window with GUI tools for loading and managing previously saved "
-            "<b>Quantitative Calibration data</b> used for processing (normalization) "
-            "of XRF Maps. The loaded calibration data is applied to XRF Maps if 'Quantitative' "
-            "box is checked in 'XRF Maps' tab")
         self.pb_load_quant_calib.clicked.connect(self.pb_load_quant_calib_clicked)
 
         vbox = QVBoxLayout()
         vbox.addWidget(self.pb_load_quant_calib)
         self.group_quant_analysis.setLayout(vbox)
+
+    def _set_tooltips(self):
+        set_tooltip(
+            self.group_settings,
+            "Raw spectra of individual pixels are saved for the selected region of the map."
+            "The region is selected by specifying the <b>Start</b> and <b>End</b> coordinates "
+            "in pixels. The coordinates are defined by numbers of row and column. 'End row' and "
+            "'End column' are not included in the selection. The end row and column are "
+            "<b>not included</b> in the selection. If only 'Start' coordinates are specified, "
+            "then one spectrum for the pixel defined by 'Start row' and 'Start column' coordinates "
+            "is saved")
+        set_tooltip(
+            self.le_start_row,
+            "Number of the <b>first row</b> of the map to be included in the selection. "
+            "The number must be less than the number entered into 'End row' box.")
+        set_tooltip(
+            self.le_start_col,
+            "Number of the <b>first column</b> of the map to be included in the selection. "
+            "The number must be less than the number entered into 'End column' box.")
+        set_tooltip(
+            self.le_end_row,
+            "Number of the <b>row following the last row</b> included in the selection. "
+            "The number must be greater than the number entered into 'Start row' box. "
+            "The field may be left empty. If 'End row' and 'End column' are empty, then "
+            "only one spectrum for the pixel with coordinates 'Start row' and 'Start column' "
+            "is saved")
+        set_tooltip(
+            self.le_end_col,
+            "Number of the <b>column following the last column</b> included in the selection. "
+            "The number must be greater than the number entered into 'Start column' box."
+            "The field may be left empty. If 'End row' and 'End column' are empty, then "
+            "only one spectrum for the pixel with coordinates 'Start row' and 'Start column' "
+            "is saved")
+        set_tooltip(
+            self.cb_interpolate_with_x_y,
+            "Interpolate coordinates to uniform grid before saving maps to <b>TIFF</b> and <b>TXT</b> "
+            "files. <b>THIS CONTROL WILL PROBABLY BE DELETED, BECAUSE IT DUPLICATES CONTROL IN "
+            "THE WINDOW 'Export to TIFF and TXT files ...'")
+
+        set_tooltip(
+            self.pb_start_map_fitting,
+            "Click to start <b>fitting of the XRF Maps</b>. The generated XRF Maps can be viewed "
+            "in <b>'XRF Maps' tab</b>")
+
+        set_tooltip(
+            self.pb_compute_roi_maps,
+            "Opens the window for setting up spectral ROIs and computating XRF Maps "
+            "based on the ROIs")
+
+        set_tooltip(self.pb_save_to_db,
+                    "Save generated XRF Maps to a <b>database</b> via Databroker")
+
+        set_tooltip(
+            self.pb_save_q_calibration,
+            "Opens a Dialog Box which allows to preview and save <b>Quantitative Calibration data</b>")
+        set_tooltip(
+            self.pb_export_to_tiff_and_txt,
+            "Open a Dialog box which allows to export XRF Maps as <b>TIFF</b> and <b>TXT</b> files")
+
+        set_tooltip(
+            self.pb_load_quant_calib,
+            "Open a window with GUI tools for loading and managing previously saved "
+            "<b>Quantitative Calibration data</b> used for processing (normalization) "
+            "of XRF Maps. The loaded calibration data is applied to XRF Maps if 'Quantitative' "
+            "box is checked in 'XRF Maps' tab")
+
+    def update_widget_state(self, condition=None):
+        if condition == "tooltips":
+            self._set_tooltips()
 
     def pb_compute_roi_maps_clicked(self):
         # Position the window in relation ot the main window (only when called once)
@@ -314,6 +340,13 @@ class WndComputeRoiMaps(SecondaryWindow):
         ]
 
         self.fill_table(sample_content)
+
+    def _set_tooltips(self):
+        pass
+
+    def update_widget_state(self, condition=None):
+        if condition == "tooltips":
+            self._set_tooltips()
 
     def fill_table(self, table_contents):
 
@@ -602,6 +635,13 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
         frame.setLayout(vbox)
 
         self.tab_widget.addTab(frame, "Selected Emission Lines")
+
+    def _set_tooltips(self):
+        pass
+
+    def update_widget_state(self, condition=None):
+        if condition == "tooltips":
+            self._set_tooltips()
 
     def display_loaded_standards(self):
         calib_data = quant_calib

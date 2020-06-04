@@ -17,10 +17,12 @@ class RightPanel(QTabWidget):
         self.addTab(PlotXrfMaps(), "XRF Maps")
         self.addTab(PlotRgbMaps(), "RGB")
 
-    def update_widget_state(self):
+    def update_widget_state(self, condition=None):
         # TODO: this function has to enable tabs and widgets based on the current program state
         state = not global_gui_variables["gui_state"]["running_computations"]
         for i in range(self.count()):
             if state or (i != self.currentIndex()):
                 self.setTabEnabled(i, state)
             self.widget(i).setEnabled(state)
+            # Propagate the call to 'update_widget_state' downstream
+            self.widget(i).update_widget_state(condition)

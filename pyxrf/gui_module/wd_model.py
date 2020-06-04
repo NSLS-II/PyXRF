@@ -11,7 +11,8 @@ from PyQt5.QtGui import QBrush, QColor
 from PyQt5.QtCore import Qt
 
 from .useful_widgets import (LineEditReadOnly, global_gui_parameters, global_gui_variables,
-                             ElementSelection, get_background_css, SecondaryWindow)
+                             ElementSelection, get_background_css, SecondaryWindow,
+                             set_tooltip)
 
 from .form_base_widget import FormBaseWidget
 
@@ -62,40 +63,27 @@ class ModelWidget(FormBaseWidget):
 
         self.setLayout(vbox)
 
+        self._set_tooltips()
+
     def _setup_model_params_group(self):
 
         self.group_model_params = QGroupBox("Load/Save Model Parameters")
 
         self.pb_find_elines = QPushButton("Find Automatically ...")
-        self.pb_find_elines.setToolTip(
-            "Automatically find emission lines from <b>total spectrum</b>.")
         self.pb_find_elines.clicked.connect(self.pb_find_elines_clicked)
 
         self.pb_load_elines = QPushButton("Load From File ...")
-        self.pb_load_elines.setToolTip(
-            "Load model parameters, including selected emission lines from <b>JSON</b> file, "
-            "which was previously save using <b>Save Parameters to File ...</b>.")
         self.pb_load_elines.clicked.connect(self.pb_load_elines_clicked)
 
         self.pb_load_qstandard = QPushButton("Load Quantitative Standard ...")
-        self.pb_load_qstandard.setToolTip(
-            "Load <b>quantitative standard</b>. The model is reset and the emission lines "
-            "that fit within the selected range of energies are added to the list "
-            "of emission lines.")
         self.pb_load_qstandard.clicked.connect(self.pb_load_qstandard_clicked)
 
         self.pb_save_elines = QPushButton("Save Parameters to File ...")
-        self.pb_save_elines.setToolTip(
-            "Save the model parameters including the parameters of the selected emission lines "
-            "to <b>JSON</b> file.")
         self.pb_save_elines.clicked.connect(self.pb_save_elines_clicked)
 
         # This field will display the name of he last loaded parameter file,
         #   Serial/Name of the quantitative standard, or 'no parameters' message
         self.le_param_fln = LineEditReadOnly("No parameter file is loaded")
-        self.le_param_fln.setToolTip(
-            "The name of the recently loaded <b>parameter file</b> or serial number "
-            "and name of the loaded <b>quantitative standard</b>")
 
         vbox = QVBoxLayout()
         hbox = QHBoxLayout()
@@ -115,9 +103,6 @@ class ModelWidget(FormBaseWidget):
     def _setup_add_remove_elines_button(self):
 
         self.pb_manage_emission_lines = QPushButton("Add/Remove Emission Lines ...")
-        self.pb_manage_emission_lines.setToolTip(
-            "Open a user friendly interface that allows to <b>add and remove emission lines</b> "
-            "to the list or <b>modify parameters</b> of the selected emission lines")
         self.pb_manage_emission_lines.clicked.connect(
             self.pb_manage_emission_lines_clicked)
 
@@ -126,29 +111,20 @@ class ModelWidget(FormBaseWidget):
         self.group_settings = QGroupBox("Settings for Fitting Algorithm")
 
         self.pb_general = QPushButton("General ...")
-        self.pb_general.setToolTip(
-            "<b>General settings</b> for fitting algorithms.")
         self.pb_general.clicked.connect(self.pb_general_clicked)
 
         self.pb_elements = QPushButton("Elements ...")
-        self.pb_elements.setToolTip(
-            "Manually adjust fitting parameters for the <b>selected emission lines</b>, "
-            "including preset fitting configurations")
         self.pb_elements.clicked.connect(self.pb_elements_clicked)
 
         self.pb_global_params = QPushButton("Global Parameters ...")
-        self.pb_global_params.setToolTip(
-            "Manually adjust <b>global fitting parameters</b>, including <b>preset fitting configurations</b>")
         self.pb_global_params.clicked.connect(self.pb_global_params_clicked)
 
         combo_items = list(_fitting_preset_names.values())
         self.cb_step1 = QComboBox()
-        self.cb_step1.setToolTip("Select preset fitting configuration for <b>Step 1</b>.")
         self.cb_step1.setMinimumWidth(150)
         self.cb_step1.addItems(combo_items)
         self.cb_step1.setCurrentIndex(1)  # Should also be set based on data
         self.cb_step2 = QComboBox()
-        self.cb_step2.setToolTip("Select preset fitting configuration for <b>Step 2</b>.")
         self.cb_step2.setMinimumWidth(150)
         self.cb_step2.addItems(combo_items)
 
@@ -180,22 +156,13 @@ class ModelWidget(FormBaseWidget):
         self.group_model_fitting = QGroupBox("Model Fitting Based on Total Spectrum")
 
         self.pb_start_fitting = QPushButton("Start Fitting")
-        self.pb_start_fitting.setToolTip(
-            "Click the button to <b>run fitting of total spectrum</b>. The result of fitting includes "
-            "the refined set of emission line parameters. The fitted spectrum is displayed in "
-            "<b>'Fitting Model'</b> tab and can be saved by clicking <b>'Save Spectrum/Fit ...'</b> button.")
         self.pb_start_fitting.clicked.connect(self.pb_start_fitting_clicked)
 
         self.pb_save_spectrum = QPushButton("Save Spectrum/Fit ...")
-        self.pb_save_spectrum.setToolTip(
-            "Save <b>raw and fitted total spectra</b>. Click <b>'Start Fitting'</b> to perform fitting "
-            "before saving the spectrum")
         self.pb_save_spectrum.clicked.connect(self.pb_save_spectrum_clicked)
 
         self.lb_fitting_results = LineEditReadOnly(
             f"Iterations: {0}  Variables: {0}  R-squared: {0.000}")
-        self.lb_fitting_results.setToolTip(
-            "<b>Output parameters</b> produced by the fitting algorithm")
 
         vbox = QVBoxLayout()
 
@@ -207,6 +174,59 @@ class ModelWidget(FormBaseWidget):
         vbox.addWidget(self.lb_fitting_results)
 
         self.group_model_fitting.setLayout(vbox)
+
+    def _set_tooltips(self):
+        set_tooltip(self.pb_find_elines,
+                    "Automatically find emission lines from <b>total spectrum</b>.")
+        set_tooltip(
+            self.pb_load_elines,
+            "Load model parameters, including selected emission lines from <b>JSON</b> file, "
+            "which was previously save using <b>Save Parameters to File ...</b>.")
+        set_tooltip(
+            self.pb_load_qstandard,
+            "Load <b>quantitative standard</b>. The model is reset and the emission lines "
+            "that fit within the selected range of energies are added to the list "
+            "of emission lines.")
+        set_tooltip(
+            self.pb_save_elines,
+            "Save the model parameters including the parameters of the selected emission lines "
+            "to <b>JSON</b> file.")
+        set_tooltip(
+            self.le_param_fln,
+            "The name of the recently loaded <b>parameter file</b> or serial number "
+            "and name of the loaded <b>quantitative standard</b>")
+
+        set_tooltip(
+            self.pb_manage_emission_lines,
+            "Open a user friendly interface that allows to <b>add and remove emission lines</b> "
+            "to the list or <b>modify parameters</b> of the selected emission lines")
+
+        set_tooltip(self.pb_general, "<b>General settings</b> for fitting algorithms.")
+        set_tooltip(
+            self.pb_elements,
+            "Manually adjust fitting parameters for the <b>selected emission lines</b>, "
+            "including preset fitting configurations")
+        set_tooltip(self.pb_global_params,
+                    "Manually adjust <b>global fitting parameters</b>, "
+                    "including <b>preset fitting configurations</b>")
+        set_tooltip(self.cb_step1, "Select preset fitting configuration for <b>Step 1</b>.")
+        set_tooltip(self.cb_step2, "Select preset fitting configuration for <b>Step 2</b>.")
+
+        set_tooltip(
+            self.pb_start_fitting,
+            "Click the button to <b>run fitting of total spectrum</b>. The result of fitting includes "
+            "the refined set of emission line parameters. The fitted spectrum is displayed in "
+            "<b>'Fitting Model'</b> tab and can be saved by clicking <b>'Save Spectrum/Fit ...'</b> button.")
+        set_tooltip(
+            self.pb_save_spectrum,
+            "Save <b>raw and fitted total spectra</b>. Click <b>'Start Fitting'</b> to perform fitting "
+            "before saving the spectrum")
+        set_tooltip(self.lb_fitting_results,
+                    "<b>Output parameters</b> produced by the fitting algorithm")
+
+    def update_widget_state(self, condition=None):
+        if condition == "tooltips":
+            self._set_tooltips()
 
     def pb_find_elines_clicked(self):
 
@@ -433,6 +453,13 @@ class WndManageEmissionLines(SecondaryWindow):
                         ["", "background", "", 10118.05, 0.26, ""]]
 
         self.fill_eline_table(sample_table)
+
+    def _set_tooltips(self):
+        pass
+
+    def update_widget_state(self, condition=None):
+        if condition == "tooltips":
+            self._set_tooltips()
 
     def fill_eline_table(self, table_contents):
 

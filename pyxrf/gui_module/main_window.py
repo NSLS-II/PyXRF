@@ -174,13 +174,21 @@ class MainWindow(QMainWindow):
         xrfMaps.addAction(action_export_to_tiff_and_txt)
 
         # "View" menu item
-        action_show_matplotlib_toolbar = QAction("Show &Matplotlib toolbar", self)
+        action_show_matplotlib_toolbar = QAction("Show &Matplotlib Toolbar", self)
         action_show_matplotlib_toolbar.setCheckable(True)
         action_show_matplotlib_toolbar.setChecked(True)
         action_show_matplotlib_toolbar.setStatusTip(
             "Show Matplotlib Toolbar on the plots")
 
+        action_show_widget_tooltips = QAction("Show &Tooltips", self)
+        action_show_widget_tooltips.setCheckable(True)
+        action_show_widget_tooltips.setChecked(global_gui_variables["show_tooltip"])
+        action_show_widget_tooltips.setStatusTip(
+            "Show widget tooltips")
+        action_show_widget_tooltips.toggled.connect(self.action_show_widget_tooltips_toggled)
+
         view = menubar.addMenu('&View')
+        view.addAction(action_show_widget_tooltips)
         view.addAction(action_show_matplotlib_toolbar)
 
         # "Help" menu item
@@ -197,11 +205,21 @@ class MainWindow(QMainWindow):
         help.addSeparator()
         help.addAction(action_about)
 
-    def update_widget_state(self):
-        self.central_widget.update_widget_state()
+        self.update_widget_state()
+
+    def update_widget_state(self, condition=None):
         # Update the state of the menu bar
         state = not global_gui_variables["gui_state"]["running_computations"]
         self.menuBar().setEnabled(state)
+
+        # Forward to children
+        self.central_widget.update_widget_state(condition)
+
+        # Forward the updates to open windows
+        self.wnd_manage_emission_lines.update_widget_state(condition)
+        self.wnd_compute_roi_maps.update_widget_state(condition)
+        self.wnd_image_wizard.update_widget_state(condition)
+        self.wnd_load_quantitative_calibration.update_widget_state(condition)
 
     def closeEvent(self, event):
         mb_close = QMessageBox(QMessageBox.Question, "Exit",
@@ -239,6 +257,13 @@ class MainWindow(QMainWindow):
         """
         dlg = DialogAbout()
         dlg.exec()
+
+    def action_show_widget_tooltips_toggled(self, state):
+        """
+        Turn tooltips on or off
+        """
+        global_gui_variables["show_tooltip"] = state
+        self.update_widget_state("tooltips")
 
 
 class DialogAbout(QDialog):

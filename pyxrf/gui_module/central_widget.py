@@ -43,6 +43,6 @@ class TwoPanelWidget(QSplitter):
             self.setSizes([460, self.width() - 460])
             self._show_first_time = False
 
-    def update_widget_state(self):
-        self.left_panel.update_widget_state()
-        self.right_panel.update_widget_state()
+    def update_widget_state(self, condition=None):
+        self.left_panel.update_widget_state(condition)
+        self.right_panel.update_widget_state(condition)

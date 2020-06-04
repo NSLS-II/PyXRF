@@ -9,7 +9,8 @@ from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout,
 from PyQt5.QtCore import Qt
 
 from .useful_widgets import (LineEditReadOnly, adjust_qlistwidget_height,
-                             global_gui_parameters, PushButtonMinimumWidth)
+                             global_gui_parameters, PushButtonMinimumWidth,
+                             set_tooltip)
 from .form_base_widget import FormBaseWidget
 
 
@@ -48,17 +49,15 @@ class LoadDataWidget(FormBaseWidget):
 
         self.setLayout(vbox)
 
+        self._set_tooltips()
+
     def _setup_wd_group(self):
         self.group_wd = QGroupBox("Working Directory")
 
         self.pb_set_wd = PushButtonMinimumWidth("..")
-        self.pb_set_wd.setToolTip("Select Working Directory. The Working Directory is "
-                                  "used as default for loading and save data and "
-                                  "configuration files.")
         self.pb_set_wd.clicked.connect(self.pb_set_wd_clicked)
 
         self.le_wd = LineEditReadOnly()
-        self.le_wd.setToolTip("Currently selected Working Directory")
 
         # Initial working directory. Set to the HOME directory for now
         current_dir = os.path.expanduser("~")
@@ -75,24 +74,16 @@ class LoadDataWidget(FormBaseWidget):
         self.group_file = QGroupBox("Load Data")
 
         self.pb_file = QPushButton("Read File ...")
-        self.pb_file.setToolTip("Load data from a file on disk.")
         self.pb_file.clicked.connect(self.pb_file_clicked)
 
         self.pb_dbase = QPushButton("Load Run ...")
-        self.pb_dbase.setToolTip("Load data from a database (Databroker).")
         self.pb_dbase.clicked.connect(self.pb_dbase_clicked)
 
         self.cb_file_all_channels = QCheckBox("All channels")
-        self.cb_file_all_channels.setToolTip(
-            "Load <b>all</b> available data channels (checked) or "
-            "only the <b>sum</b> of the channels")
 
         self.le_file = LineEditReadOnly("No data is loaded")
-        self.le_file.setToolTip(
-            "The <b>name</b> of the loaded file or <b>ID</b> of the loaded run.")
 
         self.pb_view_metadata = QPushButton("View Metadata ...")
-        self.pb_view_metadata.setToolTip("View scan <b>metadata</b> (if available)")
         self.pb_view_metadata.clicked.connect(self.pb_view_metadata_clicked)
 
         vbox = QVBoxLayout()
@@ -117,8 +108,6 @@ class LoadDataWidget(FormBaseWidget):
         self.group_sel_channel = QGroupBox("Select Channel For Processing")
 
         self.cbox_channel = QComboBox()
-        self.cbox_channel.setToolTip(
-            "Select channel for processing. Typically the <b>sum</b> channel is used.")
         self.cbox_channel.addItems(["channel_name_sum", "channel_name_det1",
                                     "channel_name_det2", "channel_name_det3"])
 
@@ -132,9 +121,6 @@ class LoadDataWidget(FormBaseWidget):
         self.group_spec_settings = QGroupBox("Total Spectrum Settings")
 
         self.pb_apply_mask = QPushButton("Apply Mask ...")
-        self.pb_apply_mask.setToolTip(
-            "Load the mask from file and/or select spatial ROI. The mask and ROI "
-            "are used in run <b>Preview</b> and fitting of the <b>total spectrum</b>.")
         self.pb_apply_mask.clicked.connect(self.pb_apply_mask_clicked)
 
         hbox = QHBoxLayout()
@@ -150,11 +136,6 @@ class LoadDataWidget(FormBaseWidget):
         self.list_preview = QListWidget()
         self.list_preview.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.list_preview.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.list_preview.setToolTip(
-            "Data for the selected channels is displayed in <b>Preview</b> tab. "
-            "The displayed <b>total spectrum</b> is computed for the selected "
-            "ROI and using the loaded mask. If no mask or ROI are enabled, then "
-            "total spectrum is computed over all pixels of the image.")
 
         # Set list items
         sample_items = ["channel_name_sum", "channel_name_det1",
@@ -171,6 +152,38 @@ class LoadDataWidget(FormBaseWidget):
         hbox.addWidget(self.list_preview)
 
         self.group_preview.setLayout(hbox)
+
+    def _set_tooltips(self):
+        set_tooltip(self.pb_set_wd,
+                    "Select Working Directory. The Working Directory is "
+                    "used as default for loading and save data and "
+                    "configuration files.")
+        set_tooltip(self.le_wd, "Currently selected Working Directory")
+        set_tooltip(self.pb_file, "Load data from a file on disk.")
+        set_tooltip(self.pb_dbase, "Load data from a database (Databroker).")
+        set_tooltip(self.cb_file_all_channels,
+                    "Load <b>all</b> available data channels (checked) or "
+                    "only the <b>sum</b> of the channels")
+        set_tooltip(self.le_file,
+                    "The <b>name</b> of the loaded file or <b>ID</b> of the loaded run.")
+        set_tooltip(self.pb_view_metadata, "View scan <b>metadata</b> (if available)")
+        set_tooltip(
+            self.cbox_channel,
+            "Select channel for processing. Typically the <b>sum</b> channel is used.")
+        set_tooltip(
+            self.pb_apply_mask,
+            "Load the mask from file and/or select spatial ROI. The mask and ROI "
+            "are used in run <b>Preview</b> and fitting of the <b>total spectrum</b>.")
+        set_tooltip(
+            self.list_preview,
+            "Data for the selected channels is displayed in <b>Preview</b> tab. "
+            "The displayed <b>total spectrum</b> is computed for the selected "
+            "ROI and using the loaded mask. If no mask or ROI are enabled, then "
+            "total spectrum is computed over all pixels of the image.")
+
+    def update_widget_state(self, condition=None):
+        if condition == "tooltips":
+            self._set_tooltips()
 
     def pb_set_wd_clicked(self):
         dir_current = self.le_wd.text()

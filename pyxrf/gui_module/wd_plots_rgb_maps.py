@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout, QRadioBu
                              QComboBox, QCheckBox, QTableWidget, QHeaderView, QSizePolicy, QSpacerItem)
 from PyQt5.QtCore import Qt
 
-from .useful_widgets import RangeManager, get_background_css
+from .useful_widgets import RangeManager, get_background_css, set_tooltip
 
 
 class PlotRgbMaps(QWidget):
@@ -36,7 +36,7 @@ class PlotRgbMaps(QWidget):
         label.setStyleSheet("QLabel { background-color : white; color : blue; }")
         label.setAlignment(Qt.AlignCenter)
 
-        rgb_selection = RgbSelectionWidget()
+        self.rgb_selection = RgbSelectionWidget()
 
         vbox = QVBoxLayout()
         hbox = QHBoxLayout()
@@ -49,10 +49,30 @@ class PlotRgbMaps(QWidget):
         vbox.addWidget(label)
         hbox = QHBoxLayout()
         hbox.addSpacerItem(QSpacerItem(0, 0))
-        hbox.addWidget(rgb_selection)
+        hbox.addWidget(self.rgb_selection)
         hbox.addSpacerItem(QSpacerItem(0, 0))
         vbox.addLayout(hbox)
         self.setLayout(vbox)
+
+        self._set_tooltips()
+
+    def _set_tooltips(self):
+        set_tooltip(self.combo_select_dataset,
+                    "Select <b>dataset</b>.")
+        set_tooltip(self.combo_normalization,
+                    "Select <b>scaler</b> for normalization of displayed XRF maps.")
+        set_tooltip(self.cb_interpolate,
+                    "Interpolate coordinates to <b>uniform grid</b>.")
+        set_tooltip(self.combo_pixels_positions,
+                    "Switch axes units between <b>pixels</b> and <b>positional units</b>.")
+        set_tooltip(self.rgb_selection,
+                    "Select XRF Maps displayed in <b>Red</b>, <b>Green</b> and "
+                    "<b>Blue</b> colors and adjust the range of <b>intensity</b> for each "
+                    "displayed map.")
+
+    def update_widget_state(self, condition=None):
+        if condition == "tooltips":
+            self._set_tooltips()
 
 
 class RgbSelectionWidget(QWidget):

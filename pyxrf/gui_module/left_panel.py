@@ -30,10 +30,15 @@ class LeftPanel(QTabWidget):
 
         self.update_widget_state()
 
-    def update_widget_state(self):
+    def update_widget_state(self, condition=None):
         # TODO: this function has to enable tabs and widgets based on the current program state
         state = not global_gui_variables["gui_state"]["running_computations"]
         for i in range(self.count()):
             if state or (i != self.currentIndex()):
                 self.setTabEnabled(i, state)
             self.widget(i).setEnabled(state)
+
+        # Propagate the function call downstream (since the actual tab widget is 'QScrollArea')
+        self.load_data_widget.update_widget_state(condition)
+        self.model_widget.update_widget_state(condition)
+        self.fit_maps_widget.update_widget_state(condition)

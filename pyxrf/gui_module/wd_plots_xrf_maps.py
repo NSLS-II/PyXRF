@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout, QComboBo
 from PyQt5.QtGui import QBrush, QColor
 from PyQt5.QtCore import Qt
 
-from .useful_widgets import global_gui_variables, RangeManager, SecondaryWindow
+from .useful_widgets import global_gui_variables, RangeManager, SecondaryWindow, set_tooltip
 
 
 class PlotXrfMaps(QWidget):
@@ -35,7 +35,10 @@ class PlotXrfMaps(QWidget):
         # self.pb_quant_settings = QPushButton("Quantitative ...")
 
         self.cb_interpolate = QCheckBox("Interpolate")
+
         self.cb_scatter_plot = QCheckBox("Scatter plot")
+        self.cb_scatter_plot.toggled.connect(self.cb_scatter_plot_toggled)
+
         self.cb_quantitative = QCheckBox("Quantitative")
 
         self.combo_color_scheme = QComboBox()
@@ -79,6 +82,35 @@ class PlotXrfMaps(QWidget):
         vbox.addWidget(label)
         self.setLayout(vbox)
 
+        self._set_tooltips()
+
+    def _set_tooltips(self):
+        set_tooltip(self.combo_select_dataset,
+                    "Select <b>dataset</b>.")
+        set_tooltip(self.combo_normalization,
+                    "Select <b>scaler</b> for normalization of displayed XRF maps.")
+        set_tooltip(self.pb_image_wizard,
+                    "Open the window with tools for <b>selection and configuration</b> "
+                    "the displayed XRF maps.")
+        set_tooltip(self.cb_interpolate,
+                    "Interpolate coordinates to <b>uniform grid</b>.")
+        set_tooltip(self.cb_scatter_plot,
+                    "Display <b>scatter plot</b>.")
+        set_tooltip(self.cb_quantitative,
+                    "Normalize the displayed XRF maps using loaded "
+                    "<b>Quantitative Calibration</b> data.")
+        set_tooltip(self.combo_color_scheme,
+                    "Select <b>color scheme</b>")
+        set_tooltip(self.combo_linear_log,
+                    "Switch between <b>linear</b> and <b>logarithmic</b> scale "
+                    "for plotting of XRF Map pixel <b>intensity</b>.")
+        set_tooltip(self.combo_pixels_positions,
+                    "Switch axes units between <b>pixels</b> and <b>positional units</b>.")
+
+    def update_widget_state(self, condition=None):
+        if condition == "tooltips":
+            self._set_tooltips()
+
     def pb_image_wizard_clicked(self):
         # Position the window in relation ot the main window (only when called once)
         pos = self.ref_main_window.pos()
@@ -87,6 +119,10 @@ class PlotXrfMaps(QWidget):
         if not self.ref_main_window.wnd_image_wizard.isVisible():
             self.ref_main_window.wnd_image_wizard.show()
         self.ref_main_window.wnd_image_wizard.activateWindow()
+
+    def cb_scatter_plot_toggled(self, state):
+        self.cb_interpolate.setVisible(not state)
+        self.combo_pixels_positions.setVisible(not state)
 
 
 class WndImageWizard(SecondaryWindow):
@@ -157,6 +193,13 @@ class WndImageWizard(SecondaryWindow):
             header.setDefaultAlignment(self.tbl_h_alignment[n])
 
         self.fill_table(sample_content)
+
+    def _set_tooltips(self):
+        pass
+
+    def update_widget_state(self, condition=None):
+        if condition == "tooltips":
+            self._set_tooltips()
 
     def fill_table(self, table_contents):
 
