@@ -4,8 +4,7 @@ from datetime import datetime
 from PyQt5.QtWidgets import (QMainWindow, QMessageBox, QLabel, QAction,
                              QDialog, QVBoxLayout, QDialogButtonBox, QHBoxLayout,
                              QProgressBar)
-from PyQt5.QtGui import QFont
-from PyQt5.QtCore import Qt, pyqtSlot
+from PyQt5.QtCore import Qt
 
 from .central_widget import TwoPanelWidget
 from .useful_widgets import global_gui_variables
@@ -197,7 +196,6 @@ class MainWindow(QMainWindow):
         help.addAction(action_online_docs)
         help.addSeparator()
         help.addAction(action_about)
-
 
     def update_widget_state(self):
         self.central_widget.update_widget_state()

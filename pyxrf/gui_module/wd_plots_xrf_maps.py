@@ -1,12 +1,11 @@
-from PyQt5.QtWidgets import (QWidget, QTabWidget, QLabel, QVBoxLayout, QHBoxLayout,
-                             QRadioButton, QButtonGroup, QComboBox, QCheckBox, QPushButton,
-                             QLineEdit, QDial, QGridLayout, QSlider, QDialog, QDialogButtonBox,
-                             QGroupBox, QHeaderView, QSpacerItem, QTableWidget, QTableWidgetItem,
+from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout, QComboBox, QCheckBox,
+                             QPushButton, QHeaderView, QTableWidget, QTableWidgetItem,
                              QSizePolicy)
 from PyQt5.QtGui import QBrush, QColor
 from PyQt5.QtCore import Qt
 
-from .useful_widgets import global_gui_variables, RangeManager, LineEditReadOnly
+from .useful_widgets import global_gui_variables, RangeManager, SecondaryWindow
+
 
 class PlotXrfMaps(QWidget):
 
@@ -62,7 +61,6 @@ class PlotXrfMaps(QWidget):
         vbox = QVBoxLayout()
         hbox = QHBoxLayout()
         hbox.addWidget(self.combo_select_dataset)
-        #hbox.addWidget(self.pb_quant_settings)
         hbox.addStretch(4)
         hbox.addWidget(self.pb_image_wizard)
         hbox.addStretch(1)
@@ -81,13 +79,17 @@ class PlotXrfMaps(QWidget):
         vbox.addWidget(label)
         self.setLayout(vbox)
 
-    def pb_image_wizard_clicked(self, event):
+    def pb_image_wizard_clicked(self):
+        # Position the window in relation ot the main window (only when called once)
+        pos = self.ref_main_window.pos()
+        self.ref_main_window.wnd_image_wizard.position_once(pos.x(), pos.y())
+
         if not self.ref_main_window.wnd_image_wizard.isVisible():
             self.ref_main_window.wnd_image_wizard.show()
         self.ref_main_window.wnd_image_wizard.activateWindow()
 
 
-class WndImageWizard(QWidget):
+class WndImageWizard(SecondaryWindow):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

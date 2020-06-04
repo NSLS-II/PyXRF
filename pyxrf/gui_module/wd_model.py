@@ -3,18 +3,15 @@ import numpy as np
 import textwrap
 import time
 
-from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout,
-                             QGroupBox, QLineEdit, QCheckBox, QLabel,
-                             QComboBox, QListWidget, QListWidgetItem,
-                             QDialog, QDialogButtonBox, QFileDialog,
-                             QRadioButton, QButtonGroup, QGridLayout,
-                             QTextEdit, QTableWidget, QTableWidgetItem,
-                             QHeaderView, QWidget)
-from PyQt5.QtGui import QWindow, QBrush, QColor, QPalette
+from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox, QLineEdit,
+                             QCheckBox, QLabel, QComboBox, QDialog, QDialogButtonBox,
+                             QFileDialog, QRadioButton, QButtonGroup, QGridLayout, QTableWidget,
+                             QTableWidgetItem, QHeaderView)
+from PyQt5.QtGui import QBrush, QColor
 from PyQt5.QtCore import Qt
 
 from .useful_widgets import (LineEditReadOnly, global_gui_parameters, global_gui_variables,
-                             ElementSelection, get_background_css)
+                             ElementSelection, get_background_css, SecondaryWindow)
 
 from .form_base_widget import FormBaseWidget
 
@@ -71,27 +68,26 @@ class ModelWidget(FormBaseWidget):
 
         self.pb_find_elines = QPushButton("Find Automatically ...")
         self.pb_find_elines.setToolTip(
-            "Find emission lines automatically from <b>total spectrum</b>. "
-            "Press to open the dialog.")
+            "Automatically find emission lines from <b>total spectrum</b>.")
         self.pb_find_elines.clicked.connect(self.pb_find_elines_clicked)
 
         self.pb_load_elines = QPushButton("Load From File ...")
         self.pb_load_elines.setToolTip(
-            "Load model (emission lines) parameters from <b>JSON</b> file, which was previously "
-            "save using <b>Save Parameters to File ...</b>. Press to open the dialog.")
+            "Load model parameters, including selected emission lines from <b>JSON</b> file, "
+            "which was previously save using <b>Save Parameters to File ...</b>.")
         self.pb_load_elines.clicked.connect(self.pb_load_elines_clicked)
 
         self.pb_load_qstandard = QPushButton("Load Quantitative Standard ...")
         self.pb_load_qstandard.setToolTip(
             "Load <b>quantitative standard</b>. The model is reset and the emission lines "
-            "that fit within the selected range of energy will be added to the list "
-            "of emission lines. Press to open the dialog.")
+            "that fit within the selected range of energies are added to the list "
+            "of emission lines.")
         self.pb_load_qstandard.clicked.connect(self.pb_load_qstandard_clicked)
 
         self.pb_save_elines = QPushButton("Save Parameters to File ...")
         self.pb_save_elines.setToolTip(
-            "Save computed model (emission line) parameters to <b>JSON</b> file. "
-            "Press to open the dialog.")
+            "Save the model parameters including the parameters of the selected emission lines "
+            "to <b>JSON</b> file.")
         self.pb_save_elines.clicked.connect(self.pb_save_elines_clicked)
 
         # This field will display the name of he last loaded parameter file,
@@ -119,6 +115,9 @@ class ModelWidget(FormBaseWidget):
     def _setup_add_remove_elines_button(self):
 
         self.pb_manage_emission_lines = QPushButton("Add/Remove Emission Lines ...")
+        self.pb_manage_emission_lines.setToolTip(
+            "Open a user friendly interface that allows to <b>add and remove emission lines</b> "
+            "to the list or <b>modify parameters</b> of the selected emission lines")
         self.pb_manage_emission_lines.clicked.connect(
             self.pb_manage_emission_lines_clicked)
 
@@ -127,20 +126,29 @@ class ModelWidget(FormBaseWidget):
         self.group_settings = QGroupBox("Settings for Fitting Algorithm")
 
         self.pb_general = QPushButton("General ...")
+        self.pb_general.setToolTip(
+            "<b>General settings</b> for fitting algorithms.")
         self.pb_general.clicked.connect(self.pb_general_clicked)
 
         self.pb_elements = QPushButton("Elements ...")
+        self.pb_elements.setToolTip(
+            "Manually adjust fitting parameters for the <b>selected emission lines</b>, "
+            "including preset fitting configurations")
         self.pb_elements.clicked.connect(self.pb_elements_clicked)
 
         self.pb_global_params = QPushButton("Global Parameters ...")
+        self.pb_global_params.setToolTip(
+            "Manually adjust <b>global fitting parameters</b>, including <b>preset fitting configurations</b>")
         self.pb_global_params.clicked.connect(self.pb_global_params_clicked)
 
         combo_items = list(_fitting_preset_names.values())
         self.cb_step1 = QComboBox()
+        self.cb_step1.setToolTip("Select preset fitting configuration for <b>Step 1</b>.")
         self.cb_step1.setMinimumWidth(150)
         self.cb_step1.addItems(combo_items)
         self.cb_step1.setCurrentIndex(1)  # Should also be set based on data
         self.cb_step2 = QComboBox()
+        self.cb_step2.setToolTip("Select preset fitting configuration for <b>Step 2</b>.")
         self.cb_step2.setMinimumWidth(150)
         self.cb_step2.addItems(combo_items)
 
@@ -172,13 +180,22 @@ class ModelWidget(FormBaseWidget):
         self.group_model_fitting = QGroupBox("Model Fitting Based on Total Spectrum")
 
         self.pb_start_fitting = QPushButton("Start Fitting")
+        self.pb_start_fitting.setToolTip(
+            "Click the button to <b>run fitting of total spectrum</b>. The result of fitting includes "
+            "the refined set of emission line parameters. The fitted spectrum is displayed in "
+            "<b>'Fitting Model'</b> tab and can be saved by clicking <b>'Save Spectrum/Fit ...'</b> button.")
         self.pb_start_fitting.clicked.connect(self.pb_start_fitting_clicked)
 
         self.pb_save_spectrum = QPushButton("Save Spectrum/Fit ...")
+        self.pb_save_spectrum.setToolTip(
+            "Save <b>raw and fitted total spectra</b>. Click <b>'Start Fitting'</b> to perform fitting "
+            "before saving the spectrum")
         self.pb_save_spectrum.clicked.connect(self.pb_save_spectrum_clicked)
 
         self.lb_fitting_results = LineEditReadOnly(
             f"Iterations: {0}  Variables: {0}  R-squared: {0.000}")
+        self.lb_fitting_results.setToolTip(
+            "<b>Output parameters</b> produced by the fitting algorithm")
 
         vbox = QVBoxLayout()
 
@@ -191,20 +208,20 @@ class ModelWidget(FormBaseWidget):
 
         self.group_model_fitting.setLayout(vbox)
 
-    def pb_find_elines_clicked(self, event):
+    def pb_find_elines_clicked(self):
 
-        dlg = DialogFindElements(self)
+        dlg = DialogFindElements()
         ret = dlg.exec()
         if ret:
             print(f"Dialog exited with success: ret = {ret}")
             if dlg.find_elements_requested:
-                print(f"Run automated element search")
+                print("Run automated element search")
             else:
-                print(f"Save parameters without running element search")
+                print("Save parameters without running element search")
         else:
-            print(f"Dialog exited with 'Cancel'")
+            print("Dialog exited with 'Cancel'")
 
-    def pb_load_elines_clicked(self, event):
+    def pb_load_elines_clicked(self):
         # TODO: Propagate current directory here and use it in the dialog call
         current_dir = os.path.expanduser("~")
         file_name = QFileDialog.getOpenFileName(self, "Select File with Model Parameters",
@@ -214,7 +231,7 @@ class ModelWidget(FormBaseWidget):
         if file_name:
             print(f"Loading model parameters from file: {file_name}")
 
-    def pb_load_qstandard_clicked(self, event):
+    def pb_load_qstandard_clicked(self):
         dlg = DialogSelectQuantStandard()
         ret = dlg.exec()
         if ret:
@@ -223,7 +240,7 @@ class ModelWidget(FormBaseWidget):
         else:
             print("Cancelled loading quantitative standard")
 
-    def pb_save_elines_clicked(self, event):
+    def pb_save_elines_clicked(self):
         # TODO: Propagate full path to the saved file here
         fln = os.path.expanduser("~/model_parameters.json")
         file_name = QFileDialog.getSaveFileName(self, "Select File to Save Model Parameters",
@@ -233,12 +250,16 @@ class ModelWidget(FormBaseWidget):
         if file_name:
             print(f"Saving model parameters to file file: {file_name}")
 
-    def pb_manage_emission_lines_clicked(self, event):
+    def pb_manage_emission_lines_clicked(self):
+        # Position the window in relation ot the main window (only when called once)
+        pos = self.ref_main_window.pos()
+        self.ref_main_window.wnd_manage_emission_lines.position_once(pos.x(), pos.y())
+
         if not self.ref_main_window.wnd_manage_emission_lines.isVisible():
             self.ref_main_window.wnd_manage_emission_lines.show()
         self.ref_main_window.wnd_manage_emission_lines.activateWindow()
 
-    def pb_general_clicked(self, event):
+    def pb_general_clicked(self):
         dlg = DialogGeneralFittingSettings()
         ret = dlg.exec()
         if ret:
@@ -246,7 +267,7 @@ class ModelWidget(FormBaseWidget):
         else:
             print("Cancelled.")
 
-    def pb_elements_clicked(self, event):
+    def pb_elements_clicked(self):
         dlg = DialogElementSettings()
         ret = dlg.exec()
         if ret:
@@ -254,7 +275,7 @@ class ModelWidget(FormBaseWidget):
         else:
             print("Cancelled.")
 
-    def pb_global_params_clicked(self, event):
+    def pb_global_params_clicked(self):
         dlg = DialogGlobalParamsSettings()
         ret = dlg.exec()
         if ret:
@@ -262,7 +283,7 @@ class ModelWidget(FormBaseWidget):
         else:
             print("Cancelled.")
 
-    def pb_save_spectrum_clicked(self, event):
+    def pb_save_spectrum_clicked(self):
         # TODO: Propagate current directory here and use it in the dialog call
         current_dir = os.path.expanduser("~")
         dir = QFileDialog.getExistingDirectory(
@@ -271,7 +292,7 @@ class ModelWidget(FormBaseWidget):
         if dir:
             print(f"Spectrum/Fit is saved to directory {dir}")
         else:
-            print(f"Spectrum/Fit saving is cancelled")
+            print("Spectrum/Fit saving is cancelled")
 
     def pb_start_fitting_clicked(self):
         global_gui_variables["gui_state"]["running_computations"] = True
@@ -290,9 +311,11 @@ class ModelWidget(FormBaseWidget):
         global_gui_variables["gui_state"]["running_computations"] = False
         self.ref_main_window.update_widget_state()
 
-class WndManageEmissionLines(QWidget):
+
+class WndManageEmissionLines(SecondaryWindow):
 
     def __init__(self, *args, **kwargs):
+
         super().__init__(*args, **kwargs)
         self.initialize()
 
@@ -494,9 +517,10 @@ class WndManageEmissionLines(QWidget):
         if dlg.exec():
             print("User defined peak is added")
 
+
 class DialogFindElements(QDialog):
 
-    def __init__(self, parent):
+    def __init__(self, parent=None):
 
         super().__init__(parent)
 
@@ -580,7 +604,7 @@ class DialogFindElements(QDialog):
 
         self.setLayout(vbox)
 
-    def pb_find_elements_clicked(self, event):
+    def pb_find_elements_clicked(self):
         self.find_elements_requested = True
 
 
@@ -667,11 +691,9 @@ class DialogSelectQuantStandard(QDialog):
         if sel_ranges:
             self.selected_standard_index = sel_ranges[0].topRow()
             self.pb_open.setEnabled(True)
-            #print(f"Selected row: {sel_ranges[0].topRow()}")
         else:
             self.selected_standard_index = -1
             self.pb_open.setEnabled(False)
-            #print("No selection")
 
     def item_double_clicked(self):
         self.accept()
@@ -788,11 +810,10 @@ class _FittingSettings():
 
     def __init__(self, energy_column=True):
 
-        labels_presets = [_ for _ in _fitting_preset_names.values() if _ is not "None"]
+        labels_presets = [_ for _ in _fitting_preset_names.values() if _ != "None"]
 
         # Labels for horizontal header
         self.tbl_labels = ["Name", "E, keV", "Value", "Min", "Max"] + labels_presets
-
 
         # Labels for editable columns
         self.tbl_cols_editable = ("Value", "Min", "Max")

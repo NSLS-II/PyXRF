@@ -52,7 +52,9 @@ class LoadDataWidget(FormBaseWidget):
         self.group_wd = QGroupBox("Working Directory")
 
         self.pb_set_wd = PushButtonMinimumWidth("..")
-        self.pb_set_wd.setToolTip("Select Working Directory. Press to open the dialog.")
+        self.pb_set_wd.setToolTip("Select Working Directory. The Working Directory is "
+                                  "used as default for loading and save data and "
+                                  "configuration files.")
         self.pb_set_wd.clicked.connect(self.pb_set_wd_clicked)
 
         self.le_wd = LineEditReadOnly()
@@ -73,12 +75,11 @@ class LoadDataWidget(FormBaseWidget):
         self.group_file = QGroupBox("Load Data")
 
         self.pb_file = QPushButton("Read File ...")
-        self.pb_file.setToolTip("Load data from a disk file. Press to open the dialog.")
+        self.pb_file.setToolTip("Load data from a file on disk.")
         self.pb_file.clicked.connect(self.pb_file_clicked)
 
         self.pb_dbase = QPushButton("Load Run ...")
-        self.pb_dbase.setToolTip("Load data from a database (Databroker). "
-                                 "Press to open the dialog.")
+        self.pb_dbase.setToolTip("Load data from a database (Databroker).")
         self.pb_dbase.clicked.connect(self.pb_dbase_clicked)
 
         self.cb_file_all_channels = QCheckBox("All channels")
@@ -133,8 +134,7 @@ class LoadDataWidget(FormBaseWidget):
         self.pb_apply_mask = QPushButton("Apply Mask ...")
         self.pb_apply_mask.setToolTip(
             "Load the mask from file and/or select spatial ROI. The mask and ROI "
-            "are used in run <b>Preview</b> and fitting of the <b>total spectrum</b>. "
-            "Press to open the dialog.")
+            "are used in run <b>Preview</b> and fitting of the <b>total spectrum</b>.")
         self.pb_apply_mask.clicked.connect(self.pb_apply_mask_clicked)
 
         hbox = QHBoxLayout()

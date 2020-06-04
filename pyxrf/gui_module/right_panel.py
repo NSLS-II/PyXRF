@@ -1,5 +1,4 @@
 from PyQt5.QtWidgets import QTabWidget
-from PyQt5.QtCore import pyqtSlot
 
 from .wd_plots_preview import PreviewPlots
 from .wd_plots_fitting_model import PlotFittingModel

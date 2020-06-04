@@ -1,7 +1,5 @@
-from PyQt5.QtWidgets import (QWidget, QTabWidget, QLabel, QVBoxLayout, QHBoxLayout,
-                             QRadioButton, QButtonGroup, QComboBox, QCheckBox, QPushButton,
-                             QLineEdit, QDial, QGridLayout, QSlider, QDialog, QDialogButtonBox,
-                             QGroupBox, QTableWidget, QHeaderView, QSizePolicy, QSpacerItem)
+from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout, QRadioButton, QButtonGroup,
+                             QComboBox, QCheckBox, QTableWidget, QHeaderView, QSizePolicy, QSpacerItem)
 from PyQt5.QtCore import Qt
 
 from .useful_widgets import RangeManager, get_background_css
@@ -249,15 +247,3 @@ class RgbSelectionWidget(QWidget):
         if state:  # Ignore signals from unchecked buttons
             nr, nc = self._find_rbutton(button)
             self.adjust_row_color(nr, n_rgb_color=nc)
-
-    """
-    def showEvent(self, event):
-
-        table_height = 0
-        for n_row in range(self.table.rowCount()):
-            table_height += self.table.rowHeight(n_row)
-        # self.table.setMaximumHeight(table_height * 5 // 4)
-        self.table.setMaximumHeight(table_height)
-        self.table.setMinimumWidth(800)
-    """
-

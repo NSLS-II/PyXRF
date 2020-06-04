@@ -1,7 +1,6 @@
-from PyQt5.QtWidgets import (QLineEdit, QWidget, QHBoxLayout, QVBoxLayout, QFrame,
-                             QSizePolicy, QLabel, QPushButton, QGridLayout, QSlider,
-                             QComboBox, QTextEdit)
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtWidgets import (QLineEdit, QWidget, QHBoxLayout, QComboBox, QTextEdit,
+                             QSizePolicy, QLabel, QPushButton, QGridLayout, QSlider)
+from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPalette, QFontMetrics
 
 global_gui_parameters = {
@@ -11,8 +10,27 @@ global_gui_parameters = {
 global_gui_variables = {
     "gui_state": {
         "running_computations": False
-    }
+    },
+    "show_tooltip": True,
 }
+
+
+def set_tooltip(widget, text):
+    """
+    Set tooltips for the widget. Use global variable `global_gui_variables["show_tooltips"]`
+    to determine if tooltips must be set.
+
+    Parameters
+    ----------
+    widget: QWidget
+        reference to the widget
+    text: str
+        text to set as a tooltip
+    """
+    if not global_gui_variables["show_tooltip"]:
+        text = ""
+    widget.setToolTip(text)
+
 
 class LineEditReadOnly(QLineEdit):
     """
@@ -57,6 +75,36 @@ class PushButtonMinimumWidth(QPushButton):
         fm = QFontMetrics(font)
         text_width = fm.width(text) + 6
         self.setFixedWidth(text_width)
+
+
+class SecondaryWindow(QWidget):
+    def __init__(self, *args, **kwargs):
+
+        super().__init__(*args, **kwargs)
+
+        # The variable indicates if the window was moved using 'position_once' function
+        self._never_positioned = True
+
+    def position_once(self, x, y, *, x_shift=30, y_shift=30, force=False):
+        """
+        Move the window once (typically before it is first shown).
+        Used to position the window regarding the parent window before it is show.
+        Then the user may move the window anywhere on the screen and it will remain
+        there.
+
+        Parameters
+        ----------
+        x, y: int
+            screen coorinates of the left top corner of the parent window
+        x_shift, y_shift: int
+            shift applied to 'x' and 'y' to position left top corner of this window:
+            the window is positioned at (x+x_shift, y+y_shift)
+        force: bool
+            True - move anyway, False (default) - move only the first time the function is called
+        """
+        if self._never_positioned or force:
+            self._never_positioned = False
+            self.move(x + x_shift, y + y_shift)
 
 
 def adjust_qlistwidget_height(list_widget, min_height=40):

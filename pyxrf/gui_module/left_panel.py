@@ -1,7 +1,5 @@
 from PyQt5.QtWidgets import QTabWidget, QScrollArea
-from PyQt5.QtCore import pyqtSlot
 
-from .form_base_widget import FormBaseWidget
 from .wd_load_data import LoadDataWidget
 from .wd_model import ModelWidget
 from .wd_fit_maps import FitMapsWidget
@@ -39,4 +37,3 @@ class LeftPanel(QTabWidget):
             if state or (i != self.currentIndex()):
                 self.setTabEnabled(i, state)
             self.widget(i).setEnabled(state)
-

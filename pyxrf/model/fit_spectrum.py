@@ -1087,7 +1087,7 @@ class Fit1D(Atom):
     #   The function was called at the exit of dialog box 'OutputSetup'
     #   (button 'Output Setup') in the Fit tab. This option is eliminated
     #   from the new interface.
-    """    
+    """
     def calculate_roi_sum(self):
         if self.roi_sum_opt['status'] is True:
             low = int(self.roi_sum_opt['low']*100)

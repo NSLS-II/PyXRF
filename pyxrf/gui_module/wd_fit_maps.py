@@ -4,20 +4,18 @@ import yaml
 import textwrap
 import time
 
-from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout,
-                             QGroupBox, QLineEdit, QCheckBox, QLabel,
-                             QComboBox, QListWidget, QListWidgetItem,
-                             QDialog, QDialogButtonBox, QFileDialog,
-                             QRadioButton, QButtonGroup, QGridLayout,
-                             QTextEdit, QTableWidget, QTableWidgetItem,
-                             QHeaderView, QWidget, QSpinBox, QScrollArea,
-                             QTabWidget, QSizePolicy, QFrame)
-from PyQt5.QtGui import QWindow, QBrush, QColor
+from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox, QLineEdit,
+                             QCheckBox, QLabel, QComboBox, QDialog, QDialogButtonBox, QFileDialog,
+                             QRadioButton, QButtonGroup, QGridLayout, QTextEdit, QTableWidget,
+                             QTableWidgetItem, QHeaderView, QWidget, QSpinBox, QScrollArea,
+                             QTabWidget, QFrame)
+from PyQt5.QtGui import QBrush, QColor
 from PyQt5.QtCore import Qt
 
 from .useful_widgets import (LineEditReadOnly, global_gui_parameters, global_gui_variables,
-                             get_background_css,PushButtonMinimumWidth)
+                             get_background_css, PushButtonMinimumWidth, SecondaryWindow)
 from .form_base_widget import FormBaseWidget
+
 
 class FitMapsWidget(FormBaseWidget):
 
@@ -56,13 +54,44 @@ class FitMapsWidget(FormBaseWidget):
 
     def _setup_settings(self):
         self.group_settings = QGroupBox("Options")
+        self.group_settings.setToolTip(
+            "Raw spectra of individual pixels are saved for the selected region of the map."
+            "The region is selected by specifying the <b>Start</b> and <b>End</b> coordinates "
+            "in pixels. The coordinates are defined by numbers of row and column. 'End row' and "
+            "'End column' are not included in the selection. The end row and column are "
+            "<b>not included</b> in the selection. If only 'Start' coordinates are specified, "
+            "then one spectrum for the pixel defined by 'Start row' and 'Start column' coordinates "
+            "is saved")
 
         self.cb_save_plots = QCheckBox("Save spectra for pixels in the selected region")
         self.le_start_row = QLineEdit("0")
+        self.le_start_row.setToolTip(
+            "Number of the <b>first row</b> of the map to be included in the selection. "
+            "The number must be less than the number entered into 'End row' box.")
         self.le_start_col = QLineEdit("0")
+        self.le_start_col.setToolTip(
+            "Number of the <b>first column</b> of the map to be included in the selection. "
+            "The number must be less than the number entered into 'End column' box.")
+
         self.le_end_row = QLineEdit("0")
+        self.le_end_row.setToolTip(
+            "Number of the <b>row following the last row</b> included in the selection. "
+            "The number must be greater than the number entered into 'Start row' box. "
+            "The field may be left empty. If 'End row' and 'End column' are empty, then "
+            "only one spectrum for the pixel with coordinates 'Start row' and 'Start column' "
+            "is saved")
         self.le_end_col = QLineEdit("0")
+        self.le_end_col.setToolTip(
+            "Number of the <b>column following the last column</b> included in the selection. "
+            "The number must be greater than the number entered into 'Start column' box."
+            "The field may be left empty. If 'End row' and 'End column' are empty, then "
+            "only one spectrum for the pixel with coordinates 'Start row' and 'Start column' "
+            "is saved")
         self.cb_interpolate_with_x_y = QCheckBox("Interpolate with (x,y) coordinates")
+        self.cb_interpolate_with_x_y.setToolTip(
+            "Interpolate coordinates to uniform grid before saving maps to <b>TIFF</b> and <b>TXT</b> "
+            "files. <b>THIS CONTROL WILL PROBABLY BE DELETED, BECAUSE IT DUPLICATES CONTROL IN "
+            "THE WINDOW 'Export to TIFF and TXT files ...'")
 
         self.group_save_plots = QGroupBox("Save spectra for pixels in the selected region")
         self.group_save_plots.setCheckable(True)
@@ -96,22 +125,34 @@ class FitMapsWidget(FormBaseWidget):
 
     def _setup_start_fitting(self):
         self.pb_start_map_fitting = QPushButton("Start XRF Map Fitting")
+        self.pb_start_map_fitting.setToolTip(
+            "Click to start <b>fitting of the XRF Maps</b>. The generated XRF Maps can be viewed "
+            "in <b>'XRF Maps' tab</b>")
         self.pb_start_map_fitting.clicked.connect(self.pb_start_map_fitting_clicked)
 
     def _setup_compute_roi_maps(self):
         self.pb_compute_roi_maps = QPushButton("Compute XRF Maps Based on ROI ...")
+        self.pb_compute_roi_maps.setToolTip(
+            "Opens the window for setting up spectral ROIs and computating XRF Maps "
+            "based on the ROIs")
         self.pb_compute_roi_maps.clicked.connect(self.pb_compute_roi_maps_clicked)
 
     def _setup_save_results(self):
         self.group_save_results = QGroupBox("Save Results")
 
         self.pb_save_to_db = QPushButton("Save to Database (Databroker) ...")
+        self.pb_save_to_db.setToolTip(
+            "Save generated XRF Maps to a <b>database</b> via Databroker")
         self.pb_save_to_db.setEnabled(False)
 
         self.pb_save_q_calibration = QPushButton("Save Quantitative Calibration ...")
+        self.pb_save_q_calibration.setToolTip(
+            "Opens a Dialog Box which allows to preview and save <b>Quantitative Calibration data</b>")
         self.pb_save_q_calibration.clicked.connect(self.pb_save_q_calibration_clicked)
 
         self.pb_export_to_tiff_and_txt = QPushButton("Export to TIFF and TXT ...")
+        self.pb_export_to_tiff_and_txt.setToolTip(
+            "Open a Dialog box which allows to export XRF Maps as <b>TIFF</b> and <b>TXT</b> files")
         self.pb_export_to_tiff_and_txt.clicked.connect(self.pb_export_to_tiff_and_txt_clicked)
 
         grid = QGridLayout()
@@ -125,6 +166,11 @@ class FitMapsWidget(FormBaseWidget):
         self.group_quant_analysis = QGroupBox("Quantitative Analysis")
 
         self.pb_load_quant_calib = QPushButton("Load Quantitative Calibration ...")
+        self.pb_load_quant_calib.setToolTip(
+            "Open a window with GUI tools for loading and managing previously saved "
+            "<b>Quantitative Calibration data</b> used for processing (normalization) "
+            "of XRF Maps. The loaded calibration data is applied to XRF Maps if 'Quantitative' "
+            "box is checked in 'XRF Maps' tab")
         self.pb_load_quant_calib.clicked.connect(self.pb_load_quant_calib_clicked)
 
         vbox = QVBoxLayout()
@@ -132,6 +178,10 @@ class FitMapsWidget(FormBaseWidget):
         self.group_quant_analysis.setLayout(vbox)
 
     def pb_compute_roi_maps_clicked(self):
+        # Position the window in relation ot the main window (only when called once)
+        pos = self.ref_main_window.pos()
+        self.ref_main_window.wnd_compute_roi_maps.position_once(pos.x(), pos.y())
+
         if not self.ref_main_window.wnd_compute_roi_maps.isVisible():
             self.ref_main_window.wnd_compute_roi_maps.show()
         self.ref_main_window.wnd_compute_roi_maps.activateWindow()
@@ -156,6 +206,10 @@ class FitMapsWidget(FormBaseWidget):
             print(f"Saving TIFF and TXT files to the directory '{dlg.dir_path}'")
 
     def pb_load_quant_calib_clicked(self):
+        # Position the window in relation ot the main window (only when called once)
+        pos = self.ref_main_window.pos()
+        self.ref_main_window.wnd_load_quantitative_calibration.position_once(pos.x(), pos.y())
+
         if not self.ref_main_window.wnd_load_quantitative_calibration.isVisible():
             self.ref_main_window.wnd_load_quantitative_calibration.show()
         self.ref_main_window.wnd_load_quantitative_calibration.activateWindow()
@@ -178,7 +232,7 @@ class FitMapsWidget(FormBaseWidget):
         self.ref_main_window.update_widget_state()
 
 
-class WndComputeRoiMaps(QWidget):
+class WndComputeRoiMaps(SecondaryWindow):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -293,9 +347,6 @@ class WndComputeRoiMaps(QWidget):
                     # Set all columns not editable (unless needed)
                     item.setFlags(item.flags() & ~Qt.ItemIsEditable)
 
-                    # Make all items not selectable (we are not using selections)
-                    #item.setFlags(item.flags() & ~Qt.ItemIsSelectable)
-
                     # Note, that there is no way to set style sheet for QTableWidgetItem
                     item.setBackground(QBrush(QColor(*rgb_bckg)))
 
@@ -317,7 +368,6 @@ class WndComputeRoiMaps(QWidget):
                 rgb_bckg = (255, brightness, brightness)
             else:
                 rgb_bckg = (brightness, 255, brightness)
-
 
             item = QWidget()
             cb = QCheckBox()
@@ -396,7 +446,7 @@ json_quant_calib_1 = \
                 "density": 20.3,
                 "fluorescence": 6.435121428993609e-05
             }
-        },    
+        },
         "incident_energy": 12.0,
         "detector_channel": "sum",
         "scaler_name": "i0",
@@ -439,7 +489,7 @@ json_quant_calib_2 = \
         "source_scan_id": null,
         "source_scan_uid": null
     }
-    """
+    """  # noqa: E501
 
 # The data is structured the same way as in the actual program code, so transitioning
 #   to real data will be simple
@@ -469,7 +519,7 @@ quant_calib_json = [
 ]
 
 
-class WndLoadQuantitativeCalibration(QWidget):
+class WndLoadQuantitativeCalibration(SecondaryWindow):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -498,7 +548,6 @@ class WndLoadQuantitativeCalibration(QWidget):
         self.grp_current_scan.setLayout(hbox)
 
         self._setup_tab_widget()
-        #self.scroll_area = QScrollArea()
 
         vbox = QVBoxLayout()
 
@@ -743,7 +792,6 @@ class WndLoadQuantitativeCalibration(QWidget):
                         # Generate tooltip
                         density = cdata[0]['element_lines'][eline]['density']
                         fluorescence = cdata[0]['element_lines'][eline]['fluorescence']
-                        f_to_d = fluorescence / density
                         ttip = (f"Fluorescence (F): {fluorescence:12g}\n"
                                 f"Density (D): {density:12g}\n")
                         # Avoid very small values of density (probably zero)
@@ -751,7 +799,6 @@ class WndLoadQuantitativeCalibration(QWidget):
                             ttip += f"F/D: {fluorescence/density:12g}"
 
                         item.setToolTip(ttip)
-
 
                         self.table.setCellWidget(n, ns + 1, item)
                     else:
@@ -810,7 +857,7 @@ class WndLoadQuantitativeCalibration(QWidget):
                 print(f"Selected emission line {eline} ({nr}) from standard #{nc}")
             else:
                 # This should never happen
-                print(f"Selection radio button was pressed, but not found in the list")
+                print("Selection radio button was pressed, but not found in the list")
 
     def combo_set_table_header_index_changed(self, index):
 
@@ -983,7 +1030,6 @@ class DialogExportToTiffAndTxt(QDialog):
         vbox = QVBoxLayout()
 
         hbox = QHBoxLayout()
-        #hbox.addStretch(1)
         hbox.addWidget(self.group_settings)
         hbox.addStretch(1)
         vbox.addLayout(hbox)

@@ -1,10 +1,9 @@
-from PyQt5.QtWidgets import (QWidget, QTabWidget, QLabel, QVBoxLayout, QHBoxLayout,
-                             QRadioButton, QButtonGroup, QComboBox, QCheckBox, QPushButton,
-                             QLineEdit, QDial, QGridLayout, QSlider, QDialog, QDialogButtonBox,
+from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout, QRadioButton, QButtonGroup,
+                             QComboBox, QCheckBox, QPushButton, QGridLayout, QDialog, QDialogButtonBox,
                              QGroupBox)
 from PyQt5.QtCore import Qt
 
-from .useful_widgets import LineEditReadOnly, ElementSelection
+from .useful_widgets import LineEditReadOnly, ElementSelection, set_tooltip
 
 
 class PlotFittingModel(QWidget):
@@ -14,25 +13,50 @@ class PlotFittingModel(QWidget):
 
         self.cb_plot_type = QComboBox()
         self.cb_plot_type.addItems(["LinLog", "Linear"])
+        set_tooltip(self.cb_plot_type,
+                    "Use <b>Linear</b> or <b>LinLog</b> axes to plot spectra")
 
         self.cbox_show_spectrum = QCheckBox("Show spectrum")
+        set_tooltip(self.cbox_show_spectrum,
+                    "Show <b>raw<b> spectrum")
+
         self.cbox_show_fit = QCheckBox("Show fit")
+        set_tooltip(self.cbox_show_fit,
+                    "Show <b>fitted</b> spectrum")
 
         self.pb_selected_region = QRadioButton("Selected region")
+        set_tooltip(self.pb_selected_region,
+                    "Plot spectrum in the <b>selected range</b> of energies. The range may be set "
+                    "in the 'Model' tab. Click the button <b>'Find Automatically ...'</b> "
+                    "to set the range of energies before finding the emission lines. The range "
+                    "may be changed in General Settings dialog (button <b>'General ...'</b>) at any time."
+                    )
         self.pb_selected_region.setChecked(True)
+
         self.pb_full_spectrum = QRadioButton("Full spectrum")
+        set_tooltip(self.pb_full_spectrum,
+                    "Plot full spectrum over <b>all available eneriges</b>.")
 
         self.bgroup = QButtonGroup()
         self.bgroup.addButton(self.pb_selected_region)
         self.bgroup.addButton(self.pb_full_spectrum)
 
         self.pb_escape_peak = QPushButton("Escape Peak ...")
+        set_tooltip(self.pb_escape_peak,
+                    "Select options for displaying the <b>escape peak</b>")
         self.pb_escape_peak.clicked.connect(self.pb_escape_peak_clicked)
 
         self.pb_add_line = QPushButton("Add Line")
+        set_tooltip(self.pb_add_line,
+                    "<b>Add</b> the current emission line to the list of selected lines")
+
         self.pb_remove_line = QPushButton("Remove Line")
+        set_tooltip(self.pb_remove_line,
+                    "<b>Remove</b> the current emission line from the list of selected lines.")
 
         self.element_selection = ElementSelection()
+        set_tooltip(self.element_selection,
+                    "<b>Choose</b> the emission line for addition or removal.")
         eline_sample_list = ["Li_K", "B_K", "C_K", "N_K", "Fe_K", "Userpeak1"]
         self.element_selection.addItems(eline_sample_list)
 
@@ -71,12 +95,12 @@ class PlotFittingModel(QWidget):
         self.setLayout(vbox)
 
     def le_mouse_press(self, event):
-        print(f"Button pressed (line edit)")
+        print("Button pressed (line edit)")
         if event.button() == Qt.RightButton:
             print("Right button pressed")
 
     def slider1_mouse_press(self, event):
-        print(f"Button pressed (slider1)")
+        print("Button pressed (slider1)")
         if event.button() == Qt.RightButton:
             print("Right button pressed")
 
