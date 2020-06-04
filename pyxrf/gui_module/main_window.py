@@ -3,7 +3,7 @@ from datetime import datetime
 
 from PyQt5.QtWidgets import (QMainWindow, QMessageBox, QLabel, QAction,
                              QDialog, QVBoxLayout, QDialogButtonBox, QHBoxLayout,
-                             QProgressBar)
+                             QProgressBar, QMenuBar)
 from PyQt5.QtCore import Qt
 
 from .central_widget import TwoPanelWidget
@@ -204,6 +204,12 @@ class MainWindow(QMainWindow):
         help.addAction(action_online_docs)
         help.addSeparator()
         help.addAction(action_about)
+
+        # The following workaround is supposed to fix the issue with inactive main menu on MacOS.
+        #   The created 'dummy' menu doesn't influence the rest of the program.
+        dummy_menu = QMenuBar()
+        dummy_menu.show()
+        dummy_menu.deleteLater()
 
         self.update_widget_state()
 
