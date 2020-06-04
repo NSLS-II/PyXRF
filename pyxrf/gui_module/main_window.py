@@ -3,7 +3,7 @@ from datetime import datetime
 
 from PyQt5.QtWidgets import (QMainWindow, QMessageBox, QLabel, QAction,
                              QDialog, QVBoxLayout, QDialogButtonBox, QHBoxLayout,
-                             QProgressBar, QMenuBar)
+                             QProgressBar)
 from PyQt5.QtCore import Qt
 
 from .central_widget import TwoPanelWidget
