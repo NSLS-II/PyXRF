@@ -19,7 +19,7 @@ def run():
 
     # The default font looks bad on Windows, so one of the following (commonly available)
     #   fonts will be selected in the listed order
-    windows_font_selection = ["Segoe UI", "Verdana", "Microsoft Sans Serif"]
+    windows_font_selection = ["Verdana", "Microsoft Sans Serif", "Segoe UI"]
     available_font_families = list(QFontDatabase().families())
     selected_font_family = None
 
