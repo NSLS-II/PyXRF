@@ -1,6 +1,7 @@
 import sys
 import platform
 from PyQt5.QtWidgets import QApplication, QStyleFactory
+from PyQt5.QtGui import QFontDatabase
 # from PyQt5.QtCore import Qt
 
 from .gui_module.main_window import MainWindow
@@ -15,11 +16,23 @@ from .gui_module.main_window import MainWindow
 def run():
     """Run the application"""
     app = QApplication(sys.argv)
+
+    # The default font looks bad on Windows, so one of the following (commonly available)
+    #   fonts will be selected in the listed order
+    windows_font_selection = ["Segoe UI", "Verdana", "Microsoft Sans Serif"]
+    available_font_families = list(QFontDatabase().families())
+    selected_font_family = None
+
     current_os = platform.system()
     if current_os == "Linux":
         style = "Fusion"
     elif current_os == "Windows":
         style = "Fusion"
+        # Select font
+        for font_family in windows_font_selection:
+            if font_family in available_font_families:
+                selected_font_family = font_family
+                break
     elif current_os == "Darwin":
         style = "Fusion"
 
@@ -32,11 +45,12 @@ def run():
     # app.setStyleSheet('QWidget {font: "Roboto Mono"; font-size: 14px}')
     # app.setStyleSheet('QWidget {font-size: 14px}')
 
+    # Set font
     font = app.font()
-    print(f"Default font family: {font.defaultFamily()}")
-    # font.setPixelSize(16), font.setFamily("Times")
     font.setPixelSize(14)
-
+    if selected_font_family:
+        print(f"Replacing the default font with '{selected_font_family}'")
+        font.setFamily(selected_font_family)
     app.setFont(font)
 
     main_window = MainWindow()
