@@ -319,6 +319,7 @@ class ModelWidget(FormBaseWidget):
             print("Spectrum/Fit saving is cancelled")
 
     def pb_start_fitting_clicked(self):
+
         global_gui_variables["gui_state"]["running_computations"] = True
         self.ref_main_window.update_widget_state()
 
@@ -328,18 +329,6 @@ class ModelWidget(FormBaseWidget):
         self._timer.setInterval(40)
         self._timer_counter = 0
         self._timer.start()
-        #progress_bar = self.ref_main_window.statusProgressBar
-        #status_bar = self.ref_main_window.statusBar()
-        #for i in range(100):
-        #    progress_bar.setValue(i + 1)
-        #    time.sleep(0.02)
-        #time.sleep(0.5)
-        #progress_bar.setValue(0)
-        #status_bar.showMessage("Total spectrum fitting is successfully completed. "
-        #                       "Results are presented in 'Fitting Model' tab.", 5000)
-
-        #global_gui_variables["gui_state"]["running_computations"] = False
-        #self.ref_main_window.update_widget_state()
 
     @pyqtSlot()
     def timerExpired(self):
