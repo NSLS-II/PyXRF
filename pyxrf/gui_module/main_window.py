@@ -79,6 +79,9 @@ class MainWindow(QMainWindow):
 
         # Main menu
         menubar = self.menuBar()
+        # Disable native menu bar (it doesn't work on MacOS 10.15 with PyQt<=5.11)
+        #   It may work with later versions of PyQt when they become available.
+        menubar.setNativeMenuBar(False)
         loadData = menubar.addMenu('Scan &Data')
         loadData.addAction(action_read_file)
         loadData.addAction(action_load_run)

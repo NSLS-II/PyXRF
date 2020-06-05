@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox, Q
                              QFileDialog, QRadioButton, QButtonGroup, QGridLayout, QTableWidget,
                              QTableWidgetItem, QHeaderView)
 from PyQt5.QtGui import QBrush, QColor
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSlot, QTimer
 
 from .useful_widgets import (LineEditReadOnly, global_gui_parameters, global_gui_variables,
                              ElementSelection, get_background_css, SecondaryWindow,
@@ -64,6 +64,10 @@ class ModelWidget(FormBaseWidget):
         self.setLayout(vbox)
 
         self._set_tooltips()
+
+        # Timer is currently used to simulate processing
+        self._timer = None
+        self._timer_counter = 0
 
     def _setup_model_params_group(self):
 
@@ -318,19 +322,40 @@ class ModelWidget(FormBaseWidget):
         global_gui_variables["gui_state"]["running_computations"] = True
         self.ref_main_window.update_widget_state()
 
+        if not self._timer:
+            self._timer = QTimer()
+        self._timer.timeout.connect(self.timerExpired)
+        self._timer.setInterval(40)
+        self._timer_counter = 0
+        self._timer.start()
+        #progress_bar = self.ref_main_window.statusProgressBar
+        #status_bar = self.ref_main_window.statusBar()
+        #for i in range(100):
+        #    progress_bar.setValue(i + 1)
+        #    time.sleep(0.02)
+        #time.sleep(0.5)
+        #progress_bar.setValue(0)
+        #status_bar.showMessage("Total spectrum fitting is successfully completed. "
+        #                       "Results are presented in 'Fitting Model' tab.", 5000)
+
+        #global_gui_variables["gui_state"]["running_computations"] = False
+        #self.ref_main_window.update_widget_state()
+
+    @pyqtSlot()
+    def timerExpired(self):
+        self._timer_counter += 1
         progress_bar = self.ref_main_window.statusProgressBar
-        status_bar = self.ref_main_window.statusBar()
-        for i in range(100):
-            progress_bar.setValue(i + 1)
-            time.sleep(0.02)
-        time.sleep(0.5)
-        progress_bar.setValue(0)
-        status_bar.showMessage("Total spectrum fitting is successfully completed. "
-                               "Results are presented in 'Fitting Model' tab.", 5000)
-
-        global_gui_variables["gui_state"]["running_computations"] = False
-        self.ref_main_window.update_widget_state()
-
+        progress_bar.setValue(self._timer_counter)
+        if self._timer_counter >= 100:
+            self._timer.stop()
+            self._timer.timeout.disconnect(self.timerExpired)
+            self._timer = None
+            progress_bar.setValue(0)
+            status_bar = self.ref_main_window.statusBar()
+            status_bar.showMessage("Total spectrum fitting is successfully completed. "
+                                   "Results are presented in 'Fitting Model' tab.", 5000)
+            global_gui_variables["gui_state"]["running_computations"] = False
+            self.ref_main_window.update_widget_state()
 
 class WndManageEmissionLines(SecondaryWindow):
 

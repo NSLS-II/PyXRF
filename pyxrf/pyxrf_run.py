@@ -4,11 +4,11 @@ from PyQt5.QtCore import Qt
 
 from .gui_module.main_window import MainWindow
 
-if hasattr(Qt, 'AA_EnableHighDpiScaling'):
-    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+# if hasattr(Qt, 'AA_EnableHighDpiScaling'):
+#     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
 
-if hasattr(Qt, 'AA_UseHighDpiPixmaps'):
-    QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+# if hasattr(Qt, 'AA_UseHighDpiPixmaps'):
+#     QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
 
 
 def run():
