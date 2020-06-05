@@ -2,7 +2,6 @@ import os
 import json
 import yaml
 import textwrap
-import time
 
 from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox, QLineEdit,
                              QCheckBox, QLabel, QComboBox, QDialog, QDialogButtonBox, QFileDialog,

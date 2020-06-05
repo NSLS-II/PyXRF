@@ -1,7 +1,6 @@
 import os
 import numpy as np
 import textwrap
-import time
 
 from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox, QLineEdit,
                              QCheckBox, QLabel, QComboBox, QDialog, QDialogButtonBox,
@@ -345,6 +344,7 @@ class ModelWidget(FormBaseWidget):
                                    "Results are presented in 'Fitting Model' tab.", 5000)
             global_gui_variables["gui_state"]["running_computations"] = False
             self.ref_main_window.update_widget_state()
+
 
 class WndManageEmissionLines(SecondaryWindow):
 
