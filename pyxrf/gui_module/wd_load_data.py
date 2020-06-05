@@ -155,12 +155,12 @@ class LoadDataWidget(FormBaseWidget):
 
     def _set_tooltips(self):
         set_tooltip(self.pb_set_wd,
-                    "Select Working Directory. The Working Directory is "
-                    "used as default for loading and save data and "
+                    "Select <b>Working Directory</b>. The Working Directory is "
+                    "used as <b>default</b> for loading and saving data and "
                     "configuration files.")
-        set_tooltip(self.le_wd, "Currently selected Working Directory")
-        set_tooltip(self.pb_file, "Load data from a file on disk.")
-        set_tooltip(self.pb_dbase, "Load data from a database (Databroker).")
+        set_tooltip(self.le_wd, "Currently selected <b>Working Directory</b>")
+        set_tooltip(self.pb_file, "Load data from a <b>file on disk</b>.")
+        set_tooltip(self.pb_dbase, "Load data from a <b>database</b> (Databroker).")
         set_tooltip(self.cb_file_all_channels,
                     "Load <b>all</b> available data channels (checked) or "
                     "only the <b>sum</b> of the channels")

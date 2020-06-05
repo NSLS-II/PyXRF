@@ -182,7 +182,7 @@ class FitMapsWidget(FormBaseWidget):
 
         set_tooltip(
             self.pb_compute_roi_maps,
-            "Opens the window for setting up spectral ROIs and computating XRF Maps "
+            "Opens the window for setting up <b>spectral ROIs</b> and computating XRF Maps "
             "based on the ROIs")
 
         set_tooltip(self.pb_save_to_db,
