@@ -68,7 +68,6 @@ class FitMapsWidget(FormBaseWidget):
         self.le_end_row = QLineEdit("0")
 
         self.le_end_col = QLineEdit("0")
-        self.cb_interpolate_with_x_y = QCheckBox("Interpolate with (x,y) coordinates")
 
         self.group_save_plots = QGroupBox("Save spectra for pixels in the selected region")
         self.group_save_plots.setCheckable(True)
@@ -95,8 +94,6 @@ class FitMapsWidget(FormBaseWidget):
 
         vbox = QVBoxLayout()
         vbox.addWidget(self.group_save_plots)
-        vbox.addSpacing(5)
-        vbox.addWidget(self.cb_interpolate_with_x_y)
 
         self.group_settings.setLayout(vbox)
 
@@ -169,11 +166,6 @@ class FitMapsWidget(FormBaseWidget):
             "The field may be left empty. If 'End row' and 'End column' are empty, then "
             "only one spectrum for the pixel with coordinates 'Start row' and 'Start column' "
             "is saved")
-        set_tooltip(
-            self.cb_interpolate_with_x_y,
-            "Interpolate coordinates to uniform grid before saving maps to <b>TIFF</b> and <b>TXT</b> "
-            "files. <b>THIS CONTROL WILL PROBABLY BE DELETED, BECAUSE IT DUPLICATES CONTROL IN "
-            "THE WINDOW 'Export to TIFF and TXT files ...'")
 
         set_tooltip(
             self.pb_start_map_fitting,
