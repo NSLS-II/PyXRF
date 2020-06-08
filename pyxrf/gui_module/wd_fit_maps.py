@@ -422,11 +422,11 @@ class WndComputeRoiMaps(SecondaryWindow):
 
     def _setup_footer(self):
 
-        self.cb_subtract_background = QCheckBox("Subtract background")
+        self.cb_subtract_baseline = QCheckBox("Subtract baseline")
         self.pb_compute_roi = QPushButton("Compute ROIs")
 
         hbox = QHBoxLayout()
-        hbox.addWidget(self.cb_subtract_background)
+        hbox.addWidget(self.cb_subtract_baseline)
         hbox.addStretch(1)
         hbox.addWidget(self.pb_compute_roi)
 
@@ -443,7 +443,7 @@ class WndComputeRoiMaps(SecondaryWindow):
 
         set_tooltip(self.table, "The list of ROIs")
 
-        set_tooltip(self.cb_subtract_background,
+        set_tooltip(self.cb_subtract_baseline,
                     "<b>Subtract baseline</b> from the pixel spectra before computing ROIs. "
                     "Subtracting baseline slows down computations and usually have no benefit. "
                     "In most cases it should remain <b>unchecked</b>.")
@@ -1007,15 +1007,33 @@ class DialogSaveCalibration(QDialog):
         self.resize(600, 600)
 
         self.text_edit = QTextEdit()
+        set_tooltip(self.text_edit,
+                    "Preview the <b>quantitative calibration data</b> to be saved. The displayed "
+                    "warnings will not be saved, but need to be addressed in order to keep "
+                    "data integrity. The parameter <b>distance-to-sample</b> is optional, "
+                    "but desirable. If <b>distance-to-sample</b> is zero then no scaling will be "
+                    "applied to data to compensate for changing distance.")
         self.text_edit.setReadOnly(True)
 
         self.le_file_path = LineEditReadOnly()
+        set_tooltip(self.le_file_path,
+                    "Full path to the file used to <b>save the calibration data</b>. The path "
+                    "can be changed in file selection dialog box.")
         self.pb_file_path = PushButtonMinimumWidth("..")
+        set_tooltip(self.pb_file_path,
+                    "Change <b>file path</b> for saving the calibration data.")
         self.pb_file_path.clicked.connect(self.pb_file_path_clicked)
 
         self.le_distance_to_sample = QLineEdit()
+        set_tooltip(self.le_distance_to_sample,
+                    "<b>Distance between the detector and the sample during calibration. If the value "
+                    "is 0, then no scaling is applied to data to correct the data if distance-to-sample "
+                    "is changed between calibration and measurement.")
 
         self.cb_overwrite = QCheckBox("OverwriteExisting")
+        set_tooltip(self.cb_overwrite,
+                    "Overwrite the <b>existin</b> file. This is a safety feature implemented to protect "
+                    "valueable results from accidental deletion.")
 
         vbox = QVBoxLayout()
 
@@ -1089,14 +1107,29 @@ class DialogExportToTiffAndTxt(QDialog):
         # datasets = ["Select Dataset ..."] + sample_datasets
         datasets = sample_datasets
         self.combo_select_dataset.addItems(datasets)
+        set_tooltip(self.combo_select_dataset,
+                    "Select <b>dataset</b>. Initially, the selection matches the dataset activated "
+                    "in <b>XRF Maps</b> tab, but the selection may be changed if different dataset "
+                    "needs to be saved.")
 
         self.combo_normalization = QComboBox()
+        set_tooltip(self.combo_normalization,
+                    "Select <b>scaler</b> used for data normalization. Initially, the selection matches "
+                    "the scaler activated in <b>XRF Maps</b> tab, but the selection may be changed "
+                    "if needed")
         sample_scalers = ["i0", "i0_time", "time", "time_diff"]
         scalers = ["Normalize by ..."] + sample_scalers
         self.combo_normalization.addItems(scalers)
 
         self.cb_interpolate = QCheckBox("Interpolate to uniform grid")
+        set_tooltip(self.cb_interpolate,
+                    "Interpolate pixel coordinates to <b>uniform grid</b>. The initial choice is "
+                    "copied from <b>XRF Maps</b> tab.")
+
         self.cb_quantitative = QCheckBox("Quantitative normalization")
+        set_tooltip(self.cb_quantitative,
+                    "Apply <b>quantitative normalization</b> before saving the maps. "
+                    "The initial choice is copied from <b>XRF Maps</b> tab.")
 
         self.group_settings = QGroupBox("Settings (selections from XRF Maps tab)")
         grid = QGridLayout()
@@ -1107,16 +1140,27 @@ class DialogExportToTiffAndTxt(QDialog):
         self.group_settings.setLayout(grid)
 
         self.te_saved_files = QTextEdit()
+        set_tooltip(self.te_saved_files,
+                    "The list of <b>data files</b> about to be created.")
         self.te_saved_files.setReadOnly(True)
 
         self.le_dir_path = LineEditReadOnly()
+        set_tooltip(self.le_dir_path,
+                    "<b>Root directory</b> for saving TIFF and TXT files. The files will be saved "
+                    "in subdirectories inside the root directory.")
         self.pb_dir_path = PushButtonMinimumWidth("..")
+        set_tooltip(self.pb_dir_path,
+                    "Change to <b>root directory</b> for TIFF and TXT files.")
         self.pb_dir_path.clicked.connect(self.pb_dir_path_clicked)
 
         self.cb_save_tiff = QCheckBox("Save TIFF")
+        set_tooltip(self.cb_save_tiff,
+                    "Save XRF Maps as <b>TIFF</b> files.")
         self.cb_save_tiff.setChecked(True)
         self.cb_save_tiff.toggled.connect(self.cb_save_tiff_toggled)
         self.cb_save_txt = QCheckBox("Save TXT")
+        set_tooltip(self.cb_save_txt,
+                    "Save XRF Maps as <b>TXT</b> files.")
         self.cb_save_txt.toggled.connect(self.cb_save_txt_toggled)
 
         vbox = QVBoxLayout()

@@ -212,8 +212,12 @@ class ModelWidget(FormBaseWidget):
         set_tooltip(self.pb_global_params,
                     "Manually adjust <b>global fitting parameters</b>, "
                     "including <b>preset fitting configurations</b>")
-        set_tooltip(self.cb_step1, "Select preset fitting configuration for <b>Step 1</b>.")
-        set_tooltip(self.cb_step2, "Select preset fitting configuration for <b>Step 2</b>.")
+        set_tooltip(self.cb_step1, "Select preset fitting configuration for <b>Step 1</b>. "
+                                   "Click <b>Elements...</b> and <b>Global Parameters...</b> "
+                                   "buttons to open dialog boxes to configure the presets.")
+        set_tooltip(self.cb_step2, "Select preset fitting configuration for <b>Step 2</b>. "
+                                   "Click <b>Elements...</b> and <b>Global Parameters...</b> "
+                                   "buttons to open dialog boxes to configure the presets.")
 
         set_tooltip(
             self.pb_start_fitting,
@@ -610,6 +614,11 @@ class DialogFindElements(QDialog):
         self.le_e_calib_a2 = QLineEdit()
         self.pb_e_calib_a2_default = QPushButton("Default")
         self.group_energy_axis_calib = QGroupBox("Polynomial Approximation of Energy Axis")
+        set_tooltip(self.group_energy_axis_calib,
+                    "Parameters of polynomial approximation of <b>energy axis</b>. "
+                    "The values of the bins for photon energies are approximated "
+                    "using 2nd degree polynomial <b>E(n) = a0 + a1 * n + a2 * n^2</b>, "
+                    "where <b>n</b> is bin number (typically in the range 0..4096).")
         grid = QGridLayout()
         grid.addWidget(QLabel("Bias (a0):"), 0, 0)
         grid.addWidget(self.le_e_calib_a0, 0, 1)
@@ -627,6 +636,8 @@ class DialogFindElements(QDialog):
         self.le_fwhm_b2 = QLineEdit()
         self.pb_fwhm_b2_default = QPushButton("Default")
         self.group_fwhm = QGroupBox("Peak FWHM Settings")
+        set_tooltip(self.group_fwhm,
+                    "Parameters used to estimate <b>FWHM</b> of peaks based on energy.")
         grid = QGridLayout()
         grid.addWidget(QLabel("Coefficient b1:"), 0, 0)
         grid.addWidget(self.le_fwhm_b1, 0, 1)
@@ -637,10 +648,16 @@ class DialogFindElements(QDialog):
         self.group_fwhm.setLayout(grid)
 
         self.le_incident_energy = QLineEdit()
+        set_tooltip(self.le_incident_energy,
+                    "<b>Incident energy</b> in keV.")
         self.pb_incident_energy_default = QPushButton("Default")
         self.le_range_low = QLineEdit()
+        set_tooltip(self.le_range_low,
+                    "<b>Lower boundary</b> of the selected range in keV.")
         self.pb_range_low_default = QPushButton("Default")
         self.le_range_high = QLineEdit()
+        set_tooltip(self.le_range_high,
+                    "<b>Upper boundary</b> of the selected range in keV.")
         self.pb_range_high_default = QPushButton("Default")
         self.group_energy_range = QGroupBox("Incident Energy and Selected Range")
         grid = QGridLayout()
@@ -709,6 +726,9 @@ class DialogSelectQuantStandard(QDialog):
              "CeF3 21.1 / Au 20.6"],
         ]
         self.table = QTableWidget()
+        set_tooltip(self.table, "To <b> load the sta"
+                                "ndard</b>, double-click on the table row or "
+                                "select the table row and then click <b>Ok</b> button.")
         self.table.setMinimumHeight(200)
         self.table.setRowCount(len(sample_table_contents))
         self.table.setColumnCount(len(labels))
@@ -783,8 +803,14 @@ class DialogGeneralFittingSettings(QDialog):
 
         # ===== Top-left section of the dialog box =====
         self.le_max_iterations = QLineEdit()
+        set_tooltip(self.le_max_iterations,
+                    "<b>Maximum number of iterations</b> used for total spectrum fitting.")
         self.le_tolerance_stopping = QLineEdit()
+        set_tooltip(self.le_tolerance_stopping,
+                    "<b>Tolerance</b> setting for total spectrum fitting.")
         self.le_escape_ratio = QLineEdit()
+        set_tooltip(self.le_escape_ratio,
+                    "Parameter for total spectrum fitting: <b>escape ration</b>")
         grid = QGridLayout()
         grid.addWidget(QLabel("Iterations (max):"), 0, 0)
         grid.addWidget(self.le_max_iterations, 0, 1)
@@ -801,8 +827,14 @@ class DialogGeneralFittingSettings(QDialog):
 
         # Incident energy and the selected range
         self.le_incident_energy = QLineEdit()
+        set_tooltip(self.le_incident_energy,
+                    "<b>Incident energy</b> in keV")
         self.le_range_low = QLineEdit()
+        set_tooltip(self.le_range_low,
+                    "<b>Lower boundary</b> of the selected range in keV.")
         self.le_range_high = QLineEdit()
+        set_tooltip(self.le_range_high,
+                    "<b>Upper boundary</b> of the selected range in keV.")
         self.group_energy_range = QGroupBox("Incident Energy and Selected Range")
         grid = QGridLayout()
         grid.addWidget(QLabel("Incident energy, keV"), 0, 0)
@@ -819,7 +851,14 @@ class DialogGeneralFittingSettings(QDialog):
         # ===== Top-right section of the dialog box =====
 
         self.cb_linear_baseline = QCheckBox("Subtract linear baseline")
+        set_tooltip(self.cb_linear_baseline,
+                    "Subtract baseline as represented as a constant. <b>XRF Map generation</b>. "
+                    "Baseline subtraction is performed as part of NNLS fitting.")
         self.cb_snip_baseline = QCheckBox("Subtract baseline using SNIP")
+        set_tooltip(self.cb_snip_baseline,
+                    "Subtract baseline using SNIP method. <b>XRF Map generation</b>. "
+                    "This is a separate step of processing and can be used together with "
+                    "'linear' baseline subtraction if needed.")
 
         # This option is not supported. In the future it may be removed
         #   if not needed or implemented.
@@ -847,6 +886,10 @@ class DialogGeneralFittingSettings(QDialog):
         # ===== Bottom-right section of the dialog box =====
 
         self.le_snip_window_size = QLineEdit()
+        set_tooltip(self.le_snip_window_size,
+                    "Window size for <b>SNIP</b> algorithm. Used both for total spectrum fitting "
+                    "and XRF Map generation.")
+
         vbox = QVBoxLayout()
         hbox = QHBoxLayout()
         hbox.addWidget(QLabel("SNIP window size(*):"))
@@ -890,7 +933,7 @@ class _FittingSettings():
         # Labels for editable columns
         self.tbl_cols_editable = ("Value", "Min", "Max")
 
-        # Labels for the columns that contain comboboxes
+        # Labels for the columns that contain combo boxes
         self.tbl_cols_combobox = labels_presets
 
         # The list of columns with fixed size
@@ -1004,11 +1047,14 @@ class DialogElementSettings(QDialog):
     def _setup_element_selection(self):
 
         self.cbox_element_sel = QComboBox()
+        set_tooltip(self.cbox_element_sel,
+                    "Select K, L or M <b>emission line</b> to edit the optimization parameters "
+                    "used for the line during total spectrum fitting.")
         cb_sample_items = ("Ca_K", "Ti_K", "Fe_K")
         self.cbox_element_sel.addItems(cb_sample_items)
 
         hbox = QHBoxLayout()
-        hbox.addWidget(QLabel("Selecte element:"))
+        hbox.addWidget(QLabel("Select element:"))
         hbox.addWidget(self.cbox_element_sel)
         hbox.addStretch(1)
 
@@ -1018,6 +1064,11 @@ class DialogElementSettings(QDialog):
 
         self.table_settings = _FittingSettings(energy_column=True)
         self.table = self.table_settings.setup_table()
+        set_tooltip(self.table,
+                    "Edit optimization parameters for the selected emission line. "
+                    "Processing presets may be configured by specifying optimization strategy "
+                    "for each parameter may be selected. A preset for each fitting step "
+                    "of the total spectrum fitting may be selected in <b>Model</b> tab.")
 
         sample_contents = [
             ["Ca_ka1_area", 3.6917, 11799.14, 0, 10000000.0,
@@ -1065,6 +1116,11 @@ class DialogGlobalParamsSettings(QDialog):
 
         self.table_settings = _FittingSettings(energy_column=False)
         self.table = self.table_settings.setup_table()
+        set_tooltip(self.table,
+                    "Edit global optimization parameters. "
+                    "Processing presets may be configured by specifying optimization strategy "
+                    "for each parameter may be selected. A preset for each fitting step "
+                    "of the total spectrum fitting may be selected in <b>Model</b> tab.")
 
         sample_contents = [
             ["coherent_sct_amplitude", 1866.280064, 1.0, 10000000000.0,
@@ -1092,7 +1148,10 @@ class DialogPileupPeakParameters(QDialog):
         self.setWindowTitle("Pileup Peak Parameters")
 
         self.rb_edit_existing = QRadioButton("Edit Existing")
+        set_tooltip(self.rb_edit_existing,
+                    "Edit parameters of the <b>existing</b> user-defined peak")
         self.rb_add_new = QRadioButton("Add New")
+        set_tooltip(self.rb_add_new, "Add <b>new</b> user-defined peak.")
 
         self.btn_group = QButtonGroup()
         self.btn_group.addButton(self.rb_edit_existing)
@@ -1101,8 +1160,16 @@ class DialogPileupPeakParameters(QDialog):
         self.rb_add_new.setChecked(True)
 
         self.le_element1 = QLineEdit()
+        set_tooltip(self.le_element1,
+                    "The <b>name</b> of the emission line #1")
         self.le_element2 = QLineEdit()
+        set_tooltip(self.le_element2,
+                    "The <b>name</b> of the emission line #2")
         self.peak_intensity = QLineEdit()
+        set_tooltip(self.peak_intensity,
+                    "The <b>intensity</b> of the pileup peak. Typically it is not necessary "
+                    "to set the intensity precisely, since it is refined during fitting of total "
+                    "spectrum.")
 
         instructions = QLabel("Specify two emission lines, e.g. Si_Ka1 and Fe_Ka1")
 
@@ -1145,9 +1212,13 @@ class DialogUserPeakParameters(QDialog):
         super().__init__(parent)
 
         self.setWindowTitle("User Defined Peak Parameters")
+        self.setMinimumWidth(400)
 
         self.rb_edit_existing = QRadioButton("Edit Existing")
+        set_tooltip(self.rb_edit_existing,
+                    "Edit parameters of the <b>existing</b> user-defined peak")
         self.rb_add_new = QRadioButton("Add New")
+        set_tooltip(self.rb_add_new, "Add <b>new</b> user-defined peak.")
 
         self.btn_group = QButtonGroup()
         self.btn_group.addButton(self.rb_edit_existing)
@@ -1156,9 +1227,17 @@ class DialogUserPeakParameters(QDialog):
         self.rb_add_new.setChecked(True)
 
         self.le_name = LineEditReadOnly()
+        set_tooltip(self.le_name, "<b>Name</b> of the user-defined peak.")
         self.le_intensity = QLineEdit()
+        set_tooltip(self.le_intensity,
+                    "Peak <b>intensity</b>. Typically it is not necessary to set the "
+                    "intensity precisely, since it is refined during fitting of total "
+                    "spectrum.")
         self.le_energy = QLineEdit()
+        set_tooltip(self.le_energy,
+                    "<b>Energy</b> (keV) of the center of the user-defined peak.")
         self.le_fwhm = QLineEdit()
+        set_tooltip(self.le_fwhm, "<b>FWHM</b> (in keV) of the user-defined peak.")
 
         vbox = QVBoxLayout()
 

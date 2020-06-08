@@ -130,8 +130,13 @@ class DialogPlotEscapePeak(QDialog):
         self.grp_plot_escape_peak.setChecked(False)  # Set based on data !!!
 
         self.le_incident_energy = LineEditReadOnly()
+        set_tooltip(self.le_incident_energy,
+                    "<b>Incident energy</b>. Use <b>General...</b> button of <b>Model</b> tab "
+                    "to change the value if needed.")
         self.le_incident_energy.setText("12.0")  # Set based on data !!!
         self.cbb_detector_type = QComboBox()
+        set_tooltip(self.cbb_detector_type,
+                    "Select <b>detector</b> material. The typical choice is <b>Si</b>")
         self.cbb_detector_type.addItems(["Si", "Ge"])
 
         grid = QGridLayout()

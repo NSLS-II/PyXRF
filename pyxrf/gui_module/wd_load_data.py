@@ -231,9 +231,13 @@ class DialogSelectScan(QDialog):
 
         label = QLabel("Enter run ID or UID:")
         self.le_id_uid = QLineEdit()
+        set_tooltip(self.le_id_uid, "Enter <b>Run ID</b> or <b>Run UID</b>.")
+
         self.rb_id = QRadioButton("Run ID")
+        set_tooltip(self.rb_id, "The value in the line edit box is <b>Run ID</b>")
         self.rb_id.setChecked(True)
         self.rb_uid = QRadioButton("Run UID")
+        set_tooltip(self.rb_uid, "The value in the line edit box is <b>Run UID</b>")
 
         self.btn_group = QButtonGroup()
         self.btn_group.addButton(self.rb_id)
@@ -287,6 +291,9 @@ class DialogLoadMask(QDialog):
 
         # Group box for spatial ROI selection
         self.gb_roi = QGroupBox("Select ROI (in pixels)")
+        set_tooltip(self.gb_roi,
+                    "Select rectangular <b>spatial ROI</b>. If <b>mask</b> is "
+                    "loaded, then ROI is applied to the masked data.")
         self.gb_roi.setCheckable(True)
         self.gb_roi.setChecked(False)  # Should be set based on data
         vbox = QVBoxLayout()
@@ -312,6 +319,10 @@ class DialogLoadMask(QDialog):
 
         # Group box for setting mask
         self.gb_mask = QGroupBox("Set mask")
+        set_tooltip(self.gb_mask,
+                    "Load <b>mask</b> from file. Active pixels in the mask are "
+                    "represented by positive integers. If <b>spatial ROI</b> is "
+                    "selected, then it is applied to the masked data.")
         self.gb_mask.setCheckable(True)
         self.gb_mask.setChecked(False)  # Should be set based on data
         hbox = QHBoxLayout()
