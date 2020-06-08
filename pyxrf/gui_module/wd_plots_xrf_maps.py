@@ -198,6 +198,10 @@ class WndImageWizard(SecondaryWindow):
         pass
 
     def update_widget_state(self, condition=None):
+        # Update the state of the menu bar
+        state = not global_gui_variables["gui_state"]["running_computations"]
+        self.setEnabled(state)
+
         if condition == "tooltips":
             self._set_tooltips()
 

@@ -288,6 +288,8 @@ class WndComputeRoiMaps(SecondaryWindow):
 
         self.setLayout(vbox)
 
+        self._set_tooltips()
+
     def _setup_header(self):
         self.pb_clear = QPushButton("Clear")
         self.pb_use_lines_for_fitting = QPushButton("Use Lines Selected For Fitting")
@@ -346,13 +348,6 @@ class WndComputeRoiMaps(SecondaryWindow):
         ]
 
         self.fill_table(sample_content)
-
-    def _set_tooltips(self):
-        pass
-
-    def update_widget_state(self, condition=None):
-        if condition == "tooltips":
-            self._set_tooltips()
 
     def fill_table(self, table_contents):
 
@@ -436,6 +431,33 @@ class WndComputeRoiMaps(SecondaryWindow):
         hbox.addWidget(self.pb_compute_roi)
 
         return hbox
+
+    def _set_tooltips(self):
+        set_tooltip(self.pb_clear,
+                    "<b>Clear</b> the list")
+        set_tooltip(self.pb_use_lines_for_fitting,
+                    "Copy the contents of <b>the list of emission lines selected for "
+                    "fitting</b> to the list of ROIs")
+        set_tooltip(self.le_sel_emission_lines,
+                    "The list of <b>emission lines</b> selected for ROI computation.")
+
+        set_tooltip(self.table, "The list of ROIs")
+
+        set_tooltip(self.cb_subtract_background,
+                    "<b>Subtract baseline</b> from the pixel spectra before computing ROIs. "
+                    "Subtracting baseline slows down computations and usually have no benefit. "
+                    "In most cases it should remain <b>unchecked</b>.")
+        set_tooltip(self.pb_compute_roi,
+                    "<b>Run</b> computations of the ROIs. The resulting <b>ROI</b> dataset "
+                    "may be viewed in <b>XRF Maps</b> tab.")
+
+    def update_widget_state(self, condition=None):
+        # Update the state of the menu bar
+        state = not global_gui_variables["gui_state"]["running_computations"]
+        self.setEnabled(state)
+
+        if condition == "tooltips":
+            self._set_tooltips()
 
 
 # Two sets of quantitative calibration data for demonstration of GUI layout
@@ -646,6 +668,10 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
         pass
 
     def update_widget_state(self, condition=None):
+        # Update the state of the menu bar
+        state = not global_gui_variables["gui_state"]["running_computations"]
+        self.setEnabled(state)
+
         if condition == "tooltips":
             self._set_tooltips()
 

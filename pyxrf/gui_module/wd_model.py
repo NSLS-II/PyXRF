@@ -375,6 +375,8 @@ class WndManageEmissionLines(SecondaryWindow):
 
         self.setLayout(vbox)
 
+        self._set_tooltips()
+
     def _setup_select_elines(self):
 
         self.cb_select_all = QCheckBox("All")
@@ -418,14 +420,6 @@ class WndManageEmissionLines(SecondaryWindow):
         hbox.addStretch(1)
         return hbox
 
-    def _setup_select_deselect_buttons(self):
-        self.cb_select_all = QCheckBox("All")
-        self.cb_select_all.setChecked(True)
-        vbox = QVBoxLayout()
-        vbox.addSpacing(70)
-        vbox.addWidget(self.cb_select_all)
-        return vbox
-
     def _setup_elines_table(self):
         """The table has only functionality necessary to demonstrate how it is going
         to look. A lot more code is needed to actually make it run."""
@@ -468,10 +462,72 @@ class WndManageEmissionLines(SecondaryWindow):
 
         self.fill_eline_table(sample_table)
 
+    def _setup_action_buttons(self):
+
+        self.pb_update = QPushButton("Update")
+        self.pb_undo = QPushButton("Undo")
+
+        self.pb_remove_rel = QPushButton("Remove Rel.Int.(%) <")
+        self.le_remove_rel = QLineEdit("1.0")
+        self.pb_remove_unchecked = QPushButton("Remove Unchecked Lines")
+
+        hbox = QHBoxLayout()
+        vbox = QVBoxLayout()
+        vbox.addWidget(self.pb_undo)
+        vbox.addWidget(self.pb_update)
+        hbox.addLayout(vbox)
+        hbox.addSpacing(20)
+        vbox = QVBoxLayout()
+        hbox2 = QHBoxLayout()
+        hbox2.addWidget(self.pb_remove_rel)
+        hbox2.addWidget(self.le_remove_rel)
+        vbox.addLayout(hbox2)
+        vbox.addWidget(self.pb_remove_unchecked)
+        hbox.addLayout(vbox)
+        hbox.addStretch(1)
+        return hbox
+
     def _set_tooltips(self):
-        pass
+        set_tooltip(self.cb_select_all,
+                    "<b>Select/Deselect All</b> emission lines in the list")
+        set_tooltip(self.element_selection,
+                    "<b>Set active</b> emission line")
+        set_tooltip(self.le_peak_intensity,
+                    "Set or modify <b>intensity</b> of the active peak.")
+        set_tooltip(self.pb_add_eline,
+                    "<b>Add</b> emission line to the list.")
+        set_tooltip(self.pb_remove_eline,
+                    "<b>Remove</b> emission line from the list.")
+        set_tooltip(self.pb_user_peaks,
+                    "Open dialog box to add or modify parameters of the <b>user-defined peak</b>")
+        set_tooltip(self.pb_pileup_peaks,
+                    "Open dialog box to add or modify parameters of the <b>pileup peak</b>")
+
+        set_tooltip(self.tbl_elines,
+                    "The list of the selected <b>emission lines</b>")
+
+        set_tooltip(self.pb_update,
+                    "Update the internally stored list of selected emission lines "
+                    "and their parameters. This button is <b>deprecated</b>, but still may be "
+                    "needed in some situations. In future releases it will be <b>removed</b> or replaced "
+                    "with 'Accept' button. Substantial changes to the computational code is needed before "
+                    "it happens.")
+        set_tooltip(self.pb_undo,
+                    "<b>Undo</b> changes to the table of selected emission lines. Doesn't always work.")
+        set_tooltip(self.pb_remove_rel,
+                    "<b>Remove emission lines</b> from the list if their relative intensity is less "
+                    "then specified threshold.")
+        set_tooltip(self.le_remove_rel,
+                    "<b>Threshold</b> that controls which emission lines are removed "
+                    "when <b>Remove Rel.Int.(%)</b> button is pressed.")
+        set_tooltip(self.pb_remove_unchecked,
+                    "Remove <b>unchecked</b> emission lines from the list.")
 
     def update_widget_state(self, condition=None):
+        # Update the state of the menu bar
+        state = not global_gui_variables["gui_state"]["running_computations"]
+        self.setEnabled(state)
+
         if condition == "tooltips":
             self._set_tooltips()
 
@@ -522,31 +578,6 @@ class WndManageEmissionLines(SecondaryWindow):
                 item.setBackground(brush)
 
                 self.tbl_elines.setItem(nr, nc, item)
-
-    def _setup_action_buttons(self):
-
-        self.pb_update = QPushButton("Update")
-        self.pb_undo = QPushButton("Undo")
-
-        self.pb_remove_rel = QPushButton("Remove Rel.Int.(%) <")
-        self.le_remove_rel = QLineEdit("1.0")
-        self.pb_remove_unchecked = QPushButton("Remove Unchecked Lines")
-
-        hbox = QHBoxLayout()
-        vbox = QVBoxLayout()
-        vbox.addWidget(self.pb_undo)
-        vbox.addWidget(self.pb_update)
-        hbox.addLayout(vbox)
-        hbox.addSpacing(20)
-        vbox = QVBoxLayout()
-        hbox2 = QHBoxLayout()
-        hbox2.addWidget(self.pb_remove_rel)
-        hbox2.addWidget(self.le_remove_rel)
-        vbox.addLayout(hbox2)
-        vbox.addWidget(self.pb_remove_unchecked)
-        hbox.addLayout(vbox)
-        hbox.addStretch(1)
-        return hbox
 
     def pb_pileup_peaks_clicked(self):
         dlg = DialogPileupPeakParameters()
