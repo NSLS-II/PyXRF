@@ -629,6 +629,8 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
         self.display_loaded_standards()
         self.display_standard_selection_table()
 
+        self._set_tooltips()
+
     def _setup_tab_widget(self):
 
         self.tab_widget = QTabWidget()
@@ -663,17 +665,6 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
         frame.setLayout(vbox)
 
         self.tab_widget.addTab(frame, "Selected Emission Lines")
-
-    def _set_tooltips(self):
-        pass
-
-    def update_widget_state(self, condition=None):
-        # Update the state of the menu bar
-        state = not global_gui_variables["gui_state"]["running_computations"]
-        self.setEnabled(state)
-
-        if condition == "tooltips":
-            self._set_tooltips()
 
     def display_loaded_standards(self):
         calib_data = quant_calib
@@ -884,6 +875,35 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
             # So we can connect the button groups with the event processing function
             for bgroup in self.eline_rb_exclusive:
                 bgroup.buttonToggled.connect(self.rb_selection_toggled)
+
+    def _set_tooltips(self):
+        set_tooltip(self.pb_load_calib, "Load <b>calibration data</b> from JSON file.")
+        set_tooltip(self.cb_auto_update, "Automatically <b>update the plots</b> when changes are made. "
+                                         "If unchecked, then button <b>Update Plots</b> must be pressed "
+                                         "to update the plots. Automatic update is often undesirable "
+                                         "when large maps are displayed and multiple changes to parameters "
+                                         "are made.")
+        set_tooltip(self.pb_update_plots,
+                    "<b>Update plots</b> based on currently selected parameters.")
+        set_tooltip(self.le_distance_to_sample,
+                    "Distance between <b>the sample and the detector</b>. The ratio between of the distances "
+                    "during calibration and measurement is used to scale computed concentrations. "
+                    "If distance-to-sample is 0 for calibration or measurement, then no scaling is performed.")
+        set_tooltip(self.combo_set_table_header,
+                    "Use <b>Serial Number</b> or <b>Name</b> of the calibration standard "
+                    "in the header of the table")
+        set_tooltip(self.table,
+                    "Use Radio Buttons to select the <b>source of calibration data</b> for each emission line. "
+                    "This feature is needed if multiple loaded calibration files have data on the same "
+                    "emission line.")
+
+    def update_widget_state(self, condition=None):
+        # Update the state of the menu bar
+        state = not global_gui_variables["gui_state"]["running_computations"]
+        self.setEnabled(state)
+
+        if condition == "tooltips":
+            self._set_tooltips()
 
     def pb_load_calib_clicked(self):
         # TODO: Propagate current directory here and use it in the dialog call
