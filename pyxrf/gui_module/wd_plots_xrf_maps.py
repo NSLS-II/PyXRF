@@ -138,19 +138,19 @@ class WndImageWizard(SecondaryWindow):
         self.setMinimumWidth(500)
         self.resize(600, 600)
 
-        self.cb_all = QCheckBox("All")
+        self.cb_select_all = QCheckBox("All")
         self.cb_auto_update = QCheckBox("Auto")
-        self.pb_update_plot = QPushButton("Update Plots")
+        self.pb_update_plots = QPushButton("Update Plots")
 
         self._setup_table()
 
         vbox = QVBoxLayout()
 
         hbox = QHBoxLayout()
-        hbox.addWidget(self.cb_all)
+        hbox.addWidget(self.cb_select_all)
         hbox.addStretch(1)
         hbox.addWidget(self.cb_auto_update)
-        hbox.addWidget(self.pb_update_plot)
+        hbox.addWidget(self.pb_update_plots)
         vbox.addLayout(hbox)
 
         hbox = QHBoxLayout()
@@ -158,6 +158,8 @@ class WndImageWizard(SecondaryWindow):
         vbox.addLayout(hbox)
 
         self.setLayout(vbox)
+
+        self._set_tooltips()
 
     def _setup_table(self):
 
@@ -193,17 +195,6 @@ class WndImageWizard(SecondaryWindow):
             header.setDefaultAlignment(self.tbl_h_alignment[n])
 
         self.fill_table(sample_content)
-
-    def _set_tooltips(self):
-        pass
-
-    def update_widget_state(self, condition=None):
-        # Update the state of the menu bar
-        state = not global_gui_variables["gui_state"]["running_computations"]
-        self.setEnabled(state)
-
-        if condition == "tooltips":
-            self._set_tooltips()
 
     def fill_table(self, table_contents):
 
@@ -253,3 +244,25 @@ class WndImageWizard(SecondaryWindow):
             table_width += self.table.columnWidth(n_col)
         self.table.setFixedWidth(table_width + 150)
         self.setFixedWidth(table_width + 170)
+
+    def _set_tooltips(self):
+        set_tooltip(self.cb_select_all,
+                    "<b>Select/Deselect All</b> emission lines in the list")
+        set_tooltip(self.cb_auto_update, "Automatically <b>update the plots</b> when changes are made. "
+                                         "If unchecked, then button <b>Update Plots</b> must be pressed "
+                                         "to update the plots. Automatic update is often undesirable "
+                                         "when large maps are displayed and multiple changes to parameters "
+                                         "are made.")
+        set_tooltip(self.pb_update_plots,
+                    "<b>Update plots</b> based on currently selected parameters.")
+        set_tooltip(self.table,
+                    "Choose <b>emission lines</b> from the currently selected dataset and "
+                    "select the <b>range of intensity</b> for each emission line")
+
+    def update_widget_state(self, condition=None):
+        # Update the state of the menu bar
+        state = not global_gui_variables["gui_state"]["running_computations"]
+        self.setEnabled(state)
+
+        if condition == "tooltips":
+            self._set_tooltips()
