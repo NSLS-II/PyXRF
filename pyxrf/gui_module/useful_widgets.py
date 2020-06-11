@@ -9,6 +9,7 @@ global_gui_parameters = {
 
 global_gui_variables = {
     "gui_state": {
+        "databroker_available": False,
         "running_computations": False
     },
     "show_tooltip": True,

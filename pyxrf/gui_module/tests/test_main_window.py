@@ -1,14 +1,17 @@
 from pyxrf.gui_module.main_window import MainWindow
 from PyQt5.QtWidgets import QMessageBox
+from pyxrf.gui_support.gpc_class import GlobalProcessingClasses
 
 
-def test_MainWindow(qtbot, monkeypatch):
+def test_MainWindow(qtbot, caplog, monkeypatch):
     """
     Simple test that opens and closes the main window and
     checks the window dimensions
     """
+    gpc = GlobalProcessingClasses()
+    gpc.initialize()
 
-    window = MainWindow()
+    window = MainWindow(gpc=gpc)
     window.show()
 
     qtbot.addWidget(window)

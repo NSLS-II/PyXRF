@@ -4,7 +4,7 @@ from datetime import datetime
 from PyQt5.QtWidgets import (QMainWindow, QMessageBox, QLabel, QAction,
                              QDialog, QVBoxLayout, QDialogButtonBox, QHBoxLayout,
                              QProgressBar)
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSlot
 
 from .central_widget import TwoPanelWidget
 from .useful_widgets import global_gui_variables
@@ -24,8 +24,16 @@ _main_window_geometry = {
 
 class MainWindow(QMainWindow):
 
-    def __init__(self):
+    def __init__(self, *, gpc):
+        """
+        Parameters
+        ----------
+        gpc: object
+            reference to a class that holds references to processing classes.
+        """
         super().__init__()
+
+        self.gpc = gpc
 
         global_gui_variables["ref_main_window"] = self
         self.wnd_manage_emission_lines = WndManageEmissionLines()
@@ -37,6 +45,9 @@ class MainWindow(QMainWindow):
 
         self.initialize()
 
+        self.central_widget.left_panel.load_data_widget.\
+            update_main_window_title.connect(self.update_window_title)
+
     def initialize(self):
 
         self.resize(_main_window_geometry["initial_width"],
@@ -45,7 +56,7 @@ class MainWindow(QMainWindow):
         self.setMinimumWidth(_main_window_geometry["min_width"])
         self.setMinimumHeight(_main_window_geometry["min_height"])
 
-        self.setWindowTitle("PyXRF window title")
+        self.setWindowTitle(self.gpc.io_model.window_title)
 
         self.central_widget = TwoPanelWidget()
         self.setCentralWidget(self.central_widget)
@@ -68,6 +79,7 @@ class MainWindow(QMainWindow):
             self.central_widget.left_panel.load_data_widget.pb_file.clicked)
 
         action_load_run = QAction("&Load Run...", self)
+        action_load_run.setEnabled(global_gui_variables["gui_state"]["databroker_available"])
         action_load_run.setStatusTip('Load data from database (Databroker)')
         action_load_run.triggered.connect(
             self.central_widget.left_panel.load_data_widget.pb_dbase.clicked)
@@ -267,6 +279,10 @@ class MainWindow(QMainWindow):
         """
         global_gui_variables["show_tooltip"] = state
         self.update_widget_state("tooltips")
+
+    @pyqtSlot()
+    def update_window_title(self):
+        self.setWindowTitle(self.gpc.io_model.window_title)
 
 
 class DialogAbout(QDialog):

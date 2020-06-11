@@ -5,16 +5,19 @@ from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout,
                              QComboBox, QListWidget, QListWidgetItem,
                              QDialog, QDialogButtonBox, QFileDialog,
                              QRadioButton, QButtonGroup, QGridLayout,
-                             QTextEdit)
-from PyQt5.QtCore import Qt
+                             QTextEdit, QMessageBox)
+from PyQt5.QtCore import Qt, pyqtSignal
 
 from .useful_widgets import (LineEditReadOnly, adjust_qlistwidget_height,
                              global_gui_parameters, PushButtonMinimumWidth,
                              set_tooltip)
 from .form_base_widget import FormBaseWidget
+from .useful_widgets import global_gui_variables
 
 
 class LoadDataWidget(FormBaseWidget):
+
+    update_main_window_title = pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -23,6 +26,8 @@ class LoadDataWidget(FormBaseWidget):
     def initialize(self):
 
         v_spacing = global_gui_parameters["vertical_spacing_in_tabs"]
+        self.ref_main_window = global_gui_variables["ref_main_window"]
+        self.gpc = self.ref_main_window.gpc
 
         vbox = QVBoxLayout()
 
@@ -60,7 +65,7 @@ class LoadDataWidget(FormBaseWidget):
         self.le_wd = LineEditReadOnly()
 
         # Initial working directory. Set to the HOME directory for now
-        current_dir = os.path.expanduser("~")
+        current_dir = os.path.expanduser(self.gpc.io_model.working_directory)
         self.le_wd.setText(current_dir)
 
         hbox = QHBoxLayout()
@@ -77,13 +82,18 @@ class LoadDataWidget(FormBaseWidget):
         self.pb_file.clicked.connect(self.pb_file_clicked)
 
         self.pb_dbase = QPushButton("Load Run ...")
+        self.pb_dbase.setEnabled(global_gui_variables["gui_state"]["databroker_available"])
         self.pb_dbase.clicked.connect(self.pb_dbase_clicked)
 
         self.cb_file_all_channels = QCheckBox("All channels")
+        self.cb_file_all_channels.setChecked(self.gpc.io_model.load_each_channel)
+        self.cb_file_all_channels.toggled.connect(self.cb_file_all_channels_toggled)
 
-        self.le_file = LineEditReadOnly("No data is loaded")
+        self.le_file_default = "No data is loaded"
+        self.le_file = LineEditReadOnly(self.le_file_default)
 
         self.pb_view_metadata = QPushButton("View Metadata ...")
+        self.pb_view_metadata.setEnabled(False)
         self.pb_view_metadata.clicked.connect(self.pb_view_metadata_clicked)
 
         vbox = QVBoxLayout()
@@ -191,16 +201,55 @@ class LoadDataWidget(FormBaseWidget):
             self, "Select Working Directory", dir_current,
             QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks)
         if dir:
+            self.gpc.io_model.working_directory = dir
             self.le_wd.setText(dir)
 
     def pb_file_clicked(self):
-        dir_current = self.le_wd.text()
-        file_name = QFileDialog.getOpenFileName(self, "Open Data File",
-                                                dir_current,
-                                                "HDF5 (*.h5);; All (*)")
-        file_name = file_name[0]
-        if file_name:
-            print(f"Opening file: {file_name}")
+        dir_current = self.gpc.io_model.working_directory
+        file_paths = QFileDialog.getOpenFileName(self, "Open Data File",
+                                                 dir_current,
+                                                 "HDF5 (*.h5);; All (*)")
+        file_path = file_paths[0]
+        if file_path:
+            try:
+                msg = self.gpc.open_data_file(file_path)
+
+                file_text = f"'{self.gpc.io_model.file_name}'"
+                if self.gpc.io_model.scan_metadata_available:
+                    file_text += f": ID#{self.gpc.io_model.scan_metadata['scan_id']}"
+                self.le_file.setText(file_text)
+
+                # Disable the button for changing working directory. This is consistent
+                #   with the behavior of the old PyXRF, but will be changed in the future.
+                self.pb_set_wd.setEnabled(False)
+
+                # Enable/disable 'View Metadata' button
+                self.pb_view_metadata.setEnabled(self.gpc.io_model.scan_metadata_available)
+                self.le_wd.setText(self.gpc.io_model.working_directory)
+
+                self.update_main_window_title.emit()
+
+                if msg:
+                    # Display warning message if it was generated
+                    msgbox = QMessageBox(QMessageBox.Warning, "Warning",
+                                         msg, QMessageBox.Ok, parent=self)
+                    msgbox.exec()
+
+            except Exception as ex:
+                self.le_file.setText(self.le_file_default)
+
+                # Disable 'View Metadata' button
+                self.pb_view_metadata.setEnabled(False)
+                self.le_wd.setText(self.gpc.io_model.working_directory)
+
+                self.update_main_window_title.emit()
+
+                msg = f"Incorrect format of input file '{file_path}': "\
+                      f"PyXRF accepts only custom HDF (.h5) files."\
+                      f"\n\nError message: {ex}"
+                msgbox = QMessageBox(QMessageBox.Critical, "Error",
+                                     msg, QMessageBox.Ok, parent=self)
+                msgbox.exec()
 
     def pb_dbase_clicked(self):
 
@@ -217,7 +266,12 @@ class LoadDataWidget(FormBaseWidget):
     def pb_view_metadata_clicked(self):
 
         dlg = DialogViewMetadata()
+        metadata_string = self.gpc.io_model.scan_metadata.get_formatted_output()
+        dlg.setText(metadata_string)
         dlg.exec()
+
+    def cb_file_all_channels_toggled(self, state):
+        self.gpc.io_model.load_each_channel = state
 
 
 class DialogSelectScan(QDialog):
@@ -365,9 +419,6 @@ class DialogViewMetadata(QDialog):
 
         self.te_meta = QTextEdit()
         self.te_meta.setReadOnly(True)
-        txt = "This field will contain metadata for the loaded run.\n"\
-              "QTextEdit may be later replaced by the QTable widget."
-        self.te_meta.setText(txt)
 
         # 'Close' button box
         button_box = QDialogButtonBox(
@@ -379,3 +430,6 @@ class DialogViewMetadata(QDialog):
         vbox.addWidget(self.te_meta)
         vbox.addWidget(button_box)
         self.setLayout(vbox)
+
+    def setText(self, text):
+        self.te_meta.setText(text)

@@ -4,11 +4,19 @@ from PyQt5.QtWidgets import QApplication, QStyleFactory
 from PyQt5.QtGui import QFontDatabase
 # from PyQt5.QtCore import Qt
 
-from .gui_support.startup import pyxrf_startup
+from .gui_support.gpc_class import GlobalProcessingClasses
 from .gui_module.main_window import MainWindow
+from .gui_module.useful_widgets import global_gui_variables
 
 import logging
 logger = logging.getLogger()
+
+try:
+    import databroker  # noqa: F401
+except ImportError:
+    global_gui_variables["gui_state"]["databroker_available"] = False
+else:
+    global_gui_variables["gui_state"]["databroker_available"] = True
 
 
 # if hasattr(Qt, 'AA_EnableHighDpiScaling'):
@@ -21,7 +29,9 @@ logger = logging.getLogger()
 def run():
     """Run the application"""
 
-    pyxrf_startup()
+    gpc = GlobalProcessingClasses()
+    gpc.initialize()
+
     app = QApplication(sys.argv)
 
     # The default font looks bad on Windows, so one of the following (commonly available)
@@ -60,7 +70,7 @@ def run():
         font.setFamily(selected_font_family)
     app.setFont(font)
 
-    main_window = MainWindow()
+    main_window = MainWindow(gpc=gpc)
     main_window.show()
     sys.exit(app.exec_())
 
