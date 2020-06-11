@@ -738,21 +738,21 @@ class Fit1D(Atom):
     def update_strategy1(self, change):
         self.all_strategy.update({'strategy1': change['value']})
         if change['value']:
-            logger.info('Strategy at step 1 is: {}'.
+            logger.info('Setting strategy (preset) for step 1: {}'.
                         format(fit_strategy_list[change['value']-1]))
 
     @observe('fit_strategy2')
     def update_strategy2(self, change):
         self.all_strategy.update({'strategy2': change['value']})
         if change['value']:
-            logger.info('Strategy at step 2 is: {}'.
+            logger.info('Setting strategy (preset) for step 2: {}'.
                         format(fit_strategy_list[change['value']-1]))
 
     @observe('fit_strategy3')
     def update_strategy3(self, change):
         self.all_strategy.update({'strategy3': change['value']})
         if change['value']:
-            logger.info('Strategy at step 3 is: {}'.
+            logger.info('Setting strategy (preset) for step 3: {}'.
                         format(fit_strategy_list[change['value']-1]))
 
     @observe('fit_strategy4')
