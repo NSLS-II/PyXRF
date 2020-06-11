@@ -4,7 +4,12 @@ from PyQt5.QtWidgets import QApplication, QStyleFactory
 from PyQt5.QtGui import QFontDatabase
 # from PyQt5.QtCore import Qt
 
+from .gui_support.startup import pyxrf_startup
 from .gui_module.main_window import MainWindow
+
+import logging
+logger = logging.getLogger()
+
 
 # if hasattr(Qt, 'AA_EnableHighDpiScaling'):
 #     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
@@ -15,6 +20,8 @@ from .gui_module.main_window import MainWindow
 
 def run():
     """Run the application"""
+
+    pyxrf_startup()
     app = QApplication(sys.argv)
 
     # The default font looks bad on Windows, so one of the following (commonly available)
@@ -38,8 +45,8 @@ def run():
 
     available_styles = list(QStyleFactory().keys())
     if style not in available_styles:
-        print(f"Current OS: {current_os}")
-        print(f"Style '{style}' is not in the list of available styles {available_styles}.")
+        logger.info(f"Current OS: {current_os}")
+        logger.info(f"Style '{style}' is not in the list of available styles {available_styles}.")
     app.setStyle(style)
     app.setApplicationName("PyXRF")
     # app.setStyleSheet('QWidget {font: "Roboto Mono"; font-size: 14px}')
@@ -49,7 +56,7 @@ def run():
     font = app.font()
     font.setPixelSize(14)
     if selected_font_family:
-        print(f"Replacing the default font with '{selected_font_family}'")
+        logger.info(f"Replacing the default font with '{selected_font_family}'")
         font.setFamily(selected_font_family)
     app.setFont(font)
 
