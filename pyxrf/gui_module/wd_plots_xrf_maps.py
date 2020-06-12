@@ -4,18 +4,23 @@ from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout, QComboBo
 from PyQt5.QtGui import QBrush, QColor
 from PyQt5.QtCore import Qt
 
-from .useful_widgets import global_gui_variables, RangeManager, SecondaryWindow, set_tooltip
+from .useful_widgets import RangeManager, SecondaryWindow, set_tooltip
 
 
 class PlotXrfMaps(QWidget):
 
-    def __init__(self):
+    def __init__(self, *, gpc, gui_vars):
         super().__init__()
+
+        # Global processing classes
+        self.gpc = gpc
+        # Global GUI variables (used for control of GUI state)
+        self.gui_vars = gui_vars
 
         # Reference to the main window. The main window will hold
         #   references to all non-modal windows that could be opened
         #   from multiple places in the program.
-        self.ref_main_window = global_gui_variables["ref_main_window"]
+        self.ref_main_window = self.gui_vars["ref_main_window"]
 
         self.combo_select_dataset = QComboBox()
         sample_datasets = ["scan2D_28844_amk_fit", "scan2D_28844_amk_roi",
@@ -127,8 +132,14 @@ class PlotXrfMaps(QWidget):
 
 class WndImageWizard(SecondaryWindow):
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, *, gpc, gui_vars):
+        super().__init__()
+
+        # Global processing classes
+        self.gpc = gpc
+        # Global GUI variables (used for control of GUI state)
+        self.gui_vars = gui_vars
+
         self.initialize()
 
     def initialize(self):
@@ -261,7 +272,7 @@ class WndImageWizard(SecondaryWindow):
 
     def update_widget_state(self, condition=None):
         # Update the state of the menu bar
-        state = not global_gui_variables["gui_state"]["running_computations"]
+        state = not self.gui_vars["gui_state"]["running_computations"]
         self.setEnabled(state)
 
         if condition == "tooltips":

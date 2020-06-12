@@ -8,10 +8,15 @@ global_gui_parameters = {
 }
 
 global_gui_variables = {
+    # Reference to main window
+    "ref_main_window": None,
+    # The flags that control current GUI state
+    # (global state that determines if elements are enabled/visible)
     "gui_state": {
         "databroker_available": False,
         "running_computations": False
     },
+    # Indicates if tooltips must be shown
     "show_tooltip": True,
 }
 

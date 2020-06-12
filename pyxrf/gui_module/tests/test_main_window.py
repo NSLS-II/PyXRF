@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import QMessageBox
 from pyxrf.gui_support.gpc_class import GlobalProcessingClasses
 
 
-def test_MainWindow(qtbot, caplog, monkeypatch):
+def test_MainWindow(qtbot, monkeypatch):
     """
     Simple test that opens and closes the main window and
     checks the window dimensions

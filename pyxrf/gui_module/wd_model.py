@@ -7,14 +7,15 @@ from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox, Q
                              QFileDialog, QRadioButton, QButtonGroup, QGridLayout, QTableWidget,
                              QTableWidgetItem, QHeaderView)
 from PyQt5.QtGui import QBrush, QColor
-from PyQt5.QtCore import Qt, pyqtSlot, QTimer
+from PyQt5.QtCore import Qt, pyqtSlot, QTimer, pyqtSignal
 
-from .useful_widgets import (LineEditReadOnly, global_gui_parameters, global_gui_variables,
-                             ElementSelection, get_background_css, SecondaryWindow,
-                             set_tooltip)
+from .useful_widgets import (LineEditReadOnly, global_gui_parameters, ElementSelection,
+                             get_background_css, SecondaryWindow, set_tooltip)
 
 from .form_base_widget import FormBaseWidget
 
+import logging
+logger = logging.getLogger()
 
 _fitting_preset_names = {
     "None": "None",
@@ -30,16 +31,27 @@ _fitting_preset_names = {
 
 class ModelWidget(FormBaseWidget):
 
-    def __init__(self):
-        super().__init__()
-        self.initialize()
+    # Signal that is sent (to main window) to update global state of the program
+    update_global_state = pyqtSignal()
 
-    def initialize(self):
+    def __init__(self, *, gpc, gui_vars):
+        super().__init__()
+
+        # Global processing classes
+        self.gpc = gpc
+        # Global GUI variables (used for control of GUI state)
+        self.gui_vars = gui_vars
 
         # Reference to the main window. The main window will hold
         #   references to all non-modal windows that could be opened
         #   from multiple places in the program.
-        self.ref_main_window = global_gui_variables["ref_main_window"]
+        self.ref_main_window = self.gui_vars["ref_main_window"]
+
+        self.update_global_state.connect(self.ref_main_window.update_widget_state)
+
+        self.initialize()
+
+    def initialize(self):
 
         v_spacing = global_gui_parameters["vertical_spacing_in_tabs"]
 
@@ -323,8 +335,8 @@ class ModelWidget(FormBaseWidget):
 
     def pb_start_fitting_clicked(self):
 
-        global_gui_variables["gui_state"]["running_computations"] = True
-        self.ref_main_window.update_widget_state()
+        self.gui_vars["gui_state"]["running_computations"] = True
+        self.update_global_state.emit()
 
         if not self._timer:
             self._timer = QTimer()
@@ -346,15 +358,20 @@ class ModelWidget(FormBaseWidget):
             status_bar = self.ref_main_window.statusBar()
             status_bar.showMessage("Total spectrum fitting is successfully completed. "
                                    "Results are presented in 'Fitting Model' tab.", 5000)
-            global_gui_variables["gui_state"]["running_computations"] = False
-            self.ref_main_window.update_widget_state()
+            self.gui_vars["gui_state"]["running_computations"] = False
+            self.update_global_state.emit()
 
 
 class WndManageEmissionLines(SecondaryWindow):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self,  *, gpc, gui_vars):
+        super().__init__()
 
-        super().__init__(*args, **kwargs)
+        # Global processing classes
+        self.gpc = gpc
+        # Global GUI variables (used for control of GUI state)
+        self.gui_vars = gui_vars
+
         self.initialize()
 
     def initialize(self):
@@ -529,7 +546,7 @@ class WndManageEmissionLines(SecondaryWindow):
 
     def update_widget_state(self, condition=None):
         # Update the state of the menu bar
-        state = not global_gui_variables["gui_state"]["running_computations"]
+        state = not self.gui_vars["gui_state"]["running_computations"]
         self.setEnabled(state)
 
         if condition == "tooltips":

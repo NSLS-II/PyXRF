@@ -12,21 +12,26 @@ from .useful_widgets import (LineEditReadOnly, adjust_qlistwidget_height,
                              global_gui_parameters, PushButtonMinimumWidth,
                              set_tooltip)
 from .form_base_widget import FormBaseWidget
-from .useful_widgets import global_gui_variables
 
 
 class LoadDataWidget(FormBaseWidget):
 
     update_main_window_title = pyqtSignal()
 
-    def __init__(self):
+    def __init__(self,  *, gpc, gui_vars):
         super().__init__()
+
+        # Global processing classes
+        self.gpc = gpc
+        # Global GUI variables (used for control of GUI state)
+        self.gui_vars = gui_vars
+
         self.initialize()
 
     def initialize(self):
 
         v_spacing = global_gui_parameters["vertical_spacing_in_tabs"]
-        self.ref_main_window = global_gui_variables["ref_main_window"]
+        self.ref_main_window = self.gui_vars["ref_main_window"]
         self.gpc = self.ref_main_window.gpc
 
         vbox = QVBoxLayout()
@@ -82,7 +87,7 @@ class LoadDataWidget(FormBaseWidget):
         self.pb_file.clicked.connect(self.pb_file_clicked)
 
         self.pb_dbase = QPushButton("Load Run ...")
-        self.pb_dbase.setEnabled(global_gui_variables["gui_state"]["databroker_available"])
+        self.pb_dbase.setEnabled(self.gui_vars["gui_state"]["databroker_available"])
         self.pb_dbase.clicked.connect(self.pb_dbase_clicked)
 
         self.cb_file_all_channels = QCheckBox("All channels")

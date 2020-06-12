@@ -9,13 +9,18 @@ from .useful_widgets import global_gui_variables
 
 class RightPanel(QTabWidget):
 
-    def __init__(self):
+    def __init__(self, *, gpc, gui_vars):
         super().__init__()
 
-        self.addTab(PreviewPlots(), "Preview")
-        self.addTab(PlotFittingModel(), "Fitting Model")
-        self.addTab(PlotXrfMaps(), "XRF Maps")
-        self.addTab(PlotRgbMaps(), "RGB")
+        # Global processing classes
+        self.gpc = gpc
+        # Global GUI variables (used for control of GUI state)
+        self.gui_vars = gui_vars
+
+        self.addTab(PreviewPlots(gpc=self.gpc, gui_vars=self.gui_vars), "Preview")
+        self.addTab(PlotFittingModel(gpc=self.gpc, gui_vars=self.gui_vars), "Fitting Model")
+        self.addTab(PlotXrfMaps(gpc=self.gpc, gui_vars=self.gui_vars), "XRF Maps")
+        self.addTab(PlotRgbMaps(gpc=self.gpc, gui_vars=self.gui_vars), "RGB")
 
     def update_widget_state(self, condition=None):
         # TODO: this function has to enable tabs and widgets based on the current program state

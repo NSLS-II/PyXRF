@@ -7,8 +7,13 @@ from .useful_widgets import RangeManager, get_background_css, set_tooltip
 
 class PlotRgbMaps(QWidget):
 
-    def __init__(self):
+    def __init__(self, *, gpc, gui_vars):
         super().__init__()
+
+        # Global processing classes
+        self.gpc = gpc
+        # Global GUI variables (used for control of GUI state)
+        self.gui_vars = gui_vars
 
         self.combo_select_dataset = QComboBox()
         sample_datasets = ["scan2D_28844_amk_fit", "scan2D_28844_amk_roi",

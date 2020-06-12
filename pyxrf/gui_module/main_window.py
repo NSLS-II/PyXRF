@@ -34,12 +34,17 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.gpc = gpc
+        self.gui_vars = global_gui_variables
+        self.gui_vars["ref_main_window"] = self
 
-        global_gui_variables["ref_main_window"] = self
-        self.wnd_manage_emission_lines = WndManageEmissionLines()
-        self.wnd_compute_roi_maps = WndComputeRoiMaps()
-        self.wnd_image_wizard = WndImageWizard()
-        self.wnd_load_quantitative_calibration = WndLoadQuantitativeCalibration()
+        self.wnd_manage_emission_lines = WndManageEmissionLines(
+            gpc=self.gpc, gui_vars=self.gui_vars)
+        self.wnd_compute_roi_maps = WndComputeRoiMaps(
+            gpc=self.gpc, gui_vars=self.gui_vars)
+        self.wnd_image_wizard = WndImageWizard(
+            gpc=self.gpc, gui_vars=self.gui_vars)
+        self.wnd_load_quantitative_calibration = WndLoadQuantitativeCalibration(
+            gpc=self.gpc, gui_vars=self.gui_vars)
         # Indicates that the window was closed (used mostly for testing)
         self._is_closed = False
 
@@ -58,7 +63,7 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle(self.gpc.io_model.window_title)
 
-        self.central_widget = TwoPanelWidget()
+        self.central_widget = TwoPanelWidget(gpc=self.gpc, gui_vars=self.gui_vars)
         self.setCentralWidget(self.central_widget)
 
         # Status bar
@@ -79,7 +84,7 @@ class MainWindow(QMainWindow):
             self.central_widget.left_panel.load_data_widget.pb_file.clicked)
 
         action_load_run = QAction("&Load Run...", self)
-        action_load_run.setEnabled(global_gui_variables["gui_state"]["databroker_available"])
+        action_load_run.setEnabled(self.gui_vars["gui_state"]["databroker_available"])
         action_load_run.setStatusTip('Load data from database (Databroker)')
         action_load_run.triggered.connect(
             self.central_widget.left_panel.load_data_widget.pb_dbase.clicked)
@@ -197,7 +202,7 @@ class MainWindow(QMainWindow):
 
         action_show_widget_tooltips = QAction("Show &Tooltips", self)
         action_show_widget_tooltips.setCheckable(True)
-        action_show_widget_tooltips.setChecked(global_gui_variables["show_tooltip"])
+        action_show_widget_tooltips.setChecked(self.gui_vars["show_tooltip"])
         action_show_widget_tooltips.setStatusTip(
             "Show widget tooltips")
         action_show_widget_tooltips.toggled.connect(self.action_show_widget_tooltips_toggled)
@@ -222,9 +227,11 @@ class MainWindow(QMainWindow):
 
         self.update_widget_state()
 
+    @pyqtSlot()
+    @pyqtSlot(str)
     def update_widget_state(self, condition=None):
         # Update the state of the menu bar
-        state = not global_gui_variables["gui_state"]["running_computations"]
+        state = not self.gui_vars["gui_state"]["running_computations"]
         self.menuBar().setEnabled(state)
 
         # Forward to children
@@ -277,7 +284,7 @@ class MainWindow(QMainWindow):
         """
         Turn tooltips on or off
         """
-        global_gui_variables["show_tooltip"] = state
+        self.gui_vars["show_tooltip"] = state
         self.update_widget_state("tooltips")
 
     @pyqtSlot()

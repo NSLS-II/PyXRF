@@ -8,8 +8,13 @@ from .useful_widgets import LineEditReadOnly, ElementSelection, set_tooltip
 
 class PlotFittingModel(QWidget):
 
-    def __init__(self):
+    def __init__(self, *, gpc, gui_vars):
         super().__init__()
+
+        # Global processing classes
+        self.gpc = gpc
+        # Global GUI variables (used for control of GUI state)
+        self.gui_vars = gui_vars
 
         self.cb_plot_type = QComboBox()
         self.cb_plot_type.addItems(["LinLog", "Linear"])

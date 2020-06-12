@@ -6,9 +6,14 @@ from .right_panel import RightPanel
 
 class TwoPanelWidget(QSplitter):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *, gpc, gui_vars):
 
         super().__init__(Qt.Horizontal)
+
+        # Global processing classes
+        self.gpc = gpc
+        # Global GUI variables (used for control of GUI state)
+        self.gui_vars = gui_vars
 
         self.frame_left = QFrame(self)
         self.frame_left.setFrameShape(QFrame.StyledPanel)
@@ -20,12 +25,12 @@ class TwoPanelWidget(QSplitter):
         self.addWidget(self.frame_right)
 
         hbox = QHBoxLayout()
-        self.left_panel = LeftPanel()
+        self.left_panel = LeftPanel(gpc=self.gpc, gui_vars=self.gui_vars)
         hbox.addWidget(self.left_panel)
         self.frame_left.setLayout(hbox)
 
         hbox = QHBoxLayout()
-        self.right_panel = RightPanel()
+        self.right_panel = RightPanel(gpc=self.gpc, gui_vars=self.gui_vars)
         hbox.addWidget(self.right_panel)
         self.frame_right.setLayout(hbox)
 

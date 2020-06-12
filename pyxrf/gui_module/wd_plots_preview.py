@@ -7,12 +7,17 @@ from .useful_widgets import RangeManager, set_tooltip
 
 class PreviewPlots(QTabWidget):
 
-    def __init__(self):
+    def __init__(self, *, gpc, gui_vars):
         super().__init__()
 
-        self.preview_plot_spectrum = PreviewPlotSpectrum()
+        # Global processing classes
+        self.gpc = gpc
+        # Global GUI variables (used for control of GUI state)
+        self.gui_vars = gui_vars
+
+        self.preview_plot_spectrum = PreviewPlotSpectrum(gpc=self.gpc, gui_vars=self.gui_vars)
         self.addTab(self.preview_plot_spectrum, "Total Spectrum")
-        self.preview_plot_count = PreviewPlotCount()
+        self.preview_plot_count = PreviewPlotCount(gpc=self.gpc, gui_vars=self.gui_vars)
         self.addTab(self.preview_plot_count, "Total Count")
 
     def update_widget_state(self, condition=None):
@@ -22,8 +27,13 @@ class PreviewPlots(QTabWidget):
 
 class PreviewPlotSpectrum(QWidget):
 
-    def __init__(self):
+    def __init__(self, *, gpc, gui_vars):
         super().__init__()
+
+        # Global processing classes
+        self.gpc = gpc
+        # Global GUI variables (used for control of GUI state)
+        self.gui_vars = gui_vars
 
         self.cb_plot_type = QComboBox()
         self.cb_plot_type.addItems(["LinLog", "Linear"])
@@ -81,8 +91,13 @@ class PreviewPlotSpectrum(QWidget):
 
 class PreviewPlotCount(QWidget):
 
-    def __init__(self):
+    def __init__(self, *, gpc, gui_vars):
         super().__init__()
+
+        # Global processing classes
+        self.gpc = gpc
+        # Global GUI variables (used for control of GUI state)
+        self.gui_vars = gui_vars
 
         self.cb_color_scheme = QComboBox()
         # TODO: make color schemes global
