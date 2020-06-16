@@ -312,7 +312,9 @@ def prepare_xrf_map(data, chunk_pixels=5000, n_chunks_min=4):
         spectrum points for each pixel.
     n_chunks_min: int
         Minimum number of chunks. The algorithm will try to split the map into the number
-        of chunks equal or greater than `n_chunks_min`.
+        of chunks equal or greater than `n_chunks_min`. If HDF5 dataset is not chunked,
+        then the whole map is treated as one chunk. This should happen only to very small
+        files, so parallelism is not important.
 
     Returns
     -------
@@ -352,10 +354,15 @@ def prepare_xrf_map(data, chunk_pixels=5000, n_chunks_min=4):
             raise TypeError(f"Dataset '{dset_name}' in file '{fpath}' has {dset.ndim} dimensions: "
                             f"3D dataset is expected")
         ny, nx, ne = dset.shape
-        chunk_size = _compute_optimal_chunk_size(chunk_pixels=chunk_pixels,
-                                                 data_chunksize=dset.chunks[0:2],
-                                                 data_shape=(ny, nx),
-                                                 n_chunks_min=n_chunks_min)
+
+        if dset.chunks:
+            chunk_size = _compute_optimal_chunk_size(chunk_pixels=chunk_pixels,
+                                                     data_chunksize=dset.chunks[0:2],
+                                                     data_shape=(ny, nx),
+                                                     n_chunks_min=n_chunks_min)
+        else:
+            # The data is not chunked. Process data as one chunk.
+            chunk_size = (ny, nx)
         data = da.from_array(dset, chunks=(*chunk_size, ne))
     else:
         raise TypeError(f"Type of parameter 'data' is not supported: type(data)={type(data)}")
