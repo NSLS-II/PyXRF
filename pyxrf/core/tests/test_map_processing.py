@@ -268,7 +268,7 @@ def test_array_numpy_to_dask_fail(data):
         _array_numpy_to_dask(data, (5, 2))
 
 
-def _create_xrf_data(data_dask, data_representation, tmpdir):
+def _create_xrf_data(data_dask, data_representation, tmpdir, *, chunked_HDF5=True):
     """Prepare data represented as numpy array, dask array (no change) or HDF5 dataset"""
     if data_representation == "numpy_array":
         data = data_dask.compute()
@@ -281,8 +281,11 @@ def _create_xrf_data(data_dask, data_representation, tmpdir):
         with h5py.File(fln, "w") as f:
             # In this test all computations are performed using 'float64' precision,
             #   so we create the dataset with dtype="float64" for consistency.
-            dset = f.create_dataset(dset_name, shape=data_dask.shape,
-                                    chunks=data_dask.chunksize, dtype="float64")
+            kwargs = {"shape": data_dask.shape,
+                      "dtype": "float64"}
+            if chunked_HDF5:
+                kwargs.update({"chunks": data_dask.chunksize})
+            dset = f.create_dataset(dset_name, **kwargs)
             dset[:, :, :] = data_dask.compute()
         data = RawHDF5Dataset(fln, dset_name, shape=data_dask.shape)
     else:
@@ -345,6 +348,23 @@ def test_prepare_xrf_data(tmpdir, data_representation):
 
     assert data.chunksize[0] * data.chunksize[1] == 12, f"Dataset was not properly chunked: "\
                                                         f"data.chunksize={data.chunksize}"
+
+    npt.assert_array_almost_equal(data.compute(), data_numpy,
+                                  err_msg="Prepared dataset is different from the original")
+
+
+def test_prepare_xrf_data_hdf5_not_chunked(tmpdir):
+    # Start with dask array
+    data_shape = (7, 12, 20)
+    data_dask = da.random.random(data_shape, chunks=(2, 3, 4))
+    data_numpy = data_dask.compute()
+
+    data = _create_xrf_data(data_dask, "hdf5_file_dset", tmpdir, chunked_HDF5=False)
+
+    data, file_obj = prepare_xrf_map(data, chunk_pixels=12, n_chunks_min=4)
+
+    assert (data.chunksize[0] == 7) and (data.chunksize[1] == 12), \
+        f"Dataset was not properly chunked: data.chunksize={data.chunksize}"
 
     npt.assert_array_almost_equal(data.compute(), data_numpy,
                                   err_msg="Prepared dataset is different from the original")
