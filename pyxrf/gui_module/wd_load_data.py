@@ -10,13 +10,14 @@ from PyQt5.QtCore import Qt, pyqtSignal
 
 from .useful_widgets import (LineEditReadOnly, adjust_qlistwidget_height,
                              global_gui_parameters, PushButtonMinimumWidth,
-                             set_tooltip)
+                             set_tooltip, clear_gui_state)
 from .form_base_widget import FormBaseWidget
 
 
 class LoadDataWidget(FormBaseWidget):
 
     update_main_window_title = pyqtSignal()
+    update_global_state = pyqtSignal()
 
     def __init__(self,  *, gpc, gui_vars):
         super().__init__()
@@ -26,13 +27,16 @@ class LoadDataWidget(FormBaseWidget):
         # Global GUI variables (used for control of GUI state)
         self.gui_vars = gui_vars
 
+        self.ref_main_window = self.gui_vars["ref_main_window"]
+
+        self.update_global_state.connect(self.ref_main_window.update_widget_state)
+
         self.initialize()
+
 
     def initialize(self):
 
         v_spacing = global_gui_parameters["vertical_spacing_in_tabs"]
-        self.ref_main_window = self.gui_vars["ref_main_window"]
-        self.gpc = self.ref_main_window.gpc
 
         vbox = QVBoxLayout()
 
@@ -200,6 +204,11 @@ class LoadDataWidget(FormBaseWidget):
         if condition == "tooltips":
             self._set_tooltips()
 
+        state = self.gui_vars["gui_state"]["state_file_loaded"]
+        self.group_sel_channel.setEnabled(state)
+        self.group_spec_settings.setEnabled(state)
+        self.group_preview.setEnabled(state)
+
     def pb_set_wd_clicked(self):
         dir_current = self.le_wd.text()
         dir = QFileDialog.getExistingDirectory(
@@ -224,6 +233,12 @@ class LoadDataWidget(FormBaseWidget):
                     file_text += f": ID#{self.gpc.io_model.scan_metadata['scan_id']}"
                 self.le_file.setText(file_text)
 
+                self.gui_vars["gui_state"]["state_file_loaded"] = True
+                # Invalidate fit. Fit must be rerun for new data.
+                self.gui_vars["gui_state"]["state_model_fit_exists"] = False
+                # Check if any datasets were loaded.
+                self.gui_vars["gui_state"]["state_xrf_map_exists"] = self.gpc.io_model.is_xrf_maps_available()
+
                 # Disable the button for changing working directory. This is consistent
                 #   with the behavior of the old PyXRF, but will be changed in the future.
                 self.pb_set_wd.setEnabled(False)
@@ -233,6 +248,7 @@ class LoadDataWidget(FormBaseWidget):
                 self.le_wd.setText(self.gpc.io_model.working_directory)
 
                 self.update_main_window_title.emit()
+                self.update_global_state.emit()
 
                 if msg:
                     # Display warning message if it was generated
@@ -247,7 +263,12 @@ class LoadDataWidget(FormBaseWidget):
                 self.pb_view_metadata.setEnabled(False)
                 self.le_wd.setText(self.gpc.io_model.working_directory)
 
+                # Clear flags: the state now is "No data is loaded".
+                clear_gui_state(self.gui_vars)
+                self.update_global_state.emit()
+
                 self.update_main_window_title.emit()
+                self.update_global_state.emit()
 
                 msg = f"Incorrect format of input file '{file_path}': "\
                       f"PyXRF accepts only custom HDF (.h5) files."\

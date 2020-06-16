@@ -14,11 +14,33 @@ global_gui_variables = {
     # (global state that determines if elements are enabled/visible)
     "gui_state": {
         "databroker_available": False,
-        "running_computations": False
+        "running_computations": False,
+        # The following states are NOT mutually exclusive
+        "state_file_loaded": False,
+        "state_model_exist": False,
+        "state_model_fit_exists": False,
+        "state_xrf_map_exists": False,
     },
     # Indicates if tooltips must be shown
     "show_tooltip": True,
 }
+
+
+def clear_gui_state(gui_vars):
+    """
+    Clear GUI state. Reset the variables that determine GUI state.
+    This should be done before the new data is loaded from file or from Databoker.
+    The variables are set so that the state of GUI is "No data is loaded"
+
+    Parameters
+    ----------
+    gui_vars: dict
+        reference to the dictionary `global_gui_variables`
+    """
+    gui_vars["gui_state"]["state_file_loaded"] = False
+    gui_vars["gui_state"]["state_model_exist"] = False
+    gui_vars["gui_state"]["state_model_fit_exists"] = False
+    gui_vars["gui_state"]["state_xrf_map_exists"] = False
 
 
 def set_tooltip(widget, text):

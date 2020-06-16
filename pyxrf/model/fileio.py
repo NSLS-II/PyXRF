@@ -241,6 +241,22 @@ class FileIOModel(Atom):
         self.file_channel_list = list(self.data_sets.keys())
         self.file_opt = 0  # use summed data as default
 
+    def is_xrf_maps_available(self):
+        """
+        The method returns True if one or more set XRF maps are loaded (or computed) and
+        available for display.
+
+        Returns
+        -------
+        True/False - One or more sets of XRF Maps are available/not available
+        """
+        regex_list = [".*_fit", ".*_roi"]
+        for key in self.img_dict.keys():
+            for reg in regex_list:
+                if re.search(reg, key):
+                    return True
+        return False
+
     @observe(str('runid'))
     def _update_fname(self, change):
         self.fname_from_db = 'scan2D_'+str(self.runid)

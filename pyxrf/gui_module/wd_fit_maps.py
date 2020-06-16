@@ -208,6 +208,16 @@ class FitMapsWidget(FormBaseWidget):
         if condition == "tooltips":
             self._set_tooltips()
 
+        state_file_loaded = self.gui_vars["gui_state"]["state_file_loaded"]
+        state_model_exist = self.gui_vars["gui_state"]["state_model_exist"]
+        state_xrf_map_exists = self.gui_vars["gui_state"]["state_xrf_map_exists"]
+
+        self.group_settings.setEnabled(state_file_loaded & state_model_exist)
+        self.pb_start_map_fitting.setEnabled(state_file_loaded & state_model_exist)
+        self.pb_compute_roi_maps.setEnabled(state_file_loaded & state_model_exist)
+        self.group_save_results.setEnabled(state_xrf_map_exists)
+        self.group_quant_analysis.setEnabled(state_xrf_map_exists)
+
     def pb_compute_roi_maps_clicked(self):
         # Position the window in relation ot the main window (only when called once)
         pos = self.ref_main_window.pos()
@@ -471,6 +481,12 @@ class WndComputeRoiMaps(SecondaryWindow):
         # Update the state of the menu bar
         state = not self.gui_vars["gui_state"]["running_computations"]
         self.setEnabled(state)
+
+        # Hide the window if required by the program state
+        state_file_loaded = self.gui_vars["gui_state"]["state_file_loaded"]
+        state_model_exist = self.gui_vars["gui_state"]["state_model_exist"]
+        if not state_file_loaded or not state_model_exist:
+            self.hide()
 
         if condition == "tooltips":
             self._set_tooltips()
@@ -923,6 +939,11 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
         # Update the state of the menu bar
         state = not self.gui_vars["gui_state"]["running_computations"]
         self.setEnabled(state)
+
+        # Hide the window if required by the program state
+        state_xrf_map_exists = self.gui_vars["gui_state"]["state_xrf_map_exists"]
+        if not state_xrf_map_exists:
+            self.hide()
 
         if condition == "tooltips":
             self._set_tooltips()

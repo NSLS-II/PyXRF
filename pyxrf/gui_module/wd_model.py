@@ -247,6 +247,22 @@ class ModelWidget(FormBaseWidget):
         if condition == "tooltips":
             self._set_tooltips()
 
+        state_file_loaded = self.gui_vars["gui_state"]["state_file_loaded"]
+        state_model_exist = self.gui_vars["gui_state"]["state_model_exist"]
+        state_model_fit_exists = self.gui_vars["gui_state"]["state_model_fit_exists"]
+
+        self.group_model_params.setEnabled(state_file_loaded)
+        self.pb_save_elines.setEnabled(state_file_loaded & state_model_exist)
+
+        self.pb_manage_emission_lines.setEnabled(state_file_loaded & state_model_exist)
+
+        self.group_settings.setEnabled(state_file_loaded & state_model_exist)
+
+        self.group_settings.setEnabled(state_file_loaded & state_model_exist)
+
+        self.group_model_fitting.setEnabled(state_file_loaded & state_model_exist)
+        self.pb_save_spectrum.setEnabled(state_file_loaded & state_model_exist & state_model_fit_exists)
+
     def pb_find_elines_clicked(self):
 
         dlg = DialogFindElements()
@@ -548,6 +564,12 @@ class WndManageEmissionLines(SecondaryWindow):
         # Update the state of the menu bar
         state = not self.gui_vars["gui_state"]["running_computations"]
         self.setEnabled(state)
+
+        # Hide the window if required by the program state
+        state_file_loaded = self.gui_vars["gui_state"]["state_file_loaded"]
+        state_model_exist = self.gui_vars["gui_state"]["state_model_exist"]
+        if not state_file_loaded or not state_model_exist:
+            self.hide()
 
         if condition == "tooltips":
             self._set_tooltips()

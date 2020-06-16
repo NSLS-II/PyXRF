@@ -275,5 +275,10 @@ class WndImageWizard(SecondaryWindow):
         state = not self.gui_vars["gui_state"]["running_computations"]
         self.setEnabled(state)
 
+        # Hide the window if required by the program state
+        state_xrf_map_exists = self.gui_vars["gui_state"]["state_xrf_map_exists"]
+        if not state_xrf_map_exists:
+            self.hide()
+
         if condition == "tooltips":
             self._set_tooltips()

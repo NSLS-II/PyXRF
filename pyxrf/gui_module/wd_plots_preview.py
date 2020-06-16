@@ -24,6 +24,13 @@ class PreviewPlots(QTabWidget):
         self.preview_plot_spectrum.update_widget_state(condition)
         self.preview_plot_count.update_widget_state(condition)
 
+        state = self.gui_vars["gui_state"]["state_file_loaded"]
+        if not state:
+            # Select 'Plot spectrum' tab
+            self.setCurrentIndex(0)
+        for i in range(self.count()):
+            self.setTabEnabled(i, state)
+
 
 class PreviewPlotSpectrum(QWidget):
 
