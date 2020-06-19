@@ -127,8 +127,8 @@ class LoadDataWidget(FormBaseWidget):
         self.group_sel_channel = QGroupBox("Select Channel For Processing")
 
         self.cbox_channel = QComboBox()
-        self.cbox_channel.addItems(["channel_name_sum", "channel_name_det1",
-                                    "channel_name_det2", "channel_name_det3"])
+        self._set_cbox_channel_items(items=[])
+        self.cbox_channel.currentIndexChanged.connect(self.cbox_channel_index_changed)
 
         hbox = QHBoxLayout()
         hbox.addWidget(self.cbox_channel)
@@ -153,19 +153,22 @@ class LoadDataWidget(FormBaseWidget):
         self.group_preview = QGroupBox("Preview")
 
         self.list_preview = QListWidget()
+        self.list_preview.itemChanged.connect(self.list_preview_item_changed)
         self.list_preview.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.list_preview.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
+        self._set_list_preview_items(items=[])
+
         # Set list items
-        sample_items = ["channel_name_sum", "channel_name_det1",
-                        "channel_name_det2", "channel_name_det3"]
-        for s in sample_items:
-            wi = QListWidgetItem(s, self.list_preview)
-            wi.setFlags(wi.flags() | Qt.ItemIsUserCheckable)
-            wi.setFlags(wi.flags() & ~Qt.ItemIsSelectable)
-            wi.setCheckState(Qt.Unchecked)
+        #sample_items = ["channel_name_sum", "channel_name_det1",
+        #                "channel_name_det2", "channel_name_det3"]
+        #for s in sample_items:
+        #    wi = QListWidgetItem(s, self.list_preview)
+        #    wi.setFlags(wi.flags() | Qt.ItemIsUserCheckable)
+        #    wi.setFlags(wi.flags() & ~Qt.ItemIsSelectable)
+        #    wi.setCheckState(Qt.Unchecked)
         # Adjust height so that it fits all the elements
-        adjust_qlistwidget_height(self.list_preview)
+        #adjust_qlistwidget_height(self.list_preview)
 
         hbox = QHBoxLayout()
         hbox.addWidget(self.list_preview)
@@ -209,6 +212,64 @@ class LoadDataWidget(FormBaseWidget):
         self.group_spec_settings.setEnabled(state)
         self.group_preview.setEnabled(state)
 
+    def _set_cbox_channel_items(self, *, items=None):
+        """
+        Set items of the combo box for item selection. If the list of items is not specified,
+        then it is loaded from the respective data structure.
+
+        Parameters
+        ----------
+        items: list(str)
+            The list of items. The list may be cleared by calling
+            `self._set_cbox_channel_items(items=[])`
+
+        """
+        self.cbox_channel.clear()
+        if items is None:
+            items = list(self.gpc.io_model.file_channel_list)
+        self.cbox_channel.addItems(items)
+        if len(items):
+            # Select the first item (if there is at least one item)
+            self.cbox_channel.setCurrentIndex(0)
+        if len(items):
+            # Select the first item (if there is at least one item)
+            self.cbox_channel.setCurrentIndex(0)
+
+    def _set_list_preview_items(self, *, items=None):
+        """
+        Set items of the list for selecting channels in preview tab. If the list of items is
+        not specified, then it is loaded from the respective data structure.
+
+        Parameters
+        ----------
+        items: list(str)
+            The list of items. The list may be cleared by calling
+            `self._set_cbox_channel_items(items=[])`
+
+        """
+        self.list_preview.itemChanged.disconnect(self.list_preview_item_changed)
+
+        self.list_preview.clear()
+        if items is None:
+            items = list(self.gpc.io_model.file_channel_list)
+        for s in items:
+            wi = QListWidgetItem(s, self.list_preview)
+            wi.setFlags(wi.flags() | Qt.ItemIsUserCheckable)
+            wi.setFlags(wi.flags() & ~Qt.ItemIsSelectable)
+            wi.setCheckState(Qt.Unchecked)
+
+        # Adjust height so that it fits all the elements
+        adjust_qlistwidget_height(self.list_preview)
+        self.group_preview.adjustSize()
+        self.group_preview.updateGeometry()  # Necessary to keep correct width of the groupbox
+        self.adjustSize()
+        self.updateGeometry()
+
+        self.list_preview.itemChanged.connect(self.list_preview_item_changed)
+
+        if len(items):
+            self.list_preview.item(0).setCheckState(Qt.Checked)
+
     def pb_set_wd_clicked(self):
         dir_current = self.le_wd.text()
         dir = QFileDialog.getExistingDirectory(
@@ -226,6 +287,7 @@ class LoadDataWidget(FormBaseWidget):
         file_path = file_paths[0]
         if file_path:
             try:
+
                 msg = self.gpc.open_data_file(file_path)
 
                 file_text = f"'{self.gpc.io_model.file_name}'"
@@ -250,6 +312,8 @@ class LoadDataWidget(FormBaseWidget):
                 self.update_main_window_title.emit()
                 self.update_global_state.emit()
 
+                self._set_cbox_channel_items()
+                self._set_list_preview_items()
                 if msg:
                     # Display warning message if it was generated
                     msgbox = QMessageBox(QMessageBox.Warning, "Warning",
@@ -270,12 +334,16 @@ class LoadDataWidget(FormBaseWidget):
                 self.update_main_window_title.emit()
                 self.update_global_state.emit()
 
+                self._set_cbox_channel_items(items=[])
+                self._set_list_preview_items(items=[])
+
                 msg = f"Incorrect format of input file '{file_path}': "\
                       f"PyXRF accepts only custom HDF (.h5) files."\
                       f"\n\nError message: {ex}"
                 msgbox = QMessageBox(QMessageBox.Critical, "Error",
                                      msg, QMessageBox.Ok, parent=self)
                 msgbox.exec()
+
 
     def pb_dbase_clicked(self):
 
@@ -299,6 +367,19 @@ class LoadDataWidget(FormBaseWidget):
     def cb_file_all_channels_toggled(self, state):
         self.gpc.io_model.load_each_channel = state
 
+    def cbox_channel_index_changed(self, index):
+        self.gpc.io_model.file_opt = index
+        # Redraw the plot
+        self.gpc.plot_model.plot_exp_opt = True
+
+    def list_preview_item_changed(self, list_item):
+        ind = -1
+        for n in range(self.list_preview.count()):
+            if self.list_preview.item(n) == list_item:
+                ind = n
+        #ind = self.list_preview.itemWidget(list_item)
+        sel = list_item.checkState()
+        print(f"Item {ind}: state {sel}")
 
 class DialogSelectScan(QDialog):
 

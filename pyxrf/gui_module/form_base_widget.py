@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QWidget
+from PyQt5.QtWidgets import QWidget, QSizePolicy
 
 
 class FormBaseWidget(QWidget):
@@ -7,3 +7,7 @@ class FormBaseWidget(QWidget):
         super().__init__()
         self.setMaximumWidth(400)
         self.setMinimumWidth(400)
+
+        sp = self.sizePolicy()
+        sp.setVerticalPolicy(QSizePolicy.Minimum)
+        self.setSizePolicy(sp)
