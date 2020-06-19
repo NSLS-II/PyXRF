@@ -135,7 +135,7 @@ class SecondaryWindow(QWidget):
             self.move(x + x_shift, y + y_shift)
 
 
-def adjust_qlistwidget_height(list_widget, min_height=40):
+def adjust_qlistwidget_height(list_widget, *, other_widgets=None, min_height=40):
     """
     Adjust the height of QListWidget so that it fits the items exactly.
     If the computed height is smaller than `min_height`, then the height
@@ -154,6 +154,9 @@ def adjust_qlistwidget_height(list_widget, min_height=40):
         minimum height of the widget.
     """
 
+    if other_widgets is None:
+        other_widgets = []
+
     # Compute and set the height of the list
     height = 0
     n_list_elements = list_widget.count()
@@ -166,6 +169,10 @@ def adjust_qlistwidget_height(list_widget, min_height=40):
     list_widget.setMinimumHeight(height)
     list_widget.setMaximumHeight(height)
 
+    # Now update size of the other ('parent') widgets
+    for w in other_widgets:
+        w.adjustSize()
+        w.updateGeometry()  # This is necessary in some cases
 
 def get_background_css(rgb, widget="QWidget", editable=False):
     """Returns the string that contain CSS to set widget background to specified color"""

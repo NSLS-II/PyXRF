@@ -20,6 +20,8 @@ from skbeam.fluorescence import XrfElement as Element
 import logging
 logger = logging.getLogger()
 
+from matplotlib.backends.backend_qt5agg import \
+    FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
 
 def get_color_name():
 
@@ -83,6 +85,11 @@ class LinePlotModel(Atom):
 
     number_pts_to_show = Int(3000)  # The number of spectrum point to show
 
+    # Preview plot (spectra)
+    _fig_preview = Typed(Figure)
+    _ax_preview = Typed(Axes)
+    #_canvas_preview = Typed(object)
+
     _fig = Typed(Figure)
     _ax = Typed(Axes)
     _canvas = Typed(object)
@@ -109,7 +116,7 @@ class LinePlotModel(Atom):
 
     plot_exp_opt = Bool(False)
     plot_exp_obj = Typed(Line2D)
-    show_exp_opt = Bool(False)
+    show_exp_opt = Bool(False)  # Flag: show spectrum preview
 
     # Reference to artist responsible for displaying the selected range of energies on the plot
     plot_energy_barh = Typed(BrokenBarHCollection)
@@ -193,6 +200,11 @@ class LinePlotModel(Atom):
         # And the last point of data is also huge, and should be cut off.
         self.limit_cut = 100
         # self._ax.margins(x=0.0, y=0.10)
+
+        # --------------------------------------------------------------
+        # Spectrum preview figure
+        self._fig_preview = Figure()
+        #self._canvas_preview = FigureCanvas(self._fig_preview)
 
     def _color_config(self):
         self.plot_style = {
@@ -457,24 +469,24 @@ class LinePlotModel(Atom):
             self._show_hide_exp_plot(change['value'])
             self._set_eline_select_controls()
 
-    @observe('show_exp_opt')
-    def _update_exp(self, change):
-        if change['type'] != 'create':
-            if change['value']:
-                if len(self.plot_exp_list):
-                    for v in self.plot_exp_list:
-                        v.set_visible(True)
-                        lab = v.get_label()
-                        if lab != '_nolegend_':
-                            v.set_label(lab.strip('_'))
-            else:
-                if len(self.plot_exp_list):
-                    for v in self.plot_exp_list:
-                        v.set_visible(False)
-                        lab = v.get_label()
-                        if lab != '_nolegend_':
-                            v.set_label('_' + lab)
-            self._update_canvas()
+    # @observe('show_exp_opt')
+    # def _update_exp(self, change):
+    #     if change['type'] != 'create':
+    #         if change['value']:
+    #             if len(self.plot_exp_list):
+    #                 for v in self.plot_exp_list:
+    #                     v.set_visible(True)
+    #                     lab = v.get_label()
+    #                     if lab != '_nolegend_':
+    #                         v.set_label(lab.strip('_'))
+    #         else:
+    #             if len(self.plot_exp_list):
+    #                 for v in self.plot_exp_list:
+    #                     v.set_visible(False)
+    #                     lab = v.get_label()
+    #                     if lab != '_nolegend_':
+    #                         v.set_label('_' + lab)
+    #         self._update_canvas()
 
     @observe('show_fit_opt')
     def _update_fit(self, change):
@@ -1371,3 +1383,38 @@ class LinePlotModel(Atom):
                     self.set_plot_vertical_marker(marker_position=xd)
                 else:
                     self.hide_plot_vertical_marker()
+
+    # ===========================================================
+    #         Functions for plotting spectrum preview
+
+    def show_preview_spectrum_plot(self):
+        self._ax_preview = self._fig_preview.add_subplot(111)
+        self._ax_preview.set_facecolor('lightgrey')
+        x = np.arange(100)
+        y = np.sin(2 * np.pi * x / 100)
+        self._ax_preview.plot(x, y)
+
+    def hide_preview_spectrum_plot(self):
+        self._fig_preview.clear()
+
+    @observe('show_exp_opt')
+    def _update_spectrum_preview(self, change):
+        if change['type'] != 'create':
+            if change['value']:
+                self.show_preview_spectrum_plot()
+                #if len(self.plot_exp_list):
+                #    for v in self.plot_exp_list:
+                #        v.set_visible(True)
+                #        lab = v.get_label()
+                #        if lab != '_nolegend_':
+                #            v.set_label(lab.strip('_'))
+            else:
+                self.hide_preview_spectrum_plot()
+                #if len(self.plot_exp_list):
+                #    for v in self.plot_exp_list:
+                #        v.set_visible(False)
+                #        lab = v.get_label()
+                #        if lab != '_nolegend_':
+                #            v.set_label('_' + lab)
+            #self._update_canvas()
+            self._fig_preview.canvas.draw()

@@ -148,3 +148,34 @@ class GlobalProcessingClasses:
                 msg = ""
 
             return msg
+
+    def select_preview_dataset(self, *, dset_name, is_visible):
+        """
+        Select datasets for preview. A dataset may be selected or deselected by
+        providing the name of the dataset (a key in `io_model.datasets` dictionary)
+        and `is_visible` flag. Multiple datasets may be visualized by selecting the
+        datasets one by one.
+
+        Parameters
+        ----------
+        dset_name: str
+            dataset name (a key in `io_model.datasets` dictionary)
+        is_visible: bool
+            True - show the dataset, False - hide the dataset
+        """
+
+        self.io_model.data_sets[dset_name].plot_index = 1 if is_visible else 0
+        n_displayed = 0
+        for ds in self.io_model.data_sets.values():
+            if ds.plot_index:
+                n_displayed += 1
+
+        self.plot_model.data_sets = self.io_model.data_sets
+        self.plot_model.plot_multi_exp_data()
+
+        if n_displayed:
+            print(f"Display enabled")
+            self.plot_model.show_exp_opt = True
+        else:
+            print(f"Display disabled")
+            self.plot_model.show_exp_opt = False

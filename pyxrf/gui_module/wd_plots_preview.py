@@ -4,6 +4,11 @@ from PyQt5.QtCore import Qt
 
 from .useful_widgets import RangeManager, set_tooltip
 
+from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qt5agg import \
+    FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
+
 
 class PreviewPlots(QTabWidget):
 
@@ -54,16 +59,21 @@ class PreviewPlotSpectrum(QWidget):
         self.bgroup.addButton(self.pb_selected_region)
         self.bgroup.addButton(self.pb_full_spectrum)
 
+        self.mpl_canvas = FigureCanvas(self.gpc.plot_model._fig_preview)
+
+        #plot = QWidget()
+        #plot.setCentralWidget(self.mpl_canvas)
+
         # The label will be replaced with the widget that will actually plot the data
-        label = QLabel()
-        comment = \
-            "The widget will plot total spectrum of the loaded data.\n"\
-            "The displayed channels are selected using CheckBoxes in 'Data' tab.\n"\
-            "When implemented, the data will be presented as in 'Spectrum View' tab "\
-            "of the original PyXRF"
-        label.setText(comment)
-        label.setStyleSheet("QLabel { background-color : white; color : blue; }")
-        label.setAlignment(Qt.AlignCenter)
+        #label = QLabel()
+        #comment = \
+        #    "The widget will plot total spectrum of the loaded data.\n"\
+        #    "The displayed channels are selected using CheckBoxes in 'Data' tab.\n"\
+        #    "When implemented, the data will be presented as in 'Spectrum View' tab "\
+        #    "of the original PyXRF"
+        #label.setText(comment)
+        #label.setStyleSheet("QLabel { background-color : white; color : blue; }")
+        #label.setAlignment(Qt.AlignCenter)
 
         vbox = QVBoxLayout()
 
@@ -74,7 +84,8 @@ class PreviewPlotSpectrum(QWidget):
         hbox.addWidget(self.pb_full_spectrum)
         vbox.addLayout(hbox)
 
-        vbox.addWidget(label)
+        #vbox.addWidget(label)
+        vbox.addWidget(self.mpl_canvas)
         self.setLayout(vbox)
 
         self._set_tooltips()

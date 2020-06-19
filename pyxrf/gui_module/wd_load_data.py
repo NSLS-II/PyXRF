@@ -1,4 +1,5 @@
 import os
+from threading import Thread
 
 from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout,
                              QGroupBox, QLineEdit, QCheckBox, QLabel,
@@ -6,7 +7,7 @@ from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout,
                              QDialog, QDialogButtonBox, QFileDialog,
                              QRadioButton, QButtonGroup, QGridLayout,
                              QTextEdit, QMessageBox)
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 
 from .useful_widgets import (LineEditReadOnly, adjust_qlistwidget_height,
                              global_gui_parameters, PushButtonMinimumWidth,
@@ -18,6 +19,7 @@ class LoadDataWidget(FormBaseWidget):
 
     update_main_window_title = pyqtSignal()
     update_global_state = pyqtSignal()
+    computations_complete = pyqtSignal()
 
     def __init__(self,  *, gpc, gui_vars):
         super().__init__()
@@ -30,6 +32,10 @@ class LoadDataWidget(FormBaseWidget):
         self.ref_main_window = self.gui_vars["ref_main_window"]
 
         self.update_global_state.connect(self.ref_main_window.update_widget_state)
+
+        # Reference to background thread used to run computations. The reference is
+        #   meaningful only when the computations are run.
+        self.bckg_thread = None
 
         self.initialize()
 
@@ -159,17 +165,6 @@ class LoadDataWidget(FormBaseWidget):
 
         self._set_list_preview_items(items=[])
 
-        # Set list items
-        #sample_items = ["channel_name_sum", "channel_name_det1",
-        #                "channel_name_det2", "channel_name_det3"]
-        #for s in sample_items:
-        #    wi = QListWidgetItem(s, self.list_preview)
-        #    wi.setFlags(wi.flags() | Qt.ItemIsUserCheckable)
-        #    wi.setFlags(wi.flags() & ~Qt.ItemIsSelectable)
-        #    wi.setCheckState(Qt.Unchecked)
-        # Adjust height so that it fits all the elements
-        #adjust_qlistwidget_height(self.list_preview)
-
         hbox = QHBoxLayout()
         hbox.addWidget(self.list_preview)
 
@@ -259,11 +254,7 @@ class LoadDataWidget(FormBaseWidget):
             wi.setCheckState(Qt.Unchecked)
 
         # Adjust height so that it fits all the elements
-        adjust_qlistwidget_height(self.list_preview)
-        self.group_preview.adjustSize()
-        self.group_preview.updateGeometry()  # Necessary to keep correct width of the groupbox
-        self.adjustSize()
-        self.updateGeometry()
+        adjust_qlistwidget_height(self.list_preview, other_widgets=[self.group_preview, self])
 
         self.list_preview.itemChanged.connect(self.list_preview_item_changed)
 
@@ -373,13 +364,36 @@ class LoadDataWidget(FormBaseWidget):
         self.gpc.plot_model.plot_exp_opt = True
 
     def list_preview_item_changed(self, list_item):
+
+        # Find the index of the list item that was checked/unchecked
         ind = -1
         for n in range(self.list_preview.count()):
             if self.list_preview.item(n) == list_item:
                 ind = n
-        #ind = self.list_preview.itemWidget(list_item)
-        sel = list_item.checkState()
-        print(f"Item {ind}: state {sel}")
+
+        # Get the state of the checkbox (checked -> 2, unchecked -> 0)
+        state = list_item.checkState()
+
+        # The name of the dataset
+        dset_name = self.gpc.io_model.file_channel_list[ind]
+
+        self.computations_complete.connect(self.slot_preview_items_changed)
+
+        def cb():
+            self.gpc.select_preview_dataset(dset_name=dset_name, is_visible=bool(state))
+            self.computations_complete.emit()
+
+        self.gui_vars["gui_state"]["running_computations"] = True
+        self.update_global_state.emit()
+        self.bckg_thread = Thread(target=cb)
+        self.bckg_thread.start()
+
+    @pyqtSlot()
+    def slot_preview_items_changed(self):
+        self.computations_complete.disconnect(self.slot_preview_items_changed)
+        self.gui_vars["gui_state"]["running_computations"] = False
+        self.update_global_state.emit()
+
 
 class DialogSelectScan(QDialog):
 
