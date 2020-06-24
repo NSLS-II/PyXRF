@@ -101,8 +101,15 @@ class LinePlotModel(Atom):
     _ax_preview = Typed(Axes)
     #_canvas_preview = Typed(object)
     _lines_preview = List()
+    _bahr_preview = Typed(BrokenBarHCollection)
+
     plot_type_preview = Typed(PlotTypes)
     energy_range_preview = Typed(EnergyRangePresets)
+
+    min_v_preview = Float()
+    max_v_preview = Float()
+    min_e_preview = Float()
+    max_e_preview = Float()
 
     # ------------------------------------------------------------
 
@@ -375,7 +382,7 @@ class LinePlotModel(Atom):
         """Observer function for 'param_model.energy_bound_high_buf'"""
         if self.data is None:
             return
-        self.plot_selected_energy_range(e_high=change["value"])
+        self.plot_selected_energy_range_original(e_high=change["value"])
         self.plot_vertical_marker(e_high=change["value"])
         self._update_canvas()
 
@@ -383,7 +390,7 @@ class LinePlotModel(Atom):
         """Observer function for 'param_model.energy_bound_low_buf'"""
         if self.data is None:
             return
-        self.plot_selected_energy_range(e_low=change["value"])
+        self.plot_selected_energy_range_original(e_low=change["value"])
         self.plot_vertical_marker(e_low=change["value"])
         self._update_canvas()
 
@@ -447,7 +454,7 @@ class LinePlotModel(Atom):
 
         self._set_eline_select_controls()
 
-        self.plot_selected_energy_range()
+        self.plot_selected_energy_range_original()
 
         # _show_hide_exp_plot is called to show or hide current plot based
         #           on the state of _show_exp_opt flag
@@ -580,7 +587,7 @@ class LinePlotModel(Atom):
         self.plot_vertical_marker()
         self._update_canvas()
 
-    def plot_selected_energy_range(self, *, e_low=None, e_high=None):
+    def plot_selected_energy_range_original(self, *, e_low=None, e_high=None):
         """
         Plot the range of energies selected for processing. The range may be optionally
         provided as arguments. The range values that are not provided, are read from
@@ -647,7 +654,7 @@ class LinePlotModel(Atom):
                 self.plot_exp_list.append(plot_exp_obj)
                 m += 1
 
-        self.plot_selected_energy_range()
+        self.plot_selected_energy_range_original()
 
         self._update_ylimit()
         self.log_linear_plot()
@@ -1405,23 +1412,115 @@ class LinePlotModel(Atom):
     # ===========================================================
     #         Functions for plotting spectrum preview
 
+    def selected_range_indices(self, *, e_low=None, e_high=None,
+                               n_indexes=None, margin=2.0):
+        """
+        The function computes the range of indices based on the selected energy range
+        and parameters for the energy axis.
+
+        Parameters
+        ----------
+        e_low, e_high: float or None
+            Energy values (in keV) that set the selected range
+        n_indexes: int
+            Total number of indexes in the energy array (typically 4096)
+        margin: float
+            The displayed energy range is extended by the value of `margin` in both directions.
+
+        Returns
+        -------
+        n_low, n_high: int
+            The range of indices of the energy array (n_low..n_high-1) that cover the selected energy range
+        """
+        # The range of energy selected for analysis
+        if e_low is None:
+            e_low = self.param_model.param_new['non_fitting_values']['energy_bound_low']['value']
+        if e_high is None:
+            e_high = self.param_model.param_new['non_fitting_values']['energy_bound_high']['value']
+        # Protection for the case if e_high < e_low
+        e_high = e_high if e_high > e_low else e_low
+        # Extend the range (by the value of 'margin')
+        e_low, e_high = e_low - margin, e_high + margin
+
+        # The following calculations ignore quadratic term, which is expected to be small
+        c0 = self.parameters['e_offset']['value']
+        c1 = self.parameters['e_linear']['value']
+        # If more precision if needed, then implement more complicated algorithm using
+        #   the quadratic term: c2 = self.parameters['e_quadratic']['value']
+
+        n_low = int(np.clip(int((e_low - c0) / c1), a_min=0, a_max=n_indexes - 1))
+        n_high = int(np.clip(int((e_high - c0) / c1) + 1, a_min=1, a_max=n_indexes))
+
+        return n_low, n_high
+
+    def _datasets_max_size(self, *, only_displayed=True):
+        """
+        Return maximum size of the longest available dataset. The datasets that contain
+        no data are ignored.
+
+        Parameters
+        ----------
+        only_displayed: bool
+            Limit search to the datasets that are going to be displayed
+        """
+        max_size = 0
+        for dset in self.data_sets.values():
+            if dset.data is not None:
+                if not only_displayed or dset.plot_index:
+                    max_size = max(max_size, dset.data.size)
+
+        return max_size
+
+    def plot_selected_energy_range(self, *, axes, barh_existing, e_low=None, e_high=None, n_points=4096):
+        """
+        Plot the range of energies selected for processing. The range may be optionally
+        provided as arguments. The range values that are not provided, are read from
+        globally accessible dictionary of parameters. The values passed as arguments
+        are mainly used if the function is called during interactive update of the
+        range, when the order of update is undetermined and the parameter dictionary
+        may be updated after the function is called.
+        """
+        # The range of energy selected for analysis
+        if e_low is None:
+            e_low = self.param_model.param_new['non_fitting_values']['energy_bound_low']['value']
+        if e_high is None:
+            e_high = self.param_model.param_new['non_fitting_values']['energy_bound_high']['value']
+
+        # Generate the values for 'energy' axis
+        x_v = (self.parameters['e_offset']['value'] +
+               np.arange(n_points) *
+               self.parameters['e_linear']['value'] +
+               np.arange(n_points) ** 2 *
+               self.parameters['e_quadratic']['value'])
+
+        ss = (x_v < e_high) & (x_v > e_low)
+        y_min, y_max = 1e-30, 1e30  # Select the max and min values for plotted rectangles
+
+        # Remove the plot if it exists
+        if barh_existing in axes.collections:
+            axes.collections.remove(barh_existing)
+
+        # Create the new plot (based on new parameters if necessary
+        barh_new = BrokenBarHCollection.span_where(
+            x_v, ymin=y_min, ymax=y_max, where=ss, facecolor='white', edgecolor='yellow', alpha=1)
+        axes.add_collection(barh_new)
+
+        return barh_new
+
     def prepare_preview_spectrum_plot(self):
 
-        # Do nothing if not datasets are loaded
-        #if not self.data_sets:
-        #    return
-
+        if self._ax_preview:
+            self._ax_preview.clear()
         self._ax_preview = self._fig_preview.add_subplot(111)
         self._ax_preview.set_facecolor('lightgrey')
         self._ax_preview.grid(which="both")
 
-        #x = np.arange(100)
-        #y = np.sin(2 * np.pi * x / 100)
-        #self._ax_preview.plot(x, y)
         self._fig_preview.set_visible(False)
 
-
     def show_preview_spectrum_plot(self):
+
+        # Completely redraw the plot each time the function is called
+        self.prepare_preview_spectrum_plot()
 
         # Remove all lines from the plot
         while len(self._lines_preview):
@@ -1430,10 +1529,44 @@ class LinePlotModel(Atom):
         # The list of color names
         color_names = get_color_name()
 
+        e_range = self.energy_range_preview
+        e_range_supported = (EnergyRangePresets.SELECTED_RANGE, EnergyRangePresets.FULL_SPECTRUM)
+        if e_range not in e_range_supported:
+            logger.error(f"Spectrum preview: Unknown option for the energy range: {e_range}\n"
+                         "Please report the error to the development team.")
+            # This is not a critical error, so we still can proceed
+            e_range = EnergyRangePresets.FULL_SPECTRUM
+
+        p_type = self.plot_type_preview
+        p_type_supported = (PlotTypes.LINLOG, PlotTypes.LINEAR)
+        if p_type not in p_type_supported:
+            logger.error(f"Spectrum preview: Unknown option for the plot type: {p_type}\n"
+                         "Please report the error to the development team.")
+            p_type = PlotTypes.LINEAR
+
+        # Maximum number of points in the displayed dataset
+        n_dset_points = self._datasets_max_size()
+
+        if e_range == EnergyRangePresets.SELECTED_RANGE:
+            n_range_low, n_range_high = self.selected_range_indices(n_indexes=n_dset_points)
+        else:
+            n_range_low, n_range_high = 0, n_dset_points
+
         # All available datasets, we will print only the selected datasets
         dset_names = list(self.data_sets.keys())
 
-        self.max_v = 1.0
+        if p_type == PlotTypes.LINLOG:
+            top_margin_coef = 2.0
+            # Minimum for semilog plots may need to be computed, but 1.0 is good
+            self.min_v_preview = 1.0
+            self._ax_preview.set_yscale("log")
+        else:
+            top_margin_coef = 1.05
+            self.min_v_preview = 0.0  # Minimum will always be 0 for linear plots
+
+        self.max_v_preview = 1.0
+        self.min_e_preview = 1000.0  # Start with some large number
+        self.max_e_preview = 0.1  # Start with some small number
         for n_line, dset_name in enumerate(dset_names):
             dset = self.data_sets[dset_name]
 
@@ -1448,16 +1581,26 @@ class LinePlotModel(Atom):
                     logger.error("Spectrum review: attempting to print empty dataset.")
                     continue
 
-                # Truncate the array (1D spectrum)
-                #data_arr = data_arr[0: self.number_pts_to_show]
-                self.max_v = np.max([self.max_v, np.max(data_arr)])
-                                     #np.max(data_arr[self.limit_cut:-self.limit_cut])])
+                # The assumption is that some datasets may have different length (which is
+                #   currently not the case). So we have to take it into account when using
+                #   maximum dataset length. This is essentially a safety precaution.
+                n_low = int(np.clip(n_range_low, a_min=0, a_max=data_arr.size - 1))
+                n_high = int(np.clip(n_range_high, a_min=1, a_max=data_arr.size))
 
+                # From now on we work with the trimmed data array
                 x_v = (self.parameters['e_offset']['value'] +
-                       np.arange(len(data_arr)) *
+                       np.arange(n_low, n_high) *
                        self.parameters['e_linear']['value'] +
-                       np.arange(len(data_arr)) ** 2 *
+                       np.arange(n_low, n_high) ** 2 *
                        self.parameters['e_quadratic']['value'])
+
+                data_arr = data_arr[n_low: n_high]
+
+                self.max_v_preview = np.max(
+                    [self.max_v_preview,
+                     np.max(data_arr[self.limit_cut:-self.limit_cut])])
+                self.max_e_preview = np.max([self.max_e_preview, x_v[-1]])
+                self.min_e_preview = np.min([self.min_e_preview, x_v[0]])
 
                 line, = self._ax_preview.plot(x_v, data_arr,
                                               color=color,
@@ -1467,9 +1610,20 @@ class LinePlotModel(Atom):
 
                 self._lines_preview.append(line)
 
+        self._ax_preview.set_xlim(self.min_e_preview, self.max_e_preview)
+        self._ax_preview.set_ylim(self.min_v_preview, self.max_v_preview * top_margin_coef)
+        self._ax_preview.legend()
+        self._ax_preview.set_xlabel("Energy (keV)")
+        self._ax_preview.set_ylabel("Total Spectrum (Counts)")
         self._fig_preview.set_visible(True)
 
-        #self.plot_selected_energy_range()
+        # Reset navigation toolbar (specifically clear ZOOM history, since it becomes invalid
+        #   when the new data is loaded, i.e. zooming out may not show the whole plot)
+        tb = self._fig_preview.canvas.toolbar
+        tb.update()
+
+        self._bahr_preview = self.plot_selected_energy_range(
+            axes=self._ax_preview, barh_existing=self._bahr_preview)
 
         #self._update_ylimit()
         #self.log_linear_plot()

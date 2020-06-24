@@ -171,5 +171,5 @@ class GlobalProcessingClasses:
         #channels_to_display = [bool(_.plot_index) for _ in self.io_model.data_sets.values()]
 
         self.plot_model.data_sets = self.io_model.data_sets
-        self.plot_model.plot_multi_exp_data()
+        #self.plot_model.plot_multi_exp_data()
         self.plot_model.update_preview_spectrum_plot()

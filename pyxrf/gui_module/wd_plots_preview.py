@@ -131,10 +131,14 @@ class PreviewPlotSpectrum(QWidget):
     def btn_group_region_button_toggled(self, button, checked):
         if checked:
             if button == self.rb_selected_region:
-                self.gpc.plot_model.plot_type_preview = PlotTypes.LINLOG
+                self.gpc.plot_model.energy_range_preview = EnergyRangePresets.SELECTED_RANGE
+                self.gpc.plot_model.update_preview_spectrum_plot()
+                #self.mpl_toolbar.update()  # Reset toolbar (ZOOM history!!)
                 print("Display only selected region")
             elif button == self.rb_full_spectrum:
-                self.gpc.plot_model.plot_type_preview = PlotTypes.LINEAR
+                self.gpc.plot_model.energy_range_preview = EnergyRangePresets.FULL_SPECTRUM
+                self.gpc.plot_model.update_preview_spectrum_plot()
+                #self.mpl_toolbar.update()  # Reset toolbar (ZOOM history!!)
                 print("Display full spectrum")
             else:
                 logger.error("Spectrum preview: unknown button was toggled. "
@@ -142,7 +146,9 @@ class PreviewPlotSpectrum(QWidget):
 
     def cb_plot_type_current_index_changed(self, index):
         try:
-            self.gpc.plot_model.energy_range_preview = EnergyRangePresets(index)
+            self.gpc.plot_model.plot_type_preview = PlotTypes(index)
+            self.gpc.plot_model.update_preview_spectrum_plot()
+            #self.mpl_toolbar.update()  # Reset toolbar (ZOOM history!!)
             print(f"Selected index: {index}")
         except ValueError:
             logger.error(f"Spectrum preview: incorrect index for energy range preset was detected.\n"
