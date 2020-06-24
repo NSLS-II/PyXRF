@@ -197,14 +197,13 @@ class MainWindow(QMainWindow):
         action_show_matplotlib_toolbar = QAction("Show &Matplotlib Toolbar", self)
         action_show_matplotlib_toolbar.setCheckable(True)
         action_show_matplotlib_toolbar.setChecked(True)
-        action_show_matplotlib_toolbar.setStatusTip(
-            "Show Matplotlib Toolbar on the plots")
+        action_show_matplotlib_toolbar.setStatusTip("Show Matplotlib Toolbar on the plots")
+        action_show_matplotlib_toolbar.toggled.connect(self.action_show_matplotlib_toolbar_toggled)
 
         action_show_widget_tooltips = QAction("Show &Tooltips", self)
         action_show_widget_tooltips.setCheckable(True)
         action_show_widget_tooltips.setChecked(self.gui_vars["show_tooltip"])
-        action_show_widget_tooltips.setStatusTip(
-            "Show widget tooltips")
+        action_show_widget_tooltips.setStatusTip("Show widget tooltips")
         action_show_widget_tooltips.toggled.connect(self.action_show_widget_tooltips_toggled)
 
         options = menubar.addMenu('&Options')
@@ -279,6 +278,13 @@ class MainWindow(QMainWindow):
         """
         dlg = DialogAbout()
         dlg.exec()
+
+    def action_show_matplotlib_toolbar_toggled(self, state):
+        """
+        Turn tooltips on or off
+        """
+        self.gui_vars["show_matplotlib_toolbar"] = state
+        self.update_widget_state()
 
     def action_show_widget_tooltips_toggled(self, state):
         """

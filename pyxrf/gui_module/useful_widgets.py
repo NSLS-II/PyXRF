@@ -23,6 +23,7 @@ global_gui_variables = {
     },
     # Indicates if tooltips must be shown
     "show_tooltip": True,
+    "show_matplotlib_toolbar": True
 }
 
 

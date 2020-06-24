@@ -138,6 +138,9 @@ class GlobalProcessingClasses:
             #   only the text attribute of 'io_model' class.
             self.io_model.window_title_set_file_name(f_name)
 
+            # Prepare plots
+            self.plot_model.prepare_preview_spectrum_plot()
+
             if not self.io_model.incident_energy_available:
                 msg = ("Incident energy is not available in scan metadata and must be set manually. "
                        "Incident energy may be set by changing 'Incident energy, keV' parameter "
@@ -165,17 +168,8 @@ class GlobalProcessingClasses:
         """
 
         self.io_model.data_sets[dset_name].plot_index = 1 if is_visible else 0
-        n_displayed = 0
-        for ds in self.io_model.data_sets.values():
-            if ds.plot_index:
-                n_displayed += 1
+        #channels_to_display = [bool(_.plot_index) for _ in self.io_model.data_sets.values()]
 
         self.plot_model.data_sets = self.io_model.data_sets
         self.plot_model.plot_multi_exp_data()
-
-        if n_displayed:
-            print(f"Display enabled")
-            self.plot_model.show_exp_opt = True
-        else:
-            print(f"Display disabled")
-            self.plot_model.show_exp_opt = False
+        self.plot_model.update_preview_spectrum_plot()

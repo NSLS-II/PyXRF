@@ -211,8 +211,8 @@ class FileIOModel(Atom):
             logger.info(f"Incident energy {self.incident_energy_set} keV was extracted from the scan metadata")
         else:
             logger.warning(
-                "Incident energy is not available in scan metadata and needs to be set manually: "
-                "click 'Find Elements Automatically' button in 'Fit' "
+                "Incident energy is not available in scan metadata and needs to be set manually:\n"
+                "    Click 'Find Elements Automatically' button in 'Fit' "
                 "tab to access the settings dialog box.")
 
     @observe(str('file_name'))

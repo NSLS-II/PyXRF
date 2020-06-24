@@ -3,11 +3,15 @@ from PyQt5.QtWidgets import (QWidget, QTabWidget, QLabel, QVBoxLayout, QHBoxLayo
 from PyQt5.QtCore import Qt
 
 from .useful_widgets import RangeManager, set_tooltip
+from ..model.lineplot import PlotTypes, EnergyRangePresets
 
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import \
     FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
+
+import logging
+logger = logging.getLogger()
 
 
 class PreviewPlots(QTabWidget):
@@ -49,17 +53,33 @@ class PreviewPlotSpectrum(QWidget):
 
         self.cb_plot_type = QComboBox()
         self.cb_plot_type.addItems(["LinLog", "Linear"])
+        self.cb_plot_type.setCurrentIndex(self.gpc.plot_model.plot_type_preview.value)
+        self.cb_plot_type.currentIndexChanged.connect(self.cb_plot_type_current_index_changed)
 
-        self.pb_selected_region = QRadioButton("Selected region")
-        self.pb_selected_region.setChecked(True)
 
-        self.pb_full_spectrum = QRadioButton("Full spectrum")
+        self.rb_selected_region = QRadioButton("Selected region")
+        self.rb_selected_region.setChecked(True)
+        self.rb_full_spectrum = QRadioButton("Full spectrum")
+        if self.gpc.plot_model.energy_range_preview == PlotTypes.LINLOG:
+            self.rb_selected_region.setChecked(True)
+        elif self.gpc.plot_model.energy_range_preview == PlotTypes.LINEAR:
+            self.rb_full_spectrum.setChecked(True)
+        else:
+            logger.error("Spectrum preview: incorrect Enum value for energy range was used:\n"
+                         "    Report the error to the development team.")
 
-        self.bgroup = QButtonGroup()
-        self.bgroup.addButton(self.pb_selected_region)
-        self.bgroup.addButton(self.pb_full_spectrum)
+
+        self.btn_group_region = QButtonGroup()
+        self.btn_group_region.addButton(self.rb_selected_region)
+        self.btn_group_region.addButton(self.rb_full_spectrum)
+        self.btn_group_region.buttonToggled.connect(self.btn_group_region_button_toggled)
+
+        #self.bgroup = QButtonGroup()
+        #self.bgroup.addButton(self.rb_selected_region)
+        #self.bgroup.addButton(self.rb_full_spectrum)
 
         self.mpl_canvas = FigureCanvas(self.gpc.plot_model._fig_preview)
+        self.mpl_toolbar = NavigationToolbar(self.mpl_canvas, self)
 
         #plot = QWidget()
         #plot.setCentralWidget(self.mpl_canvas)
@@ -80,11 +100,12 @@ class PreviewPlotSpectrum(QWidget):
         hbox = QHBoxLayout()
         hbox.addWidget(self.cb_plot_type)
         hbox.addStretch(1)
-        hbox.addWidget(self.pb_selected_region)
-        hbox.addWidget(self.pb_full_spectrum)
+        hbox.addWidget(self.rb_selected_region)
+        hbox.addWidget(self.rb_full_spectrum)
         vbox.addLayout(hbox)
 
         #vbox.addWidget(label)
+        vbox.addWidget(self.mpl_toolbar)
         vbox.addWidget(self.mpl_canvas)
         self.setLayout(vbox)
 
@@ -94,18 +115,38 @@ class PreviewPlotSpectrum(QWidget):
         set_tooltip(self.cb_plot_type,
                     "Use <b>Linear</b> or <b>LinLog</b> axes to plot spectra")
         set_tooltip(
-            self.pb_selected_region,
+            self.rb_selected_region,
             "Plot spectrum in the <b>selected range</b> of energies. The range may be set "
             "in the 'Model' tab. Click the button <b>'Find Automatically ...'</b> "
             "to set the range of energies before finding the emission lines. The range "
             "may be changed in General Settings dialog (button <b>'General ...'</b>) at any time.")
-        set_tooltip(self.pb_full_spectrum,
+        set_tooltip(self.rb_full_spectrum,
                     "Plot full spectrum over <b>all available eneriges</b>.")
 
     def update_widget_state(self, condition=None):
         if condition == "tooltips":
             self._set_tooltips()
+        self.mpl_toolbar.setVisible(self.gui_vars["show_matplotlib_toolbar"])
 
+    def btn_group_region_button_toggled(self, button, checked):
+        if checked:
+            if button == self.rb_selected_region:
+                self.gpc.plot_model.plot_type_preview = PlotTypes.LINLOG
+                print("Display only selected region")
+            elif button == self.rb_full_spectrum:
+                self.gpc.plot_model.plot_type_preview = PlotTypes.LINEAR
+                print("Display full spectrum")
+            else:
+                logger.error("Spectrum preview: unknown button was toggled. "
+                             "Please, report the error to the development team.")
+
+    def cb_plot_type_current_index_changed(self, index):
+        try:
+            self.gpc.plot_model.energy_range_preview = EnergyRangePresets(index)
+            print(f"Selected index: {index}")
+        except ValueError:
+            logger.error(f"Spectrum preview: incorrect index for energy range preset was detected.\n"
+                         "Please report the error to the development team.")
 
 class PreviewPlotCount(QWidget):
 

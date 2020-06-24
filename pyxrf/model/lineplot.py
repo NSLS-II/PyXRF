@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.collections import BrokenBarHCollection
 from collections import OrderedDict
+from enum import Enum
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
 
@@ -34,6 +35,16 @@ def get_color_name():
                    if 'pink' not in v and 'fire' not in v and
                    'sage' not in v and 'tomato' not in v and 'red' not in v]
     return first_ten + nonred_list + list(matplotlib.colors.cnames.keys())
+
+
+class PlotTypes(Enum):
+    LINLOG = 0
+    LINEAR = 1
+
+
+class EnergyRangePresets(Enum):
+    SELECTED_RANGE = 0
+    FULL_SPECTRUM = 1
 
 
 class LinePlotModel(Atom):
@@ -85,10 +96,15 @@ class LinePlotModel(Atom):
 
     number_pts_to_show = Int(3000)  # The number of spectrum point to show
 
-    # Preview plot (spectra)
+    # Preview plot (raw experimental spectra)
     _fig_preview = Typed(Figure)
     _ax_preview = Typed(Axes)
     #_canvas_preview = Typed(object)
+    _lines_preview = List()
+    plot_type_preview = Typed(PlotTypes)
+    energy_range_preview = Typed(EnergyRangePresets)
+
+    # ------------------------------------------------------------
 
     _fig = Typed(Figure)
     _ax = Typed(Axes)
@@ -205,6 +221,8 @@ class LinePlotModel(Atom):
         # Spectrum preview figure
         self._fig_preview = Figure()
         #self._canvas_preview = FigureCanvas(self._fig_preview)
+        self.plot_type_preview = PlotTypes.LINLOG
+        self.energy_range_preview = EnergyRangePresets.SELECTED_RANGE
 
     def _color_config(self):
         self.plot_style = {
@@ -1387,34 +1405,99 @@ class LinePlotModel(Atom):
     # ===========================================================
     #         Functions for plotting spectrum preview
 
-    def show_preview_spectrum_plot(self):
+    def prepare_preview_spectrum_plot(self):
+
+        # Do nothing if not datasets are loaded
+        #if not self.data_sets:
+        #    return
+
         self._ax_preview = self._fig_preview.add_subplot(111)
         self._ax_preview.set_facecolor('lightgrey')
-        x = np.arange(100)
-        y = np.sin(2 * np.pi * x / 100)
-        self._ax_preview.plot(x, y)
+        self._ax_preview.grid(which="both")
+
+        #x = np.arange(100)
+        #y = np.sin(2 * np.pi * x / 100)
+        #self._ax_preview.plot(x, y)
+        self._fig_preview.set_visible(False)
+
+
+    def show_preview_spectrum_plot(self):
+
+        # Remove all lines from the plot
+        while len(self._lines_preview):
+            self._lines_preview.pop().remove()
+
+        # The list of color names
+        color_names = get_color_name()
+
+        # All available datasets, we will print only the selected datasets
+        dset_names = list(self.data_sets.keys())
+
+        self.max_v = 1.0
+        for n_line, dset_name in enumerate(dset_names):
+            dset = self.data_sets[dset_name]
+
+            # Select color (even if the dataset is not displayed). This is done in order
+            #   to ensure that each dataset is assigned the unique color.
+            color = color_names[n_line % len(color_names)]
+
+            if dset.plot_index:
+
+                data_arr = np.asarray(dset.data)
+                if data_arr is None:  # Just a precaution, it shouldn't happen
+                    logger.error("Spectrum review: attempting to print empty dataset.")
+                    continue
+
+                # Truncate the array (1D spectrum)
+                #data_arr = data_arr[0: self.number_pts_to_show]
+                self.max_v = np.max([self.max_v, np.max(data_arr)])
+                                     #np.max(data_arr[self.limit_cut:-self.limit_cut])])
+
+                x_v = (self.parameters['e_offset']['value'] +
+                       np.arange(len(data_arr)) *
+                       self.parameters['e_linear']['value'] +
+                       np.arange(len(data_arr)) ** 2 *
+                       self.parameters['e_quadratic']['value'])
+
+                line, = self._ax_preview.plot(x_v, data_arr,
+                                              color=color,
+                                              label=dset.filename.split('.')[0],
+                                              linestyle=self.plot_style['experiment']['linestyle'],
+                                              marker=self.plot_style['experiment']['marker'])
+
+                self._lines_preview.append(line)
+
+        self._fig_preview.set_visible(True)
+
+        #self.plot_selected_energy_range()
+
+        #self._update_ylimit()
+        #self.log_linear_plot()
+        #self._update_canvas()
+
 
     def hide_preview_spectrum_plot(self):
-        self._fig_preview.clear()
+        #self._fig_preview.clear()
+        self._fig_preview.set_visible(False)
 
-    @observe('show_exp_opt')
-    def _update_spectrum_preview(self, change):
-        if change['type'] != 'create':
-            if change['value']:
-                self.show_preview_spectrum_plot()
-                #if len(self.plot_exp_list):
-                #    for v in self.plot_exp_list:
-                #        v.set_visible(True)
-                #        lab = v.get_label()
-                #        if lab != '_nolegend_':
-                #            v.set_label(lab.strip('_'))
-            else:
-                self.hide_preview_spectrum_plot()
-                #if len(self.plot_exp_list):
-                #    for v in self.plot_exp_list:
-                #        v.set_visible(False)
-                #        lab = v.get_label()
-                #        if lab != '_nolegend_':
-                #            v.set_label('_' + lab)
-            #self._update_canvas()
-            self._fig_preview.canvas.draw()
+    def update_preview_spectrum_plot(self):
+        # Find out if any data is selected
+        show_plot = any([_.plot_index for _ in self.data_sets.values()])
+        if show_plot:
+            self.show_preview_spectrum_plot()
+            #if len(self.plot_exp_list):
+            #    for v in self.plot_exp_list:
+            #        v.set_visible(True)
+            #        lab = v.get_label()
+            #        if lab != '_nolegend_':
+            #            v.set_label(lab.strip('_'))
+        else:
+            self.hide_preview_spectrum_plot()
+            #if len(self.plot_exp_list):
+            #    for v in self.plot_exp_list:
+            #        v.set_visible(False)
+            #        lab = v.get_label()
+            #        if lab != '_nolegend_':
+            #            v.set_label('_' + lab)
+        #self._update_canvas()
+        self._fig_preview.canvas.draw()
