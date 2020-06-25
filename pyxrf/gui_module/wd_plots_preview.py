@@ -5,13 +5,11 @@ from PyQt5.QtCore import Qt
 from .useful_widgets import RangeManager, set_tooltip
 from ..model.lineplot import PlotTypes, EnergyRangePresets
 
-from matplotlib.figure import Figure
-import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import \
     FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger("pyxrf")
 
 
 class PreviewPlots(QTabWidget):
@@ -56,44 +54,24 @@ class PreviewPlotSpectrum(QWidget):
         self.cb_plot_type.setCurrentIndex(self.gpc.plot_model.plot_type_preview.value)
         self.cb_plot_type.currentIndexChanged.connect(self.cb_plot_type_current_index_changed)
 
-
         self.rb_selected_region = QRadioButton("Selected region")
         self.rb_selected_region.setChecked(True)
         self.rb_full_spectrum = QRadioButton("Full spectrum")
-        if self.gpc.plot_model.energy_range_preview == PlotTypes.LINLOG:
+        if self.gpc.plot_model.energy_range_preview == EnergyRangePresets.SELECTED_RANGE:
             self.rb_selected_region.setChecked(True)
-        elif self.gpc.plot_model.energy_range_preview == PlotTypes.LINEAR:
+        elif self.gpc.plot_model.energy_range_preview == EnergyRangePresets.FULL_SPECTRUM:
             self.rb_full_spectrum.setChecked(True)
         else:
             logger.error("Spectrum preview: incorrect Enum value for energy range was used:\n"
                          "    Report the error to the development team.")
-
 
         self.btn_group_region = QButtonGroup()
         self.btn_group_region.addButton(self.rb_selected_region)
         self.btn_group_region.addButton(self.rb_full_spectrum)
         self.btn_group_region.buttonToggled.connect(self.btn_group_region_button_toggled)
 
-        #self.bgroup = QButtonGroup()
-        #self.bgroup.addButton(self.rb_selected_region)
-        #self.bgroup.addButton(self.rb_full_spectrum)
-
         self.mpl_canvas = FigureCanvas(self.gpc.plot_model._fig_preview)
         self.mpl_toolbar = NavigationToolbar(self.mpl_canvas, self)
-
-        #plot = QWidget()
-        #plot.setCentralWidget(self.mpl_canvas)
-
-        # The label will be replaced with the widget that will actually plot the data
-        #label = QLabel()
-        #comment = \
-        #    "The widget will plot total spectrum of the loaded data.\n"\
-        #    "The displayed channels are selected using CheckBoxes in 'Data' tab.\n"\
-        #    "When implemented, the data will be presented as in 'Spectrum View' tab "\
-        #    "of the original PyXRF"
-        #label.setText(comment)
-        #label.setStyleSheet("QLabel { background-color : white; color : blue; }")
-        #label.setAlignment(Qt.AlignCenter)
 
         vbox = QVBoxLayout()
 
@@ -104,7 +82,6 @@ class PreviewPlotSpectrum(QWidget):
         hbox.addWidget(self.rb_full_spectrum)
         vbox.addLayout(hbox)
 
-        #vbox.addWidget(label)
         vbox.addWidget(self.mpl_toolbar)
         vbox.addWidget(self.mpl_canvas)
         self.setLayout(vbox)
@@ -133,12 +110,10 @@ class PreviewPlotSpectrum(QWidget):
             if button == self.rb_selected_region:
                 self.gpc.plot_model.energy_range_preview = EnergyRangePresets.SELECTED_RANGE
                 self.gpc.plot_model.update_preview_spectrum_plot()
-                #self.mpl_toolbar.update()  # Reset toolbar (ZOOM history!!)
                 print("Display only selected region")
             elif button == self.rb_full_spectrum:
                 self.gpc.plot_model.energy_range_preview = EnergyRangePresets.FULL_SPECTRUM
                 self.gpc.plot_model.update_preview_spectrum_plot()
-                #self.mpl_toolbar.update()  # Reset toolbar (ZOOM history!!)
                 print("Display full spectrum")
             else:
                 logger.error("Spectrum preview: unknown button was toggled. "
@@ -148,11 +123,11 @@ class PreviewPlotSpectrum(QWidget):
         try:
             self.gpc.plot_model.plot_type_preview = PlotTypes(index)
             self.gpc.plot_model.update_preview_spectrum_plot()
-            #self.mpl_toolbar.update()  # Reset toolbar (ZOOM history!!)
             print(f"Selected index: {index}")
         except ValueError:
-            logger.error(f"Spectrum preview: incorrect index for energy range preset was detected.\n"
+            logger.error("Spectrum preview: incorrect index for energy range preset was detected.\n"
                          "Please report the error to the development team.")
+
 
 class PreviewPlotCount(QWidget):
 

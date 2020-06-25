@@ -18,7 +18,7 @@ from pyxrf.core.map_processing import (
 from pyxrf.core.tests.test_fitting import DataForFittingTest
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger("pyxrf")
 
 
 def test_dask_client_create(tmpdir):

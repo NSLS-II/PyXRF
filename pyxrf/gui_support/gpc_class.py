@@ -11,7 +11,7 @@ from ..model.setting import SettingModel
 from ..model.param_data import param_data
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger("pyxrf")
 
 
 class GlobalProcessingClasses:
@@ -42,15 +42,6 @@ class GlobalProcessingClasses:
         Run the sequence of actions needed to initialize PyXRF modules.
 
         """
-
-        logger.setLevel(logging.INFO)
-
-        formatter = logging.Formatter(fmt='%(asctime)s : %(levelname)s : %(message)s')
-
-        stream_handler = logging.StreamHandler()
-        stream_handler.setFormatter(formatter)
-        stream_handler.setLevel(logging.INFO)
-        logger.addHandler(stream_handler)
 
         defaults = self._get_defaults()
         self.io_model = FileIOModel(**defaults)
@@ -119,27 +110,32 @@ class GlobalProcessingClasses:
         f_dir, f_name = os.path.split(file_path)
         self.io_model.working_directory = f_dir
 
+        def _update_data():
+            self.plot_model.parameters = self.param_model.param_new
+            self.plot_model.data_sets = self.io_model.data_sets
+            self.setting_model.parameters = self.param_model.param_new
+            self.setting_model.data_sets = self.io_model.data_sets
+            self.fit_model.data_sets = self.io_model.data_sets
+            self.fit_model.fit_img = {}  # clear dict in fitmodel to rm old results
+            # This will draw empty (hidden) preview plot, since no channels are selected.
+            self.plot_model.update_preview_spectrum_plot()
+
         # The following statement initiates file loading. It may raise exceptions
         try:
             self.io_model.file_name = f_name
         except Exception:
+            _update_data()
+            logger.info(f"Failed to load the file '{f_name}'.")
             # Clear file name or scan id from window title. This does not update
             #   the displayed title.
             self.io_model.window_title_clear()
             raise
         else:
-            self.plot_model.parameters = self.param_model.param_new
-            self.setting_model.parameters = self.param_model.param_new
-            self.setting_model.data_sets = self.io_model.data_sets
-            self.fit_model.data_sets = self.io_model.data_sets
-            self.fit_model.fit_img = {}  # clear dict in fitmodel to rm old results
+            _update_data()
 
             # Change window title (include file name). This does not update the visible title,
             #   only the text attribute of 'io_model' class.
             self.io_model.window_title_set_file_name(f_name)
-
-            # Prepare plots
-            self.plot_model.prepare_preview_spectrum_plot()
 
             if not self.io_model.incident_energy_available:
                 msg = ("Incident energy is not available in scan metadata and must be set manually. "
@@ -166,10 +162,6 @@ class GlobalProcessingClasses:
         is_visible: bool
             True - show the dataset, False - hide the dataset
         """
-
         self.io_model.data_sets[dset_name].plot_index = 1 if is_visible else 0
-        #channels_to_display = [bool(_.plot_index) for _ in self.io_model.data_sets.values()]
-
         self.plot_model.data_sets = self.io_model.data_sets
-        #self.plot_model.plot_multi_exp_data()
         self.plot_model.update_preview_spectrum_plot()

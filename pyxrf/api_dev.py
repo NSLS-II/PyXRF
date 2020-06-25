@@ -14,7 +14,7 @@ from .core.map_processing import dask_client_create  # noqa: F401
 #     Violation F401 - the package is imported but unused
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger("pyxrf")
 
 logger.setLevel(logging.INFO)
 

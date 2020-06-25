@@ -16,7 +16,7 @@ from .model.param_data import param_data
 # import json
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger("pyxrf")
 
 with enaml.imports():
     from .view.main_window import XRFGui

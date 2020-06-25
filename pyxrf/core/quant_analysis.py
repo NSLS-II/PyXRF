@@ -9,7 +9,7 @@ import time as ttime
 from .xrf_utils import split_compound_mass, generate_eline_list
 from .utils import normalize_data_by_scaler, convert_time_to_nexus_string
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger("pyxrf")
 
 # ==========================================================================================
 #    Functions for operations with YAML files used for keeping descriptions of XRF standards

@@ -1,5 +1,6 @@
 import sys
 import platform
+import argparse
 from PyQt5.QtWidgets import QApplication, QStyleFactory
 from PyQt5.QtGui import QFontDatabase
 # from PyQt5.QtCore import Qt
@@ -9,7 +10,7 @@ from .gui_module.main_window import MainWindow
 from .gui_module.useful_widgets import global_gui_variables
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger("pyxrf")
 
 try:
     import databroker  # noqa: F401
@@ -17,7 +18,6 @@ except ImportError:
     global_gui_variables["gui_state"]["databroker_available"] = False
 else:
     global_gui_variables["gui_state"]["databroker_available"] = True
-
 
 # if hasattr(Qt, 'AA_EnableHighDpiScaling'):
 #     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
@@ -28,6 +28,19 @@ else:
 
 def run():
     """Run the application"""
+    parser = argparse.ArgumentParser(prog='pyxrf', description='Command line arguments')
+    parser.add_argument("-l", "--loglevel", default="INFO", type=str, dest="loglevel",
+                        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+                        help="Logger level. Set to 'DEBUG' in order to see debug information.")
+    args = parser.parse_args()
+
+    # Setup the Logger
+    logger.setLevel(args.loglevel)
+    formatter = logging.Formatter(fmt='%(asctime)s : %(levelname)s : %(message)s')
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    stream_handler.setLevel(args.loglevel)
+    logger.addHandler(stream_handler)
 
     gpc = GlobalProcessingClasses()
     gpc.initialize()

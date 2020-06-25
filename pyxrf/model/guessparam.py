@@ -20,7 +20,7 @@ from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 from ..core.map_processing import snip_method_numba
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger("pyxrf")
 
 
 bound_options = ['none', 'lohi', 'fixed', 'lo', 'hi']

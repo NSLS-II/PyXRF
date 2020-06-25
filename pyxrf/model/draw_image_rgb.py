@@ -15,7 +15,7 @@ from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool
 from ..core.utils import normalize_data_by_scaler, grid_interpolate
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger("pyxrf")
 
 np.seterr(divide='ignore', invalid='ignore')  # turn off warning on invalid division
 

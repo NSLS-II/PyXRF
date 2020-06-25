@@ -175,6 +175,7 @@ def adjust_qlistwidget_height(list_widget, *, other_widgets=None, min_height=40)
         w.adjustSize()
         w.updateGeometry()  # This is necessary in some cases
 
+
 def get_background_css(rgb, widget="QWidget", editable=False):
     """Returns the string that contain CSS to set widget background to specified color"""
 

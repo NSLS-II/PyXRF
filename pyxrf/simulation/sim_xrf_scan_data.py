@@ -13,7 +13,7 @@ from ..core.quant_analysis import ParamQuantEstimation
 from ..core.xrf_utils import generate_eline_list
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger("pyxrf")
 
 
 def _get_elemental_line_parameters(*, elemental_line, incident_energy):

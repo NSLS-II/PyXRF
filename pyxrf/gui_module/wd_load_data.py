@@ -39,7 +39,6 @@ class LoadDataWidget(FormBaseWidget):
 
         self.initialize()
 
-
     def initialize(self):
 
         v_spacing = global_gui_parameters["vertical_spacing_in_tabs"]
@@ -133,8 +132,8 @@ class LoadDataWidget(FormBaseWidget):
         self.group_sel_channel = QGroupBox("Select Channel For Processing")
 
         self.cbox_channel = QComboBox()
-        self._set_cbox_channel_items(items=[])
         self.cbox_channel.currentIndexChanged.connect(self.cbox_channel_index_changed)
+        self._set_cbox_channel_items(items=[])
 
         hbox = QHBoxLayout()
         hbox.addWidget(self.cbox_channel)
@@ -219,13 +218,15 @@ class LoadDataWidget(FormBaseWidget):
             `self._set_cbox_channel_items(items=[])`
 
         """
+        self.cbox_channel.currentIndexChanged.disconnect(self.cbox_channel_index_changed)
+
         self.cbox_channel.clear()
         if items is None:
             items = list(self.gpc.io_model.file_channel_list)
         self.cbox_channel.addItems(items)
-        if len(items):
-            # Select the first item (if there is at least one item)
-            self.cbox_channel.setCurrentIndex(0)
+
+        self.cbox_channel.currentIndexChanged.connect(self.cbox_channel_index_changed)
+
         if len(items):
             # Select the first item (if there is at least one item)
             self.cbox_channel.setCurrentIndex(0)
@@ -258,6 +259,8 @@ class LoadDataWidget(FormBaseWidget):
 
         self.list_preview.itemChanged.connect(self.list_preview_item_changed)
 
+        # This will cause the preview data to be plotted (the plot is expected to be hidden,
+        #   since no channels were selected). Here we select the first channel in the list.
         if len(items):
             self.list_preview.item(0).setCheckState(Qt.Checked)
 
@@ -277,64 +280,92 @@ class LoadDataWidget(FormBaseWidget):
                                                  "HDF5 (*.h5);; All (*)")
         file_path = file_paths[0]
         if file_path:
-            try:
+            self._result = {}
 
-                msg = self.gpc.open_data_file(file_path)
+            def cb(file_path, result_dict):
+                try:
+                    msg = self.gpc.open_data_file(file_path)
+                    status = True
+                except Exception as ex:
+                    msg = str(ex)
+                    status = False
+                result_dict.update({
+                    "status": status,
+                    "msg": msg,
+                    "file_path": file_path
+                })
+                self.computations_complete.emit()
 
-                file_text = f"'{self.gpc.io_model.file_name}'"
-                if self.gpc.io_model.scan_metadata_available:
-                    file_text += f": ID#{self.gpc.io_model.scan_metadata['scan_id']}"
-                self.le_file.setText(file_text)
+            self.computations_complete.connect(self.slot_file_clicked)
+            self.gui_vars["gui_state"]["running_computations"] = True
+            self.update_global_state.emit()
+            self.bckg_thread = Thread(target=cb, kwargs={"file_path": file_path,
+                                                         "result_dict": self._result})
+            self.bckg_thread.start()
 
-                self.gui_vars["gui_state"]["state_file_loaded"] = True
-                # Invalidate fit. Fit must be rerun for new data.
-                self.gui_vars["gui_state"]["state_model_fit_exists"] = False
-                # Check if any datasets were loaded.
-                self.gui_vars["gui_state"]["state_xrf_map_exists"] = self.gpc.io_model.is_xrf_maps_available()
+    @pyqtSlot()
+    def slot_file_clicked(self):
+        self.computations_complete.disconnect(self.slot_file_clicked)
+        self.gui_vars["gui_state"]["running_computations"] = False
+        self.update_global_state.emit()
 
-                # Disable the button for changing working directory. This is consistent
-                #   with the behavior of the old PyXRF, but will be changed in the future.
-                self.pb_set_wd.setEnabled(False)
+        status = self._result["status"]
+        msg = self._result["msg"]  # Message is empty if file loading failed
+        file_path = self._result["file_path"]
+        if status:
+            file_text = f"'{self.gpc.io_model.file_name}'"
+            if self.gpc.io_model.scan_metadata_available:
+                file_text += f": ID#{self.gpc.io_model.scan_metadata['scan_id']}"
+            self.le_file.setText(file_text)
 
-                # Enable/disable 'View Metadata' button
-                self.pb_view_metadata.setEnabled(self.gpc.io_model.scan_metadata_available)
-                self.le_wd.setText(self.gpc.io_model.working_directory)
+            self.gui_vars["gui_state"]["state_file_loaded"] = True
+            # Invalidate fit. Fit must be rerun for new data.
+            self.gui_vars["gui_state"]["state_model_fit_exists"] = False
+            # Check if any datasets were loaded.
+            self.gui_vars["gui_state"]["state_xrf_map_exists"] = self.gpc.io_model.is_xrf_maps_available()
 
-                self.update_main_window_title.emit()
-                self.update_global_state.emit()
+            # Disable the button for changing working directory. This is consistent
+            #   with the behavior of the old PyXRF, but will be changed in the future.
+            self.pb_set_wd.setEnabled(False)
 
-                self._set_cbox_channel_items()
-                self._set_list_preview_items()
-                if msg:
-                    # Display warning message if it was generated
-                    msgbox = QMessageBox(QMessageBox.Warning, "Warning",
-                                         msg, QMessageBox.Ok, parent=self)
-                    msgbox.exec()
+            # Enable/disable 'View Metadata' button
+            self.pb_view_metadata.setEnabled(self.gpc.io_model.scan_metadata_available)
+            self.le_wd.setText(self.gpc.io_model.working_directory)
 
-            except Exception as ex:
-                self.le_file.setText(self.le_file_default)
+            self.update_main_window_title.emit()
+            self.update_global_state.emit()
 
-                # Disable 'View Metadata' button
-                self.pb_view_metadata.setEnabled(False)
-                self.le_wd.setText(self.gpc.io_model.working_directory)
-
-                # Clear flags: the state now is "No data is loaded".
-                clear_gui_state(self.gui_vars)
-                self.update_global_state.emit()
-
-                self.update_main_window_title.emit()
-                self.update_global_state.emit()
-
-                self._set_cbox_channel_items(items=[])
-                self._set_list_preview_items(items=[])
-
-                msg = f"Incorrect format of input file '{file_path}': "\
-                      f"PyXRF accepts only custom HDF (.h5) files."\
-                      f"\n\nError message: {ex}"
-                msgbox = QMessageBox(QMessageBox.Critical, "Error",
+            self._set_cbox_channel_items()
+            self._set_list_preview_items()
+            if msg:
+                # Display warning message if it was generated
+                msgbox = QMessageBox(QMessageBox.Warning, "Warning",
                                      msg, QMessageBox.Ok, parent=self)
                 msgbox.exec()
 
+        else:
+            self.le_file.setText(self.le_file_default)
+
+            # Disable 'View Metadata' button
+            self.pb_view_metadata.setEnabled(False)
+            self.le_wd.setText(self.gpc.io_model.working_directory)
+
+            # Clear flags: the state now is "No data is loaded".
+            clear_gui_state(self.gui_vars)
+            self.update_global_state.emit()
+
+            self.update_main_window_title.emit()
+            self.update_global_state.emit()
+
+            self._set_cbox_channel_items(items=[])
+            self._set_list_preview_items(items=[])
+
+            msg_str = f"Incorrect format of input file '{file_path}': " \
+                      f"PyXRF accepts only custom HDF (.h5) files." \
+                      f"\n\nError message: {msg}"
+            msgbox = QMessageBox(QMessageBox.Critical, "Error",
+                                 msg_str, QMessageBox.Ok, parent=self)
+            msgbox.exec()
 
     def pb_dbase_clicked(self):
 
@@ -377,12 +408,11 @@ class LoadDataWidget(FormBaseWidget):
         # The name of the dataset
         dset_name = self.gpc.io_model.file_channel_list[ind]
 
-        self.computations_complete.connect(self.slot_preview_items_changed)
-
         def cb():
             self.gpc.select_preview_dataset(dset_name=dset_name, is_visible=bool(state))
             self.computations_complete.emit()
 
+        self.computations_complete.connect(self.slot_preview_items_changed)
         self.gui_vars["gui_state"]["running_computations"] = True
         self.update_global_state.emit()
         self.bckg_thread = Thread(target=cb)

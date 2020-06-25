@@ -21,7 +21,7 @@ from ..core.yaml_param_files import (create_yaml_parameter_file, read_yaml_param
 from ..core.map_processing import dask_client_create
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger("pyxrf")
 
 
 def build_xanes_map(start_id=None, end_id=None, *, parameter_file_path=None,
@@ -3176,7 +3176,7 @@ def _save_spectrum_as_csv(*, fln, wd=None, msg_info=None, energy=None, spectrum=
 
 if __name__ == "__main__":
 
-    logger = logging.getLogger()
+    logger = logging.getLogger("pyxrf")
 
     logger.setLevel(logging.INFO)
 

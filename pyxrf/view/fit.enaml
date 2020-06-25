@@ -32,7 +32,7 @@ from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 from skbeam.fluorescence import XrfElement as Element
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger("pyxrf")
 
 try:
     import databroker

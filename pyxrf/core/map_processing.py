@@ -11,7 +11,7 @@ from progress.bar import Bar
 from .fitting import fit_spectrum
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger("pyxrf")
 
 
 def dask_client_create(**kwargs):

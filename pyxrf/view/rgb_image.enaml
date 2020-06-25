@@ -15,7 +15,7 @@ import numpy as np
 from matplotlib.figure import Figure
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger("pyxrf")
 
 enamldef RadioButton(DefaultRadioButton):
     minimum_size = (5, 26)

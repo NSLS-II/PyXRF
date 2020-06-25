@@ -19,10 +19,8 @@ from skbeam.core.fitting.xrf_model import (K_TRANSITIONS, L_TRANSITIONS, M_TRANS
 from skbeam.fluorescence import XrfElement as Element
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger("pyxrf")
 
-from matplotlib.backends.backend_qt5agg import \
-    FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
 
 def get_color_name():
 
@@ -99,7 +97,6 @@ class LinePlotModel(Atom):
     # Preview plot (raw experimental spectra)
     _fig_preview = Typed(Figure)
     _ax_preview = Typed(Axes)
-    #_canvas_preview = Typed(object)
     _lines_preview = List()
     _bahr_preview = Typed(BrokenBarHCollection)
 
@@ -227,7 +224,6 @@ class LinePlotModel(Atom):
         # --------------------------------------------------------------
         # Spectrum preview figure
         self._fig_preview = Figure()
-        #self._canvas_preview = FigureCanvas(self._fig_preview)
         self.plot_type_preview = PlotTypes.LINLOG
         self.energy_range_preview = EnergyRangePresets.SELECTED_RANGE
 
@@ -1486,15 +1482,23 @@ class LinePlotModel(Atom):
         if e_high is None:
             e_high = self.param_model.param_new['non_fitting_values']['energy_bound_high']['value']
 
-        # Generate the values for 'energy' axis
-        x_v = (self.parameters['e_offset']['value'] +
-               np.arange(n_points) *
-               self.parameters['e_linear']['value'] +
-               np.arange(n_points) ** 2 *
-               self.parameters['e_quadratic']['value'])
+        # Model coefficients for the energy axis
+        c0 = self.parameters['e_offset']['value']
+        c1 = self.parameters['e_linear']['value']
+        c2 = self.parameters['e_quadratic']['value']
 
-        ss = (x_v < e_high) & (x_v > e_low)
-        y_min, y_max = 1e-30, 1e30  # Select the max and min values for plotted rectangles
+        # Generate the values for 'energy' axis
+        x_v = (c0 + np.arange(n_points) * c1 + np.arange(n_points) ** 2 * c2)
+        ss = (x_v < e_high + c1) & (x_v > e_low - c1)
+
+        # Trim both arrays to minimize the number of points
+        x_v = x_v[ss]
+        ss = ss[ss]
+        ss[0] = False
+        ss[-1] = False
+
+        # Negative values will work for semilog plot as well
+        y_min, y_max = -1e30, 1e30  # Select the max and min values for plotted rectangles
 
         # Remove the plot if it exists
         if barh_existing in axes.collections:
@@ -1517,7 +1521,7 @@ class LinePlotModel(Atom):
 
         self._fig_preview.set_visible(False)
 
-    def show_preview_spectrum_plot(self):
+    def _show_preview_spectrum_plot(self):
 
         # Completely redraw the plot each time the function is called
         self.prepare_preview_spectrum_plot()
@@ -1625,33 +1629,28 @@ class LinePlotModel(Atom):
         self._bahr_preview = self.plot_selected_energy_range(
             axes=self._ax_preview, barh_existing=self._bahr_preview)
 
-        #self._update_ylimit()
-        #self.log_linear_plot()
-        #self._update_canvas()
-
-
-    def hide_preview_spectrum_plot(self):
-        #self._fig_preview.clear()
+    def _hide_preview_spectrum_plot(self,):
         self._fig_preview.set_visible(False)
 
-    def update_preview_spectrum_plot(self):
+    def update_preview_spectrum_plot(self, *, hide=False):
+        """
+        Update spectrum preview plot based on available/selected dataset and `hide` flag.
+
+        Parameters
+        ----------
+        hide: bool
+            `True` - plot data if datasets are available and at least one dataset is selected,
+            otherwise hide the plot, `False` - hide the plot in any case
+        """
         # Find out if any data is selected
-        show_plot = any([_.plot_index for _ in self.data_sets.values()])
-        if show_plot:
-            self.show_preview_spectrum_plot()
-            #if len(self.plot_exp_list):
-            #    for v in self.plot_exp_list:
-            #        v.set_visible(True)
-            #        lab = v.get_label()
-            #        if lab != '_nolegend_':
-            #            v.set_label(lab.strip('_'))
+        show_plot = False
+        if self.data_sets:
+            show_plot = any([_.plot_index for _ in self.data_sets.values()])
+        logger.debug(f"LinePlotModel.update_preview_spectrum_plot(): show_plot={show_plot} hide={hide}")
+        if show_plot and not hide:
+            logger.debug("LinePlotModel.update_preview_spectrum_plot(): plotting existing datasets")
+            self._show_preview_spectrum_plot()
         else:
-            self.hide_preview_spectrum_plot()
-            #if len(self.plot_exp_list):
-            #    for v in self.plot_exp_list:
-            #        v.set_visible(False)
-            #        lab = v.get_label()
-            #        if lab != '_nolegend_':
-            #            v.set_label('_' + lab)
-        #self._update_canvas()
+            logger.debug("LinePlotModel.update_preview_spectrum_plot(): hiding plots")
+            self._hide_preview_spectrum_plot()
         self._fig_preview.canvas.draw()

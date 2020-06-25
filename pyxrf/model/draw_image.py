@@ -21,7 +21,7 @@ from ..core.utils import normalize_data_by_scaler, grid_interpolate
 from ..core.quant_analysis import ParamQuantitativeAnalysis
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger("pyxrf")
 
 
 class DrawImageAdvanced(Atom):

@@ -33,7 +33,7 @@ import warnings
 import pyxrf
 pyxrf_version = pyxrf.__version__
 
-logger = logging.getLogger()
+logger = logging.getLogger("pyxrf")
 warnings.filterwarnings('ignore')
 
 sep_v = os.sep
@@ -228,6 +228,12 @@ class FileIOModel(Atom):
 
         self.file_channel_list = []
         logger.info('File is loaded: %s' % (self.file_name))
+
+        # Clear data. If reading the file fails, then old data should not be kept.
+        self.img_dict = {}
+        self.data_sets = OrderedDict()
+        self.scan_metadata = ScanMetadataXRF()
+        self._metadata_update_program_state()
 
         # focus on single file only
         self.img_dict, self.data_sets, self.scan_metadata = \
@@ -599,7 +605,7 @@ def file_handler(working_directory, file_name, load_each_channel=True, spectrum_
             return read_MAPS(working_directory,
                              file_name, channel_num=1)
     except IOError as e:
-        logger.error("I/O error({0}): {1}".format(e.errno, e.strerror))
+        logger.error("I/O error({0}): {1}".format(e.errno, str(e)))
         logger.error('Please select .h5 file')
     except Exception:
         logger.error("Unexpected error:", sys.exc_info()[0])
