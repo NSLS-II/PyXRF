@@ -13,7 +13,8 @@ from pyxrf.core.map_processing import (
     dask_client_create, TerminalProgressBar, wait_and_display_progress,
     _compute_optimal_chunk_size, _chunk_numpy_array, _array_numpy_to_dask,
     RawHDF5Dataset, prepare_xrf_map, _prepare_xrf_mask, compute_total_spectrum,
-    _fit_xrf_block, fit_xrf_map, _compute_roi, compute_selected_rois, snip_method_numba)
+    compute_total_spectrum_and_count, _fit_xrf_block, fit_xrf_map, _compute_roi,
+    compute_selected_rois, snip_method_numba)
 
 from pyxrf.core.tests.test_fitting import DataForFittingTest
 
@@ -517,6 +518,88 @@ def test_compute_total_spectrum_fail(mask):
     data_dask = da.random.random((7, 12, 20), chunks=(2, 3, 4))
     with pytest.raises(TypeError, match="Parameter 'mask' must be a numpy array or None"):
         compute_total_spectrum(data_dask, mask=mask, chunk_pixels=12)
+
+
+@pytest.mark.usefixtures("_start_dask_client")
+class TestComputeTotalSpectrumAndCount:
+
+    @pytest.mark.parametrize("data_representation", ["numpy_array", "dask_array", "hdf5_file_dset"])
+    @pytest.mark.parametrize("apply_mask", [False, True])
+    @pytest.mark.parametrize("select_area", [False, True])
+    def test_compute_total_spectrum_and_count1(self, data_representation, apply_mask, select_area, tmpdir):
+        """Using 'global' dask client to save time"""
+
+        global_client = self.client
+
+        # Start with dask array
+        data_shape = (7, 12, 20)
+        data_dask = da.random.random(data_shape, chunks=(2, 3, 4))
+        # Using the same distributed scheduler doesn't work as expected
+        data_numpy = data_dask.compute(scheduler="synchronous")
+
+        mask, selection = _create_xrf_mask(data_shape, apply_mask, select_area)
+
+        # Compute the expected result
+        data_tmp = data_numpy
+        if mask is not None:
+            mask_conv = (mask > 0).astype(dtype=int)
+            mask_conv = np.broadcast_to(np.expand_dims(mask_conv, axis=2), data_tmp.shape)
+            data_tmp = data_tmp * mask_conv
+        if selection is not None:
+            y0, x0, ny, nx = selection
+            # Primitive simple algorithm to apply the selection (we need to keep all the pixels)
+            for y in range(data_tmp.shape[0]):
+                for x in range(data_tmp.shape[1]):
+                    if (y < y0) or (y >= y0 + ny) or (x < x0) or (x >= x0 + nx):
+                        data_tmp[y, x, :] = 0.0
+        total_spectrum_expected = np.sum(np.sum(data_tmp, axis=0), axis=0)
+        total_count_expected = np.sum(data_tmp, axis=2)
+
+        data = _create_xrf_data(data_dask, data_representation, tmpdir)
+
+        total_spectrum, total_count = compute_total_spectrum_and_count(
+            data, selection=selection, mask=mask,
+            chunk_pixels=12,
+            # Also run all computations with the progress bar
+            progress_bar=TerminalProgressBar("Monitoring progress: "),
+            client=global_client)
+
+        npt.assert_array_almost_equal(total_spectrum, total_spectrum_expected,
+                                      err_msg="Total spectrum was computed incorrectly")
+
+        npt.assert_array_almost_equal(total_count, total_count_expected,
+                                      err_msg="Total count (map) was computed incorrectly")
+
+
+def test_compute_total_spectrum_and_count2(tmpdir):
+    """Create an instance of Dask client in the 'compute_total_spectrum' function to test if it works"""
+
+    # Start with dask array
+    data_shape = (7, 12, 20)
+    data_dask = da.random.random(data_shape, chunks=(2, 3, 4))
+
+    data_numpy = data_dask.compute()
+    total_spectrum_expected = np.sum(np.sum(data_numpy, axis=0), axis=0)
+    total_count_expected = np.sum(data_numpy, axis=2)
+
+    data = _create_xrf_data(data_dask, "dask_array", tmpdir=tmpdir)
+
+    # Run computations without the progress bar
+    total_spectrum, total_count = compute_total_spectrum_and_count(data, chunk_pixels=12)
+
+    npt.assert_array_almost_equal(total_spectrum, total_spectrum_expected,
+                                  err_msg="Total spectrum was computed incorrectly")
+
+    npt.assert_array_almost_equal(total_count, total_count_expected,
+                                  err_msg="Total count (map) was computed incorrectly")
+
+
+@pytest.mark.parametrize("mask", [da.random.random((7, 12)), (7, 12), 20, "abcde"])
+def test_compute_total_spectrum_and_count_fail(mask):
+    """Failing cases: incorrect type for the mask ndarray"""
+    data_dask = da.random.random((7, 12, 20), chunks=(2, 3, 4))
+    with pytest.raises(TypeError, match="Parameter 'mask' must be a numpy array or None"):
+        compute_total_spectrum_and_count(data_dask, mask=mask, chunk_pixels=12)
 
 
 class _FitXRFMapTesting:
