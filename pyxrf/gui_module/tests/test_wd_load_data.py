@@ -1,5 +1,7 @@
+import os
 import pytest
 from pyxrf.gui_module.wd_load_data import DialogLoadMask
+from PyQt5.QtWidgets import QFileDialog
 from PyQt5.QtCore import Qt
 
 
@@ -184,3 +186,120 @@ def test_DialogLoadMask_3(qtbot, use_keys_and_mouse):
     _set_roi_group_active(False)
     # Check only the status of Ok button
     assert dlg.button_ok.isEnabled() is True, "Invalid status: Button Ok"
+
+
+@pytest.mark.parametrize("use_keys_and_mouse", [False, True])
+def test_DialogLoadMask_4(qtbot, use_keys_and_mouse):
+    """
+    DialogLoadMask - ROI selection group.
+    Check if validation of dialog controls works as expected.
+    In this test the values are set using dialog box functions, not using mouse/keyboard input.
+    """
+
+    dlg = DialogLoadMask()
+    qtbot.addWidget(dlg)
+    dlg.show()
+
+    # Set image size
+    n_rows, n_columns = 25, 37
+    dlg.set_image_size(n_rows=n_rows, n_columns=n_columns)
+
+    def _activate_mask_selection_group(state):
+        if use_keys_and_mouse:
+            dlg.gb_mask.setChecked(state)
+        else:
+            dlg.set_mask_file_active(state)
+        assert dlg.get_mask_file_active() == state, "Mask selection group status is incorrect"
+        assert dlg.gb_mask.isChecked() == state, "Mask selection group check status is incorrect"
+
+    assert dlg.le_load_mask.isValid() is True, "Validation status of the mask file name is incorrect"
+    _activate_mask_selection_group(True)
+    assert dlg.le_load_mask.isValid() is False, "Validation status of the mask file name is incorrect"
+    _activate_mask_selection_group(False)
+    assert dlg.le_load_mask.isValid() is True, "Validation status of the mask file name is incorrect"
+
+    fpath = "/file/path/file_name.bin"  # File path doesn't have to be real
+
+    # Set file name during 'inactive' state
+    dlg.set_mask_file_path(fpath)
+    assert dlg.le_load_mask.isValid() is True, "Validation status of the mask file name is incorrect"
+    _activate_mask_selection_group(True)
+    assert dlg.le_load_mask.isValid() is True, "Validation status of the mask file name is incorrect"
+    _activate_mask_selection_group(False)
+    assert dlg.le_load_mask.isValid() is True, "Validation status of the mask file name is incorrect"
+
+    # Set file name during 'inactive' state
+    dlg.set_mask_file_path("")  # Clear the file path
+    assert dlg.le_load_mask.isValid() is True, "Validation status of the mask file name is incorrect"
+    _activate_mask_selection_group(True)
+    assert dlg.le_load_mask.isValid() is False, "Validation status of the mask file name is incorrect"
+    dlg.set_mask_file_path(fpath)
+    assert dlg.le_load_mask.isValid() is True, "Validation status of the mask file name is incorrect"
+    _activate_mask_selection_group(False)
+    assert dlg.le_load_mask.isValid() is True, "Validation status of the mask file name is incorrect"
+
+
+def test_DialogLoadMask_5(qtbot):
+    """Setting home directory"""
+
+    dlg = DialogLoadMask()
+    qtbot.addWidget(dlg)
+    dlg.show()
+
+    # Set image size
+    n_rows, n_columns = 25, 37
+    dlg.set_image_size(n_rows=n_rows, n_columns=n_columns)
+
+    assert dlg._compute_home_directory() == ".", "Home directory is computed incorrectly"
+    d_name = os.path.join("file", "directory")
+    d_name = os.path.abspath(d_name)
+    dlg.set_default_directory(d_name)
+    assert dlg.get_default_directory() == d_name, "Returned default directory is incorrect"
+    assert dlg._compute_home_directory() == d_name, "Home directory is computed incorrectly"
+
+    d_name2 = os.path.join("file", "directory")
+    d_name2 = os.path.abspath(d_name2)
+    dlg.set_default_directory(d_name2)
+    f_path = os.path.join(d_name2, "file_name.bin")
+    dlg.set_mask_file_path(f_path)
+    assert dlg._compute_home_directory() == d_name2, "Home directory is computed incorrectly"
+
+    # Now clear the default directory
+    dlg.set_default_directory(d_name)
+    assert dlg._compute_home_directory() == d_name2, "Home directory is computed incorrectly"
+
+
+def test_DialogLoadMask_6(qtbot, monkeypatch):
+    """Setting home directory"""
+
+    dlg = DialogLoadMask()
+    dlg.show()
+    qtbot.addWidget(dlg)
+    qtbot.waitForWindowShown(dlg)
+
+    # Set image size
+    n_rows, n_columns = 25, 37
+    dlg.set_image_size(n_rows=n_rows, n_columns=n_columns)
+
+    d_name = os.path.join("file", "directory")
+    d_name = os.path.abspath(d_name)
+    f_name = "file_name.bin"
+    d_path = os.path.join(d_name, f_name)
+    dlg.set_default_directory(d_name)
+
+    # Activate the group
+    dlg.gb_mask.setChecked(True)
+
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args: [""])
+    qtbot.mouseClick(dlg.pb_load_mask, Qt.LeftButton)
+    assert dlg.le_load_mask.isValid() is False, "Incorrect state of the line edit widget"
+    assert dlg.le_load_mask.text() == dlg._le_load_mask_default_text, \
+        "Line Edit text is set incorrectly"
+    assert dlg.get_mask_file_path() == "", "Unexpected returned path for the mask file"
+
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args: [d_path])
+    qtbot.mouseClick(dlg.pb_load_mask, Qt.LeftButton)
+    assert dlg.le_load_mask.isValid() is True, "Incorrect state of the line edit widget"
+    assert dlg.le_load_mask.text() == d_path, \
+        "Line Edit text is set incorrectly"
+    assert dlg.get_mask_file_path() == d_path, "Unexpected returned path for the mask file"

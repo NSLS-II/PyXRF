@@ -485,10 +485,42 @@ class DialogSelectScan(QDialog):
 
 
 class DialogLoadMask(QDialog):
+    """
+    Dialog box for selecting spatial ROI and mask.
+
+    Typical use:
+
+    default_dir = "/home/user/data"
+    n_rows, n_columns = 15, 20  # Some values
+
+    # Values that are changed by the dialog box
+    roi = (2, 3, 11, 9)
+    use_roi = True
+    mask_f_path = ""
+    use_mask = False
+
+    dlg = DialogLoadMask()
+    dlg.set_image_size(n_rows=n_rows, n_columns=n_columns)
+    dlg.set_roi(row_start=roi[0], column_start=roi[1], row_end=roi[2], column_end=roi[3])
+    dlg.set_roi_active(use_roi)
+
+    dlg.set_default_directory(default_dir)
+    dlg.set_mask_file_path(mask_f_path)
+    dlg.set_mask_file_active(use_mask)
+
+    if dlg.exec() == QDialog.Accepted:
+        # If success, then read the values back. Discard changes if rejected.
+        roi = dlg.get_roi()
+        use_roi = dlg.get_roi_active()
+        mask_f_path = dlg.get_mask_file_path()
+        use_mask = dlg.get_mask_file_active()
+    """
 
     def __init__(self):
 
         super().__init__()
+
+        self._validation_enabled = False
 
         self.resize(500, 300)
         self.setWindowTitle("Load Mask or Select ROI")
@@ -504,13 +536,7 @@ class DialogLoadMask(QDialog):
         # ... with Mask group
         self._mask_active = False
         self._mask_file_path = ""
-
-        # Yes/No button box
-        self.button_box = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        self.button_ok = self.button_box.button(QDialogButtonBox.Ok)
-        self.button_box.accepted.connect(self.accept)
-        self.button_box.rejected.connect(self.reject)
+        self._default_directory = ""
 
         # Fields for entering spatial ROI coordinates
         self.validator_rows = QIntValidator()
@@ -564,7 +590,8 @@ class DialogLoadMask(QDialog):
         # Widgets for loading mask
         self.pb_load_mask = QPushButton("Load Mask ...")
         self.pb_load_mask.clicked.connect(self.pb_load_mask_clicked)
-        self.le_load_mask = LineEditReadOnly("No mask is loaded")
+        self._le_load_mask_default_text = "select 'mask' file"
+        self.le_load_mask = LineEditReadOnly(self._le_load_mask_default_text)
 
         # Group box for setting mask
         self.gb_mask = QGroupBox("Set mask")
@@ -580,6 +607,13 @@ class DialogLoadMask(QDialog):
         hbox.addWidget(self.le_load_mask)
         self.gb_mask.setLayout(hbox)
 
+        # Yes/No button box
+        self.button_box = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.button_ok = self.button_box.button(QDialogButtonBox.Ok)
+        self.button_box.accepted.connect(self.accept)
+        self.button_box.rejected.connect(self.reject)
+
         vbox = QVBoxLayout()
         vbox.addWidget(self.gb_roi)
         vbox.addStretch(1)
@@ -588,10 +622,22 @@ class DialogLoadMask(QDialog):
         vbox.addWidget(self.button_box)
         self.setLayout(vbox)
 
+        self._validation_enabled = True
+        self._validate_all_widgets()
+
+    def _compute_home_directory(self):
+        dir_name = "."
+        if self._default_directory:
+            dir_name = self._default_directory
+        if self._mask_file_path:
+            d, _ = os.path.split(self._mask_file_path)
+            dir_name = d if d else dir_name
+        return dir_name
+
     def pb_load_mask_clicked(self):
-        # TODO: Propagate current directory here and use it in the dialog call
+        dir_name = self._compute_home_directory()
         file_name = QFileDialog.getOpenFileName(self, "Load Mask From File",
-                                                ".",
+                                                dir_name,
                                                 "All (*)")
         file_name = file_name[0]
         if file_name:
@@ -634,21 +680,28 @@ class DialogLoadMask(QDialog):
         self._column_end = self._read_le_roi_value(self.le_roi_end_col, self._column_end)
 
     def le_roi_start_row_text_changed(self):
-        self.validate_all_inputs()
+        self._validate_all_widgets()
 
     def le_roi_end_row_text_changed(self):
-        self.validate_all_inputs()
+        self._validate_all_widgets()
 
     def le_roi_start_col_text_changed(self):
-        self.validate_all_inputs()
+        self._validate_all_widgets()
 
     def le_roi_end_col_text_changed(self):
-        self.validate_all_inputs()
+        self._validate_all_widgets()
 
     def gb_mask_toggled(self, state):
         self._mask_file_activate(state)
 
-    def validate_all_inputs(self):
+    def _validate_all_widgets(self):
+        """
+        Validate the values and state of all widgets, update the 'valid' state
+        of the widgets and enable/disable Ok button.
+        """
+
+        if not self._validation_enabled:
+            return
 
         # Check if all fields have valid input values
         def _check_valid_input(line_edit, flag_valid):
@@ -663,6 +716,7 @@ class DialogLoadMask(QDialog):
         self.le_roi_end_row.setValid(True)
         self.le_roi_start_col.setValid(True)
         self.le_roi_end_col.setValid(True)
+        self.le_load_mask.setValid(True)
 
         flag_valid = True
 
@@ -685,6 +739,7 @@ class DialogLoadMask(QDialog):
 
         if self._mask_active:
             if not self._mask_file_path:
+                self.le_load_mask.setValid(False)
                 flag_valid = False
 
         self.button_ok.setEnabled(flag_valid)
@@ -715,7 +770,7 @@ class DialogLoadMask(QDialog):
         self._column_end = n_columns
 
         self._show_selection(True)
-        self.validate_all_inputs()
+        self._validate_all_widgets()
 
         self.validator_rows.setTop(n_rows)
         self.validator_cols.setTop(n_columns)
@@ -775,12 +830,12 @@ class DialogLoadMask(QDialog):
         self._row_end = _adjust_last_index(row_end, self._n_rows)
         self._column_end = _adjust_last_index(column_end, self._n_columns)
         self._show_selection(self._roi_active)
-        self.validate_all_inputs()
+        self._validate_all_widgets()
 
     def _roi_activate(self, state):
         self._roi_active = state
         self._show_selection(state)
-        self.validate_all_inputs()
+        self._validate_all_widgets()
 
     def set_roi_active(self, state):
         self._roi_activate(state)
@@ -793,22 +848,34 @@ class DialogLoadMask(QDialog):
         return self._roi_active
 
     def _show_mask_file_path(self):
-        fpath = self._mask_file_path if self._mask_file_path else "select 'mask' file"
+        fpath = self._mask_file_path if self._mask_file_path else self._le_load_mask_default_text
         self.le_load_mask.setText(fpath)
-        self.validate_all_inputs()
+        self._validate_all_widgets()
 
     def _mask_file_activate(self, state):
         self._mask_active = state
         self._show_mask_file_path()
-        self.validate_all_inputs()
+        self._validate_all_widgets()
 
     def set_mask_file_active(self, state):
         self._mask_file_activate(state)
         self.gb_mask.setChecked(self._mask_active)
 
+    def get_mask_file_active(self):
+        return self._mask_active
+
     def set_mask_file_path(self, fpath):
         self._mask_file_path = fpath
         self._show_mask_file_path()
+
+    def get_mask_file_path(self):
+        return self._mask_file_path
+
+    def set_default_directory(self, dir_name):
+        self._default_directory = dir_name
+
+    def get_default_directory(self):
+        return self._default_directory
 
 
 class DialogViewMetadata(QDialog):

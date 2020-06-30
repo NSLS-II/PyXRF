@@ -61,36 +61,6 @@ def set_tooltip(widget, text):
     widget.setToolTip(text)
 
 
-class LineEditReadOnly(QLineEdit):
-    """
-    Read-only version of QLineEdit with background set to the same color
-    as the background of the disabled QLineEdit, but font color the same
-    as active QLineEdit.
-    """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.setReadOnly(True)
-        # Set background color the same as for disabled window.
-        p = self.palette()
-        p.setColor(QPalette.Base, p.color(QPalette.Disabled, QPalette.Base))
-        self.setPalette(p)
-
-
-class TextEditReadOnly(QTextEdit):
-    """
-    Read-only version of QTextEdit with background set to the same color
-    as the background of the disabled QLineEdit, but font color the same
-    as active QLineEdit.
-    """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.setReadOnly(True)
-        # Set background color the same as for disabled window.
-        p = self.palette()
-        p.setColor(QPalette.Base, p.color(QPalette.Disabled, QPalette.Base))
-        self.setPalette(p)
-
-
 class LineEditExtended(QLineEdit):
     """
     LineEditExtended allows to mark the displayed value as invalid by setting
@@ -157,6 +127,36 @@ class LineEditExtended(QLineEdit):
         Returns 'valid' status of the line edit box (bool).
         """
         return self._valid
+
+
+class LineEditReadOnly(LineEditExtended):
+    """
+    Read-only version of QLineEdit with background set to the same color
+    as the background of the disabled QLineEdit, but font color the same
+    as active QLineEdit.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setReadOnly(True)
+        # Set background color the same as for disabled window.
+        p = self.palette()
+        p.setColor(QPalette.Base, p.color(QPalette.Disabled, QPalette.Base))
+        self.setPalette(p)
+
+
+class TextEditReadOnly(QTextEdit):
+    """
+    Read-only version of QTextEdit with background set to the same color
+    as the background of the disabled QLineEdit, but font color the same
+    as active QLineEdit.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setReadOnly(True)
+        # Set background color the same as for disabled window.
+        p = self.palette()
+        p.setColor(QPalette.Base, p.color(QPalette.Disabled, QPalette.Base))
+        self.setPalette(p)
 
 
 class PushButtonMinimumWidth(QPushButton):
