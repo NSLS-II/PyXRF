@@ -91,6 +91,74 @@ class TextEditReadOnly(QTextEdit):
         self.setPalette(p)
 
 
+class LineEditExtended(QLineEdit):
+    """
+    LineEditExtended allows to mark the displayed value as invalid by setting
+    its `valid` property to False. By default, the text color is changed to Light Red.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._valid = True
+        self._style_sheet_valid = ""  # By default, clear the style sheet
+        self._style_sheet_invalid = "color: rgb(255, 0, 0);"
+        self._update_valid_status()
+
+    def _update_valid_status(self):
+        if self._valid:
+            super().setStyleSheet(self._style_sheet_valid)
+        else:
+            super().setStyleSheet(self._style_sheet_invalid)
+
+    def setStyleSheet(self, style_sheet, *, valid=True):
+        """
+        Set style sheet for valid/invalid states. If call with one parameter, the function
+        works the same as `setStyleSheet` of QWidget. If `valid` is set to `False`, the
+        supplied style sheet will be applied only if 'invalid' state is activated. The
+        style sheets for the valid and invalid states are independent and can be set
+        separately.
+
+        The default behavior: 'valid' state - clear style sheet, 'invalid' state -
+        use the style sheet `"color: rgb(255, 0, 0);"`
+
+        Parameters
+        ----------
+        style_sheet: str
+            style sheet
+        valid: bool
+            True - activate 'valid' state, False - activate 'invalid' state
+        """
+        if valid:
+            self._style_sheet_valid = style_sheet
+        else:
+            self._style_sheet_invalid = style_sheet
+        self._update_valid_status()
+
+    def getStyleSheet(self, *, valid):
+        """
+        Return the style sheet used 'valid' or 'invalid' state.
+
+        Parameters
+        ----------
+        valid: bool
+            True/False - return the style sheet that was set for 'valid'/'invalid' state.
+        """
+        if valid:
+            return self._style_sheet_valid
+        else:
+            return self._style_sheet_invalid
+
+    def setValid(self, state):
+        """Set the state of the line edit box.: True - 'valid', False - 'invalid'"""
+        self._valid = bool(state)
+        self._update_valid_status()
+
+    def isValid(self):
+        """
+        Returns 'valid' status of the line edit box (bool).
+        """
+        return self._valid
+
+
 class PushButtonMinimumWidth(QPushButton):
     """
     Push button with text ".." and minimum width

@@ -22,7 +22,7 @@ from .load_data_from_db import (db, fetch_data_from_db, flip_data,
                                 helper_encode_list, helper_decode_list,
                                 write_db_to_hdf)
 from ..core.utils import normalize_data_by_scaler, grid_interpolate
-from ..core.map_processing import RawHDF5Dataset, compute_total_spectrum, TerminalProgressBar
+from ..core.map_processing import RawHDF5Dataset, compute_total_spectrum_and_count, TerminalProgressBar
 from .scan_metadata import ScanMetadataXRF
 import requests
 from distutils.version import LooseVersion
@@ -79,6 +79,7 @@ class FileIOModel(Atom):
 
     file_opt = Int(-1)
     data = Typed(np.ndarray)
+    data_total_count = Typed(np.ndarray)
     data_all = Typed(object)
     selected_file_name = Str()
     # file_name = Str()
@@ -342,7 +343,7 @@ class FileIOModel(Atom):
         # passed to fitting part for single pixel fitting
         self.data_all = self.data_sets[self.selected_file_name].raw_data
         # get summed data or based on mask
-        self.data = self.data_sets[self.selected_file_name].get_sum()
+        self.data, self.data_total_count = self.data_sets[self.selected_file_name].get_sum()
 
         self.data_ready = True
         self.file_opt = 0  # use summed data as default
@@ -366,7 +367,7 @@ class FileIOModel(Atom):
         # passed to fitting part for single pixel fitting
         self.data_all = self.data_sets[self.selected_file_name].raw_data
         # get summed data or based on mask
-        self.data = self.data_sets[self.selected_file_name].get_sum()
+        self.data, self.data_total_count = self.data_sets[self.selected_file_name].get_sum()
 
     def get_selected_detector_channel(self):
         r"""
@@ -384,8 +385,7 @@ class FileIOModel(Atom):
         return det_channel
 
     def apply_mask(self):
-        """Apply mask with different options.
-        """
+        """Apply mask with different options."""
         if self.mask_opt == 2:
             # load mask data
             if len(self.mask_name) > 0:
@@ -427,7 +427,7 @@ class FileIOModel(Atom):
         # passed to fitting part for single pixel fitting
         self.data_all = self.data_sets[self.selected_file_name].raw_data
         # get summed data or based on mask
-        self.data = self.data_sets[self.selected_file_name].get_sum(self.mask_data)
+        self.data, self.data_total_count = self.data_sets[self.selected_file_name].get_sum(self.mask_data)
 
 
 plot_as = ['Sum', 'Point', 'Roi']
@@ -436,7 +436,8 @@ plot_as = ['Sum', 'Point', 'Roi']
 class DataSelection(Atom):
     """
     The class used for management of raw data. Function
-    `get_sum` is used to compute the total spectrum (sum of spectra for all pixels).
+    `get_sum` is used to compute the total spectrum (sum of spectra for all pixels)
+    and total count (sum of counts over all energy bins for each pixel).
     Selection of pixels may be set by selecting an area (limited by `point1` and
     `point2` or the mask `mask`. Selection of area also applied to the mask if
     both are set.
@@ -480,6 +481,7 @@ class DataSelection(Atom):
     #   Processing functions are expected to support all those types
     raw_data = Typed(object)
     data = Typed(np.ndarray)
+    data_total_count = Typed(np.ndarray)
     plot_index = Int(0)
     fit_name = Str()
     fit_data = Typed(np.ndarray)
@@ -491,7 +493,7 @@ class DataSelection(Atom):
         if self.plot_index == 0:
             return
         elif self.plot_index == 1:
-            self.data = self.get_sum()
+            self.data, self.data_total_count = self.get_sum()
 
     def delete_points(self):
         self.point1 = []
@@ -532,20 +534,22 @@ class DataSelection(Atom):
             # We create copy to make sure that cache remains intact
             logger.info("Using cached copy of the averaged spectrum ...")
             spec = self._cached_spectrum["spec"].copy()
+            count = self._cached_spectrum["count"].copy()
         else:
             logger.info("Computing the total spectrum from raw data ...")
 
             SC = SpectrumCalculator(self.raw_data, pos1=pos1, pos2=pos2)
-            spec = SC.get_spectrum(mask=mask)
+            spec, count = SC.get_spectrum(mask=mask)
 
             # Save cache the computed spectrum (with all settings)
             self._cached_spectrum["pos1"] = pos1.copy() if pos1 is not None else None
             self._cached_spectrum["pos2"] = pos2.copy() if pos2 is not None else None
             self._cached_spectrum["mask"] = mask.copy() if mask is not None else None
             self._cached_spectrum["spec"] = spec.copy()
+            self._cached_spectrum["count"] = count.copy()
 
         # Return the 'sum' spectrum as regular 64-bit float (raw data is in 'np.float32')
-        return spec.astype(np.float64, copy=False)
+        return spec.astype(np.float64, copy=False), count.astype(np.float64, copy=False)
 
 
 class SpectrumCalculator(object):
@@ -585,12 +589,12 @@ class SpectrumCalculator(object):
                 selection = (self.pos1[0], self.pos1[1], 1, 1)
 
         progress_bar = TerminalProgressBar("Computing total spectrum: ")
-        spectrum_sum = compute_total_spectrum(
+        total_spectrum, total_count = compute_total_spectrum_and_count(
             self.data, selection=selection, mask=mask,
             chunk_pixels=5000, n_chunks_min=4,
             progress_bar=progress_bar, client=None)
 
-        return spectrum_sum
+        return total_spectrum, total_count
 
 
 def file_handler(working_directory, file_name, load_each_channel=True, spectrum_cut=3000):
