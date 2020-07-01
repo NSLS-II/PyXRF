@@ -628,7 +628,7 @@ class LinePlotModel(Atom):
         self.max_v = 1.0
         m = 0
         for (k, v) in self.data_sets.items():
-            if v.plot_index:
+            if v.selected_for_preview:
 
                 data_arr = np.asarray(v.data)
                 # Truncate the array (1D spectrum)
@@ -1461,10 +1461,9 @@ class LinePlotModel(Atom):
         """
         max_size = 0
         for dset in self.data_sets.values():
-            if dset.data is not None:
-                if not only_displayed or dset.plot_index:
-                    max_size = max(max_size, dset.data.size)
-
+            if not only_displayed or dset.selected_for_preview:
+                # Raw data shape: (n_rows, n_columns, n_energy_bins)
+                max_size = max(max_size, dset.get_raw_data_shape()[2])
         return max_size
 
     def plot_selected_energy_range(self, *, axes, barh_existing, e_low=None, e_high=None, n_points=4096):
@@ -1578,9 +1577,9 @@ class LinePlotModel(Atom):
             #   to ensure that each dataset is assigned the unique color.
             color = color_names[n_line % len(color_names)]
 
-            if dset.plot_index:
+            if dset.selected_for_preview:
 
-                data_arr = np.asarray(dset.data)
+                data_arr = np.asarray(dset.get_total_spectrum())
                 if data_arr is None:  # Just a precaution, it shouldn't happen
                     logger.error("Spectrum review: attempting to print empty dataset.")
                     continue
@@ -1645,7 +1644,7 @@ class LinePlotModel(Atom):
         # Find out if any data is selected
         show_plot = False
         if self.data_sets:
-            show_plot = any([_.plot_index for _ in self.data_sets.values()])
+            show_plot = any([_.selected_for_preview for _ in self.data_sets.values()])
         logger.debug(f"LinePlotModel.update_preview_spectrum_plot(): show_plot={show_plot} hide={hide}")
         if show_plot and not hide:
             logger.debug("LinePlotModel.update_preview_spectrum_plot(): plotting existing datasets")

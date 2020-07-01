@@ -403,13 +403,14 @@ class LoadDataWidget(FormBaseWidget):
             self.gpc.io_model.mask_name = os.path.split(self.gpc.io_model.mask_file_path)[-1]
             self.gpc.io_model.mask_active = dlg.get_mask_file_active()
 
-            # TODO: proper error processing is needed here (exception RuntimeError)
-            self.gpc.io_model.set_mask_for_datasets()
-
-            self.gpc.plot_model.data_sets = self.gpc.io_model.data_sets
-
             def _cb():
-                self.gpc.plot_model.update_preview_spectrum_plot()
+                try:
+                    # TODO: proper error processing is needed here (exception RuntimeError)
+                    self.gpc.io_model.apply_mask_to_datasets()
+                    self.gpc.plot_model.data_sets = self.gpc.io_model.data_sets
+                    self.gpc.plot_model.update_preview_spectrum_plot()
+                except Exception as ex:
+                    logger.error(f"Error occurred while applying the mask: {str(ex)}")
                 self.computations_complete.emit()
 
             self.computations_complete.connect(self.slot_apply_mask_clicked)

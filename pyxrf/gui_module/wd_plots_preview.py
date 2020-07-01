@@ -110,11 +110,11 @@ class PreviewPlotSpectrum(QWidget):
             if button == self.rb_selected_region:
                 self.gpc.plot_model.energy_range_preview = EnergyRangePresets.SELECTED_RANGE
                 self.gpc.plot_model.update_preview_spectrum_plot()
-                print("Display only selected region")
+                logger.debug("GUI: Display only selected region")
             elif button == self.rb_full_spectrum:
                 self.gpc.plot_model.energy_range_preview = EnergyRangePresets.FULL_SPECTRUM
                 self.gpc.plot_model.update_preview_spectrum_plot()
-                print("Display full spectrum")
+                logger.debug("GUI: Display full spectrum")
             else:
                 logger.error("Spectrum preview: unknown button was toggled. "
                              "Please, report the error to the development team.")

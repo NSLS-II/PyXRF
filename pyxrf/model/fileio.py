@@ -23,7 +23,8 @@ from .load_data_from_db import (db, fetch_data_from_db, flip_data,
                                 helper_encode_list, helper_decode_list,
                                 write_db_to_hdf)
 from ..core.utils import normalize_data_by_scaler, grid_interpolate
-from ..core.map_processing import RawHDF5Dataset, compute_total_spectrum_and_count, TerminalProgressBar
+from ..core.map_processing import (RawHDF5Dataset, compute_total_spectrum_and_count, TerminalProgressBar,
+                                   dask_client_create)
 from .scan_metadata import ScanMetadataXRF
 import requests
 from distutils.version import LooseVersion
@@ -361,7 +362,8 @@ class FileIOModel(Atom):
         # passed to fitting part for single pixel fitting
         self.data_all = self.data_sets[self.selected_file_name].raw_data
         # get summed data or based on mask
-        self.data, self.data_total_count = self.data_sets[self.selected_file_name].get_sum()
+        self.data, self.data_total_count = \
+            self.data_sets[self.selected_file_name].get_total_spectrum_and_count()
 
         self.data_ready = True
         self.file_opt = 0  # use summed data as default
@@ -385,7 +387,8 @@ class FileIOModel(Atom):
         # passed to fitting part for single pixel fitting
         self.data_all = self.data_sets[self.selected_file_name].raw_data
         # get summed data or based on mask
-        self.data, self.data_total_count = self.data_sets[self.selected_file_name].get_sum()
+        self.data, self.data_total_count = \
+            self.data_sets[self.selected_file_name].get_total_spectrum_and_count()
 
     def get_selected_detector_channel(self):
         r"""
@@ -402,7 +405,7 @@ class FileIOModel(Atom):
                 pass
         return det_channel
 
-    def set_mask_for_datasets(self):
+    def apply_mask_to_datasets(self):
         """Set mask and ROI selection for datasets."""
         if self.mask_active:
             # Load mask data
@@ -468,10 +471,21 @@ class FileIOModel(Atom):
             logger.error(msg)
             raise RuntimeError(ex)
 
-        # passed to fitting part for single pixel fitting
+        # TODO: it may be more logical to pass the data somewhere else. We leave it here for now.
+        # Select raw data to for single pixel fitting.
         self.data_all = self.data_sets[self.selected_file_name].raw_data
-        # get summed data or based on mask
-        self.data, self.data_total_count = self.data_sets[self.selected_file_name].get_sum()
+
+        # Create Dask client to speed up processing of multiple datasets
+        client = dask_client_create()
+        # Run computations with the new selection and mask
+        #    ... for the dataset selected for processing
+        self.data, self.data_total_count = \
+            self.data_sets[self.selected_file_name].get_total_spectrum_and_count(client=client)
+        #    ... for all datasets selected for preview except the one selected for processing.
+        for key in self.data_sets.keys():
+            if (key != self.selected_file_name) and self.data_sets[key].selected_for_preview:
+                self.data_sets[key].update_buffers(client=client)
+        client.close()
 
 
 plot_as = ['Sum', 'Point', 'Roi']
@@ -512,7 +526,7 @@ class DataSelection(Atom):
     raw_data : array
         experiment 3D data
     data : array
-    plot_index : int
+    selected_for_preview : int
         plot data or not, sum or roi or point
     """
     filename = Str()
@@ -527,20 +541,32 @@ class DataSelection(Atom):
     # 'raw_data' may be numpy array, dask array or core.map_processing.RawHDF5Dataset
     #   Processing functions are expected to support all those types
     raw_data = Typed(object)
-    data = Typed(np.ndarray)
-    data_total_count = Typed(np.ndarray)
-    plot_index = Int(0)
+    selected_for_preview = Bool(False)
     fit_name = Str()
     fit_data = Typed(np.ndarray)
 
     _cached_spectrum = Dict()
 
-    @observe(str('plot_index'))
+    def get_total_spectrum(self, *, client=None):
+        total_spectrum, _ = self._get_sum(client=client)
+        return total_spectrum.copy()
+
+    def get_total_count(self, *, client=None):
+        _, total_count = self._get_sum(client=client)
+        return total_count.copy()
+
+    def get_total_spectrum_and_count(self, *, client=None):
+        total_spectrum, total_count = self._get_sum(client=client)
+        return total_spectrum.copy(), total_count.copy()
+
+    def update_buffers(self, *, client=None):
+        logger.debug(f"Dataset '{self.filename}': updating cached buffers.")
+        self._get_sum(client=client)
+
+    @observe(str('selected_for_preview'))
     def _update_roi(self, change):
-        if self.plot_index == 0:
-            return
-        elif self.plot_index == 1:
-            self.data, self.data_total_count = self.get_sum()
+        if self.selected_for_preview:
+            self.update_buffers()
 
     def set_selection(self, *, pt_start, pt_end, selection_active):
         """
@@ -638,23 +664,29 @@ class DataSelection(Atom):
         """
         return self.raw_data.shape[0], self.raw_data.shape[1]
 
-    def get_sum(self):
+    def get_raw_data_shape(self):
+        """
+        Returns the shape of raw data: `(n_rows, n_columns, n_energy_bins)`.
+        """
+        return self.raw_data.shape
+
+    def _get_sum(self, *, client=None):
 
         # Only the values of 'mask', 'pos1' and 'pos2' will be cached
         mask = self.mask if self.mask_active else None
-        pos1 = self.sel_pt_start if self.selection_active else None
-        pos2 = self.sel_pt_end if self.selection_active else None
+        pt_start = self.sel_pt_start if self.selection_active else None
+        pt_end = self.sel_pt_end if self.selection_active else None
 
-        def _compare_cached_settings(cache, pos1, pos2, mask):
+        def _compare_cached_settings(cache, pt_start, pt_end, mask):
             if not cache:
                 return False
 
             # Verify that all necessary keys are in the dictionary
             if not all([_ in cache.keys()
-                        for _ in ("pos1", "pos2", "mask", "spec")]):
+                        for _ in ("pt_start", "pt_end", "mask", "spec")]):
                 return False
 
-            if (cache["pos1"] != pos1) or (cache["pos2"] != pos2):
+            if (cache["pt_start"] != pt_start) or (cache["pt_end"] != pt_end):
                 return False
 
             mask_none = [_ is None for _ in (mask, cache["mask"])]
@@ -670,24 +702,25 @@ class DataSelection(Atom):
             return True
 
         cache_valid = _compare_cached_settings(self._cached_spectrum,
-                                               pos1=pos1, pos2=pos2,
+                                               pt_start=pt_start, pt_end=pt_end,
                                                mask=mask)
 
         if cache_valid:
             # We create copy to make sure that cache remains intact
-            logger.info(f"Dataset '{self.filename}': using cached copy of the averaged spectrum ...")
-            spec = self._cached_spectrum["spec"].copy()
-            count = self._cached_spectrum["count"].copy()
+            logger.debug(f"Dataset '{self.filename}': using cached copy of the averaged spectrum ...")
+            # The following are references to cached objects. Care should be taken not to modify them.
+            spec = self._cached_spectrum["spec"]
+            count = self._cached_spectrum["count"]
         else:
-            logger.info(f"Dataset '{self.filename}': computing the total spectrum and total count map "
-                        "from raw data ...")
+            logger.debug(f"Dataset '{self.filename}': computing the total spectrum and total count map "
+                         "from raw data ...")
 
-            SC = SpectrumCalculator(self.raw_data, pos1=pos1, pos2=pos2)
-            spec, count = SC.get_spectrum(mask=mask)
+            SC = SpectrumCalculator(pt_start=pt_start, pt_end=pt_end, mask=mask)
+            spec, count = SC.get_spectrum(self.raw_data, client=client)
 
             # Save cache the computed spectrum (with all settings)
-            self._cached_spectrum["pos1"] = pos1.copy() if pos1 is not None else None
-            self._cached_spectrum["pos2"] = pos2.copy() if pos2 is not None else None
+            self._cached_spectrum["pt_start"] = pt_start.copy() if pt_start is not None else None
+            self._cached_spectrum["pt_end"] = pt_end.copy() if pt_end is not None else None
             self._cached_spectrum["mask"] = mask.copy() if mask is not None else None
             self._cached_spectrum["spec"] = spec.copy()
             self._cached_spectrum["count"] = count.copy()
@@ -700,43 +733,84 @@ class SpectrumCalculator(object):
     """
     Calculate summed spectrum according to starting and ending positions.
 
-    Attributes
-    ----------
-    data : array
-        3D array of experiment data
-    pos1 : str
-        starting position
-    pos2 : str
-        ending position
     """
 
-    def __init__(self, data,
-                 pos1=None, pos2=None):
-        self.data = data
-        self.pos1 = pos1
-        self.pos2 = pos2
-
-    def get_spectrum(self, mask=None):
+    def __init__(self, *, pt_start=None, pt_end=None, mask=None):
         """
-        Get roi sum from point positions, or from mask file.
+        Initialize the class. The spatial ROI selection and the mask are applied
+        to the data.
+
+        Parameters
+        ----------
+        pt_start: iterable(int) or None
+            indexes of the beginning of the selection: `(row_start, col_start)`.
+            `row_start` is in the range `0..n_rows-1`,
+            `col_start` is in the range `0..n_cols-1`.
+            The point `col_start` is not included in the selection
+        pt_end: iterable(int) or None
+            indexes of the beginning of the selection: `(row_end, col_end)`.
+            `row_end` is in the range `1..n_rows`,
+            `col_end` is in the range `1..n_cols`.
+            The point `col_end` is not included in the selection.
+            If `pt_end` is None, then `pt_start` MUST be None.
+        mask: ndarray(float) or None
+            the mask that is applied to the data, shape (n_rows, n_cols)
+        """
+        def _validate_point(v):
+            v_out = None
+            if v is not None:
+                if isinstance(v, Iterable) and len(list(v)) == 2:
+                    v_out = list(v)
+                else:
+                    logger.warning("SpectrumCalculator.__init__(): Spatial ROI selection "
+                                   f"point '{v}' is invalid. Using 'None' instead.")
+            return v_out
+
+        self._pt_start = _validate_point(pt_start)
+        self._pt_end = _validate_point(pt_end)
+
+        # Validate 'mask'
+        if mask is not None:
+            if not isinstance(mask, np.ndarray):
+                logger.warning(f"SpectrumCalculator.__init__(): type of parameter 'mask' must by np.ndarray, "
+                               f"type(mask) = {type(mask)}. Using mask=None instead.")
+                mask = None
+            elif mask.ndim != 2:
+                logger.warning(f"SpectrumCalculator.__init__(): the number of dimensions "
+                               "in ndarray 'mask' must be 2, "
+                               f"mask.ndim = {mask.ndim}. Using mask=None instead.")
+                mask = None
+        self.mask = mask
+
+    def get_spectrum(self, data, *, client=None):
+        """
+        Run computation of the total spectrum and total count. Use the selected
+        spatial ROI and/or mask
+
+        Parameters
+        ----------
+        data: ndarray(float)
+            raw data array, shape (n_rows, n_cols, n_energy_bins)
+        client: dask.distributed.Client or None
+            Dask client. If None, then local client will be created
         """
         selection = None
-        if self.pos1:
-            if self.pos2:
+        if self._pt_start:
+            if self._pt_end:
                 # Region is selected
-                selection = (self.pos1[0],
-                             self.pos1[1],
-                             self.pos2[0] - self.pos1[0],
-                             self.pos2[1] - self.pos1[1])
+                selection = (self._pt_start[0],
+                             self._pt_start[1],
+                             self._pt_end[0] - self._pt_start[0],
+                             self._pt_end[1] - self._pt_start[1])
             else:
                 # Only a single point is selected
-                selection = (self.pos1[0], self.pos1[1], 1, 1)
+                selection = (self._pt_start[0], self._pt_start[1], 1, 1)
 
         progress_bar = TerminalProgressBar("Computing total spectrum: ")
         total_spectrum, total_count = compute_total_spectrum_and_count(
-            self.data, selection=selection, mask=mask,
+            data, selection=selection, mask=self.mask,
             chunk_pixels=5000, n_chunks_min=4,
-            progress_bar=progress_bar, client=None)
+            progress_bar=progress_bar, client=client)
 
         return total_spectrum, total_count
 
