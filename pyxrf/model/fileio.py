@@ -17,6 +17,7 @@ import glob
 import ast
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
+from collections.abc import Iterable
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Float, Enum, Bool
 from .load_data_from_db import (db, fetch_data_from_db, flip_data,
                                 helper_encode_list, helper_decode_list,
@@ -84,19 +85,22 @@ class FileIOModel(Atom):
     selected_file_name = Str()
     # file_name = Str()
     mask_data = Typed(object)
-    mask_name = Str()
-    mask_opt = Int(0)
+    mask_name = Str()  # Displayed name of the mask (I'm not sure it is used, but let's keep it for now)
+    mask_file_path = Str()  # Full path to file with mask data
+    mask_active = Bool(False)
     load_each_channel = Bool(False)
+
+    # Spatial ROI selection
+    roi_selection_active = Bool(False)  # Active/inactive
+    roi_row_start = Int(-1)  # Selected values matter only when ROI selection is active
+    roi_col_start = Int(-1)
+    roi_row_end = Int(-1)
+    roi_col_end = Int(-1)
 
     # Used while loading data from database
     # True: overwrite existing data file if it exists
     # False: create new file with unique name (original name + version number)
     file_overwrite_existing = Bool(False)
-
-    p1_row = Int(-1)
-    p1_col = Int(-1)
-    p2_row = Int(-1)
-    p2_col = Int(-1)
 
     data_ready = Bool(False)
 
@@ -248,6 +252,20 @@ class FileIOModel(Atom):
         self.file_channel_list = list(self.data_sets.keys())
         self.file_opt = 0  # use summed data as default
 
+    def get_dataset_map_size(self):
+        map_size = None
+        ds_name_first = ""
+        for ds_name, ds in self.data_sets.items():
+            if map_size is None:
+                map_size = ds.get_map_size()
+                ds_name_first = ds_name
+            else:
+                map_size_other = ds.get_map_size()
+                if map_size != map_size_other:
+                    logger.warning(f"Map sizes don't match for datasets '{ds_name}' and '{ds_name_first}': "
+                                   f"{map_size_other} != {map_size}")
+        return map_size
+
     def is_xrf_maps_available(self):
         """
         The method returns True if one or more set XRF maps are loaded (or computed) and
@@ -384,50 +402,76 @@ class FileIOModel(Atom):
                 pass
         return det_channel
 
-    def apply_mask(self):
-        """Apply mask with different options."""
-        if self.mask_opt == 2:
-            # load mask data
-            if len(self.mask_name) > 0:
-                mask_file = os.path.join(self.working_directory,
-                                         self.mask_name)
+    def set_mask_for_datasets(self):
+        """Set mask and ROI selection for datasets."""
+        if self.mask_active:
+            # Load mask data
+            if len(self.mask_file_path) > 0:
+                ext = os.path.splitext(self.mask_file_path).lower()
+                msg = ""
                 try:
-                    if 'npy' in mask_file:
-                        self.mask_data = np.load(mask_file)
-                    elif 'txt' in mask_file:
-                        self.mask_data = np.loadtxt(mask_file)
+                    if '.npy' == ext:
+                        self.mask_data = np.load(self.mask_file_path)
+                    elif '.txt' == ext:
+                        self.mask_data = np.loadtxt(self.mask_file_path)
                     else:
-                        self.mask_data = np.array(Image.open(mask_file))
-                except IOError:
-                    logger.error('Mask file cannot be loaded.')
+                        self.mask_data = np.array(Image.open(self.mask_file_path))
 
-                for k in six.iterkeys(self.img_dict):
-                    if 'fit' in k:
-                        self.img_dict[k][self.mask_name] = self.mask_data
+                    for k in self.data_sets.keys():
+                        self.data_sets[k].set_mask(mask=self.mask_data, mask_active=self.mask_active)
+
+                    # TODO: remove the following code if not needed
+                    # I see no reason of adding the mask image to every processed dataset
+                    # for k in self.img_dict.keys():
+                    #     if 'fit' in k:
+                    #         self.img_dict[k]["mask"] = self.mask_data
+
+                except IOError as ex:
+                    msg = f"Mask file '{self.mask_file_path}' cannot be loaded: {str(ex)}."
+                except Exception as ex:
+                    msg = f"Mask from file '{self.mask_file_path}' cannot be set: {str(ex)}."
+                if msg:
+                    logger.error(msg)
+                    self.mask_data = None
+                    self.mask_active = False  # Deactivate the mask
+                    # Now raise the exception so that proper error processing can be performed
+                    raise RuntimeError(msg)
+
+                logger.debug(f"Mask was successfully loaded from file '{self.mask_file_path}'")
         else:
+            # We keep the file name, but there is no need to keep the data, which is loaded from
+            #   file each time the mask is loaded. Mask is relatively small and the file can change
+            #   between the function calls, so it's better to load new data each time.
             self.mask_data = None
-            data_s = self.data_all.shape
-            if self.mask_opt == 1:
-                valid_opt = False
-                # define square mask region
-                if self.p1_row >= 0 and self.p1_col >= 0 and self.p1_row < data_s[0] and self.p1_col < data_s[1]:
-                    self.data_sets[self.selected_file_name].point1 = [self.p1_row, self.p1_col]
-                    logger.info('Starting position is {}.'.format([self.p1_row, self.p1_col]))
-                    valid_opt = True
-                    if self.p2_row > self.p1_row and self.p2_col > self.p1_col and \
-                            self.p2_row < data_s[0] and self.p2_col < data_s[1]:
-                        self.data_sets[self.selected_file_name].point2 = [self.p2_row, self.p2_col]
-                        logger.info('Ending position is {}.'.format([self.p2_row, self.p2_col]))
-                if valid_opt is False:
-                    logger.info('The positions are not valid. No mask is applied.')
-            else:
-                self.data_sets[self.selected_file_name].delete_points()
-                logger.info('Do not apply mask.')
+            # Now clear the mask in each dataset
+            for k in self.data_sets.keys():
+                self.data_sets[k].set_mask(mask=self.mask_data, mask_active=self.mask_active)
+
+            # TODO: remove the following code if not needed
+            # There is also no reason to remove the mask image if it was not added
+            # for k in self.img_dict.keys():
+            #     if 'fit' in k:
+            #         self.img_dict[k]["mask"] = self.mask_data
+
+        logger.debug("Setting spatial ROI ...")
+        logger.debug(f"    ROI selection is active: {self.roi_selection_active}")
+        logger.debug(f"    Starting position: ({self.roi_row_start}, {self.roi_col_start})")
+        logger.debug(f"    Ending position (not included): ({self.roi_row_end}, {self.roi_col_end})")
+
+        try:
+            for k in self.data_sets.keys():
+                self.data_sets[k].set_selection(pt_start=(self.roi_row_start, self.roi_col_start),
+                                                pt_end=(self.roi_row_end, self.roi_col_end),
+                                                selection_active=self.roi_selection_active)
+        except Exception as ex:
+            msg = f"Spatial ROI selection can not be set: {str(ex)}\n"
+            logger.error(msg)
+            raise RuntimeError(ex)
 
         # passed to fitting part for single pixel fitting
         self.data_all = self.data_sets[self.selected_file_name].raw_data
         # get summed data or based on mask
-        self.data, self.data_total_count = self.data_sets[self.selected_file_name].get_sum(self.mask_data)
+        self.data, self.data_total_count = self.data_sets[self.selected_file_name].get_sum()
 
 
 plot_as = ['Sum', 'Point', 'Roi']
@@ -475,8 +519,11 @@ class DataSelection(Atom):
     plot_choice = Enum(*plot_as)
     # point1 = Str('0, 0')
     # point2 = Str('0, 0')
-    point1 = List()
-    point2 = List()
+    selection_active = Bool(False)
+    sel_pt_start = List()
+    sel_pt_end = List()  # Not included
+    mask_active = Bool(False)
+    mask = Typed(np.ndarray)
     # 'raw_data' may be numpy array, dask array or core.map_processing.RawHDF5Dataset
     #   Processing functions are expected to support all those types
     raw_data = Typed(object)
@@ -495,13 +542,108 @@ class DataSelection(Atom):
         elif self.plot_index == 1:
             self.data, self.data_total_count = self.get_sum()
 
-    def delete_points(self):
-        self.point1 = []
-        self.point2 = []
+    def set_selection(self, *, pt_start, pt_end, selection_active):
+        """
+        Set spatial ROI selection
 
-    def get_sum(self, mask=None):
-        pos1 = self.point1 if len(self.point1) else None
-        pos2 = self.point2 if len(self.point2) else None
+        Parameters
+        ----------
+        pt_start: tuple(int) or list(int)
+            Starting point of the selection `(row_start, col_start)`, where
+            `row_start` is in the range `0..n_rows-1` and `col_start` is
+            in the range `0..n_cols-1`.
+        pt_end: tuple(int) or list(int)
+            End point of the selection, which is not included in the selection:
+            `(row_end, col_end)`, where `row_end` is in the range `1..n_rows` and
+            `col_end` is in the range `1..n_cols`.
+        selection_active: bool
+            `True` - selection is active, `False` - selection is not active.
+            The selection points must be set before the selection is set active,
+            otherwise `ValueError` is raised
+
+        Raises
+        ------
+        ValueError is raised if selection is active, but the points are not set.
+        """
+        if selection_active and (pt_start is None or pt_end is None):
+            raise ValueError("Selection is active, but at least one of the points is not set")
+
+        def _check_pt(pt):
+            if pt is not None:
+                if not isinstance(pt, Iterable):
+                    raise ValueError(f"The point value is not iterable: {pt}.")
+                if len(list(pt)) != 2:
+                    raise ValueError(f"The point ({pt}) must be represented by iterable of length 2.")
+
+        _check_pt(pt_start)
+        _check_pt(pt_end)
+
+        pt_start = list(pt_start)
+        pt_end = list(pt_end)
+
+        def _reset_pt(pt, value, pt_range):
+            """
+            Verify if pt is in the range `(pt_range[0], pt_range[1])` including `pt_range[1]`.
+            Clip the value to be in the range. If `pt` is negative (assume it is not set), then
+            set it to `value`.
+            """
+            pt = int(np.clip(pt, a_min=pt_range[0], a_max=pt_range[1])
+                     if pt >= 0 else value)
+            return pt
+
+        map_size = self.get_map_size()
+        pt_start[0] = _reset_pt(pt_start[0], 0, (0, map_size[0] - 1))
+        pt_start[1] = _reset_pt(pt_start[1], 0, (0, map_size[1] - 1))
+        pt_end[0] = _reset_pt(pt_end[0], map_size[0], (1, map_size[0]))
+        pt_end[1] = _reset_pt(pt_end[1], map_size[1], (1, map_size[1]))
+
+        if pt_start[0] > pt_end[0] or pt_start[1] > pt_end[1]:
+            msg = f"({pt_start[0]}, {pt_start[1]}) .. ({pt_end[0]}, {pt_end[1]})"
+            raise ValueError(f"Selected spatial ROI does not include any points: {msg}")
+
+        self.sel_pt_start = list(pt_start) if pt_start is not None else None
+        self.sel_pt_end = list(pt_end) if pt_end is not None else None
+        self.selection_active = selection_active
+
+    def set_mask(self, *, mask, mask_active):
+        """
+        Set mask by supplying np array. The size of the array must match the size of the map.
+        Clear the mask by supplying `None`.
+
+        Parameter
+        ---------
+        mask: ndarray or None
+            Array that contains the mask data or None to clear the mask
+        mask_active: bool
+            `True` - apply the mask, `False` - don't apply the mask
+            The mask must be set if `mask_active` is set `True`, otherwise `ValueError` is raised.
+        """
+        if mask_active and mask is None:
+            raise ValueError("Mask is set active, but no mask is set.")
+        if (mask is not None) and not isinstance(mask, np.ndarray):
+            raise ValueError(f"Mask must be a Numpy array or None: type(mask) = {type(mask)}")
+
+        if mask is None:
+            self.mask = None
+        else:
+            m_size = self.get_map_size()
+            if any(mask.shape != m_size):
+                raise ValueError(f"The mask shape({mask.shape}) is not equal to the map size ({m_size})")
+            self.mask = np.array(mask)  # Create a copy
+
+    def get_map_size(self):
+        """
+        Returns map size as a tuple `(n_rows, n_columns)`. The function is returning
+        the dimensions 0 and 1 of the raw data without loading the data.
+        """
+        return self.raw_data.shape[0], self.raw_data.shape[1]
+
+    def get_sum(self):
+
+        # Only the values of 'mask', 'pos1' and 'pos2' will be cached
+        mask = self.mask if self.mask_active else None
+        pos1 = self.sel_pt_start if self.selection_active else None
+        pos2 = self.sel_pt_end if self.selection_active else None
 
         def _compare_cached_settings(cache, pos1, pos2, mask):
             if not cache:
@@ -516,11 +658,12 @@ class DataSelection(Atom):
                 return False
 
             mask_none = [_ is None for _ in (mask, cache["mask"])]
-            if all(mask_none):
+            if all(mask_none):  # Mask is not applied in both cases
                 return True
-            elif any(mask_none):
+            elif any(mask_none):  # Mask is applied only in one cases
                 return False
 
+            # Mask is applied in both cases, so compare the masks
             if not (cache["mask"] == mask).all():
                 return False
 
@@ -532,11 +675,12 @@ class DataSelection(Atom):
 
         if cache_valid:
             # We create copy to make sure that cache remains intact
-            logger.info("Using cached copy of the averaged spectrum ...")
+            logger.info(f"Dataset '{self.filename}': using cached copy of the averaged spectrum ...")
             spec = self._cached_spectrum["spec"].copy()
             count = self._cached_spectrum["count"].copy()
         else:
-            logger.info("Computing the total spectrum from raw data ...")
+            logger.info(f"Dataset '{self.filename}': computing the total spectrum and total count map "
+                        "from raw data ...")
 
             SC = SpectrumCalculator(self.raw_data, pos1=pos1, pos2=pos2)
             spec, count = SC.get_spectrum(mask=mask)

@@ -379,10 +379,50 @@ class LoadDataWidget(FormBaseWidget):
             print("Dialog exit: Ok button")
 
     def pb_apply_mask_clicked(self):
+        map_size = self.gpc.io_model.get_dataset_map_size()
+        map_size = map_size if (map_size is not None) else (0, 0)
 
         dlg = DialogLoadMask()
+        dlg.set_image_size(n_rows=map_size[0], n_columns=map_size[1])
+        dlg.set_roi(row_start=self.gpc.io_model.roi_row_start,
+                    column_start=self.gpc.io_model.roi_col_start,
+                    row_end=self.gpc.io_model.roi_row_end,
+                    column_end=self.gpc.io_model.roi_col_end)
+        dlg.set_roi_active(self.gpc.io_model.roi_selection_active)
+
+        dlg.set_default_directory(self.gpc.io_model.working_directory)
+        dlg.set_mask_file_path(self.gpc.io_model.mask_file_path)
+        dlg.set_mask_file_active(self.gpc.io_model.mask_active)
+
         if dlg.exec() == QDialog.Accepted:
-            print("Dialog exit: Ok button")
+            self.gpc.io_model.roi_row_start, self.gpc.io_model.roi_col_start, \
+                self.gpc.io_model.roi_row_end, self.gpc.io_model.roi_col_end = dlg.get_roi()
+            self.gpc.io_model.roi_selection_active = dlg.get_roi_active()
+            self.gpc.io_model.mask_file_path = dlg.get_mask_file_path()
+            # At this point the mask name is just the file name
+            self.gpc.io_model.mask_name = os.path.split(self.gpc.io_model.mask_file_path)[-1]
+            self.gpc.io_model.mask_active = dlg.get_mask_file_active()
+
+            # TODO: proper error processing is needed here (exception RuntimeError)
+            self.gpc.io_model.set_mask_for_datasets()
+
+            self.gpc.plot_model.data_sets = self.gpc.io_model.data_sets
+
+            def _cb():
+                self.gpc.plot_model.update_preview_spectrum_plot()
+                self.computations_complete.emit()
+
+            self.computations_complete.connect(self.slot_apply_mask_clicked)
+            self.gui_vars["gui_state"]["running_computations"] = True
+            self.update_global_state.emit()
+            self.bckg_thread = Thread(target=_cb)
+            self.bckg_thread.start()
+
+    @pyqtSlot()
+    def slot_apply_mask_clicked(self):
+        self.computations_complete.disconnect(self.slot_apply_mask_clicked)
+        self.gui_vars["gui_state"]["running_computations"] = False
+        self.update_global_state.emit()
 
     def pb_view_metadata_clicked(self):
 
