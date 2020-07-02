@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (QLineEdit, QWidget, QHBoxLayout, QComboBox, QTextEdit,
                              QSizePolicy, QLabel, QPushButton, QGridLayout, QSlider)
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPalette, QFontMetrics
+from PyQt5.QtGui import QPalette, QFontMetrics, QIntValidator, QDoubleValidator
 
 global_gui_parameters = {
     "vertical_spacing_in_tabs": 5
@@ -273,19 +273,51 @@ class RangeManager(QWidget):
     def __init__(self, *, add_sliders=False):
         super().__init__()
 
+        # Set the maximum number of steps for the sliders (resolution)
+        self.sld_n_steps = 10000
+        self._range_min_fraction = 0.01
+
+        self._range_low = 0.0
+        self._range_high = 1.0
+        self._range_min_diff = (self._range_high - self._range_low) * self._range_min_fraction
+        self._value_per_step = (self._range_high - self._range_low) / self.sld_n_steps
+        self._value_type = "float"
+
+        self._value_low = 0.0
+        self._value_high = 1.0
+
         max_element_width = 200
 
-        self.le_min_value = QLineEdit()
-        self.le_max_value = QLineEdit()
+        self.le_min_value = LineEditExtended()
+        self.le_max_value = LineEditExtended()
+        self.validator = QDoubleValidator()
+        self.setValueType(self._value_type)  # Set the validator
+        self.setRange(self._range_low, self._range_high)
 
         self.le_min_value.setMaximumWidth(max_element_width)
+        self.le_min_value.textEdited.connect(self.le_min_value_text_edited)
+        self.le_min_value.textChanged.connect(self.le_min_value_text_changed)
+        self.le_min_value.editingFinished.connect(self.le_min_value_editing_finished)
         self.le_max_value.setMaximumWidth(max_element_width)
+        self.le_max_value.textEdited.connect(self.le_max_value_text_edited)
+        self.le_max_value.textChanged.connect(self.le_max_value_text_changed)
+        self.le_max_value.editingFinished.connect(self.le_max_value_editing_finished)
 
         self.le_min_value.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.le_max_value.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
+        # The flag is set true if mouse is pressed on one of the sliders
+        #   Both sliders can not be pressed at once, so one variable is sufficient
+        self._sld_mouse_pressed = False
+
         self.sld_min_value = QSlider(Qt.Horizontal)
+        self.sld_min_value.valueChanged.connect(self.sld_min_value_value_changed)
+        self.sld_min_value.sliderPressed.connect(self.sld_min_value_slider_pressed)
+        self.sld_min_value.sliderReleased.connect(self.sld_min_value_slider_released)
         self.sld_max_value = QSlider(Qt.Horizontal)
+        self.sld_max_value.valueChanged.connect(self.sld_max_value_value_changed)
+        self.sld_max_value.sliderPressed.connect(self.sld_max_value_slider_pressed)
+        self.sld_max_value.sliderReleased.connect(self.sld_max_value_slider_released)
 
         self.sld_min_value.setMaximumWidth(max_element_width)
         self.sld_max_value.setMaximumWidth(max_element_width)
@@ -294,10 +326,8 @@ class RangeManager(QWidget):
         self.sld_min_value.setInvertedAppearance(True)
         self.sld_min_value.setInvertedControls(True)
 
-        # Set the maximum number of steps for the sliders (resolution)
-        self.sld_n_steps = 10000
-        self.sld_min_value.setMaximum(self.sld_n_steps - 1)
-        self.sld_max_value.setMaximum(self.sld_n_steps - 1)
+        self.sld_min_value.setMaximum(self.sld_n_steps)
+        self.sld_max_value.setMaximum(self.sld_n_steps)
 
         self.sld_min_value.setValue(self.sld_min_value.maximum())
         self.sld_max_value.setValue(self.sld_max_value.maximum())
@@ -321,6 +351,59 @@ class RangeManager(QWidget):
         sp.setControlType(QSizePolicy.PushButton)
         sp.setHorizontalPolicy(QSizePolicy.Maximum)
         self.setSizePolicy(sp)
+
+    def le_min_value_text_edited(self, text):
+        print(f"Text edited: '{text}', validate = {self.validator.validate(text, 0)}")
+        if self.validator.validate(text, 0)[0] == 2:
+            v = float(text)  # Works even if the value is expected to be 'int'
+            n_steps = self._value_to_slider(v)
+            self.sld_min_value.setValue(self.sld_n_steps - n_steps)
+
+    def le_min_value_text_changed(self, text):
+        self.le_min_value.setValid(self.validator.validate(text, 0)[0] == 2)
+
+    def le_min_value_editing_finished(self):
+        print(f"Editing (min) finished: '{self.le_min_value.text()}'")
+
+    def le_max_value_text_edited(self, text):
+        print(f"Text edited: '{text}', validate = {self.validator.validate(text, 0)}")
+        if self.validator.validate(text, 0)[0] == 2:
+            v = float(text)  # Works even if the value is expected to be 'int'
+            n_steps = self._value_to_slider(v)
+            self.sld_max_value.setValue(n_steps)
+
+    def le_max_value_text_changed(self, text):
+        self.le_max_value.setValid(self.validator.validate(text, 0)[0] == 2)
+
+    def le_max_value_editing_finished(self):
+        print(f"Editing (max) finished: '{self.le_max_value.text()}'")
+
+    def sld_min_value_value_changed(self, n_steps):
+        # Invert the reading for 'min' slider
+        if self._sld_mouse_pressed:
+            n_steps = self.sld_n_steps - n_steps
+            v = self._slider_to_value(n_steps)
+            self.le_min_value.setText(f"{v:.10g}")
+
+    def sld_min_value_slider_pressed(self):
+        self._sld_mouse_pressed = True
+
+    def sld_min_value_slider_released(self):
+        self._sld_mouse_pressed = False
+        print(f"Slider (min) released: {self.sld_n_steps - self.sld_min_value.value()}")
+
+    def sld_max_value_value_changed(self, n_steps):
+        if self._sld_mouse_pressed:
+            n_steps = n_steps
+            v = self._slider_to_value(n_steps)
+            self.le_max_value.setText(f"{v:.10g}")
+
+    def sld_max_value_slider_pressed(self):
+        self._sld_mouse_pressed = True
+
+    def sld_max_value_slider_released(self):
+        self._sld_mouse_pressed = False
+        print(f"Slider (max) released: {self.sld_max_value.value()}")
 
     def setAlignment(self, flags):
         """
@@ -354,6 +437,67 @@ class RangeManager(QWidget):
             get_background_css(rgb, widget="QLineEdit", editable=True))
         self.le_max_value.setStyleSheet(
             get_background_css(rgb, widget="QLineEdit", editable=True))
+
+    def _check_value_type(self, value_type):
+        if value_type not in ("float", "int"):
+            raise ValueError(f"RangeManager.setValueType(): value type '{value_type}' is not supported")
+
+    def setValueType(self, value_type="float"):
+        self._check_value_type(value_type)
+        self._value_type = value_type
+
+        if self._value_type == "float":
+            self.validator = QDoubleValidator()
+        else:
+            self.validator = QIntValidator()
+
+        self.le_min_value.setValidator(self.validator)
+        self.le_max_value.setValidator(self.validator)
+
+        self.setRange(self._range_low, self._range_high)
+
+    def setRange(self, low, high):
+        # Check range
+        if low > high:
+            raise ValueError(f"RangeManager.setRange(): incorrect range: low > high ({low} > {high})")
+        self._check_value_type(self._value_type)
+
+        self._range_high = high
+        self._range_low = low
+
+        if self._value_type == "float":
+            self.validator.setRange(self._range_low, self._range_high, decimals=20)
+        else:
+            self.validator.setRange(round(self._range_low), round(self._range_high))
+
+        self._value_per_step = (self._range_high - self._range_low) / (self.sld_n_steps - 1)
+        self._range_min_diff = (self._range_high - self._range_low) * self._range_min_fraction
+
+    def _format_value(self, value):
+        return f"{value:.10g}"
+
+    def set_values(self, *, value_low=None, value_high=None):
+        if value_low is not None:
+            self._value_low = value_low
+            self.sld_min_value.setValue(self.sld_n_steps - self._value_to_slider(value_low))
+            self.le_min_value.setText(self._format_value(value_low))
+        if value_high is not None:
+            self._value_high = value_high
+            self.sld_max_value.setValue(self.sld_n_steps - self._value_to_slider(value_high))
+            self.le_max_value.setText(self._format_value(value_high))
+
+    def reset(self):
+        self.set_values(value_low=self._range_low, value_high=self._range_high)
+
+    def _slider_to_value(self, sld_n):
+        return self._range_low + (self._range_high - self._range_low) * (sld_n / self.sld_n_steps)
+
+    def _value_to_slider(self, value):
+        rng = self._range_high - self._range_low
+        if rng > 1e-30:
+            return round((value - self._range_low) / rng * self.sld_n_steps)
+        else:
+            return 0
 
 
 class ElementSelection(QWidget):
