@@ -967,7 +967,7 @@ def map_data2D_srx(runid, fpath,
             # Modify file name (path) to include data on how many channels are included in the file and how many
             #    channels are used for sum calculation
             root, ext = os.path.splitext(fpath)
-            s = f"_{detector_name}_sum({num_det}ch)"
+            s = f"_{detector_name}_sum{num_det}ch"
             if create_each_det:
                 s += f"+{num_det}ch"
             fpath_out = f'{root}{s}{ext}'
@@ -1316,7 +1316,7 @@ def map_data2D_tes(runid, fpath,
     # Modify file name (path) to include data on how many channels are included in the file and how many
     #    channels are used for sum calculation
     root, ext = os.path.splitext(fpath)
-    s = f"_{detector_name}_sum({num_det}ch)"
+    s = f"_{detector_name}_sum{num_det}ch"
     if create_each_det:
         s += f"+{num_det}ch"
     fpath_out = f'{root}{s}{ext}'
@@ -1844,7 +1844,7 @@ def _get_fpath_not_existing(fpath):
         p, e = os.path.splitext(fpath)
         n = 1
         while(True):
-            fpath = f"{p}_({n}){e}"
+            fpath = f"{p}_v{n}{e}"
             if not os.path.exists(fpath):
                 break
             n += 1
