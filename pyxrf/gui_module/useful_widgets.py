@@ -1,7 +1,10 @@
 from PyQt5.QtWidgets import (QLineEdit, QWidget, QHBoxLayout, QComboBox, QTextEdit,
                              QSizePolicy, QLabel, QPushButton, QGridLayout, QSlider)
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QPalette, QFontMetrics, QIntValidator, QDoubleValidator
+
+import logging
+logger = logging.getLogger("pyxrf")
 
 global_gui_parameters = {
     "vertical_spacing_in_tabs": 5
@@ -270,11 +273,16 @@ class RangeManager(QWidget):
     """ Width of the widgets can be set using `setMaximumWidth`. The size policy is set
     so that the widget may shrink if there is not enough space."""
 
+    range_changed = pyqtSignal(float, float)
+
     def __init__(self, *, add_sliders=False):
         super().__init__()
 
         # Set the maximum number of steps for the sliders (resolution)
         self.sld_n_steps = 10000
+        # Ratio of the minimum range and total range. It is used to compute
+        #   the value of 'self._range_min_diff'. The widget will prevent
+        #   range to be set to smaller value than 'self._range_min_diff'.
         self._range_min_fraction = 0.01
 
         self._range_low = 0.0
@@ -283,6 +291,8 @@ class RangeManager(QWidget):
         self._value_per_step = (self._range_high - self._range_low) / self.sld_n_steps
         self._value_type = "float"
 
+        # The following values are used to keep the low and high of the range.
+        #   Those values are 'accepted' values that reflect current selected range.
         self._value_low = 0.0
         self._value_high = 1.0
 
@@ -290,7 +300,8 @@ class RangeManager(QWidget):
 
         self.le_min_value = LineEditExtended()
         self.le_max_value = LineEditExtended()
-        self.validator = QDoubleValidator()
+        self.validator_low = QDoubleValidator()
+        self.validator_high= QDoubleValidator()
         self.setValueType(self._value_type)  # Set the validator
         self.setRange(self._range_low, self._range_high)
 
@@ -383,27 +394,49 @@ class RangeManager(QWidget):
         if self._sld_mouse_pressed:
             n_steps = self.sld_n_steps - n_steps
             v = self._slider_to_value(n_steps)
-            self.le_min_value.setText(f"{v:.10g}")
+            self.le_min_value.setText(self._format_value(v))
 
     def sld_min_value_slider_pressed(self):
         self._sld_mouse_pressed = True
 
+    def _accept_value_low(self, val):
+        val_max = self._value_high - self._range_min_diff
+        val = val if val <= val_max else val = val_max
+        self.set_values(value_low=val)
+
+    def _accept_value_high(self, val):
+        val_min = self._value_low + self._range_min_diff
+        val = val if val >= val_min else val = val_min
+        self.set_values(value_high=val)
+
     def sld_min_value_slider_released(self):
         self._sld_mouse_pressed = False
+        n_steps = self.sld_n_steps - self.sld_min_value.value()
+        v = self._slider_to_value(n_steps)
+        self._accept_value_low(v)
+        self.rang_changed.emit(self._value_low, self._value_high)
         print(f"Slider (min) released: {self.sld_n_steps - self.sld_min_value.value()}")
+        logger.debug(f"Range changed: ({self._value_low}, {self._value_high})")
 
     def sld_max_value_value_changed(self, n_steps):
         if self._sld_mouse_pressed:
-            n_steps = n_steps
             v = self._slider_to_value(n_steps)
-            self.le_max_value.setText(f"{v:.10g}")
+            self.le_max_value.setText(self._format_value(v))
 
     def sld_max_value_slider_pressed(self):
         self._sld_mouse_pressed = True
 
     def sld_max_value_slider_released(self):
         self._sld_mouse_pressed = False
+        n_steps = self.sld_max_value.value()
+        v = self._slider_to_value(n_steps)
+        self._accept_value_high(v)
+        self.rang_changed.emit(self._value_low, self._value_high)
         print(f"Slider (max) released: {self.sld_max_value.value()}")
+        print(f"Range changed: ({self._value_low}, {self._value_high})")
+
+    def _format_value(self, value):
+        return f"{value:.10g}"
 
     def setAlignment(self, flags):
         """
@@ -447,13 +480,17 @@ class RangeManager(QWidget):
         self._value_type = value_type
 
         if self._value_type == "float":
-            self.validator = QDoubleValidator()
+            self.validator_low = QDoubleValidator()
+            self.validator_high = QDoubleValidator()
         else:
-            self.validator = QIntValidator()
+            self.validator_low = QIntValidator()
+            self.validator_high = QIntValidator()
 
-        self.le_min_value.setValidator(self.validator)
-        self.le_max_value.setValidator(self.validator)
+        self.le_min_value.setValidator(self.validator_low)
+        self.le_max_value.setValidator(self.validator_high)
 
+        # Completely reset the widget
+        self.reset()
         self.setRange(self._range_low, self._range_high)
 
     def setRange(self, low, high):
@@ -462,27 +499,58 @@ class RangeManager(QWidget):
             raise ValueError(f"RangeManager.setRange(): incorrect range: low > high ({low} > {high})")
         self._check_value_type(self._value_type)
 
+        def _compute_new_value(val_old):
+            """
+            Adjust the current value so that the selected range covers the same
+            fraction of the total range.
+            """
+            range_old = self._range_high - self._range_low
+            range_new = high - low
+            return (val_old - self._range_low) / range_old * range_new + low
+
+        self._value_low = _compute_new_value(self._value_low)
+        self._value_high = _compute_new_value(self._value_high)
+
         self._range_high = high
         self._range_low = low
-
-        if self._value_type == "float":
-            self.validator.setRange(self._range_low, self._range_high, decimals=20)
-        else:
-            self.validator.setRange(round(self._range_low), round(self._range_high))
 
         self._value_per_step = (self._range_high - self._range_low) / (self.sld_n_steps - 1)
         self._range_min_diff = (self._range_high - self._range_low) * self._range_min_fraction
 
-    def _format_value(self, value):
-        return f"{value:.10g}"
+        self.set_values(value_low=self._value_low, value_high=self._value_high)
+
+    def _adjust_min_diff(self):
+        if self._value_type == "float":
+            self._range_min_diff = (self._range_high - self._range_low) * self._range_min_fraction
+        else:
+            self._range_min_diff = 1
+
+    def _adjust_validators(self):
+        if self._value_type == "float":
+            # QDoubleValidator
+            self.validator_low.setRange(self._range_low,
+                                        self._value_high - self._range_min_diff * 0.99,
+                                        decimals=20)
+            self.validator_low.setRange(self._value_low + self._range_min_diff * 0.99,
+                                        self._range_high,
+                                        decimals=20)
+        else:
+            # QIntValidator
+            self.validator_low.setRange(round(self._range_low),
+                                        round(self._value_high - 1))
+            self.validator_low.setRange(round(self._value_low + 1),
+                                        round(self._range_high))
 
     def set_values(self, *, value_low=None, value_high=None):
+        if value_low is not None or value_high is not None:
+            self._adjust_min_diff()
+            self._value_low = value_low if value_low is not None else self._value_low
+            self._value_high = value_high if value_high is not None else self._value_high
+            self._adjust_validators()
         if value_low is not None:
-            self._value_low = value_low
             self.sld_min_value.setValue(self.sld_n_steps - self._value_to_slider(value_low))
             self.le_min_value.setText(self._format_value(value_low))
         if value_high is not None:
-            self._value_high = value_high
             self.sld_max_value.setValue(self.sld_n_steps - self._value_to_slider(value_high))
             self.le_max_value.setText(self._format_value(value_high))
 
