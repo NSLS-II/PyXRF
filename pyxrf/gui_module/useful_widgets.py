@@ -69,6 +69,10 @@ class LineEditExtended(QLineEdit):
     LineEditExtended allows to mark the displayed value as invalid by setting
     its `valid` property to False. By default, the text color is changed to Light Red.
     """
+
+    # Emitted at focusOutEvent
+    focusOut = pyqtSignal()
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._valid = True
@@ -130,6 +134,13 @@ class LineEditExtended(QLineEdit):
         Returns 'valid' status of the line edit box (bool).
         """
         return self._valid
+
+    def focusOutEvent(self, event):
+        """
+        Overriddent QWidget method. Sends custom 'focusOut()' signal
+        """
+        super().focusOutEvent(event)
+        self.focusOut.emit()
 
 
 class LineEditReadOnly(LineEditExtended):
@@ -269,50 +280,97 @@ def get_background_css(rgb, widget="QWidget", editable=False):
     return f"{widget} {{ background-color: {color_css}; }}"
 
 
+class IntValidatorRelaxed(QIntValidator):
+    """
+    IntValidatorRelaxed is a convenient extension of QIntValidator. In the overridden
+    `validate` method, the original output is changed so that  the return value
+    `Invalid` (input is rejected) is replaced by `Intermediate` (input is expected
+    to be acceptable once the typing is finished). When the validator
+    is set for the QLineEdit, users are allowed to freely type in the line edit box,
+    but validator output can still be used to highlight and reject incorrect invalid input.
+    """
+    def validate(self, *args, **kwargs):
+        result = super().validate(*args, **kwargs)
+        # Replace QIntValidator.Invalid with QIntValidator.Intermediate
+        if result[0] == QIntValidator.Invalid:
+            result = (QIntValidator.Intermediate, result[1], result[2])
+        return result
+
+
+class DoubleValidatorRelaxed(QDoubleValidator):
+    """
+    DoubleValidatorRelaxed is similar to `IntValidatorRelaxed`, but works with
+    values of `double` type.
+    """
+    def validate(self, *args, **kwargs):
+        result = super().validate(*args, **kwargs)
+        # Replace QDoubleValidator.Invalid with QIntValidator.Intermediate
+        if result[0] == QDoubleValidator.Invalid:
+            result = (QDoubleValidator.Intermediate, result[1], result[2])
+        return result
+
+
 class RangeManager(QWidget):
     """ Width of the widgets can be set using `setMaximumWidth`. The size policy is set
     so that the widget may shrink if there is not enough space."""
 
-    range_changed = pyqtSignal(float, float)
+    selection_changed = pyqtSignal(float, float)
 
-    def __init__(self, *, add_sliders=False):
+    def __init__(self, *, add_sliders=False,
+                 slider_steps=10000, selection_to_range_min=0.001):
+        """
+        Class constructor for RangeManager
+
+        Parameters
+        ----------
+        add_sliders: bool
+            True - display sliders, False - show the widget without sliders
+        slider_steps: int
+            The number of slider steps. Determines the precision of the slider.
+            Default value is sufficient in most cases
+        selection_to_range_min: float
+            Minimum ratio of the selected range and total range. Must be floating
+            point number >=0. Used only when the value type is set to "float":
+            `self.set_value_type("float")`. Minimum selected range is always 1
+            when "int" value type is set.
+        """
         super().__init__()
 
         # Set the maximum number of steps for the sliders (resolution)
-        self.sld_n_steps = 10000
+        self.sld_n_steps = slider_steps
         # Ratio of the minimum range and total range. It is used to compute
         #   the value of 'self._range_min_diff'. The widget will prevent
         #   range to be set to smaller value than 'self._range_min_diff'.
-        self._range_min_fraction = 0.01
+        self._selection_to_range_min = selection_to_range_min
 
         self._range_low = 0.0
-        self._range_high = 1.0
-        self._range_min_diff = (self._range_high - self._range_low) * self._range_min_fraction
+        self._range_high = 100.0
+        self._range_min_diff = (self._range_high - self._range_low) * self._selection_to_range_min
         self._value_per_step = (self._range_high - self._range_low) / self.sld_n_steps
         self._value_type = "float"
 
         # The following values are used to keep the low and high of the range.
         #   Those values are 'accepted' values that reflect current selected range.
-        self._value_low = 0.0
-        self._value_high = 1.0
+        self._value_low = self._range_low
+        self._value_high = self._range_high
 
         max_element_width = 200
 
         self.le_min_value = LineEditExtended()
         self.le_max_value = LineEditExtended()
-        self.validator_low = QDoubleValidator()
-        self.validator_high= QDoubleValidator()
-        self.setValueType(self._value_type)  # Set the validator
-        self.setRange(self._range_low, self._range_high)
+        self.validator_low = DoubleValidatorRelaxed()
+        self.validator_high = DoubleValidatorRelaxed()
 
         self.le_min_value.setMaximumWidth(max_element_width)
         self.le_min_value.textEdited.connect(self.le_min_value_text_edited)
         self.le_min_value.textChanged.connect(self.le_min_value_text_changed)
         self.le_min_value.editingFinished.connect(self.le_min_value_editing_finished)
+        self.le_min_value.focusOut.connect(self.le_min_value_focus_out)
         self.le_max_value.setMaximumWidth(max_element_width)
         self.le_max_value.textEdited.connect(self.le_max_value_text_edited)
         self.le_max_value.textChanged.connect(self.le_max_value_text_changed)
         self.le_max_value.editingFinished.connect(self.le_max_value_editing_finished)
+        self.le_max_value.focusOut.connect(self.le_max_value_focus_out)
 
         self.le_min_value.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.le_max_value.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -343,6 +401,8 @@ class RangeManager(QWidget):
         self.sld_min_value.setValue(self.sld_min_value.maximum())
         self.sld_max_value.setValue(self.sld_max_value.maximum())
 
+        self.set_value_type(self._value_type)  # Set the validator
+
         grid = QGridLayout()
         grid.setHorizontalSpacing(0)
         grid.setVerticalSpacing(0)
@@ -364,30 +424,44 @@ class RangeManager(QWidget):
         self.setSizePolicy(sp)
 
     def le_min_value_text_edited(self, text):
-        print(f"Text edited: '{text}', validate = {self.validator.validate(text, 0)}")
-        if self.validator.validate(text, 0)[0] == 2:
+        if self._min_value_validate(text):
             v = float(text)  # Works even if the value is expected to be 'int'
             n_steps = self._value_to_slider(v)
             self.sld_min_value.setValue(self.sld_n_steps - n_steps)
 
     def le_min_value_text_changed(self, text):
-        self.le_min_value.setValid(self.validator.validate(text, 0)[0] == 2)
+        self._min_value_validate(text)
 
     def le_min_value_editing_finished(self):
+        # The event occurs only if validation is successful
+        if self._accept_value_low(self.le_min_value.text()):
+            self.emit_selection_changed()
         print(f"Editing (min) finished: '{self.le_min_value.text()}'")
 
+    def le_min_value_focus_out(self):
+        if not self._min_value_validate():
+            self.set_selection(value_low=self._value_low)
+        print("LineEdit (min) lost focus")
+
     def le_max_value_text_edited(self, text):
-        print(f"Text edited: '{text}', validate = {self.validator.validate(text, 0)}")
-        if self.validator.validate(text, 0)[0] == 2:
+        if self._max_value_validate(text):
             v = float(text)  # Works even if the value is expected to be 'int'
             n_steps = self._value_to_slider(v)
             self.sld_max_value.setValue(n_steps)
 
     def le_max_value_text_changed(self, text):
-        self.le_max_value.setValid(self.validator.validate(text, 0)[0] == 2)
+        self._max_value_validate(text)
 
     def le_max_value_editing_finished(self):
+        # The event occurs only if validation is successful
+        if self._accept_value_high(self.le_max_value.text()):
+            self.emit_selection_changed()
         print(f"Editing (max) finished: '{self.le_max_value.text()}'")
+
+    def le_max_value_focus_out(self):
+        if not self._max_value_validate():
+            self.set_selection(value_high=self._value_high)
+        print("LineEdit (max) lost focus")
 
     def sld_min_value_value_changed(self, n_steps):
         # Invert the reading for 'min' slider
@@ -399,22 +473,12 @@ class RangeManager(QWidget):
     def sld_min_value_slider_pressed(self):
         self._sld_mouse_pressed = True
 
-    def _accept_value_low(self, val):
-        val_max = self._value_high - self._range_min_diff
-        val = val if val <= val_max else val = val_max
-        self.set_values(value_low=val)
-
-    def _accept_value_high(self, val):
-        val_min = self._value_low + self._range_min_diff
-        val = val if val >= val_min else val = val_min
-        self.set_values(value_high=val)
-
     def sld_min_value_slider_released(self):
         self._sld_mouse_pressed = False
         n_steps = self.sld_n_steps - self.sld_min_value.value()
         v = self._slider_to_value(n_steps)
-        self._accept_value_low(v)
-        self.rang_changed.emit(self._value_low, self._value_high)
+        if self._accept_value_low(v):
+            self.emit_selection_changed()
         print(f"Slider (min) released: {self.sld_n_steps - self.sld_min_value.value()}")
         logger.debug(f"Range changed: ({self._value_low}, {self._value_high})")
 
@@ -430,13 +494,86 @@ class RangeManager(QWidget):
         self._sld_mouse_pressed = False
         n_steps = self.sld_max_value.value()
         v = self._slider_to_value(n_steps)
-        self._accept_value_high(v)
-        self.rang_changed.emit(self._value_low, self._value_high)
+        if self._accept_value_high(v):
+            self.emit_selection_changed()
         print(f"Slider (max) released: {self.sld_max_value.value()}")
         print(f"Range changed: ({self._value_low}, {self._value_high})")
 
     def _format_value(self, value):
         return f"{value:.10g}"
+
+    def _check_value_type(self, value_type):
+        if value_type not in ("float", "int"):
+            raise ValueError(f"RangeManager.set_value_type(): value type '{value_type}' is not supported")
+
+    def _min_value_validate(self, text=None):
+        text = text if text is not None else self.le_min_value.text()
+        is_valid = self.validator_low.validate(text, 0)[0] == 2
+        self.le_min_value.setValid(is_valid)
+        return is_valid
+
+    def _max_value_validate(self, text=None):
+        text = text if text is not None else self.le_max_value.text()
+        is_valid = self.validator_high.validate(text, 0)[0] == 2
+        self.le_max_value.setValid(is_valid)
+        return is_valid
+
+    def _convert_type(self, val):
+        if self._value_type == "float":
+            return float(val)
+        else:
+            # Convert to int (input may be float or text string).
+            # We want to round the value to the nearest int.
+            return round(float(val))
+
+    def _slider_to_value(self, sld_n):
+        v = self._range_low + (self._range_high - self._range_low) * (sld_n / self.sld_n_steps)
+        return self._convert_type(v)
+
+    def _value_to_slider(self, value):
+        rng = self._range_high - self._range_low
+        if rng > 1e-30:
+            return round((value - self._range_low) / rng * self.sld_n_steps)
+        else:
+            return 0
+
+    def _accept_value_low(self, val):
+        val = self._convert_type(val)
+        val_max = self._value_high - self._range_min_diff
+        val = val if val <= val_max else val_max
+        return self.set_selection(value_low=val)
+
+    def _accept_value_high(self, val):
+        val = self._convert_type(val)
+        val_min = self._value_low + self._range_min_diff
+        val = val if val >= val_min else val_min
+        return self.set_selection(value_high=val)
+
+    def _adjust_min_diff(self):
+        if self._value_type == "float":
+            self._range_min_diff = (self._range_high - self._range_low) * self._selection_to_range_min
+        else:
+            self._range_min_diff = 1
+
+    def _adjust_validators(self):
+        """Set the range for validators based on full range and the selected range."""
+        if self._value_type == "float":
+            # Validator type: QDoubleValidator
+            # The range is set a little wider (1% wider) in order to cover the 'true'
+            #   boundary value.
+            self.validator_low.setRange(self._range_low,
+                                        self._value_high - self._range_min_diff * 0.99,
+                                        decimals=20)
+            self.validator_high.setRange(self._value_low + self._range_min_diff * 0.99,
+                                         self._range_high,
+                                         decimals=20)
+        else:
+            # Validator type: QIntValidator
+            # With integer arithmetic we can set the range precisely
+            self.validator_low.setRange(round(self._range_low),
+                                        round(self._value_high - self._range_min_diff))
+            self.validator_high.setRange(round(self._value_low + self._range_min_diff),
+                                         round(self._range_high))
 
     def setAlignment(self, flags):
         """
@@ -471,33 +608,61 @@ class RangeManager(QWidget):
         self.le_max_value.setStyleSheet(
             get_background_css(rgb, widget="QLineEdit", editable=True))
 
-    def _check_value_type(self, value_type):
-        if value_type not in ("float", "int"):
-            raise ValueError(f"RangeManager.setValueType(): value type '{value_type}' is not supported")
+    def set_value_type(self, value_type="float"):
+        """
+        Set value type for the range widget. The value type determines
+        the type and format of the displayed and returned values and the type of
+        the validator used by the line edit widgets. The current choices are:
+        "float" used for working with ranges expressed as floating point (double) numbers;
+        "int" is intended for ranges expressed as integers.
 
-    def setValueType(self, value_type="float"):
+        Parameters
+        ----------
+        value_type: str
+            Type of values managed by the widget. The choices are "float" and "int".
+            `ValueError` is raised if wrong value is supplied.
+
+        Returns
+        -------
+        True - selected range was changed when full range was changed, False otherwise.
+        """
         self._check_value_type(value_type)
         self._value_type = value_type
 
         if self._value_type == "float":
-            self.validator_low = QDoubleValidator()
-            self.validator_high = QDoubleValidator()
+            self.validator_low = DoubleValidatorRelaxed()
+            self.validator_high = DoubleValidatorRelaxed()
         else:
-            self.validator_low = QIntValidator()
-            self.validator_high = QIntValidator()
+            self.validator_low = IntValidatorRelaxed()
+            self.validator_high = IntValidatorRelaxed()
 
         self.le_min_value.setValidator(self.validator_low)
         self.le_max_value.setValidator(self.validator_high)
 
         # Completely reset the widget
         self.reset()
-        self.setRange(self._range_low, self._range_high)
+        return self.set_range(self._range_low, self._range_high)
 
-    def setRange(self, low, high):
+    def set_range(self, low, high):
+        """
+        Set the full range of the RangeManager widget. The range may not be negative or
+        zero: `low` must be strictly smaller than `high`. The `ValueError` is raised if
+        `low >= high`. The function will not emit `selection_changed` signal. Call
+        `emit_selection_changed()` method to emit the signal.
+
+        Parameters
+        ----------
+        low, high: float or int
+            lower and upper boundaries of the full range
+
+        Returns
+        -------
+        True - selected range was changed when full range was changed, False otherwise.
+        """
+        low, high = self._convert_type(low), self._convert_type(high)
         # Check range
-        if low > high:
-            raise ValueError(f"RangeManager.setRange(): incorrect range: low > high ({low} > {high})")
-        self._check_value_type(self._value_type)
+        if low >= high:
+            raise ValueError(f"RangeManager.set_range(): incorrect range: low > high ({low} > {high})")
 
         def _compute_new_value(val_old):
             """
@@ -508,64 +673,89 @@ class RangeManager(QWidget):
             range_new = high - low
             return (val_old - self._range_low) / range_old * range_new + low
 
-        self._value_low = _compute_new_value(self._value_low)
-        self._value_high = _compute_new_value(self._value_high)
+        new_value_low = _compute_new_value(self._value_low)
+        new_value_high = _compute_new_value(self._value_high)
 
         self._range_high = high
         self._range_low = low
 
         self._value_per_step = (self._range_high - self._range_low) / (self.sld_n_steps - 1)
-        self._range_min_diff = (self._range_high - self._range_low) * self._range_min_fraction
+        self._range_min_diff = (self._range_high - self._range_low) * self._selection_to_range_min
 
-        self.set_values(value_low=self._value_low, value_high=self._value_high)
+        return self.set_selection(value_low=new_value_low, value_high=new_value_high)
 
-    def _adjust_min_diff(self):
-        if self._value_type == "float":
-            self._range_min_diff = (self._range_high - self._range_low) * self._range_min_fraction
-        else:
-            self._range_min_diff = 1
+    def set_selection(self, *, value_low=None, value_high=None):
+        """
+        Set the selected range. The function may be used to set only lower or upper
+        boundary. The function will not emit `selection_changed` signal.
+        Call `emit_selection_changed()` method to emit the signal.
 
-    def _adjust_validators(self):
-        if self._value_type == "float":
-            # QDoubleValidator
-            self.validator_low.setRange(self._range_low,
-                                        self._value_high - self._range_min_diff * 0.99,
-                                        decimals=20)
-            self.validator_low.setRange(self._value_low + self._range_min_diff * 0.99,
-                                        self._range_high,
-                                        decimals=20)
-        else:
-            # QIntValidator
-            self.validator_low.setRange(round(self._range_low),
-                                        round(self._value_high - 1))
-            self.validator_low.setRange(round(self._value_low + 1),
-                                        round(self._range_high))
+        Parameters
+        ----------
+        value_low: float, int or None
+            lower boundary of the selected range. If `None`, then the lower boundary
+            is not changed.
+        value_high: float, int or None
+            upper boundary of the selected range. If `None`, then the upper boundary
+            is not changed.
 
-    def set_values(self, *, value_low=None, value_high=None):
+        Returns
+        -------
+        True - selected range changed, False - selected range stayed the same
+        """
+        old_low, old_high = self._value_low, self._value_high
+
         if value_low is not None or value_high is not None:
             self._adjust_min_diff()
-            self._value_low = value_low if value_low is not None else self._value_low
-            self._value_high = value_high if value_high is not None else self._value_high
+            self._value_low = \
+                self._convert_type(value_low) if value_low is not None \
+                else self._value_low
+            self._value_high = \
+                self._convert_type(value_high) if value_high is not None \
+                else self._value_high
             self._adjust_validators()
         if value_low is not None:
-            self.sld_min_value.setValue(self.sld_n_steps - self._value_to_slider(value_low))
-            self.le_min_value.setText(self._format_value(value_low))
+            self.sld_min_value.setValue(self.sld_n_steps - self._value_to_slider(self._value_low))
+            self.le_min_value.setText(self._format_value(self._value_low))
         if value_high is not None:
-            self.sld_max_value.setValue(self.sld_n_steps - self._value_to_slider(value_high))
-            self.le_max_value.setText(self._format_value(value_high))
+            self.sld_max_value.setValue(self._value_to_slider(self._value_high))
+            self.le_max_value.setText(self._format_value(self._value_high))
+
+        # Return True if selection changed
+        return (old_low != self._value_low) or (old_high != self._value_high)
 
     def reset(self):
-        self.set_values(value_low=self._range_low, value_high=self._range_high)
+        """
+        Reset the selected range to full range of the RangeManager widget. The method will
+        not emit `selection_changed` signal. Call `emit_selection_changed()` to
+        emit the signal.
 
-    def _slider_to_value(self, sld_n):
-        return self._range_low + (self._range_high - self._range_low) * (sld_n / self.sld_n_steps)
+        Returns
+        -------
+        True - selected range changed, False - selected range stayed the same
+        """
+        return self.set_selection(value_low=self._range_low, value_high=self._range_high)
 
-    def _value_to_slider(self, value):
-        rng = self._range_high - self._range_low
-        if rng > 1e-30:
-            return round((value - self._range_low) / rng * self.sld_n_steps)
-        else:
-            return 0
+    def get_selection(self):
+        """
+        Get the selected range
+
+        Returns
+        -------
+        tuple `(v_low, v_high)`, the values of `v_low` and `v_high` may be `int`
+        or `float` type depending on the type set by `set_value_type()` method.
+        """
+        return self._value_low, self._value_high
+
+    def emit_selection_changed(self):
+        """
+        Emit `selection_changed` signal that passes the selected range as parameters.
+        """
+        v_low = self._convert_type(self._value_low)
+        v_high = self._convert_type(self._value_high)
+        logger.debug("RangeManager: Emitting the signal 'selection_changed'. "
+                     f"Selection: ({v_low}, {v_high})")
+        self.selection_changed.emit(v_low, v_high)
 
 
 class ElementSelection(QWidget):
