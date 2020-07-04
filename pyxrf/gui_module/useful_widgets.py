@@ -282,15 +282,17 @@ def get_background_css(rgb, widget="QWidget", editable=False):
 
 class IntValidatorRelaxed(QIntValidator):
     """
-    IntValidatorRelaxed is a convenient extension of QIntValidator. In the overridden
+    IntValidatorRelaxed is an extension of QIntValidator. In the overridden
     `validate` method, the original output is changed so that  the return value
     `Invalid` (input is rejected) is replaced by `Intermediate` (input is expected
-    to be acceptable once the typing is finished). When the validator
-    is set for the QLineEdit, users are allowed to freely type in the line edit box,
-    but validator output can still be used to highlight and reject incorrect invalid input.
+    to be acceptable once the typing is finished).
+
+    When the validator is set for the QLineEdit, users are allowed to freely type
+    in the line edit box. Validator will still prevent 'editingFinished' signal
+    from being emitted.
     """
-    def validate(self, *args, **kwargs):
-        result = super().validate(*args, **kwargs)
+    def validate(self, text, pos):
+        result = super().validate(text, pos)
         # Replace QIntValidator.Invalid with QIntValidator.Intermediate
         if result[0] == QIntValidator.Invalid:
             result = (QIntValidator.Intermediate, result[1], result[2])
@@ -365,12 +367,10 @@ class RangeManager(QWidget):
         self.le_min_value.textEdited.connect(self.le_min_value_text_edited)
         self.le_min_value.textChanged.connect(self.le_min_value_text_changed)
         self.le_min_value.editingFinished.connect(self.le_min_value_editing_finished)
-        self.le_min_value.focusOut.connect(self.le_min_value_focus_out)
         self.le_max_value.setMaximumWidth(max_element_width)
         self.le_max_value.textEdited.connect(self.le_max_value_text_edited)
         self.le_max_value.textChanged.connect(self.le_max_value_text_changed)
         self.le_max_value.editingFinished.connect(self.le_max_value_editing_finished)
-        self.le_max_value.focusOut.connect(self.le_max_value_focus_out)
 
         self.le_min_value.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.le_max_value.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -433,15 +433,12 @@ class RangeManager(QWidget):
         self._min_value_validate(text)
 
     def le_min_value_editing_finished(self):
-        # The event occurs only if validation is successful
-        if self._accept_value_low(self.le_min_value.text()):
+        # We don't set validator, so this method is called each time QLineEdit
+        #   is losing focus or Enter is pressed
+        val = self.le_min_value.text() if self._min_value_validate() else self._value_low
+        if self._accept_value_low(val):
             self.emit_selection_changed()
         print(f"Editing (min) finished: '{self.le_min_value.text()}'")
-
-    def le_min_value_focus_out(self):
-        if not self._min_value_validate():
-            self.set_selection(value_low=self._value_low)
-        print("LineEdit (min) lost focus")
 
     def le_max_value_text_edited(self, text):
         if self._max_value_validate(text):
@@ -453,15 +450,12 @@ class RangeManager(QWidget):
         self._max_value_validate(text)
 
     def le_max_value_editing_finished(self):
-        # The event occurs only if validation is successful
-        if self._accept_value_high(self.le_max_value.text()):
+        # We don't set validator, so this method is called each time QLineEdit
+        #   is losing focus or Enter is pressed
+        val = self.le_max_value.text() if self._max_value_validate() else self._value_high
+        if self._accept_value_high(val):
             self.emit_selection_changed()
         print(f"Editing (max) finished: '{self.le_max_value.text()}'")
-
-    def le_max_value_focus_out(self):
-        if not self._max_value_validate():
-            self.set_selection(value_high=self._value_high)
-        print("LineEdit (max) lost focus")
 
     def sld_min_value_value_changed(self, n_steps):
         # Invert the reading for 'min' slider
@@ -629,15 +623,16 @@ class RangeManager(QWidget):
         self._check_value_type(value_type)
         self._value_type = value_type
 
+        # We don't set validators for QLineEdit widgets. Instead we call validators
+        #   explicitly when the input changes. Validators are used to indicate invalid
+        #   inputs and prevent user from accepting invalid inputs. There is no goal
+        #   to prevent users from typing invalid expressions.
         if self._value_type == "float":
-            self.validator_low = DoubleValidatorRelaxed()
-            self.validator_high = DoubleValidatorRelaxed()
+            self.validator_low = QDoubleValidator()
+            self.validator_high = QDoubleValidator()
         else:
-            self.validator_low = IntValidatorRelaxed()
-            self.validator_high = IntValidatorRelaxed()
-
-        self.le_min_value.setValidator(self.validator_low)
-        self.le_max_value.setValidator(self.validator_high)
+            self.validator_low = QIntValidator()
+            self.validator_high = QIntValidator()
 
         # Completely reset the widget
         self.reset()
