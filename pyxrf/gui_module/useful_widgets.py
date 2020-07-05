@@ -635,7 +635,6 @@ class RangeManager(QWidget):
             self.validator_high = QIntValidator()
 
         # Completely reset the widget
-        self.reset()
         return self.set_range(self._range_low, self._range_high)
 
     def set_range(self, low, high):
@@ -689,10 +688,10 @@ class RangeManager(QWidget):
         ----------
         value_low: float, int or None
             lower boundary of the selected range. If `None`, then the lower boundary
-            is not changed.
+            is not changed. If `value_low` is outside the full range, then it is clipped.
         value_high: float, int or None
             upper boundary of the selected range. If `None`, then the upper boundary
-            is not changed.
+            is not changed. If `value_low` is outside the full range, then it is clipped.
 
         Returns
         -------
@@ -702,12 +701,24 @@ class RangeManager(QWidget):
 
         if value_low is not None or value_high is not None:
             self._adjust_min_diff()
-            self._value_low = \
-                self._convert_type(value_low) if value_low is not None \
-                else self._value_low
-            self._value_high = \
-                self._convert_type(value_high) if value_high is not None \
-                else self._value_high
+            if value_low is not None:
+                value_low = self._convert_type(value_low)
+                value_low = max(min(value_low, self._range_high), self._range_low)
+                self._value_low = value_low
+            if value_high is not None:
+                value_high = self._convert_type(value_high)
+                value_high = max(min(value_high, self._range_high), self._range_low)
+                self._value_high = value_high
+            # Exceptional case when the selection is smaller than the minimum selected
+            #   range (or negative). Adjust the range: start at the specified 'low' value
+            #   and cover the minimum selectable range; if 'high' value exceeds the top
+            #   of the full range, then shift the selected range downwards to fit within
+            #   the full range
+            if self._value_high < self._value_low + self._range_min_diff:
+                self._value_high = self._value_low + self._range_min_diff
+                if self._value_high > self._range_high:
+                    self._value_high = self._range_high
+                    self._value_low = self._range_high - self._range_min_diff
             self._adjust_validators()
         if value_low is not None:
             self.sld_min_value.setValue(self.sld_n_steps - self._value_to_slider(self._value_low))
@@ -730,6 +741,17 @@ class RangeManager(QWidget):
         True - selected range changed, False - selected range stayed the same
         """
         return self.set_selection(value_low=self._range_low, value_high=self._range_high)
+
+    def get_range(self):
+        """
+        Get the full range
+
+        Returns
+        -------
+        tuple `(range_low, range_high)`, the values of `range_low` and `range_high` may be `int`
+        or `float` type depending on the type set by `set_value_type()` method.
+        """
+        return self._range_low, self._range_high
 
     def get_selection(self):
         """
