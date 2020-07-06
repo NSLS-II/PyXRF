@@ -243,12 +243,16 @@ def test_RangeManager_2(qtbot, full_range, selection, value_type):
     ((-0.254, 37.45), (10.25, 9.25), "float"),
     ((-0.254, 37.45), (37.45, 37.45), "float"),
     ((-0.254, 37.45), (-0.254, -0.254), "float"),
+    ((-0.254, 37.45), (50.34, 60.4), "float"),  # Selection is 'above' the range
+    ((-0.254, 37.45), (-50.34, -40.4), "float"),  # Selection is 'below' the range
     ((-49, 90), (-20, 60), "int"),
     ((-49, 90), (-100, 100), "int"),
     ((-49, 90), (60, 60), "int"),
     ((-49, 90), (60, 40), "int"),
     ((-49, 90), (90, 90), "int"),
     ((-49, 90), (-49, -49), "int"),
+    ((-49, 90), (100, 110), "int"),  # Selection is 'above' the range
+    ((-49, 90), (-100, -90), "int"),  # Selection is 'below' the range
 ])
 def test_RangeManager_3(qtbot, full_range, selection, value_type):
     """Test `set_selection()` method"""
@@ -263,18 +267,31 @@ def test_RangeManager_3(qtbot, full_range, selection, value_type):
 
     rman.set_value_type(value_type)
     rman.set_range(full_range[0], full_range[1])
-    rman.set_selection(value_low=selection[0], value_high=selection[1])
 
-    # Clip the selection values
-    sel = [max(min(_, full_range[1]), full_range[0]) for _ in selection]
-    if value_type == "float":
-        min_diff = (full_range[1] - full_range[0]) * selection_to_range_min
-    else:
-        min_diff = 1
-    if sel[1] - sel[0] < min_diff:
-        sel[1] = sel[0] + min_diff
-        if sel[1] > full_range[1]:
-            sel = [full_range[1] - min_diff, full_range[1]]
+    def _clip_selection(sel, rng, selection_to_range_min):
+        """
+        Clip the selection values to compute the expected selection.
+        Reproduces the clipping performed by the RangeManager.
+        """
+        sel = [max(min(_, rng[1]), rng[0]) for _ in sel]
+        if value_type == "float":
+            min_diff = (rng[1] - rng[0]) * selection_to_range_min
+        else:
+            min_diff = 1
+        if sel[1] - sel[0] < min_diff:
+            sel[1] = sel[0] + min_diff
+            if sel[1] > rng[1]:
+                sel = [rng[1] - min_diff, rng[1]]
+        return sel
+
+    sel = _clip_selection(selection, full_range, selection_to_range_min)
+
+    result_expected = True
+    if tuple(sel) == tuple(full_range):
+        result_expected = False
+
+    result = rman.set_selection(value_low=selection[0], value_high=selection[1])
+    assert result == result_expected, f"Incorrect return value {result} by `set_selection()` method"
 
     npt.assert_array_almost_equal(rman.get_selection(), sel,
                                   err_msg="Selection is set incorrectly")
@@ -290,3 +307,147 @@ def test_RangeManager_3(qtbot, full_range, selection, value_type):
         "Slider position (min. value) is incorrect"
     assert rman.sld_max_value.value() == round((sel[1] - full_range[0]) / step), \
         "Slider position (max. value) is incorrect"
+
+
+@pytest.mark.parametrize("full_range, selection, value_type", [
+    ((-0.254, 37.45), (-0.123, 20.45), "float"),
+    ((-49, 90), (-20, 60), "int"),
+])
+def test_RangeManager_4(qtbot, full_range, selection, value_type):
+    """
+    RangeManager: additional testing of `set_selection()` method:
+    change only higher or lower boundaries of the selection.
+    """
+    rman = RangeManager()
+    qtbot.addWidget(rman)
+    rman.show()
+
+    def _verify_selection(sel):
+        # Verify that selection is set correctly
+        npt.assert_array_almost_equal(rman.get_selection(), sel,
+                                      err_msg="Selection is set incorrectly")
+        # Verify that selection is displayed correctly
+        assert rman.le_min_value.text() == f"{sel[0]:.10g}", \
+            "Lower boundary is displayed incorrectly"
+        assert rman.le_max_value.text() == f"{sel[1]:.10g}", \
+            "Upper boundary is displayed incorrectly"
+
+    rman.set_value_type(value_type)
+    rman.set_range(full_range[0], full_range[1])
+    rman.set_selection(value_low=selection[0], value_high=selection[1])
+    _verify_selection(selection)
+
+    # Change lower boundary
+    sel = (selection[0] + 1, selection[1])
+    result = rman.set_selection(value_low=sel[0])
+    assert result is True, f"Incorrect return value {result} by `set_selection()` method"
+    _verify_selection(sel)
+
+    # Change upper boundary
+    sel = (sel[0], sel[1] - 1)
+    result = rman.set_selection(value_high=sel[1])
+    assert result is True, f"Incorrect return value {result} by `set_selection()` method"
+    _verify_selection(sel)
+
+
+@pytest.mark.parametrize("full_range, selection, new_range, value_type", [
+    # Selection fits in both ranges
+    ((-0.254, 37.45), (10.123, 20.45), (6.23, 29.14), "float"),
+    ((-49, 90), (-20, 60), (-30, 70), "int"),
+    # Upper boundary of the selection doesn't fit the new range
+    ((-0.254, 37.45), (10.123, 20.45), (6.23, 15.3), "float"),
+    ((-49, 90), (-20, 60), (-30, 55), "int"),
+    # Lower boundary of the selection doesn't fit the new range
+    ((-0.254, 37.45), (10.123, 20.45), (15.23, 29.14), "float"),
+    ((-49, 90), (-20, 60), (-10, 70), "int"),
+    # Both selection boundaries are outside the range
+    ((-0.254, 37.45), (10.123, 20.45), (12.23, 18.3), "float"),
+    ((-49, 90), (-20, 60), (-10, 55), "int"),
+    # The range is shifted above the selection region
+    ((-0.254, 37.45), (10.123, 20.45), (60.23, 70.3), "float"),
+    ((-49, 90), (-20, 60), (100, 120), "int"),
+    # The range is shifted below the selection region
+    ((-0.254, 37.45), (10.123, 20.45), (-70.23, -60.3), "float"),
+    ((-49, 90), (-20, 60), (-120, -100), "int"),
+])
+def test_RangeManager_5(qtbot, full_range, selection, new_range, value_type):
+    """
+    RangeManager: additional testing of `set_selection()` method:
+    change only higher or lower boundaries of the selection.
+    """
+    slider_steps = 1000
+    selection_to_range_min = 0.01
+
+    rman = RangeManager(slider_steps=slider_steps,
+                        selection_to_range_min=selection_to_range_min)
+    qtbot.addWidget(rman)
+    rman.show()
+
+    def _verify_selection(sel, rng):
+        # Verify that selection is set correctly
+        npt.assert_array_almost_equal(rman.get_selection(), sel,
+                                      err_msg="Selection is set incorrectly")
+        # Verify that selection is displayed correctly
+        assert rman.le_min_value.text() == f"{sel[0]:.10g}", \
+            "Lower boundary is displayed incorrectly"
+        assert rman.le_max_value.text() == f"{sel[1]:.10g}", \
+            "Upper boundary is displayed incorrectly"
+        # Check positions of the sliders
+        step = (rng[1] - rng[0]) / slider_steps
+        assert rman.sld_min_value.value() == slider_steps - round((sel[0] - rng[0]) / step), \
+            "Slider position (min. value) is incorrect"
+        assert rman.sld_max_value.value() == round((sel[1] - rng[0]) / step), \
+            "Slider position (max. value) is incorrect"
+
+    def _verify_range(rng):
+        # Verify that selection is set correctly
+        npt.assert_array_almost_equal(rman.get_range(), rng,
+                                      err_msg="Range is set incorrectly")
+
+    # Set the range and verify that the selection was scaled correctly
+    rman.set_range(full_range[0], full_range[1])
+    rman.set_selection(value_low=selection[0], value_high=selection[1])
+    _verify_selection(selection, full_range)
+    _verify_range(full_range)
+
+    def _scale_selection(val, old_rng, new_rng):
+        """
+        Scale the selection boundary. Reproduces computations performed by
+        RangeManager when changing the range
+        """
+        val -= old_rng[0]
+        val *= (new_rng[1] - new_rng[0]) / (old_rng[1] - old_rng[0])
+        val += new_rng[0]
+        return val
+
+    def _clip_selection(sel, rng, selection_to_range_min):
+        """
+        Clip the selection values to compute the expected selection.
+        Reproduces the clipping performed by the RangeManager.
+        """
+        sel = [max(min(_, rng[1]), rng[0]) for _ in sel]
+        if value_type == "float":
+            min_diff = (rng[1] - rng[0]) * selection_to_range_min
+        else:
+            min_diff = 1
+        if sel[1] - sel[0] < min_diff:
+            sel[1] = sel[0] + min_diff
+            if sel[1] > rng[1]:
+                sel = [rng[1] - min_diff, rng[1]]
+        return sel
+
+    # Scale the selection
+    sel = [_scale_selection(_, full_range, new_range) for _ in selection]
+    sel = _clip_selection(sel, new_range, selection_to_range_min)
+
+    # Set the new range
+    result = rman.set_range(new_range[0], new_range[1])
+    assert result is True, f"Incorrect value returned by RangeManager.set_range(): {result}"
+    _verify_selection(sel, new_range)
+    _verify_range(new_range)
+
+    # Set the same range (shouldn't change the selection)
+    result = rman.set_range(new_range[0], new_range[1])
+    assert result is False, f"Incorrect value returned by RangeManager.set_range(): {result}"
+    _verify_selection(sel, new_range)
+    _verify_range(new_range)
