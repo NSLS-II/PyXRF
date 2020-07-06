@@ -768,6 +768,7 @@ class RangeManager(QWidget):
     def emit_selection_changed(self):
         """
         Emit `selection_changed` signal that passes the selected range as parameters.
+        Note, that the parameters of the signal are ALWAYS `float`.
         """
         v_low = self._convert_type(self._value_low)
         v_high = self._convert_type(self._value_high)

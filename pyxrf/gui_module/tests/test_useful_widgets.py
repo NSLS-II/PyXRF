@@ -8,8 +8,9 @@ from pyxrf.gui_module.useful_widgets import (
 
 def enter_text_via_keyboard(qtbot, widget, text, *, finish=True):
     """Use keyboard to enter values line edit box"""
-    qtbot.mouseDClick(widget, Qt.LeftButton)
-    qtbot.keyClicks(widget, text)
+    qtbot.mouseClick(widget, Qt.LeftButton)  # Put focus on the widget
+    widget.selectAll()  # Select all existing text
+    qtbot.keyClicks(widget, text)  # Then type
     if finish:
         qtbot.keyClick(widget, Qt.Key_Enter)
 
@@ -483,4 +484,92 @@ def test_RangeManager_6(qtbot, add_sliders):
     ((-49, 90), (-20, 60), "int"),
 ])
 def test_RangeManager_7(qtbot, full_range, selection, value_type):
-    pass
+    """Check if the signal `selection_changed` is emitted correctly"""
+
+    rman = RangeManager()
+    qtbot.addWidget(rman)
+    rman.show()
+
+    rman.set_range(full_range[0], full_range[1])
+    rman.set_selection(value_low=selection[0], value_high=selection[1])
+
+    def _check_signal_params(low, high):
+        return low == low and high == high
+
+    with qtbot.waitSignal(rman.selection_changed, check_params_cb=_check_signal_params):
+        rman.emit_selection_changed()
+
+
+@pytest.mark.parametrize("full_range, selection, value_type", [
+    ((-0.254, 37.45), (-0.123, 20.45), "float"),
+    ((-49, 90), (-20, 60), "int"),
+])
+def test_RangeManager_8(qtbot, full_range, selection, value_type):
+    """Entering selection boundaries via keyboard"""
+
+    slider_steps = 1000
+    selection_to_range_min = 0.01
+
+    rman = RangeManager(slider_steps=slider_steps,
+                        selection_to_range_min=selection_to_range_min)
+    qtbot.addWidget(rman)
+    rman.show()
+
+    def _verify_sliders(slider_low, slider_high, sel, rng):
+        step = (rng[1] - rng[0]) / slider_steps
+        # 'low' value
+        pos_expected = slider_steps - round((sel[0] - rng[0]) / step)
+        assert slider_low.value() == pos_expected, "Lower boundary slider value (position) is incorrect"
+        # 'high' value
+        pos_expected = round((sel[1] - rng[0]) / step)
+        assert slider_high.value() == pos_expected, "Higher boundary slider value (position) is incorrect"
+
+    rman.set_range(full_range[0], full_range[1])
+    rman.reset()  # Select the full range
+
+    # This variable will hold the parameters that were passed with the signal
+    returned_sig_parameters = None
+
+    def _check_signal_params(low, high):
+        # Instead of verification of parameters, this function copies the parameters
+        #   into a variable `returned_sig_parameters`. If the verification is performed
+        #   inside the function (as intended), then no nice error message is printed.
+        nonlocal returned_sig_parameters
+        returned_sig_parameters = (low, high)
+        return True
+
+    # Enter lower boundary
+    with qtbot.waitSignal(rman.selection_changed, check_params_cb=_check_signal_params):
+        enter_text_via_keyboard(qtbot, rman.le_min_value, f"{selection[0]:.10g}", finish=True)
+    npt.assert_array_almost_equal(returned_sig_parameters, (selection[0], full_range[1]))
+    _verify_sliders(rman.sld_min_value, rman.sld_max_value, (selection[0], full_range[1]), full_range)
+
+    # Enter upper boundary
+    with qtbot.waitSignal(rman.selection_changed, check_params_cb=_check_signal_params):
+        enter_text_via_keyboard(qtbot, rman.le_max_value, f"{selection[1]:.10g}", finish=True)
+    npt.assert_array_almost_equal(returned_sig_parameters, (selection[0], selection[1]))
+    _verify_sliders(rman.sld_min_value, rman.sld_max_value, (selection[0], selection[1]), full_range)
+
+    # Enter out-of-range lower boundary. Shouldn't generate the signal.
+    with qtbot.assertNotEmitted(rman.selection_changed):
+        enter_text_via_keyboard(qtbot, rman.le_min_value, f"{selection[1] + 1:.10g}", finish=True)
+    npt.assert_array_almost_equal(rman.get_selection(), (selection[0], selection[1]))
+    _verify_sliders(rman.sld_min_value, rman.sld_max_value, (selection[0], selection[1]), full_range)
+
+    # Enter some random string. Shouldn't generate the signal.
+    with qtbot.assertNotEmitted(rman.selection_changed):
+        enter_text_via_keyboard(qtbot, rman.le_min_value, "random string", finish=True)
+    npt.assert_array_almost_equal(rman.get_selection(), (selection[0], selection[1]))
+    _verify_sliders(rman.sld_min_value, rman.sld_max_value, (selection[0], selection[1]), full_range)
+
+    # Enter out-of-range upper boundary. Shouldn't generate the signal.
+    with qtbot.assertNotEmitted(rman.selection_changed):
+        enter_text_via_keyboard(qtbot, rman.le_max_value, f"{selection[0] - 1:.10g}", finish=True)
+    npt.assert_array_almost_equal(rman.get_selection(), (selection[0], selection[1]))
+    _verify_sliders(rman.sld_min_value, rman.sld_max_value, (selection[0], selection[1]), full_range)
+
+    # Enter some random string. Shouldn't generate the signal.
+    with qtbot.assertNotEmitted(rman.selection_changed):
+        enter_text_via_keyboard(qtbot, rman.le_max_value, "random string", finish=True)
+    npt.assert_array_almost_equal(rman.get_selection(), (selection[0], selection[1]))
+    _verify_sliders(rman.sld_min_value, rman.sld_max_value, (selection[0], selection[1]), full_range)
