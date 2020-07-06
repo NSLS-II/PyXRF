@@ -326,7 +326,8 @@ class RangeManager(QWidget):
         Parameters
         ----------
         add_sliders: bool
-            True - display sliders, False - show the widget without sliders
+            True - the widget will include sliders for controlling the range,
+            False - the widget will have no sliders without sliders
         slider_steps: int
             The number of slider steps. Determines the precision of the slider.
             Default value is sufficient in most cases

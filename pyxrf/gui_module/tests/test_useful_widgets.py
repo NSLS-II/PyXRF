@@ -451,3 +451,36 @@ def test_RangeManager_5(qtbot, full_range, selection, new_range, value_type):
     assert result is False, f"Incorrect value returned by RangeManager.set_range(): {result}"
     _verify_selection(sel, new_range)
     _verify_range(new_range)
+
+
+@pytest.mark.parametrize("add_sliders", [None, True, False])
+def test_RangeManager_6(qtbot, add_sliders):
+    """
+    Create RangeManager with/without sliders
+    """
+    # Sliders don't exist only if 'add_sliders' is False
+    sliders_exist = True if add_sliders is True else False
+
+    kwargs = {}
+    if add_sliders is not None:  # If None then use default (False)
+        kwargs.update({"add_sliders": add_sliders})
+
+    rman = RangeManager(**kwargs)
+    qtbot.addWidget(rman)
+    rman.show()
+
+    def _check_slider_status(slider, status):
+        # Check if slider has parent (it was added to layout)
+        assert (slider.parent() is not None) == status, \
+            "Slider visibility is set incorrectly"
+
+    _check_slider_status(rman.sld_min_value, sliders_exist)
+    _check_slider_status(rman.sld_max_value, sliders_exist)
+
+
+@pytest.mark.parametrize("full_range, selection, value_type", [
+    ((-0.254, 37.45), (-0.123, 20.45), "float"),
+    ((-49, 90), (-20, 60), "int"),
+])
+def test_RangeManager_7(qtbot, full_range, selection, value_type):
+    pass
