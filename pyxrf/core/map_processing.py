@@ -29,7 +29,7 @@ def dask_client_create(**kwargs):
     .. code:: python
 
         client = dask_client_create()  # Create Dask client
-        < code that runs computations >
+        # <-- code that runs computations -->
         client.close()  # Close Dask client
 
     Parameters
