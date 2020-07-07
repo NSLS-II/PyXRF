@@ -18,11 +18,25 @@ def dask_client_create(**kwargs):
     """
     Create Dask client object. The function is trivial and introduced so that
     Dask client is created in uniform way throughout the program.
+    The client is configured to keep temporary data in `~/.dask` directory
+    instead of the current directory.
+
+    Creating new Dask client may be costly (a few extra seconds). If computations require
+    multiple calls to functions that are running on Dask, overhead can be reduced by creating
+    one common Dask client and supplying the reference to the client as a parameter in each
+    function call.
+
+    .. code:: python
+
+        client = dask_client_create()  # Create Dask client
+        < code that runs computations >
+        client.close()  # Close Dask client
 
     Parameters
     ----------
     kwargs: dict, optional
-        kwargs will be passed to the Dask client constructor
+        kwargs will be passed to the Dask client constructor. No extra parameters are needed
+        in most cases.
 
     Returns
     -------
@@ -31,10 +45,12 @@ def dask_client_create(**kwargs):
     """
     _kwargs = {"processes": True, "silence_logs": logging.ERROR}
     _kwargs.update(kwargs)
-    client = Client(**_kwargs)
+
     dask.config.set(shuffle="disk")
     path_dask_data = os.path.expanduser("~/.dask")
     dask.config.set({"temporary_directory": path_dask_data})
+
+    client = Client(**_kwargs)
     return client
 
 
