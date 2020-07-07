@@ -5,8 +5,7 @@ from .model.load_data_from_db import make_hdf, export1d  # noqa: F401
 from .model.command_tools import fit_pixel_data_and_save, pyxrf_batch  # noqa: F401
 from .xanes_maps.xanes_maps_api import build_xanes_map  # noqa: F401
 from .simulation.sim_xrf_scan_data import gen_hdf5_qa_dataset, gen_hdf5_qa_dataset_preset_1  # noqa: F401
-
-# from .model.command_tools import pyxrf_batch  # noqa: F401
+from .core.map_processing import dask_client_create  # noqa: F401
 
 # Note:  the statement '# noqa: F401' is telling flake8 to ignore violation F401 at the given line
 #     Violation F401 - the package is imported but unused
@@ -48,6 +47,9 @@ def pyxrf_api():
         Data processing:
           pyxrf_batch - batch processing of XRF maps
           build_xanes_map - generation and processing of XANES maps
+
+        Dask client:
+          dask_client_create - returns Dask client for use in batch scripts
 
         Simulation of datasets:
           gen_hdf5_qa_dataset - generate quantitative analysis dataset

@@ -21,12 +21,18 @@ import logging
 logger = logging.getLogger()
 
 
-def test_dask_client_create():
+def test_dask_client_create(tmpdir):
     """
     `dask_client_create` is a trivial function that instantiates Dask client
     in uniform way throughout the program. We test that we can pass addition
     kwargs to the object constructor or override default parameters.
     """
+    # Set current directory. This is not required to create Dask client, but
+    #   we will check to make sure that the directory for temporary files is
+    #   not created in the current directory.
+    os.chdir(tmpdir)
+    dask_worker_space_path = os.path.join(tmpdir, "dask-worker-space")
+
     # Set the number of workers to some strange number (11 is unusual)
     #   (pass another kwarg in addition to default)
     client = dask_client_create(n_workers=11)
@@ -34,12 +40,18 @@ def test_dask_client_create():
     assert n_workers == 11, "The number of workers was set incorrectly"
     client.close()
 
+    assert not os.path.exists(dask_worker_space_path), \
+        "Temporary directory was created in the current directory"
+
     # Disable multiprocessing: client is expected to have a single worker
     #   (replace the default value of the parameter)
     client = dask_client_create(processes=False)
     n_workers = len(client.scheduler_info()["workers"])
     assert n_workers == 1, "Dask client is expected to have one worker"
     client.close()
+
+    assert not os.path.exists(dask_worker_space_path), \
+        "Temporary directory was created in the current directory"
 
 
 def test_TerminalProgressBar():
