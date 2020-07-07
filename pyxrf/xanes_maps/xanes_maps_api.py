@@ -328,7 +328,14 @@ def build_xanes_map(start_id=None, end_id=None, *, parameter_file_path=None,
         Dask client object. If None, then Dask client is created automatically.
         If a batch of files is processed, then creating Dask client and
         passing the reference to it to the processing functions will save
-        execution time: `client = Client(processes=True, silence_logs=logging.ERROR)`
+        execution time:
+
+        .. code:: python
+
+            from pyxrf.api import dask_client_create
+            client = dask_client_create()  # Create Dask client
+            # <-- code that runs computations -->
+            client.close()  # Close Dask client
 
     parameter_file_path : str
         absolute or relative path to the YAML file, which contains the processing parameters.
