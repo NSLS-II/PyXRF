@@ -17,10 +17,15 @@ class RightPanel(QTabWidget):
         # Global GUI variables (used for control of GUI state)
         self.gui_vars = gui_vars
 
-        self.addTab(PreviewPlots(gpc=self.gpc, gui_vars=self.gui_vars), "Preview")
-        self.addTab(PlotFittingModel(gpc=self.gpc, gui_vars=self.gui_vars), "Fitting Model")
-        self.addTab(PlotXrfMaps(gpc=self.gpc, gui_vars=self.gui_vars), "XRF Maps")
-        self.addTab(PlotRgbMaps(gpc=self.gpc, gui_vars=self.gui_vars), "RGB")
+        self.tab_preview_plots = PreviewPlots(gpc=self.gpc, gui_vars=self.gui_vars)
+        self.tab_plot_fitting_model = PlotFittingModel(gpc=self.gpc, gui_vars=self.gui_vars)
+        self.tab_plot_xrf_maps = PlotXrfMaps(gpc=self.gpc, gui_vars=self.gui_vars)
+        self.tab_plot_rgb_maps = PlotRgbMaps(gpc=self.gpc, gui_vars=self.gui_vars)
+
+        self.addTab(self.tab_preview_plots, "Preview")
+        self.addTab(self.tab_plot_fitting_model, "Fitting Model")
+        self.addTab(self.tab_plot_xrf_maps, "XRF Maps")
+        self.addTab(self.tab_plot_rgb_maps, "RGB")
 
     def update_widget_state(self, condition=None):
         # TODO: this function has to enable tabs and widgets based on the current program state

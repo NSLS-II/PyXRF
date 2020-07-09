@@ -221,8 +221,41 @@ class FileIOModel(Atom):
                 "    Click 'Find Elements Automatically' button in 'Fit' "
                 "tab to access the settings dialog box.")
 
+    def clear(self):
+        """
+        Clear all existing data. The function should be called before loading new data (file or run)
+        """
+
+        self.runid = -1
+        self.file_opt = -1
+        self.selected_file_name = ""
+
+        # We don't clear the following data arrays for now. The commented code is left
+        #   mostly for future reference.
+        # self.data = np.ndarray([])
+        # self.data_total_count = np.ndarray([])
+        # self.data_all = {}
+
+        self.mask_data = {}
+        self.mask_name = ""  # Displayed name of the mask (I'm not sure it is used, but let's keep it for now)
+        self.mask_file_path = ""  # Full path to file with mask data
+        self.mask_active = False
+
+        # Spatial ROI selection
+        self.roi_selection_active = False  # Active/inactive
+        self.roi_row_start = -1  # Selected values matter only when ROI selection is active
+        self.roi_col_start = -1
+        self.roi_row_end = -1
+        self.roi_col_end = -1
+
+        self.img_dict = {}
+        self.data_sets = OrderedDict()
+        self.scan_metadata = ScanMetadataXRF()
+        self._metadata_update_program_state()
+
     @observe(str('file_name'))
-    def update_more_data(self, change):
+    def load_data_from_file(self, change):
+        """This function loads data file for GUI. It also generates preview data for default channel #0."""
         if change['value'] == 'temp':
             # 'temp' is used to reload the same file
             return
@@ -236,10 +269,7 @@ class FileIOModel(Atom):
         logger.info('File is loaded: %s' % (self.file_name))
 
         # Clear data. If reading the file fails, then old data should not be kept.
-        self.img_dict = {}
-        self.data_sets = OrderedDict()
-        self.scan_metadata = ScanMetadataXRF()
-        self._metadata_update_program_state()
+        self.clear()
 
         # focus on single file only
         self.img_dict, self.data_sets, self.scan_metadata = \
@@ -249,9 +279,16 @@ class FileIOModel(Atom):
 
         # Process metadata
         self._metadata_update_program_state()
+
         self.data_ready = True
         self.file_channel_list = list(self.data_sets.keys())
-        self.file_opt = 0  # use summed data as default
+
+        default_channel = 0  # Use summed data as default
+        self.file_opt = default_channel
+        if self.file_channel_list and self.data_sets:
+            self.data_sets[self.file_channel_list[default_channel]].selected_for_preview = True
+
+        self.update_data_set_buffers()
 
     def get_dataset_map_size(self):
         map_size = None
@@ -266,6 +303,36 @@ class FileIOModel(Atom):
                     logger.warning(f"Map sizes don't match for datasets '{ds_name}' and '{ds_name_first}': "
                                    f"{map_size_other} != {map_size}")
         return map_size
+
+    def get_dataset_preview_count_map_range(self, *, selected_only=False):
+        """
+        Returns the range of the Total Count Maps in the loaded datasets.
+
+        Parameters
+        ----------
+        selected_only: bool
+            True - use only datasets that are currently selected for preview,
+            False - use all LOADED datasets (for which the total spectrum and
+            total count map is computed
+
+        Returns
+        -------
+        tuple(float)
+            the range of values `(value_min, value_max)`. Returns `(None, None)`
+            if no datasets are loaded (or selected if `selected_only=True`)
+        """
+        v_min, v_max = None, None
+        for ds_name, ds in self.data_sets.items():
+            if not selected_only or ds.selected_for_preview:
+                if ds.data_ready:
+                    dset_min, dset_max = ds.get_total_count_range()
+                    if (v_min is None) or (v_max is None):
+                        v_min, v_max = dset_min, dset_max
+                    elif (dset_min is not None) and (dset_max is not None):
+                        v_min = min(v_min, dset_min)
+                        v_max = max(v_max, dset_max)
+        return v_min, v_max
+
 
     def is_xrf_maps_available(self):
         """
@@ -311,6 +378,9 @@ class FileIOModel(Atom):
         #                                             self.fname_from_db,
         #                                             load_each_channel=self.load_each_channel)
 
+        # Clear data. If loading fails, then old data should not be kept.
+        self.clear()
+
         rv = render_data_to_gui(self.runid,
                                 create_each_det=self.load_each_channel,
                                 working_directory=self.working_directory,
@@ -354,6 +424,15 @@ class FileIOModel(Atom):
 
         self.img_dict = img_dict
 
+        self.data_ready = True
+
+        default_channel = 0  # Use summed data as default
+        self.file_opt = default_channel
+        if self.file_channel_list and self.data_sets:
+            self.data_sets[self.file_channel_list[default_channel]].selected_for_preview = True
+
+        self.update_data_set_buffers()
+
         try:
             self.selected_file_name = self.file_channel_list[self.file_opt]
         except IndexError:
@@ -365,8 +444,12 @@ class FileIOModel(Atom):
         self.data, self.data_total_count = \
             self.data_sets[self.selected_file_name].get_total_spectrum_and_count()
 
-        self.data_ready = True
-        self.file_opt = 0  # use summed data as default
+    def update_data_set_buffers(self):
+        """ Update buffers in all datasets """
+        for dset_name, dset in self.data_sets.items():
+            # Update only the data that are needed
+            if dset.selected_for_preview or dset_name == self.selected_file_name:
+                dset.update_buffers()
 
     @observe(str('file_opt'))
     def choose_file(self, change):
@@ -541,7 +624,8 @@ class DataSelection(Atom):
     # 'raw_data' may be numpy array, dask array or core.map_processing.RawHDF5Dataset
     #   Processing functions are expected to support all those types
     raw_data = Typed(object)
-    selected_for_preview = Bool(False)
+    selected_for_preview = Bool(False)  # Dataset is currently selected for preview
+    data_ready = Bool(False)  # Total spectrum and total count map are computed
     fit_name = Str()
     fit_data = Typed(np.ndarray)
 
@@ -562,6 +646,18 @@ class DataSelection(Atom):
     def update_buffers(self, *, client=None):
         logger.debug(f"Dataset '{self.filename}': updating cached buffers.")
         self._get_sum(client=client)
+
+    def get_total_count_range(self):
+        """
+        Get the range of values of total count map
+
+        Returns
+        -------
+        tuple(float)
+            (value_min, value_max)
+        """
+        total_count = self.get_total_count()
+        return total_count.min(), total_count.max()
 
     @observe(str('selected_for_preview'))
     def _update_roi(self, change):
@@ -724,6 +820,8 @@ class DataSelection(Atom):
             self._cached_spectrum["mask"] = mask.copy() if mask is not None else None
             self._cached_spectrum["spec"] = spec.copy()
             self._cached_spectrum["count"] = count.copy()
+
+        self.data_ready = True
 
         # Return the 'sum' spectrum as regular 64-bit float (raw data is in 'np.float32')
         return spec.astype(np.float64, copy=False), count.astype(np.float64, copy=False)

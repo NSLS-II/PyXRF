@@ -45,6 +45,16 @@ class EnergyRangePresets(Enum):
     FULL_SPECTRUM = 1
 
 
+class MapTypes(Enum):
+    LINEAR = 0
+    LOG = 1
+
+
+class MapAxesUnits(Enum):
+    PIXELS = 0
+    POSIIONS = 1
+
+
 class LinePlotModel(Atom):
     """
     This class performs all the required line plots.
@@ -94,6 +104,7 @@ class LinePlotModel(Atom):
 
     number_pts_to_show = Int(3000)  # The number of spectrum point to show
 
+    # -------------------------------------------------------------
     # Preview plot (raw experimental spectra)
     _fig_preview = Typed(Figure)
     _ax_preview = Typed(Axes)
@@ -108,6 +119,15 @@ class LinePlotModel(Atom):
     min_e_preview = Float()
     max_e_preview = Float()
 
+    # -----------------------------------------------------------
+    # Preview of Total Count Maps
+    _fig_maps = Typed(Figure)
+    map_type_preview = Typed(MapTypes)
+    map_axes_units_preview = Typed(MapAxesUnits)
+
+    map_preview_color_scheme = Str()
+    map_preview_range_low = Float()
+    map_preview_range_high = Float()
     # ------------------------------------------------------------
 
     _fig = Typed(Figure)
@@ -226,6 +246,11 @@ class LinePlotModel(Atom):
         self._fig_preview = Figure()
         self.plot_type_preview = PlotTypes.LINLOG
         self.energy_range_preview = EnergyRangePresets.SELECTED_RANGE
+
+        # --------------------------------------------------------------
+        # Preview of Total Count Maps
+        self._fig_maps = Figure()
+        self.map_type_preview = MapTypes.LINEAR
 
     def _color_config(self):
         self.plot_style = {
@@ -1653,3 +1678,307 @@ class LinePlotModel(Atom):
             logger.debug("LinePlotModel.update_preview_spectrum_plot(): hiding plots")
             self._hide_preview_spectrum_plot()
         self._fig_preview.canvas.draw()
+
+    # ===========================================================================================
+    #   Plotting the preview of Total Count Maps
+
+    def show_image(self):
+        self.fig.clf()
+        stat_temp = self.get_activated_num()
+        stat_temp = OrderedDict(sorted(six.iteritems(stat_temp), key=lambda x: x[0]))
+
+        # Check if positions data is available. Positions data may be unavailable
+        # (not recorded in HDF5 file) if experiment is has not been completed.
+        # While the data from the completed part of experiment may still be used,
+        # plotting vs. x-y or scatter plot may not be displayed.
+        positions_data_available = False
+        if 'positions' in self.data_dict.keys():
+            positions_data_available = True
+
+        # Create local copies of self.pixel_or_pos, self.scatter_show and self.grid_interpolate
+        pixel_or_pos_local = self.pixel_or_pos
+        scatter_show_local = self.scatter_show
+        grid_interpolate_local = self.grid_interpolate
+
+        # Disable plotting vs x-y coordinates if 'positions' data is not available
+        if not positions_data_available:
+            if pixel_or_pos_local:
+                pixel_or_pos_local = 0  # Switch to plotting vs. pixel number
+                logger.error("'Positions' data is not available. Plotting vs. x-y coordinates is disabled")
+            if scatter_show_local:
+                scatter_show_local = False  # Switch to plotting vs. pixel number
+                logger.error("'Positions' data is not available. Scatter plot is disabled.")
+            if grid_interpolate_local:
+                grid_interpolate_local = False  # Switch to plotting vs. pixel number
+                logger.error("'Positions' data is not available. Interpolation is disabled.")
+
+        low_lim = 1e-4  # define the low limit for log image
+        plot_interp = 'Nearest'
+
+        if self.scaler_data is not None:
+            if np.count_nonzero(self.scaler_data) == 0:
+                logger.warning('scaler is zero - scaling was not applied')
+            elif len(self.scaler_data[self.scaler_data == 0]) > 0:
+                logger.warning('scaler data has zero values')
+
+        grey_use = self.color_opt
+
+        ncol = int(np.ceil(np.sqrt(len(stat_temp))))
+        try:
+            nrow = int(np.ceil(len(stat_temp)/float(ncol)))
+        except ZeroDivisionError:
+            ncol = 1
+            nrow = 1
+
+        a_pad_v = 0.8
+        a_pad_h = 0.5
+
+        grid = ImageGrid(self.fig, 111,
+                         nrows_ncols=(nrow, ncol),
+                         axes_pad=(a_pad_v, a_pad_h),
+                         cbar_location='right',
+                         cbar_mode='each',
+                         cbar_size='7%',
+                         cbar_pad='2%',
+                         share_all=True)
+
+        def _compute_equal_axes_ranges(x_min, x_max, y_min, y_max):
+            """
+            Compute ranges for x- and y- axes of the plot. Make sure that the ranges for x- and y-axes are
+            always equal and fit the maximum of the ranges for x and y values:
+                  max(abs(x_max-x_min), abs(y_max-y_min))
+            The ranges are set so that the data is always centered in the middle of the ranges
+
+            Parameters
+            ----------
+
+            x_min, x_max, y_min, y_max : float
+                lower and upper boundaries of the x and y values
+
+            Returns
+            -------
+
+            x_axis_min, x_axis_max, y_axis_min, y_axis_max : float
+                lower and upper boundaries of the x- and y-axes ranges
+            """
+
+            x_axis_min, x_axis_max, y_axis_min, y_axis_max = x_min, x_max, y_min, y_max
+            x_range, y_range = abs(x_max - x_min), abs(y_max - y_min)
+            if x_range > y_range:
+                y_center = (y_max + y_min) / 2
+                y_axis_max = y_center + x_range / 2
+                y_axis_min = y_center - x_range / 2
+            else:
+                x_center = (x_max + x_min) / 2
+                x_axis_max = x_center + y_range / 2
+                x_axis_min = x_center - y_range / 2
+
+            return x_axis_min, x_axis_max, y_axis_min, y_axis_max
+
+        def _adjust_data_range_using_min_ratio(c_min, c_max, c_axis_range, *, min_ratio=0.01):
+            """
+            Adjust the range for plotted data along one axis (x or y). The adjusted range is
+            applied to the 'extend' attribute of imshow(). The adjusted range is always greater
+            than 'axis_range * min_ratio'. Such transformation has no physical meaning
+            and performed for aesthetic reasons: stretching the image presentation of
+            a scan with only a few lines (1-3) greatly improves visibility of data.
+
+            Parameters
+            ----------
+
+            c_min, c_max : float
+                boundaries of the data range (along x or y axis)
+            c_axis_range : float
+                range presented along the same axis
+
+            Returns
+            -------
+
+            cmin, c_max : float
+                adjusted boundaries of the data range
+            """
+            c_range = c_max - c_min
+            if c_range < c_axis_range * min_ratio:
+                c_center = (c_max + c_min) / 2
+                c_new_range = c_axis_range * min_ratio
+                c_min = c_center - c_new_range / 2
+                c_max = c_center + c_new_range / 2
+            return c_min, c_max
+
+        for i, (k, v) in enumerate(six.iteritems(stat_temp)):
+
+            quant_norm_applied = False
+            if self.quantitative_normalization:
+                # Quantitative normalization
+                data_dict, quant_norm_applied = self.param_quant_analysis.apply_quantitative_normalization(
+                    data_in=self.dict_to_plot[k],
+                    scaler_dict=self.scaler_norm_dict,
+                    scaler_name_default=self.get_selected_scaler_name(),
+                    data_name=k,
+                    name_not_scalable=self.name_not_scalable)
+            else:
+                # Normalize by the selected scaler in a regular way
+                data_dict = normalize_data_by_scaler(data_in=self.dict_to_plot[k],
+                                                     scaler=self.scaler_data,
+                                                     data_name=k,
+                                                     name_not_scalable=self.name_not_scalable)
+
+            if pixel_or_pos_local or scatter_show_local:
+
+                # xd_min, xd_max, yd_min, yd_max = min(self.x_pos), max(self.x_pos),
+                #     min(self.y_pos), max(self.y_pos)
+                x_pos_2D = self.data_dict['positions']['x_pos']
+                y_pos_2D = self.data_dict['positions']['y_pos']
+                xd_min, xd_max, yd_min, yd_max = x_pos_2D.min(), x_pos_2D.max(), y_pos_2D.min(), y_pos_2D.max()
+                xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = \
+                    _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
+
+                xd_min, xd_max = _adjust_data_range_using_min_ratio(xd_min, xd_max, xd_axis_max - xd_axis_min)
+                yd_min, yd_max = _adjust_data_range_using_min_ratio(yd_min, yd_max, yd_axis_max - yd_axis_min)
+
+                # Adjust the direction of each axis depending on the direction in which encoder values changed
+                #   during the experiment. Data is plotted starting from the upper-right corner of the plot
+                if x_pos_2D[0, 0] > x_pos_2D[0, -1]:
+                    xd_min, xd_max, xd_axis_min, xd_axis_max = xd_max, xd_min, xd_axis_max, xd_axis_min
+                if y_pos_2D[0, 0] > y_pos_2D[-1, 0]:
+                    yd_min, yd_max, yd_axis_min, yd_axis_max = yd_max, yd_min, yd_axis_max, yd_axis_min
+
+            else:
+
+                yd, xd = data_dict.shape
+
+                xd_min, xd_max, yd_min, yd_max = 0, xd, 0, yd
+                if (yd <= math.floor(xd / 100)) and (xd >= 200):
+                    yd_min, yd_max = -math.floor(xd / 200), math.ceil(xd / 200)
+                if (xd <= math.floor(yd / 100)) and (yd >= 200):
+                    xd_min, xd_max = -math.floor(yd / 200), math.ceil(yd / 200)
+
+                xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = \
+                    _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
+
+            if self.scale_opt == 'Linear':
+
+                low_ratio = self.limit_dict[k]['low']/100.0
+                high_ratio = self.limit_dict[k]['high']/100.0
+                if (self.scaler_data is None) and (not quant_norm_applied):
+                    minv = self.range_dict[k]['low']
+                    maxv = self.range_dict[k]['high']
+                else:
+                    # Unfortunately, the new normalization procedure requires to recalculate min and max values
+                    minv = np.min(data_dict)
+                    maxv = np.max(data_dict)
+                low_limit = (maxv-minv)*low_ratio + minv
+                high_limit = (maxv-minv)*high_ratio + minv
+
+                # Set some minimum range for the colorbar (otherwise it will have white fill)
+                if math.isclose(low_limit, high_limit, abs_tol=2e-20):
+                    if abs(low_limit) < 1e-20:  # The value is zero
+                        dv = 1e-20
+                    else:
+                        dv = math.fabs(low_limit * 0.01)
+                    high_limit += dv
+                    low_limit -= dv
+
+                if not scatter_show_local:
+                    if grid_interpolate_local:
+                        data_dict, _, _ = grid_interpolate(data_dict,
+                                                           self.data_dict['positions']['x_pos'],
+                                                           self.data_dict['positions']['y_pos'])
+                    im = grid[i].imshow(data_dict,
+                                        cmap=grey_use,
+                                        interpolation=plot_interp,
+                                        extent=(xd_min, xd_max, yd_max, yd_min),
+                                        origin='upper',
+                                        clim=(low_limit, high_limit))
+                    grid[i].set_ylim(yd_axis_max, yd_axis_min)
+                else:
+                    xx = self.data_dict['positions']['x_pos']
+                    yy = self.data_dict['positions']['y_pos']
+
+                    # The following condition prevents crash if different file is loaded while
+                    #    the scatter plot is open (PyXRF specific issue)
+                    if data_dict.shape == xx.shape and data_dict.shape == yy.shape:
+                        im = grid[i].scatter(xx, yy, c=data_dict,
+                                             marker='s', s=500,
+                                             alpha=1.0,  # Originally: alpha=0.8
+                                             cmap=grey_use,
+                                             vmin=low_limit, vmax=high_limit,
+                                             linewidths=1, linewidth=0)
+                        grid[i].set_ylim(yd_axis_max, yd_axis_min)
+
+                grid[i].set_xlim(xd_axis_min, xd_axis_max)
+
+                grid_title = k
+                if quant_norm_applied:
+                    grid_title += " - Q"  # Mark the plots that represent quantitative information
+                grid[i].text(0, 1.01, grid_title, ha='left', va='bottom', transform=grid[i].axes.transAxes)
+
+                grid.cbar_axes[i].colorbar(im)
+                im.colorbar.formatter = im.colorbar.cbar_axis.get_major_formatter()
+                # im.colorbar.ax.get_xaxis().set_ticks([])
+                # im.colorbar.ax.get_xaxis().set_ticks([], minor=True)
+                grid.cbar_axes[i].ticklabel_format(style='sci', scilimits=(-3, 4), axis='both')
+
+                #  Do not remove this code, may be useful in the future (Dmitri G.) !!!
+                #  Print label for colorbar
+                # cax = grid.cbar_axes[i]
+                # axis = cax.axis[cax.orientation]
+                # axis.label.set_text("$[a.u.]$")
+
+            else:
+
+                maxz = np.max(data_dict)
+                # Set some reasonable minimum range for the colorbar
+                #   Zeros or negative numbers will be shown in white
+                if maxz <= 1e-30:
+                    maxz = 1
+
+                if not scatter_show_local:
+                    if grid_interpolate_local:
+                        data_dict, _, _ = grid_interpolate(data_dict,
+                                                           self.data_dict['positions']['x_pos'],
+                                                           self.data_dict['positions']['y_pos'])
+                    im = grid[i].imshow(data_dict,
+                                        norm=LogNorm(vmin=low_lim*maxz,
+                                                     vmax=maxz, clip=True),
+                                        cmap=grey_use,
+                                        interpolation=plot_interp,
+                                        extent=(xd_min, xd_max, yd_max, yd_min),
+                                        origin='upper',
+                                        clim=(low_lim*maxz, maxz))
+                    grid[i].set_ylim(yd_axis_max, yd_axis_min)
+                else:
+                    im = grid[i].scatter(self.data_dict['positions']['x_pos'],
+                                         self.data_dict['positions']['y_pos'],
+                                         norm=LogNorm(vmin=low_lim*maxz,
+                                                      vmax=maxz, clip=True),
+                                         c=data_dict, marker='s', s=500, alpha=1.0,  # Originally: alpha=0.8
+                                         cmap=grey_use,
+                                         linewidths=1, linewidth=0)
+                    grid[i].set_ylim(yd_axis_min, yd_axis_max)
+
+                grid[i].set_xlim(xd_axis_min, xd_axis_max)
+
+                grid_title = k
+                if quant_norm_applied:
+                    grid_title += " - Q"  # Mark the plots that represent quantitative information
+                grid[i].text(0, 1.01, grid_title, ha='left', va='bottom', transform=grid[i].axes.transAxes)
+
+                grid.cbar_axes[i].colorbar(im)
+                im.colorbar.formatter = im.colorbar.cbar_axis.get_major_formatter()
+                im.colorbar.ax.get_xaxis().set_ticks([])
+                im.colorbar.ax.get_xaxis().set_ticks([], minor=True)
+                im.colorbar.cbar_axis.set_minor_formatter(mticker.LogFormatter())
+
+            grid[i].get_xaxis().set_major_locator(mticker.MaxNLocator(nbins="auto"))
+            grid[i].get_yaxis().set_major_locator(mticker.MaxNLocator(nbins="auto"))
+
+            grid[i].get_xaxis().get_major_formatter().set_useOffset(False)
+            grid[i].get_yaxis().get_major_formatter().set_useOffset(False)
+
+        self.fig.suptitle(self.img_title, fontsize=20)
+        self.fig.canvas.draw_idle()
+
+
+
+

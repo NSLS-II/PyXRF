@@ -26,6 +26,8 @@ class LoadDataWidget(FormBaseWidget):
     update_global_state = pyqtSignal()
     computations_complete = pyqtSignal()
 
+    update_preview_map_range = pyqtSignal(str)
+
     def __init__(self,  *, gpc, gui_vars):
         super().__init__()
 
@@ -262,12 +264,14 @@ class LoadDataWidget(FormBaseWidget):
         # Adjust height so that it fits all the elements
         adjust_qlistwidget_height(self.list_preview, other_widgets=[self.group_preview, self])
 
-        self.list_preview.itemChanged.connect(self.list_preview_item_changed)
-
         # This will cause the preview data to be plotted (the plot is expected to be hidden,
         #   since no channels were selected). Here we select the first channel in the list.
-        if len(items):
-            self.list_preview.item(0).setCheckState(Qt.Checked)
+        for n, item in enumerate(items):
+            state = Qt.Checked if self.gpc.io_model.data_sets[item].selected_for_preview \
+                else Qt.Unchecked
+            self.list_preview.item(n).setCheckState(state)
+
+        self.list_preview.itemChanged.connect(self.list_preview_item_changed)
 
     def pb_set_wd_clicked(self):
         dir_current = self.le_wd.text()
@@ -342,6 +346,10 @@ class LoadDataWidget(FormBaseWidget):
 
             self._set_cbox_channel_items()
             self._set_list_preview_items()
+
+            # Here we want to reset the range in the Total Count Map preview
+            self.update_preview_map_range.emit("reset")
+
             if msg:
                 # Display warning message if it was generated
                 msgbox = QMessageBox(QMessageBox.Warning, "Warning",
@@ -364,6 +372,9 @@ class LoadDataWidget(FormBaseWidget):
 
             self._set_cbox_channel_items(items=[])
             self._set_list_preview_items(items=[])
+
+            # Here we want to clear the range in the Total Count Map preview
+            self.update_preview_map_range.emit("clear")
 
             msg_str = f"Incorrect format of input file '{file_path}': " \
                       f"PyXRF accepts only custom HDF (.h5) files." \
@@ -421,6 +432,9 @@ class LoadDataWidget(FormBaseWidget):
 
     @pyqtSlot()
     def slot_apply_mask_clicked(self):
+        # Here we want to expand the range in the Total Count Map preview if needed
+        self.update_preview_map_range.emit("update")
+
         self.computations_complete.disconnect(self.slot_apply_mask_clicked)
         self.gui_vars["gui_state"]["running_computations"] = False
         self.update_global_state.emit()
@@ -466,6 +480,9 @@ class LoadDataWidget(FormBaseWidget):
 
     @pyqtSlot()
     def slot_preview_items_changed(self):
+        # Here we want to expand the range in the Total Count Map preview if needed
+        self.update_preview_map_range.emit("expand")
+
         self.computations_complete.disconnect(self.slot_preview_items_changed)
         self.gui_vars["gui_state"]["running_computations"] = False
         self.update_global_state.emit()

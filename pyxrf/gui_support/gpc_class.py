@@ -163,5 +163,6 @@ class GlobalProcessingClasses:
             True - show the dataset, False - hide the dataset
         """
         self.io_model.data_sets[dset_name].selected_for_preview = True if is_visible else False
+        self.io_model.update_data_set_buffers()
         self.plot_model.data_sets = self.io_model.data_sets
         self.plot_model.update_preview_spectrum_plot()

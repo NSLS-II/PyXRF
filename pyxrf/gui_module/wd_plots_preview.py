@@ -1,9 +1,9 @@
 from PyQt5.QtWidgets import (QWidget, QTabWidget, QLabel, QVBoxLayout, QHBoxLayout,
                              QRadioButton, QButtonGroup, QComboBox)
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import pyqtSlot
 
 from .useful_widgets import RangeManager, set_tooltip
-from ..model.lineplot import PlotTypes, EnergyRangePresets
+from ..model.lineplot import PlotTypes, EnergyRangePresets, MapTypes, MapAxesUnits
 
 from matplotlib.backends.backend_qt5agg import \
     FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
@@ -141,34 +141,87 @@ class PreviewPlotCount(QWidget):
 
         self.cb_color_scheme = QComboBox()
         # TODO: make color schemes global
-        color_schemes = ("viridis", "jet", "bone", "gray", "oranges", "hot")
-        self.cb_color_scheme.addItems(color_schemes)
+        self._color_schemes = ("viridis", "jet", "bone", "gray", "oranges", "hot")
+        self.cb_color_scheme.addItems(self._color_schemes)
+        self.cb_color_scheme.currentIndexChanged.connect(self.cb_color_scheme_current_index_changed)
+
+        self.combo_linear_log = QComboBox()
+        self.combo_linear_log.addItems(["Linear", "Log"])
+        self.combo_linear_log.currentIndexChanged.connect(self.combo_linear_log_current_index_changed)
+
+        self.combo_pixels_positions = QComboBox()
+        self.combo_pixels_positions.addItems(["Pixels", "Positions"])
+        self.combo_pixels_positions.currentIndexChanged.connect(
+            self.combo_pixels_positions_current_index_changed)
 
         self.range = RangeManager(add_sliders=False)
         self.range.setMaximumWidth(200)
+        self.range.selection_changed.connect(self.range_selection_changed)
 
-        label = QLabel()
-        comment = \
-            "The widget will plot 2D image representing total in each pixel of the loaded data.\n"\
-            "The image represents total collected fluorescence from the sample.\n"\
-            "The feature does not exist in old PyXRF."
-        label.setText(comment)
-        label.setStyleSheet("QLabel { background-color : white; color : blue; }")
-        label.setAlignment(Qt.AlignCenter)
+        self.mpl_canvas = FigureCanvas(self.gpc.plot_model._fig_maps)
+        self.mpl_toolbar = NavigationToolbar(self.mpl_canvas, self)
 
         vbox = QVBoxLayout()
 
         hbox = QHBoxLayout()
         hbox.addWidget(self.cb_color_scheme)
+        hbox.addWidget(self.combo_linear_log)
+        hbox.addWidget(self.combo_pixels_positions)
         hbox.addStretch(1)
         hbox.addWidget(QLabel("Range (counts):"))
         hbox.addWidget(self.range)
         vbox.addLayout(hbox)
 
-        vbox.addWidget(label)
+        vbox.addWidget(self.mpl_toolbar)
+        vbox.addWidget(self.mpl_canvas)
+
         self.setLayout(vbox)
 
         self._set_tooltips()
+
+    def cb_color_scheme_current_index_changed(self, index):
+        logger.debug(f"Color scheme is changed to {self._color_schemes[index]}")
+        self.gpc.plot_model.map_preview_color_scheme = self._color_schemes[index]
+
+    def combo_linear_log_current_index_changed(self, index):
+        logger.debug(f"Map type is changed to {MapTypes(index)}")
+        self.gpc.plot_model.map_type_preview = MapTypes(index)
+
+    def combo_pixels_positions_current_index_changed(self, index):
+        logger.debug(f"Map axes are changed to {MapAxesUnits(index)}")
+        self.gpc.plot_model.map_axes_units_preview = MapAxesUnits(index)
+
+    def range_selection_changed(self, sel_low, sel_high):
+        logger.debug(f"Range selection is changed to ({sel_low:.10g}, {sel_high:.10g})")
+        self.gpc.plot_model.map_preview_range_low = sel_low
+        self.gpc.plot_model.map_preview_range_high = sel_high
+
+    @pyqtSlot(str)
+    def update_map_range(self, mode):
+        if mode not in ("reset", "update", "expand", "clear"):
+            logger.error(f"PreviewPlotCount.update_map_range: incorrect mode '{mode}'")
+            return
+        range_low, range_high = self.gpc.io_model.get_dataset_preview_count_map_range()
+
+        if (range_low is None) or (range_high is None) or mode == "clear":
+            range_low, range_high = 0.0, 1.0  # No datasets are available
+            self.range.set_range(range_low, range_high)
+            self.range.reset()
+        elif mode == "expand":
+            # The range may be only expanded. Keep the selection.
+            range_low_old, range_high_old = self.range.get_range()
+            # sel_low, sel_high = self.range.get_selection()
+            range_low = min(range_low, range_low_old)
+            range_high = max(range_high, range_high_old)
+            self.range.set_range(range_low, range_high)
+            # self.range.set_selection(value_low=sel_low, value_high=sel_high)
+        elif mode == "update":
+            # The selection will expand proportionally to the change in range.
+            self.range.set_range(range_low, range_high)
+        elif mode == "reset":
+            self.range.set_range(range_low, range_high)
+            self.range.reset()
+        logger.debug(f"Total Count Preview range is updated: mode='{mode}' range=({range_low}, {range_high})")
 
     def _set_tooltips(self):
         set_tooltip(self.cb_color_scheme,
@@ -181,3 +234,4 @@ class PreviewPlotCount(QWidget):
     def update_widget_state(self, condition=None):
         if condition == "tooltips":
             self._set_tooltips()
+        self.mpl_toolbar.setVisible(self.gui_vars["show_matplotlib_toolbar"])

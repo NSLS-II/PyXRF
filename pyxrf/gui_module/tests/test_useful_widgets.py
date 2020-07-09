@@ -389,9 +389,9 @@ def test_RangeManager_5(qtbot, full_range, selection, new_range, value_type):
         npt.assert_array_almost_equal(rman.get_selection(), sel,
                                       err_msg="Selection is set incorrectly")
         # Verify that selection is displayed correctly
-        assert rman.le_min_value.text() == f"{sel[0]:.10g}", \
+        assert rman.le_min_value.text() == f"{sel[0]:.8g}", \
             "Lower boundary is displayed incorrectly"
-        assert rman.le_max_value.text() == f"{sel[1]:.10g}", \
+        assert rman.le_max_value.text() == f"{sel[1]:.8g}", \
             "Upper boundary is displayed incorrectly"
         # Check positions of the sliders
         step = (rng[1] - rng[0]) / slider_steps

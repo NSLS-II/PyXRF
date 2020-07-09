@@ -439,7 +439,6 @@ class RangeManager(QWidget):
         val = self.le_min_value.text() if self._min_value_validate() else self._value_low
         if self._accept_value_low(val):
             self.emit_selection_changed()
-        print(f"Editing (min) finished: '{self.le_min_value.text()}'")
 
     def le_max_value_text_edited(self, text):
         if self._max_value_validate(text):
@@ -456,7 +455,6 @@ class RangeManager(QWidget):
         val = self.le_max_value.text() if self._max_value_validate() else self._value_high
         if self._accept_value_high(val):
             self.emit_selection_changed()
-        print(f"Editing (max) finished: '{self.le_max_value.text()}'")
 
     def sld_min_value_value_changed(self, n_steps):
         # Invert the reading for 'min' slider
@@ -474,8 +472,6 @@ class RangeManager(QWidget):
         v = self._slider_to_value(n_steps)
         if self._accept_value_low(v):
             self.emit_selection_changed()
-        print(f"Slider (min) released: {self.sld_n_steps - self.sld_min_value.value()}")
-        logger.debug(f"Range changed: ({self._value_low}, {self._value_high})")
 
     def sld_max_value_value_changed(self, n_steps):
         if self._sld_mouse_pressed:
@@ -491,11 +487,15 @@ class RangeManager(QWidget):
         v = self._slider_to_value(n_steps)
         if self._accept_value_high(v):
             self.emit_selection_changed()
-        print(f"Slider (max) released: {self.sld_max_value.value()}")
-        print(f"Range changed: ({self._value_low}, {self._value_high})")
 
     def _format_value(self, value):
-        return f"{value:.10g}"
+        return f"{value:.8g}"
+
+    def _round_value(self, value):
+        # Compute rounded value based on formatting used in the line edit boxes
+        #   This rounding is needed to properly set the validators
+        s = self._format_value(value) if not isinstance(value, str) else value
+        return self._convert_type(s)
 
     def _check_value_type(self, value_type):
         if value_type not in ("float", "int"):
@@ -556,11 +556,15 @@ class RangeManager(QWidget):
             # Validator type: QDoubleValidator
             # The range is set a little wider (1% wider) in order to cover the 'true'
             #   boundary value.
-            self.validator_low.setRange(self._range_low,
-                                        self._value_high - self._range_min_diff * 0.99,
+            a1 = self._round_value(self._range_low)
+            a2 = self._round_value(self._value_high - self._range_min_diff * 0.99)
+            b1 = self._round_value(self._value_low + self._range_min_diff * 0.99)
+            b2 = self._round_value(self._range_high)
+            self.validator_low.setRange(self._round_value(self._range_low),
+                                        self._round_value(self._value_high - self._range_min_diff * 0.99),
                                         decimals=20)
-            self.validator_high.setRange(self._value_low + self._range_min_diff * 0.99,
-                                         self._range_high,
+            self.validator_high.setRange(self._round_value(self._value_low + self._range_min_diff * 0.99),
+                                         self._round_value(self._range_high),
                                          decimals=20)
         else:
             # Validator type: QIntValidator
@@ -808,123 +812,3 @@ class ElementSelection(QWidget):
 
     def addItem(self, item):
         self.cb_element_list.addItem(item)
-
-
-"""
-class LineEditWithSlider(QLineEdit):
-    def __init__(self):
-        super().__init__()
-        self.wd_slider = QWidget(self)
-
-    #def mousePressEvent(self, event):
-    #    import random
-    #    print(f"'LineEditWithSlider': mouse pressed {random.random()}")
-    #    if event.button() == Qt.LeftButton:
-    #        print(f"Left button was pressed {random.random()}")
-
-    def focusInEvent(self, event):
-        import random
-        print(f"'LineEditWithSlider': focus in {random.random()}")
-
-        fg = self.frameGeometry()
-        self.wd_slider.setGeometry(fg)
-        self.wd_slider.move(fg.x(), fg.y() + fg.height())
-        self.wd_slider.show()
-
-
-    def focusOutEvent(self, event):
-        import random
-        print(f"'LineEditWithSlider': focus out {random.random()}")
-
-"""
-"""
-MAXVAL = 650000
-
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLayout, QFrame, QSlider
-from PyQt5.QtGui import QFont
-from PyQt5.QtCore import Qt, QSize, QMetaObject, pyqtSlot
-
-class RangeSliderClass(QWidget):
-
-    def __init__(self):
-        super().__init__()
-
-        self.minTime = 0
-        self.maxTime = 0
-        self.minRangeTime = 0
-        self.maxRangeTime = 0
-
-        self.sliderMin = MAXVAL
-        self.sliderMax = MAXVAL
-
-        self.setupUi(self)
-
-    def setupUi(self, RangeSlider):
-        RangeSlider.setObjectName("RangeSlider")
-        RangeSlider.resize(1000, 65)
-        RangeSlider.setMaximumSize(QSize(16777215, 65))
-        self.RangeBarVLayout = QVBoxLayout(RangeSlider)
-        self.RangeBarVLayout.setContentsMargins(5, 0, 5, 0)
-        self.RangeBarVLayout.setSpacing(0)
-        self.RangeBarVLayout.setObjectName("RangeBarVLayout")
-
-        self.slidersFrame = QFrame(RangeSlider)
-        self.slidersFrame.setMaximumSize(QSize(16777215, 25))
-        self.slidersFrame.setFrameShape(QFrame.StyledPanel)
-        self.slidersFrame.setFrameShadow(QFrame.Raised)
-        self.slidersFrame.setObjectName("slidersFrame")
-        self.horizontalLayout = QHBoxLayout(self.slidersFrame)
-        self.horizontalLayout.setSizeConstraint(QLayout.SetMinimumSize)
-        self.horizontalLayout.setContentsMargins(5, 2, 5, 2)
-        self.horizontalLayout.setSpacing(0)
-        self.horizontalLayout.setObjectName("horizontalLayout")
-
-        ## Start Slider Widget
-        self.startSlider = QSlider(self.slidersFrame)
-        self.startSlider.setMaximum(self.sliderMin)
-        self.startSlider.setMinimumSize(QSize(100, 5))
-        self.startSlider.setMaximumSize(QSize(16777215, 10))
-
-        font = QFont()
-        font.setKerning(True)
-
-        self.startSlider.setFont(font)
-        self.startSlider.setAcceptDrops(False)
-        self.startSlider.setAutoFillBackground(False)
-        self.startSlider.setOrientation(Qt.Horizontal)
-        self.startSlider.setInvertedAppearance(True)
-        self.startSlider.setObjectName("startSlider")
-        self.startSlider.setValue(MAXVAL)
-        self.startSlider.valueChanged.connect(self.handleStartSliderValueChange)
-        self.horizontalLayout.addWidget(self.startSlider)
-
-        ## End Slider Widget
-        self.endSlider = QSlider(self.slidersFrame)
-        self.endSlider.setMaximum(MAXVAL)
-        self.endSlider.setMinimumSize(QSize(100, 5))
-        self.endSlider.setMaximumSize(QSize(16777215, 10))
-        self.endSlider.setTracking(True)
-        self.endSlider.setOrientation(Qt.Horizontal)
-        self.endSlider.setObjectName("endSlider")
-        self.endSlider.setValue(self.sliderMax)
-        self.endSlider.valueChanged.connect(self.handleEndSliderValueChange)
-
-        #self.endSlider.sliderReleased.connect(self.handleEndSliderValueChange)
-
-        self.horizontalLayout.addWidget(self.endSlider)
-
-        self.RangeBarVLayout.addWidget(self.slidersFrame)
-
-        #self.retranslateUi(RangeSlider)
-        QMetaObject.connectSlotsByName(RangeSlider)
-
-        self.show()
-
-    @pyqtSlot(int)
-    def handleStartSliderValueChange(self, value):
-        self.startSlider.setValue(value)
-
-    @pyqtSlot(int)
-    def handleEndSliderValueChange(self, value):
-        self.endSlider.setValue(value)
-"""

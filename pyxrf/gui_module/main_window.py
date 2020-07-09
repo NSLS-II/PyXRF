@@ -226,6 +226,11 @@ class MainWindow(QMainWindow):
 
         self.update_widget_state()
 
+        # Connect signals
+        self.central_widget.left_panel.load_data_widget.update_preview_map_range.connect(
+            self.central_widget.right_panel.tab_preview_plots.preview_plot_count.update_map_range
+        )
+
     @pyqtSlot()
     @pyqtSlot(str)
     def update_widget_state(self, condition=None):
