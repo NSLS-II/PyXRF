@@ -10,7 +10,6 @@ from enaml.core.api import Include, Looper
 
 from enaml.widgets.api import RadioButton as DefaultRadioButton
 
-import six
 import numpy as np
 from matplotlib.figure import Figure
 

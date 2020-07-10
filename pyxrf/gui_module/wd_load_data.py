@@ -27,6 +27,7 @@ class LoadDataWidget(FormBaseWidget):
     computations_complete = pyqtSignal()
 
     update_preview_map_range = pyqtSignal(str)
+    signal_new_run_loaded = pyqtSignal(bool)  # True/False - success/failed
 
     def __init__(self,  *, gpc, gui_vars):
         super().__init__()
@@ -350,6 +351,8 @@ class LoadDataWidget(FormBaseWidget):
             # Here we want to reset the range in the Total Count Map preview
             self.update_preview_map_range.emit("reset")
 
+            self.signal_new_run_loaded.emit(True)  # Data is loaded successfully
+
             if msg:
                 # Display warning message if it was generated
                 msgbox = QMessageBox(QMessageBox.Warning, "Warning",
@@ -375,6 +378,8 @@ class LoadDataWidget(FormBaseWidget):
 
             # Here we want to clear the range in the Total Count Map preview
             self.update_preview_map_range.emit("clear")
+
+            self.signal_new_run_loaded.emit(False)  # Data is loaded successfully
 
             msg_str = f"Incorrect format of input file '{file_path}': " \
                       f"PyXRF accepts only custom HDF (.h5) files." \

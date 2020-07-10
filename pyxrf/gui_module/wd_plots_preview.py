@@ -32,11 +32,12 @@ class PreviewPlots(QTabWidget):
         self.preview_plot_count.update_widget_state(condition)
 
         state = self.gui_vars["gui_state"]["state_file_loaded"]
-        if not state:
-            # Select 'Plot spectrum' tab
-            self.setCurrentIndex(0)
         for i in range(self.count()):
             self.setTabEnabled(i, state)
+
+    @pyqtSlot(bool)
+    def activate_preview_plot_spectrum(self):
+        self.setCurrentWidget(self.preview_plot_spectrum)
 
 
 class PreviewPlotSpectrum(QWidget):
@@ -141,7 +142,7 @@ class PreviewPlotCount(QWidget):
 
         self.cb_color_scheme = QComboBox()
         # TODO: make color schemes global
-        self._color_schemes = ("viridis", "jet", "bone", "gray", "oranges", "hot")
+        self._color_schemes = ("viridis", "jet", "bone", "gray", "Oranges", "hot")
         self.cb_color_scheme.addItems(self._color_schemes)
         self.cb_color_scheme.currentIndexChanged.connect(self.cb_color_scheme_current_index_changed)
 
@@ -154,7 +155,7 @@ class PreviewPlotCount(QWidget):
         self.combo_pixels_positions.currentIndexChanged.connect(
             self.combo_pixels_positions_current_index_changed)
 
-        self.range = RangeManager(add_sliders=False)
+        self.range = RangeManager(add_sliders=True)
         self.range.setMaximumWidth(200)
         self.range.selection_changed.connect(self.range_selection_changed)
 
@@ -182,19 +183,22 @@ class PreviewPlotCount(QWidget):
     def cb_color_scheme_current_index_changed(self, index):
         logger.debug(f"Color scheme is changed to {self._color_schemes[index]}")
         self.gpc.plot_model.map_preview_color_scheme = self._color_schemes[index]
+        self.gpc.plot_model.update_total_count_map_preview()
 
     def combo_linear_log_current_index_changed(self, index):
         logger.debug(f"Map type is changed to {MapTypes(index)}")
         self.gpc.plot_model.map_type_preview = MapTypes(index)
+        self.gpc.plot_model.update_total_count_map_preview()
 
     def combo_pixels_positions_current_index_changed(self, index):
         logger.debug(f"Map axes are changed to {MapAxesUnits(index)}")
         self.gpc.plot_model.map_axes_units_preview = MapAxesUnits(index)
+        self.gpc.plot_model.update_total_count_map_preview()
 
     def range_selection_changed(self, sel_low, sel_high):
         logger.debug(f"Range selection is changed to ({sel_low:.10g}, {sel_high:.10g})")
-        self.gpc.plot_model.map_preview_range_low = sel_low
-        self.gpc.plot_model.map_preview_range_high = sel_high
+        self.gpc.plot_model.set_map_preview_range(low=sel_low, high=sel_high)
+        self.gpc.plot_model.update_total_count_map_preview()
 
     @pyqtSlot(str)
     def update_map_range(self, mode):
@@ -221,6 +225,10 @@ class PreviewPlotCount(QWidget):
         elif mode == "reset":
             self.range.set_range(range_low, range_high)
             self.range.reset()
+
+        self.gpc.plot_model.map_preview_range_low = range_low if range_low is not None else 0
+        self.gpc.plot_model.map_preview_range_high = range_high if range_high is not None else 0
+
         logger.debug(f"Total Count Preview range is updated: mode='{mode}' range=({range_low}, {range_high})")
 
     def _set_tooltips(self):

@@ -1,6 +1,5 @@
 from __future__ import absolute_import
 
-import six
 import numpy as np
 from collections import OrderedDict
 # from scipy.interpolate import interp1d, interp2d
@@ -444,7 +443,7 @@ class DrawImageAdvanced(Atom):
     def show_image(self):
         self.fig.clf()
         stat_temp = self.get_activated_num()
-        stat_temp = OrderedDict(sorted(six.iteritems(stat_temp), key=lambda x: x[0]))
+        stat_temp = OrderedDict(sorted(stat_temp.items(), key=lambda x: x[0]))
 
         # Check if positions data is available. Positions data may be unavailable
         # (not recorded in HDF5 file) if experiment is has not been completed.
@@ -564,7 +563,7 @@ class DrawImageAdvanced(Atom):
                 c_max = c_center + c_new_range / 2
             return c_min, c_max
 
-        for i, (k, v) in enumerate(six.iteritems(stat_temp)):
+        for i, (k, v) in enumerate(stat_temp.items()):
 
             quant_norm_applied = False
             if self.quantitative_normalization:
@@ -741,7 +740,7 @@ class DrawImageAdvanced(Atom):
     def get_activated_num(self):
         """Collect the selected items for plotting.
         """
-        current_items = {k: v for (k, v) in six.iteritems(self.stat_dict) if v is True}
+        current_items = {k: v for (k, v) in self.stat_dict.items() if v is True}
         return current_items
 
     def record_selected(self):

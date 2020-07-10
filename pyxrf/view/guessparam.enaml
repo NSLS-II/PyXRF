@@ -12,7 +12,6 @@ from enaml.layout.geometry import Box
 from enaml.stdlib.message_box import MessageBox, warning, information
 
 import numpy as np
-import six
 
 from ..model.guessparam import autofit_param
 from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
@@ -48,7 +47,7 @@ enamldef GuessParamView(DockItem): param_view:
             Form:
                 row_spacing = -1
                 Looper: looper:
-                    #iterable << sorted([v for k,v in six.iteritems(param_model.param_new) if v.get('description')],
+                    #iterable << sorted([v for k,v in param_model.param_new.items() if v.get('description')],
                     #                   key=lambda x: x['description'])
                     iterable << autofit_param
                     Label:
@@ -68,7 +67,7 @@ enamldef GuessParamView(DockItem): param_view:
                                 ff.value = param_model.param_new[loop_item]['default']
 
                 Looper: looper:
-                    iterable << list(sorted([v for k,v in six.iteritems(param_model.param_new['non_fitting_values'])
+                    iterable << list(sorted([v for k,v in param_model.param_new['non_fitting_values'].items()
                                             if k in ["energy_bound_low", "energy_bound_high"] ]))
                     Label:
                         text = loop_item['description']
@@ -345,14 +344,14 @@ enamldef GuessParamView(DockItem): param_view:
             #    checkable = True
             #    clicked ::
             #        if checked:
-            #            for k,v in six.iteritems(param_model.EC.element_dict):
+            #            for k,v in param_model.EC.element_dict.items():
             #                v.status = v.lbd_stat
             #            param_model.data_for_plot()
             #            plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
             #            plot_model._fig.canvas.draw()
             #            pb_bound.text = 'Plot lines < 0.1%'
             #        else:
-            #            for k,v in six.iteritems(param_model.EC.element_dict):
+            #            for k,v in param_model.EC.element_dict.items():
             #                v.status = v.stat_copy
             #            param_model.data_for_plot()
             #            plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,

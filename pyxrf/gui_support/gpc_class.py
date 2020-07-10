@@ -83,6 +83,7 @@ class GlobalProcessingClasses:
         # send img dict to img_model for visualization
         self.io_model.observe('img_dict', self.img_model_adv.data_dict_update)
         self.io_model.observe('img_dict', self.img_model_rgb.data_dict_update)
+        self.io_model.observe('img_dict', self.plot_model.data_dict_update)
 
         self.io_model.observe('incident_energy_set', self.plot_model.set_incident_energy)
         self.io_model.observe('incident_energy_set', self.img_model_adv.set_incident_energy)
@@ -119,6 +120,7 @@ class GlobalProcessingClasses:
             self.fit_model.fit_img = {}  # clear dict in fitmodel to rm old results
             # This will draw empty (hidden) preview plot, since no channels are selected.
             self.plot_model.update_preview_spectrum_plot()
+            self.plot_model.update_total_count_map_preview(new_plot=True)
 
         # The following statement initiates file loading. It may raise exceptions
         try:
@@ -166,3 +168,4 @@ class GlobalProcessingClasses:
         self.io_model.update_data_set_buffers()
         self.plot_model.data_sets = self.io_model.data_sets
         self.plot_model.update_preview_spectrum_plot()
+        self.plot_model.update_total_count_map_preview()

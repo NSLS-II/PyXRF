@@ -1,7 +1,6 @@
 from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 
-import six
 import h5py
 import numpy as np
 import os
@@ -769,7 +768,7 @@ def map_data2D_srx(runid, fpath,
             namelist = config_data['xrf_detector'] + hdr.start.motors + config_data['scaler_list']
             dictv = {v: [] for v in namelist}
             for e in evs:
-                for k, v in six.iteritems(dictv):
+                for k, v in dictv.items():
                     dictv[k].append(e.data[k])
             data = pd.DataFrame(dictv, index=np.arange(1, total_len+1))  # need to start with 1
 

@@ -1,7 +1,6 @@
 from __future__ import (absolute_import, division,
                         print_function)
 
-import six
 import numpy as np
 import math
 from collections import OrderedDict
@@ -226,7 +225,7 @@ class DrawImageRGB(Atom):
         selected_name = []
 
         stat_temp = self.get_activated_num()
-        stat_temp = OrderedDict(sorted(six.iteritems(stat_temp), key=lambda x: x[0]))
+        stat_temp = OrderedDict(sorted(stat_temp.items(), key=lambda x: x[0]))
 
         # plot_interp = 'Nearest'
 
@@ -236,7 +235,7 @@ class DrawImageRGB(Atom):
             elif len(self.scaler_data[self.scaler_data == 0]) > 0:
                 logger.warning('scaler data has zero values')
 
-        for i, (k, v) in enumerate(six.iteritems(stat_temp)):
+        for i, (k, v) in enumerate(stat_temp.items()):
 
             data_dict = normalize_data_by_scaler(self.dict_to_plot[k], self.scaler_data,
                                                  data_name=k, name_not_scalable=self.name_not_scalable)
@@ -503,7 +502,7 @@ class DrawImageRGB(Atom):
         self.fig.canvas.draw_idle()
 
     def get_activated_num(self):
-        return {k: v for (k, v) in six.iteritems(self.stat_dict) if v is True}
+        return {k: v for (k, v) in self.stat_dict.items() if v is True}
 
 
 def make_cube(r, g, b):

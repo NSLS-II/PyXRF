@@ -1,4 +1,5 @@
 from PyQt5.QtWidgets import QTabWidget
+from PyQt5.QtCore import pyqtSlot
 
 from .wd_plots_preview import PreviewPlots
 from .wd_plots_fitting_model import PlotFittingModel
@@ -51,3 +52,7 @@ class RightPanel(QTabWidget):
         # Propagate the call to 'update_widget_state' downstream
         for i in range(self.count()):
             self.widget(i).update_widget_state(condition)
+
+    @pyqtSlot(bool)
+    def slot_activate_tab_preview_plots(self):
+        self.setCurrentWidget(self.tab_preview_plots)

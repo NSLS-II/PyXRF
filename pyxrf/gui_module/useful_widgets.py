@@ -556,10 +556,6 @@ class RangeManager(QWidget):
             # Validator type: QDoubleValidator
             # The range is set a little wider (1% wider) in order to cover the 'true'
             #   boundary value.
-            a1 = self._round_value(self._range_low)
-            a2 = self._round_value(self._value_high - self._range_min_diff * 0.99)
-            b1 = self._round_value(self._value_low + self._range_min_diff * 0.99)
-            b2 = self._round_value(self._range_high)
             self.validator_low.setRange(self._round_value(self._range_low),
                                         self._round_value(self._value_high - self._range_min_diff * 0.99),
                                         decimals=20)

@@ -3,7 +3,6 @@ import numpy as np
 import math
 import copy
 import os
-import six
 
 from enaml.widgets.api import (Container, PushButton, Label,
                                Form, Field, MultilineField, FileDialogEx, DockItem,
@@ -688,14 +687,14 @@ enamldef FitView(DockItem): fit_view:
                 #    checkable = True
                 #    clicked ::
                 #        if checked:
-                #            for k,v in six.iteritems(param_model.EC.element_dict):
+                #            for k,v in param_model.EC.element_dict.items():
                 #                v.status = v.lbd_stat
                 #            param_model.data_for_plot()
                 #            plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y, param_model.total_y_l)
                 #            plot_model._fig.canvas.draw()
                 #            pb_bound.text = 'Plot lines < 0.1%'
                 #        else:
-                #            for k,v in six.iteritems(param_model.EC.element_dict):
+                #            for k,v in param_model.EC.element_dict.items():
                 #                v.status = v.stat_copy
                 #            param_model.data_for_plot()
                 #            plot_model.set_prefit_data_and_plot(param_model.prefit_x, param_model.total_y,
@@ -1006,7 +1005,7 @@ enamldef FitView(DockItem): fit_view:
 
                         fit_model.fit_single_pixel()
                         # add scalers to fit dict
-                        scaler_key = [v for v in six.iterkeys(img_model_adv.data_dict) if 'scaler' in v]
+                        scaler_key = [v for v in img_model_adv.data_dict.keys() if 'scaler' in v]
                         if len(scaler_key) > 0:
                             fit_model.fit_img[list(fit_model.fit_img.keys())[0]].update(img_model_adv.data_dict[scaler_key[0]])
 
@@ -1330,7 +1329,7 @@ enamldef AutoFindElements(Window): auto_win:
         Form: param_form:
             row_spacing = -1
             Looper:
-                #iterable << sorted([v for k,v in six.iteritems(param_model.param_new) if v.get('description')],
+                #iterable << sorted([v for k,v in param_model.param_new.items() if v.get('description')],
                 #                   key=lambda x: x['description'])
                 iterable << autofit_param
                 Label:
@@ -1435,7 +1434,7 @@ enamldef AutoFindElements(Window): auto_win:
 
 
 def sorted_param(param_model):
-    return list(([v for k,v in six.iteritems(param_model.param_new['non_fitting_values']) if k in ["energy_bound_low", "energy_bound_high"] ]))
+    return list(([v for k,v in param_model.param_new['non_fitting_values'].items() if k in ["energy_bound_low", "energy_bound_high"] ]))
 
 
 enamldef ElementEdit(Window):
@@ -1489,8 +1488,8 @@ enamldef ElementEdit(Window):
             Form:
                 row_spacing = -1
                 Looper:
-                    #iterable << sorted([k for k in six.iterkeys(fit_model.param_dict) if k==k.lower() and k!='non_fitting_values'])
-                    #iterable << list(sorted([v for v in six.iterkeys(fit_model.param_dict) if cmb_element.selected_item.split('_')[0] in str(v)]))
+                    #iterable << sorted([k for k in fit_model.param_dict.keys() if k==k.lower() and k!='non_fitting_values'])
+                    #iterable << list(sorted([v for v in fit_model.param_dict.keys() if cmb_element.selected_item.split('_')[0] in str(v)]))
                     iterable << fit_model.elementinfo_list
 
                     Label: name_lbl:
@@ -1617,7 +1616,7 @@ enamldef ParameterEdit(Window):
             Form:
                 row_spacing = -1
                 Looper:
-                    #iterable << sorted([k for k in six.iterkeys(fit_model.param_dict) if k==k.lower() and k!='non_fitting_values'])
+                    #iterable << sorted([k for k in fit_model.param_dict.keys() if k==k.lower() and k!='non_fitting_values'])
                     iterable << fit_model.global_param_list
                     Label: name_lbl:
                         text = loop_item

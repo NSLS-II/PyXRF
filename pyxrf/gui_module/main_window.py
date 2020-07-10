@@ -228,8 +228,16 @@ class MainWindow(QMainWindow):
 
         # Connect signals
         self.central_widget.left_panel.load_data_widget.update_preview_map_range.connect(
-            self.central_widget.right_panel.tab_preview_plots.preview_plot_count.update_map_range
-        )
+            self.central_widget.right_panel.tab_preview_plots.preview_plot_count.update_map_range)
+
+        # Open a new file or run
+        self.central_widget.left_panel.load_data_widget.signal_new_run_loaded.connect(
+            self.central_widget.left_panel.slot_activate_load_data_tab)
+        self.central_widget.left_panel.load_data_widget.signal_new_run_loaded.connect(
+            self.central_widget.right_panel.slot_activate_tab_preview_plots)
+        # I am not sure that the following connection makes sense
+        # self.central_widget.left_panel.load_data_widget.signal_new_run_loaded.connect(
+        #     self.central_widget.right_panel.tab_preview_plots.activate_preview_plot_spectrum)
 
     @pyqtSlot()
     @pyqtSlot(str)

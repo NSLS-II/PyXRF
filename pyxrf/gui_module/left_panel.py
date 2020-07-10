@@ -1,4 +1,5 @@
 from PyQt5.QtWidgets import QTabWidget, QScrollArea
+from PyQt5.QtCore import pyqtSlot
 
 from .wd_load_data import LoadDataWidget
 from .wd_model import ModelWidget
@@ -18,19 +19,19 @@ class LeftPanel(QTabWidget):
         self.setTabPosition(QTabWidget.West)
 
         self.load_data_widget = LoadDataWidget(gpc=self.gpc, gui_vars=self.gui_vars)
-        _scroll = QScrollArea()
-        _scroll.setWidget(self.load_data_widget)
-        self.addTab(_scroll, "Data")
+        self.load_data_tab = QScrollArea()
+        self.load_data_tab.setWidget(self.load_data_widget)
+        self.addTab(self.load_data_tab, "Data")
 
         self.model_widget = ModelWidget(gpc=self.gpc, gui_vars=self.gui_vars)
-        _scroll = QScrollArea()
-        _scroll.setWidget(self.model_widget)
-        self.addTab(_scroll, "Model")
+        self.model_tab = QScrollArea()
+        self.model_tab.setWidget(self.model_widget)
+        self.addTab(self.model_tab, "Model")
 
         self.fit_maps_widget = FitMapsWidget(gpc=self.gpc, gui_vars=self.gui_vars)
-        _scroll = QScrollArea()
-        _scroll.setWidget(self.fit_maps_widget)
-        self.addTab(_scroll, "Maps")
+        self.fit_maps_tab = QScrollArea()
+        self.fit_maps_tab.setWidget(self.fit_maps_widget)
+        self.addTab(self.fit_maps_tab, "Maps")
 
         self.update_widget_state()
 
@@ -46,3 +47,7 @@ class LeftPanel(QTabWidget):
         self.load_data_widget.update_widget_state(condition)
         self.model_widget.update_widget_state(condition)
         self.fit_maps_widget.update_widget_state(condition)
+
+    @pyqtSlot(bool)
+    def slot_activate_load_data_tab(self):
+        self.setCurrentWidget(self.load_data_tab)

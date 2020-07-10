@@ -3,7 +3,6 @@ from __future__ import absolute_import
 import numpy as np
 import time
 import copy
-import six
 import os
 import re
 import math
@@ -676,7 +675,7 @@ class Fit1D(Atom):
         # for GUI purpose only
         # if we do not clear the list first, there is not update on the GUI
         self.global_param_list = []
-        self.global_param_list = sorted([k for k in six.iterkeys(self.param_dict)
+        self.global_param_list = sorted([k for k in self.param_dict.keys()
                                          if k == k.lower() and k != 'non_fitting_values'])
 
         self.define_range()
@@ -810,7 +809,7 @@ class Fit1D(Atom):
                                                            len(self.y0))
 
         self.cal_y = np.zeros(len(self.cal_x))
-        for k, v in six.iteritems(self.cal_spectrum):
+        for k, v in self.cal_spectrum.items():
             self.cal_y += v
 
         self.residual = self.cal_y - self.y0
@@ -863,7 +862,7 @@ class Fit1D(Atom):
         # app.processEvents()
         # logger.info('-------- '+self.fit_info+' --------')
 
-        for k, v in six.iteritems(self.all_strategy):
+        for k, v in self.all_strategy.items():
             if v:
                 strat_name = fit_strategy_list[v-1]
                 # self.fit_info = 'Fit with {}: {}'.format(k, strat_name)
@@ -1187,7 +1186,7 @@ class Fit1D(Atom):
         try:
             with open(filepath, 'w') as myfile:
                 myfile.write('\n {:<10} \t {} \t {}'.format('name', 'summed area', 'error in %'))
-                for k, v in six.iteritems(self.comps):
+                for k, v in self.comps.items():
                     if k == 'background':
                         continue
                     for name in area_list:
@@ -1313,12 +1312,12 @@ def combine_lines(components, element_list, background):
         if len(e) <= 4:
             e_temp = e.split('_')[0]
             intensity = 0
-            for k, v in six.iteritems(components):
+            for k, v in components.items():
                 if (e_temp in k) and (e not in k):
                     intensity += v
             new_components[e] = intensity
         elif 'user' in e.lower():
-            for k, v in six.iteritems(components):
+            for k, v in components.items():
                 if e in k:
                     new_components[e] = v
         else:
@@ -1349,7 +1348,7 @@ def extract_strategy(param, name):
         with given strategy as value
     """
     param_new = copy.deepcopy(param)
-    return {k: v[name] for k, v in six.iteritems(param_new)
+    return {k: v[name] for k, v in param_new.items()
             if k != 'non_fitting_values'}
 
 
@@ -1357,7 +1356,7 @@ def define_param_bound_type(param,
                             strategy_list=['adjust_element2, adjust_element3'],
                             b_type='fixed'):
     param_new = copy.deepcopy(param)
-    for k, v in six.iteritems(param_new):
+    for k, v in param_new.items():
         for data in strategy_list:
             if data in list(v.keys()):
                 param_new[k][data] = b_type
@@ -2044,7 +2043,7 @@ def get_area_and_error_nonlinear_fit(elist, fit_results, reg_mat):
 
     for i in range(len(fit_results)):
         for j in range(len(fit_results[0])):
-            for m, v in enumerate(six.iterkeys(area_dict)):
+            for m, v in enumerate(area_dict.keys()):
                 if v == 'snip_bg':
                     area_dict[v][i, j] = fit_results[i][j]['snip_bg']
                 else:
@@ -2052,7 +2051,7 @@ def get_area_and_error_nonlinear_fit(elist, fit_results, reg_mat):
                     error_dict[v][i, j] = fit_results[i][j]['err'][m]
                     weights_mat[i, j, m] = fit_results[i][j]['value'][m]
 
-    for i, v in enumerate(six.iterkeys(area_dict)):
+    for i, v in enumerate(area_dict.keys()):
         if v == 'snip_bg':
             continue
         area_dict[v] *= mat_sum[i]
@@ -2340,10 +2339,10 @@ def roi_sum_calculation(dir_path, file_prefix, fileID,
         data = f[interpath][:]
 
     result_map = dict()
-    # for v in six.iterkeys(element_dict):
+    # for v in element_dict.keys():
     #     result_map[v] = np.zeros([datas[0], datas[1]])
 
-    for k, v in six.iteritems(element_dict):
+    for k, v in element_dict.items():
         result_map[k] = np.sum(data[:, :, v[0]: v[1]], axis=2)
 
     return result_map

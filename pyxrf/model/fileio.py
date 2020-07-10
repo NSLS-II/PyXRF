@@ -1,7 +1,6 @@
 from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 
-import six
 import sys
 import h5py
 import numpy as np
@@ -332,7 +331,6 @@ class FileIOModel(Atom):
                         v_min = min(v_min, dset_min)
                         v_max = max(v_max, dset_max)
         return v_min, v_max
-
 
     def is_xrf_maps_available(self):
         """
@@ -1302,7 +1300,7 @@ def read_hdf_APS(working_directory,
             det_name = data['scalers/name']
             temp = {}
             for i, n in enumerate(det_name):
-                if not isinstance(n, six.string_types):
+                if not isinstance(n, str):
                     n = n.decode()
                 temp[n] = data['scalers/val'].value[:, :, i]
             img_dict[f"{fname}_scaler"] = temp
@@ -1314,7 +1312,7 @@ def read_hdf_APS(working_directory,
             pos_name = data['positions/name']
             temp = {}
             for i, n in enumerate(pos_name):
-                if not isinstance(n, six.string_types):
+                if not isinstance(n, str):
                     n = n.decode()
                 temp[n] = data['positions/pos'].value[i, :]
             img_dict['positions'] = temp
@@ -1528,7 +1526,7 @@ def retrieve_data_from_hdf_suitcase(fpath):
         other_data_list = [v for v in f.keys() if v != 'xrfmap']
         if len(other_data_list) > 0:
             f_hdr = f[other_data_list[0]].attrs['start']
-            if not isinstance(f_hdr, six.string_types):
+            if not isinstance(f_hdr, str):
                 f_hdr = f_hdr.decode('utf-8')
             start_doc = ast.literal_eval(f_hdr)
             other_data = f[other_data_list[0]+'/primary/data']
@@ -1688,7 +1686,7 @@ def get_fit_data(namelist, data):
     """
     data_temp = dict()
     for i, v in enumerate(namelist):
-        if not isinstance(v, six.string_types):
+        if not isinstance(v, str):
             v = v.decode()
         data_temp.update({v: data[i, :, :]})
     return data_temp
@@ -1745,8 +1743,8 @@ def read_hdf_to_stitch(working_directory, filelist,
 
     data_tmp = np.zeros([vertical_v, horizontal_v])
 
-    for k, v in six.iteritems(out):
-        for m, n in six.iteritems(v):
+    for k, v in out.items():
+        for m, n in v.items():
             v[m] = np.array(data_tmp)
 
     for i, file_name in enumerate(filelist):
@@ -1764,7 +1762,7 @@ def read_hdf_to_stitch(working_directory, filelist,
         for key_name in keylist:
             fit_key0, = [v for v in list(out.keys()) if key_name in v]
             fit_key, = [v for v in list(img.keys()) if key_name in v]
-            for k, v in six.iteritems(img[fit_key]):
+            for k, v in img[fit_key].items():
                 out[fit_key0][k][v_i:v_i+tmp_shape[0], h_i:h_i+tmp_shape[1]] = img[fit_key][k]
 
     return out
@@ -1898,8 +1896,8 @@ def save_fitdata_to_hdf(fpath, data_dict,
 
     data = []
     namelist = []
-    for k, v in six.iteritems(data_dict):
-        if not isinstance(k, six.string_types):
+    for k, v in data_dict.items():
+        if not isinstance(k, str):
             k = k.decode()
         namelist.append(k)
         data.append(v)
@@ -1914,7 +1912,7 @@ def save_fitdata_to_hdf(fpath, data_dict,
     if dataname_saveas in dataGrp:
         del dataGrp[dataname_saveas]
 
-    if not isinstance(dataname_saveas, six.string_types):
+    if not isinstance(dataname_saveas, str):
         dataname_saveas = dataname_saveas.decode()
     namelist = np.array(namelist).astype('|S9')
     name_data = dataGrp.create_dataset(dataname_saveas, data=namelist)
@@ -2257,8 +2255,8 @@ def make_hdf_stitched(working_directory, filelist, fname,
 
     result = {}
     img_shape = None
-    for k, v in six.iteritems(out):
-        for m, n in six.iteritems(v):
+    for k, v in out.items():
+        for m, n in v.items():
             if img_shape is None:
                 img_shape = n.shape
             result[m] = n.ravel()

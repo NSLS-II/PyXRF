@@ -12,7 +12,6 @@ from enaml.stdlib.fields import FloatField as DefaultFloatField
 
 from enaml.validator import FloatValidator
 
-import six
 import numpy as np
 from matplotlib.figure import Figure
 

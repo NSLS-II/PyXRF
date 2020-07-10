@@ -2,7 +2,6 @@ from __future__ import (absolute_import, division,
                         print_function)
 
 import numpy as np
-import six
 import json
 from collections import OrderedDict
 import copy
@@ -85,16 +84,16 @@ class ElementController(object):
         """
         if option == 'z':
             self.element_dict = OrderedDict(sorted(
-                six.iteritems(self.element_dict), key=lambda t: t[1].z))
+                self.element_dict.items(), key=lambda t: t[1].z))
         elif option == 'energy':
             self.element_dict = OrderedDict(sorted(
-                six.iteritems(self.element_dict), key=lambda t: t[1].energy))
+                self.element_dict.items(), key=lambda t: t[1].energy))
         elif option == 'name':
             self.element_dict = OrderedDict(sorted(
-                six.iteritems(self.element_dict), key=lambda t: t[0]))
+                self.element_dict.items(), key=lambda t: t[0]))
         elif option == 'maxv':
             self.element_dict = OrderedDict(sorted(
-                six.iteritems(self.element_dict), key=lambda t: t[1].maxv, reverse=True))
+                self.element_dict.items(), key=lambda t: t[1].maxv, reverse=True))
 
     def add_to_dict(self, dictv):
         """
@@ -117,10 +116,9 @@ class ElementController(object):
         if not self.element_dict:
             return
 
-        # max_dict = reduce(max, map(np.max, six.itervalues(self.element_dict)))
-        max_dict = np.max([v.maxv for v in six.itervalues(self.element_dict)])
+        max_dict = np.max([v.maxv for v in self.element_dict.values()])
 
-        for v in six.itervalues(self.element_dict):
+        for v in self.element_dict.values():
             v.norm = v.maxv/max_dict*100
             v.lbd_stat = bool(v.norm > threshv)
 
@@ -142,7 +140,7 @@ class ElementController(object):
 
     def get_element_list(self):
         current_elements = [v for v
-                            in six.iterkeys(self.element_dict)
+                            in self.element_dict.keys()
                             if (v.lower() != v)]
 
         # logger.info('Current Elements for '
@@ -153,7 +151,7 @@ class ElementController(object):
         """
         In case users change the max value.
         """
-        for v in six.itervalues(self.element_dict):
+        for v in self.element_dict.values():
             max_spectrum = np.max(v.spectrum)
             if not math.isclose(max_spectrum, 0.0, abs_tol=1e-20):
                 factor = v.maxv / max_spectrum
@@ -171,7 +169,7 @@ class ElementController(object):
             _plot = option
         else:
             _plot = False
-        for v in six.itervalues(self.element_dict):
+        for v in self.element_dict.values():
             v.status = _plot
 
     def delete_value_given_threshold(self, threshv=0.1):
@@ -181,7 +179,7 @@ class ElementController(object):
         """
         remove_list = []
         non_element = ['compton', 'elastic', 'background']
-        for k, v in six.iteritems(self.element_dict):
+        for k, v in self.element_dict.items():
             if v.norm < threshv:
                 remove_list.append(k)
         for name in remove_list:
@@ -191,7 +189,7 @@ class ElementController(object):
 
     def delete_unselected_items(self):
         remove_list = []
-        for k, v in six.iteritems(self.element_dict):
+        for k, v in self.element_dict.items():
             if v.status is False:
                 remove_list.append(k)
         for name in remove_list:
@@ -408,7 +406,7 @@ class GuessParamModel(Atom):
                                                   param_dict, len(self.y0))
 
         temp_dict = OrderedDict()
-        for e in six.iterkeys(pre_dict):
+        for e in pre_dict.keys():
             if e in ['background', 'escape']:
                 spectrum = pre_dict[e]
 
@@ -437,7 +435,7 @@ class GuessParamModel(Atom):
 
             else:
                 ename = e.split('_')[0]
-                for k, v in six.iteritems(param_dict):
+                for k, v in param_dict.items():
                     if ename in k and 'area' in k:
                         spectrum = pre_dict[e]
                         area = area_dict[e]
@@ -627,7 +625,7 @@ class GuessParamModel(Atom):
             self.param_new['non_fitting_values']['energy_bound_high']['value']))
 
         prefit_dict = OrderedDict()
-        for k, v in six.iteritems(out_dict):
+        for k, v in out_dict.items():
             ps = PreFitStatus(z=get_Z(k),
                               energy=get_energy(k),
                               area=area_dict[k],
@@ -661,7 +659,7 @@ class GuessParamModel(Atom):
         # PC = ParamController(self.param_new, self.element_list)
         # # parameter values not updated based on param_new, so redo it
         # param_temp = PC.params
-        # for k, v in six.iteritems(param_temp):
+        # for k, v in param_temp.items():
         #     if k == 'non_fitting_values':
         #         continue
         #     if self.param_new.has_key(k):
@@ -678,7 +676,7 @@ class GuessParamModel(Atom):
 
         # update area values in param_new according to results saved in ElementController
         if len(self.EC.element_dict):
-            for k, v in six.iteritems(self.param_new):
+            for k, v in self.param_new.items():
                 if 'area' in k:
                     if 'pileup' in k:
                         name_cut = k[7:-5]  # remove pileup_ and _area
@@ -714,7 +712,7 @@ class GuessParamModel(Atom):
         self.total_y = None
         self.auto_fit_all = {}
 
-        for k, v in six.iteritems(self.EC.element_dict):
+        for k, v in self.EC.element_dict.items():
             if v.status is True:
                 self.auto_fit_all[k] = v.spectrum
                 if self.total_y is None:
@@ -722,7 +720,7 @@ class GuessParamModel(Atom):
                 else:
                     self.total_y += v.spectrum
 
-        # for k, v in six.iteritems(new_dict):
+        # for k, v in new_dict.items():
         #     if '-' in k:  # pileup
         #         self.total_pileup[k] = self.EC.element_dict[k].spectrum
         #     elif 'K' in k:
@@ -901,7 +899,7 @@ def create_full_dict(param, name_list,
     """
     param_new = copy.deepcopy(param)
     for n in name_list:
-        for k, v in six.iteritems(param_new):
+        for k, v in param_new.items():
             if k == 'non_fitting_values':
                 continue
             if n not in v:
@@ -990,7 +988,7 @@ def param_dict_cleaner(parameter, element_list):
     pileup_list = [e for e in element_list if '-' in e]
     userpeak_list = [e for e in element_list if 'user' in e.lower()]
 
-    for k, v in six.iteritems(param):
+    for k, v in param.items():
         if k == 'non_fitting_values' or k == k.lower():
             param_new.update({k: v})
         elif 'pileup' in k:
@@ -1038,16 +1036,16 @@ def update_param_from_element(param, element_list):
 
     #  enforce adjust_element area to be fixed,
     #  while bound_type in xrf_model is defined as none for area
-    # for k, v in six.iteritems(param_temp):
+    # for k, v in param_temp.items():
     #     if '_area' in k:
     #         v['bound_type'] = 'fixed'
 
-    for k, v in six.iteritems(param_temp):
+    for k, v in param_temp.items():
         if k == 'non_fitting_values':
             continue
         if k in param_new:
             param_temp[k] = param_new[k]
-            # for k1 in six.iterkeys(v):
+            # for k1 in v.keys():
             #     v[k1] = param_new[k][k1]
     param_new = param_temp
 

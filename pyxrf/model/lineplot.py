@@ -1,16 +1,18 @@
 from __future__ import (absolute_import, division,
                         print_function)
-
+import math
 import numpy as np
-import six
 import matplotlib
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.collections import BrokenBarHCollection
+import matplotlib.ticker as mticker
+from matplotlib.colors import LogNorm
 from collections import OrderedDict
 from enum import Enum
+from mpl_toolkits.axes_grid1 import ImageGrid
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
 
@@ -52,7 +54,7 @@ class MapTypes(Enum):
 
 class MapAxesUnits(Enum):
     PIXELS = 0
-    POSIIONS = 1
+    POSITIONS = 1
 
 
 class LinePlotModel(Atom):
@@ -124,10 +126,11 @@ class LinePlotModel(Atom):
     _fig_maps = Typed(Figure)
     map_type_preview = Typed(MapTypes)
     map_axes_units_preview = Typed(MapAxesUnits)
+    map_scatter_plot = Bool(False)
 
-    map_preview_color_scheme = Str()
-    map_preview_range_low = Float()
-    map_preview_range_high = Float()
+    map_preview_color_scheme = Str('viridis')
+    map_preview_range_low = Float(-1)
+    map_preview_range_high = Float(-1)
     # ------------------------------------------------------------
 
     _fig = Typed(Figure)
@@ -197,7 +200,7 @@ class LinePlotModel(Atom):
     # element_list_roi = List()
     # roi_dict = Typed(object) #OrderedDict()
 
-    # data_dict = Dict()
+    data_dict = Dict()
     # roi_result = Dict()
 
     # Reference to GuessParamModel object
@@ -251,6 +254,20 @@ class LinePlotModel(Atom):
         # Preview of Total Count Maps
         self._fig_maps = Figure()
         self.map_type_preview = MapTypes.LINEAR
+        self.map_axes_units_preview = MapAxesUnits.PIXELS
+
+    def data_dict_update(self, change):
+        """
+        Observer function to be connected to the fileio model
+        in the top-level gui.py startup
+
+        Parameters
+        ----------
+        changed : dict
+            This is the dictionary that gets passed to a function
+            with the @observe decorator
+        """
+        self.data_dict = change['value']
 
     def _color_config(self):
         self.plot_style = {
@@ -984,14 +1001,14 @@ class LinePlotModel(Atom):
         """
         Plot roi with low, high and ceter value.
         """
-        for k, v in six.iteritems(self.roi_plot_dict):
+        for k, v in self.roi_plot_dict.items():
             for data in v:
                 data.remove()
         self.roi_plot_dict.clear()
 
         if len(self.roi_dict):
             # self._ax.hold(True)
-            for k, v in six.iteritems(self.roi_dict):
+            for k, v in self.roi_dict.items():
                 temp_list = []
                 for linev in np.array([v.left_val, v.line_val, v.right_val])/1000.:
                     lineplot, = self._ax.plot([linev, linev],
@@ -1013,7 +1030,7 @@ class LinePlotModel(Atom):
         self.plot_roi_bound()
 
         if len(self.roi_dict):
-            for k, v in six.iteritems(self.roi_dict):
+            for k, v in self.roi_dict.items():
                 if v.show_plot:
                     for ln in self.roi_plot_dict[k]:
                         ln.set_visible(True)
@@ -1149,156 +1166,6 @@ class LinePlotModel(Atom):
         # Round the intensity for nicer printing
         self.param_model.add_element_intensity = round(intensity, 2)
 
-    # def plot_autofit(self):
-    #     sum_y = 0
-    #     while(len(self.auto_fit_obj)):
-    #         self.auto_fit_obj.pop().remove()
-    #
-    #     k_auto = 0
-    #
-    #     # K lines
-    #     if len(self.total_y):
-    #         self._ax.hold(True)
-    #         for k, v in six.iteritems(self.total_y):
-    #             if k == 'background':
-    #                 ln, = self._ax.plot(self.prefit_x, v,
-    #                                     color=self.plot_style['background']['color'],
-    #                                     #marker=self.plot_style['background']['marker'],
-    #                                     #markersize=self.plot_style['background']['markersize'],
-    #                                     label=self.plot_style['background']['label'])
-    #             elif k == 'compton':
-    #                 ln, = self._ax.plot(self.prefit_x, v,
-    #                                     color=self.plot_style['compton']['color'],
-    #                                     linewidth=self.plot_style['compton']['linewidth'],
-    #                                     label=self.plot_style['compton']['label'])
-    #             elif k == 'elastic':
-    #                 ln, = self._ax.plot(self.prefit_x, v,
-    #                                     color=self.plot_style['elastic']['color'],
-    #                                     label=self.plot_style['elastic']['label'])
-    #             elif k == 'escape':
-    #                 ln, = self._ax.plot(self.prefit_x, v,
-    #                                     color=self.plot_style['escape']['color'],
-    #                                     label=self.plot_style['escape']['label'])
-    #             else:
-    #                 # only the first one has label
-    #                 if k_auto == 0:
-    #                     ln, = self._ax.plot(self.prefit_x, v,
-    #                                         color=self.plot_style['k_line']['color'],
-    #                                         label=self.plot_style['k_line']['label'])
-    #                 else:
-    #                     ln, = self._ax.plot(self.prefit_x, v,
-    #                                         color=self.plot_style['k_line']['color'],
-    #                                         label='_nolegend_')
-    #                 k_auto += 1
-    #             self.auto_fit_obj.append(ln)
-    #             sum_y += v
-    #
-    #     # L lines
-    #     if len(self.total_l):
-    #         self._ax.hold(True)
-    #         for i, (k, v) in enumerate(six.iteritems(self.total_l)):
-    #             # only the first one has label
-    #             if i == 0:
-    #                 ln, = self._ax.plot(self.prefit_x, v,
-    #                                     color=self.plot_style['l_line']['color'],
-    #                                     label=self.plot_style['l_line']['label'])
-    #             else:
-    #                 ln, = self._ax.plot(self.prefit_x, v,
-    #                                     color=self.plot_style['l_line']['color'],
-    #                                     label='_nolegend_')
-    #             self.auto_fit_obj.append(ln)
-    #             sum_y += v
-    #
-    #     # M lines
-    #     if len(self.total_m):
-    #         self._ax.hold(True)
-    #         for i, (k, v) in enumerate(six.iteritems(self.total_m)):
-    #             # only the first one has label
-    #             if i == 0:
-    #                 ln, = self._ax.plot(self.prefit_x, v,
-    #                                     color=self.plot_style['m_line']['color'],
-    #                                     label=self.plot_style['m_line']['label'])
-    #             else:
-    #                 ln, = self._ax.plot(self.prefit_x, v,
-    #                                     color=self.plot_style['m_line']['color'],
-    #                                     label='_nolegend_')
-    #             self.auto_fit_obj.append(ln)
-    #             sum_y += v
-    #
-    #     # pileup
-    #     if len(self.total_pileup):
-    #         self._ax.hold(True)
-    #         for i, (k, v) in enumerate(six.iteritems(self.total_pileup)):
-    #             # only the first one has label
-    #             if i == 0:
-    #                 ln, = self._ax.plot(self.prefit_x, v,
-    #                                     color=self.plot_style['pileup']['color'],
-    #                                     label=self.plot_style['pileup']['label'])
-    #             else:
-    #                 ln, = self._ax.plot(self.prefit_x, v,
-    #                                     color=self.plot_style['pileup']['color'],
-    #                                     label='_nolegend_')
-    #             self.auto_fit_obj.append(ln)
-    #             sum_y += v
-    #
-    #     if len(self.total_y) or len(self.total_l) or len(self.total_m):
-    #         self._ax.hold(True)
-    #         ln, = self._ax.plot(self.prefit_x, sum_y,
-    #                             color=self.plot_style['auto_fit']['color'],
-    #                             label=self.plot_style['auto_fit']['label'],
-    #                             linewidth=self.plot_style['auto_fit']['linewidth'])
-    #         self.auto_fit_obj.append(ln)
-
-    # @observe('show_autofit_opt')
-    # def update_auto_fit(self, change):
-    #     if change['value']:
-    #         if len(self.auto_fit_obj):
-    #             for v in self.auto_fit_obj:
-    #                 v.set_visible(True)
-    #                 lab = v.get_label()
-    #                 if lab != '_nolegend_':
-    #                     v.set_label(lab.strip('_'))
-    #     else:
-    #         if len(self.auto_fit_obj):
-    #             for v in self.auto_fit_obj:
-    #                 v.set_visible(False)
-    #                 lab = v.get_label()
-    #                 if lab != '_nolegend_':
-    #                     v.set_label('_' + lab)
-    #     self._update_canvas()
-
-    # def set_prefit_data_and_plot(self, prefit_x,
-    #                              total_y, total_l,
-    #                              total_m, total_pileup):
-    #     """
-    #     Parameters
-    #     ----------
-    #     prefit_x : array
-    #         X axis with limited range
-    #     total_y : dict
-    #         Results for k lines, bg, and others
-    #     total_l : dict
-    #         Results for l lines
-    #     total_m : dict
-    #         Results for m lines
-    #     total_pileup : dict
-    #         Results for pileups
-    #     """
-    #     self.prefit_x = prefit_x
-    #     # k lines
-    #     self.total_y = total_y
-    #     # l lines
-    #     self.total_l = total_l
-    #     # m lines
-    #     self.total_m = total_m
-    #     # pileup
-    #     self.total_pileup = total_pileup
-    #
-    #     #self._ax.set_xlim([self.prefit_x[0], self.prefit_x[-1]])
-    #     self.plot_autofit()
-    #     #self.log_linear_plot()
-    #     self._update_canvas()
-
     def plot_fit(self, fit_x, fit_y, fit_all, residual=None):
         """
         Parameters
@@ -1336,7 +1203,7 @@ class LinePlotModel(Atom):
         l_num = 0
         m_num = 0
         p_num = 0
-        for k, v in six.iteritems(fit_all):
+        for k, v in fit_all.items():
             if k == 'background':
                 ln, = self._ax.plot(fit_x, v,
                                     color=self.plot_style['background']['color'],
@@ -1682,10 +1549,33 @@ class LinePlotModel(Atom):
     # ===========================================================================================
     #   Plotting the preview of Total Count Maps
 
-    def show_image(self):
-        self.fig.clf()
-        stat_temp = self.get_activated_num()
-        stat_temp = OrderedDict(sorted(six.iteritems(stat_temp), key=lambda x: x[0]))
+    def clear_map_preview_range(self):
+        self.set_map_preview_range(low=-1, high=-1)
+
+    def set_map_preview_range(self, *, low, high):
+        self.map_preview_range_low = low
+        self.map_preview_range_high = high
+
+    def get_selected_datasets(self):
+        """Returns the datasets selected for preview"""
+        return {k: v for (k, v) in self.data_sets.items() if v.selected_for_preview}
+
+    def _compute_map_preview_range(self, data_dict, key_list):
+        range_min, range_max = None, None
+        for key in key_list:
+            data = data_dict[key]
+            v_min, v_max = np.min(data), np.max(data)
+            if range_min is None or range_max is None:
+                range_min, range_max = v_min, v_max
+            else:
+                range_min, range_max = min(range_min, v_min), max(range_max, v_max)
+        return range_min, range_max
+
+    def _show_total_count_map_preview(self):
+        self._fig_maps.set_visible(True)
+        self._fig_maps.clf()
+        selected_dsets = self.get_selected_datasets()
+        data_for_plotting = {k: v.get_total_count() for (k, v) in selected_dsets.items()}
 
         # Check if positions data is available. Positions data may be unavailable
         # (not recorded in HDF5 file) if experiment is has not been completed.
@@ -1693,39 +1583,30 @@ class LinePlotModel(Atom):
         # plotting vs. x-y or scatter plot may not be displayed.
         positions_data_available = False
         if 'positions' in self.data_dict.keys():
+            data_for_plotting["positions"] = self.data_dict["positions"]
             positions_data_available = True
 
         # Create local copies of self.pixel_or_pos, self.scatter_show and self.grid_interpolate
-        pixel_or_pos_local = self.pixel_or_pos
-        scatter_show_local = self.scatter_show
-        grid_interpolate_local = self.grid_interpolate
+        pixel_or_pos_local = self.map_axes_units_preview
+        scatter_show_local = self.map_scatter_plot
 
         # Disable plotting vs x-y coordinates if 'positions' data is not available
         if not positions_data_available:
             if pixel_or_pos_local:
-                pixel_or_pos_local = 0  # Switch to plotting vs. pixel number
+                pixel_or_pos_local = MapAxesUnits.PIXELS  # Switch to plotting vs. pixel number
                 logger.error("'Positions' data is not available. Plotting vs. x-y coordinates is disabled")
             if scatter_show_local:
                 scatter_show_local = False  # Switch to plotting vs. pixel number
                 logger.error("'Positions' data is not available. Scatter plot is disabled.")
-            if grid_interpolate_local:
-                grid_interpolate_local = False  # Switch to plotting vs. pixel number
-                logger.error("'Positions' data is not available. Interpolation is disabled.")
 
-        low_lim = 1e-4  # define the low limit for log image
+        # low_lim = 1e-4  # define the low limit for log image
         plot_interp = 'Nearest'
 
-        if self.scaler_data is not None:
-            if np.count_nonzero(self.scaler_data) == 0:
-                logger.warning('scaler is zero - scaling was not applied')
-            elif len(self.scaler_data[self.scaler_data == 0]) > 0:
-                logger.warning('scaler data has zero values')
+        grey_use = self.map_preview_color_scheme
 
-        grey_use = self.color_opt
-
-        ncol = int(np.ceil(np.sqrt(len(stat_temp))))
+        ncol = int(np.ceil(np.sqrt(len(selected_dsets))))
         try:
-            nrow = int(np.ceil(len(stat_temp)/float(ncol)))
+            nrow = int(np.ceil(len(selected_dsets)/float(ncol)))
         except ZeroDivisionError:
             ncol = 1
             nrow = 1
@@ -1733,7 +1614,9 @@ class LinePlotModel(Atom):
         a_pad_v = 0.8
         a_pad_h = 0.5
 
-        grid = ImageGrid(self.fig, 111,
+        n_displayed_axes = ncol * nrow  # Total number of axes in the grid
+
+        grid = ImageGrid(self._fig_maps, 111,
                          nrows_ncols=(nrow, ncol),
                          axes_pad=(a_pad_v, a_pad_h),
                          cbar_location='right',
@@ -1805,30 +1688,21 @@ class LinePlotModel(Atom):
                 c_max = c_center + c_new_range / 2
             return c_min, c_max
 
-        for i, (k, v) in enumerate(six.iteritems(stat_temp)):
+        # Hide the axes that are unused (they are unsightly)
+        for i in range(len(selected_dsets), n_displayed_axes):
+            grid[i].set_visible(False)
+            grid.cbar_axes[i].set_visible(False)
 
-            quant_norm_applied = False
-            if self.quantitative_normalization:
-                # Quantitative normalization
-                data_dict, quant_norm_applied = self.param_quant_analysis.apply_quantitative_normalization(
-                    data_in=self.dict_to_plot[k],
-                    scaler_dict=self.scaler_norm_dict,
-                    scaler_name_default=self.get_selected_scaler_name(),
-                    data_name=k,
-                    name_not_scalable=self.name_not_scalable)
-            else:
-                # Normalize by the selected scaler in a regular way
-                data_dict = normalize_data_by_scaler(data_in=self.dict_to_plot[k],
-                                                     scaler=self.scaler_data,
-                                                     data_name=k,
-                                                     name_not_scalable=self.name_not_scalable)
+        for i, (k, v) in enumerate(selected_dsets.items()):
 
-            if pixel_or_pos_local or scatter_show_local:
+            data_dict = data_for_plotting[k]
+
+            if pixel_or_pos_local == MapAxesUnits.POSITIONS or scatter_show_local:
 
                 # xd_min, xd_max, yd_min, yd_max = min(self.x_pos), max(self.x_pos),
                 #     min(self.y_pos), max(self.y_pos)
-                x_pos_2D = self.data_dict['positions']['x_pos']
-                y_pos_2D = self.data_dict['positions']['y_pos']
+                x_pos_2D = data_for_plotting['positions']['x_pos']
+                y_pos_2D = data_for_plotting['positions']['y_pos']
                 xd_min, xd_max, yd_min, yd_max = x_pos_2D.min(), x_pos_2D.max(), y_pos_2D.min(), y_pos_2D.max()
                 xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = \
                     _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
@@ -1856,34 +1730,27 @@ class LinePlotModel(Atom):
                 xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = \
                     _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
 
-            if self.scale_opt == 'Linear':
-
-                low_ratio = self.limit_dict[k]['low']/100.0
-                high_ratio = self.limit_dict[k]['high']/100.0
-                if (self.scaler_data is None) and (not quant_norm_applied):
-                    minv = self.range_dict[k]['low']
-                    maxv = self.range_dict[k]['high']
+            # Compute range for data values
+            low_limit = self.map_preview_range_low
+            high_limit = self.map_preview_range_high
+            # If limit is not set, then compute the limit based on the selected datasets.
+            # It is assumed that at least one dataset is selected.
+            if low_limit == -1 and high_limit == -1:
+                low_limit, high_limit = \
+                    self._compute_map_preview_range(data_for_plotting, selected_dsets.keys())
+                if low_limit is None or high_limit is None:
+                    low_limit, high_limit = 0
+            # Set some minimum range for the colorbar (otherwise it will have white fill)
+            if math.isclose(low_limit, high_limit, abs_tol=2e-20):
+                if abs(low_limit) < 1e-20:  # The value is zero
+                    dv = 1e-20
                 else:
-                    # Unfortunately, the new normalization procedure requires to recalculate min and max values
-                    minv = np.min(data_dict)
-                    maxv = np.max(data_dict)
-                low_limit = (maxv-minv)*low_ratio + minv
-                high_limit = (maxv-minv)*high_ratio + minv
+                    dv = math.fabs(low_limit * 0.01)
+                high_limit += dv
+                low_limit -= dv
 
-                # Set some minimum range for the colorbar (otherwise it will have white fill)
-                if math.isclose(low_limit, high_limit, abs_tol=2e-20):
-                    if abs(low_limit) < 1e-20:  # The value is zero
-                        dv = 1e-20
-                    else:
-                        dv = math.fabs(low_limit * 0.01)
-                    high_limit += dv
-                    low_limit -= dv
-
+            if self.map_type_preview == MapTypes.LINEAR:
                 if not scatter_show_local:
-                    if grid_interpolate_local:
-                        data_dict, _, _ = grid_interpolate(data_dict,
-                                                           self.data_dict['positions']['x_pos'],
-                                                           self.data_dict['positions']['y_pos'])
                     im = grid[i].imshow(data_dict,
                                         cmap=grey_use,
                                         interpolation=plot_interp,
@@ -1909,8 +1776,8 @@ class LinePlotModel(Atom):
                 grid[i].set_xlim(xd_axis_min, xd_axis_max)
 
                 grid_title = k
-                if quant_norm_applied:
-                    grid_title += " - Q"  # Mark the plots that represent quantitative information
+                # Display only the channel name (e.g. 'sum', 'det1' etc.)
+                grid_title = grid_title.split("_")[-1]
                 grid[i].text(0, 1.01, grid_title, ha='left', va='bottom', transform=grid[i].axes.transAxes)
 
                 grid.cbar_axes[i].colorbar(im)
@@ -1919,39 +1786,35 @@ class LinePlotModel(Atom):
                 # im.colorbar.ax.get_xaxis().set_ticks([], minor=True)
                 grid.cbar_axes[i].ticklabel_format(style='sci', scilimits=(-3, 4), axis='both')
 
-                #  Do not remove this code, may be useful in the future (Dmitri G.) !!!
-                #  Print label for colorbar
-                # cax = grid.cbar_axes[i]
-                # axis = cax.axis[cax.orientation]
-                # axis.label.set_text("$[a.u.]$")
-
             else:
 
-                maxz = np.max(data_dict)
-                # Set some reasonable minimum range for the colorbar
-                #   Zeros or negative numbers will be shown in white
-                if maxz <= 1e-30:
-                    maxz = 1
+                # maxz = np.max(data_dict)
+                # # Set some reasonable minimum range for the colorbar
+                # #   Zeros or negative numbers will be shown in white
+                # if maxz <= 1e-30:
+                #     maxz = 1
 
                 if not scatter_show_local:
-                    if grid_interpolate_local:
-                        data_dict, _, _ = grid_interpolate(data_dict,
-                                                           self.data_dict['positions']['x_pos'],
-                                                           self.data_dict['positions']['y_pos'])
                     im = grid[i].imshow(data_dict,
-                                        norm=LogNorm(vmin=low_lim*maxz,
-                                                     vmax=maxz, clip=True),
+                                        # norm=LogNorm(vmin=low_lim*maxz,
+                                        #              vmax=maxz, clip=True),
+                                        norm=LogNorm(vmin=low_limit,
+                                                     vmax=high_limit, clip=True),
                                         cmap=grey_use,
                                         interpolation=plot_interp,
                                         extent=(xd_min, xd_max, yd_max, yd_min),
                                         origin='upper',
-                                        clim=(low_lim*maxz, maxz))
+                                        # clim=(low_lim*maxz, maxz))
+                                        clim=(low_limit, high_limit))
+
                     grid[i].set_ylim(yd_axis_max, yd_axis_min)
                 else:
                     im = grid[i].scatter(self.data_dict['positions']['x_pos'],
                                          self.data_dict['positions']['y_pos'],
-                                         norm=LogNorm(vmin=low_lim*maxz,
-                                                      vmax=maxz, clip=True),
+                                         # norm=LogNorm(vmin=low_lim*maxz,
+                                         #              vmax=maxz, clip=True),
+                                         norm=LogNorm(vmin=low_limit,
+                                                      vmax=high_limit, clip=True),
                                          c=data_dict, marker='s', s=500, alpha=1.0,  # Originally: alpha=0.8
                                          cmap=grey_use,
                                          linewidths=1, linewidth=0)
@@ -1960,8 +1823,8 @@ class LinePlotModel(Atom):
                 grid[i].set_xlim(xd_axis_min, xd_axis_max)
 
                 grid_title = k
-                if quant_norm_applied:
-                    grid_title += " - Q"  # Mark the plots that represent quantitative information
+                # Display only the channel name (e.g. 'sum', 'det1' etc.)
+                grid_title = grid_title.split("_")[-1]
                 grid[i].text(0, 1.01, grid_title, ha='left', va='bottom', transform=grid[i].axes.transAxes)
 
                 grid.cbar_axes[i].colorbar(im)
@@ -1976,9 +1839,37 @@ class LinePlotModel(Atom):
             grid[i].get_xaxis().get_major_formatter().set_useOffset(False)
             grid[i].get_yaxis().get_major_formatter().set_useOffset(False)
 
-        self.fig.suptitle(self.img_title, fontsize=20)
-        self.fig.canvas.draw_idle()
+        self._fig_maps.canvas.draw_idle()
 
+    def _hide_total_count_map_preview(self):
+        self._fig_maps.set_visible(False)
 
+    def update_total_count_map_preview(self, *, hide=False, new_plot=False):
+        """
+        Update total count map preview based on available/selected dataset and `hide` flag.
 
+        Parameters
+        ----------
+        hide: bool
+            `True` - plot data if datasets are available and at least one dataset is selected,
+            otherwise hide the plot, `False` - hide the plot in any case
+        new_plot: bool
+            `True` - plotting new data that was just loaded, reset the plot settings
+        """
 
+        if new_plot and not hide:
+            # Clear the displayed data range. The range will be computed based on the available data.
+            self.clear_map_preview_range()
+
+        # Find out if any data is selected
+        show_plot = False
+        if self.data_sets:
+            show_plot = any([_.selected_for_preview for _ in self.data_sets.values()])
+        logger.debug(f"LinePlotModel.update_total_count_map_preview(): show_plot={show_plot} hide={hide}")
+        if show_plot and not hide:
+            logger.debug("LinePlotModel.update_total_count_map_preview(): plotting existing datasets")
+            self._show_total_count_map_preview()
+        else:
+            logger.debug("LinePlotModel.update_total_count_map_preview(): hiding plots")
+            self._hide_total_count_map_preview()
+        self._fig_maps.canvas.draw()

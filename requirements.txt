@@ -16,5 +16,4 @@ pyyaml
 requests
 scikit-image
 scipy
-six
 tifffile
