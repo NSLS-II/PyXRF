@@ -9,7 +9,7 @@ from matplotlib.backends.backend_qt5agg import \
     FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
 
 import logging
-logger = logging.getLogger("pyxrf")
+logger = logging.getLogger(__name__)
 
 
 class PreviewPlots(QTabWidget):

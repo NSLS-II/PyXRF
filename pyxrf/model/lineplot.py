@@ -21,7 +21,7 @@ from skbeam.core.fitting.xrf_model import (K_TRANSITIONS, L_TRANSITIONS, M_TRANS
 from skbeam.fluorescence import XrfElement as Element
 
 import logging
-logger = logging.getLogger("pyxrf")
+logger = logging.getLogger(__name__)
 
 
 def get_color_name():

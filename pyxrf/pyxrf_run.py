@@ -2,8 +2,8 @@ import sys
 import platform
 import argparse
 from PyQt5.QtWidgets import QApplication, QStyleFactory
-from PyQt5.QtGui import QFontDatabase
-# from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFontDatabase, QPalette, QColor
+from PyQt5.QtCore import Qt
 
 from .gui_support.gpc_class import GlobalProcessingClasses
 from .gui_module.main_window import MainWindow
@@ -11,6 +11,7 @@ from .gui_module.useful_widgets import global_gui_variables
 
 import logging
 logger = logging.getLogger("pyxrf")
+
 
 try:
     import databroker  # noqa: F401
@@ -74,6 +75,27 @@ def run():
     app.setApplicationName("PyXRF")
     # app.setStyleSheet('QWidget {font: "Roboto Mono"; font-size: 14px}')
     # app.setStyleSheet('QWidget {font-size: 14px}')
+
+    # Run the application in 'Dark' theme
+    dark_theme_on = False
+
+    if dark_theme_on:
+        # Custom palette for Dark Mode
+        palette = QPalette()
+        palette.setColor(QPalette.Window, QColor(53, 53, 53))
+        palette.setColor(QPalette.WindowText, Qt.white)
+        palette.setColor(QPalette.Base, QColor(25, 25, 25))
+        palette.setColor(QPalette.AlternateBase, QColor(53, 53, 53))
+        palette.setColor(QPalette.ToolTipBase, Qt.white)
+        palette.setColor(QPalette.ToolTipText, Qt.white)
+        palette.setColor(QPalette.Text, Qt.white)
+        palette.setColor(QPalette.Button, QColor(53, 53, 53))
+        palette.setColor(QPalette.ButtonText, Qt.white)
+        palette.setColor(QPalette.BrightText, Qt.red)
+        palette.setColor(QPalette.Link, QColor(42, 130, 218))
+        palette.setColor(QPalette.Highlight, QColor(42, 130, 218))
+        palette.setColor(QPalette.HighlightedText, Qt.black)
+        app.setPalette(palette)
 
     # Set font
     font = app.font()

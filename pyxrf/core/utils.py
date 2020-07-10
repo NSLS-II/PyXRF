@@ -3,7 +3,7 @@ import scipy
 import time as ttime
 
 import logging
-logger = logging.getLogger("pyxrf")
+logger = logging.getLogger(__name__)
 
 
 # =================================================================================

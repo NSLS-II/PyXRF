@@ -34,7 +34,7 @@ import warnings
 import pyxrf
 pyxrf_version = pyxrf.__version__
 
-logger = logging.getLogger("pyxrf")
+logger = logging.getLogger(__name__)
 warnings.filterwarnings('ignore')
 
 sep_v = os.sep
@@ -228,6 +228,7 @@ class FileIOModel(Atom):
         self.runid = -1
         self.file_opt = -1
         self.selected_file_name = ""
+        self.file_path = ""
 
         # We don't clear the following data arrays for now. The commented code is left
         #   mostly for future reference.
@@ -275,6 +276,9 @@ class FileIOModel(Atom):
             file_handler(self.working_directory,
                          self.file_name,
                          load_each_channel=self.load_each_channel)
+
+        # Full path to the data file
+        self.file_path = os.path.join(self.working_directory, self.file_name)
 
         # Process metadata
         self._metadata_update_program_state()

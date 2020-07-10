@@ -19,7 +19,7 @@ from .scan_metadata import ScanMetadataXRF
 import pyxrf
 pyxrf_version = pyxrf.__version__
 
-logger = logging.getLogger("pyxrf")
+logger = logging.getLogger(__name__)
 warnings.filterwarnings('ignore')
 
 sep_v = os.sep

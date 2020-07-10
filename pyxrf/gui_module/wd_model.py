@@ -15,7 +15,7 @@ from .useful_widgets import (LineEditReadOnly, global_gui_parameters, ElementSel
 from .form_base_widget import FormBaseWidget
 
 import logging
-logger = logging.getLogger("pyxrf")
+logger = logging.getLogger(__name__)
 
 _fitting_preset_names = {
     "None": "None",

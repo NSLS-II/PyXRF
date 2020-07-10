@@ -1,10 +1,10 @@
 from PyQt5.QtWidgets import (QLineEdit, QWidget, QHBoxLayout, QComboBox, QTextEdit,
                              QSizePolicy, QLabel, QPushButton, QGridLayout, QSlider)
 from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QPalette, QFontMetrics, QIntValidator, QDoubleValidator
+from PyQt5.QtGui import QPalette, QColor, QFontMetrics, QIntValidator, QDoubleValidator
 
 import logging
-logger = logging.getLogger("pyxrf")
+logger = logging.getLogger(__name__)
 
 global_gui_parameters = {
     "vertical_spacing_in_tabs": 5
@@ -602,6 +602,23 @@ class RangeManager(QWidget):
             get_background_css(rgb, widget="QLineEdit", editable=True))
         self.le_max_value.setStyleSheet(
             get_background_css(rgb, widget="QLineEdit", editable=True))
+
+    def setTextColor(self, rgb):
+        """
+        Set text color for the widget. This color is used in 'normal' (valid) state.
+
+        Parameters
+        ----------
+        rgb: tuple(int)
+            RGB color in the form of (R, G, B)
+        """
+        color = QColor(*rgb)
+        pal = self.le_min_value.palette()
+        pal.setColor(QPalette.Text, color)
+        self.le_min_value.setPalette(pal)
+        pal = self.le_max_value.palette()
+        pal.setColor(QPalette.Text, color)
+        self.le_max_value.setPalette(pal)
 
     def set_value_type(self, value_type="float"):
         """

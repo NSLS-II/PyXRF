@@ -17,7 +17,7 @@ from .useful_widgets import (LineEditReadOnly, LineEditExtended, adjust_qlistwid
 from .form_base_widget import FormBaseWidget
 
 import logging
-logger = logging.getLogger("pyxrf")
+logger = logging.getLogger(__name__)
 
 
 class LoadDataWidget(FormBaseWidget):

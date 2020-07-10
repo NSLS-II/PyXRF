@@ -74,24 +74,25 @@ class MainWindow(QMainWindow):
         self.statusBar().addPermanentWidget(self.statusProgressBar)
 
         self.statusLabelDefaultText = \
-            "Load data by selecting one of the options in 'Load Data' menu ..."
+            "No data is loaded"
         self.statusLabel.setText(self.statusLabelDefaultText)
 
         # 'Scan Data' menu item
-        action_read_file = QAction("&Read File...", self)
-        action_read_file.setStatusTip('Load data from HDF5 file')
-        action_read_file.triggered.connect(
+        self.action_read_file = QAction("&Read File...", self)
+        self.action_read_file.setStatusTip('Load data from HDF5 file')
+        self.action_read_file.triggered.connect(
             self.central_widget.left_panel.load_data_widget.pb_file.clicked)
 
-        action_load_run = QAction("&Load Run...", self)
-        action_load_run.setEnabled(self.gui_vars["gui_state"]["databroker_available"])
-        action_load_run.setStatusTip('Load data from database (Databroker)')
-        action_load_run.triggered.connect(
+        self.action_load_run = QAction("&Load Run...", self)
+        self.action_load_run.setEnabled(self.gui_vars["gui_state"]["databroker_available"])
+        self.action_load_run.setStatusTip('Load data from database (Databroker)')
+        self.action_load_run.triggered.connect(
             self.central_widget.left_panel.load_data_widget.pb_dbase.clicked)
 
-        action_view_metadata = QAction("View Metadata...", self)
-        action_view_metadata.setStatusTip('View metadata for loaded run')
-        action_view_metadata.triggered.connect(
+        self.action_view_metadata = QAction("View Metadata...", self)
+        self.action_view_metadata.setEnabled(self.gpc.io_model.scan_metadata_available)
+        self.action_view_metadata.setStatusTip('View metadata for loaded run')
+        self.action_view_metadata.triggered.connect(
             self.central_widget.left_panel.load_data_widget.pb_view_metadata.clicked)
 
         # Main menu
@@ -100,129 +101,129 @@ class MainWindow(QMainWindow):
         #   It may work with later versions of PyQt when they become available.
         menubar.setNativeMenuBar(False)
         loadData = menubar.addMenu('Scan &Data')
-        loadData.addAction(action_read_file)
-        loadData.addAction(action_load_run)
+        loadData.addAction(self.action_read_file)
+        loadData.addAction(self.action_load_run)
         loadData.addSeparator()
-        loadData.addAction(action_view_metadata)
+        loadData.addAction(self.action_view_metadata)
 
         # 'Fitting Model' menu item
-        action_lines_find_automatically = QAction("Find &Automatically...", self)
-        action_lines_find_automatically.setStatusTip(
+        self.action_lines_find_automatically = QAction("Find &Automatically...", self)
+        self.action_lines_find_automatically.setStatusTip(
             "Automatically find emission lines in total spectrum")
-        action_lines_find_automatically.triggered.connect(
+        self.action_lines_find_automatically.triggered.connect(
             self.central_widget.left_panel.model_widget.pb_find_elines.clicked)
 
-        action_lines_load_from_file = QAction("Load From &File...", self)
-        action_lines_load_from_file.setStatusTip(
+        self.action_lines_load_from_file = QAction("Load From &File...", self)
+        self.action_lines_load_from_file.setStatusTip(
             "Load processing parameters, including selected emission lines, from JSON file")
-        action_lines_load_from_file.triggered.connect(
+        self.action_lines_load_from_file.triggered.connect(
             self.central_widget.left_panel.model_widget.pb_load_elines.clicked)
 
-        action_lines_load_quant_standard = QAction("Load &Quantitative Standards...", self)
-        action_lines_load_quant_standard.setStatusTip(
+        self.action_lines_load_quant_standard = QAction("Load &Quantitative Standards...", self)
+        self.action_lines_load_quant_standard.setStatusTip(
             "Load quantitative standard. The emission lines from the standard are automatically selected")
-        action_lines_load_quant_standard.triggered.connect(
+        self.action_lines_load_quant_standard.triggered.connect(
             self.central_widget.left_panel.model_widget.pb_load_qstandard.clicked)
 
-        action_add_remove_emission_lines = QAction("&Add/Remove Emission Lines...", self)
-        action_add_remove_emission_lines.setStatusTip(
+        self.action_add_remove_emission_lines = QAction("&Add/Remove Emission Lines...", self)
+        self.action_add_remove_emission_lines.setStatusTip(
             "Manually add and remove emission lines")
-        action_add_remove_emission_lines.triggered.connect(
+        self.action_add_remove_emission_lines.triggered.connect(
             self.central_widget.left_panel.model_widget.pb_manage_emission_lines.clicked)
 
-        action_save_model_params = QAction("&Save Model Parameters...", self)
-        action_save_model_params.setStatusTip(
+        self.action_save_model_params = QAction("&Save Model Parameters...", self)
+        self.action_save_model_params.setStatusTip(
             "Save model parameters to JSON file")
-        action_save_model_params.triggered.connect(
+        self.action_save_model_params.triggered.connect(
             self.central_widget.left_panel.model_widget.pb_save_elines.clicked)
 
-        action_add_remove_emission_lines = QAction("Start Model &Fitting", self)
-        action_add_remove_emission_lines.setStatusTip(
+        self.action_add_remove_emission_lines = QAction("Start Model &Fitting", self)
+        self.action_add_remove_emission_lines.setStatusTip(
             "Run computations: start fitting for total spectrum")
-        action_add_remove_emission_lines.triggered.connect(
+        self.action_add_remove_emission_lines.triggered.connect(
             self.central_widget.left_panel.model_widget.pb_start_fitting.clicked)
 
         fittingModel = menubar.addMenu('Fitting &Model')
         emissionLines = fittingModel.addMenu("&Emission Lines")
-        emissionLines.addAction(action_lines_find_automatically)
-        emissionLines.addAction(action_lines_load_from_file)
-        emissionLines.addAction(action_lines_load_quant_standard)
-        fittingModel.addAction(action_add_remove_emission_lines)
+        emissionLines.addAction(self.action_lines_find_automatically)
+        emissionLines.addAction(self.action_lines_load_from_file)
+        emissionLines.addAction(self.action_lines_load_quant_standard)
+        fittingModel.addAction(self.action_add_remove_emission_lines)
         fittingModel.addSeparator()
-        fittingModel.addAction(action_save_model_params)
+        fittingModel.addAction(self.action_save_model_params)
         fittingModel.addSeparator()
-        fittingModel.addAction(action_add_remove_emission_lines)
+        fittingModel.addAction(self.action_add_remove_emission_lines)
 
         # "XRF Maps" menu item
-        action_start_xrf_map_fitting = QAction("Start XRF Map &Fitting", self)
-        action_start_xrf_map_fitting.setStatusTip(
+        self.action_start_xrf_map_fitting = QAction("Start XRF Map &Fitting", self)
+        self.action_start_xrf_map_fitting.setStatusTip(
             "Run computations: start fitting for XRF maps")
-        action_start_xrf_map_fitting.triggered.connect(
+        self.action_start_xrf_map_fitting.triggered.connect(
             self.central_widget.left_panel.fit_maps_widget.pb_start_map_fitting.clicked)
 
-        action_compute_rois = QAction("Compute &ROIs...", self)
-        action_compute_rois.setStatusTip(
+        self.action_compute_rois = QAction("Compute &ROIs...", self)
+        self.action_compute_rois.setStatusTip(
             "Compute XRF Maps based on spectral ROIs")
-        action_compute_rois.triggered.connect(
+        self.action_compute_rois.triggered.connect(
             self.central_widget.left_panel.fit_maps_widget.pb_compute_roi_maps.clicked)
 
-        action_load_quant_calibration = QAction("&Load Quantitative Calibration...", self)
-        action_load_quant_calibration.setStatusTip(
+        self.action_load_quant_calibration = QAction("&Load Quantitative Calibration...", self)
+        self.action_load_quant_calibration.setStatusTip(
             "Load quantitative calibration from JSON file. Calibration is used for scaling of XRF Maps")
-        action_load_quant_calibration.triggered.connect(
+        self.action_load_quant_calibration.triggered.connect(
             self.central_widget.left_panel.fit_maps_widget.pb_load_quant_calib.clicked)
 
-        action_save_quant_calibration = QAction("&Save Quantitative Calibration...", self)
-        action_save_quant_calibration.setStatusTip(
+        self.action_save_quant_calibration = QAction("&Save Quantitative Calibration...", self)
+        self.action_save_quant_calibration.setStatusTip(
             "Save Quantitative Calibration based on XRF map of the standard sample")
-        action_save_quant_calibration.triggered.connect(
+        self.action_save_quant_calibration.triggered.connect(
             self.central_widget.left_panel.fit_maps_widget.pb_save_q_calibration.clicked)
 
-        action_export_to_tiff_and_txt = QAction("&Export to TIFF and TXT...", self)
-        action_export_to_tiff_and_txt.setStatusTip(
+        self.action_export_to_tiff_and_txt = QAction("&Export to TIFF and TXT...", self)
+        self.action_export_to_tiff_and_txt.setStatusTip(
             "Export XRF Maps as TIFF and/or TXT files")
-        action_export_to_tiff_and_txt.triggered.connect(
+        self.action_export_to_tiff_and_txt.triggered.connect(
             self.central_widget.left_panel.fit_maps_widget.pb_export_to_tiff_and_txt.clicked)
 
         xrfMaps = menubar.addMenu('XRF &Maps')
-        xrfMaps.addAction(action_start_xrf_map_fitting)
-        xrfMaps.addAction(action_compute_rois)
+        xrfMaps.addAction(self.action_start_xrf_map_fitting)
+        xrfMaps.addAction(self.action_compute_rois)
         xrfMaps.addSeparator()
-        xrfMaps.addAction(action_load_quant_calibration)
+        xrfMaps.addAction(self.action_load_quant_calibration)
         xrfMaps.addSeparator()
-        xrfMaps.addAction(action_save_quant_calibration)
-        xrfMaps.addAction(action_export_to_tiff_and_txt)
+        xrfMaps.addAction(self.action_save_quant_calibration)
+        xrfMaps.addAction(self.action_export_to_tiff_and_txt)
 
         # "View" menu item
-        action_show_matplotlib_toolbar = QAction("Show &Matplotlib Toolbar", self)
-        action_show_matplotlib_toolbar.setCheckable(True)
-        action_show_matplotlib_toolbar.setChecked(True)
-        action_show_matplotlib_toolbar.setStatusTip("Show Matplotlib Toolbar on the plots")
-        action_show_matplotlib_toolbar.toggled.connect(self.action_show_matplotlib_toolbar_toggled)
+        self.action_show_matplotlib_toolbar = QAction("Show &Matplotlib Toolbar", self)
+        self.action_show_matplotlib_toolbar.setCheckable(True)
+        self.action_show_matplotlib_toolbar.setChecked(True)
+        self.action_show_matplotlib_toolbar.setStatusTip("Show Matplotlib Toolbar on the plots")
+        self.action_show_matplotlib_toolbar.toggled.connect(self.action_show_matplotlib_toolbar_toggled)
 
-        action_show_widget_tooltips = QAction("Show &Tooltips", self)
-        action_show_widget_tooltips.setCheckable(True)
-        action_show_widget_tooltips.setChecked(self.gui_vars["show_tooltip"])
-        action_show_widget_tooltips.setStatusTip("Show widget tooltips")
-        action_show_widget_tooltips.toggled.connect(self.action_show_widget_tooltips_toggled)
+        self.action_show_widget_tooltips = QAction("Show &Tooltips", self)
+        self.action_show_widget_tooltips.setCheckable(True)
+        self.action_show_widget_tooltips.setChecked(self.gui_vars["show_tooltip"])
+        self.action_show_widget_tooltips.setStatusTip("Show widget tooltips")
+        self.action_show_widget_tooltips.toggled.connect(self.action_show_widget_tooltips_toggled)
 
         options = menubar.addMenu('&Options')
-        options.addAction(action_show_widget_tooltips)
-        options.addAction(action_show_matplotlib_toolbar)
+        options.addAction(self.action_show_widget_tooltips)
+        options.addAction(self.action_show_matplotlib_toolbar)
 
         # "Help" menu item
-        action_online_docs = QAction("Online &Documentation", self)
-        action_online_docs.setStatusTip("Open online documentation in the default browser")
-        action_online_docs.triggered.connect(self.action_online_docs_triggered)
+        self.action_online_docs = QAction("Online &Documentation", self)
+        self.action_online_docs.setStatusTip("Open online documentation in the default browser")
+        self.action_online_docs.triggered.connect(self.action_online_docs_triggered)
 
-        action_about = QAction("&About PyXRF", self)
-        action_about.setStatusTip("Show information about this program")
-        action_about.triggered.connect(self.action_about_triggered)
+        self.action_about = QAction("&About PyXRF", self)
+        self.action_about.setStatusTip("Show information about this program")
+        self.action_about.triggered.connect(self.action_about_triggered)
 
         help = menubar.addMenu('&Help')
-        help.addAction(action_online_docs)
+        help.addAction(self.action_online_docs)
         help.addSeparator()
-        help.addAction(action_about)
+        help.addAction(self.action_about)
 
         self.update_widget_state()
 
@@ -235,9 +236,8 @@ class MainWindow(QMainWindow):
             self.central_widget.left_panel.slot_activate_load_data_tab)
         self.central_widget.left_panel.load_data_widget.signal_new_run_loaded.connect(
             self.central_widget.right_panel.slot_activate_tab_preview_plots)
-        # I am not sure that the following connection makes sense
-        # self.central_widget.left_panel.load_data_widget.signal_new_run_loaded.connect(
-        #     self.central_widget.right_panel.tab_preview_plots.activate_preview_plot_spectrum)
+        self.central_widget.left_panel.load_data_widget.signal_new_run_loaded.connect(
+            self.slot_new_run_loaded)
 
     @pyqtSlot()
     @pyqtSlot(str)
@@ -309,6 +309,50 @@ class MainWindow(QMainWindow):
     @pyqtSlot()
     def update_window_title(self):
         self.setWindowTitle(self.gpc.io_model.window_title)
+
+    @pyqtSlot(bool)
+    def slot_new_run_loaded(self, success):
+        if success:
+            # Update status bar
+            file_name = self.gpc.io_model.file_name
+            run_id, run_uid = "", ""
+            if self.gpc.io_model.scan_metadata_available:
+                try:
+                    run_id = self.gpc.io_model.scan_metadata["scan_id"]
+                except Exception:
+                    pass
+                try:
+                    run_uid = self.gpc.io_model.scan_metadata["scan_uid"]
+                except Exception:
+                    pass
+            else:
+                if self.gpc.io_model.runid >= 0:
+                    run_id = self.gpc.io_model.runid
+            s = ""
+            if run_id:
+                s += f"ID: {run_id}  "
+            if run_uid:
+                if run_id:
+                    s += f"({run_uid})  "
+                else:
+                    s += f"UID: {run_uid}  "
+            if file_name:
+                s += f"File: '{file_name}'"
+            self._set_status_bar_text(s)
+
+            # Activate/deactivate "View Metadata ..." menu item
+            if self.gpc.io_model.scan_metadata_available:
+                self.action_view_metadata.setEnabled(True)
+            else:
+                self.action_view_metadata.setEnabled(False)
+
+        else:
+            self._set_status_bar_text()
+
+    def _set_status_bar_text(self, text=None):
+        if text is None:
+            text = self.statusLabelDefaultText
+        self.statusLabel.setText(text)
 
 
 class DialogAbout(QDialog):

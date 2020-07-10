@@ -11,7 +11,7 @@ from ..model.setting import SettingModel
 from ..model.param_data import param_data
 
 import logging
-logger = logging.getLogger("pyxrf")
+logger = logging.getLogger(__name__)
 
 
 class GlobalProcessingClasses:

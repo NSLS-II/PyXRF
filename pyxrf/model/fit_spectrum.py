@@ -42,7 +42,7 @@ from ..core.map_processing import (fit_xrf_map, TerminalProgressBar,
                                    prepare_xrf_map, snip_method_numba)
 
 import logging
-logger = logging.getLogger("pyxrf")
+logger = logging.getLogger(__name__)
 
 
 class Fit1D(Atom):

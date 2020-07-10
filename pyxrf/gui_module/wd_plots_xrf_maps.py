@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout, QComboBox, QCheckBox,
                              QPushButton, QHeaderView, QTableWidget, QTableWidgetItem,
                              QSizePolicy)
-from PyQt5.QtGui import QBrush, QColor
+from PyQt5.QtGui import QBrush, QColor, QPalette
 from PyQt5.QtCore import Qt
 
 from .useful_widgets import RangeManager, SecondaryWindow, set_tooltip
@@ -210,6 +210,11 @@ class WndImageWizard(SecondaryWindow):
     def fill_table(self, table_contents):
 
         self.table.setRowCount(len(table_contents))
+        # Color is set for operation with Dark theme
+        pal = self.table.palette()
+        pal.setColor(QPalette.Text, Qt.black)
+        pal.setColor(QPalette.Base, Qt.white)
+        self.table.setPalette(pal)
 
         brightness = 200
         table_colors = [(255, brightness, brightness), (brightness, 255, brightness)]
@@ -240,11 +245,12 @@ class WndImageWizard(SecondaryWindow):
                 elif nc == 1:
 
                     item = RangeManager(add_sliders=True)
-                    item.le_min_value.setText(f"{v_min:.12g}")
-                    item.le_max_value.setText(f"{v_max:.12g}")
+                    item.set_range(v_min, v_max)
+                    item.reset()
                     item.setAlignment(Qt.AlignCenter)
                     item.setFixedWidth(400)
                     item.setBackground(rgb)
+                    item.setTextColor([0, 0, 0])  # Color is set for operation with Dark theme
                     self.table.setCellWidget(nr, nc, item)
 
         self.table.resizeColumnsToContents()

@@ -1,5 +1,6 @@
 from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout, QRadioButton, QButtonGroup,
                              QComboBox, QCheckBox, QTableWidget, QHeaderView, QSizePolicy, QSpacerItem)
+from PyQt5.QtGui import QPalette
 from PyQt5.QtCore import Qt
 
 from .useful_widgets import RangeManager, get_background_css, set_tooltip
@@ -108,9 +109,24 @@ class RgbSelectionWidget(QWidget):
         combo_elements = QComboBox()
         combo_elements.addItems(elements)
 
+        # Set text color for QComboBox widget (necessary if the program is used with Dark theme)
+        pal = combo_elements.palette()
+        pal.setColor(QPalette.ButtonText, Qt.black)
+        combo_elements.setPalette(pal)
+        # Set text color for drop-down view (necessary if the program is used with Dark theme)
+        pal = combo_elements.view().palette()
+        pal.setColor(QPalette.Text, Qt.black)
+        combo_elements.view().setPalette(pal)
+
         btns = [QRadioButton(), QRadioButton(), QRadioButton()]
         if 0 <= rb_check < len(btns):
             btns[rb_check].setChecked(True)
+
+        # Color is set for operation with Dark theme
+        for btn in btns:
+            pal = btn.palette()
+            pal.setColor(QPalette.Text, Qt.black)
+            btn.setPalette(pal)
 
         btn_group = QButtonGroup()
         for btn in btns:
@@ -119,6 +135,7 @@ class RgbSelectionWidget(QWidget):
         btn_group.buttonToggled.connect(self.rb_toggled)
 
         rng = RangeManager(add_sliders=True)
+        rng.setTextColor([0, 0, 0])  # Set text color to 'black'
         # Set some text in edit boxes (just to demonstrate how the controls will look like)
         rng.le_min_value.setText("0.0")
         rng.le_max_value.setText("1.0")
