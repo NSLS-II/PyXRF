@@ -15,7 +15,9 @@ jobs:
   fast_finish: true
   include:
     - python: 3.7
-      env: FLAKE8=true NUMPY=1.17
+      env: FLAKE8=true NUMPY=1.17  # Separate test case for flake8
+    - python: 3.6
+      env: BUILD_DOCS=true SUBMIT_CODECOV=true NUMPY=1.17
     - python: 3.7
       env: BUILD_DOCS=true SUBMIT_CODECOV=true NUMPY=1.17
     - os: osx
@@ -24,10 +26,6 @@ jobs:
     - os: osx
       language: generic
       env: TRAVIS_PYTHON_VERSION=3.7 NUMPY=1.17
-
-python:
-  - 3.6
-  - 3.7
 
 before_install:
   - if [ $FLAKE_8 == 'true' ]; then
