@@ -1,25 +1,21 @@
 language: python
 sudo: false
 
-services:
-  - xvfb
-
-env:
-  global:
-    # Doctr deploy key for dmgav/test_doc
-    # - secure: "vxwIdGm1WhAad542sAyVjpwkFsv8Z68KwYqoj8//ndA7FklIJys0F6ciYUVToNh8680CDDg05uSgucO4anKWnhU/eiq3ObLPYZivJBmeQyjI3Z5LbpCvO9vJdgENFZeCT9LPz6yv2y8ez9sweM/vocXV0uzkKrYxGLneoLI/Jr1fPJyocI0QUORZzHhzFsuawSB+BgqwmkEJaSJn5ja85nIkhdEgkAWiWPvCfi2P10kn+cOl635NoC0GVZ65WpblowiQgZDEiBj/uAjP7oCoxIY6Mlx3xvNL9GGbAy85CcB9Ntu58CQDep+cROVJ9YcQrxZjFCx7KPAHLaiQkgZAl/nj9vkXVXByY0iORbREyq4o5R5Bma/Ytw7epzf8LmmPw+K2lC62uNS1ZYhvT58gH43TzSWLxvUydUe2nrPvUNZXTz6ypu0cpwh4gC/VtH532O6E+CWHXsl0w8pVIoVlweWoa8XWX9Xxyz9XziRJ1D76To6xsvaFDWdEFCPSNrxCj2wXCbIgizi/uYDLXZBVAoXLNoiVswpUyjoyLM0UqOpucQGU40n8MSRQzduJyh2rwm/zbzQMpU0qwYy6sovEoHwzkNqTNJWKH2BsOerJ2tduoCkOHPXWa0S/OYtT2dfBSruk4gpSyKKRl2FK9C74Y9m5f7RixnObCL7U555uliE="
-    - SUBMIT_CODECOV: false
-    - BUILD_DOCS: false
-    - GH_REF: github.com/NSLS-II/PyXRF.git
-
 cache:
   directories:
     - $HOME/.cache/pip
     - $HOME/.ccache
 
-matrix:
+global:
+  - SUBMIT_CODECOV=false
+  - BUILD_DOCS=false
+  - FLAKE8=false
+
+jobs:
   fast_finish: true
   include:
+    - python: 3.7
+      env: FLAKE8=true NUMPY=1.17
     - python: 3.7
       env: BUILD_DOCS=true SUBMIT_CODECOV=true NUMPY=1.17
     - os: osx
@@ -33,10 +29,21 @@ python:
   - 3.6
   - 3.7
 
-env:
-  - NUMPY=1.17
-
 before_install:
+  - if [ $FLAKE_8 == 'true' ]; then
+      pip install flake8;
+      flake8 .;
+      let res=$?;
+      echo "The project code was verified with 'flake8'. Exit code ($res).";
+      exit $res;
+    fi
+  - |
+    set -e
+    if [ "$TRAVIS_OS_NAME" == "linux" ]; then
+      # Install 'herbstluftwm' (on Linux only)
+      sudo apt-get update
+      sudo apt-get install -y xvfb herbstluftwm
+    fi
   - |
     set -e
     if [ "$TRAVIS_OS_NAME" == "linux" ]; then
@@ -55,6 +62,14 @@ before_install:
     export CONDARC=ci/condarc
 
 install:
+  - |
+    set -e
+    if [ "$TRAVIS_OS_NAME" == "linux" ]; then
+      # Run 'xvfb' (on Linux only)
+      export DISPLAY=:99.0
+      sudo /sbin/start-stop-daemon --start --pidfile /tmp/custom_xvfb_99.pid --make-pidfile --background --exec /usr/bin/Xvfb -- :99 -screen 0 1920x1200x24 -ac +extension GLX +render -noreset
+      sleep 3
+    fi
   - export GIT_FULL_HASH=`git rev-parse HEAD`
   - conda create -y -n testenv python=$TRAVIS_PYTHON_VERSION numpy=$NUMPY
   - conda activate testenv
@@ -66,6 +81,15 @@ install:
   - pip install .
   - conda list
   - pip list
+
+before_script:
+  - |
+    set -e
+    if [ "$TRAVIS_OS_NAME" == "linux" ]; then
+      # Run 'herbstluftwm' (on Linux only)
+      herbstluftwm &
+      sleep 1
+    fi
 
 script:
 - python -c "import platform; import os; ver_installed = platform.python_version();
@@ -99,5 +123,5 @@ deploy:
     #   is run in the main repository (this may easily changed)
     condition: $BUILD_DOCS == true && $TRAVIS_REPO_SLUG == "NSLS-II/PyXRF"
 
-# after_success:
-#  - if [ $SUBMIT_CODECOV == 'true' ]; then codecov; fi;
+after_success:
+ - if [ $SUBMIT_CODECOV == 'true' ]; then codecov; fi;
