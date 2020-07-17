@@ -1,0 +1,16 @@
+[run]
+source =
+    pyxrf
+[report]
+omit =
+    */tests/*
+    */_tests/*
+    .docs/*
+    */python?.?/*
+    # ignore _version.py and versioneer.py
+    .*version.*
+    *_version.py
+    *.enaml
+
+exclude_lines =
+    if __name__ == '__main__':
