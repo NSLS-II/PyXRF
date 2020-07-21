@@ -493,7 +493,7 @@ def test_RangeManager_7(qtbot, full_range, selection, value_type):
     rman.set_range(full_range[0], full_range[1])
     rman.set_selection(value_low=selection[0], value_high=selection[1])
 
-    def _check_signal_params(low, high):
+    def _check_signal_params(low, high, name):
         return low == low and high == high
 
     with qtbot.waitSignal(rman.selection_changed, check_params_cb=_check_signal_params):
@@ -530,7 +530,7 @@ def test_RangeManager_8(qtbot, full_range, selection, value_type):
     # This variable will hold the parameters that were passed with the signal
     returned_sig_parameters = None
 
-    def _check_signal_params(low, high):
+    def _check_signal_params(low, high, name):
         # Instead of verification of parameters, this function copies the parameters
         #   into a variable `returned_sig_parameters`. If the verification is performed
         #   inside the function (as intended), then no nice error message is printed.

@@ -379,7 +379,7 @@ class LoadDataWidget(FormBaseWidget):
             # Here we want to clear the range in the Total Count Map preview
             self.update_preview_map_range.emit("clear")
 
-            self.signal_new_run_loaded.emit(False)  # Data is loaded successfully
+            self.signal_new_run_loaded.emit(False)  # Failed to load data
 
             msg_str = f"Incorrect format of input file '{file_path}': " \
                       f"PyXRF accepts only custom HDF (.h5) files." \

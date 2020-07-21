@@ -316,9 +316,9 @@ class RangeManager(QWidget):
     """ Width of the widgets can be set using `setMaximumWidth`. The size policy is set
     so that the widget may shrink if there is not enough space."""
 
-    selection_changed = pyqtSignal(float, float)
+    selection_changed = pyqtSignal(float, float, str)
 
-    def __init__(self, *, add_sliders=False,
+    def __init__(self, *, name="", add_sliders=False,
                  slider_steps=10000, selection_to_range_min=0.001):
         """
         Class constructor for RangeManager
@@ -338,6 +338,8 @@ class RangeManager(QWidget):
             when "int" value type is set.
         """
         super().__init__()
+
+        self._name = name
 
         # Set the maximum number of steps for the sliders (resolution)
         self.sld_n_steps = slider_steps
@@ -789,9 +791,9 @@ class RangeManager(QWidget):
         """
         v_low = self._convert_type(self._value_low)
         v_high = self._convert_type(self._value_high)
-        logger.debug("RangeManager: Emitting the signal 'selection_changed'. "
+        logger.debug(f"RangeManager ({self._name}): Emitting the signal 'selection_changed'. "
                      f"Selection: ({v_low}, {v_high})")
-        self.selection_changed.emit(v_low, v_high)
+        self.selection_changed.emit(v_low, v_high, self._name)
 
 
 class ElementSelection(QWidget):

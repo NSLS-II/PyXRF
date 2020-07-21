@@ -1,16 +1,29 @@
-from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout, QComboBox, QCheckBox,
+from copy import deepcopy
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QCheckBox,
                              QPushButton, QHeaderView, QTableWidget, QTableWidgetItem,
                              QSizePolicy)
 from PyQt5.QtGui import QBrush, QColor, QPalette
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
+
+from matplotlib.backends.backend_qt5agg import \
+    FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
 
 from .useful_widgets import RangeManager, SecondaryWindow, set_tooltip
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 class PlotXrfMaps(QWidget):
 
+    signal_maps_dataset_selection_changed = pyqtSignal()
+    signal_maps_norm_changed = pyqtSignal()
+
     def __init__(self, *, gpc, gui_vars):
         super().__init__()
+
+        self._dataset_list = []  # The list of datasets ('combo_select_dataset')
+        self._scaler_list = []  # The list of scalers ('combo_normalization')
 
         # Global processing classes
         self.gpc = gpc
@@ -23,16 +36,13 @@ class PlotXrfMaps(QWidget):
         self.ref_main_window = self.gui_vars["ref_main_window"]
 
         self.combo_select_dataset = QComboBox()
-        sample_datasets = ["scan2D_28844_amk_fit", "scan2D_28844_amk_roi",
-                           "scan2D_28844_amk_scaler", "positions"]
-        # datasets = ["Select Dataset ..."] + sample_datasets
-        datasets = sample_datasets
-        self.combo_select_dataset.addItems(datasets)
+        self.combo_select_dataset.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+        self.combo_select_dataset.currentIndexChanged.connect(
+            self.combo_select_dataset_current_index_changed)
 
         self.combo_normalization = QComboBox()
-        sample_scalers = ["i0", "i0_time", "time", "time_diff"]
-        scalers = ["Normalize by ..."] + sample_scalers
-        self.combo_normalization.addItems(scalers)
+        self.combo_normalization.currentIndexChanged.connect(
+            self.combo_normalization_current_index_changed)
 
         self.pb_image_wizard = QPushButton("Image Wizard ...")
         self.pb_image_wizard.clicked.connect(self.pb_image_wizard_clicked)
@@ -40,31 +50,43 @@ class PlotXrfMaps(QWidget):
         # self.pb_quant_settings = QPushButton("Quantitative ...")
 
         self.cb_interpolate = QCheckBox("Interpolate")
+        self.cb_interpolate.setChecked(self.gpc.get_maps_grid_interpolate())
+        self.cb_interpolate.toggled.connect(self.cb_interpolate_toggled)
 
         self.cb_scatter_plot = QCheckBox("Scatter plot")
+        self.cb_scatter_plot.setChecked(self.gpc.get_maps_show_scatter_plot())
         self.cb_scatter_plot.toggled.connect(self.cb_scatter_plot_toggled)
 
         self.cb_quantitative = QCheckBox("Quantitative")
+        self.cb_quantitative.setChecked(self.gpc.get_maps_quant_norm_enabled())
+        self.cb_quantitative.toggled.connect(self.cb_quantitative_toggled)
 
         self.combo_color_scheme = QComboBox()
         # TODO: make color schemes global
-        color_schemes = ("viridis", "jet", "bone", "gray", "oranges", "hot")
-        self.combo_color_scheme.addItems(color_schemes)
+        self._color_schemes = ("viridis", "jet", "bone", "gray", "Oranges", "hot")
+        self.combo_color_scheme.addItems(self._color_schemes)
+        self.combo_color_scheme.setCurrentIndex(self._color_schemes.index(self.gpc.get_maps_color_opt()))
+        self.combo_color_scheme.currentIndexChanged.connect(
+            self.combo_color_scheme_current_index_changed)
 
         self.combo_linear_log = QComboBox()
+        self._linear_log_values = ["Linear", "Log"]
         self.combo_linear_log.addItems(["Linear", "Log"])
+        scale_opt = self.gpc.get_maps_scale_opt()
+        ind = self._linear_log_values.index(scale_opt)
+        self.combo_linear_log.setCurrentIndex(ind)
+        self.combo_linear_log.currentIndexChanged.connect(self.combo_linear_log_current_index_changed)
 
         self.combo_pixels_positions = QComboBox()
-        self.combo_pixels_positions.addItems(["Pixels", "Positions"])
+        self._pix_pos_values = ["Pixels", "Positions"]
+        self.combo_pixels_positions.addItems(self._pix_pos_values)
+        self.combo_pixels_positions.setCurrentIndex(
+            self._pix_pos_values.index(self.gpc.get_maps_pixel_or_pos()))
+        self.combo_pixels_positions.currentIndexChanged.connect(
+            self.combo_pixels_positions_current_index_changed)
 
-        # The label will be replaced with the widget that will actually plot the data
-        label = QLabel()
-        comment = \
-            "The widget will plot XRF maps with layout similar to 'Element Map' tab\n"\
-            "of the original PyXRF"
-        label.setText(comment)
-        label.setStyleSheet("QLabel { background-color : white; color : blue; }")
-        label.setAlignment(Qt.AlignCenter)
+        self.mpl_canvas = FigureCanvas(self.gpc.img_model_adv.fig)
+        self.mpl_toolbar = NavigationToolbar(self.mpl_canvas, self)
 
         vbox = QVBoxLayout()
         hbox = QHBoxLayout()
@@ -84,7 +106,8 @@ class PlotXrfMaps(QWidget):
         hbox.addWidget(self.combo_pixels_positions)
         hbox.addWidget(self.combo_color_scheme)
         vbox.addLayout(hbox)
-        vbox.addWidget(label)
+        vbox.addWidget(self.mpl_toolbar)
+        vbox.addWidget(self.mpl_canvas)
         self.setLayout(vbox)
 
         self._set_tooltips()
@@ -126,14 +149,67 @@ class PlotXrfMaps(QWidget):
         self.ref_main_window.wnd_image_wizard.activateWindow()
 
     def cb_scatter_plot_toggled(self, state):
+        self.gpc.set_maps_show_scatter_plot(state)
         self.cb_interpolate.setVisible(not state)
         self.combo_pixels_positions.setVisible(not state)
+
+    def cb_quantitative_toggled(self, state):
+        self.gpc.set_maps_quant_norm_enabled(state)
+        self.signal_maps_norm_changed.emit()
+
+    def combo_select_dataset_current_index_changed(self, index):
+        self.gpc.set_maps_selected_dataset(index + 1)
+        self.signal_maps_dataset_selection_changed.emit()
+
+    def combo_normalization_current_index_changed(self, index):
+        self.gpc.set_maps_scaler_index(index)
+        self.signal_maps_norm_changed.emit()
+
+    def combo_linear_log_current_index_changed(self, index):
+        self.gpc.set_maps_scale_opt(self._linear_log_values[index])
+
+    def combo_color_scheme_current_index_changed(self, index):
+        self.gpc.set_maps_color_opt(self._color_schemes[index])
+
+    def combo_pixels_positions_current_index_changed(self, index):
+        self.gpc.set_maps_pixel_or_pos(self._pix_pos_values[index])
+
+    def cb_interpolate_toggled(self, state):
+        self.gpc.set_maps_grid_interpolate(state)
+
+    @pyqtSlot()
+    def slot_update_dataset_info(self):
+        self._update_datasets()
+        self._update_scalers()
+        self.cb_quantitative.setChecked(self.gpc.get_maps_quant_norm_enabled())
+
+    def _update_datasets(self):
+        dataset_list, dset_sel = self.gpc.get_maps_dataset_list()
+        self._dataset_list = dataset_list.copy()
+        self.combo_select_dataset.clear()
+        self.combo_select_dataset.addItems(self._dataset_list)
+        # No item should be selected if 'dset_sel' is 0
+        self.combo_select_dataset.setCurrentIndex(dset_sel - 1)
+
+    def _update_scalers(self):
+        scalers, scaler_sel = self.gpc.get_maps_scaler_list()
+        self._scaler_list = ["Normalize by ..."] + scalers
+        self.combo_normalization.clear()
+        self.combo_normalization.addItems(self._scaler_list)
+        self.combo_normalization.setCurrentIndex(scaler_sel)
 
 
 class WndImageWizard(SecondaryWindow):
 
+    signal_redraw_maps = pyqtSignal()
+
     def __init__(self, *, gpc, gui_vars):
         super().__init__()
+
+        # The variable enables/disables plot updates. Setting it False prevents
+        #   plot updates while updating the table or Select/Deselect All operation
+        self._enable_plot_updates = False
+        self._changes_exist = False
 
         # Global processing classes
         self.gpc = gpc
@@ -150,8 +226,16 @@ class WndImageWizard(SecondaryWindow):
         self.resize(600, 600)
 
         self.cb_select_all = QCheckBox("All")
+        self.cb_select_all.stateChanged.connect(self.cb_select_all_state_changed)
+
+        self._auto_update = False
         self.cb_auto_update = QCheckBox("Auto")
+        self.cb_auto_update.setCheckState(self._auto_update)
+        self.cb_auto_update.stateChanged.connect(self.cb_auto_update_state_changed)
+
         self.pb_update_plots = QPushButton("Update Plots")
+        self.pb_update_plots.setEnabled(not self._auto_update)
+        self.pb_update_plots.clicked.connect(self.pb_update_plots_clicked)
 
         self._setup_table()
 
@@ -175,19 +259,9 @@ class WndImageWizard(SecondaryWindow):
     def _setup_table(self):
 
         self.table = QTableWidget()
-
-        sample_content = [
-            ["Ar_K", 4.277408, 307.452117],
-            ["Ca_K", 0.000000, 1.750295e+03],
-            ["Fe_K", 17.902211, 4.576803e+04],
-            ["Tb_L", 0.000000, 2.785734e+03],
-            ["Ti_K", 0.055362, 1.227637e+04],
-            ["Zn_K", 0.000000, 892.008670],
-            ["compton", 0.000000, 249.055352],
-            ["elastic", 0.000000, 163.153881],
-            ["i0", 1.715700e+04, 1.187463e+06],
-            ["i0_time", 3.066255e+06, 1.727313e+08],
-        ]
+        self._range_data = []  # The variable keeps copy of the table data
+        self._limit_data = []  # Copy of the table that holds selection limits
+        self._show_data = []  # Second column - bool values that indicate if the map is shown
 
         self.tbl_labels = ["Element", "Plotted Range", "Minimum", "Maximum"]
         self.tbl_h_alignment = [Qt.AlignCenter, Qt.AlignCenter, Qt.AlignCenter, Qt.AlignCenter]
@@ -205,11 +279,23 @@ class WndImageWizard(SecondaryWindow):
             header.setSectionResizeMode(n, self.tbl_section_resize_mode[n])
             header.setDefaultAlignment(self.tbl_h_alignment[n])
 
-        self.fill_table(sample_content)
+        self._checkable_items = []  # The list of items in the 1st column
+        self._range_items = []  # The list of RangeManager items
 
-    def fill_table(self, table_contents):
+        self.fill_table(self._range_data, self._limit_data, self._show_data)
+        self.table.itemChanged.connect(self.table_item_changed)
 
-        self.table.setRowCount(len(table_contents))
+    def fill_table(self, range_table, limit_table, show_table):
+
+        self._enable_plot_updates = False
+
+        self._clear_table()
+        # Copy the table (we want to keep a copy, it's small)
+        self._range_data = deepcopy(range_table)
+        self._limit_data = deepcopy(limit_table)
+        self._show_data = deepcopy(show_table)
+
+        self.table.setRowCount(len(range_table))
         # Color is set for operation with Dark theme
         pal = self.table.palette()
         pal.setColor(QPalette.Text, Qt.black)
@@ -219,8 +305,10 @@ class WndImageWizard(SecondaryWindow):
         brightness = 200
         table_colors = [(255, brightness, brightness), (brightness, 255, brightness)]
 
-        for nr, row in enumerate(table_contents):
+        for nr, row in enumerate(range_table):
             element, v_min, v_max = row[0], row[1], row[2]
+            sel_min, sel_max = self._limit_data[nr][1], self._limit_data[nr][2]
+            sel_show = self._show_data[nr][1]
             rgb = table_colors[nr % 2]
 
             for nc in range(self.table.columnCount()):
@@ -229,12 +317,13 @@ class WndImageWizard(SecondaryWindow):
                     if nc == 0:
                         item = QTableWidgetItem(element)
                         item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
-                        item.setCheckState(Qt.Unchecked)
+                        item.setCheckState(Qt.Checked if sel_show else Qt.Unchecked)
+                        self._checkable_items.append(item)
                     elif nc == 2:
-                        item = QTableWidgetItem(f"{v_min:.12g}")
+                        item = QTableWidgetItem(f"{self._format_table_range_value(v_min)}")
                         item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
                     elif nc == 3:
-                        item = QTableWidgetItem(f"{v_max:.12g}")
+                        item = QTableWidgetItem(f"{self._format_table_range_value(v_max)}")
                         item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
                     item.setFlags(item.flags() & ~Qt.ItemIsEditable)
@@ -244,13 +333,15 @@ class WndImageWizard(SecondaryWindow):
 
                 elif nc == 1:
 
-                    item = RangeManager(add_sliders=True)
+                    item = RangeManager(name=f"{nr}", add_sliders=True)
                     item.set_range(v_min, v_max)
-                    item.reset()
+                    item.set_selection(value_low=sel_min, value_high=sel_max)
                     item.setAlignment(Qt.AlignCenter)
                     item.setFixedWidth(400)
                     item.setBackground(rgb)
                     item.setTextColor([0, 0, 0])  # Color is set for operation with Dark theme
+                    item.selection_changed.connect(self.table_range_item_changed)
+                    self._range_items.append(item)
                     self.table.setCellWidget(nr, nc, item)
 
         self.table.resizeColumnsToContents()
@@ -261,6 +352,27 @@ class WndImageWizard(SecondaryWindow):
             table_width += self.table.columnWidth(n_col)
         self.table.setFixedWidth(table_width + 150)
         self.setFixedWidth(table_width + 170)
+
+        self._enable_plot_updates = True
+
+    def update_table_ranges(self, range_table, limit_table):
+        """Update ranges and selections only. Don't update 'show' status."""
+        self._enable_plot_updates = False
+
+        self._range_data = deepcopy(range_table)
+        self._limit_data = deepcopy(limit_table)
+
+        for n in range(len(self._range_items)):
+            v_min, v_max = self._range_data[n][1], self._range_data[n][2]
+            sel_min, sel_max = self._limit_data[n][1], self._limit_data[n][2]
+            rng = self._range_items[n]
+            rng.set_range(v_min, v_max)
+            rng.set_selection(value_low=sel_min, value_high=sel_max)
+
+            self.table.item(n, 2).setText(f"{self._format_table_range_value(v_min)}")
+            self.table.item(n, 3).setText(f"{self._format_table_range_value(v_max)}")
+
+        self._enable_plot_updates = True
 
     def _set_tooltips(self):
         set_tooltip(self.cb_select_all,
@@ -288,3 +400,89 @@ class WndImageWizard(SecondaryWindow):
 
         if condition == "tooltips":
             self._set_tooltips()
+
+    def cb_select_all_state_changed(self, state):
+        self._select_all_items(state)
+
+    def cb_auto_update_state_changed(self, state):
+        self._auto_update = state
+        self.pb_update_plots.setEnabled(not state)
+        # If changes were made, apply the changes while switching to 'auto' mode
+        if state and self._changes_exist:
+            self._update_map_selections_auto()
+
+    def pb_update_plots_clicked(self):
+        """Upload the selections (limit table) and update plot"""
+        self._update_map_selections()
+
+    def table_item_changed(self, item):
+        try:
+            n_row = self._checkable_items.index(item)
+            state = item.checkState() == Qt.Checked
+            if state != self._show_data[n_row][1]:
+                self._show_data[n_row][1] = state
+                logger.debug(f"Image wizard: map {self._show_data[n_row][0]} was "
+                             f"{'checked' if state else 'unchecked'}")
+                self._update_map_selections_auto()
+        except ValueError:
+            pass
+
+    def table_range_item_changed(self, low, high, name):
+        n_row = int(name)
+        self._limit_data[n_row][1] = low
+        self._limit_data[n_row][2] = high
+        logger.debug(f"Image Wizard: range changed for the map '{self._limit_data[n_row][0]}'. "
+                     f"New range: ({low}, {high})")
+        self._update_map_selections_auto()
+
+    @pyqtSlot()
+    def slot_update_table(self):
+        """Reload table including ranges and selections for the emission lines"""
+        range_table, limit_table, show_table = self.gpc.get_maps_info_table()
+        self.fill_table(range_table, limit_table, show_table)
+
+    @pyqtSlot()
+    def slot_update_ranges(self):
+        """Update only ranges and selections for the emission lines"""
+        range_table, limit_table, _ = self.gpc.get_maps_info_table()
+        self.update_table_ranges(range_table, limit_table)
+
+    def _format_table_range_value(self, value):
+        return f"{value:.12g}"
+
+    def _clear_table(self):
+        # Disconnect all signals
+        for range_item in self._range_items:
+            range_item.selection_changed.disconnect(self.table_range_item_changed)
+        # Delete all rows
+        self.table.clearContents()
+        self._checkable_items = []  # The list of items in the 1st column
+        self._range_items = []
+
+    def _select_all_items(self, check_state):
+        """Select/deselect all items in the table"""
+        self._enable_plot_updates = False
+        for n_row in range(self.table.rowCount()):
+            item = self.table.item(n_row, 0)
+            item.setCheckState(check_state)
+        self._enable_plot_updates = True
+        self._update_map_selections_auto()
+
+    def _update_map_selections_auto(self):
+        """Update maps only if 'auto' update is ON. Used as a 'filter'
+        to prevent extra plot updates."""
+        self._changes_exist = True
+        if self._auto_update:
+            self._update_map_selections()
+
+    def _update_map_selections(self):
+        """Upload the selections (limit table) and update plot"""
+        if self._enable_plot_updates:
+            self._changes_exist = False
+            self.gpc.set_maps_limit_table(self._limit_data, self._show_data)
+            self._redraw_maps()
+
+    def _redraw_maps(self):
+        logger.debug("Redrawing XRF Maps")
+        self.gpc.redraw_maps()
+        self.signal_redraw_maps.emit()

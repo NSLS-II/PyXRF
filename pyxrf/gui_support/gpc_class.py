@@ -169,3 +169,171 @@ class GlobalProcessingClasses:
         self.plot_model.data_sets = self.io_model.data_sets
         self.plot_model.update_preview_spectrum_plot()
         self.plot_model.update_total_count_map_preview()
+
+    # ==========================================================================
+    #          The following methods are used by widgets XRF Maps tab
+    #                  to read/write data from model classes
+
+    def get_maps_info_table(self):
+        """
+        The function builds and returns two tables: a table of value ranges for each map
+        in the dataset; a table of limit values that represent selection for the displayed
+        values for each map of the dataset.
+
+        Returns
+        -------
+        range_table: list(list)
+            The table is represented as list of lists. Every element of the outer list is
+            a table row. Each row has 3 elements: 0 - key (emission line or map name, str),
+            1 - lower boundary (float), 2 - upper boundary (float).
+        limit_table: list(list)
+            The table is represented as list of lists. Every element of the outer list is
+            a table row. Each row has 3 elements: 0 - key (emission line or map name, str),
+            1 - lower limit value (float), 2 - upper limit value (float).
+        """
+        # Check if 'range_dict' and 'limit_dict' have the same set of keys
+        ks = self.img_model_adv.map_keys
+        ks_range = list(self.img_model_adv.range_dict.keys())
+        ks_limit = list(self.img_model_adv.limit_dict.keys())
+        ks_show = list(self.img_model_adv.stat_dict.keys())
+        if set(ks) != set(ks_limit):
+            raise RuntimeError("The list of keys in 'limit_dict' is not as expected: "
+                               f"limit_dict.keys(): {ks_limit} expected: {ks}")
+        if set(ks) != set(ks_range):
+            raise RuntimeError("The list of keys in 'range_dict' is not as expected: "
+                               f"range_dict.keys(): {ks_range} expected: {ks}")
+        if set(ks) != set(ks_show):
+            raise RuntimeError("The list of keys in 'stat_dict' is not as expected: "
+                               f"stat_dict.keys(): {ks_show} expected: {ks}")
+
+        range_table = []
+        limit_table = []
+        show_table = []
+        for key in ks:
+            rng_low = self.img_model_adv.range_dict[key]['low']
+            rng_high = self.img_model_adv.range_dict[key]['high']
+            limit_low_norm = self.img_model_adv.limit_dict[key]['low']
+            limit_high_norm = self.img_model_adv.limit_dict[key]['high']
+            limit_low = rng_low + (rng_high - rng_low) * limit_low_norm / 100.0
+            limit_high = rng_low + (rng_high - rng_low) * limit_high_norm / 100.0
+            range_table.append([key, rng_low, rng_high])
+            limit_table.append([key, limit_low, limit_high])
+            show_table.append([key, bool(self.img_model_adv.stat_dict[key])])
+
+        return range_table, limit_table, show_table
+
+    def set_maps_limit_table(self, limit_table, show_table):
+        """
+        Write updated range limits to 'img_model_adv.limit_dict'. Used by 'Image Wizard'.
+
+        Parameters
+        ----------
+        limit_table: list(list)
+            The table is represented as list of lists. Every element of the outer list is
+            a table row. Each row has 3 elements: 0 - key (eline or map name, str),
+            1 - low limit (float), 2 - high limit (float).
+        """
+        # Verify: the keys in both tables must match 'self.img_model_adv.map_keys'
+        limit_table_keys = [_[0] for _ in limit_table]
+        if set(limit_table_keys) != set(self.img_model_adv.map_keys):
+            raise ValueError("GlobalProcessingClasses:set_maps_info_table: keys don't match:"
+                             f"limit_table has keys {limit_table_keys}, "
+                             f"original keys {self.img_model_adv.map_keys}")
+
+        show_table_keys = [_[0] for _ in show_table]
+        if set(show_table_keys) != set(self.img_model_adv.map_keys):
+            raise ValueError("GlobalProcessingClasses:set_maps_info_table: keys don't match:"
+                             f"show_table has keys {show_table_keys}, "
+                             f"original keys {self.img_model_adv.map_keys}")
+
+        # Copy limits
+        for row in limit_table:
+            key, v_low, v_high = row
+
+            rng_low = self.img_model_adv.range_dict[key]['low']
+            rng_high = self.img_model_adv.range_dict[key]['high']
+
+            v_low_norm = (v_low - rng_low) / (rng_high - rng_low) * 100.0
+            v_high_norm = (v_high - rng_low) / (rng_high - rng_low) * 100.0
+
+            self.img_model_adv.limit_dict[key]['low'] = v_low_norm
+            self.img_model_adv.limit_dict[key]['high'] = v_high_norm
+
+        # Copy 'show' status (whether the map should be shown)
+        for row in show_table:
+            key, show_status = row
+            self.img_model_adv.stat_dict[key] = bool(show_status)
+
+    def get_maps_dataset_list(self):
+        dsets = list(self.img_model_adv.data_dict_keys)
+        dset_sel = self.get_maps_selected_dataset()  # The index in the list + 1 (0 - nothing is selected)
+        return dsets, dset_sel
+
+    def get_maps_scaler_list(self):
+        "Return the list of available scalers for maps"
+        scalers = list(self.img_model_adv.scaler_items)
+        scaler_sel = self.get_maps_scaler_index()  # The index in the list + 1 (0 - nothing is selected)
+        return scalers, scaler_sel
+
+    def get_maps_selected_dataset(self):
+        """Returns selected dataset (XRF Maps tab). Index: 0 - no dataset is selected,
+        1, 2, ... datasets with index 0, 1, ... is selected"""
+        return int(self.img_model_adv.data_opt)
+
+    def set_maps_selected_dataset(self, dataset_index):
+        """Select dataset (XRF Maps tab)"""
+        self.img_model_adv.select_dataset(dataset_index)
+
+    def get_maps_scaler_index(self):
+        return self.img_model_adv.scaler_name_index
+
+    def set_maps_scaler_index(self, scaler_index):
+        self.img_model_adv.set_scaler_index(scaler_index)
+
+    def get_maps_quant_norm_enabled(self):
+        return bool(self.img_model_adv.quantitative_normalization)
+
+    def set_maps_quant_norm_enabled(self, enable):
+        self.img_model_adv.enable_quantitative_normalization(enable)
+
+    def get_maps_scale_opt(self):
+        """Returns selected plot type: `Linear` or `Log` """
+        return self.img_model_adv.scale_opt
+
+    def set_maps_scale_opt(self, scale_opt):
+        """Set plot type. Allowed values: `Linear` and `Log` """
+        self.img_model_adv.set_scale_opt(scale_opt)
+
+    def get_maps_color_opt(self):
+        """Returns selected plot color option: `Linear` or `Log` """
+        return self.img_model_adv.color_opt
+
+    def set_maps_color_opt(self, color_opt):
+        """Set plot type. Allowed values: `Linear` and `Log` """
+        self.img_model_adv.set_color_opt(color_opt)
+
+    def get_maps_pixel_or_pos(self):
+        """Get the current axes options for the plotted maps. Returned values:
+        `Pixes` or `Positions`."""
+        values = ["Pixels", "Positions"]
+        return values[self.img_model_adv.pixel_or_pos]
+
+    def set_maps_pixel_or_pos(self, pixel_or_pos):
+        values = ["Pixels", "Positions"]
+        self.img_model_adv.set_pixel_or_pos(values.index(pixel_or_pos))
+
+    def get_maps_show_scatter_plot(self):
+        return self.img_model_adv.scatter_show
+
+    def set_maps_show_scatter_plot(self, is_scatter):
+        self.img_model_adv.set_plot_scatter(is_scatter)
+
+    def get_maps_grid_interpolate(self):
+        return self.img_model_adv.grid_interpolate
+
+    def set_maps_grid_interpolate(self, grid_interpolate):
+        self.img_model_adv.set_grid_interpolate(grid_interpolate)
+
+    def redraw_maps(self):
+        """Redraw maps in XRF Maps tab"""
+        self.img_model_adv.show_image()
