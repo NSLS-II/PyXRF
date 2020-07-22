@@ -83,7 +83,7 @@ class GlobalProcessingClasses:
         # send img dict to img_model for visualization
         self.io_model.observe('img_dict', self.img_model_adv.data_dict_update)
         self.io_model.observe('img_dict', self.img_model_rgb.data_dict_update)
-        self.io_model.observe('img_dict', self.plot_model.data_dict_update)
+        self.io_model.observe('img_dict', self.plot_model.img_dict_update)
 
         self.io_model.observe('incident_energy_set', self.plot_model.set_incident_energy)
         self.io_model.observe('incident_energy_set', self.img_model_adv.set_incident_energy)

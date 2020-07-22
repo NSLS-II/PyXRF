@@ -200,7 +200,7 @@ class LinePlotModel(Atom):
     # element_list_roi = List()
     # roi_dict = Typed(object) #OrderedDict()
 
-    data_dict = Dict()
+    img_dict = Dict()
     # roi_result = Dict()
 
     # Reference to GuessParamModel object
@@ -256,7 +256,7 @@ class LinePlotModel(Atom):
         self.map_type_preview = MapTypes.LINEAR
         self.map_axes_units_preview = MapAxesUnits.PIXELS
 
-    def data_dict_update(self, change):
+    def img_dict_update(self, change):
         """
         Observer function to be connected to the fileio model
         in the top-level gui.py startup
@@ -267,7 +267,7 @@ class LinePlotModel(Atom):
             This is the dictionary that gets passed to a function
             with the @observe decorator
         """
-        self.data_dict = change['value']
+        self.img_dict = change['value']
 
     def _color_config(self):
         self.plot_style = {
@@ -1560,10 +1560,10 @@ class LinePlotModel(Atom):
         """Returns the datasets selected for preview"""
         return {k: v for (k, v) in self.data_sets.items() if v.selected_for_preview}
 
-    def _compute_map_preview_range(self, data_dict, key_list):
+    def _compute_map_preview_range(self, img_dict, key_list):
         range_min, range_max = None, None
         for key in key_list:
-            data = data_dict[key]
+            data = img_dict[key]
             v_min, v_max = np.min(data), np.max(data)
             if range_min is None or range_max is None:
                 range_min, range_max = v_min, v_max
@@ -1582,8 +1582,8 @@ class LinePlotModel(Atom):
         # While the data from the completed part of experiment may still be used,
         # plotting vs. x-y or scatter plot may not be displayed.
         positions_data_available = False
-        if 'positions' in self.data_dict.keys():
-            data_for_plotting["positions"] = self.data_dict["positions"]
+        if 'positions' in self.img_dict.keys():
+            data_for_plotting["positions"] = self.img_dict["positions"]
             positions_data_available = True
 
         # Create local copies of self.pixel_or_pos, self.scatter_show and self.grid_interpolate
@@ -1695,7 +1695,7 @@ class LinePlotModel(Atom):
 
         for i, (k, v) in enumerate(selected_dsets.items()):
 
-            data_dict = data_for_plotting[k]
+            data_arr = data_for_plotting[k]
 
             if pixel_or_pos_local == MapAxesUnits.POSITIONS or scatter_show_local:
 
@@ -1719,7 +1719,7 @@ class LinePlotModel(Atom):
 
             else:
 
-                yd, xd = data_dict.shape
+                yd, xd = data_arr.shape
 
                 xd_min, xd_max, yd_min, yd_max = 0, xd, 0, yd
                 if (yd <= math.floor(xd / 100)) and (xd >= 200):
@@ -1751,7 +1751,7 @@ class LinePlotModel(Atom):
 
             if self.map_type_preview == MapTypes.LINEAR:
                 if not scatter_show_local:
-                    im = grid[i].imshow(data_dict,
+                    im = grid[i].imshow(data_arr,
                                         cmap=grey_use,
                                         interpolation=plot_interp,
                                         extent=(xd_min, xd_max, yd_max, yd_min),
@@ -1759,13 +1759,13 @@ class LinePlotModel(Atom):
                                         clim=(low_limit, high_limit))
                     grid[i].set_ylim(yd_axis_max, yd_axis_min)
                 else:
-                    xx = self.data_dict['positions']['x_pos']
-                    yy = self.data_dict['positions']['y_pos']
+                    xx = self.img_dict['positions']['x_pos']
+                    yy = self.img_dict['positions']['y_pos']
 
                     # The following condition prevents crash if different file is loaded while
                     #    the scatter plot is open (PyXRF specific issue)
-                    if data_dict.shape == xx.shape and data_dict.shape == yy.shape:
-                        im = grid[i].scatter(xx, yy, c=data_dict,
+                    if data_arr.shape == xx.shape and data_arr.shape == yy.shape:
+                        im = grid[i].scatter(xx, yy, c=data_arr,
                                              marker='s', s=500,
                                              alpha=1.0,  # Originally: alpha=0.8
                                              cmap=grey_use,
@@ -1788,14 +1788,14 @@ class LinePlotModel(Atom):
 
             else:
 
-                # maxz = np.max(data_dict)
+                # maxz = np.max(data_arr)
                 # # Set some reasonable minimum range for the colorbar
                 # #   Zeros or negative numbers will be shown in white
                 # if maxz <= 1e-30:
                 #     maxz = 1
 
                 if not scatter_show_local:
-                    im = grid[i].imshow(data_dict,
+                    im = grid[i].imshow(data_arr,
                                         # norm=LogNorm(vmin=low_lim*maxz,
                                         #              vmax=maxz, clip=True),
                                         norm=LogNorm(vmin=low_limit,
@@ -1809,13 +1809,13 @@ class LinePlotModel(Atom):
 
                     grid[i].set_ylim(yd_axis_max, yd_axis_min)
                 else:
-                    im = grid[i].scatter(self.data_dict['positions']['x_pos'],
-                                         self.data_dict['positions']['y_pos'],
+                    im = grid[i].scatter(self.img_dict['positions']['x_pos'],
+                                         self.img_dict['positions']['y_pos'],
                                          # norm=LogNorm(vmin=low_lim*maxz,
                                          #              vmax=maxz, clip=True),
                                          norm=LogNorm(vmin=low_limit,
                                                       vmax=high_limit, clip=True),
-                                         c=data_dict, marker='s', s=500, alpha=1.0,  # Originally: alpha=0.8
+                                         c=data_arr, marker='s', s=500, alpha=1.0,  # Originally: alpha=0.8
                                          cmap=grey_use,
                                          linewidths=1, linewidth=0)
                     grid[i].set_ylim(yd_axis_min, yd_axis_max)
