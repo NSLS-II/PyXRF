@@ -81,8 +81,8 @@ class GlobalProcessingClasses:
         self.io_model.observe('param_fit', self.param_model.param_from_db_update)
 
         # send img dict to img_model for visualization
-        self.io_model.observe('img_dict', self.img_model_adv.data_dict_update)
-        self.io_model.observe('img_dict', self.img_model_rgb.data_dict_update)
+        self.io_model.observe('img_dict', self.img_model_adv.img_dict_update)
+        self.io_model.observe('img_dict', self.img_model_rgb.img_dict_update)
         self.io_model.observe('img_dict', self.plot_model.img_dict_update)
 
         self.io_model.observe('incident_energy_set', self.plot_model.set_incident_energy)
@@ -265,7 +265,7 @@ class GlobalProcessingClasses:
             self.img_model_adv.stat_dict[key] = bool(show_status)
 
     def get_maps_dataset_list(self):
-        dsets = list(self.img_model_adv.data_dict_keys)
+        dsets = list(self.img_model_adv.img_dict_keys)
         dset_sel = self.get_maps_selected_dataset()  # The index in the list + 1 (0 - nothing is selected)
         return dsets, dset_sel
 

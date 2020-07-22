@@ -47,9 +47,9 @@ class DrawImageRGB(Atom):
     file_name : str
     stat_dict : dict
         determine which image to show
-    data_dict : dict
+    img_dict : dict
         multiple data sets to plot, such as fit data, or roi data
-    data_dict_keys : list
+    img_dict_keys : list
     data_opt : int
         index to show which data is chosen to plot
     dict_to_plot : dict
@@ -59,7 +59,7 @@ class DrawImageRGB(Atom):
     color_opt : str
         orange or gray plot
     scaler_norm_dict : dict
-        scaler normalization data, from data_dict
+        scaler normalization data, from img_dict
     scaler_items : list
         keys of scaler_norm_dict
     scaler_name_index : int
@@ -80,8 +80,8 @@ class DrawImageRGB(Atom):
     ax_g = Typed(Axes)
     ax_b = Typed(Axes)
     stat_dict = Dict()
-    data_dict = Dict()
-    data_dict_keys = List()
+    img_dict = Dict()
+    img_dict_keys = List()
     data_opt = Int(0)
     img_title = Str()
     # plot_opt = Int(0)
@@ -115,7 +115,7 @@ class DrawImageRGB(Atom):
     def __init__(self):
         self.rgb_name_list = ['R', 'G', 'B']
 
-    def data_dict_update(self, change):
+    def img_dict_update(self, change):
         """
         Observer function to be connected to the fileio model
         in the top-level gui.py startup
@@ -126,9 +126,9 @@ class DrawImageRGB(Atom):
             This is the dictionary that gets passed to a function
             with the @observe decorator
         """
-        self.data_dict = change['value']
+        self.img_dict = change['value']
 
-    @observe('data_dict')
+    @observe('img_dict')
     def init_plot_status(self, change):
         # initiate the plotting status once new data is coming
         self.data_opt = 0
@@ -142,14 +142,14 @@ class DrawImageRGB(Atom):
 
         # init of scaler for normalization
         self.scaler_name_index = 0
-        self.data_dict_keys = []
-        self.data_dict_keys = list(self.data_dict.keys())
-        # logger.info('The following groups are included for 2D image display: {}'.format(self.data_dict_keys))
+        self.img_dict_keys = []
+        self.img_dict_keys = list(self.img_dict.keys())
+        # logger.info('The following groups are included for 2D image display: {}'.format(self.img_dict_keys))
 
-        scaler_groups = [v for v in list(self.data_dict.keys()) if 'scaler' in v]
+        scaler_groups = [v for v in list(self.img_dict.keys()) if 'scaler' in v]
         if len(scaler_groups) > 0:
             # self.scaler_group_name = scaler_groups[0]
-            self.scaler_norm_dict = self.data_dict[scaler_groups[0]]
+            self.scaler_norm_dict = self.img_dict[scaler_groups[0]]
             # for GUI purpose only
             self.scaler_items = []
             self.scaler_items = list(self.scaler_norm_dict.keys())
@@ -168,9 +168,9 @@ class DrawImageRGB(Atom):
                 self.img_title = ''
             elif self.data_opt > 0:
                 self.set_stat_for_all(bool_val=False)
-                plot_item = sorted(self.data_dict_keys)[self.data_opt-1]
+                plot_item = sorted(self.img_dict_keys)[self.data_opt-1]
                 self.img_title = str(plot_item)
-                self.dict_to_plot = self.data_dict[plot_item]
+                self.dict_to_plot = self.img_dict[plot_item]
                 # for GUI purpose only
                 self.items_in_selected_group = []
                 self.items_in_selected_group = list(self.dict_to_plot.keys())
@@ -195,7 +195,7 @@ class DrawImageRGB(Atom):
             self.scaler_data = None
         else:
             scaler_name = self.scaler_items[self.scaler_name_index-1]
-            # self.scaler_data = self.data_dict[self.scaler_group_name][scaler_name]
+            # self.scaler_data = self.img_dict[self.scaler_group_name][scaler_name]
             self.scaler_data = self.scaler_norm_dict[scaler_name]
             logger.info('Use scaler data to normalize,'
                         'and the shape of scaler data is {}'.format(self.scaler_data.shape))
@@ -237,10 +237,10 @@ class DrawImageRGB(Atom):
 
         for i, (k, v) in enumerate(stat_temp.items()):
 
-            data_dict = normalize_data_by_scaler(self.dict_to_plot[k], self.scaler_data,
-                                                 data_name=k, name_not_scalable=self.name_not_scalable)
+            data_arr = normalize_data_by_scaler(self.dict_to_plot[k], self.scaler_data,
+                                                data_name=k, name_not_scalable=self.name_not_scalable)
 
-            selected_data.append(data_dict)
+            selected_data.append(data_arr)
             selected_name.append(k)  # self.file_name+'_'+str(k)
 
         return selected_data, selected_name
@@ -262,7 +262,7 @@ class DrawImageRGB(Atom):
         # While the data from the completed part of experiment may still be used,
         # plotting vs. x-y or scatter plot may not be displayed.
         positions_data_available = False
-        if 'positions' in self.data_dict.keys():
+        if 'positions' in self.img_dict.keys():
             positions_data_available = True
 
         # Create local copy of self.pixel_or_pos and self.grid_interpolate
@@ -358,8 +358,8 @@ class DrawImageRGB(Atom):
 
             # xd_min, xd_max, yd_min, yd_max = min(self.x_pos), max(self.x_pos),
             #     min(self.y_pos), max(self.y_pos)
-            x_pos_2D = self.data_dict['positions']['x_pos']
-            y_pos_2D = self.data_dict['positions']['y_pos']
+            x_pos_2D = self.img_dict['positions']['x_pos']
+            y_pos_2D = self.img_dict['positions']['y_pos']
             xd_min, xd_max, yd_min, yd_max = x_pos_2D.min(), x_pos_2D.max(), y_pos_2D.min(), y_pos_2D.max()
             xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = \
                 _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
@@ -430,14 +430,14 @@ class DrawImageRGB(Atom):
         # Interpolate non-uniformly spaced data to uniform grid
         if grid_interpolate_local:
             data_r, _, _ = grid_interpolate(data_r,
-                                            self.data_dict['positions']['x_pos'],
-                                            self.data_dict['positions']['y_pos'])
+                                            self.img_dict['positions']['x_pos'],
+                                            self.img_dict['positions']['y_pos'])
             data_g, _, _ = grid_interpolate(data_g,
-                                            self.data_dict['positions']['x_pos'],
-                                            self.data_dict['positions']['y_pos'])
+                                            self.img_dict['positions']['x_pos'],
+                                            self.img_dict['positions']['y_pos'])
             data_b, _, _ = grid_interpolate(data_b,
-                                            self.data_dict['positions']['x_pos'],
-                                            self.data_dict['positions']['y_pos'])
+                                            self.img_dict['positions']['x_pos'],
+                                            self.img_dict['positions']['y_pos'])
 
         # Normalize data
         data_r = _norm_data(data_r)
