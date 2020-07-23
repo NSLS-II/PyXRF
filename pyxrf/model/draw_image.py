@@ -150,6 +150,9 @@ class DrawImageAdvanced(Atom):
 
     @observe('img_dict')
     def init_plot_status(self, change):
+        # init of scaler for normalization
+        self.scaler_name_index = 0
+
         scaler_groups = [v for v in list(self.img_dict.keys()) if 'scaler' in v]
         if len(scaler_groups) > 0:
             # self.scaler_group_name = scaler_groups[0]
@@ -424,12 +427,6 @@ class DrawImageAdvanced(Atom):
         self.set_low_high_value()  # reset low high values based on normalization
         self.show_image()
 
-    def plot_select_all(self):
-        self.set_stat_for_all(bool_val=True)
-
-    def plot_deselect_all(self):
-        self.set_stat_for_all(bool_val=False)
-
     def set_plot_scatter(self, is_scatter):
         self.scatter_show = is_scatter
         self.show_image()
@@ -461,12 +458,13 @@ class DrawImageAdvanced(Atom):
     def set_stat_for_all(self, bool_val=False):
         """
         Set plotting status for all the 2D images, including low and high values.
+        Note: 'self.map_keys' must be updated before calling this function!
         """
         self.stat_dict.clear()
-        self.stat_dict = {k: bool_val for k in self.dict_to_plot.keys()}
+        self.stat_dict = {k: bool_val for k in self.map_keys}
 
         self.limit_dict.clear()
-        self.limit_dict = {k: {'low': 0.0, 'high': 100.0} for k in self.dict_to_plot.keys()}
+        self.limit_dict = {k: {'low': 0.0, 'high': 100.0} for k in self.map_keys}
 
         self.set_low_high_value()
 
@@ -512,8 +510,9 @@ class DrawImageAdvanced(Atom):
 
     def show_image(self):
         self.fig.clf()
-        stat_temp = self.get_activated_num()
-        stat_temp = OrderedDict(sorted(stat_temp.items(), key=lambda x: x[0]))
+
+        # The sequence of keys of 'img_dict' selected for plotting and ordered as 'map_keys'
+        selected_keys = self.get_selected_items_for_plot()
 
         # Check if positions data is available. Positions data may be unavailable
         # (not recorded in HDF5 file) if experiment is has not been completed.
@@ -551,9 +550,9 @@ class DrawImageAdvanced(Atom):
 
         grey_use = self.color_opt
 
-        ncol = int(np.ceil(np.sqrt(len(stat_temp))))
+        ncol = int(np.ceil(np.sqrt(len(selected_keys))))
         try:
-            nrow = int(np.ceil(len(stat_temp)/float(ncol)))
+            nrow = int(np.ceil(len(selected_keys)/float(ncol)))
         except ZeroDivisionError:
             ncol = 1
             nrow = 1
@@ -634,11 +633,11 @@ class DrawImageAdvanced(Atom):
             return c_min, c_max
 
         # Hide the axes that are unused (they are unsightly)
-        for i in range(len(stat_temp), ncol * nrow):
+        for i in range(len(selected_keys), ncol * nrow):
             grid[i].set_visible(False)
             grid.cbar_axes[i].set_visible(False)
 
-        for i, (k, v) in enumerate(stat_temp.items()):
+        for i, k in enumerate(selected_keys):
 
             quant_norm_applied = False
             if self.quantitative_normalization:
@@ -821,11 +820,13 @@ class DrawImageAdvanced(Atom):
         # self.fig.suptitle(self.img_title, fontsize=20)
         self.fig.canvas.draw_idle()
 
-    def get_activated_num(self):
+    def get_selected_items_for_plot(self):
         """Collect the selected items for plotting.
         """
-        current_items = {k: v for (k, v) in self.stat_dict.items() if v is True}
-        return current_items
+        # We want the dictionary to be sorted the same way as 'map_keys'
+        sdict = self.stat_dict
+        selected_keys = [_ for _ in self.map_keys if (_ in sdict) and (sdict[_] is True)]
+        return selected_keys
 
     def record_selected(self):
         """Save the list of items in cache for later use.

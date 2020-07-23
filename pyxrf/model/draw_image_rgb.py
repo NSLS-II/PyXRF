@@ -3,6 +3,7 @@ from __future__ import (absolute_import, division,
 
 import numpy as np
 import math
+import re
 from collections import OrderedDict
 from matplotlib.figure import Figure, Axes
 import matplotlib.pyplot as plt
@@ -12,6 +13,7 @@ from mpl_toolkits.axes_grid1.axes_rgb import make_rgb_axes
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool
 
 from ..core.utils import normalize_data_by_scaler, grid_interpolate
+from ..core.xrf_utils import check_if_eline_supported
 
 import logging
 logger = logging.getLogger(__name__)
@@ -54,7 +56,7 @@ class DrawImageRGB(Atom):
         index to show which data is chosen to plot
     dict_to_plot : dict
         selected data dict to plot, i.e., fitting data or roi is selected
-    items_in_selected_group : list
+    map_keys : list
         keys of dict_to_plot
     color_opt : str
         orange or gray plot
@@ -87,7 +89,7 @@ class DrawImageRGB(Atom):
     # plot_opt = Int(0)
     # plot_item = Str()
     dict_to_plot = Dict()
-    items_in_selected_group = List()
+    map_keys = List()
     scaler_norm_dict = Dict()
     scaler_items = List()
     scaler_name_index = Int()
@@ -95,6 +97,13 @@ class DrawImageRGB(Atom):
     pixel_or_pos = Int(0)
     grid_interpolate = Bool(False)
     plot_all = Bool(False)
+
+    limit_dict = Dict()
+    range_dict = Dict()
+
+    # Variable that indicates whether quanitative normalization should be applied to data
+    #   Associated with 'Quantitative' checkbox
+    quantitative_normalization = Bool(False)
 
     rgb_name_list = List()
     index_red = Int(0)
@@ -115,6 +124,10 @@ class DrawImageRGB(Atom):
     def __init__(self):
         self.rgb_name_list = ['R', 'G', 'B']
 
+        # Do not apply scaler norm on following data
+        self.name_not_scalable = ['r2_adjust', 'r_factor', 'alive', 'dead', 'elapsed_time',
+                                  'scaler_alive', 'i0_time', 'time', 'time_diff', 'dwell_time']
+
     def img_dict_update(self, change):
         """
         Observer function to be connected to the fileio model
@@ -131,20 +144,16 @@ class DrawImageRGB(Atom):
     @observe('img_dict')
     def init_plot_status(self, change):
         # initiate the plotting status once new data is coming
-        self.data_opt = 0
         self.rgb_name_list = ['R', 'G', 'B']
         self.index_red = 0
         self.index_green = 1
         self.index_blue = 2
 
         # init of pos values
-        self.pixel_or_pos = 0
+        self.set_pixel_or_pos(0)
 
         # init of scaler for normalization
         self.scaler_name_index = 0
-        self.img_dict_keys = []
-        self.img_dict_keys = list(self.img_dict.keys())
-        # logger.info('The following groups are included for 2D image display: {}'.format(self.img_dict_keys))
 
         scaler_groups = [v for v in list(self.img_dict.keys()) if 'scaler' in v]
         if len(scaler_groups) > 0:
@@ -156,65 +165,185 @@ class DrawImageRGB(Atom):
             self.scaler_items.sort()
             self.scaler_data = None
 
+        # initiate the plotting status once new data is coming
+        self.img_dict_keys = self._get_img_dict_keys()
+        logger.debug('The following groups are included for RGB image display: {}'.format(self.img_dict_keys))
+
+        if self.img_dict_keys:
+            self.select_dataset(1)
+        else:
+            self.select_dataset(0)
+
         self.show_image()
 
-    @observe('data_opt')
-    def _update_file(self, change):
+    def select_dataset(self, dataset_index):
+        """
+        Select dataset. Meaning of the index: 0 - no dataset is selected,
+        1, 2, ... datasets with index 0, 1, ... is selected
+
+        Parameters
+        ----------
+        dataset_index: int
+            index of the selected dataset
+        """
+        self.data_opt = dataset_index
+
         try:
             if self.data_opt == 0:
                 self.dict_to_plot = {}
-                self.items_in_selected_group = []
-                self.set_stat_for_all(bool_val=False)
+                self.map_keys.clear()
+                self.init_limits_and_stat()
                 self.img_title = ''
+
             elif self.data_opt > 0:
-                self.set_stat_for_all(bool_val=False)
-                plot_item = sorted(self.img_dict_keys)[self.data_opt-1]
+                plot_item = self._get_current_plot_item()
                 self.img_title = str(plot_item)
                 self.dict_to_plot = self.img_dict[plot_item]
                 # for GUI purpose only
-                self.items_in_selected_group = []
-                self.items_in_selected_group = list(self.dict_to_plot.keys())
-                self.set_stat_for_all(bool_val=False)
+                self.set_map_keys()
+                self.init_limits_and_stat()
                 # set rgb value to 0 and 100
-                self.init_rgb()
+                #self.init_rgb()
+
         except IndexError:
             pass
 
-    def init_rgb(self):
-        self.r_low = 0
-        self.r_high = 100
-        self.g_low = 0
-        self.g_high = 100
-        self.b_low = 0
-        self.b_high = 100
+        # Redraw image
+        self.show_image()
 
-    @observe('scaler_name_index')
-    def _get_scaler_data(self, change):
+    def _get_img_dict_keys(self):
+        key_suffix = [r"scaler$", r"det\d+_fit$", r"fit$", r"det\d+_roi$", r"roi$"]
+        keys = [[] for _ in range(len(key_suffix) + 1)]
+        for k in self.img_dict.keys():
+            found = False
+            for n, suff in enumerate(key_suffix):
+                if re.search(suff, k):
+                    keys[n + 1].append(k)
+                    found = True
+                    break
+            if not found:
+                keys[0].append(k)
+        keys_sorted = []
+        for n in reversed(range(len(keys))):
+            keys[n].sort()
+            keys_sorted += keys[n]
+        return keys_sorted
+
+    def set_map_keys(self):
+        """
+        Create sorted list of map keys. The list starts with sorted sequence of emission lines,
+        followed by the sorted list of scalers and other maps.
+        """
+        self.map_keys.clear()
+        # The key to use with 'img_dict', the name of the current dataset.
+        plot_item = self._get_current_plot_item()
+        keys_unsorted = list(self.img_dict[plot_item].keys())
+        if len(keys_unsorted) != len(set(keys_unsorted)):
+            logger.warning("DrawImageAdvanced:set_map_keys(): repeated keys "
+                           f"in the dictionary 'img_dict': {keys_unsorted}")
+        keys_elines, keys_scalers = [], []
+        for key in keys_unsorted:
+            if check_if_eline_supported(key):  # Check if 'key' is an emission line (such as "Ca_K")
+                keys_elines.append(key)
+            else:
+                keys_scalers.append(key)
+        keys_elines.sort()
+        keys_scalers.sort()
+        self.map_keys = keys_elines + keys_scalers
+
+    #def init_rgb(self):
+    #    self.r_low = 0
+    #    self.r_high = 100
+    #    self.g_low = 0
+    #    self.g_high = 100
+    #    self.b_low = 0
+    #    self.b_high = 100
+
+    def set_scaler_index(self, scaler_index):
+
+        self.scaler_name_index = scaler_index
 
         if self.scaler_name_index == 0:
             self.scaler_data = None
         else:
-            scaler_name = self.scaler_items[self.scaler_name_index-1]
-            # self.scaler_data = self.img_dict[self.scaler_group_name][scaler_name]
-            self.scaler_data = self.scaler_norm_dict[scaler_name]
-            logger.info('Use scaler data to normalize,'
-                        'and the shape of scaler data is {}'.format(self.scaler_data.shape))
+            try:
+                scaler_name = self.scaler_items[self.scaler_name_index-1]
+            except IndexError:
+                scaler_name = None
+            if scaler_name:
+                self.scaler_data = self.scaler_norm_dict[scaler_name]
+                logger.info('Use scaler data to normalize, '
+                            'and the shape of scaler data is {}, '
+                            'with (low, high) as ({}, {})'.format(self.scaler_data.shape,
+                                                                  np.min(self.scaler_data),
+                                                                  np.max(self.scaler_data)))
+        self.set_low_high_value()  # reset low high values based on normalization
         self.show_image()
 
-    @observe('pixel_or_pos')
-    def _update_pp(self, change):
+    def _get_current_plot_item(self):
+        """Get the key for the current plot item (use in dictionary 'img_dict')"""
+        return self.img_dict_keys[self.data_opt - 1]
+
+    def set_pixel_or_pos(self, pixel_or_pos):
+        self.pixel_or_pos = pixel_or_pos
         self.show_image()
 
-    @observe('grid_interpolate')
-    def _update_gi(self, change):
+    def set_grid_interpolate(self, grid_interpolate):
+        self.grid_interpolate = grid_interpolate
         self.show_image()
 
-    def set_stat_for_all(self, bool_val=False):
+    def set_low_high_value(self):
+        """Set default low and high values based on normalization for each image.
+        """
+        # do not apply scaler norm on not scalable data
+        self.range_dict.clear()
+
+        for data_name in self.dict_to_plot.keys():
+
+            if self.quantitative_normalization:
+                # Quantitative normalization
+                data_arr, _ = self.param_quant_analysis.apply_quantitative_normalization(
+                    data_in=self.dict_to_plot[data_name],
+                    scaler_dict=self.scaler_norm_dict,
+                    scaler_name_default=self.get_selected_scaler_name(),
+                    data_name=data_name,
+                    name_not_scalable=self.name_not_scalable)
+            else:
+                # Normalize by the selected scaler in a regular way
+                data_arr = normalize_data_by_scaler(data_in=self.dict_to_plot[data_name],
+                                                    scaler=self.scaler_data,
+                                                    data_name=data_name,
+                                                    name_not_scalable=self.name_not_scalable)
+
+            lowv, highv = np.min(data_arr), np.max(data_arr)
+            # Create some 'artificially' small range in case the array is constant
+            if lowv == highv:
+                lowv -= 0.005
+                highv += 0.005
+            self.range_dict[data_name] = {'low': lowv, 'low_default': lowv,
+                                          'high': highv, 'high_default': highv}
+
+    def reset_low_high(self, name):
+        """Reset low and high value to default based on normalization.
+        """
+        self.range_dict[name]['low'] = self.range_dict[name]['low_default']
+        self.range_dict[name]['high'] = self.range_dict[name]['high_default']
+        self.limit_dict[name]['low'] = 0.0
+        self.limit_dict[name]['high'] = 100.0
+        self.show_image()
+
+    def init_limits_and_stat(self):
         """
         Set plotting status for all the 2D images.
+        Note: 'self.map_keys' must be updated before calling this function!
         """
         self.stat_dict.clear()
-        self.stat_dict = {k: bool_val for k in self.items_in_selected_group}
+        self.stat_dict = {k: "" for k in self.map_keys}
+
+        self.limit_dict.clear()
+        self.limit_dict = {k: {'low': 0.0, 'high': 100.0} for k in self.map_keys}
+
+        self.set_low_high_value()
 
     def preprocess_data(self):
         """
@@ -255,7 +384,6 @@ class DrawImageRGB(Atom):
         self.fig = plt.figure(figsize=(3, 2))
         self.ax = self.fig.add_subplot(111)
         self.ax_r, self.ax_g, self.ax_b = make_rgb_axes(self.ax, pad=0.02)
-        self.name_not_scalable = ['r2_adjust']  # do not apply scaler norm on those data
 
         # Check if positions data is available. Positions data may be unavailable
         # (not recorded in HDF5 file) if experiment is has not been completed.

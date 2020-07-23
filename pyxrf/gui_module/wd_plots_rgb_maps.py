@@ -1,12 +1,15 @@
 from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout, QRadioButton, QButtonGroup,
                              QComboBox, QCheckBox, QTableWidget, QHeaderView, QSizePolicy, QSpacerItem)
 from PyQt5.QtGui import QPalette
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 
 from .useful_widgets import RangeManager, get_background_css, set_tooltip
 
 
 class PlotRgbMaps(QWidget):
+
+    signal_rgb_maps_dataset_selection_changed = pyqtSignal()
+    signal_rgb_maps_norm_changed = pyqtSignal()
 
     def __init__(self, *, gpc, gui_vars):
         super().__init__()
@@ -17,21 +20,25 @@ class PlotRgbMaps(QWidget):
         self.gui_vars = gui_vars
 
         self.combo_select_dataset = QComboBox()
-        sample_datasets = ["scan2D_28844_amk_fit", "scan2D_28844_amk_roi",
-                           "scan2D_28844_amk_scaler", "positions"]
-        # datasets = ["Select Dataset ..."] + sample_datasets
-        datasets = sample_datasets
-        self.combo_select_dataset.addItems(datasets)
+        self.combo_select_dataset.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+        self.combo_select_dataset.currentIndexChanged.connect(
+            self.combo_select_dataset_current_index_changed)
 
         self.combo_normalization = QComboBox()
-        sample_scalers = ["i0", "i0_time", "time", "time_diff"]
-        scalers = ["Normalize by ..."] + sample_scalers
-        self.combo_normalization.addItems(scalers)
+        self.combo_normalization.currentIndexChanged.connect(
+            self.combo_normalization_current_index_changed)
 
         self.cb_interpolate = QCheckBox("Interpolate")
+        self.cb_interpolate.setChecked(self.gpc.get_rgb_maps_grid_interpolate())
+        self.cb_interpolate.toggled.connect(self.cb_interpolate_toggled)
 
         self.combo_pixels_positions = QComboBox()
-        self.combo_pixels_positions.addItems(["Pixels", "Positions"])
+        self._pix_pos_values = ["Pixels", "Positions"]
+        self.combo_pixels_positions.addItems(self._pix_pos_values)
+        self.combo_pixels_positions.setCurrentIndex(
+            self._pix_pos_values.index(self.gpc.get_maps_pixel_or_pos()))
+        self.combo_pixels_positions.currentIndexChanged.connect(
+            self.combo_pixels_positions_current_index_changed)
 
         # The label will be replaced with the widget that will actually plot the data
         label = QLabel()
@@ -79,6 +86,40 @@ class PlotRgbMaps(QWidget):
     def update_widget_state(self, condition=None):
         if condition == "tooltips":
             self._set_tooltips()
+
+    def combo_select_dataset_current_index_changed(self, index):
+        self.gpc.set_rgb_maps_selected_dataset(index + 1)
+        self.signal_rgb_maps_dataset_selection_changed.emit()
+
+    def combo_normalization_current_index_changed(self, index):
+        self.gpc.set_rgb_maps_scaler_index(index)
+        self.signal_rgb_maps_norm_changed.emit()
+
+    def combo_pixels_positions_current_index_changed(self, index):
+        self.gpc.set_maps_pixel_or_pos(self._pix_pos_values[index])
+
+    def cb_interpolate_toggled(self, state):
+        self.gpc.set_maps_grid_interpolate(state)
+
+    @pyqtSlot()
+    def slot_update_dataset_info(self):
+        self._update_datasets()
+        self._update_scalers()
+
+    def _update_datasets(self):
+        dataset_list, dset_sel = self.gpc.get_rgb_maps_dataset_list()
+        self._dataset_list = dataset_list.copy()
+        self.combo_select_dataset.clear()
+        self.combo_select_dataset.addItems(self._dataset_list)
+        # No item should be selected if 'dset_sel' is 0
+        self.combo_select_dataset.setCurrentIndex(dset_sel - 1)
+
+    def _update_scalers(self):
+        scalers, scaler_sel = self.gpc.get_rgb_maps_scaler_list()
+        self._scaler_list = ["Normalize by ..."] + scalers
+        self.combo_normalization.clear()
+        self.combo_normalization.addItems(self._scaler_list)
+        self.combo_normalization.setCurrentIndex(scaler_sel)
 
 
 class RgbSelectionWidget(QWidget):

@@ -337,3 +337,49 @@ class GlobalProcessingClasses:
     def redraw_maps(self):
         """Redraw maps in XRF Maps tab"""
         self.img_model_adv.show_image()
+
+    # ==========================================================================
+    #          The following methods are used by widgets RGB tab
+    #                  to read/write data from model classes
+
+    def get_rgb_maps_dataset_list(self):
+        dsets = list(self.img_model_rgb.img_dict_keys)
+        dset_sel = self.get_maps_selected_dataset()  # The index in the list + 1 (0 - nothing is selected)
+        return dsets, dset_sel
+
+    def get_rgb_maps_scaler_list(self):
+        "Return the list of available scalers for maps"
+        scalers = list(self.img_model_rgb.scaler_items)
+        scaler_sel = self.get_maps_scaler_index()  # The index in the list + 1 (0 - nothing is selected)
+        return scalers, scaler_sel
+
+    def get_rgb_maps_selected_dataset(self):
+        """Returns selected dataset (XRF Maps tab). Index: 0 - no dataset is selected,
+        1, 2, ... datasets with index 0, 1, ... is selected"""
+        return int(self.img_model_rgb.data_opt)
+
+    def set_rgb_maps_selected_dataset(self, dataset_index):
+        """Select dataset (XRF Maps tab)"""
+        self.img_model_rgb.select_dataset(dataset_index)
+
+    def get_rgb_maps_scaler_index(self):
+        return self.img_model_rgb.scaler_name_index
+
+    def set_rgb_maps_scaler_index(self, scaler_index):
+        self.img_model_rgb.set_scaler_index(scaler_index)
+
+    def get_rgb_maps_pixel_or_pos(self):
+        """Get the current axes options for the plotted maps. Returned values:
+        `Pixes` or `Positions`."""
+        values = ["Pixels", "Positions"]
+        return values[self.img_model_rgb.pixel_or_pos]
+
+    def set_rgb_maps_pixel_or_pos(self, pixel_or_pos):
+        values = ["Pixels", "Positions"]
+        self.img_model_rgb.set_pixel_or_pos(values.index(pixel_or_pos))
+
+    def get_rgb_maps_grid_interpolate(self):
+        return self.img_model_rgb.grid_interpolate
+
+    def set_rgb_maps_grid_interpolate(self, grid_interpolate):
+        self.img_model_rgb.set_grid_interpolate(grid_interpolate)

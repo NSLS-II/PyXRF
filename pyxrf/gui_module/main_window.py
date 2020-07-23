@@ -242,6 +242,8 @@ class MainWindow(QMainWindow):
             self.wnd_image_wizard.slot_update_table)
         self.central_widget.left_panel.load_data_widget.signal_new_run_loaded.connect(
             self.central_widget.right_panel.tab_plot_xrf_maps.slot_update_dataset_info)
+        self.central_widget.left_panel.load_data_widget.signal_new_run_loaded.connect(
+            self.central_widget.right_panel.tab_plot_rgb_maps.slot_update_dataset_info)
 
         # XRF Maps dataset changed
         self.central_widget.right_panel.tab_plot_xrf_maps.signal_maps_dataset_selection_changed.connect(
