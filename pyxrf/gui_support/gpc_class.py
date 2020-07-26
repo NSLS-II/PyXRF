@@ -342,6 +342,99 @@ class GlobalProcessingClasses:
     #          The following methods are used by widgets RGB tab
     #                  to read/write data from model classes
 
+    def get_rgb_maps_info_table(self):
+        """
+        The function builds and returns two tables: a table of value ranges for each map
+        in the dataset; a table of limit values that represent selection for the displayed
+        values for each map of the dataset.
+
+        Returns
+        -------
+        range_table: list(list)
+            The table is represented as list of lists. Every element of the outer list is
+            a table row. Each row has 3 elements: 0 - key (emission line or map name, str),
+            1 - lower boundary (float), 2 - upper boundary (float).
+        limit_table: list(list)
+            The table is represented as list of lists. Every element of the outer list is
+            a table row. Each row has 3 elements: 0 - key (emission line or map name, str),
+            1 - lower limit value (float), 2 - upper limit value (float).
+        rgb_dict: dict
+            dictionary that hold the displayed items: key - color ("red", "green" or "blue"),
+            value - selected map represented by the key of `self.img_model_rgb.dict_to_plot`
+            or `self.img_model_rgb.img_dict[<dataset>]` dictionaries.
+        """
+        # Check if 'range_dict' and 'limit_dict' have the same set of keys
+        ks = self.img_model_rgb.map_keys
+        ks_range = list(self.img_model_rgb.range_dict.keys())
+        ks_limit = list(self.img_model_rgb.limit_dict.keys())
+        rgb_dict = self.img_model_rgb.rgb_dict
+        if set(ks) != set(ks_limit):
+            raise RuntimeError("The list of keys in 'limit_dict' is not as expected: "
+                               f"limit_dict.keys(): {ks_limit} expected: {ks}")
+        if set(ks) != set(ks_range):
+            raise RuntimeError("The list of keys in 'range_dict' is not as expected: "
+                               f"range_dict.keys(): {ks_range} expected: {ks}")
+        if len(rgb_dict) != len(self.img_model_rgb.rgb_keys) or \
+                set(rgb_dict.keys()) != set(self.img_model_rgb.rgb_keys):
+            raise ValueError("GlobalProcessingClasses.get_rgb_maps_info_table(): "
+                             f"incorrect set of keys in 'rgb_dict': {list(rgb_dict.keys())}, "
+                             f"expected: {self.img_model_rgb.rgb_keys}")
+        for v in rgb_dict.values():
+            if (v is not None) and (v not in ks):
+                raise ValueError("GlobalProcessingClasses.get_rgb_maps_info_table(): "
+                                 f"Invalid key {v}. Allowed keys: {ks}")
+
+        range_table = []
+        limit_table = []
+        for key in ks:
+            rng_low = self.img_model_adv.range_dict[key]['low']
+            rng_high = self.img_model_adv.range_dict[key]['high']
+            limit_low_norm = self.img_model_adv.limit_dict[key]['low']
+            limit_high_norm = self.img_model_adv.limit_dict[key]['high']
+            limit_low = rng_low + (rng_high - rng_low) * limit_low_norm / 100.0
+            limit_high = rng_low + (rng_high - rng_low) * limit_high_norm / 100.0
+            range_table.append([key, rng_low, rng_high])
+            limit_table.append([key, limit_low, limit_high])
+
+        return range_table, limit_table, rgb_dict
+
+    def set_rgb_maps_limit_table(self, limit_table, rgb_dict):
+        """
+        Write updated range limits to 'img_model_adv.limit_dict'. Used by 'Image Wizard'.
+
+        Parameters
+        ----------
+        limit_table: list(list)
+            The table is represented as list of lists. Every element of the outer list is
+            a table row. Each row has 3 elements: 0 - key (eline or map name, str),
+            1 - low limit (float), 2 - high limit (float).
+        rgb_dict: dict
+            dictionary that hold the displayed items: key - color ("red", "green" or "blue"),
+            value - selected map represented by the key of `self.img_model_rgb.dict_to_plot`
+            or `self.img_model_rgb.img_dict[<dataset>]` dictionaries.
+        """
+        # Verify: the keys in both tables must match 'self.img_model_adv.map_keys'
+        limit_table_keys = [_[0] for _ in limit_table]
+        if set(limit_table_keys) != set(self.img_model_rgb.map_keys):
+            raise ValueError("GlobalProcessingClasses:set_maps_info_table: keys don't match:"
+                             f"limit_table has keys {limit_table_keys}, "
+                             f"original keys {self.img_model_rgb.map_keys}")
+
+        # Copy limits
+        for row in limit_table:
+            key, v_low, v_high = row
+
+            rng_low = self.img_model_rgb.range_dict[key]['low']
+            rng_high = self.img_model_rgb.range_dict[key]['high']
+
+            v_low_norm = (v_low - rng_low) / (rng_high - rng_low) * 100.0
+            v_high_norm = (v_high - rng_low) / (rng_high - rng_low) * 100.0
+
+            self.img_model_rgb.limit_dict[key]['low'] = v_low_norm
+            self.img_model_rgb.limit_dict[key]['high'] = v_high_norm
+
+        self.img_model_rgb.rgb_dict = rgb_dict.copy()
+
     def get_rgb_maps_dataset_list(self):
         dsets = list(self.img_model_rgb.img_dict_keys)
         dset_sel = self.get_maps_selected_dataset()  # The index in the list + 1 (0 - nothing is selected)

@@ -1,9 +1,14 @@
-from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout, QRadioButton, QButtonGroup,
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QRadioButton, QButtonGroup,
                              QComboBox, QCheckBox, QTableWidget, QHeaderView, QSizePolicy, QSpacerItem)
 from PyQt5.QtGui import QPalette
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 
+import copy
+
 from .useful_widgets import RangeManager, get_background_css, set_tooltip
+
+from matplotlib.backends.backend_qt5agg import \
+    FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
 
 
 class PlotRgbMaps(QWidget):
@@ -40,16 +45,11 @@ class PlotRgbMaps(QWidget):
         self.combo_pixels_positions.currentIndexChanged.connect(
             self.combo_pixels_positions_current_index_changed)
 
-        # The label will be replaced with the widget that will actually plot the data
-        label = QLabel()
-        comment = \
-            "The widget will plot up to 3 XRF maps in RGB representation.\n"\
-            "The layout was similar to 'Element Map' tab of the original PyXRF"
-        label.setText(comment)
-        label.setStyleSheet("QLabel { background-color : white; color : blue; }")
-        label.setAlignment(Qt.AlignCenter)
+        self.mpl_canvas = FigureCanvas(self.gpc.img_model_rgb.fig)
+        self.mpl_toolbar = NavigationToolbar(self.mpl_canvas, self)
 
         self.rgb_selection = RgbSelectionWidget()
+        self.slot_update_dataset_info()
 
         vbox = QVBoxLayout()
         hbox = QHBoxLayout()
@@ -59,7 +59,8 @@ class PlotRgbMaps(QWidget):
         hbox.addWidget(self.cb_interpolate)
         hbox.addWidget(self.combo_pixels_positions)
         vbox.addLayout(hbox)
-        vbox.addWidget(label)
+        vbox.addWidget(self.mpl_toolbar)
+        vbox.addWidget(self.mpl_canvas)
         hbox = QHBoxLayout()
         hbox.addSpacerItem(QSpacerItem(0, 0))
         hbox.addWidget(self.rgb_selection)
@@ -96,15 +97,27 @@ class PlotRgbMaps(QWidget):
         self.signal_rgb_maps_norm_changed.emit()
 
     def combo_pixels_positions_current_index_changed(self, index):
-        self.gpc.set_maps_pixel_or_pos(self._pix_pos_values[index])
+        self.gpc.set_rgb_maps_pixel_or_pos(self._pix_pos_values[index])
 
     def cb_interpolate_toggled(self, state):
-        self.gpc.set_maps_grid_interpolate(state)
+        self.gpc.set_rgb_maps_grid_interpolate(state)
 
     @pyqtSlot()
     def slot_update_dataset_info(self):
         self._update_datasets()
         self._update_scalers()
+
+        # Update ranges in the RGB selection widget
+        range_table, limit_table, rgb_dict = self.gpc.get_rgb_maps_info_table()
+        self.rgb_selection.set_ranges_and_limits(range_table=range_table,
+                                                 limit_table=limit_table,
+                                                 rgb_dict=rgb_dict)
+
+    @pyqtSlot()
+    def slot_update_ranges(self):
+        """Update only ranges and selections for the emission lines"""
+        range_table, limit_table, _ = self.gpc.get_rgb_maps_info_table()
+        self.rgb_selection.set_ranges_and_limits(range_table=range_table, limit_table=limit_table)
 
     def _update_datasets(self):
         dataset_list, dset_sel = self.gpc.get_rgb_maps_dataset_list()
@@ -127,6 +140,11 @@ class RgbSelectionWidget(QWidget):
     def __init__(self):
         super().__init__()
 
+        self._range_table = []
+        self._limit_table = []
+        self._rgb_keys = ["red", "green", "blue"]
+        self._rgb_dict = {_: None for _ in self._rgb_keys}
+
         widget_layout = self._setup_rgb_widget()
         self.setLayout(widget_layout)
 
@@ -143,12 +161,8 @@ class RgbSelectionWidget(QWidget):
         rb_check: int
             The number of QRadioButton to check. Typically this would be the row number.
         """
-        sample_elements = ["Ar_K", "Ca_K", "Ti_K", "Fe_K", "Userpeak1",
-                           "i0", "i0_time", "time", "time_diff"]
-        elements = [""] + sample_elements
-
         combo_elements = QComboBox()
-        combo_elements.addItems(elements)
+        combo_elements.setSizeAdjustPolicy(QComboBox.AdjustToContents)
 
         # Set text color for QComboBox widget (necessary if the program is used with Dark theme)
         pal = combo_elements.palette()
@@ -190,6 +204,7 @@ class RgbSelectionWidget(QWidget):
         self.elements_rb_color = []
         self.elements_range = []
         self.elements_btn_groups = []
+        self.row_colors = []
 
         self.table = QTableWidget()
         # Horizontal header entries
@@ -237,16 +252,18 @@ class RgbSelectionWidget(QWidget):
             self.elements_rb_color.append(btns)
             self.elements_range.append(rng)
             self.elements_btn_groups.append(btn_group)
+            self.row_colors.append(self._rgb_keys[n_row])
 
         # Colors that are used to paint rows of the table in RGB colors
         br = 150
-        self.rgb_row_colors = ((255, br, br),
-                               (br, 255, br),
-                               (br, br, 255))
+        self._rgb_row_colors = {"red": (255, br, br),
+                                "green": (br, 255, br),
+                                "blue": (br, br, 255)}
+        self._rgb_color_keys = ["red", "green", "blue"]
 
         # Set initial colors
         for n_row in range(self.table.rowCount()):
-            self.adjust_row_color(n_row)
+            self._set_row_color(n_row)
 
         self.table.resizeRowsToContents()
 
@@ -269,33 +286,34 @@ class RgbSelectionWidget(QWidget):
 
     def _get_selected_row_color(self, n_row):
 
-        n_rgb_color = None
+        color_key = None
 
         btns = self.elements_rb_color[n_row]
 
         for n, btn in enumerate(btns):
             if btn.isChecked():
-                n_rgb_color = n
+                color_key = self._rgb_color_keys[n]
                 break
 
-        return n_rgb_color
+        return color_key
 
-    def adjust_row_color(self, n_row, *, n_rgb_color=None):
+    def _set_row_color(self, n_row, *, color_key=None):
         """
         Parameters
         ----------
         n_row: int
             The row number that needs background color change (0..2 if table has 3 rows)
-        n_rgb_color: int
-            The number color in the RGB table (must have value 0..2)
+        color_key: int
+            Color key: "red", "green" or "blue"
         """
 
-        if n_rgb_color is None:
-            n_rgb_color = self._get_selected_row_color(n_row)
-        if n_rgb_color is None:
+        if color_key is None:
+            color_key = self._get_selected_row_color(n_row)
+        if color_key is None:
             return
 
-        rgb = self.rgb_row_colors[n_rgb_color]
+        self.row_colors[n_row] = color_key
+        rgb = self._rgb_row_colors[color_key]
 
         # The following code is based on the arrangement of the widgets in the table
         #   Modify the code if widgets are arranged differently or the table structure
@@ -317,6 +335,35 @@ class RgbSelectionWidget(QWidget):
                 # Custom RangeManager widget, color is updated using custom method
                 wd.setBackground(rgb)
 
+        n_col = self._rgb_color_keys.index(color_key)
+        for n, n_btn in enumerate(self.elements_rb_color[n_row]):
+            check_status = True if n == n_col else False
+            n_btn.setChecked(check_status)
+
+    def _fill_table(self):
+
+        eline_list = [_[0] for _ in self._range_table]
+        for n_row in range(self.table.rowCount()):
+            self.elements_combo[n_row].addItems(eline_list)
+
+        for n_row, color in enumerate(self._rgb_color_keys):
+            # Initially set colors in order
+            self._set_row_color(n_row, color_key=color)
+            eline_key = self._rgb_dict[color]
+            if eline_key is not None:
+                try:
+                    ind = eline_list.index(eline_key)
+                    self.elements_combo[n_row].setCurrentIndex(ind)
+                    range_low, range_high = self._range_table[ind][1:]
+                    self.elements_range[n_row].set_range(range_low, range_high)
+                    sel_low, sel_high = self._limit_table[ind][1:]
+                    self.elements_range[n_row].set_selection(value_low=sel_low, value_high=sel_high)
+                except ValueError:
+                    pass
+
+    def _update_ranges(self):
+        pass
+
     def _find_rbutton(self, button):
         for nr, btns in enumerate(self.elements_rb_color):
             for nc, btn in enumerate(btns):
@@ -329,4 +376,19 @@ class RgbSelectionWidget(QWidget):
     def rb_toggled(self, button, state):
         if state:  # Ignore signals from unchecked buttons
             nr, nc = self._find_rbutton(button)
-            self.adjust_row_color(nr, n_rgb_color=nc)
+
+            color_current = self.row_colors[nr]
+            color_to_set = self._rgb_color_keys[nc]
+            nr_switch = self.row_colors.index(color_to_set)
+
+            self._set_row_color(nr, color_key=color_to_set)
+            self._set_row_color(nr_switch, color_key=color_current)
+
+    def set_ranges_and_limits(self, *, range_table=None, limit_table=None, rgb_dict=None):
+        if range_table is not None:
+            self._range_table = copy.deepcopy(range_table)
+        if limit_table is not None:
+            self._limit_table = copy.deepcopy(limit_table)
+        if rgb_dict is not None:
+            self._rgb_dict = rgb_dict.copy()
+        self._fill_table()

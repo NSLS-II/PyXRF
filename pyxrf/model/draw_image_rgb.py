@@ -4,7 +4,7 @@ from __future__ import (absolute_import, division,
 import numpy as np
 import math
 import re
-from collections import OrderedDict
+from functools import partial
 from matplotlib.figure import Figure, Axes
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -19,15 +19,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 np.seterr(divide='ignore', invalid='ignore')  # turn off warning on invalid division
-
-#
-# class plot_limit(Atom):
-#     low = Float(0)
-#     high = Float(100)
-#     # g_low = Float(0)
-#     # g_high = Float(100)
-#     # b_low = Float(0)
-#     # b_high = Float(100)
 
 
 class DrawImageRGB(Atom):
@@ -81,7 +72,6 @@ class DrawImageRGB(Atom):
     ax_r = Typed(Axes)
     ax_g = Typed(Axes)
     ax_b = Typed(Axes)
-    stat_dict = Dict()
     img_dict = Dict()
     img_dict_keys = List()
     data_opt = Int(0)
@@ -101,32 +91,34 @@ class DrawImageRGB(Atom):
     limit_dict = Dict()
     range_dict = Dict()
 
+    # 'stat_dict' is legacy from 'DrawImageAdvanced' class. It is not used here,
+    #   but it may be repurposed in the future if multicolor map presentation is developed
+    stat_dict = Dict()
+    # Contains dictionary {"red": <key>, "green": <key>, "blue": <key>}, key is the key
+    #   from the dictionary 'self.dict_to_plot' or None.
+    rgb_keys = List(str)  # The list of keys in 'rgb_dict'
+    rgb_dict = Dict()
+
     # Variable that indicates whether quanitative normalization should be applied to data
     #   Associated with 'Quantitative' checkbox
     quantitative_normalization = Bool(False)
 
-    rgb_name_list = List()
-    index_red = Int(0)
-    index_green = Int(1)
-    index_blue = Int(2)
-    # ic_norm = Float()
+    rgb_name_list = List()  # List of names for RGB channels printed on the plot
+
     rgb_limit = Dict()
-    r_low = Int(0)
-    r_high = Int(100)
-    g_low = Int(0)
-    g_high = Int(100)
-    b_low = Int(0)
-    b_high = Int(100)
-    # r_bound = List()
-    # rgb_limit = plot_limit()
     name_not_scalable = List()
 
     def __init__(self):
+        self.fig = plt.figure(figsize=(3, 2))
+
         self.rgb_name_list = ['R', 'G', 'B']
 
         # Do not apply scaler norm on following data
         self.name_not_scalable = ['r2_adjust', 'r_factor', 'alive', 'dead', 'elapsed_time',
                                   'scaler_alive', 'i0_time', 'time', 'time_diff', 'dwell_time']
+
+        self.rgb_keys = ["red", "green", "blue"]
+        self._init_rgb_dict()
 
     def img_dict_update(self, change):
         """
@@ -143,12 +135,6 @@ class DrawImageRGB(Atom):
 
     @observe('img_dict')
     def init_plot_status(self, change):
-        # initiate the plotting status once new data is coming
-        self.rgb_name_list = ['R', 'G', 'B']
-        self.index_red = 0
-        self.index_green = 1
-        self.index_blue = 2
-
         # init of pos values
         self.set_pixel_or_pos(0)
 
@@ -202,8 +188,10 @@ class DrawImageRGB(Atom):
                 # for GUI purpose only
                 self.set_map_keys()
                 self.init_limits_and_stat()
-                # set rgb value to 0 and 100
-                #self.init_rgb()
+
+                # Select the first 3 entries for RGB display
+                for n in range(min(len(self.rgb_keys), len(self.map_keys))):
+                    self.rgb_dict[self.rgb_keys[n]] = self.map_keys[n]
 
         except IndexError:
             pass
@@ -212,7 +200,7 @@ class DrawImageRGB(Atom):
         self.show_image()
 
     def _get_img_dict_keys(self):
-        key_suffix = [r"scaler$", r"det\d+_fit$", r"fit$", r"det\d+_roi$", r"roi$"]
+        key_suffix = [r"scaler$", r"det\d+_roi$", r"roi$", r"det\d+_fit$", r"fit$"]
         keys = [[] for _ in range(len(key_suffix) + 1)]
         for k in self.img_dict.keys():
             found = False
@@ -250,14 +238,6 @@ class DrawImageRGB(Atom):
         keys_elines.sort()
         keys_scalers.sort()
         self.map_keys = keys_elines + keys_scalers
-
-    #def init_rgb(self):
-    #    self.r_low = 0
-    #    self.r_high = 100
-    #    self.g_low = 0
-    #    self.g_high = 100
-    #    self.b_low = 0
-    #    self.b_high = 100
 
     def set_scaler_index(self, scaler_index):
 
@@ -332,13 +312,18 @@ class DrawImageRGB(Atom):
         self.limit_dict[name]['high'] = 100.0
         self.show_image()
 
+    def _init_rgb_dict(self):
+        self.rgb_dict = {_: None for _ in self.rgb_keys}
+
     def init_limits_and_stat(self):
         """
         Set plotting status for all the 2D images.
         Note: 'self.map_keys' must be updated before calling this function!
         """
         self.stat_dict.clear()
-        self.stat_dict = {k: "" for k in self.map_keys}
+        self.stat_dict = {k: False for k in self.map_keys}
+
+        self._init_rgb_dict()
 
         self.limit_dict.clear()
         self.limit_dict = {k: {'low': 0.0, 'high': 100.0} for k in self.map_keys}
@@ -353,10 +338,10 @@ class DrawImageRGB(Atom):
         selected_data = []
         selected_name = []
 
-        stat_temp = self.get_activated_num()
-        stat_temp = OrderedDict(sorted(stat_temp.items(), key=lambda x: x[0]))
-
-        # plot_interp = 'Nearest'
+        rgb_color_to_keys = self.get_rgb_items_for_plot()
+        for data_key in rgb_color_to_keys.values():
+            if data_key in self.dict_to_plot:
+                selected_name.append(data_key)
 
         if self.scaler_data is not None:
             if np.count_nonzero(self.scaler_data) == 0:
@@ -364,24 +349,16 @@ class DrawImageRGB(Atom):
             elif len(self.scaler_data[self.scaler_data == 0]) > 0:
                 logger.warning('scaler data has zero values')
 
-        for i, (k, v) in enumerate(stat_temp.items()):
-
+        for i, k in enumerate(selected_name):
             data_arr = normalize_data_by_scaler(self.dict_to_plot[k], self.scaler_data,
                                                 data_name=k, name_not_scalable=self.name_not_scalable)
-
             selected_data.append(data_arr)
-            selected_name.append(k)  # self.file_name+'_'+str(k)
 
-        return selected_data, selected_name
-
-    # @observe('r_low', 'r_high', 'g_low', 'g_high', 'b_low', 'b_high')
-    # def _update_scale(self, change):
-    #     if change['type'] != 'create':
-    #         self.show_image()
+        return selected_data, selected_name, rgb_color_to_keys
 
     def show_image(self):
+        self.fig.clf()
 
-        self.fig = plt.figure(figsize=(3, 2))
         self.ax = self.fig.add_subplot(111)
         self.ax_r, self.ax_g, self.ax_b = make_rgb_axes(self.ax, pad=0.02)
 
@@ -406,18 +383,21 @@ class DrawImageRGB(Atom):
                 grid_interpolate_local = False  # Switch to plotting vs. pixel number
                 logger.error("'Positions' data is not available. Interpolation is disabled.")
 
-        selected_data, selected_name = self.preprocess_data()
+        selected_data, selected_names, rgb_color_to_keys = self.preprocess_data()
         selected_data = np.asarray(selected_data)
 
-        if len(selected_name) != 3:
-            logger.error('Please select three elements for RGB plot.')
-            return
-        self.rgb_name_list = selected_name[:3]
+        # Hide unused axes
+        if rgb_color_to_keys["red"] is None:
+            self.ax_r.set_visible(False)
+        if rgb_color_to_keys["green"] is None:
+            self.ax_g.set_visible(False)
+        if rgb_color_to_keys["blue"] is None:
+            self.ax_b.set_visible(False)
 
-        try:
-            data_r = selected_data[0, :, :]
-        except IndexError:
-            selected_data = np.ones([3, 10, 10])
+        if selected_data.ndim != 3:
+            # There is no data to display. Hide the last axis and exit
+            self.ax.set_visible(False)
+            return
 
         def _compute_equal_axes_ranges(x_min, x_max, y_min, y_max):
             """
@@ -503,29 +483,37 @@ class DrawImageRGB(Atom):
                 yd_min, yd_max, yd_axis_min, yd_axis_max = yd_max, yd_min, yd_axis_max, yd_axis_min
 
         else:
+            if selected_data.ndim == 3:
+                # Set equal ranges for the axes data
+                yd, xd = selected_data.shape[1], selected_data.shape[2]
+                xd_min, xd_max, yd_min, yd_max = 0, xd, 0, yd
+                # Select minimum range for data
+                if (yd <= math.floor(xd / 100)) and (xd >= 200):
+                    yd_min, yd_max = -math.floor(xd / 200), math.ceil(xd / 200)
+                if (xd <= math.floor(yd / 100)) and (yd >= 200):
+                    xd_min, xd_max = -math.floor(yd / 200), math.ceil(yd / 200)
 
-            # Set equal ranges for the axes data
-            yd, xd = selected_data.shape[1], selected_data.shape[2]
-            xd_min, xd_max, yd_min, yd_max = 0, xd, 0, yd
-            # Select minimum range for data
-            if (yd <= math.floor(xd / 100)) and (xd >= 200):
-                yd_min, yd_max = -math.floor(xd / 200), math.ceil(xd / 200)
-            if (xd <= math.floor(yd / 100)) and (yd >= 200):
-                xd_min, xd_max = -math.floor(yd / 200), math.ceil(yd / 200)
+                xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = \
+                    _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
 
-            xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = \
-                _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
-
-        name_r = self.rgb_name_list[self.index_red]
-        data_r = selected_data[self.index_red, :, :]
-        name_g = self.rgb_name_list[self.index_green]
-        data_g = selected_data[self.index_green, :, :]
-        name_b = self.rgb_name_list[self.index_blue]
-        data_b = selected_data[self.index_blue, :, :]
-
-        rgb_l_h = ({'low': self.r_low, 'high': self.r_high},
-                   {'low': self.g_low, 'high': self.g_high},
-                   {'low': self.b_low, 'high': self.b_high})
+        name_r, data_r, limits_r = "", None, {"low": 0, "high": 100.0}
+        name_g, data_g, limits_g = "", None, {"low": 0, "high": 100.0}
+        name_b, data_b, limits_b = "", None, {"low": 0, "high": 100.0}
+        for color, name in rgb_color_to_keys.items():
+            if name:
+                try:
+                    ind = selected_names.index(name)
+                    if color == "red":
+                        name_r, data_r = name, selected_data[ind]
+                        limits_r = self.limit_dict[name]
+                    elif color == "green":
+                        name_g, data_g = name, selected_data[ind]
+                        limits_g = self.limit_dict[name]
+                    elif color == "blue":
+                        name_b, data_b = name, selected_data[ind]
+                        limits_b = self.limit_dict[name]
+                except ValueError:
+                    pass
 
         def _norm_data(data):
             """
@@ -534,6 +522,8 @@ class DrawImageRGB(Atom):
             ----------
             data : 2D array
             """
+            if data is None:
+                return data
             data_min = np.min(data)
             c_norm = np.max(data) - data_min
             return (data - data_min) / c_norm if (c_norm != 0) else (data - data_min)
@@ -542,6 +532,8 @@ class DrawImageRGB(Atom):
 
             # 'data is already normalized, so that the values are in the range 0..1
             # v_low, v_high are in the range 0..100
+            if data_in is None:
+                return data_in
 
             if (v_low <= 0) and (v_high >= 100):
                 return data_in
@@ -567,37 +559,116 @@ class DrawImageRGB(Atom):
                                             self.img_dict['positions']['x_pos'],
                                             self.img_dict['positions']['y_pos'])
 
+        # The dictionaries 'rgb_view_data' and 'pos_limits' are used for monitoring
+        #   the map values at current cursor positions.
+        rgb_view_data = {_: None for _ in self.rgb_keys}
+        if data_r is not None:
+            rgb_view_data["red"] = data_r
+        if data_g is not None:
+            rgb_view_data["green"] = data_g
+        if data_b is not None:
+            rgb_view_data["blue"] = data_b
+        pos_limits = {"x_low": xd_min, "x_high": xd_max,
+                      "y_low": yd_min, "y_high": yd_max}
+
         # Normalize data
-        data_r = _norm_data(data_r)
-        data_g = _norm_data(data_g)
-        data_b = _norm_data(data_b)
+        data_r_norm = _norm_data(data_r)
+        data_g_norm = _norm_data(data_g)
+        data_b_norm = _norm_data(data_b)
 
-        data_r = _stretch_range(data_r, rgb_l_h[self.index_red]['low'], rgb_l_h[self.index_red]['high'])
-        data_g = _stretch_range(data_g, rgb_l_h[self.index_green]['low'], rgb_l_h[self.index_green]['high'])
-        data_b = _stretch_range(data_b, rgb_l_h[self.index_blue]['low'], rgb_l_h[self.index_blue]['high'])
+        data_r_norm = _stretch_range(data_r_norm, limits_r['low'], limits_r['high'])
+        data_g_norm = _stretch_range(data_g_norm, limits_g['low'], limits_g['high'])
+        data_b_norm = _stretch_range(data_b_norm, limits_b['low'], limits_b['high'])
 
-        R, G, B, RGB = make_cube(data_r,
-                                 data_g,
-                                 data_b)
+        R, G, B, RGB = make_cube(data_r_norm, data_g_norm, data_b_norm)
 
         red_patch = mpatches.Patch(color='red', label=name_r)
         green_patch = mpatches.Patch(color='green', label=name_g)
         blue_patch = mpatches.Patch(color='blue', label=name_b)
 
-        kwargs = dict(origin="upper", interpolation="nearest", extent=(xd_min, xd_max, yd_max, yd_min))
-        self.ax.imshow(RGB, **kwargs)
-        self.ax_r.imshow(R, **kwargs)
-        self.ax_g.imshow(G, **kwargs)
-        self.ax_b.imshow(B, **kwargs)
+        def format_coord_func(x, y, *, pixel_or_pos, rgb_color_to_keys,
+                              rgb_view_data, pos_limits, colors=None):
+            x0, y0 = pos_limits["x_low"], pos_limits["y_low"]
+            if colors is None:
+                colors = list(rgb_color_to_keys.keys())
 
-        self.ax.set_xlim(xd_axis_min, xd_axis_max)
-        self.ax.set_ylim(yd_axis_max, yd_axis_min)
-        self.ax_r.set_xlim(xd_axis_min, xd_axis_max)
-        self.ax_r.set_ylim(yd_axis_max, yd_axis_min)
-        self.ax_g.set_xlim(xd_axis_min, xd_axis_max)
-        self.ax_g.set_ylim(yd_axis_max, yd_axis_min)
-        self.ax_b.set_xlim(xd_axis_min, xd_axis_max)
-        self.ax_b.set_ylim(yd_axis_max, yd_axis_min)
+            s = ""
+            for n, color in enumerate(self.rgb_keys):
+                if (color not in colors) or (rgb_color_to_keys[color] is None) \
+                        or (rgb_view_data[color] is None):
+                    continue
+                map = rgb_view_data[color]
+
+                ny, nx = map.shape
+                dy = (pos_limits["y_high"] - y0) / ny if ny else 0
+                dx = (pos_limits["x_high"] - x0) / nx if nx else 0
+                cy = 1 / dy if dy else 1
+                cx = 1 / dx if dx else 1
+
+                x_pixel = math.floor((x - x0) * cx)
+                y_pixel = math.floor((y - y0) * cy)
+
+                if (0 <= x_pixel < nx) and (0 <= y_pixel < ny):
+                    # The following line is extremely useful for debugging the feature. Keep it.
+                    # s += f" <b>{rgb_color_to_keys[color]}</b>: {x_pixel} {y_pixel}"
+                    s += f" <b>{rgb_color_to_keys[color]}</b>: {map[y_pixel, x_pixel]:.5g}"
+
+            s = " - " + s if s else s  # Add dash if something is to be printed
+
+            if pixel_or_pos:
+                # Spatial coordinates (double)
+                s_coord = f"({x:.5g}, {y:.5g})"
+            else:
+                # Pixel coordinates (int)
+                s_coord = f"({int(x)}, {int(y)})"
+
+            return s_coord + s
+
+        format_coord = partial(format_coord_func,
+                               pixel_or_pos=pixel_or_pos_local,
+                               rgb_color_to_keys=rgb_color_to_keys,
+                               rgb_view_data=rgb_view_data,
+                               pos_limits=pos_limits)
+
+        def format_cursor_data(data):
+            return ""  # Print nothing
+
+        kwargs = dict(origin="upper", interpolation="nearest", extent=(xd_min, xd_max, yd_max, yd_min))
+        if RGB is not None:
+            img = self.ax.imshow(RGB, **kwargs)
+
+            self.ax.format_coord = format_coord
+            img.format_cursor_data = format_cursor_data
+
+            self.ax.set_xlim(xd_axis_min, xd_axis_max)
+            self.ax.set_ylim(yd_axis_max, yd_axis_min)
+
+        if R is not None:
+            img = self.ax_r.imshow(R, **kwargs)
+            self.ax_r.set_xlim(xd_axis_min, xd_axis_max)
+            self.ax_r.set_ylim(yd_axis_max, yd_axis_min)
+
+            format_coord_r = partial(format_coord, colors=["red"])
+            self.ax_r.format_coord = format_coord_r
+            img.format_cursor_data = format_cursor_data
+
+        if G is not None:
+            img = self.ax_g.imshow(G, **kwargs)
+            self.ax_g.set_xlim(xd_axis_min, xd_axis_max)
+            self.ax_g.set_ylim(yd_axis_max, yd_axis_min)
+
+            format_coord_g = partial(format_coord, colors=["green"])
+            self.ax_g.format_coord = format_coord_g
+            img.format_cursor_data = format_cursor_data
+
+        if B is not None:
+            img = self.ax_b.imshow(B, **kwargs)
+            self.ax_b.set_xlim(xd_axis_min, xd_axis_max)
+            self.ax_b.set_ylim(yd_axis_max, yd_axis_min)
+
+            format_coord_b = partial(format_coord, colors=["blue"])
+            self.ax_b.format_coord = format_coord_b
+            img.format_cursor_data = format_cursor_data
 
         self.ax.xaxis.set_major_locator(mticker.MaxNLocator(nbins="auto"))
         self.ax.yaxis.set_major_locator(mticker.MaxNLocator(nbins="auto"))
@@ -626,11 +697,29 @@ class DrawImageRGB(Atom):
         # self.fig.tight_layout(pad=4.0, w_pad=0.8, h_pad=0.8)
         # self.fig.tight_layout()
         # self.fig.canvas.draw_idle()
-        self.fig.suptitle(self.img_title, fontsize=20)
+        # self.fig.suptitle(self.img_title, fontsize=20)
         self.fig.canvas.draw_idle()
 
-    def get_activated_num(self):
-        return {k: v for (k, v) in self.stat_dict.items() if v is True}
+    def get_selected_items_for_plot(self):
+        """Collect the selected items for plotting.
+        """
+        # We want the dictionary to be sorted the same way as 'map_keys'
+        sdict = self.stat_dict
+        selected_keys = [_ for _ in self.map_keys if (_ in sdict) and (sdict[_] is True)]
+        return selected_keys
+
+    def get_rgb_items_for_plot(self):
+        # Verify integrity of the dictionary
+        if len(self.rgb_dict) != 3:
+            raise ValueError("DrawImageRGB.get_rgb_items_for_plot: dictionary 'rgb_dict' has "
+                             f"{len(self.rgb_dict)} elements. Expected number of elements: "
+                             f"{len(self.rgb_keys)}.")
+        for key in self.rgb_keys:
+            if key not in self.rgb_dict:
+                raise ValueError("DrawImageRGB.get_rgb_items_for_plot: dictionary 'rgb_dict' is "
+                                 f"incomplete or contains incorrect set of keys: {list(self.rgb_dict.keys())}. "
+                                 f"Expected keys: {self.rgb_keys}: ")
+        return self.rgb_dict
 
 
 def make_cube(r, g, b):
@@ -642,14 +731,23 @@ def make_cube(r, g, b):
     g : 2D array
     b : 2D array
     """
-    ny, nx = r.shape
-    R = np.zeros([ny, nx, 3])
-    R[:, :, 0] = r
-    G = np.zeros_like(R)
-    G[:, :, 1] = g
-    B = np.zeros_like(R)
-    B[:, :, 2] = b
+    if r is None and g is None and b is None:
+        logger.error("'make_cube': 'r', 'g' and 'b' input arrays are all None")
+        R, G, B, RGB = None
 
-    RGB = R + G + B
+    else:
+        for arr in [r, g, b]:
+            if arr is not None:
+                ny, nx = arr.shape
+                break
+
+        R = np.zeros([ny, nx, 3])
+        R[:, :, 0] = r
+        G = np.zeros_like(R)
+        G[:, :, 1] = g
+        B = np.zeros_like(R)
+        B[:, :, 2] = b
+
+        RGB = R + G + B
 
     return R, G, B, RGB

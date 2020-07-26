@@ -1,7 +1,6 @@
 from __future__ import absolute_import
 
 import numpy as np
-from collections import OrderedDict
 # from scipy.interpolate import interp1d, interp2d
 import copy
 import re
@@ -196,7 +195,7 @@ class DrawImageAdvanced(Atom):
         self.show_image()
 
     def _get_img_dict_keys(self):
-        key_suffix = [r"scaler$", r"det\d+_fit$", r"fit$", r"det\d+_roi$", r"roi$"]
+        key_suffix = [r"scaler$", r"det\d+_roi$", r"roi$", r"det\d+_fit$", r"fit$"]
         keys = [[] for _ in range(len(key_suffix) + 1)]
         for k in self.img_dict.keys():
             found = False
