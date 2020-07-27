@@ -15,6 +15,8 @@ from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool
 from ..core.utils import normalize_data_by_scaler, grid_interpolate
 from ..core.xrf_utils import check_if_eline_supported
 
+from .draw_image import DrawImageAdvanced
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -99,6 +101,8 @@ class DrawImageRGB(Atom):
     rgb_keys = List(str)  # The list of keys in 'rgb_dict'
     rgb_dict = Dict()
 
+    # Reference used to access some fields
+    img_model_adv = Typed(DrawImageAdvanced)
     # Variable that indicates whether quanitative normalization should be applied to data
     #   Associated with 'Quantitative' checkbox
     quantitative_normalization = Bool(False)
@@ -108,7 +112,9 @@ class DrawImageRGB(Atom):
     rgb_limit = Dict()
     name_not_scalable = List()
 
-    def __init__(self):
+    def __init__(self, *, img_model_adv):
+        self.img_model_adv = img_model_adv
+
         self.fig = plt.figure(figsize=(3, 2))
 
         self.rgb_name_list = ['R', 'G', 'B']
@@ -239,6 +245,12 @@ class DrawImageRGB(Atom):
         keys_scalers.sort()
         self.map_keys = keys_elines + keys_scalers
 
+    def get_selected_scaler_name(self):
+        if self.scaler_name_index == 0:
+            return None
+        else:
+            return self.scaler_items[self.scaler_name_index - 1]
+
     def set_scaler_index(self, scaler_index):
 
         self.scaler_name_index = scaler_index
@@ -272,6 +284,19 @@ class DrawImageRGB(Atom):
         self.grid_interpolate = grid_interpolate
         self.show_image()
 
+    def enable_quantitative_normalization(self, enable):
+        """
+        Enable/Disable quantitative normalization.
+
+        Parameters
+        ----------
+        enable: bool
+            Enable quantitative normalization if True, disable if False.
+        """
+        self.quantitative_normalization = bool(enable)
+        self.set_low_high_value()  # reset low high values based on normalization
+        self.show_image()
+
     def set_low_high_value(self):
         """Set default low and high values based on normalization for each image.
         """
@@ -282,7 +307,7 @@ class DrawImageRGB(Atom):
 
             if self.quantitative_normalization:
                 # Quantitative normalization
-                data_arr, _ = self.param_quant_analysis.apply_quantitative_normalization(
+                data_arr, _ = self.img_model_adv.param_quant_analysis.apply_quantitative_normalization(
                     data_in=self.dict_to_plot[data_name],
                     scaler_dict=self.scaler_norm_dict,
                     scaler_name_default=self.get_selected_scaler_name(),
@@ -337,6 +362,7 @@ class DrawImageRGB(Atom):
 
         selected_data = []
         selected_name = []
+        quant_norm_applied = []
 
         rgb_color_to_keys = self.get_rgb_items_for_plot()
         for data_key in rgb_color_to_keys.values():
@@ -350,11 +376,27 @@ class DrawImageRGB(Atom):
                 logger.warning('scaler data has zero values')
 
         for i, k in enumerate(selected_name):
-            data_arr = normalize_data_by_scaler(self.dict_to_plot[k], self.scaler_data,
-                                                data_name=k, name_not_scalable=self.name_not_scalable)
-            selected_data.append(data_arr)
+            q_norm_applied = False
+            if self.quantitative_normalization:
+                # Quantitative normalization
+                data_arr, q_norm_applied = \
+                    self.img_model_adv.param_quant_analysis.apply_quantitative_normalization(
+                        data_in=self.dict_to_plot[k],
+                        scaler_dict=self.scaler_norm_dict,
+                        scaler_name_default=self.get_selected_scaler_name(),
+                        data_name=k,
+                        name_not_scalable=self.name_not_scalable)
+            else:
+                # Normalize by the selected scaler in a regular way
+                data_arr = normalize_data_by_scaler(data_in=self.dict_to_plot[k],
+                                                    scaler=self.scaler_data,
+                                                    data_name=k,
+                                                    name_not_scalable=self.name_not_scalable)
 
-        return selected_data, selected_name, rgb_color_to_keys
+            selected_data.append(data_arr)
+            quant_norm_applied.append(q_norm_applied)
+
+        return selected_data, selected_name, rgb_color_to_keys, quant_norm_applied
 
     def show_image(self):
         self.fig.clf()
@@ -383,7 +425,7 @@ class DrawImageRGB(Atom):
                 grid_interpolate_local = False  # Switch to plotting vs. pixel number
                 logger.error("'Positions' data is not available. Interpolation is disabled.")
 
-        selected_data, selected_names, rgb_color_to_keys = self.preprocess_data()
+        selected_data, selected_names, rgb_color_to_keys, quant_norm_applied = self.preprocess_data()
         selected_data = np.asarray(selected_data)
 
         # Hide unused axes
@@ -503,6 +545,8 @@ class DrawImageRGB(Atom):
             if name:
                 try:
                     ind = selected_names.index(name)
+                    if quant_norm_applied[ind]:
+                        name += "-Q"  # Add suffix to name if quantitative normalization was applied
                     if color == "red":
                         name_r, data_r = name, selected_data[ind]
                         limits_r = self.limit_dict[name]

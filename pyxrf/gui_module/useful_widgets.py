@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import (QLineEdit, QWidget, QHBoxLayout, QComboBox, QTextEdit,
                              QSizePolicy, QLabel, QPushButton, QGridLayout, QSlider)
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QPalette, QColor, QFontMetrics, QIntValidator, QDoubleValidator
 
 import logging
@@ -186,6 +186,25 @@ class PushButtonMinimumWidth(QPushButton):
         fm = QFontMetrics(font)
         text_width = fm.width(text) + 6
         self.setFixedWidth(text_width)
+
+
+class ComboBoxNamed(QComboBox):
+    """
+    Combo box that returns 'name' as the first parameter with the signals.
+    Named widget is useful to distinguish between widgets when they are inserted in table rows.
+    """
+
+    currentIndexChanged = pyqtSignal(str, int)
+
+    def __init__(self, *args, name=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._name = name
+        super().currentIndexChanged.connect(self._current_index_changed)
+
+    @pyqtSlot(int)
+    def _current_index_changed(self, index):
+        name = self._name if self._name is not None else ""
+        self.currentIndexChanged.emit(name, index)
 
 
 class SecondaryWindow(QWidget):

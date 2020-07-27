@@ -50,7 +50,7 @@ class GlobalProcessingClasses:
         self.fit_model = Fit1D(param_model=self.param_model, io_model=self.io_model, **defaults)
         self.setting_model = SettingModel(**defaults)
         self.img_model_adv = DrawImageAdvanced()
-        self.img_model_rgb = DrawImageRGB()
+        self.img_model_rgb = DrawImageRGB(img_model_adv=self.img_model_adv)
 
         # Initialization needed to eliminate program crash
         self.plot_model.roi_dict = self.setting_model.roi_dict
@@ -387,10 +387,10 @@ class GlobalProcessingClasses:
         range_table = []
         limit_table = []
         for key in ks:
-            rng_low = self.img_model_adv.range_dict[key]['low']
-            rng_high = self.img_model_adv.range_dict[key]['high']
-            limit_low_norm = self.img_model_adv.limit_dict[key]['low']
-            limit_high_norm = self.img_model_adv.limit_dict[key]['high']
+            rng_low = self.img_model_rgb.range_dict[key]['low']
+            rng_high = self.img_model_rgb.range_dict[key]['high']
+            limit_low_norm = self.img_model_rgb.limit_dict[key]['low']
+            limit_high_norm = self.img_model_rgb.limit_dict[key]['high']
             limit_low = rng_low + (rng_high - rng_low) * limit_low_norm / 100.0
             limit_high = rng_low + (rng_high - rng_low) * limit_high_norm / 100.0
             range_table.append([key, rng_low, rng_high])
@@ -476,3 +476,13 @@ class GlobalProcessingClasses:
 
     def set_rgb_maps_grid_interpolate(self, grid_interpolate):
         self.img_model_rgb.set_grid_interpolate(grid_interpolate)
+
+    def get_rgb_maps_quant_norm_enabled(self):
+        return bool(self.img_model_rgb.quantitative_normalization)
+
+    def set_rgb_maps_quant_norm_enabled(self, enable):
+        self.img_model_rgb.enable_quantitative_normalization(enable)
+
+    def redraw_rgb_maps(self):
+        """Redraw maps in XRF Maps tab"""
+        self.img_model_rgb.show_image()

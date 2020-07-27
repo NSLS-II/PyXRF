@@ -5,19 +5,27 @@ from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 
 import copy
 
-from .useful_widgets import RangeManager, get_background_css, set_tooltip
+from .useful_widgets import RangeManager, get_background_css, set_tooltip, ComboBoxNamed
 
 from matplotlib.backends.backend_qt5agg import \
     FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 class PlotRgbMaps(QWidget):
 
     signal_rgb_maps_dataset_selection_changed = pyqtSignal()
     signal_rgb_maps_norm_changed = pyqtSignal()
+    signal_redraw_maps = pyqtSignal()
 
     def __init__(self, *, gpc, gui_vars):
         super().__init__()
+
+        self._enable_plot_updates = True
+        self._changes_exist = False
+        self._enable_events = False
 
         # Global processing classes
         self.gpc = gpc
@@ -26,16 +34,16 @@ class PlotRgbMaps(QWidget):
 
         self.combo_select_dataset = QComboBox()
         self.combo_select_dataset.setSizeAdjustPolicy(QComboBox.AdjustToContents)
-        self.combo_select_dataset.currentIndexChanged.connect(
-            self.combo_select_dataset_current_index_changed)
 
         self.combo_normalization = QComboBox()
-        self.combo_normalization.currentIndexChanged.connect(
-            self.combo_normalization_current_index_changed)
 
         self.cb_interpolate = QCheckBox("Interpolate")
         self.cb_interpolate.setChecked(self.gpc.get_rgb_maps_grid_interpolate())
         self.cb_interpolate.toggled.connect(self.cb_interpolate_toggled)
+
+        self.cb_quantitative = QCheckBox("Quantitative")
+        self.cb_quantitative.setChecked(self.gpc.get_maps_quant_norm_enabled())
+        self.cb_quantitative.toggled.connect(self.cb_quantitative_toggled)
 
         self.combo_pixels_positions = QComboBox()
         self._pix_pos_values = ["Pixels", "Positions"]
@@ -51,11 +59,16 @@ class PlotRgbMaps(QWidget):
         self.rgb_selection = RgbSelectionWidget()
         self.slot_update_dataset_info()
 
+        self.rgb_selection.signal_update_map_selections.connect(self._update_map_selections)
+
+        self.widgets_enable_events(True)
+
         vbox = QVBoxLayout()
         hbox = QHBoxLayout()
         hbox.addWidget(self.combo_select_dataset)
         hbox.addWidget(self.combo_normalization)
         hbox.addStretch(1)
+        hbox.addWidget(self.cb_quantitative)
         hbox.addWidget(self.cb_interpolate)
         hbox.addWidget(self.combo_pixels_positions)
         vbox.addLayout(hbox)
@@ -84,16 +97,34 @@ class PlotRgbMaps(QWidget):
                     "<b>Blue</b> colors and adjust the range of <b>intensity</b> for each "
                     "displayed map.")
 
+    def widgets_enable_events(self, status):
+        if status:
+            if not self._enable_events:
+                self.combo_select_dataset.currentIndexChanged.connect(
+                    self.combo_select_dataset_current_index_changed)
+                self.combo_normalization.currentIndexChanged.connect(
+                    self.combo_normalization_current_index_changed)
+                self._enable_events = True
+        else:
+            if self._enable_events:
+                self.combo_select_dataset.currentIndexChanged.disconnect(
+                    self.combo_select_dataset_current_index_changed)
+                self.combo_normalization.currentIndexChanged.disconnect(
+                    self.combo_normalization_current_index_changed)
+                self._enable_events = False
+
     def update_widget_state(self, condition=None):
         if condition == "tooltips":
             self._set_tooltips()
 
     def combo_select_dataset_current_index_changed(self, index):
         self.gpc.set_rgb_maps_selected_dataset(index + 1)
+        self._update_dataset()
         self.signal_rgb_maps_dataset_selection_changed.emit()
 
     def combo_normalization_current_index_changed(self, index):
         self.gpc.set_rgb_maps_scaler_index(index)
+        self.slot_update_ranges()
         self.signal_rgb_maps_norm_changed.emit()
 
     def combo_pixels_positions_current_index_changed(self, index):
@@ -102,9 +133,15 @@ class PlotRgbMaps(QWidget):
     def cb_interpolate_toggled(self, state):
         self.gpc.set_rgb_maps_grid_interpolate(state)
 
+    def cb_quantitative_toggled(self, state):
+        self.gpc.set_rgb_maps_quant_norm_enabled(state)
+
     @pyqtSlot()
     def slot_update_dataset_info(self):
-        self._update_datasets()
+        self._update_dataset_list()
+        self._update_dataset()
+
+    def _update_dataset(self):
         self._update_scalers()
 
         # Update ranges in the RGB selection widget
@@ -119,23 +156,43 @@ class PlotRgbMaps(QWidget):
         range_table, limit_table, _ = self.gpc.get_rgb_maps_info_table()
         self.rgb_selection.set_ranges_and_limits(range_table=range_table, limit_table=limit_table)
 
-    def _update_datasets(self):
+    def _update_dataset_list(self):
+        self.widgets_enable_events(False)
         dataset_list, dset_sel = self.gpc.get_rgb_maps_dataset_list()
         self._dataset_list = dataset_list.copy()
         self.combo_select_dataset.clear()
         self.combo_select_dataset.addItems(self._dataset_list)
         # No item should be selected if 'dset_sel' is 0
         self.combo_select_dataset.setCurrentIndex(dset_sel - 1)
+        self.widgets_enable_events(True)
 
     def _update_scalers(self):
+        self.widgets_enable_events(False)
         scalers, scaler_sel = self.gpc.get_rgb_maps_scaler_list()
         self._scaler_list = ["Normalize by ..."] + scalers
         self.combo_normalization.clear()
         self.combo_normalization.addItems(self._scaler_list)
         self.combo_normalization.setCurrentIndex(scaler_sel)
+        self.widgets_enable_events(True)
+
+    @pyqtSlot()
+    def _update_map_selections(self):
+        """Upload the selections (limit table) and update plot"""
+        if self._enable_plot_updates:
+            self._changes_exist = False
+            self.gpc.set_rgb_maps_limit_table(self.rgb_selection._limit_table,
+                                              self.rgb_selection._rgb_dict)
+            self._redraw_maps()
+
+    def _redraw_maps(self):
+        logger.debug("Redrawing XRF Maps")
+        self.gpc.redraw_rgb_maps()
+        self.signal_redraw_maps.emit()
 
 
 class RgbSelectionWidget(QWidget):
+
+    signal_update_map_selections = pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -154,15 +211,15 @@ class RgbSelectionWidget(QWidget):
         sp.setVerticalPolicy(QSizePolicy.Fixed)
         self.setSizePolicy(sp)
 
-    def _setup_rgb_element(self, *, rb_check=0):
+    def _setup_rgb_element(self, n_row, *, rb_check=0):
         """
         Parameters
         ----------
         rb_check: int
             The number of QRadioButton to check. Typically this would be the row number.
         """
-        combo_elements = QComboBox()
-        combo_elements.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+        combo_elements = ComboBoxNamed(name=f"{n_row}")
+        # combo_elements.setSizeAdjustPolicy(QComboBox.AdjustToContents)
 
         # Set text color for QComboBox widget (necessary if the program is used with Dark theme)
         pal = combo_elements.palette()
@@ -187,9 +244,7 @@ class RgbSelectionWidget(QWidget):
         for btn in btns:
             btn_group.addButton(btn)
 
-        btn_group.buttonToggled.connect(self.rb_toggled)
-
-        rng = RangeManager(add_sliders=True)
+        rng = RangeManager(name=f"{n_row}", add_sliders=True)
         rng.setTextColor([0, 0, 0])  # Set text color to 'black'
         # Set some text in edit boxes (just to demonstrate how the controls will look like)
         rng.le_min_value.setText("0.0")
@@ -198,12 +253,34 @@ class RgbSelectionWidget(QWidget):
         rng.setAlignment(Qt.AlignCenter)
         return combo_elements, btns, rng, btn_group
 
+    def _enable_selection_events(self, enable):
+        if enable:
+            if not self.elements_btn_groups_events_enabled:
+                for btn_group in self.elements_btn_groups:
+                    btn_group.buttonToggled.connect(self.rb_toggled)
+                for el_combo in self.elements_combo:
+                    el_combo.currentIndexChanged.connect(self.combo_element_current_index_changed)
+                for el_range in self.elements_range:
+                    el_range.selection_changed.connect(self.range_selection_changed)
+                self.elements_btn_groups_events_enabled = True
+        else:
+            if self.elements_btn_groups_events_enabled:
+                for btn_group in self.elements_btn_groups:
+                    btn_group.buttonToggled.disconnect(self.rb_toggled)
+                for el_combo in self.elements_combo:
+                    el_combo.currentIndexChanged.disconnect(self.combo_element_current_index_changed)
+                # Disconnecting the Range Manager signals is not necessary, but let's do it for consistency
+                for el_range in self.elements_range:
+                    el_range.selection_changed.disconnect(self.range_selection_changed)
+                self.elements_btn_groups_events_enabled = False
+
     def _setup_rgb_widget(self):
 
         self.elements_combo = []
         self.elements_rb_color = []
         self.elements_range = []
         self.elements_btn_groups = []
+        self.elements_btn_groups_events_enabled = False
         self.row_colors = []
 
         self.table = QTableWidget()
@@ -230,7 +307,7 @@ class RgbSelectionWidget(QWidget):
         vheader.setSectionResizeMode(QHeaderView.Stretch)  # ResizeToContents)
 
         for n_row in range(3):
-            combo_elements, btns, rng, btn_group = self._setup_rgb_element(rb_check=n_row)
+            combo_elements, btns, rng, btn_group = self._setup_rgb_element(n_row, rb_check=n_row)
 
             combo_elements.setMinimumWidth(180)
             self.table.setCellWidget(n_row, 0, combo_elements)
@@ -265,6 +342,8 @@ class RgbSelectionWidget(QWidget):
         for n_row in range(self.table.rowCount()):
             self._set_row_color(n_row)
 
+        self._enable_selection_events(True)
+
         self.table.resizeRowsToContents()
 
         # Table height is computed based on content. It doesn't seem
@@ -283,6 +362,38 @@ class RgbSelectionWidget(QWidget):
         hbox.addWidget(self.table)
 
         return hbox
+
+    def combo_element_current_index_changed(self, name, index):
+        if index < 0 or index >= len(self._range_table):
+            return
+        n_row = int(name)
+        sel_eline = self._range_table[index][0]
+        row_color = self.row_colors[n_row]
+        self._rgb_dict[row_color] = sel_eline
+
+        self.elements_range[n_row].set_range(self._range_table[index][1], self._range_table[index][2])
+        self.elements_range[n_row].set_selection(value_low=self._limit_table[index][1],
+                                                 value_high=self._limit_table[index][2])
+        self._update_map_selections()
+
+    def range_selection_changed(self, v_low, v_high, name):
+        n_row = int(name)
+        row_color = self.row_colors[n_row]
+        sel_eline = self._rgb_dict[row_color]
+        ind = None
+        try:
+            ind = [_[0] for _ in self._limit_table].index(sel_eline)
+        except ValueError:
+            pass
+        if ind is not None:
+            self._limit_table[ind][1] = v_low
+            self._limit_table[ind][2] = v_high
+            self._update_map_selections()
+        # We are not preventing users to select the same emission line in to rows.
+        #   Update the selected limits in other rows where the same element is selected.
+        for nr, el_range in enumerate(self.elements_range):
+            if (nr != n_row) and (self._rgb_dict[self.row_colors[nr]] == sel_eline):
+                el_range.set_selection(value_low=v_low, value_high=v_high)
 
     def _get_selected_row_color(self, n_row):
 
@@ -341,9 +452,11 @@ class RgbSelectionWidget(QWidget):
             n_btn.setChecked(check_status)
 
     def _fill_table(self):
+        self._enable_selection_events(False)
 
         eline_list = [_[0] for _ in self._range_table]
         for n_row in range(self.table.rowCount()):
+            self.elements_combo[n_row].clear()
             self.elements_combo[n_row].addItems(eline_list)
 
         for n_row, color in enumerate(self._rgb_color_keys):
@@ -360,6 +473,12 @@ class RgbSelectionWidget(QWidget):
                     self.elements_range[n_row].set_selection(value_low=sel_low, value_high=sel_high)
                 except ValueError:
                     pass
+            else:
+                self.elements_combo[n_row].setCurrentIndex(-1)  # Deselect all
+                self.elements_range[n_row].set_range(0, 1)
+                self.elements_range[n_row].set_selection(value_low=0, value_high=1)
+
+        self._enable_selection_events(True)
 
     def _update_ranges(self):
         pass
@@ -381,8 +500,18 @@ class RgbSelectionWidget(QWidget):
             color_to_set = self._rgb_color_keys[nc]
             nr_switch = self.row_colors.index(color_to_set)
 
+            self._enable_selection_events(False)
+
             self._set_row_color(nr, color_key=color_to_set)
             self._set_row_color(nr_switch, color_key=color_current)
+            # Swap selected maps
+            tmp = self._rgb_dict[color_to_set]
+            self._rgb_dict[color_to_set] = self._rgb_dict[color_current]
+            self._rgb_dict[color_current] = tmp
+
+            self._enable_selection_events(True)
+
+            self._update_map_selections()
 
     def set_ranges_and_limits(self, *, range_table=None, limit_table=None, rgb_dict=None):
         if range_table is not None:
@@ -392,3 +521,7 @@ class RgbSelectionWidget(QWidget):
         if rgb_dict is not None:
             self._rgb_dict = rgb_dict.copy()
         self._fill_table()
+
+    def _update_map_selections(self):
+        """Upload the selections (limit table) and update plot"""
+        self.signal_update_map_selections.emit()
