@@ -1150,6 +1150,10 @@ class ParamQuantitativeAnalysis:
     #   index of the entry, since 'eline_info' contains only the entries which contain calibration
     #   for the emission line. The list 'eline_info' may be useful for GUI presentation of data.
     eline_info = pqa.get_eline_info_complete(<emission line, e.g. "Cu_K">)
+    # Select emission line from the standard (useful when emission line is present in mutliple standards)
+    pqa.select_eline(<emission_line>, <file_path>)
+    # Check if emission line for particular standard is selected
+    pqa.is_eline_selected(<emission_line>, <file_path>)
     # Get calibration data for the emission line (only from the selected entry)
     #   The information is useful at the stage of applying quantitative normalization
     eline_calib = pqa.get_calibrations_selected(<emission_line>)
@@ -1374,6 +1378,8 @@ class ParamQuantitativeAnalysis:
         Use `get_file_path_list()` to get the list of file paths arranged in the order
         in which standards were loaded.
 
+        It is assumed that `eline` exists in the standard `file_path`.
+
         Parameters
         ----------
         file_path: str
@@ -1395,6 +1401,8 @@ class ParamQuantitativeAnalysis:
         Check if the emission line in the standard `file_path` is selected.
         Use `get_file_path_list()` to get the list of file paths arranged in the order
         in which standards were loaded.
+
+        It is assumed that `eline` exists in the standard `file_path`.
 
         Parameters
         ----------
