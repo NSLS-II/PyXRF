@@ -1388,6 +1388,7 @@ class ParamQuantitativeAnalysis:
             sel_flag = (n == n_item)  # Set 'selected' to True only if n == n_item
             if eline in settings["element_lines"]:
                 self.calibration_settings[n]["element_lines"][eline]["selected"] = sel_flag
+        self.update_emission_line_list()
 
     def is_eline_selected(self, eline, file_path):
         r"""
@@ -1417,12 +1418,12 @@ class ParamQuantitativeAnalysis:
         Update the internal list of emission lines. Also check and adjust if necessary
         the selected (assigned) calibration data entry for each emission line.
 
-        This function is called by ``load_entry``, ``add_entry`` and ``remove_entry``
-        functions, since the set of emission lines is changed during those operations.
-        If manual changes are made to loaded calibration data entries, this function
-        has to be called again before any other operation is performed. Particularly,
-        it is recommended that the function is called after changing the selection of
-        calibration sources for emission lines.
+        This function is called by ``load_entry``, ``add_entry``, ``remove_entry`` and
+        ``select_eline`` functions, since the set of emission lines is changed during
+        those operations. If manual changes are made to loaded calibration data entries,
+        this function has to be called again before any other operation is performed.
+        Particularly, it is recommended that the function is called after changing the
+        selection of calibration sources for emission lines.
         """
 
         # The emission lines are arranged in the list in the order in which they appear

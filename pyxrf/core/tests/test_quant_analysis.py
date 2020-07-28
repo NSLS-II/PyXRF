@@ -919,6 +919,27 @@ def test_ParamQuantitativeAnalysis(tmp_path):
     pqa.update_emission_line_list()
     check_selection(pqa, elist, sel_list)
 
+    # Alternatively check selections using 'is_eline_selected'
+    for eline in elist1:
+        assert pqa.is_eline_selected(eline, file_paths[0]), \
+            f"Emission line '{eline}' in the set '{file_paths[0]}' was not selected"
+        if eline in elist:
+            assert not pqa.is_eline_selected(eline, file_paths[1]), \
+                f"Emission line '{eline}' in the set '{file_paths[1]}' was selected"
+    for eline in elist0:
+        if eline not in elist:
+            assert pqa.is_eline_selected(eline, file_paths[1]), \
+                f"Emission line '{eline}' in the set '{file_paths[1]}' was not selected"
+
+    # Change selection of one emission line (test for 'select_eline' function)
+    eline = elist[0]  # 'eline' is present in both sets
+    pqa.select_eline(eline, file_paths[1])
+    assert pqa.is_eline_selected(eline, file_paths[1]), "Emission line is not selected"
+    assert not pqa.is_eline_selected(eline, file_paths[0]), "Emission line is selected"
+    pqa.select_eline(eline, file_paths[0])
+    assert pqa.is_eline_selected(eline, file_paths[0]), "Emission line is not selected"
+    assert not pqa.is_eline_selected(eline, file_paths[1]), "Emission line is selected"
+
     # Select one element in both entries (it is already selected in entry #1
     pqa.calibration_settings[0]["element_lines"][elist[0]]["selected"] = True
     pqa.update_emission_line_list()
