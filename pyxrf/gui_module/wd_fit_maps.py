@@ -1,6 +1,4 @@
 import os
-import json
-import yaml
 import textwrap
 
 from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox, QLineEdit,
@@ -8,12 +6,15 @@ from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox, Q
                              QRadioButton, QButtonGroup, QGridLayout, QTextEdit, QTableWidget,
                              QTableWidgetItem, QHeaderView, QWidget, QSpinBox, QScrollArea,
                              QTabWidget, QFrame)
-from PyQt5.QtGui import QBrush, QColor
+from PyQt5.QtGui import QBrush, QColor, QDoubleValidator
 from PyQt5.QtCore import Qt, QTimer, pyqtSlot, pyqtSignal
 
 from .useful_widgets import (LineEditReadOnly, global_gui_parameters, get_background_css,
-                             PushButtonMinimumWidth, SecondaryWindow, set_tooltip)
+                             PushButtonMinimumWidth, SecondaryWindow, set_tooltip, LineEditExtended)
 from .form_base_widget import FormBaseWidget
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 class FitMapsWidget(FormBaseWidget):
@@ -492,127 +493,9 @@ class WndComputeRoiMaps(SecondaryWindow):
             self._set_tooltips()
 
 
-# Two sets of quantitative calibration data for demonstration of GUI layout
-#   Real data will be used when GUI is integrated with the program.
-#   The data are representing contents of JSON files, so they should be loaded
-#   using 'json' module.
-json_quant_calib_1 = \
-    """
-    {
-        "name": "Micromatter 41147",
-        "serial": "v41147",
-        "description": "GaP 21.2 (Ga=15.4, P=5.8) / CaF2 14.6 / V 26.4 / Mn 17.5 / Co 21.7 / Cu 20.3",
-        "element_lines": {
-            "Ga_K": {
-                "density": 15.4,
-                "fluorescence": 6.12047035678267e-05
-            },
-            "Ga_L": {
-                "density": 15.4,
-                "fluorescence": 1.1429814846741588e-05
-            },
-            "P_K": {
-                "density": 5.8,
-                "fluorescence": 3.177988019213722e-05
-            },
-            "F_K": {
-                "density": 7.105532786885246,
-                "fluorescence": 1.8688801284649113e-07
-            },
-            "Ca_K": {
-                "density": 7.494467213114753,
-                "fluorescence": 0.0005815345261894806
-            },
-            "V_K": {
-                "density": 26.4,
-                "fluorescence": 0.00030309931019669974
-            },
-            "Mn_K": {
-                "density": 17.5,
-                "fluorescence": 0.0018328847495676865
-            },
-            "Co_K": {
-                "density": 21.7,
-                "fluorescence": 0.0014660067400157218
-            },
-            "Cu_K": {
-                "density": 20.3,
-                "fluorescence": 6.435121428993609e-05
-            }
-        },
-        "incident_energy": 12.0,
-        "detector_channel": "sum",
-        "scaler_name": "i0",
-        "distance_to_sample": 1.0,
-        "creation_time_local": "2020-05-27T18:49:14+00:00",
-        "source_scan_id": null,
-        "source_scan_uid": null
-    }
-    """
-
-json_quant_calib_2 = \
-    """
-    {
-        "name": "Micromatter 41164 Name Is Long So It Has To Be Printed On Multiple Lines (Some More Words To Make The Name Longer)",
-        "serial": "41164",
-        "description": "CeF3 21.1 / Au 20.6",
-        "element_lines": {
-            "F_K": {
-                "density": 6.101050068482728,
-                "fluorescence": 2.1573457185882552e-07
-            },
-            "Ce_L": {
-                "density": 14.998949931517274,
-                "fluorescence": 0.0014368335445700924
-            },
-            "Au_L": {
-                "density": 20.6,
-                "fluorescence": 4.4655757003090785e-05
-            },
-            "Au_M": {
-                "density": 20.6,
-                "fluorescence": 3.611978659032483e-05
-            }
-        },
-        "incident_energy": 12.0,
-        "detector_channel": "sum",
-        "scaler_name": "i0",
-        "distance_to_sample": 2.0,
-        "creation_time_local": "2020-05-27T18:49:53+00:00",
-        "source_scan_id": null,
-        "source_scan_uid": null
-    }
-    """  # noqa: E501
-
-# The data is structured the same way as in the actual program code, so transitioning
-#   to real data will be simple
-quant_calib = [
-    [
-        json.loads(json_quant_calib_1),
-        {
-            "file_path": "/path/to/quantitative/calibration/file/standard_41147.json"
-        }
-    ],
-    [
-        json.loads(json_quant_calib_2),
-        {
-            "file_path": "/extremely/long/path/to"
-                         "/quantitative/calibration/file/so/it/had/to/be/"
-                         "printed/on/multiple/lines/standard_41164.json"
-        }
-    ]
-]
-
-
-# The following list is to demonstrate how 'View' button works. Data is treated
-#   differently in the actual code, but the resulting format will be similar.
-quant_calib_json = [
-    yaml.dump(quant_calib[0][0], default_flow_style=False, sort_keys=False, indent=4),
-    yaml.dump(quant_calib[1][0], default_flow_style=False, sort_keys=False, indent=4),
-]
-
-
 class WndLoadQuantitativeCalibration(SecondaryWindow):
+
+    signal_quantitative_calibration_changed = pyqtSignal()
 
     def __init__(self, *, gpc, gui_vars):
         super().__init__()
@@ -635,17 +518,33 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
         self.pb_load_calib = QPushButton("Load Calibration ...")
         self.pb_load_calib.clicked.connect(self.pb_load_calib_clicked)
 
+        self._changes_exist = False
+        self._auto_update = True
         self.cb_auto_update = QCheckBox("Auto")
+        self.cb_auto_update.setCheckState(Qt.Checked if self._auto_update else Qt.Unchecked)
+        self.cb_auto_update.stateChanged.connect(self.cb_auto_update_state_changed)
+
         self.pb_update_plots = QPushButton("Update Plots")
+        self.pb_update_plots.clicked.connect(self.pb_update_plots_clicked)
 
         self.grp_current_scan = QGroupBox("Parameters of Currently Processed Scan")
-        self.le_distance_to_sample = QLineEdit()
+
+        self._distance_to_sample = 0.0
+        self.le_distance_to_sample = LineEditExtended()
+        le_dist_validator = QDoubleValidator()
+        le_dist_validator.setBottom(0)
+        self.le_distance_to_sample.setValidator(le_dist_validator)
+        self._set_distance_to_sample()
+        self.le_distance_to_sample.editingFinished.connect(self.le_distance_to_sample_editing_finished)
+        self.le_distance_to_sample.focusOut.connect(self.le_distance_to_sample_focus_out)
+
         hbox = QHBoxLayout()
         hbox.addWidget(QLabel("Distance-to-sample:"))
         hbox.addWidget(self.le_distance_to_sample)
         hbox.addStretch(1)
         self.grp_current_scan.setLayout(hbox)
 
+        self.eline_rb_exclusive = []  # Holds the list of groups of exclusive radio buttons
         self._setup_tab_widget()
 
         vbox = QVBoxLayout()
@@ -664,8 +563,7 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
         self.setLayout(vbox)
 
         # Display data
-        self.display_loaded_standards()
-        self.display_standard_selection_table()
+        self.update_all_data()
 
         self._set_tooltips()
 
@@ -705,7 +603,8 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
         self.tab_widget.addTab(frame, "Selected Emission Lines")
 
     def display_loaded_standards(self):
-        calib_data = quant_calib
+        calib_data = self.gpc.get_quant_calibration_data()
+        calib_settings = self.gpc.get_quant_calibration_settings()
 
         # Create the new widget (this deletes the old widget)
         self.loaded_standards = QWidget()
@@ -727,14 +626,14 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
 
         vbox = QVBoxLayout()
 
-        for cdata in calib_data:
+        for cdata, csettings in zip(calib_data, calib_settings):
             frame = QFrame()
             frame.setFrameStyle(QFrame.StyledPanel)
             frame.setStyleSheet(get_background_css((200, 255, 200), widget="QFrame"))
 
             _vbox = QVBoxLayout()
 
-            name = cdata[0]['name']  # Standard name (can be arbitrary string
+            name = cdata['name']  # Standard name (can be arbitrary string
             # If name is long, then print it in a separate line
             _name_is_long = len(name) > 30
 
@@ -744,7 +643,7 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
             self.group_remove.addButton(pb_remove)
 
             # Row 1: serial, name
-            serial = cdata[0]['serial']
+            serial = cdata['serial']
             _hbox = QHBoxLayout()
             _hbox.addWidget(QLabel(f"<b>Standard</b> #{serial}"))
             if not _name_is_long:
@@ -765,7 +664,7 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
                 _vbox.addLayout(_hbox)
 
             # Row 2: description
-            description = textwrap.fill(cdata[0]['description'], width=80)
+            description = textwrap.fill(cdata['description'], width=80)
             _hbox = QHBoxLayout()
             _hbox.addWidget(QLabel("<b>Description:</b>"), 0, Qt.AlignTop)
             _hbox.addWidget(QLabel(f"{description}"), 0, Qt.AlignTop)
@@ -773,10 +672,10 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
             _vbox.addLayout(_hbox)
 
             # Row 3:
-            incident_energy = cdata[0]['incident_energy']
-            scaler = cdata[0]['scaler_name']
-            detector_channel = cdata[0]['detector_channel']
-            distance_to_sample = cdata[0]['distance_to_sample']
+            incident_energy = cdata['incident_energy']
+            scaler = cdata['scaler_name']
+            detector_channel = cdata['detector_channel']
+            distance_to_sample = cdata['distance_to_sample']
             _hbox = QHBoxLayout()
             _hbox.addWidget(QLabel(f"<b>Incident energy, keV:</b> {incident_energy}"))
             _hbox.addWidget(QLabel(f"  <b>Scaler:</b> {scaler}"))
@@ -786,7 +685,7 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
             _vbox.addLayout(_hbox)
 
             # Row 4: file name
-            fln = textwrap.fill(cdata[1]['file_path'], width=80)
+            fln = textwrap.fill(csettings['file_path'], width=80)
             _hbox = QHBoxLayout()
             _hbox.addWidget(QLabel("<b>Source file:</b>"), 0, Qt.AlignTop)
             _hbox.addWidget(QLabel(fln), 0, Qt.AlignTop)
@@ -809,25 +708,42 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
         self.scroll.setWidget(self.loaded_standards)
 
     def display_table_header(self):
-        calib_data = quant_calib
+        calib_data = self.gpc.get_quant_calibration_data()
         header_by_name = self.table_header_display_names
 
         tbl_labels = ["Lines"]
         for n, cdata in enumerate(calib_data):
             if header_by_name:
-                txt = cdata[0]['name']
+                txt = cdata['name']
             else:
-                txt = cdata[0]['serial']
+                txt = cdata['serial']
             txt = textwrap.fill(txt, width=20)
             tbl_labels.append(txt)
 
         self.table.setHorizontalHeaderLabels(tbl_labels)
 
     def display_standard_selection_table(self):
-        calib_data = quant_calib
+        calib_data = self.gpc.get_quant_calibration_data()
+        self._quant_file_paths = self.gpc.get_quant_calibration_file_path_list()
 
         brightness = 220
         table_colors = [(255, brightness, brightness), (brightness, 255, brightness)]
+
+        # Disconnect all radio button signals before clearing the table
+        for bgroup in self.eline_rb_exclusive:
+            bgroup.buttonToggled.disconnect(self.rb_selection_toggled)
+
+        # This list will hold radio button groups for horizontal rows
+        #   Those are exclusive groups. They are not going to be
+        #   used directly, but they must be kept alive in order
+        #   for the radiobuttons to work properly. Most of the groups
+        #   will contain only 1 radiobutton, which will always remain checked.
+        self.eline_rb_exclusive = []
+        # The following list will contain the list of radio buttons for each
+        #   row. If there is no radiobutton in a position, then the element is
+        #   set to None.
+        # N rows: the number of emission lines, N cols: the number of standards
+        self.eline_rb_lists = []
 
         self.table.clear()
 
@@ -838,22 +754,11 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
             # Create the sorted list of available element lines
             line_set = set()
             for cdata in calib_data:
-                ks = list(cdata[0]['element_lines'].keys())
+                ks = list(cdata['element_lines'].keys())
                 line_set.update(list(ks))
             self.eline_list = list(line_set)
             self.eline_list.sort()
 
-            # This list will hold radio button groups for horizontal rows
-            #   Those are exclusive groups. They are not going to be
-            #   used directly, but they must be kept alive in order
-            #   for the radiobuttons to work properly. Most of the groups
-            #   will contain only 1 radiobutton, which will always remain checked.
-            self.eline_rb_exclusive = []
-            # The following list will contain the list of radio buttons for each
-            #   row. If there is no radiobutton in a position, then the element is
-            #   set to None.
-            # N rows: the number of emission lines, N cols: the number of standards
-            self.eline_rb_lists = []
             for n in range(len(self.eline_list)):
                 self.eline_rb_exclusive.append(QButtonGroup())
                 self.eline_rb_lists.append([None] * len(calib_data))
@@ -873,9 +778,10 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
                 self.table.setItem(n, 0, item)
 
                 for ns, cdata in enumerate(calib_data):
-                    if eline in cdata[0]['element_lines']:
+                    q_file_path = self._quant_file_paths[ns]  # Used to identify standard
+                    if eline in cdata['element_lines']:
                         rb = QRadioButton()
-                        if all([(_ is None) for _ in self.eline_rb_lists[n]]):
+                        if self.gpc.get_quant_calibration_is_eline_selected(eline, q_file_path):
                             rb.setChecked(True)
 
                         self.eline_rb_lists[n][ns] = rb
@@ -891,8 +797,8 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
                         item.setStyleSheet(get_background_css(rgb))
 
                         # Generate tooltip
-                        density = cdata[0]['element_lines'][eline]['density']
-                        fluorescence = cdata[0]['element_lines'][eline]['fluorescence']
+                        density = cdata['element_lines'][eline]['density']
+                        fluorescence = cdata['element_lines'][eline]['fluorescence']
                         ttip = (f"Fluorescence (F): {fluorescence:12g}\n"
                                 f"Density (D): {density:12g}\n")
                         # Avoid very small values of density (probably zero)
@@ -913,6 +819,20 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
             # So we can connect the button groups with the event processing function
             for bgroup in self.eline_rb_exclusive:
                 bgroup.buttonToggled.connect(self.rb_selection_toggled)
+
+    @pyqtSlot()
+    def update_all_data(self):
+        self.display_loaded_standards()
+        self.display_standard_selection_table()
+        self._set_distance_to_sample()
+
+    def _set_distance_to_sample(self):
+        """Set 'le_distance_to_sample` without updating maps"""
+        distance_to_sample = self.gpc.get_quant_calibration_distance_to_sample()
+        if distance_to_sample is None:
+            distance_to_sample = 0.0
+        self._distance_to_sample = distance_to_sample
+        self._set_le_distance_to_sample(distance_to_sample)
 
     def _set_tooltips(self):
         set_tooltip(self.pb_load_calib, "Load <b>calibration data</b> from JSON file.")
@@ -948,32 +868,51 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
         if condition == "tooltips":
             self._set_tooltips()
 
+    def cb_auto_update_state_changed(self, state):
+        self._auto_update = state
+        self.pb_update_plots.setEnabled(not state)
+        # If changes were made, apply the changes while switching to 'auto' mode
+        if state and self._changes_exist:
+            self._update_maps_auto()
+
+    def pb_update_plots_clicked(self):
+        self._update_maps()
+
     def pb_load_calib_clicked(self):
-        # TODO: Propagate current directory here and use it in the dialog call
-        current_dir = os.path.expanduser("~")
+        current_dir = self.gpc.get_current_working_directory()
         file_name = QFileDialog.getOpenFileName(self, "Select File with Quantitative Calibration Data",
                                                 current_dir,
                                                 "JSON (*.json);; All (*)")
         file_name = file_name[0]
         if file_name:
-            print(f"Loading quantitative calibration from file: {file_name}")
+            logger.debug(f"Loading quantitative calibration from file: '{file_name}'")
+            self.gpc.load_quantitative_calibration_data(file_name)
+            self.update_all_data()
+            self._update_maps_auto()
 
     def pb_view_clicked(self, button):
         try:
             n_standard = self.pbs_view.index(button)
+            calib_settings = self.gpc.get_quant_calibration_settings()
+            file_path = calib_settings[n_standard]['file_path']
+            calib_preview = self.gpc.get_quant_calibration_text_preview(file_path)
             dlg = DialogViewCalibStandard(None,
-                                          file_path=quant_calib[n_standard][1]['file_path'],
-                                          calibration_data=quant_calib_json[n_standard])
+                                          file_path=file_path,
+                                          calib_preview=calib_preview)
             dlg.exec()
         except ValueError:
-            print("'View' button was pressed, but not found in the list")
+            logger.error("'View' button was pressed, but not found in the list of buttons")
 
     def pb_remove_clicked(self, button):
         try:
             n_standard = self.pbs_remove.index(button)
-            print(f'Removing standard #{n_standard}. The feature is not implemented yet ...')
+            calib_settings = self.gpc.get_quant_calibration_settings()
+            file_path = calib_settings[n_standard]['file_path']
+            self.gpc.quant_calibration_remove_entry(file_path)
+            self.update_all_data()
+            self._update_maps_auto()
         except ValueError:
-            print("'Remove' button was pressed, but not found in the list")
+            logger.error("'Remove' button was pressed, but not found in the list of buttons")
 
     def rb_selection_toggled(self, button, checked):
         if checked:
@@ -989,20 +928,62 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
 
             if button_found:
                 eline = self.eline_list[nr]
-                print(f"Selected emission line {eline} ({nr}) from standard #{nc}")
+                n_standard = nc
+                file_path = self._quant_file_paths[n_standard]
+                self.gpc.set_quant_calibration_select_eline(eline, file_path)
+                self._update_maps_auto()
             else:
                 # This should never happen
-                print("Selection radio button was pressed, but not found in the list")
+                logger.error("Selection radio button was pressed, but not found in the list")
 
     def combo_set_table_header_index_changed(self, index):
-
         self.table_header_display_names = bool(index)
         self.display_table_header()
+
+    def le_distance_to_sample_editing_finished(self):
+        distance_to_sample = float(self.le_distance_to_sample.text())
+        if distance_to_sample != self._distance_to_sample:
+            self._distance_to_sample = distance_to_sample
+            self.gpc.set_quant_calibration_distance_to_sample(distance_to_sample)
+            self._update_maps_auto()
+
+    def le_distance_to_sample_focus_out(self):
+        try:
+            float(self.le_distance_to_sample.text())
+        except ValueError:
+            # If the text can not be interpreted to float, then replace the text with the old value
+            self._set_le_distance_to_sample(self._distance_to_sample)
+
+    def _set_le_distance_to_sample(self, distance_to_sample):
+        self.le_distance_to_sample.setText(f"{distance_to_sample:.12g}")
+
+    def _update_maps_auto(self):
+        """Update maps only if 'auto' update is ON. Used as a 'filter'
+        to prevent extra plot updates."""
+        self._changes_exist = True
+        if self._auto_update:
+            self._update_maps()
+
+    def _update_maps(self):
+        """Upload the selections (limit table) and update plot"""
+        self._changes_exist = False
+        self._redraw_maps()
+        # Emit signal only after the maps are redrawn. This should change
+        #   ranges in the respective controls for the plots
+        self.signal_quantitative_calibration_changed.emit()
+
+    def _redraw_maps(self):
+        # We don't emit any signals here, but we don't really need to.
+        logger.debug("Redrawing RGB XRF Maps")
+        self.gpc.compute_map_ranges()
+        self.gpc.redraw_maps()
+        self.gpc.compute_rgb_map_ranges()
+        self.gpc.redraw_rgb_maps()
 
 
 class DialogViewCalibStandard(QDialog):
 
-    def __init__(self, parent=None, *, file_path="", calibration_data=""):
+    def __init__(self, parent=None, *, file_path="", calib_preview=""):
 
         super().__init__(parent)
 
@@ -1013,19 +994,19 @@ class DialogViewCalibStandard(QDialog):
 
         # Displayed data (must be set before the dialog is shown
         self.file_path = file_path
-        self.calibration_data = calibration_data
+        self.calib_preview = calib_preview
 
         vbox = QVBoxLayout()
         hbox = QHBoxLayout()
         hbox.addWidget(QLabel("<b>Source file:</b> "), 0, Qt.AlignTop)
-        file_path = textwrap.fill(file_path, width=80)
+        file_path = textwrap.fill(self.file_path, width=80)
         hbox.addWidget(QLabel(file_path), 0, Qt.AlignTop)
         hbox.addStretch(1)
         vbox.addLayout(hbox)
 
         te = QTextEdit()
         te.setReadOnly(True)
-        te.setText(calibration_data)
+        te.setText(self.calib_preview)
         vbox.addWidget(te)
 
         button_box = QDialogButtonBox(QDialogButtonBox.Close)

@@ -1367,6 +1367,51 @@ class ParamQuantitativeAnalysis:
             s = ""
         return s
 
+    def select_eline(self, eline, file_path):
+        r"""
+        Select emission line in the standard pointed by `file_path` as selected.
+        The function will also deselect any the emission line in all other loaded standards.
+        Use `get_file_path_list()` to get the list of file paths arranged in the order
+        in which standards were loaded.
+
+        Parameters
+        ----------
+        file_path: str
+            The string used to identify QA calibration data entry. See the docstring for
+            ``add_entry`` for more detailed comments.
+        eline: str
+            Emission line name. Must match the emission line names used in calibration data.
+            Typical format: ``Fe_K``, ``S_K`` etc.
+        """
+        n_item = self.find_entry_index(file_path)
+        for n, settings in enumerate(self.calibration_settings):
+            sel_flag = (n == n_item)  # Set 'selected' to True only if n == n_item
+            if eline in settings["element_lines"]:
+                self.calibration_settings[n]["element_lines"][eline]["selected"] = sel_flag
+
+    def is_eline_selected(self, eline, file_path):
+        r"""
+        Check if the emission line in the standard `file_path` is selected.
+        Use `get_file_path_list()` to get the list of file paths arranged in the order
+        in which standards were loaded.
+
+        Parameters
+        ----------
+        file_path: str
+            The string used to identify QA calibration data entry. See the docstring for
+            ``add_entry`` for more detailed comments.
+        eline: str
+            Emission line name. Must match the emission line names used in calibration data.
+            Typical format: ``Fe_K``, ``S_K`` etc.
+
+        Returns
+        -------
+        bool
+            `True` if eline is selected, `False` otherwise
+        """
+        n_item = self.find_entry_index(file_path)
+        return self.calibration_settings[n_item]["element_lines"][eline]["selected"]
+
     def update_emission_line_list(self):
         r"""
         Update the internal list of emission lines. Also check and adjust if necessary

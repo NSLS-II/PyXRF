@@ -170,6 +170,12 @@ class GlobalProcessingClasses:
         self.plot_model.update_preview_spectrum_plot()
         self.plot_model.update_total_count_map_preview()
 
+    def get_current_working_directory(self):
+        """
+        Return current working directory (defined in 'io_model')
+        """
+        return self.io_model.working_directory
+
     # ==========================================================================
     #          The following methods are used by widgets XRF Maps tab
     #                  to read/write data from model classes
@@ -334,6 +340,9 @@ class GlobalProcessingClasses:
     def set_maps_grid_interpolate(self, grid_interpolate):
         self.img_model_adv.set_grid_interpolate(grid_interpolate)
 
+    def compute_map_ranges(self):
+        self.img_model_adv.set_low_high_value()
+
     def redraw_maps(self):
         """Redraw maps in XRF Maps tab"""
         self.img_model_adv.show_image()
@@ -483,6 +492,42 @@ class GlobalProcessingClasses:
     def set_rgb_maps_quant_norm_enabled(self, enable):
         self.img_model_rgb.enable_quantitative_normalization(enable)
 
+    def compute_rgb_map_ranges(self):
+        self.img_model_rgb.set_low_high_value()
+
     def redraw_rgb_maps(self):
         """Redraw maps in XRF Maps tab"""
         self.img_model_rgb.show_image()
+
+    # ==========================================================================
+    #          The following methods are used by widgets related
+    #      to loading and management of quantitative calibration data
+    def load_quantitative_calibration_data(self, file_path):
+        self.img_model_adv.load_quantitative_calibration_data(file_path)
+
+    def get_quant_calibration_data(self):
+        return self.img_model_adv.param_quant_analysis.calibration_data
+
+    def get_quant_calibration_settings(self):
+        return self.img_model_adv.param_quant_analysis.calibration_settings
+
+    def get_quant_calibration_text_preview(self, file_path):
+        return self.img_model_adv.param_quant_analysis.get_entry_text_preview(file_path)
+
+    def quant_calibration_remove_entry(self, file_path):
+        return self.img_model_adv.param_quant_analysis.remove_entry(file_path)
+
+    def get_quant_calibration_file_path_list(self):
+        return self.img_model_adv.param_quant_analysis.get_file_path_list()
+
+    def get_quant_calibration_is_eline_selected(self, eline, file_path):
+        return self.img_model_adv.param_quant_analysis.is_eline_selected(eline, file_path)
+
+    def set_quant_calibration_select_eline(self, eline, file_path):
+        self.img_model_adv.param_quant_analysis.select_eline(eline, file_path)
+
+    def get_quant_calibration_distance_to_sample(self):
+        return self.img_model_adv.param_quant_analysis.experiment_distance_to_sample
+
+    def set_quant_calibration_distance_to_sample(self, distance_to_sample):
+        self.img_model_adv.param_quant_analysis.set_experiment_distance_to_sample(distance_to_sample)

@@ -68,6 +68,7 @@ class LineEditExtended(QLineEdit):
     """
     LineEditExtended allows to mark the displayed value as invalid by setting
     its `valid` property to False. By default, the text color is changed to Light Red.
+    It also emits `focusOut` signal at `self.focusOutEvent`.
     """
 
     # Emitted at focusOutEvent

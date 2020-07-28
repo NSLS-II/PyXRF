@@ -18,7 +18,7 @@ class PlotRgbMaps(QWidget):
 
     signal_rgb_maps_dataset_selection_changed = pyqtSignal()
     signal_rgb_maps_norm_changed = pyqtSignal()
-    signal_redraw_maps = pyqtSignal()
+    signal_redraw_rgb_maps = pyqtSignal()
 
     def __init__(self, *, gpc, gui_vars):
         super().__init__()
@@ -116,6 +116,7 @@ class PlotRgbMaps(QWidget):
     def update_widget_state(self, condition=None):
         if condition == "tooltips":
             self._set_tooltips()
+        self.mpl_toolbar.setVisible(self.gui_vars["show_matplotlib_toolbar"])
 
     def combo_select_dataset_current_index_changed(self, index):
         self.gpc.set_rgb_maps_selected_dataset(index + 1)
@@ -135,11 +136,14 @@ class PlotRgbMaps(QWidget):
 
     def cb_quantitative_toggled(self, state):
         self.gpc.set_rgb_maps_quant_norm_enabled(state)
+        self.slot_update_ranges()
+        self.signal_rgb_maps_norm_changed.emit()
 
     @pyqtSlot()
     def slot_update_dataset_info(self):
         self._update_dataset_list()
         self._update_dataset()
+        self.cb_quantitative.setChecked(self.gpc.get_rgb_maps_quant_norm_enabled())
 
     def _update_dataset(self):
         self._update_scalers()
@@ -187,7 +191,7 @@ class PlotRgbMaps(QWidget):
     def _redraw_maps(self):
         logger.debug("Redrawing XRF Maps")
         self.gpc.redraw_rgb_maps()
-        self.signal_redraw_maps.emit()
+        self.signal_redraw_rgb_maps.emit()
 
 
 class RgbSelectionWidget(QWidget):
@@ -479,9 +483,6 @@ class RgbSelectionWidget(QWidget):
                 self.elements_range[n_row].set_selection(value_low=0, value_high=1)
 
         self._enable_selection_events(True)
-
-    def _update_ranges(self):
-        pass
 
     def _find_rbutton(self, button):
         for nr, btns in enumerate(self.elements_rb_color):

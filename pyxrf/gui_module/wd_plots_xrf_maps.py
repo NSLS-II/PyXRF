@@ -138,6 +138,7 @@ class PlotXrfMaps(QWidget):
     def update_widget_state(self, condition=None):
         if condition == "tooltips":
             self._set_tooltips()
+        self.mpl_toolbar.setVisible(self.gui_vars["show_matplotlib_toolbar"])
 
     def pb_image_wizard_clicked(self):
         # Position the window in relation ot the main window (only when called once)
@@ -228,9 +229,9 @@ class WndImageWizard(SecondaryWindow):
         self.cb_select_all = QCheckBox("All")
         self.cb_select_all.stateChanged.connect(self.cb_select_all_state_changed)
 
-        self._auto_update = False
+        self._auto_update = True
         self.cb_auto_update = QCheckBox("Auto")
-        self.cb_auto_update.setCheckState(self._auto_update)
+        self.cb_auto_update.setCheckState(Qt.Checked if self._auto_update else Qt.Unchecked)
         self.cb_auto_update.stateChanged.connect(self.cb_auto_update_state_changed)
 
         self.pb_update_plots = QPushButton("Update Plots")

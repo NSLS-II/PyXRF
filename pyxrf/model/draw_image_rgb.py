@@ -545,16 +545,17 @@ class DrawImageRGB(Atom):
             if name:
                 try:
                     ind = selected_names.index(name)
+                    name_label = name
                     if quant_norm_applied[ind]:
-                        name += "-Q"  # Add suffix to name if quantitative normalization was applied
+                        name_label += " - Q"  # Add suffix to name if quantitative normalization was applied
                     if color == "red":
-                        name_r, data_r = name, selected_data[ind]
+                        name_r, data_r = name_label, selected_data[ind]
                         limits_r = self.limit_dict[name]
                     elif color == "green":
-                        name_g, data_g = name, selected_data[ind]
+                        name_g, data_g = name_label, selected_data[ind]
                         limits_g = self.limit_dict[name]
                     elif color == "blue":
-                        name_b, data_b = name, selected_data[ind]
+                        name_b, data_b = name_label, selected_data[ind]
                         limits_b = self.limit_dict[name]
                 except ValueError:
                     pass
@@ -735,8 +736,8 @@ class DrawImageRGB(Atom):
         # ax.text(sb_x + sb_length /2, sb_y - 1*sb_height,  '100 nm', color='w', ha='center',
         #         va='bottom', backgroundcolor='black', fontsize=18)
 
-        self.ax.legend(bbox_to_anchor=(0., 1.0, 1., .10), ncol=3,
-                       handles=[red_patch, green_patch, blue_patch], mode="expand", loc=3)
+        self.ax_r.legend(loc="upper left", bbox_to_anchor=(1.1, 0), frameon=False,
+                         handles=[red_patch, green_patch, blue_patch], mode="expand")
 
         # self.fig.tight_layout(pad=4.0, w_pad=0.8, h_pad=0.8)
         # self.fig.tight_layout()
