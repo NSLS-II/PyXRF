@@ -531,3 +531,36 @@ class GlobalProcessingClasses:
 
     def set_quant_calibration_distance_to_sample(self, distance_to_sample):
         self.img_model_adv.param_quant_analysis.set_experiment_distance_to_sample(distance_to_sample)
+
+    # ==========================================================================
+    #          The following methods are used by Model tab
+    def get_autofind_elements_params(self):
+        """Assemble the parameters managed by 'Find Elements in Sample` dialog box."""
+        dialog_params = {}
+        keys1 = ["e_offset", "e_linear", "e_quadratic",
+                 "fwhm_offset", "fwhm_fanoprime",
+                 "coherent_sct_energy"]
+        for k in keys1:
+            dialog_params[k] = {}
+            dialog_params[k]["value"] = self.param_model.param_new[k]["value"]
+            dialog_params[k]["default"] = self.param_model.param_new[k]["default"]
+        keys2 = ["energy_bound_high", "energy_bound_low"]
+        for k in keys2:
+            dialog_params[k] = {}
+            dialog_params[k]["value"] = self.param_model.param_new["non_fitting_values"][k]["value"]
+            dialog_params[k]["default"] = self.param_model.param_new["non_fitting_values"][k]["default_value"]
+
+        # Some values were taken from different places
+        dialog_params["coherent_sct_energy"]["value"] = self.plot_model.incident_energy
+
+        return dialog_params
+
+    def set_autofind_elements_params(self, dialog_params):
+        """Save the parameters changed in 'Find Elements in Sample` dialog box."""
+        keys = ["e_offset", "e_linear", "e_quadratic",
+                "fwhm_offset", "fwhm_fanoprime"]
+        for k in keys:
+            self.param_model.param_new[k]["value"] = dialog_params[k]["value"]
+        self.io_model.incident_energy_set = dialog_params["coherent_sct_energy"]["value"]
+        self.param_model.energy_bound_high_buf = dialog_params["energy_bound_high"]["value"]
+        self.param_model.energy_bound_low_buf = dialog_params["energy_bound_low"]["value"]

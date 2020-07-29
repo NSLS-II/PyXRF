@@ -90,6 +90,9 @@ class PlotRgbMaps(QWidget):
                     "Select <b>scaler</b> for normalization of displayed XRF maps.")
         set_tooltip(self.cb_interpolate,
                     "Interpolate coordinates to <b>uniform grid</b>.")
+        set_tooltip(self.cb_quantitative,
+                    "Normalize the displayed XRF maps using loaded "
+                    "<b>Quantitative Calibration</b> data.")
         set_tooltip(self.combo_pixels_positions,
                     "Switch axes units between <b>pixels</b> and <b>positional units</b>.")
         set_tooltip(self.rgb_selection,
