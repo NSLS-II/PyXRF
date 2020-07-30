@@ -1,19 +1,19 @@
 import os
 import numpy as np
-import textwrap
-import copy
 
 from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox, QLineEdit,
                              QCheckBox, QLabel, QComboBox, QDialog, QDialogButtonBox,
                              QFileDialog, QRadioButton, QButtonGroup, QGridLayout, QTableWidget,
-                             QTableWidgetItem, QHeaderView)
-from PyQt5.QtGui import QBrush, QColor, QDoubleValidator
+                             QTableWidgetItem, QHeaderView, QMessageBox)
+from PyQt5.QtGui import QBrush, QColor
 from PyQt5.QtCore import Qt, pyqtSlot, QTimer, pyqtSignal
 
 from .useful_widgets import (LineEditReadOnly, global_gui_parameters, ElementSelection,
-                             get_background_css, SecondaryWindow, set_tooltip, LineEditExtended)
+                             get_background_css, SecondaryWindow, set_tooltip)
 
 from .form_base_widget import FormBaseWidget
+from .dlg_find_elements import DialogFindElements
+from .dlg_select_quant_standard import DialogSelectQuantStandard
 
 import logging
 logger = logging.getLogger(__name__)
@@ -34,6 +34,13 @@ class ModelWidget(FormBaseWidget):
 
     # Signal that is sent (to main window) to update global state of the program
     update_global_state = pyqtSignal()
+    # Signal is emitted when a new model is loaded (or computed).
+    # True - model loaded successfully, False - otherwise
+    # In particular, the signal may be used to update the widgets that depend on incident energy,
+    #   because it may change as the model is loaded.
+    signal_model_loaded = pyqtSignal(bool)
+    # Incident energy or selected range changed (plots need to be redrawn)
+    signal_incident_energy_or_range_changed = pyqtSignal()
 
     def __init__(self, *, gpc, gui_vars):
         super().__init__()
@@ -249,7 +256,7 @@ class ModelWidget(FormBaseWidget):
             self._set_tooltips()
 
         state_file_loaded = self.gui_vars["gui_state"]["state_file_loaded"]
-        state_model_exist = self.gui_vars["gui_state"]["state_model_exist"]
+        state_model_exist = self.gui_vars["gui_state"]["state_model_exists"]
         state_model_fit_exists = self.gui_vars["gui_state"]["state_model_fit_exists"]
 
         self.group_model_params.setEnabled(state_file_loaded)
@@ -273,26 +280,90 @@ class ModelWidget(FormBaseWidget):
         if ret:
             dialog_data = dlg.get_dialog_data()
             logger.debug("Saving parameters from 'DialogFindElements'")
-            self.gpc.set_autofind_elements_params(dialog_data)
+            if self.gpc.set_autofind_elements_params(dialog_data):
+                self.signal_incident_energy_or_range_changed.emit()
+            # TODO: emit signal ('parameters changed', i.e. incident energy and range changed)
             if dlg.find_elements_requested:
+                # TODO: start element search
                 logger.debug("Starting automated element search")
 
     def pb_load_elines_clicked(self):
         # TODO: Propagate current directory here and use it in the dialog call
-        current_dir = os.path.expanduser("~")
+        current_dir = self.gpc.get_current_working_directory()
         file_name = QFileDialog.getOpenFileName(self, "Select File with Model Parameters",
                                                 current_dir,
                                                 "JSON (*.json);; All (*)")
         file_name = file_name[0]
         if file_name:
+            # TODO: emit signal ('parameters changed', i.e. incident energy and range changed)
+            # TODO: start necessary processing
+            try:
+                def _ask_question(text):
+                    def question():
+                        mb = QMessageBox(QMessageBox.Question, "Question",
+                                         text, QMessageBox.Yes | QMessageBox.No,
+                                         parent=self)
+                        if mb.exec() == QMessageBox.Yes:
+                            return True
+                        else:
+                            return False
+                    return question
+
+                self.gpc.load_parameters_from_file(file_name, _ask_question)
+            except IOError as ex:
+                logger.error(f"Exception: {ex}")
+                mb_error = QMessageBox(QMessageBox.Critical, "Error",
+                                       f"{ex}", QMessageBox.Ok, parent=self)
+                mb_error.exec()
+                # It doesn't seem that the state of the program needs to be changed if
+                #   the file was not loaded at all
+            except Exception as ex:
+                logger.error(f"Exception: error occurred while loading parameters: {ex}")
+                mb_error = QMessageBox(QMessageBox.Critical, "Error",
+                                       f"Error occurred while processing loaded parameters: {ex}",
+                                       QMessageBox.Ok, parent=self)
+                mb_error.exec()
+                # Here the parameters were loaded and processing was partially performed,
+                #   so change the state of the program
+                self.gui_vars["gui_state"]["state_model_exists"] = False
+                self.gui_vars["gui_state"]["state_model_fit_exists"] = False
+                self.signal_model_loaded.emit(False)
+                self.update_global_state.emit()
+
+            else:
+                self.gui_vars["gui_state"]["state_model_exists"] = True
+                self.gui_vars["gui_state"]["state_model_fit_exists"] = False
+                self.signal_model_loaded.emit(True)
+                self.update_global_state.emit()
+
             print(f"Loading model parameters from file: {file_name}")
 
     def pb_load_qstandard_clicked(self):
+        qe_param_built_in, qe_param_custom, qe_standard_selected = self.gpc.get_quant_standard_list()
         dlg = DialogSelectQuantStandard()
+        dlg.set_standards(qe_param_built_in, qe_param_custom, qe_standard_selected)
         ret = dlg.exec()
         if ret:
-            standard_index = dlg.selected_standard_index
-            print(f"Loading quantitative standard: {standard_index}")
+            selected_standard = dlg.get_selected_standard()
+            if selected_standard is not None:
+                self.gpc.set_selected_quant_standard(selected_standard)
+
+                msg = f"QS: '{selected_standard['name']}'"
+                if self.gpc.is_quant_standard_custom(selected_standard):
+                    msg += " (user-defined)"
+                self.le_param_fln.setText(msg)
+
+                self.gpc.find_peaks()
+
+                self.gui_vars["gui_state"]["state_model_exists"] = True
+                self.gui_vars["gui_state"]["state_model_fit_exists"] = False
+                self.signal_model_loaded.emit(True)
+                self.update_global_state.emit()
+
+                standard_index = dlg.selected_standard_index
+                print(f"Loading quantitative standard: {standard_index}")
+            else:
+                logger.error("No quantitative standard was selected.")
         else:
             print("Cancelled loading quantitative standard")
 
@@ -568,7 +639,7 @@ class WndManageEmissionLines(SecondaryWindow):
 
         # Hide the window if required by the program state
         state_file_loaded = self.gui_vars["gui_state"]["state_file_loaded"]
-        state_model_exist = self.gui_vars["gui_state"]["state_model_exist"]
+        state_model_exist = self.gui_vars["gui_state"]["state_model_exists"]
         if not state_file_loaded or not state_model_exist:
             self.hide()
 
@@ -632,447 +703,6 @@ class WndManageEmissionLines(SecondaryWindow):
         dlg = DialogUserPeakParameters()
         if dlg.exec():
             print("User defined peak is added")
-
-
-class DialogFindElements(QDialog):
-
-    def __init__(self, parent=None):
-
-        super().__init__(parent)
-
-        self._dialog_data = {}
-
-        self.setWindowTitle("Find Elements in Sample")
-
-        # Check this flag after the dialog is exited with 'True' value
-        #   If this flag is True, then run element search, if False,
-        #   then simply save the changed parameter values.
-        self.find_elements_requested = False
-
-        self.validator = QDoubleValidator()
-
-        self.le_e_calib_a0 = LineEditExtended()
-        self.le_e_calib_a0.setValidator(self.validator)
-        self.pb_e_calib_a0_default = QPushButton("Default")
-        self.pb_e_calib_a0_default.setAutoDefault(False)
-
-        self.le_e_calib_a1 = LineEditExtended()
-        self.le_e_calib_a1.setValidator(self.validator)
-        self.pb_e_calib_a1_default = QPushButton("Default")
-        self.pb_e_calib_a1_default.setAutoDefault(False)
-
-        self.le_e_calib_a2 = LineEditExtended()
-        self.le_e_calib_a2.setValidator(self.validator)
-        self.pb_e_calib_a2_default = QPushButton("Default")
-        self.pb_e_calib_a2_default.setAutoDefault(False)
-
-        self.group_energy_axis_calib = QGroupBox("Polynomial Approximation of Energy Axis")
-        set_tooltip(self.group_energy_axis_calib,
-                    "Parameters of polynomial approximation of <b>energy axis</b>. "
-                    "The values of the bins for photon energies are approximated "
-                    "using 2nd degree polynomial <b>E(n) = a0 + a1 * n + a2 * n^2</b>, "
-                    "where <b>n</b> is bin number (typically in the range 0..4096).")
-        grid = QGridLayout()
-        grid.addWidget(QLabel("Bias (a0):"), 0, 0)
-        grid.addWidget(self.le_e_calib_a0, 0, 1)
-        grid.addWidget(self.pb_e_calib_a0_default, 0, 2)
-        grid.addWidget(QLabel("Linear (a1):"), 1, 0)
-        grid.addWidget(self.le_e_calib_a1, 1, 1)
-        grid.addWidget(self.pb_e_calib_a1_default, 1, 2)
-        grid.addWidget(QLabel("Quadratic (a2):"), 2, 0)
-        grid.addWidget(self.le_e_calib_a2, 2, 1)
-        grid.addWidget(self.pb_e_calib_a2_default, 2, 2)
-        self.group_energy_axis_calib.setLayout(grid)
-
-        self.le_fwhm_b1 = LineEditExtended()
-        self.le_fwhm_b1.setValidator(self.validator)
-        self.pb_fwhm_b1_default = QPushButton("Default")
-        self.pb_fwhm_b1_default.setAutoDefault(False)
-
-        self.le_fwhm_b2 = LineEditExtended()
-        self.le_fwhm_b2.setValidator(self.validator)
-        self.pb_fwhm_b2_default = QPushButton("Default")
-        self.pb_fwhm_b2_default.setAutoDefault(False)
-
-        self.group_fwhm = QGroupBox("Peak FWHM Settings")
-        set_tooltip(self.group_fwhm,
-                    "Parameters used to estimate <b>FWHM</b> of peaks based on energy: "
-                    "<b>b1</b> - 'offset', <b>b2</b> - 'fanoprime'")
-        grid = QGridLayout()
-        grid.addWidget(QLabel("Coefficient b1:"), 0, 0)
-        grid.addWidget(self.le_fwhm_b1, 0, 1)
-        grid.addWidget(self.pb_fwhm_b1_default, 0, 2)
-        grid.addWidget(QLabel("Coefficient b2:"), 1, 0)
-        grid.addWidget(self.le_fwhm_b2, 1, 1)
-        grid.addWidget(self.pb_fwhm_b2_default, 1, 2)
-        self.group_fwhm.setLayout(grid)
-
-        self.le_incident_energy = LineEditExtended()
-        self.le_incident_energy.setValidator(self.validator)
-        set_tooltip(self.le_incident_energy,
-                    "<b>Incident energy</b> in keV.")
-        self.pb_incident_energy_default = QPushButton("Default")
-        self.pb_incident_energy_default.setAutoDefault(False)
-        self.le_range_low = LineEditExtended()
-        self.le_range_low.setValidator(self.validator)
-        set_tooltip(self.le_range_low,
-                    "<b>Lower boundary</b> of the selected range in keV.")
-        self.pb_range_low_default = QPushButton("Default")
-        self.pb_range_low_default.setAutoDefault(False)
-        self.le_range_high = LineEditExtended()
-        self.le_range_high.setValidator(self.validator)
-        set_tooltip(self.le_range_high,
-                    "<b>Upper boundary</b> of the selected range in keV.")
-        self.pb_range_high_default = QPushButton("Default")
-        self.pb_range_high_default.setAutoDefault(False)
-        self.group_energy_range = QGroupBox("Incident Energy and Selected Range")
-        grid = QGridLayout()
-        grid.addWidget(QLabel("Incident energy, keV"), 0, 0)
-        grid.addWidget(self.le_incident_energy, 0, 1)
-        grid.addWidget(self.pb_incident_energy_default, 0, 2)
-        grid.addWidget(QLabel("Range (low), keV"), 1, 0)
-        grid.addWidget(self.le_range_low, 1, 1)
-        grid.addWidget(self.pb_range_low_default, 1, 2)
-        grid.addWidget(QLabel("Range (high), keV"), 2, 0)
-        grid.addWidget(self.le_range_high, 2, 1)
-        grid.addWidget(self.pb_range_high_default, 2, 2)
-        self.group_energy_range.setLayout(grid)
-
-        self.pb_find_elements = QPushButton("Find &Elements")
-        self.pb_find_elements.clicked.connect(self.pb_find_elements_clicked)
-        self.pb_apply_settings = QPushButton("&Apply Settings")
-
-        # 'Close' button box
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.Cancel)
-        button_box.addButton(self.pb_find_elements, QDialogButtonBox.YesRole)
-        button_box.addButton(self.pb_apply_settings, QDialogButtonBox.AcceptRole)
-        button_box.button(QDialogButtonBox.Cancel).setDefault(True)
-        button_box.accepted.connect(self.accept)
-        button_box.rejected.connect(self.reject)
-
-        self.pb_cancel = button_box.button(QDialogButtonBox.Cancel)
-        self.pb_cancel.setAutoDefault(False)
-        self.pb_apply_settings.setAutoDefault(True)
-
-        vbox = QVBoxLayout()
-        vbox.addWidget(self.group_energy_axis_calib)
-        vbox.addWidget(self.group_fwhm)
-        vbox.addWidget(self.group_energy_range)
-        vbox.addWidget(button_box)
-
-        self.setLayout(vbox)
-
-        self.le_e_calib_a0.editingFinished.connect(self.le_e_calib_a0_editing_finished)
-        self.le_e_calib_a1.editingFinished.connect(self.le_e_calib_a1_editing_finished)
-        self.le_e_calib_a2.editingFinished.connect(self.le_e_calib_a2_editing_finished)
-        self.le_fwhm_b1.editingFinished.connect(self.le_fwhm_b1_editing_finished)
-        self.le_fwhm_b2.editingFinished.connect(self.le_fwhm_b2_editing_finished)
-        self.le_incident_energy.editingFinished.connect(self.le_incident_energy_editing_finished)
-        self.le_range_low.editingFinished.connect(self.le_range_low_editing_finished)
-        self.le_range_high.editingFinished.connect(self.le_range_high_editing_finished)
-
-        self.le_e_calib_a0.focusOut.connect(self.le_e_calib_a0_focus_out)
-        self.le_e_calib_a1.focusOut.connect(self.le_e_calib_a1_focus_out)
-        self.le_e_calib_a2.focusOut.connect(self.le_e_calib_a2_focus_out)
-        self.le_fwhm_b1.focusOut.connect(self.le_fwhm_b1_focus_out)
-        self.le_fwhm_b2.focusOut.connect(self.le_fwhm_b2_focus_out)
-        self.le_incident_energy.focusOut.connect(self.le_incident_energy_focus_out)
-        self.le_range_low.focusOut.connect(self.le_range_low_focus_out)
-        self.le_range_high.focusOut.connect(self.le_range_high_focus_out)
-
-        self.le_e_calib_a0.textChanged.connect(self.le_e_calib_a0_text_changed)
-        self.le_e_calib_a1.textChanged.connect(self.le_e_calib_a1_text_changed)
-        self.le_e_calib_a2.textChanged.connect(self.le_e_calib_a2_text_changed)
-        self.le_fwhm_b1.textChanged.connect(self.le_fwhm_b1_text_changed)
-        self.le_fwhm_b2.textChanged.connect(self.le_fwhm_b2_text_changed)
-        self.le_incident_energy.textChanged.connect(self.le_incident_energy_text_changed)
-        self.le_range_low.textChanged.connect(self.le_range_low_text_changed)
-        self.le_range_high.textChanged.connect(self.le_range_high_text_changed)
-
-        self.pb_e_calib_a0_default.clicked.connect(self.pb_e_calib_a0_default_clicked)
-        self.pb_e_calib_a1_default.clicked.connect(self.pb_e_calib_a1_default_clicked)
-        self.pb_e_calib_a2_default.clicked.connect(self.pb_e_calib_a2_default_clicked)
-        self.pb_fwhm_b1_default.clicked.connect(self.pb_fwhm_b1_default_clicked)
-        self.pb_fwhm_b2_default.clicked.connect(self.pb_fwhm_b2_default_clicked)
-        self.pb_incident_energy_default.clicked.connect(self.pb_incident_energy_default_clicked)
-        self.pb_range_low_default.clicked.connect(self.pb_range_low_default_clicked)
-        self.pb_range_high_default.clicked.connect(self.pb_range_high_default_clicked)
-
-    def _format_float(self, value):
-        return f"{value:.10g}"
-
-    def set_dialog_data(self, dialog_data):
-        self._dialog_data = copy.deepcopy(dialog_data)
-        self.le_e_calib_a0.setText(self._format_float(self._dialog_data["e_offset"]["value"]))
-        self.le_e_calib_a1.setText(self._format_float(self._dialog_data["e_linear"]["value"]))
-        self.le_e_calib_a2.setText(self._format_float(self._dialog_data["e_quadratic"]["value"]))
-        self.le_fwhm_b1.setText(self._format_float(self._dialog_data["fwhm_offset"]["value"]))
-        self.le_fwhm_b2.setText(self._format_float(self._dialog_data["fwhm_fanoprime"]["value"]))
-        self.le_incident_energy.setText(self._format_float(self._dialog_data["coherent_sct_energy"]["value"]))
-        self.le_range_low.setText(self._format_float(self._dialog_data["energy_bound_low"]["value"]))
-        self.le_range_high.setText(self._format_float(self._dialog_data["energy_bound_high"]["value"]))
-
-    def get_dialog_data(self):
-        return self._dialog_data
-
-    def pb_find_elements_clicked(self):
-        self.find_elements_requested = True
-
-    def _read_le_value(self, line_edit, value_ref):
-        value_ref["value"] = float(line_edit.text())
-
-    def le_e_calib_a0_editing_finished(self):
-        self._read_le_value(self.le_e_calib_a0, self._dialog_data["e_offset"])
-
-    def le_e_calib_a1_editing_finished(self):
-        self._read_le_value(self.le_e_calib_a1, self._dialog_data["e_linear"])
-
-    def le_e_calib_a2_editing_finished(self):
-        self._read_le_value(self.le_e_calib_a2, self._dialog_data["e_quadratic"])
-
-    def le_fwhm_b1_editing_finished(self):
-        self._read_le_value(self.le_fwhm_b1, self._dialog_data["fwhm_offset"])
-
-    def le_fwhm_b2_editing_finished(self):
-        self._read_le_value(self.le_fwhm_b2, self._dialog_data["fwhm_fanoprime"])
-
-    def le_incident_energy_editing_finished(self):
-        self._read_le_value(self.le_incident_energy, self._dialog_data["coherent_sct_energy"])
-        self._read_le_value(self.le_range_high, self._dialog_data["energy_bound_high"])
-
-    def le_range_low_editing_finished(self):
-        self._read_le_value(self.le_range_low, self._dialog_data["energy_bound_low"])
-
-    def le_range_high_editing_finished(self):
-        self._read_le_value(self.le_range_high, self._dialog_data["energy_bound_high"])
-
-    def _validate_as_float(self, text):
-        return self.validator.validate(text, 0)[0] == QDoubleValidator.Acceptable
-
-    def _validate_text(self, line_edit, text):
-        line_edit.setValid(self._validate_as_float(text))
-        self._update_exit_buttons_states()
-
-    def _update_exit_buttons_states(self):
-        if self.le_e_calib_a0.isValid() and \
-                self.le_e_calib_a1.isValid() and \
-                self.le_e_calib_a2.isValid() and \
-                self.le_fwhm_b1.isValid() and \
-                self.le_fwhm_b2.isValid() and \
-                self.le_incident_energy.isValid() and \
-                self.le_range_low.isValid() and \
-                self.le_range_high.isValid():
-            all_valid = True
-        else:
-            all_valid = False
-
-        self.pb_find_elements.setEnabled(all_valid)
-        self.pb_apply_settings.setEnabled(all_valid)
-
-    def _range_high_update(self, text, margin=0.8):
-        """Update the range 'high' limit based on incident energy"""
-        v = float(text) + margin
-        self.le_range_high.setText(self._format_float(v))
-
-    def le_e_calib_a0_text_changed(self, text):
-        self._validate_text(self.le_e_calib_a0, text)
-
-    def le_e_calib_a1_text_changed(self, text):
-        self._validate_text(self.le_e_calib_a1, text)
-
-    def le_e_calib_a2_text_changed(self, text):
-        self._validate_text(self.le_e_calib_a2, text)
-
-    def le_fwhm_b1_text_changed(self, text):
-        self._validate_text(self.le_fwhm_b1, text)
-
-    def le_fwhm_b2_text_changed(self, text):
-        self._validate_text(self.le_fwhm_b2, text)
-
-    def le_incident_energy_text_changed(self, text):
-        if self._validate_as_float(text) and float(text) > 0:
-            self.le_incident_energy.setValid(True)
-            self._range_high_update(text)
-        else:
-            self.le_incident_energy.setValid(False)
-        self._update_exit_buttons_states()
-
-    def le_range_low_text_changed(self, text):
-        text_valid = False
-        if self._validate_as_float(text):
-            v = float(text)
-            if 0 <= v < self._dialog_data["energy_bound_high"]["value"]:
-                text_valid = True
-        self.le_range_low.setValid(text_valid)
-        self.le_range_high.setValid(text_valid)
-        self._update_exit_buttons_states()
-
-    def le_range_high_text_changed(self, text):
-        text_valid = False
-        if self._validate_as_float(text):
-            v = float(text)
-            if v > self._dialog_data["energy_bound_low"]["value"]:
-                text_valid = True
-        self.le_range_high.setValid(text_valid)
-        self.le_range_low.setValid(text_valid)
-        self._update_exit_buttons_states()
-
-    def _recover_last_valid_le_text(self, line_edit, last_value):
-        if not self._validate_as_float(line_edit.text()):
-            line_edit.setText(self._format_float(last_value["value"]))
-            return False
-        else:
-            return True
-
-    def le_e_calib_a0_focus_out(self):
-        self._recover_last_valid_le_text(self.le_e_calib_a0, self._dialog_data["e_offset"])
-
-    def le_e_calib_a1_focus_out(self):
-        self._recover_last_valid_le_text(self.le_e_calib_a1, self._dialog_data["e_linear"])
-
-    def le_e_calib_a2_focus_out(self):
-        self._recover_last_valid_le_text(self.le_e_calib_a2, self._dialog_data["e_quadratic"])
-
-    def le_fwhm_b1_focus_out(self):
-        self._recover_last_valid_le_text(self.le_fwhm_b1, self._dialog_data["fwhm_offset"])
-
-    def le_fwhm_b2_focus_out(self):
-        self._recover_last_valid_le_text(self.le_fwhm_b2, self._dialog_data["fwhm_fanoprime"])
-
-    def le_incident_energy_focus_out(self):
-        if not self._recover_last_valid_le_text(self.le_incident_energy,
-                                                self._dialog_data["coherent_sct_energy"]):
-            self.le_range_high.setText(self._format_float(
-                self._dialog_data["energy_bound_high"]["value"]))
-
-    def le_range_low_focus_out(self):
-        self._recover_last_valid_le_text(self.le_range_low, self._dialog_data["energy_bound_low"])
-
-    def le_range_high_focus_out(self):
-        self._recover_last_valid_le_text(self.le_range_high, self._dialog_data["energy_bound_high"])
-
-    def _reset_le_to_default(self, line_edit, data_ref):
-        data_ref["value"] = data_ref["default"]
-        line_edit.setText(self._format_float(data_ref["value"]))
-
-    def pb_e_calib_a0_default_clicked(self):
-        self._reset_le_to_default(self.le_e_calib_a0, self._dialog_data["e_offset"])
-
-    def pb_e_calib_a1_default_clicked(self):
-        self._reset_le_to_default(self.le_e_calib_a1, self._dialog_data["e_linear"])
-
-    def pb_e_calib_a2_default_clicked(self):
-        self._reset_le_to_default(self.le_e_calib_a2, self._dialog_data["e_quadratic"])
-
-    def pb_fwhm_b1_default_clicked(self):
-        self._reset_le_to_default(self.le_fwhm_b1, self._dialog_data["fwhm_offset"])
-
-    def pb_fwhm_b2_default_clicked(self):
-        self._reset_le_to_default(self.le_fwhm_b2, self._dialog_data["fwhm_fanoprime"])
-
-    def pb_incident_energy_default_clicked(self):
-        self._reset_le_to_default(self.le_incident_energy, self._dialog_data["coherent_sct_energy"])
-
-    def pb_range_low_default_clicked(self):
-        self._reset_le_to_default(self.le_range_low, self._dialog_data["energy_bound_low"])
-
-    def pb_range_high_default_clicked(self):
-        self._reset_le_to_default(self.le_range_high, self._dialog_data["energy_bound_high"])
-
-
-class DialogSelectQuantStandard(QDialog):
-
-    def __init__(self, parent=None):
-
-        super().__init__(parent)
-
-        self.setWindowTitle("Load Quantitative Standard")
-
-        self.setMinimumHeight(500)
-        self.setMinimumWidth(600)
-        self.resize(600, 500)
-
-        self.selected_standard_index = -1
-
-        labels = ("Serial #", "Name", "Description")
-        col_stretch = (QHeaderView.ResizeToContents,
-                       QHeaderView.ResizeToContents,
-                       QHeaderView.Stretch)
-        sample_table_contents = [
-            ["41147", "Micromatter 41147",
-             "GaP 21.2 (Ga=15.4, P=5.8) / CaF2 14.6 / V 26.4 / Mn 17.5 / Co 21.7 / Cu 20.3"],
-            ["41148", "Micromatter 41148",
-             "GaP 21.1 (Ga=15.4, P=5.7) / CaF2 14.6 / V 25.1 / Mn 18.1 / Co 20.6 / Cu 20.5"],
-            ["41151", "Micromatter 41151",
-             "KCl 21.9 / Ti 21.3 / Fe 24.4 / ZnTe 20.3 / Pb 22.3"],
-            ["41164", "Micromatter 41164",
-             "CeF3 21.1 / Au 20.6"],
-        ]
-        self.table = QTableWidget()
-        set_tooltip(self.table, "To <b> load the sta"
-                                "ndard</b>, double-click on the table row or "
-                                "select the table row and then click <b>Ok</b> button.")
-        self.table.setMinimumHeight(200)
-        self.table.setRowCount(len(sample_table_contents))
-        self.table.setColumnCount(len(labels))
-        self.table.verticalHeader().hide()
-        self.table.setHorizontalHeaderLabels(labels)
-        self.table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.table.setSelectionMode(QTableWidget.SingleSelection)
-        self.table.itemSelectionChanged.connect(self.item_selection_changed)
-        self.table.itemDoubleClicked.connect(self.item_double_clicked)
-
-        header = self.table.horizontalHeader()
-        for n, col_stretch in enumerate(col_stretch):
-            # Set stretching for the columns
-            header.setSectionResizeMode(n, col_stretch)
-
-        for nr, row in enumerate(sample_table_contents):
-            for nc, entry in enumerate(row):
-                s = textwrap.fill(entry, width=40)
-                item = QTableWidgetItem(s)
-                item.setFlags(item.flags() & ~Qt.ItemIsEditable)
-                self.table.setItem(nr, nc, item)
-        self.table.resizeRowsToContents()
-
-        brightness = 220
-        for nr in range(self.table.rowCount()):
-            for nc in range(self.table.columnCount()):
-                self.table.item(nr, nc)
-                if nr % 2:
-                    color = QColor(255, brightness, brightness)
-                else:
-                    color = QColor(brightness, 255, brightness)
-                self.table.item(nr, nc).setBackground(QBrush(color))
-
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.Open | QDialogButtonBox.Cancel)
-        button_box.button(QDialogButtonBox.Cancel).setDefault(True)
-        button_box.accepted.connect(self.accept)
-        button_box.rejected.connect(self.reject)
-
-        self.pb_open = button_box.button(QDialogButtonBox.Open)
-        self.pb_open.setEnabled(False)
-
-        vbox = QVBoxLayout()
-        vbox.addWidget(self.table)
-        vbox.addWidget(button_box)
-        self.setLayout(vbox)
-
-    def item_selection_changed(self):
-        sel_ranges = self.table.selectedRanges()
-        # The table is configured to have one or no selected ranges
-        # 'Open' button should be enabled only if a range (row) is selected
-        if sel_ranges:
-            self.selected_standard_index = sel_ranges[0].topRow()
-            self.pb_open.setEnabled(True)
-        else:
-            self.selected_standard_index = -1
-            self.pb_open.setEnabled(False)
-
-    def item_double_clicked(self):
-        self.accept()
 
 
 class DialogGeneralFittingSettings(QDialog):

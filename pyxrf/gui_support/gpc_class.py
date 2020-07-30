@@ -1,6 +1,8 @@
 from __future__ import absolute_import
 
 import os
+import copy
+import math
 from ..model.fileio import FileIOModel
 from ..model.lineplot import LinePlotModel  # , SettingModel
 from ..model.guessparam import GuessParamModel
@@ -556,11 +558,173 @@ class GlobalProcessingClasses:
         return dialog_params
 
     def set_autofind_elements_params(self, dialog_params):
-        """Save the parameters changed in 'Find Elements in Sample` dialog box."""
+        """Save the parameters changed in 'Find Elements in Sample` dialog box.
+
+        Returns
+        -------
+        boolean
+            True - selected range or incident energy were changed, False otherwise
+        """
         keys = ["e_offset", "e_linear", "e_quadratic",
                 "fwhm_offset", "fwhm_fanoprime"]
         for k in keys:
             self.param_model.param_new[k]["value"] = dialog_params[k]["value"]
+        # Check if the critical parameters were changed
+        if (self.plot_model.incident_energy != dialog_params["coherent_sct_energy"]["value"]) or \
+                (self.param_model.energy_bound_high_buf != dialog_params["energy_bound_high"]["value"]) or \
+                (self.param_model.energy_bound_low_buf != dialog_params["energy_bound_low"]["value"]):
+            return_value = True
+        else:
+            return_value = False
         self.io_model.incident_energy_set = dialog_params["coherent_sct_energy"]["value"]
         self.param_model.energy_bound_high_buf = dialog_params["energy_bound_high"]["value"]
         self.param_model.energy_bound_low_buf = dialog_params["energy_bound_low"]["value"]
+        return return_value
+
+    def get_quant_standard_list(self):
+        self.fit_model.param_quant_estimation.clear_standards()
+        self.fit_model.param_quant_estimation.load_standards()
+
+        qe_param_built_in = self.fit_model.param_quant_estimation.standards_built_in
+        qe_param_custom = self.fit_model.param_quant_estimation.standards_custom
+
+        # The current selection is set to the currently selected standard
+        #   held in 'fit_model.qe_standard_selected_copy'
+        qe_standard_selected = self.fit_model.qe_standard_selected_copy
+        qe_standard_selected = \
+            self.fit_model.param_quant_estimation.set_selected_standard(qe_standard_selected)
+
+        return qe_param_built_in, qe_param_custom, qe_standard_selected
+
+    def set_selected_quant_standard(self, selected_standard):
+        if selected_standard is not None:
+            self.fit_model.param_quant_estimation.set_selected_standard(selected_standard)
+            self.fit_model.qe_standard_selected_copy = copy.deepcopy(selected_standard)
+        else:
+            self.fit_model.param_quant_estimation.clear_standards()
+            self.fit_model.qe_standard_selected_copy = None
+
+    def is_quant_standard_custom(self, standard=None):
+        return self.fit_model.param_quant_estimation.is_standard_custom(standard)
+
+    def find_peaks(self):
+        incident_energy = self.param_model.param_new['coherent_sct_energy']['value']
+        # Generate the data structure for the results of processing of standard data
+        self.fit_model.param_quant_estimation.gen_fluorescence_data_dict(incident_energy)
+        # Obtain the list (dictionary) of elemental lines from the generated structure
+        elemental_lines = self.fit_model.param_quant_estimation.fluorescence_data_dict["element_lines"]
+
+        self.param_model.find_peak(elemental_lines=elemental_lines.keys())
+        self.param_model.EC.order()
+        self.param_model.update_name_list()
+
+        self.param_model.EC.turn_on_all()
+        self.param_model.data_for_plot()
+
+        # update experimental plots in case the coefficients change
+        self.plot_model.parameters = self.param_model.param_new
+        self.plot_model.plot_experiment()
+
+        self.plot_model.plot_fit(self.param_model.prefit_x,
+                                 self.param_model.total_y,
+                                 self.param_model.auto_fit_all)
+
+        # Update displayed intensity of the selected peak
+        self.plot_model.compute_manual_peak_intensity()
+
+        # Show the summed spectrum used for fitting
+        self.plot_model.plot_exp_opt = False
+        self.plot_model.plot_exp_opt = True
+        # For plotting purposes, otherwise plot will not update
+        self.plot_model.show_fit_opt = False
+        self.plot_model.show_fit_opt = True
+
+    def load_parameters_from_file(self, parameter_file_path, ask_question):
+
+        try:
+            self.fit_model.read_param_from_file(parameter_file_path)
+        except Exception as ex:
+            msg = f"Error occurred while reading parameter file: {ex}"
+            logger.error(msg)
+            raise IOError(msg)
+        else:
+            # Make a decision, if the incident energy from metadata should be replaced
+            #   with the incident energy from the parameter file
+            overwrite_metadata_incident_energy = False
+
+            # Incident energy from the parameter file
+            param_incident_energy = self.fit_model.default_parameters['coherent_sct_energy']['value']
+
+            if self.io_model.incident_energy_available:
+
+                # Incident energy from datafile metadata
+                mdata_incident_energy = self.io_model.scan_metadata.get_mono_incident_energy()
+
+                # If two energies have very close values (say 1 eV), then the difference doesn't matter
+                #   Consider two energies equal (they probably ARE equal) and use the value
+                #   from datafile metadata.
+                if not math.isclose(param_incident_energy, mdata_incident_energy, abs_tol=0.001):
+                    # TODO: the following text is not properly formatted for QMessageBox
+                    #       It's not very important now, but should be resolved in the future.
+                    msg = f"The values of incident energy from data file metadata " \
+                          f"and parameter file are different.\n" \
+                          f"Incident energy from metadata: {mdata_incident_energy} keV.\n" \
+                          f"Incident energy from the loaded parameter file: {param_incident_energy} keV.\n" \
+                          f"Would you prefer to use the incident energy from the parameter file for processing?"
+
+                    question = ask_question(msg)
+                    if question():
+                        overwrite_metadata_incident_energy = True
+
+            else:
+
+                # If incident energy is not present in file metadata, then
+                #   just load the incident energy from the parameter file.
+                overwrite_metadata_incident_energy = True
+
+            if overwrite_metadata_incident_energy:
+                logger.info(f"Using incident energy from the parameter file: {param_incident_energy} keV")
+            else:
+                # Keep the incident energy from the file
+                logger.info(f"Using incident energy from the datafile metadata: "
+                            f"{mdata_incident_energy} keV")
+                self.fit_model.default_parameters["coherent_sct_energy"]["value"] = round(mdata_incident_energy, 6)
+
+            self.fit_model.apply_default_param()
+
+            # update experimental plots
+            self.plot_model.parameters = self.fit_model.default_parameters
+            self.plot_model.plot_experiment()
+            self.plot_model.plot_exp_opt = False
+            self.plot_model.plot_exp_opt = True
+
+            # update autofit param
+            self.param_model.update_new_param(self.fit_model.default_parameters)
+            # param_model.get_new_param_from_file(parameter_file_path)
+
+            self.param_model.EC.order()
+            self.param_model.update_name_list()
+            self.param_model.EC.turn_on_all()
+            self.param_model.data_for_plot()
+
+            # update params for roi sum
+            self.setting_model.update_parameter(self.fit_model.default_parameters)
+
+            # calculate profile and plot
+            self.fit_model.get_profile()
+
+            # update experimental plot with new calibration values
+            self.plot_model.plot_fit(self.fit_model.cal_x, self.fit_model.cal_y,
+                                     self.fit_model.cal_spectrum,
+                                     self.fit_model.residual)
+
+            self.plot_model.plot_exp_opt = False
+            self.plot_model.plot_exp_opt = True
+            # For plotting purposes, otherwise plot will not update
+            self.plot_model.show_fit_opt = False
+            self.plot_model.show_fit_opt = True
+
+            # The following statement is necessary mostly to set the correct value of
+            #   the upper boundary of the energy range used for emission line search.
+            self.plot_model.change_incident_energy(
+                self.fit_model.default_parameters["coherent_sct_energy"]["value"])

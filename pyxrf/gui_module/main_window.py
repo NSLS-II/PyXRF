@@ -231,11 +231,15 @@ class MainWindow(QMainWindow):
         self.central_widget.left_panel.load_data_widget.update_preview_map_range.connect(
             self.central_widget.right_panel.tab_preview_plots.preview_plot_count.update_map_range)
 
+        # Before loading a new file or run
+        self.central_widget.left_panel.load_data_widget.signal_loading_new_run.connect(
+            self.central_widget.right_panel.slot_activate_tab_preview)
+
         # Open a new file or run
         self.central_widget.left_panel.load_data_widget.signal_new_run_loaded.connect(
             self.central_widget.left_panel.slot_activate_load_data_tab)
         self.central_widget.left_panel.load_data_widget.signal_new_run_loaded.connect(
-            self.central_widget.right_panel.slot_activate_tab_preview_plots)
+            self.central_widget.right_panel.slot_activate_tab_preview)
         self.central_widget.left_panel.load_data_widget.signal_new_run_loaded.connect(
             self.slot_new_run_loaded)
         self.central_widget.left_panel.load_data_widget.signal_new_run_loaded.connect(
@@ -246,6 +250,14 @@ class MainWindow(QMainWindow):
             self.central_widget.right_panel.tab_plot_rgb_maps.slot_update_dataset_info)
         self.central_widget.left_panel.load_data_widget.signal_new_run_loaded.connect(
             self.wnd_load_quantitative_calibration.update_all_data)
+
+        # New model is loaded or processing parameters (incident energy) was changed
+        self.central_widget.left_panel.model_widget.signal_incident_energy_or_range_changed.connect(
+            self.central_widget.right_panel.tab_preview_plots.preview_plot_spectrum.redraw_preview_plot)
+        self.central_widget.left_panel.model_widget.signal_model_loaded.connect(
+            self.central_widget.right_panel.tab_preview_plots.preview_plot_spectrum.redraw_preview_plot)
+        self.central_widget.left_panel.model_widget.signal_model_loaded.connect(
+            self.central_widget.right_panel.slot_activate_tab_fitting_model)
 
         # XRF Maps dataset changed
         self.central_widget.right_panel.tab_plot_xrf_maps.signal_maps_dataset_selection_changed.connect(

@@ -3,6 +3,9 @@ from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout, QRadioBu
                              QGroupBox)
 from PyQt5.QtCore import Qt
 
+from matplotlib.backends.backend_qt5agg import \
+    FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
+
 from .useful_widgets import LineEditReadOnly, ElementSelection, set_tooltip
 
 
@@ -43,15 +46,8 @@ class PlotFittingModel(QWidget):
         eline_sample_list = ["Li_K", "B_K", "C_K", "N_K", "Fe_K", "Userpeak1"]
         self.element_selection.addItems(eline_sample_list)
 
-        # The label will be replaced with the widget that will actually plot the data
-        label = QLabel()
-        comment = \
-            "The widget will plot experimental and fitted spectrum of the loaded data.\n"\
-            "Data presentation will be similar to 'Spectrum View' tab, except that\n"\
-            "preview data is going to be displayed in a separate tab."
-        label.setText(comment)
-        label.setStyleSheet("QLabel { background-color : white; color : blue; }")
-        label.setAlignment(Qt.AlignCenter)
+        self.mpl_canvas = FigureCanvas(self.gpc.plot_model._fig)
+        self.mpl_toolbar = NavigationToolbar(self.mpl_canvas, self)
 
         vbox = QVBoxLayout()
 
@@ -74,7 +70,8 @@ class PlotFittingModel(QWidget):
         hbox.addStretch(1)
         vbox.addLayout(hbox)
 
-        vbox.addWidget(label)
+        vbox.addWidget(self.mpl_toolbar)
+        vbox.addWidget(self.mpl_canvas)
         self.setLayout(vbox)
 
         self._set_tooltips()
@@ -106,6 +103,7 @@ class PlotFittingModel(QWidget):
     def update_widget_state(self, condition=None):
         if condition == "tooltips":
             self._set_tooltips()
+        self.mpl_toolbar.setVisible(self.gui_vars["show_matplotlib_toolbar"])
 
     def le_mouse_press(self, event):
         print("Button pressed (line edit)")

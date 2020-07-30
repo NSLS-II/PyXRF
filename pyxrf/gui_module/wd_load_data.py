@@ -28,6 +28,7 @@ class LoadDataWidget(FormBaseWidget):
 
     update_preview_map_range = pyqtSignal(str)
     signal_new_run_loaded = pyqtSignal(bool)  # True/False - success/failed
+    signal_loading_new_run = pyqtSignal()  # Emitted before new run is loaded
 
     def __init__(self,  *, gpc, gui_vars):
         super().__init__()
@@ -290,6 +291,8 @@ class LoadDataWidget(FormBaseWidget):
                                                  "HDF5 (*.h5);; All (*)")
         file_path = file_paths[0]
         if file_path:
+            self.signal_loading_new_run.emit()
+
             self._result = {}
 
             def cb(file_path, result_dict):

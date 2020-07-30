@@ -210,7 +210,7 @@ class FitMapsWidget(FormBaseWidget):
             self._set_tooltips()
 
         state_file_loaded = self.gui_vars["gui_state"]["state_file_loaded"]
-        state_model_exist = self.gui_vars["gui_state"]["state_model_exist"]
+        state_model_exist = self.gui_vars["gui_state"]["state_model_exists"]
         state_xrf_map_exists = self.gui_vars["gui_state"]["state_xrf_map_exists"]
 
         self.group_settings.setEnabled(state_file_loaded & state_model_exist)
@@ -485,7 +485,7 @@ class WndComputeRoiMaps(SecondaryWindow):
 
         # Hide the window if required by the program state
         state_file_loaded = self.gui_vars["gui_state"]["state_file_loaded"]
-        state_model_exist = self.gui_vars["gui_state"]["state_model_exist"]
+        state_model_exist = self.gui_vars["gui_state"]["state_model_exists"]
         if not state_file_loaded or not state_model_exist:
             self.hide()
 

@@ -106,6 +106,12 @@ class PreviewPlotSpectrum(QWidget):
             self._set_tooltips()
         self.mpl_toolbar.setVisible(self.gui_vars["show_matplotlib_toolbar"])
 
+    @pyqtSlot()
+    @pyqtSlot(bool)
+    def redraw_preview_plot(self):
+        # It is assumed that the plot is visible
+        self.gpc.plot_model.update_preview_spectrum_plot()
+
     def btn_group_region_button_toggled(self, button, checked):
         if checked:
             if button == self.rb_selected_region:

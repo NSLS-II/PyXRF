@@ -20,7 +20,7 @@ global_gui_variables = {
         "running_computations": False,
         # The following states are NOT mutually exclusive
         "state_file_loaded": False,
-        "state_model_exist": False,
+        "state_model_exists": False,
         "state_model_fit_exists": False,
         "state_xrf_map_exists": False,
     },
@@ -42,7 +42,7 @@ def clear_gui_state(gui_vars):
         reference to the dictionary `global_gui_variables`
     """
     gui_vars["gui_state"]["state_file_loaded"] = False
-    gui_vars["gui_state"]["state_model_exist"] = False
+    gui_vars["gui_state"]["state_model_exists"] = False
     gui_vars["gui_state"]["state_model_fit_exists"] = False
     gui_vars["gui_state"]["state_xrf_map_exists"] = False
 

@@ -220,7 +220,7 @@ class LinePlotModel(Atom):
 
         self.data = None
 
-        self._fig = plt.figure(figsize=(3, 2))
+        self._fig = plt.figure()
 
         self._ax = self._fig.add_subplot(111)
         try:
@@ -1530,8 +1530,8 @@ class LinePlotModel(Atom):
         Parameters
         ----------
         hide: bool
-            `True` - plot data if datasets are available and at least one dataset is selected,
-            otherwise hide the plot, `False` - hide the plot in any case
+            `False` - plot data if datasets are available and at least one dataset is selected,
+            otherwise hide the plot, `True` - hide the plot in any case
         """
         # Find out if any data is selected
         show_plot = False
