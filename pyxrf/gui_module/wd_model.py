@@ -1,5 +1,6 @@
 import os
 import numpy as np
+from threading import Thread
 
 from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox, QLineEdit,
                              QCheckBox, QLabel, QComboBox, QDialog, QDialogButtonBox,
@@ -34,6 +35,7 @@ class ModelWidget(FormBaseWidget):
 
     # Signal that is sent (to main window) to update global state of the program
     update_global_state = pyqtSignal()
+    computations_complete = pyqtSignal()
     # Signal is emitted when a new model is loaded (or computed).
     # True - model loaded successfully, False - otherwise
     # In particular, the signal may be used to update the widgets that depend on incident energy,
@@ -56,6 +58,9 @@ class ModelWidget(FormBaseWidget):
         self.ref_main_window = self.gui_vars["ref_main_window"]
 
         self.update_global_state.connect(self.ref_main_window.update_widget_state)
+        # Reference to background thread used to run computations. The reference is
+        #   meaningful only when the computations are run.
+        self.bckg_thread = None
 
         self.initialize()
 
@@ -282,10 +287,29 @@ class ModelWidget(FormBaseWidget):
             logger.debug("Saving parameters from 'DialogFindElements'")
             if self.gpc.set_autofind_elements_params(dialog_data):
                 self.signal_incident_energy_or_range_changed.emit()
-            # TODO: emit signal ('parameters changed', i.e. incident energy and range changed)
             if dlg.find_elements_requested:
-                # TODO: start element search
                 logger.debug("Starting automated element search")
+
+                def cb():
+                    self.gpc.find_elements_automatically()
+                    self.computations_complete.emit()
+
+                self.computations_complete.connect(self.slot_find_elines_clicked)
+                self.gui_vars["gui_state"]["running_computations"] = True
+                self.update_global_state.emit()
+                self.bckg_thread = Thread(target=cb)
+                self.bckg_thread.start()
+
+    def slot_find_elines_clicked(self):
+        self.computations_complete.disconnect(self.slot_find_elines_clicked)
+        self.gui_vars["gui_state"]["running_computations"] = False
+        self.update_global_state.emit()
+
+        self.gui_vars["gui_state"]["state_model_exists"] = True
+        self.gui_vars["gui_state"]["state_model_fit_exists"] = False
+        self.signal_model_loaded.emit(True)
+        self.update_global_state.emit()
+        logger.info("Automated element search is complete")
 
     def pb_load_elines_clicked(self):
         # TODO: Propagate current directory here and use it in the dialog call
@@ -353,7 +377,7 @@ class ModelWidget(FormBaseWidget):
                     msg += " (user-defined)"
                 self.le_param_fln.setText(msg)
 
-                self.gpc.find_peaks()
+                self.gpc.process_peaks_from_quantitative_sample_data()
 
                 self.gui_vars["gui_state"]["state_model_exists"] = True
                 self.gui_vars["gui_state"]["state_model_fit_exists"] = False

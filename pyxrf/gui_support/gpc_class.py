@@ -607,7 +607,7 @@ class GlobalProcessingClasses:
     def is_quant_standard_custom(self, standard=None):
         return self.fit_model.param_quant_estimation.is_standard_custom(standard)
 
-    def find_peaks(self):
+    def process_peaks_from_quantitative_sample_data(self):
         incident_energy = self.param_model.param_new['coherent_sct_energy']['value']
         # Generate the data structure for the results of processing of standard data
         self.fit_model.param_quant_estimation.gen_fluorescence_data_dict(incident_energy)
@@ -728,3 +728,30 @@ class GlobalProcessingClasses:
             #   the upper boundary of the energy range used for emission line search.
             self.plot_model.change_incident_energy(
                 self.fit_model.default_parameters["coherent_sct_energy"]["value"])
+
+    def find_elements_automatically(self):
+
+        self.param_model.find_peak()
+        self.param_model.EC.order()
+        self.param_model.update_name_list()
+
+        self.param_model.EC.turn_on_all()
+        self.param_model.data_for_plot()
+
+        # update experimental plots in case the coefficients change
+        self.plot_model.parameters = self.param_model.param_new
+        self.plot_model.plot_experiment()
+
+        self.plot_model.plot_fit(self.param_model.prefit_x,
+                                 self.param_model.total_y,
+                                 self.param_model.auto_fit_all)
+
+        # Update displayed intensity of the selected peak
+        self.plot_model.compute_manual_peak_intensity()
+
+        # Show the summed spectrum used for fitting
+        self.plot_model.plot_exp_opt = False
+        self.plot_model.plot_exp_opt = True
+        # For plotting purposes, otherwise plot will not update
+        self.plot_model.show_fit_opt = False
+        self.plot_model.show_fit_opt = True
