@@ -258,6 +258,10 @@ class MainWindow(QMainWindow):
             self.central_widget.right_panel.tab_preview_plots.preview_plot_spectrum.redraw_preview_plot)
         self.central_widget.left_panel.model_widget.signal_model_loaded.connect(
             self.central_widget.right_panel.slot_activate_tab_fitting_model)
+        self.central_widget.left_panel.model_widget.signal_model_loaded.connect(
+            self.central_widget.right_panel.tab_plot_fitting_model.update_controls)
+        self.central_widget.left_panel.model_widget.signal_model_loaded.connect(
+            self.wnd_manage_emission_lines.update_widget_data)
 
         # XRF Maps dataset changed
         self.central_widget.right_panel.tab_plot_xrf_maps.signal_maps_dataset_selection_changed.connect(
@@ -270,6 +274,18 @@ class MainWindow(QMainWindow):
             self.central_widget.right_panel.tab_plot_rgb_maps.slot_update_ranges)
         self.wnd_load_quantitative_calibration.signal_quantitative_calibration_changed.connect(
             self.wnd_image_wizard.slot_update_ranges)
+
+        # Selected element is changed (tools for emission line selection)
+        self.wnd_manage_emission_lines.signal_selected_element_changed.connect(
+            self.central_widget.right_panel.tab_plot_fitting_model.slot_selection_item_changed)
+        self.central_widget.right_panel.tab_plot_fitting_model.signal_selected_element_changed.connect(
+            self.wnd_manage_emission_lines.slot_selection_item_changed)
+        self.central_widget.right_panel.tab_plot_fitting_model.signal_add_line.connect(
+            self.wnd_manage_emission_lines.pb_add_eline_clicked)
+        self.central_widget.right_panel.tab_plot_fitting_model.signal_remove_line.connect(
+            self.wnd_manage_emission_lines.pb_remove_eline_clicked)
+        self.wnd_manage_emission_lines.signal_update_element_selection_list.connect(
+            self.central_widget.right_panel.tab_plot_fitting_model.slot_update_eline_selection_list)
 
     @pyqtSlot()
     @pyqtSlot(str)

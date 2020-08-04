@@ -1,6 +1,7 @@
 import os
 import numpy as np
 from threading import Thread
+import copy
 
 from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox, QLineEdit,
                              QCheckBox, QLabel, QComboBox, QDialog, QDialogButtonBox,
@@ -277,7 +278,6 @@ class ModelWidget(FormBaseWidget):
         self.pb_save_spectrum.setEnabled(state_file_loaded & state_model_exist & state_model_fit_exists)
 
     def pb_find_elines_clicked(self):
-
         dialog_data = self.gpc.get_autofind_elements_params()
         dlg = DialogFindElements()
         dlg.set_dialog_data(dialog_data)
@@ -476,6 +476,9 @@ class ModelWidget(FormBaseWidget):
 
 class WndManageEmissionLines(SecondaryWindow):
 
+    signal_selected_element_changed = pyqtSignal(str)
+    signal_update_element_selection_list = pyqtSignal()
+
     def __init__(self,  *, gpc, gui_vars):
         super().__init__()
 
@@ -484,7 +487,15 @@ class WndManageEmissionLines(SecondaryWindow):
         # Global GUI variables (used for control of GUI state)
         self.gui_vars = gui_vars
 
+        self._enable_events = False
+
+        self._eline_list = []  # List of emission lines (used in the line selection combo)
+        self._table_contents = []  # Keep a copy of table contents (list of dict)
+        self._selected_eline = ""
+
         self.initialize()
+
+        self._enable_events = True
 
     def initialize(self):
         self.setWindowTitle("PyXRF: Add/Remove Emission Lines")
@@ -514,22 +525,26 @@ class WndManageEmissionLines(SecondaryWindow):
 
         self.cb_select_all = QCheckBox("All")
         self.cb_select_all.setChecked(True)
+        self.cb_select_all.toggled.connect(self.cb_select_all_toggled)
 
         self.element_selection = ElementSelection()
 
         # The following field should switched to 'editable' state from when needed
         self.le_peak_intensity = LineEditReadOnly()
+
         self.pb_add_eline = QPushButton("Add")
+        self.pb_add_eline.clicked.connect(self.pb_add_eline_clicked)
+
         self.pb_remove_eline = QPushButton("Remove")
+        self.pb_remove_eline.clicked.connect(self.pb_remove_eline_clicked)
 
         self.pb_user_peaks = QPushButton("User Peaks ...")
         self.pb_user_peaks.clicked.connect(self.pb_user_peaks_clicked)
         self.pb_pileup_peaks = QPushButton("Pileup Peaks ...")
         self.pb_pileup_peaks.clicked.connect(self.pb_pileup_peaks_clicked)
 
-        # Some emission lines to populate the combo box
-        eline_sample_list = ["Li_K", "B_K", "C_K", "N_K", "Fe_K", "Userpeak1"]
-        self.element_selection.addItems(eline_sample_list)
+        self.element_selection.signal_current_item_changed.connect(
+            self.element_selection_item_changed)
 
         vbox = QVBoxLayout()
 
@@ -568,6 +583,10 @@ class WndManageEmissionLines(SecondaryWindow):
         self.tbl_elines.verticalHeader().hide()
         self.tbl_elines.setHorizontalHeaderLabels(self.tbl_labels)
 
+        self.tbl_elines.setSelectionBehavior(QTableWidget.SelectRows)
+        self.tbl_elines.setSelectionMode(QTableWidget.SingleSelection)
+        self.tbl_elines.itemSelectionChanged.connect(self.tbl_elines_item_selection_changed)
+
         header = self.tbl_elines.horizontalHeader()
         for n, lbl in enumerate(self.tbl_labels):
             # Set stretching for the columns
@@ -580,20 +599,6 @@ class WndManageEmissionLines(SecondaryWindow):
                 header.setDefaultAlignment(Qt.AlignCenter)
             else:
                 header.setDefaultAlignment(Qt.AlignRight)
-
-        # Fill the table with some sample data
-        sample_table = [[18, "Ar_K", 2.9574, 146548.42, 3.7, 268.08],
-                        [20, "Ca_K", 3.6917, 119826.75, 3.02, 561.45],
-                        [22, "Ti_K", 4.5109, 323794.32, 8.17, 1066.53],
-                        [26, "Fe_K", 6.4039, 3964079.85, 100.0, 3025.15],
-                        [30, "Zn_K", 8.6389, 41893.18, 1.06, 6706.05],
-                        [65, "Tb_L", 6.2728, 11853.24, 0.3, 6148.37],
-                        ["", "Userpeak1", "", 28322.97, 0.71, ""],
-                        ["", "compton", "", 2342.37, 0.05, ""],
-                        ["", "elastic", "", 8825.48, 0.22, ""],
-                        ["", "background", "", 10118.05, 0.26, ""]]
-
-        self.fill_eline_table(sample_table)
 
     def _setup_action_buttons(self):
 
@@ -671,10 +676,17 @@ class WndManageEmissionLines(SecondaryWindow):
             self._set_tooltips()
 
     def fill_eline_table(self, table_contents):
+        self._table_contents = copy.deepcopy(table_contents)
+
+        self._enable_events = False
 
         self.tbl_elines.setRowCount(len(table_contents))
         for nr, row in enumerate(table_contents):
-            for nc, entry in enumerate(row):
+            sel_status = row["sel_status"]
+            row_data = [row["z"], row["eline"], row["energy"],
+                        row["peak_int"], row["rel_int"], row["cs"]]
+
+            for nc, entry in enumerate(row_data):
                 label = self.tbl_labels[nc]
 
                 s = None
@@ -694,8 +706,8 @@ class WndManageEmissionLines(SecondaryWindow):
 
                 # Add check box to the first element of each row
                 if nc == 0:
-                    item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
-                    item.setCheckState(Qt.Checked)  # All items are checked
+                    item.setFlags(item.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+                    item.setCheckState(Qt.Checked if sel_status else Qt.Unchecked)
                     item.setTextAlignment(Qt.AlignCenter | Qt.AlignVCenter)
                 else:
                     item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -703,9 +715,6 @@ class WndManageEmissionLines(SecondaryWindow):
                 # Set all columns not editable (unless needed)
                 if label not in self.tbl_cols_editable:
                     item.setFlags(item.flags() & ~Qt.ItemIsEditable)
-
-                # Make all items not selectable (we are not using selections)
-                item.setFlags(item.flags() & ~Qt.ItemIsSelectable)
 
                 # Set alternating background colors for the table rows
                 #   Make background for editable items a little brighter
@@ -718,6 +727,14 @@ class WndManageEmissionLines(SecondaryWindow):
 
                 self.tbl_elines.setItem(nr, nc, item)
 
+        self._enable_events = True
+
+    @pyqtSlot()
+    def update_widget_data(self):
+        self._update_eline_selection_list()
+        self._update_eline_table()
+        self._update_add_remove_btn_state()
+
     def pb_pileup_peaks_clicked(self):
         dlg = DialogPileupPeakParameters()
         if dlg.exec():
@@ -727,6 +744,139 @@ class WndManageEmissionLines(SecondaryWindow):
         dlg = DialogUserPeakParameters()
         if dlg.exec():
             print("User defined peak is added")
+
+    @pyqtSlot()
+    def pb_add_eline_clicked(self):
+        logger.debug("'Add line' clicked")
+
+    @pyqtSlot()
+    def pb_remove_eline_clicked(self):
+        logger.debug("'Remove line' clicked")
+
+    def cb_select_all_toggled(self, state):
+        self._enable_events = False
+
+        for n_row in range(self.tbl_elines.rowCount()):
+            eline = self._table_contents[n_row]["eline"]
+            # Do not deselect lines in category 'other'. They probably never to be deleted.
+            # They also could be deselected manually.
+            if self.gpc.get_eline_name_category(eline) == "other" and not state:
+                to_check = True
+            else:
+                to_check = state
+            self.tbl_elines.item(n_row, 0).setCheckState(Qt.Checked if to_check else Qt.Unchecked)
+
+        self._enable_events = True
+
+    def tbl_elines_item_selection_changed(self):
+        sel_ranges = self.tbl_elines.selectedRanges()
+        # The table is configured to have one or no selected ranges
+        # 'Open' button should be enabled only if a range (row) is selected
+        if sel_ranges:
+            index = sel_ranges[0].topRow()
+            eline = self._table_contents[index]["eline"]
+            if self._enable_events:
+                self._enable_events = False
+                self._set_selected_eline(eline)
+                self.element_selection.set_current_item(eline)
+                self._enable_events = True
+
+    def tbl_elines_set_selection(self, eline):
+        """
+        Select the row with emission line `eline` in the table. Deselect everything if
+        the emission line does not exist.
+        """
+        index = self._get_eline_index_in_table(eline)
+        self.tbl_elines.clearSelection()
+        if index >= 0:
+            self.tbl_elines.selectRow(index)
+
+    def element_selection_item_changed(self, index, eline):
+        self.signal_selected_element_changed.emit(eline)
+        self.gpc.set_selected_eline(eline)
+
+        # Show estimated peak intensity
+        if index < 0:
+            s = ""
+        else:
+            v = self.gpc.get_selected_eline_intensity()
+            s = f"{v:.10g}"
+
+        if self._enable_events:
+            self._enable_events = False
+            self._set_selected_eline(eline)
+            self.tbl_elines_set_selection(eline)
+            self._enable_events = True
+
+        self.le_peak_intensity.setText(s)
+
+    @pyqtSlot(str)
+    def slot_selection_item_changed(self, eline):
+        self.element_selection.set_current_item(eline)
+
+    def _update_eline_selection_list(self):
+        self._eline_list = self.gpc.get_full_eline_list()
+        self.element_selection.set_item_list(self._eline_list)
+        self.signal_update_element_selection_list.emit()
+
+    def _update_eline_table(self):
+        eline_table = self.gpc.get_selected_eline_table()
+        self.fill_eline_table(eline_table)
+
+    def _get_eline_index_in_table(self, eline):
+        try:
+            index = [_["eline"] for _ in self._table_contents].index(eline)
+        except ValueError:
+            index = -1
+        return index
+
+    def _get_eline_index_in_list(self, eline):
+        try:
+            index = self._eline_list.index(eline)
+        except ValueError:
+            index = -1
+        return index
+
+    def _get_current_index_in_table(self):
+        sel_ranges = self.tbl_elines.selectedRanges()
+        # The table is configured to have one or no selected ranges
+        # 'Open' button should be enabled only if a range (row) is selected
+        if sel_ranges:
+            index = sel_ranges[0].topRow()
+            eline = self._table_contents[index]["eline"]
+        else:
+            index, eline = -1, ""
+        return index, eline
+
+    def _get_current_index_in_list(self):
+        index, eline = self.element_selection.get_current_item()
+        return index, eline
+
+    def _update_add_remove_btn_state(self, eline=None):
+        if eline is None:
+            index_in_table, eline = self._get_current_index_in_table()
+            index_in_list, eline = self._get_current_index_in_list()
+        else:
+            index_in_table = self._get_eline_index_in_table(eline)
+            index_in_list = self._get_eline_index_in_list(eline)
+        add_enabled, remove_enabled = True, True
+        if index_in_list < 0 and index_in_table < 0:
+            add_enabled, remove_enabled = False, False
+        else:
+            if index_in_table >= 0:
+                if self.gpc.get_eline_name_category(eline) != "other":
+                    add_enabled = False
+                else:
+                    add_enabled, remove_enabled = False, False
+            else:
+                remove_enabled = False
+        self.pb_add_eline.setEnabled(add_enabled)
+        self.pb_remove_eline.setEnabled(remove_enabled)
+
+    def _set_selected_eline(self, eline):
+        if eline != self._selected_eline:
+            self._selected_eline = eline
+            self._update_add_remove_btn_state(eline)
 
 
 class DialogGeneralFittingSettings(QDialog):

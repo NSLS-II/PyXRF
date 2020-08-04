@@ -8,7 +8,7 @@ from ..model.lineplot import LinePlotModel  # , SettingModel
 from ..model.guessparam import GuessParamModel
 from ..model.draw_image import DrawImageAdvanced
 from ..model.draw_image_rgb import DrawImageRGB
-from ..model.fit_spectrum import Fit1D
+from ..model.fit_spectrum import Fit1D, get_cs
 from ..model.setting import SettingModel
 from ..model.param_data import param_data
 
@@ -535,6 +535,59 @@ class GlobalProcessingClasses:
         self.img_model_adv.param_quant_analysis.set_experiment_distance_to_sample(distance_to_sample)
 
     # ==========================================================================
+    #    The following methods are used by Fitting Model tab (pectrum plots)
+
+    def get_line_plot_state(self):
+        plot_spectrum = bool(self.plot_model.plot_exp_opt)
+        plot_fit = bool(self.plot_model.show_fit_opt)
+        return plot_spectrum, plot_fit
+
+    def show_plot_spectrum(self, state):
+        self.plot_model.plot_exp_opt = bool(state)
+
+    def show_plot_fit(self, state):
+        self.plot_model.show_fit_opt = bool(state)
+
+    def get_plot_fit_energy_range(self):
+        return self.plot_model.energy_range_fitting
+
+    def set_plot_fit_energy_range(self, range_name):
+        if range_name not in self.plot_model.energy_range_names:
+            raise ValueError(f"Range name {range_name} is not in the list of allowed "
+                             f"names {self.plot_model.energy_range_name}")
+        self.plot_model.set_energy_range_fitting(range_name)
+
+    def get_plot_fit_linlog(self):
+        if self.plot_model.scale_opt == 0:
+            return "linlog"
+        else:
+            return "linear"
+
+    def set_plot_fit_linlog(self, scale):
+        """Scale may have values 'linlog' or 'linear'.
+        Raises `ValueError` if other value is passed."""
+        self.plot_model.scale_opt = ["linlog", "linear"].index(scale)
+
+    def get_incident_energy(self):
+        return self.plot_model.incident_energy
+
+    def get_escape_peak_params(self):
+        plot_escape_peak = bool(self.plot_model.plot_escape_line)
+        materials = ["Si", "Ge"]
+        try:
+            detector_material = materials[self.plot_model.det_materials]
+        except Exception:
+            detector_material = ""
+        return plot_escape_peak, detector_material
+
+    def set_escape_peak_params(self, plot_escape_peak, detector_material):
+        materials = ["Si", "Ge"]
+        if detector_material not in materials:
+            raise ValueError(f"Detector material '{detector_material}' is unknown: {materials}")
+        self.plot_model.change_escape_peak_settings(1 if plot_escape_peak else 0,
+                                                    materials.index(detector_material))
+
+    # ==========================================================================
     #          The following methods are used by Model tab
     def get_autofind_elements_params(self):
         """Assemble the parameters managed by 'Find Elements in Sample` dialog box."""
@@ -752,6 +805,58 @@ class GlobalProcessingClasses:
         # Show the summed spectrum used for fitting
         self.plot_model.plot_exp_opt = False
         self.plot_model.plot_exp_opt = True
+        # For plotting purposes, otherwise plot will not update
+        self.plot_model.show_fit_opt = False
+        self.plot_model.show_fit_opt = True
+
+    def get_full_eline_list(self):
+        """Returns full list of supported emission lines."""
+        return self.param_model.get_user_peak_list(include_user_peaks=False)
+
+    def set_selected_eline(self, eline):
+        """Sets and display the location of current emission line"""
+        n_id = 0  # No element is selected
+        if eline != "":
+            eline_list = self.get_full_eline_list()
+            try:
+                n_id = eline_list.index(eline) + 1  # Elements are numbered starting with 1.
+            except ValueError:
+                pass
+        self.plot_model.element_id = n_id
+
+    def get_selected_eline_intensity(self):
+        return self.param_model.add_element_intensity
+
+    def get_selected_eline_table(self):
+        """Returns full list of supported emission lines."""
+        eline_names = self.param_model.get_sorted_result_dict_names()
+        eline_table = []
+        for eline in eline_names:
+            sel_status = self.param_model.EC.element_dict[eline].status
+            z = self.param_model.EC.element_dict[eline].z
+            energy = self.param_model.EC.element_dict[eline].energy
+            peak_int = self.param_model.EC.element_dict[eline].maxv
+            rel_int = self.param_model.EC.element_dict[eline].norm
+            cs = get_cs(eline, self.fit_model.param_dict['coherent_sct_energy']['value'])
+            row_data = {"eline": eline, "sel_status": sel_status, "z": z,
+                        "energy": energy, "peak_int": peak_int, "rel_int": rel_int, "cs": cs}
+            eline_table.append(row_data)
+        return eline_table
+
+    def get_eline_name_category(self, eline_name):
+        return self.param_model.get_eline_name_category(eline_name)
+
+    def set_checked_emission_lines(self, eline_list, eline_checked_list):
+        for eline, checked in zip(eline_list, eline_checked_list):
+            self.param_model.EC.element_dict[eline].status = checked
+            self.param_model.EC.element_dict[eline].stat_copy = \
+                self.param_model.EC.element_dict[eline].status
+
+        self.param_model.data_for_plot()
+
+        self.plot_model.plot_fit(self.param_model.prefit_x,
+                                 self.param_model.total_y,
+                                 self.param_model.auto_fit_all)
         # For plotting purposes, otherwise plot will not update
         self.plot_model.show_fit_opt = False
         self.plot_model.show_fit_opt = True

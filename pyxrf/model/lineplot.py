@@ -92,7 +92,7 @@ class LinePlotModel(Atom):
         x value for fitting
     fit_y : array
         fitted data
-    plot_type : list
+    plot_type_names : list
         linear or log plot
     max_v : float
         max value of data array
@@ -136,6 +136,8 @@ class LinePlotModel(Atom):
     _fig = Typed(Figure)
     _ax = Typed(Axes)
     _canvas = Typed(object)
+    plot_fit_x_min = Float(0)  # The variables are used to store x_min and x_max for the current plot
+    plot_fit_x_max = Float(0)
     element_id = Int(0)
     parameters = Dict()
     elist = List()
@@ -151,9 +153,12 @@ class LinePlotModel(Atom):
     # fit_y = Typed(np.ndarray)
     # residual = Typed(np.ndarray)
 
-    plot_type = List()
+    plot_type_names = List()
     max_v = Float()
     incident_energy = Float(12.0)
+
+    energy_range_names = List()
+    energy_range_fitting = Str()
 
     eline_obj = List()
 
@@ -228,10 +233,14 @@ class LinePlotModel(Atom):
         except AttributeError:
             self._ax.set_facecolor('lightgrey')
 
-        self._ax.set_xlabel('Energy [keV]')
-        self._ax.set_ylabel('Counts')
+        self._ax.set_xlabel('Energy (keV)')
+        self._ax.set_ylabel('Spectrum (Counts)')
+        self._ax.grid(which="both")
         self._ax.set_yscale('log')
-        self.plot_type = ['LinLog', 'Linear']
+        self.plot_type_names = ['LinLog', 'Linear']
+
+        self.energy_range_names = ["selected", "full"]
+        self.energy_range_fitting = "selected"
 
         self._ax.autoscale_view(tight=True)
         self._ax.legend(loc=2)
@@ -366,6 +375,13 @@ class LinePlotModel(Atom):
             return
         self.incident_energy = self.parameters['coherent_sct_energy']['value']
 
+    def set_energy_range_fitting(self, energy_range_name):
+        if energy_range_name not in self.energy_range_names:
+            raise ValueError(f"Unknown energy range name {energy_range_name}. "
+                             f"Allowed names: {self.energy_range_names}")
+        self.energy_range_fitting = energy_range_name
+        self.plot_experiment()
+
     def set_incident_energy(self, change):
         """
         The observer function that changes the value of incident energy
@@ -420,6 +436,7 @@ class LinePlotModel(Atom):
         """Observer function for 'param_model.energy_bound_high_buf'"""
         if self.data is None:
             return
+        self.exp_data_update({"value": self.data})
         self.plot_selected_energy_range_original(e_high=change["value"])
         self.plot_vertical_marker(e_high=change["value"])
         self._update_canvas()
@@ -428,12 +445,13 @@ class LinePlotModel(Atom):
         """Observer function for 'param_model.energy_bound_low_buf'"""
         if self.data is None:
             return
+        self.exp_data_update({"value": self.data})
         self.plot_selected_energy_range_original(e_low=change["value"])
         self.plot_vertical_marker(e_low=change["value"])
         self._update_canvas()
 
     def log_linear_plot(self):
-        if self.plot_type[self.scale_opt] == 'LinLog':
+        if self.plot_type_names[self.scale_opt] == 'LinLog':
             self._ax.set_yscale('log')
             # self._ax.margins(x=0.0, y=0.5)
             # self._ax.autoscale_view(tight=True)
@@ -462,11 +480,36 @@ class LinePlotModel(Atom):
         if self.data is None:
             return
 
-        # conflicts between float and np.float32 ???
-        self.max_v = float(np.max(self.data[self.limit_cut:-self.limit_cut]))
+        e_range = self.energy_range_fitting
+        e_range_full, e_range_selected = "full", "selected"
+        if set([e_range_full, e_range_selected]) < set(self.energy_range_names):
+            raise ValueError(f"Some names for energy range {(e_range_full, e_range_selected)} are not supported. "
+                             "Please report the error to the development team.")
+        if e_range not in (e_range_full, e_range_selected):
+            logger.error(f"Spectrum preview: Unknown option for the energy range: {e_range}\n"
+                         "Please report the error to the development team.")
+            # This is not a critical error, so we still can proceed
+            e_range = e_range_full
 
         if not self.parameters:
             return
+
+        # The number of points in the displayed dataset
+        n_dset_points = len(self.data)
+
+        if e_range == e_range_selected:
+            n_range_low, n_range_high = self.selected_range_indices(n_indexes=n_dset_points)
+        else:
+            n_range_low, n_range_high = 0, n_dset_points
+
+        n_low = int(np.clip(n_range_low, a_min=0, a_max=n_dset_points - 1))
+        n_high = int(np.clip(n_range_high, a_min=1, a_max=n_dset_points))
+
+        # Find the maximum value (skip the first and last 'limit_cut' points of the dataset
+        n1, n2 = max(self.limit_cut, n_low), min(n_dset_points-self.limit_cut, n_high)
+        if n2 <= n1:  # This is just a precaution: it is expected that n_dset_points >> 2 * limit_cut
+            n1, n2 = n_low, n_high
+        self.max_v = float(np.max(self.data[n1: n2]))
 
         try:
             self.plot_exp_obj.remove()
@@ -474,18 +517,27 @@ class LinePlotModel(Atom):
         except AttributeError:
             logger.debug('No need to remove experimental data.')
 
-        data_arr = self.data[0: self.number_pts_to_show]
+        data_arr = self.data
         x_v = (self.parameters['e_offset']['value'] +
-               np.arange(len(data_arr)) *
+               np.arange(n_low, n_high) *
                self.parameters['e_linear']['value'] +
-               np.arange(len(data_arr))**2 *
+               np.arange(n_low, n_high)**2 *
                self.parameters['e_quadratic']['value'])
+
+        data_arr = data_arr[n_low: n_high]
 
         self.plot_exp_obj, = self._ax.plot(x_v, data_arr,
                                            linestyle=self.plot_style['experiment']['linestyle'],
                                            color=self.plot_style['experiment']['color'],
                                            marker=self.plot_style['experiment']['marker'],
                                            label=self.plot_style['experiment']['label'])
+
+        # Rescale the plot along x-axis if needed
+        x_min, x_max = x_v[0], x_v[-1]
+        if (x_min != self.plot_fit_x_min) or (x_max != self.plot_fit_x_max):
+            self.plot_fit_x_min = x_min
+            self.plot_fit_x_max = x_max
+            self._ax.set_xlim(x_min, x_max)
 
         self._update_ylimit()
         self.log_linear_plot()
@@ -650,7 +702,7 @@ class LinePlotModel(Atom):
                self.parameters['e_quadratic']['value'])
 
         ss = (x_v < e_high) & (x_v > e_low)
-        y_min, y_max = 1e-30, 1e30  # Select the max and min values for plotted rectangles
+        y_min, y_max = -1e30, 1e30  # Select the max and min values for plotted rectangles
 
         # Remove the plot if it exists
         if self.plot_energy_barh in self._ax.collections:
@@ -996,6 +1048,13 @@ class LinePlotModel(Atom):
             self.escape_e = 1.73998
         else:
             self.escape_e = 9.88640
+
+    def change_escape_peak_settings(self, plot_escape_line, det_material):
+        self.plot_escape_line = plot_escape_line
+        self.det_materials = det_material
+        # Now update the displayed emission line
+        self.plot_emission_line()
+        self._update_canvas()
 
     def plot_roi_bound(self):
         """

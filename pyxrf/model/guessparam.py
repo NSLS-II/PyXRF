@@ -17,6 +17,7 @@ from skbeam.core.fitting.xrf_model import (ParamController,
                                            linear_spectrum_fitting)
 from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 from ..core.map_processing import snip_method_numba
+from ..core.xrf_utils import check_if_eline_supported
 
 import logging
 logger = logging.getLogger(__name__)
@@ -601,6 +602,61 @@ class GuessParamModel(Atom):
         self.n_selected_pure_elines_for_fitting = len(pure_peak_list)
 
         logger.info(f"The full list for fitting is {self.result_dict_names}")
+
+    def get_eline_name_category(self, eline_name):
+        """
+        Returns the category to which `eline_name` belongs: `eline`, `userpeak`,
+        `pileup` or `other`.
+
+        Parameters
+        ----------
+        eline_name: str
+            Name to be analyzed
+
+        Returns
+        -------
+        str
+            category: one of `("eline", "userpeak", "pileup" or "other")`
+        """
+        if check_if_eline_supported(eline_name):
+            return "eline"
+        elif eline_name.lower().startswith("userpeak"):
+            return "userpeak"
+        elif "-" in eline_name:  # This is specific to currently accepted naming convention
+            return "pileup"
+        else:
+            return "other"
+
+    def get_sorted_result_dict_names(self):
+        """
+        The function returns the list of selected emission lines. The emission lines are
+        sorted in the following order: emission line names (sorted in the order of growing
+        atomic number Z), userpeaks (in alphabetic order), pileup peaks (in alphabetic order),
+        other peaks (in alphabetic order).
+
+        Returns
+        -------
+        list(str)
+            the list if emission line names
+        """
+        names_elines, names_userpeaks, names_pileup_peaks, names_other = [], [], [], []
+        for name in self.result_dict_names:
+            if self.get_eline_name_category(name) == "eline":
+                names_elines.append([name, self.EC.element_dict[name].z])
+            elif self.get_eline_name_category(name) == "userpeak":
+                names_userpeaks.append(name)
+            elif self.get_eline_name_category(name) == "pileup":
+                names_pileup_peaks.append(name)
+            else:
+                names_other.append(name)
+
+        names_elines.sort(key=lambda v: v[1])  # Sort by Z (atomic number)
+        names_elines = [_[0] for _ in names_elines]  # Get rid of Z
+        names_userpeaks.sort()
+        names_pileup_peaks.sort()
+        names_other.sort()
+
+        return names_elines + names_userpeaks + names_pileup_peaks + names_other
 
     def find_peak(self, *, threshv=0.1, elemental_lines=None):
         """

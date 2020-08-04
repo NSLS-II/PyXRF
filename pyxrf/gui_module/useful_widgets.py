@@ -820,13 +820,28 @@ class ElementSelection(QWidget):
     """ Width of the widgets can be set using `setMaximumWidth`. The size policy is set
     so that the widget may shrink if there is not enough space."""
 
+    signal_current_item_changed = pyqtSignal(int, str)
+
     def __init__(self):
         super().__init__()
 
+        self._item_list = []
+        # The 'first item' is appended to the beginning of the list. The index returned
+        #   by the functions of the class is the index of 'self._item_list' array, that
+        #   does not include the 'first item'.
+        self._first_item = "Select Line:"
+
         self.cb_element_list = QComboBox()
+        self.cb_element_list.currentIndexChanged.connect(self.cb_element_list_current_index_changed)
+
         self.setMaximumWidth(300)
         self.pb_prev = PushButtonMinimumWidth("<")
+        self.pb_prev.pressed.connect(self.pb_prev_pressed)
         self.pb_next = PushButtonMinimumWidth(">")
+        self.pb_next.pressed.connect(self.pb_next_pressed)
+
+        self.cb_element_list.addItems([self._first_item])
+        self.cb_element_list.setCurrentIndex(0)
 
         hbox = QHBoxLayout()
         hbox.setSpacing(0)
@@ -842,8 +857,77 @@ class ElementSelection(QWidget):
         sp.setHorizontalPolicy(QSizePolicy.Maximum)
         self.setSizePolicy(sp)
 
-    def addItems(self, items):
-        self.cb_element_list.addItems(items)
+    def set_item_list(self, item_list):
+        _, current_item = self.get_current_item()
 
-    def addItem(self, item):
-        self.cb_element_list.addItem(item)
+        self._item_list = item_list.copy()
+
+        current_index = -1
+        if current_item:
+            try:
+                current_index = self._item_list.index(current_item)
+            except ValueError:
+                pass
+
+        self.cb_element_list.clear()
+        self.cb_element_list.addItems([self._first_item] + self._item_list)
+
+        self.cb_element_list.setCurrentIndex(current_index + 1)
+
+        self._adjust_button_state()
+
+    def set_current_index(self, index):
+        current_index = -1
+        if 0 <= index < len(self._item_list):
+            current_index = index
+        self.cb_element_list.setCurrentIndex(current_index + 1)
+
+    def set_current_item(self, item):
+        current_index = -1
+        try:
+            current_index = self._item_list.index(item)
+        except ValueError:
+            pass
+        self.cb_element_list.setCurrentIndex(current_index + 1)
+
+    def get_current_item(self):
+        current_index = self.cb_element_list.currentIndex() - 1
+        if 0 <= current_index < len(self._item_list):
+            current_item = self._item_list[current_index]
+        else:
+            current_item = ""
+
+        return current_index, current_item
+
+    def _adjust_button_state(self):
+
+        current_index = self.cb_element_list.currentIndex() - 1
+        n_items = len(self._item_list)
+
+        enable_prev, enable_next = True, True
+        if n_items == 0:
+            enable_prev, enable_next = False, False
+        else:
+            if current_index < 0:
+                enable_prev = False
+            if current_index >= n_items - 1:
+                enable_next = False
+
+        self.pb_prev.setEnabled(enable_prev)
+        self.pb_next.setEnabled(enable_next)
+
+    def cb_element_list_current_index_changed(self, index):
+        self._adjust_button_state()
+        current_index, current_item = self.get_current_item()
+        self.signal_current_item_changed.emit(current_index, current_item)
+
+    def pb_prev_pressed(self):
+        current_index = self.cb_element_list.currentIndex() - 1
+        if current_index >= 0:
+            self.cb_element_list.setCurrentIndex(current_index)
+
+    def pb_next_pressed(self):
+        current_index = self.cb_element_list.currentIndex() - 1
+        n_items = len(self._item_list)
+        if current_index < n_items - 1:
+            self.cb_element_list.setCurrentIndex(current_index + 2)
