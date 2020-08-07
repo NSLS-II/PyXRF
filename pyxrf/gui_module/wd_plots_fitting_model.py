@@ -208,6 +208,11 @@ class PlotFittingModel(QWidget):
         eline_list = self.gpc.get_full_eline_list()
         self.element_selection.set_item_list(eline_list)
 
+    @pyqtSlot(bool, bool)
+    def slot_update_add_remove_btn_state(self, add_enabled, remove_enabled):
+        self.pb_add_line.setEnabled(add_enabled)
+        self.pb_remove_line.setEnabled(remove_enabled)
+
 
 class DialogPlotEscapePeak(QDialog):
 

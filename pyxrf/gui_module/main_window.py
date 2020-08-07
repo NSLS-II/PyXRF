@@ -286,6 +286,8 @@ class MainWindow(QMainWindow):
             self.wnd_manage_emission_lines.pb_remove_eline_clicked)
         self.wnd_manage_emission_lines.signal_update_element_selection_list.connect(
             self.central_widget.right_panel.tab_plot_fitting_model.slot_update_eline_selection_list)
+        self.wnd_manage_emission_lines.signal_update_add_remove_btn_state.connect(
+            self.central_widget.right_panel.tab_plot_fitting_model.slot_update_add_remove_btn_state)
 
     @pyqtSlot()
     @pyqtSlot(str)

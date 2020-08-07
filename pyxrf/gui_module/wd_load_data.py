@@ -463,7 +463,6 @@ class LoadDataWidget(FormBaseWidget):
         self.gpc.plot_model.plot_exp_opt = True
 
     def list_preview_item_changed(self, list_item):
-
         # Find the index of the list item that was checked/unchecked
         ind = -1
         for n in range(self.list_preview.count()):

@@ -811,10 +811,13 @@ class GlobalProcessingClasses:
 
     def get_full_eline_list(self):
         """Returns full list of supported emission lines."""
-        return self.param_model.get_user_peak_list(include_user_peaks=False)
+        return self.param_model.get_user_peak_list()
 
-    def set_selected_eline(self, eline):
-        """Sets and display the location of current emission line"""
+    def set_marker_reporter(self, callback):
+        self.plot_model.report_marker_state = callback
+
+    def select_eline(self, eline):
+        self.param_model.e_name = eline
         n_id = 0  # No element is selected
         if eline != "":
             eline_list = self.get_full_eline_list()
@@ -824,8 +827,32 @@ class GlobalProcessingClasses:
                 pass
         self.plot_model.element_id = n_id
 
-    def get_selected_eline_intensity(self):
-        return self.param_model.add_element_intensity
+    def set_selected_eline(self, eline):
+        """Sets and display the location of current emission line"""
+        self.select_eline(eline)
+
+        eline_category = self.get_eline_name_category(eline)
+        if eline_category == "userpeak":
+            self.fit_model.select_index_by_eline_name(eline)
+            # Show the marker at the center of the userpeak
+            self.plot_model.set_plot_vertical_marker(self.fit_model.add_userpeak_energy)
+        elif eline_category == "pileup":
+            energy = self.fit_model.get_pileup_peak_energy(eline)
+            if energy is not None:
+                self.plot_model.set_plot_vertical_marker(energy)
+            else:
+                logger.error(f"Could not find the energy of pileup peak '{eline}'.")
+        else:
+            self.plot_model.hide_plot_vertical_marker()
+
+    def get_eline_intensity(self, eline):
+        line_category = self.get_eline_name_category(eline)
+        if line_category == "eline":
+            return self.param_model.add_element_intensity
+        elif line_category in ("userpeak", "pileup"):
+            return self.param_model.EC.element_dict[eline].maxv
+        else:
+            return None
 
     def get_selected_eline_table(self):
         """Returns full list of supported emission lines."""
@@ -842,6 +869,13 @@ class GlobalProcessingClasses:
                         "energy": energy, "peak_int": peak_int, "rel_int": rel_int, "cs": cs}
             eline_table.append(row_data)
         return eline_table
+
+    def get_unused_userpeak_name(self):
+        eline_names = self.param_model.get_sorted_result_dict_names()
+        for n in range(1, 10000):  # Set some arbitrarily high limit to avoid infinite loops
+            userpeak_name = f"Userpeak{n}"
+            if userpeak_name not in eline_names:
+                return userpeak_name
 
     def get_eline_name_category(self, eline_name):
         return self.param_model.get_eline_name_category(eline_name)
@@ -860,3 +894,115 @@ class GlobalProcessingClasses:
         # For plotting purposes, otherwise plot will not update
         self.plot_model.show_fit_opt = False
         self.plot_model.show_fit_opt = True
+
+    def get_current_userpeak_energy_fwhm(self):
+        return self.fit_model.add_userpeak_energy, self.fit_model.add_userpeak_fwhm
+
+    def add_peak_manual(self, eline):
+        """Manually add a peak (emission line) using 'Add' button"""
+        self.select_eline(eline)
+
+        # Verify if we are adding a userpeak
+        is_userpeak = False
+        if self.get_eline_name_category(eline) == "userpeak":
+            is_userpeak = True
+
+        # The following set of conditions is not complete, but sufficient
+        if self.param_model.x0 is None or self.param_model.y0 is None:
+            err_msg = "Experimental data is not loaded or initial\n" \
+                      "spectrum fitting is not performed"
+            raise RuntimeError(err_msg)
+
+        elif is_userpeak and (not self.plot_model.vertical_marker_is_visible):
+            err_msg = ("Select position of userpeak by clicking on the spectrum plot.\n"
+                       "Note: plot toolbar options, such as Pan and Zoom, \n"
+                       "must be turned off before selecting the position.")
+            raise RuntimeError(err_msg)
+
+        else:
+            try:
+                self.plot_model.add_peak_manual()
+                # ``apply_to_fit`` takes some time to execute, so do it only for the user defined peaks
+                #   After calling ``apply_to_fit``, the line parameters may be edited
+                #   For other lines, the button ``Update`` must be pressed first.
+                if is_userpeak:
+                    self.apply_to_fit()
+            except Exception as ex:
+                raise RuntimeError(str(ex))
+
+            try:
+                if is_userpeak:
+                    self.fit_model.select_index_by_eline_name(eline)
+                    self.param_model.data_for_plot()
+                    self.plot_model.plot_fit(self.param_model.prefit_x,
+                                             self.param_model.total_y,
+                                             self.param_model.auto_fit_all)
+                    self.fit_model.update_userpeak_controls()
+            except Exception as ex:
+                pass
+
+    def remove_peak_manual(self, eline):
+        """Manually add a peak (emission line) using 'Remove' button"""
+        self.select_eline(eline)
+        self.plot_model.remove_peak_manual(eline)
+        if "userpeak" in eline.lower():
+            self.param_model.update_name_list()
+            self.apply_to_fit()
+
+    def get_suggested_manual_peak_energy(self):
+        """
+        Returns the suggested (pointed by the vertical marker) energy of the center peak in keV
+        and the status of the marker.
+
+        Returns
+        -------
+        float
+            Energy of the manual peak center in keV. The energy is determined
+            by vertical marker on the screen.
+        bool
+            True if the vertical marker is visible, otherwise False.
+
+        """
+        return self.plot_model.get_suggested_new_manual_peak_energy()
+
+    def show_marker_at_current_position(self):
+        """Force marker to visible state at the current position"""
+        energy, marker_visible = self.get_suggested_manual_peak_energy()
+        self.plot_model.set_plot_vertical_marker(energy)
+
+    def apply_to_fit(self):
+        """
+        Update plot, and apply updated parameters to fitting process.
+        Note: this is an original function from 'fit.enaml' file.
+        """
+        self.param_model.EC.update_peak_ratio()
+        self.param_model.data_for_plot()
+
+        # update experimental plots in case the coefficients change
+        self.plot_model.parameters = self.param_model.param_new
+        self.plot_model.plot_experiment()
+
+        self.plot_model.plot_fit(self.param_model.prefit_x,
+                                 self.param_model.total_y,
+                                 self.param_model.auto_fit_all)
+
+        # For plotting purposes, otherwise plot will not update
+        if self.plot_model.plot_exp_opt:
+            self.plot_model.plot_exp_opt = False
+            self.plot_model.plot_exp_opt = True
+        else:
+            self.plot_model.plot_exp_opt = True
+            self.plot_model.plot_exp_opt = False
+        self.plot_model.show_fit_opt = False
+        self.plot_model.show_fit_opt = True
+
+        # update parameter for fit
+        self.param_model.create_full_param()
+        self.fit_model.update_default_param(self.param_model.param_new)
+        self.fit_model.apply_default_param()
+
+        # update params for roi sum
+        self.setting_model.update_parameter(self.fit_model.param_dict)
+
+        # Update displayed intensity of the selected peak
+        self.plot_model.compute_manual_peak_intensity()

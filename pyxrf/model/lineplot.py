@@ -180,14 +180,6 @@ class LinePlotModel(Atom):
     show_fit_opt = Bool(False)
     # fit_all = Typed(object)
 
-    allow_add_eline = Bool(False)
-    allow_remove_eline = Bool(False)
-    allow_select_elines = Bool(False)
-    # The same flag for 'Fit' spectrum window
-    #   Those flag also must allow to select Userpeak1 .. Userpeak10
-    allow_add_eline_fit = Bool(False)
-    allow_remove_eline_fit = Bool(False)
-
     plot_style = Dict()
 
     roi_plot_dict = Dict()
@@ -217,6 +209,8 @@ class LinePlotModel(Atom):
     # Reference to the respective Matplotlib artist
     line_vertical_marker = Typed(object)
     vertical_marker_is_visible = Bool(False)
+
+    report_marker_state = Typed(object)
 
     def __init__(self, param_model):
 
@@ -645,7 +639,7 @@ class LinePlotModel(Atom):
         if self.vertical_marker_is_visible:
             self.line_vertical_marker, = self._ax.plot(x_v, y_v, color="blue")
 
-    def set_plot_vertical_marker(self, marker_position=None):
+    def set_plot_vertical_marker(self, marker_position=None, mouse_clicked=False):
         """
         The function is called when setting the position of the marker interactively
 
@@ -660,22 +654,34 @@ class LinePlotModel(Atom):
             if (marker_position >= e_low) and (marker_position <= e_high):
                 self.vertical_marker_kev = marker_position
 
+        # Make the marker visible
+        self.vertical_marker_is_visible = True
+
         # Compute peak intensity. The displayed value will change only for user defined peak,
         #   since it is moved to the position of the marker.
         self.compute_manual_peak_intensity()
-
-        # Make the marker visible
-        self.vertical_marker_is_visible = True
 
         # Update the location of the marker and the canvas
         self.plot_vertical_marker()
         self._update_canvas()
 
-    def hide_plot_vertical_marker(self):
+        if mouse_clicked:
+            try:
+                self.report_marker_state(True)  # This is an externally set callback function
+            except Exception:
+                pass
+
+    def hide_plot_vertical_marker(self, mouse_clicked=False):
         """Hide vertical marker"""
         self.vertical_marker_is_visible = False
         self.plot_vertical_marker()
         self._update_canvas()
+
+        if mouse_clicked:
+            try:
+                self.report_marker_state(False)  # This is an externally set callback function
+            except Exception:
+                pass
 
     def plot_selected_energy_range_original(self, *, e_low=None, e_high=None):
         """
@@ -781,83 +787,8 @@ class LinePlotModel(Atom):
             element_id = self.element_id
         if data == "use_self_data":
             data = self.data
-        self._set_allow_add_eline(element_id=element_id, data=data)
-        self._set_allow_remove_eline(element_id=element_id, data=data)
-        self._set_allow_select_elines(data=data)
 
-    def _set_allow_add_eline(self, *, element_id, data):
-        """
-        Sets the flag, which enables/disables the controls
-        for manually adding an element emission line.
-
-        Parameters
-        ----------
-
-        element_id : int
-            The number of the element emission line in the list
-
-        data : ndarray or None
-            Reference to the data array.
-        """
-        flag, flag_fit = True, True
-        if data is None:
-            flag, flag_fit = False, False
-        if not self.is_element_line_id_valid(element_id):
-            flag = False
-        elif self.is_line_in_selected_list(element_id):
-            flag = False
-        if not self.is_element_line_id_valid(element_id, include_user_peaks=True):
-            flag_fit = False
-        elif self.is_line_in_selected_list(element_id, include_user_peaks=True):
-            flag_fit = False
-        self.allow_add_eline = flag
-        self.allow_add_eline_fit = flag_fit
-
-    def _set_allow_remove_eline(self, *, element_id, data):
-        """
-        Sets the flag, which enables/disables the controls
-        for manually removing an element emission line.
-
-        Parameters
-        ----------
-
-        element_id : Int
-            The number of the element emission line in the list
-
-        data : ndarray or None
-            Reference to the data array.
-        """
-        flag, flag_fit = False, False
-        if data is not None:
-            flag, flag_fit = True, True
-        if not self.is_line_in_selected_list(element_id):
-            flag = False
-        if not self.is_line_in_selected_list(element_id, include_user_peaks=True):
-            flag_fit = False
-        self.allow_remove_eline = flag
-        self.allow_remove_eline_fit = flag_fit
-
-    def _set_allow_select_elines(self, data):
-        """
-        Sets the flag, which enables/disables the controls
-        for manual selection of an element emission line.
-        The selected line may be added or removed.
-
-        Parameters
-        ----------
-
-        element_id : int
-            The number of the element emission line in the list
-
-        data : ndarray or None
-            Reference to the data array.
-        """
-        flag = True
-        if data is None:
-            flag = False
-        self.allow_select_elines = flag
-
-    def is_line_in_selected_list(self, n_id, *, include_user_peaks=False):
+    def is_line_in_selected_list(self, n_id):
         """
         Checks if the line with ID ``n_id`` is in the list of
         selected element lines.
@@ -874,7 +805,7 @@ class LinePlotModel(Atom):
         is in the list of selected lines. False otherwise.
         """
 
-        ename = self.get_element_line_name_by_id(n_id, include_user_peaks=include_user_peaks)
+        ename = self.get_element_line_name_by_id(n_id)
 
         if ename is None:
             return False
@@ -884,7 +815,7 @@ class LinePlotModel(Atom):
         else:
             return False
 
-    def is_element_line_id_valid(self, n_id, *, include_user_peaks=False):
+    def is_element_line_id_valid(self, n_id):
         """
         Checks if ID (``n_id``) of the element emission line is valid,
         i.e. the name of the line may be obtained by using the ID.
@@ -902,14 +833,14 @@ class LinePlotModel(Atom):
         # There may be a more efficient way to check 'n_id',
         #   but we want to use the same function as we use
         #   to retrive the line name
-        ename = self.get_element_line_name_by_id(n_id, include_user_peaks=include_user_peaks)
+        ename = self.get_element_line_name_by_id(n_id)
 
         if ename is None:
             return False
         else:
             return True
 
-    def get_element_line_name_by_id(self, n_id, *, include_user_peaks=False):
+    def get_element_line_name_by_id(self, n_id):
         """
         Retrieves the name of the element emission line from its ID
         (the number in the list). The lines are numbered starting with 1.
@@ -932,7 +863,7 @@ class LinePlotModel(Atom):
 
         # This is the fixed list of element emission line names.
         #   The element with ID==1 is found in total_list[0]
-        total_list = self.param_model.get_user_peak_list(include_user_peaks=include_user_peaks)
+        total_list = self.param_model.get_user_peak_list()
         try:
             ename = total_list[n_id-1]
         except Exception:
@@ -964,7 +895,7 @@ class LinePlotModel(Atom):
         l_len = len(L_TRANSITIONS)
         m_len = len(M_TRANSITIONS)
 
-        ename = self.get_element_line_name_by_id(self.element_id, include_user_peaks=True)
+        ename = self.get_element_line_name_by_id(self.element_id)
 
         if ename is not None:
 
@@ -999,7 +930,20 @@ class LinePlotModel(Atom):
                                        e.cs(incident_energy).all[i][1]
                                        / e.cs(incident_energy).all[k_len+l_len][1]))
 
-            return _elist
+        return _elist
+
+    def _fill_elist_userpeak(self):
+        """
+        Fill the list of 'emission lines' for user defined peak. There is only ONE
+        'emission line', with position determined by the location of the marker.
+        If the marker is not currently visible, then don't put any emission lines in the list.
+        The list is used during adding user-defined peaks.
+        """
+        elist = []
+        energy, marker_visible = self.get_suggested_new_manual_peak_energy()
+        if marker_visible:
+            elist.append((energy, 1))
+        return elist
 
     @observe('element_id')
     def set_element(self, change):
@@ -1018,7 +962,7 @@ class LinePlotModel(Atom):
             return
 
         incident_energy = self.incident_energy
-        ename = self.get_element_line_name_by_id(self.element_id, include_user_peaks=True)
+        ename = self.get_element_line_name_by_id(self.element_id)
 
         if ename is not None:
 
@@ -1097,6 +1041,22 @@ class LinePlotModel(Atom):
                     for ln in self.roi_plot_dict[k]:
                         ln.set_visible(False)
         self._update_canvas()
+
+    def get_suggested_new_manual_peak_energy(self):
+        """
+        Returns energy pointed by the vertical marker in keV and the status of the marker.
+
+        Returns
+        -------
+        float
+            Energy of the manual peak center in keV. The energy is determined
+            by vertical marker on the screen.
+        bool
+            True if the vertical marker is visible, otherwise False.
+        """
+        energy = self.vertical_marker_kev
+        marker_visible = self.vertical_marker_is_visible
+        return energy, marker_visible
 
     def add_peak_manual(self):
 
@@ -1205,22 +1165,26 @@ class LinePlotModel(Atom):
         if n_id is None:
             n_id = self.element_id
 
-        if not self.is_element_line_id_valid(n_id, include_user_peaks=True):
-            # This is typicall the case when n_id==0
-            intensity = 0.0
-            if self.is_element_line_id_valid(n_id, include_user_peaks=True):
-                # This means we are dealing with user defined peak. Display intensity if the peak is in the list.
-                if self.is_line_in_selected_list(n_id, include_user_peaks=True):
-                    name = self.get_element_line_name_by_id(n_id, include_user_peaks=True)
-                    intensity = self.param_model.EC.element_dict[name].maxv
-
-        else:
-            if self.is_line_in_selected_list(n_id, include_user_peaks=True):
-                name = self.get_element_line_name_by_id(n_id, include_user_peaks=True)
+        # Check if the emission line is in the list of supported emission lines (e.g. Ca_K)
+        if not self.is_element_line_id_valid(n_id):
+            # This is not a supported emission line (n_id==0)
+            # This means we are probably dealing with user defined peak.
+            if self.is_line_in_selected_list(n_id):
+                # Display intensity if the peak is in the list.
+                name = self.get_element_line_name_by_id(n_id)
                 intensity = self.param_model.EC.element_dict[name].maxv
             else:
-                _elist = self._fill_elist()
-                intensity = self._compute_intensity(_elist)
+                elist = self._fill_elist_userpeak()
+                intensity = self._compute_intensity(elist)
+        else:
+            if self.is_line_in_selected_list(n_id):
+                # Display intensity if the peak is in the list.
+                name = self.get_element_line_name_by_id(n_id)
+                intensity = self.param_model.EC.element_dict[name].maxv
+            else:
+                # This is a new peak
+                elist = self._fill_elist()
+                intensity = self._compute_intensity(elist)
 
         # Round the intensity for nicer printing
         self.param_model.add_element_intensity = round(intensity, 2)
@@ -1352,9 +1316,9 @@ class LinePlotModel(Atom):
             if event.inaxes == self._ax:
                 if event.button == 1:
                     xd = event.xdata
-                    self.set_plot_vertical_marker(marker_position=xd)
+                    self.set_plot_vertical_marker(marker_position=xd, mouse_clicked=True)
                 else:
-                    self.hide_plot_vertical_marker()
+                    self.hide_plot_vertical_marker(mouse_clicked=True)
 
     # ===========================================================
     #         Functions for plotting spectrum preview

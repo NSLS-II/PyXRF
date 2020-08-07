@@ -650,7 +650,7 @@ class GuessParamModel(Atom):
             else:
                 names_other.append(name)
 
-        names_elines.sort(key=lambda v: v[1])  # Sort by Z (atomic number)
+        names_elines.sort(key=lambda v: int(v[1]))  # Sort by Z (atomic number)
         names_elines = [_[0] for _ in names_elines]  # Get rid of Z
         names_userpeaks.sort()
         names_pileup_peaks.sort()
@@ -788,17 +788,11 @@ class GuessParamModel(Atom):
         #     else:
         #         self.total_y[k] = self.EC.element_dict[k].spectrum
 
-    def get_user_peak_list(self, *, include_user_peaks=False):
+    def get_user_peak_list(self):
         """
         Returns the list of element emission peaks
         """
-        items = K_LINE + L_LINE + M_LINE
-
-        if include_user_peaks:
-            userpeak_list = ['Userpeak' + str(i) for i in range(1, 11)]  # 10 users peak
-            items += userpeak_list
-
-        return items
+        return K_LINE + L_LINE + M_LINE
 
 
 def save_as(file_path, data):

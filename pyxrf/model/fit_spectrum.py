@@ -26,7 +26,8 @@ from skbeam.core.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
                                            K_LINE, L_LINE, M_LINE,
                                            nnls_fit, construct_linear_model,
                                            # linear_spectrum_fitting,
-                                           register_strategy, TRANSITIONS_LOOKUP)
+                                           register_strategy, TRANSITIONS_LOOKUP,
+                                           get_line_energy)
 from skbeam.fluorescence import XrfElement as Element
 from .guessparam import (calculate_profile, fit_strategy_list,
                          trim_escape_peak, define_range, get_energy,
@@ -494,6 +495,34 @@ class Fit1D(Atom):
 
         else:
             raise Exception(f"Line '{eline_name}' is not in the list of selected element lines.")
+
+    def get_pileup_peak_energy(self, eline):
+        """
+        Returns the energy (center) of pileup peak. Returns None if there is an error.
+
+        Parameters
+        ----------
+        eline: str
+            Name of the pileup peak, e.g. V_Ka1-Co_Ka1
+
+        Returns
+        -------
+        float or None
+            Energy in keV or None
+        """
+        try:
+            element_line1, element_line2 = eline.split('-')
+            e1_cen = get_line_energy(element_line1)
+            e2_cen = get_line_energy(element_line2)
+            en = e1_cen + e2_cen
+        except Exception:
+            en = None
+        return en
+
+    #def get_pileup_peak_max(self, eline):
+    #    peak_sigma = self.param_dict[eline]["value"] + self._compute_fwhm_base()
+    #    #gaussian_sigma_to_fwhm
+    #    #gaussian_area_to_max(peak_area, peak_sigma)
 
     def _update_userpeak_energy(self):
 

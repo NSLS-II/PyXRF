@@ -7,11 +7,11 @@ from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox, Q
                              QCheckBox, QLabel, QComboBox, QDialog, QDialogButtonBox,
                              QFileDialog, QRadioButton, QButtonGroup, QGridLayout, QTableWidget,
                              QTableWidgetItem, QHeaderView, QMessageBox)
-from PyQt5.QtGui import QBrush, QColor
+from PyQt5.QtGui import QBrush, QColor, QDoubleValidator
 from PyQt5.QtCore import Qt, pyqtSlot, QTimer, pyqtSignal
 
 from .useful_widgets import (LineEditReadOnly, global_gui_parameters, ElementSelection,
-                             get_background_css, SecondaryWindow, set_tooltip)
+                             get_background_css, SecondaryWindow, set_tooltip, LineEditExtended)
 
 from .form_base_widget import FormBaseWidget
 from .dlg_find_elements import DialogFindElements
@@ -478,6 +478,8 @@ class WndManageEmissionLines(SecondaryWindow):
 
     signal_selected_element_changed = pyqtSignal(str)
     signal_update_element_selection_list = pyqtSignal()
+    signal_update_add_remove_btn_state = pyqtSignal(bool, bool)
+    signal_marker_state_changed = pyqtSignal(bool)
 
     def __init__(self,  *, gpc, gui_vars):
         super().__init__()
@@ -496,6 +498,16 @@ class WndManageEmissionLines(SecondaryWindow):
         self.initialize()
 
         self._enable_events = True
+
+        # Marker state is reported by Matplotlib plot in 'line_plot' model
+        def cb(marker_state):
+            self.signal_marker_state_changed.emit(marker_state)
+        self.gpc.set_marker_reporter(cb)
+        self.signal_marker_state_changed.connect(self.slot_marker_state_changed)
+
+        # Update button states
+        self._update_add_remove_btn_state()
+        self._update_add_edit_userpeak_btn_state()
 
     def initialize(self):
         self.setWindowTitle("PyXRF: Add/Remove Emission Lines")
@@ -586,6 +598,7 @@ class WndManageEmissionLines(SecondaryWindow):
         self.tbl_elines.setSelectionBehavior(QTableWidget.SelectRows)
         self.tbl_elines.setSelectionMode(QTableWidget.SingleSelection)
         self.tbl_elines.itemSelectionChanged.connect(self.tbl_elines_item_selection_changed)
+        self.tbl_elines.itemChanged.connect(self.tbl_elines_item_changed)
 
         header = self.tbl_elines.horizontalHeader()
         for n, lbl in enumerate(self.tbl_labels):
@@ -728,9 +741,17 @@ class WndManageEmissionLines(SecondaryWindow):
                 self.tbl_elines.setItem(nr, nc, item)
 
         self._enable_events = True
+        # Update the rest of the widgets
+        self._update_widgets_based_on_table_state()
 
     @pyqtSlot()
     def update_widget_data(self):
+        # This is typically a new set of emission lines. Clear the selection both
+        #   in the table and in the element selection tool.
+        self.element_selection.set_current_item("")
+        self.tbl_elines.clearSelection()
+        self._set_selected_eline("")
+        # Now update the tables
         self._update_eline_selection_list()
         self._update_eline_table()
         self._update_add_remove_btn_state()
@@ -741,20 +762,91 @@ class WndManageEmissionLines(SecondaryWindow):
             print("Pileup peak is added")
 
     def pb_user_peaks_clicked(self):
-        dlg = DialogUserPeakParameters()
-        if dlg.exec():
-            print("User defined peak is added")
+        eline = self._selected_eline
+        # If current peak is user_defined peak
+        is_userpeak = self.gpc.get_eline_name_category(eline) == "userpeak"
+
+        if is_userpeak:
+            data = {}
+            data["enabled"] = True
+            data["name"] = eline
+            data["maxv"] = self.gpc.get_eline_intensity(eline)
+            data["energy"], data["fwhm"] = self.gpc.get_current_userpeak_energy_fwhm()
+
+            dlg = DialogEditUserPeakParameters()
+            dlg.set_parameters(data=data)
+            if dlg.exec():
+
+                print("Editing of user defined peak is completed")
+
+        else:
+            data = {}
+            data["name"] = self.gpc.get_unused_userpeak_name()
+            data["energy"], marker_visible = self.gpc.get_suggested_manual_peak_energy()
+            if marker_visible:
+                dlg = DialogNewUserPeak()
+                dlg.set_parameters(data=data)
+                if dlg.exec():
+                    try:
+                        eline = data["name"]
+                        self.gpc.add_peak_manual(eline)
+                        self._update_eline_table()  # Update the table
+                        self.tbl_elines_set_selection(eline)  # Select new emission line
+                        self._set_selected_eline(eline)
+                        logger.info(f"New user defined peak {eline} is added")
+                    except RuntimeError as ex:
+                        msg = str(ex)
+                        msgbox = QMessageBox(QMessageBox.Critical, "Error",
+                                             msg, QMessageBox.Ok, parent=self)
+                        msgbox.exec()
+                        # Reload the table anyway (nothing is going to be selected)
+                        self._update_eline_table()
+            else:
+                msg = "Select location of the new peak center (energy)\n" \
+                      "by clicking on the plot in 'Fit Model' tab"
+                msgbox = QMessageBox(QMessageBox.Information, "User Input Required",
+                                     msg, QMessageBox.Ok, parent=self)
+                msgbox.exec()
 
     @pyqtSlot()
     def pb_add_eline_clicked(self):
         logger.debug("'Add line' clicked")
+        # It is assumed that this button is active only if an element is selected from the list
+        #   of available emission lines. It can't be used to add user-defined peaks or pileup peaks.
+        eline = self._selected_eline
+        if eline:
+            try:
+                self.gpc.add_peak_manual(eline)
+                self._update_eline_table()  # Update the table
+                self.tbl_elines_set_selection(eline)  # Select new emission line
+            except RuntimeError as ex:
+                msg = str(ex)
+                msgbox = QMessageBox(QMessageBox.Critical, "Error",
+                                     msg, QMessageBox.Ok, parent=self)
+                msgbox.exec()
+                # Reload the table anyway (nothing is going to be selected)
+                self._update_eline_table()
 
     @pyqtSlot()
     def pb_remove_eline_clicked(self):
         logger.debug("'Remove line' clicked")
+        eline = self._selected_eline
+        if eline:
+            # If currently selected line is the emission line (like Ca_K), we want
+            # it to remain selected after it is deleted. This means that nothing is selected
+            # in the table. For other lines, nothing should remain selected.
+            self.tbl_elines.clearSelection()
+            self.gpc.remove_peak_manual(eline)
+            self._update_eline_table()  # Update the table
+            if self.gpc.get_eline_name_category(eline) != "eline":
+                eline = ""
+            # This will update widgets
+            self._set_selected_eline(eline)
 
     def cb_select_all_toggled(self, state):
         self._enable_events = False
+
+        eline_list, state_list = [], []
 
         for n_row in range(self.tbl_elines.rowCount()):
             eline = self._table_contents[n_row]["eline"]
@@ -765,8 +857,20 @@ class WndManageEmissionLines(SecondaryWindow):
             else:
                 to_check = state
             self.tbl_elines.item(n_row, 0).setCheckState(Qt.Checked if to_check else Qt.Unchecked)
+            eline_list.append(eline)
+            state_list.append(to_check)
 
+        self.gpc.set_checked_emission_lines(eline_list, state_list)
         self._enable_events = True
+
+    def tbl_elines_item_changed(self, item):
+        if self._enable_events:
+            n_row, n_col = self.tbl_elines.row(item), self.tbl_elines.column(item)
+            # Checkbox was clicked
+            if n_col == 0:
+                state = bool(item.checkState())
+                eline = self._table_contents[n_row]["eline"]
+                self.gpc.set_checked_emission_lines([eline], [state])
 
     def tbl_elines_item_selection_changed(self):
         sel_ranges = self.tbl_elines.selectedRanges()
@@ -793,14 +897,6 @@ class WndManageEmissionLines(SecondaryWindow):
 
     def element_selection_item_changed(self, index, eline):
         self.signal_selected_element_changed.emit(eline)
-        self.gpc.set_selected_eline(eline)
-
-        # Show estimated peak intensity
-        if index < 0:
-            s = ""
-        else:
-            v = self.gpc.get_selected_eline_intensity()
-            s = f"{v:.10g}"
 
         if self._enable_events:
             self._enable_events = False
@@ -808,11 +904,47 @@ class WndManageEmissionLines(SecondaryWindow):
             self.tbl_elines_set_selection(eline)
             self._enable_events = True
 
+    def _display_peak_intensity(self, eline):
+        v = self.gpc.get_eline_intensity(eline)
+        s = f"{v:.10g}" if v is not None else ""
         self.le_peak_intensity.setText(s)
 
     @pyqtSlot(str)
     def slot_selection_item_changed(self, eline):
         self.element_selection.set_current_item(eline)
+
+    @pyqtSlot(bool)
+    def slot_marker_state_changed(self, state):
+        # If userpeak is selected and plot is clicked (marker is set), then user
+        #   should be allowed to add userpeak at a new location. So deselect the userpeak
+        #   from the table (if it is selected)
+        logger.debug(f"Vertical marker on the fit plot changed state to {state}.")
+        if state:
+            self._deselect_userpeak_in_table()
+        # Now update state of all buttons
+        self._update_add_remove_btn_state()
+        self._update_add_edit_userpeak_btn_state()
+
+    def _deselect_userpeak_in_table(self):
+        """Deselect userpeak if a userpeak is selected"""
+        if self.gpc.get_eline_name_category(self._selected_eline) == "userpeak":
+            # Clear all selections
+            self.tbl_elines_set_selection("")
+            self._set_selected_eline("")
+            # We also want to show marker at the new position
+            self.gpc.show_marker_at_current_position()
+
+    def _update_widgets_based_on_table_state(self):
+        index, eline = self._get_current_index_in_table()
+        if index >= 0:
+            # Selection exists. Update the state of element selection widget.
+            self.element_selection.set_current_item(eline)
+        else:
+            # No selection, update the state based on element selection widget.
+            index, eline = self._get_current_index_in_table()
+            self.tbl_elines_set_selection(eline)
+        self._update_add_remove_btn_state(eline)
+        self._update_add_edit_userpeak_btn_state()
 
     def _update_eline_selection_list(self):
         self._eline_list = self.gpc.get_full_eline_list()
@@ -872,11 +1004,41 @@ class WndManageEmissionLines(SecondaryWindow):
                 remove_enabled = False
         self.pb_add_eline.setEnabled(add_enabled)
         self.pb_remove_eline.setEnabled(remove_enabled)
+        self.signal_update_add_remove_btn_state.emit(add_enabled, remove_enabled)
+
+    def _update_add_edit_userpeak_btn_state(self):
+
+        enabled = True
+        add_peak = True
+        if self.gpc.get_eline_name_category(self._selected_eline) == "userpeak":
+            add_peak = False
+
+        # Finally check if marker is set (you need it for adding peaks)
+        _, marker_set = self.gpc.get_suggested_manual_peak_energy()
+        if not marker_set:
+            enabled = False
+
+        if add_peak:
+            btn_text = "New User Peak ..."
+        else:
+            btn_text = "Edit User Peak ..."
+        self.pb_user_peaks.setText(btn_text)
+        self.pb_user_peaks.setEnabled(enabled)
 
     def _set_selected_eline(self, eline):
+        self._update_add_remove_btn_state(eline)
+        self._update_add_edit_userpeak_btn_state()
+        if self.gpc.get_eline_name_category(eline) == "userpeak":
+            self.pb_user_peaks.setText("Edit User Peak ...")
+        else:
+            self.pb_user_peaks.setText("New User Peak ...")
         if eline != self._selected_eline:
             self._selected_eline = eline
-            self._update_add_remove_btn_state(eline)
+            self.gpc.set_selected_eline(eline)
+            self._display_peak_intensity(eline)
+        else:
+            # Peak intensity may change in some circumstances, so renew the displayed value.
+            self._display_peak_intensity(eline)
 
 
 class DialogGeneralFittingSettings(QDialog):
@@ -1293,58 +1455,30 @@ class DialogPileupPeakParameters(QDialog):
         self.setLayout(vbox)
 
 
-class DialogUserPeakParameters(QDialog):
+class DialogNewUserPeak(QDialog):
 
     def __init__(self, parent=None):
 
         super().__init__(parent)
 
-        self.setWindowTitle("User Defined Peak Parameters")
+        self._data = {"name": "", "energy": 0}
+
+        self.setWindowTitle("Add New User-Defined Peak")
         self.setMinimumWidth(400)
-
-        self.rb_edit_existing = QRadioButton("Edit Existing")
-        set_tooltip(self.rb_edit_existing,
-                    "Edit parameters of the <b>existing</b> user-defined peak")
-        self.rb_add_new = QRadioButton("Add New")
-        set_tooltip(self.rb_add_new, "Add <b>new</b> user-defined peak.")
-
-        self.btn_group = QButtonGroup()
-        self.btn_group.addButton(self.rb_edit_existing)
-        self.btn_group.addButton(self.rb_add_new)
-
-        self.rb_add_new.setChecked(True)
 
         self.le_name = LineEditReadOnly()
         set_tooltip(self.le_name, "<b>Name</b> of the user-defined peak.")
-        self.le_intensity = QLineEdit()
-        set_tooltip(self.le_intensity,
-                    "Peak <b>intensity</b>. Typically it is not necessary to set the "
-                    "intensity precisely, since it is refined during fitting of total "
-                    "spectrum.")
-        self.le_energy = QLineEdit()
+        self.le_energy = LineEditReadOnly()
         set_tooltip(self.le_energy,
                     "<b>Energy</b> (keV) of the center of the user-defined peak.")
-        self.le_fwhm = QLineEdit()
-        set_tooltip(self.le_fwhm, "<b>FWHM</b> (in keV) of the user-defined peak.")
 
         vbox = QVBoxLayout()
-
-        hbox = QHBoxLayout()
-        hbox.addStretch(1)
-        hbox.addWidget(self.rb_edit_existing)
-        hbox.addWidget(self.rb_add_new)
-        hbox.addStretch(1)
-        vbox.addLayout(hbox)
 
         grid = QGridLayout()
         grid.addWidget(QLabel("Peak name:"), 0, 0)
         grid.addWidget(self.le_name, 0, 1)
-        grid.addWidget(QLabel("Intensity:"), 1, 0)
-        grid.addWidget(self.le_intensity, 1, 1)
-        grid.addWidget(QLabel("Energy, keV"), 2, 0)
-        grid.addWidget(self.le_energy, 2, 1)
-        grid.addWidget(QLabel("FWHM, keV"), 3, 0)
-        grid.addWidget(self.le_fwhm)
+        grid.addWidget(QLabel("Energy, keV"), 1, 0)
+        grid.addWidget(self.le_energy, 1, 1)
         vbox.addLayout(grid)
 
         button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -1355,3 +1489,145 @@ class DialogUserPeakParameters(QDialog):
         vbox.addWidget(button_box)
 
         self.setLayout(vbox)
+
+    def set_parameters(self, data):
+        self._data = data.copy()
+        self._show_data()
+
+    def _format_float(self, v):
+        return f"{v:.12g}"
+
+    def _show_data(self, existing=None):
+        self.le_name.setText(self._data["name"])
+        self.le_energy.setText(self._format_float(self._data["energy"]))
+
+
+class DialogEditUserPeakParameters(QDialog):
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self._data = {"name": "", "maxv": 0, "energy": 0, "fwhm": 0}
+
+        self.setWindowTitle("Edit User-Defined Peak Parameters")
+        self.setMinimumWidth(400)
+
+        self.le_name = LineEditReadOnly()
+        set_tooltip(self.le_name, "<b>Name</b> of the user-defined peak.")
+        self.le_intensity = LineEditExtended()
+        set_tooltip(self.le_intensity,
+                    "Peak <b>intensity</b>. Typically it is not necessary to set the "
+                    "intensity precisely, since it is refined during fitting of total "
+                    "spectrum.")
+        self.le_energy = LineEditExtended()
+        set_tooltip(self.le_energy,
+                    "<b>Energy</b> (keV) of the center of the user-defined peak.")
+        self.le_fwhm = LineEditExtended()
+        set_tooltip(self.le_fwhm, "<b>FWHM</b> (in keV) of the user-defined peak.")
+
+        self._validator = QDoubleValidator()
+
+        vbox = QVBoxLayout()
+
+        grid = QGridLayout()
+        grid.addWidget(QLabel("Peak name:"), 0, 0)
+        grid.addWidget(self.le_name, 0, 1)
+        grid.addWidget(QLabel("Energy, keV"), 1, 0)
+        grid.addWidget(self.le_energy, 1, 1)
+        grid.addWidget(QLabel("Intensity:"), 2, 0)
+        grid.addWidget(self.le_intensity, 2, 1)
+        grid.addWidget(QLabel("FWHM, keV"), 3, 0)
+        grid.addWidget(self.le_fwhm, 3, 1)
+        vbox.addLayout(grid)
+
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.button(QDialogButtonBox.Cancel).setDefault(True)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        self.pb_ok = button_box.button(QDialogButtonBox.Ok)
+
+        vbox.addWidget(button_box)
+
+        self.setLayout(vbox)
+
+        self.le_intensity.editingFinished.connect(self.le_intensity_editing_finished)
+        self.le_energy.editingFinished.connect(self.le_energy_editing_finished)
+        self.le_fwhm.editingFinished.connect(self.le_fwhm_editing_finished)
+
+        self.le_intensity.textChanged.connect(self.le_intensity_text_changed)
+        self.le_energy.textChanged.connect(self.le_energy_text_changed)
+        self.le_fwhm.textChanged.connect(self.le_fwhm_text_changed)
+
+    def set_parameters(self, data):
+        self._data = data.copy()
+        self._show_data()
+
+    def get_parameters(self):
+        return self._data
+
+    def _format_float(self, v):
+        return f"{v:.12g}"
+
+    def _show_data(self, existing=None):
+        self.le_name.setText(self._data["name"])
+        self.le_energy.setText(self._format_float(self._data["energy"]))
+        self.le_intensity.setText(self._format_float(self._data["maxv"]))
+        self.le_fwhm.setText(self._format_float(self._data["fwhm"]))
+
+    # The following validation functions are identical, but they will be different,
+    #   because the relationships
+    def _validate_le_intensity(self, text=None):
+        return self._validate_le(self.le_intensity, text, lambda v: v > 0)
+
+    def _validate_le_energy(self, text=None):
+        return self._validate_le(self.le_energy, text, lambda v: v > 0)
+
+    def _validate_le_fwhm(self, text=None):
+        return self._validate_le(self.le_fwhm, text, lambda v: v > 0)
+
+    def _validate_all(self):
+        valid = (self._validate_le_intensity() and
+                 self._validate_le_energy() and
+                 self._validate_le_fwhm())
+        self.pb_ok.setEnabled(valid)
+
+    def _validate_le(self, le_widget, text, condition):
+        if text is None:
+            text = le_widget.text()
+        valid = True
+        if self._validator.validate(text, 0)[0] != QDoubleValidator.Acceptable:
+            valid = False
+        elif not condition(float(text)):
+            valid = False
+        le_widget.setValid(valid)
+        return valid
+
+    def le_intensity_editing_finished(self):
+        if self._validate_le_intensity():
+            self._data["maxv"] = float(self.le_intensity.text())
+        else:
+            self.le_intensity.setText(self._format_float(self._data["maxv"]))
+        self._validate_all()
+
+    def le_energy_editing_finished(self):
+        if self._validate_le_energy():
+            self._data["energy"] = float(self.le_energy.text())
+        else:
+            self.le_energy.setText(self._format_float(self._data["energy"]))
+        self._validate_all()
+
+    def le_fwhm_editing_finished(self):
+        if self._validate_le_fwhm():
+            self._data["fwhm"] = float(self.le_fwhm.text())
+        else:
+            self.le_fwhm.setText(self._format_float(self._data["fwhm"]))
+        self._validate_all()
+
+    def le_intensity_text_changed(self, text):
+        self._validate_all()
+
+    def le_energy_text_changed(self, text):
+        self._validate_all()
+
+    def le_fwhm_text_changed(self, text):
+        self._validate_all()
