@@ -17,7 +17,7 @@ from skbeam.core.fitting.xrf_model import (ParamController,
                                            linear_spectrum_fitting)
 from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 from ..core.map_processing import snip_method_numba
-from ..core.xrf_utils import check_if_eline_supported
+from ..core.xrf_utils import check_if_eline_supported, get_eline_parameters
 
 import logging
 logger = logging.getLogger(__name__)
@@ -542,16 +542,17 @@ class GuessParamModel(Atom):
 
         self.EC.add_to_dict({self.e_name: ps})
 
-    def generate_pileup_peak_name(self):
+    def generate_pileup_peak_name(self, name1=None, name2=None):
         """
         Returns name for the pileup peak. The element line with the lowest
         energy is placed first in the name.
         """
         # TODO: May be proper error processing should be added
-        e1 = float(get_energy(self.pileup_data['element1']))
-        e2 = float(get_energy(self.pileup_data['element2']))
-        name1 = self.pileup_data['element1']
-        name2 = self.pileup_data['element2']
+        if (name1 is None) or (name2 is None):
+            name1 = self.pileup_data['element1']
+            name2 = self.pileup_data['element2']
+        e1 = float(get_energy(name1))
+        e2 = float(get_energy(name2))
         if e1 > e2:
             name1, name2 = name2, name1
         return name1 + '-' + name2
@@ -793,6 +794,82 @@ class GuessParamModel(Atom):
         Returns the list of element emission peaks
         """
         return K_LINE + L_LINE + M_LINE
+
+    def get_selected_emission_line_data(self):
+        """
+        Assembles the full emission line data for processing.
+
+        Returns
+        -------
+        list(dict)
+            Each dictionary includes the following data: "name" (e.g. Ca_ka1 etc.),
+            "area" (estimated peak area based on current fitting results), "ratio"
+            (ratio such as Ca_ka2/Ca_ka1)
+        """
+        # Full list of supported emission lines (such as Ca_K)
+        supported_elines = self.get_user_peak_list()
+        # Parameter keys start with full emission line name (eg. Ca_ka1)
+        param_keys = list(self.param_new.keys())
+
+        incident_energy = self.param_new["coherent_sct_energy"]["value"]
+
+        full_line_list = []
+        for eline in self.EC.element_dict.keys():
+            if eline not in supported_elines:
+                continue
+            area = self.EC.element_dict[eline].area
+            lines = [_ for _ in param_keys if _.lower().startswith(eline.lower())]
+            lines = set(['_'.join(_.split('_')[:2]) for _ in lines])
+            for ln in lines:
+                eline_info = get_eline_parameters(ln, incident_energy)
+                data = {"name": ln, "area": area,
+                        "ratio": eline_info["ratio"],
+                        "energy": eline_info["energy"]}
+                full_line_list.append(data)
+        return full_line_list
+
+    def guess_pileup_peak_components(self, energy, tolerance=0.05):
+        """
+        Provides a guess on components of pileup peak based on the set of selected emission lines,
+        and selected energy.
+
+        Parameters
+        ----------
+        energy: float
+            Approximate (selected) energy of pileup peak location
+        tolerance: float
+            Allowed deviation of the sum of component energies from the selected energy, keV
+
+        Returns
+        -------
+        tuple(str, str, float)
+            Component emission lines (such as Ca_ka1, K_ka1 etc) and the energy of
+            the resulting pileup peak.
+        """
+
+        line_data = self.get_selected_emission_line_data()
+        energy_min, energy_max = energy - tolerance, energy + tolerance
+
+        # Not very efficient algorithm, which tries all combinations of lines
+        pileup_components, areas = [], []
+        for n1, line1 in enumerate(line_data):
+            for n2 in range(n1, len(line_data)):
+                line2 = line_data[n2]
+                if energy_min < line1["energy"] + line2["energy"] < energy_max:
+                    if line1 == line2:
+                        area = line1["area"] * line1["ratio"]
+                    else:
+                        area = line1["area"] * line1["ratio"] + line2["area"] * line2["ratio"]
+                    pileup_components.append((line1["name"], line2["name"],
+                                              line1["energy"] + line2["energy"]))
+                    areas.append(area)
+
+        if len(areas):
+            # Find index with maximum area
+            n = areas.index(max(areas))
+            return pileup_components[n]
+        else:
+            return None
 
 
 def save_as(file_path, data):

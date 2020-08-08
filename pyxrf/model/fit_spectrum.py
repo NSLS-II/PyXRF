@@ -26,8 +26,7 @@ from skbeam.core.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
                                            K_LINE, L_LINE, M_LINE,
                                            nnls_fit, construct_linear_model,
                                            # linear_spectrum_fitting,
-                                           register_strategy, TRANSITIONS_LOOKUP,
-                                           get_line_energy)
+                                           register_strategy, TRANSITIONS_LOOKUP)
 from skbeam.fluorescence import XrfElement as Element
 from .guessparam import (calculate_profile, fit_strategy_list,
                          trim_escape_peak, define_range, get_energy,
@@ -41,6 +40,7 @@ from ..core.utils import (gaussian_sigma_to_fwhm, gaussian_fwhm_to_sigma,
 from ..core.quant_analysis import ParamQuantEstimation
 from ..core.map_processing import (fit_xrf_map, TerminalProgressBar,
                                    prepare_xrf_map, snip_method_numba)
+from ..core.xrf_utils import get_eline_parameters
 
 import logging
 logger = logging.getLogger(__name__)
@@ -510,19 +510,16 @@ class Fit1D(Atom):
         float or None
             Energy in keV or None
         """
+        incident_energy = self.param_dict["coherent_sct_energy"]["value"]
         try:
             element_line1, element_line2 = eline.split('-')
-            e1_cen = get_line_energy(element_line1)
-            e2_cen = get_line_energy(element_line2)
+            e1_cen = get_eline_parameters(element_line1, incident_energy)["energy"]
+            e2_cen = get_eline_parameters(element_line2, incident_energy)["energy"]
             en = e1_cen + e2_cen
         except Exception:
             en = None
         return en
 
-    #def get_pileup_peak_max(self, eline):
-    #    peak_sigma = self.param_dict[eline]["value"] + self._compute_fwhm_base()
-    #    #gaussian_sigma_to_fwhm
-    #    #gaussian_area_to_max(peak_area, peak_sigma)
 
     def _update_userpeak_energy(self):
 

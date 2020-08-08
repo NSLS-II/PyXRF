@@ -17,8 +17,9 @@ from mpl_toolkits.axes_grid1 import ImageGrid
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
 
 from skbeam.core.fitting.xrf_model import (K_TRANSITIONS, L_TRANSITIONS, M_TRANSITIONS)
-
 from skbeam.fluorescence import XrfElement as Element
+
+from ..core.xrf_utils import get_eline_parameters
 
 import logging
 logger = logging.getLogger(__name__)
@@ -932,6 +933,40 @@ class LinePlotModel(Atom):
 
         return _elist
 
+    def _get_pileup_lines(self, eline):
+        """
+        Returns the energy (center) of pileup peak. And the energies of two components.
+
+        Parameters
+        ----------
+        eline: str
+            Name of the pileup peak, e.g. V_Ka1-Co_Ka1
+
+        Returns
+        -------
+        list(float)
+            Energy in keV of pileup peak and two components
+        """
+        try:
+            element_line1, element_line2 = eline.split('-')
+            e1_cen = get_eline_parameters(element_line1, self.incident_energy)["energy"]
+            e2_cen = get_eline_parameters(element_line2, self.incident_energy)["energy"]
+            en = [e1_cen + e2_cen, e1_cen, e2_cen]
+        except Exception:
+            en = []
+        return en
+
+    def _fill_elist_pileup(self, eline=None):
+        if eline is None:
+            eline = self.param_model.e_name
+
+        elist = []
+        energies = self._get_pileup_lines(eline)
+        if energies:
+            elist = list(zip(energies, [1, 0.2, 0.2]))
+
+        return elist
+
     def _fill_elist_userpeak(self):
         """
         Fill the list of 'emission lines' for user defined peak. There is only ONE
@@ -945,46 +980,60 @@ class LinePlotModel(Atom):
             elist.append((energy, 1))
         return elist
 
+    def _reset_eline_plot(self):
+        while len(self.eline_obj):
+            self.eline_obj.pop().remove()
+        self.elist = []
+        self._fig.canvas.draw()
+
     @observe('element_id')
     def set_element(self, change):
 
         self._set_eline_select_controls(element_id=change['value'])
         self.compute_manual_peak_intensity(n_id=change['value'])
 
-        def _reset_eline_plot():
-            while(len(self.eline_obj)):
-                self.eline_obj.pop().remove()
-            self.elist = []
-            self._fig.canvas.draw()
-
         if change['value'] == 0:
-            _reset_eline_plot()
+            self._reset_eline_plot()
             return
 
-        incident_energy = self.incident_energy
-        ename = self.get_element_line_name_by_id(self.element_id)
+        self.plot_current_eline()
 
-        if ename is not None:
+    def plot_current_eline(self, eline=None):
+        """
+        Plots emission lines for the selected peak based on 'self.element_id` and provided `eline`.
+        """
+        if eline is None:
+            eline = self.param_model.e_name
+
+        incident_energy = self.incident_energy
+
+        # Name of the emission line (if emission line is selected)
+        ename = self.get_element_line_name_by_id(self.element_id)
+        # Check if pileup peak is selected
+        is_pileup = self.param_model.get_eline_name_category(eline) == "pileup"
+
+        if (ename is not None) or is_pileup:
 
             logger.debug('Plot emission line for element: '
                          '{} with incident energy {}'.format(self.element_id,
                                                              incident_energy))
 
-            _elist = self._fill_elist()
-            if not ename.lower().startswith("userpeak"):
-                self.elist = _elist
+            if ename is not None:
+                self.elist = self._fill_elist()
+            elif is_pileup:
+                self.elist = self._fill_elist_pileup(eline)
             else:
-                self.elist = []
+                self.elist = []  # Just in case
             self.plot_emission_line()
             self._update_canvas()
 
             # Do it the second time, since the 'self.elist' has changed
-            self.compute_manual_peak_intensity(n_id=change['value'])
+            self.compute_manual_peak_intensity(n_id=self.element_id)
 
         else:
-
-            _reset_eline_plot()
+            self._reset_eline_plot()
             logger.warning(f"Selected emission line with ID #{self.element_id} is not in the list.")
+
 
     @observe('det_materials')
     def _update_det_materials(self, change):

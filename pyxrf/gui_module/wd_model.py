@@ -7,8 +7,8 @@ from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox, Q
                              QCheckBox, QLabel, QComboBox, QDialog, QDialogButtonBox,
                              QFileDialog, QRadioButton, QButtonGroup, QGridLayout, QTableWidget,
                              QTableWidgetItem, QHeaderView, QMessageBox)
-from PyQt5.QtGui import QBrush, QColor, QDoubleValidator
-from PyQt5.QtCore import Qt, pyqtSlot, QTimer, pyqtSignal
+from PyQt5.QtGui import QBrush, QColor, QDoubleValidator, QRegExpValidator
+from PyQt5.QtCore import Qt, pyqtSlot, QTimer, pyqtSignal, QRegExp
 
 from .useful_widgets import (LineEditReadOnly, global_gui_parameters, ElementSelection,
                              get_background_css, SecondaryWindow, set_tooltip, LineEditExtended)
@@ -508,6 +508,7 @@ class WndManageEmissionLines(SecondaryWindow):
         # Update button states
         self._update_add_remove_btn_state()
         self._update_add_edit_userpeak_btn_state()
+        self._update_add_edit_pileup_peak_btn_state()
 
     def initialize(self):
         self.setWindowTitle("PyXRF: Add/Remove Emission Lines")
@@ -550,9 +551,9 @@ class WndManageEmissionLines(SecondaryWindow):
         self.pb_remove_eline = QPushButton("Remove")
         self.pb_remove_eline.clicked.connect(self.pb_remove_eline_clicked)
 
-        self.pb_user_peaks = QPushButton("User Peaks ...")
+        self.pb_user_peaks = QPushButton("New User Peak ...")
         self.pb_user_peaks.clicked.connect(self.pb_user_peaks_clicked)
-        self.pb_pileup_peaks = QPushButton("Pileup Peaks ...")
+        self.pb_pileup_peaks = QPushButton("New Pileup Peak ...")
         self.pb_pileup_peaks.clicked.connect(self.pb_pileup_peaks_clicked)
 
         self.element_selection.signal_current_item_changed.connect(
@@ -757,9 +758,51 @@ class WndManageEmissionLines(SecondaryWindow):
         self._update_add_remove_btn_state()
 
     def pb_pileup_peaks_clicked(self):
-        dlg = DialogPileupPeakParameters()
-        if dlg.exec():
-            print("Pileup peak is added")
+        data = {}
+
+        eline = self._selected_eline
+        if self.gpc.get_eline_name_category(eline) == "pileup":
+            logger.error(f"Attempt to add pileup peak while another pileup peak is selected.")
+            return
+
+        energy, marker_visible = self.gpc.get_suggested_manual_peak_energy()
+        best_guess = self.gpc.get_guessed_pileup_peak_components(energy=energy,
+                                                                 tolerance=0.1)
+        if best_guess is not None:
+            el1, el2, energy = best_guess
+        else:
+            # No peaks were found, enter peaks manually
+            el1, el2, energy = "", "", 0
+        data["element1"] = el1
+        data["element2"] = el2
+        data["energy"] = energy
+        data["range_low"], data["range_high"] = self.gpc.get_selected_energy_range()
+
+        if not marker_visible:
+            # We shouldn't end up here, but this will protect from crashing in case
+            #   the button was not disabled (a bug).
+            msg = "Select location of the new peak center (energy)\n" \
+                  "by clicking on the plot in 'Fit Model' tab"
+            msgbox = QMessageBox(QMessageBox.Information, "User Input Required",
+                                 msg, QMessageBox.Ok, parent=self)
+            msgbox.exec()
+        else:
+            dlg = DialogPileupPeakParameters()
+
+            def func():
+                def f(e1, e2):
+                    try:
+                        name = self.gpc.generate_pileup_peak_name(e1, e2)
+                        e = self.gpc.get_pileup_peak_energy(name)
+                    except Exception:
+                        e = 0
+                    return e
+                return f
+
+            dlg.set_compute_energy_function(func())
+            dlg.set_parameters(data)
+            if dlg.exec():
+                print("Pileup peak is added")
 
     def pb_user_peaks_clicked(self):
         eline = self._selected_eline
@@ -920,14 +963,15 @@ class WndManageEmissionLines(SecondaryWindow):
         #   from the table (if it is selected)
         logger.debug(f"Vertical marker on the fit plot changed state to {state}.")
         if state:
-            self._deselect_userpeak_in_table()
+            self._deselect_special_peak_in_table()
         # Now update state of all buttons
         self._update_add_remove_btn_state()
         self._update_add_edit_userpeak_btn_state()
+        self._update_add_edit_pileup_peak_btn_state()
 
-    def _deselect_userpeak_in_table(self):
+    def _deselect_special_peak_in_table(self):
         """Deselect userpeak if a userpeak is selected"""
-        if self.gpc.get_eline_name_category(self._selected_eline) == "userpeak":
+        if self.gpc.get_eline_name_category(self._selected_eline) in ("userpeak", "pileup"):
             # Clear all selections
             self.tbl_elines_set_selection("")
             self._set_selected_eline("")
@@ -945,6 +989,7 @@ class WndManageEmissionLines(SecondaryWindow):
             self.tbl_elines_set_selection(eline)
         self._update_add_remove_btn_state(eline)
         self._update_add_edit_userpeak_btn_state()
+        self._update_add_edit_pileup_peak_btn_state()
 
     def _update_eline_selection_list(self):
         self._eline_list = self.gpc.get_full_eline_list()
@@ -1009,25 +1054,41 @@ class WndManageEmissionLines(SecondaryWindow):
     def _update_add_edit_userpeak_btn_state(self):
 
         enabled = True
-        add_peak = True
         if self.gpc.get_eline_name_category(self._selected_eline) == "userpeak":
-            add_peak = False
+            enabled = False
 
         # Finally check if marker is set (you need it for adding peaks)
         _, marker_set = self.gpc.get_suggested_manual_peak_energy()
         if not marker_set:
             enabled = False
 
-        if add_peak:
-            btn_text = "New User Peak ..."
-        else:
-            btn_text = "Edit User Peak ..."
-        self.pb_user_peaks.setText(btn_text)
         self.pb_user_peaks.setEnabled(enabled)
+
+    def _update_add_edit_pileup_peak_btn_state(self):
+
+        enabled = True
+        add_peak = True
+        if self.gpc.get_eline_name_category(self._selected_eline) == "pileup":
+            add_peak = False
+
+        # Finally check if marker is set (you need it for adding peaks)
+        _, marker_set = self.gpc.get_suggested_manual_peak_energy()
+        # Ignore set marker for userpeaks (marker is used to display location of userpeaks)
+        if self.gpc.get_eline_name_category(self._selected_eline) == "userpeak":
+            marker_set = False
+
+        if not marker_set and add_peak:
+            enabled = False
+
+        if add_peak:
+            btn_text = "New Pileup Peak ..."
+        else:
+            btn_text = "Edit Pileup Peak ..."
+        self.pb_pileup_peaks.setText(btn_text)
+        self.pb_pileup_peaks.setEnabled(enabled)
 
     def _set_selected_eline(self, eline):
         self._update_add_remove_btn_state(eline)
-        self._update_add_edit_userpeak_btn_state()
         if self.gpc.get_eline_name_category(eline) == "userpeak":
             self.pb_user_peaks.setText("Edit User Peak ...")
         else:
@@ -1039,6 +1100,9 @@ class WndManageEmissionLines(SecondaryWindow):
         else:
             # Peak intensity may change in some circumstances, so renew the displayed value.
             self._display_peak_intensity(eline)
+        # Update button states after 'self._selected_eline' is set
+        self._update_add_edit_userpeak_btn_state()
+        self._update_add_edit_pileup_peak_btn_state()
 
 
 class DialogGeneralFittingSettings(QDialog):
@@ -1395,31 +1459,26 @@ class DialogPileupPeakParameters(QDialog):
 
         super().__init__(parent)
 
+        self._data = {"element1": "", "element2": "", "energy": 0}
+        # Reference to function that computes pileup energy based on two emission lines
+        self._compute_energy = None
+
         self.setWindowTitle("Pileup Peak Parameters")
 
-        self.rb_edit_existing = QRadioButton("Edit Existing")
-        set_tooltip(self.rb_edit_existing,
-                    "Edit parameters of the <b>existing</b> user-defined peak")
-        self.rb_add_new = QRadioButton("Add New")
-        set_tooltip(self.rb_add_new, "Add <b>new</b> user-defined peak.")
-
-        self.btn_group = QButtonGroup()
-        self.btn_group.addButton(self.rb_edit_existing)
-        self.btn_group.addButton(self.rb_add_new)
-
-        self.rb_add_new.setChecked(True)
-
-        self.le_element1 = QLineEdit()
+        self.le_element1 = LineEditExtended()
         set_tooltip(self.le_element1,
                     "The <b>name</b> of the emission line #1")
-        self.le_element2 = QLineEdit()
+        self.le_element2 = LineEditExtended()
         set_tooltip(self.le_element2,
                     "The <b>name</b> of the emission line #2")
-        self.peak_intensity = QLineEdit()
-        set_tooltip(self.peak_intensity,
-                    "The <b>intensity</b> of the pileup peak. Typically it is not necessary "
-                    "to set the intensity precisely, since it is refined during fitting of total "
-                    "spectrum.")
+        self.peak_energy = LineEditReadOnly()
+        set_tooltip(self.peak_energy,
+                    "The <b>energy</b> (location) of the pileup peak center. The energy can not"
+                    "be edited: it is set based on the selected emission lines")
+
+        self._validator_eline = QRegExpValidator()
+        # TODO: the following regex is too broad: [a-z] should be narrowed down
+        self._validator_eline.setRegExp(QRegExp(r"^[A-Z][a-z]?_[KLM][a-z]\d$"))
 
         instructions = QLabel("Specify two emission lines, e.g. Si_Ka1 and Fe_Ka1")
 
@@ -1428,31 +1487,127 @@ class DialogPileupPeakParameters(QDialog):
         grid.addWidget(self.le_element1, 0, 1)
         grid.addWidget(QLabel("Emission line 2:"), 1, 0)
         grid.addWidget(self.le_element2, 1, 1)
-        grid.addWidget(QLabel("Peak intensity:"), 2, 0)
-        grid.addWidget(self.peak_intensity, 2, 1)
+        grid.addWidget(QLabel("Peak energy, keV:"), 2, 0)
+        grid.addWidget(self.peak_energy, 2, 1)
 
         button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         button_box.button(QDialogButtonBox.Cancel).setDefault(True)
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)
+        self.pb_ok = button_box.button(QDialogButtonBox.Ok)
 
         vbox = QVBoxLayout()
-
-        hbox = QHBoxLayout()
-        hbox.addStretch(1)
-        hbox.addWidget(self.rb_edit_existing)
-        hbox.addWidget(self.rb_add_new)
-        hbox.addStretch(1)
-        vbox.addLayout(hbox)
-
-        vbox.addSpacing(10)
-
         vbox.addWidget(instructions)
         vbox.addSpacing(10)
         vbox.addLayout(grid)
         vbox.addWidget(button_box)
 
         self.setLayout(vbox)
+
+        self.le_element1.editingFinished.connect(self.le_element1_editing_finished)
+        self.le_element2.editingFinished.connect(self.le_element2_editing_finished)
+
+        self.le_element1.textChanged.connect(self.le_element1_text_changed)
+        self.le_element2.textChanged.connect(self.le_element2_text_changed)
+
+    def set_compute_energy_function(self, func):
+        self._compute_energy = func
+
+    def set_parameters(self, data):
+        self._data = data.copy()
+        self._show_data()
+
+    def _format_float(self, v):
+        return f"{v:.12g}"
+
+    def _show_data(self):
+        self.le_element1.setText(self._data["element1"])
+        self.le_element2.setText(self._data["element2"])
+        self._show_energy()
+
+    def _show_energy(self, energy=None):
+        if energy is None:
+            energy = self._data["energy"]
+        text = self._format_float(energy)
+        self.peak_energy.setText(text)
+        self._validate_all()
+
+    def _validate_le_element1(self, text=None):
+        return self._validate_eline(self.le_element1, text)
+
+    def _validate_le_element2(self, text=None):
+        return self._validate_eline(self.le_element2, text)
+
+    def _validate_peak_energy(self, energy=None):
+        # Peak energy is not edited, so it is always has a valid floating point number
+        #   The only problem is that it may be out of range.
+        if energy is None:
+            energy = self._data["energy"]
+        valid = self._data["range_low"] < energy < self._data["range_high"]
+        self.peak_energy.setValid(valid)
+        return valid
+
+    def _validate_all(self):
+        valid = (self._validate_le_element1() and
+                 self._validate_le_element2())
+        # Energy doesn't influence the success of validation, but the Ok button
+        #   should be disabled if energy if out of range.
+        valid_energy = self._validate_peak_energy()
+        self.pb_ok.setEnabled(valid and valid_energy)
+        return valid
+
+    def _validate_eline(self, le_widget, text):
+        if text is None:
+            text = le_widget.text()
+
+        valid = True
+        if self._validator_eline.validate(text, 0)[0] != QDoubleValidator.Acceptable:
+            valid = False
+        else:
+            # Try to compute energy for the pileup peak
+            if self._compute_energy(text, text) == 0:
+                valid = False
+        le_widget.setValid(valid)
+        return valid
+
+    def _refresh_energy(self):
+        eline1 = self._data["element1"]
+        eline2 = self._data["element2"]
+        try:
+            energy = self._compute_energy(eline1, eline2)
+            self._data["energy"] = energy
+            self._show_energy()
+        except Exception:
+            self._data["energy"] = 0
+            self._show_energy()
+
+    def le_element1_editing_finished(self):
+        if self._validate_le_element1():
+            self._data["element1"] = self.le_element1.text()
+            self._refresh_energy()
+        else:
+            self.le_element1.setText(self._data["element1"])
+        self._validate_all()
+
+    def le_element2_editing_finished(self):
+        if self._validate_le_element2():
+            self._data["element2"] = self.le_element2.text()
+            self._refresh_energy()
+        else:
+            self.le_element2.setText(self._data["element2"])
+        self._validate_all()
+
+    def le_element1_text_changed(self, text):
+        if self._validate_all():
+            self._data["element1"] = self.le_element1.text()
+            print(f"element1 - {self._data['element1']}")
+            self._refresh_energy()
+
+    def le_element2_text_changed(self, text):
+        if self._validate_all():
+            self._data["element2"] = self.le_element2.text()
+            print(f"element2 - {self._data['element2']}")
+            self._refresh_energy()
 
 
 class DialogNewUserPeak(QDialog):

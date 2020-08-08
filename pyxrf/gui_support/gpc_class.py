@@ -834,15 +834,20 @@ class GlobalProcessingClasses:
         eline_category = self.get_eline_name_category(eline)
         if eline_category == "userpeak":
             self.fit_model.select_index_by_eline_name(eline)
+            # This will delete the peak lines (no peak lines are plotted for user peak)
+            self.plot_model.plot_current_eline(eline)
             # Show the marker at the center of the userpeak
             self.plot_model.set_plot_vertical_marker(self.fit_model.add_userpeak_energy)
         elif eline_category == "pileup":
-            energy = self.fit_model.get_pileup_peak_energy(eline)
-            if energy is not None:
-                self.plot_model.set_plot_vertical_marker(energy)
-            else:
-                logger.error(f"Could not find the energy of pileup peak '{eline}'.")
+            # The lines for pileup peak are not displayed as 'plot_model.element_id' is changed.
+            #   So call plotting function explicitly
+            self.plot_model.plot_current_eline(eline)
+            self.plot_model.hide_plot_vertical_marker()
+        elif eline_category == "eline":
+            self.plot_model.hide_plot_vertical_marker()
         else:
+            # This will delete the peak lines
+            self.plot_model.plot_current_eline(eline)
             self.plot_model.hide_plot_vertical_marker()
 
     def get_eline_intensity(self, eline):
@@ -897,6 +902,75 @@ class GlobalProcessingClasses:
 
     def get_current_userpeak_energy_fwhm(self):
         return self.fit_model.add_userpeak_energy, self.fit_model.add_userpeak_fwhm
+
+    def generate_pileup_peak_name(self, eline1, eline2):
+        return self.param_model.generate_pileup_peak_name(eline1, eline2)
+
+    def get_pileup_peak_energy(self, eline):
+        return self.fit_model.get_pileup_peak_energy(eline)
+
+    def is_peak_already_selected(self, eline):
+        """Verifies if emission line with the same name is already selected"""
+        line_list = list(self.param_model.EC.element_dict.keys())
+        if eline in line_list:
+            return True
+        else:
+            return False
+
+    def convert_full_eline_name(self, eline, to_upper=True):
+        """Convert emission lines to the form used for displayed emission line names"""
+        try:
+            index = eline.index("_")
+            eline_as_list = list(eline)
+            if to_upper:
+                eline_as_list[index + 1] = eline_as_list[index + 1].upper()
+            else:
+                eline_as_list[index + 1] = eline_as_list[index + 1].lower()
+            eline = "".join(eline_as_list)
+        except Exception:
+            pass
+        return eline
+
+    def get_guessed_pileup_peak_components(self, energy, tolerance=0.05):
+        """
+        Returns tuple (line1, line2, pileup_energy), that contains the best guess
+        for the pileup peak placed `energy`.
+
+        Parameters
+        ----------
+        energy: float
+            Approximate (selected) energy of pileup peak location
+        tolerance: float
+            Allowed deviation of the sum of component energies from the selected energy, keV
+
+        Returns
+        -------
+        tuple(str, str, float)
+            Component emission lines (such as Ca_ka1, K_ka1 etc) and the energy of
+            the resulting pileup peak.
+        """
+        eline_info = self.param_model.guess_pileup_peak_components(energy=energy, tolerance=tolerance)
+        if eline_info is not None:
+            e1, e2, energy = eline_info
+            eline_info = (self.convert_full_eline_name(e1, to_upper=True),
+                          self.convert_full_eline_name(e2, to_upper=True),
+                          energy)
+        return eline_info
+
+    def get_selected_energy_range(self):
+        """
+        Returns the energy range selected for processing. No peaks are supposed to be selected
+        outside this range.
+
+        Returns
+        -------
+        tuple(float, float)
+            Selected range (low, high) in keV
+        """
+        e_low = self.param_model.param_new['non_fitting_values']['energy_bound_low']['value']
+        e_high = self.param_model.param_new['non_fitting_values']['energy_bound_high']['value']
+        return e_low, e_high
+
 
     def add_peak_manual(self, eline):
         """Manually add a peak (emission line) using 'Add' button"""

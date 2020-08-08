@@ -235,7 +235,7 @@ def check_if_eline_is_activated(elemental_line, incident_energy):
     line = line.lower()
     if len(line) == 1:
         line += 'a1'
-    elif len(line) == 1:
+    elif len(line) == 2:
         line += "1"
 
     e = Element(element)
@@ -300,3 +300,52 @@ def generate_eline_list(element_list, *, incident_energy, lines=None):
                 eline_list.append(eline)
 
     return eline_list
+
+
+# TODO: the following function needs tests
+def get_eline_parameters(elemental_line, incident_energy):
+    """
+    Returns emission line parameters
+
+    Parameters
+    ----------
+
+    elemental_line : str
+        emission line in the format K_K, Fe_K, Ca_k, Ca_ka, Ca_kb2 etc.
+    incident_energy : float
+        incident energy in keV
+
+    Returns
+    -------
+    dict
+        Computed parameters of the emission line. Keys: "energy" (central energy of the peak),
+        "cs" (crossection), "ratio" (normalized crossection, e.g. cs(Ca_kb2)/ cs(Ca_ka1)
+    """
+
+    # Check if the emission line has correct format
+    # TODO: verify the correnct range for lines (a-z covers all the cases, but may be too broad)
+    if not re.search(r"^[A-Z][a-z]?_[KLMklm]([a-z]\d?)?$", elemental_line):
+        raise RuntimeError(f"Elemental line {elemental_line} is improperly formatted")
+
+    # The validation of 'elemental_line' is strict enough to do the rest of the processing
+    #   without further checks.
+    [element, line] = elemental_line.split('_')
+    line = line.lower()
+    if len(line) == 1:
+        line += 'a1'
+    elif len(line) == 2:
+        line += "1"
+
+    # This is the name of line #1 (ka1, la1 etc.)
+    line_1 = line[0] + "a1"
+
+    try:
+        e = Element(element)
+        energy = e.emission_line[line]
+        cs = e.cs(incident_energy)[line]
+        cs_1 = e.cs(incident_energy)[line_1]
+        ratio = cs / cs_1 if cs_1 else 0
+    except Exception:
+        energy, cs, ratio = 0, 0, 0
+
+    return {"energy": energy, "cs": cs, "ratio": ratio}
