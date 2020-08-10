@@ -629,7 +629,9 @@ class LinePlotModel(Atom):
 
     def plot_vertical_marker(self, *, e_low=None, e_high=None):
 
-        self._vertical_marker_set_inside_range(e_low=e_low, e_high=e_high)
+        # It doesn't seem necessary to force the marker inside the selected range.
+        #   It may be used for purposes that require to set it outside the range
+        # self._vertical_marker_set_inside_range(e_low=e_low, e_high=e_high)
 
         x_v = (self.vertical_marker_kev, self.vertical_marker_kev)
         y_v = (-1e30, 1e30)  # This will cover the range of possible values of accumulated counts
@@ -648,29 +650,38 @@ class LinePlotModel(Atom):
         Just make the marker visible.
         """
 
-        # Ignore the new value if it is outside the range of selected energies
+        # Ignore the new value if it is outside the range of selected energies.
+        # If 'marker_position' is None, then show the marker at its current location.
+        # Totally ignore clicks if 'marker_position' is outside the range (but still
+        # display the marker if 'mouse_clicked' is False.
+        marker_in_range = True
         if marker_position is not None:
             e_low = self.param_model.param_new['non_fitting_values']['energy_bound_low']['value']
             e_high = self.param_model.param_new['non_fitting_values']['energy_bound_high']['value']
-            if (marker_position >= e_low) and (marker_position <= e_high):
+            if e_low <= marker_position <= e_high or not mouse_clicked:
+                # If the function was called to display marker (e.g. for existing peak) outside
+                #   the selected range, then show it. If button was clicked, then ignore it.
                 self.vertical_marker_kev = marker_position
+            else:
+                marker_in_range = False
 
-        # Make the marker visible
-        self.vertical_marker_is_visible = True
+        if marker_in_range:
+            # Make the marker visible
+            self.vertical_marker_is_visible = True
 
-        # Compute peak intensity. The displayed value will change only for user defined peak,
-        #   since it is moved to the position of the marker.
-        self.compute_manual_peak_intensity()
+            # Compute peak intensity. The displayed value will change only for user defined peak,
+            #   since it is moved to the position of the marker.
+            self.compute_manual_peak_intensity()
 
-        # Update the location of the marker and the canvas
-        self.plot_vertical_marker()
-        self._update_canvas()
+            # Update the location of the marker and the canvas
+            self.plot_vertical_marker()
+            self._update_canvas()
 
-        if mouse_clicked:
-            try:
-                self.report_marker_state(True)  # This is an externally set callback function
-            except Exception:
-                pass
+            if mouse_clicked:
+                try:
+                    self.report_marker_state(True)  # This is an externally set callback function
+                except Exception:
+                    pass
 
     def hide_plot_vertical_marker(self, mouse_clicked=False):
         """Hide vertical marker"""
@@ -1032,8 +1043,7 @@ class LinePlotModel(Atom):
 
         else:
             self._reset_eline_plot()
-            logger.warning(f"Selected emission line with ID #{self.element_id} is not in the list.")
-
+            logger.debug(f"Selected emission line with ID #{self.element_id} is not in the list.")
 
     @observe('det_materials')
     def _update_det_materials(self, change):

@@ -837,7 +837,8 @@ class GlobalProcessingClasses:
             # This will delete the peak lines (no peak lines are plotted for user peak)
             self.plot_model.plot_current_eline(eline)
             # Show the marker at the center of the userpeak
-            self.plot_model.set_plot_vertical_marker(self.fit_model.add_userpeak_energy)
+            energy, _ = self.param_model.get_selected_eline_energy_fwhm(eline)
+            self.plot_model.set_plot_vertical_marker(energy)
         elif eline_category == "pileup":
             # The lines for pileup peak are not displayed as 'plot_model.element_id' is changed.
             #   So call plotting function explicitly
@@ -901,13 +902,13 @@ class GlobalProcessingClasses:
         self.plot_model.show_fit_opt = True
 
     def get_current_userpeak_energy_fwhm(self):
-        return self.fit_model.add_userpeak_energy, self.fit_model.add_userpeak_fwhm
+        return self.param_model.get_selected_eline_energy_fwhm(self.param_model.e_name)
 
     def generate_pileup_peak_name(self, eline1, eline2):
         return self.param_model.generate_pileup_peak_name(eline1, eline2)
 
     def get_pileup_peak_energy(self, eline):
-        return self.fit_model.get_pileup_peak_energy(eline)
+        return self.param_model.get_pileup_peak_energy(eline)
 
     def is_peak_already_selected(self, eline):
         """Verifies if emission line with the same name is already selected"""
@@ -971,15 +972,12 @@ class GlobalProcessingClasses:
         e_high = self.param_model.param_new['non_fitting_values']['energy_bound_high']['value']
         return e_low, e_high
 
-
     def add_peak_manual(self, eline):
         """Manually add a peak (emission line) using 'Add' button"""
         self.select_eline(eline)
 
         # Verify if we are adding a userpeak
-        is_userpeak = False
-        if self.get_eline_name_category(eline) == "userpeak":
-            is_userpeak = True
+        is_userpeak = self.get_eline_name_category(eline) == "userpeak"
 
         # The following set of conditions is not complete, but sufficient
         if self.param_model.x0 is None or self.param_model.y0 is None:
@@ -1004,6 +1002,7 @@ class GlobalProcessingClasses:
             except Exception as ex:
                 raise RuntimeError(str(ex))
 
+            # TODO: the following block may not be needed, since everything may be done in 'apply_to_fit'
             try:
                 if is_userpeak:
                     self.fit_model.select_index_by_eline_name(eline)
@@ -1013,7 +1012,43 @@ class GlobalProcessingClasses:
                                              self.param_model.auto_fit_all)
                     self.fit_model.update_userpeak_controls()
             except Exception as ex:
-                pass
+                raise RuntimeError(str(ex))
+
+    '''
+    def add_pileup_peak(self, pileup_name):
+
+        eline1, eline2 = pileup_name.split("-")
+
+        self.param_model.pileup_data['element1'] = eline1
+        self.param_model.pileup_data['element2'] = eline2
+
+        # Generate pileup peak one more time (for consistency)
+        peak_name = self.generate_pileup_peak_name(eline1, eline2)
+
+        self.select_eline(peak_name)
+
+        self.param_model.pileup_data['intensity'] =
+
+        if not param_model.EC.is_element_in_list(peak_name):
+
+            param_model.add_pileup()
+            param_model.EC.update_peak_ratio()
+            param_model.update_name_list()
+            param_model.data_for_plot()
+
+            plot_model.plot_fit(param_model.prefit_x,
+                                param_model.total_y,
+                                param_model.auto_fit_all)
+            # For plotting purposes, otherwise plot will not update
+            plot_model.show_fit_opt = False
+            plot_model.show_fit_opt = True
+
+        else:
+
+            btns = [DialogButton('Ok', 'accept')]
+            # 'critical' shows MessageBox
+            critical(self, 'ERROR', f'Element emission line {peak_name} is already selected', btns)
+    '''
 
     def remove_peak_manual(self, eline):
         """Manually add a peak (emission line) using 'Remove' button"""
@@ -1022,6 +1057,32 @@ class GlobalProcessingClasses:
         if "userpeak" in eline.lower():
             self.param_model.update_name_list()
             self.apply_to_fit()
+
+    def update_userpeak(self, eline, energy, maxv, fwhm):
+        """
+        Update parameters of the user defined peak. Exception may be raised in
+        case of an error. Note, that if energy is changed, FWHM will change to
+        adjust for the variation of peak width.
+
+        Parameters
+        ----------
+        eline: str
+            name of the userpeak (e.g. 'Userpeak2')
+        energy: float
+            new position of the peak center, keV
+        maxv: float
+            new value of the amplitude
+        fwhm: float
+            new value of FWHM of the peak.
+        """
+        self.select_eline(eline)
+        self.param_model.modify_userpeak_params(maxv, fwhm, energy)
+        self.apply_to_fit()
+
+    def update_eline_peak_height(self, eline, maxv):
+        self.select_eline(eline)
+        self.param_model.modify_peak_height(maxv)
+        self.apply_to_fit()
 
     def get_suggested_manual_peak_energy(self):
         """
@@ -1080,3 +1141,33 @@ class GlobalProcessingClasses:
 
         # Update displayed intensity of the selected peak
         self.plot_model.compute_manual_peak_intensity()
+
+    def calculate_spectrum_helper(self):
+        """
+        Calculate spectrum, and update plotting and param_model.
+        Note: this is an original function from 'fit.enaml' file.
+        """
+        if self.fit_model.x0 is None or self.fit_model.y0 is None:
+            return
+
+        self.fit_model.get_profile()
+
+        # update experimental plot with new calibration values
+        self.plot_model.parameters = self.fit_model.param_dict
+        self.plot_model.plot_experiment()
+
+        self.plot_model.plot_fit(self.fit_model.cal_x, self.fit_model.cal_y,
+                                 self.fit_model.cal_spectrum,
+                                 self.fit_model.residual)
+
+        # For plotting purposes, otherwise plot will not update
+        self.plot_model.show_fit_opt = False
+        self.plot_model.show_fit_opt = True
+
+        # update autofit param
+        self.param_model.update_new_param(self.fit_model.param_dict)
+        self.param_model.update_name_list()
+        self.param_model.EC.turn_on_all()
+
+        # update params for roi sum
+        self.setting_model.update_parameter(self.fit_model.param_dict)

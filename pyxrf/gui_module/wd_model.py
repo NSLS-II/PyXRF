@@ -5,7 +5,7 @@ import copy
 
 from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox, QLineEdit,
                              QCheckBox, QLabel, QComboBox, QDialog, QDialogButtonBox,
-                             QFileDialog, QRadioButton, QButtonGroup, QGridLayout, QTableWidget,
+                             QFileDialog, QGridLayout, QTableWidget,
                              QTableWidgetItem, QHeaderView, QMessageBox)
 from PyQt5.QtGui import QBrush, QColor, QDoubleValidator, QRegExpValidator
 from PyQt5.QtCore import Qt, pyqtSlot, QTimer, pyqtSignal, QRegExp
@@ -585,6 +585,9 @@ class WndManageEmissionLines(SecondaryWindow):
         """The table has only functionality necessary to demonstrate how it is going
         to look. A lot more code is needed to actually make it run."""
 
+        self._validator_peak_height = QDoubleValidator()
+        self._validator_peak_height.setBottom(0.01)
+
         self.tbl_elines = QTableWidget()
 
         self.tbl_labels = ["Z", "Line", "E, keV", "Peak Int.", "Rel. Int.(%)", "CS"]
@@ -762,7 +765,7 @@ class WndManageEmissionLines(SecondaryWindow):
 
         eline = self._selected_eline
         if self.gpc.get_eline_name_category(eline) == "pileup":
-            logger.error(f"Attempt to add pileup peak while another pileup peak is selected.")
+            logger.error(f"Attempt to add pileup peak '{eline}' while another pileup peak is selected.")
             return
 
         energy, marker_visible = self.gpc.get_suggested_manual_peak_energy()
@@ -803,6 +806,22 @@ class WndManageEmissionLines(SecondaryWindow):
             dlg.set_parameters(data)
             if dlg.exec():
                 print("Pileup peak is added")
+                try:
+                    data = dlg.get_parameters()
+                    eline1, eline2 = data["element1"], data["element2"]
+                    eline = self.gpc.generate_pileup_peak_name(eline1, eline2)
+                    self.gpc.add_peak_manual(eline)
+                    self._update_eline_table()  # Update the table
+                    self.tbl_elines_set_selection(eline)  # Select new emission line
+                    self._set_selected_eline(eline)
+                    logger.info(f"New pileup peak {eline} was added")
+                except RuntimeError as ex:
+                    msg = str(ex)
+                    msgbox = QMessageBox(QMessageBox.Critical, "Error",
+                                         msg, QMessageBox.Ok, parent=self)
+                    msgbox.exec()
+                    # Reload the table anyway (nothing is going to be selected)
+                    self._update_eline_table()
 
     def pb_user_peaks_clicked(self):
         eline = self._selected_eline
@@ -819,8 +838,19 @@ class WndManageEmissionLines(SecondaryWindow):
             dlg = DialogEditUserPeakParameters()
             dlg.set_parameters(data=data)
             if dlg.exec():
-
                 print("Editing of user defined peak is completed")
+                try:
+                    eline = data["name"]
+                    data = dlg.get_parameters()
+                    self.gpc.update_userpeak(data["name"], data["energy"], data["maxv"], data["fwhm"])
+                    logger.info(f"User defined peak {eline} was updated.")
+                except Exception as ex:
+                    msg = str(ex)
+                    msgbox = QMessageBox(QMessageBox.Critical, "Error",
+                                         msg, QMessageBox.Ok, parent=self)
+                    msgbox.exec()
+                # Reload the table anyway (nothing is going to be selected)
+                self._update_eline_table()
 
         else:
             data = {}
@@ -914,6 +944,18 @@ class WndManageEmissionLines(SecondaryWindow):
                 state = bool(item.checkState())
                 eline = self._table_contents[n_row]["eline"]
                 self.gpc.set_checked_emission_lines([eline], [state])
+            # Value was changed
+            elif n_col == 3:
+                text = item.text()
+                eline = self._table_contents[n_row]["eline"]
+                if self._validator_peak_height.validate(text, 0)[0] != QDoubleValidator.Acceptable:
+                    val = self._table_contents[n_row]["peak_int"]
+                    self._enable_events = False
+                    item.setText(f"{val:.2f}")
+                    self._enable_events = True
+                else:
+                    self.gpc.update_eline_peak_height(eline, float(text))
+                    self._update_eline_table()
 
     def tbl_elines_item_selection_changed(self):
         sel_ranges = self.tbl_elines.selectedRanges()
@@ -1054,22 +1096,28 @@ class WndManageEmissionLines(SecondaryWindow):
     def _update_add_edit_userpeak_btn_state(self):
 
         enabled = True
+        add_peak = True
         if self.gpc.get_eline_name_category(self._selected_eline) == "userpeak":
-            enabled = False
+            add_peak = False
 
         # Finally check if marker is set (you need it for adding peaks)
         _, marker_set = self.gpc.get_suggested_manual_peak_energy()
-        if not marker_set:
+
+        if not marker_set and add_peak:
             enabled = False
 
+        if add_peak:
+            btn_text = "New User Peak ..."
+        else:
+            btn_text = "Edit User Peak ..."
+        self.pb_user_peaks.setText(btn_text)
         self.pb_user_peaks.setEnabled(enabled)
 
     def _update_add_edit_pileup_peak_btn_state(self):
 
         enabled = True
-        add_peak = True
         if self.gpc.get_eline_name_category(self._selected_eline) == "pileup":
-            add_peak = False
+            enabled = False
 
         # Finally check if marker is set (you need it for adding peaks)
         _, marker_set = self.gpc.get_suggested_manual_peak_energy()
@@ -1077,22 +1125,13 @@ class WndManageEmissionLines(SecondaryWindow):
         if self.gpc.get_eline_name_category(self._selected_eline) == "userpeak":
             marker_set = False
 
-        if not marker_set and add_peak:
+        if not marker_set:
             enabled = False
 
-        if add_peak:
-            btn_text = "New Pileup Peak ..."
-        else:
-            btn_text = "Edit Pileup Peak ..."
-        self.pb_pileup_peaks.setText(btn_text)
         self.pb_pileup_peaks.setEnabled(enabled)
 
     def _set_selected_eline(self, eline):
         self._update_add_remove_btn_state(eline)
-        if self.gpc.get_eline_name_category(eline) == "userpeak":
-            self.pb_user_peaks.setText("Edit User Peak ...")
-        else:
-            self.pb_user_peaks.setText("New User Peak ...")
         if eline != self._selected_eline:
             self._selected_eline = eline
             self.gpc.set_selected_eline(eline)
@@ -1516,6 +1555,9 @@ class DialogPileupPeakParameters(QDialog):
     def set_parameters(self, data):
         self._data = data.copy()
         self._show_data()
+
+    def get_parameters(self):
+        return self._data
 
     def _format_float(self, v):
         return f"{v:.12g}"

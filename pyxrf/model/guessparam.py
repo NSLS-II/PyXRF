@@ -19,6 +19,8 @@ from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 from ..core.map_processing import snip_method_numba
 from ..core.xrf_utils import check_if_eline_supported, get_eline_parameters
 
+from ..core.utils import gaussian_sigma_to_fwhm, gaussian_fwhm_to_sigma
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -106,7 +108,7 @@ class ElementController(object):
 
     def update_norm(self, threshv=0.0):
         """
-        Calculate the norm intensity for each element peak.
+        Calculate the normalized intensity for each element peak.
 
         Parameters
         ----------
@@ -150,7 +152,9 @@ class ElementController(object):
 
     def update_peak_ratio(self):
         """
-        In case users change the max value.
+        If 'maxv' is modified, then the values of 'area' and 'spectrum' are adjusted accordingly:
+        (1) maximum of spectrum is set equal to 'maxv'; (2) 'area' is scaled proportionally.
+        It is important that only 'maxv' is changed before this function is called.
         """
         for v in self.element_dict.values():
             max_spectrum = np.max(v.spectrum)
@@ -255,7 +259,6 @@ class GuessParamModel(Atom):
     x0 = Typed(np.ndarray)
     y0 = Typed(np.ndarray)
     max_area_dig = Int(2)
-    pileup_data = Dict()
     auto_fit_all = Dict()
     bound_val = Float(1.0)
 
@@ -274,9 +277,6 @@ class GuessParamModel(Atom):
         except ValueError:
             logger.info('No default parameter files are chosen.')
         self.EC = ElementController()
-        self.pileup_data = {'element1': 'Si_K',
-                            'element2': 'Si_K',
-                            'intensity': 0.0}
 
         # The following line is part of the fix for automated updating of the energy bound
         #     in 'Automatic Element Finding' dialog box
@@ -423,8 +423,8 @@ class GuessParamModel(Atom):
                 temp_dict[e] = ps
 
             elif '-' in e:  # pileup peaks
-                e1, e2 = e.split('-')
-                energy = float(get_energy(e1))+float(get_energy(e2))
+                energy = self.get_pileup_peak_energy(e)
+                energy = f"{energy:.4f}"
                 spectrum = pre_dict[e]
                 area = area_dict[e]
 
@@ -437,6 +437,8 @@ class GuessParamModel(Atom):
             else:
                 ename = e.split('_')[0]
                 for k, v in param_dict.items():
+                    energy = get_energy(e)  # For all peaks except Userpeaks
+
                     if ename in k and 'area' in k:
                         spectrum = pre_dict[e]
                         area = area_dict[e]
@@ -449,16 +451,67 @@ class GuessParamModel(Atom):
                         spectrum = pre_dict[e]
                         area = area_dict[e]
 
+                    elif self.get_eline_name_category(ename) == "userpeak":
+                        key = ename + "_delta_center"
+                        energy = param_dict[key]["value"] + 5.0
+                        energy = f"{energy:.4f}"
                     else:
                         continue
 
-                    ps = PreFitStatus(z=get_Z(ename), energy=get_energy(e),
+                    ps = PreFitStatus(z=get_Z(ename), energy=energy,
                                       area=area, spectrum=spectrum,
                                       maxv=np.around(np.max(spectrum), self.max_area_dig),
                                       norm=-1, lbd_stat=False)
 
                     temp_dict[e] = ps
         self.EC.add_to_dict(temp_dict)
+
+    def get_selected_eline_energy_fwhm(self, eline):
+        """
+        Returns values of energy and fwhm for the peak 'eline' from the dictionary `self.param_new`.
+        The emission line must exist in the dictionary. Primarily intended for use
+        with user-defined peaks.
+
+        Parameters
+        ----------
+        eline: str
+            emission line (e.g. Ca_K) or peak name (e.g. Userpeak2, V_Ka1-Co_Ka1)
+        """
+        if eline not in self.EC.element_dict:
+            raise ValueError(f"Emission line '{eline}' is not in the list of selected lines.")
+
+        keys = self._generate_param_keys(eline)
+        if not keys["key_dcenter"] or not keys["key_dsigma"]:
+            raise ValueError(f"Failed to generate keys for the emission line '{eline}'.")
+
+        energy = self.param_new[keys["key_dcenter"]]["value"] + 5.0
+        dsigma = self.param_new[keys["key_dsigma"]]["value"]
+        fwhm = gaussian_sigma_to_fwhm(dsigma) + self._compute_fwhm_base(energy)
+        return energy, fwhm
+
+    def get_pileup_peak_energy(self, eline):
+        """
+        Returns the energy (center) of pileup peak. Returns None if there is an error.
+
+        Parameters
+        ----------
+        eline: str
+            Name of the pileup peak, e.g. V_Ka1-Co_Ka1
+
+        Returns
+        -------
+        float or None
+            Energy in keV or None
+        """
+        incident_energy = self.param_new["coherent_sct_energy"]["value"]
+        try:
+            element_line1, element_line2 = eline.split('-')
+            e1_cen = get_eline_parameters(element_line1, incident_energy)["energy"]
+            e2_cen = get_eline_parameters(element_line2, incident_energy)["energy"]
+            en = e1_cen + e2_cen
+        except Exception:
+            en = None
+        return en
 
     def manual_input(self, userpeak_center=2.5):
         """
@@ -471,25 +524,12 @@ class GuessParamModel(Atom):
             than 'userpeak' is added
         """
 
-        default_area = 1e2
+        if self.e_name in self.EC.element_dict:
+            msg = f"Line '{self.e_name}' is in the list of selected lines. \n" \
+                  f"Duplicate entries are not allowed."
+            raise RuntimeError(msg)
 
-        # if self.e_name == 'escape':
-        #     self.param_new['non_fitting_values']['escape_ratio'] = (self.add_element_intensity
-        #                                                             / np.max(self.y0))
-        #     es_peak = trim_escape_peak(self.data, self.param_new,
-        #                                len(self.y0))
-        #     ps = PreFitStatus(z=get_Z(self.e_name),
-        #                       energy=get_energy(self.e_name),
-        #                       # put float in front of area and maxv
-        #                       # due to type conflicts in atom, which regards them as
-        #                       # np.float32 if we do not put float in front.
-        #                       area=float(np.around(np.sum(es_peak), self.max_area_dig)),
-        #                       spectrum=es_peak,
-        #                       maxv=float(np.around(np.max(es_peak), self.max_area_dig)),
-        #                       norm=-1, lbd_stat=False)
-        #     logger.info('{} peak is added'.format(self.e_name))
-        #
-        # else:
+        default_area = 1e2
 
         # Add the new data entry to the parameter dictionary. This operation is necessary for 'userpeak'
         #   lines, because they need to be placed to the specific position (by setting 'delta_center'
@@ -499,13 +539,18 @@ class GuessParamModel(Atom):
         # PC.params will contain a deepcopy of 'self.param_new' with the new line added
         PC = ParamController(self.param_new, [self.e_name])
 
-        if "userpeak" in self.e_name.lower():
+        if self.get_eline_name_category(self.e_name) == "userpeak":
+            energy = userpeak_center
             # Default values for 'delta_center'
             dc = copy.deepcopy(PC.params[f"{self.e_name}_delta_center"])
             # Modify the default values in the dictionary of parameters
             PC.params[f"{self.e_name}_delta_center"]["value"] = d_energy
             PC.params[f"{self.e_name}_delta_center"]["min"] = d_energy - (dc["value"] - dc["min"])
             PC.params[f"{self.e_name}_delta_center"]["max"] = d_energy + (dc["max"] - dc["value"])
+        elif self.get_eline_name_category(self.e_name) == "pileup":
+            energy = self.get_pileup_peak_energy(self.e_name)
+        else:
+            energy = get_energy(self.e_name)
 
         param_tmp = PC.params
 
@@ -532,7 +577,7 @@ class GuessParamModel(Atom):
         ratio_v = self.add_element_intensity / np.max(data_out[self.e_name])
 
         ps = PreFitStatus(z=get_Z(self.e_name),
-                          energy=get_energy(self.e_name),
+                          energy=energy if isinstance(energy, str) else f"{energy:.4f}",
                           area=area_dict[self.e_name]*ratio_v,
                           spectrum=data_out[self.e_name]*ratio_v,
                           maxv=self.add_element_intensity,
@@ -542,50 +587,236 @@ class GuessParamModel(Atom):
 
         self.EC.add_to_dict({self.e_name: ps})
 
-    def generate_pileup_peak_name(self, name1=None, name2=None):
+    def _generate_param_keys(self, eline):
+        """
+        Returns prefix of the key from `param_new` dictionary based on emission line name
+        If eline is actual emission line (like Ca_K), then the `key_dcenter` and `key_dsigma`
+        point to 'a1' line (Ca_ka1). Function has to be extended if access to specific lines is
+        required. Function is primarily intended for use with user-defined peaks.
+        """
+
+        category = self.get_eline_name_category(eline)
+        if category == "pileup":
+            eline = eline.replace("-", "_")
+            key_area = "pileup_" + eline + "_area"
+            key_dcenter = "pileup_" + eline + "delta_center"
+            key_dsigma = "pileup_" + eline + "delta_sigma"
+        elif category == "eline":
+            eline = eline[:-1] + eline[-1].lower()
+            key_area = eline + "a1_area"
+            key_dcenter = eline + "a1_delta_center"
+            key_dsigma = eline + "a1_delta_sigma"
+        elif category == "userpeak":
+            key_area = eline + "_area"
+            key_dcenter = eline + "_delta_center"
+            key_dsigma = eline + "_delta_sigma"
+        elif eline == "compton":
+            key_area = eline + "_amplitude"
+            key_dcenter, key_dsigma = "", ""
+        else:
+            # No key exists (for "background", "escape", "elastic")
+            key_area, key_dcenter, key_dsigma = "", "", ""
+        return {"key_area": key_area, "key_dcenter": key_dcenter, "key_dsigma": key_dsigma}
+
+    def modify_peak_height(self, maxv_new):
+        """
+        Modify the height of the emission line.
+
+        Parameters
+        ----------
+        new_maxv: float
+            New maximum value for the emission line `self.e_name`
+        """
+
+        ignored_peaks = {"escape"}
+        if self.e_name in ignored_peaks:
+            msg = f"Height of the '{self.e_name}' peak can not be changed."
+            raise RuntimeError(msg)
+
+        if self.e_name not in self.EC.element_dict:
+            msg = f"Attempt to modify maximum value for the emission line '{self.e_name},'\n" \
+                  f"which is not currently selected."
+            raise RuntimeError(msg)
+
+        key = self._generate_param_keys(self.e_name)["key_area"]
+        maxv_current = self.EC.element_dict[self.e_name].maxv
+
+        coef = maxv_new / maxv_current if maxv_current > 0 else 0
+        # Only 'maxv' needs to be updated.
+        self.EC.element_dict[self.e_name].maxv = maxv_new
+        # The following function updates 'spectrum', 'area' and 'norm'.
+        self.EC.update_peak_ratio()
+
+        # Some of the parameters are represented only in EC, not in 'self.param_new'.
+        #   (particularly "background" and "elastic")
+        if key:
+            self.param_new[key]["value"] *= coef
+
+    def _compute_fwhm_base(self, energy):
+        # Computes 'sigma' value based on default parameters and peak energy (for Userpeaks)
+        #   does not include corrections for fwhm.
+        # If both peak center (energy) and fwhm is updated, energy needs to be set first,
+        #   since it is used in computation of ``fwhm_base``
+
+        sigma = gaussian_fwhm_to_sigma(self.default_parameters["fwhm_offset"]["value"])
+
+        sigma_sqr = energy + 5.0  # center
+        sigma_sqr *= self.default_parameters["non_fitting_values"]["epsilon"]  # epsilon
+        sigma_sqr *= self.default_parameters["fwhm_fanoprime"]["value"]  # fanoprime
+        sigma_sqr += sigma * sigma  # We have computed the expression under sqrt
+
+        sigma_total = np.sqrt(sigma_sqr)
+
+        return gaussian_sigma_to_fwhm(sigma_total)
+
+    def _update_userpeak_energy(self, eline, energy_new, fwhm_new):
+        """
+        Set new center for the user-defined peak at 'new_energy'
+        """
+
+        # According to the accepted peak model, as energy of the peak center grows,
+        #   the peak becomes wider. The most user friendly solution is to automatically
+        #   increase FWHM as the peak moves along the energy axis to the right and
+        #   decrease otherwise. So generally, the user should first place the peak
+        #   center at the desired energy, and then adjust FWHM.
+
+        # We change energy, so we will have to change FWHM as well
+        #  so before updating energy we will save the difference between
+        #  the default (base) FWHM and the displayed FWHM
+
+        name_userpeak_dcenter = eline + "_delta_center"
+        old_energy = self.param_new[name_userpeak_dcenter]["value"]
+
+        # This difference represents the required change in fwhm
+        fwhm_difference = fwhm_new - self._compute_fwhm_base(old_energy)
+
+        # Now we change energy.
+        denergy = energy_new - 5.0
+
+        v_center = self.param_new[name_userpeak_dcenter]["value"]
+        v_max = self.param_new[name_userpeak_dcenter]["max"]
+        v_min = self.param_new[name_userpeak_dcenter]["min"]
+        # Keep the possible range for value change the same
+        self.param_new[name_userpeak_dcenter]["value"] = denergy
+        self.param_new[name_userpeak_dcenter]["max"] = denergy + v_max - v_center
+        self.param_new[name_userpeak_dcenter]["min"] = denergy - (v_center - v_min)
+
+        # The base value is updated now (since the energy has changed)
+        fwhm_base = self._compute_fwhm_base(energy_new)
+        fwhm = fwhm_difference + fwhm_base
+
+        return fwhm
+
+    def _update_userpeak_fwhm(self, eline, energy_new, fwhm_new):
+        name_userpeak_dsigma = eline + "_delta_sigma"
+
+        fwhm_base = self._compute_fwhm_base(energy_new)
+        dfwhm = fwhm_new - fwhm_base
+
+        dsigma = gaussian_fwhm_to_sigma(dfwhm)
+
+        v_center = self.param_new[name_userpeak_dsigma]["value"]
+        v_max = self.param_new[name_userpeak_dsigma]["max"]
+        v_min = self.param_new[name_userpeak_dsigma]["min"]
+        # Keep the possible range for value change the same
+        self.param_new[name_userpeak_dsigma]["value"] = dsigma
+        self.param_new[name_userpeak_dsigma]["max"] = dsigma + v_max - v_center
+        self.param_new[name_userpeak_dsigma]["min"] = dsigma - (v_center - v_min)
+
+    def _update_userpeak_energy_fwhm(self, eline, fwhm_new, energy_new):
+        """
+        Update energy and fwhm of the user-defined peak 'eline'. The 'delta_center'
+        and 'delta_sigma' parameters in the `self.param_new` dictionary are updated.
+        `area` should be updated after call to this function. This function also
+        doesn't change entries in the `EC` dictionary.
+        """
+        # Ensure, that the values are greater than some small value to ensure that
+        #   there is no computational problems.
+        # Energy resolution for the existing beamlines is 0.01 keV, so 0.001 is small
+        #   enough both for center energy and FWHM.
+        energy_small_value = 0.001
+        energy_new = max(energy_new, energy_small_value)
+        fwhm_new = max(fwhm_new, energy_small_value)
+
+        fwhm_new = self._update_userpeak_energy(eline, energy_new, fwhm_new)
+        self._update_userpeak_fwhm(eline, energy_new, fwhm_new)
+
+    def modify_userpeak_params(self, maxv_new, fwhm_new, energy_new):
+
+        if self.get_eline_name_category(self.e_name) != "userpeak":
+            msg = f"Hight and width can be modified only for a user defined peak.\n" \
+                  f"The function was called for '{self.e_name}' peak"
+            raise RuntimeError(msg)
+
+        if self.e_name not in self.EC.element_dict:
+            msg = f"Attempt to modify maximum value for the emission line '{self.e_name},'\n" \
+                  f"which is not currently selected."
+            raise RuntimeError(msg)
+
+        # Some checks of the input values
+        if maxv_new <= 0.0:
+            raise ValueError("Peak height must be a positive number greater than 0.001.")
+        if energy_new <= 0.0:
+            raise ValueError("User peak energy must be a positive number greater than 0.001.")
+        if fwhm_new <= 0:
+            raise ValueError("User peak FWHM must be a positive number.")
+
+        # Make sure that the energy of the user peak is within the selected fitting range
+        energy_bound_high = \
+            self.param_new["non_fitting_values"]["energy_bound_high"]["value"]
+        energy_bound_low = \
+            self.param_new["non_fitting_values"]["energy_bound_low"]["value"]
+        if energy_new > energy_bound_high or energy_new < energy_bound_low:
+            raise ValueError("User peak energy is outside the selected range.")
+
+        # This updates 'delta_center' and 'delta_sigma' entries of the 'self.param_new' dictionary
+        self._update_userpeak_energy_fwhm(self.e_name, fwhm_new, energy_new)
+
+        default_area = 1e2
+        key = self._generate_param_keys(self.e_name)["key_area"]
+
+        # Set area to default area, change it later once the area is computed
+        self.param_new[key]["value"] = default_area
+
+        # 'self.param_new' is used to provide 'hint' values for the model, but all active
+        #    emission lines in 'elemental_lines' will be included in the model.
+        #  The model will contain lines in 'elemental_lines', Compton and elastic
+        x, data_out, area_dict = calculate_profile(self.x0,
+                                                   self.y0,
+                                                   self.param_new,
+                                                   elemental_lines=[self.e_name],
+                                                   default_area=default_area)
+
+        ratio_v = maxv_new / np.max(data_out[self.e_name])
+
+        area = area_dict[self.e_name] * ratio_v
+        self.param_new[key]["value"] = area
+
+        ps = PreFitStatus(z=get_Z(self.e_name),
+                          energy=f"{energy_new:.4f}",
+                          area=area,
+                          spectrum=data_out[self.e_name]*ratio_v,
+                          maxv=maxv_new,
+                          norm=-1,
+                          status=True,    # for plotting
+                          lbd_stat=False)
+
+        self.EC.element_dict[self.e_name] = ps
+
+        logger.debug(f"The parameters of the user defined peak. The new values:\n"
+                     f"   Energy: {energy_new} keV, FWHM: {fwhm_new}, Maximum: {maxv_new}\n")
+
+    def generate_pileup_peak_name(self, name1, name2):
         """
         Returns name for the pileup peak. The element line with the lowest
         energy is placed first in the name.
         """
-        # TODO: May be proper error processing should be added
-        if (name1 is None) or (name2 is None):
-            name1 = self.pileup_data['element1']
-            name2 = self.pileup_data['element2']
-        e1 = float(get_energy(name1))
-        e2 = float(get_energy(name2))
+        incident_energy = self.param_new["coherent_sct_energy"]["value"]
+        e1 = get_eline_parameters(name1, incident_energy)["energy"]
+        e2 = get_eline_parameters(name2, incident_energy)["energy"]
         if e1 > e2:
             name1, name2 = name2, name1
         return name1 + '-' + name2
-
-    def add_pileup(self):
-        default_area = 1e2
-        if self.pileup_data['intensity'] > 0:
-            e_name = self.generate_pileup_peak_name()
-            # parse elemental lines into multiple lines
-
-            x, data_out, area_dict = calculate_profile(self.x0,
-                                                       self.y0,
-                                                       self.param_new,
-                                                       elemental_lines=[e_name],
-                                                       default_area=default_area)
-            energy_float = float(get_energy(self.pileup_data['element1'])) + \
-                float(get_energy(self.pileup_data['element2']))
-            energy = f"{energy_float:.4f}"
-
-            ratio_v = self.pileup_data['intensity'] / np.max(data_out[e_name])
-
-            ps = PreFitStatus(z=get_Z(e_name),
-                              energy=energy,
-                              area=area_dict[e_name]*ratio_v,
-                              spectrum=data_out[e_name]*ratio_v,
-                              maxv=self.pileup_data['intensity'],
-                              norm=-1,
-                              status=True,    # for plotting
-                              lbd_stat=False)
-            logger.info('{} peak is added'.format(e_name))
-        else:
-            raise Exception("Pile-up peak intensity is negative")
-        self.EC.add_to_dict({e_name: ps})
 
     def update_name_list(self):
         """
@@ -919,7 +1150,7 @@ def define_range(data, low, high, a0, a1):
 def calculate_profile(x, y, param, elemental_lines,
                       default_area=1e5):
     """
-    Calculate the spectrum profile based on given paramters. Use function
+    Calculate the spectrum profile based on given parameters. Use function
     construct_linear_model from xrf_model.
 
     Parameters
