@@ -1117,50 +1117,6 @@ class LinePlotModel(Atom):
         marker_visible = self.vertical_marker_is_visible
         return energy, marker_visible
 
-    def add_peak_manual(self):
-
-        self.param_model.manual_input(userpeak_center=self.vertical_marker_kev)
-        self.param_model.EC.update_peak_ratio()
-        self.param_model.update_name_list()
-        self.param_model.data_for_plot()
-
-        self.hide_plot_vertical_marker()
-
-        self.plot_fit(self.param_model.prefit_x,
-                      self.param_model.total_y,
-                      self.param_model.auto_fit_all)
-
-        # For plotting purposes, otherwise plot will not update
-        if self.plot_exp_opt:
-            self.plot_exp_opt = False
-            self.plot_exp_opt = True
-        else:
-            self.plot_exp_opt = True
-            self.plot_exp_opt = False
-        self.show_fit_opt = False
-        self.show_fit_opt = True
-
-    def remove_peak_manual(self, peak_name):
-
-        self.param_model.EC.delete_item(peak_name)
-        self.param_model.EC.update_peak_ratio()
-        self.param_model.data_for_plot()
-
-        self.plot_fit(self.param_model.prefit_x,
-                      self.param_model.total_y,
-                      self.param_model.auto_fit_all)
-
-        # For plotting purposes, otherwise plot will not update
-        if self.plot_exp_opt:
-            self.plot_exp_opt = False
-            self.plot_exp_opt = True
-        else:
-            self.plot_exp_opt = True
-            self.plot_exp_opt = False
-        self.show_fit_opt = False
-        self.show_fit_opt = True
-        self.param_model.update_name_list()
-
     def _compute_intensity(self, elist):
         # Some default value
         intensity = 1000.0

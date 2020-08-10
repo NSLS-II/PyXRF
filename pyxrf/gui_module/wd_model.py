@@ -312,7 +312,6 @@ class ModelWidget(FormBaseWidget):
         logger.info("Automated element search is complete")
 
     def pb_load_elines_clicked(self):
-        # TODO: Propagate current directory here and use it in the dialog call
         current_dir = self.gpc.get_current_working_directory()
         file_name = QFileDialog.getOpenFileName(self, "Select File with Model Parameters",
                                                 current_dir,
@@ -489,6 +488,9 @@ class WndManageEmissionLines(SecondaryWindow):
         # Global GUI variables (used for control of GUI state)
         self.gui_vars = gui_vars
 
+        # Threshold used for peak removal (displayed in lineedit)
+        self._remove_peak_threshold = self.gpc.get_peak_threshold()
+
         self._enable_events = False
 
         self._eline_list = []  # List of emission lines (used in the line selection combo)
@@ -619,27 +621,44 @@ class WndManageEmissionLines(SecondaryWindow):
 
     def _setup_action_buttons(self):
 
-        self.pb_update = QPushButton("Update")
-        self.pb_undo = QPushButton("Undo")
+        # self.pb_update = QPushButton("Update")
+        # self.pb_undo = QPushButton("Undo")
 
         self.pb_remove_rel = QPushButton("Remove Rel.Int.(%) <")
-        self.le_remove_rel = QLineEdit("1.0")
+        self.pb_remove_rel.clicked.connect(self.pb_remove_rel_clicked)
+
+        self.le_remove_rel = LineEditExtended("")
+        self._validator_le_remove_rel = QDoubleValidator()
+        self._validator_le_remove_rel.setBottom(0.01)  # Some small number
+        self._validator_le_remove_rel.setTop(100.0)
+        self.le_remove_rel.setText(self._format_threshold(self._remove_peak_threshold))
+        self._update_le_remove_rel_state()
+        self.le_remove_rel.textChanged.connect(self.le_remove_rel_text_changed)
+        self.le_remove_rel.editingFinished.connect(self.le_remove_rel_editing_finished)
+
         self.pb_remove_unchecked = QPushButton("Remove Unchecked Lines")
+        self.pb_remove_unchecked.clicked.connect(self.pb_remove_unchecked_clicked)
 
         hbox = QHBoxLayout()
-        vbox = QVBoxLayout()
-        vbox.addWidget(self.pb_undo)
-        vbox.addWidget(self.pb_update)
-        hbox.addLayout(vbox)
-        hbox.addSpacing(20)
-        vbox = QVBoxLayout()
-        hbox2 = QHBoxLayout()
-        hbox2.addWidget(self.pb_remove_rel)
-        hbox2.addWidget(self.le_remove_rel)
-        vbox.addLayout(hbox2)
-        vbox.addWidget(self.pb_remove_unchecked)
-        hbox.addLayout(vbox)
+        hbox.addWidget(self.pb_remove_rel)
+        hbox.addWidget(self.le_remove_rel)
         hbox.addStretch(1)
+        hbox.addWidget(self.pb_remove_unchecked)
+
+        # hbox = QHBoxLayout()
+        # vbox = QVBoxLayout()
+        # vbox.addWidget(self.pb_undo)
+        # vbox.addWidget(self.pb_update)
+        # hbox.addLayout(vbox)
+        # hbox.addSpacing(20)
+        # vbox = QVBoxLayout()
+        # hbox2 = QHBoxLayout()
+        # hbox2.addWidget(self.pb_remove_rel)
+        # hbox2.addWidget(self.le_remove_rel)
+        # vbox.addLayout(hbox2)
+        # vbox.addWidget(self.pb_remove_unchecked)
+        # hbox.addLayout(vbox)
+        # hbox.addStretch(1)
         return hbox
 
     def _set_tooltips(self):
@@ -661,14 +680,14 @@ class WndManageEmissionLines(SecondaryWindow):
         set_tooltip(self.tbl_elines,
                     "The list of the selected <b>emission lines</b>")
 
-        set_tooltip(self.pb_update,
-                    "Update the internally stored list of selected emission lines "
-                    "and their parameters. This button is <b>deprecated</b>, but still may be "
-                    "needed in some situations. In future releases it will be <b>removed</b> or replaced "
-                    "with 'Accept' button. Substantial changes to the computational code is needed before "
-                    "it happens.")
-        set_tooltip(self.pb_undo,
-                    "<b>Undo</b> changes to the table of selected emission lines. Doesn't always work.")
+        # set_tooltip(self.pb_update,
+        #             "Update the internally stored list of selected emission lines "
+        #             "and their parameters. This button is <b>deprecated</b>, but still may be "
+        #             "needed in some situations. In future releases it will be <b>removed</b> or replaced "
+        #             "with 'Accept' button. Substantial changes to the computational code is needed before "
+        #             "it happens.")
+        # set_tooltip(self.pb_undo,
+        #             "<b>Undo</b> changes to the table of selected emission lines. Doesn't always work.")
         set_tooltip(self.pb_remove_rel,
                     "<b>Remove emission lines</b> from the list if their relative intensity is less "
                     "then specified threshold.")
@@ -989,10 +1008,48 @@ class WndManageEmissionLines(SecondaryWindow):
             self.tbl_elines_set_selection(eline)
             self._enable_events = True
 
+    def pb_remove_rel_clicked(self):
+        try:
+            self.gpc.remove_peaks_below_threshold(self._remove_peak_threshold)
+        except Exception as ex:
+            msg = str(ex)
+            msgbox = QMessageBox(QMessageBox.Critical, "Error",
+                                 msg, QMessageBox.Ok, parent=self)
+            msgbox.exec()
+        # Reload the table
+        self._update_eline_table()
+
+    def le_remove_rel_text_changed(self, text):
+        self._update_le_remove_rel_state(text)
+
+    def le_remove_rel_editing_finished(self):
+        text = self.le_remove_rel.text()
+        if self._validator_le_remove_rel.validate(text, 0)[0] == QDoubleValidator.Acceptable:
+            self._remove_peak_threshold = float(text)
+        else:
+            self.le_remove_rel.setText(self._format_threshold(self._remove_peak_threshold))
+
+    def pb_remove_unchecked_clicked(self):
+        try:
+            self.gpc.remove_unchecked_peaks()
+        except Exception as ex:
+            msg = str(ex)
+            msgbox = QMessageBox(QMessageBox.Critical, "Error",
+                                 msg, QMessageBox.Ok, parent=self)
+            msgbox.exec()
+        # Reload the table
+        self._update_eline_table()
+
     def _display_peak_intensity(self, eline):
         v = self.gpc.get_eline_intensity(eline)
         s = f"{v:.10g}" if v is not None else ""
         self.le_peak_intensity.setText(s)
+
+    def _update_le_remove_rel_state(self, text=None):
+        if text is None:
+            text = self.le_remove_rel.text()
+        state = self._validator_le_remove_rel.validate(text, 0)[0] == QDoubleValidator.Acceptable
+        self.le_remove_rel.setValid(state)
 
     @pyqtSlot(str)
     def slot_selection_item_changed(self, eline):
@@ -1010,6 +1067,9 @@ class WndManageEmissionLines(SecondaryWindow):
         self._update_add_remove_btn_state()
         self._update_add_edit_userpeak_btn_state()
         self._update_add_edit_pileup_peak_btn_state()
+
+    def _format_threshold(self, value):
+        return f"{value:.2f}"
 
     def _deselect_special_peak_in_table(self):
         """Deselect userpeak if a userpeak is selected"""

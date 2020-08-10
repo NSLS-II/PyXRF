@@ -127,7 +127,7 @@ class ElementController(object):
 
         # also delete smaller values
         # there is some bugs in plotting when values < 0.0
-        self.delete_value_given_threshold(threshv=threshv)
+        self.delete_peaks_below_threshold(threshv=threshv)
 
     def delete_all(self):
         self.element_dict.clear()
@@ -177,7 +177,7 @@ class ElementController(object):
         for v in self.element_dict.values():
             v.status = _plot
 
-    def delete_value_given_threshold(self, threshv=0.1):
+    def delete_peaks_below_threshold(self, threshv=0.1):
         """
         Delete elements smaller than threshold value. Non element
         peaks are not included.
@@ -185,20 +185,27 @@ class ElementController(object):
         remove_list = []
         non_element = ['compton', 'elastic', 'background']
         for k, v in self.element_dict.items():
-            if v.norm < threshv:
-                remove_list.append(k)
-        for name in remove_list:
-            if name in non_element:
+            if math.isnan(v.norm) or (v.norm >= threshv) or (k in non_element):
                 continue
+            # We don't want to delete userpeaks or pileup peaks (they are always added manually).
+            if ("-" in k) or (k.lower().startswith("userpeak")):
+                continue
+            remove_list.append(k)
+        for name in remove_list:
             del self.element_dict[name]
+        return remove_list
 
     def delete_unselected_items(self):
         remove_list = []
+        non_element = ['compton', 'elastic', 'background']
         for k, v in self.element_dict.items():
+            if k in non_element:
+                continue
             if v.status is False:
                 remove_list.append(k)
         for name in remove_list:
             del self.element_dict[name]
+        return remove_list
 
 
 class GuessParamModel(Atom):
@@ -214,9 +221,6 @@ class GuessParamModel(Atom):
         1D array of spectrum
     prefit_x : array
         xX axis with range defined by low and high limits.
-    result_dict : dict
-        Save all the auto fitting results for each element.
-        It is a dictionary of object PreFitStatus.
     param_d : dict
         Parameters can be transferred into this dictionary.
     param_new : dict
@@ -244,7 +248,6 @@ class GuessParamModel(Atom):
     default_parameters = Dict()
     data = Typed(np.ndarray)
     prefit_x = Typed(object)
-    result_dict = Typed(object)
     result_dict_names = List()
     param_new = Dict()
     total_y = Typed(object)
@@ -273,7 +276,8 @@ class GuessParamModel(Atom):
             # default parameter is the original parameter, for user to restore
             self.default_parameters = kwargs['default_parameters']
             self.param_new = copy.deepcopy(self.default_parameters)
-            self.element_list = get_element(self.param_new)
+            # TODO: do we set 'element_list' as a list of keys of 'EC.element_dict'
+            self.element_list = get_element_list(self.param_new)
         except ValueError:
             logger.info('No default parameter files are chosen.')
         self.EC = ElementController()
@@ -296,7 +300,7 @@ class GuessParamModel(Atom):
         """
         self.default_parameters = change['value']
         self.param_new = copy.deepcopy(self.default_parameters)
-        self.element_list = get_element(self.param_new)
+        self.element_list = get_element_list(self.param_new)
 
         # The following line is part of the fix for automated updating of the energy bound
         #     in 'Automatic Element Finding' dialog box
@@ -330,7 +334,7 @@ class GuessParamModel(Atom):
         with open(param_path, 'r') as json_data:
             self.default_parameters = json.load(json_data)
         self.param_new = copy.deepcopy(self.default_parameters)
-        self.element_list = get_element(self.param_new)
+        self.element_list = get_element_list(self.param_new)
         self.EC.delete_all()
         self.define_range()
         self.create_spectrum_from_file(self.param_new, self.element_list)
@@ -339,7 +343,7 @@ class GuessParamModel(Atom):
     def update_new_param(self, param):
         self.default_parameters = param
         self.param_new = copy.deepcopy(self.default_parameters)
-        self.element_list = get_element(self.param_new)
+        self.element_list = get_element_list(self.param_new)
         self.EC.delete_all()
         self.define_range()
         self.create_spectrum_from_file(self.param_new, self.element_list)
@@ -372,7 +376,7 @@ class GuessParamModel(Atom):
     @observe('bound_val')
     def _update_bound(self, change):
         if change['type'] != 'create':
-            logger.info('Values smaller than bound {} can be cutted on Auto peak finding.'.format(self.bound_val))
+            logger.info(f"Peaks with values than the threshold {self.bound_val} will be removed from the list.")
 
     def define_range(self):
         """
@@ -513,7 +517,78 @@ class GuessParamModel(Atom):
             en = None
         return en
 
-    def manual_input(self, userpeak_center=2.5):
+    def add_peak_manual(self, userpeak_center=2.5):
+        """
+        Manually add an emission line (or peak).
+
+        Parameters
+        ----------
+        userpeak_center: float
+            Center of the user defined peak. Ignored if emission line other
+            than 'userpeak' is added
+        """
+        self._manual_input(userpeak_center=userpeak_center)
+        self.update_name_list()
+        self.data_for_plot()
+
+    def remove_peak_manual(self):
+        """
+        Manually add an emission line (or peak). The name emission line (peak) to be deleted
+        must be writtent to `self.e_name` before calling the function.
+        """
+        if self.e_name not in self.EC.element_dict:
+            msg = f"Line '{self.e_name}' is not in the list of selected lines,\n" \
+                  f"therefore it can not be deleted from the list."
+            raise RuntimeError(msg)
+
+        # Update parameter list
+        self._remove_parameters_for_eline(self.e_name)
+
+        # Update EC
+        self.EC.delete_item(self.e_name)
+        self.EC.update_peak_ratio()
+        self.update_name_list()
+        self.data_for_plot()
+
+    def remove_elements_below_threshold(self, threshv=None):
+        if threshv is None:
+            threshv = self.bound_val
+
+        deleted_elements = self.EC.delete_peaks_below_threshold(threshv=threshv)
+        for eline in deleted_elements:
+            self._remove_parameters_for_eline(eline)
+
+        self.EC.update_peak_ratio()
+        self.update_name_list()
+        self.data_for_plot()
+
+    def remove_elements_unselected(self):
+        deleted_elements = self.EC.delete_unselected_items()
+        for eline in deleted_elements:
+            self._remove_parameters_for_eline(eline)
+
+        self.EC.update_peak_ratio()
+        self.update_name_list()
+        self.data_for_plot()
+
+    def _remove_parameters_for_eline(self, eline):
+        """Remove entries for `eline` from the dictionary `self.param_new`"""
+        if self.get_eline_name_category(eline) == "pileup":
+            key_prefix = "pileup_" + self.e_name.replace("-", "_")
+        else:
+            key_prefix = eline
+
+        # It is sufficient to compare using lowercase. It could be more reliable.
+        key_prefix = key_prefix.lower()
+        keys_to_delete = [_ for _ in self.param_new.keys()
+                          if _.lower().startswith(key_prefix)]
+        for key in keys_to_delete:
+            del self.param_new[key]
+
+        # Add name to the name list
+        _remove_element_from_list(eline, self.param_new)
+
+    def _manual_input(self, userpeak_center=2.5):
         """
         Manually add an emission line (or peak).
 
@@ -554,6 +629,9 @@ class GuessParamModel(Atom):
 
         param_tmp = PC.params
 
+        # Add name to the name list
+        _add_element_to_list(self.e_name, param_tmp)
+
         # 'self.param_new' is used to provide 'hint' values for the model, but all active
         #    emission lines in 'elemental_lines' will be included in the model.
         #  The model will contain lines in 'elemental_lines', Compton and elastic
@@ -586,6 +664,7 @@ class GuessParamModel(Atom):
                           lbd_stat=False)
 
         self.EC.add_to_dict({self.e_name: ps})
+        self.EC.update_peak_ratio()
 
     def _generate_param_keys(self, eline):
         """
@@ -825,6 +904,7 @@ class GuessParamModel(Atom):
         # need to clean list first, in order to refresh the list in GUI
         self.result_dict_names = []
         self.result_dict_names = list(self.EC.element_dict.keys())
+        self.element_list = get_element_list(self.param_new)
 
         peak_list = self.get_user_peak_list()
         # Create the list of selected emission lines such as Ca_K, K_K, etc.
@@ -934,28 +1014,9 @@ class GuessParamModel(Atom):
         information, and assign initial values from pre fit.
         """
         self.define_range()
+        # We set 'self.element_list' from 'EC' (because we want to set elements of 'self.param_new'
+        #   from 'EC.element_dict'
         self.element_list = self.EC.get_element_list()
-        # self.param_new['non_fitting_values']['element_list'] = ', '.join(self.element_list)
-        #
-        # # first remove some nonexisting elements
-        # # remove elements not included in self.element_list
-        # self.param_new = param_dict_cleaner(self.param_new,
-        #                                     self.element_list)
-        #
-        # # second add some elements to a full parameter dict
-        # # create full parameter list including elements
-        # PC = ParamController(self.param_new, self.element_list)
-        # # parameter values not updated based on param_new, so redo it
-        # param_temp = PC.params
-        # for k, v in param_temp.items():
-        #     if k == 'non_fitting_values':
-        #         continue
-        #     if self.param_new.has_key(k):
-        #         v['value'] = self.param_new[k]['value']
-        # self.param_new = param_temp
-        #
-        # # to create full param dict, for GUI only
-        # create_full_dict(self.param_new, fit_strategy_list)
 
         self.param_new = update_param_from_element(self.param_new, self.element_list)
         element_temp = [e for e in self.element_list if len(e) <= 4]
@@ -1318,9 +1379,36 @@ def get_energy(ename):
         return str(np.around(energy, 4))
 
 
-def get_element(param):
+def get_element_list(param):
+    """ Extract elements from parameter class object """
     element_list = param['non_fitting_values']['element_list']
     return [e.strip(' ') for e in element_list.split(',')]
+
+
+def _set_element_list(element_list, param):
+    element_list = ", ".join(element_list)
+    param['non_fitting_values']['element_list'] = element_list
+
+
+def _add_element_to_list(eline, param):
+    """ Add element to list in the parameter class object """
+    elist = get_element_list(param)
+    elist_lower = [_.lower() for _ in elist]
+    if eline.lower() not in elist_lower:
+        elist.append(eline)
+    _set_element_list(elist, param)
+
+
+def _remove_element_from_list(eline, param):
+    """ Add element to list in the parameter class object """
+    elist = get_element_list(param)
+    elist_lower = [_.lower() for _ in elist]
+    try:
+        index = elist_lower.index(eline.lower())
+        elist.pop(index)
+        _set_element_list(elist, param)
+    except ValueError:
+        pass
 
 
 def param_dict_cleaner(parameter, element_list):
@@ -1380,7 +1468,8 @@ def update_param_from_element(param, element_list):
     """
     param_new = copy.deepcopy(param)
 
-    param_new['non_fitting_values']['element_list'] = ', '.join(element_list)
+    for eline in element_list:
+        _add_element_to_list(eline, param_new)
 
     # first remove some items not included in element_list
     param_new = param_dict_cleaner(param_new,

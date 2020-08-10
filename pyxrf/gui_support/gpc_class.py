@@ -993,70 +993,23 @@ class GlobalProcessingClasses:
 
         else:
             try:
-                self.plot_model.add_peak_manual()
-                # ``apply_to_fit`` takes some time to execute, so do it only for the user defined peaks
-                #   After calling ``apply_to_fit``, the line parameters may be edited
-                #   For other lines, the button ``Update`` must be pressed first.
-                if is_userpeak:
-                    self.apply_to_fit()
+                # Energy is used for user-defined peaks only
+                energy, _ = self.get_suggested_manual_peak_energy()
+
+                self.param_model.add_peak_manual(userpeak_center=energy)
+                self.apply_to_fit()
+                self.fit_model.select_index_by_eline_name(eline)
             except Exception as ex:
                 raise RuntimeError(str(ex))
-
-            # TODO: the following block may not be needed, since everything may be done in 'apply_to_fit'
-            try:
-                if is_userpeak:
-                    self.fit_model.select_index_by_eline_name(eline)
-                    self.param_model.data_for_plot()
-                    self.plot_model.plot_fit(self.param_model.prefit_x,
-                                             self.param_model.total_y,
-                                             self.param_model.auto_fit_all)
-                    self.fit_model.update_userpeak_controls()
-            except Exception as ex:
-                raise RuntimeError(str(ex))
-
-    '''
-    def add_pileup_peak(self, pileup_name):
-
-        eline1, eline2 = pileup_name.split("-")
-
-        self.param_model.pileup_data['element1'] = eline1
-        self.param_model.pileup_data['element2'] = eline2
-
-        # Generate pileup peak one more time (for consistency)
-        peak_name = self.generate_pileup_peak_name(eline1, eline2)
-
-        self.select_eline(peak_name)
-
-        self.param_model.pileup_data['intensity'] =
-
-        if not param_model.EC.is_element_in_list(peak_name):
-
-            param_model.add_pileup()
-            param_model.EC.update_peak_ratio()
-            param_model.update_name_list()
-            param_model.data_for_plot()
-
-            plot_model.plot_fit(param_model.prefit_x,
-                                param_model.total_y,
-                                param_model.auto_fit_all)
-            # For plotting purposes, otherwise plot will not update
-            plot_model.show_fit_opt = False
-            plot_model.show_fit_opt = True
-
-        else:
-
-            btns = [DialogButton('Ok', 'accept')]
-            # 'critical' shows MessageBox
-            critical(self, 'ERROR', f'Element emission line {peak_name} is already selected', btns)
-    '''
 
     def remove_peak_manual(self, eline):
         """Manually add a peak (emission line) using 'Remove' button"""
-        self.select_eline(eline)
-        self.plot_model.remove_peak_manual(eline)
-        if "userpeak" in eline.lower():
-            self.param_model.update_name_list()
+        try:
+            self.select_eline(eline)
+            self.param_model.remove_peak_manual()
             self.apply_to_fit()
+        except Exception as ex:
+            raise RuntimeError(str(ex))
 
     def update_userpeak(self, eline, energy, maxv, fwhm):
         """
@@ -1105,6 +1058,20 @@ class GlobalProcessingClasses:
         energy, marker_visible = self.get_suggested_manual_peak_energy()
         self.plot_model.set_plot_vertical_marker(energy)
 
+    def get_peak_threshold(self):
+        return self.param_model.bound_val
+
+    def remove_peaks_below_threshold(self, peak_threshold):
+        self.param_model.bound_val = peak_threshold
+        self.param_model.remove_elements_below_threshold(threshv=peak_threshold)
+        self.param_model.update_name_list()
+        self.apply_to_fit()
+
+    def remove_unchecked_peaks(self):
+        self.param_model.remove_elements_unselected()
+        self.param_model.update_name_list()
+        self.apply_to_fit()
+
     def apply_to_fit(self):
         """
         Update plot, and apply updated parameters to fitting process.
@@ -1132,7 +1099,7 @@ class GlobalProcessingClasses:
         self.plot_model.show_fit_opt = True
 
         # update parameter for fit
-        self.param_model.create_full_param()
+        # self.param_model.create_full_param()
         self.fit_model.update_default_param(self.param_model.param_new)
         self.fit_model.apply_default_param()
 
