@@ -289,6 +289,10 @@ class MainWindow(QMainWindow):
         self.wnd_manage_emission_lines.signal_update_add_remove_btn_state.connect(
             self.central_widget.right_panel.tab_plot_fitting_model.slot_update_add_remove_btn_state)
 
+        # Total spectrum fitting completed
+        self.central_widget.left_panel.model_widget.signal_total_spectrum_fitting_completed.connect(
+            self.wnd_manage_emission_lines.update_eline_table)
+
     @pyqtSlot()
     @pyqtSlot(str)
     def update_widget_state(self, condition=None):

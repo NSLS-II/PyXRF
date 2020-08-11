@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox, Q
                              QFileDialog, QGridLayout, QTableWidget,
                              QTableWidgetItem, QHeaderView, QMessageBox)
 from PyQt5.QtGui import QBrush, QColor, QDoubleValidator, QRegExpValidator
-from PyQt5.QtCore import Qt, pyqtSlot, QTimer, pyqtSignal, QRegExp
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QRegExp
 
 from .useful_widgets import (LineEditReadOnly, global_gui_parameters, ElementSelection,
                              get_background_css, SecondaryWindow, set_tooltip, LineEditExtended)
@@ -44,6 +44,8 @@ class ModelWidget(FormBaseWidget):
     signal_model_loaded = pyqtSignal(bool)
     # Incident energy or selected range changed (plots need to be redrawn)
     signal_incident_energy_or_range_changed = pyqtSignal()
+    # Sent after the completion of total spectrum fitting
+    signal_total_spectrum_fitting_completed = pyqtSignal(bool)
 
     def __init__(self, *, gpc, gui_vars):
         super().__init__()
@@ -445,21 +447,18 @@ class ModelWidget(FormBaseWidget):
             print("Spectrum/Fit saving is cancelled")
 
     def pb_start_fitting_clicked(self):
-
+        success = False
         try:
             self.gpc.total_spectrum_fitting()
+            success = True
         except Exception as ex:
-            print(f"Error occurred while fitting: {ex}")
+            msg = str(ex)
+            msgbox = QMessageBox(QMessageBox.Critical, "Error",
+                                 msg, QMessageBox.Ok, parent=self)
+            msgbox.exec()
 
-        #self.gui_vars["gui_state"]["running_computations"] = True
-        #self.update_global_state.emit()
-
-        #if not self._timer:
-        #    self._timer = QTimer()
-        #self._timer.timeout.connect(self.timerExpired)
-        #self._timer.setInterval(40)
-        #self._timer_counter = 0
-        #self._timer.start()
+        # Reload the table
+        self.signal_total_spectrum_fitting_completed.emit(success)
 
     @pyqtSlot()
     def timerExpired(self):
@@ -781,7 +780,7 @@ class WndManageEmissionLines(SecondaryWindow):
         self._set_selected_eline("")
         # Now update the tables
         self._update_eline_selection_list()
-        self._update_eline_table()
+        self.update_eline_table()
         self._update_add_remove_btn_state()
 
     def pb_pileup_peaks_clicked(self):
@@ -835,7 +834,7 @@ class WndManageEmissionLines(SecondaryWindow):
                     eline1, eline2 = data["element1"], data["element2"]
                     eline = self.gpc.generate_pileup_peak_name(eline1, eline2)
                     self.gpc.add_peak_manual(eline)
-                    self._update_eline_table()  # Update the table
+                    self.update_eline_table()  # Update the table
                     self.tbl_elines_set_selection(eline)  # Select new emission line
                     self._set_selected_eline(eline)
                     logger.info(f"New pileup peak {eline} was added")
@@ -845,7 +844,7 @@ class WndManageEmissionLines(SecondaryWindow):
                                          msg, QMessageBox.Ok, parent=self)
                     msgbox.exec()
                     # Reload the table anyway (nothing is going to be selected)
-                    self._update_eline_table()
+                    self.update_eline_table()
 
     def pb_user_peaks_clicked(self):
         eline = self._selected_eline
@@ -874,7 +873,7 @@ class WndManageEmissionLines(SecondaryWindow):
                                          msg, QMessageBox.Ok, parent=self)
                     msgbox.exec()
                 # Reload the table anyway (nothing is going to be selected)
-                self._update_eline_table()
+                self.update_eline_table()
 
         else:
             data = {}
@@ -887,7 +886,7 @@ class WndManageEmissionLines(SecondaryWindow):
                     try:
                         eline = data["name"]
                         self.gpc.add_peak_manual(eline)
-                        self._update_eline_table()  # Update the table
+                        self.update_eline_table()  # Update the table
                         self.tbl_elines_set_selection(eline)  # Select new emission line
                         self._set_selected_eline(eline)
                         logger.info(f"New user defined peak {eline} is added")
@@ -897,7 +896,7 @@ class WndManageEmissionLines(SecondaryWindow):
                                              msg, QMessageBox.Ok, parent=self)
                         msgbox.exec()
                         # Reload the table anyway (nothing is going to be selected)
-                        self._update_eline_table()
+                        self.update_eline_table()
             else:
                 msg = "Select location of the new peak center (energy)\n" \
                       "by clicking on the plot in 'Fit Model' tab"
@@ -914,7 +913,7 @@ class WndManageEmissionLines(SecondaryWindow):
         if eline:
             try:
                 self.gpc.add_peak_manual(eline)
-                self._update_eline_table()  # Update the table
+                self.update_eline_table()  # Update the table
                 self.tbl_elines_set_selection(eline)  # Select new emission line
             except RuntimeError as ex:
                 msg = str(ex)
@@ -922,7 +921,7 @@ class WndManageEmissionLines(SecondaryWindow):
                                      msg, QMessageBox.Ok, parent=self)
                 msgbox.exec()
                 # Reload the table anyway (nothing is going to be selected)
-                self._update_eline_table()
+                self.update_eline_table()
 
     @pyqtSlot()
     def pb_remove_eline_clicked(self):
@@ -934,7 +933,7 @@ class WndManageEmissionLines(SecondaryWindow):
             # in the table. For other lines, nothing should remain selected.
             self.tbl_elines.clearSelection()
             self.gpc.remove_peak_manual(eline)
-            self._update_eline_table()  # Update the table
+            self.update_eline_table()  # Update the table
             if self.gpc.get_eline_name_category(eline) != "eline":
                 eline = ""
             # This will update widgets
@@ -979,7 +978,7 @@ class WndManageEmissionLines(SecondaryWindow):
                     self._enable_events = True
                 else:
                     self.gpc.update_eline_peak_height(eline, float(text))
-                    self._update_eline_table()
+                    self.update_eline_table()
 
     def tbl_elines_item_selection_changed(self):
         sel_ranges = self.tbl_elines.selectedRanges()
@@ -1021,8 +1020,6 @@ class WndManageEmissionLines(SecondaryWindow):
             msgbox = QMessageBox(QMessageBox.Critical, "Error",
                                  msg, QMessageBox.Ok, parent=self)
             msgbox.exec()
-        # Reload the table
-        self._update_eline_table()
 
     def le_remove_rel_text_changed(self, text):
         self._update_le_remove_rel_state(text)
@@ -1043,7 +1040,7 @@ class WndManageEmissionLines(SecondaryWindow):
                                  msg, QMessageBox.Ok, parent=self)
             msgbox.exec()
         # Reload the table
-        self._update_eline_table()
+        self.update_eline_table()
 
     def _display_peak_intensity(self, eline):
         v = self.gpc.get_eline_intensity(eline)
@@ -1103,7 +1100,9 @@ class WndManageEmissionLines(SecondaryWindow):
         self.element_selection.set_item_list(self._eline_list)
         self.signal_update_element_selection_list.emit()
 
-    def _update_eline_table(self):
+    @pyqtSlot()
+    def update_eline_table(self):
+        """Update table of emission lines without changing anything else"""
         eline_table = self.gpc.get_selected_eline_table()
         self.fill_eline_table(eline_table)
 
