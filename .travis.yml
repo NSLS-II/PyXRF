@@ -10,6 +10,7 @@ global:
   - SUBMIT_CODECOV=false
   - BUILD_DOCS=false
   - FLAKE8=false
+  - SCIKIT_BEAM=0.0.22
 
 jobs:
   fast_finish: true
@@ -71,7 +72,7 @@ install:
   - export GIT_FULL_HASH=`git rev-parse HEAD`
   - conda create -y -n testenv python=$TRAVIS_PYTHON_VERSION numpy=$NUMPY
   - conda activate testenv
-  - conda install -y scikit-beam==0.0.22 -c nsls2forge
+  - conda install -y scikit-beam==$SCIKIT_BEAM -c nsls2forge
   # - conda update -y scikit-beam -c nsls2forge  # Update, because sometimes a very old version is installed :(
   - pip install -r requirements.txt
   - pip install -r requirements-dev.txt

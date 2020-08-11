@@ -400,14 +400,23 @@ class ModelWidget(FormBaseWidget):
             print("Cancelled loading quantitative standard")
 
     def pb_save_elines_clicked(self):
-        # TODO: Propagate full path to the saved file here
-        fln = os.path.expanduser("~/model_parameters.json")
+        current_dir = self.gpc.get_current_working_directory()
+        fln = os.path.join(current_dir, "model_parameters.json")
         file_name = QFileDialog.getSaveFileName(self, "Select File to Save Model Parameters",
                                                 fln,
                                                 "JSON (*.json);; All (*)")
         file_name = file_name[0]
         if file_name:
-            print(f"Saving model parameters to file file: {file_name}")
+            try:
+                self.gpc.save_param_to_file(file_name)
+                logger.debug(f"Model parameters were saved to the file '{file_name}'")
+            except Exception as ex:
+                msg = str(ex)
+                msgbox = QMessageBox(QMessageBox.Critical, "Error",
+                                     msg, QMessageBox.Ok, parent=self)
+                msgbox.exec()
+        else:
+            logger.debug("Saving model parameters was skipped.")
 
     def pb_manage_emission_lines_clicked(self):
         # Position the window in relation ot the main window (only when called once)
@@ -443,15 +452,21 @@ class ModelWidget(FormBaseWidget):
             print("Cancelled.")
 
     def pb_save_spectrum_clicked(self):
-        # TODO: Propagate current directory here and use it in the dialog call
-        current_dir = os.path.expanduser("~")
+        current_dir = self.gpc.get_current_working_directory()
         dir = QFileDialog.getExistingDirectory(
             self, "Select Directory to Save Spectrum/Fit", current_dir,
             QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks)
         if dir:
-            print(f"Spectrum/Fit is saved to directory {dir}")
+            try:
+                # self.gpc.save_param_to_file(dir)
+                logger.debug(f"Spectrum/Fit is saved to directory {dir}")
+            except Exception as ex:
+                msg = str(ex)
+                msgbox = QMessageBox(QMessageBox.Critical, "Error",
+                                     msg, QMessageBox.Ok, parent=self)
+                msgbox.exec()
         else:
-            print("Spectrum/Fit saving is cancelled")
+            logger.debug("Spectrum/Fit saving is cancelled")
 
     def pb_start_fitting_clicked(self):
         success = False

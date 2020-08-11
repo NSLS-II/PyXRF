@@ -1123,6 +1123,7 @@ class LinePlotModel(Atom):
 
         if self.data is not None and self.parameters is not None \
                 and self.param_model.prefit_x is not None \
+                and self.param_model.total_y is not None \
                 and len(self.data) > 1 and len(self.param_model.prefit_x) > 1:
 
             # Range of energies in fitting results

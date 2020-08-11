@@ -5,7 +5,7 @@ import copy
 import math
 from ..model.fileio import FileIOModel
 from ..model.lineplot import LinePlotModel  # , SettingModel
-from ..model.guessparam import GuessParamModel
+from ..model.guessparam import GuessParamModel, save_as
 from ..model.draw_image import DrawImageAdvanced
 from ..model.draw_image_rgb import DrawImageRGB
 from ..model.fit_spectrum import Fit1D, get_cs
@@ -783,31 +783,15 @@ class GlobalProcessingClasses:
                 self.fit_model.default_parameters["coherent_sct_energy"]["value"])
 
     def find_elements_automatically(self):
-
         self.param_model.find_peak()
+
         self.param_model.EC.order()
         self.param_model.update_name_list()
 
         self.param_model.EC.turn_on_all()
-        self.param_model.data_for_plot()
 
-        # update experimental plots in case the coefficients change
-        self.plot_model.parameters = self.param_model.param_new
-        self.plot_model.plot_experiment()
-
-        self.plot_model.plot_fit(self.param_model.prefit_x,
-                                 self.param_model.total_y,
-                                 self.param_model.auto_fit_all)
-
-        # Update displayed intensity of the selected peak
-        self.plot_model.compute_manual_peak_intensity()
-
-        # Show the summed spectrum used for fitting
-        self.plot_model.plot_exp_opt = False
         self.plot_model.plot_exp_opt = True
-        # For plotting purposes, otherwise plot will not update
-        self.plot_model.show_fit_opt = False
-        self.plot_model.show_fit_opt = True
+        self.apply_to_fit()
 
     def get_full_eline_list(self):
         """Returns full list of supported emission lines."""
@@ -1109,6 +1093,7 @@ class GlobalProcessingClasses:
         # Update displayed intensity of the selected peak
         self.plot_model.compute_manual_peak_intensity()
 
+    '''
     def calculate_spectrum_helper(self):
         """
         Calculate spectrum, and update plotting and param_model.
@@ -1138,6 +1123,7 @@ class GlobalProcessingClasses:
 
         # update params for roi sum
         self.setting_model.update_parameter(self.fit_model.param_dict)
+    '''
 
     def total_spectrum_fitting(self):
 
@@ -1174,3 +1160,6 @@ class GlobalProcessingClasses:
 
         # Update displayed intensity of the selected peak
         self.plot_model.compute_manual_peak_intensity()
+
+    def save_param_to_file(self, path):
+        save_as(path, self.fit_model.param_dict)
