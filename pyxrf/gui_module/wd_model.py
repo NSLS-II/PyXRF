@@ -296,6 +296,9 @@ class ModelWidget(FormBaseWidget):
                     self.gpc.find_elements_automatically()
                     self.computations_complete.emit()
 
+                msg = "Emission lines were detected automatically"
+                self.le_param_fln.setText(msg)
+
                 self.computations_complete.connect(self.slot_find_elines_clicked)
                 self.gui_vars["gui_state"]["running_computations"] = True
                 self.update_global_state.emit()
@@ -356,6 +359,10 @@ class ModelWidget(FormBaseWidget):
                 self.update_global_state.emit()
 
             else:
+                _, fln = os.path.split(file_name)
+                msg = f"File: '{fln}'"
+                self.le_param_fln.setText(msg)
+
                 self.gui_vars["gui_state"]["state_model_exists"] = True
                 self.gui_vars["gui_state"]["state_model_fit_exists"] = False
                 self.signal_model_loaded.emit(True)
@@ -384,11 +391,11 @@ class ModelWidget(FormBaseWidget):
                 self.gui_vars["gui_state"]["state_model_fit_exists"] = False
                 self.signal_model_loaded.emit(True)
                 self.update_global_state.emit()
-
-                standard_index = dlg.selected_standard_index
-                print(f"Loading quantitative standard: {standard_index}")
             else:
-                logger.error("No quantitative standard was selected.")
+                msg = "No quantitative standard was loaded."
+                msgbox = QMessageBox(QMessageBox.Critical, "Error",
+                                     msg, QMessageBox.Ok, parent=self)
+                msgbox.exec()
         else:
             print("Cancelled loading quantitative standard")
 
@@ -1020,6 +1027,7 @@ class WndManageEmissionLines(SecondaryWindow):
             msgbox = QMessageBox(QMessageBox.Critical, "Error",
                                  msg, QMessageBox.Ok, parent=self)
             msgbox.exec()
+        self.update_eline_table()
 
     def le_remove_rel_text_changed(self, text):
         self._update_le_remove_rel_state(text)
@@ -1052,6 +1060,7 @@ class WndManageEmissionLines(SecondaryWindow):
             text = self.le_remove_rel.text()
         state = self._validator_le_remove_rel.validate(text, 0)[0] == QDoubleValidator.Acceptable
         self.le_remove_rel.setValid(state)
+        self.pb_remove_rel.setEnabled(state)
 
     @pyqtSlot(str)
     def slot_selection_item_changed(self, eline):
