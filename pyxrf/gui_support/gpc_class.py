@@ -1138,3 +1138,39 @@ class GlobalProcessingClasses:
 
         # update params for roi sum
         self.setting_model.update_parameter(self.fit_model.param_dict)
+
+    def total_spectrum_fitting(self):
+
+        # Update parameter for fit. This may be unnecessary
+        self.apply_to_fit()
+
+        self.fit_model.fit_multiple()
+
+        # BUG: line color for pileup is not correct from fit
+        self.fit_model.get_profile()
+
+        # update experimental plot with new calibration values
+        self.plot_model.parameters = self.fit_model.param_dict
+        self.plot_model.plot_experiment()
+
+        self.plot_model.plot_fit(self.fit_model.cal_x, self.fit_model.cal_y,
+                                 self.fit_model.cal_spectrum,
+                                 self.fit_model.residual)
+
+        # For plotting purposes, otherwise plot will not update
+        self.plot_model.plot_exp_opt = False
+        self.plot_model.plot_exp_opt = True
+        self.plot_model.show_fit_opt = False
+        self.plot_model.show_fit_opt = True
+
+        # update autofit param
+        self.param_model.update_new_param(self.fit_model.param_dict)
+        # param_model.get_new_param_from_file(parameter_file_path)
+        self.param_model.update_name_list()
+        self.param_model.EC.turn_on_all()
+
+        # update params for roi sum
+        self.setting_model.update_parameter(self.fit_model.param_dict)
+
+        # Update displayed intensity of the selected peak
+        self.plot_model.compute_manual_peak_intensity()

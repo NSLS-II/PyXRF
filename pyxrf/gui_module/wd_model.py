@@ -446,15 +446,20 @@ class ModelWidget(FormBaseWidget):
 
     def pb_start_fitting_clicked(self):
 
-        self.gui_vars["gui_state"]["running_computations"] = True
-        self.update_global_state.emit()
+        try:
+            self.gpc.total_spectrum_fitting()
+        except Exception as ex:
+            print(f"Error occurred while fitting: {ex}")
 
-        if not self._timer:
-            self._timer = QTimer()
-        self._timer.timeout.connect(self.timerExpired)
-        self._timer.setInterval(40)
-        self._timer_counter = 0
-        self._timer.start()
+        #self.gui_vars["gui_state"]["running_computations"] = True
+        #self.update_global_state.emit()
+
+        #if not self._timer:
+        #    self._timer = QTimer()
+        #self._timer.timeout.connect(self.timerExpired)
+        #self._timer.setInterval(40)
+        #self._timer_counter = 0
+        #self._timer.start()
 
     @pyqtSlot()
     def timerExpired(self):
