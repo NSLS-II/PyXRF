@@ -292,6 +292,9 @@ class MainWindow(QMainWindow):
         # Total spectrum fitting completed
         self.central_widget.left_panel.model_widget.signal_total_spectrum_fitting_completed.connect(
             self.wnd_manage_emission_lines.update_eline_table)
+        # Total spectrum invalidated
+        self.wnd_manage_emission_lines.signal_parameters_changed.connect(
+            self.central_widget.left_panel.model_widget.update_fit_status)
 
     @pyqtSlot()
     @pyqtSlot(str)

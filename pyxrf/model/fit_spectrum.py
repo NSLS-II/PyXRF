@@ -34,6 +34,7 @@ from .guessparam import (calculate_profile, fit_strategy_list,
                          update_param_from_element)
 from .fileio import save_fitdata_to_hdf, output_data
 
+from ..core.fitting import rfactor
 from ..core.quant_analysis import ParamQuantEstimation
 from ..core.map_processing import (fit_xrf_map, TerminalProgressBar,
                                    prepare_xrf_map, snip_method_numba)
@@ -736,14 +737,44 @@ class Fit1D(Atom):
         self.param_q.append(copy.deepcopy(self.param_dict))
         self.keep_size()
 
-    def output_summed_data_fit(self):
+    def compute_current_rfactor(self, save_fit=True):
+        """
+        Compute current R-factor value. The fitted array is selected
+        based on `save_fit`. The same arrays are selected as in `output_summed_data_fit`"""
+        if save_fit:
+            if (self.y0 is None) or (self.fit_y is None):
+                rf = 0
+            else:
+                rf = rfactor(self.y0, self.fit_y)
+        else:
+            if (self.y0 is None) or (self.param_model.total_y is None):
+                rf = 0
+            else:
+                rf = rfactor(self.y0, self.param_model.total_y)
+        return rf
+
+    def output_summed_data_fit(self, save_fit=True):
         """Save energy, summed data and fitting curve to a file.
         """
-        if (self.x0 is None) or (self.y0 is None) or (self.fit_y is None):
-            logger.error("Not enough data to save spectrum/fit data. "
-                         "Run spectrum fitting and then try again.")
-            return
-        data = np.array([self.x0, self.y0, self.fit_y])
+        xx = None
+        if self.x0 is not None:
+            a0, a1, a2 = (self.param_dict['e_offset']['value'],
+                          self.param_dict['e_linear']['value'],
+                          self.param_dict['e_quadratic']['value'])
+            xx = a0 + self.x0 * a1 + self.x0 ** 2 * a2
+        if save_fit:
+            logger.info("Saving spectrum after total spectrum fitting.")
+            if (xx is None) or (self.y0 is None) or (self.fit_y is None):
+                msg = "Not enough data to save spectrum/fit data. Total spectrum fitting was not run."
+                raise RuntimeError(msg)
+            data = np.array([self.x0, self.y0, self.fit_y])
+        else:
+            logger.info("Saving spectrum based on loaded or estimated parameters.")
+            if (xx is None) or (self.y0 is None) or (self.param_model.total_y is None):
+                msg = "Not enough data to save spectrum/fit data based on loaded or estimated parameters."
+                raise RuntimeError(msg)
+            data = np.array([xx, self.y0, self.param_model.total_y])
+
         output_fit_name = self.data_title + '_summed_spectrum_fit.txt'
         fpath = os.path.join(self.result_folder, output_fit_name)
         np.savetxt(fpath, data.T)

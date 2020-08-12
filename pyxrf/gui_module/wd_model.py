@@ -50,6 +50,8 @@ class ModelWidget(FormBaseWidget):
     def __init__(self, *, gpc, gui_vars):
         super().__init__()
 
+        self._fit_available = False
+
         # Global processing classes
         self.gpc = gpc
         # Global GUI variables (used for control of GUI state)
@@ -192,8 +194,7 @@ class ModelWidget(FormBaseWidget):
         self.pb_save_spectrum = QPushButton("Save Spectrum/Fit ...")
         self.pb_save_spectrum.clicked.connect(self.pb_save_spectrum_clicked)
 
-        self.lb_fitting_results = LineEditReadOnly(
-            f"Iterations: {0}  Variables: {0}  R-squared: {0.000}")
+        self.le_fitting_results = LineEditReadOnly()
 
         vbox = QVBoxLayout()
 
@@ -202,7 +203,7 @@ class ModelWidget(FormBaseWidget):
         hbox.addWidget(self.pb_save_spectrum)
         vbox.addLayout(hbox)
 
-        vbox.addWidget(self.lb_fitting_results)
+        vbox.addWidget(self.le_fitting_results)
 
         self.group_model_fitting.setLayout(vbox)
 
@@ -256,7 +257,7 @@ class ModelWidget(FormBaseWidget):
             self.pb_save_spectrum,
             "Save <b>raw and fitted total spectra</b>. Click <b>'Start Fitting'</b> to perform fitting "
             "before saving the spectrum")
-        set_tooltip(self.lb_fitting_results,
+        set_tooltip(self.le_fitting_results,
                     "<b>Output parameters</b> produced by the fitting algorithm")
 
     def update_widget_state(self, condition=None):
@@ -265,7 +266,7 @@ class ModelWidget(FormBaseWidget):
 
         state_file_loaded = self.gui_vars["gui_state"]["state_file_loaded"]
         state_model_exist = self.gui_vars["gui_state"]["state_model_exists"]
-        state_model_fit_exists = self.gui_vars["gui_state"]["state_model_fit_exists"]
+        # state_model_fit_exists = self.gui_vars["gui_state"]["state_model_fit_exists"]
 
         self.group_model_params.setEnabled(state_file_loaded)
         self.pb_save_elines.setEnabled(state_file_loaded & state_model_exist)
@@ -277,7 +278,8 @@ class ModelWidget(FormBaseWidget):
         self.group_settings.setEnabled(state_file_loaded & state_model_exist)
 
         self.group_model_fitting.setEnabled(state_file_loaded & state_model_exist)
-        self.pb_save_spectrum.setEnabled(state_file_loaded & state_model_exist & state_model_fit_exists)
+        # self.pb_save_spectrum.setEnabled(state_file_loaded & state_model_exist & state_model_fit_exists)
+        self.pb_save_spectrum.setEnabled(state_file_loaded & state_model_exist)
 
     def pb_find_elines_clicked(self):
         dialog_data = self.gpc.get_autofind_elements_params()
@@ -307,6 +309,7 @@ class ModelWidget(FormBaseWidget):
 
     def slot_find_elines_clicked(self):
         self.computations_complete.disconnect(self.slot_find_elines_clicked)
+        self._set_fit_status(False)
         self.gui_vars["gui_state"]["running_computations"] = False
         self.update_global_state.emit()
 
@@ -363,6 +366,8 @@ class ModelWidget(FormBaseWidget):
                 msg = f"File: '{fln}'"
                 self.le_param_fln.setText(msg)
 
+                self._set_fit_status(False)
+
                 self.gui_vars["gui_state"]["state_model_exists"] = True
                 self.gui_vars["gui_state"]["state_model_fit_exists"] = False
                 self.signal_model_loaded.emit(True)
@@ -386,6 +391,8 @@ class ModelWidget(FormBaseWidget):
                 self.le_param_fln.setText(msg)
 
                 self.gpc.process_peaks_from_quantitative_sample_data()
+
+                self._set_fit_status(False)
 
                 self.gui_vars["gui_state"]["state_model_exists"] = True
                 self.gui_vars["gui_state"]["state_model_fit_exists"] = False
@@ -432,6 +439,8 @@ class ModelWidget(FormBaseWidget):
         ret = dlg.exec()
         if ret:
             print("Dialog closed. Changes accepted.")
+            self._set_fit_status(False)
+
         else:
             print("Cancelled.")
 
@@ -440,6 +449,8 @@ class ModelWidget(FormBaseWidget):
         ret = dlg.exec()
         if ret:
             print("'Elements' dialog closed. Changes accepted.")
+            self._set_fit_status(False)
+
         else:
             print("Cancelled.")
 
@@ -448,6 +459,8 @@ class ModelWidget(FormBaseWidget):
         ret = dlg.exec()
         if ret:
             print("'Global Parameters' dialog closed. Changes accepted.")
+            self._set_fit_status(False)
+
         else:
             print("Cancelled.")
 
@@ -458,7 +471,7 @@ class ModelWidget(FormBaseWidget):
             QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks)
         if dir:
             try:
-                # self.gpc.save_param_to_file(dir)
+                self.gpc.save_spectrum(dir, save_fit=self._fit_available)
                 logger.debug(f"Spectrum/Fit is saved to directory {dir}")
             except Exception as ex:
                 msg = str(ex)
@@ -472,6 +485,7 @@ class ModelWidget(FormBaseWidget):
         success = False
         try:
             self.gpc.total_spectrum_fitting()
+            self._set_fit_status(True)
             success = True
         except Exception as ex:
             msg = str(ex)
@@ -498,6 +512,25 @@ class ModelWidget(FormBaseWidget):
             self.gui_vars["gui_state"]["running_computations"] = False
             self.update_global_state.emit()
 
+    def _update_le_fitting_results(self):
+        rf = self.gpc.compute_current_rfactor(self._fit_available)
+        if self._fit_available:
+            _ = self.gpc.get_iter_and_var_number()
+            iter = _["iter_number"]
+            nvar = _["var_number"]
+            self.le_fitting_results.setText(f"Iterations: {iter}  Variables: {nvar}  R-factor: {rf:.4f}")
+        else:
+            self.le_fitting_results.setText(f"R-factor: {rf:.4f}")
+
+    @pyqtSlot()
+    def update_fit_status(self):
+        self._fit_available = self.gui_vars["gui_state"]["state_model_fit_exists"]
+        self._update_le_fitting_results()
+
+    def _set_fit_status(self, status):
+        self.gui_vars["gui_state"]["state_model_fit_exists"] = status
+        self.update_fit_status()
+
 
 class WndManageEmissionLines(SecondaryWindow):
 
@@ -505,6 +538,8 @@ class WndManageEmissionLines(SecondaryWindow):
     signal_update_element_selection_list = pyqtSignal()
     signal_update_add_remove_btn_state = pyqtSignal(bool, bool)
     signal_marker_state_changed = pyqtSignal(bool)
+
+    signal_parameters_changed = pyqtSignal()
 
     def __init__(self,  *, gpc, gui_vars):
         super().__init__()
@@ -859,6 +894,7 @@ class WndManageEmissionLines(SecondaryWindow):
                     self.update_eline_table()  # Update the table
                     self.tbl_elines_set_selection(eline)  # Select new emission line
                     self._set_selected_eline(eline)
+                    self._set_fit_status(False)
                     logger.info(f"New pileup peak {eline} was added")
                 except RuntimeError as ex:
                     msg = str(ex)
@@ -888,6 +924,7 @@ class WndManageEmissionLines(SecondaryWindow):
                     eline = data["name"]
                     data = dlg.get_parameters()
                     self.gpc.update_userpeak(data["name"], data["energy"], data["maxv"], data["fwhm"])
+                    self._set_fit_status(False)
                     logger.info(f"User defined peak {eline} was updated.")
                 except Exception as ex:
                     msg = str(ex)
@@ -911,6 +948,7 @@ class WndManageEmissionLines(SecondaryWindow):
                         self.update_eline_table()  # Update the table
                         self.tbl_elines_set_selection(eline)  # Select new emission line
                         self._set_selected_eline(eline)
+                        self._set_fit_status(False)
                         logger.info(f"New user defined peak {eline} is added")
                     except RuntimeError as ex:
                         msg = str(ex)
@@ -937,6 +975,7 @@ class WndManageEmissionLines(SecondaryWindow):
                 self.gpc.add_peak_manual(eline)
                 self.update_eline_table()  # Update the table
                 self.tbl_elines_set_selection(eline)  # Select new emission line
+                self._set_fit_status(False)
             except RuntimeError as ex:
                 msg = str(ex)
                 msgbox = QMessageBox(QMessageBox.Critical, "Error",
@@ -960,6 +999,7 @@ class WndManageEmissionLines(SecondaryWindow):
                 eline = ""
             # This will update widgets
             self._set_selected_eline(eline)
+            self._set_fit_status(False)
 
     def cb_select_all_toggled(self, state):
         self._enable_events = False
@@ -979,6 +1019,7 @@ class WndManageEmissionLines(SecondaryWindow):
             state_list.append(to_check)
 
         self.gpc.set_checked_emission_lines(eline_list, state_list)
+        self._set_fit_status(False)
         self._enable_events = True
 
     def tbl_elines_item_changed(self, item):
@@ -989,6 +1030,7 @@ class WndManageEmissionLines(SecondaryWindow):
                 state = bool(item.checkState())
                 eline = self._table_contents[n_row]["eline"]
                 self.gpc.set_checked_emission_lines([eline], [state])
+                self._set_fit_status(False)
             # Value was changed
             elif n_col == 3:
                 text = item.text()
@@ -998,6 +1040,7 @@ class WndManageEmissionLines(SecondaryWindow):
                     self._enable_events = False
                     item.setText(f"{val:.2f}")
                     self._enable_events = True
+                    self._set_fit_status(False)
                 else:
                     self.gpc.update_eline_peak_height(eline, float(text))
                     self.update_eline_table()
@@ -1043,6 +1086,7 @@ class WndManageEmissionLines(SecondaryWindow):
                                  msg, QMessageBox.Ok, parent=self)
             msgbox.exec()
         self.update_eline_table()
+        self._set_fit_status(False)
 
     def le_remove_rel_text_changed(self, text):
         self._update_le_remove_rel_state(text)
@@ -1064,6 +1108,7 @@ class WndManageEmissionLines(SecondaryWindow):
             msgbox.exec()
         # Reload the table
         self.update_eline_table()
+        self._set_fit_status(False)
 
     def _display_peak_intensity(self, eline):
         v = self.gpc.get_eline_intensity(eline)
@@ -1230,6 +1275,10 @@ class WndManageEmissionLines(SecondaryWindow):
         # Update button states after 'self._selected_eline' is set
         self._update_add_edit_userpeak_btn_state()
         self._update_add_edit_pileup_peak_btn_state()
+
+    def _set_fit_status(self, status):
+        self.gui_vars["gui_state"]["state_model_fit_exists"] = status
+        self.signal_parameters_changed.emit()
 
 
 class DialogGeneralFittingSettings(QDialog):

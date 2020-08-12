@@ -1163,3 +1163,14 @@ class GlobalProcessingClasses:
 
     def save_param_to_file(self, path):
         save_as(path, self.fit_model.param_dict)
+
+    def save_spectrum(self, dir, save_fit):
+        self.fit_model.result_folder = dir
+        self.fit_model.output_summed_data_fit(save_fit=save_fit)
+
+    def compute_current_rfactor(self, save_fit):
+        return self.fit_model.compute_current_rfactor(save_fit)
+
+    def get_iter_and_var_number(self):
+        return {"var_number": self.fit_model.nvar,
+                "iter_number": self.fit_model.function_num}

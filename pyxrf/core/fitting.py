@@ -40,10 +40,31 @@ def rfactor_compute(spectrum, fit_results, ref_spectra):
             f"Arrays 'spectrum' {spectrum.shape} and 'fit_results' {fit_results.shape}"\
             "must have the same number of columns"
 
+    spectrum_fit = np.matmul(ref_spectra, fit_results)
+    return rfactor(spectrum, spectrum_fit)
+
+
+def rfactor(spectrum_experimental, spectrum_fit):
+    r"""
+    Computes R-factor based on two spectra
+
+    Parameters
+    ----------
+    spectrum_experimental : ndarray
+        spectrum data on which fitting is performed (N elements)
+
+    spectrum_fit : ndarray
+        fitted spectrum (weighted sum of spectrum components, N elements)
+
+    Returns
+    -------
+        float, the value of R-factor
+    """
+
     # Compute R-factor
-    dif = spectrum - np.matmul(ref_spectra, fit_results)
+    dif = spectrum_experimental - spectrum_fit
     dif_sum = np.sum(np.abs(dif), axis=0)
-    data_sum = np.sum(np.abs(spectrum), axis=0)
+    data_sum = np.sum(np.abs(spectrum_experimental), axis=0)
 
     # Avoid accidental division by zero (or a very small number)
     data_sum = np.clip(data_sum, a_min=1e-30, a_max=None)

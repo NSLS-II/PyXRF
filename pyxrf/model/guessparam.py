@@ -1008,6 +1008,8 @@ class GuessParamModel(Atom):
         self.EC.delete_all()
         self.EC.add_to_dict(prefit_dict)
 
+        self.create_full_param()
+
     def create_full_param(self):
         """
         Extend the param to full param dict including each element's
