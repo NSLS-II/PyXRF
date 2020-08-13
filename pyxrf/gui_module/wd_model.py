@@ -514,18 +514,25 @@ class ModelWidget(FormBaseWidget):
 
     def _update_le_fitting_results(self):
         rf = self.gpc.compute_current_rfactor(self._fit_available)
+        rf_text = f"{rf:.4f}" if rf is not None else "n/a"
         if self._fit_available:
             _ = self.gpc.get_iter_and_var_number()
             iter = _["iter_number"]
             nvar = _["var_number"]
-            self.le_fitting_results.setText(f"Iterations: {iter}  Variables: {nvar}  R-factor: {rf:.4f}")
+            self.le_fitting_results.setText(f"Iterations: {iter}  Variables: {nvar}  R-factor: {rf_text}")
         else:
-            self.le_fitting_results.setText(f"R-factor: {rf:.4f}")
+            self.le_fitting_results.setText(f"R-factor: {rf_text}")
 
     @pyqtSlot()
     def update_fit_status(self):
         self._fit_available = self.gui_vars["gui_state"]["state_model_fit_exists"]
         self._update_le_fitting_results()
+
+    @pyqtSlot()
+    def clear_fit_status(self):
+        # Clear fit status (reset it to False - no valid fit is available)
+        self.gui_vars["gui_state"]["state_model_fit_exists"] = False
+        self.update_fit_status()
 
     def _set_fit_status(self, status):
         self.gui_vars["gui_state"]["state_model_fit_exists"] = status

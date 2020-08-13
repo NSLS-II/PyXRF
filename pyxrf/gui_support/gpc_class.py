@@ -127,8 +127,14 @@ class GlobalProcessingClasses:
         # The following statement initiates file loading. It may raise exceptions
         try:
             self.io_model.file_name = f_name
+
         except Exception:
             _update_data()
+
+            # For plotting purposes, otherwise plot will not update
+            self.plot_model.plot_exp_opt = False
+            self.plot_model.show_fit_opt = False
+
             logger.info(f"Failed to load the file '{f_name}'.")
             # Clear file name or scan id from window title. This does not update
             #   the displayed title.
@@ -136,6 +142,12 @@ class GlobalProcessingClasses:
             raise
         else:
             _update_data()
+
+            # For plotting purposes, otherwise plot will not update
+            self.plot_model.plot_exp_opt = False
+            self.plot_model.plot_exp_opt = True
+            self.plot_model.show_fit_opt = False
+            self.plot_model.show_fit_opt = True
 
             # Change window title (include file name). This does not update the visible title,
             #   only the text attribute of 'io_model' class.
@@ -177,6 +189,15 @@ class GlobalProcessingClasses:
         Return current working directory (defined in 'io_model')
         """
         return self.io_model.working_directory
+
+    def set_data_channel(self, channel_index):
+        self.io_model.file_opt = channel_index
+
+        # For plotting purposes, otherwise plot will not update
+        self.plot_model.plot_exp_opt = False
+        self.plot_model.plot_exp_opt = True
+        self.plot_model.show_fit_opt = False
+        self.plot_model.show_fit_opt = True
 
     # ==========================================================================
     #          The following methods are used by widgets XRF Maps tab
@@ -741,7 +762,10 @@ class GlobalProcessingClasses:
                 # Keep the incident energy from the file
                 logger.info(f"Using incident energy from the datafile metadata: "
                             f"{mdata_incident_energy} keV")
-                self.fit_model.default_parameters["coherent_sct_energy"]["value"] = round(mdata_incident_energy, 6)
+                incident_energy = round(mdata_incident_energy, 6)
+                self.fit_model.default_parameters["coherent_sct_energy"]["value"] = incident_energy
+                self.fit_model.default_parameters["non_fitting_values"]["energy_bound_high"]["value"] = \
+                    incident_energy + 0.8
 
             self.fit_model.apply_default_param()
 
@@ -781,6 +805,17 @@ class GlobalProcessingClasses:
             #   the upper boundary of the energy range used for emission line search.
             self.plot_model.change_incident_energy(
                 self.fit_model.default_parameters["coherent_sct_energy"]["value"])
+
+            # update parameter for fit
+            # self.param_model.create_full_param()
+            self.fit_model.update_default_param(self.param_model.param_new)
+            self.fit_model.apply_default_param()
+
+            # update params for roi sum
+            self.setting_model.update_parameter(self.fit_model.param_dict)
+
+            # Update displayed intensity of the selected peak
+            self.plot_model.compute_manual_peak_intensity()
 
     def find_elements_automatically(self):
         self.param_model.find_peak()
@@ -1174,3 +1209,19 @@ class GlobalProcessingClasses:
     def get_iter_and_var_number(self):
         return {"var_number": self.fit_model.nvar,
                 "iter_number": self.fit_model.function_num}
+
+    # ==========================================================================
+    #          The following methods are used by Maps tab
+    def fit_individual_pixels(self):
+        self.apply_to_fit()
+
+        self.fit_model.fit_single_pixel()
+
+        # add scalers to fit dict
+        scaler_keys = [v for v in self.img_model_adv.img_dict.keys() if 'scaler' in v]
+        if len(scaler_keys) > 0:
+            self.fit_model.fit_img[list(self.fit_model.fit_img.keys())[0]].update(
+                self.img_model_adv.img_dict[scaler_keys[0]])
+
+        self.img_model_adv.update_img_dict_entries(self.fit_model.fit_img)
+        self.img_model_rgb.update_img_dict_entries(self.fit_model.fit_img)

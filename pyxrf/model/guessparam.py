@@ -312,10 +312,12 @@ class GuessParamModel(Atom):
     @observe('energy_bound_high_buf')
     def _update_energy_bound_high_buf(self, change):
         self.param_new['non_fitting_values']['energy_bound_high']['value'] = change['value']
+        self.define_range()
 
     @observe('energy_bound_low_buf')
     def _update_energy_bound_high_low(self, change):
         self.param_new['non_fitting_values']['energy_bound_low']['value'] = change['value']
+        self.define_range()
 
     def param_from_db_update(self, change):
         self.default_parameters = change['value']
@@ -373,6 +375,12 @@ class GuessParamModel(Atom):
         """
         self.data = change['value']
 
+        # The idea here is to generate a new set of parameters based on new data (and selected region)
+        # self.element_list = get_element_list(self.param_new)
+        # self.EC.delete_all()
+        # self.define_range()
+        # self.create_spectrum_from_file(self.param_new, self.element_list)
+
     @observe('bound_val')
     def _update_bound(self, change):
         if change['type'] != 'create':
@@ -382,6 +390,8 @@ class GuessParamModel(Atom):
         """
         Cut x range according to values define in param_dict.
         """
+        if self.data is None:
+            return
         lowv = self.param_new['non_fitting_values']['energy_bound_low']['value']
         highv = self.param_new['non_fitting_values']['energy_bound_high']['value']
         self.x0, self.y0 = define_range(self.data, lowv, highv,
@@ -1384,7 +1394,11 @@ def get_energy(ename):
 def get_element_list(param):
     """ Extract elements from parameter class object """
     element_list = param['non_fitting_values']['element_list']
-    return [e.strip(' ') for e in element_list.split(',')]
+    element_list = [e.strip(' ') for e in element_list.split(',')]
+    # Unfortunately, "".split(",") returns [""] instead of [], but we need [] !!!
+    if element_list == [""]:
+        element_list = []
+    return element_list
 
 
 def _set_element_list(element_list, param):

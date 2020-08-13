@@ -2,7 +2,6 @@ from __future__ import absolute_import
 
 import numpy as np
 # from scipy.interpolate import interp1d, interp2d
-import copy
 import re
 
 import math
@@ -90,7 +89,6 @@ class DrawImageAdvanced(Atom):
 
     pixel_or_pos = Int(0)
     grid_interpolate = Bool(False)
-    img_dict_default = Dict()
     map_keys = List()  # Keys for the map in the selected dataset
     limit_dict = Dict()
     range_dict = Dict()
@@ -144,9 +142,6 @@ class DrawImageAdvanced(Atom):
         """
         self.img_dict = change['value']
 
-    def set_default_dict(self, img_dict):
-        self.img_dict_default = copy.deepcopy(img_dict)
-
     @observe('img_dict')
     def init_plot_status(self, change):
         # init of scaler for normalization
@@ -193,6 +188,23 @@ class DrawImageAdvanced(Atom):
             self.select_dataset(0)
 
         self.show_image()
+
+    def update_img_dict_entries(self, img_dict_additional=None):
+        if img_dict_additional is None:
+            img_dict_additional = {}
+
+        new_keys = list(img_dict_additional.keys())
+        selected_key = new_keys[0] if new_keys else None
+
+        self.img_dict.update(img_dict_additional)
+        self.img_dict_keys = self._get_img_dict_keys()
+
+        if selected_key is None:
+            selected_item = 1 if self.img_dict_keys else 0
+        else:
+            selected_item = self.img_dict_keys.index(selected_key) + 1
+
+        self.select_dataset(selected_item)
 
     def _get_img_dict_keys(self):
         key_suffix = [r"scaler$", r"det\d+_roi$", r"roi$", r"det\d+_fit$", r"fit$"]

@@ -740,17 +740,29 @@ class Fit1D(Atom):
     def compute_current_rfactor(self, save_fit=True):
         """
         Compute current R-factor value. The fitted array is selected
-        based on `save_fit`. The same arrays are selected as in `output_summed_data_fit`"""
+        based on `save_fit`. The same arrays are selected as in `output_summed_data_fit`
+
+        Parameters
+        ----------
+        save_fit: bool
+            True - use total spectrum fitting data (available after fitting was done),
+            False - use weighted spectral components with weights equal to current parameters.
+
+        Returns
+        -------
+        float or None
+            Value of R-factor or None if R-factor can not be computed.
+        """
+        rf = None
+        # R-factor is for visualization purposes only, so display 0 if it can not be computed.
         if save_fit:
-            if (self.y0 is None) or (self.fit_y is None):
-                rf = 0
-            else:
+            if (self.y0 is not None) and (self.fit_y is not None) and \
+                    (self.y0.shape == self.fit_y.shape):
                 rf = rfactor(self.y0, self.fit_y)
         else:
-            if (self.y0 is None) or (self.param_model.total_y is None):
-                rf = 0
-            else:
-                rf = rfactor(self.y0, self.param_model.total_y)
+            if (self.param_model.y0 is not None) and (self.param_model.total_y is not None) and \
+                    (self.param_model.y0.shape == self.param_model.total_y.shape):
+                rf = rfactor(self.param_model.y0, self.param_model.total_y)
         return rf
 
     def output_summed_data_fit(self, save_fit=True):

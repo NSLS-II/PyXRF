@@ -205,6 +205,23 @@ class DrawImageRGB(Atom):
         # Redraw image
         self.show_image()
 
+    def update_img_dict_entries(self, img_dict_additional=None):
+        if img_dict_additional is None:
+            img_dict_additional = {}
+
+        new_keys = list(img_dict_additional.keys())
+        selected_key = new_keys[0] if new_keys else None
+
+        self.img_dict.update(img_dict_additional)
+        self.img_dict_keys = self._get_img_dict_keys()
+
+        if selected_key is None:
+            selected_item = 1 if self.img_dict_keys else 0
+        else:
+            selected_item = self.img_dict_keys.index(selected_key) + 1
+
+        self.select_dataset(selected_item)
+
     def _get_img_dict_keys(self):
         key_suffix = [r"scaler$", r"det\d+_roi$", r"roi$", r"det\d+_fit$", r"fit$"]
         keys = [[] for _ in range(len(key_suffix) + 1)]

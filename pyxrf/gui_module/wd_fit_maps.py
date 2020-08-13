@@ -5,9 +5,9 @@ from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox, Q
                              QCheckBox, QLabel, QComboBox, QDialog, QDialogButtonBox, QFileDialog,
                              QRadioButton, QButtonGroup, QGridLayout, QTextEdit, QTableWidget,
                              QTableWidgetItem, QHeaderView, QWidget, QSpinBox, QScrollArea,
-                             QTabWidget, QFrame)
+                             QTabWidget, QFrame, QMessageBox)
 from PyQt5.QtGui import QBrush, QColor, QDoubleValidator
-from PyQt5.QtCore import Qt, QTimer, pyqtSlot, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal
 
 from .useful_widgets import (LineEditReadOnly, global_gui_parameters, get_background_css,
                              PushButtonMinimumWidth, SecondaryWindow, set_tooltip, LineEditExtended)
@@ -21,6 +21,9 @@ class FitMapsWidget(FormBaseWidget):
 
     # Signal that is sent (to main window) to update global state of the program
     update_global_state = pyqtSignal()
+
+    signal_map_fitting_complete = pyqtSignal()
+    signal_activate_tab_xrf_maps = pyqtSignal()
 
     def __init__(self, *, gpc, gui_vars):
         super().__init__()
@@ -258,15 +261,30 @@ class FitMapsWidget(FormBaseWidget):
 
     def pb_start_map_fitting_clicked(self):
 
-        self.gui_vars["gui_state"]["running_computations"] = True
-        self.update_global_state.emit()
+        # self.gui_vars["gui_state"]["running_computations"] = True
+        # self.update_global_state.emit()
 
-        if not self._timer:
-            self._timer = QTimer()
-        self._timer.timeout.connect(self.timerExpired)
-        self._timer.setInterval(80)
-        self._timer_counter = 0
-        self._timer.start()
+        success = False
+        try:
+            self.gpc.fit_individual_pixels()
+            self.gui_vars["gui_state"]["state_xrf_map_exists"] = True
+            success = True
+        except Exception as ex:
+            msg = str(ex)
+            msgbox = QMessageBox(QMessageBox.Critical, "Error",
+                                 msg, QMessageBox.Ok, parent=self)
+            msgbox.exec()
+        self.signal_map_fitting_complete.emit()
+        self.update_global_state.emit()
+        if success:
+            self.signal_activate_tab_xrf_maps.emit()
+
+        # if not self._timer:
+        #    self._timer = QTimer()
+        # self._timer.timeout.connect(self.timerExpired)
+        # self._timer.setInterval(80)
+        # self._timer_counter = 0
+        # self._timer.start()
 
     @pyqtSlot()
     def timerExpired(self):

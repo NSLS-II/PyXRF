@@ -30,6 +30,8 @@ class LoadDataWidget(FormBaseWidget):
     signal_new_run_loaded = pyqtSignal(bool)  # True/False - success/failed
     signal_loading_new_run = pyqtSignal()  # Emitted before new run is loaded
 
+    signal_data_channel_changed = pyqtSignal(bool)
+
     def __init__(self,  *, gpc, gui_vars):
         super().__init__()
 
@@ -285,7 +287,7 @@ class LoadDataWidget(FormBaseWidget):
             self.le_wd.setText(dir)
 
     def pb_file_clicked(self):
-        dir_current = self.gpc.io_model.working_directory
+        dir_current = self.gpc.get_current_working_directory()
         file_paths = QFileDialog.getOpenFileName(self, "Open Data File",
                                                  dir_current,
                                                  "HDF5 (*.h5);; All (*)")
@@ -458,9 +460,15 @@ class LoadDataWidget(FormBaseWidget):
         self.gpc.io_model.load_each_channel = state
 
     def cbox_channel_index_changed(self, index):
-        self.gpc.io_model.file_opt = index
-        # Redraw the plot
-        self.gpc.plot_model.plot_exp_opt = True
+        try:
+            self.gpc.set_data_channel(index)
+            self.signal_data_channel_changed.emit(True)
+        except Exception as ex:
+            self.signal_data_channel_changed.emit(False)
+            msg = str(ex)
+            msgbox = QMessageBox(QMessageBox.Critical, "Error",
+                                 msg, QMessageBox.Ok, parent=self)
+            msgbox.exec()
 
     def list_preview_item_changed(self, list_item):
         # Find the index of the list item that was checked/unchecked
