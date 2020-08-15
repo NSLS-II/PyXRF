@@ -4,13 +4,14 @@ import textwrap
 from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox, QLineEdit,
                              QCheckBox, QLabel, QComboBox, QDialog, QDialogButtonBox, QFileDialog,
                              QRadioButton, QButtonGroup, QGridLayout, QTextEdit, QTableWidget,
-                             QTableWidgetItem, QHeaderView, QWidget, QSpinBox, QScrollArea,
+                             QTableWidgetItem, QHeaderView, QWidget, QScrollArea,
                              QTabWidget, QFrame, QMessageBox)
 from PyQt5.QtGui import QBrush, QColor, QDoubleValidator
 from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal
 
 from .useful_widgets import (LineEditReadOnly, global_gui_parameters, get_background_css,
-                             PushButtonMinimumWidth, SecondaryWindow, set_tooltip, LineEditExtended)
+                             PushButtonMinimumWidth, SecondaryWindow, set_tooltip, LineEditExtended,
+                             SpinBoxNamed, CheckBoxNamed)
 from .form_base_widget import FormBaseWidget
 
 import logging
@@ -337,10 +338,15 @@ class WndComputeRoiMaps(SecondaryWindow):
 
     def _setup_header(self):
         self.pb_clear = QPushButton("Clear")
+        self.pb_clear.clicked.connect(self.pb_clear_clicked)
         self.pb_use_lines_for_fitting = QPushButton("Use Lines Selected For Fitting")
-        self.le_sel_emission_lines = QLineEdit()
+        self.pb_use_lines_for_fitting.clicked.connect(self.pb_use_lines_for_fitting_clicked)
 
-        sample_elements = "Ar_K, Ca_K, Ti_K, Fe_K"
+        self.le_sel_emission_lines = LineEditExtended()
+        self.le_sel_emission_lines.textChanged.connect(self.le_sel_emission_lines_text_changed)
+        self.le_sel_emission_lines.editingFinished.connect(self.le_sel_emission_lines_editing_finished)
+
+        sample_elements = ""
         self.le_sel_emission_lines.setText(sample_elements)
 
         vbox = QVBoxLayout()
@@ -357,19 +363,19 @@ class WndComputeRoiMaps(SecondaryWindow):
     def _setup_table(self):
 
         # Labels for horizontal header
-        self.tbl_labels = ["Line", "E, eV", "Min", "Max", "Show", "Reset"]
+        self.tbl_labels = ["Line", "E, eV", "Min, eV", "Max, eV", "Show", "Reset"]
 
         # The list of columns that stretch with the table
-        self.tbl_cols_stretch = ("E, eV", "Min", "Max")
+        self.tbl_cols_stretch = ("E, eV", "Min, eV", "Max, eV")
 
         # Table item representation if different from default
         self.tbl_format = {"E, eV": ".0f"}
 
         # Editable items (highlighted with lighter background)
-        self.tbl_cols_editable = {"Min", "Max"}
+        self.tbl_cols_editable = {"Min, eV", "Max, eV"}
 
         # Columns that contain spinbox
-        self.tbl_cols_spinbox = ("Min", "Max")
+        self.tbl_cols_spinbox = ("Min, eV", "Max, eV")
 
         self.table = QTableWidget()
         self.table.setColumnCount(len(self.tbl_labels))
@@ -385,20 +391,40 @@ class WndComputeRoiMaps(SecondaryWindow):
             else:
                 header.setSectionResizeMode(n, QHeaderView.ResizeToContents)
 
-        sample_content = [
-            ["Ar_Ka1", 2957, 2745, 3169],
-            ["Ca_Ka1", 3691, 3471, 3911],
-            ["Ti_Ka1", 4510, 4278, 4742],
-            ["Fe_Ka1", 6403, 6151, 6655],
-        ]
-
-        self.fill_table(sample_content)
+        #sample_content = [
+        #    ["Ar_Ka1", 2957, 2745, 3169],
+        #    ["Ca_Ka1", 3691, 3471, 3911],
+        #    ["Ti_Ka1", 4510, 4278, 4742],
+        #    ["Fe_Ka1", 6403, 6151, 6655],
+        #]
+        self._table_contents = []
+        self.cb_list = []
+        self.spin_list = []
+        self.fill_table(self._table_contents)
 
     def fill_table(self, table_contents):
 
+        self.table.clearContents()
+        self._table_contents = table_contents  # Save new table contents
+
+        for item in self.spin_list:
+            #item.textChanged.disconnect(self.spin_text_changed)
+            item.valueChanged.disconnect(self.spin_value_changed)
+        self.spin_list = []
+
+        for cb in self.cb_list:
+            cb.stateChanged.disconnect(self.cb_state_changed)
+        self.cb_list = []
+
         self.table.setRowCount(len(table_contents))
         for nr, row in enumerate(table_contents):
-            for nc, entry in enumerate(row):
+            eline_name = row["eline"] + "a1"
+            energy = row["energy_center"]
+            energy_left = row["energy_left"]
+            energy_right = row["energy_right"]
+            range_displayed = row["range_displayed"]
+            table_row = [eline_name, energy, energy_left, energy_right]
+            for nc, entry in enumerate(table_row):
 
                 label = self.tbl_labels[nc]
 
@@ -431,11 +457,16 @@ class WndComputeRoiMaps(SecondaryWindow):
 
                     self.table.setItem(nr, nc, item)
                 else:
-                    item = QSpinBox()
+                    spin_name = f"{nr}," + ("left" if nc == 2 else "right")
+                    item = SpinBoxNamed(name=spin_name)
                     # Set the range (in eV) large enough (there are total of 4096 10eV bins)
                     item.setRange(1, 40950)
                     item.setValue(entry)
                     item.setAlignment(Qt.AlignCenter)
+
+                    self.spin_list.append(item)
+                    #item.textChanged.connect(self.spin_text_changed)
+                    item.valueChanged.connect(self.spin_value_changed)
 
                     color_css = f"rgb({rgb_bckg[0]}, {rgb_bckg[1]}, {rgb_bckg[2]})"
                     item.setStyleSheet(f"QSpinBox {{ background-color: {color_css}; }}")
@@ -449,7 +480,11 @@ class WndComputeRoiMaps(SecondaryWindow):
                 rgb_bckg = (brightness, 255, brightness)
 
             item = QWidget()
-            cb = QCheckBox()
+            cb = CheckBoxNamed(name=f"{nr}")
+            cb.setChecked(Qt.Checked if range_displayed else Qt.Unchecked)
+            self.cb_list.append(cb)
+            cb.stateChanged.connect(self.cb_state_changed)
+
             item_hbox = QHBoxLayout(item)
             item_hbox.addWidget(cb)
             item_hbox.setAlignment(Qt.AlignCenter)
@@ -468,6 +503,9 @@ class WndComputeRoiMaps(SecondaryWindow):
     def _setup_footer(self):
 
         self.cb_subtract_baseline = QCheckBox("Subtract baseline")
+        self.cb_subtract_baseline.setChecked(
+            Qt.Checked if self.gpc.get_roi_subtract_background() else Qt.Unchecked)
+        self.cb_subtract_baseline.toggled.connect(self.cb_subtract_baseline_toggled)
         self.pb_compute_roi = QPushButton("Compute ROIs")
 
         hbox = QHBoxLayout()
@@ -509,6 +547,100 @@ class WndComputeRoiMaps(SecondaryWindow):
 
         if condition == "tooltips":
             self._set_tooltips()
+
+    def pb_clear_clicked(self):
+        self.gpc.clear_roi_element_list()
+        self._update_displayed_element_list()
+        self._validate_element_list()
+
+    def pb_use_lines_for_fitting_clicked(self):
+        self.gpc.load_roi_element_list_from_selected()
+        self._update_displayed_element_list()
+        self._validate_element_list()
+
+    def le_sel_emission_lines_text_changed(self, text):
+        self._validate_element_list(text)
+
+    def le_sel_emission_lines_editing_finished(self):
+        text = self.le_sel_emission_lines.text()
+        if self._validate_element_list(text):
+            self.gpc.set_roi_selected_element_list(text)
+        else:
+            element_list = self.gpc.get_roi_selected_element_list()
+            self.le_sel_emission_lines.setText(element_list)
+
+    def cb_subtract_baseline_toggled(self, state):
+        self.gpc.set_roi_subtract_background(bool(state))
+
+    def cb_state_changed(self, name, state):
+        try:
+            nr = int(name)  # Row number
+            checked = state == Qt.Checked
+
+            eline = self._table_contents[nr]["eline"]
+            self._table_contents[nr]["range_displayed"] = checked
+            self.gpc.show_roi(eline, checked)
+        except Exception as ex:
+            logger.error(f"Failed to process selection change. Exception occurred: {ex}.")
+
+    #def spin_text_changed(self, name, text):
+    #    print(f"name='{name}' text = '{text}'")
+    #    pass
+
+    def _find_spin_box(self, name):
+        for item in self.spin_list:
+            if item.getName() == name:
+                return item
+        return None
+
+    def spin_value_changed(self, name, value):
+        try:
+            nr, side = name.split(",")
+            nr = int(nr)
+            keys = {"left": "energy_left", "right": "energy_right"}
+            side = keys[side]
+            eline = self._table_contents[nr]["eline"]
+            if self._table_contents[nr][side] == value:
+                return
+            if side == "energy_left":  # Left boundary
+                if value < self._table_contents[nr]["energy_right"]:
+                    self._table_contents[nr][side] = value
+            else:  # Right boundary
+                if value > self._table_contents[nr]["energy_left"]:
+                    self._table_contents[nr][side] = value
+
+            # Update plot
+            left, right = self._table_contents[nr]["energy_left"], self._table_contents[nr]["energy_right"]
+            self.gpc.change_roi(eline, left, right)
+        except Exception as ex:
+            logger.error(f"Failed to change the ROI. Exception occurred: {ex}.")
+
+    def _update_displayed_element_list(self):
+        element_list = self.gpc.get_roi_selected_element_list()
+        self.le_sel_emission_lines.setText(element_list)
+        self._validate_element_list()
+        self._update_table()
+
+    def _update_table(self):
+        table_contents = self.gpc.get_roi_settings()
+        self.fill_table(table_contents)
+
+    def _validate_element_list(self, text=None):
+        if text is None:
+            text = self.le_sel_emission_lines.text()
+        el_list = text.split(",")
+        el_list = [_.strip() for _ in el_list]
+        if el_list == [""]:
+            el_list = []
+        valid = bool(len(el_list))
+        for eline in el_list:
+            if self.gpc.get_eline_name_category(eline) != "eline":
+                valid = False
+
+        self.le_sel_emission_lines.setValid(valid)
+        self.pb_compute_roi.setEnabled(valid)
+
+        return valid
 
 
 class WndLoadQuantitativeCalibration(SecondaryWindow):

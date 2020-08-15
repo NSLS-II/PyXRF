@@ -1,5 +1,6 @@
 from PyQt5.QtWidgets import (QLineEdit, QWidget, QHBoxLayout, QComboBox, QTextEdit,
-                             QSizePolicy, QLabel, QPushButton, QGridLayout, QSlider)
+                             QSizePolicy, QLabel, QPushButton, QGridLayout, QSlider,
+                             QSpinBox, QCheckBox)
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QPalette, QColor, QFontMetrics, QIntValidator, QDoubleValidator
 
@@ -202,10 +203,56 @@ class ComboBoxNamed(QComboBox):
         self._name = name
         super().currentIndexChanged.connect(self._current_index_changed)
 
+    def getName(self):
+        return self._name
+
     @pyqtSlot(int)
     def _current_index_changed(self, index):
         name = self._name if self._name is not None else ""
         self.currentIndexChanged.emit(name, index)
+
+
+class CheckBoxNamed(QCheckBox):
+
+    stateChanged = pyqtSignal(str, int)
+
+    def __init__(self, *args, name=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._name = name
+        super().stateChanged.connect(self._state_changed)
+
+    def getName(self):
+        return self._name
+
+    @pyqtSlot(int)
+    def _state_changed(self, state):
+        name = self._name if self._name is not None else ""
+        self.stateChanged.emit(name, state)
+
+
+class SpinBoxNamed(QSpinBox):
+
+    valueChanged = pyqtSignal(str, int)
+    #textChanged = pyqtSignal(str, str)
+
+    def __init__(self, *args, name=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._name = name
+        super().valueChanged.connect(self._value_changed)
+        #super().textChanged.connect(self._text_changed)
+
+    def getName(self):
+        return self._name
+
+    @pyqtSlot(int)
+    def _value_changed(self, value):
+        name = self._name if self._name is not None else ""
+        self.valueChanged.emit(name, value)
+
+    #@pyqtSlot(str)
+    #def _text_changed(self, text):
+    #    name = self._name if self._name is not None else ""
+    #    self.textChanged.emit(name, text)
 
 
 class SecondaryWindow(QWidget):

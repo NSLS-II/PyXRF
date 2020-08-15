@@ -1225,3 +1225,75 @@ class GlobalProcessingClasses:
 
         self.img_model_adv.update_img_dict_entries(self.fit_model.fit_img)
         self.img_model_rgb.update_img_dict_entries(self.fit_model.fit_img)
+
+    # ==========================================================================
+    #          The following methods are used by ROI window
+    def get_roi_selected_element_list(self):
+        element_list = self.setting_model.element_for_roi
+        # TODO: should probably be sorted differently
+        return element_list
+
+    def set_roi_selected_element_list(self, elements_for_roi):
+        self.setting_model.element_for_roi = elements_for_roi
+
+    def clear_roi_element_list(self):
+        for r in self.setting_model.element_list_roi:
+            self.plot_model.roi_dict[r].show_plot = False
+        self.plot_model.plot_roi_bound()
+        self.setting_model.clear_selected_elements()
+
+    def load_roi_element_list_from_selected(self):
+        for r in self.setting_model.element_list_roi:
+            self.plot_model.roi_dict[r].show_plot = False
+        self.plot_model.plot_roi_bound()
+        selected_element_list = self.param_model.EC.get_element_list()
+        selected_element_list = [_ for _ in selected_element_list
+                                 if self.param_model.get_eline_name_category(_) == "eline"]
+        self.setting_model.select_elements_from_list(selected_element_list)
+
+    def get_roi_subtract_background(self):
+        return self.setting_model.subtract_background
+
+    def set_roi_subtract_background(self, subtract_background):
+        self.setting_model.subtract_background = bool(subtract_background)
+
+    def compute_rois(self):
+        if len(self.setting_model.element_for_roi) == 0:
+            raise RuntimeError("No elements are selected for ROI computation. Select at least one element.")
+        roi_result = self.setting_model.get_roi_sum()
+        self.img_model_adv.update_img_dict_entries(roi_result)
+        self.img_model_rgb.update_img_dict_entries(roi_result)
+
+    def show_roi(self, eline, show_status):
+        self.plot_model.roi_dict = self.setting_model.roi_dict
+        if show_status:
+            # self.plot_model.plot_exp_opt = True
+            self.plot_model.roi_dict[eline].show_plot = True
+            self.plot_model.plot_roi_bound()
+        else:
+            self.plot_model.roi_dict[eline].show_plot = False
+            self.plot_model.plot_roi_bound()
+
+    def change_roi(self, eline, low, high):
+        self.setting_model.roi_dict[eline].left_val = low
+        self.setting_model.roi_dict[eline].right_val = high
+        self.plot_model.plot_roi_bound()
+
+    def get_roi_settings(self):
+        roi_settings = []
+
+        eline_list = list(self.setting_model.element_list_roi)
+
+        for eline in eline_list:
+            energy_center = self.setting_model.roi_dict[eline].line_val
+            energy_left = self.setting_model.roi_dict[eline].left_val
+            energy_right = self.setting_model.roi_dict[eline].right_val
+            range_displayed = self.setting_model.roi_dict[eline].show_plot
+            roi_settings.append({"eline": eline,
+                                 "energy_center": energy_center,
+                                 "energy_left": energy_left,
+                                 "energy_right": energy_right,
+                                 "range_displayed": range_displayed})
+
+        roi_settings.sort(key=lambda _: _["energy_center"])
+        return roi_settings
