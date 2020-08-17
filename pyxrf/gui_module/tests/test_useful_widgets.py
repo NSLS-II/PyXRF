@@ -2,8 +2,9 @@ import pytest
 import numpy.testing as npt
 from PyQt5.QtWidgets import QLineEdit
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QDoubleValidator
 from pyxrf.gui_module.useful_widgets import (
-    IntValidatorRelaxed, DoubleValidatorRelaxed, RangeManager)
+    IntValidatorStrict, IntValidatorRelaxed, DoubleValidatorRelaxed, RangeManager)
 
 
 def enter_text_via_keyboard(qtbot, widget, text, *, finish=True):
@@ -13,6 +14,25 @@ def enter_text_via_keyboard(qtbot, widget, text, *, finish=True):
     qtbot.keyClicks(widget, text)  # Then type
     if finish:
         qtbot.keyClick(widget, Qt.Key_Enter)
+
+
+# ==============================================================
+#   Class IntValidatorStrict
+@pytest.mark.parametrize("text, range, result", [
+    ("", None, IntValidatorRelaxed.Intermediate),
+    ("123", None, IntValidatorRelaxed.Acceptable),
+    ("1&34", None, IntValidatorRelaxed.Invalid),
+    ("2", (0, 10), IntValidatorRelaxed.Acceptable),
+    ("2", (10, 20), IntValidatorRelaxed.Intermediate),
+    ("-2", (0, 10), IntValidatorRelaxed.Invalid),
+    ("12", (0, 10), IntValidatorRelaxed.Invalid),
+    ("12,", (0, 10), IntValidatorRelaxed.Invalid),  # Comma after the number
+])
+def test_IntValidatorStrict(text, range, result):
+    validator = IntValidatorStrict()
+    if range is not None:
+        validator.setRange(range[0], range[1])
+    assert validator.validate(text, 0)[0] == result, "Validation failed"
 
 
 # ==============================================================
@@ -74,6 +94,27 @@ def test_IntValidatorRelaxed_2(qtbot, text, range, valid):
 
     # We verify that the text can be entered via keyboard is still displayed
     assert le.text() == text, "Entered and displayed text does not match"
+
+
+# ==============================================================
+#   Class DoubleValidatorStrict
+@pytest.mark.parametrize("text, range, result", [
+    ("", None, DoubleValidatorRelaxed.Intermediate),
+    ("123", None, DoubleValidatorRelaxed.Acceptable),
+    ("123.34562", None, DoubleValidatorRelaxed.Acceptable),
+    ("1.3454e10", None, DoubleValidatorRelaxed.Acceptable),
+    ("1&34.34", None, DoubleValidatorRelaxed.Invalid),
+    ("2.0", (0.0, 10.0), DoubleValidatorRelaxed.Acceptable),
+    ("2.0", (10.0, 20.0), DoubleValidatorRelaxed.Intermediate),
+    ("-2.342", (0, 10.0), DoubleValidatorRelaxed.Invalid),
+    ("12.453", (0, 10.0), DoubleValidatorRelaxed.Intermediate),
+    ("12.453,", (0, 10.0), DoubleValidatorRelaxed.Invalid),  # Comma after the number
+])
+def test_DoubleValidatorStrict(text, range, result):
+    validator = QDoubleValidator()
+    if range is not None:
+        validator.setRange(range[0], range[1], 5)
+    assert validator.validate(text, 0)[0] == result, "Validation failed"
 
 
 # ==============================================================
@@ -573,3 +614,36 @@ def test_RangeManager_8(qtbot, full_range, selection, value_type):
         enter_text_via_keyboard(qtbot, rman.le_max_value, "random string", finish=True)
     npt.assert_array_almost_equal(rman.get_selection(), (selection[0], selection[1]))
     _verify_sliders(rman.sld_min_value, rman.sld_max_value, (selection[0], selection[1]), full_range)
+
+
+@pytest.mark.parametrize("full_range, selection, value_type", [
+    ((-0.254, 37.45), (-0.123, 20.45), "float"),
+    ((-49, 90), (-20, 60), "int"),
+])
+def test_RangeManager_9(qtbot, full_range, selection, value_type):
+    """Entering invalid value in an entry field (especially the case when text contains `,`)"""
+
+    slider_steps = 1000
+    selection_to_range_min = 0.01
+
+    rman = RangeManager(slider_steps=slider_steps,
+                        selection_to_range_min=selection_to_range_min)
+    qtbot.addWidget(rman)
+    rman.show()
+
+    rman.set_range(full_range[0], full_range[1])
+    rman.set_selection(value_low=selection[0], value_high=selection[1])
+
+    assert rman.get_selection() == selection, "Incorrect selection"
+
+    enter_text_via_keyboard(qtbot, rman.le_min_value, "abc", finish=True)
+    assert rman.get_selection() == selection, "Incorrect selection"
+
+    enter_text_via_keyboard(qtbot, rman.le_min_value, "10,", finish=True)
+    assert rman.get_selection() == selection, "Incorrect selection"
+
+    enter_text_via_keyboard(qtbot, rman.le_max_value, "abc", finish=True)
+    assert rman.get_selection() == selection, "Incorrect selection"
+
+    enter_text_via_keyboard(qtbot, rman.le_max_value, "10.0,", finish=True)
+    assert rman.get_selection() == selection, "Incorrect selection"

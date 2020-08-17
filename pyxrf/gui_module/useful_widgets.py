@@ -190,6 +190,27 @@ class PushButtonMinimumWidth(QPushButton):
         self.setFixedWidth(text_width)
 
 
+class PushButtonNamed(QPushButton):
+    """
+    Push box that returns 'name' as the first parameter with the signals.
+    Named widget is useful to distinguish between widgets when they are inserted in table rows.
+    """
+    clicked = pyqtSignal(str)
+
+    def __init__(self, *args, name=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._name = name
+        super().clicked.connect(self._clicked)
+
+    def getName(self):
+        return self._name
+
+    @pyqtSlot()
+    def _clicked(self):
+        name = self._name if self._name is not None else ""
+        self.clicked.emit(name)
+
+
 class ComboBoxNamed(QComboBox):
     """
     Combo box that returns 'name' as the first parameter with the signals.
@@ -233,13 +254,11 @@ class CheckBoxNamed(QCheckBox):
 class SpinBoxNamed(QSpinBox):
 
     valueChanged = pyqtSignal(str, int)
-    #textChanged = pyqtSignal(str, str)
 
     def __init__(self, *args, name=None, **kwargs):
         super().__init__(*args, **kwargs)
         self._name = name
         super().valueChanged.connect(self._value_changed)
-        #super().textChanged.connect(self._text_changed)
 
     def getName(self):
         return self._name
@@ -248,11 +267,6 @@ class SpinBoxNamed(QSpinBox):
     def _value_changed(self, value):
         name = self._name if self._name is not None else ""
         self.valueChanged.emit(name, value)
-
-    #@pyqtSlot(str)
-    #def _text_changed(self, text):
-    #    name = self._name if self._name is not None else ""
-    #    self.textChanged.emit(name, text)
 
 
 class SecondaryWindow(QWidget):
@@ -347,7 +361,21 @@ def get_background_css(rgb, widget="QWidget", editable=False):
     return f"{widget} {{ background-color: {color_css}; }}"
 
 
-class IntValidatorRelaxed(QIntValidator):
+class IntValidatorStrict(QIntValidator):
+    """
+    `IntValidatorStrict` verifies additional condition: int number can not
+    contain commas, since it can't be converted to int number directly.
+    """
+    def validate(self, text, pos):
+        result = super().validate(text, pos)
+        # Additional condition: the number can not contain ",". For some reason
+        #   the standard validators ignore commas at the end of the number.
+        if "," in text[pos:]:
+            result = (QIntValidator.Invalid, result[1], result[2])
+        return result
+
+
+class IntValidatorRelaxed(IntValidatorStrict):
     """
     IntValidatorRelaxed is an extension of QIntValidator. In the overridden
     `validate` method, the original output is changed so that  the return value
@@ -366,7 +394,21 @@ class IntValidatorRelaxed(QIntValidator):
         return result
 
 
-class DoubleValidatorRelaxed(QDoubleValidator):
+class DoubleValidatorStrict(QDoubleValidator):
+    """
+    `DoubleValidatorStrict` verifies additional condition: double number can not
+    contain commas, since it can't be converted to floating point number directly.
+    """
+    def validate(self, text, pos):
+        result = super().validate(text, pos)
+        # Additional condition: the number can not contain ",". For some reason
+        #   the standard validators ignore commas at the end of the number.
+        if "," in text[pos:]:
+            result = (QDoubleValidator.Invalid, result[1], result[2])
+        return result
+
+
+class DoubleValidatorRelaxed(DoubleValidatorStrict):
     """
     DoubleValidatorRelaxed is similar to `IntValidatorRelaxed`, but works with
     values of `double` type.
@@ -624,13 +666,13 @@ class RangeManager(QWidget):
         if self._value_type == "float":
             # Validator type: QDoubleValidator
             # The range is set a little wider (1% wider) in order to cover the 'true'
-            #   boundary value.
+            #   boundary value. 'decimals=-1' - it seems that the precision is getting ignored.
             self.validator_low.setRange(self._round_value(self._range_low),
                                         self._round_value(self._value_high - self._range_min_diff * 0.99),
-                                        decimals=20)
+                                        decimals=-1)
             self.validator_high.setRange(self._round_value(self._value_low + self._range_min_diff * 0.99),
                                          self._round_value(self._range_high),
-                                         decimals=20)
+                                         decimals=-1)
         else:
             # Validator type: QIntValidator
             # With integer arithmetic we can set the range precisely
@@ -715,11 +757,11 @@ class RangeManager(QWidget):
         #   inputs and prevent user from accepting invalid inputs. There is no goal
         #   to prevent users from typing invalid expressions.
         if self._value_type == "float":
-            self.validator_low = QDoubleValidator()
-            self.validator_high = QDoubleValidator()
+            self.validator_low = DoubleValidatorRelaxed()
+            self.validator_high = DoubleValidatorRelaxed()
         else:
-            self.validator_low = QIntValidator()
-            self.validator_high = QIntValidator()
+            self.validator_low = IntValidatorRelaxed()
+            self.validator_high = IntValidatorRelaxed()
 
         # Completely reset the widget
         return self.set_range(self._range_low, self._range_high)

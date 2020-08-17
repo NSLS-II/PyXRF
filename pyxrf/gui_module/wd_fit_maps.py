@@ -11,7 +11,7 @@ from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal
 
 from .useful_widgets import (LineEditReadOnly, global_gui_parameters, get_background_css,
                              PushButtonMinimumWidth, SecondaryWindow, set_tooltip, LineEditExtended,
-                             SpinBoxNamed, CheckBoxNamed)
+                             PushButtonNamed, CheckBoxNamed, RangeManager)
 from .form_base_widget import FormBaseWidget
 
 import logging
@@ -306,6 +306,12 @@ class FitMapsWidget(FormBaseWidget):
 
 class WndComputeRoiMaps(SecondaryWindow):
 
+    # Signal that is sent (to main window) to update global state of the program
+    update_global_state = pyqtSignal()
+
+    signal_roi_computation_complete = pyqtSignal()
+    signal_activate_tab_xrf_maps = pyqtSignal()
+
     def __init__(self, *, gpc, gui_vars):
         super().__init__()
 
@@ -313,6 +319,13 @@ class WndComputeRoiMaps(SecondaryWindow):
         self.gpc = gpc
         # Global GUI variables (used for control of GUI state)
         self.gui_vars = gui_vars
+
+        # Reference to the main window. The main window will hold
+        #   references to all non-modal windows that could be opened
+        #   from multiple places in the program.
+        self.ref_main_window = self.gui_vars["ref_main_window"]
+
+        self.update_global_state.connect(self.ref_main_window.update_widget_state)
 
         self.initialize()
 
@@ -363,19 +376,19 @@ class WndComputeRoiMaps(SecondaryWindow):
     def _setup_table(self):
 
         # Labels for horizontal header
-        self.tbl_labels = ["Line", "E, eV", "Min, eV", "Max, eV", "Show", "Reset"]
+        self.tbl_labels = ["Line", "E, keV", "ROI, keV", "Show", "Reset"]
 
         # The list of columns that stretch with the table
-        self.tbl_cols_stretch = ("E, eV", "Min, eV", "Max, eV")
+        self.tbl_cols_stretch = ("E, keV", "ROI, keV")
 
         # Table item representation if different from default
-        self.tbl_format = {"E, eV": ".0f"}
+        self.tbl_format = {"E, keV": ".3f"}
 
         # Editable items (highlighted with lighter background)
-        self.tbl_cols_editable = {"Min, eV", "Max, eV"}
+        self.tbl_cols_editable = {"ROI, keV"}
 
-        # Columns that contain spinbox
-        self.tbl_cols_spinbox = ("Min, eV", "Max, eV")
+        # Columns that contain Range Manager
+        self.tbl_cols_range_manager = ("ROI, keV",)
 
         self.table = QTableWidget()
         self.table.setColumnCount(len(self.tbl_labels))
@@ -391,15 +404,10 @@ class WndComputeRoiMaps(SecondaryWindow):
             else:
                 header.setSectionResizeMode(n, QHeaderView.ResizeToContents)
 
-        #sample_content = [
-        #    ["Ar_Ka1", 2957, 2745, 3169],
-        #    ["Ca_Ka1", 3691, 3471, 3911],
-        #    ["Ti_Ka1", 4510, 4278, 4742],
-        #    ["Fe_Ka1", 6403, 6151, 6655],
-        #]
         self._table_contents = []
         self.cb_list = []
-        self.spin_list = []
+        self.range_manager_list = []
+        self.pb_default_list = []
         self.fill_table(self._table_contents)
 
     def fill_table(self, table_contents):
@@ -407,14 +415,17 @@ class WndComputeRoiMaps(SecondaryWindow):
         self.table.clearContents()
         self._table_contents = table_contents  # Save new table contents
 
-        for item in self.spin_list:
-            #item.textChanged.disconnect(self.spin_text_changed)
-            item.valueChanged.disconnect(self.spin_value_changed)
-        self.spin_list = []
+        for item in self.range_manager_list:
+            item.selection_changed.disconnect(self.range_manager_selection_changed)
+        self.range_manager_list = []
 
         for cb in self.cb_list:
             cb.stateChanged.disconnect(self.cb_state_changed)
         self.cb_list = []
+
+        for pb in self.pb_default_list:
+            pb.clicked.connect(self.pb_default_clicked)
+        self.pb_default_list = []
 
         self.table.setRowCount(len(table_contents))
         for nr, row in enumerate(table_contents):
@@ -423,7 +434,7 @@ class WndComputeRoiMaps(SecondaryWindow):
             energy_left = row["energy_left"]
             energy_right = row["energy_right"]
             range_displayed = row["range_displayed"]
-            table_row = [eline_name, energy, energy_left, energy_right]
+            table_row = [eline_name, energy, (energy_left, energy_right)]
             for nc, entry in enumerate(table_row):
 
                 label = self.tbl_labels[nc]
@@ -436,7 +447,7 @@ class WndComputeRoiMaps(SecondaryWindow):
                 else:
                     rgb_bckg = (brightness, 255, brightness)
 
-                if self.tbl_labels[nc] not in self.tbl_cols_spinbox:
+                if self.tbl_labels[nc] not in self.tbl_cols_range_manager:
                     if self.tbl_labels[nc] in self.tbl_format:
                         fmt = self.tbl_format[self.tbl_labels[nc]]
                         s = ("{:" + fmt + "}").format(entry)
@@ -457,19 +468,19 @@ class WndComputeRoiMaps(SecondaryWindow):
 
                     self.table.setItem(nr, nc, item)
                 else:
-                    spin_name = f"{nr}," + ("left" if nc == 2 else "right")
-                    item = SpinBoxNamed(name=spin_name)
-                    # Set the range (in eV) large enough (there are total of 4096 10eV bins)
-                    item.setRange(1, 40950)
-                    item.setValue(entry)
-                    item.setAlignment(Qt.AlignCenter)
+                    spin_name = f"{nr}"
+                    item = RangeManager(name=spin_name, add_sliders=False, selection_to_range_min=0.0001)
+                    item.set_range(0.0, 100.0)  # The range is greater than needed (in keV)
+                    item.set_selection(value_low=entry[0], value_high=entry[1])
+                    item.setTextColor((0, 0, 0))  # In case of dark theme
+                    item.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
-                    self.spin_list.append(item)
-                    #item.textChanged.connect(self.spin_text_changed)
-                    item.valueChanged.connect(self.spin_value_changed)
+                    self.range_manager_list.append(item)
 
-                    color_css = f"rgb({rgb_bckg[0]}, {rgb_bckg[1]}, {rgb_bckg[2]})"
-                    item.setStyleSheet(f"QSpinBox {{ background-color: {color_css}; }}")
+                    item.selection_changed.connect(self.range_manager_selection_changed)
+
+                    color = (rgb_bckg[0], rgb_bckg[1], rgb_bckg[2])
+                    item.setBackground(color)
 
                     self.table.setCellWidget(nr, nc, item)
 
@@ -494,7 +505,9 @@ class WndComputeRoiMaps(SecondaryWindow):
                                f"QCheckBox {{ background-color: white }}")
             self.table.setCellWidget(nr, nc + 1, item)
 
-            item = QPushButton("Reset")
+            item = PushButtonNamed("Reset", name=f"{nr}")
+            item.clicked.connect(self.pb_default_clicked)
+            self.pb_default_list.append(item)
             rgb_bckg = [_ - 35 if (_ < 255) else _ for _ in rgb_bckg]
             color_css = f"rgb({rgb_bckg[0]}, {rgb_bckg[1]}, {rgb_bckg[2]})"
             item.setStyleSheet(f"QPushButton {{ background-color: {color_css}; }}")
@@ -506,7 +519,9 @@ class WndComputeRoiMaps(SecondaryWindow):
         self.cb_subtract_baseline.setChecked(
             Qt.Checked if self.gpc.get_roi_subtract_background() else Qt.Unchecked)
         self.cb_subtract_baseline.toggled.connect(self.cb_subtract_baseline_toggled)
+
         self.pb_compute_roi = QPushButton("Compute ROIs")
+        self.pb_compute_roi.clicked.connect(self.pb_compute_roi_clicked)
 
         hbox = QHBoxLayout()
         hbox.addWidget(self.cb_subtract_baseline)
@@ -565,6 +580,7 @@ class WndComputeRoiMaps(SecondaryWindow):
         text = self.le_sel_emission_lines.text()
         if self._validate_element_list(text):
             self.gpc.set_roi_selected_element_list(text)
+            self._update_table()
         else:
             element_list = self.gpc.get_roi_selected_element_list()
             self.le_sel_emission_lines.setText(element_list)
@@ -582,10 +598,6 @@ class WndComputeRoiMaps(SecondaryWindow):
             self.gpc.show_roi(eline, checked)
         except Exception as ex:
             logger.error(f"Failed to process selection change. Exception occurred: {ex}.")
-
-    #def spin_text_changed(self, name, text):
-    #    print(f"name='{name}' text = '{text}'")
-    #    pass
 
     def _find_spin_box(self, name):
         for item in self.spin_list:
@@ -614,6 +626,41 @@ class WndComputeRoiMaps(SecondaryWindow):
             self.gpc.change_roi(eline, left, right)
         except Exception as ex:
             logger.error(f"Failed to change the ROI. Exception occurred: {ex}.")
+
+    def range_manager_selection_changed(self, left, right, name):
+        try:
+            nr = int(name)
+            eline = self._table_contents[nr]["eline"]
+            self.gpc.change_roi(eline, left, right)
+        except Exception as ex:
+            logger.error(f"Failed to change the ROI. Exception occurred: {ex}.")
+
+    def pb_default_clicked(self, name):
+        try:
+            nr = int(name)
+            eline = self._table_contents[nr]["eline"]
+            left = self._table_contents[nr]["energy_left_default"]
+            right = self._table_contents[nr]["energy_right_default"]
+            self.range_manager_list[nr].set_selection(value_low=left, value_high=right)
+            self.gpc.change_roi(eline, left, right)
+        except Exception as ex:
+            logger.error(f"Failed to change the ROI. Exception occurred: {ex}.")
+
+    def pb_compute_roi_clicked(self):
+        success = False
+        try:
+            self.gpc.compute_rois()
+            self.gui_vars["gui_state"]["state_xrf_map_exists"] = True
+            success = True
+        except Exception as ex:
+            msg = str(ex)
+            msgbox = QMessageBox(QMessageBox.Critical, "Error",
+                                 msg, QMessageBox.Ok, parent=self)
+            msgbox.exec()
+        self.signal_roi_computation_complete.emit()
+        self.update_global_state.emit()
+        if success:
+            self.signal_activate_tab_xrf_maps.emit()
 
     def _update_displayed_element_list(self):
         element_list = self.gpc.get_roi_selected_element_list()

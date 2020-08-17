@@ -303,12 +303,20 @@ class MainWindow(QMainWindow):
         self.central_widget.left_panel.model_widget.signal_incident_energy_or_range_changed.connect(
             self.central_widget.left_panel.model_widget.clear_fit_status)
 
-        # Update map datasets
+        # Update map datasets (Fitted maps)
         self.central_widget.left_panel.fit_maps_widget.signal_map_fitting_complete.connect(
             self.central_widget.right_panel.tab_plot_xrf_maps.slot_update_dataset_info)
         self.central_widget.left_panel.fit_maps_widget.signal_map_fitting_complete.connect(
             self.central_widget.right_panel.tab_plot_rgb_maps.slot_update_dataset_info)
         self.central_widget.left_panel.fit_maps_widget.signal_activate_tab_xrf_maps.connect(
+            self.central_widget.right_panel.slot_activate_tab_xrf_maps)
+
+        # Update map datasets (ROI maps)
+        self.wnd_compute_roi_maps.signal_roi_computation_complete.connect(
+            self.central_widget.right_panel.tab_plot_xrf_maps.slot_update_dataset_info)
+        self.wnd_compute_roi_maps.signal_roi_computation_complete.connect(
+            self.central_widget.right_panel.tab_plot_rgb_maps.slot_update_dataset_info)
+        self.wnd_compute_roi_maps.signal_activate_tab_xrf_maps.connect(
             self.central_widget.right_panel.slot_activate_tab_xrf_maps)
 
     @pyqtSlot()

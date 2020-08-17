@@ -1235,6 +1235,7 @@ class GlobalProcessingClasses:
 
     def set_roi_selected_element_list(self, elements_for_roi):
         self.setting_model.element_for_roi = elements_for_roi
+        self.plot_model.plot_roi_bound()
 
     def clear_roi_element_list(self):
         for r in self.setting_model.element_list_roi:
@@ -1275,8 +1276,9 @@ class GlobalProcessingClasses:
             self.plot_model.plot_roi_bound()
 
     def change_roi(self, eline, low, high):
-        self.setting_model.roi_dict[eline].left_val = low
-        self.setting_model.roi_dict[eline].right_val = high
+        # Convert keV to eV (current implementation of SettingModel is using eV.
+        self.setting_model.roi_dict[eline].left_val = int(low * 1000)
+        self.setting_model.roi_dict[eline].right_val = int(high * 1000)
         self.plot_model.plot_roi_bound()
 
     def get_roi_settings(self):
@@ -1285,15 +1287,23 @@ class GlobalProcessingClasses:
         eline_list = list(self.setting_model.element_list_roi)
 
         for eline in eline_list:
-            energy_center = self.setting_model.roi_dict[eline].line_val
-            energy_left = self.setting_model.roi_dict[eline].left_val
-            energy_right = self.setting_model.roi_dict[eline].right_val
+            # We display values in keV, but current implementation of SettingModel
+            #   is using eV.
+            energy_center = self.setting_model.roi_dict[eline].line_val / 1000.0
+            energy_left = self.setting_model.roi_dict[eline].left_val / 1000.0
+            energy_right = self.setting_model.roi_dict[eline].right_val / 1000.0
             range_displayed = self.setting_model.roi_dict[eline].show_plot
+
+            energy_left_default = self.setting_model.roi_dict[eline].default_left / 1000.0
+            energy_right_default = self.setting_model.roi_dict[eline].default_right / 1000.0
+
             roi_settings.append({"eline": eline,
                                  "energy_center": energy_center,
                                  "energy_left": energy_left,
                                  "energy_right": energy_right,
-                                 "range_displayed": range_displayed})
+                                 "range_displayed": range_displayed,
+                                 "energy_left_default": energy_left_default,
+                                 "energy_right_default": energy_right_default})
 
         roi_settings.sort(key=lambda _: _["energy_center"])
         return roi_settings
