@@ -11,7 +11,7 @@ from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal
 
 from .useful_widgets import (LineEditReadOnly, global_gui_parameters, get_background_css,
                              PushButtonMinimumWidth, SecondaryWindow, set_tooltip, LineEditExtended,
-                             PushButtonNamed, CheckBoxNamed, RangeManager)
+                             PushButtonNamed, CheckBoxNamed, RangeManager, DoubleValidatorStrict)
 from .form_base_widget import FormBaseWidget
 
 import logging
@@ -233,16 +233,48 @@ class FitMapsWidget(FormBaseWidget):
         self.ref_main_window.wnd_compute_roi_maps.activateWindow()
 
     def pb_save_q_calibration_clicked(self):
-        # TODO: Propagate full path to the saved file here
-        file_dir = self.gpc.get_current_working_directory()
-        file_dir = os.path.expanduser(file_dir)
-        file_name = self.gpc.get_suggested_quant_file_name()
-        file_path = os.path.join(file_dir, file_name)
+        msg = ""
+        if not self.gpc.is_quant_standard_selected():
+            # This is a safeguard. The button should be disabled if no standard is selected.
+            msg += "No quantitative standard is selected. " \
+                "Use 'Load Quantitative Standard ...' button in 'Model' tab"
+        if not self.gpc.is_quant_standard_fitting_available():
+            msg = msg + "\n" if msg else msg
+            msg += "Select a dataset containing fitted XRF maps for the quantitative standard " \
+                "in XRF Maps tab (dataset name must end with 'fit')."
+        if msg:
+            msgbox = QMessageBox(QMessageBox.Information, "Additional Steps Needed",
+                                 msg, QMessageBox.Ok, parent=self)
+            msgbox.exec()
+            return
 
-        dlg = DialogSaveCalibration(file_path=file_path)
-        res = dlg.exec()
-        if res:
-            print(f"Saving quantitative calibration to the file '{dlg.file_path}'")
+        try:
+            params = self.gpc.get_displayed_quant_calib_parameters()
+            distance_to_sample = params["distance_to_sample"]
+            file_name = params["suggested_file_name"]
+            preview = params["preview"]
+
+            file_dir = self.gpc.get_current_working_directory()
+            file_dir = os.path.expanduser(file_dir)
+            file_path = os.path.join(file_dir, file_name)
+
+            dlg = DialogSaveCalibration(file_path=file_path)
+            dlg.distance_to_sample = distance_to_sample
+            dlg.preview = preview
+            res = dlg.exec()
+            if res:
+                self.gpc.save_quantitative_standard(dlg.file_path, dlg.overwrite_existing)
+                logger.info(f"Quantitative calibration was saved to the file '{dlg.file_path}'")
+            else:
+                logger.info("Saving quantitative calibration was cancelled.")
+
+            # We want to save distance to sample even if saving was cancelled
+            self.gpc.save_distance_to_sample(dlg.distance_to_sample)
+        except Exception as ex:
+            msg = str(ex)
+            msgbox = QMessageBox(QMessageBox.Critical, "Error",
+                                 msg, QMessageBox.Ok, parent=self)
+            msgbox.exec()
 
     def pb_export_to_tiff_and_txt_clicked(self):
         # TODO: Propagate full path to the saved file here
@@ -1218,11 +1250,14 @@ class DialogViewCalibStandard(QDialog):
 
 class DialogSaveCalibration(QDialog):
 
-    def __init__(self, parent=None, *, file_path=""):
+    def __init__(self, parent=None, *, file_path=None):
 
         super().__init__(parent)
 
         self.__file_path = ""
+        self.__distance_to_sample = 0.0
+        self.__overwrite_existing = False
+        self.__preview = ("", {})  # str - information, dict - warnings
 
         self.setWindowTitle("Save Quantitative Calibration")
         self.setMinimumHeight(600)
@@ -1246,17 +1281,24 @@ class DialogSaveCalibration(QDialog):
         set_tooltip(self.pb_file_path,
                     "Change <b>file path</b> for saving the calibration data.")
         self.pb_file_path.clicked.connect(self.pb_file_path_clicked)
+        self.pb_file_path.setDefault(False)
+        self.pb_file_path.setAutoDefault(False)
 
-        self.le_distance_to_sample = QLineEdit()
+        self.le_distance_to_sample = LineEditExtended()
+        self.le_distance_to_sample.textChanged.connect(self.le_distance_to_sample_text_changed)
+        self.le_distance_to_sample.editingFinished.connect(self.le_distance_to_sample_editing_finished)
+        self._le_distance_to_sample_validator = DoubleValidatorStrict()
+        self._le_distance_to_sample_validator.setBottom(0.0)
         set_tooltip(self.le_distance_to_sample,
-                    "<b>Distance between the detector and the sample during calibration. If the value "
+                    "<b>Distance</b> between the detector and the sample during calibration. If the value "
                     "is 0, then no scaling is applied to data to correct the data if distance-to-sample "
                     "is changed between calibration and measurement.")
 
-        self.cb_overwrite = QCheckBox("OverwriteExisting")
+        self.cb_overwrite = QCheckBox("Overwrite Existing")
+        self.cb_overwrite.stateChanged.connect(self.cb_overwrite_state_changed)
         set_tooltip(self.cb_overwrite,
-                    "Overwrite the <b>existin</b> file. This is a safety feature implemented to protect "
-                    "valueable results from accidental deletion.")
+                    "Overwrite the <b>existing</b> file. This is a safety feature implemented to protect "
+                    "valuable results from accidental deletion.")
 
         vbox = QVBoxLayout()
 
@@ -1281,15 +1323,26 @@ class DialogSaveCalibration(QDialog):
         vbox.addLayout(hbox)
 
         button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.pb_ok = button_box.button(QDialogButtonBox.Ok)
+        self.pb_ok.setDefault(False)
+        self.pb_ok.setAutoDefault(False)
+        self.pb_cancel = button_box.button(QDialogButtonBox.Cancel)
+        self.pb_cancel.setDefault(True)
+        self.pb_cancel.setAutoDefault(True)
+
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)
         vbox.addWidget(button_box)
 
         self.setLayout(vbox)
 
+        self._show_distance_to_sample()
+        self._show_preview()
+        self._show_overwrite_existing()
+
         # Set and display file path
-        file_path = os.path.expanduser(file_path)
-        self.file_path = file_path
+        if file_path is not None:
+            self.file_path = file_path
 
     @property
     def file_path(self):
@@ -1297,8 +1350,36 @@ class DialogSaveCalibration(QDialog):
 
     @file_path.setter
     def file_path(self, file_path):
+        file_path = os.path.expanduser(file_path)
         self.__file_path = file_path
         self.le_file_path.setText(file_path)
+
+    @property
+    def distance_to_sample(self):
+        return self.__distance_to_sample
+
+    @distance_to_sample.setter
+    def distance_to_sample(self, distance_to_sample):
+        self.__distance_to_sample = distance_to_sample
+        self._show_distance_to_sample()
+
+    @property
+    def overwrite_existing(self):
+        return self.__overwrite_existing
+
+    @overwrite_existing.setter
+    def overwrite_existing(self, overwrite_existing):
+        self.__overwrite_existing = overwrite_existing
+        self._show_overwrite_existing()
+
+    @property
+    def preview(self):
+        return self.__preview
+
+    @preview.setter
+    def preview(self, preview):
+        self.__preview = preview
+        self._show_preview()
 
     def pb_file_path_clicked(self):
         file_path = QFileDialog.getSaveFileName(self, "Select File to Save Quantitative Calibration",
@@ -1309,6 +1390,43 @@ class DialogSaveCalibration(QDialog):
         if file_path:
             self.file_path = file_path
             print(f"Selected file path for saving calibration standard: '{file_path}'")
+
+    def le_distance_to_sample_text_changed(self, text):
+        valid = self._le_distance_to_sample_validator.validate(text, 0)[0] == QDoubleValidator.Acceptable
+        self.le_distance_to_sample.setValid(valid)
+        self.pb_ok.setEnabled(valid)
+
+    def le_distance_to_sample_editing_finished(self):
+        text = self.le_distance_to_sample.text()
+        if self._le_distance_to_sample_validator.validate(text, 0)[0] == QDoubleValidator.Acceptable:
+            self.__distance_to_sample = float(text)
+        self._show_distance_to_sample()
+        self._show_preview()  # Show/hide warning on zero distance-to-sample value
+
+    def cb_overwrite_state_changed(self, state):
+        state = state == Qt.Checked
+        self.__overwrite_existing = state
+
+    def _show_distance_to_sample(self):
+        self.le_distance_to_sample.setText(f"{self.__distance_to_sample:.10g}")
+
+    def _show_overwrite_existing(self):
+        self.cb_overwrite.setChecked(Qt.Checked if self.__overwrite_existing
+                                     else Qt.Unchecked)
+
+    def _show_preview(self):
+        text = ""
+        # First print warnings
+        for key, value in self.__preview[1].items():
+            if "distance" in key and self.__distance_to_sample > 0:
+                continue
+            text += value + "\n"
+        # Additional space if there are any warinings
+        if len(text):
+            text += "\n"
+        # Then add the main block of text
+        text += self.__preview[0]
+        self.text_edit.setText(text)
 
 
 class DialogExportToTiffAndTxt(QDialog):

@@ -1047,26 +1047,30 @@ class ParamQuantEstimation:
 
         Returns
         -------
-
+        str, dict(str, str)
             A string that contains the preview of the fluorescence data dictionary
-            (calibration data).
+            (calibration data) and the dictionary of warnings. Currently two warnings are
+            generated: "scaler_missing" - data is not normalized by a scaler,
+            "distance_to_sample" - distance-to-sample is set to zero (missing), so
+            calibration data can't be used later if distance-to-sample is changed.
         """
         pruned_dict = prune_quant_fluor_data_dict(self.fluorescence_data_dict)
         # Print preview in YAML format (easier to read)
         s = yaml.dump(pruned_dict, default_flow_style=False, sort_keys=False, indent=4)
+        msg_warnings = {}
         if enable_warnings:
-            s_warnings = ""
             if (pruned_dict["scaler_name"] is None) or (pruned_dict["scaler_name"] == ""):
-                s_warnings += "WARNING: Scaler is not selected, data is not normalized.\n"
+                msg = "WARNING: Scaler is not selected, data is not normalized."
+                msg_warnings["scaler_missing"] = msg
             if (pruned_dict["distance_to_sample"] is None) or \
                     (pruned_dict["distance_to_sample"] == 0):
-                s_warnings += "WARNING: Distance-to-sample is set to 0 or None. "\
+                msg = "WARNING: Distance-to-sample is set to 0 or None. "\
                               "Set it to estimated distance between the detector and the standard sample "\
                               "if you expect to it to change in the series of scans. Otherwise " \
                               "the respective corrections may not be computed. Ignore if the distance "\
-                              "stays constant throughout the series of scans.\n"
-            s = s_warnings + "\n" + s
-        return s
+                              "stays constant throughout the series of scans."
+                msg_warnings["distance_to_sample"] = msg
+        return s, msg_warnings
 
     def save_fluorescence_data_dict(self, file_path, *, overwrite_existing=False):
         r"""

@@ -1315,5 +1315,79 @@ class GlobalProcessingClasses:
 
     # ==========================================================================
     #          The following methods are used by ROI window
+    def is_quant_standard_selected(self):
+        """
+        Returns True if quantitative standard was selected from the list.
+        The result can be used to determine if saving quantitative standard is a valid
+        operation.
+        """
+        return bool(self.fit_model.param_quant_estimation.fluorescence_data_dict)
+
+    def is_quant_standard_fitting_available(self):
+        """
+        Returns True if fitted map is available.
+        """
+        result_map, selected_det_channel, scaler_name = self.fit_model.get_selected_fitted_map_data()
+        return bool(result_map) and bool(selected_det_channel)
+
     def get_suggested_quant_file_name(self):
+        """
+        Return suggested 'standard' file name used for saving quantitative calibration
+        to a JSON file
+        """
         return self.fit_model.param_quant_estimation.get_suggested_json_fln()
+
+    def get_displayed_quant_calib_parameters(self):
+
+        fluorescence_data_dict = self.fit_model.param_quant_estimation.fluorescence_data_dict
+        if fluorescence_data_dict is None:
+            raise RuntimeError("Attempt to obtain quantitative standard parameters "
+                               "while no standard is selected")
+
+        result_map, selected_det_channel, scaler_name = self.fit_model.get_selected_fitted_map_data()
+
+        if not result_map:
+            raise RuntimeError("No XRF maps were found. Run Individual Pixel Fitting to generate XRF maps.")
+
+        if not selected_det_channel:
+            raise RuntimeError("Selected XRF map does not contain fitted XRF maps.")
+
+        suggested_fln = self.fit_model.param_quant_estimation.get_suggested_json_fln()
+
+        # Fill the available fluorescence data
+        self.fit_model.param_quant_estimation.fill_fluorescence_data_dict(
+            xrf_map_dict=result_map, scaler_name=scaler_name)
+        self.fit_model.param_quant_estimation.set_detector_channel_in_data_dict(
+            detector_channel=selected_det_channel)
+
+        distance_to_sample = self.fit_model.qe_standard_distance_to_sample
+        self.fit_model.param_quant_estimation.set_distance_to_sample_in_data_dict(
+            distance_to_sample=distance_to_sample)
+
+        # Set optional parameters
+        if self.io_model.scan_metadata_available:
+            _scan_id = None
+            _scan_uid = None
+            if "scan_id" in self.io_model.scan_metadata:
+                _scan_id = self.io_model.scan_metadata["scan_id"]
+            if "scan_uid" in self.io_model.scan_metadata:
+                _scan_uid = self.io_model.scan_metadata["scan_uid"]
+            self.fit_model.param_quant_estimation.set_optional_parameters(
+                scan_id=_scan_id, scan_uid=_scan_uid)
+
+        preview = self.fit_model.param_quant_estimation.get_fluorescence_data_dict_text_preview()
+
+        return {"suggested_file_name": suggested_fln,
+                "distance_to_sample": distance_to_sample,
+                "preview": preview}
+
+    def save_distance_to_sample(self, distance_to_sample):
+        self.fit_model.qe_standard_distance_to_sample = distance_to_sample
+        self.fit_model.param_quant_estimation.set_distance_to_sample_in_data_dict(
+            distance_to_sample=distance_to_sample)
+
+    def save_quantitative_standard(self, file_path, overwrite_existing):
+        """Will raise exception if unsuccessful"""
+        self.fit_model.param_quant_estimation.save_fluorescence_data_dict(
+            file_path,
+            overwrite_existing=overwrite_existing)

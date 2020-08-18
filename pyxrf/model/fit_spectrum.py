@@ -188,11 +188,7 @@ class Fit1D(Atom):
     # *** The following fields are used exclusively to store input values ***
     # ***   for the 'SaveQuantCalibration' dialog box. ***
     # *** The fields are not guaranteed to have valid values at any other time. ***
-    qe_standard_path_name = Str()
-    qe_standard_file_name = Str()
-    qe_standard_distance = Str("0.0")
-    qe_standard_overwrite_existing = Bool(False)
-    qe_standard_data_preview = Str()
+    qe_standard_distance_to_sample = Float(0.0)
 
     def __init__(self, param_model, io_model, *args, **kwargs):
         self.working_directory = kwargs['working_directory']
@@ -391,29 +387,6 @@ class Fit1D(Atom):
                 logger.info(f"User defined or pileup peak info: {self.elementinfo_list}")
         else:
             self.elementinfo_list = []
-
-    @observe('qe_standard_distance')
-    def _qe_standard_distance_changed(self, change):
-        try:
-            d = float(change["value"])
-        except Exception:
-            d = None
-        if d <= 0.0:
-            d = None
-        self.param_quant_estimation.set_distance_to_sample_in_data_dict(distance_to_sample=d)
-        # Change preview if distance value changed
-        self.qe_standard_data_preview = \
-            self.param_quant_estimation.get_fluorescence_data_dict_text_preview()
-
-    def get_qe_standard_distance_as_float(self):
-        r"""Return distance from sample as positive float or None"""
-        try:
-            d = float(self.qe_standard_distance)
-        except Exception:
-            d = None
-        if (d is not None) and (d <= 0.0):
-            d = None
-        return d
 
     def select_index_by_eline_name(self, eline_name):
         # Select the element by name. If element is selected, then the ``elementinfo_list`` with
@@ -971,6 +944,33 @@ class Fit1D(Atom):
         result_map = self.result_map.copy()
 
         return result_map, scaler_name
+
+    def get_selected_fitted_map_data(self):
+        """
+        Returns fitting data selected in XRF Maps tab.
+
+        Returned channel name should be 'sum', 'det1', 'det2' etc. If the selected
+        dataset contains maps computed based on ROIs or only positions and scalers,
+        then returned channel name is "".
+        """
+        image_title = self.img_title
+        plotted_dict = self.dict_to_plot.copy()
+
+        # Recover channel name
+        channel_name = ""  # No name (dictionary with position or scaler data is selected)
+        if image_title.endswith("_fit"):
+            m = re.search(r"_det\d+_fit$", image_title)
+            if m:
+                channel_name = m.group(0).split("_")[1].lower()
+            else:
+                channel_name = "sum"
+
+        # Find the selected scaler name. Scaler is None if not scaler is selected.
+        scaler_name = None
+        if self.scaler_index > 0:
+            scaler_name = self.scaler_keys[self.scaler_index-1]
+
+        return plotted_dict, channel_name, scaler_name
 
     def output_2Dimage(self, to_tiff=True):
         """Read data from h5 file and save them into either tiff or txt.
