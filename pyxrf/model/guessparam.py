@@ -1446,9 +1446,12 @@ def param_dict_cleaner(parameter, element_list):
     param = copy.deepcopy(parameter)
     param_new = {}
 
-    elist_lower = [e.lower() for e in element_list if len(e) <= 4]
+    elines_list = [e for e in element_list if len(e) <= 4]
+    elines_lower = [e.lower() for e in elines_list]
     pileup_list = [e for e in element_list if '-' in e]
     userpeak_list = [e for e in element_list if 'user' in e.lower()]
+
+    new_element_list = []
 
     for k, v in param.items():
         if k == 'non_fitting_values' or k == k.lower():
@@ -1457,13 +1460,22 @@ def param_dict_cleaner(parameter, element_list):
             for p in pileup_list:
                 if p.replace('-', '_') in k:
                     param_new.update({k: v})
+                    new_element_list.append(p)
         elif 'user' in k.lower():
             for p in userpeak_list:
                 if p in k:
                     param_new.update({k: v})
-        elif (k[:3].lower() in elist_lower) or (k[:4].lower() in elist_lower):
+                    new_element_list.append(p)
+        elif k[:3].lower() in elines_lower:
+            index = elines_lower.index(k[:3].lower())
             param_new.update({k: v})
+            new_element_list.append(elines_list[index])
+        elif k[:4].lower() in elines_lower:
+            index = elines_lower.index(k[:4].lower())
+            param_new.update({k: v})
+            new_element_list.append(elines_list[index])
 
+    _set_element_list(new_element_list, param_new)
     return param_new
 
 

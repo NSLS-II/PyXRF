@@ -234,8 +234,10 @@ class FitMapsWidget(FormBaseWidget):
 
     def pb_save_q_calibration_clicked(self):
         # TODO: Propagate full path to the saved file here
-        file_path = "~/quant_calibration.json"
-        file_path = os.path.expanduser(file_path)
+        file_dir = self.gpc.get_current_working_directory()
+        file_dir = os.path.expanduser(file_dir)
+        file_name = self.gpc.get_suggested_quant_file_name()
+        file_path = os.path.join(file_dir, file_name)
 
         dlg = DialogSaveCalibration(file_path=file_path)
         res = dlg.exec()

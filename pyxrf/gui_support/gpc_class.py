@@ -695,6 +695,11 @@ class GlobalProcessingClasses:
         self.param_model.EC.turn_on_all()
         self.param_model.data_for_plot()
 
+        # update parameter for fit
+        self.param_model.create_full_param()  # Not sure it is necessary
+        self.fit_model.update_default_param(self.param_model.param_new)
+        self.fit_model.apply_default_param()
+
         # update experimental plots in case the coefficients change
         self.plot_model.parameters = self.param_model.param_new
         self.plot_model.plot_experiment()
@@ -1118,7 +1123,7 @@ class GlobalProcessingClasses:
         self.plot_model.show_fit_opt = True
 
         # update parameter for fit
-        # self.param_model.create_full_param()
+        self.param_model.create_full_param()  # Not sure this is needed
         self.fit_model.update_default_param(self.param_model.param_new)
         self.fit_model.apply_default_param()
 
@@ -1307,3 +1312,8 @@ class GlobalProcessingClasses:
 
         roi_settings.sort(key=lambda _: _["energy_center"])
         return roi_settings
+
+    # ==========================================================================
+    #          The following methods are used by ROI window
+    def get_suggested_quant_file_name(self):
+        return self.fit_model.param_quant_estimation.get_suggested_json_fln()
