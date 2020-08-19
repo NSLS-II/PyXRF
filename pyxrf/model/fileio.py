@@ -1039,9 +1039,16 @@ def output_data(dataset_dict=None, output_dir=None,
         dset = dset.strip('_')
     elif re.search(r"_fit$", dataset_name):
         dset = "detsum"
-    if not dset:
-        raise RuntimeError(f"Dataset '{dataset_name}' contains no useful data. "
-                           "Select different dataset to save data.")
+    elif re.search(r"_det\d+_fit$", dataset_name):
+        dset = re.search(r"_det\d_", dataset_name)[0]
+        dset = dset.strip('_')
+        dset += "_roi"
+    elif re.search(r"_roi$", dataset_name):
+        dset = "detsum_roi"
+    elif re.search(r"_scaler$", dataset_name):
+        dset = "scaler"
+    else:
+        dset = dataset_name
 
     file_format = file_format.lower()
 
@@ -1918,7 +1925,7 @@ def save_fitdata_to_hdf(fpath, data_dict,
 
     if not isinstance(dataname_saveas, str):
         dataname_saveas = dataname_saveas.decode()
-    namelist = np.array(namelist).astype('|S9')
+    namelist = np.array(namelist).astype('|S20')
     name_data = dataGrp.create_dataset(dataname_saveas, data=namelist)
     name_data.attrs['comments'] = ' '
 

@@ -75,17 +75,17 @@ class GlobalProcessingClasses:
         self.io_model.observe('data', self.param_model.exp_data_update)
         self.io_model.observe('data', self.fit_model.exp_data_update)
         self.io_model.observe('data_all', self.fit_model.exp_data_all_update)
-        self.io_model.observe('img_dict', self.fit_model.img_dict_update)
         self.io_model.observe('data_sets', self.fit_model.data_sets_update)
-        self.io_model.observe('img_dict', self.setting_model.img_dict_update)
 
         # send fitting param of summed spectrum to param_model
         self.io_model.observe('param_fit', self.param_model.param_from_db_update)
 
         # send img dict to img_model for visualization
+        self.io_model.observe('img_dict', self.setting_model.img_dict_update)
+        self.io_model.observe('img_dict', self.plot_model.img_dict_update)
+        self.io_model.observe('img_dict', self.fit_model.img_dict_update)
         self.io_model.observe('img_dict', self.img_model_adv.img_dict_update)
         self.io_model.observe('img_dict', self.img_model_rgb.img_dict_update)
-        self.io_model.observe('img_dict', self.plot_model.img_dict_update)
 
         self.io_model.observe('incident_energy_set', self.plot_model.set_incident_energy)
         self.io_model.observe('incident_energy_set', self.img_model_adv.set_incident_energy)
@@ -94,8 +94,6 @@ class GlobalProcessingClasses:
 
         self.img_model_adv.observe('dict_to_plot', self.fit_model.dict_to_plot_update)
         self.img_model_adv.observe('img_title', self.fit_model.img_title_update)
-        self.img_model_adv.observe('quantitative_normalization', self.fit_model.quantitative_normalization_update)
-        self.img_model_adv.observe('param_quant_analysis', self.fit_model.param_quant_analysis_update)
 
         self.param_model.observe('energy_bound_high_buf', self.fit_model.energy_bound_high_update)
         self.param_model.observe('energy_bound_low_buf', self.fit_model.energy_bound_low_update)
@@ -1229,6 +1227,9 @@ class GlobalProcessingClasses:
                 self.img_model_adv.img_dict[scaler_keys[0]])
 
         self.img_model_adv.update_img_dict_entries(self.fit_model.fit_img)
+        # No copy the dictionary so that it is distributed to all locations
+        #   setting_model, plot_model, fit_model, img_model_adv, img_model_rgb
+        self.io_model.img_dict = self.img_model_adv.img_dict
         self.img_model_rgb.update_img_dict_entries(self.fit_model.fit_img)
 
     # ==========================================================================
@@ -1268,6 +1269,9 @@ class GlobalProcessingClasses:
             raise RuntimeError("No elements are selected for ROI computation. Select at least one element.")
         roi_result = self.setting_model.get_roi_sum()
         self.img_model_adv.update_img_dict_entries(roi_result)
+        # No copy the dictionary so that it is distributed to all locations
+        #   setting_model, plot_model, fit_model, img_model_adv, img_model_rgb
+        self.io_model.img_dict = self.img_model_adv.img_dict
         self.img_model_rgb.update_img_dict_entries(roi_result)
 
     def show_roi(self, eline, show_status):
@@ -1391,3 +1395,72 @@ class GlobalProcessingClasses:
         self.fit_model.param_quant_estimation.save_fluorescence_data_dict(
             file_path,
             overwrite_existing=overwrite_existing)
+
+    # ==========================================================================
+    #     The following methods are used for exporting maps as TIFF and TXT
+    def get_parameters_for_exporting_maps(self):
+        dataset_list, dset_sel = self.get_maps_dataset_list()
+        scalers, scaler_sel = self.get_maps_scaler_list()
+        interpolate_on = self.get_maps_grid_interpolate()
+        quant_norm_on = self.get_maps_quant_norm_enabled()
+
+        return {"dset_list": dataset_list,
+                "dset_sel": dset_sel,  # We want it to start from 0
+                "scaler_list": scalers,
+                "scaler_sel": scaler_sel,
+                "interpolate_on": interpolate_on,
+                "quant_norm_on": quant_norm_on}
+
+    def export_xrf_maps(self, *, results_path, dataset_name, scaler_name,
+                        interpolate_on, quant_norm_on, file_formats):
+        # We don't want to make any changes to 'param_quant_analysis' at the original location
+        #   This is a temporary copy.
+        param_quant_analysis = copy.deepcopy(self.img_model_adv.param_quant_analysis)
+        param_quant_analysis.experiment_detector_channel = \
+            self.img_model_adv.get_detector_channel_name(dataset_name)
+        for file_format in file_formats:
+            self.fit_model.output_2Dimage(results_path=results_path, dataset_name=dataset_name,
+                                          scaler_name=scaler_name, interpolate_on=interpolate_on,
+                                          quant_norm_on=quant_norm_on,
+                                          param_quant_analysis=param_quant_analysis,
+                                          file_format=file_format)
+
+    # ==========================================================================
+    #     Selection of the region pixels for saved spectra in Maps tab
+    def get_enable_save_spectra(self):
+        return self.fit_model.save_point
+
+    def set_enable_save_spectra(self, enabled):
+        self.fit_model.save_point = enabled
+
+    def get_dataset_map_size(self):
+        return self.io_model.get_dataset_map_size()
+
+    def get_selection_area_save_spectra(self):
+        return {"row_min": self.fit_model.point1v + 1,
+                "row_max": self.fit_model.point2v,
+                "col_min": self.fit_model.point1h + 1,
+                "col_max": self.fit_model.point2h}
+
+    def set_selection_area_save_spectra(self, area):
+        map_size = self.get_dataset_map_size()
+        map_size = (1, 1) if map_size is None else map_size
+        n_rows, n_cols = map_size
+
+        def _fit_to_range(val, val_min, val_max):
+            if val < val_min:
+                val = val_min
+            if val > val_max:
+                val = val_max
+            return val
+
+        # Modify the selection so that at least one row or column is selected
+        #   (area is at least 1 pixel wide in every direction)
+        row_min = _fit_to_range(area["row_min"] - 1, 0, n_rows - 1)
+        row_max = _fit_to_range(area["row_max"], row_min + 1, n_rows)
+        col_min = _fit_to_range(area["col_min"] - 1, 0, n_cols - 1)
+        col_max = _fit_to_range(area["col_max"], col_min + 1, n_cols)
+        self.fit_model.point1v = row_min
+        self.fit_model.point2v = row_max
+        self.fit_model.point1h = col_min
+        self.fit_model.point2h = col_max

@@ -243,14 +243,15 @@ class DrawImageAdvanced(Atom):
                         default_items[item] = k[item]
             self.img_dict['use_default_selection'] = default_items
 
-    def get_detector_channel_name(self):
+    def get_detector_channel_name(self, img_title=None):
         # Return the name of the selected detector channel ('sum', 'det1', 'det2' etc)
         #   The channel name is extracted from 'self.img_title' (selected in 'ElementMap' tab)
-        if self.img_title:
-            if re.search(r"_det\d+_fit$", self.img_title):
-                s = re.search(r"_det\d+_", self.img_title)[0]
+        img_title = self.img_title if (img_title is None) else img_title
+        if img_title:
+            if re.search(r"_det\d+_fit$", img_title):
+                s = re.search(r"_det\d+_", img_title)[0]
                 return s.strip('_')
-            if re.search(r"_fit", self.img_title):
+            if re.search(r"_fit", img_title):
                 return "sum"
         else:
             return None

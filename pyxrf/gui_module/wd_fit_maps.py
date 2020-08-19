@@ -1,7 +1,7 @@
 import os
 import textwrap
 
-from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox, QLineEdit,
+from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox,
                              QCheckBox, QLabel, QComboBox, QDialog, QDialogButtonBox, QFileDialog,
                              QRadioButton, QButtonGroup, QGridLayout, QTextEdit, QTableWidget,
                              QTableWidgetItem, QHeaderView, QWidget, QScrollArea,
@@ -11,7 +11,8 @@ from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal
 
 from .useful_widgets import (LineEditReadOnly, global_gui_parameters, get_background_css,
                              PushButtonMinimumWidth, SecondaryWindow, set_tooltip, LineEditExtended,
-                             PushButtonNamed, CheckBoxNamed, RangeManager, DoubleValidatorStrict)
+                             PushButtonNamed, CheckBoxNamed, RangeManager,
+                             IntValidatorStrict, DoubleValidatorStrict)
 from .form_base_widget import FormBaseWidget
 
 import logging
@@ -76,17 +77,31 @@ class FitMapsWidget(FormBaseWidget):
     def _setup_settings(self):
         self.group_settings = QGroupBox("Options")
 
-        self.cb_save_plots = QCheckBox("Save spectra for pixels in the selected region")
-        self.le_start_row = QLineEdit("0")
-        self.le_start_col = QLineEdit("0")
+        self._dset_n_rows = 1
+        self._dset_n_cols = 1
+        self._area_row_min = 1
+        self._area_row_max = 1
+        self._area_col_min = 1
+        self._area_col_max = 1
+        self._validator_selected_area = IntValidatorStrict()
 
-        self.le_end_row = QLineEdit("0")
-
-        self.le_end_col = QLineEdit("0")
+        self.le_start_row = LineEditExtended()
+        self.le_start_row.textChanged.connect(self.le_start_row_text_changed)
+        self.le_start_row.editingFinished.connect(self.le_start_row_editing_finished)
+        self.le_start_col = LineEditExtended()
+        self.le_start_col.textChanged.connect(self.le_start_col_text_changed)
+        self.le_start_col.editingFinished.connect(self.le_start_col_editing_finished)
+        self.le_end_row = LineEditExtended()
+        self.le_end_row.textChanged.connect(self.le_end_row_text_changed)
+        self.le_end_row.editingFinished.connect(self.le_end_row_editing_finished)
+        self.le_end_col = LineEditExtended()
+        self.le_end_col.textChanged.connect(self.le_end_col_text_changed)
+        self.le_end_col.editingFinished.connect(self.le_end_col_editing_finished)
 
         self.group_save_plots = QGroupBox("Save spectra for pixels in the selected region")
         self.group_save_plots.setCheckable(True)
         self.group_save_plots.setChecked(False)
+        self.group_save_plots.toggled.connect(self.group_save_plots_toggled)
 
         vbox = QVBoxLayout()
         grid = QGridLayout()
@@ -94,17 +109,12 @@ class FitMapsWidget(FormBaseWidget):
         grid.addWidget(self.le_start_row, 0, 1)
         grid.addWidget(QLabel("column:"), 0, 2)
         grid.addWidget(self.le_start_col, 0, 3)
-        grid.addWidget(QLabel("End row(*):"), 1, 0)
+        grid.addWidget(QLabel("End row:"), 1, 0)
         grid.addWidget(self.le_end_row, 1, 1)
         grid.addWidget(QLabel("column:"), 1, 2)
         grid.addWidget(self.le_end_col, 1, 3)
         vbox.addLayout(grid)
 
-        hbox = QHBoxLayout()
-        hbox.addStretch(1)
-        hbox.addWidget(QLabel("* Point is not included in the selection"))
-        hbox.addStretch(1)
-        vbox.addLayout(hbox)
         self.group_save_plots.setLayout(vbox)
 
         vbox = QVBoxLayout()
@@ -152,13 +162,11 @@ class FitMapsWidget(FormBaseWidget):
     def _set_tooltips(self):
         set_tooltip(
             self.group_settings,
-            "Raw spectra of individual pixels are saved for the selected region of the map."
+            "Raw spectra of individual pixels are saved as <b>.png</b> files for "
+            "the selected region of the map."
             "The region is selected by specifying the <b>Start</b> and <b>End</b> coordinates "
-            "in pixels. The coordinates are defined by numbers of row and column. 'End row' and "
-            "'End column' are not included in the selection. The end row and column are "
-            "<b>not included</b> in the selection. If only 'Start' coordinates are specified, "
-            "then one spectrum for the pixel defined by 'Start row' and 'Start column' coordinates "
-            "is saved")
+            "(ranges of rows and columns) in pixels. The first and last rows and columns are "
+            "included in the selection.")
         set_tooltip(
             self.le_start_row,
             "Number of the <b>first row</b> of the map to be included in the selection. "
@@ -169,18 +177,12 @@ class FitMapsWidget(FormBaseWidget):
             "The number must be less than the number entered into 'End column' box.")
         set_tooltip(
             self.le_end_row,
-            "Number of the <b>row following the last row</b> included in the selection. "
-            "The number must be greater than the number entered into 'Start row' box. "
-            "The field may be left empty. If 'End row' and 'End column' are empty, then "
-            "only one spectrum for the pixel with coordinates 'Start row' and 'Start column' "
-            "is saved")
+            "Number of the <b>last row</b> included in the selection. "
+            "The number must be greater than the number entered into 'Start row' box.")
         set_tooltip(
             self.le_end_col,
-            "Number of the <b>column following the last column</b> included in the selection. "
-            "The number must be greater than the number entered into 'Start column' box."
-            "The field may be left empty. If 'End row' and 'End column' are empty, then "
-            "only one spectrum for the pixel with coordinates 'Start row' and 'Start column' "
-            "is saved")
+            "Number of the <b>last column</b> included in the selection. "
+            "The number must be greater than the number entered into 'Start column' box.")
 
         set_tooltip(
             self.pb_start_map_fitting,
@@ -222,6 +224,14 @@ class FitMapsWidget(FormBaseWidget):
         self.pb_compute_roi_maps.setEnabled(state_file_loaded & state_model_exist)
         self.group_save_results.setEnabled(state_xrf_map_exists)
         self.group_quant_analysis.setEnabled(state_xrf_map_exists)
+
+    def slot_update_for_new_loaded_run(self):
+        self.gpc.set_enable_save_spectra(False)
+        selected_area = {"row_min": 1, "row_max": 1,
+                         "col_min": 1, "col_max": 1}
+        self.gpc.set_selection_area_save_spectra(selected_area)
+
+        self._update_area_selection_controls()
 
     def pb_compute_roi_maps_clicked(self):
         # Position the window in relation ot the main window (only when called once)
@@ -278,12 +288,54 @@ class FitMapsWidget(FormBaseWidget):
 
     def pb_export_to_tiff_and_txt_clicked(self):
         # TODO: Propagate full path to the saved file here
-        dir_path = os.path.expanduser("~")
+        dir_path = self.gpc.get_current_working_directory()
+        dir_path = os.path.expanduser(dir_path)
+
+        params = self.gpc.get_parameters_for_exporting_maps()
 
         dlg = DialogExportToTiffAndTxt(dir_path=dir_path)
+        dlg.dset_list = params["dset_list"]
+        dlg.dset_sel = params["dset_sel"]
+        dlg.scaler_list = params["scaler_list"]
+        dlg.scaler_sel = params["scaler_sel"]
+        dlg.interpolate_on = params["interpolate_on"]
+        dlg.quant_norm_on = params["quant_norm_on"]
+
         res = dlg.exec()
         if res:
-            print(f"Saving TIFF and TXT files to the directory '{dlg.dir_path}'")
+            try:
+                result_path = dlg.dir_path
+                dataset_name = dlg.get_selected_dset_name()
+                scaler_name = dlg.get_selected_scaler_name()
+                interpolate_on = dlg.interpolate_on
+                quant_norm_on = dlg.quant_norm_on
+                file_formats = []
+                if dlg.save_tiff:
+                    file_formats.append("tiff")
+                if dlg.save_txt:
+                    file_formats.append("txt")
+                self.gpc.export_xrf_maps(results_path=result_path,
+                                         dataset_name=dataset_name,
+                                         scaler_name=scaler_name,
+                                         interpolate_on=interpolate_on,
+                                         quant_norm_on=quant_norm_on,
+                                         file_formats=file_formats)
+                if file_formats:
+                    formats_text = " and ".join([_.upper() for _ in file_formats])
+                else:
+                    formats_text = "No"
+                msg = f"{formats_text} files were saved to the directory '{result_path}'"
+                logger.info(msg)
+
+                msgbox = QMessageBox(QMessageBox.Information, "Files Saved",
+                                     msg, QMessageBox.Ok, parent=self)
+                msgbox.exec()
+
+            except Exception as ex:
+                msg = str(ex)
+                msgbox = QMessageBox(QMessageBox.Critical, "Error",
+                                     msg, QMessageBox.Ok, parent=self)
+                msgbox.exec()
 
     def pb_load_quant_calib_clicked(self):
         # Position the window in relation ot the main window (only when called once)
@@ -336,6 +388,110 @@ class FitMapsWidget(FormBaseWidget):
                                    "Results are presented in 'XRF Maps' tab.", 5000)
             self.gui_vars["gui_state"]["running_computations"] = False
             self.update_global_state.emit()
+
+    def group_save_plots_toggled(self, state):
+        self.gpc.set_enable_save_spectra(state)
+
+    def le_start_row_text_changed(self, text):
+        valid = self._validate_row_number(text) and int(text) <= self._area_row_max
+        self.le_start_row.setValid(valid)
+
+    def le_start_row_editing_finished(self):
+        text = self.le_start_row.text()
+        valid = self._validate_row_number(text) and int(text) <= self._area_row_max
+        if valid:
+            self._save_selected_area(row_min=int(text))
+        else:
+            self._show_selected_area()
+
+    def le_end_row_text_changed(self, text):
+        valid = self._validate_row_number(text) and int(text) >= self._area_row_min
+        self.le_end_row.setValid(valid)
+
+    def le_end_row_editing_finished(self):
+        text = self.le_end_row.text()
+        valid = self._validate_row_number(text) and int(text) >= self._area_row_min
+        if valid:
+            self._save_selected_area(row_max=int(text))
+        else:
+            self._show_selected_area()
+
+    def le_start_col_text_changed(self, text):
+        valid = self._validate_col_number(text) and int(text) <= self._area_col_max
+        self.le_start_col.setValid(valid)
+
+    def le_start_col_editing_finished(self):
+        text = self.le_start_col.text()
+        valid = self._validate_col_number(text) and int(text) <= self._area_col_max
+        if valid:
+            self._save_selected_area(col_min=int(text))
+        else:
+            self._show_selected_area()
+
+    def le_end_col_text_changed(self, text):
+        valid = self._validate_col_number(text) and int(text) >= self._area_col_min
+        self.le_end_col.setValid(valid)
+
+    def le_end_col_editing_finished(self):
+        text = self.le_end_col.text()
+        valid = self._validate_col_number(text) and int(text) >= self._area_col_min
+        if valid:
+            self._save_selected_area(col_max=int(text))
+        else:
+            self._show_selected_area()
+
+    def _validate_row_number(self, value_str):
+        if self._validator_selected_area.validate(value_str, 0)[0] != IntValidatorStrict.Acceptable:
+            return False
+        value = int(value_str)
+        if 1 <= value <= self._dset_n_rows:
+            return True
+        else:
+            return False
+
+    def _validate_col_number(self, value_str):
+        if self._validator_selected_area.validate(value_str, 0)[0] != IntValidatorStrict.Acceptable:
+            return False
+        value = int(value_str)
+        if 1 <= value <= self._dset_n_cols:
+            return True
+        else:
+            return False
+
+    def _update_area_selection_controls(self):
+        map_size = self.gpc.get_dataset_map_size()
+        map_size = (1, 1) if map_size is None else map_size
+        self._dset_n_rows, self._dset_n_cols = map_size
+
+        self.group_save_plots.setChecked(self.gpc.get_enable_save_spectra())
+        area = self.gpc.get_selection_area_save_spectra()
+        self._area_row_min = area['row_min']
+        self._area_row_max = area['row_max']
+        self._area_col_min = area['col_min']
+        self._area_col_max = area['col_max']
+        self._show_selected_area()
+
+    def _show_selected_area(self):
+        self.le_start_row.setText(f"{self._area_row_min}")
+        self.le_end_row.setText(f"{self._area_row_max}")
+        self.le_start_col.setText(f"{self._area_col_min}")
+        self.le_end_col.setText(f"{self._area_col_max}")
+
+    def _save_selected_area(self, row_min=None, row_max=None, col_min=None, col_max=None):
+        if row_min is not None:
+            self._area_row_min = row_min
+        if row_max is not None:
+            self._area_row_max = row_max
+        if col_min is not None:
+            self._area_col_min = col_min
+        if col_max is not None:
+            self._area_col_max = col_max
+        area = {"row_min": self._area_row_min,
+                "row_max": self._area_row_max,
+                "col_min": self._area_col_min,
+                "col_max": self._area_col_max}
+        self.gpc.set_selection_area_save_spectra(area)
+        self._update_area_selection_controls()
 
 
 class WndComputeRoiMaps(SecondaryWindow):
@@ -1389,7 +1545,6 @@ class DialogSaveCalibration(QDialog):
         file_path = file_path[0]
         if file_path:
             self.file_path = file_path
-            print(f"Selected file path for saving calibration standard: '{file_path}'")
 
     def le_distance_to_sample_text_changed(self, text):
         valid = self._le_distance_to_sample_validator.validate(text, 0)[0] == QDoubleValidator.Acceptable
@@ -1436,38 +1591,53 @@ class DialogExportToTiffAndTxt(QDialog):
         super().__init__(parent)
 
         self.__dir_path = ""
+        self.__save_tiff = True
+        self.__save_txt = False
+        self.__interpolate_on = False
+        self.__quant_norm_on = False
+        self.__dset_list = []
+        self.__dset_sel = 0
+        self.__scaler_list = []
+        self.__scaler_sel = 0
 
         self.setWindowTitle("Export XRF Maps to TIFF and/or TXT Files")
         self.setMinimumHeight(600)
         self.setMinimumWidth(600)
         self.resize(600, 600)
 
+        self.te_saved_files = QTextEdit()
+        set_tooltip(self.te_saved_files,
+                    "The list of <b>data file groups</b> about to be created.")
+        self.te_saved_files.setReadOnly(True)
+
         self.combo_select_dataset = QComboBox()
-        sample_datasets = ["scan2D_28844_amk_fit", "scan2D_28844_amk_roi",
-                           "scan2D_28844_amk_scaler", "positions"]
-        # datasets = ["Select Dataset ..."] + sample_datasets
-        datasets = sample_datasets
-        self.combo_select_dataset.addItems(datasets)
+        self.combo_select_dataset.currentIndexChanged.connect(
+            self.combo_select_dataset_current_index_changed)
+        self._fill_dataset_combo()
         set_tooltip(self.combo_select_dataset,
                     "Select <b>dataset</b>. Initially, the selection matches the dataset activated "
                     "in <b>XRF Maps</b> tab, but the selection may be changed if different dataset "
                     "needs to be saved.")
 
         self.combo_normalization = QComboBox()
+        self.combo_normalization.currentIndexChanged.connect(
+            self.combo_normalization_current_index_changed)
+        self._fill_scaler_combo()
         set_tooltip(self.combo_normalization,
                     "Select <b>scaler</b> used for data normalization. Initially, the selection matches "
                     "the scaler activated in <b>XRF Maps</b> tab, but the selection may be changed "
                     "if needed")
-        sample_scalers = ["i0", "i0_time", "time", "time_diff"]
-        scalers = ["Normalize by ..."] + sample_scalers
-        self.combo_normalization.addItems(scalers)
 
         self.cb_interpolate = QCheckBox("Interpolate to uniform grid")
+        self.cb_interpolate.setChecked(Qt.Checked if self.__interpolate_on else Qt.Unchecked)
+        self.cb_interpolate.stateChanged.connect(self.cb_interpolate_state_changed)
         set_tooltip(self.cb_interpolate,
                     "Interpolate pixel coordinates to <b>uniform grid</b>. The initial choice is "
                     "copied from <b>XRF Maps</b> tab.")
 
         self.cb_quantitative = QCheckBox("Quantitative normalization")
+        self.cb_quantitative.setChecked(Qt.Checked if self.__quant_norm_on else Qt.Unchecked)
+        self.cb_quantitative.stateChanged.connect(self.cb_quantitative_state_changed)
         set_tooltip(self.cb_quantitative,
                     "Apply <b>quantitative normalization</b> before saving the maps. "
                     "The initial choice is copied from <b>XRF Maps</b> tab.")
@@ -1480,11 +1650,6 @@ class DialogExportToTiffAndTxt(QDialog):
         grid.addWidget(self.cb_quantitative, 1, 1)
         self.group_settings.setLayout(grid)
 
-        self.te_saved_files = QTextEdit()
-        set_tooltip(self.te_saved_files,
-                    "The list of <b>data files</b> about to be created.")
-        self.te_saved_files.setReadOnly(True)
-
         self.le_dir_path = LineEditReadOnly()
         set_tooltip(self.le_dir_path,
                     "<b>Root directory</b> for saving TIFF and TXT files. The files will be saved "
@@ -1493,16 +1658,19 @@ class DialogExportToTiffAndTxt(QDialog):
         set_tooltip(self.pb_dir_path,
                     "Change to <b>root directory</b> for TIFF and TXT files.")
         self.pb_dir_path.clicked.connect(self.pb_dir_path_clicked)
+        self.pb_dir_path.setDefault(False)
+        self.pb_dir_path.setAutoDefault(False)
 
         self.cb_save_tiff = QCheckBox("Save TIFF")
         set_tooltip(self.cb_save_tiff,
                     "Save XRF Maps as <b>TIFF</b> files.")
-        self.cb_save_tiff.setChecked(True)
-        self.cb_save_tiff.toggled.connect(self.cb_save_tiff_toggled)
+        self.cb_save_tiff.setChecked(Qt.Checked if self.__save_tiff else Qt.Unchecked)
+        self.cb_save_tiff.stateChanged.connect(self.cb_save_tiff_state_changed)
         self.cb_save_txt = QCheckBox("Save TXT")
+        self.cb_save_txt.setChecked(Qt.Checked if self.__save_txt else Qt.Unchecked)
         set_tooltip(self.cb_save_txt,
                     "Save XRF Maps as <b>TXT</b> files.")
-        self.cb_save_txt.toggled.connect(self.cb_save_txt_toggled)
+        self.cb_save_txt.stateChanged.connect(self.cb_save_txt_state_changed)
 
         vbox = QVBoxLayout()
 
@@ -1512,7 +1680,7 @@ class DialogExportToTiffAndTxt(QDialog):
         vbox.addLayout(hbox)
 
         hbox = QHBoxLayout()
-        hbox.addWidget(QLabel("The following files will be created:"))
+        hbox.addWidget(QLabel("The following groups of files will be created:"))
         hbox.addStretch(1)
         vbox.addLayout(hbox)
         vbox.addWidget(self.te_saved_files)
@@ -1524,6 +1692,12 @@ class DialogExportToTiffAndTxt(QDialog):
         vbox.addLayout(hbox)
 
         self.button_box = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
+        self.pb_save = self.button_box.button(QDialogButtonBox.Save)
+        self.pb_save.setDefault(False)
+        self.pb_save.setAutoDefault(False)
+        self.pb_cancel = self.button_box.button(QDialogButtonBox.Cancel)
+        self.pb_cancel.setDefault(True)
+        self.pb_cancel.setAutoDefault(True)
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)
 
@@ -1541,6 +1715,9 @@ class DialogExportToTiffAndTxt(QDialog):
         dir_path = os.path.expanduser(dir_path)
         self.dir_path = dir_path
 
+        self._update_pb_save()
+        self._update_saved_file_groups()
+
     @property
     def dir_path(self):
         return self.__dir_path
@@ -1550,6 +1727,80 @@ class DialogExportToTiffAndTxt(QDialog):
         self.__dir_path = dir_path
         self.le_dir_path.setText(dir_path)
 
+    @property
+    def save_tiff(self):
+        return self.__save_tiff
+
+    @save_tiff.setter
+    def save_tiff(self, save_tiff):
+        self.__save_tiff = save_tiff
+        self.cb_save_tiff.setChecked(Qt.Checked if save_tiff else Qt.Unchecked)
+        self._update_pb_save()
+
+    @property
+    def save_txt(self):
+        return self.__save_txt
+
+    @save_txt.setter
+    def save_txt(self, save_txt):
+        self.__save_txt = save_txt
+        self.cb_save_txt.setChecked(Qt.Checked if save_txt else Qt.Unchecked)
+        self._update_pb_save()
+
+    @property
+    def interpolate_on(self):
+        return self.__interpolate_on
+
+    @interpolate_on.setter
+    def interpolate_on(self, interpolate_on):
+        self.__interpolate_on = interpolate_on
+        self.cb_interpolate.setChecked(Qt.Checked if interpolate_on else Qt.Unchecked)
+
+    @property
+    def quant_norm_on(self):
+        return self.__quant_norm_on
+
+    @quant_norm_on.setter
+    def quant_norm_on(self, quant_norm_on):
+        self.__quant_norm_on = quant_norm_on
+        self.cb_quantitative.setChecked(Qt.Checked if quant_norm_on else Qt.Unchecked)
+
+    @property
+    def dset_list(self):
+        return self.__dset_list
+
+    @dset_list.setter
+    def dset_list(self, dset_list):
+        self.__dset_list = dset_list
+        self._fill_dataset_combo()
+
+    @property
+    def dset_sel(self):
+        return self.__dset_sel
+
+    @dset_sel.setter
+    def dset_sel(self, dset_sel):
+        self.__dset_sel = dset_sel
+        self.combo_select_dataset.setCurrentIndex(dset_sel - 1)
+
+    @property
+    def scaler_list(self):
+        return self.__scaler_list
+
+    @scaler_list.setter
+    def scaler_list(self, scaler_list):
+        self.__scaler_list = scaler_list
+        self._fill_scaler_combo()
+
+    @property
+    def scaler_sel(self):
+        return self.__scaler_sel
+
+    @scaler_sel.setter
+    def scaler_sel(self, scaler_sel):
+        self.__scaler_sel = scaler_sel
+        self.combo_normalization.setCurrentIndex(scaler_sel)
+
     def pb_dir_path_clicked(self):
         # Note: QFileDialog.ShowDirsOnly is not set on purpose, so that the dialog
         #   could be used to inspect directory contents. Files can not be selected anyway.
@@ -1558,21 +1809,90 @@ class DialogExportToTiffAndTxt(QDialog):
                                                     options=QFileDialog.DontResolveSymlinks)
         if dir_path:
             self.dir_path = dir_path
-            print(f"Selected directory: '{self.dir_path}'")
 
-    def enable_save_button(self):
+    def _update_pb_save(self):
+        state = self.__save_tiff or self.__save_txt
+        self.pb_save.setEnabled(state)
 
-        btn_ok = self.button_box.button(QDialogButtonBox.Save)
+    def cb_save_tiff_state_changed(self, state):
+        self.__save_tiff = (state == Qt.Checked)
+        self._update_pb_save()
+        self._update_saved_file_groups()
 
-        if self.cb_save_tiff.isChecked() or self.cb_save_txt.isChecked():
-            btn_ok.setEnabled(True)
-            print("Enable Save button")
+    def cb_save_txt_state_changed(self, state):
+        self.__save_txt = (state == Qt.Checked)
+        self._update_pb_save()
+        self._update_saved_file_groups()
+
+    def cb_interpolate_state_changed(self, state):
+        self.__interpolate_on = (state == Qt.Checked)
+
+    def cb_quantitative_state_changed(self, state):
+        self.__quant_norm_on = (state == Qt.Checked)
+        self._update_saved_file_groups()
+
+    def combo_select_dataset_current_index_changed(self, index):
+        self.__dset_sel = index + 1
+        self._update_saved_file_groups()
+
+    def combo_normalization_current_index_changed(self, index):
+        self.__scaler_sel = index
+        self._update_saved_file_groups()
+
+    def get_selected_dset_name(self):
+        index = self.__dset_sel - 1
+        n = len(self.__dset_list)
+        if index < 0 or index >= n:
+            return None
         else:
-            btn_ok.setEnabled(False)
-            print("Disable Save button")
+            return self.__dset_list[index]
 
-    def cb_save_tiff_toggled(self, state):
-        self.enable_save_button()
+    def get_selected_scaler_name(self):
+        index = self.__scaler_sel - 1
+        n = len(self.__scaler_list)
+        if index < 0 or index >= n:
+            return None
+        else:
+            return self.__scaler_list[index]
 
-    def cb_save_txt_toggled(self, state):
-        self.enable_save_button()
+    def _fill_dataset_combo(self):
+        self.combo_select_dataset.clear()
+        self.combo_select_dataset.addItems(self.__dset_list)
+        self.combo_select_dataset.setCurrentIndex(self.__dset_sel - 1)
+
+    def _fill_scaler_combo(self):
+        scalers = ["Normalize by ..."] + self.__scaler_list
+        self.combo_normalization.clear()
+        self.combo_normalization.addItems(scalers)
+        self.combo_normalization.setCurrentIndex(self.__scaler_sel)
+
+    def _update_saved_file_groups(self):
+        dset_name = self.get_selected_dset_name()
+        scaler_name = self.get_selected_scaler_name()
+        is_fit, is_roi = False, False
+        if dset_name is not None:
+            is_fit = dset_name.endswith("fit")
+            is_roi = dset_name.endswith("roi")
+
+        text_common = ""
+        if is_fit:
+            text_common += "  - Fitted XRF maps\n"
+        elif is_roi:
+            text_common += "  - ROI maps\n"
+        if (is_fit or is_roi) and (scaler_name is not None):
+            text_common += f"  - Normalized maps (scaler '{scaler_name}')\n"
+        if is_fit and self.__quant_norm_on:
+            text_common += "  - Quantitative maps (if calibration data is loaded)\n"
+        text_common += "  - Scalers\n"
+        text_common += "  - Positional coordinates\n"
+
+        text = ""
+        if self.__save_tiff:
+            text += "TIFF FORMAT:\n" + text_common
+        if self.__save_txt:
+            if text:
+                text += "\n"
+            text += "TXT_FORMAT:\n" + text_common
+        if not text:
+            text = "No files will be saved"
+        self.te_saved_files.setText(text)

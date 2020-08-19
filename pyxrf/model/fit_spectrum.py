@@ -114,13 +114,6 @@ class Fit1D(Atom):
     #   The variable is synchronized with the identical variable in 'DrawImageAdvanced' class
     dict_to_plot = Dict()
 
-    # The variable is replicating the identical variable in 'DrawImageAdvanced' class
-    #   True - quantitative normalization is ON, False - OFF
-    quantitative_normalization = Bool()
-    # The reference to the object holding parameters for quantitative normalization
-    #   The variable is synchronized to the identical variable in 'DrawImageAdvanced' class
-    param_quant_analysis = Typed(object)
-
     function_num = Int(0)
     nvar = Int(0)
     chi2 = Float(0.0)
@@ -307,16 +300,6 @@ class Fit1D(Atom):
         r"""Observer function. Sets ``dict_to_plot`` field to the same value as
         the identical variable in ``DrawImageAdvanced`` class"""
         self.dict_to_plot = change['value']
-
-    def quantitative_normalization_update(self, change):
-        r"""Observer function. Sets ``quantitative_normalization`` field to the same value as
-        the identical variable in ``DrawImageAdvanced`` class"""
-        self.quantitative_normalization = change['value']
-
-    def param_quant_analysis_update(self, change):
-        r"""Observer function. Sets ``param_quant_analysis`` field to the same value as
-        the identical variable in ``DrawImageAdvanced`` class"""
-        self.param_quant_analysis = change['value']
 
     def energy_bound_high_update(self, change):
         """
@@ -972,35 +955,54 @@ class Fit1D(Atom):
 
         return plotted_dict, channel_name, scaler_name
 
-    def output_2Dimage(self, to_tiff=True):
+    def output_2Dimage(self, *, results_path=None, dataset_name=None, scaler_name=None,
+                       interpolate_on=None, quant_norm_on=None, param_quant_analysis=None,
+                       file_format="tiff"):
         """Read data from h5 file and save them into either tiff or txt.
 
         Parameters
         ----------
-        to_tiff : str, optional
-            save to tiff or not
+        results_path: str
+            path to the root directory where data is to be saved. Data will be saved
+            in subdirectories inside this directory.
+        dataset_name: str
+            name of the dataset (key in the dictionary `self.img_dict`
+        scaler_name: str
+            name of the scaler, must exist in `self.img_dict`
+        interpolate_on: bool
+            turns interpolation of images to uniform grid ON or OFF
+        quant_norm_on: bool
+            turns quantitative normalization of images on or off
+        param_quant_analysis: ParamQuantitativeAnalysis
+            class that contains methods for quantitative normalization
+        file_format: str
+            output file format, supported values: "tiff" or "txt"
         """
-        scaler_v = None
-        _post_name_folder = "_".join(self.data_title.split('_')[:-1])
-        if self.scaler_index > 0:
-            scaler_v = self.scaler_keys[self.scaler_index-1]
-            logger.info(f"*** NORMALIZED data is saved. Scaler: '{scaler_v}' ***")
+        supported_file_formats = ("tiff", "txt")
+        file_format = file_format.lower()
+        if file_format not in supported_file_formats:
+            raise ValueError(f"The value 'file_format={file_format}' is not supported. "
+                             f"Supported values: {supported_file_formats} ")
 
-        if to_tiff:
+        if file_format == "tiff":
             dir_prefix = "output_tiff_"
-            file_format = "tiff"
         else:
             dir_prefix = "output_txt_"
-            file_format = "txt"
 
+        dataset_dict = self.img_dict[dataset_name]
+
+        _post_name_folder = "_".join(self.data_title.split('_')[:-1])
         output_n = dir_prefix + _post_name_folder
-        output_dir = os.path.join(self.result_folder, output_n)
+        output_dir = os.path.join(results_path, output_n)
 
         # self.img_dict contains ALL loaded datasets, including a separate "positions" dataset
         if "positions" in self.img_dict:
             positions_dict = self.img_dict["positions"]
         else:
             positions_dict = {}
+
+        if scaler_name is not None:
+            logger.info(f"*** NORMALIZED data is saved. Scaler: '{scaler_name}' ***")
 
         # Scalers are located in a separate dataset in 'img_dict'. They are also referenced
         #   in each '_fit' dataset (and in the selected dataset 'self.dict_to_plot')
@@ -1014,11 +1016,11 @@ class Fit1D(Atom):
             scaler_name_list = None
 
         output_data(output_dir=output_dir,
-                    interpolate_to_uniform_grid=self.map_interpolation,
-                    dataset_name=self.img_title, quant_norm=self.quantitative_normalization,
-                    param_quant_analysis=self.param_quant_analysis,
-                    dataset_dict=self.dict_to_plot, positions_dict=positions_dict,
-                    file_format=file_format, scaler_name=scaler_v,
+                    interpolate_to_uniform_grid=interpolate_on,
+                    dataset_name=dataset_name, quant_norm=quant_norm_on,
+                    param_quant_analysis=param_quant_analysis,
+                    dataset_dict=dataset_dict, positions_dict=positions_dict,
+                    file_format=file_format, scaler_name=scaler_name,
                     scaler_name_list=scaler_name_list)
 
     def save_result(self, fname=None):
