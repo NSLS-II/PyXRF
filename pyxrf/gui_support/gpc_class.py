@@ -162,6 +162,63 @@ class GlobalProcessingClasses:
 
             return msg
 
+    def load_run_from_db(self, run_id_uid):
+        """
+        Parameters
+        ----------
+        run_id_uid: int or str
+            int - run ID (e.g. -1, 45326), str - run UID
+        """
+
+        # Copy value to 'runid' field ('runid' field should not change
+        #   during processing unless new data is loaded)
+        self.io_model.runid = run_id_uid
+        self.io_model.data_ready = False
+
+        def _update_data():
+            self.plot_model.parameters = self.param_model.param_new
+            self.plot_model.data_sets = self.io_model.data_sets
+            self.setting_model.parameters = self.param_model.param_new
+            self.setting_model.data_sets = self.io_model.data_sets
+            self.fit_model.data_sets = self.io_model.data_sets
+            self.fit_model.fit_img = {}  # clear dict in fitmodel to rm old results
+            # This will draw empty (hidden) preview plot, since no channels are selected.
+            self.plot_model.update_preview_spectrum_plot()
+            self.plot_model.update_total_count_map_preview(new_plot=True)
+
+        try:
+            self.io_model.load_data_runid()
+
+        except Exception:
+            _update_data()
+
+            # For plotting purposes, otherwise plot will not update
+            self.plot_model.plot_exp_opt = False
+            self.plot_model.show_fit_opt = False
+
+            logger.info(f"Failed to load the run #{run_id_uid}.")
+            # Clear file name or scan id from window title. This does not update
+            #   the displayed title.
+            self.io_model.window_title_clear()
+            raise
+
+        else:
+            _update_data()
+
+            # For plotting purposes, otherwise plot will not update
+            self.plot_model.plot_exp_opt = False
+            self.plot_model.plot_exp_opt = True
+            self.plot_model.show_fit_opt = False
+            self.plot_model.show_fit_opt = True
+
+            # Change window title (include file name). This does not update the visible title,
+            #   only the text attribute of 'io_model' class.
+            self.io_model.window_title_set_run_id(self.io_model.runid)
+
+            file_name = self.io_model.file_name
+            msg = ""
+            return msg, file_name
+
     def select_preview_dataset(self, *, dset_name, is_visible):
         """
         Select datasets for preview. A dataset may be selected or deselected by

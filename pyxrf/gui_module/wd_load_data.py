@@ -3,17 +3,17 @@ from threading import Thread
 import numpy as np
 
 from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout,
-                             QGroupBox, QLineEdit, QCheckBox, QLabel,
+                             QGroupBox, QCheckBox, QLabel,
                              QComboBox, QListWidget, QListWidgetItem,
                              QDialog, QDialogButtonBox, QFileDialog,
                              QRadioButton, QButtonGroup, QGridLayout,
                              QTextEdit, QMessageBox)
-from PyQt5.QtGui import QIntValidator
-from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
+from PyQt5.QtGui import QIntValidator, QRegExpValidator
+from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot, QRegExp, QThreadPool, QRunnable
 
 from .useful_widgets import (LineEditReadOnly, LineEditExtended, adjust_qlistwidget_height,
                              global_gui_parameters, PushButtonMinimumWidth,
-                             set_tooltip, clear_gui_state)
+                             set_tooltip, clear_gui_state, IntValidatorStrict)
 from .form_base_widget import FormBaseWidget
 
 import logging
@@ -24,7 +24,7 @@ class LoadDataWidget(FormBaseWidget):
 
     update_main_window_title = pyqtSignal()
     update_global_state = pyqtSignal()
-    computations_complete = pyqtSignal()
+    computations_complete = pyqtSignal(object)
 
     update_preview_map_range = pyqtSignal(str)
     signal_new_run_loaded = pyqtSignal(bool)  # True/False - success/failed
@@ -295,9 +295,8 @@ class LoadDataWidget(FormBaseWidget):
         if file_path:
             self.signal_loading_new_run.emit()
 
-            self._result = {}
-
-            def cb(file_path, result_dict):
+            def cb(file_path):
+                result_dict = {}
                 try:
                     msg = self.gpc.open_data_file(file_path)
                     status = True
@@ -309,24 +308,28 @@ class LoadDataWidget(FormBaseWidget):
                     "msg": msg,
                     "file_path": file_path
                 })
-                self.computations_complete.emit()
+                self.computations_complete.emit(result_dict)
+
+            def load_file_run(file_path):
+                class LoadFile(QRunnable):
+                    def run(self):
+                        cb(file_path=file_path)
+                return LoadFile()
 
             self.computations_complete.connect(self.slot_file_clicked)
             self.gui_vars["gui_state"]["running_computations"] = True
             self.update_global_state.emit()
-            self.bckg_thread = Thread(target=cb, kwargs={"file_path": file_path,
-                                                         "result_dict": self._result})
-            self.bckg_thread.start()
+            QThreadPool.globalInstance().start(load_file_run(file_path=file_path))
 
-    @pyqtSlot()
-    def slot_file_clicked(self):
+    @pyqtSlot(object)
+    def slot_file_clicked(self, result):
         self.computations_complete.disconnect(self.slot_file_clicked)
         self.gui_vars["gui_state"]["running_computations"] = False
         self.update_global_state.emit()
 
-        status = self._result["status"]
-        msg = self._result["msg"]  # Message is empty if file loading failed
-        file_path = self._result["file_path"]
+        status = result["status"]
+        msg = result["msg"]  # Message is empty if file loading failed
+        file_path = result["file_path"]
         if status:
             file_text = f"'{self.gpc.io_model.file_name}'"
             if self.gpc.io_model.scan_metadata_available:
@@ -397,7 +400,117 @@ class LoadDataWidget(FormBaseWidget):
 
         dlg = DialogSelectScan()
         if dlg.exec() == QDialog.Accepted:
-            print("Dialog exit: Ok button")
+            mode, id_uid = dlg.get_id_uid()
+            if mode != "id":
+                msg = "Sorry. Loading data by UID is not implemented yet."
+                msgbox = QMessageBox(QMessageBox.Information, "Feature is not implemented",
+                                     msg, QMessageBox.Ok, parent=self)
+                msgbox.exec()
+                return
+
+            self.signal_loading_new_run.emit()
+
+            def cb(id_uid):
+                result_dict = {}
+                try:
+                    msg, file_name = self.gpc.load_run_from_db(id_uid)
+                    status = True
+                except Exception as ex:
+                    msg, file_name = str(ex), ""
+                    status = False
+                result_dict.update({
+                    "status": status,
+                    "msg": msg,
+                    "id_uid": id_uid,
+                    "file_name": file_name
+                })
+                self.computations_complete.emit(result_dict)
+
+            def load_dset(id_uid):
+                class LoadDset(QRunnable):
+                    def run(self):
+                        cb(id_uid=id_uid)
+                return LoadDset()
+
+            self.computations_complete.connect(self.slot_dbase_clicked)
+            self.gui_vars["gui_state"]["running_computations"] = True
+            self.update_global_state.emit()
+            QThreadPool.globalInstance().start(load_dset(id_uid=id_uid))
+
+    @pyqtSlot(object)
+    def slot_dbase_clicked(self, result):
+        self.computations_complete.disconnect(self.slot_dbase_clicked)
+        self.gui_vars["gui_state"]["running_computations"] = False
+        self.update_global_state.emit()
+
+        status = result["status"]
+        msg = result["msg"]  # Message is empty if file loading failed
+        id_uid = result["id_uid"]
+        # file_name = result["file_name"]
+        if status:
+            file_text = f"'{self.gpc.io_model.file_name}'"
+            if self.gpc.io_model.scan_metadata_available:
+                file_text += f": ID#{self.gpc.io_model.scan_metadata['scan_id']}"
+            self.le_file.setText(file_text)
+
+            self.gui_vars["gui_state"]["state_file_loaded"] = True
+            # Invalidate fit. Fit must be rerun for new data.
+            self.gui_vars["gui_state"]["state_model_fit_exists"] = False
+            # Check if any datasets were loaded.
+            self.gui_vars["gui_state"]["state_xrf_map_exists"] = self.gpc.io_model.is_xrf_maps_available()
+
+            # Disable the button for changing working directory. This is consistent
+            #   with the behavior of the old PyXRF, but will be changed in the future.
+            self.pb_set_wd.setEnabled(False)
+
+            # Enable/disable 'View Metadata' button
+            self.pb_view_metadata.setEnabled(self.gpc.io_model.scan_metadata_available)
+            self.le_wd.setText(self.gpc.io_model.working_directory)
+
+            self.update_main_window_title.emit()
+            self.update_global_state.emit()
+
+            self._set_cbox_channel_items()
+            self._set_list_preview_items()
+
+            # Here we want to reset the range in the Total Count Map preview
+            self.update_preview_map_range.emit("reset")
+
+            self.signal_new_run_loaded.emit(True)  # Data is loaded successfully
+
+            if msg:
+                # Display warning message if it was generated
+                msgbox = QMessageBox(QMessageBox.Warning, "Warning",
+                                     msg, QMessageBox.Ok, parent=self)
+                msgbox.exec()
+
+        else:
+            self.le_file.setText(self.le_file_default)
+
+            # Disable 'View Metadata' button
+            self.pb_view_metadata.setEnabled(False)
+            self.le_wd.setText(self.gpc.io_model.working_directory)
+
+            # Clear flags: the state now is "No data is loaded".
+            clear_gui_state(self.gui_vars)
+            self.update_global_state.emit()
+
+            self.update_main_window_title.emit()
+            self.update_global_state.emit()
+
+            self._set_cbox_channel_items(items=[])
+            self._set_list_preview_items(items=[])
+
+            # Here we want to clear the range in the Total Count Map preview
+            self.update_preview_map_range.emit("clear")
+
+            self.signal_new_run_loaded.emit(False)  # Failed to load data
+
+            msg_str = f"Failed to load scan '{id_uid}'." \
+                      f"\n\nError message: {msg}"
+            msgbox = QMessageBox(QMessageBox.Critical, "Error",
+                                 msg_str, QMessageBox.Ok, parent=self)
+            msgbox.exec()
 
     def pb_apply_mask_clicked(self):
         map_size = self.gpc.io_model.get_dataset_map_size()
@@ -432,7 +545,7 @@ class LoadDataWidget(FormBaseWidget):
                     self.gpc.plot_model.update_preview_spectrum_plot()
                 except Exception as ex:
                     logger.error(f"Error occurred while applying the mask: {str(ex)}")
-                self.computations_complete.emit()
+                self.computations_complete.emit({})
 
             self.computations_complete.connect(self.slot_apply_mask_clicked)
             self.gui_vars["gui_state"]["running_computations"] = True
@@ -485,7 +598,7 @@ class LoadDataWidget(FormBaseWidget):
 
         def cb():
             self.gpc.select_preview_dataset(dset_name=dset_name, is_visible=bool(state))
-            self.computations_complete.emit()
+            self.computations_complete.emit({})
 
         self.computations_complete.connect(self.slot_preview_items_changed)
         self.gui_vars["gui_state"]["running_computations"] = True
@@ -512,24 +625,41 @@ class DialogSelectScan(QDialog):
         self.resize(400, 200)
         self.setWindowTitle("Load Run From Database")
 
+        self._id_uid = None
+        self._mode_id_uid = "id"
+
         label = QLabel("Enter run ID or UID:")
-        self.le_id_uid = QLineEdit()
+        self.le_id_uid = LineEditExtended()
+        self.le_id_uid.textChanged.connect(self.le_id_uid_text_changed)
+        self.le_id_uid.editingFinished.connect(self.le_id_uid_editing_finished)
         set_tooltip(self.le_id_uid, "Enter <b>Run ID</b> or <b>Run UID</b>.")
 
+        self._validator_id = IntValidatorStrict()
+        # Short UID example: "04c9afa7"
+        self._validator_uid_short = QRegExpValidator(QRegExp(r"[0-9a-f]{8}"))
+        # Full UID example: "04c9afa7-a43a-4af1-8e55-2034384d4a77"
+        self._validator_uid_full = QRegExpValidator(
+            QRegExp(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"))
+
         self.rb_id = QRadioButton("Run ID")
-        set_tooltip(self.rb_id, "The value in the line edit box is <b>Run ID</b>")
-        self.rb_id.setChecked(True)
+        set_tooltip(self.rb_id, "The value in the line edit box is <b>Run ID</b> "
+                                "(e.g. <b>34235</b> or <b>-1</b>)")
+        self.rb_id.setChecked(self._mode_id_uid == "id")
         self.rb_uid = QRadioButton("Run UID")
-        set_tooltip(self.rb_uid, "The value in the line edit box is <b>Run UID</b>")
+        self.rb_uid.setChecked(self._mode_id_uid == "uid")
+        set_tooltip(self.rb_uid, "The value in the line edit box is <b>Run UID</b> "
+                                 "(e.g. <b>04c9afb7-a43a-4af1-8e55-2034384d4a77</b> or <b>04c9afb7</b>)")
 
         self.btn_group = QButtonGroup()
         self.btn_group.addButton(self.rb_id)
         self.btn_group.addButton(self.rb_uid)
+        self.btn_group.buttonToggled.connect(self.btn_group_button_toggled)
 
         button_box = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)
+        self.pb_ok = button_box.button(QDialogButtonBox.Ok)
 
         vbox = QVBoxLayout()
 
@@ -555,6 +685,76 @@ class DialogSelectScan(QDialog):
 
         # This is how the button from QDialogButtonBox can be disabled
         # button_box.button(QDialogButtonBox.Ok).setEnabled(False)
+
+        self.le_id_uid.setText("")
+        self._validate_id_uid()
+
+    def btn_group_button_toggled(self, button, state):
+        if state:
+            if button == self.rb_id:
+                self._mode_id_uid = "id"
+                print("RadioButton - ID pressed")
+            elif button == self.rb_uid:
+                self._mode_id_uid = "uid"
+                print("RadioButton - UID pressed")
+
+            text = self.le_id_uid.text()
+            if self._validate_id_uid(text):
+                self._read_id_uid(text)
+
+    def le_id_uid_text_changed(self, text):
+        self._validate_id_uid(text)
+
+    def le_id_uid_editing_finished(self):
+        text = self.le_id_uid.text()
+        if self._validate_id_uid(text):
+            self._read_id_uid(text)
+
+    def get_id_uid(self):
+        """
+        Read the selected scan ID or UID
+
+        Returns
+        -------
+        (str, int) or (str, str)
+            keyword "id" or "uid" depending on whether the second element is scan ID or UID,
+            scan ID (int), scan UID (str) or None if no scan ID or UID is selected
+        """
+        return self._mode_id_uid, self._id_uid
+
+    def _validate_id_uid(self, text=None):
+        valid = False
+        if text is None:
+            text = self.le_id_uid.text()
+        if self._mode_id_uid == "id":
+            if self._validator_id.validate(text, 0)[0] == QIntValidator.Acceptable:
+                valid = True
+        elif self._mode_id_uid == "uid":
+            if (self._validator_uid_short.validate(text, 0)[0] == QIntValidator.Acceptable or
+                    self._validator_uid_full.validate(text, 0)[0] == QIntValidator.Acceptable):
+                valid = True
+
+        self.le_id_uid.setValid(valid)
+        self.pb_ok.setEnabled(valid)
+
+        return valid
+
+    def _read_id_uid(self, text):
+        # It is assumed that the entered text is valid for the selected mode
+        if text is None:
+            text = self.le_id_uid.text()
+        if self._mode_id_uid == "id":
+            self._id_uid = int(text)
+        elif self._mode_id_uid == "uid":
+            self._id_uid = text
+
+    def _set_mode(self, mode):
+        if mode == "id":
+            self._mode_id_uid = mode
+            self.rb_id.setChecked(True)
+        elif mode == "uid":
+            self._mode_id_uid = mode
+            self.rb_uid.setChecked(True)
 
 
 class DialogLoadMask(QDialog):

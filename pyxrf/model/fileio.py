@@ -362,10 +362,6 @@ class FileIOModel(Atom):
 
         requires databroker
         """
-        if db is None:
-            raise RuntimeError("databroker is not installed. This function "
-                               "is disabled.  To install databroker, see "
-                               "https://nsls-ii.github.io/install.html")
         # if self.h_num != 0 and self.v_num != 0:
         #     datashape = [self.v_num, self.h_num]
 
@@ -380,8 +376,14 @@ class FileIOModel(Atom):
         #                                             self.fname_from_db,
         #                                             load_each_channel=self.load_each_channel)
 
-        # Clear data. If loading fails, then old data should not be kept.
+        # Clear data. If reading the file fails, then old data should not be kept.
+        self.file_channel_list = []
         self.clear()
+
+        if db is None:
+            raise RuntimeError("Databroker is not installed. The scan cannot be loaded.")
+
+        logger.info(f"Loading scan: {self.runid}")
 
         rv = render_data_to_gui(self.runid,
                                 create_each_det=self.load_each_channel,

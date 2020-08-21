@@ -14,7 +14,8 @@ logger = logging.getLogger("pyxrf")
 
 
 try:
-    import databroker  # noqa: F401
+    # import databroker  # noqa: F401
+    pass
 except ImportError:
     global_gui_variables["gui_state"]["databroker_available"] = False
 else:
