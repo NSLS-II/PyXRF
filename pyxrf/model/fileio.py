@@ -356,7 +356,7 @@ class FileIOModel(Atom):
     def _update_fname(self, change):
         self.fname_from_db = 'scan2D_'+str(self.runid)
 
-    def load_data_runid(self):
+    def load_data_runid(self, run_id):
         """
         Load data according to runID number.
 
@@ -379,6 +379,8 @@ class FileIOModel(Atom):
         # Clear data. If reading the file fails, then old data should not be kept.
         self.file_channel_list = []
         self.clear()
+
+        self.runid = run_id
 
         if db is None:
             raise RuntimeError("Databroker is not installed. The scan cannot be loaded.")

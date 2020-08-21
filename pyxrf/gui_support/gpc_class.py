@@ -172,7 +172,6 @@ class GlobalProcessingClasses:
 
         # Copy value to 'runid' field ('runid' field should not change
         #   during processing unless new data is loaded)
-        self.io_model.runid = run_id_uid
         self.io_model.data_ready = False
 
         def _update_data():
@@ -187,7 +186,7 @@ class GlobalProcessingClasses:
             self.plot_model.update_total_count_map_preview(new_plot=True)
 
         try:
-            self.io_model.load_data_runid()
+            self.io_model.load_data_runid(run_id_uid)
 
         except Exception:
             _update_data()
