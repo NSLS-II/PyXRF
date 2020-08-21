@@ -269,13 +269,20 @@ class FileIOModel(Atom):
         logger.info('File is loaded: %s' % (self.file_name))
 
         # Clear data. If reading the file fails, then old data should not be kept.
+        #print(f"============ Start clearing old data =============")  ##
         self.clear()
+        #print(f"============ Finished clearing old data =============")  ##
 
+        #print(f"============ Start loading new data =============")  ##
         # focus on single file only
-        self.img_dict, self.data_sets, self.scan_metadata = \
+        img_dict, self.data_sets, self.scan_metadata = \
             file_handler(self.working_directory,
                          self.file_name,
                          load_each_channel=self.load_each_channel)
+        #print(f"============ Finished loading new data =============")  ##
+        #print(f"============ Start setting new img dict =============")  ##
+        self.img_dict = img_dict
+        #print(f"============ Finished setting new img dict =============")  ##
 
         # Full path to the data file
         self.file_path = os.path.join(self.working_directory, self.file_name)

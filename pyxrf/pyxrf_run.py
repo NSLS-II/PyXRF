@@ -44,6 +44,10 @@ def run():
     stream_handler.setLevel(args.loglevel)
     logger.addHandler(stream_handler)
 
+    # Suppress warnings except if the program is run in debug mode
+    if args.loglevel != "DEBUG":
+        sys.tracebacklimit = 0
+
     gpc = GlobalProcessingClasses()
     gpc.initialize()
 

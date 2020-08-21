@@ -416,6 +416,10 @@ class DrawImageRGB(Atom):
         return selected_data, selected_name, rgb_color_to_keys, quant_norm_applied
 
     def show_image(self):
+        # Don't plot the image if dictionary is empty (causes a lot of issues)
+        if not self.img_dict:
+            return
+
         self.fig.clf()
 
         self.ax = self.fig.add_subplot(111)
@@ -760,6 +764,7 @@ class DrawImageRGB(Atom):
         # self.fig.tight_layout()
         # self.fig.canvas.draw_idle()
         # self.fig.suptitle(self.img_title, fontsize=20)
+
         self.fig.canvas.draw_idle()
 
     def get_selected_items_for_plot(self):

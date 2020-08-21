@@ -182,7 +182,8 @@ class DrawImageAdvanced(Atom):
         self.img_dict_keys = self._get_img_dict_keys()
         logger.debug('The following groups are included for 2D image display: {}'.format(self.img_dict_keys))
 
-        if self.img_dict_keys:
+        #print(f"len(img_dict_keys) = {len(self.img_dict_keys)} {self.img_dict_keys}")
+        if len(self.img_dict_keys) > 0:
             self.select_dataset(1)
         else:
             self.select_dataset(0)
@@ -521,11 +522,17 @@ class DrawImageAdvanced(Atom):
         self.show_image()
 
     def show_image(self):
+        # Don't plot the image if dictionary is empty (causes a lot of issues)
+        if not self.img_dict:
+            return
+        #print(f"================= Start showing image ('img_model_adv'")  ##
+
         self.fig.clf()
 
         # The sequence of keys of 'img_dict' selected for plotting and ordered as 'map_keys'
         selected_keys = self.get_selected_items_for_plot()
 
+        #print(f"============= selected keys: {selected_keys}")
         # Check if positions data is available. Positions data may be unavailable
         # (not recorded in HDF5 file) if experiment is has not been completed.
         # While the data from the completed part of experiment may still be used,
@@ -830,7 +837,9 @@ class DrawImageAdvanced(Atom):
             grid[i].get_yaxis().get_major_formatter().set_useOffset(False)
 
         # self.fig.suptitle(self.img_title, fontsize=20)
+
         self.fig.canvas.draw_idle()
+        #print(f"================= Finished showing image ('img_model_adv'")  ##
 
     def get_selected_items_for_plot(self):
         """Collect the selected items for plotting.
