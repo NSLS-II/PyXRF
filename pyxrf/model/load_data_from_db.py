@@ -110,14 +110,10 @@ def fetch_run_info(run_id_uid):
     RuntimeError
         failed to fetch the run from Databroker
     """
-    # Put UID in quotes
-    if isinstance(run_id_uid, str):
-        run_id_uid = f'"{run_id_uid}"'
-
     try:
         hdr = db[run_id_uid]
-        run_id = hdr["scan_id"]
-        run_uid = hdr["uid"]
+        run_id = hdr.start["scan_id"]
+        run_uid = hdr.start["uid"]
     except Exception:
         if isinstance(run_id_uid, int):
             msg = f"ID {run_id_uid}"
