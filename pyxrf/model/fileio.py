@@ -373,7 +373,7 @@ class FileIOModel(Atom):
     def _update_fname(self, change):
         self.fname_from_db = 'scan2D_'+str(self.runid)
 
-    def load_data_runid(self, run_id):
+    def load_data_runid(self, run_id_uid):
         """
         Load data according to runID number.
 
@@ -402,9 +402,11 @@ class FileIOModel(Atom):
         if db is None:
             raise RuntimeError("Databroker is not installed. The scan cannot be loaded.")
 
-        logger.info(f"Loading scan: {self.runid}")
+        s = f"ID {run_id_uid}" if isinstance(run_id_uid, int) \
+            else f"UID '{run_id_uid}'"
+        logger.info(f"Loading scan with {s}")
 
-        rv = render_data_to_gui(self.runid,
+        rv = render_data_to_gui(run_id_uid,
                                 create_each_det=self.load_each_channel,
                                 working_directory=self.working_directory,
                                 file_overwrite_existing=self.file_overwrite_existing)
