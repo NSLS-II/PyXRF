@@ -687,10 +687,8 @@ class DialogSelectScan(QDialog):
         if state:
             if button == self.rb_id:
                 self._mode_id_uid = "id"
-                print("RadioButton - ID pressed")
             elif button == self.rb_uid:
                 self._mode_id_uid = "uid"
-                print("RadioButton - UID pressed")
 
             text = self.le_id_uid.text()
             if self._validate_id_uid(text):

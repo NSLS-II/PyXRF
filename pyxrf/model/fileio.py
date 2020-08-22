@@ -397,7 +397,7 @@ class FileIOModel(Atom):
         self.file_channel_list = []
         self.clear()
 
-        self.runid = run_id
+        #self.runid = run_id
 
         if db is None:
             raise RuntimeError("Databroker is not installed. The scan cannot be loaded.")
