@@ -134,6 +134,7 @@ class GlobalProcessingClasses:
 
             # For plotting purposes, otherwise plot will not update
             self.plot_model.plot_exp_opt = False
+
             self.plot_model.show_fit_opt = False
 
             logger.info(f"Failed to load the file '{f_name}'.")
@@ -145,14 +146,32 @@ class GlobalProcessingClasses:
             _update_data()
 
             # For plotting purposes, otherwise plot will not update
-            self.plot_model.plot_exp_opt = False
-            self.plot_model.plot_exp_opt = True
-            self.plot_model.show_fit_opt = False
-            self.plot_model.show_fit_opt = True
+            try:
+                # TODO: permanent fix for the following issue is needed
+                # Suppress Matplotlib exception.
+                #   draw_glyph_to_bitmap: glyph num is out of range
+                # This is a temporary fix, proper debugging is needed so that try..except
+                #   could be removed
+                self.plot_model.plot_exp_opt = False
+            except Exception as ex:
+                logger.error(f"Exception was raised while removing experimental data plot: {str(ex)}")
+            try:
+                self.plot_model.plot_exp_opt = True
+            except Exception as ex:
+                logger.error(f"Exception was raised while plotting experimental data: {str(ex)}")
+            try:
+                self.plot_model.show_fit_opt = False
+            except Exception as ex:
+                logger.error(f"Exception was raised while removing fitted data plot: {str(ex)}")
+            try:
+                self.plot_model.show_fit_opt = True
+            except Exception as ex:
+                logger.error(f"Exception was raised while plotting fitted data: {str(ex)}")
 
             # Change window title (include file name). This does not update the visible title,
             #   only the text attribute of 'io_model' class.
             self.io_model.window_title_set_file_name(f_name)
+            print("======== Set window title")
 
             if not self.io_model.incident_energy_available:
                 msg = ("Incident energy is not available in scan metadata and must be set manually. "
@@ -716,6 +735,47 @@ class GlobalProcessingClasses:
         self.param_model.energy_bound_high_buf = dialog_params["energy_bound_high"]["value"]
         self.param_model.energy_bound_low_buf = dialog_params["energy_bound_low"]["value"]
         return return_value
+
+    def get_general_fitting_params(self):
+        params = dict()
+
+        # Another option is self.param_model.param_new
+        source_dict = self.fit_model.param_dict
+
+        params["n_iterations_max"] = self.fit_model.fit_num
+        params["tolerance"] = self.fit_model.ftol
+        params["escape_peak_ratio"] = source_dict["non_fitting_values"]["escape_ratio"]
+
+        params["incident_energy"] = source_dict["coherent_sct_energy"]["value"]
+        params["range_low"] = source_dict["non_fitting_values"]["energy_bound_low"]["value"]
+        params["range_high"] = source_dict["non_fitting_values"]["energy_bound_high"]["value"]
+
+        params["subtract_baseline_linear"] = self.fit_model.linear_bg
+        params["subtract_baseline_snip"] = self.fit_model.use_snip
+        params["add_bias"] = self.fit_model.raise_bg
+
+        params["snip_window_size"] = source_dict["non_fitting_values"]["background_width"]
+
+        return params
+
+    def set_general_fitting_params(self, params):
+
+        # Another option is self.param_model.param_new
+        dest_dict = self.fit_model.param_dict
+
+        self.fit_model.fit_num = params["n_iterations_max"]
+        self.fit_model.ftol = params["tolerance"]
+        dest_dict["non_fitting_values"]["escape_ratio"] = params["escape_peak_ratio"]
+
+        dest_dict["coherent_sct_energy"]["value"] = params["incident_energy"]
+        dest_dict["non_fitting_values"]["energy_bound_low"]["value"] = params["range_low"]
+        dest_dict["non_fitting_values"]["energy_bound_high"]["value"] = params["range_high"]
+
+        self.fit_model.linear_bg = params["subtract_baseline_linear"]
+        self.fit_model.use_snip = params["subtract_baseline_snip"]
+        self.fit_model.raise_bg = params["add_bias"]
+
+        dest_dict["non_fitting_values"]["background_width"] = params["snip_window_size"]
 
     def get_quant_standard_list(self):
         self.fit_model.param_quant_estimation.clear_standards()

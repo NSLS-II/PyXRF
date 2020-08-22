@@ -3,7 +3,7 @@ import numpy as np
 from threading import Thread
 import copy
 
-from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox, QLineEdit,
+from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox,
                              QCheckBox, QLabel, QComboBox, QDialog, QDialogButtonBox,
                              QFileDialog, QGridLayout, QTableWidget,
                              QTableWidgetItem, QHeaderView, QMessageBox)
@@ -16,6 +16,7 @@ from .useful_widgets import (LineEditReadOnly, global_gui_parameters, ElementSel
 from .form_base_widget import FormBaseWidget
 from .dlg_find_elements import DialogFindElements
 from .dlg_select_quant_standard import DialogSelectQuantStandard
+from .dlg_general_settings_for_fitting import DialogGeneralFittingSettings
 
 import logging
 logger = logging.getLogger(__name__)
@@ -435,7 +436,9 @@ class ModelWidget(FormBaseWidget):
         self.ref_main_window.wnd_manage_emission_lines.activateWindow()
 
     def pb_general_clicked(self):
+        dialog_data = self.gpc.get_general_fitting_params()
         dlg = DialogGeneralFittingSettings()
+        dlg.set_dialog_data(dialog_data)
         ret = dlg.exec()
         if ret:
             print("Dialog closed. Changes accepted.")
@@ -1286,136 +1289,6 @@ class WndManageEmissionLines(SecondaryWindow):
     def _set_fit_status(self, status):
         self.gui_vars["gui_state"]["state_model_fit_exists"] = status
         self.signal_parameters_changed.emit()
-
-
-class DialogGeneralFittingSettings(QDialog):
-
-    def __init__(self, parent=None):
-
-        super().__init__(parent)
-
-        self.setWindowTitle("General Settings for Fitting Algorithm")
-
-        vbox_left = QVBoxLayout()
-
-        # ===== Top-left section of the dialog box =====
-        self.le_max_iterations = QLineEdit()
-        set_tooltip(self.le_max_iterations,
-                    "<b>Maximum number of iterations</b> used for total spectrum fitting.")
-        self.le_tolerance_stopping = QLineEdit()
-        set_tooltip(self.le_tolerance_stopping,
-                    "<b>Tolerance</b> setting for total spectrum fitting.")
-        self.le_escape_ratio = QLineEdit()
-        set_tooltip(self.le_escape_ratio,
-                    "Parameter for total spectrum fitting: <b>escape ration</b>")
-        grid = QGridLayout()
-        grid.addWidget(QLabel("Iterations (max):"), 0, 0)
-        grid.addWidget(self.le_max_iterations, 0, 1)
-        grid.addWidget(QLabel("Tolerance (stopping):"), 1, 0)
-        grid.addWidget(self.le_tolerance_stopping, 1, 1)
-        grid.addWidget(QLabel("Escape peak ratio:"), 2, 0)
-        grid.addWidget(self.le_escape_ratio, 2, 1)
-        self.group_total_spectrum_fitting = QGroupBox(
-            "Fitting of Total Spectrum (Model)")
-        self.group_total_spectrum_fitting.setLayout(grid)
-        vbox_left.addWidget(self.group_total_spectrum_fitting)
-
-        # ===== Bottom-left section of the dialog box =====
-
-        # Incident energy and the selected range
-        self.le_incident_energy = QLineEdit()
-        set_tooltip(self.le_incident_energy,
-                    "<b>Incident energy</b> in keV")
-        self.le_range_low = QLineEdit()
-        set_tooltip(self.le_range_low,
-                    "<b>Lower boundary</b> of the selected range in keV.")
-        self.le_range_high = QLineEdit()
-        set_tooltip(self.le_range_high,
-                    "<b>Upper boundary</b> of the selected range in keV.")
-        self.group_energy_range = QGroupBox("Incident Energy and Selected Range")
-        grid = QGridLayout()
-        grid.addWidget(QLabel("Incident energy, keV"), 0, 0)
-        grid.addWidget(self.le_incident_energy, 0, 1)
-        grid.addWidget(QLabel("Range (low), keV"), 1, 0)
-        grid.addWidget(self.le_range_low, 1, 1)
-        grid.addWidget(QLabel("Range (high), keV"), 2, 0)
-        grid.addWidget(self.le_range_high, 2, 1)
-        self.group_energy_range.setLayout(grid)
-        vbox_left.addWidget(self.group_energy_range)
-
-        vbox_right = QVBoxLayout()
-
-        # ===== Top-right section of the dialog box =====
-
-        self.cb_linear_baseline = QCheckBox("Subtract linear baseline")
-        set_tooltip(self.cb_linear_baseline,
-                    "Subtract baseline as represented as a constant. <b>XRF Map generation</b>. "
-                    "Baseline subtraction is performed as part of NNLS fitting.")
-        self.cb_snip_baseline = QCheckBox("Subtract baseline using SNIP")
-        set_tooltip(self.cb_snip_baseline,
-                    "Subtract baseline using SNIP method. <b>XRF Map generation</b>. "
-                    "This is a separate step of processing and can be used together with "
-                    "'linear' baseline subtraction if needed.")
-
-        # This option is not supported. In the future it may be removed
-        #   if not needed or implemented.
-        self.cb_add_const_to_data = QCheckBox("Add const. bias to data")
-        self.cb_add_const_to_data.setEnabled(False)
-        self.lb_add_const_to_data = QLabel("Constant bias:")
-        self.lb_add_const_to_data.setEnabled(False)
-        self.le_add_const_to_data = QLineEdit()
-        self.le_add_const_to_data.setEnabled(False)
-
-        vbox = QVBoxLayout()
-        vbox.addWidget(self.cb_linear_baseline)
-        vbox.addWidget(self.cb_snip_baseline)
-        vbox.addWidget(self.cb_add_const_to_data)
-        hbox = QHBoxLayout()
-        hbox.addWidget(self.lb_add_const_to_data)
-        hbox.addWidget(self.le_add_const_to_data)
-        vbox.addLayout(hbox)
-
-        self.group_pixel_fitting = QGroupBox("Fitting of Single Spectra (XRF Maps)")
-        self.group_pixel_fitting.setLayout(vbox)
-
-        vbox_right.addWidget(self.group_pixel_fitting)
-
-        # ===== Bottom-right section of the dialog box =====
-
-        self.le_snip_window_size = QLineEdit()
-        set_tooltip(self.le_snip_window_size,
-                    "Window size for <b>SNIP</b> algorithm. Used both for total spectrum fitting "
-                    "and XRF Map generation.")
-
-        vbox = QVBoxLayout()
-        hbox = QHBoxLayout()
-        hbox.addWidget(QLabel("SNIP window size(*):"))
-        hbox.addWidget(self.le_snip_window_size)
-        vbox.addLayout(hbox)
-        vbox.addWidget(QLabel("*Total spectrum fitting always includes \n"
-                              "    SNIP baseline subtraction"))
-
-        self.group_all_fitting = QGroupBox("All Fitting")
-        self.group_all_fitting.setLayout(vbox)
-
-        vbox_right.addWidget(self.group_all_fitting)
-        vbox_right.addStretch(1)
-
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        button_box.button(QDialogButtonBox.Cancel).setDefault(True)
-        button_box.accepted.connect(self.accept)
-        button_box.rejected.connect(self.reject)
-
-        hbox = QHBoxLayout()
-        hbox.addLayout(vbox_left)
-        hbox.addLayout(vbox_right)
-
-        vbox = QVBoxLayout()
-        vbox.addLayout(hbox)
-        vbox.addWidget(button_box)
-
-        self.setLayout(vbox)
 
 
 class _FittingSettings():
