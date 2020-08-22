@@ -344,8 +344,9 @@ class FileIOModel(Atom):
                     elif (dset_min is not None) and (dset_max is not None):
                         v_min = min(v_min, dset_min)
                         v_max = max(v_max, dset_max)
-        if v_min >= v_max:
-            v_min, v_max = v_min - 0.005, v_max + 0.005  # Some small range
+        if (v_min is not None) and (v_max is not None):
+            if v_min >= v_max:
+                v_min, v_max = v_min - 0.005, v_max + 0.005  # Some small range
         return v_min, v_max
 
     def is_xrf_maps_available(self):

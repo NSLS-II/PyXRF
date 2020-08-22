@@ -309,7 +309,6 @@ class LoadDataWidget(FormBaseWidget):
                     "file_path": file_path
                 })
                 self.computations_complete.emit(result_dict)
-                logger.info(f"File '{file_path}' was successfully loaded")
 
             def load_file_run(file_path):
                 class LoadFile(QRunnable):
@@ -420,7 +419,6 @@ class LoadDataWidget(FormBaseWidget):
                     "file_name": file_name
                 })
                 self.computations_complete.emit(result_dict)
-                logger.info(f"Run '{id_uid}' was successfully loaded")
 
             def load_dset(id_uid):
                 class LoadDset(QRunnable):

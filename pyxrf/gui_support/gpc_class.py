@@ -160,6 +160,8 @@ class GlobalProcessingClasses:
             else:
                 msg = ""
 
+            logger.info(f"Loading of the file '{file_path}' is completed.")
+
             return msg
 
     def load_run_from_db(self, run_id_uid):
@@ -216,6 +218,9 @@ class GlobalProcessingClasses:
 
             file_name = self.io_model.file_name
             msg = ""
+
+            logger.info("Loading of the run is completed")
+
             return msg, file_name
 
     def select_preview_dataset(self, *, dset_name, is_visible):
