@@ -309,6 +309,7 @@ class LoadDataWidget(FormBaseWidget):
                     "file_path": file_path
                 })
                 self.computations_complete.emit(result_dict)
+                logger.info(f"File '{file_path}' was successfully loaded")
 
             def load_file_run(file_path):
                 class LoadFile(QRunnable):
@@ -401,12 +402,6 @@ class LoadDataWidget(FormBaseWidget):
         dlg = DialogSelectScan()
         if dlg.exec() == QDialog.Accepted:
             mode, id_uid = dlg.get_id_uid()
-            if mode != "id":
-                msg = "Sorry. Loading data by UID is not implemented yet."
-                msgbox = QMessageBox(QMessageBox.Information, "Feature is not implemented",
-                                     msg, QMessageBox.Ok, parent=self)
-                msgbox.exec()
-                return
 
             self.signal_loading_new_run.emit()
 
@@ -425,6 +420,7 @@ class LoadDataWidget(FormBaseWidget):
                     "file_name": file_name
                 })
                 self.computations_complete.emit(result_dict)
+                logger.info(f"Run '{id_uid}' was successfully loaded")
 
             def load_dset(id_uid):
                 class LoadDset(QRunnable):

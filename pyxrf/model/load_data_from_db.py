@@ -90,7 +90,44 @@ def flip_data(input_data, subscan_dims=None):
     return new_data
 
 
-def fetch_data_from_db(runid, fpath=None,
+def fetch_run_info(run_id_uid):
+    """
+    Fetches key data from start document of the selected run
+
+    Parameters
+    ----------
+    run_id_uid: int or str
+        Run ID (positive or negative int) or UID (str, full or short) of the run.
+
+    Returns
+    -------
+    int or str
+        Run ID (always positive int) or Run UID (str, always full UID). Returns
+        `run_id=-1` and `run_uid=""` in case of failure.
+
+    Raises
+    ------
+    RuntimeError
+        failed to fetch the run from Databroker
+    """
+    # Put UID in quotes
+    if isinstance(run_id_uid, str):
+        run_id_uid = f'"{run_id_uid}"'
+
+    try:
+        hdr = db[run_id_uid]
+        run_id = hdr["scan_id"]
+        run_uid = hdr["uid"]
+    except Exception:
+        if isinstance(run_id_uid, int):
+            msg = f"ID {run_id_uid}"
+        else:
+            msg = f"UID '{run_id_uid}'"
+        raise RuntimeError(f"Failed to find run with {msg}.")
+    return run_id, run_uid
+
+
+def fetch_data_from_db(run_id_uid, fpath=None,
                        create_each_det=False,
                        fname_add_version=False,
                        completed_scans_only=False,
@@ -151,7 +188,7 @@ def fetch_data_from_db(runid, fpath=None,
     print('Loading data from database.')
 
     if hdr.start.beamline_id == 'HXN':
-        data = map_data2D_hxn(runid, fpath,
+        data = map_data2D_hxn(run_id_uid, fpath,
                               create_each_det=create_each_det,
                               fname_add_version=fname_add_version,
                               completed_scans_only=completed_scans_only,
@@ -159,7 +196,7 @@ def fetch_data_from_db(runid, fpath=None,
                               output_to_file=output_to_file)
     elif (hdr.start.beamline_id == 'xf05id' or
           hdr.start.beamline_id == 'SRX'):
-        data = map_data2D_srx(runid, fpath,
+        data = map_data2D_srx(run_id_uid, fpath,
                               create_each_det=create_each_det,
                               fname_add_version=fname_add_version,
                               completed_scans_only=completed_scans_only,
@@ -168,14 +205,14 @@ def fetch_data_from_db(runid, fpath=None,
                               save_scaler=save_scaler,
                               num_end_lines_excluded=num_end_lines_excluded)
     elif hdr.start.beamline_id == 'XFM':
-        data = map_data2D_xfm(runid, fpath,
+        data = map_data2D_xfm(run_id_uid, fpath,
                               create_each_det=create_each_det,
                               fname_add_version=fname_add_version,
                               completed_scans_only=completed_scans_only,
                               file_overwrite_existing=file_overwrite_existing,
                               output_to_file=output_to_file)
     elif hdr.start.beamline_id == 'TES':
-        data = map_data2D_tes(runid, fpath,
+        data = map_data2D_tes(run_id_uid, fpath,
                               create_each_det=create_each_det,
                               fname_add_version=fname_add_version,
                               completed_scans_only=completed_scans_only,
@@ -202,7 +239,8 @@ def make_hdf(start, end=None, *, fname=None, wd=None,
     ----------
 
     start : int
-        scan ID of the first scan to convert.
+        Run ID (positive or negative int) or  of the first scan to convert or Run UID
+        (str, full or short). If `start` is UID, then `end` must not be provided or set to None.
     end : int, optional
         scan ID of the last scan to convert. If ``end`` is not specified or None, then
         only the scan with ID ``start`` is converted and an exception is raised if an
@@ -306,14 +344,21 @@ def make_hdf(start, end=None, *, fname=None, wd=None,
         wd = os.path.abspath(wd)  # 'make_dirs' does not accept paths that contain '..'
         os.makedirs(wd, exist_ok=True)  # Does nothing if the directory already exists
 
-    if end is None:
+    if isinstance(start, str) or (end is None):
+        # Two cases: only one Run ID ('start') is provided or 'start' is Run UID.
+        #   In both cases only one run is loaded.
+        if end is not None:
+            raise ValueError(r"Parameter 'end' must be None if run is loaded by UID")
+
+        run_id, run_uid = fetch_run_info(start)  # This may raise RuntimeException
+
         # Load one scan with ID specified by ``start``
         #   If there is a problem while reading the scan, the exception is raised.
         if fname is None:
-            fname = prefix+str(start)+'.h5'
+            fname = prefix+str(run_id)+'.h5'
             if wd:
                 fname = os.path.join(wd, fname)
-        fetch_data_from_db(start, fpath=fname,
+        fetch_data_from_db(run_uid, fpath=fname,
                            create_each_det=create_each_det,
                            fname_add_version=fname_add_version,
                            completed_scans_only=completed_scans_only,
@@ -489,7 +534,7 @@ def _get_metadata_from_descriptor_document(hdr, *, data_key, stream_name='baseli
     return value
 
 
-def map_data2D_hxn(runid, fpath,
+def map_data2D_hxn(run_id_uid, fpath,
                    create_each_det=False,
                    fname_add_version=False,
                    completed_scans_only=False,
@@ -502,8 +547,8 @@ def map_data2D_hxn(runid, fpath,
 
     Parameters
     ----------
-    runid : int
-        id number for given run
+    run_id_uid : int
+        ID or UID of a run
     fpath: str
         path to save hdf file
     create_each_det: bool, optional
@@ -532,7 +577,7 @@ def map_data2D_hxn(runid, fpath,
     output_to_file : bool, optional
         save data to hdf5 file if True
     """
-    hdr = db[runid]
+    hdr = db[run_id_uid]
     runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
 
     if completed_scans_only and not _is_scan_complete(hdr):
@@ -647,7 +692,7 @@ def get_total_scan_point(hdr):
     return n
 
 
-def map_data2D_srx(runid, fpath,
+def map_data2D_srx(run_id_uid, fpath,
                    create_each_det=False,
                    fname_add_version=False,
                    completed_scans_only=False,
@@ -665,8 +710,8 @@ def map_data2D_srx(runid, fpath,
 
     Parameters
     ----------
-    runid : int
-        id number for given run
+    run_id_uid : int
+        ID or UID of a run
     fpath: str
         path to save hdf file
     create_each_det: bool, optional
@@ -703,7 +748,7 @@ def map_data2D_srx(runid, fpath,
     -------
     dict of data in 2D format matching x,y scanning positions
     """
-    hdr = db[runid]
+    hdr = db[run_id_uid]
     runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
 
     if completed_scans_only and not _is_scan_complete(hdr):
@@ -1113,7 +1158,7 @@ def map_data2D_srx(runid, fpath,
         return data_output
 
 
-def map_data2D_tes(runid, fpath,
+def map_data2D_tes(run_id_uid, fpath,
                    create_each_det=False,
                    fname_add_version=False,
                    completed_scans_only=False,
@@ -1133,8 +1178,8 @@ def map_data2D_tes(runid, fpath,
 
     Parameters
     ----------
-    runid : int
-        id number for given run
+    run_id_uid : int
+        ID or UID of a run
     fpath: str
         path to save hdf file
     create_each_det: bool, optional
@@ -1168,7 +1213,7 @@ def map_data2D_tes(runid, fpath,
     dict of data in 2D format matching x,y scanning positions
     """
 
-    hdr = db[runid]
+    hdr = db[run_id_uid]
     runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
 
     # The dictionary holding scan metadata
@@ -1335,7 +1380,7 @@ def map_data2D_tes(runid, fpath,
     return data_output
 
 
-def map_data2D_xfm(runid, fpath,
+def map_data2D_xfm(run_id_uid, fpath,
                    create_each_det=False,
                    fname_add_version=False,
                    completed_scans_only=False,
@@ -1352,8 +1397,8 @@ def map_data2D_xfm(runid, fpath,
 
     Parameters
     ----------
-    runid : int
-        id number for given run
+    run_id_uid : int
+        ID or UID of a run
     fpath: str
         path to save hdf file
     create_each_det: bool, optional
@@ -1386,7 +1431,7 @@ def map_data2D_xfm(runid, fpath,
     -------
     dict of data in 2D format matching x,y scanning positions
     """
-    hdr = db[runid]
+    hdr = db[run_id_uid]
     runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
 
     if completed_scans_only and not _is_scan_complete(hdr):

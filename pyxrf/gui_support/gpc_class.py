@@ -124,9 +124,7 @@ class GlobalProcessingClasses:
 
         # The following statement initiates file loading. It may raise exceptions
         try:
-            #print("================= Started loading data =================")  ##
             self.io_model.file_name = f_name
-            #print("================= Finished loading data =================")  ##
 
         except Exception:
             _update_data()

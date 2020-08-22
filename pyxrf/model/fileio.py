@@ -20,7 +20,7 @@ from collections.abc import Iterable
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Float, Enum, Bool
 from .load_data_from_db import (db, fetch_data_from_db, flip_data,
                                 helper_encode_list, helper_decode_list,
-                                write_db_to_hdf)
+                                write_db_to_hdf, fetch_run_info)
 from ..core.utils import normalize_data_by_scaler, grid_interpolate
 from ..core.map_processing import (RawHDF5Dataset, compute_total_spectrum_and_count, TerminalProgressBar,
                                    dask_client_create)
@@ -73,7 +73,9 @@ class FileIOModel(Atom):
     param_fit = Dict()
     file_channel_list = List()
 
-    runid = Int(-1)
+    runid = Int(-1)  # Run ID of the current run
+    runuid = Str()  # Run UID of the current run
+
     h_num = Int(1)
     v_num = Int(1)
     fname_from_db = Str()
@@ -269,26 +271,27 @@ class FileIOModel(Atom):
         logger.info('File is loaded: %s' % (self.file_name))
 
         # Clear data. If reading the file fails, then old data should not be kept.
-        #print(f"============ Start clearing old data =============")  ##
         self.clear()
-        #print(f"============ Finished clearing old data =============")  ##
-
-        #print(f"============ Start loading new data =============")  ##
         # focus on single file only
         img_dict, self.data_sets, self.scan_metadata = \
             file_handler(self.working_directory,
                          self.file_name,
                          load_each_channel=self.load_each_channel)
-        #print(f"============ Finished loading new data =============")  ##
-        #print(f"============ Start setting new img dict =============")  ##
         self.img_dict = img_dict
-        #print(f"============ Finished setting new img dict =============")  ##
+
+        # Replace relative scan ID with true scan ID.
 
         # Full path to the data file
         self.file_path = os.path.join(self.working_directory, self.file_name)
 
         # Process metadata
         self._metadata_update_program_state()
+
+        if self.scan_metadata_available:
+            if "scan_id" in self.scan_metadata:
+                self.runid = int(self.scan_metadata["scan_id"])
+            if "scan_uid" in self.scan_metadata:
+                self.runuid = self.scan_metadata["scan_uid"]
 
         self.data_ready = True
         self.file_channel_list = list(self.data_sets.keys())
@@ -341,6 +344,8 @@ class FileIOModel(Atom):
                     elif (dset_min is not None) and (dset_max is not None):
                         v_min = min(v_min, dset_min)
                         v_max = max(v_max, dset_max)
+        if v_min >= v_max:
+            v_min, v_max = v_min - 0.005, v_max + 0.005  # Some small range
         return v_min, v_max
 
     def is_xrf_maps_available(self):
@@ -358,6 +363,10 @@ class FileIOModel(Atom):
                 if re.search(reg, key):
                     return True
         return False
+
+    def get_uid_short(self, uid=None):
+        uid = self.runuid if uid is None else uid
+        return uid.split("-")[0]
 
     @observe(str('runid'))
     def _update_fname(self, change):
@@ -405,12 +414,14 @@ class FileIOModel(Atom):
 
         img_dict, self.data_sets, fname, detector_name, self.scan_metadata = rv
 
-        # Replace relative scan ID with true scan ID.
-        if (self.runid) < 0 and ("scan_id" in self.scan_metadata):
-            self.runid = int(self.scan_metadata["scan_id"])
-
         # Process metadata
         self._metadata_update_program_state()
+
+        # Replace relative scan ID with true scan ID.
+        if "scan_id" in self.scan_metadata:
+            self.runid = int(self.scan_metadata["scan_id"])
+        if "scan_uid" in self.scan_metadata:
+            self.runuid = self.scan_metadata["scan_uid"]
 
         # Change file name without rereading the file
         self.file_name_silent_change = True
@@ -1417,7 +1428,8 @@ def read_hdf_APS(working_directory,
     return img_dict, data_sets, mdata
 
 
-def render_data_to_gui(runid, *, create_each_det=False, working_directory=None, file_overwrite_existing=False):
+def render_data_to_gui(run_id_uid, *, create_each_det=False,
+                       working_directory=None, file_overwrite_existing=False):
     """
     Read data from databroker and save to Atom class which GUI can take.
 
@@ -1425,8 +1437,8 @@ def render_data_to_gui(runid, *, create_each_det=False, working_directory=None, 
 
     Parameters
     ----------
-    runid : int
-        id number for given run
+    run_id_uid : int or str
+        ID or UID of a run
     create_each_det : bool
         True: load data from all detector channels
         False: load only the sum of all channels
@@ -1437,6 +1449,8 @@ def render_data_to_gui(runid, *, create_each_det=False, working_directory=None, 
         False: create unique file name by adding version number
     """
 
+    run_id, run_uid = fetch_run_info(run_id_uid)  # May raise RuntimeError
+
     data_sets = OrderedDict()
     img_dict = OrderedDict()
 
@@ -1445,11 +1459,12 @@ def render_data_to_gui(runid, *, create_each_det=False, working_directory=None, 
 
     # Create file name here, so that working directory may be attached to the file name
     prefix = 'scan2D_'
-    fname = f"{prefix}{runid}.h5"
+    fname = f"{prefix}{run_id}.h5"
     if working_directory:
         fname = os.path.join(working_directory, fname)
 
-    data_from_db = fetch_data_from_db(runid,
+    # It is better to use full run UID to fetch the data.
+    data_from_db = fetch_data_from_db(run_uid,
                                       fpath=fname,
                                       fname_add_version=fname_add_version,
                                       file_overwrite_existing=file_overwrite_existing,
@@ -1459,12 +1474,14 @@ def render_data_to_gui(runid, *, create_each_det=False, working_directory=None, 
                                       output_to_file=True)
 
     if not len(data_from_db):
-        logger.warning(f"No detector data was found in Scan #{runid}")
+        logger.warning(f"No detector data was found in Run #{run_id} ('{run_uid}').")
         return
     else:
-        logger.info(f"Data from {len(data_from_db)} detectors were found in Scan #{runid}.")
+        logger.info(f"Data from {len(data_from_db)} detectors were found "
+                    f"in Run #{run_id} ('{run_uid}').")
         if len(data_from_db) > 1:
-            logger.warning(f"Selecting only the first dataset from Scan #{runid}.")
+            logger.warning(f"Selecting only the latest run (UID '{run_uid}') "
+                           f"with from Run ID #{run_id}.")
 
     # If the experiment contains data from multiple detectors (for example two separate
     #   Xpress3 detectors) that need to be treated separately, only the data from the
