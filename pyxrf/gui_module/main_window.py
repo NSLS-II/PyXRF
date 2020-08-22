@@ -48,6 +48,9 @@ class MainWindow(QMainWindow):
         # Indicates that the window was closed (used mostly for testing)
         self._is_closed = False
 
+        global_gui_variables["gui_state"]["databroker_available"] = \
+            self.gpc.is_databroker_available()
+
         self.initialize()
 
         self.central_widget.left_panel.load_data_widget.\

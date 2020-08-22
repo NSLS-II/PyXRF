@@ -4,7 +4,7 @@ import os
 import copy
 import math
 from ..model.fileio import FileIOModel
-from ..model.lineplot import LinePlotModel  # , SettingModel
+from ..model.lineplot import LinePlotModel
 from ..model.guessparam import GuessParamModel, save_as
 from ..model.draw_image import DrawImageAdvanced
 from ..model.draw_image_rgb import DrawImageRGB
@@ -101,6 +101,9 @@ class GlobalProcessingClasses:
         self.param_model.observe('energy_bound_low_buf', self.plot_model.energy_bound_low_update)
 
         logger.info('pyxrf started.')
+
+    def is_databroker_available(self):
+        return self.io_model.is_databroker_available()
 
     def open_data_file(self, file_path):
 

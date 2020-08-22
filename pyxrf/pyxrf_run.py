@@ -7,19 +7,9 @@ from PyQt5.QtCore import Qt
 
 from .gui_support.gpc_class import GlobalProcessingClasses
 from .gui_module.main_window import MainWindow
-from .gui_module.useful_widgets import global_gui_variables
 
 import logging
 logger = logging.getLogger("pyxrf")
-
-
-try:
-    # import databroker  # noqa: F401
-    pass
-except ImportError:
-    global_gui_variables["gui_state"]["databroker_available"] = False
-else:
-    global_gui_variables["gui_state"]["databroker_available"] = True
 
 # if hasattr(Qt, 'AA_EnableHighDpiScaling'):
 #     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)

@@ -194,6 +194,17 @@ class FileIOModel(Atom):
     def window_title_set_run_id(self, run_id):
         self.window_title = f"{self.window_title_base} - Scan ID: {run_id}"
 
+    def is_databroker_available(self):
+        """
+        Check if Databroker is configured and data can be loaded from the database.
+
+        Returns
+        -------
+        bool
+            True - Databroker is available, False otherwise.
+        """
+        return db is not None
+
     def _metadata_update_program_state(self):
         """
         Update program state based on metadata:
@@ -396,8 +407,6 @@ class FileIOModel(Atom):
         # Clear data. If reading the file fails, then old data should not be kept.
         self.file_channel_list = []
         self.clear()
-
-        #self.runid = run_id
 
         if db is None:
             raise RuntimeError("Databroker is not installed. The scan cannot be loaded.")
