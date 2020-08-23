@@ -441,11 +441,10 @@ class ModelWidget(FormBaseWidget):
         dlg.set_dialog_data(dialog_data)
         ret = dlg.exec()
         if ret:
-            print("Dialog closed. Changes accepted.")
+            dialog_data = dlg.get_dialog_data()
+            self.gpc.set_general_fitting_params(dialog_data)
             self._set_fit_status(False)
-
-        else:
-            print("Cancelled.")
+            self.signal_incident_energy_or_range_changed.emit()
 
     def pb_elements_clicked(self):
         dlg = DialogElementSettings()

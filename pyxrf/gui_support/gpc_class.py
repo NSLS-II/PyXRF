@@ -740,9 +740,9 @@ class GlobalProcessingClasses:
         params = dict()
 
         # Another option is self.param_model.param_new
-        source_dict = self.fit_model.param_dict
+        source_dict = self.param_model.param_new
 
-        params["n_iterations_max"] = self.fit_model.fit_num
+        params["max_iterations"] = self.fit_model.fit_num
         params["tolerance"] = self.fit_model.ftol
         params["escape_peak_ratio"] = source_dict["non_fitting_values"]["escape_ratio"]
 
@@ -761,9 +761,9 @@ class GlobalProcessingClasses:
     def set_general_fitting_params(self, params):
 
         # Another option is self.param_model.param_new
-        dest_dict = self.fit_model.param_dict
+        dest_dict = self.param_model.param_new
 
-        self.fit_model.fit_num = params["n_iterations_max"]
+        self.fit_model.fit_num = params["max_iterations"]
         self.fit_model.ftol = params["tolerance"]
         dest_dict["non_fitting_values"]["escape_ratio"] = params["escape_peak_ratio"]
 
@@ -776,6 +776,8 @@ class GlobalProcessingClasses:
         self.fit_model.raise_bg = params["add_bias"]
 
         dest_dict["non_fitting_values"]["background_width"] = params["snip_window_size"]
+
+        self.apply_to_fit()
 
     def get_quant_standard_list(self):
         self.fit_model.param_quant_estimation.clear_standards()

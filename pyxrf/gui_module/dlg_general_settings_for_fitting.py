@@ -148,6 +148,13 @@ class DialogGeneralFittingSettings(QDialog):
 
         self.setLayout(vbox)
 
+        self.le_max_iterations.textChanged.connect(self.le_max_iterations_text_changed)
+        self.le_max_iterations.editingFinished.connect(self.le_max_iterations_editing_finished)
+        self.le_tolerance_stopping.textChanged.connect(self.le_tolerance_stopping_text_changed)
+        self.le_tolerance_stopping.editingFinished.connect(self.le_tolerance_stopping_editing_finished)
+        self.le_escape_ratio.textChanged.connect(self.le_escape_ratio_text_changed)
+        self.le_escape_ratio.editingFinished.connect(self.le_escape_ratio_editing_finished)
+
         self.le_incident_energy.textChanged.connect(self.le_incident_energy_text_changed)
         self.le_incident_energy.editingFinished.connect(self.le_incident_energy_editing_finished)
         self.le_range_low.textChanged.connect(self.le_range_low_text_changed)
@@ -155,22 +162,38 @@ class DialogGeneralFittingSettings(QDialog):
         self.le_range_high.textChanged.connect(self.le_range_high_text_changed)
         self.le_range_high.editingFinished.connect(self.le_range_high_editing_finished)
 
-    def le_incident_energy_editing_finished(self):
-        if self._validate_incident_energy():
-            self._dialog_data["incident_energy"] = self._read_le_value(self.le_incident_energy)
-        if self._validate_range():
-            self._dialog_data["range_low"] = self._read_le_value(self.le_range_low)
-            self._dialog_data["range_high"] = self._read_le_value(self.le_range_high)
+        self.le_snip_window_size.textChanged.connect(self.le_snip_window_size_text_changed)
+        self.le_snip_window_size.editingFinished.connect(self.le_snip_window_size_editing_finished)
 
-    def le_range_low_editing_finished(self):
-        if self._validate_range():
-            self._dialog_data["range_low"] = self._read_le_value(self.le_range_low)
-            self._dialog_data["range_high"] = self._read_le_value(self.le_range_high)
+        self.cb_linear_baseline.stateChanged.connect(self.cb_linear_baseline_state_changed)
+        self.cb_snip_baseline.stateChanged.connect(self.cb_snip_baseline_state_changed)
 
-    def le_range_high_editing_finished(self):
-        if self._validate_range():
-            self._dialog_data["range_low"] = self._read_le_value(self.le_range_low)
-            self._dialog_data["range_high"] = self._read_le_value(self.le_range_high)
+    def le_max_iterations_text_changed(self, text):
+        self._validate_all()
+
+    def le_max_iterations_editing_finished(self):
+        if self._validate_max_interations():
+            self._dialog_data["max_iterations"] = int(self._read_le_value(self.le_max_iterations))
+        else:
+            self._show_max_iterations()
+
+    def le_tolerance_stopping_text_changed(self, text):
+        self._validate_all()
+
+    def le_tolerance_stopping_editing_finished(self):
+        if self._validate_tolerance_stopping():
+            self._dialog_data["tolerance"] = self._read_le_value(self.le_tolerance_stopping)
+        else:
+            self._show_tolerance_stopping()
+
+    def le_escape_ratio_text_changed(self, text):
+        self._validate_all()
+
+    def le_escape_ratio_editing_finished(self):
+        if self._validate_escape_ratio():
+            self._dialog_data["escape_peak_ratio"] = self._read_le_value(self.le_escape_ratio)
+        else:
+            self._show_escape_ratio()
 
     def le_incident_energy_text_changed(self, text):
         if self._validate_incident_energy(text):
@@ -179,15 +202,61 @@ class DialogGeneralFittingSettings(QDialog):
             self._show_range_high(val_range_high)
         self._validate_all()
 
+    def le_incident_energy_editing_finished(self):
+        if self._validate_incident_energy():
+            self._dialog_data["incident_energy"] = self._read_le_value(self.le_incident_energy)
+        else:
+            self._show_incident_energy()
+        if self._validate_range():
+            self._dialog_data["range_low"] = self._read_le_value(self.le_range_low)
+            self._dialog_data["range_high"] = self._read_le_value(self.le_range_high)
+        else:
+            self._show_range_low()
+            self._show_range_high()
+
     def le_range_low_text_changed(self, text):
         self._validate_all()
+
+    def le_range_low_editing_finished(self):
+        if self._validate_range():
+            self._dialog_data["range_low"] = self._read_le_value(self.le_range_low)
+            self._dialog_data["range_high"] = self._read_le_value(self.le_range_high)
+        else:
+            self._show_range_low()
+            self._show_range_high()
 
     def le_range_high_text_changed(self, text):
         self._validate_all()
 
+    def le_range_high_editing_finished(self):
+        if self._validate_range():
+            self._dialog_data["range_low"] = self._read_le_value(self.le_range_low)
+            self._dialog_data["range_high"] = self._read_le_value(self.le_range_high)
+        else:
+            self._show_range_low()
+            self._show_range_high()
+
+    def le_snip_window_size_text_changed(self, text):
+        self._validate_all()
+
+    def le_snip_window_size_editing_finished(self):
+        if self._validate_snip_window_size():
+            self._dialog_data["snip_window_size"] = self._read_le_value(self.le_snip_window_size)
+        else:
+            self._show_snip_window_size()
+
+    def cb_linear_baseline_state_changed(self, state):
+        self._dialog_data["subtract_baseline_linear"] = state == Qt.Checked
+
+    def cb_snip_baseline_state_changed(self, state):
+        self._dialog_data["subtract_baseline_snip"] = state == Qt.Checked
+
     def set_dialog_data(self, dialog_data):
         self._dialog_data = copy.deepcopy(dialog_data)
         self._show_all()
+
+    def get_dialog_data(self):
+        return self._dialog_data
 
     def _show_all(self):
         self._show_max_iterations()
@@ -201,7 +270,7 @@ class DialogGeneralFittingSettings(QDialog):
         self._show_snip_window_size()
 
     def _show_max_iterations(self):
-        val = self._dialog_data["n_iterations_max"]
+        val = self._dialog_data["max_iterations"]
         self.le_max_iterations.setText(f"{val}")
 
     def _show_tolerance_stopping(self):
@@ -237,8 +306,50 @@ class DialogGeneralFittingSettings(QDialog):
         self.le_snip_window_size.setText(self._format_float(val))
 
     def _validate_all(self):
-        valid = self._validate_range()
+        valid = (self._validate_max_interations() and
+                 self._validate_tolerance_stopping() and
+                 self._validate_escape_ratio() and
+                 self._validate_incident_energy() and
+                 self._validate_range() and
+                 self._validate_snip_window_size())
+
         self.pb_ok.setEnabled(valid)
+
+    def _validate_max_interations(self, text=None):
+        if text is None:
+            text = self.le_max_iterations.text()
+
+        valid = self._validate_int(text, v_min=1)
+        self.le_max_iterations.setValid(valid)
+
+        return valid
+
+    def _validate_tolerance_stopping(self, text=None):
+        if text is None:
+            text = self.le_tolerance_stopping.text()
+
+        valid = self._validate_float(text, v_min=1e-30)
+        self.le_tolerance_stopping.setValid(valid)
+
+        return valid
+
+    def _validate_escape_ratio(self, text=None):
+        if text is None:
+            text = self.le_escape_ratio.text()
+
+        valid = self._validate_float(text, v_min=0)
+        self.le_escape_ratio.setValid(valid)
+
+        return valid
+
+    def _validate_incident_energy(self, text=None):
+        if text is None:
+            text = self.le_incident_energy.text()
+
+        valid = self._validate_float(text, v_min=0)
+        self.le_incident_energy.setValid(valid)
+
+        return valid
 
     def _validate_range(self, low_text=None, high_text=None):
         if low_text is None:
@@ -258,12 +369,12 @@ class DialogGeneralFittingSettings(QDialog):
 
         return valid
 
-    def _validate_incident_energy(self, text=None):
+    def _validate_snip_window_size(self, text=None):
         if text is None:
-            text = self.le_incident_energy.text()
+            text = self.le_snip_window_size.text()
 
-        valid = self._validate_float(text, v_min=0)
-        self.le_incident_energy.setValid(valid)
+        valid = self._validate_float(text, v_min=1e-30)
+        self.le_snip_window_size.setValid(valid)
 
         return valid
 
