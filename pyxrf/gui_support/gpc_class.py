@@ -847,6 +847,9 @@ class GlobalProcessingClasses:
         for key, val in param_dict.items():
             self.param_model.param_new[key] = val
 
+        element_list = self.param_model.element_list.copy()
+        self.param_model.create_spectrum_from_param_dict(self.param_model.param_new,
+                                                         element_list)
         self.apply_to_fit()
 
     def get_quant_standard_list(self):

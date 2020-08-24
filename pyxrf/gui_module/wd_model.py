@@ -136,14 +136,11 @@ class ModelWidget(FormBaseWidget):
 
         self.group_settings = QGroupBox("Settings for Fitting Algorithm")
 
-        self.pb_general = QPushButton("General ...")
-        self.pb_general.clicked.connect(self.pb_general_clicked)
+        self.pb_fit_param_general = QPushButton("General ...")
+        self.pb_fit_param_general.clicked.connect(self.pb_fit_param_general_clicked)
 
-        self.pb_elements = QPushButton("Elements ...")
-        self.pb_elements.clicked.connect(self.pb_elements_clicked)
-
-        self.pb_global_params = QPushButton("Global Parameters ...")
-        self.pb_global_params.clicked.connect(self.pb_global_params_clicked)
+        self.pb_fit_param_detailed = QPushButton("Detailed ...")
+        self.pb_fit_param_detailed.clicked.connect(self.pb_fit_param_detailed_clicked)
 
         fit_strategy_list = self.gpc.get_fit_strategy_list()
         combo_items = [fitting_preset_names[_] for _ in fit_strategy_list]
@@ -158,9 +155,8 @@ class ModelWidget(FormBaseWidget):
 
         vbox = QVBoxLayout()
         hbox = QHBoxLayout()
-        hbox.addWidget(self.pb_general)
-        hbox.addWidget(self.pb_elements)
-        hbox.addWidget(self.pb_global_params)
+        hbox.addWidget(self.pb_fit_param_general)
+        hbox.addWidget(self.pb_fit_param_detailed)
         vbox.addLayout(hbox)
 
         hbox = QHBoxLayout()
@@ -228,14 +224,11 @@ class ModelWidget(FormBaseWidget):
             "Open a user friendly interface that allows to <b>add and remove emission lines</b> "
             "to the list or <b>modify parameters</b> of the selected emission lines")
 
-        set_tooltip(self.pb_general, "<b>General settings</b> for fitting algorithms.")
+        set_tooltip(self.pb_fit_param_general, "<b>General settings</b> for fitting algorithms.")
         set_tooltip(
-            self.pb_elements,
-            "Manually adjust fitting parameters for the <b>selected emission lines</b>, "
-            "including preset fitting configurations")
-        set_tooltip(self.pb_global_params,
-                    "Manually adjust <b>global fitting parameters</b>, "
-                    "including <b>preset fitting configurations</b>")
+            self.pb_fit_param_detailed,
+            "Access to low-level control of the total spectrum fitting algorithm: adjust parameters "
+            "for each emission line of the selected elements; modify preset fitting configurations.")
         set_tooltip(self.cb_step1, "Select preset fitting configuration for <b>Step 1</b>. "
                                    "Click <b>Elements...</b> and <b>Global Parameters...</b> "
                                    "buttons to open dialog boxes to configure the presets.")
@@ -433,7 +426,7 @@ class ModelWidget(FormBaseWidget):
             self.ref_main_window.wnd_manage_emission_lines.show()
         self.ref_main_window.wnd_manage_emission_lines.activateWindow()
 
-    def pb_general_clicked(self):
+    def pb_fit_param_general_clicked(self):
         dialog_data = self.gpc.get_general_fitting_params()
         dlg = DialogGeneralFittingSettings()
         dlg.set_dialog_data(dialog_data)
@@ -444,7 +437,7 @@ class ModelWidget(FormBaseWidget):
             self._set_fit_status(False)
             self.signal_incident_energy_or_range_changed.emit()
 
-    def pb_elements_clicked(self):
+    def pb_fit_param_detailed_clicked(self):
         dialog_data = self.gpc.get_detailed_fitting_params()
         dlg = DialogDetailedFittingParameters(dialog_data=dialog_data)
         dlg.select_eline(self._selected_eline)
@@ -454,25 +447,11 @@ class ModelWidget(FormBaseWidget):
         #   the calls.
         self._selected_eline = dlg.get_selected_eline()
         if ret:
-            #print("'Elements' dialog closed. Changes accepted.")
             # 'dialog_data' contains references, so there is no need to
             #   read 'dialog_data' from 'dlg'.
             self.gpc.set_detailed_fitting_params(dialog_data)
             self._set_fit_status(False)
             self.signal_incident_energy_or_range_changed.emit()
-
-    def pb_global_params_clicked(self):
-        pass
-        '''
-        dlg = DialogGlobalParamsSettings()
-        ret = dlg.exec()
-        if ret:
-            print("'Global Parameters' dialog closed. Changes accepted.")
-            self._set_fit_status(False)
-
-        else:
-            print("Cancelled.")
-        '''
 
     def pb_save_spectrum_clicked(self):
         current_dir = self.gpc.get_current_working_directory()
@@ -698,10 +677,6 @@ class WndManageEmissionLines(SecondaryWindow):
                 header.setDefaultAlignment(Qt.AlignRight)
 
     def _setup_action_buttons(self):
-
-        # self.pb_update = QPushButton("Update")
-        # self.pb_undo = QPushButton("Undo")
-
         self.pb_remove_rel = QPushButton("Remove Rel.Int.(%) <")
         self.pb_remove_rel.clicked.connect(self.pb_remove_rel_clicked)
 
@@ -723,20 +698,6 @@ class WndManageEmissionLines(SecondaryWindow):
         hbox.addStretch(1)
         hbox.addWidget(self.pb_remove_unchecked)
 
-        # hbox = QHBoxLayout()
-        # vbox = QVBoxLayout()
-        # vbox.addWidget(self.pb_undo)
-        # vbox.addWidget(self.pb_update)
-        # hbox.addLayout(vbox)
-        # hbox.addSpacing(20)
-        # vbox = QVBoxLayout()
-        # hbox2 = QHBoxLayout()
-        # hbox2.addWidget(self.pb_remove_rel)
-        # hbox2.addWidget(self.le_remove_rel)
-        # vbox.addLayout(hbox2)
-        # vbox.addWidget(self.pb_remove_unchecked)
-        # hbox.addLayout(vbox)
-        # hbox.addStretch(1)
         return hbox
 
     def _set_tooltips(self):

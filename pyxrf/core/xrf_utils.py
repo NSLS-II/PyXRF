@@ -382,9 +382,6 @@ def get_eline_energy(elemental_line):
     elif len(line) == 2:
         line += "1"
 
-    # This is the name of line #1 (ka1, la1 etc.)
-    line_1 = line[0] + "a1"
-
     try:
         e = Element(element)
         energy = e.emission_line[line]

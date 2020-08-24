@@ -17,7 +17,7 @@ from skbeam.core.fitting.xrf_model import (ParamController,
                                            linear_spectrum_fitting)
 from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 from ..core.map_processing import snip_method_numba
-from ..core.xrf_utils import check_if_eline_supported, get_eline_parameters, get_eline_energy
+from ..core.xrf_utils import check_if_eline_supported, get_eline_parameters
 
 from ..core.utils import gaussian_sigma_to_fwhm, gaussian_fwhm_to_sigma
 
@@ -339,7 +339,7 @@ class GuessParamModel(Atom):
         self.element_list = get_element_list(self.param_new)
         self.EC.delete_all()
         self.define_range()
-        self.create_spectrum_from_file(self.param_new, self.element_list)
+        self.create_spectrum_from_param_dict(self.param_new, self.element_list)
         logger.info('Elements read from file are: {}'.format(self.element_list))
 
     def update_new_param(self, param):
@@ -348,7 +348,7 @@ class GuessParamModel(Atom):
         self.element_list = get_element_list(self.param_new)
         self.EC.delete_all()
         self.define_range()
-        self.create_spectrum_from_file(self.param_new, self.element_list)
+        self.create_spectrum_from_param_dict(self.param_new, self.element_list)
 
     def param_changed(self, change):
         """
@@ -379,7 +379,7 @@ class GuessParamModel(Atom):
         # self.element_list = get_element_list(self.param_new)
         # self.EC.delete_all()
         # self.define_range()
-        # self.create_spectrum_from_file(self.param_new, self.element_list)
+        # self.create_spectrum_from_param_dict(self.param_new, self.element_list)
 
     @observe('bound_val')
     def _update_bound(self, change):
@@ -398,7 +398,7 @@ class GuessParamModel(Atom):
                                         self.param_new['e_offset']['value'],
                                         self.param_new['e_linear']['value'])
 
-    def create_spectrum_from_file(self, param_dict, elemental_lines):
+    def create_spectrum_from_param_dict(self, param_dict, elemental_lines):
         """
         Create spectrum profile with given param dict from file.
 
@@ -478,7 +478,12 @@ class GuessParamModel(Atom):
                                       norm=-1, lbd_stat=False)
 
                     temp_dict[e] = ps
+
+        element_dict = copy.deepcopy(self.EC.element_dict)
         self.EC.add_to_dict(temp_dict)
+        for key in self.EC.element_dict.keys():
+            if key in element_dict:
+                self.EC.element_dict[key].status = element_dict[key].status
 
     def get_selected_eline_energy_fwhm(self, eline):
         """
