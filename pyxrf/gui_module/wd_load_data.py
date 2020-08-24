@@ -1,5 +1,4 @@
 import os
-from threading import Thread
 import numpy as np
 
 from qtpy.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout,
@@ -43,10 +42,6 @@ class LoadDataWidget(FormBaseWidget):
         self.ref_main_window = self.gui_vars["ref_main_window"]
 
         self.update_global_state.connect(self.ref_main_window.update_widget_state)
-
-        # Reference to background thread used to run computations. The reference is
-        #   meaningful only when the computations are run.
-        self.bckg_thread = None
 
         self.initialize()
 
@@ -308,24 +303,13 @@ class LoadDataWidget(FormBaseWidget):
                     "msg": msg,
                     "file_path": file_path
                 })
-                self.computations_complete.emit(result_dict)
+                return result_dict
 
-            def load_file_run(file_path):
-                class LoadFile(QRunnable):
-                    def run(self):
-                        cb(file_path=file_path)
-                return LoadFile()
-
-            self.computations_complete.connect(self.slot_file_clicked)
-            self.gui_vars["gui_state"]["running_computations"] = True
-            self.update_global_state.emit()
-            QThreadPool.globalInstance().start(load_file_run(file_path=file_path))
+            self._compute_in_background(cb, self.slot_file_clicked, file_path=file_path)
 
     @Slot(object)
     def slot_file_clicked(self, result):
-        self.computations_complete.disconnect(self.slot_file_clicked)
-        self.gui_vars["gui_state"]["running_computations"] = False
-        self.update_global_state.emit()
+        self._recover_after_compute(self.slot_file_clicked)
 
         status = result["status"]
         msg = result["msg"]  # Message is empty if file loading failed
@@ -418,24 +402,13 @@ class LoadDataWidget(FormBaseWidget):
                     "id_uid": id_uid,
                     "file_name": file_name
                 })
-                self.computations_complete.emit(result_dict)
+                return result_dict
 
-            def load_dset(id_uid):
-                class LoadDset(QRunnable):
-                    def run(self):
-                        cb(id_uid=id_uid)
-                return LoadDset()
-
-            self.computations_complete.connect(self.slot_dbase_clicked)
-            self.gui_vars["gui_state"]["running_computations"] = True
-            self.update_global_state.emit()
-            QThreadPool.globalInstance().start(load_dset(id_uid=id_uid))
+            self._compute_in_background(cb, self.slot_dbase_clicked, id_uid=id_uid)
 
     @Slot(object)
     def slot_dbase_clicked(self, result):
-        self.computations_complete.disconnect(self.slot_dbase_clicked)
-        self.gui_vars["gui_state"]["running_computations"] = False
-        self.update_global_state.emit()
+        self._recover_after_compute(self.slot_dbase_clicked)
 
         status = result["status"]
         msg = result["msg"]  # Message is empty if file loading failed
@@ -531,7 +504,7 @@ class LoadDataWidget(FormBaseWidget):
             self.gpc.io_model.mask_name = os.path.split(self.gpc.io_model.mask_file_path)[-1]
             self.gpc.io_model.mask_active = dlg.get_mask_file_active()
 
-            def _cb():
+            def cb():
                 try:
                     # TODO: proper error processing is needed here (exception RuntimeError)
                     self.gpc.io_model.apply_mask_to_datasets()
@@ -539,22 +512,15 @@ class LoadDataWidget(FormBaseWidget):
                     self.gpc.plot_model.update_preview_spectrum_plot()
                 except Exception as ex:
                     logger.error(f"Error occurred while applying the mask: {str(ex)}")
-                self.computations_complete.emit({})
+                return dict()
 
-            self.computations_complete.connect(self.slot_apply_mask_clicked)
-            self.gui_vars["gui_state"]["running_computations"] = True
-            self.update_global_state.emit()
-            self.bckg_thread = Thread(target=_cb)
-            self.bckg_thread.start()
+            self._compute_in_background(cb, self.slot_apply_mask_clicked)
 
     @Slot()
     def slot_apply_mask_clicked(self):
         # Here we want to expand the range in the Total Count Map preview if needed
         self.update_preview_map_range.emit("update")
-
-        self.computations_complete.disconnect(self.slot_apply_mask_clicked)
-        self.gui_vars["gui_state"]["running_computations"] = False
-        self.update_global_state.emit()
+        self._recover_after_compute(self.slot_apply_mask_clicked)
 
     def pb_view_metadata_clicked(self):
 
@@ -567,12 +533,26 @@ class LoadDataWidget(FormBaseWidget):
         self.gpc.io_model.load_each_channel = state
 
     def cbox_channel_index_changed(self, index):
-        try:
-            self.gpc.set_data_channel(index)
+        def cb(index):
+            try:
+                self.gpc.set_data_channel(index)
+                success, msg = True, ""
+            except Exception as ex:
+                success = False
+                msg = str(ex)
+            return {"success": success, "msg": msg}
+
+        self._compute_in_background(cb, self.slot_channel_index_changed, index=index)
+
+    @Slot(object)
+    def slot_channel_index_changed(self, result):
+        self._recover_after_compute(self.slot_channel_index_changed)
+
+        if result["success"]:
             self.signal_data_channel_changed.emit(True)
-        except Exception as ex:
+        else:
             self.signal_data_channel_changed.emit(False)
-            msg = str(ex)
+            msg = result["msg"]
             msgbox = QMessageBox(QMessageBox.Critical, "Error",
                                  msg, QMessageBox.Ok, parent=self)
             msgbox.exec()
@@ -592,20 +572,56 @@ class LoadDataWidget(FormBaseWidget):
 
         def cb():
             self.gpc.select_preview_dataset(dset_name=dset_name, is_visible=bool(state))
-            self.computations_complete.emit({})
+            return dict()
 
-        self.computations_complete.connect(self.slot_preview_items_changed)
-        self.gui_vars["gui_state"]["running_computations"] = True
-        self.update_global_state.emit()
-        self.bckg_thread = Thread(target=cb)
-        self.bckg_thread.start()
+        self._compute_in_background(cb, self.slot_preview_items_changed)
 
     @Slot()
     def slot_preview_items_changed(self):
         # Here we want to expand the range in the Total Count Map preview if needed
         self.update_preview_map_range.emit("expand")
+        self._recover_after_compute(self.slot_preview_items_changed)
 
-        self.computations_complete.disconnect(self.slot_preview_items_changed)
+    def _compute_in_background(self, func, slot, *args, **kwargs):
+        """
+        Run function `func` in a background thread. Send the signal
+        `self.computations_complete` once computation is finished.
+
+        Parameters
+        ----------
+        func: function
+            Reference to a function that is supposed to be executed at the background.
+            The function return value is passed as a signal parameter once computation is
+            complete.
+        slot: qtpy.QtCore.Slot or None
+            Reference to a slot. If not None, then the signal `self.computation_complete`
+            is connected to this slot.
+        args, kwargs
+            arguments of the function `func`.
+        """
+        signal_complete = self.computations_complete
+
+        def func_to_run(func, *args, **kwargs):
+            class LoadFile(QRunnable):
+                def run(self):
+                    result_dict = func(*args, **kwargs)
+                    signal_complete.emit(result_dict)
+            return LoadFile()
+
+        if slot is not None:
+            self.computations_complete.connect(slot)
+        self.gui_vars["gui_state"]["running_computations"] = True
+        self.update_global_state.emit()
+        QThreadPool.globalInstance().start(func_to_run(func, *args, **kwargs))
+
+    def _recover_after_compute(self, slot):
+        """
+        The function should be called after the signal `self.computations_complete` is
+        received. The slot should be the same as the one used when calling
+        `self.compute_in_background`.
+        """
+        if slot is not None:
+            self.computations_complete.disconnect(slot)
         self.gui_vars["gui_state"]["running_computations"] = False
         self.update_global_state.emit()
 
