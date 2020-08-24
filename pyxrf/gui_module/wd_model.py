@@ -3,12 +3,12 @@ import numpy as np
 from threading import Thread
 import copy
 
-from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox,
-                             QCheckBox, QLabel, QComboBox, QDialog, QDialogButtonBox,
-                             QFileDialog, QGridLayout, QTableWidget,
-                             QTableWidgetItem, QHeaderView, QMessageBox)
-from PyQt5.QtGui import QBrush, QColor, QDoubleValidator, QRegExpValidator
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QRegExp
+from qtpy.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox,
+                            QCheckBox, QLabel, QComboBox, QDialog, QDialogButtonBox,
+                            QFileDialog, QGridLayout, QTableWidget,
+                            QTableWidgetItem, QHeaderView, QMessageBox)
+from qtpy.QtGui import QBrush, QColor, QDoubleValidator, QRegExpValidator
+from qtpy.QtCore import Qt, Slot, Signal, QRegExp
 
 from .useful_widgets import (LineEditReadOnly, global_gui_parameters, ElementSelection,
                              SecondaryWindow, set_tooltip, LineEditExtended)
@@ -26,17 +26,17 @@ logger = logging.getLogger(__name__)
 class ModelWidget(FormBaseWidget):
 
     # Signal that is sent (to main window) to update global state of the program
-    update_global_state = pyqtSignal()
-    computations_complete = pyqtSignal()
+    update_global_state = Signal()
+    computations_complete = Signal()
     # Signal is emitted when a new model is loaded (or computed).
     # True - model loaded successfully, False - otherwise
     # In particular, the signal may be used to update the widgets that depend on incident energy,
     #   because it may change as the model is loaded.
-    signal_model_loaded = pyqtSignal(bool)
+    signal_model_loaded = Signal(bool)
     # Incident energy or selected range changed (plots need to be redrawn)
-    signal_incident_energy_or_range_changed = pyqtSignal()
+    signal_incident_energy_or_range_changed = Signal()
     # Sent after the completion of total spectrum fitting
-    signal_total_spectrum_fitting_completed = pyqtSignal(bool)
+    signal_total_spectrum_fitting_completed = Signal(bool)
 
     def __init__(self, *, gpc, gui_vars):
         super().__init__()
@@ -307,7 +307,7 @@ class ModelWidget(FormBaseWidget):
         self.update_global_state.emit()
         logger.info("Automated element search is complete")
 
-    @pyqtSlot(str)
+    @Slot(str)
     def slot_selection_item_changed(self, eline):
         self._selected_eline = eline
 
@@ -485,7 +485,7 @@ class ModelWidget(FormBaseWidget):
         # Reload the table
         self.signal_total_spectrum_fitting_completed.emit(success)
 
-    @pyqtSlot()
+    @Slot()
     def timerExpired(self):
         self._timer_counter += 1
         progress_bar = self.ref_main_window.statusProgressBar
@@ -512,12 +512,12 @@ class ModelWidget(FormBaseWidget):
         else:
             self.le_fitting_results.setText(f"R-factor: {rf_text}")
 
-    @pyqtSlot()
+    @Slot()
     def update_fit_status(self):
         self._fit_available = self.gui_vars["gui_state"]["state_model_fit_exists"]
         self._update_le_fitting_results()
 
-    @pyqtSlot()
+    @Slot()
     def clear_fit_status(self):
         # Clear fit status (reset it to False - no valid fit is available)
         self.gui_vars["gui_state"]["state_model_fit_exists"] = False
@@ -530,12 +530,12 @@ class ModelWidget(FormBaseWidget):
 
 class WndManageEmissionLines(SecondaryWindow):
 
-    signal_selected_element_changed = pyqtSignal(str)
-    signal_update_element_selection_list = pyqtSignal()
-    signal_update_add_remove_btn_state = pyqtSignal(bool, bool)
-    signal_marker_state_changed = pyqtSignal(bool)
+    signal_selected_element_changed = Signal(str)
+    signal_update_element_selection_list = Signal()
+    signal_update_add_remove_btn_state = Signal(bool, bool)
+    signal_marker_state_changed = Signal(bool)
 
-    signal_parameters_changed = pyqtSignal()
+    signal_parameters_changed = Signal()
 
     def __init__(self,  *, gpc, gui_vars):
         super().__init__()
@@ -806,7 +806,7 @@ class WndManageEmissionLines(SecondaryWindow):
         # Update the rest of the widgets
         self._update_widgets_based_on_table_state()
 
-    @pyqtSlot()
+    @Slot()
     def update_widget_data(self):
         # This is typically a new set of emission lines. Clear the selection both
         #   in the table and in the element selection tool.
@@ -942,7 +942,7 @@ class WndManageEmissionLines(SecondaryWindow):
                                      msg, QMessageBox.Ok, parent=self)
                 msgbox.exec()
 
-    @pyqtSlot()
+    @Slot()
     def pb_add_eline_clicked(self):
         logger.debug("'Add line' clicked")
         # It is assumed that this button is active only if an element is selected from the list
@@ -962,7 +962,7 @@ class WndManageEmissionLines(SecondaryWindow):
                 # Reload the table anyway (nothing is going to be selected)
                 self.update_eline_table()
 
-    @pyqtSlot()
+    @Slot()
     def pb_remove_eline_clicked(self):
         logger.debug("'Remove line' clicked")
         eline = self._selected_eline
@@ -1100,11 +1100,11 @@ class WndManageEmissionLines(SecondaryWindow):
         self.le_remove_rel.setValid(state)
         self.pb_remove_rel.setEnabled(state)
 
-    @pyqtSlot(str)
+    @Slot(str)
     def slot_selection_item_changed(self, eline):
         self.element_selection.set_current_item(eline)
 
-    @pyqtSlot(bool)
+    @Slot(bool)
     def slot_marker_state_changed(self, state):
         # If userpeak is selected and plot is clicked (marker is set), then user
         #   should be allowed to add userpeak at a new location. So deselect the userpeak
@@ -1147,7 +1147,7 @@ class WndManageEmissionLines(SecondaryWindow):
         self.element_selection.set_item_list(self._eline_list)
         self.signal_update_element_selection_list.emit()
 
-    @pyqtSlot()
+    @Slot()
     def update_eline_table(self):
         """Update table of emission lines without changing anything else"""
         eline_table = self.gpc.get_selected_eline_table()

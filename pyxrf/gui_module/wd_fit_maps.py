@@ -1,13 +1,13 @@
 import os
 import textwrap
 
-from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox,
-                             QCheckBox, QLabel, QComboBox, QDialog, QDialogButtonBox, QFileDialog,
-                             QRadioButton, QButtonGroup, QGridLayout, QTextEdit, QTableWidget,
-                             QTableWidgetItem, QHeaderView, QWidget, QScrollArea,
-                             QTabWidget, QFrame, QMessageBox)
-from PyQt5.QtGui import QBrush, QColor, QDoubleValidator
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal
+from qtpy.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox,
+                            QCheckBox, QLabel, QComboBox, QDialog, QDialogButtonBox, QFileDialog,
+                            QRadioButton, QButtonGroup, QGridLayout, QTextEdit, QTableWidget,
+                            QTableWidgetItem, QHeaderView, QWidget, QScrollArea,
+                            QTabWidget, QFrame, QMessageBox)
+from qtpy.QtGui import QBrush, QColor, QDoubleValidator
+from qtpy.QtCore import Qt, Slot, Signal
 
 from .useful_widgets import (LineEditReadOnly, global_gui_parameters, get_background_css,
                              PushButtonMinimumWidth, SecondaryWindow, set_tooltip, LineEditExtended,
@@ -22,10 +22,10 @@ logger = logging.getLogger(__name__)
 class FitMapsWidget(FormBaseWidget):
 
     # Signal that is sent (to main window) to update global state of the program
-    update_global_state = pyqtSignal()
+    update_global_state = Signal()
 
-    signal_map_fitting_complete = pyqtSignal()
-    signal_activate_tab_xrf_maps = pyqtSignal()
+    signal_map_fitting_complete = Signal()
+    signal_activate_tab_xrf_maps = Signal()
 
     def __init__(self, *, gpc, gui_vars):
         super().__init__()
@@ -373,7 +373,7 @@ class FitMapsWidget(FormBaseWidget):
         # self._timer_counter = 0
         # self._timer.start()
 
-    @pyqtSlot()
+    @Slot()
     def timerExpired(self):
         self._timer_counter += 1
         progress_bar = self.ref_main_window.statusProgressBar
@@ -497,10 +497,10 @@ class FitMapsWidget(FormBaseWidget):
 class WndComputeRoiMaps(SecondaryWindow):
 
     # Signal that is sent (to main window) to update global state of the program
-    update_global_state = pyqtSignal()
+    update_global_state = Signal()
 
-    signal_roi_computation_complete = pyqtSignal()
-    signal_activate_tab_xrf_maps = pyqtSignal()
+    signal_roi_computation_complete = Signal()
+    signal_activate_tab_xrf_maps = Signal()
 
     def __init__(self, *, gpc, gui_vars):
         super().__init__()
@@ -882,7 +882,7 @@ class WndComputeRoiMaps(SecondaryWindow):
 
 class WndLoadQuantitativeCalibration(SecondaryWindow):
 
-    signal_quantitative_calibration_changed = pyqtSignal()
+    signal_quantitative_calibration_changed = Signal()
 
     def __init__(self, *, gpc, gui_vars):
         super().__init__()
@@ -1207,7 +1207,7 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
             for bgroup in self.eline_rb_exclusive:
                 bgroup.buttonToggled.connect(self.rb_selection_toggled)
 
-    @pyqtSlot()
+    @Slot()
     def update_all_data(self):
         self.display_loaded_standards()
         self.display_standard_selection_table()

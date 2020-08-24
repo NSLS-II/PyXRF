@@ -1,6 +1,6 @@
-from PyQt5.QtWidgets import (QWidget, QTabWidget, QLabel, QVBoxLayout, QHBoxLayout,
-                             QRadioButton, QButtonGroup, QComboBox)
-from PyQt5.QtCore import pyqtSlot
+from qtpy.QtWidgets import (QWidget, QTabWidget, QLabel, QVBoxLayout, QHBoxLayout,
+                            QRadioButton, QButtonGroup, QComboBox)
+from qtpy.QtCore import Slot
 
 from .useful_widgets import RangeManager, set_tooltip
 from ..model.lineplot import PlotTypes, EnergyRangePresets, MapTypes, MapAxesUnits
@@ -35,7 +35,7 @@ class PreviewPlots(QTabWidget):
         for i in range(self.count()):
             self.setTabEnabled(i, state)
 
-    @pyqtSlot(bool)
+    @Slot(bool)
     def activate_preview_plot_spectrum(self):
         self.setCurrentWidget(self.preview_plot_spectrum)
 
@@ -106,8 +106,8 @@ class PreviewPlotSpectrum(QWidget):
             self._set_tooltips()
         self.mpl_toolbar.setVisible(self.gui_vars["show_matplotlib_toolbar"])
 
-    @pyqtSlot()
-    @pyqtSlot(bool)
+    @Slot()
+    @Slot(bool)
     def redraw_preview_plot(self):
         # It is assumed that the plot is visible
         self.gpc.plot_model.update_preview_spectrum_plot()
@@ -206,7 +206,7 @@ class PreviewPlotCount(QWidget):
         self.gpc.plot_model.set_map_preview_range(low=sel_low, high=sel_high)
         self.gpc.plot_model.update_total_count_map_preview()
 
-    @pyqtSlot(str)
+    @Slot(str)
     def update_map_range(self, mode):
         if mode not in ("reset", "update", "expand", "clear"):
             logger.error(f"PreviewPlotCount.update_map_range: incorrect mode '{mode}'")

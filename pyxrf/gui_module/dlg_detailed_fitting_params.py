@@ -1,7 +1,7 @@
-from PyQt5.QtWidgets import (QHBoxLayout, QVBoxLayout, QLabel, QComboBox, QDialog,
-                             QDialogButtonBox, QTableWidget, QTableWidgetItem, QHeaderView,)
-from PyQt5.QtGui import QBrush, QColor
-from PyQt5.QtCore import Qt
+from qtpy.QtWidgets import (QHBoxLayout, QVBoxLayout, QLabel, QComboBox, QDialog,
+                            QDialogButtonBox, QTableWidget, QTableWidgetItem, QHeaderView,)
+from qtpy.QtGui import QBrush, QColor
+from qtpy.QtCore import Qt
 
 from .useful_widgets import (get_background_css, set_tooltip, ComboBoxNamed)
 

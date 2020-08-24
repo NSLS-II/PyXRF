@@ -1,9 +1,9 @@
 from copy import deepcopy
-from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QCheckBox,
-                             QPushButton, QHeaderView, QTableWidget, QTableWidgetItem,
-                             QSizePolicy)
-from PyQt5.QtGui import QBrush, QColor, QPalette
-from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
+from qtpy.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QCheckBox,
+                            QPushButton, QHeaderView, QTableWidget, QTableWidgetItem,
+                            QSizePolicy)
+from qtpy.QtGui import QBrush, QColor, QPalette
+from qtpy.QtCore import Qt, Signal, Slot
 
 from matplotlib.backends.backend_qt5agg import \
     FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 
 class PlotXrfMaps(QWidget):
 
-    signal_maps_dataset_selection_changed = pyqtSignal()
-    signal_maps_norm_changed = pyqtSignal()
+    signal_maps_dataset_selection_changed = Signal()
+    signal_maps_norm_changed = Signal()
 
     def __init__(self, *, gpc, gui_vars):
         super().__init__()
@@ -178,7 +178,7 @@ class PlotXrfMaps(QWidget):
     def cb_interpolate_toggled(self, state):
         self.gpc.set_maps_grid_interpolate(state)
 
-    @pyqtSlot()
+    @Slot()
     def slot_update_dataset_info(self):
         self._update_datasets()
         self._update_scalers()
@@ -202,7 +202,7 @@ class PlotXrfMaps(QWidget):
 
 class WndImageWizard(SecondaryWindow):
 
-    signal_redraw_maps = pyqtSignal()
+    signal_redraw_maps = Signal()
 
     def __init__(self, *, gpc, gui_vars):
         super().__init__()
@@ -436,13 +436,13 @@ class WndImageWizard(SecondaryWindow):
                      f"New range: ({low}, {high})")
         self._update_map_selections_auto()
 
-    @pyqtSlot()
+    @Slot()
     def slot_update_table(self):
         """Reload table including ranges and selections for the emission lines"""
         range_table, limit_table, show_table = self.gpc.get_maps_info_table()
         self.fill_table(range_table, limit_table, show_table)
 
-    @pyqtSlot()
+    @Slot()
     def slot_update_ranges(self):
         """Update only ranges and selections for the emission lines"""
         range_table, limit_table, _ = self.gpc.get_maps_info_table()

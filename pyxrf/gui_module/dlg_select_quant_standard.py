@@ -1,11 +1,11 @@
 import textwrap
 
-from PyQt5.QtWidgets import (QVBoxLayout, QLabel,
-                             QDialog, QDialogButtonBox,
-                             QTableWidget, QTableWidgetSelectionRange,
-                             QTableWidgetItem, QHeaderView)
-from PyQt5.QtGui import QBrush, QColor
-from PyQt5.QtCore import Qt
+from qtpy.QtWidgets import (QVBoxLayout, QLabel,
+                            QDialog, QDialogButtonBox,
+                            QTableWidget, QTableWidgetSelectionRange,
+                            QTableWidgetItem, QHeaderView)
+from qtpy.QtGui import QBrush, QColor
+from qtpy.QtCore import Qt
 
 from .useful_widgets import set_tooltip
 

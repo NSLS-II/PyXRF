@@ -1,9 +1,9 @@
 import copy
 
-from PyQt5.QtWidgets import (QHBoxLayout, QVBoxLayout, QGroupBox,
-                             QCheckBox, QLabel, QDialog, QDialogButtonBox,
-                             QGridLayout)
-from PyQt5.QtCore import Qt
+from qtpy.QtWidgets import (QHBoxLayout, QVBoxLayout, QGroupBox,
+                            QCheckBox, QLabel, QDialog, QDialogButtonBox,
+                            QGridLayout)
+from qtpy.QtCore import Qt
 from .useful_widgets import (set_tooltip, LineEditExtended,
                              IntValidatorStrict, DoubleValidatorStrict)
 

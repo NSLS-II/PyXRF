@@ -1,7 +1,7 @@
-from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QRadioButton, QButtonGroup,
-                             QComboBox, QCheckBox, QTableWidget, QHeaderView, QSizePolicy, QSpacerItem)
-from PyQt5.QtGui import QPalette
-from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
+from qtpy.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QRadioButton, QButtonGroup,
+                            QComboBox, QCheckBox, QTableWidget, QHeaderView, QSizePolicy, QSpacerItem)
+from qtpy.QtGui import QPalette
+from qtpy.QtCore import Qt, Signal, Slot
 
 import copy
 
@@ -16,9 +16,9 @@ logger = logging.getLogger(__name__)
 
 class PlotRgbMaps(QWidget):
 
-    signal_rgb_maps_dataset_selection_changed = pyqtSignal()
-    signal_rgb_maps_norm_changed = pyqtSignal()
-    signal_redraw_rgb_maps = pyqtSignal()
+    signal_rgb_maps_dataset_selection_changed = Signal()
+    signal_rgb_maps_norm_changed = Signal()
+    signal_redraw_rgb_maps = Signal()
 
     def __init__(self, *, gpc, gui_vars):
         super().__init__()
@@ -142,7 +142,7 @@ class PlotRgbMaps(QWidget):
         self.slot_update_ranges()
         self.signal_rgb_maps_norm_changed.emit()
 
-    @pyqtSlot()
+    @Slot()
     def slot_update_dataset_info(self):
         self._update_dataset_list()
         self._update_dataset()
@@ -157,7 +157,7 @@ class PlotRgbMaps(QWidget):
                                                  limit_table=limit_table,
                                                  rgb_dict=rgb_dict)
 
-    @pyqtSlot()
+    @Slot()
     def slot_update_ranges(self):
         """Update only ranges and selections for the emission lines"""
         range_table, limit_table, _ = self.gpc.get_rgb_maps_info_table()
@@ -182,7 +182,7 @@ class PlotRgbMaps(QWidget):
         self.combo_normalization.setCurrentIndex(scaler_sel)
         self.widgets_enable_events(True)
 
-    @pyqtSlot()
+    @Slot()
     def _update_map_selections(self):
         """Upload the selections (limit table) and update plot"""
         if self._enable_plot_updates:
@@ -199,7 +199,7 @@ class PlotRgbMaps(QWidget):
 
 class RgbSelectionWidget(QWidget):
 
-    signal_update_map_selections = pyqtSignal()
+    signal_update_map_selections = Signal()
 
     def __init__(self):
         super().__init__()

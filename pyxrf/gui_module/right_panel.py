@@ -1,5 +1,5 @@
-from PyQt5.QtWidgets import QTabWidget
-from PyQt5.QtCore import pyqtSlot
+from qtpy.QtWidgets import QTabWidget
+from qtpy.QtCore import Slot
 
 from .wd_plots_preview import PreviewPlots
 from .wd_plots_fitting_model import PlotFittingModel
@@ -53,19 +53,19 @@ class RightPanel(QTabWidget):
         for i in range(self.count()):
             self.widget(i).update_widget_state(condition)
 
-    @pyqtSlot()
-    @pyqtSlot(bool)
+    @Slot()
+    @Slot(bool)
     def slot_activate_tab_preview(self):
         self.setCurrentWidget(self.tab_preview_plots)
         self.tab_preview_plots.setCurrentWidget(
             self.tab_preview_plots.preview_plot_spectrum)
 
-    @pyqtSlot()
-    @pyqtSlot(bool)
+    @Slot()
+    @Slot(bool)
     def slot_activate_tab_fitting_model(self):
         self.setCurrentWidget(self.tab_plot_fitting_model)
 
-    @pyqtSlot()
-    @pyqtSlot(bool)
+    @Slot()
+    @Slot(bool)
     def slot_activate_tab_xrf_maps(self):
         self.setCurrentWidget(self.tab_plot_xrf_maps)

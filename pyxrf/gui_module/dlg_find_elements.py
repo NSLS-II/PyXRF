@@ -1,9 +1,9 @@
 import copy
 
-from PyQt5.QtWidgets import (QPushButton, QVBoxLayout, QGroupBox,
-                             QLabel, QDialog, QDialogButtonBox,
-                             QGridLayout)
-from PyQt5.QtGui import QDoubleValidator
+from qtpy.QtWidgets import (QPushButton, QVBoxLayout, QGroupBox,
+                            QLabel, QDialog, QDialogButtonBox,
+                            QGridLayout)
+from qtpy.QtGui import QDoubleValidator
 
 from .useful_widgets import (set_tooltip, LineEditExtended)
 

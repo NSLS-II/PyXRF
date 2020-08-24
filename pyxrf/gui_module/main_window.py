@@ -1,10 +1,10 @@
 import webbrowser
 from datetime import datetime
 
-from PyQt5.QtWidgets import (QMainWindow, QMessageBox, QLabel, QAction,
-                             QDialog, QVBoxLayout, QDialogButtonBox, QHBoxLayout,
-                             QProgressBar)
-from PyQt5.QtCore import Qt, pyqtSlot
+from qtpy.QtWidgets import (QMainWindow, QMessageBox, QLabel, QAction,
+                            QDialog, QVBoxLayout, QDialogButtonBox, QHBoxLayout,
+                            QProgressBar)
+from qtpy.QtCore import Qt, Slot
 
 from .central_widget import TwoPanelWidget
 from .useful_widgets import global_gui_variables
@@ -329,8 +329,8 @@ class MainWindow(QMainWindow):
         self.wnd_compute_roi_maps.signal_activate_tab_xrf_maps.connect(
             self.central_widget.right_panel.slot_activate_tab_xrf_maps)
 
-    @pyqtSlot()
-    @pyqtSlot(str)
+    @Slot()
+    @Slot(str)
     def update_widget_state(self, condition=None):
         # Update the state of the menu bar
         state = not self.gui_vars["gui_state"]["running_computations"]
@@ -396,11 +396,11 @@ class MainWindow(QMainWindow):
         self.gui_vars["show_tooltip"] = state
         self.update_widget_state("tooltips")
 
-    @pyqtSlot()
+    @Slot()
     def update_window_title(self):
         self.setWindowTitle(self.gpc.io_model.window_title)
 
-    @pyqtSlot(bool)
+    @Slot(bool)
     def slot_new_run_loaded(self, success):
         if success:
             # Update status bar

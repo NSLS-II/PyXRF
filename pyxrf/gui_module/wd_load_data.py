@@ -2,14 +2,14 @@ import os
 from threading import Thread
 import numpy as np
 
-from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout,
-                             QGroupBox, QCheckBox, QLabel,
-                             QComboBox, QListWidget, QListWidgetItem,
-                             QDialog, QDialogButtonBox, QFileDialog,
-                             QRadioButton, QButtonGroup, QGridLayout,
-                             QTextEdit, QMessageBox)
-from PyQt5.QtGui import QIntValidator, QRegExpValidator
-from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot, QRegExp, QThreadPool, QRunnable
+from qtpy.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout,
+                            QGroupBox, QCheckBox, QLabel,
+                            QComboBox, QListWidget, QListWidgetItem,
+                            QDialog, QDialogButtonBox, QFileDialog,
+                            QRadioButton, QButtonGroup, QGridLayout,
+                            QTextEdit, QMessageBox)
+from qtpy.QtGui import QIntValidator, QRegExpValidator
+from qtpy.QtCore import Qt, Signal, Slot, QRegExp, QThreadPool, QRunnable
 
 from .useful_widgets import (LineEditReadOnly, LineEditExtended, adjust_qlistwidget_height,
                              global_gui_parameters, PushButtonMinimumWidth,
@@ -22,15 +22,15 @@ logger = logging.getLogger(__name__)
 
 class LoadDataWidget(FormBaseWidget):
 
-    update_main_window_title = pyqtSignal()
-    update_global_state = pyqtSignal()
-    computations_complete = pyqtSignal(object)
+    update_main_window_title = Signal()
+    update_global_state = Signal()
+    computations_complete = Signal(object)
 
-    update_preview_map_range = pyqtSignal(str)
-    signal_new_run_loaded = pyqtSignal(bool)  # True/False - success/failed
-    signal_loading_new_run = pyqtSignal()  # Emitted before new run is loaded
+    update_preview_map_range = Signal(str)
+    signal_new_run_loaded = Signal(bool)  # True/False - success/failed
+    signal_loading_new_run = Signal()  # Emitted before new run is loaded
 
-    signal_data_channel_changed = pyqtSignal(bool)
+    signal_data_channel_changed = Signal(bool)
 
     def __init__(self,  *, gpc, gui_vars):
         super().__init__()
@@ -321,7 +321,7 @@ class LoadDataWidget(FormBaseWidget):
             self.update_global_state.emit()
             QThreadPool.globalInstance().start(load_file_run(file_path=file_path))
 
-    @pyqtSlot(object)
+    @Slot(object)
     def slot_file_clicked(self, result):
         self.computations_complete.disconnect(self.slot_file_clicked)
         self.gui_vars["gui_state"]["running_computations"] = False
@@ -431,7 +431,7 @@ class LoadDataWidget(FormBaseWidget):
             self.update_global_state.emit()
             QThreadPool.globalInstance().start(load_dset(id_uid=id_uid))
 
-    @pyqtSlot(object)
+    @Slot(object)
     def slot_dbase_clicked(self, result):
         self.computations_complete.disconnect(self.slot_dbase_clicked)
         self.gui_vars["gui_state"]["running_computations"] = False
@@ -547,7 +547,7 @@ class LoadDataWidget(FormBaseWidget):
             self.bckg_thread = Thread(target=_cb)
             self.bckg_thread.start()
 
-    @pyqtSlot()
+    @Slot()
     def slot_apply_mask_clicked(self):
         # Here we want to expand the range in the Total Count Map preview if needed
         self.update_preview_map_range.emit("update")
@@ -600,7 +600,7 @@ class LoadDataWidget(FormBaseWidget):
         self.bckg_thread = Thread(target=cb)
         self.bckg_thread.start()
 
-    @pyqtSlot()
+    @Slot()
     def slot_preview_items_changed(self):
         # Here we want to expand the range in the Total Count Map preview if needed
         self.update_preview_map_range.emit("expand")

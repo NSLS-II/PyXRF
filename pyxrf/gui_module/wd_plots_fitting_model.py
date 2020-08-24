@@ -1,7 +1,7 @@
-from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout, QRadioButton, QButtonGroup,
-                             QComboBox, QCheckBox, QPushButton, QGridLayout, QDialog, QDialogButtonBox,
-                             QGroupBox)
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal
+from qtpy.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout, QRadioButton, QButtonGroup,
+                            QComboBox, QCheckBox, QPushButton, QGridLayout, QDialog, QDialogButtonBox,
+                            QGroupBox)
+from qtpy.QtCore import Qt, Slot, Signal
 
 from matplotlib.backends.backend_qt5agg import \
     FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
@@ -11,9 +11,9 @@ from .useful_widgets import LineEditReadOnly, ElementSelection, set_tooltip
 
 class PlotFittingModel(QWidget):
 
-    signal_selected_element_changed = pyqtSignal(str)
-    signal_add_line = pyqtSignal()
-    signal_remove_line = pyqtSignal()
+    signal_selected_element_changed = Signal(str)
+    signal_add_line = Signal()
+    signal_remove_line = Signal()
 
     def __init__(self, *, gpc, gui_vars):
         super().__init__()
@@ -140,7 +140,7 @@ class PlotFittingModel(QWidget):
             self._set_tooltips()
         self.mpl_toolbar.setVisible(self.gui_vars["show_matplotlib_toolbar"])
 
-    @pyqtSlot()
+    @Slot()
     def update_controls(self):
         self.widgets_enable_events(False)
         plot_spectrum, plot_fit = self.gpc.get_line_plot_state()
@@ -199,16 +199,16 @@ class PlotFittingModel(QWidget):
     def element_selection_item_changed(self, index, eline):
         self.signal_selected_element_changed.emit(eline)
 
-    @pyqtSlot(str)
+    @Slot(str)
     def slot_selection_item_changed(self, eline):
         self.element_selection.set_current_item(eline)
 
-    @pyqtSlot()
+    @Slot()
     def slot_update_eline_selection_list(self):
         eline_list = self.gpc.get_full_eline_list()
         self.element_selection.set_item_list(eline_list)
 
-    @pyqtSlot(bool, bool)
+    @Slot(bool, bool)
     def slot_update_add_remove_btn_state(self, add_enabled, remove_enabled):
         self.pb_add_line.setEnabled(add_enabled)
         self.pb_remove_line.setEnabled(remove_enabled)

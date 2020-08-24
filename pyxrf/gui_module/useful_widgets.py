@@ -1,8 +1,8 @@
-from PyQt5.QtWidgets import (QLineEdit, QWidget, QHBoxLayout, QComboBox, QTextEdit,
-                             QSizePolicy, QLabel, QPushButton, QGridLayout, QSlider,
-                             QSpinBox, QCheckBox)
-from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
-from PyQt5.QtGui import QPalette, QColor, QFontMetrics, QIntValidator, QDoubleValidator
+from qtpy.QtWidgets import (QLineEdit, QWidget, QHBoxLayout, QComboBox, QTextEdit,
+                            QSizePolicy, QLabel, QPushButton, QGridLayout, QSlider,
+                            QSpinBox, QCheckBox)
+from qtpy.QtCore import Qt, Signal, Slot
+from qtpy.QtGui import QPalette, QColor, QFontMetrics, QIntValidator, QDoubleValidator
 
 import logging
 logger = logging.getLogger(__name__)
@@ -73,7 +73,7 @@ class LineEditExtended(QLineEdit):
     """
 
     # Emitted at focusOutEvent
-    focusOut = pyqtSignal()
+    focusOut = Signal()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -195,7 +195,7 @@ class PushButtonNamed(QPushButton):
     Push box that returns 'name' as the first parameter with the signals.
     Named widget is useful to distinguish between widgets when they are inserted in table rows.
     """
-    clicked = pyqtSignal(str)
+    clicked = Signal(str)
 
     def __init__(self, *args, name=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -205,7 +205,7 @@ class PushButtonNamed(QPushButton):
     def getName(self):
         return self._name
 
-    @pyqtSlot()
+    @Slot()
     def _clicked(self):
         name = self._name if self._name is not None else ""
         self.clicked.emit(name)
@@ -217,7 +217,7 @@ class ComboBoxNamed(QComboBox):
     Named widget is useful to distinguish between widgets when they are inserted in table rows.
     """
 
-    currentIndexChanged = pyqtSignal(str, int)
+    currentIndexChanged = Signal(str, int)
 
     def __init__(self, *args, name=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -227,7 +227,7 @@ class ComboBoxNamed(QComboBox):
     def getName(self):
         return self._name
 
-    @pyqtSlot(int)
+    @Slot(int)
     def _current_index_changed(self, index):
         name = self._name if self._name is not None else ""
         self.currentIndexChanged.emit(name, index)
@@ -235,7 +235,7 @@ class ComboBoxNamed(QComboBox):
 
 class CheckBoxNamed(QCheckBox):
 
-    stateChanged = pyqtSignal(str, int)
+    stateChanged = Signal(str, int)
 
     def __init__(self, *args, name=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -245,7 +245,7 @@ class CheckBoxNamed(QCheckBox):
     def getName(self):
         return self._name
 
-    @pyqtSlot(int)
+    @Slot(int)
     def _state_changed(self, state):
         name = self._name if self._name is not None else ""
         self.stateChanged.emit(name, state)
@@ -253,7 +253,7 @@ class CheckBoxNamed(QCheckBox):
 
 class SpinBoxNamed(QSpinBox):
 
-    valueChanged = pyqtSignal(str, int)
+    valueChanged = Signal(str, int)
 
     def __init__(self, *args, name=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -263,7 +263,7 @@ class SpinBoxNamed(QSpinBox):
     def getName(self):
         return self._name
 
-    @pyqtSlot(int)
+    @Slot(int)
     def _value_changed(self, value):
         name = self._name if self._name is not None else ""
         self.valueChanged.emit(name, value)
@@ -425,7 +425,7 @@ class RangeManager(QWidget):
     """ Width of the widgets can be set using `setMaximumWidth`. The size policy is set
     so that the widget may shrink if there is not enough space."""
 
-    selection_changed = pyqtSignal(float, float, str)
+    selection_changed = Signal(float, float, str)
 
     def __init__(self, *, name="", add_sliders=False,
                  slider_steps=10000, selection_to_range_min=0.001):
@@ -909,7 +909,7 @@ class ElementSelection(QWidget):
     """ Width of the widgets can be set using `setMaximumWidth`. The size policy is set
     so that the widget may shrink if there is not enough space."""
 
-    signal_current_item_changed = pyqtSignal(int, str)
+    signal_current_item_changed = Signal(int, str)
 
     def __init__(self):
         super().__init__()

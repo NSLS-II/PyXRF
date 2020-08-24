@@ -1,5 +1,5 @@
-from PyQt5.QtWidgets import QTabWidget, QScrollArea
-from PyQt5.QtCore import pyqtSlot
+from qtpy.QtWidgets import QTabWidget, QScrollArea
+from qtpy.QtCore import Slot
 
 from .wd_load_data import LoadDataWidget
 from .wd_model import ModelWidget
@@ -48,6 +48,6 @@ class LeftPanel(QTabWidget):
         self.model_widget.update_widget_state(condition)
         self.fit_maps_widget.update_widget_state(condition)
 
-    @pyqtSlot(bool)
+    @Slot(bool)
     def slot_activate_load_data_tab(self):
         self.setCurrentWidget(self.load_data_tab)
