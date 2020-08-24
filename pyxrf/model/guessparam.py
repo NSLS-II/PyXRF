@@ -17,7 +17,7 @@ from skbeam.core.fitting.xrf_model import (ParamController,
                                            linear_spectrum_fitting)
 from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 from ..core.map_processing import snip_method_numba
-from ..core.xrf_utils import check_if_eline_supported, get_eline_parameters
+from ..core.xrf_utils import check_if_eline_supported, get_eline_parameters, get_eline_energy
 
 from ..core.utils import gaussian_sigma_to_fwhm, gaussian_fwhm_to_sigma
 

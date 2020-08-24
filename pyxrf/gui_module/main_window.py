@@ -294,6 +294,11 @@ class MainWindow(QMainWindow):
         self.wnd_manage_emission_lines.signal_update_add_remove_btn_state.connect(
             self.central_widget.right_panel.tab_plot_fitting_model.slot_update_add_remove_btn_state)
 
+        self.wnd_manage_emission_lines.signal_selected_element_changed.connect(
+            self.central_widget.left_panel.model_widget.slot_selection_item_changed)
+        self.central_widget.right_panel.tab_plot_fitting_model.signal_selected_element_changed.connect(
+            self.central_widget.left_panel.model_widget.slot_selection_item_changed)
+
         # Total spectrum fitting completed
         self.central_widget.left_panel.model_widget.signal_total_spectrum_fitting_completed.connect(
             self.wnd_manage_emission_lines.update_eline_table)

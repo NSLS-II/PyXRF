@@ -11,26 +11,16 @@ from PyQt5.QtGui import QBrush, QColor, QDoubleValidator, QRegExpValidator
 from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QRegExp
 
 from .useful_widgets import (LineEditReadOnly, global_gui_parameters, ElementSelection,
-                             get_background_css, SecondaryWindow, set_tooltip, LineEditExtended)
+                             SecondaryWindow, set_tooltip, LineEditExtended)
 
 from .form_base_widget import FormBaseWidget
 from .dlg_find_elements import DialogFindElements
 from .dlg_select_quant_standard import DialogSelectQuantStandard
 from .dlg_general_settings_for_fitting import DialogGeneralFittingSettings
+from .dlg_detailed_fitting_params import DialogDetailedFittingParameters, fitting_preset_names
 
 import logging
 logger = logging.getLogger(__name__)
-
-_fitting_preset_names = {
-    "None": "None",
-    "fit_with_tail": "With Tail",
-    "free_more": "Free",
-    "e_calibration": "E-axis",
-    "linear": "Area",
-    "adjust_element1": "Custom 1",
-    "adjust_element2": "Custom 2",
-    "adjust_element3": "Custom 3",
-}
 
 
 class ModelWidget(FormBaseWidget):
@@ -52,6 +42,8 @@ class ModelWidget(FormBaseWidget):
         super().__init__()
 
         self._fit_available = False
+        # Currently selected emission line. Used for selecting eline in DialogDetailedFittingParameters
+        self._selected_eline = ""
 
         # Global processing classes
         self.gpc = gpc
@@ -153,7 +145,9 @@ class ModelWidget(FormBaseWidget):
         self.pb_global_params = QPushButton("Global Parameters ...")
         self.pb_global_params.clicked.connect(self.pb_global_params_clicked)
 
-        combo_items = list(_fitting_preset_names.values())
+        fit_strategy_list = self.gpc.get_fit_strategy_list()
+        combo_items = [fitting_preset_names[_] for _ in fit_strategy_list]
+        combo_items = ["None"] + combo_items
         self.cb_step1 = QComboBox()
         self.cb_step1.setMinimumWidth(150)
         self.cb_step1.addItems(combo_items)
@@ -320,6 +314,10 @@ class ModelWidget(FormBaseWidget):
         self.update_global_state.emit()
         logger.info("Automated element search is complete")
 
+    @pyqtSlot(str)
+    def slot_selection_item_changed(self, eline):
+        self._selected_eline = eline
+
     def pb_load_elines_clicked(self):
         current_dir = self.gpc.get_current_working_directory()
         file_name = QFileDialog.getOpenFileName(self, "Select File with Model Parameters",
@@ -447,16 +445,25 @@ class ModelWidget(FormBaseWidget):
             self.signal_incident_energy_or_range_changed.emit()
 
     def pb_elements_clicked(self):
-        dlg = DialogElementSettings()
+        dialog_data = self.gpc.get_detailed_fitting_params()
+        dlg = DialogDetailedFittingParameters(dialog_data=dialog_data)
+        dlg.select_eline(self._selected_eline)
         ret = dlg.exec()
+        # This will ensure that the same emission line is selected in the dialog
+        #   box when it is opened next time unless selection is changed between
+        #   the calls.
+        self._selected_eline = dlg.get_selected_eline()
         if ret:
-            print("'Elements' dialog closed. Changes accepted.")
+            #print("'Elements' dialog closed. Changes accepted.")
+            # 'dialog_data' contains references, so there is no need to
+            #   read 'dialog_data' from 'dlg'.
+            self.gpc.set_detailed_fitting_params(dialog_data)
             self._set_fit_status(False)
-
-        else:
-            print("Cancelled.")
+            self.signal_incident_energy_or_range_changed.emit()
 
     def pb_global_params_clicked(self):
+        pass
+        '''
         dlg = DialogGlobalParamsSettings()
         ret = dlg.exec()
         if ret:
@@ -465,6 +472,7 @@ class ModelWidget(FormBaseWidget):
 
         else:
             print("Cancelled.")
+        '''
 
     def pb_save_spectrum_clicked(self):
         current_dir = self.gpc.get_current_working_directory()
@@ -1290,172 +1298,7 @@ class WndManageEmissionLines(SecondaryWindow):
         self.signal_parameters_changed.emit()
 
 
-class _FittingSettings():
-
-    def __init__(self, energy_column=True):
-
-        labels_presets = [_ for _ in _fitting_preset_names.values() if _ != "None"]
-
-        # Labels for horizontal header
-        self.tbl_labels = ["Name", "E, keV", "Value", "Min", "Max"] + labels_presets
-
-        # Labels for editable columns
-        self.tbl_cols_editable = ("Value", "Min", "Max")
-
-        # Labels for the columns that contain combo boxes
-        self.tbl_cols_combobox = labels_presets
-
-        # The list of columns with fixed size
-        self.tbl_cols_stretch = ("Value", "Min", "Max")
-
-        # Table item representation if different from default
-        self.tbl_format = {"E, keV": ".4f", "Value": ".8g", "Min": ".8g", "Max": ".8g"}
-
-        # Checkbox items. All table items that are checkboxes are identical
-        self.cbox_settings_items = ("none", "fixed", "lohi", "lo", "hi")
-
-        if not energy_column:
-            self.tbl_labels.pop(1)
-
-    def setup_table(self):
-
-        table = QTableWidget()
-        table.setColumnCount(len(self.tbl_labels))
-        table.verticalHeader().hide()
-        table.setHorizontalHeaderLabels(self.tbl_labels)
-
-        header = table.horizontalHeader()
-        for n, lbl in enumerate(self.tbl_labels):
-            # Set stretching for the columns
-            if lbl in self.tbl_cols_stretch:
-                header.setSectionResizeMode(n, QHeaderView.Stretch)
-            else:
-                header.setSectionResizeMode(n, QHeaderView.ResizeToContents)
-
-        return table
-
-    def fill_table(self, table, table_contents):
-
-        table.setRowCount(len(table_contents))
-        for nr, row in enumerate(table_contents):
-            for nc, entry in enumerate(row):
-                label = self.tbl_labels[nc]
-
-                # Set alternating background colors for the table rows
-                #   Make background for editable items a little brighter
-                brightness = 240 if label in self.tbl_cols_editable else 220
-                if nr % 2:
-                    rgb_bckg = (255, brightness, brightness)
-                else:
-                    rgb_bckg = (brightness, 255, brightness)
-
-                if self.tbl_labels[nc] not in self.tbl_cols_combobox:
-                    if self.tbl_labels[nc] in self.tbl_format:
-                        fmt = self.tbl_format[self.tbl_labels[nc]]
-                        s = ("{:" + fmt + "}").format(entry)
-                    else:
-                        s = f"{entry}"
-
-                    item = QTableWidgetItem(s)
-                    if nc > 0:
-                        item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-
-                    # Set all columns not editable (unless needed)
-                    if label not in self.tbl_cols_editable:
-                        item.setFlags(item.flags() & ~Qt.ItemIsEditable)
-
-                    # Make all items not selectable (we are not using selections)
-                    item.setFlags(item.flags() & ~Qt.ItemIsSelectable)
-
-                    # Note, that there is no way to set style sheet for QTableWidgetItem
-                    item.setBackground(QBrush(QColor(*rgb_bckg)))
-
-                    table.setItem(nr, nc, item)
-
-                else:
-                    item = QComboBox()
-
-                    css1 = get_background_css(rgb_bckg, widget="QComboBox", editable=False)
-                    css2 = get_background_css(rgb_bckg, widget="QWidget", editable=False)
-                    item.setStyleSheet(css2 + css1)
-
-                    item.addItems(self.cbox_settings_items)
-                    if item.findText(entry) < 0:
-                        print(f"Text '{entry}' is not found. The ComboBox is not set properly.")
-                    item.setCurrentText(entry)  # Try selecting the item anyway
-                    table.setCellWidget(nr, nc, item)
-
-
-class DialogElementSettings(QDialog):
-
-    def __init__(self, parent=None):
-
-        super().__init__(parent)
-
-        self.setWindowTitle("Fitting Parameters for Individual Emission Lines")
-        self.setMinimumWidth(1100)
-        self.setMinimumHeight(500)
-        self.resize(1100, 500)
-
-        hbox_el_select = self._setup_element_selection()
-        self._setup_table()
-
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        button_box.button(QDialogButtonBox.Cancel).setDefault(True)
-        button_box.accepted.connect(self.accept)
-        button_box.rejected.connect(self.reject)
-
-        vbox = QVBoxLayout()
-        vbox.addLayout(hbox_el_select)
-        vbox.addWidget(self.table)
-        vbox.addWidget(button_box)
-
-        self.setLayout(vbox)
-
-    def _setup_element_selection(self):
-
-        self.cbox_element_sel = QComboBox()
-        set_tooltip(self.cbox_element_sel,
-                    "Select K, L or M <b>emission line</b> to edit the optimization parameters "
-                    "used for the line during total spectrum fitting.")
-        cb_sample_items = ("Ca_K", "Ti_K", "Fe_K")
-        self.cbox_element_sel.addItems(cb_sample_items)
-
-        hbox = QHBoxLayout()
-        hbox.addWidget(QLabel("Select element:"))
-        hbox.addWidget(self.cbox_element_sel)
-        hbox.addStretch(1)
-
-        return hbox
-
-    def _setup_table(self):
-
-        self.table_settings = _FittingSettings(energy_column=True)
-        self.table = self.table_settings.setup_table()
-        set_tooltip(self.table,
-                    "Edit optimization parameters for the selected emission line. "
-                    "Processing presets may be configured by specifying optimization strategy "
-                    "for each parameter may be selected. A preset for each fitting step "
-                    "of the total spectrum fitting may be selected in <b>Model</b> tab.")
-
-        sample_contents = [
-            ["Ca_ka1_area", 3.6917, 11799.14, 0, 10000000.0,
-             "none", "none", "none", "none", "none", "fixed", "fixed"],
-            ["Ca_ka1_delta_center", 3.6917, 0.0, -0.005, 0.005,
-             "fixed", "fixed", "fixed", "fixed", "fixed", "fixed", "fixed"],
-            ["Ca_ka1_delta_sigma", 3.6917, 0.0, -0.02, 0.02,
-             "fixed", "fixed", "fixed", "fixed", "fixed", "fixed", "fixed"],
-            ["Ca_ka1_ratio_adjust", 3.6917, 0.0, 0.1, 5.0,
-             "fixed", "fixed", "fixed", "fixed", "fixed", "fixed", "fixed"],
-        ]
-        self.fill_table(sample_contents)
-
-    def fill_table(self, table_contents):
-
-        self.table_settings.fill_table(self.table, table_contents)
-
-
+'''
 class DialogGlobalParamsSettings(QDialog):
 
     def __init__(self, parent=None):
@@ -1506,6 +1349,7 @@ class DialogGlobalParamsSettings(QDialog):
     def fill_table(self, table_contents):
 
         self.table_settings.fill_table(self.table, table_contents)
+'''
 
 
 class DialogPileupPeakParameters(QDialog):

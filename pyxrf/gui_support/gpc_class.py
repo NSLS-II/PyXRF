@@ -5,12 +5,14 @@ import copy
 import math
 from ..model.fileio import FileIOModel
 from ..model.lineplot import LinePlotModel
-from ..model.guessparam import GuessParamModel, save_as
+from ..model.guessparam import GuessParamModel, save_as, fit_strategy_list, bound_options
 from ..model.draw_image import DrawImageAdvanced
 from ..model.draw_image_rgb import DrawImageRGB
 from ..model.fit_spectrum import Fit1D, get_cs
 from ..model.setting import SettingModel
 from ..model.param_data import param_data
+
+from ..core.xrf_utils import get_eline_energy
 
 import logging
 logger = logging.getLogger(__name__)
@@ -776,6 +778,74 @@ class GlobalProcessingClasses:
         self.fit_model.raise_bg = params["add_bias"]
 
         dest_dict["non_fitting_values"]["background_width"] = params["snip_window_size"]
+
+        self.apply_to_fit()
+
+    def get_fit_strategy_list(self):
+        return fit_strategy_list.copy()
+
+    def get_detailed_fitting_params(self):
+        # Dictionary of fitting parameters. Create a copy !!!
+        param_dict = copy.deepcopy(self.param_model.param_new)
+        # Ordered list of emission lines
+        eline_list = self.param_model.element_list
+        # Dictionary: emission line -> [list of keys in 'params' dictionary]
+        eline_key_dict = dict()
+        eline_energy_dict = dict()
+        for eline in eline_list:
+            key = None
+            eline_category = self.get_eline_name_category(eline)
+            if eline_category == "eline":
+                key = eline[:-1] + eline[-1].lower()
+            elif eline_category == "pileup":
+                key = f"pileup_{eline.replace('-', '_')}"
+            elif eline_category == "userpeak":
+                key = eline
+
+            if key:
+                e_list = [_ for _ in param_dict.keys() if _.startswith(key)]
+            else:
+                e_list = []
+
+            energy_list = []
+            if eline_category == "eline":
+                for key in e_list:
+                    el = "_".join(key.split("_")[:2])
+                    energy_list.append(get_eline_energy(el))
+            elif eline_category == "pileup":
+                energy = self.param_model.get_pileup_peak_energy(eline)
+                energy_list = [energy] * len(e_list)
+            elif eline_category == 'userpeak':
+                key = eline + "_delta_center"
+                energy = param_dict[key]["value"] + 5.0
+                energy_list = [energy] * len(e_list)
+
+            eline_key_dict[eline] = e_list
+            eline_energy_dict[eline] = energy_list
+
+        # List of other parameters in 'params' dictionary (except non_fitting_values).
+        #   Currently all the parameters not related to emission lines are strictly lower-case.
+        other_param_list = [_ for _ in param_dict.keys() if (_ == _.lower()) and (_ != "non_fitting_values")]
+        other_param_list.sort()
+
+        _fit_strategy_list = fit_strategy_list.copy()
+        _bound_options = bound_options.copy()
+
+        return {"param_dict": param_dict,
+                "eline_list": eline_list,
+                "eline_key_dict": eline_key_dict,
+                "eline_energy_dict": eline_energy_dict,
+                "other_param_list": other_param_list,
+                "fit_strategy_list": _fit_strategy_list,
+                "bound_options": _bound_options}
+
+    def set_detailed_fitting_params(self, dialog_data):
+        param_dict = dialog_data["param_dict"]
+        # 'param_dict' is expected to have identical structure as 'param_model.param_new'.
+        # We don't want to change the reference to the parameters, so we copy references to
+        #   dictionary elements (which are also dictionaries).
+        for key, val in param_dict.items():
+            self.param_model.param_new[key] = val
 
         self.apply_to_fit()
 
