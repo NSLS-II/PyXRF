@@ -15,7 +15,7 @@ setup(
     url='https://github.com/NSLS-II/PyXRF',
     packages=find_packages(),
     entry_points={'console_scripts': ['pyxrf = pyxrf.pyxrf_run:run']},
-    package_data={'pyxrf.view': ['*.enaml'], 'configs': ['*.json'], 'pyxrf.core': ['*.yaml']},
+    package_data={'configs': ['*.json'], 'pyxrf.core': ['*.yaml']},
     include_package_data=True,
     install_requires=requirements,
     python_requires='>=3.6',
