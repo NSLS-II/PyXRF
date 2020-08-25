@@ -770,7 +770,8 @@ def map_data2D_srx(run_id_uid, fpath,
     # Output data is the list of data structures for all available detectors
     data_output = []
 
-    if 'fly' not in plan_n:  # not fly scan
+    # There may be no 'plan_name' key in the old stepscans
+    if (plan_n is None) or ('fly' not in plan_n):  # not fly scan
 
         print()
         print("****************************************")
@@ -800,13 +801,21 @@ def map_data2D_srx(run_id_uid, fpath,
         if snake_scan[1] is True:
             fly_type = 'pyramid'
 
+        if hdr.start.get("plan_type") == "OuterProductAbsScanPlan":
+            detector_list = ["xs_settings_ch1", "xs_settings_ch2", "xs_settings_ch3"]
+            scaler_list = []
+        else:
+            detector_list = config_data['xrf_detector']
+            scaler_list = config_data['scaler_list']
+
+
         try:
             data = hdr.table(fill=True, convert_times=False)
 
         except IndexError:
             total_len = get_total_scan_point(hdr) - 2
             evs, _ = zip(*zip(hdr.events(fill=True), range(total_len)))
-            namelist = config_data['xrf_detector'] + hdr.start.motors + config_data['scaler_list']
+            namelist = detector_list + hdr.start.motors + scaler_list
             dictv = {v: [] for v in namelist}
             for e in evs:
                 for k, v in dictv.items():
@@ -827,9 +836,9 @@ def map_data2D_srx(run_id_uid, fpath,
                 data_out = assemble_data_SRX_stepscan(
                     data,
                     datashape,
-                    det_list=config_data['xrf_detector'],
+                    det_list=detector_list,
                     pos_list=hdr.start.motors,
-                    scaler_list=config_data['scaler_list'],
+                    scaler_list=scaler_list,
                     fname_add_version=fname_add_version,
                     fly_type=fly_type,
                     base_val=config_data['base_value'])  # base value shift for ic
@@ -849,9 +858,9 @@ def map_data2D_srx(run_id_uid, fpath,
                 data = assemble_data_SRX_stepscan(
                     data,
                     datashape,
-                    det_list=config_data['xrf_detector2'],
+                    det_list=detector_list,
                     pos_list=hdr.start.motors,
-                    scaler_list=config_data['scaler_list'],
+                    scaler_list=scaler_list,
                     fname_add_version=fname_add_version,
                     fly_type=fly_type,
                     base_val=config_data['base_value'])  # base value shift for ic
