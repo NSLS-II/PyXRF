@@ -8,7 +8,7 @@ from qtpy.QtCore import Qt, Signal, Slot
 from matplotlib.backends.backend_qt5agg import \
     FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
 
-from .useful_widgets import RangeManager, SecondaryWindow, set_tooltip
+from .useful_widgets import RangeManager, SecondaryWindow, set_tooltip, global_gui_variables
 
 import logging
 logger = logging.getLogger(__name__)
@@ -88,6 +88,11 @@ class PlotXrfMaps(QWidget):
         self.mpl_canvas = FigureCanvas(self.gpc.img_model_adv.fig)
         self.mpl_toolbar = NavigationToolbar(self.mpl_canvas, self)
 
+        # Keep layout without change when canvas is hidden (invisible)
+        sp_retain = self.mpl_canvas.sizePolicy()
+        sp_retain.setRetainSizeWhenHidden(True)
+        self.mpl_canvas.setSizePolicy(sp_retain)
+
         vbox = QVBoxLayout()
         hbox = QHBoxLayout()
         hbox.addWidget(self.combo_select_dataset)
@@ -139,6 +144,10 @@ class PlotXrfMaps(QWidget):
         if condition == "tooltips":
             self._set_tooltips()
         self.mpl_toolbar.setVisible(self.gui_vars["show_matplotlib_toolbar"])
+
+        # Hide Matplotlib canvas during computations
+        state_compute = global_gui_variables["gui_state"]["running_computations"]
+        self.mpl_canvas.setVisible(not state_compute)
 
     def pb_image_wizard_clicked(self):
         # Position the window in relation ot the main window (only when called once)

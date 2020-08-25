@@ -2,7 +2,7 @@ from qtpy.QtWidgets import (QWidget, QTabWidget, QLabel, QVBoxLayout, QHBoxLayou
                             QRadioButton, QButtonGroup, QComboBox)
 from qtpy.QtCore import Slot
 
-from .useful_widgets import RangeManager, set_tooltip
+from .useful_widgets import RangeManager, set_tooltip, global_gui_variables
 from ..model.lineplot import PlotTypes, EnergyRangePresets, MapTypes, MapAxesUnits
 
 from matplotlib.backends.backend_qt5agg import \
@@ -74,6 +74,11 @@ class PreviewPlotSpectrum(QWidget):
         self.mpl_canvas = FigureCanvas(self.gpc.plot_model._fig_preview)
         self.mpl_toolbar = NavigationToolbar(self.mpl_canvas, self)
 
+        # Keep layout without change when canvas is hidden (invisible)
+        sp_retain = self.mpl_canvas.sizePolicy()
+        sp_retain.setRetainSizeWhenHidden(True)
+        self.mpl_canvas.setSizePolicy(sp_retain)
+
         vbox = QVBoxLayout()
 
         hbox = QHBoxLayout()
@@ -105,6 +110,10 @@ class PreviewPlotSpectrum(QWidget):
         if condition == "tooltips":
             self._set_tooltips()
         self.mpl_toolbar.setVisible(self.gui_vars["show_matplotlib_toolbar"])
+
+        # Hide Matplotlib canvas during computations
+        state_compute = global_gui_variables["gui_state"]["running_computations"]
+        self.mpl_canvas.setVisible(not state_compute)
 
     @Slot()
     @Slot(bool)
@@ -167,6 +176,11 @@ class PreviewPlotCount(QWidget):
 
         self.mpl_canvas = FigureCanvas(self.gpc.plot_model._fig_maps)
         self.mpl_toolbar = NavigationToolbar(self.mpl_canvas, self)
+
+        # Keep layout without change when canvas is hidden (invisible)
+        sp_retain = self.mpl_canvas.sizePolicy()
+        sp_retain.setRetainSizeWhenHidden(True)
+        self.mpl_canvas.setSizePolicy(sp_retain)
 
         vbox = QVBoxLayout()
 
@@ -249,3 +263,7 @@ class PreviewPlotCount(QWidget):
         if condition == "tooltips":
             self._set_tooltips()
         self.mpl_toolbar.setVisible(self.gui_vars["show_matplotlib_toolbar"])
+
+        # Hide Matplotlib canvas during computations
+        state_compute = global_gui_variables["gui_state"]["running_computations"]
+        self.mpl_canvas.setVisible(not state_compute)

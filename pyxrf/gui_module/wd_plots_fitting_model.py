@@ -6,7 +6,7 @@ from qtpy.QtCore import Qt, Slot, Signal
 from matplotlib.backends.backend_qt5agg import \
     FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
 
-from .useful_widgets import LineEditReadOnly, ElementSelection, set_tooltip
+from .useful_widgets import LineEditReadOnly, ElementSelection, set_tooltip, global_gui_variables
 
 
 class PlotFittingModel(QWidget):
@@ -60,6 +60,11 @@ class PlotFittingModel(QWidget):
 
         self.mpl_canvas = FigureCanvas(self.gpc.plot_model._fig)
         self.mpl_toolbar = NavigationToolbar(self.mpl_canvas, self)
+
+        # Keep layout without change when canvas is hidden (invisible)
+        sp_retain = self.mpl_canvas.sizePolicy()
+        sp_retain.setRetainSizeWhenHidden(True)
+        self.mpl_canvas.setSizePolicy(sp_retain)
 
         self.widgets_enable_events(True)
 
@@ -139,6 +144,10 @@ class PlotFittingModel(QWidget):
         if condition == "tooltips":
             self._set_tooltips()
         self.mpl_toolbar.setVisible(self.gui_vars["show_matplotlib_toolbar"])
+
+        # Hide Matplotlib canvas during computations
+        state_compute = global_gui_variables["gui_state"]["running_computations"]
+        self.mpl_canvas.setVisible(not state_compute)
 
     @Slot()
     def update_controls(self):

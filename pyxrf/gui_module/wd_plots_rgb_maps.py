@@ -5,7 +5,8 @@ from qtpy.QtCore import Qt, Signal, Slot
 
 import copy
 
-from .useful_widgets import RangeManager, get_background_css, set_tooltip, ComboBoxNamed
+from .useful_widgets import (RangeManager, get_background_css, set_tooltip,
+                             ComboBoxNamed, global_gui_variables)
 
 from matplotlib.backends.backend_qt5agg import \
     FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
@@ -55,6 +56,11 @@ class PlotRgbMaps(QWidget):
 
         self.mpl_canvas = FigureCanvas(self.gpc.img_model_rgb.fig)
         self.mpl_toolbar = NavigationToolbar(self.mpl_canvas, self)
+
+        # Keep layout without change when canvas is hidden (invisible)
+        sp_retain = self.mpl_canvas.sizePolicy()
+        sp_retain.setRetainSizeWhenHidden(True)
+        self.mpl_canvas.setSizePolicy(sp_retain)
 
         self.rgb_selection = RgbSelectionWidget()
         self.slot_update_dataset_info()
@@ -120,6 +126,10 @@ class PlotRgbMaps(QWidget):
         if condition == "tooltips":
             self._set_tooltips()
         self.mpl_toolbar.setVisible(self.gui_vars["show_matplotlib_toolbar"])
+
+        # Hide Matplotlib canvas during computations
+        state_compute = global_gui_variables["gui_state"]["running_computations"]
+        self.mpl_canvas.setVisible(not state_compute)
 
     def combo_select_dataset_current_index_changed(self, index):
         self.gpc.set_rgb_maps_selected_dataset(index + 1)
