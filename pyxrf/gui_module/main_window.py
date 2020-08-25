@@ -14,6 +14,9 @@ from .wd_plots_xrf_maps import WndImageWizard
 
 import pyxrf
 
+import logging
+logger = logging.getLogger(__name__)
+
 _main_window_geometry = {
     "initial_height": 700,
     "initial_width": 1200,
@@ -372,8 +375,12 @@ class MainWindow(QMainWindow):
         doc_url = "http://nsls-ii.github.io/PyXRF/"
         try:
             webbrowser.open(doc_url, autoraise=True)
-        except Exception:
-            print(f"Error occurred while opening URL '{doc_url}' in the default browser")
+        except Exception as ex:
+            logger.error(f"Error occurred while opening URL '{doc_url}' in the default browser")
+            msg = f"Failed to Open Online Documentation. \n  Exception: {str(ex)}"
+            msgbox = QMessageBox(QMessageBox.Critical, "Error",
+                                 msg, QMessageBox.Ok, parent=self)
+            msgbox.exec()
 
     def action_about_triggered(self):
         """

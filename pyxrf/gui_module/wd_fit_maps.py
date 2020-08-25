@@ -378,7 +378,7 @@ class FitMapsWidget(FormBaseWidget):
         if success:
             self.signal_activate_tab_xrf_maps.emit()
 
-    '''    
+    '''
     @Slot()
     def timerExpired(self):
         self._timer_counter += 1
