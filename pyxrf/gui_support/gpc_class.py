@@ -915,7 +915,7 @@ class GlobalProcessingClasses:
         self.plot_model.show_fit_opt = False
         self.plot_model.show_fit_opt = True
 
-    def load_parameters_from_file(self, parameter_file_path, ask_question):
+    def load_parameters_from_file(self, parameter_file_path, incident_energy_from_param_file=None):
 
         try:
             self.fit_model.read_param_from_file(parameter_file_path)
@@ -948,9 +948,10 @@ class GlobalProcessingClasses:
                           f"Incident energy from the loaded parameter file: {param_incident_energy} keV.\n" \
                           f"Would you prefer to use the incident energy from the parameter file for processing?"
 
-                    question = ask_question(msg)
-                    if question():
-                        overwrite_metadata_incident_energy = True
+                    if incident_energy_from_param_file is None:
+                        return False, msg
+                    else:
+                        overwrite_metadata_incident_energy = bool(incident_energy_from_param_file)
 
             else:
 
@@ -1018,6 +1019,8 @@ class GlobalProcessingClasses:
 
             # Update displayed intensity of the selected peak
             self.plot_model.compute_manual_peak_intensity()
+
+            return True, ""
 
     def find_elements_automatically(self):
         self.param_model.find_peak()

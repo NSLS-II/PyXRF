@@ -7,7 +7,7 @@ from qtpy.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox,
                             QTableWidgetItem, QHeaderView, QWidget, QScrollArea,
                             QTabWidget, QFrame, QMessageBox)
 from qtpy.QtGui import QBrush, QColor, QDoubleValidator
-from qtpy.QtCore import Qt, Slot, Signal
+from qtpy.QtCore import Qt, Slot, Signal, QThreadPool, QRunnable
 
 from .useful_widgets import (LineEditReadOnly, global_gui_parameters, get_background_css,
                              PushButtonMinimumWidth, SecondaryWindow, set_tooltip, LineEditExtended,
@@ -23,6 +23,7 @@ class FitMapsWidget(FormBaseWidget):
 
     # Signal that is sent (to main window) to update global state of the program
     update_global_state = Signal()
+    computations_complete = Signal(object)
 
     signal_map_fitting_complete = Signal()
     signal_activate_tab_xrf_maps = Signal()
@@ -348,31 +349,36 @@ class FitMapsWidget(FormBaseWidget):
 
     def pb_start_map_fitting_clicked(self):
 
-        # self.gui_vars["gui_state"]["running_computations"] = True
-        # self.update_global_state.emit()
+        def cb():
+            try:
+                self.gpc.fit_individual_pixels()
+                success, msg = True, ""
+            except Exception as ex:
+                success, msg = False, str(ex)
 
-        success = False
-        try:
-            self.gpc.fit_individual_pixels()
+            return {"success": success, "msg": msg}
+
+        self._compute_in_background(cb, self.slot_start_map_fitting_clicked)
+
+    @Slot(object)
+    def slot_start_map_fitting_clicked(self, result):
+        self._recover_after_compute(self.slot_start_map_fitting_clicked)
+
+        success = result["success"]
+        if success:
             self.gui_vars["gui_state"]["state_xrf_map_exists"] = True
-            success = True
-        except Exception as ex:
-            msg = str(ex)
-            msgbox = QMessageBox(QMessageBox.Critical, "Error",
+        else:
+            msg = result["msg"]
+            msgbox = QMessageBox(QMessageBox.Critical, "Failed to Fit Individual Pixel Spectra",
                                  msg, QMessageBox.Ok, parent=self)
             msgbox.exec()
+
         self.signal_map_fitting_complete.emit()
         self.update_global_state.emit()
         if success:
             self.signal_activate_tab_xrf_maps.emit()
 
-        # if not self._timer:
-        #    self._timer = QTimer()
-        # self._timer.timeout.connect(self.timerExpired)
-        # self._timer.setInterval(80)
-        # self._timer_counter = 0
-        # self._timer.start()
-
+    '''    
     @Slot()
     def timerExpired(self):
         self._timer_counter += 1
@@ -388,6 +394,7 @@ class FitMapsWidget(FormBaseWidget):
                                    "Results are presented in 'XRF Maps' tab.", 5000)
             self.gui_vars["gui_state"]["running_computations"] = False
             self.update_global_state.emit()
+    '''
 
     def group_save_plots_toggled(self, state):
         self.gpc.set_enable_save_spectra(state)
@@ -493,11 +500,55 @@ class FitMapsWidget(FormBaseWidget):
         self.gpc.set_selection_area_save_spectra(area)
         self._update_area_selection_controls()
 
+    def _compute_in_background(self, func, slot, *args, **kwargs):
+        """
+        Run function `func` in a background thread. Send the signal
+        `self.computations_complete` once computation is finished.
+
+        Parameters
+        ----------
+        func: function
+            Reference to a function that is supposed to be executed at the background.
+            The function return value is passed as a signal parameter once computation is
+            complete.
+        slot: qtpy.QtCore.Slot or None
+            Reference to a slot. If not None, then the signal `self.computation_complete`
+            is connected to this slot.
+        args, kwargs
+            arguments of the function `func`.
+        """
+        signal_complete = self.computations_complete
+
+        def func_to_run(func, *args, **kwargs):
+            class LoadFile(QRunnable):
+                def run(self):
+                    result_dict = func(*args, **kwargs)
+                    signal_complete.emit(result_dict)
+            return LoadFile()
+
+        if slot is not None:
+            self.computations_complete.connect(slot)
+        self.gui_vars["gui_state"]["running_computations"] = True
+        self.update_global_state.emit()
+        QThreadPool.globalInstance().start(func_to_run(func, *args, **kwargs))
+
+    def _recover_after_compute(self, slot):
+        """
+        The function should be called after the signal `self.computations_complete` is
+        received. The slot should be the same as the one used when calling
+        `self.compute_in_background`.
+        """
+        if slot is not None:
+            self.computations_complete.disconnect(slot)
+        self.gui_vars["gui_state"]["running_computations"] = False
+        self.update_global_state.emit()
+
 
 class WndComputeRoiMaps(SecondaryWindow):
 
     # Signal that is sent (to main window) to update global state of the program
     update_global_state = Signal()
+    computations_complete = Signal(object)
 
     signal_roi_computation_complete = Signal()
     signal_activate_tab_xrf_maps = Signal()
@@ -837,16 +888,31 @@ class WndComputeRoiMaps(SecondaryWindow):
             logger.error(f"Failed to change the ROI. Exception occurred: {ex}.")
 
     def pb_compute_roi_clicked(self):
-        success = False
-        try:
-            self.gpc.compute_rois()
+
+        def cb():
+            try:
+                self.gpc.compute_rois()
+                success, msg = True, ""
+            except Exception as ex:
+                success, msg = False, str(ex)
+
+            return {"success": success, "msg": msg}
+
+        self._compute_in_background(cb, self.slot_compute_roi_clicked)
+
+    @Slot(object)
+    def slot_compute_roi_clicked(self, result):
+        self._recover_after_compute(self.slot_compute_roi_clicked)
+
+        success = result["success"]
+        if success:
             self.gui_vars["gui_state"]["state_xrf_map_exists"] = True
-            success = True
-        except Exception as ex:
-            msg = str(ex)
-            msgbox = QMessageBox(QMessageBox.Critical, "Error",
+        else:
+            msg = result["msg"]
+            msgbox = QMessageBox(QMessageBox.Critical, "Failed to Compute ROIs",
                                  msg, QMessageBox.Ok, parent=self)
             msgbox.exec()
+
         self.signal_roi_computation_complete.emit()
         self.update_global_state.emit()
         if success:
@@ -878,6 +944,49 @@ class WndComputeRoiMaps(SecondaryWindow):
         self.pb_compute_roi.setEnabled(valid)
 
         return valid
+
+    def _compute_in_background(self, func, slot, *args, **kwargs):
+        """
+        Run function `func` in a background thread. Send the signal
+        `self.computations_complete` once computation is finished.
+
+        Parameters
+        ----------
+        func: function
+            Reference to a function that is supposed to be executed at the background.
+            The function return value is passed as a signal parameter once computation is
+            complete.
+        slot: qtpy.QtCore.Slot or None
+            Reference to a slot. If not None, then the signal `self.computation_complete`
+            is connected to this slot.
+        args, kwargs
+            arguments of the function `func`.
+        """
+        signal_complete = self.computations_complete
+
+        def func_to_run(func, *args, **kwargs):
+            class LoadFile(QRunnable):
+                def run(self):
+                    result_dict = func(*args, **kwargs)
+                    signal_complete.emit(result_dict)
+            return LoadFile()
+
+        if slot is not None:
+            self.computations_complete.connect(slot)
+        self.gui_vars["gui_state"]["running_computations"] = True
+        self.update_global_state.emit()
+        QThreadPool.globalInstance().start(func_to_run(func, *args, **kwargs))
+
+    def _recover_after_compute(self, slot):
+        """
+        The function should be called after the signal `self.computations_complete` is
+        received. The slot should be the same as the one used when calling
+        `self.compute_in_background`.
+        """
+        if slot is not None:
+            self.computations_complete.disconnect(slot)
+        self.gui_vars["gui_state"]["running_computations"] = False
+        self.update_global_state.emit()
 
 
 class WndLoadQuantitativeCalibration(SecondaryWindow):

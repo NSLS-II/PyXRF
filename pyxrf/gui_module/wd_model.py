@@ -1,6 +1,5 @@
 import os
 import numpy as np
-from threading import Thread
 import copy
 
 from qtpy.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox,
@@ -8,7 +7,7 @@ from qtpy.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox,
                             QFileDialog, QGridLayout, QTableWidget,
                             QTableWidgetItem, QHeaderView, QMessageBox)
 from qtpy.QtGui import QBrush, QColor, QDoubleValidator, QRegExpValidator
-from qtpy.QtCore import Qt, Slot, Signal, QRegExp
+from qtpy.QtCore import Qt, Slot, Signal, QRegExp, QThreadPool, QRunnable
 
 from .useful_widgets import (LineEditReadOnly, global_gui_parameters, ElementSelection,
                              SecondaryWindow, set_tooltip, LineEditExtended)
@@ -27,7 +26,7 @@ class ModelWidget(FormBaseWidget):
 
     # Signal that is sent (to main window) to update global state of the program
     update_global_state = Signal()
-    computations_complete = Signal()
+    computations_complete = Signal(object)
     # Signal is emitted when a new model is loaded (or computed).
     # True - model loaded successfully, False - otherwise
     # In particular, the signal may be used to update the widgets that depend on incident energy,
@@ -56,9 +55,6 @@ class ModelWidget(FormBaseWidget):
         self.ref_main_window = self.gui_vars["ref_main_window"]
 
         self.update_global_state.connect(self.ref_main_window.update_widget_state)
-        # Reference to background thread used to run computations. The reference is
-        #   meaningful only when the computations are run.
-        self.bckg_thread = None
 
         self.initialize()
 
@@ -284,22 +280,18 @@ class ModelWidget(FormBaseWidget):
 
                 def cb():
                     self.gpc.find_elements_automatically()
-                    self.computations_complete.emit()
+                    return dict()
 
-                msg = "Emission lines were detected automatically"
-                self.le_param_fln.setText(msg)
+                self._compute_in_background(cb, self.slot_find_elines_clicked)
 
-                self.computations_complete.connect(self.slot_find_elines_clicked)
-                self.gui_vars["gui_state"]["running_computations"] = True
-                self.update_global_state.emit()
-                self.bckg_thread = Thread(target=cb)
-                self.bckg_thread.start()
+    @Slot(object)
+    def slot_find_elines_clicked(self, result):
 
-    def slot_find_elines_clicked(self):
-        self.computations_complete.disconnect(self.slot_find_elines_clicked)
         self._set_fit_status(False)
-        self.gui_vars["gui_state"]["running_computations"] = False
-        self.update_global_state.emit()
+        self._recover_after_compute(self.slot_find_elines_clicked)
+
+        msg = "Emission lines were detected automatically"
+        self.le_param_fln.setText(msg)
 
         self.gui_vars["gui_state"]["state_model_exists"] = True
         self.gui_vars["gui_state"]["state_model_fit_exists"] = False
@@ -311,6 +303,34 @@ class ModelWidget(FormBaseWidget):
     def slot_selection_item_changed(self, eline):
         self._selected_eline = eline
 
+    def _get_load_elines_cb(self):
+        def cb(file_name, incident_energy_from_param_file=None):
+            try:
+                completed, question = self.gpc.load_parameters_from_file(file_name,
+                                                                         incident_energy_from_param_file)
+                success = True
+                change_state = True
+                msg = ""
+            except IOError as ex:
+                completed, question = True, ""
+                success = False
+                change_state = False
+                msg = str(ex)
+            except Exception as ex:
+                completed, question = True, ""
+                success = False
+                change_state = True
+                msg = str(ex)
+
+            result_dict = {"completed": completed,
+                           "question": question,
+                           "success": success,
+                           "change_state": change_state,
+                           "msg": msg,
+                           "file_name": file_name}
+            return result_dict
+        return cb
+
     def pb_load_elines_clicked(self):
         current_dir = self.gpc.get_current_working_directory()
         file_name = QFileDialog.getOpenFileName(self, "Select File with Model Parameters",
@@ -318,32 +338,47 @@ class ModelWidget(FormBaseWidget):
                                                 "JSON (*.json);; All (*)")
         file_name = file_name[0]
         if file_name:
-            # TODO: emit signal ('parameters changed', i.e. incident energy and range changed)
-            # TODO: start necessary processing
-            try:
-                def _ask_question(text):
-                    def question():
-                        mb = QMessageBox(QMessageBox.Question, "Question",
-                                         text, QMessageBox.Yes | QMessageBox.No,
-                                         parent=self)
-                        if mb.exec() == QMessageBox.Yes:
-                            return True
-                        else:
-                            return False
-                    return question
+            cb = self._get_load_elines_cb()
+            self._compute_in_background(cb, self.slot_load_elines_clicked,
+                                        file_name=file_name,
+                                        incident_energy_from_param_file=None)
 
-                self.gpc.load_parameters_from_file(file_name, _ask_question)
-            except IOError as ex:
-                logger.error(f"Exception: {ex}")
+    @Slot(object)
+    def slot_load_elines_clicked(self, results):
+        self._recover_after_compute(self.slot_load_elines_clicked)
+
+        completed = results["completed"]
+        file_name = results["file_name"]
+        msg = results["msg"]
+
+        if not completed:
+            mb = QMessageBox(QMessageBox.Question, "Question",
+                             results["question"],
+                             QMessageBox.Yes | QMessageBox.No,
+                             parent=self)
+            answer = (mb.exec() == QMessageBox.Yes)
+            cb = self._get_load_elines_cb()
+            self._compute_in_background(cb, self.slot_load_elines_clicked,
+                                        file_name=file_name,
+                                        incident_energy_from_param_file=answer)
+            return
+
+        if results["success"]:
+            _, fln = os.path.split(file_name)
+            msg = f"File: '{fln}'"
+            self.le_param_fln.setText(msg)
+
+            self._set_fit_status(False)
+
+            self.gui_vars["gui_state"]["state_model_exists"] = True
+            self.gui_vars["gui_state"]["state_model_fit_exists"] = False
+            self.signal_model_loaded.emit(True)
+            self.update_global_state.emit()
+        else:
+            if results["change_state"]:
+                logger.error(f"Exception: error occurred while loading parameters: {msg}")
                 mb_error = QMessageBox(QMessageBox.Critical, "Error",
-                                       f"{ex}", QMessageBox.Ok, parent=self)
-                mb_error.exec()
-                # It doesn't seem that the state of the program needs to be changed if
-                #   the file was not loaded at all
-            except Exception as ex:
-                logger.error(f"Exception: error occurred while loading parameters: {ex}")
-                mb_error = QMessageBox(QMessageBox.Critical, "Error",
-                                       f"Error occurred while processing loaded parameters: {ex}",
+                                       f"Error occurred while processing loaded parameters: {msg}",
                                        QMessageBox.Ok, parent=self)
                 mb_error.exec()
                 # Here the parameters were loaded and processing was partially performed,
@@ -352,20 +387,13 @@ class ModelWidget(FormBaseWidget):
                 self.gui_vars["gui_state"]["state_model_fit_exists"] = False
                 self.signal_model_loaded.emit(False)
                 self.update_global_state.emit()
-
             else:
-                _, fln = os.path.split(file_name)
-                msg = f"File: '{fln}'"
-                self.le_param_fln.setText(msg)
-
-                self._set_fit_status(False)
-
-                self.gui_vars["gui_state"]["state_model_exists"] = True
-                self.gui_vars["gui_state"]["state_model_fit_exists"] = False
-                self.signal_model_loaded.emit(True)
-                self.update_global_state.emit()
-
-            print(f"Loading model parameters from file: {file_name}")
+                # It doesn't seem that the state of the program needs to be changed if
+                #   the file was not loaded at all
+                logger.error(f"Exception: {msg}")
+                mb_error = QMessageBox(QMessageBox.Critical, "Error",
+                                       f"{msg}", QMessageBox.Ok, parent=self)
+                mb_error.exec()
 
     def pb_load_qstandard_clicked(self):
         qe_param_built_in, qe_param_custom, qe_standard_selected = self.gpc.get_quant_standard_list()
@@ -374,29 +402,45 @@ class ModelWidget(FormBaseWidget):
         ret = dlg.exec()
         if ret:
             selected_standard = dlg.get_selected_standard()
-            if selected_standard is not None:
-                self.gpc.set_selected_quant_standard(selected_standard)
 
-                msg = f"QS: '{selected_standard['name']}'"
-                if self.gpc.is_quant_standard_custom(selected_standard):
-                    msg += " (user-defined)"
-                self.le_param_fln.setText(msg)
+            def cb(selected_standard):
+                try:
+                    if selected_standard is None:
+                        raise RuntimeError("The selected standard is not found.")
+                    self.gpc.set_selected_quant_standard(selected_standard)
+                    success, msg = True, ""
+                except Exception as ex:
+                    success, msg = False, str(ex)
+                return {"success": success, "msg": msg,
+                        "selected_standard": selected_standard}
 
-                self.gpc.process_peaks_from_quantitative_sample_data()
+            self._compute_in_background(cb, self.slot_load_qstandard_clicked,
+                                        selected_standard=selected_standard)
 
-                self._set_fit_status(False)
+    @Slot(object)
+    def slot_load_qstandard_clicked(self, result):
+        self._recover_after_compute(self.slot_load_qstandard_clicked)
 
-                self.gui_vars["gui_state"]["state_model_exists"] = True
-                self.gui_vars["gui_state"]["state_model_fit_exists"] = False
-                self.signal_model_loaded.emit(True)
-                self.update_global_state.emit()
-            else:
-                msg = "No quantitative standard was loaded."
-                msgbox = QMessageBox(QMessageBox.Critical, "Error",
-                                     msg, QMessageBox.Ok, parent=self)
-                msgbox.exec()
+        if result["success"]:
+            selected_standard = result["selected_standard"]
+            msg = f"QS: '{selected_standard['name']}'"
+            if self.gpc.is_quant_standard_custom(selected_standard):
+                msg += " (user-defined)"
+            self.le_param_fln.setText(msg)
+
+            self.gpc.process_peaks_from_quantitative_sample_data()
+
+            self._set_fit_status(False)
+
+            self.gui_vars["gui_state"]["state_model_exists"] = True
+            self.gui_vars["gui_state"]["state_model_fit_exists"] = False
+            self.signal_model_loaded.emit(True)
+            self.update_global_state.emit()
         else:
-            print("Cancelled loading quantitative standard")
+            msg = result["msg"]
+            msgbox = QMessageBox(QMessageBox.Critical, "Failed to Load Quantitative Standard",
+                                 msg, QMessageBox.Ok, parent=self)
+            msgbox.exec()
 
     def pb_save_elines_clicked(self):
         current_dir = self.gpc.get_current_working_directory()
@@ -433,9 +477,30 @@ class ModelWidget(FormBaseWidget):
         ret = dlg.exec()
         if ret:
             dialog_data = dlg.get_dialog_data()
-            self.gpc.set_general_fitting_params(dialog_data)
-            self._set_fit_status(False)
-            self.signal_incident_energy_or_range_changed.emit()
+
+            def cb(dialog_data):
+                try:
+                    self.gpc.set_general_fitting_params(dialog_data)
+                    success, msg = True, ""
+                except Exception as ex:
+                    success, msg = False, str(ex)
+                return {"success": success, "msg": msg}
+
+            self._compute_in_background(cb, self.slot_fit_param_general_clicked,
+                                        dialog_data=dialog_data)
+
+    @Slot(object)
+    def slot_fit_param_general_clicked(self, result):
+        self._recover_after_compute(self.slot_fit_param_general_clicked)
+
+        if not result["success"]:
+            msg = result["msg"]
+            msgbox = QMessageBox(QMessageBox.Critical, "Failed to Apply Fit Parameters",
+                                 msg, QMessageBox.Ok, parent=self)
+            msgbox.exec()
+
+        self._set_fit_status(False)
+        self.signal_incident_energy_or_range_changed.emit()
 
     def pb_fit_param_detailed_clicked(self):
         dialog_data = self.gpc.get_detailed_fitting_params()
@@ -449,9 +514,30 @@ class ModelWidget(FormBaseWidget):
         if ret:
             # 'dialog_data' contains references, so there is no need to
             #   read 'dialog_data' from 'dlg'.
-            self.gpc.set_detailed_fitting_params(dialog_data)
-            self._set_fit_status(False)
-            self.signal_incident_energy_or_range_changed.emit()
+
+            def cb(dialog_data):
+                try:
+                    self.gpc.set_detailed_fitting_params(dialog_data)
+                    success, msg = True, ""
+                except Exception as ex:
+                    success, msg = False, str(ex)
+                return {"success": success, "msg": msg}
+
+            self._compute_in_background(cb, self.slot_fit_param_detailed_clicked,
+                                        dialog_data=dialog_data)
+
+    @Slot(object)
+    def slot_fit_param_detailed_clicked(self, result):
+        self._recover_after_compute(self.slot_fit_param_detailed_clicked)
+
+        if not result["success"]:
+            msg = result["msg"]
+            msgbox = QMessageBox(QMessageBox.Critical, "Failed to Apply Fit Parameters",
+                                 msg, QMessageBox.Ok, parent=self)
+            msgbox.exec()
+
+        self._set_fit_status(False)
+        self.signal_incident_energy_or_range_changed.emit()
 
     def pb_save_spectrum_clicked(self):
         current_dir = self.gpc.get_current_working_directory()
@@ -471,35 +557,33 @@ class ModelWidget(FormBaseWidget):
             logger.debug("Spectrum/Fit saving is cancelled")
 
     def pb_start_fitting_clicked(self):
-        success = False
-        try:
-            self.gpc.total_spectrum_fitting()
+
+        def cb():
+            try:
+                self.gpc.total_spectrum_fitting()
+                success, msg = True, ""
+            except Exception as ex:
+                success, msg = False, str(ex)
+
+            return {"success": success, "msg": msg}
+
+        self._compute_in_background(cb, self.slot_start_fitting_clicked)
+
+    @Slot(object)
+    def slot_start_fitting_clicked(self, result):
+        self._recover_after_compute(self.slot_start_fitting_clicked)
+
+        success = result["success"]
+        if success:
             self._set_fit_status(True)
-            success = True
-        except Exception as ex:
-            msg = str(ex)
-            msgbox = QMessageBox(QMessageBox.Critical, "Error",
+        else:
+            msg = result["msg"]
+            msgbox = QMessageBox(QMessageBox.Critical, "Failed to Fit Total Spectrum",
                                  msg, QMessageBox.Ok, parent=self)
             msgbox.exec()
 
         # Reload the table
         self.signal_total_spectrum_fitting_completed.emit(success)
-
-    @Slot()
-    def timerExpired(self):
-        self._timer_counter += 1
-        progress_bar = self.ref_main_window.statusProgressBar
-        progress_bar.setValue(self._timer_counter)
-        if self._timer_counter >= 100:
-            self._timer.stop()
-            self._timer.timeout.disconnect(self.timerExpired)
-            self._timer = None
-            progress_bar.setValue(0)
-            status_bar = self.ref_main_window.statusBar()
-            status_bar.showMessage("Total spectrum fitting is successfully completed. "
-                                   "Results are presented in 'Fitting Model' tab.", 5000)
-            self.gui_vars["gui_state"]["running_computations"] = False
-            self.update_global_state.emit()
 
     def _update_le_fitting_results(self):
         rf = self.gpc.compute_current_rfactor(self._fit_available)
@@ -526,6 +610,49 @@ class ModelWidget(FormBaseWidget):
     def _set_fit_status(self, status):
         self.gui_vars["gui_state"]["state_model_fit_exists"] = status
         self.update_fit_status()
+
+    def _compute_in_background(self, func, slot, *args, **kwargs):
+        """
+        Run function `func` in a background thread. Send the signal
+        `self.computations_complete` once computation is finished.
+
+        Parameters
+        ----------
+        func: function
+            Reference to a function that is supposed to be executed at the background.
+            The function return value is passed as a signal parameter once computation is
+            complete.
+        slot: qtpy.QtCore.Slot or None
+            Reference to a slot. If not None, then the signal `self.computation_complete`
+            is connected to this slot.
+        args, kwargs
+            arguments of the function `func`.
+        """
+        signal_complete = self.computations_complete
+
+        def func_to_run(func, *args, **kwargs):
+            class LoadFile(QRunnable):
+                def run(self):
+                    result_dict = func(*args, **kwargs)
+                    signal_complete.emit(result_dict)
+            return LoadFile()
+
+        if slot is not None:
+            self.computations_complete.connect(slot)
+        self.gui_vars["gui_state"]["running_computations"] = True
+        self.update_global_state.emit()
+        QThreadPool.globalInstance().start(func_to_run(func, *args, **kwargs))
+
+    def _recover_after_compute(self, slot):
+        """
+        The function should be called after the signal `self.computations_complete` is
+        received. The slot should be the same as the one used when calling
+        `self.compute_in_background`.
+        """
+        if slot is not None:
+            self.computations_complete.disconnect(slot)
+        self.gui_vars["gui_state"]["running_computations"] = False
+        self.update_global_state.emit()
 
 
 class WndManageEmissionLines(SecondaryWindow):
@@ -1257,60 +1384,6 @@ class WndManageEmissionLines(SecondaryWindow):
     def _set_fit_status(self, status):
         self.gui_vars["gui_state"]["state_model_fit_exists"] = status
         self.signal_parameters_changed.emit()
-
-
-'''
-class DialogGlobalParamsSettings(QDialog):
-
-    def __init__(self, parent=None):
-
-        super().__init__(parent)
-
-        self.setWindowTitle("Global Parameters for Fitting of Emission Lines")
-        self.setMinimumWidth(1000)
-        self.setMinimumHeight(500)
-        self.resize(1000, 500)
-
-        self._setup_table()
-
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        button_box.button(QDialogButtonBox.Cancel).setDefault(True)
-        button_box.accepted.connect(self.accept)
-        button_box.rejected.connect(self.reject)
-
-        vbox = QVBoxLayout()
-        vbox.addWidget(self.table)
-        vbox.addWidget(button_box)
-
-        self.setLayout(vbox)
-
-    def _setup_table(self):
-
-        self.table_settings = _FittingSettings(energy_column=False)
-        self.table = self.table_settings.setup_table()
-        set_tooltip(self.table,
-                    "Edit global optimization parameters. "
-                    "Processing presets may be configured by specifying optimization strategy "
-                    "for each parameter may be selected. A preset for each fitting step "
-                    "of the total spectrum fitting may be selected in <b>Model</b> tab.")
-
-        sample_contents = [
-            ["coherent_sct_amplitude", 1866.280064, 1.0, 10000000000.0,
-             "none", "none", "none", "none", "fixed", "fixed", "fixed"],
-            ["coherent_sct_energy", 12.0, 9.0, 13.0,
-             "fixed", "lohi", "fixed", "fixed", "fixed", "fixed", "fixed"],
-            ["compton_amplitude", 1105.970249, 0.0, 10000000000.0,
-             "none", "none", "none", "none", "fixed", "fixed", "fixed"],
-            ["compton_angle", 70.0000000025, 70.0, 105.0,
-             "lohi", "lohi", "fixed", "fixed", "fixed", "fixed", "fixed"],
-        ]
-        self.fill_table(sample_contents)
-
-    def fill_table(self, table_contents):
-
-        self.table_settings.fill_table(self.table, table_contents)
-'''
 
 
 class DialogPileupPeakParameters(QDialog):
