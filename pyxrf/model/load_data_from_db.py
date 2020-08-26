@@ -803,11 +803,10 @@ def map_data2D_srx(run_id_uid, fpath,
 
         if hdr.start.get("plan_type") == "OuterProductAbsScanPlan":
             detector_list = ["xs_settings_ch1", "xs_settings_ch2", "xs_settings_ch3"]
-            scaler_list = []
+            scaler_list = ["current_preamp_ch2"]
         else:
             detector_list = config_data['xrf_detector']
             scaler_list = config_data['scaler_list']
-
 
         try:
             data = hdr.table(fill=True, convert_times=False)
@@ -833,6 +832,7 @@ def map_data2D_srx(run_id_uid, fpath,
                 print('Saving data to hdf file: Xpress3 detector #1 (three channels).')
                 root, ext = os.path.splitext(fpath)
                 fpath_out = f"{root + '_xs'}{ext}"
+                logger.debug("Assembling the stepscan data")
                 data_out = assemble_data_SRX_stepscan(
                     data,
                     datashape,
@@ -840,13 +840,16 @@ def map_data2D_srx(run_id_uid, fpath,
                     pos_list=hdr.start.motors,
                     scaler_list=scaler_list,
                     fname_add_version=fname_add_version,
+                    create_each_det=create_each_det,
                     fly_type=fly_type,
                     base_val=config_data['base_value'])  # base value shift for ic
+                logger.debug("Saving the stepscan data to file")
                 fpath_out = write_db_to_hdf_base(
                     fpath_out, data_out, metadata=mdata,
                     fname_add_version=fname_add_version,
                     file_overwrite_existing=file_overwrite_existing,
                     create_each_det=create_each_det)
+                logger.debug("Completed saving the stepscan data to file")
                 d_dict = {"dataset": data_out, "file_name": fpath_out,
                           "detector_name": "xs", "metadata": mdata}
                 data_output.append(d_dict)
@@ -855,23 +858,31 @@ def map_data2D_srx(run_id_uid, fpath,
                 print('Saving data to hdf file: Xpress3 detector #2 (single channel).')
                 root, ext = os.path.splitext(fpath)
                 fpath_out = f"{root}_xs2{ext}"
-                data = assemble_data_SRX_stepscan(
+                logger.debug("Assembling the stepscan data")
+                data_out = assemble_data_SRX_stepscan(
                     data,
                     datashape,
-                    det_list=detector_list,
+                    # The following must be XS2 detectors (not present in 'old' step scans)
+                    det_list=config_data['xrf_detector2'],
                     pos_list=hdr.start.motors,
                     scaler_list=scaler_list,
                     fname_add_version=fname_add_version,
+                    create_each_det=create_each_det,
                     fly_type=fly_type,
                     base_val=config_data['base_value'])  # base value shift for ic
+                logger.debug("Saving the stepscan data to file")
                 fpath_out = write_db_to_hdf_base(
                     fpath_out, data_out, metadata=mdata,
                     fname_add_version=fname_add_version,
                     file_overwrite_existing=file_overwrite_existing,
                     create_each_det=create_each_det)
+                logger.debug("Completed saving the stepscan data to file")
                 d_dict = {"dataset": data_out, "file_name": fpath_out,
                           "detector_name": "xs", "metadata": mdata}
                 data_output.append(d_dict)
+
+            fln_list = [_["file_name"] for _ in data_output]
+            logger.debug(f"Step scan data was saved to the following files: {fln_list}")
 
         return data_output
 
@@ -1159,6 +1170,9 @@ def map_data2D_srx(run_id_uid, fpath,
             if output_to_file:
                 print(f", {n_detectors_found} data files were created", end="")
             print(".")
+
+        fln_list = [_["file_name"] for _ in data_output]
+        logger.debug(f"Fly scan data was saved to the following files: {fln_list}")
 
         return data_output
 
@@ -1638,6 +1652,7 @@ def assemble_data_SRX_stepscan(
         pos_list=('zpssx[um]', 'zpssy[um]'),
         scaler_list=('sclr1_ch3', 'sclr1_ch4'),
         fname_add_version=False,
+        create_each_det=True,
         fly_type=None, subscan_dims=None, base_val=None):
     """
     Convert stepscan data from SRX beamline obtained from databroker into the for accepted
@@ -1661,6 +1676,9 @@ def assemble_data_SRX_stepscan(
         so that it becomes unique in the current directory. The version is
         added to <fname>.h5 in the form <fname>_(1).h5, <fname>_(2).h5, etc.
         False: the exception is thrown if the file exists.
+    create_each_det: bool
+        True: output dataset contains data for individual detectors, False: output
+        dataset contains only sum of all detectors.
     """
 
     data_assembled = {}
@@ -1697,7 +1715,8 @@ def assemble_data_SRX_stepscan(
             else:
                 sum_data += new_data
 
-            data_assembled[detname] = new_data
+            if create_each_det:
+                data_assembled[detname] = new_data
 
     if sum_data is not None:
         data_assembled['det_sum'] = sum_data
