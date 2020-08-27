@@ -9,9 +9,15 @@ import multiprocessing
 import pandas as pd
 import math
 import time as ttime
+from distutils.version import LooseVersion
 
 import logging
 import warnings
+
+try:
+    import databroker
+except ImportError:
+    pass
 
 from ..core.utils import convert_time_to_nexus_string
 from .scan_metadata import ScanMetadataXRF
@@ -413,7 +419,7 @@ def _extract_metadata_from_header(hdr):
     Extract metadata from start and stop document. Metadata extracted from other document
     in the scan are beamline specific and added to dictionary at later time.
     """
-
+    print("Extracting metadata") ##
     start_document = hdr.start
 
     mdata = ScanMetadataXRF()
@@ -510,6 +516,7 @@ def _extract_metadata_from_header(hdr):
         iname = instruments.get(mdata["scan_instrument_id"].lower(), "")
         if iname:
             mdata["scan_instrument_name"] = iname
+    print("Finished extracting metadata") ##
 
     return mdata
 
@@ -656,6 +663,9 @@ def map_data2D_hxn(run_id_uid, fpath,
     detector_name = "xpress3"
     d_dict = {"dataset": data_out, "file_name": fpath, "detector_name": detector_name, "metadata": mdata}
     data_output.append(d_dict)
+
+    clear_handler_cache(hdr)
+
     return data_output
 
     # write_db_to_hdf(fpath, data, datashape,
@@ -885,6 +895,8 @@ def map_data2D_srx(run_id_uid, fpath,
 
             fln_list = [_["file_name"] for _ in data_output]
             logger.debug(f"Step scan data was saved to the following files: {fln_list}")
+
+        clear_handler_cache(hdr)
 
         return data_output
 
@@ -1198,6 +1210,8 @@ def map_data2D_srx(run_id_uid, fpath,
         fln_list = [_["file_name"] for _ in data_output]
         logger.debug(f"Fly scan data was saved to the following files: {fln_list}")
 
+        clear_handler_cache(hdr)
+
         return data_output
 
 
@@ -1420,6 +1434,8 @@ def map_data2D_tes(run_id_uid, fpath,
               "detector_name": detector_name, "metadata": mdata}
     data_output.append(d_dict)
 
+    clear_handler_cache(hdr)
+
     return data_output
 
 
@@ -1528,6 +1544,8 @@ def map_data2D_xfm(run_id_uid, fpath,
         d_dict = {"dataset": data_out, "file_name": fpath,
                   "detector_name": detector_name, "metadata": mdata}
         data_output.append(d_dict)
+
+        clear_handler_cache(hdr)
 
         return data_output
 
@@ -2073,12 +2091,29 @@ def write_db_to_hdf_base(fpath, data, *, metadata=None,
     return fpath
 
 
+# Release memory (only for Databroker 1.0.0 and above)
+def clear_handler_cache(hdr):
+    """
+    Clear handler cache after loading data.
+
+    Parameters
+    ----------
+    hdr
+        reference to the handler
+    """
+    if LooseVersion(databroker.__version__) >= LooseVersion('1.0.0'):
+        hdr._data_source.fillers['yes']._handler_cache.clear()
+        hdr._data_source.fillers['delayed']._handler_cache.clear()
+
+
+# TODO: the following function may be deleted after Databroker 0.13 is forgotten
 def free_memory_from_handler():
     """Quick way to set 3D dataset at handler to None to release memory.
     """
-    for h in db.fs._handler_cache.values():
-        setattr(h, '_dataset', None)
-    print('Memory is released.')
+    if LooseVersion(databroker.__version__) < LooseVersion('1.0.0'):
+        for h in db.fs._handler_cache.values():
+            setattr(h, '_dataset', None)
+        print('Memory is released.')
 
 
 def export1d(runid, name=None):
