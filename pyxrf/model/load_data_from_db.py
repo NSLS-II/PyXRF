@@ -419,7 +419,6 @@ def _extract_metadata_from_header(hdr):
     Extract metadata from start and stop document. Metadata extracted from other document
     in the scan are beamline specific and added to dictionary at later time.
     """
-    print("Extracting metadata") ##
     start_document = hdr.start
 
     mdata = ScanMetadataXRF()
@@ -516,7 +515,6 @@ def _extract_metadata_from_header(hdr):
         iname = instruments.get(mdata["scan_instrument_id"].lower(), "")
         if iname:
             mdata["scan_instrument_name"] = iname
-    print("Finished extracting metadata") ##
 
     return mdata
 
@@ -2096,6 +2094,7 @@ def clear_handler_cache(hdr):
         hdr._data_source.fillers['yes']._handler_cache.clear()
         hdr._data_source.fillers['delayed']._handler_cache.clear()
 '''
+
 
 # TODO: the following function may be deleted after Databroker 0.13 is forgotten
 def free_memory_from_handler():
