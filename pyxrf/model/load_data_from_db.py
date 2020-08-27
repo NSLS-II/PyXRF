@@ -664,8 +664,6 @@ def map_data2D_hxn(run_id_uid, fpath,
     d_dict = {"dataset": data_out, "file_name": fpath, "detector_name": detector_name, "metadata": mdata}
     data_output.append(d_dict)
 
-    clear_handler_cache(hdr)
-
     return data_output
 
     # write_db_to_hdf(fpath, data, datashape,
@@ -895,8 +893,6 @@ def map_data2D_srx(run_id_uid, fpath,
 
             fln_list = [_["file_name"] for _ in data_output]
             logger.debug(f"Step scan data was saved to the following files: {fln_list}")
-
-        clear_handler_cache(hdr)
 
         return data_output
 
@@ -1210,8 +1206,6 @@ def map_data2D_srx(run_id_uid, fpath,
         fln_list = [_["file_name"] for _ in data_output]
         logger.debug(f"Fly scan data was saved to the following files: {fln_list}")
 
-        clear_handler_cache(hdr)
-
         return data_output
 
 
@@ -1434,8 +1428,6 @@ def map_data2D_tes(run_id_uid, fpath,
               "detector_name": detector_name, "metadata": mdata}
     data_output.append(d_dict)
 
-    clear_handler_cache(hdr)
-
     return data_output
 
 
@@ -1544,8 +1536,6 @@ def map_data2D_xfm(run_id_uid, fpath,
         d_dict = {"dataset": data_out, "file_name": fpath,
                   "detector_name": detector_name, "metadata": mdata}
         data_output.append(d_dict)
-
-        clear_handler_cache(hdr)
 
         return data_output
 
@@ -2091,7 +2081,8 @@ def write_db_to_hdf_base(fpath, data, *, metadata=None,
     return fpath
 
 
-# Release memory (only for Databroker 1.0.0 and above)
+'''
+# This may not be needed, since hdr always goes out of scope
 def clear_handler_cache(hdr):
     """
     Clear handler cache after loading data.
@@ -2104,7 +2095,7 @@ def clear_handler_cache(hdr):
     if LooseVersion(databroker.__version__) >= LooseVersion('1.0.0'):
         hdr._data_source.fillers['yes']._handler_cache.clear()
         hdr._data_source.fillers['delayed']._handler_cache.clear()
-
+'''
 
 # TODO: the following function may be deleted after Databroker 0.13 is forgotten
 def free_memory_from_handler():
