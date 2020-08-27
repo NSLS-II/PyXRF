@@ -1500,15 +1500,10 @@ def render_data_to_gui(run_id_uid, *, create_each_det=False,
     #   first detector is loaded. Data from the second detector is saved to file and
     #   can be loaded from the file. Currently this is a very rare case (only one set
     #   of such experiments from SRX beamline exists).
-    print("One") ##
     data_out = data_from_db[0]['dataset']
-    print("Two") ##
     fname = data_from_db[0]['file_name']
-    print("Tree") ##
     detector_name = data_from_db[0]['detector_name']
-    print("Four") ##
     scan_metadata = data_from_db[0]['metadata']
-    print("Five") ##
 
     # Create file name for the 'sum' dataset ('file names' are used as dictionary
     #   keys in data storage containers, as channel labels in plot legends,
@@ -1518,13 +1513,9 @@ def render_data_to_gui(run_id_uid, *, create_each_det=False,
     fname_no_ext = os.path.splitext(os.path.basename(fname))[0]
     fname_sum = fname_no_ext + '_sum'
 
-    print("Six") ##
-
     # Determine the number of available detector channels and create the list
     #   of channel names. The channels are named as 'det1', 'det2', 'det3' etc.
     xrf_det_list = [nm for nm in data_out.keys() if 'det' in nm and 'sum' not in nm]
-
-    print("Seven") ##
 
     # Replace the references to raw data by the references to HDF5 datasets.
     #   This should also release memory used for storage of raw data
@@ -1532,20 +1523,12 @@ def render_data_to_gui(run_id_uid, *, create_each_det=False,
     interpath = "xrfmap"
     dset = "counts"
 
-    print(f"xrf_det_list={xrf_det_list}") ##
-
     # Data from individual detectors may or may not be present in the file
     for det_name in xrf_det_list:
-        print(f"det_name='{det_name}'") ##
         dset_name = f"{interpath}/{det_name}/{dset}"
-        print(f"dset_name='{dset_name}'") ##
         with h5py.File(fname, "r") as f:
-            print(f"Finding shape ...") ##
             dset_shape = f[dset_name].shape
-        print(f"dset_shape={dset_shape}") ##
         data_out[det_name] = RawHDF5Dataset(fname, dset_name, dset_shape)
-
-    print("Eight") ##
 
     # The file is always expected to have 'detsum' dataset
     dset_name = f"{interpath}/detsum/{dset}"
@@ -1553,12 +1536,9 @@ def render_data_to_gui(run_id_uid, *, create_each_det=False,
         dset_shape = f[dset_name].shape
     data_out["det_sum"] = RawHDF5Dataset(fname, dset_name, dset_shape)
 
-    print("Nine") ##
-
     # Now fill 'data_sets' dictionary
     DS = DataSelection(filename=fname_sum,
                        raw_data=data_out["det_sum"])
-    print("Ten") ##
     data_sets[fname_sum] = DS
     logger.info("Data loading: channel sum is loaded successfully.")
 

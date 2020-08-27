@@ -434,6 +434,8 @@ def _extract_metadata_from_header(hdr):
 
         "experiment_plan_name": ["plan_name"],
         "experiment_plan_type": ["plan_type"],
+        "experiment_fast_axis": ["scaninfo/fast_axis"],
+        "experiment_slow_axis": ["scaninfo/slow_axis"],
 
         "proposal_num": ["proposal/proposal_num"],
         "proposal_title": ["proposal/proposal_title"],
@@ -838,7 +840,6 @@ def map_data2D_srx(run_id_uid, fpath,
                 logger.info('Saving data to hdf file: Xpress3 detector #1 (three channels).')
                 root, ext = os.path.splitext(fpath)
                 fpath_out = f"{root + '_xs'}{ext}"
-                logger.debug("Assembling the stepscan data") ##
                 data_out = assemble_data_SRX_stepscan(
                     data,
                     datashape,
@@ -849,13 +850,11 @@ def map_data2D_srx(run_id_uid, fpath,
                     create_each_det=create_each_det,
                     fly_type=fly_type,
                     base_val=config_data['base_value'])  # base value shift for ic
-                logger.debug("Saving the stepscan data to file") ##
                 fpath_out = write_db_to_hdf_base(
                     fpath_out, data_out, metadata=mdata,
                     fname_add_version=fname_add_version,
                     file_overwrite_existing=file_overwrite_existing,
                     create_each_det=create_each_det)
-                logger.debug("Completed saving the stepscan data to file") ##
                 d_dict = {"dataset": data_out, "file_name": fpath_out,
                           "detector_name": "xs", "metadata": mdata}
                 data_output.append(d_dict)
@@ -864,7 +863,6 @@ def map_data2D_srx(run_id_uid, fpath,
                 logger.info('Saving data to hdf file: Xpress3 detector #2 (single channel).')
                 root, ext = os.path.splitext(fpath)
                 fpath_out = f"{root}_xs2{ext}"
-                logger.debug("Assembling the stepscan data") ##
                 data_out = assemble_data_SRX_stepscan(
                     data,
                     datashape,
@@ -876,13 +874,11 @@ def map_data2D_srx(run_id_uid, fpath,
                     create_each_det=create_each_det,
                     fly_type=fly_type,
                     base_val=config_data['base_value'])  # base value shift for ic
-                logger.debug("Saving the stepscan data to file")  ##
                 fpath_out = write_db_to_hdf_base(
                     fpath_out, data_out, metadata=mdata,
                     fname_add_version=fname_add_version,
                     file_overwrite_existing=file_overwrite_existing,
                     create_each_det=create_each_det)
-                logger.debug("Completed saving the stepscan data to file") ##
                 d_dict = {"dataset": data_out, "file_name": fpath_out,
                           "detector_name": "xs", "metadata": mdata}
                 data_output.append(d_dict)
@@ -929,12 +925,14 @@ def map_data2D_srx(run_id_uid, fpath,
         using_nanostage = 'nanoZebra' in hdr.start.detectors
 
         if using_nanostage:
+            # There should also be a source of 'z' positions
             xpos_name, ypos_name = "enc1", "enc2"
+            # Note: the following block doesn't make sence for the setup with nanostage
             # The following condition will be more complicated when 'slow_axis' is
             #   added to the metadata.
-            if hdr.start.scaninfo['fast_axis'] == "NANOVER":
-                xpos_name, ypos_name = ypos_name, xpos_name
-                vertical_fast = True
+            # if hdr.start.scaninfo['fast_axis'] == "NANOVER":
+            #    xpos_name, ypos_name = ypos_name, xpos_name
+            #    vertical_fast = True
         else:
             if 'fast_axis' in hdr.start.scaninfo:
                 # fast scan along vertical, y is fast scan, x is slow
@@ -988,7 +986,6 @@ def map_data2D_srx(run_id_uid, fpath,
             #   to retrieve 'good' data from the scan.
             try:
                 for m, v in enumerate(e):
-                    print(f"m={m}") ##
                     if m == 0:
 
                         # Check if detector field does not exist. If not, then the file should not be created.
@@ -1072,14 +1069,10 @@ def map_data2D_srx(run_id_uid, fpath,
                     scaler_tmp[:-1, :, -1] = np.diff(data_t, axis=0)
                     scaler_tmp[-1, :, -1] = data_t[-1, :] - data_t[-2, :]
                 new_data['scaler_data'] = scaler_tmp
-                print(f"data[xpos_name] shape: {data[xpos_name].shape}")  ##
                 x_pos = np.vstack(data[xpos_name])
-                print(f"x_pos shape: {x_pos.shape}")  ##
 
                 if using_nanostage:
-                    print(f"data[ypos_name] shape: {data[ypos_name].shape}")  ##
                     y_pos0 = np.vstack(data[ypos_name])
-                    print(f"y_pos shape: {y_pos0.shape}")  ##
                 else:
                     # get y position data, from differet stream name primary
                     data1 = hdr.table(fill=True, stream_name='primary')
@@ -1091,7 +1084,6 @@ def map_data2D_srx(run_id_uid, fpath,
                         ypos_name = 'hf_stage_z'        # vertical along z
                     y_pos0 = np.hstack(data1[ypos_name])
 
-                print(f"10") ##
                 # Original comment (from the previous authors):
                 #      y position is more than actual x pos, scan not finished?
                 #
@@ -1110,13 +1102,11 @@ def map_data2D_srx(run_id_uid, fpath,
                 last_scan_line_no_data = False
                 if math.isclose(np.sum(x_pos[x_pos.shape[0] - 1, :]), 0.0, abs_tol=1e-20):
                     last_scan_line_no_data = True
-                print(f"11") ##
 
                 no_position_data = False
                 if len(y_pos0) == 0 or (len(y_pos0) == 1 and last_scan_line_no_data):
                     no_position_data = True
                     print("WARNING: The scan contains no completed scan lines")
-                print(f"12") ##
 
                 if len(y_pos0) < x_pos.shape[0] and len(y_pos0) > 1:
                     # The number of the lines for which the scan was initiated
@@ -1144,7 +1134,6 @@ def map_data2D_srx(run_id_uid, fpath,
                     #   all the unscanned lines, otherwise they all will be zeros
                     for n in range(n_scanned_lines - 1, x_pos.shape[0]):
                         x_pos[n, :] = x_pos[n_scanned_lines - 2, :]
-                    print(f"13") ##
 
                 elif x_pos.shape[0] > 1 and last_scan_line_no_data:
                     # One possible scenario is that if the scan was interrupted while scanning
@@ -1154,8 +1143,6 @@ def map_data2D_srx(run_id_uid, fpath,
                     #   zeros, which will create a mess if data is plotted with PyXRF
                     #   To fix the problem, fill the last line with values from the previous line
                     x_pos[-1, :] = x_pos[-2, :]
-                    print(f"14") ##
-                print(f"14a") ##
 
                 # The following condition check is left from the existing code. It is still checking
                 #   for the case if 0 lines were scanned.
@@ -1178,11 +1165,9 @@ def map_data2D_srx(run_id_uid, fpath,
                         data_tmp[1, :, :] = x_pos.T
                         data_tmp[0, :, :] = yv.T
                         new_data['pos_data'] = data_tmp
-                    print(f"15") ##
 
                 else:
                     print("WARNING: Scan was interrupted: x,y positions are not saved")
-                print(f"16") ##
 
             n_detectors_found += 1
 
@@ -1193,7 +1178,6 @@ def map_data2D_srx(run_id_uid, fpath,
                                                  fname_add_version=fname_add_version,
                                                  file_overwrite_existing=file_overwrite_existing,
                                                  create_each_det=create_each_det)
-            print(f"17") ##
 
             # Preparing data for the detector ``detector_name`` for output
             d_dict = {"dataset": new_data, "file_name": fpath_out,
