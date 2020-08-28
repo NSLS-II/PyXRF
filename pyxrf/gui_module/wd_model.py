@@ -4,13 +4,14 @@ import copy
 
 from qtpy.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox,
                             QCheckBox, QLabel, QComboBox, QDialog, QDialogButtonBox,
-                            QFileDialog, QGridLayout, QTableWidget,
+                            QFileDialog, QGridLayout, QTableWidget, QWidget,
                             QTableWidgetItem, QHeaderView, QMessageBox)
 from qtpy.QtGui import QBrush, QColor, QDoubleValidator, QRegExpValidator
 from qtpy.QtCore import Qt, Slot, Signal, QRegExp, QThreadPool, QRunnable
 
 from .useful_widgets import (LineEditReadOnly, global_gui_parameters, ElementSelection,
-                             SecondaryWindow, set_tooltip, LineEditExtended)
+                             SecondaryWindow, set_tooltip, LineEditExtended, CheckBoxNamed,
+                             get_background_css)
 
 from .form_base_widget import FormBaseWidget
 from .dlg_find_elements import DialogFindElements
@@ -779,10 +780,10 @@ class WndManageEmissionLines(SecondaryWindow):
                                       "QTableWidget::item:selected{background-color: red;}"
                                       "QTableWidget::item:selected{color: white;}")
 
-        self.tbl_labels = ["Z", "Line", "E, keV", "Peak Int.", "Rel. Int.(%)", "CS"]
+        self.tbl_labels = ["", "Z", "Line", "E, keV", "Peak Int.", "Rel. Int.(%)", "CS"]
         self.tbl_cols_editable = ["Peak Int."]
         self.tbl_value_min = {"Rel. Int.(%)": 0.1}
-        tbl_cols_resize_to_content = ["Z", "Line"]
+        tbl_cols_resize_to_content = ["", "Z", "Line"]
 
         self.tbl_elines.setColumnCount(len(self.tbl_labels))
         self.tbl_elines.verticalHeader().hide()
@@ -805,6 +806,8 @@ class WndManageEmissionLines(SecondaryWindow):
                 header.setDefaultAlignment(Qt.AlignCenter)
             else:
                 header.setDefaultAlignment(Qt.AlignRight)
+
+        self.cb_sel_list = []  # List of checkboxes
 
     def _setup_action_buttons(self):
         self.pb_remove_rel = QPushButton("Remove Rel.Int.(%) <")
@@ -885,52 +888,76 @@ class WndManageEmissionLines(SecondaryWindow):
 
         self._enable_events = False
 
+        self.tbl_elines.clearContents()
+
+        # Clear the list of checkboxes
+        for cb in self.cb_sel_list:
+            cb.stateChanged.connect(self.cb_eline_state_changed)
+        self.cb_sel_list = []
+
         self.tbl_elines.setRowCount(len(table_contents))
         for nr, row in enumerate(table_contents):
             sel_status = row["sel_status"]
-            row_data = [row["z"], row["eline"], row["energy"],
+            row_data = [None, row["z"], row["eline"], row["energy"],
                         row["peak_int"], row["rel_int"], row["cs"]]
 
             for nc, entry in enumerate(row_data):
+
                 label = self.tbl_labels[nc]
-
-                s = None
-                # The case when the value (Rel. Int.) is limited from the bottom
-                #   We don't want to print very small numbers here
-                if label in self.tbl_value_min:
-                    v = self.tbl_value_min[label]
-                    if isinstance(entry, (float, np.float64)) and (entry < v):
-                        s = f"<{v:.2f}"
-                if s is None:
-                    if isinstance(entry, (float, np.float64)):
-                        s = f"{entry:.2f}" if entry else "-"
-                    else:
-                        s = f"{entry}" if entry else "-"
-
-                item = QTableWidgetItem(s)
-
-                # Add check box to the first element of each row
-                if nc == 0:
-                    item.setFlags(item.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
-                    item.setCheckState(Qt.Checked if sel_status else Qt.Unchecked)
-                    item.setTextAlignment(Qt.AlignCenter | Qt.AlignVCenter)
-                else:
-                    item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-
-                # Set all columns not editable (unless needed)
-                if label not in self.tbl_cols_editable:
-                    item.setFlags(item.flags() & ~Qt.ItemIsEditable)
 
                 # Set alternating background colors for the table rows
                 #   Make background for editable items a little brighter
                 brightness = 240 if label in self.tbl_cols_editable else 220
                 if nr % 2:
-                    brush = QBrush(QColor(255, brightness, brightness))  # Light-blue
+                    rgb_bckg = (255, brightness, brightness)  # Light-red
                 else:
-                    brush = QBrush(QColor(brightness, 255, brightness))  # Light-green
-                item.setBackground(brush)
+                    rgb_bckg = (brightness, 255, brightness)  # Light-green
 
-                self.tbl_elines.setItem(nr, nc, item)
+                if nc == 0:
+                    item = QWidget()
+                    cb = CheckBoxNamed(name=f"{nr}")
+                    item_hbox = QHBoxLayout(item)
+                    item_hbox.addWidget(cb)
+                    item_hbox.setAlignment(Qt.AlignCenter)
+                    item_hbox.setContentsMargins(0, 0, 0, 0)
+
+                    css1 = get_background_css(rgb_bckg, widget="QCheckbox", editable=False)
+                    css2 = get_background_css(rgb_bckg, widget="QWidget", editable=False)
+                    item.setStyleSheet(css2 + css1)
+
+                    cb.setChecked(Qt.Checked if sel_status else Qt.Unchecked)
+                    cb.stateChanged.connect(self.cb_eline_state_changed)
+                    cb.setStyleSheet("QCheckBox {color: black;}")
+                    self.cb_sel_list.append(cb)
+
+                    self.tbl_elines.setCellWidget(nr, nc, item)
+                else:
+
+                    s = None
+                    # The case when the value (Rel. Int.) is limited from the bottom
+                    #   We don't want to print very small numbers here
+                    if label in self.tbl_value_min:
+                        v = self.tbl_value_min[label]
+                        if isinstance(entry, (float, np.float64)) and (entry < v):
+                            s = f"<{v:.2f}"
+                    if s is None:
+                        if isinstance(entry, (float, np.float64)):
+                            s = f"{entry:.2f}" if entry else "-"
+                        else:
+                            s = f"{entry}" if entry else "-"
+
+                    item = QTableWidgetItem(s)
+
+                    item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+                    # Set all columns not editable (unless needed)
+                    if label not in self.tbl_cols_editable:
+                        item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+
+                    brush = QBrush(QColor(*rgb_bckg))
+                    item.setBackground(brush)
+
+                    self.tbl_elines.setItem(nr, nc, item)
 
         self._enable_events = True
         # Update the rest of the widgets
@@ -1122,7 +1149,7 @@ class WndManageEmissionLines(SecondaryWindow):
                 to_check = True
             else:
                 to_check = state
-            self.tbl_elines.item(n_row, 0).setCheckState(Qt.Checked if to_check else Qt.Unchecked)
+            self.cb_sel_list[n_row].setChecked(Qt.Checked if to_check else Qt.Unchecked)
             eline_list.append(eline)
             state_list.append(to_check)
 
@@ -1130,17 +1157,19 @@ class WndManageEmissionLines(SecondaryWindow):
         self._set_fit_status(False)
         self._enable_events = True
 
+    def cb_eline_state_changed(self, name, state):
+        if self._enable_events:
+            n_row = int(name)
+            state = (state == Qt.Checked)
+            eline = self._table_contents[n_row]["eline"]
+            self.gpc.set_checked_emission_lines([eline], [state])
+            self._set_fit_status(False)
+
     def tbl_elines_item_changed(self, item):
         if self._enable_events:
             n_row, n_col = self.tbl_elines.row(item), self.tbl_elines.column(item)
-            # Checkbox was clicked
-            if n_col == 0:
-                state = bool(item.checkState())
-                eline = self._table_contents[n_row]["eline"]
-                self.gpc.set_checked_emission_lines([eline], [state])
-                self._set_fit_status(False)
             # Value was changed
-            elif n_col == 3:
+            if n_col == 4:
                 text = item.text()
                 eline = self._table_contents[n_row]["eline"]
                 if self._validator_peak_height.validate(text, 0)[0] != QDoubleValidator.Acceptable:
@@ -1194,6 +1223,8 @@ class WndManageEmissionLines(SecondaryWindow):
                                  msg, QMessageBox.Ok, parent=self)
             msgbox.exec()
         self.update_eline_table()
+        # Update the displayed estimated peak amplitude value 'le_peak_intensity'
+        self._set_selected_eline(self._selected_eline)
         self._set_fit_status(False)
 
     def le_remove_rel_text_changed(self, text):
@@ -1216,6 +1247,8 @@ class WndManageEmissionLines(SecondaryWindow):
             msgbox.exec()
         # Reload the table
         self.update_eline_table()
+        # Update the displayed estimated peak amplitude value 'le_peak_intensity'
+        self._set_selected_eline(self._selected_eline)
         self._set_fit_status(False)
 
     def _display_peak_intensity(self, eline):
@@ -1266,7 +1299,7 @@ class WndManageEmissionLines(SecondaryWindow):
             self.element_selection.set_current_item(eline)
         else:
             # No selection, update the state based on element selection widget.
-            index, eline = self._get_current_index_in_table()
+            eline = self._selected_eline
             self.tbl_elines_set_selection(eline)
         self._update_add_remove_btn_state(eline)
         self._update_add_edit_userpeak_btn_state()

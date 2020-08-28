@@ -1398,7 +1398,7 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
                 self.update_all_data()
                 self._update_maps_auto()
             except Exception:
-                msg = f"The selected JSON file has incorrect format. Select a different file."
+                msg = "The selected JSON file has incorrect format. Select a different file."
                 msgbox = QMessageBox(QMessageBox.Critical, "Data Loading Error",
                                      msg, QMessageBox.Ok, parent=self)
                 msgbox.exec()

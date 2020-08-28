@@ -66,7 +66,6 @@ class DialogSelectQuantStandard(QDialog):
                                  "QTableWidget::item:selected{background-color: red;}"
                                  "QTableWidget::item:selected{color: white;}")
 
-
         header = self.table.horizontalHeader()
         for n, col_stretch in enumerate(col_stretch):
             # Set stretching for the columns
