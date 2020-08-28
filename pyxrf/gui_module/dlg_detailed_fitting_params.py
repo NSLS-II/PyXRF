@@ -1,6 +1,6 @@
 from qtpy.QtWidgets import (QHBoxLayout, QVBoxLayout, QLabel, QComboBox, QDialog,
                             QDialogButtonBox, QTableWidget, QTableWidgetItem, QHeaderView,)
-from qtpy.QtGui import QBrush, QColor
+from qtpy.QtGui import QBrush, QColor, QPalette
 from qtpy.QtCore import Qt
 
 from .useful_widgets import (get_background_css, set_tooltip, ComboBoxNamedNoWheel)
@@ -175,6 +175,15 @@ class DialogDetailedFittingParameters(QDialog):
                     n_fit_strategy += 1
 
                     item = ComboBoxNamedNoWheel(name=combo_name)
+
+                    # Set text color for QComboBox widget (necessary if the program is used with Dark theme)
+                    pal = item.palette()
+                    pal.setColor(QPalette.ButtonText, Qt.black)
+                    item.setPalette(pal)
+                    # Set text color for drop-down view (necessary if the program is used with Dark theme)
+                    pal = item.view().palette()
+                    pal.setColor(QPalette.Text, Qt.black)
+                    item.view().setPalette(pal)
 
                     css1 = get_background_css(rgb_bckg, widget="QComboBox", editable=False)
                     css2 = get_background_css(rgb_bckg, widget="QWidget", editable=False)
