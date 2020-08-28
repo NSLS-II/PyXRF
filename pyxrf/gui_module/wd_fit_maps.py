@@ -1094,6 +1094,8 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
         self.table.horizontalHeader().setMinimumSectionSize(150)
         vbox.addWidget(self.table)
 
+        self.table.setStyleSheet("QTableWidget::item{color: black;}")
+
         frame = QFrame()
         vbox.setContentsMargins(0, 0, 0, 0)
         frame.setLayout(vbox)
@@ -1124,6 +1126,11 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
 
         vbox = QVBoxLayout()
 
+        class _LabelBlack(QLabel):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.setStyleSheet("color: black")
+
         for cdata, csettings in zip(calib_data, calib_settings):
             frame = QFrame()
             frame.setFrameStyle(QFrame.StyledPanel)
@@ -1143,9 +1150,9 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
             # Row 1: serial, name
             serial = cdata['serial']
             _hbox = QHBoxLayout()
-            _hbox.addWidget(QLabel(f"<b>Standard</b> #{serial}"))
+            _hbox.addWidget(_LabelBlack(f"<b>Standard</b> #{serial}"))
             if not _name_is_long:
-                _hbox.addWidget(QLabel(f"'{name}'"))
+                _hbox.addWidget(_LabelBlack(f"'{name}'"))
             _hbox.addStretch(1)
             _hbox.addWidget(pb_view)
             _hbox.addWidget(pb_remove)
@@ -1156,16 +1163,16 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
                 # Wrap name if it is extemely long
                 name = textwrap.fill(name, width=80)
                 _hbox = QHBoxLayout()
-                _hbox.addWidget(QLabel("<b>Name:</b> "), 0, Qt.AlignTop)
-                _hbox.addWidget(QLabel(name), 0, Qt.AlignTop)
+                _hbox.addWidget(_LabelBlack("<b>Name:</b> "), 0, Qt.AlignTop)
+                _hbox.addWidget(_LabelBlack(name), 0, Qt.AlignTop)
                 _hbox.addStretch(1)
                 _vbox.addLayout(_hbox)
 
             # Row 2: description
             description = textwrap.fill(cdata['description'], width=80)
             _hbox = QHBoxLayout()
-            _hbox.addWidget(QLabel("<b>Description:</b>"), 0, Qt.AlignTop)
-            _hbox.addWidget(QLabel(f"{description}"), 0, Qt.AlignTop)
+            _hbox.addWidget(_LabelBlack("<b>Description:</b>"), 0, Qt.AlignTop)
+            _hbox.addWidget(_LabelBlack(f"{description}"), 0, Qt.AlignTop)
             _hbox.addStretch(1)
             _vbox.addLayout(_hbox)
 
@@ -1175,18 +1182,18 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
             detector_channel = cdata['detector_channel']
             distance_to_sample = cdata['distance_to_sample']
             _hbox = QHBoxLayout()
-            _hbox.addWidget(QLabel(f"<b>Incident energy, keV:</b> {incident_energy}"))
-            _hbox.addWidget(QLabel(f"  <b>Scaler:</b> {scaler}"))
-            _hbox.addWidget(QLabel(f"  <b>Detector channel:</b> {detector_channel}"))
-            _hbox.addWidget(QLabel(f"  <b>Distance-to-sample:</b> {distance_to_sample}"))
+            _hbox.addWidget(_LabelBlack(f"<b>Incident energy, keV:</b> {incident_energy}"))
+            _hbox.addWidget(_LabelBlack(f"  <b>Scaler:</b> {scaler}"))
+            _hbox.addWidget(_LabelBlack(f"  <b>Detector channel:</b> {detector_channel}"))
+            _hbox.addWidget(_LabelBlack(f"  <b>Distance-to-sample:</b> {distance_to_sample}"))
             _hbox.addStretch(1)
             _vbox.addLayout(_hbox)
 
             # Row 4: file name
             fln = textwrap.fill(csettings['file_path'], width=80)
             _hbox = QHBoxLayout()
-            _hbox.addWidget(QLabel("<b>Source file:</b>"), 0, Qt.AlignTop)
-            _hbox.addWidget(QLabel(fln), 0, Qt.AlignTop)
+            _hbox.addWidget(_LabelBlack("<b>Source file:</b>"), 0, Qt.AlignTop)
+            _hbox.addWidget(_LabelBlack(fln), 0, Qt.AlignTop)
             _hbox.addStretch(1)
             _vbox.addLayout(_hbox)
 
@@ -1281,6 +1288,8 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
                         rb = QRadioButton()
                         if self.gpc.get_quant_calibration_is_eline_selected(eline, q_file_path):
                             rb.setChecked(True)
+
+                        rb.setStyleSheet("color: black")
 
                         self.eline_rb_lists[n][ns] = rb
                         # self.eline_rb_by_standard[ns].addButton(rb)
