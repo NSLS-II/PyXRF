@@ -775,6 +775,7 @@ class WndManageEmissionLines(SecondaryWindow):
         self._validator_peak_height.setBottom(0.01)
 
         self.tbl_elines = QTableWidget()
+        self.tbl_elines.setStyleSheet("QTableWidget::item:selected{ background-color: red }")
 
         self.tbl_labels = ["Z", "Line", "E, keV", "Peak Int.", "Rel. Int.(%)", "CS"]
         self.tbl_cols_editable = ["Peak Int."]
