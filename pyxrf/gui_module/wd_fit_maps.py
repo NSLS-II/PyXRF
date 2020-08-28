@@ -637,6 +637,8 @@ class WndComputeRoiMaps(SecondaryWindow):
         self.table.verticalHeader().hide()
         self.table.setSelectionMode(QTableWidget.NoSelection)
 
+        self.table.setStyleSheet("QTableWidget::item{color: black;}")
+
         header = self.table.horizontalHeader()
         for n, lbl in enumerate(self.tbl_labels):
             # Set stretching for the columns
@@ -742,8 +744,8 @@ class WndComputeRoiMaps(SecondaryWindow):
             item_hbox.setAlignment(Qt.AlignCenter)
             item_hbox.setContentsMargins(0, 0, 0, 0)
             color_css = f"rgb({rgb_bckg[0]}, {rgb_bckg[1]}, {rgb_bckg[2]})"
-            item.setStyleSheet(f"QWidget {{ background-color: {color_css}; }};; "
-                               f"QCheckBox {{ background-color: white }}")
+            item.setStyleSheet(f"QWidget {{ background-color: {color_css}; }} "
+                               f"QCheckBox {{ color: black; background-color: white }}")
             self.table.setCellWidget(nr, nc + 1, item)
 
             item = PushButtonNamed("Reset", name=f"{nr}")
@@ -751,7 +753,7 @@ class WndComputeRoiMaps(SecondaryWindow):
             self.pb_default_list.append(item)
             rgb_bckg = [_ - 35 if (_ < 255) else _ for _ in rgb_bckg]
             color_css = f"rgb({rgb_bckg[0]}, {rgb_bckg[1]}, {rgb_bckg[2]})"
-            item.setStyleSheet(f"QPushButton {{ background-color: {color_css}; }}")
+            item.setStyleSheet(f"QPushButton {{ color: black; background-color: {color_css}; }}")
             self.table.setCellWidget(nr, nc + 2, item)
 
     def _setup_footer(self):
