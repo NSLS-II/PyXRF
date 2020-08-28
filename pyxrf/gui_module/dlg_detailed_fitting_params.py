@@ -104,6 +104,8 @@ class DialogDetailedFittingParameters(QDialog):
         self.table.verticalHeader().hide()
         self.table.setHorizontalHeaderLabels(self.tbl_labels)
 
+        self.table.setStyleSheet("QTableWidget::item{color: black;}")
+
         header = self.table.horizontalHeader()
         for n, lbl in enumerate(self.tbl_labels):
             # Set stretching for the columns
