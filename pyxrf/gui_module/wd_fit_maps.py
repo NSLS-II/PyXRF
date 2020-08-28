@@ -1392,10 +1392,16 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
                                                 "JSON (*.json);; All (*)")
         file_name = file_name[0]
         if file_name:
-            logger.debug(f"Loading quantitative calibration from file: '{file_name}'")
-            self.gpc.load_quantitative_calibration_data(file_name)
-            self.update_all_data()
-            self._update_maps_auto()
+            try:
+                logger.debug(f"Loading quantitative calibration from file: '{file_name}'")
+                self.gpc.load_quantitative_calibration_data(file_name)
+                self.update_all_data()
+                self._update_maps_auto()
+            except Exception:
+                msg = f"The selected JSON file has incorrect format. Select a different file."
+                msgbox = QMessageBox(QMessageBox.Critical, "Data Loading Error",
+                                     msg, QMessageBox.Ok, parent=self)
+                msgbox.exec()
 
     def pb_view_clicked(self, button):
         try:
