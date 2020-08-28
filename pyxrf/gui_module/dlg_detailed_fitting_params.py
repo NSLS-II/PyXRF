@@ -3,7 +3,7 @@ from qtpy.QtWidgets import (QHBoxLayout, QVBoxLayout, QLabel, QComboBox, QDialog
 from qtpy.QtGui import QBrush, QColor
 from qtpy.QtCore import Qt
 
-from .useful_widgets import (get_background_css, set_tooltip, ComboBoxNamed)
+from .useful_widgets import (get_background_css, set_tooltip, ComboBoxNamedNoWheel)
 
 import logging
 logger = logging.getLogger(__name__)
@@ -174,7 +174,7 @@ class DialogDetailedFittingParameters(QDialog):
                         combo_name = ""
                     n_fit_strategy += 1
 
-                    item = ComboBoxNamed(name=combo_name)
+                    item = ComboBoxNamedNoWheel(name=combo_name)
 
                     css1 = get_background_css(rgb_bckg, widget="QComboBox", editable=False)
                     css2 = get_background_css(rgb_bckg, widget="QWidget", editable=False)

@@ -233,6 +233,23 @@ class ComboBoxNamed(QComboBox):
         self.currentIndexChanged.emit(name, index)
 
 
+class ComboBoxNamedNoWheel(ComboBoxNamed):
+    """
+    Named combobox that ignores wheel events. Wheel events cause combo box to
+    scroll through the element, which is not always desirable. For example when
+    combo boxes are inserted in large tables, wheel is naturally used to scroll
+    through the table. If mouse is accidently pointed to a combo box, then rotating
+    the wheel will change combo box current element instead of scrolling through
+    the table. Ignoring the wheel events in the combo box passes them to the
+    parent for processing, which solves the issue.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def wheelEvent(self, event):
+        event.ignore()
+
+
 class CheckBoxNamed(QCheckBox):
 
     stateChanged = Signal(str, int)
