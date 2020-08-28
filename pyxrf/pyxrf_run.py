@@ -72,7 +72,7 @@ def run():
     # app.setStyleSheet('QWidget {font-size: 14px}')
 
     # Run the application in 'Dark' theme
-    dark_theme_on = False
+    dark_theme_on = True
 
     if dark_theme_on:
         # Custom palette for Dark Mode
