@@ -62,6 +62,11 @@ class DialogSelectQuantStandard(QDialog):
         self.table.itemSelectionChanged.connect(self.item_selection_changed)
         self.table.itemDoubleClicked.connect(self.item_double_clicked)
 
+        self.table.setStyleSheet("QTableWidget::item{color: black;}"
+                                 "QTableWidget::item:selected{background-color: red;}"
+                                 "QTableWidget::item:selected{color: white;}")
+
+
         header = self.table.horizontalHeader()
         for n, col_stretch in enumerate(col_stretch):
             # Set stretching for the columns
