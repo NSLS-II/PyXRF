@@ -5,6 +5,7 @@ from qtpy.QtWidgets import (QMainWindow, QMessageBox, QLabel, QAction,
                             QDialog, QVBoxLayout, QDialogButtonBox, QHBoxLayout,
                             QProgressBar)
 from qtpy.QtCore import Qt, Slot
+from qtpy.QtGui import QGuiApplication, QCursor
 
 from .central_widget import TwoPanelWidget
 from .useful_widgets import global_gui_variables
@@ -35,6 +36,8 @@ class MainWindow(QMainWindow):
             reference to a class that holds references to processing classes.
         """
         super().__init__()
+
+        self._cursor_set = False  # Indicates if temporary 'wait' cursor is set
 
         self.gpc = gpc
         self.gui_vars = global_gui_variables
@@ -338,6 +341,16 @@ class MainWindow(QMainWindow):
         # Update the state of the menu bar
         state = not self.gui_vars["gui_state"]["running_computations"]
         self.menuBar().setEnabled(state)
+
+        state_computations = self.gui_vars["gui_state"]["running_computations"]
+        if state_computations:
+            if not self._cursor_set:
+                QGuiApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+                self._cursor_set = True
+        else:
+            if self._cursor_set:
+                QGuiApplication.restoreOverrideCursor()
+                self._cursor_set = False
 
         # Forward to children
         self.central_widget.update_widget_state(condition)
