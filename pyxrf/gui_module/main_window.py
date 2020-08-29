@@ -70,7 +70,7 @@ class MainWindow(QMainWindow):
         self.setMinimumWidth(_main_window_geometry["min_width"])
         self.setMinimumHeight(_main_window_geometry["min_height"])
 
-        self.setWindowTitle(self.gpc.io_model.window_title)
+        self.setWindowTitle(self.gpc.get_window_title())
 
         self.central_widget = TwoPanelWidget(gpc=self.gpc, gui_vars=self.gui_vars)
         self.setCentralWidget(self.central_widget)
@@ -99,7 +99,7 @@ class MainWindow(QMainWindow):
             self.central_widget.left_panel.load_data_widget.pb_dbase.clicked)
 
         self.action_view_metadata = QAction("View Metadata...", self)
-        self.action_view_metadata.setEnabled(self.gpc.io_model.scan_metadata_available)
+        self.action_view_metadata.setEnabled(self.gpc.is_scan_metadata_available())
         self.action_view_metadata.setStatusTip('View metadata for loaded run')
         self.action_view_metadata.triggered.connect(
             self.central_widget.left_panel.load_data_widget.pb_view_metadata.clicked)
@@ -418,26 +418,26 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def update_window_title(self):
-        self.setWindowTitle(self.gpc.io_model.window_title)
+        self.setWindowTitle(self.gpc.get_window_title())
 
     @Slot(bool)
     def slot_new_run_loaded(self, success):
         if success:
             # Update status bar
-            file_name = self.gpc.io_model.file_name
+            file_name = self.gpc.get_loaded_file_name()
             run_id, run_uid = "", ""
-            if self.gpc.io_model.scan_metadata_available:
+            if self.gpc.is_scan_metadata_available():
                 try:
-                    run_id = self.gpc.io_model.scan_metadata["scan_id"]
+                    run_id = self.gpc.get_metadata_scan_id()
                 except Exception:
                     pass
                 try:
-                    run_uid = self.gpc.io_model.scan_metadata["scan_uid"]
+                    run_uid = self.gpc.get_metadata_scan_uid()
                 except Exception:
                     pass
             else:
-                if self.gpc.io_model.runid >= 0:
-                    run_id = self.gpc.io_model.runid
+                if self.gpc.get_current_run_id() >= 0:
+                    run_id = self.gpc.get_current_run_id()
             s = ""
             if run_id:
                 s += f"ID: {run_id}  "
@@ -451,7 +451,7 @@ class MainWindow(QMainWindow):
             self._set_status_bar_text(s)
 
             # Activate/deactivate "View Metadata ..." menu item
-            if self.gpc.io_model.scan_metadata_available:
+            if self.gpc.is_scan_metadata_available():
                 self.action_view_metadata.setEnabled(True)
             else:
                 self.action_view_metadata.setEnabled(False)

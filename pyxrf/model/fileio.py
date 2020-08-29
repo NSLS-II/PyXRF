@@ -529,7 +529,7 @@ class FileIOModel(Atom):
         if self.mask_active:
             # Load mask data
             if len(self.mask_file_path) > 0:
-                ext = os.path.splitext(self.mask_file_path).lower()
+                ext = os.path.splitext(self.mask_file_path)[-1].lower()
                 msg = ""
                 try:
                     if '.npy' == ext:

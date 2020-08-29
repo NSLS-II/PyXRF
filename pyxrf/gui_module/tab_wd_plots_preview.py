@@ -52,15 +52,15 @@ class PreviewPlotSpectrum(QWidget):
 
         self.cb_plot_type = QComboBox()
         self.cb_plot_type.addItems(["LinLog", "Linear"])
-        self.cb_plot_type.setCurrentIndex(self.gpc.plot_model.plot_type_preview.value)
+        self.cb_plot_type.setCurrentIndex(self.gpc.get_preview_plot_type())
         self.cb_plot_type.currentIndexChanged.connect(self.cb_plot_type_current_index_changed)
 
         self.rb_selected_region = QRadioButton("Selected region")
         self.rb_selected_region.setChecked(True)
         self.rb_full_spectrum = QRadioButton("Full spectrum")
-        if self.gpc.plot_model.energy_range_preview == EnergyRangePresets.SELECTED_RANGE:
+        if self.gpc.get_preview_energy_range() == EnergyRangePresets.SELECTED_RANGE:
             self.rb_selected_region.setChecked(True)
-        elif self.gpc.plot_model.energy_range_preview == EnergyRangePresets.FULL_SPECTRUM:
+        elif self.gpc.get_preview_energy_range() == EnergyRangePresets.FULL_SPECTRUM:
             self.rb_full_spectrum.setChecked(True)
         else:
             logger.error("Spectrum preview: incorrect Enum value for energy range was used:\n"
@@ -119,17 +119,17 @@ class PreviewPlotSpectrum(QWidget):
     @Slot(bool)
     def redraw_preview_plot(self):
         # It is assumed that the plot is visible
-        self.gpc.plot_model.update_preview_spectrum_plot()
+        self.gpc.update_preview_spectrum_plot()
 
     def btn_group_region_button_toggled(self, button, checked):
         if checked:
             if button == self.rb_selected_region:
-                self.gpc.plot_model.energy_range_preview = EnergyRangePresets.SELECTED_RANGE
-                self.gpc.plot_model.update_preview_spectrum_plot()
+                self.gpc.set_preview_energy_range(EnergyRangePresets.SELECTED_RANGE)
+                self.gpc.update_preview_spectrum_plot()
                 logger.debug("GUI: Display only selected region")
             elif button == self.rb_full_spectrum:
-                self.gpc.plot_model.energy_range_preview = EnergyRangePresets.FULL_SPECTRUM
-                self.gpc.plot_model.update_preview_spectrum_plot()
+                self.gpc.set_preview_energy_range(EnergyRangePresets.FULL_SPECTRUM)
+                self.gpc.update_preview_spectrum_plot()
                 logger.debug("GUI: Display full spectrum")
             else:
                 logger.error("Spectrum preview: unknown button was toggled. "
@@ -137,9 +137,8 @@ class PreviewPlotSpectrum(QWidget):
 
     def cb_plot_type_current_index_changed(self, index):
         try:
-            self.gpc.plot_model.plot_type_preview = PlotTypes(index)
+            self.gpc.set_preview_plot_type(PlotTypes(index))
             self.gpc.plot_model.update_preview_spectrum_plot()
-            print(f"Selected index: {index}")
         except ValueError:
             logger.error("Spectrum preview: incorrect index for energy range preset was detected.\n"
                          "Please report the error to the development team.")
@@ -202,30 +201,30 @@ class PreviewPlotCount(QWidget):
 
     def cb_color_scheme_current_index_changed(self, index):
         logger.debug(f"Color scheme is changed to {self._color_schemes[index]}")
-        self.gpc.plot_model.map_preview_color_scheme = self._color_schemes[index]
-        self.gpc.plot_model.update_total_count_map_preview()
+        self.gpc.set_preview_map_color_scheme(self._color_schemes[index])
+        self.gpc.update_preview_total_count_map()
 
     def combo_linear_log_current_index_changed(self, index):
         logger.debug(f"Map type is changed to {MapTypes(index)}")
-        self.gpc.plot_model.map_type_preview = MapTypes(index)
-        self.gpc.plot_model.update_total_count_map_preview()
+        self.gpc.set_preview_map_type(MapTypes(index))
+        self.gpc.update_preview_total_count_map()
 
     def combo_pixels_positions_current_index_changed(self, index):
         logger.debug(f"Map axes are changed to {MapAxesUnits(index)}")
-        self.gpc.plot_model.map_axes_units_preview = MapAxesUnits(index)
-        self.gpc.plot_model.update_total_count_map_preview()
+        self.gpc.set_preview_map_axes_units(MapAxesUnits(index))
+        self.gpc.update_preview_total_count_map()
 
     def range_selection_changed(self, sel_low, sel_high):
         logger.debug(f"Range selection is changed to ({sel_low:.10g}, {sel_high:.10g})")
-        self.gpc.plot_model.set_map_preview_range(low=sel_low, high=sel_high)
-        self.gpc.plot_model.update_total_count_map_preview()
+        self.gpc.set_preview_map_range(low=sel_low, high=sel_high)
+        self.gpc.update_preview_total_count_map()
 
     @Slot(str)
     def update_map_range(self, mode):
         if mode not in ("reset", "update", "expand", "clear"):
             logger.error(f"PreviewPlotCount.update_map_range: incorrect mode '{mode}'")
             return
-        range_low, range_high = self.gpc.io_model.get_dataset_preview_count_map_range()
+        range_low, range_high = self.gpc.get_dataset_preview_count_map_range()
 
         if (range_low is None) or (range_high is None) or mode == "clear":
             range_low, range_high = 0.0, 1.0  # No datasets are available
@@ -246,8 +245,9 @@ class PreviewPlotCount(QWidget):
             self.range.set_range(range_low, range_high)
             self.range.reset()
 
-        self.gpc.plot_model.map_preview_range_low = range_low if range_low is not None else 0
-        self.gpc.plot_model.map_preview_range_high = range_high if range_high is not None else 0
+        range_low = range_low if range_low is not None else 0
+        range_high = range_high if range_high is not None else 0
+        self.gpc.set_preview_map_range(low=range_low, high=range_high)
 
         logger.debug(f"Total Count Preview range is updated: mode='{mode}' range=({range_low}, {range_high})")
 

@@ -85,7 +85,7 @@ class LoadDataWidget(FormBaseWidget):
         self.le_wd = LineEditReadOnly()
 
         # Initial working directory. Set to the HOME directory for now
-        current_dir = os.path.expanduser(self.gpc.io_model.working_directory)
+        current_dir = os.path.expanduser(self.gpc.get_current_working_directory())
         self.le_wd.setText(current_dir)
 
         hbox = QHBoxLayout()
@@ -106,7 +106,7 @@ class LoadDataWidget(FormBaseWidget):
         self.pb_dbase.clicked.connect(self.pb_dbase_clicked)
 
         self.cb_file_all_channels = QCheckBox("All channels")
-        self.cb_file_all_channels.setChecked(self.gpc.io_model.load_each_channel)
+        self.cb_file_all_channels.setChecked(self.gpc.get_load_each_channel())
         self.cb_file_all_channels.toggled.connect(self.cb_file_all_channels_toggled)
 
         self.le_file_default = "No data is loaded"
@@ -228,7 +228,7 @@ class LoadDataWidget(FormBaseWidget):
 
         self.cbox_channel.clear()
         if items is None:
-            items = list(self.gpc.io_model.file_channel_list)
+            items = list(self.gpc.get_file_channel_list())
         self.cbox_channel.addItems(items)
 
         self.cbox_channel.currentIndexChanged.connect(self.cbox_channel_index_changed)
@@ -253,7 +253,7 @@ class LoadDataWidget(FormBaseWidget):
 
         self.list_preview.clear()
         if items is None:
-            items = list(self.gpc.io_model.file_channel_list)
+            items = list(self.gpc.get_file_channel_list())
         for s in items:
             wi = QListWidgetItem(s, self.list_preview)
             wi.setFlags(wi.flags() | Qt.ItemIsUserCheckable)
@@ -266,7 +266,7 @@ class LoadDataWidget(FormBaseWidget):
         # This will cause the preview data to be plotted (the plot is expected to be hidden,
         #   since no channels were selected). Here we select the first channel in the list.
         for n, item in enumerate(items):
-            state = Qt.Checked if self.gpc.io_model.data_sets[item].selected_for_preview \
+            state = Qt.Checked if self.gpc.is_dset_item_selected_for_preview(item) \
                 else Qt.Unchecked
             self.list_preview.item(n).setCheckState(state)
 
@@ -278,7 +278,7 @@ class LoadDataWidget(FormBaseWidget):
             self, "Select Working Directory", dir_current,
             QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks)
         if dir:
-            self.gpc.io_model.working_directory = dir
+            self.gpc.set_current_working_directory(dir)
             self.le_wd.setText(dir)
 
     def pb_file_clicked(self):
@@ -315,24 +315,24 @@ class LoadDataWidget(FormBaseWidget):
         msg = result["msg"]  # Message is empty if file loading failed
         file_path = result["file_path"]
         if status:
-            file_text = f"'{self.gpc.io_model.file_name}'"
-            if self.gpc.io_model.scan_metadata_available:
-                file_text += f": ID#{self.gpc.io_model.scan_metadata['scan_id']}"
+            file_text = f"'{self.gpc.get_loaded_file_name()}'"
+            if self.gpc.is_scan_metadata_available():
+                file_text += f": ID#{self.gpc.get_metadata_scan_id()}"
             self.le_file.setText(file_text)
 
             self.gui_vars["gui_state"]["state_file_loaded"] = True
             # Invalidate fit. Fit must be rerun for new data.
             self.gui_vars["gui_state"]["state_model_fit_exists"] = False
             # Check if any datasets were loaded.
-            self.gui_vars["gui_state"]["state_xrf_map_exists"] = self.gpc.io_model.is_xrf_maps_available()
+            self.gui_vars["gui_state"]["state_xrf_map_exists"] = self.gpc.is_xrf_maps_available()
 
             # Disable the button for changing working directory. This is consistent
             #   with the behavior of the old PyXRF, but will be changed in the future.
             self.pb_set_wd.setEnabled(False)
 
             # Enable/disable 'View Metadata' button
-            self.pb_view_metadata.setEnabled(self.gpc.io_model.scan_metadata_available)
-            self.le_wd.setText(self.gpc.io_model.working_directory)
+            self.pb_view_metadata.setEnabled(self.gpc.is_scan_metadata_available())
+            self.le_wd.setText(self.gpc.get_current_working_directory())
 
             self.update_main_window_title.emit()
             self.update_global_state.emit()
@@ -356,7 +356,7 @@ class LoadDataWidget(FormBaseWidget):
 
             # Disable 'View Metadata' button
             self.pb_view_metadata.setEnabled(False)
-            self.le_wd.setText(self.gpc.io_model.working_directory)
+            self.le_wd.setText(self.gpc.get_current_working_directory())
 
             # Clear flags: the state now is "No data is loaded".
             clear_gui_state(self.gui_vars)
@@ -415,24 +415,24 @@ class LoadDataWidget(FormBaseWidget):
         id_uid = result["id_uid"]
         # file_name = result["file_name"]
         if status:
-            file_text = f"'{self.gpc.io_model.file_name}'"
-            if self.gpc.io_model.scan_metadata_available:
-                file_text += f": ID#{self.gpc.io_model.scan_metadata['scan_id']}"
+            file_text = f"'{self.gpc.get_loaded_file_name()}'"
+            if self.gpc.is_scan_metadata_available():
+                file_text += f": ID#{self.gpc.get_metadata_scan_id()}"
             self.le_file.setText(file_text)
 
             self.gui_vars["gui_state"]["state_file_loaded"] = True
             # Invalidate fit. Fit must be rerun for new data.
             self.gui_vars["gui_state"]["state_model_fit_exists"] = False
             # Check if any datasets were loaded.
-            self.gui_vars["gui_state"]["state_xrf_map_exists"] = self.gpc.io_model.is_xrf_maps_available()
+            self.gui_vars["gui_state"]["state_xrf_map_exists"] = self.gpc.is_xrf_maps_available()
 
             # Disable the button for changing working directory. This is consistent
             #   with the behavior of the old PyXRF, but will be changed in the future.
             self.pb_set_wd.setEnabled(False)
 
             # Enable/disable 'View Metadata' button
-            self.pb_view_metadata.setEnabled(self.gpc.io_model.scan_metadata_available)
-            self.le_wd.setText(self.gpc.io_model.working_directory)
+            self.pb_view_metadata.setEnabled(self.gpc.is_scan_metadata_available())
+            self.le_wd.setText(self.gpc.get_current_working_directory())
 
             self.update_main_window_title.emit()
             self.update_global_state.emit()
@@ -456,7 +456,7 @@ class LoadDataWidget(FormBaseWidget):
 
             # Disable 'View Metadata' button
             self.pb_view_metadata.setEnabled(False)
-            self.le_wd.setText(self.gpc.io_model.working_directory)
+            self.le_wd.setText(self.gpc.get_current_working_directory())
 
             # Clear flags: the state now is "No data is loaded".
             clear_gui_state(self.gui_vars)
@@ -480,44 +480,56 @@ class LoadDataWidget(FormBaseWidget):
             msgbox.exec()
 
     def pb_apply_mask_clicked(self):
-        map_size = self.gpc.io_model.get_dataset_map_size()
+        map_size = self.gpc.get_dataset_map_size()
         map_size = map_size if (map_size is not None) else (0, 0)
 
         dlg = DialogLoadMask()
         dlg.set_image_size(n_rows=map_size[0], n_columns=map_size[1])
-        dlg.set_roi(row_start=self.gpc.io_model.roi_row_start,
-                    column_start=self.gpc.io_model.roi_col_start,
-                    row_end=self.gpc.io_model.roi_row_end,
-                    column_end=self.gpc.io_model.roi_col_end)
-        dlg.set_roi_active(self.gpc.io_model.roi_selection_active)
+        roi = self.gpc.get_preview_spatial_roi()
+        dlg.set_roi(row_start=roi["row_start"],
+                    column_start=roi["col_start"],
+                    row_end=roi["row_end"],
+                    column_end=roi["col_end"])
+        dlg.set_roi_active(self.gpc.is_roi_selection_active())
 
-        dlg.set_default_directory(self.gpc.io_model.working_directory)
-        dlg.set_mask_file_path(self.gpc.io_model.mask_file_path)
-        dlg.set_mask_file_active(self.gpc.io_model.mask_active)
+        dlg.set_default_directory(self.gpc.get_current_working_directory())
+        dlg.set_mask_file_path(self.gpc.get_mask_selection_file_path())
+        dlg.set_mask_file_active(self.gpc.is_mask_selection_active())
 
         if dlg.exec() == QDialog.Accepted:
-            self.gpc.io_model.roi_row_start, self.gpc.io_model.roi_col_start, \
-                self.gpc.io_model.roi_row_end, self.gpc.io_model.roi_col_end = dlg.get_roi()
-            self.gpc.io_model.roi_selection_active = dlg.get_roi_active()
-            self.gpc.io_model.mask_file_path = dlg.get_mask_file_path()
-            # At this point the mask name is just the file name
-            self.gpc.io_model.mask_name = os.path.split(self.gpc.io_model.mask_file_path)[-1]
-            self.gpc.io_model.mask_active = dlg.get_mask_file_active()
+            roi_keys = ("row_start", "col_start", "row_end", "col_end")
+            roi_list = dlg.get_roi()
+            roi_selected = {k: roi_list[n] for n, k in enumerate(roi_keys)}
+            self.gpc.set_preview_spatial_roi(roi_selected)
+
+            self.gpc.set_roi_selection_active(dlg.get_roi_active())
+
+            self.gpc.set_mask_selection_file_path(dlg.get_mask_file_path())
+            self.gpc.set_mask_selection_active(dlg.get_mask_file_active())
 
             def cb():
                 try:
                     # TODO: proper error processing is needed here (exception RuntimeError)
-                    self.gpc.io_model.apply_mask_to_datasets()
-                    self.gpc.plot_model.data_sets = self.gpc.io_model.data_sets
-                    self.gpc.plot_model.update_preview_spectrum_plot()
+                    self.gpc.apply_mask_to_datasets()
+                    success = True
+                    msg = ""
                 except Exception as ex:
-                    logger.error(f"Error occurred while applying the mask: {str(ex)}")
-                return dict()
+                    success = False
+                    msg = str(ex)
+                return {"success": success, "msg": msg}
 
             self._compute_in_background(cb, self.slot_apply_mask_clicked)
 
-    @Slot()
-    def slot_apply_mask_clicked(self):
+    @Slot(object)
+    def slot_apply_mask_clicked(self, result):
+        if not result["success"]:
+            msg = f"Error occurred while applying the ROI selection:\n" \
+                  f"Exception: {result['msg']}"
+            logger.error(f"{msg}")
+            mb_error = QMessageBox(QMessageBox.Critical, "Error",
+                                   f"{msg}", QMessageBox.Ok, parent=self)
+            mb_error.exec()
+
         # Here we want to expand the range in the Total Count Map preview if needed
         self.update_preview_map_range.emit("update")
         self._recover_after_compute(self.slot_apply_mask_clicked)
@@ -525,12 +537,12 @@ class LoadDataWidget(FormBaseWidget):
     def pb_view_metadata_clicked(self):
 
         dlg = DialogViewMetadata()
-        metadata_string = self.gpc.io_model.scan_metadata.get_formatted_output()
+        metadata_string = self.gpc.get_formatted_metadata()
         dlg.setText(metadata_string)
         dlg.exec()
 
     def cb_file_all_channels_toggled(self, state):
-        self.gpc.io_model.load_each_channel = state
+        self.gpc.set_load_each_channel(state)
 
     def cbox_channel_index_changed(self, index):
         def cb(index):
@@ -568,7 +580,7 @@ class LoadDataWidget(FormBaseWidget):
         state = list_item.checkState()
 
         # The name of the dataset
-        dset_name = self.gpc.io_model.file_channel_list[ind]
+        dset_name = self.gpc.get_file_channel_list()[ind]
 
         def cb():
             self.gpc.select_preview_dataset(dset_name=dset_name, is_visible=bool(state))

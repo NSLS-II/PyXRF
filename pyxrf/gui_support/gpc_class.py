@@ -104,6 +104,12 @@ class GlobalProcessingClasses:
 
         logger.info('pyxrf started.')
 
+    def get_window_title(self):
+        """
+        Returns current title of the Main Window of the application.
+        """
+        return self.io_model.window_title
+
     def is_databroker_available(self):
         return self.io_model.is_databroker_available()
 
@@ -273,6 +279,90 @@ class GlobalProcessingClasses:
         """
         return self.io_model.working_directory
 
+    def set_current_working_directory(self, working_directory):
+        """
+        Sets current working directory ('io_model')
+        """
+        self.io_model.working_directory = working_directory
+
+    def get_load_each_channel(self):
+        """
+        Get the value of `load_each_channel` flag, which indicates if data from
+        all detector channels will be loaded.
+        """
+        return self.io_model.load_each_channel
+
+    def set_load_each_channel(self, load_each_channel):
+        """
+        Get the value of `load_each_channel` flag, which indicates if data from
+        all detector channels will be loaded.
+        """
+        self.io_model.load_each_channel = load_each_channel
+
+    def get_file_channel_list(self):
+        """
+        Get the list of channels in the currently loaded file (or run)
+        """
+        return self.io_model.file_channel_list
+
+    def is_dset_item_selected_for_preview(self, item):
+        """
+        Check if dataset item is selected for preview.
+        """
+        return bool(self.io_model.data_sets[item].selected_for_preview)
+
+    def get_loaded_file_name(self):
+        """
+        Returns the name of currently loaded file.
+        """
+        return self.io_model.file_name
+
+    def is_scan_metadata_available(self):
+        """
+        Returns the flag that indicates if scan metadata is loaded
+        """
+        return bool(self.io_model.scan_metadata_available)
+
+    def get_formatted_metadata(self):
+        """
+        Returns formatted metadata (for displaying or printing)
+        """
+        return self.io_model.scan_metadata.get_formatted_output()
+
+    def get_metadata_scan_id(self):
+        """
+        Reads Run ID from metadata. Check if metadata exists using `is_scan_metadata_available()`
+        before calling this function.
+        """
+        if self.is_scan_metadata_available():
+            scan_id = self.io_model.scan_metadata['scan_id']
+        else:
+            scan_id = 0  # This is mostly for preventing crashes.
+        return scan_id
+
+    def get_metadata_scan_uid(self):
+        """
+        Reads Run UID from metadata. Check if metadata exists using `is_scan_metadata_available()`
+        before calling this function.
+        """
+        if self.is_scan_metadata_available():
+            scan_uid = self.io_model.scan_metadata['scan_uid']
+        else:
+            scan_uid = ""  # This is mostly for preventing crashes.
+        return scan_uid
+
+    def get_current_run_id(self):
+        """
+        Returns value of currently set Run ID (in `io_model` class)
+        """
+        return self.io_model.runid
+
+    def is_xrf_maps_available(self):
+        """
+        Returns the flag that indicates if XRF maps are currently available (loaded or computed).
+        """
+        return bool(self.io_model.is_xrf_maps_available())
+
     def set_data_channel(self, channel_index):
         self.io_model.file_opt = channel_index
 
@@ -281,6 +371,118 @@ class GlobalProcessingClasses:
         self.plot_model.plot_exp_opt = True
         self.plot_model.show_fit_opt = False
         self.plot_model.show_fit_opt = True
+
+    def is_roi_selection_active(self):
+        """
+        Returns the flag that indicates if spatial ROI is activated.
+        """
+        return bool(self.io_model.roi_selection_active)
+
+    def set_roi_selection_active(self, active):
+        """
+        Sets the flag that indicates if spatial ROI is activated.
+        """
+        self.io_model.roi_selection_active = active
+
+    def get_preview_spatial_roi(self):
+        """
+        Returns currently selected spatial ROI (for preview)
+        """
+        spatial_roi = {
+            "row_start": self.io_model.roi_row_start,
+            "col_start": self.io_model.roi_col_start,
+            "row_end": self.io_model.roi_row_end,
+            "col_end": self.io_model.roi_col_end
+        }
+        return spatial_roi
+
+    def set_preview_spatial_roi(self, spatial_roi):
+        """
+        Set spatial ROI (for preview)
+        """
+        self.io_model.roi_row_start = spatial_roi["row_start"]
+        self.io_model.roi_col_start = spatial_roi["col_start"]
+        self.io_model.roi_row_end = spatial_roi["row_end"]
+        self.io_model.roi_col_end = spatial_roi["col_end"]
+
+    def is_mask_selection_active(self):
+        """
+        Returns the flag that indicates if mask for ROI selection is activated.
+        """
+        return bool(self.io_model.mask_active)
+
+    def set_mask_selection_active(self, active):
+        """
+        Sets the flag that indicates if mask for ROI selection is activated.
+        """
+        self.io_model.mask_active = active
+
+    def get_mask_selection_file_path(self):
+        """
+        Returns currently selected path to mask file (ROI selection)
+        """
+        return self.io_model.mask_file_path
+
+    def set_mask_selection_file_path(self, file_path):
+        """
+        Sets path to mask file (ROI selection). It also sets mask name.
+        """
+        self.io_model.mask_file_path = file_path
+        # At this point the mask name is just the file name
+        self.io_model.mask_name = os.path.split(file_path)[-1]
+
+    def apply_mask_to_datasets(self):
+        self.io_model.apply_mask_to_datasets()
+        self.plot_model.data_sets = self.io_model.data_sets
+        self.plot_model.update_preview_spectrum_plot()
+
+    # ==========================================================================
+    #        The following methods are used by the preview widgets
+
+    def get_preview_plot_type(self):
+        return self.plot_model.plot_type_preview.value
+
+    def set_preview_plot_type(self, plot_type):
+        self.plot_model.plot_type_preview = plot_type
+
+    def get_preview_energy_range(self):
+        return self.plot_model.energy_range_preview
+
+    def set_preview_energy_range(self, energy_range):
+        self.plot_model.energy_range_preview = energy_range
+
+    def update_preview_spectrum_plot(self):
+        self.plot_model.update_preview_spectrum_plot()
+
+    def get_preview_map_color_scheme(self):
+        return self.plot_model.map_preview_color_scheme
+
+    def set_preview_map_color_scheme(self, color_scheme):
+        self.plot_model.map_preview_color_scheme = color_scheme
+
+    def get_preview_map_type(self):
+        return self.plot_model.map_type_preview
+
+    def set_preview_map_type(self, map_type):
+        self.plot_model.map_type_preview = map_type
+
+    def get_preview_map_axes_units(self):
+        return self.plot_model.map_axes_units_preview
+
+    def set_preview_map_axes_units(self, map_axes_units):
+        self.plot_model.map_axes_units_preview = map_axes_units
+
+    def get_preview_map_range(self):
+        return self.plot_model.map_preview_range_low, self.plot_model.map_preview_range_high
+
+    def set_preview_map_range(self, low, high):
+        self.plot_model.set_map_preview_range(low=low, high=high)
+
+    def get_dataset_preview_count_map_range(self):
+        return self.io_model.get_dataset_preview_count_map_range()
+
+    def update_preview_total_count_map(self):
+        self.plot_model.update_total_count_map_preview()
 
     # ==========================================================================
     #          The following methods are used by widgets XRF Maps tab
