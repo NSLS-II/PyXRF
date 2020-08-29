@@ -72,7 +72,7 @@ def run():
     # app.setStyleSheet('QWidget {font-size: 14px}')
 
     # Run the application in 'Dark' theme
-    dark_theme_on = False
+    dark_theme_on = True
 
     if dark_theme_on:
         # Custom palette for Dark Mode
@@ -99,6 +99,12 @@ def run():
         logger.info(f"Replacing the default font with '{selected_font_family}'")
         font.setFamily(selected_font_family)
     app.setFont(font)
+
+    # The style sheet replicates the default behavior of QToolTip on Ubuntu.
+    #   It may be helpful if some strange color theme is used.
+    app.setStyleSheet("QToolTip {color: #000000; background-color: #FFFFCC; "
+                      "border-style: solid; border-radius: 3px; "
+                      "border-color: #444444; border-width: 1px;}")
 
     main_window = MainWindow(gpc=gpc)
     main_window.show()
