@@ -24,6 +24,9 @@ def run():
     parser.add_argument("-l", "--loglevel", default="INFO", type=str, dest="loglevel",
                         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
                         help="Logger level. Set to 'DEBUG' in order to see debug information.")
+    parser.add_argument("-ct", "--color-theme", default="DEFAULT", type=str, dest="color_theme",
+                        choices=["DEFAULT", "DARK"],
+                        help="Color theme: DARK theme is only for debugging purposes.")
     args = parser.parse_args()
 
     # Setup the Logger
@@ -71,10 +74,7 @@ def run():
     # app.setStyleSheet('QWidget {font: "Roboto Mono"; font-size: 14px}')
     # app.setStyleSheet('QWidget {font-size: 14px}')
 
-    # Run the application in 'Dark' theme
-    dark_theme_on = True
-
-    if dark_theme_on:
+    if args.color_theme == "DARK":
         # Custom palette for Dark Mode
         palette = QPalette()
         palette.setColor(QPalette.Window, QColor(53, 53, 53))
