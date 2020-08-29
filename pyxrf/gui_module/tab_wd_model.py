@@ -921,9 +921,8 @@ class WndManageEmissionLines(SecondaryWindow):
                     item_hbox.setAlignment(Qt.AlignCenter)
                     item_hbox.setContentsMargins(0, 0, 0, 0)
 
-                    column_color = (brightness, 255, brightness)
-                    css1 = get_background_css(column_color, widget="QCheckbox", editable=False)
-                    css2 = get_background_css(column_color, widget="QWidget", editable=False)
+                    css1 = get_background_css(rgb_bckg, widget="QCheckbox", editable=False)
+                    css2 = get_background_css(rgb_bckg, widget="QWidget", editable=False)
                     item.setStyleSheet(css2 + css1)
 
                     cb.setChecked(Qt.Checked if sel_status else Qt.Unchecked)
