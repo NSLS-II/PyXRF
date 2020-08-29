@@ -1,10 +1,8 @@
 import os
 
-from qtpy.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout,
-                            QGroupBox, QCheckBox,
-                            QComboBox, QListWidget, QListWidgetItem,
-                            QDialog, QDialogButtonBox, QFileDialog,
-                            QTextEdit, QMessageBox)
+from qtpy.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox, QCheckBox,
+                            QComboBox, QListWidget, QListWidgetItem, QDialog, QFileDialog,
+                            QMessageBox)
 from qtpy.QtCore import Qt, Signal, Slot, QThreadPool, QRunnable
 
 from .useful_widgets import (LineEditReadOnly, adjust_qlistwidget_height,
@@ -13,7 +11,7 @@ from .useful_widgets import (LineEditReadOnly, adjust_qlistwidget_height,
 from .form_base_widget import FormBaseWidget
 from .dlg_load_mask import DialogLoadMask
 from .dlg_select_scan import DialogSelectScan
-
+from .dlg_view_metadata import DialogViewMetadata
 import logging
 logger = logging.getLogger(__name__)
 
@@ -635,30 +633,3 @@ class LoadDataWidget(FormBaseWidget):
             self.computations_complete.disconnect(slot)
         self.gui_vars["gui_state"]["running_computations"] = False
         self.update_global_state.emit()
-
-
-class DialogViewMetadata(QDialog):
-
-    def __init__(self):
-
-        super().__init__()
-
-        self.resize(500, 500)
-        self.setWindowTitle("Run Metadata")
-
-        self.te_meta = QTextEdit()
-        self.te_meta.setReadOnly(True)
-
-        # 'Close' button box
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.Close)
-        button_box.accepted.connect(self.accept)
-        button_box.rejected.connect(self.reject)
-
-        vbox = QVBoxLayout()
-        vbox.addWidget(self.te_meta)
-        vbox.addWidget(button_box)
-        self.setLayout(vbox)
-
-    def setText(self, text):
-        self.te_meta.setText(text)
