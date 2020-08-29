@@ -1,6 +1,6 @@
 import os
 import pytest
-from pyxrf.gui_module.wd_load_data import DialogLoadMask
+from pyxrf.gui_module.tab_wd_load_data import DialogLoadMask
 from PyQt5.QtWidgets import QFileDialog
 from PyQt5.QtCore import Qt
 
