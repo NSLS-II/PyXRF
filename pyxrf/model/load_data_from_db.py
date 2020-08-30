@@ -1351,11 +1351,11 @@ def map_data2D_tes(run_id_uid, fpath,
             # TODO: investigate the issue of 'empty' scaler ('dwell_time') rows at TES
             n_full = -1
             for _n in range(len(s_data)):
-                if s_data[_n].shape != ():
+                if (s_data[_n] is not None) and len(s_data[_n]):
                     n_full = _n
                     break
             for _n in range(len(s_data)):
-                if s_data[_n].shape == ():
+                if (s_data[_n] is None) or not len(s_data[_n]):
                     s_data[_n] = np.copy(s_data[n_full])
                     logger.error(f"Scaler '{name}': row #{_n} contains no data. "
                                  f"Replaced by data from row #{n_full}")
