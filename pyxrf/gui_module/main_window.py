@@ -12,7 +12,7 @@ from .useful_widgets import global_gui_variables
 from .wnd_manage_emission_lines import WndManageEmissionLines
 from .wnd_compute_roi_maps import WndComputeRoiMaps
 from .wnd_load_quant_calibration import WndLoadQuantitativeCalibration
-from .tab_wd_plots_xrf_maps import WndImageWizard
+from .wnd_image_wizard import WndImageWizard
 
 import pyxrf
 

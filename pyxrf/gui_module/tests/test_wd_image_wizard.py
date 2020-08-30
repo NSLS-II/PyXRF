@@ -2,7 +2,7 @@ import copy
 import pytest
 
 from pyxrf.gui_module.useful_widgets import global_gui_variables
-from pyxrf.gui_module.tab_wd_plots_xrf_maps import WndImageWizard
+from pyxrf.gui_module.wnd_image_wizard import WndImageWizard
 
 # =====================================================================
 #                 class WndImageWizard (SecondaryWindow)
