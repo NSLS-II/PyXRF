@@ -9,7 +9,7 @@ from qtpy.QtGui import QGuiApplication, QCursor
 
 from .central_widget import TwoPanelWidget
 from .useful_widgets import global_gui_variables
-from .tab_wd_model import WndManageEmissionLines
+from .wnd_manage_emission_lines import WndManageEmissionLines
 from .tab_wd_fit_maps import WndComputeRoiMaps, WndLoadQuantitativeCalibration
 from .tab_wd_plots_xrf_maps import WndImageWizard
 
