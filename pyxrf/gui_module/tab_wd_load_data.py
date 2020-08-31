@@ -580,13 +580,25 @@ class LoadDataWidget(FormBaseWidget):
         dset_name = self.gpc.get_file_channel_list()[ind]
 
         def cb():
-            self.gpc.select_preview_dataset(dset_name=dset_name, is_visible=bool(state))
-            return dict()
+            try:
+                self.gpc.select_preview_dataset(dset_name=dset_name, is_visible=bool(state))
+                success, msg = True, ""
+            except Exception as ex:
+                success = False
+                msg = str(ex)
+            return {"success": success, "msg": msg}
 
         self._compute_in_background(cb, self.slot_preview_items_changed)
 
-    @Slot()
-    def slot_preview_items_changed(self):
+    @Slot(object)
+    def slot_preview_items_changed(self, result):
+        if not result["success"]:
+            # The error shouldn't actually happen here. This is to prevent potential crashes.
+            msg = f"Error occurred: {result['msg']}.\nData may need to be reloaded to continue processing."
+            msgbox = QMessageBox(QMessageBox.Critical, "Error",
+                                 msg, QMessageBox.Ok, parent=self)
+            msgbox.exec()
+
         # Here we want to expand the range in the Total Count Map preview if needed
         self.update_preview_map_range.emit("expand")
         self._recover_after_compute(self.slot_preview_items_changed)
