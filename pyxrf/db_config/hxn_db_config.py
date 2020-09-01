@@ -7,6 +7,6 @@ db = Broker.named('hxn')
 # db_analysis = Broker.named('hxn_analysis')
 
 db.reg.register_handler(Xspress3HDF5Handler.HANDLER_NAME,
-                        Xspress3HDF5Handler)
+                        Xspress3HDF5Handler, overwrite=True)
 db.reg.register_handler(TimepixHDF5Handler._handler_name,
                         TimepixHDF5Handler, overwrite=True)

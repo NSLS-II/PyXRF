@@ -9,7 +9,7 @@ import time as ttime
 from .xrf_utils import split_compound_mass, generate_eline_list
 from .utils import normalize_data_by_scaler, convert_time_to_nexus_string
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 # ==========================================================================================
 #    Functions for operations with YAML files used for keeping descriptions of XRF standards
@@ -1047,26 +1047,30 @@ class ParamQuantEstimation:
 
         Returns
         -------
-
+        str, dict(str, str)
             A string that contains the preview of the fluorescence data dictionary
-            (calibration data).
+            (calibration data) and the dictionary of warnings. Currently two warnings are
+            generated: "scaler_missing" - data is not normalized by a scaler,
+            "distance_to_sample" - distance-to-sample is set to zero (missing), so
+            calibration data can't be used later if distance-to-sample is changed.
         """
         pruned_dict = prune_quant_fluor_data_dict(self.fluorescence_data_dict)
         # Print preview in YAML format (easier to read)
         s = yaml.dump(pruned_dict, default_flow_style=False, sort_keys=False, indent=4)
+        msg_warnings = {}
         if enable_warnings:
-            s_warnings = ""
             if (pruned_dict["scaler_name"] is None) or (pruned_dict["scaler_name"] == ""):
-                s_warnings += "WARNING: Scaler is not selected, data is not normalized.\n"
+                msg = "WARNING: Scaler is not selected, data is not normalized."
+                msg_warnings["scaler_missing"] = msg
             if (pruned_dict["distance_to_sample"] is None) or \
                     (pruned_dict["distance_to_sample"] == 0):
-                s_warnings += "WARNING: Distance-to-sample is set to 0 or None. "\
+                msg = "WARNING: Distance-to-sample is set to 0 or None. "\
                               "Set it to estimated distance between the detector and the standard sample "\
                               "if you expect to it to change in the series of scans. Otherwise " \
                               "the respective corrections may not be computed. Ignore if the distance "\
-                              "stays constant throughout the series of scans.\n"
-            s = s_warnings + "\n" + s
-        return s
+                              "stays constant throughout the series of scans."
+                msg_warnings["distance_to_sample"] = msg
+        return s, msg_warnings
 
     def save_fluorescence_data_dict(self, file_path, *, overwrite_existing=False):
         r"""
@@ -1150,6 +1154,10 @@ class ParamQuantitativeAnalysis:
     #   index of the entry, since 'eline_info' contains only the entries which contain calibration
     #   for the emission line. The list 'eline_info' may be useful for GUI presentation of data.
     eline_info = pqa.get_eline_info_complete(<emission line, e.g. "Cu_K">)
+    # Select emission line from the standard (useful when emission line is present in mutliple standards)
+    pqa.select_eline(<emission_line>, <file_path>)
+    # Check if emission line for particular standard is selected
+    pqa.is_eline_selected(<emission_line>, <file_path>)
     # Get calibration data for the emission line (only from the selected entry)
     #   The information is useful at the stage of applying quantitative normalization
     eline_calib = pqa.get_calibrations_selected(<emission_line>)
@@ -1367,17 +1375,67 @@ class ParamQuantitativeAnalysis:
             s = ""
         return s
 
+    def select_eline(self, eline, file_path):
+        r"""
+        Select emission line in the standard pointed by `file_path` as selected.
+        The function will also deselect any the emission line in all other loaded standards.
+        Use `get_file_path_list()` to get the list of file paths arranged in the order
+        in which standards were loaded.
+
+        It is assumed that `eline` exists in the standard `file_path`.
+
+        Parameters
+        ----------
+        file_path: str
+            The string used to identify QA calibration data entry. See the docstring for
+            ``add_entry`` for more detailed comments.
+        eline: str
+            Emission line name. Must match the emission line names used in calibration data.
+            Typical format: ``Fe_K``, ``S_K`` etc.
+        """
+        n_item = self.find_entry_index(file_path)
+        for n, settings in enumerate(self.calibration_settings):
+            sel_flag = (n == n_item)  # Set 'selected' to True only if n == n_item
+            if eline in settings["element_lines"]:
+                self.calibration_settings[n]["element_lines"][eline]["selected"] = sel_flag
+        self.update_emission_line_list()
+
+    def is_eline_selected(self, eline, file_path):
+        r"""
+        Check if the emission line in the standard `file_path` is selected.
+        Use `get_file_path_list()` to get the list of file paths arranged in the order
+        in which standards were loaded.
+
+        It is assumed that `eline` exists in the standard `file_path`.
+
+        Parameters
+        ----------
+        file_path: str
+            The string used to identify QA calibration data entry. See the docstring for
+            ``add_entry`` for more detailed comments.
+        eline: str
+            Emission line name. Must match the emission line names used in calibration data.
+            Typical format: ``Fe_K``, ``S_K`` etc.
+
+        Returns
+        -------
+        bool
+            `True` if eline is selected, `False` otherwise
+        """
+        n_item = self.find_entry_index(file_path)
+        return self.calibration_settings[n_item]["element_lines"][eline]["selected"]
+
     def update_emission_line_list(self):
         r"""
         Update the internal list of emission lines. Also check and adjust if necessary
         the selected (assigned) calibration data entry for each emission line.
 
-        This function is called by ``load_entry``, ``add_entry`` and ``remove_entry``
-        functions, since the set of emission lines is changed during those operations.
-        If manual changes are made to loaded calibration data entries, this function
-        has to be called again before any other operation is performed. Particularly,
-        it is recommended that the function is called after changing the selection of
-        calibration sources for emission lines.
+        This function is called by ``load_entry``, ``add_entry``, ``remove_entry`` and
+        ``select_eline`` functions, since the set of emission lines is changed during
+        those operations. If manual changes are made to loaded calibration data entries,
+        this function has to be called again before any other operation is performed.
+        Particularly, it is recommended that the function is called after changing the
+        selection of calibration sources for emission lines.
         """
 
         # The emission lines are arranged in the list in the order in which they appear

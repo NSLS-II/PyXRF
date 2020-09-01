@@ -2,7 +2,6 @@ from __future__ import (absolute_import, division,
                         print_function)
 
 import numpy as np
-import six
 import json
 from collections import OrderedDict
 import copy
@@ -18,9 +17,12 @@ from skbeam.core.fitting.xrf_model import (ParamController,
                                            linear_spectrum_fitting)
 from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 from ..core.map_processing import snip_method_numba
+from ..core.xrf_utils import check_if_eline_supported, get_eline_parameters
+
+from ..core.utils import gaussian_sigma_to_fwhm, gaussian_fwhm_to_sigma
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 bound_options = ['none', 'lohi', 'fixed', 'lo', 'hi']
@@ -85,16 +87,16 @@ class ElementController(object):
         """
         if option == 'z':
             self.element_dict = OrderedDict(sorted(
-                six.iteritems(self.element_dict), key=lambda t: t[1].z))
+                self.element_dict.items(), key=lambda t: t[1].z))
         elif option == 'energy':
             self.element_dict = OrderedDict(sorted(
-                six.iteritems(self.element_dict), key=lambda t: t[1].energy))
+                self.element_dict.items(), key=lambda t: t[1].energy))
         elif option == 'name':
             self.element_dict = OrderedDict(sorted(
-                six.iteritems(self.element_dict), key=lambda t: t[0]))
+                self.element_dict.items(), key=lambda t: t[0]))
         elif option == 'maxv':
             self.element_dict = OrderedDict(sorted(
-                six.iteritems(self.element_dict), key=lambda t: t[1].maxv, reverse=True))
+                self.element_dict.items(), key=lambda t: t[1].maxv, reverse=True))
 
     def add_to_dict(self, dictv):
         """
@@ -106,7 +108,7 @@ class ElementController(object):
 
     def update_norm(self, threshv=0.0):
         """
-        Calculate the norm intensity for each element peak.
+        Calculate the normalized intensity for each element peak.
 
         Parameters
         ----------
@@ -117,16 +119,15 @@ class ElementController(object):
         if not self.element_dict:
             return
 
-        # max_dict = reduce(max, map(np.max, six.itervalues(self.element_dict)))
-        max_dict = np.max([v.maxv for v in six.itervalues(self.element_dict)])
+        max_dict = np.max([v.maxv for v in self.element_dict.values()])
 
-        for v in six.itervalues(self.element_dict):
+        for v in self.element_dict.values():
             v.norm = v.maxv/max_dict*100
             v.lbd_stat = bool(v.norm > threshv)
 
         # also delete smaller values
         # there is some bugs in plotting when values < 0.0
-        self.delete_value_given_threshold(threshv=threshv)
+        self.delete_peaks_below_threshold(threshv=threshv)
 
     def delete_all(self):
         self.element_dict.clear()
@@ -142,7 +143,7 @@ class ElementController(object):
 
     def get_element_list(self):
         current_elements = [v for v
-                            in six.iterkeys(self.element_dict)
+                            in self.element_dict.keys()
                             if (v.lower() != v)]
 
         # logger.info('Current Elements for '
@@ -151,9 +152,11 @@ class ElementController(object):
 
     def update_peak_ratio(self):
         """
-        In case users change the max value.
+        If 'maxv' is modified, then the values of 'area' and 'spectrum' are adjusted accordingly:
+        (1) maximum of spectrum is set equal to 'maxv'; (2) 'area' is scaled proportionally.
+        It is important that only 'maxv' is changed before this function is called.
         """
-        for v in six.itervalues(self.element_dict):
+        for v in self.element_dict.values():
             max_spectrum = np.max(v.spectrum)
             if not math.isclose(max_spectrum, 0.0, abs_tol=1e-20):
                 factor = v.maxv / max_spectrum
@@ -171,31 +174,38 @@ class ElementController(object):
             _plot = option
         else:
             _plot = False
-        for v in six.itervalues(self.element_dict):
+        for v in self.element_dict.values():
             v.status = _plot
 
-    def delete_value_given_threshold(self, threshv=0.1):
+    def delete_peaks_below_threshold(self, threshv=0.1):
         """
         Delete elements smaller than threshold value. Non element
         peaks are not included.
         """
         remove_list = []
         non_element = ['compton', 'elastic', 'background']
-        for k, v in six.iteritems(self.element_dict):
-            if v.norm < threshv:
-                remove_list.append(k)
-        for name in remove_list:
-            if name in non_element:
+        for k, v in self.element_dict.items():
+            if math.isnan(v.norm) or (v.norm >= threshv) or (k in non_element):
                 continue
+            # We don't want to delete userpeaks or pileup peaks (they are always added manually).
+            if ("-" in k) or (k.lower().startswith("userpeak")):
+                continue
+            remove_list.append(k)
+        for name in remove_list:
             del self.element_dict[name]
+        return remove_list
 
     def delete_unselected_items(self):
         remove_list = []
-        for k, v in six.iteritems(self.element_dict):
+        non_element = ['compton', 'elastic', 'background']
+        for k, v in self.element_dict.items():
+            if k in non_element:
+                continue
             if v.status is False:
                 remove_list.append(k)
         for name in remove_list:
             del self.element_dict[name]
+        return remove_list
 
 
 class GuessParamModel(Atom):
@@ -211,9 +221,6 @@ class GuessParamModel(Atom):
         1D array of spectrum
     prefit_x : array
         xX axis with range defined by low and high limits.
-    result_dict : dict
-        Save all the auto fitting results for each element.
-        It is a dictionary of object PreFitStatus.
     param_d : dict
         Parameters can be transferred into this dictionary.
     param_new : dict
@@ -241,7 +248,6 @@ class GuessParamModel(Atom):
     default_parameters = Dict()
     data = Typed(np.ndarray)
     prefit_x = Typed(object)
-    result_dict = Typed(object)
     result_dict_names = List()
     param_new = Dict()
     total_y = Typed(object)
@@ -256,7 +262,6 @@ class GuessParamModel(Atom):
     x0 = Typed(np.ndarray)
     y0 = Typed(np.ndarray)
     max_area_dig = Int(2)
-    pileup_data = Dict()
     auto_fit_all = Dict()
     bound_val = Float(1.0)
 
@@ -271,13 +276,11 @@ class GuessParamModel(Atom):
             # default parameter is the original parameter, for user to restore
             self.default_parameters = kwargs['default_parameters']
             self.param_new = copy.deepcopy(self.default_parameters)
-            self.element_list = get_element(self.param_new)
+            # TODO: do we set 'element_list' as a list of keys of 'EC.element_dict'
+            self.element_list = get_element_list(self.param_new)
         except ValueError:
             logger.info('No default parameter files are chosen.')
         self.EC = ElementController()
-        self.pileup_data = {'element1': 'Si_K',
-                            'element2': 'Si_K',
-                            'intensity': 0.0}
 
         # The following line is part of the fix for automated updating of the energy bound
         #     in 'Automatic Element Finding' dialog box
@@ -297,7 +300,7 @@ class GuessParamModel(Atom):
         """
         self.default_parameters = change['value']
         self.param_new = copy.deepcopy(self.default_parameters)
-        self.element_list = get_element(self.param_new)
+        self.element_list = get_element_list(self.param_new)
 
         # The following line is part of the fix for automated updating of the energy bound
         #     in 'Automatic Element Finding' dialog box
@@ -309,10 +312,12 @@ class GuessParamModel(Atom):
     @observe('energy_bound_high_buf')
     def _update_energy_bound_high_buf(self, change):
         self.param_new['non_fitting_values']['energy_bound_high']['value'] = change['value']
+        self.define_range()
 
     @observe('energy_bound_low_buf')
     def _update_energy_bound_high_low(self, change):
         self.param_new['non_fitting_values']['energy_bound_low']['value'] = change['value']
+        self.define_range()
 
     def param_from_db_update(self, change):
         self.default_parameters = change['value']
@@ -331,19 +336,19 @@ class GuessParamModel(Atom):
         with open(param_path, 'r') as json_data:
             self.default_parameters = json.load(json_data)
         self.param_new = copy.deepcopy(self.default_parameters)
-        self.element_list = get_element(self.param_new)
+        self.element_list = get_element_list(self.param_new)
         self.EC.delete_all()
         self.define_range()
-        self.create_spectrum_from_file(self.param_new, self.element_list)
+        self.create_spectrum_from_param_dict(self.param_new, self.element_list)
         logger.info('Elements read from file are: {}'.format(self.element_list))
 
     def update_new_param(self, param):
         self.default_parameters = param
         self.param_new = copy.deepcopy(self.default_parameters)
-        self.element_list = get_element(self.param_new)
+        self.element_list = get_element_list(self.param_new)
         self.EC.delete_all()
         self.define_range()
-        self.create_spectrum_from_file(self.param_new, self.element_list)
+        self.create_spectrum_from_param_dict(self.param_new, self.element_list)
 
     def param_changed(self, change):
         """
@@ -370,22 +375,30 @@ class GuessParamModel(Atom):
         """
         self.data = change['value']
 
+        # The idea here is to generate a new set of parameters based on new data (and selected region)
+        # self.element_list = get_element_list(self.param_new)
+        # self.EC.delete_all()
+        # self.define_range()
+        # self.create_spectrum_from_param_dict(self.param_new, self.element_list)
+
     @observe('bound_val')
     def _update_bound(self, change):
         if change['type'] != 'create':
-            logger.info('Values smaller than bound {} can be cutted on Auto peak finding.'.format(self.bound_val))
+            logger.info(f"Peaks with values than the threshold {self.bound_val} will be removed from the list.")
 
     def define_range(self):
         """
         Cut x range according to values define in param_dict.
         """
+        if self.data is None:
+            return
         lowv = self.param_new['non_fitting_values']['energy_bound_low']['value']
         highv = self.param_new['non_fitting_values']['energy_bound_high']['value']
         self.x0, self.y0 = define_range(self.data, lowv, highv,
                                         self.param_new['e_offset']['value'],
                                         self.param_new['e_linear']['value'])
 
-    def create_spectrum_from_file(self, param_dict, elemental_lines):
+    def create_spectrum_from_param_dict(self, param_dict, elemental_lines):
         """
         Create spectrum profile with given param dict from file.
 
@@ -408,7 +421,7 @@ class GuessParamModel(Atom):
                                                   param_dict, len(self.y0))
 
         temp_dict = OrderedDict()
-        for e in six.iterkeys(pre_dict):
+        for e in pre_dict.keys():
             if e in ['background', 'escape']:
                 spectrum = pre_dict[e]
 
@@ -424,8 +437,8 @@ class GuessParamModel(Atom):
                 temp_dict[e] = ps
 
             elif '-' in e:  # pileup peaks
-                e1, e2 = e.split('-')
-                energy = float(get_energy(e1))+float(get_energy(e2))
+                energy = self.get_pileup_peak_energy(e)
+                energy = f"{energy:.4f}"
                 spectrum = pre_dict[e]
                 area = area_dict[e]
 
@@ -437,7 +450,9 @@ class GuessParamModel(Atom):
 
             else:
                 ename = e.split('_')[0]
-                for k, v in six.iteritems(param_dict):
+                for k, v in param_dict.items():
+                    energy = get_energy(e)  # For all peaks except Userpeaks
+
                     if ename in k and 'area' in k:
                         spectrum = pre_dict[e]
                         area = area_dict[e]
@@ -450,18 +465,145 @@ class GuessParamModel(Atom):
                         spectrum = pre_dict[e]
                         area = area_dict[e]
 
+                    elif self.get_eline_name_category(ename) == "userpeak":
+                        key = ename + "_delta_center"
+                        energy = param_dict[key]["value"] + 5.0
+                        energy = f"{energy:.4f}"
                     else:
                         continue
 
-                    ps = PreFitStatus(z=get_Z(ename), energy=get_energy(e),
+                    ps = PreFitStatus(z=get_Z(ename), energy=energy,
                                       area=area, spectrum=spectrum,
                                       maxv=np.around(np.max(spectrum), self.max_area_dig),
                                       norm=-1, lbd_stat=False)
 
                     temp_dict[e] = ps
-        self.EC.add_to_dict(temp_dict)
 
-    def manual_input(self, userpeak_center=2.5):
+        element_dict = copy.deepcopy(self.EC.element_dict)
+        self.EC.add_to_dict(temp_dict)
+        for key in self.EC.element_dict.keys():
+            if key in element_dict:
+                self.EC.element_dict[key].status = element_dict[key].status
+
+    def get_selected_eline_energy_fwhm(self, eline):
+        """
+        Returns values of energy and fwhm for the peak 'eline' from the dictionary `self.param_new`.
+        The emission line must exist in the dictionary. Primarily intended for use
+        with user-defined peaks.
+
+        Parameters
+        ----------
+        eline: str
+            emission line (e.g. Ca_K) or peak name (e.g. Userpeak2, V_Ka1-Co_Ka1)
+        """
+        if eline not in self.EC.element_dict:
+            raise ValueError(f"Emission line '{eline}' is not in the list of selected lines.")
+
+        keys = self._generate_param_keys(eline)
+        if not keys["key_dcenter"] or not keys["key_dsigma"]:
+            raise ValueError(f"Failed to generate keys for the emission line '{eline}'.")
+
+        energy = self.param_new[keys["key_dcenter"]]["value"] + 5.0
+        dsigma = self.param_new[keys["key_dsigma"]]["value"]
+        fwhm = gaussian_sigma_to_fwhm(dsigma) + self._compute_fwhm_base(energy)
+        return energy, fwhm
+
+    def get_pileup_peak_energy(self, eline):
+        """
+        Returns the energy (center) of pileup peak. Returns None if there is an error.
+
+        Parameters
+        ----------
+        eline: str
+            Name of the pileup peak, e.g. V_Ka1-Co_Ka1
+
+        Returns
+        -------
+        float or None
+            Energy in keV or None
+        """
+        incident_energy = self.param_new["coherent_sct_energy"]["value"]
+        try:
+            element_line1, element_line2 = eline.split('-')
+            e1_cen = get_eline_parameters(element_line1, incident_energy)["energy"]
+            e2_cen = get_eline_parameters(element_line2, incident_energy)["energy"]
+            en = e1_cen + e2_cen
+        except Exception:
+            en = None
+        return en
+
+    def add_peak_manual(self, userpeak_center=2.5):
+        """
+        Manually add an emission line (or peak).
+
+        Parameters
+        ----------
+        userpeak_center: float
+            Center of the user defined peak. Ignored if emission line other
+            than 'userpeak' is added
+        """
+        self._manual_input(userpeak_center=userpeak_center)
+        self.update_name_list()
+        self.data_for_plot()
+
+    def remove_peak_manual(self):
+        """
+        Manually add an emission line (or peak). The name emission line (peak) to be deleted
+        must be writtent to `self.e_name` before calling the function.
+        """
+        if self.e_name not in self.EC.element_dict:
+            msg = f"Line '{self.e_name}' is not in the list of selected lines,\n" \
+                  f"therefore it can not be deleted from the list."
+            raise RuntimeError(msg)
+
+        # Update parameter list
+        self._remove_parameters_for_eline(self.e_name)
+
+        # Update EC
+        self.EC.delete_item(self.e_name)
+        self.EC.update_peak_ratio()
+        self.update_name_list()
+        self.data_for_plot()
+
+    def remove_elements_below_threshold(self, threshv=None):
+        if threshv is None:
+            threshv = self.bound_val
+
+        deleted_elements = self.EC.delete_peaks_below_threshold(threshv=threshv)
+        for eline in deleted_elements:
+            self._remove_parameters_for_eline(eline)
+
+        self.EC.update_peak_ratio()
+        self.update_name_list()
+        self.data_for_plot()
+
+    def remove_elements_unselected(self):
+        deleted_elements = self.EC.delete_unselected_items()
+        for eline in deleted_elements:
+            self._remove_parameters_for_eline(eline)
+
+        self.EC.update_peak_ratio()
+        self.update_name_list()
+        self.data_for_plot()
+
+    def _remove_parameters_for_eline(self, eline):
+        """Remove entries for `eline` from the dictionary `self.param_new`"""
+        if self.get_eline_name_category(eline) == "pileup":
+            key_prefix = "pileup_" + self.e_name.replace("-", "_")
+        else:
+            key_prefix = eline
+
+        # It is sufficient to compare using lowercase. It could be more reliable.
+        key_prefix = key_prefix.lower()
+        keys_to_delete = [_ for _ in self.param_new.keys()
+                          if _.lower().startswith(key_prefix)]
+        for key in keys_to_delete:
+            del self.param_new[key]
+
+        # Add name to the name list
+        _remove_element_from_list(eline, self.param_new)
+
+    def _manual_input(self, userpeak_center=2.5):
         """
         Manually add an emission line (or peak).
 
@@ -472,25 +614,12 @@ class GuessParamModel(Atom):
             than 'userpeak' is added
         """
 
-        default_area = 1e2
+        if self.e_name in self.EC.element_dict:
+            msg = f"Line '{self.e_name}' is in the list of selected lines. \n" \
+                  f"Duplicate entries are not allowed."
+            raise RuntimeError(msg)
 
-        # if self.e_name == 'escape':
-        #     self.param_new['non_fitting_values']['escape_ratio'] = (self.add_element_intensity
-        #                                                             / np.max(self.y0))
-        #     es_peak = trim_escape_peak(self.data, self.param_new,
-        #                                len(self.y0))
-        #     ps = PreFitStatus(z=get_Z(self.e_name),
-        #                       energy=get_energy(self.e_name),
-        #                       # put float in front of area and maxv
-        #                       # due to type conflicts in atom, which regards them as
-        #                       # np.float32 if we do not put float in front.
-        #                       area=float(np.around(np.sum(es_peak), self.max_area_dig)),
-        #                       spectrum=es_peak,
-        #                       maxv=float(np.around(np.max(es_peak), self.max_area_dig)),
-        #                       norm=-1, lbd_stat=False)
-        #     logger.info('{} peak is added'.format(self.e_name))
-        #
-        # else:
+        default_area = 1e2
 
         # Add the new data entry to the parameter dictionary. This operation is necessary for 'userpeak'
         #   lines, because they need to be placed to the specific position (by setting 'delta_center'
@@ -500,15 +629,23 @@ class GuessParamModel(Atom):
         # PC.params will contain a deepcopy of 'self.param_new' with the new line added
         PC = ParamController(self.param_new, [self.e_name])
 
-        if "userpeak" in self.e_name.lower():
+        if self.get_eline_name_category(self.e_name) == "userpeak":
+            energy = userpeak_center
             # Default values for 'delta_center'
             dc = copy.deepcopy(PC.params[f"{self.e_name}_delta_center"])
             # Modify the default values in the dictionary of parameters
             PC.params[f"{self.e_name}_delta_center"]["value"] = d_energy
             PC.params[f"{self.e_name}_delta_center"]["min"] = d_energy - (dc["value"] - dc["min"])
             PC.params[f"{self.e_name}_delta_center"]["max"] = d_energy + (dc["max"] - dc["value"])
+        elif self.get_eline_name_category(self.e_name) == "pileup":
+            energy = self.get_pileup_peak_energy(self.e_name)
+        else:
+            energy = get_energy(self.e_name)
 
         param_tmp = PC.params
+
+        # Add name to the name list
+        _add_element_to_list(self.e_name, param_tmp)
 
         # 'self.param_new' is used to provide 'hint' values for the model, but all active
         #    emission lines in 'elemental_lines' will be included in the model.
@@ -533,7 +670,7 @@ class GuessParamModel(Atom):
         ratio_v = self.add_element_intensity / np.max(data_out[self.e_name])
 
         ps = PreFitStatus(z=get_Z(self.e_name),
-                          energy=get_energy(self.e_name),
+                          energy=energy if isinstance(energy, str) else f"{energy:.4f}",
                           area=area_dict[self.e_name]*ratio_v,
                           spectrum=data_out[self.e_name]*ratio_v,
                           maxv=self.add_element_intensity,
@@ -542,50 +679,238 @@ class GuessParamModel(Atom):
                           lbd_stat=False)
 
         self.EC.add_to_dict({self.e_name: ps})
+        self.EC.update_peak_ratio()
 
-    def generate_pileup_peak_name(self):
+    def _generate_param_keys(self, eline):
+        """
+        Returns prefix of the key from `param_new` dictionary based on emission line name
+        If eline is actual emission line (like Ca_K), then the `key_dcenter` and `key_dsigma`
+        point to 'a1' line (Ca_ka1). Function has to be extended if access to specific lines is
+        required. Function is primarily intended for use with user-defined peaks.
+        """
+
+        category = self.get_eline_name_category(eline)
+        if category == "pileup":
+            eline = eline.replace("-", "_")
+            key_area = "pileup_" + eline + "_area"
+            key_dcenter = "pileup_" + eline + "delta_center"
+            key_dsigma = "pileup_" + eline + "delta_sigma"
+        elif category == "eline":
+            eline = eline[:-1] + eline[-1].lower()
+            key_area = eline + "a1_area"
+            key_dcenter = eline + "a1_delta_center"
+            key_dsigma = eline + "a1_delta_sigma"
+        elif category == "userpeak":
+            key_area = eline + "_area"
+            key_dcenter = eline + "_delta_center"
+            key_dsigma = eline + "_delta_sigma"
+        elif eline == "compton":
+            key_area = eline + "_amplitude"
+            key_dcenter, key_dsigma = "", ""
+        else:
+            # No key exists (for "background", "escape", "elastic")
+            key_area, key_dcenter, key_dsigma = "", "", ""
+        return {"key_area": key_area, "key_dcenter": key_dcenter, "key_dsigma": key_dsigma}
+
+    def modify_peak_height(self, maxv_new):
+        """
+        Modify the height of the emission line.
+
+        Parameters
+        ----------
+        new_maxv: float
+            New maximum value for the emission line `self.e_name`
+        """
+
+        ignored_peaks = {"escape"}
+        if self.e_name in ignored_peaks:
+            msg = f"Height of the '{self.e_name}' peak can not be changed."
+            raise RuntimeError(msg)
+
+        if self.e_name not in self.EC.element_dict:
+            msg = f"Attempt to modify maximum value for the emission line '{self.e_name},'\n" \
+                  f"which is not currently selected."
+            raise RuntimeError(msg)
+
+        key = self._generate_param_keys(self.e_name)["key_area"]
+        maxv_current = self.EC.element_dict[self.e_name].maxv
+
+        coef = maxv_new / maxv_current if maxv_current > 0 else 0
+        # Only 'maxv' needs to be updated.
+        self.EC.element_dict[self.e_name].maxv = maxv_new
+        # The following function updates 'spectrum', 'area' and 'norm'.
+        self.EC.update_peak_ratio()
+
+        # Some of the parameters are represented only in EC, not in 'self.param_new'.
+        #   (particularly "background" and "elastic")
+        if key:
+            self.param_new[key]["value"] *= coef
+
+    def _compute_fwhm_base(self, energy):
+        # Computes 'sigma' value based on default parameters and peak energy (for Userpeaks)
+        #   does not include corrections for fwhm.
+        # If both peak center (energy) and fwhm is updated, energy needs to be set first,
+        #   since it is used in computation of ``fwhm_base``
+
+        sigma = gaussian_fwhm_to_sigma(self.default_parameters["fwhm_offset"]["value"])
+
+        sigma_sqr = energy + 5.0  # center
+        sigma_sqr *= self.default_parameters["non_fitting_values"]["epsilon"]  # epsilon
+        sigma_sqr *= self.default_parameters["fwhm_fanoprime"]["value"]  # fanoprime
+        sigma_sqr += sigma * sigma  # We have computed the expression under sqrt
+
+        sigma_total = np.sqrt(sigma_sqr)
+
+        return gaussian_sigma_to_fwhm(sigma_total)
+
+    def _update_userpeak_energy(self, eline, energy_new, fwhm_new):
+        """
+        Set new center for the user-defined peak at 'new_energy'
+        """
+
+        # According to the accepted peak model, as energy of the peak center grows,
+        #   the peak becomes wider. The most user friendly solution is to automatically
+        #   increase FWHM as the peak moves along the energy axis to the right and
+        #   decrease otherwise. So generally, the user should first place the peak
+        #   center at the desired energy, and then adjust FWHM.
+
+        # We change energy, so we will have to change FWHM as well
+        #  so before updating energy we will save the difference between
+        #  the default (base) FWHM and the displayed FWHM
+
+        name_userpeak_dcenter = eline + "_delta_center"
+        old_energy = self.param_new[name_userpeak_dcenter]["value"]
+
+        # This difference represents the required change in fwhm
+        fwhm_difference = fwhm_new - self._compute_fwhm_base(old_energy)
+
+        # Now we change energy.
+        denergy = energy_new - 5.0
+
+        v_center = self.param_new[name_userpeak_dcenter]["value"]
+        v_max = self.param_new[name_userpeak_dcenter]["max"]
+        v_min = self.param_new[name_userpeak_dcenter]["min"]
+        # Keep the possible range for value change the same
+        self.param_new[name_userpeak_dcenter]["value"] = denergy
+        self.param_new[name_userpeak_dcenter]["max"] = denergy + v_max - v_center
+        self.param_new[name_userpeak_dcenter]["min"] = denergy - (v_center - v_min)
+
+        # The base value is updated now (since the energy has changed)
+        fwhm_base = self._compute_fwhm_base(energy_new)
+        fwhm = fwhm_difference + fwhm_base
+
+        return fwhm
+
+    def _update_userpeak_fwhm(self, eline, energy_new, fwhm_new):
+        name_userpeak_dsigma = eline + "_delta_sigma"
+
+        fwhm_base = self._compute_fwhm_base(energy_new)
+        dfwhm = fwhm_new - fwhm_base
+
+        dsigma = gaussian_fwhm_to_sigma(dfwhm)
+
+        v_center = self.param_new[name_userpeak_dsigma]["value"]
+        v_max = self.param_new[name_userpeak_dsigma]["max"]
+        v_min = self.param_new[name_userpeak_dsigma]["min"]
+        # Keep the possible range for value change the same
+        self.param_new[name_userpeak_dsigma]["value"] = dsigma
+        self.param_new[name_userpeak_dsigma]["max"] = dsigma + v_max - v_center
+        self.param_new[name_userpeak_dsigma]["min"] = dsigma - (v_center - v_min)
+
+    def _update_userpeak_energy_fwhm(self, eline, fwhm_new, energy_new):
+        """
+        Update energy and fwhm of the user-defined peak 'eline'. The 'delta_center'
+        and 'delta_sigma' parameters in the `self.param_new` dictionary are updated.
+        `area` should be updated after call to this function. This function also
+        doesn't change entries in the `EC` dictionary.
+        """
+        # Ensure, that the values are greater than some small value to ensure that
+        #   there is no computational problems.
+        # Energy resolution for the existing beamlines is 0.01 keV, so 0.001 is small
+        #   enough both for center energy and FWHM.
+        energy_small_value = 0.001
+        energy_new = max(energy_new, energy_small_value)
+        fwhm_new = max(fwhm_new, energy_small_value)
+
+        fwhm_new = self._update_userpeak_energy(eline, energy_new, fwhm_new)
+        self._update_userpeak_fwhm(eline, energy_new, fwhm_new)
+
+    def modify_userpeak_params(self, maxv_new, fwhm_new, energy_new):
+
+        if self.get_eline_name_category(self.e_name) != "userpeak":
+            msg = f"Hight and width can be modified only for a user defined peak.\n" \
+                  f"The function was called for '{self.e_name}' peak"
+            raise RuntimeError(msg)
+
+        if self.e_name not in self.EC.element_dict:
+            msg = f"Attempt to modify maximum value for the emission line '{self.e_name},'\n" \
+                  f"which is not currently selected."
+            raise RuntimeError(msg)
+
+        # Some checks of the input values
+        if maxv_new <= 0.0:
+            raise ValueError("Peak height must be a positive number greater than 0.001.")
+        if energy_new <= 0.0:
+            raise ValueError("User peak energy must be a positive number greater than 0.001.")
+        if fwhm_new <= 0:
+            raise ValueError("User peak FWHM must be a positive number.")
+
+        # Make sure that the energy of the user peak is within the selected fitting range
+        energy_bound_high = \
+            self.param_new["non_fitting_values"]["energy_bound_high"]["value"]
+        energy_bound_low = \
+            self.param_new["non_fitting_values"]["energy_bound_low"]["value"]
+        if energy_new > energy_bound_high or energy_new < energy_bound_low:
+            raise ValueError("User peak energy is outside the selected range.")
+
+        # This updates 'delta_center' and 'delta_sigma' entries of the 'self.param_new' dictionary
+        self._update_userpeak_energy_fwhm(self.e_name, fwhm_new, energy_new)
+
+        default_area = 1e2
+        key = self._generate_param_keys(self.e_name)["key_area"]
+
+        # Set area to default area, change it later once the area is computed
+        self.param_new[key]["value"] = default_area
+
+        # 'self.param_new' is used to provide 'hint' values for the model, but all active
+        #    emission lines in 'elemental_lines' will be included in the model.
+        #  The model will contain lines in 'elemental_lines', Compton and elastic
+        x, data_out, area_dict = calculate_profile(self.x0,
+                                                   self.y0,
+                                                   self.param_new,
+                                                   elemental_lines=[self.e_name],
+                                                   default_area=default_area)
+
+        ratio_v = maxv_new / np.max(data_out[self.e_name])
+
+        area = area_dict[self.e_name] * ratio_v
+        self.param_new[key]["value"] = area
+
+        ps = PreFitStatus(z=get_Z(self.e_name),
+                          energy=f"{energy_new:.4f}",
+                          area=area,
+                          spectrum=data_out[self.e_name]*ratio_v,
+                          maxv=maxv_new,
+                          norm=-1,
+                          status=True,    # for plotting
+                          lbd_stat=False)
+
+        self.EC.element_dict[self.e_name] = ps
+
+        logger.debug(f"The parameters of the user defined peak. The new values:\n"
+                     f"   Energy: {energy_new} keV, FWHM: {fwhm_new}, Maximum: {maxv_new}\n")
+
+    def generate_pileup_peak_name(self, name1, name2):
         """
         Returns name for the pileup peak. The element line with the lowest
         energy is placed first in the name.
         """
-        # TODO: May be proper error processing should be added
-        e1 = float(get_energy(self.pileup_data['element1']))
-        e2 = float(get_energy(self.pileup_data['element2']))
-        name1 = self.pileup_data['element1']
-        name2 = self.pileup_data['element2']
+        incident_energy = self.param_new["coherent_sct_energy"]["value"]
+        e1 = get_eline_parameters(name1, incident_energy)["energy"]
+        e2 = get_eline_parameters(name2, incident_energy)["energy"]
         if e1 > e2:
             name1, name2 = name2, name1
         return name1 + '-' + name2
-
-    def add_pileup(self):
-        default_area = 1e2
-        if self.pileup_data['intensity'] > 0:
-            e_name = self.generate_pileup_peak_name()
-            # parse elemental lines into multiple lines
-
-            x, data_out, area_dict = calculate_profile(self.x0,
-                                                       self.y0,
-                                                       self.param_new,
-                                                       elemental_lines=[e_name],
-                                                       default_area=default_area)
-            energy_float = float(get_energy(self.pileup_data['element1'])) + \
-                float(get_energy(self.pileup_data['element2']))
-            energy = f"{energy_float:.4f}"
-
-            ratio_v = self.pileup_data['intensity'] / np.max(data_out[e_name])
-
-            ps = PreFitStatus(z=get_Z(e_name),
-                              energy=energy,
-                              area=area_dict[e_name]*ratio_v,
-                              spectrum=data_out[e_name]*ratio_v,
-                              maxv=self.pileup_data['intensity'],
-                              norm=-1,
-                              status=True,    # for plotting
-                              lbd_stat=False)
-            logger.info('{} peak is added'.format(e_name))
-        else:
-            raise Exception("Pile-up peak intensity is negative")
-        self.EC.add_to_dict({e_name: ps})
 
     def update_name_list(self):
         """
@@ -594,6 +919,7 @@ class GuessParamModel(Atom):
         # need to clean list first, in order to refresh the list in GUI
         self.result_dict_names = []
         self.result_dict_names = list(self.EC.element_dict.keys())
+        self.element_list = get_element_list(self.param_new)
 
         peak_list = self.get_user_peak_list()
         # Create the list of selected emission lines such as Ca_K, K_K, etc.
@@ -603,6 +929,61 @@ class GuessParamModel(Atom):
         self.n_selected_pure_elines_for_fitting = len(pure_peak_list)
 
         logger.info(f"The full list for fitting is {self.result_dict_names}")
+
+    def get_eline_name_category(self, eline_name):
+        """
+        Returns the category to which `eline_name` belongs: `eline`, `userpeak`,
+        `pileup` or `other`.
+
+        Parameters
+        ----------
+        eline_name: str
+            Name to be analyzed
+
+        Returns
+        -------
+        str
+            category: one of `("eline", "userpeak", "pileup" or "other")`
+        """
+        if check_if_eline_supported(eline_name):
+            return "eline"
+        elif eline_name.lower().startswith("userpeak"):
+            return "userpeak"
+        elif "-" in eline_name:  # This is specific to currently accepted naming convention
+            return "pileup"
+        else:
+            return "other"
+
+    def get_sorted_result_dict_names(self):
+        """
+        The function returns the list of selected emission lines. The emission lines are
+        sorted in the following order: emission line names (sorted in the order of growing
+        atomic number Z), userpeaks (in alphabetic order), pileup peaks (in alphabetic order),
+        other peaks (in alphabetic order).
+
+        Returns
+        -------
+        list(str)
+            the list if emission line names
+        """
+        names_elines, names_userpeaks, names_pileup_peaks, names_other = [], [], [], []
+        for name in self.result_dict_names:
+            if self.get_eline_name_category(name) == "eline":
+                names_elines.append([name, self.EC.element_dict[name].z])
+            elif self.get_eline_name_category(name) == "userpeak":
+                names_userpeaks.append(name)
+            elif self.get_eline_name_category(name) == "pileup":
+                names_pileup_peaks.append(name)
+            else:
+                names_other.append(name)
+
+        names_elines.sort(key=lambda v: int(v[1]))  # Sort by Z (atomic number)
+        names_elines = [_[0] for _ in names_elines]  # Get rid of Z
+        names_userpeaks.sort()
+        names_pileup_peaks.sort()
+        names_other.sort()
+
+        return names_elines + names_userpeaks + names_pileup_peaks + names_other
 
     def find_peak(self, *, threshv=0.1, elemental_lines=None):
         """
@@ -627,7 +1008,7 @@ class GuessParamModel(Atom):
             self.param_new['non_fitting_values']['energy_bound_high']['value']))
 
         prefit_dict = OrderedDict()
-        for k, v in six.iteritems(out_dict):
+        for k, v in out_dict.items():
             ps = PreFitStatus(z=get_Z(k),
                               energy=get_energy(k),
                               area=area_dict[k],
@@ -642,34 +1023,17 @@ class GuessParamModel(Atom):
         self.EC.delete_all()
         self.EC.add_to_dict(prefit_dict)
 
+        self.create_full_param()
+
     def create_full_param(self):
         """
         Extend the param to full param dict including each element's
         information, and assign initial values from pre fit.
         """
         self.define_range()
+        # We set 'self.element_list' from 'EC' (because we want to set elements of 'self.param_new'
+        #   from 'EC.element_dict'
         self.element_list = self.EC.get_element_list()
-        # self.param_new['non_fitting_values']['element_list'] = ', '.join(self.element_list)
-        #
-        # # first remove some nonexisting elements
-        # # remove elements not included in self.element_list
-        # self.param_new = param_dict_cleaner(self.param_new,
-        #                                     self.element_list)
-        #
-        # # second add some elements to a full parameter dict
-        # # create full parameter list including elements
-        # PC = ParamController(self.param_new, self.element_list)
-        # # parameter values not updated based on param_new, so redo it
-        # param_temp = PC.params
-        # for k, v in six.iteritems(param_temp):
-        #     if k == 'non_fitting_values':
-        #         continue
-        #     if self.param_new.has_key(k):
-        #         v['value'] = self.param_new[k]['value']
-        # self.param_new = param_temp
-        #
-        # # to create full param dict, for GUI only
-        # create_full_dict(self.param_new, fit_strategy_list)
 
         self.param_new = update_param_from_element(self.param_new, self.element_list)
         element_temp = [e for e in self.element_list if len(e) <= 4]
@@ -678,7 +1042,7 @@ class GuessParamModel(Atom):
 
         # update area values in param_new according to results saved in ElementController
         if len(self.EC.element_dict):
-            for k, v in six.iteritems(self.param_new):
+            for k, v in self.param_new.items():
                 if 'area' in k:
                     if 'pileup' in k:
                         name_cut = k[7:-5]  # remove pileup_ and _area
@@ -714,7 +1078,7 @@ class GuessParamModel(Atom):
         self.total_y = None
         self.auto_fit_all = {}
 
-        for k, v in six.iteritems(self.EC.element_dict):
+        for k, v in self.EC.element_dict.items():
             if v.status is True:
                 self.auto_fit_all[k] = v.spectrum
                 if self.total_y is None:
@@ -722,7 +1086,7 @@ class GuessParamModel(Atom):
                 else:
                     self.total_y += v.spectrum
 
-        # for k, v in six.iteritems(new_dict):
+        # for k, v in new_dict.items():
         #     if '-' in k:  # pileup
         #         self.total_pileup[k] = self.EC.element_dict[k].spectrum
         #     elif 'K' in k:
@@ -734,17 +1098,87 @@ class GuessParamModel(Atom):
         #     else:
         #         self.total_y[k] = self.EC.element_dict[k].spectrum
 
-    def get_user_peak_list(self, *, include_user_peaks=False):
+    def get_user_peak_list(self):
         """
         Returns the list of element emission peaks
         """
-        items = K_LINE + L_LINE + M_LINE
+        return K_LINE + L_LINE + M_LINE
 
-        if include_user_peaks:
-            userpeak_list = ['Userpeak' + str(i) for i in range(1, 11)]  # 10 users peak
-            items += userpeak_list
+    def get_selected_emission_line_data(self):
+        """
+        Assembles the full emission line data for processing.
 
-        return items
+        Returns
+        -------
+        list(dict)
+            Each dictionary includes the following data: "name" (e.g. Ca_ka1 etc.),
+            "area" (estimated peak area based on current fitting results), "ratio"
+            (ratio such as Ca_ka2/Ca_ka1)
+        """
+        # Full list of supported emission lines (such as Ca_K)
+        supported_elines = self.get_user_peak_list()
+        # Parameter keys start with full emission line name (eg. Ca_ka1)
+        param_keys = list(self.param_new.keys())
+
+        incident_energy = self.param_new["coherent_sct_energy"]["value"]
+
+        full_line_list = []
+        for eline in self.EC.element_dict.keys():
+            if eline not in supported_elines:
+                continue
+            area = self.EC.element_dict[eline].area
+            lines = [_ for _ in param_keys if _.lower().startswith(eline.lower())]
+            lines = set(['_'.join(_.split('_')[:2]) for _ in lines])
+            for ln in lines:
+                eline_info = get_eline_parameters(ln, incident_energy)
+                data = {"name": ln, "area": area,
+                        "ratio": eline_info["ratio"],
+                        "energy": eline_info["energy"]}
+                full_line_list.append(data)
+        return full_line_list
+
+    def guess_pileup_peak_components(self, energy, tolerance=0.05):
+        """
+        Provides a guess on components of pileup peak based on the set of selected emission lines,
+        and selected energy.
+
+        Parameters
+        ----------
+        energy: float
+            Approximate (selected) energy of pileup peak location
+        tolerance: float
+            Allowed deviation of the sum of component energies from the selected energy, keV
+
+        Returns
+        -------
+        tuple(str, str, float)
+            Component emission lines (such as Ca_ka1, K_ka1 etc) and the energy of
+            the resulting pileup peak.
+        """
+
+        line_data = self.get_selected_emission_line_data()
+        energy_min, energy_max = energy - tolerance, energy + tolerance
+
+        # Not very efficient algorithm, which tries all combinations of lines
+        pileup_components, areas = [], []
+        for n1, line1 in enumerate(line_data):
+            for n2 in range(n1, len(line_data)):
+                line2 = line_data[n2]
+                if energy_min < line1["energy"] + line2["energy"] < energy_max:
+                    if line1 == line2:
+                        area = line1["area"] * line1["ratio"]
+                    else:
+                        area = line1["area"] * line1["ratio"] + line2["area"] * line2["ratio"]
+                    pileup_components.append((line1["name"], line2["name"],
+                                              line1["energy"] + line2["energy"]))
+                    areas.append(area)
+
+        if len(areas):
+            # Find index with maximum area
+            n = areas.index(max(areas))
+            return pileup_components[n]
+        else:
+            return None
 
 
 def save_as(file_path, data):
@@ -794,7 +1228,7 @@ def define_range(data, low, high, a0, a1):
 def calculate_profile(x, y, param, elemental_lines,
                       default_area=1e5):
     """
-    Calculate the spectrum profile based on given paramters. Use function
+    Calculate the spectrum profile based on given parameters. Use function
     construct_linear_model from xrf_model.
 
     Parameters
@@ -901,7 +1335,7 @@ def create_full_dict(param, name_list,
     """
     param_new = copy.deepcopy(param)
     for n in name_list:
-        for k, v in six.iteritems(param_new):
+        for k, v in param_new.items():
             if k == 'non_fitting_values':
                 continue
             if n not in v:
@@ -962,9 +1396,40 @@ def get_energy(ename):
         return str(np.around(energy, 4))
 
 
-def get_element(param):
+def get_element_list(param):
+    """ Extract elements from parameter class object """
     element_list = param['non_fitting_values']['element_list']
-    return [e.strip(' ') for e in element_list.split(',')]
+    element_list = [e.strip(' ') for e in element_list.split(',')]
+    # Unfortunately, "".split(",") returns [""] instead of [], but we need [] !!!
+    if element_list == [""]:
+        element_list = []
+    return element_list
+
+
+def _set_element_list(element_list, param):
+    element_list = ", ".join(element_list)
+    param['non_fitting_values']['element_list'] = element_list
+
+
+def _add_element_to_list(eline, param):
+    """ Add element to list in the parameter class object """
+    elist = get_element_list(param)
+    elist_lower = [_.lower() for _ in elist]
+    if eline.lower() not in elist_lower:
+        elist.append(eline)
+    _set_element_list(elist, param)
+
+
+def _remove_element_from_list(eline, param):
+    """ Add element to list in the parameter class object """
+    elist = get_element_list(param)
+    elist_lower = [_.lower() for _ in elist]
+    try:
+        index = elist_lower.index(eline.lower())
+        elist.pop(index)
+        _set_element_list(elist, param)
+    except ValueError:
+        pass
 
 
 def param_dict_cleaner(parameter, element_list):
@@ -986,23 +1451,37 @@ def param_dict_cleaner(parameter, element_list):
     param = copy.deepcopy(parameter)
     param_new = {}
 
-    elist_lower = [e.lower() for e in element_list if len(e) <= 4]
+    elines_list = [e for e in element_list if len(e) <= 4]
+    elines_lower = [e.lower() for e in elines_list]
     pileup_list = [e for e in element_list if '-' in e]
     userpeak_list = [e for e in element_list if 'user' in e.lower()]
 
-    for k, v in six.iteritems(param):
+    new_element_set = set()
+
+    for k, v in param.items():
         if k == 'non_fitting_values' or k == k.lower():
             param_new.update({k: v})
         elif 'pileup' in k:
             for p in pileup_list:
                 if p.replace('-', '_') in k:
                     param_new.update({k: v})
+                    new_element_set.add(p)
         elif 'user' in k.lower():
             for p in userpeak_list:
                 if p in k:
                     param_new.update({k: v})
-        elif (k[:3].lower() in elist_lower) or (k[:4].lower() in elist_lower):
+                    new_element_set.add(p)
+        elif k[:3].lower() in elines_lower:
+            index = elines_lower.index(k[:3].lower())
             param_new.update({k: v})
+            new_element_set.add(elines_list[index])
+        elif k[:4].lower() in elines_lower:
+            index = elines_lower.index(k[:4].lower())
+            param_new.update({k: v})
+            new_element_set.add(elines_list[index])
+
+    new_element_list = list(new_element_set)
+    _set_element_list(new_element_list, param_new)
 
     return param_new
 
@@ -1024,7 +1503,8 @@ def update_param_from_element(param, element_list):
     """
     param_new = copy.deepcopy(param)
 
-    param_new['non_fitting_values']['element_list'] = ', '.join(element_list)
+    for eline in element_list:
+        _add_element_to_list(eline, param_new)
 
     # first remove some items not included in element_list
     param_new = param_dict_cleaner(param_new,
@@ -1038,16 +1518,16 @@ def update_param_from_element(param, element_list):
 
     #  enforce adjust_element area to be fixed,
     #  while bound_type in xrf_model is defined as none for area
-    # for k, v in six.iteritems(param_temp):
+    # for k, v in param_temp.items():
     #     if '_area' in k:
     #         v['bound_type'] = 'fixed'
 
-    for k, v in six.iteritems(param_temp):
+    for k, v in param_temp.items():
         if k == 'non_fitting_values':
             continue
         if k in param_new:
             param_temp[k] = param_new[k]
-            # for k1 in six.iterkeys(v):
+            # for k1 in v.keys():
             #     v[k1] = param_new[k][k1]
     param_new = param_temp
 

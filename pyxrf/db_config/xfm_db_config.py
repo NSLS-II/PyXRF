@@ -6,8 +6,14 @@ from databroker._core import register_builtin_handlers
 # from databroker.assets.handlers import Xspress3HDF5Handler
 from databroker.assets.handlers import HandlerBase
 
+import logging
+logger = logging.getLogger(__name__)
+
 db = Broker.named('xfm')
-register_builtin_handlers(db.reg)
+try:
+    register_builtin_handlers(db.reg)
+except Exception as ex:
+    logger.error(f"Error while registering default SRX handlers: {ex}")
 
 
 class BulkXSPRESS(HandlerBase):

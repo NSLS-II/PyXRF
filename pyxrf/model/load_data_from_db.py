@@ -1,7 +1,6 @@
 from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 
-import six
 import h5py
 import numpy as np
 import os
@@ -10,9 +9,15 @@ import multiprocessing
 import pandas as pd
 import math
 import time as ttime
+from distutils.version import LooseVersion
 
 import logging
 import warnings
+
+try:
+    import databroker
+except ImportError:
+    pass
 
 from ..core.utils import convert_time_to_nexus_string
 from .scan_metadata import ScanMetadataXRF
@@ -20,7 +25,7 @@ from .scan_metadata import ScanMetadataXRF
 import pyxrf
 pyxrf_version = pyxrf.__version__
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 warnings.filterwarnings('ignore')
 
 sep_v = os.sep
@@ -91,7 +96,40 @@ def flip_data(input_data, subscan_dims=None):
     return new_data
 
 
-def fetch_data_from_db(runid, fpath=None,
+def fetch_run_info(run_id_uid):
+    """
+    Fetches key data from start document of the selected run
+
+    Parameters
+    ----------
+    run_id_uid: int or str
+        Run ID (positive or negative int) or UID (str, full or short) of the run.
+
+    Returns
+    -------
+    int or str
+        Run ID (always positive int) or Run UID (str, always full UID). Returns
+        `run_id=-1` and `run_uid=""` in case of failure.
+
+    Raises
+    ------
+    RuntimeError
+        failed to fetch the run from Databroker
+    """
+    try:
+        hdr = db[run_id_uid]
+        run_id = hdr.start["scan_id"]
+        run_uid = hdr.start["uid"]
+    except Exception:
+        if isinstance(run_id_uid, int):
+            msg = f"ID {run_id_uid}"
+        else:
+            msg = f"UID '{run_id_uid}'"
+        raise RuntimeError(f"Failed to find run with {msg}.")
+    return run_id, run_uid
+
+
+def fetch_data_from_db(run_id_uid, fpath=None,
                        create_each_det=False,
                        fname_add_version=False,
                        completed_scans_only=False,
@@ -152,7 +190,7 @@ def fetch_data_from_db(runid, fpath=None,
     print('Loading data from database.')
 
     if hdr.start.beamline_id == 'HXN':
-        data = map_data2D_hxn(runid, fpath,
+        data = map_data2D_hxn(run_id_uid, fpath,
                               create_each_det=create_each_det,
                               fname_add_version=fname_add_version,
                               completed_scans_only=completed_scans_only,
@@ -160,7 +198,7 @@ def fetch_data_from_db(runid, fpath=None,
                               output_to_file=output_to_file)
     elif (hdr.start.beamline_id == 'xf05id' or
           hdr.start.beamline_id == 'SRX'):
-        data = map_data2D_srx(runid, fpath,
+        data = map_data2D_srx(run_id_uid, fpath,
                               create_each_det=create_each_det,
                               fname_add_version=fname_add_version,
                               completed_scans_only=completed_scans_only,
@@ -169,14 +207,14 @@ def fetch_data_from_db(runid, fpath=None,
                               save_scaler=save_scaler,
                               num_end_lines_excluded=num_end_lines_excluded)
     elif hdr.start.beamline_id == 'XFM':
-        data = map_data2D_xfm(runid, fpath,
+        data = map_data2D_xfm(run_id_uid, fpath,
                               create_each_det=create_each_det,
                               fname_add_version=fname_add_version,
                               completed_scans_only=completed_scans_only,
                               file_overwrite_existing=file_overwrite_existing,
                               output_to_file=output_to_file)
     elif hdr.start.beamline_id == 'TES':
-        data = map_data2D_tes(runid, fpath,
+        data = map_data2D_tes(run_id_uid, fpath,
                               create_each_det=create_each_det,
                               fname_add_version=fname_add_version,
                               completed_scans_only=completed_scans_only,
@@ -203,7 +241,8 @@ def make_hdf(start, end=None, *, fname=None, wd=None,
     ----------
 
     start : int
-        scan ID of the first scan to convert.
+        Run ID (positive or negative int) or  of the first scan to convert or Run UID
+        (str, full or short). If `start` is UID, then `end` must not be provided or set to None.
     end : int, optional
         scan ID of the last scan to convert. If ``end`` is not specified or None, then
         only the scan with ID ``start`` is converted and an exception is raised if an
@@ -307,14 +346,21 @@ def make_hdf(start, end=None, *, fname=None, wd=None,
         wd = os.path.abspath(wd)  # 'make_dirs' does not accept paths that contain '..'
         os.makedirs(wd, exist_ok=True)  # Does nothing if the directory already exists
 
-    if end is None:
+    if isinstance(start, str) or (end is None):
+        # Two cases: only one Run ID ('start') is provided or 'start' is Run UID.
+        #   In both cases only one run is loaded.
+        if end is not None:
+            raise ValueError(r"Parameter 'end' must be None if run is loaded by UID")
+
+        run_id, run_uid = fetch_run_info(start)  # This may raise RuntimeException
+
         # Load one scan with ID specified by ``start``
         #   If there is a problem while reading the scan, the exception is raised.
         if fname is None:
-            fname = prefix+str(start)+'.h5'
+            fname = prefix+str(run_id)+'.h5'
             if wd:
                 fname = os.path.join(wd, fname)
-        fetch_data_from_db(start, fpath=fname,
+        fetch_data_from_db(run_uid, fpath=fname,
                            create_each_det=create_each_det,
                            fname_add_version=fname_add_version,
                            completed_scans_only=completed_scans_only,
@@ -373,7 +419,6 @@ def _extract_metadata_from_header(hdr):
     Extract metadata from start and stop document. Metadata extracted from other document
     in the scan are beamline specific and added to dictionary at later time.
     """
-
     start_document = hdr.start
 
     mdata = ScanMetadataXRF()
@@ -394,6 +439,8 @@ def _extract_metadata_from_header(hdr):
 
         "experiment_plan_name": ["plan_name"],
         "experiment_plan_type": ["plan_type"],
+        "experiment_fast_axis": ["scaninfo/fast_axis"],
+        "experiment_slow_axis": ["scaninfo/slow_axis"],
 
         "proposal_num": ["proposal/proposal_num"],
         "proposal_title": ["proposal/proposal_title"],
@@ -490,7 +537,7 @@ def _get_metadata_from_descriptor_document(hdr, *, data_key, stream_name='baseli
     return value
 
 
-def map_data2D_hxn(runid, fpath,
+def map_data2D_hxn(run_id_uid, fpath,
                    create_each_det=False,
                    fname_add_version=False,
                    completed_scans_only=False,
@@ -503,8 +550,8 @@ def map_data2D_hxn(runid, fpath,
 
     Parameters
     ----------
-    runid : int
-        id number for given run
+    run_id_uid : int
+        ID or UID of a run
     fpath: str
         path to save hdf file
     create_each_det: bool, optional
@@ -533,7 +580,7 @@ def map_data2D_hxn(runid, fpath,
     output_to_file : bool, optional
         save data to hdf5 file if True
     """
-    hdr = db[runid]
+    hdr = db[run_id_uid]
     runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
 
     if completed_scans_only and not _is_scan_complete(hdr):
@@ -614,6 +661,7 @@ def map_data2D_hxn(runid, fpath,
     detector_name = "xpress3"
     d_dict = {"dataset": data_out, "file_name": fpath, "detector_name": detector_name, "metadata": mdata}
     data_output.append(d_dict)
+
     return data_output
 
     # write_db_to_hdf(fpath, data, datashape,
@@ -648,7 +696,7 @@ def get_total_scan_point(hdr):
     return n
 
 
-def map_data2D_srx(runid, fpath,
+def map_data2D_srx(run_id_uid, fpath,
                    create_each_det=False,
                    fname_add_version=False,
                    completed_scans_only=False,
@@ -666,8 +714,8 @@ def map_data2D_srx(runid, fpath,
 
     Parameters
     ----------
-    runid : int
-        id number for given run
+    run_id_uid : int
+        ID or UID of a run
     fpath: str
         path to save hdf file
     create_each_det: bool, optional
@@ -704,7 +752,7 @@ def map_data2D_srx(runid, fpath,
     -------
     dict of data in 2D format matching x,y scanning positions
     """
-    hdr = db[runid]
+    hdr = db[run_id_uid]
     runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
 
     if completed_scans_only and not _is_scan_complete(hdr):
@@ -730,12 +778,17 @@ def map_data2D_srx(runid, fpath,
     # Output data is the list of data structures for all available detectors
     data_output = []
 
-    if 'fly' not in plan_n:  # not fly scan
+    # There may be no 'plan_name' key in the old stepscans
+    if (plan_n is None) or ('fly' not in plan_n):  # not fly scan
 
         print()
         print("****************************************")
         print("        Loading SRX step scan           ")
         print("****************************************")
+
+        # Examples for testing on SRX beamline:
+        #    good 'old-style' step scan ID: 2357 UID: e063146b-103a-40c5-9266-2201f157e950
+        #    good 'new-style' step scan ID: 18015 UID: 6ae30aa1-5834-4641-8e68-5eaad4669ce0
 
         fly_type = None
 
@@ -760,16 +813,25 @@ def map_data2D_srx(runid, fpath,
         if snake_scan[1] is True:
             fly_type = 'pyramid'
 
+        if hdr.start.get("plan_type") == "OuterProductAbsScanPlan":
+            # This is 'old-style' step scan
+            detector_list = ["xs_settings_ch1", "xs_settings_ch2", "xs_settings_ch3"]
+            scaler_list = ["current_preamp_ch2"]
+        else:
+            # This is 'new-style' step scan
+            detector_list = config_data['xrf_detector']
+            scaler_list = config_data['scaler_list']
+
         try:
             data = hdr.table(fill=True, convert_times=False)
 
         except IndexError:
             total_len = get_total_scan_point(hdr) - 2
             evs, _ = zip(*zip(hdr.events(fill=True), range(total_len)))
-            namelist = config_data['xrf_detector'] + hdr.start.motors + config_data['scaler_list']
+            namelist = detector_list + hdr.start.motors + scaler_list
             dictv = {v: [] for v in namelist}
             for e in evs:
-                for k, v in six.iteritems(dictv):
+                for k, v in dictv.items():
                     dictv[k].append(e.data[k])
             data = pd.DataFrame(dictv, index=np.arange(1, total_len+1))  # need to start with 1
 
@@ -781,16 +843,17 @@ def map_data2D_srx(runid, fpath,
 
         if output_to_file:
             if 'xs' in hdr.start.detectors:
-                print('Saving data to hdf file: Xpress3 detector #1 (three channels).')
+                logger.info('Saving data to hdf file: Xpress3 detector #1 (three channels).')
                 root, ext = os.path.splitext(fpath)
                 fpath_out = f"{root + '_xs'}{ext}"
                 data_out = assemble_data_SRX_stepscan(
                     data,
                     datashape,
-                    det_list=config_data['xrf_detector'],
+                    det_list=detector_list,
                     pos_list=hdr.start.motors,
-                    scaler_list=config_data['scaler_list'],
+                    scaler_list=scaler_list,
                     fname_add_version=fname_add_version,
+                    create_each_det=create_each_det,
                     fly_type=fly_type,
                     base_val=config_data['base_value'])  # base value shift for ic
                 fpath_out = write_db_to_hdf_base(
@@ -803,16 +866,18 @@ def map_data2D_srx(runid, fpath,
                 data_output.append(d_dict)
 
             if 'xs2' in hdr.start.detectors:
-                print('Saving data to hdf file: Xpress3 detector #2 (single channel).')
+                logger.info('Saving data to hdf file: Xpress3 detector #2 (single channel).')
                 root, ext = os.path.splitext(fpath)
                 fpath_out = f"{root}_xs2{ext}"
-                data = assemble_data_SRX_stepscan(
+                data_out = assemble_data_SRX_stepscan(
                     data,
                     datashape,
+                    # The following must be XS2 detectors (not present in 'old' step scans)
                     det_list=config_data['xrf_detector2'],
                     pos_list=hdr.start.motors,
-                    scaler_list=config_data['scaler_list'],
+                    scaler_list=scaler_list,
                     fname_add_version=fname_add_version,
+                    create_each_det=create_each_det,
                     fly_type=fly_type,
                     base_val=config_data['base_value'])  # base value shift for ic
                 fpath_out = write_db_to_hdf_base(
@@ -823,6 +888,9 @@ def map_data2D_srx(runid, fpath,
                 d_dict = {"dataset": data_out, "file_name": fpath_out,
                           "detector_name": "xs", "metadata": mdata}
                 data_output.append(d_dict)
+
+            fln_list = [_["file_name"] for _ in data_output]
+            logger.debug(f"Step scan data was saved to the following files: {fln_list}")
 
         return data_output
 
@@ -859,16 +927,29 @@ def map_data2D_srx(runid, fpath,
             datashape = [start_doc['shape'][1], start_doc['shape'][0]]
         else:
             datashape = [start_doc['shape'][1]-num_end_lines_excluded, start_doc['shape'][0]]
-        if 'fast_axis' in hdr.start.scaninfo:
-            # fast scan along vertical, y is fast scan, x is slow
-            if hdr.start.scaninfo['fast_axis'] in ('VER', 'DET2VER'):
-                xpos_name = 'enc1'
-                ypos_name = 'hf_stage_x'
-                if 'E_tomo' in start_doc['scaninfo']['type']:
-                    ypos_name = 'e_tomo_x'
-                vertical_fast = True
-                #   fast vertical scan put shape[0] as vertical direction
-                # datashape = [start_doc['shape'][0], start_doc['shape'][1]]
+
+        using_nanostage = 'nanoZebra' in hdr.start.detectors
+
+        if using_nanostage:
+            # There should also be a source of 'z' positions
+            xpos_name, ypos_name = "enc1", "enc2"
+            # Note: the following block doesn't make sence for the setup with nanostage
+            # The following condition will be more complicated when 'slow_axis' is
+            #   added to the metadata.
+            # if hdr.start.scaninfo['fast_axis'] == "NANOVER":
+            #    xpos_name, ypos_name = ypos_name, xpos_name
+            #    vertical_fast = True
+        else:
+            if 'fast_axis' in hdr.start.scaninfo:
+                # fast scan along vertical, y is fast scan, x is slow
+                if hdr.start.scaninfo['fast_axis'] in ('VER', 'DET2VER'):
+                    xpos_name = 'enc1'
+                    ypos_name = 'hf_stage_x'
+                    if 'E_tomo' in start_doc['scaninfo']['type']:
+                        ypos_name = 'e_tomo_x'
+                    vertical_fast = True
+                    #   fast vertical scan put shape[0] as vertical direction
+                    # datashape = [start_doc['shape'][0], start_doc['shape'][1]]
 
         new_shape = datashape + [spectrum_len]
         # total_points = datashape[0]*datashape[1]
@@ -895,7 +976,10 @@ def map_data2D_srx(runid, fpath,
                 scaler_tmp = np.zeros([datashape[0], datashape[1], len(scaler_list)])
                 if vertical_fast is True:  # data shape only has impact on scaler data
                     scaler_tmp = np.zeros([datashape[1], datashape[0], len(scaler_list)])
-                for v in scaler_list+[xpos_name]:
+                key_list = scaler_list + [xpos_name]
+                if using_nanostage:
+                    key_list += [ypos_name]
+                for v in key_list:
                     data[v] = np.zeros([datashape[0], datashape[1]])
 
             # Total number of lines in fly scan
@@ -908,7 +992,6 @@ def map_data2D_srx(runid, fpath,
             #   to retrieve 'good' data from the scan.
             try:
                 for m, v in enumerate(e):
-
                     if m == 0:
 
                         # Check if detector field does not exist. If not, then the file should not be created.
@@ -994,15 +1077,18 @@ def map_data2D_srx(runid, fpath,
                 new_data['scaler_data'] = scaler_tmp
                 x_pos = np.vstack(data[xpos_name])
 
-                # get y position data, from differet stream name primary
-                data1 = hdr.table(fill=True, stream_name='primary')
-                if num_end_lines_excluded is not None:
-                    data1 = data1[:datashape[0]]
-                # if ypos_name not in data1.keys() and 'E_tomo' not in start_doc['scaninfo']['type']:
-                # print(f"data1 keys: {data1.keys()}")
-                if ypos_name not in data1.keys():
-                    ypos_name = 'hf_stage_z'        # vertical along z
-                y_pos0 = np.hstack(data1[ypos_name])
+                if using_nanostage:
+                    y_pos0 = np.vstack(data[ypos_name])
+                else:
+                    # get y position data, from differet stream name primary
+                    data1 = hdr.table(fill=True, stream_name='primary')
+                    if num_end_lines_excluded is not None:
+                        data1 = data1[:datashape[0]]
+                    # if ypos_name not in data1.keys() and 'E_tomo' not in start_doc['scaninfo']['type']:
+                    # print(f"data1 keys: {data1.keys()}")
+                    if ypos_name not in data1.keys():
+                        ypos_name = 'hf_stage_z'        # vertical along z
+                    y_pos0 = np.hstack(data1[ypos_name])
 
                 # Original comment (from the previous authors):
                 #      y position is more than actual x pos, scan not finished?
@@ -1067,9 +1153,12 @@ def map_data2D_srx(runid, fpath,
                 # The following condition check is left from the existing code. It is still checking
                 #   for the case if 0 lines were scanned.
                 if len(y_pos0) >= x_pos.shape[0] and not no_position_data:
-                    y_pos = y_pos0[:x_pos.shape[0]]
-                    x_tmp = np.ones(x_pos.shape[1])
-                    xv, yv = np.meshgrid(x_tmp, y_pos)
+                    if using_nanostage:
+                        yv = y_pos0
+                    else:
+                        y_pos = y_pos0[:x_pos.shape[0]]
+                        x_tmp = np.ones(x_pos.shape[1])
+                        xv, yv = np.meshgrid(x_tmp, y_pos)
                     # need to change shape to sth like [2, 100, 100]
                     data_tmp = np.zeros([2, x_pos.shape[0], x_pos.shape[1]])
                     data_tmp[0, :, :] = x_pos
@@ -1082,6 +1171,7 @@ def map_data2D_srx(runid, fpath,
                         data_tmp[1, :, :] = x_pos.T
                         data_tmp[0, :, :] = yv.T
                         new_data['pos_data'] = data_tmp
+
                 else:
                     print("WARNING: Scan was interrupted: x,y positions are not saved")
 
@@ -1111,10 +1201,13 @@ def map_data2D_srx(runid, fpath,
                 print(f", {n_detectors_found} data files were created", end="")
             print(".")
 
+        fln_list = [_["file_name"] for _ in data_output]
+        logger.debug(f"Fly scan data was saved to the following files: {fln_list}")
+
         return data_output
 
 
-def map_data2D_tes(runid, fpath,
+def map_data2D_tes(run_id_uid, fpath,
                    create_each_det=False,
                    fname_add_version=False,
                    completed_scans_only=False,
@@ -1134,8 +1227,8 @@ def map_data2D_tes(runid, fpath,
 
     Parameters
     ----------
-    runid : int
-        id number for given run
+    run_id_uid : int
+        ID or UID of a run
     fpath: str
         path to save hdf file
     create_each_det: bool, optional
@@ -1169,7 +1262,7 @@ def map_data2D_tes(runid, fpath,
     dict of data in 2D format matching x,y scanning positions
     """
 
-    hdr = db[runid]
+    hdr = db[run_id_uid]
     runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
 
     # The dictionary holding scan metadata
@@ -1258,11 +1351,11 @@ def map_data2D_tes(runid, fpath,
             # TODO: investigate the issue of 'empty' scaler ('dwell_time') rows at TES
             n_full = -1
             for _n in range(len(s_data)):
-                if s_data[_n].shape != ():
+                if (s_data[_n] is not None) and len(s_data[_n]):
                     n_full = _n
                     break
             for _n in range(len(s_data)):
-                if s_data[_n].shape == ():
+                if (s_data[_n] is None) or not len(s_data[_n]):
                     s_data[_n] = np.copy(s_data[n_full])
                     logger.error(f"Scaler '{name}': row #{_n} contains no data. "
                                  f"Replaced by data from row #{n_full}")
@@ -1336,7 +1429,7 @@ def map_data2D_tes(runid, fpath,
     return data_output
 
 
-def map_data2D_xfm(runid, fpath,
+def map_data2D_xfm(run_id_uid, fpath,
                    create_each_det=False,
                    fname_add_version=False,
                    completed_scans_only=False,
@@ -1353,8 +1446,8 @@ def map_data2D_xfm(runid, fpath,
 
     Parameters
     ----------
-    runid : int
-        id number for given run
+    run_id_uid : int
+        ID or UID of a run
     fpath: str
         path to save hdf file
     create_each_det: bool, optional
@@ -1387,7 +1480,7 @@ def map_data2D_xfm(runid, fpath,
     -------
     dict of data in 2D format matching x,y scanning positions
     """
-    hdr = db[runid]
+    hdr = db[run_id_uid]
     runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
 
     if completed_scans_only and not _is_scan_complete(hdr):
@@ -1589,6 +1682,7 @@ def assemble_data_SRX_stepscan(
         pos_list=('zpssx[um]', 'zpssy[um]'),
         scaler_list=('sclr1_ch3', 'sclr1_ch4'),
         fname_add_version=False,
+        create_each_det=True,
         fly_type=None, subscan_dims=None, base_val=None):
     """
     Convert stepscan data from SRX beamline obtained from databroker into the for accepted
@@ -1612,6 +1706,9 @@ def assemble_data_SRX_stepscan(
         so that it becomes unique in the current directory. The version is
         added to <fname>.h5 in the form <fname>_(1).h5, <fname>_(2).h5, etc.
         False: the exception is thrown if the file exists.
+    create_each_det: bool
+        True: output dataset contains data for individual detectors, False: output
+        dataset contains only sum of all detectors.
     """
 
     data_assembled = {}
@@ -1648,7 +1745,8 @@ def assemble_data_SRX_stepscan(
             else:
                 sum_data += new_data
 
-            data_assembled[detname] = new_data
+            if create_each_det:
+                data_assembled[detname] = new_data
 
     if sum_data is not None:
         data_assembled['det_sum'] = sum_data
@@ -1981,12 +2079,31 @@ def write_db_to_hdf_base(fpath, data, *, metadata=None,
     return fpath
 
 
+'''
+# This may not be needed, since hdr always goes out of scope
+def clear_handler_cache(hdr):
+    """
+    Clear handler cache after loading data.
+
+    Parameters
+    ----------
+    hdr
+        reference to the handler
+    """
+    if LooseVersion(databroker.__version__) >= LooseVersion('1.0.0'):
+        hdr._data_source.fillers['yes']._handler_cache.clear()
+        hdr._data_source.fillers['delayed']._handler_cache.clear()
+'''
+
+
+# TODO: the following function may be deleted after Databroker 0.13 is forgotten
 def free_memory_from_handler():
     """Quick way to set 3D dataset at handler to None to release memory.
     """
-    for h in db.fs._handler_cache.values():
-        setattr(h, '_dataset', None)
-    print('Memory is released.')
+    if LooseVersion(databroker.__version__) < LooseVersion('1.0.0'):
+        for h in db.fs._handler_cache.values():
+            setattr(h, '_dataset', None)
+        print('Memory is released.')
 
 
 def export1d(runid, name=None):

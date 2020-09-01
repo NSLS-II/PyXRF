@@ -181,6 +181,8 @@ class ScanMetadataXRF(ScanMetadataBase):
 
             "experiment_plan_name": "plan name",
             "experiment_plan_type": "plan type",
+            "experiment_fast_axis": "scan fast axis",
+            "experiment_slow_axis": "scan slow axis",
 
             "proposal_num": "proposal #",
             "proposal_title": "proposal title",

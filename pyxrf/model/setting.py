@@ -17,7 +17,7 @@ from .fit_spectrum import get_energy_bin_range
 from ..core.map_processing import compute_selected_rois, TerminalProgressBar
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class ROIModel(Atom):

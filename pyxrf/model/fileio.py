@@ -1,7 +1,6 @@
 from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 
-import six
 import sys
 import h5py
 import numpy as np
@@ -17,12 +16,14 @@ import glob
 import ast
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
+from collections.abc import Iterable
 from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Float, Enum, Bool
 from .load_data_from_db import (db, fetch_data_from_db, flip_data,
                                 helper_encode_list, helper_decode_list,
-                                write_db_to_hdf)
+                                write_db_to_hdf, fetch_run_info)
 from ..core.utils import normalize_data_by_scaler, grid_interpolate
-from ..core.map_processing import RawHDF5Dataset, compute_total_spectrum, TerminalProgressBar
+from ..core.map_processing import (RawHDF5Dataset, compute_total_spectrum_and_count, TerminalProgressBar,
+                                   dask_client_create)
 from .scan_metadata import ScanMetadataXRF
 import requests
 from distutils.version import LooseVersion
@@ -33,7 +34,7 @@ import warnings
 import pyxrf
 pyxrf_version = pyxrf.__version__
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 warnings.filterwarnings('ignore')
 
 sep_v = os.sep
@@ -72,30 +73,36 @@ class FileIOModel(Atom):
     param_fit = Dict()
     file_channel_list = List()
 
-    runid = Int(-1)
+    runid = Int(-1)  # Run ID of the current run
+    runuid = Str()  # Run UID of the current run
+
     h_num = Int(1)
     v_num = Int(1)
     fname_from_db = Str()
 
     file_opt = Int(-1)
     data = Typed(np.ndarray)
+    data_total_count = Typed(np.ndarray)
     data_all = Typed(object)
     selected_file_name = Str()
     # file_name = Str()
     mask_data = Typed(object)
-    mask_name = Str()
-    mask_opt = Int(0)
+    mask_name = Str()  # Displayed name of the mask (I'm not sure it is used, but let's keep it for now)
+    mask_file_path = Str()  # Full path to file with mask data
+    mask_active = Bool(False)
     load_each_channel = Bool(False)
+
+    # Spatial ROI selection
+    roi_selection_active = Bool(False)  # Active/inactive
+    roi_row_start = Int(-1)  # Selected values matter only when ROI selection is active
+    roi_col_start = Int(-1)
+    roi_row_end = Int(-1)
+    roi_col_end = Int(-1)
 
     # Used while loading data from database
     # True: overwrite existing data file if it exists
     # False: create new file with unique name (original name + version number)
     file_overwrite_existing = Bool(False)
-
-    p1_row = Int(-1)
-    p1_col = Int(-1)
-    p2_row = Int(-1)
-    p2_col = Int(-1)
 
     data_ready = Bool(False)
 
@@ -187,6 +194,17 @@ class FileIOModel(Atom):
     def window_title_set_run_id(self, run_id):
         self.window_title = f"{self.window_title_base} - Scan ID: {run_id}"
 
+    def is_databroker_available(self):
+        """
+        Check if Databroker is configured and data can be loaded from the database.
+
+        Returns
+        -------
+        bool
+            True - Databroker is available, False otherwise.
+        """
+        return db is not None
+
     def _metadata_update_program_state(self):
         """
         Update program state based on metadata:
@@ -211,12 +229,46 @@ class FileIOModel(Atom):
             logger.info(f"Incident energy {self.incident_energy_set} keV was extracted from the scan metadata")
         else:
             logger.warning(
-                "Incident energy is not available in scan metadata and needs to be set manually: "
-                "click 'Find Elements Automatically' button in 'Fit' "
+                "Incident energy is not available in scan metadata and needs to be set manually:\n"
+                "    Click 'Find Elements Automatically' button in 'Fit' "
                 "tab to access the settings dialog box.")
 
+    def clear(self):
+        """
+        Clear all existing data. The function should be called before loading new data (file or run)
+        """
+
+        self.runid = -1
+        self.file_opt = -1
+        self.selected_file_name = ""
+        self.file_path = ""
+
+        # We don't clear the following data arrays for now. The commented code is left
+        #   mostly for future reference.
+        # self.data = np.ndarray([])
+        # self.data_total_count = np.ndarray([])
+        # self.data_all = {}
+
+        self.mask_data = {}
+        self.mask_name = ""  # Displayed name of the mask (I'm not sure it is used, but let's keep it for now)
+        self.mask_file_path = ""  # Full path to file with mask data
+        self.mask_active = False
+
+        # Spatial ROI selection
+        self.roi_selection_active = False  # Active/inactive
+        self.roi_row_start = -1  # Selected values matter only when ROI selection is active
+        self.roi_col_start = -1
+        self.roi_row_end = -1
+        self.roi_col_end = -1
+
+        self.img_dict = {}
+        self.data_sets = OrderedDict()
+        self.scan_metadata = ScanMetadataXRF()
+        self._metadata_update_program_state()
+
     @observe(str('file_name'))
-    def update_more_data(self, change):
+    def load_data_from_file(self, change):
+        """This function loads data file for GUI. It also generates preview data for default channel #0."""
         if change['value'] == 'temp':
             # 'temp' is used to reload the same file
             return
@@ -229,32 +281,115 @@ class FileIOModel(Atom):
         self.file_channel_list = []
         logger.info('File is loaded: %s' % (self.file_name))
 
+        # Clear data. If reading the file fails, then old data should not be kept.
+        self.clear()
         # focus on single file only
-        self.img_dict, self.data_sets, self.scan_metadata = \
+        img_dict, self.data_sets, self.scan_metadata = \
             file_handler(self.working_directory,
                          self.file_name,
                          load_each_channel=self.load_each_channel)
+        self.img_dict = img_dict
+
+        # Replace relative scan ID with true scan ID.
+
+        # Full path to the data file
+        self.file_path = os.path.join(self.working_directory, self.file_name)
 
         # Process metadata
         self._metadata_update_program_state()
+
+        if self.scan_metadata_available:
+            if "scan_id" in self.scan_metadata:
+                self.runid = int(self.scan_metadata["scan_id"])
+            if "scan_uid" in self.scan_metadata:
+                self.runuid = self.scan_metadata["scan_uid"]
+
         self.data_ready = True
         self.file_channel_list = list(self.data_sets.keys())
-        self.file_opt = 0  # use summed data as default
+
+        default_channel = 0  # Use summed data as default
+        self.file_opt = default_channel
+        if self.file_channel_list and self.data_sets:
+            self.data_sets[self.file_channel_list[default_channel]].selected_for_preview = True
+
+        self.update_data_set_buffers()
+
+    def get_dataset_map_size(self):
+        map_size = None
+        ds_name_first = ""
+        for ds_name, ds in self.data_sets.items():
+            if map_size is None:
+                map_size = ds.get_map_size()
+                ds_name_first = ds_name
+            else:
+                map_size_other = ds.get_map_size()
+                if map_size != map_size_other:
+                    logger.warning(f"Map sizes don't match for datasets '{ds_name}' and '{ds_name_first}': "
+                                   f"{map_size_other} != {map_size}")
+        return map_size
+
+    def get_dataset_preview_count_map_range(self, *, selected_only=False):
+        """
+        Returns the range of the Total Count Maps in the loaded datasets.
+
+        Parameters
+        ----------
+        selected_only: bool
+            True - use only datasets that are currently selected for preview,
+            False - use all LOADED datasets (for which the total spectrum and
+            total count map is computed
+
+        Returns
+        -------
+        tuple(float)
+            the range of values `(value_min, value_max)`. Returns `(None, None)`
+            if no datasets are loaded (or selected if `selected_only=True`)
+        """
+        v_min, v_max = None, None
+        for ds_name, ds in self.data_sets.items():
+            if not selected_only or ds.selected_for_preview:
+                if ds.data_ready:
+                    dset_min, dset_max = ds.get_total_count_range()
+                    if (v_min is None) or (v_max is None):
+                        v_min, v_max = dset_min, dset_max
+                    elif (dset_min is not None) and (dset_max is not None):
+                        v_min = min(v_min, dset_min)
+                        v_max = max(v_max, dset_max)
+        if (v_min is not None) and (v_max is not None):
+            if v_min >= v_max:
+                v_min, v_max = v_min - 0.005, v_max + 0.005  # Some small range
+        return v_min, v_max
+
+    def is_xrf_maps_available(self):
+        """
+        The method returns True if one or more set XRF maps are loaded (or computed) and
+        available for display.
+
+        Returns
+        -------
+        True/False - One or more sets of XRF Maps are available/not available
+        """
+        regex_list = [".*_fit", ".*_roi"]
+        for key in self.img_dict.keys():
+            for reg in regex_list:
+                if re.search(reg, key):
+                    return True
+        return False
+
+    def get_uid_short(self, uid=None):
+        uid = self.runuid if uid is None else uid
+        return uid.split("-")[0]
 
     @observe(str('runid'))
     def _update_fname(self, change):
         self.fname_from_db = 'scan2D_'+str(self.runid)
 
-    def load_data_runid(self):
+    def load_data_runid(self, run_id_uid):
         """
         Load data according to runID number.
 
         requires databroker
         """
-        if db is None:
-            raise RuntimeError("databroker is not installed. This function "
-                               "is disabled.  To install databroker, see "
-                               "https://nsls-ii.github.io/install.html")
         # if self.h_num != 0 and self.v_num != 0:
         #     datashape = [self.v_num, self.h_num]
 
@@ -269,7 +404,18 @@ class FileIOModel(Atom):
         #                                             self.fname_from_db,
         #                                             load_each_channel=self.load_each_channel)
 
-        rv = render_data_to_gui(self.runid,
+        # Clear data. If reading the file fails, then old data should not be kept.
+        self.file_channel_list = []
+        self.clear()
+
+        if db is None:
+            raise RuntimeError("Databroker is not installed. The scan cannot be loaded.")
+
+        s = f"ID {run_id_uid}" if isinstance(run_id_uid, int) \
+            else f"UID '{run_id_uid}'"
+        logger.info(f"Loading scan with {s}")
+
+        rv = render_data_to_gui(run_id_uid,
                                 create_each_det=self.load_each_channel,
                                 working_directory=self.working_directory,
                                 file_overwrite_existing=self.file_overwrite_existing)
@@ -280,12 +426,14 @@ class FileIOModel(Atom):
 
         img_dict, self.data_sets, fname, detector_name, self.scan_metadata = rv
 
-        # Replace relative scan ID with true scan ID.
-        if (self.runid) < 0 and ("scan_id" in self.scan_metadata):
-            self.runid = int(self.scan_metadata["scan_id"])
-
         # Process metadata
         self._metadata_update_program_state()
+
+        # Replace relative scan ID with true scan ID.
+        if "scan_id" in self.scan_metadata:
+            self.runid = int(self.scan_metadata["scan_id"])
+        if "scan_uid" in self.scan_metadata:
+            self.runuid = self.scan_metadata["scan_uid"]
 
         # Change file name without rereading the file
         self.file_name_silent_change = True
@@ -312,6 +460,15 @@ class FileIOModel(Atom):
 
         self.img_dict = img_dict
 
+        self.data_ready = True
+
+        default_channel = 0  # Use summed data as default
+        self.file_opt = default_channel
+        if self.file_channel_list and self.data_sets:
+            self.data_sets[self.file_channel_list[default_channel]].selected_for_preview = True
+
+        self.update_data_set_buffers()
+
         try:
             self.selected_file_name = self.file_channel_list[self.file_opt]
         except IndexError:
@@ -320,10 +477,15 @@ class FileIOModel(Atom):
         # passed to fitting part for single pixel fitting
         self.data_all = self.data_sets[self.selected_file_name].raw_data
         # get summed data or based on mask
-        self.data = self.data_sets[self.selected_file_name].get_sum()
+        self.data, self.data_total_count = \
+            self.data_sets[self.selected_file_name].get_total_spectrum_and_count()
 
-        self.data_ready = True
-        self.file_opt = 0  # use summed data as default
+    def update_data_set_buffers(self):
+        """ Update buffers in all datasets """
+        for dset_name, dset in self.data_sets.items():
+            # Update only the data that are needed
+            if dset.selected_for_preview or dset_name == self.selected_file_name:
+                dset.update_buffers()
 
     @observe(str('file_opt'))
     def choose_file(self, change):
@@ -344,7 +506,8 @@ class FileIOModel(Atom):
         # passed to fitting part for single pixel fitting
         self.data_all = self.data_sets[self.selected_file_name].raw_data
         # get summed data or based on mask
-        self.data = self.data_sets[self.selected_file_name].get_sum()
+        self.data, self.data_total_count = \
+            self.data_sets[self.selected_file_name].get_total_spectrum_and_count()
 
     def get_selected_detector_channel(self):
         r"""
@@ -361,51 +524,87 @@ class FileIOModel(Atom):
                 pass
         return det_channel
 
-    def apply_mask(self):
-        """Apply mask with different options.
-        """
-        if self.mask_opt == 2:
-            # load mask data
-            if len(self.mask_name) > 0:
-                mask_file = os.path.join(self.working_directory,
-                                         self.mask_name)
+    def apply_mask_to_datasets(self):
+        """Set mask and ROI selection for datasets."""
+        if self.mask_active:
+            # Load mask data
+            if len(self.mask_file_path) > 0:
+                ext = os.path.splitext(self.mask_file_path)[-1].lower()
+                msg = ""
                 try:
-                    if 'npy' in mask_file:
-                        self.mask_data = np.load(mask_file)
-                    elif 'txt' in mask_file:
-                        self.mask_data = np.loadtxt(mask_file)
+                    if '.npy' == ext:
+                        self.mask_data = np.load(self.mask_file_path)
+                    elif '.txt' == ext:
+                        self.mask_data = np.loadtxt(self.mask_file_path)
                     else:
-                        self.mask_data = np.array(Image.open(mask_file))
-                except IOError:
-                    logger.error('Mask file cannot be loaded.')
+                        self.mask_data = np.array(Image.open(self.mask_file_path))
 
-                for k in six.iterkeys(self.img_dict):
-                    if 'fit' in k:
-                        self.img_dict[k][self.mask_name] = self.mask_data
+                    for k in self.data_sets.keys():
+                        self.data_sets[k].set_mask(mask=self.mask_data, mask_active=self.mask_active)
+
+                    # TODO: remove the following code if not needed
+                    # I see no reason of adding the mask image to every processed dataset
+                    # for k in self.img_dict.keys():
+                    #     if 'fit' in k:
+                    #         self.img_dict[k]["mask"] = self.mask_data
+
+                except IOError as ex:
+                    msg = f"Mask file '{self.mask_file_path}' cannot be loaded: {str(ex)}."
+                except Exception as ex:
+                    msg = f"Mask from file '{self.mask_file_path}' cannot be set: {str(ex)}."
+                if msg:
+                    logger.error(msg)
+                    self.mask_data = None
+                    self.mask_active = False  # Deactivate the mask
+                    # Now raise the exception so that proper error processing can be performed
+                    raise RuntimeError(msg)
+
+                logger.debug(f"Mask was successfully loaded from file '{self.mask_file_path}'")
         else:
+            # We keep the file name, but there is no need to keep the data, which is loaded from
+            #   file each time the mask is loaded. Mask is relatively small and the file can change
+            #   between the function calls, so it's better to load new data each time.
             self.mask_data = None
-            data_s = self.data_all.shape
-            if self.mask_opt == 1:
-                valid_opt = False
-                # define square mask region
-                if self.p1_row >= 0 and self.p1_col >= 0 and self.p1_row < data_s[0] and self.p1_col < data_s[1]:
-                    self.data_sets[self.selected_file_name].point1 = [self.p1_row, self.p1_col]
-                    logger.info('Starting position is {}.'.format([self.p1_row, self.p1_col]))
-                    valid_opt = True
-                    if self.p2_row > self.p1_row and self.p2_col > self.p1_col and \
-                            self.p2_row < data_s[0] and self.p2_col < data_s[1]:
-                        self.data_sets[self.selected_file_name].point2 = [self.p2_row, self.p2_col]
-                        logger.info('Ending position is {}.'.format([self.p2_row, self.p2_col]))
-                if valid_opt is False:
-                    logger.info('The positions are not valid. No mask is applied.')
-            else:
-                self.data_sets[self.selected_file_name].delete_points()
-                logger.info('Do not apply mask.')
+            # Now clear the mask in each dataset
+            for k in self.data_sets.keys():
+                self.data_sets[k].set_mask(mask=self.mask_data, mask_active=self.mask_active)
 
-        # passed to fitting part for single pixel fitting
+            # TODO: remove the following code if not needed
+            # There is also no reason to remove the mask image if it was not added
+            # for k in self.img_dict.keys():
+            #     if 'fit' in k:
+            #         self.img_dict[k]["mask"] = self.mask_data
+
+        logger.debug("Setting spatial ROI ...")
+        logger.debug(f"    ROI selection is active: {self.roi_selection_active}")
+        logger.debug(f"    Starting position: ({self.roi_row_start}, {self.roi_col_start})")
+        logger.debug(f"    Ending position (not included): ({self.roi_row_end}, {self.roi_col_end})")
+
+        try:
+            for k in self.data_sets.keys():
+                self.data_sets[k].set_selection(pt_start=(self.roi_row_start, self.roi_col_start),
+                                                pt_end=(self.roi_row_end, self.roi_col_end),
+                                                selection_active=self.roi_selection_active)
+        except Exception as ex:
+            msg = f"Spatial ROI selection can not be set: {str(ex)}\n"
+            logger.error(msg)
+            raise RuntimeError(ex)
+
+        # TODO: it may be more logical to pass the data somewhere else. We leave it here for now.
+        # Select raw data to for single pixel fitting.
         self.data_all = self.data_sets[self.selected_file_name].raw_data
-        # get summed data or based on mask
-        self.data = self.data_sets[self.selected_file_name].get_sum(self.mask_data)
+
+        # Create Dask client to speed up processing of multiple datasets
+        client = dask_client_create()
+        # Run computations with the new selection and mask
+        #    ... for the dataset selected for processing
+        self.data, self.data_total_count = \
+            self.data_sets[self.selected_file_name].get_total_spectrum_and_count(client=client)
+        #    ... for all datasets selected for preview except the one selected for processing.
+        for key in self.data_sets.keys():
+            if (key != self.selected_file_name) and self.data_sets[key].selected_for_preview:
+                self.data_sets[key].update_buffers(client=client)
+        client.close()
 
 
 plot_as = ['Sum', 'Point', 'Roi']
@@ -414,7 +613,8 @@ plot_as = ['Sum', 'Point', 'Roi']
 class DataSelection(Atom):
     """
     The class used for management of raw data. Function
-    `get_sum` is used to compute the total spectrum (sum of spectra for all pixels).
+    `get_sum` is used to compute the total spectrum (sum of spectra for all pixels)
+    and total count (sum of counts over all energy bins for each pixel).
     Selection of pixels may be set by selecting an area (limited by `point1` and
     `point2` or the mask `mask`. Selection of area also applied to the mask if
     both are set.
@@ -445,130 +645,308 @@ class DataSelection(Atom):
     raw_data : array
         experiment 3D data
     data : array
-    plot_index : int
+    selected_for_preview : int
         plot data or not, sum or roi or point
     """
     filename = Str()
     plot_choice = Enum(*plot_as)
     # point1 = Str('0, 0')
     # point2 = Str('0, 0')
-    point1 = List()
-    point2 = List()
+    selection_active = Bool(False)
+    sel_pt_start = List()
+    sel_pt_end = List()  # Not included
+    mask_active = Bool(False)
+    mask = Typed(np.ndarray)
     # 'raw_data' may be numpy array, dask array or core.map_processing.RawHDF5Dataset
     #   Processing functions are expected to support all those types
     raw_data = Typed(object)
-    data = Typed(np.ndarray)
-    plot_index = Int(0)
+    selected_for_preview = Bool(False)  # Dataset is currently selected for preview
+    data_ready = Bool(False)  # Total spectrum and total count map are computed
     fit_name = Str()
     fit_data = Typed(np.ndarray)
 
     _cached_spectrum = Dict()
 
-    @observe(str('plot_index'))
+    def get_total_spectrum(self, *, client=None):
+        total_spectrum, _ = self._get_sum(client=client)
+        return total_spectrum.copy()
+
+    def get_total_count(self, *, client=None):
+        _, total_count = self._get_sum(client=client)
+        return total_count.copy()
+
+    def get_total_spectrum_and_count(self, *, client=None):
+        total_spectrum, total_count = self._get_sum(client=client)
+        return total_spectrum.copy(), total_count.copy()
+
+    def update_buffers(self, *, client=None):
+        logger.debug(f"Dataset '{self.filename}': updating cached buffers.")
+        self._get_sum(client=client)
+
+    def get_total_count_range(self):
+        """
+        Get the range of values of total count map
+
+        Returns
+        -------
+        tuple(float)
+            (value_min, value_max)
+        """
+        total_count = self.get_total_count()
+        return total_count.min(), total_count.max()
+
+    @observe(str('selected_for_preview'))
     def _update_roi(self, change):
-        if self.plot_index == 0:
-            return
-        elif self.plot_index == 1:
-            self.data = self.get_sum()
+        if self.selected_for_preview:
+            self.update_buffers()
 
-    def delete_points(self):
-        self.point1 = []
-        self.point2 = []
+    def set_selection(self, *, pt_start, pt_end, selection_active):
+        """
+        Set spatial ROI selection
 
-    def get_sum(self, mask=None):
-        pos1 = self.point1 if len(self.point1) else None
-        pos2 = self.point2 if len(self.point2) else None
+        Parameters
+        ----------
+        pt_start: tuple(int) or list(int)
+            Starting point of the selection `(row_start, col_start)`, where
+            `row_start` is in the range `0..n_rows-1` and `col_start` is
+            in the range `0..n_cols-1`.
+        pt_end: tuple(int) or list(int)
+            End point of the selection, which is not included in the selection:
+            `(row_end, col_end)`, where `row_end` is in the range `1..n_rows` and
+            `col_end` is in the range `1..n_cols`.
+        selection_active: bool
+            `True` - selection is active, `False` - selection is not active.
+            The selection points must be set before the selection is set active,
+            otherwise `ValueError` is raised
 
-        def _compare_cached_settings(cache, pos1, pos2, mask):
+        Raises
+        ------
+        ValueError is raised if selection is active, but the points are not set.
+        """
+        if selection_active and (pt_start is None or pt_end is None):
+            raise ValueError("Selection is active, but at least one of the points is not set")
+
+        def _check_pt(pt):
+            if pt is not None:
+                if not isinstance(pt, Iterable):
+                    raise ValueError(f"The point value is not iterable: {pt}.")
+                if len(list(pt)) != 2:
+                    raise ValueError(f"The point ({pt}) must be represented by iterable of length 2.")
+
+        _check_pt(pt_start)
+        _check_pt(pt_end)
+
+        pt_start = list(pt_start)
+        pt_end = list(pt_end)
+
+        def _reset_pt(pt, value, pt_range):
+            """
+            Verify if pt is in the range `(pt_range[0], pt_range[1])` including `pt_range[1]`.
+            Clip the value to be in the range. If `pt` is negative (assume it is not set), then
+            set it to `value`.
+            """
+            pt = int(np.clip(pt, a_min=pt_range[0], a_max=pt_range[1])
+                     if pt >= 0 else value)
+            return pt
+
+        map_size = self.get_map_size()
+        pt_start[0] = _reset_pt(pt_start[0], 0, (0, map_size[0] - 1))
+        pt_start[1] = _reset_pt(pt_start[1], 0, (0, map_size[1] - 1))
+        pt_end[0] = _reset_pt(pt_end[0], map_size[0], (1, map_size[0]))
+        pt_end[1] = _reset_pt(pt_end[1], map_size[1], (1, map_size[1]))
+
+        if pt_start[0] > pt_end[0] or pt_start[1] > pt_end[1]:
+            msg = f"({pt_start[0]}, {pt_start[1]}) .. ({pt_end[0]}, {pt_end[1]})"
+            raise ValueError(f"Selected spatial ROI does not include any points: {msg}")
+
+        self.sel_pt_start = list(pt_start) if pt_start is not None else None
+        self.sel_pt_end = list(pt_end) if pt_end is not None else None
+        self.selection_active = selection_active
+
+    def set_mask(self, *, mask, mask_active):
+        """
+        Set mask by supplying np array. The size of the array must match the size of the map.
+        Clear the mask by supplying `None`.
+
+        Parameter
+        ---------
+        mask: ndarray or None
+            Array that contains the mask data or None to clear the mask
+        mask_active: bool
+            `True` - apply the mask, `False` - don't apply the mask
+            The mask must be set if `mask_active` is set `True`, otherwise `ValueError` is raised.
+        """
+        if mask_active and mask is None:
+            raise ValueError("Mask is set active, but no mask is set.")
+        if (mask is not None) and not isinstance(mask, np.ndarray):
+            raise ValueError(f"Mask must be a Numpy array or None: type(mask) = {type(mask)}")
+
+        if mask is None:
+            self.mask = None
+        else:
+            m_size = self.get_map_size()
+            if any(mask.shape != m_size):
+                raise ValueError(f"The mask shape({mask.shape}) is not equal to the map size ({m_size})")
+            self.mask = np.array(mask)  # Create a copy
+
+    def get_map_size(self):
+        """
+        Returns map size as a tuple `(n_rows, n_columns)`. The function is returning
+        the dimensions 0 and 1 of the raw data without loading the data.
+        """
+        return self.raw_data.shape[0], self.raw_data.shape[1]
+
+    def get_raw_data_shape(self):
+        """
+        Returns the shape of raw data: `(n_rows, n_columns, n_energy_bins)`.
+        """
+        return self.raw_data.shape
+
+    def _get_sum(self, *, client=None):
+
+        # Only the values of 'mask', 'pos1' and 'pos2' will be cached
+        mask = self.mask if self.mask_active else None
+        pt_start = self.sel_pt_start if self.selection_active else None
+        pt_end = self.sel_pt_end if self.selection_active else None
+
+        def _compare_cached_settings(cache, pt_start, pt_end, mask):
             if not cache:
                 return False
 
             # Verify that all necessary keys are in the dictionary
             if not all([_ in cache.keys()
-                        for _ in ("pos1", "pos2", "mask", "spec")]):
+                        for _ in ("pt_start", "pt_end", "mask", "spec")]):
                 return False
 
-            if (cache["pos1"] != pos1) or (cache["pos2"] != pos2):
+            if (cache["pt_start"] != pt_start) or (cache["pt_end"] != pt_end):
                 return False
 
             mask_none = [_ is None for _ in (mask, cache["mask"])]
-            if all(mask_none):
+            if all(mask_none):  # Mask is not applied in both cases
                 return True
-            elif any(mask_none):
+            elif any(mask_none):  # Mask is applied only in one cases
                 return False
 
+            # Mask is applied in both cases, so compare the masks
             if not (cache["mask"] == mask).all():
                 return False
 
             return True
 
         cache_valid = _compare_cached_settings(self._cached_spectrum,
-                                               pos1=pos1, pos2=pos2,
+                                               pt_start=pt_start, pt_end=pt_end,
                                                mask=mask)
 
         if cache_valid:
             # We create copy to make sure that cache remains intact
-            logger.info("Using cached copy of the averaged spectrum ...")
-            spec = self._cached_spectrum["spec"].copy()
+            logger.debug(f"Dataset '{self.filename}': using cached copy of the averaged spectrum ...")
+            # The following are references to cached objects. Care should be taken not to modify them.
+            spec = self._cached_spectrum["spec"]
+            count = self._cached_spectrum["count"]
         else:
-            logger.info("Computing the total spectrum from raw data ...")
+            logger.debug(f"Dataset '{self.filename}': computing the total spectrum and total count map "
+                         "from raw data ...")
 
-            SC = SpectrumCalculator(self.raw_data, pos1=pos1, pos2=pos2)
-            spec = SC.get_spectrum(mask=mask)
+            SC = SpectrumCalculator(pt_start=pt_start, pt_end=pt_end, mask=mask)
+            spec, count = SC.get_spectrum(self.raw_data, client=client)
 
             # Save cache the computed spectrum (with all settings)
-            self._cached_spectrum["pos1"] = pos1.copy() if pos1 is not None else None
-            self._cached_spectrum["pos2"] = pos2.copy() if pos2 is not None else None
+            self._cached_spectrum["pt_start"] = pt_start.copy() if pt_start is not None else None
+            self._cached_spectrum["pt_end"] = pt_end.copy() if pt_end is not None else None
             self._cached_spectrum["mask"] = mask.copy() if mask is not None else None
             self._cached_spectrum["spec"] = spec.copy()
+            self._cached_spectrum["count"] = count.copy()
+
+        self.data_ready = True
 
         # Return the 'sum' spectrum as regular 64-bit float (raw data is in 'np.float32')
-        return spec.astype(np.float64, copy=False)
+        return spec.astype(np.float64, copy=False), count.astype(np.float64, copy=False)
 
 
 class SpectrumCalculator(object):
     """
     Calculate summed spectrum according to starting and ending positions.
 
-    Attributes
-    ----------
-    data : array
-        3D array of experiment data
-    pos1 : str
-        starting position
-    pos2 : str
-        ending position
     """
 
-    def __init__(self, data,
-                 pos1=None, pos2=None):
-        self.data = data
-        self.pos1 = pos1
-        self.pos2 = pos2
-
-    def get_spectrum(self, mask=None):
+    def __init__(self, *, pt_start=None, pt_end=None, mask=None):
         """
-        Get roi sum from point positions, or from mask file.
+        Initialize the class. The spatial ROI selection and the mask are applied
+        to the data.
+
+        Parameters
+        ----------
+        pt_start: iterable(int) or None
+            indexes of the beginning of the selection: `(row_start, col_start)`.
+            `row_start` is in the range `0..n_rows-1`,
+            `col_start` is in the range `0..n_cols-1`.
+            The point `col_start` is not included in the selection
+        pt_end: iterable(int) or None
+            indexes of the beginning of the selection: `(row_end, col_end)`.
+            `row_end` is in the range `1..n_rows`,
+            `col_end` is in the range `1..n_cols`.
+            The point `col_end` is not included in the selection.
+            If `pt_end` is None, then `pt_start` MUST be None.
+        mask: ndarray(float) or None
+            the mask that is applied to the data, shape (n_rows, n_cols)
+        """
+        def _validate_point(v):
+            v_out = None
+            if v is not None:
+                if isinstance(v, Iterable) and len(list(v)) == 2:
+                    v_out = list(v)
+                else:
+                    logger.warning("SpectrumCalculator.__init__(): Spatial ROI selection "
+                                   f"point '{v}' is invalid. Using 'None' instead.")
+            return v_out
+
+        self._pt_start = _validate_point(pt_start)
+        self._pt_end = _validate_point(pt_end)
+
+        # Validate 'mask'
+        if mask is not None:
+            if not isinstance(mask, np.ndarray):
+                logger.warning(f"SpectrumCalculator.__init__(): type of parameter 'mask' must by np.ndarray, "
+                               f"type(mask) = {type(mask)}. Using mask=None instead.")
+                mask = None
+            elif mask.ndim != 2:
+                logger.warning(f"SpectrumCalculator.__init__(): the number of dimensions "
+                               "in ndarray 'mask' must be 2, "
+                               f"mask.ndim = {mask.ndim}. Using mask=None instead.")
+                mask = None
+        self.mask = mask
+
+    def get_spectrum(self, data, *, client=None):
+        """
+        Run computation of the total spectrum and total count. Use the selected
+        spatial ROI and/or mask
+
+        Parameters
+        ----------
+        data: ndarray(float)
+            raw data array, shape (n_rows, n_cols, n_energy_bins)
+        client: dask.distributed.Client or None
+            Dask client. If None, then local client will be created
         """
         selection = None
-        if self.pos1:
-            if self.pos2:
+        if self._pt_start:
+            if self._pt_end:
                 # Region is selected
-                selection = (self.pos1[0],
-                             self.pos1[1],
-                             self.pos2[0] - self.pos1[0],
-                             self.pos2[1] - self.pos1[1])
+                selection = (self._pt_start[0],
+                             self._pt_start[1],
+                             self._pt_end[0] - self._pt_start[0],
+                             self._pt_end[1] - self._pt_start[1])
             else:
                 # Only a single point is selected
-                selection = (self.pos1[0], self.pos1[1], 1, 1)
+                selection = (self._pt_start[0], self._pt_start[1], 1, 1)
 
         progress_bar = TerminalProgressBar("Computing total spectrum: ")
-        spectrum_sum = compute_total_spectrum(
-            self.data, selection=selection, mask=mask,
+        total_spectrum, total_count = compute_total_spectrum_and_count(
+            data, selection=selection, mask=self.mask,
             chunk_pixels=5000, n_chunks_min=4,
-            progress_bar=progress_bar, client=None)
+            progress_bar=progress_bar, client=client)
 
-        return spectrum_sum
+        return total_spectrum, total_count
 
 
 def file_handler(working_directory, file_name, load_each_channel=True, spectrum_cut=3000):
@@ -583,7 +961,7 @@ def file_handler(working_directory, file_name, load_each_channel=True, spectrum_
             return read_MAPS(working_directory,
                              file_name, channel_num=1)
     except IOError as e:
-        logger.error("I/O error({0}): {1}".format(e.errno, e.strerror))
+        logger.error("I/O error({0}): {1}".format(e.errno, str(e)))
         logger.error('Please select .h5 file')
     except Exception:
         logger.error("Unexpected error:", sys.exc_info()[0])
@@ -695,9 +1073,16 @@ def output_data(dataset_dict=None, output_dir=None,
         dset = dset.strip('_')
     elif re.search(r"_fit$", dataset_name):
         dset = "detsum"
-    if not dset:
-        raise RuntimeError(f"Dataset '{dataset_name}' contains no useful data. "
-                           "Select different dataset to save data.")
+    elif re.search(r"_det\d+_fit$", dataset_name):
+        dset = re.search(r"_det\d_", dataset_name)[0]
+        dset = dset.strip('_')
+        dset += "_roi"
+    elif re.search(r"_roi$", dataset_name):
+        dset = "detsum_roi"
+    elif re.search(r"_scaler$", dataset_name):
+        dset = "scaler"
+    else:
+        dset = dataset_name
 
     file_format = file_format.lower()
 
@@ -960,7 +1345,7 @@ def read_hdf_APS(working_directory,
             det_name = data['scalers/name']
             temp = {}
             for i, n in enumerate(det_name):
-                if not isinstance(n, six.string_types):
+                if not isinstance(n, str):
                     n = n.decode()
                 temp[n] = data['scalers/val'].value[:, :, i]
             img_dict[f"{fname}_scaler"] = temp
@@ -972,7 +1357,7 @@ def read_hdf_APS(working_directory,
             pos_name = data['positions/name']
             temp = {}
             for i, n in enumerate(pos_name):
-                if not isinstance(n, six.string_types):
+                if not isinstance(n, str):
                     n = n.decode()
                 temp[n] = data['positions/pos'].value[i, :]
             img_dict['positions'] = temp
@@ -1055,7 +1440,8 @@ def read_hdf_APS(working_directory,
     return img_dict, data_sets, mdata
 
 
-def render_data_to_gui(runid, *, create_each_det=False, working_directory=None, file_overwrite_existing=False):
+def render_data_to_gui(run_id_uid, *, create_each_det=False,
+                       working_directory=None, file_overwrite_existing=False):
     """
     Read data from databroker and save to Atom class which GUI can take.
 
@@ -1063,8 +1449,8 @@ def render_data_to_gui(runid, *, create_each_det=False, working_directory=None, 
 
     Parameters
     ----------
-    runid : int
-        id number for given run
+    run_id_uid : int or str
+        ID or UID of a run
     create_each_det : bool
         True: load data from all detector channels
         False: load only the sum of all channels
@@ -1075,6 +1461,8 @@ def render_data_to_gui(runid, *, create_each_det=False, working_directory=None, 
         False: create unique file name by adding version number
     """
 
+    run_id, run_uid = fetch_run_info(run_id_uid)  # May raise RuntimeError
+
     data_sets = OrderedDict()
     img_dict = OrderedDict()
 
@@ -1083,11 +1471,12 @@ def render_data_to_gui(runid, *, create_each_det=False, working_directory=None, 
 
     # Create file name here, so that working directory may be attached to the file name
     prefix = 'scan2D_'
-    fname = f"{prefix}{runid}.h5"
+    fname = f"{prefix}{run_id}.h5"
     if working_directory:
         fname = os.path.join(working_directory, fname)
 
-    data_from_db = fetch_data_from_db(runid,
+    # It is better to use full run UID to fetch the data.
+    data_from_db = fetch_data_from_db(run_uid,
                                       fpath=fname,
                                       fname_add_version=fname_add_version,
                                       file_overwrite_existing=file_overwrite_existing,
@@ -1097,12 +1486,14 @@ def render_data_to_gui(runid, *, create_each_det=False, working_directory=None, 
                                       output_to_file=True)
 
     if not len(data_from_db):
-        logger.warning(f"No detector data was found in Scan #{runid}")
+        logger.warning(f"No detector data was found in Run #{run_id} ('{run_uid}').")
         return
     else:
-        logger.info(f"Data from {len(data_from_db)} detectors were found in Scan #{runid}.")
+        logger.info(f"Data from {len(data_from_db)} detectors were found "
+                    f"in Run #{run_id} ('{run_uid}').")
         if len(data_from_db) > 1:
-            logger.warning(f"Selecting only the first dataset from Scan #{runid}.")
+            logger.warning(f"Selecting only the latest run (UID '{run_uid}') "
+                           f"with from Run ID #{run_id}.")
 
     # If the experiment contains data from multiple detectors (for example two separate
     #   Xpress3 detectors) that need to be treated separately, only the data from the
@@ -1186,7 +1577,7 @@ def retrieve_data_from_hdf_suitcase(fpath):
         other_data_list = [v for v in f.keys() if v != 'xrfmap']
         if len(other_data_list) > 0:
             f_hdr = f[other_data_list[0]].attrs['start']
-            if not isinstance(f_hdr, six.string_types):
+            if not isinstance(f_hdr, str):
                 f_hdr = f_hdr.decode('utf-8')
             start_doc = ast.literal_eval(f_hdr)
             other_data = f[other_data_list[0]+'/primary/data']
@@ -1346,7 +1737,7 @@ def get_fit_data(namelist, data):
     """
     data_temp = dict()
     for i, v in enumerate(namelist):
-        if not isinstance(v, six.string_types):
+        if not isinstance(v, str):
             v = v.decode()
         data_temp.update({v: data[i, :, :]})
     return data_temp
@@ -1403,8 +1794,8 @@ def read_hdf_to_stitch(working_directory, filelist,
 
     data_tmp = np.zeros([vertical_v, horizontal_v])
 
-    for k, v in six.iteritems(out):
-        for m, n in six.iteritems(v):
+    for k, v in out.items():
+        for m, n in v.items():
             v[m] = np.array(data_tmp)
 
     for i, file_name in enumerate(filelist):
@@ -1422,7 +1813,7 @@ def read_hdf_to_stitch(working_directory, filelist,
         for key_name in keylist:
             fit_key0, = [v for v in list(out.keys()) if key_name in v]
             fit_key, = [v for v in list(img.keys()) if key_name in v]
-            for k, v in six.iteritems(img[fit_key]):
+            for k, v in img[fit_key].items():
                 out[fit_key0][k][v_i:v_i+tmp_shape[0], h_i:h_i+tmp_shape[1]] = img[fit_key][k]
 
     return out
@@ -1556,8 +1947,8 @@ def save_fitdata_to_hdf(fpath, data_dict,
 
     data = []
     namelist = []
-    for k, v in six.iteritems(data_dict):
-        if not isinstance(k, six.string_types):
+    for k, v in data_dict.items():
+        if not isinstance(k, str):
             k = k.decode()
         namelist.append(k)
         data.append(v)
@@ -1572,9 +1963,9 @@ def save_fitdata_to_hdf(fpath, data_dict,
     if dataname_saveas in dataGrp:
         del dataGrp[dataname_saveas]
 
-    if not isinstance(dataname_saveas, six.string_types):
+    if not isinstance(dataname_saveas, str):
         dataname_saveas = dataname_saveas.decode()
-    namelist = np.array(namelist).astype('|S9')
+    namelist = np.array(namelist).astype('|S20')
     name_data = dataGrp.create_dataset(dataname_saveas, data=namelist)
     name_data.attrs['comments'] = ' '
 
@@ -1915,8 +2306,8 @@ def make_hdf_stitched(working_directory, filelist, fname,
 
     result = {}
     img_shape = None
-    for k, v in six.iteritems(out):
-        for m, n in six.iteritems(v):
+    for k, v in out.items():
+        for m, n in v.items():
             if img_shape is None:
                 img_shape = n.shape
             result[m] = n.ravel()

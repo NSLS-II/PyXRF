@@ -3,7 +3,6 @@ from __future__ import absolute_import
 import numpy as np
 import time
 import copy
-import six
 import os
 import re
 import math
@@ -35,15 +34,13 @@ from .guessparam import (calculate_profile, fit_strategy_list,
                          update_param_from_element)
 from .fileio import save_fitdata_to_hdf, output_data
 
-from ..core.utils import (gaussian_sigma_to_fwhm, gaussian_fwhm_to_sigma,
-                          gaussian_max_to_area, gaussian_area_to_max)
-
+from ..core.fitting import rfactor
 from ..core.quant_analysis import ParamQuantEstimation
 from ..core.map_processing import (fit_xrf_map, TerminalProgressBar,
                                    prepare_xrf_map, snip_method_numba)
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class Fit1D(Atom):
@@ -117,13 +114,6 @@ class Fit1D(Atom):
     #   The variable is synchronized with the identical variable in 'DrawImageAdvanced' class
     dict_to_plot = Dict()
 
-    # The variable is replicating the identical variable in 'DrawImageAdvanced' class
-    #   True - quantitative normalization is ON, False - OFF
-    quantitative_normalization = Bool()
-    # The reference to the object holding parameters for quantitative normalization
-    #   The variable is synchronized to the identical variable in 'DrawImageAdvanced' class
-    param_quant_analysis = Typed(object)
-
     function_num = Int(0)
     nvar = Int(0)
     chi2 = Float(0.0)
@@ -175,18 +165,6 @@ class Fit1D(Atom):
     # Reference to FileIOMOdel
     io_model = Typed(object)
 
-    # Fields for updating user defined peak parameters
-    add_userpeak_energy = Float(0.0)
-    add_userpeak_fwhm = Float(0.0)
-    # Copies of the variables that hold old value during update
-    add_userpeak_fwhm_old = Float(0.0)
-    # The names for the respective parameters
-    #   (used to access parameters in
-    #   self.param_model.param_dict)
-    name_userpeak_dcenter = Str()
-    name_userpeak_dsigma = Str()
-    name_userpeak_area = Str()
-
     # Quantitative analysis: used during estimation step
     param_quant_estimation = ParamQuantEstimation()
     # *** The following two references are used exclusively to update the list of standards ***
@@ -203,11 +181,7 @@ class Fit1D(Atom):
     # *** The following fields are used exclusively to store input values ***
     # ***   for the 'SaveQuantCalibration' dialog box. ***
     # *** The fields are not guaranteed to have valid values at any other time. ***
-    qe_standard_path_name = Str()
-    qe_standard_file_name = Str()
-    qe_standard_distance = Str("0.0")
-    qe_standard_overwrite_existing = Bool(False)
-    qe_standard_data_preview = Str()
+    qe_standard_distance_to_sample = Float(0.0)
 
     def __init__(self, param_model, io_model, *args, **kwargs):
         self.working_directory = kwargs['working_directory']
@@ -327,16 +301,6 @@ class Fit1D(Atom):
         the identical variable in ``DrawImageAdvanced`` class"""
         self.dict_to_plot = change['value']
 
-    def quantitative_normalization_update(self, change):
-        r"""Observer function. Sets ``quantitative_normalization`` field to the same value as
-        the identical variable in ``DrawImageAdvanced`` class"""
-        self.quantitative_normalization = change['value']
-
-    def param_quant_analysis_update(self, change):
-        r"""Observer function. Sets ``param_quant_analysis`` field to the same value as
-        the identical variable in ``DrawImageAdvanced`` class"""
-        self.param_quant_analysis = change['value']
-
     def energy_bound_high_update(self, change):
         """
         Observer function that connects 'param_model' (GuessParamModel)
@@ -407,46 +371,6 @@ class Fit1D(Atom):
         else:
             self.elementinfo_list = []
 
-    @observe('qe_standard_distance')
-    def _qe_standard_distance_changed(self, change):
-        try:
-            d = float(change["value"])
-        except Exception:
-            d = None
-        if d <= 0.0:
-            d = None
-        self.param_quant_estimation.set_distance_to_sample_in_data_dict(distance_to_sample=d)
-        # Change preview if distance value changed
-        self.qe_standard_data_preview = \
-            self.param_quant_estimation.get_fluorescence_data_dict_text_preview()
-
-    def get_qe_standard_distance_as_float(self):
-        r"""Return distance from sample as positive float or None"""
-        try:
-            d = float(self.qe_standard_distance)
-        except Exception:
-            d = None
-        if (d is not None) and (d <= 0.0):
-            d = None
-        return d
-
-    def _compute_fwhm_base(self):
-        # Computes 'sigma' value based on default parameters and peak energy (for Userpeaks)
-        #   does not include corrections for fwhm
-        # If both peak center (energy) and fwhm is updated, energy needs to be set first,
-        #   since it is used in computation of ``fwhm_base``
-
-        sigma = gaussian_fwhm_to_sigma(self.param_model.default_parameters["fwhm_offset"]["value"])
-
-        sigma_sqr = self.param_dict[self.name_userpeak_dcenter]["value"] + 5.0  # center
-        sigma_sqr *= self.param_model.default_parameters["non_fitting_values"]["epsilon"]  # epsilon
-        sigma_sqr *= self.param_model.default_parameters["fwhm_fanoprime"]["value"]  # fanoprime
-        sigma_sqr += sigma * sigma  # We have computed the expression under sqrt
-
-        sigma_total = np.sqrt(sigma_sqr)
-
-        return gaussian_sigma_to_fwhm(sigma_total)
-
     def select_index_by_eline_name(self, eline_name):
         # Select the element by name. If element is selected, then the ``elementinfo_list`` with
         #   names of parameters is created. Originally the element could only be selected
@@ -455,164 +379,8 @@ class Fit1D(Atom):
         if eline_name in self.element_list:
             # This will fill the list ``self.elementinfo_list``
             self.selected_index = self.element_list.index(eline_name) + 1
-            if "Userpeak" in eline_name:
-                names = [name for name in self.elementinfo_list if "_delta_center" in name]
-                if names:
-                    self.name_userpeak_dcenter = names[0]
-                else:
-                    self.name_userpeak_dcenter = ""
-
-                names = [name for name in self.elementinfo_list if "_delta_sigma" in name]
-                if names:
-                    self.name_userpeak_dsigma = names[0]
-                else:
-                    self.name_userpeak_dsigma = ""
-
-                names = [name for name in self.elementinfo_list if "_area" in name]
-                if names:
-                    self.name_userpeak_area = names[0]
-                else:
-                    self.name_userpeak_area = ""
-
-                if self.name_userpeak_dcenter and self.name_userpeak_dsigma:
-                    # Userpeak always has energy of 5.0 keV, the user can set only the offset
-                    #   This is the internal representation, but we must display and let the user
-                    #   enter the true value of energy
-                    self.add_userpeak_energy = \
-                        self.param_dict[self.name_userpeak_dcenter]["value"] + 5.0
-                    # Same with FWHM for the user defined peak.
-                    #   Also, sigma must be converted to FWHM: FWHM = 2.355 * sigma
-                    self.add_userpeak_fwhm = \
-                        gaussian_sigma_to_fwhm(self.param_dict[self.name_userpeak_dsigma]["value"]) + \
-                        self._compute_fwhm_base()
-
-                    # Create copies (before rounding)
-                    self.add_userpeak_fwhm_old = self.add_userpeak_fwhm
-
-                    # Adjust formatting (5 digits after dot is sufficient)
-                    self.add_userpeak_energy = float(f"{self.add_userpeak_energy:.5f}")
-                    self.add_userpeak_fwhm = float(f"{self.add_userpeak_fwhm:.5f}")
-
         else:
             raise Exception(f"Line '{eline_name}' is not in the list of selected element lines.")
-
-    def _update_userpeak_energy(self):
-
-        # According to the accepted peak model, as energy of the peak center grows,
-        #   the peak becomes wider. The most user friendly solution is to automatically
-        #   increase FWHM as the peak moves along the energy axis to the right and
-        #   decrease otherwise. So generally, the user should first place the peak
-        #   center at the desired energy, and then adjust FWHM.
-
-        # We change energy, so we will have to change FWHM as well
-        #  so before updating energy we will save the difference between
-        #  the default (base) FWHM and the displayed FWHM
-        fwhm_difference = self.add_userpeak_fwhm - self._compute_fwhm_base()
-
-        # Now we change energy.
-        energy = self.add_userpeak_energy - 5.0
-
-        v_center = self.param_dict[self.name_userpeak_dcenter]["value"]
-        v_max = self.param_dict[self.name_userpeak_dcenter]["max"]
-        v_min = self.param_dict[self.name_userpeak_dcenter]["min"]
-        # Keep the possible range for value change the same
-        self.param_dict[self.name_userpeak_dcenter]["value"] = energy
-        self.param_dict[self.name_userpeak_dcenter]["max"] = energy + v_max - v_center
-        self.param_dict[self.name_userpeak_dcenter]["min"] = energy - (v_center - v_min)
-
-        # The base value is updated now (since the energy has changed)
-        fwhm_base = self._compute_fwhm_base()
-        fwhm = fwhm_difference + fwhm_base
-        # Also adjust precision, so that the new value fits the input field
-        fwhm = float(f"{fwhm:.5f}")
-
-        # Finally update the displayed 'fwhm'. It will be saved to ``param_dict`` later.
-        self.add_userpeak_fwhm = fwhm
-
-    def _update_userpeak_fwhm(self):
-
-        fwhm_base = self._compute_fwhm_base()
-        fwhm = self.add_userpeak_fwhm - fwhm_base
-
-        sigma = gaussian_fwhm_to_sigma(fwhm)
-
-        v_center = self.param_dict[self.name_userpeak_dsigma]["value"]
-        v_max = self.param_dict[self.name_userpeak_dsigma]["max"]
-        v_min = self.param_dict[self.name_userpeak_dsigma]["min"]
-        # Keep the possible range for value change the same
-        self.param_dict[self.name_userpeak_dsigma]["value"] = sigma
-        self.param_dict[self.name_userpeak_dsigma]["max"] = sigma + v_max - v_center
-        self.param_dict[self.name_userpeak_dsigma]["min"] = sigma - (v_center - v_min)
-
-    def update_userpeak(self):
-        # Update current user peak. Called when 'Update peak' button is pressed.
-
-        # Some checks of the input values
-        if self.add_userpeak_energy <= 0.0:
-            logger.warning("User peak energy must be a positive number greater than 0.001.")
-            return
-        if self.add_userpeak_fwhm <= 0:
-            logger.warning("User peak FWHM must be a positive number.")
-            return
-
-        # Make sure that the energy of the user peak is within the selected fitting range
-        energy_bound_high = \
-            self.param_model.param_new["non_fitting_values"]["energy_bound_high"]["value"]
-        energy_bound_low = \
-            self.param_model.param_new["non_fitting_values"]["energy_bound_low"]["value"]
-        self.add_userpeak_energy = np.clip(self.add_userpeak_energy, energy_bound_low, energy_bound_high)
-
-        # Ensure, that the values are greater than some small value to ensure that
-        #   there is no computational problems.
-        # Energy resolution for the existing beamlines is 0.01 keV, so 0.001 is small
-        #   enough both for center energy and FWHM.
-        energy_small_value = 0.001
-        self.add_userpeak_energy = max(self.add_userpeak_energy, energy_small_value)
-        self.add_userpeak_fwhm = max(self.add_userpeak_fwhm, energy_small_value)
-
-        self._update_userpeak_energy()
-        self._update_userpeak_fwhm()
-
-        # Find and save the value of peak maximum. Restore the maximum after FWHM is changed.
-        # Note, that ``peak_sigma`` and ``peak_area`` may change if energy changes,
-        #   but ``peak_max`` must remain the same (for better visual presentation)
-        peak_sigma = gaussian_fwhm_to_sigma(self.add_userpeak_fwhm_old)
-        peak_area = self.param_dict[self.name_userpeak_area]["value"]
-        peak_max = gaussian_area_to_max(peak_area, peak_sigma)  # Keep this value
-
-        # Restore peak height by adjusting the area (for new fwhm)
-        peak_sigma = gaussian_fwhm_to_sigma(self.add_userpeak_fwhm)
-        peak_area = gaussian_max_to_area(peak_max, peak_sigma)
-        self.param_dict[self.name_userpeak_area]["value"] = peak_area
-
-        # Create copies
-        self.add_userpeak_fwhm_old = self.add_userpeak_fwhm
-
-        logger.debug(f"The parameters of the user defined peak. The new values:\n"
-                     f"          Energy: {self.add_userpeak_energy} keV\n"
-                     f"          FWHM: {self.add_userpeak_fwhm} keV")
-
-    def update_userpeak_controls(self):
-        """
-        The function should be called right after adding a userpeak to update the fields
-        for userpeak energy and fwhm. Uses data for the currently selected Userpeak
-        (the peak should be selected at the time of creation!!!)
-        """
-        if (self.name_userpeak_dcenter not in self.param_dict) or \
-                (self.name_userpeak_dsigma not in self.param_dict):
-            return
-        # Set energy
-        v_center = self.param_dict[self.name_userpeak_dcenter]["value"]
-        v_energy = v_center + 5.0
-        v_energy = round(v_energy, 3)
-        self.add_userpeak_energy = v_energy
-        # Set fwhm
-        fwhm_base = self._compute_fwhm_base()
-        v_dsigma = self.param_dict[self.name_userpeak_dsigma]["value"]
-        v_dfwhm = gaussian_sigma_to_fwhm(v_dsigma)
-        v_fwhm = v_dfwhm + fwhm_base
-        v_fwhm = round(v_fwhm, 5)
-        self.add_userpeak_fwhm = v_fwhm
 
     def keep_size(self):
         """Keep the size of deque as 2.
@@ -676,7 +444,7 @@ class Fit1D(Atom):
         # for GUI purpose only
         # if we do not clear the list first, there is not update on the GUI
         self.global_param_list = []
-        self.global_param_list = sorted([k for k in six.iterkeys(self.param_dict)
+        self.global_param_list = sorted([k for k in self.param_dict.keys()
                                          if k == k.lower() and k != 'non_fitting_values'])
 
         self.define_range()
@@ -738,21 +506,21 @@ class Fit1D(Atom):
     def update_strategy1(self, change):
         self.all_strategy.update({'strategy1': change['value']})
         if change['value']:
-            logger.info('Strategy at step 1 is: {}'.
+            logger.info('Setting strategy (preset) for step 1: {}'.
                         format(fit_strategy_list[change['value']-1]))
 
     @observe('fit_strategy2')
     def update_strategy2(self, change):
         self.all_strategy.update({'strategy2': change['value']})
         if change['value']:
-            logger.info('Strategy at step 2 is: {}'.
+            logger.info('Setting strategy (preset) for step 2: {}'.
                         format(fit_strategy_list[change['value']-1]))
 
     @observe('fit_strategy3')
     def update_strategy3(self, change):
         self.all_strategy.update({'strategy3': change['value']})
         if change['value']:
-            logger.info('Strategy at step 3 is: {}'.
+            logger.info('Setting strategy (preset) for step 3: {}'.
                         format(fit_strategy_list[change['value']-1]))
 
     @observe('fit_strategy4')
@@ -810,7 +578,7 @@ class Fit1D(Atom):
                                                            len(self.y0))
 
         self.cal_y = np.zeros(len(self.cal_x))
-        for k, v in six.iteritems(self.cal_spectrum):
+        for k, v in self.cal_spectrum.items():
             self.cal_y += v
 
         self.residual = self.cal_y - self.y0
@@ -863,7 +631,7 @@ class Fit1D(Atom):
         # app.processEvents()
         # logger.info('-------- '+self.fit_info+' --------')
 
-        for k, v in six.iteritems(self.all_strategy):
+        for k, v in self.all_strategy.items():
             if v:
                 strat_name = fit_strategy_list[v-1]
                 # self.fit_info = 'Fit with {}: {}'.format(k, strat_name)
@@ -925,14 +693,56 @@ class Fit1D(Atom):
         self.param_q.append(copy.deepcopy(self.param_dict))
         self.keep_size()
 
-    def output_summed_data_fit(self):
+    def compute_current_rfactor(self, save_fit=True):
+        """
+        Compute current R-factor value. The fitted array is selected
+        based on `save_fit`. The same arrays are selected as in `output_summed_data_fit`
+
+        Parameters
+        ----------
+        save_fit: bool
+            True - use total spectrum fitting data (available after fitting was done),
+            False - use weighted spectral components with weights equal to current parameters.
+
+        Returns
+        -------
+        float or None
+            Value of R-factor or None if R-factor can not be computed.
+        """
+        rf = None
+        # R-factor is for visualization purposes only, so display 0 if it can not be computed.
+        if save_fit:
+            if (self.y0 is not None) and (self.fit_y is not None) and \
+                    (self.y0.shape == self.fit_y.shape):
+                rf = rfactor(self.y0, self.fit_y)
+        else:
+            if (self.param_model.y0 is not None) and (self.param_model.total_y is not None) and \
+                    (self.param_model.y0.shape == self.param_model.total_y.shape):
+                rf = rfactor(self.param_model.y0, self.param_model.total_y)
+        return rf
+
+    def output_summed_data_fit(self, save_fit=True):
         """Save energy, summed data and fitting curve to a file.
         """
-        if (self.x0 is None) or (self.y0 is None) or (self.fit_y is None):
-            logger.error("Not enough data to save spectrum/fit data. "
-                         "Run spectrum fitting and then try again.")
-            return
-        data = np.array([self.x0, self.y0, self.fit_y])
+        xx = None
+        if self.x0 is not None:
+            a0, a1, a2 = (self.param_dict['e_offset']['value'],
+                          self.param_dict['e_linear']['value'],
+                          self.param_dict['e_quadratic']['value'])
+            xx = a0 + self.x0 * a1 + self.x0 ** 2 * a2
+        if save_fit:
+            logger.info("Saving spectrum after total spectrum fitting.")
+            if (xx is None) or (self.y0 is None) or (self.fit_y is None):
+                msg = "Not enough data to save spectrum/fit data. Total spectrum fitting was not run."
+                raise RuntimeError(msg)
+            data = np.array([self.x0, self.y0, self.fit_y])
+        else:
+            logger.info("Saving spectrum based on loaded or estimated parameters.")
+            if (xx is None) or (self.y0 is None) or (self.param_model.total_y is None):
+                msg = "Not enough data to save spectrum/fit data based on loaded or estimated parameters."
+                raise RuntimeError(msg)
+            data = np.array([xx, self.y0, self.param_model.total_y])
+
         output_fit_name = self.data_title + '_summed_spectrum_fit.txt'
         fpath = os.path.join(self.result_folder, output_fit_name)
         np.savetxt(fpath, data.T)
@@ -1082,6 +892,12 @@ class Fit1D(Atom):
                                 data_saveas='xrf_fit_error',
                                 dataname_saveas='xrf_fit_error_name')
 
+    # TODO: the function 'calculate_roi_sum" should be converted to work with
+    #   DASK arrays and HDF5 datasets if needed, otherwise it can be removed.
+    #   The function was called at the exit of dialog box 'OutputSetup'
+    #   (button 'Output Setup') in the Fit tab. This option is eliminated
+    #   from the new interface.
+    """
     def calculate_roi_sum(self):
         if self.roi_sum_opt['status'] is True:
             low = int(self.roi_sum_opt['low']*100)
@@ -1092,6 +908,7 @@ class Fit1D(Atom):
             self.result_map['ROI'] = sumv
             # save to hdf again, this is not optimal
             self.save2Dmap_to_hdf()
+    """
 
     def get_latest_single_pixel_fitting_data(self):
         r"""
@@ -1111,35 +928,81 @@ class Fit1D(Atom):
 
         return result_map, scaler_name
 
-    def output_2Dimage(self, to_tiff=True):
+    def get_selected_fitted_map_data(self):
+        """
+        Returns fitting data selected in XRF Maps tab.
+
+        Returned channel name should be 'sum', 'det1', 'det2' etc. If the selected
+        dataset contains maps computed based on ROIs or only positions and scalers,
+        then returned channel name is "".
+        """
+        image_title = self.img_title
+        plotted_dict = self.dict_to_plot.copy()
+
+        # Recover channel name
+        channel_name = ""  # No name (dictionary with position or scaler data is selected)
+        if image_title.endswith("_fit"):
+            m = re.search(r"_det\d+_fit$", image_title)
+            if m:
+                channel_name = m.group(0).split("_")[1].lower()
+            else:
+                channel_name = "sum"
+
+        # Find the selected scaler name. Scaler is None if not scaler is selected.
+        scaler_name = None
+        if self.scaler_index > 0:
+            scaler_name = self.scaler_keys[self.scaler_index-1]
+
+        return plotted_dict, channel_name, scaler_name
+
+    def output_2Dimage(self, *, results_path=None, dataset_name=None, scaler_name=None,
+                       interpolate_on=None, quant_norm_on=None, param_quant_analysis=None,
+                       file_format="tiff"):
         """Read data from h5 file and save them into either tiff or txt.
 
         Parameters
         ----------
-        to_tiff : str, optional
-            save to tiff or not
+        results_path: str
+            path to the root directory where data is to be saved. Data will be saved
+            in subdirectories inside this directory.
+        dataset_name: str
+            name of the dataset (key in the dictionary `self.img_dict`
+        scaler_name: str
+            name of the scaler, must exist in `self.img_dict`
+        interpolate_on: bool
+            turns interpolation of images to uniform grid ON or OFF
+        quant_norm_on: bool
+            turns quantitative normalization of images on or off
+        param_quant_analysis: ParamQuantitativeAnalysis
+            class that contains methods for quantitative normalization
+        file_format: str
+            output file format, supported values: "tiff" or "txt"
         """
-        scaler_v = None
-        _post_name_folder = "_".join(self.data_title.split('_')[:-1])
-        if self.scaler_index > 0:
-            scaler_v = self.scaler_keys[self.scaler_index-1]
-            logger.info(f"*** NORMALIZED data is saved. Scaler: '{scaler_v}' ***")
+        supported_file_formats = ("tiff", "txt")
+        file_format = file_format.lower()
+        if file_format not in supported_file_formats:
+            raise ValueError(f"The value 'file_format={file_format}' is not supported. "
+                             f"Supported values: {supported_file_formats} ")
 
-        if to_tiff:
+        if file_format == "tiff":
             dir_prefix = "output_tiff_"
-            file_format = "tiff"
         else:
             dir_prefix = "output_txt_"
-            file_format = "txt"
 
+        dataset_dict = self.img_dict[dataset_name]
+
+        _post_name_folder = "_".join(self.data_title.split('_')[:-1])
         output_n = dir_prefix + _post_name_folder
-        output_dir = os.path.join(self.result_folder, output_n)
+        output_dir = os.path.join(results_path, output_n)
 
         # self.img_dict contains ALL loaded datasets, including a separate "positions" dataset
         if "positions" in self.img_dict:
             positions_dict = self.img_dict["positions"]
         else:
             positions_dict = {}
+
+        if scaler_name is not None:
+            logger.info(f"*** NORMALIZED data is saved. Scaler: '{scaler_name}' ***")
 
         # Scalers are located in a separate dataset in 'img_dict'. They are also referenced
         #   in each '_fit' dataset (and in the selected dataset 'self.dict_to_plot')
@@ -1153,11 +1016,11 @@ class Fit1D(Atom):
             scaler_name_list = None
 
         output_data(output_dir=output_dir,
-                    interpolate_to_uniform_grid=self.map_interpolation,
-                    dataset_name=self.img_title, quant_norm=self.quantitative_normalization,
-                    param_quant_analysis=self.param_quant_analysis,
-                    dataset_dict=self.dict_to_plot, positions_dict=positions_dict,
-                    file_format=file_format, scaler_name=scaler_v,
+                    interpolate_to_uniform_grid=interpolate_on,
+                    dataset_name=dataset_name, quant_norm=quant_norm_on,
+                    param_quant_analysis=param_quant_analysis,
+                    dataset_dict=dataset_dict, positions_dict=positions_dict,
+                    file_format=file_format, scaler_name=scaler_name,
                     scaler_name_list=scaler_name_list)
 
     def save_result(self, fname=None):
@@ -1180,7 +1043,7 @@ class Fit1D(Atom):
         try:
             with open(filepath, 'w') as myfile:
                 myfile.write('\n {:<10} \t {} \t {}'.format('name', 'summed area', 'error in %'))
-                for k, v in six.iteritems(self.comps):
+                for k, v in self.comps.items():
                     if k == 'background':
                         continue
                     for name in area_list:
@@ -1232,9 +1095,8 @@ class Fit1D(Atom):
             if e == "":
                 pass
             elif '-' in e:  # pileup peaks
-                e1, e2 = e.split('-')
-                energy = float(get_energy(e1))+float(get_energy(e2))
-
+                energy = self.param_model.get_pileup_peak_energy(e)
+                energy = f"{energy:.4f}"
                 ps = PreFitStatus(z=get_Z(e),
                                   energy=str(energy), norm=1)
                 temp_dict[e] = ps
@@ -1306,12 +1168,12 @@ def combine_lines(components, element_list, background):
         if len(e) <= 4:
             e_temp = e.split('_')[0]
             intensity = 0
-            for k, v in six.iteritems(components):
+            for k, v in components.items():
                 if (e_temp in k) and (e not in k):
                     intensity += v
             new_components[e] = intensity
         elif 'user' in e.lower():
-            for k, v in six.iteritems(components):
+            for k, v in components.items():
                 if e in k:
                     new_components[e] = v
         else:
@@ -1342,7 +1204,7 @@ def extract_strategy(param, name):
         with given strategy as value
     """
     param_new = copy.deepcopy(param)
-    return {k: v[name] for k, v in six.iteritems(param_new)
+    return {k: v[name] for k, v in param_new.items()
             if k != 'non_fitting_values'}
 
 
@@ -1350,7 +1212,7 @@ def define_param_bound_type(param,
                             strategy_list=['adjust_element2, adjust_element3'],
                             b_type='fixed'):
     param_new = copy.deepcopy(param)
-    for k, v in six.iteritems(param_new):
+    for k, v in param_new.items():
         for data in strategy_list:
             if data in list(v.keys()):
                 param_new[k][data] = b_type
@@ -2037,7 +1899,7 @@ def get_area_and_error_nonlinear_fit(elist, fit_results, reg_mat):
 
     for i in range(len(fit_results)):
         for j in range(len(fit_results[0])):
-            for m, v in enumerate(six.iterkeys(area_dict)):
+            for m, v in enumerate(area_dict.keys()):
                 if v == 'snip_bg':
                     area_dict[v][i, j] = fit_results[i][j]['snip_bg']
                 else:
@@ -2045,7 +1907,7 @@ def get_area_and_error_nonlinear_fit(elist, fit_results, reg_mat):
                     error_dict[v][i, j] = fit_results[i][j]['err'][m]
                     weights_mat[i, j, m] = fit_results[i][j]['value'][m]
 
-    for i, v in enumerate(six.iterkeys(area_dict)):
+    for i, v in enumerate(area_dict.keys()):
         if v == 'snip_bg':
             continue
         area_dict[v] *= mat_sum[i]
@@ -2333,10 +2195,10 @@ def roi_sum_calculation(dir_path, file_prefix, fileID,
         data = f[interpath][:]
 
     result_map = dict()
-    # for v in six.iterkeys(element_dict):
+    # for v in element_dict.keys():
     #     result_map[v] = np.zeros([datas[0], datas[1]])
 
-    for k, v in six.iteritems(element_dict):
+    for k, v in element_dict.items():
         result_map[k] = np.sum(data[:, :, v[0]: v[1]], axis=2)
 
     return result_map

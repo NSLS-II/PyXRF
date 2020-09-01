@@ -11,7 +11,7 @@ from progress.bar import Bar
 from .fitting import fit_spectrum
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 def dask_client_create(**kwargs):
@@ -518,6 +518,93 @@ def compute_total_spectrum(data, *, selection=None, mask=None,
         #   but 'result' is much smaller array than 'data'
         result = np.sum(np.sum(result, axis=0), axis=0)
     return result
+
+
+def compute_total_spectrum_and_count(data, *, selection=None, mask=None,
+                                     chunk_pixels=5000, n_chunks_min=4,
+                                     progress_bar=None, client=None):
+    """
+    The function is similar to `compute_total_spectrum`, but computes both total
+    spectrum and total count map. Total count map is typically used as preview.
+
+    Parameters
+    ----------
+    data: da.core.Array, np.ndarray or RawHDF5Dataset (this is a custom type)
+        Raw XRF map represented as Dask array, numpy array or reference to a dataset in
+        HDF5 file. The XRF map must have dimensions `(ny, nx, ne)`, where `ny` and `nx`
+        define image size and `ne` is the number of spectrum points
+    selection: tuple or list or None
+        selected area represented as (y0, x0, ny_sel, nx_sel)
+    mask: ndarray or None
+        mask represented as numpy array with dimensions (ny, nx)
+    chunk_pixels: int
+        The number of pixels in a single chunk. The XRF map will be rechunked so that
+        each block contains approximately `chunk_pixels` pixels and contain all `ne`
+        spectrum points for each pixel.
+    n_chunks_min: int
+        Minimum number of chunks. The algorithm will try to split the map into the number
+        of chunks equal or greater than `n_chunks_min`.
+    progress_bar: callable or None
+        reference to the callable object that implements progress bar. The example of
+        such a class for progress bar object is `TerminalProgressBar`.
+    client: dask.distributed.Client or None
+        Dask client. If None, then local client will be created
+
+    Returns
+    -------
+    result: ndarray
+        Spectrum averaged over the XRF dataset taking into account mask and selectied area.
+    """
+
+    if not isinstance(mask, np.ndarray) and (mask is not None):
+        raise TypeError(f"Parameter 'mask' must be a numpy array or None: type(mask) = {type(mask)}")
+
+    data, file_obj = prepare_xrf_map(data, chunk_pixels=chunk_pixels, n_chunks_min=n_chunks_min)
+    mask = _prepare_xrf_mask(data, mask=mask, selection=selection)
+
+    if client is None:
+        client = dask_client_create()
+        client_is_local = True
+    else:
+        client_is_local = False
+
+    n_workers = len(client.scheduler_info()["workers"])
+    logger.info(f"Dask distributed client: {n_workers} workers")
+
+    if mask is None:
+        def _process_block(data):
+            data = data[0]  # Data is passed as a list of ndarrays
+            _spectrum = np.sum(np.sum(data, axis=0), axis=0)
+            _count_total = np.sum(data, axis=2)
+            return np.array([[{"spectrum": _spectrum,
+                               "count_total": _count_total}]])
+        result_fut = da.blockwise(_process_block, "ij", data, "ijk",
+                                  dtype=float).persist(scheduler=client)
+    else:
+        def _process_block(data, mask):
+            data = data[0]  # Data is passed as a list of ndarrays
+            mask = np.broadcast_to(np.expand_dims(mask, axis=2), data.shape)
+            masked_data = data * mask
+            _spectrum = np.sum(np.sum(masked_data, axis=0), axis=0)
+            _count_total = np.sum(masked_data, axis=2)
+            return np.array([[{"spectrum": _spectrum,
+                               "count_total": _count_total}]])
+        result_fut = da.blockwise(_process_block, "ij", data, "ijk",
+                                  mask, "ij", dtype=float).persist(scheduler=client)
+
+    # Call the progress monitor
+    wait_and_display_progress(result_fut, progress_bar)
+
+    result = result_fut.compute(scheduler=client)
+
+    if client_is_local:
+        client.close()
+
+    # Assemble results
+    total_counts = np.block([[_2["count_total"] for _2 in _1] for _1 in result])
+    total_spectrum = sum([_["spectrum"] for _ in result.flatten()])
+
+    return total_spectrum, total_counts
 
 
 def _fit_xrf_block(data, data_sel_indices,

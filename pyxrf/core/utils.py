@@ -3,7 +3,7 @@ import scipy
 import time as ttime
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 # =================================================================================

@@ -1,7 +1,6 @@
 atom==0.4.3
 dask
 distributed
-enaml==0.10.4
 jsonschema
 h5py>=2.9.0
 lmfit
@@ -13,8 +12,8 @@ pillow
 progress
 pystackreg
 pyyaml
+qtpy
 requests
 scikit-image
 scipy
-six
 tifffile

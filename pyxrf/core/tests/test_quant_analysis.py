@@ -663,12 +663,12 @@ def test_ParamQuantEstimation_3(tmp_path):
         "The filled fluorescence data dictionary does not match the expected"
 
     # Test generation of preview (superficial)
-    pview = pqe.get_fluorescence_data_dict_text_preview()
+    pview, msg_warnings = pqe.get_fluorescence_data_dict_text_preview()
     # It is expected that the preview will contain 'WARNING:'
-    assert "WARNING:" in pview, "Warning is not found in preview"
+    assert len(msg_warnings), "Warning is not found in preview"
     # Disable warnings
-    pview = pqe.get_fluorescence_data_dict_text_preview(enable_warnings=False)
-    assert pview.count("WARNING:") == 0, "Warnings are disabled, but still generated"
+    pview, msg_warnings = pqe.get_fluorescence_data_dict_text_preview(enable_warnings=False)
+    assert not len(msg_warnings), "Warnings are disabled, but still generated"
 
     # Test function for setting detector channel name
     pqe.set_detector_channel_in_data_dict(detector_channel="sum")
@@ -694,9 +694,9 @@ def test_ParamQuantEstimation_3(tmp_path):
     assert pqe.fluorescence_data_dict == qfdd, "Optional parameters are not set correctly"
 
     # Try generating preview again: there should be no warnings
-    pview = pqe.get_fluorescence_data_dict_text_preview()
+    pview, msg_warnings = pqe.get_fluorescence_data_dict_text_preview()
     # There should be no warnings in preview (all parameters are set)
-    assert "WARNING:" not in pview, "Preview must contain no warnings"
+    assert not len(msg_warnings), "Preview is expected to contain no warnings"
 
     #  Test the method 'get_suggested_json_fln'
     fln_suggested = pqe.get_suggested_json_fln()
@@ -918,6 +918,27 @@ def test_ParamQuantitativeAnalysis(tmp_path):
     set_selection(pqa, elist, sel_list)
     pqa.update_emission_line_list()
     check_selection(pqa, elist, sel_list)
+
+    # Alternatively check selections using 'is_eline_selected'
+    for eline in elist1:
+        assert pqa.is_eline_selected(eline, file_paths[0]), \
+            f"Emission line '{eline}' in the set '{file_paths[0]}' was not selected"
+        if eline in elist:
+            assert not pqa.is_eline_selected(eline, file_paths[1]), \
+                f"Emission line '{eline}' in the set '{file_paths[1]}' was selected"
+    for eline in elist0:
+        if eline not in elist:
+            assert pqa.is_eline_selected(eline, file_paths[1]), \
+                f"Emission line '{eline}' in the set '{file_paths[1]}' was not selected"
+
+    # Change selection of one emission line (test for 'select_eline' function)
+    eline = elist[0]  # 'eline' is present in both sets
+    pqa.select_eline(eline, file_paths[1])
+    assert pqa.is_eline_selected(eline, file_paths[1]), "Emission line is not selected"
+    assert not pqa.is_eline_selected(eline, file_paths[0]), "Emission line is selected"
+    pqa.select_eline(eline, file_paths[0])
+    assert pqa.is_eline_selected(eline, file_paths[0]), "Emission line is not selected"
+    assert not pqa.is_eline_selected(eline, file_paths[1]), "Emission line is selected"
 
     # Select one element in both entries (it is already selected in entry #1
     pqa.calibration_settings[0]["element_lines"][elist[0]]["selected"] = True

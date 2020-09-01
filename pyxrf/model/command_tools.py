@@ -21,7 +21,7 @@ from .fit_spectrum import (single_pixel_fitting_controller,
 from ..core.map_processing import dask_client_create
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 def fit_pixel_data_and_save(working_directory, file_name, *,
@@ -839,7 +839,7 @@ def fit_data_multi_files(dir_path, file_prefix,
 
 
 if __name__ == "__main__":
-    logger = logging.getLogger()
+    logger = logging.getLogger(__name__)
 
     logger.setLevel(logging.INFO)
 
