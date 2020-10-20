@@ -935,9 +935,20 @@ class GlobalProcessingClasses:
             return_value = True
         else:
             return_value = False
+
         self.io_model.incident_energy_set = dialog_params["coherent_sct_energy"]["value"]
         self.param_model.energy_bound_high_buf = dialog_params["energy_bound_high"]["value"]
         self.param_model.energy_bound_low_buf = dialog_params["energy_bound_low"]["value"]
+
+        # Also change incident energy in all dictionaries
+        dest_dict_list = (self.param_model.param_new, self.fit_model.param_dict)
+        for dest_dict in dest_dict_list:
+            dest_dict["coherent_sct_energy"]["value"] = dialog_params["coherent_sct_energy"]["value"]
+            dest_dict["non_fitting_values"]["energy_bound_low"]["value"] = \
+                dialog_params["energy_bound_low"]["value"]
+            dest_dict["non_fitting_values"]["energy_bound_high"]["value"] = \
+                dialog_params["energy_bound_high"]["value"]
+
         return return_value
 
     def get_general_fitting_params(self):
