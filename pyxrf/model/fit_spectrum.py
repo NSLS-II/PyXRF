@@ -148,7 +148,6 @@ class Fit1D(Atom):
     pixel_fit_info = Str()
 
     pixel_fit_method = Int(0)
-    param_q = Typed(object)
 
     result_map = Dict()
     map_interpolation = Bool(False)
@@ -188,7 +187,6 @@ class Fit1D(Atom):
         self.result_folder = kwargs['working_directory']
         self.default_parameters = kwargs['default_parameters']
         self.param_dict = copy.deepcopy(self.default_parameters)
-        self.param_q = deque()
         self.all_strategy = OrderedDict()
 
         # Reference to GuessParamModel object
@@ -382,12 +380,6 @@ class Fit1D(Atom):
         else:
             raise Exception(f"Line '{eline_name}' is not in the list of selected element lines.")
 
-    def keep_size(self):
-        """Keep the size of deque as 2.
-        """
-        while len(self.param_q) > 2:
-            self.param_q.popleft()
-
     def read_param_from_file(self, param_path):
         """
         Update parameters if new param_path is given.
@@ -400,10 +392,6 @@ class Fit1D(Atom):
         with open(param_path, 'r') as json_data:
             self.default_parameters = json.load(json_data)
 
-        #  use queue to save the status of parameters
-        self.param_q.append(copy.deepcopy(self.default_parameters))
-        self.keep_size()
-
     def update_default_param(self, param):
         """assigan new values to default param.
 
@@ -412,9 +400,6 @@ class Fit1D(Atom):
         param : dict
         """
         self.default_parameters = copy.deepcopy(param)
-        #  use queue to save the status of parameters
-        self.param_q.append(copy.deepcopy(self.default_parameters))
-        self.keep_size()
 
     def apply_default_param(self):
         """
@@ -689,9 +674,6 @@ class Fit1D(Atom):
         self.assign_fitting_result()
         self.fit_info = 'Summed spectrum fitting is done!'
         logger.info('-------- ' + self.fit_info + ' --------')
-
-        self.param_q.append(copy.deepcopy(self.param_dict))
-        self.keep_size()
 
     def compute_current_rfactor(self, save_fit=True):
         """

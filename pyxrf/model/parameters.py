@@ -210,7 +210,7 @@ class ElementController(object):
 
 class ParamModel(Atom):
     """
-    This is auto fit model to guess the initial parameters.
+    The module used for maintaing the set of fitting parameters.
 
     Attributes
     ----------
