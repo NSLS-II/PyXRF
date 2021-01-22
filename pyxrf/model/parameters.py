@@ -49,7 +49,7 @@ class PreFitStatus(Atom):
     maxv : float
         max value of a spectrum
     norm : float
-        norm value respect to the strongest peak
+        norm value in respect to the strongest peak
     lbd_stat : bool
         define plotting status under a threshold value
     """
@@ -208,7 +208,7 @@ class ElementController(object):
         return remove_list
 
 
-class GuessParamModel(Atom):
+class ParamModel(Atom):
     """
     This is auto fit model to guess the initial parameters.
 
@@ -1238,12 +1238,9 @@ def calculate_profile(x, y, param, elemental_lines,
     y : array
         spectrum intensity
     param : dict
-        paramters
+        parameters
     elemental_lines : list
         such as Si_K, Pt_M
-    required_length : optional, int
-        the length of the array might change due to trim process, so
-        predifine the length to a given value.
     default_area : float
         default value for the gaussian area of each element
 
@@ -1319,7 +1316,7 @@ def trim_escape_peak(data, param_dict, y_size):
 def create_full_dict(param, name_list,
                      fixed_list=['adjust_element2', 'adjust_element3']):
     """
-    Create full param dict so each item has same nested dict.
+    Create full param dict so each item has the same nested dict.
     This is for GUI purpose only.
 
     Pamameters
@@ -1339,7 +1336,6 @@ def create_full_dict(param, name_list,
             if k == 'non_fitting_values':
                 continue
             if n not in v:
-
                 # enforce newly created parameter to be fixed
                 # for strategy in fixed_list
                 if n in fixed_list:

@@ -5,7 +5,7 @@ import copy
 import math
 from ..model.fileio import FileIOModel
 from ..model.lineplot import LinePlotModel
-from ..model.guessparam import GuessParamModel, save_as, fit_strategy_list, bound_options
+from ..model.parameters import ParamModel, save_as, fit_strategy_list, bound_options
 from ..model.draw_image import DrawImageAdvanced
 from ..model.draw_image_rgb import DrawImageRGB
 from ..model.fit_spectrum import Fit1D, get_cs
@@ -49,7 +49,7 @@ class GlobalProcessingClasses:
 
         defaults = self._get_defaults()
         self.io_model = FileIOModel(**defaults)
-        self.param_model = GuessParamModel(**defaults)
+        self.param_model = ParamModel(**defaults)
         self.plot_model = LinePlotModel(param_model=self.param_model)
         self.fit_model = Fit1D(param_model=self.param_model, io_model=self.io_model, **defaults)
         self.setting_model = SettingModel(**defaults)
