@@ -271,10 +271,10 @@ class ParamModel(Atom):
     n_selected_elines_for_fitting = Int(0)
     n_selected_pure_elines_for_fitting = Int(0)
 
-    def __init__(self, **kwargs):
+    def __init__(self, *, default_parameters):
         try:
             # default parameter is the original parameter, for user to restore
-            self.default_parameters = kwargs['default_parameters']
+            self.default_parameters = default_parameters
             self.param_new = copy.deepcopy(self.default_parameters)
             # TODO: do we set 'element_list' as a list of keys of 'EC.element_dict'
             self.element_list = get_element_list(self.param_new)

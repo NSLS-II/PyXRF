@@ -182,10 +182,10 @@ class Fit1D(Atom):
     # *** The fields are not guaranteed to have valid values at any other time. ***
     qe_standard_distance_to_sample = Float(0.0)
 
-    def __init__(self, param_model, io_model, *args, **kwargs):
-        self.working_directory = kwargs['working_directory']
-        self.result_folder = kwargs['working_directory']
-        self.default_parameters = kwargs['default_parameters']
+    def __init__(self, param_model, io_model, *, working_directory, default_parameters):
+        self.working_directory = working_directory
+        self.result_folder = working_directory
+        self.default_parameters = default_parameters
         self.param_dict = copy.deepcopy(self.default_parameters)
         self.all_strategy = OrderedDict()
 

@@ -118,8 +118,8 @@ class FileIOModel(Atom):
     #   its value should not be used for computations!!!
     incident_energy_set = Float(0.0)
 
-    def __init__(self, **kwargs):
-        self.working_directory = kwargs['working_directory']
+    def __init__(self, *, working_directory):
+        self.working_directory = working_directory
         self.mask_data = None
 
         # Display PyXRF version in the window title

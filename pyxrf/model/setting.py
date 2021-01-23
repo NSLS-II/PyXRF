@@ -179,8 +179,8 @@ class SettingModel(Atom):
             # Else keep the original title
             self.data_title_adjusted = self.data_title
 
-    def __init__(self, *args, **kwargs):
-        self.parameters = kwargs['default_parameters']
+    def __init__(self, *, default_parameters):
+        self.parameters = default_parameters
         # Initialize with an empty string (no elements selected)
         self.element_for_roi = ""
         self.enable_roi_computation = False

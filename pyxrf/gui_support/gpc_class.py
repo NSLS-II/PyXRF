@@ -31,28 +31,23 @@ class GlobalProcessingClasses:
         self.img_model_rgb = None
 
     def _get_defaults(self):
-
         # Set working directory to current working directory (if PyXRF is started from shell)
         working_directory = os.getcwd()
         logger.info(f"Starting PyXRF in the current working directory '{working_directory}'")
-
         default_parameters = param_data
-        defaults = {'working_directory': working_directory,
-                    'default_parameters': default_parameters}
-        return defaults
+        return working_directory, default_parameters
 
     def initialize(self):
         """
         Run the sequence of actions needed to initialize PyXRF modules.
-
         """
-
-        defaults = self._get_defaults()
-        self.io_model = FileIOModel(**defaults)
-        self.param_model = ParamModel(**defaults)
+        working_directory, default_parameters = self._get_defaults()
+        self.param_model = ParamModel(default_parameters=default_parameters)
+        self.io_model = FileIOModel(working_directory=working_directory)
         self.plot_model = LinePlotModel(param_model=self.param_model)
-        self.fit_model = Fit1D(param_model=self.param_model, io_model=self.io_model, **defaults)
-        self.setting_model = SettingModel(**defaults)
+        self.fit_model = Fit1D(param_model=self.param_model, io_model=self.io_model,
+                               working_directory=working_directory, default_parameters=default_parameters)
+        self.setting_model = SettingModel(default_parameters=default_parameters)
         self.img_model_adv = DrawImageAdvanced()
         self.img_model_rgb = DrawImageRGB(img_model_adv=self.img_model_adv)
 
@@ -1057,7 +1052,7 @@ class GlobalProcessingClasses:
         for key, val in param_dict.items():
             self.param_model.param_new[key] = val
 
-        self.param_model.create_spectrum_from_param_dict()
+        self.param_model.create_spectrum_from_param_dict(reset=False)
         self.apply_to_fit()
 
     def get_quant_standard_list(self):
