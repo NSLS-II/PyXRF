@@ -6,7 +6,7 @@ import copy
 import os
 import re
 import math
-from collections import OrderedDict, deque
+from collections import OrderedDict
 import multiprocessing
 import multiprocessing.pool
 import h5py
