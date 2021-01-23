@@ -70,7 +70,6 @@ class FileIOModel(Atom):
     load_status = Str()
     data_sets = Typed(OrderedDict)
     img_dict = Dict()
-    param_fit = Dict()
     file_channel_list = List()
 
     runid = Int(-1)  # Run ID of the current run
@@ -390,20 +389,6 @@ class FileIOModel(Atom):
 
         requires databroker
         """
-        # if self.h_num != 0 and self.v_num != 0:
-        #     datashape = [self.v_num, self.h_num]
-
-        #  one way to cache data is to save as h5 file, to be considered later
-        # tmp_wd = '~/.tmp/'
-        # if not os.path.exists(tmp_wd):
-        #     os.makedirs(tmp_wd)
-        # fpath = os.path.join(tmp_wd, self.fname_from_db)
-        # if not os.path.exists(fpath):
-        #     make_hdf(self.runid, fname=fpath)
-        # self.img_dict, self.data_sets = file_handler(tmp_wd,
-        #                                             self.fname_from_db,
-        #                                             load_each_channel=self.load_each_channel)
-
         # Clear data. If reading the file fails, then old data should not be kept.
         self.file_channel_list = []
         self.clear()
@@ -442,21 +427,6 @@ class FileIOModel(Atom):
                     f"'{detector_name}' was loaded successfully.")
 
         self.file_channel_list = list(self.data_sets.keys())
-
-        # Disable loading from 'analysis store' for now (because there is no 'analysis store')
-        # ----------------------------------------------------------------
-        # # Load results from the analysis store
-        # from .data_to_analysis_store import get_analysis_result
-        # hdr = get_analysis_result(self.runid)
-        # if hdr is not None:
-        #     d1 = hdr.table(stream_name='primary')
-        #     # d2 = hdr.table(stream_name='spectrum')
-        #     self.param_fit = hdr.start.processor_parameters
-        #     # self.data = d2['summed_spectrum_experiment']
-        #     fit_result = {k: v for k, v in zip(d1['element_name'], d1['map'])}
-        #     # tmp = {k: v for k, v in self.img_dict.items()}
-        #     img_dict['scan2D_{}_fit'.format(self.runid)] = fit_result
-        # ----------------------------------------------------------------
 
         self.img_dict = img_dict
 

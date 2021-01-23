@@ -319,11 +319,6 @@ class ParamModel(Atom):
         self.param_new['non_fitting_values']['energy_bound_low']['value'] = change['value']
         self.define_range()
 
-    def param_from_db_update(self, change):
-        self.default_parameters = change['value']
-        print('update fitting param from db')
-        self.update_new_param(self.default_parameters)
-
     def get_new_param_from_file(self, param_path):
         """
         Update parameters if new param_path is given.
@@ -336,31 +331,24 @@ class ParamModel(Atom):
         with open(param_path, 'r') as json_data:
             self.default_parameters = json.load(json_data)
         self.param_new = copy.deepcopy(self.default_parameters)
-        self.element_list = get_element_list(self.param_new)
-        self.EC.delete_all()
-        self.define_range()
-        self.create_spectrum_from_param_dict(self.param_new, self.element_list)
+        self.create_spectrum_from_param_dict()
         logger.info('Elements read from file are: {}'.format(self.element_list))
 
-    def update_new_param(self, param):
-        self.default_parameters = param
-        self.param_new = copy.deepcopy(self.default_parameters)
-        self.element_list = get_element_list(self.param_new)
-        self.EC.delete_all()
-        self.define_range()
-        self.create_spectrum_from_param_dict(self.param_new, self.element_list)
-
-    def param_changed(self, change):
+    def update_new_param(self, param, reset=True):
         """
-        Observer function in the top-level gui.py startup
+        Update the parameters based on the dictionary of parameters. Set ``reset=False``
+        if selection status of elemental lines should be kept.
 
         Parameters
         ----------
-        changed : dict
-            This is the dictionary that gets passed to a function
-            with the @observe decorator
+        param : dict
+            new dictionary of parameters
+        reset : boolean
+            reset (``True``) or clear (``False``) selection status of the element lines.
         """
-        self.param_new = change['value']
+        self.default_parameters = param
+        self.param_new = copy.deepcopy(self.default_parameters)
+        self.create_spectrum_from_param_dict(reset=reset)
 
     def exp_data_update(self, change):
         """
@@ -374,12 +362,6 @@ class ParamModel(Atom):
             with the @observe decorator
         """
         self.data = change['value']
-
-        # The idea here is to generate a new set of parameters based on new data (and selected region)
-        # self.element_list = get_element_list(self.param_new)
-        # self.EC.delete_all()
-        # self.define_range()
-        # self.create_spectrum_from_param_dict(self.param_new, self.element_list)
 
     @observe('bound_val')
     def _update_bound(self, change):
@@ -398,23 +380,25 @@ class ParamModel(Atom):
                                         self.param_new['e_offset']['value'],
                                         self.param_new['e_linear']['value'])
 
-    def create_spectrum_from_param_dict(self, param_dict, elemental_lines):
+    def create_spectrum_from_param_dict(self, reset=True):
         """
-        Create spectrum profile with given param dict from file.
+        Create spectrum profile with based on the current set of parameters.
+        (``self.param_new`` -> ``self.EC`` and ``self.element_list``).
+        Typical use: update self.param_new, then call this function.
+        Set ``reset=False`` to keep selection status of the elemental lines.
 
         Parameters
         ----------
-        param_dict : dict
-            dict obtained from file
-        elemental_lines : list
-            e.g., ['Na_K', Mg_K', 'Pt_M'] refers to the
-            K lines of Sodium, the K lines of Magnesium, and the M
-            lines of Platinum
+        reset : boolean
+            clear or keep status of the elemental lines (in ``self.EC``).
         """
+        param_dict = self.param_new
+        self.element_list = get_element_list(param_dict)
+
         self.prefit_x, pre_dict, area_dict = calculate_profile(self.x0,
                                                                self.y0,
                                                                param_dict,
-                                                               elemental_lines)
+                                                               self.element_list)
         # add escape peak
         if param_dict['non_fitting_values']['escape_ratio'] > 0:
             pre_dict['escape'] = trim_escape_peak(self.data,
@@ -479,15 +463,18 @@ class ParamModel(Atom):
 
                     temp_dict[e] = ps
 
-        # TODO: the following block can be simplified: it looks like the only case when status
-        #    can change is when new elements (temp_dict) are already present in 'EC.element_dict'.
-        #    So there is no need to copy the whole dictionary. It should be sufficient to keep
-        #    only old 'status' data for the new elements.
-        element_dict = copy.deepcopy(self.EC.element_dict)
+        # Copy element status
+        if not reset:
+            element_status = {_: self.EC.element_dict[_].status for _ in self.EC.element_dict}
+
+        self.EC.delete_all()
+        self.define_range()
         self.EC.add_to_dict(temp_dict)
-        for key in self.EC.element_dict.keys():
-            if key in element_dict:
-                self.EC.element_dict[key].status = element_dict[key].status
+
+        if not reset:
+            for key in self.EC.element_dict.keys():
+                if key in element_status:
+                    self.EC.element_dict[key].status = element_status[key]
 
     def get_selected_eline_energy_fwhm(self, eline):
         """

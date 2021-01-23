@@ -79,9 +79,6 @@ class GlobalProcessingClasses:
         self.io_model.observe('data_all', self.fit_model.exp_data_all_update)
         self.io_model.observe('data_sets', self.fit_model.data_sets_update)
 
-        # send fitting param of summed spectrum to param_model
-        self.io_model.observe('param_fit', self.param_model.param_from_db_update)
-
         # send img dict to img_model for visualization
         self.io_model.observe('img_dict', self.setting_model.img_dict_update)
         self.io_model.observe('img_dict', self.plot_model.img_dict_update)
@@ -1060,9 +1057,7 @@ class GlobalProcessingClasses:
         for key, val in param_dict.items():
             self.param_model.param_new[key] = val
 
-        element_list = self.param_model.element_list.copy()
-        self.param_model.create_spectrum_from_param_dict(self.param_model.param_new,
-                                                         element_list)
+        self.param_model.create_spectrum_from_param_dict()
         self.apply_to_fit()
 
     def get_quant_standard_list(self):
