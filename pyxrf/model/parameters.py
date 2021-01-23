@@ -479,6 +479,10 @@ class ParamModel(Atom):
 
                     temp_dict[e] = ps
 
+        # TODO: the following block can be simplified: it looks like the only case when status
+        #    can change is when new elements (temp_dict) are already present in 'EC.element_dict'.
+        #    So there is no need to copy the whole dictionary. It should be sufficient to keep
+        #    only old 'status' data for the new elements.
         element_dict = copy.deepcopy(self.EC.element_dict)
         self.EC.add_to_dict(temp_dict)
         for key in self.EC.element_dict.keys():
