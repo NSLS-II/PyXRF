@@ -100,7 +100,7 @@ class LinePlotModel(Atom):
     incident_energy : float
         in KeV
     param_model : Typed(object)
-        Reference to GuessParamModel object
+        Reference to ParamModel object
     """
     data = Typed(object)  # Typed(np.ndarray)
     exp_data_label = Str('experiment')
@@ -201,7 +201,7 @@ class LinePlotModel(Atom):
     img_dict = Dict()
     # roi_result = Dict()
 
-    # Reference to GuessParamModel object
+    # Reference to ParamModel object
     param_model = Typed(object)
 
     # Location of the vertical (mouse-selected) marker on the plot.
@@ -215,7 +215,7 @@ class LinePlotModel(Atom):
 
     def __init__(self, param_model):
 
-        # Reference to GuessParamModel object
+        # Reference to ParamModel object
         self.param_model = param_model
 
         self.data = None

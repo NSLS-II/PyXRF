@@ -210,7 +210,7 @@ class ElementController(object):
 
 class ParamModel(Atom):
     """
-    The module used for maintaing the set of fitting parameters.
+    The module used for maintain the set of fitting parameters.
 
     Attributes
     ----------
@@ -243,7 +243,6 @@ class ParamModel(Atom):
         The number of element lines selected for fitting
             excluding pileup peaks and user defined peaks.
             Only 'pure' lines like Ca_K, K_K etc.
-
     """
     default_parameters = Dict()
     data = Typed(np.ndarray)
@@ -273,9 +272,8 @@ class ParamModel(Atom):
 
     def __init__(self, *, default_parameters):
         try:
-            # default parameter is the original parameter, for user to restore
             self.default_parameters = default_parameters
-            self.param_new = copy.deepcopy(self.default_parameters)
+            self.param_new = copy.deepcopy(default_parameters)
             # TODO: do we set 'element_list' as a list of keys of 'EC.element_dict'
             self.element_list = get_element_list(self.param_new)
         except ValueError:
@@ -287,25 +285,16 @@ class ParamModel(Atom):
         self.energy_bound_high_buf = self.param_new['non_fitting_values']['energy_bound_high']['value']
         self.energy_bound_low_buf = self.param_new['non_fitting_values']['energy_bound_low']['value']
 
-    def default_param_update(self, change):
+    def default_param_update(self, default_parameters):
         """
-        Observer function to be connected to the fileio model
-        in the top-level gui.py startup
+        Replace the reference to the dictionary of default parameters.
 
         Parameters
         ----------
-        changed : dict
-            This is the dictionary that gets passed to a function
-            with the @observe decorator
+        default_parameters : dict
+            Reference to complete and valid dictionary of default parameters.
         """
-        self.default_parameters = change['value']
-        self.param_new = copy.deepcopy(self.default_parameters)
-        self.element_list = get_element_list(self.param_new)
-
-        # The following line is part of the fix for automated updating of the energy bound
-        #     in 'Automatic Element Finding' dialog box
-        self.energy_bound_high_buf = self.param_new['non_fitting_values']['energy_bound_high']['value']
-        self.energy_bound_low_buf = self.param_new['non_fitting_values']['energy_bound_low']['value']
+        self.default_parameters = default_parameters
 
     # The following function is part of the fix for automated updating of the energy bound
     #     in 'Automatic Element Finding' dialog box
@@ -329,8 +318,7 @@ class ParamModel(Atom):
             path to save the file
         """
         with open(param_path, 'r') as json_data:
-            self.default_parameters = json.load(json_data)
-        self.param_new = copy.deepcopy(self.default_parameters)
+            self.param_new = json.load(json_data)
         self.create_spectrum_from_param_dict()
         logger.info('Elements read from file are: {}'.format(self.element_list))
 
@@ -346,8 +334,7 @@ class ParamModel(Atom):
         reset : boolean
             reset (``True``) or clear (``False``) selection status of the element lines.
         """
-        self.default_parameters = param
-        self.param_new = copy.deepcopy(self.default_parameters)
+        self.param_new = copy.deepcopy(param)
         self.create_spectrum_from_param_dict(reset=reset)
 
     def exp_data_update(self, change):
@@ -743,11 +730,11 @@ class ParamModel(Atom):
         # If both peak center (energy) and fwhm is updated, energy needs to be set first,
         #   since it is used in computation of ``fwhm_base``
 
-        sigma = gaussian_fwhm_to_sigma(self.default_parameters["fwhm_offset"]["value"])
+        sigma = gaussian_fwhm_to_sigma(self.param_new["fwhm_offset"]["value"])
 
         sigma_sqr = energy + 5.0  # center
-        sigma_sqr *= self.default_parameters["non_fitting_values"]["epsilon"]  # epsilon
-        sigma_sqr *= self.default_parameters["fwhm_fanoprime"]["value"]  # fanoprime
+        sigma_sqr *= self.param_new["non_fitting_values"]["epsilon"]  # epsilon
+        sigma_sqr *= self.param_new["fwhm_fanoprime"]["value"]  # fanoprime
         sigma_sqr += sigma * sigma  # We have computed the expression under sqrt
 
         sigma_total = np.sqrt(sigma_sqr)

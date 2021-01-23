@@ -158,7 +158,7 @@ class Fit1D(Atom):
     scaler_keys = List()
     scaler_index = Int(0)
 
-    # Reference to GuessParamModel object
+    # Reference to ParamModel object
     param_model = Typed(object)
 
     # Reference to FileIOMOdel
@@ -189,7 +189,7 @@ class Fit1D(Atom):
         self.param_dict = copy.deepcopy(self.default_parameters)
         self.all_strategy = OrderedDict()
 
-        # Reference to GuessParamModel object
+        # Reference to ParamModel object
         self.param_model = param_model
 
         # Reference to FileIOMOdel
@@ -301,7 +301,7 @@ class Fit1D(Atom):
 
     def energy_bound_high_update(self, change):
         """
-        Observer function that connects 'param_model' (GuessParamModel)
+        Observer function that connects 'param_model' (ParamModel)
         attribute 'energy_bound_high_buf' with the respective
         value in 'self.param_dict'
         """
@@ -309,7 +309,7 @@ class Fit1D(Atom):
 
     def energy_bound_low_update(self, change):
         """
-        Observer function that connects 'param_model' (GuessParamModel)
+        Observer function that connects 'param_model' (ParamModel)
         attribute 'energy_bound_low_buf' with the respective
         value in 'self.param_dict'
         """
