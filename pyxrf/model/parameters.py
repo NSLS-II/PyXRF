@@ -1005,8 +1005,8 @@ class ParamModel(Atom):
 
     def create_full_param(self):
         """
-        Extend the param to full param dict including each element's
-        information, and assign initial values from pre fit.
+        Update current ``self.param_new`` with elements from ``self.EC`` (delete elements that
+        are not in ``self.EC`` and update the existing elements.
         """
         self.define_range()
         # We set 'self.element_list' from 'EC' (because we want to set elements of 'self.param_new'

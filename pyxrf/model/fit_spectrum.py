@@ -1092,39 +1092,6 @@ class Fit1D(Atom):
                 temp_dict[e] = ps
         self.EC.add_to_dict(temp_dict)
 
-    # def manual_input(self):
-    #     #default_area = 1e2
-    #     ps = PreFitStatus(z=get_Z(self.e_name),
-    #                       energy=get_energy(self.e_name),
-    #                       #area=area_dict[self.e_name]*ratio_v,
-    #                       #spectrum=data_out[self.e_name]*ratio_v,
-    #                       #maxv=self.add_element_intensity,
-    #                       norm=1)
-    #                       #lbd_stat=False)
-    #
-    #     self.EC.add_to_dict({self.e_name: ps})
-    #     logger.info('')
-    #     self.update_name_list()
-
-    # def add_pileup(self):
-    #     if self.pileup_data['intensity'] > 0:
-    #         e_name = (self.pileup_data['element1'] + '-'
-    #                   + self.pileup_data['element2'])
-    #
-    #         energy = str(float(get_energy(self.pileup_data['element1']))
-    #                      + float(get_energy(self.pileup_data['element2'])))
-    #
-    #         ps = PreFitStatus(z=get_Z(e_name),
-    #                           energy=energy,
-    #                           #area=area_dict[e_name]*ratio_v,
-    #                           #spectrum=data_out[e_name]*ratio_v,
-    #                           #maxv=self.pileup_data['intensity'],
-    #                           norm=1)
-    #                           #lbd_stat=False)
-    #         logger.info('{} peak is added'.format(e_name))
-    #     self.EC.add_to_dict({e_name: ps})
-    #     self.update_name_list()
-
 
 def combine_lines(components, element_list, background):
     """
