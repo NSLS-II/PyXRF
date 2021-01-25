@@ -334,7 +334,7 @@ class ParamModel(Atom):
         reset : boolean
             reset (``True``) or clear (``False``) selection status of the element lines.
         """
-        self.param_new = copy.deepcopy(param)
+        self.param_new = param
         self.create_spectrum_from_param_dict(reset=reset)
 
     def exp_data_update(self, change):
@@ -382,6 +382,7 @@ class ParamModel(Atom):
         param_dict = self.param_new
         self.element_list = get_element_list(param_dict)
 
+        self.define_range()
         self.prefit_x, pre_dict, area_dict = calculate_profile(self.x0,
                                                                self.y0,
                                                                param_dict,
@@ -455,7 +456,6 @@ class ParamModel(Atom):
             element_status = {_: self.EC.element_dict[_].status for _ in self.EC.element_dict}
 
         self.EC.delete_all()
-        self.define_range()
         self.EC.add_to_dict(temp_dict)
 
         if not reset:
@@ -962,6 +962,19 @@ class ParamModel(Atom):
         names_other.sort()
 
         return names_elines + names_userpeaks + names_pileup_peaks + names_other
+
+    def read_param_from_file(self, param_path):
+        """
+        Update parameters if new param_path is given.
+
+        Parameters
+        ----------
+        param_path : str
+            path to save the file
+        """
+        with open(param_path, 'r') as json_data:
+            param = json.load(json_data)
+            self.update_new_param(param, reset=True)
 
     def find_peak(self, *, threshv=0.1, elemental_lines=None):
         """
