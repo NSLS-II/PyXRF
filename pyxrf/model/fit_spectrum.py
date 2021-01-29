@@ -65,10 +65,8 @@ class Fit1D(Atom):
     file_status = Str()
 
     img_dict = Dict()
-    data_sets = Typed(OrderedDict)
 
     element_list = List()
-    data_sets = Dict()
     data_all = Typed(object)
     data = Typed(np.ndarray)
     fit_x = Typed(np.ndarray)
@@ -258,13 +256,6 @@ class Fit1D(Atom):
         _key = [k for k in self.img_dict.keys() if 'scaler' in k]
         if len(_key) != 0:
             self.scaler_keys = sorted(self.img_dict[_key[0]].keys())
-
-    def data_sets_update(self, change):
-        """
-        Observer function to be connected to the fileio model
-        in the top-level gui.py startup
-        """
-        self.data_sets = change['value']
 
     def scaler_index_update(self, change):
         """

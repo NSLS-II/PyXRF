@@ -72,7 +72,6 @@ class GlobalProcessingClasses:
         self.io_model.observe('data', self.param_model.exp_data_update)
         self.io_model.observe('data', self.fit_model.exp_data_update)
         self.io_model.observe('data_all', self.fit_model.exp_data_all_update)
-        self.io_model.observe('data_sets', self.fit_model.data_sets_update)
 
         # send img dict to img_model for visualization
         self.io_model.observe('img_dict', self.setting_model.img_dict_update)
@@ -115,7 +114,6 @@ class GlobalProcessingClasses:
         def _update_data():
             self.plot_model.data_sets = self.io_model.data_sets
             self.setting_model.data_sets = self.io_model.data_sets
-            self.fit_model.data_sets = self.io_model.data_sets
             self.fit_model.fit_img = {}  # clear dict in fitmodel to rm old results
             # This will draw empty (hidden) preview plot, since no channels are selected.
             self.plot_model.update_preview_spectrum_plot()
@@ -197,7 +195,6 @@ class GlobalProcessingClasses:
         def _update_data():
             self.plot_model.data_sets = self.io_model.data_sets
             self.setting_model.data_sets = self.io_model.data_sets
-            self.fit_model.data_sets = self.io_model.data_sets
             self.fit_model.fit_img = {}  # clear dict in fitmodel to rm old results
             # This will draw empty (hidden) preview plot, since no channels are selected.
             self.plot_model.update_preview_spectrum_plot()
