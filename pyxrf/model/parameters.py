@@ -319,7 +319,7 @@ class ParamModel(Atom):
         """
         with open(param_path, 'r') as json_data:
             self.param_new = json.load(json_data)
-        self.create_spectrum_from_param_dict()
+        self.create_spectrum_from_param_dict(reset=True)
         logger.info('Elements read from file are: {}'.format(self.element_list))
 
     def update_new_param(self, param, reset=True):
@@ -405,7 +405,7 @@ class ParamModel(Atom):
                 ps = PreFitStatus(z=get_Z(e), energy=get_energy(e),
                                   area=float(area), spectrum=spectrum,
                                   maxv=float(np.around(np.max(spectrum), self.max_area_dig)),
-                                  norm=-1, lbd_stat=False)
+                                  norm=-1, status=True, lbd_stat=False)
                 temp_dict[e] = ps
 
             elif '-' in e:  # pileup peaks
@@ -417,7 +417,7 @@ class ParamModel(Atom):
                 ps = PreFitStatus(z=get_Z(e), energy=str(energy),
                                   area=area, spectrum=spectrum,
                                   maxv=np.around(np.max(spectrum), self.max_area_dig),
-                                  norm=-1, lbd_stat=False)
+                                  norm=-1, status=True, lbd_stat=False)
                 temp_dict[e] = ps
 
             else:
@@ -447,7 +447,7 @@ class ParamModel(Atom):
                     ps = PreFitStatus(z=get_Z(ename), energy=energy,
                                       area=area, spectrum=spectrum,
                                       maxv=np.around(np.max(spectrum), self.max_area_dig),
-                                      norm=-1, lbd_stat=False)
+                                      norm=-1, status=True, lbd_stat=False)
 
                     temp_dict[e] = ps
 
@@ -462,6 +462,8 @@ class ParamModel(Atom):
             for key in self.EC.element_dict.keys():
                 if key in element_status:
                     self.EC.element_dict[key].status = element_status[key]
+
+        self.result_dict_names = list(self.EC.element_dict.keys())
 
     def get_selected_eline_energy_fwhm(self, eline):
         """

@@ -128,7 +128,6 @@ class Fit1D(Atom):
     point2v = Int(0)
     point2h = Int(0)
 
-    result_dict_names = List()
     e_name = Str()
     add_element_intensity = Float(100.0)
     pileup_data = Dict()
@@ -302,7 +301,7 @@ class Fit1D(Atom):
 
         if element_list_new is None:
             # Current element list
-            element_list = self.element_list
+            element_list = self.param_model.element_list
         else:
             # Future element list (before it is updated)
             element_list = element_list_new
@@ -326,10 +325,10 @@ class Fit1D(Atom):
     def _selected_element_changed(self, change):
         if change['value'] > 0:
             ind_sel = change['value'] - 1
-            if ind_sel >= len(self.element_list):
-                ind_sel = len(self.element_list) - 1
+            if ind_sel >= len(self.param_model.element_list):
+                ind_sel = len(self.param_model.element_list) - 1
                 self.selected_index = ind_sel + 1  # Change the selection as well
-            self.selected_element = self.element_list[ind_sel]
+            self.selected_element = self.param_model.element_list[ind_sel]
             if len(self.selected_element) <= 4:
                 element = self.selected_element.split('_')[0]
                 self.elementinfo_list = sorted([e for e in list(self.param_model.param_new.keys())
@@ -349,9 +348,9 @@ class Fit1D(Atom):
         #   names of parameters is created. Originally the element could only be selected
         #   by its index in the list (from dialog box ``ElementEdit``. This function is
         #   used by interface components for editing parameters of user defined peaks.
-        if eline_name in self.element_list:
+        if eline_name in self.param_model.element_list:
             # This will fill the list ``self.elementinfo_list``
-            self.selected_index = self.element_list.index(eline_name) + 1
+            self.selected_index = self.param_model.element_list.index(eline_name) + 1
         else:
             raise Exception(f"Line '{eline_name}' is not in the list of selected element lines.")
 
@@ -366,13 +365,12 @@ class Fit1D(Atom):
         element_list = self.param_model.param_new['non_fitting_values']['element_list']
         element_list = [e.strip(' ') for e in element_list.split(',')]
         element_list = [_ for _ in element_list if _]  # Get rid of empty strings in the list
-        self.element_list = element_list
+        self.param_model.element_list = element_list
 
         # Update 'self.param_model.EC'
         # self.param_model.create_spectrum_from_param_dict()
 
-        # show the list of elements on add/remove window
-        self.update_element_name_lists()
+        self.update_element_info()
 
         # Update the index in case the selected emission line disappeared from the list
         self.update_selected_index(selected_element=selected_element,
@@ -525,7 +523,7 @@ class Fit1D(Atom):
         fit_num = self.fit_num
         ftol = self.ftol
         c_weight = 1  # avoid zero point
-        MS = ModelSpectrum(self.param_model.param_new, self.element_list)
+        MS = ModelSpectrum(self.param_model.param_new, self.param_model.element_list)
         MS.assemble_models()
 
         # weights = 1/(c_weight + np.abs(y0))
@@ -552,7 +550,7 @@ class Fit1D(Atom):
         self.define_range()
         self.get_background()
 
-        # PC = ParamController(self.param_dict, self.element_list)
+        # PC = ParamController(self.param_dict, self.param_model.element_list)
         # self.param_dict = PC.params
 
         if self.param_model.param_new['non_fitting_values']['escape_ratio'] > 0:
@@ -609,7 +607,7 @@ class Fit1D(Atom):
 
         self.comps.clear()
         comps = self.fit_result.eval_components(x=self.x0)
-        self.comps = combine_lines(comps, self.element_list, self.bg)
+        self.comps = combine_lines(comps, self.param_model.element_list, self.bg)
 
         if self.param_model.param_new['non_fitting_values']['escape_ratio'] > 0:
             self.fit_y += self.bg + self.es_peak
@@ -1001,22 +999,12 @@ class Fit1D(Atom):
         except FileNotFoundError:
             print("Summed spectrum fitting results are not saved.")
 
-    def update_element_name_lists(self):
-        """
-        When result_dict_names change, the looper in enaml will update.
-        """
+    def update_element_info(self):
         # need to clean list first, in order to refresh the list in GUI
         self.selected_index = 0
         self.elementinfo_list = []
 
-        names = list(self.param_model.EC.element_dict.keys())
-
-        self.result_dict_names = []
-        self.result_dict_names = names
-
-        self.element_list = []
-        self.element_list = names
-        logger.info('The full list for fitting is {}'.format(self.element_list))
+        logger.info('The full list for fitting is {}'.format(self.param_model.element_list))
 
 
 def combine_lines(components, element_list, background):
