@@ -140,7 +140,6 @@ class LinePlotModel(Atom):
     plot_fit_x_min = Float(0)  # The variables are used to store x_min and x_max for the current plot
     plot_fit_x_max = Float(0)
     element_id = Int(0)
-    parameters = Dict()
     elist = List()
     scale_opt = Int(0)
     # total_y = Dict()
@@ -366,9 +365,9 @@ class LinePlotModel(Atom):
 
     @observe('parameters')
     def _update_energy(self, change):
-        if 'coherent_sct_energy' not in self.parameters:
+        if 'coherent_sct_energy' not in self.param_model.param_new:
             return
-        self.incident_energy = self.parameters['coherent_sct_energy']['value']
+        self.incident_energy = self.param_model.param_new['coherent_sct_energy']['value']
 
     def set_energy_range_fitting(self, energy_range_name):
         if energy_range_name not in self.energy_range_names:
@@ -486,7 +485,7 @@ class LinePlotModel(Atom):
             # This is not a critical error, so we still can proceed
             e_range = e_range_full
 
-        if not self.parameters:
+        if not self.param_model.param_new:
             return
 
         # The number of points in the displayed dataset
@@ -513,11 +512,11 @@ class LinePlotModel(Atom):
             logger.debug('No need to remove experimental data.')
 
         data_arr = self.data
-        x_v = (self.parameters['e_offset']['value'] +
+        x_v = (self.param_model.param_new['e_offset']['value'] +
                np.arange(n_low, n_high) *
-               self.parameters['e_linear']['value'] +
+               self.param_model.param_new['e_linear']['value'] +
                np.arange(n_low, n_high)**2 *
-               self.parameters['e_quadratic']['value'])
+               self.param_model.param_new['e_quadratic']['value'])
 
         data_arr = data_arr[n_low: n_high]
 
@@ -713,11 +712,11 @@ class LinePlotModel(Atom):
         n_x = 4096  # Set to the maximum possible number of points
 
         # Generate the values for 'energy' axis
-        x_v = (self.parameters['e_offset']['value'] +
+        x_v = (self.param_model.param_new['e_offset']['value'] +
                np.arange(n_x) *
-               self.parameters['e_linear']['value'] +
+               self.param_model.param_new['e_linear']['value'] +
                np.arange(n_x) ** 2 *
-               self.parameters['e_quadratic']['value'])
+               self.param_model.param_new['e_quadratic']['value'])
 
         ss = (x_v < e_high) & (x_v > e_low)
         y_min, y_max = -1e30, 1e30  # Select the max and min values for plotted rectangles
@@ -748,11 +747,11 @@ class LinePlotModel(Atom):
                 self.max_v = np.max([self.max_v,
                                      np.max(data_arr[self.limit_cut:-self.limit_cut])])
 
-                x_v = (self.parameters['e_offset']['value'] +
+                x_v = (self.param_model.param_new['e_offset']['value'] +
                        np.arange(len(data_arr)) *
-                       self.parameters['e_linear']['value'] +
+                       self.param_model.param_new['e_linear']['value'] +
                        np.arange(len(data_arr))**2 *
-                       self.parameters['e_quadratic']['value'])
+                       self.param_model.param_new['e_quadratic']['value'])
 
                 plot_exp_obj, = self._ax.plot(x_v, data_arr,
                                               color=color_n[m],
@@ -1121,7 +1120,7 @@ class LinePlotModel(Atom):
         # Some default value
         intensity = 1000.0
 
-        if self.data is not None and self.parameters is not None \
+        if self.data is not None and self.param_model.param_new is not None \
                 and self.param_model.prefit_x is not None \
                 and self.param_model.total_y is not None \
                 and len(self.data) > 1 and len(self.param_model.prefit_x) > 1:
@@ -1131,14 +1130,16 @@ class LinePlotModel(Atom):
             e_fit_max = self.param_model.prefit_x[-1]
             de_fit = (e_fit_max - e_fit_min) / (len(self.param_model.prefit_x) - 1)
 
-            e_raw_min = self.parameters['e_offset']['value']
-            e_raw_max = self.parameters['e_offset']['value'] + \
-                (len(self.data) - 1) * self.parameters['e_linear']['value'] + \
-                (len(self.data) - 1) ** 2 * self.parameters['e_quadratic']['value']
+            e_raw_min = self.param_model.param_new['e_offset']['value']
+            e_raw_max = self.param_model.param_new['e_offset']['value'] + \
+                (len(self.data) - 1) * self.param_model.param_new['e_linear']['value'] + \
+                (len(self.data) - 1) ** 2 * self.param_model.param_new['e_quadratic']['value']
+
             de_raw = (e_raw_max - e_raw_min) / (len(self.data) - 1)
 
             # Note: the above algorithm for finding 'de_raw' is far from perfect but will
-            #    work for now. As a result 'de_fit' and 'de_raw' == self.parameters['e_linear']['value'].
+            #    work for now. As a result 'de_fit' and
+            #    'de_raw' == sself.param_model.param_new['e_linear']['value'].
             #    So the quadratic coefficent is ignored. This is OK, since currently
             #    quadratic coefficient is always ZERO. When the program is rewritten,
             #    the complete algorithm should be revised.
@@ -1370,10 +1371,10 @@ class LinePlotModel(Atom):
         e_low, e_high = e_low - margin, e_high + margin
 
         # The following calculations ignore quadratic term, which is expected to be small
-        c0 = self.parameters['e_offset']['value']
-        c1 = self.parameters['e_linear']['value']
+        c0 = self.param_model.param_new['e_offset']['value']
+        c1 = self.param_model.param_new['e_linear']['value']
         # If more precision if needed, then implement more complicated algorithm using
-        #   the quadratic term: c2 = self.parameters['e_quadratic']['value']
+        #   the quadratic term: c2 = self.param_model.param_new['e_quadratic']['value']
 
         n_low = int(np.clip(int((e_low - c0) / c1), a_min=0, a_max=n_indexes - 1))
         n_high = int(np.clip(int((e_high - c0) / c1) + 1, a_min=1, a_max=n_indexes))
@@ -1413,9 +1414,9 @@ class LinePlotModel(Atom):
             e_high = self.param_model.param_new['non_fitting_values']['energy_bound_high']['value']
 
         # Model coefficients for the energy axis
-        c0 = self.parameters['e_offset']['value']
-        c1 = self.parameters['e_linear']['value']
-        c2 = self.parameters['e_quadratic']['value']
+        c0 = self.param_model.param_new['e_offset']['value']
+        c1 = self.param_model.param_new['e_linear']['value']
+        c2 = self.param_model.param_new['e_quadratic']['value']
 
         # Generate the values for 'energy' axis
         x_v = (c0 + np.arange(n_points) * c1 + np.arange(n_points) ** 2 * c2)
@@ -1522,11 +1523,11 @@ class LinePlotModel(Atom):
                 n_high = int(np.clip(n_range_high, a_min=1, a_max=data_arr.size))
 
                 # From now on we work with the trimmed data array
-                x_v = (self.parameters['e_offset']['value'] +
+                x_v = (self.param_model.param_new['e_offset']['value'] +
                        np.arange(n_low, n_high) *
-                       self.parameters['e_linear']['value'] +
+                       self.param_model.param_new['e_linear']['value'] +
                        np.arange(n_low, n_high) ** 2 *
-                       self.parameters['e_quadratic']['value'])
+                       self.param_model.param_new['e_quadratic']['value'])
 
                 data_arr = data_arr[n_low: n_high]
 

@@ -113,7 +113,6 @@ class GlobalProcessingClasses:
         self.io_model.working_directory = f_dir
 
         def _update_data():
-            self.plot_model.parameters = self.param_model.param_new
             self.plot_model.data_sets = self.io_model.data_sets
             self.setting_model.data_sets = self.io_model.data_sets
             self.fit_model.data_sets = self.io_model.data_sets
@@ -196,7 +195,6 @@ class GlobalProcessingClasses:
         self.io_model.data_ready = False
 
         def _update_data():
-            self.plot_model.parameters = self.param_model.param_new
             self.plot_model.data_sets = self.io_model.data_sets
             self.setting_model.data_sets = self.io_model.data_sets
             self.fit_model.data_sets = self.io_model.data_sets
@@ -1094,7 +1092,6 @@ class GlobalProcessingClasses:
         self.fit_model.apply_default_param()
 
         # update experimental plots in case the coefficients change
-        self.plot_model.parameters = self.param_model.param_new
         self.plot_model.plot_experiment()
 
         self.plot_model.plot_fit(self.param_model.prefit_x,
@@ -1169,7 +1166,6 @@ class GlobalProcessingClasses:
             self.fit_model.apply_default_param()
 
             # update experimental plots
-            self.plot_model.parameters = self.param_model.param_new
             self.plot_model.plot_experiment()
             self.plot_model.plot_exp_opt = False
             self.plot_model.plot_exp_opt = True
@@ -1485,7 +1481,6 @@ class GlobalProcessingClasses:
         self.param_model.data_for_plot()
 
         # update experimental plots in case the coefficients change
-        self.plot_model.parameters = self.param_model.param_new
         self.plot_model.plot_experiment()
 
         self.plot_model.plot_fit(self.param_model.prefit_x,
@@ -1520,7 +1515,6 @@ class GlobalProcessingClasses:
         self.fit_model.get_profile()
 
         # update experimental plot with new calibration values
-        self.plot_model.parameters = self.param_model.param_new
         self.plot_model.plot_experiment()
 
         self.plot_model.plot_fit(self.fit_model.cal_x, self.fit_model.cal_y,
