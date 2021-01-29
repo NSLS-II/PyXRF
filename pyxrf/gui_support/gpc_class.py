@@ -47,7 +47,7 @@ class GlobalProcessingClasses:
         self.plot_model = LinePlotModel(param_model=self.param_model)
         self.fit_model = Fit1D(param_model=self.param_model, io_model=self.io_model,
                                working_directory=working_directory)
-        self.setting_model = SettingModel(default_parameters=default_parameters)
+        self.setting_model = SettingModel(param_model=self.param_model)
         self.img_model_adv = DrawImageAdvanced()
         self.img_model_rgb = DrawImageRGB(img_model_adv=self.img_model_adv)
 
@@ -115,7 +115,6 @@ class GlobalProcessingClasses:
         def _update_data():
             self.plot_model.parameters = self.param_model.param_new
             self.plot_model.data_sets = self.io_model.data_sets
-            self.setting_model.parameters = self.param_model.param_new
             self.setting_model.data_sets = self.io_model.data_sets
             self.fit_model.data_sets = self.io_model.data_sets
             self.fit_model.fit_img = {}  # clear dict in fitmodel to rm old results
@@ -199,7 +198,6 @@ class GlobalProcessingClasses:
         def _update_data():
             self.plot_model.parameters = self.param_model.param_new
             self.plot_model.data_sets = self.io_model.data_sets
-            self.setting_model.parameters = self.param_model.param_new
             self.setting_model.data_sets = self.io_model.data_sets
             self.fit_model.data_sets = self.io_model.data_sets
             self.fit_model.fit_img = {}  # clear dict in fitmodel to rm old results
@@ -1176,9 +1174,6 @@ class GlobalProcessingClasses:
             self.plot_model.plot_exp_opt = False
             self.plot_model.plot_exp_opt = True
 
-            # update params for roi sum
-            self.setting_model.update_parameter(self.param_model.param_new)
-
             # calculate profile and plot
             self.fit_model.get_profile()
 
@@ -1201,9 +1196,6 @@ class GlobalProcessingClasses:
             # update parameter for fit
             # self.param_model.create_full_param()
             self.fit_model.apply_default_param()
-
-            # update params for roi sum
-            self.setting_model.update_parameter(self.param_model.param_new)
 
             # Update displayed intensity of the selected peak
             self.plot_model.compute_manual_peak_intensity()
@@ -1514,43 +1506,8 @@ class GlobalProcessingClasses:
         self.param_model.create_full_param()  # Not sure this is needed
         self.fit_model.apply_default_param()
 
-        # update params for roi sum
-        self.setting_model.update_parameter(self.param_model.param_new)
-
         # Update displayed intensity of the selected peak
         self.plot_model.compute_manual_peak_intensity()
-
-    '''
-    def calculate_spectrum_helper(self):
-        """
-        Calculate spectrum, and update plotting and param_model.
-        Note: this is an original function from 'fit.enaml' file.
-        """
-        if self.fit_model.x0 is None or self.fit_model.y0 is None:
-            return
-
-        self.fit_model.get_profile()
-
-        # update experimental plot with new calibration values
-        self.plot_model.parameters = self.fit_model.param_dict
-        self.plot_model.plot_experiment()
-
-        self.plot_model.plot_fit(self.fit_model.cal_x, self.fit_model.cal_y,
-                                 self.fit_model.cal_spectrum,
-                                 self.fit_model.residual)
-
-        # For plotting purposes, otherwise plot will not update
-        self.plot_model.show_fit_opt = False
-        self.plot_model.show_fit_opt = True
-
-        # update autofit param
-        self.param_model.update_new_param(self.fit_model.param_dict)
-        self.param_model.update_name_list()
-        self.param_model.EC.turn_on_all()
-
-        # update params for roi sum
-        self.setting_model.update_parameter(self.fit_model.param_dict)
-    '''
 
     def total_spectrum_fitting(self):
 
@@ -1581,9 +1538,6 @@ class GlobalProcessingClasses:
         # param_model.get_new_param_from_file(parameter_file_path)
         self.param_model.update_name_list()
         self.param_model.EC.turn_on_all()
-
-        # update params for roi sum
-        self.setting_model.update_parameter(self.param_model.param_new)
 
         # Update displayed intensity of the selected peak
         self.plot_model.compute_manual_peak_intensity()
