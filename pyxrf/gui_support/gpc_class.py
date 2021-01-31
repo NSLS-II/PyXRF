@@ -67,9 +67,8 @@ class GlobalProcessingClasses:
         self.io_model.observe('file_name', self.setting_model.filename_update)
         self.io_model.observe('runid', self.fit_model.runid_update)
 
-        # send exp data to different models
+        # Perform updates when 'io_model.data' is changed (no data is passed)
         self.io_model.observe('data', self.plot_model.exp_data_update)
-        self.io_model.observe('data_all', self.fit_model.exp_data_all_update)
 
         # send img dict to img_model for visualization
         self.io_model.observe('img_dict', self.setting_model.img_dict_update)
@@ -110,7 +109,6 @@ class GlobalProcessingClasses:
         self.io_model.working_directory = f_dir
 
         def _update_data():
-            self.plot_model.data_sets = self.io_model.data_sets
             self.setting_model.data_sets = self.io_model.data_sets
             self.fit_model.fit_img = {}  # clear dict in fitmodel to rm old results
             # This will draw empty (hidden) preview plot, since no channels are selected.
@@ -191,7 +189,6 @@ class GlobalProcessingClasses:
         self.io_model.data_ready = False
 
         def _update_data():
-            self.plot_model.data_sets = self.io_model.data_sets
             self.setting_model.data_sets = self.io_model.data_sets
             self.fit_model.fit_img = {}  # clear dict in fitmodel to rm old results
             # This will draw empty (hidden) preview plot, since no channels are selected.
@@ -250,7 +247,6 @@ class GlobalProcessingClasses:
         """
         self.io_model.data_sets[dset_name].selected_for_preview = True if is_visible else False
         self.io_model.update_data_set_buffers()
-        self.plot_model.data_sets = self.io_model.data_sets
         self.plot_model.update_preview_spectrum_plot()
         self.plot_model.update_total_count_map_preview()
 
@@ -414,7 +410,6 @@ class GlobalProcessingClasses:
 
     def apply_mask_to_datasets(self):
         self.io_model.apply_mask_to_datasets()
-        self.plot_model.data_sets = self.io_model.data_sets
         self.plot_model.update_preview_spectrum_plot()
 
     # ==========================================================================

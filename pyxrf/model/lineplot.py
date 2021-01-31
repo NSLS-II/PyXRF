@@ -10,7 +10,6 @@ from matplotlib.lines import Line2D
 from matplotlib.collections import BrokenBarHCollection
 import matplotlib.ticker as mticker
 from matplotlib.colors import LogNorm
-from collections import OrderedDict
 from enum import Enum
 from mpl_toolkits.axes_grid1 import ImageGrid
 
@@ -171,7 +170,6 @@ class LinePlotModel(Atom):
     t_bar = Typed(object)
 
     plot_exp_list = List()
-    data_sets = Typed(OrderedDict)
 
     auto_fit_obj = List()
     show_autofit_opt = Bool()
@@ -744,7 +742,7 @@ class LinePlotModel(Atom):
 
         self.max_v = 1.0
         m = 0
-        for (k, v) in self.data_sets.items():
+        for (k, v) in self.io_model.data_sets.items():
             if v.selected_for_preview:
 
                 data_arr = np.asarray(v.data)
@@ -1398,7 +1396,7 @@ class LinePlotModel(Atom):
             Limit search to the datasets that are going to be displayed
         """
         max_size = 0
-        for dset in self.data_sets.values():
+        for dset in self.io_model.data_sets.values():
             if not only_displayed or dset.selected_for_preview:
                 # Raw data shape: (n_rows, n_columns, n_energy_bins)
                 max_size = max(max_size, dset.get_raw_data_shape()[2])
@@ -1494,7 +1492,7 @@ class LinePlotModel(Atom):
             n_range_low, n_range_high = 0, n_dset_points
 
         # All available datasets, we will print only the selected datasets
-        dset_names = list(self.data_sets.keys())
+        dset_names = list(self.io_model.data_sets.keys())
 
         if p_type == PlotTypes.LINLOG:
             top_margin_coef = 2.0
@@ -1509,7 +1507,7 @@ class LinePlotModel(Atom):
         self.min_e_preview = 1000.0  # Start with some large number
         self.max_e_preview = 0.1  # Start with some small number
         for n_line, dset_name in enumerate(dset_names):
-            dset = self.data_sets[dset_name]
+            dset = self.io_model.data_sets[dset_name]
 
             # Select color (even if the dataset is not displayed). This is done in order
             #   to ensure that each dataset is assigned the unique color.
@@ -1581,8 +1579,8 @@ class LinePlotModel(Atom):
         """
         # Find out if any data is selected
         show_plot = False
-        if self.data_sets:
-            show_plot = any([_.selected_for_preview for _ in self.data_sets.values()])
+        if self.io_model.data_sets:
+            show_plot = any([_.selected_for_preview for _ in self.io_model.data_sets.values()])
         logger.debug(f"LinePlotModel.update_preview_spectrum_plot(): show_plot={show_plot} hide={hide}")
         if show_plot and not hide:
             logger.debug("LinePlotModel.update_preview_spectrum_plot(): plotting existing datasets")
@@ -1604,7 +1602,7 @@ class LinePlotModel(Atom):
 
     def get_selected_datasets(self):
         """Returns the datasets selected for preview"""
-        return {k: v for (k, v) in self.data_sets.items() if v.selected_for_preview}
+        return {k: v for (k, v) in self.io_model.data_sets.items() if v.selected_for_preview}
 
     def _compute_map_preview_range(self, img_dict, key_list):
         range_min, range_max = None, None
@@ -1909,8 +1907,8 @@ class LinePlotModel(Atom):
 
         # Find out if any data is selected
         show_plot = False
-        if self.data_sets:
-            show_plot = any([_.selected_for_preview for _ in self.data_sets.values()])
+        if self.io_model.data_sets:
+            show_plot = any([_.selected_for_preview for _ in self.io_model.data_sets.values()])
         logger.debug(f"LinePlotModel.update_total_count_map_preview(): show_plot={show_plot} hide={hide}")
         if show_plot and not hide:
             logger.debug("LinePlotModel.update_total_count_map_preview(): plotting existing datasets")
