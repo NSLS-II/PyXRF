@@ -241,21 +241,20 @@ class Fit1D(Atom):
         """
         self.runid = change['value']
 
-    def img_dict_update(self, change):
+    def img_dict_updated(self, change):
         """
         Observer function to be connected to the fileio model
         in the top-level gui.py startup
 
         Parameters
         ----------
-        change : dict
-            This is the dictionary that gets passed to a function
-            with the @observe decorator
+        changed : bool
+            True - 'io_model.img_dict` was updated, False - ignore
         """
-        self.img_dict = change['value']
-        _key = [k for k in self.img_dict.keys() if 'scaler' in k]
-        if len(_key) != 0:
-            self.scaler_keys = sorted(self.img_dict[_key[0]].keys())
+        if change['value']:
+            _key = [k for k in self.io_model.img_dict.keys() if 'scaler' in k]
+            if len(_key) != 0:
+                self.scaler_keys = sorted(self.io_model.img_dict[_key[0]].keys())
 
     def scaler_index_update(self, change):
         """
@@ -858,9 +857,9 @@ class Fit1D(Atom):
             path to the root directory where data is to be saved. Data will be saved
             in subdirectories inside this directory.
         dataset_name: str
-            name of the dataset (key in the dictionary `self.img_dict`
+            name of the dataset (key in the dictionary `self.io_model.img_dict`
         scaler_name: str
-            name of the scaler, must exist in `self.img_dict`
+            name of the scaler, must exist in `self.io_model.img_dict`
         interpolate_on: bool
             turns interpolation of images to uniform grid ON or OFF
         quant_norm_on: bool
@@ -881,15 +880,15 @@ class Fit1D(Atom):
         else:
             dir_prefix = "output_txt_"
 
-        dataset_dict = self.img_dict[dataset_name]
+        dataset_dict = self.io_model.img_dict[dataset_name]
 
         _post_name_folder = "_".join(self.data_title.split('_')[:-1])
         output_n = dir_prefix + _post_name_folder
         output_dir = os.path.join(results_path, output_n)
 
-        # self.img_dict contains ALL loaded datasets, including a separate "positions" dataset
-        if "positions" in self.img_dict:
-            positions_dict = self.img_dict["positions"]
+        # self.io_model.img_dict contains ALL loaded datasets, including a separate "positions" dataset
+        if "positions" in self.io_model.img_dict:
+            positions_dict = self.io_model.img_dict["positions"]
         else:
             positions_dict = {}
 
@@ -901,9 +900,9 @@ class Fit1D(Atom):
         #   The list of scaler names is used to avoid attaching the detector channel name
         #   to file names that contain scaler data (scalers typically do not depend on
         #   the selection of detector channels.
-        scaler_dsets = [_ for _ in self.img_dict.keys() if re.search(r"_scaler$", _)]
+        scaler_dsets = [_ for _ in self.io_model.img_dict.keys() if re.search(r"_scaler$", _)]
         if scaler_dsets:
-            scaler_name_list = list(self.img_dict[scaler_dsets[0]].keys())
+            scaler_name_list = list(self.io_model.img_dict[scaler_dsets[0]].keys())
         else:
             scaler_name_list = None
 

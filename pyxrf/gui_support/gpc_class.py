@@ -48,8 +48,8 @@ class GlobalProcessingClasses:
         self.fit_model = Fit1D(param_model=self.param_model, io_model=self.io_model,
                                working_directory=working_directory)
         self.setting_model = SettingModel(param_model=self.param_model, io_model=self.io_model)
-        self.img_model_adv = DrawImageAdvanced()
-        self.img_model_rgb = DrawImageRGB(img_model_adv=self.img_model_adv)
+        self.img_model_adv = DrawImageAdvanced(io_model=self.io_model)
+        self.img_model_rgb = DrawImageRGB(io_model=self.io_model, img_model_adv=self.img_model_adv)
 
         # Initialization needed to eliminate program crash
         self.plot_model.roi_dict = self.setting_model.roi_dict
@@ -71,10 +71,9 @@ class GlobalProcessingClasses:
         self.io_model.observe('data', self.plot_model.exp_data_update)
 
         # send img dict to img_model for visualization
-        self.io_model.observe('img_dict', self.setting_model.img_dict_update)
-        self.io_model.observe('img_dict', self.fit_model.img_dict_update)
-        self.io_model.observe('img_dict', self.img_model_adv.img_dict_update)
-        self.io_model.observe('img_dict', self.img_model_rgb.img_dict_update)
+        self.io_model.observe('img_dict_is_updated', self.fit_model.img_dict_updated)
+        self.io_model.observe('img_dict_is_updated', self.img_model_adv.img_dict_updated)
+        self.io_model.observe('img_dict_is_updated', self.img_model_rgb.img_dict_updated)
 
         self.io_model.observe('incident_energy_set', self.plot_model.set_incident_energy)
         self.io_model.observe('incident_energy_set', self.img_model_adv.set_incident_energy)
@@ -552,7 +551,7 @@ class GlobalProcessingClasses:
             self.img_model_adv.stat_dict[key] = bool(show_status)
 
     def get_maps_dataset_list(self):
-        dsets = list(self.img_model_adv.img_dict_keys)
+        dsets = list(self.io_model.img_dict_keys)
         dset_sel = self.get_maps_selected_dataset()  # The index in the list + 1 (0 - nothing is selected)
         return dsets, dset_sel
 
@@ -651,7 +650,7 @@ class GlobalProcessingClasses:
         rgb_dict: dict
             dictionary that hold the displayed items: key - color ("red", "green" or "blue"),
             value - selected map represented by the key of `self.img_model_rgb.dict_to_plot`
-            or `self.img_model_rgb.img_dict[<dataset>]` dictionaries.
+            or `self.io_model.img_dict[<dataset>]` dictionaries.
         """
         # Check if 'range_dict' and 'limit_dict' have the same set of keys
         ks = self.img_model_rgb.map_keys
@@ -701,7 +700,7 @@ class GlobalProcessingClasses:
         rgb_dict: dict
             dictionary that hold the displayed items: key - color ("red", "green" or "blue"),
             value - selected map represented by the key of `self.img_model_rgb.dict_to_plot`
-            or `self.img_model_rgb.img_dict[<dataset>]` dictionaries.
+            or `self.io_model.img_dict[<dataset>]` dictionaries.
         """
         # Verify: the keys in both tables must match 'self.img_model_adv.map_keys'
         limit_table_keys = [_[0] for _ in limit_table]
@@ -726,7 +725,7 @@ class GlobalProcessingClasses:
         self.img_model_rgb.rgb_dict = rgb_dict.copy()
 
     def get_rgb_maps_dataset_list(self):
-        dsets = list(self.img_model_rgb.img_dict_keys)
+        dsets = list(self.io_model.img_dict_keys)
         dset_sel = self.get_maps_selected_dataset()  # The index in the list + 1 (0 - nothing is selected)
         return dsets, dset_sel
 
@@ -1545,16 +1544,12 @@ class GlobalProcessingClasses:
         self.fit_model.fit_single_pixel()
 
         # add scalers to fit dict
-        scaler_keys = [v for v in self.img_model_adv.img_dict.keys() if 'scaler' in v]
+        scaler_keys = [v for v in self.io_model.img_dict.keys() if 'scaler' in v]
         if len(scaler_keys) > 0:
             self.fit_model.fit_img[list(self.fit_model.fit_img.keys())[0]].update(
-                self.img_model_adv.img_dict[scaler_keys[0]])
+                self.io_model.img_dict[scaler_keys[0]])
 
-        self.img_model_adv.update_img_dict_entries(self.fit_model.fit_img)
-        # No copy the dictionary so that it is distributed to all locations
-        #   setting_model, plot_model, fit_model, img_model_adv, img_model_rgb
-        self.io_model.img_dict = self.img_model_adv.img_dict
-        self.img_model_rgb.update_img_dict_entries(self.fit_model.fit_img)
+        self.io_model.update_img_dict(self.fit_model.fit_img)
 
     # ==========================================================================
     #          The following methods are used by ROI window
@@ -1592,11 +1587,8 @@ class GlobalProcessingClasses:
         if len(self.setting_model.element_for_roi) == 0:
             raise RuntimeError("No elements are selected for ROI computation. Select at least one element.")
         roi_result = self.setting_model.get_roi_sum()
-        self.img_model_adv.update_img_dict_entries(roi_result)
-        # No copy the dictionary so that it is distributed to all locations
-        #   setting_model, plot_model, fit_model, img_model_adv, img_model_rgb
-        self.io_model.img_dict = self.img_model_adv.img_dict
-        self.img_model_rgb.update_img_dict_entries(roi_result)
+
+        self.io_model.update_img_dict(roi_result)
 
     def show_roi(self, eline, show_status):
         self.plot_model.roi_dict = self.setting_model.roi_dict
