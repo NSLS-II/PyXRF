@@ -102,7 +102,7 @@ class LinePlotModel(Atom):
     param_model : Typed(object)
         Reference to ParamModel object
     """
-    data = Typed(object)  # Typed(np.ndarray)
+    # data = Typed(object)  # Typed(np.ndarray)
     exp_data_label = Str('experiment')
 
     number_pts_to_show = Int(3000)  # The number of spectrum point to show
@@ -202,6 +202,8 @@ class LinePlotModel(Atom):
 
     # Reference to ParamModel object
     param_model = Typed(object)
+    # Reference to FileIOModel object
+    io_model = Typed(object)
 
     # Location of the vertical (mouse-selected) marker on the plot.
     # Value is in kev. Negative value - no marker is placed.
@@ -212,12 +214,13 @@ class LinePlotModel(Atom):
 
     report_marker_state = Typed(object)
 
-    def __init__(self, param_model):
+    def __init__(self, *, param_model, io_model):
 
         # Reference to ParamModel object
         self.param_model = param_model
+        self.io_model = io_model
 
-        self.data = None
+        # self.data = None
 
         self._fig = plt.figure()
 
@@ -428,18 +431,18 @@ class LinePlotModel(Atom):
 
     def energy_bound_high_update(self, change):
         """Observer function for 'param_model.energy_bound_high_buf'"""
-        if self.data is None:
+        if self.io_model.data is None:
             return
-        self.exp_data_update({"value": self.data})
+        self.exp_data_update({"value": self.io_model.data})
         self.plot_selected_energy_range_original(e_high=change["value"])
         self.plot_vertical_marker(e_high=change["value"])
         self._update_canvas()
 
     def energy_bound_low_update(self, change):
         """Observer function for 'param_model.energy_bound_low_buf'"""
-        if self.data is None:
+        if self.io_model.data is None:
             return
-        self.exp_data_update({"value": self.data})
+        self.exp_data_update({"value": self.io_model.data})
         self.plot_selected_energy_range_original(e_low=change["value"])
         self.plot_vertical_marker(e_low=change["value"])
         self._update_canvas()
@@ -470,8 +473,11 @@ class LinePlotModel(Atom):
             This is the dictionary that gets passed to a function
             with the @observe decorator
         """
-        self.data = change['value']
-        if self.data is None:
+        # TODO: This function does not change the data. Instead it is expected to
+        #   perform a number of operation when data is changed.
+
+        # self.data = change['value']
+        if self.io_model.data is None:
             return
 
         e_range = self.energy_range_fitting
@@ -489,7 +495,7 @@ class LinePlotModel(Atom):
             return
 
         # The number of points in the displayed dataset
-        n_dset_points = len(self.data)
+        n_dset_points = len(self.io_model.data)
 
         if e_range == e_range_selected:
             n_range_low, n_range_high = self.selected_range_indices(n_indexes=n_dset_points)
@@ -503,7 +509,7 @@ class LinePlotModel(Atom):
         n1, n2 = max(self.limit_cut, n_low), min(n_dset_points-self.limit_cut, n_high)
         if n2 <= n1:  # This is just a precaution: it is expected that n_dset_points >> 2 * limit_cut
             n1, n2 = n_low, n_high
-        self.max_v = float(np.max(self.data[n1: n2]))
+        self.max_v = float(np.max(self.io_model.data[n1: n2]))
 
         try:
             self.plot_exp_obj.remove()
@@ -511,7 +517,7 @@ class LinePlotModel(Atom):
         except AttributeError:
             logger.debug('No need to remove experimental data.')
 
-        data_arr = self.data
+        data_arr = self.io_model.data
         x_v = (self.param_model.param_new['e_offset']['value'] +
                np.arange(n_low, n_high) *
                self.param_model.param_new['e_linear']['value'] +
@@ -546,7 +552,7 @@ class LinePlotModel(Atom):
 
     def _show_hide_exp_plot(self, plot_show):
 
-        if self.data is None:
+        if self.io_model.data is None:
             return
 
         try:
@@ -566,7 +572,7 @@ class LinePlotModel(Atom):
     @observe('plot_exp_opt')
     def _new_exp_plot_opt(self, change):
 
-        if self.data is None:
+        if self.io_model.data is None:
             return
 
         if change['type'] != 'create':
@@ -620,10 +626,10 @@ class LinePlotModel(Atom):
         """
 
         # Do nothing if no data is loaded
-        if self.data is None:
+        if self.io_model.data is None:
             return
 
-        data_arr = np.asarray(self.data)
+        data_arr = np.asarray(self.io_model.data)
         self.exp_data_update({'value': data_arr})
 
     def plot_vertical_marker(self, *, e_low=None, e_high=None):
@@ -797,7 +803,7 @@ class LinePlotModel(Atom):
         if element_id is None:
             element_id = self.element_id
         if data == "use_self_data":
-            data = self.data
+            data = self.io_model.data
 
     def is_line_in_selected_list(self, n_id):
         """
@@ -1120,10 +1126,10 @@ class LinePlotModel(Atom):
         # Some default value
         intensity = 1000.0
 
-        if self.data is not None and self.param_model.param_new is not None \
+        if self.io_model.data is not None and self.param_model.param_new is not None \
                 and self.param_model.prefit_x is not None \
                 and self.param_model.total_y is not None \
-                and len(self.data) > 1 and len(self.param_model.prefit_x) > 1:
+                and len(self.io_model.data) > 1 and len(self.param_model.prefit_x) > 1:
 
             # Range of energies in fitting results
             e_fit_min = self.param_model.prefit_x[0]
@@ -1132,10 +1138,10 @@ class LinePlotModel(Atom):
 
             e_raw_min = self.param_model.param_new['e_offset']['value']
             e_raw_max = self.param_model.param_new['e_offset']['value'] + \
-                (len(self.data) - 1) * self.param_model.param_new['e_linear']['value'] + \
-                (len(self.data) - 1) ** 2 * self.param_model.param_new['e_quadratic']['value']
+                (len(self.io_model.data) - 1) * self.param_model.param_new['e_linear']['value'] + \
+                (len(self.io_model.data) - 1) ** 2 * self.param_model.param_new['e_quadratic']['value']
 
-            de_raw = (e_raw_max - e_raw_min) / (len(self.data) - 1)
+            de_raw = (e_raw_max - e_raw_min) / (len(self.io_model.data) - 1)
 
             # Note: the above algorithm for finding 'de_raw' is far from perfect but will
             #    work for now. As a result 'de_fit' and
@@ -1161,12 +1167,12 @@ class LinePlotModel(Atom):
             n_fit = int(round(n))
             # Find the index of peak maximum in the 'raw' data array
             n = (max_line_energy - e_raw_min) / de_raw
-            n = np.clip(n, 0, len(self.data) - 1)
+            n = np.clip(n, 0, len(self.io_model.data) - 1)
             n_raw = int(round(n))
             # Intensity of the fitted data at the peak
             in_fit = self.param_model.total_y[n_fit]
             # Intensity of the raw data at the peak
-            in_raw = self.data[n_raw]
+            in_raw = self.io_model.data[n_raw]
             # The estimated peak intensity is the difference:
             intensity = in_raw - in_fit
 

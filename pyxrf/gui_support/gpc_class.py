@@ -44,7 +44,7 @@ class GlobalProcessingClasses:
         working_directory, default_parameters = self._get_defaults()
         self.param_model = ParamModel(default_parameters=default_parameters)
         self.io_model = FileIOModel(param_model=self.param_model, working_directory=working_directory)
-        self.plot_model = LinePlotModel(param_model=self.param_model)
+        self.plot_model = LinePlotModel(param_model=self.param_model, io_model=self.io_model)
         self.fit_model = Fit1D(param_model=self.param_model, io_model=self.io_model,
                                working_directory=working_directory)
         self.setting_model = SettingModel(param_model=self.param_model)
