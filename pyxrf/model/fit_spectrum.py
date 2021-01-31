@@ -67,8 +67,6 @@ class Fit1D(Atom):
     img_dict = Dict()
 
     element_list = List()
-    data_all = Typed(object)
-    # data = Typed(np.ndarray)
     fit_x = Typed(np.ndarray)
     fit_y = Typed(np.ndarray)
     residual = Typed(np.ndarray)
@@ -390,19 +388,6 @@ class Fit1D(Atom):
         #  define element_adjust as fixed
         # self.param_dict = define_param_bound_type(self.param_dict)
 
-    def exp_data_all_update(self, change):
-        """
-        Observer function to be connected to the fileio model
-        in the top-level gui.py startup
-
-        Parameters
-        ----------
-        changed : dict
-            This is the dictionary that gets passed to a function
-            with the @observe decorator
-        """
-        self.data_all = change['value']
-
     def filename_update(self, change):
         """
         Observer function to be connected to the fileio model
@@ -686,7 +671,7 @@ class Fit1D(Atom):
 
         # app.processEvents()
         self.result_map, calculation_info = single_pixel_fitting_controller(
-            self.data_all,
+            self.io_model.data_all,
             self.param_model.param_new,
             method=pixel_fit,
             pixel_bin=pixel_bin,
@@ -811,7 +796,7 @@ class Fit1D(Atom):
             high = int(self.roi_sum_opt['high']*100)
             logger.info('ROI sum at range ({}, {})'.format(self.roi_sum_opt['low'],
                                                            self.roi_sum_opt['high']))
-            sumv = np.sum(self.data_all[:, :, low:high], axis=2)
+            sumv = np.sum(self.io_model.data_all[:, :, low:high], axis=2)
             self.result_map['ROI'] = sumv
             # save to hdf again, this is not optimal
             self.save2Dmap_to_hdf()
