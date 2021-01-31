@@ -47,7 +47,7 @@ class GlobalProcessingClasses:
         self.plot_model = LinePlotModel(param_model=self.param_model, io_model=self.io_model)
         self.fit_model = Fit1D(param_model=self.param_model, io_model=self.io_model,
                                working_directory=working_directory)
-        self.setting_model = SettingModel(param_model=self.param_model)
+        self.setting_model = SettingModel(param_model=self.param_model, io_model=self.io_model)
         self.img_model_adv = DrawImageAdvanced()
         self.img_model_rgb = DrawImageRGB(img_model_adv=self.img_model_adv)
 
@@ -109,7 +109,6 @@ class GlobalProcessingClasses:
         self.io_model.working_directory = f_dir
 
         def _update_data():
-            self.setting_model.data_sets = self.io_model.data_sets
             self.fit_model.fit_img = {}  # clear dict in fitmodel to rm old results
             # This will draw empty (hidden) preview plot, since no channels are selected.
             self.plot_model.update_preview_spectrum_plot()
@@ -189,7 +188,6 @@ class GlobalProcessingClasses:
         self.io_model.data_ready = False
 
         def _update_data():
-            self.setting_model.data_sets = self.io_model.data_sets
             self.fit_model.fit_img = {}  # clear dict in fitmodel to rm old results
             # This will draw empty (hidden) preview plot, since no channels are selected.
             self.plot_model.update_preview_spectrum_plot()

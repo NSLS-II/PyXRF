@@ -103,8 +103,9 @@ class SettingModel(Atom):
     """
     # Reference to ParamModel object
     param_model = Typed(object)
+    # Reference to FileIOModel object
+    io_model = Typed(object)
 
-    data_sets = Dict()
     img_dict = Dict()
 
     element_for_roi = Str()
@@ -180,9 +181,10 @@ class SettingModel(Atom):
             # Else keep the original title
             self.data_title_adjusted = self.data_title
 
-    def __init__(self, *, param_model):
+    def __init__(self, *, param_model, io_model):
         # Initialize with an empty string (no elements selected)
         self.param_model = param_model
+        self.io_model = io_model
         self.element_for_roi = ""
         self.enable_roi_computation = False
 
@@ -218,19 +220,6 @@ class SettingModel(Atom):
         except Exception as ex:
             logger.warning(f"Incorrect specification of element lines for ROI computation: {ex}")
             self.enable_roi_computation = False
-
-    def data_sets_update(self, change):
-        """
-        Observer function to be connected to the fileio model
-        in the top-level gui.py startup
-
-        Parameters
-        ----------
-        changed : dict
-            This is the dictionary that gets passed to a function
-            with the @observe decorator
-        """
-        self.data_sets = change['value']
 
     def img_dict_update(self, change):
         """
@@ -333,7 +322,7 @@ class SettingModel(Atom):
         """
         roi_result = {}
 
-        datav = self.data_sets[self.data_title].raw_data
+        datav = self.io_model.data_sets[self.data_title].raw_data
 
         logger.info(f"Computing ROIs for dataset {self.data_title} ...")
 
