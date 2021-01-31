@@ -60,9 +60,6 @@ class FileIOModel(Atom):
     img_dict : dict
         Dict of 2D arrays, such as 2D roi pv or fitted data
     """
-    # Reference to ParamModel object
-    param_model = Typed(object)
-
     window_title = Str()
     window_title_base = Str()
 
@@ -121,8 +118,7 @@ class FileIOModel(Atom):
     #   its value should not be used for computations!!!
     incident_energy_set = Float(0.0)
 
-    def __init__(self, *, param_model, working_directory):
-        self.param_model = param_model
+    def __init__(self, *, working_directory):
         self.working_directory = working_directory
         self.mask_data = None
 

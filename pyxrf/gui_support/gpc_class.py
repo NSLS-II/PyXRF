@@ -42,8 +42,8 @@ class GlobalProcessingClasses:
         Run the sequence of actions needed to initialize PyXRF modules.
         """
         working_directory, default_parameters = self._get_defaults()
-        self.param_model = ParamModel(default_parameters=default_parameters)
-        self.io_model = FileIOModel(param_model=self.param_model, working_directory=working_directory)
+        self.io_model = FileIOModel(working_directory=working_directory)
+        self.param_model = ParamModel(default_parameters=default_parameters, io_model=self.io_model)
         self.plot_model = LinePlotModel(param_model=self.param_model, io_model=self.io_model)
         self.fit_model = Fit1D(param_model=self.param_model, io_model=self.io_model,
                                working_directory=working_directory)
@@ -69,7 +69,6 @@ class GlobalProcessingClasses:
 
         # send exp data to different models
         self.io_model.observe('data', self.plot_model.exp_data_update)
-        self.io_model.observe('data', self.param_model.exp_data_update)
         self.io_model.observe('data', self.fit_model.exp_data_update)
         self.io_model.observe('data_all', self.fit_model.exp_data_all_update)
 

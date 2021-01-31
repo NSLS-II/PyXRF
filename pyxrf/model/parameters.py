@@ -244,8 +244,12 @@ class ParamModel(Atom):
             excluding pileup peaks and user defined peaks.
             Only 'pure' lines like Ca_K, K_K etc.
     """
+
+    # Reference to FileIOModel object
+    io_model = Typed(object)
+
     default_parameters = Dict()
-    data = Typed(np.ndarray)
+    # data = Typed(np.ndarray)
     prefit_x = Typed(object)
     result_dict_names = List()
     param_new = Dict()
@@ -270,8 +274,10 @@ class ParamModel(Atom):
     n_selected_elines_for_fitting = Int(0)
     n_selected_pure_elines_for_fitting = Int(0)
 
-    def __init__(self, *, default_parameters):
+    def __init__(self, *, default_parameters, io_model):
         try:
+            self.io_model = io_model
+
             self.default_parameters = default_parameters
             self.param_new = copy.deepcopy(default_parameters)
             # TODO: do we set 'element_list' as a list of keys of 'EC.element_dict'
@@ -337,19 +343,6 @@ class ParamModel(Atom):
         self.param_new = param
         self.create_spectrum_from_param_dict(reset=reset)
 
-    def exp_data_update(self, change):
-        """
-        Observer function to be connected to the fileio model
-        in the top-level gui.py startup
-
-        Parameters
-        ----------
-        changed : dict
-            This is the dictionary that gets passed to a function
-            with the @observe decorator
-        """
-        self.data = change['value']
-
     @observe('bound_val')
     def _update_bound(self, change):
         if change['type'] != 'create':
@@ -359,11 +352,11 @@ class ParamModel(Atom):
         """
         Cut x range according to values define in param_dict.
         """
-        if self.data is None:
+        if self.io_model.data is None:
             return
         lowv = self.param_new['non_fitting_values']['energy_bound_low']['value']
         highv = self.param_new['non_fitting_values']['energy_bound_high']['value']
-        self.x0, self.y0 = define_range(self.data, lowv, highv,
+        self.x0, self.y0 = define_range(self.io_model.data, lowv, highv,
                                         self.param_new['e_offset']['value'],
                                         self.param_new['e_linear']['value'])
 
@@ -389,7 +382,7 @@ class ParamModel(Atom):
                                                                self.element_list)
         # add escape peak
         if param_dict['non_fitting_values']['escape_ratio'] > 0:
-            pre_dict['escape'] = trim_escape_peak(self.data,
+            pre_dict['escape'] = trim_escape_peak(self.io_model.data,
                                                   param_dict, len(self.y0))
 
         temp_dict = OrderedDict()
