@@ -69,7 +69,6 @@ class GlobalProcessingClasses:
 
         # send exp data to different models
         self.io_model.observe('data', self.plot_model.exp_data_update)
-        self.io_model.observe('data', self.fit_model.exp_data_update)
         self.io_model.observe('data_all', self.fit_model.exp_data_all_update)
 
         # send img dict to img_model for visualization

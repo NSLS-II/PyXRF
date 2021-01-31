@@ -68,7 +68,7 @@ class Fit1D(Atom):
 
     element_list = List()
     data_all = Typed(object)
-    data = Typed(np.ndarray)
+    # data = Typed(np.ndarray)
     fit_x = Typed(np.ndarray)
     fit_y = Typed(np.ndarray)
     residual = Typed(np.ndarray)
@@ -151,6 +151,8 @@ class Fit1D(Atom):
 
     # Reference to ParamModel object
     param_model = Typed(object)
+    # Reference to FileIOModel object
+    io_model = Typed(object)
 
     # Reference to FileIOMOdel
     io_model = Typed(object)
@@ -173,7 +175,7 @@ class Fit1D(Atom):
     # *** The fields are not guaranteed to have valid values at any other time. ***
     qe_standard_distance_to_sample = Float(0.0)
 
-    def __init__(self, param_model, io_model, *, working_directory):
+    def __init__(self, *, param_model, io_model, working_directory):
         self.working_directory = working_directory
         self.result_folder = working_directory
         self.all_strategy = OrderedDict()
@@ -388,19 +390,6 @@ class Fit1D(Atom):
         #  define element_adjust as fixed
         # self.param_dict = define_param_bound_type(self.param_dict)
 
-    def exp_data_update(self, change):
-        """
-        Observer function to be connected to the fileio model
-        in the top-level gui.py startup
-
-        Parameters
-        ----------
-        changed : dict
-            This is the dictionary that gets passed to a function
-            with the @observe decorator
-        """
-        self.data = np.asarray(change['value'])
-
     def exp_data_all_update(self, change):
         """
         Observer function to be connected to the fileio model
@@ -473,7 +462,7 @@ class Fit1D(Atom):
         """
         lowv = self.param_model.param_new['non_fitting_values']['energy_bound_low']['value']
         highv = self.param_model.param_new['non_fitting_values']['energy_bound_high']['value']
-        self.x0, self.y0 = define_range(self.data, lowv, highv,
+        self.x0, self.y0 = define_range(self.io_model.data, lowv, highv,
                                         self.param_model.param_new['e_offset']['value'],
                                         self.param_model.param_new['e_linear']['value'])
 
@@ -500,7 +489,7 @@ class Fit1D(Atom):
                                                                      self.param_model.element_list)
         #  add escape peak
         if self.param_model.param_new['non_fitting_values']['escape_ratio'] > 0:
-            self.cal_spectrum['escape'] = trim_escape_peak(self.data,
+            self.cal_spectrum['escape'] = trim_escape_peak(self.io_model.data,
                                                            self.param_model.param_new,
                                                            len(self.y0))
 
@@ -545,7 +534,7 @@ class Fit1D(Atom):
         # self.param_dict = PC.params
 
         if self.param_model.param_new['non_fitting_values']['escape_ratio'] > 0:
-            self.es_peak = trim_escape_peak(self.data,
+            self.es_peak = trim_escape_peak(self.io_model.data,
                                             self.param_model.param_new,
                                             self.y0.size)
             y0 = self.y0 - self.bg - self.es_peak
@@ -762,7 +751,7 @@ class Fit1D(Atom):
         from .data_to_analysis_store import save_data_to_db
         doc = {}
         doc['param'] = self.param_model.param_new
-        doc['exp'] = self.data
+        doc['exp'] = self.io_model.data
         doc['fitted'] = self.fit_y
         save_data_to_db(self.runid, self.result_map, doc)
 

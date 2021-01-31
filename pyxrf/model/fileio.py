@@ -590,9 +590,9 @@ class DataSelection(Atom):
     both are set.
 
     There are some unresolved questions about logic:
-    - what is exactly the role of `self.data`? It is definitely used when
+    - what is exactly the role of `self.io_model.data`? It is definitely used when
     the data is plotted, but is it ever bypassed by directly calling `get_sum`?
-    If the data is always accessed using `self.data`, then storing the averaged
+    If the data is always accessed using `self.io_model.data`, then storing the averaged
     spectrum in cache is redundant, but since the array is small, it's not
     much overhead to keep another copy just in case.
     - there is no obvious way to set `point1` and `point2`
