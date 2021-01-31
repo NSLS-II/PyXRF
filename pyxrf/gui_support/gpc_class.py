@@ -9,7 +9,7 @@ from ..model.parameters import ParamModel, save_as, fit_strategy_list, bound_opt
 from ..model.draw_image import DrawImageAdvanced
 from ..model.draw_image_rgb import DrawImageRGB
 from ..model.fit_spectrum import Fit1D, get_cs
-from ..model.setting import SettingModel
+from ..model.roi_model import ROIModel
 from ..model.param_data import param_data
 
 from ..core.xrf_utils import get_eline_energy
@@ -26,7 +26,7 @@ class GlobalProcessingClasses:
         self.param_model = None
         self.plot_model = None
         self.fit_model = None
-        self.setting_model = None
+        self.roi_model = None
         self.img_model_adv = None
         self.img_model_rgb = None
 
@@ -47,24 +47,24 @@ class GlobalProcessingClasses:
         self.plot_model = LinePlotModel(param_model=self.param_model, io_model=self.io_model)
         self.fit_model = Fit1D(param_model=self.param_model, io_model=self.io_model,
                                working_directory=working_directory)
-        self.setting_model = SettingModel(param_model=self.param_model, io_model=self.io_model)
+        self.roi_model = ROIModel(param_model=self.param_model, io_model=self.io_model)
         self.img_model_adv = DrawImageAdvanced(io_model=self.io_model)
         self.img_model_rgb = DrawImageRGB(io_model=self.io_model, img_model_adv=self.img_model_adv)
 
         # Initialization needed to eliminate program crash
-        self.plot_model.roi_dict = self.setting_model.roi_dict
+        self.plot_model.roi_dict = self.roi_model.roi_dict
 
         # send working directory changes to different models
         self.io_model.observe('working_directory', self.fit_model.result_folder_changed)
-        self.io_model.observe('working_directory', self.setting_model.result_folder_changed)
+        self.io_model.observe('working_directory', self.roi_model.result_folder_changed)
         self.io_model.observe('selected_file_name', self.fit_model.data_title_update)
         self.io_model.observe('selected_file_name', self.plot_model.exp_label_update)
-        self.io_model.observe('selected_file_name', self.setting_model.data_title_update)
+        self.io_model.observe('selected_file_name', self.roi_model.data_title_update)
 
         # send the same file to fit model, as fitting results need to be saved
         self.io_model.observe('file_name', self.fit_model.filename_update)
         self.io_model.observe('file_name', self.plot_model.plot_exp_data_update)
-        self.io_model.observe('file_name', self.setting_model.filename_update)
+        self.io_model.observe('file_name', self.roi_model.filename_update)
         self.io_model.observe('runid', self.fit_model.runid_update)
 
         # Perform updates when 'io_model.data' is changed (no data is passed)
@@ -1554,44 +1554,44 @@ class GlobalProcessingClasses:
     # ==========================================================================
     #          The following methods are used by ROI window
     def get_roi_selected_element_list(self):
-        element_list = self.setting_model.element_for_roi
+        element_list = self.roi_model.element_for_roi
         # TODO: should probably be sorted differently
         return element_list
 
     def set_roi_selected_element_list(self, elements_for_roi):
-        self.setting_model.element_for_roi = elements_for_roi
+        self.roi_model.element_for_roi = elements_for_roi
         self.plot_model.plot_roi_bound()
 
     def clear_roi_element_list(self):
-        for r in self.setting_model.element_list_roi:
+        for r in self.roi_model.element_list_roi:
             self.plot_model.roi_dict[r].show_plot = False
         self.plot_model.plot_roi_bound()
-        self.setting_model.clear_selected_elements()
+        self.roi_model.clear_selected_elements()
 
     def load_roi_element_list_from_selected(self):
-        for r in self.setting_model.element_list_roi:
+        for r in self.roi_model.element_list_roi:
             self.plot_model.roi_dict[r].show_plot = False
         self.plot_model.plot_roi_bound()
         selected_element_list = self.param_model.EC.get_element_list()
         selected_element_list = [_ for _ in selected_element_list
                                  if self.param_model.get_eline_name_category(_) == "eline"]
-        self.setting_model.select_elements_from_list(selected_element_list)
+        self.roi_model.select_elements_from_list(selected_element_list)
 
     def get_roi_subtract_background(self):
-        return self.setting_model.subtract_background
+        return self.roi_model.subtract_background
 
     def set_roi_subtract_background(self, subtract_background):
-        self.setting_model.subtract_background = bool(subtract_background)
+        self.roi_model.subtract_background = bool(subtract_background)
 
     def compute_rois(self):
-        if len(self.setting_model.element_for_roi) == 0:
+        if len(self.roi_model.element_for_roi) == 0:
             raise RuntimeError("No elements are selected for ROI computation. Select at least one element.")
-        roi_result = self.setting_model.get_roi_sum()
+        roi_result = self.roi_model.get_roi_sum()
 
         self.io_model.update_img_dict(roi_result)
 
     def show_roi(self, eline, show_status):
-        self.plot_model.roi_dict = self.setting_model.roi_dict
+        self.plot_model.roi_dict = self.roi_model.roi_dict
         if show_status:
             # self.plot_model.plot_exp_opt = True
             self.plot_model.roi_dict[eline].show_plot = True
@@ -1601,26 +1601,26 @@ class GlobalProcessingClasses:
             self.plot_model.plot_roi_bound()
 
     def change_roi(self, eline, low, high):
-        # Convert keV to eV (current implementation of SettingModel is using eV.
-        self.setting_model.roi_dict[eline].left_val = int(low * 1000)
-        self.setting_model.roi_dict[eline].right_val = int(high * 1000)
+        # Convert keV to eV (current implementation of ROIModel is using eV.
+        self.roi_model.roi_dict[eline].left_val = int(low * 1000)
+        self.roi_model.roi_dict[eline].right_val = int(high * 1000)
         self.plot_model.plot_roi_bound()
 
     def get_roi_settings(self):
         roi_settings = []
 
-        eline_list = list(self.setting_model.element_list_roi)
+        eline_list = list(self.roi_model.element_list_roi)
 
         for eline in eline_list:
-            # We display values in keV, but current implementation of SettingModel
+            # We display values in keV, but current implementation of ROIModel
             #   is using eV.
-            energy_center = self.setting_model.roi_dict[eline].line_val / 1000.0
-            energy_left = self.setting_model.roi_dict[eline].left_val / 1000.0
-            energy_right = self.setting_model.roi_dict[eline].right_val / 1000.0
-            range_displayed = self.setting_model.roi_dict[eline].show_plot
+            energy_center = self.roi_model.roi_dict[eline].line_val / 1000.0
+            energy_left = self.roi_model.roi_dict[eline].left_val / 1000.0
+            energy_right = self.roi_model.roi_dict[eline].right_val / 1000.0
+            range_displayed = self.roi_model.roi_dict[eline].show_plot
 
-            energy_left_default = self.setting_model.roi_dict[eline].default_left / 1000.0
-            energy_right_default = self.setting_model.roi_dict[eline].default_right / 1000.0
+            energy_left_default = self.roi_model.roi_dict[eline].default_left / 1000.0
+            energy_right_default = self.roi_model.roi_dict[eline].default_right / 1000.0
 
             roi_settings.append({"eline": eline,
                                  "energy_center": energy_center,

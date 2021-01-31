@@ -19,7 +19,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class ROIModel(Atom):
+class ROISettings(Atom):
     """
     This class defines basic data structure for roi calculation.
 
@@ -62,7 +62,7 @@ class ROIModel(Atom):
         logger.debug('show plot is changed {}'.format(change))
 
 
-class SettingModel(Atom):
+class ROIModel(Atom):
     """
     Control roi calculation according to given inputs.
 
@@ -77,7 +77,7 @@ class SettingModel(Atom):
     element_list_roi : list
         list of elements after parsing
     roi_dict : dict
-        dict of ROIModel object
+        dict of ROISettings object
     enable_roi_computation : Bool
         enables/disables GUI element that start ROI computation
         At least one element must be selected and all entry in the element
@@ -270,14 +270,14 @@ class SettingModel(Atom):
 
             delta_v = int(self.get_sigma(val/1000)*1000)
 
-            roi = ROIModel(prefix=self.suffix_name_roi,
-                           line_val=val,
-                           left_val=val-delta_v*std_ratio,
-                           right_val=val+delta_v*std_ratio,
-                           default_left=val-delta_v*std_ratio,
-                           default_right=val+delta_v*std_ratio,
-                           step=1,
-                           show_plot=False)
+            roi = ROISettings(prefix=self.suffix_name_roi,
+                              line_val=val,
+                              left_val=val-delta_v*std_ratio,
+                              right_val=val+delta_v*std_ratio,
+                              default_left=val-delta_v*std_ratio,
+                              default_right=val+delta_v*std_ratio,
+                              step=1,
+                              show_plot=False)
 
             self.roi_dict.update({v: roi})
 
