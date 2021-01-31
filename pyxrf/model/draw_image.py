@@ -175,7 +175,6 @@ class DrawImageAdvanced(Atom):
             self.x_pos = []
             self.y_pos = []
 
-        self.get_default_items()   # use previous defined elements as default
         logger.info('Use previously selected items as default: {}'.format(self.items_previous_selected))
 
         # initiate the plotting status once new data is coming
@@ -231,17 +230,6 @@ class DrawImageAdvanced(Atom):
         # init of scaler for normalization
         self.set_scaler_index(0)
         self.plot_deselect_all()
-
-    def get_default_items(self):
-        """Add previous selected items as default.
-        """
-        if len(self.items_previous_selected) != 0:
-            default_items = {}
-            for item in self.items_previous_selected:
-                for v, k in self.img_dict.items():
-                    if item in k:
-                        default_items[item] = k[item]
-            self.img_dict['use_default_selection'] = default_items
 
     def get_detector_channel_name(self, img_title=None):
         # Return the name of the selected detector channel ('sum', 'det1', 'det2' etc)
@@ -310,9 +298,6 @@ class DrawImageAdvanced(Atom):
                 # Select the first item from the dataset (looks much better than empty plot)
                 if self.map_keys:
                     self.stat_dict[self.map_keys[0]] = True
-
-                # TODO: understand when the following statement is actually doing. It may be wrong.
-                self.get_default_items()  # get default elements every time when fitting is done
 
                 logger.info(f"Dataset '{plot_item}' is selected.")
 

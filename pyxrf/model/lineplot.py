@@ -195,7 +195,7 @@ class LinePlotModel(Atom):
     # element_list_roi = List()
     # roi_dict = Typed(object) #OrderedDict()
 
-    img_dict = Dict()
+    # img_dict = Dict()
     # roi_result = Dict()
 
     # Reference to ParamModel object
@@ -259,19 +259,6 @@ class LinePlotModel(Atom):
         self._fig_maps = Figure()
         self.map_type_preview = MapTypes.LINEAR
         self.map_axes_units_preview = MapAxesUnits.PIXELS
-
-    def img_dict_update(self, change):
-        """
-        Observer function to be connected to the fileio model
-        in the top-level gui.py startup
-
-        Parameters
-        ----------
-        changed : dict
-            This is the dictionary that gets passed to a function
-            with the @observe decorator
-        """
-        self.img_dict = change['value']
 
     def _color_config(self):
         self.plot_style = {
@@ -1626,8 +1613,8 @@ class LinePlotModel(Atom):
         # While the data from the completed part of experiment may still be used,
         # plotting vs. x-y or scatter plot may not be displayed.
         positions_data_available = False
-        if 'positions' in self.img_dict.keys():
-            data_for_plotting["positions"] = self.img_dict["positions"]
+        if 'positions' in self.io_model.img_dict.keys():
+            data_for_plotting["positions"] = self.io_model.img_dict["positions"]
             positions_data_available = True
 
         # Create local copies of self.pixel_or_pos, self.scatter_show and self.grid_interpolate
@@ -1803,8 +1790,8 @@ class LinePlotModel(Atom):
                                         clim=(low_limit, high_limit))
                     grid[i].set_ylim(yd_axis_max, yd_axis_min)
                 else:
-                    xx = self.img_dict['positions']['x_pos']
-                    yy = self.img_dict['positions']['y_pos']
+                    xx = self.io_model.img_dict['positions']['x_pos']
+                    yy = self.io_model.img_dict['positions']['y_pos']
 
                     # The following condition prevents crash if different file is loaded while
                     #    the scatter plot is open (PyXRF specific issue)
@@ -1853,8 +1840,8 @@ class LinePlotModel(Atom):
 
                     grid[i].set_ylim(yd_axis_max, yd_axis_min)
                 else:
-                    im = grid[i].scatter(self.img_dict['positions']['x_pos'],
-                                         self.img_dict['positions']['y_pos'],
+                    im = grid[i].scatter(self.io_model.img_dict['positions']['x_pos'],
+                                         self.io_model.img_dict['positions']['y_pos'],
                                          # norm=LogNorm(vmin=low_lim*maxz,
                                          #              vmax=maxz, clip=True),
                                          norm=LogNorm(vmin=low_limit,
