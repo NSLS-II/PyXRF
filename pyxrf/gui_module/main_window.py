@@ -281,6 +281,12 @@ class MainWindow(QMainWindow):
         # XRF Maps dataset changed
         self.central_widget.right_panel.tab_plot_xrf_maps.signal_maps_dataset_selection_changed.connect(
             self.wnd_image_wizard.slot_update_table)
+
+        self.central_widget.right_panel.tab_plot_xrf_maps.signal_maps_dataset_selection_changed.connect(
+            self.central_widget.right_panel.tab_plot_rgb_maps.combo_select_dataset_update_current_index)
+        self.central_widget.right_panel.tab_plot_rgb_maps.signal_rgb_maps_dataset_selection_changed.connect(
+            self.central_widget.right_panel.tab_plot_xrf_maps.combo_select_dataset_update_current_index)
+
         self.central_widget.right_panel.tab_plot_xrf_maps.signal_maps_norm_changed.connect(
             self.wnd_image_wizard.slot_update_ranges)
 

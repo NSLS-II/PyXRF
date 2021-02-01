@@ -564,11 +564,13 @@ class GlobalProcessingClasses:
     def get_maps_selected_dataset(self):
         """Returns selected dataset (XRF Maps tab). Index: 0 - no dataset is selected,
         1, 2, ... datasets with index 0, 1, ... is selected"""
-        return int(self.img_model_adv.data_opt)
+        # return int(self.img_model_adv.data_opt)
+        return int(self.io_model.img_dict_default_selected_item)
 
     def set_maps_selected_dataset(self, dataset_index):
         """Select dataset (XRF Maps tab)"""
-        self.img_model_adv.select_dataset(dataset_index)
+        # self.img_model_adv.select_dataset(dataset_index)
+        self.io_model.select_img_dict_item(dataset_index)
 
     def get_maps_scaler_index(self):
         return self.img_model_adv.scaler_name_index
@@ -738,11 +740,13 @@ class GlobalProcessingClasses:
     def get_rgb_maps_selected_dataset(self):
         """Returns selected dataset (XRF Maps tab). Index: 0 - no dataset is selected,
         1, 2, ... datasets with index 0, 1, ... is selected"""
-        return int(self.img_model_rgb.data_opt)
+        # return int(self.img_model_rgb.data_opt)
+        return int(self.io_model.img_dict_default_selected_item)
 
     def set_rgb_maps_selected_dataset(self, dataset_index):
         """Select dataset (XRF Maps tab)"""
-        self.img_model_rgb.select_dataset(dataset_index)
+        # self.img_model_rgb.select_dataset(dataset_index)
+        self.io_model.select_img_dict_item(dataset_index)
 
     def get_rgb_maps_scaler_index(self):
         return self.img_model_rgb.scaler_name_index

@@ -73,7 +73,7 @@ class FileIOModel(Atom):
 
     img_dict = Dict()
     img_dict_keys = List()
-    img_dict_selected_item = Int()
+    img_dict_default_selected_item = Int()
     img_dict_is_updated = Bool(False)
 
     runid = Int(-1)  # Run ID of the current run
@@ -266,7 +266,7 @@ class FileIOModel(Atom):
 
         self.img_dict = {}
         self.img_dict_keys = []
-        self.img_dict_selected_item = 0
+        self.img_dict_default_selected_item = 0
 
         self.data_sets = OrderedDict()
         self.scan_metadata = ScanMetadataXRF()
@@ -350,10 +350,28 @@ class FileIOModel(Atom):
         else:
             selected_item = self.img_dict_keys.index(selected_key) + 1
 
-        self.img_dict_selected_item = selected_item
+        self.select_img_dict_item(selected_item, always_update=True)
 
-        self.img_dict_is_updated = False
-        self.img_dict_is_updated = True
+    def select_img_dict_item(self, selected_item, *, always_update=False):
+        """
+        Select the set of image maps.
+
+        Parameters
+        ----------
+        selected_item : int
+            Selected item (set of maps) in the `self.img_dict`. Range: `0..len(self.img_dict)`.
+            0 - no dataset is selected.
+        always_update : boolean
+            True - update even if the item is already selected.
+        """
+        # Select no dataset if index is out of range
+        selected_item = selected_item if (0 <= selected_item <= len(self.img_dict)) else 0
+
+        # Don't update the plots if the item is already selected
+        if always_update or (selected_item != self.img_dict_default_selected_item):
+            self.img_dict_default_selected_item = selected_item
+            self.img_dict_is_updated = False
+            self.img_dict_is_updated = True
 
     def _get_img_dict_keys(self):
         key_suffix = [r"scaler$", r"det\d+_roi$", r"roi$", r"det\d+_fit$", r"fit$"]

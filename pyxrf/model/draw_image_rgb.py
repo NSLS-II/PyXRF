@@ -137,7 +137,7 @@ class DrawImageRGB(Atom):
             True - 'io_model.img_dict` was updated, False - ignore
         """
         if change['value']:
-            self.select_dataset(self.io_model.img_dict_selected_item)
+            self.select_dataset(self.io_model.img_dict_default_selected_item)
             self.init_plot_status()
 
     def init_plot_status(self):
@@ -159,11 +159,6 @@ class DrawImageRGB(Atom):
 
         logger.debug('The following groups are included for RGB image display: {}'.
                      format(self.io_model.img_dict_keys))
-
-        if self.io_model.img_dict_keys:
-            self.select_dataset(1)
-        else:
-            self.select_dataset(0)
 
         self.show_image()
 

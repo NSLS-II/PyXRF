@@ -139,7 +139,7 @@ class DrawImageAdvanced(Atom):
             True - 'io_model.img_dict` was updated, False - ignore
         """
         if change['value']:
-            self.select_dataset(self.io_model.img_dict_selected_item)
+            self.select_dataset(self.io_model.img_dict_default_selected_item)
             self.init_plot_status()
 
     def init_plot_status(self):
@@ -177,11 +177,6 @@ class DrawImageAdvanced(Atom):
         logger.info('Use previously selected items as default: {}'.format(self.items_previous_selected))
         logger.debug('The following groups are included for 2D image display: {}'.
                      format(self.io_model.img_dict_keys))
-
-        if len(self.io_model.img_dict_keys) > 0:
-            self.select_dataset(1)
-        else:
-            self.select_dataset(0)
 
         self.show_image()
 
