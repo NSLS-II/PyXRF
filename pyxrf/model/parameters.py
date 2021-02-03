@@ -274,6 +274,8 @@ class ParamModel(Atom):
     n_selected_elines_for_fitting = Int(0)
     n_selected_pure_elines_for_fitting = Int(0)
 
+    parameters_changed_cb = List()
+
     def __init__(self, *, default_parameters, io_model):
         try:
             self.io_model = io_model
@@ -290,6 +292,26 @@ class ParamModel(Atom):
         #     in 'Automatic Element Finding' dialog box
         self.energy_bound_high_buf = self.param_new['non_fitting_values']['energy_bound_high']['value']
         self.energy_bound_low_buf = self.param_new['non_fitting_values']['energy_bound_low']['value']
+
+    def add_parameters_changed_cb(self, cb):
+        """
+        Add callback to the list of callback function that are called after parameters are updated.
+        """
+        self.parameters_changed_cb.append(cb)
+
+    def remove_parameters_changed_cb(self, cb):
+        """
+        Remove reference from the list of callback functions.
+        """
+        self.parameters_changed_cb = [_ for _ in self.parameters_changed_cb if _ != cb]
+
+    def parameters_changed(self):
+        """
+        Run callback functions in the list. This method is expected to be called after the parameters
+        are update to initiate necessary updates in the GUI.
+        """
+        for cb in self.parameters_changed_cb:
+            cb()
 
     def default_param_update(self, default_parameters):
         """

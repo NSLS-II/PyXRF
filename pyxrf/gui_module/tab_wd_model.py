@@ -129,8 +129,11 @@ class ModelWidget(FormBaseWidget):
         self.pb_fit_param_general = QPushButton("General ...")
         self.pb_fit_param_general.clicked.connect(self.pb_fit_param_general_clicked)
 
-        self.pb_fit_param_detailed = QPushButton("Detailed ...")
-        self.pb_fit_param_detailed.clicked.connect(self.pb_fit_param_detailed_clicked)
+        self.pb_fit_param_shared = QPushButton("Shared ...")
+        self.pb_fit_param_shared.clicked.connect(self.pb_fit_param_shared_clicked)
+
+        self.pb_fit_param_lines = QPushButton("Lines ...")
+        self.pb_fit_param_lines.clicked.connect(self.pb_fit_param_lines_clicked)
 
         fit_strategy_list = self.gpc.get_fit_strategy_list()
         combo_items = [fitting_preset_names[_] for _ in fit_strategy_list]
@@ -146,7 +149,8 @@ class ModelWidget(FormBaseWidget):
         vbox = QVBoxLayout()
         hbox = QHBoxLayout()
         hbox.addWidget(self.pb_fit_param_general)
-        hbox.addWidget(self.pb_fit_param_detailed)
+        hbox.addWidget(self.pb_fit_param_shared)
+        hbox.addWidget(self.pb_fit_param_lines)
         vbox.addLayout(hbox)
 
         hbox = QHBoxLayout()
@@ -216,7 +220,11 @@ class ModelWidget(FormBaseWidget):
 
         set_tooltip(self.pb_fit_param_general, "<b>General settings</b> for fitting algorithms.")
         set_tooltip(
-            self.pb_fit_param_detailed,
+            self.pb_fit_param_shared,
+            "Access to low-level control of the total spectrum fitting algorithm: parameters shared "
+            "by models of all emission lines.")
+        set_tooltip(
+            self.pb_fit_param_lines,
             "Access to low-level control of the total spectrum fitting algorithm: adjust parameters "
             "for each emission line of the selected elements; modify preset fitting configurations.")
         set_tooltip(self.cb_step1, "Select preset fitting configuration for <b>Step 1</b>. "
@@ -496,7 +504,7 @@ class ModelWidget(FormBaseWidget):
         self._set_fit_status(False)
         self.signal_incident_energy_or_range_changed.emit()
 
-    def pb_fit_param_detailed_clicked(self):
+    def pb_fit_param_shared_clicked(self):
         dialog_data = self.gpc.get_detailed_fitting_params()
         dlg = DialogDetailedFittingParameters(dialog_data=dialog_data)
         dlg.select_eline(self._selected_eline)
@@ -517,11 +525,49 @@ class ModelWidget(FormBaseWidget):
                     success, msg = False, str(ex)
                 return {"success": success, "msg": msg}
 
-            self._compute_in_background(cb, self.slot_fit_param_detailed_clicked,
+            self._compute_in_background(cb, self.slot_fit_param_shared_clicked,
                                         dialog_data=dialog_data)
 
     @Slot(object)
-    def slot_fit_param_detailed_clicked(self, result):
+    def slot_fit_param_shared_clicked(self, result):
+        self._recover_after_compute(self.slot_fit_param_detailed_clicked)
+
+        if not result["success"]:
+            msg = result["msg"]
+            msgbox = QMessageBox(QMessageBox.Critical, "Failed to Apply Fit Parameters",
+                                 msg, QMessageBox.Ok, parent=self)
+            msgbox.exec()
+
+        self._set_fit_status(False)
+        self.signal_incident_energy_or_range_changed.emit()
+
+
+    def pb_fit_param_lines_clicked(self):
+        dialog_data = self.gpc.get_detailed_fitting_params()
+        dlg = DialogDetailedFittingParameters(dialog_data=dialog_data)
+        dlg.select_eline(self._selected_eline)
+        ret = dlg.exec()
+        # This will ensure that the same emission line is selected in the dialog
+        #   box when it is opened next time unless selection is changed between
+        #   the calls.
+        self._selected_eline = dlg.get_selected_eline()
+        if ret:
+            # 'dialog_data' contains references, so there is no need to
+            #   read 'dialog_data' from 'dlg'.
+
+            def cb(dialog_data):
+                try:
+                    self.gpc.set_detailed_fitting_params(dialog_data)
+                    success, msg = True, ""
+                except Exception as ex:
+                    success, msg = False, str(ex)
+                return {"success": success, "msg": msg}
+
+            self._compute_in_background(cb, self.slot_fit_param_lines_clicked,
+                                        dialog_data=dialog_data)
+
+    @Slot(object)
+    def slot_fit_param_lines_clicked(self, result):
         self._recover_after_compute(self.slot_fit_param_detailed_clicked)
 
         if not result["success"]:
