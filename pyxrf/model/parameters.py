@@ -49,7 +49,7 @@ class PreFitStatus(Atom):
     maxv : float
         max value of a spectrum
     norm : float
-        norm value respect to the strongest peak
+        norm value in respect to the strongest peak
     lbd_stat : bool
         define plotting status under a threshold value
     """
@@ -208,9 +208,9 @@ class ElementController(object):
         return remove_list
 
 
-class GuessParamModel(Atom):
+class ParamModel(Atom):
     """
-    This is auto fit model to guess the initial parameters.
+    The module used for maintain the set of fitting parameters.
 
     Attributes
     ----------
@@ -243,10 +243,13 @@ class GuessParamModel(Atom):
         The number of element lines selected for fitting
             excluding pileup peaks and user defined peaks.
             Only 'pure' lines like Ca_K, K_K etc.
-
     """
+
+    # Reference to FileIOModel object
+    io_model = Typed(object)
+
     default_parameters = Dict()
-    data = Typed(np.ndarray)
+    # data = Typed(np.ndarray)
     prefit_x = Typed(object)
     result_dict_names = List()
     param_new = Dict()
@@ -271,11 +274,12 @@ class GuessParamModel(Atom):
     n_selected_elines_for_fitting = Int(0)
     n_selected_pure_elines_for_fitting = Int(0)
 
-    def __init__(self, **kwargs):
+    def __init__(self, *, default_parameters, io_model):
         try:
-            # default parameter is the original parameter, for user to restore
-            self.default_parameters = kwargs['default_parameters']
-            self.param_new = copy.deepcopy(self.default_parameters)
+            self.io_model = io_model
+
+            self.default_parameters = default_parameters
+            self.param_new = copy.deepcopy(default_parameters)
             # TODO: do we set 'element_list' as a list of keys of 'EC.element_dict'
             self.element_list = get_element_list(self.param_new)
         except ValueError:
@@ -287,25 +291,16 @@ class GuessParamModel(Atom):
         self.energy_bound_high_buf = self.param_new['non_fitting_values']['energy_bound_high']['value']
         self.energy_bound_low_buf = self.param_new['non_fitting_values']['energy_bound_low']['value']
 
-    def default_param_update(self, change):
+    def default_param_update(self, default_parameters):
         """
-        Observer function to be connected to the fileio model
-        in the top-level gui.py startup
+        Replace the reference to the dictionary of default parameters.
 
         Parameters
         ----------
-        changed : dict
-            This is the dictionary that gets passed to a function
-            with the @observe decorator
+        default_parameters : dict
+            Reference to complete and valid dictionary of default parameters.
         """
-        self.default_parameters = change['value']
-        self.param_new = copy.deepcopy(self.default_parameters)
-        self.element_list = get_element_list(self.param_new)
-
-        # The following line is part of the fix for automated updating of the energy bound
-        #     in 'Automatic Element Finding' dialog box
-        self.energy_bound_high_buf = self.param_new['non_fitting_values']['energy_bound_high']['value']
-        self.energy_bound_low_buf = self.param_new['non_fitting_values']['energy_bound_low']['value']
+        self.default_parameters = default_parameters
 
     # The following function is part of the fix for automated updating of the energy bound
     #     in 'Automatic Element Finding' dialog box
@@ -319,11 +314,6 @@ class GuessParamModel(Atom):
         self.param_new['non_fitting_values']['energy_bound_low']['value'] = change['value']
         self.define_range()
 
-    def param_from_db_update(self, change):
-        self.default_parameters = change['value']
-        print('update fitting param from db')
-        self.update_new_param(self.default_parameters)
-
     def get_new_param_from_file(self, param_path):
         """
         Update parameters if new param_path is given.
@@ -334,52 +324,24 @@ class GuessParamModel(Atom):
             path to save the file
         """
         with open(param_path, 'r') as json_data:
-            self.default_parameters = json.load(json_data)
-        self.param_new = copy.deepcopy(self.default_parameters)
-        self.element_list = get_element_list(self.param_new)
-        self.EC.delete_all()
-        self.define_range()
-        self.create_spectrum_from_param_dict(self.param_new, self.element_list)
+            self.param_new = json.load(json_data)
+        self.create_spectrum_from_param_dict(reset=True)
         logger.info('Elements read from file are: {}'.format(self.element_list))
 
-    def update_new_param(self, param):
-        self.default_parameters = param
-        self.param_new = copy.deepcopy(self.default_parameters)
-        self.element_list = get_element_list(self.param_new)
-        self.EC.delete_all()
-        self.define_range()
-        self.create_spectrum_from_param_dict(self.param_new, self.element_list)
-
-    def param_changed(self, change):
+    def update_new_param(self, param, reset=True):
         """
-        Observer function in the top-level gui.py startup
+        Update the parameters based on the dictionary of parameters. Set ``reset=False``
+        if selection status of elemental lines should be kept.
 
         Parameters
         ----------
-        changed : dict
-            This is the dictionary that gets passed to a function
-            with the @observe decorator
+        param : dict
+            new dictionary of parameters
+        reset : boolean
+            reset (``True``) or clear (``False``) selection status of the element lines.
         """
-        self.param_new = change['value']
-
-    def exp_data_update(self, change):
-        """
-        Observer function to be connected to the fileio model
-        in the top-level gui.py startup
-
-        Parameters
-        ----------
-        changed : dict
-            This is the dictionary that gets passed to a function
-            with the @observe decorator
-        """
-        self.data = change['value']
-
-        # The idea here is to generate a new set of parameters based on new data (and selected region)
-        # self.element_list = get_element_list(self.param_new)
-        # self.EC.delete_all()
-        # self.define_range()
-        # self.create_spectrum_from_param_dict(self.param_new, self.element_list)
+        self.param_new = param
+        self.create_spectrum_from_param_dict(reset=reset)
 
     @observe('bound_val')
     def _update_bound(self, change):
@@ -390,34 +352,37 @@ class GuessParamModel(Atom):
         """
         Cut x range according to values define in param_dict.
         """
-        if self.data is None:
+        if self.io_model.data is None:
             return
         lowv = self.param_new['non_fitting_values']['energy_bound_low']['value']
         highv = self.param_new['non_fitting_values']['energy_bound_high']['value']
-        self.x0, self.y0 = define_range(self.data, lowv, highv,
+        self.x0, self.y0 = define_range(self.io_model.data, lowv, highv,
                                         self.param_new['e_offset']['value'],
                                         self.param_new['e_linear']['value'])
 
-    def create_spectrum_from_param_dict(self, param_dict, elemental_lines):
+    def create_spectrum_from_param_dict(self, reset=True):
         """
-        Create spectrum profile with given param dict from file.
+        Create spectrum profile with based on the current set of parameters.
+        (``self.param_new`` -> ``self.EC`` and ``self.element_list``).
+        Typical use: update self.param_new, then call this function.
+        Set ``reset=False`` to keep selection status of the elemental lines.
 
         Parameters
         ----------
-        param_dict : dict
-            dict obtained from file
-        elemental_lines : list
-            e.g., ['Na_K', Mg_K', 'Pt_M'] refers to the
-            K lines of Sodium, the K lines of Magnesium, and the M
-            lines of Platinum
+        reset : boolean
+            clear or keep status of the elemental lines (in ``self.EC``).
         """
+        param_dict = self.param_new
+        self.element_list = get_element_list(param_dict)
+
+        self.define_range()
         self.prefit_x, pre_dict, area_dict = calculate_profile(self.x0,
                                                                self.y0,
                                                                param_dict,
-                                                               elemental_lines)
+                                                               self.element_list)
         # add escape peak
         if param_dict['non_fitting_values']['escape_ratio'] > 0:
-            pre_dict['escape'] = trim_escape_peak(self.data,
+            pre_dict['escape'] = trim_escape_peak(self.io_model.data,
                                                   param_dict, len(self.y0))
 
         temp_dict = OrderedDict()
@@ -433,7 +398,7 @@ class GuessParamModel(Atom):
                 ps = PreFitStatus(z=get_Z(e), energy=get_energy(e),
                                   area=float(area), spectrum=spectrum,
                                   maxv=float(np.around(np.max(spectrum), self.max_area_dig)),
-                                  norm=-1, lbd_stat=False)
+                                  norm=-1, status=True, lbd_stat=False)
                 temp_dict[e] = ps
 
             elif '-' in e:  # pileup peaks
@@ -445,7 +410,7 @@ class GuessParamModel(Atom):
                 ps = PreFitStatus(z=get_Z(e), energy=str(energy),
                                   area=area, spectrum=spectrum,
                                   maxv=np.around(np.max(spectrum), self.max_area_dig),
-                                  norm=-1, lbd_stat=False)
+                                  norm=-1, status=True, lbd_stat=False)
                 temp_dict[e] = ps
 
             else:
@@ -475,15 +440,23 @@ class GuessParamModel(Atom):
                     ps = PreFitStatus(z=get_Z(ename), energy=energy,
                                       area=area, spectrum=spectrum,
                                       maxv=np.around(np.max(spectrum), self.max_area_dig),
-                                      norm=-1, lbd_stat=False)
+                                      norm=-1, status=True, lbd_stat=False)
 
                     temp_dict[e] = ps
 
-        element_dict = copy.deepcopy(self.EC.element_dict)
+        # Copy element status
+        if not reset:
+            element_status = {_: self.EC.element_dict[_].status for _ in self.EC.element_dict}
+
+        self.EC.delete_all()
         self.EC.add_to_dict(temp_dict)
-        for key in self.EC.element_dict.keys():
-            if key in element_dict:
-                self.EC.element_dict[key].status = element_dict[key].status
+
+        if not reset:
+            for key in self.EC.element_dict.keys():
+                if key in element_status:
+                    self.EC.element_dict[key].status = element_status[key]
+
+        self.result_dict_names = list(self.EC.element_dict.keys())
 
     def get_selected_eline_energy_fwhm(self, eline):
         """
@@ -752,11 +725,11 @@ class GuessParamModel(Atom):
         # If both peak center (energy) and fwhm is updated, energy needs to be set first,
         #   since it is used in computation of ``fwhm_base``
 
-        sigma = gaussian_fwhm_to_sigma(self.default_parameters["fwhm_offset"]["value"])
+        sigma = gaussian_fwhm_to_sigma(self.param_new["fwhm_offset"]["value"])
 
         sigma_sqr = energy + 5.0  # center
-        sigma_sqr *= self.default_parameters["non_fitting_values"]["epsilon"]  # epsilon
-        sigma_sqr *= self.default_parameters["fwhm_fanoprime"]["value"]  # fanoprime
+        sigma_sqr *= self.param_new["non_fitting_values"]["epsilon"]  # epsilon
+        sigma_sqr *= self.param_new["fwhm_fanoprime"]["value"]  # fanoprime
         sigma_sqr += sigma * sigma  # We have computed the expression under sqrt
 
         sigma_total = np.sqrt(sigma_sqr)
@@ -985,6 +958,19 @@ class GuessParamModel(Atom):
 
         return names_elines + names_userpeaks + names_pileup_peaks + names_other
 
+    def read_param_from_file(self, param_path):
+        """
+        Update parameters if new param_path is given.
+
+        Parameters
+        ----------
+        param_path : str
+            path to save the file
+        """
+        with open(param_path, 'r') as json_data:
+            param = json.load(json_data)
+            self.update_new_param(param, reset=True)
+
     def find_peak(self, *, threshv=0.1, elemental_lines=None):
         """
         Run automatic peak finding, and save results as dict of object.
@@ -1027,8 +1013,8 @@ class GuessParamModel(Atom):
 
     def create_full_param(self):
         """
-        Extend the param to full param dict including each element's
-        information, and assign initial values from pre fit.
+        Update current ``self.param_new`` with elements from ``self.EC`` (delete elements that
+        are not in ``self.EC`` and update the existing elements.
         """
         self.define_range()
         # We set 'self.element_list' from 'EC' (because we want to set elements of 'self.param_new'
@@ -1238,12 +1224,9 @@ def calculate_profile(x, y, param, elemental_lines,
     y : array
         spectrum intensity
     param : dict
-        paramters
+        parameters
     elemental_lines : list
         such as Si_K, Pt_M
-    required_length : optional, int
-        the length of the array might change due to trim process, so
-        predifine the length to a given value.
     default_area : float
         default value for the gaussian area of each element
 
@@ -1319,7 +1302,7 @@ def trim_escape_peak(data, param_dict, y_size):
 def create_full_dict(param, name_list,
                      fixed_list=['adjust_element2', 'adjust_element3']):
     """
-    Create full param dict so each item has same nested dict.
+    Create full param dict so each item has the same nested dict.
     This is for GUI purpose only.
 
     Pamameters
@@ -1339,7 +1322,6 @@ def create_full_dict(param, name_list,
             if k == 'non_fitting_values':
                 continue
             if n not in v:
-
                 # enforce newly created parameter to be fixed
                 # for strategy in fixed_list
                 if n in fixed_list:

@@ -5,7 +5,7 @@ import copy
 import math
 from ..model.fileio import FileIOModel
 from ..model.lineplot import LinePlotModel
-from ..model.guessparam import GuessParamModel, save_as, fit_strategy_list, bound_options
+from ..model.parameters import ParamModel, save_as, fit_strategy_list, bound_options
 from ..model.draw_image import DrawImageAdvanced
 from ..model.draw_image_rgb import DrawImageRGB
 from ..model.fit_spectrum import Fit1D, get_cs
@@ -31,28 +31,23 @@ class GlobalProcessingClasses:
         self.img_model_rgb = None
 
     def _get_defaults(self):
-
         # Set working directory to current working directory (if PyXRF is started from shell)
         working_directory = os.getcwd()
         logger.info(f"Starting PyXRF in the current working directory '{working_directory}'")
-
         default_parameters = param_data
-        defaults = {'working_directory': working_directory,
-                    'default_parameters': default_parameters}
-        return defaults
+        return working_directory, default_parameters
 
     def initialize(self):
         """
         Run the sequence of actions needed to initialize PyXRF modules.
-
         """
-
-        defaults = self._get_defaults()
-        self.io_model = FileIOModel(**defaults)
-        self.param_model = GuessParamModel(**defaults)
-        self.plot_model = LinePlotModel(param_model=self.param_model)
-        self.fit_model = Fit1D(param_model=self.param_model, io_model=self.io_model, **defaults)
-        self.setting_model = SettingModel(**defaults)
+        working_directory, default_parameters = self._get_defaults()
+        self.io_model = FileIOModel(working_directory=working_directory)
+        self.param_model = ParamModel(default_parameters=default_parameters, io_model=self.io_model)
+        self.plot_model = LinePlotModel(param_model=self.param_model, io_model=self.io_model)
+        self.fit_model = Fit1D(param_model=self.param_model, io_model=self.io_model,
+                               working_directory=working_directory)
+        self.setting_model = SettingModel(param_model=self.param_model, io_model=self.io_model)
         self.img_model_adv = DrawImageAdvanced()
         self.img_model_rgb = DrawImageRGB(img_model_adv=self.img_model_adv)
 
@@ -72,15 +67,8 @@ class GlobalProcessingClasses:
         self.io_model.observe('file_name', self.setting_model.filename_update)
         self.io_model.observe('runid', self.fit_model.runid_update)
 
-        # send exp data to different models
+        # Perform updates when 'io_model.data' is changed (no data is passed)
         self.io_model.observe('data', self.plot_model.exp_data_update)
-        self.io_model.observe('data', self.param_model.exp_data_update)
-        self.io_model.observe('data', self.fit_model.exp_data_update)
-        self.io_model.observe('data_all', self.fit_model.exp_data_all_update)
-        self.io_model.observe('data_sets', self.fit_model.data_sets_update)
-
-        # send fitting param of summed spectrum to param_model
-        self.io_model.observe('param_fit', self.param_model.param_from_db_update)
 
         # send img dict to img_model for visualization
         self.io_model.observe('img_dict', self.setting_model.img_dict_update)
@@ -97,8 +85,6 @@ class GlobalProcessingClasses:
         self.img_model_adv.observe('dict_to_plot', self.fit_model.dict_to_plot_update)
         self.img_model_adv.observe('img_title', self.fit_model.img_title_update)
 
-        self.param_model.observe('energy_bound_high_buf', self.fit_model.energy_bound_high_update)
-        self.param_model.observe('energy_bound_low_buf', self.fit_model.energy_bound_low_update)
         self.param_model.observe('energy_bound_high_buf', self.plot_model.energy_bound_high_update)
         self.param_model.observe('energy_bound_low_buf', self.plot_model.energy_bound_low_update)
 
@@ -123,11 +109,6 @@ class GlobalProcessingClasses:
         self.io_model.working_directory = f_dir
 
         def _update_data():
-            self.plot_model.parameters = self.param_model.param_new
-            self.plot_model.data_sets = self.io_model.data_sets
-            self.setting_model.parameters = self.param_model.param_new
-            self.setting_model.data_sets = self.io_model.data_sets
-            self.fit_model.data_sets = self.io_model.data_sets
             self.fit_model.fit_img = {}  # clear dict in fitmodel to rm old results
             # This will draw empty (hidden) preview plot, since no channels are selected.
             self.plot_model.update_preview_spectrum_plot()
@@ -207,11 +188,6 @@ class GlobalProcessingClasses:
         self.io_model.data_ready = False
 
         def _update_data():
-            self.plot_model.parameters = self.param_model.param_new
-            self.plot_model.data_sets = self.io_model.data_sets
-            self.setting_model.parameters = self.param_model.param_new
-            self.setting_model.data_sets = self.io_model.data_sets
-            self.fit_model.data_sets = self.io_model.data_sets
             self.fit_model.fit_img = {}  # clear dict in fitmodel to rm old results
             # This will draw empty (hidden) preview plot, since no channels are selected.
             self.plot_model.update_preview_spectrum_plot()
@@ -269,7 +245,6 @@ class GlobalProcessingClasses:
         """
         self.io_model.data_sets[dset_name].selected_for_preview = True if is_visible else False
         self.io_model.update_data_set_buffers()
-        self.plot_model.data_sets = self.io_model.data_sets
         self.plot_model.update_preview_spectrum_plot()
         self.plot_model.update_total_count_map_preview()
 
@@ -433,7 +408,6 @@ class GlobalProcessingClasses:
 
     def apply_mask_to_datasets(self):
         self.io_model.apply_mask_to_datasets()
-        self.plot_model.data_sets = self.io_model.data_sets
         self.plot_model.update_preview_spectrum_plot()
 
     # ==========================================================================
@@ -940,14 +914,12 @@ class GlobalProcessingClasses:
         self.param_model.energy_bound_high_buf = dialog_params["energy_bound_high"]["value"]
         self.param_model.energy_bound_low_buf = dialog_params["energy_bound_low"]["value"]
 
-        # Also change incident energy in all dictionaries
-        dest_dict_list = (self.param_model.param_new, self.fit_model.param_dict)
-        for dest_dict in dest_dict_list:
-            dest_dict["coherent_sct_energy"]["value"] = dialog_params["coherent_sct_energy"]["value"]
-            dest_dict["non_fitting_values"]["energy_bound_low"]["value"] = \
-                dialog_params["energy_bound_low"]["value"]
-            dest_dict["non_fitting_values"]["energy_bound_high"]["value"] = \
-                dialog_params["energy_bound_high"]["value"]
+        # Also change incident energy
+        self.param_model.param_new["coherent_sct_energy"]["value"] = dialog_params["coherent_sct_energy"]["value"]
+        self.param_model.param_new["non_fitting_values"]["energy_bound_low"]["value"] = \
+            dialog_params["energy_bound_low"]["value"]
+        self.param_model.param_new["non_fitting_values"]["energy_bound_high"]["value"] = \
+            dialog_params["energy_bound_high"]["value"]
 
         return return_value
 
@@ -1060,9 +1032,7 @@ class GlobalProcessingClasses:
         for key, val in param_dict.items():
             self.param_model.param_new[key] = val
 
-        element_list = self.param_model.element_list.copy()
-        self.param_model.create_spectrum_from_param_dict(self.param_model.param_new,
-                                                         element_list)
+        self.param_model.create_spectrum_from_param_dict(reset=False)
         self.apply_to_fit()
 
     def get_quant_standard_list(self):
@@ -1107,11 +1077,9 @@ class GlobalProcessingClasses:
 
         # update parameter for fit
         self.param_model.create_full_param()  # Not sure it is necessary
-        self.fit_model.update_default_param(self.param_model.param_new)
         self.fit_model.apply_default_param()
 
         # update experimental plots in case the coefficients change
-        self.plot_model.parameters = self.param_model.param_new
         self.plot_model.plot_experiment()
 
         self.plot_model.plot_fit(self.param_model.prefit_x,
@@ -1131,7 +1099,7 @@ class GlobalProcessingClasses:
     def load_parameters_from_file(self, parameter_file_path, incident_energy_from_param_file=None):
 
         try:
-            self.fit_model.read_param_from_file(parameter_file_path)
+            self.param_model.read_param_from_file(parameter_file_path)
         except Exception as ex:
             msg = f"Error occurred while reading parameter file: {ex}"
             logger.error(msg)
@@ -1142,7 +1110,7 @@ class GlobalProcessingClasses:
             overwrite_metadata_incident_energy = False
 
             # Incident energy from the parameter file
-            param_incident_energy = self.fit_model.default_parameters['coherent_sct_energy']['value']
+            param_incident_energy = self.param_model.param_new['coherent_sct_energy']['value']
 
             if self.io_model.incident_energy_available:
 
@@ -1179,29 +1147,16 @@ class GlobalProcessingClasses:
                 logger.info(f"Using incident energy from the datafile metadata: "
                             f"{mdata_incident_energy} keV")
                 incident_energy = round(mdata_incident_energy, 6)
-                self.fit_model.default_parameters["coherent_sct_energy"]["value"] = incident_energy
-                self.fit_model.default_parameters["non_fitting_values"]["energy_bound_high"]["value"] = \
+                self.param_model.param_new["coherent_sct_energy"]["value"] = incident_energy
+                self.param_model.param_new["non_fitting_values"]["energy_bound_high"]["value"] = \
                     incident_energy + 0.8
 
             self.fit_model.apply_default_param()
 
             # update experimental plots
-            self.plot_model.parameters = self.fit_model.default_parameters
             self.plot_model.plot_experiment()
             self.plot_model.plot_exp_opt = False
             self.plot_model.plot_exp_opt = True
-
-            # update autofit param
-            self.param_model.update_new_param(self.fit_model.default_parameters)
-            # param_model.get_new_param_from_file(parameter_file_path)
-
-            self.param_model.EC.order()
-            self.param_model.update_name_list()
-            self.param_model.EC.turn_on_all()
-            self.param_model.data_for_plot()
-
-            # update params for roi sum
-            self.setting_model.update_parameter(self.fit_model.default_parameters)
 
             # calculate profile and plot
             self.fit_model.get_profile()
@@ -1220,15 +1175,11 @@ class GlobalProcessingClasses:
             # The following statement is necessary mostly to set the correct value of
             #   the upper boundary of the energy range used for emission line search.
             self.plot_model.change_incident_energy(
-                self.fit_model.default_parameters["coherent_sct_energy"]["value"])
+                self.param_model.param_new["coherent_sct_energy"]["value"])
 
             # update parameter for fit
             # self.param_model.create_full_param()
-            self.fit_model.update_default_param(self.param_model.param_new)
             self.fit_model.apply_default_param()
-
-            # update params for roi sum
-            self.setting_model.update_parameter(self.fit_model.param_dict)
 
             # Update displayed intensity of the selected peak
             self.plot_model.compute_manual_peak_intensity()
@@ -1307,7 +1258,7 @@ class GlobalProcessingClasses:
             energy = self.param_model.EC.element_dict[eline].energy
             peak_int = self.param_model.EC.element_dict[eline].maxv
             rel_int = self.param_model.EC.element_dict[eline].norm
-            cs = get_cs(eline, self.fit_model.param_dict['coherent_sct_energy']['value'])
+            cs = get_cs(eline, self.param_model.param_new['coherent_sct_energy']['value'])
             row_data = {"eline": eline, "sel_status": sel_status, "z": z,
                         "energy": energy, "peak_int": peak_int, "rel_int": rel_int, "cs": cs}
             eline_table.append(row_data)
@@ -1518,7 +1469,6 @@ class GlobalProcessingClasses:
         self.param_model.data_for_plot()
 
         # update experimental plots in case the coefficients change
-        self.plot_model.parameters = self.param_model.param_new
         self.plot_model.plot_experiment()
 
         self.plot_model.plot_fit(self.param_model.prefit_x,
@@ -1537,46 +1487,10 @@ class GlobalProcessingClasses:
 
         # update parameter for fit
         self.param_model.create_full_param()  # Not sure this is needed
-        self.fit_model.update_default_param(self.param_model.param_new)
         self.fit_model.apply_default_param()
-
-        # update params for roi sum
-        self.setting_model.update_parameter(self.fit_model.param_dict)
 
         # Update displayed intensity of the selected peak
         self.plot_model.compute_manual_peak_intensity()
-
-    '''
-    def calculate_spectrum_helper(self):
-        """
-        Calculate spectrum, and update plotting and param_model.
-        Note: this is an original function from 'fit.enaml' file.
-        """
-        if self.fit_model.x0 is None or self.fit_model.y0 is None:
-            return
-
-        self.fit_model.get_profile()
-
-        # update experimental plot with new calibration values
-        self.plot_model.parameters = self.fit_model.param_dict
-        self.plot_model.plot_experiment()
-
-        self.plot_model.plot_fit(self.fit_model.cal_x, self.fit_model.cal_y,
-                                 self.fit_model.cal_spectrum,
-                                 self.fit_model.residual)
-
-        # For plotting purposes, otherwise plot will not update
-        self.plot_model.show_fit_opt = False
-        self.plot_model.show_fit_opt = True
-
-        # update autofit param
-        self.param_model.update_new_param(self.fit_model.param_dict)
-        self.param_model.update_name_list()
-        self.param_model.EC.turn_on_all()
-
-        # update params for roi sum
-        self.setting_model.update_parameter(self.fit_model.param_dict)
-    '''
 
     def total_spectrum_fitting(self):
 
@@ -1589,7 +1503,6 @@ class GlobalProcessingClasses:
         self.fit_model.get_profile()
 
         # update experimental plot with new calibration values
-        self.plot_model.parameters = self.fit_model.param_dict
         self.plot_model.plot_experiment()
 
         self.plot_model.plot_fit(self.fit_model.cal_x, self.fit_model.cal_y,
@@ -1603,19 +1516,16 @@ class GlobalProcessingClasses:
         self.plot_model.show_fit_opt = True
 
         # update autofit param
-        self.param_model.update_new_param(self.fit_model.param_dict)
+        self.param_model.update_new_param(self.param_model.param_new)
         # param_model.get_new_param_from_file(parameter_file_path)
         self.param_model.update_name_list()
         self.param_model.EC.turn_on_all()
-
-        # update params for roi sum
-        self.setting_model.update_parameter(self.fit_model.param_dict)
 
         # Update displayed intensity of the selected peak
         self.plot_model.compute_manual_peak_intensity()
 
     def save_param_to_file(self, path):
-        save_as(path, self.fit_model.param_dict)
+        save_as(path, self.param_model.param_new)
 
     def save_spectrum(self, dir, save_fit):
         self.fit_model.result_folder = dir

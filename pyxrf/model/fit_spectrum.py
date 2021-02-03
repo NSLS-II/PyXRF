@@ -6,13 +6,12 @@ import copy
 import os
 import re
 import math
-from collections import OrderedDict, deque
+from collections import OrderedDict
 import multiprocessing
 import multiprocessing.pool
 import h5py
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-import json
 import lmfit
 import platform
 from distutils.version import LooseVersion
@@ -28,10 +27,8 @@ from skbeam.core.fitting.xrf_model import (ModelSpectrum, update_parameter_dict,
                                            # linear_spectrum_fitting,
                                            register_strategy, TRANSITIONS_LOOKUP)
 from skbeam.fluorescence import XrfElement as Element
-from .guessparam import (calculate_profile, fit_strategy_list,
-                         trim_escape_peak, define_range, get_energy,
-                         get_Z, PreFitStatus, ElementController,
-                         update_param_from_element)
+from .parameters import (calculate_profile, fit_strategy_list,
+                         trim_escape_peak, define_range)
 from .fileio import save_fitdata_to_hdf, output_data
 
 from ..core.fitting import rfactor
@@ -66,16 +63,10 @@ class Fit1D(Atom):
         name of hdf file
     """
     file_status = Str()
-    default_parameters = Dict()
-    param_dict = Dict()
 
     img_dict = Dict()
-    data_sets = Typed(OrderedDict)
 
     element_list = List()
-    data_sets = Dict()
-    data_all = Typed(object)
-    data = Typed(np.ndarray)
     fit_x = Typed(np.ndarray)
     fit_y = Typed(np.ndarray)
     residual = Typed(np.ndarray)
@@ -133,8 +124,6 @@ class Fit1D(Atom):
     point2v = Int(0)
     point2h = Int(0)
 
-    EC = Typed(object)
-    result_dict_names = List()
     e_name = Str()
     add_element_intensity = Float(100.0)
     pileup_data = Dict()
@@ -148,7 +137,6 @@ class Fit1D(Atom):
     pixel_fit_info = Str()
 
     pixel_fit_method = Int(0)
-    param_q = Typed(object)
 
     result_map = Dict()
     map_interpolation = Bool(False)
@@ -159,8 +147,10 @@ class Fit1D(Atom):
     scaler_keys = List()
     scaler_index = Int(0)
 
-    # Reference to GuessParamModel object
+    # Reference to ParamModel object
     param_model = Typed(object)
+    # Reference to FileIOModel object
+    io_model = Typed(object)
 
     # Reference to FileIOMOdel
     io_model = Typed(object)
@@ -183,21 +173,17 @@ class Fit1D(Atom):
     # *** The fields are not guaranteed to have valid values at any other time. ***
     qe_standard_distance_to_sample = Float(0.0)
 
-    def __init__(self, param_model, io_model, *args, **kwargs):
-        self.working_directory = kwargs['working_directory']
-        self.result_folder = kwargs['working_directory']
-        self.default_parameters = kwargs['default_parameters']
-        self.param_dict = copy.deepcopy(self.default_parameters)
-        self.param_q = deque()
+    def __init__(self, *, param_model, io_model, working_directory):
+        self.working_directory = working_directory
+        self.result_folder = working_directory
         self.all_strategy = OrderedDict()
 
-        # Reference to GuessParamModel object
+        # Reference to ParamModel object
         self.param_model = param_model
 
         # Reference to FileIOMOdel
         self.io_model = io_model
 
-        self.EC = ElementController()
         self.pileup_data = {'element1': 'Si_K',
                             'element2': 'Si_K',
                             'intensity': 100.0}
@@ -271,13 +257,6 @@ class Fit1D(Atom):
         if len(_key) != 0:
             self.scaler_keys = sorted(self.img_dict[_key[0]].keys())
 
-    def data_sets_update(self, change):
-        """
-        Observer function to be connected to the fileio model
-        in the top-level gui.py startup
-        """
-        self.data_sets = change['value']
-
     def scaler_index_update(self, change):
         """
         Observer function to be connected to the fit_model
@@ -301,22 +280,6 @@ class Fit1D(Atom):
         the identical variable in ``DrawImageAdvanced`` class"""
         self.dict_to_plot = change['value']
 
-    def energy_bound_high_update(self, change):
-        """
-        Observer function that connects 'param_model' (GuessParamModel)
-        attribute 'energy_bound_high_buf' with the respective
-        value in 'self.param_dict'
-        """
-        self.param_dict['non_fitting_values']['energy_bound_high']['value'] = change['value']
-
-    def energy_bound_low_update(self, change):
-        """
-        Observer function that connects 'param_model' (GuessParamModel)
-        attribute 'energy_bound_low_buf' with the respective
-        value in 'self.param_dict'
-        """
-        self.param_dict['non_fitting_values']['energy_bound_low']['value'] = change['value']
-
     def update_selected_index(self, selected_element=None,
                               element_list_new=None):
 
@@ -329,7 +292,7 @@ class Fit1D(Atom):
 
         if element_list_new is None:
             # Current element list
-            element_list = self.element_list
+            element_list = self.param_model.element_list
         else:
             # Future element list (before it is updated)
             element_list = element_list_new
@@ -353,19 +316,19 @@ class Fit1D(Atom):
     def _selected_element_changed(self, change):
         if change['value'] > 0:
             ind_sel = change['value'] - 1
-            if ind_sel >= len(self.element_list):
-                ind_sel = len(self.element_list) - 1
+            if ind_sel >= len(self.param_model.element_list):
+                ind_sel = len(self.param_model.element_list) - 1
                 self.selected_index = ind_sel + 1  # Change the selection as well
-            self.selected_element = self.element_list[ind_sel]
+            self.selected_element = self.param_model.element_list[ind_sel]
             if len(self.selected_element) <= 4:
                 element = self.selected_element.split('_')[0]
-                self.elementinfo_list = sorted([e for e in list(self.param_dict.keys())
+                self.elementinfo_list = sorted([e for e in list(self.param_model.param_new.keys())
                                                 if (element+'_' in e) and  # error between S_k or Si_k
                                                 ('pileup' not in e)])  # Si_ka1 not Si_K
                 logger.info(f"Element line info: {self.elementinfo_list}")
             else:
                 element = self.selected_element  # for pileup peaks
-                self.elementinfo_list = sorted([e for e in list(self.param_dict.keys())
+                self.elementinfo_list = sorted([e for e in list(self.param_model.param_new.keys())
                                                 if element.replace('-', '_') in e])
                 logger.info(f"User defined or pileup peak info: {self.elementinfo_list}")
         else:
@@ -376,65 +339,29 @@ class Fit1D(Atom):
         #   names of parameters is created. Originally the element could only be selected
         #   by its index in the list (from dialog box ``ElementEdit``. This function is
         #   used by interface components for editing parameters of user defined peaks.
-        if eline_name in self.element_list:
+        if eline_name in self.param_model.element_list:
             # This will fill the list ``self.elementinfo_list``
-            self.selected_index = self.element_list.index(eline_name) + 1
+            self.selected_index = self.param_model.element_list.index(eline_name) + 1
         else:
             raise Exception(f"Line '{eline_name}' is not in the list of selected element lines.")
 
-    def keep_size(self):
-        """Keep the size of deque as 2.
-        """
-        while len(self.param_q) > 2:
-            self.param_q.popleft()
-
-    def read_param_from_file(self, param_path):
-        """
-        Update parameters if new param_path is given.
-
-        Parameters
-        ----------
-        param_path : str
-            path to save the file
-        """
-        with open(param_path, 'r') as json_data:
-            self.default_parameters = json.load(json_data)
-
-        #  use queue to save the status of parameters
-        self.param_q.append(copy.deepcopy(self.default_parameters))
-        self.keep_size()
-
-    def update_default_param(self, param):
-        """assigan new values to default param.
-
-        Parameters
-        ----------
-        param : dict
-        """
-        self.default_parameters = copy.deepcopy(param)
-        #  use queue to save the status of parameters
-        self.param_q.append(copy.deepcopy(self.default_parameters))
-        self.keep_size()
-
     def apply_default_param(self):
         """
-        Update param_dict with default parameters, also update element list.
+        Update parameters with default parameters, also update element list.
         """
         # Save currently selected element name
         selected_element = self.selected_element
         self.selected_index = 0
 
-        element_list = self.default_parameters['non_fitting_values']['element_list']
+        element_list = self.param_model.param_new['non_fitting_values']['element_list']
         element_list = [e.strip(' ') for e in element_list.split(',')]
         element_list = [_ for _ in element_list if _]  # Get rid of empty strings in the list
-        self.element_list = element_list
+        self.param_model.element_list = element_list
 
-        self.param_dict = copy.deepcopy(self.default_parameters)
+        # Update 'self.param_model.EC'
+        # self.param_model.create_spectrum_from_param_dict()
 
-        # show the list of elements on add/remove window
-        self.EC.delete_all()
-        self.create_EC_list(self.element_list)
-        self.update_name_list()
+        self.update_element_info()
 
         # Update the index in case the selected emission line disappeared from the list
         self.update_selected_index(selected_element=selected_element,
@@ -444,7 +371,7 @@ class Fit1D(Atom):
         # for GUI purpose only
         # if we do not clear the list first, there is not update on the GUI
         self.global_param_list = []
-        self.global_param_list = sorted([k for k in self.param_dict.keys()
+        self.global_param_list = sorted([k for k in self.param_model.param_new.keys()
                                          if k == k.lower() and k != 'non_fitting_values'])
 
         self.define_range()
@@ -460,32 +387,6 @@ class Fit1D(Atom):
 
         #  define element_adjust as fixed
         # self.param_dict = define_param_bound_type(self.param_dict)
-
-    def exp_data_update(self, change):
-        """
-        Observer function to be connected to the fileio model
-        in the top-level gui.py startup
-
-        Parameters
-        ----------
-        changed : dict
-            This is the dictionary that gets passed to a function
-            with the @observe decorator
-        """
-        self.data = np.asarray(change['value'])
-
-    def exp_data_all_update(self, change):
-        """
-        Observer function to be connected to the fileio model
-        in the top-level gui.py startup
-
-        Parameters
-        ----------
-        changed : dict
-            This is the dictionary that gets passed to a function
-            with the @observe decorator
-        """
-        self.data_all = change['value']
 
     def filename_update(self, change):
         """
@@ -538,24 +439,24 @@ class Fit1D(Atom):
                         format(fit_strategy_list[change['value']-1]))
 
     def update_param_with_result(self):
-        update_parameter_dict(self.param_dict, self.fit_result)
+        update_parameter_dict(self.param_model.param_new, self.fit_result)
 
     def define_range(self):
         """
         Cut x range according to values define in param_dict.
         """
-        lowv = self.param_dict['non_fitting_values']['energy_bound_low']['value']
-        highv = self.param_dict['non_fitting_values']['energy_bound_high']['value']
-        self.x0, self.y0 = define_range(self.data, lowv, highv,
-                                        self.param_dict['e_offset']['value'],
-                                        self.param_dict['e_linear']['value'])
+        lowv = self.param_model.param_new['non_fitting_values']['energy_bound_low']['value']
+        highv = self.param_model.param_new['non_fitting_values']['energy_bound_high']['value']
+        self.x0, self.y0 = define_range(self.io_model.data, lowv, highv,
+                                        self.param_model.param_new['e_offset']['value'],
+                                        self.param_model.param_new['e_linear']['value'])
 
     def get_background(self):
         self.bg = snip_method_numba(self.y0,
-                                    self.param_dict['e_offset']['value'],
-                                    self.param_dict['e_linear']['value'],
-                                    self.param_dict['e_quadratic']['value'],
-                                    width=self.param_dict['non_fitting_values']['background_width'])
+                                    self.param_model.param_new['e_offset']['value'],
+                                    self.param_model.param_new['e_linear']['value'],
+                                    self.param_model.param_new['e_quadratic']['value'],
+                                    width=self.param_model.param_new['non_fitting_values']['background_width'])
 
     def get_profile(self):
         """
@@ -569,12 +470,12 @@ class Fit1D(Atom):
 
         self.cal_x, self.cal_spectrum, area_dict = calculate_profile(self.x0,
                                                                      self.y0,
-                                                                     self.param_dict,
-                                                                     self.element_list)
+                                                                     self.param_model.param_new,
+                                                                     self.param_model.element_list)
         #  add escape peak
-        if self.param_dict['non_fitting_values']['escape_ratio'] > 0:
-            self.cal_spectrum['escape'] = trim_escape_peak(self.data,
-                                                           self.param_dict,
+        if self.param_model.param_new['non_fitting_values']['escape_ratio'] > 0:
+            self.cal_spectrum['escape'] = trim_escape_peak(self.io_model.data,
+                                                           self.param_model.param_new,
                                                            len(self.y0))
 
         self.cal_y = np.zeros(len(self.cal_x))
@@ -587,7 +488,7 @@ class Fit1D(Atom):
         fit_num = self.fit_num
         ftol = self.ftol
         c_weight = 1  # avoid zero point
-        MS = ModelSpectrum(self.param_dict, self.element_list)
+        MS = ModelSpectrum(self.param_model.param_new, self.param_model.element_list)
         MS.assemble_models()
 
         # weights = 1/(c_weight + np.abs(y0))
@@ -614,12 +515,12 @@ class Fit1D(Atom):
         self.define_range()
         self.get_background()
 
-        # PC = ParamController(self.param_dict, self.element_list)
+        # PC = ParamController(self.param_dict, self.param_model.element_list)
         # self.param_dict = PC.params
 
-        if self.param_dict['non_fitting_values']['escape_ratio'] > 0:
-            self.es_peak = trim_escape_peak(self.data,
-                                            self.param_dict,
+        if self.param_model.param_new['non_fitting_values']['escape_ratio'] > 0:
+            self.es_peak = trim_escape_peak(self.io_model.data,
+                                            self.param_model.param_new,
                                             self.y0.size)
             y0 = self.y0 - self.bg - self.es_peak
         else:
@@ -627,7 +528,7 @@ class Fit1D(Atom):
 
         t0 = time.time()
         self.fit_info = "Spectrum fitting of the sum spectrum (incident energy "\
-                        f"{self.param_dict['coherent_sct_energy']['value']})."
+                        f"{self.param_model.param_new['coherent_sct_energy']['value']})."
         # app.processEvents()
         # logger.info('-------- '+self.fit_info+' --------')
 
@@ -637,11 +538,11 @@ class Fit1D(Atom):
                 # self.fit_info = 'Fit with {}: {}'.format(k, strat_name)
 
                 logger.info(self.fit_info)
-                strategy = extract_strategy(self.param_dict, strat_name)
+                strategy = extract_strategy(self.param_model.param_new, strat_name)
                 #  register the strategy and extend the parameter list
                 #  to cover all given elements
                 register_strategy(strat_name, strategy)
-                set_parameter_bound(self.param_dict, strat_name)
+                set_parameter_bound(self.param_model.param_new, strat_name)
 
                 self.fit_data(self.x0, y0)
                 self.update_param_with_result()
@@ -650,7 +551,7 @@ class Fit1D(Atom):
                 #   areas for some emission lines. These are typically non-existent lines, but
                 #   they should not be automatically eliminated from the list. To prevent
                 #   elimination, set the area to some small positive value.
-                for key, val in self.param_dict.items():
+                for key, val in self.param_model.param_new.items():
                     if key.endswith("_area") and val["value"] <= 0.0:
                         _small_value_for_area = 0.1
                         logger.warning(
@@ -669,17 +570,11 @@ class Fit1D(Atom):
         t1 = time.time()
         logger.warning('Time used for summed spectrum fitting is : {}'.format(t1-t0))
 
-        # for GUI purpose only
-        # if we do not clear the dict first, there is not update on the GUI
-        param_temp = copy.deepcopy(self.param_dict)
-        del self.param_dict['non_fitting_values']
-        self.param_dict = param_temp
-
         self.comps.clear()
         comps = self.fit_result.eval_components(x=self.x0)
-        self.comps = combine_lines(comps, self.element_list, self.bg)
+        self.comps = combine_lines(comps, self.param_model.element_list, self.bg)
 
-        if self.param_dict['non_fitting_values']['escape_ratio'] > 0:
+        if self.param_model.param_new['non_fitting_values']['escape_ratio'] > 0:
             self.fit_y += self.bg + self.es_peak
             self.comps['escape'] = self.es_peak
         else:
@@ -689,9 +584,6 @@ class Fit1D(Atom):
         self.assign_fitting_result()
         self.fit_info = 'Summed spectrum fitting is done!'
         logger.info('-------- ' + self.fit_info + ' --------')
-
-        self.param_q.append(copy.deepcopy(self.param_dict))
-        self.keep_size()
 
     def compute_current_rfactor(self, save_fit=True):
         """
@@ -726,9 +618,9 @@ class Fit1D(Atom):
         """
         xx = None
         if self.x0 is not None:
-            a0, a1, a2 = (self.param_dict['e_offset']['value'],
-                          self.param_dict['e_linear']['value'],
-                          self.param_dict['e_quadratic']['value'])
+            a0, a1, a2 = (self.param_model.param_new['e_offset']['value'],
+                          self.param_model.param_new['e_linear']['value'],
+                          self.param_model.param_new['e_quadratic']['value'])
             xx = a0 + self.x0 * a1 + self.x0 ** 2 * a2
         if save_fit:
             logger.info("Saving spectrum after total spectrum fitting.")
@@ -773,14 +665,14 @@ class Fit1D(Atom):
             pixel_fit = 'nonlinear'
 
         logger.info("-------- Fitting of single pixels starts (incident_energy "
-                    f"{self.param_dict['coherent_sct_energy']['value']} keV) --------")
+                    f"{self.param_model.param_new['coherent_sct_energy']['value']} keV) --------")
         t0 = time.time()
         self.pixel_fit_info = 'Pixel fitting is in process.'
 
         # app.processEvents()
         self.result_map, calculation_info = single_pixel_fitting_controller(
-            self.data_all,
-            self.param_dict,
+            self.io_model.data_all,
+            self.param_model.param_new,
             method=pixel_fit,
             pixel_bin=pixel_bin,
             raise_bg=raise_bg,
@@ -801,9 +693,9 @@ class Fit1D(Atom):
             results = calculation_info['results']
             # fit_range = calculation_info['fit_range']
             x = calculation_info['energy_axis']
-            x = (self.param_dict['e_offset']['value'] +
-                 self.param_dict['e_linear']['value']*x +
-                 self.param_dict['e_quadratic']['value'] * x**2)
+            x = (self.param_model.param_new['e_offset']['value'] +
+                 self.param_model.param_new['e_linear']['value']*x +
+                 self.param_model.param_new['e_quadratic']['value'] * x**2)
             data_fit = calculation_info['input_data']
             data_sel_indices = calculation_info['data_sel_indices']
 
@@ -818,7 +710,7 @@ class Fit1D(Atom):
                 save_fitted_fig(x, matv, results[:, :, 0:len(elist)],
                                 p1, p2,
                                 data_fit, data_sel_indices,
-                                self.param_dict,
+                                self.param_model.param_new,
                                 output_folder, use_snip=use_snip)
 
             # the output movie are saved as the same name
@@ -843,8 +735,8 @@ class Fit1D(Atom):
         """
         from .data_to_analysis_store import save_data_to_db
         doc = {}
-        doc['param'] = self.param_dict
-        doc['exp'] = self.data
+        doc['param'] = self.param_model.param_new
+        doc['exp'] = self.io_model.data
         doc['fitted'] = self.fit_y
         save_data_to_db(self.runid, self.result_map, doc)
 
@@ -904,7 +796,7 @@ class Fit1D(Atom):
             high = int(self.roi_sum_opt['high']*100)
             logger.info('ROI sum at range ({}, {})'.format(self.roi_sum_opt['low'],
                                                            self.roi_sum_opt['high']))
-            sumv = np.sum(self.data_all[:, :, low:high], axis=2)
+            sumv = np.sum(self.io_model.data_all[:, :, low:high], axis=2)
             self.result_map['ROI'] = sumv
             # save to hdf again, this is not optimal
             self.save2Dmap_to_hdf()
@@ -1072,76 +964,12 @@ class Fit1D(Atom):
         except FileNotFoundError:
             print("Summed spectrum fitting results are not saved.")
 
-    def update_name_list(self):
-        """
-        When result_dict_names change, the looper in enaml will update.
-        """
+    def update_element_info(self):
         # need to clean list first, in order to refresh the list in GUI
         self.selected_index = 0
         self.elementinfo_list = []
 
-        self.result_dict_names = []
-        self.result_dict_names = list(self.EC.element_dict.keys())
-        self.param_dict = update_param_from_element(self.param_dict,
-                                                    list(self.EC.element_dict.keys()))
-
-        self.element_list = []
-        self.element_list = list(self.EC.element_dict.keys())
-        logger.info('The full list for fitting is {}'.format(self.element_list))
-
-    def create_EC_list(self, element_list):
-        temp_dict = OrderedDict()
-        for e in element_list:
-            if e == "":
-                pass
-            elif '-' in e:  # pileup peaks
-                energy = self.param_model.get_pileup_peak_energy(e)
-                energy = f"{energy:.4f}"
-                ps = PreFitStatus(z=get_Z(e),
-                                  energy=str(energy), norm=1)
-                temp_dict[e] = ps
-
-            else:
-                ename = e.split('_')[0]
-                ps = PreFitStatus(z=get_Z(ename),
-                                  energy=get_energy(e),
-                                  norm=1)
-
-                temp_dict[e] = ps
-        self.EC.add_to_dict(temp_dict)
-
-    # def manual_input(self):
-    #     #default_area = 1e2
-    #     ps = PreFitStatus(z=get_Z(self.e_name),
-    #                       energy=get_energy(self.e_name),
-    #                       #area=area_dict[self.e_name]*ratio_v,
-    #                       #spectrum=data_out[self.e_name]*ratio_v,
-    #                       #maxv=self.add_element_intensity,
-    #                       norm=1)
-    #                       #lbd_stat=False)
-    #
-    #     self.EC.add_to_dict({self.e_name: ps})
-    #     logger.info('')
-    #     self.update_name_list()
-
-    # def add_pileup(self):
-    #     if self.pileup_data['intensity'] > 0:
-    #         e_name = (self.pileup_data['element1'] + '-'
-    #                   + self.pileup_data['element2'])
-    #
-    #         energy = str(float(get_energy(self.pileup_data['element1']))
-    #                      + float(get_energy(self.pileup_data['element2'])))
-    #
-    #         ps = PreFitStatus(z=get_Z(e_name),
-    #                           energy=energy,
-    #                           #area=area_dict[e_name]*ratio_v,
-    #                           #spectrum=data_out[e_name]*ratio_v,
-    #                           #maxv=self.pileup_data['intensity'],
-    #                           norm=1)
-    #                           #lbd_stat=False)
-    #         logger.info('{} peak is added'.format(e_name))
-    #     self.EC.add_to_dict({e_name: ps})
-    #     self.update_name_list()
+        logger.info('The full list for fitting is {}'.format(self.param_model.element_list))
 
 
 def combine_lines(components, element_list, background):

@@ -70,7 +70,6 @@ class FileIOModel(Atom):
     load_status = Str()
     data_sets = Typed(OrderedDict)
     img_dict = Dict()
-    param_fit = Dict()
     file_channel_list = List()
 
     runid = Int(-1)  # Run ID of the current run
@@ -119,8 +118,8 @@ class FileIOModel(Atom):
     #   its value should not be used for computations!!!
     incident_energy_set = Float(0.0)
 
-    def __init__(self, **kwargs):
-        self.working_directory = kwargs['working_directory']
+    def __init__(self, *, working_directory):
+        self.working_directory = working_directory
         self.mask_data = None
 
         # Display PyXRF version in the window title
@@ -390,20 +389,6 @@ class FileIOModel(Atom):
 
         requires databroker
         """
-        # if self.h_num != 0 and self.v_num != 0:
-        #     datashape = [self.v_num, self.h_num]
-
-        #  one way to cache data is to save as h5 file, to be considered later
-        # tmp_wd = '~/.tmp/'
-        # if not os.path.exists(tmp_wd):
-        #     os.makedirs(tmp_wd)
-        # fpath = os.path.join(tmp_wd, self.fname_from_db)
-        # if not os.path.exists(fpath):
-        #     make_hdf(self.runid, fname=fpath)
-        # self.img_dict, self.data_sets = file_handler(tmp_wd,
-        #                                             self.fname_from_db,
-        #                                             load_each_channel=self.load_each_channel)
-
         # Clear data. If reading the file fails, then old data should not be kept.
         self.file_channel_list = []
         self.clear()
@@ -442,21 +427,6 @@ class FileIOModel(Atom):
                     f"'{detector_name}' was loaded successfully.")
 
         self.file_channel_list = list(self.data_sets.keys())
-
-        # Disable loading from 'analysis store' for now (because there is no 'analysis store')
-        # ----------------------------------------------------------------
-        # # Load results from the analysis store
-        # from .data_to_analysis_store import get_analysis_result
-        # hdr = get_analysis_result(self.runid)
-        # if hdr is not None:
-        #     d1 = hdr.table(stream_name='primary')
-        #     # d2 = hdr.table(stream_name='spectrum')
-        #     self.param_fit = hdr.start.processor_parameters
-        #     # self.data = d2['summed_spectrum_experiment']
-        #     fit_result = {k: v for k, v in zip(d1['element_name'], d1['map'])}
-        #     # tmp = {k: v for k, v in self.img_dict.items()}
-        #     img_dict['scan2D_{}_fit'.format(self.runid)] = fit_result
-        # ----------------------------------------------------------------
 
         self.img_dict = img_dict
 
@@ -620,9 +590,9 @@ class DataSelection(Atom):
     both are set.
 
     There are some unresolved questions about logic:
-    - what is exactly the role of `self.data`? It is definitely used when
+    - what is exactly the role of `self.io_model.data`? It is definitely used when
     the data is plotted, but is it ever bypassed by directly calling `get_sum`?
-    If the data is always accessed using `self.data`, then storing the averaged
+    If the data is always accessed using `self.io_model.data`, then storing the averaged
     spectrum in cache is redundant, but since the array is small, it's not
     much overhead to keep another copy just in case.
     - there is no obvious way to set `point1` and `point2`

@@ -3,11 +3,10 @@ from __future__ import (absolute_import, division,
 
 import numpy as np
 from collections import OrderedDict
-import copy
 import os
 import re
 
-from atom.api import (Atom, Str, observe, Dict, List, Int, Bool)
+from atom.api import (Atom, Str, observe, Dict, List, Int, Bool, Typed)
 
 from skbeam.fluorescence import XrfElement as Element
 from skbeam.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
@@ -102,8 +101,11 @@ class SettingModel(Atom):
     suffix_name_roi : str
         The suffix may have values 'sum', 'det1', 'det2' etc.
     """
-    parameters = Dict()
-    data_sets = Dict()
+    # Reference to ParamModel object
+    param_model = Typed(object)
+    # Reference to FileIOModel object
+    io_model = Typed(object)
+
     img_dict = Dict()
 
     element_for_roi = Str()
@@ -179,9 +181,10 @@ class SettingModel(Atom):
             # Else keep the original title
             self.data_title_adjusted = self.data_title
 
-    def __init__(self, *args, **kwargs):
-        self.parameters = kwargs['default_parameters']
+    def __init__(self, *, param_model, io_model):
         # Initialize with an empty string (no elements selected)
+        self.param_model = param_model
+        self.io_model = io_model
         self.element_for_roi = ""
         self.enable_roi_computation = False
 
@@ -218,19 +221,6 @@ class SettingModel(Atom):
             logger.warning(f"Incorrect specification of element lines for ROI computation: {ex}")
             self.enable_roi_computation = False
 
-    def data_sets_update(self, change):
-        """
-        Observer function to be connected to the fileio model
-        in the top-level gui.py startup
-
-        Parameters
-        ----------
-        changed : dict
-            This is the dictionary that gets passed to a function
-            with the @observe decorator
-        """
-        self.data_sets = change['value']
-
     def img_dict_update(self, change):
         """
         Observer function to be connected to the fileio model
@@ -243,9 +233,6 @@ class SettingModel(Atom):
             with the @observe decorator
         """
         self.img_dict = change['value']
-
-    def update_parameter(self, param):
-        self.parameters = copy.deepcopy(param)
 
     def select_elements_from_list(self, element_list):
         self.element_for_roi = ', '.join(element_list)
@@ -321,8 +308,8 @@ class SettingModel(Atom):
         Calculate the std at given energy.
         """
         temp_val = 2 * np.sqrt(2 * np.log(2))
-        return np.sqrt((self.parameters['fwhm_offset']['value']/temp_val)**2 +
-                       energy*epsilon*self.parameters['fwhm_fanoprime']['value'])
+        return np.sqrt((self.param_model.param_new['fwhm_offset']['value']/temp_val)**2 +
+                       energy*epsilon*self.param_model.param_new['fwhm_fanoprime']['value'])
 
     def get_roi_sum(self):
         """
@@ -335,23 +322,23 @@ class SettingModel(Atom):
         """
         roi_result = {}
 
-        datav = self.data_sets[self.data_title].raw_data
+        datav = self.io_model.data_sets[self.data_title].raw_data
 
         logger.info(f"Computing ROIs for dataset {self.data_title} ...")
 
         snip_param = {
-            "e_offset": self.parameters["e_offset"]["value"],
-            "e_linear": self.parameters["e_linear"]["value"],
-            "e_quadratic": self.parameters["e_quadratic"]["value"],
-            "b_width": self.parameters["non_fitting_values"]["background_width"]
+            "e_offset": self.param_model.param_new["e_offset"]["value"],
+            "e_linear": self.param_model.param_new["e_linear"]["value"],
+            "e_quadratic": self.param_model.param_new["e_quadratic"]["value"],
+            "b_width": self.param_model.param_new["non_fitting_values"]["background_width"]
         }
 
         n_bin_low, n_bin_high = get_energy_bin_range(
             num_energy_bins=datav.shape[2],
-            low_e=self.parameters['non_fitting_values']['energy_bound_low']['value'],
-            high_e=self.parameters['non_fitting_values']['energy_bound_high']['value'],
-            e_offset=self.parameters['e_offset']['value'],
-            e_linear=self.parameters['e_linear']['value'])
+            low_e=self.param_model.param_new['non_fitting_values']['energy_bound_low']['value'],
+            high_e=self.param_model.param_new['non_fitting_values']['energy_bound_high']['value'],
+            e_offset=self.param_model.param_new['e_offset']['value'],
+            e_linear=self.param_model.param_new['e_linear']['value'])
 
         # Prepare the 'roi_dict' parameter for computations
         roi_dict = {_: (self.roi_dict[_].left_val/1000.0, self.roi_dict[_].right_val/1000.0)

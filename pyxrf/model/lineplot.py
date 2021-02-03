@@ -10,7 +10,6 @@ from matplotlib.lines import Line2D
 from matplotlib.collections import BrokenBarHCollection
 import matplotlib.ticker as mticker
 from matplotlib.colors import LogNorm
-from collections import OrderedDict
 from enum import Enum
 from mpl_toolkits.axes_grid1 import ImageGrid
 
@@ -100,9 +99,9 @@ class LinePlotModel(Atom):
     incident_energy : float
         in KeV
     param_model : Typed(object)
-        Reference to GuessParamModel object
+        Reference to ParamModel object
     """
-    data = Typed(object)  # Typed(np.ndarray)
+    # data = Typed(object)  # Typed(np.ndarray)
     exp_data_label = Str('experiment')
 
     number_pts_to_show = Int(3000)  # The number of spectrum point to show
@@ -140,7 +139,6 @@ class LinePlotModel(Atom):
     plot_fit_x_min = Float(0)  # The variables are used to store x_min and x_max for the current plot
     plot_fit_x_max = Float(0)
     element_id = Int(0)
-    parameters = Dict()
     elist = List()
     scale_opt = Int(0)
     # total_y = Dict()
@@ -172,7 +170,6 @@ class LinePlotModel(Atom):
     t_bar = Typed(object)
 
     plot_exp_list = List()
-    data_sets = Typed(OrderedDict)
 
     auto_fit_obj = List()
     show_autofit_opt = Bool()
@@ -201,8 +198,10 @@ class LinePlotModel(Atom):
     img_dict = Dict()
     # roi_result = Dict()
 
-    # Reference to GuessParamModel object
+    # Reference to ParamModel object
     param_model = Typed(object)
+    # Reference to FileIOModel object
+    io_model = Typed(object)
 
     # Location of the vertical (mouse-selected) marker on the plot.
     # Value is in kev. Negative value - no marker is placed.
@@ -213,12 +212,13 @@ class LinePlotModel(Atom):
 
     report_marker_state = Typed(object)
 
-    def __init__(self, param_model):
+    def __init__(self, *, param_model, io_model):
 
-        # Reference to GuessParamModel object
+        # Reference to ParamModel object
         self.param_model = param_model
+        self.io_model = io_model
 
-        self.data = None
+        # self.data = None
 
         self._fig = plt.figure()
 
@@ -366,9 +366,9 @@ class LinePlotModel(Atom):
 
     @observe('parameters')
     def _update_energy(self, change):
-        if 'coherent_sct_energy' not in self.parameters:
+        if 'coherent_sct_energy' not in self.param_model.param_new:
             return
-        self.incident_energy = self.parameters['coherent_sct_energy']['value']
+        self.incident_energy = self.param_model.param_new['coherent_sct_energy']['value']
 
     def set_energy_range_fitting(self, energy_range_name):
         if energy_range_name not in self.energy_range_names:
@@ -429,18 +429,18 @@ class LinePlotModel(Atom):
 
     def energy_bound_high_update(self, change):
         """Observer function for 'param_model.energy_bound_high_buf'"""
-        if self.data is None:
+        if self.io_model.data is None:
             return
-        self.exp_data_update({"value": self.data})
+        self.exp_data_update({"value": self.io_model.data})
         self.plot_selected_energy_range_original(e_high=change["value"])
         self.plot_vertical_marker(e_high=change["value"])
         self._update_canvas()
 
     def energy_bound_low_update(self, change):
         """Observer function for 'param_model.energy_bound_low_buf'"""
-        if self.data is None:
+        if self.io_model.data is None:
             return
-        self.exp_data_update({"value": self.data})
+        self.exp_data_update({"value": self.io_model.data})
         self.plot_selected_energy_range_original(e_low=change["value"])
         self.plot_vertical_marker(e_low=change["value"])
         self._update_canvas()
@@ -471,8 +471,11 @@ class LinePlotModel(Atom):
             This is the dictionary that gets passed to a function
             with the @observe decorator
         """
-        self.data = change['value']
-        if self.data is None:
+        # TODO: This function does not change the data. Instead it is expected to
+        #   perform a number of operation when data is changed.
+
+        # self.data = change['value']
+        if self.io_model.data is None:
             return
 
         e_range = self.energy_range_fitting
@@ -486,11 +489,11 @@ class LinePlotModel(Atom):
             # This is not a critical error, so we still can proceed
             e_range = e_range_full
 
-        if not self.parameters:
+        if not self.param_model.param_new:
             return
 
         # The number of points in the displayed dataset
-        n_dset_points = len(self.data)
+        n_dset_points = len(self.io_model.data)
 
         if e_range == e_range_selected:
             n_range_low, n_range_high = self.selected_range_indices(n_indexes=n_dset_points)
@@ -504,7 +507,7 @@ class LinePlotModel(Atom):
         n1, n2 = max(self.limit_cut, n_low), min(n_dset_points-self.limit_cut, n_high)
         if n2 <= n1:  # This is just a precaution: it is expected that n_dset_points >> 2 * limit_cut
             n1, n2 = n_low, n_high
-        self.max_v = float(np.max(self.data[n1: n2]))
+        self.max_v = float(np.max(self.io_model.data[n1: n2]))
 
         try:
             self.plot_exp_obj.remove()
@@ -512,12 +515,12 @@ class LinePlotModel(Atom):
         except AttributeError:
             logger.debug('No need to remove experimental data.')
 
-        data_arr = self.data
-        x_v = (self.parameters['e_offset']['value'] +
+        data_arr = self.io_model.data
+        x_v = (self.param_model.param_new['e_offset']['value'] +
                np.arange(n_low, n_high) *
-               self.parameters['e_linear']['value'] +
+               self.param_model.param_new['e_linear']['value'] +
                np.arange(n_low, n_high)**2 *
-               self.parameters['e_quadratic']['value'])
+               self.param_model.param_new['e_quadratic']['value'])
 
         data_arr = data_arr[n_low: n_high]
 
@@ -547,7 +550,7 @@ class LinePlotModel(Atom):
 
     def _show_hide_exp_plot(self, plot_show):
 
-        if self.data is None:
+        if self.io_model.data is None:
             return
 
         try:
@@ -567,7 +570,7 @@ class LinePlotModel(Atom):
     @observe('plot_exp_opt')
     def _new_exp_plot_opt(self, change):
 
-        if self.data is None:
+        if self.io_model.data is None:
             return
 
         if change['type'] != 'create':
@@ -621,10 +624,10 @@ class LinePlotModel(Atom):
         """
 
         # Do nothing if no data is loaded
-        if self.data is None:
+        if self.io_model.data is None:
             return
 
-        data_arr = np.asarray(self.data)
+        data_arr = np.asarray(self.io_model.data)
         self.exp_data_update({'value': data_arr})
 
     def plot_vertical_marker(self, *, e_low=None, e_high=None):
@@ -713,11 +716,11 @@ class LinePlotModel(Atom):
         n_x = 4096  # Set to the maximum possible number of points
 
         # Generate the values for 'energy' axis
-        x_v = (self.parameters['e_offset']['value'] +
+        x_v = (self.param_model.param_new['e_offset']['value'] +
                np.arange(n_x) *
-               self.parameters['e_linear']['value'] +
+               self.param_model.param_new['e_linear']['value'] +
                np.arange(n_x) ** 2 *
-               self.parameters['e_quadratic']['value'])
+               self.param_model.param_new['e_quadratic']['value'])
 
         ss = (x_v < e_high) & (x_v > e_low)
         y_min, y_max = -1e30, 1e30  # Select the max and min values for plotted rectangles
@@ -739,7 +742,7 @@ class LinePlotModel(Atom):
 
         self.max_v = 1.0
         m = 0
-        for (k, v) in self.data_sets.items():
+        for (k, v) in self.io_model.data_sets.items():
             if v.selected_for_preview:
 
                 data_arr = np.asarray(v.data)
@@ -748,11 +751,11 @@ class LinePlotModel(Atom):
                 self.max_v = np.max([self.max_v,
                                      np.max(data_arr[self.limit_cut:-self.limit_cut])])
 
-                x_v = (self.parameters['e_offset']['value'] +
+                x_v = (self.param_model.param_new['e_offset']['value'] +
                        np.arange(len(data_arr)) *
-                       self.parameters['e_linear']['value'] +
+                       self.param_model.param_new['e_linear']['value'] +
                        np.arange(len(data_arr))**2 *
-                       self.parameters['e_quadratic']['value'])
+                       self.param_model.param_new['e_quadratic']['value'])
 
                 plot_exp_obj, = self._ax.plot(x_v, data_arr,
                                               color=color_n[m],
@@ -798,7 +801,7 @@ class LinePlotModel(Atom):
         if element_id is None:
             element_id = self.element_id
         if data == "use_self_data":
-            data = self.data
+            data = self.io_model.data
 
     def is_line_in_selected_list(self, n_id):
         """
@@ -1121,24 +1124,26 @@ class LinePlotModel(Atom):
         # Some default value
         intensity = 1000.0
 
-        if self.data is not None and self.parameters is not None \
+        if self.io_model.data is not None and self.param_model.param_new is not None \
                 and self.param_model.prefit_x is not None \
                 and self.param_model.total_y is not None \
-                and len(self.data) > 1 and len(self.param_model.prefit_x) > 1:
+                and len(self.io_model.data) > 1 and len(self.param_model.prefit_x) > 1:
 
             # Range of energies in fitting results
             e_fit_min = self.param_model.prefit_x[0]
             e_fit_max = self.param_model.prefit_x[-1]
             de_fit = (e_fit_max - e_fit_min) / (len(self.param_model.prefit_x) - 1)
 
-            e_raw_min = self.parameters['e_offset']['value']
-            e_raw_max = self.parameters['e_offset']['value'] + \
-                (len(self.data) - 1) * self.parameters['e_linear']['value'] + \
-                (len(self.data) - 1) ** 2 * self.parameters['e_quadratic']['value']
-            de_raw = (e_raw_max - e_raw_min) / (len(self.data) - 1)
+            e_raw_min = self.param_model.param_new['e_offset']['value']
+            e_raw_max = self.param_model.param_new['e_offset']['value'] + \
+                (len(self.io_model.data) - 1) * self.param_model.param_new['e_linear']['value'] + \
+                (len(self.io_model.data) - 1) ** 2 * self.param_model.param_new['e_quadratic']['value']
+
+            de_raw = (e_raw_max - e_raw_min) / (len(self.io_model.data) - 1)
 
             # Note: the above algorithm for finding 'de_raw' is far from perfect but will
-            #    work for now. As a result 'de_fit' and 'de_raw' == self.parameters['e_linear']['value'].
+            #    work for now. As a result 'de_fit' and
+            #    'de_raw' == sself.param_model.param_new['e_linear']['value'].
             #    So the quadratic coefficent is ignored. This is OK, since currently
             #    quadratic coefficient is always ZERO. When the program is rewritten,
             #    the complete algorithm should be revised.
@@ -1160,12 +1165,12 @@ class LinePlotModel(Atom):
             n_fit = int(round(n))
             # Find the index of peak maximum in the 'raw' data array
             n = (max_line_energy - e_raw_min) / de_raw
-            n = np.clip(n, 0, len(self.data) - 1)
+            n = np.clip(n, 0, len(self.io_model.data) - 1)
             n_raw = int(round(n))
             # Intensity of the fitted data at the peak
             in_fit = self.param_model.total_y[n_fit]
             # Intensity of the raw data at the peak
-            in_raw = self.data[n_raw]
+            in_raw = self.io_model.data[n_raw]
             # The estimated peak intensity is the difference:
             intensity = in_raw - in_fit
 
@@ -1370,10 +1375,10 @@ class LinePlotModel(Atom):
         e_low, e_high = e_low - margin, e_high + margin
 
         # The following calculations ignore quadratic term, which is expected to be small
-        c0 = self.parameters['e_offset']['value']
-        c1 = self.parameters['e_linear']['value']
+        c0 = self.param_model.param_new['e_offset']['value']
+        c1 = self.param_model.param_new['e_linear']['value']
         # If more precision if needed, then implement more complicated algorithm using
-        #   the quadratic term: c2 = self.parameters['e_quadratic']['value']
+        #   the quadratic term: c2 = self.param_model.param_new['e_quadratic']['value']
 
         n_low = int(np.clip(int((e_low - c0) / c1), a_min=0, a_max=n_indexes - 1))
         n_high = int(np.clip(int((e_high - c0) / c1) + 1, a_min=1, a_max=n_indexes))
@@ -1391,7 +1396,7 @@ class LinePlotModel(Atom):
             Limit search to the datasets that are going to be displayed
         """
         max_size = 0
-        for dset in self.data_sets.values():
+        for dset in self.io_model.data_sets.values():
             if not only_displayed or dset.selected_for_preview:
                 # Raw data shape: (n_rows, n_columns, n_energy_bins)
                 max_size = max(max_size, dset.get_raw_data_shape()[2])
@@ -1413,9 +1418,9 @@ class LinePlotModel(Atom):
             e_high = self.param_model.param_new['non_fitting_values']['energy_bound_high']['value']
 
         # Model coefficients for the energy axis
-        c0 = self.parameters['e_offset']['value']
-        c1 = self.parameters['e_linear']['value']
-        c2 = self.parameters['e_quadratic']['value']
+        c0 = self.param_model.param_new['e_offset']['value']
+        c1 = self.param_model.param_new['e_linear']['value']
+        c2 = self.param_model.param_new['e_quadratic']['value']
 
         # Generate the values for 'energy' axis
         x_v = (c0 + np.arange(n_points) * c1 + np.arange(n_points) ** 2 * c2)
@@ -1487,7 +1492,7 @@ class LinePlotModel(Atom):
             n_range_low, n_range_high = 0, n_dset_points
 
         # All available datasets, we will print only the selected datasets
-        dset_names = list(self.data_sets.keys())
+        dset_names = list(self.io_model.data_sets.keys())
 
         if p_type == PlotTypes.LINLOG:
             top_margin_coef = 2.0
@@ -1502,7 +1507,7 @@ class LinePlotModel(Atom):
         self.min_e_preview = 1000.0  # Start with some large number
         self.max_e_preview = 0.1  # Start with some small number
         for n_line, dset_name in enumerate(dset_names):
-            dset = self.data_sets[dset_name]
+            dset = self.io_model.data_sets[dset_name]
 
             # Select color (even if the dataset is not displayed). This is done in order
             #   to ensure that each dataset is assigned the unique color.
@@ -1522,11 +1527,11 @@ class LinePlotModel(Atom):
                 n_high = int(np.clip(n_range_high, a_min=1, a_max=data_arr.size))
 
                 # From now on we work with the trimmed data array
-                x_v = (self.parameters['e_offset']['value'] +
+                x_v = (self.param_model.param_new['e_offset']['value'] +
                        np.arange(n_low, n_high) *
-                       self.parameters['e_linear']['value'] +
+                       self.param_model.param_new['e_linear']['value'] +
                        np.arange(n_low, n_high) ** 2 *
-                       self.parameters['e_quadratic']['value'])
+                       self.param_model.param_new['e_quadratic']['value'])
 
                 data_arr = data_arr[n_low: n_high]
 
@@ -1574,8 +1579,8 @@ class LinePlotModel(Atom):
         """
         # Find out if any data is selected
         show_plot = False
-        if self.data_sets:
-            show_plot = any([_.selected_for_preview for _ in self.data_sets.values()])
+        if self.io_model.data_sets:
+            show_plot = any([_.selected_for_preview for _ in self.io_model.data_sets.values()])
         logger.debug(f"LinePlotModel.update_preview_spectrum_plot(): show_plot={show_plot} hide={hide}")
         if show_plot and not hide:
             logger.debug("LinePlotModel.update_preview_spectrum_plot(): plotting existing datasets")
@@ -1597,7 +1602,7 @@ class LinePlotModel(Atom):
 
     def get_selected_datasets(self):
         """Returns the datasets selected for preview"""
-        return {k: v for (k, v) in self.data_sets.items() if v.selected_for_preview}
+        return {k: v for (k, v) in self.io_model.data_sets.items() if v.selected_for_preview}
 
     def _compute_map_preview_range(self, img_dict, key_list):
         range_min, range_max = None, None
@@ -1902,8 +1907,8 @@ class LinePlotModel(Atom):
 
         # Find out if any data is selected
         show_plot = False
-        if self.data_sets:
-            show_plot = any([_.selected_for_preview for _ in self.data_sets.values()])
+        if self.io_model.data_sets:
+            show_plot = any([_.selected_for_preview for _ in self.io_model.data_sets.values()])
         logger.debug(f"LinePlotModel.update_total_count_map_preview(): show_plot={show_plot} hide={hide}")
         if show_plot and not hide:
             logger.debug("LinePlotModel.update_total_count_map_preview(): plotting existing datasets")
