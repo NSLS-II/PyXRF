@@ -13,6 +13,7 @@ from .wnd_manage_emission_lines import WndManageEmissionLines
 from .wnd_compute_roi_maps import WndComputeRoiMaps
 from .wnd_load_quant_calibration import WndLoadQuantitativeCalibration
 from .wnd_image_wizard import WndImageWizard
+from .dlg_general_settings_for_fitting import WndGeneralFittingSettings
 
 import pyxrf
 
@@ -51,6 +52,8 @@ class MainWindow(QMainWindow):
         self.wnd_image_wizard = WndImageWizard(
             gpc=self.gpc, gui_vars=self.gui_vars)
         self.wnd_load_quantitative_calibration = WndLoadQuantitativeCalibration(
+            gpc=self.gpc, gui_vars=self.gui_vars)
+        self.wnd_general_fitting_settings = WndGeneralFittingSettings(
             gpc=self.gpc, gui_vars=self.gui_vars)
         # Indicates that the window was closed (used mostly for testing)
         self._is_closed = False
@@ -370,6 +373,7 @@ class MainWindow(QMainWindow):
         self.wnd_compute_roi_maps.update_widget_state(condition)
         self.wnd_image_wizard.update_widget_state(condition)
         self.wnd_load_quantitative_calibration.update_widget_state(condition)
+        self.wnd_general_fitting_settings.update_widget_state(condition)
 
     def closeEvent(self, event):
         mb_close = QMessageBox(QMessageBox.Question, "Exit",
@@ -385,6 +389,7 @@ class MainWindow(QMainWindow):
             self.wnd_compute_roi_maps.close()
             self.wnd_image_wizard.close()
             self.wnd_load_quantitative_calibration.close()
+            self.wnd_general_fitting_settings.close()
 
             # This flag is used for CI tests
             self._is_closed = True

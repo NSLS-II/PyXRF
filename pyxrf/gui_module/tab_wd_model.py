@@ -9,7 +9,6 @@ from .useful_widgets import (LineEditReadOnly, global_gui_parameters, set_toolti
 from .form_base_widget import FormBaseWidget
 from .dlg_find_elements import DialogFindElements
 from .dlg_select_quant_standard import DialogSelectQuantStandard
-from .dlg_general_settings_for_fitting import DialogGeneralFittingSettings
 from .dlg_detailed_fitting_params import DialogDetailedFittingParameters, fitting_preset_names
 
 import logging
@@ -473,23 +472,32 @@ class ModelWidget(FormBaseWidget):
         self.ref_main_window.wnd_manage_emission_lines.activateWindow()
 
     def pb_fit_param_general_clicked(self):
-        dialog_data = self.gpc.get_general_fitting_params()
-        dlg = DialogGeneralFittingSettings()
-        dlg.set_dialog_data(dialog_data)
-        ret = dlg.exec()
-        if ret:
-            dialog_data = dlg.get_dialog_data()
 
-            def cb(dialog_data):
-                try:
-                    self.gpc.set_general_fitting_params(dialog_data)
-                    success, msg = True, ""
-                except Exception as ex:
-                    success, msg = False, str(ex)
-                return {"success": success, "msg": msg}
+        # Position the window in relation ot the main window (only when called once)
+        pos = self.ref_main_window.pos()
+        self.ref_main_window.wnd_general_fitting_settings.position_once(pos.x(), pos.y())
 
-            self._compute_in_background(cb, self.slot_fit_param_general_clicked,
-                                        dialog_data=dialog_data)
+        if not self.ref_main_window.wnd_general_fitting_settings.isVisible():
+            self.ref_main_window.wnd_general_fitting_settings.show()
+        self.ref_main_window.wnd_general_fitting_settings.activateWindow()
+
+        # dialog_data = self.gpc.get_general_fitting_params()
+        # dlg = DialogGeneralFittingSettings()
+        # dlg.set_dialog_data(dialog_data)
+        # ret = dlg.exec()
+        # if ret:
+        #     dialog_data = dlg.get_dialog_data()
+        #
+        #     def cb(dialog_data):
+        #         try:
+        #             self.gpc.set_general_fitting_params(dialog_data)
+        #             success, msg = True, ""
+        #         except Exception as ex:
+        #             success, msg = False, str(ex)
+        #         return {"success": success, "msg": msg}
+        #
+        #     self._compute_in_background(cb, self.slot_fit_param_general_clicked,
+        #                                 dialog_data=dialog_data)
 
     @Slot(object)
     def slot_fit_param_general_clicked(self, result):
@@ -530,7 +538,7 @@ class ModelWidget(FormBaseWidget):
 
     @Slot(object)
     def slot_fit_param_shared_clicked(self, result):
-        self._recover_after_compute(self.slot_fit_param_detailed_clicked)
+        self._recover_after_compute(self.slot_fit_param_shared_clicked)
 
         if not result["success"]:
             msg = result["msg"]
@@ -540,7 +548,6 @@ class ModelWidget(FormBaseWidget):
 
         self._set_fit_status(False)
         self.signal_incident_energy_or_range_changed.emit()
-
 
     def pb_fit_param_lines_clicked(self):
         dialog_data = self.gpc.get_detailed_fitting_params()

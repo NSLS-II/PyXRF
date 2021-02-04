@@ -959,6 +959,7 @@ class GlobalProcessingClasses:
         dest_dict["coherent_sct_energy"]["value"] = params["incident_energy"]
         dest_dict["non_fitting_values"]["energy_bound_low"]["value"] = params["range_low"]
         dest_dict["non_fitting_values"]["energy_bound_high"]["value"] = params["range_high"]
+        self.io_model.incident_energy_set = params["incident_energy"]
 
         self.fit_model.linear_bg = params["subtract_baseline_linear"]
         self.fit_model.use_snip = params["subtract_baseline_snip"]
