@@ -284,6 +284,8 @@ class ModelWidget(FormBaseWidget):
                     return dict()
 
                 self._compute_in_background(cb, self.slot_find_elines_clicked)
+            else:
+                self.gpc.fitting_parameters_changed()
 
     @Slot(object)
     def slot_find_elines_clicked(self, result):

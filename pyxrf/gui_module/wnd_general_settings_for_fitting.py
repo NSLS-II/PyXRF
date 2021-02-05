@@ -1,6 +1,6 @@
 from qtpy.QtWidgets import (QHBoxLayout, QVBoxLayout, QGroupBox, QPushButton,
                             QCheckBox, QLabel, QGridLayout, QMessageBox)
-from qtpy.QtCore import Qt, Slot, Signal, QThreadPool, QRunnable, QEvent
+from qtpy.QtCore import Qt, Slot, Signal, QThreadPool, QRunnable
 from .useful_widgets import (set_tooltip, SecondaryWindow, LineEditExtended,
                              IntValidatorStrict, DoubleValidatorStrict)
 

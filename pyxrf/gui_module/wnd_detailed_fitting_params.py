@@ -1,7 +1,7 @@
 from qtpy.QtWidgets import (QHBoxLayout, QVBoxLayout, QLabel, QComboBox, QMessageBox,
                             QTableWidget, QTableWidgetItem, QHeaderView, QPushButton)
 from qtpy.QtGui import QBrush, QColor, QPalette
-from qtpy.QtCore import Qt, Signal, Slot, QThreadPool, QRunnable, QEvent
+from qtpy.QtCore import Qt, Signal, Slot, QThreadPool, QRunnable
 
 from .useful_widgets import (get_background_css, set_tooltip, ComboBoxNamedNoWheel, SecondaryWindow)
 
@@ -77,9 +77,7 @@ class WndDetailedFittingParams(SecondaryWindow):
     def _setup_element_selection(self):
 
         self.combo_element_sel = QComboBox()
-        set_tooltip(self.combo_element_sel,
-                    "Select K, L or M <b>emission line</b> to edit the optimization parameters "
-                    "used for the line during total spectrum fitting.")
+        self.combo_element_sel.setMinimumWidth(200)
         self.combo_element_sel.currentIndexChanged.connect(self.combo_element_sel_current_index_changed)
 
         self.pb_apply = QPushButton("Apply")
@@ -88,7 +86,6 @@ class WndDetailedFittingParams(SecondaryWindow):
         self.pb_cancel = QPushButton("Cancel")
         self.pb_cancel.setEnabled(False)
         self.pb_cancel.clicked.connect(self.pb_cancel_clicked)
-
 
         hbox = QHBoxLayout()
         hbox.addWidget(QLabel("Select element:"))
@@ -224,6 +221,9 @@ class WndDetailedFittingParams(SecondaryWindow):
                     "Save changes and <b>update plots</b>.")
         set_tooltip(self.pb_cancel,
                     "<b>Discard</b> all changes.")
+        set_tooltip(self.combo_element_sel,
+                    "Select K, L or M <b>emission line</b> to edit the optimization parameters "
+                    "used for the line during total spectrum fitting.")
         set_tooltip(self.table,
                     "Edit optimization parameters for the selected emission line. "
                     "Processing presets may be configured by specifying optimization strategy "
@@ -320,11 +320,8 @@ class WndDetailedFittingParams(SecondaryWindow):
                     self._param_dict[key]["value"],
                     self._param_dict[key]["min"],
                     self._param_dict[key]["max"]]
-            try:  ## !!! Remove try ... except ...
-                for strategy in self._fit_strategy_list:
-                    data.append(self._param_dict[key][strategy])
-            except Exception as ex:
-                print(f"ex:  {ex} key='{key}'")
+            for strategy in self._fit_strategy_list:
+                data.append(self._param_dict[key][strategy])
             self._table_contents.append(data)
 
         self._fill_table(self._table_contents)

@@ -409,8 +409,6 @@ class LinePlotModel(Atom):
         upper_bound = round(upper_bound, ndigits=5)
         self.param_model.energy_bound_high_buf = upper_bound
 
-        self.param_model.parameters_changed()
-
     @observe('scale_opt')
     def _new_opt(self, change):
         self.log_linear_plot()

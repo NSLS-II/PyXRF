@@ -17,7 +17,7 @@ from skbeam.core.fitting.xrf_model import (ParamController,
                                            linear_spectrum_fitting)
 from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 from ..core.map_processing import snip_method_numba
-from ..core.xrf_utils import check_if_eline_supported, get_eline_parameters
+from ..core.xrf_utils import check_if_eline_supported, get_eline_parameters, get_element_atomic_number
 
 from ..core.utils import gaussian_sigma_to_fwhm, gaussian_fwhm_to_sigma
 
@@ -330,13 +330,11 @@ class ParamModel(Atom):
     def _update_energy_bound_high_buf(self, change):
         self.param_new['non_fitting_values']['energy_bound_high']['value'] = change['value']
         self.define_range()
-        self.parameters_changed()
 
     @observe('energy_bound_low_buf')
     def _update_energy_bound_high_low(self, change):
         self.param_new['non_fitting_values']['energy_bound_low']['value'] = change['value']
         self.define_range()
-        self.parameters_changed()
 
     def get_new_param_from_file(self, param_path):
         """
@@ -350,7 +348,6 @@ class ParamModel(Atom):
         with open(param_path, 'r') as json_data:
             self.param_new = json.load(json_data)
         self.create_spectrum_from_param_dict(reset=True)
-        self.parameters_changed()
 
         logger.info('Elements read from file are: {}'.format(self.element_list))
 
@@ -368,7 +365,6 @@ class ParamModel(Atom):
         """
         self.param_new = param
         self.create_spectrum_from_param_dict(reset=reset)
-        self.parameters_changed()
 
     @observe('bound_val')
     def _update_bound(self, change):
@@ -386,7 +382,6 @@ class ParamModel(Atom):
         self.x0, self.y0 = define_range(self.io_model.data, lowv, highv,
                                         self.param_new['e_offset']['value'],
                                         self.param_new['e_linear']['value'])
-        self.parameters_changed()
 
     def create_spectrum_from_param_dict(self, reset=True):
         """
@@ -485,7 +480,6 @@ class ParamModel(Atom):
                     self.EC.element_dict[key].status = element_status[key]
 
         self.result_dict_names = list(self.EC.element_dict.keys())
-        self.parameters_changed()
 
     def get_selected_eline_energy_fwhm(self, eline):
         """
@@ -578,8 +572,6 @@ class ParamModel(Atom):
         self.EC.update_peak_ratio()
         self.update_name_list()
         self.data_for_plot()
-
-        self.parameters_changed()
 
     def remove_elements_unselected(self):
         deleted_elements = self.EC.delete_unselected_items()
@@ -685,7 +677,6 @@ class ParamModel(Atom):
 
         self.EC.add_to_dict({self.e_name: ps})
         self.EC.update_peak_ratio()
-        self.parameters_changed()
 
     def _generate_param_keys(self, eline):
         """
@@ -752,8 +743,6 @@ class ParamModel(Atom):
         if key:
             self.param_new[key]["value"] *= coef
 
-        self.parameters_changed()
-
     def _compute_fwhm_base(self, energy):
         # Computes 'sigma' value based on default parameters and peak energy (for Userpeaks)
         #   does not include corrections for fwhm.
@@ -807,8 +796,6 @@ class ParamModel(Atom):
         fwhm_base = self._compute_fwhm_base(energy_new)
         fwhm = fwhm_difference + fwhm_base
 
-        self.parameters_changed()
-
         return fwhm
 
     def _update_userpeak_fwhm(self, eline, energy_new, fwhm_new):
@@ -827,8 +814,6 @@ class ParamModel(Atom):
         self.param_new[name_userpeak_dsigma]["max"] = dsigma + v_max - v_center
         self.param_new[name_userpeak_dsigma]["min"] = dsigma - (v_center - v_min)
 
-        self.parameters_changed()
-
     def _update_userpeak_energy_fwhm(self, eline, fwhm_new, energy_new):
         """
         Update energy and fwhm of the user-defined peak 'eline'. The 'delta_center'
@@ -846,8 +831,6 @@ class ParamModel(Atom):
 
         fwhm_new = self._update_userpeak_energy(eline, energy_new, fwhm_new)
         self._update_userpeak_fwhm(eline, energy_new, fwhm_new)
-
-        self.parameters_changed()
 
     def modify_userpeak_params(self, maxv_new, fwhm_new, energy_new):
 
@@ -911,8 +894,6 @@ class ParamModel(Atom):
 
         self.EC.element_dict[self.e_name] = ps
 
-        self.parameters_changed()
-
         logger.debug(f"The parameters of the user defined peak. The new values:\n"
                      f"   Energy: {energy_new} keV, FWHM: {fwhm_new}, Maximum: {maxv_new}\n")
 
@@ -970,22 +951,18 @@ class ParamModel(Atom):
         else:
             return "other"
 
-    def get_sorted_result_dict_names(self):
+    def _sort_eline_list(self, element_list):
         """
-        The function returns the list of selected emission lines. The emission lines are
-        sorted in the following order: emission line names (sorted in the order of growing
-        atomic number Z), userpeaks (in alphabetic order), pileup peaks (in alphabetic order),
-        other peaks (in alphabetic order).
-
-        Returns
-        -------
-        list(str)
-            the list if emission line names
+        Sort the list of elements
         """
         names_elines, names_userpeaks, names_pileup_peaks, names_other = [], [], [], []
-        for name in self.result_dict_names:
+        for name in element_list:
             if self.get_eline_name_category(name) == "eline":
-                names_elines.append([name, self.EC.element_dict[name].z])
+                try:
+                    z = get_element_atomic_number(name.split('_')[0])
+                except Exception:
+                    z = 0
+                names_elines.append([name, z])
             elif self.get_eline_name_category(name) == "userpeak":
                 names_userpeaks.append(name)
             elif self.get_eline_name_category(name) == "pileup":
@@ -1000,6 +977,26 @@ class ParamModel(Atom):
         names_other.sort()
 
         return names_elines + names_userpeaks + names_pileup_peaks + names_other
+
+    def get_sorted_result_dict_names(self):
+        """
+        The function returns the list of selected emission lines. The emission lines are
+        sorted in the following order: emission line names (sorted in the order of growing
+        atomic number Z), userpeaks (in alphabetic order), pileup peaks (in alphabetic order),
+        other peaks (in alphabetic order).
+
+        Returns
+        -------
+        list(str)
+            the list if emission line names
+        """
+        return self._sort_eline_list(self.result_dict_names)
+
+    def get_sorted_element_list(self):
+        """
+        Returns sorted ``element_list``.
+        """
+        return self._sort_eline_list(self.element_list)
 
     def read_param_from_file(self, param_path):
         """
@@ -1054,8 +1051,6 @@ class ParamModel(Atom):
 
         self.create_full_param()
 
-        self.parameters_changed()
-
     def create_full_param(self):
         """
         Update current ``self.param_new`` with elements from ``self.EC`` (delete elements that
@@ -1101,8 +1096,6 @@ class ParamModel(Atom):
                                                                         / np.max(self.y0))
             else:
                 self.param_new['non_fitting_values']['escape_ratio'] = 0.0
-
-        self.parameters_changed()
 
     def data_for_plot(self):
         """

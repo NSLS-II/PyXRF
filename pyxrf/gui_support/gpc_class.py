@@ -100,6 +100,9 @@ class GlobalProcessingClasses:
         """
         self.param_model.remove_parameters_changed_cb(cb)
 
+    def fitting_parameters_changed(self):
+        self.param_model.parameters_changed()
+
     def get_window_title(self):
         """
         Returns current title of the Main Window of the application.
@@ -935,7 +938,7 @@ class GlobalProcessingClasses:
         self.param_model.param_new["non_fitting_values"]["energy_bound_high"]["value"] = \
             dialog_params["energy_bound_high"]["value"]
 
-        self.param_model.parameters_changed()
+        self.fitting_parameters_changed()
 
         return return_value
 
@@ -983,7 +986,7 @@ class GlobalProcessingClasses:
 
         self.apply_to_fit()
 
-        self.param_model.parameters_changed()
+        self.fitting_parameters_changed()
 
     def get_fit_strategy_list(self):
         return fit_strategy_list.copy()
@@ -992,7 +995,7 @@ class GlobalProcessingClasses:
         # Dictionary of fitting parameters. Create a copy !!!
         param_dict = copy.deepcopy(self.param_model.param_new)
         # Ordered list of emission lines
-        eline_list = self.param_model.element_list
+        eline_list = self.param_model.get_sorted_element_list()
         # Dictionary: emission line -> [list of keys in 'params' dictionary]
         eline_key_dict = dict()
         eline_energy_dict = dict()
@@ -1077,10 +1080,12 @@ class GlobalProcessingClasses:
         for key, val in param_dict.items():
             self.param_model.param_new[key] = val
 
+        self.io_model.incident_energy_set = param_dict["coherent_sct_energy"]["value"]
+
         self.param_model.create_spectrum_from_param_dict(reset=False)
         self.apply_to_fit()
 
-        self.param_model.parameters_changed()
+        self.fitting_parameters_changed()
 
     def get_quant_standard_list(self):
         self.fit_model.param_quant_estimation.clear_standards()
@@ -1104,6 +1109,8 @@ class GlobalProcessingClasses:
         else:
             self.fit_model.param_quant_estimation.clear_standards()
             self.fit_model.qe_standard_selected_copy = None
+
+        self.fitting_parameters_changed()
 
     def is_quant_standard_custom(self, standard=None):
         return self.fit_model.param_quant_estimation.is_standard_custom(standard)
@@ -1142,6 +1149,8 @@ class GlobalProcessingClasses:
         # For plotting purposes, otherwise plot will not update
         self.plot_model.show_fit_opt = False
         self.plot_model.show_fit_opt = True
+
+        self.fitting_parameters_changed()
 
     def load_parameters_from_file(self, parameter_file_path, incident_energy_from_param_file=None):
 
@@ -1231,7 +1240,7 @@ class GlobalProcessingClasses:
             # Update displayed intensity of the selected peak
             self.plot_model.compute_manual_peak_intensity()
 
-            self.param_model.parameters_changed()
+            self.fitting_parameters_changed()
 
             return True, ""
 
@@ -1245,6 +1254,8 @@ class GlobalProcessingClasses:
 
         self.plot_model.plot_exp_opt = True
         self.apply_to_fit()
+
+        self.fitting_parameters_changed()
 
     def get_full_eline_list(self):
         """Returns full list of supported emission lines."""
@@ -1439,12 +1450,15 @@ class GlobalProcessingClasses:
             except Exception as ex:
                 raise RuntimeError(str(ex))
 
+        self.fitting_parameters_changed()
+
     def remove_peak_manual(self, eline):
         """Manually add a peak (emission line) using 'Remove' button"""
         try:
             self.select_eline(eline)
             self.param_model.remove_peak_manual()
             self.apply_to_fit()
+            self.fitting_parameters_changed()
         except Exception as ex:
             raise RuntimeError(str(ex))
 
@@ -1468,11 +1482,13 @@ class GlobalProcessingClasses:
         self.select_eline(eline)
         self.param_model.modify_userpeak_params(maxv, fwhm, energy)
         self.apply_to_fit()
+        self.fitting_parameters_changed()
 
     def update_eline_peak_height(self, eline, maxv):
         self.select_eline(eline)
         self.param_model.modify_peak_height(maxv)
         self.apply_to_fit()
+        self.fitting_parameters_changed()
 
     def get_suggested_manual_peak_energy(self):
         """
@@ -1503,11 +1519,13 @@ class GlobalProcessingClasses:
         self.param_model.remove_elements_below_threshold(threshv=peak_threshold)
         self.param_model.update_name_list()
         self.apply_to_fit()
+        self.fitting_parameters_changed()
 
     def remove_unchecked_peaks(self):
         self.param_model.remove_elements_unselected()
         self.param_model.update_name_list()
         self.apply_to_fit()
+        self.fitting_parameters_changed()
 
     def apply_to_fit(self):
         """
@@ -1572,6 +1590,8 @@ class GlobalProcessingClasses:
 
         # Update displayed intensity of the selected peak
         self.plot_model.compute_manual_peak_intensity()
+
+        self.fitting_parameters_changed()
 
     def save_param_to_file(self, path):
         save_as(path, self.param_model.param_new)

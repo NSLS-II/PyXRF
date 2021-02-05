@@ -439,7 +439,6 @@ class Fit1D(Atom):
 
     def update_param_with_result(self):
         update_parameter_dict(self.param_model.param_new, self.fit_result)
-        self.param_model.parameters_changed()
 
     def define_range(self):
         """
