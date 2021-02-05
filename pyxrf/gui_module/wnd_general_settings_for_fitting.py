@@ -221,7 +221,7 @@ class WndGeneralFittingSettings(SecondaryWindow):
                     "the window size to some large value.")
 
     def pb_update_plots_clicked(self):
-        """Upload the selections (limit table) and update plot"""
+        """Save dialog data and update plots"""
         self.save_form_data()
 
     def le_max_iterations_text_changed(self, text):
@@ -354,9 +354,6 @@ class WndGeneralFittingSettings(SecondaryWindow):
 
         self.gui_vars["gui_state"]["state_model_fit_exists"] = False
         self.update_global_state.emit()
-        # self.signal_fitting_parameters_changed.emit()
-        # self._set_fit_status(False)
-        # self.signal_incident_energy_or_range_changed.emit()
 
     def _show_all(self):
         self._show_max_iterations()

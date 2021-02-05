@@ -88,6 +88,18 @@ class GlobalProcessingClasses:
 
         logger.info('pyxrf started.')
 
+    def add_parameters_changed_cb(self, cb):
+        """
+        Add callback to the list of callback function that are called after parameters are updated.
+        """
+        self.param_model.add_parameters_changed_cb(cb)
+
+    def remove_parameters_changed_cb(self, cb):
+        """
+        Remove reference from the list of callback functions.
+        """
+        self.param_model.remove_parameters_changed_cb(cb)
+
     def get_window_title(self):
         """
         Returns current title of the Main Window of the application.
@@ -923,6 +935,8 @@ class GlobalProcessingClasses:
         self.param_model.param_new["non_fitting_values"]["energy_bound_high"]["value"] = \
             dialog_params["energy_bound_high"]["value"]
 
+        self.param_model.parameters_changed()
+
         return return_value
 
     def get_general_fitting_params(self):
@@ -969,10 +983,12 @@ class GlobalProcessingClasses:
 
         self.apply_to_fit()
 
+        self.param_model.parameters_changed()
+
     def get_fit_strategy_list(self):
         return fit_strategy_list.copy()
 
-    def get_detailed_fitting_params(self):
+    def get_detailed_fitting_params_lines(self):
         # Dictionary of fitting parameters. Create a copy !!!
         param_dict = copy.deepcopy(self.param_model.param_new)
         # Ordered list of emission lines
@@ -1015,6 +1031,32 @@ class GlobalProcessingClasses:
         #   Currently all the parameters not related to emission lines are strictly lower-case.
         other_param_list = [_ for _ in param_dict.keys() if (_ == _.lower()) and (_ != "non_fitting_values")]
         other_param_list.sort()
+        # eline_list = ["Shared parameters"] + eline_list
+
+        _fit_strategy_list = fit_strategy_list.copy()
+        _bound_options = bound_options.copy()
+
+        return {"param_dict": param_dict,
+                "eline_list": eline_list,
+                "eline_key_dict": eline_key_dict,
+                "eline_energy_dict": eline_energy_dict,
+                "other_param_list": other_param_list,
+                "fit_strategy_list": _fit_strategy_list,
+                "bound_options": _bound_options}
+
+    def get_detailed_fitting_params_shared(self):
+        # Dictionary of fitting parameters. Create a copy !!!
+        param_dict = copy.deepcopy(self.param_model.param_new)
+        # Ordered list of emission lines
+        eline_list = ["Shared parameters"]
+        # Dictionary: emission line -> [list of keys in 'params' dictionary]
+        eline_key_dict = dict()
+        eline_energy_dict = dict()
+
+        # List of other parameters in 'params' dictionary (except non_fitting_values).
+        #   Currently all the parameters not related to emission lines are strictly lower-case.
+        other_param_list = [_ for _ in param_dict.keys() if (_ == _.lower()) and (_ != "non_fitting_values")]
+        other_param_list.sort()
 
         _fit_strategy_list = fit_strategy_list.copy()
         _bound_options = bound_options.copy()
@@ -1037,6 +1079,8 @@ class GlobalProcessingClasses:
 
         self.param_model.create_spectrum_from_param_dict(reset=False)
         self.apply_to_fit()
+
+        self.param_model.parameters_changed()
 
     def get_quant_standard_list(self):
         self.fit_model.param_quant_estimation.clear_standards()
@@ -1186,6 +1230,8 @@ class GlobalProcessingClasses:
 
             # Update displayed intensity of the selected peak
             self.plot_model.compute_manual_peak_intensity()
+
+            self.param_model.parameters_changed()
 
             return True, ""
 

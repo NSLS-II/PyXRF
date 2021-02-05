@@ -4,7 +4,7 @@ from datetime import datetime
 from qtpy.QtWidgets import (QMainWindow, QMessageBox, QLabel, QAction,
                             QDialog, QVBoxLayout, QDialogButtonBox, QHBoxLayout,
                             QProgressBar)
-from qtpy.QtCore import Qt, Slot
+from qtpy.QtCore import Qt, Slot, Signal
 from qtpy.QtGui import QGuiApplication, QCursor
 
 from .central_widget import TwoPanelWidget
@@ -13,7 +13,8 @@ from .wnd_manage_emission_lines import WndManageEmissionLines
 from .wnd_compute_roi_maps import WndComputeRoiMaps
 from .wnd_load_quant_calibration import WndLoadQuantitativeCalibration
 from .wnd_image_wizard import WndImageWizard
-from .dlg_general_settings_for_fitting import WndGeneralFittingSettings
+from .wnd_general_settings_for_fitting import WndGeneralFittingSettings
+from .wnd_detailed_fitting_params import WndDetailedFittingParamsLines, WndDetailedFittingParamsShared
 
 import pyxrf
 
@@ -29,6 +30,8 @@ _main_window_geometry = {
 
 
 class MainWindow(QMainWindow):
+
+    signal_fitting_parameters_changed = Signal()
 
     def __init__(self, *, gpc):
         """
@@ -55,6 +58,10 @@ class MainWindow(QMainWindow):
             gpc=self.gpc, gui_vars=self.gui_vars)
         self.wnd_general_fitting_settings = WndGeneralFittingSettings(
             gpc=self.gpc, gui_vars=self.gui_vars)
+        self.wnd_fitting_parameters_shared = WndDetailedFittingParamsShared(
+            gpc=self.gpc, gui_vars=self.gui_vars)
+        self.wnd_fitting_parameters_lines = WndDetailedFittingParamsLines(
+            gpc=self.gpc, gui_vars=self.gui_vars)
         # Indicates that the window was closed (used mostly for testing)
         self._is_closed = False
 
@@ -65,6 +72,13 @@ class MainWindow(QMainWindow):
 
         self.central_widget.left_panel.load_data_widget.\
             update_main_window_title.connect(self.update_window_title)
+
+        # Set the callback for update forms with fitting parameters
+        def update_fitting_parameter_forms():
+            self.signal_fitting_parameters_changed.emit()
+
+        gpc.add_parameters_changed_cb(update_fitting_parameter_forms)
+        gpc.param_model.parameters_changed()
 
     def initialize(self):
 
@@ -348,6 +362,10 @@ class MainWindow(QMainWindow):
         self.wnd_compute_roi_maps.signal_activate_tab_xrf_maps.connect(
             self.central_widget.right_panel.slot_activate_tab_xrf_maps)
 
+        self.signal_fitting_parameters_changed.connect(self.wnd_general_fitting_settings.update_form_data)
+        self.signal_fitting_parameters_changed.connect(self.wnd_fitting_parameters_shared.update_form_data)
+        self.signal_fitting_parameters_changed.connect(self.wnd_fitting_parameters_lines.update_form_data)
+
     @Slot()
     @Slot(str)
     def update_widget_state(self, condition=None):
@@ -374,6 +392,8 @@ class MainWindow(QMainWindow):
         self.wnd_image_wizard.update_widget_state(condition)
         self.wnd_load_quantitative_calibration.update_widget_state(condition)
         self.wnd_general_fitting_settings.update_widget_state(condition)
+        self.wnd_fitting_parameters_shared.update_widget_state(condition)
+        self.wnd_fitting_parameters_lines.update_widget_state(condition)
 
     def closeEvent(self, event):
         mb_close = QMessageBox(QMessageBox.Question, "Exit",
@@ -390,6 +410,8 @@ class MainWindow(QMainWindow):
             self.wnd_image_wizard.close()
             self.wnd_load_quantitative_calibration.close()
             self.wnd_general_fitting_settings.close()
+            self.wnd_fitting_parameters_shared.close()
+            self.wnd_fitting_parameters_lines.close()
 
             # This flag is used for CI tests
             self._is_closed = True
