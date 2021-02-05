@@ -33,8 +33,6 @@ class WndDetailedFittingParams(SecondaryWindow):
     update_global_state = Signal()
     computations_complete = Signal(object)
 
-    signal_fitting_parameters_changed = Signal()
-
     def __init__(self,  *, window_title, gpc, gui_vars):
         super().__init__()
 
@@ -84,15 +82,20 @@ class WndDetailedFittingParams(SecondaryWindow):
                     "used for the line during total spectrum fitting.")
         self.combo_element_sel.currentIndexChanged.connect(self.combo_element_sel_current_index_changed)
 
-        self.pb_update_plots = QPushButton("Update Plots")
-        self.pb_update_plots.setEnabled(False)
-        self.pb_update_plots.clicked.connect(self.pb_update_plots_clicked)
+        self.pb_apply = QPushButton("Apply")
+        self.pb_apply.setEnabled(False)
+        self.pb_apply.clicked.connect(self.pb_apply_clicked)
+        self.pb_cancel = QPushButton("Cancel")
+        self.pb_cancel.setEnabled(False)
+        self.pb_cancel.clicked.connect(self.pb_cancel_clicked)
+
 
         hbox = QHBoxLayout()
         hbox.addWidget(QLabel("Select element:"))
         hbox.addWidget(self.combo_element_sel)
         hbox.addStretch(1)
-        hbox.addWidget(self.pb_update_plots)
+        hbox.addWidget(self.pb_apply)
+        hbox.addWidget(self.pb_cancel)
 
         return hbox
 
@@ -217,18 +220,15 @@ class WndDetailedFittingParams(SecondaryWindow):
         self._enable_events = True
 
     def _set_tooltips(self):
-        set_tooltip(self.pb_update_plots,
+        set_tooltip(self.pb_apply,
                     "Save changes and <b>update plots</b>.")
+        set_tooltip(self.pb_cancel,
+                    "<b>Discard</b> all changes.")
         set_tooltip(self.table,
                     "Edit optimization parameters for the selected emission line. "
                     "Processing presets may be configured by specifying optimization strategy "
                     "for each parameter may be selected. A preset for each fitting step "
                     "of the total spectrum fitting may be selected in <b>Model</b> tab.")
-
-    def event(self, event):
-        if event.type() == QEvent.WindowActivate:
-            pass
-        return super().event(event)
 
     def combo_element_sel_current_index_changed(self, index):
         self._selected_index = index
@@ -272,9 +272,13 @@ class WndDetailedFittingParams(SecondaryWindow):
             except Exception as ex:
                 logger.error(f"Error occurred while setting edited value: {ex}")
 
-    def pb_update_plots_clicked(self):
+    def pb_apply_clicked(self):
         """Save dialog data and update plots"""
         self.save_form_data()
+
+    def pb_cancel_clicked(self):
+        """Reload data (discard all changes)"""
+        self.update_form_data()
 
     def _set_combo_element_sel_items(self):
         element_list = self._eline_list
@@ -316,8 +320,11 @@ class WndDetailedFittingParams(SecondaryWindow):
                     self._param_dict[key]["value"],
                     self._param_dict[key]["min"],
                     self._param_dict[key]["max"]]
-            for strategy in self._fit_strategy_list:
-                data.append(self._param_dict[key][strategy])
+            try:  ## !!! Remove try ... except ...
+                for strategy in self._fit_strategy_list:
+                    data.append(self._param_dict[key][strategy])
+            except Exception as ex:
+                print(f"ex:  {ex} key='{key}'")
             self._table_contents.append(data)
 
         self._fill_table(self._table_contents)
@@ -346,7 +353,8 @@ class WndDetailedFittingParams(SecondaryWindow):
             self._set_tooltips()
 
     def _validate_all(self):
-        self.pb_update_plots.setEnabled(self._data_changed)
+        self.pb_apply.setEnabled(self._data_changed)
+        self.pb_cancel.setEnabled(self._data_changed)
 
     def _load_dialog_data(self):
         ...

@@ -14,8 +14,6 @@ class WndGeneralFittingSettings(SecondaryWindow):
     update_global_state = Signal()
     computations_complete = Signal(object)
 
-    signal_fitting_parameters_changed = Signal()
-
     def __init__(self, *, gpc, gui_vars):
         super().__init__()
 
@@ -47,15 +45,19 @@ class WndGeneralFittingSettings(SecondaryWindow):
         self.setMinimumWidth(500)
         self.resize(650, 330)
 
-        self.pb_update_plots = QPushButton("Update Plots")
-        self.pb_update_plots.setEnabled(False)
-        self.pb_update_plots.clicked.connect(self.pb_update_plots_clicked)
+        self.pb_apply = QPushButton("Apply")
+        self.pb_apply.setEnabled(False)
+        self.pb_apply.clicked.connect(self.pb_apply_clicked)
+        self.pb_cancel = QPushButton("Cancel")
+        self.pb_cancel.setEnabled(False)
+        self.pb_cancel.clicked.connect(self.pb_cancel_clicked)
 
         vbox = QVBoxLayout()
 
         hbox = QHBoxLayout()
         hbox.addStretch(1)
-        hbox.addWidget(self.pb_update_plots)
+        hbox.addWidget(self.pb_apply)
+        hbox.addWidget(self.pb_cancel)
         vbox.addLayout(hbox)
 
         hbox = self._setup_table()
@@ -179,11 +181,6 @@ class WndGeneralFittingSettings(SecondaryWindow):
 
         return hbox
 
-    def event(self, event):
-        if event.type() == QEvent.WindowActivate:
-            pass
-        return super().event(event)
-
     def update_widget_state(self, condition=None):
         # Update the state of the menu bar
         state = not self.gui_vars["gui_state"]["running_computations"]
@@ -193,8 +190,10 @@ class WndGeneralFittingSettings(SecondaryWindow):
             self._set_tooltips()
 
     def _set_tooltips(self):
-        set_tooltip(self.pb_update_plots,
+        set_tooltip(self.pb_apply,
                     "Save changes and <b>update plots</b>.")
+        set_tooltip(self.pb_cancel,
+                    "<b>Discard</b> all changes.")
         set_tooltip(self.le_max_iterations,
                     "<b>Maximum number of iterations</b> used for total spectrum fitting.")
         set_tooltip(self.le_tolerance_stopping,
@@ -220,9 +219,13 @@ class WndGeneralFittingSettings(SecondaryWindow):
                     "fitting total spectrum, but its effect may be reduced or eliminated by setting "
                     "the window size to some large value.")
 
-    def pb_update_plots_clicked(self):
+    def pb_apply_clicked(self):
         """Save dialog data and update plots"""
         self.save_form_data()
+
+    def pb_cancel_clicked(self):
+        """Reload data (discard all changes)"""
+        self.update_form_data()
 
     def le_max_iterations_text_changed(self, text):
         self._data_changed = True
@@ -410,7 +413,8 @@ class WndGeneralFittingSettings(SecondaryWindow):
                  self._validate_range() and
                  self._validate_snip_window_size())
 
-        self.pb_update_plots.setEnabled(valid and self._data_changed)
+        self.pb_apply.setEnabled(valid and self._data_changed)
+        self.pb_cancel.setEnabled(valid and self._data_changed)
 
     def _validate_max_interations(self, text=None):
         if text is None:

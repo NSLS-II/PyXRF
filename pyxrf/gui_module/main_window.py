@@ -365,6 +365,7 @@ class MainWindow(QMainWindow):
         self.signal_fitting_parameters_changed.connect(self.wnd_general_fitting_settings.update_form_data)
         self.signal_fitting_parameters_changed.connect(self.wnd_fitting_parameters_shared.update_form_data)
         self.signal_fitting_parameters_changed.connect(self.wnd_fitting_parameters_lines.update_form_data)
+        self.signal_fitting_parameters_changed.connect(self.wnd_manage_emission_lines.update_widget_data)
 
     @Slot()
     @Slot(str)

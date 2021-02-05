@@ -647,6 +647,7 @@ class ParamModel(Atom):
             energy = get_energy(self.e_name)
 
         param_tmp = PC.params
+        param_tmp = create_full_dict(param_tmp, fit_strategy_list)
 
         # Add name to the name list
         _add_element_to_list(self.e_name, param_tmp)
@@ -943,7 +944,7 @@ class ParamModel(Atom):
         self.n_selected_elines_for_fitting = len(self.result_dict_names)
         self.n_selected_pure_elines_for_fitting = len(pure_peak_list)
 
-        logger.info(f"The full list for fitting is {self.result_dict_names}")
+        logger.info(f"The update list of emission lines: {self.result_dict_names}")
 
     def get_eline_name_category(self, eline_name):
         """
