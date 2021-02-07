@@ -273,34 +273,45 @@ class ModelWidget(FormBaseWidget):
         ret = dlg.exec()
         if ret:
             dialog_data = dlg.get_dialog_data()
-            logger.debug("Saving parameters from 'DialogFindElements'")
-            if self.gpc.set_autofind_elements_params(dialog_data):
-                self.signal_incident_energy_or_range_changed.emit()
-            if dlg.find_elements_requested:
-                logger.debug("Starting automated element search")
+            find_elements_requested = dlg.find_elements_requested
+            update_model = self.gui_vars["gui_state"]["state_model_exists"]
 
-                def cb():
+            def cb():
+                range_changed = self.gpc.set_autofind_elements_params(
+                    dialog_data,
+                    update_model=update_model,
+                    update_fitting_params=not find_elements_requested)
+                if find_elements_requested:
                     self.gpc.find_elements_automatically()
-                    return dict()
+                return {"range_changed": range_changed,
+                        "find_elements_requested": find_elements_requested}
 
-                self._compute_in_background(cb, self.slot_find_elines_clicked)
-            else:
-                self.gpc.fitting_parameters_changed()
+            self._compute_in_background(cb, self.slot_find_elines_clicked)
 
     @Slot(object)
     def slot_find_elines_clicked(self, result):
+        range_changed = result["range_changed"]
+        find_elements_requested = result["find_elements_requested"]
 
         self._set_fit_status(False)
         self._recover_after_compute(self.slot_find_elines_clicked)
 
-        msg = "Emission lines were detected automatically"
+        if range_changed:
+            self.signal_incident_energy_or_range_changed.emit()
+            self.gpc.fitting_parameters_changed()
+
+        if find_elements_requested:
+            msg = "Emission lines were detected automatically"
+        else:
+            msg = "Parameters were upadated"
         self.le_param_fln.setText(msg)
 
-        self.gui_vars["gui_state"]["state_model_exists"] = True
-        self.gui_vars["gui_state"]["state_model_fit_exists"] = False
-        self.signal_model_loaded.emit(True)
-        self.update_global_state.emit()
-        logger.info("Automated element search is complete")
+        if find_elements_requested:
+            self.gui_vars["gui_state"]["state_model_exists"] = True
+            self.gui_vars["gui_state"]["state_model_fit_exists"] = False
+            self.signal_model_loaded.emit(True)
+            self.update_global_state.emit()
+            logger.info("Automated element search is complete")
 
     @Slot(str)
     def slot_selection_item_changed(self, eline):

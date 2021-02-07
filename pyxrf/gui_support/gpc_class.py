@@ -133,6 +133,7 @@ class GlobalProcessingClasses:
 
         except Exception:
             _update_data()
+            self.fitting_parameters_changed()
 
             # For plotting purposes, otherwise plot will not update
             self.plot_model.plot_exp_opt = False
@@ -146,6 +147,7 @@ class GlobalProcessingClasses:
             raise
         else:
             _update_data()
+            self.fitting_parameters_changed()
 
             # For plotting purposes, otherwise plot will not update
             try:
@@ -211,6 +213,7 @@ class GlobalProcessingClasses:
 
         except Exception:
             _update_data()
+            self.fitting_parameters_changed()
 
             # For plotting purposes, otherwise plot will not update
             self.plot_model.plot_exp_opt = False
@@ -224,6 +227,7 @@ class GlobalProcessingClasses:
 
         else:
             _update_data()
+            self.fitting_parameters_changed()
 
             # For plotting purposes, otherwise plot will not update
             self.plot_model.plot_exp_opt = False
@@ -907,14 +911,28 @@ class GlobalProcessingClasses:
 
         return dialog_params
 
-    def set_autofind_elements_params(self, dialog_params):
+    def set_autofind_elements_params(self, dialog_params, *, update_model=True, update_fitting_params=True):
         """Save the parameters changed in 'Find Elements in Sample` dialog box.
+
+        Parameters
+        ----------
+        dialog_params : dict
+            parameters from dialog box
+        update_model : boolean
+            True - update the spectra based on new parameters. Updating the spectra
+            may take long time if model contains a lot of parameters, therefore it
+            should not be used for the default model which contains all supported emission
+            lines.
+        update_fitting_params : bool
+            True - execute callback functions after updating fitting parameters
 
         Returns
         -------
         boolean
             True - selected range or incident energy were changed, False otherwise
         """
+        logger.debug("Saving parameters from 'DialogFindElements'")
+
         keys = ["e_offset", "e_linear", "e_quadratic",
                 "fwhm_offset", "fwhm_fanoprime"]
         for k in keys:
@@ -938,7 +956,11 @@ class GlobalProcessingClasses:
         self.param_model.param_new["non_fitting_values"]["energy_bound_high"]["value"] = \
             dialog_params["energy_bound_high"]["value"]
 
-        self.fitting_parameters_changed()
+        if update_model and return_value:
+            self.param_model.create_spectrum_from_param_dict(reset=False)
+
+        if update_fitting_params:
+            self.fitting_parameters_changed()
 
         return return_value
 
@@ -984,6 +1006,7 @@ class GlobalProcessingClasses:
 
         dest_dict["non_fitting_values"]["background_width"] = params["snip_window_size"]
 
+        self.param_model.create_spectrum_from_param_dict(reset=False)
         self.apply_to_fit()
 
         self.fitting_parameters_changed()
@@ -1245,6 +1268,7 @@ class GlobalProcessingClasses:
             return True, ""
 
     def find_elements_automatically(self):
+        logger.debug("Starting automated element search")
         self.param_model.find_peak()
 
         self.param_model.EC.order()
