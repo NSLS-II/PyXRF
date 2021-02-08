@@ -59,6 +59,9 @@ def build_xanes_map(start_id=None, end_id=None, *, parameter_file_path=None,
     sequence="load_and_process", ref_file_name="refs_Fe_P23.csv", fitting_method="nnls",
     emission_line="Fe_K", emission_line_alignment="P_K", incident_energy_shift_keV=-0.0013)
 
+    By default, the function will not overwrite the existing files and skip downloading
+    of the data. To overwrite the existing files, set the parameter ``file_overwrite_existing=True``.
+
     There are two ways of setting processing parameters:
 
     -- Method 1. The parameter values different from default may be sent to ``build_xanes_map`` as
@@ -158,6 +161,12 @@ def build_xanes_map(start_id=None, end_id=None, *, parameter_file_path=None,
         The values of ``start_id`` and ``end_id`` must be set to proper values in order
         to load data from the databroker.
         Default: ``None``
+
+    file_overwrite_existing : boolean
+        Indicates if the existing file should be deleted and replaced with the new file
+        with the same name: ``True`` the file will always be replaced, ``False`` existing
+        file will be skipped. This parameter is passed directly to ``make_hdf``, which
+        is responsible for downloading data.
 
     xrf_fitting_param_fln : str
         the name of the JSON parameter file. The parameters are used for automated
@@ -447,6 +456,7 @@ def build_xanes_map(start_id=None, end_id=None, *, parameter_file_path=None,
 _build_xanes_map_param_default = {
     "start_id": None,
     "end_id": None,
+    "file_overwrite_existing": False,
     "xrf_fitting_param_fln": None,
     "xrf_subtract_baseline": True,
     "scaler_name": None,
@@ -478,8 +488,8 @@ _build_xanes_map_param_default = {
 _build_xanes_map_param_schema = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["start_id", "end_id", "xrf_fitting_param_fln", "xrf_subtract_baseline",
-                 "scaler_name", "wd", "xrf_subdir",
+    "required": ["start_id", "end_id", "file_overwrite_existing", "xrf_fitting_param_fln",
+                 "xrf_subtract_baseline", "scaler_name", "wd", "xrf_subdir",
                  "sequence", "emission_line", "emission_line_alignment", "incident_energy_shift_keV",
                  "alignment_starts_from", "interpolation_enable", "alignment_enable",
                  "normalize_alignment_stack", "subtract_pre_edge_baseline", "ref_file_name",
@@ -489,6 +499,7 @@ _build_xanes_map_param_schema = {
     "properties": {
         "start_id": {"type": ["integer", "null"], "exclusiveMinimum": 0},
         "end_id": {"type": ["integer", "null"], "exclusiveMinimum": 0},
+        "file_overwrite_existing": {"type": "boolean"},
         "xrf_fitting_param_fln": {"type": ["string", "null"]},
         "xrf_subtract_baseline": {"type": "boolean"},
         "scaler_name": {"type": ["string", "null"]},
@@ -524,6 +535,7 @@ _build_xanes_map_param_schema = {
 
 
 def _build_xanes_map_api(*, start_id=None, end_id=None,
+                         file_overwrite_existing=False,
                          xrf_fitting_param_fln=None,
                          xrf_subtract_baseline=True,
                          scaler_name=None,
@@ -579,6 +591,12 @@ def _build_xanes_map_api(*, start_id=None, end_id=None,
         The values of ``start_id`` and ``end_id`` must be set to proper values in order
         to load data from the databroker.
         Default: ``None``
+
+    file_overwrite_existing : boolean
+        Indicates if the existing file should be deleted and replaced with the new file
+        with the same name: ``True`` the file will always be replaced, ``False`` existing
+        file will be skipped. This parameter is passed directly to ``make_hdf``, which
+        is responsible for downloading data.
 
     xrf_fitting_param_fln : str
         the name of the JSON parameter file. The parameters are used for automated
@@ -864,7 +882,8 @@ def _build_xanes_map_api(*, start_id=None, end_id=None,
     wd_xrf = os.path.join(wd, xrf_subdir)
 
     if seq_load_data:
-        _load_data_from_databroker(start_id=start_id, end_id=end_id, wd_xrf=wd_xrf)
+        _load_data_from_databroker(start_id=start_id, end_id=end_id,
+                                   wd_xrf=wd_xrf, file_overwrite_existing=file_overwrite_existing)
         logger.info("Loading data from databroker: success.")
     else:
         logger.info("Loading of data from databroker: skipped.")
@@ -915,7 +934,7 @@ def _build_xanes_map_api(*, start_id=None, end_id=None,
     logger.info("Processing is complete.")
 
 
-def _load_data_from_databroker(*, start_id, end_id, wd_xrf):
+def _load_data_from_databroker(*, start_id, end_id, wd_xrf, file_overwrite_existing):
     r"""
     Implements the first step of processing sequence: loading the batch of scan data
     from databroker.
@@ -931,6 +950,11 @@ def _load_data_from_databroker(*, start_id, end_id, wd_xrf):
 
     wd_xrf : str
         full (absolute) name of the directory, where loaded .h5 files are placed
+
+    file_overwrite_existing : bool, keyword parameter
+        Indicates if the existing file should be deleted and replaced with the new file
+        with the same name: ``True`` the file will always be replaced, ``False`` existing
+        file will be skipped.
     """
 
     # Try to create the directory (does nothing if the directory exists)
@@ -943,7 +967,7 @@ def _load_data_from_databroker(*, start_id, end_id, wd_xrf):
             logger.info(f"Removing raw xrf data file: '{fln}'.")
             os.remove(path=fln)
     make_hdf(start_id, end_id, wd=wd_xrf,
-             completed_scans_only=True, file_overwrite_existing=True,
+             completed_scans_only=True, file_overwrite_existing=file_overwrite_existing,
              create_each_det=False, save_scaler=True)
 
 
@@ -3054,6 +3078,12 @@ def _save_xanes_maps_to_tiff(*, wd, eline_data_aligned, eline_selected,
             fln_stack = os.path.join(wd, fln_stack)
             tifffile.imsave(fln_stack, eline_data_aligned[eline_selected].astype(np.float32),
                             imagej=True)
+            fln_stack_sum = f"SUM_maps_XRF_{eline_selected}.tiff"
+            fln_stack_sum = os.path.join(wd, fln_stack_sum)
+            # Find sum of the stack
+            stack_sum = sum(eline_data_aligned[eline_selected], 0)
+            tifffile.imsave(fln_stack_sum, stack_sum.astype(np.float32), imagej=True)
+
             logger.info(f"The stack of XRF maps for the emission line {eline_selected} is saved "
                         f"to file '{fln_stack}'")
 
@@ -3067,6 +3097,7 @@ def _save_xanes_maps_to_tiff(*, wd, eline_data_aligned, eline_selected,
                     print(f"   Frame {n + 1}:  scan ID = {scan_id}   "
                           f"incident energy = {energy:.4f} keV (corrected to {energy_shifted:.4f} keV) "
                           f"file name = '{fln}'", file=f_log)
+            print(f"\nThe stack sum is saved to file '{fln_stack_sum}'.", file=f_log)
 
         if output_save_all:
             for eline in eline_data_aligned.keys():
@@ -3190,8 +3221,8 @@ if __name__ == "__main__":
     build_xanes_map(start_id=92276, end_id=92335,
                     xrf_fitting_param_fln="param_335",
                     scaler_name="sclr1_ch4", wd=None,
-                    sequence="process",
-                    # sequence="build_xanes_map",
+                    # sequence="process",
+                    sequence="build_xanes_map",
                     alignment_starts_from="top",
                     ref_file_name="refs_Fe_P23.csv",
                     fitting_method="nnls",

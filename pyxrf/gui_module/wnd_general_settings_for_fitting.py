@@ -1,41 +1,83 @@
-import copy
-
-from qtpy.QtWidgets import (QHBoxLayout, QVBoxLayout, QGroupBox,
-                            QCheckBox, QLabel, QDialog, QDialogButtonBox,
-                            QGridLayout)
-from qtpy.QtCore import Qt
-from .useful_widgets import (set_tooltip, LineEditExtended,
+from qtpy.QtWidgets import (QHBoxLayout, QVBoxLayout, QGroupBox, QPushButton,
+                            QCheckBox, QLabel, QGridLayout, QMessageBox)
+from qtpy.QtCore import Qt, Slot, Signal, QThreadPool, QRunnable
+from .useful_widgets import (set_tooltip, SecondaryWindow, LineEditExtended,
                              IntValidatorStrict, DoubleValidatorStrict)
 
 import logging
 logger = logging.getLogger(__name__)
 
 
-class DialogGeneralFittingSettings(QDialog):
+class WndGeneralFittingSettings(SecondaryWindow):
 
-    def __init__(self, parent=None):
+    # Signal that is sent (to main window) to update global state of the program
+    update_global_state = Signal()
+    computations_complete = Signal(object)
 
-        super().__init__(parent)
+    def __init__(self, *, gpc, gui_vars):
+        super().__init__()
 
-        self.setWindowTitle("General Settings for Fitting Algorithm")
+        # Global processing classes
+        self.gpc = gpc
+        # Global GUI variables (used for control of GUI state)
+        self.gui_vars = gui_vars
 
         self._dialog_data = {}
 
         self._validator_int = IntValidatorStrict()
         self._validator_float = DoubleValidatorStrict()
 
+        # Reference to the main window. The main window will hold
+        #   references to all non-modal windows that could be opened
+        #   from multiple places in the program.
+        self.ref_main_window = self.gui_vars["ref_main_window"]
+
+        self.update_global_state.connect(self.ref_main_window.update_widget_state)
+
+        self.initialize()
+
+        self._data_changed = False
+
+    def initialize(self):
+        self.setWindowTitle("General Settings for Fitting Algorithm")
+
+        self.setMinimumHeight(330)
+        self.setMinimumWidth(500)
+        self.resize(650, 330)
+
+        self.pb_apply = QPushButton("Apply")
+        self.pb_apply.setEnabled(False)
+        self.pb_apply.clicked.connect(self.pb_apply_clicked)
+        self.pb_cancel = QPushButton("Cancel")
+        self.pb_cancel.setEnabled(False)
+        self.pb_cancel.clicked.connect(self.pb_cancel_clicked)
+
+        vbox = QVBoxLayout()
+
+        hbox = QHBoxLayout()
+        hbox.addStretch(1)
+        hbox.addWidget(self.pb_apply)
+        hbox.addWidget(self.pb_cancel)
+        vbox.addLayout(hbox)
+
+        hbox = self._setup_table()
+        vbox.addLayout(hbox)
+
+        vbox.addStretch(1)
+
+        self.setLayout(vbox)
+
+        self._set_tooltips()
+        self.update_form_data()
+
+    def _setup_table(self):
+
         vbox_left = QVBoxLayout()
 
         # ===== Top-left section of the dialog box =====
         self.le_max_iterations = LineEditExtended()
-        set_tooltip(self.le_max_iterations,
-                    "<b>Maximum number of iterations</b> used for total spectrum fitting.")
         self.le_tolerance_stopping = LineEditExtended()
-        set_tooltip(self.le_tolerance_stopping,
-                    "<b>Tolerance</b> setting for total spectrum fitting.")
         self.le_escape_ratio = LineEditExtended()
-        set_tooltip(self.le_escape_ratio,
-                    "Parameter for total spectrum fitting: <b>escape ration</b>")
         grid = QGridLayout()
         grid.addWidget(QLabel("Iterations (max):"), 0, 0)
         grid.addWidget(self.le_max_iterations, 0, 1)
@@ -52,14 +94,8 @@ class DialogGeneralFittingSettings(QDialog):
 
         # Incident energy and the selected range
         self.le_incident_energy = LineEditExtended()
-        set_tooltip(self.le_incident_energy,
-                    "<b>Incident energy</b> in keV")
         self.le_range_low = LineEditExtended()
-        set_tooltip(self.le_range_low,
-                    "<b>Lower boundary</b> of the selected range in keV.")
         self.le_range_high = LineEditExtended()
-        set_tooltip(self.le_range_high,
-                    "<b>Upper boundary</b> of the selected range in keV.")
         self.group_energy_range = QGroupBox("Incident Energy and Selected Range")
         grid = QGridLayout()
         grid.addWidget(QLabel("Incident energy, keV"), 0, 0)
@@ -76,14 +112,7 @@ class DialogGeneralFittingSettings(QDialog):
         # ===== Top-right section of the dialog box =====
 
         self.cb_linear_baseline = QCheckBox("Subtract linear baseline")
-        set_tooltip(self.cb_linear_baseline,
-                    "Subtract baseline as represented as a constant. <b>XRF Map generation</b>. "
-                    "Baseline subtraction is performed as part of NNLS fitting.")
         self.cb_snip_baseline = QCheckBox("Subtract baseline using SNIP")
-        set_tooltip(self.cb_snip_baseline,
-                    "Subtract baseline using SNIP method. <b>XRF Map generation</b>. "
-                    "This is a separate step of processing and can be used together with "
-                    "'linear' baseline subtraction if needed.")
 
         # This option is not supported. In the future it may be removed
         #   if not needed or implemented.
@@ -111,11 +140,6 @@ class DialogGeneralFittingSettings(QDialog):
         # ===== Bottom-right section of the dialog box =====
 
         self.le_snip_window_size = LineEditExtended()
-        set_tooltip(self.le_snip_window_size,
-                    "Window size for <b>SNIP</b> algorithm. Used both for total spectrum fitting "
-                    "and XRF Map generation. SNIP baseline subtraction is always performed while "
-                    "fitting total spectrum, but its effect may be reduced or eliminated by setting "
-                    "the window size to some large value.")
 
         vbox = QVBoxLayout()
         hbox = QHBoxLayout()
@@ -131,22 +155,9 @@ class DialogGeneralFittingSettings(QDialog):
         vbox_right.addWidget(self.group_all_fitting)
         vbox_right.addStretch(1)
 
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        button_box.button(QDialogButtonBox.Cancel).setDefault(True)
-        button_box.accepted.connect(self.accept)
-        button_box.rejected.connect(self.reject)
-        self.pb_ok = button_box.button(QDialogButtonBox.Ok)
-
         hbox = QHBoxLayout()
         hbox.addLayout(vbox_left)
         hbox.addLayout(vbox_right)
-
-        vbox = QVBoxLayout()
-        vbox.addLayout(hbox)
-        vbox.addWidget(button_box)
-
-        self.setLayout(vbox)
 
         self.le_max_iterations.textChanged.connect(self.le_max_iterations_text_changed)
         self.le_max_iterations.editingFinished.connect(self.le_max_iterations_editing_finished)
@@ -168,7 +179,56 @@ class DialogGeneralFittingSettings(QDialog):
         self.cb_linear_baseline.stateChanged.connect(self.cb_linear_baseline_state_changed)
         self.cb_snip_baseline.stateChanged.connect(self.cb_snip_baseline_state_changed)
 
+        return hbox
+
+    def update_widget_state(self, condition=None):
+        # Update the state of the menu bar
+        state = not self.gui_vars["gui_state"]["running_computations"]
+        self.setEnabled(state)
+
+        if condition == "tooltips":
+            self._set_tooltips()
+
+    def _set_tooltips(self):
+        set_tooltip(self.pb_apply,
+                    "Save changes and <b>update plots</b>.")
+        set_tooltip(self.pb_cancel,
+                    "<b>Discard</b> all changes.")
+        set_tooltip(self.le_max_iterations,
+                    "<b>Maximum number of iterations</b> used for total spectrum fitting.")
+        set_tooltip(self.le_tolerance_stopping,
+                    "<b>Tolerance</b> setting for total spectrum fitting.")
+        set_tooltip(self.le_escape_ratio,
+                    "Parameter for total spectrum fitting: <b>escape ration</b>")
+        set_tooltip(self.le_incident_energy,
+                    "<b>Incident energy</b> in keV")
+        set_tooltip(self.le_range_low,
+                    "<b>Lower boundary</b> of the selected range in keV.")
+        set_tooltip(self.le_range_high,
+                    "<b>Upper boundary</b> of the selected range in keV.")
+        set_tooltip(self.cb_linear_baseline,
+                    "Subtract baseline as represented as a constant. <b>XRF Map generation</b>. "
+                    "Baseline subtraction is performed as part of NNLS fitting.")
+        set_tooltip(self.cb_snip_baseline,
+                    "Subtract baseline using SNIP method. <b>XRF Map generation</b>. "
+                    "This is a separate step of processing and can be used together with "
+                    "'linear' baseline subtraction if needed.")
+        set_tooltip(self.le_snip_window_size,
+                    "Window size for <b>SNIP</b> algorithm. Used both for total spectrum fitting "
+                    "and XRF Map generation. SNIP baseline subtraction is always performed while "
+                    "fitting total spectrum, but its effect may be reduced or eliminated by setting "
+                    "the window size to some large value.")
+
+    def pb_apply_clicked(self):
+        """Save dialog data and update plots"""
+        self.save_form_data()
+
+    def pb_cancel_clicked(self):
+        """Reload data (discard all changes)"""
+        self.update_form_data()
+
     def le_max_iterations_text_changed(self, text):
+        self._data_changed = True
         self._validate_all()
 
     def le_max_iterations_editing_finished(self):
@@ -178,6 +238,7 @@ class DialogGeneralFittingSettings(QDialog):
             self._show_max_iterations()
 
     def le_tolerance_stopping_text_changed(self, text):
+        self._data_changed = True
         self._validate_all()
 
     def le_tolerance_stopping_editing_finished(self):
@@ -187,6 +248,7 @@ class DialogGeneralFittingSettings(QDialog):
             self._show_tolerance_stopping()
 
     def le_escape_ratio_text_changed(self, text):
+        self._data_changed = True
         self._validate_all()
 
     def le_escape_ratio_editing_finished(self):
@@ -196,6 +258,7 @@ class DialogGeneralFittingSettings(QDialog):
             self._show_escape_ratio()
 
     def le_incident_energy_text_changed(self, text):
+        self._data_changed = True
         if self._validate_incident_energy(text):
             val = float(text)
             val_range_high = val + 0.8
@@ -213,8 +276,10 @@ class DialogGeneralFittingSettings(QDialog):
         else:
             self._show_range_low()
             self._show_range_high()
+        self._validate_all()
 
     def le_range_low_text_changed(self, text):
+        self._data_changed = True
         self._validate_all()
 
     def le_range_low_editing_finished(self):
@@ -224,8 +289,10 @@ class DialogGeneralFittingSettings(QDialog):
         else:
             self._show_range_low()
             self._show_range_high()
+        self._validate_all()
 
     def le_range_high_text_changed(self, text):
+        self._data_changed = True
         self._validate_all()
 
     def le_range_high_editing_finished(self):
@@ -237,6 +304,7 @@ class DialogGeneralFittingSettings(QDialog):
             self._show_range_high()
 
     def le_snip_window_size_text_changed(self, text):
+        self._data_changed = True
         self._validate_all()
 
     def le_snip_window_size_editing_finished(self):
@@ -247,16 +315,48 @@ class DialogGeneralFittingSettings(QDialog):
 
     def cb_linear_baseline_state_changed(self, state):
         self._dialog_data["subtract_baseline_linear"] = state == Qt.Checked
+        self._data_changed = True
+        self._validate_all()
 
     def cb_snip_baseline_state_changed(self, state):
         self._dialog_data["subtract_baseline_snip"] = state == Qt.Checked
+        self._data_changed = True
+        self._validate_all()
 
-    def set_dialog_data(self, dialog_data):
-        self._dialog_data = copy.deepcopy(dialog_data)
+    def update_form_data(self):
+        self._dialog_data = self.gpc.get_general_fitting_params()
         self._show_all()
+        self._data_changed = False
+        self._validate_all()
 
-    def get_dialog_data(self):
-        return self._dialog_data
+    def save_form_data(self):
+        if self._data_changed:
+            def cb(dialog_data):
+                try:
+                    self.gpc.set_general_fitting_params(dialog_data)
+                    success, msg = True, ""
+                except Exception as ex:
+                    success, msg = False, str(ex)
+                return {"success": success, "msg": msg}
+
+            self._compute_in_background(cb, self.slot_save_form_data,
+                                        dialog_data=self._dialog_data)
+
+    @Slot(object)
+    def slot_save_form_data(self, result):
+        self._recover_after_compute(self.slot_save_form_data)
+
+        if not result["success"]:
+            msg = result["msg"]
+            msgbox = QMessageBox(QMessageBox.Critical, "Failed to Apply Fit Parameters",
+                                 msg, QMessageBox.Ok, parent=self)
+            msgbox.exec()
+        else:
+            self._data_changed = False
+            self._validate_all()
+
+        self.gui_vars["gui_state"]["state_model_fit_exists"] = False
+        self.update_global_state.emit()
 
     def _show_all(self):
         self._show_max_iterations()
@@ -313,7 +413,8 @@ class DialogGeneralFittingSettings(QDialog):
                  self._validate_range() and
                  self._validate_snip_window_size())
 
-        self.pb_ok.setEnabled(valid)
+        self.pb_apply.setEnabled(valid and self._data_changed)
+        self.pb_cancel.setEnabled(valid and self._data_changed)
 
     def _validate_max_interations(self, text=None):
         if text is None:
@@ -406,3 +507,46 @@ class DialogGeneralFittingSettings(QDialog):
     def _read_le_value(self, line_edit):
         """It is assumed that the value is validated before the function is called"""
         return float(line_edit.text())
+
+    def _compute_in_background(self, func, slot, *args, **kwargs):
+        """
+        Run function `func` in a background thread. Send the signal
+        `self.computations_complete` once computation is finished.
+
+        Parameters
+        ----------
+        func: function
+            Reference to a function that is supposed to be executed at the background.
+            The function return value is passed as a signal parameter once computation is
+            complete.
+        slot: qtpy.QtCore.Slot or None
+            Reference to a slot. If not None, then the signal `self.computation_complete`
+            is connected to this slot.
+        args, kwargs
+            arguments of the function `func`.
+        """
+        signal_complete = self.computations_complete
+
+        def func_to_run(func, *args, **kwargs):
+            class RunTask(QRunnable):
+                def run(self):
+                    result_dict = func(*args, **kwargs)
+                    signal_complete.emit(result_dict)
+            return RunTask()
+
+        if slot is not None:
+            self.computations_complete.connect(slot)
+        self.gui_vars["gui_state"]["running_computations"] = True
+        self.update_global_state.emit()
+        QThreadPool.globalInstance().start(func_to_run(func, *args, **kwargs))
+
+    def _recover_after_compute(self, slot):
+        """
+        The function should be called after the signal `self.computations_complete` is
+        received. The slot should be the same as the one used when calling
+        `self.compute_in_background`.
+        """
+        if slot is not None:
+            self.computations_complete.disconnect(slot)
+        self.gui_vars["gui_state"]["running_computations"] = False
+        self.update_global_state.emit()

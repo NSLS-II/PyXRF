@@ -9,7 +9,7 @@ from ..model.parameters import ParamModel, save_as, fit_strategy_list, bound_opt
 from ..model.draw_image import DrawImageAdvanced
 from ..model.draw_image_rgb import DrawImageRGB
 from ..model.fit_spectrum import Fit1D, get_cs
-from ..model.setting import SettingModel
+from ..model.roi_model import ROIModel
 from ..model.param_data import param_data
 
 from ..core.xrf_utils import get_eline_energy
@@ -26,7 +26,7 @@ class GlobalProcessingClasses:
         self.param_model = None
         self.plot_model = None
         self.fit_model = None
-        self.setting_model = None
+        self.roi_model = None
         self.img_model_adv = None
         self.img_model_rgb = None
 
@@ -47,35 +47,33 @@ class GlobalProcessingClasses:
         self.plot_model = LinePlotModel(param_model=self.param_model, io_model=self.io_model)
         self.fit_model = Fit1D(param_model=self.param_model, io_model=self.io_model,
                                working_directory=working_directory)
-        self.setting_model = SettingModel(param_model=self.param_model, io_model=self.io_model)
-        self.img_model_adv = DrawImageAdvanced()
-        self.img_model_rgb = DrawImageRGB(img_model_adv=self.img_model_adv)
+        self.roi_model = ROIModel(param_model=self.param_model, io_model=self.io_model)
+        self.img_model_adv = DrawImageAdvanced(io_model=self.io_model)
+        self.img_model_rgb = DrawImageRGB(io_model=self.io_model, img_model_adv=self.img_model_adv)
 
         # Initialization needed to eliminate program crash
-        self.plot_model.roi_dict = self.setting_model.roi_dict
+        self.plot_model.roi_dict = self.roi_model.roi_dict
 
         # send working directory changes to different models
         self.io_model.observe('working_directory', self.fit_model.result_folder_changed)
-        self.io_model.observe('working_directory', self.setting_model.result_folder_changed)
+        self.io_model.observe('working_directory', self.roi_model.result_folder_changed)
         self.io_model.observe('selected_file_name', self.fit_model.data_title_update)
         self.io_model.observe('selected_file_name', self.plot_model.exp_label_update)
-        self.io_model.observe('selected_file_name', self.setting_model.data_title_update)
+        self.io_model.observe('selected_file_name', self.roi_model.data_title_update)
 
         # send the same file to fit model, as fitting results need to be saved
         self.io_model.observe('file_name', self.fit_model.filename_update)
         self.io_model.observe('file_name', self.plot_model.plot_exp_data_update)
-        self.io_model.observe('file_name', self.setting_model.filename_update)
+        self.io_model.observe('file_name', self.roi_model.filename_update)
         self.io_model.observe('runid', self.fit_model.runid_update)
 
         # Perform updates when 'io_model.data' is changed (no data is passed)
         self.io_model.observe('data', self.plot_model.exp_data_update)
 
         # send img dict to img_model for visualization
-        self.io_model.observe('img_dict', self.setting_model.img_dict_update)
-        self.io_model.observe('img_dict', self.plot_model.img_dict_update)
-        self.io_model.observe('img_dict', self.fit_model.img_dict_update)
-        self.io_model.observe('img_dict', self.img_model_adv.img_dict_update)
-        self.io_model.observe('img_dict', self.img_model_rgb.img_dict_update)
+        self.io_model.observe('img_dict_is_updated', self.fit_model.img_dict_updated)
+        self.io_model.observe('img_dict_is_updated', self.img_model_adv.img_dict_updated)
+        self.io_model.observe('img_dict_is_updated', self.img_model_rgb.img_dict_updated)
 
         self.io_model.observe('incident_energy_set', self.plot_model.set_incident_energy)
         self.io_model.observe('incident_energy_set', self.img_model_adv.set_incident_energy)
@@ -89,6 +87,21 @@ class GlobalProcessingClasses:
         self.param_model.observe('energy_bound_low_buf', self.plot_model.energy_bound_low_update)
 
         logger.info('pyxrf started.')
+
+    def add_parameters_changed_cb(self, cb):
+        """
+        Add callback to the list of callback function that are called after parameters are updated.
+        """
+        self.param_model.add_parameters_changed_cb(cb)
+
+    def remove_parameters_changed_cb(self, cb):
+        """
+        Remove reference from the list of callback functions.
+        """
+        self.param_model.remove_parameters_changed_cb(cb)
+
+    def fitting_parameters_changed(self):
+        self.param_model.parameters_changed()
 
     def get_window_title(self):
         """
@@ -120,6 +133,7 @@ class GlobalProcessingClasses:
 
         except Exception:
             _update_data()
+            self.fitting_parameters_changed()
 
             # For plotting purposes, otherwise plot will not update
             self.plot_model.plot_exp_opt = False
@@ -133,6 +147,7 @@ class GlobalProcessingClasses:
             raise
         else:
             _update_data()
+            self.fitting_parameters_changed()
 
             # For plotting purposes, otherwise plot will not update
             try:
@@ -198,6 +213,7 @@ class GlobalProcessingClasses:
 
         except Exception:
             _update_data()
+            self.fitting_parameters_changed()
 
             # For plotting purposes, otherwise plot will not update
             self.plot_model.plot_exp_opt = False
@@ -211,6 +227,7 @@ class GlobalProcessingClasses:
 
         else:
             _update_data()
+            self.fitting_parameters_changed()
 
             # For plotting purposes, otherwise plot will not update
             self.plot_model.plot_exp_opt = False
@@ -553,7 +570,7 @@ class GlobalProcessingClasses:
             self.img_model_adv.stat_dict[key] = bool(show_status)
 
     def get_maps_dataset_list(self):
-        dsets = list(self.img_model_adv.img_dict_keys)
+        dsets = list(self.io_model.img_dict_keys)
         dset_sel = self.get_maps_selected_dataset()  # The index in the list + 1 (0 - nothing is selected)
         return dsets, dset_sel
 
@@ -566,11 +583,13 @@ class GlobalProcessingClasses:
     def get_maps_selected_dataset(self):
         """Returns selected dataset (XRF Maps tab). Index: 0 - no dataset is selected,
         1, 2, ... datasets with index 0, 1, ... is selected"""
-        return int(self.img_model_adv.data_opt)
+        # return int(self.img_model_adv.data_opt)
+        return int(self.io_model.img_dict_default_selected_item)
 
     def set_maps_selected_dataset(self, dataset_index):
         """Select dataset (XRF Maps tab)"""
-        self.img_model_adv.select_dataset(dataset_index)
+        # self.img_model_adv.select_dataset(dataset_index)
+        self.io_model.select_img_dict_item(dataset_index)
 
     def get_maps_scaler_index(self):
         return self.img_model_adv.scaler_name_index
@@ -652,7 +671,7 @@ class GlobalProcessingClasses:
         rgb_dict: dict
             dictionary that hold the displayed items: key - color ("red", "green" or "blue"),
             value - selected map represented by the key of `self.img_model_rgb.dict_to_plot`
-            or `self.img_model_rgb.img_dict[<dataset>]` dictionaries.
+            or `self.io_model.img_dict[<dataset>]` dictionaries.
         """
         # Check if 'range_dict' and 'limit_dict' have the same set of keys
         ks = self.img_model_rgb.map_keys
@@ -702,7 +721,7 @@ class GlobalProcessingClasses:
         rgb_dict: dict
             dictionary that hold the displayed items: key - color ("red", "green" or "blue"),
             value - selected map represented by the key of `self.img_model_rgb.dict_to_plot`
-            or `self.img_model_rgb.img_dict[<dataset>]` dictionaries.
+            or `self.io_model.img_dict[<dataset>]` dictionaries.
         """
         # Verify: the keys in both tables must match 'self.img_model_adv.map_keys'
         limit_table_keys = [_[0] for _ in limit_table]
@@ -727,7 +746,7 @@ class GlobalProcessingClasses:
         self.img_model_rgb.rgb_dict = rgb_dict.copy()
 
     def get_rgb_maps_dataset_list(self):
-        dsets = list(self.img_model_rgb.img_dict_keys)
+        dsets = list(self.io_model.img_dict_keys)
         dset_sel = self.get_maps_selected_dataset()  # The index in the list + 1 (0 - nothing is selected)
         return dsets, dset_sel
 
@@ -740,11 +759,13 @@ class GlobalProcessingClasses:
     def get_rgb_maps_selected_dataset(self):
         """Returns selected dataset (XRF Maps tab). Index: 0 - no dataset is selected,
         1, 2, ... datasets with index 0, 1, ... is selected"""
-        return int(self.img_model_rgb.data_opt)
+        # return int(self.img_model_rgb.data_opt)
+        return int(self.io_model.img_dict_default_selected_item)
 
     def set_rgb_maps_selected_dataset(self, dataset_index):
         """Select dataset (XRF Maps tab)"""
-        self.img_model_rgb.select_dataset(dataset_index)
+        # self.img_model_rgb.select_dataset(dataset_index)
+        self.io_model.select_img_dict_item(dataset_index)
 
     def get_rgb_maps_scaler_index(self):
         return self.img_model_rgb.scaler_name_index
@@ -890,14 +911,28 @@ class GlobalProcessingClasses:
 
         return dialog_params
 
-    def set_autofind_elements_params(self, dialog_params):
+    def set_autofind_elements_params(self, dialog_params, *, update_model=True, update_fitting_params=True):
         """Save the parameters changed in 'Find Elements in Sample` dialog box.
+
+        Parameters
+        ----------
+        dialog_params : dict
+            parameters from dialog box
+        update_model : boolean
+            True - update the spectra based on new parameters. Updating the spectra
+            may take long time if model contains a lot of parameters, therefore it
+            should not be used for the default model which contains all supported emission
+            lines.
+        update_fitting_params : bool
+            True - execute callback functions after updating fitting parameters
 
         Returns
         -------
         boolean
             True - selected range or incident energy were changed, False otherwise
         """
+        logger.debug("Saving parameters from 'DialogFindElements'")
+
         keys = ["e_offset", "e_linear", "e_quadratic",
                 "fwhm_offset", "fwhm_fanoprime"]
         for k in keys:
@@ -920,6 +955,12 @@ class GlobalProcessingClasses:
             dialog_params["energy_bound_low"]["value"]
         self.param_model.param_new["non_fitting_values"]["energy_bound_high"]["value"] = \
             dialog_params["energy_bound_high"]["value"]
+
+        if update_model and return_value:
+            self.param_model.create_spectrum_from_param_dict(reset=False)
+
+        if update_fitting_params:
+            self.fitting_parameters_changed()
 
         return return_value
 
@@ -957,6 +998,7 @@ class GlobalProcessingClasses:
         dest_dict["coherent_sct_energy"]["value"] = params["incident_energy"]
         dest_dict["non_fitting_values"]["energy_bound_low"]["value"] = params["range_low"]
         dest_dict["non_fitting_values"]["energy_bound_high"]["value"] = params["range_high"]
+        self.io_model.incident_energy_set = params["incident_energy"]
 
         self.fit_model.linear_bg = params["subtract_baseline_linear"]
         self.fit_model.use_snip = params["subtract_baseline_snip"]
@@ -964,16 +1006,19 @@ class GlobalProcessingClasses:
 
         dest_dict["non_fitting_values"]["background_width"] = params["snip_window_size"]
 
+        self.param_model.create_spectrum_from_param_dict(reset=False)
         self.apply_to_fit()
+
+        self.fitting_parameters_changed()
 
     def get_fit_strategy_list(self):
         return fit_strategy_list.copy()
 
-    def get_detailed_fitting_params(self):
+    def get_detailed_fitting_params_lines(self):
         # Dictionary of fitting parameters. Create a copy !!!
         param_dict = copy.deepcopy(self.param_model.param_new)
         # Ordered list of emission lines
-        eline_list = self.param_model.element_list
+        eline_list = self.param_model.get_sorted_element_list()
         # Dictionary: emission line -> [list of keys in 'params' dictionary]
         eline_key_dict = dict()
         eline_energy_dict = dict()
@@ -1012,6 +1057,32 @@ class GlobalProcessingClasses:
         #   Currently all the parameters not related to emission lines are strictly lower-case.
         other_param_list = [_ for _ in param_dict.keys() if (_ == _.lower()) and (_ != "non_fitting_values")]
         other_param_list.sort()
+        # eline_list = ["Shared parameters"] + eline_list
+
+        _fit_strategy_list = fit_strategy_list.copy()
+        _bound_options = bound_options.copy()
+
+        return {"param_dict": param_dict,
+                "eline_list": eline_list,
+                "eline_key_dict": eline_key_dict,
+                "eline_energy_dict": eline_energy_dict,
+                "other_param_list": other_param_list,
+                "fit_strategy_list": _fit_strategy_list,
+                "bound_options": _bound_options}
+
+    def get_detailed_fitting_params_shared(self):
+        # Dictionary of fitting parameters. Create a copy !!!
+        param_dict = copy.deepcopy(self.param_model.param_new)
+        # Ordered list of emission lines
+        eline_list = ["Shared parameters"]
+        # Dictionary: emission line -> [list of keys in 'params' dictionary]
+        eline_key_dict = dict()
+        eline_energy_dict = dict()
+
+        # List of other parameters in 'params' dictionary (except non_fitting_values).
+        #   Currently all the parameters not related to emission lines are strictly lower-case.
+        other_param_list = [_ for _ in param_dict.keys() if (_ == _.lower()) and (_ != "non_fitting_values")]
+        other_param_list.sort()
 
         _fit_strategy_list = fit_strategy_list.copy()
         _bound_options = bound_options.copy()
@@ -1032,8 +1103,12 @@ class GlobalProcessingClasses:
         for key, val in param_dict.items():
             self.param_model.param_new[key] = val
 
+        self.io_model.incident_energy_set = param_dict["coherent_sct_energy"]["value"]
+
         self.param_model.create_spectrum_from_param_dict(reset=False)
         self.apply_to_fit()
+
+        self.fitting_parameters_changed()
 
     def get_quant_standard_list(self):
         self.fit_model.param_quant_estimation.clear_standards()
@@ -1057,6 +1132,8 @@ class GlobalProcessingClasses:
         else:
             self.fit_model.param_quant_estimation.clear_standards()
             self.fit_model.qe_standard_selected_copy = None
+
+        self.fitting_parameters_changed()
 
     def is_quant_standard_custom(self, standard=None):
         return self.fit_model.param_quant_estimation.is_standard_custom(standard)
@@ -1095,6 +1172,8 @@ class GlobalProcessingClasses:
         # For plotting purposes, otherwise plot will not update
         self.plot_model.show_fit_opt = False
         self.plot_model.show_fit_opt = True
+
+        self.fitting_parameters_changed()
 
     def load_parameters_from_file(self, parameter_file_path, incident_energy_from_param_file=None):
 
@@ -1184,9 +1263,12 @@ class GlobalProcessingClasses:
             # Update displayed intensity of the selected peak
             self.plot_model.compute_manual_peak_intensity()
 
+            self.fitting_parameters_changed()
+
             return True, ""
 
     def find_elements_automatically(self):
+        logger.debug("Starting automated element search")
         self.param_model.find_peak()
 
         self.param_model.EC.order()
@@ -1196,6 +1278,8 @@ class GlobalProcessingClasses:
 
         self.plot_model.plot_exp_opt = True
         self.apply_to_fit()
+
+        self.fitting_parameters_changed()
 
     def get_full_eline_list(self):
         """Returns full list of supported emission lines."""
@@ -1390,12 +1474,15 @@ class GlobalProcessingClasses:
             except Exception as ex:
                 raise RuntimeError(str(ex))
 
+        self.fitting_parameters_changed()
+
     def remove_peak_manual(self, eline):
         """Manually add a peak (emission line) using 'Remove' button"""
         try:
             self.select_eline(eline)
             self.param_model.remove_peak_manual()
             self.apply_to_fit()
+            self.fitting_parameters_changed()
         except Exception as ex:
             raise RuntimeError(str(ex))
 
@@ -1419,11 +1506,13 @@ class GlobalProcessingClasses:
         self.select_eline(eline)
         self.param_model.modify_userpeak_params(maxv, fwhm, energy)
         self.apply_to_fit()
+        self.fitting_parameters_changed()
 
     def update_eline_peak_height(self, eline, maxv):
         self.select_eline(eline)
         self.param_model.modify_peak_height(maxv)
         self.apply_to_fit()
+        self.fitting_parameters_changed()
 
     def get_suggested_manual_peak_energy(self):
         """
@@ -1454,11 +1543,13 @@ class GlobalProcessingClasses:
         self.param_model.remove_elements_below_threshold(threshv=peak_threshold)
         self.param_model.update_name_list()
         self.apply_to_fit()
+        self.fitting_parameters_changed()
 
     def remove_unchecked_peaks(self):
         self.param_model.remove_elements_unselected()
         self.param_model.update_name_list()
         self.apply_to_fit()
+        self.fitting_parameters_changed()
 
     def apply_to_fit(self):
         """
@@ -1524,6 +1615,8 @@ class GlobalProcessingClasses:
         # Update displayed intensity of the selected peak
         self.plot_model.compute_manual_peak_intensity()
 
+        self.fitting_parameters_changed()
+
     def save_param_to_file(self, path):
         save_as(path, self.param_model.param_new)
 
@@ -1546,61 +1639,54 @@ class GlobalProcessingClasses:
         self.fit_model.fit_single_pixel()
 
         # add scalers to fit dict
-        scaler_keys = [v for v in self.img_model_adv.img_dict.keys() if 'scaler' in v]
+        scaler_keys = [v for v in self.io_model.img_dict.keys() if 'scaler' in v]
         if len(scaler_keys) > 0:
             self.fit_model.fit_img[list(self.fit_model.fit_img.keys())[0]].update(
-                self.img_model_adv.img_dict[scaler_keys[0]])
+                self.io_model.img_dict[scaler_keys[0]])
 
-        self.img_model_adv.update_img_dict_entries(self.fit_model.fit_img)
-        # No copy the dictionary so that it is distributed to all locations
-        #   setting_model, plot_model, fit_model, img_model_adv, img_model_rgb
-        self.io_model.img_dict = self.img_model_adv.img_dict
-        self.img_model_rgb.update_img_dict_entries(self.fit_model.fit_img)
+        self.io_model.update_img_dict(self.fit_model.fit_img)
 
     # ==========================================================================
     #          The following methods are used by ROI window
     def get_roi_selected_element_list(self):
-        element_list = self.setting_model.element_for_roi
+        element_list = self.roi_model.element_for_roi
         # TODO: should probably be sorted differently
         return element_list
 
     def set_roi_selected_element_list(self, elements_for_roi):
-        self.setting_model.element_for_roi = elements_for_roi
+        self.roi_model.element_for_roi = elements_for_roi
         self.plot_model.plot_roi_bound()
 
     def clear_roi_element_list(self):
-        for r in self.setting_model.element_list_roi:
+        for r in self.roi_model.element_list_roi:
             self.plot_model.roi_dict[r].show_plot = False
         self.plot_model.plot_roi_bound()
-        self.setting_model.clear_selected_elements()
+        self.roi_model.clear_selected_elements()
 
     def load_roi_element_list_from_selected(self):
-        for r in self.setting_model.element_list_roi:
+        for r in self.roi_model.element_list_roi:
             self.plot_model.roi_dict[r].show_plot = False
         self.plot_model.plot_roi_bound()
         selected_element_list = self.param_model.EC.get_element_list()
         selected_element_list = [_ for _ in selected_element_list
                                  if self.param_model.get_eline_name_category(_) == "eline"]
-        self.setting_model.select_elements_from_list(selected_element_list)
+        self.roi_model.select_elements_from_list(selected_element_list)
 
     def get_roi_subtract_background(self):
-        return self.setting_model.subtract_background
+        return self.roi_model.subtract_background
 
     def set_roi_subtract_background(self, subtract_background):
-        self.setting_model.subtract_background = bool(subtract_background)
+        self.roi_model.subtract_background = bool(subtract_background)
 
     def compute_rois(self):
-        if len(self.setting_model.element_for_roi) == 0:
+        if len(self.roi_model.element_for_roi) == 0:
             raise RuntimeError("No elements are selected for ROI computation. Select at least one element.")
-        roi_result = self.setting_model.get_roi_sum()
-        self.img_model_adv.update_img_dict_entries(roi_result)
-        # No copy the dictionary so that it is distributed to all locations
-        #   setting_model, plot_model, fit_model, img_model_adv, img_model_rgb
-        self.io_model.img_dict = self.img_model_adv.img_dict
-        self.img_model_rgb.update_img_dict_entries(roi_result)
+        roi_result = self.roi_model.get_roi_sum()
+
+        self.io_model.update_img_dict(roi_result)
 
     def show_roi(self, eline, show_status):
-        self.plot_model.roi_dict = self.setting_model.roi_dict
+        self.plot_model.roi_dict = self.roi_model.roi_dict
         if show_status:
             # self.plot_model.plot_exp_opt = True
             self.plot_model.roi_dict[eline].show_plot = True
@@ -1610,26 +1696,26 @@ class GlobalProcessingClasses:
             self.plot_model.plot_roi_bound()
 
     def change_roi(self, eline, low, high):
-        # Convert keV to eV (current implementation of SettingModel is using eV.
-        self.setting_model.roi_dict[eline].left_val = int(low * 1000)
-        self.setting_model.roi_dict[eline].right_val = int(high * 1000)
+        # Convert keV to eV (current implementation of ROIModel is using eV.
+        self.roi_model.roi_dict[eline].left_val = int(low * 1000)
+        self.roi_model.roi_dict[eline].right_val = int(high * 1000)
         self.plot_model.plot_roi_bound()
 
     def get_roi_settings(self):
         roi_settings = []
 
-        eline_list = list(self.setting_model.element_list_roi)
+        eline_list = list(self.roi_model.element_list_roi)
 
         for eline in eline_list:
-            # We display values in keV, but current implementation of SettingModel
+            # We display values in keV, but current implementation of ROIModel
             #   is using eV.
-            energy_center = self.setting_model.roi_dict[eline].line_val / 1000.0
-            energy_left = self.setting_model.roi_dict[eline].left_val / 1000.0
-            energy_right = self.setting_model.roi_dict[eline].right_val / 1000.0
-            range_displayed = self.setting_model.roi_dict[eline].show_plot
+            energy_center = self.roi_model.roi_dict[eline].line_val / 1000.0
+            energy_left = self.roi_model.roi_dict[eline].left_val / 1000.0
+            energy_right = self.roi_model.roi_dict[eline].right_val / 1000.0
+            range_displayed = self.roi_model.roi_dict[eline].show_plot
 
-            energy_left_default = self.setting_model.roi_dict[eline].default_left / 1000.0
-            energy_right_default = self.setting_model.roi_dict[eline].default_right / 1000.0
+            energy_left_default = self.roi_model.roi_dict[eline].default_left / 1000.0
+            energy_right_default = self.roi_model.roi_dict[eline].default_right / 1000.0
 
             roi_settings.append({"eline": eline,
                                  "energy_center": energy_center,

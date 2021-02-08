@@ -133,6 +133,11 @@ class PlotRgbMaps(QWidget):
         self._update_dataset()
         self.signal_rgb_maps_dataset_selection_changed.emit()
 
+    @Slot()
+    def combo_select_dataset_update_current_index(self):
+        index = self.gpc.get_rgb_maps_selected_dataset()
+        self.combo_select_dataset.setCurrentIndex(index - 1)
+
     def combo_normalization_current_index_changed(self, index):
         self.gpc.set_rgb_maps_scaler_index(index)
         self.slot_update_ranges()

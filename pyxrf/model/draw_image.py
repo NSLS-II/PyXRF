@@ -36,9 +36,6 @@ class DrawImageAdvanced(Atom):
     file_name : str
     stat_dict : dict
         determine which image to show
-    img_dict : dict
-        multiple data sets to plot, such as fit data, or roi data
-    img_dict_keys : list
     data_opt : int
         index to show which data is chosen to plot
     dict_to_plot : dict
@@ -66,11 +63,11 @@ class DrawImageAdvanced(Atom):
     limit_dict : Dict
         save low and high limit for image scaling
     """
+    # Reference to FileIOMOdel
+    io_model = Typed(object)
 
     fig = Typed(Figure)
     stat_dict = Dict()  # The value (bool) determines if the map (name is the key) is shown
-    img_dict = Dict()
-    img_dict_keys = List()
     data_opt = Int(0)
     dict_to_plot = Dict()
     items_previous_selected = List()
@@ -117,7 +114,9 @@ class DrawImageAdvanced(Atom):
     quant_active_emission_lines = List()
     quant_calibration_data_preview = Str()
 
-    def __init__(self):
+    def __init__(self, *, io_model):
+        self.io_model = io_model
+
         self.fig = plt.figure(figsize=(3, 2))
         matplotlib.rcParams['axes.formatter.useoffset'] = True
 
@@ -129,28 +128,28 @@ class DrawImageAdvanced(Atom):
         self.param_quant_analysis.set_experiment_distance_to_sample(distance_to_sample=0.0)
         self.param_quant_analysis.set_experiment_incident_energy(incident_energy=self.incident_energy)
 
-    def img_dict_update(self, change):
+    def img_dict_updated(self, change):
         """
         Observer function to be connected to the fileio model
         in the top-level gui.py startup
 
         Parameters
         ----------
-        changed : dict
-            This is the dictionary that gets passed to a function
-            with the @observe decorator
+        changed : bool
+            True - 'io_model.img_dict` was updated, False - ignore
         """
-        self.img_dict = change['value']
+        if change['value']:
+            self.select_dataset(self.io_model.img_dict_default_selected_item)
+            self.init_plot_status()
 
-    @observe('img_dict')
-    def init_plot_status(self, change):
+    def init_plot_status(self):
         # init of scaler for normalization
         self.scaler_name_index = 0
 
-        scaler_groups = [v for v in list(self.img_dict.keys()) if 'scaler' in v]
+        scaler_groups = [v for v in list(self.io_model.img_dict.keys()) if 'scaler' in v]
         if len(scaler_groups) > 0:
             # self.scaler_group_name = scaler_groups[0]
-            self.scaler_norm_dict = self.img_dict[scaler_groups[0]]
+            self.scaler_norm_dict = self.io_model.img_dict[scaler_groups[0]]
             # for GUI purpose only
             self.scaler_items = []
             self.scaler_items = list(self.scaler_norm_dict.keys())
@@ -160,11 +159,11 @@ class DrawImageAdvanced(Atom):
         # init of pos values
         self.set_pixel_or_pos(0)
 
-        if 'positions' in self.img_dict:
+        if 'positions' in self.io_model.img_dict:
             try:
-                logger.debug(f"Position keys: {list(self.img_dict['positions'].keys())}")
-                self.x_pos = list(self.img_dict['positions']['x_pos'][0, :])
-                self.y_pos = list(self.img_dict['positions']['y_pos'][:, -1])
+                logger.debug(f"Position keys: {list(self.io_model.img_dict['positions'].keys())}")
+                self.x_pos = list(self.io_model.img_dict['positions']['x_pos'][0, :])
+                self.y_pos = list(self.io_model.img_dict['positions']['y_pos'][:, -1])
                 # when we use imshow, the x and y start at lower left,
                 # so flip y, we want y starts from top left
                 self.y_pos.reverse()
@@ -175,54 +174,11 @@ class DrawImageAdvanced(Atom):
             self.x_pos = []
             self.y_pos = []
 
-        self.get_default_items()   # use previous defined elements as default
         logger.info('Use previously selected items as default: {}'.format(self.items_previous_selected))
-
-        # initiate the plotting status once new data is coming
-        self.img_dict_keys = self._get_img_dict_keys()
-        logger.debug('The following groups are included for 2D image display: {}'.format(self.img_dict_keys))
-
-        if len(self.img_dict_keys) > 0:
-            self.select_dataset(1)
-        else:
-            self.select_dataset(0)
+        logger.debug('The following groups are included for 2D image display: {}'.
+                     format(self.io_model.img_dict_keys))
 
         self.show_image()
-
-    def update_img_dict_entries(self, img_dict_additional=None):
-        if img_dict_additional is None:
-            img_dict_additional = {}
-
-        new_keys = list(img_dict_additional.keys())
-        selected_key = new_keys[0] if new_keys else None
-
-        self.img_dict.update(img_dict_additional)
-        self.img_dict_keys = self._get_img_dict_keys()
-
-        if selected_key is None:
-            selected_item = 1 if self.img_dict_keys else 0
-        else:
-            selected_item = self.img_dict_keys.index(selected_key) + 1
-
-        self.select_dataset(selected_item)
-
-    def _get_img_dict_keys(self):
-        key_suffix = [r"scaler$", r"det\d+_roi$", r"roi$", r"det\d+_fit$", r"fit$"]
-        keys = [[] for _ in range(len(key_suffix) + 1)]
-        for k in self.img_dict.keys():
-            found = False
-            for n, suff in enumerate(key_suffix):
-                if re.search(suff, k):
-                    keys[n + 1].append(k)
-                    found = True
-                    break
-            if not found:
-                keys[0].append(k)
-        keys_sorted = []
-        for n in reversed(range(len(keys))):
-            keys[n].sort()
-            keys_sorted += keys[n]
-        return keys_sorted
 
     def reset_to_default(self):
         """Set variables to default values as initiated.
@@ -231,17 +187,6 @@ class DrawImageAdvanced(Atom):
         # init of scaler for normalization
         self.set_scaler_index(0)
         self.plot_deselect_all()
-
-    def get_default_items(self):
-        """Add previous selected items as default.
-        """
-        if len(self.items_previous_selected) != 0:
-            default_items = {}
-            for item in self.items_previous_selected:
-                for v, k in self.img_dict.items():
-                    if item in k:
-                        default_items[item] = k[item]
-            self.img_dict['use_default_selection'] = default_items
 
     def get_detector_channel_name(self, img_title=None):
         # Return the name of the selected detector channel ('sum', 'det1', 'det2' etc)
@@ -258,7 +203,7 @@ class DrawImageAdvanced(Atom):
 
     def _get_current_plot_item(self):
         """Get the key for the current plot item (use in dictionary 'img_dict')"""
-        return self.img_dict_keys[self.data_opt - 1]
+        return self.io_model.img_dict_keys[self.data_opt - 1]
 
     def set_map_keys(self):
         """
@@ -268,7 +213,7 @@ class DrawImageAdvanced(Atom):
         self.map_keys.clear()
         # The key to use with 'img_dict', the name of the current dataset.
         plot_item = self._get_current_plot_item()
-        keys_unsorted = list(self.img_dict[plot_item].keys())
+        keys_unsorted = list(self.io_model.img_dict[plot_item].keys())
         if len(keys_unsorted) != len(set(keys_unsorted)):
             logger.warning("DrawImageAdvanced:set_map_keys(): repeated keys "
                            f"in the dictionary 'img_dict': {keys_unsorted}")
@@ -304,15 +249,12 @@ class DrawImageAdvanced(Atom):
                 # self.set_stat_for_all(bool_val=False)
                 plot_item = self._get_current_plot_item()
                 self.img_title = str(plot_item)
-                self.dict_to_plot = self.img_dict[plot_item]
+                self.dict_to_plot = self.io_model.img_dict[plot_item]
                 self.set_map_keys()
                 self.set_stat_for_all(bool_val=False)
                 # Select the first item from the dataset (looks much better than empty plot)
                 if self.map_keys:
                     self.stat_dict[self.map_keys[0]] = True
-
-                # TODO: understand when the following statement is actually doing. It may be wrong.
-                self.get_default_items()  # get default elements every time when fitting is done
 
                 logger.info(f"Dataset '{plot_item}' is selected.")
 
@@ -522,7 +464,7 @@ class DrawImageAdvanced(Atom):
 
     def show_image(self):
         # Don't plot the image if dictionary is empty (causes a lot of issues)
-        if not self.img_dict:
+        if not self.io_model.img_dict:
             return
 
         self.fig.clf()
@@ -535,7 +477,7 @@ class DrawImageAdvanced(Atom):
         # While the data from the completed part of experiment may still be used,
         # plotting vs. x-y or scatter plot may not be displayed.
         positions_data_available = False
-        if 'positions' in self.img_dict.keys():
+        if 'positions' in self.io_model.img_dict.keys():
             positions_data_available = True
 
         # Create local copies of self.pixel_or_pos, self.scatter_show and self.grid_interpolate
@@ -675,8 +617,8 @@ class DrawImageAdvanced(Atom):
 
                 # xd_min, xd_max, yd_min, yd_max = min(self.x_pos), max(self.x_pos),
                 #     min(self.y_pos), max(self.y_pos)
-                x_pos_2D = self.img_dict['positions']['x_pos']
-                y_pos_2D = self.img_dict['positions']['y_pos']
+                x_pos_2D = self.io_model.img_dict['positions']['x_pos']
+                y_pos_2D = self.io_model.img_dict['positions']['y_pos']
                 xd_min, xd_max, yd_min, yd_max = x_pos_2D.min(), x_pos_2D.max(), y_pos_2D.min(), y_pos_2D.max()
                 xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = \
                     _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
@@ -730,8 +672,8 @@ class DrawImageAdvanced(Atom):
                 if not scatter_show_local:
                     if grid_interpolate_local:
                         data_arr, _, _ = grid_interpolate(data_arr,
-                                                          self.img_dict['positions']['x_pos'],
-                                                          self.img_dict['positions']['y_pos'])
+                                                          self.io_model.img_dict['positions']['x_pos'],
+                                                          self.io_model.img_dict['positions']['y_pos'])
                     im = grid[i].imshow(data_arr,
                                         cmap=grey_use,
                                         interpolation=plot_interp,
@@ -740,8 +682,8 @@ class DrawImageAdvanced(Atom):
                                         clim=(low_limit, high_limit))
                     grid[i].set_ylim(yd_axis_max, yd_axis_min)
                 else:
-                    xx = self.img_dict['positions']['x_pos']
-                    yy = self.img_dict['positions']['y_pos']
+                    xx = self.io_model.img_dict['positions']['x_pos']
+                    yy = self.io_model.img_dict['positions']['y_pos']
 
                     # The following condition prevents crash if different file is loaded while
                     #    the scatter plot is open (PyXRF specific issue)
@@ -788,8 +730,8 @@ class DrawImageAdvanced(Atom):
                 if not scatter_show_local:
                     if grid_interpolate_local:
                         data_arr, _, _ = grid_interpolate(data_arr,
-                                                          self.img_dict['positions']['x_pos'],
-                                                          self.img_dict['positions']['y_pos'])
+                                                          self.io_model.img_dict['positions']['x_pos'],
+                                                          self.io_model.img_dict['positions']['y_pos'])
                     im = grid[i].imshow(data_arr,
                                         # norm=LogNorm(vmin=low_lim*maxz,
                                         #              vmax=maxz, clip=True),
@@ -803,8 +745,8 @@ class DrawImageAdvanced(Atom):
                                         clim=(low_limit, high_limit))
                     grid[i].set_ylim(yd_axis_max, yd_axis_min)
                 else:
-                    im = grid[i].scatter(self.img_dict['positions']['x_pos'],
-                                         self.img_dict['positions']['y_pos'],
+                    im = grid[i].scatter(self.io_model.img_dict['positions']['x_pos'],
+                                         self.io_model.img_dict['positions']['y_pos'],
                                          # norm=LogNorm(vmin=low_lim*maxz,
                                          #              vmax=maxz, clip=True),
                                          norm=LogNorm(vmin=low_limit,
@@ -844,11 +786,3 @@ class DrawImageAdvanced(Atom):
         sdict = self.stat_dict
         selected_keys = [_ for _ in self.map_keys if (_ in sdict) and (sdict[_] is True)]
         return selected_keys
-
-    def record_selected(self):
-        """Save the list of items in cache for later use.
-        """
-        self.items_previous_selected = [k for (k, v) in self.stat_dict.items() if v is True]
-        logger.info('Items are set as default: {}'.format(self.items_previous_selected))
-        self.img_dict['use_default_selection'] = {k: self.dict_to_plot[k] for k in self.items_previous_selected}
-        self.img_dict_keys = self._get_img_dict_keys()

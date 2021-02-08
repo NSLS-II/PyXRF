@@ -1,9 +1,9 @@
-from qtpy.QtWidgets import (QHBoxLayout, QVBoxLayout, QLabel, QComboBox, QDialog,
-                            QDialogButtonBox, QTableWidget, QTableWidgetItem, QHeaderView,)
+from qtpy.QtWidgets import (QHBoxLayout, QVBoxLayout, QLabel, QComboBox, QMessageBox,
+                            QTableWidget, QTableWidgetItem, QHeaderView, QPushButton)
 from qtpy.QtGui import QBrush, QColor, QPalette
-from qtpy.QtCore import Qt
+from qtpy.QtCore import Qt, Signal, Slot, QThreadPool, QRunnable
 
-from .useful_widgets import (get_background_css, set_tooltip, ComboBoxNamedNoWheel)
+from .useful_widgets import (get_background_css, set_tooltip, ComboBoxNamedNoWheel, SecondaryWindow)
 
 import logging
 logger = logging.getLogger(__name__)
@@ -27,18 +27,36 @@ value_names = {
 }
 
 
-class DialogDetailedFittingParameters(QDialog):
+class WndDetailedFittingParams(SecondaryWindow):
 
-    def __init__(self, parent=None, *, dialog_data):
+    # Signal that is sent (to main window) to update global state of the program
+    update_global_state = Signal()
+    computations_complete = Signal(object)
 
-        super().__init__(parent)
+    def __init__(self,  *, window_title, gpc, gui_vars):
+        super().__init__()
+
+        # Global processing classes
+        self.gpc = gpc
+        # Global GUI variables (used for control of GUI state)
+        self.gui_vars = gui_vars
+
+        # Reference to the main window. The main window will hold
+        #   references to all non-modal windows that could be opened
+        #   from multiple places in the program.
+        self.ref_main_window = self.gui_vars["ref_main_window"]
+
+        self.update_global_state.connect(self.ref_main_window.update_widget_state)
 
         self._enable_events = False
 
-        self._set_dialog_data(dialog_data)
-        self._selected_index = -1
+        self._dialog_data = {}
 
-        self.setWindowTitle("Fitting Parameters for Individual Emission Lines")
+        self._load_dialog_data()
+        self._selected_index = 0
+        self._selected_eline = "-"
+
+        self.setWindowTitle(window_title)
         self.setMinimumWidth(1100)
         self.setMinimumHeight(500)
         self.resize(1100, 500)
@@ -46,34 +64,35 @@ class DialogDetailedFittingParameters(QDialog):
         hbox_el_select = self._setup_element_selection()
         self._setup_table()
 
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        button_box.button(QDialogButtonBox.Cancel).setDefault(True)
-        button_box.accepted.connect(self.accept)
-        button_box.rejected.connect(self.reject)
-
         vbox = QVBoxLayout()
         vbox.addLayout(hbox_el_select)
         vbox.addWidget(self.table)
-        vbox.addWidget(button_box)
 
         self.setLayout(vbox)
 
-        self._show_all()
+        self.update_form_data()
         self._enable_events = True
+        self._data_changed = False
 
     def _setup_element_selection(self):
 
         self.combo_element_sel = QComboBox()
-        set_tooltip(self.combo_element_sel,
-                    "Select K, L or M <b>emission line</b> to edit the optimization parameters "
-                    "used for the line during total spectrum fitting.")
+        self.combo_element_sel.setMinimumWidth(200)
         self.combo_element_sel.currentIndexChanged.connect(self.combo_element_sel_current_index_changed)
+
+        self.pb_apply = QPushButton("Apply")
+        self.pb_apply.setEnabled(False)
+        self.pb_apply.clicked.connect(self.pb_apply_clicked)
+        self.pb_cancel = QPushButton("Cancel")
+        self.pb_cancel.setEnabled(False)
+        self.pb_cancel.clicked.connect(self.pb_cancel_clicked)
 
         hbox = QHBoxLayout()
         hbox.addWidget(QLabel("Select element:"))
         hbox.addWidget(self.combo_element_sel)
         hbox.addStretch(1)
+        hbox.addWidget(self.pb_apply)
+        hbox.addWidget(self.pb_cancel)
 
         return hbox
 
@@ -115,11 +134,6 @@ class DialogDetailedFittingParameters(QDialog):
                 header.setSectionResizeMode(n, QHeaderView.ResizeToContents)
 
         self.table.itemChanged.connect(self.tbl_elines_item_changed)
-        set_tooltip(self.table,
-                    "Edit optimization parameters for the selected emission line. "
-                    "Processing presets may be configured by specifying optimization strategy "
-                    "for each parameter may be selected. A preset for each fitting step "
-                    "of the total spectrum fitting may be selected in <b>Model</b> tab.")
 
     def _fill_table(self, table_contents):
         self._enable_events = False
@@ -202,8 +216,26 @@ class DialogDetailedFittingParameters(QDialog):
 
         self._enable_events = True
 
+    def _set_tooltips(self):
+        set_tooltip(self.pb_apply,
+                    "Save changes and <b>update plots</b>.")
+        set_tooltip(self.pb_cancel,
+                    "<b>Discard</b> all changes.")
+        set_tooltip(self.combo_element_sel,
+                    "Select K, L or M <b>emission line</b> to edit the optimization parameters "
+                    "used for the line during total spectrum fitting.")
+        set_tooltip(self.table,
+                    "Edit optimization parameters for the selected emission line. "
+                    "Processing presets may be configured by specifying optimization strategy "
+                    "for each parameter may be selected. A preset for each fitting step "
+                    "of the total spectrum fitting may be selected in <b>Model</b> tab.")
+
     def combo_element_sel_current_index_changed(self, index):
         self._selected_index = index
+        try:
+            self._selected_eline = self._eline_list[index]
+        except Exception:
+            self._selected_eline = "-"
         self._update_table()
 
     def combo_strategy_current_index_changed(self, name, index):
@@ -214,6 +246,9 @@ class DialogDetailedFittingParameters(QDialog):
                 self._param_dict[name_row][name_strategy] = option
             except Exception as ex:
                 logger.error(f"Error occurred while changing strategy options: {ex}")
+
+            self._data_changed = True
+            self._validate_all()
 
     def tbl_elines_item_changed(self, item):
         if self._enable_events:
@@ -230,17 +265,27 @@ class DialogDetailedFittingParameters(QDialog):
                 except Exception:
                     value = self._param_dict[eline_key][value_key]
                     item.setText(f"{value:.8g}")
+
+                self._data_changed = True
+                self._validate_all()
+
             except Exception as ex:
                 logger.error(f"Error occurred while setting edited value: {ex}")
 
+    def pb_apply_clicked(self):
+        """Save dialog data and update plots"""
+        self.save_form_data()
+
+    def pb_cancel_clicked(self):
+        """Reload data (discard all changes)"""
+        self.update_form_data()
+
     def _set_combo_element_sel_items(self):
-        element_list = ["Other Parameters"] + self._eline_list
+        element_list = self._eline_list
         self.combo_element_sel.clear()
         self.combo_element_sel.addItems(element_list)
         # Deselect all (this should clear the table)
-
-        self._selected_index = -1
-        self.combo_element_sel.setCurrentIndex(self._selected_index)
+        self.select_eline(self._selected_eline)
 
     def _set_dialog_data(self, dialog_data):
         self._param_dict = dialog_data["param_dict"]
@@ -252,18 +297,20 @@ class DialogDetailedFittingParameters(QDialog):
         self._bound_options = dialog_data["bound_options"]
 
     def _show_all(self):
+        selected_eline = self._selected_eline
         self._set_combo_element_sel_items()
+        self.select_eline(selected_eline)
         self._update_table()
 
     def _update_table(self):
         self._enable_events = False
 
         eline_list = []
-        if self._selected_index == 0:
+        if 'shared' in self._selected_eline.lower():  # Shared parameters
             eline_list = self._other_param_list
             energy_list = [""] * len(eline_list)
-        elif self._selected_index > 0:
-            eline = self._eline_list[self._selected_index - 1]
+        elif self._selected_eline == self._eline_list[self._selected_index]:  # Emission lines
+            eline = self._selected_eline
             eline_list = self._eline_key_dict[eline]
             energy_list = self._eline_energy_dict[eline]
 
@@ -282,18 +329,142 @@ class DialogDetailedFittingParameters(QDialog):
 
     def select_eline(self, eline):
         if eline in self._eline_list:
-            index = self._eline_list.index(eline) + 1
+            index = self._eline_list.index(eline)
         elif self._eline_list:
             index = 0
+            eline = self._eline_list[0]
         else:
             index = -1
+            eline = "-"
+        self._selected_eline = eline
         self._selected_index = index
         self.combo_element_sel.setCurrentIndex(index)
         self._update_table()
 
-    def get_selected_eline(self):
-        if self._selected_index > 0:
-            eline = self._eline_list[self._selected_index - 1]
+    def update_widget_state(self, condition=None):
+        # Update the state of the menu bar
+        state = not self.gui_vars["gui_state"]["running_computations"]
+        self.setEnabled(state)
+
+        if condition == "tooltips":
+            self._set_tooltips()
+
+    def _validate_all(self):
+        self.pb_apply.setEnabled(self._data_changed)
+        self.pb_cancel.setEnabled(self._data_changed)
+
+    def _load_dialog_data(self):
+        ...
+
+    def _save_dialog_data_function(self):
+        ...
+
+    def update_form_data(self):
+        self._load_dialog_data()
+        self._show_all()
+        self._data_changed = False
+        self._validate_all()
+
+    def save_form_data(self):
+        if self._data_changed:
+            f_save_data = self._save_dialog_data_function()
+
+            def cb(dialog_data):
+                try:
+                    f_save_data(dialog_data)
+                    success, msg = True, ""
+                except Exception as ex:
+                    success, msg = False, str(ex)
+                return {"success": success, "msg": msg}
+
+            self._compute_in_background(cb, self.slot_save_form_data,
+                                        dialog_data=self._dialog_data)
+
+    @Slot(object)
+    def slot_save_form_data(self, result):
+        self._recover_after_compute(self.slot_save_form_data)
+
+        if not result["success"]:
+            msg = result["msg"]
+            msgbox = QMessageBox(QMessageBox.Critical, "Failed to Apply Fit Parameters",
+                                 msg, QMessageBox.Ok, parent=self)
+            msgbox.exec()
         else:
-            eline = ""
-        return eline
+            self._data_changed = False
+            self._validate_all()
+
+        self.gui_vars["gui_state"]["state_model_fit_exists"] = False
+        self.update_global_state.emit()
+
+    def _compute_in_background(self, func, slot, *args, **kwargs):
+        """
+        Run function `func` in a background thread. Send the signal
+        `self.computations_complete` once computation is finished.
+
+        Parameters
+        ----------
+        func: function
+            Reference to a function that is supposed to be executed at the background.
+            The function return value is passed as a signal parameter once computation is
+            complete.
+        slot: qtpy.QtCore.Slot or None
+            Reference to a slot. If not None, then the signal `self.computation_complete`
+            is connected to this slot.
+        args, kwargs
+            arguments of the function `func`.
+        """
+        signal_complete = self.computations_complete
+
+        def func_to_run(func, *args, **kwargs):
+            class RunTask(QRunnable):
+                def run(self):
+                    result_dict = func(*args, **kwargs)
+                    signal_complete.emit(result_dict)
+            return RunTask()
+
+        if slot is not None:
+            self.computations_complete.connect(slot)
+        self.gui_vars["gui_state"]["running_computations"] = True
+        self.update_global_state.emit()
+        QThreadPool.globalInstance().start(func_to_run(func, *args, **kwargs))
+
+    def _recover_after_compute(self, slot):
+        """
+        The function should be called after the signal `self.computations_complete` is
+        received. The slot should be the same as the one used when calling
+        `self.compute_in_background`.
+        """
+        if slot is not None:
+            self.computations_complete.disconnect(slot)
+        self.gui_vars["gui_state"]["running_computations"] = False
+        self.update_global_state.emit()
+
+
+class WndDetailedFittingParamsLines(WndDetailedFittingParams):
+    def __init__(self, *, gpc, gui_vars):
+        window_title = "Fitting Parameters for Individual Emission Lines"
+        super().__init__(window_title=window_title, gpc=gpc, gui_vars=gui_vars)
+
+    def _load_dialog_data(self):
+        self._dialog_data = self.gpc.get_detailed_fitting_params_lines()
+        self._set_dialog_data(self._dialog_data)
+
+    def _save_dialog_data_function(self):
+        def f(dialog_data):
+            self.gpc.set_detailed_fitting_params(dialog_data)
+        return f
+
+
+class WndDetailedFittingParamsShared(WndDetailedFittingParams):
+    def __init__(self, *, gpc, gui_vars):
+        window_title = "Shared Detailed Fitting Parameters"
+        super().__init__(window_title=window_title, gpc=gpc, gui_vars=gui_vars)
+
+    def _load_dialog_data(self):
+        self._dialog_data = self.gpc.get_detailed_fitting_params_shared()
+        self._set_dialog_data(self._dialog_data)
+
+    def _save_dialog_data_function(self):
+        def f(dialog_data):
+            self.gpc.set_detailed_fitting_params(dialog_data)
+        return f

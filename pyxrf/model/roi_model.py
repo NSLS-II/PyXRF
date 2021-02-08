@@ -6,7 +6,7 @@ from collections import OrderedDict
 import os
 import re
 
-from atom.api import (Atom, Str, observe, Dict, List, Int, Bool, Typed)
+from atom.api import (Atom, Str, observe, List, Int, Bool, Typed)
 
 from skbeam.fluorescence import XrfElement as Element
 from skbeam.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
@@ -19,7 +19,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class ROIModel(Atom):
+class ROISettings(Atom):
     """
     This class defines basic data structure for roi calculation.
 
@@ -62,7 +62,7 @@ class ROIModel(Atom):
         logger.debug('show plot is changed {}'.format(change))
 
 
-class SettingModel(Atom):
+class ROIModel(Atom):
     """
     Control roi calculation according to given inputs.
 
@@ -72,14 +72,12 @@ class SettingModel(Atom):
         parameter values used for fitting
     data_dict : Dict
         dict of 3D data
-    img_dict : Dict
-        Reference to the respective field of the ``FileIOModel`` object
     element_for_roi : str
         inputs given by users
     element_list_roi : list
         list of elements after parsing
     roi_dict : dict
-        dict of ROIModel object
+        dict of ROISettings object
     enable_roi_computation : Bool
         enables/disables GUI element that start ROI computation
         At least one element must be selected and all entry in the element
@@ -105,8 +103,6 @@ class SettingModel(Atom):
     param_model = Typed(object)
     # Reference to FileIOModel object
     io_model = Typed(object)
-
-    img_dict = Dict()
 
     element_for_roi = Str()
     element_list_roi = List()
@@ -221,19 +217,6 @@ class SettingModel(Atom):
             logger.warning(f"Incorrect specification of element lines for ROI computation: {ex}")
             self.enable_roi_computation = False
 
-    def img_dict_update(self, change):
-        """
-        Observer function to be connected to the fileio model
-        in the top-level gui.py startup
-
-        Parameters
-        ----------
-        change : dict
-            This is the dictionary that gets passed to a function
-            with the @observe decorator
-        """
-        self.img_dict = change['value']
-
     def select_elements_from_list(self, element_list):
         self.element_for_roi = ', '.join(element_list)
 
@@ -287,14 +270,14 @@ class SettingModel(Atom):
 
             delta_v = int(self.get_sigma(val/1000)*1000)
 
-            roi = ROIModel(prefix=self.suffix_name_roi,
-                           line_val=val,
-                           left_val=val-delta_v*std_ratio,
-                           right_val=val+delta_v*std_ratio,
-                           default_left=val-delta_v*std_ratio,
-                           default_right=val+delta_v*std_ratio,
-                           step=1,
-                           show_plot=False)
+            roi = ROISettings(prefix=self.suffix_name_roi,
+                              line_val=val,
+                              left_val=val-delta_v*std_ratio,
+                              right_val=val+delta_v*std_ratio,
+                              default_left=val-delta_v*std_ratio,
+                              default_right=val+delta_v*std_ratio,
+                              step=1,
+                              show_plot=False)
 
             self.roi_dict.update({v: roi})
 
@@ -362,8 +345,8 @@ class SettingModel(Atom):
         # We don't want to save scalers to the file, since they are already in the file.
         # So we add scalers after data is saved.
         scaler_key = f"{self.data_title_base}_scaler"
-        if scaler_key in self.img_dict:
-            roi_dict_computed.update(self.img_dict[scaler_key])
+        if scaler_key in self.io_model.img_dict:
+            roi_dict_computed.update(self.io_model.img_dict[scaler_key])
 
         roi_result[f"{self.data_title_adjusted}_roi"] = roi_dict_computed
 

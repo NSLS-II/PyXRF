@@ -17,7 +17,7 @@ from skbeam.core.fitting.xrf_model import (ParamController,
                                            linear_spectrum_fitting)
 from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
 from ..core.map_processing import snip_method_numba
-from ..core.xrf_utils import check_if_eline_supported, get_eline_parameters
+from ..core.xrf_utils import check_if_eline_supported, get_eline_parameters, get_element_atomic_number
 
 from ..core.utils import gaussian_sigma_to_fwhm, gaussian_fwhm_to_sigma
 
@@ -274,6 +274,8 @@ class ParamModel(Atom):
     n_selected_elines_for_fitting = Int(0)
     n_selected_pure_elines_for_fitting = Int(0)
 
+    parameters_changed_cb = List()
+
     def __init__(self, *, default_parameters, io_model):
         try:
             self.io_model = io_model
@@ -290,6 +292,26 @@ class ParamModel(Atom):
         #     in 'Automatic Element Finding' dialog box
         self.energy_bound_high_buf = self.param_new['non_fitting_values']['energy_bound_high']['value']
         self.energy_bound_low_buf = self.param_new['non_fitting_values']['energy_bound_low']['value']
+
+    def add_parameters_changed_cb(self, cb):
+        """
+        Add callback to the list of callback function that are called after parameters are updated.
+        """
+        self.parameters_changed_cb.append(cb)
+
+    def remove_parameters_changed_cb(self, cb):
+        """
+        Remove reference from the list of callback functions.
+        """
+        self.parameters_changed_cb = [_ for _ in self.parameters_changed_cb if _ != cb]
+
+    def parameters_changed(self):
+        """
+        Run callback functions in the list. This method is expected to be called after the parameters
+        are update to initiate necessary updates in the GUI.
+        """
+        for cb in self.parameters_changed_cb:
+            cb()
 
     def default_param_update(self, default_parameters):
         """
@@ -326,6 +348,7 @@ class ParamModel(Atom):
         with open(param_path, 'r') as json_data:
             self.param_new = json.load(json_data)
         self.create_spectrum_from_param_dict(reset=True)
+
         logger.info('Elements read from file are: {}'.format(self.element_list))
 
     def update_new_param(self, param, reset=True):
@@ -616,6 +639,7 @@ class ParamModel(Atom):
             energy = get_energy(self.e_name)
 
         param_tmp = PC.params
+        param_tmp = create_full_dict(param_tmp, fit_strategy_list)
 
         # Add name to the name list
         _add_element_to_list(self.e_name, param_tmp)
@@ -901,7 +925,7 @@ class ParamModel(Atom):
         self.n_selected_elines_for_fitting = len(self.result_dict_names)
         self.n_selected_pure_elines_for_fitting = len(pure_peak_list)
 
-        logger.info(f"The full list for fitting is {self.result_dict_names}")
+        logger.info(f"The update list of emission lines: {self.result_dict_names}")
 
     def get_eline_name_category(self, eline_name):
         """
@@ -927,22 +951,18 @@ class ParamModel(Atom):
         else:
             return "other"
 
-    def get_sorted_result_dict_names(self):
+    def _sort_eline_list(self, element_list):
         """
-        The function returns the list of selected emission lines. The emission lines are
-        sorted in the following order: emission line names (sorted in the order of growing
-        atomic number Z), userpeaks (in alphabetic order), pileup peaks (in alphabetic order),
-        other peaks (in alphabetic order).
-
-        Returns
-        -------
-        list(str)
-            the list if emission line names
+        Sort the list of elements
         """
         names_elines, names_userpeaks, names_pileup_peaks, names_other = [], [], [], []
-        for name in self.result_dict_names:
+        for name in element_list:
             if self.get_eline_name_category(name) == "eline":
-                names_elines.append([name, self.EC.element_dict[name].z])
+                try:
+                    z = get_element_atomic_number(name.split('_')[0])
+                except Exception:
+                    z = 0
+                names_elines.append([name, z])
             elif self.get_eline_name_category(name) == "userpeak":
                 names_userpeaks.append(name)
             elif self.get_eline_name_category(name) == "pileup":
@@ -957,6 +977,26 @@ class ParamModel(Atom):
         names_other.sort()
 
         return names_elines + names_userpeaks + names_pileup_peaks + names_other
+
+    def get_sorted_result_dict_names(self):
+        """
+        The function returns the list of selected emission lines. The emission lines are
+        sorted in the following order: emission line names (sorted in the order of growing
+        atomic number Z), userpeaks (in alphabetic order), pileup peaks (in alphabetic order),
+        other peaks (in alphabetic order).
+
+        Returns
+        -------
+        list(str)
+            the list if emission line names
+        """
+        return self._sort_eline_list(self.result_dict_names)
+
+    def get_sorted_element_list(self):
+        """
+        Returns sorted ``element_list``.
+        """
+        return self._sort_eline_list(self.element_list)
 
     def read_param_from_file(self, param_path):
         """

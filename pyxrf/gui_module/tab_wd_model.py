@@ -9,8 +9,7 @@ from .useful_widgets import (LineEditReadOnly, global_gui_parameters, set_toolti
 from .form_base_widget import FormBaseWidget
 from .dlg_find_elements import DialogFindElements
 from .dlg_select_quant_standard import DialogSelectQuantStandard
-from .dlg_general_settings_for_fitting import DialogGeneralFittingSettings
-from .dlg_detailed_fitting_params import DialogDetailedFittingParameters, fitting_preset_names
+from .wnd_detailed_fitting_params import fitting_preset_names
 
 import logging
 logger = logging.getLogger(__name__)
@@ -35,7 +34,7 @@ class ModelWidget(FormBaseWidget):
         super().__init__()
 
         self._fit_available = False
-        # Currently selected emission line. Used for selecting eline in DialogDetailedFittingParameters
+        # Currently selected emission line.
         self._selected_eline = ""
 
         # Global processing classes
@@ -129,8 +128,11 @@ class ModelWidget(FormBaseWidget):
         self.pb_fit_param_general = QPushButton("General ...")
         self.pb_fit_param_general.clicked.connect(self.pb_fit_param_general_clicked)
 
-        self.pb_fit_param_detailed = QPushButton("Detailed ...")
-        self.pb_fit_param_detailed.clicked.connect(self.pb_fit_param_detailed_clicked)
+        self.pb_fit_param_shared = QPushButton("Shared ...")
+        self.pb_fit_param_shared.clicked.connect(self.pb_fit_param_shared_clicked)
+
+        self.pb_fit_param_lines = QPushButton("Lines ...")
+        self.pb_fit_param_lines.clicked.connect(self.pb_fit_param_lines_clicked)
 
         fit_strategy_list = self.gpc.get_fit_strategy_list()
         combo_items = [fitting_preset_names[_] for _ in fit_strategy_list]
@@ -146,7 +148,8 @@ class ModelWidget(FormBaseWidget):
         vbox = QVBoxLayout()
         hbox = QHBoxLayout()
         hbox.addWidget(self.pb_fit_param_general)
-        hbox.addWidget(self.pb_fit_param_detailed)
+        hbox.addWidget(self.pb_fit_param_shared)
+        hbox.addWidget(self.pb_fit_param_lines)
         vbox.addLayout(hbox)
 
         hbox = QHBoxLayout()
@@ -216,7 +219,11 @@ class ModelWidget(FormBaseWidget):
 
         set_tooltip(self.pb_fit_param_general, "<b>General settings</b> for fitting algorithms.")
         set_tooltip(
-            self.pb_fit_param_detailed,
+            self.pb_fit_param_shared,
+            "Access to low-level control of the total spectrum fitting algorithm: parameters shared "
+            "by models of all emission lines.")
+        set_tooltip(
+            self.pb_fit_param_lines,
             "Access to low-level control of the total spectrum fitting algorithm: adjust parameters "
             "for each emission line of the selected elements; modify preset fitting configurations.")
         set_tooltip(self.cb_step1, "Select preset fitting configuration for <b>Step 1</b>. "
@@ -266,32 +273,45 @@ class ModelWidget(FormBaseWidget):
         ret = dlg.exec()
         if ret:
             dialog_data = dlg.get_dialog_data()
-            logger.debug("Saving parameters from 'DialogFindElements'")
-            if self.gpc.set_autofind_elements_params(dialog_data):
-                self.signal_incident_energy_or_range_changed.emit()
-            if dlg.find_elements_requested:
-                logger.debug("Starting automated element search")
+            find_elements_requested = dlg.find_elements_requested
+            update_model = self.gui_vars["gui_state"]["state_model_exists"]
 
-                def cb():
+            def cb():
+                range_changed = self.gpc.set_autofind_elements_params(
+                    dialog_data,
+                    update_model=update_model,
+                    update_fitting_params=not find_elements_requested)
+                if find_elements_requested:
                     self.gpc.find_elements_automatically()
-                    return dict()
+                return {"range_changed": range_changed,
+                        "find_elements_requested": find_elements_requested}
 
-                self._compute_in_background(cb, self.slot_find_elines_clicked)
+            self._compute_in_background(cb, self.slot_find_elines_clicked)
 
     @Slot(object)
     def slot_find_elines_clicked(self, result):
+        range_changed = result["range_changed"]
+        find_elements_requested = result["find_elements_requested"]
 
         self._set_fit_status(False)
         self._recover_after_compute(self.slot_find_elines_clicked)
 
-        msg = "Emission lines were detected automatically"
+        if range_changed:
+            self.signal_incident_energy_or_range_changed.emit()
+            self.gpc.fitting_parameters_changed()
+
+        if find_elements_requested:
+            msg = "Emission lines were detected automatically"
+        else:
+            msg = "Parameters were upadated"
         self.le_param_fln.setText(msg)
 
-        self.gui_vars["gui_state"]["state_model_exists"] = True
-        self.gui_vars["gui_state"]["state_model_fit_exists"] = False
-        self.signal_model_loaded.emit(True)
-        self.update_global_state.emit()
-        logger.info("Automated element search is complete")
+        if find_elements_requested:
+            self.gui_vars["gui_state"]["state_model_exists"] = True
+            self.gui_vars["gui_state"]["state_model_fit_exists"] = False
+            self.signal_model_loaded.emit(True)
+            self.update_global_state.emit()
+            logger.info("Automated element search is complete")
 
     @Slot(str)
     def slot_selection_item_changed(self, eline):
@@ -465,73 +485,31 @@ class ModelWidget(FormBaseWidget):
         self.ref_main_window.wnd_manage_emission_lines.activateWindow()
 
     def pb_fit_param_general_clicked(self):
-        dialog_data = self.gpc.get_general_fitting_params()
-        dlg = DialogGeneralFittingSettings()
-        dlg.set_dialog_data(dialog_data)
-        ret = dlg.exec()
-        if ret:
-            dialog_data = dlg.get_dialog_data()
+        # Position the window in relation ot the main window (only when called once)
+        pos = self.ref_main_window.pos()
+        self.ref_main_window.wnd_general_fitting_settings.position_once(pos.x(), pos.y())
 
-            def cb(dialog_data):
-                try:
-                    self.gpc.set_general_fitting_params(dialog_data)
-                    success, msg = True, ""
-                except Exception as ex:
-                    success, msg = False, str(ex)
-                return {"success": success, "msg": msg}
+        if not self.ref_main_window.wnd_general_fitting_settings.isVisible():
+            self.ref_main_window.wnd_general_fitting_settings.show()
+        self.ref_main_window.wnd_general_fitting_settings.activateWindow()
 
-            self._compute_in_background(cb, self.slot_fit_param_general_clicked,
-                                        dialog_data=dialog_data)
+    def pb_fit_param_shared_clicked(self):
+        # Position the window in relation ot the main window (only when called once)
+        pos = self.ref_main_window.pos()
+        self.ref_main_window.wnd_fitting_parameters_shared.position_once(pos.x(), pos.y())
 
-    @Slot(object)
-    def slot_fit_param_general_clicked(self, result):
-        self._recover_after_compute(self.slot_fit_param_general_clicked)
+        if not self.ref_main_window.wnd_fitting_parameters_shared.isVisible():
+            self.ref_main_window.wnd_fitting_parameters_shared.show()
+        self.ref_main_window.wnd_fitting_parameters_shared.activateWindow()
 
-        if not result["success"]:
-            msg = result["msg"]
-            msgbox = QMessageBox(QMessageBox.Critical, "Failed to Apply Fit Parameters",
-                                 msg, QMessageBox.Ok, parent=self)
-            msgbox.exec()
+    def pb_fit_param_lines_clicked(self):
+        # Position the window in relation ot the main window (only when called once)
+        pos = self.ref_main_window.pos()
+        self.ref_main_window.wnd_fitting_parameters_lines.position_once(pos.x(), pos.y())
 
-        self._set_fit_status(False)
-        self.signal_incident_energy_or_range_changed.emit()
-
-    def pb_fit_param_detailed_clicked(self):
-        dialog_data = self.gpc.get_detailed_fitting_params()
-        dlg = DialogDetailedFittingParameters(dialog_data=dialog_data)
-        dlg.select_eline(self._selected_eline)
-        ret = dlg.exec()
-        # This will ensure that the same emission line is selected in the dialog
-        #   box when it is opened next time unless selection is changed between
-        #   the calls.
-        self._selected_eline = dlg.get_selected_eline()
-        if ret:
-            # 'dialog_data' contains references, so there is no need to
-            #   read 'dialog_data' from 'dlg'.
-
-            def cb(dialog_data):
-                try:
-                    self.gpc.set_detailed_fitting_params(dialog_data)
-                    success, msg = True, ""
-                except Exception as ex:
-                    success, msg = False, str(ex)
-                return {"success": success, "msg": msg}
-
-            self._compute_in_background(cb, self.slot_fit_param_detailed_clicked,
-                                        dialog_data=dialog_data)
-
-    @Slot(object)
-    def slot_fit_param_detailed_clicked(self, result):
-        self._recover_after_compute(self.slot_fit_param_detailed_clicked)
-
-        if not result["success"]:
-            msg = result["msg"]
-            msgbox = QMessageBox(QMessageBox.Critical, "Failed to Apply Fit Parameters",
-                                 msg, QMessageBox.Ok, parent=self)
-            msgbox.exec()
-
-        self._set_fit_status(False)
-        self.signal_incident_energy_or_range_changed.emit()
+        if not self.ref_main_window.wnd_fitting_parameters_lines.isVisible():
+            self.ref_main_window.wnd_fitting_parameters_lines.show()
+        self.ref_main_window.wnd_fitting_parameters_lines.activateWindow()
 
     def pb_save_spectrum_clicked(self):
         current_dir = self.gpc.get_current_working_directory()

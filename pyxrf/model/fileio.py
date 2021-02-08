@@ -69,8 +69,12 @@ class FileIOModel(Atom):
     file_path = Str()
     load_status = Str()
     data_sets = Typed(OrderedDict)
-    img_dict = Dict()
     file_channel_list = List()
+
+    img_dict = Dict()
+    img_dict_keys = List()
+    img_dict_default_selected_item = Int()
+    img_dict_is_updated = Bool(False)
 
     runid = Int(-1)  # Run ID of the current run
     runuid = Str()  # Run UID of the current run
@@ -261,6 +265,9 @@ class FileIOModel(Atom):
         self.roi_col_end = -1
 
         self.img_dict = {}
+        self.img_dict_keys = []
+        self.img_dict_default_selected_item = 0
+
         self.data_sets = OrderedDict()
         self.scan_metadata = ScanMetadataXRF()
         self._metadata_update_program_state()
@@ -288,6 +295,7 @@ class FileIOModel(Atom):
                          self.file_name,
                          load_each_channel=self.load_each_channel)
         self.img_dict = img_dict
+        self.update_img_dict()
 
         # Replace relative scan ID with true scan ID.
 
@@ -326,6 +334,62 @@ class FileIOModel(Atom):
                     logger.warning(f"Map sizes don't match for datasets '{ds_name}' and '{ds_name_first}': "
                                    f"{map_size_other} != {map_size}")
         return map_size
+
+    def update_img_dict(self, img_dict_additional=None):
+        if img_dict_additional is None:
+            img_dict_additional = {}
+
+        new_keys = list(img_dict_additional.keys())
+        selected_key = new_keys[0] if new_keys else None
+
+        self.img_dict.update(img_dict_additional)
+        self.img_dict_keys = self._get_img_dict_keys()
+
+        if selected_key is None:
+            selected_item = 1 if self.img_dict_keys else 0
+        else:
+            selected_item = self.img_dict_keys.index(selected_key) + 1
+
+        self.select_img_dict_item(selected_item, always_update=True)
+
+    def select_img_dict_item(self, selected_item, *, always_update=False):
+        """
+        Select the set of image maps.
+
+        Parameters
+        ----------
+        selected_item : int
+            Selected item (set of maps) in the `self.img_dict`. Range: `0..len(self.img_dict)`.
+            0 - no dataset is selected.
+        always_update : boolean
+            True - update even if the item is already selected.
+        """
+        # Select no dataset if index is out of range
+        selected_item = selected_item if (0 <= selected_item <= len(self.img_dict)) else 0
+
+        # Don't update the plots if the item is already selected
+        if always_update or (selected_item != self.img_dict_default_selected_item):
+            self.img_dict_default_selected_item = selected_item
+            self.img_dict_is_updated = False
+            self.img_dict_is_updated = True
+
+    def _get_img_dict_keys(self):
+        key_suffix = [r"scaler$", r"det\d+_roi$", r"roi$", r"det\d+_fit$", r"fit$"]
+        keys = [[] for _ in range(len(key_suffix) + 1)]
+        for k in self.img_dict.keys():
+            found = False
+            for n, suff in enumerate(key_suffix):
+                if re.search(suff, k):
+                    keys[n + 1].append(k)
+                    found = True
+                    break
+            if not found:
+                keys[0].append(k)
+        keys_sorted = []
+        for n in reversed(range(len(keys))):
+            keys[n].sort()
+            keys_sorted += keys[n]
+        return keys_sorted
 
     def get_dataset_preview_count_map_range(self, *, selected_only=False):
         """
@@ -1681,17 +1745,6 @@ def read_MAPS(working_directory,
     #     img_dict.update({fname+'_fit': fit_result})
 
     return img_dict, data_sets, mdata
-
-
-def get_roi_sum(namelist, data_range, data):
-    data_temp = dict()
-    for i in range(len(namelist)):
-        lowv = data_range[i, 0]
-        highv = data_range[i, 1]
-        data_sum = np.sum(data[:, :, lowv: highv], axis=2)
-        data_temp.update({namelist[i]: data_sum})
-        # data_temp.update({namelist[i].replace(' ', '_'): data_sum})
-    return data_temp
 
 
 def get_fit_data(namelist, data):

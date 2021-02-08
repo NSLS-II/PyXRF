@@ -3,14 +3,13 @@ from __future__ import (absolute_import, division,
 
 import numpy as np
 import math
-import re
 from functools import partial
 from matplotlib.figure import Figure, Axes
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import matplotlib.ticker as mticker
 from mpl_toolkits.axes_grid1.axes_rgb import make_rgb_axes
-from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool
+from atom.api import Atom, Str, Typed, Int, List, Dict, Bool
 
 from ..core.utils import normalize_data_by_scaler, grid_interpolate
 from ..core.xrf_utils import check_if_eline_supported
@@ -68,14 +67,14 @@ class DrawImageRGB(Atom):
     plot_all : Bool
         to control plot all of the data or not
     """
+    # Reference to FileIOMOdel
+    io_model = Typed(object)
 
     fig = Typed(Figure)
     ax = Typed(Axes)
     ax_r = Typed(Axes)
     ax_g = Typed(Axes)
     ax_b = Typed(Axes)
-    img_dict = Dict()
-    img_dict_keys = List()
     data_opt = Int(0)
     img_title = Str()
     # plot_opt = Int(0)
@@ -112,7 +111,8 @@ class DrawImageRGB(Atom):
     rgb_limit = Dict()
     name_not_scalable = List()
 
-    def __init__(self, *, img_model_adv):
+    def __init__(self, *, io_model, img_model_adv):
+        self.io_model = io_model
         self.img_model_adv = img_model_adv
 
         self.fig = plt.figure(figsize=(3, 2))
@@ -126,45 +126,39 @@ class DrawImageRGB(Atom):
         self.rgb_keys = ["red", "green", "blue"]
         self._init_rgb_dict()
 
-    def img_dict_update(self, change):
+    def img_dict_updated(self, change):
         """
         Observer function to be connected to the fileio model
         in the top-level gui.py startup
 
         Parameters
         ----------
-        change : dict
-            This is the dictionary that gets passed to a function
-            with the @observe decorator
+        changed : bool
+            True - 'io_model.img_dict` was updated, False - ignore
         """
-        self.img_dict = change['value']
+        if change['value']:
+            self.select_dataset(self.io_model.img_dict_default_selected_item)
+            self.init_plot_status()
 
-    @observe('img_dict')
-    def init_plot_status(self, change):
+    def init_plot_status(self):
         # init of pos values
         self.set_pixel_or_pos(0)
 
         # init of scaler for normalization
         self.scaler_name_index = 0
 
-        scaler_groups = [v for v in list(self.img_dict.keys()) if 'scaler' in v]
+        scaler_groups = [v for v in list(self.io_model.img_dict.keys()) if 'scaler' in v]
         if len(scaler_groups) > 0:
             # self.scaler_group_name = scaler_groups[0]
-            self.scaler_norm_dict = self.img_dict[scaler_groups[0]]
+            self.scaler_norm_dict = self.io_model.img_dict[scaler_groups[0]]
             # for GUI purpose only
             self.scaler_items = []
             self.scaler_items = list(self.scaler_norm_dict.keys())
             self.scaler_items.sort()
             self.scaler_data = None
 
-        # initiate the plotting status once new data is coming
-        self.img_dict_keys = self._get_img_dict_keys()
-        logger.debug('The following groups are included for RGB image display: {}'.format(self.img_dict_keys))
-
-        if self.img_dict_keys:
-            self.select_dataset(1)
-        else:
-            self.select_dataset(0)
+        logger.debug('The following groups are included for RGB image display: {}'.
+                     format(self.io_model.img_dict_keys))
 
         self.show_image()
 
@@ -190,7 +184,7 @@ class DrawImageRGB(Atom):
             elif self.data_opt > 0:
                 plot_item = self._get_current_plot_item()
                 self.img_title = str(plot_item)
-                self.dict_to_plot = self.img_dict[plot_item]
+                self.dict_to_plot = self.io_model.img_dict[plot_item]
                 # for GUI purpose only
                 self.set_map_keys()
                 self.init_limits_and_stat()
@@ -205,41 +199,6 @@ class DrawImageRGB(Atom):
         # Redraw image
         self.show_image()
 
-    def update_img_dict_entries(self, img_dict_additional=None):
-        if img_dict_additional is None:
-            img_dict_additional = {}
-
-        new_keys = list(img_dict_additional.keys())
-        selected_key = new_keys[0] if new_keys else None
-
-        self.img_dict.update(img_dict_additional)
-        self.img_dict_keys = self._get_img_dict_keys()
-
-        if selected_key is None:
-            selected_item = 1 if self.img_dict_keys else 0
-        else:
-            selected_item = self.img_dict_keys.index(selected_key) + 1
-
-        self.select_dataset(selected_item)
-
-    def _get_img_dict_keys(self):
-        key_suffix = [r"scaler$", r"det\d+_roi$", r"roi$", r"det\d+_fit$", r"fit$"]
-        keys = [[] for _ in range(len(key_suffix) + 1)]
-        for k in self.img_dict.keys():
-            found = False
-            for n, suff in enumerate(key_suffix):
-                if re.search(suff, k):
-                    keys[n + 1].append(k)
-                    found = True
-                    break
-            if not found:
-                keys[0].append(k)
-        keys_sorted = []
-        for n in reversed(range(len(keys))):
-            keys[n].sort()
-            keys_sorted += keys[n]
-        return keys_sorted
-
     def set_map_keys(self):
         """
         Create sorted list of map keys. The list starts with sorted sequence of emission lines,
@@ -248,7 +207,7 @@ class DrawImageRGB(Atom):
         self.map_keys.clear()
         # The key to use with 'img_dict', the name of the current dataset.
         plot_item = self._get_current_plot_item()
-        keys_unsorted = list(self.img_dict[plot_item].keys())
+        keys_unsorted = list(self.io_model.img_dict[plot_item].keys())
         if len(keys_unsorted) != len(set(keys_unsorted)):
             logger.warning("DrawImageAdvanced:set_map_keys(): repeated keys "
                            f"in the dictionary 'img_dict': {keys_unsorted}")
@@ -291,7 +250,7 @@ class DrawImageRGB(Atom):
 
     def _get_current_plot_item(self):
         """Get the key for the current plot item (use in dictionary 'img_dict')"""
-        return self.img_dict_keys[self.data_opt - 1]
+        return self.io_model.img_dict_keys[self.data_opt - 1]
 
     def set_pixel_or_pos(self, pixel_or_pos):
         self.pixel_or_pos = pixel_or_pos
@@ -417,7 +376,7 @@ class DrawImageRGB(Atom):
 
     def show_image(self):
         # Don't plot the image if dictionary is empty (causes a lot of issues)
-        if not self.img_dict:
+        if not self.io_model.img_dict:
             return
 
         self.fig.clf()
@@ -430,7 +389,7 @@ class DrawImageRGB(Atom):
         # While the data from the completed part of experiment may still be used,
         # plotting vs. x-y or scatter plot may not be displayed.
         positions_data_available = False
-        if 'positions' in self.img_dict.keys():
+        if 'positions' in self.io_model.img_dict.keys():
             positions_data_available = True
 
         # Create local copy of self.pixel_or_pos and self.grid_interpolate
@@ -529,8 +488,8 @@ class DrawImageRGB(Atom):
 
             # xd_min, xd_max, yd_min, yd_max = min(self.x_pos), max(self.x_pos),
             #     min(self.y_pos), max(self.y_pos)
-            x_pos_2D = self.img_dict['positions']['x_pos']
-            y_pos_2D = self.img_dict['positions']['y_pos']
+            x_pos_2D = self.io_model.img_dict['positions']['x_pos']
+            y_pos_2D = self.io_model.img_dict['positions']['y_pos']
             xd_min, xd_max, yd_min, yd_max = x_pos_2D.min(), x_pos_2D.max(), y_pos_2D.min(), y_pos_2D.max()
             xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = \
                 _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
@@ -616,14 +575,14 @@ class DrawImageRGB(Atom):
         # Interpolate non-uniformly spaced data to uniform grid
         if grid_interpolate_local:
             data_r, _, _ = grid_interpolate(data_r,
-                                            self.img_dict['positions']['x_pos'],
-                                            self.img_dict['positions']['y_pos'])
+                                            self.io_model.img_dict['positions']['x_pos'],
+                                            self.io_model.img_dict['positions']['y_pos'])
             data_g, _, _ = grid_interpolate(data_g,
-                                            self.img_dict['positions']['x_pos'],
-                                            self.img_dict['positions']['y_pos'])
+                                            self.io_model.img_dict['positions']['x_pos'],
+                                            self.io_model.img_dict['positions']['y_pos'])
             data_b, _, _ = grid_interpolate(data_b,
-                                            self.img_dict['positions']['x_pos'],
-                                            self.img_dict['positions']['y_pos'])
+                                            self.io_model.img_dict['positions']['x_pos'],
+                                            self.io_model.img_dict['positions']['y_pos'])
 
         # The dictionaries 'rgb_view_data' and 'pos_limits' are used for monitoring
         #   the map values at current cursor positions.

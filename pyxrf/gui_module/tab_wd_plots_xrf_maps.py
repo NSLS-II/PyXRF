@@ -168,6 +168,11 @@ class PlotXrfMaps(QWidget):
         self.gpc.set_maps_selected_dataset(index + 1)
         self.signal_maps_dataset_selection_changed.emit()
 
+    @Slot()
+    def combo_select_dataset_update_current_index(self):
+        index = self.gpc.get_maps_selected_dataset()
+        self.combo_select_dataset.setCurrentIndex(index - 1)
+
     def combo_normalization_current_index_changed(self, index):
         self.gpc.set_maps_scaler_index(index)
         self.signal_maps_norm_changed.emit()
