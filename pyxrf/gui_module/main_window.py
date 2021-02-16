@@ -285,6 +285,8 @@ class MainWindow(QMainWindow):
             self.central_widget.right_panel.tab_preview_plots.preview_plot_spectrum.redraw_preview_plot)
         self.central_widget.left_panel.model_widget.signal_incident_energy_or_range_changed.connect(
             self.wnd_manage_emission_lines.update_widget_data)
+        self.central_widget.left_panel.model_widget.signal_incident_energy_or_range_changed.connect(
+            self.central_widget.right_panel.tab_plot_fitting_model.redraw_plot_fit)
 
         self.central_widget.left_panel.model_widget.signal_model_loaded.connect(
             self.central_widget.right_panel.tab_preview_plots.preview_plot_spectrum.redraw_preview_plot)

@@ -869,6 +869,9 @@ class GlobalProcessingClasses:
         Raises `ValueError` if other value is passed."""
         self.plot_model.scale_opt = ["linlog", "linear"].index(scale)
 
+    def update_plot_fit(self):
+        self.plot_model.plot_experiment()
+
     def get_incident_energy(self):
         return self.plot_model.incident_energy
 
@@ -933,17 +936,21 @@ class GlobalProcessingClasses:
         """
         logger.debug("Saving parameters from 'DialogFindElements'")
 
+        # Check if the critical parameters were changed
+        if (self.plot_model.incident_energy != dialog_params["coherent_sct_energy"]["value"]) or \
+                (self.param_model.energy_bound_high_buf != dialog_params["energy_bound_high"]["value"]) or \
+                (self.param_model.energy_bound_low_buf != dialog_params["energy_bound_low"]["value"]) or \
+                (self.param_model.param_new["e_offset"]["value"] != dialog_params["e_offset"]["value"]) or \
+                (self.param_model.param_new["e_linear"]["value"] != dialog_params["e_linear"]["value"]) or \
+                (self.param_model.param_new["e_quadratic"]["value"] != dialog_params["e_quadratic"]["value"]):
+            return_value = True
+        else:
+            return_value = False
+
         keys = ["e_offset", "e_linear", "e_quadratic",
                 "fwhm_offset", "fwhm_fanoprime"]
         for k in keys:
             self.param_model.param_new[k]["value"] = dialog_params[k]["value"]
-        # Check if the critical parameters were changed
-        if (self.plot_model.incident_energy != dialog_params["coherent_sct_energy"]["value"]) or \
-                (self.param_model.energy_bound_high_buf != dialog_params["energy_bound_high"]["value"]) or \
-                (self.param_model.energy_bound_low_buf != dialog_params["energy_bound_low"]["value"]):
-            return_value = True
-        else:
-            return_value = False
 
         self.io_model.incident_energy_set = dialog_params["coherent_sct_energy"]["value"]
         self.param_model.energy_bound_high_buf = dialog_params["energy_bound_high"]["value"]
@@ -1100,6 +1107,15 @@ class GlobalProcessingClasses:
         # 'param_dict' is expected to have identical structure as 'param_model.param_new'.
         # We don't want to change the reference to the parameters, so we copy references to
         #   dictionary elements (which are also dictionaries).
+
+        # Check if the energy axis parameters were changed
+        e_axis_changed = False
+        e_axis_keys = ("e_offset", "e_linear", "e_quadratic")
+        for key in e_axis_keys:
+            if self.param_model.param_new[key]["value"] != param_dict[key]["value"]:
+                e_axis_changed = True
+                break
+
         for key, val in param_dict.items():
             self.param_model.param_new[key] = val
 
@@ -1107,6 +1123,10 @@ class GlobalProcessingClasses:
 
         self.param_model.create_spectrum_from_param_dict(reset=False)
         self.apply_to_fit()
+
+        # This is needed in case the coefficients that define energy axis have changed
+        if e_axis_changed:
+            self.update_preview_spectrum_plot()
 
         self.fitting_parameters_changed()
 
