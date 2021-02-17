@@ -10,7 +10,7 @@ numpy>=1.15
 pandas
 pillow
 progress
-pystackreg
+pystackreg==0.2.2
 pyyaml
 qtpy
 requests
