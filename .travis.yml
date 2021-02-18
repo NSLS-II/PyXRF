@@ -26,6 +26,11 @@ jobs:
     - os: osx
       language: generic
       env: TRAVIS_PYTHON_VERSION=3.7 NUMPY=1.19
+  allow_failures:
+    - os: osx
+      language: generic
+      env: TRAVIS_PYTHON_VERSION=3.7 NUMPY=1.19
+
 
 before_install:
   - if [ $FLAKE_8 == 'true' ]; then
