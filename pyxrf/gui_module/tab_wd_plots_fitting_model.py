@@ -222,3 +222,8 @@ class PlotFittingModel(QWidget):
     def slot_update_add_remove_btn_state(self, add_enabled, remove_enabled):
         self.pb_add_line.setEnabled(add_enabled)
         self.pb_remove_line.setEnabled(remove_enabled)
+
+    @Slot()
+    @Slot(bool)
+    def redraw_plot_fit(self):
+        self.gpc.update_plot_fit()
