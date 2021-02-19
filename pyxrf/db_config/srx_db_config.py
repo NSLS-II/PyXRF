@@ -1,5 +1,10 @@
 import h5py
-from databroker import Broker
+
+try:
+    from databroker.v0 import Broker
+except ModuleNotFoundError:
+    from databroker import Broker
+
 from databroker._core import register_builtin_handlers
 
 #  srx detector, to be moved to filestore
