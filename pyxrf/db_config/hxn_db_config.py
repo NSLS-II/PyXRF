@@ -1,4 +1,7 @@
-from databroker import Broker
+try:
+    from databroker.v0 import Broker
+except ModuleNotFoundError:
+    from databroker import Broker
 
 from hxntools.handlers.xspress3 import Xspress3HDF5Handler
 from hxntools.handlers.timepix import TimepixHDF5Handler
