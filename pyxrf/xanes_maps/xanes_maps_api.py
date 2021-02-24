@@ -209,7 +209,7 @@ def build_xanes_map(start_id=None, end_id=None, *, parameter_file_path=None,
     results_dir_suffix : str
         suffix for the directory where the results are saved. The suffix is generated
         automatically if the parameter is not specified or ``None``. The directory will be
-        created inside the directory ``wd`` with the name ``nanoXANES_Analysis_{extension}``.
+        created inside the directory ``wd`` with the name ``nanoXANES_Analysis_{suffix}``.
         Default: ``None``
 
     sequence : str
@@ -648,7 +648,7 @@ def _build_xanes_map_api(*, start_id=None, end_id=None,
     results_dir_suffix : str
         suffix for the directory where the results are saved. The suffix is generated
         automatically if the parameter is not specified or ``None``. The directory will be
-        created inside the directory ``wd`` with the name ``nanoXANES_Analysis_{extension}``.
+        created inside the directory ``wd`` with the name ``nanoXANES_Analysis_{suffix}``.
         Default: ``None``
 
     sequence : str
