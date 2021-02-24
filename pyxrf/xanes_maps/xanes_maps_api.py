@@ -3110,6 +3110,11 @@ def _save_xanes_maps_to_tiff(*, wd, eline_data_aligned, eline_selected,
                 print(f"XRF map stack for the emission line {eline} is saved to file '{fln_stack}'", file=f_log)
                 tifffile.imsave(fln_stack, eline_data_aligned[eline].astype(np.float32),
                                 imagej=True)
+                fln_stack_sum = f"SUM_maps_XRF_{eline}.tiff"
+                fln_stack_sum = os.path.join(wd, fln_stack_sum)
+                # Find sum of the stack
+                stack_sum = sum(eline_data_aligned[eline], 0)
+                tifffile.imsave(fln_stack_sum, stack_sum.astype(np.float32), imagej=True)
 
         if (xanes_map_data is not None) and xanes_map_labels and eline_selected:
             # Save XANES maps for references
