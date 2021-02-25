@@ -98,7 +98,7 @@ Updating PyXRF
        conda activate pyxrf-env
 
 
-3. Update PyXRF from the same Anaconda channel (:code:`conda-forge` or :code:`nsls2forge`) that
+4. Update PyXRF from the same Anaconda channel (:code:`conda-forge` or :code:`nsls2forge`) that
    was used for the original PyXRF installation:
 
    .. code:: python
