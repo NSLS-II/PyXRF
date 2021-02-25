@@ -14,12 +14,14 @@ global:
 jobs:
   fast_finish: true
   include:
+    - python: 3.8
+      env: FLAKE8=true NUMPY=1.20  # Separate test case for flake8
     - python: 3.7
-      env: FLAKE8=true NUMPY=1.19  # Separate test case for flake8
-    - python: 3.6
-      env: BUILD_DOCS=true SUBMIT_CODECOV=true NUMPY=1.19
-    - python: 3.7
-      env: BUILD_DOCS=true SUBMIT_CODECOV=true NUMPY=1.19
+      env: BUILD_DOCS=true SUBMIT_CODECOV=true NUMPY=1.20
+    - python: 3.8
+      env: BUILD_DOCS=true SUBMIT_CODECOV=true NUMPY=1.20
+    - python: 3.9
+      env: BUILD_DOCS=true SUBMIT_CODECOV=true NUMPY=1.20
     - os: osx
       language: generic
       env: TRAVIS_PYTHON_VERSION=3.6 NUMPY=1.19
@@ -27,10 +29,8 @@ jobs:
       language: generic
       env: TRAVIS_PYTHON_VERSION=3.7 NUMPY=1.19
   allow_failures:
-    - os: osx
-      language: generic
-      env: TRAVIS_PYTHON_VERSION=3.7 NUMPY=1.19
-
+    - python: 3.9
+      env: BUILD_DOCS=true SUBMIT_CODECOV=true NUMPY=1.20
 
 before_install:
   - if [ $FLAKE_8 == 'true' ]; then
@@ -74,9 +74,10 @@ install:
       sleep 3
     fi
   - export GIT_FULL_HASH=`git rev-parse HEAD`
-  - conda create -y -n testenv python=$TRAVIS_PYTHON_VERSION numpy=$NUMPY
+  - conda create -y -n testenv python=$TRAVIS_PYTHON_VERSION numpy=$NUMPY pyqt numba -c conda-forge
+  # Note: 'numba' fails to install properly from PyPI on OSX
   - conda activate testenv
-  - conda install -y 'scikit-beam>=0.0.24' -c nsls2forge
+  - conda install -y 'scikit-beam>=0.0.24' -c conda-forge
   #- conda install -y scikit-beam -c nsls2forge
   #- conda update -y scikit-beam -c nsls2forge  # Update, because sometimes a very old version is installed :(
   - python -m pip install --upgrade pip setuptools
