@@ -53,7 +53,7 @@ identical for all supported OS.
 
        conda install pyxrf -c conda-forge
 
-   PyXRF package is also maintained at :code:`nsls2forge` Anaconda channel.
+   PyXRF package is also maintained at the :code:`nsls2forge` Anaconda channel.
    Installation from :code:`nsls2forge` involves similar steps:
 
    .. code:: python
