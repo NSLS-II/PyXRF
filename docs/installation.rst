@@ -62,7 +62,7 @@ identical for all supported OS.
        conda activate pyxrf-env
        conda install pyxrf atom=0.4.3 -c nsls2forge
 
-   It is not recommended to mix packages from :code:`conda-forge` channel and :code:`nsls2forge`/defaults
+   It is not recommended to mix packages from :code:`conda-forge` channel and :code:`nsls2forge`/:code:`defaults`
    channels in the same environment, since they may be incompatible.
 
 Starting PyXRF
