@@ -1,4 +1,4 @@
-atom==0.4.3
+atom
 dask
 distributed
 jsonschema
