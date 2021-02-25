@@ -32,7 +32,7 @@ identical for all supported OS.
       must be used on some platforms (particularly Windows). Refer to the Conda documentation
       for more details.
 
-3. Install PyXRF from :code:`conda-forge` or :code:`nsls2forge` Anaconda channel.
+3. Install PyXRF from :code:`conda-forge` or :code:`nsls2forge` Anaconda channels.
 
    PyXRF is currently available from the :code:`conda-forge` Anaconda channel. Create new
    Conda environment:
