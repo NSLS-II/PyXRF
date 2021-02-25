@@ -1381,7 +1381,7 @@ def read_hdf_APS(working_directory,
             for i, n in enumerate(det_name):
                 if not isinstance(n, str):
                     n = n.decode()
-                temp[n] = data['scalers/val'].value[:, :, i]
+                temp[n] = data['scalers/val'][:, :, i]
             img_dict[f"{fname}_scaler"] = temp
             # also dump other data from suitcase if required
             if len(dict_sc) != 0:
@@ -1393,7 +1393,7 @@ def read_hdf_APS(working_directory,
             for i, n in enumerate(pos_name):
                 if not isinstance(n, str):
                     n = n.decode()
-                temp[n] = data['positions/pos'].value[i, :]
+                temp[n] = data['positions/pos'][i, :]
             img_dict['positions'] = temp
 
         # TODO: rewrite the algorithm for finding the detector channels (not robust)
@@ -1430,8 +1430,8 @@ def read_hdf_APS(working_directory,
                 file_channel = f"{fname}_det{i}"
                 if 'xrf_fit' in data[det_name] and load_fit_results:
                     try:
-                        fit_result = get_fit_data(data[det_name]['xrf_fit_name'].value,
-                                                  data[det_name]['xrf_fit'].value)
+                        fit_result = get_fit_data(data[det_name]['xrf_fit_name'][()],
+                                                  data[det_name]['xrf_fit'][()])
                         img_dict.update({f"{file_channel}_fit": fit_result})
                         # also include scaler data
                         if 'scalers' in data:
@@ -1441,8 +1441,8 @@ def read_hdf_APS(working_directory,
 
                 if 'xrf_roi' in data[det_name] and load_roi_results:
                     try:
-                        fit_result = get_fit_data(data[det_name]['xrf_roi_name'].value,
-                                                  data[det_name]['xrf_roi'].value)
+                        fit_result = get_fit_data(data[det_name]['xrf_roi_name'][()],
+                                                  data[det_name]['xrf_roi'][()])
                         img_dict.update({f"{file_channel}_roi": fit_result})
                         # also include scaler data
                         if 'scalers' in data:
@@ -1453,8 +1453,8 @@ def read_hdf_APS(working_directory,
         # read fitting results from summed data
         if 'xrf_fit' in data['detsum'] and load_summed_data and load_fit_results:
             try:
-                fit_result = get_fit_data(data['detsum']['xrf_fit_name'].value,
-                                          data['detsum']['xrf_fit'].value)
+                fit_result = get_fit_data(data['detsum']['xrf_fit_name'][()],
+                                          data['detsum']['xrf_fit'][()])
                 img_dict.update({f"{fname}_fit": fit_result})
                 if 'scalers' in data:
                     img_dict[f"{fname}_fit"].update(img_dict[f"{fname}_scaler"])
@@ -1463,8 +1463,8 @@ def read_hdf_APS(working_directory,
 
         if 'xrf_roi' in data['detsum'] and load_summed_data and load_roi_results:
             try:
-                fit_result = get_fit_data(data['detsum']['xrf_roi_name'].value,
-                                          data['detsum']['xrf_roi'].value)
+                fit_result = get_fit_data(data['detsum']['xrf_roi_name'][()],
+                                          data['detsum']['xrf_roi'][()])
                 img_dict.update({f"{fname}_roi": fit_result})
                 if 'scalers' in data:
                     img_dict[f"{fname}_roi"].update(img_dict[f"{fname}_scaler"])
@@ -1677,10 +1677,10 @@ def read_MAPS(working_directory,
         exp_data = data['mca_arr'][:]
 
         # data from channel summed
-        roi_channel = data['channel_names'].value
+        roi_channel = data['channel_names'][()]
         roi_val = data['XRF_roi'][:]
 
-        scaler_names = data['scaler_names'].value
+        scaler_names = data['scaler_names'][()]
         scaler_val = data['scalers'][:]
 
         try:
@@ -1692,7 +1692,7 @@ def read_MAPS(working_directory,
         try:
             fit_data = f['xrfmap/detsum']
             fit_v_pyxrf = fit_data['xrf_fit'][:]
-            fit_n_pyxrf = fit_data['xrf_fit_name'].value
+            fit_n_pyxrf = fit_data['xrf_fit_name'][()]
             print(fit_n_pyxrf)
         except KeyError:
             logger.info('No fitting from pyxrf can be loaded.')
@@ -1740,8 +1740,8 @@ def read_MAPS(working_directory,
 
     # read fitting results
     # if 'xrf_fit' in data[detID]:
-    #     fit_result = get_fit_data(data[detID]['xrf_fit_name'].value,
-    #                               data[detID]['xrf_fit'].value)
+    #     fit_result = get_fit_data(data[detID]['xrf_fit_name'][()],
+    #                               data[detID]['xrf_fit'][()])
     #     img_dict.update({fname+'_fit': fit_result})
 
     return img_dict, data_sets, mdata
@@ -2108,14 +2108,14 @@ def combine_data_to_recon(element_list, datalist, working_dir, norm=True,
         with h5py.File(filepath, 'r+') as f:
             dataset = f[internal_path]
             try:
-                data_all = dataset['xrf_fit'].value
-                data_name = dataset['xrf_fit_name'].value
+                data_all = dataset['xrf_fit'][()]
+                data_name = dataset['xrf_fit_name'][()]
                 data_name = helper_decode_list(data_name)
             except KeyError:
                 print('Need to do fitting first.')
             scaler_dataset = f['xrfmap/scalers']
-            scaler_v = scaler_dataset['val'].value
-            scaler_n = scaler_dataset['name'].value
+            scaler_v = scaler_dataset['val'][()]
+            scaler_n = scaler_dataset['name'][()]
             scaler_n = helper_decode_list(scaler_n)
 
         data_dict = {}
