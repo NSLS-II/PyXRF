@@ -34,7 +34,7 @@ identical for all supported OS.
 
 3. Install PyXRF from :code:`conda-forge` or :code:`nsls2forge` Anaconda channel.
 
-   PyXRF is currently available from :code:`conda-forge` Anaconda channel. Create new
+   PyXRF is currently available from the :code:`conda-forge` Anaconda channel. Create new
    Conda environment:
 
    .. code:: python
