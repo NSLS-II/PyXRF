@@ -74,7 +74,7 @@ install:
       sleep 3
     fi
   - export GIT_FULL_HASH=`git rev-parse HEAD`
-  - conda create -y -n testenv python=$TRAVIS_PYTHON_VERSION numpy=$NUMPY -c conda-forge
+  - conda create -y -n testenv python=$TRAVIS_PYTHON_VERSION numpy=$NUMPY pyqt -c conda-forge
   - conda activate testenv
   - conda install -y 'scikit-beam>=0.0.24' -c conda-forge
   #- conda install -y scikit-beam -c nsls2forge
