@@ -20,6 +20,9 @@ logger = logging.getLogger("pyxrf")
 
 def run():
     """Run the application"""
+    # import faulthandler
+    # faulthandler.enable()
+
     parser = argparse.ArgumentParser(prog='pyxrf', description='Command line arguments')
     parser.add_argument("-l", "--loglevel", default="INFO", type=str, dest="loglevel",
                         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],

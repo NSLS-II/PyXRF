@@ -4,7 +4,7 @@ distributed
 jsonschema
 h5py>=2.9.0
 lmfit
-matplotlib<=3.2.2
+matplotlib
 numba
 numpy>=1.15
 pandas

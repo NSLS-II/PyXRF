@@ -1437,7 +1437,8 @@ class LinePlotModel(Atom):
 
         if self._ax_preview:
             self._ax_preview.clear()
-        self._ax_preview = self._fig_preview.add_subplot(111)
+        else:
+            self._ax_preview = self._fig_preview.add_subplot(111)
         self._ax_preview.set_facecolor('lightgrey')
         self._ax_preview.grid(which="both")
 
@@ -1812,7 +1813,8 @@ class LinePlotModel(Atom):
                 grid[i].text(0, 1.01, grid_title, ha='left', va='bottom', transform=grid[i].axes.transAxes)
 
                 grid.cbar_axes[i].colorbar(im)
-                im.colorbar.formatter = im.colorbar.cbar_axis.get_major_formatter()
+
+                im.colorbar.formatter = im.colorbar.ax.yaxis.get_major_formatter()
                 # im.colorbar.ax.get_xaxis().set_ticks([])
                 # im.colorbar.ax.get_xaxis().set_ticks([], minor=True)
                 grid.cbar_axes[i].ticklabel_format(style='sci', scilimits=(-3, 4), axis='both')
@@ -1859,10 +1861,10 @@ class LinePlotModel(Atom):
                 grid[i].text(0, 1.01, grid_title, ha='left', va='bottom', transform=grid[i].axes.transAxes)
 
                 grid.cbar_axes[i].colorbar(im)
-                im.colorbar.formatter = im.colorbar.cbar_axis.get_major_formatter()
+                im.colorbar.formatter = im.colorbar.ax.yaxis.get_major_formatter()
                 im.colorbar.ax.get_xaxis().set_ticks([])
                 im.colorbar.ax.get_xaxis().set_ticks([], minor=True)
-                im.colorbar.cbar_axis.set_minor_formatter(mticker.LogFormatter())
+                im.colorbar.ax.yaxis.set_minor_formatter(mticker.LogFormatter())
 
             grid[i].get_xaxis().set_major_locator(mticker.MaxNLocator(nbins="auto"))
             grid[i].get_yaxis().set_major_locator(mticker.MaxNLocator(nbins="auto"))
