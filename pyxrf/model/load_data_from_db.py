@@ -1326,7 +1326,7 @@ def map_data2D_tes(run_id_uid, fpath,
     new_data = {}
 
     def _is_row_missing(row_data):
-        """ 
+        """
         Determine if the row is missing. Different versions of Databroker will return differnent value types.
         """
         if s_data[_n] is None:
@@ -1337,8 +1337,7 @@ def map_data2D_tes(run_id_uid, fpath,
         elif not len(s_data[_n]):
             return True
 
-
-    # Typicall the scalers are saved
+    # Typically the scalers are saved
     if save_scaler is True:
 
         # Read the scalers
