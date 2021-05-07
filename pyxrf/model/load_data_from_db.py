@@ -1325,7 +1325,19 @@ def map_data2D_tes(run_id_uid, fpath,
     #   This data will be saved to file and/or loaded into processing software
     new_data = {}
 
-    # Typicall the scalers are saved
+    def _is_row_missing(row_data):
+        """
+        Determine if the row is missing. Different versions of Databroker will return differnent value types.
+        """
+        if s_data[_n] is None:
+            return True
+        elif isinstance(s_data[_n], np.ndarray) and (s_data[_n].size == 1) and (s_data[_n] == np.array(None)):
+            # This is returned by databroker.v0
+            return True
+        elif not len(s_data[_n]):
+            return True
+
+    # Typically the scalers are saved
     if save_scaler is True:
 
         # Read the scalers
@@ -1351,11 +1363,12 @@ def map_data2D_tes(run_id_uid, fpath,
             # TODO: investigate the issue of 'empty' scaler ('dwell_time') rows at TES
             n_full = -1
             for _n in range(len(s_data)):
-                if (s_data[_n] is not None) and len(s_data[_n]):
+                if _is_row_missing(s_data[_n]):
                     n_full = _n
                     break
             for _n in range(len(s_data)):
-                if (s_data[_n] is None) or not len(s_data[_n]):
+                # Data for the missing row is replaced by data from the previous 'good' row
+                if _is_row_missing(s_data[_n]):
                     s_data[_n] = np.copy(s_data[n_full])
                     logger.error(f"Scaler '{name}': row #{_n} contains no data. "
                                  f"Replaced by data from row #{n_full}")
