@@ -2111,9 +2111,12 @@ def clear_handler_cache(hdr):
 
 # TODO: the following function may be deleted after Databroker 0.13 is forgotten
 def free_memory_from_handler():
-    """Quick way to set 3D dataset at handler to None to release memory.
     """
-    if LooseVersion(databroker.__version__) < LooseVersion('1.0.0'):
+    Quick way to set 3D dataset at handler to None to release memory.
+    """
+    # The following check is redundant: Data Broker prior to version 1.0.0 always has '_handler_cache'.
+    #   In later versions of databroker the attribute may still be present if 'databroker.v0' is used.
+    if (LooseVersion(databroker.__version__) < LooseVersion('1.0.0')) or hasattr(db.fs, "_handler_cache"):
         for h in db.fs._handler_cache.values():
             setattr(h, '_dataset', None)
         print('Memory is released.')
