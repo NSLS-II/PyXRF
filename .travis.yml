@@ -24,13 +24,20 @@ jobs:
       env: BUILD_DOCS=true SUBMIT_CODECOV=true NUMPY=1.20
     - os: osx
       language: generic
-      env: TRAVIS_PYTHON_VERSION=3.6 NUMPY=1.19
+      env: TRAVIS_PYTHON_VERSION=3.6 NUMPY=1.20
     - os: osx
       language: generic
-      env: TRAVIS_PYTHON_VERSION=3.7 NUMPY=1.19
+      env: TRAVIS_PYTHON_VERSION=3.7 NUMPY=1.20
+    - os: osx
+      language: generic
+      env: TRAVIS_PYTHON_VERSION=3.8 NUMPY=1.20
+    - os: osx
+      language: generic
+      env: TRAVIS_PYTHON_VERSION=3.9 NUMPY=1.20
   allow_failures:
-    - python: 3.9
-      env: BUILD_DOCS=true SUBMIT_CODECOV=true NUMPY=1.20
+    - os: osx
+      language: generic
+      env: TRAVIS_PYTHON_VERSION=3.9 NUMPY=1.20
 
 before_install:
   - if [ $FLAKE_8 == 'true' ]; then
