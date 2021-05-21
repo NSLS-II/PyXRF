@@ -25,6 +25,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - uses: conda-incubator/setup-miniconda@v2
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
@@ -47,19 +48,20 @@ jobs:
         herbstluftwm &
         sleep 1
 
+
     - name: Install Miniconda
       shell: bash -l {0}
       run: |
         set -vxeuo pipefail
 
         # Install miniconda
-        arch="Linux"
-        wget https://repo.continuum.io/miniconda/Miniconda3-latest-${arch}-x86_64.sh -O miniconda.sh
-        chmod +x miniconda.sh
-        ./miniconda.sh -b -p ~/mc
-        source ~/mc/etc/profile.d/conda.sh
-        conda update conda --yes
-        export CONDARC=ci/condarc
+        # arch="Linux"
+        # wget https://repo.continuum.io/miniconda/Miniconda3-latest-${arch}-x86_64.sh -O miniconda.sh
+        # chmod +x miniconda.sh
+        # ./miniconda.sh -b -p ~/mc
+        # source ~/mc/etc/profile.d/conda.sh
+        # conda update conda --yes
+        # export CONDARC=ci/condarc
 
     - name: Create conda environment
       shell: bash -l {0}
