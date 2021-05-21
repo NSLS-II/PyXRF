@@ -19,7 +19,7 @@ jobs:
     strategy:
       matrix:
         python-version: [3.7, 3.8, 3.9]
-        numpy-version: [1.20]
+        numpy-version: ["1.20"]
 
       fail-fast: false
 
@@ -53,7 +53,7 @@ jobs:
         set -vxeuo pipefail
 
         # Install miniconda
-        arch=${{ runner.os }}
+        arch="Linux"
         wget https://repo.continuum.io/miniconda/Miniconda3-latest-${arch}-x86_64.sh -O miniconda.sh
         chmod +x miniconda.sh
         ./miniconda.sh -b -p ~/mc
