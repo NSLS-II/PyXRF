@@ -1,4 +1,4 @@
-name: Unit Tests
+name: Linux
 
 on:
   push:
@@ -53,6 +53,7 @@ jobs:
         set -vxeuo pipefail
 
         # Install miniconda
+        arch=${{ runner.os }}
         wget https://repo.continuum.io/miniconda/Miniconda3-latest-${arch}-x86_64.sh -O miniconda.sh
         chmod +x miniconda.sh
         ./miniconda.sh -b -p ~/mc
