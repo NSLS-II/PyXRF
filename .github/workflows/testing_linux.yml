@@ -40,15 +40,20 @@ jobs:
       if: runner.os == 'Linux'
       shell: bash -l {0}
       run: |
-        sudo apt-get install -y xvfb
+        sudo apt-get update
+        sudo apt-get install -y xvfb herbstluftwm
+
+    - name: Start 'xvfb'
+      if: runner.os == 'Linux'
+      shell: bash -l {0}
+      run: |
         sudo /sbin/start-stop-daemon --start --pidfile /tmp/custom_xvfb_99.pid --make-pidfile --background --exec /usr/bin/Xvfb -- :99 -screen 0 1920x1200x24 -ac +extension GLX +render -noreset
         # sudo /usr/bin/Xvfb $DISPLAY -screen 0 1280x1024x24 &
         sleep 3
 
-    - name:  Install 'herbstluftwm' (on Linux only)
+    - name:  Install 'herbstluftwm'
+      if: runner.os == 'Linux'
       run: |
-        sudo apt-get update
-        sudo apt-get install -y xvfb herbstluftwm
         herbstluftwm &
         sleep 1
 
@@ -72,6 +77,8 @@ jobs:
         set -vxeuo pipefail
 
         conda install pyqt -c conda-forge
+        conda update pyqt -c conda-forge
+
         conda install -y 'scikit-beam>=0.0.24' -c conda-forge
         pip install --upgrade pip setuptools
 
