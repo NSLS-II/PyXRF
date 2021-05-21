@@ -51,7 +51,7 @@ jobs:
         # sudo /usr/bin/Xvfb $DISPLAY -screen 0 1280x1024x24 &
         sleep 3
 
-    - name:  Install 'herbstluftwm'
+    - name:  Start 'herbstluftwm'
       if: runner.os == 'Linux'
       run: |
         herbstluftwm &
@@ -65,7 +65,7 @@ jobs:
         conda list
         pip list
 
-        conda create -y -n testenv python=${{ matrix.python-version }} numpy=${{ matrix.numpy-version }} numba -c conda-forge
+        conda create -y -n testenv python=${{ matrix.python-version }} numpy=${{ matrix.numpy-version }} numba pip -c conda-forge
         # Note: 'numba' fails to install properly from PyPI on OSX
         conda activate testenv
         conda list
@@ -76,8 +76,7 @@ jobs:
       run: |
         set -vxeuo pipefail
 
-        conda install pyqt -c conda-forge
-        conda update pyqt -c conda-forge
+        conda install pyqt=5.12 -c conda-forge
 
         conda install -y 'scikit-beam>=0.0.24' -c conda-forge
         pip install --upgrade pip setuptools
