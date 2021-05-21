@@ -26,10 +26,10 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - uses: conda-incubator/setup-miniconda@v2
-      with:
-        auto-activate-base: true
-        activate-environment: ""
+#    - uses: conda-incubator/setup-miniconda@v2
+#      with:
+#        auto-activate-base: true
+#        activate-environment: ""
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
@@ -61,7 +61,19 @@ jobs:
       shell: bash -l {0}
       run: |
         set -vxeuo pipefail
-        conda update conda
+        arch="Linux"
+        wget https://repo.continuum.io/miniconda/Miniconda3-latest-${arch}-x86_64.sh -O miniconda.sh
+        chmod +x miniconda.sh
+        ./miniconda.sh -b -p ~/mc
+        source ~/mc/etc/profile.d/conda.sh
+        conda update conda --yes
+        # export CONDARC=ci/condarc
+
+    - name: Create conda environment
+      shell: bash -l {0}
+      run: |
+        set -vxeuo pipefail
+        # conda update conda
         conda list
         pip list
 
@@ -76,7 +88,7 @@ jobs:
       run: |
         set -vxeuo pipefail
 
-        conda install pyqt=5.12 -c conda-forge
+        conda install -y pyqt=5.12 -c conda-forge
 
         conda install -y 'scikit-beam>=0.0.24' -c conda-forge
         pip install --upgrade pip setuptools
