@@ -1,0 +1,100 @@
+name: Unit Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    env:
+      DISPLAY: ":0"  # arbitrary
+
+    runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo
+        ports:
+        - 27017:27017
+
+    strategy:
+      matrix:
+        python-version: [3.7, 3.8, 3.9]
+        numpy-version: [1.20]
+
+      fail-fast: false
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install Linux libraries
+      if: runner.os == 'Linux'
+      shell: bash -l {0}
+      run: |
+        sudo apt-get install -y xvfb
+        sudo /sbin/start-stop-daemon --start --pidfile /tmp/custom_xvfb_99.pid --make-pidfile --background --exec /usr/bin/Xvfb -- :99 -screen 0 1920x1200x24 -ac +extension GLX +render -noreset
+        sleep 3
+        # sudo /usr/bin/Xvfb $DISPLAY -screen 0 1280x1024x24 &
+
+    - name:  Install 'herbstluftwm' (on Linux only)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y xvfb herbstluftwm
+        herbstluftwm &
+        sleep 1
+
+    - name: Install Miniconda
+      shell: bash -l {0}
+      run: |
+        set -vxeuo pipefail
+
+        # Install miniconda
+        wget https://repo.continuum.io/miniconda/Miniconda3-latest-${arch}-x86_64.sh -O miniconda.sh
+        chmod +x miniconda.sh
+        ./miniconda.sh -b -p ~/mc
+        source ~/mc/etc/profile.d/conda.sh
+        conda update conda --yes
+        export CONDARC=ci/condarc
+
+    - name: Create conda environment
+      shell: bash -l {0}
+      run: |
+        set -vxeuo pipefail
+        conda create -y -n testenv python=${{ matrix.python-version }} numpy=${{ matrix.numpy-version }} pyqt numba -c conda-forge
+        # Note: 'numba' fails to install properly from PyPI on OSX
+        conda activate testenv
+
+    - name: Install required conda packages
+      shell: bash -l {0}
+      run: |
+        set -vxeuo pipefail
+
+        conda install -y 'scikit-beam>=0.0.24' -c conda-forge
+        python -m pip install --upgrade pip setuptools
+
+        # There are issues in building wheels for pystackreg>0.2.2 on OSX, so install pystackreg from CF
+        $ conda install -y pystackreg -c conda-forge
+
+        pip install .
+        pip install -r requirements-dev.txt
+        pip install codecov
+        conda list
+        pip list
+
+    - name: Install test requirements
+      shell: bash -l {0}
+      run: |
+        set -vxeuo pipefail
+        python -m pip install -r requirements-dev.txt
+        python -m pip list
+
+    - name: Test with pytest
+      shell: bash -l {0}
+      run: |
+        set -vxeuo pipefail
+        coverage run -m pytest -vv
+        coverage report
