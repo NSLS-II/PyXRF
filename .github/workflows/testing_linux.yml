@@ -57,7 +57,7 @@ jobs:
       run: |
         set -vxeuo pipefail
         conda update conda
-        conda create -y -n testenv python=${{ matrix.python-version }} numpy=${{ matrix.numpy-version }} pyqt numba -c conda-forge
+        conda create -y -n testenv python=${{ matrix.python-version }} numpy=${{ matrix.numpy-version }} numba -c conda-forge
         # Note: 'numba' fails to install properly from PyPI on OSX
         conda activate testenv
         conda list
@@ -68,6 +68,7 @@ jobs:
       run: |
         set -vxeuo pipefail
 
+        conda install pyqt -c conda-forge
         conda install -y 'scikit-beam>=0.0.24' -c conda-forge
         pip install --upgrade pip setuptools
 
