@@ -3,11 +3,11 @@ name: Publish Docs
 on:
   push:
     branches:
-      - main
+      - master
 
 jobs:
   build:
-    if: github.repository_owner == 'bluesky'
+    if: github.repository_owner == 'NSLS-II'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -22,8 +22,6 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
       run: |
-        sudo apt install redis
-
         # These packages are installed in the base environment but may be older
         # versions. Explicitly upgrade them because they often create
         # installation problems if out of date.
@@ -31,11 +29,12 @@ jobs:
 
         pip install .
         pip install -r requirements-dev.txt
+        pip install -r requirements-docs.txt
         pip list
     - name: Build Docs
       run: |
         make -C docs/ html
-    - name: Deploy documentation to blueskyproject.io
+    - name: Deploy documentation to nsls-ii.github.io
       # We pin to the SHA, not the tag, for security reasons.
       # https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/security-hardening-for-github-actions#using-third-party-actions
       uses: peaceiris/actions-gh-pages@bbdfb200618d235585ad98e965f4aafc39b4c501  # v3.7.3
@@ -43,7 +42,7 @@ jobs:
         deploy_key: ${{ secrets.ACTIONS_DOCUMENTATION_DEPLOY_KEY }}
         publish_branch: master
         publish_dir: ./docs/build/html
-        external_repository: bluesky/bluesky.github.io
-        destination_dir: bluesky-queueserver
+        external_repository: PyXRF/nsls-ii.github.io
+        destination_dir: PyXRF
         keep_files: true  # Keep old files.
         force_orphan: false  # Keep git history.
