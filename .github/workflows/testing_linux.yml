@@ -7,7 +7,7 @@ on:
 jobs:
   build:
     env:
-      DISPLAY: ":0"  # arbitrary
+      DISPLAY: ":99.0"  # arbitrary
 
     runs-on: ubuntu-latest
     services:
@@ -57,6 +57,9 @@ jobs:
       run: |
         set -vxeuo pipefail
         conda update conda
+        conda list
+        pip list
+
         conda create -y -n testenv python=${{ matrix.python-version }} numpy=${{ matrix.numpy-version }} numba -c conda-forge
         # Note: 'numba' fails to install properly from PyPI on OSX
         conda activate testenv
@@ -75,8 +78,9 @@ jobs:
         # There are issues in building wheels for pystackreg>0.2.2 on OSX, so install pystackreg from CF
         # conda install -y pystackreg -c conda-forge
 
-        pip install .
+        pip install -r requirements.txt
         pip install -r requirements-dev.txt
+        pip install .
         pip install codecov
         conda list
         pip list
