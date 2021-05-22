@@ -5,6 +5,7 @@ import copy
 import numpy as np
 import numpy.testing as npt
 import time as ttime
+import re
 from pyxrf.core.utils import convert_time_from_nexus_string
 from pyxrf.core.xrf_utils import validate_element_str, generate_eline_list, split_compound_mass
 from pyxrf.core.quant_analysis import (
@@ -78,8 +79,8 @@ def test_save_xrf_standard_yaml_file2(tmp_path):
     # Sample data
     save_xrf_standard_yaml_file(yaml_path, standard_data)
 
-    # Try to overwrite the file
-    with pytest.raises(IOError, match=f"File '{yaml_path}' already exists"):
+    # Try to overwrite the file ('re.escape' is required when tests are run on Windows)
+    with pytest.raises(IOError, match=f"File '{re.escape(yaml_path)}' already exists"):
         save_xrf_standard_yaml_file(yaml_path, standard_data)
 
     # The following should work
@@ -109,14 +110,15 @@ def test_load_xrf_standard_yaml_file1(tmp_path):
     file_name = "standard.yaml"
 
     # Try loading from the existing directory
+    # 're.escape' is necessary when test are run on Windows
     yaml_path = os.path.join(tmp_path, file_name)
-    with pytest.raises(IOError, match=f"File '{yaml_path}' does not exist"):
+    with pytest.raises(IOError, match=f"File '{re.escape(yaml_path)}' does not exist"):
         load_xrf_standard_yaml_file(yaml_path)
 
     # Try loading from the non-existing directory
     yaml_path = ["yaml", "param", "file"]
     yaml_path = os.path.join(tmp_path, *yaml_path, file_name)
-    with pytest.raises(IOError, match=f"File '{yaml_path}' does not exist"):
+    with pytest.raises(IOError, match=f"File '{re.escape(yaml_path)}' does not exist"):
         load_xrf_standard_yaml_file(yaml_path)
 
 
@@ -242,8 +244,8 @@ def test_save_xrf_quant_fluor_json_file2(tmp_path):
     # Create file
     save_xrf_quant_fluor_json_file(json_path, data)
 
-    # Attempt to overwrite
-    with pytest.raises(IOError, match=f"File '{json_path}' already exists"):
+    # Attempt to overwrite (note: 're.escape' is necessary for Windows paths)
+    with pytest.raises(IOError, match=f"File '{re.escape(json_path)}' already exists"):
         save_xrf_quant_fluor_json_file(json_path, data)
 
     # Now overwrite the file by setting the flag 'overwrite_existing=True'
@@ -287,7 +289,8 @@ def test_load_xrf_quant_fluor_json_file1(tmp_path):
 
     _, json_path = _get_data_and_json_path(tmp_path)
 
-    with pytest.raises(IOError, match=f"File '{json_path}' does not exist"):
+    # 're.escape' is necessary if test is run on Windows
+    with pytest.raises(IOError, match=f"File '{re.escape(json_path)}' does not exist"):
         load_xrf_quant_fluor_json_file(json_path)
 
 
