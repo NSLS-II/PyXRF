@@ -7,11 +7,13 @@ from pyxrf.gui_support.gpc_class import GlobalProcessingClasses
 #                 class GlobalProcessingClasses (SecondaryWindow)
 
 
+# fmt: off
 @pytest.mark.parametrize("eline_keys", [
     [],
     ["Ca_K"],
     ["K_K", "Ca_K", "Fe_K", "positions", "some_key"]
 ])
+# fmt: on
 def test_gpc_get_maps_info_table_1(eline_keys):
 
     gpc = GlobalProcessingClasses()

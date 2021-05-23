@@ -7,6 +7,7 @@ import numpy.testing as npt
 import os
 
 
+# fmt: off
 @pytest.mark.parametrize("params", [
     {"eline": "Fe_K", "incident_energy": 12.0, "n_lines": 4},
     {"eline": "Fe_K", "incident_energy": 1.0, "n_lines": 0},
@@ -15,6 +16,7 @@ import os
     {"eline": "W_M", "incident_energy": 12.0, "n_lines": 4},
     {"eline": "W_M", "incident_energy": 1, "n_lines": 0},
 ])
+# fmt: on
 def test_get_elemental_line_parameters_1(params):
 
     eline_list = _get_elemental_line_parameters(elemental_line=params["eline"],

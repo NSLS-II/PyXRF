@@ -18,6 +18,7 @@ def enter_text_via_keyboard(qtbot, widget, text, *, finish=True):
 
 # ==============================================================
 #   Class IntValidatorStrict
+# fmt: off
 @pytest.mark.parametrize("text, range, result", [
     ("", None, IntValidatorRelaxed.Intermediate),
     ("123", None, IntValidatorRelaxed.Acceptable),
@@ -29,6 +30,7 @@ def enter_text_via_keyboard(qtbot, widget, text, *, finish=True):
     ("12,", (0, 10), IntValidatorRelaxed.Invalid),  # Comma after the number
 ])
 @pytest.mark.xfail(reason="Test fails with PyQT 5.9: remove 'xfail' once transition to conda-forge is complete")
+# fmt: on
 def test_IntValidatorStrict(text, range, result):
     validator = IntValidatorStrict()
     if range is not None:
@@ -39,6 +41,7 @@ def test_IntValidatorStrict(text, range, result):
 # ==============================================================
 #   Class IntValidatorRelaxed
 
+# fmt: off
 @pytest.mark.parametrize("text, range, result", [
     ("", None, IntValidatorRelaxed.Intermediate),
     ("123", None, IntValidatorRelaxed.Acceptable),
@@ -48,6 +51,7 @@ def test_IntValidatorStrict(text, range, result):
     ("-2", (0, 10), IntValidatorRelaxed.Intermediate),
     ("12", (0, 10), IntValidatorRelaxed.Intermediate),
 ])
+# fmt: on
 def test_IntValidatorRelaxed_1(text, range, result):
     validator = IntValidatorRelaxed()
     if range is not None:
@@ -55,6 +59,7 @@ def test_IntValidatorRelaxed_1(text, range, result):
     assert validator.validate(text, 0)[0] == result, "Validation failed"
 
 
+# fmt: off
 @pytest.mark.parametrize("text, range, valid", [
     ("", None, False),
     ("123", None, True),
@@ -65,6 +70,7 @@ def test_IntValidatorRelaxed_1(text, range, result):
     ("12", (0, 10), False),
 
 ])
+# fmt: on
 def test_IntValidatorRelaxed_2(qtbot, text, range, valid):
     """
     Test how `IntValidatorRelaxed` operates with `QLineEdit`, which is expected
@@ -99,6 +105,7 @@ def test_IntValidatorRelaxed_2(qtbot, text, range, valid):
 
 # ==============================================================
 #   Class DoubleValidatorStrict
+# fmt: off
 @pytest.mark.parametrize("text, range, result", [
     ("", None, DoubleValidatorRelaxed.Intermediate),
     ("123", None, DoubleValidatorRelaxed.Acceptable),
@@ -111,6 +118,7 @@ def test_IntValidatorRelaxed_2(qtbot, text, range, valid):
     ("12.453", (0, 10.0), DoubleValidatorRelaxed.Intermediate),
     ("12.453,", (0, 10.0), DoubleValidatorRelaxed.Invalid),  # Comma after the number
 ])
+# fmt: on
 def test_DoubleValidatorStrict(text, range, result):
     validator = QDoubleValidator()
     if range is not None:
@@ -121,6 +129,7 @@ def test_DoubleValidatorStrict(text, range, result):
 # ==============================================================
 #   Class DoubleValidatorRelaxed
 
+# fmt: off
 @pytest.mark.parametrize("text, range, result", [
     ("", None, DoubleValidatorRelaxed.Intermediate),
     ("123", None, DoubleValidatorRelaxed.Acceptable),
@@ -132,6 +141,7 @@ def test_DoubleValidatorStrict(text, range, result):
     ("-2.342", (0, 10.0), DoubleValidatorRelaxed.Intermediate),
     ("12.453", (0, 10.0), DoubleValidatorRelaxed.Intermediate),
 ])
+# fmt: on
 def test_DoubleValidatorRelaxed_1(text, range, result):
     validator = DoubleValidatorRelaxed()
     if range is not None:
@@ -139,6 +149,7 @@ def test_DoubleValidatorRelaxed_1(text, range, result):
     assert validator.validate(text, 0)[0] == result, "Validation failed"
 
 
+# fmt: off
 @pytest.mark.parametrize("text, range, valid", [
     ("", None, False),
     ("123", None, True),
@@ -150,6 +161,7 @@ def test_DoubleValidatorRelaxed_1(text, range, result):
     ("-2.342", (0, 10.0), False),
     ("12.453", (0, 10.0), False),
 ])
+# fmt: on
 def test_DoubleValidatorRelaxed_2(qtbot, text, range, valid):
     """
     Test how `DoubleValidatorRelaxed` operates with `QLineEdit`, which is expected
@@ -232,6 +244,7 @@ def test_RangeManager_1(qtbot):
     _compare_tuples(returned=rman.get_range(), expected=i_range, v_type=float)
 
 
+# fmt: off
 @pytest.mark.parametrize("full_range, selection, value_type", [
     ((-14.86, -5.2), (-11.78, -7.9), "float"),
     ((-0.254, 37.45), (-0.123, 20.45), "float"),
@@ -242,6 +255,7 @@ def test_RangeManager_1(qtbot):
     ((5, 90), (10, 70), "int"),
     ((0, 90), (10, 70), "int"),
 ])
+# fmt: on
 def test_RangeManager_2(qtbot, full_range, selection, value_type):
     """Test the `reset()` method: resetting the selection"""
     rman = RangeManager()
@@ -279,6 +293,7 @@ def test_RangeManager_2(qtbot, full_range, selection, value_type):
     assert selection_changed is False, "Change of selection is incorrectly reported"
 
 
+# fmt: off
 @pytest.mark.parametrize("full_range, selection, value_type", [
     ((-0.254, 37.45), (-0.123, 20.45), "float"),
     ((-0.254, 37.45), (-0.5, 90.45), "float"),
@@ -297,6 +312,7 @@ def test_RangeManager_2(qtbot, full_range, selection, value_type):
     ((-49, 90), (100, 110), "int"),  # Selection is 'above' the range
     ((-49, 90), (-100, -90), "int"),  # Selection is 'below' the range
 ])
+# fmt: on
 def test_RangeManager_3(qtbot, full_range, selection, value_type):
     """Test `set_selection()` method"""
 
@@ -352,10 +368,12 @@ def test_RangeManager_3(qtbot, full_range, selection, value_type):
         "Slider position (max. value) is incorrect"
 
 
+# fmt: off
 @pytest.mark.parametrize("full_range, selection, value_type", [
     ((-0.254, 37.45), (-0.123, 20.45), "float"),
     ((-49, 90), (-20, 60), "int"),
 ])
+# fmt: on
 def test_RangeManager_4(qtbot, full_range, selection, value_type):
     """
     RangeManager: additional testing of `set_selection()` method:
@@ -393,6 +411,7 @@ def test_RangeManager_4(qtbot, full_range, selection, value_type):
     _verify_selection(sel)
 
 
+# fmt: off
 @pytest.mark.parametrize("full_range, selection, new_range, value_type", [
     # Selection fits in both ranges
     ((-0.254, 37.45), (10.123, 20.45), (6.23, 29.14), "float"),
@@ -413,6 +432,7 @@ def test_RangeManager_4(qtbot, full_range, selection, value_type):
     ((-0.254, 37.45), (10.123, 20.45), (-70.23, -60.3), "float"),
     ((-49, 90), (-20, 60), (-120, -100), "int"),
 ])
+# fmt: on
 def test_RangeManager_5(qtbot, full_range, selection, new_range, value_type):
     """
     RangeManager: additional testing of `set_selection()` method:
@@ -521,10 +541,12 @@ def test_RangeManager_6(qtbot, add_sliders):
     _check_slider_status(rman.sld_max_value, sliders_exist)
 
 
+# fmt: off
 @pytest.mark.parametrize("full_range, selection, value_type", [
     ((-0.254, 37.45), (-0.123, 20.45), "float"),
     ((-49, 90), (-20, 60), "int"),
 ])
+# fmt: on
 def test_RangeManager_7(qtbot, full_range, selection, value_type):
     """Check if the signal `selection_changed` is emitted correctly"""
 
@@ -542,10 +564,12 @@ def test_RangeManager_7(qtbot, full_range, selection, value_type):
         rman.emit_selection_changed()
 
 
+# fmt: off
 @pytest.mark.parametrize("full_range, selection, value_type", [
     ((-0.254, 37.45), (-0.123, 20.45), "float"),
     ((-49, 90), (-20, 60), "int"),
 ])
+# fmt: on
 def test_RangeManager_8(qtbot, full_range, selection, value_type):
     """Entering selection boundaries via keyboard"""
 
@@ -617,10 +641,12 @@ def test_RangeManager_8(qtbot, full_range, selection, value_type):
     _verify_sliders(rman.sld_min_value, rman.sld_max_value, (selection[0], selection[1]), full_range)
 
 
+# fmt: off
 @pytest.mark.parametrize("full_range, selection, value_type", [
     ((-0.254, 37.45), (-0.123, 20.45), "float"),
     ((-49, 90), (-20, 60), "int"),
 ])
+# fmt: on
 def test_RangeManager_9(qtbot, full_range, selection, value_type):
     """Entering invalid value in an entry field (especially the case when text contains `,`)"""
 

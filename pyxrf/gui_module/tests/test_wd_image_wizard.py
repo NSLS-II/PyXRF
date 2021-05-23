@@ -7,6 +7,7 @@ from pyxrf.gui_module.wnd_image_wizard import WndImageWizard
 # =====================================================================
 #                 class WndImageWizard (SecondaryWindow)
 
+# fmt: off
 sample_table_content = [
     ["Ar_K", 4.277408, 307.452117],
     ["Ca_K", 0.000000, 1.750295e+03],
@@ -19,6 +20,7 @@ sample_table_content = [
     ["i0", 1.715700e+04, 1.187463e+06],
     ["i0_time", 3.066255e+06, 1.727313e+08],
 ]
+# fmt: on
 
 
 def _get_gpc_sim(maps_info_table):
@@ -38,10 +40,12 @@ def _get_gpc_sim(maps_info_table):
     return SimGlobalProcessingClasses()
 
 
+# fmt: off
 @pytest.mark.parametrize("sample_table_data", [
     [],  # Empty table
     [sample_table_content[0]],  # Only one table row
     sample_table_content])  # Full table
+# fmt: on
 def test_WndImageWizard_1(qtbot, sample_table_data):
     """
     Fill the table and show the window.

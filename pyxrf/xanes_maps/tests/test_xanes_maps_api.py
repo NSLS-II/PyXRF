@@ -131,6 +131,7 @@ def test_subtract_xanes_pre_edge_baseline1():
         subtract_xanes_pre_edge_baseline(spectrum, incident_energies + 1, eline)
 
 
+# fmt: off
 @pytest.mark.parametrize("p_generate, p_test", [
     ({"pre_edge_upper_keV": -0.01, "img_dims": [1]}, {"pre_edge_upper_keV": -0.01}),
     ({"pre_edge_upper_keV": -0.008, "img_dims": [1]}, {"pre_edge_upper_keV": -0.008}),
@@ -139,6 +140,7 @@ def test_subtract_xanes_pre_edge_baseline1():
     ({"pre_edge_upper_keV": -0.01, "img_dims": [5, 3, 7]}, {"pre_edge_upper_keV": -0.01}),
     ({"pre_edge_upper_keV": -0.013, "img_dims": [5, 3, 7]}, {"pre_edge_upper_keV": -0.013}),
 ])
+# fmt: on
 def test_subtract_xanes_pre_edge_baseline2(p_generate, p_test):
     r"""
     Tests for 'subtract_xanes_pre_edge_baseline':
@@ -272,11 +274,14 @@ def test_build_xanes_map_4(tmp_path):
     build_xanes_map(emission_line="Fe_K", parameter_file_path=file_path, xrf_subdir="")
 
 
-@pytest.mark.parametrize("kwargs", [{},
-                                    {"wd": None, "msg_info": "header line 1"},
-                                    {"wd": ".", "msg_info": "line1\nline2"},
-                                    {"wd": "test_dir", "msg_info": "line1\n  line2"},
-                                    {"wd": ("test_dir1", "test_dir2"), "msg_info": "line1\n line2"}])
+# fmt: off
+@pytest.mark.parametrize("kwargs", [
+    {},
+    {"wd": None, "msg_info": "header line 1"},
+    {"wd": ".", "msg_info": "line1\nline2"},
+    {"wd": "test_dir", "msg_info": "line1\n  line2"},
+    {"wd": ("test_dir1", "test_dir2"), "msg_info": "line1\n line2"}])
+# fmt: on
 def test_save_spectrum_as_csv_1(tmp_path, caplog, kwargs):
     """Save data file, then read it and verify that the data match"""
 
