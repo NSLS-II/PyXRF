@@ -154,13 +154,11 @@ def fit_spectrum(data, ref_spectra, *, method="nnls", axis=0, maxiter=100, rate=
     data = np.asarray(data)
     ref_spectra = np.asarray(ref_spectra)
 
-    assert ref_spectra.ndim == 2, (
-        f"The array 'ref_spectra' must have 2 dimensions instead of {ref_spectra.ndim}"
-    )
+    assert ref_spectra.ndim == 2, f"The array 'ref_spectra' must have 2 dimensions instead of {ref_spectra.ndim}"
 
-    assert (axis >= -data.ndim) and (axis < data.ndim), (
-        f"Specified axis {axis} does not exist in data array. Allowed values: {-data.ndim} .. {data.ndim - 1}"
-    )
+    assert (axis >= -data.ndim) and (
+        axis < data.ndim
+    ), f"Specified axis {axis} does not exist in data array. Allowed values: {-data.ndim} .. {data.ndim - 1}"
 
     # Switch to standard data view (spectrum points along axis==0)
     data = np.moveaxis(data, axis, 0)
@@ -170,9 +168,9 @@ def fit_spectrum(data, ref_spectra, *, method="nnls", axis=0, maxiter=100, rate=
     n_pts_2 = ref_spectra.shape[0]
     n_refs = ref_spectra.shape[1]
 
-    assert n_pts == n_pts_2, (
-        f"The number of spectrum points in data ({n_pts}) and references ({n_pts_2}) do not match."
-    )
+    assert (
+        n_pts == n_pts_2
+    ), f"The number of spectrum points in data ({n_pts}) and references ({n_pts_2}) do not match."
 
     assert rate > 0.0, f"The parameter 'rate' is zero or negative ({rate:.6g})"
 
@@ -273,9 +271,9 @@ def _fitting_nnls(data, ref_spectra, *, maxiter=100):
     n_pts_2 = ref_spectra.shape[0]
     n_refs = ref_spectra.shape[1]
 
-    assert n_pts == n_pts_2, (
-        f"The number of spectrum points in data ({n_pts}) and references ({n_pts_2}) do not match."
-    )
+    assert (
+        n_pts == n_pts_2
+    ), f"The number of spectrum points in data ({n_pts}) and references ({n_pts_2}) do not match."
 
     assert maxiter > 0, f"The parameter 'maxiter' is zero or negative ({maxiter})"
 
@@ -346,9 +344,9 @@ def _fitting_admm(data, ref_spectra, *, rate=0.2, maxiter=100, epsilon=1e-30, no
     n_pts_2 = ref_spectra.shape[0]
     n_refs = ref_spectra.shape[1]
 
-    assert n_pts == n_pts_2, (
-        f"ADMM fitting: number of spectrum points in data ({n_pts}) and references ({n_pts_2}) do not match."
-    )
+    assert (
+        n_pts == n_pts_2
+    ), f"ADMM fitting: number of spectrum points in data ({n_pts}) and references ({n_pts_2}) do not match."
 
     assert rate > 0.0, f"ADMM fitting: parameter 'rate' is zero or negative ({rate:.6g})"
 

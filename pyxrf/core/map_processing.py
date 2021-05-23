@@ -300,9 +300,7 @@ def _array_numpy_to_dask(data, chunk_pixels, n_chunks_min=4):
     """
 
     if not isinstance(data, np.ndarray) or (data.ndim < 2):
-        raise ValueError(
-            f"Parameter 'data' must numpy array with at least 2 dimensions: type(data)={type(data)}"
-        )
+        raise ValueError(f"Parameter 'data' must numpy array with at least 2 dimensions: type(data)={type(data)}")
 
     ny, nx = data.shape[0:2]
     # Since numpy array is not chunked by default, set the original chunk size to (1,1)

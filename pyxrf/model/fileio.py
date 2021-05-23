@@ -504,9 +504,7 @@ class FileIOModel(Atom):
         # Change file name without rereading the file
         self.file_name_silent_change = True
         self.file_name = os.path.basename(fname)
-        logger.info(
-            f"Data loading: complete dataset for the detector '{detector_name}' was loaded successfully."
-        )
+        logger.info(f"Data loading: complete dataset for the detector '{detector_name}' was loaded successfully.")
 
         self.file_channel_list = list(self.data_sets.keys())
 

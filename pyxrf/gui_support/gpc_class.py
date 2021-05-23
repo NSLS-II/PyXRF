@@ -1821,9 +1821,7 @@ class GlobalProcessingClasses:
 
         fluorescence_data_dict = self.fit_model.param_quant_estimation.fluorescence_data_dict
         if fluorescence_data_dict is None:
-            raise RuntimeError(
-                "Attempt to obtain quantitative standard parameters while no standard is selected"
-            )
+            raise RuntimeError("Attempt to obtain quantitative standard parameters while no standard is selected")
 
         result_map, selected_det_channel, scaler_name = self.fit_model.get_selected_fitted_map_data()
 

@@ -863,9 +863,9 @@ def _build_xanes_map_api(
     # Now check every value agains the list of supported formats.
     supported_formats = ("tiff",)
     for fmt in output_file_formats:
-        assert fmt in supported_formats, (
-            f"Output format '{fmt}' is not supported. Check values of the parameter 'output_file_formats'"
-        )
+        assert (
+            fmt in supported_formats
+        ), f"Output format '{fmt}' is not supported. Check values of the parameter 'output_file_formats'"
 
     alignment_starts_from_values = ["top", "bottom"]
     alignment_starts_from = alignment_starts_from.lower()
@@ -2007,9 +2007,9 @@ def subtract_xanes_pre_edge_baseline(
     """
 
     scan_energies = np.asarray(scan_energies)  # Make sure that 'scan_energies' is an array
-    assert scan_energies.ndim == 1, (
-        f"Parameter 'scan_energies' must be 1D array (number of dimensions {scan_energies.ndim})"
-    )
+    assert (
+        scan_energies.ndim == 1
+    ), f"Parameter 'scan_energies' must be 1D array (number of dimensions {scan_energies.ndim})"
 
     assert xrf_map_stack.shape[0] == scan_energies.shape[0], (
         f"The shapes of 'xrf_map_stack' {xrf_map_stack.shape} and 'scan_energies'"

@@ -483,9 +483,9 @@ def test_fit_spectrum(dataset_params, process_params):
     # The rest of the checks are individual for optimization method
     if params["method"] == "admm":
         # Check for existance and dimensions of 'convergence' and 'feasibility' arrays
-        assert results_dict["method"] == "admm", (
-            f"Incorrect method '{results_dict['method']}' is reported by ADMM optimization function"
-        )
+        assert (
+            results_dict["method"] == "admm"
+        ), f"Incorrect method '{results_dict['method']}' is reported by ADMM optimization function"
         assert (
             "convergence" in results_dict
         ), "Array 'convergence' is not in the dictionary of results for ADMM optimization method"
@@ -503,9 +503,9 @@ def test_fit_spectrum(dataset_params, process_params):
             "(ADMM optimization method)"
         )
     elif params["method"] == "nnls":
-        assert results_dict["method"] == "nnls", (
-            f"Incorrect method '{results_dict['method']}' is reported by NNLS optimization function"
-        )
+        assert (
+            results_dict["method"] == "nnls"
+        ), f"Incorrect method '{results_dict['method']}' is reported by NNLS optimization function"
         assert (
             "residual" in results_dict
         ), "Array 'residual' is not in the dictionary of results for NNLS optimization method"

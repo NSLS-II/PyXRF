@@ -362,9 +362,7 @@ class DrawImageAdvanced(Atom):
             self.scale_opt = scale_opt
             self.show_image()
         else:
-            logger.error(
-                f"XRF Maps: 'scale_opt' has illegal value: {scale_opt}. Allowed values: {scale_opt_list}"
-            )
+            logger.error(f"XRF Maps: 'scale_opt' has illegal value: {scale_opt}. Allowed values: {scale_opt_list}")
 
     def set_color_opt(self, color_opt):
         self.color_opt = color_opt

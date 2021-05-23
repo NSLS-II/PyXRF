@@ -1163,9 +1163,7 @@ def map_data2D_srx(
                     #   Unfortunately this is not the number of scanned lines,
                     #   so x-axis values need to be restored for the line #'n_scanned_lines - 1' !!!
                     n_scanned_lines = len(y_pos0)
-                    print(
-                        f"WARNING: The scan is not completed: {n_scanned_lines} out of {x_pos.shape[0]} lines"
-                    )
+                    print(f"WARNING: The scan is not completed: {n_scanned_lines} out of {x_pos.shape[0]} lines")
                     y_step = 1
                     if n_scanned_lines > 1:
                         y_step = (y_pos0[-1] - y_pos0[0]) / (n_scanned_lines - 1)

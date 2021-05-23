@@ -108,9 +108,9 @@ class _SampleProgressBar:
     def _check_output(self, capsys_out):
         # For testing purposes only, not needed for actual progress bar implementation
         for s in self._expected_output:
-            assert s in capsys_out, (
-                f"Expected string {s} is missing in the progress bar object output:\n{capsys_out}"
-            )
+            assert (
+                s in capsys_out
+            ), f"Expected string {s} is missing in the progress bar object output:\n{capsys_out}"
 
 
 # fmt: off
@@ -383,9 +383,9 @@ def test_prepare_xrf_data(tmpdir, data_representation):
     data = _create_xrf_data(data_dask, data_representation, tmpdir)
     data, file_obj = prepare_xrf_map(data, chunk_pixels=12, n_chunks_min=4)
 
-    assert data.chunksize[0] * data.chunksize[1] == 12, (
-        f"Dataset was not properly chunked: data.chunksize={data.chunksize}"
-    )
+    assert (
+        data.chunksize[0] * data.chunksize[1] == 12
+    ), f"Dataset was not properly chunked: data.chunksize={data.chunksize}"
 
     npt.assert_array_almost_equal(
         data.compute(), data_numpy, err_msg="Prepared dataset is different from the original"
