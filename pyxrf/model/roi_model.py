@@ -386,6 +386,6 @@ class ROIModel(Atom):
                 dataname_saveas="xrf_roi_name",
             )
         except Exception as ex:
-            logger.error(f"Failed to save ROI data to file '{self.hdf_path}'\n" f"    Exception: {ex}")
+            logger.error(f"Failed to save ROI data to file '{self.hdf_path}'\n    Exception: {ex}")
         else:
             logger.info(f"ROI data was successfully saved to file '{self.hdf_name}'")

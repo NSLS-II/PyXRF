@@ -191,7 +191,7 @@ def load_xrf_standard_yaml_file(file_path, *, schema=_xrf_standard_schema):
             sm = np.sum(list(data["compounds"].values()))
             if not math.isclose(sm, data["density"], abs_tol=1e-6):
                 msg.append(
-                    f"Record #{data['serial']} ({data['name']}): " f"computed {sm} vs total {data['density']}"
+                    f"Record #{data['serial']} ({data['name']}): computed {sm} vs total {data['density']}"
                 )
     if msg:
         msg = [f"    {_}" for _ in msg]

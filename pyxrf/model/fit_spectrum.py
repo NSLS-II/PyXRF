@@ -1382,7 +1382,7 @@ def save_fitted_fig(
     Save single pixel fitting results to figs.
     `data_all` can be numpy array, Dask array or RawHDF5Dataset.
     """
-    logger.info(f"Saving plots of the fitted data to file. " f"Selection: {tuple(p1)} .. {tuple(p2)}")
+    logger.info(f"Saving plots of the fitted data to file. Selection: {tuple(p1)} .. {tuple(p2)}")
 
     # Convert the 'data_all', which can be numpy array, Dask array or
     #   RawHDF5Dataset into Dask array, so that it could be treated uniformly
@@ -1433,7 +1433,7 @@ def save_fitted_fig(
 
     ax.cla()
     sum_y = da.sum(data_all_dask[p1[0] : p2[0], p1[1] : p2[1], d_start:d_stop], axis=(0, 1)).compute()
-    ax.set_title("Summed spectrum from point ({},{}) " "to ({},{})".format(p1[0], p1[1], p2[0], p2[1]))
+    ax.set_title("Summed spectrum from point ({},{}) to ({},{})".format(p1[0], p1[1], p2[0], p2[1]))
     ax.set_xlabel("Energy [keV]")
     ax.set_ylabel("Counts")
     ax.set_ylim(low_limit_v, np.max(sum_y) * 2)

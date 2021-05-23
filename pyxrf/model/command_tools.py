@@ -280,7 +280,7 @@ def fit_pixel_data_and_save(
                 raise RuntimeError("Parameter 'param_channel_list' must be a list or a tuple of strings")
             if len(param_channel_list) != len(det_channels):
                 raise RuntimeError(
-                    f"Parameter 'param_channel_list' must be 'None' " f"or contain {len(det_channels)} file names."
+                    f"Parameter 'param_channel_list' must be 'None' or contain {len(det_channels)} file names."
                 )
 
         channel_num = len(param_channel_list)

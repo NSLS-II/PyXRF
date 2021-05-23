@@ -1164,7 +1164,7 @@ def map_data2D_srx(
                     #   so x-axis values need to be restored for the line #'n_scanned_lines - 1' !!!
                     n_scanned_lines = len(y_pos0)
                     print(
-                        f"WARNING: The scan is not completed: {n_scanned_lines} " f"out of {x_pos.shape[0]} lines"
+                        f"WARNING: The scan is not completed: {n_scanned_lines} out of {x_pos.shape[0]} lines"
                     )
                     y_step = 1
                     if n_scanned_lines > 1:
@@ -1427,7 +1427,7 @@ def map_data2D_tes(
                 if _is_row_missing(s_data[_n]):
                     s_data[_n] = np.copy(s_data[n_full])
                     logger.error(
-                        f"Scaler '{name}': row #{_n} contains no data. " f"Replaced by data from row #{n_full}"
+                        f"Scaler '{name}': row #{_n} contains no data. Replaced by data from row #{n_full}"
                     )
                 else:
                     n_full = _n

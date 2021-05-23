@@ -229,7 +229,7 @@ class DrawImageAdvanced(Atom):
         keys_unsorted = list(self.io_model.img_dict[plot_item].keys())
         if len(keys_unsorted) != len(set(keys_unsorted)):
             logger.warning(
-                "DrawImageAdvanced:set_map_keys(): repeated keys " f"in the dictionary 'img_dict': {keys_unsorted}"
+                f"DrawImageAdvanced:set_map_keys(): repeated keys in the dictionary 'img_dict': {keys_unsorted}"
             )
         keys_elines, keys_scalers = [], []
         for key in keys_unsorted:
@@ -363,7 +363,7 @@ class DrawImageAdvanced(Atom):
             self.show_image()
         else:
             logger.error(
-                f"XRF Maps: 'scale_opt' has illegal value: {scale_opt}. " f"Allowed values: {scale_opt_list}"
+                f"XRF Maps: 'scale_opt' has illegal value: {scale_opt}. Allowed values: {scale_opt_list}"
             )
 
     def set_color_opt(self, color_opt):

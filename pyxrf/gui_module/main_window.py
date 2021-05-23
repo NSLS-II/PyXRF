@@ -574,7 +574,7 @@ class DialogAbout(QDialog):
             "Brookhaven National Laboratory"
         )
 
-        text_copyright = f"\u00A92015\u2014{datetime.now().year}" " Brookhaven National Laboratory"
+        text_copyright = f"\u00A92015\u2014{datetime.now().year} Brookhaven National Laboratory"
 
         label_name = QLabel(text_name)
         label_name.setStyleSheet("QLabel {font-weight: bold; font-size: 32px}")

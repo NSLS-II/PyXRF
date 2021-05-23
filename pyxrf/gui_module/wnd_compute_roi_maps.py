@@ -263,7 +263,7 @@ class WndComputeRoiMaps(SecondaryWindow):
         set_tooltip(self.pb_clear, "<b>Clear</b> the list")
         set_tooltip(
             self.pb_use_lines_for_fitting,
-            "Copy the contents of <b>the list of emission lines selected for " "fitting</b> to the list of ROIs",
+            "Copy the contents of <b>the list of emission lines selected for fitting</b> to the list of ROIs",
         )
         set_tooltip(self.le_sel_emission_lines, "The list of <b>emission lines</b> selected for ROI computation.")
 

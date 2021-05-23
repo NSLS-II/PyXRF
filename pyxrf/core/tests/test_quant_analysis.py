@@ -31,7 +31,7 @@ _standard_data_sample = [
     {
         "name": "Test Micromatter 411570",
         "serial": "411570",
-        "description": "InSx 22.4 (In=16.0 S=6.4) / SrF2 20.6 / " "Cr 19.8 / Ni 19.2 / GaAs 19.1 (Ga=8.3 As=10.8)",
+        "description": "InSx 22.4 (In=16.0 S=6.4) / SrF2 20.6 / Cr 19.8 / Ni 19.2 / GaAs 19.1 (Ga=8.3 As=10.8)",
         "compounds": {"In": 16.0, "S": 6.4, "SrF2": 20.6, "Cr": 19.8, "Ni": 19.2, "Ga": 8.3, "As": 10.8},
         "density": 101.1,
     },

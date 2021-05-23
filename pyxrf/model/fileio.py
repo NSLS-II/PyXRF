@@ -196,7 +196,7 @@ class FileIOModel(Atom):
             #    nsls2forge is unreachable. Then ignore the procedure, assume that the current
             #    version is the latest.
             logger.warning(
-                "Failed to check availability of the latest version of PyXRF " "in the 'nsls2forge' conda channel."
+                "Failed to check availability of the latest version of PyXRF in the 'nsls2forge' conda channel."
             )
             pass
 
@@ -505,7 +505,7 @@ class FileIOModel(Atom):
         self.file_name_silent_change = True
         self.file_name = os.path.basename(fname)
         logger.info(
-            f"Data loading: complete dataset for the detector " f"'{detector_name}' was loaded successfully."
+            f"Data loading: complete dataset for the detector '{detector_name}' was loaded successfully."
         )
 
         self.file_channel_list = list(self.data_sets.keys())
@@ -895,7 +895,7 @@ class DataSelection(Atom):
             count = self._cached_spectrum["count"]
         else:
             logger.debug(
-                f"Dataset '{self.filename}': computing the total spectrum and total count map " "from raw data ..."
+                f"Dataset '{self.filename}': computing the total spectrum and total count map from raw data ..."
             )
 
             SC = SpectrumCalculator(pt_start=pt_start, pt_end=pt_end, mask=mask)
@@ -1591,9 +1591,9 @@ def render_data_to_gui(
         logger.warning(f"No detector data was found in Run #{run_id} ('{run_uid}').")
         return
     else:
-        logger.info(f"Data from {len(data_from_db)} detectors were found " f"in Run #{run_id} ('{run_uid}').")
+        logger.info(f"Data from {len(data_from_db)} detectors were found in Run #{run_id} ('{run_uid}').")
         if len(data_from_db) > 1:
-            logger.warning(f"Selecting only the latest run (UID '{run_uid}') " f"with from Run ID #{run_id}.")
+            logger.warning(f"Selecting only the latest run (UID '{run_uid}') with from Run ID #{run_id}.")
 
     # If the experiment contains data from multiple detectors (for example two separate
     #   Xpress3 detectors) that need to be treated separately, only the data from the

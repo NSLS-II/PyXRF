@@ -145,7 +145,7 @@ def gen_xrf_spectrum(
     """
 
     if n_spectrum_points < 1:
-        raise RuntimeError(f"Spectrum must contain at least one point " f"(n_spectrum_points={n_spectrum_points})")
+        raise RuntimeError(f"Spectrum must contain at least one point (n_spectrum_points={n_spectrum_points})")
 
     if (element_line_groups is not None) and (not isinstance(element_line_groups, dict)):
         raise RuntimeError(
@@ -696,7 +696,7 @@ def gen_hdf5_qa_dataset(*, wd=None, standards_serials=None, test_elements=None):
                 ny=ny,
                 incident_energy=incident_energy,
             )
-            s = f"Reference standard file: '{fln}'\n" f"    Standard serial: {serial}\n" f"    Emission lines:\n"
+            s = f"Reference standard file: '{fln}'\n    Standard serial: {serial}\n    Emission lines:\n"
             for line, info in elines.items():
                 s += f"        {line}: density = {info['density']}\n"
             f_log.write(f"{s}\n")
@@ -726,7 +726,7 @@ def gen_hdf5_qa_dataset(*, wd=None, standards_serials=None, test_elements=None):
             ny=ny,
             incident_energy=incident_energy,
         )
-        s = f"Test file '{fln}'\n" f"    Emission lines:\n"
+        s = f"Test file '{fln}'\n    Emission lines:\n"
         for line, info in lines_for_testing.items():
             s += (
                 f"        {line}: density = {info['density']}, "

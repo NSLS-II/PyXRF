@@ -843,7 +843,7 @@ def _build_xanes_map_api(
 
     if not xrf_subdir:
         raise ValueError(
-            "The parameter 'xrf_subdir' is None or contains an empty string " "('_build_xanes_map_api')."
+            "The parameter 'xrf_subdir' is None or contains an empty string ('_build_xanes_map_api')."
         )
 
     if not scaler_name:
@@ -854,7 +854,7 @@ def _build_xanes_map_api(
 
     if not emission_line:
         raise ValueError(
-            "Emission line is not specified (parameter 'emission_line'). " "XANES maps can not be built."
+            "Emission line is not specified (parameter 'emission_line'). XANES maps can not be built."
         )
 
     # Convert all tags specifying output format to lower case
@@ -864,7 +864,7 @@ def _build_xanes_map_api(
     supported_formats = ("tiff",)
     for fmt in output_file_formats:
         assert fmt in supported_formats, (
-            f"Output format '{fmt}' is not supported. " "Check values of the parameter 'output_file_formats'"
+            f"Output format '{fmt}' is not supported. Check values of the parameter 'output_file_formats'"
         )
 
     alignment_starts_from_values = ["top", "bottom"]
@@ -893,7 +893,7 @@ def _build_xanes_map_api(
     #   It can contain some other quantity (e.g. 'total_cnt'). So just print a warning.
     if not check_if_eline_supported(eline_alignment):
         logger.warning(
-            f"The map '{eline_alignment}' selected for alignment does not represent " f"a supported emission line"
+            f"The map '{eline_alignment}' selected for alignment does not represent a supported emission line"
         )
 
     # Check fitting method
@@ -1053,7 +1053,7 @@ def _load_data_from_databroker(*, start_id, end_id, wd_xrf, file_overwrite_exist
     files_h5 = [fl.path for fl in os.scandir(path=wd_xrf) if fl.name.lower().endswith(".h5")]
     if files_h5:
         logger.warning(
-            f"The temporary directory '{wd_xrf}' is not empty. " f"Deleting {len(files_h5)} files (.h5) ..."
+            f"The temporary directory '{wd_xrf}' is not empty. Deleting {len(files_h5)} files (.h5) ..."
         )
         for fln in files_h5:
             logger.info(f"Removing raw xrf data file: '{fln}'.")
@@ -1691,7 +1691,7 @@ def _load_dataset_from_hdf5(*, start_id, end_id, wd_xrf, load_fit_results=True):
         )
 
         if "scan_id" not in mdata:
-            logger.error(f"Metadata value 'scan_id' is missing in data file '{fln}': " " the file was not loaded.")
+            logger.error(f"Metadata value 'scan_id' is missing in data file '{fln}': the file was not loaded.")
             continue
 
         # Make sure that the scan ID is in the specified range (if the range is
@@ -1883,7 +1883,7 @@ def _check_dataset_consistency(*, scan_ids, scan_img_dict, files_h5, scaler_name
         elines=[eline_selected, eline_alignment],
         files_h5=files_h5,
         scan_ids=scan_ids,
-        msg_phrase=f"have no emission line data ('{eline_selected}' " f"or '{eline_alignment}')",
+        msg_phrase=f"have no emission line data ('{eline_selected}' or '{eline_alignment}')",
     )
 
     _check_for_positional_data(scan_img_dict=scan_img_dict)
@@ -2008,7 +2008,7 @@ def subtract_xanes_pre_edge_baseline(
 
     scan_energies = np.asarray(scan_energies)  # Make sure that 'scan_energies' is an array
     assert scan_energies.ndim == 1, (
-        f"Parameter 'scan_energies' must be 1D array " f"(number of dimensions {scan_energies.ndim})"
+        f"Parameter 'scan_energies' must be 1D array (number of dimensions {scan_energies.ndim})"
     )
 
     assert xrf_map_stack.shape[0] == scan_energies.shape[0], (
@@ -3389,7 +3389,7 @@ def _save_xanes_maps_to_tiff(
             tifffile.imsave(fln_stack_sum, stack_sum.astype(np.float32), imagej=True)
 
             logger.info(
-                f"The stack of XRF maps for the emission line {eline_selected} is saved " f"to file '{fln_stack}'"
+                f"The stack of XRF maps for the emission line {eline_selected} is saved to file '{fln_stack}'"
             )
 
             # Save the contents of the .tiff file to .txt file
@@ -3428,7 +3428,7 @@ def _save_xanes_maps_to_tiff(
             fln_xanes = f"maps_XANES_{eline_selected}.tiff"
             fln_xanes = os.path.join(wd, fln_xanes)
             tifffile.imsave(fln_xanes, xanes_map_data.astype(np.float32), imagej=True)
-            logger.info(f"XANES maps for the emission line {eline_selected} are saved " f"to file '{fln_xanes}'")
+            logger.info(f"XANES maps for the emission line {eline_selected} are saved to file '{fln_xanes}'")
 
             # Save the contents of the .tiff file to .txt file
             print(f"\nXANES maps are saved to file '{fln_xanes}'.", file=f_log)

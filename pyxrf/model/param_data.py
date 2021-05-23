@@ -202,7 +202,7 @@ param_data = {
         "max": 0.0002,
         "min": 1e-05,
         "tool_tip": (
-            "width**2 = (b1/2.3548)**2 + 3.85*b2*E, 3.85keV is " "electron-hole pair creation energy in silicon"
+            "width**2 = (b1/2.3548)**2 + 3.85*b2*E, 3.85keV is electron-hole pair creation energy in silicon"
         ),
         "default": 0.000114,
         "value": 0.000114,

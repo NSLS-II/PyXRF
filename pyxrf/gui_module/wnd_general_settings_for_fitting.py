@@ -159,7 +159,7 @@ class WndGeneralFittingSettings(SecondaryWindow):
         hbox.addWidget(QLabel("SNIP window size(*):"))
         hbox.addWidget(self.le_snip_window_size)
         vbox.addLayout(hbox)
-        vbox.addWidget(QLabel("*Total spectrum fitting always includes \n" "    SNIP baseline subtraction"))
+        vbox.addWidget(QLabel("*Total spectrum fitting always includes \n    SNIP baseline subtraction"))
 
         self.group_all_fitting = QGroupBox("All Fitting")
         self.group_all_fitting.setLayout(vbox)

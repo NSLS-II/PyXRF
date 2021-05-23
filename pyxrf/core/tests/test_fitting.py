@@ -188,7 +188,7 @@ def test_rfactor_compute_fail():
 
     # No match between dimensions of 'spectrum' and 'fit_results' dimensionality
     with pytest.raises(
-        AssertionError, match="Spectrum data .+ and fitting results .+ " "must have the same number of dimensions"
+        AssertionError, match="Spectrum data .+ and fitting results .+ must have the same number of dimensions"
     ):
         rfactor_compute(spectrum, fit_results_2D, ref_spectra)
 
@@ -484,7 +484,7 @@ def test_fit_spectrum(dataset_params, process_params):
     if params["method"] == "admm":
         # Check for existance and dimensions of 'convergence' and 'feasibility' arrays
         assert results_dict["method"] == "admm", (
-            f"Incorrect method '{results_dict['method']}' " "is reported by ADMM optimization function"
+            f"Incorrect method '{results_dict['method']}' is reported by ADMM optimization function"
         )
         assert (
             "convergence" in results_dict
@@ -504,7 +504,7 @@ def test_fit_spectrum(dataset_params, process_params):
         )
     elif params["method"] == "nnls":
         assert results_dict["method"] == "nnls", (
-            f"Incorrect method '{results_dict['method']}' " "is reported by NNLS optimization function"
+            f"Incorrect method '{results_dict['method']}' is reported by NNLS optimization function"
         )
         assert (
             "residual" in results_dict

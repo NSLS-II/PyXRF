@@ -109,7 +109,7 @@ class _SampleProgressBar:
         # For testing purposes only, not needed for actual progress bar implementation
         for s in self._expected_output:
             assert s in capsys_out, (
-                f"Expected string {s} is missing in the progress bar object output:\n" f"{capsys_out}"
+                f"Expected string {s} is missing in the progress bar object output:\n{capsys_out}"
             )
 
 
@@ -324,7 +324,7 @@ def _create_xrf_data(data_dask, data_representation, tmpdir, *, chunked_HDF5=Tru
         data = RawHDF5Dataset(fln, dset_name, shape=data_dask.shape)
     else:
         raise RuntimeError(
-            f"Error in test parameter: unknown value of 'data_representation' = " f"{data_representation}"
+            f"Error in test parameter: unknown value of 'data_representation' = {data_representation}"
         )
 
     return data
@@ -384,7 +384,7 @@ def test_prepare_xrf_data(tmpdir, data_representation):
     data, file_obj = prepare_xrf_map(data, chunk_pixels=12, n_chunks_min=4)
 
     assert data.chunksize[0] * data.chunksize[1] == 12, (
-        f"Dataset was not properly chunked: " f"data.chunksize={data.chunksize}"
+        f"Dataset was not properly chunked: data.chunksize={data.chunksize}"
     )
 
     npt.assert_array_almost_equal(

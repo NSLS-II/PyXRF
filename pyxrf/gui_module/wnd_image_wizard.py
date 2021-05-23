@@ -249,7 +249,7 @@ class WndImageWizard(SecondaryWindow):
             if state != self._show_data[n_row][1]:
                 self._show_data[n_row][1] = state
                 logger.debug(
-                    f"Image wizard: map {self._show_data[n_row][0]} was " f"{'checked' if state else 'unchecked'}"
+                    f"Image wizard: map {self._show_data[n_row][0]} was {'checked' if state else 'unchecked'}"
                 )
                 self._update_map_selections_auto()
         except ValueError:

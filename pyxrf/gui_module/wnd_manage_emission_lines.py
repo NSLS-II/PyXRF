@@ -374,7 +374,7 @@ class WndManageEmissionLines(SecondaryWindow):
         if not marker_visible:
             # We shouldn't end up here, but this will protect from crashing in case
             #   the button was not disabled (a bug).
-            msg = "Select location of the new peak center (energy)\n" "by clicking on the plot in 'Fit Model' tab"
+            msg = "Select location of the new peak center (energy)\nby clicking on the plot in 'Fit Model' tab"
             msgbox = QMessageBox(QMessageBox.Information, "User Input Required", msg, QMessageBox.Ok, parent=self)
             msgbox.exec()
         else:

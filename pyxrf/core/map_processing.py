@@ -301,7 +301,7 @@ def _array_numpy_to_dask(data, chunk_pixels, n_chunks_min=4):
 
     if not isinstance(data, np.ndarray) or (data.ndim < 2):
         raise ValueError(
-            f"Parameter 'data' must numpy array with at least 2 dimensions: " f"type(data)={type(data)}"
+            f"Parameter 'data' must numpy array with at least 2 dimensions: type(data)={type(data)}"
         )
 
     ny, nx = data.shape[0:2]
@@ -373,7 +373,7 @@ def prepare_xrf_map(data, chunk_pixels=5000, n_chunks_min=4):
 
         if dset.ndim != 3:
             raise TypeError(
-                f"Dataset '{dset_name}' in file '{fpath}' has {dset.ndim} dimensions: " f"3D dataset is expected"
+                f"Dataset '{dset_name}' in file '{fpath}' has {dset.ndim} dimensions: 3D dataset is expected"
             )
         ny, nx, ne = dset.shape
 
@@ -436,7 +436,7 @@ def _prepare_xrf_mask(data, mask=None, selection=None):
             )
     if selection is not None:
         if len(selection) != 4:
-            raise TypeError(f"Parameter 'selection' must be iterable with 4 elements: " f"selection = {selection}")
+            raise TypeError(f"Parameter 'selection' must be iterable with 4 elements: selection = {selection}")
 
     if selection is not None:
         y0, x0, ny, nx = selection
@@ -756,12 +756,12 @@ def fit_xrf_map(
 
     if not len(data_sel_indices) == 2:
         raise TypeError(
-            f"Parameter 'data_sel_indices' must contain two elements: " f"data_sel_indices = {data_sel_indices}"
+            f"Parameter 'data_sel_indices' must contain two elements: data_sel_indices = {data_sel_indices}"
         )
 
     if any([_ < 0 for _ in data_sel_indices]):
         raise ValueError(
-            f"Some of the indices in 'data_sel_indices' are negative: " f"data_sel_indices = {data_sel_indices}"
+            f"Some of the indices in 'data_sel_indices' are negative: data_sel_indices = {data_sel_indices}"
         )
 
     if data_sel_indices[1] <= data_sel_indices[0]:
@@ -771,7 +771,7 @@ def fit_xrf_map(
         )
 
     if not isinstance(matv, np.ndarray) or matv.ndim != 2:
-        raise TypeError(f"Parameter 'matv' must be 2D ndarray: " f"type(matv) = {type(matv)}, matv = {matv}")
+        raise TypeError(f"Parameter 'matv' must be 2D ndarray: type(matv) = {type(matv)}, matv = {matv}")
 
     ne_spec, _ = matv.shape
     nsel = data_sel_indices[1] - data_sel_indices[0]
@@ -782,7 +782,7 @@ def fit_xrf_map(
         )
 
     if not isinstance(snip_param, dict):
-        raise TypeError(f"Parameter 'snip_param' must be a dictionary: " f"type(snip_param) = {type(snip_param)}")
+        raise TypeError(f"Parameter 'snip_param' must be a dictionary: type(snip_param) = {type(snip_param)}")
 
     required_keys = ("e_offset", "e_linear", "e_quadratic", "b_width")
     if use_snip and not all([_ in snip_param.keys() for _ in required_keys]):
@@ -973,12 +973,12 @@ def compute_selected_rois(
 
     if not len(data_sel_indices) == 2:
         raise TypeError(
-            f"Parameter 'data_sel_indices' must contain two elements: " f"data_sel_indices = {data_sel_indices}"
+            f"Parameter 'data_sel_indices' must contain two elements: data_sel_indices = {data_sel_indices}"
         )
 
     if any([_ < 0 for _ in data_sel_indices]):
         raise ValueError(
-            f"Some of the indices in 'data_sel_indices' are negative: " f"data_sel_indices = {data_sel_indices}"
+            f"Some of the indices in 'data_sel_indices' are negative: data_sel_indices = {data_sel_indices}"
         )
 
     if data_sel_indices[1] <= data_sel_indices[0]:
@@ -988,7 +988,7 @@ def compute_selected_rois(
         )
 
     if not isinstance(snip_param, dict):
-        raise TypeError(f"Parameter 'snip_param' must be a dictionary: " f"type(snip_param) = {type(snip_param)}")
+        raise TypeError(f"Parameter 'snip_param' must be a dictionary: type(snip_param) = {type(snip_param)}")
 
     required_keys = ("e_offset", "e_linear", "e_quadratic", "b_width")
     if not all([_ in snip_param.keys() for _ in required_keys]):

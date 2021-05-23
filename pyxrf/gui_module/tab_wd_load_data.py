@@ -200,7 +200,7 @@ class LoadDataWidget(FormBaseWidget):
         set_tooltip(self.pb_dbase, "Load data from a <b>database</b> (Databroker).")
         set_tooltip(
             self.cb_file_all_channels,
-            "Load <b>all</b> available data channels (checked) or " "only the <b>sum</b> of the channels",
+            "Load <b>all</b> available data channels (checked) or only the <b>sum</b> of the channels",
         )
         set_tooltip(self.le_file, "The <b>name</b> of the loaded file or <b>ID</b> of the loaded run.")
         set_tooltip(self.pb_view_metadata, "View scan <b>metadata</b> (if available)")
@@ -478,7 +478,7 @@ class LoadDataWidget(FormBaseWidget):
 
             self.signal_new_run_loaded.emit(False)  # Failed to load data
 
-            msg_str = f"Failed to load scan '{id_uid}'." f"\n\nError message: {msg}"
+            msg_str = f"Failed to load scan '{id_uid}'.\n\nError message: {msg}"
             msgbox = QMessageBox(QMessageBox.Critical, "Error", msg_str, QMessageBox.Ok, parent=self)
             msgbox.exec()
 
@@ -528,7 +528,7 @@ class LoadDataWidget(FormBaseWidget):
     @Slot(object)
     def slot_apply_mask_clicked(self, result):
         if not result["success"]:
-            msg = f"Error occurred while applying the ROI selection:\n" f"Exception: {result['msg']}"
+            msg = f"Error occurred while applying the ROI selection:\nException: {result['msg']}"
             logger.error(f"{msg}")
             mb_error = QMessageBox(QMessageBox.Critical, "Error", f"{msg}", QMessageBox.Ok, parent=self)
             mb_error.exec()

@@ -345,7 +345,7 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
                         # Generate tooltip
                         density = cdata["element_lines"][eline]["density"]
                         fluorescence = cdata["element_lines"][eline]["fluorescence"]
-                        ttip = f"Fluorescence (F): {fluorescence:12g}\n" f"Density (D): {density:12g}\n"
+                        ttip = f"Fluorescence (F): {fluorescence:12g}\nDensity (D): {density:12g}\n"
                         # Avoid very small values of density (probably zero)
                         if abs(density) > 1e-30:
                             ttip += f"F/D: {fluorescence/density:12g}"
@@ -398,7 +398,7 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
         )
         set_tooltip(
             self.combo_set_table_header,
-            "Use <b>Serial Number</b> or <b>Name</b> of the calibration standard " "in the header of the table",
+            "Use <b>Serial Number</b> or <b>Name</b> of the calibration standard in the header of the table",
         )
         set_tooltip(
             self.table,

@@ -222,7 +222,7 @@ class DrawImageRGB(Atom):
         keys_unsorted = list(self.io_model.img_dict[plot_item].keys())
         if len(keys_unsorted) != len(set(keys_unsorted)):
             logger.warning(
-                "DrawImageAdvanced:set_map_keys(): repeated keys " f"in the dictionary 'img_dict': {keys_unsorted}"
+                f"DrawImageAdvanced:set_map_keys(): repeated keys in the dictionary 'img_dict': {keys_unsorted}"
             )
         keys_elines, keys_scalers = [], []
         for key in keys_unsorted:

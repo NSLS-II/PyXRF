@@ -371,7 +371,7 @@ class LinePlotModel(Atom):
     def set_energy_range_fitting(self, energy_range_name):
         if energy_range_name not in self.energy_range_names:
             raise ValueError(
-                f"Unknown energy range name {energy_range_name}. " f"Allowed names: {self.energy_range_names}"
+                f"Unknown energy range name {energy_range_name}. Allowed names: {self.energy_range_names}"
             )
         self.energy_range_fitting = energy_range_name
         self.plot_experiment()

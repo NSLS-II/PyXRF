@@ -636,7 +636,7 @@ class ParamModel(Atom):
 
         if self.e_name in self.EC.element_dict:
             msg = (
-                f"Line '{self.e_name}' is in the list of selected lines. \n" f"Duplicate entries are not allowed."
+                f"Line '{self.e_name}' is in the list of selected lines. \nDuplicate entries are not allowed."
             )
             raise RuntimeError(msg)
 

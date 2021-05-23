@@ -116,13 +116,13 @@ class PlotXrfMaps(QWidget):
         set_tooltip(self.combo_normalization, "Select <b>scaler</b> for normalization of displayed XRF maps.")
         set_tooltip(
             self.pb_image_wizard,
-            "Open the window with tools for <b>selection and configuration</b> " "the displayed XRF maps.",
+            "Open the window with tools for <b>selection and configuration</b> the displayed XRF maps.",
         )
         set_tooltip(self.cb_interpolate, "Interpolate coordinates to <b>uniform grid</b>.")
         set_tooltip(self.cb_scatter_plot, "Display <b>scatter plot</b>.")
         set_tooltip(
             self.cb_quantitative,
-            "Normalize the displayed XRF maps using loaded " "<b>Quantitative Calibration</b> data.",
+            "Normalize the displayed XRF maps using loaded <b>Quantitative Calibration</b> data.",
         )
         set_tooltip(self.combo_color_scheme, "Select <b>color scheme</b>")
         set_tooltip(

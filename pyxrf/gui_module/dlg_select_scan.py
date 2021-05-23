@@ -36,7 +36,7 @@ class DialogSelectScan(QDialog):
 
         self.rb_id = QRadioButton("Run ID")
         set_tooltip(
-            self.rb_id, "The value in the line edit box is <b>Run ID</b> " "(e.g. <b>34235</b> or <b>-1</b>)"
+            self.rb_id, "The value in the line edit box is <b>Run ID</b> (e.g. <b>34235</b> or <b>-1</b>)"
         )
         self.rb_id.setChecked(self._mode_id_uid == "id")
         self.rb_uid = QRadioButton("Run UID")

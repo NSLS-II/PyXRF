@@ -712,7 +712,7 @@ class GlobalProcessingClasses:
         for v in rgb_dict.values():
             if (v is not None) and (v not in ks):
                 raise ValueError(
-                    "GlobalProcessingClasses.get_rgb_maps_info_table(): " f"Invalid key {v}. Allowed keys: {ks}"
+                    f"GlobalProcessingClasses.get_rgb_maps_info_table(): Invalid key {v}. Allowed keys: {ks}"
                 )
 
         range_table = []
@@ -1275,7 +1275,7 @@ class GlobalProcessingClasses:
                 logger.info(f"Using incident energy from the parameter file: {param_incident_energy} keV")
             else:
                 # Keep the incident energy from the file
-                logger.info(f"Using incident energy from the datafile metadata: " f"{mdata_incident_energy} keV")
+                logger.info(f"Using incident energy from the datafile metadata: {mdata_incident_energy} keV")
                 incident_energy = round(mdata_incident_energy, 6)
                 self.param_model.param_new["coherent_sct_energy"]["value"] = incident_energy
                 self.param_model.param_new["non_fitting_values"]["energy_bound_high"]["value"] = (
@@ -1512,7 +1512,7 @@ class GlobalProcessingClasses:
 
         # The following set of conditions is not complete, but sufficient
         if self.param_model.x0 is None or self.param_model.y0 is None:
-            err_msg = "Experimental data is not loaded or initial\n" "spectrum fitting is not performed"
+            err_msg = "Experimental data is not loaded or initial\nspectrum fitting is not performed"
             raise RuntimeError(err_msg)
 
         elif is_userpeak and (not self.plot_model.vertical_marker_is_visible):
@@ -1822,7 +1822,7 @@ class GlobalProcessingClasses:
         fluorescence_data_dict = self.fit_model.param_quant_estimation.fluorescence_data_dict
         if fluorescence_data_dict is None:
             raise RuntimeError(
-                "Attempt to obtain quantitative standard parameters " "while no standard is selected"
+                "Attempt to obtain quantitative standard parameters while no standard is selected"
             )
 
         result_map, selected_det_channel, scaler_name = self.fit_model.get_selected_fitted_map_data()

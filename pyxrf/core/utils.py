@@ -48,10 +48,10 @@ def grid_interpolate(data, xx, yy, xx_uniform=None, yy_uniform=None):
     # Check if data shape and shape of coordinate arrays match
     if data is not None:
         if data.shape != xx.shape:
-            msg = "Shapes of data and coordinate arrays do not match. " "(function 'grid_interpolate')"
+            msg = "Shapes of data and coordinate arrays do not match. (function 'grid_interpolate')"
             raise ValueError(msg)
     if xx.shape != yy.shape:
-        msg = "Shapes of coordinate arrays 'xx' and 'yy' do not match. " "(function 'grid_interpolate')"
+        msg = "Shapes of coordinate arrays 'xx' and 'yy' do not match. (function 'grid_interpolate')"
         raise ValueError(msg)
     if (xx_uniform is not None) and (xx_uniform.shape != xx.shape):
         msg = (
@@ -70,7 +70,7 @@ def grid_interpolate(data, xx, yy, xx_uniform=None, yy_uniform=None):
     # Data must be 2-dimensional to use the following interpolation procedure.
     if (nx <= 1) or (ny <= 1):
         logger.debug(
-            "Function utils.grid_interpolate: single row or column scan. " "Grid interpolation is skipped"
+            "Function utils.grid_interpolate: single row or column scan. Grid interpolation is skipped"
         )
         return data, xx, yy
 
@@ -198,7 +198,7 @@ def normalize_data_by_scaler(data_in, scaler, *, data_name=None, name_not_scalab
     n_nonzero = np.count_nonzero(scaler)
     if not n_nonzero:
         logger.debug(
-            "Function utils.normalize_data_by_scaler: scaler is all-zeros array. " "Data scaling is skipped."
+            "Function utils.normalize_data_by_scaler: scaler is all-zeros array. Data scaling is skipped."
         )
         do_scaling = False
 
