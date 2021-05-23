@@ -8,11 +8,13 @@ from pyxrf.core.xrf_utils import (
     generate_eline_list)
 
 
+# fmt: off
 @pytest.mark.parametrize("element_number", [
     ("He", 2), ("H", 1), ("Fe", 26),
     # Failing cases, 0 is returned
     ("he", 0), ("h", 0), ("Fe2O3", 0), ("50", 0), ("Fe ", 0), ("", 0)
 ])
+# fmt: on
 def test_get_element_atomic_number(element_number):
 
     element_str, atomic_number = element_number
@@ -20,11 +22,13 @@ def test_get_element_atomic_number(element_number):
         "Atomic number returned by the function is incorrect"
 
 
+# fmt: off
 @pytest.mark.parametrize("element_valid", [
     ("He", True), ("H", True), ("Fe", True),
     # Failing cases
     ("he", False), ("h", False), ("Fe2O3", False), ("50", False), ("Fe ", False), ("", False)
 ])
+# fmt: on
 def test_validate_element_str(element_valid):
 
     element_str, is_valid = element_valid
@@ -32,6 +36,7 @@ def test_validate_element_str(element_valid):
         "Element validation is not successful"
 
 
+# fmt: off
 @pytest.mark.parametrize("formula, elements, n_atoms", [
     ("Fe2O3", ("Fe", "O"), (2, 3)),
     ("He", ("He",), (1,)),
@@ -39,6 +44,7 @@ def test_validate_element_str(element_valid):
     ("C", ("C",), (1,)),
     ("C2H5OH", ("C", "H", "O"), (2, 6, 1))
 ])
+# fmt: on
 def test_parse_compound_formula1(formula, elements, n_atoms):
     data = parse_compound_formula(formula)
     assert len(data) == len(elements), "The number of parsed elements is incorrect"
@@ -47,10 +53,12 @@ def test_parse_compound_formula1(formula, elements, n_atoms):
         "The number of atoms in parsed data is determined incorrectly"
 
 
+# fmt: off
 @pytest.mark.parametrize("formula, element_mass_fraction", [
     ("Fe2O3", {"Fe": 0.6994364433312461, "O": 0.30056355666875395}),
     ("C", {"C": 1.0})
 ])
+# fmt: on
 def test_parse_compound_formula2(formula, element_mass_fraction):
     # Verify that mass fraction is found correctly
     data = parse_compound_formula(formula)
@@ -62,21 +70,25 @@ def test_parse_compound_formula2(formula, element_mass_fraction):
                                 err_msg=f"Mass fraction for element {e} was evaluated incorrectly")
 
 
+# fmt: off
 @pytest.mark.parametrize("formula", [
     "FE2O3", "fe2O3", "D", "Abc", ""
 ])
 @pytest.mark.filterwarnings("ignore:")  # Ignore the warnings from XRayLib
+# fmt: on
 def test_parse_compound_formula_fail(formula):
     with pytest.raises(RuntimeError, match=f"Invalid chemical formula.*{formula}"):
         parse_compound_formula(formula)
 
 
+# fmt: off
 @pytest.mark.parametrize("formula, elements, n_atoms", [
     ("Fe2O3", ("Fe", "O"), (2, 3)),
     ("He", ("He",), (1,)),
     ("H2SO4", ("H", "S", "O"), (2, 1, 4)),
     ("C", ("C",), (1,))
 ])
+# fmt: on
 def test_split_compound_mass(formula, elements, n_atoms):
 
     mass_total = 10.0
@@ -91,10 +103,12 @@ def test_split_compound_mass(formula, elements, n_atoms):
         err_msg="The computed mass is not distributed properly among elements")
 
 
+# fmt: off
 @pytest.mark.parametrize("formula", [
     "FE2O3", "fe2O3", "D", "Abc", ""
 ])
 @pytest.mark.filterwarnings("ignore:")  # Ignore the warnings from XRayLib
+# fmt: on
 def test_split_compound_mass_fail(formula):
     with pytest.raises(RuntimeError, match=f"Invalid chemical formula.*{formula}"):
         split_compound_mass(formula, 10.0)
@@ -127,6 +141,7 @@ def test_get_supported_eline_list():
     assert list_lm == list_l + list_m, "The list for K and L lines is not equivalent to the sum of the lists"
 
 
+# fmt: off
 @pytest.mark.parametrize("eline, success", [
     ("Fe_K", True),
     ("W_L", True),
@@ -136,11 +151,13 @@ def test_get_supported_eline_list():
     ("", False),
     (None, False)
 ])
+# fmt: on
 def test_check_if_eline_supported(eline, success):
     assert check_if_eline_supported(eline) == success, \
         f"Emission line {eline} is indentified incorrectly"
 
 
+# fmt: off
 @pytest.mark.parametrize("eline, incident_energy, success", [
     ("Fe_K", 8.0, True),
     ("Fe_K", 6.0, False),
@@ -150,15 +167,18 @@ def test_check_if_eline_supported(eline, success):
     ("Ta_M", 1.0, False),
 
 ])
+# fmt: on
 def test_check_if_eline_is_activated(eline, incident_energy, success):
     assert check_if_eline_is_activated(eline, incident_energy) == success, \
         f"Activation status for the emission line {eline} at {incident_energy} keV is {success}"
 
 
+# fmt: off
 @pytest.mark.parametrize("elements, incident_energy, elines", [
     (["Fe", "W", "Ta"], 12.0, ['Fe_K', 'W_L', 'W_M', 'Ta_L', 'Ta_M']),
     (["Fe", "W", "Ta"], 6.0, ['W_M', 'Ta_M']),
 ])
+# fmt: on
 def test_generate_eline_list1(elements, incident_energy, elines):
     r"""
     ``generate_eline_list``: search all lines
@@ -167,6 +187,7 @@ def test_generate_eline_list1(elements, incident_energy, elines):
         "Emission line list is generated incorrectly"
 
 
+# fmt: off
 @pytest.mark.parametrize("elements, incident_energy, lines, elines", [
     (["Fe", "W", "Ta"], 12.0, ("K", "L", "M"), ['Fe_K', 'W_L', 'W_M', 'Ta_L', 'Ta_M']),
     (["Fe", "W", "Ta"], 12.0, ("K",), ['Fe_K']),
@@ -176,6 +197,7 @@ def test_generate_eline_list1(elements, incident_energy, elines):
     (["Fe", "W", "Ta"], 12.0, ("K", "M"), ['Fe_K', 'W_M', 'Ta_M']),
     (["Fe", "W", "Ta"], 12.0, ("L", "M"), ['W_L', 'W_M', 'Ta_L', 'Ta_M']),
 ])
+# fmt: on
 def test_generate_eline_list2(elements, incident_energy, lines, elines):
     r"""
     ``generate_eline_list``: explicitely select eline categories

@@ -47,10 +47,12 @@ _standard_data_sample = [
     ]
 
 
+# fmt: off
 @pytest.mark.parametrize("standard_data", [
     _standard_data_sample,
     []  # The function should also work if the list is empty
 ])
+# fmt: on
 def test_save_xrf_standard_yaml_file1(tmp_path, standard_data):
     r"""Basic test of function 'save_xrf_standard_yaml_file' and 'load_xrf_standard_yaml_file'"""
 
@@ -369,6 +371,7 @@ def gen_xrf_map_dict(nx=10, ny=5, elines=["S_K", "Au_M", "Fe_K"]):
     return img
 
 
+# fmt: off
 @pytest.mark.parametrize("map_dims", [
     {"nx": 10, "ny": 5},
     {"nx": 1, "ny": 5},
@@ -378,6 +381,7 @@ def gen_xrf_map_dict(nx=10, ny=5, elines=["S_K", "Au_M", "Fe_K"]):
     {"nx": 10, "ny": 2},
     {"nx": 10, "ny": 3},
 ])
+# fmt: on
 def test_fill_quant_fluor_data_dict(map_dims):
     r"""Test for 'fill_quant_fluor_data_dict': testing basic functionality"""
     # Create copy, because the dictionary will be modified

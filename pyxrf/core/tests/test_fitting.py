@@ -196,10 +196,12 @@ def test_rfactor_compute_fail():
         rfactor_compute(spectrum_2D, np.delete(fit_results_2D, -1, axis=1), ref_spectra)
 
 
+# fmt: off
 @pytest.mark.parametrize("dataset_params", [
     {"n_data_dimensions": (8,)},
     {"n_data_dimensions": (15,)},
 ])
+# fmt: on
 def test_fitting_nnls(dataset_params):
 
     fitting_data = DataForFittingTest(**dataset_params)
@@ -229,9 +231,11 @@ def test_fitting_nnls(dataset_params):
     npt.assert_almost_equal(rfactor[0], rs, err_msg="Residual is computed incorrectly")
 
 
+# fmt: off
 @pytest.mark.parametrize("dataset_params", [
     {"n_data_dimensions": (8,)},
 ])
+# fmt: on
 def test_fitting_nnls_arguments(dataset_params):
     r"""
     Test _fit_nnls for different values of the parameter 'maxiter' (maximum number of iterations)
@@ -272,6 +276,7 @@ def test_fitting_nnls_fail():
         _fitting_nnls(spectra, data_input)
 
 
+# fmt: off
 @pytest.mark.parametrize("dataset_params", [
     {"n_data_dimensions": (8,), "non_negative": True},
     {"n_data_dimensions": (15,), "non_negative": True},
@@ -283,6 +288,7 @@ def test_fitting_nnls_fail():
     {"n_data_dimensions": (15,), "weights_range": (-20, 20), "non_negative": True,
      "only_check_weights_ge_0": True},
 ])
+# fmt: on
 def test_fitting_admm(dataset_params):
 
     # Determines if 'non-negative' or regular ADMM fitting is used
@@ -339,9 +345,11 @@ def test_fitting_admm(dataset_params):
         assert np.all(weights_estimated >= 0), "Non-negative fitting produced at least one negative weight"
 
 
+# fmt: off
 @pytest.mark.parametrize("dataset_params", [
     {"n_data_dimensions": (8,)},
 ])
+# fmt: on
 def test_fitting_admm_arguments(dataset_params):
     r"""
     Test _fit_nnls for different values of the parameter 'maxiter' (maximum number of iterations)
@@ -395,6 +403,7 @@ def test_fitting_admm_fail():
         _fitting_admm(spectra, data_input)
 
 
+# fmt: off
 @pytest.mark.parametrize("dataset_params", [
     {"n_data_dimensions": (10,)},
     {"n_data_dimensions": (10,), "axis": 0},
@@ -424,6 +433,7 @@ def test_fitting_admm_fail():
     {"method": "nnls"},
     {"method": "admm"},
 ])
+# fmt: on
 def test_fit_spectrum(dataset_params, process_params):
 
     fitting_data = DataForFittingTest(**dataset_params)
@@ -478,9 +488,11 @@ def test_fit_spectrum(dataset_params, process_params):
         assert False, f"Unknown optimization method '{params['method']}'"
 
 
+# fmt: off
 @pytest.mark.parametrize("dataset_params", [
     {"n_data_dimensions": (8, 6)},
 ])
+# fmt: on
 def test_fit_spectrum_arguments(dataset_params):
     r"""
     Test _fit_nnls for different values of the parameter 'maxiter' (maximum number of iterations)

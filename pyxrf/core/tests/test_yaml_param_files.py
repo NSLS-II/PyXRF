@@ -234,6 +234,7 @@ def test_create_read_yaml_parameter_file(tmp_path):
         "Parameter dictionary read from YAML file is different from the original parameter dictionary"
 
 
+# fmt: off
 @pytest.mark.parametrize("test_params", [
     # Writing to existing directory (absolute and relative paths)
     {"path_create": ["yaml", "file", "dirs"], "path_current": ["yaml", "file"],
@@ -268,6 +269,7 @@ def test_create_read_yaml_parameter_file(tmp_path):
      "path_write": ["yaml"], "path_read": ["yaml", "file"], "dir_create": False,
      "succeed_write": True, "succeed_read": False},
 ])
+# fmt: on
 def test_create_yaml_parameter_file1(tmp_path, test_params):
     """Test functions ``create_yaml_parameter_file`` and ``read_yaml_parameter_file``
     for different combinations of input/output directories"""

@@ -101,10 +101,12 @@ class _SampleProgressBar:
                 f"{capsys_out}"
 
 
+# fmt: off
 @pytest.mark.parametrize("progress_bar", [
     _SampleProgressBar("Monitoring progress"),
     TerminalProgressBar("Monitoring progress: "),
     None])
+# fmt: on
 def test_wait_and_display_progress(progress_bar, capsys):
     """Basic test for the function `wait_and_display_progress`"""
 
@@ -152,6 +154,7 @@ def test_RawHDF5Dataset(tmpdir):
     assert rds.shape == (10, 50), "Attribute 'shape' was not set correctly"
 
 
+# fmt: off
 @pytest.mark.parametrize("data_chunksize, chunk_optimal, n_pixels, data_shape", [
     ((3, 5), (12, 10), 100, (20, 20)),
     ((5, 3), (10, 12), 100, (20, 20)),
@@ -170,6 +173,7 @@ def test_RawHDF5Dataset(tmpdir):
     ((5, 2), (10, 10), 400, (20, 20)),
     ((15, 15), (15, 15), 400, (20, 20)),
 ])
+# fmt: on
 def test_compute_optimal_chunk_size(data_chunksize, chunk_optimal, n_pixels, data_shape):
     """Basic functionality of the '_compute_optimal_chunk_size'"""
 
@@ -185,6 +189,7 @@ def test_compute_optimal_chunk_size(data_chunksize, chunk_optimal, n_pixels, dat
     assert res == chunk_optimal, "Computed optimal chunks size doesn't match the expected"
 
 
+# fmt: off
 @pytest.mark.parametrize("data_chunksize, data_shape", [
     ((3,), (20, 20)),
     ((3, 5, 7), (20, 20)),
@@ -193,12 +198,14 @@ def test_compute_optimal_chunk_size(data_chunksize, chunk_optimal, n_pixels, dat
     ((5, 3), (20, 20, 20)),
     ((5, 3), 20),
 ])
+# fmt: on
 def test_compute_optimal_chunk_size_fail(data_chunksize, data_shape):
     """Failing cases for `compute_optimal_chunk_size`"""
     with pytest.raises(ValueError, match="Unsupported value of parameter"):
         _compute_optimal_chunk_size(10, data_chunksize, data_shape, 4)
 
 
+# fmt: off
 @pytest.mark.parametrize("chunk_target, data_shape", [
     ((2, 2), (10, 10, 3)),  # 3D array (primary use case)
     ((2, 3), (9, 11, 3)),
@@ -214,6 +221,7 @@ def test_compute_optimal_chunk_size_fail(data_chunksize, data_shape):
     ((2, 2), (9, 11, 5, 3, 4)),  # 5D array
 
 ])
+# fmt: on
 def test_chunk_numpy_array(chunk_target, data_shape):
     """Basic functionailty tests for '_chunk_xrf_map_numpy"""
 
@@ -232,6 +240,7 @@ def test_chunk_numpy_array(chunk_target, data_shape):
                            err_msg="The chunked array is different from the original array")
 
 
+# fmt: off
 @pytest.mark.parametrize("chunk_pixels, data_shape, res_chunk_size", [
     (4, (10, 10, 3), (2, 2, 3)),
     (5, (10, 10, 3), (2, 3, 3)),
@@ -241,6 +250,7 @@ def test_chunk_numpy_array(chunk_target, data_shape):
     (4, (9, 11, 3, 4), (2, 2, 3, 4)),
     (4, (9, 11, 3, 4, 2), (2, 2, 3, 4, 2)),
 ])
+# fmt: on
 def test_array_numpy_to_dask1(chunk_pixels, data_shape, res_chunk_size):
     """Basic functionality of `_xrf_map_numpy_to_dask`"""
 
@@ -268,6 +278,7 @@ def test_array_numpy_to_dask2():
         "The chunk size of the Dask array doesn't match the desired chunk size"
 
 
+# fmt: off
 @pytest.mark.parametrize("data", [
     da.random.random((5, 3, 5)),  # Dask array is not accepted
     10.6,  # Wrong data type
@@ -275,6 +286,7 @@ def test_array_numpy_to_dask2():
     "test",
     np.random.random((3,)),  # Wrong number of dimensions
 ])
+# fmt: on
 def test_array_numpy_to_dask_fail(data):
     """Wrong type of `data` array"""
     with pytest.raises(ValueError, match="Parameter 'data' must numpy array with at least 2 dimensions"):
@@ -349,7 +361,9 @@ def _create_xrf_mask(data_shape, apply_mask, select_area):
     return mask, selection
 
 
+# fmt: off
 @pytest.mark.parametrize("data_representation", ["numpy_array", "dask_array", "hdf5_file_dset"])
+# fmt: on
 def test_prepare_xrf_data(tmpdir, data_representation):
     # Start with dask array
     data_shape = (7, 12, 20)
@@ -421,6 +435,7 @@ def test_prepare_xrf_mask(apply_mask, select_area):
                            err_msg="The prepared mask is not equal to expected")
 
 
+# fmt: off
 @pytest.mark.parametrize("data_dask, mask, selection, msg", [
     (np.random.random((5, 5, 10)), np.random.randint(0, 3, size=(5, 5)), None,
      "Parameter 'data' must be a Dask array"),
@@ -431,6 +446,7 @@ def test_prepare_xrf_mask(apply_mask, select_area):
     (da.random.random((5, 5, 10)), np.random.randint(0, 3, size=(5, 5)), (1, 3, 4),
      "Parameter 'selection' must be iterable with 4 elements"),
 ])
+# fmt: on
 def test_prepare_xrf_mask_fail(data_dask, mask, selection, msg):
     """Failing cases of `_prepare_xrf_mask`"""
     with pytest.raises(TypeError, match=msg):
@@ -512,7 +528,9 @@ def test_compute_total_spectrum2(tmpdir):
                                   err_msg="Total spectrum was computed incorrectly")
 
 
+# fmt: off
 @pytest.mark.parametrize("mask", [da.random.random((7, 12)), (7, 12), 20, "abcde"])
+# fmt: on
 def test_compute_total_spectrum_fail(mask):
     """Failing cases: incorrect type for the mask ndarray"""
     data_dask = da.random.random((7, 12, 20), chunks=(2, 3, 4))
@@ -523,9 +541,11 @@ def test_compute_total_spectrum_fail(mask):
 @pytest.mark.usefixtures("_start_dask_client")
 class TestComputeTotalSpectrumAndCount:
 
+    # fmt: off
     @pytest.mark.parametrize("data_representation", ["numpy_array", "dask_array", "hdf5_file_dset"])
     @pytest.mark.parametrize("apply_mask", [False, True])
     @pytest.mark.parametrize("select_area", [False, True])
+    # fmt: on
     def test_compute_total_spectrum_and_count1(self, data_representation, apply_mask, select_area, tmpdir):
         """Using 'global' dask client to save time"""
 
@@ -594,7 +614,9 @@ def test_compute_total_spectrum_and_count2(tmpdir):
                                   err_msg="Total count (map) was computed incorrectly")
 
 
+# fmt: off
 @pytest.mark.parametrize("mask", [da.random.random((7, 12)), (7, 12), 20, "abcde"])
+# fmt: on
 def test_compute_total_spectrum_and_count_fail(mask):
     """Failing cases: incorrect type for the mask ndarray"""
     data_dask = da.random.random((7, 12, 20), chunks=(2, 3, 4))
@@ -768,6 +790,7 @@ class _FitXRFMapTesting:
                 err_msg=f"Output ROI count for the key '{key}' is different from expected")
 
 
+# fmt: off
 @pytest.mark.parametrize("dataset_params", [
     {"n_data_dimensions": (8, 1)},
     {"n_data_dimensions": (1, 8)},
@@ -776,6 +799,7 @@ class _FitXRFMapTesting:
 ])
 @pytest.mark.parametrize("add_pts_before, add_pts_after", [(0, 0), (50, 100)])
 @pytest.mark.parametrize("use_snip", [False, True])
+# fmt: on
 def test_fit_xrf_block(dataset_params, add_pts_before, add_pts_after, use_snip):
 
     ft = _FitXRFMapTesting(dataset_params=dataset_params,
@@ -792,6 +816,7 @@ def test_fit_xrf_block(dataset_params, add_pts_before, add_pts_after, use_snip):
 @pytest.mark.usefixtures("_start_dask_client")
 class TestFitXRFMap:
 
+    # fmt: off
     @pytest.mark.parametrize("data_representation", ["numpy_array", "dask_array", "hdf5_file_dset"])
     @pytest.mark.parametrize("dataset_params", [
         {"n_data_dimensions": (10, 10)},
@@ -801,6 +826,7 @@ class TestFitXRFMap:
     ])
     @pytest.mark.parametrize("add_pts", [(0, 0), (50, 100)])
     @pytest.mark.parametrize("use_snip", [False, True])
+    # fmt: on
     def test_fit_xrf_map1(self, data_representation, dataset_params, add_pts, use_snip, tmpdir):
         """
         Basic functionality of `fit_xrf_map`.
@@ -865,6 +891,7 @@ def test_fit_xrf_map2():
     ft.verify_fit_output(data_out=data_out, snip_param=ft.snip_param)
 
 
+# fmt: off
 @pytest.mark.parametrize("params, except_type, err_msg", [
     ({"data_sel_indices": 50}, TypeError,
      "Parameter 'data_sel_indices' must be tuple or list"),
@@ -896,6 +923,7 @@ def test_fit_xrf_map2():
      "Selection indices .* are outside the allowed range"),
 
 ])
+# fmt: on
 def test_fit_xrf_map_fail(params, except_type, err_msg):
     """Failing cases of `fit_xrf_map` (wrong input parameters)"""
 
@@ -927,6 +955,7 @@ def test_fit_xrf_map_fail(params, except_type, err_msg):
         fit_xrf_map(**kwargs)
 
 
+# fmt: off
 @pytest.mark.parametrize("dataset_params", [
     {"n_data_dimensions": (8, 1)},
     {"n_data_dimensions": (1, 8)},
@@ -935,6 +964,7 @@ def test_fit_xrf_map_fail(params, except_type, err_msg):
 ])
 @pytest.mark.parametrize("add_pts_before, add_pts_after", [(0, 0), (50, 100)])
 @pytest.mark.parametrize("use_snip", [False, True])
+# fmt: on
 def test_compute_roi(dataset_params, add_pts_before, add_pts_after, use_snip):
     """Basic functionality of `_compute_roi` function"""
 
@@ -982,6 +1012,7 @@ def test_compute_roi(dataset_params, add_pts_before, add_pts_after, use_snip):
 @pytest.mark.usefixtures("_start_dask_client")
 class TestComputeSelectedROIs:
 
+    # fmt: off
     @pytest.mark.parametrize("data_representation", ["numpy_array", "dask_array", "hdf5_file_dset"])
     @pytest.mark.parametrize("dataset_params", [
         {"n_data_dimensions": (10, 10)},
@@ -991,6 +1022,7 @@ class TestComputeSelectedROIs:
     ])
     @pytest.mark.parametrize("add_pts", [(0, 0), (50, 100)])
     @pytest.mark.parametrize("use_snip", [False, True])
+    # fmt: on
     def test_compute_selected_rois1(self, data_representation, dataset_params, add_pts, use_snip, tmpdir):
         """
         Basic functionality of `compute_selected_rois`.
@@ -1089,6 +1121,7 @@ def test_compute_selected_rois2():
     ft.verify_roi_output(data_out=data_out, roi_dict=roi_dict, snip_param=snip_param)
 
 
+# fmt: off
 @pytest.mark.parametrize("params, except_type, err_msg", [
     ({"data_sel_indices": 50}, TypeError,
      "Parameter 'data_sel_indices' must be tuple or list"),
@@ -1117,6 +1150,7 @@ def test_compute_selected_rois2():
       "data_sel_indices": (70, 70 + 50)}, ValueError,
      "Selection indices .* are outside the allowed range"),
 ])
+# fmt: on
 def test_compute_selected_rois_fail(params, except_type, err_msg):
     """Failing cases of `compute_selected_rois` (wrong input parameters)"""
 

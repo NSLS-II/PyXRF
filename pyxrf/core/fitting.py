@@ -139,7 +139,7 @@ def fit_spectrum(data, ref_spectra, *, method="nnls", axis=0, maxiter=100, rate=
 
             - ``feasibility`` - 1D array, same shape as ``convergence``
     """
-    # Explicitely check if one of the supported optimisation method is specified
+    # Explicitly check if one of the supported optimisation method is specified
     method = method.lower()
     supported_fitting_methods = ("nnls", "admm")
     assert method in supported_fitting_methods, \
