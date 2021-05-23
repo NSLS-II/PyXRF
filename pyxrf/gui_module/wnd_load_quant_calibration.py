@@ -1,17 +1,33 @@
 import textwrap
 
-from qtpy.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox,
-                            QCheckBox, QLabel, QComboBox, QFileDialog,
-                            QRadioButton, QButtonGroup, QTableWidget,
-                            QTableWidgetItem, QHeaderView, QWidget, QScrollArea,
-                            QTabWidget, QFrame, QMessageBox)
+from qtpy.QtWidgets import (
+    QPushButton,
+    QHBoxLayout,
+    QVBoxLayout,
+    QGroupBox,
+    QCheckBox,
+    QLabel,
+    QComboBox,
+    QFileDialog,
+    QRadioButton,
+    QButtonGroup,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
+    QWidget,
+    QScrollArea,
+    QTabWidget,
+    QFrame,
+    QMessageBox,
+)
 from qtpy.QtGui import QBrush, QColor, QDoubleValidator
 from qtpy.QtCore import Qt, Slot, Signal
 
-from .useful_widgets import (get_background_css, SecondaryWindow, set_tooltip, LineEditExtended)
+from .useful_widgets import get_background_css, SecondaryWindow, set_tooltip, LineEditExtended
 from .dlg_view_calib_standard import DialogViewCalibStandard
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -101,8 +117,7 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
 
         self.combo_set_table_header = QComboBox()
         self.combo_set_table_header.addItems(["Standard Serial #", "Standard Name"])
-        self.combo_set_table_header.currentIndexChanged.connect(
-            self.combo_set_table_header_index_changed)
+        self.combo_set_table_header.currentIndexChanged.connect(self.combo_set_table_header_index_changed)
 
         vbox = QVBoxLayout()
         vbox.addSpacing(5)
@@ -162,7 +177,7 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
 
             _vbox = QVBoxLayout()
 
-            name = cdata['name']  # Standard name (can be arbitrary string
+            name = cdata["name"]  # Standard name (can be arbitrary string
             # If name is long, then print it in a separate line
             _name_is_long = len(name) > 30
 
@@ -172,7 +187,7 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
             self.group_remove.addButton(pb_remove)
 
             # Row 1: serial, name
-            serial = cdata['serial']
+            serial = cdata["serial"]
             _hbox = QHBoxLayout()
             _hbox.addWidget(_LabelBlack(f"<b>Standard</b> #{serial}"))
             if not _name_is_long:
@@ -193,7 +208,7 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
                 _vbox.addLayout(_hbox)
 
             # Row 2: description
-            description = textwrap.fill(cdata['description'], width=80)
+            description = textwrap.fill(cdata["description"], width=80)
             _hbox = QHBoxLayout()
             _hbox.addWidget(_LabelBlack("<b>Description:</b>"), 0, Qt.AlignTop)
             _hbox.addWidget(_LabelBlack(f"{description}"), 0, Qt.AlignTop)
@@ -201,10 +216,10 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
             _vbox.addLayout(_hbox)
 
             # Row 3:
-            incident_energy = cdata['incident_energy']
-            scaler = cdata['scaler_name']
-            detector_channel = cdata['detector_channel']
-            distance_to_sample = cdata['distance_to_sample']
+            incident_energy = cdata["incident_energy"]
+            scaler = cdata["scaler_name"]
+            detector_channel = cdata["detector_channel"]
+            distance_to_sample = cdata["distance_to_sample"]
             _hbox = QHBoxLayout()
             _hbox.addWidget(_LabelBlack(f"<b>Incident energy, keV:</b> {incident_energy}"))
             _hbox.addWidget(_LabelBlack(f"  <b>Scaler:</b> {scaler}"))
@@ -214,7 +229,7 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
             _vbox.addLayout(_hbox)
 
             # Row 4: file name
-            fln = textwrap.fill(csettings['file_path'], width=80)
+            fln = textwrap.fill(csettings["file_path"], width=80)
             _hbox = QHBoxLayout()
             _hbox.addWidget(_LabelBlack("<b>Source file:</b>"), 0, Qt.AlignTop)
             _hbox.addWidget(_LabelBlack(fln), 0, Qt.AlignTop)
@@ -243,9 +258,9 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
         tbl_labels = ["Lines"]
         for n, cdata in enumerate(calib_data):
             if header_by_name:
-                txt = cdata['name']
+                txt = cdata["name"]
             else:
-                txt = cdata['serial']
+                txt = cdata["serial"]
             txt = textwrap.fill(txt, width=20)
             tbl_labels.append(txt)
 
@@ -283,7 +298,7 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
             # Create the sorted list of available element lines
             line_set = set()
             for cdata in calib_data:
-                ks = list(cdata['element_lines'].keys())
+                ks = list(cdata["element_lines"].keys())
                 line_set.update(list(ks))
             self.eline_list = list(line_set)
             self.eline_list.sort()
@@ -308,7 +323,7 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
 
                 for ns, cdata in enumerate(calib_data):
                     q_file_path = self._quant_file_paths[ns]  # Used to identify standard
-                    if eline in cdata['element_lines']:
+                    if eline in cdata["element_lines"]:
                         rb = QRadioButton()
                         if self.gpc.get_quant_calibration_is_eline_selected(eline, q_file_path):
                             rb.setChecked(True)
@@ -328,10 +343,9 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
                         item.setStyleSheet(get_background_css(rgb))
 
                         # Generate tooltip
-                        density = cdata['element_lines'][eline]['density']
-                        fluorescence = cdata['element_lines'][eline]['fluorescence']
-                        ttip = (f"Fluorescence (F): {fluorescence:12g}\n"
-                                f"Density (D): {density:12g}\n")
+                        density = cdata["element_lines"][eline]["density"]
+                        fluorescence = cdata["element_lines"][eline]["fluorescence"]
+                        ttip = f"Fluorescence (F): {fluorescence:12g}\n" f"Density (D): {density:12g}\n"
                         # Avoid very small values of density (probably zero)
                         if abs(density) > 1e-30:
                             ttip += f"F/D: {fluorescence/density:12g}"
@@ -367,24 +381,31 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
 
     def _set_tooltips(self):
         set_tooltip(self.pb_load_calib, "Load <b>calibration data</b> from JSON file.")
-        set_tooltip(self.cb_auto_update, "Automatically <b>update the plots</b> when changes are made. "
-                                         "If unchecked, then button <b>Update Plots</b> must be pressed "
-                                         "to update the plots. Automatic update is often undesirable "
-                                         "when large maps are displayed and multiple changes to parameters "
-                                         "are made.")
-        set_tooltip(self.pb_update_plots,
-                    "<b>Update plots</b> based on currently selected parameters.")
-        set_tooltip(self.le_distance_to_sample,
-                    "Distance between <b>the sample and the detector</b>. The ratio between of the distances "
-                    "during calibration and measurement is used to scale computed concentrations. "
-                    "If distance-to-sample is 0 for calibration or measurement, then no scaling is performed.")
-        set_tooltip(self.combo_set_table_header,
-                    "Use <b>Serial Number</b> or <b>Name</b> of the calibration standard "
-                    "in the header of the table")
-        set_tooltip(self.table,
-                    "Use Radio Buttons to select the <b>source of calibration data</b> for each emission line. "
-                    "This feature is needed if multiple loaded calibration files have data on the same "
-                    "emission line.")
+        set_tooltip(
+            self.cb_auto_update,
+            "Automatically <b>update the plots</b> when changes are made. "
+            "If unchecked, then button <b>Update Plots</b> must be pressed "
+            "to update the plots. Automatic update is often undesirable "
+            "when large maps are displayed and multiple changes to parameters "
+            "are made.",
+        )
+        set_tooltip(self.pb_update_plots, "<b>Update plots</b> based on currently selected parameters.")
+        set_tooltip(
+            self.le_distance_to_sample,
+            "Distance between <b>the sample and the detector</b>. The ratio between of the distances "
+            "during calibration and measurement is used to scale computed concentrations. "
+            "If distance-to-sample is 0 for calibration or measurement, then no scaling is performed.",
+        )
+        set_tooltip(
+            self.combo_set_table_header,
+            "Use <b>Serial Number</b> or <b>Name</b> of the calibration standard " "in the header of the table",
+        )
+        set_tooltip(
+            self.table,
+            "Use Radio Buttons to select the <b>source of calibration data</b> for each emission line. "
+            "This feature is needed if multiple loaded calibration files have data on the same "
+            "emission line.",
+        )
 
     def update_widget_state(self, condition=None):
         # Update the state of the menu bar
@@ -411,9 +432,9 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
 
     def pb_load_calib_clicked(self):
         current_dir = self.gpc.get_current_working_directory()
-        file_name = QFileDialog.getOpenFileName(self, "Select File with Quantitative Calibration Data",
-                                                current_dir,
-                                                "JSON (*.json);; All (*)")
+        file_name = QFileDialog.getOpenFileName(
+            self, "Select File with Quantitative Calibration Data", current_dir, "JSON (*.json);; All (*)"
+        )
         file_name = file_name[0]
         if file_name:
             try:
@@ -423,19 +444,16 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
                 self._update_maps_auto()
             except Exception:
                 msg = "The selected JSON file has incorrect format. Select a different file."
-                msgbox = QMessageBox(QMessageBox.Critical, "Data Loading Error",
-                                     msg, QMessageBox.Ok, parent=self)
+                msgbox = QMessageBox(QMessageBox.Critical, "Data Loading Error", msg, QMessageBox.Ok, parent=self)
                 msgbox.exec()
 
     def pb_view_clicked(self, button):
         try:
             n_standard = self.pbs_view.index(button)
             calib_settings = self.gpc.get_quant_calibration_settings()
-            file_path = calib_settings[n_standard]['file_path']
+            file_path = calib_settings[n_standard]["file_path"]
             calib_preview = self.gpc.get_quant_calibration_text_preview(file_path)
-            dlg = DialogViewCalibStandard(None,
-                                          file_path=file_path,
-                                          calib_preview=calib_preview)
+            dlg = DialogViewCalibStandard(None, file_path=file_path, calib_preview=calib_preview)
             dlg.exec()
         except ValueError:
             logger.error("'View' button was pressed, but not found in the list of buttons")
@@ -444,7 +462,7 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
         try:
             n_standard = self.pbs_remove.index(button)
             calib_settings = self.gpc.get_quant_calibration_settings()
-            file_path = calib_settings[n_standard]['file_path']
+            file_path = calib_settings[n_standard]["file_path"]
             self.gpc.quant_calibration_remove_entry(file_path)
             self.update_all_data()
             self._update_maps_auto()

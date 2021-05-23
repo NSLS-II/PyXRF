@@ -1,9 +1,17 @@
 import webbrowser
 from datetime import datetime
 
-from qtpy.QtWidgets import (QMainWindow, QMessageBox, QLabel, QAction,
-                            QDialog, QVBoxLayout, QDialogButtonBox, QHBoxLayout,
-                            QProgressBar)
+from qtpy.QtWidgets import (
+    QMainWindow,
+    QMessageBox,
+    QLabel,
+    QAction,
+    QDialog,
+    QVBoxLayout,
+    QDialogButtonBox,
+    QHBoxLayout,
+    QProgressBar,
+)
 from qtpy.QtCore import Qt, Slot, Signal
 from qtpy.QtGui import QGuiApplication, QCursor
 
@@ -19,6 +27,7 @@ from .wnd_detailed_fitting_params import WndDetailedFittingParamsLines, WndDetai
 import pyxrf
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 _main_window_geometry = {
@@ -48,30 +57,23 @@ class MainWindow(QMainWindow):
         self.gui_vars = global_gui_variables
         self.gui_vars["ref_main_window"] = self
 
-        self.wnd_manage_emission_lines = WndManageEmissionLines(
-            gpc=self.gpc, gui_vars=self.gui_vars)
-        self.wnd_compute_roi_maps = WndComputeRoiMaps(
-            gpc=self.gpc, gui_vars=self.gui_vars)
-        self.wnd_image_wizard = WndImageWizard(
-            gpc=self.gpc, gui_vars=self.gui_vars)
+        self.wnd_manage_emission_lines = WndManageEmissionLines(gpc=self.gpc, gui_vars=self.gui_vars)
+        self.wnd_compute_roi_maps = WndComputeRoiMaps(gpc=self.gpc, gui_vars=self.gui_vars)
+        self.wnd_image_wizard = WndImageWizard(gpc=self.gpc, gui_vars=self.gui_vars)
         self.wnd_load_quantitative_calibration = WndLoadQuantitativeCalibration(
-            gpc=self.gpc, gui_vars=self.gui_vars)
-        self.wnd_general_fitting_settings = WndGeneralFittingSettings(
-            gpc=self.gpc, gui_vars=self.gui_vars)
-        self.wnd_fitting_parameters_shared = WndDetailedFittingParamsShared(
-            gpc=self.gpc, gui_vars=self.gui_vars)
-        self.wnd_fitting_parameters_lines = WndDetailedFittingParamsLines(
-            gpc=self.gpc, gui_vars=self.gui_vars)
+            gpc=self.gpc, gui_vars=self.gui_vars
+        )
+        self.wnd_general_fitting_settings = WndGeneralFittingSettings(gpc=self.gpc, gui_vars=self.gui_vars)
+        self.wnd_fitting_parameters_shared = WndDetailedFittingParamsShared(gpc=self.gpc, gui_vars=self.gui_vars)
+        self.wnd_fitting_parameters_lines = WndDetailedFittingParamsLines(gpc=self.gpc, gui_vars=self.gui_vars)
         # Indicates that the window was closed (used mostly for testing)
         self._is_closed = False
 
-        global_gui_variables["gui_state"]["databroker_available"] = \
-            self.gpc.is_databroker_available()
+        global_gui_variables["gui_state"]["databroker_available"] = self.gpc.is_databroker_available()
 
         self.initialize()
 
-        self.central_widget.left_panel.load_data_widget.\
-            update_main_window_title.connect(self.update_window_title)
+        self.central_widget.left_panel.load_data_widget.update_main_window_title.connect(self.update_window_title)
 
         # Set the callback for update forms with fitting parameters
         def update_fitting_parameter_forms():
@@ -82,8 +84,7 @@ class MainWindow(QMainWindow):
 
     def initialize(self):
 
-        self.resize(_main_window_geometry["initial_width"],
-                    _main_window_geometry["initial_height"])
+        self.resize(_main_window_geometry["initial_width"], _main_window_geometry["initial_height"])
 
         self.setMinimumWidth(_main_window_geometry["min_width"])
         self.setMinimumHeight(_main_window_geometry["min_height"])
@@ -100,34 +101,32 @@ class MainWindow(QMainWindow):
         self.statusProgressBar.setFixedWidth(200)
         self.statusBar().addPermanentWidget(self.statusProgressBar)
 
-        self.statusLabelDefaultText = \
-            "No data is loaded"
+        self.statusLabelDefaultText = "No data is loaded"
         self.statusLabel.setText(self.statusLabelDefaultText)
 
         # 'Scan Data' menu item
         self.action_read_file = QAction("&Read File...", self)
-        self.action_read_file.setStatusTip('Load data from HDF5 file')
-        self.action_read_file.triggered.connect(
-            self.central_widget.left_panel.load_data_widget.pb_file.clicked)
+        self.action_read_file.setStatusTip("Load data from HDF5 file")
+        self.action_read_file.triggered.connect(self.central_widget.left_panel.load_data_widget.pb_file.clicked)
 
         self.action_load_run = QAction("&Load Run...", self)
         self.action_load_run.setEnabled(self.gui_vars["gui_state"]["databroker_available"])
-        self.action_load_run.setStatusTip('Load data from database (Databroker)')
-        self.action_load_run.triggered.connect(
-            self.central_widget.left_panel.load_data_widget.pb_dbase.clicked)
+        self.action_load_run.setStatusTip("Load data from database (Databroker)")
+        self.action_load_run.triggered.connect(self.central_widget.left_panel.load_data_widget.pb_dbase.clicked)
 
         self.action_view_metadata = QAction("View Metadata...", self)
         self.action_view_metadata.setEnabled(self.gpc.is_scan_metadata_available())
-        self.action_view_metadata.setStatusTip('View metadata for loaded run')
+        self.action_view_metadata.setStatusTip("View metadata for loaded run")
         self.action_view_metadata.triggered.connect(
-            self.central_widget.left_panel.load_data_widget.pb_view_metadata.clicked)
+            self.central_widget.left_panel.load_data_widget.pb_view_metadata.clicked
+        )
 
         # Main menu
         menubar = self.menuBar()
         # Disable native menu bar (it doesn't work on MacOS 10.15 with PyQt<=5.11)
         #   It may work with later versions of PyQt when they become available.
         menubar.setNativeMenuBar(False)
-        loadData = menubar.addMenu('Scan &Data')
+        loadData = menubar.addMenu("Scan &Data")
         loadData.addAction(self.action_read_file)
         loadData.addAction(self.action_load_run)
         loadData.addSeparator()
@@ -135,42 +134,46 @@ class MainWindow(QMainWindow):
 
         # 'Fitting Model' menu item
         self.action_lines_find_automatically = QAction("Find &Automatically...", self)
-        self.action_lines_find_automatically.setStatusTip(
-            "Automatically find emission lines in total spectrum")
+        self.action_lines_find_automatically.setStatusTip("Automatically find emission lines in total spectrum")
         self.action_lines_find_automatically.triggered.connect(
-            self.central_widget.left_panel.model_widget.pb_find_elines.clicked)
+            self.central_widget.left_panel.model_widget.pb_find_elines.clicked
+        )
 
         self.action_lines_load_from_file = QAction("Load From &File...", self)
         self.action_lines_load_from_file.setStatusTip(
-            "Load processing parameters, including selected emission lines, from JSON file")
+            "Load processing parameters, including selected emission lines, from JSON file"
+        )
         self.action_lines_load_from_file.triggered.connect(
-            self.central_widget.left_panel.model_widget.pb_load_elines.clicked)
+            self.central_widget.left_panel.model_widget.pb_load_elines.clicked
+        )
 
         self.action_lines_load_quant_standard = QAction("Load &Quantitative Standards...", self)
         self.action_lines_load_quant_standard.setStatusTip(
-            "Load quantitative standard. The emission lines from the standard are automatically selected")
+            "Load quantitative standard. The emission lines from the standard are automatically selected"
+        )
         self.action_lines_load_quant_standard.triggered.connect(
-            self.central_widget.left_panel.model_widget.pb_load_qstandard.clicked)
+            self.central_widget.left_panel.model_widget.pb_load_qstandard.clicked
+        )
 
         self.action_add_remove_emission_lines = QAction("&Add/Remove Emission Lines...", self)
-        self.action_add_remove_emission_lines.setStatusTip(
-            "Manually add and remove emission lines")
+        self.action_add_remove_emission_lines.setStatusTip("Manually add and remove emission lines")
         self.action_add_remove_emission_lines.triggered.connect(
-            self.central_widget.left_panel.model_widget.pb_manage_emission_lines.clicked)
+            self.central_widget.left_panel.model_widget.pb_manage_emission_lines.clicked
+        )
 
         self.action_save_model_params = QAction("&Save Model Parameters...", self)
-        self.action_save_model_params.setStatusTip(
-            "Save model parameters to JSON file")
+        self.action_save_model_params.setStatusTip("Save model parameters to JSON file")
         self.action_save_model_params.triggered.connect(
-            self.central_widget.left_panel.model_widget.pb_save_elines.clicked)
+            self.central_widget.left_panel.model_widget.pb_save_elines.clicked
+        )
 
         self.action_add_remove_emission_lines = QAction("Start Model &Fitting", self)
-        self.action_add_remove_emission_lines.setStatusTip(
-            "Run computations: start fitting for total spectrum")
+        self.action_add_remove_emission_lines.setStatusTip("Run computations: start fitting for total spectrum")
         self.action_add_remove_emission_lines.triggered.connect(
-            self.central_widget.left_panel.model_widget.pb_start_fitting.clicked)
+            self.central_widget.left_panel.model_widget.pb_start_fitting.clicked
+        )
 
-        fittingModel = menubar.addMenu('Fitting &Model')
+        fittingModel = menubar.addMenu("Fitting &Model")
         emissionLines = fittingModel.addMenu("&Emission Lines")
         emissionLines.addAction(self.action_lines_find_automatically)
         emissionLines.addAction(self.action_lines_load_from_file)
@@ -183,36 +186,40 @@ class MainWindow(QMainWindow):
 
         # "XRF Maps" menu item
         self.action_start_xrf_map_fitting = QAction("Start XRF Map &Fitting", self)
-        self.action_start_xrf_map_fitting.setStatusTip(
-            "Run computations: start fitting for XRF maps")
+        self.action_start_xrf_map_fitting.setStatusTip("Run computations: start fitting for XRF maps")
         self.action_start_xrf_map_fitting.triggered.connect(
-            self.central_widget.left_panel.fit_maps_widget.pb_start_map_fitting.clicked)
+            self.central_widget.left_panel.fit_maps_widget.pb_start_map_fitting.clicked
+        )
 
         self.action_compute_rois = QAction("Compute &ROIs...", self)
-        self.action_compute_rois.setStatusTip(
-            "Compute XRF Maps based on spectral ROIs")
+        self.action_compute_rois.setStatusTip("Compute XRF Maps based on spectral ROIs")
         self.action_compute_rois.triggered.connect(
-            self.central_widget.left_panel.fit_maps_widget.pb_compute_roi_maps.clicked)
+            self.central_widget.left_panel.fit_maps_widget.pb_compute_roi_maps.clicked
+        )
 
         self.action_load_quant_calibration = QAction("&Load Quantitative Calibration...", self)
         self.action_load_quant_calibration.setStatusTip(
-            "Load quantitative calibration from JSON file. Calibration is used for scaling of XRF Maps")
+            "Load quantitative calibration from JSON file. Calibration is used for scaling of XRF Maps"
+        )
         self.action_load_quant_calibration.triggered.connect(
-            self.central_widget.left_panel.fit_maps_widget.pb_load_quant_calib.clicked)
+            self.central_widget.left_panel.fit_maps_widget.pb_load_quant_calib.clicked
+        )
 
         self.action_save_quant_calibration = QAction("&Save Quantitative Calibration...", self)
         self.action_save_quant_calibration.setStatusTip(
-            "Save Quantitative Calibration based on XRF map of the standard sample")
+            "Save Quantitative Calibration based on XRF map of the standard sample"
+        )
         self.action_save_quant_calibration.triggered.connect(
-            self.central_widget.left_panel.fit_maps_widget.pb_save_q_calibration.clicked)
+            self.central_widget.left_panel.fit_maps_widget.pb_save_q_calibration.clicked
+        )
 
         self.action_export_to_tiff_and_txt = QAction("&Export to TIFF and TXT...", self)
-        self.action_export_to_tiff_and_txt.setStatusTip(
-            "Export XRF Maps as TIFF and/or TXT files")
+        self.action_export_to_tiff_and_txt.setStatusTip("Export XRF Maps as TIFF and/or TXT files")
         self.action_export_to_tiff_and_txt.triggered.connect(
-            self.central_widget.left_panel.fit_maps_widget.pb_export_to_tiff_and_txt.clicked)
+            self.central_widget.left_panel.fit_maps_widget.pb_export_to_tiff_and_txt.clicked
+        )
 
-        xrfMaps = menubar.addMenu('XRF &Maps')
+        xrfMaps = menubar.addMenu("XRF &Maps")
         xrfMaps.addAction(self.action_start_xrf_map_fitting)
         xrfMaps.addAction(self.action_compute_rois)
         xrfMaps.addSeparator()
@@ -234,7 +241,7 @@ class MainWindow(QMainWindow):
         self.action_show_widget_tooltips.setStatusTip("Show widget tooltips")
         self.action_show_widget_tooltips.toggled.connect(self.action_show_widget_tooltips_toggled)
 
-        options = menubar.addMenu('&Options')
+        options = menubar.addMenu("&Options")
         options.addAction(self.action_show_widget_tooltips)
         options.addAction(self.action_show_matplotlib_toolbar)
 
@@ -247,7 +254,7 @@ class MainWindow(QMainWindow):
         self.action_about.setStatusTip("Show information about this program")
         self.action_about.triggered.connect(self.action_about_triggered)
 
-        help = menubar.addMenu('&Help')
+        help = menubar.addMenu("&Help")
         help.addAction(self.action_online_docs)
         help.addSeparator()
         help.addAction(self.action_about)
@@ -256,113 +263,153 @@ class MainWindow(QMainWindow):
 
         # Connect signals
         self.central_widget.left_panel.load_data_widget.update_preview_map_range.connect(
-            self.central_widget.right_panel.tab_preview_plots.preview_plot_count.update_map_range)
+            self.central_widget.right_panel.tab_preview_plots.preview_plot_count.update_map_range
+        )
 
         # Before loading a new file or run
         self.central_widget.left_panel.load_data_widget.signal_loading_new_run.connect(
-            self.central_widget.right_panel.slot_activate_tab_preview)
+            self.central_widget.right_panel.slot_activate_tab_preview
+        )
 
         # Open a new file or run
         self.central_widget.left_panel.load_data_widget.signal_new_run_loaded.connect(
-            self.central_widget.left_panel.slot_activate_load_data_tab)
+            self.central_widget.left_panel.slot_activate_load_data_tab
+        )
         self.central_widget.left_panel.load_data_widget.signal_new_run_loaded.connect(
-            self.central_widget.right_panel.slot_activate_tab_preview)
+            self.central_widget.right_panel.slot_activate_tab_preview
+        )
+        self.central_widget.left_panel.load_data_widget.signal_new_run_loaded.connect(self.slot_new_run_loaded)
         self.central_widget.left_panel.load_data_widget.signal_new_run_loaded.connect(
-            self.slot_new_run_loaded)
+            self.wnd_image_wizard.slot_update_table
+        )
         self.central_widget.left_panel.load_data_widget.signal_new_run_loaded.connect(
-            self.wnd_image_wizard.slot_update_table)
+            self.central_widget.right_panel.tab_plot_xrf_maps.slot_update_dataset_info
+        )
         self.central_widget.left_panel.load_data_widget.signal_new_run_loaded.connect(
-            self.central_widget.right_panel.tab_plot_xrf_maps.slot_update_dataset_info)
+            self.central_widget.right_panel.tab_plot_rgb_maps.slot_update_dataset_info
+        )
         self.central_widget.left_panel.load_data_widget.signal_new_run_loaded.connect(
-            self.central_widget.right_panel.tab_plot_rgb_maps.slot_update_dataset_info)
+            self.wnd_load_quantitative_calibration.update_all_data
+        )
         self.central_widget.left_panel.load_data_widget.signal_new_run_loaded.connect(
-            self.wnd_load_quantitative_calibration.update_all_data)
-        self.central_widget.left_panel.load_data_widget.signal_new_run_loaded.connect(
-            self.central_widget.left_panel.fit_maps_widget.slot_update_for_new_loaded_run)
+            self.central_widget.left_panel.fit_maps_widget.slot_update_for_new_loaded_run
+        )
 
         # New model is loaded or processing parameters (incident energy) was changed
         self.central_widget.left_panel.model_widget.signal_incident_energy_or_range_changed.connect(
-            self.central_widget.right_panel.tab_preview_plots.preview_plot_spectrum.redraw_preview_plot)
+            self.central_widget.right_panel.tab_preview_plots.preview_plot_spectrum.redraw_preview_plot
+        )
         self.central_widget.left_panel.model_widget.signal_incident_energy_or_range_changed.connect(
-            self.wnd_manage_emission_lines.update_widget_data)
+            self.wnd_manage_emission_lines.update_widget_data
+        )
         self.central_widget.left_panel.model_widget.signal_incident_energy_or_range_changed.connect(
-            self.central_widget.right_panel.tab_plot_fitting_model.redraw_plot_fit)
+            self.central_widget.right_panel.tab_plot_fitting_model.redraw_plot_fit
+        )
 
         self.central_widget.left_panel.model_widget.signal_model_loaded.connect(
-            self.central_widget.right_panel.tab_preview_plots.preview_plot_spectrum.redraw_preview_plot)
+            self.central_widget.right_panel.tab_preview_plots.preview_plot_spectrum.redraw_preview_plot
+        )
         self.central_widget.left_panel.model_widget.signal_model_loaded.connect(
-            self.central_widget.right_panel.slot_activate_tab_fitting_model)
+            self.central_widget.right_panel.slot_activate_tab_fitting_model
+        )
         self.central_widget.left_panel.model_widget.signal_model_loaded.connect(
-            self.central_widget.right_panel.tab_plot_fitting_model.update_controls)
+            self.central_widget.right_panel.tab_plot_fitting_model.update_controls
+        )
         self.central_widget.left_panel.model_widget.signal_model_loaded.connect(
-            self.wnd_manage_emission_lines.update_widget_data)
+            self.wnd_manage_emission_lines.update_widget_data
+        )
 
         # XRF Maps dataset changed
         self.central_widget.right_panel.tab_plot_xrf_maps.signal_maps_dataset_selection_changed.connect(
-            self.wnd_image_wizard.slot_update_table)
+            self.wnd_image_wizard.slot_update_table
+        )
 
         self.central_widget.right_panel.tab_plot_xrf_maps.signal_maps_dataset_selection_changed.connect(
-            self.central_widget.right_panel.tab_plot_rgb_maps.combo_select_dataset_update_current_index)
+            self.central_widget.right_panel.tab_plot_rgb_maps.combo_select_dataset_update_current_index
+        )
         self.central_widget.right_panel.tab_plot_rgb_maps.signal_rgb_maps_dataset_selection_changed.connect(
-            self.central_widget.right_panel.tab_plot_xrf_maps.combo_select_dataset_update_current_index)
+            self.central_widget.right_panel.tab_plot_xrf_maps.combo_select_dataset_update_current_index
+        )
 
         self.central_widget.right_panel.tab_plot_xrf_maps.signal_maps_norm_changed.connect(
-            self.wnd_image_wizard.slot_update_ranges)
+            self.wnd_image_wizard.slot_update_ranges
+        )
 
         # Quantitative calibration changed
         self.wnd_load_quantitative_calibration.signal_quantitative_calibration_changed.connect(
-            self.central_widget.right_panel.tab_plot_rgb_maps.slot_update_ranges)
+            self.central_widget.right_panel.tab_plot_rgb_maps.slot_update_ranges
+        )
         self.wnd_load_quantitative_calibration.signal_quantitative_calibration_changed.connect(
-            self.wnd_image_wizard.slot_update_ranges)
+            self.wnd_image_wizard.slot_update_ranges
+        )
 
         # Selected element is changed (tools for emission line selection)
         self.wnd_manage_emission_lines.signal_selected_element_changed.connect(
-            self.central_widget.right_panel.tab_plot_fitting_model.slot_selection_item_changed)
+            self.central_widget.right_panel.tab_plot_fitting_model.slot_selection_item_changed
+        )
         self.central_widget.right_panel.tab_plot_fitting_model.signal_selected_element_changed.connect(
-            self.wnd_manage_emission_lines.slot_selection_item_changed)
+            self.wnd_manage_emission_lines.slot_selection_item_changed
+        )
         self.central_widget.right_panel.tab_plot_fitting_model.signal_add_line.connect(
-            self.wnd_manage_emission_lines.pb_add_eline_clicked)
+            self.wnd_manage_emission_lines.pb_add_eline_clicked
+        )
         self.central_widget.right_panel.tab_plot_fitting_model.signal_remove_line.connect(
-            self.wnd_manage_emission_lines.pb_remove_eline_clicked)
+            self.wnd_manage_emission_lines.pb_remove_eline_clicked
+        )
         self.wnd_manage_emission_lines.signal_update_element_selection_list.connect(
-            self.central_widget.right_panel.tab_plot_fitting_model.slot_update_eline_selection_list)
+            self.central_widget.right_panel.tab_plot_fitting_model.slot_update_eline_selection_list
+        )
         self.wnd_manage_emission_lines.signal_update_add_remove_btn_state.connect(
-            self.central_widget.right_panel.tab_plot_fitting_model.slot_update_add_remove_btn_state)
+            self.central_widget.right_panel.tab_plot_fitting_model.slot_update_add_remove_btn_state
+        )
 
         self.wnd_manage_emission_lines.signal_selected_element_changed.connect(
-            self.central_widget.left_panel.model_widget.slot_selection_item_changed)
+            self.central_widget.left_panel.model_widget.slot_selection_item_changed
+        )
         self.central_widget.right_panel.tab_plot_fitting_model.signal_selected_element_changed.connect(
-            self.central_widget.left_panel.model_widget.slot_selection_item_changed)
+            self.central_widget.left_panel.model_widget.slot_selection_item_changed
+        )
 
         # Total spectrum fitting completed
         self.central_widget.left_panel.model_widget.signal_total_spectrum_fitting_completed.connect(
-            self.wnd_manage_emission_lines.update_eline_table)
+            self.wnd_manage_emission_lines.update_eline_table
+        )
         # Total spectrum invalidated
         self.wnd_manage_emission_lines.signal_parameters_changed.connect(
-            self.central_widget.left_panel.model_widget.update_fit_status)
+            self.central_widget.left_panel.model_widget.update_fit_status
+        )
         # New dataset loaded or different channel selected. Compute fit parameters.
         self.central_widget.left_panel.load_data_widget.signal_data_channel_changed.connect(
-            self.central_widget.left_panel.model_widget.clear_fit_status)
+            self.central_widget.left_panel.model_widget.clear_fit_status
+        )
         self.central_widget.left_panel.load_data_widget.signal_new_run_loaded.connect(
-            self.central_widget.left_panel.model_widget.clear_fit_status)
+            self.central_widget.left_panel.model_widget.clear_fit_status
+        )
         self.central_widget.left_panel.model_widget.signal_incident_energy_or_range_changed.connect(
-            self.central_widget.left_panel.model_widget.clear_fit_status)
+            self.central_widget.left_panel.model_widget.clear_fit_status
+        )
 
         # Update map datasets (Fitted maps)
         self.central_widget.left_panel.fit_maps_widget.signal_map_fitting_complete.connect(
-            self.central_widget.right_panel.tab_plot_xrf_maps.slot_update_dataset_info)
+            self.central_widget.right_panel.tab_plot_xrf_maps.slot_update_dataset_info
+        )
         self.central_widget.left_panel.fit_maps_widget.signal_map_fitting_complete.connect(
-            self.central_widget.right_panel.tab_plot_rgb_maps.slot_update_dataset_info)
+            self.central_widget.right_panel.tab_plot_rgb_maps.slot_update_dataset_info
+        )
         self.central_widget.left_panel.fit_maps_widget.signal_activate_tab_xrf_maps.connect(
-            self.central_widget.right_panel.slot_activate_tab_xrf_maps)
+            self.central_widget.right_panel.slot_activate_tab_xrf_maps
+        )
 
         # Update map datasets (ROI maps)
         self.wnd_compute_roi_maps.signal_roi_computation_complete.connect(
-            self.central_widget.right_panel.tab_plot_xrf_maps.slot_update_dataset_info)
+            self.central_widget.right_panel.tab_plot_xrf_maps.slot_update_dataset_info
+        )
         self.wnd_compute_roi_maps.signal_roi_computation_complete.connect(
-            self.central_widget.right_panel.tab_plot_rgb_maps.slot_update_dataset_info)
+            self.central_widget.right_panel.tab_plot_rgb_maps.slot_update_dataset_info
+        )
         self.wnd_compute_roi_maps.signal_activate_tab_xrf_maps.connect(
-            self.central_widget.right_panel.slot_activate_tab_xrf_maps)
+            self.central_widget.right_panel.slot_activate_tab_xrf_maps
+        )
 
         self.signal_fitting_parameters_changed.connect(self.wnd_general_fitting_settings.update_form_data)
         self.signal_fitting_parameters_changed.connect(self.wnd_fitting_parameters_shared.update_form_data)
@@ -399,10 +446,13 @@ class MainWindow(QMainWindow):
         self.wnd_fitting_parameters_lines.update_widget_state(condition)
 
     def closeEvent(self, event):
-        mb_close = QMessageBox(QMessageBox.Question, "Exit",
-                               "Are you sure you want to EXIT the program?",
-                               QMessageBox.Yes | QMessageBox.No,
-                               parent=self)
+        mb_close = QMessageBox(
+            QMessageBox.Question,
+            "Exit",
+            "Are you sure you want to EXIT the program?",
+            QMessageBox.Yes | QMessageBox.No,
+            parent=self,
+        )
         mb_close.setDefaultButton(QMessageBox.No)
 
         if mb_close.exec() == QMessageBox.Yes:
@@ -431,8 +481,7 @@ class MainWindow(QMainWindow):
         except Exception as ex:
             logger.error(f"Error occurred while opening URL '{doc_url}' in the default browser")
             msg = f"Failed to Open Online Documentation. \n  Exception: {str(ex)}"
-            msgbox = QMessageBox(QMessageBox.Critical, "Error",
-                                 msg, QMessageBox.Ok, parent=self)
+            msgbox = QMessageBox(QMessageBox.Critical, "Error", msg, QMessageBox.Ok, parent=self)
             msgbox.exec()
 
     def action_about_triggered(self):
@@ -519,18 +568,19 @@ class DialogAbout(QDialog):
         text_latest_ver = "Latest stable version:"
 
         text_credit = "Credits:"
-        text_credit_org = ("Data Acquisition, Management and Analysis Group\n"
-                           "National Synchrontron Light Source II\n"
-                           "Brookhaven National Laboratory")
+        text_credit_org = (
+            "Data Acquisition, Management and Analysis Group\n"
+            "National Synchrontron Light Source II\n"
+            "Brookhaven National Laboratory"
+        )
 
-        text_copyright = f"\u00A92015\u2014{datetime.now().year}"\
-                         " Brookhaven National Laboratory"
+        text_copyright = f"\u00A92015\u2014{datetime.now().year}" " Brookhaven National Laboratory"
 
         label_name = QLabel(text_name)
-        label_name.setStyleSheet('QLabel {font-weight: bold; font-size: 32px}')
+        label_name.setStyleSheet("QLabel {font-weight: bold; font-size: 32px}")
 
         label_description = QLabel(text_description)
-        label_description.setStyleSheet('QLabel {font-style: italic; font-size: 18px}')
+        label_description.setStyleSheet("QLabel {font-style: italic; font-size: 18px}")
 
         label_ver = QLabel(text_ver)
         label_latest_ver = QLabel(text_latest_ver)

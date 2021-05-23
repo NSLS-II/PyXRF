@@ -9,7 +9,6 @@ from .useful_widgets import global_gui_variables
 
 
 class RightPanel(QTabWidget):
-
     def __init__(self, *, gpc, gui_vars):
         super().__init__()
 
@@ -57,8 +56,7 @@ class RightPanel(QTabWidget):
     @Slot(bool)
     def slot_activate_tab_preview(self):
         self.setCurrentWidget(self.tab_preview_plots)
-        self.tab_preview_plots.setCurrentWidget(
-            self.tab_preview_plots.preview_plot_spectrum)
+        self.tab_preview_plots.setCurrentWidget(self.tab_preview_plots.preview_plot_spectrum)
 
     @Slot()
     @Slot(bool)

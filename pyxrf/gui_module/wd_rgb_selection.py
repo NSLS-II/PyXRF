@@ -1,14 +1,13 @@
-from qtpy.QtWidgets import (QWidget, QHBoxLayout, QRadioButton, QButtonGroup,
-                            QTableWidget, QHeaderView, QSizePolicy)
+from qtpy.QtWidgets import QWidget, QHBoxLayout, QRadioButton, QButtonGroup, QTableWidget, QHeaderView, QSizePolicy
 from qtpy.QtGui import QPalette
 from qtpy.QtCore import Qt, Signal
 
 import copy
 
-from .useful_widgets import (RangeManager, get_background_css,
-                             ComboBoxNamed)
+from .useful_widgets import RangeManager, get_background_css, ComboBoxNamed
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -155,9 +154,7 @@ class RgbSelectionWidget(QWidget):
 
         # Colors that are used to paint rows of the table in RGB colors
         br = 150
-        self._rgb_row_colors = {"red": (255, br, br),
-                                "green": (br, 255, br),
-                                "blue": (br, br, 255)}
+        self._rgb_row_colors = {"red": (255, br, br), "green": (br, 255, br), "blue": (br, br, 255)}
         self._rgb_color_keys = ["red", "green", "blue"]
 
         # Set initial colors
@@ -194,8 +191,9 @@ class RgbSelectionWidget(QWidget):
         self._rgb_dict[row_color] = sel_eline
 
         self.elements_range[n_row].set_range(self._range_table[index][1], self._range_table[index][2])
-        self.elements_range[n_row].set_selection(value_low=self._limit_table[index][1],
-                                                 value_high=self._limit_table[index][2])
+        self.elements_range[n_row].set_selection(
+            value_low=self._limit_table[index][1], value_high=self._limit_table[index][2]
+        )
         self._update_map_selections()
 
     def range_selection_changed(self, v_low, v_high, name):
@@ -262,8 +260,7 @@ class RgbSelectionWidget(QWidget):
             elif n_col <= 3:
                 # 3 QRadioButton's. The buttons are inserted into QWidget objects,
                 #   and we need to change backgrounds of QWidgets, not only buttons.
-                wd.setStyleSheet(
-                    get_background_css(rgb, widget="QWidget", editable=False))
+                wd.setStyleSheet(get_background_css(rgb, widget="QWidget", editable=False))
             elif n_col == 4:
                 # Custom RangeManager widget, color is updated using custom method
                 wd.setBackground(rgb)

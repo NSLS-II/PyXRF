@@ -11,7 +11,7 @@ param_data = {
         "max": 1e9,
         "min": 1.0,
         "default": 100.0,
-        "value": 91.84486613900303
+        "value": 91.84486613900303,
     },
     "coherent_sct_energy": {
         "adjust_element1": "fixed",
@@ -26,7 +26,7 @@ param_data = {
         "max": 13.0,
         "min": 9.0,
         "default": 12.0,
-        "value": 12.0
+        "value": 12.0,
     },
     "compton_amplitude": {
         "adjust_element1": "fixed",
@@ -40,7 +40,7 @@ param_data = {
         "max": 1e9,
         "min": 0.0,
         "default": 100.0,
-        "value": 213.7603636952067
+        "value": 213.7603636952067,
     },
     "compton_angle": {
         "adjust_element1": "fixed",
@@ -54,7 +54,7 @@ param_data = {
         "max": 105.0,
         "min": 70.0,
         "default": 90.0,
-        "value": 90.0
+        "value": 90.0,
     },
     "compton_f_step": {
         "adjust_element1": "fixed",
@@ -68,7 +68,7 @@ param_data = {
         "max": 0.01,
         "min": 0.0,
         "default": 0.005,
-        "value": 0.00842597013124
+        "value": 0.00842597013124,
     },
     "compton_f_tail": {
         "adjust_element1": "fixed",
@@ -82,7 +82,7 @@ param_data = {
         "max": 4.0,
         "min": 1.5,
         "default": 2.5,
-        "value": 2.5
+        "value": 2.5,
     },
     "compton_fwhm_corr": {
         "adjust_element1": "fixed",
@@ -97,7 +97,7 @@ param_data = {
         "max": 3.0,
         "min": 1.5,
         "default": 2.0,
-        "value": 2.0
+        "value": 2.0,
     },
     "compton_gamma": {
         "adjust_element1": "fixed",
@@ -111,7 +111,7 @@ param_data = {
         "max": 4.2,
         "min": 3.8,
         "default": 2.5,
-        "value": 4.161818621138601
+        "value": 4.161818621138601,
     },
     "compton_hi_f_tail": {
         "adjust_element1": "fixed",
@@ -125,7 +125,7 @@ param_data = {
         "max": 1.0,
         "min": 1e-06,
         "default": 0.0001,
-        "value": 0.0001
+        "value": 0.0001,
     },
     "compton_hi_gamma": {
         "adjust_element1": "fixed",
@@ -139,7 +139,7 @@ param_data = {
         "max": 3.0,
         "min": 0.025,
         "default": 0.028,
-        "value": 0.027
+        "value": 0.027,
     },
     "e_linear": {
         "adjust_element1": "fixed",
@@ -155,7 +155,7 @@ param_data = {
         "min": 0.009,
         "tool_tip": "E(channel) = a0 + a1*channel+ a2*channel**2",
         "default": 0.01,
-        "value": 0.01
+        "value": 0.01,
     },
     "e_offset": {
         "adjust_element1": "fixed",
@@ -171,7 +171,7 @@ param_data = {
         "min": -0.2,
         "tool_tip": "E(channel) = a0 + a1*channel+ a2*channel**2",
         "default": 0.0,
-        "value": 0.0
+        "value": 0.0,
     },
     "e_quadratic": {
         "adjust_element1": "fixed",
@@ -187,7 +187,7 @@ param_data = {
         "min": -1e-06,
         "tool_tip": "E(channel) = a0 + a1*channel+ a2*channel**2",
         "default": 0.0,
-        "value": 0.0
+        "value": 0.0,
     },
     "fwhm_fanoprime": {
         "adjust_element1": "fixed",
@@ -201,10 +201,11 @@ param_data = {
         "linear": "fixed",
         "max": 0.0002,
         "min": 1e-05,
-        "tool_tip": ("width**2 = (b1/2.3548)**2 + 3.85*b2*E, 3.85keV is "
-                     "electron-hole pair creation energy in silicon"),
+        "tool_tip": (
+            "width**2 = (b1/2.3548)**2 + 3.85*b2*E, 3.85keV is " "electron-hole pair creation energy in silicon"
+        ),
         "default": 0.000114,
-        "value": 0.000114
+        "value": 0.000114,
     },
     "fwhm_offset": {
         "adjust_element1": "fixed",
@@ -220,22 +221,14 @@ param_data = {
         "min": 0.05,
         "tool_tip": "width**2 = (b1/2.3548)**2 + 3.85*b2*E",
         "default": 0.1,
-        "value": 0.1
+        "value": 0.1,
     },
     "non_fitting_values": {
         "element_list": "Al_K, S_K, Cl_K, Ar_K, Ca_K, Cr_K, Fe_K, Co_K, Ni_K, Cu_K, Pm_L, Gd_L",
-        "energy_bound_high": {
-            "default_value": 12.8,
-            "description": "E high [keV]",
-            "value": 12.8
-        },
-        "energy_bound_low": {
-            "default_value": 1.0,
-            "description": "E low [keV]",
-            "value": 1.0
-        },
+        "energy_bound_high": {"default_value": 12.8, "description": "E high [keV]", "value": 12.8},
+        "energy_bound_low": {"default_value": 1.0, "description": "E low [keV]", "value": 1.0},
         "epsilon": 3.85,
         "escape_ratio": 0.005,
-        "background_width": 0.5
-    }
+        "background_width": 0.5,
+    },
 }

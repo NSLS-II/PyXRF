@@ -5,11 +5,11 @@ from .wd_preview_plot_count import PreviewPlotCount
 from .wd_preview_plot_spectrum import PreviewPlotSpectrum
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
 class PreviewPlots(QTabWidget):
-
     def __init__(self, *, gpc, gui_vars):
         super().__init__()
 

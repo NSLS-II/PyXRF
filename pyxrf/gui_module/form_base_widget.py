@@ -2,7 +2,6 @@ from qtpy.QtWidgets import QWidget, QSizePolicy
 
 
 class FormBaseWidget(QWidget):
-
     def __init__(self):
         super().__init__()
         self.setMaximumWidth(400)

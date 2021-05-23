@@ -101,13 +101,11 @@ def parse_compound_formula(compound_formula):
 
     # Now create more manageable structure
     compound_dict = {}
-    for e_an, e_mf, e_na in zip(compound_data["Elements"],
-                                compound_data["massFractions"],
-                                compound_data["nAtoms"]):
+    for e_an, e_mf, e_na in zip(
+        compound_data["Elements"], compound_data["massFractions"], compound_data["nAtoms"]
+    ):
         e_name = xraylib.AtomicNumberToSymbol(e_an)
-        compound_dict[e_name] = {"AtomicNumber": e_an,
-                                 "nAtoms": e_na,
-                                 "massFraction": e_mf}
+        compound_dict[e_name] = {"AtomicNumber": e_an, "nAtoms": e_na, "massFraction": e_mf}
 
     return compound_dict
 
@@ -231,10 +229,10 @@ def check_if_eline_is_activated(elemental_line, incident_energy):
 
     # The validation of 'elemental_line' is strict enough to do the rest of the processing
     #   without further checks.
-    [element, line] = elemental_line.split('_')
+    [element, line] = elemental_line.split("_")
     line = line.lower()
     if len(line) == 1:
-        line += 'a1'
+        line += "a1"
     elif len(line) == 2:
         line += "1"
 
@@ -329,10 +327,10 @@ def get_eline_parameters(elemental_line, incident_energy):
 
     # The validation of 'elemental_line' is strict enough to do the rest of the processing
     #   without further checks.
-    [element, line] = elemental_line.split('_')
+    [element, line] = elemental_line.split("_")
     line = line.lower()
     if len(line) == 1:
-        line += 'a1'
+        line += "a1"
     elif len(line) == 2:
         line += "1"
 
@@ -375,10 +373,10 @@ def get_eline_energy(elemental_line):
 
     # The validation of 'elemental_line' is strict enough to do the rest of the processing
     #   without further checks.
-    [element, line] = elemental_line.split('_')
+    [element, line] = elemental_line.split("_")
     line = line.lower()
     if len(line) == 1:
-        line += 'a1'
+        line += "a1"
     elif len(line) == 2:
         line += "1"
 

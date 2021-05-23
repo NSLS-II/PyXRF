@@ -3,7 +3,7 @@ import numpy as np
 import math
 import os
 
-from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
+from skbeam.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
 from skbeam.core.constants.xrf import XrfElement
 from skbeam.core.fitting.lineshapes import gaussian
 
@@ -13,6 +13,7 @@ from ..core.quant_analysis import ParamQuantEstimation
 from ..core.xrf_utils import generate_eline_list
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -49,7 +50,7 @@ def _get_elemental_line_parameters(*, elemental_line, incident_energy):
     if not re.search(r"^[A-Z][a-z]?_[KLM]$", elemental_line):
         raise RuntimeError(f"Elemental line {elemental_line} has incorrect format")
 
-    element, line = elemental_line.split('_')
+    element, line = elemental_line.split("_")
     line_name = elemental_line
 
     ALL_LINES = K_LINE + L_LINE + M_LINE
@@ -72,7 +73,7 @@ def _get_elemental_line_parameters(*, elemental_line, incident_energy):
                 continue
 
             i_line = e.cs(incident_energy)[l_name]
-            ratio_v = i_line/i_line_a1
+            ratio_v = i_line / i_line_a1
 
             if energy_v == 0 or ratio_v == 0:
                 continue
@@ -82,15 +83,18 @@ def _get_elemental_line_parameters(*, elemental_line, incident_energy):
     return elemental_lines
 
 
-def gen_xrf_spectrum(element_line_groups=None, *,
-                     incident_energy=12.0,
-                     n_spectrum_points=4096,
-                     e_offset=0.0,
-                     e_linear=0.01,
-                     e_quadratic=0.0,
-                     fwhm_offset=0.102333594,
-                     fwhm_fanoprime=0.000113169,
-                     epsilon=3.85):
+def gen_xrf_spectrum(
+    element_line_groups=None,
+    *,
+    incident_energy=12.0,
+    n_spectrum_points=4096,
+    e_offset=0.0,
+    e_linear=0.01,
+    e_quadratic=0.0,
+    fwhm_offset=0.102333594,
+    fwhm_fanoprime=0.000113169,
+    epsilon=3.85,
+):
     r"""
     Computes simulated XRF spectrum for the set of element line groups. Returns the spectrum
     as ndarray with 'n_spectrum_points' elements.
@@ -141,12 +145,13 @@ def gen_xrf_spectrum(element_line_groups=None, *,
     """
 
     if n_spectrum_points < 1:
-        raise RuntimeError(f"Spectrum must contain at least one point "
-                           f"(n_spectrum_points={n_spectrum_points})")
+        raise RuntimeError(f"Spectrum must contain at least one point " f"(n_spectrum_points={n_spectrum_points})")
 
     if (element_line_groups is not None) and (not isinstance(element_line_groups, dict)):
-        raise RuntimeError(f"Parameter 'element_line_groups' has invalid type {type(element_line_groups)} "
-                           f"(must be None or dict)")
+        raise RuntimeError(
+            f"Parameter 'element_line_groups' has invalid type {type(element_line_groups)} "
+            f"(must be None or dict)"
+        )
 
     spectrum_total = np.zeros((n_spectrum_points,), dtype="float")
 
@@ -158,17 +163,18 @@ def gen_xrf_spectrum(element_line_groups=None, *,
 
         for element_line_group, parameters in element_line_groups.items():
 
-            element_area = parameters['area']
+            element_area = parameters["area"]
 
             spectrum = np.zeros((n_spectrum_points,), dtype="float")
 
-            elemental_lines = _get_elemental_line_parameters(elemental_line=element_line_group,
-                                                             incident_energy=incident_energy)
+            elemental_lines = _get_elemental_line_parameters(
+                elemental_line=element_line_group, incident_energy=incident_energy
+            )
 
             for line in elemental_lines:
                 sigma = fwhm_offset / 2.0 / math.sqrt(2 * math.log(2))
-                sigma = math.sqrt(sigma ** 2 + line['energy'] * epsilon * fwhm_fanoprime)
-                spectrum += gaussian(x=xx_energy, area=line['ratio'], center=line['energy'], sigma=sigma)
+                sigma = math.sqrt(sigma ** 2 + line["energy"] * epsilon * fwhm_fanoprime)
+                spectrum += gaussian(x=xx_energy, area=line["ratio"], center=line["energy"], sigma=sigma)
 
             # Normalize the spectrum, make the area equal to 'element_area'
             spectrum *= element_area / spectrum.sum()
@@ -178,12 +184,16 @@ def gen_xrf_spectrum(element_line_groups=None, *,
     return spectrum_total, xx_energy
 
 
-def gen_xrf_map_const(element_line_groups=None, *,
-                      nx=10, ny=5,
-                      incident_energy=12.0,
-                      n_spectrum_points=4096,
-                      background_area=0,
-                      spectrum_parameters=None):
+def gen_xrf_map_const(
+    element_line_groups=None,
+    *,
+    nx=10,
+    ny=5,
+    incident_energy=12.0,
+    n_spectrum_points=4096,
+    background_area=0,
+    spectrum_parameters=None,
+):
 
     r"""
     Generate ny (vertical) by nx (horizontal) XRF map with identical spectrum for each pixel.
@@ -238,10 +248,12 @@ def gen_xrf_map_const(element_line_groups=None, *,
     if nx < 1 or ny < 1:
         raise RuntimeError(f"XRF map has zero pixels: nx={nx}, ny={ny}")
 
-    spectrum, xx_energy = gen_xrf_spectrum(element_line_groups,
-                                           incident_energy=incident_energy,
-                                           n_spectrum_points=n_spectrum_points,
-                                           **spectrum_parameters)
+    spectrum, xx_energy = gen_xrf_spectrum(
+        element_line_groups,
+        incident_energy=incident_energy,
+        n_spectrum_points=n_spectrum_points,
+        **spectrum_parameters,
+    )
 
     background = background_area / spectrum.size
     spectrum += background
@@ -254,14 +266,18 @@ def gen_xrf_map_const(element_line_groups=None, *,
     return xrf_map, xx_energy
 
 
-def create_xrf_map_data(*, scan_id,
-                        element_line_groups=None,
-                        num_det_channels=3,
-                        nx=10, ny=5,
-                        incident_energy=12.0,
-                        n_spectrum_points=4096,
-                        background_area=0,
-                        spectrum_parameters=None):
+def create_xrf_map_data(
+    *,
+    scan_id,
+    element_line_groups=None,
+    num_det_channels=3,
+    nx=10,
+    ny=5,
+    incident_energy=12.0,
+    n_spectrum_points=4096,
+    background_area=0,
+    spectrum_parameters=None,
+):
     r"""
     Generates a complete simulated XRF dataset based on set of element lines, XRF map size,
     incident energy etc. The dataset may be used for testing of XRF map processing functions.
@@ -355,12 +371,15 @@ def create_xrf_map_data(*, scan_id,
         num_det_channels = 1
 
     # Generate XRF map (sum of all channels)
-    xrf_map, _ = gen_xrf_map_const(element_line_groups,
-                                   nx=nx, ny=ny,
-                                   incident_energy=incident_energy,
-                                   n_spectrum_points=n_spectrum_points,
-                                   background_area=background_area,
-                                   **spectrum_parameters)
+    xrf_map, _ = gen_xrf_map_const(
+        element_line_groups,
+        nx=nx,
+        ny=ny,
+        incident_energy=incident_energy,
+        n_spectrum_points=n_spectrum_points,
+        background_area=background_area,
+        **spectrum_parameters,
+    )
 
     # Distribute total fluorescence into 'num_det_channels'
     channel_coef = np.arange(num_det_channels) + 10.0
@@ -411,24 +430,29 @@ def create_xrf_map_data(*, scan_id,
         for i in range(n):
             s += np.random.choice(uid_characters)
         return s
-    metadata["scan_uid"] = _gen_rs(8) + "-" + _gen_rs(4) + "-" + _gen_rs(4) + "-" + \
-        _gen_rs(4) + "-" + _gen_rs(12)
+
+    metadata["scan_uid"] = _gen_rs(8) + "-" + _gen_rs(4) + "-" + _gen_rs(4) + "-" + _gen_rs(4) + "-" + _gen_rs(12)
     metadata["instrument_mono_incident_energy"] = incident_energy
 
     return data_xrf, data_scalers, data_pos, metadata
 
 
-def create_hdf5_xrf_map_const(*, scan_id, wd=None,
-                              fln_suffix=None,
-                              element_line_groups=None,
-                              save_det_sum=True,
-                              save_det_channels=True,
-                              num_det_channels=3,
-                              nx=10, ny=5,
-                              incident_energy=12.0,
-                              n_spectrum_points=4096,
-                              background_area=0,
-                              spectrum_parameters=None):
+def create_hdf5_xrf_map_const(
+    *,
+    scan_id,
+    wd=None,
+    fln_suffix=None,
+    element_line_groups=None,
+    save_det_sum=True,
+    save_det_channels=True,
+    num_det_channels=3,
+    nx=10,
+    ny=5,
+    incident_energy=12.0,
+    n_spectrum_points=4096,
+    background_area=0,
+    spectrum_parameters=None,
+):
     r"""
     Generates and saves the simulated XRF map data to file. The file may be loaded in PyXRF
     and used for testing processing functions. The function overwrites existing files.
@@ -527,11 +551,12 @@ def create_hdf5_xrf_map_const(*, scan_id, wd=None,
         scan_id=scan_id,
         element_line_groups=element_line_groups,
         num_det_channels=num_det_channels,
-        nx=nx, ny=ny,
+        nx=nx,
+        ny=ny,
         incident_energy=incident_energy,
         n_spectrum_points=n_spectrum_points,
         background_area=background_area,
-        spectrum_parameters=spectrum_parameters
+        spectrum_parameters=spectrum_parameters,
     )
 
     data = {}
@@ -539,9 +564,9 @@ def create_hdf5_xrf_map_const(*, scan_id, wd=None,
     data.update(data_scalers)
     data.update(data_pos)
 
-    write_db_to_hdf_base(fpath, data, metadata=metadata,
-                         file_overwrite_existing=True,
-                         create_each_det=save_det_channels)
+    write_db_to_hdf_base(
+        fpath, data, metadata=metadata, file_overwrite_existing=True, create_each_det=save_det_channels
+    )
 
     return fpath
 
@@ -598,8 +623,10 @@ def gen_hdf5_qa_dataset(*, wd=None, standards_serials=None, test_elements=None):
     """
 
     if not standards_serials:
-        raise RuntimeError("There must be at least one standard loaded. Pass the list "
-                           "of standards as value of the parameter 'standard_list'")
+        raise RuntimeError(
+            "There must be at least one standard loaded. Pass the list "
+            "of standards as value of the parameter 'standard_list'"
+        )
 
     nx, ny = 30, 20
 
@@ -649,22 +676,27 @@ def gen_hdf5_qa_dataset(*, wd=None, standards_serials=None, test_elements=None):
             el_grp = {}
             for line, info in elines.items():
                 el_grp[line] = {"area": info["density"] * counts_per_unit}
-                el = line.split('_')[0]  # Element: e.g. Fe_K -> Fe
-                if (line not in lines_for_testing):
-                    if (el in test_elements):
+                el = line.split("_")[0]  # Element: e.g. Fe_K -> Fe
+                if line not in lines_for_testing:
+                    if el in test_elements:
                         density = test_elements[el]["density"]
-                        lines_for_testing[line] = \
-                            {"area": density * counts_per_unit,
-                             "counts_per_unit": counts_per_unit,
-                             "density": density,
-                             "in_reference": True}
+                        lines_for_testing[line] = {
+                            "area": density * counts_per_unit,
+                            "counts_per_unit": counts_per_unit,
+                            "density": density,
+                            "in_reference": True,
+                        }
 
-            fln = create_hdf5_xrf_map_const(scan_id=scan_id, wd=wd, fln_suffix=f"{serial}",
-                                            element_line_groups=el_grp,
-                                            nx=nx, ny=ny, incident_energy=incident_energy)
-            s = f"Reference standard file: '{fln}'\n"\
-                f"    Standard serial: {serial}\n"\
-                f"    Emission lines:\n"
+            fln = create_hdf5_xrf_map_const(
+                scan_id=scan_id,
+                wd=wd,
+                fln_suffix=f"{serial}",
+                element_line_groups=el_grp,
+                nx=nx,
+                ny=ny,
+                incident_energy=incident_energy,
+            )
+            s = f"Reference standard file: '{fln}'\n" f"    Standard serial: {serial}\n" f"    Emission lines:\n"
             for line, info in elines.items():
                 s += f"        {line}: density = {info['density']}\n"
             f_log.write(f"{s}\n")
@@ -675,24 +707,33 @@ def gen_hdf5_qa_dataset(*, wd=None, standards_serials=None, test_elements=None):
         test_elines = generate_eline_list(list(test_elements.keys()), incident_energy=incident_energy)
         for line in test_elines:
             if line not in lines_for_testing:
-                el = line.split('_')[0]
+                el = line.split("_")[0]
                 density = test_elements[el]["density"]
-                lines_for_testing[line] = {"area": density * counts_per_unit,
-                                           "counts_per_unit": counts_per_unit,
-                                           "density": density,
-                                           "in_reference": False}
+                lines_for_testing[line] = {
+                    "area": density * counts_per_unit,
+                    "counts_per_unit": counts_per_unit,
+                    "density": density,
+                    "in_reference": False,
+                }
 
         fln_suffix = "test" + "_" + "_".join(test_elements.keys())
-        fln = create_hdf5_xrf_map_const(scan_id=2000, wd=wd, fln_suffix=fln_suffix,
-                                        element_line_groups=lines_for_testing,
-                                        nx=nx, ny=ny, incident_energy=incident_energy)
-        s = f"Test file '{fln}'\n"\
-            f"    Emission lines:\n"
+        fln = create_hdf5_xrf_map_const(
+            scan_id=2000,
+            wd=wd,
+            fln_suffix=fln_suffix,
+            element_line_groups=lines_for_testing,
+            nx=nx,
+            ny=ny,
+            incident_energy=incident_energy,
+        )
+        s = f"Test file '{fln}'\n" f"    Emission lines:\n"
         for line, info in lines_for_testing.items():
-            s += f"        {line}: density = {info['density']}, "\
-                 f"counts_per_unit = {info['counts_per_unit']}, " \
-                 f"area = {info['area']}, "\
-                 f"in_reference = {info['in_reference']}\n"
+            s += (
+                f"        {line}: density = {info['density']}, "
+                f"counts_per_unit = {info['counts_per_unit']}, "
+                f"area = {info['area']}, "
+                f"in_reference = {info['in_reference']}\n"
+            )
         f_log.write(f"{s}\n")
 
         files_saved.append(fln)
@@ -733,9 +774,7 @@ def gen_hdf5_qa_dataset_preset_1(*, wd=None):
     test_elements["Fe"] = {"density": 50}  # Density in ug/cm^2 (for simulated test scan)
     test_elements["W"] = {"density": 70}
     test_elements["Au"] = {"density": 80}
-    files_saved = gen_hdf5_qa_dataset(wd=wd,
-                                      standards_serials=standards_serials,
-                                      test_elements=test_elements)
+    files_saved = gen_hdf5_qa_dataset(wd=wd, standards_serials=standards_serials, test_elements=test_elements)
 
     # Print saved file names
     f_names = [f"    '{_}'" for _ in files_saved]

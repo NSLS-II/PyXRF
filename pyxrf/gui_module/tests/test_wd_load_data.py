@@ -8,6 +8,7 @@ from PyQt5.QtCore import Qt
 # =====================================================================
 #                 class DialogLoadMask (QDialogBox)
 
+
 def test_DialogLoadMask_1(qtbot):
     """Set/Read values from ROI widget group of DialogLoadMask object"""
     dlg = DialogLoadMask()
@@ -17,12 +18,10 @@ def test_DialogLoadMask_1(qtbot):
     # Set image size
     n_rows, n_columns = 15, 17
     dlg.set_image_size(n_rows=n_rows, n_columns=n_columns)
-    assert f"{n_rows} rows, {n_columns} columns" in dlg.label_map_size.text(), \
-        "Map size was not set correctly"
+    assert f"{n_rows} rows, {n_columns} columns" in dlg.label_map_size.text(), "Map size was not set correctly"
 
     def _check_roi_widgets(expected_values):
-        l_edit_widgets = (dlg.le_roi_start_row, dlg.le_roi_start_col,
-                          dlg.le_roi_end_row, dlg.le_roi_end_col)
+        l_edit_widgets = (dlg.le_roi_start_row, dlg.le_roi_start_col, dlg.le_roi_end_row, dlg.le_roi_end_col)
         for n, v in enumerate(expected_values):
             if n < 2:  # First 2 entries (are incremented when displayed)
                 v += 1
@@ -70,8 +69,7 @@ def test_DialogLoadMask_2(qtbot):
     dlg.show()
 
     def _check_roi_widgets(expected_values):
-        l_edit_widgets = (dlg.le_roi_start_row, dlg.le_roi_start_col,
-                          dlg.le_roi_end_row, dlg.le_roi_end_col)
+        l_edit_widgets = (dlg.le_roi_start_row, dlg.le_roi_start_col, dlg.le_roi_end_row, dlg.le_roi_end_col)
         for n, v in enumerate(expected_values):
             if n < 2:  # First 2 entries (are incremented when displayed)
                 v += 1
@@ -293,13 +291,11 @@ def test_DialogLoadMask_6(qtbot, monkeypatch):
     monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args: [""])
     qtbot.mouseClick(dlg.pb_load_mask, Qt.LeftButton)
     assert dlg.le_load_mask.isValid() is False, "Incorrect state of the line edit widget"
-    assert dlg.le_load_mask.text() == dlg._le_load_mask_default_text, \
-        "Line Edit text is set incorrectly"
+    assert dlg.le_load_mask.text() == dlg._le_load_mask_default_text, "Line Edit text is set incorrectly"
     assert dlg.get_mask_file_path() == "", "Unexpected returned path for the mask file"
 
     monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args: [d_path])
     qtbot.mouseClick(dlg.pb_load_mask, Qt.LeftButton)
     assert dlg.le_load_mask.isValid() is True, "Incorrect state of the line edit widget"
-    assert dlg.le_load_mask.text() == d_path, \
-        "Line Edit text is set incorrectly"
+    assert dlg.le_load_mask.text() == d_path, "Line Edit text is set incorrectly"
     assert dlg.get_mask_file_path() == d_path, "Unexpected returned path for the mask file"

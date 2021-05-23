@@ -4,7 +4,11 @@ from PyQt5.QtWidgets import QLineEdit
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QDoubleValidator
 from pyxrf.gui_module.useful_widgets import (
-    IntValidatorStrict, IntValidatorRelaxed, DoubleValidatorRelaxed, RangeManager)
+    IntValidatorStrict,
+    IntValidatorRelaxed,
+    DoubleValidatorRelaxed,
+    RangeManager,
+)
 
 
 def enter_text_via_keyboard(qtbot, widget, text, *, finish=True):
@@ -197,6 +201,7 @@ def test_DoubleValidatorRelaxed_2(qtbot, text, range, valid):
 # ==============================================================
 #   Class RangeManager
 
+
 def test_RangeManager_1(qtbot):
     """
     RangeManager: test the function for setting and changing value type
@@ -206,12 +211,12 @@ def test_RangeManager_1(qtbot):
     rman.show()
 
     def _compare_tuples(*, returned, expected, v_type):
-        assert len(returned) == len(expected), \
-            "Returned selection has wrong number of elements"
+        assert len(returned) == len(expected), "Returned selection has wrong number of elements"
         for v in returned:
             assert isinstance(v, v_type), f"Returned value has wrong type: {type(v)})"
         npt.assert_array_almost_equal(
-            returned, expected, err_msg="Returned and original selection are not identical")
+            returned, expected, err_msg="Returned and original selection are not identical"
+        )
 
     # The value type is 'float' by default
     f_range = (25.123, 89.892)
@@ -266,27 +271,20 @@ def test_RangeManager_2(qtbot, full_range, selection, value_type):
     rman.set_range(full_range[0], full_range[1])
     rman.set_selection(value_low=selection[0], value_high=selection[1])
 
-    npt.assert_array_almost_equal(rman.get_range(), full_range,
-                                  err_msg="Range is set incorrectly")
+    npt.assert_array_almost_equal(rman.get_range(), full_range, err_msg="Range is set incorrectly")
 
     # Verify that selection is displayed correctly
-    assert rman.le_min_value.text() == f"{selection[0]:.10g}", \
-        "Lower boundary is displayed incorrectly"
-    assert rman.le_max_value.text() == f"{selection[1]:.10g}", \
-        "Upper boundary is displayed incorrectly"
-    npt.assert_array_almost_equal(rman.get_selection(), selection,
-                                  err_msg="Selection is set incorreclty")
+    assert rman.le_min_value.text() == f"{selection[0]:.10g}", "Lower boundary is displayed incorrectly"
+    assert rman.le_max_value.text() == f"{selection[1]:.10g}", "Upper boundary is displayed incorrectly"
+    npt.assert_array_almost_equal(rman.get_selection(), selection, err_msg="Selection is set incorreclty")
 
     selection_changed = rman.reset()
     assert selection_changed is True, "Change of selection is incorrectly reported"
 
     # Verify that selection is displayed correctly
-    assert rman.le_min_value.text() == f"{full_range[0]:.10g}", \
-        "Lower boundary is displayed incorrectly"
-    assert rman.le_max_value.text() == f"{full_range[1]:.10g}", \
-        "Upper boundary is displayed incorrectly"
-    npt.assert_array_almost_equal(rman.get_selection(), full_range,
-                                  err_msg="Selection is set incorreclty")
+    assert rman.le_min_value.text() == f"{full_range[0]:.10g}", "Lower boundary is displayed incorrectly"
+    assert rman.le_max_value.text() == f"{full_range[1]:.10g}", "Upper boundary is displayed incorrectly"
+    npt.assert_array_almost_equal(rman.get_selection(), full_range, err_msg="Selection is set incorreclty")
 
     # Attemtp to reset again (selection shouldn't change)
     selection_changed = rman.reset()
@@ -319,8 +317,7 @@ def test_RangeManager_3(qtbot, full_range, selection, value_type):
     slider_steps = 1000
     selection_to_range_min = 0.01
 
-    rman = RangeManager(slider_steps=slider_steps,
-                        selection_to_range_min=selection_to_range_min)
+    rman = RangeManager(slider_steps=slider_steps, selection_to_range_min=selection_to_range_min)
     qtbot.addWidget(rman)
     rman.show()
 
@@ -352,20 +349,19 @@ def test_RangeManager_3(qtbot, full_range, selection, value_type):
     result = rman.set_selection(value_low=selection[0], value_high=selection[1])
     assert result == result_expected, f"Incorrect return value {result} by `set_selection()` method"
 
-    npt.assert_array_almost_equal(rman.get_selection(), sel,
-                                  err_msg="Selection is set incorrectly")
+    npt.assert_array_almost_equal(rman.get_selection(), sel, err_msg="Selection is set incorrectly")
     # Verify that selection is displayed correctly
-    assert rman.le_min_value.text() == f"{sel[0]:.10g}", \
-        "Lower boundary is displayed incorrectly"
-    assert rman.le_max_value.text() == f"{sel[1]:.10g}", \
-        "Upper boundary is displayed incorrectly"
+    assert rman.le_min_value.text() == f"{sel[0]:.10g}", "Lower boundary is displayed incorrectly"
+    assert rman.le_max_value.text() == f"{sel[1]:.10g}", "Upper boundary is displayed incorrectly"
 
     # Check positions of the sliders
     step = (full_range[1] - full_range[0]) / slider_steps
-    assert rman.sld_min_value.value() == slider_steps - round((sel[0] - full_range[0]) / step), \
-        "Slider position (min. value) is incorrect"
-    assert rman.sld_max_value.value() == round((sel[1] - full_range[0]) / step), \
-        "Slider position (max. value) is incorrect"
+    assert rman.sld_min_value.value() == slider_steps - round(
+        (sel[0] - full_range[0]) / step
+    ), "Slider position (min. value) is incorrect"
+    assert rman.sld_max_value.value() == round(
+        (sel[1] - full_range[0]) / step
+    ), "Slider position (max. value) is incorrect"
 
 
 # fmt: off
@@ -385,13 +381,10 @@ def test_RangeManager_4(qtbot, full_range, selection, value_type):
 
     def _verify_selection(sel):
         # Verify that selection is set correctly
-        npt.assert_array_almost_equal(rman.get_selection(), sel,
-                                      err_msg="Selection is set incorrectly")
+        npt.assert_array_almost_equal(rman.get_selection(), sel, err_msg="Selection is set incorrectly")
         # Verify that selection is displayed correctly
-        assert rman.le_min_value.text() == f"{sel[0]:.10g}", \
-            "Lower boundary is displayed incorrectly"
-        assert rman.le_max_value.text() == f"{sel[1]:.10g}", \
-            "Upper boundary is displayed incorrectly"
+        assert rman.le_min_value.text() == f"{sel[0]:.10g}", "Lower boundary is displayed incorrectly"
+        assert rman.le_max_value.text() == f"{sel[1]:.10g}", "Upper boundary is displayed incorrectly"
 
     rman.set_value_type(value_type)
     rman.set_range(full_range[0], full_range[1])
@@ -441,31 +434,28 @@ def test_RangeManager_5(qtbot, full_range, selection, new_range, value_type):
     slider_steps = 1000
     selection_to_range_min = 0.01
 
-    rman = RangeManager(slider_steps=slider_steps,
-                        selection_to_range_min=selection_to_range_min)
+    rman = RangeManager(slider_steps=slider_steps, selection_to_range_min=selection_to_range_min)
     qtbot.addWidget(rman)
     rman.show()
 
     def _verify_selection(sel, rng):
         # Verify that selection is set correctly
-        npt.assert_array_almost_equal(rman.get_selection(), sel,
-                                      err_msg="Selection is set incorrectly")
+        npt.assert_array_almost_equal(rman.get_selection(), sel, err_msg="Selection is set incorrectly")
         # Verify that selection is displayed correctly
-        assert rman.le_min_value.text() == f"{sel[0]:.8g}", \
-            "Lower boundary is displayed incorrectly"
-        assert rman.le_max_value.text() == f"{sel[1]:.8g}", \
-            "Upper boundary is displayed incorrectly"
+        assert rman.le_min_value.text() == f"{sel[0]:.8g}", "Lower boundary is displayed incorrectly"
+        assert rman.le_max_value.text() == f"{sel[1]:.8g}", "Upper boundary is displayed incorrectly"
         # Check positions of the sliders
         step = (rng[1] - rng[0]) / slider_steps
-        assert rman.sld_min_value.value() == slider_steps - round((sel[0] - rng[0]) / step), \
-            "Slider position (min. value) is incorrect"
-        assert rman.sld_max_value.value() == round((sel[1] - rng[0]) / step), \
-            "Slider position (max. value) is incorrect"
+        assert rman.sld_min_value.value() == slider_steps - round(
+            (sel[0] - rng[0]) / step
+        ), "Slider position (min. value) is incorrect"
+        assert rman.sld_max_value.value() == round(
+            (sel[1] - rng[0]) / step
+        ), "Slider position (max. value) is incorrect"
 
     def _verify_range(rng):
         # Verify that selection is set correctly
-        npt.assert_array_almost_equal(rman.get_range(), rng,
-                                      err_msg="Range is set incorrectly")
+        npt.assert_array_almost_equal(rman.get_range(), rng, err_msg="Range is set incorrectly")
 
     # Set the range and verify that the selection was scaled correctly
     rman.set_range(full_range[0], full_range[1])
@@ -534,8 +524,7 @@ def test_RangeManager_6(qtbot, add_sliders):
 
     def _check_slider_status(slider, status):
         # Check if slider has parent (it was added to layout)
-        assert (slider.parent() is not None) == status, \
-            "Slider visibility is set incorrectly"
+        assert (slider.parent() is not None) == status, "Slider visibility is set incorrectly"
 
     _check_slider_status(rman.sld_min_value, sliders_exist)
     _check_slider_status(rman.sld_max_value, sliders_exist)
@@ -576,8 +565,7 @@ def test_RangeManager_8(qtbot, full_range, selection, value_type):
     slider_steps = 1000
     selection_to_range_min = 0.01
 
-    rman = RangeManager(slider_steps=slider_steps,
-                        selection_to_range_min=selection_to_range_min)
+    rman = RangeManager(slider_steps=slider_steps, selection_to_range_min=selection_to_range_min)
     qtbot.addWidget(rman)
     rman.show()
 
@@ -653,8 +641,7 @@ def test_RangeManager_9(qtbot, full_range, selection, value_type):
     slider_steps = 1000
     selection_to_range_min = 0.01
 
-    rman = RangeManager(slider_steps=slider_steps,
-                        selection_to_range_min=selection_to_range_min)
+    rman = RangeManager(slider_steps=slider_steps, selection_to_range_min=selection_to_range_min)
     qtbot.addWidget(rman)
     rman.show()
 

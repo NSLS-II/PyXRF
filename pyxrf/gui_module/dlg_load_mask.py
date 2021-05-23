@@ -1,13 +1,23 @@
 import os
 import numpy as np
 
-from qtpy.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox, QLabel,
-                            QDialog, QDialogButtonBox, QFileDialog, QGridLayout)
+from qtpy.QtWidgets import (
+    QPushButton,
+    QHBoxLayout,
+    QVBoxLayout,
+    QGroupBox,
+    QLabel,
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
+    QGridLayout,
+)
 from qtpy.QtGui import QIntValidator
 
-from .useful_widgets import (LineEditReadOnly, LineEditExtended, set_tooltip)
+from .useful_widgets import LineEditReadOnly, LineEditExtended, set_tooltip
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -92,9 +102,11 @@ class DialogLoadMask(QDialog):
 
         # Group box for spatial ROI selection
         self.gb_roi = QGroupBox("Select ROI (in pixels)")
-        set_tooltip(self.gb_roi,
-                    "Select rectangular <b>spatial ROI</b>. If <b>mask</b> is "
-                    "loaded, then ROI is applied to the masked data.")
+        set_tooltip(
+            self.gb_roi,
+            "Select rectangular <b>spatial ROI</b>. If <b>mask</b> is "
+            "loaded, then ROI is applied to the masked data.",
+        )
         self.gb_roi.setCheckable(True)
         self.gb_roi.toggled.connect(self.gb_roi_toggled)
         self.gb_roi.setChecked(self._roi_active)
@@ -122,10 +134,12 @@ class DialogLoadMask(QDialog):
 
         # Group box for setting mask
         self.gb_mask = QGroupBox("Set mask")
-        set_tooltip(self.gb_mask,
-                    "Load <b>mask</b> from file. Active pixels in the mask are "
-                    "represented by positive integers. If <b>spatial ROI</b> is "
-                    "selected, then it is applied to the masked data.")
+        set_tooltip(
+            self.gb_mask,
+            "Load <b>mask</b> from file. Active pixels in the mask are "
+            "represented by positive integers. If <b>spatial ROI</b> is "
+            "selected, then it is applied to the masked data.",
+        )
         self.gb_mask.setCheckable(True)
         self.gb_mask.toggled.connect(self.gb_mask_toggled)
         self.gb_mask.setChecked(self._mask_active)
@@ -135,8 +149,7 @@ class DialogLoadMask(QDialog):
         self.gb_mask.setLayout(hbox)
 
         # Yes/No button box
-        self.button_box = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         self.button_ok = self.button_box.button(QDialogButtonBox.Ok)
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)
@@ -163,9 +176,7 @@ class DialogLoadMask(QDialog):
 
     def pb_load_mask_clicked(self):
         dir_name = self._compute_home_directory()
-        file_name = QFileDialog.getOpenFileName(self, "Load Mask From File",
-                                                dir_name,
-                                                "All (*)")
+        file_name = QFileDialog.getOpenFileName(self, "Load Mask From File", dir_name, "All (*)")
         file_name = file_name[0]
         if file_name:
             self._mask_file_path = file_name
@@ -233,7 +244,7 @@ class DialogLoadMask(QDialog):
         # Check if all fields have valid input values
         def _check_valid_input(line_edit, flag_valid):
             val = self._read_le_roi_value(line_edit, -1)
-            state = (val > 0)
+            state = val > 0
             line_edit.setValid(state)
             flag_valid = flag_valid if state else False
             return val, flag_valid
@@ -284,9 +295,11 @@ class DialogLoadMask(QDialog):
             The number of columns in the image: (1..)
         """
         if n_rows < 1 or n_columns < 1:
-            raise ValueError("DialogLoadMask: image size have zero rows or zero columns: "
-                             f"n_rows={n_rows} n_columns={n_columns}. "
-                             "Report the error to the development team.")
+            raise ValueError(
+                "DialogLoadMask: image size have zero rows or zero columns: "
+                f"n_rows={n_rows} n_columns={n_columns}. "
+                "Report the error to the development team."
+            )
 
         self._n_rows = n_rows
         self._n_columns = n_columns
@@ -302,8 +315,7 @@ class DialogLoadMask(QDialog):
         self.validator_rows.setTop(n_rows)
         self.validator_cols.setTop(n_columns)
         # Set label
-        self.label_map_size.setText(
-            f"{self._text_map_size_base}{self._n_rows} rows, {self._n_columns} columns.")
+        self.label_map_size.setText(f"{self._text_map_size_base}{self._n_rows} rows, {self._n_columns} columns.")
 
     def _show_selection(self, visible):
         """visible: True - show values, False - hide values"""

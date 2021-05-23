@@ -1,11 +1,9 @@
-from qtpy.QtWidgets import (QLabel, QVBoxLayout, QComboBox, QGridLayout, QDialog, QDialogButtonBox,
-                            QGroupBox)
+from qtpy.QtWidgets import QLabel, QVBoxLayout, QComboBox, QGridLayout, QDialog, QDialogButtonBox, QGroupBox
 
 from .useful_widgets import LineEditReadOnly, set_tooltip
 
 
 class DialogPlotEscapePeak(QDialog):
-
     def __init__(self):
         super().__init__()
 
@@ -16,12 +14,13 @@ class DialogPlotEscapePeak(QDialog):
         self.grp_show_escape_peak.setChecked(False)  # Set based on data !!!
 
         self.le_incident_energy = LineEditReadOnly()
-        set_tooltip(self.le_incident_energy,
-                    "<b>Incident energy</b>. Use <b>General...</b> button of <b>Model</b> tab "
-                    "to change the value if needed.")
+        set_tooltip(
+            self.le_incident_energy,
+            "<b>Incident energy</b>. Use <b>General...</b> button of <b>Model</b> tab "
+            "to change the value if needed.",
+        )
         self.combo_detector_type = QComboBox()
-        set_tooltip(self.combo_detector_type,
-                    "Select <b>detector</b> material. The typical choice is <b>Si</b>")
+        set_tooltip(self.combo_detector_type, "Select <b>detector</b> material. The typical choice is <b>Si</b>")
 
         self._detector_types = ["Si", "Ge"]
         self.combo_detector_type.addItems(self._detector_types)
@@ -34,8 +33,7 @@ class DialogPlotEscapePeak(QDialog):
         self.grp_show_escape_peak.setLayout(grid)
 
         # Yes/No button box
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)
 

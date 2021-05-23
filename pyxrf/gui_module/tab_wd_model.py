@@ -1,10 +1,18 @@
 import os
 
-from qtpy.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox,
-                            QLabel, QComboBox, QFileDialog, QMessageBox)
+from qtpy.QtWidgets import (
+    QPushButton,
+    QHBoxLayout,
+    QVBoxLayout,
+    QGroupBox,
+    QLabel,
+    QComboBox,
+    QFileDialog,
+    QMessageBox,
+)
 from qtpy.QtCore import Slot, Signal, QThreadPool, QRunnable
 
-from .useful_widgets import (LineEditReadOnly, global_gui_parameters, set_tooltip)
+from .useful_widgets import LineEditReadOnly, global_gui_parameters, set_tooltip
 
 from .form_base_widget import FormBaseWidget
 from .dlg_find_elements import DialogFindElements
@@ -12,6 +20,7 @@ from .dlg_select_quant_standard import DialogSelectQuantStandard
 from .wnd_detailed_fitting_params import fitting_preset_names
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -118,8 +127,7 @@ class ModelWidget(FormBaseWidget):
     def _setup_add_remove_elines_button(self):
 
         self.pb_manage_emission_lines = QPushButton("Add/Remove Emission Lines ...")
-        self.pb_manage_emission_lines.clicked.connect(
-            self.pb_manage_emission_lines_clicked)
+        self.pb_manage_emission_lines.clicked.connect(self.pb_manage_emission_lines_clicked)
 
     def _setup_settings_group(self):
 
@@ -192,58 +200,71 @@ class ModelWidget(FormBaseWidget):
         self.group_model_fitting.setLayout(vbox)
 
     def _set_tooltips(self):
-        set_tooltip(self.pb_find_elines,
-                    "Automatically find emission lines from <b>total spectrum</b>.")
+        set_tooltip(self.pb_find_elines, "Automatically find emission lines from <b>total spectrum</b>.")
         set_tooltip(
             self.pb_load_elines,
             "Load model parameters, including selected emission lines from <b>JSON</b> file, "
-            "which was previously save using <b>Save Parameters to File ...</b>.")
+            "which was previously save using <b>Save Parameters to File ...</b>.",
+        )
         set_tooltip(
             self.pb_load_qstandard,
             "Load <b>quantitative standard</b>. The model is reset and the emission lines "
             "that fit within the selected range of energies are added to the list "
-            "of emission lines.")
+            "of emission lines.",
+        )
         set_tooltip(
             self.pb_save_elines,
             "Save the model parameters including the parameters of the selected emission lines "
-            "to <b>JSON</b> file.")
+            "to <b>JSON</b> file.",
+        )
         set_tooltip(
             self.le_param_fln,
             "The name of the recently loaded <b>parameter file</b> or serial number "
-            "and name of the loaded <b>quantitative standard</b>")
+            "and name of the loaded <b>quantitative standard</b>",
+        )
 
         set_tooltip(
             self.pb_manage_emission_lines,
             "Open a user friendly interface that allows to <b>add and remove emission lines</b> "
-            "to the list or <b>modify parameters</b> of the selected emission lines")
+            "to the list or <b>modify parameters</b> of the selected emission lines",
+        )
 
         set_tooltip(self.pb_fit_param_general, "<b>General settings</b> for fitting algorithms.")
         set_tooltip(
             self.pb_fit_param_shared,
             "Access to low-level control of the total spectrum fitting algorithm: parameters shared "
-            "by models of all emission lines.")
+            "by models of all emission lines.",
+        )
         set_tooltip(
             self.pb_fit_param_lines,
             "Access to low-level control of the total spectrum fitting algorithm: adjust parameters "
-            "for each emission line of the selected elements; modify preset fitting configurations.")
-        set_tooltip(self.cb_step1, "Select preset fitting configuration for <b>Step 1</b>. "
-                                   "Click <b>Elements...</b> and <b>Global Parameters...</b> "
-                                   "buttons to open dialog boxes to configure the presets.")
-        set_tooltip(self.cb_step2, "Select preset fitting configuration for <b>Step 2</b>. "
-                                   "Click <b>Elements...</b> and <b>Global Parameters...</b> "
-                                   "buttons to open dialog boxes to configure the presets.")
+            "for each emission line of the selected elements; modify preset fitting configurations.",
+        )
+        set_tooltip(
+            self.cb_step1,
+            "Select preset fitting configuration for <b>Step 1</b>. "
+            "Click <b>Elements...</b> and <b>Global Parameters...</b> "
+            "buttons to open dialog boxes to configure the presets.",
+        )
+        set_tooltip(
+            self.cb_step2,
+            "Select preset fitting configuration for <b>Step 2</b>. "
+            "Click <b>Elements...</b> and <b>Global Parameters...</b> "
+            "buttons to open dialog boxes to configure the presets.",
+        )
 
         set_tooltip(
             self.pb_start_fitting,
             "Click the button to <b>run fitting of total spectrum</b>. The result of fitting includes "
             "the refined set of emission line parameters. The fitted spectrum is displayed in "
-            "<b>'Fitting Model'</b> tab and can be saved by clicking <b>'Save Spectrum/Fit ...'</b> button.")
+            "<b>'Fitting Model'</b> tab and can be saved by clicking <b>'Save Spectrum/Fit ...'</b> button.",
+        )
         set_tooltip(
             self.pb_save_spectrum,
             "Save <b>raw and fitted total spectra</b>. Click <b>'Start Fitting'</b> to perform fitting "
-            "before saving the spectrum")
-        set_tooltip(self.le_fitting_results,
-                    "<b>Output parameters</b> produced by the fitting algorithm")
+            "before saving the spectrum",
+        )
+        set_tooltip(self.le_fitting_results, "<b>Output parameters</b> produced by the fitting algorithm")
 
     def update_widget_state(self, condition=None):
         if condition == "tooltips":
@@ -278,13 +299,11 @@ class ModelWidget(FormBaseWidget):
 
             def cb():
                 range_changed = self.gpc.set_autofind_elements_params(
-                    dialog_data,
-                    update_model=update_model,
-                    update_fitting_params=not find_elements_requested)
+                    dialog_data, update_model=update_model, update_fitting_params=not find_elements_requested
+                )
                 if find_elements_requested:
                     self.gpc.find_elements_automatically()
-                return {"range_changed": range_changed,
-                        "find_elements_requested": find_elements_requested}
+                return {"range_changed": range_changed, "find_elements_requested": find_elements_requested}
 
             self._compute_in_background(cb, self.slot_find_elines_clicked)
 
@@ -320,8 +339,9 @@ class ModelWidget(FormBaseWidget):
     def _get_load_elines_cb(self):
         def cb(file_name, incident_energy_from_param_file=None):
             try:
-                completed, question = self.gpc.load_parameters_from_file(file_name,
-                                                                         incident_energy_from_param_file)
+                completed, question = self.gpc.load_parameters_from_file(
+                    file_name, incident_energy_from_param_file
+                )
                 success = True
                 change_state = True
                 msg = ""
@@ -336,26 +356,29 @@ class ModelWidget(FormBaseWidget):
                 change_state = True
                 msg = str(ex)
 
-            result_dict = {"completed": completed,
-                           "question": question,
-                           "success": success,
-                           "change_state": change_state,
-                           "msg": msg,
-                           "file_name": file_name}
+            result_dict = {
+                "completed": completed,
+                "question": question,
+                "success": success,
+                "change_state": change_state,
+                "msg": msg,
+                "file_name": file_name,
+            }
             return result_dict
+
         return cb
 
     def pb_load_elines_clicked(self):
         current_dir = self.gpc.get_current_working_directory()
-        file_name = QFileDialog.getOpenFileName(self, "Select File with Model Parameters",
-                                                current_dir,
-                                                "JSON (*.json);; All (*)")
+        file_name = QFileDialog.getOpenFileName(
+            self, "Select File with Model Parameters", current_dir, "JSON (*.json);; All (*)"
+        )
         file_name = file_name[0]
         if file_name:
             cb = self._get_load_elines_cb()
-            self._compute_in_background(cb, self.slot_load_elines_clicked,
-                                        file_name=file_name,
-                                        incident_energy_from_param_file=None)
+            self._compute_in_background(
+                cb, self.slot_load_elines_clicked, file_name=file_name, incident_energy_from_param_file=None
+            )
 
     @Slot(object)
     def slot_load_elines_clicked(self, results):
@@ -366,15 +389,18 @@ class ModelWidget(FormBaseWidget):
         msg = results["msg"]
 
         if not completed:
-            mb = QMessageBox(QMessageBox.Question, "Question",
-                             results["question"],
-                             QMessageBox.Yes | QMessageBox.No,
-                             parent=self)
-            answer = (mb.exec() == QMessageBox.Yes)
+            mb = QMessageBox(
+                QMessageBox.Question,
+                "Question",
+                results["question"],
+                QMessageBox.Yes | QMessageBox.No,
+                parent=self,
+            )
+            answer = mb.exec() == QMessageBox.Yes
             cb = self._get_load_elines_cb()
-            self._compute_in_background(cb, self.slot_load_elines_clicked,
-                                        file_name=file_name,
-                                        incident_energy_from_param_file=answer)
+            self._compute_in_background(
+                cb, self.slot_load_elines_clicked, file_name=file_name, incident_energy_from_param_file=answer
+            )
             return
 
         if results["success"]:
@@ -391,9 +417,13 @@ class ModelWidget(FormBaseWidget):
         else:
             if results["change_state"]:
                 logger.error(f"Exception: error occurred while loading parameters: {msg}")
-                mb_error = QMessageBox(QMessageBox.Critical, "Error",
-                                       f"Error occurred while processing loaded parameters: {msg}",
-                                       QMessageBox.Ok, parent=self)
+                mb_error = QMessageBox(
+                    QMessageBox.Critical,
+                    "Error",
+                    f"Error occurred while processing loaded parameters: {msg}",
+                    QMessageBox.Ok,
+                    parent=self,
+                )
                 mb_error.exec()
                 # Here the parameters were loaded and processing was partially performed,
                 #   so change the state of the program
@@ -405,8 +435,7 @@ class ModelWidget(FormBaseWidget):
                 # It doesn't seem that the state of the program needs to be changed if
                 #   the file was not loaded at all
                 logger.error(f"Exception: {msg}")
-                mb_error = QMessageBox(QMessageBox.Critical, "Error",
-                                       f"{msg}", QMessageBox.Ok, parent=self)
+                mb_error = QMessageBox(QMessageBox.Critical, "Error", f"{msg}", QMessageBox.Ok, parent=self)
                 mb_error.exec()
 
     def pb_load_qstandard_clicked(self):
@@ -425,11 +454,9 @@ class ModelWidget(FormBaseWidget):
                     success, msg = True, ""
                 except Exception as ex:
                     success, msg = False, str(ex)
-                return {"success": success, "msg": msg,
-                        "selected_standard": selected_standard}
+                return {"success": success, "msg": msg, "selected_standard": selected_standard}
 
-            self._compute_in_background(cb, self.slot_load_qstandard_clicked,
-                                        selected_standard=selected_standard)
+            self._compute_in_background(cb, self.slot_load_qstandard_clicked, selected_standard=selected_standard)
 
     @Slot(object)
     def slot_load_qstandard_clicked(self, result):
@@ -452,16 +479,17 @@ class ModelWidget(FormBaseWidget):
             self.update_global_state.emit()
         else:
             msg = result["msg"]
-            msgbox = QMessageBox(QMessageBox.Critical, "Failed to Load Quantitative Standard",
-                                 msg, QMessageBox.Ok, parent=self)
+            msgbox = QMessageBox(
+                QMessageBox.Critical, "Failed to Load Quantitative Standard", msg, QMessageBox.Ok, parent=self
+            )
             msgbox.exec()
 
     def pb_save_elines_clicked(self):
         current_dir = self.gpc.get_current_working_directory()
         fln = os.path.join(current_dir, "model_parameters.json")
-        file_name = QFileDialog.getSaveFileName(self, "Select File to Save Model Parameters",
-                                                fln,
-                                                "JSON (*.json);; All (*)")
+        file_name = QFileDialog.getSaveFileName(
+            self, "Select File to Save Model Parameters", fln, "JSON (*.json);; All (*)"
+        )
         file_name = file_name[0]
         if file_name:
             try:
@@ -469,8 +497,7 @@ class ModelWidget(FormBaseWidget):
                 logger.debug(f"Model parameters were saved to the file '{file_name}'")
             except Exception as ex:
                 msg = str(ex)
-                msgbox = QMessageBox(QMessageBox.Critical, "Error",
-                                     msg, QMessageBox.Ok, parent=self)
+                msgbox = QMessageBox(QMessageBox.Critical, "Error", msg, QMessageBox.Ok, parent=self)
                 msgbox.exec()
         else:
             logger.debug("Saving model parameters was skipped.")
@@ -514,22 +541,23 @@ class ModelWidget(FormBaseWidget):
     def pb_save_spectrum_clicked(self):
         current_dir = self.gpc.get_current_working_directory()
         dir = QFileDialog.getExistingDirectory(
-            self, "Select Directory to Save Spectrum/Fit", current_dir,
-            QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks)
+            self,
+            "Select Directory to Save Spectrum/Fit",
+            current_dir,
+            QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks,
+        )
         if dir:
             try:
                 self.gpc.save_spectrum(dir, save_fit=self._fit_available)
                 logger.debug(f"Spectrum/Fit is saved to directory {dir}")
             except Exception as ex:
                 msg = str(ex)
-                msgbox = QMessageBox(QMessageBox.Critical, "Error",
-                                     msg, QMessageBox.Ok, parent=self)
+                msgbox = QMessageBox(QMessageBox.Critical, "Error", msg, QMessageBox.Ok, parent=self)
                 msgbox.exec()
         else:
             logger.debug("Spectrum/Fit saving is cancelled")
 
     def pb_start_fitting_clicked(self):
-
         def cb():
             try:
                 self.gpc.total_spectrum_fitting()
@@ -550,8 +578,9 @@ class ModelWidget(FormBaseWidget):
             self._set_fit_status(True)
         else:
             msg = result["msg"]
-            msgbox = QMessageBox(QMessageBox.Critical, "Failed to Fit Total Spectrum",
-                                 msg, QMessageBox.Ok, parent=self)
+            msgbox = QMessageBox(
+                QMessageBox.Critical, "Failed to Fit Total Spectrum", msg, QMessageBox.Ok, parent=self
+            )
             msgbox.exec()
 
         # Reload the table
@@ -607,6 +636,7 @@ class ModelWidget(FormBaseWidget):
                 def run(self):
                     result_dict = func(*args, **kwargs)
                     signal_complete.emit(result_dict)
+
             return LoadFile()
 
         if slot is not None:

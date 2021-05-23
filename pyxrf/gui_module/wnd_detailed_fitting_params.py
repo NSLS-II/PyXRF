@@ -1,11 +1,21 @@
-from qtpy.QtWidgets import (QHBoxLayout, QVBoxLayout, QLabel, QComboBox, QMessageBox,
-                            QTableWidget, QTableWidgetItem, QHeaderView, QPushButton)
+from qtpy.QtWidgets import (
+    QHBoxLayout,
+    QVBoxLayout,
+    QLabel,
+    QComboBox,
+    QMessageBox,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
+    QPushButton,
+)
 from qtpy.QtGui import QBrush, QColor, QPalette
 from qtpy.QtCore import Qt, Signal, Slot, QThreadPool, QRunnable
 
-from .useful_widgets import (get_background_css, set_tooltip, ComboBoxNamedNoWheel, SecondaryWindow)
+from .useful_widgets import get_background_css, set_tooltip, ComboBoxNamedNoWheel, SecondaryWindow
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -33,7 +43,7 @@ class WndDetailedFittingParams(SecondaryWindow):
     update_global_state = Signal()
     computations_complete = Signal(object)
 
-    def __init__(self,  *, window_title, gpc, gui_vars):
+    def __init__(self, *, window_title, gpc, gui_vars):
         super().__init__()
 
         # Global processing classes
@@ -217,18 +227,20 @@ class WndDetailedFittingParams(SecondaryWindow):
         self._enable_events = True
 
     def _set_tooltips(self):
-        set_tooltip(self.pb_apply,
-                    "Save changes and <b>update plots</b>.")
-        set_tooltip(self.pb_cancel,
-                    "<b>Discard</b> all changes.")
-        set_tooltip(self.combo_element_sel,
-                    "Select K, L or M <b>emission line</b> to edit the optimization parameters "
-                    "used for the line during total spectrum fitting.")
-        set_tooltip(self.table,
-                    "Edit optimization parameters for the selected emission line. "
-                    "Processing presets may be configured by specifying optimization strategy "
-                    "for each parameter may be selected. A preset for each fitting step "
-                    "of the total spectrum fitting may be selected in <b>Model</b> tab.")
+        set_tooltip(self.pb_apply, "Save changes and <b>update plots</b>.")
+        set_tooltip(self.pb_cancel, "<b>Discard</b> all changes.")
+        set_tooltip(
+            self.combo_element_sel,
+            "Select K, L or M <b>emission line</b> to edit the optimization parameters "
+            "used for the line during total spectrum fitting.",
+        )
+        set_tooltip(
+            self.table,
+            "Edit optimization parameters for the selected emission line. "
+            "Processing presets may be configured by specifying optimization strategy "
+            "for each parameter may be selected. A preset for each fitting step "
+            "of the total spectrum fitting may be selected in <b>Model</b> tab.",
+        )
 
     def combo_element_sel_current_index_changed(self, index):
         self._selected_index = index
@@ -306,7 +318,7 @@ class WndDetailedFittingParams(SecondaryWindow):
         self._enable_events = False
 
         eline_list = []
-        if 'shared' in self._selected_eline.lower():  # Shared parameters
+        if "shared" in self._selected_eline.lower():  # Shared parameters
             eline_list = self._other_param_list
             energy_list = [""] * len(eline_list)
         elif self._selected_eline == self._eline_list[self._selected_index]:  # Emission lines
@@ -316,10 +328,13 @@ class WndDetailedFittingParams(SecondaryWindow):
 
         self._table_contents = []
         for n, key in enumerate(eline_list):
-            data = [key, energy_list[n],
-                    self._param_dict[key]["value"],
-                    self._param_dict[key]["min"],
-                    self._param_dict[key]["max"]]
+            data = [
+                key,
+                energy_list[n],
+                self._param_dict[key]["value"],
+                self._param_dict[key]["min"],
+                self._param_dict[key]["max"],
+            ]
             for strategy in self._fit_strategy_list:
                 data.append(self._param_dict[key][strategy])
             self._table_contents.append(data)
@@ -377,8 +392,7 @@ class WndDetailedFittingParams(SecondaryWindow):
                     success, msg = False, str(ex)
                 return {"success": success, "msg": msg}
 
-            self._compute_in_background(cb, self.slot_save_form_data,
-                                        dialog_data=self._dialog_data)
+            self._compute_in_background(cb, self.slot_save_form_data, dialog_data=self._dialog_data)
 
     @Slot(object)
     def slot_save_form_data(self, result):
@@ -386,8 +400,9 @@ class WndDetailedFittingParams(SecondaryWindow):
 
         if not result["success"]:
             msg = result["msg"]
-            msgbox = QMessageBox(QMessageBox.Critical, "Failed to Apply Fit Parameters",
-                                 msg, QMessageBox.Ok, parent=self)
+            msgbox = QMessageBox(
+                QMessageBox.Critical, "Failed to Apply Fit Parameters", msg, QMessageBox.Ok, parent=self
+            )
             msgbox.exec()
         else:
             self._data_changed = False
@@ -420,6 +435,7 @@ class WndDetailedFittingParams(SecondaryWindow):
                 def run(self):
                     result_dict = func(*args, **kwargs)
                     signal_complete.emit(result_dict)
+
             return RunTask()
 
         if slot is not None:
@@ -452,6 +468,7 @@ class WndDetailedFittingParamsLines(WndDetailedFittingParams):
     def _save_dialog_data_function(self):
         def f(dialog_data):
             self.gpc.set_detailed_fitting_params(dialog_data)
+
         return f
 
 
@@ -467,4 +484,5 @@ class WndDetailedFittingParamsShared(WndDetailedFittingParams):
     def _save_dialog_data_function(self):
         def f(dialog_data):
             self.gpc.set_detailed_fitting_params(dialog_data)
+
         return f

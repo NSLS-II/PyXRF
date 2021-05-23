@@ -4,11 +4,11 @@ from qtpy.QtWidgets import QHBoxLayout, QVBoxLayout, QDialog, QDialogButtonBox, 
 from qtpy.QtCore import Qt
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
 class DialogViewCalibStandard(QDialog):
-
     def __init__(self, parent=None, *, file_path="", calib_preview=""):
 
         super().__init__(parent)

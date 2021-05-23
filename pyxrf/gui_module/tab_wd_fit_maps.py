@@ -1,14 +1,15 @@
 import os
 
-from qtpy.QtWidgets import (QPushButton, QVBoxLayout, QGroupBox, QLabel, QGridLayout, QMessageBox)
+from qtpy.QtWidgets import QPushButton, QVBoxLayout, QGroupBox, QLabel, QGridLayout, QMessageBox
 from qtpy.QtCore import Slot, Signal, QThreadPool, QRunnable
 
-from .useful_widgets import (global_gui_parameters, set_tooltip, LineEditExtended, IntValidatorStrict)
+from .useful_widgets import global_gui_parameters, set_tooltip, LineEditExtended, IntValidatorStrict
 from .form_base_widget import FormBaseWidget
 from .dlg_export_to_tiff_and_txt import DialogExportToTiffAndTxt
 from .dlg_save_calibration import DialogSaveCalibration
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -160,50 +161,58 @@ class FitMapsWidget(FormBaseWidget):
             "the selected region of the map."
             "The region is selected by specifying the <b>Start</b> and <b>End</b> coordinates "
             "(ranges of rows and columns) in pixels. The first and last rows and columns are "
-            "included in the selection.")
+            "included in the selection.",
+        )
         set_tooltip(
             self.le_start_row,
             "Number of the <b>first row</b> of the map to be included in the selection. "
-            "The number must be less than the number entered into 'End row' box.")
+            "The number must be less than the number entered into 'End row' box.",
+        )
         set_tooltip(
             self.le_start_col,
             "Number of the <b>first column</b> of the map to be included in the selection. "
-            "The number must be less than the number entered into 'End column' box.")
+            "The number must be less than the number entered into 'End column' box.",
+        )
         set_tooltip(
             self.le_end_row,
             "Number of the <b>last row</b> included in the selection. "
-            "The number must be greater than the number entered into 'Start row' box.")
+            "The number must be greater than the number entered into 'Start row' box.",
+        )
         set_tooltip(
             self.le_end_col,
             "Number of the <b>last column</b> included in the selection. "
-            "The number must be greater than the number entered into 'Start column' box.")
+            "The number must be greater than the number entered into 'Start column' box.",
+        )
 
         set_tooltip(
             self.pb_start_map_fitting,
             "Click to start <b>fitting of the XRF Maps</b>. The generated XRF Maps can be viewed "
-            "in <b>'XRF Maps' tab</b>")
+            "in <b>'XRF Maps' tab</b>",
+        )
 
         set_tooltip(
             self.pb_compute_roi_maps,
-            "Opens the window for setting up <b>spectral ROIs</b> and computating XRF Maps "
-            "based on the ROIs")
+            "Opens the window for setting up <b>spectral ROIs</b> and computating XRF Maps " "based on the ROIs",
+        )
 
-        set_tooltip(self.pb_save_to_db,
-                    "Save generated XRF Maps to a <b>database</b> via Databroker")
+        set_tooltip(self.pb_save_to_db, "Save generated XRF Maps to a <b>database</b> via Databroker")
 
         set_tooltip(
             self.pb_save_q_calibration,
-            "Opens a Dialog Box which allows to preview and save <b>Quantitative Calibration data</b>")
+            "Opens a Dialog Box which allows to preview and save <b>Quantitative Calibration data</b>",
+        )
         set_tooltip(
             self.pb_export_to_tiff_and_txt,
-            "Open a Dialog box which allows to export XRF Maps as <b>TIFF</b> and <b>TXT</b> files")
+            "Open a Dialog box which allows to export XRF Maps as <b>TIFF</b> and <b>TXT</b> files",
+        )
 
         set_tooltip(
             self.pb_load_quant_calib,
             "Open a window with GUI tools for loading and managing previously saved "
             "<b>Quantitative Calibration data</b> used for processing (normalization) "
             "of XRF Maps. The loaded calibration data is applied to XRF Maps if 'Quantitative' "
-            "box is checked in 'XRF Maps' tab")
+            "box is checked in 'XRF Maps' tab",
+        )
 
     def update_widget_state(self, condition=None):
         if condition == "tooltips":
@@ -221,8 +230,7 @@ class FitMapsWidget(FormBaseWidget):
 
     def slot_update_for_new_loaded_run(self):
         self.gpc.set_enable_save_spectra(False)
-        selected_area = {"row_min": 1, "row_max": 1,
-                         "col_min": 1, "col_max": 1}
+        selected_area = {"row_min": 1, "row_max": 1, "col_min": 1, "col_max": 1}
         self.gpc.set_selection_area_save_spectra(selected_area)
 
         self._update_area_selection_controls()
@@ -240,15 +248,20 @@ class FitMapsWidget(FormBaseWidget):
         msg = ""
         if not self.gpc.is_quant_standard_selected():
             # This is a safeguard. The button should be disabled if no standard is selected.
-            msg += "No quantitative standard is selected. " \
+            msg += (
+                "No quantitative standard is selected. "
                 "Use 'Load Quantitative Standard ...' button in 'Model' tab"
+            )
         if not self.gpc.is_quant_standard_fitting_available():
             msg = msg + "\n" if msg else msg
-            msg += "Select a dataset containing fitted XRF maps for the quantitative standard " \
+            msg += (
+                "Select a dataset containing fitted XRF maps for the quantitative standard "
                 "in XRF Maps tab (dataset name must end with 'fit')."
+            )
         if msg:
-            msgbox = QMessageBox(QMessageBox.Information, "Additional Steps Needed",
-                                 msg, QMessageBox.Ok, parent=self)
+            msgbox = QMessageBox(
+                QMessageBox.Information, "Additional Steps Needed", msg, QMessageBox.Ok, parent=self
+            )
             msgbox.exec()
             return
 
@@ -276,8 +289,7 @@ class FitMapsWidget(FormBaseWidget):
             self.gpc.save_distance_to_sample(dlg.distance_to_sample)
         except Exception as ex:
             msg = str(ex)
-            msgbox = QMessageBox(QMessageBox.Critical, "Error",
-                                 msg, QMessageBox.Ok, parent=self)
+            msgbox = QMessageBox(QMessageBox.Critical, "Error", msg, QMessageBox.Ok, parent=self)
             msgbox.exec()
 
     def pb_export_to_tiff_and_txt_clicked(self):
@@ -308,12 +320,14 @@ class FitMapsWidget(FormBaseWidget):
                     file_formats.append("tiff")
                 if dlg.save_txt:
                     file_formats.append("txt")
-                self.gpc.export_xrf_maps(results_path=result_path,
-                                         dataset_name=dataset_name,
-                                         scaler_name=scaler_name,
-                                         interpolate_on=interpolate_on,
-                                         quant_norm_on=quant_norm_on,
-                                         file_formats=file_formats)
+                self.gpc.export_xrf_maps(
+                    results_path=result_path,
+                    dataset_name=dataset_name,
+                    scaler_name=scaler_name,
+                    interpolate_on=interpolate_on,
+                    quant_norm_on=quant_norm_on,
+                    file_formats=file_formats,
+                )
                 if file_formats:
                     formats_text = " and ".join([_.upper() for _ in file_formats])
                 else:
@@ -321,14 +335,12 @@ class FitMapsWidget(FormBaseWidget):
                 msg = f"{formats_text} files were saved to the directory '{result_path}'"
                 logger.info(msg)
 
-                msgbox = QMessageBox(QMessageBox.Information, "Files Saved",
-                                     msg, QMessageBox.Ok, parent=self)
+                msgbox = QMessageBox(QMessageBox.Information, "Files Saved", msg, QMessageBox.Ok, parent=self)
                 msgbox.exec()
 
             except Exception as ex:
                 msg = str(ex)
-                msgbox = QMessageBox(QMessageBox.Critical, "Error",
-                                     msg, QMessageBox.Ok, parent=self)
+                msgbox = QMessageBox(QMessageBox.Critical, "Error", msg, QMessageBox.Ok, parent=self)
                 msgbox.exec()
 
     def pb_load_quant_calib_clicked(self):
@@ -341,7 +353,6 @@ class FitMapsWidget(FormBaseWidget):
         self.ref_main_window.wnd_load_quantitative_calibration.activateWindow()
 
     def pb_start_map_fitting_clicked(self):
-
         def cb():
             try:
                 self.gpc.fit_individual_pixels()
@@ -362,8 +373,9 @@ class FitMapsWidget(FormBaseWidget):
             self.gui_vars["gui_state"]["state_xrf_map_exists"] = True
         else:
             msg = result["msg"]
-            msgbox = QMessageBox(QMessageBox.Critical, "Failed to Fit Individual Pixel Spectra",
-                                 msg, QMessageBox.Ok, parent=self)
+            msgbox = QMessageBox(
+                QMessageBox.Critical, "Failed to Fit Individual Pixel Spectra", msg, QMessageBox.Ok, parent=self
+            )
             msgbox.exec()
 
         self.signal_map_fitting_complete.emit()
@@ -371,7 +383,7 @@ class FitMapsWidget(FormBaseWidget):
         if success:
             self.signal_activate_tab_xrf_maps.emit()
 
-    '''
+    """
     @Slot()
     def timerExpired(self):
         self._timer_counter += 1
@@ -387,7 +399,7 @@ class FitMapsWidget(FormBaseWidget):
                                    "Results are presented in 'XRF Maps' tab.", 5000)
             self.gui_vars["gui_state"]["running_computations"] = False
             self.update_global_state.emit()
-    '''
+    """
 
     def group_save_plots_toggled(self, state):
         self.gpc.set_enable_save_spectra(state)
@@ -465,10 +477,10 @@ class FitMapsWidget(FormBaseWidget):
 
         self.group_save_plots.setChecked(self.gpc.get_enable_save_spectra())
         area = self.gpc.get_selection_area_save_spectra()
-        self._area_row_min = area['row_min']
-        self._area_row_max = area['row_max']
-        self._area_col_min = area['col_min']
-        self._area_col_max = area['col_max']
+        self._area_row_min = area["row_min"]
+        self._area_row_max = area["row_max"]
+        self._area_col_min = area["col_min"]
+        self._area_col_max = area["col_max"]
         self._show_selected_area()
 
     def _show_selected_area(self):
@@ -486,10 +498,12 @@ class FitMapsWidget(FormBaseWidget):
             self._area_col_min = col_min
         if col_max is not None:
             self._area_col_max = col_max
-        area = {"row_min": self._area_row_min,
-                "row_max": self._area_row_max,
-                "col_min": self._area_col_min,
-                "col_max": self._area_col_max}
+        area = {
+            "row_min": self._area_row_min,
+            "row_max": self._area_row_max,
+            "col_min": self._area_col_min,
+            "col_max": self._area_col_max,
+        }
         self.gpc.set_selection_area_save_spectra(area)
         self._update_area_selection_controls()
 
@@ -517,6 +531,7 @@ class FitMapsWidget(FormBaseWidget):
                 def run(self):
                     result_dict = func(*args, **kwargs)
                     signal_complete.emit(result_dict)
+
             return LoadFile()
 
         if slot is not None:

@@ -1,19 +1,28 @@
 import os
 
-from qtpy.QtWidgets import (QHBoxLayout, QVBoxLayout, QGroupBox, QCheckBox, QLabel,
-                            QComboBox, QDialog, QDialogButtonBox, QFileDialog,
-                            QGridLayout, QTextEdit)
+from qtpy.QtWidgets import (
+    QHBoxLayout,
+    QVBoxLayout,
+    QGroupBox,
+    QCheckBox,
+    QLabel,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
+    QGridLayout,
+    QTextEdit,
+)
 from qtpy.QtCore import Qt
 
-from .useful_widgets import (LineEditReadOnly,
-                             PushButtonMinimumWidth, set_tooltip)
+from .useful_widgets import LineEditReadOnly, PushButtonMinimumWidth, set_tooltip
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
 class DialogExportToTiffAndTxt(QDialog):
-
     def __init__(self, parent=None, *, dir_path=""):
 
         super().__init__(parent)
@@ -34,41 +43,46 @@ class DialogExportToTiffAndTxt(QDialog):
         self.resize(600, 600)
 
         self.te_saved_files = QTextEdit()
-        set_tooltip(self.te_saved_files,
-                    "The list of <b>data file groups</b> about to be created.")
+        set_tooltip(self.te_saved_files, "The list of <b>data file groups</b> about to be created.")
         self.te_saved_files.setReadOnly(True)
 
         self.combo_select_dataset = QComboBox()
-        self.combo_select_dataset.currentIndexChanged.connect(
-            self.combo_select_dataset_current_index_changed)
+        self.combo_select_dataset.currentIndexChanged.connect(self.combo_select_dataset_current_index_changed)
         self._fill_dataset_combo()
-        set_tooltip(self.combo_select_dataset,
-                    "Select <b>dataset</b>. Initially, the selection matches the dataset activated "
-                    "in <b>XRF Maps</b> tab, but the selection may be changed if different dataset "
-                    "needs to be saved.")
+        set_tooltip(
+            self.combo_select_dataset,
+            "Select <b>dataset</b>. Initially, the selection matches the dataset activated "
+            "in <b>XRF Maps</b> tab, but the selection may be changed if different dataset "
+            "needs to be saved.",
+        )
 
         self.combo_normalization = QComboBox()
-        self.combo_normalization.currentIndexChanged.connect(
-            self.combo_normalization_current_index_changed)
+        self.combo_normalization.currentIndexChanged.connect(self.combo_normalization_current_index_changed)
         self._fill_scaler_combo()
-        set_tooltip(self.combo_normalization,
-                    "Select <b>scaler</b> used for data normalization. Initially, the selection matches "
-                    "the scaler activated in <b>XRF Maps</b> tab, but the selection may be changed "
-                    "if needed")
+        set_tooltip(
+            self.combo_normalization,
+            "Select <b>scaler</b> used for data normalization. Initially, the selection matches "
+            "the scaler activated in <b>XRF Maps</b> tab, but the selection may be changed "
+            "if needed",
+        )
 
         self.cb_interpolate = QCheckBox("Interpolate to uniform grid")
         self.cb_interpolate.setChecked(Qt.Checked if self.__interpolate_on else Qt.Unchecked)
         self.cb_interpolate.stateChanged.connect(self.cb_interpolate_state_changed)
-        set_tooltip(self.cb_interpolate,
-                    "Interpolate pixel coordinates to <b>uniform grid</b>. The initial choice is "
-                    "copied from <b>XRF Maps</b> tab.")
+        set_tooltip(
+            self.cb_interpolate,
+            "Interpolate pixel coordinates to <b>uniform grid</b>. The initial choice is "
+            "copied from <b>XRF Maps</b> tab.",
+        )
 
         self.cb_quantitative = QCheckBox("Quantitative normalization")
         self.cb_quantitative.setChecked(Qt.Checked if self.__quant_norm_on else Qt.Unchecked)
         self.cb_quantitative.stateChanged.connect(self.cb_quantitative_state_changed)
-        set_tooltip(self.cb_quantitative,
-                    "Apply <b>quantitative normalization</b> before saving the maps. "
-                    "The initial choice is copied from <b>XRF Maps</b> tab.")
+        set_tooltip(
+            self.cb_quantitative,
+            "Apply <b>quantitative normalization</b> before saving the maps. "
+            "The initial choice is copied from <b>XRF Maps</b> tab.",
+        )
 
         self.group_settings = QGroupBox("Settings (selections from XRF Maps tab)")
         grid = QGridLayout()
@@ -79,25 +93,24 @@ class DialogExportToTiffAndTxt(QDialog):
         self.group_settings.setLayout(grid)
 
         self.le_dir_path = LineEditReadOnly()
-        set_tooltip(self.le_dir_path,
-                    "<b>Root directory</b> for saving TIFF and TXT files. The files will be saved "
-                    "in subdirectories inside the root directory.")
+        set_tooltip(
+            self.le_dir_path,
+            "<b>Root directory</b> for saving TIFF and TXT files. The files will be saved "
+            "in subdirectories inside the root directory.",
+        )
         self.pb_dir_path = PushButtonMinimumWidth("..")
-        set_tooltip(self.pb_dir_path,
-                    "Change to <b>root directory</b> for TIFF and TXT files.")
+        set_tooltip(self.pb_dir_path, "Change to <b>root directory</b> for TIFF and TXT files.")
         self.pb_dir_path.clicked.connect(self.pb_dir_path_clicked)
         self.pb_dir_path.setDefault(False)
         self.pb_dir_path.setAutoDefault(False)
 
         self.cb_save_tiff = QCheckBox("Save TIFF")
-        set_tooltip(self.cb_save_tiff,
-                    "Save XRF Maps as <b>TIFF</b> files.")
+        set_tooltip(self.cb_save_tiff, "Save XRF Maps as <b>TIFF</b> files.")
         self.cb_save_tiff.setChecked(Qt.Checked if self.__save_tiff else Qt.Unchecked)
         self.cb_save_tiff.stateChanged.connect(self.cb_save_tiff_state_changed)
         self.cb_save_txt = QCheckBox("Save TXT")
         self.cb_save_txt.setChecked(Qt.Checked if self.__save_txt else Qt.Unchecked)
-        set_tooltip(self.cb_save_txt,
-                    "Save XRF Maps as <b>TXT</b> files.")
+        set_tooltip(self.cb_save_txt, "Save XRF Maps as <b>TXT</b> files.")
         self.cb_save_txt.stateChanged.connect(self.cb_save_txt_state_changed)
 
         vbox = QVBoxLayout()
@@ -232,9 +245,12 @@ class DialogExportToTiffAndTxt(QDialog):
     def pb_dir_path_clicked(self):
         # Note: QFileDialog.ShowDirsOnly is not set on purpose, so that the dialog
         #   could be used to inspect directory contents. Files can not be selected anyway.
-        dir_path = QFileDialog.getExistingDirectory(self, "Select Root Directory for TIFF and TXT Files",
-                                                    self.dir_path,
-                                                    options=QFileDialog.DontResolveSymlinks)
+        dir_path = QFileDialog.getExistingDirectory(
+            self,
+            "Select Root Directory for TIFF and TXT Files",
+            self.dir_path,
+            options=QFileDialog.DontResolveSymlinks,
+        )
         if dir_path:
             self.dir_path = dir_path
 
@@ -243,20 +259,20 @@ class DialogExportToTiffAndTxt(QDialog):
         self.pb_save.setEnabled(state)
 
     def cb_save_tiff_state_changed(self, state):
-        self.__save_tiff = (state == Qt.Checked)
+        self.__save_tiff = state == Qt.Checked
         self._update_pb_save()
         self._update_saved_file_groups()
 
     def cb_save_txt_state_changed(self, state):
-        self.__save_txt = (state == Qt.Checked)
+        self.__save_txt = state == Qt.Checked
         self._update_pb_save()
         self._update_saved_file_groups()
 
     def cb_interpolate_state_changed(self, state):
-        self.__interpolate_on = (state == Qt.Checked)
+        self.__interpolate_on = state == Qt.Checked
 
     def cb_quantitative_state_changed(self, state):
-        self.__quant_norm_on = (state == Qt.Checked)
+        self.__quant_norm_on = state == Qt.Checked
         self._update_saved_file_groups()
 
     def combo_select_dataset_current_index_changed(self, index):

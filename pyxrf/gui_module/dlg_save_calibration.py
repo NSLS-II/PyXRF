@@ -1,19 +1,32 @@
 import os
 
-from qtpy.QtWidgets import (QHBoxLayout, QVBoxLayout, QCheckBox, QLabel, QDialog,
-                            QDialogButtonBox, QFileDialog, QTextEdit)
+from qtpy.QtWidgets import (
+    QHBoxLayout,
+    QVBoxLayout,
+    QCheckBox,
+    QLabel,
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
+    QTextEdit,
+)
 from qtpy.QtGui import QDoubleValidator
 from qtpy.QtCore import Qt
 
-from .useful_widgets import (LineEditReadOnly, PushButtonMinimumWidth, set_tooltip,
-                             LineEditExtended, DoubleValidatorStrict)
+from .useful_widgets import (
+    LineEditReadOnly,
+    PushButtonMinimumWidth,
+    set_tooltip,
+    LineEditExtended,
+    DoubleValidatorStrict,
+)
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
 class DialogSaveCalibration(QDialog):
-
     def __init__(self, parent=None, *, file_path=None):
 
         super().__init__(parent)
@@ -29,21 +42,24 @@ class DialogSaveCalibration(QDialog):
         self.resize(600, 600)
 
         self.text_edit = QTextEdit()
-        set_tooltip(self.text_edit,
-                    "Preview the <b>quantitative calibration data</b> to be saved. The displayed "
-                    "warnings will not be saved, but need to be addressed in order to keep "
-                    "data integrity. The parameter <b>distance-to-sample</b> is optional, "
-                    "but desirable. If <b>distance-to-sample</b> is zero then no scaling will be "
-                    "applied to data to compensate for changing distance.")
+        set_tooltip(
+            self.text_edit,
+            "Preview the <b>quantitative calibration data</b> to be saved. The displayed "
+            "warnings will not be saved, but need to be addressed in order to keep "
+            "data integrity. The parameter <b>distance-to-sample</b> is optional, "
+            "but desirable. If <b>distance-to-sample</b> is zero then no scaling will be "
+            "applied to data to compensate for changing distance.",
+        )
         self.text_edit.setReadOnly(True)
 
         self.le_file_path = LineEditReadOnly()
-        set_tooltip(self.le_file_path,
-                    "Full path to the file used to <b>save the calibration data</b>. The path "
-                    "can be changed in file selection dialog box.")
+        set_tooltip(
+            self.le_file_path,
+            "Full path to the file used to <b>save the calibration data</b>. The path "
+            "can be changed in file selection dialog box.",
+        )
         self.pb_file_path = PushButtonMinimumWidth("..")
-        set_tooltip(self.pb_file_path,
-                    "Change <b>file path</b> for saving the calibration data.")
+        set_tooltip(self.pb_file_path, "Change <b>file path</b> for saving the calibration data.")
         self.pb_file_path.clicked.connect(self.pb_file_path_clicked)
         self.pb_file_path.setDefault(False)
         self.pb_file_path.setAutoDefault(False)
@@ -53,16 +69,20 @@ class DialogSaveCalibration(QDialog):
         self.le_distance_to_sample.editingFinished.connect(self.le_distance_to_sample_editing_finished)
         self._le_distance_to_sample_validator = DoubleValidatorStrict()
         self._le_distance_to_sample_validator.setBottom(0.0)
-        set_tooltip(self.le_distance_to_sample,
-                    "<b>Distance</b> between the detector and the sample during calibration. If the value "
-                    "is 0, then no scaling is applied to data to correct the data if distance-to-sample "
-                    "is changed between calibration and measurement.")
+        set_tooltip(
+            self.le_distance_to_sample,
+            "<b>Distance</b> between the detector and the sample during calibration. If the value "
+            "is 0, then no scaling is applied to data to correct the data if distance-to-sample "
+            "is changed between calibration and measurement.",
+        )
 
         self.cb_overwrite = QCheckBox("Overwrite Existing")
         self.cb_overwrite.stateChanged.connect(self.cb_overwrite_state_changed)
-        set_tooltip(self.cb_overwrite,
-                    "Overwrite the <b>existing</b> file. This is a safety feature implemented to protect "
-                    "valuable results from accidental deletion.")
+        set_tooltip(
+            self.cb_overwrite,
+            "Overwrite the <b>existing</b> file. This is a safety feature implemented to protect "
+            "valuable results from accidental deletion.",
+        )
 
         vbox = QVBoxLayout()
 
@@ -146,10 +166,13 @@ class DialogSaveCalibration(QDialog):
         self._show_preview()
 
     def pb_file_path_clicked(self):
-        file_path = QFileDialog.getSaveFileName(self, "Select File to Save Quantitative Calibration",
-                                                self.file_path,
-                                                "JSON (*.json);; All (*)",
-                                                options=QFileDialog.DontConfirmOverwrite)
+        file_path = QFileDialog.getSaveFileName(
+            self,
+            "Select File to Save Quantitative Calibration",
+            self.file_path,
+            "JSON (*.json);; All (*)",
+            options=QFileDialog.DontConfirmOverwrite,
+        )
         file_path = file_path[0]
         if file_path:
             self.file_path = file_path
@@ -174,8 +197,7 @@ class DialogSaveCalibration(QDialog):
         self.le_distance_to_sample.setText(f"{self.__distance_to_sample:.10g}")
 
     def _show_overwrite_existing(self):
-        self.cb_overwrite.setChecked(Qt.Checked if self.__overwrite_existing
-                                     else Qt.Unchecked)
+        self.cb_overwrite.setChecked(Qt.Checked if self.__overwrite_existing else Qt.Unchecked)
 
     def _show_preview(self):
         text = ""

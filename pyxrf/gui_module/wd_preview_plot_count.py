@@ -1,18 +1,20 @@
-from qtpy.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout, QComboBox)
+from qtpy.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QComboBox
 from qtpy.QtCore import Slot
 
 from .useful_widgets import RangeManager, set_tooltip, global_gui_variables
 from ..model.lineplot import MapTypes, MapAxesUnits
 
-from matplotlib.backends.backend_qt5agg import \
-    FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
+from matplotlib.backends.backend_qt5agg import (
+    FigureCanvasQTAgg as FigureCanvas,
+    NavigationToolbar2QT as NavigationToolbar,
+)
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
 class PreviewPlotCount(QWidget):
-
     def __init__(self, *, gpc, gui_vars):
         super().__init__()
 
@@ -33,8 +35,7 @@ class PreviewPlotCount(QWidget):
 
         self.combo_pixels_positions = QComboBox()
         self.combo_pixels_positions.addItems(["Pixels", "Positions"])
-        self.combo_pixels_positions.currentIndexChanged.connect(
-            self.combo_pixels_positions_current_index_changed)
+        self.combo_pixels_positions.currentIndexChanged.connect(self.combo_pixels_positions_current_index_changed)
 
         self.range = RangeManager(add_sliders=True)
         self.range.setMaximumWidth(200)
@@ -119,12 +120,12 @@ class PreviewPlotCount(QWidget):
         logger.debug(f"Total Count Preview range is updated: mode='{mode}' range=({range_low}, {range_high})")
 
     def _set_tooltips(self):
-        set_tooltip(self.cb_color_scheme,
-                    "Select <b>color scheme</b> for the plotted maps.")
+        set_tooltip(self.cb_color_scheme, "Select <b>color scheme</b> for the plotted maps.")
         set_tooltip(
             self.range,
             "<b>Lower and upper limits</b> for the displayed range of intensities. The pixels with "
-            "intensities outside the range are <b>clipped</b>.")
+            "intensities outside the range are <b>clipped</b>.",
+        )
 
     def update_widget_state(self, condition=None):
         if condition == "tooltips":

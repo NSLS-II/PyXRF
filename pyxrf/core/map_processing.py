@@ -11,6 +11,7 @@ from progress.bar import Bar
 from .fitting import fit_spectrum
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -76,7 +77,7 @@ class TerminalProgressBar:
         self.title = title
 
     def start(self):
-        self.bar = Bar(self.title, max=100, suffix='%(percent)d%%')
+        self.bar = Bar(self.title, max=100, suffix="%(percent)d%%")
 
     def __call__(self, percent_completed):
         while self.bar.index < percent_completed:
@@ -130,7 +131,7 @@ def wait_and_display_progress(fut, progress_bar=None):
 
     progress_bar(1.0)
     while True:
-        done, not_done = wait(fut, return_when='FIRST_COMPLETED')
+        done, not_done = wait(fut, return_when="FIRST_COMPLETED")
         n_completed, n_pending = len(done), len(not_done)
         n_total = n_completed + n_pending
         percent_completed = n_completed / n_total * 100.0 if n_total > 0 else 100.0
@@ -146,7 +147,7 @@ def wait_and_display_progress(fut, progress_bar=None):
         progress_bar.finish()
 
 
-class RawHDF5Dataset():
+class RawHDF5Dataset:
     """
     Instead of actual data we may store the HDF5 file name and dataset name within the
     HDF5 file. When access is needed, then data may be loaded from file. Typically
@@ -164,6 +165,7 @@ class RawHDF5Dataset():
         information is very convenient. There is no check, so `shape` may be any value, but
         typically this should be a tuple with actual dataset shape.
     """
+
     def __init__(self, _abs_path, _dset_name, shape):
         self.abs_path = os.path.abspath(os.path.expanduser(_abs_path))
         self.dset_name = _dset_name
@@ -251,21 +253,22 @@ def _chunk_numpy_array(data, chunk_size):
     chunk_y, chunk_x = min(chunk_y, ny), min(chunk_x, nx)
 
     def _get_slice(n1, n2):
-        data_slice = data[slice(n1 * chunk_y, min(n1 * chunk_y + chunk_y, ny)),
-                          slice(n2 * chunk_x, min(n2 * chunk_x + chunk_x, nx))]
+        data_slice = data[
+            slice(n1 * chunk_y, min(n1 * chunk_y + chunk_y, ny)),
+            slice(n2 * chunk_x, min(n2 * chunk_x + chunk_x, nx)),
+        ]
         # Wrap the slice into a list wiht appropriate dimensions
         for _ in range(2, data.ndim):
             data_slice = [data_slice]
         return data_slice
 
     # Chunk the numpy array and assemble it as a dask array
-    data_dask = da.block([
+    data_dask = da.block(
         [
-            _get_slice(_1, _2)
-            for _2 in range(int(math.ceil(nx / chunk_x)))
+            [_get_slice(_1, _2) for _2 in range(int(math.ceil(nx / chunk_x)))]
+            for _1 in range(int(math.ceil(ny / chunk_y)))
         ]
-        for _1 in range(int(math.ceil(ny / chunk_y)))
-    ])
+    )
 
     return data_dask
 
@@ -297,16 +300,16 @@ def _array_numpy_to_dask(data, chunk_pixels, n_chunks_min=4):
     """
 
     if not isinstance(data, np.ndarray) or (data.ndim < 2):
-        raise ValueError(f"Parameter 'data' must numpy array with at least 2 dimensions: "
-                         f"type(data)={type(data)}")
+        raise ValueError(
+            f"Parameter 'data' must numpy array with at least 2 dimensions: " f"type(data)={type(data)}"
+        )
 
     ny, nx = data.shape[0:2]
     # Since numpy array is not chunked by default, set the original chunk size to (1,1)
     #   because here we are performing 'original' chunking
-    chunk_y, chunk_x = _compute_optimal_chunk_size(chunk_pixels=chunk_pixels,
-                                                   data_chunksize=(1, 1),
-                                                   data_shape=(ny, nx),
-                                                   n_chunks_min=n_chunks_min)
+    chunk_y, chunk_x = _compute_optimal_chunk_size(
+        chunk_pixels=chunk_pixels, data_chunksize=(1, 1), data_shape=(ny, nx), n_chunks_min=n_chunks_min
+    )
 
     return _chunk_numpy_array(data, (chunk_y, chunk_x))
 
@@ -352,10 +355,12 @@ def prepare_xrf_map(data, chunk_pixels=5000, n_chunks_min=4):
     file_obj = None  # It will remain None, unless 'data' is 'RawHDF5Dataset'
 
     if isinstance(data, da.core.Array):
-        chunk_size = _compute_optimal_chunk_size(chunk_pixels=chunk_pixels,
-                                                 data_chunksize=data.chunksize[0:2],
-                                                 data_shape=data.shape[0:2],
-                                                 n_chunks_min=n_chunks_min)
+        chunk_size = _compute_optimal_chunk_size(
+            chunk_pixels=chunk_pixels,
+            data_chunksize=data.chunksize[0:2],
+            data_shape=data.shape[0:2],
+            n_chunks_min=n_chunks_min,
+        )
         data = data.rechunk(chunks=(*chunk_size, data.shape[2]))
     elif isinstance(data, np.ndarray):
         data = _array_numpy_to_dask(data, chunk_pixels=chunk_pixels, n_chunks_min=n_chunks_min)
@@ -367,15 +372,18 @@ def prepare_xrf_map(data, chunk_pixels=5000, n_chunks_min=4):
         dset = file_obj[dset_name]
 
         if dset.ndim != 3:
-            raise TypeError(f"Dataset '{dset_name}' in file '{fpath}' has {dset.ndim} dimensions: "
-                            f"3D dataset is expected")
+            raise TypeError(
+                f"Dataset '{dset_name}' in file '{fpath}' has {dset.ndim} dimensions: " f"3D dataset is expected"
+            )
         ny, nx, ne = dset.shape
 
         if dset.chunks:
-            chunk_size = _compute_optimal_chunk_size(chunk_pixels=chunk_pixels,
-                                                     data_chunksize=dset.chunks[0:2],
-                                                     data_shape=(ny, nx),
-                                                     n_chunks_min=n_chunks_min)
+            chunk_size = _compute_optimal_chunk_size(
+                chunk_pixels=chunk_pixels,
+                data_chunksize=dset.chunks[0:2],
+                data_shape=(ny, nx),
+                n_chunks_min=n_chunks_min,
+            )
         else:
             # The data is not chunked. Process data as one chunk.
             chunk_size = (ny, nx)
@@ -422,17 +430,18 @@ def _prepare_xrf_mask(data, mask=None, selection=None):
         raise TypeError(f"Parameter 'data' must have at least 2 dimensions: data.ndim = {data.ndim}")
     if mask is not None:
         if mask.shape != data.shape[0:2]:
-            raise TypeError(f"Dimensions 0 and 1 of parameters 'data' and 'mask' do not match: "
-                            f"data.shape={data.shape} mask.shape={mask.shape}")
+            raise TypeError(
+                f"Dimensions 0 and 1 of parameters 'data' and 'mask' do not match: "
+                f"data.shape={data.shape} mask.shape={mask.shape}"
+            )
     if selection is not None:
         if len(selection) != 4:
-            raise TypeError(f"Parameter 'selection' must be iterable with 4 elements: "
-                            f"selection = {selection}")
+            raise TypeError(f"Parameter 'selection' must be iterable with 4 elements: " f"selection = {selection}")
 
     if selection is not None:
         y0, x0, ny, nx = selection
         mask_sel = np.zeros(shape=data.shape[0:2])
-        mask_sel[y0: y0 + ny, x0: x0 + nx] = 1
+        mask_sel[y0 : y0 + ny, x0 : x0 + nx] = 1
 
         if mask is None:
             mask = mask_sel
@@ -447,9 +456,9 @@ def _prepare_xrf_mask(data, mask=None, selection=None):
     return mask
 
 
-def compute_total_spectrum(data, *, selection=None, mask=None,
-                           chunk_pixels=5000, n_chunks_min=4,
-                           progress_bar=None, client=None):
+def compute_total_spectrum(
+    data, *, selection=None, mask=None, chunk_pixels=5000, n_chunks_min=4, progress_bar=None, client=None
+):
     """
     Parameters
     ----------
@@ -498,12 +507,15 @@ def compute_total_spectrum(data, *, selection=None, mask=None,
     if mask is None:
         result_fut = da.sum(da.sum(data, axis=0), axis=0).persist(scheduler=client)
     else:
+
         def _masked_sum(data, mask):
             mask = np.broadcast_to(np.expand_dims(mask, axis=2), data.shape)
             sm = np.sum(np.sum(data * mask, axis=0), axis=0)
             return np.array([[sm]])
-        result_fut = da.blockwise(_masked_sum, 'ijk', data, "ijk",
-                                  mask, "ij", dtype="float").persist(scheduler=client)
+
+        result_fut = da.blockwise(_masked_sum, "ijk", data, "ijk", mask, "ij", dtype="float").persist(
+            scheduler=client
+        )
 
     # Call the progress monitor
     wait_and_display_progress(result_fut, progress_bar)
@@ -520,9 +532,9 @@ def compute_total_spectrum(data, *, selection=None, mask=None,
     return result
 
 
-def compute_total_spectrum_and_count(data, *, selection=None, mask=None,
-                                     chunk_pixels=5000, n_chunks_min=4,
-                                     progress_bar=None, client=None):
+def compute_total_spectrum_and_count(
+    data, *, selection=None, mask=None, chunk_pixels=5000, n_chunks_min=4, progress_bar=None, client=None
+):
     """
     The function is similar to `compute_total_spectrum`, but computes both total
     spectrum and total count map. Total count map is typically used as preview.
@@ -572,25 +584,27 @@ def compute_total_spectrum_and_count(data, *, selection=None, mask=None,
     logger.info(f"Dask distributed client: {n_workers} workers")
 
     if mask is None:
+
         def _process_block(data):
             data = data[0]  # Data is passed as a list of ndarrays
             _spectrum = np.sum(np.sum(data, axis=0), axis=0)
             _count_total = np.sum(data, axis=2)
-            return np.array([[{"spectrum": _spectrum,
-                               "count_total": _count_total}]])
-        result_fut = da.blockwise(_process_block, "ij", data, "ijk",
-                                  dtype=float).persist(scheduler=client)
+            return np.array([[{"spectrum": _spectrum, "count_total": _count_total}]])
+
+        result_fut = da.blockwise(_process_block, "ij", data, "ijk", dtype=float).persist(scheduler=client)
     else:
+
         def _process_block(data, mask):
             data = data[0]  # Data is passed as a list of ndarrays
             mask = np.broadcast_to(np.expand_dims(mask, axis=2), data.shape)
             masked_data = data * mask
             _spectrum = np.sum(np.sum(masked_data, axis=0), axis=0)
             _count_total = np.sum(masked_data, axis=2)
-            return np.array([[{"spectrum": _spectrum,
-                               "count_total": _count_total}]])
-        result_fut = da.blockwise(_process_block, "ij", data, "ijk",
-                                  mask, "ij", dtype=float).persist(scheduler=client)
+            return np.array([[{"spectrum": _spectrum, "count_total": _count_total}]])
+
+        result_fut = da.blockwise(_process_block, "ij", data, "ijk", mask, "ij", dtype=float).persist(
+            scheduler=client
+        )
 
     # Call the progress monitor
     wait_and_display_progress(result_fut, progress_bar)
@@ -607,8 +621,7 @@ def compute_total_spectrum_and_count(data, *, selection=None, mask=None,
     return total_spectrum, total_counts
 
 
-def _fit_xrf_block(data, data_sel_indices,
-                   matv, snip_param, use_snip):
+def _fit_xrf_block(data, data_sel_indices, matv, snip_param, use_snip):
     """
     Spectrum fitting for a block of XRF dataset. The function is intended to be
     called using `map_blocks` function for parallel processing using Dask distributed
@@ -641,14 +654,18 @@ def _fit_xrf_block(data, data_sel_indices,
         total count in the selected energy range, total count of the full experimental spectrum.
     """
     spec = data
-    spec_sel = spec[:, :, data_sel_indices[0]: data_sel_indices[1]]
+    spec_sel = spec[:, :, data_sel_indices[0] : data_sel_indices[1]]
 
     if use_snip:
-        bg_sel = np.apply_along_axis(snip_method_numba, 2, spec_sel,
-                                     snip_param['e_offset'],
-                                     snip_param['e_linear'],
-                                     snip_param['e_quadratic'],
-                                     width=snip_param['b_width'])
+        bg_sel = np.apply_along_axis(
+            snip_method_numba,
+            2,
+            spec_sel,
+            snip_param["e_offset"],
+            snip_param["e_linear"],
+            snip_param["e_quadratic"],
+            width=snip_param["b_width"],
+        )
 
         y = spec_sel - bg_sel
         bg_sum = np.sum(bg_sel, axis=2)
@@ -668,8 +685,17 @@ def _fit_xrf_block(data, data_sel_indices,
     return data_out
 
 
-def fit_xrf_map(data, data_sel_indices, matv, snip_param=None, use_snip=True,
-                chunk_pixels=5000, n_chunks_min=4, progress_bar=None, client=None):
+def fit_xrf_map(
+    data,
+    data_sel_indices,
+    matv,
+    snip_param=None,
+    use_snip=True,
+    chunk_pixels=5000,
+    n_chunks_min=4,
+    progress_bar=None,
+    client=None,
+):
     """
     Fit XRF map.
 
@@ -723,40 +749,47 @@ def fit_xrf_map(data, data_sel_indices, matv, snip_param=None, use_snip=True,
 
     # Verify that input parameters are valid
     if not isinstance(data_sel_indices, (tuple, list)):
-        raise TypeError(f"Parameter 'data_sel_indices' must be tuple or list: "
-                        f"type(data_sel_indices) = {type(data_sel_indices)}")
+        raise TypeError(
+            f"Parameter 'data_sel_indices' must be tuple or list: "
+            f"type(data_sel_indices) = {type(data_sel_indices)}"
+        )
 
     if not len(data_sel_indices) == 2:
-        raise TypeError(f"Parameter 'data_sel_indices' must contain two elements: "
-                        f"data_sel_indices = {data_sel_indices}")
+        raise TypeError(
+            f"Parameter 'data_sel_indices' must contain two elements: " f"data_sel_indices = {data_sel_indices}"
+        )
 
     if any([_ < 0 for _ in data_sel_indices]):
-        raise ValueError(f"Some of the indices in 'data_sel_indices' are negative: "
-                         f"data_sel_indices = {data_sel_indices}")
+        raise ValueError(
+            f"Some of the indices in 'data_sel_indices' are negative: " f"data_sel_indices = {data_sel_indices}"
+        )
 
     if data_sel_indices[1] <= data_sel_indices[0]:
-        raise ValueError(f"Parameter 'data_sel_indices' must select at least 1 element: "
-                         f"data_sel_indices = {data_sel_indices}")
+        raise ValueError(
+            f"Parameter 'data_sel_indices' must select at least 1 element: "
+            f"data_sel_indices = {data_sel_indices}"
+        )
 
     if not isinstance(matv, np.ndarray) or matv.ndim != 2:
-        raise TypeError(f"Parameter 'matv' must be 2D ndarray: "
-                        f"type(matv) = {type(matv)}, matv = {matv}")
+        raise TypeError(f"Parameter 'matv' must be 2D ndarray: " f"type(matv) = {type(matv)}, matv = {matv}")
 
     ne_spec, _ = matv.shape
     nsel = data_sel_indices[1] - data_sel_indices[0]
     if ne_spec != nsel:
-        raise ValueError(f"The number of selected points ({nsel}) is not equal "
-                         f"to the number of points in reference spectrum ({ne_spec})")
+        raise ValueError(
+            f"The number of selected points ({nsel}) is not equal "
+            f"to the number of points in reference spectrum ({ne_spec})"
+        )
 
     if not isinstance(snip_param, dict):
-        raise TypeError(f"Parameter 'snip_param' must be a dictionary: "
-                        f"type(snip_param) = {type(snip_param)}")
+        raise TypeError(f"Parameter 'snip_param' must be a dictionary: " f"type(snip_param) = {type(snip_param)}")
 
     required_keys = ("e_offset", "e_linear", "e_quadratic", "b_width")
-    if use_snip and not all([_ in snip_param.keys()
-                            for _ in required_keys]):
-        raise TypeError(f"Parameter 'snip_param' must a dictionary with keys {required_keys}: "
-                        f"snip_param.keys() = {snip_param.keys()}")
+    if use_snip and not all([_ in snip_param.keys() for _ in required_keys]):
+        raise TypeError(
+            f"Parameter 'snip_param' must a dictionary with keys {required_keys}: "
+            f"snip_param.keys() = {snip_param.keys()}"
+        )
 
     # Convert data to Dask array
     data, file_obj = prepare_xrf_map(data, chunk_pixels=chunk_pixels, n_chunks_min=n_chunks_min)
@@ -776,14 +809,17 @@ def fit_xrf_map(data, data_sel_indices, matv, snip_param=None, use_snip=True,
     logger.info(f"Dask distributed client: {n_workers} workers")
 
     matv_fut = client.scatter(matv)
-    result_fut = da.map_blocks(_fit_xrf_block, data,
-                               # Parameters of the '_fit_xrf_block' function
-                               data_sel_indices=data_sel_indices,
-                               matv=matv_fut,
-                               snip_param=snip_param,
-                               use_snip=use_snip,
-                               # Output data type
-                               dtype="float").persist(scheduler=client)
+    result_fut = da.map_blocks(
+        _fit_xrf_block,
+        data,
+        # Parameters of the '_fit_xrf_block' function
+        data_sel_indices=data_sel_indices,
+        matv=matv_fut,
+        snip_param=snip_param,
+        use_snip=use_snip,
+        # Output data type
+        dtype="float",
+    ).persist(scheduler=client)
 
     # Call the progress monitor
     wait_and_display_progress(result_fut, progress_bar)
@@ -831,16 +867,16 @@ def _compute_roi(data, data_sel_indices, roi_bands, snip_param, use_snip):
         the experimental spectrum inside the band.
     """
     spec = data
-    spec_sel = spec[:, :, data_sel_indices[0]: data_sel_indices[1]]
+    spec_sel = spec[:, :, data_sel_indices[0] : data_sel_indices[1]]
 
-    e_offset = snip_param['e_offset']
-    e_linear = snip_param['e_linear']
-    e_quadratic = snip_param['e_quadratic']
+    e_offset = snip_param["e_offset"]
+    e_linear = snip_param["e_linear"]
+    e_quadratic = snip_param["e_quadratic"]
 
     if use_snip:
-        bg_sel = np.apply_along_axis(snip_method_numba, 2, spec_sel,
-                                     e_offset, e_linear, e_quadratic,
-                                     width=snip_param['b_width'])
+        bg_sel = np.apply_along_axis(
+            snip_method_numba, 2, spec_sel, e_offset, e_linear, e_quadratic, width=snip_param["b_width"]
+        )
         y = spec_sel - bg_sel
 
     else:
@@ -860,14 +896,24 @@ def _compute_roi(data, data_sel_indices, roi_bands, snip_param, use_snip):
     for n, band in enumerate(roi_bands):
         n_left = _energy_to_index(band[0])
         n_right = _energy_to_index(band[1])
-        roi_data[:, :, n] = np.sum(y[:, :, n_left: n_right], axis=2) \
-            if n_right > n_left else np.zeros(shape=(ny, nx))
+        roi_data[:, :, n] = (
+            np.sum(y[:, :, n_left:n_right], axis=2) if n_right > n_left else np.zeros(shape=(ny, nx))
+        )
 
     return roi_data
 
 
-def compute_selected_rois(data, data_sel_indices, roi_dict, snip_param=None, use_snip=True,
-                          chunk_pixels=5000, n_chunks_min=4, progress_bar=None, client=None):
+def compute_selected_rois(
+    data,
+    data_sel_indices,
+    roi_dict,
+    snip_param=None,
+    use_snip=True,
+    chunk_pixels=5000,
+    n_chunks_min=4,
+    progress_bar=None,
+    client=None,
+):
     """
     Compute XRF map based on ROIs for XRF dataset.
 
@@ -920,29 +966,36 @@ def compute_selected_rois(data, data_sel_indices, roi_dict, snip_param=None, use
 
     # Verify that input parameters are valid
     if not isinstance(data_sel_indices, (tuple, list)):
-        raise TypeError(f"Parameter 'data_sel_indices' must be tuple or list: "
-                        f"type(data_sel_indices) = {type(data_sel_indices)}")
+        raise TypeError(
+            f"Parameter 'data_sel_indices' must be tuple or list: "
+            f"type(data_sel_indices) = {type(data_sel_indices)}"
+        )
 
     if not len(data_sel_indices) == 2:
-        raise TypeError(f"Parameter 'data_sel_indices' must contain two elements: "
-                        f"data_sel_indices = {data_sel_indices}")
+        raise TypeError(
+            f"Parameter 'data_sel_indices' must contain two elements: " f"data_sel_indices = {data_sel_indices}"
+        )
 
     if any([_ < 0 for _ in data_sel_indices]):
-        raise ValueError(f"Some of the indices in 'data_sel_indices' are negative: "
-                         f"data_sel_indices = {data_sel_indices}")
+        raise ValueError(
+            f"Some of the indices in 'data_sel_indices' are negative: " f"data_sel_indices = {data_sel_indices}"
+        )
 
     if data_sel_indices[1] <= data_sel_indices[0]:
-        raise ValueError(f"Parameter 'data_sel_indices' must select at least 1 element: "
-                         f"data_sel_indices = {data_sel_indices}")
+        raise ValueError(
+            f"Parameter 'data_sel_indices' must select at least 1 element: "
+            f"data_sel_indices = {data_sel_indices}"
+        )
 
     if not isinstance(snip_param, dict):
-        raise TypeError(f"Parameter 'snip_param' must be a dictionary: "
-                        f"type(snip_param) = {type(snip_param)}")
+        raise TypeError(f"Parameter 'snip_param' must be a dictionary: " f"type(snip_param) = {type(snip_param)}")
 
     required_keys = ("e_offset", "e_linear", "e_quadratic", "b_width")
     if not all([_ in snip_param.keys() for _ in required_keys]):
-        raise TypeError(f"Parameter 'snip_param' must a dictionary with keys {required_keys}: "
-                        f"snip_param.keys() = {snip_param.keys()}")
+        raise TypeError(
+            f"Parameter 'snip_param' must a dictionary with keys {required_keys}: "
+            f"snip_param.keys() = {snip_param.keys()}"
+        )
 
     # Convert data to Dask array
     data, file_obj = prepare_xrf_map(data, chunk_pixels=chunk_pixels, n_chunks_min=n_chunks_min)
@@ -968,14 +1021,17 @@ def compute_selected_rois(data, data_sel_indices, roi_dict, snip_param=None, use
         roi_band_keys.append(k)
         roi_bands.append(v)
 
-    result_fut = da.map_blocks(_compute_roi, data,
-                               # Parameters of the '_fit_xrf_block' function
-                               data_sel_indices=data_sel_indices,
-                               roi_bands=roi_bands,
-                               snip_param=snip_param,
-                               use_snip=use_snip,
-                               # Output data type
-                               dtype="float").persist(scheduler=client)
+    result_fut = da.map_blocks(
+        _compute_roi,
+        data,
+        # Parameters of the '_fit_xrf_block' function
+        data_sel_indices=data_sel_indices,
+        roi_bands=roi_bands,
+        snip_param=snip_param,
+        use_snip=use_snip,
+        # Output data type
+        dtype="float",
+    ).persist(scheduler=client)
 
     # Call the progress monitor
     wait_and_display_progress(result_fut, progress_bar)
@@ -1003,14 +1059,21 @@ _default_iter_num_bin = 5
 
 
 @jit(nopython=True, nogil=True)
-def snip_method_numba(spectrum,
-                      e_off, e_lin, e_quad,
-                      xmin=0, xmax=4096, epsilon=2.96,
-                      width=0.5, decrease_factor=np.sqrt(2),
-                      spectral_binning=None,
-                      con_val=None,
-                      iter_num=None,
-                      width_threshold=0.5):
+def snip_method_numba(
+    spectrum,
+    e_off,
+    e_lin,
+    e_quad,
+    xmin=0,
+    xmax=4096,
+    epsilon=2.96,
+    width=0.5,
+    decrease_factor=np.sqrt(2),
+    spectral_binning=None,
+    con_val=None,
+    iter_num=None,
+    width_threshold=0.5,
+):
     """
     Use snip algorithm to obtain background.
 
@@ -1093,11 +1156,11 @@ def snip_method_numba(spectrum,
     if spectral_binning is not None:
         energy = energy * spectral_binning
 
-    energy = e_off + energy * e_lin + energy**2 * e_quad
+    energy = e_off + energy * e_lin + energy ** 2 * e_quad
 
     # transfer from std to fwhm
     std_fwhm = 2 * np.sqrt(2 * np.log(2))
-    tmp = (e_off / std_fwhm)**2 + energy * epsilon * e_lin
+    tmp = (e_off / std_fwhm) ** 2 + energy * epsilon * e_lin
     tmp[tmp < 0] = 0
     fwhm = std_fwhm * np.sqrt(tmp)
 
@@ -1110,16 +1173,16 @@ def snip_method_numba(spectrum,
     # effects in general convolution.
     A = s.sum()
 
-    background = np.convolve(background, s)/A
+    background = np.convolve(background, s) / A
     # Trim 'background' array to imitate the np.convolve option 'mode="same"'
     mg = len(s) - 1
     n_beg = mg // 2
     n_end = n_beg - mg  # Negative
-    background = background[n_beg: n_end]
+    background = background[n_beg:n_end]
 
     window_p = width * fwhm / e_lin
     if spectral_binning is not None and spectral_binning > 0:
-        window_p = window_p/2.
+        window_p = window_p / 2.0
 
     background = np.log(np.log(background + 1) + 1)
 
@@ -1138,8 +1201,7 @@ def snip_method_numba(spectrum,
         lo_index = _clip(index - window_p, v_xmin, v_xmax)
         hi_index = _clip(index + window_p, v_xmin, v_xmax)
 
-        temp = (background[lo_index.astype(np.int32)] +
-                background[hi_index.astype(np.int32)]) / 2.
+        temp = (background[lo_index.astype(np.int32)] + background[hi_index.astype(np.int32)]) / 2.0
 
         bg_index = background > temp
         background[bg_index] = temp[bg_index]
@@ -1151,8 +1213,7 @@ def snip_method_numba(spectrum,
         lo_index = _clip(index - current_width, v_xmin, v_xmax)
         hi_index = _clip(index + current_width, v_xmin, v_xmax)
 
-        temp = (background[lo_index.astype(np.int32)] +
-                background[hi_index.astype(np.int32)]) / 2.
+        temp = (background[lo_index.astype(np.int32)] + background[hi_index.astype(np.int32)]) / 2.0
 
         bg_index = background > temp
         background[bg_index] = temp[bg_index]

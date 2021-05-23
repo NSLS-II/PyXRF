@@ -1,13 +1,13 @@
-from qtpy.QtWidgets import (QVBoxLayout, QLabel, QDialog, QDialogButtonBox, QGridLayout)
+from qtpy.QtWidgets import QVBoxLayout, QLabel, QDialog, QDialogButtonBox, QGridLayout
 
-from .useful_widgets import (LineEditReadOnly, set_tooltip)
+from .useful_widgets import LineEditReadOnly, set_tooltip
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
 class DialogNewUserPeak(QDialog):
-
     def __init__(self, parent=None):
 
         super().__init__(parent)
@@ -20,8 +20,7 @@ class DialogNewUserPeak(QDialog):
         self.le_name = LineEditReadOnly()
         set_tooltip(self.le_name, "<b>Name</b> of the user-defined peak.")
         self.le_energy = LineEditReadOnly()
-        set_tooltip(self.le_energy,
-                    "<b>Energy</b> (keV) of the center of the user-defined peak.")
+        set_tooltip(self.le_energy, "<b>Energy</b> (keV) of the center of the user-defined peak.")
 
         vbox = QVBoxLayout()
 

@@ -7,4 +7,5 @@ exclude =
     versioneer.py,
     pyxrf/_version.py,
     docs/conf.py
+ignore = E203, W503  # There are some errors produced by 'black', therefore unavoidable
 max-line-length = 115

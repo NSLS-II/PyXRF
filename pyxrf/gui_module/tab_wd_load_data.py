@@ -1,18 +1,34 @@
 import os
 
-from qtpy.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QGroupBox, QCheckBox,
-                            QComboBox, QListWidget, QListWidgetItem, QDialog, QFileDialog,
-                            QMessageBox)
+from qtpy.QtWidgets import (
+    QPushButton,
+    QHBoxLayout,
+    QVBoxLayout,
+    QGroupBox,
+    QCheckBox,
+    QComboBox,
+    QListWidget,
+    QListWidgetItem,
+    QDialog,
+    QFileDialog,
+    QMessageBox,
+)
 from qtpy.QtCore import Qt, Signal, Slot, QThreadPool, QRunnable
 
-from .useful_widgets import (LineEditReadOnly, adjust_qlistwidget_height,
-                             global_gui_parameters, PushButtonMinimumWidth,
-                             set_tooltip, clear_gui_state)
+from .useful_widgets import (
+    LineEditReadOnly,
+    adjust_qlistwidget_height,
+    global_gui_parameters,
+    PushButtonMinimumWidth,
+    set_tooltip,
+    clear_gui_state,
+)
 from .form_base_widget import FormBaseWidget
 from .dlg_load_mask import DialogLoadMask
 from .dlg_select_scan import DialogSelectScan
 from .dlg_view_metadata import DialogViewMetadata
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -28,7 +44,7 @@ class LoadDataWidget(FormBaseWidget):
 
     signal_data_channel_changed = Signal(bool)
 
-    def __init__(self,  *, gpc, gui_vars):
+    def __init__(self, *, gpc, gui_vars):
         super().__init__()
 
         # Global processing classes
@@ -173,32 +189,34 @@ class LoadDataWidget(FormBaseWidget):
         self.group_preview.setLayout(hbox)
 
     def _set_tooltips(self):
-        set_tooltip(self.pb_set_wd,
-                    "Select <b>Working Directory</b>. The Working Directory is "
-                    "used as <b>default</b> for loading and saving data and "
-                    "configuration files.")
+        set_tooltip(
+            self.pb_set_wd,
+            "Select <b>Working Directory</b>. The Working Directory is "
+            "used as <b>default</b> for loading and saving data and "
+            "configuration files.",
+        )
         set_tooltip(self.le_wd, "Currently selected <b>Working Directory</b>")
         set_tooltip(self.pb_file, "Load data from a <b>file on disk</b>.")
         set_tooltip(self.pb_dbase, "Load data from a <b>database</b> (Databroker).")
-        set_tooltip(self.cb_file_all_channels,
-                    "Load <b>all</b> available data channels (checked) or "
-                    "only the <b>sum</b> of the channels")
-        set_tooltip(self.le_file,
-                    "The <b>name</b> of the loaded file or <b>ID</b> of the loaded run.")
-        set_tooltip(self.pb_view_metadata, "View scan <b>metadata</b> (if available)")
         set_tooltip(
-            self.cbox_channel,
-            "Select channel for processing. Typically the <b>sum</b> channel is used.")
+            self.cb_file_all_channels,
+            "Load <b>all</b> available data channels (checked) or " "only the <b>sum</b> of the channels",
+        )
+        set_tooltip(self.le_file, "The <b>name</b> of the loaded file or <b>ID</b> of the loaded run.")
+        set_tooltip(self.pb_view_metadata, "View scan <b>metadata</b> (if available)")
+        set_tooltip(self.cbox_channel, "Select channel for processing. Typically the <b>sum</b> channel is used.")
         set_tooltip(
             self.pb_apply_mask,
             "Load the mask from file and/or select spatial ROI. The mask and ROI "
-            "are used in run <b>Preview</b> and fitting of the <b>total spectrum</b>.")
+            "are used in run <b>Preview</b> and fitting of the <b>total spectrum</b>.",
+        )
         set_tooltip(
             self.list_preview,
             "Data for the selected channels is displayed in <b>Preview</b> tab. "
             "The displayed <b>total spectrum</b> is computed for the selected "
             "ROI and using the loaded mask. If no mask or ROI are enabled, then "
-            "total spectrum is computed over all pixels of the image.")
+            "total spectrum is computed over all pixels of the image.",
+        )
 
     def update_widget_state(self, condition=None):
         if condition == "tooltips":
@@ -263,8 +281,7 @@ class LoadDataWidget(FormBaseWidget):
         # This will cause the preview data to be plotted (the plot is expected to be hidden,
         #   since no channels were selected). Here we select the first channel in the list.
         for n, item in enumerate(items):
-            state = Qt.Checked if self.gpc.is_dset_item_selected_for_preview(item) \
-                else Qt.Unchecked
+            state = Qt.Checked if self.gpc.is_dset_item_selected_for_preview(item) else Qt.Unchecked
             self.list_preview.item(n).setCheckState(state)
 
         self.list_preview.itemChanged.connect(self.list_preview_item_changed)
@@ -272,17 +289,18 @@ class LoadDataWidget(FormBaseWidget):
     def pb_set_wd_clicked(self):
         dir_current = self.le_wd.text()
         dir = QFileDialog.getExistingDirectory(
-            self, "Select Working Directory", dir_current,
-            QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks)
+            self,
+            "Select Working Directory",
+            dir_current,
+            QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks,
+        )
         if dir:
             self.gpc.set_current_working_directory(dir)
             self.le_wd.setText(dir)
 
     def pb_file_clicked(self):
         dir_current = self.gpc.get_current_working_directory()
-        file_paths = QFileDialog.getOpenFileName(self, "Open Data File",
-                                                 dir_current,
-                                                 "HDF5 (*.h5);; All (*)")
+        file_paths = QFileDialog.getOpenFileName(self, "Open Data File", dir_current, "HDF5 (*.h5);; All (*)")
         file_path = file_paths[0]
         if file_path:
             self.signal_loading_new_run.emit()
@@ -295,11 +313,7 @@ class LoadDataWidget(FormBaseWidget):
                 except Exception as ex:
                     msg = str(ex)
                     status = False
-                result_dict.update({
-                    "status": status,
-                    "msg": msg,
-                    "file_path": file_path
-                })
+                result_dict.update({"status": status, "msg": msg, "file_path": file_path})
                 return result_dict
 
             self._compute_in_background(cb, self.slot_file_clicked, file_path=file_path)
@@ -344,8 +358,7 @@ class LoadDataWidget(FormBaseWidget):
 
             if msg:
                 # Display warning message if it was generated
-                msgbox = QMessageBox(QMessageBox.Warning, "Warning",
-                                     msg, QMessageBox.Ok, parent=self)
+                msgbox = QMessageBox(QMessageBox.Warning, "Warning", msg, QMessageBox.Ok, parent=self)
                 msgbox.exec()
 
         else:
@@ -370,11 +383,12 @@ class LoadDataWidget(FormBaseWidget):
 
             self.signal_new_run_loaded.emit(False)  # Failed to load data
 
-            msg_str = f"Incorrect format of input file '{file_path}': " \
-                      f"PyXRF accepts only custom HDF (.h5) files." \
-                      f"\n\nError message: {msg}"
-            msgbox = QMessageBox(QMessageBox.Critical, "Error",
-                                 msg_str, QMessageBox.Ok, parent=self)
+            msg_str = (
+                f"Incorrect format of input file '{file_path}': "
+                f"PyXRF accepts only custom HDF (.h5) files."
+                f"\n\nError message: {msg}"
+            )
+            msgbox = QMessageBox(QMessageBox.Critical, "Error", msg_str, QMessageBox.Ok, parent=self)
             msgbox.exec()
 
     def pb_dbase_clicked(self):
@@ -393,12 +407,7 @@ class LoadDataWidget(FormBaseWidget):
                 except Exception as ex:
                     msg, file_name = str(ex), ""
                     status = False
-                result_dict.update({
-                    "status": status,
-                    "msg": msg,
-                    "id_uid": id_uid,
-                    "file_name": file_name
-                })
+                result_dict.update({"status": status, "msg": msg, "id_uid": id_uid, "file_name": file_name})
                 return result_dict
 
             self._compute_in_background(cb, self.slot_dbase_clicked, id_uid=id_uid)
@@ -444,8 +453,7 @@ class LoadDataWidget(FormBaseWidget):
 
             if msg:
                 # Display warning message if it was generated
-                msgbox = QMessageBox(QMessageBox.Warning, "Warning",
-                                     msg, QMessageBox.Ok, parent=self)
+                msgbox = QMessageBox(QMessageBox.Warning, "Warning", msg, QMessageBox.Ok, parent=self)
                 msgbox.exec()
 
         else:
@@ -470,10 +478,8 @@ class LoadDataWidget(FormBaseWidget):
 
             self.signal_new_run_loaded.emit(False)  # Failed to load data
 
-            msg_str = f"Failed to load scan '{id_uid}'." \
-                      f"\n\nError message: {msg}"
-            msgbox = QMessageBox(QMessageBox.Critical, "Error",
-                                 msg_str, QMessageBox.Ok, parent=self)
+            msg_str = f"Failed to load scan '{id_uid}'." f"\n\nError message: {msg}"
+            msgbox = QMessageBox(QMessageBox.Critical, "Error", msg_str, QMessageBox.Ok, parent=self)
             msgbox.exec()
 
     def pb_apply_mask_clicked(self):
@@ -483,10 +489,12 @@ class LoadDataWidget(FormBaseWidget):
         dlg = DialogLoadMask()
         dlg.set_image_size(n_rows=map_size[0], n_columns=map_size[1])
         roi = self.gpc.get_preview_spatial_roi()
-        dlg.set_roi(row_start=roi["row_start"],
-                    column_start=roi["col_start"],
-                    row_end=roi["row_end"],
-                    column_end=roi["col_end"])
+        dlg.set_roi(
+            row_start=roi["row_start"],
+            column_start=roi["col_start"],
+            row_end=roi["row_end"],
+            column_end=roi["col_end"],
+        )
         dlg.set_roi_active(self.gpc.is_roi_selection_active())
 
         dlg.set_default_directory(self.gpc.get_current_working_directory())
@@ -520,11 +528,9 @@ class LoadDataWidget(FormBaseWidget):
     @Slot(object)
     def slot_apply_mask_clicked(self, result):
         if not result["success"]:
-            msg = f"Error occurred while applying the ROI selection:\n" \
-                  f"Exception: {result['msg']}"
+            msg = f"Error occurred while applying the ROI selection:\n" f"Exception: {result['msg']}"
             logger.error(f"{msg}")
-            mb_error = QMessageBox(QMessageBox.Critical, "Error",
-                                   f"{msg}", QMessageBox.Ok, parent=self)
+            mb_error = QMessageBox(QMessageBox.Critical, "Error", f"{msg}", QMessageBox.Ok, parent=self)
             mb_error.exec()
 
         # Here we want to expand the range in the Total Count Map preview if needed
@@ -562,8 +568,7 @@ class LoadDataWidget(FormBaseWidget):
         else:
             self.signal_data_channel_changed.emit(False)
             msg = result["msg"]
-            msgbox = QMessageBox(QMessageBox.Critical, "Error",
-                                 msg, QMessageBox.Ok, parent=self)
+            msgbox = QMessageBox(QMessageBox.Critical, "Error", msg, QMessageBox.Ok, parent=self)
             msgbox.exec()
 
     def list_preview_item_changed(self, list_item):
@@ -595,8 +600,7 @@ class LoadDataWidget(FormBaseWidget):
         if not result["success"]:
             # The error shouldn't actually happen here. This is to prevent potential crashes.
             msg = f"Error occurred: {result['msg']}.\nData may need to be reloaded to continue processing."
-            msgbox = QMessageBox(QMessageBox.Critical, "Error",
-                                 msg, QMessageBox.Ok, parent=self)
+            msgbox = QMessageBox(QMessageBox.Critical, "Error", msg, QMessageBox.Ok, parent=self)
             msgbox.exec()
 
         # Here we want to expand the range in the Total Count Map preview if needed
@@ -627,6 +631,7 @@ class LoadDataWidget(FormBaseWidget):
                 def run(self):
                     result_dict = func(*args, **kwargs)
                     signal_complete.emit(result_dict)
+
             return LoadFile()
 
         if slot is not None:

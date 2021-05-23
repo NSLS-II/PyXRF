@@ -10,8 +10,9 @@ from pyxrf.core.fitting import rfactor_compute, _fitting_nnls, _fitting_admm, fi
 
 def _generate_gaussian_spectra(x_values, gaussian_centers, gaussian_std):
 
-    assert len(gaussian_centers) == len(gaussian_std), \
-        "The number of center values must be equal to the number of STD values"
+    assert len(gaussian_centers) == len(
+        gaussian_std
+    ), "The number of center values must be equal to the number of STD values"
     nn = len(x_values)
     n_spectra = len(gaussian_centers)
 
@@ -27,6 +28,7 @@ class DataForFittingTest:
     """
     The class that generates and stores dataset used for testing of fitting algorithms
     """
+
     def __init__(self, **kwargs):
         self.spectra = None
         self.weights = None
@@ -34,9 +36,18 @@ class DataForFittingTest:
 
         self.generate_dataset(**kwargs)
 
-    def generate_dataset(self, *, n_pts=101, pts_range=(0, 100),
-                         n_spectra=3, n_gaus_centers_range=(20, 80), gauss_std_range=(10, 20),
-                         weights_range=(0.1, 1), n_data_dimensions=(8,), axis=0):
+    def generate_dataset(
+        self,
+        *,
+        n_pts=101,
+        pts_range=(0, 100),
+        n_spectra=3,
+        n_gaus_centers_range=(20, 80),
+        gauss_std_range=(10, 20),
+        weights_range=(0.1, 1),
+        n_data_dimensions=(8,),
+        axis=0,
+    ):
 
         if n_data_dimensions:
             data_dim = n_data_dimensions
@@ -44,23 +55,21 @@ class DataForFittingTest:
             data_dim = (1,)
 
         # Values for 'energy' axis
-        self.x_values = np.mgrid[pts_range[0]: pts_range[1]: n_pts * 1j]
+        self.x_values = np.mgrid[pts_range[0] : pts_range[1] : n_pts * 1j]
 
         # Centers of gaussians are evenly spread in the range
-        gaussian_centers = np.mgrid[n_gaus_centers_range[0]: n_gaus_centers_range[1]: n_spectra * 1j]
+        gaussian_centers = np.mgrid[n_gaus_centers_range[0] : n_gaus_centers_range[1] : n_spectra * 1j]
         # Standard deviations are uniformly distributed in the range
-        gaussian_std = np.random.rand(n_spectra) * \
-            (gauss_std_range[1] - gauss_std_range[0]) + gauss_std_range[0]
+        gaussian_std = np.random.rand(n_spectra) * (gauss_std_range[1] - gauss_std_range[0]) + gauss_std_range[0]
 
-        self.spectra = _generate_gaussian_spectra(x_values=self.x_values,
-                                                  gaussian_centers=gaussian_centers,
-                                                  gaussian_std=gaussian_std)
+        self.spectra = _generate_gaussian_spectra(
+            x_values=self.x_values, gaussian_centers=gaussian_centers, gaussian_std=gaussian_std
+        )
 
         # The number of pixels in the flattened multidimensional image
         dims = np.prod(data_dim)
         # Generate data for every pixel of the multidimensional image
-        self.weights = np.random.rand(n_spectra, dims) * \
-            (weights_range[1] - weights_range[0]) + weights_range[0]
+        self.weights = np.random.rand(n_spectra, dims) * (weights_range[1] - weights_range[0]) + weights_range[0]
         self.data_input = np.matmul(self.spectra, self.weights)
 
         if n_data_dimensions:
@@ -79,14 +88,18 @@ class DataForFittingTest:
 
     def validate_output_weights(self, weights_output, decimal=10):
 
-        assert weights_output.shape == self.weights.shape, \
-            f"Shapes of the output weight array {weights_output.shape} and "\
+        assert weights_output.shape == self.weights.shape, (
+            f"Shapes of the output weight array {weights_output.shape} and "
             f" input weight array {self.weights.shape} do not match. Can not compare the arrays"
+        )
 
         # Check if the weights match
         npt.assert_array_almost_equal(
-            weights_output, self.weights, decimal=decimal,
-            err_msg="Estimated weights do not match the weights used for dataset generation")
+            weights_output,
+            self.weights,
+            decimal=decimal,
+            err_msg="Estimated weights do not match the weights used for dataset generation",
+        )
 
 
 def test_rfactor_compute_testing_single_spectrum():
@@ -107,14 +120,16 @@ def test_rfactor_compute_testing_single_spectrum():
     spectrum = b + res
 
     # This is the equation used to compute R-factor
-    rfactor_expected = sum(abs(res))/sum(abs(spectrum))
+    rfactor_expected = sum(abs(res)) / sum(abs(spectrum))
 
     # Now call the function
     rfactor = rfactor_compute(spectrum, fit_results, ref_spectra)
 
     npt.assert_almost_equal(
-        rfactor, rfactor_expected,
-        err_msg=f"Error in evaluating R-factor: {rfactor}, expected is {rfactor_expected}")
+        rfactor,
+        rfactor_expected,
+        err_msg=f"Error in evaluating R-factor: {rfactor}, expected is {rfactor_expected}",
+    )
 
 
 def test_rfactor_compute_testing_multiple_spectra():
@@ -135,14 +150,16 @@ def test_rfactor_compute_testing_multiple_spectra():
     spectrum = b + res
 
     # This is the equation used to compute R-factor
-    rfactor_expected = np.sum(abs(res), axis=0)/np.sum(abs(spectrum), axis=0)
+    rfactor_expected = np.sum(abs(res), axis=0) / np.sum(abs(spectrum), axis=0)
 
     # Now call the function
     rfactor = rfactor_compute(spectrum, fit_results, ref_spectra)
 
     npt.assert_almost_equal(
-        rfactor, rfactor_expected,
-        err_msg=f"Error in evaluating R-factor: {rfactor}, expected is {rfactor_expected}")
+        rfactor,
+        rfactor_expected,
+        err_msg=f"Error in evaluating R-factor: {rfactor}, expected is {rfactor_expected}",
+    )
 
 
 def test_rfactor_compute_fail():
@@ -170,9 +187,9 @@ def test_rfactor_compute_fail():
         rfactor_compute(spectrum_3D, fit_results, ref_spectra)
 
     # No match between dimensions of 'spectrum' and 'fit_results' dimensionality
-    with pytest.raises(AssertionError,
-                       match="Spectrum data .+ and fitting results .+ "
-                       "must have the same number of dimensions"):
+    with pytest.raises(
+        AssertionError, match="Spectrum data .+ and fitting results .+ " "must have the same number of dimensions"
+    ):
         rfactor_compute(spectrum, fit_results_2D, ref_spectra)
 
     # Wrong dimensions of parameter 'ref_spectra'
@@ -219,14 +236,16 @@ def test_fitting_nnls(dataset_params):
     res = data_fitted - data_input[:, 0]
 
     # R-factor
-    assert rfactor.ndim == 1 and len(rfactor) == weights_estimated.shape[1], \
-        f"'rfactor' dimensions are incorrect ({rfactor.shape})"
-    rf = np.sum(np.abs(res))/np.sum(np.abs(data_input))  # Desired value
+    assert (
+        rfactor.ndim == 1 and len(rfactor) == weights_estimated.shape[1]
+    ), f"'rfactor' dimensions are incorrect ({rfactor.shape})"
+    rf = np.sum(np.abs(res)) / np.sum(np.abs(data_input))  # Desired value
     npt.assert_almost_equal(rfactor[0], rf, err_msg="R-factor is computed incorrectly")
 
     # Residual
-    assert residual.ndim == 1 and len(residual) == weights_estimated.shape[1], \
-        f"'residual' dimensions are incorrect ({residual.shape})"
+    assert (
+        residual.ndim == 1 and len(residual) == weights_estimated.shape[1]
+    ), f"'residual' dimensions are incorrect ({residual.shape})"
     rs = np.sqrt(np.sum(np.square(res)))  # Desired value (this is how 'nnls' computes the residual)
     npt.assert_almost_equal(rfactor[0], rs, err_msg="Residual is computed incorrectly")
 
@@ -312,12 +331,12 @@ def test_fitting_admm(dataset_params):
     #   used to generate the dataset
     if non_negative:
         # Only positive weights
-        weights_estimated, rfactor, convergence, feasibility = \
-            _fitting_admm(data_input, spectra)
+        weights_estimated, rfactor, convergence, feasibility = _fitting_admm(data_input, spectra)
     else:
         # May contain negative weights
-        weights_estimated, rfactor, convergence, feasibility = \
-            _fitting_admm(data_input, spectra, non_negative=False)
+        weights_estimated, rfactor, convergence, feasibility = _fitting_admm(
+            data_input, spectra, non_negative=False
+        )
 
     if not only_check_weights_ge_0:
 
@@ -326,19 +345,19 @@ def test_fitting_admm(dataset_params):
         # Validate 'rfactor' (do it for a single point)
         data_fitted = np.matmul(weights_estimated[:, 0], np.transpose(spectra))
         res = data_fitted - data_input[:, 0]
-        assert rfactor.ndim == 1 and len(rfactor) == weights_estimated.shape[1], \
-            f"'rfactor' dimensions are incorrect ({rfactor.shape})"
-        rf = np.sum(np.abs(res))/np.sum(np.abs(data_input))  # Desired value
+        assert (
+            rfactor.ndim == 1 and len(rfactor) == weights_estimated.shape[1]
+        ), f"'rfactor' dimensions are incorrect ({rfactor.shape})"
+        rf = np.sum(np.abs(res)) / np.sum(np.abs(data_input))  # Desired value
         npt.assert_almost_equal(rfactor[0], rf, err_msg="R-factor is computed incorrectly")
 
         # Check the convergence data
-        assert (convergence.ndim == 1) and (convergence.size >= 1) \
-            and convergence[-1] < 1e-20, \
-            "Convergence array has incorrect dimensions or the alogrithm did not converge"
+        assert (
+            (convergence.ndim == 1) and (convergence.size >= 1) and convergence[-1] < 1e-20
+        ), "Convergence array has incorrect dimensions or the alogrithm did not converge"
 
         # Check feasibility array dimensions
-        assert (feasibility.ndim == 1) and (feasibility.size >= 1), \
-            "Feasibility array has incorrect dimensions"
+        assert (feasibility.ndim == 1) and (feasibility.size >= 1), "Feasibility array has incorrect dimensions"
 
     else:
 
@@ -440,8 +459,8 @@ def test_fit_spectrum(dataset_params, process_params):
 
     params = process_params.copy()  # We don't want to create a reference, since we change 'params'
 
-    if 'axis' in dataset_params:
-        params['axis'] = dataset_params['axis']
+    if "axis" in dataset_params:
+        params["axis"] = dataset_params["axis"]
 
     spectra = fitting_data.spectra
     data_input = fitting_data.data_input
@@ -454,8 +473,9 @@ def test_fit_spectrum(dataset_params, process_params):
     # We don't verify the values of 'rfactor' and 'residual', since they are verified for each
     #   optimization method separately. We verify only the dimensions of the arrays
     data_dim = dataset_params["n_data_dimensions"]
-    assert rfactor.shape == data_dim, \
-        f"The shape of 'rfactor' array {rfactor.shape} does not match the shape of data {data_dim}"
+    assert (
+        rfactor.shape == data_dim
+    ), f"The shape of 'rfactor' array {rfactor.shape} does not match the shape of data {data_dim}"
 
     if "method" not in params:
         params["method"] = "nnls"  # This is supposed to be the default value
@@ -463,27 +483,36 @@ def test_fit_spectrum(dataset_params, process_params):
     # The rest of the checks are individual for optimization method
     if params["method"] == "admm":
         # Check for existance and dimensions of 'convergence' and 'feasibility' arrays
-        assert results_dict["method"] == "admm", f"Incorrect method '{results_dict['method']}' "\
-                                                 "is reported by ADMM optimization function"
-        assert "convergence" in results_dict, \
-            "Array 'convergence' is not in the dictionary of results for ADMM optimization method"
-        assert "feasibility" in results_dict, \
-            "Array 'feasibility' is not in the dictionary of results for ADMM optimization method"
-        assert results_dict["convergence"].ndim == 1, \
-            "The returned 'convergence' must be 1D array (ADMM optimization method)"
-        assert results_dict["feasibility"].ndim == 1, \
-            "The returned 'feasibility' must be 1D array (ADMM optimization method)"
-        assert results_dict["convergence"].shape == results_dict["feasibility"].shape, \
-            "The returned 'convergence' and 'feasibility' arrays must have the same size "\
+        assert results_dict["method"] == "admm", (
+            f"Incorrect method '{results_dict['method']}' " "is reported by ADMM optimization function"
+        )
+        assert (
+            "convergence" in results_dict
+        ), "Array 'convergence' is not in the dictionary of results for ADMM optimization method"
+        assert (
+            "feasibility" in results_dict
+        ), "Array 'feasibility' is not in the dictionary of results for ADMM optimization method"
+        assert (
+            results_dict["convergence"].ndim == 1
+        ), "The returned 'convergence' must be 1D array (ADMM optimization method)"
+        assert (
+            results_dict["feasibility"].ndim == 1
+        ), "The returned 'feasibility' must be 1D array (ADMM optimization method)"
+        assert results_dict["convergence"].shape == results_dict["feasibility"].shape, (
+            "The returned 'convergence' and 'feasibility' arrays must have the same size "
             "(ADMM optimization method)"
+        )
     elif params["method"] == "nnls":
-        assert results_dict["method"] == "nnls", f"Incorrect method '{results_dict['method']}' "\
-                                                 "is reported by NNLS optimization function"
-        assert "residual" in results_dict, \
-            "Array 'residual' is not in the dictionary of results for NNLS optimization method"
-        assert results_dict['residual'].shape == data_dim, \
-            f"The shape of 'residual' array {results_dict['residual'].shape} does not match "\
+        assert results_dict["method"] == "nnls", (
+            f"Incorrect method '{results_dict['method']}' " "is reported by NNLS optimization function"
+        )
+        assert (
+            "residual" in results_dict
+        ), "Array 'residual' is not in the dictionary of results for NNLS optimization method"
+        assert results_dict["residual"].shape == data_dim, (
+            f"The shape of 'residual' array {results_dict['residual'].shape} does not match "
             f"the shape of data {data_dim}"
+        )
     else:
         assert False, f"Unknown optimization method '{params['method']}'"
 

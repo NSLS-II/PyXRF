@@ -1,9 +1,20 @@
-from qtpy.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QRadioButton, QButtonGroup,
-                            QComboBox, QCheckBox, QPushButton, QDialog)
+from qtpy.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QRadioButton,
+    QButtonGroup,
+    QComboBox,
+    QCheckBox,
+    QPushButton,
+    QDialog,
+)
 from qtpy.QtCore import Qt, Slot, Signal
 
-from matplotlib.backends.backend_qt5agg import \
-    FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
+from matplotlib.backends.backend_qt5agg import (
+    FigureCanvasQTAgg as FigureCanvas,
+    NavigationToolbar2QT as NavigationToolbar,
+)
 
 from .useful_widgets import ElementSelection, set_tooltip, global_gui_variables
 
@@ -56,8 +67,7 @@ class PlotFittingModel(QWidget):
         self.element_selection = ElementSelection()
         eline_sample_list = ["Li_K", "B_K", "C_K", "N_K", "Fe_K", "Userpeak1"]
         self.element_selection.set_item_list(eline_sample_list)
-        self.element_selection.signal_current_item_changed.connect(
-            self.element_selection_item_changed)
+        self.element_selection.signal_current_item_changed.connect(self.element_selection_item_changed)
 
         self.mpl_canvas = FigureCanvas(self.gpc.plot_model._fig)
         self.mpl_toolbar = NavigationToolbar(self.mpl_canvas, self)
@@ -102,44 +112,40 @@ class PlotFittingModel(QWidget):
                 self.cb_show_spectrum.toggled.connect(self.cb_show_spectrum_toggled)
                 self.cb_show_fit.toggled.connect(self.cb_show_fit_toggled)
                 self.bgroup.buttonToggled.connect(self.bgroup_button_toggled)
-                self.combo_plot_type.currentIndexChanged.connect(
-                    self.combo_plot_type_current_index_changed)
+                self.combo_plot_type.currentIndexChanged.connect(self.combo_plot_type_current_index_changed)
                 self._enable_events = True
         else:
             if self._enable_events:
                 self.cb_show_spectrum.toggled.disconnect(self.cb_show_spectrum_toggled)
                 self.cb_show_fit.toggled.disconnect(self.cb_show_fit_toggled)
                 self.bgroup.buttonToggled.disconnect(self.bgroup_button_toggled)
-                self.combo_plot_type.currentIndexChanged.disconnect(
-                    self.combo_plot_type_current_index_changed)
+                self.combo_plot_type.currentIndexChanged.disconnect(self.combo_plot_type_current_index_changed)
                 self._enable_events = False
 
     def _set_tooltips(self):
-        set_tooltip(self.combo_plot_type,
-                    "Use <b>Linear</b> or <b>LinLog</b> axes to plot spectra")
-        set_tooltip(self.cb_show_spectrum,
-                    "Show <b>raw<b> spectrum")
-        set_tooltip(self.cb_show_fit,
-                    "Show <b>fitted</b> spectrum")
-        set_tooltip(self.rb_selected_region,
-                    "Plot spectrum in the <b>selected range</b> of energies. The range may be set "
-                    "in the 'Model' tab. Click the button <b>'Find Automatically ...'</b> "
-                    "to set the range of energies before finding the emission lines. The range "
-                    "may be changed in General Settings dialog (button <b>'General ...'</b>) at any time."
-                    )
-        set_tooltip(self.rb_full_spectrum,
-                    "Plot full spectrum over <b>all available eneriges</b>.")
-        set_tooltip(self.pb_escape_peak,
-                    "Select options for displaying the <b>escape peak</b>. "
-                    "If activated, the location of the escape peak is shown "
-                    "for the emission line, which is currently selected for adding, "
-                    "removal or editing.")
-        set_tooltip(self.pb_add_line,
-                    "<b>Add</b> the current emission line to the list of selected lines")
-        set_tooltip(self.pb_remove_line,
-                    "<b>Remove</b> the current emission line from the list of selected lines.")
-        set_tooltip(self.element_selection,
-                    "<b>Choose</b> the emission line for addition or removal.")
+        set_tooltip(self.combo_plot_type, "Use <b>Linear</b> or <b>LinLog</b> axes to plot spectra")
+        set_tooltip(self.cb_show_spectrum, "Show <b>raw<b> spectrum")
+        set_tooltip(self.cb_show_fit, "Show <b>fitted</b> spectrum")
+        set_tooltip(
+            self.rb_selected_region,
+            "Plot spectrum in the <b>selected range</b> of energies. The range may be set "
+            "in the 'Model' tab. Click the button <b>'Find Automatically ...'</b> "
+            "to set the range of energies before finding the emission lines. The range "
+            "may be changed in General Settings dialog (button <b>'General ...'</b>) at any time.",
+        )
+        set_tooltip(self.rb_full_spectrum, "Plot full spectrum over <b>all available eneriges</b>.")
+        set_tooltip(
+            self.pb_escape_peak,
+            "Select options for displaying the <b>escape peak</b>. "
+            "If activated, the location of the escape peak is shown "
+            "for the emission line, which is currently selected for adding, "
+            "removal or editing.",
+        )
+        set_tooltip(self.pb_add_line, "<b>Add</b> the current emission line to the list of selected lines")
+        set_tooltip(
+            self.pb_remove_line, "<b>Remove</b> the current emission line from the list of selected lines."
+        )
+        set_tooltip(self.element_selection, "<b>Choose</b> the emission line for addition or removal.")
 
     def update_widget_state(self, condition=None):
         if condition == "tooltips":

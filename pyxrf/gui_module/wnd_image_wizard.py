@@ -1,12 +1,21 @@
 from copy import deepcopy
-from qtpy.QtWidgets import (QVBoxLayout, QHBoxLayout, QCheckBox, QPushButton, QHeaderView,
-                            QTableWidget, QTableWidgetItem, QSizePolicy)
+from qtpy.QtWidgets import (
+    QVBoxLayout,
+    QHBoxLayout,
+    QCheckBox,
+    QPushButton,
+    QHeaderView,
+    QTableWidget,
+    QTableWidgetItem,
+    QSizePolicy,
+)
 from qtpy.QtGui import QBrush, QColor, QPalette
 from qtpy.QtCore import Qt, Signal, Slot
 
 from .useful_widgets import RangeManager, SecondaryWindow, set_tooltip
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -76,8 +85,12 @@ class WndImageWizard(SecondaryWindow):
 
         self.tbl_labels = ["Element", "Plotted Range", "Minimum", "Maximum"]
         self.tbl_h_alignment = [Qt.AlignCenter, Qt.AlignCenter, Qt.AlignCenter, Qt.AlignCenter]
-        self.tbl_section_resize_mode = [QHeaderView.Stretch, QHeaderView.ResizeToContents,
-                                        QHeaderView.Stretch, QHeaderView.Stretch]
+        self.tbl_section_resize_mode = [
+            QHeaderView.Stretch,
+            QHeaderView.ResizeToContents,
+            QHeaderView.Stretch,
+            QHeaderView.Stretch,
+        ]
         self.table.setColumnCount(len(self.tbl_labels))
         self.table.verticalHeader().hide()
         self.table.setHorizontalHeaderLabels(self.tbl_labels)
@@ -186,18 +199,21 @@ class WndImageWizard(SecondaryWindow):
         self._enable_plot_updates = True
 
     def _set_tooltips(self):
-        set_tooltip(self.cb_select_all,
-                    "<b>Select/Deselect All</b> emission lines in the list")
-        set_tooltip(self.cb_auto_update, "Automatically <b>update the plots</b> when changes are made. "
-                                         "If unchecked, then button <b>Update Plots</b> must be pressed "
-                                         "to update the plots. Automatic update is often undesirable "
-                                         "when large maps are displayed and multiple changes to parameters "
-                                         "are made.")
-        set_tooltip(self.pb_update_plots,
-                    "<b>Update plots</b> based on currently selected parameters.")
-        set_tooltip(self.table,
-                    "Choose <b>emission lines</b> from the currently selected dataset and "
-                    "select the <b>range of intensity</b> for each emission line")
+        set_tooltip(self.cb_select_all, "<b>Select/Deselect All</b> emission lines in the list")
+        set_tooltip(
+            self.cb_auto_update,
+            "Automatically <b>update the plots</b> when changes are made. "
+            "If unchecked, then button <b>Update Plots</b> must be pressed "
+            "to update the plots. Automatic update is often undesirable "
+            "when large maps are displayed and multiple changes to parameters "
+            "are made.",
+        )
+        set_tooltip(self.pb_update_plots, "<b>Update plots</b> based on currently selected parameters.")
+        set_tooltip(
+            self.table,
+            "Choose <b>emission lines</b> from the currently selected dataset and "
+            "select the <b>range of intensity</b> for each emission line",
+        )
 
     def update_widget_state(self, condition=None):
         # Update the state of the menu bar
@@ -232,8 +248,9 @@ class WndImageWizard(SecondaryWindow):
             state = item.checkState() == Qt.Checked
             if state != self._show_data[n_row][1]:
                 self._show_data[n_row][1] = state
-                logger.debug(f"Image wizard: map {self._show_data[n_row][0]} was "
-                             f"{'checked' if state else 'unchecked'}")
+                logger.debug(
+                    f"Image wizard: map {self._show_data[n_row][0]} was " f"{'checked' if state else 'unchecked'}"
+                )
                 self._update_map_selections_auto()
         except ValueError:
             pass
@@ -242,8 +259,10 @@ class WndImageWizard(SecondaryWindow):
         n_row = int(name)
         self._limit_data[n_row][1] = low
         self._limit_data[n_row][2] = high
-        logger.debug(f"Image Wizard: range changed for the map '{self._limit_data[n_row][0]}'. "
-                     f"New range: ({low}, {high})")
+        logger.debug(
+            f"Image Wizard: range changed for the map '{self._limit_data[n_row][0]}'. "
+            f"New range: ({low}, {high})"
+        )
         self._update_map_selections_auto()
 
     @Slot()

@@ -1,9 +1,14 @@
 # Use this file if you need to import PyXRF APIs into a custom script.
 # Use 'pyxrf.api' if you are interactively importing APIs into an IPython session.
 
-from .model.fileio import (stitch_fitted_results,  spec_to_hdf, create_movie,  # noqa: F401
-                           combine_data_to_recon, h5file_for_recon, export_to_view,  # noqa: F401
-                           make_hdf_stitched)  # noqa: F401
+from .model.fileio import stitch_fitted_results  # noqa: F401
+from .model.fileio import spec_to_hdf  # noqa: F401
+from .model.fileio import create_movie  # noqa: F401
+from .model.fileio import combine_data_to_recon  # noqa: F401
+from .model.fileio import h5file_for_recon  # noqa: F401
+from .model.fileio import export_to_view  # noqa: F401
+from .model.fileio import make_hdf_stitched  # noqa: F401
+
 from .model.load_data_from_db import make_hdf, export1d  # noqa: F401
 from .model.command_tools import fit_pixel_data_and_save, pyxrf_batch  # noqa: F401
 from .xanes_maps.xanes_maps_api import build_xanes_map  # noqa: F401
@@ -14,11 +19,12 @@ from .core.map_processing import dask_client_create  # noqa: F401
 #     Violation F401 - the package is imported but unused
 
 import logging
+
 logger = logging.getLogger("pyxrf")
 
 logger.setLevel(logging.INFO)
 
-formatter = logging.Formatter(fmt='%(asctime)s : %(levelname)s : %(message)s')
+formatter = logging.Formatter(fmt="%(asctime)s : %(levelname)s : %(message)s")
 
 stream_handler = logging.StreamHandler()
 stream_handler.setFormatter(formatter)

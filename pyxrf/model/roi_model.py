@@ -1,12 +1,11 @@
-from __future__ import (absolute_import, division,
-                        print_function)
+from __future__ import absolute_import, division, print_function
 
 import numpy as np
 from collections import OrderedDict
 import os
 import re
 
-from atom.api import (Atom, Str, observe, List, Int, Bool, Typed)
+from atom.api import Atom, Str, observe, List, Int, Bool, Typed
 
 from skbeam.fluorescence import XrfElement as Element
 from skbeam.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
@@ -16,6 +15,7 @@ from .fit_spectrum import get_energy_bin_range
 from ..core.map_processing import compute_selected_rois, TerminalProgressBar
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -40,6 +40,7 @@ class ROISettings(Atom):
     show_plot : bool
         option to plot
     """
+
     prefix = Str()
     line_val = Int()
     left_val = Int()
@@ -49,17 +50,17 @@ class ROISettings(Atom):
     step = Int(1)
     show_plot = Bool(False)
 
-    @observe('left_val')
+    @observe("left_val")
     def _value_update(self, change):
-        if change['type'] == 'create':
+        if change["type"] == "create":
             return
-        logger.debug('left value is changed {}'.format(change))
+        logger.debug("left value is changed {}".format(change))
 
-    @observe('show_plot')
+    @observe("show_plot")
     def _plot_opt(self, change):
-        if change['type'] == 'create':
+        if change["type"] == "create":
             return
-        logger.debug('show plot is changed {}'.format(change))
+        logger.debug("show plot is changed {}".format(change))
 
 
 class ROIModel(Atom):
@@ -99,6 +100,7 @@ class ROIModel(Atom):
     suffix_name_roi : str
         The suffix may have values 'sum', 'det1', 'det2' etc.
     """
+
     # Reference to ParamModel object
     param_model = Typed(object)
     # Reference to FileIOModel object
@@ -132,7 +134,7 @@ class ROIModel(Atom):
             This is the dictionary that gets passed to a function
             with the @observe decorator
         """
-        self.hdf_name = change['value']
+        self.hdf_name = change["value"]
         # output to .h5 file
         self.hdf_path = os.path.join(self.result_folder, self.hdf_name)
 
@@ -147,7 +149,7 @@ class ROIModel(Atom):
             This is the dictionary that gets passed to a function
             with the @observe decorator
         """
-        self.result_folder = change['value']
+        self.result_folder = change["value"]
 
     def data_title_update(self, change):
         """
@@ -160,15 +162,15 @@ class ROIModel(Atom):
             This is the dictionary that gets passed to a function
             with the @observe decorator
         """
-        self.data_title = change['value']
+        self.data_title = change["value"]
 
         # It is assumed, that ``self.data_title`` was created in the ``fileio`` module
         #   and has dataset label attached to the end of it.
         #   The labels are ``sum``, ``det1``, ``det2`` etc. depending on the number
         #   of detector channels.
-        self.suffix_name_roi = self.data_title.split('_')[-1]
+        self.suffix_name_roi = self.data_title.split("_")[-1]
 
-        self.data_title_base = '_'.join(self.data_title.split("_")[:-1])
+        self.data_title_base = "_".join(self.data_title.split("_")[:-1])
 
         if self.suffix_name_roi == "sum":
             # If suffix is 'sum', then remove the suffix
@@ -184,32 +186,32 @@ class ROIModel(Atom):
         self.element_for_roi = ""
         self.enable_roi_computation = False
 
-    @observe('element_for_roi')
+    @observe("element_for_roi")
     def _update_element(self, change):
         """
         Get element information as a string and parse it as a list.
         This element information means the ones for roi setup.
         """
-        self.element_for_roi = self.element_for_roi.strip(' ')
+        self.element_for_roi = self.element_for_roi.strip(" ")
         # Remove leading and trailing ','
-        self.element_for_roi = self.element_for_roi.strip(',')
+        self.element_for_roi = self.element_for_roi.strip(",")
         # Remove leading and trailing '.'
-        self.element_for_roi = self.element_for_roi.strip('.')
+        self.element_for_roi = self.element_for_roi.strip(".")
         try:
             if len(self.element_for_roi) == 0:
-                logger.debug('No elements entered.')
+                logger.debug("No elements entered.")
                 self.remove_all_roi()
                 self.element_list_roi = []
                 self.enable_roi_computation = False
                 return
-            elif ',' in self.element_for_roi:
-                element_list = [v.strip(' ') for v in self.element_for_roi.split(',')]
+            elif "," in self.element_for_roi:
+                element_list = [v.strip(" ") for v in self.element_for_roi.split(",")]
             else:
-                element_list = [v for v in self.element_for_roi.split(' ')]
+                element_list = [v for v in self.element_for_roi.split(" ")]
 
             # with self.suppress_notifications():
             #     self.element_list_roi = element_list
-            logger.debug('Current elements for ROI sum are: {}'.format(element_list))
+            logger.debug("Current elements for ROI sum are: {}".format(element_list))
             self.update_roi(element_list)
             self.element_list_roi = element_list
             self.enable_roi_computation = True
@@ -218,10 +220,10 @@ class ROIModel(Atom):
             self.enable_roi_computation = False
 
     def select_elements_from_list(self, element_list):
-        self.element_for_roi = ', '.join(element_list)
+        self.element_for_roi = ", ".join(element_list)
 
     def use_all_elements(self):
-        self.element_for_roi = ', '.join(K_LINE+L_LINE)  # +M_LINE)
+        self.element_for_roi = ", ".join(K_LINE + L_LINE)  # +M_LINE)
 
     def clear_selected_elements(self):
         self.element_for_roi = ""
@@ -255,29 +257,31 @@ class ROIModel(Atom):
             if v not in eline_list:
                 raise ValueError(f"Emission line {v} is unknown")
 
-            if '_K' in v:
-                temp = v.split('_')[0]
+            if "_K" in v:
+                temp = v.split("_")[0]
                 e = Element(temp)
-                val = int(e.emission_line['ka1']*1000)
-            elif '_L' in v:
-                temp = v.split('_')[0]
+                val = int(e.emission_line["ka1"] * 1000)
+            elif "_L" in v:
+                temp = v.split("_")[0]
                 e = Element(temp)
-                val = int(e.emission_line['la1']*1000)
-            elif '_M' in v:
-                temp = v.split('_')[0]
+                val = int(e.emission_line["la1"] * 1000)
+            elif "_M" in v:
+                temp = v.split("_")[0]
                 e = Element(temp)
-                val = int(e.emission_line['ma1']*1000)
+                val = int(e.emission_line["ma1"] * 1000)
 
-            delta_v = int(self.get_sigma(val/1000)*1000)
+            delta_v = int(self.get_sigma(val / 1000) * 1000)
 
-            roi = ROISettings(prefix=self.suffix_name_roi,
-                              line_val=val,
-                              left_val=val-delta_v*std_ratio,
-                              right_val=val+delta_v*std_ratio,
-                              default_left=val-delta_v*std_ratio,
-                              default_right=val+delta_v*std_ratio,
-                              step=1,
-                              show_plot=False)
+            roi = ROISettings(
+                prefix=self.suffix_name_roi,
+                line_val=val,
+                left_val=val - delta_v * std_ratio,
+                right_val=val + delta_v * std_ratio,
+                default_left=val - delta_v * std_ratio,
+                default_right=val + delta_v * std_ratio,
+                step=1,
+                show_plot=False,
+            )
 
             self.roi_dict.update({v: roi})
 
@@ -291,8 +295,10 @@ class ROIModel(Atom):
         Calculate the std at given energy.
         """
         temp_val = 2 * np.sqrt(2 * np.log(2))
-        return np.sqrt((self.param_model.param_new['fwhm_offset']['value']/temp_val)**2 +
-                       energy*epsilon*self.param_model.param_new['fwhm_fanoprime']['value'])
+        return np.sqrt(
+            (self.param_model.param_new["fwhm_offset"]["value"] / temp_val) ** 2
+            + energy * epsilon * self.param_model.param_new["fwhm_fanoprime"]["value"]
+        )
 
     def get_roi_sum(self):
         """
@@ -313,19 +319,22 @@ class ROIModel(Atom):
             "e_offset": self.param_model.param_new["e_offset"]["value"],
             "e_linear": self.param_model.param_new["e_linear"]["value"],
             "e_quadratic": self.param_model.param_new["e_quadratic"]["value"],
-            "b_width": self.param_model.param_new["non_fitting_values"]["background_width"]
+            "b_width": self.param_model.param_new["non_fitting_values"]["background_width"],
         }
 
         n_bin_low, n_bin_high = get_energy_bin_range(
             num_energy_bins=datav.shape[2],
-            low_e=self.param_model.param_new['non_fitting_values']['energy_bound_low']['value'],
-            high_e=self.param_model.param_new['non_fitting_values']['energy_bound_high']['value'],
-            e_offset=self.param_model.param_new['e_offset']['value'],
-            e_linear=self.param_model.param_new['e_linear']['value'])
+            low_e=self.param_model.param_new["non_fitting_values"]["energy_bound_low"]["value"],
+            high_e=self.param_model.param_new["non_fitting_values"]["energy_bound_high"]["value"],
+            e_offset=self.param_model.param_new["e_offset"]["value"],
+            e_linear=self.param_model.param_new["e_linear"]["value"],
+        )
 
         # Prepare the 'roi_dict' parameter for computations
-        roi_dict = {_: (self.roi_dict[_].left_val/1000.0, self.roi_dict[_].right_val/1000.0)
-                    for _ in self.roi_dict.keys()}
+        roi_dict = {
+            _: (self.roi_dict[_].left_val / 1000.0, self.roi_dict[_].right_val / 1000.0)
+            for _ in self.roi_dict.keys()
+        }
 
         roi_dict_computed = compute_selected_rois(
             data=datav,
@@ -336,7 +345,8 @@ class ROIModel(Atom):
             chunk_pixels=5000,
             n_chunks_min=4,
             progress_bar=TerminalProgressBar("Computing ROIs: "),
-            client=None)
+            client=None,
+        )
 
         # Save ROI data to HDF5 file
         self.saveROImap_to_hdf(roi_dict_computed)
@@ -368,10 +378,14 @@ class ROIModel(Atom):
         inner_path = f"xrfmap/{det_name}"
 
         try:
-            save_fitdata_to_hdf(self.hdf_path, data_dict_roi, datapath=inner_path,
-                                data_saveas='xrf_roi', dataname_saveas='xrf_roi_name')
+            save_fitdata_to_hdf(
+                self.hdf_path,
+                data_dict_roi,
+                datapath=inner_path,
+                data_saveas="xrf_roi",
+                dataname_saveas="xrf_roi_name",
+            )
         except Exception as ex:
-            logger.error(f"Failed to save ROI data to file '{self.hdf_path}'\n"
-                         f"    Exception: {ex}")
+            logger.error(f"Failed to save ROI data to file '{self.hdf_path}'\n" f"    Exception: {ex}")
         else:
             logger.info(f"ROI data was successfully saved to file '{self.hdf_name}'")

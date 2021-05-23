@@ -25,6 +25,7 @@ sample_table_content = [
 
 def _get_gpc_sim(maps_info_table):
     """Simulated simplified 'GlobalProcessingClasses` class for testing"""
+
     class SimGlobalProcessingClasses:
         def __init__(self):
             self.range_table = copy.deepcopy(maps_info_table)
