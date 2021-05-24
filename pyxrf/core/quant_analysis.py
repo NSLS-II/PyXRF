@@ -9,6 +9,7 @@ import time as ttime
 from .xrf_utils import split_compound_mass, generate_eline_list
 from .utils import normalize_data_by_scaler, convert_time_to_nexus_string
 import logging
+
 logger = logging.getLogger(__name__)
 
 # ==========================================================================================
@@ -22,14 +23,15 @@ _xrf_standard_schema = {
         "name": {"type": "string"},
         "serial": {"type": "string"},
         "description": {"type": "string"},
-        "compounds": {"type": "object",
-                      # Chemical formula should always start with a captial letter (Fe2O3)
-                      "patternProperties": {"^[A-Z][A-Za-z0-9]*$": {"type": "number"}},
-                      "additionalProperties": False,
-                      "minProperties": 1
-                      },
-        "density": {"type": "number"}  # Total density is an optional parameter
-    }
+        "compounds": {
+            "type": "object",
+            # Chemical formula should always start with a captial letter (Fe2O3)
+            "patternProperties": {"^[A-Z][A-Za-z0-9]*$": {"type": "number"}},
+            "additionalProperties": False,
+            "minProperties": 1,
+        },
+        "density": {"type": "number"},  # Total density is an optional parameter
+    },
 }
 
 _xrf_standard_schema_instructions = """
@@ -171,7 +173,7 @@ def load_xrf_standard_yaml_file(file_path, *, schema=_xrf_standard_schema):
     if not os.path.isfile(file_path):
         raise IOError(f"File '{file_path}' does not exist")
 
-    with open(file_path, 'r') as f:
+    with open(file_path, "r") as f:
         standard_data = yaml.load(f, Loader=yaml.FullLoader)
 
     if standard_data is None:
@@ -188,11 +190,10 @@ def load_xrf_standard_yaml_file(file_path, *, schema=_xrf_standard_schema):
             # The sum of all densities must be equal to total density
             sm = np.sum(list(data["compounds"].values()))
             if not math.isclose(sm, data["density"], abs_tol=1e-6):
-                msg.append(f"Record #{data['serial']} ({data['name']}): "
-                           f"computed {sm} vs total {data['density']}")
+                msg.append(f"Record #{data['serial']} ({data['name']}): computed {sm} vs total {data['density']}")
     if msg:
         msg = [f"    {_}" for _ in msg]
-        msg = '\n'.join(msg)
+        msg = "\n".join(msg)
         msg = "Sum of areal densities does not match total density:\n" + msg
         raise RuntimeError(msg)
 
@@ -266,9 +267,18 @@ def compute_standard_element_densities(compounds):
 _xrf_quant_fluor_schema = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["name", "serial", "description", "element_lines",
-                 "incident_energy", "scaler_name", "distance_to_sample",
-                 "creation_time_local", "source_scan_id", "source_scan_uid"],
+    "required": [
+        "name",
+        "serial",
+        "description",
+        "element_lines",
+        "incident_energy",
+        "scaler_name",
+        "distance_to_sample",
+        "creation_time_local",
+        "source_scan_id",
+        "source_scan_uid",
+    ],
     "properties": {
         # 'name', 'serial' and 'description' (optional) are copied
         #   from the structure used for description of XRF standard samples
@@ -290,10 +300,7 @@ _xrf_quant_fluor_schema = {
                     "type": "object",
                     "additionalProperties": False,
                     "required": ["density", "fluorescence"],
-                    "properties": {
-                        "density": {"type": "number"},
-                        "fluorescence": {"type": ["number", "null"]}
-                    }
+                    "properties": {"density": {"type": "number"}, "fluorescence": {"type": ["number", "null"]}},
                 }
             },
         },
@@ -310,8 +317,8 @@ _xrf_quant_fluor_schema = {
         # Scan ID of the source (scan of the standard), optional, null if not set
         "source_scan_id": {"type": ["integer", "null"]},
         # Scan UID of the source (scan of the standard), optional, null if not set
-        "source_scan_uid": {"type": ["string", "null"]}
-    }
+        "source_scan_uid": {"type": ["string", "null"]},
+    },
 }
 
 
@@ -401,7 +408,7 @@ def load_xrf_quant_fluor_json_file(file_path, *, schema=_xrf_quant_fluor_schema)
     if not os.path.isfile(file_path):
         raise IOError(f"File '{file_path}' does not exist")
 
-    with open(file_path, 'r') as f:
+    with open(file_path, "r") as f:
         fluor_data = json.load(f)
 
     if schema is not None:
@@ -557,7 +564,7 @@ def fill_quant_fluor_data_dict(quant_fluor_data_dict, *, xrf_map_dict, scaler_na
 
             ny_min, ny_max = _get_range(norm_map.shape[0])
             nx_min, nx_max = _get_range(norm_map.shape[1])
-            mean_fluor = np.mean(norm_map[ny_min: ny_max, nx_min: nx_max])
+            mean_fluor = np.mean(norm_map[ny_min:ny_max, nx_min:nx_max])
             # Note: numpy 'float64' is explicitely converted to 'float'
             #     (yaml package does not seem to support 'float64')
             quant_fluor_data_dict["element_lines"][eline]["fluorescence"] = float(mean_fluor)
@@ -705,9 +712,7 @@ class ParamQuantEstimation:
     accessed as ``self.fluorescence_data_dict``.
     """
 
-    def __init__(self, *, home_dir="~",
-                 config_dir=".pyxrf",
-                 standards_fln="quantitative_standards.yaml"):
+    def __init__(self, *, home_dir="~", config_dir=".pyxrf", standards_fln="quantitative_standards.yaml"):
         r"""
         Constructor of the ``ParamQuantEstiomation`` class. In addition to initalization
         of the fields, the constructor checks if the default file with user-defined
@@ -795,7 +800,7 @@ class ParamQuantEstimation:
         standard_ref = None
         if self.standards_custom:
             for st in self.standards_custom:
-                if ((st == standard) if (key is None) else (st[key] == standard)):
+                if (st == standard) if (key is None) else (st[key] == standard):
                     standard_ref = st
                     break
         return standard_ref
@@ -809,7 +814,7 @@ class ParamQuantEstimation:
         standard_ref = None
         if self.standards_built_in:
             for st in self.standards_built_in:
-                if ((st == standard) if (key is None) else (st[key] == standard)):
+                if (st == standard) if (key is None) else (st[key] == standard):
                     standard_ref = st
                     break
         return standard_ref
@@ -955,9 +960,7 @@ class ParamQuantEstimation:
             then fluorescence is not normalized
         """
 
-        fill_quant_fluor_data_dict(self.fluorescence_data_dict,
-                                   xrf_map_dict=xrf_map_dict,
-                                   scaler_name=scaler_name)
+        fill_quant_fluor_data_dict(self.fluorescence_data_dict, xrf_map_dict=xrf_map_dict, scaler_name=scaler_name)
 
     def set_detector_channel_in_data_dict(self, *, detector_channel=None):
         r"""
@@ -1017,9 +1020,7 @@ class ParamQuantEstimation:
             be any string. If None, then the current value of Scan UID is not changed.
         """
 
-        set_quant_fluor_data_dict_optional(self.fluorescence_data_dict,
-                                           scan_id=scan_id,
-                                           scan_uid=scan_uid)
+        set_quant_fluor_data_dict_optional(self.fluorescence_data_dict, scan_id=scan_id, scan_uid=scan_uid)
 
     def get_suggested_json_fln(self):
         r"""
@@ -1062,13 +1063,14 @@ class ParamQuantEstimation:
             if (pruned_dict["scaler_name"] is None) or (pruned_dict["scaler_name"] == ""):
                 msg = "WARNING: Scaler is not selected, data is not normalized."
                 msg_warnings["scaler_missing"] = msg
-            if (pruned_dict["distance_to_sample"] is None) or \
-                    (pruned_dict["distance_to_sample"] == 0):
-                msg = "WARNING: Distance-to-sample is set to 0 or None. "\
-                              "Set it to estimated distance between the detector and the standard sample "\
-                              "if you expect to it to change in the series of scans. Otherwise " \
-                              "the respective corrections may not be computed. Ignore if the distance "\
-                              "stays constant throughout the series of scans."
+            if (pruned_dict["distance_to_sample"] is None) or (pruned_dict["distance_to_sample"] == 0):
+                msg = (
+                    "WARNING: Distance-to-sample is set to 0 or None. "
+                    "Set it to estimated distance between the detector and the standard sample "
+                    "if you expect to it to change in the series of scans. Otherwise "
+                    "the respective corrections may not be computed. Ignore if the distance "
+                    "stays constant throughout the series of scans."
+                )
                 msg_warnings["distance_to_sample"] = msg
         return s, msg_warnings
 
@@ -1258,9 +1260,9 @@ class ParamQuantitativeAnalysis:
             self.calibration_data.append(calibration_data)
 
             settings = {}
-            settings['file_path'] = file_path
-            settings['element_lines'] = {}
-            for ln in calibration_data['element_lines']:
+            settings["file_path"] = file_path
+            settings["element_lines"] = {}
+            for ln in calibration_data["element_lines"]:
                 settings["element_lines"][ln] = {}
                 # Do not select the emission line
                 settings["element_lines"][ln]["selected"] = False
@@ -1369,8 +1371,7 @@ class ParamQuantitativeAnalysis:
         """
         n_item = self.find_entry_index(file_path)
         if n_item is not None:
-            s = yaml.dump(self.calibration_data[n_item], default_flow_style=False,
-                          sort_keys=False, indent=4)
+            s = yaml.dump(self.calibration_data[n_item], default_flow_style=False, sort_keys=False, indent=4)
         else:
             s = ""
         return s
@@ -1395,7 +1396,7 @@ class ParamQuantitativeAnalysis:
         """
         n_item = self.find_entry_index(file_path)
         for n, settings in enumerate(self.calibration_settings):
-            sel_flag = (n == n_item)  # Set 'selected' to True only if n == n_item
+            sel_flag = n == n_item  # Set 'selected' to True only if n == n_item
             if eline in settings["element_lines"]:
                 self.calibration_settings[n]["element_lines"][eline]["selected"] = sel_flag
         self.update_emission_line_list()
@@ -1546,8 +1547,9 @@ class ParamQuantitativeAnalysis:
         matter, if distance-to-sample is 0, then no correction is applied)
         """
         for n in range(len(self.calibration_data)):
-            if (eline in self.calibration_data[n]["element_lines"]) and \
-                    (eline in self.calibration_settings[n]["element_lines"]):
+            if (eline in self.calibration_data[n]["element_lines"]) and (
+                eline in self.calibration_settings[n]["element_lines"]
+            ):
                 data = self.calibration_data[n]["element_lines"][eline]
                 settings = self.calibration_settings[n]["element_lines"][eline]
                 if settings["selected"]:
@@ -1639,8 +1641,9 @@ class ParamQuantitativeAnalysis:
         """
         self.experiment_distance_to_sample = distance_to_sample
 
-    def apply_quantitative_normalization(self, data_in, *, scaler_dict, scaler_name_default,
-                                         data_name, name_not_scalable=None):
+    def apply_quantitative_normalization(
+        self, data_in, *, scaler_dict, scaler_name_default, data_name, name_not_scalable=None
+    ):
 
         r"""
         Apply quantitative normalization to the experimental XRF map ``data_in``. The quantitative
@@ -1717,10 +1720,12 @@ class ParamQuantitativeAnalysis:
             by fixed (selected) scaler is applied, then the returned value is False.
         """
 
-        logger.debug(f"Starting quantiative normalization with scan parameters:\n"
-                     f"    Detector channel: '{self.experiment_detector_channel}'\n"
-                     f"    Distance to sample: {self.experiment_distance_to_sample}\n"
-                     f"    Incident energy: {self.experiment_incident_energy}")
+        logger.debug(
+            f"Starting quantiative normalization with scan parameters:\n"
+            f"    Detector channel: '{self.experiment_detector_channel}'\n"
+            f"    Distance to sample: {self.experiment_distance_to_sample}\n"
+            f"    Incident energy: {self.experiment_incident_energy}"
+        )
 
         is_quant_normalization_applied = False
 
@@ -1744,30 +1749,40 @@ class ParamQuantitativeAnalysis:
             run_quant = True
             e_info_scaler = e_info["scaler_name"]
 
-            if (self.experiment_detector_channel is None) or \
-                    (e_info["detector_channel"] is None) or \
-                    (self.experiment_detector_channel.lower() != e_info["detector_channel"].lower()):
+            if (
+                (self.experiment_detector_channel is None)
+                or (e_info["detector_channel"] is None)
+                or (self.experiment_detector_channel.lower() != e_info["detector_channel"].lower())
+            ):
                 # Detector channels must match. This is critical.
-                logger.error(f"Emission line: {data_name}. Mismatch between channels used "
-                             f"for calibration ('{e_info['detector_channel']}') and current experimental "
-                             f"('{self.experiment_detector_channel}') scans. "
-                             f"Quantitative normalization will not be performed.")
+                logger.error(
+                    f"Emission line: {data_name}. Mismatch between channels used "
+                    f"for calibration ('{e_info['detector_channel']}') and current experimental "
+                    f"('{self.experiment_detector_channel}') scans. "
+                    f"Quantitative normalization will not be performed."
+                )
                 run_quant = False
 
-            if (self.experiment_incident_energy is None) or \
-                    (e_info['incident_energy'] is None) or \
-                    not math.isclose(self.experiment_incident_energy, e_info['incident_energy'], abs_tol=0.001):
+            if (
+                (self.experiment_incident_energy is None)
+                or (e_info["incident_energy"] is None)
+                or not math.isclose(self.experiment_incident_energy, e_info["incident_energy"], abs_tol=0.001)
+            ):
                 # Still do normalization, but print the warning (result may be inaccurate)
-                logger.warning(f"Emission line {data_name}. Incident energy for standard "
-                               f"('{e_info['incident_energy']}') and experimental "
-                               f"('{self.experiment_incident_energy}') scans don't match. "
-                               f"Quantitative normalization will still be performed, but the results may "
-                               f"be inaccurate.")
+                logger.warning(
+                    f"Emission line {data_name}. Incident energy for standard "
+                    f"('{e_info['incident_energy']}') and experimental "
+                    f"('{self.experiment_incident_energy}') scans don't match. "
+                    f"Quantitative normalization will still be performed, but the results may "
+                    f"be inaccurate."
+                )
 
             if (e_info_scaler is not None) and (e_info_scaler not in scaler_dict):
                 run_quant = False
-                logger.error(f"Emission line {data_name}. Scaler '{e_info_scaler}' is not available "
-                             f"for this dataset. Quantitative normalization is skipped")
+                logger.error(
+                    f"Emission line {data_name}. Scaler '{e_info_scaler}' is not available "
+                    f"for this dataset. Quantitative normalization is skipped"
+                )
 
         if run_quant:
             # Quantitative calibration for the emission line is loaded, so normalization is
@@ -1777,10 +1792,9 @@ class ParamQuantitativeAnalysis:
                 scaler = None
             else:
                 scaler = scaler_dict[e_info_scaler]
-            data_arr = normalize_data_by_scaler(data_in=data_in,
-                                                scaler=scaler,
-                                                data_name=data_name,
-                                                name_not_scalable=name_not_scalable)
+            data_arr = normalize_data_by_scaler(
+                data_in=data_in, scaler=scaler, data_name=data_name, name_not_scalable=name_not_scalable
+            )
             # Normalization function above returns reference if not transformations were applied
             #   Make a copy in this case.
             if data_arr is data_in:
@@ -1790,24 +1804,35 @@ class ParamQuantitativeAnalysis:
             #   If either value is ZERO, then don't perform the correction.
             r1 = e_info["distance_to_sample"]
             r2 = self.experiment_distance_to_sample
-            if (r1 is not None) and (r2 is not None) and (r1 > 0) and (r2 > 0) and \
-                    not math.isclose(r1, r2, abs_tol=1e-20):
+            if (
+                (r1 is not None)
+                and (r2 is not None)
+                and (r1 > 0)
+                and (r2 > 0)
+                and not math.isclose(r1, r2, abs_tol=1e-20)
+            ):
                 # Element density increase as the distance becomes larger
                 #   (fluorescence is reduced as r**2)
                 data_arr *= (r2 / r1) ** 2
-                logger.info(f"Emission line {data_name}. Correction for distance-to_sample was performed "
-                            f"(standard: {r1}, sample: {r2})")
+                logger.info(
+                    f"Emission line {data_name}. Correction for distance-to_sample was performed "
+                    f"(standard: {r1}, sample: {r2})"
+                )
             else:
-                logger.info(f"Emission line {data_name}. Correction for distance-to_sample was skipped "
-                            f"(standard: {r1}, sample: {r2})")
+                logger.info(
+                    f"Emission line {data_name}. Correction for distance-to_sample was skipped "
+                    f"(standard: {r1}, sample: {r2})"
+                )
             is_quant_normalization_applied = True
         else:
             # The following condition also takes care of the case when 'scaler_name_fixed' is None
             if scaler_name_default in scaler_dict:
-                data_arr = normalize_data_by_scaler(data_in=data_in,
-                                                    scaler=scaler_dict[scaler_name_default],
-                                                    data_name=data_name,
-                                                    name_not_scalable=name_not_scalable)
+                data_arr = normalize_data_by_scaler(
+                    data_in=data_in,
+                    scaler=scaler_dict[scaler_name_default],
+                    data_name=data_name,
+                    name_not_scalable=name_not_scalable,
+                )
             else:
                 data_arr = data_in
 

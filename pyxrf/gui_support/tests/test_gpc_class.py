@@ -7,11 +7,13 @@ from pyxrf.gui_support.gpc_class import GlobalProcessingClasses
 #                 class GlobalProcessingClasses (SecondaryWindow)
 
 
+# fmt: off
 @pytest.mark.parametrize("eline_keys", [
     [],
     ["Ca_K"],
     ["K_K", "Ca_K", "Fe_K", "positions", "some_key"]
 ])
+# fmt: on
 def test_gpc_get_maps_info_table_1(eline_keys):
 
     gpc = GlobalProcessingClasses()
@@ -41,20 +43,24 @@ def test_gpc_get_maps_info_table_1(eline_keys):
     gpc.img_model_adv.stat_dict = {}
     for n, key in enumerate(eline_keys):
         gpc.img_model_adv.range_dict[key] = {}
-        gpc.img_model_adv.range_dict[key]['low'] = range_table[n][1]
-        gpc.img_model_adv.range_dict[key]['high'] = range_table[n][2]
+        gpc.img_model_adv.range_dict[key]["low"] = range_table[n][1]
+        gpc.img_model_adv.range_dict[key]["high"] = range_table[n][2]
         gpc.img_model_adv.limit_dict[key] = {}
-        gpc.img_model_adv.limit_dict[key]['low'] = limit_table_norm[n][1]
-        gpc.img_model_adv.limit_dict[key]['high'] = limit_table_norm[n][2]
+        gpc.img_model_adv.limit_dict[key]["low"] = limit_table_norm[n][1]
+        gpc.img_model_adv.limit_dict[key]["high"] = limit_table_norm[n][2]
         gpc.img_model_adv.stat_dict[key] = show_table[n][1]
 
     # Now run the test
     rng_table, lim_table, sh_table = gpc.get_maps_info_table()
     assert rng_table == range_table, "Returned table of ranges does not match the expected."
-    assert [_[0] for _ in lim_table] == [_[0] for _ in limit_table], \
-        "Keys in the returned table of limits do not match the expected."
-    npt.assert_array_almost_equal([_[1:] for _ in lim_table], [_[1:] for _ in limit_table],
-                                  err_msg="Returned limits don't match the expected")
+    assert [_[0] for _ in lim_table] == [
+        _[0] for _ in limit_table
+    ], "Keys in the returned table of limits do not match the expected."
+    npt.assert_array_almost_equal(
+        [_[1:] for _ in lim_table],
+        [_[1:] for _ in limit_table],
+        err_msg="Returned limits don't match the expected",
+    )
     assert sh_table == show_table, "'show' status table don't match the expected table"
 
 
@@ -66,12 +72,12 @@ def test_gpc_get_maps_info_table_2():
 
     eline_keys = ["abc", "def"]  # Some random keys
     gpc.img_model_adv.map_keys = eline_keys
-    correct_dict = {_: {'low': 0.0, 'high': 1.0} for _ in eline_keys}
+    correct_dict = {_: {"low": 0.0, "high": 1.0} for _ in eline_keys}
     correct_stat_dict = {_: True for _ in eline_keys}
 
     # Modified 'limit_dict'
     modified_dict = correct_dict.copy()
-    modified_dict["extra_key"] = {'low': 0.0, 'high': 1.0}
+    modified_dict["extra_key"] = {"low": 0.0, "high": 1.0}
 
     modified_stat_dict = correct_stat_dict.copy()
     modified_stat_dict["extra_key"] = False

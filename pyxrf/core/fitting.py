@@ -23,22 +23,27 @@ def rfactor_compute(spectrum, fit_results, ref_spectra):
     """
 
     # Check if input parameters are valid
-    assert spectrum.ndim == 1 or spectrum.ndim == 2, \
-        "Parameter 'spectrum' must be 1D or 2D array, ({spectrum.ndim})"
-    assert spectrum.ndim == fit_results.ndim, \
-        f"Spectrum data (ndim = {spectrum.ndim}) and fitting results "\
+    assert (
+        spectrum.ndim == 1 or spectrum.ndim == 2
+    ), "Parameter 'spectrum' must be 1D or 2D array, ({spectrum.ndim})"
+    assert spectrum.ndim == fit_results.ndim, (
+        f"Spectrum data (ndim = {spectrum.ndim}) and fitting results "
         f"(ndim = {fit_results.ndim}) must have the same number of dimensions"
+    )
     assert ref_spectra.ndim == 2, "Parameter 'ref_spectra' must be 2D array, ({ref_spectra.ndim})"
-    assert spectrum.shape[0] == ref_spectra.shape[0], \
-        f"Arrays 'spectrum' ({spectrum.shape}) and 'ref_spectra' ({ref_spectra.shape}) "\
+    assert spectrum.shape[0] == ref_spectra.shape[0], (
+        f"Arrays 'spectrum' ({spectrum.shape}) and 'ref_spectra' ({ref_spectra.shape}) "
         "must have the same number of data points"
-    assert fit_results.shape[0] == ref_spectra.shape[1], \
-        f"Arrays 'fit_results' ({fit_results.shape}) and 'ref_spectra' ({ref_spectra.shape}) "\
+    )
+    assert fit_results.shape[0] == ref_spectra.shape[1], (
+        f"Arrays 'fit_results' ({fit_results.shape}) and 'ref_spectra' ({ref_spectra.shape}) "
         "must have the same number of spectrum points"
+    )
     if spectrum.ndim == 2:  # Only if multiple spectra are processed
-        assert spectrum.shape[1] == fit_results.shape[1], \
-            f"Arrays 'spectrum' {spectrum.shape} and 'fit_results' {fit_results.shape}"\
+        assert spectrum.shape[1] == fit_results.shape[1], (
+            f"Arrays 'spectrum' {spectrum.shape} and 'fit_results' {fit_results.shape}"
             "must have the same number of columns"
+        )
 
     spectrum_fit = np.matmul(ref_spectra, fit_results)
     return rfactor(spectrum, spectrum_fit)
@@ -139,21 +144,21 @@ def fit_spectrum(data, ref_spectra, *, method="nnls", axis=0, maxiter=100, rate=
 
             - ``feasibility`` - 1D array, same shape as ``convergence``
     """
-    # Explicitely check if one of the supported optimisation method is specified
+    # Explicitly check if one of the supported optimisation method is specified
     method = method.lower()
     supported_fitting_methods = ("nnls", "admm")
-    assert method in supported_fitting_methods, \
-        f"Fitting method '{method}' is not supported. Supported methods: {supported_fitting_methods}"
+    assert (
+        method in supported_fitting_methods
+    ), f"Fitting method '{method}' is not supported. Supported methods: {supported_fitting_methods}"
 
     data = np.asarray(data)
     ref_spectra = np.asarray(ref_spectra)
 
-    assert ref_spectra.ndim == 2, f"The array 'ref_spectra' must have 2 dimensions "\
-                                  f"instead of {ref_spectra.ndim}"
+    assert ref_spectra.ndim == 2, f"The array 'ref_spectra' must have 2 dimensions instead of {ref_spectra.ndim}"
 
-    assert (axis >= -data.ndim) and (axis < data.ndim), \
-        f"Specified axis {axis} does not exist in data array. "\
-        f"Allowed values: {-data.ndim} .. {data.ndim - 1}"
+    assert (axis >= -data.ndim) and (
+        axis < data.ndim
+    ), f"Specified axis {axis} does not exist in data array. Allowed values: {-data.ndim} .. {data.ndim - 1}"
 
     # Switch to standard data view (spectrum points along axis==0)
     data = np.moveaxis(data, axis, 0)
@@ -163,8 +168,9 @@ def fit_spectrum(data, ref_spectra, *, method="nnls", axis=0, maxiter=100, rate=
     n_pts_2 = ref_spectra.shape[0]
     n_refs = ref_spectra.shape[1]
 
-    assert n_pts == n_pts_2, f"The number of spectrum points in data ({n_pts}) "\
-                             f"and references ({n_pts_2}) do not match."
+    assert (
+        n_pts == n_pts_2
+    ), f"The number of spectrum points in data ({n_pts}) and references ({n_pts_2}) do not match."
 
     assert rate > 0.0, f"The parameter 'rate' is zero or negative ({rate:.6g})"
 
@@ -188,8 +194,9 @@ def fit_spectrum(data, ref_spectra, *, method="nnls", axis=0, maxiter=100, rate=
         data_1D = data
 
     if method == "admm":
-        weights, rfactor, convergence, feasibility = \
-            _fitting_admm(data_1D, ref_spectra, rate=rate, maxiter=maxiter, epsilon=epsilon)
+        weights, rfactor, convergence, feasibility = _fitting_admm(
+            data_1D, ref_spectra, rate=rate, maxiter=maxiter, epsilon=epsilon
+        )
     else:
         # Call the default "nnls" method, since this is the only choice left.
         weights, rfactor, residual = _fitting_nnls(data_1D, ref_spectra, maxiter=maxiter)
@@ -264,8 +271,9 @@ def _fitting_nnls(data, ref_spectra, *, maxiter=100):
     n_pts_2 = ref_spectra.shape[0]
     n_refs = ref_spectra.shape[1]
 
-    assert n_pts == n_pts_2, f"The number of spectrum points in data ({n_pts}) "\
-                             f"and references ({n_pts_2}) do not match."
+    assert (
+        n_pts == n_pts_2
+    ), f"The number of spectrum points in data ({n_pts}) and references ({n_pts_2}) do not match."
 
     assert maxiter > 0, f"The parameter 'maxiter' is zero or negative ({maxiter})"
 
@@ -336,8 +344,9 @@ def _fitting_admm(data, ref_spectra, *, rate=0.2, maxiter=100, epsilon=1e-30, no
     n_pts_2 = ref_spectra.shape[0]
     n_refs = ref_spectra.shape[1]
 
-    assert n_pts == n_pts_2, f"ADMM fitting: number of spectrum points in data ({n_pts}) "\
-                             f"and references ({n_pts_2}) do not match."
+    assert (
+        n_pts == n_pts_2
+    ), f"ADMM fitting: number of spectrum points in data ({n_pts}) and references ({n_pts_2}) do not match."
 
     assert rate > 0.0, f"ADMM fitting: parameter 'rate' is zero or negative ({rate:.6g})"
 
@@ -366,7 +375,7 @@ def _fitting_admm(data, ref_spectra, *, rate=0.2, maxiter=100, epsilon=1e-30, no
 
     n_iter = 0
     for i in range(maxiter):
-        m2 = z + (w-u) * rate
+        m2 = z + (w - u) * rate
         x = np.matmul(m1, m2)
         w_updated = x + u
         if non_negative:

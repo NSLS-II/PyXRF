@@ -13,37 +13,45 @@ import re
 
 from ..core.quant_analysis import ParamQuantitativeAnalysis
 
-from skbeam.core.fitting.xrf_model import (linear_spectrum_fitting, define_range)
+from skbeam.core.fitting.xrf_model import linear_spectrum_fitting, define_range
 from .fileio import output_data, read_hdf_APS, read_MAPS, sep_v
-from .fit_spectrum import (single_pixel_fitting_controller,
-                           save_fitdata_to_hdf)
+from .fit_spectrum import single_pixel_fitting_controller, save_fitdata_to_hdf
 
 from ..core.map_processing import dask_client_create
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
-def fit_pixel_data_and_save(working_directory, file_name, *,
-                            param_file_name, fit_channel_sum=True,
-                            fit_channel_each=False, param_channel_list=None,
-                            incident_energy=None,
-                            ignore_datafile_metadata=False,
-                            fln_quant_calib_data=None,
-                            quant_distance_to_sample=0,
-                            method='nnls', pixel_bin=0, raise_bg=0,
-                            comp_elastic_combine=False,
-                            linear_bg=False,
-                            use_snip=True,
-                            bin_energy=0,
-                            spectrum_cut=3000,
-                            save_txt=False,
-                            save_tiff=True,
-                            scaler_name=None,
-                            use_average=False,
-                            interpolate_to_uniform_grid=False,
-                            data_from='NSLS-II',
-                            dask_client=None):
+def fit_pixel_data_and_save(
+    working_directory,
+    file_name,
+    *,
+    param_file_name,
+    fit_channel_sum=True,
+    fit_channel_each=False,
+    param_channel_list=None,
+    incident_energy=None,
+    ignore_datafile_metadata=False,
+    fln_quant_calib_data=None,
+    quant_distance_to_sample=0,
+    method="nnls",
+    pixel_bin=0,
+    raise_bg=0,
+    comp_elastic_combine=False,
+    linear_bg=False,
+    use_snip=True,
+    bin_energy=0,
+    spectrum_cut=3000,
+    save_txt=False,
+    save_tiff=True,
+    scaler_name=None,
+    use_average=False,
+    interpolate_to_uniform_grid=False,
+    data_from="NSLS-II",
+    dask_client=None,
+):
     """
     Do fitting for signle data set, and save data accordingly. Fitting can be performed on
     either summed data or each channel data, or both.
@@ -136,20 +144,19 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
                 logger.error(f"Error occurred while loading quantitative calibration from file '{f}': {ex}")
 
     t0 = time.time()
-    prefix_fname = file_name.split('.')[0]
+    prefix_fname = file_name.split(".")[0]
     if fit_channel_sum is True:
-        if data_from == 'NSLS-II':
-            img_dict, data_sets, mdata = read_hdf_APS(working_directory, file_name,
-                                                      spectrum_cut=spectrum_cut,
-                                                      load_each_channel=False)
-        elif data_from == '2IDE-APS':
-            img_dict, data_sets, mdata = read_MAPS(working_directory,
-                                                   file_name, channel_num=1)
+        if data_from == "NSLS-II":
+            img_dict, data_sets, mdata = read_hdf_APS(
+                working_directory, file_name, spectrum_cut=spectrum_cut, load_each_channel=False
+            )
+        elif data_from == "2IDE-APS":
+            img_dict, data_sets, mdata = read_MAPS(working_directory, file_name, channel_num=1)
         else:
-            print('Unknown data sets.')
+            print("Unknown data sets.")
 
         try:
-            data_all_sum = data_sets[prefix_fname+'_sum'].raw_data
+            data_all_sum = data_sets[prefix_fname + "_sum"].raw_data
         except KeyError:
             data_all_sum = data_sets[prefix_fname].raw_data
 
@@ -158,22 +165,25 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
             param_path = os.path.join(working_directory, param_file_name)
         else:
             param_path = param_file_name
-        with open(param_path, 'r') as json_data:
+        with open(param_path, "r") as json_data:
             param_sum = json.load(json_data)
 
         # update incident energy, required for XANES
         if incident_energy is not None:
-            param_sum['coherent_sct_energy']['value'] = incident_energy
+            param_sum["coherent_sct_energy"]["value"] = incident_energy
             print("Using incident beam energy passed as the function parameter.")
-        elif mdata.is_metadata_available() and "instrument_mono_incident_energy" in mdata \
-                and not ignore_datafile_metadata:
-            param_sum['coherent_sct_energy']['value'] = mdata["instrument_mono_incident_energy"]
+        elif (
+            mdata.is_metadata_available()
+            and "instrument_mono_incident_energy" in mdata
+            and not ignore_datafile_metadata
+        ):
+            param_sum["coherent_sct_energy"]["value"] = mdata["instrument_mono_incident_energy"]
             print(f"Using incident beam energy from the data file '{file_name}'.")
         else:
             print(f"Using incident beam energy from the parameter file '{param_path}'.")
 
         # The value of incident energy that is used for processing
-        incident_energy_used = param_sum['coherent_sct_energy']['value']
+        incident_energy_used = param_sum["coherent_sct_energy"]["value"]
         print(f"Incident beam energy: {incident_energy_used}.")
 
         result_map_sum, calculation_info = single_pixel_fitting_controller(
@@ -187,10 +197,11 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
             linear_bg=linear_bg,
             use_snip=use_snip,
             bin_energy=bin_energy,
-            dask_client=dask_client)
+            dask_client=dask_client,
+        )
 
         # output to .h5 file
-        inner_path = 'xrfmap/detsum'
+        inner_path = "xrfmap/detsum"
         # fit_name = prefix_fname+'_fit'
         save_fitdata_to_hdf(fpath, result_map_sum, datapath=inner_path)
 
@@ -220,36 +231,44 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
         param_quant_analysis.experiment_detector_channel = "sum"
 
         if save_txt is True:
-            output_folder = 'output_txt_'+prefix_fname
+            output_folder = "output_txt_" + prefix_fname
             output_path = os.path.join(working_directory, output_folder)
-            output_data(output_dir=output_path,
-                        interpolate_to_uniform_grid=interpolate_to_uniform_grid,
-                        dataset_name="dataset_fit",  # Sum of all detectors: should end with '_fit'
-                        quant_norm=quant_norm,
-                        param_quant_analysis=param_quant_analysis,
-                        distance_to_sample=quant_distance_to_sample,
-                        dataset_dict=dataset, positions_dict=positions_dict,
-                        file_format="txt", scaler_name=scaler_name,
-                        scaler_name_list=scaler_name_list,
-                        use_average=use_average)
+            output_data(
+                output_dir=output_path,
+                interpolate_to_uniform_grid=interpolate_to_uniform_grid,
+                dataset_name="dataset_fit",  # Sum of all detectors: should end with '_fit'
+                quant_norm=quant_norm,
+                param_quant_analysis=param_quant_analysis,
+                distance_to_sample=quant_distance_to_sample,
+                dataset_dict=dataset,
+                positions_dict=positions_dict,
+                file_format="txt",
+                scaler_name=scaler_name,
+                scaler_name_list=scaler_name_list,
+                use_average=use_average,
+            )
 
         if save_tiff is True:
-            output_folder = 'output_tiff_'+prefix_fname
+            output_folder = "output_tiff_" + prefix_fname
             output_path = os.path.join(working_directory, output_folder)
-            output_data(output_dir=output_path,
-                        interpolate_to_uniform_grid=interpolate_to_uniform_grid,
-                        dataset_name="dataset_fit",  # Sum of all detectors: should end with '_fit'
-                        quant_norm=quant_norm,
-                        param_quant_analysis=param_quant_analysis,
-                        dataset_dict=dataset, positions_dict=positions_dict,
-                        file_format="tiff", scaler_name=scaler_name,
-                        scaler_name_list=scaler_name_list,
-                        use_average=use_average)
+            output_data(
+                output_dir=output_path,
+                interpolate_to_uniform_grid=interpolate_to_uniform_grid,
+                dataset_name="dataset_fit",  # Sum of all detectors: should end with '_fit'
+                quant_norm=quant_norm,
+                param_quant_analysis=param_quant_analysis,
+                dataset_dict=dataset,
+                positions_dict=positions_dict,
+                file_format="tiff",
+                scaler_name=scaler_name,
+                scaler_name_list=scaler_name_list,
+                use_average=use_average,
+            )
 
     if fit_channel_each:
-        img_dict, data_sets, mdata = read_hdf_APS(working_directory, file_name,
-                                                  spectrum_cut=spectrum_cut,
-                                                  load_each_channel=True)
+        img_dict, data_sets, mdata = read_hdf_APS(
+            working_directory, file_name, spectrum_cut=spectrum_cut, load_each_channel=True
+        )
 
         # Find the detector channels and the names of the channels
         det_channels = [_ for _ in data_sets.keys() if re.search(r"_det\d+$", _)]
@@ -260,12 +279,13 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
             if not isinstance(param_channel_list, list) and not isinstance(param_channel_list, tuple):
                 raise RuntimeError("Parameter 'param_channel_list' must be a list or a tuple of strings")
             if len(param_channel_list) != len(det_channels):
-                raise RuntimeError(f"Parameter 'param_channel_list' must be 'None' "
-                                   f"or contain {len(det_channels)} file names.")
+                raise RuntimeError(
+                    f"Parameter 'param_channel_list' must be 'None' or contain {len(det_channels)} file names."
+                )
 
         channel_num = len(param_channel_list)
         for i in range(channel_num):
-            inner_path = 'xrfmap/' + det_channel_names[i]
+            inner_path = "xrfmap/" + det_channel_names[i]
             print(f"Processing data from detector channel {det_channel_names[i]} (#{i+1}) ...")
 
             # load param file
@@ -276,22 +296,25 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
                 param_path = os.path.join(working_directory, param_file_name)
             else:
                 param_path = param_file_name
-            with open(param_path, 'r') as json_data:
+            with open(param_path, "r") as json_data:
                 param_det = json.load(json_data)
 
             # update incident energy, required for XANES
             if incident_energy is not None:
-                param_det['coherent_sct_energy']['value'] = incident_energy
+                param_det["coherent_sct_energy"]["value"] = incident_energy
                 print("Using incident beam energy passed as the function parameter.")
-            elif mdata.is_metadata_available() and "instrument_mono_incident_energy" in mdata \
-                    and not ignore_datafile_metadata:
-                param_det['coherent_sct_energy']['value'] = mdata["instrument_mono_incident_energy"]
+            elif (
+                mdata.is_metadata_available()
+                and "instrument_mono_incident_energy" in mdata
+                and not ignore_datafile_metadata
+            ):
+                param_det["coherent_sct_energy"]["value"] = mdata["instrument_mono_incident_energy"]
                 print(f"Using incident beam energy from the data file '{file_name}'.")
             else:
                 print(f"Using incident beam energy from the parameter file '{param_path}'.")
 
             # The value of incident energy that is used for processing
-            incident_energy_used = param_det['coherent_sct_energy']['value']
+            incident_energy_used = param_det["coherent_sct_energy"]["value"]
             print(f"Incident beam energy: {incident_energy_used}.")
 
             data_all_det = data_sets[det_channels[i]].raw_data
@@ -307,7 +330,8 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
                 linear_bg=linear_bg,
                 use_snip=use_snip,
                 bin_energy=bin_energy,
-                dask_client=dask_client)
+                dask_client=dask_client,
+            )
 
             # output to .h5 file
             save_fitdata_to_hdf(fpath, result_map_det, datapath=inner_path)
@@ -338,43 +362,66 @@ def fit_pixel_data_and_save(working_directory, file_name, *,
             param_quant_analysis.experiment_detector_channel = det_channel_names[i]
 
             if save_txt is True:
-                output_folder = 'output_txt_'+prefix_fname
+                output_folder = "output_txt_" + prefix_fname
                 output_path = os.path.join(working_directory, output_folder)
-                output_data(output_dir=output_path,
-                            interpolate_to_uniform_grid=interpolate_to_uniform_grid,
-                            dataset_name=f"dataset_{det_channel_names[i]}_fit",  # ..._det1_fit, etc.
-                            quant_norm=quant_norm,
-                            param_quant_analysis=param_quant_analysis,
-                            dataset_dict=dataset, positions_dict=positions_dict,
-                            file_format="txt", scaler_name=scaler_name,
-                            scaler_name_list=scaler_name_list,
-                            use_average=use_average)
+                output_data(
+                    output_dir=output_path,
+                    interpolate_to_uniform_grid=interpolate_to_uniform_grid,
+                    dataset_name=f"dataset_{det_channel_names[i]}_fit",  # ..._det1_fit, etc.
+                    quant_norm=quant_norm,
+                    param_quant_analysis=param_quant_analysis,
+                    dataset_dict=dataset,
+                    positions_dict=positions_dict,
+                    file_format="txt",
+                    scaler_name=scaler_name,
+                    scaler_name_list=scaler_name_list,
+                    use_average=use_average,
+                )
 
             if save_tiff is True:
-                output_folder = 'output_tiff_'+prefix_fname
+                output_folder = "output_tiff_" + prefix_fname
                 output_path = os.path.join(working_directory, output_folder)
-                output_data(output_dir=output_path,
-                            interpolate_to_uniform_grid=interpolate_to_uniform_grid,
-                            dataset_name=f"dataset_{det_channel_names[i]}_fit",  # ..._det1_fit, etc.
-                            quant_norm=quant_norm,
-                            param_quant_analysis=param_quant_analysis,
-                            dataset_dict=dataset, positions_dict=positions_dict,
-                            file_format="tiff", scaler_name=scaler_name,
-                            scaler_name_list=scaler_name_list,
-                            use_average=use_average)
+                output_data(
+                    output_dir=output_path,
+                    interpolate_to_uniform_grid=interpolate_to_uniform_grid,
+                    dataset_name=f"dataset_{det_channel_names[i]}_fit",  # ..._det1_fit, etc.
+                    quant_norm=quant_norm,
+                    param_quant_analysis=param_quant_analysis,
+                    dataset_dict=dataset,
+                    positions_dict=positions_dict,
+                    file_format="tiff",
+                    scaler_name=scaler_name,
+                    scaler_name_list=scaler_name_list,
+                    use_average=use_average,
+                )
 
     t1 = time.time()
     print(f"Processing time: {t1 - t0}")
 
 
-def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None, wd=None,
-                fit_channel_sum=True, fit_channel_each=False, param_channel_list=None,
-                incident_energy=None, ignore_datafile_metadata=False,
-                fln_quant_calib_data=None, quant_distance_to_sample=0, use_snip=True,
-                spectrum_cut=3000, save_txt=False, save_tiff=True,
-                scaler_name=None, use_average=False,
-                interpolate_to_uniform_grid=False,
-                dask_client=None):
+def pyxrf_batch(
+    start_id=None,
+    end_id=None,
+    *,
+    param_file_name,
+    data_files=None,
+    wd=None,
+    fit_channel_sum=True,
+    fit_channel_each=False,
+    param_channel_list=None,
+    incident_energy=None,
+    ignore_datafile_metadata=False,
+    fln_quant_calib_data=None,
+    quant_distance_to_sample=0,
+    use_snip=True,
+    spectrum_cut=3000,
+    save_txt=False,
+    save_tiff=True,
+    scaler_name=None,
+    use_average=False,
+    interpolate_to_uniform_grid=False,
+    dask_client=None,
+):
     """
     Perform fitting on a batch of data files. The results are saved as new datasets
     in the respective data files and may be viewed using PyXRF. Fitting can be performed on
@@ -540,7 +587,7 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
     print()
 
     if wd is None:
-        wd = '.'
+        wd = "."
     else:
         wd = os.path.expanduser(wd)
     param_file_name = os.path.expanduser(param_file_name)
@@ -554,8 +601,7 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
     if fln_quant_calib_data is not None:
         if not isinstance(fln_quant_calib_data, str) and not isinstance(fln_quant_calib_data, list):
             raise ValueError("Parameter 'fln_quant_calib_data' must be a string or a list of strings")
-        if isinstance(fln_quant_calib_data, list) and \
-                any([not isinstance(_, str) for _ in fln_quant_calib_data]):
+        if isinstance(fln_quant_calib_data, list) and any([not isinstance(_, str) for _ in fln_quant_calib_data]):
             raise ValueError("List passed with the parameter 'fln_quant_calib_data' must contain only strings")
 
     if not isinstance(quant_distance_to_sample, float) and not isinstance(quant_distance_to_sample, int):
@@ -577,8 +623,10 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
                     break
 
         if not data_files_valid:
-            raise ValueError(f"Function pyxrf_batch. Parameter 'data_files' has invalid format. \n"
-                             f"data_files = '{data_files}'")
+            raise ValueError(
+                f"Function pyxrf_batch. Parameter 'data_files' has invalid format. \n"
+                f"data_files = '{data_files}'"
+            )
 
         # At this point ``data_files`` is a list of str.
         data_files = [os.path.expanduser(fln) for fln in data_files]
@@ -601,7 +649,7 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
 
         # ``data_files`` parameter is None
 
-        all_files = glob.glob(os.path.join(wd, '*.h5'))
+        all_files = glob.glob(os.path.join(wd, "*.h5"))
 
         # Sort files (processing unsorted list of files is unsightly)
         all_files.sort()
@@ -614,8 +662,8 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
             # only ``start_id`` is specified:
             #   process only one file that contains ``start_id`` in its name
             #   (only if such file exists)
-            flist = [fname for fname in all_files
-                     if re.search(f"^[^_]*_{str(start_id)}\D+", os.path.basename(fname))]  # noqa: W605
+            pattern = f"^[^_]*_{str(start_id)}\D+"  # noqa: W605
+            flist = [fname for fname in all_files if re.search(pattern, os.path.basename(fname))]
 
             if len(flist) < 1:
                 msg = f"File with Scan ID {start_id} was not found"
@@ -629,9 +677,9 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
             # ``start_id`` and ``end_id`` are specified:
             #   select files, which contain the respective ID substring in their names
             flist = []
-            for data_id in range(start_id, end_id+1):
-                flist += [fname for fname in all_files
-                          if re.search(f"^[^_]*_{str(data_id)}\D+", os.path.basename(fname))]  # noqa: W605
+            for data_id in range(start_id, end_id + 1):
+                pattern = f"^[^_]*_{str(data_id)}\D+"  # noqa: W605
+                flist += [fname for fname in all_files if re.search(pattern, os.path.basename(fname))]
             if len(flist) < 1:
                 print(f"No files with Scan IDs in the range {start_id} .. {end_id} were found.")
             else:
@@ -671,21 +719,28 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
         for fpath in flist:
             print(f"Processing file '{fpath}' ...")
             fname = fpath.split(sep_v)[-1]
-            working_directory = fpath[:-len(fname)]
+            working_directory = fpath[: -len(fname)]
             try:
-                fit_pixel_data_and_save(working_directory, fname,
-                                        fit_channel_sum=fit_channel_sum, param_file_name=param_file_name,
-                                        fit_channel_each=fit_channel_each, param_channel_list=param_channel_list,
-                                        incident_energy=incident_energy,
-                                        ignore_datafile_metadata=ignore_datafile_metadata,
-                                        fln_quant_calib_data=fln_quant_calib_data,
-                                        quant_distance_to_sample=quant_distance_to_sample,
-                                        use_snip=use_snip,
-                                        spectrum_cut=spectrum_cut,
-                                        save_txt=save_txt, save_tiff=save_tiff,
-                                        scaler_name=scaler_name, use_average=use_average,
-                                        interpolate_to_uniform_grid=interpolate_to_uniform_grid,
-                                        dask_client=dask_client)
+                fit_pixel_data_and_save(
+                    working_directory,
+                    fname,
+                    fit_channel_sum=fit_channel_sum,
+                    param_file_name=param_file_name,
+                    fit_channel_each=fit_channel_each,
+                    param_channel_list=param_channel_list,
+                    incident_energy=incident_energy,
+                    ignore_datafile_metadata=ignore_datafile_metadata,
+                    fln_quant_calib_data=fln_quant_calib_data,
+                    quant_distance_to_sample=quant_distance_to_sample,
+                    use_snip=use_snip,
+                    spectrum_cut=spectrum_cut,
+                    save_txt=save_txt,
+                    save_tiff=save_tiff,
+                    scaler_name=scaler_name,
+                    use_average=use_average,
+                    interpolate_to_uniform_grid=interpolate_to_uniform_grid,
+                    dask_client=dask_client,
+                )
             except Exception as ex:
                 if allow_raising_exceptions:
                     _dask_client_close(client_is_local)
@@ -704,10 +759,7 @@ def pyxrf_batch(start_id=None, end_id=None, *, param_file_name, data_files=None,
     return flist
 
 
-def fit_each_pixel_with_nnls(data, params,
-                             elemental_lines=None,
-                             incident_energy=None,
-                             weights=None):
+def fit_each_pixel_with_nnls(data, params, elemental_lines=None, incident_energy=None, weights=None):
     """
     Fit a spectrum with a linear model.
 
@@ -725,23 +777,19 @@ def fit_each_pixel_with_nnls(data, params,
     """
     param = copy.deepcopy(params)
     if incident_energy is not None:
-        param['coherent_sct_amplitude']['value'] = incident_energy
+        param["coherent_sct_amplitude"]["value"] = incident_energy
     # cut data into proper range
-    low = param['non_fitting_values']['energy_bound_low']['value']
-    high = param['non_fitting_values']['energy_bound_high']['value']
-    a0 = param['e_offset']['value']
-    a1 = param['e_linear']['value']
+    low = param["non_fitting_values"]["energy_bound_low"]["value"]
+    high = param["non_fitting_values"]["energy_bound_high"]["value"]
+    a0 = param["e_offset"]["value"]
+    a1 = param["e_linear"]["value"]
     x, y = define_range(data, low, high, a0, a1)
     # pixel fitting
-    _, result_dict, area_dict = linear_spectrum_fitting(x, y,
-                                                        elemental_lines=elemental_lines,
-                                                        weights=weights)
+    _, result_dict, area_dict = linear_spectrum_fitting(x, y, elemental_lines=elemental_lines, weights=weights)
     return result_dict
 
 
-def fit_pixel_per_file_no_multi(dir_path, file_prefix,
-                                fileID, param, interpath,
-                                save_spectrum=True):
+def fit_pixel_per_file_no_multi(dir_path, file_prefix, fileID, param, interpath, save_spectrum=True):
     """
     Single pixel fit of experiment data. No multiprocess is applied.
 
@@ -762,17 +810,17 @@ def fit_pixel_per_file_no_multi(dir_path, file_prefix,
         fitting values for all the elements
     """
 
-    num_str = '{:03d}'.format(fileID)
+    num_str = "{:03d}".format(fileID)
     filename = file_prefix + num_str
     file_path = os.path.join(dir_path, filename)
-    with h5py.File(file_path, 'r') as f:
+    with h5py.File(file_path, "r") as f:
         data = f[interpath][:]
     datas = data.shape
 
-    elist = param['non_fitting_values']['element_list'].split(', ')
-    elist = [e.strip(' ') for e in elist]
+    elist = param["non_fitting_values"]["element_list"].split(", ")
+    elist = [e.strip(" ") for e in elist]
 
-    non_element = ['compton', 'elastic', 'background']
+    non_element = ["compton", "elastic", "background"]
     total_list = elist + non_element
 
     result_map = dict()
@@ -784,22 +832,20 @@ def fit_pixel_per_file_no_multi(dir_path, file_prefix,
 
     for i in range(datas[0]):
         for j in range(datas[1]):
-            x, result, area_v = linear_spectrum_fitting(data[i, j, :], param,
-                                                        elemental_lines=elist,
-                                                        constant_weight=1.0)
+            x, result, area_v = linear_spectrum_fitting(
+                data[i, j, :], param, elemental_lines=elist, constant_weight=1.0
+            )
             for v in total_list:
                 if v in result:
                     if save_spectrum:
-                        result_map[v][i, j, :len(result[v])] = result[v]
+                        result_map[v][i, j, : len(result[v])] = result[v]
                     else:
                         result_map[v][i, j] = np.sum(result[v])
 
     return result_map
 
 
-def fit_data_multi_files(dir_path, file_prefix,
-                         param, start_i, end_i,
-                         interpath='entry/instrument/detector/data'):
+def fit_data_multi_files(dir_path, file_prefix, param, start_i, end_i, interpath="entry/instrument/detector/data"):
     """
     Fitting for multiple files with Multiprocessing.
 
@@ -821,13 +867,13 @@ def fit_data_multi_files(dir_path, file_prefix,
         fitting result as list of dict
     """
     num_processors_to_use = multiprocessing.cpu_count()
-    logger.info('cpu count: {}'.format(num_processors_to_use))
+    logger.info("cpu count: {}".format(num_processors_to_use))
     pool = multiprocessing.Pool(num_processors_to_use)
 
-    result_pool = [pool.apply_async(fit_pixel_per_file_no_multi,
-                                    (dir_path, file_prefix,
-                                     m, param, interpath))
-                   for m in range(start_i, end_i+1)]
+    result_pool = [
+        pool.apply_async(fit_pixel_per_file_no_multi, (dir_path, file_prefix, m, param, interpath))
+        for m in range(start_i, end_i + 1)
+    ]
 
     results = []
     for r in result_pool:
@@ -843,7 +889,7 @@ if __name__ == "__main__":
 
     logger.setLevel(logging.INFO)
 
-    formatter = logging.Formatter(fmt='%(asctime)s : %(levelname)s : %(message)s')
+    formatter = logging.Formatter(fmt="%(asctime)s : %(levelname)s : %(message)s")
 
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(formatter)
@@ -854,16 +900,18 @@ if __name__ == "__main__":
     #             param_file_name="param_335",
     #             wd=".", save_tiff=False)
 
-    pyxrf_batch(start_id=63339,
-                param_file_name="test",
-                wd=".", save_tiff=True,
-                fln_quant_calib_data=['standard_41147a.json'],
-                quant_distance_to_sample=2.0,
-                scaler_name="i0",
-                # fln_quant_calib_data=['standard_32654A.json',
-                #                       'standard_32654A a.json',
-                #                       'standard_41147.json'],
-                fit_channel_sum=True,
-                fit_channel_each=True,
-                # param_channel_list=['det1', 'det2', 'det3']
-                )
+    pyxrf_batch(
+        start_id=63339,
+        param_file_name="test",
+        wd=".",
+        save_tiff=True,
+        fln_quant_calib_data=["standard_41147a.json"],
+        quant_distance_to_sample=2.0,
+        scaler_name="i0",
+        # fln_quant_calib_data=['standard_32654A.json',
+        #                       'standard_32654A a.json',
+        #                       'standard_41147.json'],
+        fit_channel_sum=True,
+        fit_channel_each=True,
+        # param_channel_list=['det1', 'det2', 'det3']
+    )

@@ -5,7 +5,6 @@ from .right_panel import RightPanel
 
 
 class TwoPanelWidget(QSplitter):
-
     def __init__(self, *, gpc, gui_vars):
 
         super().__init__(Qt.Horizontal)

@@ -9,48 +9,48 @@ import re
 from pyxrf.core.utils import convert_time_from_nexus_string
 from pyxrf.core.xrf_utils import validate_element_str, generate_eline_list, split_compound_mass
 from pyxrf.core.quant_analysis import (
-    save_xrf_standard_yaml_file, load_xrf_standard_yaml_file, _xrf_standard_schema,
-    load_included_xrf_standard_yaml_file, compute_standard_element_densities,
-    _xrf_quant_fluor_schema, save_xrf_quant_fluor_json_file, load_xrf_quant_fluor_json_file,
-    get_quant_fluor_data_dict, fill_quant_fluor_data_dict, prune_quant_fluor_data_dict,
-    set_quant_fluor_data_dict_optional, set_quant_fluor_data_dict_time,
-    ParamQuantEstimation, ParamQuantitativeAnalysis)
+    save_xrf_standard_yaml_file,
+    load_xrf_standard_yaml_file,
+    _xrf_standard_schema,
+    load_included_xrf_standard_yaml_file,
+    compute_standard_element_densities,
+    _xrf_quant_fluor_schema,
+    save_xrf_quant_fluor_json_file,
+    load_xrf_quant_fluor_json_file,
+    get_quant_fluor_data_dict,
+    fill_quant_fluor_data_dict,
+    prune_quant_fluor_data_dict,
+    set_quant_fluor_data_dict_optional,
+    set_quant_fluor_data_dict_time,
+    ParamQuantEstimation,
+    ParamQuantitativeAnalysis,
+)
 
 # Short example of XRF standard data
 _standard_data_sample = [
-        {
-            "name": "Test Micromatter 411570",
-            "serial": "411570",
-            "description": "InSx 22.4 (In=16.0 S=6.4) / SrF2 20.6 / "
-                           "Cr 19.8 / Ni 19.2 / GaAs 19.1 (Ga=8.3 As=10.8)",
-            "compounds": {
-                "In": 16.0,
-                "S": 6.4,
-                "SrF2": 20.6,
-                "Cr": 19.8,
-                "Ni": 19.2,
-                "Ga": 8.3,
-                "As": 10.8
-            },
-            "density": 101.1
-        },
-        {
-            "name": "Test Micromatter 411640",
-            "serial": "411640",
-            "description": "CeF3 21.1 / Au 20.6",
-            "compounds": {
-                "CeF3": 21.1,
-                "Au": 20.6
-            }
-            # Missing optional 'density' field
-        }
-    ]
+    {
+        "name": "Test Micromatter 411570",
+        "serial": "411570",
+        "description": "InSx 22.4 (In=16.0 S=6.4) / SrF2 20.6 / Cr 19.8 / Ni 19.2 / GaAs 19.1 (Ga=8.3 As=10.8)",
+        "compounds": {"In": 16.0, "S": 6.4, "SrF2": 20.6, "Cr": 19.8, "Ni": 19.2, "Ga": 8.3, "As": 10.8},
+        "density": 101.1,
+    },
+    {
+        "name": "Test Micromatter 411640",
+        "serial": "411640",
+        "description": "CeF3 21.1 / Au 20.6",
+        "compounds": {"CeF3": 21.1, "Au": 20.6}
+        # Missing optional 'density' field
+    },
+]
 
 
+# fmt: off
 @pytest.mark.parametrize("standard_data", [
     _standard_data_sample,
     []  # The function should also work if the list is empty
 ])
+# fmt: on
 def test_save_xrf_standard_yaml_file1(tmp_path, standard_data):
     r"""Basic test of function 'save_xrf_standard_yaml_file' and 'load_xrf_standard_yaml_file'"""
 
@@ -63,8 +63,7 @@ def test_save_xrf_standard_yaml_file1(tmp_path, standard_data):
 
     data_loaded = load_xrf_standard_yaml_file(yaml_path)
 
-    assert data_loaded == standard_data, \
-        "Loaded data is not equal to the original data"
+    assert data_loaded == standard_data, "Loaded data is not equal to the original data"
 
 
 def test_save_xrf_standard_yaml_file2(tmp_path):
@@ -95,7 +94,7 @@ def test_save_xrf_standard_yaml_file3(tmp_path):
     yaml_path = os.path.join(tmp_path, *yaml_path, file_name)
 
     standard_data = copy.deepcopy(_standard_data_sample)
-    standard_data[0]['density'] = 50.0  # Wrong value of total density
+    standard_data[0]["density"] = 50.0  # Wrong value of total density
 
     # Save incorrect data
     save_xrf_standard_yaml_file(yaml_path, standard_data)
@@ -145,10 +144,9 @@ def test_load_xrf_standard_yaml_file2(tmp_path):
 
     # Change the schema to match data and validate with changed schema
     schema = copy.deepcopy(_xrf_standard_schema)
-    schema['properties']['name'] = {"type": ["string", "number"]}
+    schema["properties"]["name"] = {"type": ["string", "number"]}
     standard_data_out = load_xrf_standard_yaml_file(yaml_path, schema=schema)
-    assert standard_data_out == standard_data, \
-        "Loaded data is different from the original"
+    assert standard_data_out == standard_data, "Loaded data is different from the original"
 
 
 def test_load_included_xrf_standard_yaml_file():
@@ -172,12 +170,16 @@ def test_compute_standard_element_densities():
         element_densities = compute_standard_element_densities(data["compounds"])
 
         # Validate that all the keys of the returned dictionary represent elements
-        assert all([validate_element_str(_) for _ in element_densities.keys()]), \
-            f"Some of the elements in the list {list(element_densities.keys())} have invalid representation"
+        assert all(
+            [validate_element_str(_) for _ in element_densities.keys()]
+        ), f"Some of the elements in the list {list(element_densities.keys())} have invalid representation"
 
         # Check if the sum of all return densities equals total density
-        npt.assert_almost_equal(np.sum(list(element_densities.values())), total_density,
-                                err_msg="The sum of element densities and the total sum don't match")
+        npt.assert_almost_equal(
+            np.sum(list(element_densities.values())),
+            total_density,
+            err_msg="The sum of element densities and the total sum don't match",
+        )
 
 
 # -----------------------------------------------------------------------------------------------------
@@ -197,7 +199,7 @@ _xrf_standard_fluor_sample = {
         "Cr_Ka": {"density": 19.8, "fluorescence": 0.7435234},
         "Ni_Kb": {"density": 19.2, "fluorescence": 0.7435234},
         "Ga_Ka1": {"density": 8.3, "fluorescence": 0.7435234},
-        "Mg_Ka2": {"density": 9.6, "fluorescence": None}
+        "Mg_Ka2": {"density": 9.6, "fluorescence": None},
     },
     "incident_energy": 10.5,
     "detector_channel": "sum",
@@ -205,8 +207,7 @@ _xrf_standard_fluor_sample = {
     "distance_to_sample": 50.6,
     "creation_time_local": "2020-01-10T11:50:39+00:00",
     "source_scan_id": 92276,
-    "source_scan_uid": "f07e3065-ab92-4b20-a702-ef61ed164dbc"
-
+    "source_scan_uid": "f07e3065-ab92-4b20-a702-ef61ed164dbc",
 }
 
 
@@ -232,8 +233,7 @@ def test_save_xrf_quant_fluor_json_file1(tmp_path):
 
     data_loaded = load_xrf_quant_fluor_json_file(json_path)
 
-    assert data_loaded == data, \
-        "Loaded data is not equal to the original data"
+    assert data_loaded == data, "Loaded data is not equal to the original data"
 
 
 def test_save_xrf_quant_fluor_json_file2(tmp_path):
@@ -280,8 +280,7 @@ def test_save_xrf_quant_fluor_json_file4(tmp_path):
 
     data_loaded = load_xrf_quant_fluor_json_file(json_path)
 
-    assert data_loaded == data, \
-        "Loaded data is not equal to the original data"
+    assert data_loaded == data, "Loaded data is not equal to the original data"
 
 
 def test_load_xrf_quant_fluor_json_file1(tmp_path):
@@ -319,14 +318,15 @@ def test_get_quant_fluor_data_dict():
         # Will raise exception is schema is not satisfied
         jsonschema.validate(instance=quant_fluor_data_dict, schema=_xrf_quant_fluor_schema)
 
-        assert quant_fluor_data_dict["name"] == standard_data["name"], \
-            "Dictionary element 'name' is incorrect"
+        assert quant_fluor_data_dict["name"] == standard_data["name"], "Dictionary element 'name' is incorrect"
 
-        assert quant_fluor_data_dict["serial"] == standard_data["serial"], \
-            "Dictionary element 'serial' is incorrect"
+        assert (
+            quant_fluor_data_dict["serial"] == standard_data["serial"]
+        ), "Dictionary element 'serial' is incorrect"
 
-        assert quant_fluor_data_dict["description"] == standard_data["description"], \
-            "Dictionary element 'description' is incorrect"
+        assert (
+            quant_fluor_data_dict["description"] == standard_data["description"]
+        ), "Dictionary element 'description' is incorrect"
 
         eline_set = set()
         # The 'mass' is not actual mass. If elements has multiple emission lines activated, then
@@ -345,12 +345,14 @@ def test_get_quant_fluor_data_dict():
 
         eline_out_list = list(quant_fluor_data_dict["element_lines"].keys())
         assert len(eline_out_list) == len(eline_set), "The number of emission lines is not as expected"
-        assert set(eline_out_list) == eline_set, \
-            "Generated object contains emission lines that are different from expected"
+        assert (
+            set(eline_out_list) == eline_set
+        ), "Generated object contains emission lines that are different from expected"
 
         mass_sum = sum([_["density"] for _ in quant_fluor_data_dict["element_lines"].values()])
-        assert mass_sum == mass_sum_expected, \
-            "The total mass (density) of the components is different from expected"
+        assert (
+            mass_sum == mass_sum_expected
+        ), "The total mass (density) of the components is different from expected"
 
 
 def gen_xrf_map_dict(nx=10, ny=5, elines=["S_K", "Au_M", "Fe_K"]):
@@ -364,11 +366,12 @@ def gen_xrf_map_dict(nx=10, ny=5, elines=["S_K", "Au_M", "Fe_K"]):
 
     # Scaler
     map_sclr = np.ones(shape=(ny, nx), dtype=float) * np.random.rand() * 2
-    img['sclr'] = map_sclr
+    img["sclr"] = map_sclr
 
     return img
 
 
+# fmt: off
 @pytest.mark.parametrize("map_dims", [
     {"nx": 10, "ny": 5},
     {"nx": 1, "ny": 5},
@@ -378,6 +381,7 @@ def gen_xrf_map_dict(nx=10, ny=5, elines=["S_K", "Au_M", "Fe_K"]):
     {"nx": 10, "ny": 2},
     {"nx": 10, "ny": 3},
 ])
+# fmt: on
 def test_fill_quant_fluor_data_dict(map_dims):
     r"""Test for 'fill_quant_fluor_data_dict': testing basic functionality"""
     # Create copy, because the dictionary will be modified
@@ -398,34 +402,43 @@ def test_fill_quant_fluor_data_dict(map_dims):
     else:
         ny_min, ny_max = 1, -1
 
-    map_S_K_fluor = np.mean(img["S_K"][ny_min: ny_max, nx_min: nx_max])
-    map_Au_M_fluor = np.mean(img["Au_M"][ny_min: ny_max, nx_min: nx_max])
-    v_sclr = np.mean(img["sclr"][ny_min: ny_max, nx_min: nx_max])
+    map_S_K_fluor = np.mean(img["S_K"][ny_min:ny_max, nx_min:nx_max])
+    map_Au_M_fluor = np.mean(img["Au_M"][ny_min:ny_max, nx_min:nx_max])
+    v_sclr = np.mean(img["sclr"][ny_min:ny_max, nx_min:nx_max])
 
     # Fill the dictionary, use existing scaler 'sclr'
     fill_quant_fluor_data_dict(fluor_standard, xrf_map_dict=img, scaler_name="sclr")
 
-    npt.assert_almost_equal(fluor_standard["element_lines"]["S_K"]["fluorescence"],
-                            map_S_K_fluor / v_sclr,
-                            err_msg="Fluorescence of 'S_K' is estimated incorrectly")
-    npt.assert_almost_equal(fluor_standard["element_lines"]["Au_M"]["fluorescence"],
-                            map_Au_M_fluor / v_sclr,
-                            err_msg="Fluorescence of 'Au_M' is estimated incorrectly")
+    npt.assert_almost_equal(
+        fluor_standard["element_lines"]["S_K"]["fluorescence"],
+        map_S_K_fluor / v_sclr,
+        err_msg="Fluorescence of 'S_K' is estimated incorrectly",
+    )
+    npt.assert_almost_equal(
+        fluor_standard["element_lines"]["Au_M"]["fluorescence"],
+        map_Au_M_fluor / v_sclr,
+        err_msg="Fluorescence of 'Au_M' is estimated incorrectly",
+    )
     for eline, param in fluor_standard["element_lines"].items():
-        assert (eline in img) or (param["fluorescence"] is None), \
-            f"Fluorescence line {eline} is not present in the dataset and it was not reset to None"
+        assert (eline in img) or (
+            param["fluorescence"] is None
+        ), f"Fluorescence line {eline} is not present in the dataset and it was not reset to None"
 
     # Fill the dictionary, use non-existing scaler 'abc'
     fill_quant_fluor_data_dict(fluor_standard, xrf_map_dict=img, scaler_name="abc")
-    npt.assert_almost_equal(fluor_standard["element_lines"]["S_K"]["fluorescence"],
-                            map_S_K_fluor,
-                            err_msg="Fluorescence of 'S_K' is estimated incorrectly")
+    npt.assert_almost_equal(
+        fluor_standard["element_lines"]["S_K"]["fluorescence"],
+        map_S_K_fluor,
+        err_msg="Fluorescence of 'S_K' is estimated incorrectly",
+    )
 
     # Fill the dictionary, don't use a scaler (set to None)
     fill_quant_fluor_data_dict(fluor_standard, xrf_map_dict=img, scaler_name=None)
-    npt.assert_almost_equal(fluor_standard["element_lines"]["S_K"]["fluorescence"],
-                            map_S_K_fluor,
-                            err_msg="Fluorescence of 'S_K' is estimated incorrectly")
+    npt.assert_almost_equal(
+        fluor_standard["element_lines"]["S_K"]["fluorescence"],
+        map_S_K_fluor,
+        err_msg="Fluorescence of 'S_K' is estimated incorrectly",
+    )
 
 
 def test_prune_quant_fluor_data_dict():
@@ -445,10 +458,8 @@ def test_prune_quant_fluor_data_dict():
 
     fluor_standard_pruned = prune_quant_fluor_data_dict(fluor_standard)
     for eline, info in fluor_standard_pruned["element_lines"].items():
-        assert eline in elines_not_none, \
-            f"Emission line {eline} should have been removed from the dictionary"
-        assert info["fluorescence"] is not None, \
-            f"Emission line {eline} has 'fluorescence' set to None"
+        assert eline in elines_not_none, f"Emission line {eline} should have been removed from the dictionary"
+        assert info["fluorescence"] is not None, f"Emission line {eline} has 'fluorescence' set to None"
 
 
 def test_set_quant_fluor_data_dict_optional_1():
@@ -463,9 +474,7 @@ def test_set_quant_fluor_data_dict_optional_1():
     scan_id = 45378  # scan_id has to be int or a string representing int
     scan_uid = "abc-12345"  # Just some string, format is not checked
 
-    set_quant_fluor_data_dict_optional(fluor_standard,
-                                       scan_id=scan_id,
-                                       scan_uid=scan_uid)
+    set_quant_fluor_data_dict_optional(fluor_standard, scan_id=scan_id, scan_uid=scan_uid)
 
     # Check if scan_id and scan_uid are set
     assert fluor_standard["source_scan_id"] == scan_id, "Scan ID is set incorrectly"
@@ -485,8 +494,7 @@ def test_set_quant_fluor_data_dict_optional_1():
     # Test if sending Scan ID as a string works
     scan_id2 = 45346
     scan_id2_str = f"{scan_id2}"
-    set_quant_fluor_data_dict_optional(fluor_standard,
-                                       scan_id=scan_id2_str)
+    set_quant_fluor_data_dict_optional(fluor_standard, scan_id=scan_id2_str)
     assert fluor_standard["source_scan_id"] == scan_id2, "Scan ID is set incorrectly"
 
 
@@ -500,18 +508,15 @@ def test_set_quant_fluor_data_dict_optional_2():
     fluor_standard = copy.deepcopy(_xrf_standard_fluor_sample)
 
     # Scan ID is a string, which can not be interpreted as int
-    with pytest.raises(RuntimeError,
-                       match="Parameter 'scan_id' must be integer or a string representing integer"):
+    with pytest.raises(RuntimeError, match="Parameter 'scan_id' must be integer or a string representing integer"):
         set_quant_fluor_data_dict_optional(fluor_standard, scan_id="abc_34g")
 
     # Scan ID is of wrong type
-    with pytest.raises(RuntimeError,
-                       match="Parameter 'scan_id' must be integer or a string representing integer"):
+    with pytest.raises(RuntimeError, match="Parameter 'scan_id' must be integer or a string representing integer"):
         set_quant_fluor_data_dict_optional(fluor_standard, scan_id=[1, 5, 14])
 
     # Scan UID is of wrong type
-    with pytest.raises(RuntimeError,
-                       match="Parameter 'scan_uid' must be a string representing scan UID"):
+    with pytest.raises(RuntimeError, match="Parameter 'scan_uid' must be a string representing scan UID"):
         set_quant_fluor_data_dict_optional(fluor_standard, scan_uid=[1, 5, 14])
 
 
@@ -536,6 +541,7 @@ def test_set_quant_fluor_data_dict_time():
 
 # --------------------------------------------------------------------------------------------------------
 
+
 def test_ParamQuantEstimation_1(tmp_path):
     r"""
     Create the object of the 'ParamQuantEstimation' class. Load and then clear reference data.
@@ -550,8 +556,9 @@ def test_ParamQuantEstimation_1(tmp_path):
 
     # Verify that the cofig file was created
     file_path = os.path.join(home_dir, config_dir, standards_fln)
-    assert os.path.isfile(file_path), \
-        f"Empty file for user-defined reference standards '{file_path}' was not created"
+    assert os.path.isfile(
+        file_path
+    ), f"Empty file for user-defined reference standards '{file_path}' was not created"
 
     # Load reference standards
     pqe.load_standards()
@@ -591,10 +598,8 @@ def test_ParamQuantEstimation_2(tmp_path):
         assert pqe._find_standard_custom(st), f"Standard {serial} was not found in user-defined list"
         assert not pqe._find_standard_built_in(st), f"Standard {serial} was found in built-in list"
         assert pqe.find_standard(st), f"Standard {serial} was not found"
-        assert pqe.find_standard(st["name"], key="name"), \
-            f"Failed to find standard {serial} by name"
-        assert pqe.find_standard(st["serial"], key="serial"), \
-            f"Failed to find standard {serial} by serial number"
+        assert pqe.find_standard(st["name"], key="name"), f"Failed to find standard {serial} by name"
+        assert pqe.find_standard(st["serial"], key="serial"), f"Failed to find standard {serial} by serial number"
         assert pqe.is_standard_custom(st), f"Standard {serial} was not identified as user-defined"
         pqe.set_selected_standard(st)
         assert pqe.standard_selected == st, f"Can't select standard {serial}"
@@ -605,10 +610,8 @@ def test_ParamQuantEstimation_2(tmp_path):
         assert not pqe._find_standard_custom(st), f"Standard {serial} was found in user-defined list"
         assert pqe._find_standard_built_in(st), f"Standard {serial} was not found in built-in list"
         assert pqe.find_standard(st), f"Standard {serial} was not found"
-        assert pqe.find_standard(st["name"], key="name"), \
-            f"Failed to find standard {serial} by name"
-        assert pqe.find_standard(st["serial"], key="serial"), \
-            f"Failed to find standard {serial} by serial number"
+        assert pqe.find_standard(st["name"], key="name"), f"Failed to find standard {serial} by name"
+        assert pqe.find_standard(st["serial"], key="serial"), f"Failed to find standard {serial} by serial number"
         assert not pqe.is_standard_custom(st), f"Standard {serial} was identified as user-defined"
         pqe.set_selected_standard(st)
         assert pqe.standard_selected == st, f"Can't select standard {serial}"
@@ -662,8 +665,9 @@ def test_ParamQuantEstimation_3(tmp_path):
     qfdd = get_quant_fluor_data_dict(standard_data[0], incident_energy)
     fill_quant_fluor_data_dict(qfdd, xrf_map_dict=img, scaler_name=scaler_name)
 
-    assert pqe.fluorescence_data_dict == qfdd, \
-        "The filled fluorescence data dictionary does not match the expected"
+    assert (
+        pqe.fluorescence_data_dict == qfdd
+    ), "The filled fluorescence data dictionary does not match the expected"
 
     # Test generation of preview (superficial)
     pview, msg_warnings = pqe.get_fluorescence_data_dict_text_preview()
@@ -675,14 +679,14 @@ def test_ParamQuantEstimation_3(tmp_path):
 
     # Test function for setting detector channel name
     pqe.set_detector_channel_in_data_dict(detector_channel="sum")
-    assert pqe.fluorescence_data_dict["detector_channel"] == "sum", \
-        "Detector channel was not set correctly"
+    assert pqe.fluorescence_data_dict["detector_channel"] == "sum", "Detector channel was not set correctly"
 
     # Test function for setting distance to sample
     distance_to_sample = 2.5
     pqe.set_distance_to_sample_in_data_dict(distance_to_sample=distance_to_sample)
-    assert pqe.fluorescence_data_dict["distance_to_sample"] == distance_to_sample, \
-        "Distance-to-sample was not set correctly"
+    assert (
+        pqe.fluorescence_data_dict["distance_to_sample"] == distance_to_sample
+    ), "Distance-to-sample was not set correctly"
 
     # Function for setting Scan ID and Scan UID
     scan_id = 65476
@@ -703,19 +707,22 @@ def test_ParamQuantEstimation_3(tmp_path):
 
     #  Test the method 'get_suggested_json_fln'
     fln_suggested = pqe.get_suggested_json_fln()
-    assert f"_{pqe.fluorescence_data_dict['serial']}." in fln_suggested, \
-        f"Serial of the reference is not found in the suggested file name {fln_suggested}"
+    assert (
+        f"_{pqe.fluorescence_data_dict['serial']}." in fln_suggested
+    ), f"Serial of the reference is not found in the suggested file name {fln_suggested}"
 
     # Test saving calibration data
     file_path = os.path.join(tmp_path, fln_suggested)
     pqe.save_fluorescence_data_dict(file_path=file_path)
 
     qfdd = load_xrf_quant_fluor_json_file(file_path=file_path)
-    assert qfdd == prune_quant_fluor_data_dict(pqe.fluorescence_data_dict), \
-        "Error occurred while saving and loading calibration data dictionary. Dictionaries don't match"
+    assert qfdd == prune_quant_fluor_data_dict(
+        pqe.fluorescence_data_dict
+    ), "Error occurred while saving and loading calibration data dictionary. Dictionaries don't match"
 
 
 # ---------------------------------------------------------------------------------------------
+
 
 def _create_file_with_ref_standards(*, wd):
     r"""
@@ -806,9 +813,7 @@ def create_ref_calib_data(tmp_path, incident_energy=12.0):
     _, img_list = _create_file_with_ref_standards(wd=tmp_path)
 
     # Create files with reference calibration data
-    file_paths = _create_files_with_ref_calib(wd=tmp_path,
-                                              img_list=img_list,
-                                              incident_energy=incident_energy)
+    file_paths = _create_files_with_ref_calib(wd=tmp_path, img_list=img_list, incident_energy=incident_energy)
 
     return file_paths, img_list
 
@@ -829,50 +834,45 @@ def test_ParamQuantitativeAnalysis(tmp_path):
 
     # Check if the number of calibration entries is equal to the number of loaded files
     #   Also check if the function 'get_n_entries' works
-    assert pqa.get_n_entries() == n_entries, \
-        "Incorrect number of loaded calibration data entries"
+    assert pqa.get_n_entries() == n_entries, "Incorrect number of loaded calibration data entries"
 
     # Check 'get_file_path_list' function
-    assert pqa.get_file_path_list() == file_paths, \
-        "The returned list of file paths is not the same as the expected list"
+    assert (
+        pqa.get_file_path_list() == file_paths
+    ), "The returned list of file paths is not the same as the expected list"
 
     # Attempt to load calibration file that was already loaded
     #   Should not be loaded, the number of entries should remain unchanged
     pqa.load_entry(fln0)  # Send 'fpath' as arg, not kwarg
-    assert len(pqa.calibration_data) == n_entries, \
-        "Incorrect number of loaded calibration data entries"
-    assert len(pqa.calibration_settings) == n_entries, \
-        "Unexpected number of 'calibration_settings' elements"
+    assert len(pqa.calibration_data) == n_entries, "Incorrect number of loaded calibration data entries"
+    assert len(pqa.calibration_settings) == n_entries, "Unexpected number of 'calibration_settings' elements"
 
     # Try removing the calibration data entry (the first)
     pqa.remove_entry(file_path=fln0)
-    assert len(pqa.calibration_data) == n_entries - 1, \
-        "The result of calibration entry removal is not as expected"
-    assert len(pqa.calibration_settings) == n_entries - 1, \
-        "Unexpected number of 'calibration_settings' elements"
+    assert len(pqa.calibration_data) == n_entries - 1, "The result of calibration entry removal is not as expected"
+    assert len(pqa.calibration_settings) == n_entries - 1, "Unexpected number of 'calibration_settings' elements"
 
     # Reload the deleted calibration data entry
     pqa.load_entry(fln0)  # Send 'fpath' as arg, not kwarg
-    assert len(pqa.calibration_data) == n_entries, \
-        "Incorrect number of loaded calibration data entries"
-    assert len(pqa.calibration_settings) == n_entries, \
-        "Unexpected number of 'calibration_settings' elements"
+    assert len(pqa.calibration_data) == n_entries, "Incorrect number of loaded calibration data entries"
+    assert len(pqa.calibration_settings) == n_entries, "Unexpected number of 'calibration_settings' elements"
     # Make sure that the last element contains the last loaded calibration data entry
-    assert pqa.calibration_settings[-1]["file_path"] == fln0, \
-        "The last element of 'calibration_settings' list contains wrong calibration data entry"
+    assert (
+        pqa.calibration_settings[-1]["file_path"] == fln0
+    ), "The last element of 'calibration_settings' list contains wrong calibration data entry"
 
     # Find the index of calibration data entry (by file name)
     for n, fp in enumerate(file_paths):
         n_expected = n - 1
         if n_expected < 0:
             n_expected += n_entries  # n_entries - the number of configuration entries (files)
-        assert pqa.find_entry_index(fp) == n_expected, \
-            f"Index of the calibration entry '{fp}' is determined incorrectly"
+        assert (
+            pqa.find_entry_index(fp) == n_expected
+        ), f"Index of the calibration entry '{fp}' is determined incorrectly"
 
     # Test preview function
     for fp in file_paths:
-        assert pqa.get_entry_text_preview(fp), \
-            f"Failed to generate text preview for the calibration entry '{fp}'"
+        assert pqa.get_entry_text_preview(fp), f"Failed to generate text preview for the calibration entry '{fp}'"
 
     # Get the emission line list and verify if it matches the expected list (including the order of the lines)
     eline_list_expected = []
@@ -881,8 +881,9 @@ def test_ParamQuantitativeAnalysis(tmp_path):
             if ln not in eline_list_expected:
                 eline_list_expected.append(ln)
     pqa.update_emission_line_list()
-    assert pqa.active_emission_lines == eline_list_expected, \
-        "Generated emission line list does not match the expected list"
+    assert (
+        pqa.active_emission_lines == eline_list_expected
+    ), "Generated emission line list does not match the expected list"
 
     # -----------------------------------------------
     # Check how management of selections of calibration entries for individual emission lines
@@ -924,15 +925,18 @@ def test_ParamQuantitativeAnalysis(tmp_path):
 
     # Alternatively check selections using 'is_eline_selected'
     for eline in elist1:
-        assert pqa.is_eline_selected(eline, file_paths[0]), \
-            f"Emission line '{eline}' in the set '{file_paths[0]}' was not selected"
+        assert pqa.is_eline_selected(
+            eline, file_paths[0]
+        ), f"Emission line '{eline}' in the set '{file_paths[0]}' was not selected"
         if eline in elist:
-            assert not pqa.is_eline_selected(eline, file_paths[1]), \
-                f"Emission line '{eline}' in the set '{file_paths[1]}' was selected"
+            assert not pqa.is_eline_selected(
+                eline, file_paths[1]
+            ), f"Emission line '{eline}' in the set '{file_paths[1]}' was selected"
     for eline in elist0:
         if eline not in elist:
-            assert pqa.is_eline_selected(eline, file_paths[1]), \
-                f"Emission line '{eline}' in the set '{file_paths[1]}' was not selected"
+            assert pqa.is_eline_selected(
+                eline, file_paths[1]
+            ), f"Emission line '{eline}' in the set '{file_paths[1]}' was not selected"
 
     # Change selection of one emission line (test for 'select_eline' function)
     eline = elist[0]  # 'eline' is present in both sets
@@ -956,8 +960,9 @@ def test_ParamQuantitativeAnalysis(tmp_path):
     pqa.remove_entry(fln1)
     # Check only the entry #0 (all lines must be selected
     for ln in elist:
-        assert pqa.calibration_settings[0]["element_lines"][ln]["selected"], \
-            f"Element line {ln} is not selected in calibration entry #0"
+        assert pqa.calibration_settings[0]["element_lines"][ln][
+            "selected"
+        ], f"Element line {ln} is not selected in calibration entry #0"
 
     # Reload the entry (now the entries are arranged in the order 'fln0', 'fln1')
     #   Entry #0 should still remain selected for all emission lines
@@ -969,19 +974,24 @@ def test_ParamQuantitativeAnalysis(tmp_path):
 
     # Check function 'get_eline_info_complete'
     el_info = pqa.get_eline_info_complete(elist[0])
-    assert el_info[0]["eline_data"] == pqa.calibration_data[0]["element_lines"][elist[0]], \
-        "Returned calibration data does not match the expected data"
-    assert el_info[0]["eline_settings"] == pqa.calibration_settings[0]["element_lines"][elist[0]], \
-        "Returned calibration settings do not match the settings dictionary"
-    assert el_info[0]["standard_data"] == pqa.calibration_data[0], \
-        "Returned standard data does not match the expected data"
-    assert el_info[0]["standard_settings"] == pqa.calibration_settings[0], \
-        "Returned standard settings does not match the settings dictionary"
+    assert (
+        el_info[0]["eline_data"] == pqa.calibration_data[0]["element_lines"][elist[0]]
+    ), "Returned calibration data does not match the expected data"
+    assert (
+        el_info[0]["eline_settings"] == pqa.calibration_settings[0]["element_lines"][elist[0]]
+    ), "Returned calibration settings do not match the settings dictionary"
+    assert (
+        el_info[0]["standard_data"] == pqa.calibration_data[0]
+    ), "Returned standard data does not match the expected data"
+    assert (
+        el_info[0]["standard_settings"] == pqa.calibration_settings[0]
+    ), "Returned standard settings does not match the settings dictionary"
 
     # Check function 'get_eline_calibration'
     el_calib = pqa.get_eline_calibration(elist[0])
-    assert el_calib["fluorescence"] == pqa.calibration_data[0]["element_lines"][elist[0]]["fluorescence"], \
-        "The returned selected emission line calibration is incorrect"
+    assert (
+        el_calib["fluorescence"] == pqa.calibration_data[0]["element_lines"][elist[0]]["fluorescence"]
+    ), "The returned selected emission line calibration is incorrect"
 
     pqa.set_experiment_detector_channel("sum")
     assert pqa.experiment_detector_channel == "sum", "Detector channel is set incorrectly"
@@ -1014,43 +1024,67 @@ def test_ParamQuantitativeAnalysis(tmp_path):
 
     # Successfully perform quantitative normalization
     data_out, is_applied = pqa.apply_quantitative_normalization(
-        img_dict[eline], scaler_dict=scaler_dict,
-        scaler_name_default=scaler2, data_name=eline,
-        name_not_scalable=None)
-    npt.assert_almost_equal(np.mean(data_out), data_mean/scaler_mean * calib_density/calib_fluor,
-                            err_msg="The value of normalized map is different from expected")
+        img_dict[eline],
+        scaler_dict=scaler_dict,
+        scaler_name_default=scaler2,
+        data_name=eline,
+        name_not_scalable=None,
+    )
+    npt.assert_almost_equal(
+        np.mean(data_out),
+        data_mean / scaler_mean * calib_density / calib_fluor,
+        err_msg="The value of normalized map is different from expected",
+    )
     assert is_applied, "Quantitative normalization was not applied"
 
     # Ignore correction for the distance to sample
     pqa.set_experiment_distance_to_sample(0.0)
     # Successfully perform quantitative normalization
     data_out, is_applied = pqa.apply_quantitative_normalization(
-        img_dict[eline], scaler_dict=scaler_dict,
-        scaler_name_default=scaler2, data_name=eline,
-        name_not_scalable=None)
-    npt.assert_almost_equal(np.mean(data_out), data_mean/scaler_mean * calib_density/calib_fluor,
-                            err_msg="The value of normalized map is different from expected")
+        img_dict[eline],
+        scaler_dict=scaler_dict,
+        scaler_name_default=scaler2,
+        data_name=eline,
+        name_not_scalable=None,
+    )
+    npt.assert_almost_equal(
+        np.mean(data_out),
+        data_mean / scaler_mean * calib_density / calib_fluor,
+        err_msg="The value of normalized map is different from expected",
+    )
     assert is_applied, "Quantitative normalization was not applied"
 
     # Increase distance-to-sample by the factor of 2
     pqa.set_experiment_distance_to_sample(4.0)
     # Successfully perform quantitative normalization
     data_out, is_applied = pqa.apply_quantitative_normalization(
-        img_dict[eline], scaler_dict=scaler_dict,
-        scaler_name_default=scaler2, data_name=eline,
-        name_not_scalable=None)
-    npt.assert_almost_equal(np.mean(data_out), data_mean/scaler_mean * calib_density/calib_fluor * 4.0,
-                            err_msg="The value of normalized map is different from expected")
+        img_dict[eline],
+        scaler_dict=scaler_dict,
+        scaler_name_default=scaler2,
+        data_name=eline,
+        name_not_scalable=None,
+    )
+    npt.assert_almost_equal(
+        np.mean(data_out),
+        data_mean / scaler_mean * calib_density / calib_fluor * 4.0,
+        err_msg="The value of normalized map is different from expected",
+    )
     assert is_applied, "Quantitative normalization was not applied"
 
     # Skip quantitative normalization (normalize by 'scaler2') because eline 'data_name'
     #   does not have loaded calibration data associated with it
     data_out, is_applied = pqa.apply_quantitative_normalization(
-        img_dict[eline], scaler_dict=scaler_dict,
-        scaler_name_default=scaler2, data_name="Cu_K",
-        name_not_scalable=None)
-    npt.assert_almost_equal(np.mean(data_out), data_mean/(scaler_mean * 2),
-                            err_msg="The value of normalized map is different from expected")
+        img_dict[eline],
+        scaler_dict=scaler_dict,
+        scaler_name_default=scaler2,
+        data_name="Cu_K",
+        name_not_scalable=None,
+    )
+    npt.assert_almost_equal(
+        np.mean(data_out),
+        data_mean / (scaler_mean * 2),
+        err_msg="The value of normalized map is different from expected",
+    )
     assert not is_applied, "Quantitative normalization was applied"
 
     # Skip quantitative normalization (normalize by 'scaler2') because scaler is not
@@ -1058,27 +1092,39 @@ def test_ParamQuantitativeAnalysis(tmp_path):
     scaler_dict2 = scaler_dict.copy()  # The new scaler dict contains only scaler 'sclr2'
     del scaler_dict2["sclr"]
     data_out, is_applied = pqa.apply_quantitative_normalization(
-        img_dict[eline], scaler_dict=scaler_dict2,
-        scaler_name_default=scaler2, data_name=eline,
-        name_not_scalable=None)
-    npt.assert_almost_equal(np.mean(data_out), data_mean/(scaler_mean * 2),
-                            err_msg="The value of normalized map is different from expected")
+        img_dict[eline],
+        scaler_dict=scaler_dict2,
+        scaler_name_default=scaler2,
+        data_name=eline,
+        name_not_scalable=None,
+    )
+    npt.assert_almost_equal(
+        np.mean(data_out),
+        data_mean / (scaler_mean * 2),
+        err_msg="The value of normalized map is different from expected",
+    )
     assert not is_applied, "Quantitative normalization was applied"
 
     # Skip normalization completely because the scaler name is invalid (non-existing scaler)
     data_out, is_applied = pqa.apply_quantitative_normalization(
-        img_dict[eline], scaler_dict=scaler_dict,
-        scaler_name_default="sclr3", data_name="Cu_K",  # Non-existing scaler
-        name_not_scalable=["sclr2", "sclr"])
+        img_dict[eline],
+        scaler_dict=scaler_dict,
+        scaler_name_default="sclr3",
+        data_name="Cu_K",  # Non-existing scaler
+        name_not_scalable=["sclr2", "sclr"],
+    )
     assert data_out is img_dict[eline], "Function output is not a reference to the input data"
     assert not is_applied, "Quantitative normalization was applied"
 
     # Skip normalization completely because eline 'data_name'
     #   is in the list of non-scalable names
     data_out, is_applied = pqa.apply_quantitative_normalization(
-        img_dict[eline], scaler_dict=scaler_dict,
-        scaler_name_default=scaler2, data_name=eline,
-        name_not_scalable=["sclr2", eline, "sclr"])
+        img_dict[eline],
+        scaler_dict=scaler_dict,
+        scaler_name_default=scaler2,
+        data_name=eline,
+        name_not_scalable=["sclr2", eline, "sclr"],
+    )
     assert data_out is img_dict[eline], "Function output is not a reference to the input data"
     assert not is_applied, "Quantitative normalization was applied"
 

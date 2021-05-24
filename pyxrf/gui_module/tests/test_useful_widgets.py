@@ -4,7 +4,11 @@ from PyQt5.QtWidgets import QLineEdit
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QDoubleValidator
 from pyxrf.gui_module.useful_widgets import (
-    IntValidatorStrict, IntValidatorRelaxed, DoubleValidatorRelaxed, RangeManager)
+    IntValidatorStrict,
+    IntValidatorRelaxed,
+    DoubleValidatorRelaxed,
+    RangeManager,
+)
 
 
 def enter_text_via_keyboard(qtbot, widget, text, *, finish=True):
@@ -18,6 +22,7 @@ def enter_text_via_keyboard(qtbot, widget, text, *, finish=True):
 
 # ==============================================================
 #   Class IntValidatorStrict
+# fmt: off
 @pytest.mark.parametrize("text, range, result", [
     ("", None, IntValidatorRelaxed.Intermediate),
     ("123", None, IntValidatorRelaxed.Acceptable),
@@ -29,6 +34,7 @@ def enter_text_via_keyboard(qtbot, widget, text, *, finish=True):
     ("12,", (0, 10), IntValidatorRelaxed.Invalid),  # Comma after the number
 ])
 @pytest.mark.xfail(reason="Test fails with PyQT 5.9: remove 'xfail' once transition to conda-forge is complete")
+# fmt: on
 def test_IntValidatorStrict(text, range, result):
     validator = IntValidatorStrict()
     if range is not None:
@@ -39,6 +45,7 @@ def test_IntValidatorStrict(text, range, result):
 # ==============================================================
 #   Class IntValidatorRelaxed
 
+# fmt: off
 @pytest.mark.parametrize("text, range, result", [
     ("", None, IntValidatorRelaxed.Intermediate),
     ("123", None, IntValidatorRelaxed.Acceptable),
@@ -48,6 +55,7 @@ def test_IntValidatorStrict(text, range, result):
     ("-2", (0, 10), IntValidatorRelaxed.Intermediate),
     ("12", (0, 10), IntValidatorRelaxed.Intermediate),
 ])
+# fmt: on
 def test_IntValidatorRelaxed_1(text, range, result):
     validator = IntValidatorRelaxed()
     if range is not None:
@@ -55,6 +63,7 @@ def test_IntValidatorRelaxed_1(text, range, result):
     assert validator.validate(text, 0)[0] == result, "Validation failed"
 
 
+# fmt: off
 @pytest.mark.parametrize("text, range, valid", [
     ("", None, False),
     ("123", None, True),
@@ -65,6 +74,7 @@ def test_IntValidatorRelaxed_1(text, range, result):
     ("12", (0, 10), False),
 
 ])
+# fmt: on
 def test_IntValidatorRelaxed_2(qtbot, text, range, valid):
     """
     Test how `IntValidatorRelaxed` operates with `QLineEdit`, which is expected
@@ -99,6 +109,7 @@ def test_IntValidatorRelaxed_2(qtbot, text, range, valid):
 
 # ==============================================================
 #   Class DoubleValidatorStrict
+# fmt: off
 @pytest.mark.parametrize("text, range, result", [
     ("", None, DoubleValidatorRelaxed.Intermediate),
     ("123", None, DoubleValidatorRelaxed.Acceptable),
@@ -111,6 +122,7 @@ def test_IntValidatorRelaxed_2(qtbot, text, range, valid):
     ("12.453", (0, 10.0), DoubleValidatorRelaxed.Intermediate),
     ("12.453,", (0, 10.0), DoubleValidatorRelaxed.Invalid),  # Comma after the number
 ])
+# fmt: on
 def test_DoubleValidatorStrict(text, range, result):
     validator = QDoubleValidator()
     if range is not None:
@@ -121,6 +133,7 @@ def test_DoubleValidatorStrict(text, range, result):
 # ==============================================================
 #   Class DoubleValidatorRelaxed
 
+# fmt: off
 @pytest.mark.parametrize("text, range, result", [
     ("", None, DoubleValidatorRelaxed.Intermediate),
     ("123", None, DoubleValidatorRelaxed.Acceptable),
@@ -132,6 +145,7 @@ def test_DoubleValidatorStrict(text, range, result):
     ("-2.342", (0, 10.0), DoubleValidatorRelaxed.Intermediate),
     ("12.453", (0, 10.0), DoubleValidatorRelaxed.Intermediate),
 ])
+# fmt: on
 def test_DoubleValidatorRelaxed_1(text, range, result):
     validator = DoubleValidatorRelaxed()
     if range is not None:
@@ -139,6 +153,7 @@ def test_DoubleValidatorRelaxed_1(text, range, result):
     assert validator.validate(text, 0)[0] == result, "Validation failed"
 
 
+# fmt: off
 @pytest.mark.parametrize("text, range, valid", [
     ("", None, False),
     ("123", None, True),
@@ -150,6 +165,7 @@ def test_DoubleValidatorRelaxed_1(text, range, result):
     ("-2.342", (0, 10.0), False),
     ("12.453", (0, 10.0), False),
 ])
+# fmt: on
 def test_DoubleValidatorRelaxed_2(qtbot, text, range, valid):
     """
     Test how `DoubleValidatorRelaxed` operates with `QLineEdit`, which is expected
@@ -185,6 +201,7 @@ def test_DoubleValidatorRelaxed_2(qtbot, text, range, valid):
 # ==============================================================
 #   Class RangeManager
 
+
 def test_RangeManager_1(qtbot):
     """
     RangeManager: test the function for setting and changing value type
@@ -194,12 +211,12 @@ def test_RangeManager_1(qtbot):
     rman.show()
 
     def _compare_tuples(*, returned, expected, v_type):
-        assert len(returned) == len(expected), \
-            "Returned selection has wrong number of elements"
+        assert len(returned) == len(expected), "Returned selection has wrong number of elements"
         for v in returned:
             assert isinstance(v, v_type), f"Returned value has wrong type: {type(v)})"
         npt.assert_array_almost_equal(
-            returned, expected, err_msg="Returned and original selection are not identical")
+            returned, expected, err_msg="Returned and original selection are not identical"
+        )
 
     # The value type is 'float' by default
     f_range = (25.123, 89.892)
@@ -232,6 +249,7 @@ def test_RangeManager_1(qtbot):
     _compare_tuples(returned=rman.get_range(), expected=i_range, v_type=float)
 
 
+# fmt: off
 @pytest.mark.parametrize("full_range, selection, value_type", [
     ((-14.86, -5.2), (-11.78, -7.9), "float"),
     ((-0.254, 37.45), (-0.123, 20.45), "float"),
@@ -242,6 +260,7 @@ def test_RangeManager_1(qtbot):
     ((5, 90), (10, 70), "int"),
     ((0, 90), (10, 70), "int"),
 ])
+# fmt: on
 def test_RangeManager_2(qtbot, full_range, selection, value_type):
     """Test the `reset()` method: resetting the selection"""
     rman = RangeManager()
@@ -252,33 +271,27 @@ def test_RangeManager_2(qtbot, full_range, selection, value_type):
     rman.set_range(full_range[0], full_range[1])
     rman.set_selection(value_low=selection[0], value_high=selection[1])
 
-    npt.assert_array_almost_equal(rman.get_range(), full_range,
-                                  err_msg="Range is set incorrectly")
+    npt.assert_array_almost_equal(rman.get_range(), full_range, err_msg="Range is set incorrectly")
 
     # Verify that selection is displayed correctly
-    assert rman.le_min_value.text() == f"{selection[0]:.10g}", \
-        "Lower boundary is displayed incorrectly"
-    assert rman.le_max_value.text() == f"{selection[1]:.10g}", \
-        "Upper boundary is displayed incorrectly"
-    npt.assert_array_almost_equal(rman.get_selection(), selection,
-                                  err_msg="Selection is set incorreclty")
+    assert rman.le_min_value.text() == f"{selection[0]:.10g}", "Lower boundary is displayed incorrectly"
+    assert rman.le_max_value.text() == f"{selection[1]:.10g}", "Upper boundary is displayed incorrectly"
+    npt.assert_array_almost_equal(rman.get_selection(), selection, err_msg="Selection is set incorreclty")
 
     selection_changed = rman.reset()
     assert selection_changed is True, "Change of selection is incorrectly reported"
 
     # Verify that selection is displayed correctly
-    assert rman.le_min_value.text() == f"{full_range[0]:.10g}", \
-        "Lower boundary is displayed incorrectly"
-    assert rman.le_max_value.text() == f"{full_range[1]:.10g}", \
-        "Upper boundary is displayed incorrectly"
-    npt.assert_array_almost_equal(rman.get_selection(), full_range,
-                                  err_msg="Selection is set incorreclty")
+    assert rman.le_min_value.text() == f"{full_range[0]:.10g}", "Lower boundary is displayed incorrectly"
+    assert rman.le_max_value.text() == f"{full_range[1]:.10g}", "Upper boundary is displayed incorrectly"
+    npt.assert_array_almost_equal(rman.get_selection(), full_range, err_msg="Selection is set incorreclty")
 
     # Attemtp to reset again (selection shouldn't change)
     selection_changed = rman.reset()
     assert selection_changed is False, "Change of selection is incorrectly reported"
 
 
+# fmt: off
 @pytest.mark.parametrize("full_range, selection, value_type", [
     ((-0.254, 37.45), (-0.123, 20.45), "float"),
     ((-0.254, 37.45), (-0.5, 90.45), "float"),
@@ -297,14 +310,14 @@ def test_RangeManager_2(qtbot, full_range, selection, value_type):
     ((-49, 90), (100, 110), "int"),  # Selection is 'above' the range
     ((-49, 90), (-100, -90), "int"),  # Selection is 'below' the range
 ])
+# fmt: on
 def test_RangeManager_3(qtbot, full_range, selection, value_type):
     """Test `set_selection()` method"""
 
     slider_steps = 1000
     selection_to_range_min = 0.01
 
-    rman = RangeManager(slider_steps=slider_steps,
-                        selection_to_range_min=selection_to_range_min)
+    rman = RangeManager(slider_steps=slider_steps, selection_to_range_min=selection_to_range_min)
     qtbot.addWidget(rman)
     rman.show()
 
@@ -336,26 +349,27 @@ def test_RangeManager_3(qtbot, full_range, selection, value_type):
     result = rman.set_selection(value_low=selection[0], value_high=selection[1])
     assert result == result_expected, f"Incorrect return value {result} by `set_selection()` method"
 
-    npt.assert_array_almost_equal(rman.get_selection(), sel,
-                                  err_msg="Selection is set incorrectly")
+    npt.assert_array_almost_equal(rman.get_selection(), sel, err_msg="Selection is set incorrectly")
     # Verify that selection is displayed correctly
-    assert rman.le_min_value.text() == f"{sel[0]:.10g}", \
-        "Lower boundary is displayed incorrectly"
-    assert rman.le_max_value.text() == f"{sel[1]:.10g}", \
-        "Upper boundary is displayed incorrectly"
+    assert rman.le_min_value.text() == f"{sel[0]:.10g}", "Lower boundary is displayed incorrectly"
+    assert rman.le_max_value.text() == f"{sel[1]:.10g}", "Upper boundary is displayed incorrectly"
 
     # Check positions of the sliders
     step = (full_range[1] - full_range[0]) / slider_steps
-    assert rman.sld_min_value.value() == slider_steps - round((sel[0] - full_range[0]) / step), \
-        "Slider position (min. value) is incorrect"
-    assert rman.sld_max_value.value() == round((sel[1] - full_range[0]) / step), \
-        "Slider position (max. value) is incorrect"
+    assert rman.sld_min_value.value() == slider_steps - round(
+        (sel[0] - full_range[0]) / step
+    ), "Slider position (min. value) is incorrect"
+    assert rman.sld_max_value.value() == round(
+        (sel[1] - full_range[0]) / step
+    ), "Slider position (max. value) is incorrect"
 
 
+# fmt: off
 @pytest.mark.parametrize("full_range, selection, value_type", [
     ((-0.254, 37.45), (-0.123, 20.45), "float"),
     ((-49, 90), (-20, 60), "int"),
 ])
+# fmt: on
 def test_RangeManager_4(qtbot, full_range, selection, value_type):
     """
     RangeManager: additional testing of `set_selection()` method:
@@ -367,13 +381,10 @@ def test_RangeManager_4(qtbot, full_range, selection, value_type):
 
     def _verify_selection(sel):
         # Verify that selection is set correctly
-        npt.assert_array_almost_equal(rman.get_selection(), sel,
-                                      err_msg="Selection is set incorrectly")
+        npt.assert_array_almost_equal(rman.get_selection(), sel, err_msg="Selection is set incorrectly")
         # Verify that selection is displayed correctly
-        assert rman.le_min_value.text() == f"{sel[0]:.10g}", \
-            "Lower boundary is displayed incorrectly"
-        assert rman.le_max_value.text() == f"{sel[1]:.10g}", \
-            "Upper boundary is displayed incorrectly"
+        assert rman.le_min_value.text() == f"{sel[0]:.10g}", "Lower boundary is displayed incorrectly"
+        assert rman.le_max_value.text() == f"{sel[1]:.10g}", "Upper boundary is displayed incorrectly"
 
     rman.set_value_type(value_type)
     rman.set_range(full_range[0], full_range[1])
@@ -393,6 +404,7 @@ def test_RangeManager_4(qtbot, full_range, selection, value_type):
     _verify_selection(sel)
 
 
+# fmt: off
 @pytest.mark.parametrize("full_range, selection, new_range, value_type", [
     # Selection fits in both ranges
     ((-0.254, 37.45), (10.123, 20.45), (6.23, 29.14), "float"),
@@ -413,6 +425,7 @@ def test_RangeManager_4(qtbot, full_range, selection, value_type):
     ((-0.254, 37.45), (10.123, 20.45), (-70.23, -60.3), "float"),
     ((-49, 90), (-20, 60), (-120, -100), "int"),
 ])
+# fmt: on
 def test_RangeManager_5(qtbot, full_range, selection, new_range, value_type):
     """
     RangeManager: additional testing of `set_selection()` method:
@@ -421,31 +434,28 @@ def test_RangeManager_5(qtbot, full_range, selection, new_range, value_type):
     slider_steps = 1000
     selection_to_range_min = 0.01
 
-    rman = RangeManager(slider_steps=slider_steps,
-                        selection_to_range_min=selection_to_range_min)
+    rman = RangeManager(slider_steps=slider_steps, selection_to_range_min=selection_to_range_min)
     qtbot.addWidget(rman)
     rman.show()
 
     def _verify_selection(sel, rng):
         # Verify that selection is set correctly
-        npt.assert_array_almost_equal(rman.get_selection(), sel,
-                                      err_msg="Selection is set incorrectly")
+        npt.assert_array_almost_equal(rman.get_selection(), sel, err_msg="Selection is set incorrectly")
         # Verify that selection is displayed correctly
-        assert rman.le_min_value.text() == f"{sel[0]:.8g}", \
-            "Lower boundary is displayed incorrectly"
-        assert rman.le_max_value.text() == f"{sel[1]:.8g}", \
-            "Upper boundary is displayed incorrectly"
+        assert rman.le_min_value.text() == f"{sel[0]:.8g}", "Lower boundary is displayed incorrectly"
+        assert rman.le_max_value.text() == f"{sel[1]:.8g}", "Upper boundary is displayed incorrectly"
         # Check positions of the sliders
         step = (rng[1] - rng[0]) / slider_steps
-        assert rman.sld_min_value.value() == slider_steps - round((sel[0] - rng[0]) / step), \
-            "Slider position (min. value) is incorrect"
-        assert rman.sld_max_value.value() == round((sel[1] - rng[0]) / step), \
-            "Slider position (max. value) is incorrect"
+        assert rman.sld_min_value.value() == slider_steps - round(
+            (sel[0] - rng[0]) / step
+        ), "Slider position (min. value) is incorrect"
+        assert rman.sld_max_value.value() == round(
+            (sel[1] - rng[0]) / step
+        ), "Slider position (max. value) is incorrect"
 
     def _verify_range(rng):
         # Verify that selection is set correctly
-        npt.assert_array_almost_equal(rman.get_range(), rng,
-                                      err_msg="Range is set incorrectly")
+        npt.assert_array_almost_equal(rman.get_range(), rng, err_msg="Range is set incorrectly")
 
     # Set the range and verify that the selection was scaled correctly
     rman.set_range(full_range[0], full_range[1])
@@ -514,17 +524,18 @@ def test_RangeManager_6(qtbot, add_sliders):
 
     def _check_slider_status(slider, status):
         # Check if slider has parent (it was added to layout)
-        assert (slider.parent() is not None) == status, \
-            "Slider visibility is set incorrectly"
+        assert (slider.parent() is not None) == status, "Slider visibility is set incorrectly"
 
     _check_slider_status(rman.sld_min_value, sliders_exist)
     _check_slider_status(rman.sld_max_value, sliders_exist)
 
 
+# fmt: off
 @pytest.mark.parametrize("full_range, selection, value_type", [
     ((-0.254, 37.45), (-0.123, 20.45), "float"),
     ((-49, 90), (-20, 60), "int"),
 ])
+# fmt: on
 def test_RangeManager_7(qtbot, full_range, selection, value_type):
     """Check if the signal `selection_changed` is emitted correctly"""
 
@@ -542,18 +553,19 @@ def test_RangeManager_7(qtbot, full_range, selection, value_type):
         rman.emit_selection_changed()
 
 
+# fmt: off
 @pytest.mark.parametrize("full_range, selection, value_type", [
     ((-0.254, 37.45), (-0.123, 20.45), "float"),
     ((-49, 90), (-20, 60), "int"),
 ])
+# fmt: on
 def test_RangeManager_8(qtbot, full_range, selection, value_type):
     """Entering selection boundaries via keyboard"""
 
     slider_steps = 1000
     selection_to_range_min = 0.01
 
-    rman = RangeManager(slider_steps=slider_steps,
-                        selection_to_range_min=selection_to_range_min)
+    rman = RangeManager(slider_steps=slider_steps, selection_to_range_min=selection_to_range_min)
     qtbot.addWidget(rman)
     rman.show()
 
@@ -617,18 +629,19 @@ def test_RangeManager_8(qtbot, full_range, selection, value_type):
     _verify_sliders(rman.sld_min_value, rman.sld_max_value, (selection[0], selection[1]), full_range)
 
 
+# fmt: off
 @pytest.mark.parametrize("full_range, selection, value_type", [
     ((-0.254, 37.45), (-0.123, 20.45), "float"),
     ((-49, 90), (-20, 60), "int"),
 ])
+# fmt: on
 def test_RangeManager_9(qtbot, full_range, selection, value_type):
     """Entering invalid value in an entry field (especially the case when text contains `,`)"""
 
     slider_steps = 1000
     selection_to_range_min = 0.01
 
-    rman = RangeManager(slider_steps=slider_steps,
-                        selection_to_range_min=selection_to_range_min)
+    rman = RangeManager(slider_steps=slider_steps, selection_to_range_min=selection_to_range_min)
     qtbot.addWidget(rman)
     rman.show()
 

@@ -1,5 +1,4 @@
-from __future__ import (absolute_import, division,
-                        print_function)
+from __future__ import absolute_import, division, print_function
 import math
 import numpy as np
 import matplotlib
@@ -15,25 +14,38 @@ from mpl_toolkits.axes_grid1 import ImageGrid
 
 from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
 
-from skbeam.core.fitting.xrf_model import (K_TRANSITIONS, L_TRANSITIONS, M_TRANSITIONS)
+from skbeam.core.fitting.xrf_model import K_TRANSITIONS, L_TRANSITIONS, M_TRANSITIONS
 from skbeam.fluorescence import XrfElement as Element
 
 from ..core.xrf_utils import get_eline_parameters
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
 def get_color_name():
 
     # usually line plot will not go beyond 10
-    first_ten = ['indigo', 'maroon', 'green', 'darkblue', 'darkgoldenrod', 'blue',
-                 'darkcyan', 'sandybrown', 'black', 'darkolivegreen']
+    first_ten = [
+        "indigo",
+        "maroon",
+        "green",
+        "darkblue",
+        "darkgoldenrod",
+        "blue",
+        "darkcyan",
+        "sandybrown",
+        "black",
+        "darkolivegreen",
+    ]
 
     # Avoid red color, as those color conflict with emission lines' color.
-    nonred_list = [v for v in matplotlib.colors.cnames.keys()
-                   if 'pink' not in v and 'fire' not in v and
-                   'sage' not in v and 'tomato' not in v and 'red' not in v]
+    nonred_list = [
+        v
+        for v in matplotlib.colors.cnames.keys()
+        if "pink" not in v and "fire" not in v and "sage" not in v and "tomato" not in v and "red" not in v
+    ]
     return first_ten + nonred_list + list(matplotlib.colors.cnames.keys())
 
 
@@ -101,8 +113,9 @@ class LinePlotModel(Atom):
     param_model : Typed(object)
         Reference to ParamModel object
     """
+
     # data = Typed(object)  # Typed(np.ndarray)
-    exp_data_label = Str('experiment')
+    exp_data_label = Str("experiment")
 
     number_pts_to_show = Int(3000)  # The number of spectrum point to show
 
@@ -128,7 +141,7 @@ class LinePlotModel(Atom):
     map_axes_units_preview = Typed(MapAxesUnits)
     map_scatter_plot = Bool(False)
 
-    map_preview_color_scheme = Str('viridis')
+    map_preview_color_scheme = Str("viridis")
     map_preview_range_low = Float(-1)
     map_preview_range_high = Float(-1)
     # ------------------------------------------------------------
@@ -224,15 +237,15 @@ class LinePlotModel(Atom):
 
         self._ax = self._fig.add_subplot(111)
         try:
-            self._ax.set_axis_bgcolor('lightgrey')
+            self._ax.set_axis_bgcolor("lightgrey")
         except AttributeError:
-            self._ax.set_facecolor('lightgrey')
+            self._ax.set_facecolor("lightgrey")
 
-        self._ax.set_xlabel('Energy (keV)')
-        self._ax.set_ylabel('Spectrum (Counts)')
+        self._ax.set_xlabel("Energy (keV)")
+        self._ax.set_ylabel("Spectrum (Counts)")
         self._ax.grid(which="both")
-        self._ax.set_yscale('log')
-        self.plot_type_names = ['LinLog', 'Linear']
+        self._ax.set_yscale("log")
+        self.plot_type_names = ["LinLog", "Linear"]
 
         self.energy_range_names = ["selected", "full"]
         self.energy_range_fitting = "selected"
@@ -262,23 +275,21 @@ class LinePlotModel(Atom):
 
     def _color_config(self):
         self.plot_style = {
-            'experiment': {'color': 'blue', 'linestyle': '',
-                           'marker': '.', 'label': self.exp_data_label},
-            'background': {'color': 'indigo', 'marker': '+',
-                           'markersize': 1, 'label': 'background'},
-            'emission_line': {'color': 'black', 'linewidth': 2},
-            'roi_line': {'color': 'red', 'linewidth': 2},
-            'k_line': {'color': 'green', 'label': 'k lines'},
-            'l_line': {'color': 'magenta', 'label': 'l lines'},
-            'm_line': {'color': 'brown', 'label': 'm lines'},
-            'compton': {'color': 'darkcyan', 'linewidth': 1.5, 'label': 'compton'},
-            'elastic': {'color': 'purple', 'label': 'elastic'},
-            'escape': {'color': 'darkblue', 'label': 'escape'},
-            'pileup': {'color': 'darkgoldenrod', 'label': 'pileup'},
-            'userpeak': {'color': 'orange', 'label': 'userpeak'},
+            "experiment": {"color": "blue", "linestyle": "", "marker": ".", "label": self.exp_data_label},
+            "background": {"color": "indigo", "marker": "+", "markersize": 1, "label": "background"},
+            "emission_line": {"color": "black", "linewidth": 2},
+            "roi_line": {"color": "red", "linewidth": 2},
+            "k_line": {"color": "green", "label": "k lines"},
+            "l_line": {"color": "magenta", "label": "l lines"},
+            "m_line": {"color": "brown", "label": "m lines"},
+            "compton": {"color": "darkcyan", "linewidth": 1.5, "label": "compton"},
+            "elastic": {"color": "purple", "label": "elastic"},
+            "escape": {"color": "darkblue", "label": "escape"},
+            "pileup": {"color": "darkgoldenrod", "label": "pileup"},
+            "userpeak": {"color": "orange", "label": "userpeak"},
             # 'auto_fit': {'color': 'black', 'label': 'auto fitted', 'linewidth': 2.5},
-            'fit': {'color': 'red', 'label': 'fit', 'linewidth': 2.5},
-            'residual': {'color': 'black', 'label': 'residual', 'linewidth': 2.0}
+            "fit": {"color": "red", "label": "fit", "linewidth": 2.5},
+            "residual": {"color": "black", "label": "residual", "linewidth": 2.0},
         }
 
     def plot_exp_data_update(self, change):
@@ -292,8 +303,8 @@ class LinePlotModel(Atom):
             This is the dictionary that gets passed to a function
             with the @observe decorator
         """
-        self.plot_exp_opt = False   # exp data for fitting
-        self.show_exp_opt = False   # all exp data from different channels
+        self.plot_exp_opt = False  # exp data for fitting
+        self.show_exp_opt = False  # all exp data from different channels
         self.show_fit_opt = False
 
         # Reset currently selected element_id (mostly to reset GUI elements)
@@ -327,9 +338,9 @@ class LinePlotModel(Atom):
 
     def _update_ylimit(self):
         # manually define y limit, from experience
-        self.log_range = [self.max_v*1e-5, self.max_v*2]
+        self.log_range = [self.max_v * 1e-5, self.max_v * 2]
         # self.linear_range = [-0.3*self.max_v, self.max_v*1.2]
-        self.linear_range = [0, self.max_v*1.2]
+        self.linear_range = [0, self.max_v * 1.2]
 
     def exp_label_update(self, change):
         """
@@ -342,8 +353,8 @@ class LinePlotModel(Atom):
             This is the dictionary that gets passed to a function
             with the @observe decorator
         """
-        self.exp_data_label = change['value']
-        self.plot_style['experiment']['label'] = change['value']
+        self.exp_data_label = change["value"]
+        self.plot_style["experiment"]["label"] = change["value"]
 
     # @observe('exp_data_label')
     # def _change_exp_label(self, change):
@@ -351,16 +362,17 @@ class LinePlotModel(Atom):
     #         return
     #     self.plot_style['experiment']['label'] = change['value']
 
-    @observe('parameters')
+    @observe("parameters")
     def _update_energy(self, change):
-        if 'coherent_sct_energy' not in self.param_model.param_new:
+        if "coherent_sct_energy" not in self.param_model.param_new:
             return
-        self.incident_energy = self.param_model.param_new['coherent_sct_energy']['value']
+        self.incident_energy = self.param_model.param_new["coherent_sct_energy"]["value"]
 
     def set_energy_range_fitting(self, energy_range_name):
         if energy_range_name not in self.energy_range_names:
-            raise ValueError(f"Unknown energy range name {energy_range_name}. "
-                             f"Allowed names: {self.energy_range_names}")
+            raise ValueError(
+                f"Unknown energy range name {energy_range_name}. Allowed names: {self.energy_range_names}"
+            )
         self.energy_range_fitting = energy_range_name
         self.plot_experiment()
 
@@ -399,8 +411,8 @@ class LinePlotModel(Atom):
         # Change the value twice to ensure that all observer functions are called
         self.incident_energy = energy_new + 1.0  # Arbitrary number different from 'energy_new'
         self.incident_energy = energy_new
-        if 'coherent_sct_energy' in self.param_model.param_new:
-            self.param_model.param_new['coherent_sct_energy']['value'] = energy_new
+        if "coherent_sct_energy" in self.param_model.param_new:
+            self.param_model.param_new["coherent_sct_energy"]["value"] = energy_new
 
         # Change the value twice to ensure that all observer functions are called
         self.param_model.energy_bound_high_buf = energy_new + 1.8  # Arbitrary number
@@ -409,7 +421,7 @@ class LinePlotModel(Atom):
         upper_bound = round(upper_bound, ndigits=5)
         self.param_model.energy_bound_high_buf = upper_bound
 
-    @observe('scale_opt')
+    @observe("scale_opt")
     def _new_opt(self, change):
         self.log_linear_plot()
         self._update_canvas()
@@ -433,15 +445,15 @@ class LinePlotModel(Atom):
         self._update_canvas()
 
     def log_linear_plot(self):
-        if self.plot_type_names[self.scale_opt] == 'LinLog':
-            self._ax.set_yscale('log')
+        if self.plot_type_names[self.scale_opt] == "LinLog":
+            self._ax.set_yscale("log")
             # self._ax.margins(x=0.0, y=0.5)
             # self._ax.autoscale_view(tight=True)
             # self._ax.relim(visible_only=True)
             self._ax.set_ylim(self.log_range)
 
         else:
-            self._ax.set_yscale('linear')
+            self._ax.set_yscale("linear")
             # self._ax.margins(x=0.0, y=0.10)
             # self._ax.autoscale_view(tight=True)
             # self._ax.relim(visible_only=True)
@@ -468,11 +480,15 @@ class LinePlotModel(Atom):
         e_range = self.energy_range_fitting
         e_range_full, e_range_selected = "full", "selected"
         if set([e_range_full, e_range_selected]) < set(self.energy_range_names):
-            raise ValueError(f"Some names for energy range {(e_range_full, e_range_selected)} are not supported. "
-                             "Please report the error to the development team.")
+            raise ValueError(
+                f"Some names for energy range {(e_range_full, e_range_selected)} are not supported. "
+                "Please report the error to the development team."
+            )
         if e_range not in (e_range_full, e_range_selected):
-            logger.error(f"Spectrum preview: Unknown option for the energy range: {e_range}\n"
-                         "Please report the error to the development team.")
+            logger.error(
+                f"Spectrum preview: Unknown option for the energy range: {e_range}\n"
+                "Please report the error to the development team."
+            )
             # This is not a critical error, so we still can proceed
             e_range = e_range_full
 
@@ -491,31 +507,34 @@ class LinePlotModel(Atom):
         n_high = int(np.clip(n_range_high, a_min=1, a_max=n_dset_points))
 
         # Find the maximum value (skip the first and last 'limit_cut' points of the dataset
-        n1, n2 = max(self.limit_cut, n_low), min(n_dset_points-self.limit_cut, n_high)
+        n1, n2 = max(self.limit_cut, n_low), min(n_dset_points - self.limit_cut, n_high)
         if n2 <= n1:  # This is just a precaution: it is expected that n_dset_points >> 2 * limit_cut
             n1, n2 = n_low, n_high
-        self.max_v = float(np.max(self.io_model.data[n1: n2]))
+        self.max_v = float(np.max(self.io_model.data[n1:n2]))
 
         try:
             self.plot_exp_obj.remove()
-            logger.debug('Previous experimental data is removed.')
+            logger.debug("Previous experimental data is removed.")
         except AttributeError:
-            logger.debug('No need to remove experimental data.')
+            logger.debug("No need to remove experimental data.")
 
         data_arr = self.io_model.data
-        x_v = (self.param_model.param_new['e_offset']['value'] +
-               np.arange(n_low, n_high) *
-               self.param_model.param_new['e_linear']['value'] +
-               np.arange(n_low, n_high)**2 *
-               self.param_model.param_new['e_quadratic']['value'])
+        x_v = (
+            self.param_model.param_new["e_offset"]["value"]
+            + np.arange(n_low, n_high) * self.param_model.param_new["e_linear"]["value"]
+            + np.arange(n_low, n_high) ** 2 * self.param_model.param_new["e_quadratic"]["value"]
+        )
 
-        data_arr = data_arr[n_low: n_high]
+        data_arr = data_arr[n_low:n_high]
 
-        self.plot_exp_obj, = self._ax.plot(x_v, data_arr,
-                                           linestyle=self.plot_style['experiment']['linestyle'],
-                                           color=self.plot_style['experiment']['color'],
-                                           marker=self.plot_style['experiment']['marker'],
-                                           label=self.plot_style['experiment']['label'])
+        (self.plot_exp_obj,) = self._ax.plot(
+            x_v,
+            data_arr,
+            linestyle=self.plot_style["experiment"]["linestyle"],
+            color=self.plot_style["experiment"]["color"],
+            marker=self.plot_style["experiment"]["marker"],
+            label=self.plot_style["experiment"]["label"],
+        )
 
         # Rescale the plot along x-axis if needed
         x_min, x_max = x_v[0], x_v[-1]
@@ -544,29 +563,29 @@ class LinePlotModel(Atom):
             if plot_show:
                 self.plot_exp_obj.set_visible(True)
                 lab = self.plot_exp_obj.get_label()
-                self.plot_exp_obj.set_label(lab.strip('_'))
+                self.plot_exp_obj.set_label(lab.strip("_"))
             else:
                 self.plot_exp_obj.set_visible(False)
                 lab = self.plot_exp_obj.get_label()
-                self.plot_exp_obj.set_label('_' + lab)
+                self.plot_exp_obj.set_label("_" + lab)
 
             self._update_canvas()
         except Exception:
             pass
 
-    @observe('plot_exp_opt')
+    @observe("plot_exp_opt")
     def _new_exp_plot_opt(self, change):
 
         if self.io_model.data is None:
             return
 
-        if change['type'] != 'create':
-            if change['value']:
+        if change["type"] != "create":
+            if change["value"]:
                 self.plot_experiment()
             # _show_hide_exp_plot is already called inside 'plot_experiment()',
             #    but visibility flag was not used correctly. So we need to
             #    call it again.
-            self._show_hide_exp_plot(change['value'])
+            self._show_hide_exp_plot(change["value"])
             self._set_eline_select_controls()
 
     # @observe('show_exp_opt')
@@ -588,21 +607,21 @@ class LinePlotModel(Atom):
     #                         v.set_label('_' + lab)
     #         self._update_canvas()
 
-    @observe('show_fit_opt')
+    @observe("show_fit_opt")
     def _update_fit(self, change):
-        if change['type'] != 'create':
-            if change['value']:
+        if change["type"] != "create":
+            if change["value"]:
                 for v in self.plot_fit_obj:
                     v.set_visible(True)
                     lab = v.get_label()
-                    if lab != '_nolegend_':
-                        v.set_label(lab.strip('_'))
+                    if lab != "_nolegend_":
+                        v.set_label(lab.strip("_"))
             else:
                 for v in self.plot_fit_obj:
                     v.set_visible(False)
                     lab = v.get_label()
-                    if lab != '_nolegend_':
-                        v.set_label('_' + lab)
+                    if lab != "_nolegend_":
+                        v.set_label("_" + lab)
             self._update_canvas()
 
     def plot_experiment(self):
@@ -615,7 +634,7 @@ class LinePlotModel(Atom):
             return
 
         data_arr = np.asarray(self.io_model.data)
-        self.exp_data_update({'value': data_arr})
+        self.exp_data_update({"value": data_arr})
 
     def plot_vertical_marker(self, *, e_low=None, e_high=None):
 
@@ -630,7 +649,7 @@ class LinePlotModel(Atom):
             self._ax.lines.remove(self.line_vertical_marker)
             self.line_vertical_marker = None
         if self.vertical_marker_is_visible:
-            self.line_vertical_marker, = self._ax.plot(x_v, y_v, color="blue")
+            (self.line_vertical_marker,) = self._ax.plot(x_v, y_v, color="blue")
 
     def set_plot_vertical_marker(self, marker_position=None, mouse_clicked=False):
         """
@@ -646,8 +665,8 @@ class LinePlotModel(Atom):
         # display the marker if 'mouse_clicked' is False.
         marker_in_range = True
         if marker_position is not None:
-            e_low = self.param_model.param_new['non_fitting_values']['energy_bound_low']['value']
-            e_high = self.param_model.param_new['non_fitting_values']['energy_bound_high']['value']
+            e_low = self.param_model.param_new["non_fitting_values"]["energy_bound_low"]["value"]
+            e_high = self.param_model.param_new["non_fitting_values"]["energy_bound_high"]["value"]
             if e_low <= marker_position <= e_high or not mouse_clicked:
                 # If the function was called to display marker (e.g. for existing peak) outside
                 #   the selected range, then show it. If button was clicked, then ignore it.
@@ -696,18 +715,18 @@ class LinePlotModel(Atom):
         """
         # The range of energy selected for analysis
         if e_low is None:
-            e_low = self.param_model.param_new['non_fitting_values']['energy_bound_low']['value']
+            e_low = self.param_model.param_new["non_fitting_values"]["energy_bound_low"]["value"]
         if e_high is None:
-            e_high = self.param_model.param_new['non_fitting_values']['energy_bound_high']['value']
+            e_high = self.param_model.param_new["non_fitting_values"]["energy_bound_high"]["value"]
 
         n_x = 4096  # Set to the maximum possible number of points
 
         # Generate the values for 'energy' axis
-        x_v = (self.param_model.param_new['e_offset']['value'] +
-               np.arange(n_x) *
-               self.param_model.param_new['e_linear']['value'] +
-               np.arange(n_x) ** 2 *
-               self.param_model.param_new['e_quadratic']['value'])
+        x_v = (
+            self.param_model.param_new["e_offset"]["value"]
+            + np.arange(n_x) * self.param_model.param_new["e_linear"]["value"]
+            + np.arange(n_x) ** 2 * self.param_model.param_new["e_quadratic"]["value"]
+        )
 
         ss = (x_v < e_high) & (x_v > e_low)
         y_min, y_max = -1e30, 1e30  # Select the max and min values for plotted rectangles
@@ -718,11 +737,12 @@ class LinePlotModel(Atom):
 
         # Create the new plot (based on new parameters if necessary
         self.plot_energy_barh = BrokenBarHCollection.span_where(
-            x_v, ymin=y_min, ymax=y_max, where=ss, facecolor='white', edgecolor='yellow', alpha=1)
+            x_v, ymin=y_min, ymax=y_max, where=ss, facecolor="white", edgecolor="yellow", alpha=1
+        )
         self._ax.add_collection(self.plot_energy_barh)
 
     def plot_multi_exp_data(self):
-        while(len(self.plot_exp_list)):
+        while len(self.plot_exp_list):
             self.plot_exp_list.pop().remove()
 
         color_n = get_color_name()
@@ -734,21 +754,23 @@ class LinePlotModel(Atom):
 
                 data_arr = np.asarray(v.data)
                 # Truncate the array (1D spectrum)
-                data_arr = data_arr[0: self.number_pts_to_show]
-                self.max_v = np.max([self.max_v,
-                                     np.max(data_arr[self.limit_cut:-self.limit_cut])])
+                data_arr = data_arr[0 : self.number_pts_to_show]
+                self.max_v = np.max([self.max_v, np.max(data_arr[self.limit_cut : -self.limit_cut])])
 
-                x_v = (self.param_model.param_new['e_offset']['value'] +
-                       np.arange(len(data_arr)) *
-                       self.param_model.param_new['e_linear']['value'] +
-                       np.arange(len(data_arr))**2 *
-                       self.param_model.param_new['e_quadratic']['value'])
+                x_v = (
+                    self.param_model.param_new["e_offset"]["value"]
+                    + np.arange(len(data_arr)) * self.param_model.param_new["e_linear"]["value"]
+                    + np.arange(len(data_arr)) ** 2 * self.param_model.param_new["e_quadratic"]["value"]
+                )
 
-                plot_exp_obj, = self._ax.plot(x_v, data_arr,
-                                              color=color_n[m],
-                                              label=v.filename.split('.')[0],
-                                              linestyle=self.plot_style['experiment']['linestyle'],
-                                              marker=self.plot_style['experiment']['marker'])
+                (plot_exp_obj,) = self._ax.plot(
+                    x_v,
+                    data_arr,
+                    color=color_n[m],
+                    label=v.filename.split(".")[0],
+                    linestyle=self.plot_style["experiment"]["linestyle"],
+                    marker=self.plot_style["experiment"]["marker"],
+                )
                 self.plot_exp_list.append(plot_exp_obj)
                 m += 1
 
@@ -764,24 +786,27 @@ class LinePlotModel(Atom):
         The value of self.max_v is needed in this function in order to plot
         the relative height of each emission line.
         """
-        while(len(self.eline_obj)):
+        while len(self.eline_obj):
             self.eline_obj.pop().remove()
 
         escape_e = self.escape_e
 
         if len(self.elist):
             for i in range(len(self.elist)):
-                eline, = self._ax.plot([self.elist[i][0], self.elist[i][0]],
-                                       [0, self.elist[i][1]*self.max_v],
-                                       color=self.plot_style['emission_line']['color'],
-                                       linewidth=self.plot_style['emission_line']['linewidth'])
+                (eline,) = self._ax.plot(
+                    [self.elist[i][0], self.elist[i][0]],
+                    [0, self.elist[i][1] * self.max_v],
+                    color=self.plot_style["emission_line"]["color"],
+                    linewidth=self.plot_style["emission_line"]["linewidth"],
+                )
                 self.eline_obj.append(eline)
                 if self.plot_escape_line and self.elist[i][0] > escape_e:
-                    eline, = self._ax.plot([self.elist[i][0]-escape_e,
-                                            self.elist[i][0]-escape_e],
-                                           [0, self.elist[i][1]*self.max_v],
-                                           color=self.plot_style['escape']['color'],
-                                           linewidth=self.plot_style['emission_line']['linewidth'])
+                    (eline,) = self._ax.plot(
+                        [self.elist[i][0] - escape_e, self.elist[i][0] - escape_e],
+                        [0, self.elist[i][1] * self.max_v],
+                        color=self.plot_style["escape"]["color"],
+                        linewidth=self.plot_style["emission_line"]["linewidth"],
+                    )
                     self.eline_obj.append(eline)
 
     def _set_eline_select_controls(self, *, element_id=None, data="use_self_data"):
@@ -867,7 +892,7 @@ class LinePlotModel(Atom):
         #   The element with ID==1 is found in total_list[0]
         total_list = self.param_model.get_user_peak_list()
         try:
-            ename = total_list[n_id-1]
+            ename = total_list[n_id - 1]
         except Exception:
             ename = None
         return ename
@@ -879,9 +904,9 @@ class LinePlotModel(Atom):
         """
         # The range of energy selected for analysis
         if e_low is None:
-            e_low = self.param_model.param_new['non_fitting_values']['energy_bound_low']['value']
+            e_low = self.param_model.param_new["non_fitting_values"]["energy_bound_low"]["value"]
         if e_high is None:
-            e_high = self.param_model.param_new['non_fitting_values']['energy_bound_high']['value']
+            e_high = self.param_model.param_new["non_fitting_values"]["energy_bound_high"]["value"]
 
         # By default, place the marker in the middle of the range if its original position
         #   is outside the range
@@ -908,29 +933,38 @@ class LinePlotModel(Atom):
                 # The tuple structure: (center_energy, ratio)
                 _elist.append((self.vertical_marker_kev, 1.0))
 
-            elif '_K' in ename:
+            elif "_K" in ename:
                 e = Element(ename[:-2])
-                if e.cs(incident_energy)['ka1'] != 0:
+                if e.cs(incident_energy)["ka1"] != 0:
                     for i in range(k_len):
-                        _elist.append((e.emission_line.all[i][1],
-                                       e.cs(incident_energy).all[i][1]
-                                       / e.cs(incident_energy).all[0][1]))
+                        _elist.append(
+                            (
+                                e.emission_line.all[i][1],
+                                e.cs(incident_energy).all[i][1] / e.cs(incident_energy).all[0][1],
+                            )
+                        )
 
-            elif '_L' in ename:
+            elif "_L" in ename:
                 e = Element(ename[:-2])
-                if e.cs(incident_energy)['la1'] != 0:
-                    for i in range(k_len, k_len+l_len):
-                        _elist.append((e.emission_line.all[i][1],
-                                       e.cs(incident_energy).all[i][1]
-                                       / e.cs(incident_energy).all[k_len][1]))
+                if e.cs(incident_energy)["la1"] != 0:
+                    for i in range(k_len, k_len + l_len):
+                        _elist.append(
+                            (
+                                e.emission_line.all[i][1],
+                                e.cs(incident_energy).all[i][1] / e.cs(incident_energy).all[k_len][1],
+                            )
+                        )
 
             else:
                 e = Element(ename[:-2])
-                if e.cs(incident_energy)['ma1'] != 0:
-                    for i in range(k_len+l_len, k_len+l_len+m_len):
-                        _elist.append((e.emission_line.all[i][1],
-                                       e.cs(incident_energy).all[i][1]
-                                       / e.cs(incident_energy).all[k_len+l_len][1]))
+                if e.cs(incident_energy)["ma1"] != 0:
+                    for i in range(k_len + l_len, k_len + l_len + m_len):
+                        _elist.append(
+                            (
+                                e.emission_line.all[i][1],
+                                e.cs(incident_energy).all[i][1] / e.cs(incident_energy).all[k_len + l_len][1],
+                            )
+                        )
 
         return _elist
 
@@ -949,7 +983,7 @@ class LinePlotModel(Atom):
             Energy in keV of pileup peak and two components
         """
         try:
-            element_line1, element_line2 = eline.split('-')
+            element_line1, element_line2 = eline.split("-")
             e1_cen = get_eline_parameters(element_line1, self.incident_energy)["energy"]
             e2_cen = get_eline_parameters(element_line2, self.incident_energy)["energy"]
             en = [e1_cen + e2_cen, e1_cen, e2_cen]
@@ -987,13 +1021,13 @@ class LinePlotModel(Atom):
         self.elist = []
         self._fig.canvas.draw()
 
-    @observe('element_id')
+    @observe("element_id")
     def set_element(self, change):
 
-        self._set_eline_select_controls(element_id=change['value'])
-        self.compute_manual_peak_intensity(n_id=change['value'])
+        self._set_eline_select_controls(element_id=change["value"])
+        self.compute_manual_peak_intensity(n_id=change["value"])
 
-        if change['value'] == 0:
+        if change["value"] == 0:
             self._reset_eline_plot()
             return
 
@@ -1015,9 +1049,10 @@ class LinePlotModel(Atom):
 
         if (ename is not None) or is_pileup:
 
-            logger.debug('Plot emission line for element: '
-                         '{} with incident energy {}'.format(self.element_id,
-                                                             incident_energy))
+            logger.debug(
+                "Plot emission line for element: "
+                "{} with incident energy {}".format(self.element_id, incident_energy)
+            )
 
             if ename is not None:
                 self.elist = self._fill_elist()
@@ -1035,9 +1070,9 @@ class LinePlotModel(Atom):
             self._reset_eline_plot()
             logger.debug(f"Selected emission line with ID #{self.element_id} is not in the list.")
 
-    @observe('det_materials')
+    @observe("det_materials")
     def _update_det_materials(self, change):
-        if change['value'] == 0:
+        if change["value"] == 0:
             self.escape_e = 1.73998
         else:
             self.escape_e = 9.88640
@@ -1062,11 +1097,13 @@ class LinePlotModel(Atom):
             # self._ax.hold(True)
             for k, v in self.roi_dict.items():
                 temp_list = []
-                for linev in np.array([v.left_val, v.line_val, v.right_val])/1000.:
-                    lineplot, = self._ax.plot([linev, linev],
-                                              [0, 1*self.max_v],
-                                              color=self.plot_style['roi_line']['color'],
-                                              linewidth=self.plot_style['roi_line']['linewidth'])
+                for linev in np.array([v.left_val, v.line_val, v.right_val]) / 1000.0:
+                    (lineplot,) = self._ax.plot(
+                        [linev, linev],
+                        [0, 1 * self.max_v],
+                        color=self.plot_style["roi_line"]["color"],
+                        linewidth=self.plot_style["roi_line"]["linewidth"],
+                    )
                     if v.show_plot:
                         lineplot.set_visible(True)
                     else:
@@ -1076,9 +1113,9 @@ class LinePlotModel(Atom):
 
         self._update_canvas()
 
-    @observe('roi_dict')
+    @observe("roi_dict")
     def show_roi_bound(self, change):
-        logger.debug('roi dict changed {}'.format(change['value']))
+        logger.debug("roi dict changed {}".format(change["value"]))
         self.plot_roi_bound()
 
         if len(self.roi_dict):
@@ -1111,20 +1148,26 @@ class LinePlotModel(Atom):
         # Some default value
         intensity = 1000.0
 
-        if self.io_model.data is not None and self.param_model.param_new is not None \
-                and self.param_model.prefit_x is not None \
-                and self.param_model.total_y is not None \
-                and len(self.io_model.data) > 1 and len(self.param_model.prefit_x) > 1:
+        if (
+            self.io_model.data is not None
+            and self.param_model.param_new is not None
+            and self.param_model.prefit_x is not None
+            and self.param_model.total_y is not None
+            and len(self.io_model.data) > 1
+            and len(self.param_model.prefit_x) > 1
+        ):
 
             # Range of energies in fitting results
             e_fit_min = self.param_model.prefit_x[0]
             e_fit_max = self.param_model.prefit_x[-1]
             de_fit = (e_fit_max - e_fit_min) / (len(self.param_model.prefit_x) - 1)
 
-            e_raw_min = self.param_model.param_new['e_offset']['value']
-            e_raw_max = self.param_model.param_new['e_offset']['value'] + \
-                (len(self.io_model.data) - 1) * self.param_model.param_new['e_linear']['value'] + \
-                (len(self.io_model.data) - 1) ** 2 * self.param_model.param_new['e_quadratic']['value']
+            e_raw_min = self.param_model.param_new["e_offset"]["value"]
+            e_raw_max = (
+                self.param_model.param_new["e_offset"]["value"]
+                + (len(self.io_model.data) - 1) * self.param_model.param_new["e_linear"]["value"]
+                + (len(self.io_model.data) - 1) ** 2 * self.param_model.param_new["e_quadratic"]["value"]
+            )
 
             de_raw = (e_raw_max - e_raw_min) / (len(self.io_model.data) - 1)
 
@@ -1213,21 +1256,26 @@ class LinePlotModel(Atom):
         if fit_x is None or fit_y is None:
             return
 
-        while(len(self.plot_fit_obj)):
+        while len(self.plot_fit_obj):
             self.plot_fit_obj.pop().remove()
 
-        ln, = self._ax.plot(fit_x, fit_y,
-                            color=self.plot_style['fit']['color'],
-                            label=self.plot_style['fit']['label'],
-                            linewidth=self.plot_style['fit']['linewidth'])
+        (ln,) = self._ax.plot(
+            fit_x,
+            fit_y,
+            color=self.plot_style["fit"]["color"],
+            label=self.plot_style["fit"]["label"],
+            linewidth=self.plot_style["fit"]["linewidth"],
+        )
         self.plot_fit_obj.append(ln)
 
         if residual is not None:
             # shiftv = 1.5  # move residual down by some amount
-            ln, = self._ax.plot(fit_x,
-                                residual - 0.15*self.max_v,  # shiftv*(np.max(np.abs(self.residual))),
-                                label=self.plot_style['residual']['label'],
-                                color=self.plot_style['residual']['color'])
+            (ln,) = self._ax.plot(
+                fit_x,
+                residual - 0.15 * self.max_v,  # shiftv*(np.max(np.abs(self.residual))),
+                label=self.plot_style["residual"]["label"],
+                color=self.plot_style["residual"]["color"],
+            )
             self.plot_fit_obj.append(ln)
 
         k_num = 0
@@ -1235,81 +1283,94 @@ class LinePlotModel(Atom):
         m_num = 0
         p_num = 0
         for k, v in fit_all.items():
-            if k == 'background':
-                ln, = self._ax.plot(fit_x, v,
-                                    color=self.plot_style['background']['color'],
-                                    # marker=self.plot_style['background']['marker'],
-                                    # markersize=self.plot_style['background']['markersize'],
-                                    label=self.plot_style['background']['label'])
+            if k == "background":
+                (ln,) = self._ax.plot(
+                    fit_x,
+                    v,
+                    color=self.plot_style["background"]["color"],
+                    # marker=self.plot_style['background']['marker'],
+                    # markersize=self.plot_style['background']['markersize'],
+                    label=self.plot_style["background"]["label"],
+                )
                 self.plot_fit_obj.append(ln)
-            elif k == 'compton':
-                ln, = self._ax.plot(fit_x, v,
-                                    color=self.plot_style['compton']['color'],
-                                    linewidth=self.plot_style['compton']['linewidth'],
-                                    label=self.plot_style['compton']['label'])
+            elif k == "compton":
+                (ln,) = self._ax.plot(
+                    fit_x,
+                    v,
+                    color=self.plot_style["compton"]["color"],
+                    linewidth=self.plot_style["compton"]["linewidth"],
+                    label=self.plot_style["compton"]["label"],
+                )
                 self.plot_fit_obj.append(ln)
-            elif k == 'elastic':
-                ln, = self._ax.plot(fit_x, v,
-                                    color=self.plot_style['elastic']['color'],
-                                    label=self.plot_style['elastic']['label'])
+            elif k == "elastic":
+                (ln,) = self._ax.plot(
+                    fit_x, v, color=self.plot_style["elastic"]["color"], label=self.plot_style["elastic"]["label"]
+                )
                 self.plot_fit_obj.append(ln)
-            elif k == 'escape':
-                ln, = self._ax.plot(fit_x, v,
-                                    color=self.plot_style['escape']['color'],
-                                    label=self.plot_style['escape']['label'])
+            elif k == "escape":
+                (ln,) = self._ax.plot(
+                    fit_x, v, color=self.plot_style["escape"]["color"], label=self.plot_style["escape"]["label"]
+                )
                 self.plot_fit_obj.append(ln)
 
-            elif 'user' in k.lower():
-                ln, = self._ax.plot(fit_x, v,
-                                    color=self.plot_style['userpeak']['color'],
-                                    label=self.plot_style['userpeak']['label'])
+            elif "user" in k.lower():
+                (ln,) = self._ax.plot(
+                    fit_x,
+                    v,
+                    color=self.plot_style["userpeak"]["color"],
+                    label=self.plot_style["userpeak"]["label"],
+                )
                 self.plot_fit_obj.append(ln)
 
-            elif '-' in k:  # Si_K-Si_K
+            elif "-" in k:  # Si_K-Si_K
                 if p_num == 0:
-                    ln, = self._ax.plot(fit_x, v,
-                                        color=self.plot_style['pileup']['color'],
-                                        label=self.plot_style['pileup']['label'])
+                    (ln,) = self._ax.plot(
+                        fit_x,
+                        v,
+                        color=self.plot_style["pileup"]["color"],
+                        label=self.plot_style["pileup"]["label"],
+                    )
                 else:
-                    ln, = self._ax.plot(fit_x, v,
-                                        color=self.plot_style['pileup']['color'],
-                                        label='_nolegend_')
+                    (ln,) = self._ax.plot(fit_x, v, color=self.plot_style["pileup"]["color"], label="_nolegend_")
                 self.plot_fit_obj.append(ln)
                 p_num += 1
 
-            elif ('_K' in k.upper()) and (len(k) <= 4):
+            elif ("_K" in k.upper()) and (len(k) <= 4):
                 if k_num == 0:
-                    ln, = self._ax.plot(fit_x, v,
-                                        color=self.plot_style['k_line']['color'],
-                                        label=self.plot_style['k_line']['label'])
+                    (ln,) = self._ax.plot(
+                        fit_x,
+                        v,
+                        color=self.plot_style["k_line"]["color"],
+                        label=self.plot_style["k_line"]["label"],
+                    )
                 else:
-                    ln, = self._ax.plot(fit_x, v,
-                                        color=self.plot_style['k_line']['color'],
-                                        label='_nolegend_')
+                    (ln,) = self._ax.plot(fit_x, v, color=self.plot_style["k_line"]["color"], label="_nolegend_")
                 self.plot_fit_obj.append(ln)
                 k_num += 1
 
-            elif ('_L' in k.upper()) and (len(k) <= 4):
+            elif ("_L" in k.upper()) and (len(k) <= 4):
                 if l_num == 0:
-                    ln, = self._ax.plot(fit_x, v,
-                                        color=self.plot_style['l_line']['color'],
-                                        label=self.plot_style['l_line']['label'])
+                    (ln,) = self._ax.plot(
+                        fit_x,
+                        v,
+                        color=self.plot_style["l_line"]["color"],
+                        label=self.plot_style["l_line"]["label"],
+                    )
                 else:
-                    ln, = self._ax.plot(fit_x, v,
-                                        color=self.plot_style['l_line']['color'],
-                                        label='_nolegend_')
+                    (ln,) = self._ax.plot(fit_x, v, color=self.plot_style["l_line"]["color"], label="_nolegend_")
                 self.plot_fit_obj.append(ln)
                 l_num += 1
 
-            elif ('_M' in k.upper()) and (len(k) <= 4):
+            elif ("_M" in k.upper()) and (len(k) <= 4):
                 if m_num == 0:
-                    ln, = self._ax.plot(fit_x, v,
-                                        color=self.plot_style['m_line']['color'],
-                                        label=self.plot_style['m_line']['label'])
+                    (ln,) = self._ax.plot(
+                        fit_x,
+                        v,
+                        color=self.plot_style["m_line"]["color"],
+                        label=self.plot_style["m_line"]["label"],
+                    )
                 else:
-                    ln, = self._ax.plot(fit_x, v,
-                                        color=self.plot_style['m_line']['color'],
-                                        label='_nolegend_')
+                    (ln,) = self._ax.plot(fit_x, v, color=self.plot_style["m_line"]["color"], label="_nolegend_")
                 self.plot_fit_obj.append(ln)
                 m_num += 1
 
@@ -1320,7 +1381,7 @@ class LinePlotModel(Atom):
 
     def canvas_onpress(self, event):
         """Callback, mouse button pressed"""
-        if (self.t_bar.mode == ""):
+        if self.t_bar.mode == "":
             if event.inaxes == self._ax:
                 if event.button == 1:
                     xd = event.xdata
@@ -1331,8 +1392,7 @@ class LinePlotModel(Atom):
     # ===========================================================
     #         Functions for plotting spectrum preview
 
-    def selected_range_indices(self, *, e_low=None, e_high=None,
-                               n_indexes=None, margin=2.0):
+    def selected_range_indices(self, *, e_low=None, e_high=None, n_indexes=None, margin=2.0):
         """
         The function computes the range of indices based on the selected energy range
         and parameters for the energy axis.
@@ -1353,17 +1413,17 @@ class LinePlotModel(Atom):
         """
         # The range of energy selected for analysis
         if e_low is None:
-            e_low = self.param_model.param_new['non_fitting_values']['energy_bound_low']['value']
+            e_low = self.param_model.param_new["non_fitting_values"]["energy_bound_low"]["value"]
         if e_high is None:
-            e_high = self.param_model.param_new['non_fitting_values']['energy_bound_high']['value']
+            e_high = self.param_model.param_new["non_fitting_values"]["energy_bound_high"]["value"]
         # Protection for the case if e_high < e_low
         e_high = e_high if e_high > e_low else e_low
         # Extend the range (by the value of 'margin')
         e_low, e_high = e_low - margin, e_high + margin
 
         # The following calculations ignore quadratic term, which is expected to be small
-        c0 = self.param_model.param_new['e_offset']['value']
-        c1 = self.param_model.param_new['e_linear']['value']
+        c0 = self.param_model.param_new["e_offset"]["value"]
+        c1 = self.param_model.param_new["e_linear"]["value"]
         # If more precision if needed, then implement more complicated algorithm using
         #   the quadratic term: c2 = self.param_model.param_new['e_quadratic']['value']
 
@@ -1400,17 +1460,17 @@ class LinePlotModel(Atom):
         """
         # The range of energy selected for analysis
         if e_low is None:
-            e_low = self.param_model.param_new['non_fitting_values']['energy_bound_low']['value']
+            e_low = self.param_model.param_new["non_fitting_values"]["energy_bound_low"]["value"]
         if e_high is None:
-            e_high = self.param_model.param_new['non_fitting_values']['energy_bound_high']['value']
+            e_high = self.param_model.param_new["non_fitting_values"]["energy_bound_high"]["value"]
 
         # Model coefficients for the energy axis
-        c0 = self.param_model.param_new['e_offset']['value']
-        c1 = self.param_model.param_new['e_linear']['value']
-        c2 = self.param_model.param_new['e_quadratic']['value']
+        c0 = self.param_model.param_new["e_offset"]["value"]
+        c1 = self.param_model.param_new["e_linear"]["value"]
+        c2 = self.param_model.param_new["e_quadratic"]["value"]
 
         # Generate the values for 'energy' axis
-        x_v = (c0 + np.arange(n_points) * c1 + np.arange(n_points) ** 2 * c2)
+        x_v = c0 + np.arange(n_points) * c1 + np.arange(n_points) ** 2 * c2
         ss = (x_v < e_high + c1) & (x_v > e_low - c1)
 
         # Trim both arrays to minimize the number of points
@@ -1428,7 +1488,8 @@ class LinePlotModel(Atom):
 
         # Create the new plot (based on new parameters if necessary
         barh_new = BrokenBarHCollection.span_where(
-            x_v, ymin=y_min, ymax=y_max, where=ss, facecolor='white', edgecolor='yellow', alpha=1)
+            x_v, ymin=y_min, ymax=y_max, where=ss, facecolor="white", edgecolor="yellow", alpha=1
+        )
         axes.add_collection(barh_new)
 
         return barh_new
@@ -1439,7 +1500,7 @@ class LinePlotModel(Atom):
             self._ax_preview.clear()
         else:
             self._ax_preview = self._fig_preview.add_subplot(111)
-        self._ax_preview.set_facecolor('lightgrey')
+        self._ax_preview.set_facecolor("lightgrey")
         self._ax_preview.grid(which="both")
 
         self._fig_preview.set_visible(False)
@@ -1459,16 +1520,20 @@ class LinePlotModel(Atom):
         e_range = self.energy_range_preview
         e_range_supported = (EnergyRangePresets.SELECTED_RANGE, EnergyRangePresets.FULL_SPECTRUM)
         if e_range not in e_range_supported:
-            logger.error(f"Spectrum preview: Unknown option for the energy range: {e_range}\n"
-                         "Please report the error to the development team.")
+            logger.error(
+                f"Spectrum preview: Unknown option for the energy range: {e_range}\n"
+                "Please report the error to the development team."
+            )
             # This is not a critical error, so we still can proceed
             e_range = EnergyRangePresets.FULL_SPECTRUM
 
         p_type = self.plot_type_preview
         p_type_supported = (PlotTypes.LINLOG, PlotTypes.LINEAR)
         if p_type not in p_type_supported:
-            logger.error(f"Spectrum preview: Unknown option for the plot type: {p_type}\n"
-                         "Please report the error to the development team.")
+            logger.error(
+                f"Spectrum preview: Unknown option for the plot type: {p_type}\n"
+                "Please report the error to the development team."
+            )
             p_type = PlotTypes.LINEAR
 
         # Maximum number of points in the displayed dataset
@@ -1515,25 +1580,28 @@ class LinePlotModel(Atom):
                 n_high = int(np.clip(n_range_high, a_min=1, a_max=data_arr.size))
 
                 # From now on we work with the trimmed data array
-                x_v = (self.param_model.param_new['e_offset']['value'] +
-                       np.arange(n_low, n_high) *
-                       self.param_model.param_new['e_linear']['value'] +
-                       np.arange(n_low, n_high) ** 2 *
-                       self.param_model.param_new['e_quadratic']['value'])
+                x_v = (
+                    self.param_model.param_new["e_offset"]["value"]
+                    + np.arange(n_low, n_high) * self.param_model.param_new["e_linear"]["value"]
+                    + np.arange(n_low, n_high) ** 2 * self.param_model.param_new["e_quadratic"]["value"]
+                )
 
-                data_arr = data_arr[n_low: n_high]
+                data_arr = data_arr[n_low:n_high]
 
                 self.max_v_preview = np.max(
-                    [self.max_v_preview,
-                     np.max(data_arr[self.limit_cut:-self.limit_cut])])
+                    [self.max_v_preview, np.max(data_arr[self.limit_cut : -self.limit_cut])]
+                )
                 self.max_e_preview = np.max([self.max_e_preview, x_v[-1]])
                 self.min_e_preview = np.min([self.min_e_preview, x_v[0]])
 
-                line, = self._ax_preview.plot(x_v, data_arr,
-                                              color=color,
-                                              label=dset.filename.split('.')[0],
-                                              linestyle=self.plot_style['experiment']['linestyle'],
-                                              marker=self.plot_style['experiment']['marker'])
+                (line,) = self._ax_preview.plot(
+                    x_v,
+                    data_arr,
+                    color=color,
+                    label=dset.filename.split(".")[0],
+                    linestyle=self.plot_style["experiment"]["linestyle"],
+                    marker=self.plot_style["experiment"]["marker"],
+                )
 
                 self._lines_preview.append(line)
 
@@ -1550,9 +1618,12 @@ class LinePlotModel(Atom):
         tb.update()
 
         self._bahr_preview = self.plot_selected_energy_range(
-            axes=self._ax_preview, barh_existing=self._bahr_preview)
+            axes=self._ax_preview, barh_existing=self._bahr_preview
+        )
 
-    def _hide_preview_spectrum_plot(self,):
+    def _hide_preview_spectrum_plot(
+        self,
+    ):
         self._fig_preview.set_visible(False)
 
     def update_preview_spectrum_plot(self, *, hide=False):
@@ -1614,7 +1685,7 @@ class LinePlotModel(Atom):
         # While the data from the completed part of experiment may still be used,
         # plotting vs. x-y or scatter plot may not be displayed.
         positions_data_available = False
-        if 'positions' in self.io_model.img_dict.keys():
+        if "positions" in self.io_model.img_dict.keys():
             data_for_plotting["positions"] = self.io_model.img_dict["positions"]
             positions_data_available = True
 
@@ -1632,13 +1703,13 @@ class LinePlotModel(Atom):
                 logger.error("'Positions' data is not available. Scatter plot is disabled.")
 
         # low_lim = 1e-4  # define the low limit for log image
-        plot_interp = 'Nearest'
+        plot_interp = "Nearest"
 
         grey_use = self.map_preview_color_scheme
 
         ncol = int(np.ceil(np.sqrt(len(selected_dsets))))
         try:
-            nrow = int(np.ceil(len(selected_dsets)/float(ncol)))
+            nrow = int(np.ceil(len(selected_dsets) / float(ncol)))
         except ZeroDivisionError:
             ncol = 1
             nrow = 1
@@ -1648,14 +1719,17 @@ class LinePlotModel(Atom):
 
         n_displayed_axes = ncol * nrow  # Total number of axes in the grid
 
-        grid = ImageGrid(self._fig_maps, 111,
-                         nrows_ncols=(nrow, ncol),
-                         axes_pad=(a_pad_v, a_pad_h),
-                         cbar_location='right',
-                         cbar_mode='each',
-                         cbar_size='7%',
-                         cbar_pad='2%',
-                         share_all=True)
+        grid = ImageGrid(
+            self._fig_maps,
+            111,
+            nrows_ncols=(nrow, ncol),
+            axes_pad=(a_pad_v, a_pad_h),
+            cbar_location="right",
+            cbar_mode="each",
+            cbar_size="7%",
+            cbar_pad="2%",
+            share_all=True,
+        )
 
         def _compute_equal_axes_ranges(x_min, x_max, y_min, y_max):
             """
@@ -1733,11 +1807,12 @@ class LinePlotModel(Atom):
 
                 # xd_min, xd_max, yd_min, yd_max = min(self.x_pos), max(self.x_pos),
                 #     min(self.y_pos), max(self.y_pos)
-                x_pos_2D = data_for_plotting['positions']['x_pos']
-                y_pos_2D = data_for_plotting['positions']['y_pos']
+                x_pos_2D = data_for_plotting["positions"]["x_pos"]
+                y_pos_2D = data_for_plotting["positions"]["y_pos"]
                 xd_min, xd_max, yd_min, yd_max = x_pos_2D.min(), x_pos_2D.max(), y_pos_2D.min(), y_pos_2D.max()
-                xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = \
-                    _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
+                xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = _compute_equal_axes_ranges(
+                    xd_min, xd_max, yd_min, yd_max
+                )
 
                 xd_min, xd_max = _adjust_data_range_using_min_ratio(xd_min, xd_max, xd_axis_max - xd_axis_min)
                 yd_min, yd_max = _adjust_data_range_using_min_ratio(yd_min, yd_max, yd_axis_max - yd_axis_min)
@@ -1759,8 +1834,9 @@ class LinePlotModel(Atom):
                 if (xd <= math.floor(yd / 100)) and (yd >= 200):
                     xd_min, xd_max = -math.floor(yd / 200), math.ceil(yd / 200)
 
-                xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = \
-                    _compute_equal_axes_ranges(xd_min, xd_max, yd_min, yd_max)
+                xd_axis_min, xd_axis_max, yd_axis_min, yd_axis_max = _compute_equal_axes_ranges(
+                    xd_min, xd_max, yd_min, yd_max
+                )
 
             # Compute range for data values
             low_limit = self.map_preview_range_low
@@ -1768,8 +1844,7 @@ class LinePlotModel(Atom):
             # If limit is not set, then compute the limit based on the selected datasets.
             # It is assumed that at least one dataset is selected.
             if low_limit == -1 and high_limit == -1:
-                low_limit, high_limit = \
-                    self._compute_map_preview_range(data_for_plotting, selected_dsets.keys())
+                low_limit, high_limit = self._compute_map_preview_range(data_for_plotting, selected_dsets.keys())
                 if low_limit is None or high_limit is None:
                     low_limit, high_limit = 0
             # Set some minimum range for the colorbar (otherwise it will have white fill)
@@ -1783,26 +1858,35 @@ class LinePlotModel(Atom):
 
             if self.map_type_preview == MapTypes.LINEAR:
                 if not scatter_show_local:
-                    im = grid[i].imshow(data_arr,
-                                        cmap=grey_use,
-                                        interpolation=plot_interp,
-                                        extent=(xd_min, xd_max, yd_max, yd_min),
-                                        origin='upper',
-                                        clim=(low_limit, high_limit))
+                    im = grid[i].imshow(
+                        data_arr,
+                        cmap=grey_use,
+                        interpolation=plot_interp,
+                        extent=(xd_min, xd_max, yd_max, yd_min),
+                        origin="upper",
+                        clim=(low_limit, high_limit),
+                    )
                     grid[i].set_ylim(yd_axis_max, yd_axis_min)
                 else:
-                    xx = self.io_model.img_dict['positions']['x_pos']
-                    yy = self.io_model.img_dict['positions']['y_pos']
+                    xx = self.io_model.img_dict["positions"]["x_pos"]
+                    yy = self.io_model.img_dict["positions"]["y_pos"]
 
                     # The following condition prevents crash if different file is loaded while
                     #    the scatter plot is open (PyXRF specific issue)
                     if data_arr.shape == xx.shape and data_arr.shape == yy.shape:
-                        im = grid[i].scatter(xx, yy, c=data_arr,
-                                             marker='s', s=500,
-                                             alpha=1.0,  # Originally: alpha=0.8
-                                             cmap=grey_use,
-                                             vmin=low_limit, vmax=high_limit,
-                                             linewidths=1, linewidth=0)
+                        im = grid[i].scatter(
+                            xx,
+                            yy,
+                            c=data_arr,
+                            marker="s",
+                            s=500,
+                            alpha=1.0,  # Originally: alpha=0.8
+                            cmap=grey_use,
+                            vmin=low_limit,
+                            vmax=high_limit,
+                            linewidths=1,
+                            linewidth=0,
+                        )
                         grid[i].set_ylim(yd_axis_max, yd_axis_min)
 
                 grid[i].set_xlim(xd_axis_min, xd_axis_max)
@@ -1810,14 +1894,14 @@ class LinePlotModel(Atom):
                 grid_title = k
                 # Display only the channel name (e.g. 'sum', 'det1' etc.)
                 grid_title = grid_title.split("_")[-1]
-                grid[i].text(0, 1.01, grid_title, ha='left', va='bottom', transform=grid[i].axes.transAxes)
+                grid[i].text(0, 1.01, grid_title, ha="left", va="bottom", transform=grid[i].axes.transAxes)
 
                 grid.cbar_axes[i].colorbar(im)
 
                 im.colorbar.formatter = im.colorbar.ax.yaxis.get_major_formatter()
                 # im.colorbar.ax.get_xaxis().set_ticks([])
                 # im.colorbar.ax.get_xaxis().set_ticks([], minor=True)
-                grid.cbar_axes[i].ticklabel_format(style='sci', scilimits=(-3, 4), axis='both')
+                grid.cbar_axes[i].ticklabel_format(style="sci", scilimits=(-3, 4), axis="both")
 
             else:
 
@@ -1828,29 +1912,35 @@ class LinePlotModel(Atom):
                 #     maxz = 1
 
                 if not scatter_show_local:
-                    im = grid[i].imshow(data_arr,
-                                        # norm=LogNorm(vmin=low_lim*maxz,
-                                        #              vmax=maxz, clip=True),
-                                        norm=LogNorm(vmin=low_limit,
-                                                     vmax=high_limit, clip=True),
-                                        cmap=grey_use,
-                                        interpolation=plot_interp,
-                                        extent=(xd_min, xd_max, yd_max, yd_min),
-                                        origin='upper',
-                                        # clim=(low_lim*maxz, maxz))
-                                        clim=(low_limit, high_limit))
+                    im = grid[i].imshow(
+                        data_arr,
+                        # norm=LogNorm(vmin=low_lim*maxz,
+                        #              vmax=maxz, clip=True),
+                        norm=LogNorm(vmin=low_limit, vmax=high_limit, clip=True),
+                        cmap=grey_use,
+                        interpolation=plot_interp,
+                        extent=(xd_min, xd_max, yd_max, yd_min),
+                        origin="upper",
+                        # clim=(low_lim*maxz, maxz))
+                        clim=(low_limit, high_limit),
+                    )
 
                     grid[i].set_ylim(yd_axis_max, yd_axis_min)
                 else:
-                    im = grid[i].scatter(self.io_model.img_dict['positions']['x_pos'],
-                                         self.io_model.img_dict['positions']['y_pos'],
-                                         # norm=LogNorm(vmin=low_lim*maxz,
-                                         #              vmax=maxz, clip=True),
-                                         norm=LogNorm(vmin=low_limit,
-                                                      vmax=high_limit, clip=True),
-                                         c=data_arr, marker='s', s=500, alpha=1.0,  # Originally: alpha=0.8
-                                         cmap=grey_use,
-                                         linewidths=1, linewidth=0)
+                    im = grid[i].scatter(
+                        self.io_model.img_dict["positions"]["x_pos"],
+                        self.io_model.img_dict["positions"]["y_pos"],
+                        # norm=LogNorm(vmin=low_lim*maxz,
+                        #              vmax=maxz, clip=True),
+                        norm=LogNorm(vmin=low_limit, vmax=high_limit, clip=True),
+                        c=data_arr,
+                        marker="s",
+                        s=500,
+                        alpha=1.0,  # Originally: alpha=0.8
+                        cmap=grey_use,
+                        linewidths=1,
+                        linewidth=0,
+                    )
                     grid[i].set_ylim(yd_axis_min, yd_axis_max)
 
                 grid[i].set_xlim(xd_axis_min, xd_axis_max)
@@ -1858,7 +1948,7 @@ class LinePlotModel(Atom):
                 grid_title = k
                 # Display only the channel name (e.g. 'sum', 'det1' etc.)
                 grid_title = grid_title.split("_")[-1]
-                grid[i].text(0, 1.01, grid_title, ha='left', va='bottom', transform=grid[i].axes.transAxes)
+                grid[i].text(0, 1.01, grid_title, ha="left", va="bottom", transform=grid[i].axes.transAxes)
 
                 grid.cbar_axes[i].colorbar(im)
                 im.colorbar.formatter = im.colorbar.ax.yaxis.get_major_formatter()

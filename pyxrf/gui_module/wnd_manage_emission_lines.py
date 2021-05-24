@@ -1,20 +1,36 @@
 import numpy as np
 import copy
 
-from qtpy.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout,
-                            QCheckBox, QTableWidget, QWidget,
-                            QTableWidgetItem, QHeaderView, QMessageBox)
+from qtpy.QtWidgets import (
+    QPushButton,
+    QHBoxLayout,
+    QVBoxLayout,
+    QCheckBox,
+    QTableWidget,
+    QWidget,
+    QTableWidgetItem,
+    QHeaderView,
+    QMessageBox,
+)
 from qtpy.QtGui import QBrush, QColor, QDoubleValidator
 from qtpy.QtCore import Qt, Slot, Signal
 
-from .useful_widgets import (LineEditReadOnly, ElementSelection, SecondaryWindow, set_tooltip,
-                             LineEditExtended, CheckBoxNamed, get_background_css)
+from .useful_widgets import (
+    LineEditReadOnly,
+    ElementSelection,
+    SecondaryWindow,
+    set_tooltip,
+    LineEditExtended,
+    CheckBoxNamed,
+    get_background_css,
+)
 
 from .dlg_edit_user_peak_parameters import DialogEditUserPeakParameters
 from .dlg_new_user_peak import DialogNewUserPeak
 from .dlg_pileup_peak_parameters import DialogPileupPeakParameters
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -27,7 +43,7 @@ class WndManageEmissionLines(SecondaryWindow):
 
     signal_parameters_changed = Signal()
 
-    def __init__(self,  *, gpc, gui_vars):
+    def __init__(self, *, gpc, gui_vars):
         super().__init__()
 
         # Global processing classes
@@ -51,6 +67,7 @@ class WndManageEmissionLines(SecondaryWindow):
         # Marker state is reported by Matplotlib plot in 'line_plot' model
         def cb(marker_state):
             self.signal_marker_state_changed.emit(marker_state)
+
         self.gpc.set_marker_reporter(cb)
         self.signal_marker_state_changed.connect(self.slot_marker_state_changed)
 
@@ -105,8 +122,7 @@ class WndManageEmissionLines(SecondaryWindow):
         self.pb_pileup_peaks = QPushButton("New Pileup Peak ...")
         self.pb_pileup_peaks.clicked.connect(self.pb_pileup_peaks_clicked)
 
-        self.element_selection.signal_current_item_changed.connect(
-            self.element_selection_item_changed)
+        self.element_selection.signal_current_item_changed.connect(self.element_selection_item_changed)
 
         vbox = QVBoxLayout()
 
@@ -138,9 +154,11 @@ class WndManageEmissionLines(SecondaryWindow):
         self._validator_peak_height.setBottom(0.01)
 
         self.tbl_elines = QTableWidget()
-        self.tbl_elines.setStyleSheet("QTableWidget::item{color: black;}"
-                                      "QTableWidget::item:selected{background-color: red;}"
-                                      "QTableWidget::item:selected{color: white;}")
+        self.tbl_elines.setStyleSheet(
+            "QTableWidget::item{color: black;}"
+            "QTableWidget::item:selected{background-color: red;}"
+            "QTableWidget::item:selected{color: white;}"
+        )
 
         self.tbl_labels = ["", "Z", "Line", "E, keV", "Peak Int.", "Rel. Int.(%)", "CS"]
         self.tbl_cols_editable = ["Peak Int."]
@@ -196,23 +214,17 @@ class WndManageEmissionLines(SecondaryWindow):
         return hbox
 
     def _set_tooltips(self):
-        set_tooltip(self.cb_select_all,
-                    "<b>Select/Deselect All</b> emission lines in the list")
-        set_tooltip(self.element_selection,
-                    "<b>Set active</b> emission line")
-        set_tooltip(self.le_peak_intensity,
-                    "Set or modify <b>intensity</b> of the active peak.")
-        set_tooltip(self.pb_add_eline,
-                    "<b>Add</b> emission line to the list.")
-        set_tooltip(self.pb_remove_eline,
-                    "<b>Remove</b> emission line from the list.")
-        set_tooltip(self.pb_user_peaks,
-                    "Open dialog box to add or modify parameters of the <b>user-defined peak</b>")
-        set_tooltip(self.pb_pileup_peaks,
-                    "Open dialog box to add or modify parameters of the <b>pileup peak</b>")
+        set_tooltip(self.cb_select_all, "<b>Select/Deselect All</b> emission lines in the list")
+        set_tooltip(self.element_selection, "<b>Set active</b> emission line")
+        set_tooltip(self.le_peak_intensity, "Set or modify <b>intensity</b> of the active peak.")
+        set_tooltip(self.pb_add_eline, "<b>Add</b> emission line to the list.")
+        set_tooltip(self.pb_remove_eline, "<b>Remove</b> emission line from the list.")
+        set_tooltip(
+            self.pb_user_peaks, "Open dialog box to add or modify parameters of the <b>user-defined peak</b>"
+        )
+        set_tooltip(self.pb_pileup_peaks, "Open dialog box to add or modify parameters of the <b>pileup peak</b>")
 
-        set_tooltip(self.tbl_elines,
-                    "The list of the selected <b>emission lines</b>")
+        set_tooltip(self.tbl_elines, "The list of the selected <b>emission lines</b>")
 
         # set_tooltip(self.pb_update,
         #             "Update the internally stored list of selected emission lines "
@@ -222,14 +234,17 @@ class WndManageEmissionLines(SecondaryWindow):
         #             "it happens.")
         # set_tooltip(self.pb_undo,
         #             "<b>Undo</b> changes to the table of selected emission lines. Doesn't always work.")
-        set_tooltip(self.pb_remove_rel,
-                    "<b>Remove emission lines</b> from the list if their relative intensity is less "
-                    "then specified threshold.")
-        set_tooltip(self.le_remove_rel,
-                    "<b>Threshold</b> that controls which emission lines are removed "
-                    "when <b>Remove Rel.Int.(%)</b> button is pressed.")
-        set_tooltip(self.pb_remove_unchecked,
-                    "Remove <b>unchecked</b> emission lines from the list.")
+        set_tooltip(
+            self.pb_remove_rel,
+            "<b>Remove emission lines</b> from the list if their relative intensity is less "
+            "then specified threshold.",
+        )
+        set_tooltip(
+            self.le_remove_rel,
+            "<b>Threshold</b> that controls which emission lines are removed "
+            "when <b>Remove Rel.Int.(%)</b> button is pressed.",
+        )
+        set_tooltip(self.pb_remove_unchecked, "Remove <b>unchecked</b> emission lines from the list.")
 
     def update_widget_state(self, condition=None):
         # Update the state of the menu bar
@@ -260,8 +275,7 @@ class WndManageEmissionLines(SecondaryWindow):
         self.tbl_elines.setRowCount(len(table_contents))
         for nr, row in enumerate(table_contents):
             sel_status = row["sel_status"]
-            row_data = [None, row["z"], row["eline"], row["energy"],
-                        row["peak_int"], row["rel_int"], row["cs"]]
+            row_data = [None, row["z"], row["eline"], row["energy"], row["peak_int"], row["rel_int"], row["cs"]]
 
             for nc, entry in enumerate(row_data):
 
@@ -346,8 +360,7 @@ class WndManageEmissionLines(SecondaryWindow):
             return
 
         energy, marker_visible = self.gpc.get_suggested_manual_peak_energy()
-        best_guess = self.gpc.get_guessed_pileup_peak_components(energy=energy,
-                                                                 tolerance=0.1)
+        best_guess = self.gpc.get_guessed_pileup_peak_components(energy=energy, tolerance=0.1)
         if best_guess is not None:
             el1, el2, energy = best_guess
         else:
@@ -361,10 +374,8 @@ class WndManageEmissionLines(SecondaryWindow):
         if not marker_visible:
             # We shouldn't end up here, but this will protect from crashing in case
             #   the button was not disabled (a bug).
-            msg = "Select location of the new peak center (energy)\n" \
-                  "by clicking on the plot in 'Fit Model' tab"
-            msgbox = QMessageBox(QMessageBox.Information, "User Input Required",
-                                 msg, QMessageBox.Ok, parent=self)
+            msg = "Select location of the new peak center (energy)\nby clicking on the plot in 'Fit Model' tab"
+            msgbox = QMessageBox(QMessageBox.Information, "User Input Required", msg, QMessageBox.Ok, parent=self)
             msgbox.exec()
         else:
             dlg = DialogPileupPeakParameters()
@@ -377,6 +388,7 @@ class WndManageEmissionLines(SecondaryWindow):
                     except Exception:
                         e = 0
                     return e
+
                 return f
 
             dlg.set_compute_energy_function(func())
@@ -395,8 +407,7 @@ class WndManageEmissionLines(SecondaryWindow):
                     logger.info(f"New pileup peak {eline} was added")
                 except RuntimeError as ex:
                     msg = str(ex)
-                    msgbox = QMessageBox(QMessageBox.Critical, "Error",
-                                         msg, QMessageBox.Ok, parent=self)
+                    msgbox = QMessageBox(QMessageBox.Critical, "Error", msg, QMessageBox.Ok, parent=self)
                     msgbox.exec()
                     # Reload the table anyway (nothing is going to be selected)
                     self.update_eline_table()
@@ -425,8 +436,7 @@ class WndManageEmissionLines(SecondaryWindow):
                     logger.info(f"User defined peak {eline} was updated.")
                 except Exception as ex:
                     msg = str(ex)
-                    msgbox = QMessageBox(QMessageBox.Critical, "Error",
-                                         msg, QMessageBox.Ok, parent=self)
+                    msgbox = QMessageBox(QMessageBox.Critical, "Error", msg, QMessageBox.Ok, parent=self)
                     msgbox.exec()
                 # Reload the table anyway (nothing is going to be selected)
                 self.update_eline_table()
@@ -449,16 +459,18 @@ class WndManageEmissionLines(SecondaryWindow):
                         logger.info(f"New user defined peak {eline} is added")
                     except RuntimeError as ex:
                         msg = str(ex)
-                        msgbox = QMessageBox(QMessageBox.Critical, "Error",
-                                             msg, QMessageBox.Ok, parent=self)
+                        msgbox = QMessageBox(QMessageBox.Critical, "Error", msg, QMessageBox.Ok, parent=self)
                         msgbox.exec()
                         # Reload the table anyway (nothing is going to be selected)
                         self.update_eline_table()
             else:
-                msg = "Select location of the new peak center (energy)\n" \
-                      "by clicking on the plot in 'Fit Model' tab"
-                msgbox = QMessageBox(QMessageBox.Information, "User Input Required",
-                                     msg, QMessageBox.Ok, parent=self)
+                msg = (
+                    "Select location of the new peak center (energy)\n"
+                    "by clicking on the plot in 'Fit Model' tab"
+                )
+                msgbox = QMessageBox(
+                    QMessageBox.Information, "User Input Required", msg, QMessageBox.Ok, parent=self
+                )
                 msgbox.exec()
 
     @Slot()
@@ -475,8 +487,7 @@ class WndManageEmissionLines(SecondaryWindow):
                 self._set_fit_status(False)
             except RuntimeError as ex:
                 msg = str(ex)
-                msgbox = QMessageBox(QMessageBox.Critical, "Error",
-                                     msg, QMessageBox.Ok, parent=self)
+                msgbox = QMessageBox(QMessageBox.Critical, "Error", msg, QMessageBox.Ok, parent=self)
                 msgbox.exec()
                 # Reload the table anyway (nothing is going to be selected)
                 self.update_eline_table()
@@ -522,7 +533,7 @@ class WndManageEmissionLines(SecondaryWindow):
     def cb_eline_state_changed(self, name, state):
         if self._enable_events:
             n_row = int(name)
-            state = (state == Qt.Checked)
+            state = state == Qt.Checked
             eline = self._table_contents[n_row]["eline"]
             self.gpc.set_checked_emission_lines([eline], [state])
             self._set_fit_status(False)
@@ -581,8 +592,7 @@ class WndManageEmissionLines(SecondaryWindow):
             self.gpc.remove_peaks_below_threshold(self._remove_peak_threshold)
         except Exception as ex:
             msg = str(ex)
-            msgbox = QMessageBox(QMessageBox.Critical, "Error",
-                                 msg, QMessageBox.Ok, parent=self)
+            msgbox = QMessageBox(QMessageBox.Critical, "Error", msg, QMessageBox.Ok, parent=self)
             msgbox.exec()
         self.update_eline_table()
         # Update the displayed estimated peak amplitude value 'le_peak_intensity'
@@ -604,8 +614,7 @@ class WndManageEmissionLines(SecondaryWindow):
             self.gpc.remove_unchecked_peaks()
         except Exception as ex:
             msg = str(ex)
-            msgbox = QMessageBox(QMessageBox.Critical, "Error",
-                                 msg, QMessageBox.Ok, parent=self)
+            msgbox = QMessageBox(QMessageBox.Critical, "Error", msg, QMessageBox.Ok, parent=self)
             msgbox.exec()
         # Reload the table
         self.update_eline_table()

@@ -9,6 +9,7 @@ from .gui_support.gpc_class import GlobalProcessingClasses
 from .gui_module.main_window import MainWindow
 
 import logging
+
 logger = logging.getLogger("pyxrf")
 
 # if hasattr(Qt, 'AA_EnableHighDpiScaling'):
@@ -23,18 +24,30 @@ def run():
     # import faulthandler
     # faulthandler.enable()
 
-    parser = argparse.ArgumentParser(prog='pyxrf', description='Command line arguments')
-    parser.add_argument("-l", "--loglevel", default="INFO", type=str, dest="loglevel",
-                        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-                        help="Logger level. Set to 'DEBUG' in order to see debug information.")
-    parser.add_argument("-ct", "--color-theme", default="DEFAULT", type=str, dest="color_theme",
-                        choices=["DEFAULT", "DARK"],
-                        help="Color theme: DARK theme is only for debugging purposes.")
+    parser = argparse.ArgumentParser(prog="pyxrf", description="Command line arguments")
+    parser.add_argument(
+        "-l",
+        "--loglevel",
+        default="INFO",
+        type=str,
+        dest="loglevel",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        help="Logger level. Set to 'DEBUG' in order to see debug information.",
+    )
+    parser.add_argument(
+        "-ct",
+        "--color-theme",
+        default="DEFAULT",
+        type=str,
+        dest="color_theme",
+        choices=["DEFAULT", "DARK"],
+        help="Color theme: DARK theme is only for debugging purposes.",
+    )
     args = parser.parse_args()
 
     # Setup the Logger
     logger.setLevel(args.loglevel)
-    formatter = logging.Formatter(fmt='%(asctime)s : %(levelname)s : %(message)s')
+    formatter = logging.Formatter(fmt="%(asctime)s : %(levelname)s : %(message)s")
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(formatter)
     stream_handler.setLevel(args.loglevel)
@@ -105,9 +118,11 @@ def run():
 
     # The style sheet replicates the default behavior of QToolTip on Ubuntu.
     #   It may be helpful if some strange color theme is used.
-    app.setStyleSheet("QToolTip {color: #000000; background-color: #FFFFCC; "
-                      "border-style: solid; border-radius: 3px; "
-                      "border-color: #444444; border-width: 1px;}")
+    app.setStyleSheet(
+        "QToolTip {color: #000000; background-color: #FFFFCC; "
+        "border-style: solid; border-radius: 3px; "
+        "border-color: #444444; border-width: 1px;}"
+    )
 
     main_window = MainWindow(gpc=gpc)
     main_window.show()

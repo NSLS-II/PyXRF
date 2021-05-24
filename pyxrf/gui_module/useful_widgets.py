@@ -1,15 +1,25 @@
-from qtpy.QtWidgets import (QLineEdit, QWidget, QHBoxLayout, QComboBox, QTextEdit,
-                            QSizePolicy, QLabel, QPushButton, QGridLayout, QSlider,
-                            QSpinBox, QCheckBox)
+from qtpy.QtWidgets import (
+    QLineEdit,
+    QWidget,
+    QHBoxLayout,
+    QComboBox,
+    QTextEdit,
+    QSizePolicy,
+    QLabel,
+    QPushButton,
+    QGridLayout,
+    QSlider,
+    QSpinBox,
+    QCheckBox,
+)
 from qtpy.QtCore import Qt, Signal, Slot
 from qtpy.QtGui import QPalette, QColor, QFontMetrics, QIntValidator, QDoubleValidator
 
 import logging
+
 logger = logging.getLogger(__name__)
 
-global_gui_parameters = {
-    "vertical_spacing_in_tabs": 5
-}
+global_gui_parameters = {"vertical_spacing_in_tabs": 5}
 
 global_gui_variables = {
     # Reference to main window
@@ -27,7 +37,7 @@ global_gui_variables = {
     },
     # Indicates if tooltips must be shown
     "show_tooltip": True,
-    "show_matplotlib_toolbar": True
+    "show_matplotlib_toolbar": True,
 }
 
 
@@ -151,6 +161,7 @@ class LineEditReadOnly(LineEditExtended):
     as the background of the disabled QLineEdit, but font color the same
     as active QLineEdit.
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setReadOnly(True)
@@ -166,6 +177,7 @@ class TextEditReadOnly(QTextEdit):
     as the background of the disabled QLineEdit, but font color the same
     as active QLineEdit.
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setReadOnly(True)
@@ -179,6 +191,7 @@ class PushButtonMinimumWidth(QPushButton):
     """
     Push button with text ".." and minimum width
     """
+
     def __init__(self, *args, **kwargs):
 
         super().__init__(*args, **kwargs)
@@ -195,6 +208,7 @@ class PushButtonNamed(QPushButton):
     Push box that returns 'name' as the first parameter with the signals.
     Named widget is useful to distinguish between widgets when they are inserted in table rows.
     """
+
     clicked = Signal(str)
 
     def __init__(self, *args, name=None, **kwargs):
@@ -243,6 +257,7 @@ class ComboBoxNamedNoWheel(ComboBoxNamed):
     the table. Ignoring the wheel events in the combo box passes them to the
     parent for processing, which solves the issue.
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -343,8 +358,7 @@ def adjust_qlistwidget_height(list_widget, *, other_widgets=None, min_height=40)
     n_list_elements = list_widget.count()
     if n_list_elements:
         # Compute the height necessary to accommodate all the elements
-        height = list_widget.sizeHintForRow(0) * n_list_elements + \
-                2 * list_widget.frameWidth() + 3
+        height = list_widget.sizeHintForRow(0) * n_list_elements + 2 * list_widget.frameWidth() + 3
     # Set some visually pleasing height if the list contains no elements
     height = max(height, min_height)
     list_widget.setMinimumHeight(height)
@@ -383,6 +397,7 @@ class IntValidatorStrict(QIntValidator):
     `IntValidatorStrict` verifies additional condition: int number can not
     contain commas, since it can't be converted to int number directly.
     """
+
     def validate(self, text, pos):
         result = super().validate(text, pos)
         # Additional condition: the number can not contain ",". For some reason
@@ -403,6 +418,7 @@ class IntValidatorRelaxed(IntValidatorStrict):
     in the line edit box. Validator will still prevent 'editingFinished' signal
     from being emitted.
     """
+
     def validate(self, text, pos):
         result = super().validate(text, pos)
         # Replace QIntValidator.Invalid with QIntValidator.Intermediate
@@ -416,6 +432,7 @@ class DoubleValidatorStrict(QDoubleValidator):
     `DoubleValidatorStrict` verifies additional condition: double number can not
     contain commas, since it can't be converted to floating point number directly.
     """
+
     def validate(self, text, pos):
         result = super().validate(text, pos)
         # Additional condition: the number can not contain ",". For some reason
@@ -430,6 +447,7 @@ class DoubleValidatorRelaxed(DoubleValidatorStrict):
     DoubleValidatorRelaxed is similar to `IntValidatorRelaxed`, but works with
     values of `double` type.
     """
+
     def validate(self, *args, **kwargs):
         result = super().validate(*args, **kwargs)
         # Replace QDoubleValidator.Invalid with QIntValidator.Intermediate
@@ -439,13 +457,12 @@ class DoubleValidatorRelaxed(DoubleValidatorStrict):
 
 
 class RangeManager(QWidget):
-    """ Width of the widgets can be set using `setMaximumWidth`. The size policy is set
+    """Width of the widgets can be set using `setMaximumWidth`. The size policy is set
     so that the widget may shrink if there is not enough space."""
 
     selection_changed = Signal(float, float, str)
 
-    def __init__(self, *, name="", add_sliders=False,
-                 slider_steps=10000, selection_to_range_min=0.001):
+    def __init__(self, *, name="", add_sliders=False, slider_steps=10000, selection_to_range_min=0.001):
         """
         Class constructor for RangeManager
 
@@ -684,19 +701,21 @@ class RangeManager(QWidget):
             # Validator type: QDoubleValidator
             # The range is set a little wider (1% wider) in order to cover the 'true'
             #   boundary value. 'decimals=-1' - it seems that the precision is getting ignored.
-            self.validator_low.setRange(self._round_value(self._range_low),
-                                        self._round_value(self._value_high - self._range_min_diff * 0.99),
-                                        decimals=-1)
-            self.validator_high.setRange(self._round_value(self._value_low + self._range_min_diff * 0.99),
-                                         self._round_value(self._range_high),
-                                         decimals=-1)
+            self.validator_low.setRange(
+                self._round_value(self._range_low),
+                self._round_value(self._value_high - self._range_min_diff * 0.99),
+                decimals=-1,
+            )
+            self.validator_high.setRange(
+                self._round_value(self._value_low + self._range_min_diff * 0.99),
+                self._round_value(self._range_high),
+                decimals=-1,
+            )
         else:
             # Validator type: QIntValidator
             # With integer arithmetic we can set the range precisely
-            self.validator_low.setRange(round(self._range_low),
-                                        round(self._value_high - self._range_min_diff))
-            self.validator_high.setRange(round(self._value_low + self._range_min_diff),
-                                         round(self._range_high))
+            self.validator_low.setRange(round(self._range_low), round(self._value_high - self._range_min_diff))
+            self.validator_high.setRange(round(self._value_low + self._range_min_diff), round(self._range_high))
 
     def setAlignment(self, flags):
         """
@@ -723,13 +742,10 @@ class RangeManager(QWidget):
         rgb: tuple(int)
             RGB color in the form of (R, G, B)
         """
-        self.setStyleSheet(
-            get_background_css(rgb, widget="QWidget", editable=False))
+        self.setStyleSheet(get_background_css(rgb, widget="QWidget", editable=False))
 
-        self.le_min_value.setStyleSheet(
-            get_background_css(rgb, widget="QLineEdit", editable=True))
-        self.le_max_value.setStyleSheet(
-            get_background_css(rgb, widget="QLineEdit", editable=True))
+        self.le_min_value.setStyleSheet(get_background_css(rgb, widget="QLineEdit", editable=True))
+        self.le_max_value.setStyleSheet(get_background_css(rgb, widget="QLineEdit", editable=True))
 
     def setTextColor(self, rgb):
         """
@@ -917,13 +933,15 @@ class RangeManager(QWidget):
         """
         v_low = self._convert_type(self._value_low)
         v_high = self._convert_type(self._value_high)
-        logger.debug(f"RangeManager ({self._name}): Emitting the signal 'selection_changed'. "
-                     f"Selection: ({v_low}, {v_high})")
+        logger.debug(
+            f"RangeManager ({self._name}): Emitting the signal 'selection_changed'. "
+            f"Selection: ({v_low}, {v_high})"
+        )
         self.selection_changed.emit(v_low, v_high, self._name)
 
 
 class ElementSelection(QWidget):
-    """ Width of the widgets can be set using `setMaximumWidth`. The size policy is set
+    """Width of the widgets can be set using `setMaximumWidth`. The size policy is set
     so that the widget may shrink if there is not enough space."""
 
     signal_current_item_changed = Signal(int, str)

@@ -10,15 +10,28 @@ from pyxrf.core.fitting import fit_spectrum
 from skbeam.core.fitting.background import snip_method
 
 from pyxrf.core.map_processing import (
-    dask_client_create, TerminalProgressBar, wait_and_display_progress,
-    _compute_optimal_chunk_size, _chunk_numpy_array, _array_numpy_to_dask,
-    RawHDF5Dataset, prepare_xrf_map, _prepare_xrf_mask, compute_total_spectrum,
-    compute_total_spectrum_and_count, _fit_xrf_block, fit_xrf_map, _compute_roi,
-    compute_selected_rois, snip_method_numba)
+    dask_client_create,
+    TerminalProgressBar,
+    wait_and_display_progress,
+    _compute_optimal_chunk_size,
+    _chunk_numpy_array,
+    _array_numpy_to_dask,
+    RawHDF5Dataset,
+    prepare_xrf_map,
+    _prepare_xrf_mask,
+    compute_total_spectrum,
+    compute_total_spectrum_and_count,
+    _fit_xrf_block,
+    fit_xrf_map,
+    _compute_roi,
+    compute_selected_rois,
+    snip_method_numba,
+)
 
 from pyxrf.core.tests.test_fitting import DataForFittingTest
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -41,8 +54,7 @@ def test_dask_client_create(tmpdir):
     assert n_workers == 11, "The number of workers was set incorrectly"
     client.close()
 
-    assert not os.path.exists(dask_worker_space_path), \
-        "Temporary directory was created in the current directory"
+    assert not os.path.exists(dask_worker_space_path), "Temporary directory was created in the current directory"
 
     # Disable multiprocessing: client is expected to have a single worker
     #   (replace the default value of the parameter)
@@ -51,8 +63,7 @@ def test_dask_client_create(tmpdir):
     assert n_workers == 1, "Dask client is expected to have one worker"
     client.close()
 
-    assert not os.path.exists(dask_worker_space_path), \
-        "Temporary directory was created in the current directory"
+    assert not os.path.exists(dask_worker_space_path), "Temporary directory was created in the current directory"
 
 
 def test_TerminalProgressBar():
@@ -73,6 +84,7 @@ class _SampleProgressBar:
     Progress bar class convenient for testing of the functions that
     display progress bar.
     """
+
     def __init__(self, title):
         self.title = title
 
@@ -81,7 +93,7 @@ class _SampleProgressBar:
         self._expected_output = [
             f"Starting progress bar: {self.title}",
             "Percent completed: 100.0",
-            f"Finished: {self.title}"
+            f"Finished: {self.title}",
         ]
 
     def start(self):
@@ -96,15 +108,17 @@ class _SampleProgressBar:
     def _check_output(self, capsys_out):
         # For testing purposes only, not needed for actual progress bar implementation
         for s in self._expected_output:
-            assert s in capsys_out, \
-                f"Expected string {s} is missing in the progress bar object output:\n"\
-                f"{capsys_out}"
+            assert (
+                s in capsys_out
+            ), f"Expected string {s} is missing in the progress bar object output:\n{capsys_out}"
 
 
+# fmt: off
 @pytest.mark.parametrize("progress_bar", [
     _SampleProgressBar("Monitoring progress"),
     TerminalProgressBar("Monitoring progress: "),
     None])
+# fmt: on
 def test_wait_and_display_progress(progress_bar, capsys):
     """Basic test for the function `wait_and_display_progress`"""
 
@@ -152,6 +166,7 @@ def test_RawHDF5Dataset(tmpdir):
     assert rds.shape == (10, 50), "Attribute 'shape' was not set correctly"
 
 
+# fmt: off
 @pytest.mark.parametrize("data_chunksize, chunk_optimal, n_pixels, data_shape", [
     ((3, 5), (12, 10), 100, (20, 20)),
     ((5, 3), (10, 12), 100, (20, 20)),
@@ -170,14 +185,14 @@ def test_RawHDF5Dataset(tmpdir):
     ((5, 2), (10, 10), 400, (20, 20)),
     ((15, 15), (15, 15), 400, (20, 20)),
 ])
+# fmt: on
 def test_compute_optimal_chunk_size(data_chunksize, chunk_optimal, n_pixels, data_shape):
     """Basic functionality of the '_compute_optimal_chunk_size'"""
 
     # Call with kwargs
-    res = _compute_optimal_chunk_size(chunk_pixels=n_pixels,
-                                      data_chunksize=data_chunksize,
-                                      data_shape=data_shape,
-                                      n_chunks_min=4)
+    res = _compute_optimal_chunk_size(
+        chunk_pixels=n_pixels, data_chunksize=data_chunksize, data_shape=data_shape, n_chunks_min=4
+    )
     assert res == chunk_optimal, "Computed optimal chunks size doesn't match the expected"
 
     # Call with args
@@ -185,6 +200,7 @@ def test_compute_optimal_chunk_size(data_chunksize, chunk_optimal, n_pixels, dat
     assert res == chunk_optimal, "Computed optimal chunks size doesn't match the expected"
 
 
+# fmt: off
 @pytest.mark.parametrize("data_chunksize, data_shape", [
     ((3,), (20, 20)),
     ((3, 5, 7), (20, 20)),
@@ -193,12 +209,14 @@ def test_compute_optimal_chunk_size(data_chunksize, chunk_optimal, n_pixels, dat
     ((5, 3), (20, 20, 20)),
     ((5, 3), 20),
 ])
+# fmt: on
 def test_compute_optimal_chunk_size_fail(data_chunksize, data_shape):
     """Failing cases for `compute_optimal_chunk_size`"""
     with pytest.raises(ValueError, match="Unsupported value of parameter"):
         _compute_optimal_chunk_size(10, data_chunksize, data_shape, 4)
 
 
+# fmt: off
 @pytest.mark.parametrize("chunk_target, data_shape", [
     ((2, 2), (10, 10, 3)),  # 3D array (primary use case)
     ((2, 3), (9, 11, 3)),
@@ -214,24 +232,27 @@ def test_compute_optimal_chunk_size_fail(data_chunksize, data_shape):
     ((2, 2), (9, 11, 5, 3, 4)),  # 5D array
 
 ])
+# fmt: on
 def test_chunk_numpy_array(chunk_target, data_shape):
     """Basic functionailty tests for '_chunk_xrf_map_numpy"""
 
     data = np.random.random(data_shape)
     data_dask = _chunk_numpy_array(data, chunk_target)
 
-    chunksize_expected = tuple([
-        min(chunk_target[0], data_shape[0]),
-        min(chunk_target[1], data_shape[1]),
-        *data_shape[2:]])
+    chunksize_expected = tuple(
+        [min(chunk_target[0], data_shape[0]), min(chunk_target[1], data_shape[1]), *data_shape[2:]]
+    )
 
     assert data_dask.shape == data.shape, "The shape of the original and chunked array don't match"
-    assert data_dask.chunksize == chunksize_expected, \
-        "The chunk size of the Dask array doesn't match the desired chunk size"
-    npt.assert_array_equal(data_dask.compute(), data,
-                           err_msg="The chunked array is different from the original array")
+    assert (
+        data_dask.chunksize == chunksize_expected
+    ), "The chunk size of the Dask array doesn't match the desired chunk size"
+    npt.assert_array_equal(
+        data_dask.compute(), data, err_msg="The chunked array is different from the original array"
+    )
 
 
+# fmt: off
 @pytest.mark.parametrize("chunk_pixels, data_shape, res_chunk_size", [
     (4, (10, 10, 3), (2, 2, 3)),
     (5, (10, 10, 3), (2, 3, 3)),
@@ -241,6 +262,7 @@ def test_chunk_numpy_array(chunk_target, data_shape):
     (4, (9, 11, 3, 4), (2, 2, 3, 4)),
     (4, (9, 11, 3, 4, 2), (2, 2, 3, 4, 2)),
 ])
+# fmt: on
 def test_array_numpy_to_dask1(chunk_pixels, data_shape, res_chunk_size):
     """Basic functionality of `_xrf_map_numpy_to_dask`"""
 
@@ -249,8 +271,7 @@ def test_array_numpy_to_dask1(chunk_pixels, data_shape, res_chunk_size):
     res = _array_numpy_to_dask(data, chunk_pixels)
 
     assert res.shape == data.shape, "The shape of the original and chunked array don't match"
-    assert res.chunksize == res_chunk_size, \
-        "The chunk size of the Dask array doesn't match the desired chunk size"
+    assert res.chunksize == res_chunk_size, "The chunk size of the Dask array doesn't match the desired chunk size"
 
 
 def test_array_numpy_to_dask2():
@@ -264,10 +285,10 @@ def test_array_numpy_to_dask2():
     res_chunk_size = (2, 2, 2)
 
     assert res.shape == data.shape, "The shape of the original and chunked array don't match"
-    assert res.chunksize == res_chunk_size, \
-        "The chunk size of the Dask array doesn't match the desired chunk size"
+    assert res.chunksize == res_chunk_size, "The chunk size of the Dask array doesn't match the desired chunk size"
 
 
+# fmt: off
 @pytest.mark.parametrize("data", [
     da.random.random((5, 3, 5)),  # Dask array is not accepted
     10.6,  # Wrong data type
@@ -275,6 +296,7 @@ def test_array_numpy_to_dask2():
     "test",
     np.random.random((3,)),  # Wrong number of dimensions
 ])
+# fmt: on
 def test_array_numpy_to_dask_fail(data):
     """Wrong type of `data` array"""
     with pytest.raises(ValueError, match="Parameter 'data' must numpy array with at least 2 dimensions"):
@@ -294,16 +316,16 @@ def _create_xrf_data(data_dask, data_representation, tmpdir, *, chunked_HDF5=Tru
         with h5py.File(fln, "w") as f:
             # In this test all computations are performed using 'float64' precision,
             #   so we create the dataset with dtype="float64" for consistency.
-            kwargs = {"shape": data_dask.shape,
-                      "dtype": "float64"}
+            kwargs = {"shape": data_dask.shape, "dtype": "float64"}
             if chunked_HDF5:
                 kwargs.update({"chunks": data_dask.chunksize})
             dset = f.create_dataset(dset_name, **kwargs)
             dset[:, :, :] = data_dask.compute()
         data = RawHDF5Dataset(fln, dset_name, shape=data_dask.shape)
     else:
-        raise RuntimeError(f"Error in test parameter: unknown value of 'data_representation' = "
-                           f"{data_representation}")
+        raise RuntimeError(
+            f"Error in test parameter: unknown value of 'data_representation' = {data_representation}"
+        )
 
     return data
 
@@ -349,7 +371,9 @@ def _create_xrf_mask(data_shape, apply_mask, select_area):
     return mask, selection
 
 
+# fmt: off
 @pytest.mark.parametrize("data_representation", ["numpy_array", "dask_array", "hdf5_file_dset"])
+# fmt: on
 def test_prepare_xrf_data(tmpdir, data_representation):
     # Start with dask array
     data_shape = (7, 12, 20)
@@ -359,11 +383,13 @@ def test_prepare_xrf_data(tmpdir, data_representation):
     data = _create_xrf_data(data_dask, data_representation, tmpdir)
     data, file_obj = prepare_xrf_map(data, chunk_pixels=12, n_chunks_min=4)
 
-    assert data.chunksize[0] * data.chunksize[1] == 12, f"Dataset was not properly chunked: "\
-                                                        f"data.chunksize={data.chunksize}"
+    assert (
+        data.chunksize[0] * data.chunksize[1] == 12
+    ), f"Dataset was not properly chunked: data.chunksize={data.chunksize}"
 
-    npt.assert_array_almost_equal(data.compute(), data_numpy,
-                                  err_msg="Prepared dataset is different from the original")
+    npt.assert_array_almost_equal(
+        data.compute(), data_numpy, err_msg="Prepared dataset is different from the original"
+    )
 
 
 def test_prepare_xrf_data_hdf5_not_chunked(tmpdir):
@@ -376,11 +402,13 @@ def test_prepare_xrf_data_hdf5_not_chunked(tmpdir):
 
     data, file_obj = prepare_xrf_map(data, chunk_pixels=12, n_chunks_min=4)
 
-    assert (data.chunksize[0] == 7) and (data.chunksize[1] == 12), \
-        f"Dataset was not properly chunked: data.chunksize={data.chunksize}"
+    assert (data.chunksize[0] == 7) and (
+        data.chunksize[1] == 12
+    ), f"Dataset was not properly chunked: data.chunksize={data.chunksize}"
 
-    npt.assert_array_almost_equal(data.compute(), data_numpy,
-                                  err_msg="Prepared dataset is different from the original")
+    npt.assert_array_almost_equal(
+        data.compute(), data_numpy, err_msg="Prepared dataset is different from the original"
+    )
 
 
 def test_prepare_xrf_data_fail():
@@ -417,10 +445,10 @@ def test_prepare_xrf_mask(apply_mask, select_area):
 
     mask_prepared = _prepare_xrf_mask(data_dask, mask=mask, selection=selection)
 
-    npt.assert_array_equal(mask_prepared, mask_expected,
-                           err_msg="The prepared mask is not equal to expected")
+    npt.assert_array_equal(mask_prepared, mask_expected, err_msg="The prepared mask is not equal to expected")
 
 
+# fmt: off
 @pytest.mark.parametrize("data_dask, mask, selection, msg", [
     (np.random.random((5, 5, 10)), np.random.randint(0, 3, size=(5, 5)), None,
      "Parameter 'data' must be a Dask array"),
@@ -431,6 +459,7 @@ def test_prepare_xrf_mask(apply_mask, select_area):
     (da.random.random((5, 5, 10)), np.random.randint(0, 3, size=(5, 5)), (1, 3, 4),
      "Parameter 'selection' must be iterable with 4 elements"),
 ])
+# fmt: on
 def test_prepare_xrf_mask_fail(data_dask, mask, selection, msg):
     """Failing cases of `_prepare_xrf_mask`"""
     with pytest.raises(TypeError, match=msg):
@@ -453,7 +482,6 @@ def _start_dask_client(request):
 
 @pytest.mark.usefixtures("_start_dask_client")
 class TestComputeTotalSpectrum:
-
     @pytest.mark.parametrize("data_representation", ["numpy_array", "dask_array", "hdf5_file_dset"])
     @pytest.mark.parametrize("apply_mask", [False, True])
     @pytest.mark.parametrize("select_area", [False, True])
@@ -478,19 +506,24 @@ class TestComputeTotalSpectrum:
             data_tmp = data_tmp * mask_conv
         if selection is not None:
             y0, x0, ny, nx = selection
-            data_tmp = data_tmp[y0: y0 + ny, x0: x0 + nx, :]
+            data_tmp = data_tmp[y0 : y0 + ny, x0 : x0 + nx, :]
         total_spectrum_expected = np.sum(np.sum(data_tmp, axis=0), axis=0)
 
         data = _create_xrf_data(data_dask, data_representation, tmpdir)
 
-        total_spectrum = compute_total_spectrum(data, selection=selection, mask=mask,
-                                                chunk_pixels=12,
-                                                # Also run all computations with the progress bar
-                                                progress_bar=TerminalProgressBar("Monitoring progress: "),
-                                                client=global_client)
+        total_spectrum = compute_total_spectrum(
+            data,
+            selection=selection,
+            mask=mask,
+            chunk_pixels=12,
+            # Also run all computations with the progress bar
+            progress_bar=TerminalProgressBar("Monitoring progress: "),
+            client=global_client,
+        )
 
-        npt.assert_array_almost_equal(total_spectrum, total_spectrum_expected,
-                                      err_msg="Total spectrum was computed incorrectly")
+        npt.assert_array_almost_equal(
+            total_spectrum, total_spectrum_expected, err_msg="Total spectrum was computed incorrectly"
+        )
 
 
 def test_compute_total_spectrum2(tmpdir):
@@ -508,11 +541,14 @@ def test_compute_total_spectrum2(tmpdir):
     # Run computations without the progress bar
     total_spectrum = compute_total_spectrum(data, chunk_pixels=12)
 
-    npt.assert_array_almost_equal(total_spectrum, total_spectrum_expected,
-                                  err_msg="Total spectrum was computed incorrectly")
+    npt.assert_array_almost_equal(
+        total_spectrum, total_spectrum_expected, err_msg="Total spectrum was computed incorrectly"
+    )
 
 
+# fmt: off
 @pytest.mark.parametrize("mask", [da.random.random((7, 12)), (7, 12), 20, "abcde"])
+# fmt: on
 def test_compute_total_spectrum_fail(mask):
     """Failing cases: incorrect type for the mask ndarray"""
     data_dask = da.random.random((7, 12, 20), chunks=(2, 3, 4))
@@ -523,9 +559,11 @@ def test_compute_total_spectrum_fail(mask):
 @pytest.mark.usefixtures("_start_dask_client")
 class TestComputeTotalSpectrumAndCount:
 
+    # fmt: off
     @pytest.mark.parametrize("data_representation", ["numpy_array", "dask_array", "hdf5_file_dset"])
     @pytest.mark.parametrize("apply_mask", [False, True])
     @pytest.mark.parametrize("select_area", [False, True])
+    # fmt: on
     def test_compute_total_spectrum_and_count1(self, data_representation, apply_mask, select_area, tmpdir):
         """Using 'global' dask client to save time"""
 
@@ -558,17 +596,22 @@ class TestComputeTotalSpectrumAndCount:
         data = _create_xrf_data(data_dask, data_representation, tmpdir)
 
         total_spectrum, total_count = compute_total_spectrum_and_count(
-            data, selection=selection, mask=mask,
+            data,
+            selection=selection,
+            mask=mask,
             chunk_pixels=12,
             # Also run all computations with the progress bar
             progress_bar=TerminalProgressBar("Monitoring progress: "),
-            client=global_client)
+            client=global_client,
+        )
 
-        npt.assert_array_almost_equal(total_spectrum, total_spectrum_expected,
-                                      err_msg="Total spectrum was computed incorrectly")
+        npt.assert_array_almost_equal(
+            total_spectrum, total_spectrum_expected, err_msg="Total spectrum was computed incorrectly"
+        )
 
-        npt.assert_array_almost_equal(total_count, total_count_expected,
-                                      err_msg="Total count (map) was computed incorrectly")
+        npt.assert_array_almost_equal(
+            total_count, total_count_expected, err_msg="Total count (map) was computed incorrectly"
+        )
 
 
 def test_compute_total_spectrum_and_count2(tmpdir):
@@ -587,14 +630,18 @@ def test_compute_total_spectrum_and_count2(tmpdir):
     # Run computations without the progress bar
     total_spectrum, total_count = compute_total_spectrum_and_count(data, chunk_pixels=12)
 
-    npt.assert_array_almost_equal(total_spectrum, total_spectrum_expected,
-                                  err_msg="Total spectrum was computed incorrectly")
+    npt.assert_array_almost_equal(
+        total_spectrum, total_spectrum_expected, err_msg="Total spectrum was computed incorrectly"
+    )
 
-    npt.assert_array_almost_equal(total_count, total_count_expected,
-                                  err_msg="Total count (map) was computed incorrectly")
+    npt.assert_array_almost_equal(
+        total_count, total_count_expected, err_msg="Total count (map) was computed incorrectly"
+    )
 
 
+# fmt: off
 @pytest.mark.parametrize("mask", [da.random.random((7, 12)), (7, 12), 20, "abcde"])
+# fmt: on
 def test_compute_total_spectrum_and_count_fail(mask):
     """Failing cases: incorrect type for the mask ndarray"""
     data_dask = da.random.random((7, 12, 20), chunks=(2, 3, 4))
@@ -608,6 +655,7 @@ class _FitXRFMapTesting:
     Used for testing `_fit_xrf_block` and `fit_xrf_map` functions.
     See the respective tests for examples
     """
+
     def __init__(self, *, dataset_params, use_snip, add_pts_before, add_pts_after):
         self.use_snip = use_snip
         self.add_pts_before = add_pts_before
@@ -630,8 +678,12 @@ class _FitXRFMapTesting:
         # The original data is filled with random values. Those values should be either
         #   overwritten by actual spectral data or ignored during fitting.
         self.data_input = np.random.random(
-            size=(self.data_tmp.shape[1], self.data_tmp.shape[2],
-                  self.data_tmp.shape[0] + self.add_pts_before + self.add_pts_after))
+            size=(
+                self.data_tmp.shape[1],
+                self.data_tmp.shape[2],
+                self.data_tmp.shape[0] + self.add_pts_before + self.add_pts_after,
+            )
+        )
 
         # Range of indices of the experimental spectrum that should be used for fitting
         #   (it contains the spectrum data). The rest of the points should be ignored
@@ -643,58 +695,60 @@ class _FitXRFMapTesting:
             for nx in range(self.data_tmp.shape[2]):
                 ne_start = self.add_pts_before
                 ne_stop = self.add_pts_before + self.data_tmp.shape[0]
-                self.data_input[ny, nx, ne_start: ne_stop] = self.data_tmp[:, ny, nx]
+                self.data_input[ny, nx, ne_start:ne_stop] = self.data_tmp[:, ny, nx]
 
         # The snip parameters are set so that the snip width is about 10 points
-        self.snip_param = {"e_offset": 0.0, "e_linear": 0.1,
-                           "e_quadratic": 0.0, "b_width": 1}
+        self.snip_param = {"e_offset": 0.0, "e_linear": 0.1, "e_quadratic": 0.0, "b_width": 1}
 
     def verify_fit_output(self, *, data_out, snip_param=None):
 
-        assert data_out.shape == (self.data_tmp.shape[1],
-                                  self.data_tmp.shape[2],
-                                  self.n_lines + 4), \
-            f"The shape of 'data_out' is incorrect: data_out.shape={data_out.shape}"
+        assert data_out.shape == (
+            self.data_tmp.shape[1],
+            self.data_tmp.shape[2],
+            self.n_lines + 4,
+        ), f"The shape of 'data_out' is incorrect: data_out.shape={data_out.shape}"
 
-        weights_estimated = data_out[:, :, 0: self.n_lines]
+        weights_estimated = data_out[:, :, 0 : self.n_lines]
         bg_sum = data_out[:, :, self.n_lines]
 
         if not self.use_snip:
             # No background
-            self.fitting_data.validate_output_weights(
-                np.moveaxis(weights_estimated, 2, 0), decimal=10)
+            self.fitting_data.validate_output_weights(np.moveaxis(weights_estimated, 2, 0), decimal=10)
 
-            assert (bg_sum == 0.0).all(), \
-                f"Baseline estimate is non-zero when snip method is disabled: \n"\
+            assert (bg_sum == 0.0).all(), (
+                f"Baseline estimate is non-zero when snip method is disabled: \n"
                 f"bg_sum = {bg_sum}\nmin(bg_sum) = {np.min(bg_sum)}\nmax(bg_sum) = {np.max(bg_sum)}"
+            )
         else:
             # Background is present in the data. Here we repreat the procedure
             #   of background subtraction and fitting. Unfortunately, the test code
             #   is very similar to the computational code used
-            assert snip_param is not None, \
-                "Test parameter `snip_param` must be provided if 'use_snip' is enabled"
+            assert snip_param is not None, "Test parameter `snip_param` must be provided if 'use_snip' is enabled"
             _data = np.moveaxis(self.data_tmp, 0, 2)
             bg_sel = np.zeros(shape=_data.shape)
             for ny in range(bg_sel.shape[0]):
                 for nx in range(bg_sel.shape[1]):
-                    bg = snip_method_numba(_data[ny, nx, :],
-                                           snip_param['e_offset'],
-                                           snip_param['e_linear'],
-                                           snip_param['e_quadratic'],
-                                           width=snip_param['b_width'])
+                    bg = snip_method_numba(
+                        _data[ny, nx, :],
+                        snip_param["e_offset"],
+                        snip_param["e_linear"],
+                        snip_param["e_quadratic"],
+                        width=snip_param["b_width"],
+                    )
                     bg_sel[ny, nx, :] = bg
 
             _data_no_bg = _data - bg_sel
-            weights_expected, rfactor, _ = fit_spectrum(_data_no_bg, self.spectra,
-                                                        axis=2, method="nnls")
+            weights_expected, rfactor, _ = fit_spectrum(_data_no_bg, self.spectra, axis=2, method="nnls")
             npt.assert_array_almost_equal(
-                weights_estimated, weights_expected,
-                err_msg="Estimated weights are not equal to expected (use_snip==True)")
+                weights_estimated,
+                weights_expected,
+                err_msg="Estimated weights are not equal to expected (use_snip==True)",
+            )
 
             bg_sum_expected = np.sum(bg_sel, axis=2)
             npt.assert_array_almost_equal(
-                bg_sum, bg_sum_expected,
-                err_msg="Baseline is estimated incorrectly (use_snip==True)")
+                bg_sum, bg_sum_expected, err_msg="Baseline is estimated incorrectly (use_snip==True)"
+            )
 
         # Let's trust, that R-factor is correctly inserted into
         #   the 'data_out' array. Computation of R-factor is tested elsewhere,
@@ -704,11 +758,13 @@ class _FitXRFMapTesting:
         sm_total = np.sum(self.data_input, axis=2)
         sm_sel = np.sum(self.data_tmp, axis=0)  # Sum over the original dataset
         npt.assert_array_almost_equal(
-            data_out[:, :, self.n_lines + 2], sm_sel,
-            err_msg="Total count for the selected region is computed incorrectly")
+            data_out[:, :, self.n_lines + 2],
+            sm_sel,
+            err_msg="Total count for the selected region is computed incorrectly",
+        )
         npt.assert_array_almost_equal(
-            data_out[:, :, self.n_lines + 3], sm_total,
-            err_msg="Total count is computed incorrectly")
+            data_out[:, :, self.n_lines + 3], sm_total, err_msg="Total count is computed incorrectly"
+        )
 
     def verify_roi_output(self, *, data_out, roi_dict, snip_param=None):
         """
@@ -729,8 +785,8 @@ class _FitXRFMapTesting:
             baseline and for finding ranges of indices to define bands.
         """
 
-        e_offset = snip_param['e_offset']
-        e_linear = snip_param['e_linear']
+        e_offset = snip_param["e_offset"]
+        e_linear = snip_param["e_linear"]
 
         # Already truncated data (containing only selected region
         _data = np.moveaxis(self.data_tmp, 0, 2)
@@ -739,11 +795,13 @@ class _FitXRFMapTesting:
             bg_sel = np.zeros(shape=_data.shape)
             for ny in range(bg_sel.shape[0]):
                 for nx in range(bg_sel.shape[1]):
-                    bg = snip_method_numba(_data[ny, nx, :],
-                                           snip_param['e_offset'],
-                                           snip_param['e_linear'],
-                                           snip_param['e_quadratic'],
-                                           width=snip_param['b_width'])
+                    bg = snip_method_numba(
+                        _data[ny, nx, :],
+                        snip_param["e_offset"],
+                        snip_param["e_linear"],
+                        snip_param["e_quadratic"],
+                        width=snip_param["b_width"],
+                    )
                     bg_sel[ny, nx, :] = bg
             _data = _data - bg_sel
 
@@ -755,19 +813,23 @@ class _FitXRFMapTesting:
             n_left = int(np.clip(n_left, a_min=0, a_max=_data.shape[2] - 1))
             n_right = int(np.clip(n_right, a_min=0, a_max=_data.shape[2] - 1))
             if n_right > n_left:
-                data_expected[eline] = np.sum(_data[:, :, n_left: n_right], axis=2)
+                data_expected[eline] = np.sum(_data[:, :, n_left:n_right], axis=2)
             else:
                 data_expected[eline] = np.zeros(shape=_data.shape[0:2])
 
-        assert list(data_out.keys()) == list(data_expected.keys()), \
-            "The list of output data keys is different from expected"
+        assert list(data_out.keys()) == list(
+            data_expected.keys()
+        ), "The list of output data keys is different from expected"
 
         for key in data_out.keys():
             npt.assert_array_almost_equal(
-                data_out[key], data_expected[key],
-                err_msg=f"Output ROI count for the key '{key}' is different from expected")
+                data_out[key],
+                data_expected[key],
+                err_msg=f"Output ROI count for the key '{key}' is different from expected",
+            )
 
 
+# fmt: off
 @pytest.mark.parametrize("dataset_params", [
     {"n_data_dimensions": (8, 1)},
     {"n_data_dimensions": (1, 8)},
@@ -776,15 +838,23 @@ class _FitXRFMapTesting:
 ])
 @pytest.mark.parametrize("add_pts_before, add_pts_after", [(0, 0), (50, 100)])
 @pytest.mark.parametrize("use_snip", [False, True])
+# fmt: on
 def test_fit_xrf_block(dataset_params, add_pts_before, add_pts_after, use_snip):
 
-    ft = _FitXRFMapTesting(dataset_params=dataset_params,
-                           use_snip=use_snip,
-                           add_pts_before=add_pts_before,
-                           add_pts_after=add_pts_after)
+    ft = _FitXRFMapTesting(
+        dataset_params=dataset_params,
+        use_snip=use_snip,
+        add_pts_before=add_pts_before,
+        add_pts_after=add_pts_after,
+    )
 
-    data_out = _fit_xrf_block(ft.data_input, data_sel_indices=ft.data_sel_indices,
-                              matv=ft.spectra, snip_param=ft.snip_param, use_snip=use_snip)
+    data_out = _fit_xrf_block(
+        ft.data_input,
+        data_sel_indices=ft.data_sel_indices,
+        matv=ft.spectra,
+        snip_param=ft.snip_param,
+        use_snip=use_snip,
+    )
 
     ft.verify_fit_output(data_out=data_out, snip_param=ft.snip_param)
 
@@ -792,6 +862,7 @@ def test_fit_xrf_block(dataset_params, add_pts_before, add_pts_after, use_snip):
 @pytest.mark.usefixtures("_start_dask_client")
 class TestFitXRFMap:
 
+    # fmt: off
     @pytest.mark.parametrize("data_representation", ["numpy_array", "dask_array", "hdf5_file_dset"])
     @pytest.mark.parametrize("dataset_params", [
         {"n_data_dimensions": (10, 10)},
@@ -801,6 +872,7 @@ class TestFitXRFMap:
     ])
     @pytest.mark.parametrize("add_pts", [(0, 0), (50, 100)])
     @pytest.mark.parametrize("use_snip", [False, True])
+    # fmt: on
     def test_fit_xrf_map1(self, data_representation, dataset_params, add_pts, use_snip, tmpdir):
         """
         Basic functionality of `fit_xrf_map`.
@@ -812,10 +884,12 @@ class TestFitXRFMap:
 
         add_pts_before, add_pts_after = add_pts
 
-        ft = _FitXRFMapTesting(dataset_params=dataset_params,
-                               use_snip=use_snip,
-                               add_pts_before=add_pts_before,
-                               add_pts_after=add_pts_after)
+        ft = _FitXRFMapTesting(
+            dataset_params=dataset_params,
+            use_snip=use_snip,
+            add_pts_before=add_pts_before,
+            add_pts_after=add_pts_after,
+        )
 
         # Unfortunately 'data_input' is ndarray, but we need dask array to work with
         #   Select very small chunk size. This is not efficient, but works fine for testing.
@@ -824,13 +898,17 @@ class TestFitXRFMap:
         data = _create_xrf_data(data_dask, data_representation, tmpdir)
 
         # Run fitting
-        data_out = fit_xrf_map(data,
-                               data_sel_indices=ft.data_sel_indices,
-                               matv=ft.spectra,
-                               snip_param=ft.snip_param,
-                               use_snip=use_snip,
-                               chunk_pixels=10, n_chunks_min=4,
-                               progress_bar=None, client=global_client)
+        data_out = fit_xrf_map(
+            data,
+            data_sel_indices=ft.data_sel_indices,
+            matv=ft.spectra,
+            snip_param=ft.snip_param,
+            use_snip=use_snip,
+            chunk_pixels=10,
+            n_chunks_min=4,
+            progress_bar=None,
+            client=global_client,
+        )
 
         ft.verify_fit_output(data_out=data_out, snip_param=ft.snip_param)
 
@@ -845,26 +923,33 @@ def test_fit_xrf_map2():
     add_pts_before, add_pts_after = 15, 10
     use_snip = False
 
-    ft = _FitXRFMapTesting(dataset_params=dataset_params,
-                           use_snip=use_snip,
-                           add_pts_before=add_pts_before,
-                           add_pts_after=add_pts_after)
+    ft = _FitXRFMapTesting(
+        dataset_params=dataset_params,
+        use_snip=use_snip,
+        add_pts_before=add_pts_before,
+        add_pts_after=add_pts_after,
+    )
 
     # Just run the test with input data represented as numpy array
     data = ft.data_input
 
     # Run fitting
-    data_out = fit_xrf_map(data,
-                           data_sel_indices=ft.data_sel_indices,
-                           matv=ft.spectra,
-                           snip_param=ft.snip_param,
-                           use_snip=use_snip,
-                           chunk_pixels=10, n_chunks_min=4,
-                           progress_bar=None, client=None)
+    data_out = fit_xrf_map(
+        data,
+        data_sel_indices=ft.data_sel_indices,
+        matv=ft.spectra,
+        snip_param=ft.snip_param,
+        use_snip=use_snip,
+        chunk_pixels=10,
+        n_chunks_min=4,
+        progress_bar=None,
+        client=None,
+    )
 
     ft.verify_fit_output(data_out=data_out, snip_param=ft.snip_param)
 
 
+# fmt: off
 @pytest.mark.parametrize("params, except_type, err_msg", [
     ({"data_sel_indices": 50}, TypeError,
      "Parameter 'data_sel_indices' must be tuple or list"),
@@ -896,6 +981,7 @@ def test_fit_xrf_map2():
      "Selection indices .* are outside the allowed range"),
 
 ])
+# fmt: on
 def test_fit_xrf_map_fail(params, except_type, err_msg):
     """Failing cases of `fit_xrf_map` (wrong input parameters)"""
 
@@ -904,10 +990,12 @@ def test_fit_xrf_map_fail(params, except_type, err_msg):
     add_pts_before, add_pts_after = 15, 10
     use_snip = False
 
-    ft = _FitXRFMapTesting(dataset_params=dataset_params,
-                           use_snip=use_snip,
-                           add_pts_before=add_pts_before,
-                           add_pts_after=add_pts_after)
+    ft = _FitXRFMapTesting(
+        dataset_params=dataset_params,
+        use_snip=use_snip,
+        add_pts_before=add_pts_before,
+        add_pts_after=add_pts_after,
+    )
 
     kwargs = {
         "data": ft.data_input,
@@ -918,7 +1006,7 @@ def test_fit_xrf_map_fail(params, except_type, err_msg):
         "chunk_pixels": 10,
         "n_chunks_min": 4,
         "progress_bar": None,
-        "client": None
+        "client": None,
     }
     kwargs.update(params)
 
@@ -927,6 +1015,7 @@ def test_fit_xrf_map_fail(params, except_type, err_msg):
         fit_xrf_map(**kwargs)
 
 
+# fmt: off
 @pytest.mark.parametrize("dataset_params", [
     {"n_data_dimensions": (8, 1)},
     {"n_data_dimensions": (1, 8)},
@@ -935,43 +1024,53 @@ def test_fit_xrf_map_fail(params, except_type, err_msg):
 ])
 @pytest.mark.parametrize("add_pts_before, add_pts_after", [(0, 0), (50, 100)])
 @pytest.mark.parametrize("use_snip", [False, True])
+# fmt: on
 def test_compute_roi(dataset_params, add_pts_before, add_pts_after, use_snip):
     """Basic functionality of `_compute_roi` function"""
 
-    ft = _FitXRFMapTesting(dataset_params=dataset_params,
-                           use_snip=use_snip,
-                           add_pts_before=add_pts_before,
-                           add_pts_after=add_pts_after)
+    ft = _FitXRFMapTesting(
+        dataset_params=dataset_params,
+        use_snip=use_snip,
+        add_pts_before=add_pts_before,
+        add_pts_after=add_pts_after,
+    )
 
     n_pts = ft.n_spectrum_points
     energy_min, energy_max = 3.1, 12.2  # Energy range for the 'selected' data, keV
     energy_step = (energy_max - energy_min) / (n_pts - 1)
 
     # 'e_offset' - the offset for the 0th element of the array, not the selected range
-    snip_param = {"e_offset": energy_min - energy_step * add_pts_before,
-                  "e_linear": energy_step,
-                  "e_quadratic": 0,
-                  "b_width": 2.0}
+    snip_param = {
+        "e_offset": energy_min - energy_step * add_pts_before,
+        "e_linear": energy_step,
+        "e_quadratic": 0,
+        "b_width": 2.0,
+    }
 
-    roi_dict = {"roi-1": (2.5, 3.5),  # Outside the range
-                "roi-2": (3.5, 4.8),
-                "roi-3": (5.2, 7.4),
-                "roi-4": (6.0, 6.0),  # No data points
-                "roi-5": (6.0, 5.5),  # No data points
-                "roi-6": (10.1, 15.0),  # Outside the range
-                }
+    roi_dict = {
+        "roi-1": (2.5, 3.5),  # Outside the range
+        "roi-2": (3.5, 4.8),
+        "roi-3": (5.2, 7.4),
+        "roi-4": (6.0, 6.0),  # No data points
+        "roi-5": (6.0, 5.5),  # No data points
+        "roi-6": (10.1, 15.0),  # Outside the range
+    }
 
     roi_bands = [_ for _ in roi_dict.values()]
 
     # We don't use autogenerated 'ft.snip_param', because we want to use specific
     #   values to make sure that computations are done correctly.
 
-    data_out = _compute_roi(ft.data_input, data_sel_indices=ft.data_sel_indices,
-                            roi_bands=roi_bands, snip_param=snip_param, use_snip=use_snip)
+    data_out = _compute_roi(
+        ft.data_input,
+        data_sel_indices=ft.data_sel_indices,
+        roi_bands=roi_bands,
+        snip_param=snip_param,
+        use_snip=use_snip,
+    )
 
     roi_keys = list(roi_dict.keys())
-    assert data_out.shape == (*ft.data_input.shape[0:2], len(roi_keys)), \
-        "Output data has unexpected shape"
+    assert data_out.shape == (*ft.data_input.shape[0:2], len(roi_keys)), "Output data has unexpected shape"
 
     # Convert data from numpy array to dictionary
     data_out = {roi_keys[_]: data_out[:, :, _] for _ in range(len(roi_keys))}
@@ -982,6 +1081,7 @@ def test_compute_roi(dataset_params, add_pts_before, add_pts_after, use_snip):
 @pytest.mark.usefixtures("_start_dask_client")
 class TestComputeSelectedROIs:
 
+    # fmt: off
     @pytest.mark.parametrize("data_representation", ["numpy_array", "dask_array", "hdf5_file_dset"])
     @pytest.mark.parametrize("dataset_params", [
         {"n_data_dimensions": (10, 10)},
@@ -991,6 +1091,7 @@ class TestComputeSelectedROIs:
     ])
     @pytest.mark.parametrize("add_pts", [(0, 0), (50, 100)])
     @pytest.mark.parametrize("use_snip", [False, True])
+    # fmt: on
     def test_compute_selected_rois1(self, data_representation, dataset_params, add_pts, use_snip, tmpdir):
         """
         Basic functionality of `compute_selected_rois`.
@@ -1002,10 +1103,12 @@ class TestComputeSelectedROIs:
 
         add_pts_before, add_pts_after = add_pts
 
-        ft = _FitXRFMapTesting(dataset_params=dataset_params,
-                               use_snip=use_snip,
-                               add_pts_before=add_pts_before,
-                               add_pts_after=add_pts_after)
+        ft = _FitXRFMapTesting(
+            dataset_params=dataset_params,
+            use_snip=use_snip,
+            add_pts_before=add_pts_before,
+            add_pts_after=add_pts_after,
+        )
 
         # Unfortunately 'data_input' is ndarray, but we need dask array to work with
         #   Select very small chunk size. This is not efficient, but works fine for testing.
@@ -1017,26 +1120,34 @@ class TestComputeSelectedROIs:
         energy_min, energy_max = 3.1, 12.2  # Energy range for the 'selected' data, keV
         energy_step = (energy_max - energy_min) / (n_pts - 1)
 
-        roi_dict = {"roi-1": (2.5, 3.5),  # Outside the range
-                    "roi-2": (3.5, 4.8),
-                    "roi-3": (5.2, 7.4),
-                    "roi-4": (6.0, 6.0),  # No data points
-                    "roi-5": (6.0, 5.5),  # No data points
-                    "roi-6": (10.1, 15.0),  # Outside the range
-                    }
+        roi_dict = {
+            "roi-1": (2.5, 3.5),  # Outside the range
+            "roi-2": (3.5, 4.8),
+            "roi-3": (5.2, 7.4),
+            "roi-4": (6.0, 6.0),  # No data points
+            "roi-5": (6.0, 5.5),  # No data points
+            "roi-6": (10.1, 15.0),  # Outside the range
+        }
 
         # 'e_offset' - the offset for the 0th element of the array, not the selected range
-        snip_param = {"e_offset": energy_min - energy_step * add_pts_before,
-                      "e_linear": energy_step,
-                      "e_quadratic": 0,
-                      "b_width": 2.0}
+        snip_param = {
+            "e_offset": energy_min - energy_step * add_pts_before,
+            "e_linear": energy_step,
+            "e_quadratic": 0,
+            "b_width": 2.0,
+        }
 
         # We don't use autogenerated 'ft.snip_param', because we want to use specific
         #   values to make sure that computations are done correctly.
 
         data_out = compute_selected_rois(
-            data, data_sel_indices=ft.data_sel_indices,
-            roi_dict=roi_dict, snip_param=snip_param, use_snip=use_snip, client=global_client)
+            data,
+            data_sel_indices=ft.data_sel_indices,
+            roi_dict=roi_dict,
+            snip_param=snip_param,
+            use_snip=use_snip,
+            client=global_client,
+        )
 
         # Verify the dictionary
         ft.verify_roi_output(data_out=data_out, roi_dict=roi_dict, snip_param=snip_param)
@@ -1052,10 +1163,12 @@ def test_compute_selected_rois2():
     add_pts_before, add_pts_after = 15, 10
     use_snip = False
 
-    ft = _FitXRFMapTesting(dataset_params=dataset_params,
-                           use_snip=use_snip,
-                           add_pts_before=add_pts_before,
-                           add_pts_after=add_pts_after)
+    ft = _FitXRFMapTesting(
+        dataset_params=dataset_params,
+        use_snip=use_snip,
+        add_pts_before=add_pts_before,
+        add_pts_after=add_pts_after,
+    )
 
     # Just run the test with input data represented as numpy array
     data = ft.data_input
@@ -1064,31 +1177,35 @@ def test_compute_selected_rois2():
     energy_min, energy_max = 3.1, 12.2  # Energy range for the 'selected' data, keV
     energy_step = (energy_max - energy_min) / (n_pts - 1)
 
-    roi_dict = {"roi-1": (2.5, 3.5),  # Outside the range
-                "roi-2": (3.5, 4.8),
-                "roi-3": (5.2, 7.4),
-                "roi-4": (6.0, 6.0),  # No data points
-                "roi-5": (6.0, 5.5),  # No data points
-                "roi-6": (10.1, 15.0),  # Outside the range
-                }
+    roi_dict = {
+        "roi-1": (2.5, 3.5),  # Outside the range
+        "roi-2": (3.5, 4.8),
+        "roi-3": (5.2, 7.4),
+        "roi-4": (6.0, 6.0),  # No data points
+        "roi-5": (6.0, 5.5),  # No data points
+        "roi-6": (10.1, 15.0),  # Outside the range
+    }
 
     # 'e_offset' - the offset for the 0th element of the array, not the selected range
-    snip_param = {"e_offset": energy_min - energy_step * add_pts_before,
-                  "e_linear": energy_step,
-                  "e_quadratic": 0,
-                  "b_width": 2.0}
+    snip_param = {
+        "e_offset": energy_min - energy_step * add_pts_before,
+        "e_linear": energy_step,
+        "e_quadratic": 0,
+        "b_width": 2.0,
+    }
 
     # We don't use autogenerated 'ft.snip_param', because we want to use specific
     #   values to make sure that computations are done correctly.
 
     data_out = compute_selected_rois(
-        data, data_sel_indices=ft.data_sel_indices,
-        roi_dict=roi_dict, snip_param=snip_param, use_snip=use_snip)
+        data, data_sel_indices=ft.data_sel_indices, roi_dict=roi_dict, snip_param=snip_param, use_snip=use_snip
+    )
 
     # Verify the dictionary
     ft.verify_roi_output(data_out=data_out, roi_dict=roi_dict, snip_param=snip_param)
 
 
+# fmt: off
 @pytest.mark.parametrize("params, except_type, err_msg", [
     ({"data_sel_indices": 50}, TypeError,
      "Parameter 'data_sel_indices' must be tuple or list"),
@@ -1117,6 +1234,7 @@ def test_compute_selected_rois2():
       "data_sel_indices": (70, 70 + 50)}, ValueError,
      "Selection indices .* are outside the allowed range"),
 ])
+# fmt: on
 def test_compute_selected_rois_fail(params, except_type, err_msg):
     """Failing cases of `compute_selected_rois` (wrong input parameters)"""
 
@@ -1125,10 +1243,12 @@ def test_compute_selected_rois_fail(params, except_type, err_msg):
     add_pts_before, add_pts_after = 15, 10
     use_snip = False
 
-    ft = _FitXRFMapTesting(dataset_params=dataset_params,
-                           use_snip=use_snip,
-                           add_pts_before=add_pts_before,
-                           add_pts_after=add_pts_after)
+    ft = _FitXRFMapTesting(
+        dataset_params=dataset_params,
+        use_snip=use_snip,
+        add_pts_before=add_pts_before,
+        add_pts_after=add_pts_after,
+    )
 
     # Just run the test with input data represented as numpy array
     data = ft.data_input
@@ -1137,13 +1257,14 @@ def test_compute_selected_rois_fail(params, except_type, err_msg):
     #   structure of the parameter is tested. So we just use the autogenerated
     #   `ft.snip_param`, which is sometimes overriddent by the test parameter
 
-    roi_dict = {"roi-1": (2.5, 3.5),  # Outside the range
-                "roi-2": (3.5, 4.8),
-                "roi-3": (5.2, 7.4),
-                "roi-4": (6.0, 6.0),  # No data points
-                "roi-5": (6.0, 5.5),  # No data points
-                "roi-6": (10.1, 15.0),  # Outside the range
-                }
+    roi_dict = {
+        "roi-1": (2.5, 3.5),  # Outside the range
+        "roi-2": (3.5, 4.8),
+        "roi-3": (5.2, 7.4),
+        "roi-4": (6.0, 6.0),  # No data points
+        "roi-5": (6.0, 5.5),  # No data points
+        "roi-6": (10.1, 15.0),  # Outside the range
+    }
 
     kwargs = {
         "data": data,
@@ -1154,7 +1275,7 @@ def test_compute_selected_rois_fail(params, except_type, err_msg):
         "chunk_pixels": 10,
         "n_chunks_min": 4,
         "progress_bar": None,
-        "client": None
+        "client": None,
     }
     kwargs.update(params)
 
@@ -1173,10 +1294,12 @@ def test_snip_method_numba():
     add_pts_before, add_pts_after = 0, 0
     use_snip = True
 
-    ft = _FitXRFMapTesting(dataset_params=dataset_params,
-                           use_snip=use_snip,
-                           add_pts_before=add_pts_before,
-                           add_pts_after=add_pts_after)
+    ft = _FitXRFMapTesting(
+        dataset_params=dataset_params,
+        use_snip=use_snip,
+        add_pts_before=add_pts_before,
+        add_pts_after=add_pts_after,
+    )
 
     # Just run the test with input data represented as numpy array
     data = ft.data_input
@@ -1192,5 +1315,5 @@ def test_snip_method_numba():
             bg_expected = snip_method(spec_sel, 0, 0.01, 0, width=width)
 
             npt.assert_array_almost_equal(
-                bg, bg_expected,
-                err_msg=f"Background estimates don't match for the pixel ({ny}, {nx})")
+                bg, bg_expected, err_msg=f"Background estimates don't match for the pixel ({ny}, {nx})"
+            )

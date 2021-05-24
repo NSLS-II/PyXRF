@@ -1,13 +1,15 @@
-from qtpy.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QCheckBox,
-                            QPushButton)
+from qtpy.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QCheckBox, QPushButton
 from qtpy.QtCore import Signal, Slot
 
-from matplotlib.backends.backend_qt5agg import \
-    FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
+from matplotlib.backends.backend_qt5agg import (
+    FigureCanvasQTAgg as FigureCanvas,
+    NavigationToolbar2QT as NavigationToolbar,
+)
 
 from .useful_widgets import set_tooltip, global_gui_variables
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -34,12 +36,10 @@ class PlotXrfMaps(QWidget):
 
         self.combo_select_dataset = QComboBox()
         self.combo_select_dataset.setSizeAdjustPolicy(QComboBox.AdjustToContents)
-        self.combo_select_dataset.currentIndexChanged.connect(
-            self.combo_select_dataset_current_index_changed)
+        self.combo_select_dataset.currentIndexChanged.connect(self.combo_select_dataset_current_index_changed)
 
         self.combo_normalization = QComboBox()
-        self.combo_normalization.currentIndexChanged.connect(
-            self.combo_normalization_current_index_changed)
+        self.combo_normalization.currentIndexChanged.connect(self.combo_normalization_current_index_changed)
 
         self.pb_image_wizard = QPushButton("Image Wizard ...")
         self.pb_image_wizard.clicked.connect(self.pb_image_wizard_clicked)
@@ -63,8 +63,7 @@ class PlotXrfMaps(QWidget):
         self._color_schemes = ("viridis", "jet", "bone", "gray", "Oranges", "hot")
         self.combo_color_scheme.addItems(self._color_schemes)
         self.combo_color_scheme.setCurrentIndex(self._color_schemes.index(self.gpc.get_maps_color_opt()))
-        self.combo_color_scheme.currentIndexChanged.connect(
-            self.combo_color_scheme_current_index_changed)
+        self.combo_color_scheme.currentIndexChanged.connect(self.combo_color_scheme_current_index_changed)
 
         self.combo_linear_log = QComboBox()
         self._linear_log_values = ["Linear", "Log"]
@@ -77,10 +76,8 @@ class PlotXrfMaps(QWidget):
         self.combo_pixels_positions = QComboBox()
         self._pix_pos_values = ["Pixels", "Positions"]
         self.combo_pixels_positions.addItems(self._pix_pos_values)
-        self.combo_pixels_positions.setCurrentIndex(
-            self._pix_pos_values.index(self.gpc.get_maps_pixel_or_pos()))
-        self.combo_pixels_positions.currentIndexChanged.connect(
-            self.combo_pixels_positions_current_index_changed)
+        self.combo_pixels_positions.setCurrentIndex(self._pix_pos_values.index(self.gpc.get_maps_pixel_or_pos()))
+        self.combo_pixels_positions.currentIndexChanged.connect(self.combo_pixels_positions_current_index_changed)
 
         self.mpl_canvas = FigureCanvas(self.gpc.img_model_adv.fig)
         self.mpl_toolbar = NavigationToolbar(self.mpl_canvas, self)
@@ -115,27 +112,27 @@ class PlotXrfMaps(QWidget):
         self._set_tooltips()
 
     def _set_tooltips(self):
-        set_tooltip(self.combo_select_dataset,
-                    "Select <b>dataset</b>.")
-        set_tooltip(self.combo_normalization,
-                    "Select <b>scaler</b> for normalization of displayed XRF maps.")
-        set_tooltip(self.pb_image_wizard,
-                    "Open the window with tools for <b>selection and configuration</b> "
-                    "the displayed XRF maps.")
-        set_tooltip(self.cb_interpolate,
-                    "Interpolate coordinates to <b>uniform grid</b>.")
-        set_tooltip(self.cb_scatter_plot,
-                    "Display <b>scatter plot</b>.")
-        set_tooltip(self.cb_quantitative,
-                    "Normalize the displayed XRF maps using loaded "
-                    "<b>Quantitative Calibration</b> data.")
-        set_tooltip(self.combo_color_scheme,
-                    "Select <b>color scheme</b>")
-        set_tooltip(self.combo_linear_log,
-                    "Switch between <b>linear</b> and <b>logarithmic</b> scale "
-                    "for plotting of XRF Map pixel <b>intensity</b>.")
-        set_tooltip(self.combo_pixels_positions,
-                    "Switch axes units between <b>pixels</b> and <b>positional units</b>.")
+        set_tooltip(self.combo_select_dataset, "Select <b>dataset</b>.")
+        set_tooltip(self.combo_normalization, "Select <b>scaler</b> for normalization of displayed XRF maps.")
+        set_tooltip(
+            self.pb_image_wizard,
+            "Open the window with tools for <b>selection and configuration</b> the displayed XRF maps.",
+        )
+        set_tooltip(self.cb_interpolate, "Interpolate coordinates to <b>uniform grid</b>.")
+        set_tooltip(self.cb_scatter_plot, "Display <b>scatter plot</b>.")
+        set_tooltip(
+            self.cb_quantitative,
+            "Normalize the displayed XRF maps using loaded <b>Quantitative Calibration</b> data.",
+        )
+        set_tooltip(self.combo_color_scheme, "Select <b>color scheme</b>")
+        set_tooltip(
+            self.combo_linear_log,
+            "Switch between <b>linear</b> and <b>logarithmic</b> scale "
+            "for plotting of XRF Map pixel <b>intensity</b>.",
+        )
+        set_tooltip(
+            self.combo_pixels_positions, "Switch axes units between <b>pixels</b> and <b>positional units</b>."
+        )
 
     def update_widget_state(self, condition=None):
         if condition == "tooltips":

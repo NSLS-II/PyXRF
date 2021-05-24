@@ -1,0 +1,24 @@
+[tool.black]
+line-length = 115
+target-version = ['py37']
+include = '\.pyi?$'
+exclude = '''
+
+(
+  /(
+      \.eggs         # exclude a few common directories in the
+    | \.git          # root of the project
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | \.pytest_cache
+    | _build
+    | buck-out
+    | build
+    | dist
+    | docs
+  )/
+  | versioneer.py
+)
+'''

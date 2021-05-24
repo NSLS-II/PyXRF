@@ -4,8 +4,11 @@ import pytest
 import os
 
 from pyxrf.core.yaml_param_files import (
-    _parse_docstring_parameters, _verify_parsed_docstring,
-    create_yaml_parameter_file, read_yaml_parameter_file)
+    _parse_docstring_parameters,
+    _verify_parsed_docstring,
+    create_yaml_parameter_file,
+    read_yaml_parameter_file,
+)
 
 
 def _generate_parameter_set():
@@ -22,7 +25,7 @@ def _generate_parameter_set():
         "param_list_float": [2.2, 4.4, 6.6, 8.8, 10.01, 345623.453654762342, 3.453456e-15],
         "param_list_string": ["str1", "str2", "str3", "str4", "str5"],
         "param_list_misc": [2, 3.6, "str2", None, 3.45e10],
-        "param_dictionary": {"p1": 65, "p2": 3.45, "p3": None, "p4": "some_string", "p5": [1, 2, 3.5]}
+        "param_dictionary": {"p1": 65, "p2": 3.45, "p3": None, "p4": "some_string", "p5": [1, 2, 3.5]},
     }
     return param_dict
 
@@ -35,9 +38,18 @@ def _generate_parameter_set_schema():
     param_schema = {
         "type": "object",
         "additionalProperties": False,
-        "required": ["param_none", "param_int", "param_float", "param_str1", "param_str2",
-                     "param_list_int", "param_list_float", "param_list_string", "param_list_misc",
-                     "param_dictionary"],
+        "required": [
+            "param_none",
+            "param_int",
+            "param_float",
+            "param_str1",
+            "param_str2",
+            "param_list_int",
+            "param_list_float",
+            "param_list_string",
+            "param_list_misc",
+            "param_dictionary",
+        ],
         "properties": {
             "param_none": {"type": "null"},
             "param_int": {"type": "integer"},
@@ -47,25 +59,28 @@ def _generate_parameter_set_schema():
             "param_list_int": {"type": "array", "items": {"type": "integer"}},
             "param_list_float": {"type": "array", "items": {"type": "number"}},
             "param_list_string": {"type": "array", "items": {"type": "string"}},
-            "param_list_misc": {"type": "array",
-                                "additionalItems": False,
-                                "uniqueItems": True,
-                                "items": [{"type": "integer"},
-                                          {"type": "number"},
-                                          {"type": "string"},
-                                          {"type": "null"},
-                                          {"type": "number"}
-                                          ],
-                                },
-            "param_dictionary": {"type": "object",
-                                 "properties": {
-                                     "p1": {"type": "integer"},
-                                     "p2": {"type": "number"},
-                                     "p3": {"type": "null"},
-                                     "p4": {"type": "string"},
-                                     "p5": {"type": "array", "items": {"type": "number"}}
-                                 }}
-
+            "param_list_misc": {
+                "type": "array",
+                "additionalItems": False,
+                "uniqueItems": True,
+                "items": [
+                    {"type": "integer"},
+                    {"type": "number"},
+                    {"type": "string"},
+                    {"type": "null"},
+                    {"type": "number"},
+                ],
+            },
+            "param_dictionary": {
+                "type": "object",
+                "properties": {
+                    "p1": {"type": "integer"},
+                    "p2": {"type": "number"},
+                    "p3": {"type": "null"},
+                    "p4": {"type": "string"},
+                    "p5": {"type": "array", "items": {"type": "number"}},
+                },
+            },
         },
     }
 
@@ -89,11 +104,15 @@ def _generate_sample_docstring(param_dict, include_section_titles=True):
     for p_name in param_dict.keys():
         # Create tuple (param_name, param_description), param_description - array of strings,
         #   each string will be printed in the separate line
-        p = (f"{p_name}",
-             [f"{p_name} : {type(param_dict[p_name])}",
-              f"Description of parameter {p_name}",
-              "",
-              f"The end of the description of {p_name}"])
+        p = (
+            f"{p_name}",
+            [
+                f"{p_name} : {type(param_dict[p_name])}",
+                f"Description of parameter {p_name}",
+                "",
+                f"The end of the description of {p_name}",
+            ],
+        )
         parameters.append(p)
 
     n_empty_lines_before, n_empty_lines_after = 5, 5
@@ -198,8 +217,9 @@ def test_create_read_yaml_parameter_file(tmp_path):
     param_dict = _generate_parameter_set()
     doc_string, parameters = _generate_sample_docstring(param_dict)
 
-    create_yaml_parameter_file(file_path=file_path, function_docstring=doc_string,
-                               param_value_dict=param_dict, dir_create=True)
+    create_yaml_parameter_file(
+        file_path=file_path, function_docstring=doc_string, param_value_dict=param_dict, dir_create=True
+    )
 
     param_dict_recovered = read_yaml_parameter_file(file_path=file_path)
 
@@ -207,33 +227,45 @@ def test_create_read_yaml_parameter_file(tmp_path):
     param_schema = _generate_parameter_set_schema()
     jsonschema.validate(instance=param_dict_recovered, schema=param_schema)
 
-    assert param_dict == param_dict_recovered, \
-        "Parameter dictionary read from YAML file is different from the original parameter dictionary"
+    assert (
+        param_dict == param_dict_recovered
+    ), "Parameter dictionary read from YAML file is different from the original parameter dictionary"
 
     # Test: creating parameter file without instructions (and read it)
     yaml_fln2 = "parameter2.yaml"
     file_path2 = os.path.join(tmp_path, *yaml_dirs, yaml_fln2)
-    create_yaml_parameter_file(file_path=file_path2, function_docstring=doc_string,
-                               param_value_dict=param_dict, dir_create=False,
-                               user_editing_instructions=False)
+    create_yaml_parameter_file(
+        file_path=file_path2,
+        function_docstring=doc_string,
+        param_value_dict=param_dict,
+        dir_create=False,
+        user_editing_instructions=False,
+    )
     param_dict_recovered2 = read_yaml_parameter_file(file_path=file_path2)
     jsonschema.validate(instance=param_dict_recovered2, schema=param_schema)
-    assert param_dict == param_dict_recovered2, \
-        "Parameter dictionary read from YAML file is different from the original parameter dictionary"
+    assert (
+        param_dict == param_dict_recovered2
+    ), "Parameter dictionary read from YAML file is different from the original parameter dictionary"
 
     # Test: creating parameter file with custom instructions (and read it)
     yaml_fln3 = "parameter3.yaml"
     file_path3 = os.path.join(tmp_path, *yaml_dirs, yaml_fln3)
     instructions = "    Those are custom instructions\n        in the correct format"
-    create_yaml_parameter_file(file_path=file_path3, function_docstring=doc_string,
-                               param_value_dict=param_dict, dir_create=False,
-                               user_editing_instructions=instructions)
+    create_yaml_parameter_file(
+        file_path=file_path3,
+        function_docstring=doc_string,
+        param_value_dict=param_dict,
+        dir_create=False,
+        user_editing_instructions=instructions,
+    )
     param_dict_recovered3 = read_yaml_parameter_file(file_path=file_path3)
     jsonschema.validate(instance=param_dict_recovered3, schema=param_schema)
-    assert param_dict == param_dict_recovered3, \
-        "Parameter dictionary read from YAML file is different from the original parameter dictionary"
+    assert (
+        param_dict == param_dict_recovered3
+    ), "Parameter dictionary read from YAML file is different from the original parameter dictionary"
 
 
+# fmt: off
 @pytest.mark.parametrize("test_params", [
     # Writing to existing directory (absolute and relative paths)
     {"path_create": ["yaml", "file", "dirs"], "path_current": ["yaml", "file"],
@@ -268,6 +300,7 @@ def test_create_read_yaml_parameter_file(tmp_path):
      "path_write": ["yaml"], "path_read": ["yaml", "file"], "dir_create": False,
      "succeed_write": True, "succeed_read": False},
 ])
+# fmt: on
 def test_create_yaml_parameter_file1(tmp_path, test_params):
     """Test functions ``create_yaml_parameter_file`` and ``read_yaml_parameter_file``
     for different combinations of input/output directories"""
@@ -311,14 +344,20 @@ def test_create_yaml_parameter_file1(tmp_path, test_params):
 
     yaml_fln = "parameters.yaml"
     if succeed_write:
-        create_yaml_parameter_file(file_path=os.path.join(path_write, yaml_fln),
-                                   function_docstring=doc_string, param_value_dict=param_dict,
-                                   dir_create=dir_create)
+        create_yaml_parameter_file(
+            file_path=os.path.join(path_write, yaml_fln),
+            function_docstring=doc_string,
+            param_value_dict=param_dict,
+            dir_create=dir_create,
+        )
     else:
         with pytest.raises(IOError):
-            create_yaml_parameter_file(file_path=os.path.join(path_write, yaml_fln),
-                                       function_docstring=doc_string, param_value_dict=param_dict,
-                                       dir_create=dir_create)
+            create_yaml_parameter_file(
+                file_path=os.path.join(path_write, yaml_fln),
+                function_docstring=doc_string,
+                param_value_dict=param_dict,
+                dir_create=dir_create,
+            )
 
     if succeed_read:
         param_dict_recovered = read_yaml_parameter_file(file_path=os.path.join(path_read, yaml_fln))
@@ -327,12 +366,13 @@ def test_create_yaml_parameter_file1(tmp_path, test_params):
             param_dict_recovered = read_yaml_parameter_file(file_path=os.path.join(path_read, yaml_fln))
 
     if succeed_write and succeed_read:
-        assert param_dict == param_dict_recovered, \
-            "Parameter dictionary read from YAML file is different from the original parameter dictionary"
+        assert (
+            param_dict == param_dict_recovered
+        ), "Parameter dictionary read from YAML file is different from the original parameter dictionary"
 
 
 def test_create_yaml_parameter_file2(tmp_path):
-    """ Test if file overwriting protection works"""
+    """Test if file overwriting protection works"""
 
     fln = os.path.join(tmp_path, "parameters.yaml")
 
@@ -346,5 +386,6 @@ def test_create_yaml_parameter_file2(tmp_path):
     with pytest.raises(IOError):
         create_yaml_parameter_file(file_path=fln, function_docstring=doc_string, param_value_dict=param_dict)
     # Try again, but allow overwriting the file
-    create_yaml_parameter_file(file_path=fln, function_docstring=doc_string,
-                               param_value_dict=param_dict, file_overwrite=True)
+    create_yaml_parameter_file(
+        file_path=fln, function_docstring=doc_string, param_value_dict=param_dict, file_overwrite=True
+    )

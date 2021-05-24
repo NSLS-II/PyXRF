@@ -1,16 +1,15 @@
-from qtpy.QtWidgets import (QHBoxLayout, QVBoxLayout, QLabel, QDialog, QDialogButtonBox,
-                            QRadioButton, QButtonGroup)
+from qtpy.QtWidgets import QHBoxLayout, QVBoxLayout, QLabel, QDialog, QDialogButtonBox, QRadioButton, QButtonGroup
 from qtpy.QtGui import QIntValidator, QRegExpValidator
 from qtpy.QtCore import QRegExp
 
-from .useful_widgets import (LineEditExtended, set_tooltip, IntValidatorStrict)
+from .useful_widgets import LineEditExtended, set_tooltip, IntValidatorStrict
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
 class DialogSelectScan(QDialog):
-
     def __init__(self):
 
         super().__init__()
@@ -32,24 +31,26 @@ class DialogSelectScan(QDialog):
         self._validator_uid_short = QRegExpValidator(QRegExp(r"[0-9a-f]{8}"))
         # Full UID example: "04c9afa7-a43a-4af1-8e55-2034384d4a77"
         self._validator_uid_full = QRegExpValidator(
-            QRegExp(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"))
+            QRegExp(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+        )
 
         self.rb_id = QRadioButton("Run ID")
-        set_tooltip(self.rb_id, "The value in the line edit box is <b>Run ID</b> "
-                                "(e.g. <b>34235</b> or <b>-1</b>)")
+        set_tooltip(self.rb_id, "The value in the line edit box is <b>Run ID</b> (e.g. <b>34235</b> or <b>-1</b>)")
         self.rb_id.setChecked(self._mode_id_uid == "id")
         self.rb_uid = QRadioButton("Run UID")
         self.rb_uid.setChecked(self._mode_id_uid == "uid")
-        set_tooltip(self.rb_uid, "The value in the line edit box is <b>Run UID</b> "
-                                 "(e.g. <b>04c9afb7-a43a-4af1-8e55-2034384d4a77</b> or <b>04c9afb7</b>)")
+        set_tooltip(
+            self.rb_uid,
+            "The value in the line edit box is <b>Run UID</b> "
+            "(e.g. <b>04c9afb7-a43a-4af1-8e55-2034384d4a77</b> or <b>04c9afb7</b>)",
+        )
 
         self.btn_group = QButtonGroup()
         self.btn_group.addButton(self.rb_id)
         self.btn_group.addButton(self.rb_uid)
         self.btn_group.buttonToggled.connect(self.btn_group_button_toggled)
 
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)
         self.pb_ok = button_box.button(QDialogButtonBox.Ok)
@@ -121,8 +122,10 @@ class DialogSelectScan(QDialog):
             if self._validator_id.validate(text, 0)[0] == QIntValidator.Acceptable:
                 valid = True
         elif self._mode_id_uid == "uid":
-            if (self._validator_uid_short.validate(text, 0)[0] == QIntValidator.Acceptable or
-                    self._validator_uid_full.validate(text, 0)[0] == QIntValidator.Acceptable):
+            if (
+                self._validator_uid_short.validate(text, 0)[0] == QIntValidator.Acceptable
+                or self._validator_uid_full.validate(text, 0)[0] == QIntValidator.Acceptable
+            ):
                 valid = True
 
         self.le_id_uid.setValid(valid)

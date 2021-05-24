@@ -1,14 +1,14 @@
-from qtpy.QtWidgets import (QVBoxLayout, QLabel, QDialog, QDialogButtonBox, QGridLayout)
+from qtpy.QtWidgets import QVBoxLayout, QLabel, QDialog, QDialogButtonBox, QGridLayout
 from qtpy.QtGui import QDoubleValidator
 
-from .useful_widgets import (LineEditReadOnly, set_tooltip, LineEditExtended)
+from .useful_widgets import LineEditReadOnly, set_tooltip, LineEditExtended
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
 class DialogEditUserPeakParameters(QDialog):
-
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -20,13 +20,14 @@ class DialogEditUserPeakParameters(QDialog):
         self.le_name = LineEditReadOnly()
         set_tooltip(self.le_name, "<b>Name</b> of the user-defined peak.")
         self.le_intensity = LineEditExtended()
-        set_tooltip(self.le_intensity,
-                    "Peak <b>intensity</b>. Typically it is not necessary to set the "
-                    "intensity precisely, since it is refined during fitting of total "
-                    "spectrum.")
+        set_tooltip(
+            self.le_intensity,
+            "Peak <b>intensity</b>. Typically it is not necessary to set the "
+            "intensity precisely, since it is refined during fitting of total "
+            "spectrum.",
+        )
         self.le_energy = LineEditExtended()
-        set_tooltip(self.le_energy,
-                    "<b>Energy</b> (keV) of the center of the user-defined peak.")
+        set_tooltip(self.le_energy, "<b>Energy</b> (keV) of the center of the user-defined peak.")
         self.le_fwhm = LineEditExtended()
         set_tooltip(self.le_fwhm, "<b>FWHM</b> (in keV) of the user-defined peak.")
 
@@ -91,9 +92,7 @@ class DialogEditUserPeakParameters(QDialog):
         return self._validate_le(self.le_fwhm, text, lambda v: v > 0)
 
     def _validate_all(self):
-        valid = (self._validate_le_intensity() and
-                 self._validate_le_energy() and
-                 self._validate_le_fwhm())
+        valid = self._validate_le_intensity() and self._validate_le_energy() and self._validate_le_fwhm()
         self.pb_ok.setEnabled(valid)
 
     def _validate_le(self, le_widget, text, condition):

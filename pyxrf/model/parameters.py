@@ -1,5 +1,4 @@
-from __future__ import (absolute_import, division,
-                        print_function)
+from __future__ import absolute_import, division, print_function
 
 import numpy as np
 import json
@@ -7,29 +6,38 @@ from collections import OrderedDict
 import copy
 import math
 
-from atom.api import (Atom, Str, observe, Typed,
-                      Int, Dict, List, Float, Bool)
+from atom.api import Atom, Str, observe, Typed, Int, Dict, List, Float, Bool
 
 from skbeam.fluorescence import XrfElement as Element
-from skbeam.core.fitting.xrf_model import (ParamController,
-                                           compute_escape_peak, trim,
-                                           construct_linear_model,
-                                           linear_spectrum_fitting)
-from skbeam.core.fitting.xrf_model import (K_LINE, L_LINE, M_LINE)
+from skbeam.core.fitting.xrf_model import (
+    ParamController,
+    compute_escape_peak,
+    trim,
+    construct_linear_model,
+    linear_spectrum_fitting,
+)
+from skbeam.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
 from ..core.map_processing import snip_method_numba
 from ..core.xrf_utils import check_if_eline_supported, get_eline_parameters, get_element_atomic_number
 
 from ..core.utils import gaussian_sigma_to_fwhm, gaussian_fwhm_to_sigma
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
-bound_options = ['none', 'lohi', 'fixed', 'lo', 'hi']
-fit_strategy_list = ['fit_with_tail', 'free_more',
-                     'e_calibration', 'linear',
-                     'adjust_element1', 'adjust_element2', 'adjust_element3']
-autofit_param = ['e_offset', 'e_linear', 'fwhm_offset', 'fwhm_fanoprime']
+bound_options = ["none", "lohi", "fixed", "lo", "hi"]
+fit_strategy_list = [
+    "fit_with_tail",
+    "free_more",
+    "e_calibration",
+    "linear",
+    "adjust_element1",
+    "adjust_element2",
+    "adjust_element3",
+]
+autofit_param = ["e_offset", "e_linear", "fwhm_offset", "fwhm_fanoprime"]
 
 
 class PreFitStatus(Atom):
@@ -53,6 +61,7 @@ class PreFitStatus(Atom):
     lbd_stat : bool
         define plotting status under a threshold value
     """
+
     z = Str()
     energy = Str()
     area = Float()
@@ -77,33 +86,31 @@ class ElementController(object):
         try:
             del self.element_dict[k]
             self.update_norm()
-            logger.debug('Item {} is deleted.'.format(k))
+            logger.debug("Item {} is deleted.".format(k))
         except KeyError:
             pass
 
-    def order(self, option='z'):
+    def order(self, option="z"):
         """
         Order dict in different ways.
         """
-        if option == 'z':
-            self.element_dict = OrderedDict(sorted(
-                self.element_dict.items(), key=lambda t: t[1].z))
-        elif option == 'energy':
-            self.element_dict = OrderedDict(sorted(
-                self.element_dict.items(), key=lambda t: t[1].energy))
-        elif option == 'name':
-            self.element_dict = OrderedDict(sorted(
-                self.element_dict.items(), key=lambda t: t[0]))
-        elif option == 'maxv':
-            self.element_dict = OrderedDict(sorted(
-                self.element_dict.items(), key=lambda t: t[1].maxv, reverse=True))
+        if option == "z":
+            self.element_dict = OrderedDict(sorted(self.element_dict.items(), key=lambda t: t[1].z))
+        elif option == "energy":
+            self.element_dict = OrderedDict(sorted(self.element_dict.items(), key=lambda t: t[1].energy))
+        elif option == "name":
+            self.element_dict = OrderedDict(sorted(self.element_dict.items(), key=lambda t: t[0]))
+        elif option == "maxv":
+            self.element_dict = OrderedDict(
+                sorted(self.element_dict.items(), key=lambda t: t[1].maxv, reverse=True)
+            )
 
     def add_to_dict(self, dictv):
         """
         This function updates the dictionary element if it already exists.
         """
         self.element_dict.update(dictv)
-        logger.debug('Item {} is added.'.format(list(dictv.keys())))
+        logger.debug("Item {} is added.".format(list(dictv.keys())))
         self.update_norm()
 
     def update_norm(self, threshv=0.0):
@@ -122,7 +129,7 @@ class ElementController(object):
         max_dict = np.max([v.maxv for v in self.element_dict.values()])
 
         for v in self.element_dict.values():
-            v.norm = v.maxv/max_dict*100
+            v.norm = v.maxv / max_dict * 100
             v.lbd_stat = bool(v.norm > threshv)
 
         # also delete smaller values
@@ -142,9 +149,7 @@ class ElementController(object):
             return False
 
     def get_element_list(self):
-        current_elements = [v for v
-                            in self.element_dict.keys()
-                            if (v.lower() != v)]
+        current_elements = [v for v in self.element_dict.keys() if (v.lower() != v)]
 
         # logger.info('Current Elements for '
         #            'fitting are {}'.format(current_elements))
@@ -183,7 +188,7 @@ class ElementController(object):
         peaks are not included.
         """
         remove_list = []
-        non_element = ['compton', 'elastic', 'background']
+        non_element = ["compton", "elastic", "background"]
         for k, v in self.element_dict.items():
             if math.isnan(v.norm) or (v.norm >= threshv) or (k in non_element):
                 continue
@@ -197,7 +202,7 @@ class ElementController(object):
 
     def delete_unselected_items(self):
         remove_list = []
-        non_element = ['compton', 'elastic', 'background']
+        non_element = ["compton", "elastic", "background"]
         for k, v in self.element_dict.items():
             if k in non_element:
                 continue
@@ -257,7 +262,7 @@ class ParamModel(Atom):
     # total_l = Dict()
     # total_m = Dict()
     # total_pileup = Dict()
-    e_name = Str()        # Element line name selected in combo box
+    e_name = Str()  # Element line name selected in combo box
     add_element_intensity = Float(1000.0)
     element_list = List()
     # data_sets = Typed(OrderedDict)
@@ -285,13 +290,13 @@ class ParamModel(Atom):
             # TODO: do we set 'element_list' as a list of keys of 'EC.element_dict'
             self.element_list = get_element_list(self.param_new)
         except ValueError:
-            logger.info('No default parameter files are chosen.')
+            logger.info("No default parameter files are chosen.")
         self.EC = ElementController()
 
         # The following line is part of the fix for automated updating of the energy bound
         #     in 'Automatic Element Finding' dialog box
-        self.energy_bound_high_buf = self.param_new['non_fitting_values']['energy_bound_high']['value']
-        self.energy_bound_low_buf = self.param_new['non_fitting_values']['energy_bound_low']['value']
+        self.energy_bound_high_buf = self.param_new["non_fitting_values"]["energy_bound_high"]["value"]
+        self.energy_bound_low_buf = self.param_new["non_fitting_values"]["energy_bound_low"]["value"]
 
     def add_parameters_changed_cb(self, cb):
         """
@@ -326,14 +331,14 @@ class ParamModel(Atom):
 
     # The following function is part of the fix for automated updating of the energy bound
     #     in 'Automatic Element Finding' dialog box
-    @observe('energy_bound_high_buf')
+    @observe("energy_bound_high_buf")
     def _update_energy_bound_high_buf(self, change):
-        self.param_new['non_fitting_values']['energy_bound_high']['value'] = change['value']
+        self.param_new["non_fitting_values"]["energy_bound_high"]["value"] = change["value"]
         self.define_range()
 
-    @observe('energy_bound_low_buf')
+    @observe("energy_bound_low_buf")
     def _update_energy_bound_high_low(self, change):
-        self.param_new['non_fitting_values']['energy_bound_low']['value'] = change['value']
+        self.param_new["non_fitting_values"]["energy_bound_low"]["value"] = change["value"]
         self.define_range()
 
     def get_new_param_from_file(self, param_path):
@@ -345,11 +350,11 @@ class ParamModel(Atom):
         param_path : str
             path to save the file
         """
-        with open(param_path, 'r') as json_data:
+        with open(param_path, "r") as json_data:
             self.param_new = json.load(json_data)
         self.create_spectrum_from_param_dict(reset=True)
 
-        logger.info('Elements read from file are: {}'.format(self.element_list))
+        logger.info("Elements read from file are: {}".format(self.element_list))
 
     def update_new_param(self, param, reset=True):
         """
@@ -366,9 +371,9 @@ class ParamModel(Atom):
         self.param_new = param
         self.create_spectrum_from_param_dict(reset=reset)
 
-    @observe('bound_val')
+    @observe("bound_val")
     def _update_bound(self, change):
-        if change['type'] != 'create':
+        if change["type"] != "create":
             logger.info(f"Peaks with values than the threshold {self.bound_val} will be removed from the list.")
 
     def define_range(self):
@@ -377,11 +382,15 @@ class ParamModel(Atom):
         """
         if self.io_model.data is None:
             return
-        lowv = self.param_new['non_fitting_values']['energy_bound_low']['value']
-        highv = self.param_new['non_fitting_values']['energy_bound_high']['value']
-        self.x0, self.y0 = define_range(self.io_model.data, lowv, highv,
-                                        self.param_new['e_offset']['value'],
-                                        self.param_new['e_linear']['value'])
+        lowv = self.param_new["non_fitting_values"]["energy_bound_low"]["value"]
+        highv = self.param_new["non_fitting_values"]["energy_bound_high"]["value"]
+        self.x0, self.y0 = define_range(
+            self.io_model.data,
+            lowv,
+            highv,
+            self.param_new["e_offset"]["value"],
+            self.param_new["e_linear"]["value"],
+        )
 
     def create_spectrum_from_param_dict(self, reset=True):
         """
@@ -399,18 +408,14 @@ class ParamModel(Atom):
         self.element_list = get_element_list(param_dict)
 
         self.define_range()
-        self.prefit_x, pre_dict, area_dict = calculate_profile(self.x0,
-                                                               self.y0,
-                                                               param_dict,
-                                                               self.element_list)
+        self.prefit_x, pre_dict, area_dict = calculate_profile(self.x0, self.y0, param_dict, self.element_list)
         # add escape peak
-        if param_dict['non_fitting_values']['escape_ratio'] > 0:
-            pre_dict['escape'] = trim_escape_peak(self.io_model.data,
-                                                  param_dict, len(self.y0))
+        if param_dict["non_fitting_values"]["escape_ratio"] > 0:
+            pre_dict["escape"] = trim_escape_peak(self.io_model.data, param_dict, len(self.y0))
 
         temp_dict = OrderedDict()
         for e in pre_dict.keys():
-            if e in ['background', 'escape']:
+            if e in ["background", "escape"]:
                 spectrum = pre_dict[e]
 
                 # summed spectrum here is not correct,
@@ -418,38 +423,50 @@ class ParamModel(Atom):
                 # however area of background and escape is not used elsewhere, not important
                 area = np.sum(spectrum)
 
-                ps = PreFitStatus(z=get_Z(e), energy=get_energy(e),
-                                  area=float(area), spectrum=spectrum,
-                                  maxv=float(np.around(np.max(spectrum), self.max_area_dig)),
-                                  norm=-1, status=True, lbd_stat=False)
+                ps = PreFitStatus(
+                    z=get_Z(e),
+                    energy=get_energy(e),
+                    area=float(area),
+                    spectrum=spectrum,
+                    maxv=float(np.around(np.max(spectrum), self.max_area_dig)),
+                    norm=-1,
+                    status=True,
+                    lbd_stat=False,
+                )
                 temp_dict[e] = ps
 
-            elif '-' in e:  # pileup peaks
+            elif "-" in e:  # pileup peaks
                 energy = self.get_pileup_peak_energy(e)
                 energy = f"{energy:.4f}"
                 spectrum = pre_dict[e]
                 area = area_dict[e]
 
-                ps = PreFitStatus(z=get_Z(e), energy=str(energy),
-                                  area=area, spectrum=spectrum,
-                                  maxv=np.around(np.max(spectrum), self.max_area_dig),
-                                  norm=-1, status=True, lbd_stat=False)
+                ps = PreFitStatus(
+                    z=get_Z(e),
+                    energy=str(energy),
+                    area=area,
+                    spectrum=spectrum,
+                    maxv=np.around(np.max(spectrum), self.max_area_dig),
+                    norm=-1,
+                    status=True,
+                    lbd_stat=False,
+                )
                 temp_dict[e] = ps
 
             else:
-                ename = e.split('_')[0]
+                ename = e.split("_")[0]
                 for k, v in param_dict.items():
                     energy = get_energy(e)  # For all peaks except Userpeaks
 
-                    if ename in k and 'area' in k:
+                    if ename in k and "area" in k:
                         spectrum = pre_dict[e]
                         area = area_dict[e]
 
-                    elif ename == 'compton' and k == 'compton_amplitude':
+                    elif ename == "compton" and k == "compton_amplitude":
                         spectrum = pre_dict[e]
                         area = area_dict[e]
 
-                    elif ename == 'elastic' and k == 'coherent_sct_amplitude':
+                    elif ename == "elastic" and k == "coherent_sct_amplitude":
                         spectrum = pre_dict[e]
                         area = area_dict[e]
 
@@ -460,10 +477,16 @@ class ParamModel(Atom):
                     else:
                         continue
 
-                    ps = PreFitStatus(z=get_Z(ename), energy=energy,
-                                      area=area, spectrum=spectrum,
-                                      maxv=np.around(np.max(spectrum), self.max_area_dig),
-                                      norm=-1, status=True, lbd_stat=False)
+                    ps = PreFitStatus(
+                        z=get_Z(ename),
+                        energy=energy,
+                        area=area,
+                        spectrum=spectrum,
+                        maxv=np.around(np.max(spectrum), self.max_area_dig),
+                        norm=-1,
+                        status=True,
+                        lbd_stat=False,
+                    )
 
                     temp_dict[e] = ps
 
@@ -520,7 +543,7 @@ class ParamModel(Atom):
         """
         incident_energy = self.param_new["coherent_sct_energy"]["value"]
         try:
-            element_line1, element_line2 = eline.split('-')
+            element_line1, element_line2 = eline.split("-")
             e1_cen = get_eline_parameters(element_line1, incident_energy)["energy"]
             e2_cen = get_eline_parameters(element_line2, incident_energy)["energy"]
             en = e1_cen + e2_cen
@@ -548,8 +571,10 @@ class ParamModel(Atom):
         must be writtent to `self.e_name` before calling the function.
         """
         if self.e_name not in self.EC.element_dict:
-            msg = f"Line '{self.e_name}' is not in the list of selected lines,\n" \
-                  f"therefore it can not be deleted from the list."
+            msg = (
+                f"Line '{self.e_name}' is not in the list of selected lines,\n"
+                f"therefore it can not be deleted from the list."
+            )
             raise RuntimeError(msg)
 
         # Update parameter list
@@ -591,8 +616,7 @@ class ParamModel(Atom):
 
         # It is sufficient to compare using lowercase. It could be more reliable.
         key_prefix = key_prefix.lower()
-        keys_to_delete = [_ for _ in self.param_new.keys()
-                          if _.lower().startswith(key_prefix)]
+        keys_to_delete = [_ for _ in self.param_new.keys() if _.lower().startswith(key_prefix)]
         for key in keys_to_delete:
             del self.param_new[key]
 
@@ -611,8 +635,7 @@ class ParamModel(Atom):
         """
 
         if self.e_name in self.EC.element_dict:
-            msg = f"Line '{self.e_name}' is in the list of selected lines. \n" \
-                  f"Duplicate entries are not allowed."
+            msg = f"Line '{self.e_name}' is in the list of selected lines. \nDuplicate entries are not allowed."
             raise RuntimeError(msg)
 
         default_area = 1e2
@@ -647,11 +670,9 @@ class ParamModel(Atom):
         # 'self.param_new' is used to provide 'hint' values for the model, but all active
         #    emission lines in 'elemental_lines' will be included in the model.
         #  The model will contain lines in 'elemental_lines', Compton and elastic
-        x, data_out, area_dict = calculate_profile(self.x0,
-                                                   self.y0,
-                                                   param_tmp,
-                                                   elemental_lines=[self.e_name],
-                                                   default_area=default_area)
+        x, data_out, area_dict = calculate_profile(
+            self.x0, self.y0, param_tmp, elemental_lines=[self.e_name], default_area=default_area
+        )
 
         # Check if element profile was calculated successfully.
         #   Calculation may fail if the selected line is not activated.
@@ -666,14 +687,16 @@ class ParamModel(Atom):
 
         ratio_v = self.add_element_intensity / np.max(data_out[self.e_name])
 
-        ps = PreFitStatus(z=get_Z(self.e_name),
-                          energy=energy if isinstance(energy, str) else f"{energy:.4f}",
-                          area=area_dict[self.e_name]*ratio_v,
-                          spectrum=data_out[self.e_name]*ratio_v,
-                          maxv=self.add_element_intensity,
-                          norm=-1,
-                          status=True,    # for plotting
-                          lbd_stat=False)
+        ps = PreFitStatus(
+            z=get_Z(self.e_name),
+            energy=energy if isinstance(energy, str) else f"{energy:.4f}",
+            area=area_dict[self.e_name] * ratio_v,
+            spectrum=data_out[self.e_name] * ratio_v,
+            maxv=self.add_element_intensity,
+            norm=-1,
+            status=True,  # for plotting
+            lbd_stat=False,
+        )
 
         self.EC.add_to_dict({self.e_name: ps})
         self.EC.update_peak_ratio()
@@ -725,8 +748,10 @@ class ParamModel(Atom):
             raise RuntimeError(msg)
 
         if self.e_name not in self.EC.element_dict:
-            msg = f"Attempt to modify maximum value for the emission line '{self.e_name},'\n" \
-                  f"which is not currently selected."
+            msg = (
+                f"Attempt to modify maximum value for the emission line '{self.e_name},'\n"
+                f"which is not currently selected."
+            )
             raise RuntimeError(msg)
 
         key = self._generate_param_keys(self.e_name)["key_area"]
@@ -835,13 +860,17 @@ class ParamModel(Atom):
     def modify_userpeak_params(self, maxv_new, fwhm_new, energy_new):
 
         if self.get_eline_name_category(self.e_name) != "userpeak":
-            msg = f"Hight and width can be modified only for a user defined peak.\n" \
-                  f"The function was called for '{self.e_name}' peak"
+            msg = (
+                f"Hight and width can be modified only for a user defined peak.\n"
+                f"The function was called for '{self.e_name}' peak"
+            )
             raise RuntimeError(msg)
 
         if self.e_name not in self.EC.element_dict:
-            msg = f"Attempt to modify maximum value for the emission line '{self.e_name},'\n" \
-                  f"which is not currently selected."
+            msg = (
+                f"Attempt to modify maximum value for the emission line '{self.e_name},'\n"
+                f"which is not currently selected."
+            )
             raise RuntimeError(msg)
 
         # Some checks of the input values
@@ -853,10 +882,8 @@ class ParamModel(Atom):
             raise ValueError("User peak FWHM must be a positive number.")
 
         # Make sure that the energy of the user peak is within the selected fitting range
-        energy_bound_high = \
-            self.param_new["non_fitting_values"]["energy_bound_high"]["value"]
-        energy_bound_low = \
-            self.param_new["non_fitting_values"]["energy_bound_low"]["value"]
+        energy_bound_high = self.param_new["non_fitting_values"]["energy_bound_high"]["value"]
+        energy_bound_low = self.param_new["non_fitting_values"]["energy_bound_low"]["value"]
         if energy_new > energy_bound_high or energy_new < energy_bound_low:
             raise ValueError("User peak energy is outside the selected range.")
 
@@ -872,30 +899,32 @@ class ParamModel(Atom):
         # 'self.param_new' is used to provide 'hint' values for the model, but all active
         #    emission lines in 'elemental_lines' will be included in the model.
         #  The model will contain lines in 'elemental_lines', Compton and elastic
-        x, data_out, area_dict = calculate_profile(self.x0,
-                                                   self.y0,
-                                                   self.param_new,
-                                                   elemental_lines=[self.e_name],
-                                                   default_area=default_area)
+        x, data_out, area_dict = calculate_profile(
+            self.x0, self.y0, self.param_new, elemental_lines=[self.e_name], default_area=default_area
+        )
 
         ratio_v = maxv_new / np.max(data_out[self.e_name])
 
         area = area_dict[self.e_name] * ratio_v
         self.param_new[key]["value"] = area
 
-        ps = PreFitStatus(z=get_Z(self.e_name),
-                          energy=f"{energy_new:.4f}",
-                          area=area,
-                          spectrum=data_out[self.e_name]*ratio_v,
-                          maxv=maxv_new,
-                          norm=-1,
-                          status=True,    # for plotting
-                          lbd_stat=False)
+        ps = PreFitStatus(
+            z=get_Z(self.e_name),
+            energy=f"{energy_new:.4f}",
+            area=area,
+            spectrum=data_out[self.e_name] * ratio_v,
+            maxv=maxv_new,
+            norm=-1,
+            status=True,  # for plotting
+            lbd_stat=False,
+        )
 
         self.EC.element_dict[self.e_name] = ps
 
-        logger.debug(f"The parameters of the user defined peak. The new values:\n"
-                     f"   Energy: {energy_new} keV, FWHM: {fwhm_new}, Maximum: {maxv_new}\n")
+        logger.debug(
+            f"The parameters of the user defined peak. The new values:\n"
+            f"   Energy: {energy_new} keV, FWHM: {fwhm_new}, Maximum: {maxv_new}\n"
+        )
 
     def generate_pileup_peak_name(self, name1, name2):
         """
@@ -907,7 +936,7 @@ class ParamModel(Atom):
         e2 = get_eline_parameters(name2, incident_energy)["energy"]
         if e1 > e2:
             name1, name2 = name2, name1
-        return name1 + '-' + name2
+        return name1 + "-" + name2
 
     def update_name_list(self):
         """
@@ -959,7 +988,7 @@ class ParamModel(Atom):
         for name in element_list:
             if self.get_eline_name_category(name) == "eline":
                 try:
-                    z = get_element_atomic_number(name.split('_')[0])
+                    z = get_element_atomic_number(name.split("_")[0])
                 except Exception:
                     z = 0
                 names_elines.append([name, z])
@@ -1007,7 +1036,7 @@ class ParamModel(Atom):
         param_path : str
             path to save the file
         """
-        with open(param_path, 'r') as json_data:
+        with open(param_path, "r") as json_data:
             param = json.load(json_data)
             self.update_new_param(param, reset=True)
 
@@ -1025,27 +1054,30 @@ class ParamModel(Atom):
             lines (K, L and M) are searched.
         """
         self.define_range()  # in case the energy calibraiton changes
-        self.prefit_x, out_dict, area_dict = linear_spectrum_fitting(self.x0,
-                                                                     self.y0,
-                                                                     self.param_new,
-                                                                     elemental_lines=elemental_lines)
-        logger.info('Energy range: {}, {}'.format(
-            self.param_new['non_fitting_values']['energy_bound_low']['value'],
-            self.param_new['non_fitting_values']['energy_bound_high']['value']))
+        self.prefit_x, out_dict, area_dict = linear_spectrum_fitting(
+            self.x0, self.y0, self.param_new, elemental_lines=elemental_lines
+        )
+        logger.info(
+            "Energy range: {}, {}".format(
+                self.param_new["non_fitting_values"]["energy_bound_low"]["value"],
+                self.param_new["non_fitting_values"]["energy_bound_high"]["value"],
+            )
+        )
 
         prefit_dict = OrderedDict()
         for k, v in out_dict.items():
-            ps = PreFitStatus(z=get_Z(k),
-                              energy=get_energy(k),
-                              area=area_dict[k],
-                              spectrum=v,
-                              maxv=np.around(np.max(v), self.max_area_dig),
-                              norm=-1,
-                              lbd_stat=False)
+            ps = PreFitStatus(
+                z=get_Z(k),
+                energy=get_energy(k),
+                area=area_dict[k],
+                spectrum=v,
+                maxv=np.around(np.max(v), self.max_area_dig),
+                norm=-1,
+                lbd_stat=False,
+            )
             prefit_dict.update({k: ps})
 
-        logger.info('Automatic Peak Finding found elements as : {}'.format(
-            list(prefit_dict.keys())))
+        logger.info("Automatic Peak Finding found elements as : {}".format(list(prefit_dict.keys())))
         self.EC.delete_all()
         self.EC.add_to_dict(prefit_dict)
 
@@ -1063,39 +1095,40 @@ class ParamModel(Atom):
 
         self.param_new = update_param_from_element(self.param_new, self.element_list)
         element_temp = [e for e in self.element_list if len(e) <= 4]
-        pileup_temp = [e for e in self.element_list if '-' in e]
-        userpeak_temp = [e for e in self.element_list if 'user' in e.lower()]
+        pileup_temp = [e for e in self.element_list if "-" in e]
+        userpeak_temp = [e for e in self.element_list if "user" in e.lower()]
 
         # update area values in param_new according to results saved in ElementController
         if len(self.EC.element_dict):
             for k, v in self.param_new.items():
-                if 'area' in k:
-                    if 'pileup' in k:
+                if "area" in k:
+                    if "pileup" in k:
                         name_cut = k[7:-5]  # remove pileup_ and _area
                         for p in pileup_temp:
-                            if name_cut == p.replace('-', '_'):
-                                v['value'] = self.EC.element_dict[p].area
-                    elif 'user' in k.lower():
+                            if name_cut == p.replace("-", "_"):
+                                v["value"] = self.EC.element_dict[p].area
+                    elif "user" in k.lower():
                         for p in userpeak_temp:
                             if p in k:
-                                v['value'] = self.EC.element_dict[p].area
+                                v["value"] = self.EC.element_dict[p].area
                     else:
                         for e in element_temp:
-                            k_name, k_line, _ = k.split('_')
-                            e_name, e_line = e.split('_')
+                            k_name, k_line, _ = k.split("_")
+                            e_name, e_line = e.split("_")
                             if k_name == e_name and e_line.lower() == k_line[0]:  # attention: S_k and As_k
-                                v['value'] = self.EC.element_dict[e].area
+                                v["value"] = self.EC.element_dict[e].area
 
-            if 'compton' in self.EC.element_dict:
-                self.param_new['compton_amplitude']['value'] = self.EC.element_dict['compton'].area
-            if 'coherent_sct_amplitude' in self.EC.element_dict:
-                self.param_new['coherent_sct_amplitude']['value'] = self.EC.element_dict['elastic'].area
+            if "compton" in self.EC.element_dict:
+                self.param_new["compton_amplitude"]["value"] = self.EC.element_dict["compton"].area
+            if "coherent_sct_amplitude" in self.EC.element_dict:
+                self.param_new["coherent_sct_amplitude"]["value"] = self.EC.element_dict["elastic"].area
 
-            if 'escape' in self.EC.element_dict:
-                self.param_new['non_fitting_values']['escape_ratio'] = (self.EC.element_dict['escape'].maxv
-                                                                        / np.max(self.y0))
+            if "escape" in self.EC.element_dict:
+                self.param_new["non_fitting_values"]["escape_ratio"] = self.EC.element_dict[
+                    "escape"
+                ].maxv / np.max(self.y0)
             else:
-                self.param_new['non_fitting_values']['escape_ratio'] = 0.0
+                self.param_new["non_fitting_values"]["escape_ratio"] = 0.0
 
     def data_for_plot(self):
         """
@@ -1154,12 +1187,10 @@ class ParamModel(Atom):
                 continue
             area = self.EC.element_dict[eline].area
             lines = [_ for _ in param_keys if _.lower().startswith(eline.lower())]
-            lines = set(['_'.join(_.split('_')[:2]) for _ in lines])
+            lines = set(["_".join(_.split("_")[:2]) for _ in lines])
             for ln in lines:
                 eline_info = get_eline_parameters(ln, incident_energy)
-                data = {"name": ln, "area": area,
-                        "ratio": eline_info["ratio"],
-                        "energy": eline_info["energy"]}
+                data = {"name": ln, "area": area, "ratio": eline_info["ratio"], "energy": eline_info["energy"]}
                 full_line_list.append(data)
         return full_line_list
 
@@ -1195,8 +1226,7 @@ class ParamModel(Atom):
                         area = line1["area"] * line1["ratio"]
                     else:
                         area = line1["area"] * line1["ratio"] + line2["area"] * line2["ratio"]
-                    pileup_components.append((line1["name"], line2["name"],
-                                              line1["energy"] + line2["energy"]))
+                    pileup_components.append((line1["name"], line2["name"], line1["energy"] + line2["energy"]))
                     areas.append(area)
 
         if len(areas):
@@ -1211,9 +1241,8 @@ def save_as(file_path, data):
     """
     Save full param dict into a file.
     """
-    with open(file_path, 'w') as outfile:
-        json.dump(data, outfile,
-                  sort_keys=True, indent=4)
+    with open(file_path, "w") as outfile:
+        json.dump(data, outfile, sort_keys=True, indent=4)
 
 
 def define_range(data, low, high, a0, a1):
@@ -1245,14 +1274,13 @@ def define_range(data, low, high, a0, a1):
     #  ratio to transfer energy value back to channel value
     # approx_ratio = 100
 
-    low_new = int(np.around((low - a0)/a1))
-    high_new = int(np.around((high - a0)/a1))
+    low_new = int(np.around((low - a0) / a1))
+    high_new = int(np.around((high - a0) / a1))
     x0, y0 = trim(x, data, low_new, high_new)
     return x0, y0
 
 
-def calculate_profile(x, y, param, elemental_lines,
-                      default_area=1e5):
+def calculate_profile(x, y, param, elemental_lines, default_area=1e5):
     """
     Calculate the spectrum profile based on given parameters. Use function
     construct_linear_model from xrf_model.
@@ -1282,24 +1310,27 @@ def calculate_profile(x, y, param, elemental_lines,
     # Need to use deepcopy here to avoid unexpected change on parameter dict
     fitting_parameters = copy.deepcopy(param)
 
-    total_list, matv, area_dict = construct_linear_model(x,
-                                                         fitting_parameters,
-                                                         elemental_lines,
-                                                         default_area=default_area)
+    total_list, matv, area_dict = construct_linear_model(
+        x, fitting_parameters, elemental_lines, default_area=default_area
+    )
 
     temp_d = {k: v for (k, v) in zip(total_list, matv.transpose())}
 
     # add background
-    bg = snip_method_numba(y,
-                           fitting_parameters['e_offset']['value'],
-                           fitting_parameters['e_linear']['value'],
-                           fitting_parameters['e_quadratic']['value'],
-                           width=fitting_parameters['non_fitting_values']['background_width'])
-    temp_d['background'] = bg
+    bg = snip_method_numba(
+        y,
+        fitting_parameters["e_offset"]["value"],
+        fitting_parameters["e_linear"]["value"],
+        fitting_parameters["e_quadratic"]["value"],
+        width=fitting_parameters["non_fitting_values"]["background_width"],
+    )
+    temp_d["background"] = bg
 
-    x_energy = (fitting_parameters['e_offset']['value']
-                + fitting_parameters['e_linear']['value'] * x
-                + fitting_parameters['e_quadratic']['value'] * x**2)
+    x_energy = (
+        fitting_parameters["e_offset"]["value"]
+        + fitting_parameters["e_linear"]["value"] * x
+        + fitting_parameters["e_quadratic"]["value"] * x ** 2
+    )
 
     return x_energy, temp_d, area_dict
 
@@ -1322,25 +1353,24 @@ def trim_escape_peak(data, param_dict, y_size):
     array :
         trimmed escape peak spectrum
     """
-    ratio = param_dict['non_fitting_values']['escape_ratio']
+    ratio = param_dict["non_fitting_values"]["escape_ratio"]
     xe, ye = compute_escape_peak(data, ratio, param_dict)
-    lowv = param_dict['non_fitting_values']['energy_bound_low']['value']
-    highv = param_dict['non_fitting_values']['energy_bound_high']['value']
+    lowv = param_dict["non_fitting_values"]["energy_bound_low"]["value"]
+    highv = param_dict["non_fitting_values"]["energy_bound_high"]["value"]
     xe, es_peak = trim(xe, ye, lowv, highv)
-    logger.info('Escape peak is considered with ratio {}'.format(ratio))
+    logger.info("Escape peak is considered with ratio {}".format(ratio))
 
     # align to the same length
     if y_size > es_peak.size:
         temp = es_peak
         es_peak = np.zeros(y_size)
-        es_peak[:temp.size] = temp
+        es_peak[: temp.size] = temp
     else:
         es_peak = es_peak[:y_size]
     return es_peak
 
 
-def create_full_dict(param, name_list,
-                     fixed_list=['adjust_element2', 'adjust_element3']):
+def create_full_dict(param, name_list, fixed_list=["adjust_element2", "adjust_element3"]):
     """
     Create full param dict so each item has the same nested dict.
     This is for GUI purpose only.
@@ -1359,20 +1389,20 @@ def create_full_dict(param, name_list,
     param_new = copy.deepcopy(param)
     for n in name_list:
         for k, v in param_new.items():
-            if k == 'non_fitting_values':
+            if k == "non_fitting_values":
                 continue
             if n not in v:
                 # enforce newly created parameter to be fixed
                 # for strategy in fixed_list
                 if n in fixed_list:
-                    v.update({n: 'fixed'})
+                    v.update({n: "fixed"})
                 else:
-                    v.update({n: v['bound_type']})
+                    v.update({n: v["bound_type"]})
     return param_new
 
 
 def strip_line(ename):
-    return ename.split('_')[0]
+    return ename.split("_")[0]
 
 
 def get_Z(ename):
@@ -1390,9 +1420,9 @@ def get_Z(ename):
         element Z number
     """
 
-    non_element = ['compton', 'elastic', 'background', 'escape']
-    if (ename.lower() in non_element) or '-' in ename or 'user' in ename.lower():
-        return '-'
+    non_element = ["compton", "elastic", "background", "escape"]
+    if (ename.lower() in non_element) or "-" in ename or "user" in ename.lower():
+        return "-"
     else:
         e = Element(strip_line(ename))
         return str(e.Z)
@@ -1402,26 +1432,26 @@ def get_energy(ename):
     """
     Return energy value by given elemental name. Need to consider non-elemental case.
     """
-    non_element = ['compton', 'elastic', 'background', 'escape']
-    if (ename.lower() in non_element) or 'user' in ename.lower():
-        return '-'
+    non_element = ["compton", "elastic", "background", "escape"]
+    if (ename.lower() in non_element) or "user" in ename.lower():
+        return "-"
     else:
         e = Element(strip_line(ename))
         ename = ename.lower()
-        if '_k' in ename:
-            energy = e.emission_line['ka1']
-        elif '_l' in ename:
-            energy = e.emission_line['la1']
-        elif '_m' in ename:
-            energy = e.emission_line['ma1']
+        if "_k" in ename:
+            energy = e.emission_line["ka1"]
+        elif "_l" in ename:
+            energy = e.emission_line["la1"]
+        elif "_m" in ename:
+            energy = e.emission_line["ma1"]
 
         return str(np.around(energy, 4))
 
 
 def get_element_list(param):
-    """ Extract elements from parameter class object """
-    element_list = param['non_fitting_values']['element_list']
-    element_list = [e.strip(' ') for e in element_list.split(',')]
+    """Extract elements from parameter class object"""
+    element_list = param["non_fitting_values"]["element_list"]
+    element_list = [e.strip(" ") for e in element_list.split(",")]
     # Unfortunately, "".split(",") returns [""] instead of [], but we need [] !!!
     if element_list == [""]:
         element_list = []
@@ -1430,11 +1460,11 @@ def get_element_list(param):
 
 def _set_element_list(element_list, param):
     element_list = ", ".join(element_list)
-    param['non_fitting_values']['element_list'] = element_list
+    param["non_fitting_values"]["element_list"] = element_list
 
 
 def _add_element_to_list(eline, param):
-    """ Add element to list in the parameter class object """
+    """Add element to list in the parameter class object"""
     elist = get_element_list(param)
     elist_lower = [_.lower() for _ in elist]
     if eline.lower() not in elist_lower:
@@ -1443,7 +1473,7 @@ def _add_element_to_list(eline, param):
 
 
 def _remove_element_from_list(eline, param):
-    """ Add element to list in the parameter class object """
+    """Add element to list in the parameter class object"""
     elist = get_element_list(param)
     elist_lower = [_.lower() for _ in elist]
     try:
@@ -1475,20 +1505,20 @@ def param_dict_cleaner(parameter, element_list):
 
     elines_list = [e for e in element_list if len(e) <= 4]
     elines_lower = [e.lower() for e in elines_list]
-    pileup_list = [e for e in element_list if '-' in e]
-    userpeak_list = [e for e in element_list if 'user' in e.lower()]
+    pileup_list = [e for e in element_list if "-" in e]
+    userpeak_list = [e for e in element_list if "user" in e.lower()]
 
     new_element_set = set()
 
     for k, v in param.items():
-        if k == 'non_fitting_values' or k == k.lower():
+        if k == "non_fitting_values" or k == k.lower():
             param_new.update({k: v})
-        elif 'pileup' in k:
+        elif "pileup" in k:
             for p in pileup_list:
-                if p.replace('-', '_') in k:
+                if p.replace("-", "_") in k:
                     param_new.update({k: v})
                     new_element_set.add(p)
-        elif 'user' in k.lower():
+        elif "user" in k.lower():
             for p in userpeak_list:
                 if p in k:
                     param_new.update({k: v})
@@ -1529,8 +1559,7 @@ def update_param_from_element(param, element_list):
         _add_element_to_list(eline, param_new)
 
     # first remove some items not included in element_list
-    param_new = param_dict_cleaner(param_new,
-                                   element_list)
+    param_new = param_dict_cleaner(param_new, element_list)
 
     # second add some elements to a full parameter dict
     # create full parameter list including elements
@@ -1545,7 +1574,7 @@ def update_param_from_element(param, element_list):
     #         v['bound_type'] = 'fixed'
 
     for k, v in param_temp.items():
-        if k == 'non_fitting_values':
+        if k == "non_fitting_values":
             continue
         if k in param_new:
             param_temp[k] = param_new[k]

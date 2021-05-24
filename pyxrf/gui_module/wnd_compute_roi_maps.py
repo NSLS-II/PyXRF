@@ -1,13 +1,29 @@
-from qtpy.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout,
-                            QCheckBox, QLabel, QTableWidget,
-                            QTableWidgetItem, QHeaderView, QWidget, QMessageBox)
+from qtpy.QtWidgets import (
+    QPushButton,
+    QHBoxLayout,
+    QVBoxLayout,
+    QCheckBox,
+    QLabel,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
+    QWidget,
+    QMessageBox,
+)
 from qtpy.QtGui import QBrush, QColor
 from qtpy.QtCore import Qt, Slot, Signal, QThreadPool, QRunnable
 
-from .useful_widgets import (SecondaryWindow, set_tooltip, LineEditExtended,
-                             PushButtonNamed, CheckBoxNamed, RangeManager)
+from .useful_widgets import (
+    SecondaryWindow,
+    set_tooltip,
+    LineEditExtended,
+    PushButtonNamed,
+    CheckBoxNamed,
+    RangeManager,
+)
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -211,8 +227,10 @@ class WndComputeRoiMaps(SecondaryWindow):
             item_hbox.setAlignment(Qt.AlignCenter)
             item_hbox.setContentsMargins(0, 0, 0, 0)
             color_css = f"rgb({rgb_bckg[0]}, {rgb_bckg[1]}, {rgb_bckg[2]})"
-            item.setStyleSheet(f"QWidget {{ background-color: {color_css}; }} "
-                               f"QCheckBox {{ color: black; background-color: white }}")
+            item.setStyleSheet(
+                f"QWidget {{ background-color: {color_css}; }} "
+                f"QCheckBox {{ color: black; background-color: white }}"
+            )
             self.table.setCellWidget(nr, nc + 1, item)
 
             item = PushButtonNamed("Reset", name=f"{nr}")
@@ -227,7 +245,8 @@ class WndComputeRoiMaps(SecondaryWindow):
 
         self.cb_subtract_baseline = QCheckBox("Subtract baseline")
         self.cb_subtract_baseline.setChecked(
-            Qt.Checked if self.gpc.get_roi_subtract_background() else Qt.Unchecked)
+            Qt.Checked if self.gpc.get_roi_subtract_background() else Qt.Unchecked
+        )
         self.cb_subtract_baseline.toggled.connect(self.cb_subtract_baseline_toggled)
 
         self.pb_compute_roi = QPushButton("Compute ROIs")
@@ -241,23 +260,26 @@ class WndComputeRoiMaps(SecondaryWindow):
         return hbox
 
     def _set_tooltips(self):
-        set_tooltip(self.pb_clear,
-                    "<b>Clear</b> the list")
-        set_tooltip(self.pb_use_lines_for_fitting,
-                    "Copy the contents of <b>the list of emission lines selected for "
-                    "fitting</b> to the list of ROIs")
-        set_tooltip(self.le_sel_emission_lines,
-                    "The list of <b>emission lines</b> selected for ROI computation.")
+        set_tooltip(self.pb_clear, "<b>Clear</b> the list")
+        set_tooltip(
+            self.pb_use_lines_for_fitting,
+            "Copy the contents of <b>the list of emission lines selected for fitting</b> to the list of ROIs",
+        )
+        set_tooltip(self.le_sel_emission_lines, "The list of <b>emission lines</b> selected for ROI computation.")
 
         set_tooltip(self.table, "The list of ROIs")
 
-        set_tooltip(self.cb_subtract_baseline,
-                    "<b>Subtract baseline</b> from the pixel spectra before computing ROIs. "
-                    "Subtracting baseline slows down computations and usually have no benefit. "
-                    "In most cases it should remain <b>unchecked</b>.")
-        set_tooltip(self.pb_compute_roi,
-                    "<b>Run</b> computations of the ROIs. The resulting <b>ROI</b> dataset "
-                    "may be viewed in <b>XRF Maps</b> tab.")
+        set_tooltip(
+            self.cb_subtract_baseline,
+            "<b>Subtract baseline</b> from the pixel spectra before computing ROIs. "
+            "Subtracting baseline slows down computations and usually have no benefit. "
+            "In most cases it should remain <b>unchecked</b>.",
+        )
+        set_tooltip(
+            self.pb_compute_roi,
+            "<b>Run</b> computations of the ROIs. The resulting <b>ROI</b> dataset "
+            "may be viewed in <b>XRF Maps</b> tab.",
+        )
 
     def update_widget_state(self, condition=None):
         # Update the state of the menu bar
@@ -357,7 +379,6 @@ class WndComputeRoiMaps(SecondaryWindow):
             logger.error(f"Failed to change the ROI. Exception occurred: {ex}.")
 
     def pb_compute_roi_clicked(self):
-
         def cb():
             try:
                 self.gpc.compute_rois()
@@ -378,8 +399,7 @@ class WndComputeRoiMaps(SecondaryWindow):
             self.gui_vars["gui_state"]["state_xrf_map_exists"] = True
         else:
             msg = result["msg"]
-            msgbox = QMessageBox(QMessageBox.Critical, "Failed to Compute ROIs",
-                                 msg, QMessageBox.Ok, parent=self)
+            msgbox = QMessageBox(QMessageBox.Critical, "Failed to Compute ROIs", msg, QMessageBox.Ok, parent=self)
             msgbox.exec()
 
         self.signal_roi_computation_complete.emit()
@@ -438,6 +458,7 @@ class WndComputeRoiMaps(SecondaryWindow):
                 def run(self):
                     result_dict = func(*args, **kwargs)
                     signal_complete.emit(result_dict)
+
             return LoadFile()
 
         if slot is not None:

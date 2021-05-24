@@ -1,10 +1,24 @@
-from qtpy.QtWidgets import (QHBoxLayout, QVBoxLayout, QGroupBox, QPushButton,
-                            QCheckBox, QLabel, QGridLayout, QMessageBox)
+from qtpy.QtWidgets import (
+    QHBoxLayout,
+    QVBoxLayout,
+    QGroupBox,
+    QPushButton,
+    QCheckBox,
+    QLabel,
+    QGridLayout,
+    QMessageBox,
+)
 from qtpy.QtCore import Qt, Slot, Signal, QThreadPool, QRunnable
-from .useful_widgets import (set_tooltip, SecondaryWindow, LineEditExtended,
-                             IntValidatorStrict, DoubleValidatorStrict)
+from .useful_widgets import (
+    set_tooltip,
+    SecondaryWindow,
+    LineEditExtended,
+    IntValidatorStrict,
+    DoubleValidatorStrict,
+)
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -85,8 +99,7 @@ class WndGeneralFittingSettings(SecondaryWindow):
         grid.addWidget(self.le_tolerance_stopping, 1, 1)
         grid.addWidget(QLabel("Escape peak ratio:"), 2, 0)
         grid.addWidget(self.le_escape_ratio, 2, 1)
-        self.group_total_spectrum_fitting = QGroupBox(
-            "Fitting of Total Spectrum (Model)")
+        self.group_total_spectrum_fitting = QGroupBox("Fitting of Total Spectrum (Model)")
         self.group_total_spectrum_fitting.setLayout(grid)
         vbox_left.addWidget(self.group_total_spectrum_fitting)
 
@@ -146,8 +159,7 @@ class WndGeneralFittingSettings(SecondaryWindow):
         hbox.addWidget(QLabel("SNIP window size(*):"))
         hbox.addWidget(self.le_snip_window_size)
         vbox.addLayout(hbox)
-        vbox.addWidget(QLabel("*Total spectrum fitting always includes \n"
-                              "    SNIP baseline subtraction"))
+        vbox.addWidget(QLabel("*Total spectrum fitting always includes \n    SNIP baseline subtraction"))
 
         self.group_all_fitting = QGroupBox("All Fitting")
         self.group_all_fitting.setLayout(vbox)
@@ -190,34 +202,32 @@ class WndGeneralFittingSettings(SecondaryWindow):
             self._set_tooltips()
 
     def _set_tooltips(self):
-        set_tooltip(self.pb_apply,
-                    "Save changes and <b>update plots</b>.")
-        set_tooltip(self.pb_cancel,
-                    "<b>Discard</b> all changes.")
-        set_tooltip(self.le_max_iterations,
-                    "<b>Maximum number of iterations</b> used for total spectrum fitting.")
-        set_tooltip(self.le_tolerance_stopping,
-                    "<b>Tolerance</b> setting for total spectrum fitting.")
-        set_tooltip(self.le_escape_ratio,
-                    "Parameter for total spectrum fitting: <b>escape ration</b>")
-        set_tooltip(self.le_incident_energy,
-                    "<b>Incident energy</b> in keV")
-        set_tooltip(self.le_range_low,
-                    "<b>Lower boundary</b> of the selected range in keV.")
-        set_tooltip(self.le_range_high,
-                    "<b>Upper boundary</b> of the selected range in keV.")
-        set_tooltip(self.cb_linear_baseline,
-                    "Subtract baseline as represented as a constant. <b>XRF Map generation</b>. "
-                    "Baseline subtraction is performed as part of NNLS fitting.")
-        set_tooltip(self.cb_snip_baseline,
-                    "Subtract baseline using SNIP method. <b>XRF Map generation</b>. "
-                    "This is a separate step of processing and can be used together with "
-                    "'linear' baseline subtraction if needed.")
-        set_tooltip(self.le_snip_window_size,
-                    "Window size for <b>SNIP</b> algorithm. Used both for total spectrum fitting "
-                    "and XRF Map generation. SNIP baseline subtraction is always performed while "
-                    "fitting total spectrum, but its effect may be reduced or eliminated by setting "
-                    "the window size to some large value.")
+        set_tooltip(self.pb_apply, "Save changes and <b>update plots</b>.")
+        set_tooltip(self.pb_cancel, "<b>Discard</b> all changes.")
+        set_tooltip(self.le_max_iterations, "<b>Maximum number of iterations</b> used for total spectrum fitting.")
+        set_tooltip(self.le_tolerance_stopping, "<b>Tolerance</b> setting for total spectrum fitting.")
+        set_tooltip(self.le_escape_ratio, "Parameter for total spectrum fitting: <b>escape ration</b>")
+        set_tooltip(self.le_incident_energy, "<b>Incident energy</b> in keV")
+        set_tooltip(self.le_range_low, "<b>Lower boundary</b> of the selected range in keV.")
+        set_tooltip(self.le_range_high, "<b>Upper boundary</b> of the selected range in keV.")
+        set_tooltip(
+            self.cb_linear_baseline,
+            "Subtract baseline as represented as a constant. <b>XRF Map generation</b>. "
+            "Baseline subtraction is performed as part of NNLS fitting.",
+        )
+        set_tooltip(
+            self.cb_snip_baseline,
+            "Subtract baseline using SNIP method. <b>XRF Map generation</b>. "
+            "This is a separate step of processing and can be used together with "
+            "'linear' baseline subtraction if needed.",
+        )
+        set_tooltip(
+            self.le_snip_window_size,
+            "Window size for <b>SNIP</b> algorithm. Used both for total spectrum fitting "
+            "and XRF Map generation. SNIP baseline subtraction is always performed while "
+            "fitting total spectrum, but its effect may be reduced or eliminated by setting "
+            "the window size to some large value.",
+        )
 
     def pb_apply_clicked(self):
         """Save dialog data and update plots"""
@@ -331,6 +341,7 @@ class WndGeneralFittingSettings(SecondaryWindow):
 
     def save_form_data(self):
         if self._data_changed:
+
             def cb(dialog_data):
                 try:
                     self.gpc.set_general_fitting_params(dialog_data)
@@ -339,8 +350,7 @@ class WndGeneralFittingSettings(SecondaryWindow):
                     success, msg = False, str(ex)
                 return {"success": success, "msg": msg}
 
-            self._compute_in_background(cb, self.slot_save_form_data,
-                                        dialog_data=self._dialog_data)
+            self._compute_in_background(cb, self.slot_save_form_data, dialog_data=self._dialog_data)
 
     @Slot(object)
     def slot_save_form_data(self, result):
@@ -348,8 +358,9 @@ class WndGeneralFittingSettings(SecondaryWindow):
 
         if not result["success"]:
             msg = result["msg"]
-            msgbox = QMessageBox(QMessageBox.Critical, "Failed to Apply Fit Parameters",
-                                 msg, QMessageBox.Ok, parent=self)
+            msgbox = QMessageBox(
+                QMessageBox.Critical, "Failed to Apply Fit Parameters", msg, QMessageBox.Ok, parent=self
+            )
             msgbox.exec()
         else:
             self._data_changed = False
@@ -406,12 +417,14 @@ class WndGeneralFittingSettings(SecondaryWindow):
         self.le_snip_window_size.setText(self._format_float(val))
 
     def _validate_all(self):
-        valid = (self._validate_max_interations() and
-                 self._validate_tolerance_stopping() and
-                 self._validate_escape_ratio() and
-                 self._validate_incident_energy() and
-                 self._validate_range() and
-                 self._validate_snip_window_size())
+        valid = (
+            self._validate_max_interations()
+            and self._validate_tolerance_stopping()
+            and self._validate_escape_ratio()
+            and self._validate_incident_energy()
+            and self._validate_range()
+            and self._validate_snip_window_size()
+        )
 
         self.pb_apply.setEnabled(valid and self._data_changed)
         self.pb_cancel.setEnabled(valid and self._data_changed)
@@ -532,6 +545,7 @@ class WndGeneralFittingSettings(SecondaryWindow):
                 def run(self):
                     result_dict = func(*args, **kwargs)
                     signal_complete.emit(result_dict)
+
             return RunTask()
 
         if slot is not None:

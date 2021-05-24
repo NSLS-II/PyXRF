@@ -15,11 +15,11 @@ from ..model.param_data import param_data
 from ..core.xrf_utils import get_eline_energy
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
 class GlobalProcessingClasses:
-
     def __init__(self):
         self.defaults = None
         self.io_model = None
@@ -45,8 +45,9 @@ class GlobalProcessingClasses:
         self.io_model = FileIOModel(working_directory=working_directory)
         self.param_model = ParamModel(default_parameters=default_parameters, io_model=self.io_model)
         self.plot_model = LinePlotModel(param_model=self.param_model, io_model=self.io_model)
-        self.fit_model = Fit1D(param_model=self.param_model, io_model=self.io_model,
-                               working_directory=working_directory)
+        self.fit_model = Fit1D(
+            param_model=self.param_model, io_model=self.io_model, working_directory=working_directory
+        )
         self.roi_model = ROIModel(param_model=self.param_model, io_model=self.io_model)
         self.img_model_adv = DrawImageAdvanced(io_model=self.io_model)
         self.img_model_rgb = DrawImageRGB(io_model=self.io_model, img_model_adv=self.img_model_adv)
@@ -55,38 +56,38 @@ class GlobalProcessingClasses:
         self.plot_model.roi_dict = self.roi_model.roi_dict
 
         # send working directory changes to different models
-        self.io_model.observe('working_directory', self.fit_model.result_folder_changed)
-        self.io_model.observe('working_directory', self.roi_model.result_folder_changed)
-        self.io_model.observe('selected_file_name', self.fit_model.data_title_update)
-        self.io_model.observe('selected_file_name', self.plot_model.exp_label_update)
-        self.io_model.observe('selected_file_name', self.roi_model.data_title_update)
+        self.io_model.observe("working_directory", self.fit_model.result_folder_changed)
+        self.io_model.observe("working_directory", self.roi_model.result_folder_changed)
+        self.io_model.observe("selected_file_name", self.fit_model.data_title_update)
+        self.io_model.observe("selected_file_name", self.plot_model.exp_label_update)
+        self.io_model.observe("selected_file_name", self.roi_model.data_title_update)
 
         # send the same file to fit model, as fitting results need to be saved
-        self.io_model.observe('file_name', self.fit_model.filename_update)
-        self.io_model.observe('file_name', self.plot_model.plot_exp_data_update)
-        self.io_model.observe('file_name', self.roi_model.filename_update)
-        self.io_model.observe('runid', self.fit_model.runid_update)
+        self.io_model.observe("file_name", self.fit_model.filename_update)
+        self.io_model.observe("file_name", self.plot_model.plot_exp_data_update)
+        self.io_model.observe("file_name", self.roi_model.filename_update)
+        self.io_model.observe("runid", self.fit_model.runid_update)
 
         # Perform updates when 'io_model.data' is changed (no data is passed)
-        self.io_model.observe('data', self.plot_model.exp_data_update)
+        self.io_model.observe("data", self.plot_model.exp_data_update)
 
         # send img dict to img_model for visualization
-        self.io_model.observe('img_dict_is_updated', self.fit_model.img_dict_updated)
-        self.io_model.observe('img_dict_is_updated', self.img_model_adv.img_dict_updated)
-        self.io_model.observe('img_dict_is_updated', self.img_model_rgb.img_dict_updated)
+        self.io_model.observe("img_dict_is_updated", self.fit_model.img_dict_updated)
+        self.io_model.observe("img_dict_is_updated", self.img_model_adv.img_dict_updated)
+        self.io_model.observe("img_dict_is_updated", self.img_model_rgb.img_dict_updated)
 
-        self.io_model.observe('incident_energy_set', self.plot_model.set_incident_energy)
-        self.io_model.observe('incident_energy_set', self.img_model_adv.set_incident_energy)
+        self.io_model.observe("incident_energy_set", self.plot_model.set_incident_energy)
+        self.io_model.observe("incident_energy_set", self.img_model_adv.set_incident_energy)
 
-        self.img_model_adv.observe('scaler_name_index', self.fit_model.scaler_index_update)
+        self.img_model_adv.observe("scaler_name_index", self.fit_model.scaler_index_update)
 
-        self.img_model_adv.observe('dict_to_plot', self.fit_model.dict_to_plot_update)
-        self.img_model_adv.observe('img_title', self.fit_model.img_title_update)
+        self.img_model_adv.observe("dict_to_plot", self.fit_model.dict_to_plot_update)
+        self.img_model_adv.observe("img_title", self.fit_model.img_title_update)
 
-        self.param_model.observe('energy_bound_high_buf', self.plot_model.energy_bound_high_update)
-        self.param_model.observe('energy_bound_low_buf', self.plot_model.energy_bound_low_update)
+        self.param_model.observe("energy_bound_high_buf", self.plot_model.energy_bound_high_update)
+        self.param_model.observe("energy_bound_low_buf", self.plot_model.energy_bound_low_update)
 
-        logger.info('pyxrf started.')
+        logger.info("pyxrf started.")
 
     def add_parameters_changed_cb(self, cb):
         """
@@ -117,7 +118,7 @@ class GlobalProcessingClasses:
         self.io_model.data_ready = False
         # only load one file
         # 'temp' is used to reload the same file, otherwise file_name will not update
-        self.io_model.file_name = 'temp'
+        self.io_model.file_name = "temp"
         f_dir, f_name = os.path.split(file_path)
         self.io_model.working_directory = f_dir
 
@@ -178,11 +179,13 @@ class GlobalProcessingClasses:
             print("======== Set window title")
 
             if not self.io_model.incident_energy_available:
-                msg = ("Incident energy is not available in scan metadata and must be set manually. "
-                       "Incident energy may be set by changing 'Incident energy, keV' parameter "
-                       "in the dialog boxes opened using 'Find Automatically...' ('Find Elements "
-                       "in sample' or 'General...' ('General Settings for Fitting Alogirthm') "
-                       "buttons in 'Model' tab.")
+                msg = (
+                    "Incident energy is not available in scan metadata and must be set manually. "
+                    "Incident energy may be set by changing 'Incident energy, keV' parameter "
+                    "in the dialog boxes opened using 'Find Automatically...' ('Find Elements "
+                    "in sample' or 'General...' ('General Settings for Fitting Alogirthm') "
+                    "buttons in 'Model' tab."
+                )
             else:
                 msg = ""
 
@@ -327,7 +330,7 @@ class GlobalProcessingClasses:
         before calling this function.
         """
         if self.is_scan_metadata_available():
-            scan_id = self.io_model.scan_metadata['scan_id']
+            scan_id = self.io_model.scan_metadata["scan_id"]
         else:
             scan_id = 0  # This is mostly for preventing crashes.
         return scan_id
@@ -338,7 +341,7 @@ class GlobalProcessingClasses:
         before calling this function.
         """
         if self.is_scan_metadata_available():
-            scan_uid = self.io_model.scan_metadata['scan_uid']
+            scan_uid = self.io_model.scan_metadata["scan_uid"]
         else:
             scan_uid = ""  # This is mostly for preventing crashes.
         return scan_uid
@@ -384,7 +387,7 @@ class GlobalProcessingClasses:
             "row_start": self.io_model.roi_row_start,
             "col_start": self.io_model.roi_col_start,
             "row_end": self.io_model.roi_row_end,
-            "col_end": self.io_model.roi_col_end
+            "col_end": self.io_model.roi_col_end,
         }
         return spatial_roi
 
@@ -502,23 +505,29 @@ class GlobalProcessingClasses:
         ks_limit = list(self.img_model_adv.limit_dict.keys())
         ks_show = list(self.img_model_adv.stat_dict.keys())
         if set(ks) != set(ks_limit):
-            raise RuntimeError("The list of keys in 'limit_dict' is not as expected: "
-                               f"limit_dict.keys(): {ks_limit} expected: {ks}")
+            raise RuntimeError(
+                "The list of keys in 'limit_dict' is not as expected: "
+                f"limit_dict.keys(): {ks_limit} expected: {ks}"
+            )
         if set(ks) != set(ks_range):
-            raise RuntimeError("The list of keys in 'range_dict' is not as expected: "
-                               f"range_dict.keys(): {ks_range} expected: {ks}")
+            raise RuntimeError(
+                "The list of keys in 'range_dict' is not as expected: "
+                f"range_dict.keys(): {ks_range} expected: {ks}"
+            )
         if set(ks) != set(ks_show):
-            raise RuntimeError("The list of keys in 'stat_dict' is not as expected: "
-                               f"stat_dict.keys(): {ks_show} expected: {ks}")
+            raise RuntimeError(
+                "The list of keys in 'stat_dict' is not as expected: "
+                f"stat_dict.keys(): {ks_show} expected: {ks}"
+            )
 
         range_table = []
         limit_table = []
         show_table = []
         for key in ks:
-            rng_low = self.img_model_adv.range_dict[key]['low']
-            rng_high = self.img_model_adv.range_dict[key]['high']
-            limit_low_norm = self.img_model_adv.limit_dict[key]['low']
-            limit_high_norm = self.img_model_adv.limit_dict[key]['high']
+            rng_low = self.img_model_adv.range_dict[key]["low"]
+            rng_high = self.img_model_adv.range_dict[key]["high"]
+            limit_low_norm = self.img_model_adv.limit_dict[key]["low"]
+            limit_high_norm = self.img_model_adv.limit_dict[key]["high"]
             limit_low = rng_low + (rng_high - rng_low) * limit_low_norm / 100.0
             limit_high = rng_low + (rng_high - rng_low) * limit_high_norm / 100.0
             range_table.append([key, rng_low, rng_high])
@@ -541,28 +550,32 @@ class GlobalProcessingClasses:
         # Verify: the keys in both tables must match 'self.img_model_adv.map_keys'
         limit_table_keys = [_[0] for _ in limit_table]
         if set(limit_table_keys) != set(self.img_model_adv.map_keys):
-            raise ValueError("GlobalProcessingClasses:set_maps_info_table: keys don't match:"
-                             f"limit_table has keys {limit_table_keys}, "
-                             f"original keys {self.img_model_adv.map_keys}")
+            raise ValueError(
+                "GlobalProcessingClasses:set_maps_info_table: keys don't match:"
+                f"limit_table has keys {limit_table_keys}, "
+                f"original keys {self.img_model_adv.map_keys}"
+            )
 
         show_table_keys = [_[0] for _ in show_table]
         if set(show_table_keys) != set(self.img_model_adv.map_keys):
-            raise ValueError("GlobalProcessingClasses:set_maps_info_table: keys don't match:"
-                             f"show_table has keys {show_table_keys}, "
-                             f"original keys {self.img_model_adv.map_keys}")
+            raise ValueError(
+                "GlobalProcessingClasses:set_maps_info_table: keys don't match:"
+                f"show_table has keys {show_table_keys}, "
+                f"original keys {self.img_model_adv.map_keys}"
+            )
 
         # Copy limits
         for row in limit_table:
             key, v_low, v_high = row
 
-            rng_low = self.img_model_adv.range_dict[key]['low']
-            rng_high = self.img_model_adv.range_dict[key]['high']
+            rng_low = self.img_model_adv.range_dict[key]["low"]
+            rng_high = self.img_model_adv.range_dict[key]["high"]
 
             v_low_norm = (v_low - rng_low) / (rng_high - rng_low) * 100.0
             v_high_norm = (v_high - rng_low) / (rng_high - rng_low) * 100.0
 
-            self.img_model_adv.limit_dict[key]['low'] = v_low_norm
-            self.img_model_adv.limit_dict[key]['high'] = v_high_norm
+            self.img_model_adv.limit_dict[key]["low"] = v_low_norm
+            self.img_model_adv.limit_dict[key]["high"] = v_high_norm
 
         # Copy 'show' status (whether the map should be shown)
         for row in show_table:
@@ -604,19 +617,19 @@ class GlobalProcessingClasses:
         self.img_model_adv.enable_quantitative_normalization(enable)
 
     def get_maps_scale_opt(self):
-        """Returns selected plot type: `Linear` or `Log` """
+        """Returns selected plot type: `Linear` or `Log`"""
         return self.img_model_adv.scale_opt
 
     def set_maps_scale_opt(self, scale_opt):
-        """Set plot type. Allowed values: `Linear` and `Log` """
+        """Set plot type. Allowed values: `Linear` and `Log`"""
         self.img_model_adv.set_scale_opt(scale_opt)
 
     def get_maps_color_opt(self):
-        """Returns selected plot color option: `Linear` or `Log` """
+        """Returns selected plot color option: `Linear` or `Log`"""
         return self.img_model_adv.color_opt
 
     def set_maps_color_opt(self, color_opt):
-        """Set plot type. Allowed values: `Linear` and `Log` """
+        """Set plot type. Allowed values: `Linear` and `Log`"""
         self.img_model_adv.set_color_opt(color_opt)
 
     def get_maps_pixel_or_pos(self):
@@ -679,28 +692,36 @@ class GlobalProcessingClasses:
         ks_limit = list(self.img_model_rgb.limit_dict.keys())
         rgb_dict = self.img_model_rgb.rgb_dict
         if set(ks) != set(ks_limit):
-            raise RuntimeError("The list of keys in 'limit_dict' is not as expected: "
-                               f"limit_dict.keys(): {ks_limit} expected: {ks}")
+            raise RuntimeError(
+                "The list of keys in 'limit_dict' is not as expected: "
+                f"limit_dict.keys(): {ks_limit} expected: {ks}"
+            )
         if set(ks) != set(ks_range):
-            raise RuntimeError("The list of keys in 'range_dict' is not as expected: "
-                               f"range_dict.keys(): {ks_range} expected: {ks}")
-        if len(rgb_dict) != len(self.img_model_rgb.rgb_keys) or \
-                set(rgb_dict.keys()) != set(self.img_model_rgb.rgb_keys):
-            raise ValueError("GlobalProcessingClasses.get_rgb_maps_info_table(): "
-                             f"incorrect set of keys in 'rgb_dict': {list(rgb_dict.keys())}, "
-                             f"expected: {self.img_model_rgb.rgb_keys}")
+            raise RuntimeError(
+                "The list of keys in 'range_dict' is not as expected: "
+                f"range_dict.keys(): {ks_range} expected: {ks}"
+            )
+        if len(rgb_dict) != len(self.img_model_rgb.rgb_keys) or set(rgb_dict.keys()) != set(
+            self.img_model_rgb.rgb_keys
+        ):
+            raise ValueError(
+                "GlobalProcessingClasses.get_rgb_maps_info_table(): "
+                f"incorrect set of keys in 'rgb_dict': {list(rgb_dict.keys())}, "
+                f"expected: {self.img_model_rgb.rgb_keys}"
+            )
         for v in rgb_dict.values():
             if (v is not None) and (v not in ks):
-                raise ValueError("GlobalProcessingClasses.get_rgb_maps_info_table(): "
-                                 f"Invalid key {v}. Allowed keys: {ks}")
+                raise ValueError(
+                    f"GlobalProcessingClasses.get_rgb_maps_info_table(): Invalid key {v}. Allowed keys: {ks}"
+                )
 
         range_table = []
         limit_table = []
         for key in ks:
-            rng_low = self.img_model_rgb.range_dict[key]['low']
-            rng_high = self.img_model_rgb.range_dict[key]['high']
-            limit_low_norm = self.img_model_rgb.limit_dict[key]['low']
-            limit_high_norm = self.img_model_rgb.limit_dict[key]['high']
+            rng_low = self.img_model_rgb.range_dict[key]["low"]
+            rng_high = self.img_model_rgb.range_dict[key]["high"]
+            limit_low_norm = self.img_model_rgb.limit_dict[key]["low"]
+            limit_high_norm = self.img_model_rgb.limit_dict[key]["high"]
             limit_low = rng_low + (rng_high - rng_low) * limit_low_norm / 100.0
             limit_high = rng_low + (rng_high - rng_low) * limit_high_norm / 100.0
             range_table.append([key, rng_low, rng_high])
@@ -726,22 +747,24 @@ class GlobalProcessingClasses:
         # Verify: the keys in both tables must match 'self.img_model_adv.map_keys'
         limit_table_keys = [_[0] for _ in limit_table]
         if set(limit_table_keys) != set(self.img_model_rgb.map_keys):
-            raise ValueError("GlobalProcessingClasses:set_maps_info_table: keys don't match:"
-                             f"limit_table has keys {limit_table_keys}, "
-                             f"original keys {self.img_model_rgb.map_keys}")
+            raise ValueError(
+                "GlobalProcessingClasses:set_maps_info_table: keys don't match:"
+                f"limit_table has keys {limit_table_keys}, "
+                f"original keys {self.img_model_rgb.map_keys}"
+            )
 
         # Copy limits
         for row in limit_table:
             key, v_low, v_high = row
 
-            rng_low = self.img_model_rgb.range_dict[key]['low']
-            rng_high = self.img_model_rgb.range_dict[key]['high']
+            rng_low = self.img_model_rgb.range_dict[key]["low"]
+            rng_high = self.img_model_rgb.range_dict[key]["high"]
 
             v_low_norm = (v_low - rng_low) / (rng_high - rng_low) * 100.0
             v_high_norm = (v_high - rng_low) / (rng_high - rng_low) * 100.0
 
-            self.img_model_rgb.limit_dict[key]['low'] = v_low_norm
-            self.img_model_rgb.limit_dict[key]['high'] = v_high_norm
+            self.img_model_rgb.limit_dict[key]["low"] = v_low_norm
+            self.img_model_rgb.limit_dict[key]["high"] = v_high_norm
 
         self.img_model_rgb.rgb_dict = rgb_dict.copy()
 
@@ -854,8 +877,10 @@ class GlobalProcessingClasses:
 
     def set_plot_fit_energy_range(self, range_name):
         if range_name not in self.plot_model.energy_range_names:
-            raise ValueError(f"Range name {range_name} is not in the list of allowed "
-                             f"names {self.plot_model.energy_range_name}")
+            raise ValueError(
+                f"Range name {range_name} is not in the list of allowed "
+                f"names {self.plot_model.energy_range_name}"
+            )
         self.plot_model.set_energy_range_fitting(range_name)
 
     def get_plot_fit_linlog(self):
@@ -888,17 +913,16 @@ class GlobalProcessingClasses:
         materials = ["Si", "Ge"]
         if detector_material not in materials:
             raise ValueError(f"Detector material '{detector_material}' is unknown: {materials}")
-        self.plot_model.change_escape_peak_settings(1 if plot_escape_peak else 0,
-                                                    materials.index(detector_material))
+        self.plot_model.change_escape_peak_settings(
+            1 if plot_escape_peak else 0, materials.index(detector_material)
+        )
 
     # ==========================================================================
     #          The following methods are used by Model tab
     def get_autofind_elements_params(self):
         """Assemble the parameters managed by 'Find Elements in Sample` dialog box."""
         dialog_params = {}
-        keys1 = ["e_offset", "e_linear", "e_quadratic",
-                 "fwhm_offset", "fwhm_fanoprime",
-                 "coherent_sct_energy"]
+        keys1 = ["e_offset", "e_linear", "e_quadratic", "fwhm_offset", "fwhm_fanoprime", "coherent_sct_energy"]
         for k in keys1:
             dialog_params[k] = {}
             dialog_params[k]["value"] = self.param_model.param_new[k]["value"]
@@ -937,18 +961,19 @@ class GlobalProcessingClasses:
         logger.debug("Saving parameters from 'DialogFindElements'")
 
         # Check if the critical parameters were changed
-        if (self.plot_model.incident_energy != dialog_params["coherent_sct_energy"]["value"]) or \
-                (self.param_model.energy_bound_high_buf != dialog_params["energy_bound_high"]["value"]) or \
-                (self.param_model.energy_bound_low_buf != dialog_params["energy_bound_low"]["value"]) or \
-                (self.param_model.param_new["e_offset"]["value"] != dialog_params["e_offset"]["value"]) or \
-                (self.param_model.param_new["e_linear"]["value"] != dialog_params["e_linear"]["value"]) or \
-                (self.param_model.param_new["e_quadratic"]["value"] != dialog_params["e_quadratic"]["value"]):
+        if (
+            (self.plot_model.incident_energy != dialog_params["coherent_sct_energy"]["value"])
+            or (self.param_model.energy_bound_high_buf != dialog_params["energy_bound_high"]["value"])
+            or (self.param_model.energy_bound_low_buf != dialog_params["energy_bound_low"]["value"])
+            or (self.param_model.param_new["e_offset"]["value"] != dialog_params["e_offset"]["value"])
+            or (self.param_model.param_new["e_linear"]["value"] != dialog_params["e_linear"]["value"])
+            or (self.param_model.param_new["e_quadratic"]["value"] != dialog_params["e_quadratic"]["value"])
+        ):
             return_value = True
         else:
             return_value = False
 
-        keys = ["e_offset", "e_linear", "e_quadratic",
-                "fwhm_offset", "fwhm_fanoprime"]
+        keys = ["e_offset", "e_linear", "e_quadratic", "fwhm_offset", "fwhm_fanoprime"]
         for k in keys:
             self.param_model.param_new[k]["value"] = dialog_params[k]["value"]
 
@@ -958,10 +983,12 @@ class GlobalProcessingClasses:
 
         # Also change incident energy
         self.param_model.param_new["coherent_sct_energy"]["value"] = dialog_params["coherent_sct_energy"]["value"]
-        self.param_model.param_new["non_fitting_values"]["energy_bound_low"]["value"] = \
-            dialog_params["energy_bound_low"]["value"]
-        self.param_model.param_new["non_fitting_values"]["energy_bound_high"]["value"] = \
-            dialog_params["energy_bound_high"]["value"]
+        self.param_model.param_new["non_fitting_values"]["energy_bound_low"]["value"] = dialog_params[
+            "energy_bound_low"
+        ]["value"]
+        self.param_model.param_new["non_fitting_values"]["energy_bound_high"]["value"] = dialog_params[
+            "energy_bound_high"
+        ]["value"]
 
         if update_model and return_value:
             self.param_model.create_spectrum_from_param_dict(reset=False)
@@ -1052,7 +1079,7 @@ class GlobalProcessingClasses:
             elif eline_category == "pileup":
                 energy = self.param_model.get_pileup_peak_energy(eline)
                 energy_list = [energy] * len(e_list)
-            elif eline_category == 'userpeak':
+            elif eline_category == "userpeak":
                 key = eline + "_delta_center"
                 energy = param_dict[key]["value"] + 5.0
                 energy_list = [energy] * len(e_list)
@@ -1069,13 +1096,15 @@ class GlobalProcessingClasses:
         _fit_strategy_list = fit_strategy_list.copy()
         _bound_options = bound_options.copy()
 
-        return {"param_dict": param_dict,
-                "eline_list": eline_list,
-                "eline_key_dict": eline_key_dict,
-                "eline_energy_dict": eline_energy_dict,
-                "other_param_list": other_param_list,
-                "fit_strategy_list": _fit_strategy_list,
-                "bound_options": _bound_options}
+        return {
+            "param_dict": param_dict,
+            "eline_list": eline_list,
+            "eline_key_dict": eline_key_dict,
+            "eline_energy_dict": eline_energy_dict,
+            "other_param_list": other_param_list,
+            "fit_strategy_list": _fit_strategy_list,
+            "bound_options": _bound_options,
+        }
 
     def get_detailed_fitting_params_shared(self):
         # Dictionary of fitting parameters. Create a copy !!!
@@ -1094,13 +1123,15 @@ class GlobalProcessingClasses:
         _fit_strategy_list = fit_strategy_list.copy()
         _bound_options = bound_options.copy()
 
-        return {"param_dict": param_dict,
-                "eline_list": eline_list,
-                "eline_key_dict": eline_key_dict,
-                "eline_energy_dict": eline_energy_dict,
-                "other_param_list": other_param_list,
-                "fit_strategy_list": _fit_strategy_list,
-                "bound_options": _bound_options}
+        return {
+            "param_dict": param_dict,
+            "eline_list": eline_list,
+            "eline_key_dict": eline_key_dict,
+            "eline_energy_dict": eline_energy_dict,
+            "other_param_list": other_param_list,
+            "fit_strategy_list": _fit_strategy_list,
+            "bound_options": _bound_options,
+        }
 
     def set_detailed_fitting_params(self, dialog_data):
         param_dict = dialog_data["param_dict"]
@@ -1140,8 +1171,7 @@ class GlobalProcessingClasses:
         # The current selection is set to the currently selected standard
         #   held in 'fit_model.qe_standard_selected_copy'
         qe_standard_selected = self.fit_model.qe_standard_selected_copy
-        qe_standard_selected = \
-            self.fit_model.param_quant_estimation.set_selected_standard(qe_standard_selected)
+        qe_standard_selected = self.fit_model.param_quant_estimation.set_selected_standard(qe_standard_selected)
 
         return qe_param_built_in, qe_param_custom, qe_standard_selected
 
@@ -1159,7 +1189,7 @@ class GlobalProcessingClasses:
         return self.fit_model.param_quant_estimation.is_standard_custom(standard)
 
     def process_peaks_from_quantitative_sample_data(self):
-        incident_energy = self.param_model.param_new['coherent_sct_energy']['value']
+        incident_energy = self.param_model.param_new["coherent_sct_energy"]["value"]
         # Generate the data structure for the results of processing of standard data
         self.fit_model.param_quant_estimation.gen_fluorescence_data_dict(incident_energy)
         # Obtain the list (dictionary) of elemental lines from the generated structure
@@ -1179,9 +1209,9 @@ class GlobalProcessingClasses:
         # update experimental plots in case the coefficients change
         self.plot_model.plot_experiment()
 
-        self.plot_model.plot_fit(self.param_model.prefit_x,
-                                 self.param_model.total_y,
-                                 self.param_model.auto_fit_all)
+        self.plot_model.plot_fit(
+            self.param_model.prefit_x, self.param_model.total_y, self.param_model.auto_fit_all
+        )
 
         # Update displayed intensity of the selected peak
         self.plot_model.compute_manual_peak_intensity()
@@ -1209,7 +1239,7 @@ class GlobalProcessingClasses:
             overwrite_metadata_incident_energy = False
 
             # Incident energy from the parameter file
-            param_incident_energy = self.param_model.param_new['coherent_sct_energy']['value']
+            param_incident_energy = self.param_model.param_new["coherent_sct_energy"]["value"]
 
             if self.io_model.incident_energy_available:
 
@@ -1222,11 +1252,13 @@ class GlobalProcessingClasses:
                 if not math.isclose(param_incident_energy, mdata_incident_energy, abs_tol=0.001):
                     # TODO: the following text is not properly formatted for QMessageBox
                     #       It's not very important now, but should be resolved in the future.
-                    msg = f"The values of incident energy from data file metadata " \
-                          f"and parameter file are different.\n" \
-                          f"Incident energy from metadata: {mdata_incident_energy} keV.\n" \
-                          f"Incident energy from the loaded parameter file: {param_incident_energy} keV.\n" \
-                          f"Would you prefer to use the incident energy from the parameter file for processing?"
+                    msg = (
+                        f"The values of incident energy from data file metadata "
+                        f"and parameter file are different.\n"
+                        f"Incident energy from metadata: {mdata_incident_energy} keV.\n"
+                        f"Incident energy from the loaded parameter file: {param_incident_energy} keV.\n"
+                        f"Would you prefer to use the incident energy from the parameter file for processing?"
+                    )
 
                     if incident_energy_from_param_file is None:
                         return False, msg
@@ -1243,12 +1275,12 @@ class GlobalProcessingClasses:
                 logger.info(f"Using incident energy from the parameter file: {param_incident_energy} keV")
             else:
                 # Keep the incident energy from the file
-                logger.info(f"Using incident energy from the datafile metadata: "
-                            f"{mdata_incident_energy} keV")
+                logger.info(f"Using incident energy from the datafile metadata: {mdata_incident_energy} keV")
                 incident_energy = round(mdata_incident_energy, 6)
                 self.param_model.param_new["coherent_sct_energy"]["value"] = incident_energy
-                self.param_model.param_new["non_fitting_values"]["energy_bound_high"]["value"] = \
+                self.param_model.param_new["non_fitting_values"]["energy_bound_high"]["value"] = (
                     incident_energy + 0.8
+                )
 
             self.fit_model.apply_default_param()
 
@@ -1261,9 +1293,9 @@ class GlobalProcessingClasses:
             self.fit_model.get_profile()
 
             # update experimental plot with new calibration values
-            self.plot_model.plot_fit(self.fit_model.cal_x, self.fit_model.cal_y,
-                                     self.fit_model.cal_spectrum,
-                                     self.fit_model.residual)
+            self.plot_model.plot_fit(
+                self.fit_model.cal_x, self.fit_model.cal_y, self.fit_model.cal_spectrum, self.fit_model.residual
+            )
 
             self.plot_model.plot_exp_opt = False
             self.plot_model.plot_exp_opt = True
@@ -1273,8 +1305,7 @@ class GlobalProcessingClasses:
 
             # The following statement is necessary mostly to set the correct value of
             #   the upper boundary of the energy range used for emission line search.
-            self.plot_model.change_incident_energy(
-                self.param_model.param_new["coherent_sct_energy"]["value"])
+            self.plot_model.change_incident_energy(self.param_model.param_new["coherent_sct_energy"]["value"])
 
             # update parameter for fit
             # self.param_model.create_full_param()
@@ -1362,9 +1393,16 @@ class GlobalProcessingClasses:
             energy = self.param_model.EC.element_dict[eline].energy
             peak_int = self.param_model.EC.element_dict[eline].maxv
             rel_int = self.param_model.EC.element_dict[eline].norm
-            cs = get_cs(eline, self.param_model.param_new['coherent_sct_energy']['value'])
-            row_data = {"eline": eline, "sel_status": sel_status, "z": z,
-                        "energy": energy, "peak_int": peak_int, "rel_int": rel_int, "cs": cs}
+            cs = get_cs(eline, self.param_model.param_new["coherent_sct_energy"]["value"])
+            row_data = {
+                "eline": eline,
+                "sel_status": sel_status,
+                "z": z,
+                "energy": energy,
+                "peak_int": peak_int,
+                "rel_int": rel_int,
+                "cs": cs,
+            }
             eline_table.append(row_data)
         return eline_table
 
@@ -1381,14 +1419,13 @@ class GlobalProcessingClasses:
     def set_checked_emission_lines(self, eline_list, eline_checked_list):
         for eline, checked in zip(eline_list, eline_checked_list):
             self.param_model.EC.element_dict[eline].status = checked
-            self.param_model.EC.element_dict[eline].stat_copy = \
-                self.param_model.EC.element_dict[eline].status
+            self.param_model.EC.element_dict[eline].stat_copy = self.param_model.EC.element_dict[eline].status
 
         self.param_model.data_for_plot()
 
-        self.plot_model.plot_fit(self.param_model.prefit_x,
-                                 self.param_model.total_y,
-                                 self.param_model.auto_fit_all)
+        self.plot_model.plot_fit(
+            self.param_model.prefit_x, self.param_model.total_y, self.param_model.auto_fit_all
+        )
         # For plotting purposes, otherwise plot will not update
         self.plot_model.show_fit_opt = False
         self.plot_model.show_fit_opt = True
@@ -1445,9 +1482,11 @@ class GlobalProcessingClasses:
         eline_info = self.param_model.guess_pileup_peak_components(energy=energy, tolerance=tolerance)
         if eline_info is not None:
             e1, e2, energy = eline_info
-            eline_info = (self.convert_full_eline_name(e1, to_upper=True),
-                          self.convert_full_eline_name(e2, to_upper=True),
-                          energy)
+            eline_info = (
+                self.convert_full_eline_name(e1, to_upper=True),
+                self.convert_full_eline_name(e2, to_upper=True),
+                energy,
+            )
         return eline_info
 
     def get_selected_energy_range(self):
@@ -1460,8 +1499,8 @@ class GlobalProcessingClasses:
         tuple(float, float)
             Selected range (low, high) in keV
         """
-        e_low = self.param_model.param_new['non_fitting_values']['energy_bound_low']['value']
-        e_high = self.param_model.param_new['non_fitting_values']['energy_bound_high']['value']
+        e_low = self.param_model.param_new["non_fitting_values"]["energy_bound_low"]["value"]
+        e_high = self.param_model.param_new["non_fitting_values"]["energy_bound_high"]["value"]
         return e_low, e_high
 
     def add_peak_manual(self, eline):
@@ -1473,14 +1512,15 @@ class GlobalProcessingClasses:
 
         # The following set of conditions is not complete, but sufficient
         if self.param_model.x0 is None or self.param_model.y0 is None:
-            err_msg = "Experimental data is not loaded or initial\n" \
-                      "spectrum fitting is not performed"
+            err_msg = "Experimental data is not loaded or initial\nspectrum fitting is not performed"
             raise RuntimeError(err_msg)
 
         elif is_userpeak and (not self.plot_model.vertical_marker_is_visible):
-            err_msg = ("Select position of userpeak by clicking on the spectrum plot.\n"
-                       "Note: plot toolbar options, such as Pan and Zoom, \n"
-                       "must be turned off before selecting the position.")
+            err_msg = (
+                "Select position of userpeak by clicking on the spectrum plot.\n"
+                "Note: plot toolbar options, such as Pan and Zoom, \n"
+                "must be turned off before selecting the position."
+            )
             raise RuntimeError(err_msg)
 
         else:
@@ -1582,9 +1622,9 @@ class GlobalProcessingClasses:
         # update experimental plots in case the coefficients change
         self.plot_model.plot_experiment()
 
-        self.plot_model.plot_fit(self.param_model.prefit_x,
-                                 self.param_model.total_y,
-                                 self.param_model.auto_fit_all)
+        self.plot_model.plot_fit(
+            self.param_model.prefit_x, self.param_model.total_y, self.param_model.auto_fit_all
+        )
 
         # For plotting purposes, otherwise plot will not update
         if self.plot_model.plot_exp_opt:
@@ -1616,9 +1656,9 @@ class GlobalProcessingClasses:
         # update experimental plot with new calibration values
         self.plot_model.plot_experiment()
 
-        self.plot_model.plot_fit(self.fit_model.cal_x, self.fit_model.cal_y,
-                                 self.fit_model.cal_spectrum,
-                                 self.fit_model.residual)
+        self.plot_model.plot_fit(
+            self.fit_model.cal_x, self.fit_model.cal_y, self.fit_model.cal_spectrum, self.fit_model.residual
+        )
 
         # For plotting purposes, otherwise plot will not update
         self.plot_model.plot_exp_opt = False
@@ -1648,8 +1688,7 @@ class GlobalProcessingClasses:
         return self.fit_model.compute_current_rfactor(save_fit)
 
     def get_iter_and_var_number(self):
-        return {"var_number": self.fit_model.nvar,
-                "iter_number": self.fit_model.function_num}
+        return {"var_number": self.fit_model.nvar, "iter_number": self.fit_model.function_num}
 
     # ==========================================================================
     #          The following methods are used by Maps tab
@@ -1659,10 +1698,11 @@ class GlobalProcessingClasses:
         self.fit_model.fit_single_pixel()
 
         # add scalers to fit dict
-        scaler_keys = [v for v in self.io_model.img_dict.keys() if 'scaler' in v]
+        scaler_keys = [v for v in self.io_model.img_dict.keys() if "scaler" in v]
         if len(scaler_keys) > 0:
             self.fit_model.fit_img[list(self.fit_model.fit_img.keys())[0]].update(
-                self.io_model.img_dict[scaler_keys[0]])
+                self.io_model.img_dict[scaler_keys[0]]
+            )
 
         self.io_model.update_img_dict(self.fit_model.fit_img)
 
@@ -1688,8 +1728,9 @@ class GlobalProcessingClasses:
             self.plot_model.roi_dict[r].show_plot = False
         self.plot_model.plot_roi_bound()
         selected_element_list = self.param_model.EC.get_element_list()
-        selected_element_list = [_ for _ in selected_element_list
-                                 if self.param_model.get_eline_name_category(_) == "eline"]
+        selected_element_list = [
+            _ for _ in selected_element_list if self.param_model.get_eline_name_category(_) == "eline"
+        ]
         self.roi_model.select_elements_from_list(selected_element_list)
 
     def get_roi_subtract_background(self):
@@ -1737,13 +1778,17 @@ class GlobalProcessingClasses:
             energy_left_default = self.roi_model.roi_dict[eline].default_left / 1000.0
             energy_right_default = self.roi_model.roi_dict[eline].default_right / 1000.0
 
-            roi_settings.append({"eline": eline,
-                                 "energy_center": energy_center,
-                                 "energy_left": energy_left,
-                                 "energy_right": energy_right,
-                                 "range_displayed": range_displayed,
-                                 "energy_left_default": energy_left_default,
-                                 "energy_right_default": energy_right_default})
+            roi_settings.append(
+                {
+                    "eline": eline,
+                    "energy_center": energy_center,
+                    "energy_left": energy_left,
+                    "energy_right": energy_right,
+                    "range_displayed": range_displayed,
+                    "energy_left_default": energy_left_default,
+                    "energy_right_default": energy_right_default,
+                }
+            )
 
         roi_settings.sort(key=lambda _: _["energy_center"])
         return roi_settings
@@ -1776,8 +1821,7 @@ class GlobalProcessingClasses:
 
         fluorescence_data_dict = self.fit_model.param_quant_estimation.fluorescence_data_dict
         if fluorescence_data_dict is None:
-            raise RuntimeError("Attempt to obtain quantitative standard parameters "
-                               "while no standard is selected")
+            raise RuntimeError("Attempt to obtain quantitative standard parameters while no standard is selected")
 
         result_map, selected_det_channel, scaler_name = self.fit_model.get_selected_fitted_map_data()
 
@@ -1791,13 +1835,16 @@ class GlobalProcessingClasses:
 
         # Fill the available fluorescence data
         self.fit_model.param_quant_estimation.fill_fluorescence_data_dict(
-            xrf_map_dict=result_map, scaler_name=scaler_name)
+            xrf_map_dict=result_map, scaler_name=scaler_name
+        )
         self.fit_model.param_quant_estimation.set_detector_channel_in_data_dict(
-            detector_channel=selected_det_channel)
+            detector_channel=selected_det_channel
+        )
 
         distance_to_sample = self.fit_model.qe_standard_distance_to_sample
         self.fit_model.param_quant_estimation.set_distance_to_sample_in_data_dict(
-            distance_to_sample=distance_to_sample)
+            distance_to_sample=distance_to_sample
+        )
 
         # Set optional parameters
         if self.io_model.scan_metadata_available:
@@ -1807,25 +1854,23 @@ class GlobalProcessingClasses:
                 _scan_id = self.io_model.scan_metadata["scan_id"]
             if "scan_uid" in self.io_model.scan_metadata:
                 _scan_uid = self.io_model.scan_metadata["scan_uid"]
-            self.fit_model.param_quant_estimation.set_optional_parameters(
-                scan_id=_scan_id, scan_uid=_scan_uid)
+            self.fit_model.param_quant_estimation.set_optional_parameters(scan_id=_scan_id, scan_uid=_scan_uid)
 
         preview = self.fit_model.param_quant_estimation.get_fluorescence_data_dict_text_preview()
 
-        return {"suggested_file_name": suggested_fln,
-                "distance_to_sample": distance_to_sample,
-                "preview": preview}
+        return {"suggested_file_name": suggested_fln, "distance_to_sample": distance_to_sample, "preview": preview}
 
     def save_distance_to_sample(self, distance_to_sample):
         self.fit_model.qe_standard_distance_to_sample = distance_to_sample
         self.fit_model.param_quant_estimation.set_distance_to_sample_in_data_dict(
-            distance_to_sample=distance_to_sample)
+            distance_to_sample=distance_to_sample
+        )
 
     def save_quantitative_standard(self, file_path, overwrite_existing):
         """Will raise exception if unsuccessful"""
         self.fit_model.param_quant_estimation.save_fluorescence_data_dict(
-            file_path,
-            overwrite_existing=overwrite_existing)
+            file_path, overwrite_existing=overwrite_existing
+        )
 
     # ==========================================================================
     #     The following methods are used for exporting maps as TIFF and TXT
@@ -1835,26 +1880,34 @@ class GlobalProcessingClasses:
         interpolate_on = self.get_maps_grid_interpolate()
         quant_norm_on = self.get_maps_quant_norm_enabled()
 
-        return {"dset_list": dataset_list,
-                "dset_sel": dset_sel,  # We want it to start from 0
-                "scaler_list": scalers,
-                "scaler_sel": scaler_sel,
-                "interpolate_on": interpolate_on,
-                "quant_norm_on": quant_norm_on}
+        return {
+            "dset_list": dataset_list,
+            "dset_sel": dset_sel,  # We want it to start from 0
+            "scaler_list": scalers,
+            "scaler_sel": scaler_sel,
+            "interpolate_on": interpolate_on,
+            "quant_norm_on": quant_norm_on,
+        }
 
-    def export_xrf_maps(self, *, results_path, dataset_name, scaler_name,
-                        interpolate_on, quant_norm_on, file_formats):
+    def export_xrf_maps(
+        self, *, results_path, dataset_name, scaler_name, interpolate_on, quant_norm_on, file_formats
+    ):
         # We don't want to make any changes to 'param_quant_analysis' at the original location
         #   This is a temporary copy.
         param_quant_analysis = copy.deepcopy(self.img_model_adv.param_quant_analysis)
-        param_quant_analysis.experiment_detector_channel = \
-            self.img_model_adv.get_detector_channel_name(dataset_name)
+        param_quant_analysis.experiment_detector_channel = self.img_model_adv.get_detector_channel_name(
+            dataset_name
+        )
         for file_format in file_formats:
-            self.fit_model.output_2Dimage(results_path=results_path, dataset_name=dataset_name,
-                                          scaler_name=scaler_name, interpolate_on=interpolate_on,
-                                          quant_norm_on=quant_norm_on,
-                                          param_quant_analysis=param_quant_analysis,
-                                          file_format=file_format)
+            self.fit_model.output_2Dimage(
+                results_path=results_path,
+                dataset_name=dataset_name,
+                scaler_name=scaler_name,
+                interpolate_on=interpolate_on,
+                quant_norm_on=quant_norm_on,
+                param_quant_analysis=param_quant_analysis,
+                file_format=file_format,
+            )
 
     # ==========================================================================
     #     Selection of the region pixels for saved spectra in Maps tab
@@ -1868,10 +1921,12 @@ class GlobalProcessingClasses:
         return self.io_model.get_dataset_map_size()
 
     def get_selection_area_save_spectra(self):
-        return {"row_min": self.fit_model.point1v + 1,
-                "row_max": self.fit_model.point2v,
-                "col_min": self.fit_model.point1h + 1,
-                "col_max": self.fit_model.point2h}
+        return {
+            "row_min": self.fit_model.point1v + 1,
+            "row_max": self.fit_model.point2v,
+            "col_min": self.fit_model.point1h + 1,
+            "col_max": self.fit_model.point2h,
+        }
 
     def set_selection_area_save_spectra(self, area):
         map_size = self.get_dataset_map_size()

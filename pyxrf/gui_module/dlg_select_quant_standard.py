@@ -1,9 +1,15 @@
 import textwrap
 
-from qtpy.QtWidgets import (QVBoxLayout, QLabel,
-                            QDialog, QDialogButtonBox,
-                            QTableWidget, QTableWidgetSelectionRange,
-                            QTableWidgetItem, QHeaderView)
+from qtpy.QtWidgets import (
+    QVBoxLayout,
+    QLabel,
+    QDialog,
+    QDialogButtonBox,
+    QTableWidget,
+    QTableWidgetSelectionRange,
+    QTableWidgetItem,
+    QHeaderView,
+)
 from qtpy.QtGui import QBrush, QColor
 from qtpy.QtCore import Qt
 
@@ -25,7 +31,6 @@ sample_table_contents = [
 
 
 class DialogSelectQuantStandard(QDialog):
-
     def __init__(self, parent=None):
 
         super().__init__(parent)
@@ -45,14 +50,19 @@ class DialogSelectQuantStandard(QDialog):
         self.selected_standard_index = -1
 
         labels = ("C", "Serial #", "Name", "Description")
-        col_stretch = (QHeaderView.ResizeToContents,
-                       QHeaderView.ResizeToContents,
-                       QHeaderView.ResizeToContents,
-                       QHeaderView.Stretch)
+        col_stretch = (
+            QHeaderView.ResizeToContents,
+            QHeaderView.ResizeToContents,
+            QHeaderView.ResizeToContents,
+            QHeaderView.Stretch,
+        )
         self.table = QTableWidget()
-        set_tooltip(self.table, "To <b> load the sta"
-                                "ndard</b>, double-click on the table row or "
-                                "select the table row and then click <b>Ok</b> button.")
+        set_tooltip(
+            self.table,
+            "To <b> load the sta"
+            "ndard</b>, double-click on the table row or "
+            "select the table row and then click <b>Ok</b> button.",
+        )
         self.table.setMinimumHeight(200)
         self.table.setColumnCount(len(labels))
         self.table.verticalHeader().hide()
@@ -62,9 +72,11 @@ class DialogSelectQuantStandard(QDialog):
         self.table.itemSelectionChanged.connect(self.item_selection_changed)
         self.table.itemDoubleClicked.connect(self.item_double_clicked)
 
-        self.table.setStyleSheet("QTableWidget::item{color: black;}"
-                                 "QTableWidget::item:selected{background-color: red;}"
-                                 "QTableWidget::item:selected{color: white;}")
+        self.table.setStyleSheet(
+            "QTableWidget::item{color: black;}"
+            "QTableWidget::item:selected{background-color: red;}"
+            "QTableWidget::item:selected{color: white;}"
+        )
 
         header = self.table.horizontalHeader()
         for n, col_stretch in enumerate(col_stretch):
@@ -74,8 +86,7 @@ class DialogSelectQuantStandard(QDialog):
         self.lb_info = QLabel()
         self.lb_info.setText("Column 'C': * means that the standard is user-defined.")
 
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.Open | QDialogButtonBox.Cancel)
+        button_box = QDialogButtonBox(QDialogButtonBox.Open | QDialogButtonBox.Cancel)
         button_box.button(QDialogButtonBox.Cancel).setDefault(True)
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)
@@ -116,8 +127,7 @@ class DialogSelectQuantStandard(QDialog):
             index = self._qe_param.index(self._qe_standard_selected)
             self.selected_standard_index = index
             n_columns = self.table.columnCount()
-            self.table.setRangeSelected(QTableWidgetSelectionRange(
-                index, 0, index, n_columns - 1), True)
+            self.table.setRangeSelected(QTableWidgetSelectionRange(index, 0, index, n_columns - 1), True)
         except ValueError:
             pass
 
@@ -138,8 +148,7 @@ class DialogSelectQuantStandard(QDialog):
     def set_standards(self, qe_param_built_in, qe_param_custom, qe_standard_selected):
         self._qe_standard_selected = qe_standard_selected
         self._qe_param = qe_param_custom + qe_param_built_in
-        custom_label = [True] * len(qe_param_custom) + \
-            [False] * len(qe_param_built_in)
+        custom_label = [True] * len(qe_param_custom) + [False] * len(qe_param_built_in)
 
         table_contents = []
         for n, param in enumerate(self._qe_param):

@@ -1,15 +1,12 @@
 import copy
 
-from qtpy.QtWidgets import (QPushButton, QVBoxLayout, QGroupBox,
-                            QLabel, QDialog, QDialogButtonBox,
-                            QGridLayout)
+from qtpy.QtWidgets import QPushButton, QVBoxLayout, QGroupBox, QLabel, QDialog, QDialogButtonBox, QGridLayout
 from qtpy.QtGui import QDoubleValidator
 
-from .useful_widgets import (set_tooltip, LineEditExtended)
+from .useful_widgets import set_tooltip, LineEditExtended
 
 
 class DialogFindElements(QDialog):
-
     def __init__(self, parent=None):
 
         super().__init__(parent)
@@ -41,11 +38,13 @@ class DialogFindElements(QDialog):
         self.pb_e_calib_a2_default.setAutoDefault(False)
 
         self.group_energy_axis_calib = QGroupBox("Polynomial Approximation of Energy Axis")
-        set_tooltip(self.group_energy_axis_calib,
-                    "Parameters of polynomial approximation of <b>energy axis</b>. "
-                    "The values of the bins for photon energies are approximated "
-                    "using 2nd degree polynomial <b>E(n) = a0 + a1 * n + a2 * n^2</b>, "
-                    "where <b>n</b> is bin number (typically in the range 0..4096).")
+        set_tooltip(
+            self.group_energy_axis_calib,
+            "Parameters of polynomial approximation of <b>energy axis</b>. "
+            "The values of the bins for photon energies are approximated "
+            "using 2nd degree polynomial <b>E(n) = a0 + a1 * n + a2 * n^2</b>, "
+            "where <b>n</b> is bin number (typically in the range 0..4096).",
+        )
         grid = QGridLayout()
         grid.addWidget(QLabel("Bias (a0):"), 0, 0)
         grid.addWidget(self.le_e_calib_a0, 0, 1)
@@ -69,9 +68,11 @@ class DialogFindElements(QDialog):
         self.pb_fwhm_b2_default.setAutoDefault(False)
 
         self.group_fwhm = QGroupBox("Peak FWHM Settings")
-        set_tooltip(self.group_fwhm,
-                    "Parameters used to estimate <b>FWHM</b> of peaks based on energy: "
-                    "<b>b1</b> - 'offset', <b>b2</b> - 'fanoprime'")
+        set_tooltip(
+            self.group_fwhm,
+            "Parameters used to estimate <b>FWHM</b> of peaks based on energy: "
+            "<b>b1</b> - 'offset', <b>b2</b> - 'fanoprime'",
+        )
         grid = QGridLayout()
         grid.addWidget(QLabel("Coefficient b1:"), 0, 0)
         grid.addWidget(self.le_fwhm_b1, 0, 1)
@@ -83,20 +84,17 @@ class DialogFindElements(QDialog):
 
         self.le_incident_energy = LineEditExtended()
         self.le_incident_energy.setValidator(self.validator)
-        set_tooltip(self.le_incident_energy,
-                    "<b>Incident energy</b> in keV.")
+        set_tooltip(self.le_incident_energy, "<b>Incident energy</b> in keV.")
         self.pb_incident_energy_default = QPushButton("Default")
         self.pb_incident_energy_default.setAutoDefault(False)
         self.le_range_low = LineEditExtended()
         self.le_range_low.setValidator(self.validator)
-        set_tooltip(self.le_range_low,
-                    "<b>Lower boundary</b> of the selected range in keV.")
+        set_tooltip(self.le_range_low, "<b>Lower boundary</b> of the selected range in keV.")
         self.pb_range_low_default = QPushButton("Default")
         self.pb_range_low_default.setAutoDefault(False)
         self.le_range_high = LineEditExtended()
         self.le_range_high.setValidator(self.validator)
-        set_tooltip(self.le_range_high,
-                    "<b>Upper boundary</b> of the selected range in keV.")
+        set_tooltip(self.le_range_high, "<b>Upper boundary</b> of the selected range in keV.")
         self.pb_range_high_default = QPushButton("Default")
         self.pb_range_high_default.setAutoDefault(False)
         self.group_energy_range = QGroupBox("Incident Energy and Selected Range")
@@ -117,8 +115,7 @@ class DialogFindElements(QDialog):
         self.pb_apply_settings = QPushButton("&Apply Settings")
 
         # 'Close' button box
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.Cancel)
+        button_box = QDialogButtonBox(QDialogButtonBox.Cancel)
         button_box.addButton(self.pb_find_elements, QDialogButtonBox.YesRole)
         button_box.addButton(self.pb_apply_settings, QDialogButtonBox.AcceptRole)
         button_box.button(QDialogButtonBox.Cancel).setDefault(True)
@@ -229,14 +226,16 @@ class DialogFindElements(QDialog):
         self._update_exit_buttons_states()
 
     def _update_exit_buttons_states(self):
-        if self.le_e_calib_a0.isValid() and \
-                self.le_e_calib_a1.isValid() and \
-                self.le_e_calib_a2.isValid() and \
-                self.le_fwhm_b1.isValid() and \
-                self.le_fwhm_b2.isValid() and \
-                self.le_incident_energy.isValid() and \
-                self.le_range_low.isValid() and \
-                self.le_range_high.isValid():
+        if (
+            self.le_e_calib_a0.isValid()
+            and self.le_e_calib_a1.isValid()
+            and self.le_e_calib_a2.isValid()
+            and self.le_fwhm_b1.isValid()
+            and self.le_fwhm_b2.isValid()
+            and self.le_incident_energy.isValid()
+            and self.le_range_low.isValid()
+            and self.le_range_high.isValid()
+        ):
             all_valid = True
         else:
             all_valid = False
@@ -315,10 +314,8 @@ class DialogFindElements(QDialog):
         self._recover_last_valid_le_text(self.le_fwhm_b2, self._dialog_data["fwhm_fanoprime"])
 
     def le_incident_energy_focus_out(self):
-        if not self._recover_last_valid_le_text(self.le_incident_energy,
-                                                self._dialog_data["coherent_sct_energy"]):
-            self.le_range_high.setText(self._format_float(
-                self._dialog_data["energy_bound_high"]["value"]))
+        if not self._recover_last_valid_le_text(self.le_incident_energy, self._dialog_data["coherent_sct_energy"]):
+            self.le_range_high.setText(self._format_float(self._dialog_data["energy_bound_high"]["value"]))
 
     def le_range_low_focus_out(self):
         self._recover_last_valid_le_text(self.le_range_low, self._dialog_data["energy_bound_low"])

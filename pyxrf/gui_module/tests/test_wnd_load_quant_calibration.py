@@ -8,8 +8,7 @@ import yaml
 #   Real data will be used when GUI is integrated with the program.
 #   The data are representing contents of JSON files, so they should be loaded
 #   using 'json' module.
-json_quant_calib_1 = \
-    """
+json_quant_calib_1 = """
     {
         "name": "Micromatter 41147",
         "serial": "v41147",
@@ -62,8 +61,7 @@ json_quant_calib_1 = \
     }
     """
 
-json_quant_calib_2 = \
-    """
+json_quant_calib_2 = """
     {
         "name": "Micromatter 41164 Name Is Long So It Has To Be Printed On Multiple Lines (Some More Words To Make The Name Longer)",
         "serial": "41164",
@@ -99,20 +97,15 @@ json_quant_calib_2 = \
 # The data is structured the same way as in the actual program code, so transitioning
 #   to real data will be simple
 quant_calib = [
-    [
-        json.loads(json_quant_calib_1),
-        {
-            "file_path": "/path/to/quantitative/calibration/file/standard_41147.json"
-        }
-    ],
+    [json.loads(json_quant_calib_1), {"file_path": "/path/to/quantitative/calibration/file/standard_41147.json"}],
     [
         json.loads(json_quant_calib_2),
         {
             "file_path": "/extremely/long/path/to"
-                         "/quantitative/calibration/file/so/it/had/to/be/"
-                         "printed/on/multiple/lines/standard_41164.json"
-        }
-    ]
+            "/quantitative/calibration/file/so/it/had/to/be/"
+            "printed/on/multiple/lines/standard_41164.json"
+        },
+    ],
 ]
 
 

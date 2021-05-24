@@ -1,14 +1,17 @@
-from qtpy.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QCheckBox, QSpacerItem)
+from qtpy.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QCheckBox, QSpacerItem
 from qtpy.QtCore import Signal, Slot
 
-from .useful_widgets import (set_tooltip, global_gui_variables)
+from .useful_widgets import set_tooltip, global_gui_variables
 
-from matplotlib.backends.backend_qt5agg import \
-    FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
+from matplotlib.backends.backend_qt5agg import (
+    FigureCanvasQTAgg as FigureCanvas,
+    NavigationToolbar2QT as NavigationToolbar,
+)
 
 from .wd_rgb_selection import RgbSelectionWidget
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -46,10 +49,8 @@ class PlotRgbMaps(QWidget):
         self.combo_pixels_positions = QComboBox()
         self._pix_pos_values = ["Pixels", "Positions"]
         self.combo_pixels_positions.addItems(self._pix_pos_values)
-        self.combo_pixels_positions.setCurrentIndex(
-            self._pix_pos_values.index(self.gpc.get_maps_pixel_or_pos()))
-        self.combo_pixels_positions.currentIndexChanged.connect(
-            self.combo_pixels_positions_current_index_changed)
+        self.combo_pixels_positions.setCurrentIndex(self._pix_pos_values.index(self.gpc.get_maps_pixel_or_pos()))
+        self.combo_pixels_positions.currentIndexChanged.connect(self.combo_pixels_positions_current_index_changed)
 
         self.mpl_canvas = FigureCanvas(self.gpc.img_model_rgb.fig)
         self.mpl_toolbar = NavigationToolbar(self.mpl_canvas, self)
@@ -87,36 +88,41 @@ class PlotRgbMaps(QWidget):
         self._set_tooltips()
 
     def _set_tooltips(self):
-        set_tooltip(self.combo_select_dataset,
-                    "Select <b>dataset</b>.")
-        set_tooltip(self.combo_normalization,
-                    "Select <b>scaler</b> for normalization of displayed XRF maps.")
-        set_tooltip(self.cb_interpolate,
-                    "Interpolate coordinates to <b>uniform grid</b>.")
-        set_tooltip(self.cb_quantitative,
-                    "Normalize the displayed XRF maps using loaded "
-                    "<b>Quantitative Calibration</b> data.")
-        set_tooltip(self.combo_pixels_positions,
-                    "Switch axes units between <b>pixels</b> and <b>positional units</b>.")
-        set_tooltip(self.rgb_selection,
-                    "Select XRF Maps displayed in <b>Red</b>, <b>Green</b> and "
-                    "<b>Blue</b> colors and adjust the range of <b>intensity</b> for each "
-                    "displayed map.")
+        set_tooltip(self.combo_select_dataset, "Select <b>dataset</b>.")
+        set_tooltip(self.combo_normalization, "Select <b>scaler</b> for normalization of displayed XRF maps.")
+        set_tooltip(self.cb_interpolate, "Interpolate coordinates to <b>uniform grid</b>.")
+        set_tooltip(
+            self.cb_quantitative,
+            "Normalize the displayed XRF maps using loaded <b>Quantitative Calibration</b> data.",
+        )
+        set_tooltip(
+            self.combo_pixels_positions, "Switch axes units between <b>pixels</b> and <b>positional units</b>."
+        )
+        set_tooltip(
+            self.rgb_selection,
+            "Select XRF Maps displayed in <b>Red</b>, <b>Green</b> and "
+            "<b>Blue</b> colors and adjust the range of <b>intensity</b> for each "
+            "displayed map.",
+        )
 
     def widgets_enable_events(self, status):
         if status:
             if not self._enable_events:
                 self.combo_select_dataset.currentIndexChanged.connect(
-                    self.combo_select_dataset_current_index_changed)
+                    self.combo_select_dataset_current_index_changed
+                )
                 self.combo_normalization.currentIndexChanged.connect(
-                    self.combo_normalization_current_index_changed)
+                    self.combo_normalization_current_index_changed
+                )
                 self._enable_events = True
         else:
             if self._enable_events:
                 self.combo_select_dataset.currentIndexChanged.disconnect(
-                    self.combo_select_dataset_current_index_changed)
+                    self.combo_select_dataset_current_index_changed
+                )
                 self.combo_normalization.currentIndexChanged.disconnect(
-                    self.combo_normalization_current_index_changed)
+                    self.combo_normalization_current_index_changed
+                )
                 self._enable_events = False
 
     def update_widget_state(self, condition=None):
@@ -165,9 +171,9 @@ class PlotRgbMaps(QWidget):
 
         # Update ranges in the RGB selection widget
         range_table, limit_table, rgb_dict = self.gpc.get_rgb_maps_info_table()
-        self.rgb_selection.set_ranges_and_limits(range_table=range_table,
-                                                 limit_table=limit_table,
-                                                 rgb_dict=rgb_dict)
+        self.rgb_selection.set_ranges_and_limits(
+            range_table=range_table, limit_table=limit_table, rgb_dict=rgb_dict
+        )
 
     @Slot()
     def slot_update_ranges(self):
@@ -199,8 +205,7 @@ class PlotRgbMaps(QWidget):
         """Upload the selections (limit table) and update plot"""
         if self._enable_plot_updates:
             self._changes_exist = False
-            self.gpc.set_rgb_maps_limit_table(self.rgb_selection._limit_table,
-                                              self.rgb_selection._rgb_dict)
+            self.gpc.set_rgb_maps_limit_table(self.rgb_selection._limit_table, self.rgb_selection._rgb_dict)
             self._redraw_maps()
 
     def _redraw_maps(self):

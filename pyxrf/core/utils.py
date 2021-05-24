@@ -3,6 +3,7 @@ import scipy
 import time as ttime
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -47,27 +48,28 @@ def grid_interpolate(data, xx, yy, xx_uniform=None, yy_uniform=None):
     # Check if data shape and shape of coordinate arrays match
     if data is not None:
         if data.shape != xx.shape:
-            msg = "Shapes of data and coordinate arrays do not match. "\
-                  "(function 'grid_interpolate')"
+            msg = "Shapes of data and coordinate arrays do not match. (function 'grid_interpolate')"
             raise ValueError(msg)
     if xx.shape != yy.shape:
-        msg = "Shapes of coordinate arrays 'xx' and 'yy' do not match. "\
-              "(function 'grid_interpolate')"
+        msg = "Shapes of coordinate arrays 'xx' and 'yy' do not match. (function 'grid_interpolate')"
         raise ValueError(msg)
     if (xx_uniform is not None) and (xx_uniform.shape != xx.shape):
-        msg = "Shapes of data and array of uniform coordinates 'xx_uniform' do not match. "\
-              "(function 'grid_interpolate')"
+        msg = (
+            "Shapes of data and array of uniform coordinates 'xx_uniform' do not match. "
+            "(function 'grid_interpolate')"
+        )
         raise ValueError(msg)
     if (yy_uniform is not None) and (xx_uniform.shape != xx.shape):
-        msg = "Shapes of data and array of uniform coordinates 'yy_uniform' do not match. "\
-              "(function 'grid_interpolate')"
+        msg = (
+            "Shapes of data and array of uniform coordinates 'yy_uniform' do not match. "
+            "(function 'grid_interpolate')"
+        )
         raise ValueError(msg)
 
     ny, nx = xx.shape
     # Data must be 2-dimensional to use the following interpolation procedure.
     if (nx <= 1) or (ny <= 1):
-        logger.debug("Function utils.grid_interpolate: single row or column scan. "
-                     "Grid interpolation is skipped")
+        logger.debug("Function utils.grid_interpolate: single row or column scan. Grid interpolation is skipped")
         return data, xx, yy
 
     def _get_range(vv):
@@ -108,7 +110,7 @@ def grid_interpolate(data, xx, yy, xx_uniform=None, yy_uniform=None):
         # Find the range of axes
         x_min, x_max = _get_range(xx)
         y_min, y_max = _get_range(yy)
-        _yy_uniform, _xx_uniform = np.mgrid[y_min: y_max: ny * 1j, x_min: x_max: nx * 1j]
+        _yy_uniform, _xx_uniform = np.mgrid[y_min : y_max : ny * 1j, x_min : x_max : nx * 1j]
 
     if xx_uniform is None:
         xx_uniform = _xx_uniform
@@ -123,8 +125,9 @@ def grid_interpolate(data, xx, yy, xx_uniform=None, yy_uniform=None):
         # Do the interpolation only if data is provided
         data = data.flatten()
         # Do the interpolation
-        data_uniform = scipy.interpolate.griddata(xxyy, data, (xx_uniform, yy_uniform),
-                                                  method='linear', fill_value=0)
+        data_uniform = scipy.interpolate.griddata(
+            xxyy, data, (xx_uniform, yy_uniform), method="linear", fill_value=0
+        )
     else:
         data_uniform = None
 
@@ -132,7 +135,7 @@ def grid_interpolate(data, xx, yy, xx_uniform=None, yy_uniform=None):
 
 
 def normalize_data_by_scaler(data_in, scaler, *, data_name=None, name_not_scalable=None):
-    '''
+    """
     Normalize data based on the availability of scaler
 
     Parameters
@@ -166,32 +169,35 @@ def normalize_data_by_scaler(data_in, scaler, *, data_name=None, name_not_scalab
 
         If normalization is not performed then REFERENCE to data_in is returned.
 
-    '''
+    """
 
     if data_in is None or scaler is None:  # Nothing to scale
-        logger.debug("Function utils.normalize_data_by_scaler: data and/or scaler arrays are None. "
-                     "Data scaling is skipped.")
+        logger.debug(
+            "Function utils.normalize_data_by_scaler: data and/or scaler arrays are None. "
+            "Data scaling is skipped."
+        )
         return data_in
 
     if data_in.shape != scaler.shape:
-        logger.debug("Function utils.normalize_data_by_scaler: data and scaler arrays have different shape. "
-                     "Data scaling is skipped.")
+        logger.debug(
+            "Function utils.normalize_data_by_scaler: data and scaler arrays have different shape. "
+            "Data scaling is skipped."
+        )
         return data_in
 
     do_scaling = False
     # Check if data name is in the list of non-scalable items
     # If data name or the list does not exits, then do the scaling
-    if name_not_scalable is None or \
-            data_name is None or \
-            data_name not in name_not_scalable:
+    if name_not_scalable is None or data_name is None or data_name not in name_not_scalable:
         do_scaling = True
 
     # If scaler is all zeros, then don't scale the data:
     #   check if there is at least one nonzero element
     n_nonzero = np.count_nonzero(scaler)
     if not n_nonzero:
-        logger.debug("Function utils.normalize_data_by_scaler: scaler is all-zeros array. "
-                     "Data scaling is skipped.")
+        logger.debug(
+            "Function utils.normalize_data_by_scaler: scaler is all-zeros array. Data scaling is skipped."
+        )
         do_scaling = False
 
     if do_scaling:

@@ -117,9 +117,9 @@ class ScanMetadataBase:
                         indent = " " * n_indent  # Size of the left margin
                         # Create lines with the same indent. Indent width should not be included
                         #   in the text width.
-                        val = textwrap.fill(v, width=text_width + n_indent,
-                                            initial_indent=indent,
-                                            subsequent_indent=indent)
+                        val = textwrap.fill(
+                            v, width=text_width + n_indent, initial_indent=indent, subsequent_indent=indent
+                        )
                         # Now remove spaces at the beginning of the line, since the key will be
                         #   printed instead of the spaces
                         val = val.lstrip()
@@ -133,7 +133,6 @@ class ScanMetadataBase:
 
 
 class ScanMetadataXRF(ScanMetadataBase):
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -146,17 +145,36 @@ class ScanMetadataXRF(ScanMetadataBase):
         The metadata entries are never repeated in the printout, so in each group
         the patterns are specified from more specific to more general.
         """
-        print_order = ["scan_id", "scan_uid", "scan_instrument_name",
-                       "scan_instrument_id",
-                       "scan_time_start", "scan_time_start_utc",
-                       "scan_time_stop", "scan_time_stop_utc", "scan.*",
-                       "", "sample_name", "sample.*",
-                       "", "proposal_num", "proposal_title", "proposal.*",
-                       "", "experiment.*",
-                       "", "instrument.*",
-                       "", "(?!file).*",
-                       "", "file_format", "file_format_version",
-                       "file_software", "file_software_version", "file.*"]
+        print_order = [
+            "scan_id",
+            "scan_uid",
+            "scan_instrument_name",
+            "scan_instrument_id",
+            "scan_time_start",
+            "scan_time_start_utc",
+            "scan_time_stop",
+            "scan_time_stop_utc",
+            "scan.*",
+            "",
+            "sample_name",
+            "sample.*",
+            "",
+            "proposal_num",
+            "proposal_title",
+            "proposal.*",
+            "",
+            "experiment.*",
+            "",
+            "instrument.*",
+            "",
+            "(?!file).*",
+            "",
+            "file_format",
+            "file_format_version",
+            "file_software",
+            "file_software_version",
+            "file.*",
+        ]
         return print_order
 
     def _gen_default_descriptions(self):
@@ -172,30 +190,25 @@ class ScanMetadataXRF(ScanMetadataBase):
             "scan_instrument_id": "beamline ID",
             "scan_instrument_name": "beamline name",
             "scan_exit_status": "exit status",
-
             "instrument_mono_incident_energy": "incident energy",
             "instrument_beam_current": "beam current",
             "instrument_detectors": "detectors",
-
             "sample_name": "sample name",
-
             "experiment_plan_name": "plan name",
             "experiment_plan_type": "plan type",
             "experiment_fast_axis": "scan fast axis",
             "experiment_slow_axis": "scan slow axis",
-
             "proposal_num": "proposal #",
             "proposal_title": "proposal title",
             "proposal_PI_lastname": "PI last name",
             "proposal_saf_num": "proposal SAF #",
             "proposal_cycle": "cycle",
-
             "file_created_time": "file creation time",
             "file_format": "file format",
             "file_format_version": "file format version",
             "file_software": "software",
             "file_software_version": "version",
-            "file_type": "file type"
+            "file_type": "file type",
         }
 
         return descriptions
@@ -212,4 +225,4 @@ class ScanMetadataXRF(ScanMetadataBase):
         Returns the value of the incident energy. Incident energy is an important
         parameter used in processing, so a separate function is created to fetch it.
         """
-        return self._values['instrument_mono_incident_energy']
+        return self._values["instrument_mono_incident_energy"]

@@ -7,7 +7,6 @@ from .tab_wd_fit_maps import FitMapsWidget
 
 
 class LeftPanel(QTabWidget):
-
     def __init__(self, *, gpc, gui_vars):
         super().__init__()
 

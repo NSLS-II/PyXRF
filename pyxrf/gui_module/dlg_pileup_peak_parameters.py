@@ -1,15 +1,15 @@
-from qtpy.QtWidgets import (QVBoxLayout, QLabel, QDialog, QDialogButtonBox, QGridLayout)
+from qtpy.QtWidgets import QVBoxLayout, QLabel, QDialog, QDialogButtonBox, QGridLayout
 from qtpy.QtGui import QDoubleValidator, QRegExpValidator
 from qtpy.QtCore import QRegExp
 
-from .useful_widgets import (LineEditReadOnly, set_tooltip, LineEditExtended)
+from .useful_widgets import LineEditReadOnly, set_tooltip, LineEditExtended
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
 class DialogPileupPeakParameters(QDialog):
-
     def __init__(self, parent=None):
 
         super().__init__(parent)
@@ -21,15 +21,15 @@ class DialogPileupPeakParameters(QDialog):
         self.setWindowTitle("Pileup Peak Parameters")
 
         self.le_element1 = LineEditExtended()
-        set_tooltip(self.le_element1,
-                    "The <b>name</b> of the emission line #1")
+        set_tooltip(self.le_element1, "The <b>name</b> of the emission line #1")
         self.le_element2 = LineEditExtended()
-        set_tooltip(self.le_element2,
-                    "The <b>name</b> of the emission line #2")
+        set_tooltip(self.le_element2, "The <b>name</b> of the emission line #2")
         self.peak_energy = LineEditReadOnly()
-        set_tooltip(self.peak_energy,
-                    "The <b>energy</b> (location) of the pileup peak center. The energy can not"
-                    "be edited: it is set based on the selected emission lines")
+        set_tooltip(
+            self.peak_energy,
+            "The <b>energy</b> (location) of the pileup peak center. The energy can not"
+            "be edited: it is set based on the selected emission lines",
+        )
 
         self._validator_eline = QRegExpValidator()
         # TODO: the following regex is too broad: [a-z] should be narrowed down
@@ -106,8 +106,7 @@ class DialogPileupPeakParameters(QDialog):
         return valid
 
     def _validate_all(self):
-        valid = (self._validate_le_element1() and
-                 self._validate_le_element2())
+        valid = self._validate_le_element1() and self._validate_le_element2()
         # Energy doesn't influence the success of validation, but the Ok button
         #   should be disabled if energy if out of range.
         valid_energy = self._validate_peak_energy()
