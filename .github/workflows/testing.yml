@@ -22,7 +22,7 @@ jobs:
 
     runs-on: ${{ matrix.host-os }}
 
-    # Note: Services are based on docker contains and would run only on Linux
+    # Note: Services are based on docker containers and would run only on Linux
     #    Leave the item here for reference.
     # services:
     #   mongodb:
