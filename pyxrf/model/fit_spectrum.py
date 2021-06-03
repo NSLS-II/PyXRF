@@ -562,7 +562,7 @@ class Fit1D(Atom):
                 set_parameter_bound(self.param_model.param_new, strat_name)
 
                 self.fit_data(self.x0, y0, init_params=init_params)
-                init_params=False
+                init_params = False
 
                 self.update_param_with_result()
 
