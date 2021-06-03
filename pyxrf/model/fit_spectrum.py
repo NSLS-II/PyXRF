@@ -492,11 +492,21 @@ class Fit1D(Atom):
 
         self.residual = self.cal_y - self.y0
 
-    def fit_data(self, x0, y0):
+    def fit_data(self, x0, y0, *, init_params=True):
         fit_num = self.fit_num
         ftol = self.ftol
         c_weight = 1  # avoid zero point
-        MS = ModelSpectrum(self.param_model.param_new, self.param_model.element_list)
+
+        params = copy.deepcopy(self.param_model.param_new)
+        # Initialize parameters to some large default value. This increases the rate of convergence
+        #   and prevents optimization algorithm from getting stuck. There could be better solution,
+        #   but this seems to be functional workaround.
+        if init_params:
+            for k, p in params.items():
+                if "area" in k:
+                    p["value"] = 1000
+
+        MS = ModelSpectrum(params, self.param_model.element_list)
         MS.assemble_models()
 
         # weights = 1/(c_weight + np.abs(y0))
@@ -537,6 +547,8 @@ class Fit1D(Atom):
         # app.processEvents()
         # logger.info('-------- '+self.fit_info+' --------')
 
+        # Parameters should be initialized only once
+        init_params = True
         for k, v in self.all_strategy.items():
             if v:
                 strat_name = fit_strategy_list[v - 1]
@@ -549,7 +561,9 @@ class Fit1D(Atom):
                 register_strategy(strat_name, strategy)
                 set_parameter_bound(self.param_model.param_new, strat_name)
 
-                self.fit_data(self.x0, y0)
+                self.fit_data(self.x0, y0, init_params=init_params)
+                init_params = False
+
                 self.update_param_with_result()
 
                 # The following is a patch for rare cases when fitting results in negative
