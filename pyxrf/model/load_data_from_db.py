@@ -2056,15 +2056,30 @@ def write_db_to_hdf_base(
     create_each_det : Bool, optional
         if number of point is too large, only sum data is saved in h5 file
 
-    The structure of the ``data`` dictionary:
-      keys 'det1', 'det2' etc. - 2D ndarrays, data from the detector channels
-      key 'det_sum' - 2D ndarray, sum of the channels
+
+    Notes
+    -----
+    The structure of the ``data`` dictionary
+
+      keys 'det1', 'det2' etc. - 3D ndarrays of size (N, M, K) where NxM are dimensions of the map
+      and K is the number of spectrum points (4096) contain data from the detector channels 1, 2, 3 etc.
+
+      key 'det_sum' - 3D ndarray with the same dimensions as 'det1' contains the sum of the channels
+
       key 'scaler_names' - the list of scaler names
-      key 'scaler_data' - 3D ndarray with scaler values, 1st index matches the
-              index of scaler name in 'scaler_names' list
-      key 'pos_names' - the list of position field names, must have entries 'x_pos' and 'y_pos'
-      key 'pos_data' - 3D ndarray, 1st index matches the position in 'pos_names' list
+
+      key 'scaler_data' - 3D ndarray of scaler values. The array shape is (N, M, P), where P is
+      the number of scaler names.
+
+      key 'pos_names' - the list of position (axis) names, must contain the names 'x_pos' and 'y_pos'
+      in correct order.
+
+      key 'pos_data' - 3D ndarray with position values. The array must have size (2, N, M). The first
+          index is the number of the position name 'pos_names' list.
     """
+
+    fpath = os.path.expanduser(fpath)
+    fpath = os.path.abspath(fpath)
 
     interpath = "xrfmap"
     sum_data = None
