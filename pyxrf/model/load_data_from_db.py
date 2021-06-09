@@ -2022,7 +2022,7 @@ def _get_fpath_not_existing(fpath):
     # Returns path to the new file that is guaranteed to not exist
     # The function cycles through paths obtained by inserting
     #   version number between name and extension in the prototype path ``fpath``
-    #  The version number is inserted in the form ``filename_(2).ext``
+    #  The version number is inserted in the form ``filename_v2.ext``
 
     if os.path.exists(fpath):
         p, e = os.path.splitext(fpath)
@@ -2039,27 +2039,8 @@ def write_db_to_hdf_base(
     fpath, data, *, metadata=None, fname_add_version=False, file_overwrite_existing=False, create_each_det=True
 ):
     """
-    This is the function used to save raw experiment data into HDF5 file.
-    Typically used after data is loaded from databroker.
-
-    Parameters
-    ----------
-    fpath: str
-        path to save hdf file
-    data : dict
-        fluorescence data with scaler value and positions
-    fname_add_version : bool
-        True: if file already exists, then file version is added to the file name
-        so that it becomes unique in the current directory. The version is
-        added to <fname>.h5 in the form <fname>_(1).h5, <fname>_(2).h5, etc.
-        False: the exception is thrown if the file exists.
-    create_each_det : Bool, optional
-        if number of point is too large, only sum data is saved in h5 file
-
-
-    Notes
-    -----
-    The structure of the ``data`` dictionary
+    This is the function used to save raw experiment data into HDF5 file. The raw data is
+    represented as a dictionary with the following keys:
 
       keys 'det1', 'det2' etc. - 3D ndarrays of size (N, M, K) where NxM are dimensions of the map
       and K is the number of spectrum points (4096) contain data from the detector channels 1, 2, 3 etc.
@@ -2076,6 +2057,26 @@ def write_db_to_hdf_base(
 
       key 'pos_data' - 3D ndarray with position values. The array must have size (2, N, M). The first
           index is the number of the position name 'pos_names' list.
+
+    Parameters
+    ----------
+    fpath: str
+        Full path to the HDF5 file. The function creates an new HDF5 file. If file already exists
+        and ``file_overwrite_existing=False``, then the IOError exception is raised.
+    data : dict
+        The dictionary of raw data.
+    metadata : dict
+        Metadata to be saved in the HDF5 file.
+    fname_add_version : boolean
+        True: if file already exists, then file version is added to the file name
+        so that it becomes unique in the current directory. The version is
+        added to <fname>.h5 in the form <fname>_v1.h5, <fname>_v2.h5, etc.
+        False: the exception is raised if the file exists.
+    file_overwrite_existing : boolean
+        Overwrite the existing file or raise exception if the file exists.
+    create_each_det : boolean
+        Save data from individual detectors (``True``) or only the sum of fluorescence from
+        all detectors (``False``).
     """
 
     fpath = os.path.expanduser(fpath)
