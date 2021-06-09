@@ -32,6 +32,7 @@ from ..core.map_processing import (
     compute_total_spectrum_and_count,
     TerminalProgressBar,
     dask_client_create,
+    prepare_xrf_map,
 )
 from .scan_metadata import ScanMetadataXRF
 import requests
@@ -305,7 +306,7 @@ class FileIOModel(Atom):
         # Clear data. If reading the file fails, then old data should not be kept.
         self.clear()
         # focus on single file only
-        img_dict, self.data_sets, self.scan_metadata = file_handler(
+        img_dict, self.data_sets, self.scan_metadata = load_data_from_hdf5(
             self.working_directory, self.file_name, load_each_channel=self.load_each_channel
         )
         self.img_dict = img_dict
@@ -1012,14 +1013,12 @@ class SpectrumCalculator(object):
         return total_spectrum, total_count
 
 
-def file_handler(working_directory, file_name, load_each_channel=True, spectrum_cut=3000):
-    # send information on GUI level later !
-    get_data_nsls2 = True
+def load_data_from_hdf5(working_directory, file_name, load_each_channel=True):
+
+    get_data_nsls2 = True  # Only 'APS' format is currently used
     try:
         if get_data_nsls2 is True:
-            return read_hdf_APS(
-                working_directory, file_name, spectrum_cut=spectrum_cut, load_each_channel=load_each_channel
-            )
+            return read_hdf_APS(working_directory, file_name, load_each_channel=load_each_channel)
         else:
             return read_MAPS(working_directory, file_name, channel_num=1)
     except IOError as e:
@@ -1028,6 +1027,81 @@ def file_handler(working_directory, file_name, load_each_channel=True, spectrum_
     except Exception:
         logger.error("Unexpected error:", sys.exc_info()[0])
         raise
+
+
+def read_data_from_hdf5(fpath, *, representation="numpy_array", load_each_channel=True):
+    """
+    Read raw fluorescence data from HDF5 file. The data is returned in the same form as
+    the data saved by ``save_data_to_hdf5``.
+
+    Parameters
+    ----------
+    fpath : str
+        Full path to the HDF5 file
+    representation : str
+        Representation for the raw dataset. Available options: 'numpy_array' and 'dask_array'.
+    load_each_channel : boolean
+        Indicates if data for individual detector channels need to be loaded.
+
+    Returns
+    -------
+    data : dict
+        Dictionary that contains loaded data. The structure of the dictionary is similar
+        to the structure of ``data`` parameter of the function ``save_data_to_hdf5``.
+    metadata : dict
+        Metadata dictionary.
+    """
+    fpath = os.path.expanduser(fpath)
+    fpath = os.path.abspath(fpath)
+
+    supported_representations = ("numpy_array", "dask_array")
+    if representation not in supported_representations:
+        raise ValueError(
+            f"Value '{representation}' of the parameter 'representation' is not supported. "
+            f"Supported values: {supported_representations}"
+        )
+
+    working_directory, file_name = os.path.split(fpath)
+    img_dict, data_sets, scan_metadata = load_data_from_hdf5(
+        working_directory, file_name, load_each_channel=load_each_channel
+    )
+
+    # Load RAW data
+    data = {}
+    for k in data_sets:
+        if re.search("_sum$", k):
+            data["det_sum"] = data_sets[k]
+        elif re.search(r"_det\d+$", k):
+            m = re.search(r"\d+$", k)
+            n = m.group(0)
+            data[f"det{n}"] = data_sets[k]
+    # Represent datasets as dask or numpy arrays
+    for k in data:
+        data_dask, _ = prepare_xrf_map(data[k].raw_data)
+        if representation == "numpy_array":
+            data[k] = data_dask[:, :, :].compute()
+        else:
+            data[k] = data_dask
+
+    for key, dataset in img_dict.items():
+        if key == "positions":
+            pos_names = list(dataset.keys())
+            pos_data = np.zeros(shape=[len(pos_names), *dataset[pos_names[0]].shape])
+            for n, k in enumerate(pos_names):
+                pos_data[n, :, :] = dataset[pos_names[n]]
+            data["pos_names"] = pos_names
+            data["pos_data"] = pos_data
+
+        elif key.endswith("_scaler"):
+            scaler_names = list(dataset.keys())
+            scaler_data = np.zeros(shape=[*dataset[scaler_names[0]].shape, len(scaler_names)])
+            for n, k in enumerate(scaler_names):
+                scaler_data[:, :, n] = dataset[scaler_names[n]]
+            data["scaler_names"] = scaler_names
+            data["scaler_data"] = scaler_data
+
+    metadata = dict(scan_metadata)
+    return data, metadata
 
 
 def read_xspress3_data(file_path):
@@ -1351,7 +1425,6 @@ def output_data_to_tiff(
 def read_hdf_APS(
     working_directory,
     file_name,
-    spectrum_cut=3000,
     # The following parameters allow fine grained control over what is loaded from the file
     load_summed_data=True,  # Enable loading of RAW, FIT or ROI data from 'sum' channel
     load_each_channel=False,  # .. RAW data from individual detector channels
@@ -1371,8 +1444,6 @@ def read_hdf_APS(
         path folder
     file_name : str
         selected h5 file
-    spectrum_cut : int, optional
-        only use spectrum from, say 0, 3000
     load_summed_data : bool, optional
         load summed spectrum or not
     load_each_channel : bool, optional
@@ -1422,14 +1493,8 @@ def read_hdf_APS(
         fname = file_name.split(".")[0]
         if load_summed_data and load_raw_data:
             try:
-                # data from channel summed
-                # exp_data = np.array(data['detsum/counts'][:, :, 0:spectrum_cut],
-                #                   dtype=np.float32)
-                # exp_data = np.array(data['detsum/counts'], dtype=np.float32)
-
                 data_shape = data["detsum/counts"].shape
                 exp_data = RawHDF5Dataset(file_path, "xrfmap/detsum/counts", shape=data_shape)
-                logger.warning(f"We use spectrum range from 0 to {spectrum_cut}")
                 logger.info(f"Exp. data from h5 has shape of: {data_shape}")
 
                 fname_sum = f"{fname}_sum"
@@ -1475,9 +1540,6 @@ def read_hdf_APS(
                 det_name = f"det{i}"
                 file_channel = f"{fname}_det{i}"
                 try:
-                    # exp_data_new = np.array(data[f"{det_name}/counts"][:, :, 0:spectrum_cut],
-                    #                        dtype=np.float32)
-
                     data_shape = data[f"{det_name}/counts"].shape
                     exp_data_new = RawHDF5Dataset(file_path, f"xrfmap/{det_name}/counts", shape=data_shape)
 

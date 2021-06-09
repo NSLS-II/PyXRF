@@ -65,6 +65,9 @@ class ScanMetadataBase:
     def items(self):
         return self._values.items()
 
+    def update(self, source_dict):
+        self._values.update(source_dict)
+
     def get_metadata_dictionary(self):
         """
         Returns reference to metadata dictionary ``self._values``

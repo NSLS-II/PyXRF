@@ -43,7 +43,6 @@ def fit_pixel_data_and_save(
     linear_bg=False,
     use_snip=True,
     bin_energy=0,
-    spectrum_cut=3000,
     save_txt=False,
     save_tiff=True,
     scaler_name=None,
@@ -99,8 +98,6 @@ def fit_pixel_data_and_save(
         use snip method to remove background
     bin_energy : int, optional
         bin spectrum with given value
-    spectrum_cut : int, optional
-        only use spectrum from, say 0, 3000
     save_txt : bool, optional
         save data to txt or not
     save_tiff : bool, optional
@@ -147,9 +144,7 @@ def fit_pixel_data_and_save(
     prefix_fname = file_name.split(".")[0]
     if fit_channel_sum is True:
         if data_from == "NSLS-II":
-            img_dict, data_sets, mdata = read_hdf_APS(
-                working_directory, file_name, spectrum_cut=spectrum_cut, load_each_channel=False
-            )
+            img_dict, data_sets, mdata = read_hdf_APS(working_directory, file_name, load_each_channel=False)
         elif data_from == "2IDE-APS":
             img_dict, data_sets, mdata = read_MAPS(working_directory, file_name, channel_num=1)
         else:
@@ -266,9 +261,7 @@ def fit_pixel_data_and_save(
             )
 
     if fit_channel_each:
-        img_dict, data_sets, mdata = read_hdf_APS(
-            working_directory, file_name, spectrum_cut=spectrum_cut, load_each_channel=True
-        )
+        img_dict, data_sets, mdata = read_hdf_APS(working_directory, file_name, load_each_channel=True)
 
         # Find the detector channels and the names of the channels
         det_channels = [_ for _ in data_sets.keys() if re.search(r"_det\d+$", _)]
@@ -414,7 +407,6 @@ def pyxrf_batch(
     fln_quant_calib_data=None,
     quant_distance_to_sample=0,
     use_snip=True,
-    spectrum_cut=3000,
     save_txt=False,
     save_tiff=True,
     scaler_name=None,
@@ -473,8 +465,6 @@ def pyxrf_batch(
     use_snip : bool, optional
         use snip method to remove background (`True`). If `False`, then do fitting
         without removing the background (runs faster)
-    spectrum_cut : int, optional
-        only use spectrum from, say 0, 3000
     save_txt : bool, optional
         save data to txt or not
     save_tiff : bool, optional
@@ -733,7 +723,6 @@ def pyxrf_batch(
                     fln_quant_calib_data=fln_quant_calib_data,
                     quant_distance_to_sample=quant_distance_to_sample,
                     use_snip=use_snip,
-                    spectrum_cut=spectrum_cut,
                     save_txt=save_txt,
                     save_tiff=save_tiff,
                     scaler_name=scaler_name,

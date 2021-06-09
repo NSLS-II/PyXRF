@@ -7,3 +7,6 @@ del get_versions
 
 logger = logging.getLogger("pyxrf")
 logger.addHandler(NullHandler())
+
+from .model.load_data_from_db import save_data_to_hdf5  # noqa: F401, E402
+from .model.fileio import read_data_from_hdf5  # noqa: F401, E402

@@ -683,7 +683,7 @@ def map_data2D_hxn(
     if output_to_file:
         # output to file
         print("Saving data to hdf file.")
-        fpath = write_db_to_hdf_base(
+        fpath = save_data_to_hdf5(
             fpath,
             data_out,
             metadata=mdata,
@@ -894,7 +894,7 @@ def map_data2D_srx(
                     fly_type=fly_type,
                     base_val=config_data["base_value"],
                 )  # base value shift for ic
-                fpath_out = write_db_to_hdf_base(
+                fpath_out = save_data_to_hdf5(
                     fpath_out,
                     data_out,
                     metadata=mdata,
@@ -921,7 +921,7 @@ def map_data2D_srx(
                     fly_type=fly_type,
                     base_val=config_data["base_value"],
                 )  # base value shift for ic
-                fpath_out = write_db_to_hdf_base(
+                fpath_out = save_data_to_hdf5(
                     fpath_out,
                     data_out,
                     metadata=mdata,
@@ -1223,7 +1223,7 @@ def map_data2D_srx(
             if output_to_file:
                 # output to file
                 print(f"Saving data to hdf file #{n_detectors_found}: Detector: {detector_name}.")
-                fpath_out = write_db_to_hdf_base(
+                fpath_out = save_data_to_hdf5(
                     fpath_out,
                     new_data,
                     metadata=mdata,
@@ -1485,7 +1485,7 @@ def map_data2D_tes(
     if output_to_file:
         # output to file
         print(f"Saving data to hdf file #{n_detectors_found}: Detector: {detector_name}.")
-        fpath_out = write_db_to_hdf_base(
+        fpath_out = save_data_to_hdf5(
             fpath_out,
             new_data,
             metadata=mdata,
@@ -1601,7 +1601,7 @@ def map_data2D_xfm(
         )
         if output_to_file:
             print("Saving data to hdf file.")
-            write_db_to_hdf_base(
+            save_data_to_hdf5(
                 fpath,
                 data_out,
                 metadata=mdata,
@@ -2035,7 +2035,7 @@ def _get_fpath_not_existing(fpath):
     return fpath
 
 
-def write_db_to_hdf_base(
+def save_data_to_hdf5(
     fpath, data, *, metadata=None, fname_add_version=False, file_overwrite_existing=False, create_each_det=True
 ):
     """
@@ -2095,7 +2095,7 @@ def write_db_to_hdf_base(
     # Verify that raw fluorescence data is represented with np.float32 precision: print the warning message
     #   and convert the raw spectrum data to np.float32. Assume that data is represented as ndarray.
     def incorrect_type_msg(channel, data_type):
-        logger.warning(
+        logger.debug(
             f"Attemptying to save raw fluorescence data for the channel '{channel}' "
             f"as '{data_type}' numbers.\n    Memory may be used inefficiently. "
             f"Please, inform the PyXRF developers.\n    The data is converted from '{data_type}' "
@@ -2123,23 +2123,25 @@ def write_db_to_hdf_base(
                 #   including all information (possibly processed results).
                 file_open_mode = "w"
             else:
-                raise IOError(f"'write_db_to_hdf_base': File '{fpath}' already exists.")
+                raise IOError(f"Function 'save_data_to_hdf5': File '{fpath}' already exists")
 
     with h5py.File(fpath, file_open_mode) as f:
 
         # Create metadata group
         metadata_grp = f.create_group(f"{interpath}/scan_metadata")
-        # This group of attributes are always created. It doesn't matter if metadata
-        #   is provided to the function.
-        metadata_grp.attrs["file_type"] = "XRF-MAP"
-        metadata_grp.attrs["file_format"] = "NSLS2-XRF-MAP"
-        metadata_grp.attrs["file_format_version"] = "1.0"
-        metadata_grp.attrs["file_software"] = "PyXRF"
-        metadata_grp.attrs["file_software_version"] = pyxrf_version
-        # Present time in NEXUS format (should it be UTC time)?
-        metadata_grp.attrs["file_created_time"] = ttime.strftime("%Y-%m-%dT%H:%M:%S+00:00", ttime.localtime())
 
-        # Now save the rest of the scan metadata if metadata is provided
+        metadata_additional = {
+            "file_type": "XRF-MAP",
+            "file_format": "NSLS2-XRF-MAP",
+            "file_format_version": "1.0",
+            "file_software": "PyXRF",
+            "file_software_version": pyxrf_version,
+            "file_created_time": ttime.strftime("%Y-%m-%dT%H:%M:%S+00:00", ttime.localtime()),
+        }
+
+        metadata_prepared = metadata or {}
+        metadata_prepared.update(metadata_additional)
+
         if metadata:
             # We assume, that metadata does not contain repeated keys. Otherwise the
             #   entry with the last occurrence of the key will override the previous ones.
@@ -2184,6 +2186,9 @@ def write_db_to_hdf_base(
             dataGrp.create_dataset("val", data=scaler_data)
 
     return fpath
+
+
+write_db_to_hdf_base = save_data_to_hdf5  # Backward compatibility
 
 
 '''
