@@ -7,7 +7,7 @@ from skbeam.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
 from skbeam.core.constants.xrf import XrfElement
 from skbeam.core.fitting.lineshapes import gaussian
 
-from ..model.load_data_from_db import write_db_to_hdf_base
+from ..model.load_data_from_db import save_data_to_hdf5
 from ..core.quant_analysis import ParamQuantEstimation
 
 from ..core.xrf_utils import generate_eline_list
@@ -564,7 +564,7 @@ def create_hdf5_xrf_map_const(
     data.update(data_scalers)
     data.update(data_pos)
 
-    write_db_to_hdf_base(
+    save_data_to_hdf5(
         fpath, data, metadata=metadata, file_overwrite_existing=True, create_each_det=save_det_channels
     )
 

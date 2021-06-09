@@ -683,7 +683,7 @@ def map_data2D_hxn(
     if output_to_file:
         # output to file
         print("Saving data to hdf file.")
-        fpath = write_db_to_hdf_base(
+        fpath = save_data_to_hdf5(
             fpath,
             data_out,
             metadata=mdata,
@@ -894,7 +894,7 @@ def map_data2D_srx(
                     fly_type=fly_type,
                     base_val=config_data["base_value"],
                 )  # base value shift for ic
-                fpath_out = write_db_to_hdf_base(
+                fpath_out = save_data_to_hdf5(
                     fpath_out,
                     data_out,
                     metadata=mdata,
@@ -921,7 +921,7 @@ def map_data2D_srx(
                     fly_type=fly_type,
                     base_val=config_data["base_value"],
                 )  # base value shift for ic
-                fpath_out = write_db_to_hdf_base(
+                fpath_out = save_data_to_hdf5(
                     fpath_out,
                     data_out,
                     metadata=mdata,
@@ -1223,7 +1223,7 @@ def map_data2D_srx(
             if output_to_file:
                 # output to file
                 print(f"Saving data to hdf file #{n_detectors_found}: Detector: {detector_name}.")
-                fpath_out = write_db_to_hdf_base(
+                fpath_out = save_data_to_hdf5(
                     fpath_out,
                     new_data,
                     metadata=mdata,
@@ -1485,7 +1485,7 @@ def map_data2D_tes(
     if output_to_file:
         # output to file
         print(f"Saving data to hdf file #{n_detectors_found}: Detector: {detector_name}.")
-        fpath_out = write_db_to_hdf_base(
+        fpath_out = save_data_to_hdf5(
             fpath_out,
             new_data,
             metadata=mdata,
@@ -1601,7 +1601,7 @@ def map_data2D_xfm(
         )
         if output_to_file:
             print("Saving data to hdf file.")
-            write_db_to_hdf_base(
+            save_data_to_hdf5(
                 fpath,
                 data_out,
                 metadata=mdata,
@@ -2022,7 +2022,7 @@ def _get_fpath_not_existing(fpath):
     # Returns path to the new file that is guaranteed to not exist
     # The function cycles through paths obtained by inserting
     #   version number between name and extension in the prototype path ``fpath``
-    #  The version number is inserted in the form ``filename_(2).ext``
+    #  The version number is inserted in the form ``filename_v2.ext``
 
     if os.path.exists(fpath):
         p, e = os.path.splitext(fpath)
@@ -2035,36 +2035,57 @@ def _get_fpath_not_existing(fpath):
     return fpath
 
 
-def write_db_to_hdf_base(
+def save_data_to_hdf5(
     fpath, data, *, metadata=None, fname_add_version=False, file_overwrite_existing=False, create_each_det=True
 ):
     """
-    This is the function used to save raw experiment data into HDF5 file.
-    Typically used after data is loaded from databroker.
+    This is the function used to save raw experiment data into HDF5 file. The raw data is
+    represented as a dictionary with the following keys:
+
+      keys 'det1', 'det2' etc. - 3D ndarrays of size (N, M, K) where NxM are dimensions of the map
+      and K is the number of spectrum points (4096) contain data from the detector channels 1, 2, 3 etc.
+
+      key 'det_sum' - 3D ndarray with the same dimensions as 'det1' contains the sum of the channels
+
+      key 'scaler_names' - the list of scaler names
+
+      key 'scaler_data' - 3D ndarray of scaler values. The array shape is (N, M, P), where P is
+      the number of scaler names.
+
+      key 'pos_names' - the list of position (axis) names, must contain the names 'x_pos' and 'y_pos'
+      in correct order.
+
+      key 'pos_data' - 3D ndarray with position values. The array must have size (2, N, M). The first
+          index is the number of the position name 'pos_names' list.
 
     Parameters
     ----------
     fpath: str
-        path to save hdf file
+        Full path to the HDF5 file. The function creates an new HDF5 file. If file already exists
+        and ``file_overwrite_existing=False``, then the IOError exception is raised.
     data : dict
-        fluorescence data with scaler value and positions
-    fname_add_version : bool
+        The dictionary of raw data.
+    metadata : dict
+        Metadata to be saved in the HDF5 file.
+    fname_add_version : boolean
         True: if file already exists, then file version is added to the file name
         so that it becomes unique in the current directory. The version is
-        added to <fname>.h5 in the form <fname>_(1).h5, <fname>_(2).h5, etc.
-        False: the exception is thrown if the file exists.
-    create_each_det : Bool, optional
-        if number of point is too large, only sum data is saved in h5 file
+        added to <fname>.h5 in the form <fname>_v1.h5, <fname>_v2.h5, etc.
+        False: the exception is raised if the file exists.
+    file_overwrite_existing : boolean
+        Overwrite the existing file or raise exception if the file exists.
+    create_each_det : boolean
+        Save data from individual detectors (``True``) or only the sum of fluorescence from
+        all detectors (``False``).
 
-    The structure of the ``data`` dictionary:
-      keys 'det1', 'det2' etc. - 2D ndarrays, data from the detector channels
-      key 'det_sum' - 2D ndarray, sum of the channels
-      key 'scaler_names' - the list of scaler names
-      key 'scaler_data' - 3D ndarray with scaler values, 1st index matches the
-              index of scaler name in 'scaler_names' list
-      key 'pos_names' - the list of position field names, must have entries 'x_pos' and 'y_pos'
-      key 'pos_data' - 3D ndarray, 1st index matches the position in 'pos_names' list
+    Raises
+    ------
+    IOError
+        Failed to write data to HDF5 file.
     """
+
+    fpath = os.path.expanduser(fpath)
+    fpath = os.path.abspath(fpath)
 
     interpath = "xrfmap"
     sum_data = None
@@ -2074,7 +2095,7 @@ def write_db_to_hdf_base(
     # Verify that raw fluorescence data is represented with np.float32 precision: print the warning message
     #   and convert the raw spectrum data to np.float32. Assume that data is represented as ndarray.
     def incorrect_type_msg(channel, data_type):
-        logger.warning(
+        logger.debug(
             f"Attemptying to save raw fluorescence data for the channel '{channel}' "
             f"as '{data_type}' numbers.\n    Memory may be used inefficiently. "
             f"Please, inform the PyXRF developers.\n    The data is converted from '{data_type}' "
@@ -2102,23 +2123,25 @@ def write_db_to_hdf_base(
                 #   including all information (possibly processed results).
                 file_open_mode = "w"
             else:
-                raise IOError(f"'write_db_to_hdf_base': File '{fpath}' already exists.")
+                raise IOError(f"Function 'save_data_to_hdf5': File '{fpath}' already exists")
 
     with h5py.File(fpath, file_open_mode) as f:
 
         # Create metadata group
         metadata_grp = f.create_group(f"{interpath}/scan_metadata")
-        # This group of attributes are always created. It doesn't matter if metadata
-        #   is provided to the function.
-        metadata_grp.attrs["file_type"] = "XRF-MAP"
-        metadata_grp.attrs["file_format"] = "NSLS2-XRF-MAP"
-        metadata_grp.attrs["file_format_version"] = "1.0"
-        metadata_grp.attrs["file_software"] = "PyXRF"
-        metadata_grp.attrs["file_software_version"] = pyxrf_version
-        # Present time in NEXUS format (should it be UTC time)?
-        metadata_grp.attrs["file_created_time"] = ttime.strftime("%Y-%m-%dT%H:%M:%S+00:00", ttime.localtime())
 
-        # Now save the rest of the scan metadata if metadata is provided
+        metadata_additional = {
+            "file_type": "XRF-MAP",
+            "file_format": "NSLS2-XRF-MAP",
+            "file_format_version": "1.0",
+            "file_software": "PyXRF",
+            "file_software_version": pyxrf_version,
+            "file_created_time": ttime.strftime("%Y-%m-%dT%H:%M:%S+00:00", ttime.localtime()),
+        }
+
+        metadata_prepared = metadata or {}
+        metadata_prepared.update(metadata_additional)
+
         if metadata:
             # We assume, that metadata does not contain repeated keys. Otherwise the
             #   entry with the last occurrence of the key will override the previous ones.
@@ -2163,6 +2186,9 @@ def write_db_to_hdf_base(
             dataGrp.create_dataset("val", data=scaler_data)
 
     return fpath
+
+
+write_db_to_hdf_base = save_data_to_hdf5  # Backward compatibility
 
 
 '''
