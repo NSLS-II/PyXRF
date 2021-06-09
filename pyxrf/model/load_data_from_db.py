@@ -2077,6 +2077,11 @@ def write_db_to_hdf_base(
     create_each_det : boolean
         Save data from individual detectors (``True``) or only the sum of fluorescence from
         all detectors (``False``).
+
+    Raises
+    ------
+    IOError
+        Failed to write data to HDF5 file.
     """
 
     fpath = os.path.expanduser(fpath)
