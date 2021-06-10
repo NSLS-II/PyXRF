@@ -1,3 +1,4 @@
+import copy
 import os
 import numpy as np
 import numpy.testing as npt
@@ -70,7 +71,19 @@ def test_save_data_to_hdf5_1(tmp_path):
     assert os.path.isfile(os.path.join(tmp_path, "test_v2.h5"))
 
 
-def test_save_data_to_hdf5_2(tmp_path):
+# fmt: off
+@pytest.mark.parametrize("sets_to_select, sets_to_save", [
+    ("all", "default"),
+    ("all", "all"),
+    ("channels", "all"),
+    ("all", "sum"),
+    ("channels", "sum"),
+    ("sum", "sum"),
+    ("sum", "default"),
+    ("sum", "all"),
+])
+# fmt: on
+def test_save_data_to_hdf5_2(tmp_path, sets_to_select, sets_to_save):
     """
     Save data to hdf5 and then read it.
     """
@@ -78,7 +91,23 @@ def test_save_data_to_hdf5_2(tmp_path):
     fpath = os.path.join(tmp_path, fln)
     data, metadata = _prepare_raw_dataset(N=5, M=10, K=4096)
 
-    save_data_to_hdf5(fpath, data, metadata=metadata)
+    data_to_save = copy.deepcopy(data)
+    if sets_to_select == "sum":
+        # Leave only
+        del data_to_save["det1"]
+        del data_to_save["det2"]
+        del data_to_save["det3"]
+    elif sets_to_select == "channels":
+        # Leave only sum
+        del data_to_save["det_sum"]
+
+    kwargs = {}
+    if sets_to_save == "all":
+        kwargs = {"create_each_det": True}
+    elif sets_to_save == "sum":
+        kwargs = {"create_each_det": False}
+
+    save_data_to_hdf5(fpath, data_to_save, metadata=metadata, **kwargs)
     data_loaded, metadata_loaded = read_data_from_hdf5(fpath)
 
     metadata_selected = {_: metadata_loaded[_] for _ in metadata}
@@ -87,13 +116,68 @@ def test_save_data_to_hdf5_2(tmp_path):
     assert data_loaded["pos_names"] == data["pos_names"]
     npt.assert_array_almost_equal(data_loaded["pos_data"], data["pos_data"])
 
-    assert list(data_loaded.keys()) == list(data.keys())
     assert isinstance(data_loaded["det_sum"], np.ndarray)
     npt.assert_array_almost_equal(data_loaded["det_sum"], data["det_sum"])
-    npt.assert_array_almost_equal(data_loaded["det1"], data["det1"])
-    npt.assert_array_almost_equal(data_loaded["det2"], data["det2"])
-    npt.assert_array_almost_equal(data_loaded["det3"], data["det3"])
+    if (sets_to_select == "sum") or (sets_to_save == "sum"):
+        # Only 'sum' of all channels will be saved
+        keys = set(data.keys())
+        keys.remove("det1")
+        keys.remove("det2")
+        keys.remove("det3")
+        assert "det1" not in data_loaded
+        assert "det2" not in data_loaded
+        assert "det3" not in data_loaded
+        assert set(data_loaded.keys()) == keys
+    else:
+        assert set(data_loaded.keys()) == set(data.keys())
+        npt.assert_array_almost_equal(data_loaded["det1"], data["det1"])
+        npt.assert_array_almost_equal(data_loaded["det2"], data["det2"])
+        npt.assert_array_almost_equal(data_loaded["det3"], data["det3"])
+
     assert data_loaded["pos_names"] == data["pos_names"]
     npt.assert_array_almost_equal(data_loaded["pos_data"], data["pos_data"])
     assert data_loaded["scaler_names"] == data["scaler_names"]
     npt.assert_array_almost_equal(data_loaded["scaler_data"], data["scaler_data"])
+
+
+def test_save_data_to_hdf5_3(tmp_path):
+    """
+    Verify that default metadata is automatically created.
+    """
+    fln = "test.h5"
+    fpath = os.path.join(tmp_path, fln)
+    data, metadata = _prepare_raw_dataset(N=5, M=10, K=4096)
+
+    save_data_to_hdf5(fpath, data)
+    data_loaded, metadata_loaded = read_data_from_hdf5(fpath)
+
+    metadata_keys = [
+        "file_type",
+        "file_format",
+        "file_format_version",
+        "file_created_time",
+        "file_software",
+        "file_software_version",
+    ]
+    for k in metadata_keys:
+        assert k in metadata_loaded
+
+
+def test_save_data_to_hdf5_4(tmp_path):
+    """
+    Verify that metadata ``file_software`` and ``file_software_version`` can be set by the user.
+    """
+    fln = "test.h5"
+    fpath = os.path.join(tmp_path, fln)
+    data, metadata = _prepare_raw_dataset(N=5, M=10, K=4096)
+
+    application = "Testing Application"
+    version = "v4.5.6"
+
+    metadata = {"file_software": application, "file_software_version": version}
+
+    save_data_to_hdf5(fpath, data, metadata=metadata)
+    data_loaded, metadata_loaded = read_data_from_hdf5(fpath)
+
+    assert metadata_loaded["file_software"] == application
+    assert metadata_loaded["file_software_version"] == version
