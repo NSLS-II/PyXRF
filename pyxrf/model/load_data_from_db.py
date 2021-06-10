@@ -8,6 +8,7 @@ import multiprocessing
 import pandas as pd
 import math
 import time as ttime
+import copy
 from distutils.version import LooseVersion
 
 import logging
@@ -2066,7 +2067,10 @@ def save_data_to_hdf5(
     data : dict
         The dictionary of raw data.
     metadata : dict
-        Metadata to be saved in the HDF5 file.
+        Metadata to be saved in the HDF5 file. The function will add or overwrite the existing
+        metadata fields: ``file_type``, ``file_format``, ``file_format_version``, ``file_created_time``.
+        User may define metadata fields ``file_software`` and ``file_software_version``. If ``file_software``
+        is not defined, then the default values for ``file_software`` and ``file_software_version`` are added.
     fname_add_version : boolean
         True: if file already exists, then file version is added to the file name
         so that it becomes unique in the current directory. The version is
@@ -2087,8 +2091,11 @@ def save_data_to_hdf5(
     fpath = os.path.expanduser(fpath)
     fpath = os.path.abspath(fpath)
 
+    data = data.copy()  # Must be a shallow copy (avoid creating copies of data arrays)
+    metadata = copy.deepcopy(metadata)  # Create deep copy (metadata is modified)
+
     interpath = "xrfmap"
-    sum_data = None
+    sum_data, sum_data_exists = None, False
     xrf_det_list = [n for n in data.keys() if "det" in n and "sum" not in n]
     xrf_det_list.sort()
 
@@ -2098,19 +2105,27 @@ def save_data_to_hdf5(
         logger.debug(
             f"Attemptying to save raw fluorescence data for the channel '{channel}' "
             f"as '{data_type}' numbers.\n    Memory may be used inefficiently. "
-            f"Please, inform the PyXRF developers.\n    The data is converted from '{data_type}' "
-            f"to 'np.float32' before saving to file."
+            f"The data is converted from '{data_type}' to 'np.float32' before saving to file."
         )
 
     if "det_sum" in data and isinstance(data["det_sum"], np.ndarray):
         if data["det_sum"].dtype != np.float32:
             incorrect_type_msg("det_sum", data["det_sum"].dtype)
             data["det_sum"] = data["det_sum"].astype(np.float32, copy=False)
+        sum_data = data["det_sum"]
+        sum_data_exists = True
+
     for detname in xrf_det_list:
         if detname in data and isinstance(data[detname], np.ndarray):
             if data[detname].dtype != np.float32:
                 incorrect_type_msg(detname, data[detname].dtype)
                 data[detname] = data[detname].astype(np.float32, copy=False)
+
+            if not sum_data_exists:  # Don't compute it if it already exists
+                if sum_data is None:
+                    sum_data = np.copy(data[detname])
+                else:
+                    sum_data += data[detname]
 
     file_open_mode = "a"
     if os.path.exists(fpath):
@@ -2134,34 +2149,31 @@ def save_data_to_hdf5(
             "file_type": "XRF-MAP",
             "file_format": "NSLS2-XRF-MAP",
             "file_format_version": "1.0",
+            "file_created_time": ttime.strftime("%Y-%m-%dT%H:%M:%S+00:00", ttime.localtime()),
+        }
+
+        metadata_software_version = {
             "file_software": "PyXRF",
             "file_software_version": pyxrf_version,
-            "file_created_time": ttime.strftime("%Y-%m-%dT%H:%M:%S+00:00", ttime.localtime()),
         }
 
         metadata_prepared = metadata or {}
         metadata_prepared.update(metadata_additional)
+        if "file_software" not in metadata_prepared:
+            metadata_prepared.update(metadata_software_version)
 
-        if metadata:
+        if metadata_prepared:
             # We assume, that metadata does not contain repeated keys. Otherwise the
             #   entry with the last occurrence of the key will override the previous ones.
-            for key, value in metadata.items():
+            for key, value in metadata_prepared.items():
                 metadata_grp.attrs[key] = value
 
         if create_each_det is True:
             for detname in xrf_det_list:
                 new_data = data[detname]
-
-                if sum_data is None:
-                    sum_data = np.copy(new_data)
-                else:
-                    sum_data += new_data
-
                 dataGrp = f.create_group(interpath + "/" + detname)
                 ds_data = dataGrp.create_dataset("counts", data=new_data, compression="gzip")
                 ds_data.attrs["comments"] = "Experimental data from {}".format(detname)
-        else:
-            sum_data = data["det_sum"]
 
         # summed data
         if sum_data is not None:
