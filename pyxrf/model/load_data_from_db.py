@@ -2066,7 +2066,10 @@ def save_data_to_hdf5(
     data : dict
         The dictionary of raw data.
     metadata : dict
-        Metadata to be saved in the HDF5 file.
+        Metadata to be saved in the HDF5 file. The function will add or overwrite the existing
+        metadata fields: ``file_type``, ``file_format``, ``file_format_version``, ``file_created_time``.
+        User may define metadata fields ``file_software`` and ``file_software_version``. If ``file_software``
+        is not defined, then the default values for ``file_software`` and ``file_software_version`` are added.
     fname_add_version : boolean
         True: if file already exists, then file version is added to the file name
         so that it becomes unique in the current directory. The version is
@@ -2134,13 +2137,18 @@ def save_data_to_hdf5(
             "file_type": "XRF-MAP",
             "file_format": "NSLS2-XRF-MAP",
             "file_format_version": "1.0",
+            "file_created_time": ttime.strftime("%Y-%m-%dT%H:%M:%S+00:00", ttime.localtime()),
+        }
+
+        metadata_software_version = {
             "file_software": "PyXRF",
             "file_software_version": pyxrf_version,
-            "file_created_time": ttime.strftime("%Y-%m-%dT%H:%M:%S+00:00", ttime.localtime()),
         }
 
         metadata_prepared = metadata or {}
         metadata_prepared.update(metadata_additional)
+        if "file_software" not in metadata_prepared:
+            metadata_prepared.update(metadata_software_version)
 
         if metadata:
             # We assume, that metadata does not contain repeated keys. Otherwise the
