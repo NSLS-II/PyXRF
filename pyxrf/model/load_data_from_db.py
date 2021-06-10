@@ -2105,8 +2105,7 @@ def save_data_to_hdf5(
         logger.debug(
             f"Attemptying to save raw fluorescence data for the channel '{channel}' "
             f"as '{data_type}' numbers.\n    Memory may be used inefficiently. "
-            f"Please, inform the PyXRF developers.\n    The data is converted from '{data_type}' "
-            f"to 'np.float32' before saving to file."
+            f"The data is converted from '{data_type}' to 'np.float32' before saving to file."
         )
 
     if "det_sum" in data and isinstance(data["det_sum"], np.ndarray):
