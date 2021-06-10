@@ -15,6 +15,9 @@ from .xanes_maps.xanes_maps_api import build_xanes_map  # noqa: F401
 from .simulation.sim_xrf_scan_data import gen_hdf5_qa_dataset, gen_hdf5_qa_dataset_preset_1  # noqa: F401
 from .core.map_processing import dask_client_create  # noqa: F401
 
+from .model.load_data_from_db import save_data_to_hdf5  # noqa: F401, E402
+from .model.fileio import read_data_from_hdf5  # noqa: F401, E402
+
 # Note:  the statement '# noqa: F401' is telling flake8 to ignore violation F401 at the given line
 #     Violation F401 - the package is imported but unused
 

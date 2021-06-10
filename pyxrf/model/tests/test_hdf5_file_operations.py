@@ -2,7 +2,7 @@ import os
 import numpy as np
 import numpy.testing as npt
 import pytest
-from pyxrf import save_data_to_hdf5, read_data_from_hdf5
+from pyxrf.api_dev import save_data_to_hdf5, read_data_from_hdf5
 
 
 def _prepare_raw_dataset(N=5, M=10, K=4096):
