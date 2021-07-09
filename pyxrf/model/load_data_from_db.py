@@ -1600,10 +1600,13 @@ def map_data2D_xfm(
             scaler_list=config_data["scaler_list"],
             fly_type=fly_type,
         )
+
+        fpath_out = fpath
+
         if output_to_file:
             print("Saving data to hdf file.")
-            save_data_to_hdf5(
-                fpath,
+            fpath_out = save_data_to_hdf5(
+                fpath_out,
                 data_out,
                 metadata=mdata,
                 fname_add_version=fname_add_version,
@@ -1612,10 +1615,10 @@ def map_data2D_xfm(
             )
 
         detector_name = "xs"
-        d_dict = {"dataset": data_out, "file_name": fpath, "detector_name": detector_name, "metadata": mdata}
+        d_dict = {"dataset": data_out, "file_name": fpath_out, "detector_name": detector_name, "metadata": mdata}
         data_output.append(d_dict)
 
-        return data_output
+    return data_output
 
 
 def write_db_to_hdf(
