@@ -1384,17 +1384,24 @@ def map_data2D_tes(
         """
         Determine if the row is missing. Different versions of Databroker will return differnent value types.
         """
-        if s_data[_n] is None:
+        if row_data is None:
             return True
-        elif isinstance(s_data[_n], np.ndarray) and (s_data[_n].size == 1) and (s_data[_n] == np.array(None)):
+        elif isinstance(row_data, np.ndarray) and (row_data.size == 1) and (row_data == np.array(None)):
             # This is returned by databroker.v0
             return True
-        elif not len(s_data[_n]):
+        elif not len(row_data):
             return True
+        else:
+            return False
+
+    def _get_row_len(row_data):
+        if _is_row_missing(row_data):
+            return 0
+        else:
+            return len(row_data)
 
     # Typically the scalers are saved
     if save_scaler is True:
-
         # Read the scalers
         scaler_names = config_data["scaler_list"]
 
@@ -1413,20 +1420,27 @@ def map_data2D_tes(
             #   and then stack the arrays into a single 2D array
             s_data = s_data.to_numpy()
 
+            # Find maximum number of points in a row.
+            n_max_points = -1  # Maximum number of points in the row
+            for row_data in s_data:
+                n_max_points = max(n_max_points, _get_row_len(row_data))
+
             # Fix for the issue: 'empty' rows in scaler data. Fill 'empty' row
             #   with the nearest (preceding) row.
             # TODO: investigate the issue of 'empty' scaler ('dwell_time') rows at TES
             n_full = -1
+
             for _n in range(len(s_data)):
-                if _is_row_missing(s_data[_n]):
+                if _is_row_missing(s_data[_n]) or (len(s_data[_n]) < n_max_points):
                     n_full = _n
                     break
             for _n in range(len(s_data)):
                 # Data for the missing row is replaced by data from the previous 'good' row
-                if _is_row_missing(s_data[_n]):
+                if _is_row_missing(s_data[_n]) or (len(s_data[_n]) < n_max_points):
                     s_data[_n] = np.copy(s_data[n_full])
                     logger.error(
-                        f"Scaler '{name}': row #{_n} contains no data. Replaced by data from row #{n_full}"
+                        f"Scaler '{name}': row #{_n} is corrupt or contains no data. "
+                        f"Replaced by data from row #{n_full}"
                     )
                 else:
                     n_full = _n
@@ -1453,13 +1467,22 @@ def map_data2D_tes(
     n_events = data_shape[0]
     n_events_found = 0
     e = hdr.events(fill=True, stream_name="primary")
+
+    n_pt_max = -1
     for n, v in enumerate(e):
         if n >= n_events:
             print("The number of lines is less than expected")
             break
         data = v.data[detector_field]
         data_det1 = np.array(data[:, 0, :], dtype=np.float32)
-        detector_data[n, :, :] = data_det1
+
+        # The following is the fix for the case when data has corrupt row (smaller number of data points).
+        # It will not work if the first row is corrupt.
+        n_pt_max = max(data_det1.shape[0], n_pt_max)
+        data_det1_adjusted = np.zeros([n_pt_max, data_det1.shape[1]])
+        data_det1_adjusted[: data_det1.shape[0], :] = data_det1
+
+        detector_data[n, :, :] = data_det1_adjusted
         n_events_found = n + 1
     if n_events_found < n_events:
         print("The number of lines is less than expected. The experiment may be incomplete")
