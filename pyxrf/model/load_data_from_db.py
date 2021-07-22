@@ -1468,14 +1468,23 @@ def map_data2D_tes(
     n_events = data_shape[0]
     n_events_found = 0
     e = hdr.events(fill=True, stream_name="primary")
+
+    n_pt_max = -1
     for n, v in enumerate(e):
         if n >= n_events:
             print("The number of lines is less than expected")
             break
         data = v.data[detector_field]
         data_det1 = np.array(data[:, 0, :], dtype=np.float32)
+
+        # The following is the fix for the case when data has corrupt row (smaller number of data points).
+        # It will not work if the first row is corrupt.
+        n_pt_max = max(data_det1.shape[0], n_pt_max)
+        data_det1_adjusted = np.zeros([n_pt_max, data_det1.shape[1]])
+        data_det1_adjusted[:data_det1.shape[0], :] = data_det1
         print(f"n={n} data_det1.shape={data_det1.shape}")
-        detector_data[n, :, :] = data_det1
+
+        detector_data[n, :, :] = data_det1_adjusted
         n_events_found = n + 1
     if n_events_found < n_events:
         print("The number of lines is less than expected. The experiment may be incomplete")
