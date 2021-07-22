@@ -1402,7 +1402,6 @@ def map_data2D_tes(
 
     # Typically the scalers are saved
     if save_scaler is True:
-
         # Read the scalers
         scaler_names = config_data["scaler_list"]
 
@@ -1425,6 +1424,7 @@ def map_data2D_tes(
             n_max_points = -1  # Maximum number of points in the row
             for row_data in s_data:
                 n_max_points = max(n_max_points, _get_row_len(row_data))
+            print(f"scaler: name={name} n_max_points={n_max_points}")
 
             # Fix for the issue: 'empty' rows in scaler data. Fill 'empty' row
             #   with the nearest (preceding) row.
@@ -1440,7 +1440,7 @@ def map_data2D_tes(
                 if _is_row_missing(s_data[_n]) or (len(s_data[_n]) < n_max_points):
                     s_data[_n] = np.copy(s_data[n_full])
                     logger.error(
-                        f"Scaler '{name}': row #{_n} is currupted or contains no data. "
+                        f"Scaler '{name}': row #{_n} is corrupt or contains no data. "
                         f"Replaced by data from row #{n_full}"
                     )
                 else:
@@ -1474,6 +1474,7 @@ def map_data2D_tes(
             break
         data = v.data[detector_field]
         data_det1 = np.array(data[:, 0, :], dtype=np.float32)
+        print(f"n={n} data_det1.shape={data_det1.shape}")
         detector_data[n, :, :] = data_det1
         n_events_found = n + 1
     if n_events_found < n_events:
