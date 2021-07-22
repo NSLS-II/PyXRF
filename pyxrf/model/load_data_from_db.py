@@ -1480,7 +1480,7 @@ def map_data2D_tes(
         # It will not work if the first row is corrupt.
         n_pt_max = max(data_det1.shape[0], n_pt_max)
         data_det1_adjusted = np.zeros([n_pt_max, data_det1.shape[1]])
-        data_det1_adjusted[:data_det1.shape[0], :] = data_det1
+        data_det1_adjusted[: data_det1.shape[0], :] = data_det1
 
         detector_data[n, :, :] = data_det1_adjusted
         n_events_found = n + 1
