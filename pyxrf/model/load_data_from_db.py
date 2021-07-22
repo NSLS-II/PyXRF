@@ -1424,7 +1424,6 @@ def map_data2D_tes(
             n_max_points = -1  # Maximum number of points in the row
             for row_data in s_data:
                 n_max_points = max(n_max_points, _get_row_len(row_data))
-            print(f"scaler: name={name} n_max_points={n_max_points}")
 
             # Fix for the issue: 'empty' rows in scaler data. Fill 'empty' row
             #   with the nearest (preceding) row.
@@ -1482,7 +1481,6 @@ def map_data2D_tes(
         n_pt_max = max(data_det1.shape[0], n_pt_max)
         data_det1_adjusted = np.zeros([n_pt_max, data_det1.shape[1]])
         data_det1_adjusted[:data_det1.shape[0], :] = data_det1
-        print(f"n={n} data_det1.shape={data_det1.shape}")
 
         detector_data[n, :, :] = data_det1_adjusted
         n_events_found = n + 1
