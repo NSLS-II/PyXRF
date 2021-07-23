@@ -1491,6 +1491,14 @@ def map_data2D_tes(
     if n_events_found < n_events:
         print("The number of lines is less than expected. The experiment may be incomplete")
 
+    if n_events_found != n_events:
+        # This will happen if data is corrupt, for example the experiment is interrupted prematurely.
+        n_events_min = min(n_events_found, n_events)
+        print(f"The map is resized: data for only {n_events_min} rows is available")
+        detector_data = detector_data[:n_events_min, :, :]
+        new_data["scaler_data"] = new_data["scaler_data"][:n_events_min, :, :]
+        new_data["pos_data"] = new_data["pos_data"][:, :n_events_min, :]
+
     # Note: the following code assumes that the detector has only one channel.
     #   If the detector is upgraded, the following code will have to be rewritten, but
     #   the rest of the data loading procedure will have to be modified anyway.
