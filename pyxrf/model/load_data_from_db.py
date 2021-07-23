@@ -1469,23 +1469,36 @@ def map_data2D_tes(
     e = hdr.events(fill=True, stream_name="primary")
 
     n_pt_max = -1
-    for n, v in enumerate(e):
-        if n >= n_events:
-            print("The number of lines is less than expected")
-            break
-        data = v.data[detector_field]
-        data_det1 = np.array(data[:, 0, :], dtype=np.float32)
+    try:
+        for n, v in enumerate(e):
+            if n >= n_events:
+                print("The number of lines is less than expected")
+                break
+            data = v.data[detector_field]
+            data_det1 = np.array(data[:, 0, :], dtype=np.float32)
 
-        # The following is the fix for the case when data has corrupt row (smaller number of data points).
-        # It will not work if the first row is corrupt.
-        n_pt_max = max(data_det1.shape[0], n_pt_max)
-        data_det1_adjusted = np.zeros([n_pt_max, data_det1.shape[1]])
-        data_det1_adjusted[: data_det1.shape[0], :] = data_det1
+            # The following is the fix for the case when data has corrupt row (smaller number of data points).
+            # It will not work if the first row is corrupt.
+            n_pt_max = max(data_det1.shape[0], n_pt_max)
+            data_det1_adjusted = np.zeros([n_pt_max, data_det1.shape[1]])
+            data_det1_adjusted[: data_det1.shape[0], :] = data_det1
 
-        detector_data[n, :, :] = data_det1_adjusted
-        n_events_found = n + 1
+            detector_data[n, :, :] = data_det1_adjusted
+            n_events_found = n + 1
+    except Exception as ex:
+        logger.error(f"Error occurred while reading data: {ex}. Trying to retrieve available data ...")
+
     if n_events_found < n_events:
         print("The number of lines is less than expected. The experiment may be incomplete")
+
+    if n_events_found != n_events:
+        # This will happen if data is corrupt, for example the experiment is interrupted prematurely.
+        n_events_min = min(n_events_found, n_events)
+        print(f"The map is resized: data for only {n_events_min} rows is available")
+        detector_data = detector_data[:n_events_min, :, :]
+        new_data["scaler_data"] = new_data["scaler_data"][:n_events_min, :, :]
+        new_data["pos_data"] = new_data["pos_data"][:, :n_events_min, :]
+
     # Note: the following code assumes that the detector has only one channel.
     #   If the detector is upgraded, the following code will have to be rewritten, but
     #   the rest of the data loading procedure will have to be modified anyway.
