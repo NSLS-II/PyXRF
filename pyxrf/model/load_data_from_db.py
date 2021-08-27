@@ -6,6 +6,7 @@ import os
 import json
 import multiprocessing
 import pandas as pd
+import platform
 import math
 import time as ttime
 import copy
@@ -32,10 +33,35 @@ warnings.filterwarnings("ignore")
 sep_v = os.sep
 
 try:
+    beamline_name = None
+
+    # Attempt to find the configuration file first
     config_path = "/etc/pyxrf/pyxrf.json"
-    with open(config_path, "r") as beamline_pyxrf:
-        beamline_config_pyxrf = json.load(beamline_pyxrf)
-        beamline_name = beamline_config_pyxrf["beamline_name"]
+    if os.path.isfile(config_path):
+        try:
+            with open(config_path, "r") as beamline_pyxrf:
+                beamline_config_pyxrf = json.load(beamline_pyxrf)
+                beamline_name = beamline_config_pyxrf["beamline_name"]
+        except Exception as ex:
+            raise IOError(f"Error while opening configuration file {config_path!r}") from ex
+
+    else:
+        # Otherwise try to identify the beamline using host name
+        hostname = platform.node()
+        beamline_names = {
+            "xf03id": "HXN",
+            "xf05id": "SRX",
+            "xf08bm": "TES",
+            "xf04bm": "XFM",
+        }
+
+        for k, v in beamline_names.items():
+            if hostname.startswith(k):
+                beamline_name = v
+
+    if beamline_name is None:
+        raise Exception("Beamline is not identified")
+
     if beamline_name == "HXN":
         from pyxrf.db_config.hxn_db_config import db
     elif beamline_name == "SRX":
@@ -47,15 +73,11 @@ try:
     else:
         db = None
         db_analysis = None
-        print("Beamline Database is not used in pyxrf.")
-except IOError:
-    db = None
-    print("Beamline Database is not used in pyxrf.")
+        print(f"Beamline Database is not used in pyxrf: unknown beamline {beamline_name!r}")
 
-# try:
-#     import suitcase.hdf5 as sc
-# except ImportError:
-#     pass
+except Exception as ex:
+    db = None
+    print(f"Beamline Database is not used in pyxrf: {ex}")
 
 
 def flip_data(input_data, subscan_dims=None):
