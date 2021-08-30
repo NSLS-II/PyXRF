@@ -15,6 +15,11 @@ jobs:
       fail-fast: false
 
     steps:
+    - name: Set env.REPOSITORY_NAME  # just the repo, as opposed to org/repo
+      shell: bash -l {0}
+      run: |
+        export REPOSITORY_NAME=${GITHUB_REPOSITORY#*/}
+        echo "REPOSITORY_NAME=${REPOSITORY_NAME}" >> $GITHUB_ENV
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
