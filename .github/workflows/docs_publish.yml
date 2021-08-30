@@ -42,7 +42,7 @@ jobs:
         deploy_key: ${{ secrets.ACTIONS_DOCUMENTATION_DEPLOY_KEY }}
         publish_branch: master
         publish_dir: ./docs/build/html
-        external_repository: PyXRF/nsls-ii.github.io
+        external_repository: nsls-ii/nsls-ii.github.io
         destination_dir: PyXRF
         keep_files: true  # Keep old files.
         force_orphan: false  # Keep git history.
