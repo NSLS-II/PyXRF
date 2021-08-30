@@ -43,6 +43,6 @@ jobs:
         publish_branch: master
         publish_dir: ./docs/build/html
         external_repository: nsls-ii/nsls-ii.github.io
-        destination_dir: PyXRF
+        destination_dir: ${{ env.REPOSITORY_NAME }}  # just the repo name
         keep_files: true  # Keep old files.
         force_orphan: false  # Keep git history.
