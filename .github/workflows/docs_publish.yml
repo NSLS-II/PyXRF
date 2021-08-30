@@ -15,6 +15,11 @@ jobs:
       fail-fast: false
 
     steps:
+    - name: Set env.REPOSITORY_NAME  # just the repo, as opposed to org/repo
+      shell: bash -l {0}
+      run: |
+        export REPOSITORY_NAME=${GITHUB_REPOSITORY#*/}
+        echo "REPOSITORY_NAME=${REPOSITORY_NAME}" >> $GITHUB_ENV
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
@@ -42,7 +47,7 @@ jobs:
         deploy_key: ${{ secrets.ACTIONS_DOCUMENTATION_DEPLOY_KEY }}
         publish_branch: master
         publish_dir: ./docs/build/html
-        external_repository: PyXRF/nsls-ii.github.io
-        destination_dir: PyXRF
+        external_repository: nsls-ii/nsls-ii.github.io
+        destination_dir: ${{ env.REPOSITORY_NAME }}  # just the repo name
         keep_files: true  # Keep old files.
         force_orphan: false  # Keep git history.
