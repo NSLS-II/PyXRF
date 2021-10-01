@@ -63,7 +63,7 @@ def _generate_parameter_set_schema():
                 "type": "array",
                 "additionalItems": False,
                 "uniqueItems": True,
-                "items": [
+                "prefixItems": [
                     {"type": "integer"},
                     {"type": "number"},
                     {"type": "string"},
