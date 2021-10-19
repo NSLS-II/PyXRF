@@ -2510,8 +2510,8 @@ def show_image_stack(
 
             self.t_bar = plt.get_current_fig_manager().toolbar
 
-            x_label = "X, {axes_units}" if axes_units else "X"
-            y_label = "Y, {axes_units}" if axes_units else "Y"
+            x_label = f"X, {axes_units}" if axes_units else "X"
+            y_label = f"Y, {axes_units}" if axes_units else "Y"
             self.ax_img_stack.set_xlabel(x_label, fontsize=self.label_fontsize)
             self.ax_img_stack.set_ylabel(y_label, fontsize=self.label_fontsize)
 
@@ -3002,8 +3002,8 @@ def plot_xanes_map(
     else:
         axes_units = axes_units if axes_units else ""
 
-    x_label = "X, {axes_units}" if axes_units else "X"
-    y_label = "Y, {axes_units}" if axes_units else "Y"
+    x_label = f"X, {axes_units}" if axes_units else "X"
+    y_label = f"Y, {axes_units}" if axes_units else "Y"
 
     # Find max and min values. The margins are likely to contain strong artifacts that distort images.
     c = max(map_margin / 100.0, 0)  # Make sure it is positive
@@ -3021,13 +3021,14 @@ def plot_xanes_map(
         img_title = f"XANES map: {label}"
 
     fig = plt.figure(figsize=(6, 6), num=fig_title)
+    ax = fig.subplots()
 
     # display image
     extent = [positions_x[0], positions_x[-1], positions_y[-1], positions_y[0]]
-    img_plot = plt.imshow(map_data, vmin=vmin, vmax=vmax, origin="upper", extent=extent)
+    img_plot = ax.imshow(map_data, vmin=vmin, vmax=vmax, origin="upper", extent=extent)
     plt.colorbar(img_plot, orientation="vertical")
-    plt.axes().set_xlabel(x_label, fontsize=15)
-    plt.axes().set_ylabel(y_label, fontsize=15)
+    ax.get_xaxis().set_label_text(x_label, fontsize=15)
+    ax.get_yaxis().set_label_text(y_label, fontsize=15)
     fig.suptitle(img_title, fontsize=20)
     plt.show(block=block)
     return fig
@@ -3074,15 +3075,16 @@ def plot_absorption_references(
         labels = [""] * n_refs
 
     fig = plt.figure(figsize=(6, 6), num="Element References")
+    ax = fig.subplots()
 
     for n in range(n_refs):
-        plt.plot(ref_energy, ref_data[:, n], label=labels[n])
+        ax.plot(ref_energy, ref_data[:, n], label=labels[n])
 
     for n in range(n_refs):
-        plt.plot(scan_energies, scan_absorption_refs[:, n], "o", label=labels[n])
+        ax.plot(scan_energies, scan_absorption_refs[:, n], "o", label=labels[n])
 
-    plt.axes().set_xlabel("Energy, keV", fontsize=15)
-    plt.axes().set_ylabel("Absorption", fontsize=15)
+    ax.set_xlabel("Energy, keV", fontsize=15)
+    ax.set_ylabel("Absorption", fontsize=15)
     plt.grid(True)
     fig.suptitle("Element References", fontsize=20)
     if ref_labels:
