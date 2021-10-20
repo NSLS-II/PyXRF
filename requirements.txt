@@ -1,6 +1,6 @@
 atom
-dask
-distributed
+dask<=2021.6.2
+distributed<=2021.6.2
 jsonschema
 h5py>=2.9.0
 lmfit
