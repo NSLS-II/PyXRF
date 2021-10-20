@@ -824,6 +824,13 @@ def fit_xrf_map(
 
     result = result_fut.compute(scheduler=client)
 
+    # if file_obj:  ##
+    #     print(f"============ Closing file ======================")  ##
+    #     file_obj.close()  ##
+
+    client.restart()  ##
+    # client.cancel(data) ##
+
     if client_is_local:
         client.close()
 

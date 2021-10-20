@@ -731,6 +731,7 @@ def pyxrf_batch(
                     dask_client=dask_client,
                 )
             except Exception as ex:
+                logger.exception(ex)  ##
                 if allow_raising_exceptions:
                     _dask_client_close(client_is_local)
                     raise Exception from ex
