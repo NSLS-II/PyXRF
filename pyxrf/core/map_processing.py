@@ -520,6 +520,12 @@ def compute_total_spectrum(
 
     result = result_fut.compute(scheduler=client)
 
+    file_obj.close()
+
+    # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
+    del result_fut
+    _run_dummy_task_on_dask(client=client)
+
     if client_is_local:
         client.close()
 
@@ -609,6 +615,12 @@ def compute_total_spectrum_and_count(
 
     result = result_fut.compute(scheduler=client)
 
+    file_obj.close()
+
+    # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
+    del result_fut
+    _run_dummy_task_on_dask(client=client)
+
     if client_is_local:
         client.close()
 
@@ -681,6 +693,17 @@ def _fit_xrf_block(data, data_sel_indices, matv, snip_param, use_snip):
     data_out = np.dstack((weights, bg_sum, rfactor, sel_cnt, total_cnt))
 
     return data_out
+
+
+def _run_dummy_task_on_dask(*, client):
+    """
+    Runs small task on Dask client. Starting from v2021.7.0, Dask Distributed does not always
+    close HDF5 files, that are open in read-only mode for loading raw data. Submitting and
+    computing a small unrelated tasks seem to prompt the client to release the resources from
+    the previous task and close the files.
+    """
+    rfut = da.sum(da.random.random((1000,), chunks=(10,))).persist(scheduler=client)
+    rfut.compute(scheduler=client)
 
 
 def fit_xrf_map(
@@ -824,12 +847,11 @@ def fit_xrf_map(
 
     result = result_fut.compute(scheduler=client)
 
-    # if file_obj:  ##
-    #     print(f"============ Closing file ======================")  ##
-    #     file_obj.close()  ##
+    file_obj.close()
 
-    client.restart()  ##
-    # client.cancel(data) ##
+    # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
+    del result_fut
+    _run_dummy_task_on_dask(client=client)
 
     if client_is_local:
         client.close()
@@ -1044,6 +1066,12 @@ def compute_selected_rois(
     result = result_fut.compute(scheduler=client)
 
     roi_dict_computed = {roi_band_keys[_]: result[:, :, _] for _ in range(len(roi_band_keys))}
+
+    file_obj.close()
+
+    # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
+    del result_fut
+    _run_dummy_task_on_dask(client=client)
 
     if client_is_local:
         client.close()
