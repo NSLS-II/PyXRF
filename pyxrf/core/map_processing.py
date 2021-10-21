@@ -520,7 +520,8 @@ def compute_total_spectrum(
 
     result = result_fut.compute(scheduler=client)
 
-    file_obj.close()
+    if file_obj:
+        file_obj.close()
 
     # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
     del result_fut
@@ -615,7 +616,8 @@ def compute_total_spectrum_and_count(
 
     result = result_fut.compute(scheduler=client)
 
-    file_obj.close()
+    if file_obj:
+        file_obj.close()
 
     # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
     del result_fut
@@ -847,7 +849,8 @@ def fit_xrf_map(
 
     result = result_fut.compute(scheduler=client)
 
-    file_obj.close()
+    if file_obj:
+        file_obj.close()
 
     # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
     del result_fut
@@ -1067,7 +1070,8 @@ def compute_selected_rois(
 
     roi_dict_computed = {roi_band_keys[_]: result[:, :, _] for _ in range(len(roi_band_keys))}
 
-    file_obj.close()
+    if file_obj:
+        file_obj.close()
 
     # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
     del result_fut
