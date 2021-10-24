@@ -813,6 +813,95 @@ def map_data2D_srx(
     dict of data in 2D format matching x,y scanning positions
     """
     hdr = db[run_id_uid]
+    start_doc = hdr["start"]
+    use_new_format = 'md_version' in start_doc
+
+    if use_new_format:
+        map_data2D_srx_new(
+            run_id_uid=run_id_uid,
+            fpath=fpath,
+            create_each_det=create_each_det,
+            fname_add_version=fname_add_version,
+            completed_scans_only=completed_scans_only,
+            file_overwrite_existing=file_overwrite_existing,
+            output_to_file=output_to_file,
+            save_scaler=save_scaler,
+            num_end_lines_excluded=num_end_lines_excluded,
+        )
+    else:
+        map_data2D_srx_old(
+            run_id_uid=run_id_uid,
+            fpath=fpath,
+            create_each_det=create_each_det,
+            fname_add_version=fname_add_version,
+            completed_scans_only=completed_scans_only,
+            file_overwrite_existing=file_overwrite_existing,
+            output_to_file=output_to_file,
+            save_scaler=save_scaler,
+            num_end_lines_excluded=num_end_lines_excluded,
+        )
+
+
+def map_data2D_srx_old(
+    run_id_uid,
+    fpath,
+    create_each_det=False,
+    fname_add_version=False,
+    completed_scans_only=False,
+    file_overwrite_existing=False,
+    output_to_file=True,
+    save_scaler=True,
+    num_end_lines_excluded=None,
+):
+    """
+    Transfer the data from databroker into a correct format following the
+    shape of 2D scan.
+    This function is used at SRX beamline for both fly scan and step scan.
+    Save to hdf file if needed.
+
+    .. note:: Requires the databroker package from NSLS2
+
+    Parameters
+    ----------
+    run_id_uid : int
+        ID or UID of a run
+    fpath: str
+        path to save hdf file
+    create_each_det: bool, optional
+        Do not create data for each detector is data size is too large,
+        if set as false. This will slow down the speed of creating hdf file
+        with large data size.
+    fname_add_version : bool
+        True: if file already exists, then file version is added to the file name
+        so that it becomes unique in the current directory. The version is
+        added to <fname>.h5 in the form <fname>_(1).h5, <fname>_(2).h5, etc.
+        False: then conversion fails.
+    completed_scans_only : bool
+        True: process only completed scans (for which ``stop`` document exists in
+        the database). Failed scan for which ``stop`` document exists are considered
+        completed even if not the whole image was scanned. If incomplete scan is
+        encountered: an exception is thrown.
+        False: the feature is disabled, incomplete scan will be processed.
+    file_overwrite_existing : bool, keyword parameter
+        This option should be used if the existing file should be deleted and replaced
+        with the new file with the same name. This option should be used with caution,
+        since the existing file may contain processed data, which will be permanently deleted.
+        True: overwrite existing files if needed. Note, that if ``fname_add_version`` is ``True``,
+        then new versions of the existing file will always be created.
+        False: do not overwrite existing files. If the file already exists, then the exception
+        is raised.
+    output_to_file : bool, optional
+        save data to hdf5 file if True
+    save_scaler : bool, optional
+        choose to save scaler data or not for srx beamline, test purpose only.
+    num_end_lines_excluded : int, optional
+        remove the last few bad lines
+
+    Returns
+    -------
+    dict of data in 2D format matching x,y scanning positions
+    """
+    hdr = db[run_id_uid]
     runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
 
     if completed_scans_only and not _is_scan_complete(hdr):
@@ -820,6 +909,7 @@ def map_data2D_srx(
 
     spectrum_len = 4096
     start_doc = hdr["start"]
+
     # The dictionary holding scan metadata
     mdata = _extract_metadata_from_header(hdr)
     plan_n = start_doc.get("plan_name")
@@ -1279,6 +1369,367 @@ def map_data2D_srx(
         logger.debug(f"Fly scan data was saved to the following files: {fln_list}")
 
         return data_output
+
+
+def map_data2D_srx_new(
+    run_id_uid,
+    fpath,
+    create_each_det=False,
+    fname_add_version=False,
+    completed_scans_only=False,
+    file_overwrite_existing=False,
+    output_to_file=True,
+    save_scaler=True,
+    num_end_lines_excluded=None,
+):
+
+    if num_end_lines_excluded:
+        logger.warning(
+            "The data loading function for new SRX format does not support the parameter "
+            "'num_end_lines_excluded' ({num_end_lines_excluded}). All available data will "
+            "be included in the output file."
+        )
+
+    hdr = db[run_id_uid]
+    runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
+
+    if completed_scans_only and not _is_scan_complete(hdr):
+        raise Exception("Scan is incomplete. Only completed scans are currently processed.")
+
+    start_doc =hdr.start
+    scan_doc = start_doc['scan']
+    stop_doc = hdr.stop
+
+    # Check for detectors
+    dets = []
+    try:
+        if 'xs' in hdr.start['scan']['detectors']:
+            dets.append('xs')
+        elif 'xs2' in hdr.start['scan']['detectors']:
+            dets.append('xs2')
+    except KeyError:
+        # AMK forgot to add detectors to step scans
+        # This is fixed, but left in for those scans
+        if scan_doc['type'] == 'XRF_STEP':
+            dets.append('xs')
+
+    if not(dets):
+        raise IOError('No detectors found!')
+
+    # Get metadata
+    mdata = _extract_metadata_from_header(hdr)
+
+    # Get position data from scan
+    n_scan_columns, n_scan_rows = hdr.start['scan']['shape']
+
+    if scan_doc['type'] == 'XRF_FLY':
+        fast_motor = scan_doc['fast_axis']['motor_name']
+        if (fast_motor == 'nano_stage_sx'):
+            fast_key = 'enc1'
+        elif (fast_motor == 'nano_stage_x'):
+            fast_key = 'enc1'
+        elif (fast_motor == 'nano_stage_sy'):
+            fast_key = 'enc2'
+        elif (fast_motor == 'nano_stage_y'):
+            fast_key = 'enc2'
+        elif (fast_motor == 'nano_stage_sz'):
+            fast_key = 'enc3'
+        else:
+            raise IOError(f'{fast_motor} not found!')
+
+        slow_motor = scan_doc['slow_axis']['motor_name']
+        if (slow_motor == 'nano_stage_sx'):
+            slow_key = 'enc1'
+        elif (slow_motor == 'nano_stage_x'):
+            slow_key = 'enc1'
+        elif (slow_motor == 'nano_stage_sy'):
+            slow_key = 'enc2'
+        elif (slow_motor == 'nano_stage_y'):
+            slow_key = 'enc2'
+        elif (slow_motor == 'nano_stage_sz'):
+            slow_key = 'enc3'
+        else:
+            slow_key = slow_motor
+
+        fast_pos = hdr.data(fast_key, stream_name='stream0', fill=True)
+        fast_pos = np.array(list(fast_pos))
+        if 'enc' in slow_key:
+            slow_pos = hdr.data(slow_key, stream_name='stream0', fill=True)
+            slow_pos = np.array(list(slow_pos))
+        else:
+            slow_pos = hdr.data(slow_key, stream_name='primary', fill=True)
+            slow_pos = np.array(list(slow_pos))
+            slow_pos = np.array([slow_pos,] * n_scan_columns).T
+
+        num_events = stop_doc['num_events']['stream0']
+        pos_pos = np.zeros((2, num_events, n_scan_columns))
+        if 'x' in slow_key:
+            pos_pos[1, :, :] = fast_pos
+            pos_pos[0, :, :] = slow_pos
+        else:
+            pos_pos[0, :, :] = fast_pos
+            pos_pos[1, :, :] = slow_pos
+        pos_name = ['x_pos', 'y_pos']
+
+        # Let's get the data using the events! Yay!
+        e = hdr.events('stream0', fill=True)
+        if 'xs' in dets:
+            d_xs = []
+        if 'xs2' in dets:
+            d_xs2 = []
+        sclr_list = ['i0', 'i0_time', 'time', 'im', 'it']
+        sclr = []
+        sclr_name = []
+
+        try:
+            for m, v in enumerate(e):
+                if 'xs' in dets:
+                    d_xs.append(v['data']['fluor'])
+                if 'xs2' in dets:
+                    d_xs.append(v['data']['fluor_xs2'])
+                keys = v['data'].keys()
+                for s in sclr_list:
+                    if s in keys:
+                        tmp = np.array(v['data'][s])
+                        sclr.append(tmp)
+                        if s not in sclr_name:
+                            sclr_name.append(s)
+        except Exception as ex:
+            logger.error(f"Error occurred while reading data: {ex}. Trying to retrieve available data ...")
+
+        if 'xs' in dets:
+            d_xs = np.asarray(d_xs)
+            N_xs = d_xs.shape[2]
+            d_xs_sum = np.sum(d_xs, axis=2)
+        if 'xs2' in dets:
+            d_xs2 = np.asarray(d_xs2)
+            N_xs2 = d_xs2.shape[2]
+            d_xs2_sum = np.sum(d_xs2, axis=2)
+
+        sclr = np.array(sclr)
+        sclr = np.reshape(sclr, (n_scan_columns, len(sclr_name), -1))
+        sclr = np.moveaxis(sclr, 1, 2)
+
+    if scan_doc['type'] == 'XRF_STEP':
+        # Define keys for motor data
+        fast_motor = scan_doc['fast_axis']['motor_name']
+        fast_key = fast_motor + '_user_setpoint'
+        slow_motor = scan_doc['slow_axis']['motor_name']
+        slow_key = slow_motor + '_user_setpoint'
+
+        # Collect motor positions
+        fast_pos = hdr.data(fast_key, stream_name='primary', fill=True)
+        fast_pos = np.array(list(fast_pos))
+        slow_pos = hdr.data(slow_key, stream_name='primary', fill=True)
+        slow_pos = np.array(list(slow_pos))
+
+        # Reshape motor positions
+        num_events = stop_doc['num_events']['primary']
+        n_scan_rows, n_scan_columns = scan_doc['shape']
+        if num_events != (n_scan_rows * n_scan_columns):
+            num_rows = num_events // n_scan_columns  + 1  # number of rows
+            fast_pos = np.zeros((num_rows, n_scan_columns))
+            slow_pos = np.zeros((num_rows, n_scan_columns))
+            for i in range(num_rows):
+                for j in range(n_scan_columns):
+                    fast_pos[i, j] = fast_pos[i*n_scan_columns + j]
+                    slow_pos[i, j] = slow_pos[i*n_scan_columns + j]
+        else:
+            num_rows = n_scan_rows
+            fast_pos = np.reshape(fast_pos, (n_scan_rows, n_scan_columns))
+            slow_pos = np.reshape(slow_pos, (n_scan_rows, n_scan_columns))
+
+        # Put into one array for h5 file
+        pos_pos = np.zeros((2, num_rows, n_scan_columns))
+        if 'x' in slow_key:
+            pos_pos[1, :, :] = fast_pos
+            pos_pos[0, :, :] = slow_pos
+        else:
+            pos_pos[0, :, :] = fast_pos
+            pos_pos[1, :, :] = slow_pos
+        pos_name = ['x_pos', 'y_pos']
+
+        # Get detector data
+        keys = hdr.table().keys()
+        MAX_DET_ELEMENTS = 7
+        for i in np.arange(1, MAX_DET_ELEMENTS+1):
+            if f'xs_channel{i}' in keys:
+                N_xs = i
+            else:
+                break
+        N_pts = num_events
+        N_bins= 4096
+        if 'xs' in dets:
+            d_xs = np.empty((N_xs, N_pts, N_bins))
+            for i in np.arange(0, N_xs):
+                d = hdr.data(f'xs_channel{i+1}', fill=True)
+                d = np.array(list(d))
+                d_xs[i, :, :] = np.copy(d)
+            del d
+            # Reshape data
+            if num_events != (n_scan_rows * n_scan_columns):
+                tmp = np.zeros((N_xs, num_rows, n_scan_columns, N_bins))
+                for i in range(num_rows):
+                    for j in range(n_scan_columns):
+                        tmp[:, i, j, :] = fast_pos[:, i*n_scan_columns + j, :]
+                d_xs = np.copy(tmp)
+                del tmp
+            else:
+                d_xs = np.reshape(d_xs, (N_xs, n_scan_rows, n_scan_columns, N_bins))
+            # Sum data
+            d_xs_sum = np.squeeze(np.sum(d_xs, axis=0))
+
+        # Scaler list
+        sclr_list = ['sclr_i0', 'sclr_im', 'sclr_it']
+        sclr_name = []
+        for s in sclr_list:
+            if s in keys:
+                sclr_name.append(s)
+        sclr = np.array(hdr.table()[sclr_name].values)
+        # Reshape data
+        if num_events != (n_scan_rows * n_scan_columns):
+            tmp = np.zeros((num_rows, n_scan_columns))
+            for i in range(num_rows):
+                for j in range(n_scan_columns):
+                    tmp[i, j] = fast_pos[i*n_scan_columns + j]
+            sclr = np.copy(tmp)
+            del tmp
+        else:
+            sclr = np.reshape(sclr, (n_scan_rows, n_scan_columns, len(sclr_name)))
+
+    # Consider snake
+    # pos_pos, d_xs, d_xs_sum, sclr
+    if scan_doc['snake'] == 1:
+        pos_pos[:, 1::2, :] = pos_pos[:, 1::2, ::-1]
+        d_xs[:, 1::2, :, :] = d_xs[:, 1::2, ::-1, :]
+        d_xs_sum[1::2, :, :] = d_xs_sum[1::2, ::-1, :]
+        sclr[1::2, :, :] = sclr[1::2, ::-1, :]
+
+    # Transpose map for y scans
+    if scan_doc['type'] == 'XRF_FLY':
+        if (fast_motor == 'nano_stage_sy' or
+            fast_motor == 'nano_stage_y'):
+            # Need to swapaxes on pos_pos, d_xs, d_xs_sum, sclr
+            pos_name = pos_name[::-1]
+            pos_pos = np.swapaxes(pos_pos, 1, 2)
+            d_xs = np.swapaxes(d_xs, 1, 2)
+            d_xs_sum = np.swapaxes(d_xs_sum, 0, 1)
+            sclr = np.swapaxes(sclr, 0, 1)
+
+    data_output = []
+
+    # interpath = 'xrfmap'
+    for detector_name in dets:
+        if detector_name == 'xs':
+            tmp_data = d_xs
+            tmp_data_sum = d_xs_sum
+            num_det = N_xs
+        elif detector_name == 'xs2':
+            tmp_data = d_xs2
+            tmp_data_sum = d_xs2_sum
+            num_det = N_xs2
+
+        loaded_data = {}
+        loaded_data["det_sum"] = tmp_data_sum
+        for i in range(num_det):
+            loaded_data["det" + str(i + 1)] = np.squeeze(tmp_data[:, :, i, :])
+
+        if save_scaler:
+            loaded_data["scaler_data"] = sclr
+            loaded_data["scaler_names"] = sclr_name
+
+        loaded_data["pos_data"] = pos_pos
+        loaded_data["pos_names"] = pos_name
+
+        # Generate the default file name for the scan
+        if fpath is None:
+            fpath = f"scan2D_{runid}.h5"
+
+        # Modify file name (path) to include data on how many channels are included in the file and how many
+        #    channels are used for sum calculation
+        root, ext = os.path.splitext(fpath)
+        s = f"_{detector_name}_sum{num_det}ch"
+        if create_each_det:
+            s += f"+{num_det}ch"
+        fpath_out = f"{root}{s}{ext}"
+
+        if output_to_file:
+            # output to file
+            print(f"Saving data to hdf file '{fpath_out}': Detector: {detector_name}.")
+            fpath_out = save_data_to_hdf5(
+                fpath_out,
+                loaded_data,
+                metadata=mdata,
+                fname_add_version=fname_add_version,
+                file_overwrite_existing=file_overwrite_existing,
+                create_each_det=create_each_det,
+            )
+
+        d_dict = {
+            "dataset": loaded_data,
+            "file_name": fpath_out,
+            "detector_name": detector_name,
+            "metadata": mdata,
+        }
+        data_output.append(d_dict)
+
+
+        # file_open_mode = 'a'
+        # fname_add_version = True
+        # file_overwrite_existing = False
+        # if fname_add_version:
+        #     fpath = _get_fpath_not_existing(fn)
+        # else:
+        #     if file_overwrite_existing:
+        #         file_open_mode = 'w'
+        #     else:
+        #         print('File already exists!')
+        #         return
+
+        # with h5py.File(fn, file_open_mode) as f:
+        #      # Create metadata group
+        #     metadata_grp = f.create_group(f"{interpath}/scan_metadata")
+        #     # This group of attributes are always created. It doesn't matter if metadata
+        #     #   is provided to the function.
+        #     metadata_grp.attrs["file_type"] = "XRF-MAP"
+        #     metadata_grp.attrs["file_format"] = "NSLS2-XRF-MAP"
+        #     metadata_grp.attrs["file_format_version"] = "1.0"
+        #     metadata_grp.attrs["file_software"] = "PyXRF"
+        #     metadata_grp.attrs["file_software_version"] = pyxrf_version
+        #     # Present time in NEXUS format (should it be UTC time)?
+        #     metadata_grp.attrs["file_created_time"] = ttime.strftime("%Y-%m-%dT%H:%M:%S+00:00", ttime.localtime())
+
+        #     # Now save the rest of the scan metadata if metadata is provided
+        #     if mdata:
+        #         # We assume, that metadata does not contain repeated keys. Otherwise the
+        #         #   entry with the last occurrence of the key will override the previous ones.
+        #         for key, value in mdata.items():
+        #             metadata_grp.attrs[key] = value
+
+        #     if create_each_det is True:
+        #         for i in range(N_xs):
+        #             grp = f.create_group(interpath+f'/det{i+1}')
+        #             grp.create_dataset('counts', data=np.squeeze(tmp_data[:, :, i, :]), compression='gzip')
+
+        #     # summed data
+        #     dataGrp = f.create_group(interpath+'/detsum')
+        #     ds_data = dataGrp.create_dataset('counts', data=tmp_data_sum,
+        #                                          compression='gzip')
+
+        #     # add positions
+        #     dataGrp = f.create_group(interpath+'/positions')
+        #     dataGrp.create_dataset('name', data=helper_encode_list(pos_name))
+        #     dataGrp.create_dataset('pos', data=pos_pos)
+
+        #     # scaler data
+        #     dataGrp = f.create_group(interpath+'/scalers')
+        #     dataGrp.create_dataset('name', data=helper_encode_list(sclr_name))
+        #     dataGrp.create_dataset('val', data=sclr)
+
+
+
+
+    return data_output
 
 
 def map_data2D_tes(
