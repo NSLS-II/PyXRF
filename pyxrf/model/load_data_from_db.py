@@ -480,19 +480,28 @@ def _extract_metadata_from_header(hdr):
         "scan_instrument_name": [],
         "scan_time_start": ["time"],
         "scan_time_start_utc": ["time"],
-        "instrument_mono_incident_energy": ["beamline_status/energy"],
+        "instrument_mono_incident_energy": ["beamline_status/energy", "scan/energy"],
         "instrument_beam_current": [],
-        "instrument_detectors": ["detectors"],
-        "sample_name": ["sample/name", "sample"],
+        "instrument_detectors": ["detectors", "scan/detectors"],
+        "sample_name": ["sample/name", "sample", "scan/sample_name"],
         "experiment_plan_name": ["plan_name"],
         "experiment_plan_type": ["plan_type"],
-        "experiment_fast_axis": ["scaninfo/fast_axis"],
-        "experiment_slow_axis": ["scaninfo/slow_axis"],
+        "experiment_fast_axis": ["scaninfo/fast_axis", "scan/fast_axis"],
+        "experiment_slow_axis": ["scaninfo/slow_axis", "scan/slow_axis"],
         "proposal_num": ["proposal/proposal_num"],
         "proposal_title": ["proposal/proposal_title"],
         "proposal_PI_lastname": ["proposal/PI_lastname"],
         "proposal_saf_num": ["proposal/saf_num"],
         "proposal_cycle": ["proposal/cycle"],
+
+        # Scan parameters
+        "scan_type": ["scan/type"],
+        "scan_input": ["scan/scan_input"],
+        "scan_dwell": ["scan/dwell"],
+        "scan_snake": ["scan/snake"],
+        "scan_shape": ["scan/shape"],
+        "scan_theta": ["scan/theta"],
+        "scan_delta": ["scan/delta"],
     }
 
     for key, locations in data_locations.items():
@@ -1506,7 +1515,7 @@ def map_data2D_srx_new(
             N_xs2 = d_xs2.shape[2]
             d_xs2_sum = np.sum(d_xs2, axis=2)
 
-        sclr = np.array(sclr)
+        sclr = np.asarray(sclr)
         sclr = np.reshape(sclr, (n_scan_columns, len(sclr_name), -1))
         sclr = np.moveaxis(sclr, 1, 2)
 
@@ -1618,7 +1627,6 @@ def map_data2D_srx_new(
 
     data_output = []
 
-    # interpath = 'xrfmap'
     for detector_name in dets:
         if detector_name == 'xs':
             tmp_data = d_xs
