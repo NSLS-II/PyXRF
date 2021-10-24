@@ -825,7 +825,7 @@ def map_data2D_srx(
     use_new_format = "md_version" in start_doc
 
     if use_new_format:
-        map_data2D_srx_new(
+        return map_data2D_srx_new(
             run_id_uid=run_id_uid,
             fpath=fpath,
             create_each_det=create_each_det,
@@ -837,7 +837,7 @@ def map_data2D_srx(
             num_end_lines_excluded=num_end_lines_excluded,
         )
     else:
-        map_data2D_srx_old(
+        return map_data2D_srx_old(
             run_id_uid=run_id_uid,
             fpath=fpath,
             create_each_det=create_each_det,
