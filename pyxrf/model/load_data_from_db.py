@@ -495,13 +495,13 @@ def _extract_metadata_from_header(hdr):
         "proposal_cycle": ["proposal/cycle"],
 
         # Scan parameters
-        "scan_type": ["scan/type"],
-        "scan_input": ["scan/scan_input"],
-        "scan_dwell": ["scan/dwell"],
-        "scan_snake": ["scan/snake"],
-        "scan_shape": ["scan/shape"],
-        "scan_theta": ["scan/theta"],
-        "scan_delta": ["scan/delta"],
+        "param_type": ["scan/type"],
+        "param_input": ["scan/scan_input"],
+        "param_dwell": ["scan/dwell"],
+        "param_snake": ["scan/snake"],
+        "param_shape": ["scan/shape"],
+        "param_theta": ["scan/theta"],
+        "param_delta": ["scan/delta"],
     }
 
     for key, locations in data_locations.items():
