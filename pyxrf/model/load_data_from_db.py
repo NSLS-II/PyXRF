@@ -493,7 +493,6 @@ def _extract_metadata_from_header(hdr):
         "proposal_PI_lastname": ["proposal/PI_lastname"],
         "proposal_saf_num": ["proposal/saf_num"],
         "proposal_cycle": ["proposal/cycle"],
-
         # Scan parameters
         "param_type": ["scan/type"],
         "param_input": ["scan/scan_input"],
@@ -823,7 +822,7 @@ def map_data2D_srx(
     """
     hdr = db[run_id_uid]
     start_doc = hdr["start"]
-    use_new_format = 'md_version' in start_doc
+    use_new_format = "md_version" in start_doc
 
     if use_new_format:
         map_data2D_srx_new(
@@ -1405,112 +1404,117 @@ def map_data2D_srx_new(
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
 
-    start_doc =hdr.start
-    scan_doc = start_doc['scan']
+    start_doc = hdr.start
+    scan_doc = start_doc["scan"]
     stop_doc = hdr.stop
 
     # Check for detectors
     dets = []
     try:
-        if 'xs' in hdr.start['scan']['detectors']:
-            dets.append('xs')
-        elif 'xs2' in hdr.start['scan']['detectors']:
-            dets.append('xs2')
+        if "xs" in hdr.start["scan"]["detectors"]:
+            dets.append("xs")
+        elif "xs2" in hdr.start["scan"]["detectors"]:
+            dets.append("xs2")
     except KeyError:
         # AMK forgot to add detectors to step scans
         # This is fixed, but left in for those scans
-        if scan_doc['type'] == 'XRF_STEP':
-            dets.append('xs')
+        if scan_doc["type"] == "XRF_STEP":
+            dets.append("xs")
 
-    if not(dets):
-        raise IOError('No detectors found!')
+    if not (dets):
+        raise IOError("No detectors found!")
 
     # Get metadata
     mdata = _extract_metadata_from_header(hdr)
 
     # Get position data from scan
-    n_scan_columns, n_scan_rows = hdr.start['scan']['shape']
+    n_scan_columns, n_scan_rows = hdr.start["scan"]["shape"]
 
-    if scan_doc['type'] == 'XRF_FLY':
-        fast_motor = scan_doc['fast_axis']['motor_name']
-        if (fast_motor == 'nano_stage_sx'):
-            fast_key = 'enc1'
-        elif (fast_motor == 'nano_stage_x'):
-            fast_key = 'enc1'
-        elif (fast_motor == 'nano_stage_sy'):
-            fast_key = 'enc2'
-        elif (fast_motor == 'nano_stage_y'):
-            fast_key = 'enc2'
-        elif (fast_motor == 'nano_stage_sz'):
-            fast_key = 'enc3'
+    if scan_doc["type"] == "XRF_FLY":
+        fast_motor = scan_doc["fast_axis"]["motor_name"]
+        if fast_motor == "nano_stage_sx":
+            fast_key = "enc1"
+        elif fast_motor == "nano_stage_x":
+            fast_key = "enc1"
+        elif fast_motor == "nano_stage_sy":
+            fast_key = "enc2"
+        elif fast_motor == "nano_stage_y":
+            fast_key = "enc2"
+        elif fast_motor == "nano_stage_sz":
+            fast_key = "enc3"
         else:
-            raise IOError(f'{fast_motor} not found!')
+            raise IOError(f"{fast_motor} not found!")
 
-        slow_motor = scan_doc['slow_axis']['motor_name']
-        if (slow_motor == 'nano_stage_sx'):
-            slow_key = 'enc1'
-        elif (slow_motor == 'nano_stage_x'):
-            slow_key = 'enc1'
-        elif (slow_motor == 'nano_stage_sy'):
-            slow_key = 'enc2'
-        elif (slow_motor == 'nano_stage_y'):
-            slow_key = 'enc2'
-        elif (slow_motor == 'nano_stage_sz'):
-            slow_key = 'enc3'
+        slow_motor = scan_doc["slow_axis"]["motor_name"]
+        if slow_motor == "nano_stage_sx":
+            slow_key = "enc1"
+        elif slow_motor == "nano_stage_x":
+            slow_key = "enc1"
+        elif slow_motor == "nano_stage_sy":
+            slow_key = "enc2"
+        elif slow_motor == "nano_stage_y":
+            slow_key = "enc2"
+        elif slow_motor == "nano_stage_sz":
+            slow_key = "enc3"
         else:
             slow_key = slow_motor
 
-        fast_pos = hdr.data(fast_key, stream_name='stream0', fill=True)
+        fast_pos = hdr.data(fast_key, stream_name="stream0", fill=True)
         fast_pos = np.array(list(fast_pos))
-        if 'enc' in slow_key:
-            slow_pos = hdr.data(slow_key, stream_name='stream0', fill=True)
+        if "enc" in slow_key:
+            slow_pos = hdr.data(slow_key, stream_name="stream0", fill=True)
             slow_pos = np.array(list(slow_pos))
         else:
-            slow_pos = hdr.data(slow_key, stream_name='primary', fill=True)
+            slow_pos = hdr.data(slow_key, stream_name="primary", fill=True)
             slow_pos = np.array(list(slow_pos))
-            slow_pos = np.array([slow_pos,] * n_scan_columns).T
+            slow_pos = np.array(
+                [
+                    slow_pos,
+                ]
+                * n_scan_columns
+            ).T
 
-        num_events = stop_doc['num_events']['stream0']
+        num_events = stop_doc["num_events"]["stream0"]
         pos_pos = np.zeros((2, num_events, n_scan_columns))
-        if 'x' in slow_key:
+        if "x" in slow_key:
             pos_pos[1, :, :] = fast_pos
             pos_pos[0, :, :] = slow_pos
         else:
             pos_pos[0, :, :] = fast_pos
             pos_pos[1, :, :] = slow_pos
-        pos_name = ['x_pos', 'y_pos']
+        pos_name = ["x_pos", "y_pos"]
 
         # Let's get the data using the events! Yay!
-        e = hdr.events('stream0', fill=True)
-        if 'xs' in dets:
+        e = hdr.events("stream0", fill=True)
+        if "xs" in dets:
             d_xs = []
-        if 'xs2' in dets:
+        if "xs2" in dets:
             d_xs2 = []
-        sclr_list = ['i0', 'i0_time', 'time', 'im', 'it']
+        sclr_list = ["i0", "i0_time", "time", "im", "it"]
         sclr = []
         sclr_name = []
 
         try:
             for m, v in enumerate(e):
-                if 'xs' in dets:
-                    d_xs.append(v['data']['fluor'])
-                if 'xs2' in dets:
-                    d_xs.append(v['data']['fluor_xs2'])
-                keys = v['data'].keys()
+                if "xs" in dets:
+                    d_xs.append(v["data"]["fluor"])
+                if "xs2" in dets:
+                    d_xs.append(v["data"]["fluor_xs2"])
+                keys = v["data"].keys()
                 for s in sclr_list:
                     if s in keys:
-                        tmp = np.array(v['data'][s])
+                        tmp = np.array(v["data"][s])
                         sclr.append(tmp)
                         if s not in sclr_name:
                             sclr_name.append(s)
         except Exception as ex:
             logger.error(f"Error occurred while reading data: {ex}. Trying to retrieve available data ...")
 
-        if 'xs' in dets:
+        if "xs" in dets:
             d_xs = np.asarray(d_xs)
             N_xs = d_xs.shape[2]
             d_xs_sum = np.sum(d_xs, axis=2)
-        if 'xs2' in dets:
+        if "xs2" in dets:
             d_xs2 = np.asarray(d_xs2)
             N_xs2 = d_xs2.shape[2]
             d_xs2_sum = np.sum(d_xs2, axis=2)
@@ -1519,30 +1523,30 @@ def map_data2D_srx_new(
         sclr = np.reshape(sclr, (n_scan_columns, len(sclr_name), -1))
         sclr = np.moveaxis(sclr, 1, 2)
 
-    if scan_doc['type'] == 'XRF_STEP':
+    if scan_doc["type"] == "XRF_STEP":
         # Define keys for motor data
-        fast_motor = scan_doc['fast_axis']['motor_name']
-        fast_key = fast_motor + '_user_setpoint'
-        slow_motor = scan_doc['slow_axis']['motor_name']
-        slow_key = slow_motor + '_user_setpoint'
+        fast_motor = scan_doc["fast_axis"]["motor_name"]
+        fast_key = fast_motor + "_user_setpoint"
+        slow_motor = scan_doc["slow_axis"]["motor_name"]
+        slow_key = slow_motor + "_user_setpoint"
 
         # Collect motor positions
-        fast_pos = hdr.data(fast_key, stream_name='primary', fill=True)
+        fast_pos = hdr.data(fast_key, stream_name="primary", fill=True)
         fast_pos = np.array(list(fast_pos))
-        slow_pos = hdr.data(slow_key, stream_name='primary', fill=True)
+        slow_pos = hdr.data(slow_key, stream_name="primary", fill=True)
         slow_pos = np.array(list(slow_pos))
 
         # Reshape motor positions
-        num_events = stop_doc['num_events']['primary']
-        n_scan_rows, n_scan_columns = scan_doc['shape']
+        num_events = stop_doc["num_events"]["primary"]
+        n_scan_rows, n_scan_columns = scan_doc["shape"]
         if num_events != (n_scan_rows * n_scan_columns):
-            num_rows = num_events // n_scan_columns  + 1  # number of rows
+            num_rows = num_events // n_scan_columns + 1  # number of rows
             fast_pos = np.zeros((num_rows, n_scan_columns))
             slow_pos = np.zeros((num_rows, n_scan_columns))
             for i in range(num_rows):
                 for j in range(n_scan_columns):
-                    fast_pos[i, j] = fast_pos[i*n_scan_columns + j]
-                    slow_pos[i, j] = slow_pos[i*n_scan_columns + j]
+                    fast_pos[i, j] = fast_pos[i * n_scan_columns + j]
+                    slow_pos[i, j] = slow_pos[i * n_scan_columns + j]
         else:
             num_rows = n_scan_rows
             fast_pos = np.reshape(fast_pos, (n_scan_rows, n_scan_columns))
@@ -1550,28 +1554,28 @@ def map_data2D_srx_new(
 
         # Put into one array for h5 file
         pos_pos = np.zeros((2, num_rows, n_scan_columns))
-        if 'x' in slow_key:
+        if "x" in slow_key:
             pos_pos[1, :, :] = fast_pos
             pos_pos[0, :, :] = slow_pos
         else:
             pos_pos[0, :, :] = fast_pos
             pos_pos[1, :, :] = slow_pos
-        pos_name = ['x_pos', 'y_pos']
+        pos_name = ["x_pos", "y_pos"]
 
         # Get detector data
         keys = hdr.table().keys()
         MAX_DET_ELEMENTS = 7
-        for i in np.arange(1, MAX_DET_ELEMENTS+1):
-            if f'xs_channel{i}' in keys:
+        for i in np.arange(1, MAX_DET_ELEMENTS + 1):
+            if f"xs_channel{i}" in keys:
                 N_xs = i
             else:
                 break
         N_pts = num_events
-        N_bins= 4096
-        if 'xs' in dets:
+        N_bins = 4096
+        if "xs" in dets:
             d_xs = np.empty((N_xs, N_pts, N_bins))
             for i in np.arange(0, N_xs):
-                d = hdr.data(f'xs_channel{i+1}', fill=True)
+                d = hdr.data(f"xs_channel{i+1}", fill=True)
                 d = np.array(list(d))
                 d_xs[i, :, :] = np.copy(d)
             del d
@@ -1580,7 +1584,7 @@ def map_data2D_srx_new(
                 tmp = np.zeros((N_xs, num_rows, n_scan_columns, N_bins))
                 for i in range(num_rows):
                     for j in range(n_scan_columns):
-                        tmp[:, i, j, :] = fast_pos[:, i*n_scan_columns + j, :]
+                        tmp[:, i, j, :] = fast_pos[:, i * n_scan_columns + j, :]
                 d_xs = np.copy(tmp)
                 del tmp
             else:
@@ -1589,7 +1593,7 @@ def map_data2D_srx_new(
             d_xs_sum = np.squeeze(np.sum(d_xs, axis=0))
 
         # Scaler list
-        sclr_list = ['sclr_i0', 'sclr_im', 'sclr_it']
+        sclr_list = ["sclr_i0", "sclr_im", "sclr_it"]
         sclr_name = []
         for s in sclr_list:
             if s in keys:
@@ -1600,7 +1604,7 @@ def map_data2D_srx_new(
             tmp = np.zeros((num_rows, n_scan_columns))
             for i in range(num_rows):
                 for j in range(n_scan_columns):
-                    tmp[i, j] = fast_pos[i*n_scan_columns + j]
+                    tmp[i, j] = fast_pos[i * n_scan_columns + j]
             sclr = np.copy(tmp)
             del tmp
         else:
@@ -1608,16 +1612,15 @@ def map_data2D_srx_new(
 
     # Consider snake
     # pos_pos, d_xs, d_xs_sum, sclr
-    if scan_doc['snake'] == 1:
+    if scan_doc["snake"] == 1:
         pos_pos[:, 1::2, :] = pos_pos[:, 1::2, ::-1]
         d_xs[:, 1::2, :, :] = d_xs[:, 1::2, ::-1, :]
         d_xs_sum[1::2, :, :] = d_xs_sum[1::2, ::-1, :]
         sclr[1::2, :, :] = sclr[1::2, ::-1, :]
 
     # Transpose map for y scans
-    if scan_doc['type'] == 'XRF_FLY':
-        if (fast_motor == 'nano_stage_sy' or
-            fast_motor == 'nano_stage_y'):
+    if scan_doc["type"] == "XRF_FLY":
+        if fast_motor == "nano_stage_sy" or fast_motor == "nano_stage_y":
             # Need to swapaxes on pos_pos, d_xs, d_xs_sum, sclr
             pos_name = pos_name[::-1]
             pos_pos = np.swapaxes(pos_pos, 1, 2)
@@ -1628,11 +1631,11 @@ def map_data2D_srx_new(
     data_output = []
 
     for detector_name in dets:
-        if detector_name == 'xs':
+        if detector_name == "xs":
             tmp_data = d_xs
             tmp_data_sum = d_xs_sum
             num_det = N_xs
-        elif detector_name == 'xs2':
+        elif detector_name == "xs2":
             tmp_data = d_xs2
             tmp_data_sum = d_xs2_sum
             num_det = N_xs2
@@ -1680,62 +1683,6 @@ def map_data2D_srx_new(
             "metadata": mdata,
         }
         data_output.append(d_dict)
-
-
-        # file_open_mode = 'a'
-        # fname_add_version = True
-        # file_overwrite_existing = False
-        # if fname_add_version:
-        #     fpath = _get_fpath_not_existing(fn)
-        # else:
-        #     if file_overwrite_existing:
-        #         file_open_mode = 'w'
-        #     else:
-        #         print('File already exists!')
-        #         return
-
-        # with h5py.File(fn, file_open_mode) as f:
-        #      # Create metadata group
-        #     metadata_grp = f.create_group(f"{interpath}/scan_metadata")
-        #     # This group of attributes are always created. It doesn't matter if metadata
-        #     #   is provided to the function.
-        #     metadata_grp.attrs["file_type"] = "XRF-MAP"
-        #     metadata_grp.attrs["file_format"] = "NSLS2-XRF-MAP"
-        #     metadata_grp.attrs["file_format_version"] = "1.0"
-        #     metadata_grp.attrs["file_software"] = "PyXRF"
-        #     metadata_grp.attrs["file_software_version"] = pyxrf_version
-        #     # Present time in NEXUS format (should it be UTC time)?
-        #     metadata_grp.attrs["file_created_time"] = ttime.strftime("%Y-%m-%dT%H:%M:%S+00:00", ttime.localtime())
-
-        #     # Now save the rest of the scan metadata if metadata is provided
-        #     if mdata:
-        #         # We assume, that metadata does not contain repeated keys. Otherwise the
-        #         #   entry with the last occurrence of the key will override the previous ones.
-        #         for key, value in mdata.items():
-        #             metadata_grp.attrs[key] = value
-
-        #     if create_each_det is True:
-        #         for i in range(N_xs):
-        #             grp = f.create_group(interpath+f'/det{i+1}')
-        #             grp.create_dataset('counts', data=np.squeeze(tmp_data[:, :, i, :]), compression='gzip')
-
-        #     # summed data
-        #     dataGrp = f.create_group(interpath+'/detsum')
-        #     ds_data = dataGrp.create_dataset('counts', data=tmp_data_sum,
-        #                                          compression='gzip')
-
-        #     # add positions
-        #     dataGrp = f.create_group(interpath+'/positions')
-        #     dataGrp.create_dataset('name', data=helper_encode_list(pos_name))
-        #     dataGrp.create_dataset('pos', data=pos_pos)
-
-        #     # scaler data
-        #     dataGrp = f.create_group(interpath+'/scalers')
-        #     dataGrp.create_dataset('name', data=helper_encode_list(sclr_name))
-        #     dataGrp.create_dataset('val', data=sclr)
-
-
-
 
     return data_output
 

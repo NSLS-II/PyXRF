@@ -224,7 +224,7 @@ class ScanMetadataXRF(ScanMetadataBase):
             "param_type": "plan type",
             "param_input": "plan input parameters",
             "param_shape": "scan shape",
-            "param_snake": "snaking" ,
+            "param_snake": "snaking",
             "param_dwell": "dwell time",
             "param_theta": "angle theta",
             "param_delta": "delta",

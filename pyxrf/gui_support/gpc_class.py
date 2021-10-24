@@ -214,7 +214,7 @@ class GlobalProcessingClasses:
         try:
             self.io_model.load_data_runid(run_id_uid)
 
-        except Exception:
+        except Exception as ex:
             _update_data()
             self.fitting_parameters_changed()
 
@@ -223,6 +223,8 @@ class GlobalProcessingClasses:
             self.plot_model.show_fit_opt = False
 
             logger.info(f"Failed to load the run #{run_id_uid}.")
+            logger.exception(ex)
+
             # Clear file name or scan id from window title. This does not update
             #   the displayed title.
             self.io_model.window_title_clear()
