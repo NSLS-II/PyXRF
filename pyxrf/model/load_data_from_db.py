@@ -486,8 +486,6 @@ def _extract_metadata_from_header(hdr):
         "sample_name": ["sample/name", "sample", "scan/sample_name"],
         "experiment_plan_name": ["plan_name"],
         "experiment_plan_type": ["plan_type"],
-        "experiment_fast_axis": ["scaninfo/fast_axis", "scan/fast_axis"],
-        "experiment_slow_axis": ["scaninfo/slow_axis", "scan/slow_axis"],
         "proposal_num": ["proposal/proposal_num"],
         "proposal_title": ["proposal/proposal_title"],
         "proposal_PI_lastname": ["proposal/PI_lastname"],
@@ -499,8 +497,14 @@ def _extract_metadata_from_header(hdr):
         "param_dwell": ["scan/dwell"],
         "param_snake": ["scan/snake"],
         "param_shape": ["scan/shape"],
-        "param_theta": ["scan/theta"],
-        "param_delta": ["scan/delta"],
+        "param_theta": ["scan/theta/val"],
+        "param_theta_units": ["scan/theta/units"],
+        "param_delta": ["scan/delta/val"],
+        "param_delta_units": ["scan/delta/units"],
+        "param_fast_axis": ["scaninfo/fast_axis", "scan/fast_axis/motor_name"],
+        "param_fast_axis_units": ["scan/fast_axis/units"],
+        "param_slow_axis": ["scaninfo/slow_axis", "scan/slow_axis/motor_name"],
+        "param_slow_axis_units": ["scan/slow_axis/units"],
     }
 
     for key, locations in data_locations.items():
@@ -911,6 +915,8 @@ def map_data2D_srx_old(
     """
     hdr = db[run_id_uid]
     runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
+
+    print("Scan metadata format: old SRX specification.")
 
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
@@ -1399,14 +1405,20 @@ def map_data2D_srx_new(
         )
 
     hdr = db[run_id_uid]
-    runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
+    start_doc = hdr.start
+    runid = start_doc["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
+
+    print("**********************************************************")
+    print(f"Loading scan #{runid}")
+    print(f"Scan metadata format: version {start_doc['md_version']}")
 
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
 
-    start_doc = hdr.start
     scan_doc = start_doc["scan"]
     stop_doc = hdr.stop
+
+    print(f"Scan type: {scan_doc['type']}")
 
     # Check for detectors
     dets = []
@@ -1428,8 +1440,11 @@ def map_data2D_srx_new(
     mdata = _extract_metadata_from_header(hdr)
 
     # Get position data from scan
-    n_scan_columns, n_scan_rows = hdr.start["scan"]["shape"]
+    n_scan_fast, n_scan_slow = hdr.start["scan"]["shape"]
 
+    # ===================================================================
+    #                     NEW SRX FLY SCAN
+    # ===================================================================
     if scan_doc["type"] == "XRF_FLY":
         fast_motor = scan_doc["fast_axis"]["motor_name"]
         if fast_motor == "nano_stage_sx":
@@ -1471,11 +1486,11 @@ def map_data2D_srx_new(
                 [
                     slow_pos,
                 ]
-                * n_scan_columns
+                * n_scan_fast
             ).T
 
         num_events = stop_doc["num_events"]["stream0"]
-        pos_pos = np.zeros((2, num_events, n_scan_columns))
+        pos_pos = np.zeros((2, num_events, n_scan_fast))
         if "x" in slow_key:
             pos_pos[1, :, :] = fast_pos
             pos_pos[0, :, :] = slow_pos
@@ -1507,6 +1522,8 @@ def map_data2D_srx_new(
                         sclr.append(tmp)
                         if s not in sclr_name:
                             sclr_name.append(s)
+                if m > 0 and not (m % 10):
+                    print(f"Processed lines: {m}")
         except Exception as ex:
             logger.error(f"Error occurred while reading data: {ex}. Trying to retrieve available data ...")
 
@@ -1520,9 +1537,12 @@ def map_data2D_srx_new(
             d_xs2_sum = np.sum(d_xs2, axis=2)
 
         sclr = np.asarray(sclr)
-        sclr = np.reshape(sclr, (n_scan_columns, len(sclr_name), -1))
+        sclr = np.reshape(sclr, (n_scan_slow, len(sclr_name), -1))
         sclr = np.moveaxis(sclr, 1, 2)
 
+    # ===================================================================
+    #                     NEW SRX STEP SCAN
+    # ===================================================================
     if scan_doc["type"] == "XRF_STEP":
         # Define keys for motor data
         fast_motor = scan_doc["fast_axis"]["motor_name"]
@@ -1538,22 +1558,22 @@ def map_data2D_srx_new(
 
         # Reshape motor positions
         num_events = stop_doc["num_events"]["primary"]
-        n_scan_rows, n_scan_columns = scan_doc["shape"]
-        if num_events != (n_scan_rows * n_scan_columns):
-            num_rows = num_events // n_scan_columns + 1  # number of rows
-            fast_pos = np.zeros((num_rows, n_scan_columns))
-            slow_pos = np.zeros((num_rows, n_scan_columns))
+        n_scan_slow, n_scan_fast = scan_doc["shape"]
+        if num_events != (n_scan_slow * n_scan_fast):
+            num_rows = num_events // n_scan_fast + 1  # number of rows
+            fast_pos = np.zeros((num_rows, n_scan_fast))
+            slow_pos = np.zeros((num_rows, n_scan_fast))
             for i in range(num_rows):
-                for j in range(n_scan_columns):
-                    fast_pos[i, j] = fast_pos[i * n_scan_columns + j]
-                    slow_pos[i, j] = slow_pos[i * n_scan_columns + j]
+                for j in range(n_scan_fast):
+                    fast_pos[i, j] = fast_pos[i * n_scan_fast + j]
+                    slow_pos[i, j] = slow_pos[i * n_scan_fast + j]
         else:
-            num_rows = n_scan_rows
-            fast_pos = np.reshape(fast_pos, (n_scan_rows, n_scan_columns))
-            slow_pos = np.reshape(slow_pos, (n_scan_rows, n_scan_columns))
+            num_rows = n_scan_slow
+            fast_pos = np.reshape(fast_pos, (n_scan_slow, n_scan_fast))
+            slow_pos = np.reshape(slow_pos, (n_scan_slow, n_scan_fast))
 
         # Put into one array for h5 file
-        pos_pos = np.zeros((2, num_rows, n_scan_columns))
+        pos_pos = np.zeros((2, num_rows, n_scan_fast))
         if "x" in slow_key:
             pos_pos[1, :, :] = fast_pos
             pos_pos[0, :, :] = slow_pos
@@ -1580,15 +1600,15 @@ def map_data2D_srx_new(
                 d_xs[i, :, :] = np.copy(d)
             del d
             # Reshape data
-            if num_events != (n_scan_rows * n_scan_columns):
-                tmp = np.zeros((N_xs, num_rows, n_scan_columns, N_bins))
+            if num_events != (n_scan_slow * n_scan_fast):
+                tmp = np.zeros((N_xs, num_rows, n_scan_fast, N_bins))
                 for i in range(num_rows):
-                    for j in range(n_scan_columns):
-                        tmp[:, i, j, :] = fast_pos[:, i * n_scan_columns + j, :]
+                    for j in range(n_scan_fast):
+                        tmp[:, i, j, :] = fast_pos[:, i * n_scan_fast + j, :]
                 d_xs = np.copy(tmp)
                 del tmp
             else:
-                d_xs = np.reshape(d_xs, (N_xs, n_scan_rows, n_scan_columns, N_bins))
+                d_xs = np.reshape(d_xs, (N_xs, n_scan_slow, n_scan_fast, N_bins))
             # Sum data
             d_xs_sum = np.squeeze(np.sum(d_xs, axis=0))
 
@@ -1600,15 +1620,15 @@ def map_data2D_srx_new(
                 sclr_name.append(s)
         sclr = np.array(hdr.table()[sclr_name].values)
         # Reshape data
-        if num_events != (n_scan_rows * n_scan_columns):
-            tmp = np.zeros((num_rows, n_scan_columns))
+        if num_events != (n_scan_slow * n_scan_fast):
+            tmp = np.zeros((num_rows, n_scan_fast))
             for i in range(num_rows):
-                for j in range(n_scan_columns):
-                    tmp[i, j] = fast_pos[i * n_scan_columns + j]
+                for j in range(n_scan_fast):
+                    tmp[i, j] = fast_pos[i * n_scan_fast + j]
             sclr = np.copy(tmp)
             del tmp
         else:
-            sclr = np.reshape(sclr, (n_scan_rows, n_scan_columns, len(sclr_name)))
+            sclr = np.reshape(sclr, (n_scan_slow, n_scan_fast, len(sclr_name)))
 
     # Consider snake
     # pos_pos, d_xs, d_xs_sum, sclr
@@ -1618,15 +1638,17 @@ def map_data2D_srx_new(
         d_xs_sum[1::2, :, :] = d_xs_sum[1::2, ::-1, :]
         sclr[1::2, :, :] = sclr[1::2, ::-1, :]
 
-    # Transpose map for y scans
     if scan_doc["type"] == "XRF_FLY":
         if fast_motor == "nano_stage_sy" or fast_motor == "nano_stage_y":
             # Need to swapaxes on pos_pos, d_xs, d_xs_sum, sclr
             pos_name = pos_name[::-1]
             pos_pos = np.swapaxes(pos_pos, 1, 2)
-            d_xs = np.swapaxes(d_xs, 1, 2)
+            # d_xs = np.swapaxes(d_xs, 1, 2)  ##
+            d_xs = np.swapaxes(d_xs, 0, 1)
             d_xs_sum = np.swapaxes(d_xs_sum, 0, 1)
             sclr = np.swapaxes(sclr, 0, 1)
+
+    print("Data is loaded successfully. Preparing to save data ...")
 
     data_output = []
 
@@ -1642,8 +1664,9 @@ def map_data2D_srx_new(
 
         loaded_data = {}
         loaded_data["det_sum"] = tmp_data_sum
-        for i in range(num_det):
-            loaded_data["det" + str(i + 1)] = np.squeeze(tmp_data[:, :, i, :])
+        if create_each_det:
+            for i in range(num_det):
+                loaded_data["det" + str(i + 1)] = np.squeeze(tmp_data[:, :, i, :])
 
         if save_scaler:
             loaded_data["scaler_data"] = sclr

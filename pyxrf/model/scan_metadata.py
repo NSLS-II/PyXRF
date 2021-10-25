@@ -168,7 +168,13 @@ class ScanMetadataXRF(ScanMetadataBase):
             "param_snake",
             "param_dwell",
             "param_theta",
+            "param_theta_units",
             "param_delta",
+            "param_delta_units",
+            "param_fast_axis",
+            "param_fast_axis_units",
+            "param_slow_axis",
+            "param_slow_axis_units",
             "param.*",
             "",
             "proposal_num",
@@ -227,7 +233,13 @@ class ScanMetadataXRF(ScanMetadataBase):
             "param_snake": "snaking",
             "param_dwell": "dwell time",
             "param_theta": "angle theta",
+            "param_theta_units": "angle theta (units)",
             "param_delta": "delta",
+            "param_delta_units": "delta (units)",
+            "param_fast_axis": "fast axis",
+            "param_fast_axis_units": "fast axis (units)",
+            "param_slow_axis": "slow axis",
+            "param_slow_axis_units": "slow axis (units)",
         }
 
         return descriptions
