@@ -1722,6 +1722,7 @@ def render_data_to_gui(
         scaler_tmp[v] = data_out["scaler_data"][:, :, i]
     img_dict[fname_no_ext + "_scaler"] = scaler_tmp
     logger.info("Data loading: scaler data are loaded successfully.")
+
     return img_dict, data_sets, fname, detector_name, scan_metadata
 
 
