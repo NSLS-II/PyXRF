@@ -1501,20 +1501,28 @@ def map_data2D_srx_new(
 
         # Let's get the data using the events! Yay!
         e = hdr.events("stream0", fill=True)
-        if "xs" in dets:
-            d_xs = []
-        if "xs2" in dets:
-            d_xs2 = []
+        d_xs, d_xs_sum, N_xs = [], [], 0
+        d_xs2, d_xs2_sum, N_xs2 = [], [], 0
         sclr_list = ["i0", "i0_time", "time", "im", "it"]
         sclr = []
         sclr_name = []
 
+        n_recorded_events = 0
+
         try:
             for m, v in enumerate(e):
                 if "xs" in dets:
-                    d_xs.append(v["data"]["fluor"])
+                    event_data = v["data"]["fluor"]
+                    N_xs = max(N_xs, event_data.shape[1])
+                    d_xs_sum.append(np.sum(event_data, axis=1))
+                    if create_each_det:
+                        d_xs.append(event_data)
                 if "xs2" in dets:
-                    d_xs.append(v["data"]["fluor_xs2"])
+                    event_data = v["data"]["fluor_xs2"]
+                    N_xs2 = max(N_xs2, event_data.shape[1])
+                    d_xs2_sum.append(np.sum(event_data, axis=1))
+                    if create_each_det:
+                        d_xs2.append(event_data)
                 keys = v["data"].keys()
                 for s in sclr_list:
                     if s in keys:
@@ -1522,22 +1530,31 @@ def map_data2D_srx_new(
                         sclr.append(tmp)
                         if s not in sclr_name:
                             sclr_name.append(s)
+
+                n_recorded_events = m + 1
+
                 if m > 0 and not (m % 10):
                     print(f"Processed lines: {m}")
+
         except Exception as ex:
             logger.error(f"Error occurred while reading data: {ex}. Trying to retrieve available data ...")
 
-        if "xs" in dets:
-            d_xs = np.asarray(d_xs)
-            N_xs = d_xs.shape[2]
-            d_xs_sum = np.sum(d_xs, axis=2)
-        if "xs2" in dets:
-            d_xs2 = np.asarray(d_xs2)
-            N_xs2 = d_xs2.shape[2]
-            d_xs2_sum = np.sum(d_xs2, axis=2)
+        if n_recorded_events != n_scan_slow:
+            logger.error(
+                "The number of recorded events (%d) is not equal to the expected number of events (%d): "
+                "The scan is incomplete.",
+                n_recorded_events,
+                n_scan_slow,
+            )
+
+        # The following arrays may be empty if 'create_each_det == False' or the detector is not used.
+        d_xs = np.asarray(d_xs)
+        d_xs_sum = np.asarray(d_xs_sum)
+        d_xs2 = np.asarray(d_xs2)
+        d_xs2_sum = np.asarray(d_xs2_sum)
 
         sclr = np.asarray(sclr)
-        sclr = np.reshape(sclr, (n_scan_slow, len(sclr_name), -1))
+        sclr = np.reshape(sclr, (n_recorded_events, len(sclr_name), -1))
         sclr = np.moveaxis(sclr, 1, 2)
 
     # ===================================================================
@@ -1634,8 +1651,14 @@ def map_data2D_srx_new(
     # pos_pos, d_xs, d_xs_sum, sclr
     if scan_doc["snake"] == 1:
         pos_pos[:, 1::2, :] = pos_pos[:, 1::2, ::-1]
-        d_xs[:, 1::2, :, :] = d_xs[:, 1::2, ::-1, :]
-        d_xs_sum[1::2, :, :] = d_xs_sum[1::2, ::-1, :]
+        if d_xs.size:
+            d_xs[:, 1::2, :, :] = d_xs[:, 1::2, ::-1, :]
+        if d_xs2.size:
+            d_xs2[:, 1::2, :, :] = d_xs2[:, 1::2, ::-1, :]
+        if d_xs_sum.size:
+            d_xs_sum[1::2, :, :] = d_xs_sum[1::2, ::-1, :]
+        if d_xs2_sum.size:
+            d_xs2_sum[1::2, :, :] = d_xs2_sum[1::2, ::-1, :]
         sclr[1::2, :, :] = sclr[1::2, ::-1, :]
 
     if scan_doc["type"] == "XRF_FLY":
@@ -1643,9 +1666,14 @@ def map_data2D_srx_new(
             # Need to swapaxes on pos_pos, d_xs, d_xs_sum, sclr
             pos_name = pos_name[::-1]
             pos_pos = np.swapaxes(pos_pos, 1, 2)
-            # d_xs = np.swapaxes(d_xs, 1, 2)  ##
-            d_xs = np.swapaxes(d_xs, 0, 1)
-            d_xs_sum = np.swapaxes(d_xs_sum, 0, 1)
+            if d_xs.size:
+                d_xs = np.swapaxes(d_xs, 0, 1)
+            if d_xs2.size:
+                d_xs2 = np.swapaxes(d_xs2, 0, 1)
+            if d_xs_sum.size:
+                d_xs_sum = np.swapaxes(d_xs_sum, 0, 1)
+            if d_xs2_sum.size:
+                d_xs2_sum = np.swapaxes(d_xs2_sum, 0, 1)
             sclr = np.swapaxes(sclr, 0, 1)
 
     print("Data is loaded successfully. Preparing to save data ...")
