@@ -93,6 +93,13 @@ class ScanMetadataBase:
         printed_keys = set()
         flag_empty_line = False  # Indicates if empty line was just printed
 
+        def _cap(s):
+            """
+            Capitalize the first character of the string. Leave the rest of the characters intact.
+            (``capitalize()`` turns all characters except the first one to lower case)
+            """
+            return s[0].upper() + s[1:] if s else s
+
         for ppattern in self._gen_default_print_order():
             # We don't want to print multiple empty lines in a row
             if ppattern == "" and not flag_empty_line:
@@ -109,8 +116,7 @@ class ScanMetadataBase:
                     s_key = key
                     if key in self.descriptions and self.descriptions[key]:
                         s_key = self.descriptions[key]
-                        # Capitalize the first letter
-                        s_key = s_key.capitalize()
+                        s_key = _cap(s_key)
 
                     if isinstance(v, str):
                         # Wrap the string if it is too long ('fill' function does not change
@@ -212,7 +218,7 @@ class ScanMetadataXRF(ScanMetadataBase):
             "scan_instrument_name": "beamline name",
             "scan_exit_status": "exit status",
             "instrument_mono_incident_energy": "incident energy",
-            "instrument_beam_current": "beam current",
+            "instrument_beam_current": "ring current, mA",
             "instrument_detectors": "detectors",
             "sample_name": "sample name",
             "experiment_plan_name": "plan name",
@@ -243,9 +249,9 @@ class ScanMetadataXRF(ScanMetadataBase):
             "param_fast_axis_units": "fast axis (units)",
             "param_slow_axis": "slow axis",
             "param_slow_axis_units": "slow axis (units)",
-            "param_interferometer_posX": "Interferometer position X (pm)",
-            "param_interferometer_posY": "Interferometer position Y (pm)",
-            "param_interferometer_posZ": "Interferometer position Z (pm)",
+            "param_interferometer_posX": "initial position X (interferometer), pm",
+            "param_interferometer_posY": "initial position Y (interferometer), pm",
+            "param_interferometer_posZ": "initial position Z (interferometer), pm",
         }
 
         return descriptions
