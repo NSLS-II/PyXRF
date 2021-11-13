@@ -577,10 +577,11 @@ def _extract_metadata_from_header(hdr):
     return mdata
 
 
-def _get_metadata_from_descriptor_document(hdr, *, data_key, stream_name="baseline"):
-
-    # Returns None if the parameter is not found
-
+def _get_metadata_value_from_descriptor_document(hdr, *, data_key, stream_name="baseline"):
+    """
+    Returns the first occurrence of the variable with the name ``data_key`` in
+    specified document stream. Returns ``None`` if the variable is not found
+    """
     value = None
     docs = hdr.documents(stream_name=stream_name)
     for name, doc in docs:
@@ -591,6 +592,26 @@ def _get_metadata_from_descriptor_document(hdr, *, data_key, stream_name="baseli
             break  # Don't go through the rest of the documents
         except Exception:
             pass
+
+    return value
+
+
+def _get_metadata_all_from_descriptor_document(hdr, *, data_key, stream_name="baseline"):
+    """
+    Returns the list of the recorded values of variables with the name ``data_key`` in
+    specified document stream. Returns ``None`` if the variable is not found
+    """
+    value = []
+    docs = hdr.documents(stream_name=stream_name)
+    for name, doc in docs:
+        if (name != "event") or ("descriptor" not in doc):
+            continue
+        try:
+            value.append(doc["data"][data_key])
+        except Exception:
+            pass
+
+    value = value or None  # Replace [] with None
 
     return value
 
@@ -659,13 +680,13 @@ def map_data2D_hxn(
     mdata = _extract_metadata_from_header(hdr)
     # Some metadata is located at specific places in the descriptor documents
     # Search through the descriptor documents for the metadata
-    v = _get_metadata_from_descriptor_document(
+    v = _get_metadata_value_from_descriptor_document(
         hdr, data_key="beamline_status_beam_current", stream_name="baseline"
     )
     if v is not None:
         mdata["instrument_beam_current"] = v
 
-    v = _get_metadata_from_descriptor_document(hdr, data_key="energy", stream_name="baseline")
+    v = _get_metadata_value_from_descriptor_document(hdr, data_key="energy", stream_name="baseline")
     if v is not None:
         mdata["instrument_mono_incident_energy"] = v
 
@@ -1439,6 +1460,17 @@ def map_data2D_srx_new(
     # Get metadata
     mdata = _extract_metadata_from_header(hdr)
 
+    v = _get_metadata_value_from_descriptor_document(hdr, data_key="ring_current", stream_name="baseline")
+    if v is not None:
+        mdata["instrument_beam_current"] = v
+
+    for ax in ["X", "Y", "Z"]:
+        v = _get_metadata_all_from_descriptor_document(
+            hdr, data_key=f"nanoKB_interferometer_pos{ax}", stream_name="baseline"
+        )
+        if v is not None:
+            mdata[f"param_interferometer_pos{ax}"] = v
+
     # Get position data from scan
     n_scan_fast, n_scan_slow = hdr.start["scan"]["shape"]
 
@@ -1803,7 +1835,7 @@ def map_data2D_tes(
     mdata = _extract_metadata_from_header(hdr)
     # Some metadata is located at specific places in the descriptor documents
     # Search through the descriptor documents for the metadata
-    v = _get_metadata_from_descriptor_document(hdr, data_key="mono_energy", stream_name="baseline")
+    v = _get_metadata_value_from_descriptor_document(hdr, data_key="mono_energy", stream_name="baseline")
     # Incident energy in the descriptor document is expected to be more accurate, so
     #   overwrite the value if it already exists
     if v is not None:

@@ -175,6 +175,9 @@ class ScanMetadataXRF(ScanMetadataBase):
             "param_fast_axis_units",
             "param_slow_axis",
             "param_slow_axis_units",
+            "param_interferometer_posX",
+            "param_interferometer_posY",
+            "param_interferometer_posZ",
             "param.*",
             "",
             "proposal_num",
@@ -240,6 +243,9 @@ class ScanMetadataXRF(ScanMetadataBase):
             "param_fast_axis_units": "fast axis (units)",
             "param_slow_axis": "slow axis",
             "param_slow_axis_units": "slow axis (units)",
+            "param_interferometer_posX": "Interferometer position X (pm)",
+            "param_interferometer_posY": "Interferometer position Y (pm)",
+            "param_interferometer_posZ": "Interferometer position Z (pm)",
         }
 
         return descriptions
