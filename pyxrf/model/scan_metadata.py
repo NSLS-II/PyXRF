@@ -93,7 +93,7 @@ class ScanMetadataBase:
         printed_keys = set()
         flag_empty_line = False  # Indicates if empty line was just printed
 
-        def _cap(s):
+        def cap(s):
             """
             Capitalize the first character of the string. Leave the rest of the characters intact.
             (``capitalize()`` turns all characters except the first one to lower case)
@@ -116,7 +116,7 @@ class ScanMetadataBase:
                     s_key = key
                     if key in self.descriptions and self.descriptions[key]:
                         s_key = self.descriptions[key]
-                        s_key = _cap(s_key)
+                        s_key = cap(s_key)
 
                     if isinstance(v, str):
                         # Wrap the string if it is too long ('fill' function does not change
