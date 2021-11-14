@@ -1583,18 +1583,18 @@ def map_data2D_srx_new(
                 d = dset_list[n]
                 n_pts = d.shape[0]
                 if n_pts != n_row_pts:
-                    print(f"WARNING: Row #{n} has {n_pts} data points. {n_row_pts} points are expected.")
+                    print(f"WARNING: Row #{n + 1} has {n_pts} data points. {n_row_pts} points are expected.")
                     if n_last_good_row == -1:
                         missed_rows.append(n)
                     else:
                         dset_list[n] = np.array(dset_list[n_last_good_row])
-                        print(f"Data in row #{n} is replaced by data from row #{n_last_good_row}")
+                        print(f"Data in row #{n + 1} is replaced by data from row #{n_last_good_row}")
                 else:
                     n_last_good_row = n
                     if missed_rows:
                         for nr in missed_rows:
                             dset_list[nr] = np.array(dset_list[n_last_good_row])
-                            print(f"Data in row #{nr} is replaced by data from row #{n_last_good_row}")
+                            print(f"Data in row #{nr + 1} is replaced by data from row #{n_last_good_row}")
                         missed_rows = []
 
         repair_set(d_xs_sum, n_scan_fast)
