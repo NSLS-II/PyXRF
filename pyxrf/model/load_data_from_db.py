@@ -577,10 +577,11 @@ def _extract_metadata_from_header(hdr):
     return mdata
 
 
-def _get_metadata_from_descriptor_document(hdr, *, data_key, stream_name="baseline"):
-
-    # Returns None if the parameter is not found
-
+def _get_metadata_value_from_descriptor_document(hdr, *, data_key, stream_name="baseline"):
+    """
+    Returns the first occurrence of the variable with the name ``data_key`` in
+    specified document stream. Returns ``None`` if the variable is not found
+    """
     value = None
     docs = hdr.documents(stream_name=stream_name)
     for name, doc in docs:
@@ -591,6 +592,26 @@ def _get_metadata_from_descriptor_document(hdr, *, data_key, stream_name="baseli
             break  # Don't go through the rest of the documents
         except Exception:
             pass
+
+    return value
+
+
+def _get_metadata_all_from_descriptor_document(hdr, *, data_key, stream_name="baseline"):
+    """
+    Returns the list of the recorded values of variables with the name ``data_key`` in
+    specified document stream. Returns ``None`` if the variable is not found
+    """
+    value = []
+    docs = hdr.documents(stream_name=stream_name)
+    for name, doc in docs:
+        if (name != "event") or ("descriptor" not in doc):
+            continue
+        try:
+            value.append(doc["data"][data_key])
+        except Exception:
+            pass
+
+    value = value or None  # Replace [] with None
 
     return value
 
@@ -659,13 +680,13 @@ def map_data2D_hxn(
     mdata = _extract_metadata_from_header(hdr)
     # Some metadata is located at specific places in the descriptor documents
     # Search through the descriptor documents for the metadata
-    v = _get_metadata_from_descriptor_document(
+    v = _get_metadata_value_from_descriptor_document(
         hdr, data_key="beamline_status_beam_current", stream_name="baseline"
     )
     if v is not None:
         mdata["instrument_beam_current"] = v
 
-    v = _get_metadata_from_descriptor_document(hdr, data_key="energy", stream_name="baseline")
+    v = _get_metadata_value_from_descriptor_document(hdr, data_key="energy", stream_name="baseline")
     if v is not None:
         mdata["instrument_mono_incident_energy"] = v
 
@@ -1439,6 +1460,17 @@ def map_data2D_srx_new(
     # Get metadata
     mdata = _extract_metadata_from_header(hdr)
 
+    v = _get_metadata_value_from_descriptor_document(hdr, data_key="ring_current", stream_name="baseline")
+    if v is not None:
+        mdata["instrument_beam_current"] = v
+
+    for ax in ["X", "Y", "Z"]:
+        v = _get_metadata_all_from_descriptor_document(
+            hdr, data_key=f"nanoKB_interferometer_pos{ax}", stream_name="baseline"
+        )
+        if v is not None:
+            mdata[f"param_interferometer_pos{ax}"] = v
+
     # Get position data from scan
     n_scan_fast, n_scan_slow = hdr.start["scan"]["shape"]
 
@@ -1538,6 +1570,37 @@ def map_data2D_srx_new(
 
         except Exception as ex:
             logger.error(f"Error occurred while reading data: {ex}. Trying to retrieve available data ...")
+
+        def repair_set(dset_list, n_row_pts):
+            """
+            Replaces corrupt rows (incorrect number of points) with closest 'good' row. This allows to load
+            and use data from corrupt scans. The function will have no effect on 'good' scans.
+            If there are no rows with correct number of points (unlikely case), then the array remains unchanged.
+            """
+            missed_rows = []
+            n_last_good_row = -1
+            for n in range(len(dset_list)):
+                d = dset_list[n]
+                n_pts = d.shape[0]
+                if n_pts != n_row_pts:
+                    print(f"WARNING: Row #{n + 1} has {n_pts} data points. {n_row_pts} points are expected.")
+                    if n_last_good_row == -1:
+                        missed_rows.append(n)
+                    else:
+                        dset_list[n] = np.array(dset_list[n_last_good_row])
+                        print(f"Data in row #{n + 1} is replaced by data from row #{n_last_good_row}")
+                else:
+                    n_last_good_row = n
+                    if missed_rows:
+                        for nr in missed_rows:
+                            dset_list[nr] = np.array(dset_list[n_last_good_row])
+                            print(f"Data in row #{nr + 1} is replaced by data from row #{n_last_good_row}")
+                        missed_rows = []
+
+        repair_set(d_xs_sum, n_scan_fast)
+        repair_set(d_xs, n_scan_fast)
+        repair_set(d_xs2_sum, n_scan_fast)
+        repair_set(d_xs2, n_scan_fast)
 
         if n_recorded_events != n_scan_slow:
             logger.error(
@@ -1803,7 +1866,7 @@ def map_data2D_tes(
     mdata = _extract_metadata_from_header(hdr)
     # Some metadata is located at specific places in the descriptor documents
     # Search through the descriptor documents for the metadata
-    v = _get_metadata_from_descriptor_document(hdr, data_key="mono_energy", stream_name="baseline")
+    v = _get_metadata_value_from_descriptor_document(hdr, data_key="mono_energy", stream_name="baseline")
     # Incident energy in the descriptor document is expected to be more accurate, so
     #   overwrite the value if it already exists
     if v is not None:
