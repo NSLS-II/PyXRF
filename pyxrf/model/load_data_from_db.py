@@ -1571,6 +1571,51 @@ def map_data2D_srx_new(
         except Exception as ex:
             logger.error(f"Error occurred while reading data: {ex}. Trying to retrieve available data ...")
 
+        def check_scan_row_length(n_row_pts, n_row_pts_requested, det_name):
+            """
+            Print error message if the number of points per row is different from expected.
+            """
+            if n_row_pts != n_row_pts_requested:
+                print(
+                    f"Unexpected number of scanned points for the detector '{det_name}': {n_row_pts}. "
+                    f"Expected {n_row_pts_requested} points per row."
+                )
+
+        if "xs" in dets:
+            check_scan_row_length(N_xs, n_scan_fast, "xs")
+        if "xs2" in dets:
+            check_scan_row_length(N_xs2, n_scan_fast, "xs2")
+
+        def repair_set(dset_list, n_row_pts):
+            """
+            Replaces corrupt rows (incorrect number of points) with closest 'good' row. This allows to load
+            and use data from corrupt scans. The function will have no effect on 'good' scans.
+            """
+            missed_rows = []
+            n_last_good_row = -1
+            for n in range(len(dset_list)):
+                d = dset_list[n]
+                n_pts = d.shape[-1]
+                if n_pts != n_row_pts:
+                    print(f"Row #{n} has unexpected number of points ({n_pts}): {n_row_pts} points are expected.")
+                    if n_last_good_row == -1:
+                        missed_rows.append(n)
+                    else:
+                        dset_list[n] = np.array(dset_list[n_last_good_row])
+                        print(f"Data for corrupt row #{n} is replaced by data from row #{n_last_good_row}")
+                else:
+                    n_last_good_row = n
+                    if missed_rows:
+                        for nr in missed_rows:
+                            dset_list[nr] = np.array(dset_list[n_last_good_row])
+                            print(f"Data for corrupt row #{nr} is replaced by data from row #{n_last_good_row}")
+                        missed_rows = []
+
+        repair_set(d_xs_sum, N_xs)
+        repair_set(d_xs, N_xs)
+        repair_set(d_xs2_sum, N_xs2)
+        repair_set(d_xs2, N_xs2)
+
         if n_recorded_events != n_scan_slow:
             logger.error(
                 "The number of recorded events (%d) is not equal to the expected number of events (%d): "
