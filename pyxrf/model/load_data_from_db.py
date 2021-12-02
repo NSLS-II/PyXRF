@@ -1506,30 +1506,25 @@ def map_data2D_srx_new(
         else:
             slow_key = slow_motor
 
-        fast_pos = hdr.data(fast_key, stream_name="stream0", fill=True)
-        fast_pos = np.array(list(fast_pos))
-        if "enc" in slow_key:
-            slow_pos = hdr.data(slow_key, stream_name="stream0", fill=True)
-            slow_pos = np.array(list(slow_pos))
-        else:
-            slow_pos = hdr.data(slow_key, stream_name="primary", fill=True)
-            slow_pos = np.array(list(slow_pos))
-            slow_pos = np.array(
-                [
-                    slow_pos,
-                ]
-                * n_scan_fast
-            ).T
+        # fast_pos = hdr.data(fast_key, stream_name="stream0", fill=True)
+        # fast_pos = np.array(list(fast_pos))
+        # if "enc" in slow_key:
+        #     slow_pos = hdr.data(slow_key, stream_name="stream0", fill=True)
+        #     slow_pos = np.array(list(slow_pos))
+        # else:
+        #     slow_pos = hdr.data(slow_key, stream_name="primary", fill=True)
+        #     slow_pos = np.array(list(slow_pos))
+        #     slow_pos = np.array([slow_pos] * n_scan_fast).T
 
-        num_events = stop_doc["num_events"]["stream0"]
-        pos_pos = np.zeros((2, num_events, n_scan_fast))
-        if "x" in slow_key:
-            pos_pos[1, :, :] = fast_pos
-            pos_pos[0, :, :] = slow_pos
-        else:
-            pos_pos[0, :, :] = fast_pos
-            pos_pos[1, :, :] = slow_pos
-        pos_name = ["x_pos", "y_pos"]
+        # num_events = stop_doc["num_events"]["stream0"]
+        # pos_pos = np.zeros((2, num_events, n_scan_fast))
+        # if "x" in slow_key:
+        #     pos_pos[1, :, :] = fast_pos
+        #     pos_pos[0, :, :] = slow_pos
+        # else:
+        #     pos_pos[0, :, :] = fast_pos
+        #     pos_pos[1, :, :] = slow_pos
+        # pos_name = ["x_pos", "y_pos"]
 
         # Let's get the data using the events! Yay!
         e = hdr.events("stream0", fill=True)
@@ -1538,6 +1533,7 @@ def map_data2D_srx_new(
         sclr_list = ["i0", "i0_time", "time", "im", "it"]
         sclr = []
         sclr_name = []
+        fast_pos, slow_pos = [], []
 
         n_recorded_events = 0
 
@@ -1562,6 +1558,12 @@ def map_data2D_srx_new(
                         sclr.append(tmp)
                         if s not in sclr_name:
                             sclr_name.append(s)
+
+                fast_pos.append(np.array(v["data"][fast_key]))
+                tmp2 = v["data"][slow_key]
+                if "enc" not in slow_key:
+                    tmp2 = list(tmp) * n_scan_fast
+                slow_pos.append(np.array(tmp2))
 
                 n_recorded_events = m + 1
 
@@ -1601,6 +1603,17 @@ def map_data2D_srx_new(
         repair_set(d_xs, n_scan_fast)
         repair_set(d_xs2_sum, n_scan_fast)
         repair_set(d_xs2, n_scan_fast)
+        repair_set(fast_pos, n_scan_fast)
+        repair_set(slow_pos, n_scan_fast)
+
+        pos_pos = np.zeros((2, n_recorded_events, n_scan_fast))
+        if "x" in slow_key:
+            pos_pos[1, :, :] = fast_pos
+            pos_pos[0, :, :] = slow_pos
+        else:
+            pos_pos[0, :, :] = fast_pos
+            pos_pos[1, :, :] = slow_pos
+        pos_name = ["x_pos", "y_pos"]
 
         if n_recorded_events != n_scan_slow:
             logger.error(
