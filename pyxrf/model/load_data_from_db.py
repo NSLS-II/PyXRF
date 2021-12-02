@@ -1531,7 +1531,7 @@ def map_data2D_srx_new(
         d_xs, d_xs_sum, N_xs = [], [], 0
         d_xs2, d_xs2_sum, N_xs2 = [], [], 0
         sclr_list = ["i0", "i0_time", "time", "im", "it"]
-        sclr = []
+        sclr_dict = {}
         sclr_name = []
         fast_pos, slow_pos = [], []
 
@@ -1555,9 +1555,10 @@ def map_data2D_srx_new(
                 for s in sclr_list:
                     if s in keys:
                         tmp = np.array(v["data"][s])
-                        sclr.append(tmp)
-                        if s not in sclr_name:
-                            sclr_name.append(s)
+                        if s not in sclr_dict:
+                            sclr_dict[s] = [tmp]
+                        else:
+                            sclr_dict[s].append(tmp)
 
                 fast_pos.append(np.array(v["data"][fast_key]))
                 tmp2 = v["data"][slow_key]
@@ -1599,12 +1600,16 @@ def map_data2D_srx_new(
                             print(f"Data in row #{nr + 1} is replaced by data from row #{n_last_good_row}")
                         missed_rows = []
 
+        sclr_name = list(sclr_dict.keys()) 
+
         repair_set(d_xs_sum, n_scan_fast)
         repair_set(d_xs, n_scan_fast)
         repair_set(d_xs2_sum, n_scan_fast)
         repair_set(d_xs2, n_scan_fast)
         repair_set(fast_pos, n_scan_fast)
         repair_set(slow_pos, n_scan_fast)
+        for sc in sclr_dict.values():
+            repair_set(sc, n_scan_fast)
 
         pos_pos = np.zeros((2, n_recorded_events, n_scan_fast))
         if "x" in slow_key:
@@ -1629,9 +1634,13 @@ def map_data2D_srx_new(
         d_xs2 = np.asarray(d_xs2)
         d_xs2_sum = np.asarray(d_xs2_sum)
 
-        sclr = np.asarray(sclr)
-        sclr = np.reshape(sclr, (n_recorded_events, len(sclr_name), -1))
-        sclr = np.moveaxis(sclr, 1, 2)
+        sclr = np.zeros((n_recorded_events, n_scan_fast, len(sclr_name)))        
+        for n, sname in enumerate(sclr_name):
+            sclr[:, :, n] = np.asarray(sclr_dict[sname])
+
+        # sclr = np.asarray(sclr)
+        # sclr = np.reshape(sclr, (n_recorded_events, len(sclr_name), -1))
+        # sclr = np.moveaxis(sclr, 1, 2)
 
     # ===================================================================
     #                     NEW SRX STEP SCAN
