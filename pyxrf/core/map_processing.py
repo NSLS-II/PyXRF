@@ -4,6 +4,9 @@ import os
 import h5py
 import dask
 import dask.array as da
+import tempfile
+import platform
+import getpass
 import time as ttime
 from numba import jit
 from dask.distributed import Client, wait
@@ -48,7 +51,16 @@ def dask_client_create(**kwargs):
     _kwargs.update(kwargs)
 
     dask.config.set(shuffle="disk")
-    path_dask_data = os.path.expanduser("~/.dask")
+
+    current_os = platform.system()
+    if current_os == "Linux":
+        tmp_dir = tempfile.gettempdir()
+        user_name = getpass.getuser()
+        path_dask_data = os.path.join(tmp_dir, user_name, "dask")
+        os.makedirs(path_dask_data, exist_ok=True)
+    else:
+        path_dask_data = os.path.expanduser("~/.dask")
+
     dask.config.set({"temporary_directory": path_dask_data})
 
     client = Client(**_kwargs)
