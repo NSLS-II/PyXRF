@@ -478,6 +478,7 @@ def _extract_metadata_from_header(hdr):
         "scan_uid": ["uid"],
         "scan_instrument_id": ["beamline_id"],
         "scan_instrument_name": [],
+        "scan_end_station": [],
         "scan_time_start": ["time"],
         "scan_time_start_utc": ["time"],
         "instrument_mono_incident_energy": ["beamline_status/energy", "scan/energy"],
@@ -689,6 +690,41 @@ def map_data2D_hxn(
     v = _get_metadata_value_from_descriptor_document(hdr, data_key="energy", stream_name="baseline")
     if v is not None:
         mdata["instrument_mono_incident_energy"] = v
+
+    # --------------------------------------------------------------------------------------------
+    #            IDENTIFY END STATION AND SELECT THE APPROPRIATE THETA ANGLE FROM BASELINE
+    # Identify endstation
+    end_station = ""
+    es_motors = hdr.start["motors"]
+    motors_mll, motors_zp = ("dssx", "dssy", "dssz"), ("zpssx", "zpssy", "zpssz")
+    if es_motors[0] in motors_mll:
+        end_station = "MLL"
+    elif es_motors[0] in motors_zp:
+        end_station = "ZP"
+    else:
+        logger.warning("Failed to identify end station from data found in start document.")
+    if end_station:
+        mdata["scan_end_station"] = end_station
+
+    logger.info("Identified beamline end station: '%'", (end_station or "n/a"))
+
+    # Get theta angles (each scan has the angles for both endstations, but we need to pick one)
+    v = _get_metadata_value_from_descriptor_document(
+        hdr, data_key="beamline_status_beam_current", stream_name="baseline"
+    )
+    if end_station == "MLL":
+        theta = _get_metadata_value_from_descriptor_document(hdr, data_key="dsth", stream_name="baseline")  # MLL
+    elif end_station == "ZP":
+        theta = _get_metadata_value_from_descriptor_document(hdr, data_key="sth", stream_name="baseline")  # ZP
+    else:
+        theta = None
+    # Add theta to the the metadata
+    if theta is not None:
+        mdata["param_theta"] = theta * 1000  # Convert to mdeg (same as SRX)
+        mdata["param_theta_units"] = "mdeg"
+    else:
+        logger.warning("Angle 'theta' is not found and is not included in the HDF file metadata")
+    # -----------------------------------------------------------------------------------------------
 
     if "dimensions" in start_doc:
         datashape = start_doc.dimensions
