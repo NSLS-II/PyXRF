@@ -720,7 +720,7 @@ def map_data2D_hxn(
         theta = None
     # Add theta to the the metadata
     if theta is not None:
-        mdata["param_theta"] = theta * 1000  # Convert to mdeg (same as SRX)
+        mdata["param_theta"] = round(theta * 1000)  # Convert to mdeg (same as SRX)
         mdata["param_theta_units"] = "mdeg"
     else:
         logger.warning("Angle 'theta' is not found and is not included in the HDF file metadata")
