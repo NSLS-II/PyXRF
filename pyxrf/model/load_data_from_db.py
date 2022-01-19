@@ -706,7 +706,7 @@ def map_data2D_hxn(
     if end_station:
         mdata["scan_end_station"] = end_station
 
-    logger.info("Identified beamline end station: %", (end_station or "n/a"))
+    logger.info("Identified beamline end station: %", (end_station if end_station else "n/a"))
 
     # Get theta angles (each scan has the angles for both endstations, but we need to pick one)
     v = _get_metadata_value_from_descriptor_document(
