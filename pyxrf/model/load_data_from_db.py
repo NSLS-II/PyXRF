@@ -715,7 +715,7 @@ def map_data2D_hxn(
     if end_station == "MLL":
         theta = _get_metadata_value_from_descriptor_document(hdr, data_key="dsth", stream_name="baseline")  # MLL
     elif end_station == "ZP":
-        theta = _get_metadata_value_from_descriptor_document(hdr, data_key="sth", stream_name="baseline")  # ZP
+        theta = _get_metadata_value_from_descriptor_document(hdr, data_key="zpsth", stream_name="baseline")  # ZP
     else:
         theta = None
     # Add theta to the the metadata
