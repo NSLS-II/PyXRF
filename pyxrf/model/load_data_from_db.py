@@ -729,6 +729,7 @@ def map_data2D_hxn(
     if theta is not None:
         mdata["param_theta"] = round(theta * 1000)  # Convert to mdeg (same as SRX)
         mdata["param_theta_units"] = "mdeg"
+        theta = round(theta, 3)  # Better presentation
     else:
         logger.warning("Angle 'theta' is not found and is not included in the HDF file metadata")
     # -----------------------------------------------------------------------------------------------
@@ -823,14 +824,15 @@ def map_data2D_hxn(
         logger.info(f"Fast axis: {fast_axis!r}. Angle 'theta': {theta}. Data along the fast axis is not reordered.")
 
     #   Correct positions for distortions due to rotation of the stage
-    if fast_axis.lower().endswith('x'):
-        logger.info(f"Scaling the positions along fast X-axis ({fast_axis!r}: 'theta'={theta}) ...")
-        data_out["pos_data"][fast_axis_index, :, :] *= np.cos(theta * np.pi / 180.0)
-    elif fast_axis.lower().endswith('z'):
-        logger.info(f"Scaling the positions along fast Z-axis ({fast_axis!r}: 'theta'={theta}) ...")
-        data_out["pos_data"][fast_axis_index, :, :] *= np.sin(theta * np.pi / 180.0)
-    else:
-        logger.info(f"No scaling is applied to the positions along fast axis ({fast_axis!r})")
+    if theta is not None:
+        if fast_axis.lower().endswith('x'):
+            logger.info(f"Scaling the positions along fast X-axis ({fast_axis!r}: 'theta'={theta}) ...")
+            data_out["pos_data"][fast_axis_index, :, :] *= np.cos(theta * np.pi / 180.0)
+        elif fast_axis.lower().endswith('z'):
+            logger.info(f"Scaling the positions along fast Z-axis ({fast_axis!r}: 'theta'={theta}) ...")
+            data_out["pos_data"][fast_axis_index, :, :] *= np.sin(theta * np.pi / 180.0)
+        else:
+            logger.info(f"No scaling is applied to the positions along fast axis ({fast_axis!r})")
 
     if output_to_file:
         # output to file
