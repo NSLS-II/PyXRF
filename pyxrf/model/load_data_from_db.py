@@ -739,10 +739,12 @@ def map_data2D_hxn(
     if slow_axis:
         mdata["param_slow_axis"] = slow_axis
     # -----------------------------------------------------------------------------------------------
-    # Reconstruct scan input (SRX style)
+    # Reconstruct scan input
     try:
         plan_args = start_doc["plan_args"]
+        # px_motor = plan_args["motor1"]
         px_start, px_end, px_step = plan_args["scan_start1"], plan_args["scan_end1"], plan_args["num1"]
+        # py_motor = plan_args["motor2"]
         py_start, py_end, py_step = plan_args["scan_start2"], plan_args["scan_end2"], plan_args["num2"]
         dwell_time = plan_args["exposure_time"]
         param_input = [px_start, px_end, px_step, py_start, py_end, py_step, dwell_time]
