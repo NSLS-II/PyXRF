@@ -667,7 +667,7 @@ def map_data2D_hxn(
     hdr = db[run_id_uid]
     runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
 
-    logger.info("Loading scan #{run_id}")
+    logger.info(f"Loading scan #{runid}")
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
 
