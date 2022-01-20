@@ -682,7 +682,7 @@ def map_data2D_hxn(
 
     # Exclude certain types of plans based on data from the start document
     if start_doc["plan_type"] in ("FlyPlan1D",):
-        logger.error(f"Failed to load the plan: plan {start_doc['plan_type']!r} is not supported")
+        raise RuntimeError(f"Failed to load the plan: plan {start_doc['plan_type']!r} is not supported")
 
     # The dictionary holding scan metadata
     mdata = _extract_metadata_from_header(hdr)
