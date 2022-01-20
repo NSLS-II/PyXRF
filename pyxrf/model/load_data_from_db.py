@@ -10,6 +10,7 @@ import platform
 import math
 import time as ttime
 import copy
+import re
 from distutils.version import LooseVersion
 
 import logging
@@ -804,6 +805,12 @@ def map_data2D_hxn(
     #   Flip the direction of the fast axis for certain angles
     if (theta is not None) and (theta < -45):
         data["pos_data"][fast_axis_index, :, :] = np.fliplr(data["pos_data"][fast_axis_index, :, :])
+        data["scaler_data"] = np.flip(data["scaler_data"], axis=1)
+        data["det_sum"] = np.flip(data["det_sum"], axis=1)
+        for k in data.keys():
+            if re.search(r"^det[\d]+$", k):  # Individual detectors such as 'det1', 'det2', etc.
+                data[k] = np.flip(data[k], axis=1)
+
     #   Correct positions for distortions due to rotation of the stage
     if np.abs(theta) <= 45:
         data["pos_data"][fast_axis_index, :, :] *= np.cos(theta * np.pi / 180.0)
@@ -2566,7 +2573,7 @@ def map_data2D(
     spectrum_len=4096,
 ):
     """
-    Data is obained from databroker. Transfer items from data to a dictionay of
+    Data is obained from databroker. Transfer items from data to a dictionary of
     numpy array, which has 2D shape same as scanning area.
 
     This function can handle stopped/aborted scans. Raster scan (snake scan) is
