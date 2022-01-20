@@ -667,6 +667,7 @@ def map_data2D_hxn(
     hdr = db[run_id_uid]
     runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
 
+    logger.info("Loading scan #{run_id}")
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
 
@@ -678,6 +679,11 @@ def map_data2D_hxn(
     data_output = []
 
     start_doc = hdr["start"]
+
+    # Exclude certain types of plans based on data from the start document
+    if start_doc["plan_type"] in ("FlyPlan1D",):
+        logger.error(f"Failed to load the plan: plan {start_doc['plan_type']!r} is not supported")
+
     # The dictionary holding scan metadata
     mdata = _extract_metadata_from_header(hdr)
     # Some metadata is located at specific places in the descriptor documents
@@ -727,7 +733,7 @@ def map_data2D_hxn(
         logger.warning("Angle 'theta' is not found and is not included in the HDF file metadata")
     # -----------------------------------------------------------------------------------------------
     # Determine fast axis and slow axis
-    fast_axis = start_doc.get("fast_axis", None)
+    fast_axis, slow_axis = start_doc.get("fast_axis", None), None
     motors = start_doc.get("motors", None)
     if motors and isinstance(motors, (list, tuple)) and len(motors) == 2:
         fast_axis = fast_axis if fast_axis else motors[0]
