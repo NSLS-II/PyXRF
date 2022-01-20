@@ -805,21 +805,26 @@ def map_data2D_hxn(
 
     # Transform coordinates for the fast axis if necessary:
     #   Flip the direction of the fast axis for certain angles
-    if (theta is not None) and (theta < -45):
-        logger.info(f"Angle 'theta' ({theta}) is less than -45 degrees. Flipping data along the fast axis ...")
+    if (theta is not None) and fast_axis.lower().endswith('z') and (theta < 0):
+        logger.info(f"Fast axis: {fast_axis!r}. Angle 'theta': {theta}. Flipping data along the fast axis ...")
         data_out["pos_data"][fast_axis_index, :, :] = np.fliplr(data_out["pos_data"][fast_axis_index, :, :])
         data_out["scaler_data"] = np.flip(data_out["scaler_data"], axis=1)
         data_out["det_sum"] = np.flip(data_out["det_sum"], axis=1)
         for k in data.keys():
             if re.search(r"^det[\d]+$", k):  # Individual detectors such as 'det1', 'det2', etc.
                 data_out[k] = np.flip(data_out[k], axis=1)
+    else:
+        logger.info(f"Fast axis: {fast_axis!r}. Angle 'theta': {theta}. Data along the fast axis is not reordered.")
 
     #   Correct positions for distortions due to rotation of the stage
-    logger.info("Applying scaling to positions along fast axis based on the angle 'theta' ({theta})")
-    if np.abs(theta) <= 45:
+    if fast_axis.lower().endswith('x'):
+        logger.info(f"Scaling the positions along fast X-axis ({fast_axis!r}: 'theta'={theta}) ...")
         data_out["pos_data"][fast_axis_index, :, :] *= np.cos(theta * np.pi / 180.0)
-    else:
+    elif fast_axis.lower().endswith('z'):
+        logger.info(f"Scaling the positions along fast Z-axis ({fast_axis!r}: 'theta'={theta}) ...")
         data_out["pos_data"][fast_axis_index, :, :] *= np.sin(theta * np.pi / 180.0)
+    else:
+        logger.info(f"No scaling is applied to the positions along fast axis ({fast_axis!r})")
 
     if output_to_file:
         # output to file
