@@ -159,6 +159,7 @@ def fetch_data_from_db(
     create_each_det=False,
     fname_add_version=False,
     completed_scans_only=False,
+    successful_scans_only=False,
     file_overwrite_existing=False,
     output_to_file=False,
     save_scaler=True,
@@ -223,6 +224,7 @@ def fetch_data_from_db(
             create_each_det=create_each_det,
             fname_add_version=fname_add_version,
             completed_scans_only=completed_scans_only,
+            successful_scans_only=successful_scans_only,
             file_overwrite_existing=file_overwrite_existing,
             output_to_file=output_to_file,
         )
@@ -233,6 +235,7 @@ def fetch_data_from_db(
             create_each_det=create_each_det,
             fname_add_version=fname_add_version,
             completed_scans_only=completed_scans_only,
+            successful_scans_only=successful_scans_only,
             file_overwrite_existing=file_overwrite_existing,
             output_to_file=output_to_file,
             save_scaler=save_scaler,
@@ -245,6 +248,7 @@ def fetch_data_from_db(
             create_each_det=create_each_det,
             fname_add_version=fname_add_version,
             completed_scans_only=completed_scans_only,
+            successful_scans_only=successful_scans_only,
             file_overwrite_existing=file_overwrite_existing,
             output_to_file=output_to_file,
         )
@@ -255,6 +259,7 @@ def fetch_data_from_db(
             create_each_det=create_each_det,
             fname_add_version=fname_add_version,
             completed_scans_only=completed_scans_only,
+            successful_scans_only=successful_scans_only,
             file_overwrite_existing=file_overwrite_existing,
             output_to_file=output_to_file,
         )
@@ -273,6 +278,7 @@ def make_hdf(
     wd=None,
     fname_add_version=False,
     completed_scans_only=False,
+    successful_scans_only=False,
     file_overwrite_existing=False,
     prefix="scan2D_",
     create_each_det=False,
@@ -357,6 +363,9 @@ def make_hdf(
         Such scripts are currently used at HXN and SRX beamlines of NSLS-II, so this feature
         supports the existing workflows.
         False: the feature is disabled, incomplete scan will be processed.
+    successful_scans_only : bool, keyword parameter
+        Similar to ``complete_scans_only``. The file is created only if the stop document
+        exists and ``exit_status=='success'``.
     file_overwrite_existing : bool, keyword parameter
         This option should be used if the existing file should be deleted and replaced
         with the new file with the same name. This option should be used with caution,
@@ -411,6 +420,7 @@ def make_hdf(
             create_each_det=create_each_det,
             fname_add_version=fname_add_version,
             completed_scans_only=completed_scans_only,
+            successful_scans_only=successful_scans_only,
             file_overwrite_existing=file_overwrite_existing,
             output_to_file=True,
             save_scaler=save_scaler,
@@ -432,6 +442,7 @@ def make_hdf(
                     create_each_det=create_each_det,
                     fname_add_version=fname_add_version,
                     completed_scans_only=completed_scans_only,
+                    successful_scans_only=successful_scans_only,
                     file_overwrite_existing=file_overwrite_existing,
                     output_to_file=True,
                     save_scaler=save_scaler,
@@ -463,6 +474,13 @@ def _is_scan_complete(hdr):
 
     # hdr.stop is an empty dictionary if the scan is incomplete
     return bool(hdr.stop)
+
+
+def _is_scan_successful(hdr):
+    """
+    Checks if the scan is successful
+    """
+    return bool(hdr.stop) and hdr.stop["exit_status"] == "success"
 
 
 def _extract_metadata_from_header(hdr):
@@ -624,6 +642,7 @@ def map_data2D_hxn(
     create_each_det=False,
     fname_add_version=False,
     completed_scans_only=False,
+    successful_scans_only=False,
     file_overwrite_existing=False,
     output_to_file=True,
 ):
@@ -670,6 +689,10 @@ def map_data2D_hxn(
     logger.info(f"Loading scan #{runid}")
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
+    if successful_scans_only and not _is_scan_successful(hdr):
+        raise Exception(
+            "Scan is not successfully completed. Only successfully completed scans are currently processed."
+        )
 
     # Generate the default file name for the scan
     if fpath is None:
@@ -812,7 +835,7 @@ def map_data2D_hxn(
 
     # Transform coordinates for the fast axis if necessary:
     #   Flip the direction of the fast axis for certain angles
-    if (theta is not None) and fast_axis.lower().endswith('z') and (theta < 0):
+    if (theta is not None) and fast_axis.lower().endswith("z") and (theta < 0):
         logger.info(f"Fast axis: {fast_axis!r}. Angle 'theta': {theta}. Flipping data along the fast axis ...")
         data_out["pos_data"][fast_axis_index, :, :] = np.fliplr(data_out["pos_data"][fast_axis_index, :, :])
         data_out["scaler_data"] = np.flip(data_out["scaler_data"], axis=1)
@@ -821,14 +844,16 @@ def map_data2D_hxn(
             if re.search(r"^det[\d]+$", k):  # Individual detectors such as 'det1', 'det2', etc.
                 data_out[k] = np.flip(data_out[k], axis=1)
     else:
-        logger.info(f"Fast axis: {fast_axis!r}. Angle 'theta': {theta}. Data along the fast axis is not reordered.")
+        logger.info(
+            f"Fast axis: {fast_axis!r}. Angle 'theta': {theta}. Data along the fast axis is not reordered."
+        )
 
     #   Correct positions for distortions due to rotation of the stage
     if theta is not None:
-        if fast_axis.lower().endswith('x'):
+        if fast_axis.lower().endswith("x"):
             logger.info(f"Scaling the positions along fast X-axis ({fast_axis!r}: 'theta'={theta}) ...")
             data_out["pos_data"][fast_axis_index, :, :] *= np.cos(theta * np.pi / 180.0)
-        elif fast_axis.lower().endswith('z'):
+        elif fast_axis.lower().endswith("z"):
             logger.info(f"Scaling the positions along fast Z-axis ({fast_axis!r}: 'theta'={theta}) ...")
             data_out["pos_data"][fast_axis_index, :, :] *= np.sin(theta * np.pi / 180.0)
         else:
@@ -890,6 +915,7 @@ def map_data2D_srx(
     create_each_det=False,
     fname_add_version=False,
     completed_scans_only=False,
+    successful_scans_only=False,
     file_overwrite_existing=False,
     output_to_file=True,
     save_scaler=True,
@@ -954,6 +980,7 @@ def map_data2D_srx(
             create_each_det=create_each_det,
             fname_add_version=fname_add_version,
             completed_scans_only=completed_scans_only,
+            successful_scans_only=successful_scans_only,
             file_overwrite_existing=file_overwrite_existing,
             output_to_file=output_to_file,
             save_scaler=save_scaler,
@@ -966,6 +993,7 @@ def map_data2D_srx(
             create_each_det=create_each_det,
             fname_add_version=fname_add_version,
             completed_scans_only=completed_scans_only,
+            successful_scans_only=successful_scans_only,
             file_overwrite_existing=file_overwrite_existing,
             output_to_file=output_to_file,
             save_scaler=save_scaler,
@@ -979,6 +1007,7 @@ def map_data2D_srx_old(
     create_each_det=False,
     fname_add_version=False,
     completed_scans_only=False,
+    successful_scans_only=False,
     file_overwrite_existing=False,
     output_to_file=True,
     save_scaler=True,
@@ -1039,6 +1068,10 @@ def map_data2D_srx_old(
 
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
+    if successful_scans_only and not _is_scan_successful(hdr):
+        raise Exception(
+            "Scan is not successfully completed. Only successfully completed scans are currently processed."
+        )
 
     spectrum_len = 4096
     start_doc = hdr["start"]
@@ -1510,6 +1543,7 @@ def map_data2D_srx_new(
     create_each_det=False,
     fname_add_version=False,
     completed_scans_only=False,
+    successful_scans_only=False,
     file_overwrite_existing=False,
     output_to_file=True,
     save_scaler=True,
@@ -1533,6 +1567,10 @@ def map_data2D_srx_new(
 
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
+    if successful_scans_only and not _is_scan_successful(hdr):
+        raise Exception(
+            "Scan is not successfully completed. Only successfully completed scans are currently processed."
+        )
 
     scan_doc = start_doc["scan"]
     stop_doc = hdr.stop
@@ -1902,6 +1940,7 @@ def map_data2D_tes(
     create_each_det=False,
     fname_add_version=False,
     completed_scans_only=False,
+    successful_scans_only=False,
     file_overwrite_existing=False,
     output_to_file=True,
     save_scaler=True,
@@ -1969,6 +2008,10 @@ def map_data2D_tes(
 
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
+    if successful_scans_only and not _is_scan_successful(hdr):
+        raise Exception(
+            "Scan is not successfully completed. Only successfully completed scans are currently processed."
+        )
 
     # Generate the default file name for the scan
     if fpath is None:
@@ -2180,6 +2223,7 @@ def map_data2D_xfm(
     create_each_det=False,
     fname_add_version=False,
     completed_scans_only=False,
+    successful_scans_only=False,
     file_overwrite_existing=False,
     output_to_file=True,
 ):
@@ -2233,6 +2277,10 @@ def map_data2D_xfm(
 
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
+    if successful_scans_only and not _is_scan_successful(hdr):
+        raise Exception(
+            "Scan is not successfully completed. Only successfully completed scans are currently processed."
+        )
 
     # Generate the default file name for the scan
     if fpath is None:
