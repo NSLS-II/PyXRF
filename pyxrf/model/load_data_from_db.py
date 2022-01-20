@@ -495,9 +495,9 @@ def _extract_metadata_from_header(hdr):
         # Scan parameters
         "param_type": ["scan/type"],
         "param_input": ["scan/scan_input"],
-        "param_dwell": ["scan/dwell"],
+        "param_dwell": ["scan/dwell", "exposure_time"],
         "param_snake": ["scan/snake"],
-        "param_shape": ["scan/shape"],
+        "param_shape": ["scan/shape", "shape"],
         "param_theta": ["scan/theta/val"],
         "param_theta_units": ["scan/theta/units"],
         "param_delta": ["scan/delta/val"],
@@ -725,6 +725,33 @@ def map_data2D_hxn(
     else:
         logger.warning("Angle 'theta' is not found and is not included in the HDF file metadata")
     # -----------------------------------------------------------------------------------------------
+    # Determine fast axis and slow axis
+    fast_axis = start_doc.get("fast_axis", None)
+    motors = start_doc.get("motors", None)
+    if motors and isinstance(motors, (list, tuple)) and len(motors) == 2:
+        fast_axis = fast_axis if fast_axis else motors[0]
+        fast_axis_index = motors.index(fast_axis, 0)
+        slow_axis_index = 0 if (fast_axis_index == 1) else 1
+        slow_axis = motors[slow_axis_index]
+    if fast_axis:
+        mdata["param_fast_axis"] = fast_axis
+    if slow_axis:
+        mdata["param_slow_axis"] = slow_axis
+    # -----------------------------------------------------------------------------------------------
+    # Reconstruct scan input (SRX style)
+    try:
+        plan_args = start_doc["plan_args"]
+        px_start, px_end, px_step = plan_args["scan_start1"], plan_args["scan_end1"], plan_args["num1"]
+        py_start, py_end, py_step = plan_args["scan_start2"], plan_args["scan_end2"], plan_args["num2"]
+        dwell_time = plan_args["exposure_time"]
+        param_input = [px_start, px_end, px_step, py_start, py_end, py_step, dwell_time]
+        mdata["param_input"] = param_input
+    except Exception as ex:
+        logger.warning(
+            "Failed to reconstruct scan input: %s. Scan input is not saved as part of metadata to HDF5 file",
+            str(ex),
+        )
+    # -------------------------------------------------------------------------------------------------
 
     if "dimensions" in start_doc:
         datashape = start_doc.dimensions
@@ -772,6 +799,17 @@ def map_data2D_hxn(
         subscan_dims=subscan_dims,
         spectrum_len=4096,
     )
+
+    # Transform coordinates for the fast axis if necessary:
+    #   Flip the direction of the fast axis for certain angles
+    if (theta is not None) and (theta < -45):
+        data["pos_data"][fast_axis_index, :, :] = np.fliplr(data["pos_data"][fast_axis_index, :, :])
+    #   Correct positions for distortions due to rotation of the stage
+    if np.abs(theta) <= 45:
+        data["pos_data"][fast_axis_index, :, :] *= np.cos(theta * np.pi / 180.0)
+    else:
+        data["pos_data"][fast_axis_index, :, :] *= np.sin(theta * np.pi / 180.0)
+
     if output_to_file:
         # output to file
         print("Saving data to hdf file.")
