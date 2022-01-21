@@ -10,6 +10,7 @@ import platform
 import math
 import time as ttime
 import copy
+import re
 from distutils.version import LooseVersion
 
 import logging
@@ -158,6 +159,7 @@ def fetch_data_from_db(
     create_each_det=False,
     fname_add_version=False,
     completed_scans_only=False,
+    successful_scans_only=False,
     file_overwrite_existing=False,
     output_to_file=False,
     save_scaler=True,
@@ -222,6 +224,7 @@ def fetch_data_from_db(
             create_each_det=create_each_det,
             fname_add_version=fname_add_version,
             completed_scans_only=completed_scans_only,
+            successful_scans_only=successful_scans_only,
             file_overwrite_existing=file_overwrite_existing,
             output_to_file=output_to_file,
         )
@@ -232,6 +235,7 @@ def fetch_data_from_db(
             create_each_det=create_each_det,
             fname_add_version=fname_add_version,
             completed_scans_only=completed_scans_only,
+            successful_scans_only=successful_scans_only,
             file_overwrite_existing=file_overwrite_existing,
             output_to_file=output_to_file,
             save_scaler=save_scaler,
@@ -244,6 +248,7 @@ def fetch_data_from_db(
             create_each_det=create_each_det,
             fname_add_version=fname_add_version,
             completed_scans_only=completed_scans_only,
+            successful_scans_only=successful_scans_only,
             file_overwrite_existing=file_overwrite_existing,
             output_to_file=output_to_file,
         )
@@ -254,6 +259,7 @@ def fetch_data_from_db(
             create_each_det=create_each_det,
             fname_add_version=fname_add_version,
             completed_scans_only=completed_scans_only,
+            successful_scans_only=successful_scans_only,
             file_overwrite_existing=file_overwrite_existing,
             output_to_file=output_to_file,
         )
@@ -272,6 +278,7 @@ def make_hdf(
     wd=None,
     fname_add_version=False,
     completed_scans_only=False,
+    successful_scans_only=False,
     file_overwrite_existing=False,
     prefix="scan2D_",
     create_each_det=False,
@@ -356,6 +363,9 @@ def make_hdf(
         Such scripts are currently used at HXN and SRX beamlines of NSLS-II, so this feature
         supports the existing workflows.
         False: the feature is disabled, incomplete scan will be processed.
+    successful_scans_only : bool, keyword parameter
+        Similar to ``complete_scans_only``. The file is created only if the stop document
+        exists and ``exit_status=='success'``.
     file_overwrite_existing : bool, keyword parameter
         This option should be used if the existing file should be deleted and replaced
         with the new file with the same name. This option should be used with caution,
@@ -410,6 +420,7 @@ def make_hdf(
             create_each_det=create_each_det,
             fname_add_version=fname_add_version,
             completed_scans_only=completed_scans_only,
+            successful_scans_only=successful_scans_only,
             file_overwrite_existing=file_overwrite_existing,
             output_to_file=True,
             save_scaler=save_scaler,
@@ -431,6 +442,7 @@ def make_hdf(
                     create_each_det=create_each_det,
                     fname_add_version=fname_add_version,
                     completed_scans_only=completed_scans_only,
+                    successful_scans_only=successful_scans_only,
                     file_overwrite_existing=file_overwrite_existing,
                     output_to_file=True,
                     save_scaler=save_scaler,
@@ -464,6 +476,13 @@ def _is_scan_complete(hdr):
     return bool(hdr.stop)
 
 
+def _is_scan_successful(hdr):
+    """
+    Checks if the scan is successful
+    """
+    return bool(hdr.stop) and hdr.stop["exit_status"] == "success"
+
+
 def _extract_metadata_from_header(hdr):
     """
     Extract metadata from start and stop document. Metadata extracted from other document
@@ -478,6 +497,7 @@ def _extract_metadata_from_header(hdr):
         "scan_uid": ["uid"],
         "scan_instrument_id": ["beamline_id"],
         "scan_instrument_name": [],
+        "scan_end_station": [],
         "scan_time_start": ["time"],
         "scan_time_start_utc": ["time"],
         "instrument_mono_incident_energy": ["beamline_status/energy", "scan/energy"],
@@ -494,9 +514,9 @@ def _extract_metadata_from_header(hdr):
         # Scan parameters
         "param_type": ["scan/type"],
         "param_input": ["scan/scan_input"],
-        "param_dwell": ["scan/dwell"],
+        "param_dwell": ["scan/dwell", "exposure_time"],
         "param_snake": ["scan/snake"],
-        "param_shape": ["scan/shape"],
+        "param_shape": ["scan/shape", "shape"],
         "param_theta": ["scan/theta/val"],
         "param_theta_units": ["scan/theta/units"],
         "param_delta": ["scan/delta/val"],
@@ -622,6 +642,7 @@ def map_data2D_hxn(
     create_each_det=False,
     fname_add_version=False,
     completed_scans_only=False,
+    successful_scans_only=False,
     file_overwrite_existing=False,
     output_to_file=True,
 ):
@@ -665,8 +686,13 @@ def map_data2D_hxn(
     hdr = db[run_id_uid]
     runid = hdr.start["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
 
+    logger.info(f"Loading scan #{runid}")
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
+    if successful_scans_only and not _is_scan_successful(hdr):
+        raise Exception(
+            "Scan is not successfully completed. Only successfully completed scans are currently processed."
+        )
 
     # Generate the default file name for the scan
     if fpath is None:
@@ -676,6 +702,11 @@ def map_data2D_hxn(
     data_output = []
 
     start_doc = hdr["start"]
+
+    # Exclude certain types of plans based on data from the start document
+    if start_doc["plan_type"] in ("FlyPlan1D",):
+        raise RuntimeError(f"Failed to load the plan: plan {start_doc['plan_type']!r} is not supported")
+
     # The dictionary holding scan metadata
     mdata = _extract_metadata_from_header(hdr)
     # Some metadata is located at specific places in the descriptor documents
@@ -689,6 +720,71 @@ def map_data2D_hxn(
     v = _get_metadata_value_from_descriptor_document(hdr, data_key="energy", stream_name="baseline")
     if v is not None:
         mdata["instrument_mono_incident_energy"] = v
+
+    # --------------------------------------------------------------------------------------------
+    #            IDENTIFY END STATION AND SELECT THE APPROPRIATE THETA ANGLE FROM BASELINE
+    # Identify endstation
+    end_station = ""
+    es_motors = hdr.start["motors"]
+    motors_mll, motors_zp = ("dssx", "dssy", "dssz"), ("zpssx", "zpssy", "zpssz")
+    if es_motors[0] in motors_mll:
+        end_station = "MLL"
+    elif es_motors[0] in motors_zp:
+        end_station = "ZP"
+    else:
+        logger.warning("Failed to identify end station from data found in start document.")
+    if end_station:
+        mdata["scan_end_station"] = end_station
+
+    logger.info(f"Identified beamline end station: {end_station!r}")
+
+    # Get theta angles (each scan has the angles for both endstations, but we need to pick one)
+    v = _get_metadata_value_from_descriptor_document(
+        hdr, data_key="beamline_status_beam_current", stream_name="baseline"
+    )
+    if end_station == "MLL":
+        theta = _get_metadata_value_from_descriptor_document(hdr, data_key="dsth", stream_name="baseline")  # MLL
+    elif end_station == "ZP":
+        theta = _get_metadata_value_from_descriptor_document(hdr, data_key="zpsth", stream_name="baseline")  # ZP
+    else:
+        theta = None
+    # Add theta to the the metadata
+    if theta is not None:
+        mdata["param_theta"] = round(theta * 1000)  # Convert to mdeg (same as SRX)
+        mdata["param_theta_units"] = "mdeg"
+        theta = round(theta, 3)  # Better presentation
+    else:
+        logger.warning("Angle 'theta' is not found and is not included in the HDF file metadata")
+    # -----------------------------------------------------------------------------------------------
+    # Determine fast axis and slow axis
+    fast_axis, slow_axis = start_doc.get("fast_axis", None), None
+    motors = start_doc.get("motors", None)
+    if motors and isinstance(motors, (list, tuple)) and len(motors) == 2:
+        fast_axis = fast_axis if fast_axis else motors[0]
+        fast_axis_index = motors.index(fast_axis, 0)
+        slow_axis_index = 0 if (fast_axis_index == 1) else 1
+        slow_axis = motors[slow_axis_index]
+    if fast_axis:
+        mdata["param_fast_axis"] = fast_axis
+    if slow_axis:
+        mdata["param_slow_axis"] = slow_axis
+    # -----------------------------------------------------------------------------------------------
+    # Reconstruct scan input
+    try:
+        plan_args = start_doc["plan_args"]
+        # px_motor = plan_args["motor1"]
+        px_start, px_end, px_step = plan_args["scan_start1"], plan_args["scan_end1"], plan_args["num1"]
+        # py_motor = plan_args["motor2"]
+        py_start, py_end, py_step = plan_args["scan_start2"], plan_args["scan_end2"], plan_args["num2"]
+        dwell_time = plan_args["exposure_time"]
+        param_input = [px_start, px_end, px_step, py_start, py_end, py_step, dwell_time]
+        mdata["param_input"] = param_input
+    except Exception as ex:
+        logger.warning(
+            "Failed to reconstruct scan input: %s. Scan input is not saved as part of metadata to HDF5 file",
+            str(ex),
+        )
+    # -------------------------------------------------------------------------------------------------
 
     if "dimensions" in start_doc:
         datashape = start_doc.dimensions
@@ -736,6 +832,33 @@ def map_data2D_hxn(
         subscan_dims=subscan_dims,
         spectrum_len=4096,
     )
+
+    # Transform coordinates for the fast axis if necessary:
+    #   Flip the direction of the fast axis for certain angles
+    if (theta is not None) and fast_axis.lower().endswith("z") and (theta < 0):
+        logger.info(f"Fast axis: {fast_axis!r}. Angle 'theta': {theta}. Flipping data along the fast axis ...")
+        data_out["pos_data"][fast_axis_index, :, :] = np.fliplr(data_out["pos_data"][fast_axis_index, :, :])
+        data_out["scaler_data"] = np.flip(data_out["scaler_data"], axis=1)
+        data_out["det_sum"] = np.flip(data_out["det_sum"], axis=1)
+        for k in data.keys():
+            if re.search(r"^det[\d]+$", k):  # Individual detectors such as 'det1', 'det2', etc.
+                data_out[k] = np.flip(data_out[k], axis=1)
+    else:
+        logger.info(
+            f"Fast axis: {fast_axis!r}. Angle 'theta': {theta}. Data along the fast axis is not reordered."
+        )
+
+    #   Correct positions for distortions due to rotation of the stage
+    if theta is not None:
+        if fast_axis.lower().endswith("x"):
+            logger.info(f"Scaling the positions along fast X-axis ({fast_axis!r}: 'theta'={theta}) ...")
+            data_out["pos_data"][fast_axis_index, :, :] *= np.cos(theta * np.pi / 180.0)
+        elif fast_axis.lower().endswith("z"):
+            logger.info(f"Scaling the positions along fast Z-axis ({fast_axis!r}: 'theta'={theta}) ...")
+            data_out["pos_data"][fast_axis_index, :, :] *= np.sin(theta * np.pi / 180.0)
+        else:
+            logger.info(f"No scaling is applied to the positions along fast axis ({fast_axis!r})")
+
     if output_to_file:
         # output to file
         print("Saving data to hdf file.")
@@ -792,6 +915,7 @@ def map_data2D_srx(
     create_each_det=False,
     fname_add_version=False,
     completed_scans_only=False,
+    successful_scans_only=False,
     file_overwrite_existing=False,
     output_to_file=True,
     save_scaler=True,
@@ -856,6 +980,7 @@ def map_data2D_srx(
             create_each_det=create_each_det,
             fname_add_version=fname_add_version,
             completed_scans_only=completed_scans_only,
+            successful_scans_only=successful_scans_only,
             file_overwrite_existing=file_overwrite_existing,
             output_to_file=output_to_file,
             save_scaler=save_scaler,
@@ -868,6 +993,7 @@ def map_data2D_srx(
             create_each_det=create_each_det,
             fname_add_version=fname_add_version,
             completed_scans_only=completed_scans_only,
+            successful_scans_only=successful_scans_only,
             file_overwrite_existing=file_overwrite_existing,
             output_to_file=output_to_file,
             save_scaler=save_scaler,
@@ -881,6 +1007,7 @@ def map_data2D_srx_old(
     create_each_det=False,
     fname_add_version=False,
     completed_scans_only=False,
+    successful_scans_only=False,
     file_overwrite_existing=False,
     output_to_file=True,
     save_scaler=True,
@@ -941,6 +1068,10 @@ def map_data2D_srx_old(
 
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
+    if successful_scans_only and not _is_scan_successful(hdr):
+        raise Exception(
+            "Scan is not successfully completed. Only successfully completed scans are currently processed."
+        )
 
     spectrum_len = 4096
     start_doc = hdr["start"]
@@ -1412,6 +1543,7 @@ def map_data2D_srx_new(
     create_each_det=False,
     fname_add_version=False,
     completed_scans_only=False,
+    successful_scans_only=False,
     file_overwrite_existing=False,
     output_to_file=True,
     save_scaler=True,
@@ -1435,6 +1567,10 @@ def map_data2D_srx_new(
 
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
+    if successful_scans_only and not _is_scan_successful(hdr):
+        raise Exception(
+            "Scan is not successfully completed. Only successfully completed scans are currently processed."
+        )
 
     scan_doc = start_doc["scan"]
     stop_doc = hdr.stop
@@ -1804,6 +1940,7 @@ def map_data2D_tes(
     create_each_det=False,
     fname_add_version=False,
     completed_scans_only=False,
+    successful_scans_only=False,
     file_overwrite_existing=False,
     output_to_file=True,
     save_scaler=True,
@@ -1871,6 +2008,10 @@ def map_data2D_tes(
 
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
+    if successful_scans_only and not _is_scan_successful(hdr):
+        raise Exception(
+            "Scan is not successfully completed. Only successfully completed scans are currently processed."
+        )
 
     # Generate the default file name for the scan
     if fpath is None:
@@ -2082,6 +2223,7 @@ def map_data2D_xfm(
     create_each_det=False,
     fname_add_version=False,
     completed_scans_only=False,
+    successful_scans_only=False,
     file_overwrite_existing=False,
     output_to_file=True,
 ):
@@ -2135,6 +2277,10 @@ def map_data2D_xfm(
 
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
+    if successful_scans_only and not _is_scan_successful(hdr):
+        raise Exception(
+            "Scan is not successfully completed. Only successfully completed scans are currently processed."
+        )
 
     # Generate the default file name for the scan
     if fpath is None:
@@ -2492,7 +2638,7 @@ def map_data2D(
     spectrum_len=4096,
 ):
     """
-    Data is obained from databroker. Transfer items from data to a dictionay of
+    Data is obained from databroker. Transfer items from data to a dictionary of
     numpy array, which has 2D shape same as scanning area.
 
     This function can handle stopped/aborted scans. Raster scan (snake scan) is

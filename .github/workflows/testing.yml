@@ -103,6 +103,8 @@ jobs:
       run: |
         set -vxeuo pipefail
 
+        conda install -y pystackreg -c conda-forge  # Some issue with pystackreg from PyPI
+
         pip install --upgrade pip setuptools
         pip install codecov
         pip install -r requirements.txt
