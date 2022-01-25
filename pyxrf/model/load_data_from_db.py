@@ -1866,20 +1866,39 @@ def map_data2D_srx_new(
                 d_xs2_sum[1::2, :, :] = d_xs2_sum[1::2, ::-1, :]
         sclr[1::2, :, :] = sclr[1::2, ::-1, :]
 
-    if scan_doc["type"] == "XRF_FLY":
-        if fast_motor == "nano_stage_sy" or fast_motor == "nano_stage_y":
-            # Need to swapaxes on pos_pos, d_xs, d_xs_sum, sclr
-            pos_name = pos_name[::-1]
-            pos_pos = np.swapaxes(pos_pos, 1, 2)
+    def swap_axes():
+        nonlocal pos_name, pos_pos, d_xs, d_xs_sum, d_xs2, d_xs2_sum, sclr
+        # Need to swapaxes on pos_pos, d_xs, d_xs_sum, sclr
+        pos_name = pos_name[::-1]
+        pos_pos = np.swapaxes(pos_pos, 1, 2)
+        if "xs" in dets:
             if d_xs.size:
                 d_xs = np.swapaxes(d_xs, 0, 1)
             if d_xs_sum.size:
                 d_xs_sum = np.swapaxes(d_xs_sum, 0, 1)
+        if "xs2" in dets:
             if d_xs2.size:
                 d_xs2 = np.swapaxes(d_xs2, 0, 1)
             if d_xs2_sum.size:
                 d_xs2_sum = np.swapaxes(d_xs2_sum, 0, 1)
-            sclr = np.swapaxes(sclr, 0, 1)
+        sclr = np.swapaxes(sclr, 0, 1)
+
+    if scan_doc["type"] == "XRF_FLY":
+        if fast_motor in ("nano_stage_sy", "nano_stage_y"):
+            swap_axes()
+    elif scan_doc["type"] == "XRF_STEP":
+        if "xs" in dets:
+            d_xs = np.swapaxes(d_xs, 0, 1)
+            d_xs = np.swapaxes(d_xs, 1, 2)
+        if "xs2" in dets:
+            d_xs2 = np.swapaxes(d_xs2, 0, 1)
+            d_xs2 = np.swapaxes(d_xs2, 1, 2)
+        if fast_motor not in ("nano_stage_sy", "nano_stage_y"):
+            swap_axes()
+            pos_name = pos_name[::-1]  # Swap the positions back
+        else:
+            pos_name = pos_name[::-1]  # Swap the positions back
+
 
     print("Data is loaded successfully. Preparing to save data ...")
 
