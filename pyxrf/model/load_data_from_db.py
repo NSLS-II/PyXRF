@@ -1899,7 +1899,6 @@ def map_data2D_srx_new(
         else:
             pos_name = pos_name[::-1]  # Swap the positions back
 
-
     print("Data is loaded successfully. Preparing to save data ...")
 
     data_output = []
