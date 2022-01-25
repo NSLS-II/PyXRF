@@ -1854,14 +1854,16 @@ def map_data2D_srx_new(
     # pos_pos, d_xs, d_xs_sum, sclr
     if scan_doc["snake"] == 1:
         pos_pos[:, 1::2, :] = pos_pos[:, 1::2, ::-1]
-        if d_xs.size:
-            d_xs[:, 1::2, :, :] = d_xs[:, 1::2, ::-1, :]
-        if d_xs2.size:
-            d_xs2[:, 1::2, :, :] = d_xs2[:, 1::2, ::-1, :]
-        if d_xs_sum.size:
-            d_xs_sum[1::2, :, :] = d_xs_sum[1::2, ::-1, :]
-        if d_xs2_sum.size:
-            d_xs2_sum[1::2, :, :] = d_xs2_sum[1::2, ::-1, :]
+        if "xs" in dets:
+            if d_xs.size:
+                d_xs[:, 1::2, :, :] = d_xs[:, 1::2, ::-1, :]
+            if d_xs_sum.size:
+                d_xs_sum[1::2, :, :] = d_xs_sum[1::2, ::-1, :]
+        if "xs2" in dets:
+            if d_xs2.size:
+                d_xs2[:, 1::2, :, :] = d_xs2[:, 1::2, ::-1, :]
+            if d_xs2_sum.size:
+                d_xs2_sum[1::2, :, :] = d_xs2_sum[1::2, ::-1, :]
         sclr[1::2, :, :] = sclr[1::2, ::-1, :]
 
     if scan_doc["type"] == "XRF_FLY":
@@ -1871,10 +1873,10 @@ def map_data2D_srx_new(
             pos_pos = np.swapaxes(pos_pos, 1, 2)
             if d_xs.size:
                 d_xs = np.swapaxes(d_xs, 0, 1)
-            if d_xs2.size:
-                d_xs2 = np.swapaxes(d_xs2, 0, 1)
             if d_xs_sum.size:
                 d_xs_sum = np.swapaxes(d_xs_sum, 0, 1)
+            if d_xs2.size:
+                d_xs2 = np.swapaxes(d_xs2, 0, 1)
             if d_xs2_sum.size:
                 d_xs2_sum = np.swapaxes(d_xs2_sum, 0, 1)
             sclr = np.swapaxes(sclr, 0, 1)
