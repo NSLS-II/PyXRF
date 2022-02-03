@@ -1797,10 +1797,13 @@ def map_data2D_srx_new(
 
         # Get detector data
         keys = hdr.table().keys()
-        MAX_DET_ELEMENTS = 7
+        MAX_DET_ELEMENTS = 8
+        N_xs, det_name_prefix = None, None
         for i in np.arange(1, MAX_DET_ELEMENTS + 1):
             if f"xs_channel{i}" in keys:
-                N_xs = i
+                N_xs, det_name_prefix = i, "xs_channel"
+            elif f"xs_channels_channel{i:02d}" in keys:
+                N_xs, det_name_prefix = i, "xs_channels_channel"
             else:
                 break
         N_pts = num_events
@@ -1808,7 +1811,11 @@ def map_data2D_srx_new(
         if "xs" in dets:
             d_xs = np.empty((N_xs, N_pts, N_bins))
             for i in np.arange(0, N_xs):
-                d = hdr.data(f"xs_channel{i+1}", fill=True)
+                if det_name_prefix == "xs_channel":
+                    dname = det_name_prefix + f"{i + 1}"
+                else:
+                    dname = det_name_prefix + f"{i + 1:02d}"
+                d = hdr.data(dname, fill=True)
                 d = np.array(list(d))
                 d_xs[i, :, :] = np.copy(d)
             del d
@@ -1847,30 +1854,50 @@ def map_data2D_srx_new(
     # pos_pos, d_xs, d_xs_sum, sclr
     if scan_doc["snake"] == 1:
         pos_pos[:, 1::2, :] = pos_pos[:, 1::2, ::-1]
-        if d_xs.size:
-            d_xs[:, 1::2, :, :] = d_xs[:, 1::2, ::-1, :]
-        if d_xs2.size:
-            d_xs2[:, 1::2, :, :] = d_xs2[:, 1::2, ::-1, :]
-        if d_xs_sum.size:
-            d_xs_sum[1::2, :, :] = d_xs_sum[1::2, ::-1, :]
-        if d_xs2_sum.size:
-            d_xs2_sum[1::2, :, :] = d_xs2_sum[1::2, ::-1, :]
+        if "xs" in dets:
+            if d_xs.size:
+                d_xs[:, 1::2, :, :] = d_xs[:, 1::2, ::-1, :]
+            if d_xs_sum.size:
+                d_xs_sum[1::2, :, :] = d_xs_sum[1::2, ::-1, :]
+        if "xs2" in dets:
+            if d_xs2.size:
+                d_xs2[:, 1::2, :, :] = d_xs2[:, 1::2, ::-1, :]
+            if d_xs2_sum.size:
+                d_xs2_sum[1::2, :, :] = d_xs2_sum[1::2, ::-1, :]
         sclr[1::2, :, :] = sclr[1::2, ::-1, :]
 
-    if scan_doc["type"] == "XRF_FLY":
-        if fast_motor == "nano_stage_sy" or fast_motor == "nano_stage_y":
-            # Need to swapaxes on pos_pos, d_xs, d_xs_sum, sclr
-            pos_name = pos_name[::-1]
-            pos_pos = np.swapaxes(pos_pos, 1, 2)
+    def swap_axes():
+        nonlocal pos_name, pos_pos, d_xs, d_xs_sum, d_xs2, d_xs2_sum, sclr
+        # Need to swapaxes on pos_pos, d_xs, d_xs_sum, sclr
+        pos_name = pos_name[::-1]
+        pos_pos = np.swapaxes(pos_pos, 1, 2)
+        if "xs" in dets:
             if d_xs.size:
                 d_xs = np.swapaxes(d_xs, 0, 1)
-            if d_xs2.size:
-                d_xs2 = np.swapaxes(d_xs2, 0, 1)
             if d_xs_sum.size:
                 d_xs_sum = np.swapaxes(d_xs_sum, 0, 1)
+        if "xs2" in dets:
+            if d_xs2.size:
+                d_xs2 = np.swapaxes(d_xs2, 0, 1)
             if d_xs2_sum.size:
                 d_xs2_sum = np.swapaxes(d_xs2_sum, 0, 1)
-            sclr = np.swapaxes(sclr, 0, 1)
+        sclr = np.swapaxes(sclr, 0, 1)
+
+    if scan_doc["type"] == "XRF_FLY":
+        if fast_motor in ("nano_stage_sy", "nano_stage_y"):
+            swap_axes()
+    elif scan_doc["type"] == "XRF_STEP":
+        if "xs" in dets:
+            d_xs = np.swapaxes(d_xs, 0, 1)
+            d_xs = np.swapaxes(d_xs, 1, 2)
+        if "xs2" in dets:
+            d_xs2 = np.swapaxes(d_xs2, 0, 1)
+            d_xs2 = np.swapaxes(d_xs2, 1, 2)
+        if fast_motor not in ("nano_stage_sy", "nano_stage_y"):
+            swap_axes()
+            pos_name = pos_name[::-1]  # Swap the positions back
+        else:
+            pos_name = pos_name[::-1]  # Swap the positions back
 
     print("Data is loaded successfully. Preparing to save data ...")
 

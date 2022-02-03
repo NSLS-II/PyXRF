@@ -514,7 +514,7 @@ class Fit1D(Atom):
         # weights /= np.sum(weights)
         result = MS.model_fit(x0, y0, weights=weights, maxfev=fit_num, xtol=ftol, ftol=ftol, gtol=ftol)
         self.fit_x = (
-            result.values["e_offset"] + result.values["e_linear"] * x0 + result.values["e_quadratic"] * x0 ** 2
+            result.values["e_offset"] + result.values["e_linear"] * x0 + result.values["e_quadratic"] * x0**2
         )
         self.fit_y = result.best_fit
         self.fit_result = result
@@ -644,7 +644,7 @@ class Fit1D(Atom):
                 self.param_model.param_new["e_linear"]["value"],
                 self.param_model.param_new["e_quadratic"]["value"],
             )
-            xx = a0 + self.x0 * a1 + self.x0 ** 2 * a2
+            xx = a0 + self.x0 * a1 + self.x0**2 * a2
         if save_fit:
             logger.info("Saving spectrum after total spectrum fitting.")
             if (xx is None) or (self.y0 is None) or (self.fit_y is None):
@@ -722,7 +722,7 @@ class Fit1D(Atom):
             x = (
                 self.param_model.param_new["e_offset"]["value"]
                 + self.param_model.param_new["e_linear"]["value"] * x
-                + self.param_model.param_new["e_quadratic"]["value"] * x ** 2
+                + self.param_model.param_new["e_quadratic"]["value"] * x**2
             )
             data_fit = calculation_info["input_data"]
             data_sel_indices = calculation_info["data_sel_indices"]

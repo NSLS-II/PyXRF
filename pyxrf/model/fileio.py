@@ -2342,7 +2342,7 @@ def create_movie(
 
     def update_img(n):
         tmp = data[n, :, :]
-        im.set_data(tmp ** data_power)
+        im.set_data(tmp**data_power)
         if clim is not None:
             im.set_clim(clim)
         else:
