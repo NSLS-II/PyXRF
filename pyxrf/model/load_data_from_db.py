@@ -1797,7 +1797,7 @@ def map_data2D_srx_new(
 
         # Get detector data
         keys = hdr.table().keys()
-        MAX_DET_ELEMENTS = 7
+        MAX_DET_ELEMENTS = 8
         N_xs, det_name_prefix = None, None
         for i in np.arange(1, MAX_DET_ELEMENTS + 1):
             if f"xs_channel{i}" in keys:
