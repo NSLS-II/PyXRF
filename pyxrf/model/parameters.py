@@ -1329,7 +1329,7 @@ def calculate_profile(x, y, param, elemental_lines, default_area=1e5):
     x_energy = (
         fitting_parameters["e_offset"]["value"]
         + fitting_parameters["e_linear"]["value"] * x
-        + fitting_parameters["e_quadratic"]["value"] * x ** 2
+        + fitting_parameters["e_quadratic"]["value"] * x**2
     )
 
     return x_energy, temp_d, area_dict

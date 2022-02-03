@@ -19,7 +19,7 @@ def _generate_gaussian_spectra(x_values, gaussian_centers, gaussian_std):
     spectra = np.zeros(shape=[nn, len(gaussian_centers)])
     for n in range(n_spectra):
         p, std = gaussian_centers[n], gaussian_std[n]
-        spectra[:, n] = np.exp(-np.square(x_values - p) / (2 * std ** 2))
+        spectra[:, n] = np.exp(-np.square(x_values - p) / (2 * std**2))
 
     return spectra
 

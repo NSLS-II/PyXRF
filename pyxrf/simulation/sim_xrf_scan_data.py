@@ -173,7 +173,7 @@ def gen_xrf_spectrum(
 
             for line in elemental_lines:
                 sigma = fwhm_offset / 2.0 / math.sqrt(2 * math.log(2))
-                sigma = math.sqrt(sigma ** 2 + line["energy"] * epsilon * fwhm_fanoprime)
+                sigma = math.sqrt(sigma**2 + line["energy"] * epsilon * fwhm_fanoprime)
                 spectrum += gaussian(x=xx_energy, area=line["ratio"], center=line["energy"], sigma=sigma)
 
             # Normalize the spectrum, make the area equal to 'element_area'

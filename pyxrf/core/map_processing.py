@@ -1205,7 +1205,7 @@ def snip_method_numba(
     if spectral_binning is not None:
         energy = energy * spectral_binning
 
-    energy = e_off + energy * e_lin + energy ** 2 * e_quad
+    energy = e_off + energy * e_lin + energy**2 * e_quad
 
     # transfer from std to fwhm
     std_fwhm = 2 * np.sqrt(2 * np.log(2))
