@@ -18,6 +18,8 @@ from .core.map_processing import dask_client_create  # noqa: F401
 from .model.load_data_from_db import save_data_to_hdf5  # noqa: F401, E402
 from .model.fileio import read_data_from_hdf5  # noqa: F401, E402
 
+from .gui_support.gpc_class import autofind_emission_lines  # noqa: F401, E402
+
 # Note:  the statement '# noqa: F401' is telling flake8 to ignore violation F401 at the given line
 #     Violation F401 - the package is imported but unused
 
