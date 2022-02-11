@@ -1952,3 +1952,136 @@ class GlobalProcessingClasses:
         self.fit_model.point2v = row_max
         self.fit_model.point1h = col_min
         self.fit_model.point2h = col_max
+
+
+def autofind_emission_lines(
+    data_file_name,
+    param_file_name,
+    *,
+    working_directory=".",
+    threshold=1.0,  # Cut-off threshold (percentage of the area of the strongest emission line)
+    incident_energy=None,
+    energy_bound_low=None,
+    energy_bound_high=None,
+    e_offset=None,
+    e_linear=None,
+    e_quadratic=None,
+    fwhm_offset=None,
+    fwhm_fanoprime=None,
+):
+    """
+    Automatically find emission lines in total spectrum and create a parameter file.
+
+    Parameters
+    ----------
+    data_file_name: str
+        Full or relative path to the HDF5 file with data
+    param_file_name: str
+        Full or relative path to the created parameter file. The function will overwrite the existing file.
+    working_directory: str
+        The path is combined with ``data_file_name`` or `` param_file_name`` if those are relative paths,
+        otherwise it is ignored.
+    threshold: float
+        Cut-off threshold (in percent, 0..100%). Emission lines with area smaller than the give percentage
+        of the area of the strongest emission line are removed.
+    incident_energy: float or None
+        Incident (beam) energy in kEv. If ``None``, then incident energy from the experiment metadata
+        (from HDF5 file) is used.
+    energy_bound_low: float or None
+        Lower bound (in kEv) of the range used for fitting. Default value is used if ``None``.
+    energy_bound_low: float or None
+        Upper bound (in kEv) of the range used for fitting. If ``None``, then the value is computed by
+        adding 0.8 kEv to the incident energy.
+    e_offset, e_linear, e_quadratic: float or None
+        The parameters used for interpolation of energy axis. Default values (0, 1 and 0 respectively)
+        are used if ``None``.
+    fwhm_offset, fwhm_fanoprime: float or None
+        The parameters of emission line model. Default values are used if ``None``.
+
+    Returns
+    -------
+    None
+    """
+
+    def expand_file_name(fln, wd):
+        fln = os.path.expanduser(fln)
+        if not os.path.isabs(fln):
+            wd = os.path.expanduser(wd)
+            wd = os.path.abspath(wd)
+            fln = os.path.join(wd, fln)
+        return fln
+
+    # Prepare file names. Working directory is ignored for absolute names.
+    data_file_name = expand_file_name(data_file_name, working_directory)
+    param_file_name = expand_file_name(param_file_name, working_directory)
+
+    if (incident_energy is not None) and (energy_bound_high is None):
+        energy_bound_high = incident_energy + 0.8
+
+    default_parameters = param_data
+
+    io_model = FileIOModel(working_directory=working_directory)
+    param_model = ParamModel(default_parameters=default_parameters, io_model=io_model)
+
+    print(f"Reading data from file {data_file_name!r} ...")
+    io_model.file_name = data_file_name
+
+    # Parameters from scan metadata
+    runid, runuid = None, None
+    if io_model.scan_metadata_available:
+        if "scan_id" in io_model.scan_metadata:
+            runid = int(io_model.scan_metadata["scan_id"])
+        if "scan_uid" in io_model.scan_metadata:
+            runuid = io_model.scan_metadata["scan_uid"]
+    print(f"Processing scan: {runid if runid is not None else '-'} ({runuid if runuid is not None else '-'})")
+
+    # Use incident energy from the run metadata (if available)
+    if (incident_energy is None) and io_model.scan_metadata_available:
+        if io_model.scan_metadata.is_mono_incident_energy_available():
+            incident_energy = io_model.scan_metadata.get_mono_incident_energy()
+            if energy_bound_high is None:
+                energy_bound_high = incident_energy + 0.8
+
+    if incident_energy is not None:
+        param_model.param_new["coherent_sct_energy"]["value"] = incident_energy
+    if energy_bound_low is not None:
+        param_model.param_new["non_fitting_values"]["energy_bound_low"]["value"] = energy_bound_low
+    if energy_bound_high is not None:
+        param_model.param_new["non_fitting_values"]["energy_bound_high"]["value"] = energy_bound_high
+
+    if e_offset is not None:
+        param_model.param_new["e_offset"]["value"] = e_offset
+    if e_linear is not None:
+        param_model.param_new["e_linear"]["value"] = e_linear
+    if e_quadratic is not None:
+        param_model.param_new["e_quadratic"]["value"] = e_quadratic
+    if fwhm_offset is not None:
+        param_model.param_new["fwhm_offset"]["value"] = fwhm_offset
+    if fwhm_fanoprime is not None:
+        param_model.param_new["fwhm_fanoprime"]["value"] = fwhm_fanoprime
+
+    print("Processing parameters:")
+    print(f"  Incident energy: {param_model.param_new['coherent_sct_energy']['value']}")
+    print(f"  Energy bound (low):  {param_model.param_new['non_fitting_values']['energy_bound_low']['value']}")
+    print(f"  Energy bound (high): {param_model.param_new['non_fitting_values']['energy_bound_high']['value']}")
+    print(f"  Energy offset:    {param_model.param_new['e_offset']['value']}")
+    print(f"  Energy linear:    {param_model.param_new['e_linear']['value']}")
+    print(f"  Energy quadratic: {param_model.param_new['e_quadratic']['value']}")
+    print(f"  FWHM offset:    {param_model.param_new['fwhm_offset']['value']}")
+    print(f"  FWHM fanoprime: {param_model.param_new['fwhm_fanoprime']['value']}\n")
+
+    print("Searching for emission lines ...")
+    param_model.find_peak()
+    param_model.EC.order()
+    param_model.update_name_list()
+    param_model.EC.turn_on_all()
+    param_model.create_full_param()
+
+    param_model.remove_elements_below_threshold(threshv=threshold)
+    param_model.update_name_list()
+    param_model.create_full_param()
+
+    print(f"Saving the parameter file {param_file_name!r} ...")
+    save_as(param_file_name, param_model.param_new)
+
+    print("Automatically found emission lines were successfully saved.")
