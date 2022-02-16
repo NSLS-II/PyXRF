@@ -1644,6 +1644,7 @@ def map_data2D_srx_new(
 
         # Let's get the data using the events! Yay!
         e = hdr.events("stream0", fill=True)
+        ep = hdr.events("primary", fill=True)
         d_xs, d_xs_sum, N_xs = [], [], 0
         d_xs2, d_xs2_sum, N_xs2 = [], [], 0
         sclr_list = ["i0", "i0_time", "time", "im", "it"]
@@ -1676,9 +1677,12 @@ def map_data2D_srx_new(
                             sclr_dict[s].append(tmp)
 
                 fast_pos.append(np.array(v["data"][fast_key]))
-                tmp2 = v["data"][slow_key]
                 if "enc" not in slow_key:
-                    tmp2 = list(tmp) * n_scan_fast
+                    vp = next(ep)
+                    tmp = np.array(vp["data"][slow_key])
+                    tmp2 = [tmp] * n_scan_fast
+                else:
+                    tmp2 = v["data"][slow_key]
                 slow_pos.append(np.array(tmp2))
 
                 n_recorded_events = m + 1
