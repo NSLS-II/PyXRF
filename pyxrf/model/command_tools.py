@@ -234,7 +234,6 @@ def fit_pixel_data_and_save(
                 dataset_name="dataset_fit",  # Sum of all detectors: should end with '_fit'
                 quant_norm=quant_norm,
                 param_quant_analysis=param_quant_analysis,
-                distance_to_sample=quant_distance_to_sample,
                 dataset_dict=dataset,
                 positions_dict=positions_dict,
                 file_format="txt",
