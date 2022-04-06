@@ -33,6 +33,7 @@ Table of Contents
    data_input
    questions
    credits
+   release-notes
 
 
 Indices and tables

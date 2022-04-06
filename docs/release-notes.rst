@@ -1,5 +1,5 @@
-PyXRF Release Notes
-===================
+Release Notes
+=============
 
 v0.0.9.4
 --------
