@@ -11,7 +11,7 @@ Load fluorescence data from database
 
 At your working directory, first go to pyxrf environment, then type ipython.
 
-.. code:: python
+.. code-block:: python
 
     source activate pyxrf
     ipython
@@ -19,16 +19,16 @@ At your working directory, first go to pyxrf environment, then type ipython.
 
 Next users need to import important functions from pyxrf by typing
 
-.. code:: python
+.. code-block:: python
 
     from pyxrf.api import *
 
 
-If you only load data from one run into a file,
+If you only load data from one run into a file, then use
 
-.. code:: python
+.. code-block:: python
 
-    make_hdf(1000, fname=‘scan_1000.h5’)
+    make_hdf(1000, fname='scan_1000.h5')
 
 
 Note: the first argument of function ”make_hdf” is the runID (i.e., 1000),
@@ -43,7 +43,7 @@ name is used.
 
 If multiple files need to be loaded
 
-.. code:: python
+.. code-block:: python
 
     make_hdf(1000, 1100)
 
@@ -64,7 +64,7 @@ Pixel fitting from command line
 The parameter json file needs to be defined first. This can be created from
 PyXRF GUI when you do summed spectrum fitting.
 
-.. code:: python
+.. code-block:: python
 
     fit_pixel_data_and_save(wd, fname, param_file_name=param_file)
 

@@ -1582,7 +1582,7 @@ def map_data2D_srx_new(
     try:
         if "xs" in hdr.start["scan"]["detectors"]:
             dets.append("xs")
-        elif "xs2" in hdr.start["scan"]["detectors"]:
+        if "xs2" in hdr.start["scan"]["detectors"]:
             dets.append("xs2")
     except KeyError:
         # AMK forgot to add detectors to step scans
