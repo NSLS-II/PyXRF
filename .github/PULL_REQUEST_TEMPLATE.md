@@ -9,7 +9,7 @@
 
 ## Summary of Changes for Release Notes
 <!--- Brief summary of changes that could be copied to the Release Notes. -->
-<!--- Skip this section if this is a maintenace PR (CI, unit tests, typo fix etc.) -->
+<!--- Skip this section if this is a maintenance PR (CI, unit tests, typo fix etc.) -->
 <!--- PRs with feature changes will not be merged without this section filled. -->
 
 <!--- Group the changes in the following sections: -->
