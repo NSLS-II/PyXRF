@@ -1,7 +1,7 @@
 import h5py
 
 try:
-    from databroker.v0 import Broker
+    from databroker.v1 import Broker
 except ModuleNotFoundError:
     from databroker import Broker
 
