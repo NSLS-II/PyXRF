@@ -818,8 +818,8 @@ def map_data2D_hxn(
     all_keys = hdr.descriptors[0].data_keys.keys()
     scaler_list = [v for v in scaler_list_all if v in all_keys]
 
-    # fields = det_list + scaler_list + pos_list
-    data = db.get_table(hdr, fill=True)
+    fields = det_list + scaler_list + pos_list
+    data = hdr.table(fields=fields, fill=True)
 
     data_out = map_data2D(
         data,
