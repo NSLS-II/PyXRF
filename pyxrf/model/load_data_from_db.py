@@ -1858,7 +1858,7 @@ def map_data2D_srx_new(
     # pos_pos, d_xs, d_xs_sum, sclr
     if scan_doc["snake"] == 1:
         pos_pos[:, 1::2, :] = pos_pos[:, 1::2, ::-1]
-        if "xs" in dets:
+        if "xs" in dets or "xs4" in dets:
             if d_xs.size:
                 d_xs[:, 1::2, :, :] = d_xs[:, 1::2, ::-1, :]
             if d_xs_sum.size:
@@ -1875,7 +1875,7 @@ def map_data2D_srx_new(
         # Need to swapaxes on pos_pos, d_xs, d_xs_sum, sclr
         pos_name = pos_name[::-1]
         pos_pos = np.swapaxes(pos_pos, 1, 2)
-        if "xs" in dets:
+        if "xs" in dets or "xs4" in dets:
             if d_xs.size:
                 d_xs = np.swapaxes(d_xs, 0, 1)
             if d_xs_sum.size:
@@ -1891,7 +1891,7 @@ def map_data2D_srx_new(
         if fast_motor in ("nano_stage_sy", "nano_stage_y"):
             swap_axes()
     elif scan_doc["type"] == "XRF_STEP":
-        if "xs" in dets:
+        if "xs" in dets or "xs4" in dets:
             d_xs = np.swapaxes(d_xs, 0, 1)
             d_xs = np.swapaxes(d_xs, 1, 2)
         if "xs2" in dets:
@@ -1908,7 +1908,7 @@ def map_data2D_srx_new(
     data_output = []
 
     for detector_name in dets:
-        if detector_name == "xs":
+        if detector_name in ("xs", "xs4"):
             tmp_data = d_xs
             tmp_data_sum = d_xs_sum
             num_det = N_xs
