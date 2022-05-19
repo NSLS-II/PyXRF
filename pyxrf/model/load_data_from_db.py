@@ -1609,6 +1609,7 @@ def map_data2D_srx_new(
 
     # Get position data from scan
     n_scan_fast, n_scan_slow = hdr.start["scan"]["shape"]
+    n_scan_fast, n_scan_slow = int(n_scan_fast), int(n_scan_slow)
 
     # ===================================================================
     #                     NEW SRX FLY SCAN
