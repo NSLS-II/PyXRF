@@ -2986,7 +2986,10 @@ def free_memory_from_handler():
     if (LooseVersion(databroker.__version__) < LooseVersion("1.0.0")) or hasattr(db.fs, "_handler_cache"):
         for h in db.fs._handler_cache.values():
             setattr(h, "_dataset", None)
-        print("Memory is released.")
+        print("Memory is released (Databroker v0).")
+    elif hasattr(db, "_catalog") and hasattr(db._catalog, "_entries"):
+        db._catalog._entries.cache_clear()
+        print("Memory is released (Databroker v1).")
 
 
 def export1d(runid, name=None):
