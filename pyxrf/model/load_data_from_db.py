@@ -2992,7 +2992,6 @@ def free_memory_from_handler():
         print("Memory is released (Databroker v1).")
 
 
-
 def export1d(runid, name=None):
     """
     Export all PVs to a file. Do not talk to filestore.
