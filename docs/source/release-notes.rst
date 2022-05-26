@@ -2,6 +2,17 @@
 Release Notes
 =============
 
+v1.0.16 (2022-05-26)
+====================
+
+Added
+-----
+- Support for the detector ``xs4`` (SRX beamline).
+
+Changed
+-------
+- Databroker v1 is used for loading data at SRX beamline.
+
 v1.0.15 (2022-04-06)
 ====================
 
