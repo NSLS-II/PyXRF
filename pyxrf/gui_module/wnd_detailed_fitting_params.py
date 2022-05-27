@@ -179,7 +179,7 @@ class WndDetailedFittingParams(SecondaryWindow):
 
                     item = QTableWidgetItem(s)
                     if nc > 0:
-                        item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                        item.setTextAlignment(int(Qt.AlignRight | Qt.AlignVCenter))
 
                     # Set all columns not editable (unless needed)
                     if label not in self.tbl_cols_editable:

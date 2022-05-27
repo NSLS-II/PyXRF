@@ -109,7 +109,7 @@ class DialogSelectQuantStandard(QDialog):
                 item = QTableWidgetItem(s)
                 item.setFlags(item.flags() & ~Qt.ItemIsEditable)
                 if not nc:
-                    item.setTextAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+                    item.setTextAlignment(int(Qt.AlignHCenter | Qt.AlignVCenter))
                 self.table.setItem(nr, nc, item)
         self.table.resizeRowsToContents()
 

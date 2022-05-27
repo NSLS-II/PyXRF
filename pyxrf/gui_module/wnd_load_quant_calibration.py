@@ -316,7 +316,7 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
                 rgb = table_colors[n % 2]
 
                 item = QTableWidgetItem(eline)
-                item.setTextAlignment(Qt.AlignCenter)
+                item.setTextAlignment(int(Qt.AlignCenter))
                 item.setFlags(item.flags() & ~Qt.ItemIsEditable)
                 item.setBackground(QBrush(QColor(*rgb)))
                 self.table.setItem(n, 0, item)
