@@ -182,9 +182,9 @@ class WndComputeRoiMaps(SecondaryWindow):
 
                     item = QTableWidgetItem(s)
                     if nc > 0:
-                        item.setTextAlignment(Qt.AlignCenter)
+                        item.setTextAlignment(int(Qt.AlignCenter))
                     else:
-                        item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                        item.setTextAlignment(int(Qt.AlignRight | Qt.AlignVCenter))
 
                     # Set all columns not editable (unless needed)
                     item.setFlags(item.flags() & ~Qt.ItemIsEditable)

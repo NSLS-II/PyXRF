@@ -145,10 +145,10 @@ class WndImageWizard(SecondaryWindow):
                         self._checkable_items.append(item)
                     elif nc == 2:
                         item = QTableWidgetItem(f"{self._format_table_range_value(v_min)}")
-                        item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                        item.setTextAlignment(int(Qt.AlignRight | Qt.AlignVCenter))
                     elif nc == 3:
                         item = QTableWidgetItem(f"{self._format_table_range_value(v_max)}")
-                        item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                        item.setTextAlignment(int(Qt.AlignRight | Qt.AlignVCenter))
 
                     item.setFlags(item.flags() & ~Qt.ItemIsEditable)
 
