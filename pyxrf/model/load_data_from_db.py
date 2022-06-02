@@ -1649,8 +1649,8 @@ def map_data2D_srx_new(
 
         # Let's get the data using the events! Yay!
         filler = Filler(db.reg.handler_reg, inplace=True)
-        e = hdr.events("stream0", fill=False)
-        ep = hdr.events("primary", fill=False)
+        docs_stream0 = hdr.documents("stream0", fill=False)
+        docs_primary = hdr.documents("primary", fill=False)
         d_xs, d_xs_sum, N_xs = [], [], 0
         d_xs2, d_xs2_sum, N_xs2 = [], [], 0
         sclr_list = ["i0", "i0_time", "time", "im", "it"]
@@ -1660,8 +1660,17 @@ def map_data2D_srx_new(
         n_recorded_events = 0
 
         try:
-            for m, v in enumerate(e):
-                filler("event", v)
+            for m, (doc, docp) in enumerate(docs_stream0, docs_primary):
+                filler(doc[0], doc[1])
+                filler(docp[0], docp[1])
+                if doc[0] != "event":
+                    continue
+                if doc[1] != "event":
+                    raise ValueError(
+                        "Order of the documents in 'stream0' and 'primary' streams do not match: "
+                        f"document #{m} is {doc[0]!r} in 'stream0' and {doc[1]!r} in'primary' stream."
+                    )
+                v, vp = doc[1], docp[1]
                 if "xs" in dets or "xs4" in dets:
                     event_data = v["data"]["fluor"]
                     N_xs = max(N_xs, event_data.shape[1])
@@ -1685,8 +1694,8 @@ def map_data2D_srx_new(
 
                 fast_pos.append(np.array(v["data"][fast_key]))
                 if "enc" not in slow_key:
-                    vp = next(ep)
-                    filler("event", vp)
+                    # vp = next(ep)
+                    # filler("event", vp)
                     tmp = np.array(vp["data"][slow_key])
                     tmp2 = [tmp] * n_scan_fast
                 else:
