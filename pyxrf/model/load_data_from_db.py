@@ -1660,17 +1660,27 @@ def map_data2D_srx_new(
         n_recorded_events = 0
 
         try:
-            for m, (doc, docp) in enumerate(docs_stream0, docs_primary):
-                filler(doc[0], doc[1])
-                filler(docp[0], docp[1])
-                if doc[0] != docp[0]:
-                    raise ValueError(
-                        "Order of the documents in 'stream0' and 'primary' streams do not match: "
-                        f"document #{m} is {doc[0]!r} in 'stream0' and {docp[0]!r} in'primary' stream."
-                    )
-                if doc[0] != "event":
-                    continue
-                v, vp = doc[1], docp[1]
+            m = 0
+            while True:
+                try:
+                    while True:
+                        name, doc = next(docs_stream0)
+                        filler(name, doc)
+                        if name == "event":
+                            break
+                except StopIteration:
+                    break  # All events are processed, exit the loop
+
+                try:
+                    while True:
+                        name_p, doc_p = next(docs_primary)
+                        filler(name_p, doc_p)
+                        if name == "event":
+                            break
+                except StopIteration:
+                    raise RuntimeError(f"Matching event #{m} was not found in 'primary' stream")
+
+                v, vp = doc, doc_p
                 if "xs" in dets or "xs4" in dets:
                     event_data = v["data"]["fluor"]
                     N_xs = max(N_xs, event_data.shape[1])
@@ -1706,6 +1716,8 @@ def map_data2D_srx_new(
 
                 if m > 0 and not (m % 10):
                     print(f"Processed lines: {m}")
+
+                m += 1
 
         except Exception as ex:
             logger.error(f"Error occurred while reading data: {ex}. Trying to retrieve available data ...")
