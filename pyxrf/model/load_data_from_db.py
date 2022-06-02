@@ -1291,7 +1291,7 @@ def map_data2D_srx_old(
 
             # Assume that Databroker caches the tables locally, so that data will not be reloaded
             filler = Filler(db.reg.handler_reg, inplace=True)
-            e = hdr.events(fill=False, stream_name=des.name)
+            docs_stream0 = hdr.events(fill=False, stream_name=des.name)
 
             new_data = {}
             data = {}
@@ -1316,10 +1316,14 @@ def map_data2D_srx_old(
             #   detector failure (empty files were saved by Xpress3). The program is supposed
             #   to retrieve 'good' data from the scan.
             try:
-                for m, v in enumerate(e):
-                    filler("event", v)
-                    if m == 0:
+                m = 0
+                for name, doc in docs_stream0:
+                    filler(name, doc)
+                    if name != "event":
+                        continue
+                    e = doc
 
+                    if m == 0:
                         # Check if detector field does not exist. If not, then the file should not be created.
                         if detector_field not in v.data:
                             detector_field_exists = False
@@ -1366,6 +1370,8 @@ def map_data2D_srx_old(
                             for i in range(num_det):
                                 # in case the data length in each line is different
                                 new_data["det" + str(i + 1)][m, :fluor_len, :] = v.data[detector_field][:, i, :]
+
+                    m += 1
 
             except Exception as ex:
                 logger.error(f"Error occurred while reading data: {ex}. Trying to retrieve available data ...")
@@ -1716,6 +1722,8 @@ def map_data2D_srx_new(
 
                 if m > 0 and not (m % 10):
                     print(f"Processed lines: {m}")
+                    if hasattr(db, "_catalog") and hasattr(db._catalog, "_entries"):
+                            db._catalog._entries.cache_clear()
 
                 m += 1
 
