@@ -16,6 +16,8 @@ from distutils.version import LooseVersion
 import logging
 import warnings
 
+from event_model import Filler
+
 try:
     import databroker
 except ImportError:
@@ -1288,7 +1290,8 @@ def map_data2D_srx_old(
         for detector_field, detector_name in detector_field_dict.items():
 
             # Assume that Databroker caches the tables locally, so that data will not be reloaded
-            e = hdr.events(fill=True, stream_name=des.name)
+            filler = Filler(db.reg.handler_reg, inplace=True)
+            e = hdr.events(fill=False, stream_name=des.name)
 
             new_data = {}
             data = {}
@@ -1314,6 +1317,7 @@ def map_data2D_srx_old(
             #   to retrieve 'good' data from the scan.
             try:
                 for m, v in enumerate(e):
+                    filler("event", v)
                     if m == 0:
 
                         # Check if detector field does not exist. If not, then the file should not be created.
@@ -1644,8 +1648,9 @@ def map_data2D_srx_new(
             slow_key = slow_motor
 
         # Let's get the data using the events! Yay!
-        e = hdr.events("stream0", fill=True)
-        ep = hdr.events("primary", fill=True)
+        filler = Filler(db.reg.handler_reg, inplace=True)
+        e = hdr.events("stream0", fill=False)
+        ep = hdr.events("primary", fill=False)
         d_xs, d_xs_sum, N_xs = [], [], 0
         d_xs2, d_xs2_sum, N_xs2 = [], [], 0
         sclr_list = ["i0", "i0_time", "time", "im", "it"]
@@ -1656,6 +1661,7 @@ def map_data2D_srx_new(
 
         try:
             for m, v in enumerate(e):
+                filler("event", v)
                 if "xs" in dets or "xs4" in dets:
                     event_data = v["data"]["fluor"]
                     N_xs = max(N_xs, event_data.shape[1])
@@ -1680,6 +1686,7 @@ def map_data2D_srx_new(
                 fast_pos.append(np.array(v["data"][fast_key]))
                 if "enc" not in slow_key:
                     vp = next(ep)
+                    filler("event", vp)
                     tmp = np.array(vp["data"][slow_key])
                     tmp2 = [tmp] * n_scan_fast
                 else:
