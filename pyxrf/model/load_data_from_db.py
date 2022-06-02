@@ -1663,13 +1663,13 @@ def map_data2D_srx_new(
             for m, (doc, docp) in enumerate(docs_stream0, docs_primary):
                 filler(doc[0], doc[1])
                 filler(docp[0], docp[1])
-                if doc[0] != "event":
-                    continue
-                if doc[1] != "event":
+                if doc[0] != docp[0]:
                     raise ValueError(
                         "Order of the documents in 'stream0' and 'primary' streams do not match: "
-                        f"document #{m} is {doc[0]!r} in 'stream0' and {doc[1]!r} in'primary' stream."
+                        f"document #{m} is {doc[0]!r} in 'stream0' and {docp[0]!r} in'primary' stream."
                     )
+                if doc[0] != "event":
+                    continue
                 v, vp = doc[1], docp[1]
                 if "xs" in dets or "xs4" in dets:
                     event_data = v["data"]["fluor"]
