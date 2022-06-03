@@ -1722,8 +1722,10 @@ def map_data2D_srx_new(
 
                 if m > 0 and not (m % 10):
                     print(f"Processed lines: {m}")
-                    if hasattr(db, "_catalog") and hasattr(db._catalog, "_entries"):
-                            db._catalog._entries.cache_clear()
+
+                # Delete large data arrays
+                doc["data"].pop("fluor", None)
+                doc["data"].pop("fluor_xs2", None)
 
                 m += 1
 
