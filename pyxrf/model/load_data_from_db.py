@@ -1291,7 +1291,7 @@ def map_data2D_srx_old(
 
             # Assume that Databroker caches the tables locally, so that data will not be reloaded
             filler = Filler(db.reg.handler_reg, inplace=True)
-            docs_stream0 = hdr.events(fill=False, stream_name=des.name)
+            docs_stream0 = hdr.documents(fill=False, stream_name=des.name)
 
             new_data = {}
             data = {}
@@ -1321,7 +1321,7 @@ def map_data2D_srx_old(
                     filler(name, doc)
                     if name != "event":
                         continue
-                    e = doc
+                    v = doc
 
                     if m == 0:
                         # Check if detector field does not exist. If not, then the file should not be created.
