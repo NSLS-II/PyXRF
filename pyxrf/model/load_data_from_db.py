@@ -1371,6 +1371,11 @@ def map_data2D_srx_old(
                                 # in case the data length in each line is different
                                 new_data["det" + str(i + 1)][m, :fluor_len, :] = v.data[detector_field][:, i, :]
 
+                    # Delete filled data (it will not be used anymore). This prevents memory leak.
+                    if "data" in doc:
+                        doc["data"].clear()
+                    filler.clear_handler_cache()
+
                     m += 1
 
             except Exception as ex:
@@ -1688,13 +1693,13 @@ def map_data2D_srx_new(
 
                 v, vp = doc, doc_p
                 if "xs" in dets or "xs4" in dets:
-                    event_data = v["data"]["fluor"]
+                    event_data = np.asarray(v["data"]["fluor"], dtype=np.float32)
                     N_xs = max(N_xs, event_data.shape[1])
                     d_xs_sum.append(np.sum(event_data, axis=1))
                     if create_each_det:
                         d_xs.append(event_data)
                 if "xs2" in dets:
-                    event_data = v["data"]["fluor_xs2"]
+                    event_data = np.asarray(v["data"]["fluor_xs2"], dtype=np.float32)
                     N_xs2 = max(N_xs2, event_data.shape[1])
                     d_xs2_sum.append(np.sum(event_data, axis=1))
                     if create_each_det:
