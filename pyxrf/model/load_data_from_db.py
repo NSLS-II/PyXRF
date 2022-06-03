@@ -16,6 +16,8 @@ from distutils.version import LooseVersion
 import logging
 import warnings
 
+from event_model import Filler
+
 try:
     import databroker
 except ImportError:
@@ -1288,7 +1290,8 @@ def map_data2D_srx_old(
         for detector_field, detector_name in detector_field_dict.items():
 
             # Assume that Databroker caches the tables locally, so that data will not be reloaded
-            e = hdr.events(fill=True, stream_name=des.name)
+            filler = Filler(db.reg.handler_reg, inplace=True)
+            docs_stream0 = hdr.documents(fill=False, stream_name=des.name)
 
             new_data = {}
             data = {}
@@ -1313,9 +1316,14 @@ def map_data2D_srx_old(
             #   detector failure (empty files were saved by Xpress3). The program is supposed
             #   to retrieve 'good' data from the scan.
             try:
-                for m, v in enumerate(e):
-                    if m == 0:
+                m = 0
+                for name, doc in docs_stream0:
+                    filler(name, doc)
+                    if name != "event":
+                        continue
+                    v = doc
 
+                    if m == 0:
                         # Check if detector field does not exist. If not, then the file should not be created.
                         if detector_field not in v.data:
                             detector_field_exists = False
@@ -1362,6 +1370,13 @@ def map_data2D_srx_old(
                             for i in range(num_det):
                                 # in case the data length in each line is different
                                 new_data["det" + str(i + 1)][m, :fluor_len, :] = v.data[detector_field][:, i, :]
+
+                    # Delete filled data (it will not be used anymore). This prevents memory leak.
+                    if "data" in doc:
+                        doc["data"].clear()
+                    filler.clear_handler_cache()
+
+                    m += 1
 
             except Exception as ex:
                 logger.error(f"Error occurred while reading data: {ex}. Trying to retrieve available data ...")
@@ -1644,8 +1659,9 @@ def map_data2D_srx_new(
             slow_key = slow_motor
 
         # Let's get the data using the events! Yay!
-        e = hdr.events("stream0", fill=True)
-        ep = hdr.events("primary", fill=True)
+        filler = Filler(db.reg.handler_reg, inplace=True)
+        docs_stream0 = hdr.documents("stream0", fill=False)
+        docs_primary = hdr.documents("primary", fill=False)
         d_xs, d_xs_sum, N_xs = [], [], 0
         d_xs2, d_xs2_sum, N_xs2 = [], [], 0
         sclr_list = ["i0", "i0_time", "time", "im", "it"]
@@ -1655,15 +1671,35 @@ def map_data2D_srx_new(
         n_recorded_events = 0
 
         try:
-            for m, v in enumerate(e):
+            m = 0
+            while True:
+                try:
+                    while True:
+                        name, doc = next(docs_stream0)
+                        filler(name, doc)
+                        if name == "event":
+                            break
+                except StopIteration:
+                    break  # All events are processed, exit the loop
+
+                try:
+                    while True:
+                        name_p, doc_p = next(docs_primary)
+                        filler(name_p, doc_p)
+                        if name == "event":
+                            break
+                except StopIteration:
+                    raise RuntimeError(f"Matching event #{m} was not found in 'primary' stream")
+
+                v, vp = doc, doc_p
                 if "xs" in dets or "xs4" in dets:
-                    event_data = v["data"]["fluor"]
+                    event_data = np.asarray(v["data"]["fluor"], dtype=np.float32)
                     N_xs = max(N_xs, event_data.shape[1])
                     d_xs_sum.append(np.sum(event_data, axis=1))
                     if create_each_det:
                         d_xs.append(event_data)
                 if "xs2" in dets:
-                    event_data = v["data"]["fluor_xs2"]
+                    event_data = np.asarray(v["data"]["fluor_xs2"], dtype=np.float32)
                     N_xs2 = max(N_xs2, event_data.shape[1])
                     d_xs2_sum.append(np.sum(event_data, axis=1))
                     if create_each_det:
@@ -1679,7 +1715,8 @@ def map_data2D_srx_new(
 
                 fast_pos.append(np.array(v["data"][fast_key]))
                 if "enc" not in slow_key:
-                    vp = next(ep)
+                    # vp = next(ep)
+                    # filler("event", vp)
                     tmp = np.array(vp["data"][slow_key])
                     tmp2 = [tmp] * n_scan_fast
                 else:
@@ -1690,6 +1727,15 @@ def map_data2D_srx_new(
 
                 if m > 0 and not (m % 10):
                     print(f"Processed lines: {m}")
+
+                # Delete filled data (it will not be used anymore). This prevents memory leak.
+                if "data" in doc:
+                    doc["data"].clear()
+                if "data" in doc_p:
+                    doc_p["data"].clear()
+                filler.clear_handler_cache()
+
+                m += 1
 
         except Exception as ex:
             logger.error(f"Error occurred while reading data: {ex}. Trying to retrieve available data ...")

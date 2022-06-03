@@ -1,6 +1,7 @@
 atom
 dask
 distributed
+event_model
 jsonschema
 h5py>=2.9.0
 lmfit
