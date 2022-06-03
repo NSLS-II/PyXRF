@@ -1723,9 +1723,12 @@ def map_data2D_srx_new(
                 if m > 0 and not (m % 10):
                     print(f"Processed lines: {m}")
 
-                # Delete large data arrays
-                doc["data"].pop("fluor", None)
-                doc["data"].pop("fluor_xs2", None)
+                # Delete filled data (it will not be used anymore). This prevents memory leak.
+                if "data" in doc:
+                    doc["data"].clear()
+                if "data" in doc_p:
+                    doc_p["data"].clear()
+                filler.clear_handler_cache()
 
                 m += 1
 
