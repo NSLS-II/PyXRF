@@ -822,14 +822,9 @@ def map_data2D_hxn(
 
     fields = det_list + scaler_list + pos_list
 
-    # Exclude unused fields from the list to save loading and processing time
-    excluded_fields = ("merlin1", "merlin2")
-    for f in excluded_fields:
-        try:
-            fields.remove(f)
-        except ValueError:
-            pass
-    print(f"fields={fields}")
+    # Do not use supply 'fields' if Databroker V0 is used
+    if isinstance(db, databroker._core.Broker):
+        fields = None
 
     data = hdr.table(fields=fields, fill=True)
 
