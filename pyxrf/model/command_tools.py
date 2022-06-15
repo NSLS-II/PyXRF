@@ -10,6 +10,7 @@ import h5py
 import copy
 from collections.abc import Iterable
 import re
+import traceback
 
 from ..core.quant_analysis import ParamQuantitativeAnalysis
 
@@ -735,7 +736,7 @@ def pyxrf_batch(
                     raise Exception from ex
                 else:
                     print(f"ERROR: could not process the file '{fname}'. No results are saved.")
-                    print(f"    Exception: {ex}")
+                    traceback.print_exception(ex)
 
         print("\nAll selected files were processed.")
 
