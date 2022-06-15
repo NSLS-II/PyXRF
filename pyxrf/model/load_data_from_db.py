@@ -829,6 +829,7 @@ def map_data2D_hxn(
             fields.remove(f)
         except ValueError:
             pass
+    print(f"fields={fields}")
 
     data = hdr.table(fields=fields, fill=True)
 
