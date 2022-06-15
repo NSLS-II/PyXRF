@@ -11,6 +11,7 @@ import copy
 from collections.abc import Iterable
 import re
 import traceback
+import sys
 
 from ..core.quant_analysis import ParamQuantitativeAnalysis
 
@@ -736,7 +737,8 @@ def pyxrf_batch(
                     raise Exception from ex
                 else:
                     print(f"ERROR: could not process the file '{fname}'. No results are saved.")
-                    traceback.print_exception(ex)
+                    print(f"Exception: {ex}")
+                    traceback.print_tb(sys.last_traceback)
 
         print("\nAll selected files were processed.")
 
