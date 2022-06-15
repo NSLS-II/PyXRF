@@ -821,6 +821,15 @@ def map_data2D_hxn(
     scaler_list = [v for v in scaler_list_all if v in all_keys]
 
     fields = det_list + scaler_list + pos_list
+
+    # Exclude unused fields from the list to save loading and processing time
+    excluded_fields = ("merlin1", "merlin2")
+    for f in excluded_fields:
+        try:
+            fields.remove(f)
+        except ValueError:
+            pass
+
     data = hdr.table(fields=fields, fill=True)
 
     data_out = map_data2D(

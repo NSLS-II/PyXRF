@@ -3,12 +3,12 @@
 
 
 from .api_dev import *  # noqa: F401, F403
-
+from pyxrf import __version__ as pyxrf_version
 
 def pyxrf_api():
     r"""
     =======================================================================================
-    Module ``pyxrf.api`` supports the following functions:
+        Module ``pyxrf.api`` supports the following functions:
 
         Loading data:
           make_hdf - load XRF mapping data from databroker
@@ -30,6 +30,7 @@ def pyxrf_api():
     in IPython command prompt.
     =========================================================================================
     """
+    print(f"PyXRF version: {pyxrf_version}")
     print(pyxrf_api.__doc__)
 
 
