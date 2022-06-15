@@ -738,7 +738,7 @@ def pyxrf_batch(
                 else:
                     print(f"ERROR: could not process the file '{fname}'. No results are saved.")
                     print(f"Exception: {ex}")
-                    traceback.print_tb(sys.last_traceback)
+                    traceback.print_tb(sys.exc_info()[2])
 
         print("\nAll selected files were processed.")
 
