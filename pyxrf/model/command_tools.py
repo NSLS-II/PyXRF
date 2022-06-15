@@ -735,6 +735,7 @@ def pyxrf_batch(
                     raise Exception from ex
                 else:
                     print(f"ERROR: could not process the file '{fname}'. No results are saved.")
+                    print(f"    Exception: {ex}")
 
         print("\nAll selected files were processed.")
 
