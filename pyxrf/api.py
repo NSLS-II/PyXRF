@@ -30,8 +30,11 @@ def pyxrf_api():
     in IPython command prompt.
     =========================================================================================
     """
-    print(f"PyXRF version: {pyxrf_version}")
-    print(pyxrf_api.__doc__)
+    version = f"""
+        =========================================================================================
+        PyXRF version: {pyxrf_version}
+    """
+    print(version + pyxrf_api.__doc__)
 
 
 pyxrf_api()
