@@ -531,7 +531,6 @@ def compute_total_spectrum(
     wait_and_display_progress(result_fut, progress_bar)
 
     result = result_fut.compute(scheduler=client)
-
     if file_obj:
         file_obj.close()
 
@@ -867,6 +866,13 @@ def fit_xrf_map(
     # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
     del result_fut
     _run_dummy_task_on_dask(client=client)
+
+    if not client_is_local:
+        # TODO: Dask keeps the HDF5 file open, therefore it can not be opened
+        #   for writing computation results. Restarting the client slows down
+        #   processing of the next file, so there could be a better solution.
+        logger.info("Restarting Dask client ...")
+        client.restart()
 
     if client_is_local:
         client.close()

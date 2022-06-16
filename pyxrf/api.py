@@ -5,6 +5,7 @@
 from .api_dev import *  # noqa: F401, F403
 from pyxrf import __version__ as pyxrf_version
 
+
 def pyxrf_api():
     r"""
     =========================================================================================
