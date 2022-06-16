@@ -50,6 +50,8 @@ def dask_client_create(**kwargs):
     _kwargs = {"processes": True, "silence_logs": logging.ERROR}
     _kwargs.update(kwargs)
 
+    logger.info("Creating Dask Client ...")
+
     dask.config.set(shuffle="disk")
 
     current_os = platform.system()
@@ -827,6 +829,7 @@ def fit_xrf_map(
 
     # Convert data to Dask array
     data, file_obj = prepare_xrf_map(data, chunk_pixels=chunk_pixels, n_chunks_min=n_chunks_min)
+    data_is_from_file = bool(file_obj)
 
     # Verify that selection makes sense (data is Dask array at this point)
     _, _, ne = data.shape
@@ -860,19 +863,19 @@ def fit_xrf_map(
 
     result = result_fut.compute(scheduler=client)
 
-    if file_obj:
+    if data_is_from_file:
         file_obj.close()
 
     # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
     del result_fut
     _run_dummy_task_on_dask(client=client)
 
-    if not client_is_local:
-        # TODO: Dask keeps the HDF5 file open, therefore it can not be opened
-        #   for writing computation results. Restarting the client slows down
-        #   processing of the next file, so there could be a better solution.
-        logger.info("Restarting Dask client ...")
-        client.restart()
+    # if not client_is_local and data_is_from_file:
+    #     # TODO: Dask keeps the HDF5 file open, therefore it can not be opened
+    #     #   for writing computation results. Restarting the client slows down
+    #     #   processing of the next file, so there could be a better solution.
+    #     logger.info("Restarting Dask client ...")
+    #     client.restart()
 
     if client_is_local:
         client.close()

@@ -12,6 +12,9 @@ from collections.abc import Iterable
 import re
 import traceback
 import sys
+import dask
+import packaging
+
 
 from ..core.quant_analysis import ParamQuantitativeAnalysis
 
@@ -689,12 +692,12 @@ def pyxrf_batch(
     if len(flist) > 0:
         # If no external Dask client is provided and we are processing a batch
         #   then create a local client that will be used to process the whole batch
-        if (len(flist) > 1) and (dask_client is None):
+        client_is_local = False
+        allow_shared_client = packaging.version.parse(dask.__version__) < packaging.version.parse("2022.2.0")
+        if allow_shared_client and (len(flist) > 1) and (dask_client is None):
             logger.info("Creating local Dask client for processing the batch of files ...")
             dask_client = dask_client_create()
             client_is_local = True
-        else:
-            client_is_local = False
 
         def _dask_client_close(is_local):
             # We don't want to close an externally provided client
