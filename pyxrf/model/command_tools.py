@@ -10,6 +10,8 @@ import h5py
 import copy
 from collections.abc import Iterable
 import re
+import traceback
+import sys
 
 from ..core.quant_analysis import ParamQuantitativeAnalysis
 
@@ -685,14 +687,13 @@ def pyxrf_batch(
         print(f"Processing parameter file: '{pname}'")
 
     if len(flist) > 0:
+        client_is_local = False
         # If no external Dask client is provided and we are processing a batch
         #   then create a local client that will be used to process the whole batch
         if (len(flist) > 1) and (dask_client is None):
             logger.info("Creating local Dask client for processing the batch of files ...")
             dask_client = dask_client_create()
             client_is_local = True
-        else:
-            client_is_local = False
 
         def _dask_client_close(is_local):
             # We don't want to close an externally provided client
@@ -735,6 +736,8 @@ def pyxrf_batch(
                     raise Exception from ex
                 else:
                     print(f"ERROR: could not process the file '{fname}'. No results are saved.")
+                    print(f"Exception: {ex}")
+                    traceback.print_tb(sys.exc_info()[2])
 
         print("\nAll selected files were processed.")
 

@@ -10,7 +10,7 @@ identical for all supported OS.
 PyXRF is currently not working properly with ``PyQt5`` v5.15, which is the latest available
 version. The instructions show how to install earlier version of ``PyQt5`` from PyPI.
 
-1. Install `Conda <https://www.anaconda.com/distribution>`_. Select Python 3.7 version.
+1. Install `Conda <https://www.anaconda.com/distribution>`_. Select the latest version.
    Anaconda package is recommended to casual users because it installs the entire
    scientific Python stack. Advanced users may consider installing
    `Miniconda <http://conda.pydata.org/miniconda.html>`_ since it is a much smaller

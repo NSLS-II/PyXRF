@@ -3,11 +3,12 @@
 
 
 from .api_dev import *  # noqa: F401, F403
+from pyxrf import __version__ as pyxrf_version
 
 
 def pyxrf_api():
     r"""
-    =======================================================================================
+    =========================================================================================
     Module ``pyxrf.api`` supports the following functions:
 
         Loading data:
@@ -30,7 +31,10 @@ def pyxrf_api():
     in IPython command prompt.
     =========================================================================================
     """
-    print(pyxrf_api.__doc__)
+    version = f"""
+    =========================================================================================
+    PyXRF version: {pyxrf_version}"""
+    print(version + pyxrf_api.__doc__)
 
 
 pyxrf_api()

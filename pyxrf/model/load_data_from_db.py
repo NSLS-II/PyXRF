@@ -821,6 +821,11 @@ def map_data2D_hxn(
     scaler_list = [v for v in scaler_list_all if v in all_keys]
 
     fields = det_list + scaler_list + pos_list
+
+    # Do not use supply 'fields' if Databroker V0 is used
+    if isinstance(db, databroker._core.Broker):
+        fields = None
+
     data = hdr.table(fields=fields, fill=True)
 
     data_out = map_data2D(

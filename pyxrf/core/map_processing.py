@@ -50,6 +50,8 @@ def dask_client_create(**kwargs):
     _kwargs = {"processes": True, "silence_logs": logging.ERROR}
     _kwargs.update(kwargs)
 
+    logger.info("Creating Dask Client ...")
+
     dask.config.set(shuffle="disk")
 
     current_os = platform.system()
@@ -531,13 +533,12 @@ def compute_total_spectrum(
     wait_and_display_progress(result_fut, progress_bar)
 
     result = result_fut.compute(scheduler=client)
-
     if file_obj:
         file_obj.close()
 
     # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
     del result_fut
-    _run_dummy_task_on_dask(client=client)
+    _dask_release_file_descriptors(client=client)
 
     if client_is_local:
         client.close()
@@ -633,7 +634,7 @@ def compute_total_spectrum_and_count(
 
     # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
     del result_fut
-    _run_dummy_task_on_dask(client=client)
+    _dask_release_file_descriptors(client=client)
 
     if client_is_local:
         client.close()
@@ -709,15 +710,30 @@ def _fit_xrf_block(data, data_sel_indices, matv, snip_param, use_snip):
     return data_out
 
 
-def _run_dummy_task_on_dask(*, client):
+def _dask_release_file_descriptors(*, client):
     """
-    Runs small task on Dask client. Starting from v2021.7.0, Dask Distributed does not always
-    close HDF5 files, that are open in read-only mode for loading raw data. Submitting and
-    computing a small unrelated tasks seem to prompt the client to release the resources from
-    the previous task and close the files.
+    Make sure the Dask Client releases descriptors of the HDF5 files opened in read-only mode
+    so that they could be opened for reading.
     """
+    # Runs small task on Dask client. Starting from v2021.7.0, Dask Distributed does not always
+    # close HDF5 files, that are open in read-only mode for loading raw data. Submitting and
+    # computing a small unrelated tasks seem to prompt the client to release the resources from
+    # the previous task and close the files.
     rfut = da.sum(da.random.random((1000,), chunks=(10,))).persist(scheduler=client)
     rfut.compute(scheduler=client)
+
+    current_os = platform.system()
+    if current_os == "Linux":
+        # Starting with Dask/Distributed version 2022.2.0 the following step is required:
+        # https://distributed.dask.org/en/stable/worker-memory.html#manually-trim-memory
+        # (works for Linux only, there are different solutions for other OS if needed)
+        import ctypes
+
+        def trim_memory() -> int:
+            libc = ctypes.CDLL("libc.so.6")
+            return libc.malloc_trim(0)
+
+        client.run(trim_memory)
 
 
 def fit_xrf_map(
@@ -828,6 +844,7 @@ def fit_xrf_map(
 
     # Convert data to Dask array
     data, file_obj = prepare_xrf_map(data, chunk_pixels=chunk_pixels, n_chunks_min=n_chunks_min)
+    data_is_from_file = bool(file_obj)
 
     # Verify that selection makes sense (data is Dask array at this point)
     _, _, ne = data.shape
@@ -861,12 +878,12 @@ def fit_xrf_map(
 
     result = result_fut.compute(scheduler=client)
 
-    if file_obj:
+    if data_is_from_file:
         file_obj.close()
 
     # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
     del result_fut
-    _run_dummy_task_on_dask(client=client)
+    _dask_release_file_descriptors(client=client)
 
     if client_is_local:
         client.close()
@@ -1087,7 +1104,7 @@ def compute_selected_rois(
 
     # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
     del result_fut
-    _run_dummy_task_on_dask(client=client)
+    _dask_release_file_descriptors(client=client)
 
     if client_is_local:
         client.close()

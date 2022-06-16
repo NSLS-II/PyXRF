@@ -894,6 +894,7 @@ class TestFitXRFMap:
         # Unfortunately 'data_input' is ndarray, but we need dask array to work with
         #   Select very small chunk size. This is not efficient, but works fine for testing.
         data_dask = _array_numpy_to_dask(ft.data_input, chunk_pixels=4, n_chunks_min=1)
+
         # Now create the dataset we need
         data = _create_xrf_data(data_dask, data_representation, tmpdir)
 
