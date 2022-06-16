@@ -722,15 +722,18 @@ def _dask_release_file_descriptors(*, client):
     rfut = da.sum(da.random.random((1000,), chunks=(10,))).persist(scheduler=client)
     rfut.compute(scheduler=client)
 
-    # Starting with Dask/Distributed version 2022.2.0 the following step is required:
-    # https://distributed.dask.org/en/stable/worker-memory.html#manually-trim-memory
-    import ctypes
+    current_os = platform.system()
+    if current_os == "Linux":
+        # Starting with Dask/Distributed version 2022.2.0 the following step is required:
+        # https://distributed.dask.org/en/stable/worker-memory.html#manually-trim-memory
+        # (works for Linux only, there are different solutions for other OS if needed)
+        import ctypes
 
-    def trim_memory() -> int:
-        libc = ctypes.CDLL("libc.so.6")
-        return libc.malloc_trim(0)
+        def trim_memory() -> int:
+            libc = ctypes.CDLL("libc.so.6")
+            return libc.malloc_trim(0)
 
-    client.run(trim_memory)
+        client.run(trim_memory)
 
 
 def fit_xrf_map(
