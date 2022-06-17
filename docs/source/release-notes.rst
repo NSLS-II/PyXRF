@@ -2,6 +2,21 @@
 Release Notes
 =============
 
+v1.0.17 (2022-06-16)
+====================
+
+Added
+-----
+- Support for Python 3.10
+
+Fixed
+-----
+- Updated the code for loading raw data at SRX beamline to be compatible with Databroker V1
+  (intake version).
+- Fixed the code for loading of raw data at HXN beamline.
+- Fixed the issue with batch fitting of multiple files (``pyxrf_batch``) observed after upgrade of
+  Dask (observed for versions of Dask starting with v2022.2.0, Linux).
+
 v1.0.16 (2022-05-26)
 ====================
 
