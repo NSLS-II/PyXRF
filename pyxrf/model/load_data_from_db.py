@@ -1683,7 +1683,7 @@ def map_data2D_srx_new(
                         name, doc = next(docs_stream0)
                         try:
                             filler(name, doc)
-                        except Exception as ex:
+                        except Exception:
                             pass  # The document can not be filled. Leave it unfilled.
                         if name == "event":
                             break
@@ -1695,7 +1695,7 @@ def map_data2D_srx_new(
                         name_p, doc_p = next(docs_primary)
                         try:
                             filler(name_p, doc_p)
-                        except Exception as ex:
+                        except Exception:
                             pass  # The document can not be filled. Leave it unfilled.
                         if name == "event":
                             break
@@ -1787,7 +1787,9 @@ def map_data2D_srx_new(
                 d = dset_list[n]
                 n_pts = d.shape[0]
                 if n_pts != n_row_pts:
-                    print(f"WARNING: ({msg}) Row #{n + 1} has {n_pts} data points. {n_row_pts} points are expected.")
+                    print(
+                        f"WARNING: ({msg}) Row #{n + 1} has {n_pts} data points. {n_row_pts} points are expected."
+                    )
                     if n_last_good_row == -1:
                         missed_rows.append(n)
                     else:
