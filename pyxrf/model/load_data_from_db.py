@@ -1681,7 +1681,10 @@ def map_data2D_srx_new(
                 try:
                     while True:
                         name, doc = next(docs_stream0)
-                        filler(name, doc)
+                        try:
+                            filler(name, doc)
+                        except Exception:
+                            pass  # The document can not be filled. Leave it unfilled.
                         if name == "event":
                             break
                 except StopIteration:
@@ -1690,42 +1693,69 @@ def map_data2D_srx_new(
                 try:
                     while True:
                         name_p, doc_p = next(docs_primary)
-                        filler(name_p, doc_p)
+                        try:
+                            filler(name_p, doc_p)
+                        except Exception:
+                            pass  # The document can not be filled. Leave it unfilled.
                         if name == "event":
                             break
                 except StopIteration:
                     raise RuntimeError(f"Matching event #{m} was not found in 'primary' stream")
 
+                def data_or_empty_array(v):
+                    """
+                    If data is a string, then return an empty array, otherwise return the data as numpy array.
+                    """
+                    if isinstance(v, str):
+                        v = []
+                    return np.asarray(v)
+
                 v, vp = doc, doc_p
                 if "xs" in dets or "xs4" in dets:
-                    event_data = np.asarray(v["data"]["fluor"], dtype=np.float32)
-                    N_xs = max(N_xs, event_data.shape[1])
-                    d_xs_sum.append(np.sum(event_data, axis=1))
-                    if create_each_det:
-                        d_xs.append(event_data)
+                    event_data = data_or_empty_array(v["data"]["fluor"])
+                    if event_data.size:
+                        event_data = np.asarray(event_data, dtype=np.float32)
+                        N_xs = max(N_xs, event_data.shape[1])
+                        d_xs_sum.append(np.sum(event_data, axis=1))
+                        if create_each_det:
+                            d_xs.append(event_data)
+                    else:
+                        # Unfilled document
+                        d_xs_sum.append(event_data)
+                        if create_each_det:
+                            d_xs.append(event_data)
+
                 if "xs2" in dets:
-                    event_data = np.asarray(v["data"]["fluor_xs2"], dtype=np.float32)
-                    N_xs2 = max(N_xs2, event_data.shape[1])
-                    d_xs2_sum.append(np.sum(event_data, axis=1))
-                    if create_each_det:
-                        d_xs2.append(event_data)
+                    event_data = data_or_empty_array(v["data"]["fluor_xs2"])
+                    if event_data.size:
+                        event_data = np.asarray(event_data, dtype=np.float32)
+                        N_xs2 = max(N_xs2, event_data.shape[1])
+                        d_xs2_sum.append(np.sum(event_data, axis=1))
+                        if create_each_det:
+                            d_xs2.append(event_data)
+                    else:
+                        # Unfilled document
+                        d_xs2_sum.append(event_data)
+                        if create_each_det:
+                            d_xs2.append(event_data)
+
                 keys = v["data"].keys()
                 for s in sclr_list:
                     if s in keys:
-                        tmp = np.array(v["data"][s])
+                        tmp = data_or_empty_array(v["data"][s])
                         if s not in sclr_dict:
                             sclr_dict[s] = [tmp]
                         else:
                             sclr_dict[s].append(tmp)
 
-                fast_pos.append(np.array(v["data"][fast_key]))
+                fast_pos.append(data_or_empty_array(v["data"][fast_key]))
                 if "enc" not in slow_key:
                     # vp = next(ep)
                     # filler("event", vp)
-                    tmp = np.array(vp["data"][slow_key])
+                    tmp = data_or_empty_array(vp["data"][slow_key])
                     tmp2 = [tmp] * n_scan_fast
                 else:
-                    tmp2 = v["data"][slow_key]
+                    tmp2 = data_or_empty_array(v["data"][slow_key])
                 slow_pos.append(np.array(tmp2))
 
                 n_recorded_events = m + 1
@@ -1745,7 +1775,7 @@ def map_data2D_srx_new(
         except Exception as ex:
             logger.error(f"Error occurred while reading data: {ex}. Trying to retrieve available data ...")
 
-        def repair_set(dset_list, n_row_pts):
+        def repair_set(dset_list, n_row_pts, msg):
             """
             Replaces corrupt rows (incorrect number of points) with closest 'good' row. This allows to load
             and use data from corrupt scans. The function will have no effect on 'good' scans.
@@ -1757,30 +1787,32 @@ def map_data2D_srx_new(
                 d = dset_list[n]
                 n_pts = d.shape[0]
                 if n_pts != n_row_pts:
-                    print(f"WARNING: Row #{n + 1} has {n_pts} data points. {n_row_pts} points are expected.")
+                    print(
+                        f"WARNING: ({msg}) Row #{n + 1} has {n_pts} data points. {n_row_pts} points are expected."
+                    )
                     if n_last_good_row == -1:
                         missed_rows.append(n)
                     else:
                         dset_list[n] = np.array(dset_list[n_last_good_row])
-                        print(f"Data in row #{n + 1} is replaced by data from row #{n_last_good_row}")
+                        print(f"({msg}) Data in row #{n + 1} is replaced by data from row #{n_last_good_row}")
                 else:
                     n_last_good_row = n
                     if missed_rows:
                         for nr in missed_rows:
                             dset_list[nr] = np.array(dset_list[n_last_good_row])
-                            print(f"Data in row #{nr + 1} is replaced by data from row #{n_last_good_row}")
+                            print(f"({msg}) Data in row #{nr + 1} is replaced by data from row #{n_last_good_row}")
                         missed_rows = []
 
         sclr_name = list(sclr_dict.keys())
 
-        repair_set(d_xs_sum, n_scan_fast)
-        repair_set(d_xs, n_scan_fast)
-        repair_set(d_xs2_sum, n_scan_fast)
-        repair_set(d_xs2, n_scan_fast)
-        repair_set(fast_pos, n_scan_fast)
-        repair_set(slow_pos, n_scan_fast)
+        repair_set(d_xs_sum, n_scan_fast, "XS_sum")
+        repair_set(d_xs, n_scan_fast, "XS")
+        repair_set(d_xs2_sum, n_scan_fast, "XS2_sum")
+        repair_set(d_xs2, n_scan_fast, "XS2")
+        repair_set(fast_pos, n_scan_fast, "fast pos")
+        repair_set(slow_pos, n_scan_fast, "slow pos")
         for sc in sclr_dict.values():
-            repair_set(sc, n_scan_fast)
+            repair_set(sc, n_scan_fast, "sclr")
 
         pos_pos = np.zeros((2, n_recorded_events, n_scan_fast))
         if "x" in slow_key:
