@@ -16,8 +16,7 @@ from matplotlib.backends.backend_qt5agg import (
     NavigationToolbar2QT as NavigationToolbar,
 )
 
-from .useful_widgets import ElementSelection, set_tooltip, global_gui_variables
-
+from .useful_widgets import ElementSelection, set_tooltip  # , global_gui_variables
 from .dlg_plot_escape_peak import DialogPlotEscapePeak
 
 
@@ -153,8 +152,8 @@ class PlotFittingModel(QWidget):
         self.mpl_toolbar.setVisible(self.gui_vars["show_matplotlib_toolbar"])
 
         # Hide Matplotlib canvas during computations
-        state_compute = global_gui_variables["gui_state"]["running_computations"]
-        self.mpl_canvas.setVisible(not state_compute)
+        # state_compute = global_gui_variables["gui_state"]["running_computations"]
+        # self.mpl_canvas.setVisible(not state_compute)
 
     @Slot()
     def update_controls(self):
