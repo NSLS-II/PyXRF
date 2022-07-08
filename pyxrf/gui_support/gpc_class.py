@@ -1621,6 +1621,13 @@ class GlobalProcessingClasses:
         self.param_model.EC.update_peak_ratio()
         self.param_model.data_for_plot()
 
+        # update parameter for fit
+        self.param_model.create_full_param()  # Not sure this is needed
+        self.fit_model.apply_default_param()
+
+        # Update displayed intensity of the selected peak
+        self.plot_model.compute_manual_peak_intensity()
+
         if update_plots:
             # update experimental plots in case the coefficients change
             self.plot_model.plot_experiment()
@@ -1628,23 +1635,7 @@ class GlobalProcessingClasses:
             self.plot_model.plot_fit(
                 self.param_model.prefit_x, self.param_model.total_y, self.param_model.auto_fit_all
             )
-
-            # For plotting purposes, otherwise plot will not update
-            if self.plot_model.plot_exp_opt:
-                self.plot_model.plot_exp_opt = False
-                self.plot_model.plot_exp_opt = True
-            else:
-                self.plot_model.plot_exp_opt = True
-                self.plot_model.plot_exp_opt = False
-            self.plot_model.show_fit_opt = False
-            self.plot_model.show_fit_opt = True
-
-        # update parameter for fit
-        self.param_model.create_full_param()  # Not sure this is needed
-        self.fit_model.apply_default_param()
-
-        # Update displayed intensity of the selected peak
-        self.plot_model.compute_manual_peak_intensity()
+            self.plot_model.update_fit_plots()
 
     def total_spectrum_fitting(self):
 

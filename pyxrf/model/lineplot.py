@@ -610,19 +610,15 @@ class LinePlotModel(Atom):
     @observe("show_fit_opt")
     def _update_fit(self, change):
         if change["type"] != "create":
-            if change["value"]:
-                for v in self.plot_fit_obj:
-                    v.set_visible(True)
-                    lab = v.get_label()
-                    if lab != "_nolegend_":
-                        v.set_label(lab.strip("_"))
-            else:
-                for v in self.plot_fit_obj:
-                    v.set_visible(False)
-                    lab = v.get_label()
-                    if lab != "_nolegend_":
-                        v.set_label("_" + lab)
-            self._update_canvas()
+            self.update_fit_plots(visible=bool(change["value"]))
+
+    def update_fit_plots(self, visible=True):
+        for v in self.plot_fit_obj:
+            v.set_visible(visible)
+            lab = v.get_label()
+            if lab != "_nolegend_":
+                v.set_label(lab.strip("_"))
+        self._update_canvas()
 
     def plot_experiment(self):
         """
