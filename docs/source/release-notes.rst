@@ -2,6 +2,19 @@
 Release Notes
 =============
 
+v1.0.18 (2022-08-08)
+====================
+
+Changed
+-------
+
+- The algorithm for loading SRX raw data from databroker now fixes corrupt rows by replacing the data
+  with data from the preceding or next valid row.
+
+- The plot that displays total spectrum and fitting is not hidden while the computation is running.
+  It is replaced with the new fitting data once the computations are finished.
+
+
 v1.0.17 (2022-06-16)
 ====================
 
