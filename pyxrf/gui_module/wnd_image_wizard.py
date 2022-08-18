@@ -1,3 +1,4 @@
+import re
 from copy import deepcopy
 from qtpy.QtWidgets import (
     QVBoxLayout,
@@ -48,6 +49,9 @@ class WndImageWizard(SecondaryWindow):
         self.cb_select_all = QCheckBox("All")
         self.cb_select_all.stateChanged.connect(self.cb_select_all_state_changed)
 
+        self.pb_add_elements = QPushButton("Elements")
+        self.pb_add_elements.clicked.connect(self.pb_add_elements_clicked)
+
         self._auto_update = True
         self.cb_auto_update = QCheckBox("Auto")
         self.cb_auto_update.setCheckState(Qt.Checked if self._auto_update else Qt.Unchecked)
@@ -63,6 +67,7 @@ class WndImageWizard(SecondaryWindow):
 
         hbox = QHBoxLayout()
         hbox.addWidget(self.cb_select_all)
+        hbox.addWidget(self.pb_add_elements)
         hbox.addStretch(1)
         hbox.addWidget(self.cb_auto_update)
         hbox.addWidget(self.pb_update_plots)
@@ -200,6 +205,7 @@ class WndImageWizard(SecondaryWindow):
 
     def _set_tooltips(self):
         set_tooltip(self.cb_select_all, "<b>Select/Deselect All</b> emission lines in the list")
+        set_tooltip(self.pb_add_elements, "Add <b>all elements</b> to the selection.")
         set_tooltip(
             self.cb_auto_update,
             "Automatically <b>update the plots</b> when changes are made. "
@@ -230,6 +236,10 @@ class WndImageWizard(SecondaryWindow):
 
     def cb_select_all_state_changed(self, state):
         self._select_all_items(state)
+
+    def pb_add_elements_clicked(self):
+        """Add all elements to selection"""
+        self._add_all_elements_to_selection()
 
     def cb_auto_update_state_changed(self, state):
         self._auto_update = state
@@ -295,6 +305,16 @@ class WndImageWizard(SecondaryWindow):
         for n_row in range(self.table.rowCount()):
             item = self.table.item(n_row, 0)
             item.setCheckState(check_state)
+        self._enable_plot_updates = True
+        self._update_map_selections_auto()
+
+    def _add_all_elements_to_selection(self):
+        """Add all elements to the selection"""
+        self._enable_plot_updates = False
+        for n_row in range(self.table.rowCount()):
+            item = self.table.item(n_row, 0)
+            if re.search("[A-Z][A-Za-z]*_[KLM]", item.text()):
+                item.setCheckState(Qt.Checked)
         self._enable_plot_updates = True
         self._update_map_selections_auto()
 
