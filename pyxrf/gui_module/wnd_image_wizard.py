@@ -49,7 +49,7 @@ class WndImageWizard(SecondaryWindow):
         self.cb_select_all = QCheckBox("All")
         self.cb_select_all.stateChanged.connect(self.cb_select_all_state_changed)
 
-        self.pb_add_elements = QPushButton("Elements")
+        self.pb_add_elements = QPushButton("Add All Elements")
         self.pb_add_elements.clicked.connect(self.pb_add_elements_clicked)
 
         self._auto_update = True

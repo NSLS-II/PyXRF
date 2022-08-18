@@ -176,7 +176,6 @@ class GlobalProcessingClasses:
             # Change window title (include file name). This does not update the visible title,
             #   only the text attribute of 'io_model' class.
             self.io_model.window_title_set_file_name(f_name)
-            print("======== Set window title")
 
             if not self.io_model.incident_energy_available:
                 msg = (
@@ -1086,6 +1085,10 @@ class GlobalProcessingClasses:
                 energy = param_dict[key]["value"] + 5.0
                 energy_list = [energy] * len(e_list)
 
+                # Convert energy for user peaks to absolute values
+                for k in ("value", "min", "max"):
+                    param_dict[key][k] += 5.0
+
             eline_key_dict[eline] = e_list
             eline_energy_dict[eline] = energy_list
 
@@ -1111,6 +1114,15 @@ class GlobalProcessingClasses:
     def get_detailed_fitting_params_shared(self):
         # Dictionary of fitting parameters. Create a copy !!!
         param_dict = copy.deepcopy(self.param_model.param_new)
+
+        for eline in self.param_model.get_sorted_element_list():
+            eline_category = self.get_eline_name_category(eline)
+            if eline_category == "userpeak":
+                key = eline + "_delta_center"
+                # Convert energy for user peaks to absolute values
+                for k in ("value", "min", "max"):
+                    param_dict[key][k] += 5.0
+
         # Ordered list of emission lines
         eline_list = ["Shared parameters"]
         # Dictionary: emission line -> [list of keys in 'params' dictionary]
@@ -1136,10 +1148,19 @@ class GlobalProcessingClasses:
         }
 
     def set_detailed_fitting_params(self, dialog_data):
-        param_dict = dialog_data["param_dict"]
+        param_dict = copy.deepcopy(dialog_data["param_dict"])
         # 'param_dict' is expected to have identical structure as 'param_model.param_new'.
         # We don't want to change the reference to the parameters, so we copy references to
         #   dictionary elements (which are also dictionaries).
+
+        eline_list = self.param_model.get_sorted_element_list()
+        for eline in eline_list:
+            eline_category = self.get_eline_name_category(eline)
+            if eline_category == "userpeak":
+                key = eline + "_delta_center"
+                # Convert energy for user peaks back to relative values
+                for k in ("value", "min", "max"):
+                    param_dict[key][k] -= 5.0
 
         # Check if the energy axis parameters were changed
         e_axis_changed = False
