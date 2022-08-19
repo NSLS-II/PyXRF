@@ -8,6 +8,7 @@ from qtpy.QtWidgets import (
     QTableWidgetItem,
     QHeaderView,
     QPushButton,
+    QCheckBox,
 )
 from qtpy.QtGui import QBrush, QColor, QPalette
 from qtpy.QtCore import Qt, Signal, Slot, QThreadPool, QRunnable
@@ -90,6 +91,11 @@ class WndDetailedFittingParams(SecondaryWindow):
         self.combo_element_sel.setMinimumWidth(200)
         self.combo_element_sel.currentIndexChanged.connect(self.combo_element_sel_current_index_changed)
 
+        self._auto_update = False
+        self.cb_auto_update = QCheckBox("Auto")
+        self.cb_auto_update.setCheckState(Qt.Checked if self._auto_update else Qt.Unchecked)
+        self.cb_auto_update.stateChanged.connect(self.cb_auto_update_state_changed)
+
         self.pb_apply = QPushButton("Apply")
         self.pb_apply.setEnabled(False)
         self.pb_apply.clicked.connect(self.pb_apply_clicked)
@@ -101,6 +107,7 @@ class WndDetailedFittingParams(SecondaryWindow):
         hbox.addWidget(QLabel("Select element:"))
         hbox.addWidget(self.combo_element_sel)
         hbox.addStretch(1)
+        hbox.addWidget(self.cb_auto_update)
         hbox.addWidget(self.pb_apply)
         hbox.addWidget(self.pb_cancel)
 
@@ -230,6 +237,14 @@ class WndDetailedFittingParams(SecondaryWindow):
         set_tooltip(self.pb_apply, "Save changes and <b>update plots</b>.")
         set_tooltip(self.pb_cancel, "<b>Discard</b> all changes.")
         set_tooltip(
+            self.cb_auto_update,
+            "Automatically <b>update the plots</b> when changes are made. "
+            "If unchecked, then button <b>Update Plots</b> must be pressed "
+            "to update the plots. Automatic update is often undesirable "
+            "when large maps are displayed and multiple changes to parameters "
+            "are made.",
+        )
+        set_tooltip(
             self.combo_element_sel,
             "Select K, L or M <b>emission line</b> to edit the optimization parameters "
             "used for the line during total spectrum fitting.",
@@ -250,6 +265,16 @@ class WndDetailedFittingParams(SecondaryWindow):
             self._selected_eline = "-"
         self._update_table()
 
+    def cb_auto_update_state_changed(self, state):
+        self._auto_update = state
+        # 'Apply' and 'Cancel' button are always disabled in 'auto' mode (changes are automatically
+        #   applied when switching to 'auto' mode), and there should be no pending changes if switching
+        #   to 'manual update' mode. So ALWAYS use 'False'.
+        self.pb_apply.setEnabled(False)
+        self.pb_cancel.setEnabled(False)
+        # If changes were made, apply the changes while switching to 'auto' mode
+        self.save_form_data()
+
     def combo_strategy_current_index_changed(self, name, index):
         if self._enable_events:
             try:
@@ -260,6 +285,7 @@ class WndDetailedFittingParams(SecondaryWindow):
                 logger.error(f"Error occurred while changing strategy options: {ex}")
 
             self._data_changed = True
+            self.auto_save_form_data()
             self._validate_all()
 
     def tbl_elines_item_changed(self, item):
@@ -279,6 +305,7 @@ class WndDetailedFittingParams(SecondaryWindow):
                     item.setText(f"{value:.8g}")
 
                 self._data_changed = True
+                self.auto_save_form_data()
                 self._validate_all()
 
             except Exception as ex:
@@ -365,20 +392,25 @@ class WndDetailedFittingParams(SecondaryWindow):
             self._set_tooltips()
 
     def _validate_all(self):
-        self.pb_apply.setEnabled(self._data_changed)
-        self.pb_cancel.setEnabled(self._data_changed)
+        self.pb_apply.setEnabled(self._data_changed and not self._auto_update)
+        self.pb_cancel.setEnabled(self._data_changed and not self._auto_update)
+        self.cb_auto_update.setChecked(Qt.Checked if self._auto_update else Qt.Unchecked)
 
     def _load_dialog_data(self):
         ...
 
     def _save_dialog_data_function(self):
-        ...
+        raise NotImplementedError()
 
     def update_form_data(self):
         self._load_dialog_data()
         self._show_all()
         self._data_changed = False
         self._validate_all()
+
+    def auto_save_form_data(self):
+        if self._auto_update:
+            self.save_form_data()
 
     def save_form_data(self):
         if self._data_changed:
