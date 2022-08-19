@@ -5,7 +5,7 @@ PyXRF
 .. image:: https://img.shields.io/pypi/v/pyxrf.svg
         :target: https://pypi.python.org/pypi/pyxrf
 
-.. image:: https://img.shields.io/conda/vn/conda-forge/pyxrf
+.. image:: https://img.shields.io/conda/vn/conda-forge/pyxrf?color=green
         :target: https://anaconda.org/conda-forge/pyxrf
 
 .. image:: https://img.shields.io/codecov/c/github/NSLS-II/pyxrf
@@ -13,6 +13,7 @@ PyXRF
 
 .. image:: https://img.shields.io/github/commits-since/NSLS-II/PyXRF/latest
         :target: https://github.com/NSLS-II/PyXRF
+
 
 PyXRF is a python-based sophisticated fluorescence analysis package for
 fitting and visualizing X-ray fluorescence data.
