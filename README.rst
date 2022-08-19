@@ -2,11 +2,11 @@
 PyXRF
 =====
 
-.. image:: https://img.shields.io/travis/NSLS-II/pyxrf.svg
-        :target: https://travis-ci.org/NSLS-II/pyxrf
-
 .. image:: https://img.shields.io/pypi/v/pyxrf.svg
         :target: https://pypi.python.org/pypi/pyxrf
+
+.. image:: https://img.shields.io/conda/vn/conda-forge/pyxrf
+        :target: https://anaconda.org/conda-forge/pyxrf
 
 .. image:: https://img.shields.io/codecov/c/github/NSLS-II/pyxrf
         :target: https://codecov.io/gh/NSLS-II/pyxrf
