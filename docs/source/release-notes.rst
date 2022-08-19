@@ -2,6 +2,24 @@
 Release Notes
 =============
 
+v1.0.19 (2022-08-19)
+====================
+
+Added
+-----
+
+- New button ``Add All Elements`` is added to Image Wizard. The button adds all element emission lines to the selection.
+
+- ``Auto`` checkbox is added to the windows 'Fitting Parameters for Individual Emission Lines' and 'Shared Detailed Fitting Parameters'.
+
+Changed
+-------
+
+- The value of the parameter ``Userpeak.._delta_center`` is now displayed as absolute energy (true peak position in keV)
+  instead of relative energy (difference between the absolute energy and the 'base' energy 5 keV) in the window
+  'Fitting Parameters for Individual Emission Lines'.
+
+
 v1.0.18 (2022-08-08)
 ====================
 
