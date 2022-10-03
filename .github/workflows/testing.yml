@@ -16,7 +16,7 @@ jobs:
       matrix:
         host-os: ["ubuntu-latest", "macos-latest", "windows-latest"]
         python-version: ["3.7", "3.8", "3.9", "3.10"]
-        numpy-version: ["1.21"]
+        numpy-version: ["1.22"]
         numba-version: ["0.55.2"]
         pyqt-version: ["5.12"]
       fail-fast: false
