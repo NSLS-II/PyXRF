@@ -65,8 +65,6 @@ class Fit1D(Atom):
         (currently .tiff or .txt)
     hdf_path : str
         path to hdf file
-    hdf_name : str
-        name of hdf file
     """
 
     file_status = Str()
@@ -86,9 +84,6 @@ class Fit1D(Atom):
     fit_result = Typed(object)
     data_title = Str()
     runid = Int(0)
-
-    working_directory = Str()
-    result_folder = Str()
 
     all_strategy = Typed(object)
 
@@ -148,7 +143,6 @@ class Fit1D(Atom):
     result_map = Dict()
     map_interpolation = Bool(False)
     hdf_path = Str()
-    hdf_name = Str()
 
     roi_sum_opt = Dict()
     scaler_keys = List()
@@ -180,9 +174,7 @@ class Fit1D(Atom):
     # *** The fields are not guaranteed to have valid values at any other time. ***
     qe_standard_distance_to_sample = Float(0.0)
 
-    def __init__(self, *, param_model, io_model, working_directory):
-        self.working_directory = working_directory
-        self.result_folder = working_directory
+    def __init__(self, *, param_model, io_model):
         self.all_strategy = OrderedDict()
 
         # Reference to ParamModel object
@@ -206,19 +198,6 @@ class Fit1D(Atom):
 
         self.qe_standard_selected_ref = None
         self.qe_standard_selected_copy = None
-
-    def result_folder_changed(self, change):
-        """
-        Observer function to be connected to the fileio model
-        in the top-level gui.py startup
-
-        Parameters
-        ----------
-        changed : dict
-            This is the dictionary that gets passed to a function
-            with the @observe decorator
-        """
-        self.result_folder = change["value"]
 
     def data_title_update(self, change):
         """
@@ -396,7 +375,7 @@ class Fit1D(Atom):
         #  define element_adjust as fixed
         # self.param_dict = define_param_bound_type(self.param_dict)
 
-    def filename_update(self, change):
+    def filepath_update(self, change):
         """
         Observer function to be connected to the fileio model
         in the top-level gui.py startup
@@ -407,9 +386,7 @@ class Fit1D(Atom):
             This is the dictionary that gets passed to a function
             with the @observe decorator
         """
-        self.hdf_name = change["value"]
-        # output to .h5 file
-        self.hdf_path = os.path.join(self.result_folder, self.hdf_name)
+        self.hdf_path = change["value"]
 
     @observe("fit_strategy1")
     def update_strategy1(self, change):
@@ -635,8 +612,12 @@ class Fit1D(Atom):
                 rf = rfactor(self.param_model.y0, self.param_model.total_y)
         return rf
 
-    def output_summed_data_fit(self, save_fit=True):
-        """Save energy, summed data and fitting curve to a file."""
+    def output_summed_data_fit(self, save_fit=True, directory=None):
+        """
+        Save energy, summed data and fitting curve to a file.
+        """
+        directory = directory or os.path.dirname(self.hdf_path)
+
         xx = None
         if self.x0 is not None:
             a0, a1, a2 = (
@@ -659,7 +640,7 @@ class Fit1D(Atom):
             data = np.array([xx, self.y0, self.param_model.total_y])
 
         output_fit_name = self.data_title + "_summed_spectrum_fit.txt"
-        fpath = os.path.join(self.result_folder, output_fit_name)
+        fpath = os.path.join(directory, output_fit_name)
         np.savetxt(fpath, data.T)
         logger.info(f"Spectrum fit data is saved to file '{fpath}'")
 
@@ -731,8 +712,8 @@ class Fit1D(Atom):
             p2 = [self.point2v, self.point2h]
 
             if self.point2v > 0 or self.point2h > 0:
-                prefix_fname = self.hdf_name.split(".")[0]
-                output_folder = os.path.join(self.result_folder, prefix_fname + "_pixel_fit")
+                prefix_fname = os.path.basename(self.hdf_path).split(".")[0]
+                output_folder = os.path.join(os.path.dirname(self.hdfpath), prefix_fname + "_pixel_fit")
                 if os.path.exists(output_folder) is False:
                     os.mkdir(output_folder)
                 save_fitted_fig(
@@ -753,7 +734,7 @@ class Fit1D(Atom):
             # save_fitted_as_movie(x, matv, results[:, :, 0:len(elist)],
             #                      p1, p2,
             #                      data_fit, self.param_dict,
-            #                      self.result_folder, prefix=prefix_fname, use_snip=use_snip)
+            #                      os.path.dirname(self.hdf_name), prefix=prefix_fname, use_snip=use_snip)
             logger.info("Done with saving fitting plots.")
         try:
             self.save2Dmap_to_hdf(calculation_info=calculation_info, pixel_fit=pixel_fit)
@@ -786,7 +767,7 @@ class Fit1D(Atom):
             If nonlinear is chosen, more information needs to be saved.
         """
 
-        prefix_fname = self.hdf_name.split(".")[0]
+        prefix_fname = os.path.basename(self.hdf_path).split(".")[0]
         if len(prefix_fname) == 0:
             prefix_fname = "tmp"
 
@@ -980,7 +961,7 @@ class Fit1D(Atom):
         """
         if not fname:
             fname = self.data_title + "_out.txt"
-        filepath = os.path.join(self.result_folder, fname)
+        filepath = os.path.join(os.path.dirname(self.hdf_path), fname)
 
         area_list = []
         for v in list(self.fit_result.params.keys()):

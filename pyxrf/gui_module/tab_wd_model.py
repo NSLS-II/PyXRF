@@ -540,16 +540,16 @@ class ModelWidget(FormBaseWidget):
 
     def pb_save_spectrum_clicked(self):
         current_dir = self.gpc.get_current_working_directory()
-        dir = QFileDialog.getExistingDirectory(
+        directory = QFileDialog.getExistingDirectory(
             self,
             "Select Directory to Save Spectrum/Fit",
             current_dir,
             QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks,
         )
-        if dir:
+        if directory:
             try:
-                self.gpc.save_spectrum(dir, save_fit=self._fit_available)
-                logger.debug(f"Spectrum/Fit is saved to directory {dir}")
+                self.gpc.save_spectrum(directory, save_fit=self._fit_available)
+                logger.debug(f"Spectrum/Fit is saved to directory {directory}")
             except Exception as ex:
                 msg = str(ex)
                 msgbox = QMessageBox(QMessageBox.Critical, "Error", msg, QMessageBox.Ok, parent=self)

@@ -75,14 +75,13 @@ class FileIOModel(Atom):
     window_title = Str()
     window_title_base = Str()
 
-    # Directory used for loading and saving files. Also the directory of
-    #   the currently opened file.
+    # The directory of the last opened file, even if the file is already closed.
     file_directory = Str()
-    current_working_directory = Str()  # Current directory (default for all dialogs)
+    # Current working directory (default for all dialogs and new files)
+    current_working_directory = Str()
 
-    file_name = Str()
-    file_name_silent_change = Bool(False)
-    file_path = Str()
+    file_path = Str()  # Full file name
+    file_path_silent_change = Bool(False)
     load_status = Str()
     data_sets = Typed(OrderedDict)
     file_channel_list = List()
@@ -139,6 +138,9 @@ class FileIOModel(Atom):
     incident_energy_set = Float(0.0)
 
     def __init__(self, *, working_directory):
+
+        working_directory = os.path.abspath(os.path.expanduser(working_directory))
+
         self.file_directory = working_directory
 
         # Current working directory is initialized to the same value as 'working_directory',
@@ -269,7 +271,6 @@ class FileIOModel(Atom):
         self.runid = -1
         self.file_opt = -1
         self.selected_file_name = ""
-        self.file_path = ""
 
         # We don't clear the following data arrays for now. The commented code is left
         #   mostly for future reference.
@@ -297,37 +298,36 @@ class FileIOModel(Atom):
         self.scan_metadata = ScanMetadataXRF()
         self._metadata_update_program_state()
 
-    @observe(str("file_name"))
+    @observe(str("file_path"))
     def load_data_from_file(self, change):
         """This function loads data file for GUI. It also generates preview data for default channel #0."""
         if change["value"] == "temp":
             # 'temp' is used to reload the same file
             return
 
-        if self.file_name_silent_change:
-            self.file_name_silent_change = False
+        if self.file_path_silent_change:
+            self.file_path_silent_change = False
             logger.info(f"File name is silently changed. New file name is '{change['value']}'")
             return
 
         self.file_channel_list = []
-        logger.info("File is loaded: %s" % (self.file_name))
+        logger.info("Loading file: '%s' ..." % (self.file_path))
 
         # Clear data. If reading the file fails, then old data should not be kept.
         self.clear()
         # focus on single file only
+        fln_dir, fln_base = os.path.split(self.file_path)
         img_dict, self.data_sets, self.scan_metadata = load_data_from_hdf5(
-            self.file_directory, self.file_name, load_each_channel=self.load_each_channel
+            fln_dir, fln_base, load_each_channel=self.load_each_channel
         )
         self.img_dict = img_dict
         self.update_img_dict()
 
         # Replace relative scan ID with true scan ID.
 
-        # Full path to the data file
-        self.file_path = os.path.join(self.file_directory, self.file_name)
-
         # Set current working directory to the directory of currently opened file
-        self.current_working_directory = self.file_directory
+        self.file_directory = fln_dir
+        self.current_working_directory = fln_dir
 
         # Process metadata
         self._metadata_update_program_state()
@@ -518,8 +518,8 @@ class FileIOModel(Atom):
             self.runuid = self.scan_metadata["scan_uid"]
 
         # Change file name without rereading the file
-        self.file_name_silent_change = True
-        self.file_name = os.path.basename(fname)
+        self.file_path_silent_change = True
+        self.file_path = fname
         logger.info(f"Data loading: complete dataset for the detector '{detector_name}' was loaded successfully.")
 
         self.file_channel_list = list(self.data_sets.keys())

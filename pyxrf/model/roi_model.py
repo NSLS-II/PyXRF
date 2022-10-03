@@ -2,7 +2,6 @@ from __future__ import absolute_import, division, print_function
 
 import numpy as np
 from collections import OrderedDict
-import os
 import re
 
 from atom.api import Atom, Str, observe, List, Int, Bool, Typed
@@ -84,12 +83,8 @@ class ROIModel(Atom):
         At least one element must be selected and all entry in the element
           list must be valid before ROI may be computed
 
-    result_folder : Str
-        directory which contains HDF5 file, in which results of processing are saved
     hdf_path : Str
         full path to the HDF5 file, in which results are saved
-    hdf_name : Str
-        name of the HDF file, in which results are saved
 
     data_title : str
         The title of the selected dataset (from ``fileio`` module)
@@ -113,17 +108,14 @@ class ROIModel(Atom):
 
     subtract_background = Bool(False)
 
-    result_folder = Str()
-
     hdf_path = Str()
-    hdf_name = Str()
 
     data_title = Str()
     data_title_base = Str()
     data_title_adjusted = Str()
     suffix_name_roi = Str()
 
-    def filename_update(self, change):
+    def filepath_update(self, change):
         """
         Observer function to be connected to the fileio model
         in the top-level gui.py startup
@@ -134,22 +126,7 @@ class ROIModel(Atom):
             This is the dictionary that gets passed to a function
             with the @observe decorator
         """
-        self.hdf_name = change["value"]
-        # output to .h5 file
-        self.hdf_path = os.path.join(self.result_folder, self.hdf_name)
-
-    def result_folder_changed(self, change):
-        """
-        Observer function to be connected to the fileio model
-        in the top-level gui.py startup
-
-        Parameters
-        ----------
-        changed : dict
-            This is the dictionary that gets passed to a function
-            with the @observe decorator
-        """
-        self.result_folder = change["value"]
+        self.hdf_path = change["value"]
 
     def data_title_update(self, change):
         """
@@ -388,4 +365,4 @@ class ROIModel(Atom):
         except Exception as ex:
             logger.error(f"Failed to save ROI data to file '{self.hdf_path}'\n    Exception: {ex}")
         else:
-            logger.info(f"ROI data was successfully saved to file '{self.hdf_name}'")
+            logger.info(f"ROI data was successfully saved to file '{self.hdf_path}'")
