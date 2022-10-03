@@ -120,7 +120,7 @@ class GlobalProcessingClasses:
         # 'temp' is used to reload the same file, otherwise file_name will not update
         self.io_model.file_name = "temp"
         f_dir, f_name = os.path.split(file_path)
-        self.io_model.working_directory = f_dir
+        self.io_model.file_directory = f_dir
 
         def _update_data():
             self.fit_model.fit_img = {}  # clear dict in fitmodel to rm old results
@@ -273,13 +273,19 @@ class GlobalProcessingClasses:
         """
         Return current working directory (defined in 'io_model')
         """
-        return self.io_model.working_directory
+        return self.io_model.current_working_directory
+
+    def get_current_file_directory(self):
+        """
+        Return current working directory (defined in 'io_model')
+        """
+        return self.io_model.file_directory
 
     def set_current_working_directory(self, working_directory):
         """
         Sets current working directory ('io_model')
         """
-        self.io_model.working_directory = working_directory
+        self.io_model.current_working_directory = working_directory
 
     def get_load_each_channel(self):
         """

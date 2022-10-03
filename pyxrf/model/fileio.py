@@ -75,7 +75,11 @@ class FileIOModel(Atom):
     window_title = Str()
     window_title_base = Str()
 
-    working_directory = Str()
+    # Directory used for loading and saving files. Also the directory of
+    #   the currently opened file.
+    file_directory = Str()
+    current_working_directory = Str()  # Current directory (default for all dialogs)
+
     file_name = Str()
     file_name_silent_change = Bool(False)
     file_path = Str()
@@ -135,7 +139,12 @@ class FileIOModel(Atom):
     incident_energy_set = Float(0.0)
 
     def __init__(self, *, working_directory):
-        self.working_directory = working_directory
+        self.file_directory = working_directory
+
+        # Current working directory is initialized to the same value as 'working_directory',
+        #   but it is not kept in sync all the time.
+        self.current_working_directory = working_directory
+
         self.mask_data = None
 
         # Display PyXRF version in the window title
@@ -307,7 +316,7 @@ class FileIOModel(Atom):
         self.clear()
         # focus on single file only
         img_dict, self.data_sets, self.scan_metadata = load_data_from_hdf5(
-            self.working_directory, self.file_name, load_each_channel=self.load_each_channel
+            self.file_directory, self.file_name, load_each_channel=self.load_each_channel
         )
         self.img_dict = img_dict
         self.update_img_dict()
@@ -315,7 +324,10 @@ class FileIOModel(Atom):
         # Replace relative scan ID with true scan ID.
 
         # Full path to the data file
-        self.file_path = os.path.join(self.working_directory, self.file_name)
+        self.file_path = os.path.join(self.file_directory, self.file_name)
+
+        # Set current working directory to the directory of currently opened file
+        self.current_working_directory = self.file_directory
 
         # Process metadata
         self._metadata_update_program_state()
@@ -480,10 +492,13 @@ class FileIOModel(Atom):
         s = f"ID {run_id_uid}" if isinstance(run_id_uid, int) else f"UID '{run_id_uid}'"
         logger.info(f"Loading scan with {s}")
 
+        # Use 'current_working_directory' for all new files
+        self.file_directory = self.current_working_directory
+
         rv = render_data_to_gui(
             run_id_uid,
             create_each_det=self.load_each_channel,
-            working_directory=self.working_directory,
+            working_directory=self.file_directory,
             file_overwrite_existing=self.file_overwrite_existing,
         )
 
