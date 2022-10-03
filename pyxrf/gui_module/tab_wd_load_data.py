@@ -434,7 +434,7 @@ class LoadDataWidget(FormBaseWidget):
 
             # Disable the button for changing working directory. This is consistent
             #   with the behavior of the old PyXRF, but will be changed in the future.
-            self.pb_set_wd.setEnabled(False)
+            # self.pb_set_wd.setEnabled(False)
 
             # Enable/disable 'View Metadata' button
             self.pb_view_metadata.setEnabled(self.gpc.is_scan_metadata_available())
