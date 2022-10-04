@@ -1231,7 +1231,9 @@ def snip_method_numba(
     fwhm = std_fwhm * np.sqrt(tmp)
 
     # smooth the background
-    s = np.ones(con_val)
+    # s = np.ones(con_val, background.dtype)
+    # 'np.ones' stopped working with numba v0.56, so the following line is the (temporary?) working replacement.
+    s = np.array([1.0] * con_val, background.dtype)
 
     # For background remove, we only care about the central parts
     # where there are peaks. On the boundary part, we don't care
