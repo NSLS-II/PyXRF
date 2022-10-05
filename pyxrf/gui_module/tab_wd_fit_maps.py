@@ -294,7 +294,7 @@ class FitMapsWidget(FormBaseWidget):
 
     def pb_export_to_tiff_and_txt_clicked(self):
         # TODO: Propagate full path to the saved file here
-        dir_path = self.gpc.get_current_working_directory()
+        dir_path = self.gpc.get_file_directory()
         dir_path = os.path.expanduser(dir_path)
 
         params = self.gpc.get_parameters_for_exporting_maps()

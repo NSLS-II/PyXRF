@@ -45,9 +45,7 @@ class GlobalProcessingClasses:
         self.io_model = FileIOModel(working_directory=working_directory)
         self.param_model = ParamModel(default_parameters=default_parameters, io_model=self.io_model)
         self.plot_model = LinePlotModel(param_model=self.param_model, io_model=self.io_model)
-        self.fit_model = Fit1D(
-            param_model=self.param_model, io_model=self.io_model, working_directory=working_directory
-        )
+        self.fit_model = Fit1D(param_model=self.param_model, io_model=self.io_model)
         self.roi_model = ROIModel(param_model=self.param_model, io_model=self.io_model)
         self.img_model_adv = DrawImageAdvanced(io_model=self.io_model)
         self.img_model_rgb = DrawImageRGB(io_model=self.io_model, img_model_adv=self.img_model_adv)
@@ -56,16 +54,14 @@ class GlobalProcessingClasses:
         self.plot_model.roi_dict = self.roi_model.roi_dict
 
         # send working directory changes to different models
-        self.io_model.observe("working_directory", self.fit_model.result_folder_changed)
-        self.io_model.observe("working_directory", self.roi_model.result_folder_changed)
         self.io_model.observe("selected_file_name", self.fit_model.data_title_update)
         self.io_model.observe("selected_file_name", self.plot_model.exp_label_update)
         self.io_model.observe("selected_file_name", self.roi_model.data_title_update)
 
         # send the same file to fit model, as fitting results need to be saved
-        self.io_model.observe("file_name", self.fit_model.filename_update)
-        self.io_model.observe("file_name", self.plot_model.plot_exp_data_update)
-        self.io_model.observe("file_name", self.roi_model.filename_update)
+        self.io_model.observe("file_path", self.fit_model.filepath_update)
+        self.io_model.observe("file_path", self.plot_model.plot_exp_data_update)
+        self.io_model.observe("file_path", self.roi_model.filepath_update)
         self.io_model.observe("runid", self.fit_model.runid_update)
 
         # Perform updates when 'io_model.data' is changed (no data is passed)
@@ -118,9 +114,8 @@ class GlobalProcessingClasses:
         self.io_model.data_ready = False
         # only load one file
         # 'temp' is used to reload the same file, otherwise file_name will not update
-        self.io_model.file_name = "temp"
-        f_dir, f_name = os.path.split(file_path)
-        self.io_model.working_directory = f_dir
+        self.io_model.file_path = "temp"
+        f_path = file_path
 
         def _update_data():
             self.fit_model.fit_img = {}  # clear dict in fitmodel to rm old results
@@ -130,7 +125,8 @@ class GlobalProcessingClasses:
 
         # The following statement initiates file loading. It may raise exceptions
         try:
-            self.io_model.file_name = f_name
+
+            self.io_model.file_path = file_path
 
         except Exception:
             _update_data()
@@ -141,7 +137,7 @@ class GlobalProcessingClasses:
 
             self.plot_model.show_fit_opt = False
 
-            logger.info(f"Failed to load the file '{f_name}'.")
+            logger.info(f"Failed to load the file '{f_path}'.")
             # Clear file name or scan id from window title. This does not update
             #   the displayed title.
             self.io_model.window_title_clear()
@@ -175,7 +171,7 @@ class GlobalProcessingClasses:
 
             # Change window title (include file name). This does not update the visible title,
             #   only the text attribute of 'io_model' class.
-            self.io_model.window_title_set_file_name(f_name)
+            self.io_model.window_title_set_file_name(os.path.basename(f_path))
 
             if not self.io_model.incident_energy_available:
                 msg = (
@@ -243,7 +239,7 @@ class GlobalProcessingClasses:
             #   only the text attribute of 'io_model' class.
             self.io_model.window_title_set_run_id(self.io_model.runid)
 
-            file_name = self.io_model.file_name
+            file_name = self.io_model.file_path
             msg = ""
 
             logger.info("Loading of the run is completed")
@@ -273,13 +269,19 @@ class GlobalProcessingClasses:
         """
         Return current working directory (defined in 'io_model')
         """
-        return self.io_model.working_directory
+        return self.io_model.current_working_directory
+
+    def get_file_directory(self):
+        """
+        Return the directory of the last data file that was opened.
+        """
+        return self.io_model.file_directory
 
     def set_current_working_directory(self, working_directory):
         """
         Sets current working directory ('io_model')
         """
-        self.io_model.working_directory = working_directory
+        self.io_model.current_working_directory = working_directory
 
     def get_load_each_channel(self):
         """
@@ -311,7 +313,7 @@ class GlobalProcessingClasses:
         """
         Returns the name of currently loaded file.
         """
-        return self.io_model.file_name
+        return self.io_model.file_path
 
     def is_scan_metadata_available(self):
         """
@@ -1695,9 +1697,8 @@ class GlobalProcessingClasses:
     def save_param_to_file(self, path):
         save_as(path, self.param_model.param_new)
 
-    def save_spectrum(self, dir, save_fit):
-        self.fit_model.result_folder = dir
-        self.fit_model.output_summed_data_fit(save_fit=save_fit)
+    def save_spectrum(self, directory, save_fit):
+        self.fit_model.output_summed_data_fit(save_fit=save_fit, directory=directory)
 
     def compute_current_rfactor(self, save_fit):
         return self.fit_model.compute_current_rfactor(save_fit)
@@ -2037,7 +2038,7 @@ def autofind_emission_lines(
     param_model = ParamModel(default_parameters=default_parameters, io_model=io_model)
 
     print(f"Reading data from file {data_file_name!r} ...")
-    io_model.file_name = data_file_name
+    io_model.file_path = data_file_name
 
     # Parameters from scan metadata
     runid, runuid = None, None
