@@ -486,7 +486,8 @@ class ModelWidget(FormBaseWidget):
 
     def pb_save_elines_clicked(self):
         current_dir = self.gpc.get_current_working_directory()
-        fln = os.path.join(current_dir, "model_parameters.json")
+        scan_id = self.gpc.get_metadata_scan_id()
+        fln = os.path.join(current_dir, f"pyxrf_model_parameters_{scan_id}.json")
         file_name = QFileDialog.getSaveFileName(
             self, "Select File to Save Model Parameters", fln, "JSON (*.json);; All (*)"
         )
