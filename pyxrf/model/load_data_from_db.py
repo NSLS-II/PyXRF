@@ -1595,6 +1595,8 @@ def map_data2D_srx_new(
     scan_doc = start_doc["scan"]
     stop_doc = hdr.stop
 
+    # The following scan parameters are used to compute positions for some motors.
+    #   (Positions of course stages are not saved during the scan)
     fast_start, fast_stop, fast_pts, slow_start, slow_stop, slow_pts = scan_doc["scan_input"][:6]
     fast_step = (fast_stop - fast_start) / fast_pts
     slow_step = (slow_stop - slow_start) / slow_pts
@@ -1649,7 +1651,7 @@ def map_data2D_srx_new(
         elif fast_motor == "nano_stage_sz":
             fast_key = "enc3"
         elif fast_motor in stages_no_data:
-            fast_key = "fast_gen"
+            fast_key = "fast_gen"  # No positions are saved. Generate positions based on scan parameters.
         else:
             raise IOError(f"{fast_motor} not found!")
 
@@ -1661,7 +1663,7 @@ def map_data2D_srx_new(
         elif slow_motor == "nano_stage_sz":
             slow_key = "enc3"
         elif slow_motor in stages_no_data:
-            slow_key = "slow_gen"
+            slow_key = "slow_gen"  # No positions are saved. Generate positions based on scan parameters.
         else:
             slow_key = slow_motor
 
@@ -1751,12 +1753,14 @@ def map_data2D_srx_new(
                             sclr_dict[s].append(tmp)
 
                 if fast_key == "fast_gen":
+                    # Generate positions
                     row_pos_fast = np.arange(fast_pts) * fast_step + fast_start
                 else:
                     row_pos_fast = data_or_empty_array(v["data"][fast_key])
                 fast_pos.append(row_pos_fast)
 
                 if slow_key == "slow_gen":
+                    # Generate positions
                     row_pos_slow = np.ones(fast_pts) * (n_recorded_events * slow_step + slow_start)
                 elif "enc" not in slow_key:
                     # vp = next(ep)
