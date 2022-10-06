@@ -1601,6 +1601,8 @@ def map_data2D_srx_new(
     fast_step = (fast_stop - fast_start) / fast_pts
     slow_step = (slow_stop - slow_start) / slow_pts
 
+    snaking_enabled = scan_doc["snake"] == 1
+
     print(f"Scan type: {scan_doc['type']}")
 
     # Check for detectors
@@ -1755,6 +1757,8 @@ def map_data2D_srx_new(
                 if fast_key == "fast_gen":
                     # Generate positions
                     row_pos_fast = np.arange(fast_pts) * fast_step + fast_start
+                    if snaking_enabled and (n_recorded_events % 2):
+                        row_pos_fast = np.flip(row_pos_fast)
                 else:
                     row_pos_fast = data_or_empty_array(v["data"][fast_key])
                 fast_pos.append(row_pos_fast)
@@ -1953,7 +1957,7 @@ def map_data2D_srx_new(
 
     # Consider snake
     # pos_pos, d_xs, d_xs_sum, sclr
-    if scan_doc["snake"] == 1:
+    if snaking_enabled:
         pos_pos[:, 1::2, :] = pos_pos[:, 1::2, ::-1]
         if "xs" in dets or "xs4" in dets:
             if d_xs.size:
