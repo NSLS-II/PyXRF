@@ -1595,7 +1595,7 @@ def map_data2D_srx_new(
     scan_doc = start_doc["scan"]
     stop_doc = hdr.stop
 
-    fast_start, fast_stop, fast_pts, slow_start, slow_stop, slow_pts = scan_doc["scan_input"]
+    fast_start, fast_stop, fast_pts, slow_start, slow_stop, slow_pts = scan_doc["scan_input"][:6]
     fast_step = (fast_stop - fast_start) / fast_pts
     slow_step = (slow_stop - slow_start) / slow_pts
 
