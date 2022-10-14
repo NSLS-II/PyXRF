@@ -1595,6 +1595,14 @@ def map_data2D_srx_new(
     scan_doc = start_doc["scan"]
     stop_doc = hdr.stop
 
+    # The following scan parameters are used to compute positions for some motors.
+    #   (Positions of course stages are not saved during the scan)
+    fast_start, fast_stop, fast_pts, slow_start, slow_stop, slow_pts = scan_doc["scan_input"][:6]
+    fast_step = (fast_stop - fast_start) / fast_pts
+    slow_step = (slow_stop - slow_start) / slow_pts
+
+    snaking_enabled = scan_doc["snake"] == 1
+
     print(f"Scan type: {scan_doc['type']}")
 
     # Check for detectors
@@ -1634,32 +1642,30 @@ def map_data2D_srx_new(
     # ===================================================================
     #                     NEW SRX FLY SCAN
     # ===================================================================
+    stages_no_data = ("nano_stage_x", "nano_stage_y", "nano_stage_z", "nano_stage_topx", "nano_stage_topz")
+
     if scan_doc["type"] == "XRF_FLY":
         fast_motor = scan_doc["fast_axis"]["motor_name"]
         if fast_motor == "nano_stage_sx":
             fast_key = "enc1"
-        elif fast_motor == "nano_stage_x":
-            fast_key = "enc1"
         elif fast_motor == "nano_stage_sy":
-            fast_key = "enc2"
-        elif fast_motor == "nano_stage_y":
             fast_key = "enc2"
         elif fast_motor == "nano_stage_sz":
             fast_key = "enc3"
+        elif fast_motor in stages_no_data:
+            fast_key = "fast_gen"  # No positions are saved. Generate positions based on scan parameters.
         else:
             raise IOError(f"{fast_motor} not found!")
 
         slow_motor = scan_doc["slow_axis"]["motor_name"]
         if slow_motor == "nano_stage_sx":
             slow_key = "enc1"
-        elif slow_motor == "nano_stage_x":
-            slow_key = "enc1"
         elif slow_motor == "nano_stage_sy":
-            slow_key = "enc2"
-        elif slow_motor == "nano_stage_y":
             slow_key = "enc2"
         elif slow_motor == "nano_stage_sz":
             slow_key = "enc3"
+        elif slow_motor in stages_no_data:
+            slow_key = "slow_gen"  # No positions are saved. Generate positions based on scan parameters.
         else:
             slow_key = slow_motor
 
@@ -1748,15 +1754,26 @@ def map_data2D_srx_new(
                         else:
                             sclr_dict[s].append(tmp)
 
-                fast_pos.append(data_or_empty_array(v["data"][fast_key]))
-                if "enc" not in slow_key:
+                if fast_key == "fast_gen":
+                    # Generate positions
+                    row_pos_fast = np.arange(fast_pts) * fast_step + fast_start
+                    if snaking_enabled and (n_recorded_events % 2):
+                        row_pos_fast = np.flip(row_pos_fast)
+                else:
+                    row_pos_fast = data_or_empty_array(v["data"][fast_key])
+                fast_pos.append(row_pos_fast)
+
+                if slow_key == "slow_gen":
+                    # Generate positions
+                    row_pos_slow = np.ones(fast_pts) * (n_recorded_events * slow_step + slow_start)
+                elif "enc" not in slow_key:
                     # vp = next(ep)
                     # filler("event", vp)
                     tmp = data_or_empty_array(vp["data"][slow_key])
-                    tmp2 = [tmp] * n_scan_fast
+                    row_pos_slow = np.array([tmp] * n_scan_fast)
                 else:
-                    tmp2 = data_or_empty_array(v["data"][slow_key])
-                slow_pos.append(np.array(tmp2))
+                    row_pos_slow = np.array(data_or_empty_array(v["data"][slow_key]))
+                slow_pos.append(row_pos_slow)
 
                 n_recorded_events = m + 1
 
@@ -1940,7 +1957,7 @@ def map_data2D_srx_new(
 
     # Consider snake
     # pos_pos, d_xs, d_xs_sum, sclr
-    if scan_doc["snake"] == 1:
+    if snaking_enabled:
         pos_pos[:, 1::2, :] = pos_pos[:, 1::2, ::-1]
         if "xs" in dets or "xs4" in dets:
             if d_xs.size:
