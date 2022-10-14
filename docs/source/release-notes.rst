@@ -2,6 +2,23 @@
 Release Notes
 =============
 
+v1.0.20 (2022-08-19)
+====================
+
+Changed
+-------
+
+- Current working directory can now be changed at any time. The respective button is not deactivated after the first HDF5 file is opened. 
+  The working directory is used to create new HDF5 files (``Load Run..``) and as a default directory for 'Open' and 'Save' dialog boxes.
+
+- SRX beamline: The positions for course stages are now generated based on plan input parameters. The following motors are supported: 
+  ``nano_stage_x``, ``nano_stage_y``, ``nano_stage_z``, ``nano_stage_topx``, ``nano_stage_topz``.
+
+Fixed
+-----
+
+- Compatibility with Numba v0.56.x.
+
 v1.0.19 (2022-08-19)
 ====================
 
