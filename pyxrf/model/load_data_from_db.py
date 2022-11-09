@@ -166,6 +166,7 @@ def fetch_data_from_db(
     output_to_file=False,
     save_scaler=True,
     num_end_lines_excluded=None,
+    fail_for_plan_types=None,
 ):
     """
     Read data from databroker.
@@ -211,6 +212,8 @@ def fetch_data_from_db(
         choose to save scaler data or not for srx beamline, test purpose only.
     num_end_lines_excluded : int, optional
         remove the last few bad lines
+    fail_for_plan_types: list(str) or None
+        list of plan type names to ignore, e.g. ['FlyPlan1D']. (Supported only at HXN.)
 
     Returns
     -------
@@ -229,6 +232,7 @@ def fetch_data_from_db(
             successful_scans_only=successful_scans_only,
             file_overwrite_existing=file_overwrite_existing,
             output_to_file=output_to_file,
+            fail_for_plan_types=fail_for_plan_types,
         )
     elif hdr.start.beamline_id == "xf05id" or hdr.start.beamline_id == "SRX":
         data = map_data2D_srx(
@@ -286,6 +290,7 @@ def make_hdf(
     create_each_det=False,
     save_scaler=True,
     num_end_lines_excluded=None,
+    fail_for_plan_types=None,
 ):
     """
     Load data from database and save it in HDF5 files.
@@ -394,6 +399,10 @@ def make_hdf(
         False: do not save scaler data
     num_end_lines_excluded : int, optional
         The number of lines at the end of the scan that will not be saved to the data file.
+    fail_for_plan_types: list(str) or None
+        The list of plan types (e.g. ['FlyPlan1D']) that should cause the loader to raise
+        an exception. The parameter is used to allow scripts to ignore certain plan types
+        when downloading data using ranges of scans IDs. (Supported only at HXN.)
     """
 
     if wd:
@@ -427,6 +436,7 @@ def make_hdf(
             output_to_file=True,
             save_scaler=save_scaler,
             num_end_lines_excluded=num_end_lines_excluded,
+            fail_for_plan_types=fail_for_plan_types,
         )
     else:
         # Both ``start`` and ``end`` are specified. Convert the scans in the range
@@ -647,6 +657,7 @@ def map_data2D_hxn(
     successful_scans_only=False,
     file_overwrite_existing=False,
     output_to_file=True,
+    fail_for_plan_types=None,
 ):
     """
     Save the data from databroker to hdf file.
@@ -706,8 +717,10 @@ def map_data2D_hxn(
     start_doc = hdr["start"]
 
     # Exclude certain types of plans based on data from the start document
-    if start_doc["plan_type"] in ("FlyPlan1D",):
-        raise RuntimeError(f"Failed to load the plan: plan {start_doc['plan_type']!r} is not supported")
+    if isinstance(fail_for_plan_types, (list, tuple)) and (start_doc["plan_type"] in fail_for_plan_types):
+        raise RuntimeError(
+            f"Failed to load the plan: plan type {start_doc['plan_type']!r} is in the list of ignored types"
+        )
 
     # The dictionary holding scan metadata
     mdata = _extract_metadata_from_header(hdr)
@@ -757,15 +770,59 @@ def map_data2D_hxn(
         theta = round(theta, 3)  # Better presentation
     else:
         logger.warning("Angle 'theta' is not found and is not included in the HDF file metadata")
+
+    # ------------------------------------------------------------------------------------------------
+    # Dimensions of the scan
+    if "dimensions" in start_doc:
+        datashape = start_doc.dimensions
+    elif "shape" in start_doc:
+        datashape = start_doc.shape
+    elif "num_points" in start_doc:
+        datashape = [start_doc.num_points]
+    else:
+        logger.error("No dimension/shape is defined in hdr.start.")
+
+    n_dimensions = len(datashape)
+
+    if (n_dimensions == 1) and ("param_shape" in mdata):
+        mdata["param_shape"].append(1)
+
+    if n_dimensions == 1:
+        datashape = [1, datashape[0]]
+    elif n_dimensions == 2:
+        [datashape[1], datashape[0]]
+    else:
+        raise ValueError(f"Invalid data shape: {datashape}. Must be a list with 1 or 2 elements.")
+
+    pos_list = None
+    if "motors" in start_doc:
+        pos_list = start_doc.motors
+    elif "axes" in start_doc:
+        pos_list = start_doc.axes
+
+    if (pos_list is not None) and (n_dimensions == 1):  # 1D scan
+        pname = pos_list[0]
+        if pname.lower().endswith("x"):
+            pos_list.append(pname[:-1] + "y")
+        else:
+            pos_list.append(pname[:-1] + "x")
+
+    if pos_list is None:
+        pos_list = ["zpssx[um]", "zpssy[um]"]
+
     # -----------------------------------------------------------------------------------------------
     # Determine fast axis and slow axis
-    fast_axis, slow_axis = start_doc.get("fast_axis", None), None
+    fast_axis, slow_axis, fast_axis_index = start_doc.get("fast_axis", None), None, None
     motors = start_doc.get("motors", None)
     if motors and isinstance(motors, (list, tuple)) and len(motors) == 2:
         fast_axis = fast_axis if fast_axis else motors[0]
         fast_axis_index = motors.index(fast_axis, 0)
         slow_axis_index = 0 if (fast_axis_index == 1) else 1
         slow_axis = motors[slow_axis_index]
+
+    elif n_dimensions == 1:
+        fast_axis, fast_axis_index, slow_axis = pos_list[0], 0, pos_list[1]
+
     if fast_axis:
         mdata["param_fast_axis"] = fast_axis
     if slow_axis:
@@ -788,23 +845,8 @@ def map_data2D_hxn(
         )
     # -------------------------------------------------------------------------------------------------
 
-    if "dimensions" in start_doc:
-        datashape = start_doc.dimensions
-    elif "shape" in start_doc:
-        datashape = start_doc.shape
-    else:
-        logger.error("No dimension/shape is defined in hdr.start.")
-
-    datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
     fly_type = start_doc.get("fly_type", None)
     subscan_dims = start_doc.get("subscan_dims", None)
-
-    if "motors" in hdr.start:
-        pos_list = hdr.start.motors
-    elif "axes" in hdr.start:
-        pos_list = hdr.start.axes
-    else:
-        pos_list = ["zpssx[um]", "zpssy[um]"]
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
     config_file = "hxn_pv_config.json"
@@ -827,6 +869,10 @@ def map_data2D_hxn(
         fields = None
 
     data = hdr.table(fields=fields, fill=True)
+
+    # This is for the case of 'dcan' (1D), where the slow axis positions are not saved
+    if (slow_axis not in data) and (fast_axis in data):
+        data[slow_axis] = np.zeros(shape=data[fast_axis].shape)
 
     data_out = map_data2D(
         data,
