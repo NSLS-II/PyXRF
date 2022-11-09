@@ -706,8 +706,8 @@ def map_data2D_hxn(
     start_doc = hdr["start"]
 
     # Exclude certain types of plans based on data from the start document
-    if start_doc["plan_type"] in ("FlyPlan1D",):
-        raise RuntimeError(f"Failed to load the plan: plan {start_doc['plan_type']!r} is not supported")
+    ##if start_doc["plan_type"] in ("FlyPlan1D",):
+    ##    raise RuntimeError(f"Failed to load the plan: plan {start_doc['plan_type']!r} is not supported")
 
     # The dictionary holding scan metadata
     mdata = _extract_metadata_from_header(hdr)
@@ -757,15 +757,57 @@ def map_data2D_hxn(
         theta = round(theta, 3)  # Better presentation
     else:
         logger.warning("Angle 'theta' is not found and is not included in the HDF file metadata")
+
+    # ------------------------------------------------------------------------------------------------
+    # Dimensions of the scan 
+    if "dimensions" in start_doc:
+        datashape = start_doc.dimensions
+    elif "shape" in start_doc:
+        datashape = start_doc.shape
+    else:
+        logger.error("No dimension/shape is defined in hdr.start.")
+
+    n_dimensions = len(datashape)
+
+    if (n_dimensions == 1) and ("param_shape" in mdata):
+        mdata["param_shape"].append(1)
+
+    if n_dimensions == 1:
+        datashape = [1, datashape[0]]
+    elif n_dimensions == 2:
+        [datashape[1], datashape[0]]
+    else:
+        raise ValueError(f"Invalid data shape: {datashape}. Must be a list with 1 or 2 elements.")
+
+    pos_list = None
+    if "motors" in start_doc:
+        pos_list = start_doc.motors
+    elif "axes" in start_doc:
+        pos_list = start_doc.axes
+
+    if (pos_list is not None) and (n_dimensions == 1):  # 1D scan
+        pname = pos_list[0]
+        if pname.lower().endswith("x"):
+            pos_list.append(pname[:-1] + "y")
+        else:
+            pos_list.append(pname[:-1] + "x")
+
+    if pos_list is None:
+        pos_list = ["zpssx[um]", "zpssy[um]"]
+
     # -----------------------------------------------------------------------------------------------
     # Determine fast axis and slow axis
-    fast_axis, slow_axis = start_doc.get("fast_axis", None), None
+    fast_axis, slow_axis, fast_axis_index = start_doc.get("fast_axis", None), None, None
     motors = start_doc.get("motors", None)
     if motors and isinstance(motors, (list, tuple)) and len(motors) == 2:
         fast_axis = fast_axis if fast_axis else motors[0]
         fast_axis_index = motors.index(fast_axis, 0)
         slow_axis_index = 0 if (fast_axis_index == 1) else 1
         slow_axis = motors[slow_axis_index]
+    
+    elif n_dimensions == 1:
+        fast_axis, fast_axis_index, slow_axis = pos_list[0], 0, pos_list[1]
+
     if fast_axis:
         mdata["param_fast_axis"] = fast_axis
     if slow_axis:
@@ -788,23 +830,8 @@ def map_data2D_hxn(
         )
     # -------------------------------------------------------------------------------------------------
 
-    if "dimensions" in start_doc:
-        datashape = start_doc.dimensions
-    elif "shape" in start_doc:
-        datashape = start_doc.shape
-    else:
-        logger.error("No dimension/shape is defined in hdr.start.")
-
-    datashape = [datashape[1], datashape[0]]  # vertical first, then horizontal
     fly_type = start_doc.get("fly_type", None)
     subscan_dims = start_doc.get("subscan_dims", None)
-
-    if "motors" in hdr.start:
-        pos_list = hdr.start.motors
-    elif "axes" in hdr.start:
-        pos_list = hdr.start.axes
-    else:
-        pos_list = ["zpssx[um]", "zpssy[um]"]
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
     config_file = "hxn_pv_config.json"
@@ -827,6 +854,17 @@ def map_data2D_hxn(
         fields = None
 
     data = hdr.table(fields=fields, fill=True)
+    print(f"type(data)={type(data)}") ##
+    print(f"type(data['xspress3_ch1'])={type(data['xspress3_ch1'])}") ##
+    print(f"data['xspress3_ch1']={data['xspress3_ch1']}") ##
+    ## raise Exception("Stop")
+
+    # if n_dimensions == 1:
+    #     for k in det_list:
+    #         if k in data:
+    #             print(f"data[{k}] (before): {data[k].to_numpy()}")  ##
+    #             data[k] = np.expand_dims(data[k].to_numpy(), 1)  # Add another dimension
+    #             print(f"data[{k}] (after): {data[k]}")  ##
 
     data_out = map_data2D(
         data,
@@ -2861,6 +2899,7 @@ def map_data2D(
             # flip position the same as data flip on det counts
             pos_data[:, :, i] = flip_data(pos_data[:, :, i], subscan_dims=subscan_dims)
     new_p = np.zeros([len(pos_names), pos_data.shape[0], pos_data.shape[1]])
+    print(f"new_p.shape={new_p.shape} pos_data.shape={pos_data.shape}")  ##
     for i in range(len(pos_names)):
         new_p[i, :, :] = pos_data[:, :, i]
     data_output["pos_names"] = pos_names
