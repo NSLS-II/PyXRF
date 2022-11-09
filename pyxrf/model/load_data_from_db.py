@@ -759,7 +759,7 @@ def map_data2D_hxn(
         logger.warning("Angle 'theta' is not found and is not included in the HDF file metadata")
 
     # ------------------------------------------------------------------------------------------------
-    # Dimensions of the scan 
+    # Dimensions of the scan
     if "dimensions" in start_doc:
         datashape = start_doc.dimensions
     elif "shape" in start_doc:
@@ -806,7 +806,7 @@ def map_data2D_hxn(
         fast_axis_index = motors.index(fast_axis, 0)
         slow_axis_index = 0 if (fast_axis_index == 1) else 1
         slow_axis = motors[slow_axis_index]
-    
+
     elif n_dimensions == 1:
         fast_axis, fast_axis_index, slow_axis = pos_list[0], 0, pos_list[1]
 
@@ -857,21 +857,9 @@ def map_data2D_hxn(
 
     data = hdr.table(fields=fields, fill=True)
 
-    # This is for the case of 'dcan' (1D), where the slow axis does not exist
+    # This is for the case of 'dcan' (1D), where the slow axis positions are not saved
     if (slow_axis not in data) and (fast_axis in data):
         data[slow_axis] = np.zeros(shape=data[fast_axis].shape)
-
-    print(f"type(data)={type(data)}") ##
-    print(f"type(data['xspress3_ch1'])={type(data['xspress3_ch1'])}") ##
-    print(f"data['xspress3_ch1']={data['xspress3_ch1']}") ##
-    ## raise Exception("Stop")
-
-    # if n_dimensions == 1:
-    #     for k in det_list:
-    #         if k in data:
-    #             print(f"data[{k}] (before): {data[k].to_numpy()}")  ##
-    #             data[k] = np.expand_dims(data[k].to_numpy(), 1)  # Add another dimension
-    #             print(f"data[{k}] (after): {data[k]}")  ##
 
     data_out = map_data2D(
         data,
@@ -2906,7 +2894,6 @@ def map_data2D(
             # flip position the same as data flip on det counts
             pos_data[:, :, i] = flip_data(pos_data[:, :, i], subscan_dims=subscan_dims)
     new_p = np.zeros([len(pos_names), pos_data.shape[0], pos_data.shape[1]])
-    print(f"new_p.shape={new_p.shape} pos_data.shape={pos_data.shape}")  ##
     for i in range(len(pos_names)):
         new_p[i, :, :] = pos_data[:, :, i]
     data_output["pos_names"] = pos_names
