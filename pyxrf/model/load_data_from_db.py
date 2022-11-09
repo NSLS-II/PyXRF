@@ -764,6 +764,8 @@ def map_data2D_hxn(
         datashape = start_doc.dimensions
     elif "shape" in start_doc:
         datashape = start_doc.shape
+    elif "num_points" in start_doc:
+        datashape = [start_doc.num_points]
     else:
         logger.error("No dimension/shape is defined in hdr.start.")
 
@@ -854,6 +856,11 @@ def map_data2D_hxn(
         fields = None
 
     data = hdr.table(fields=fields, fill=True)
+
+    # This is for the case of 'dcan' (1D), where the slow axis does not exist
+    if (slow_axis not in data) and (fast_axis in data):
+        data[slow_axis] = np.zeros(shape=data[fast_axis].shape)
+
     print(f"type(data)={type(data)}") ##
     print(f"type(data['xspress3_ch1'])={type(data['xspress3_ch1'])}") ##
     print(f"data['xspress3_ch1']={data['xspress3_ch1']}") ##
