@@ -125,7 +125,6 @@ class GlobalProcessingClasses:
 
         # The following statement initiates file loading. It may raise exceptions
         try:
-
             self.io_model.file_path = file_path
 
         except Exception:

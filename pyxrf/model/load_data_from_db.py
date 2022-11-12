@@ -784,16 +784,6 @@ def map_data2D_hxn(
 
     n_dimensions = len(datashape)
 
-    if (n_dimensions == 1) and ("param_shape" in mdata):
-        mdata["param_shape"].append(1)
-
-    if n_dimensions == 1:
-        datashape = [1, datashape[0]]
-    elif n_dimensions == 2:
-        [datashape[1], datashape[0]]
-    else:
-        raise ValueError(f"Invalid data shape: {datashape}. Must be a list with 1 or 2 elements.")
-
     pos_list = None
     if "motors" in start_doc:
         pos_list = start_doc.motors
@@ -809,6 +799,20 @@ def map_data2D_hxn(
 
     if pos_list is None:
         pos_list = ["zpssx[um]", "zpssy[um]"]
+
+    if n_dimensions == 1:
+        if ("y" in pos_list[0]) or ("x" in pos_list[1]):
+            datashape = [datashape[0], 1]
+        else:
+            datashape = [1, datashape[0]]
+        mdata["param_shape"] = [datashape[0], 1]
+    elif n_dimensions == 2:
+        if start_doc.plan_name == "grid_scan":
+            datashape = [datashape[0], datashape[1]]
+        else:
+            datashape = [datashape[1], datashape[0]]
+    else:
+        raise ValueError(f"Invalid data shape: {datashape}. Must be a list with 1 or 2 elements.")
 
     # -----------------------------------------------------------------------------------------------
     # Determine fast axis and slow axis
@@ -2857,6 +2861,15 @@ def map_data2D(
 
             # new veritcal shape is defined to ignore zeros points caused by stopped/aborted scans
             new_v_shape = len(channel_data) // datashape[1]
+            # Support for incomplete 1 row scan
+            if not new_v_shape and len(channel_data):
+                new_v_shape = 1
+                last_index = len(channel_data)
+                fill_shape = channel_data[last_index].shape
+                fill_dtype = channel_data[last_index].dtype
+                for n in range(len(channel_data), datashape[1] + 1):
+                    channel_data[n] = np.zeros(shape=fill_shape, dtype=fill_dtype)
+
             new_data = np.vstack(channel_data)
             new_data = new_data.astype(np.float32, copy=False)  # Change representation to np.float32
             new_data = new_data[: new_v_shape * datashape[1], :]
@@ -2872,21 +2885,6 @@ def map_data2D(
             if create_each_det:
                 data_output[detname] = new_data
             if sum_data is None:
-                # Note: Here is the place where the error was found!!!
-                #   The assignment in the next line used to be written as
-                #      sum_data = new_data
-                #   i.e. reference to data from 'det1' was assigned to 'sum_data'.
-                #   After computation of the sum, both 'sum_data' and detector 'det1'
-                #     were referencing the same ndarray, holding the sum of values
-                #     from detector channels 'det1', 'det2' and 'det3'. In addition, the sum is
-                #     computed again before data is saved into '.h5' file.
-                #     The algorithm for computing of the second sum is working correctly,
-                #     but since 'det1' already contains the true sum 'det1'+'det2'+'det3',
-                #     the computed sum equals 'det1'+2*'det2'+2*'det3'.
-                #   The problem was fixed by replacing assignment of reference during
-                #   initalization of 'sum_data' by copying the array.
-                # The error is documented because the code was used for a long time
-                #   for initial processing of XRF imaging data at HXN beamline.
                 sum_data = np.copy(new_data)
             else:
                 sum_data += new_data
