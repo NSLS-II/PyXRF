@@ -2907,6 +2907,18 @@ def map_data2D(
     new_p = np.zeros([len(pos_names), pos_data.shape[0], pos_data.shape[1]])
     for i in range(len(pos_names)):
         new_p[i, :, :] = pos_data[:, :, i]
+
+    # Make sure that positions have the same dimensions as xs3 data
+    nv, nh, _ = sum_data.shape
+    if new_p.shape[1] > nv:
+        new_p = new_p[:, :nv, :]
+    elif new_p.shape[1] < nv:
+        new_p = np.pad(new_p, [(0, 0), (0, nv - new_p.shape[1]), (0, 0)])
+    if new_p.shape[2] > nh:
+        new_p = new_p[:, :, :nh]
+    elif new_p.shape[2] < nh:
+        new_p = np.pad(new_p, [(0, 0), (0, 0), (0, nh - new_p.shape[2])])
+
     data_output["pos_names"] = pos_names
     data_output["pos_data"] = new_p
 
@@ -2914,6 +2926,17 @@ def map_data2D(
     scaler_names, scaler_data = get_name_value_from_db(scaler_list, data, datashape)
     if fly_type in ("pyramid",):
         scaler_data = flip_data(scaler_data, subscan_dims=subscan_dims)
+
+    # Make sure that scaler data as xs3 data
+    if scaler_data.shape[0] > nv:
+        scaler_data = scaler_data[:nv, :, :]
+    elif scaler_data.shape[0] < nv:
+        scaler_data = np.pad(scaler_data, [(0, nv - scaler_data.shape[0]), (0, 0), (0, 0)])
+    if scaler_data.shape[1] > nh:
+        scaler_data = scaler_data[:, :nh, :]
+    elif scaler_data.shape[1] < nh:
+        scaler_data = np.pad(scaler_data, [(0, 0), (0, nh - scaler_data.shape[1]), (0, 0)])
+
     data_output["scaler_names"] = scaler_names
     data_output["scaler_data"] = scaler_data
     return data_output
