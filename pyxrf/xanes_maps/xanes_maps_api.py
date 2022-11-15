@@ -177,7 +177,7 @@ def build_xanes_map(
         file will be skipped. This parameter is passed directly to ``make_hdf``, which
         is responsible for downloading data.
 
-    skip_scan_types: list(str) or None
+    skip_scan_types : list(str) or None
         The list of plan types (e.g. ['FlyPlan1D']) that are skipped while downloading
         data for a range of scan IDs. (Supported only at HXN.)
 
@@ -650,7 +650,7 @@ def _build_xanes_map_api(
         file will be skipped. This parameter is passed directly to ``make_hdf``, which
         is responsible for downloading data.
 
-    skip_scan_types: list(str) or None
+    skip_scan_types : list(str) or None
         The list of plan types (e.g. ['FlyPlan1D']) that are skipped while downloading
         data for a range of scan IDs. (Supported only at HXN.)
 
@@ -1063,7 +1063,7 @@ def _load_data_from_databroker(*, start_id, end_id, wd_xrf, file_overwrite_exist
         with the same name: ``True`` the file will always be replaced, ``False`` existing
         file will be skipped.
 
-    skip_scan_types: list(str) or None
+    skip_scan_types : list(str) or None
         The list of plan types (e.g. ['FlyPlan1D']) that are skipped while downloading
         data for a range of scan IDs. (Supported only at HXN.)
     """
