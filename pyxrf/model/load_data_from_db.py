@@ -166,7 +166,7 @@ def fetch_data_from_db(
     output_to_file=False,
     save_scaler=True,
     num_end_lines_excluded=None,
-    fail_for_plan_types=None,
+    skip_scan_types=None,
 ):
     """
     Read data from databroker.
@@ -212,7 +212,7 @@ def fetch_data_from_db(
         choose to save scaler data or not for srx beamline, test purpose only.
     num_end_lines_excluded : int, optional
         remove the last few bad lines
-    fail_for_plan_types: list(str) or None
+    skip_scan_types: list(str) or None
         list of plan type names to ignore, e.g. ['FlyPlan1D']. (Supported only at HXN.)
 
     Returns
@@ -232,7 +232,7 @@ def fetch_data_from_db(
             successful_scans_only=successful_scans_only,
             file_overwrite_existing=file_overwrite_existing,
             output_to_file=output_to_file,
-            fail_for_plan_types=fail_for_plan_types,
+            skip_scan_types=skip_scan_types,
         )
     elif hdr.start.beamline_id == "xf05id" or hdr.start.beamline_id == "SRX":
         data = map_data2D_srx(
@@ -290,7 +290,7 @@ def make_hdf(
     create_each_det=False,
     save_scaler=True,
     num_end_lines_excluded=None,
-    fail_for_plan_types=None,
+    skip_scan_types=None,
 ):
     """
     Load data from database and save it in HDF5 files.
@@ -399,7 +399,7 @@ def make_hdf(
         False: do not save scaler data
     num_end_lines_excluded : int, optional
         The number of lines at the end of the scan that will not be saved to the data file.
-    fail_for_plan_types: list(str) or None
+    skip_scan_types: list(str) or None
         The list of plan types (e.g. ['FlyPlan1D']) that should cause the loader to raise
         an exception. The parameter is used to allow scripts to ignore certain plan types
         when downloading data using ranges of scans IDs. (Supported only at HXN.)
@@ -436,7 +436,7 @@ def make_hdf(
             output_to_file=True,
             save_scaler=save_scaler,
             num_end_lines_excluded=num_end_lines_excluded,
-            fail_for_plan_types=fail_for_plan_types,
+            skip_scan_types=skip_scan_types,
         )
     else:
         # Both ``start`` and ``end`` are specified. Convert the scans in the range
@@ -657,7 +657,7 @@ def map_data2D_hxn(
     successful_scans_only=False,
     file_overwrite_existing=False,
     output_to_file=True,
-    fail_for_plan_types=None,
+    skip_scan_types=None,
 ):
     """
     Save the data from databroker to hdf file.
@@ -717,7 +717,7 @@ def map_data2D_hxn(
     start_doc = hdr["start"]
 
     # Exclude certain types of plans based on data from the start document
-    if isinstance(fail_for_plan_types, (list, tuple)) and (start_doc["plan_type"] in fail_for_plan_types):
+    if isinstance(skip_scan_types, (list, tuple)) and (start_doc["plan_type"] in skip_scan_types):
         raise RuntimeError(
             f"Failed to load the plan: plan type {start_doc['plan_type']!r} is in the list of ignored types"
         )

@@ -177,6 +177,10 @@ def build_xanes_map(
         file will be skipped. This parameter is passed directly to ``make_hdf``, which
         is responsible for downloading data.
 
+    skip_scan_types: list(str) or None
+        The list of plan types (e.g. ['FlyPlan1D']) that are skipped while downloading
+        data for a range of scan IDs. (Supported only at HXN.)
+
     xrf_fitting_param_fln : str
         the name of the JSON parameter file. The parameters are used for automated
         processing of data with ``pyxrf_batch``. The parameter file is typically produced
@@ -473,6 +477,7 @@ _build_xanes_map_param_default = {
     "start_id": None,
     "end_id": None,
     "file_overwrite_existing": False,
+    "skip_scan_types": None,
     "xrf_fitting_param_fln": None,
     "xrf_subtract_baseline": True,
     "scaler_name": None,
@@ -509,6 +514,7 @@ _build_xanes_map_param_schema = {
         "start_id",
         "end_id",
         "file_overwrite_existing",
+        "skip_scan_types",
         "xrf_fitting_param_fln",
         "xrf_subtract_baseline",
         "scaler_name",
@@ -539,6 +545,7 @@ _build_xanes_map_param_schema = {
         "start_id": {"type": ["integer", "null"], "exclusiveMinimum": 0},
         "end_id": {"type": ["integer", "null"], "exclusiveMinimum": 0},
         "file_overwrite_existing": {"type": "boolean"},
+        "skip_scan_types": {"oneOf": [{"type": "array", "itmes": {"type": "string"}}, {"type": "null"}]},
         "xrf_fitting_param_fln": {"type": ["string", "null"]},
         "xrf_subtract_baseline": {"type": "boolean"},
         "scaler_name": {"type": ["string", "null"]},
@@ -578,6 +585,7 @@ def _build_xanes_map_api(
     start_id=None,
     end_id=None,
     file_overwrite_existing=False,
+    skip_scan_types=None,
     xrf_fitting_param_fln=None,
     xrf_subtract_baseline=True,
     scaler_name=None,
@@ -641,6 +649,10 @@ def _build_xanes_map_api(
         with the same name: ``True`` the file will always be replaced, ``False`` existing
         file will be skipped. This parameter is passed directly to ``make_hdf``, which
         is responsible for downloading data.
+
+    skip_scan_types: list(str) or None
+        The list of plan types (e.g. ['FlyPlan1D']) that are skipped while downloading
+        data for a range of scan IDs. (Supported only at HXN.)
 
     xrf_fitting_param_fln : str
         the name of the JSON parameter file. The parameters are used for automated
@@ -949,7 +961,11 @@ def _build_xanes_map_api(
 
     if seq_load_data:
         _load_data_from_databroker(
-            start_id=start_id, end_id=end_id, wd_xrf=wd_xrf, file_overwrite_existing=file_overwrite_existing
+            start_id=start_id,
+            end_id=end_id,
+            wd_xrf=wd_xrf,
+            file_overwrite_existing=file_overwrite_existing,
+            skip_scan_types=skip_scan_types,
         )
         logger.info("Loading data from databroker: success.")
     else:
@@ -1025,7 +1041,7 @@ def _build_xanes_map_api(
     logger.info("Processing is complete.")
 
 
-def _load_data_from_databroker(*, start_id, end_id, wd_xrf, file_overwrite_existing):
+def _load_data_from_databroker(*, start_id, end_id, wd_xrf, file_overwrite_existing, skip_scan_types):
     r"""
     Implements the first step of processing sequence: loading the batch of scan data
     from databroker.
@@ -1046,6 +1062,10 @@ def _load_data_from_databroker(*, start_id, end_id, wd_xrf, file_overwrite_exist
         Indicates if the existing file should be deleted and replaced with the new file
         with the same name: ``True`` the file will always be replaced, ``False`` existing
         file will be skipped.
+
+    skip_scan_types: list(str) or None
+        The list of plan types (e.g. ['FlyPlan1D']) that are skipped while downloading
+        data for a range of scan IDs. (Supported only at HXN.)
     """
 
     # Try to create the directory (does nothing if the directory exists)
@@ -1066,6 +1086,7 @@ def _load_data_from_databroker(*, start_id, end_id, wd_xrf, file_overwrite_exist
         file_overwrite_existing=file_overwrite_existing,
         create_each_det=False,
         save_scaler=True,
+        skip_scan_types=skip_scan_types,
     )
 
 
@@ -3538,6 +3559,7 @@ if __name__ == "__main__":
     build_xanes_map(
         start_id=92276,
         end_id=92335,
+        skip_scan_types=["FlyPlan1D"],
         xrf_fitting_param_fln="param_335",
         scaler_name="sclr1_ch4",
         wd=None,
