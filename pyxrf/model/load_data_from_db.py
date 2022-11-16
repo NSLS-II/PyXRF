@@ -716,7 +716,7 @@ def map_data2D_hxn(
     data_output = []
 
     start_doc = hdr["start"]
-    logger.info("Plan type: '%s'", start_doc['plan_type'])
+    logger.info("Plan type: '%s'", start_doc["plan_type"])
 
     # Exclude certain types of plans based on data from the start document
     if isinstance(skip_scan_types, (list, tuple)) and (start_doc["plan_type"] in skip_scan_types):
