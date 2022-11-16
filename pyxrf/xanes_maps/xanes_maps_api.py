@@ -842,7 +842,6 @@ def _build_xanes_map_api(
     Raise exceptions if processing can not be completed. The error message indicates the reason
     of failure.
     """
-
     if wd is None:
         wd = "."
     else:
@@ -1067,7 +1066,6 @@ def _load_data_from_databroker(*, start_id, end_id, wd_xrf, file_overwrite_exist
         The list of plan types (e.g. ['FlyPlan1D']) that are skipped while downloading
         data for a range of scan IDs. (Supported only at HXN.)
     """
-
     # Try to create the directory (does nothing if the directory exists)
     os.makedirs(wd_xrf, exist_ok=True)
     files_h5 = [fl.path for fl in os.scandir(path=wd_xrf) if fl.name.lower().endswith(".h5")]

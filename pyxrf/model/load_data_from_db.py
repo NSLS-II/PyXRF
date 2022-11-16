@@ -459,6 +459,7 @@ def make_hdf(
                     output_to_file=True,
                     save_scaler=save_scaler,
                     num_end_lines_excluded=num_end_lines_excluded,
+                    skip_scan_types=skip_scan_types,
                 )
                 print(f"Scan #{v}: Conversion completed.\n")
             except Exception as ex:
@@ -715,11 +716,12 @@ def map_data2D_hxn(
     data_output = []
 
     start_doc = hdr["start"]
+    logger.info("Plan type: '%s'", start_doc['plan_type'])
 
     # Exclude certain types of plans based on data from the start document
     if isinstance(skip_scan_types, (list, tuple)) and (start_doc["plan_type"] in skip_scan_types):
         raise RuntimeError(
-            f"Failed to load the plan: plan type {start_doc['plan_type']!r} is in the list of ignored types"
+            f"Failed to load the scan: plan type {start_doc['plan_type']!r} is in the list of skipped types"
         )
 
     # The dictionary holding scan metadata
