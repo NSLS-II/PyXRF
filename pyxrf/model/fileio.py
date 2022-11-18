@@ -343,6 +343,7 @@ class FileIOModel(Atom):
 
         default_channel = 0  # Use summed data as default
         self.file_opt = default_channel
+
         if self.file_channel_list and self.data_sets:
             self.data_sets[self.file_channel_list[default_channel]].selected_for_preview = True
 

@@ -166,7 +166,7 @@ def fetch_data_from_db(
     output_to_file=False,
     save_scaler=True,
     num_end_lines_excluded=None,
-    fail_for_plan_types=None,
+    skip_scan_types=None,
 ):
     """
     Read data from databroker.
@@ -212,7 +212,7 @@ def fetch_data_from_db(
         choose to save scaler data or not for srx beamline, test purpose only.
     num_end_lines_excluded : int, optional
         remove the last few bad lines
-    fail_for_plan_types: list(str) or None
+    skip_scan_types: list(str) or None
         list of plan type names to ignore, e.g. ['FlyPlan1D']. (Supported only at HXN.)
 
     Returns
@@ -232,7 +232,7 @@ def fetch_data_from_db(
             successful_scans_only=successful_scans_only,
             file_overwrite_existing=file_overwrite_existing,
             output_to_file=output_to_file,
-            fail_for_plan_types=fail_for_plan_types,
+            skip_scan_types=skip_scan_types,
         )
     elif hdr.start.beamline_id == "xf05id" or hdr.start.beamline_id == "SRX":
         data = map_data2D_srx(
@@ -290,7 +290,7 @@ def make_hdf(
     create_each_det=False,
     save_scaler=True,
     num_end_lines_excluded=None,
-    fail_for_plan_types=None,
+    skip_scan_types=None,
 ):
     """
     Load data from database and save it in HDF5 files.
@@ -399,7 +399,7 @@ def make_hdf(
         False: do not save scaler data
     num_end_lines_excluded : int, optional
         The number of lines at the end of the scan that will not be saved to the data file.
-    fail_for_plan_types: list(str) or None
+    skip_scan_types: list(str) or None
         The list of plan types (e.g. ['FlyPlan1D']) that should cause the loader to raise
         an exception. The parameter is used to allow scripts to ignore certain plan types
         when downloading data using ranges of scans IDs. (Supported only at HXN.)
@@ -436,7 +436,7 @@ def make_hdf(
             output_to_file=True,
             save_scaler=save_scaler,
             num_end_lines_excluded=num_end_lines_excluded,
-            fail_for_plan_types=fail_for_plan_types,
+            skip_scan_types=skip_scan_types,
         )
     else:
         # Both ``start`` and ``end`` are specified. Convert the scans in the range
@@ -459,6 +459,7 @@ def make_hdf(
                     output_to_file=True,
                     save_scaler=save_scaler,
                     num_end_lines_excluded=num_end_lines_excluded,
+                    skip_scan_types=skip_scan_types,
                 )
                 print(f"Scan #{v}: Conversion completed.\n")
             except Exception as ex:
@@ -657,7 +658,7 @@ def map_data2D_hxn(
     successful_scans_only=False,
     file_overwrite_existing=False,
     output_to_file=True,
-    fail_for_plan_types=None,
+    skip_scan_types=None,
 ):
     """
     Save the data from databroker to hdf file.
@@ -715,11 +716,12 @@ def map_data2D_hxn(
     data_output = []
 
     start_doc = hdr["start"]
+    logger.info("Plan type: '%s'", start_doc["plan_type"])
 
     # Exclude certain types of plans based on data from the start document
-    if isinstance(fail_for_plan_types, (list, tuple)) and (start_doc["plan_type"] in fail_for_plan_types):
+    if isinstance(skip_scan_types, (list, tuple)) and (start_doc["plan_type"] in skip_scan_types):
         raise RuntimeError(
-            f"Failed to load the plan: plan type {start_doc['plan_type']!r} is in the list of ignored types"
+            f"Failed to load the scan: plan type {start_doc['plan_type']!r} is in the list of skipped types"
         )
 
     # The dictionary holding scan metadata
@@ -784,16 +786,6 @@ def map_data2D_hxn(
 
     n_dimensions = len(datashape)
 
-    if (n_dimensions == 1) and ("param_shape" in mdata):
-        mdata["param_shape"].append(1)
-
-    if n_dimensions == 1:
-        datashape = [1, datashape[0]]
-    elif n_dimensions == 2:
-        [datashape[1], datashape[0]]
-    else:
-        raise ValueError(f"Invalid data shape: {datashape}. Must be a list with 1 or 2 elements.")
-
     pos_list = None
     if "motors" in start_doc:
         pos_list = start_doc.motors
@@ -809,6 +801,20 @@ def map_data2D_hxn(
 
     if pos_list is None:
         pos_list = ["zpssx[um]", "zpssy[um]"]
+
+    if n_dimensions == 1:
+        if ("y" in pos_list[0]) or ("x" in pos_list[1]):
+            datashape = [datashape[0], 1]
+        else:
+            datashape = [1, datashape[0]]
+        mdata["param_shape"] = [datashape[0], 1]
+    elif n_dimensions == 2:
+        if start_doc.plan_name == "grid_scan":
+            datashape = [datashape[0], datashape[1]]
+        else:
+            datashape = [datashape[1], datashape[0]]
+    else:
+        raise ValueError(f"Invalid data shape: {datashape}. Must be a list with 1 or 2 elements.")
 
     # -----------------------------------------------------------------------------------------------
     # Determine fast axis and slow axis
@@ -2857,6 +2863,15 @@ def map_data2D(
 
             # new veritcal shape is defined to ignore zeros points caused by stopped/aborted scans
             new_v_shape = len(channel_data) // datashape[1]
+            # Support for incomplete 1 row scan
+            if not new_v_shape and len(channel_data):
+                new_v_shape = 1
+                last_index = len(channel_data)
+                fill_shape = channel_data[last_index].shape
+                fill_dtype = channel_data[last_index].dtype
+                for n in range(len(channel_data), datashape[1] + 1):
+                    channel_data[n] = np.zeros(shape=fill_shape, dtype=fill_dtype)
+
             new_data = np.vstack(channel_data)
             new_data = new_data.astype(np.float32, copy=False)  # Change representation to np.float32
             new_data = new_data[: new_v_shape * datashape[1], :]
@@ -2872,21 +2887,6 @@ def map_data2D(
             if create_each_det:
                 data_output[detname] = new_data
             if sum_data is None:
-                # Note: Here is the place where the error was found!!!
-                #   The assignment in the next line used to be written as
-                #      sum_data = new_data
-                #   i.e. reference to data from 'det1' was assigned to 'sum_data'.
-                #   After computation of the sum, both 'sum_data' and detector 'det1'
-                #     were referencing the same ndarray, holding the sum of values
-                #     from detector channels 'det1', 'det2' and 'det3'. In addition, the sum is
-                #     computed again before data is saved into '.h5' file.
-                #     The algorithm for computing of the second sum is working correctly,
-                #     but since 'det1' already contains the true sum 'det1'+'det2'+'det3',
-                #     the computed sum equals 'det1'+2*'det2'+2*'det3'.
-                #   The problem was fixed by replacing assignment of reference during
-                #   initalization of 'sum_data' by copying the array.
-                # The error is documented because the code was used for a long time
-                #   for initial processing of XRF imaging data at HXN beamline.
                 sum_data = np.copy(new_data)
             else:
                 sum_data += new_data
@@ -2909,6 +2909,18 @@ def map_data2D(
     new_p = np.zeros([len(pos_names), pos_data.shape[0], pos_data.shape[1]])
     for i in range(len(pos_names)):
         new_p[i, :, :] = pos_data[:, :, i]
+
+    # Make sure that positions have the same dimensions as xs3 data
+    nv, nh, _ = sum_data.shape
+    if new_p.shape[1] > nv:
+        new_p = new_p[:, :nv, :]
+    elif new_p.shape[1] < nv:
+        new_p = np.pad(new_p, [(0, 0), (0, nv - new_p.shape[1]), (0, 0)])
+    if new_p.shape[2] > nh:
+        new_p = new_p[:, :, :nh]
+    elif new_p.shape[2] < nh:
+        new_p = np.pad(new_p, [(0, 0), (0, 0), (0, nh - new_p.shape[2])])
+
     data_output["pos_names"] = pos_names
     data_output["pos_data"] = new_p
 
@@ -2916,6 +2928,17 @@ def map_data2D(
     scaler_names, scaler_data = get_name_value_from_db(scaler_list, data, datashape)
     if fly_type in ("pyramid",):
         scaler_data = flip_data(scaler_data, subscan_dims=subscan_dims)
+
+    # Make sure that scaler data as xs3 data
+    if scaler_data.shape[0] > nv:
+        scaler_data = scaler_data[:nv, :, :]
+    elif scaler_data.shape[0] < nv:
+        scaler_data = np.pad(scaler_data, [(0, nv - scaler_data.shape[0]), (0, 0), (0, 0)])
+    if scaler_data.shape[1] > nh:
+        scaler_data = scaler_data[:, :nh, :]
+    elif scaler_data.shape[1] < nh:
+        scaler_data = np.pad(scaler_data, [(0, 0), (0, nh - scaler_data.shape[1]), (0, 0)])
+
     data_output["scaler_names"] = scaler_names
     data_output["scaler_data"] = scaler_data
     return data_output
