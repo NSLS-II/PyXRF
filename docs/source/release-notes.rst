@@ -2,16 +2,31 @@
 Release Notes
 =============
 
+v1.0.21 (2022-12-11)
+====================
+
+Added
+-----
+
+- ``make_hdf`` now supports ``Fly1D``, ``dmesh`` and ``dscan`` (HXN).
+
+- New parameter ``fail_for_plan_types`` is added ``make_hdf``. The parameter accepts
+  a list of plan types ignored by ``make_hdf`` (``make_hdf`` is raising an exception when loading
+  a single plan). Currently supported only at HXN.
+
+- Loading data with corrupt rows in the middle of the scan (TES).
+
+
 v1.0.20 (2022-08-19)
 ====================
 
 Changed
 -------
 
-- Current working directory can now be changed at any time. The respective button is not deactivated after the first HDF5 file is opened. 
+- Current working directory can now be changed at any time. The respective button is not deactivated after the first HDF5 file is opened.
   The working directory is used to create new HDF5 files (``Load Run..``) and as a default directory for 'Open' and 'Save' dialog boxes.
 
-- SRX beamline: The positions for course stages are now generated based on plan input parameters. The following motors are supported: 
+- SRX beamline: The positions for course stages are now generated based on plan input parameters. The following motors are supported:
   ``nano_stage_x``, ``nano_stage_y``, ``nano_stage_z``, ``nano_stage_topx``, ``nano_stage_topz``.
 
 Fixed
