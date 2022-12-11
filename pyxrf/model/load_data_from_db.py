@@ -2330,27 +2330,65 @@ def map_data2D_tes(
     detector_data = np.zeros(shape=data_shape + (spectrum_len,), dtype=np.float32)
     n_events = data_shape[0]
     n_events_found = 0
-    e = hdr.events(fill=True, stream_name="primary")
 
-    n_pt_max = -1
+    filler = Filler(db.reg.handler_reg, inplace=True)
+    docs_primary = hdr.documents("primary", fill=False)
+
+    m, n_pt_max, missing_rows = 0, -1, []  # m - index
     try:
-        for n, v in enumerate(e):
-            if n >= n_events:
-                print("The number of lines is less than expected")
-                break
-            data = v.data[detector_field]
-            data_det1 = np.array(data[:, 0, :], dtype=np.float32)
+        while True:
+            try:
+                while True:
+                    name, doc = next(docs_primary)
+                    try:
+                        filler(name, doc)
+                        is_filled = True
+                    except Exception:
+                        is_filled = False
+                    if name == "event":
+                        break
+            except StopIteration:
+                break  # All events are processed, exit the loop
 
-            # The following is the fix for the case when data has corrupt row (smaller number of data points).
-            # It will not work if the first row is corrupt.
-            n_pt_max = max(data_det1.shape[0], n_pt_max)
-            data_det1_adjusted = np.zeros([n_pt_max, data_det1.shape[1]])
-            data_det1_adjusted[: data_det1.shape[0], :] = data_det1
+            if is_filled:
+                data = doc["data"][detector_field]
+                data_det1 = np.array(data[:, 0, :], dtype=np.float32)
 
-            detector_data[n, :, :] = data_det1_adjusted
-            n_events_found = n + 1
+                # The following is the fix for the case when data has corrupt row (smaller number of data points).
+                # It will not work if the first row is corrupt.
+                n_pt_max = max(data_det1.shape[0], n_pt_max)
+                data_det1_adjusted = np.zeros([n_pt_max, data_det1.shape[1]])
+                data_det1_adjusted[: data_det1.shape[0], :] = data_det1
+
+                detector_data[m, :, :] = data_det1_adjusted
+
+            else:
+                print(f"Fluorescence data for row #{m} can not be loaded.")
+                missing_rows.append(m)
+
+            m += 1
+            n_events_found = m
+
     except Exception as ex:
         logger.error(f"Error occurred while reading data: {ex}. Trying to retrieve available data ...")
+
+    def select_nr_src(n_start, n_stop, n_step):
+        for n in range(n_start, n_stop, n_step):
+            if n not in missing_rows:
+                return n
+        return None
+
+    while missing_rows:
+        nr = missing_rows.pop(0)
+        print(f"Replacing row {nr} ...")
+        nr_src_1 = select_nr_src(nr + 1, n_events_found, 1)
+        nr_src_2 = select_nr_src(nr - 1, -1, -1)
+        print(f"Source rows: {nr_src_1} {nr_src_2}")
+        if (nr_src_1 is not None) and (nr_src_2 is not None):
+            detector_data[nr, :, :] = (detector_data[nr_src_1, :, :] + detector_data[nr_src_2, :, :]) / 2
+        elif (nr_src_1 is not None) or (nr_src_2 is not None):
+            nr_src = nr_src_1 if (nr_src_1 is not None) else nr_src_2
+            detector_data[nr, :, :] = detector_data[nr_src, :, :]
 
     if n_events_found < n_events:
         print("The number of lines is less than expected. The experiment may be incomplete")
