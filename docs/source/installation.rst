@@ -10,11 +10,27 @@ identical for all supported OS.
 PyXRF is currently not working properly with ``PyQt5`` v5.15, which is the latest available
 version. The instructions show how to install earlier version of ``PyQt5`` from PyPI.
 
-1. Install `Conda <https://www.anaconda.com/distribution>`_. Select the latest version.
-   Anaconda package is recommended to casual users because it installs the entire
-   scientific Python stack. Advanced users may consider installing
-   `Miniconda <http://conda.pydata.org/miniconda.html>`_ since it is a much smaller
-   download (~400 MB vs. ~20 MB).
+.. note::
+
+  **Installation on Windows**: PyXRF can be installed from *conda-forge* only in the environments
+  with Python 3.9 and older. Python 3.10 and 3.11 (latest and default) are currently
+  not supported. If there is no existing Conda installation, download and
+  install *Miniconda3*, choose the option to add *Miniconda3* to system PATH when asked,
+  then run the following commands (replace the environment name `pyxrf-env` with
+  any convenient name if necessary):
+
+  .. code:: bash
+
+    $ conda create -n pyxrf-env python=3.9 pip -c conda-forge
+    $ conda activate pyxrf-env
+    $ conda install pyxrf -c conda-forge
+
+
+1. Install `Miniconda3 <http://conda.pydata.org/miniconda.html>`_  or
+   `Anaconda <https://www.anaconda.com/distribution>`_. Select the latest version.
+   *Miniconda* is sufficient for running PyXRF and contains the minimum number
+   of packages. *Anaconda* is much larger download, which also installs GUI
+   applications for more convenient management of Conda environments.
 
    If Conda is already installed on your computer, proceed to the next step.
 
@@ -27,13 +43,6 @@ version. The instructions show how to install earlier version of ``PyQt5`` from 
        $ conda update -n base -c defaults conda
 
    If you are installing PyXRF on a Windows platform, close and restart Anaconda Prompt.
-
-   .. note::
-
-      The following instructions work in an environment with Conda 4.6 or newer.
-      If PyXRF is installed in an older Conda environment then different command syntax
-      must be used on some platforms (particularly Windows). Refer to the Conda documentation
-      for more details.
 
 3. Install PyXRF from ``conda-forge`` Anaconda channels.
 
