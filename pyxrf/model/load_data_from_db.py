@@ -1955,12 +1955,14 @@ def map_data2D_srx_new(
         # Get detector data
         keys = hdr.table().keys()
         MAX_DET_ELEMENTS = 8
-        N_xs, det_name_prefix = None, None
+        N_xs, det_name_prefix, ndigits = None, None, 1
         for i in np.arange(1, MAX_DET_ELEMENTS + 1):
             if f"xs_channel{i}" in keys:
-                N_xs, det_name_prefix = i, "xs_channel"
+                N_xs, det_name_prefix, ndigits = i, "xs_channel", 1
+            elif f"xs_channel{i:02d}" in keys:
+                N_xs, det_name_prefix, ndigits = i, "xs_channel", 2
             elif f"xs_channels_channel{i:02d}" in keys:
-                N_xs, det_name_prefix = i, "xs_channels_channel"
+                N_xs, det_name_prefix, ndigits = i, "xs_channels_channel", 2
             else:
                 break
         N_pts = num_events
@@ -1968,10 +1970,9 @@ def map_data2D_srx_new(
         if "xs" in dets or "xs4" in dets:
             d_xs = np.empty((N_xs, N_pts, N_bins))
             for i in np.arange(0, N_xs):
-                if det_name_prefix == "xs_channel":
-                    dname = det_name_prefix + f"{i + 1}"
-                else:
-                    dname = det_name_prefix + f"{i + 1:02d}"
+                chnum = f"{i + 1}" if ndigits == 1 else f"{i + 1:02d}"
+                dname = det_name_prefix + chnum
+
                 d = hdr.data(dname, fill=True)
                 d = np.array(list(d))
                 d_xs[i, :, :] = np.copy(d)
