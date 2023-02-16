@@ -32,7 +32,6 @@ logger = logging.getLogger(__name__)
 
 
 class WndLoadQuantitativeCalibration(SecondaryWindow):
-
     signal_quantitative_calibration_changed = Signal()
 
     def __init__(self, *, gpc, gui_vars):
@@ -106,7 +105,6 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
         self._set_tooltips()
 
     def _setup_tab_widget(self):
-
         self.tab_widget = QTabWidget()
         self.loaded_standards = QWidget()
         # self.display_loaded_standards()
@@ -312,7 +310,6 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
             self.display_table_header()
 
             for n, eline in enumerate(self.eline_list):
-
                 rgb = table_colors[n % 2]
 
                 item = QTableWidgetItem(eline)

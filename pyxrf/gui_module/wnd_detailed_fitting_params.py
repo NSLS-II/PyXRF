@@ -39,7 +39,6 @@ value_names = {
 
 
 class WndDetailedFittingParams(SecondaryWindow):
-
     # Signal that is sent (to main window) to update global state of the program
     update_global_state = Signal()
     computations_complete = Signal(object)
@@ -86,7 +85,6 @@ class WndDetailedFittingParams(SecondaryWindow):
         self._data_changed = False
 
     def _setup_element_selection(self):
-
         self.combo_element_sel = QComboBox()
         self.combo_element_sel.setMinimumWidth(200)
         self.combo_element_sel.currentIndexChanged.connect(self.combo_element_sel_current_index_changed)
@@ -114,7 +112,6 @@ class WndDetailedFittingParams(SecondaryWindow):
         return hbox
 
     def _setup_table(self):
-
         self._value_keys = ("value", "min", "max")
 
         # Labels for horizontal header

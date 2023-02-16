@@ -32,7 +32,6 @@ sample_table_contents = [
 
 class DialogSelectQuantStandard(QDialog):
     def __init__(self, parent=None):
-
         super().__init__(parent)
 
         self._qe_param_built_in = []

@@ -22,7 +22,6 @@ from pyxrf.core.xrf_utils import (
 ])
 # fmt: on
 def test_get_element_atomic_number(element_number):
-
     element_str, atomic_number = element_number
     assert (
         get_element_atomic_number(element_str) == atomic_number
@@ -37,7 +36,6 @@ def test_get_element_atomic_number(element_number):
 ])
 # fmt: on
 def test_validate_element_str(element_valid):
-
     element_str, is_valid = element_valid
     assert validate_element_str(element_str) == is_valid, "Element validation is not successful"
 
@@ -99,7 +97,6 @@ def test_parse_compound_formula_fail(formula):
 ])
 # fmt: on
 def test_split_compound_mass(formula, elements, n_atoms):
-
     mass_total = 10.0
 
     data = split_compound_mass(formula, mass_total)
@@ -129,7 +126,6 @@ def test_split_compound_mass_fail(formula):
 
 
 def test_get_supported_eline_list():
-
     list_k = get_supported_eline_list(lines=("K",))
     list_l = get_supported_eline_list(lines=("L",))
     list_m = get_supported_eline_list(lines=("M",))

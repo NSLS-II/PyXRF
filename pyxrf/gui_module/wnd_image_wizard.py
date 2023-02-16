@@ -21,7 +21,6 @@ logger = logging.getLogger(__name__)
 
 
 class WndImageWizard(SecondaryWindow):
-
     signal_redraw_maps = Signal()
 
     def __init__(self, *, gpc, gui_vars):
@@ -82,7 +81,6 @@ class WndImageWizard(SecondaryWindow):
         self._set_tooltips()
 
     def _setup_table(self):
-
         self.table = QTableWidget()
         self._range_data = []  # The variable keeps copy of the table data
         self._limit_data = []  # Copy of the table that holds selection limits
@@ -115,7 +113,6 @@ class WndImageWizard(SecondaryWindow):
         self.table.itemChanged.connect(self.table_item_changed)
 
     def fill_table(self, range_table, limit_table, show_table):
-
         self._enable_plot_updates = False
 
         self._clear_table()
@@ -142,7 +139,6 @@ class WndImageWizard(SecondaryWindow):
 
             for nc in range(self.table.columnCount()):
                 if nc in (0, 2, 3):
-
                     if nc == 0:
                         item = QTableWidgetItem(element)
                         item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
@@ -161,7 +157,6 @@ class WndImageWizard(SecondaryWindow):
                     self.table.setItem(nr, nc, item)
 
                 elif nc == 1:
-
                     item = RangeManager(name=f"{nr}", add_sliders=True)
                     item.set_range(v_min, v_max)
                     item.set_selection(value_low=sel_min, value_high=sel_max)

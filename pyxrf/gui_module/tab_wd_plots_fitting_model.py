@@ -21,7 +21,6 @@ from .dlg_plot_escape_peak import DialogPlotEscapePeak
 
 
 class PlotFittingModel(QWidget):
-
     signal_selected_element_changed = Signal(str)
     signal_add_line = Signal()
     signal_remove_line = Signal()

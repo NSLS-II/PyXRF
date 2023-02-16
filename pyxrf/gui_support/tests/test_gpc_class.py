@@ -15,7 +15,6 @@ from pyxrf.gui_support.gpc_class import GlobalProcessingClasses
 ])
 # fmt: on
 def test_gpc_get_maps_info_table_1(eline_keys):
-
     gpc = GlobalProcessingClasses()
     gpc.initialize()
 

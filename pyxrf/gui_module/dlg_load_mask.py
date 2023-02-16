@@ -54,7 +54,6 @@ class DialogLoadMask(QDialog):
     """
 
     def __init__(self):
-
         super().__init__()
 
         self._validation_enabled = False

@@ -24,7 +24,6 @@ import os
 ])
 # fmt: on
 def test_get_elemental_line_parameters_1(params):
-
     eline_list = _get_elemental_line_parameters(
         elemental_line=params["eline"], incident_energy=params["incident_energy"]
     )

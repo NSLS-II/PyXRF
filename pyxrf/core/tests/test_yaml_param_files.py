@@ -168,7 +168,6 @@ def test_parse_docstring_parameters():
 
 
 def test_verify_parsed_docstring():
-
     # Generate the set of parameters (we don't use docstring in this test)
     param_dict = _generate_parameter_set()
     _, parameters = _generate_sample_docstring(param_dict)
@@ -207,7 +206,6 @@ def test_verify_parsed_docstring():
 
 
 def test_create_read_yaml_parameter_file(tmp_path):
-
     # Some directory
     yaml_dirs = ["yaml", "file", "dirs"]
     yaml_fln = "parameter.yaml"

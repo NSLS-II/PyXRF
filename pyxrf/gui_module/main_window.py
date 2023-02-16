@@ -39,7 +39,6 @@ _main_window_geometry = {
 
 
 class MainWindow(QMainWindow):
-
     signal_fitting_parameters_changed = Signal()
 
     def __init__(self, *, gpc):
@@ -83,7 +82,6 @@ class MainWindow(QMainWindow):
         gpc.param_model.parameters_changed()
 
     def initialize(self):
-
         self.resize(_main_window_geometry["initial_width"], _main_window_geometry["initial_height"])
 
         self.setMinimumWidth(_main_window_geometry["min_width"])

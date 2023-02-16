@@ -138,7 +138,6 @@ class FileIOModel(Atom):
     incident_energy_set = Float(0.0)
 
     def __init__(self, *, working_directory):
-
         working_directory = os.path.abspath(os.path.expanduser(working_directory))
 
         self.file_directory = working_directory
@@ -555,7 +554,6 @@ class FileIOModel(Atom):
 
     @observe(str("file_opt"))
     def choose_file(self, change):
-
         if not self.data_ready:
             return
 
@@ -871,7 +869,6 @@ class DataSelection(Atom):
         return self.raw_data.shape
 
     def _get_sum(self, *, client=None):
-
         # Only the values of 'mask', 'pos1' and 'pos2' will be cached
         mask = self.mask if self.mask_active else None
         pt_start = self.sel_pt_start if self.selection_active else None
@@ -1030,7 +1027,6 @@ class SpectrumCalculator(object):
 
 
 def load_data_from_hdf5(working_directory, file_name, load_each_channel=True):
-
     get_data_nsls2 = True  # Only 'APS' format is currently used
     try:
         if get_data_nsls2 is True:
@@ -1350,7 +1346,6 @@ def output_data_to_tiff(
     def _save_data(
         data, *, output_dir, file_name, name_prefix_detector, name_append, file_format, scaler_name_list
     ):
-
         # The 'file_format' is specified as file extension
         file_extension = file_format.lower()
 
@@ -1495,7 +1490,6 @@ def read_hdf_APS(
         dict_sc = {}
 
     with h5py.File(file_path, "r+") as f:
-
         # Retrieve metadata if it exists
         if "xrfmap/scan_metadata" in f:  # Metadata is always loaded
             metadata = f["xrfmap/scan_metadata"]
@@ -1806,7 +1800,6 @@ def read_MAPS(working_directory, file_name, channel_num=1):
     print("file path is {}".format(file_path))
 
     with h5py.File(file_path, "r+") as f:
-
         data = f["MAPS"]
         fname = file_name.split(".")[0]
 

@@ -193,7 +193,6 @@ class PushButtonMinimumWidth(QPushButton):
     """
 
     def __init__(self, *args, **kwargs):
-
         super().__init__(*args, **kwargs)
         text = self.text()
         font = self.font()
@@ -266,7 +265,6 @@ class ComboBoxNamedNoWheel(ComboBoxNamed):
 
 
 class CheckBoxNamed(QCheckBox):
-
     stateChanged = Signal(str, int)
 
     def __init__(self, *args, name=None, **kwargs):
@@ -284,7 +282,6 @@ class CheckBoxNamed(QCheckBox):
 
 
 class SpinBoxNamed(QSpinBox):
-
     valueChanged = Signal(str, int)
 
     def __init__(self, *args, name=None, **kwargs):
@@ -303,7 +300,6 @@ class SpinBoxNamed(QSpinBox):
 
 class SecondaryWindow(QWidget):
     def __init__(self, *args, **kwargs):
-
         super().__init__(*args, **kwargs)
 
         # The variable indicates if the window was moved using 'position_once' function
@@ -1024,7 +1020,6 @@ class ElementSelection(QWidget):
         return current_index, current_item
 
     def _adjust_button_state(self):
-
         current_index = self.cb_element_list.currentIndex() - 1
         n_items = len(self._item_list)
 

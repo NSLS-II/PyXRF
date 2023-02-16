@@ -1256,7 +1256,6 @@ class ParamQuantitativeAnalysis:
         #   disrupt the processing, since the user may choose the source of calibration data
         #   for each emission line.
         if not any(file_path == _["file_path"] for _ in self.calibration_settings):
-
             self.calibration_data.append(calibration_data)
 
             settings = {}
@@ -1644,7 +1643,6 @@ class ParamQuantitativeAnalysis:
     def apply_quantitative_normalization(
         self, data_in, *, scaler_dict, scaler_name_default, data_name, name_not_scalable=None
     ):
-
         r"""
         Apply quantitative normalization to the experimental XRF map ``data_in``. The quantitative
         normalization is applied if the following conditions are met:

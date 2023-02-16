@@ -468,7 +468,6 @@ def test_prepare_xrf_mask_fail(data_dask, mask, selection, msg):
 
 @pytest.fixture(scope="class")
 def _start_dask_client(request):
-
     # Setup
     client = dask_client_create()
 
@@ -558,7 +557,6 @@ def test_compute_total_spectrum_fail(mask):
 
 @pytest.mark.usefixtures("_start_dask_client")
 class TestComputeTotalSpectrumAndCount:
-
     # fmt: off
     @pytest.mark.parametrize("data_representation", ["numpy_array", "dask_array", "hdf5_file_dset"])
     @pytest.mark.parametrize("apply_mask", [False, True])
@@ -701,7 +699,6 @@ class _FitXRFMapTesting:
         self.snip_param = {"e_offset": 0.0, "e_linear": 0.1, "e_quadratic": 0.0, "b_width": 1}
 
     def verify_fit_output(self, *, data_out, snip_param=None):
-
         assert data_out.shape == (
             self.data_tmp.shape[1],
             self.data_tmp.shape[2],
@@ -840,7 +837,6 @@ class _FitXRFMapTesting:
 @pytest.mark.parametrize("use_snip", [False, True])
 # fmt: on
 def test_fit_xrf_block(dataset_params, add_pts_before, add_pts_after, use_snip):
-
     ft = _FitXRFMapTesting(
         dataset_params=dataset_params,
         use_snip=use_snip,
@@ -861,7 +857,6 @@ def test_fit_xrf_block(dataset_params, add_pts_before, add_pts_after, use_snip):
 
 @pytest.mark.usefixtures("_start_dask_client")
 class TestFitXRFMap:
-
     # fmt: off
     @pytest.mark.parametrize("data_representation", ["numpy_array", "dask_array", "hdf5_file_dset"])
     @pytest.mark.parametrize("dataset_params", [
@@ -1081,7 +1076,6 @@ def test_compute_roi(dataset_params, add_pts_before, add_pts_after, use_snip):
 
 @pytest.mark.usefixtures("_start_dask_client")
 class TestComputeSelectedROIs:
-
     # fmt: off
     @pytest.mark.parametrize("data_representation", ["numpy_array", "dask_array", "hdf5_file_dset"])
     @pytest.mark.parametrize("dataset_params", [
@@ -1309,7 +1303,6 @@ def test_snip_method_numba():
 
     for ny in range(data.shape[0]):
         for nx in range(data.shape[1]):
-
             spec_sel = data[ny, nx, :]
 
             bg = snip_method_numba(spec_sel, 0, 0.01, 0, width=width)

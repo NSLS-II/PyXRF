@@ -10,7 +10,6 @@ class ScanMetadataBase:
     """
 
     def __init__(self):
-
         # This dictionary contains key-value pairs that represent parameter values
         self._values = {}
 

@@ -183,7 +183,6 @@ def test_parse_docstring_parameters__build_xanes_map_api():
 
 
 def test_create_yaml_parameter_file__build_xanes_map_api(tmp_path):
-
     # Some directory
     yaml_dirs = ["param", "file", "directory"]
     yaml_fln = "parameter.yaml"

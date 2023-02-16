@@ -9,7 +9,6 @@ logger = logging.getLogger(__name__)
 
 class DialogNewUserPeak(QDialog):
     def __init__(self, parent=None):
-
         super().__init__(parent)
 
         self._data = {"name": "", "energy": 0}

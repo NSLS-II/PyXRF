@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 
 
 class WndGeneralFittingSettings(SecondaryWindow):
-
     # Signal that is sent (to main window) to update global state of the program
     update_global_state = Signal()
     computations_complete = Signal(object)
@@ -85,7 +84,6 @@ class WndGeneralFittingSettings(SecondaryWindow):
         self.update_form_data()
 
     def _setup_table(self):
-
         vbox_left = QVBoxLayout()
 
         # ===== Top-left section of the dialog box =====

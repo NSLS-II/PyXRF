@@ -9,7 +9,6 @@ from pyxrf.core.fitting import rfactor_compute, _fitting_nnls, _fitting_admm, fi
 
 
 def _generate_gaussian_spectra(x_values, gaussian_centers, gaussian_std):
-
     assert len(gaussian_centers) == len(
         gaussian_std
     ), "The number of center values must be equal to the number of STD values"
@@ -48,7 +47,6 @@ class DataForFittingTest:
         n_data_dimensions=(8,),
         axis=0,
     ):
-
         if n_data_dimensions:
             data_dim = n_data_dimensions
         else:
@@ -87,7 +85,6 @@ class DataForFittingTest:
             self.data_input = np.squeeze(self.data_input, axis=1)
 
     def validate_output_weights(self, weights_output, decimal=10):
-
         assert weights_output.shape == self.weights.shape, (
             f"Shapes of the output weight array {weights_output.shape} and "
             f" input weight array {self.weights.shape} do not match. Can not compare the arrays"
@@ -220,7 +217,6 @@ def test_rfactor_compute_fail():
 ])
 # fmt: on
 def test_fitting_nnls(dataset_params):
-
     fitting_data = DataForFittingTest(**dataset_params)
 
     spectra = fitting_data.spectra
@@ -309,7 +305,6 @@ def test_fitting_nnls_fail():
 ])
 # fmt: on
 def test_fitting_admm(dataset_params):
-
     # Determines if 'non-negative' or regular ADMM fitting is used
     non_negative = dataset_params["non_negative"]
     del dataset_params["non_negative"]
@@ -339,7 +334,6 @@ def test_fitting_admm(dataset_params):
         )
 
     if not only_check_weights_ge_0:
-
         fitting_data.validate_output_weights(weights_estimated, decimal=10)
 
         # Validate 'rfactor' (do it for a single point)
@@ -360,7 +354,6 @@ def test_fitting_admm(dataset_params):
         assert (feasibility.ndim == 1) and (feasibility.size >= 1), "Feasibility array has incorrect dimensions"
 
     else:
-
         assert np.all(weights_estimated >= 0), "Non-negative fitting produced at least one negative weight"
 
 
@@ -454,7 +447,6 @@ def test_fitting_admm_fail():
 ])
 # fmt: on
 def test_fit_spectrum(dataset_params, process_params):
-
     fitting_data = DataForFittingTest(**dataset_params)
 
     params = process_params.copy()  # We don't want to create a reference, since we change 'params'

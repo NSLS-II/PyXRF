@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 
 
 class RgbSelectionWidget(QWidget):
-
     signal_update_map_selections = Signal()
 
     def __init__(self):
@@ -96,7 +95,6 @@ class RgbSelectionWidget(QWidget):
                 self.elements_btn_groups_events_enabled = False
 
     def _setup_rgb_widget(self):
-
         self.elements_combo = []
         self.elements_rb_color = []
         self.elements_range = []
@@ -216,7 +214,6 @@ class RgbSelectionWidget(QWidget):
                 el_range.set_selection(value_low=v_low, value_high=v_high)
 
     def _get_selected_row_color(self, n_row):
-
         color_key = None
 
         btns = self.elements_rb_color[n_row]

@@ -110,7 +110,6 @@ class GlobalProcessingClasses:
         return self.io_model.is_databroker_available()
 
     def open_data_file(self, file_path):
-
         self.io_model.data_ready = False
         # only load one file
         # 'temp' is used to reload the same file, otherwise file_name will not update
@@ -1023,7 +1022,6 @@ class GlobalProcessingClasses:
         return params
 
     def set_general_fitting_params(self, params):
-
         # Another option is self.param_model.param_new
         dest_dict = self.param_model.param_new
 
@@ -1250,7 +1248,6 @@ class GlobalProcessingClasses:
         self.fitting_parameters_changed()
 
     def load_parameters_from_file(self, parameter_file_path, incident_energy_from_param_file=None):
-
         try:
             self.param_model.read_param_from_file(parameter_file_path)
         except Exception as ex:
@@ -1266,7 +1263,6 @@ class GlobalProcessingClasses:
             param_incident_energy = self.param_model.param_new["coherent_sct_energy"]["value"]
 
             if self.io_model.incident_energy_available:
-
                 # Incident energy from datafile metadata
                 mdata_incident_energy = self.io_model.scan_metadata.get_mono_incident_energy()
 
@@ -1290,7 +1286,6 @@ class GlobalProcessingClasses:
                         overwrite_metadata_incident_energy = bool(incident_energy_from_param_file)
 
             else:
-
                 # If incident energy is not present in file metadata, then
                 #   just load the incident energy from the parameter file.
                 overwrite_metadata_incident_energy = True
@@ -1660,7 +1655,6 @@ class GlobalProcessingClasses:
             self.plot_model.update_fit_plots()
 
     def total_spectrum_fitting(self):
-
         # Update parameter for fit. This may be unnecessary
         self.apply_to_fit(update_plots=False)
 
@@ -1833,7 +1827,6 @@ class GlobalProcessingClasses:
         return self.fit_model.param_quant_estimation.get_suggested_json_fln()
 
     def get_displayed_quant_calib_parameters(self):
-
         fluorescence_data_dict = self.fit_model.param_quant_estimation.fluorescence_data_dict
         if fluorescence_data_dict is None:
             raise RuntimeError("Attempt to obtain quantitative standard parameters while no standard is selected")

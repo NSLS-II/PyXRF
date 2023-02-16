@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 
 
 class PlotXrfMaps(QWidget):
-
     signal_maps_dataset_selection_changed = Signal()
     signal_maps_norm_changed = Signal()
 

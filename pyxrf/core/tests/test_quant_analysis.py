@@ -150,17 +150,14 @@ def test_load_xrf_standard_yaml_file2(tmp_path):
 
 
 def test_load_included_xrf_standard_yaml_file():
-
     data = load_included_xrf_standard_yaml_file()
     assert len(data) > 1, "Standard YAML file can not be read"
 
 
 def test_compute_standard_element_densities():
-
     standard_data = _standard_data_sample
 
     for data in standard_data:
-
         # Find total density
         if "density" in data:
             total_density = data["density"]
@@ -212,7 +209,6 @@ _xrf_standard_fluor_sample = {
 
 
 def _get_data_and_json_path(tmp_path):
-
     # Create some complicated path
     json_path = ["json", "param", "file"]
     file_name = "standard.yaml"
@@ -313,7 +309,6 @@ def test_get_quant_fluor_data_dict():
     """Tests for 'get_quant_fluor_data_dict': basic tests for consistensy of the returned dictionary"""
 
     for standard_data in _standard_data_sample:
-
         quant_fluor_data_dict = get_quant_fluor_data_dict(standard_data, incident_energy=12.0)
         # Will raise exception is schema is not satisfied
         jsonschema.validate(instance=quant_fluor_data_dict, schema=_xrf_quant_fluor_schema)
@@ -521,7 +516,6 @@ def test_set_quant_fluor_data_dict_optional_2():
 
 
 def test_set_quant_fluor_data_dict_time():
-
     # Create copy, because the dictionary will be modified
     fluor_standard = copy.deepcopy(_xrf_standard_fluor_sample)
 
@@ -572,7 +566,6 @@ def test_ParamQuantEstimation_1(tmp_path):
 
 
 def test_ParamQuantEstimation_2(tmp_path):
-
     standard_data = _standard_data_sample
 
     # 'home_dir' is typically '~', but for testing it is set to 'tmp_dir'
@@ -634,7 +627,6 @@ def test_ParamQuantEstimation_2(tmp_path):
 
 
 def test_ParamQuantEstimation_3(tmp_path):
-
     standard_data = _standard_data_sample
 
     # 'home_dir' is typically '~', but for testing it is set to 'tmp_dir'
@@ -819,7 +811,6 @@ def create_ref_calib_data(tmp_path, incident_energy=12.0):
 
 
 def test_ParamQuantitativeAnalysis(tmp_path):
-
     incident_energy = 12.0
     file_paths, img_list = create_ref_calib_data(tmp_path, incident_energy=incident_energy)
 
